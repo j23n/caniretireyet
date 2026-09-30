@@ -215,8 +215,9 @@ struct PathSimulator {
             }
 
             if shortfall > Self.tolerance {
-                let failure = RunFailure(year: schedule.years[t].year, age: schedule.years[t].age,
-                                         reason: failureReason(year: t))
+                let reason = failureReason(year: t, shortfall: shortfall, spending: level, mask: mask,
+                                           prepared: prepared)
+                let failure = RunFailure(year: schedule.years[t].year, age: schedule.years[t].age, reason: reason)
                 let remaining = total()
                 if recordValues {
                     yearValues[t] = remaining
@@ -837,13 +838,28 @@ struct PathSimulator {
         values.reduce(0, +)
     }
 
-    /// Why a run failed in year `t`: money still locked in a wrapper, or nothing left.
-    private func failureReason(year t: Int) -> FailureReason {
+    /// Why a run failed in year `t`: money locked in a wrapper that would
+    /// have bridged the gap, or not enough money. Locked money makes a
+    /// bridge failure only when, after its payout tax, it could cover what's
+    /// missing until it opens: this year's shortfall and the need of each
+    /// year before it opens. Money that stays locked for the rest of the
+    /// plan, or wouldn't be enough, means the money ran out.
+    private mutating func failureReason(year t: Int, shortfall: Double, spending level: Double, mask: UInt64,
+                                        prepared: any PreparedTaxYear) -> FailureReason {
         var locked: (bucket: Int, value: Double)?
         for b in bucketWrapper.indices where !schedule.isAccessible(year: t, bucket: b) {
             var value = 0.0
             for l in bucketStart[b]..<bucketEnd[b] { value += values[l] }
-            if value > Self.tolerance, value > (locked?.value ?? 0) { locked = (b, value) }
+            guard value > Self.tolerance, value > (locked?.value ?? 0),
+                  let opens = (t..<schedule.years.count).first(where: { schedule.isAccessible(year: $0, bucket: b) })
+            else { continue }
+            var missing = shortfall
+            for k in (t + 1)..<opens {
+                let v = schedule.years[k].variant(for: mask)
+                missing += yearWorkingSpending[k] + yearRetiredUnit[k] * level + schedule.years[k].expenses(for: mask)
+                    + yearContributions[k] - schedule.years[k].variants[v].netCash
+            }
+            if netValue(of: b, worth: value, year: t, prepared: prepared) >= missing { locked = (b, value) }
         }
         guard let locked else { return .depleted }
         let bucket = portfolio.buckets[locked.bucket]
@@ -852,6 +868,27 @@ struct PathSimulator {
         return .locked(LockedMoney(wrapper: bucket.wrapper, name: bucket.name, value: locked.value,
                                    accessibleFromAge: schedule.accessibleFromAge(bucket: locked.bucket, after: t),
                                    reason: reason))
+    }
+
+    /// What tax-advantaged bucket `b`, worth `value`, would pay out after tax
+    /// if it were drawn in full in year `t`.
+    private mutating func netValue(of b: Int, worth value: Double, year t: Int, prepared: any PreparedTaxYear) -> Double {
+        sellable[b] = value
+        categoryShares.removeAll(keepingCapacity: true)
+        for l in bucketStart[b]..<bucketEnd[b] where values[l] > 0 {
+            categoryShares[lotCategory[l], default: 0] += values[l] / value
+        }
+        let snapshot = BucketSnapshot(wrapper: bucketWrapper[b], value: value, costBasis: wrapperBasis[b],
+                                      categoryShares: categoryShares,
+                                      membershipYears: schedule.membershipYears(year: t, bucket: b))
+        if let gross = prepared.grossUp(net: value, from: snapshot), gross.isFinite, gross > 0 {
+            return value * value / gross
+        }
+        let base = prepared.assess(variable)
+        variable.payouts.append(payout(value, from: b, year: t))
+        let after = prepared.assess(variable)
+        variable.payouts.removeLast()
+        return value - (after.totalTax + after.totalContributions - base.totalTax - base.totalContributions)
     }
 
     private func detail(_ t: Int, variant v: Int, assessment: TaxAssessment?, startAssets: Double,

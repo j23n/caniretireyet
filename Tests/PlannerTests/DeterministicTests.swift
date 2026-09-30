@@ -177,6 +177,31 @@ struct DeterministicTests {
         #expect(payout?.id == "flat.pension")
     }
 
+    /// Locked money is a bridge failure only if, after tax, it could have
+    /// covered what's missing until it opens: here 10,000 in 2027 and
+    /// 30,000 a year from 52 to 59, 250,000 in all.
+    @Test func lockedMoneyTooSmallToBridgeIsNotABridgeFailure() async throws {
+        func failure(fund: Decimal) async throws -> RunFailure? {
+            let library = Sample.library(birth: "1976-01-01", on: "2025-12-31", [
+                SampleAccount(id: "broker", balance: 50_000),
+                SampleAccount(id: "fund", kind: .pensionFund, wrapper: "flat.pension", balance: fund),
+            ])
+            var system = FlatTaxSystem()
+            system.payoutRate = 0.2
+            let plan = Sample.plan(retire: .age(49), endAge: 70, retired: "30000", equityReturn: "0")
+            return try await Sample.run(plan, library, system: system).expectedPath.failure
+        }
+        // 300,000 nets 240,000 after the 20% payout tax: not enough to bridge.
+        #expect(try await failure(fund: 300_000) == RunFailure(year: 2027, age: 51, reason: .depleted))
+        // 320,000 nets 256,000: enough, so the fix is bridging the gap.
+        let bridged = try #require(try await failure(fund: 320_000))
+        guard case .locked(let money) = bridged.reason else {
+            Issue.record("Expected a bridge failure, got \(bridged.reason)")
+            return
+        }
+        #expect(money.accessibleFromAge == 60 && money.value == 320_000)
+    }
+
     @Test func pensionsReplaceWithdrawals() async throws {
         let plan = Sample.plan(
             retire: .age(59), endAge: 70, retired: "20000", equityReturn: "0",
