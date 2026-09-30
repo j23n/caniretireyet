@@ -16,6 +16,9 @@ import Model
 public struct Valuator: Sendable {
     public let baseCurrency: CurrencyCode
     public let accounts: [AccountID: Account]
+    /// Instruments by ID, for asset mixes. A position in an instrument that
+    /// isn't here counts as asset class `other`.
+    public let instruments: [InstrumentID: Instrument]
     public let prices: PriceTable
     public let fx: FXTable
     private let valuationsByAccount: [AccountID: [Valuation]]
@@ -27,14 +30,16 @@ public struct Valuator: Sendable {
             accounts: Array(library.accounts.values),
             valuations: library.months.values.flatMap(\.valuations),
             prices: PriceTable(library: library),
-            fx: FXTable(library: library))
+            fx: FXTable(library: library),
+            instruments: Array(library.instruments.values))
     }
 
     /// A valuator over explicit data. For duplicate valuation keys the last one wins.
     public init(baseCurrency: CurrencyCode, accounts: [Account], valuations: [Valuation], prices: PriceTable,
-                fx: FXTable) {
+                fx: FXTable, instruments: [Instrument] = []) {
         self.baseCurrency = baseCurrency
         self.accounts = Dictionary(accounts.map { ($0.id, $0) }, uniquingKeysWith: { _, last in last })
+        self.instruments = Dictionary(instruments.map { ($0.id, $0) }, uniquingKeysWith: { _, last in last })
         var byKey: [ValuationKey: Valuation] = [:]
         for valuation in valuations { byKey[valuation.key] = valuation }
         self.valuationsByAccount = Dictionary(grouping: byKey.values, by: \.account).mapValues { $0.sortedByKey() }
@@ -55,9 +60,26 @@ public struct Valuator: Sendable {
         return valuations[index]
     }
 
+    /// The account's latest valuation dated strictly before `date`: the one a
+    /// valuation on `date` follows.
+    public func previousValuation(for account: AccountID, before date: CalendarDate) -> Valuation? {
+        guard let valuations = valuationsByAccount[account],
+              let index = valuations.lastIndex(onOrBefore: date.adding(days: -1), date: \.date)
+        else { return nil }
+        return valuations[index]
+    }
+
     /// The account's value on `date`, or `nil` if there's no such account.
     public func value(of account: AccountID, on date: CalendarDate) -> AccountValue? {
         accounts[account].map { value(of: $0, on: date) }
+    }
+
+    /// `valuation` valued on `date` as if it were its account's latest one,
+    /// at the prices and FX rates of that date and whatever the account's
+    /// opened and closed dates: for example, last month's quantities at
+    /// today's prices. `nil` if the account is unknown.
+    public func value(of valuation: Valuation, on date: CalendarDate) -> AccountValue? {
+        accounts[valuation.account].map { value(of: $0, valuation: valuation, on: date) }
     }
 
     /// Net worth on `date`: every account included in net worth that counts on the date.
@@ -77,19 +99,22 @@ public struct Valuator: Sendable {
 
     // MARK: - Computing one account
 
-    private func value(of account: Account, on date: CalendarDate) -> AccountValue {
-        func result(_ status: AccountValue.Status, _ valuation: Valuation? = nil,
-                    _ components: [ValueComponent] = [], _ problems: [ValuationProblem] = []) -> AccountValue {
+    func value(of account: Account, on date: CalendarDate) -> AccountValue {
+        func result(_ status: AccountValue.Status, _ problems: [ValuationProblem] = []) -> AccountValue {
             AccountValue(account: account.id, date: date, currency: baseCurrency, status: status,
-                         valuation: valuation, components: components, problems: problems)
+                         valuation: nil, components: [], problems: problems)
         }
 
         if date < account.opened { return result(.notOpenYet) }
         if let closed = account.closed, date > closed { return result(.closed) }
         guard let valuation = latestValuation(for: account.id, onOrBefore: date) else {
-            return result(.noValuation, nil, [], [.noValuation(account: account.id)])
+            return result(.noValuation, [.noValuation(account: account.id)])
         }
+        return value(of: account, valuation: valuation, on: date)
+    }
 
+    /// Values one valuation of `account` on `date`, whatever the account's status.
+    func value(of account: Account, valuation: Valuation, on date: CalendarDate) -> AccountValue {
         var components: [ValueComponent] = []
         var problems: [ValuationProblem] = []
 
@@ -131,6 +156,7 @@ public struct Valuator: Sendable {
                 }
             }
         }
-        return result(.valued, valuation, components, problems)
+        return AccountValue(account: account.id, date: date, currency: baseCurrency, status: .valued,
+                            valuation: valuation, components: components, problems: problems)
     }
 }

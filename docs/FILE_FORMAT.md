@@ -258,14 +258,15 @@ The value of an account on a date **D**:
 
 **Net worth** on D is the sum over all accounts included in net worth.
 
-**Staleness.** An account whose latest valuation is more than about 45 days old is flagged in the Overview.
+**Staleness.** An account whose latest valuation is more than about 45 days old is flagged in the Overview. The threshold is a setting of the app, not of the library.
 
-**Change since the last check-in.** For accounts that hold positions, the change is split into two parts:
+**Change since the last check-in.** Each account's change is split into **market**, **new money** and **other**:
 
-- **market:** old quantity × price change, including FX;
-- **new money:** everything else, meaning changes in quantity and in cash.
+- **The flow is known** (every valuation in the period has a `flow`, or there was no new valuation): new money is the flow, and market is the rest. For accounts that hold positions and use the default flow, market is then the old quantity × price change, including FX. A lower flow, e.g. for reinvested dividends, or a purchase below the check-in price counts as market.
+- **Positions, flow unknown:** market is the old quantity × price change, including FX; new money is everything else, meaning changes in quantity and in cash.
+- **Balance, flow unknown:** the change can't be split. Only the FX movement of the old balance counts as market, and the rest is other.
 
-For accounts recorded as a balance, the change can only be split when a `flow` was recorded. The change is then the flow plus the rest.
+An account that closes during the period ends at zero: its value on the closing day leaves as new money.
 
 ## `plans/<id>.json`
 
