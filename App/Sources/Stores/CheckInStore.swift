@@ -226,7 +226,7 @@ final class CheckInStore {
         guard let draft, prices.canFetch else { return }
         let date = draft.date
         fetchTask?.cancel()
-        let snapshot = library.library
+        let snapshot = Self.libraryForPrices(library.library, draft: draft)
         let instruments = draft.instruments
         isFetchingPrices = true
         fetchTask = Task { [weak self] in
@@ -236,6 +236,17 @@ final class CheckInStore {
             apply(fetched)
             isFetchingPrices = false
         }
+    }
+
+    /// The library as the draft's price fetch sees it: accounts that open
+    /// after the date (a past check-in's "Opened later") count as open on
+    /// it, so the FX rates their currencies need are fetched too.
+    nonisolated static func libraryForPrices(_ library: Library, draft: CheckInDraft) -> Library {
+        var library = library
+        for row in draft.rowsOpeningLater {
+            library.accounts[row.account]?.opened = draft.date
+        }
+        return library
     }
 
     /// Fetches again after the draft gained an instrument (a position was
