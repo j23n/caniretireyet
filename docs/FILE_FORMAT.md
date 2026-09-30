@@ -230,7 +230,7 @@ Rules:
 - **Which file.** A record's date decides its file: `2026-09-30` goes in `history/2026/2026-09.json`.
 - **Uniqueness.** There is at most one valuation per account per date, one price per instrument per date, and one FX rate per currency pair per date.
 - **Two kinds of valuation.** A valuation holds either a `balance` (one amount in the account's currency, negative for debts) or `positions` plus optional `cash`. An account can switch between them over time. For example, the imported history can be balances and later check-ins can have positions.
-- **Cost basis.** `costBasis` is optional: the total purchase cost of a position in the account's currency (Italian brokers show it as *valore di carico*). The planner uses it to estimate the tax due when you sell. Where it's missing, the plan asks for an estimate instead.
+- **Cost basis.** `costBasis` is optional: the total purchase cost of a position in the account's currency (Italian brokers show it as *valore di carico*). The planner uses it to estimate the tax due when you sell. Where it's missing, the plan asks for an estimate instead. It matters most for physical gold: if you can't document the purchase price, Italy taxes the whole sale price.
 - **FX direction.** FX rates follow the ECB convention: 1 `base` = `rate` × `quote`.
 - **Sorting.** Records are sorted by date, then by ID, so files diff cleanly.
 

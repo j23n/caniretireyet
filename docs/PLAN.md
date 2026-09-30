@@ -51,7 +51,8 @@ All data lives in a folder of plain JSON files in iCloud Drive. The apps on your
 
 - Scenarios ("plans"), one file each.
 - Working years:
-  - income as an employee and/or under the forfettario regime, with or without impatriati;
+  - income as an employee or as a freelancer (forfettario or regime ordinario), with impatriati where it applies;
+  - a side-by-side comparison of forfettario and ordinario with impatriati, since the two can't be combined;
   - INPS contributions;
   - savings, calculated as net income minus spending.
 - Retirement years:
@@ -231,7 +232,7 @@ On the Mac there are also tables for editing many valuations at once, keyboard n
 - Plan files and a plan editor.
 - The engine: yearly simulation, deterministic and Monte Carlo runs, and the earliest-retirement-age search.
 - Italy module v1, as described in [PLANNER.md](PLANNER.md):
-  - employee and forfettario income, with or without impatriati;
+  - employee and freelance income (forfettario or regime ordinario), with impatriati where it applies;
   - INPS contributions and the contributory-system pension projection;
   - IRPEF on pensions;
   - taxes on investment income and gains, bollo and IVAFE;
