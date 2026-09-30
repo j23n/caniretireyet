@@ -28,6 +28,13 @@ let testResources: [String: [Resource]] = [
     "TaxItalyTests": [.copy("cases")],
 ]
 
+/// Test targets that need more than their module and `TestSupport`. The
+/// planner's end-to-end tests run the example plans with the real tax
+/// systems; the `Planner` module itself still sees taxes only through TaxKit.
+let testDependencies: [String: [Target.Dependency]] = [
+    "PlannerTests": ["TaxItaly", "TaxGeneric"],
+]
+
 let package = Package(
     name: "CanIRetireYetKit",
     platforms: [.macOS("26.0"), .iOS("26.0")],
@@ -46,7 +53,8 @@ let package = Package(
     } + libraries.map { library in
         .testTarget(
             name: "\(library.name)Tests",
-            dependencies: [.target(name: library.name), "TestSupport"],
+            dependencies: [.target(name: library.name), "TestSupport"]
+                + (testDependencies["\(library.name)Tests"] ?? []),
             resources: testResources["\(library.name)Tests"]
         )
     } + [

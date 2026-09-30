@@ -16,14 +16,19 @@ struct RunOutcome: Sendable {
 /// yearly step". It keeps its buffers between runs, so a worker makes one
 /// and reuses it for all its runs.
 ///
-/// Each year: wrapper credits and planned contributions go in; income minus
-/// taxes, spending and last year's market-dependent taxes is invested, or
-/// the shortfall is withdrawn (cash above the buffer, then the liquid
-/// buckets proportionally, then accessible tax-advantaged buckets, then the
-/// buffer); lots earn the year's returns; buckets are rebalanced; and the
+/// Each year: wrapper credits and planned contributions go in; severance pay
+/// whose job ends is paid out; income minus taxes, spending and last year's
+/// market-dependent taxes is invested, or the shortfall is withdrawn (cash
+/// above the buffer, then the liquid buckets proportionally, then accessible
+/// tax-advantaged buckets, then the buffer); lots earn the year's returns
+/// (or their wrapper's legal revaluation); buckets are rebalanced; and the
 /// tax system assesses sales, payouts, interest and year-end balances.
-/// Market-dependent taxes beyond what sales already withheld are paid the
-/// following year.
+/// Market-dependent taxes beyond what sales and payouts already withheld are
+/// paid the following year.
+///
+/// Tax-advantaged buckets keep their cost basis as a whole: what was paid in
+/// (contributions and credits), deflated by inflation, reduced pro rata by
+/// payouts, and untouched by growth and rebalancing.
 struct PathSimulator {
     private let schedule: AgeSchedule
     private let scenarios: MarketScenarios
@@ -40,6 +45,11 @@ struct PathSimulator {
     private let bucketLiquid: [Bool]
     private let bucketGrowthTax: [Double]
     private let bucketWrapper: [String]
+    /// Per year and bucket (`year * buckets + bucket`), the real growth factor
+    /// of a wrapper revalued by law instead of by the markets, else 0.
+    private let revaluationFactors: [Double]
+    /// Per bucket, the cost basis of a tax-advantaged bucket at the start.
+    private let startWrapperBasis: [Double]
     private let inflationSteps: [Double]
     private let yearFraction: [Double]
     private let yearWorkingSpending: [Double]
@@ -48,6 +58,8 @@ struct PathSimulator {
 
     private var values: [Double]
     private var bases: [Double]
+    /// Per tax-advantaged bucket, what was paid in (see the type's comment).
+    private var wrapperBasis: [Double]
     private var variable = VariableYear()
     private var classValues: [Double]
     private var classTargets: [Double]
@@ -61,6 +73,8 @@ struct PathSimulator {
     private static let epsilon = 1e-6
     /// A shortfall up to this many euros doesn't count as failing.
     private static let tolerance = 1.0
+    /// How closely a numeric gross-up matches the cash needed, in euros.
+    private static let grossUpTolerance = 0.001
 
     init(schedule: AgeSchedule, scenarios: MarketScenarios, portfolio: Portfolio, model: PlanModel) {
         self.schedule = schedule
@@ -78,6 +92,19 @@ struct PathSimulator {
         bucketLiquid = portfolio.buckets.map(\.isLiquid)
         bucketGrowthTax = portfolio.buckets.map(\.growthTaxRate)
         bucketWrapper = portfolio.buckets.map(\.wrapper)
+        var revaluationFactors = [Double](repeating: 0, count: schedule.years.count * portfolio.buckets.count)
+        for (b, bucket) in portfolio.buckets.enumerated() {
+            guard let revaluation = bucket.rule?.revaluation else { continue }
+            let real = revaluation.realRate(inflation: model.inflation, taxRate: bucket.rule?.growthTaxRate ?? 0)
+            for t in schedule.years.indices {
+                revaluationFactors[t * portfolio.buckets.count + b] = pow(1 + real, schedule.years[t].fraction)
+            }
+        }
+        self.revaluationFactors = revaluationFactors
+        startWrapperBasis = portfolio.buckets.map { bucket in
+            bucket.isLiquid ? 0 : portfolio.lots[bucket.lots].reduce(0) { $0 + $1.basis }
+        }
+        wrapperBasis = startWrapperBasis
         inflationSteps = model.frames.map(\.inflationStep)
         yearFraction = schedule.years.map(\.fraction)
         yearWorkingSpending = schedule.years.map(\.workingSpending)
@@ -119,6 +146,7 @@ struct PathSimulator {
             values[index] = portfolio.lots[index].value
             bases[index] = portfolio.lots[index].basis
         }
+        for b in wrapperBasis.indices { wrapperBasis[b] = startWrapperBasis[b] }
         let mask = run.map { scenarios.eventMasks[$0] } ?? scenarios.expectedEvents
         var carried = 0.0
 
@@ -141,9 +169,14 @@ struct PathSimulator {
             for contribution in schedule.years[t].contributions {
                 deposit(contribution.amount, into: contribution.bucket)
             }
+            var severancePay = 0.0
+            for b in schedule.years[t].severance {
+                severancePay += payOutInFull(bucket: b, year: t, prepared: prepared)
+            }
             let expenses = schedule.years[t].expenses(for: mask)
             let spending = yearWorkingSpending[t] + yearRetiredUnit[t] * level
-            let cash = schedule.years[t].variants[v].netCash - yearContributions[t] - spending - expenses - carried
+            let cash = schedule.years[t].variants[v].netCash + severancePay - yearContributions[t] - spending
+                - expenses - carried
             var shortfall = 0.0
             if cash >= 0 {
                 deposit(cash, into: portfolio.primaryLiquid)
@@ -189,9 +222,11 @@ struct PathSimulator {
 
     // MARK: - Money in and out
 
-    /// Invests `amount` in a bucket, split by its target mix.
+    /// Invests `amount` in a bucket, split by its target mix. Money paid into
+    /// a tax-advantaged bucket adds to its cost basis.
     private mutating func deposit(_ amount: Double, into bucket: Int) {
         guard amount > 0 else { return }
+        if !bucketLiquid[bucket] { wrapperBasis[bucket] += amount }
         let row = bucket * classCount
         for c in 0..<classCount {
             let share = portfolio.targetShares[row + c]
@@ -200,6 +235,29 @@ struct PathSimulator {
             values[lot] += amount * share
             bases[lot] = lotIsCash[lot] ? values[lot] : bases[lot] + amount * share
         }
+    }
+
+    /// Pays a bucket out in full because a job ended (severance pay). The
+    /// tax on it is withheld; returns what's left, which joins the year's
+    /// cash flow.
+    private mutating func payOutInFull(bucket b: Int, year t: Int, prepared: any PreparedTaxYear) -> Double {
+        var value = 0.0
+        for l in bucketStart[b]..<bucketEnd[b] { value += values[l] }
+        guard value > Self.epsilon else { return 0 }
+        let before = prepared.assess(variable)
+        variable.payouts.append(VariableYear.WrapperPayout(
+            wrapper: bucketWrapper[b], amount: value, form: .lumpSum, costBasis: wrapperBasis[b],
+            membershipYears: schedule.membershipYears(year: t, bucket: b)))
+        let after = prepared.assess(variable)
+        let tax = after.totalTax + after.totalContributions - before.totalTax - before.totalContributions
+        for l in bucketStart[b]..<bucketEnd[b] {
+            values[l] = 0
+            bases[l] = 0
+        }
+        wrapperBasis[b] = 0
+        sold[b] += value
+        withheld += tax
+        return value - tax
     }
 
     /// Raises `need` in cash, in the documented order. Returns what couldn't be raised.
@@ -269,15 +327,17 @@ struct PathSimulator {
             if lotDocumented[l] { basis += bases[l] }
             categoryShares[lotCategory[l], default: 0] += values[l] / sellable[b]
         }
-        let snapshot = BucketSnapshot(wrapper: bucketWrapper[b], value: sellable[b], costBasis: basis,
-                                      categoryShares: categoryShares)
+        let snapshot = BucketSnapshot(
+            wrapper: bucketWrapper[b], value: sellable[b], costBasis: liquid ? basis : wrapperBasis[b],
+            categoryShares: categoryShares, membershipYears: liquid ? nil : schedule.membershipYears(year: t, bucket: b))
         if let gross = prepared.grossUp(net: net, from: snapshot), gross.isFinite, gross > 0 {
             return gross
         }
         return solveGross(net: net, bucket: b, liquid: liquid, year: t, prepared: prepared)
     }
 
-    /// Finds the sale that nets `net` by assessing candidate sales.
+    /// Finds the sale that nets `net` by assessing candidate sales, with
+    /// TaxKit's `NumericGrossUp`.
     private mutating func solveGross(net: Double, bucket b: Int, liquid: Bool, year t: Int,
                                      prepared: any PreparedTaxYear) -> Double {
         let base = prepared.assess(variable)
@@ -291,20 +351,16 @@ struct PathSimulator {
             return gross - (assessment.totalTax + assessment.totalContributions - baseTax)
         }
         let all = sellable[b]
+        // Without tax on this sale, the answer is the amount itself.
+        let untaxed = min(net, all)
+        if netOf(untaxed, &self) >= net - Self.grossUpTolerance { return untaxed }
+        if let gross = NumericGrossUp.solve(net: net, upperBound: all, tolerance: Self.grossUpTolerance,
+                                            netProceeds: { netOf($0, &self) }) {
+            return gross
+        }
+        // Not enough: report a gross above the bucket so the caller scales down.
         let netOfAll = netOf(all, &self)
-        guard netOfAll > net else {
-            // Not enough: report a gross above the bucket so the caller scales down.
-            return netOfAll > Self.epsilon ? all * net / netOfAll : all * 2
-        }
-        var low = min(net, all)
-        var high = all
-        if netOf(low, &self) >= net - 0.005 { return low }
-        for _ in 0..<60 {
-            let mid = (low + high) / 2
-            if netOf(mid, &self) < net { low = mid } else { high = mid }
-            if high - low < 0.005 { break }
-        }
-        return high
+        return netOfAll > Self.epsilon ? all * net / netOfAll : all * 2
     }
 
     /// Adds the sales or payout of a candidate sale to `variable`, without
@@ -318,8 +374,9 @@ struct PathSimulator {
                                                         costBasis: lotDocumented[l] ? bases[l] * q : nil))
             }
         } else {
-            variable.payouts.append(VariableYear.WrapperPayout(wrapper: bucketWrapper[b], amount: gross,
-                                                               form: payoutForm(bucket: b, year: t)))
+            variable.payouts.append(VariableYear.WrapperPayout(
+                wrapper: bucketWrapper[b], amount: gross, form: payoutForm(bucket: b, year: t),
+                costBasis: wrapperBasis[b] * min(1, q), membershipYears: schedule.membershipYears(year: t, bucket: b)))
         }
     }
 
@@ -333,6 +390,7 @@ struct PathSimulator {
             values[l] = all ? 0 : values[l] - values[l] * share
             bases[l] = lotIsCash[l] ? values[l] : (all ? 0 : bases[l] - bases[l] * share)
         }
+        if !liquid { wrapperBasis[b] = all ? 0 : wrapperBasis[b] - wrapperBasis[b] * share }
         sold[b] += gross
     }
 
@@ -345,8 +403,10 @@ struct PathSimulator {
 
     // MARK: - Markets
 
-    /// Every lot earns its class's return for the year. Wrappers with a tax
-    /// on growth earn less; interest on liquid cash is reported as capital income.
+    /// Every lot earns its class's return for the year, or its wrapper's
+    /// revaluation when the law sets one (after the wrapper's growth tax).
+    /// Wrappers with a tax on growth earn less; interest on liquid cash is
+    /// reported as capital income. Cost bases shrink by inflation.
     private mutating func applyReturns(year t: Int, run: Int?) {
         let step = inflationSteps[t]
         let base: Int
@@ -358,17 +418,20 @@ struct PathSimulator {
             base = t * scenarios.classes
             factors = scenarios.expectedFactors
         }
-        for b in bucketWrapper.indices {
-            let growthTax = bucketGrowthTax[b]
+        let buckets = bucketWrapper.count
+        for b in 0..<buckets {
+            let revaluation = revaluationFactors[t * buckets + b]
+            let growthTax = revaluation > 0 ? 0 : bucketGrowthTax[b]
+            if !bucketLiquid[b] { wrapperBasis[b] /= step }
             var interest = 0.0
             for l in bucketStart[b]..<bucketEnd[b] {
-                var factor = factors[base + lotClass[l]]
+                var factor = revaluation > 0 ? revaluation : factors[base + lotClass[l]]
                 if growthTax > 0 {
                     let nominal = factor * step - 1
                     factor = (1 + nominal * (1 - growthTax)) / step
                 }
                 if lotIsCash[l] {
-                    if bucketLiquid[b] { interest += values[l] * max(0, factor * step - 1) }
+                    if bucketLiquid[b], revaluation == 0 { interest += values[l] * max(0, factor * step - 1) }
                     values[l] *= factor
                     bases[l] = values[l]
                 } else {

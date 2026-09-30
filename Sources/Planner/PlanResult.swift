@@ -39,6 +39,29 @@ public struct PlanResult: Hashable, Sendable {
     /// Warnings from the plan, the tax systems and the years assessed.
     public var issues: [PlanIssue]
 
+    /// A result from its parts, e.g. a sample for SwiftUI previews.
+    public init(plan: PlanDocument, engine: String = Planner.engineVersion, planHash: String,
+                taxParameters: [String: Int] = [:], start: PlanStart, settings: SimulationSettings, answer: PlanAnswer,
+                successCurve: [AgeSuccess], focusAge: Int, fan: [FanYear], expectedPath: PathDetail,
+                medianPath: PathDetail, failures: FailureSummary, markers: [TimelineMarker] = [],
+                issues: [PlanIssue] = []) {
+        self.plan = plan
+        self.engine = engine
+        self.planHash = planHash
+        self.taxParameters = taxParameters
+        self.start = start
+        self.settings = settings
+        self.answer = answer
+        self.successCurve = successCurve
+        self.focusAge = focusAge
+        self.fan = fan
+        self.expectedPath = expectedPath
+        self.medianPath = medianPath
+        self.failures = failures
+        self.markers = markers
+        self.issues = issues
+    }
+
     /// The success rate at `age`, if it was simulated.
     public func success(atAge age: Int) -> Double? {
         successCurve.first { $0.age == age }?.success
@@ -57,6 +80,15 @@ public struct PlanStart: Hashable, Sendable {
     public var accounts: [AccountID]
     /// The buckets the accounts were grouped into, by wrapper.
     public var buckets: [BucketSummary]
+
+    public init(date: CalendarDate, age: Int, planAssets: Decimal, accounts: [AccountID] = [],
+                buckets: [BucketSummary] = []) {
+        self.date = date
+        self.age = age
+        self.planAssets = planAssets
+        self.accounts = accounts
+        self.buckets = buckets
+    }
 }
 
 /// One bucket of the starting portfolio.
@@ -76,6 +108,19 @@ public struct BucketSummary: Hashable, Sendable {
     /// The target mix it's rebalanced to every year.
     public var targetMix: [AssetClass: Double]
     public var accounts: [AccountID]
+
+    public init(wrapper: String, name: String, category: WrapperCategory, receivesSavings: Bool = false,
+                value: Double, costBasis: Double, targetMix: [AssetClass: Double] = [:],
+                accounts: [AccountID] = []) {
+        self.wrapper = wrapper
+        self.name = name
+        self.category = category
+        self.receivesSavings = receivesSavings
+        self.value = value
+        self.costBasis = costBasis
+        self.targetMix = targetMix
+        self.accounts = accounts
+    }
 }
 
 /// The simulation settings a result was computed with.
@@ -85,6 +130,14 @@ public struct SimulationSettings: Hashable, Sendable {
     public var confidence: Double
     public var inflation: Double
     public var endAge: Int
+
+    public init(runs: Int, seed: UInt64, confidence: Double, inflation: Double, endAge: Int) {
+        self.runs = runs
+        self.seed = seed
+        self.confidence = confidence
+        self.inflation = inflation
+        self.endAge = endAge
+    }
 }
 
 /// The answer to "can I retire yet?".
@@ -112,6 +165,23 @@ public struct PlanAnswer: Hashable, Sendable {
     public var fiNumber: Double?
     /// Plan assets today divided by the FI number.
     public var fiProgress: Double?
+
+    public init(canRetireNow: Bool, confidence: Double, currentAge: Int, successIfRetiringNow: Double,
+                earliestAge: Int? = nil, earliestDate: CalendarDate? = nil, targetAge: Int? = nil,
+                successAtTarget: Double? = nil, sustainableSpending: SustainableSpending? = nil,
+                fiNumber: Double? = nil, fiProgress: Double? = nil) {
+        self.canRetireNow = canRetireNow
+        self.confidence = confidence
+        self.currentAge = currentAge
+        self.successIfRetiringNow = successIfRetiringNow
+        self.earliestAge = earliestAge
+        self.earliestDate = earliestDate
+        self.targetAge = targetAge
+        self.successAtTarget = successAtTarget
+        self.sustainableSpending = sustainableSpending
+        self.fiNumber = fiNumber
+        self.fiProgress = fiProgress
+    }
 }
 
 /// The spending solver's answer.
@@ -122,6 +192,12 @@ public struct SustainableSpending: Hashable, Sendable {
     public var perYear: Double
     /// The success rate at that spending.
     public var success: Double
+
+    public init(age: Int, perYear: Double, success: Double) {
+        self.age = age
+        self.perYear = perYear
+        self.success = success
+    }
 }
 
 /// The chance of success for one retirement age.
@@ -136,6 +212,15 @@ public struct AgeSuccess: Hashable, Sendable {
     /// The age each pension starts at with this retirement age, by pension
     /// ID (`pension-0`, …). Changes between neighbouring ages explain steps.
     public var pensionStartAges: [String: Int]
+
+    public init(age: Int, retirementDate: CalendarDate, success: Double, runs: Int,
+                pensionStartAges: [String: Int] = [:]) {
+        self.age = age
+        self.retirementDate = retirementDate
+        self.success = success
+        self.runs = runs
+        self.pensionStartAges = pensionStartAges
+    }
 }
 
 /// Plan assets at one year-end: percentiles across runs, and the
@@ -150,6 +235,18 @@ public struct FanYear: Hashable, Sendable {
     public var p75: Double
     public var p90: Double
     public var expected: Double
+
+    public init(year: Int, age: Int, p10: Double, p25: Double, p50: Double, p75: Double, p90: Double,
+                expected: Double) {
+        self.year = year
+        self.age = age
+        self.p10 = p10
+        self.p25 = p25
+        self.p50 = p50
+        self.p75 = p75
+        self.p90 = p90
+        self.expected = expected
+    }
 }
 
 /// One simulated path, year by year.
@@ -159,6 +256,12 @@ public struct PathDetail: Hashable, Sendable {
     public var failure: RunFailure?
     /// The simulated years, up to the plan's end or the year the run failed.
     public var years: [YearDetail]
+
+    public init(retirementAge: Int, failure: RunFailure? = nil, years: [YearDetail]) {
+        self.retirementAge = retirementAge
+        self.failure = failure
+        self.years = years
+    }
 }
 
 /// One year of a path.
@@ -187,6 +290,23 @@ public struct YearDetail: Hashable, Sendable {
     /// Net new money into the plan's accounts: positive when saving,
     /// negative when drawing down.
     public var savings: Double
+
+    public init(year: Int, age: Int, fraction: Double = 1, workingShare: Double = 0, startAssets: Double,
+                endAssets: Double, spending: Double, expenses: Double = 0, income: [IncomeItem] = [],
+                taxes: [AmountItem] = [], contributions: [AmountItem] = [], savings: Double = 0) {
+        self.year = year
+        self.age = age
+        self.fraction = fraction
+        self.workingShare = workingShare
+        self.startAssets = startAssets
+        self.endAssets = endAssets
+        self.spending = spending
+        self.expenses = expenses
+        self.income = income
+        self.taxes = taxes
+        self.contributions = contributions
+        self.savings = savings
+    }
 
     /// All taxes in the year.
     public var totalTax: Double { taxes.reduce(0) { $0 + $1.amount } }
@@ -219,6 +339,13 @@ public struct IncomeItem: Hashable, Sendable {
     public var id: String
     public var label: String
     public var amount: Double
+
+    public init(kind: IncomeKind, id: String, label: String, amount: Double) {
+        self.kind = kind
+        self.id = id
+        self.label = label
+        self.amount = amount
+    }
 }
 
 /// An amount by ID, e.g. a tax line.
@@ -226,6 +353,12 @@ public struct AmountItem: Hashable, Sendable {
     public var id: String
     public var label: String
     public var amount: Double
+
+    public init(id: String, label: String, amount: Double) {
+        self.id = id
+        self.label = label
+        self.amount = amount
+    }
 }
 
 /// Where and why a run failed.
@@ -233,6 +366,12 @@ public struct RunFailure: Hashable, Sendable {
     public var year: Int
     public var age: Int
     public var reason: FailureReason
+
+    public init(year: Int, age: Int, reason: FailureReason) {
+        self.year = year
+        self.age = age
+        self.reason = reason
+    }
 }
 
 /// Why a run failed.
@@ -254,6 +393,14 @@ public struct LockedMoney: Hashable, Sendable {
     public var accessibleFromAge: Int?
     /// The wrapper's reason for staying locked.
     public var reason: String
+
+    public init(wrapper: String, name: String, value: Double, accessibleFromAge: Int? = nil, reason: String) {
+        self.wrapper = wrapper
+        self.name = name
+        self.value = value
+        self.accessibleFromAge = accessibleFromAge
+        self.reason = reason
+    }
 }
 
 /// Why failing runs fail, for "When it fails".
@@ -270,12 +417,28 @@ public struct FailureSummary: Hashable, Sendable {
     public var bridgeFailures: Int
     /// Bridge failures by wrapper, most frequent first.
     public var bridges: [BridgeFailure]
+
+    public init(runs: Int, failed: Int, failureRate: Double, medianFailureAge: Int? = nil, byAge: [AgeCount] = [],
+                bridgeFailures: Int = 0, bridges: [BridgeFailure] = []) {
+        self.runs = runs
+        self.failed = failed
+        self.failureRate = failureRate
+        self.medianFailureAge = medianFailureAge
+        self.byAge = byAge
+        self.bridgeFailures = bridgeFailures
+        self.bridges = bridges
+    }
 }
 
 /// A count at an age.
 public struct AgeCount: Hashable, Sendable {
     public var age: Int
     public var count: Int
+
+    public init(age: Int, count: Int) {
+        self.age = age
+        self.count = count
+    }
 }
 
 /// Runs that ran out before one wrapper became accessible.
@@ -286,6 +449,14 @@ public struct BridgeFailure: Hashable, Sendable {
     public var count: Int
     /// `count / runs`.
     public var share: Double
+
+    public init(wrapper: String, name: String, accessibleFromAge: Int? = nil, count: Int, share: Double) {
+        self.wrapper = wrapper
+        self.name = name
+        self.accessibleFromAge = accessibleFromAge
+        self.count = count
+        self.share = share
+    }
 }
 
 /// Something to mark on the time axis.
@@ -312,4 +483,13 @@ public struct TimelineMarker: Hashable, Sendable {
     public var amount: Double?
     /// The event's probability, when it's uncertain.
     public var probability: Double?
+
+    public init(kind: Kind, year: Int, age: Int, label: String, amount: Double? = nil, probability: Double? = nil) {
+        self.kind = kind
+        self.year = year
+        self.age = age
+        self.label = label
+        self.amount = amount
+        self.probability = probability
+    }
 }

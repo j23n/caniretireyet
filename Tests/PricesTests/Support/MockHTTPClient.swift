@@ -15,6 +15,11 @@ actor MockHTTPClient: HTTPClient {
         var error: (any Error & Sendable)?
     }
 
+    /// A delay no test waits out: a route with it answers only if nothing
+    /// times the request out first, which is how tests model a service that
+    /// never answers. The wait ends as soon as the request is cancelled.
+    static let never: Duration = .seconds(3600)
+
     private var routes: [Route] = []
     private(set) var requests: [HTTPRequest] = []
 

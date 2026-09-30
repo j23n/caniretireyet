@@ -36,7 +36,7 @@ swift run retire --help                 # the CLI
 
 Rules:
 
-- Dependencies only point the way the table says. Add a new edge only with a reason, in `Package.swift`'s `libraries` table.
+- Dependencies only point the way the table says. Add a new edge only with a reason, in `Package.swift`'s `libraries` table. Test targets that need more (e.g. `PlannerTests` runs plans end to end with `TaxItaly` and `TaxGeneric`) list it in its `testDependencies` table.
 - `Model` and `TaxKit` depend on nothing. `Planner` sees taxes only through `TaxKit`; the app and the CLI register systems in one `TaxRegistry`.
 - Only `CloudSync` and `App/` may use Apple-only frameworks. Everything else builds and tests on Linux.
 - No third-party dependencies in the library modules (Foundation only). The CLI may use Swift Argument Parser.

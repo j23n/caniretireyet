@@ -230,15 +230,37 @@ enum PlanInterpreter {
                 pensions: pensions.filter { $0.isFixed || context.system.pensionScheme($0.schemeID) != nil }
                     .map { TaxPlan.Pension(id: $0.id, scheme: $0.schemeID, options: $0.options) },
                 birthYear: birthDate.year)
+            systems[index].taxPlan = taxPlan
+            // Checks that need each year's amounts come later, from the prepared
+            // years of a retirement age (`PlanModel.yearIssues(for:)`).
             for issue in context.system.validate(taxPlan, parameters: context.parameters) {
                 issues.append(PlanIssue(issue, section: section(of: issue, registry: registry)))
             }
         }
 
+        // The old-age pension age behind wrapper access rules: the plan's
+        // schemes first (with their options), then the residence system's.
+        let oldAgePensionAges = frames.map { frame -> Int? in
+            for pension in pensions {
+                if let age = pension.scheme.oldAgePensionAge(in: frame.year, options: pension.options,
+                                                             parameters: pension.schemeParameters) {
+                    return age
+                }
+            }
+            let residence = systems[frame.system]
+            for scheme in residence.system.pensionSchemes {
+                if let age = scheme.oldAgePensionAge(in: frame.year, options: [:], parameters: residence.parameters) {
+                    return age
+                }
+            }
+            return nil
+        }
+
         guard !issues.contains(where: \.isError) else { return (nil, issues) }
         let model = PlanModel(
             plan: plan, registry: registry, birthDate: birthDate, startDate: startDate, currentAge: currentAge,
-            endAge: endAge, planAge: planAge, frames: frames, systems: systems, overlays: overlays,
+            endAge: endAge, planAge: planAge, frames: frames, systems: systems,
+            oldAgePensionAges: oldAgePensionAges, overlays: overlays,
             indexThresholds: plan.tax.effectiveIndexThresholds, inflation: inflation, work: work, spending: spending,
             pensions: pensions, contributions: contributions, events: events,
             uncertainEventProbabilities: probabilities, portfolio: portfolio, returns: returns,
@@ -327,16 +349,26 @@ enum PlanInterpreter {
                                            + "the plan doesn't compute; enter it after that tax.",
                                        section: .pensions, index: index, option: "taxedIn"))
             }
-            if pension.scheme == .fixed {
+            if pension.scheme.rawValue == FixedPensionScheme.schemeID {
                 guard let fromAge = pension.fromAge, let perYear = pension.perYear else {
                     issues.append(.error("planner.fixedPension", "A fixed pension needs fromAge and perYear.",
                                          section: .pensions, index: index))
                     continue
                 }
+                // TaxKit's shared scheme reads the entry's top-level keys as options.
+                var options = OptionValues(pension.options)
+                options["fromAge"] = .number(Double(fromAge))
+                options["perYear"] = .number(perYear.double)
+                let owner = registry.systems.first { $0.pensionScheme(FixedPensionScheme.schemeID) != nil }
+                    ?? registry.systems.first
+                let parameters: any ParameterStore = owner.map {
+                    OverriddenParameterStore(base: $0.parameters, overrides: overrides)
+                } ?? NoParameters(system: FixedPensionScheme.schemeID)
                 result.append(PensionSpec(
-                    index: index, id: id, name: pension.name ?? "Pension", schemeID: pension.scheme.rawValue,
-                    scheme: nil, schemeParameters: nil, claim: pension.claim ?? .age(fromAge), fixedFromAge: fromAge,
-                    fixedAmount: perYear.double, taxedIn: taxedIn, options: OptionValues(pension.options)))
+                    index: index, id: id, name: pension.name ?? "Pension", schemeID: FixedPensionScheme.schemeID,
+                    scheme: owner?.pensionScheme(FixedPensionScheme.schemeID) ?? FixedPensionScheme(),
+                    schemeParameters: parameters, claim: pension.claim ?? .age(fromAge), taxedIn: taxedIn,
+                    options: options))
                 continue
             }
             guard let owner = registry.systems.first(where: { $0.pensionScheme(pension.scheme.rawValue) != nil }),
@@ -354,15 +386,24 @@ enum PlanInterpreter {
             result.append(PensionSpec(
                 index: index, id: id, name: pension.name ?? scheme.name, schemeID: scheme.id, scheme: scheme,
                 schemeParameters: OverriddenParameterStore(base: owner.parameters, overrides: overrides),
-                claim: pension.effectiveClaim, fixedFromAge: nil, fixedAmount: 0, taxedIn: taxedIn,
-                options: OptionValues(pension.options)))
+                claim: pension.effectiveClaim, taxedIn: taxedIn, options: OptionValues(pension.options)))
         }
         return result
     }
 
     /// The plan section a tax system's issue belongs on.
-    private static func section(of issue: TaxIssue, registry: TaxRegistry) -> PlanSection {
+    static func section(of issue: TaxIssue, registry: TaxRegistry) -> PlanSection {
         guard let regime = issue.regime.flatMap({ registry.regime($0)?.regime }) else { return .tax }
         return regime.scope == .overlay ? .tax : .work
+    }
+}
+
+/// Stands in for a scheme's parameters when no tax system is registered.
+private struct NoParameters: ParameterStore {
+    let system: String
+    var years: [Int] { [] }
+
+    func parameters(for year: Int) throws -> ParameterSet {
+        throw ParameterError.noParameters(system: system)
     }
 }

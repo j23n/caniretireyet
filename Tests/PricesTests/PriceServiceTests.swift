@@ -23,7 +23,12 @@ struct PriceServiceTests {
         ])
     }
 
-    static func service(_ client: MockHTTPClient, policy: RequestPolicy = .standard) -> PriceService {
+    /// The standard policy with a generous timeout: the recorded responses
+    /// answer at once, but a busy test machine can delay them by seconds,
+    /// and these tests aren't about timeouts.
+    static let generous = RequestPolicy(timeout: .seconds(60))
+
+    static func service(_ client: MockHTTPClient, policy: RequestPolicy = generous) -> PriceService {
         .standard(client: client, policy: policy, today: { checkIn })
     }
 
@@ -92,8 +97,7 @@ struct PriceServiceTests {
     @Test func aWeekendCheckInRecordsFridaysValuesOnItsOwnDate() async throws {
         let library = try Fixtures.exampleLibrary()
         let sunday: CalendarDate = "2026-09-27"
-        let result = await PriceService.standard(client: Self.client(), today: { Self.checkIn })
-            .fetch(for: library, on: sunday)
+        let result = await Self.service(Self.client()).fetch(for: library, on: sunday)
         #expect(result.prices.first { $0.instrument == "vwce" }
             == PriceRecord(instrument: "vwce", date: sunday, price: d("136.88"), currency: .eur, source: .yahoo))
         #expect(result.fx == [FXRecord(base: .eur, quote: .usd, date: sunday, rate: d("1.1371"), source: .ecb)])
@@ -121,21 +125,33 @@ struct PriceServiceTests {
             == "CoinGecko is limiting requests. Try again in 120 seconds.")
     }
 
-    @Test func aSlowProviderTimesOutAlone() async throws {
+    /// Yahoo never answers and times out after 200 ms; everything else
+    /// still arrives. Only Yahoo gets the short timeout, so the others can't
+    /// time out on a busy machine. (The time limit only guards against a hang.)
+    @Test(.timeLimit(.minutes(1)))
+    func aSlowProviderTimesOutAlone() async throws {
         let client = Self.client()
         await client.on("chart/SLOW", HTTPResponse(statusCode: 200, text: YahooResponses.vwceSeptember),
-                        delay: .seconds(30))
+                        delay: MockHTTPClient.never)
         var library = try Fixtures.exampleLibrary()
         library.instruments["vwce"]?.priceSource = PriceSource(provider: .yahoo, symbol: "SLOW")
+        let service = PriceService(
+            instrumentProviders: [
+                YahooChartProvider(client: client, policy: RequestPolicy(timeout: .milliseconds(200))),
+                CoinGeckoProvider(client: client, policy: Self.generous),
+                GoldAPIProvider(client: client, policy: Self.generous),
+            ],
+            fxProvider: FrankfurterProvider(client: client, policy: Self.generous),
+            indexProviders: [EurostatIndexProvider(series: .hicpIT, client: client, policy: Self.generous)],
+            today: { Self.checkIn })
 
-        let start = ContinuousClock.now
-        let result = await Self.service(client, policy: RequestPolicy(timeout: .milliseconds(200)))
-            .fetch(for: library, on: Self.checkIn)
-        #expect(ContinuousClock.now - start < .seconds(10))
+        let result = await service.fetch(for: library, on: Self.checkIn)
         #expect(result.failures.map(\.item) == [.instrument("vwce")])
         #expect(result.entry(for: .instrument("vwce"))?.failureReason
             == "Yahoo Finance didn't answer within 200 ms.")
-        #expect(result.prices.count == 2)
+        #expect(result.prices.map(\.instrument) == ["btc", "gold"])
+        #expect(result.fx.map(\.quote) == [.usd])
+        #expect(result.entry(for: .index(.hicpIT))?.failureReason == nil)
     }
 
     @Test func withoutAnFXRateTheGoldPriceCantBeConverted() async throws {
