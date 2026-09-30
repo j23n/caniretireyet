@@ -1,5 +1,6 @@
 import Foundation
 import Model
+import Storage
 
 /// Common edits, each one ``LibraryStore/update(_:)`` call. They throw what
 /// `update` throws (read-only, not loaded) plus ``LibraryEditError``.
@@ -26,13 +27,15 @@ extension LibraryStore {
         try update { $0.accounts[id]?.closed = nil }
     }
 
-    /// Deletes an account and all its valuations. For mistakes only.
+    /// Deletes an account and all its valuations, and what refers to it
+    /// (``Library/removeReferences(to:)``). For mistakes only.
     func deleteAccount(_ id: AccountID) throws {
         try update { library in
             library.accounts[id] = nil
             for valuation in library.valuations(for: id) {
                 library.removeValuation(valuation.key)
             }
+            library.removeReferences(to: id)
         }
     }
 
@@ -116,7 +119,10 @@ extension LibraryStore {
     /// (`2026-01-05`, or `2026-01-05-2` for a second one that day).
     @discardableResult
     func saveBaseline(_ baseline: Baseline, for plan: PlanID) throws -> BaselineID {
-        let existing = library.projections[plan]?.baselines.keys.map { $0 } ?? []
+        let unloaded = unloadedFiles.compactMap { file -> BaselineID? in
+            if case .baseline(plan, let id) = file { id } else { nil }
+        }
+        let existing = (library.projections[plan]?.baselines.keys.map { $0 } ?? []) + unloaded
         let id = BaselineID.make(from: baseline.created.description, existing: existing)
         try update { $0.projections[plan, default: PlanProjections()].baselines[id] = baseline }
         return id
@@ -143,6 +149,34 @@ extension LibraryStore {
     /// Adds or replaces an import profile.
     func save(_ profile: ImportProfile) throws {
         try update { $0.importProfiles[profile.id] = profile }
+    }
+}
+
+extension Library {
+    /// Removes what refers to an account that's being deleted: other
+    /// accounts' `successor`, plans' `portfolio.exclude` and contributions
+    /// into it, and import profiles' remembered name matches and column or
+    /// constant mappings (the importer then goes by the column's header).
+    /// Baselines keep their account lists: they're a record of the past.
+    mutating func removeReferences(to id: AccountID) {
+        for (key, account) in accounts where account.successor == id {
+            accounts[key]?.successor = nil
+        }
+        for (key, plan) in plans where plan.portfolio.exclude.contains(id) || plan.contributions.contains(where: {
+            $0.account == id
+        }) {
+            plans[key]?.portfolio.exclude.removeAll { $0 == id }
+            plans[key]?.contributions.removeAll { $0.account == id }
+        }
+        for (key, profile) in importProfiles {
+            var updated = profile
+            updated.matches.accounts = updated.matches.accounts.filter { $0.value != id }
+            for index in updated.columns.indices where updated.columns[index].account == id {
+                updated.columns[index].account = nil
+            }
+            if updated.constants.account == id { updated.constants.account = nil }
+            if updated != profile { importProfiles[key] = updated }
+        }
     }
 }
 
