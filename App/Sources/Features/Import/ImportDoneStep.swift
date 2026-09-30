@@ -151,9 +151,14 @@ struct ImportDoneStep: View {
             Text("Save as profile")
         } footer: {
             Text("The mapping, with every format written out, in the library's imports folder. The next file of the "
-                + "same shape imports in one step, here, on your other devices, or with “retire import "
-                + (model.flow.isLedger ? "ledger <files> " : "") + "--profile \(profileID.isEmpty ? "<id>" : profileID)”.")
+                + "same shape imports in one step, here, on your other devices, or with “\(cliCommand)”.")
         }
+    }
+
+    /// The CLI command that imports with the profile.
+    private var cliCommand: String {
+        let id = profileID.isEmpty ? "<id>" : profileID
+        return model.flow.isLedger ? "retire import ledger <files> --profile \(id)" : "retire import --profile \(id)"
     }
 
     private func suggestProfile() {

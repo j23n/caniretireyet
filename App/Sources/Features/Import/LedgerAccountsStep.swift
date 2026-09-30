@@ -17,11 +17,11 @@ struct LedgerAccountsStep: View {
         let others = flow.ledgerOtherRows.filter { $0.role == .income || $0.role == .expense }
         let newAccounts = flow.preview?.newAccounts ?? []
         let changes = flow.preview?.accountChanges ?? []
+        let topLevel = Self.topLevel(flow.ledgerResult?.accounts ?? [])
         Form {
             Section {
                 if netWorth.isEmpty {
-                    Text("The journal has no assets or liabilities. Its top-level accounts are "
-                        + (flow.ledgerResult.map { Self.topLevel($0.accounts) } ?? "none") + ".")
+                    Text("The journal has no assets or liabilities. Its top-level accounts are \(topLevel).")
                         .foregroundStyle(Palette.secondaryInk)
                 }
                 ForEach(netWorth) { row in
