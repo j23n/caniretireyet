@@ -32,6 +32,10 @@ struct PlanResultDetails: Hashable, Sendable {
     var issues: [PlanIssue]
     /// The details that depend on the retirement age the charts are for.
     var focus: PlanFocusDetails
+    /// The headline to record for this run (`PlanResult.headline()`, dated
+    /// the check-in the plan started from): success rates to 3 decimals and
+    /// FI progress to 2, exactly as the CLI records it.
+    var headline: Headline? = nil
 }
 
 /// The numbers that belong to one retirement age: the fan, paths and
@@ -51,7 +55,7 @@ struct PlanFocusDetails: Hashable, Sendable {
     /// Net income per year in the deterministic run: work and pensions,
     /// after taxes and social contributions (whole-year amounts).
     var netIncome: [YearValue]
-    /// Each pension: when it starts and how much it pays.
+    /// Each pension: when it starts and how much it pays a year.
     var pensions: [PlanPensionStart]
     /// Saving per month while working in the deterministic run: the
     /// what-if's starting value. `nil` when the plan has no working years.
@@ -69,7 +73,8 @@ struct PlanPensionStart: Hashable, Sendable {
     var scheme: String
     /// The age it starts at, if it starts within the plan.
     var age: Int?
-    /// The gross yearly amount when it starts, in today's euros.
+    /// The gross amount of a whole year when it starts, in today's euros
+    /// (a pension starting mid-year pays less in its first calendar year).
     var perYear: Double?
 }
 
@@ -141,7 +146,8 @@ extension PlanResults {
                 monthlySaving: PlanResultsMapping.monthlySaving(result.expectedPath.years),
                 bridges: result.failures.bridges.map {
                     PlanBridgeFailure(name: $0.name, accessibleFromAge: $0.accessibleFromAge, share: $0.share)
-                }))
+                }),
+            headline: result.headline())
     }
 
     /// These results with the charts and details of `focused`, a run of the
