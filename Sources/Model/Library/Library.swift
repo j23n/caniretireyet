@@ -1,3 +1,5 @@
+import Foundation
+
 /// The whole library in memory: every file in the folder, as model values.
 ///
 /// Storage loads and saves it; this type does no file I/O. Collections are
@@ -83,9 +85,32 @@ extension Library {
         months.values.flatMap(\.indices).sortedByKey()
     }
 
+    /// Every trade, sorted by key: date, account, ID.
+    public var allTrades: [Trade] {
+        months.values.flatMap(\.trades).sortedByKey()
+    }
+
     /// An account's valuations, sorted by date.
     public func valuations(for account: AccountID) -> [Valuation] {
         months.values.flatMap { $0.valuations.filter { $0.account == account } }.sortedByKey()
+    }
+
+    /// An account's trades, sorted by key (date, then ID). Use
+    /// ``Swift/Sequence/inProcessingOrder()`` for the order they apply in.
+    public func trades(for account: AccountID) -> [Trade] {
+        months.values.flatMap { $0.trades.filter { $0.account == account } }.sortedByKey()
+    }
+
+    /// The trade with this key, if there is one.
+    public func trade(_ key: TradeKey) -> Trade? {
+        months[key.date.yearMonth]?.trades.first { $0.key == key }
+    }
+
+    /// The quantity of each instrument an account's trades leave it holding
+    /// at the end of `date` (trades on the date included), leaving out
+    /// instruments back at zero. Empty for an account without trades.
+    public func heldQuantities(of account: AccountID, on date: CalendarDate) -> [InstrumentID: Decimal] {
+        HeldQuantities(trades(for: account).filter { $0.date <= date }).held
     }
 
     /// An instrument's prices, sorted by date.
@@ -158,6 +183,25 @@ extension Library {
         var file = months[month] ?? MonthFile(month: month)
         Self.upsert(value, into: &file.indices)
         months[month] = file
+    }
+
+    /// Adds a trade, or replaces the one with the same key (account, date
+    /// and ID). It goes into its date's month file, which stays sorted.
+    public mutating func upsert(_ trade: Trade) {
+        let month = trade.date.yearMonth
+        var file = months[month] ?? MonthFile(month: month)
+        Self.upsert(trade, into: &file.trades)
+        months[month] = file
+    }
+
+    /// Removes the trade record with this key, returning it if there was
+    /// one. An emptied month file stays in `months`. (Tracker's
+    /// `removeTrade(_:)` also keeps the flows of later valuations in step.)
+    @discardableResult
+    public mutating func removeTradeRecord(_ key: TradeKey) -> Trade? {
+        let month = key.date.yearMonth
+        guard let index = months[month]?.trades.firstIndex(where: { $0.key == key }) else { return nil }
+        return months[month]?.trades.remove(at: index)
     }
 
     /// Removes the valuation with this key, returning it if there was one.

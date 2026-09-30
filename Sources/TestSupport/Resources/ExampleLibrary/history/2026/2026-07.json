@@ -11,16 +11,24 @@
     { "currency": "EUR", "date": "2026-07-31", "instrument": "gold", "price": "100.4", "source": "gold-api" },
     { "currency": "EUR", "date": "2026-07-31", "instrument": "vwce", "price": "136.8", "source": "yahoo" }
   ],
+  "trades": [
+    {
+      "account": "directa",
+      "amount": "1162.8",
+      "date": "2026-07-14",
+      "fees": "5",
+      "id": "27jvxijw",
+      "instrument": "vwce",
+      "price": "144.56",
+      "quantity": "8.5",
+      "tax": "60.95",
+      "type": "sell"
+    }
+  ],
   "valuations": [
     { "account": "conto-deposito", "balance": "16795.55", "date": "2026-07-31", "flow": "0" },
     { "account": "conto-fineco", "balance": "3980.4", "date": "2026-07-31", "flow": "-2260.55" },
-    {
-      "account": "directa",
-      "cash": "1452.7",
-      "date": "2026-07-31",
-      "flow": "-0.45",
-      "positions": [{ "instrument": "vwce", "quantity": "402.5" }]
-    },
+    { "account": "directa", "cash": "1452.7", "date": "2026-07-31", "flow": "-0.45" },
     { "account": "mutuo-casa", "balance": "-142350", "date": "2026-07-31", "flow": "650" }
   ]
 }

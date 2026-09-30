@@ -11,16 +11,23 @@
     { "currency": "EUR", "date": "2025-12-31", "instrument": "gold", "price": "95.2", "source": "gold-api" },
     { "currency": "EUR", "date": "2025-12-31", "instrument": "vwce", "price": "131.05", "source": "yahoo" }
   ],
+  "trades": [
+    { "account": "directa", "amount": "1523.75", "date": "2025-12-03", "id": "q64lxyd4", "type": "deposit" },
+    {
+      "account": "directa",
+      "date": "2025-12-10",
+      "fees": "5",
+      "id": "y7hg7yl3",
+      "instrument": "vwce",
+      "price": "130.55",
+      "quantity": "10",
+      "type": "buy"
+    }
+  ],
   "valuations": [
     { "account": "conto-deposito", "balance": "15562.1", "date": "2025-12-31", "flow": "500" },
     { "account": "conto-fineco", "balance": "3950.4", "date": "2025-12-31", "flow": "-2155.35" },
-    {
-      "account": "directa",
-      "cash": "402.15",
-      "date": "2025-12-31",
-      "flow": "1523.75",
-      "positions": [{ "costBasis": "39850", "instrument": "vwce", "quantity": "358" }]
-    },
+    { "account": "directa", "cash": "402.15", "date": "2025-12-31", "flow": "1523.75" },
     { "account": "fondo-pensione", "balance": "16850.4", "date": "2025-12-31", "flow": "1325" },
     { "account": "mutuo-casa", "balance": "-146900", "date": "2025-12-31", "flow": "650" },
     { "account": "tfr", "balance": "8420.55", "date": "2025-12-31", "flow": "310" }

@@ -57,12 +57,28 @@ extension Valuator {
         return dates.sorted()
     }
 
-    /// The date of the earliest valuation of an account in `scope` (every account when `nil`).
+    /// The date of the earliest valuation of an account in `scope` (every
+    /// account when `nil`), or of the earliest trade of a trades account.
     public func firstValuationDate(in scope: NetWorthScope? = nil) -> CalendarDate? {
         accounts.values
             .filter { scope?.includes($0) ?? true }
-            .compactMap { valuations(for: $0.id).first?.date }
+            .compactMap { firstRecordDate(of: $0.id) }
             .min()
+    }
+
+    /// The date of an account's first valuation, or of its first trade when
+    /// it records trades and that's earlier.
+    public func firstRecordDate(of account: AccountID) -> CalendarDate? {
+        [valuations(for: account).first?.date, ledgers[account]?.firstDate].compactMap { $0 }.min()
+    }
+
+    /// The date of an account's latest valuation on or before `date`, or of
+    /// its latest trade on or before it when it records trades and that's later.
+    public func latestRecordDate(of account: AccountID, onOrBefore date: CalendarDate) -> CalendarDate? {
+        let trade = ledgers[account].flatMap { ledger in
+            ledger.entries.lastIndex(onOrBefore: date, date: \.date).map { ledger.entries[$0].date }
+        }
+        return [latestValuation(for: account, onOrBefore: date)?.date, trade].compactMap { $0 }.max()
     }
 
     /// The latest check-in (a date with any valuation in `scope`) on or before `date`.
@@ -106,10 +122,11 @@ extension Valuator {
     }
 
     /// One account's value over time, from `start` (default: its first
-    /// valuation) through `end`. Zero before it opens and after it closes.
+    /// valuation, or first trade) through `end`. Zero before it opens and
+    /// after it closes.
     public func series(of account: AccountID, grid: SeriesGrid = .monthEnds, from start: CalendarDate? = nil,
                        through end: CalendarDate) -> [SeriesPoint] {
-        guard let first = start ?? valuations(for: account).first?.date else { return [] }
+        guard let first = start ?? firstRecordDate(of: account) else { return [] }
         let dates: [CalendarDate] = switch grid {
         case .monthEnds: DateGrid.monthEnds(from: first, through: end)
         case .checkIns: valuations(for: account).map(\.date).filter { $0 >= first && $0 <= end }

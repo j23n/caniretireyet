@@ -1,12 +1,12 @@
 # Plan
 
-> Status: reviewed once (answers in §8). The tax architecture is in [TAXES.md](TAXES.md), and the importer is in [IMPORT.md](IMPORT.md).
+> Status: reviewed once (answers in §8). The tax architecture is in [TAXES.md](TAXES.md), the importer is in [IMPORT.md](IMPORT.md), and accounts that record trades are in [TRADES.md](TRADES.md).
 
 ## 1. What we're building
 
 A private app for iPhone and Mac with two halves:
 
-1. **Tracker.** Once a month you check in and record what each account is worth. Cash accounts, pension funds, property and debts are recorded as a balance. For ETFs, crypto and gold you record the quantity, and the app multiplies it by the price. Accounts are opened and closed over the years, and their history is kept either way.
+1. **Tracker.** Once a month you check in and record what each account is worth. Cash accounts, pension funds, property and debts are recorded as a balance. For ETFs, crypto and gold you record the quantity, and the app multiplies it by the price. An investment account can instead record its trades (buys, sells, deposits, dividends), and its holdings, purchase cost and realised gains are worked out from them ([TRADES.md](TRADES.md)). Accounts are opened and closed over the years, and their history is kept either way.
 2. **Planner.** Scenarios that start from your latest check-in and simulate the years ahead, covering:
    - work and savings, with taxes from a pluggable tax system (Italy first, including impatriati and forfettario);
    - spending in retirement;
@@ -77,7 +77,7 @@ All data lives in a folder of plain JSON files in iCloud Drive. The apps on your
 
 ### Later
 
-These are listed as M3 and M4 in §6: investment performance, explaining the gap to a baseline, widgets, the RW/IVAFE helper, historical return sequences, dynamic withdrawal strategies, retiring abroad, partner planning, and transaction-based cost basis.
+These are listed as M3 and M4 in §6: investment performance, explaining the gap to a baseline, widgets, the RW/IVAFE helper, historical return sequences, dynamic withdrawal strategies, retiring abroad, and partner planning. Transaction-based cost basis is done: accounts can record trades ([TRADES.md](TRADES.md)).
 
 ### Non-goals
 
@@ -93,7 +93,7 @@ These are listed as M3 and M4 in §6: investment performance, explaining the gap
 | Platform | One SwiftUI app target for iPhone, iPad and Mac. Minimum iOS 26 and macOS 26. | One codebase with a native feel on both platforms and first-class iCloud Drive APIs. A personal app doesn't need to support old OS versions. |
 | Source of truth | A folder of small JSON files, called "the library". | Human-readable, diffable and easy to back up. The data is tiny (thousands of records), so no database is needed. |
 | Sync | iCloud Drive, in the app's own iCloud container. It shows up as a "Can I Retire Yet" folder in Files and Finder. | No server, it works offline, and the files stay visible and editable. |
-| History model | Point-in-time valuations (balances and quantities), not transactions. | This matches the monthly workflow, and closing an account never touches its history. |
+| History model | Point-in-time valuations (balances and quantities) by default. An investment account can opt in to trades (`"valuation": "trades"`): its holdings, average cost, cash and realised gains are worked out from buys, sells, deposits and the like, and its check-ins record only cash ([TRADES.md](TRADES.md)). | Valuations match the monthly workflow, and closing an account never touches its history. Trades give an exact purchase cost (*costo medio ponderato*), realised gains, dividends and exact flows for a broker account, which the Italian tax treatment of sales needs. Both styles work for a trades account: record every deposit, or type the cash at each check-in. |
 | Money | `Decimal` for every recorded amount, stored as strings in JSON. | No floating-point rounding errors in the tracker. |
 | Currencies | Each account has its own currency; the base currency is EUR. Each check-in stores the prices and FX rates it used. | Past net worth can always be recomputed, even if a price source goes away. |
 | Planner | Yearly steps in today's euros, deterministic plus Monte Carlo, with a seeded random-number generator. | This approach is standard and easy to explain. It is also fast enough to recompute live while you drag a slider. |
@@ -307,7 +307,7 @@ The importer works with any spreadsheet or export instead of a fixed layout. Det
 
 - Historical and bootstrapped return sequences. Guardrail and variable withdrawal strategies.
 - Tracking actual income and spending, to measure your real savings rate.
-- Cost basis from transactions. PIR and other tax wrappers.
+- Cost basis from transactions: done, as trades ([TRADES.md](TRADES.md)); the app's screens for them and importing broker exports come next. PIR and other tax wrappers.
 - Tax systems for other countries, e.g. one you might retire to. Until then, the `generic` system approximates them.
 - Reading `.xlsx` and `.numbers` files directly, and a target that turns broker transaction exports into monthly holdings.
 - Planning for a partner or household.

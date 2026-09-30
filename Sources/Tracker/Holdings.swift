@@ -24,10 +24,12 @@ public struct Holding: Hashable, Sendable {
 
 extension Valuator {
     /// The positions of `account`'s latest valuation on or before `date`,
-    /// valued on that date. Empty for a balance valuation.
+    /// valued on that date. Empty for a balance valuation. For a trades
+    /// account, the positions its trades leave on the date, with their
+    /// average purchase cost (``snapshot(of:on:)``).
     public func holdings(of account: AccountID, on date: CalendarDate) -> [Holding] {
         guard let found = accounts[account],
-              let valuation = latestValuation(for: account, onOrBefore: date), !valuation.isBalance
+              let valuation = carried(found, on: date), !valuation.isBalance
         else { return [] }
         let values = value(of: found, valuation: valuation, on: date).components
         return valuation.positions.map { position in

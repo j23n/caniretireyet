@@ -69,6 +69,26 @@ public struct IndexKey: Hashable, Comparable, Sendable {
     }
 }
 
+/// A trade's key: account + date + trade ID.
+public struct TradeKey: Hashable, Comparable, Sendable, CustomStringConvertible {
+    public var date: CalendarDate
+    public var account: AccountID
+    public var id: TradeID
+
+    public init(account: AccountID, date: CalendarDate, id: TradeID) {
+        self.account = account
+        self.date = date
+        self.id = id
+    }
+
+    public static func < (lhs: Self, rhs: Self) -> Bool {
+        (lhs.date, lhs.account, lhs.id) < (rhs.date, rhs.account, rhs.id)
+    }
+
+    /// `2026-03-12 directa k3q7vz2m`
+    public var description: String { "\(date) \(account) \(id)" }
+}
+
 extension Sequence where Element: KeyedRecord {
     /// The records sorted by key: by date, then by ID.
     public func sortedByKey() -> [Element] {

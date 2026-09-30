@@ -35,6 +35,26 @@ struct PastPriceNeedsTests {
         #expect(needs.isEmpty == false && needs.hasFetchable)
     }
 
+    @Test func aTradesAccountNeedsPricesForWhatItsTradesHold() {
+        var library = Self.library()
+        library.accounts["broker"]?.valuation = .trades
+        library.upsert(Trade(account: "broker", date: "2026-01-15", id: "a", type: .buy, instrument: "vwce",
+                             quantity: 10, price: 100))
+        library.upsert(Trade(account: "broker", date: "2026-02-10", id: "b", type: .transferIn, instrument: "aapl",
+                             quantity: 2, cost: 300))
+        library.upsert(Trade(account: "broker", date: "2026-03-20", id: "c", type: .sell, instrument: "vwce",
+                             quantity: 10, price: 110))
+        library.upsert(Trade(account: "broker", date: "2026-04-02", id: "d", type: .buy, instrument: "aapl",
+                             quantity: 1, price: 170))
+        library.upsert(Valuation(account: "broker", date: "2026-04-15", cash: 10))
+        let needs = PastPriceNeeds(library: library, today: "2026-04-30", indices: [])
+        // Month ends from the first trade while it's held; the transfer is valued on its date.
+        #expect(needs.dates(for: "vwce") == ["2026-01-31", "2026-02-10", "2026-02-28"])
+        #expect(needs.dates(for: "aapl") == ["2026-02-10", "2026-02-28", "2026-03-31", "2026-04-15", "2026-04-30"])
+        // The USD price of the buy without an amount is converted on its date.
+        #expect(needs.rates.first?.dates.contains("2026-04-02") == true)
+    }
+
     @Test func monthEndsBetweenSparseValuationsAreNeededToo() {
         var library = Self.library()
         library.upsert(Valuation(account: "broker", date: "2026-01-15",

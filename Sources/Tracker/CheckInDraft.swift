@@ -96,6 +96,16 @@ public struct CheckInRow: Hashable, Sendable, Identifiable {
     /// it alone, and left empty it changes nothing. Saving a value for it
     /// moves the account's opening date back to the check-in's date.
     public private(set) var opensLater: Bool
+    /// Whether the account's holdings come from its trades (``Model/ValuationMode/trades``).
+    /// Such a row records the account's cash (``mode`` is `.trades`); its
+    /// positions, if any are entered, are a reconciliation check against
+    /// ``derived`` (e.g. from a broker statement), not its holdings.
+    public private(set) var isTrades: Bool
+    /// For a trades account: what its trades give on the check-in date,
+    /// counting from the previous valuation (the cash rule): the cash, and
+    /// the positions with their average cost. `nil` for other accounts, and
+    /// for a trades account with nothing recorded before the date.
+    public internal(set) var derived: Valuation?
 
     public var id: AccountID { account }
 
@@ -110,6 +120,30 @@ public struct CheckInRow: Hashable, Sendable, Identifiable {
         opensLater = account.opened > date
         self.existing = existing
         conflict = nil
+        isTrades = account.recordsTrades
+        let derived = isTrades ? valuator.valuator.derivedSnapshot(of: account, on: date, previous: previous) : nil
+        self.derived = derived
+        if isTrades {
+            // The cash typed on the date, else what the trades give; positions only as entered.
+            mode = .trades
+            state = existing == nil ? .notReviewed : .updated
+            balance = nil
+            cash = existing?.cash ?? derived?.cash
+            positions = (existing?.positions ?? []).map { position in
+                CheckInPosition(instrument: position.instrument, previous: derived?.position(for: position.instrument),
+                                quantity: position.quantity, enteredCostBasis: position.costBasis)
+            }
+            isFlowEdited = existing?.flow != nil
+            enteredFlow = existing?.flow
+            note = existing?.note
+            source = existing?.source
+            isEdited = false
+            resetsFlowOnEdit = false
+            if let existing, let flow = existing.flow {
+                resetsFlowOnEdit = valuator.valuator.defaultFlow(for: existing, previous: previous) == flow
+            }
+            return
+        }
         let filled = existing ?? previous
         let mode = Self.mode(of: filled) ?? account.valuationMode
         self.mode = mode
@@ -185,7 +219,7 @@ public struct CheckInRow: Hashable, Sendable, Identifiable {
     /// value to keep. A new account has none, so it can only be entered or
     /// skipped.
     public var canMarkUnchanged: Bool {
-        Self.mode(of: previous) != nil
+        isTrades ? derived != nil : Self.mode(of: previous) != nil
     }
 
     /// Whether the note was typed in this check-in, rather than kept from
@@ -232,8 +266,8 @@ public struct CheckInRow: Hashable, Sendable, Identifiable {
             positions[index].enteredCostBasis = nil
             if !positions[index].isIncrease { positions[index].paid = nil }
         } else {
-            positions.append(CheckInPosition(instrument: instrument, previous: previous?.position(for: instrument),
-                                             quantity: quantity))
+            let before = (isTrades ? derived : previous)?.position(for: instrument)
+            positions.append(CheckInPosition(instrument: instrument, previous: before, quantity: quantity))
         }
         touch()
     }
@@ -288,7 +322,25 @@ public struct CheckInRow: Hashable, Sendable, Identifiable {
     /// restores its values, with flow 0. Does nothing, and returns `false`,
     /// when there's no previous value to keep (see ``canMarkUnchanged``).
     @discardableResult
+    ///
+    /// For a trades account, "unchanged" means as its trades say: the cash
+    /// they give (``derived``), and no positions entered. Its flow is still
+    /// the default, which counts the deposits and withdrawals recorded
+    /// since the previous valuation.
     public mutating func markUnchanged() -> Bool {
+        if isTrades {
+            guard let derived else { return false }
+            mode = .trades
+            balance = nil
+            cash = derived.cash
+            positions = []
+            isFlowEdited = false
+            enteredFlow = nil
+            resetsFlowOnEdit = false
+            source = nil
+            state = .unchanged
+            return true
+        }
         guard let previous, let mode = Self.mode(of: previous) else { return false }
         self.mode = mode
         balance = mode == .balance ? previous.balance : nil
@@ -342,9 +394,11 @@ public struct CheckInRow: Hashable, Sendable, Identifiable {
         note = other.note
     }
 
+    /// Back from a balance to cash and positions (or, for a trades account, cash).
     private mutating func switchToHoldings() {
-        guard mode != .holdings else { return }
-        mode = .holdings
+        let holdings: ValuationMode = isTrades ? .trades : .holdings
+        guard mode != holdings else { return }
+        mode = holdings
         balance = nil
     }
 
@@ -490,7 +544,12 @@ public struct CheckInDraft: Hashable, Sendable, Codable {
     /// The instruments held in the rows (or held before), whose prices the
     /// check-in needs, sorted.
     public var instruments: [InstrumentID] {
-        Set(rows.filter { $0.mode == .holdings }.flatMap { $0.positions.map(\.instrument) }).sorted()
+        var held = Set(rows.filter { $0.mode == .holdings }.flatMap { $0.positions.map(\.instrument) })
+        // A trades account holds what its trades give.
+        for row in rows where row.isTrades && row.mode != .balance {
+            held.formUnion((row.derived?.positions ?? []).filter { $0.quantity != 0 }.map(\.instrument))
+        }
+        return held.sorted()
     }
 
     /// The currencies other than the base currency that the check-in needs
@@ -580,7 +639,7 @@ extension CheckInPosition: Codable {
 extension CheckInRow: Codable {
     enum CodingKeys: String, CodingKey {
         case account, state, mode, previous, existing, conflict, balance, cash, positions, isFlowEdited, enteredFlow,
-             note, source, isEdited, resetsFlowOnEdit, opensLater
+             note, source, isEdited, resetsFlowOnEdit, opensLater, isTrades, derived
     }
 
     public init(from decoder: any Decoder) throws {
@@ -602,6 +661,8 @@ extension CheckInRow: Codable {
         isEdited = try c.decodeIfPresent(Bool.self, forKey: .isEdited) ?? (state == .updated)
         resetsFlowOnEdit = try c.decodeIfPresent(Bool.self, forKey: .resetsFlowOnEdit) ?? false
         opensLater = try c.decodeIfPresent(Bool.self, forKey: .opensLater) ?? false
+        isTrades = try c.decodeIfPresent(Bool.self, forKey: .isTrades) ?? false
+        derived = try c.decodeIfPresent(Valuation.self, forKey: .derived)
     }
 
     public func encode(to encoder: any Encoder) throws {
@@ -622,6 +683,8 @@ extension CheckInRow: Codable {
         try c.encode(isEdited, forKey: .isEdited)
         try c.encode(resetsFlowOnEdit, forKey: .resetsFlowOnEdit)
         if opensLater { try c.encode(opensLater, forKey: .opensLater) }
+        if isTrades { try c.encode(isTrades, forKey: .isTrades) }
+        try c.encodeIfPresent(derived, forKey: .derived)
     }
 }
 

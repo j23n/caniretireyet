@@ -11,17 +11,24 @@
     { "currency": "EUR", "date": "2026-06-30", "instrument": "gold", "price": "99.1", "source": "gold-api" },
     { "currency": "EUR", "date": "2026-06-30", "instrument": "vwce", "price": "134.15", "source": "yahoo" }
   ],
+  "trades": [
+    { "account": "directa", "amount": "1228.95", "date": "2026-06-03", "id": "gvu5sszm", "type": "deposit" },
+    {
+      "account": "directa",
+      "date": "2026-06-10",
+      "fees": "5",
+      "id": "xpvaum4h",
+      "instrument": "vwce",
+      "price": "133.65",
+      "quantity": "10",
+      "type": "buy"
+    }
+  ],
   "valuations": [
     { "account": "casa", "balance": "312000", "date": "2026-06-30", "note": "estimate from listings nearby" },
     { "account": "conto-deposito", "balance": "16760.65", "date": "2026-06-30", "flow": "500" },
     { "account": "conto-fineco", "balance": "6240.95", "date": "2026-06-30", "flow": "350.65" },
-    {
-      "account": "directa",
-      "cash": "290.35",
-      "date": "2026-06-30",
-      "flow": "1228.95",
-      "positions": [{ "costBasis": "46320", "instrument": "vwce", "quantity": "411" }]
-    },
+    { "account": "directa", "cash": "290.35", "date": "2026-06-30", "flow": "1228.95" },
     { "account": "fondo-pensione", "balance": "17990.35", "date": "2026-06-30", "flow": "1325" },
     { "account": "mutuo-casa", "balance": "-143000", "date": "2026-06-30", "flow": "650" },
     { "account": "tfr", "balance": "10760.2", "date": "2026-06-30", "flow": "2242.5" }

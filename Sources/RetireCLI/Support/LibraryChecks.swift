@@ -13,7 +13,11 @@ import Tracker
 /// - check-ins whose net worth can't be computed (a missing price or FX rate);
 /// - plans naming accounts, tax systems, regimes or pension schemes that don't exist;
 /// - accounts with a tax wrapper no tax system defines;
-/// - import profiles naming accounts or instruments that don't exist.
+/// - import profiles naming accounts or instruments that don't exist;
+/// - trades that need their account's other trades or market data to check
+///   (a missing FX rate, an opening without cost, a split of what isn't
+///   held) and positions listed in a trades account's valuation that differ
+///   from its trades (Storage points out the rest).
 ///
 /// Everything found is a warning: the library loads and works regardless.
 struct LibraryChecks {
@@ -28,7 +32,16 @@ struct LibraryChecks {
         issues += planReferences()
         issues += wrappers()
         issues += importProfileReferences()
+        issues += trades()
         return issues
+    }
+
+    /// The trade issues Tracker finds that loading doesn't (see `LibraryLoader.checkTrades`).
+    private func trades() -> [LoadIssue] {
+        let kinds: Set<TradeIssue.Kind> = [.missingFX, .unknownCost, .splitNotHeld, .reconciliation]
+        return Valuator(library: library).tradeIssues().filter { kinds.contains($0.kind) }.map { issue in
+            warning(LibraryFile.month(issue.date.yearMonth).path, "\(issue.account): \(issue.message)")
+        }
     }
 
     private func warning(_ path: String, _ message: String) -> LoadIssue {

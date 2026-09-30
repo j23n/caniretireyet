@@ -64,6 +64,12 @@ extension Account {
         valuation ?? kind.defaultValuationMode
     }
 
+    /// Whether the account's holdings come from its trades
+    /// (``ValuationMode/trades``) rather than from its valuations.
+    public var recordsTrades: Bool {
+        valuationMode == .trades
+    }
+
     /// The asset mix for a balance account: `assetClasses` if set, otherwise
     /// the default for the kind (cash → cash, property → real estate), or
     /// `nil` when there is none (holdings take their mix from instruments).

@@ -102,33 +102,46 @@ extension Library {
     /// rule of ``editValuations(_:)``. Valuations the change wrote keep what
     /// it gave them, and so do the ones in `fixed`, whatever changed before
     /// them (a journal's valuations, whose flows the journal gives exactly).
+    ///
+    /// For an account that records trades, a change to its trades (see
+    /// ``addTrade(_:)``) counts too: the flow of each of its valuations is
+    /// the automatic one when it equals what its trades and cash gave
+    /// before (``Valuator/defaultFlow(for:previous:paid:)``), and is then
+    /// worked out again from the trades as they are now.
     @discardableResult
     public mutating func followFlows(from before: Library, keeping fixed: Set<ValuationKey> = []) -> FlowFollowUp {
         let old = Dictionary(grouping: before.allValuations, by: \.account)
         let new = Dictionary(grouping: allValuations, by: \.account)
+        let oldTrades = Dictionary(grouping: before.allTrades, by: \.account)
+        let newTrades = Dictionary(grouping: allTrades, by: \.account)
         var oldValuator = LazyValuator(library: before)
         var newValuator = LazyValuator(library: self)
         var result = FlowFollowUp()
         for account in new.keys.sorted() {
             let newList = new[account] ?? []
             let oldList = old[account] ?? []
-            guard newList != oldList else { continue }
+            let tradesChanged = (accounts[account]?.recordsTrades ?? false)
+                && oldTrades[account] ?? [] != newTrades[account] ?? []
+            guard newList != oldList || tradesChanged else { continue }
             let oldIndices = Dictionary(oldList.enumerated().map { ($1.key, $0) }, uniquingKeysWith: { first, _ in first })
             for (index, valuation) in newList.enumerated() where !fixed.contains(valuation.key) {
                 // A valuation the edit wrote keeps what the edit gave it.
                 guard let oldIndex = oldIndices[valuation.key], oldList[oldIndex] == valuation else { continue }
                 let oldPrevious = oldIndex > 0 ? oldList[oldIndex - 1] : nil
                 let newPrevious = index > 0 ? newList[index - 1] : nil
-                guard oldPrevious != newPrevious else { continue }
+                guard oldPrevious != newPrevious || tradesChanged else { continue }
                 let automatic = oldValuator.valuator.defaultFlow(
                     for: valuation, previous: oldPrevious, paid: CheckInRow.paid(in: valuation, since: oldPrevious))
+                let recomputed = newValuator.valuator.defaultFlow(
+                    for: valuation, previous: newPrevious, paid: CheckInRow.paid(in: valuation, since: newPrevious))
+                // Only the trades changed, and not in a way that concerns this valuation.
+                if oldPrevious == newPrevious, recomputed == automatic { continue }
                 guard automatic == valuation.flow else {
                     result.kept.append(valuation)
                     continue
                 }
                 var updated = valuation
-                updated.flow = newValuator.valuator.defaultFlow(
-                    for: valuation, previous: newPrevious, paid: CheckInRow.paid(in: valuation, since: newPrevious))
+                updated.flow = recomputed
                 guard updated != valuation else { continue }
                 upsert(updated)
                 result.recomputed.append(updated)

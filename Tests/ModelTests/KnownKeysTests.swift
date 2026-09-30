@@ -12,6 +12,10 @@ struct KnownKeysTests {
     private static let valuation = Valuation(
         account: "directa", date: "2026-09-30", balance: d("1"), cash: d("312.1"), positions: [position],
         flow: d("1500"), note: "n", source: .manual)
+    private static let trade = Trade(
+        account: "directa", date: "2026-03-12", id: "k3q7vz2m", type: .buy, instrument: "vwce", quantity: 10,
+        price: d("127.35"), currency: .eur, amount: d("-1278.5"), fees: 5, tax: 0, cost: 1, ratio: 1, note: "n",
+        source: .manual)
     private static let summary = HeadlineSummary(confidence: d("0.9"), earliestAge: 54, successAtTarget: d("0.86"),
                                                  fiProgress: d("0.41"))
     private static let format = ImportFormat(
@@ -54,7 +58,8 @@ struct KnownKeysTests {
                     isin: "X", ticker: "V", tax: InstrumentTax(govBondShare: 0), priceSource: PriceSource(provider: .yahoo, symbol: "V")),
          Instrument.knownKeys),
         (PriceSource(provider: .yahoo, symbol: "V"), PriceSource.knownKeys),
-        (MonthFile(month: "2026-09"), MonthFile.knownKeys),
+        (MonthFile(month: "2026-09", trades: [trade]), MonthFile.knownKeys),
+        (trade, Trade.knownKeys),
         (valuation, Valuation.knownKeys),
         (position, Position.knownKeys),
         (PriceRecord(instrument: "vwce", date: "2026-09-30", price: 1, currency: .eur, source: .yahoo), PriceRecord.knownKeys),

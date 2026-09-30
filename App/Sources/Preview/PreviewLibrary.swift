@@ -8,11 +8,11 @@ import Tracker
 // file or keep it in step by hand.
 
 /// A made-up library for SwiftUI previews, built in code: ten accounts
-/// (current, savings, a broker with ETF shares, a bitcoin wallet, gold
-/// coins, a pension fund, TFR, a home and its mortgage, and a closed bank
-/// account), month-end check-ins from October 2025 to September 2026, two
-/// plans, an import profile, a baseline and the headlines recorded at each
-/// check-in.
+/// (current, savings, a broker that records trades of an ETF, a bitcoin
+/// wallet, gold coins, a pension fund, TFR, a home and its mortgage, and a
+/// closed bank account), month-end check-ins from October 2025 to September
+/// 2026, the broker's trades, two plans, an import profile, a baseline and
+/// the headlines recorded at each check-in.
 ///
 /// Use it through `AppModel.preview()` / `.previewEnvironment()`, or directly
 /// for chart previews (`PreviewLibrary.valuator`).
@@ -72,6 +72,7 @@ enum PreviewLibrary {
             opened: "2021-03-01",
             institution: "Directa SIM",
             country: "IT",
+            valuation: .trades,
             tax: AccountTax(wrapper: "it.ordinary"),
             tags: ["fire"]),
         Account(
@@ -200,7 +201,7 @@ enum PreviewLibrary {
         balance("casa", "2025-10-31", "305000", source: .`import`),
         balance("conto-deposito", "2025-10-31", "15000", source: .`import`),
         balance("conto-fineco", "2025-10-31", "4820.3", source: .`import`),
-        holdings("directa", "2025-10-31", cash: "215.4", positions: [position("vwce", "338")], source: .`import`),
+        cash("directa", "2025-10-31", "215.4", source: .`import`),
         balance("fondo-pensione", "2025-10-31", "16120", source: .`import`),
         holdings("gold-coins", "2025-10-31", positions: [position("gold", "62.2", cost: "5210")], source: .`import`),
         holdings("ledger-wallet", "2025-10-31", positions: [position("btc", "0.4215")], source: .`import`),
@@ -209,57 +210,83 @@ enum PreviewLibrary {
         balance("tfr", "2025-10-31", "8100", source: .`import`),
         balance("conto-deposito", "2025-11-30", "15031.25", flow: "0"),
         balance("conto-fineco", "2025-11-30", "6105.75", flow: "1285.45", note: "includes 850 moved from Old bank"),
-        holdings("directa", "2025-11-30", cash: "188.9", positions: [position("vwce", "348")], flow: "1267.5"),
+        cash("directa", "2025-11-30", "188.9", flow: "1267.5"),
         balance("mutuo-casa", "2025-11-30", "-147550", flow: "650"),
         balance("conto-deposito", "2025-12-31", "15562.1", flow: "500"),
         balance("conto-fineco", "2025-12-31", "3950.4", flow: "-2155.35"),
-        holdings("directa", "2025-12-31", cash: "402.15", positions: [position("vwce", "358", cost: "39850")], flow: "1523.75"),
+        cash("directa", "2025-12-31", "402.15", flow: "1523.75"),
         balance("fondo-pensione", "2025-12-31", "16850.4", flow: "1325"),
         balance("mutuo-casa", "2025-12-31", "-146900", flow: "650"),
         balance("tfr", "2025-12-31", "8420.55", flow: "310"),
         balance("conto-deposito", "2026-01-31", "15594.5", flow: "0"),
         balance("conto-fineco", "2026-01-31", "5210.85", flow: "1260.45"),
-        holdings("directa", "2026-01-31", cash: "256.8", positions: [position("vwce", "368")], flow: "1180.65"),
+        cash("directa", "2026-01-31", "256.8", flow: "1180.65"),
         balance("mutuo-casa", "2026-01-31", "-146250", flow: "650"),
         balance("conto-deposito", "2026-02-28", "15626.95", flow: "0"),
         balance("conto-fineco", "2026-02-28", "4780.2", flow: "-430.65"),
-        holdings("directa", "2026-02-28", cash: "310.45", positions: [position("vwce", "378")], flow: "1355.65"),
+        cash("directa", "2026-02-28", "310.45", flow: "1355.65"),
         balance("mutuo-casa", "2026-02-28", "-145600", flow: "650"),
         balance("conto-deposito", "2026-03-31", "16159.5", flow: "500"),
         balance("conto-fineco", "2026-03-31", "5530.1", flow: "749.9"),
-        holdings("directa", "2026-03-31", cash: "150.2", positions: [position("vwce", "388", cost: "42510")], flow: "1118.25"),
+        cash("directa", "2026-03-31", "150.2", flow: "1118.25"),
         balance("fondo-pensione", "2026-03-31", "17480.9", flow: "1325"),
         holdings("gold-coins", "2026-03-31", positions: [position("gold", "93.3", cost: "8236.03")], flow: "3026.03", note: "bought a 1 oz coin"),
         holdings("ledger-wallet", "2026-03-31", positions: [position("btc", "0.4515")], flow: "2402.27"),
         balance("mutuo-casa", "2026-03-31", "-144950", flow: "650"),
         balance("conto-deposito", "2026-04-30", "16193.15", flow: "0"),
         balance("conto-fineco", "2026-04-30", "4410.65", flow: "-1119.45"),
-        holdings("directa", "2026-04-30", cash: "1480.6", positions: [position("vwce", "391")], flow: "1726.1"),
+        cash("directa", "2026-04-30", "1480.6", flow: "1726.1"),
         balance("mutuo-casa", "2026-04-30", "-144300", flow: "650"),
         balance("conto-deposito", "2026-05-31", "16226.85", flow: "0"),
         balance("conto-fineco", "2026-05-31", "5890.3", flow: "1479.65"),
-        holdings("directa", "2026-05-31", cash: "402.9", positions: [position("vwce", "401")], flow: "259.3"),
+        cash("directa", "2026-05-31", "402.9", flow: "259.3"),
         balance("mutuo-casa", "2026-05-31", "-143650", flow: "650"),
         balance("casa", "2026-06-30", "312000", note: "estimate from listings nearby"),
         balance("conto-deposito", "2026-06-30", "16760.65", flow: "500"),
         balance("conto-fineco", "2026-06-30", "6240.95", flow: "350.65"),
-        holdings("directa", "2026-06-30", cash: "290.35", positions: [position("vwce", "411", cost: "46320")], flow: "1228.95"),
+        cash("directa", "2026-06-30", "290.35", flow: "1228.95"),
         balance("fondo-pensione", "2026-06-30", "17990.35", flow: "1325"),
         balance("mutuo-casa", "2026-06-30", "-143000", flow: "650"),
         balance("tfr", "2026-06-30", "10760.2", flow: "2242.5"),
         balance("conto-deposito", "2026-07-31", "16795.55", flow: "0"),
         balance("conto-fineco", "2026-07-31", "3980.4", flow: "-2260.55"),
-        holdings("directa", "2026-07-31", cash: "1452.7", positions: [position("vwce", "402.5")], flow: "-0.45"),
+        cash("directa", "2026-07-31", "1452.7", flow: "-0.45"),
         balance("mutuo-casa", "2026-07-31", "-142350", flow: "650"),
         balance("conto-deposito", "2026-08-31", "16830.5", flow: "0"),
         balance("conto-fineco", "2026-08-31", "4515.2", flow: "534.8"),
-        holdings("directa", "2026-08-31", cash: "300.8", positions: [position("vwce", "412.5")], flow: "200.6"),
+        cash("directa", "2026-08-31", "300.8", flow: "200.6"),
         balance("mutuo-casa", "2026-08-31", "-141700", flow: "650"),
         balance("conto-deposito", "2026-09-30", "17365.55", flow: "500"),
         balance("conto-fineco", "2026-09-30", "4210.55", flow: "-304.65"),
-        holdings("directa", "2026-09-30", cash: "312.1", positions: [position("vwce", "412.5", cost: "48200")], flow: "11.3"),
+        cash("directa", "2026-09-30", "312.1", flow: "11.3"),
         balance("fondo-pensione", "2026-09-30", "18450.12", flow: "1325", note: "from Q3 statement"),
         balance("mutuo-casa", "2026-09-30", "-141050", flow: "650"),
+    ]
+
+    /// Directa's trades: an opening, monthly deposits and buys of VWCE, and a sale in July.
+    static let trades: [Trade] = [
+        Trade(account: "directa", date: "2025-10-31", id: "puxzhjme", type: .opening, instrument: "vwce",
+              quantity: 338, cost: d("38251.63"), note: "valore di carico from the statement", source: .`import`),
+        deposit("2025-11-04", "icl5ynvm", "1267.5"),
+        buy("2025-11-12", "rqznubop", "10", "128.9"),
+        deposit("2025-12-03", "q64lxyd4", "1523.75"),
+        buy("2025-12-10", "y7hg7yl3", "10", "130.55"),
+        deposit("2026-01-07", "lsd74bp4", "1180.65"),
+        buy("2026-01-14", "4i6ropfm", "10", "132.1"),
+        deposit("2026-02-04", "mndvn4hx", "1355.65"),
+        buy("2026-02-11", "ufj457x7", "10", "129.7"),
+        deposit("2026-03-04", "qjmx4d5o", "1118.25"),
+        buy("2026-03-12", "ody4ieol", "10", "127.35"),
+        deposit("2026-04-03", "6tolmwxn", "1726.1"),
+        buy("2026-04-15", "jrkg56ll", "3", "131.4", fees: "1.5"),
+        deposit("2026-05-05", "liuzqcoo", "259.3"),
+        buy("2026-05-13", "bzcnj6j5", "10", "133.2"),
+        deposit("2026-06-03", "gvu5sszm", "1228.95"),
+        buy("2026-06-10", "xpvaum4h", "10", "133.65"),
+        Trade(account: "directa", date: "2026-07-14", id: "27jvxijw", type: .sell, instrument: "vwce",
+              quantity: d("8.5"), price: d("144.56"), amount: d("1162.8"), fees: 5, tax: d("60.95")),
+        deposit("2026-08-04", "rkbyjhkx", "200.6"),
+        buy("2026-08-12", "q4nkf6gi", "10", "134.75"),
     ]
 
     // MARK: Plans and projections
@@ -586,6 +613,9 @@ enum PreviewLibrary {
         for valuation in valuations {
             library.upsert(valuation)
         }
+        for trade in trades {
+            library.upsert(trade)
+        }
         return library
     }
 
@@ -605,6 +635,21 @@ enum PreviewLibrary {
                                  flow: String? = nil, note: String? = nil, source: DataSource? = nil) -> Valuation {
         Valuation(account: account, date: CalendarDate(date)!, cash: cash.map(d), positions: positions,
                   flow: flow.map(d), note: note, source: source)
+    }
+
+    private static func cash(_ account: AccountID, _ date: String, _ cash: String, flow: String? = nil,
+                             source: DataSource? = nil) -> Valuation {
+        Valuation(account: account, date: CalendarDate(date)!, cash: d(cash), flow: flow.map(d), source: source)
+    }
+
+    private static func deposit(_ date: String, _ id: TradeID, _ amount: String) -> Trade {
+        Trade(account: "directa", date: CalendarDate(date)!, id: id, type: .deposit, amount: d(amount))
+    }
+
+    private static func buy(_ date: String, _ id: TradeID, _ quantity: String, _ price: String,
+                            fees: String = "5") -> Trade {
+        Trade(account: "directa", date: CalendarDate(date)!, id: id, type: .buy, instrument: "vwce",
+              quantity: d(quantity), price: d(price), fees: d(fees))
     }
 
     private static func position(_ instrument: InstrumentID, _ quantity: String, cost: String? = nil) -> Position {

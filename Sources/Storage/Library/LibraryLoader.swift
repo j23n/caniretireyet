@@ -197,11 +197,13 @@ struct LibraryLoader {
             file.prices = decodeRecords(PriceRecord.self, list: "prices", in: json, path: path)
             file.fx = decodeRecords(FXRecord.self, list: "fx", in: json, path: path)
             file.indices = decodeRecords(IndexRecord.self, list: "indices", in: json, path: path)
+            file.trades = decodeRecords(Trade.self, list: "trades", in: json, path: path)
         }
         file.valuations = unique(file.valuations, path: path) { "valuations for \($0.account) on \($0.date)" }
         file.prices = unique(file.prices, path: path) { "prices for \($0.instrument) on \($0.date)" }
         file.fx = unique(file.fx, path: path) { "\($0.base)/\($0.quote) rates on \($0.date)" }
         file.indices = unique(file.indices, path: path) { "\($0.index) values on \($0.date)" }
+        file.trades = unique(file.trades, path: path) { "trades \($0.id) of \($0.account) on \($0.date)" }
         file.sortRecords()
         let misplaced = Set(file.misplacedDates).sorted()
         if !misplaced.isEmpty {
@@ -327,12 +329,15 @@ struct LibraryLoader {
     // MARK: References between files
 
     /// Warns about records that refer to accounts, instruments or plans
-    /// that don't exist.
+    /// that don't exist, and about trades that can't be applied as they are
+    /// (see ``checkTrades(in:)``).
     mutating func checkReferences(in library: Library) {
         for (month, file) in library.months {
             let path = LibraryFile.month(month).path
-            let accounts = Set(file.valuations.map(\.account)).filter { library.accounts[$0] == nil }
-            let instruments = Set(file.valuations.flatMap { $0.positions.map(\.instrument) } + file.prices.map(\.instrument))
+            let accounts = Set(file.valuations.map(\.account) + file.trades.map(\.account))
+                .filter { library.accounts[$0] == nil }
+            let instruments = Set(file.valuations.flatMap { $0.positions.map(\.instrument) }
+                + file.prices.map(\.instrument) + file.trades.compactMap(\.instrument))
                 .filter { library.instruments[$0] == nil }
             if !accounts.isEmpty {
                 warn(path, "Refers to accounts that don't exist: \(accounts.sorted().map(\.rawValue).joined(separator: ", ")).")
@@ -349,6 +354,61 @@ struct LibraryLoader {
         }
         if let plan = library.settings.mainPlan, library.plans[plan] == nil {
             warn(LibraryFile.settings.path, "The main plan \"\(plan)\" doesn't exist.")
+        }
+        checkTrades(in: library)
+    }
+
+    /// Warns about trades that can't be applied as they are (docs/TRADES.md,
+    /// "Checks"), in the file of each trade:
+    ///
+    /// - what a record is missing or gets wrong on its own (``Trade/problems``);
+    /// - trades of an account whose holdings don't come from trades, which
+    ///   are left out of its values;
+    /// - a sell or transfer out of more than the account holds then;
+    /// - a trade dated before the account opened or after it closed;
+    /// - a valuation of a trades account with a balance, which isn't used.
+    ///
+    /// Every trade is still loaded; nothing is dropped.
+    mutating func checkTrades(in library: Library) {
+        func path(_ date: CalendarDate) -> String { LibraryFile.month(date.yearMonth).path }
+        func describe(_ trade: Trade) -> String {
+            let what = trade.instrument.map { " of \($0)" } ?? ""
+            return "The \(trade.type.rawValue)\(what) in \(trade.account) on \(trade.date) (\(trade.id))"
+        }
+
+        let trades = library.allTrades
+        for trade in trades {
+            for problem in trade.problems {
+                warn(path(trade.date), "\(describe(trade)): \(problem.message)")
+            }
+        }
+        for (accountID, accountTrades) in Dictionary(grouping: trades, by: \.account).sorted(by: { $0.key < $1.key }) {
+            guard let account = library.accounts[accountID] else { continue }
+            guard account.recordsTrades else {
+                for file in Set(accountTrades.map { path($0.date) }).sorted() {
+                    warn(file, "\(account.id) records \(account.valuationMode.rawValue), not trades, so its trades "
+                        + "here are left out of its values. Set \"valuation\": \"trades\" on the account to use them.")
+                }
+                continue
+            }
+            var held = HeldQuantities()
+            for trade in accountTrades.inProcessingOrder() {
+                if let short = held.apply(trade), let instrument = trade.instrument {
+                    let before = max(0, held[instrument] + (trade.quantity ?? 0))
+                    warn(path(trade.date), "\(describe(trade)) takes away \(short.fileString) more than the account "
+                        + "held then (\(before.fileString)). Is a buy or an opening missing, or the date wrong?")
+                }
+                if trade.date < account.opened {
+                    warn(path(trade.date), "\(describe(trade)) is dated before the account opened (\(account.opened)).")
+                } else if let closed = account.closed, trade.date > closed {
+                    warn(path(trade.date), "\(describe(trade)) is dated after the account closed (\(closed)).")
+                }
+            }
+        }
+        for valuation in library.allValuations where valuation.balance != nil {
+            guard let account = library.accounts[valuation.account], account.recordsTrades else { continue }
+            warn(path(valuation.date), "The valuation of \(account.id) on \(valuation.date) has a balance, but the "
+                + "account's holdings come from its trades: record its cash instead. The balance isn't used.")
         }
     }
 

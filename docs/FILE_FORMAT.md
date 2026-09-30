@@ -1,4 +1,4 @@
-# Library file format (v1)
+# Library file format (v2)
 
 The library is a folder. Everything the app knows is stored in it. If you delete the app and keep the folder, nothing is lost.
 
@@ -29,7 +29,7 @@ Can I Retire Yet/                   ← the app's folder in iCloud Drive
 │   ├── vwce.json
 │   ├── btc.json
 │   └── gold.json
-├── history/
+├── history/                        valuations, trades, prices, FX rates and inflation by month
 │   ├── 2025/
 │   │   ├── 2025-11.json
 │   │   └── 2025-12.json
@@ -69,7 +69,7 @@ Can I Retire Yet/                   ← the app's folder in iCloud Drive
   "baseCurrency": "EUR",
   "mainPlan": "base",
   "person": { "birthDate": "1988-04-12", "name": "Me" },
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "taxResidence": "IT"
 }
 ```
@@ -80,7 +80,7 @@ Settings that belong to one device, such as reminder times and UI state, are sto
 
 ## `accounts/<id>.json`
 
-A brokerage account that holds positions:
+A brokerage account whose holdings come from its trades ([TRADES.md](TRADES.md)):
 
 ```json
 {
@@ -92,7 +92,8 @@ A brokerage account that holds positions:
   "name": "Directa",
   "opened": "2021-03-01",
   "tags": ["fire"],
-  "tax": { "wrapper": "it.ordinary" }
+  "tax": { "wrapper": "it.ordinary" },
+  "valuation": "trades"
 }
 ```
 
@@ -135,7 +136,7 @@ A closed account:
 | `opened` | yes | The first day the account counts toward net worth. |
 | `closed` | no | The last day it counts. Absent while the account is active. |
 | `institution`, `country` | no | The bank or broker, and its country. The tax system may use the country, e.g. Italy's higher wealth-tax rate for blacklisted countries. So does the RW helper, which lists the foreign accounts you have to declare. |
-| `valuation` | no | `balance` or `holdings`. The default depends on `kind`: brokerage, crypto and metals default to holdings. |
+| `valuation` | no | `balance`, `holdings` or `trades`. The default depends on `kind`: brokerage, crypto and metals default to holdings. With `trades`, the account's holdings, purchase cost and cash come from its trades, and its valuations record only cash ([TRADES.md](TRADES.md)). |
 | `assetClasses` | no | The asset mix of an account recorded as a balance, used by the planner. Defaults by kind: cash and savings → `cash`, property → `realEstate`. |
 | `tax` | no | How the planner taxes this account. `wrapper` names a wrapper defined by a tax system (for Italy: `it.ordinary`, `it.pensionFund`, `it.tfr`) or a generic one (`taxable`, `taxDeferred`, `taxFree`). Wrapper-specific details follow. See [TAXES.md](TAXES.md). |
 | `includeIn` | no | `{ "netWorth": true, "plan": true }`. A primary home would normally set `"plan": false`. |
@@ -206,7 +207,7 @@ For `coingecko`, `symbol` is the coin's CoinGecko ID (`ethereum`, from its page 
 
 ## `history/YYYY/YYYY-MM.json`
 
-One file per calendar month. It holds the account valuations, prices, FX rates and inflation-index values dated in that month.
+One file per calendar month. It holds the account valuations, trades, prices, FX rates and inflation-index values dated in that month.
 
 ```json
 {
@@ -224,13 +225,7 @@ One file per calendar month. It holds the account valuations, prices, FX rates a
   ],
   "valuations": [
     { "account": "conto-fineco", "balance": "4210.55", "date": "2026-09-30", "flow": "-310.2" },
-    {
-      "account": "directa",
-      "cash": "312.1",
-      "date": "2026-09-30",
-      "flow": "1500",
-      "positions": [{ "costBasis": "48200", "instrument": "vwce", "quantity": "412.5" }]
-    },
+    { "account": "directa", "cash": "312.1", "date": "2026-09-30", "flow": "11.3" },
     { "account": "fondo-pensione", "balance": "18450.12", "date": "2026-09-30", "flow": "1325", "note": "from Q3 statement" },
     { "account": "gold-coins", "date": "2026-09-30", "positions": [{ "instrument": "gold", "quantity": "62.2" }] },
     { "account": "ledger-wallet", "date": "2026-09-30", "positions": [{ "instrument": "btc", "quantity": "0.4215" }] }
@@ -238,15 +233,33 @@ One file per calendar month. It holds the account valuations, prices, FX rates a
 }
 ```
 
-(The numbers above are made up.)
+(The numbers above are made up.) Directa records trades, so its valuation holds only its cash; its trades are in a `trades` list, left out when there are none, as in this month. From the example library's August:
+
+```json
+"trades": [
+  { "account": "directa", "amount": "200.6", "date": "2026-08-04", "id": "rkbyjhkx", "type": "deposit" },
+  {
+    "account": "directa",
+    "date": "2026-08-12",
+    "fees": "5",
+    "id": "q4nkf6gi",
+    "instrument": "vwce",
+    "price": "134.75",
+    "quantity": "10",
+    "type": "buy"
+  }
+]
+```
+
+The fields and types of a trade, and how holdings, cost and cash are worked out from them, are in [TRADES.md](TRADES.md#trades-in-the-files).
 
 Rules:
 
 - **Which file.** A record's date decides its file: `2026-09-30` goes in `history/2026/2026-09.json`.
-- **Uniqueness.** There is at most one valuation per account per date, one price per instrument per date, one FX rate per currency pair per date, and one value per index per date.
-- **Two kinds of valuation.** A valuation holds either a `balance` (one amount in the account's currency, negative for debts) or `positions` plus optional `cash`. An account can switch between them over time. For example, the imported history can be balances and later check-ins can have positions.
+- **Uniqueness.** There is at most one valuation per account per date, one price per instrument per date, one FX rate per currency pair per date, and one value per index per date. Trades are keyed by account, date and their `id`, so an account can have several on one day.
+- **Two kinds of valuation.** A valuation holds either a `balance` (one amount in the account's currency, negative for debts) or `positions` plus optional `cash`. An account can switch between them over time. For example, the imported history can be balances and later check-ins can have positions. An account that records trades (`"valuation": "trades"`) records only `cash`: positions listed in its valuation are a check against its trades, and a balance isn't used ([TRADES.md](TRADES.md)).
 - **Cost basis.** `costBasis` is optional: the total purchase cost of a position in the account's currency (Italian brokers show it as *valore di carico*). The planner uses it to estimate the tax due when you sell. Where it's missing, the plan asks for an estimate instead. It matters most for physical gold: if you can't document the purchase price, Italy taxes the whole sale price.
-- **Flow.** `flow` is optional: the net money added (+) or taken out (−) since the account's previous valuation, in the account's currency. The check-in fills it in from defaults that depend on the kind of account, and you can edit it (see [PROGRESS.md](PROGRESS.md#data-this-needs-from-day-one)). A missing flow means unknown. The sum of all flows over a period is what you actually saved.
+- **Flow.** `flow` is optional: the net money added (+) or taken out (−) since the account's previous valuation, in the account's currency. The check-in fills it in from defaults that depend on the kind of account, and you can edit it (see [PROGRESS.md](PROGRESS.md#data-this-needs-from-day-one)). A missing flow means unknown. The sum of all flows over a period is what you actually saved. An account that records trades gets its flows from its trades and cash, and its `flow` is written for the record ([TRADES.md](TRADES.md#flows)).
 - **FX direction.** FX rates follow the ECB convention: 1 `base` = `rate` × `quote`.
 - **Sources.** `source` is optional and says where a record's values came from: `manual` (typed in), `import` (a spreadsheet), `ledger` (a journal), or the service that answered: `yahoo`, `coingecko`, `gold-api`, `ecb`, `eurostat`. Prices, rates and index values fetched for past dates (*Fill In Past Prices*, `retire prices --fill-history`) are ordinary records dated the day they're for, with the source of the service that answered, as usual: gold priced from Yahoo Finance's `GC=F` futures has `"source": "yahoo"` although its instrument's `priceSource` is `gold-api`. Filling in only adds records for dates that have none; it never replaces one, whatever its source.
 - **Indices.** `indices` holds consumer-price-index values (`hicp-it`: Italy's all-items HICP from Eurostat, 2015 = 100). They're used to express history in today's euros and to compute real returns. A monthly value is dated the last day of the month it measures and stored in that month's file, even when it's published and fetched later.
@@ -261,6 +274,8 @@ The value of an account on a date **D**:
 3. Convert to the base currency at the latest FX rate on or before D.
 4. Count the account only between its `opened` and `closed` dates.
 
+An account that records trades holds what its trades leave on D, with its cash: the `cash` of its latest valuation on or before D, plus the cash effect of every trade after it ([TRADES.md](TRADES.md#cash)). Steps 2 to 4 are the same.
+
 **Net worth** on D is the sum over all accounts included in net worth.
 
 **Staleness.** An account whose latest valuation is more than about 45 days old is flagged in the Overview. The threshold is a setting of the app, not of the library.
@@ -270,6 +285,7 @@ The value of an account on a date **D**:
 - **The flow is known** (every valuation in the period has a `flow`, or there was no new valuation): new money is the flow, and market is the rest. For accounts that hold positions and use the default flow, market is then the old quantity × price change, including FX. A lower flow, e.g. for reinvested dividends, or a purchase below the check-in price counts as market.
 - **Positions, flow unknown:** market is the old quantity × price change, including FX; new money is everything else, meaning changes in quantity and in cash.
 - **Balance, flow unknown:** the change can't be split. Only the FX movement of the old balance counts as market, and the rest is other.
+- **Trades:** new money is the account's deposits, withdrawals, transfers at market value, and residuals (cash typed at a check-in that the trades don't explain), each at its date; market is the rest, including dividends, interest and fees ([TRADES.md](TRADES.md#flows)).
 
 An account that closes during the period ends at zero: its value on the closing day leaves as new money.
 
@@ -292,7 +308,7 @@ When two devices change the same file before it syncs, iCloud keeps both version
 
 | File | MVP (M1) | Later (M3) |
 | --- | --- | --- |
-| `history/…`, `projections/…/headlines/…` | All records from both versions, matched by key: account + date, instrument + date, currency pair + date, index + date, or check-in date. If both versions changed the same record, the more recently modified file wins. | Three-way merge record by record, using the device's last-synced copy as the common base. This also makes deletions merge correctly. |
+| `history/…`, `projections/…/headlines/…` | All records from both versions, matched by key: account + date, account + date + trade ID, instrument + date, currency pair + date, index + date, or check-in date. If both versions changed the same record, the more recently modified file wins. | Three-way merge record by record, using the device's last-synced copy as the common base. This also makes deletions merge correctly. |
 | All other files | The more recently modified version wins. | Three-way merge field by field. |
 
 Merges are listed on the Sync screen so you can check them.
@@ -315,6 +331,7 @@ A file that couldn't be read when the library loaded (it isn't valid JSON, or do
 ## Versioning
 
 - `schemaVersion` starts at 1. Adding optional fields doesn't change it. Anything else is a new version with a migration.
+- Version 2 lets accounts record trades (`"valuation": "trades"`, `trades` in the history files). An app that knows only version 1 would value such an account without its holdings, so it opens the library read-only. The migration from 1 changes nothing but `schemaVersion`.
 - Before migrating, the app copies the library into `backups/<yyyy-MM-dd>-v<old>/`. A migration step works on the raw JSON of every file, and nothing is written unless every step succeeds.
 - An app older than the library opens it read-only: it loads, and every save is refused.
 - A library older than the app is migrated before the app saves anything to it.

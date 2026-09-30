@@ -11,17 +11,24 @@
     { "currency": "EUR", "date": "2025-10-31", "instrument": "gold", "price": "92.1", "source": "gold-api" },
     { "currency": "EUR", "date": "2025-10-31", "instrument": "vwce", "price": "128.1", "source": "yahoo" }
   ],
+  "trades": [
+    {
+      "account": "directa",
+      "cost": "38251.63",
+      "date": "2025-10-31",
+      "id": "puxzhjme",
+      "instrument": "vwce",
+      "note": "valore di carico from the statement",
+      "quantity": "338",
+      "source": "import",
+      "type": "opening"
+    }
+  ],
   "valuations": [
     { "account": "casa", "balance": "305000", "date": "2025-10-31", "source": "import" },
     { "account": "conto-deposito", "balance": "15000", "date": "2025-10-31", "source": "import" },
     { "account": "conto-fineco", "balance": "4820.3", "date": "2025-10-31", "source": "import" },
-    {
-      "account": "directa",
-      "cash": "215.4",
-      "date": "2025-10-31",
-      "positions": [{ "instrument": "vwce", "quantity": "338" }],
-      "source": "import"
-    },
+    { "account": "directa", "cash": "215.4", "date": "2025-10-31", "source": "import" },
     { "account": "fondo-pensione", "balance": "16120", "date": "2025-10-31", "source": "import" },
     {
       "account": "gold-coins",

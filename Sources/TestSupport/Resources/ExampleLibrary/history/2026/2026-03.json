@@ -11,16 +11,23 @@
     { "currency": "EUR", "date": "2026-03-31", "instrument": "gold", "price": "97.3", "source": "gold-api" },
     { "currency": "EUR", "date": "2026-03-31", "instrument": "vwce", "price": "127.85", "source": "yahoo" }
   ],
+  "trades": [
+    { "account": "directa", "amount": "1118.25", "date": "2026-03-04", "id": "qjmx4d5o", "type": "deposit" },
+    {
+      "account": "directa",
+      "date": "2026-03-12",
+      "fees": "5",
+      "id": "ody4ieol",
+      "instrument": "vwce",
+      "price": "127.35",
+      "quantity": "10",
+      "type": "buy"
+    }
+  ],
   "valuations": [
     { "account": "conto-deposito", "balance": "16159.5", "date": "2026-03-31", "flow": "500" },
     { "account": "conto-fineco", "balance": "5530.1", "date": "2026-03-31", "flow": "749.9" },
-    {
-      "account": "directa",
-      "cash": "150.2",
-      "date": "2026-03-31",
-      "flow": "1118.25",
-      "positions": [{ "costBasis": "42510", "instrument": "vwce", "quantity": "388" }]
-    },
+    { "account": "directa", "cash": "150.2", "date": "2026-03-31", "flow": "1118.25" },
     { "account": "fondo-pensione", "balance": "17480.9", "date": "2026-03-31", "flow": "1325" },
     {
       "account": "gold-coins",

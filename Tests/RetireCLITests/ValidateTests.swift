@@ -8,7 +8,7 @@ struct ValidateTests {
         #expect(run.status == 0, "\(run.all)")
         #expect(run.output == """
             Library \(library.path)
-              Format version  1 (current)
+              Format version  2 (current)
               Read-only       no
               Files read      31
               Contents        10 accounts (1 closed), 3 instruments, 12 months of history (2025-10 to 2026-09), \
@@ -106,7 +106,7 @@ struct ValidateTests {
         let run = await retire(["validate", "--library", library.path, "--json"])
         #expect(run.status == 1)
         let json = try parseJSON(run.output)
-        #expect(json["schemaVersion"] as? Int == 1)
+        #expect(json["schemaVersion"] as? Int == 2)
         #expect(json["readOnly"] as? Bool == false)
         #expect(json["errors"] as? Int == 1)
         #expect(json["warnings"] as? Int == 5)
@@ -117,12 +117,36 @@ struct ValidateTests {
 
     @Test func aNewerLibraryIsReadOnly() async throws {
         let library = try TemporaryFolder.exampleLibrary()
-        let settings = try library.text("library.json").replacingOccurrences(of: #""schemaVersion": 1"#,
-                                                                              with: #""schemaVersion": 2"#)
+        let settings = try library.text("library.json").replacingOccurrences(of: #""schemaVersion": 2"#,
+                                                                              with: #""schemaVersion": 3"#)
         try library.write("library.json", settings)
         let run = await retire(["validate", "--library", library.path])
-        #expect(run.output.contains("  Format version  2, newer than this version understands (1)\n"))
+        #expect(run.output.contains("  Format version  3, newer than this version understands (2)\n"))
         #expect(run.output.contains("  Read-only       yes: update the app to make changes\n"))
+    }
+
+    @Test func tradesThatNeedMoreThanTheirFileAreChecked() async throws {
+        let library = try TemporaryFolder.exampleLibrary()
+        // A statement listing one VWCE too few, and a sale of more than Directa holds.
+        var september = try library.text("history/2026/2026-09.json")
+        september = september.replacingOccurrences(
+            of: #"{ "account": "directa", "cash": "312.1", "date": "2026-09-30", "flow": "11.3" }"#,
+            with: #"{ "account": "directa", "cash": "312.1", "date": "2026-09-30", "flow": "11.3", "#
+                + #""positions": [{ "instrument": "vwce", "quantity": "411.5" }] }"#)
+        september = september.replacingOccurrences(of: "  \"valuations\": [\n", with: """
+              "trades": [
+                { "account": "directa", "amount": "60000", "date": "2026-09-29", "id": "toomuch1", "instrument": "vwce", "quantity": "500", "type": "sell" }
+              ],
+              "valuations": [
+
+            """)
+        try library.write("history/2026/2026-09.json", september)
+        let run = await retire(["validate", "--library", library.path])
+        #expect(run.output.contains("warning The sell of vwce in directa on 2026-09-29 (toomuch1) takes away 87.5 "
+            + "more than the account held then (412.5). Is a buy or an opening missing, or the date wrong?"),
+                "\(run.all)")
+        #expect(run.output.contains("warning directa: The valuation on 2026-09-30 lists 411.5 vwce, but the trades "
+            + "give -87.5. Is a trade missing or wrong?"), "\(run.all)")
     }
 
     @Test func aFolderWithoutALibrary() async throws {

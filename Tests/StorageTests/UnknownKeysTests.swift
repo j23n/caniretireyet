@@ -156,7 +156,7 @@ struct UnknownKeysTests {
             {
               "baseCurrency": "EUR",
               "person": { "birthDate": "1988-04-12", "name": "Alex Example", "nickname": "Al" },
-              "schemaVersion": 1,
+              "schemaVersion": 2,
               "theme": "dark"
             }
             """)
@@ -168,7 +168,7 @@ struct UnknownKeysTests {
             {
               "baseCurrency": "EUR",
               "person": { "name": "Alex", "nickname": "Al" },
-              "schemaVersion": 1,
+              "schemaVersion": 2,
               "theme": "dark"
             }
 

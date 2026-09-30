@@ -87,7 +87,10 @@ extension Valuator {
     /// check-in", there are fewer than two check-ins).
     public func dateRange(of period: PerformancePeriod, for subject: PerformanceSubject,
                           asOf date: CalendarDate) -> ClosedRange<CalendarDate>? {
-        let dates = Set(performanceCandidates(for: subject).flatMap { valuations(for: $0.id).map(\.date) })
+        let candidates = performanceCandidates(for: subject)
+        // A trades account's history starts with its first trade.
+        let firstTrades = candidates.compactMap { ledgers[$0.id]?.firstDate }
+        let dates = Set(candidates.flatMap { valuations(for: $0.id).map(\.date) } + firstTrades)
             .filter { $0 <= date }.sorted()
         guard let first = dates.first else { return nil }
         let start: CalendarDate
@@ -131,6 +134,12 @@ extension Valuator {
     /// valuation has none (such as a home that is never given flows). So are
     /// accounts whose value is incomplete. Debts are left out of the
     /// portfolio and asset classes.
+    ///
+    /// A trades account's flows are its ``TradeFlow``s (its stored `flow`s
+    /// aren't used): deposits, withdrawals and transfers weighted from their
+    /// own dates, and residuals from halfway between the valuation and the
+    /// one with cash before it. Its flows are always known, unless a
+    /// transfer can't be valued (then it's incomplete).
     public func performance(of subject: PerformanceSubject, from start: CalendarDate, to end: CalendarDate,
                             inflation: InflationIndex? = nil) -> PerformanceResult? {
         guard start < end else { return nil }
@@ -156,7 +165,16 @@ extension Valuator {
             let flows = valuations(for: account.id).filter { $0.date > start && $0.date <= last }
             // A balance carried into the period without a flow was never explained.
             let carried = account.isOpen(on: end) ? latestValuation(for: account.id, onOrBefore: end) : nil
-            if flows.contains(where: { $0.flow == nil })
+            if account.recordsTrades {
+                // Its flows come from its trades and cash.
+                var problems: [ValuationProblem] = []
+                if tradeFlowsInBaseCurrency(of: account, after: start, through: last, problems: &problems) != nil,
+                   isCompletelyValued(account, on: grid, flows: []) {
+                    included.append(account)
+                } else {
+                    incomplete.append(account.id)
+                }
+            } else if flows.contains(where: { $0.flow == nil })
                 || carried.map({ $0.isBalance && $0.flow == nil && $0.date <= start }) ?? false {
                 unknownFlow.append(account.id)
             } else if !isCompletelyValued(account, on: grid, flows: flows) {
@@ -291,6 +309,7 @@ extension Valuator {
     /// on the closing day leaves as a flow.
     func pieces(of account: Account, from: CalendarDate, to: CalendarDate,
                 splittingBy splitByClass: Bool) -> [PerformancePiece] {
+        if account.recordsTrades { return tradePieces(of: account, from: from, to: to, splittingBy: splitByClass) }
         typealias Kind = ValueComponent.Kind
         func parts(_ valuation: Valuation?, on date: CalendarDate) -> [Kind: Decimal] {
             guard let valuation else { return [:] }
@@ -358,17 +377,102 @@ extension Valuator {
         for kind in Set(atStart.keys).union(atEnd.keys).union(flows.keys) {
             let piece = PerformancePiece(assetClass: nil, start: atStart[kind] ?? 0, end: atEnd[kind] ?? 0,
                                          flow: flows[kind] ?? 0, flowDate: flowDate)
-            guard splitByClass else {
-                pieces.append(piece)
-                continue
+            pieces += classPieces(piece, kind: kind, in: account, splittingBy: splitByClass)
+        }
+        return pieces
+    }
+
+    /// `piece` of one part of an account, split by the part's asset mix
+    /// when `splitByClass`.
+    private func classPieces(_ piece: PerformancePiece, kind: ValueComponent.Kind, in account: Account,
+                             splittingBy splitByClass: Bool) -> [PerformancePiece] {
+        guard splitByClass else { return [piece] }
+        let mix = assetMix(of: kind, in: account)
+        let starts = split(piece.start, by: mix)
+        let ends = split(piece.end, by: mix)
+        let splitFlows = split(piece.flow, by: mix)
+        return mix.indices.map { index in
+            PerformancePiece(assetClass: mix[index].0, start: starts[index].1, end: ends[index].1,
+                             flow: splitFlows[index].1, flowDate: piece.flowDate)
+        }
+    }
+
+    /// A trades account's parts from `from` to `to` (no valuation of the
+    /// account strictly between them, but trades may be).
+    ///
+    /// Values are snapshots. Each flow (``TradeFlow``) is its own piece,
+    /// weighted from its date: deposits, withdrawals and residuals go to
+    /// cash, transfers and openings to their position at their market
+    /// value, and a residual is placed halfway between the valuation and
+    /// the one with cash before it. Units bought or sold move money between
+    /// cash and the position at the end price, weighted as at the end, so
+    /// they add nothing for the account. A closing account's value on the
+    /// closing day leaves as a flow.
+    func tradePieces(of account: Account, from: CalendarDate, to: CalendarDate,
+                     splittingBy splitByClass: Bool) -> [PerformancePiece] {
+        typealias Kind = ValueComponent.Kind
+        func parts(_ valuation: Valuation?, on date: CalendarDate) -> [Kind: Decimal] {
+            guard let valuation else { return [:] }
+            var parts: [Kind: Decimal] = [:]
+            for component in value(of: account, valuation: valuation, on: date).components {
+                parts[component.kind, default: 0] += component.value ?? 0
             }
-            let mix = assetMix(of: kind, in: account)
-            let starts = split(piece.start, by: mix)
-            let ends = split(piece.end, by: mix)
-            let splitFlows = split(piece.flow, by: mix)
-            for index in mix.indices {
-                pieces.append(PerformancePiece(assetClass: mix[index].0, start: starts[index].1, end: ends[index].1,
-                                               flow: splitFlows[index].1, flowDate: flowDate))
+            return parts
+        }
+
+        let openAtStart = account.isOpen(on: from)
+        let openAtEnd = account.isOpen(on: to)
+        guard openAtStart || openAtEnd else { return [] }
+        let end = openAtEnd ? to : max(account.closed ?? to, from)
+        let startSnapshot = openAtStart ? carried(account, on: from) : nil
+        let atStart = parts(startSnapshot, on: from)
+        let atEnd = account.opened <= end ? parts(carried(account, on: end), on: end) : [:]
+        let held = parts(startSnapshot, on: end)
+
+        var problems: [ValuationProblem] = []
+        let flows = tradeFlowsInBaseCurrency(of: account, after: from, through: end, problems: &problems) ?? []
+        var pieces: [PerformancePiece] = []
+
+        // Units bought or sold (not moved in or out) at the end price, paid from cash.
+        var bought: [Kind: Decimal] = [:]
+        for kind in Set(atEnd.keys).union(held.keys) where kind != .cash && kind != .balance {
+            bought[kind] = (atEnd[kind] ?? 0) - (held[kind] ?? 0)
+        }
+        for flow in flows {
+            guard let trade = flow.flow.trade, let instrument = trade.instrument, let quantity = trade.quantity,
+                  trade.type != .deposit, trade.type != .withdrawal
+            else { continue }
+            let moved = marketValue(of: quantity, of: instrument, in: baseCurrency, on: end) ?? flow.amount
+            bought[.position(instrument), default: 0] -= trade.type.removesUnits ? -moved : moved
+        }
+        let spent = bought.values.reduce(0, +)
+
+        for kind in Set(atStart.keys).union(atEnd.keys).union(bought.keys).union([.cash]) {
+            let flow = kind == .cash ? -spent : bought[kind] ?? 0
+            let piece = PerformancePiece(assetClass: nil, start: atStart[kind] ?? 0, end: atEnd[kind] ?? 0,
+                                         flow: flow, flowDate: end)
+            guard piece.start != 0 || piece.end != 0 || piece.flow != 0 else { continue }
+            pieces += classPieces(piece, kind: kind, in: account, splittingBy: splitByClass)
+        }
+        for flow in flows {
+            var kind = Kind.cash
+            if let trade = flow.flow.trade, let instrument = trade.instrument, trade.type != .deposit,
+               trade.type != .withdrawal {
+                kind = .position(instrument)
+            }
+            var date = flow.date
+            if let since = flow.flow.since {
+                date = CalendarDate(daysSinceEpoch: (since.daysSinceEpoch + flow.date.daysSinceEpoch) / 2)
+            }
+            let piece = PerformancePiece(assetClass: nil, start: 0, end: 0, flow: flow.amount,
+                                         flowDate: min(max(date, from), end))
+            pieces += classPieces(piece, kind: kind, in: account, splittingBy: splitByClass)
+        }
+        if !openAtEnd {
+            // Closed in the period: its value on the closing day leaves.
+            for (kind, amount) in atEnd where amount != 0 {
+                let piece = PerformancePiece(assetClass: nil, start: 0, end: -amount, flow: -amount, flowDate: end)
+                pieces += classPieces(piece, kind: kind, in: account, splittingBy: splitByClass)
             }
         }
         return pieces

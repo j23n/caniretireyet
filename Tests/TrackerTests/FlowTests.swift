@@ -37,7 +37,7 @@ struct DefaultFlowTests {
     }
 
     @Test func holdingsCountQuantityChangesAtTheNewPrice() throws {
-        var library = try Fixtures.exampleLibrary()
+        var library = try exampleLibraryWithHoldings()
         library.upsert(PriceRecord(instrument: "vwce", date: "2026-10-31", price: 140, currency: .eur))
         let valuator = Valuator(library: library)
         let bought = Valuation(account: "directa", date: "2026-10-31", cash: d("362.1"),

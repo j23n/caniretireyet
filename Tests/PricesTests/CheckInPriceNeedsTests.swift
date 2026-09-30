@@ -51,6 +51,21 @@ struct CheckInPriceNeedsTests {
         #expect(CheckInPriceNeeds(library: Library(), date: "2026-10-02").indices.first?.months == [])
     }
 
+    @Test func aTradesAccountNeedsWhatItsTradesHold() {
+        var library = NeedsLibrary.make()
+        library.accounts["ibkr"]?.valuation = .trades
+        library.upsert(Trade(account: "ibkr", date: "2026-09-01", id: "a", type: .opening, instrument: "typed-in",
+                             quantity: 3))
+        library.upsert(Trade(account: "ibkr", date: "2026-09-10", id: "b", type: .buy, instrument: "private-fund",
+                             quantity: 1, amount: -100))
+        library.upsert(Trade(account: "ibkr", date: "2026-09-20", id: "c", type: .sell, instrument: "private-fund",
+                             quantity: 1, amount: 101))
+        let needs = CheckInPriceNeeds(library: library, date: "2026-09-30")
+        // Its valuations' positions don't count; the fund was sold again.
+        #expect(needs.instruments.isEmpty)
+        #expect(needs.manualInstruments.contains("typed-in"))
+    }
+
     @Test func onlyOpenAccountsAndHeldPositionsCount() {
         let needs = CheckInPriceNeeds(library: NeedsLibrary.make(), date: "2026-09-30")
         #expect(needs.instruments.map(\.id) == ["aapl"])
