@@ -12,20 +12,31 @@ import Tracker
 /// goes with it. It's made the way the check-in makes one, so flows, what
 /// was paid and purchase costs follow the same rules. Saving without
 /// changes records the account as unchanged, which keeps it up to date.
+///
+/// Any date up to the closing date (or a year from today) works, so it also
+/// fills in history (*Add Past Value…* opens it on a past date). A date
+/// before the account opened moves the opening date back, and the value
+/// after it gets its automatic new money worked out again; the sheet says
+/// both before saving.
 struct UpdateValueSheet: View {
     let accountID: AccountID
+    /// Whether it was opened to add a past value.
+    private let addsPastValue: Bool
 
     @Environment(LibraryStore.self) private var library
     @Environment(\.dismiss) private var dismiss
     @Environment(\.locale) private var locale
 
-    @State private var date = Date()
+    @State private var date: Date
     @State private var input = AccountValuationInput()
     @State private var errorMessage: String?
     @State private var isSaving = false
 
-    init(accountID: AccountID) {
+    /// Opens on `date`, or today.
+    init(accountID: AccountID, date: CalendarDate? = nil) {
         self.accountID = accountID
+        addsPastValue = date != nil
+        _date = State(initialValue: date?.dateValue ?? Date())
     }
 
     var body: some View {
@@ -36,7 +47,7 @@ struct UpdateValueSheet: View {
                 ContentUnavailableView("This account no longer exists", systemImage: "questionmark.folder")
             }
         }
-        .navigationTitle("Update Value")
+        .navigationTitle(addsPastValue ? LocalizedStringKey("Add Past Value") : LocalizedStringKey("Update Value"))
         #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
         #endif
@@ -44,13 +55,20 @@ struct UpdateValueSheet: View {
 
     private func form(for account: Account) -> some View {
         let snapshot = library.library
-        let base = AccountValuationDraft(account: accountID, date: CalendarDate(date, in: .current), library: snapshot)
+        let day = CalendarDate(date, in: .current)
+        let base = AccountValuationDraft(account: accountID, date: day, library: snapshot)
         let draft = input.applied(to: base, isLiability: account.kind.isLiability, locale: locale)
         let review = draft.review(in: snapshot)
         let problems = input.problems(locale: locale) + [draft.missingValue(in: snapshot)].compactMap { $0 }
         return Form {
             Section {
-                DatePicker("Date", selection: $date, in: dateRange(for: account), displayedComponents: .date)
+                DatePicker("Date", selection: $date, in: ...latestDate(for: account), displayedComponents: .date)
+                if let note = AccountValueNotes.openingMove(date: day, account: account, locale: locale) {
+                    AccountsFootnote(note, systemImage: "calendar.badge.clock")
+                }
+                if let note = followUpNote(draft, in: snapshot) {
+                    AccountsFootnote(note, systemImage: "arrow.triangle.2.circlepath")
+                }
                 if let previous = draft.row?.previous {
                     LabeledContent("Last value") {
                         HStack(spacing: Metrics.xs) {
@@ -88,7 +106,7 @@ struct UpdateValueSheet: View {
                 }
             } else {
                 Section {
-                    Text("\(account.name) isn't open on this date. Choose a date between the day it opened and the day it closed.")
+                    Text("\(account.name) was closed before this date. Choose a date up to the day it closed.")
                         .foregroundStyle(Palette.secondaryInk)
                 }
             }
@@ -227,23 +245,34 @@ struct UpdateValueSheet: View {
         value.map { AmountInput.text(for: $0, locale: locale) } ?? ""
     }
 
-    private func dateRange(for account: Account) -> ClosedRange<Date> {
-        let upper = account.closed ?? CalendarDate.today().adding(years: 1)
-        return account.opened.dateValue...max(upper, account.opened).dateValue
+    /// The latest date offered: the closing date, or a year from today.
+    /// Any earlier date works: before the opening date, saving moves it.
+    private func latestDate(for account: Account) -> Date {
+        (account.closed ?? CalendarDate.today().adding(years: 1)).dateValue
+    }
+
+    /// What saving does to the new money of the account's later values, when
+    /// the date is before one of them.
+    private func followUpNote(_ draft: AccountValuationDraft, in library: Library) -> String? {
+        guard library.valuations(for: accountID).contains(where: { $0.date > draft.date }),
+              let valuation = draft.valuation(in: library)
+        else { return nil }
+        return AccountValueNotes.flowFollowUp(library.previewSavingValue(valuation), locale: locale)
     }
 
     /// Saves and waits for the write: the sheet closes only once the value
     /// is in the library's files, and stays open with the error otherwise.
+    /// A date before the opening date moves it back, in the same edit.
     private func save(_ draft: AccountValuationDraft) {
         guard let valuation = draft.valuation(in: library.library) else {
-            errorMessage = draft.missingValue(in: library.library) ?? "The account isn't open on this date."
+            errorMessage = draft.missingValue(in: library.library) ?? "The account was closed before this date."
             return
         }
         isSaving = true
         errorMessage = nil
         Task {
             do {
-                try await library.commit { $0.upsert(valuation) }
+                try await library.saveValue(valuation)
                 dismiss()
             } catch {
                 errorMessage = LibraryStore.describe(error)
@@ -447,6 +476,13 @@ struct EditAccountSheet: View {
 #Preview("Update holdings") {
     NavigationStack {
         UpdateValueSheet(accountID: "directa")
+    }
+    .previewEnvironment()
+}
+
+#Preview("Add a past value") {
+    NavigationStack {
+        UpdateValueSheet(accountID: "conto-deposito", date: "2025-03-31")
     }
     .previewEnvironment()
 }

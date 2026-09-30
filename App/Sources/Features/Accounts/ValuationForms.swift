@@ -22,7 +22,9 @@ struct AccountValuationDraft: Hashable, Sendable {
 
     var date: CalendarDate { draft.date }
 
-    /// The account's row; `nil` when the account isn't open on the date.
+    /// The account's row; `nil` when the account closed before the date. For
+    /// a date before it opened, the row `opensLater`: saving the value moves
+    /// the opening date back (`Library.saveValue(_:replacing:)`).
     var row: CheckInRow? { draft[account] }
 
     /// Changes the account's row.
@@ -44,7 +46,7 @@ struct AccountValuationDraft: Hashable, Sendable {
 
     /// The valuation to save. A row left as it was is saved as unchanged
     /// (the same values, no new money), so the account is up to date. `nil`
-    /// when the account isn't open on the date, or when it has no earlier
+    /// when the account closed before the date, or when it has no earlier
     /// value to keep and none was entered.
     func valuation(in library: Library) -> Valuation? {
         var draft = self.draft
@@ -63,6 +65,44 @@ struct AccountValuationDraft: Hashable, Sendable {
         return row.mode == .balance
             ? "Enter the balance: this account has no earlier value to keep."
             : "Enter the positions or the cash: this account has no earlier value to keep."
+    }
+}
+
+/// What saving one value does besides writing it, in words, for *Update
+/// Value* (and *Add Past Value*) and the valuation editor (UI.md, "Adding
+/// history").
+enum AccountValueNotes {
+    /// "Saving moves the opening date from 30 Sep 2026 to 31 Mar 2024.",
+    /// when `date` is before the day `account` opened; `nil` otherwise.
+    static func openingMove(date: CalendarDate, account: Account, locale: Locale = .current) -> String? {
+        guard date < account.opened else { return nil }
+        return "Saving moves the opening date from \(AmountFormat.mediumDate(account.opened, locale: locale)) "
+            + "to \(AmountFormat.mediumDate(date, locale: locale))."
+    }
+
+    /// What saving does to the new money of the account's other values
+    /// (`edit` from `Library.previewSavingValue(_:replacing:)`): "Saving
+    /// also works out again the new money of the value on 30 Sep 2026."
+    /// for automatic amounts, "The new money of the value on 30 Sep 2026
+    /// was typed in, so it stays as it is." for typed ones. `nil` when no
+    /// other value is concerned.
+    static func flowFollowUp(_ edit: ValueEdit, locale: Locale = .current) -> String? {
+        func dates(_ valuations: [Valuation]) -> String {
+            CheckInStoreError.list(valuations.map { AmountFormat.mediumDate($0.date, locale: locale) })
+        }
+        func values(_ count: Int) -> String { count == 1 ? "value" : "values" }
+        var sentences: [String] = []
+        let recomputed = edit.flows.recomputed
+        if !recomputed.isEmpty {
+            sentences.append("Saving also works out again the new money of the \(values(recomputed.count)) on "
+                + "\(dates(recomputed)).")
+        }
+        let kept = edit.flows.kept
+        if !kept.isEmpty {
+            sentences.append("The new money of the \(values(kept.count)) on \(dates(kept)) was typed in, "
+                + "so it stays as it is.")
+        }
+        return sentences.isEmpty ? nil : sentences.joined(separator: " ")
     }
 }
 

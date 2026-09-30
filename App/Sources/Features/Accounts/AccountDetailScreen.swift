@@ -4,8 +4,9 @@ import Tracker
 
 /// One account (UI.md, "Account detail"): its value and change, a history
 /// chart with new-money ticks, the positions of a holdings account, the
-/// editable list of valuations, the details, and closing, reopening and
-/// deleting. On the Mac the valuations are a table.
+/// editable list of valuations with *Add Past Value…* to fill in history,
+/// the details, and closing, reopening and deleting. On the Mac the
+/// valuations are a table.
 ///
 /// Pushing an `AccountID` onto any navigation stack shows it.
 struct AccountDetailScreen: View {
@@ -117,6 +118,12 @@ struct AccountDetailScreen: View {
                     Text("No values yet. Update the value, or record one in a check-in.")
                         .foregroundStyle(Palette.secondaryInk)
                 }
+                Button {
+                    addPastValue(data)
+                } label: {
+                    Label("Add Past Value…", systemImage: "calendar.badge.plus")
+                }
+                .disabled(!library.canEdit)
                 ForEach(data.valuations) { row in
                     Button {
                         editing = AccountValuationTarget(key: row.id)
@@ -137,7 +144,8 @@ struct AccountDetailScreen: View {
                 Text("Values")
             } footer: {
                 if !data.valuations.isEmpty {
-                    Text("Tap a value to change its date, amount, new money or note.")
+                    Text("Tap a value to change its date, amount, new money or note. A value before the opening "
+                        + "date moves it back.")
                 }
             }
             Section {
@@ -191,9 +199,15 @@ struct AccountDetailScreen: View {
                     }
                 } header: {
                     SectionHeader("Values") {
-                        Text("Double-click a value to edit it")
-                            .font(.caption)
-                            .foregroundStyle(Palette.mutedInk)
+                        HStack(spacing: Metrics.m) {
+                            Text("Double-click a value to edit it")
+                                .font(.caption)
+                                .foregroundStyle(Palette.mutedInk)
+                            Button("Add Past Value…") { addPastValue(data) }
+                                .controlSize(.small)
+                                .disabled(!library.canEdit)
+                                .help("Adds a value on an earlier date. Before the opening date, it moves it back.")
+                        }
                     }
                 }
                 Card("Details") {
@@ -277,10 +291,15 @@ struct AccountDetailScreen: View {
 
     private func removeValuation(_ key: ValuationKey) {
         do {
-            try library.removeValuation(key)
+            try library.removeValue(key)
         } catch {
             show(error)
         }
+    }
+
+    /// Opens *Update Value* on the month end before the first value.
+    private func addPastValue(_ data: AccountDetailData) {
+        action = AccountAction(.addPastValue, accountID, date: data.pastValueDate)
     }
 
     private func show(_ error: any Error) {
