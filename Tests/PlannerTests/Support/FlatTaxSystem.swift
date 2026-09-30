@@ -19,18 +19,32 @@ struct FlatTaxSystem: TaxSystem {
     var interestRate = 0.0
     var wealthRate = 0.0
     var payoutRate = 0.0
+    /// Payout tax is charged on what was paid in (the payout's `costBasis`)
+    /// rather than on the whole payout.
+    var payoutOnCostBasis = false
+    /// The payout rate falls by this much per year of membership.
+    var payoutDiscountPerMembershipYear = 0.0
     var windfallRate = 0.0
     /// Share of gross work income credited to the `flat.state` scheme.
     var pensionCreditRate = 0.0
     /// Share of gross salary credited to the `flat.tfr` wrapper.
     var tfrRate = 0.0
-    /// `flat.pension` stays locked before this age.
+    /// A revaluation set by law for `flat.tfr`, taxed at `tfrGrowthTaxRate`.
+    var tfrRevaluation: WrapperRevaluation?
+    var tfrGrowthTaxRate: Double?
+    /// `flat.pension` stays locked before this age, unless the planner
+    /// passes an old-age pension age.
     var lockAge = 60
+    /// The `flat.state` scheme's old-age pension age, if it has one.
+    var oldAgePensionAge: Int?
     var growthTaxRate: Double?
     /// When false, `grossUp` returns nil and the engine solves numerically.
     var exactGrossUp = true
     /// Validation issues to report, for tests of how they surface.
     var validationIssues: [TaxIssue] = []
+    /// A year's work income above this gets a warning from `prepare`: a
+    /// check that needs each year's amounts.
+    var revenueLimit: Double?
     let parameters: any ParameterStore
 
     init() {
@@ -57,15 +71,22 @@ struct FlatTaxSystem: TaxSystem {
             WrapperRule(id: "flat.ordinary", name: "Ordinary", category: .taxable) { _ in .accessible(route: nil) },
             WrapperRule(id: "flat.pension", name: "Pension fund", category: .taxDeferred, growthTaxRate: growthTaxRate) {
                 context in
-                context.age >= lockAge ? .accessible(route: nil) : .locked(reason: "Locked until \(lockAge)")
+                let age = context.oldAgePensionAge ?? lockAge
+                return context.age >= age ? .accessible(route: nil) : .locked(reason: "Locked until \(age)")
             },
-            WrapperRule(id: "flat.tfr", name: "Severance", category: .taxDeferred) { context in
+            WrapperRule(id: "flat.tfr", name: "Severance", category: .taxDeferred, growthTaxRate: tfrGrowthTaxRate,
+                        revaluation: tfrRevaluation) { context in
                 context.yearsSinceWorkStopped != nil ? .accessible(route: nil) : .locked(reason: "Paid when work ends")
             },
         ]
     }
 
-    var pensionSchemes: [any PensionScheme] { [FlatStateScheme()] }
+    var pensionSchemes: [any PensionScheme] { [FlatStateScheme(oldAge: oldAgePensionAge)] }
+
+    /// The payout rate after `membershipYears` of membership.
+    func payoutRate(membershipYears: Int?) -> Double {
+        max(0, payoutRate - payoutDiscountPerMembershipYear * Double(membershipYears ?? 0))
+    }
 
     func defaultRegime(for kind: EarnedIncomeKind) -> String? {
         switch kind {
@@ -91,6 +112,10 @@ struct FlatTaxSystem: TaxSystem {
                                        subject: work.phaseID))
             if work.regime != defaultRegime(for: work.kind) {
                 fixed.issues.append(.warning("flat.regime", "Unexpected regime \(work.regime ?? "none")", year: year.year))
+            }
+            if let revenueLimit, work.gross > revenueLimit {
+                fixed.issues.append(.warning("flat.revenueLimit", "Work income is above the limit in \(year.year).",
+                                             year: year.year, regime: work.regime))
             }
             fixed.contributions.append(TaxLine(id: "flat.social", label: "Social contributions",
                                                amount: work.gross * contributionRate, base: work.gross,
@@ -133,10 +158,15 @@ struct FlatPreparedYear: PreparedTaxYear {
             assessment.lines.append(TaxLine(id: "flat.gains", label: "Gains tax", amount: gains * system.gainsRate,
                                             base: gains))
         }
-        let payouts = variable.payouts.reduce(0.0) { $0 + $1.amount }
-        if payouts > 0 {
-            assessment.lines.append(TaxLine(id: "flat.payout", label: "Payout tax", amount: payouts * system.payoutRate,
-                                            base: payouts))
+        var payoutBase = 0.0
+        var payoutTax = 0.0
+        for payout in variable.payouts {
+            let base = system.payoutOnCostBasis ? min(payout.amount, payout.costBasis ?? payout.amount) : payout.amount
+            payoutBase += base
+            payoutTax += base * system.payoutRate(membershipYears: payout.membershipYears)
+        }
+        if payoutBase > 0 {
+            assessment.lines.append(TaxLine(id: "flat.payout", label: "Payout tax", amount: payoutTax, base: payoutBase))
         }
         let interest = variable.capitalIncome.reduce(0.0) { $0 + $1.amount }
         if interest > 0 {
@@ -155,7 +185,8 @@ struct FlatPreparedYear: PreparedTaxYear {
     func grossUp(net: Double, from bucket: BucketSnapshot) -> Double? {
         guard system.exactGrossUp else { return nil }
         if bucket.wrapper == "flat.pension" || bucket.wrapper == "flat.tfr" {
-            return net / (1 - system.payoutRate)
+            let taxedShare = system.payoutOnCostBasis ? 1 - bucket.gainShare : 1
+            return net / (1 - system.payoutRate(membershipYears: bucket.membershipYears) * taxedShare)
         }
         return net / (1 - system.gainsRate * bucket.gainShare)
     }
@@ -163,12 +194,18 @@ struct FlatPreparedYear: PreparedTaxYear {
 
 /// A made-up public pension: credits add up, and the yearly pension from
 /// 65 is 5% of them, 0.2 points more per year of waiting, after 5 years of
-/// contributions.
+/// contributions. Its old-age pension age is the option `oldAgePensionAge`,
+/// else `oldAge`.
 struct FlatStateScheme: PensionScheme {
     let id = "flat.state"
     let name = "State pension"
+    var oldAge: Int?
     var options: [OptionField] {
         [OptionField(key: "montante", label: "Credits so far", kind: .money, defaultValue: 0)]
+    }
+
+    func oldAgePensionAge(in year: Int, options: OptionValues, parameters: any ParameterStore) -> Int? {
+        options.int("oldAgePensionAge") ?? oldAge
     }
 
     func startingRecord(options: OptionValues, year: Int, parameters: any ParameterStore) -> PensionRecord {

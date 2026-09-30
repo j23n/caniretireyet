@@ -12,17 +12,29 @@ struct AgeSchedule: Sendable {
     var years: [ScheduledYear]
     /// Each pension's claim, by pension index; `nil` if it's never claimed.
     let claims: [PensionClaim?]
-    /// Issues from the tax systems' assessments of the deterministic years.
+    /// What the tax systems were asked to prepare in the deterministic run,
+    /// per year: the input to their year-by-year validation.
+    let fixedYears: [FixedYear]
+    /// The engine's own warnings about this age, e.g. a pension claimed later
+    /// than asked. The tax systems' come from ``PlanModel/yearIssues(for:)``.
     let issues: [PlanIssue]
     /// Whether each bucket can be drawn from, per year: `year * buckets + bucket`.
     var access: [WrapperAccess] = []
     /// `access` as plain flags, for the simulation's inner loop.
     var accessible: [Bool] = []
+    /// Whole years of membership of each bucket's wrapper at the end of each
+    /// year: `year * buckets + bucket`.
+    var membership: [Int] = []
     var bucketCount = 0
 
     @inline(__always)
     func isAccessible(year: Int, bucket: Int) -> Bool {
         accessible[year * bucketCount + bucket]
+    }
+
+    @inline(__always)
+    func membershipYears(year: Int, bucket: Int) -> Int {
+        membership[year * bucketCount + bucket]
     }
 
     /// The first age at or after `year` at which `bucket` can be drawn from.
@@ -49,6 +61,8 @@ struct WrapperAmount: Sendable {
     /// Resolved once the portfolio is final.
     var bucket: Int = -1
     let amount: Double
+    /// What produced it, for credits: a work phase ID.
+    var source: String?
 }
 
 /// An uncertain one-off amount.
@@ -87,6 +101,9 @@ struct ScheduledYear: Sendable {
     let contributionYears: Double
     let yearsSinceWorkStopped: Int?
     let oldAgePensionAge: Int?
+    /// Buckets paid out in full this year because a job ends (severance pay
+    /// such as Italy's TFR); set once the portfolio is final.
+    var severance: [Int] = []
 
     /// The variant for a run's event mask.
     func variant(for mask: UInt64) -> Int {
@@ -136,8 +153,8 @@ extension AgeSchedule {
     /// Prepares every year for one retirement age.
     ///
     /// `neededMasks` lists, per year, the local windfall masks that occur in
-    /// some run (the deterministic run's included), so only those are prepared.
-    /// The tax state carries from year to year along the deterministic run.
+    /// some run, so only those are prepared (the deterministic run's always
+    /// is). The tax state carries from year to year along the deterministic run.
     init(model: PlanModel, age: Int, neededMasks: [[Int]], expectedMask: UInt64) {
         let retirementDate = model.retirementDate(forAge: age)
         let lastWorkDay = retirementDate.adding(days: -1)
@@ -151,14 +168,15 @@ extension AgeSchedule {
         }
 
         var state = TaxState.empty
-        var records: [PensionRecord?] = model.pensions.map { pension in
-            guard let scheme = pension.scheme, let store = pension.schemeParameters else { return nil }
-            return scheme.startingRecord(options: pension.options, year: model.frames.first?.year ?? model.startDate.year,
-                                         parameters: store)
+        var records: [PensionRecord] = model.pensions.map { pension in
+            pension.scheme.startingRecord(options: pension.options,
+                                          year: model.frames.first?.year ?? model.startDate.year,
+                                          parameters: pension.schemeParameters)
         }
         var claims: [PensionClaim?] = Array(repeating: nil, count: model.pensions.count)
         let schemeIDs = Set(model.pensions.map(\.schemeID))
         var years: [ScheduledYear] = []
+        var fixedYears: [FixedYear] = []
 
         for frame in model.frames {
             let system = model.systems[frame.system].system
@@ -253,6 +271,7 @@ extension AgeSchedule {
                     work: workIncomes, pensions: paid, wrapperContributions: wrapperContributions,
                     windfalls: windfalls.map { FixedYear.Windfall(name: $0.name, kind: $0.kind, amount: $0.amount) },
                     inflationFactor: frame.inflationFactor, indexThresholds: model.indexThresholds)
+                if mask == expectedLocal { fixedYears.append(fixedYear) }
                 let prepared = system.prepare(fixedYear, state: state, parameters: frame.parameters)
                 let fixed = prepared.fixedAssessment
                 let share: (String?) -> Double = { subject in subject.flatMap { shares[$0] } ?? frame.fraction }
@@ -263,7 +282,8 @@ extension AgeSchedule {
                     - socialContributions.reduce(0) { $0 + $1.amount }
                 let accruals = fixed.accruals.compactMap { accrual -> WrapperAmount? in
                     guard case .wrapper(let wrapper) = accrual.target else { return nil }
-                    return WrapperAmount(wrapper: wrapper, amount: accrual.amount * share(accrual.source))
+                    return WrapperAmount(wrapper: wrapper, amount: accrual.amount * share(accrual.source),
+                                         source: accrual.source)
                 }
                 variantIndex[mask] = variants.count
                 variants.append(YearVariant(
@@ -274,26 +294,25 @@ extension AgeSchedule {
             }
             let expected = variantIndex[expectedLocal]
             let expectedAssessment = variants[expected].fixed
-            for issue in expectedAssessment.issues {
-                report(PlanIssue(issue, section: .tax))
-            }
             state = expectedAssessment.nextState
 
             // Access inputs, before this year's credits.
-            let contributionYears = records.compactMap { $0?.totalContributionYears }.max() ?? 0
+            let contributionYears = records.map(\.totalContributionYears).max() ?? 0
             let yearsSinceWorkStopped = retirementDate <= frame.lastDay
                 ? retirementDate.wholeYears(to: frame.lastDay) : nil
-            let oldAgePensionAge = Self.oldAgePensionAge(model: model, system: system, year: frame.year)
 
             // Pension credits from the deterministic year.
             for (index, pension) in model.pensions.enumerated() {
-                guard let scheme = pension.scheme, var record = records[index] else { continue }
-                guard let parameters = try? pension.schemeParameters?.parameters(for: frame.year) else {
-                    report(.warning("planner.noSchemeParameters",
-                                    "\(pension.name) has no parameters for \(frame.year); its credits stop there.",
-                                    section: .pensions, index: pension.index, year: frame.year))
+                guard let parameters = try? pension.schemeParameters.parameters(for: frame.year) else {
+                    // A fixed pension doesn't build up, so it needs no parameters.
+                    if !pension.isFixed {
+                        report(.warning("planner.noSchemeParameters",
+                                        "\(pension.name) has no parameters for \(frame.year); its credits stop there.",
+                                        section: .pensions, index: pension.index, year: frame.year))
+                    }
                     continue
                 }
+                let scheme = pension.scheme
                 let credits = expectedAssessment.accruals.compactMap { accrual -> Accrual? in
                     guard accrual.target == .pensionScheme(scheme.id) else { return nil }
                     let share = accrual.source.flatMap { shares[$0] } ?? frame.fraction
@@ -301,8 +320,8 @@ extension AgeSchedule {
                                    contributionMonths: Int((Double(accrual.contributionMonths) * share).rounded()),
                                    source: accrual.source)
                 }
-                scheme.accrue(credits, in: frame.year, to: &record, options: pension.options, parameters: parameters)
-                records[index] = record
+                scheme.accrue(credits, in: frame.year, to: &records[index], options: pension.options,
+                              parameters: parameters)
             }
             for accrual in expectedAssessment.accruals {
                 if case .pensionScheme(let scheme) = accrual.target, !schemeIDs.contains(scheme), accrual.amount > 0 {
@@ -325,38 +344,27 @@ extension AgeSchedule {
                 variants: variants, variantIndex: variantIndex, expectedVariant: expected,
                 contributions: contributions, contributionTotal: contributions.reduce(0) { $0 + $1.amount },
                 income: income, contributionYears: contributionYears,
-                yearsSinceWorkStopped: yearsSinceWorkStopped, oldAgePensionAge: oldAgePensionAge))
+                yearsSinceWorkStopped: yearsSinceWorkStopped, oldAgePensionAge: model.oldAgePensionAges[frame.index]))
         }
 
         self.retirementAge = age
         self.retirementDate = retirementDate
         self.years = years
         self.claims = claims
+        self.fixedYears = fixedYears
         self.issues = issues
     }
 
-    /// Decides whether a pension is claimed in `frame`'s year, and how.
-    private static func claim(_ pension: PensionSpec, record: PensionRecord?, frame: YearFrame,
+    /// Decides whether a pension is claimed in `frame`'s year, and how: the
+    /// latest of its scheme's claim options at or below the age that year,
+    /// once the age the plan asks for is reached.
+    private static func claim(_ pension: PensionSpec, record: PensionRecord, frame: YearFrame,
                               birth: BirthDate) -> ClaimOption? {
-        if pension.isFixed {
-            let start = pension.claim.age ?? pension.fixedFromAge ?? 0
-            guard frame.age >= start else { return nil }
-            return ClaimOption(route: "fixed", label: pension.name, age: start, annualAmount: pension.fixedAmount)
-        }
-        guard let scheme = pension.scheme, let store = pension.schemeParameters, let record else { return nil }
         if case .age(let wanted) = pension.claim, frame.age < wanted { return nil }
         let context = ClaimContext(year: frame.year, birthDate: birth, options: pension.options)
-        return scheme.claimOptions(for: record, context: context, parameters: store)
+        return pension.scheme.claimOptions(for: record, context: context, parameters: pension.schemeParameters)
             .filter { $0.age <= frame.age }
             .max { $0.age < $1.age }
-    }
-
-    /// The old-age pension age for wrapper access rules
-    /// (`WrapperAccessContext.oldAgePensionAge`). This TaxKit has no way to
-    /// ask a pension scheme for it, so it is unknown and access rules decide
-    /// without it.
-    private static func oldAgePensionAge(model: PlanModel, system: any TaxSystem, year: Int) -> Int? {
-        nil
     }
 
     /// Tax or contribution lines summed by ID, each scaled by the share of
@@ -374,12 +382,10 @@ extension AgeSchedule {
         return result
     }
 
-    /// Fills the access table once the portfolio is final, and resolves
-    /// wrapper IDs to buckets.
+    /// Resolves wrapper IDs to buckets once the portfolio is final, and fills
+    /// in what depends on the buckets: membership, access and severance pay.
     mutating func resolve(for portfolio: Portfolio, model: PlanModel) {
         bucketCount = portfolio.buckets.count
-        access = []
-        access.reserveCapacity(years.count * bucketCount)
         for t in years.indices {
             for index in years[t].contributions.indices {
                 years[t].contributions[index].bucket =
@@ -392,20 +398,99 @@ extension AgeSchedule {
                             ?? portfolio.primaryLiquid
                 }
             }
+        }
+
+        // Membership starts when an account joined the wrapper (or opened),
+        // else with the first money paid in.
+        var joined = portfolio.buckets.map(\.joined)
+        for t in years.indices {
+            let paidIn = years[t].contributions.filter { $0.amount > 0 }.map(\.bucket)
+                + years[t].variants.flatMap { $0.accruals.filter { $0.amount > 0 }.map(\.bucket) }
+            for bucket in paidIn where joined[bucket] == nil { joined[bucket] = model.frames[t].simulatedFrom }
+        }
+
+        access = []
+        membership = []
+        access.reserveCapacity(years.count * bucketCount)
+        membership.reserveCapacity(years.count * bucketCount)
+        for t in years.indices {
             let lastDay = CalendarDate.lastDay(of: years[t].year)
-            for bucket in portfolio.buckets {
+            for (b, bucket) in portfolio.buckets.enumerated() {
+                let members = joined[b].map { max(0, $0.wholeYears(to: lastDay)) } ?? 0
+                membership.append(members)
                 guard let rule = bucket.rule else {
                     access.append(.accessible(route: nil))
                     continue
                 }
-                let joined = bucket.joined ?? model.startDate
                 let context = WrapperAccessContext(
                     year: years[t].year, age: years[t].age, yearsSinceWorkStopped: years[t].yearsSinceWorkStopped,
                     oldAgePensionAge: years[t].oldAgePensionAge, contributionYears: years[t].contributionYears,
-                    membershipYears: max(0, joined.wholeYears(to: lastDay)))
+                    membershipYears: members)
                 access.append(rule.access(in: context))
             }
         }
         accessible = access.map(\.isAccessible)
+        scheduleSeverancePay(portfolio: portfolio, model: model)
+    }
+
+    /// Severance pay, such as Italy's TFR, is paid out in full when the job
+    /// ends: credits at the end of the work phase that made them, and the
+    /// balance at the start at the end of the employee phase running then
+    /// (at once if none is). Retiring ends every phase.
+    private mutating func scheduleSeverancePay(portfolio: Portfolio, model: PlanModel) {
+        for t in years.indices { years[t].severance = [] }
+        guard let firstYear = years.first?.year else { return }
+        let firstDay = model.startDate.adding(days: 1)
+        for (b, bucket) in portfolio.buckets.enumerated() where !bucket.isLiquid {
+            guard let rule = bucket.rule, Self.isPaidWhenJobEnds(rule, year: firstYear) else { continue }
+            var ends: Set<CalendarDate> = []
+            let sources = Set(years.flatMap { year in
+                year.variants.flatMap { $0.accruals.filter { $0.bucket == b && $0.amount > 0 }.compactMap(\.source) }
+            })
+            for phase in model.work where sources.contains(phase.id) {
+                ends.insert(phase.lastDay(retiring: retirementDate))
+            }
+            if portfolio.lots[bucket.lots].contains(where: { $0.value > 0 }) {
+                let running = model.work.filter { phase in
+                    phase.kind == .employee && phase.from <= firstDay && phase.lastDay(retiring: retirementDate) >= firstDay
+                }
+                ends.insert(running.map { $0.lastDay(retiring: retirementDate) }.min() ?? firstDay)
+            }
+            for end in ends where end > model.startDate {
+                guard let t = years.firstIndex(where: { $0.year == end.year }), !years[t].severance.contains(b)
+                else { continue }
+                years[t].severance.append(b)
+            }
+        }
+    }
+
+    /// Whether a wrapper is severance pay, paid out when a job ends: its rule
+    /// keeps it locked while working and opens it as soon as work stops,
+    /// whatever the age, membership and contributions (Italy's `it.tfr`).
+    static func isPaidWhenJobEnds(_ rule: WrapperRule, year: Int) -> Bool {
+        func opens(yearsSinceWorkStopped: Int?) -> Bool {
+            rule.access(in: WrapperAccessContext(
+                year: year, age: 0, yearsSinceWorkStopped: yearsSinceWorkStopped, oldAgePensionAge: nil,
+                contributionYears: 0, membershipYears: 0)).isAccessible
+        }
+        return !opens(yearsSinceWorkStopped: nil) && opens(yearsSinceWorkStopped: 0)
+    }
+}
+
+extension PlanModel {
+    /// The tax systems' issues for the years of `schedule`: each system's
+    /// `validate(_:years:parameters:)` over the deterministic years it's the
+    /// residence for, which adds the checks that need each year's amounts
+    /// (such as forfettario's revenue limits) to the plan's structural checks.
+    func yearIssues(for schedule: AgeSchedule) -> [PlanIssue] {
+        var issues: [PlanIssue] = []
+        for (index, context) in systems.enumerated() {
+            let years = zip(frames, schedule.fixedYears).filter { $0.0.system == index }.map(\.1)
+            guard !years.isEmpty else { continue }
+            for issue in context.system.validate(context.taxPlan, years: years, parameters: context.parameters) {
+                issues.append(PlanIssue(issue, section: PlanInterpreter.section(of: issue, registry: registry)))
+            }
+        }
+        return issues
     }
 }

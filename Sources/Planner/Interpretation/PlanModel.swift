@@ -20,6 +20,10 @@ struct PlanModel: Sendable {
     let frames: [YearFrame]
     /// The tax systems of the residence timeline, with the plan's overrides.
     let systems: [SystemContext]
+    /// Per frame: the old-age pension age under that year's rules
+    /// (`WrapperAccessContext.oldAgePensionAge`), from the plan's pension
+    /// schemes first, then the residence system's.
+    let oldAgePensionAges: [Int?]
     /// The overlays the plan chose.
     let overlays: [RegimeChoice]
     let indexThresholds: Bool
@@ -45,6 +49,16 @@ struct PlanModel: Sendable {
     var birthYear: Int { birthDate.year }
     var lastYear: Int { birthDate.year + endAge }
 
+    /// The uncertain events the deterministic run includes: those with a
+    /// probability of at least 50%.
+    var expectedEvents: UInt64 {
+        var mask: UInt64 = 0
+        for (bit, probability) in uncertainEventProbabilities.enumerated() where probability >= 0.5 {
+            mask |= 1 << UInt64(bit)
+        }
+        return mask
+    }
+
     /// The day work stops for a retirement age: that birthday, or the start
     /// date if it has passed.
     func retirementDate(forAge age: Int) -> CalendarDate {
@@ -57,6 +71,8 @@ struct SystemContext: Sendable {
     let system: any TaxSystem
     /// The system's parameters with the plan's overrides.
     let parameters: any ParameterStore
+    /// The plan as this system validates it (set once the plan is interpreted).
+    var taxPlan = TaxPlan(residence: [])
     var id: String { system.id }
 }
 
@@ -161,18 +177,17 @@ struct PensionSpec: Sendable {
     let id: String
     let name: String
     let schemeID: String
-    /// `nil` for `fixed` pensions.
-    let scheme: (any PensionScheme)?
-    /// The scheme's system's parameters, with the plan's overrides.
-    let schemeParameters: (any ParameterStore)?
+    /// The scheme: a system's, or TaxKit's shared `fixed` scheme.
+    let scheme: any PensionScheme
+    /// The parameters of the system that owns the scheme, with the plan's overrides.
+    let schemeParameters: any ParameterStore
     let claim: AgeChoice
-    /// `fixed` pensions: the start age and yearly amount.
-    let fixedFromAge: Int?
-    let fixedAmount: Double
     let taxedIn: FixedYear.TaxedIn
+    /// The plan's options for the pension. A `fixed` pension's `fromAge` and
+    /// `perYear` are passed on here, as `FixedPensionScheme` reads them.
     let options: OptionValues
 
-    var isFixed: Bool { scheme == nil }
+    var isFixed: Bool { schemeID == FixedPensionScheme.schemeID }
 }
 
 /// A planned contribution into an account's bucket, resolved.

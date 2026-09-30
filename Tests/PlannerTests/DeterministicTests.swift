@@ -284,12 +284,17 @@ struct DeterministicTests {
                                work: [Sample.employee(from: "2026-01-01", gross: "60000")])
         let result = try await Sample.run(plan, library, system: system)
 
-        // 6,000 a year for five years, drawn once work stops.
+        // 6,000 a year for five years, paid out when the job ends on 31 December
+        // 2030 and invested in the liquid bucket; retirement draws on that.
         #expect(result.start.buckets.contains { $0.wrapper == "flat.tfr" })
         #expect(result.issues.contains { $0.code == "planner.newWrapper" })
         #expect(close(result.expectedValue(in: 2030), 30_000))
         #expect(close(result.expectedValue(in: 2031), 20_000))
-        #expect(result.expectedPath.years.first { $0.year == 2031 }?.income.first?.kind == .payout)
+        let lastWorkingYear = try #require(result.expectedPath.years.first { $0.year == 2030 })
+        #expect(lastWorkingYear.income.contains(IncomeItem(kind: .payout, id: "flat.tfr", label: "Severance",
+                                                           amount: 30_000)))
+        #expect(close(lastWorkingYear.savings, 6_000))
+        #expect(result.expectedPath.years.first { $0.year == 2031 }?.income.map(\.kind) == [.withdrawal])
     }
 
     @Test func theCashBufferIsDrawnLast() async throws {

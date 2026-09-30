@@ -24,9 +24,20 @@ public enum Planner {
 
     /// The plan's problems without running it: the engine's checks and every
     /// tax system's validation. Errors would stop a run.
+    ///
+    /// When the plan names a retirement age, the tax systems also check its
+    /// years one by one (`validate(_:years:parameters:)`), which finds
+    /// problems that depend on each year's amounts, such as forfettario's
+    /// revenue limit. With `earliest` the years aren't known yet; a run
+    /// reports them for the age its details are for.
     public static func validate(plan: PlanDocument, library: Library, registry: TaxRegistry,
                                 options: PlannerOptions = PlannerOptions()) -> [PlanIssue] {
-        PlanInterpreter.interpret(plan: plan, library: library, registry: registry, options: options).issues
+        let (interpreted, issues) = PlanInterpreter.interpret(plan: plan, library: library, registry: registry,
+                                                              options: options)
+        guard let model = interpreted, let age = model.planAge else { return issues }
+        let schedule = AgeSchedule(model: model, age: min(max(age, model.currentAge), model.endAge - 1),
+                                   neededMasks: model.frames.map { _ in [] }, expectedMask: model.expectedEvents)
+        return unique(issues + schedule.issues + model.yearIssues(for: schedule))
     }
 
     /// Runs a plan: the success curve by retirement age, the earliest age at
@@ -143,7 +154,13 @@ public enum Planner {
             medianPath: PathDetail(retirementAge: focus, failure: medianOutcome.failure, years: medianYears),
             failures: failureSummary(outcomes),
             markers: markers(schedule: focusSchedule, engine: engine),
-            issues: engine.issues + focusSchedule.issues)
+            issues: unique(engine.issues + focusSchedule.issues + model.yearIssues(for: focusSchedule)))
+    }
+
+    /// Issues without repeats, in their first order.
+    private static func unique(_ issues: [PlanIssue]) -> [PlanIssue] {
+        var seen: Set<PlanIssue> = []
+        return issues.filter { seen.insert($0).inserted }
     }
 
     // MARK: - Assembling results
@@ -237,8 +254,10 @@ public enum Planner {
                                           label: model.pensions[claim.pension].name,
                                           amount: claim.option.annualAmount(atAge: claim.age)))
         }
+        // Severance pay is paid out when the job ends, so it gets no marker.
         for (b, bucket) in engine.portfolio.buckets.enumerated() where !bucket.isLiquid {
-            guard !schedule.years.isEmpty, !schedule.isAccessible(year: 0, bucket: b),
+            guard !schedule.years.isEmpty, !schedule.years.contains(where: { $0.severance.contains(b) }),
+                  !schedule.isAccessible(year: 0, bucket: b),
                   let t = schedule.years.indices.first(where: { schedule.isAccessible(year: $0, bucket: b) })
             else { continue }
             markers.append(TimelineMarker(kind: .accessible, year: schedule.years[t].year, age: schedule.years[t].age,

@@ -14,6 +14,8 @@ struct SampleAccount {
     var mix: AssetMix? = [.equity: 1]
     var balance: Decimal
     var includeInPlan = true
+    /// When the account joined its wrapper (`tax.joined`); else it counts from `opened`, 2020-01-01.
+    var joined: CalendarDate?
 }
 
 /// Made-up libraries and plans for the planner's tests.
@@ -25,7 +27,10 @@ enum Sample {
             accounts: accounts.map { account in
                 Account(id: account.id, name: account.id.rawValue, kind: account.kind, currency: .eur,
                         opened: "2020-01-01", valuation: .balance, assetClasses: account.mix,
-                        tax: account.wrapper.map { AccountTax(wrapper: $0) },
+                        tax: account.wrapper.map { wrapper in
+                            AccountTax(wrapper: wrapper,
+                                       details: account.joined.map { ["joined": .string($0.description)] } ?? [:])
+                        },
                         includeIn: account.includeInPlan ? nil : IncludeIn(plan: false))
             })
         for account in accounts {
