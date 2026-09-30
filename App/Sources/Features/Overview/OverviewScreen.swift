@@ -203,6 +203,7 @@ private struct OverviewHistorySection: View {
     @Binding var range: OverviewRange
     @Binding var isStacked: Bool
     @Binding var showsFuture: Bool
+    @State private var fillsPastPrices = false
 
     var body: some View {
         let projection = results?.portfolio ?? []
@@ -256,7 +257,13 @@ private struct OverviewHistorySection: View {
                     .font(.footnote)
                     .foregroundStyle(Palette.secondaryInk)
             }
+            if let summary = history.oldPrices {
+                OldPriceNoteView(text: OldPriceNote.text(summary) { valuator.instruments[$0]?.name ?? $0.rawValue }) {
+                    fillsPastPrices = true
+                }
+            }
         }
+        .pastPricesSheet(isPresented: $fillsPastPrices)
     }
 
     private var futureCaption: String {

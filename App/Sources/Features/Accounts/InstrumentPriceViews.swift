@@ -293,14 +293,16 @@ struct InstrumentSetPriceSheet: View {
     @State private var showsProblems = false
     @State private var errorMessage: String?
 
+    /// `date` is the day it starts on: today by default, or a past date that
+    /// has no price (*Fill In Past Prices*).
     init(instrumentID: InstrumentID?, name: String, currency: CurrencyCode, unit: InstrumentUnit,
-         onSet: ((PriceRecord) -> Void)? = nil) {
+         date: CalendarDate? = nil, onSet: ((PriceRecord) -> Void)? = nil) {
         self.instrumentID = instrumentID
         self.name = name
         self.currency = currency
         self.unit = unit
         self.onSet = onSet
-        _form = State(initialValue: InstrumentPriceForm(currency: currency))
+        _form = State(initialValue: InstrumentPriceForm(currency: currency, date: date ?? .today()))
     }
 
     var body: some View {

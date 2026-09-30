@@ -141,6 +141,8 @@ struct CheckInPriceList: Hashable, Sendable {
         let unit = CheckInWording.unit(of: instrument)
         var symbol = entry?.symbol ?? instrument?.priceSource?.symbol
         if let typed = symbol, let resolved = entry?.resolvedSymbol { symbol = "\(typed) → \(resolved)" }
+        // A stand-in for a date the source has no price for: "Yahoo Finance · GC=F (history)".
+        if let shown = symbol, let note = entry?.note { symbol = "\(shown) (\(note))" }
         return CheckInPriceLine(
             item: .instrument(id), title: CheckInWording.instrumentLabel(id, instrument: instrument),
             subtitle: instrument.map(\.name).flatMap { $0 == CheckInWording.instrumentLabel(id, instrument: instrument) ? nil : $0 },

@@ -186,6 +186,9 @@ struct ImportReceipt: Hashable, Sendable {
     var createdInstruments: [String]
     /// The files written, relative to the library folder.
     var changedFiles: [String]
+    /// The instruments held in the valuations of the months the import
+    /// changed, for the Done step's offer to fill in their past prices.
+    var importedInstruments: Set<InstrumentID>
     /// The copy of those files taken before writing; `nil` for a library
     /// without files (previews).
     var backup: Backup?
@@ -213,6 +216,9 @@ struct ImportReceipt: Hashable, Sendable {
             result.library.instruments[$0]?.name ?? flow.instrumentName($0)
         }
         changedFiles = result.changedPaths
+        importedInstruments = Set(result.changedMonths.flatMap { month in
+            (result.library.months[month]?.valuations ?? []).flatMap { $0.positions.map(\.instrument) }
+        })
     }
 
     /// Whether the import wrote anything.
