@@ -1,0 +1,6 @@
+{
+  "baseCurrency": "EUR",
+  "person": { "birthDate": "1988-04-12", "name": "Alex Example" },
+  "schemaVersion": 1,
+  "taxResidence": "IT"
+}

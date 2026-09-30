@@ -1,0 +1,10 @@
+{
+  "country": "IT",
+  "currency": "EUR",
+  "id": "conto-deposito",
+  "institution": "Banca Esempio",
+  "kind": "savings",
+  "name": "Conto deposito",
+  "opened": "2025-06-01",
+  "tax": { "wrapper": "it.ordinary" }
+}

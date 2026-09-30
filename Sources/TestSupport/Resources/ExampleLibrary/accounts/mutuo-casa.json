@@ -1,0 +1,11 @@
+{
+  "country": "IT",
+  "currency": "EUR",
+  "id": "mutuo-casa",
+  "includeIn": { "plan": false },
+  "institution": "Banca Esempio",
+  "kind": "mortgage",
+  "name": "Mutuo casa",
+  "notes": "Mortgage on the home; its payments are part of spending in plans.",
+  "opened": "2024-07-15"
+}

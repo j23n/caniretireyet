@@ -1,0 +1,9 @@
+{
+  "assetClasses": { "gold": "1" },
+  "currency": "EUR",
+  "id": "gold",
+  "kind": "metal",
+  "name": "Gold (coins and bars)",
+  "priceSource": { "provider": "gold-api", "symbol": "XAU" },
+  "unit": "g"
+}

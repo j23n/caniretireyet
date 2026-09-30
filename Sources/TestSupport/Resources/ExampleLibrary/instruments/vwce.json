@@ -1,0 +1,11 @@
+{
+  "assetClasses": { "equity": "1" },
+  "currency": "EUR",
+  "id": "vwce",
+  "isin": "IE00BK5BQT80",
+  "kind": "etf",
+  "name": "Vanguard FTSE All-World UCITS ETF (Acc)",
+  "priceSource": { "provider": "yahoo", "symbol": "VWCE.DE" },
+  "ticker": "VWCE",
+  "unit": "share"
+}

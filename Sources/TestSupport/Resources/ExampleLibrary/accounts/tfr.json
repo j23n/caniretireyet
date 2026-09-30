@@ -1,0 +1,10 @@
+{
+  "country": "IT",
+  "currency": "EUR",
+  "id": "tfr",
+  "institution": "Employer",
+  "kind": "tfr",
+  "name": "TFR",
+  "opened": "2023-09-01",
+  "tax": { "wrapper": "it.tfr" }
+}
