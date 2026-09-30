@@ -119,14 +119,17 @@ private struct Holdings {
     }
 }
 
-/// Turns a journal into valuations, prices and FX rates.
+/// Turns a journal into valuations, prices and FX rates, and trades for
+/// accounts that record trades (LedgerTrades.swift).
 ///
 /// For each library account, at each snapshot date: its holdings (a
 /// balance, or positions with their average cost plus cash), and its flow:
 /// the money added or taken out since the previous snapshot. A posting's
 /// counterparts decide the flow: moves within the account and returns
 /// (dividends, interest, fees) aren't flows; other tracked accounts,
-/// ignored ones, income, expenses and equity are.
+/// ignored ones, income, expenses and equity are. An account that records
+/// trades gets no valuations (its cash comes from its trades), unless the
+/// profile asks for cash checks: then a valuation with its cash.
 struct LedgerSnapshotBuilder {
     /// One transaction's effect on one library account.
     struct Event {
@@ -147,13 +150,15 @@ struct LedgerSnapshotBuilder {
     let until: CalendarDate?
     let book: LedgerPriceBook
 
-    private(set) var records: [ImportedRecord] = []
-    private(set) var notes: [LedgerDiagnostic] = []
+    var records: [ImportedRecord] = []
+    var notes: [LedgerDiagnostic] = []
     /// Accounts whose balance reaches zero and stays there, and when.
     private(set) var closings: [AccountID: CalendarDate] = [:]
     /// Each library account's first posting.
     private(set) var firstPostings: [AccountID: CalendarDate] = [:]
     private var events: [AccountID: [Event]] = [:]
+    /// Trades accounts: how many trades so far have each identity, for their stable IDs.
+    var tradeOrdinals: [String: Int] = [:]
 
     /// A balance that stays zero for this many days before the journal ends
     /// proposes closing the account (so a card paid off last week doesn't).
@@ -177,11 +182,16 @@ struct LedgerSnapshotBuilder {
 
     // MARK: - Accounts
 
-    private func account(_ id: AccountID) -> Account? {
+    func account(_ id: AccountID) -> Account? {
         library.accounts[id] ?? mapper.newAccounts[id]
     }
 
-    private func currency(of id: AccountID) -> CurrencyCode {
+    /// Whether a library account records trades, so the journal writes its trades.
+    func recordsTrades(_ id: AccountID) -> Bool {
+        library.accounts[id]?.recordsTrades ?? false
+    }
+
+    func currency(of id: AccountID) -> CurrencyCode {
         account(id)?.currency ?? library.settings.baseCurrency
     }
 
@@ -263,6 +273,15 @@ struct LedgerSnapshotBuilder {
                 // The flow: with one tracked account, what the flow counterparts brought (moves
                 // within the account and returns bring nothing); with several, each one's own
                 // postings, less the returns for the account they went to.
+                if recordsTrades(id) {
+                    // A trades account: its trades, and the money they say came in or went out.
+                    let charges = id == returnsAccount ? flows.filter(isChargeAccount) : []
+                    event.flow = makeTrades(transaction, account: id, postings: postings,
+                                            returns: id == returnsAccount ? returns + charges : [],
+                                            writes: until.map { date <= $0 } ?? true)
+                    events[id, default: []].append(event)
+                    continue
+                }
                 if tracked.count == 1 {
                     event.flow = sum(flows, in: currency, on: date).map { -$0 }
                 } else if returns.isEmpty || id != returnsAccount {
@@ -286,7 +305,7 @@ struct LedgerSnapshotBuilder {
     }
 
     /// The postings' total value in `currency`; `nil` if one can't be valued.
-    private func sum(_ postings: [LedgerPosting], in currency: CurrencyCode, on date: CalendarDate) -> Decimal? {
+    func sum(_ postings: [LedgerPosting], in currency: CurrencyCode, on date: CalendarDate) -> Decimal? {
         var total: Decimal = 0
         for posting in postings {
             guard let value = value(of: posting, in: currency, on: date) else { return nil }
@@ -344,6 +363,7 @@ struct LedgerSnapshotBuilder {
         let holdsInstruments = accountEvents.contains { !$0.quantities.isEmpty }
         let holdsCash = accountEvents.contains { !$0.cash.isEmpty }
         let isHoldings = holdsInstruments || account(id)?.valuationMode == .holdings
+        let isTrades = recordsTrades(id)
 
         // Where the balance reaches zero and stays there.
         var state = Holdings()
@@ -368,6 +388,8 @@ struct LedgerSnapshotBuilder {
         }
         if let closing = closings[id] { dates = dates.filter { $0 < closing } + [closing] }
         if let until { dates = dates.filter { $0 <= until } }
+        // The cash of a trades account comes from its trades: valuations only as checks, if asked.
+        if isTrades, !settings.effectiveCashChecks { dates = [] }
 
         state = Holdings()
         var index = 0
@@ -396,7 +418,9 @@ struct LedgerSnapshotBuilder {
                             + "left out."))
                 }
             }
-            if isHoldings {
+            if isTrades {
+                record.cash = cash
+            } else if isHoldings {
                 record.positions = state.quantities.filter { $0.value != 0 }.sorted { $0.key < $1.key }.map {
                     let cost = $0.value > 0 ? (state.costs[$0.key] ?? nil) : nil
                     return ImportedPosition(instrument: $0.key, quantity: $0.value, costBasis: cost?.ledgerRounded(2))

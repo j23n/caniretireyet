@@ -35,6 +35,27 @@ enum LedgerKeywords {
         "bank charges", "broker", "brokerage", "trading",
     ]
 
+    // MARK: Trades
+
+    /// Expense accounts of taxes on investments, which become `tax` trades
+    /// of an account that records trades.
+    static let taxes = [
+        "tax", "taxes", "tasse", "tassa", "imposta", "imposte", "bollo", "ritenuta", "ritenute", "withholding",
+        "tobin", "ftt", "steuer", "steuern", "impots", "impuestos",
+    ]
+    /// Returns accounts of interest, which become `interest` trades (staking
+    /// and rewards too).
+    static let interest = [
+        "interest", "interests", "interessi", "interesse", "zinsen", "interets", "intereses", "staking", "reward",
+        "rewards", "airdrop", "airdrops",
+    ]
+    /// Returns accounts of realised gains: the trades work them out, so they
+    /// make no trade of their own.
+    static let gains = [
+        "gain", "gains", "capitalgains", "capgains", "plusvalenza", "plusvalenze", "minusvalenza", "minusvalenze",
+        "realized", "unrealized", "realised", "unrealised", "pnl",
+    ]
+
     // MARK: Grouping accounts
 
     /// Subaccounts that are parts of one account, e.g. `Directa:Cash`.

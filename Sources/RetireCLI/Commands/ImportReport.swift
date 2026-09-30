@@ -11,6 +11,8 @@ struct ImportReport {
         var newInstruments: Bool
         var closings: Bool
         var conflictsGiven: Bool
+        /// `--accept-trades-mode`.
+        var tradesMode: Bool
     }
 
     /// What `--apply` did.
@@ -82,6 +84,7 @@ struct ImportReport {
     func lines() -> [String] {
         var lines = settingsLines()
         lines += section("Columns", columnLines())
+        lines += section("Types", typeLines())
         lines += section("Formats to confirm", ambiguityLines())
         lines += section("Problems with the mapping", problems.map { "  \($0)" })
         lines += section("Notes", noteLines())
@@ -162,17 +165,8 @@ struct ImportReport {
         case .unused: return "nothing (empty)"
         case .mapped(let index):
             let mapping = profile.columns[index]
-            if profile.layout == .long, let field = mapping.field, field != .value {
-                return switch field {
-                case .date: "the dates"
-                case .account: "account names"
-                case .instrument: "instrument names"
-                case .currency: "currencies"
-                case .base: "base currencies"
-                case .quote: "quote currencies"
-                case .ignore: "ignored"
-                default: field.rawValue
-                }
+            if profile.layout.rowIsRecord, let field = mapping.field, field != .value {
+                return Self.fieldName(field, trades: profile.layout == .trades)
             }
             guard let target = mapping.target ?? (mapping.field == .value ? profile.target : nil), target != .ignore
             else { return "ignored" }
@@ -199,6 +193,49 @@ struct ImportReport {
                 return target.rawValue
             }
         }
+    }
+
+    /// What a long or trades file's column holds, e.g. `account names`, `net amounts`.
+    static func fieldName(_ field: ImportField, trades: Bool) -> String {
+        switch field {
+        case .date: "the dates"
+        case .account: "account names"
+        case .instrument: trades ? "instruments (name, ticker or ISIN)" : "instrument names"
+        case .currency: trades ? "price currencies" : "currencies"
+        case .base: "base currencies"
+        case .quote: "quote currencies"
+        case .ignore: "ignored"
+        case .type: "trade types"
+        case .quantity: "quantities"
+        case .price: "prices"
+        case .amount: "amounts (net of fees and tax)"
+        case .gross: "gross amounts (before fees and tax)"
+        case .fees: "fees"
+        case .tax: "taxes"
+        case .ratio: "split ratios"
+        case .note: "notes"
+        default: field.rawValue
+        }
+    }
+
+    /// Trades: each type word of the file, how many rows, and the trade type it is.
+    func typeLines() -> [String] {
+        guard profile.layout == .trades, !preview.tradeTypes.isEmpty else { return [] }
+        var table = TextTable([.left("In the file"), .right("Rows"), .left("Is"), .left("How")])
+        for value in preview.tradeTypes {
+            let type: String = if value.isIgnored { "left out" } else { value.type?.rawValue ?? "?" }
+            let how: String = switch value.source {
+            case .profile: "set in the profile or with --type"
+            case .suggested: "the usual word"
+            case .unmapped: "not mapped: its rows are left out"
+            }
+            table.add(["“\(value.value)”", "\(value.count)", type, how])
+        }
+        var lines = table.lines()
+        if preview.tradeTypes.contains(where: { $0.source == .unmapped }) {
+            lines.append("  Map the others with --type \"<word>=<type>\", or --type \"<word>=ignore\" to leave them out.")
+        }
+        return lines
     }
 
     /// A header as the name of an account or instrument, with what it matched.
@@ -380,6 +417,10 @@ struct ImportReport {
                 lines.append("Created instruments: "
                     + "\(result.createdInstruments.map(\.rawValue).joined(separator: ", ")).")
             }
+            if !result.tradesAccounts.isEmpty {
+                lines.append("Switched to recording trades: "
+                    + "\(result.tradesAccounts.map(\.rawValue).joined(separator: ", ")).")
+            }
             if !outcome.written.isEmpty {
                 lines.append("Wrote \(Format.count(outcome.written.count, "file")):")
                 lines += outcome.written.map { "  \($0)" }
@@ -492,6 +533,9 @@ struct ImportReport {
                     field: mapping?.field?.rawValue, account: mapping?.account?.rawValue,
                     instrument: mapping?.instrument?.rawValue, samples: analysis?.samples ?? [])
             },
+            tradeTypes: preview.tradeTypes.map {
+                JSON.TradeType(value: $0.value, rows: $0.count, type: $0.type?.rawValue, source: $0.source.rawValue)
+            },
             ambiguities: preview.ambiguities.map {
                 JSON.Ambiguity(kind: $0.kind.rawValue, column: $0.column, header: $0.header, message: $0.description,
                                options: $0.kind == .delimiter ? $0.delimiters : $0.options.map(Self.optionText))
@@ -527,7 +571,8 @@ struct ImportReport {
             },
             summary: JSON.Summary(
                 new: summary.newRecords, updated: summary.updatedRecords, identical: summary.identicalRecords,
-                conflicts: summary.conflicts, undecided: summary.undecidedConflicts, cellErrors: summary.cellErrors,
+                conflicts: summary.conflicts, undecided: summary.undecidedConflicts, trades: summary.trades,
+                cellErrors: summary.cellErrors,
                 skippedRows: summary.skippedRows, issues: summary.issues, notes: summary.notes,
                 ambiguities: summary.ambiguities, leftOut: leftOutRecords, firstDate: preview.firstDate?.description,
                 lastDate: preview.lastDate?.description),
@@ -550,6 +595,7 @@ struct ImportReport {
                     createdAccounts: result.createdAccounts.map(\.rawValue),
                     closedAccounts: result.closedAccounts.map(\.rawValue),
                     createdInstruments: result.createdInstruments.map(\.rawValue),
+                    tradesAccounts: result.tradesAccounts.map(\.rawValue),
                     recomputedFlows: result.recomputedFlows.map { ImportRecordKey.valuation($0).description },
                     written: outcome.written, deleted: outcome.deleted, backup: outcome.backup)
             },
@@ -587,6 +633,14 @@ struct ImportReport {
             var account: String?
             var instrument: String?
             var samples: [String]
+        }
+
+        struct TradeType: Encodable {
+            var value: String
+            var rows: Int
+            /// `nil` when unmapped; `ignore` when its rows are left out.
+            var type: String?
+            var source: String
         }
 
         struct Ambiguity: Encodable {
@@ -642,6 +696,7 @@ struct ImportReport {
             var identical: Int
             var conflicts: Int
             var undecided: Int
+            var trades: Int
             var cellErrors: Int
             var skippedRows: Int
             var issues: Int
@@ -680,6 +735,7 @@ struct ImportReport {
             var createdAccounts: [String]
             var closedAccounts: [String]
             var createdInstruments: [String]
+            var tradesAccounts: [String]
             /// Later values whose automatic flows were worked out again, e.g. "conto-fineco on 2026-09-30".
             var recomputedFlows: [String]
             var written: [String]
@@ -692,6 +748,7 @@ struct ImportReport {
         var mode: String
         var settings: Settings
         var columns: [Column]
+        var tradeTypes: [TradeType]
         var ambiguities: [Ambiguity]
         var issues: [Message]
         var notes: [Message]

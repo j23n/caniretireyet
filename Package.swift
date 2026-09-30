@@ -31,8 +31,11 @@ let testResources: [String: [Resource]] = [
 /// Test targets that need more than their module and `TestSupport`. The
 /// planner's end-to-end tests run the example plans with the real tax
 /// systems; the `Planner` module itself still sees taxes only through TaxKit.
+/// The importer's tests check the holdings, average cost and cash of
+/// imported trades with Tracker's `TradeLedger`; `Importer` itself doesn't use it.
 let testDependencies: [String: [Target.Dependency]] = [
     "PlannerTests": ["TaxItaly", "TaxGeneric"],
+    "ImporterTests": ["Tracker"],
 ]
 
 let package = Package(

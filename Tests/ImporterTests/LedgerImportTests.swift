@@ -488,10 +488,12 @@ struct LedgerImportTests {
         #expect(result.changedMonths == ["2023-12", "2024-01", "2024-02", "2024-03", "2024-04"])
         let wallet = try #require(result.library.valuations(for: "ledger-wallet").first { $0.date == "2024-04-30" })
         #expect(wallet.positions == [Position(instrument: "btc", quantity: dec("0.0501"), costBasis: dec("2005.85"))])
-        let directa = try #require(result.library.valuations(for: "directa").first { $0.date == "2024-02-29" })
-        #expect(directa.cash == 1063)
-        #expect(directa.positions == [Position(instrument: "vwce", quantity: 15, costBasis: 1500)])
-        #expect(directa.flow == 0)
+        // Directa records trades: the journal's become its trades, and it gets no valuations.
+        #expect(ledgerPreview.tradesAccounts(in: library) == ["directa"])
+        let trades = result.library.trades(for: "directa").filter { $0.source == .ledger }.inProcessingOrder()
+        #expect(trades.map(\.type) == [.deposit, .deposit, .buy, .dividend, .sell])
+        #expect(trades.map(\.date) == ["2024-01-01", "2024-01-20", "2024-01-22", "2024-02-05", "2024-02-20"])
+        #expect(result.library.valuations(for: "directa").filter { $0.date < "2025-01-01" }.isEmpty)
         #expect(result.library.prices(for: "vwce").contains {
             $0.date == "2024-04-30" && $0.price == dec("109.9") && $0.source == .ledger
         })

@@ -25,12 +25,34 @@ struct ImportCommand: RetireSubcommand {
             --accept-new-instruments and --accept-closings; otherwise those records are left \
             out. Records that differ from the library follow --on-conflict (default: the \
             profile's policy; undecided conflicts keep the library's values).
+
+            A broker's transactions export (a type column, quantities and prices) is read as \
+            trades (--layout trades): each row one trade, with an ID made from its values, so \
+            importing the file again adds nothing. Its type words are mapped to trade types \
+            (Acquisto → buy, Dividend → dividend, …); map others with --type "Giroconto=deposit", \
+            or "Word=ignore" to leave them out. Name the account with --account <id> when the \
+            file has no account column. An account that doesn't record trades is switched only \
+            with --accept-trades-mode; otherwise its trades are left out.
             """)
 
     enum Layout: String, ExpressibleByArgument, CaseIterable {
-        case wide, long
+        case wide, long, trades
 
-        var value: ImportLayout { self == .wide ? .wide : .long }
+        var value: ImportLayout { ImportLayout(rawValue: rawValue) }
+    }
+
+    enum AmountSign: String, ExpressibleByArgument, CaseIterable {
+        case auto
+        case fromType = "from-type"
+        case asWritten = "as-written"
+
+        var value: TradeAmountSign {
+            switch self {
+            case .auto: .auto
+            case .fromType: .fromType
+            case .asWritten: .asWritten
+            }
+        }
     }
 
     enum Conflicts: String, ExpressibleByArgument, CaseIterable {
@@ -72,8 +94,23 @@ struct ImportCommand: RetireSubcommand {
                                valueName: "row"))
     var headerRow: Int?
 
-    @Option(help: "Without a profile: wide (a row per date) or long (a row per record). Default: detected.")
+    @Option(help: ArgumentHelp("Without a profile: wide (a row per date), long (a row per record) or trades (a row "
+                                   + "per trade). Default: detected."))
     var layout: Layout?
+
+    @Option(help: ArgumentHelp("The account every row belongs to, when the file has no account column (long and "
+                                   + "trades layouts).", valueName: "id"))
+    var account: String?
+
+    @Option(name: .customLong("type"), parsing: .singleValue,
+            help: ArgumentHelp("Trades: map a type word of the file to a trade type (buy, sell, dividend, interest, "
+                                   + "fee, tax, deposit, withdrawal, split, …), or to ignore to leave its rows out. "
+                                   + "Repeatable.", valueName: "word=type"))
+    var types: [String] = []
+
+    @Option(help: ArgumentHelp("Trades: how the file signs its amounts: auto, from-type (absolute values, signed by "
+                                   + "the type) or as-written. Default: the profile's, else auto.", valueName: "sign"))
+    var amountSign: AmountSign?
 
     @Option(help: ArgumentHelp("The date pattern, e.g. dd/MM/yyyy, MM/dd/yyyy, MMM yyyy or excel-serial. "
                                    + "Default: detected.", valueName: "pattern"))
@@ -104,6 +141,9 @@ struct ImportCommand: RetireSubcommand {
 
     @Flag(help: "With --apply, close accounts whose values stop before the file's last date.")
     var acceptClosings = false
+
+    @Flag(help: "With --apply, make accounts the file has trades for record trades, if they don't.")
+    var acceptTradesMode = false
 
     @Option(help: ArgumentHelp("Records that differ from the library: keep, overwrite or ask (kept). "
                                    + "Default: the profile's.", valueName: "policy"))
@@ -149,7 +189,24 @@ struct ImportCommand: RetireSubcommand {
             throw ValidationError("--thousands must be \".\", \",\", \"'\", space or none.")
         }
         if let headerRow, headerRow < 0 { throw ValidationError("--header-row can't be negative.") }
+        if let account, !Slug.isValid(account) {
+            throw ValidationError("--account needs an account ID such as directa: lowercase letters, digits and hyphens.")
+        }
+        for mapping in types where Self.typeMapping(mapping) == nil {
+            throw ValidationError("--type needs a word and a trade type, e.g. --type \"Giroconto=deposit\", not "
+                + "“\(mapping)”.")
+        }
         if rows < 0 { throw ValidationError("--rows can't be negative.") }
+    }
+
+    /// `Giroconto=deposit` → the word and the type; `nil` unless the type is
+    /// known (or `ignore`).
+    static func typeMapping(_ text: String) -> (word: String, type: TradeType)? {
+        guard let equals = text.lastIndex(of: "=") else { return nil }
+        let word = text[..<equals].trimmingCharacters(in: .whitespaces)
+        let type = TradeType(rawValue: text[text.index(after: equals)...].trimmingCharacters(in: .whitespaces))
+        guard !word.isEmpty, type.isKnown || type == TradeTypeWords.ignore else { return nil }
+        return (word, type)
     }
 
     private func delimiterCharacter(_ text: String) -> String? {
@@ -193,7 +250,8 @@ struct ImportCommand: RetireSubcommand {
         var report = ImportReport(fileName: fileURL.lastPathComponent, profileID: profile, session: session,
                                   preview: preview, library: loaded.library, apply: apply, rows: rows,
                                   flags: .init(newAccounts: acceptNewAccounts, newInstruments: acceptNewInstruments,
-                                               closings: acceptClosings, conflictsGiven: onConflict != nil))
+                                               closings: acceptClosings, conflictsGiven: onConflict != nil,
+                                               tradesMode: acceptTradesMode))
         let blocked = apply && !preview.ambiguities.isEmpty && !acceptGuesses
 
         if apply, !blocked {
@@ -254,6 +312,11 @@ struct ImportCommand: RetireSubcommand {
             session.profile.defaults.number = number
         }
         if let liabilitySign { session.profile.defaults.liabilitySign = liabilitySign.value }
+        if let amountSign { session.profile.defaults.amountSign = amountSign.value }
+        if let account { session.profile.constants.account = AccountID(account) }
+        for mapping in types {
+            if let (word, type) = Self.typeMapping(mapping) { session.setTradeType(type, for: word) }
+        }
         if let onConflict { session.profile.onConflict = onConflict.policy }
         return session
     }
@@ -270,8 +333,10 @@ struct ImportCommand: RetireSubcommand {
         for index in preview.newAccounts.indices { preview.newAccounts[index].isAccepted = acceptNewAccounts }
         for index in preview.newInstruments.indices { preview.newInstruments[index].isAccepted = acceptNewInstruments }
         for index in preview.accountChanges.indices {
-            if case .close = preview.accountChanges[index].change {
-                preview.accountChanges[index].isAccepted = acceptClosings
+            switch preview.accountChanges[index].change {
+            case .close: preview.accountChanges[index].isAccepted = acceptClosings
+            case .recordTrades: preview.accountChanges[index].isAccepted = acceptTradesMode
+            case .openEarlier: break
             }
         }
     }
