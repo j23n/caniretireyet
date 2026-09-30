@@ -22,6 +22,7 @@ struct UpdateValueSheet: View {
     @State private var date = Date()
     @State private var input = AccountValuationInput()
     @State private var errorMessage: String?
+    @State private var isSaving = false
 
     init(accountID: AccountID) {
         self.accountID = accountID
@@ -46,7 +47,7 @@ struct UpdateValueSheet: View {
         let base = AccountValuationDraft(account: accountID, date: CalendarDate(date, in: .current), library: snapshot)
         let draft = input.applied(to: base, isLiability: account.kind.isLiability, locale: locale)
         let review = draft.review(in: snapshot)
-        let problems = input.problems(locale: locale)
+        let problems = input.problems(locale: locale) + [draft.missingValue(in: snapshot)].compactMap { $0 }
         return Form {
             Section {
                 DatePicker("Date", selection: $date, in: dateRange(for: account), displayedComponents: .date)
@@ -106,7 +107,7 @@ struct UpdateValueSheet: View {
             }
             ToolbarItem(placement: .confirmationAction) {
                 Button("Save") { save(draft) }
-                    .disabled(draft.row == nil || !problems.isEmpty || !library.canEdit)
+                    .disabled(draft.row == nil || !problems.isEmpty || !library.canEdit || isSaving)
             }
         }
     }
@@ -118,12 +119,16 @@ struct UpdateValueSheet: View {
                               account: Account) -> some View {
         let symbol = AmountFormat.symbol(for: account.currency, locale: locale)
         if row.mode == .balance {
+            let prefilledBalance = prefilled?.balance.map {
+                AmountInput.balanceText(for: $0, isLiability: account.kind.isLiability, locale: locale)
+            } ?? ""
             Section {
                 AccountsNumberField(title: account.kind.isLiability ? "Owed" : "Balance",
-                                    text: $input[balance: text(prefilled?.balance)], prompt: "0", suffix: symbol)
+                                    text: $input[balance: prefilledBalance], prompt: "0", suffix: symbol)
             } footer: {
                 if account.kind.isLiability {
-                    Text("Debts are recorded as negative amounts.")
+                    Text("Type what you owe, e.g. 1200: debts are recorded as negative amounts. "
+                        + "If the account is in credit, type + first, e.g. +20.")
                 }
             }
         } else {
@@ -227,16 +232,23 @@ struct UpdateValueSheet: View {
         return account.opened.dateValue...max(upper, account.opened).dateValue
     }
 
+    /// Saves and waits for the write: the sheet closes only once the value
+    /// is in the library's files, and stays open with the error otherwise.
     private func save(_ draft: AccountValuationDraft) {
         guard let valuation = draft.valuation(in: library.library) else {
-            errorMessage = "The account isn't open on this date."
+            errorMessage = draft.missingValue(in: library.library) ?? "The account isn't open on this date."
             return
         }
-        do {
-            try library.upsert(valuation)
-            dismiss()
-        } catch {
-            errorMessage = LibraryStore.describe(error)
+        isSaving = true
+        errorMessage = nil
+        Task {
+            do {
+                try await library.commit { $0.upsert(valuation) }
+                dismiss()
+            } catch {
+                errorMessage = LibraryStore.describe(error)
+            }
+            isSaving = false
         }
     }
 }

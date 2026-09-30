@@ -43,14 +43,26 @@ struct AccountValuationDraft: Hashable, Sendable {
     }
 
     /// The valuation to save. A row left as it was is saved as unchanged
-    /// (the same values, no new money), so the account is up to date.
+    /// (the same values, no new money), so the account is up to date. `nil`
+    /// when the account isn't open on the date, or when it has no earlier
+    /// value to keep and none was entered.
     func valuation(in library: Library) -> Valuation? {
         var draft = self.draft
         if var row = draft[account], row.state == .notReviewed || row.state == .skipped {
-            row.markUnchanged()
+            guard row.markUnchanged() else { return nil }
             draft[account] = row
         }
         return draft.records(in: library).valuations.first { $0.account == account }
+    }
+
+    /// What must be entered before saving, if anything: an account with no
+    /// earlier value to keep needs a value (a balance, or positions or cash).
+    func missingValue(in library: Library) -> String? {
+        guard let row, !row.canMarkUnchanged else { return nil }
+        if let valuation = valuation(in: library), valuation.isBalance || valuation.isHoldings { return nil }
+        return row.mode == .balance
+            ? "Enter the balance: this account has no earlier value to keep."
+            : "Enter the positions or the cash: this account has no earlier value to keep."
     }
 }
 
@@ -108,23 +120,33 @@ struct AccountValuationInput: Hashable, Sendable {
             || !added.isEmpty
     }
 
-    /// Typed amounts that can't be read.
+    /// What stops Save: typed amounts that can't be read, and a balance or
+    /// quantity field that was cleared (an empty field isn't zero).
     func problems(locale: Locale = .current) -> [String] {
         var problems: [String] = []
-        func check(_ text: String?, _ what: String) {
-            guard let trimmed = text?.trimmingCharacters(in: .whitespaces), !trimmed.isEmpty else { return }
-            if AmountInput.decimal(from: trimmed, locale: locale) == nil { problems.append("The \(what) can't be read.") }
+        func check(_ text: String?, _ what: String, required: String? = nil) {
+            guard let text else { return }
+            let trimmed = text.trimmingCharacters(in: .whitespaces)
+            if trimmed.isEmpty {
+                if let required, !problems.contains(required) { problems.append(required) }
+            } else if AmountInput.decimal(from: trimmed, locale: locale) == nil {
+                problems.append("The \(what) can't be read.")
+            }
         }
-        check(balance, "balance")
+        check(balance, "balance", required: "Enter the balance. To record nothing owed or held, type 0.")
         check(cash, "cash")
-        for text in quantities.values { check(text, "quantity") }
-        for text in paid.values { check(text, "amount paid") }
+        for (_, text) in quantities.sorted(by: { $0.key < $1.key }) {
+            check(text, "quantity", required: "Enter each position's quantity, or 0 if it was sold.")
+        }
+        for (_, text) in paid.sorted(by: { $0.key < $1.key }) { check(text, "amount paid") }
         check(flow, "new money")
         return problems
     }
 
-    /// `base` with what was typed. A positive balance typed for a debt
-    /// (`isLiability`) is recorded as negative.
+    /// `base` with what was typed. A balance typed for a debt
+    /// (`isLiability`) is what's owed and is recorded as negative, unless
+    /// it starts with "+" (in credit). An empty balance or quantity isn't
+    /// entered: ``problems(locale:)`` asks for it.
     func applied(to base: AccountValuationDraft, isLiability: Bool,
                  locale: Locale = .current) -> AccountValuationDraft {
         func number(_ text: String) -> Decimal? {
@@ -136,9 +158,7 @@ struct AccountValuationInput: Hashable, Sendable {
             for instrument in added where row.position(for: instrument) == nil {
                 row.setQuantity(0, of: instrument)
             }
-            if let balance {
-                var amount = number(balance)
-                if isLiability, let value = amount, value > 0 { amount = -value }
+            if let balance, let amount = AmountInput.balance(from: balance, isLiability: isLiability, locale: locale) {
                 row.setBalance(amount)
             }
             if let cash { row.setCash(number(cash)) }
