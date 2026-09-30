@@ -79,6 +79,21 @@ struct PriceServiceTests {
         #expect(await client.requestCount == 10)
     }
 
+    @Test func aResolvedSymbolIsShownOnThePriceList() async throws {
+        var library = try Fixtures.exampleLibrary()
+        library.instruments["btc"]?.priceSource = PriceSource(provider: .coingecko, symbol: "BTC")
+        let client = Self.client()
+        let result = await Self.service(client).fetch(for: library, on: Self.checkIn)
+
+        #expect(result.isComplete)
+        #expect(result.prices == library.months["2026-09"]?.prices)
+        let btc = try #require(result.entry(for: .instrument("btc")))
+        #expect(btc.symbol == "BTC")
+        #expect(btc.resolvedSymbol == "bitcoin")
+        #expect(result.entry(for: .instrument("vwce"))?.resolvedSymbol == nil)
+        #expect(await client.requests(matching: "ids=bitcoin").count == 1)
+    }
+
     @Test func missingIndexMonthsAreFilledIn() async throws {
         var library = try Fixtures.exampleLibrary()
         library.months["2026-07"]?.indices = []

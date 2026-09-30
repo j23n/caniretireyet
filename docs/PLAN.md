@@ -189,7 +189,7 @@ On the Mac there are also tables for editing many valuations at once, keyboard n
 
 - Every price can be typed in by hand. Automatic fetching is opt-in per instrument.
 - **FX:** ECB reference rates through Frankfurter, which is free and needs no key.
-- **Crypto:** CoinGecko, or an exchange's public ticker. An optional demo API key, kept in the Keychain, raises its rate limit.
+- **Crypto:** CoinGecko, or an exchange's public ticker. The symbol is the coin's CoinGecko ID or its ticker (`ETH`), which is resolved to an ID through a built-in table of well-known coins or CoinGecko's search. An optional demo API key, kept in the Keychain, raises its rate limit.
 - **Gold and silver:** a free spot-price API (gold-api.com, USD per troy ounce, converted to the instrument's currency and unit), or the market price of a physical-gold ETC as a proxy. Only today's spot price is available, so the price for a check-in more than a few days old is typed in.
 - **ETFs on European exchanges:** there's no reliable free official API. We'll start with Yahoo Finance's public chart endpoint. It's unofficial and can break, so providers are pluggable, and a paid one with your own key (EODHD, Twelve Data) can be added.
 - **Inflation:** Italy's HICP from Eurostat (`prc_hicp_minr`, all items, 2015 = 100), fetched with the FX rates for the months the library is missing.

@@ -35,16 +35,22 @@ public struct Quote: Hashable, Sendable {
     public var observedOn: CalendarDate
     /// When the price was last updated, if the provider says.
     public var observedAt: Date?
+    /// The provider's own identifier the price is for, when the symbol had
+    /// to be resolved to it, e.g. CoinGecko's coin ID `ethereum` for the
+    /// ticker `ETH`. `nil` when the symbol was used as it is. The price list
+    /// can show it as "ETH → ethereum".
+    public var resolvedSymbol: String?
 
     public init(
         price: Decimal, currency: CurrencyCode, unit: InstrumentUnit? = nil, observedOn: CalendarDate,
-        observedAt: Date? = nil
+        observedAt: Date? = nil, resolvedSymbol: String? = nil
     ) {
         self.price = price
         self.currency = currency
         self.unit = unit
         self.observedOn = observedOn
         self.observedAt = observedAt
+        self.resolvedSymbol = resolvedSymbol
     }
 }
 

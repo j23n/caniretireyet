@@ -123,6 +123,12 @@ public struct PriceListEntry: Hashable, Sendable {
     public var details: FetchDetails? {
         if case .fetched(let details) = outcome { details } else { nil }
     }
+
+    /// What the provider resolved ``symbol`` to, if it had to, e.g.
+    /// `ethereum` for CoinGecko's `ETH`: shown as "ETH → ethereum".
+    public var resolvedSymbol: String? {
+        details?.quote?.resolvedSymbol
+    }
 }
 
 /// Where a fetched value came from and when.
