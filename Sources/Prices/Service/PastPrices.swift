@@ -152,6 +152,7 @@ extension PriceService {
                                         service: group.provider?.name ?? group.source.provider.rawValue,
                                         symbol: group.source.symbol)
             var filled: [(date: CalendarDate, origin: QuoteOrigin)] = []
+            var observed: [CalendarDate: CalendarDate] = [:]
             var conversionFailure: PriceFetchError?
             for date in need.dates {
                 guard let quote = history.quotes[date] else { continue }
@@ -161,6 +162,7 @@ extension PriceService {
                     prices.append(PriceRecord(instrument: instrument.id, date: date, price: price,
                                               currency: instrument.currency, source: origin.source))
                     filled.append((date, origin))
+                    observed[date] = quote.observedOn
                 } catch {
                     conversionFailure = conversionFailure ?? error
                 }
@@ -178,7 +180,7 @@ extension PriceService {
             }
             instrumentResults.append(PastPriceResult(
                 item: item, needed: need.dates, filled: filled.map(\.date), sources: PastPriceSource.runs(filled),
-                reason: reasons.isEmpty ? nil : reasons.joined(separator: " ")))
+                observedOn: observed, reason: reasons.isEmpty ? nil : reasons.joined(separator: " ")))
         }
         for need in needs.manualInstruments {
             instrumentResults.append(PastPriceResult(
@@ -199,16 +201,19 @@ extension PriceService {
             let needed = rateDates[currency, default: []].sorted()
             let fetched = fetchedRates[currency]
             var filled: [(date: CalendarDate, origin: QuoteOrigin)] = []
+            var observed: [CalendarDate: CalendarDate] = [:]
             let origin = QuoteOrigin(source: fxProvider.source, service: fxProvider.name, symbol: "\(base)/\(currency)")
             for date in needed {
                 guard let observation = fetched?.rates[date] else { continue }
                 fx.append(FXRecord(base: base, quote: currency, date: date, rate: observation.rate,
                                    source: fxProvider.source))
                 filled.append((date, origin))
+                observed[date] = observation.observedOn
             }
             rateResults.append(PastPriceResult(
                 item: .fx(base: base, quote: currency), needed: needed, filled: filled.map(\.date),
-                sources: PastPriceSource.runs(filled), reason: filled.count < needed.count ? fetched?.reason : nil))
+                sources: PastPriceSource.runs(filled), observedOn: observed,
+                reason: filled.count < needed.count ? fetched?.reason : nil))
         }
 
         return PastPriceFill(
@@ -377,7 +382,9 @@ extension PriceService {
                     + "(the latest months may not be published yet)."
                 : nil
             return (PastPriceResult(item: item, needed: needed, filled: records.map(\.date),
-                                    sources: PastPriceSource.runs(records.map { ($0.date, origin) }), reason: reason),
+                                    sources: PastPriceSource.runs(records.map { ($0.date, origin) }),
+                                    observedOn: Dictionary(records.map { ($0.date, $0.date) }, uniquingKeysWith: { a, _ in a }),
+                                    reason: reason),
                     records)
         } catch {
             return (PastPriceResult(item: item, needed: needed,

@@ -204,6 +204,9 @@ extension PricesCommand {
                                         symbol: $0.origin.symbol, note: $0.origin.note, first: $0.first.description,
                                         last: $0.last.description, count: $0.count)
                         },
+                        observedEarlier: Dictionary(
+                            result.observedOn.filter { $0.key != $0.value }.map { ($0.key.description, $0.value.description) },
+                            uniquingKeysWith: { first, _ in first }),
                         reason: result.reason)
                 },
                 prices: (fill?.prices ?? []).map {
@@ -250,6 +253,9 @@ extension PricesCommand {
                 var filled: Int
                 var missing: [String]
                 var sources: [Source]
+                /// The dates whose value is from an earlier day, and that
+                /// day: `{"2025-11-30": "2025-11-28"}`.
+                var observedEarlier: [String: String]
                 var reason: String?
             }
 

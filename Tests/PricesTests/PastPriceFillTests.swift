@@ -199,6 +199,9 @@ struct PastPriceFillTests {
             PriceRecord(instrument: "moon", date: "2025-08-31", price: d("0.418972"), currency: .eur, source: .yahoo),
         ])
         #expect(fill.fx.map(\.rate) == [d("1.1747"), d("1.1638")])
+        #expect(fill.result(for: .fx(base: .eur, quote: .usd))?.observedOn == [
+            "2025-06-30": "2025-06-30", "2025-08-31": "2025-08-25",
+        ])
         #expect(fill.result(for: .instrument("moon"))?.sources.map(\.origin.description)
             == ["Yahoo Finance · MOON-USD (history)"])
         // CoinGecko's search named the coin's ticker; its prices weren't asked for.
@@ -345,6 +348,10 @@ struct PastPriceFillTests {
         #expect(gold.status == .filled)
         #expect(gold.sources.map(\.origin.description) == ["Yahoo Finance · GC=F (history)"])
         #expect(gold.sources.first?.count == 12)
+        // The day each value is from: Friday's close for a Sunday month end.
+        #expect(gold.observedOn["2025-11-30"] == "2025-11-28")
+        #expect(gold.observedOn["2026-09-30"] == "2026-09-30")
+        #expect(gold.observedOn.count == 12)
         let hicp = try #require(fill.result(for: .index(.hicpIT)))
         #expect(hicp.missing == ["2026-09-30"])
         #expect(hicp.reason == "Eurostat has no value for 1 month (the latest months may not be published yet).")

@@ -126,6 +126,11 @@ struct FillHistoryTests {
         let sources = try #require(results.first?["sources"] as? [[String: Any]])
         #expect(sources.first?["symbol"] as? String == "GC=F")
         #expect(sources.first?["note"] as? String == "history")
+        // Sunday and Saturday month ends take Friday's close.
+        let earlier = try #require(results.first?["observedEarlier"] as? [String: String])
+        #expect(earlier["2025-11-30"] == "2025-11-28")
+        #expect(earlier["2026-05-31"] == "2026-05-29")
+        #expect(earlier["2025-10-31"] == nil)
         #expect((json["prices"] as? [[String: Any]])?.count == 12)
         let written = try #require(json["written"] as? [String: Any])
         #expect(written["added"] as? Int == 12)

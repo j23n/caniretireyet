@@ -118,6 +118,9 @@ public struct PastPriceResult: Hashable, Sendable, Identifiable {
     /// Where the values came from: one run per source, oldest first, e.g.
     /// Yahoo Finance's `ETH-EUR` up to a year ago, then CoinGecko.
     public var sources: [PastPriceSource]
+    /// The day each filled value is from, by the date it's for: Friday's
+    /// close for a Sunday month end.
+    public var observedOn: [CalendarDate: CalendarDate]
     /// Why the dates in ``missing`` weren't filled, as sentences.
     public var reason: String?
     /// Whether the item has no price source or isn't in the library.
@@ -125,12 +128,13 @@ public struct PastPriceResult: Hashable, Sendable, Identifiable {
     public var isUnknown: Bool
 
     public init(item: PriceListEntry.Item, needed: [CalendarDate], filled: [CalendarDate] = [],
-                sources: [PastPriceSource] = [], reason: String? = nil, isManual: Bool = false,
-                isUnknown: Bool = false) {
+                sources: [PastPriceSource] = [], observedOn: [CalendarDate: CalendarDate] = [:],
+                reason: String? = nil, isManual: Bool = false, isUnknown: Bool = false) {
         self.item = item
         self.needed = needed.sorted()
         self.filled = filled.sorted()
         self.sources = sources
+        self.observedOn = observedOn
         self.reason = reason
         self.isManual = isManual
         self.isUnknown = isUnknown
