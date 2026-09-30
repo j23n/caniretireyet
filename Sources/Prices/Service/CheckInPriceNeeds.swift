@@ -63,6 +63,11 @@ public struct CheckInPriceNeeds: Hashable, Sendable {
 
         var held: Set<InstrumentID> = []
         for account in openAccounts {
+            if account.recordsTrades {
+                // What its trades leave it holding.
+                held.formUnion(library.heldQuantities(of: account.id, on: date).keys)
+                continue
+            }
             guard let valuation = library.valuations(for: account.id).last(where: { $0.date <= date }),
                   valuation.balance == nil
             else { continue }

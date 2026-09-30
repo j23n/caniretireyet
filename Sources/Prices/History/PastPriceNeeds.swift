@@ -1,3 +1,4 @@
+import Foundation
 import Model
 
 /// What filling in past prices needs, worked out from a library: the dates
@@ -9,7 +10,10 @@ import Model
 /// - **Dates.** Each valuation of an account open on its date, up to today;
 ///   and each month end on which an account's latest valuation is carried
 ///   forward (the charts value it there), in a month where the account has
-///   no valuation of its own.
+///   no valuation of its own. For an account that records trades: its
+///   valuations' dates, the dates of its transfers and openings (valued at
+///   market for its flows), and every month end from its first valuation or
+///   trade, holding what its trades leave then.
 /// - **Prices.** On those dates, every instrument held (quantity not zero)
 ///   that has no price record dated that day. Instruments with a price
 ///   source are fetched; those without are listed with their dates, to type
@@ -101,9 +105,37 @@ public struct PastPriceNeeds: Hashable, Sendable {
             rateDates[currency, default: []].insert(date)
         }
 
+        func needPrice(_ instrument: InstrumentID, on date: CalendarDate) {
+            if let price = prices[PriceKey(instrument: instrument, date: date)] {
+                needRate(price.currency, on: date)
+            } else {
+                priceDates[instrument, default: []].insert(date)
+                if let instrument = library.instruments[instrument] {
+                    needRate(instrument.currency, on: date)
+                }
+            }
+        }
+
+        // Accounts that record trades hold what their trades leave.
+        for account in library.accounts.values where account.recordsTrades {
+            let end = min(today, account.closed ?? today)
+            for (date, held) in Self.tradeDates(of: account, in: library, through: end)
+            where account.isOpen(on: date) {
+                needRate(account.currency, on: date)
+                for instrument in held.keys { needPrice(instrument, on: date) }
+            }
+            // A trade priced in another currency, without an amount, is converted at its date's rate.
+            for trade in library.trades(for: account.id) where trade.amount == nil && trade.price != nil {
+                if let currency = trade.currency ?? trade.instrument.flatMap({ library.instruments[$0]?.currency }),
+                   currency != account.currency, trade.date <= end {
+                    needRate(currency, on: trade.date)
+                }
+            }
+        }
+
         let valuationsByAccount = Dictionary(grouping: library.months.values.flatMap(\.valuations), by: \.account)
         for (accountID, unsorted) in valuationsByAccount {
-            guard let account = library.accounts[accountID] else { continue }
+            guard let account = library.accounts[accountID], !account.recordsTrades else { continue }
             let valuations = unsorted.sortedByKey()
             let end = min(today, account.closed ?? today)
             for (index, valuation) in valuations.enumerated() where valuation.date <= end {
@@ -115,14 +147,7 @@ public struct PastPriceNeeds: Hashable, Sendable {
                     }
                     if let cash = valuation.cash, cash != 0 { needRate(account.currency, on: date) }
                     for position in valuation.positions where position.quantity != 0 {
-                        if let price = prices[PriceKey(instrument: position.instrument, date: date)] {
-                            needRate(price.currency, on: date)
-                        } else {
-                            priceDates[position.instrument, default: []].insert(date)
-                            if let instrument = library.instruments[position.instrument] {
-                                needRate(instrument.currency, on: date)
-                            }
-                        }
+                        needPrice(position.instrument, on: date)
                     }
                 }
             }
@@ -153,6 +178,34 @@ public struct PastPriceNeeds: Hashable, Sendable {
     /// The dates `valuation` is valued on: its own, and the month ends after
     /// it (from the next month on) before the account's next valuation, up
     /// to `end`.
+    /// The dates a trades account is valued on through `end`, with what it
+    /// holds then (quantities not zero): each valuation's date, each date a
+    /// transfer or opening is valued at market for its flow, and each month
+    /// end from its first valuation or trade.
+    static func tradeDates(of account: Account, in library: Library,
+                           through end: CalendarDate) -> [(CalendarDate, [InstrumentID: Decimal])] {
+        let trades = library.trades(for: account.id).inProcessingOrder()
+        var dates = Set(library.valuations(for: account.id).map(\.date))
+        dates.formUnion(trades.filter { $0.type.isFlow && $0.instrument != nil }.map(\.date))
+        guard let first = (Array(dates) + trades.map(\.date)).min(), first <= end else { return [] }
+        var month = first.yearMonth
+        while month.lastDay <= end {
+            dates.insert(month.lastDay)
+            month = month.next
+        }
+        var held = HeldQuantities()
+        var next = trades.startIndex
+        var result: [(CalendarDate, [InstrumentID: Decimal])] = []
+        for date in dates.sorted() where date <= end {
+            while next < trades.endIndex, trades[next].date <= date {
+                held.apply(trades[next])
+                next += 1
+            }
+            result.append((date, held.held))
+        }
+        return result
+    }
+
     static func dates(of valuation: Valuation, next: CalendarDate?, through end: CalendarDate) -> [CalendarDate] {
         var dates = [valuation.date]
         var month = valuation.date.yearMonth.next
