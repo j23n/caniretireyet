@@ -30,7 +30,8 @@ swift run retire --help                 # the CLI
 | `Planner` | Simulation engine; no tax rules, never imports a country module | Model, Tracker, TaxKit |
 | `CloudSync` | iCloud container, file coordination, change watching; Apple-only code inside `#if canImport(Darwin)` | Model, Storage |
 | `TestSupport` | Test helpers and the made-up example library (`Fixtures`) — tests only, not a product | Model |
-| `retire` | Command-line tool (Swift Argument Parser) | Storage, Importer, Planner, Prices, TaxKit, TaxGeneric, TaxItaly |
+| `RetireCLI` | The `retire` commands (Swift Argument Parser), a library so `RetireCLITests` can run them | Model, Tracker, Storage, Importer, Planner, Prices, TaxKit, TaxGeneric, TaxItaly |
+| `retire` | Command-line tool: the executable that starts `RetireCLI` | RetireCLI |
 | `App/` | SwiftUI app for iPhone, iPad and Mac (XcodeGen) | all library products |
 
 Rules:
