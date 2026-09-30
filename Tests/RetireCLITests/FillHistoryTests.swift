@@ -137,6 +137,21 @@ struct FillHistoryTests {
         #expect(written["isWritten"] as? Bool == false)
     }
 
+    @Test func aPastCheckInsGoldComesFromItsFutures() async throws {
+        let library = try TemporaryFolder.exampleLibrary()
+        let client = Self.client()
+        await client.on("2026-06-16..2026-06-30", HTTPResponse(statusCode: 200, text: """
+            {"amount":1.0,"base":"EUR","start_date":"2026-06-16","end_date":"2026-06-30","rates":{\
+            "2026-06-29":{"USD":1.1294},"2026-06-30":{"USD":1.1301}}}
+            """))
+        let run = await retire(["prices", "--library", library.path, "--date", "2026-06-30"], client: client)
+        // gold-api.com only has today's price; Yahoo Finance's GC=F has June's.
+        let gold = try #require(line("gold", in: run.output))
+        for part in ["99.1", "EUR/g", "yahoo", "GC=F (history)", "2026-06-30", "converted from 3,483.37 USD/ozt"] {
+            #expect(gold.contains(part), "\(gold)")
+        }
+    }
+
     @Test func optionsAreChecked() async throws {
         let library = try TemporaryFolder.exampleLibrary()
         let dryRun = await retire(["prices", "--library", library.path, "--dry-run"])

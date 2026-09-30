@@ -183,7 +183,9 @@ struct PricesCommand: RetireSubcommand {
                                    .left("As of"), .left("Status")])
             for entry in fetched.entries {
                 let (value, per) = valueText(entry)
-                table.add([entry.item.description, value, per, entry.source?.rawValue ?? "", entry.symbol ?? "",
+                // A stand-in for a date the source has no price for: "GC=F (history)".
+                let symbol = entry.symbol.map { symbol in entry.note.map { "\(symbol) (\($0))" } ?? symbol } ?? ""
+                table.add([entry.item.description, value, per, entry.source?.rawValue ?? "", symbol,
                            entry.details?.observedOn?.description ?? "", status(entry)])
             }
             lines += table.lines()
@@ -277,7 +279,7 @@ struct PricesCommand: RetireSubcommand {
                     case .failed: "failed"
                     }
                     return JSON.Entry(item: entry.item.description, source: entry.source?.rawValue,
-                                      symbol: entry.symbol, status: status,
+                                      symbol: entry.symbol, note: entry.note, status: status,
                                       observedOn: entry.details?.observedOn?.description,
                                       reason: entry.failureReason)
                 },
@@ -317,6 +319,8 @@ struct PricesCommand: RetireSubcommand {
                 var item: String
                 var source: String?
                 var symbol: String?
+                /// `history` for a stand-in source, e.g. gold's futures on a past date.
+                var note: String?
                 var status: String
                 var observedOn: String?
                 var reason: String?
