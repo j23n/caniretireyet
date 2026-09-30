@@ -307,9 +307,9 @@ The importer works with any spreadsheet or export instead of a fixed layout. Det
 
 - Historical and bootstrapped return sequences. Guardrail and variable withdrawal strategies.
 - Tracking actual income and spending, to measure your real savings rate.
-- Cost basis from transactions: done, as trades ([TRADES.md](TRADES.md)); the app's screens for them and importing broker exports come next. PIR and other tax wrappers.
+- Cost basis from transactions: done, as trades ([TRADES.md](TRADES.md)), with the app's screens, broker transaction CSVs and ledger journals importing into them ([IMPORT.md](IMPORT.md)). Still to do: PIR and other tax wrappers, lots (FIFO), carrying losses forward (minusvalenze).
 - Tax systems for other countries, e.g. one you might retire to. Until then, the `generic` system approximates them.
-- Reading `.xlsx` and `.numbers` files directly, and a target that turns broker transaction exports into monthly holdings.
+- Reading `.xlsx` and `.numbers` files directly.
 - Planning for a partner or household.
 
 ## 7. Risks
