@@ -13,7 +13,8 @@ import Model
 /// record its cash), prices, EUR/USD rates and `hicp-it` values (none yet
 /// for 2026-09), and Directa's trades: an opening of 338 VWCE, a deposit and
 /// a buy each month, and a sale in July 2026; plans `base` and
-/// `part-time-from-50`; the import profile `net-worth-sheet`; and a baseline
+/// `part-time-from-50`; the import profiles `net-worth-sheet` (a wide sheet)
+/// and `directa-movimenti` (Directa's movements, as trades); and a baseline
 /// and a headline file for `base`.
 public enum Fixtures {
     /// The example library folder.

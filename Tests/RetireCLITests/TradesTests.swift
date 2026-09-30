@@ -108,6 +108,18 @@ struct TradesImportCommandTests {
         #expect(loaded.trades(for: "conto-fineco").count == 8)
     }
 
+    @Test func theExampleLibrarysTradesProfileReadsTheExport() async throws {
+        let library = try TemporaryFolder.exampleLibrary()
+        let run = await retire(["import", try sample("directa.csv"), "--library", library.path, "--profile",
+                                "directa-movimenti", "--apply", "--accept-new-instruments"])
+        #expect(run.status == 0, "\(run.all)")
+        #expect(run.output.contains("  Profile      imports/directa-movimenti.json\n"))
+        #expect(run.output.contains("  “Giroconto”                 1  left out  set in the profile or with --type\n"))
+        #expect(run.output.contains("  1 row was left out: its type is mapped to ignore.\n"))
+        #expect(run.output.contains("Imported: 11 added, 0 updated, 0 overwritten, 0 kept, 0 identical, 0 left out.\n"))
+        #expect(!run.output.contains("Cells that can't be read"))
+    }
+
     @Test func tradeOptionsAreChecked() async throws {
         let library = try TemporaryFolder.exampleLibrary()
         let file = try sample("directa.csv")

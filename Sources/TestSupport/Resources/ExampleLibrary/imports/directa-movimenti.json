@@ -1,0 +1,34 @@
+{
+  "columns": [
+    { "field": "date", "header": "Data operazione" },
+    { "field": "ignore", "header": "Data valuta" },
+    { "field": "type", "header": "Tipo operazione" },
+    { "field": "instrument", "header": "Ticker" },
+    { "field": "instrument", "header": "ISIN" },
+    { "field": "instrument", "header": "Titolo" },
+    { "field": "quantity", "header": "Quantità" },
+    { "field": "price", "header": "Prezzo" },
+    { "field": "amount", "header": "Importo euro" },
+    { "field": "fees", "header": "Commissioni" },
+    { "field": "currency", "header": "Divisa" },
+    { "field": "note", "header": "Descrizione" }
+  ],
+  "constants": { "account": "directa" },
+  "defaults": { "date": { "pattern": "dd/MM/yyyy" }, "number": { "decimal": ",", "thousands": "." } },
+  "file": { "delimiter": ";", "encoding": "utf-8", "headerRow": 5 },
+  "id": "directa-movimenti",
+  "layout": "trades",
+  "matches": { "instruments": { "IE00BK5BQT80": "vwce", "VWCE": "vwce" } },
+  "name": "Directa, movimenti",
+  "onConflict": "ask",
+  "tradeTypes": {
+    "Acquisto": "buy",
+    "Bonifico in entrata": "deposit",
+    "Commissioni": "fee",
+    "Dividendo": "dividend",
+    "Giroconto": "ignore",
+    "Imposta di bollo": "tax",
+    "Ritenuta su dividendo": "tax",
+    "Vendita": "sell"
+  }
+}

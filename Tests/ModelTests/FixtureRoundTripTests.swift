@@ -12,6 +12,7 @@ struct FixtureRoundTripTests {
         #expect(files.filter { $0.hasPrefix("history/") }.count == 12)
         #expect(files.contains("plans/base.json"))
         #expect(files.contains("imports/net-worth-sheet.json"))
+        #expect(files.contains("imports/directa-movimenti.json"))
         #expect(files.contains("projections/base/baselines/2026-01-05.json"))
         #expect(files.contains("projections/base/headlines/2026.json"))
         #expect(files.allSatisfy { Fixtures.modelType(forPath: $0) != nil })
