@@ -97,16 +97,25 @@ public struct PriceListEntry: Hashable, Sendable {
 
     public var item: Item
     /// The provider's source, e.g. `yahoo` or `ecb`; `nil` when there's none.
+    /// For a price from a stand-in (gold futures for a past date), the
+    /// stand-in's.
     public var source: DataSource?
-    /// The symbol sent to the provider, e.g. `VWCE.DE` or `EUR/USD`.
+    /// The symbol sent to the provider, e.g. `VWCE.DE` or `EUR/USD`; `GC=F`
+    /// for gold from its futures.
     public var symbol: String?
     public var outcome: Outcome
+    /// A word shown after the source when the value comes from a stand-in
+    /// for the instrument's own source: `history` in "Yahoo Finance · GC=F
+    /// (history)". `nil` otherwise.
+    public var note: String?
 
-    public init(item: Item, source: DataSource? = nil, symbol: String? = nil, outcome: Outcome) {
+    public init(item: Item, source: DataSource? = nil, symbol: String? = nil, outcome: Outcome,
+                note: String? = nil) {
         self.item = item
         self.source = source
         self.symbol = symbol
         self.outcome = outcome
+        self.note = note
     }
 
     /// The error, if the entry failed.

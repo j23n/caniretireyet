@@ -20,6 +20,16 @@ import Model
 /// reason; ``fetch(for:on:refresh:)`` never throws. Results are cached by
 /// provider, symbol and date, so re-opening a check-in doesn't fetch again.
 /// Only symbols, currencies and dates are sent, never amounts.
+///
+/// For a date its provider has no price for (gold-api.com only has today's;
+/// CoinGecko's free API only the last year), an instrument's price comes
+/// from the provider's history routes instead: gold from Yahoo Finance's
+/// `GC=F`, an old bitcoin price from `BTC-EUR`. The price list names the
+/// stand-in ("Yahoo Finance · GC=F (history)") and the record its source.
+///
+/// ``fillPastPrices(_:in:progress:)`` fills in every past date a library
+/// is missing a price, rate or index value for, a range per instrument at a
+/// time (PastPrices.swift).
 public struct PriceService: Sendable {
     /// Instrument providers by the `priceSource.provider` they handle.
     public let instrumentProviders: [PriceProvider: any InstrumentPriceProvider]
@@ -27,7 +37,7 @@ public struct PriceService: Sendable {
     /// Index providers by index.
     public let indexProviders: [IndexID: any PriceIndexProvider]
     public let cache: PriceCache
-    private let today: @Sendable () -> CalendarDate
+    let today: @Sendable () -> CalendarDate
 
     /// A service with the given providers. `today` decides whether a
     /// check-in is in the past (by default the device's current date).
@@ -153,23 +163,57 @@ public struct PriceService: Sendable {
         }
         let request = QuoteRequest(symbol: priceSource.symbol, date: needs.date, currency: instrument.currency,
                                    today: today)
-        func entry(_ outcome: PriceListEntry.Outcome) -> PriceListEntry {
-            PriceListEntry(item: item, source: provider.source, symbol: priceSource.symbol, outcome: outcome)
+        func entry(_ outcome: PriceListEntry.Outcome, origin: QuoteOrigin? = nil) -> PriceListEntry {
+            PriceListEntry(item: item, source: origin?.source ?? provider.source,
+                           symbol: origin?.symbol ?? priceSource.symbol, outcome: outcome, note: origin?.note)
         }
         do {
             let key = PriceCache.Key(provider: provider.provider.rawValue, symbol: provider.cacheSymbol(for: request),
                                      date: needs.date)
             let cached = try await cache.value(for: key) {
-                CachedQuote(quote: try await provider.quote(for: request), fetchedAt: Date())
+                CachedQuote(quote: try await Self.quoteOrHistory(provider, request), fetchedAt: Date())
             }
             let (price, rates) = try await convert(cached.quote, for: instrument, needs: needs)
             let record = PriceRecord(instrument: instrument.id, date: needs.date, price: price,
-                                     currency: instrument.currency, source: provider.source)
+                                     currency: instrument.currency, source: cached.quote.origin?.source ?? provider.source)
             let details = FetchDetails(observedOn: cached.quote.observedOn, observedAt: cached.quote.observedAt,
                                        fetchedAt: cached.fetchedAt, quote: cached.quote)
-            return .instrument(entry(.fetched(details)), record, rates)
+            return .instrument(entry(.fetched(details), origin: cached.quote.origin), record, rates)
         } catch {
             return .instrument(entry(.failed(Self.fetchError(error, service: provider.name))), nil, [])
+        }
+    }
+
+    /// The provider's quote for the request, or, when the provider says it
+    /// has none for that date (``InstrumentPriceProvider/triesHistory(after:for:)``:
+    /// gold-api.com on a past date, CoinGecko beyond its free year), the
+    /// latest value on or before the date from its history routes, which
+    /// names its origin. If no route has one, the provider's own error is
+    /// thrown, unless a route failed in a way worth retrying (offline, a
+    /// timeout, a rate limit), whose error is thrown instead.
+    static func quoteOrHistory(_ provider: any InstrumentPriceProvider, _ request: QuoteRequest) async throws -> Quote {
+        do {
+            return try await provider.quote(for: request)
+        } catch {
+            let failure = fetchError(error, service: provider.name)
+            guard provider.triesHistory(after: failure, for: request) else { throw error }
+            let range = HistoryRange(from: request.date.adding(days: -PriceHistory.dailyTolerance),
+                                     through: request.date, today: request.today)
+            var transient: PriceFetchError?
+            for route in provider.historyRoutes(symbol: request.symbol, currency: request.currency,
+                                                today: request.today) where route.covers(request.date) {
+                do {
+                    let history = try await route.fetch(range)
+                    if var quote = history.quote(onOrBefore: request.date) {
+                        quote.origin = history.origin
+                        return quote
+                    }
+                } catch {
+                    let routeFailure = fetchError(error, service: route.name)
+                    if routeFailure.isTransient, transient == nil { transient = routeFailure }
+                }
+            }
+            throw transient ?? error
         }
     }
 
