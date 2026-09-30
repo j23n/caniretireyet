@@ -51,6 +51,8 @@ public struct LedgerAccountRow: Hashable, Sendable, Identifiable {
     public var depth: Int { name.split(separator: ":").count - 1 }
     /// The parent account's name; `nil` for a top-level account.
     public var parent: String? { name.lastIndex(of: ":").map { String(name[..<$0]) } }
+    /// The name a new library account for it gets, e.g. `Crypto Wallet` for `Assets:Crypto:Wallet`.
+    public var suggestedAccountName: String { LedgerMapper.displayName(of: name) }
     public var role: Role
     public var mapping: Mapping
     public var source: Source

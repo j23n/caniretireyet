@@ -199,7 +199,7 @@ extension ImportFlow {
 
     /// Why Import can't run yet; empty when it can.
     var blockers: [String] {
-        guard session != nil, let preview else { return ["Choose a file to import."] }
+        guard hasFile, let preview else { return ["Choose a file to import."] }
         var reasons: [String] = []
         let guesses = ambiguities.count
         if guesses > 0 {
@@ -208,7 +208,8 @@ extension ImportFlow {
         }
         if planned?.hasChanges != true {
             reasons.append(preview.records.isEmpty
-                ? "Nothing in the file can be imported yet: say what its columns hold."
+                ? (isLedger ? "Nothing in the journal can be imported: it has no assets or liabilities to value."
+                    : "Nothing in the file can be imported yet: say what its columns hold.")
                 : "The library already has everything in this file.")
         }
         return reasons
@@ -244,6 +245,9 @@ extension ImportFlow {
                     + instrumentName(position.instrument)
                 if let cost = position.costBasis { text += " (cost \(amount(cost)))" }
                 parts.append(text)
+            }
+            if let flow = valuation.flow {
+                parts.append("flow \(AmountFormat.signedAmount(flow, currency: currency, precision: .automatic, locale: locale))")
             }
             return parts.isEmpty ? "No values" : parts.joined(separator: " · ")
         case .price(let price):
@@ -285,8 +289,14 @@ extension ImportFlow {
     /// and the conflict policy chosen. Pass the library after the import, so
     /// new accounts' names resolve to their IDs.
     func makeProfile(id: ImportProfileID, name: String, library: Library) -> ImportProfile? {
-        guard let session else { return nil }
-        var profile = session.makeProfile(id: id, name: name, library: library)
+        var profile: ImportProfile
+        if let ledger {
+            guard let result = ledger.result else { return nil }
+            profile = ledger.session.makeProfile(id: id, name: name, from: result, library: library)
+        } else {
+            guard let session else { return nil }
+            profile = session.makeProfile(id: id, name: name, library: library)
+        }
         if let policy = decisions.conflictPolicy { profile.onConflict = policy == .ask ? nil : policy }
         return profile
     }

@@ -39,15 +39,19 @@ struct ImportPreviewStep: View {
                     StatusBanner(.info, note, message: "Kept as written? Change it under Accounts, “Debts”.")
                 }
                 ImportConflictsCard(model: model)
-                Card {
-                    ImportGridView(grid: flow.grid(onlyProblems: onlyProblems))
-                } header: {
-                    SectionHeader("The file", systemImage: "tablecells") {
-                        Toggle("Only rows with problems", isOn: $onlyProblems)
-                            .fixedSize()
+                if flow.isLedger {
+                    LedgerNotesCard(notes: flow.ledgerNotes)
+                } else {
+                    Card {
+                        ImportGridView(grid: flow.grid(onlyProblems: onlyProblems))
+                    } header: {
+                        SectionHeader("The file", systemImage: "tablecells") {
+                            Toggle("Only rows with problems", isOn: $onlyProblems)
+                                .fixedSize()
+                        }
                     }
+                    ImportCellErrorsCard(errors: flow.preview?.cellErrors ?? [])
                 }
-                ImportCellErrorsCard(errors: flow.preview?.cellErrors ?? [])
             }
             .padding(Metrics.l)
         }

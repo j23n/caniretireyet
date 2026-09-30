@@ -151,8 +151,8 @@ struct ImportDoneStep: View {
             Text("Save as profile")
         } footer: {
             Text("The mapping, with every format written out, in the library's imports folder. The next file of the "
-                + "same shape imports in one step, here, on your other devices, or with “retire import --profile "
-                + "\(profileID.isEmpty ? "<id>" : profileID)”.")
+                + "same shape imports in one step, here, on your other devices, or with “retire import "
+                + (model.flow.isLedger ? "ledger <files> " : "") + "--profile \(profileID.isEmpty ? "<id>" : profileID)”.")
         }
     }
 

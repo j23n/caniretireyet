@@ -44,6 +44,13 @@ final class ImportController {
         flow.open(data, fileName: fileName)
     }
 
+    /// Starts over with journals read from files (ImportController+Ledger.swift).
+    func open(ledger: LedgerImportState, source: ImportSource) {
+        receipt = nil
+        errorMessage = nil
+        flow.openLedger(ledger, source: source)
+    }
+
     /// Records that a file couldn't be opened.
     func openFailed(fileName: String, message: String) {
         receipt = nil

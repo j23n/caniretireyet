@@ -30,11 +30,11 @@ struct RootView: View {
             }
     }
 
-    /// A CSV or TSV file opened from Files or Finder starts an import (on
-    /// iPhone, "Import with profile…"). At launch the layout isn't set yet,
-    /// so on iPhone the import sheet is chosen here.
+    /// A CSV or TSV file, or a ledger journal, opened from Files or Finder
+    /// starts an import (on iPhone, "Import with profile…"). At launch the
+    /// layout isn't set yet, so on iPhone the import sheet is chosen here.
     private func openFile(_ url: URL) {
-        guard ["csv", "tsv", "txt"].contains(url.pathExtension.lowercased()) else { return }
+        guard ["csv", "tsv", "txt"].contains(url.pathExtension.lowercased()) || LedgerFiles.isJournal(url) else { return }
         #if os(iOS)
         if horizontalSizeClass == .compact {
             navigation.sheet = .importFile(url)
@@ -100,6 +100,11 @@ private struct AppPresentation: ViewModifier {
             }
             #endif
             .dropDestination(for: URL.self) { urls, _ in
+                let journals = urls.filter(LedgerFiles.isJournal)
+                if !journals.isEmpty {
+                    navigation.startImport(files: journals)
+                    return true
+                }
                 guard let file = urls.first(where: { $0.pathExtension.lowercased() == "csv" }) else { return false }
                 navigation.startImport(file)
                 return true
