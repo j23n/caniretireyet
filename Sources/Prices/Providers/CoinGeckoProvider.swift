@@ -2,7 +2,15 @@ import Foundation
 import Model
 
 /// Crypto prices from CoinGecko, in the instrument's currency. The symbol is
-/// CoinGecko's coin ID (`bitcoin`, `ethereum`).
+/// the coin's CoinGecko ID (`ethereum`) or its ticker (`ETH`).
+///
+/// The symbol is resolved to a coin ID first, ignoring case: a well-known
+/// ticker through a built-in table, a symbol that looks like an ID as it is,
+/// and anything else, or an ID CoinGecko doesn't know, through
+/// `GET search?query=ETH`, which picks the coin with that ID, or else the
+/// best-ranked coin with that ticker. What a search found is remembered for
+/// the provider's lifetime. A quote for a resolved symbol names its coin in
+/// ``Quote/resolvedSymbol``.
 ///
 /// - For a check-in dated today or later, the spot price:
 ///   `GET simple/price?ids=bitcoin&vs_currencies=eur&include_last_updated_at=true&precision=full`
@@ -24,9 +32,14 @@ public struct CoinGeckoProvider: InstrumentPriceProvider {
     public var source: DataSource { .coingecko }
     public var name: String { "CoinGecko" }
 
+    /// The advice given when no coin matches a symbol.
+    static let unknownCoinAdvice =
+        "Use the coin's API ID from its page on coingecko.com (e.g. ethereum) or its ticker."
+
     private let fetcher: HTTPFetcher
     private let credentials: any CredentialsProvider
     private let baseURL: URL
+    private let resolutions = CoinGeckoResolutions()
 
     public init(
         client: any HTTPClient = URLSessionHTTPClient(), credentials: any CredentialsProvider = StaticCredentials(),
@@ -37,54 +50,109 @@ public struct CoinGeckoProvider: InstrumentPriceProvider {
         self.baseURL = baseURL
     }
 
-    /// CoinGecko quotes in the requested currency, so the currency is part of the key.
+    /// CoinGecko quotes in the requested currency, so the currency is part of
+    /// the key. The symbol is the library's, not the coin ID it resolves to,
+    /// so the key is known before anything is fetched.
     public func cacheSymbol(for request: QuoteRequest) -> String {
         "\(request.symbol)/\(request.currency)"
     }
 
     public func quote(for request: QuoteRequest) async throws -> Quote {
         let headers = await credentials.apiKey(for: provider).map { [Self.apiKeyHeader: $0] } ?? [:]
-        if request.date >= request.today {
-            return try await spot(request, headers: headers)
+        let symbol = request.symbol.trimmingCharacters(in: .whitespacesAndNewlines)
+        if let coin = CoinGeckoCoinIDs.coinID(forTicker: symbol) {
+            return try await quote(request, coin: coin, headers: headers)
         }
-        do {
-            return try await history(request, headers: headers)
-        } catch PriceFetchError.noData where request.date.adding(days: 1) >= request.today {
-            // Today's snapshot may not exist yet in the first hours of the UTC day.
-            return try await spot(request, headers: headers)
+        if let known = await resolutions.known(symbol) {
+            return try await quote(request, coin: coin(known, for: request), headers: headers)
+        }
+        var unknownID: PriceFetchError?
+        if CoinGeckoCoinIDs.looksLikeCoinID(symbol) {
+            do {
+                return try await quote(request, coin: symbol, headers: headers)
+            } catch let error as PriceFetchError {
+                // Not an ID CoinGecko knows? Then perhaps a ticker: search for it.
+                guard case .unknownSymbol = error else { throw error }
+                unknownID = error
+            }
+        }
+        let resolution = try await resolutions.resolve(symbol) {
+            try await search(symbol, headers: headers)
+        }
+        let id = try coin(resolution, for: request)
+        if id == symbol, let unknownID { throw unknownID }
+        return try await quote(request, coin: id, headers: headers)
+    }
+
+    /// The coin a resolution names, or the error saying there's none.
+    private func coin(
+        _ resolution: CoinGeckoResolutions.Resolution, for request: QuoteRequest
+    ) throws(PriceFetchError) -> String {
+        switch resolution {
+        case .coin(let id): id
+        case .noMatch: throw .unknownSymbol(service: name, symbol: request.symbol, message: Self.unknownCoinAdvice)
         }
     }
 
-    private func spot(_ request: QuoteRequest, headers: [String: String]) async throws -> Quote {
+    /// Asks CoinGecko's search which coin `symbol` means.
+    private func search(
+        _ symbol: String, headers: [String: String]
+    ) async throws -> CoinGeckoResolutions.Resolution {
+        let url = baseURL.appending(segments: ["search"], query: [("query", symbol)])
+        let response = try await fetcher.get(url, headers: headers)
+        try response.requireSuccess(service: name, symbol: symbol)
+        let body = try response.decodeJSON(CoinGeckoCoinIDs.SearchResults.self, service: name)
+        return CoinGeckoCoinIDs.bestMatch(for: symbol, in: body.coins).map { .coin($0) } ?? .noMatch
+    }
+
+    /// The price of the coin with ID `coin`, noting the ID when it isn't the
+    /// request's symbol.
+    private func quote(_ request: QuoteRequest, coin: String, headers: [String: String]) async throws -> Quote {
+        var quote: Quote
+        if request.date >= request.today {
+            quote = try await spot(request, coin: coin, headers: headers)
+        } else {
+            do {
+                quote = try await history(request, coin: coin, headers: headers)
+            } catch PriceFetchError.noData where request.date.adding(days: 1) >= request.today {
+                // Today's snapshot may not exist yet in the first hours of the UTC day.
+                quote = try await spot(request, coin: coin, headers: headers)
+            }
+        }
+        if coin != request.symbol { quote.resolvedSymbol = coin }
+        return quote
+    }
+
+    private func spot(_ request: QuoteRequest, coin: String, headers: [String: String]) async throws -> Quote {
         let currency = request.currency.rawValue.lowercased()
         let url = baseURL.appending(segments: ["simple", "price"], query: [
-            ("ids", request.symbol), ("vs_currencies", currency),
+            ("ids", coin), ("vs_currencies", currency),
             ("include_last_updated_at", "true"), ("precision", "full"),
         ])
         let response = try await fetcher.get(url, headers: headers)
-        try response.requireSuccess(service: name, symbol: request.symbol)
+        try response.requireSuccess(service: name, symbol: coin)
         let body = try response.decodeJSON([String: SpotPrice].self, service: name)
-        guard let coin = body[request.symbol] else {
-            throw PriceFetchError.unknownSymbol(service: name, symbol: request.symbol, message: nil)
+        guard let spot = body[coin] else {
+            throw PriceFetchError.unknownSymbol(service: name, symbol: coin, message: nil)
         }
-        guard let price = coin.prices[currency] else {
-            throw PriceFetchError.noData(service: name, detail: "no \(request.currency) price for \(request.symbol)")
+        guard let price = spot.prices[currency] else {
+            throw PriceFetchError.noData(service: name, detail: "no \(request.currency) price for \(coin)")
         }
-        let updated = coin.lastUpdatedAt.map { Date(timeIntervalSince1970: TimeInterval($0)) }
+        let updated = spot.lastUpdatedAt.map { Date(timeIntervalSince1970: TimeInterval($0)) }
         return Quote(price: price, currency: request.currency, observedOn: request.today, observedAt: updated)
     }
 
-    private func history(_ request: QuoteRequest, headers: [String: String]) async throws -> Quote {
+    private func history(_ request: QuoteRequest, coin: String, headers: [String: String]) async throws -> Quote {
         let snapshotDay = request.date.adding(days: 1)
-        let url = baseURL.appending(segments: ["coins", request.symbol, "history"], query: [
+        let url = baseURL.appending(segments: ["coins", coin, "history"], query: [
             ("date", Self.historyDate(snapshotDay)), ("localization", "false"),
         ])
         let response = try await fetcher.get(url, headers: headers)
-        try response.requireSuccess(service: name, symbol: request.symbol)
+        try response.requireSuccess(service: name, symbol: coin)
         let body = try response.decodeJSON(History.self, service: name)
         guard let price = body.marketData?.currentPrice[request.currency.rawValue.lowercased()] else {
             throw PriceFetchError.noData(
-                service: name, detail: "no \(request.currency) price for \(request.symbol) on \(request.date)")
+                service: name, detail: "no \(request.currency) price for \(coin) on \(request.date)")
         }
         let midnight = Date(timeIntervalSince1970: TimeInterval(snapshotDay.daysSinceEpoch) * 86_400)
         return Quote(price: price, currency: request.currency, observedOn: request.date, observedAt: midnight)

@@ -1,11 +1,67 @@
 // Recorded responses for CoinGecko.
 //
 // The build environment's network policy blocks api.coingecko.com, so these
-// follow CoinGecko's documented formats for `simple/price` and
-// `coins/{id}/history`, and its documented error bodies. Prices are made up,
-// consistent with the example library.
+// follow CoinGecko's documented formats for `simple/price`,
+// `coins/{id}/history` and `search`, and its documented error bodies. Prices
+// are made up, consistent with the example library. The coins in the search
+// results (Moonstone and friends) are made up too.
 
 enum CoinGeckoResponses {
+    /// `GET simple/price?ids=ethereum&vs_currencies=eur&…`, for the ticker `ETH`.
+    static let spotEthereumEUR = #"{"ethereum":{"eur":3812.0625,"last_updated_at":1790758680}}"#
+
+    /// `GET coins/ethereum/history?date=01-04-2026&localization=false`.
+    static let historyEthereumEndOfMarch = """
+    {"id":"ethereum","symbol":"eth","name":"Ethereum",\
+    "image":{"thumb":"https://coin-images.coingecko.com/coins/images/279/thumb/ethereum.png?1696501628"},\
+    "market_data":{"current_price":{"btc":0.0201,"eur":1612.34,"usd":1790.05},\
+    "market_cap":{"eur":194612345678.9,"usd":216012345678.9}}}
+    """
+
+    /// `GET search?query=MOON`: several coins with the ticker MOON. The
+    /// best-ranked is Moonstone (287), tied with Moon DAO, which comes later;
+    /// Moonpaw ranks better but its ticker only starts with MOON.
+    static let searchMoon = """
+    {"coins":[\
+    {"id":"moonshot-cat","name":"Moonshot Cat","api_symbol":"moonshot-cat","symbol":"MOON","market_cap_rank":null,\
+    "thumb":"https://coin-images.coingecko.com/coins/images/90001/thumb/moonshot-cat.png",\
+    "large":"https://coin-images.coingecko.com/coins/images/90001/large/moonshot-cat.png"},\
+    {"id":"moon-token","name":"Moon Token","api_symbol":"moon-token","symbol":"MOON","market_cap_rank":1432,\
+    "thumb":"https://coin-images.coingecko.com/coins/images/90002/thumb/moon-token.png",\
+    "large":"https://coin-images.coingecko.com/coins/images/90002/large/moon-token.png"},\
+    {"id":"moonpaw","name":"Moonpaw","api_symbol":"moonpaw","symbol":"MOONPAW","market_cap_rank":95,\
+    "thumb":"https://coin-images.coingecko.com/coins/images/90003/thumb/moonpaw.png",\
+    "large":"https://coin-images.coingecko.com/coins/images/90003/large/moonpaw.png"},\
+    {"id":"moonstone","name":"Moonstone","api_symbol":"moonstone","symbol":"MOON","market_cap_rank":287,\
+    "thumb":"https://coin-images.coingecko.com/coins/images/90004/thumb/moonstone.png",\
+    "large":"https://coin-images.coingecko.com/coins/images/90004/large/moonstone.png"},\
+    {"id":"moon-dao","name":"Moon DAO","api_symbol":"moon-dao","symbol":"MOON","market_cap_rank":287,\
+    "thumb":"https://coin-images.coingecko.com/coins/images/90005/thumb/moon-dao.png",\
+    "large":"https://coin-images.coingecko.com/coins/images/90005/large/moon-dao.png"}],\
+    "exchanges":[{"id":"moonex","name":"MoonEx","market_type":"spot",\
+    "thumb":"https://coin-images.coingecko.com/markets/images/901/thumb/moonex.png",\
+    "large":"https://coin-images.coingecko.com/markets/images/901/large/moonex.png"}],\
+    "icos":[],"categories":[{"id":"moon-ecosystem","name":"Moon Ecosystem"}],"nfts":[]}
+    """
+
+    /// `GET search?query=XYZ`: coins that only resemble the query.
+    static let searchNoMatch = """
+    {"coins":[\
+    {"id":"xyzzy","name":"Xyzzy","api_symbol":"xyzzy","symbol":"XYZZY","market_cap_rank":null,\
+    "thumb":"https://coin-images.coingecko.com/coins/images/90006/thumb/xyzzy.png",\
+    "large":"https://coin-images.coingecko.com/coins/images/90006/large/xyzzy.png"}],\
+    "exchanges":[],"icos":[],"categories":[],"nfts":[]}
+    """
+
+    /// `GET simple/price?ids=moonstone&vs_currencies=usd&…`.
+    static let spotMoonstoneUSD = #"{"moonstone":{"usd":0.4187,"last_updated_at":1790758680}}"#
+
+    /// `GET coins/moonstone/history?date=…`: the same snapshot for any date.
+    static let historyMoonstone = """
+    {"id":"moonstone","symbol":"moon","name":"Moonstone",\
+    "market_data":{"current_price":{"eur":0.3561,"usd":0.3952},"market_cap":{"eur":35610000.0,"usd":39520000.0}}}
+    """
+
     /// `GET simple/price?ids=bitcoin&vs_currencies=usd&include_last_updated_at=true&precision=full`.
     static let spotUSD = #"{"bitcoin":{"usd":111400,"last_updated_at":1790758680}}"#
 

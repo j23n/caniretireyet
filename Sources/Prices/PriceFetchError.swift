@@ -18,7 +18,9 @@ public enum PriceFetchError: Error, Hashable, Sendable, CustomStringConvertible 
     /// The service refused the request, e.g. an invalid API key or a date
     /// outside what its free tier allows.
     case unauthorized(service: String, message: String?)
-    /// The service doesn't know the symbol or currency.
+    /// The service doesn't know the symbol or currency. `message` is the
+    /// service's reason ("coin not found"), or advice written as sentences
+    /// (capitalised, ending in a period), which then follows as its own.
     case unknownSymbol(service: String, symbol: String, message: String?)
     /// Any other unsuccessful HTTP status.
     case httpStatus(service: String, code: Int, message: String?)
@@ -55,7 +57,11 @@ public enum PriceFetchError: Error, Hashable, Sendable, CustomStringConvertible 
         case .unauthorized(let service, let message):
             "\(service) refused the request\(Self.suffix(message)). Check the API key in Settings."
         case .unknownSymbol(let service, let symbol, let message):
-            "\(service) doesn't know \"\(symbol)\"\(Self.suffix(message))."
+            if let message, Self.isSentence(message) {
+                "\(service) doesn't know \"\(symbol)\". \(message)"
+            } else {
+                "\(service) doesn't know \"\(symbol)\"\(Self.suffix(message))."
+            }
         case .httpStatus(let service, let code, let message):
             "\(service) answered with HTTP \(code)\(Self.suffix(message))."
         case .malformedResponse(let service, let detail):
@@ -88,6 +94,13 @@ public enum PriceFetchError: Error, Hashable, Sendable, CustomStringConvertible 
         guard let message, !message.isEmpty else { return "" }
         let trimmed = message.hasSuffix(".") ? String(message.dropLast()) : message
         return ": \(trimmed)"
+    }
+
+    /// Whether `message` reads as sentences of its own: capitalised and
+    /// ending in a period.
+    private static func isSentence(_ message: String) -> Bool {
+        guard let first = message.first else { return false }
+        return first.isUppercase && message.hasSuffix(".")
     }
 
     static func describe(_ duration: Duration) -> String {

@@ -22,8 +22,14 @@ struct LivePriceTests {
         let request = { (symbol: String, currency: CurrencyCode) in
             QuoteRequest(symbol: symbol, date: today, currency: currency, today: today)
         }
-        let btc = try await CoinGeckoProvider(credentials: credentials).quote(for: request("bitcoin", .eur))
+        let coinGecko = CoinGeckoProvider(credentials: credentials)
+        let btc = try await coinGecko.quote(for: request("bitcoin", .eur))
         #expect(btc.price > 1000)
+        // A ticker from the built-in table, and one CoinGecko's search resolves.
+        let eth = try await coinGecko.quote(for: request("ETH", .eur))
+        #expect(eth.resolvedSymbol == "ethereum" && eth.price > 100)
+        let pepe = try await coinGecko.quote(for: request("PEPE", .usd))
+        #expect(pepe.resolvedSymbol != nil && pepe.price > 0)
         let gold = try await GoldAPIProvider().quote(for: request("XAU", .usd))
         #expect(gold.unit == .troyOunce && gold.price > 500)
         let vwce = try await YahooChartProvider().quote(for: request("VWCE.DE", .eur))

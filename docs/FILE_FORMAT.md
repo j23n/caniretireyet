@@ -200,6 +200,8 @@ An instrument is anything you hold a quantity of. Its price is always per `unit`
 | `tax` | no | Overrides the Italian tax treatment implied by `kind`. For example, `{ "govBondShare": "0.8" }` is used for the 12.5% rate on government bonds, applied pro rata. |
 | `priceSource` | no | Where prices come from. If it's absent, you enter prices by hand. |
 
+For `coingecko`, `symbol` is the coin's CoinGecko ID (`ethereum`, from its page on coingecko.com) or its ticker (`ETH`), in any case. The fetcher resolves it to an ID in this order: a built-in table of well-known tickers (`BTC`, `ETH`, `SOL`, …); a lowercase symbol, tried as an ID as it is; then, for anything else or an ID CoinGecko doesn't know, CoinGecko's search, which takes the coin with that ID, or else the highest-ranked coin with that ticker. The file keeps the symbol as you typed it, and the price list shows what it resolved to, e.g. "ETH → ethereum".
+
 ## `history/YYYY/YYYY-MM.json`
 
 One file per calendar month. It holds the account valuations, prices, FX rates and inflation-index values dated in that month.
