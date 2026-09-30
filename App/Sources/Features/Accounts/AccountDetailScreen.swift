@@ -83,8 +83,8 @@ struct AccountDetailScreen: View {
                                     titleVisibility: .visible) {
                     Button("Delete Account and Its History", role: .destructive) { delete(account) }
                 } message: {
-                    Text("This removes the account and all its values, as if it never existed. It's for mistakes: "
-                        + "to stop tracking an account, close it instead.")
+                    Text("This removes the account and all its values\(account.recordsTrades ? " and trades" : ""), "
+                        + "as if it never existed. It's for mistakes: to stop tracking an account, close it instead.")
                 }
                 .confirmationDialog("Delete this value?", isPresented: $confirmsValuationDelete,
                                     titleVisibility: .visible, presenting: deletingValuation) { key in
