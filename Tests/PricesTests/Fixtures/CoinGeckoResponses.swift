@@ -1,0 +1,81 @@
+// Recorded responses for CoinGecko.
+//
+// The build environment's network policy blocks api.coingecko.com, so these
+// follow CoinGecko's documented formats for `simple/price` and
+// `coins/{id}/history`, and its documented error bodies. Prices are made up,
+// consistent with the example library.
+
+enum CoinGeckoResponses {
+    /// `GET simple/price?ids=bitcoin&vs_currencies=usd&include_last_updated_at=true&precision=full`.
+    static let spotUSD = #"{"bitcoin":{"usd":111400,"last_updated_at":1790758680}}"#
+
+    /// `GET simple/price?ids=bitcoin&vs_currencies=eur&…`.
+    static let spotEUR = #"{"bitcoin":{"eur":97736.4568,"last_updated_at":1790758680}}"#
+
+    /// `GET simple/price?ids=not-a-coin&…`: an unknown ID gives an empty object.
+    static let spotUnknown = "{}"
+
+    /// `GET coins/bitcoin/history?date=01-04-2026&localization=false`: the
+    /// snapshot at 00:00 UTC on 1 April, i.e. the end of 31 March.
+    static let historyEndOfMarch = """
+    {"id":"bitcoin","symbol":"btc","name":"Bitcoin",\
+    "image":{"thumb":"https://coin-images.coingecko.com/coins/images/1/thumb/bitcoin.png?1696501400",\
+    "small":"https://coin-images.coingecko.com/coins/images/1/small/bitcoin.png?1696501400"},\
+    "market_data":{"current_price":{"btc":1.0,"chf":71019.24,"eur":80076.47,"gbp":68521.9,"usd":88900.12},\
+    "market_cap":{"eur":1589461234567.1,"usd":1764612345678.9},\
+    "total_volume":{"eur":28912345678.4,"usd":32098765432.1}},\
+    "community_data":{"facebook_likes":null,"reddit_average_posts_48h":0.0,"reddit_average_comments_48h":0.0,\
+    "reddit_subscribers":null,"reddit_accounts_active_48h":null},\
+    "developer_data":{"forks":36426,"stars":73168,"subscribers":3967,"total_issues":7743,"closed_issues":7380,\
+    "pull_requests_merged":11215,"pull_request_contributors":846,\
+    "code_additions_deletions_4_weeks":{"additions":1570,"deletions":-1948},"commit_count_4_weeks":108},\
+    "public_interest_stats":{"alexa_rank":null,"bing_matches":null}}
+    """
+
+    /// A history snapshot from before the coin had market data.
+    static let historyWithoutMarketData = """
+    {"id":"bitcoin","symbol":"btc","name":"Bitcoin",\
+    "image":{"thumb":"https://coin-images.coingecko.com/coins/images/1/thumb/bitcoin.png?1696501400"}}
+    """
+
+    /// 429 on the public API.
+    static let rateLimited = """
+    {"status":{"error_code":429,"error_message":"You've exceeded the Rate Limit. Please visit \
+    https://www.coingecko.com/en/api/pricing to subscribe to our API plans for higher rate limits."}}
+    """
+
+    /// 404 for an unknown coin ID on `coins/{id}/history`.
+    static let coinNotFound = #"{"error":"coin not found"}"#
+
+    /// 401 for a history date beyond the public API's 365 days.
+    static let beyondTimeRange = """
+    {"error":{"status":{"timestamp":"2026-09-30T09:00:00.000+00:00","error_code":10012,\
+    "error_message":"Your request exceeds the allowed time range. Public API users are limited to querying \
+    historical data within the past 365 days."}}}
+    """
+
+    /// 400 when a Pro key is sent to the public host.
+    static let wrongKey = """
+    {"status":{"error_code":10010,"error_message":"If you are using Pro API key, please change your root URL \
+    from api.coingecko.com to pro-api.coingecko.com"}}
+    """
+}
+
+// Recorded responses for gold-api.com, from its documented `price/{symbol}`
+// format (the host is blocked here too). Spot prices are made up.
+enum GoldAPIResponses {
+    /// `GET price/XAU`: USD per troy ounce.
+    static let gold = """
+    {"currency":"USD","currencySymbol":"$","exchangeRate":1,"name":"Gold","price":3488.449951,"symbol":"XAU",\
+    "updatedAt":"2026-09-30T08:59:47Z","updatedAtReadable":"a few seconds ago"}
+    """
+
+    /// `GET price/XAG`, without the optional currency fields.
+    static let silver = """
+    {"name":"Silver","price":41.279999,"symbol":"XAG","updatedAt":"2026-09-30T08:59:47Z",\
+    "updatedAtReadable":"a few seconds ago"}
+    """
+
+    /// 404 for an unknown symbol.
+    static let unknownSymbol = #"{"error":"Symbol not found"}"#
+}

@@ -1,0 +1,265 @@
+import Foundation
+import Model
+
+/// Fetches the prices, FX rates and inflation-index values a check-in needs.
+///
+/// Given a library and a check-in date, it works out what's needed
+/// (``CheckInPriceNeeds``), fetches everything concurrently, and returns
+/// records for the check-in's price list (``CheckInPrices``):
+///
+/// - **Prices** are dated the check-in date, in the instrument's currency and
+///   per its unit. Quotes in another currency or unit (gold-api's USD per
+///   troy ounce) are converted with ECB rates and kept to six significant
+///   digits.
+/// - **FX rates** are fetched against the library's base currency, as the
+///   latest ECB rate on or before the date, and dated the check-in date.
+/// - **Index values** are the months the library is missing, each dated the
+///   last day of its month.
+///
+/// A failure affects only its own entry and is reported with a readable
+/// reason; ``fetch(for:on:refresh:)`` never throws. Results are cached by
+/// provider, symbol and date, so re-opening a check-in doesn't fetch again.
+/// Only symbols, currencies and dates are sent, never amounts.
+public struct PriceService: Sendable {
+    /// Instrument providers by the `priceSource.provider` they handle.
+    public let instrumentProviders: [PriceProvider: any InstrumentPriceProvider]
+    public let fxProvider: any FXRateProvider
+    /// Index providers by index.
+    public let indexProviders: [IndexID: any PriceIndexProvider]
+    public let cache: PriceCache
+    private let today: @Sendable () -> CalendarDate
+
+    /// A service with the given providers. `today` decides whether a
+    /// check-in is in the past (by default the device's current date).
+    public init(
+        instrumentProviders: [any InstrumentPriceProvider], fxProvider: any FXRateProvider,
+        indexProviders: [any PriceIndexProvider] = [], cache: PriceCache = PriceCache(),
+        today: @escaping @Sendable () -> CalendarDate = { CalendarDate.today() }
+    ) {
+        self.instrumentProviders = Dictionary(
+            instrumentProviders.map { ($0.provider, $0) }, uniquingKeysWith: { _, last in last })
+        self.fxProvider = fxProvider
+        self.indexProviders = Dictionary(indexProviders.map { ($0.index, $0) }, uniquingKeysWith: { _, last in last })
+        self.cache = cache
+        self.today = today
+    }
+
+    /// The standard providers: Yahoo Finance, CoinGecko and gold-api.com for
+    /// instruments, Frankfurter for ECB rates, and Eurostat for `hicp-it`.
+    public static func standard(
+        client: any HTTPClient = URLSessionHTTPClient(), credentials: any CredentialsProvider = StaticCredentials(),
+        policy: RequestPolicy = .standard, cache: PriceCache = PriceCache(),
+        today: @escaping @Sendable () -> CalendarDate = { CalendarDate.today() }
+    ) -> PriceService {
+        PriceService(
+            instrumentProviders: [
+                YahooChartProvider(client: client, policy: policy),
+                CoinGeckoProvider(client: client, credentials: credentials, policy: policy),
+                GoldAPIProvider(client: client, policy: policy),
+            ],
+            fxProvider: FrankfurterProvider(client: client, policy: policy),
+            indexProviders: [EurostatIndexProvider(series: .hicpIT, client: client, policy: policy)],
+            cache: cache, today: today)
+    }
+
+    /// What a check-in on `date` needs, for the indices this service provides.
+    public func needs(for library: Library, on date: CalendarDate) -> CheckInPriceNeeds {
+        CheckInPriceNeeds(library: library, date: date, indices: indexProviders.keys.sorted())
+    }
+
+    /// Fetches what a check-in on `date` needs. With `refresh`, the cache is
+    /// cleared first.
+    public func fetch(for library: Library, on date: CalendarDate, refresh: Bool = false) async -> CheckInPrices {
+        await fetch(needs(for: library, on: date), refresh: refresh)
+    }
+
+    /// Fetches `needs`, e.g. after adding an instrument the check-in now holds.
+    public func fetch(_ needs: CheckInPriceNeeds, refresh: Bool = false) async -> CheckInPrices {
+        if refresh { await cache.removeAll() }
+        let today = self.today()
+
+        var entries: [PriceListEntry] = []
+        var prices: [PriceRecord] = []
+        var fx: [FXKey: FXRecord] = [:]
+        var indices: [IndexRecord] = []
+
+        await withTaskGroup(of: Part.self) { group in
+            for currency in needs.currencies {
+                group.addTask { await self.fxPart(quote: currency, needs: needs) }
+            }
+            for instrument in needs.instruments {
+                group.addTask { await self.instrumentPart(instrument, needs: needs, today: today) }
+            }
+            for need in needs.indices where !need.months.isEmpty {
+                group.addTask { await self.indexPart(need, date: needs.date) }
+            }
+            for await part in group {
+                switch part {
+                case .instrument(let entry, let price, let rates):
+                    entries.append(entry)
+                    if let price { prices.append(price) }
+                    for rate in rates { fx[rate.key] = rate }
+                case .fx(let entry, let rate):
+                    entries.append(entry)
+                    if let rate { fx[rate.key] = rate }
+                case .index(let entry, let records):
+                    entries.append(entry)
+                    indices += records
+                }
+            }
+        }
+
+        entries += needs.manualInstruments.map { PriceListEntry(item: .instrument($0), outcome: .manual) }
+        entries += needs.unknownInstruments.map {
+            PriceListEntry(item: .instrument($0), outcome: .failed(.unknownInstrument($0)))
+        }
+        return CheckInPrices(
+            date: needs.date, prices: prices.sortedByKey(), fx: fx.values.sortedByKey(),
+            indices: indices.sortedByKey(), entries: entries.sorted { $0.item < $1.item })
+    }
+
+    // MARK: - Parts
+
+    private enum Part: Sendable {
+        case instrument(PriceListEntry, PriceRecord?, [FXRecord])
+        case fx(PriceListEntry, FXRecord?)
+        case index(PriceListEntry, [IndexRecord])
+    }
+
+    private struct CachedQuote: Sendable {
+        let quote: Quote
+        let fetchedAt: Date
+    }
+
+    private struct CachedRate: Sendable {
+        let observation: FXObservation
+        let fetchedAt: Date
+    }
+
+    private struct CachedIndex: Sendable {
+        let records: [IndexRecord]
+        let fetchedAt: Date
+    }
+
+    private func instrumentPart(_ instrument: Instrument, needs: CheckInPriceNeeds, today: CalendarDate) async -> Part {
+        let item = PriceListEntry.Item.instrument(instrument.id)
+        guard let priceSource = instrument.priceSource else {
+            return .instrument(PriceListEntry(item: item, outcome: .manual), nil, [])
+        }
+        guard let provider = instrumentProviders[priceSource.provider] else {
+            let entry = PriceListEntry(item: item, symbol: priceSource.symbol,
+                                       outcome: .failed(.unsupportedProvider(priceSource.provider)))
+            return .instrument(entry, nil, [])
+        }
+        let request = QuoteRequest(symbol: priceSource.symbol, date: needs.date, currency: instrument.currency,
+                                   today: today)
+        func entry(_ outcome: PriceListEntry.Outcome) -> PriceListEntry {
+            PriceListEntry(item: item, source: provider.source, symbol: priceSource.symbol, outcome: outcome)
+        }
+        do {
+            let key = PriceCache.Key(provider: provider.provider.rawValue, symbol: provider.cacheSymbol(for: request),
+                                     date: needs.date)
+            let cached = try await cache.value(for: key) {
+                CachedQuote(quote: try await provider.quote(for: request), fetchedAt: Date())
+            }
+            let (price, rates) = try await convert(cached.quote, for: instrument, needs: needs)
+            let record = PriceRecord(instrument: instrument.id, date: needs.date, price: price,
+                                     currency: instrument.currency, source: provider.source)
+            let details = FetchDetails(observedOn: cached.quote.observedOn, observedAt: cached.quote.observedAt,
+                                       fetchedAt: cached.fetchedAt, quote: cached.quote)
+            return .instrument(entry(.fetched(details)), record, rates)
+        } catch {
+            return .instrument(entry(.failed(Self.fetchError(error, service: provider.name))), nil, [])
+        }
+    }
+
+    /// The quote as a price in the instrument's currency and per its unit,
+    /// and the FX rates used to convert it.
+    private func convert(
+        _ quote: Quote, for instrument: Instrument, needs: CheckInPriceNeeds
+    ) async throws -> (Decimal, [FXRecord]) {
+        let quoteUnit = quote.unit ?? instrument.unit
+        var price = try PriceConversion.price(quote.price, per: quoteUnit, to: instrument.unit)
+        var used: [FXRecord] = []
+        if quote.currency != instrument.currency {
+            var rates: [CurrencyCode: Decimal] = [:]
+            for currency in [quote.currency, instrument.currency] where currency != needs.baseCurrency {
+                do {
+                    let cached = try await rate(base: needs.baseCurrency, quote: currency, date: needs.date)
+                    rates[currency] = cached.observation.rate
+                    used.append(FXRecord(base: needs.baseCurrency, quote: currency, date: needs.date,
+                                         rate: cached.observation.rate, source: fxProvider.source))
+                } catch {
+                    let reason = Self.fetchError(error, service: fxProvider.name).description
+                    throw PriceFetchError.missingFX(from: quote.currency, to: instrument.currency, reason: reason)
+                }
+            }
+            price = try PriceConversion.amount(price, from: quote.currency, to: instrument.currency,
+                                               base: needs.baseCurrency, rates: rates)
+        }
+        let converted = quote.currency != instrument.currency || quoteUnit != instrument.unit
+        return (converted ? price.rounded(significantDigits: PriceConversion.significantDigits) : price, used)
+    }
+
+    private func fxPart(quote: CurrencyCode, needs: CheckInPriceNeeds) async -> Part {
+        let base = needs.baseCurrency
+        let item = PriceListEntry.Item.fx(base: base, quote: quote)
+        let symbol = "\(base)/\(quote)"
+        do {
+            let cached = try await rate(base: base, quote: quote, date: needs.date)
+            let record = FXRecord(base: base, quote: quote, date: needs.date, rate: cached.observation.rate,
+                                  source: fxProvider.source)
+            let details = FetchDetails(observedOn: cached.observation.observedOn, fetchedAt: cached.fetchedAt)
+            return .fx(PriceListEntry(item: item, source: fxProvider.source, symbol: symbol,
+                                      outcome: .fetched(details)), record)
+        } catch {
+            let failure = Self.fetchError(error, service: fxProvider.name)
+            return .fx(PriceListEntry(item: item, source: fxProvider.source, symbol: symbol,
+                                      outcome: .failed(failure)), nil)
+        }
+    }
+
+    private func rate(base: CurrencyCode, quote: CurrencyCode, date: CalendarDate) async throws -> CachedRate {
+        let provider = fxProvider
+        let key = PriceCache.Key(provider: provider.source.rawValue, symbol: "\(base)/\(quote)", date: date)
+        return try await cache.value(for: key) {
+            CachedRate(observation: try await provider.rate(base: base, quote: quote, onOrBefore: date),
+                       fetchedAt: Date())
+        }
+    }
+
+    private func indexPart(_ need: CheckInPriceNeeds.IndexMonths, date: CalendarDate) async -> Part {
+        let item = PriceListEntry.Item.index(need.index)
+        guard let provider = indexProviders[need.index], let first = need.months.first, let last = need.months.last
+        else {
+            let failure = PriceFetchError.noData(service: "Prices", detail: "no provider for the \(need.index) index")
+            return .index(PriceListEntry(item: item, outcome: .failed(failure)), [])
+        }
+        // Ask for a few months more than missing, so the answer says which
+        // month was published last even when none of the missing ones is.
+        let start = min(first, last.adding(months: -2))
+        do {
+            let key = PriceCache.Key(provider: provider.source.rawValue, symbol: "\(need.index) \(start)..\(last)",
+                                     date: date)
+            let cached = try await cache.value(for: key) {
+                CachedIndex(records: try await provider.values(from: start, through: last), fetchedAt: Date())
+            }
+            let missing = Set(need.months)
+            let records = cached.records.filter { missing.contains($0.date.yearMonth) }
+            let details = FetchDetails(observedOn: cached.records.map(\.date).max(), fetchedAt: cached.fetchedAt)
+            return .index(PriceListEntry(item: item, source: provider.source, outcome: .fetched(details)), records)
+        } catch {
+            let failure = Self.fetchError(error, service: provider.name)
+            return .index(PriceListEntry(item: item, source: provider.source, outcome: .failed(failure)), [])
+        }
+    }
+
+    /// Any error as a ``PriceFetchError``.
+    static func fetchError(_ error: any Error, service: String) -> PriceFetchError {
+        switch error {
+        case let error as PriceFetchError: error
+        case is CancellationError: .cancelled
+        default: .network(service: service, message: String(describing: error))
+        }
+    }
+}
