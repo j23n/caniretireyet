@@ -80,7 +80,7 @@ struct CheckInNumberField: View {
                 if isFocused { report(newText) }
             }
             .onChange(of: signToggle) { _, _ in
-                if isFocused { text = CheckInEditing.toggledSign(text) }
+                if isFocused { text = CheckInFieldFormat.toggledSign(text, style: style) }
             }
     }
 
@@ -88,14 +88,15 @@ struct CheckInNumberField: View {
         CheckInFieldFormat.text(for: value, style: style, locale: locale)
     }
 
-    /// Reports what's typed: an amount, `nil` for an empty field if that
-    /// means something, and nothing while it can't be read (e.g. just "-").
+    /// Reports what's typed: an amount (for a debt, signed as a balance),
+    /// `nil` for an empty field if that means something, and nothing while
+    /// it can't be read (e.g. just "-").
     private func report(_ newText: String) {
         if newText.trimmingCharacters(in: .whitespaces).isEmpty {
             if allowsEmpty { onChange(nil) }
             return
         }
-        guard let amount = AmountInput.decimal(from: newText, locale: locale) else { return }
+        guard let amount = CheckInFieldFormat.value(from: newText, style: style, locale: locale) else { return }
         onChange(amount)
     }
 }

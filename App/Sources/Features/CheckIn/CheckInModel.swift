@@ -74,10 +74,13 @@ enum CheckInFieldFormat {
         case amount
         /// A quantity: ungrouped, up to eight decimals (`412,5`, `0,4215`).
         case quantity
+        /// A debt's balance: money, where a typed amount is what's owed
+        /// (stored negative) and a leading `+` means in credit (`+20,00`).
+        case debt
     }
 
     /// The text a field shows for `value` while it isn't being edited. It
-    /// reads back to the same value with `AmountInput.decimal(from:locale:)`.
+    /// reads back to the same value with ``value(from:style:locale:)``.
     static func text(for value: Decimal?, style: Style, locale: Locale = .current) -> String {
         guard let value else { return "" }
         switch style {
@@ -85,7 +88,25 @@ enum CheckInFieldFormat {
             return value.formatted(.number.precision(.fractionLength(2)).locale(locale))
         case .quantity:
             return AmountInput.text(for: value, maxDigits: 8, locale: locale)
+        case .debt:
+            let text = value.formatted(.number.precision(.fractionLength(2)).locale(locale))
+            return value > 0 ? "+" + text : text
         }
+    }
+
+    /// The value typed in a field, or `nil` while it can't be read (e.g.
+    /// just "-"). A debt's amount is what's owed, unless it starts with `+`.
+    static func value(from text: String, style: Style, locale: Locale = .current) -> Decimal? {
+        switch style {
+        case .amount, .quantity: AmountInput.decimal(from: text, locale: locale)
+        case .debt: AmountInput.balance(from: text, isLiability: true, locale: locale)
+        }
+    }
+
+    /// `text` after the ± key: the minus sign added or removed, or for a
+    /// debt, switched between owed and in credit.
+    static func toggledSign(_ text: String, style: Style) -> String {
+        style == .debt ? AmountInput.toggledCredit(text) : CheckInEditing.toggledSign(text)
     }
 
     /// An amount without its currency, for table cells and captions:
@@ -228,7 +249,12 @@ enum CheckInRowDisplay {
     /// value to keep. A new account has none, so it can only be entered or
     /// skipped.
     static func canMarkUnchanged(_ row: CheckInRow) -> Bool {
-        row.previous != nil
+        row.canMarkUnchanged
+    }
+
+    /// The style of a row's balance field: a debt's reads amounts as owed.
+    static func balanceStyle(of account: AccountID, in library: Library) -> CheckInFieldFormat.Style {
+        library.accounts[account]?.kind.isLiability == true ? .debt : .amount
     }
 
     /// Whether the row's previous value is older than the previous
@@ -266,13 +292,6 @@ enum CheckInEditing {
             row.skip()
             draft[account] = row
         }
-    }
-
-    /// The balance to record for an amount typed into a debt's field: debts
-    /// are negative balances, so a positive amount is read as a debt (as the
-    /// importer does). Other accounts record what was typed.
-    static func balance(_ typed: Decimal, isLiability: Bool) -> Decimal {
-        isLiability && typed > 0 ? -typed : typed
     }
 
     /// `text` with its minus sign added or removed (the ± key above the
