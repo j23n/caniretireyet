@@ -78,7 +78,7 @@ Baselines are created:
 - **automatically**, at the first check-in of each year, for each tracked plan (by default your main plan);
 - **by hand**, with *Save baseline* and a label, e.g. before a big decision such as switching to forfettario.
 
-`projections/<plan-id>/baselines/<date>.json`, about 10 KB each:
+`projections/<plan-id>/baselines/<date>.json`, about 10 KB each. The file name is the baseline's ID; a second baseline saved on the same day gets `-2`.
 
 ```json
 {
@@ -89,7 +89,7 @@ Baselines are created:
   "kind": "yearly",
   "label": "Start of 2026",
   "plan": { "…": "a full copy of plans/base.json as it was" },
-  "start": { "date": "2025-12-31", "value": "212400.00" },
+  "start": { "date": "2025-12-31", "value": "212400" },
   "taxParameters": { "it": 2026 },
   "years": [
     { "expected": "231500", "p10": "214800", "p25": "223900", "p50": "230900", "p75": "238200", "p90": "249700", "savings": "18000", "year": 2026 }
@@ -112,7 +112,7 @@ Baselines are created:
 }
 ```
 
-`planHash` identifies the plan's inputs, so the chart can mark the check-ins where you changed the plan.
+`planHash` identifies the plan's inputs, so the chart can mark the check-ins where you changed the plan. `earliestAge` is left out when no age reaches the confidence level, and an optional `confidence` records the level used.
 
 ## Data this needs from day one
 

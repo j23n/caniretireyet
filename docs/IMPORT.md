@@ -130,6 +130,23 @@ Columns are identified by their header text, and by position only when there's n
 
 (Keys are shown in reading order; the app writes them sorted.)
 
+Other fields a profile can have, all optional:
+
+| Field | Meaning |
+| --- | --- |
+| `file.excludeRows` | Rows to skip, such as totals: a row is skipped when its first non-empty cell starts with one of these, ignoring case and accents, e.g. `["Totale"]`. |
+| `file.headerRow` | The 1-based row holding the headers; `0` means the file has none. Left out, it's detected. |
+| `defaults.date` | `pattern` (e.g. `dd/MM/yyyy`, or `excel-serial`), `monthOnly` (`end`, the default, or `start`), and `timeZone` (an IANA name) for date-times. |
+| `defaults.number` | `decimal` and `thousands` separators (`""` for none), and `percent`. |
+| `columns[].index` | The 1-based column position, used only when the file has no header. |
+| `columns[].currency`, `base`, `quote` | The currency of a column's amounts or prices, or an FX column's pair. |
+| `columns[].format` | Overrides of `defaults` for one column: `date`, `number`, `empty`. |
+| `columns[].field` | Long layout: what the column holds for each row's record: `date`, `account`, `instrument`, `value`, `currency`, `base`, `quote` or `ignore`. |
+| `target` | Long layout: what each row becomes (`balance`, `quantity`, `costBasis`, `cash`, `price` or `fx`). |
+| `constants` | Long layout: fields that are the same for every row: `account`, `instrument`, `currency`, `base`, `quote`. |
+| `matches` | Names found in files matched to IDs, remembered from earlier imports: `{ "accounts": { "Fineco": "conto-fineco" }, "instruments": { … } }`. |
+| `onConflict` | `ask` (the default), `overwrite` or `keep`. |
+
 ## Where it runs
 
 - **Engine.** The `Importer` module, in pure Swift. It's tested on Linux against a folder of sample files: Italian Excel CSVs in Windows-1252, US-style exports, Numbers exports, month-only dates, Excel serial dates, broken rows.

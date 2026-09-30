@@ -53,7 +53,7 @@ There are three levels of change, from most to least frequent:
 - **`overlays`** are special regimes. Each one knows which years it covers (impatriati: the year you moved plus 4) and which income it applies to.
 - **Work phases** hold the economic facts: gross salary, or revenue and costs. They don't depend on any country. `regime` chooses the tax treatment; when it's left out, the system's default for that kind of work applies. So if you move to another country, you change the residence entry, not your work phases.
 - **`overrides`** replace individual parameters in this plan only. They're for "what if the law changes" questions, such as "what if the middle IRPEF rate goes back to 35%?".
-- **`indexThresholds`** controls whether thresholds rise with inflation after the last known tax year. If it's off, they stay fixed in euros, and fiscal drag builds up.
+- **`indexThresholds`** controls whether thresholds rise with inflation after the last known tax year. It's on by default. If it's off, they stay fixed in euros, and fiscal drag builds up.
 
 In the plan editor, the Taxes section is built from the same data:
 
@@ -77,23 +77,31 @@ Tax state that carries from one year to the next goes back to the system each ye
 
 ## The interface
 
-A sketch of the `TaxKit` module, the only tax API the engine sees:
+The `TaxKit` module is the only tax API the engine sees. In outline (the code in `Sources/TaxKit` is authoritative and documents every type):
 
 ```swift
 public protocol TaxSystem: Sendable {
     var id: String { get }                              // "it", "generic"
+    var name: String { get }
+    var options: [OptionField] { get }                  // a residence period's options
     var regimes: [RegimeDescriptor] { get }             // what the plan editor offers
     var wrappers: [WrapperRule] { get }                 // tax-advantaged accounts
     var pensionSchemes: [any PensionScheme] { get }     // e.g. INPS
+    var parameters: any ParameterStore { get }          // the bundled yearly parameter files
+
+    func defaultRegime(for kind: EarnedIncomeKind) -> String?
 
     /// Eligibility, incompatible regimes, missing options, expired regimes.
-    func validate(_ plan: TaxPlan, parameters: ParameterStore) -> [TaxIssue]
+    func validate(_ plan: TaxPlan, parameters: any ParameterStore) -> [TaxIssue]
 
     /// Stage 1: once per plan year, for everything that doesn't depend on markets.
     func prepare(_ year: FixedYear, state: TaxState, parameters: ParameterSet) -> any PreparedTaxYear
 }
 
 public protocol PreparedTaxYear: Sendable {
+    /// The year with no market activity (defaults to `assess(.empty)`).
+    var fixedAssessment: TaxAssessment { get }
+
     /// Stage 2: once per simulated path. Sales, gains, invested-wrapper payouts, year-end balances.
     func assess(_ variable: VariableYear) -> TaxAssessment
 
@@ -105,7 +113,7 @@ public protocol PreparedTaxYear: Sendable {
 public struct TaxAssessment: Sendable {
     public var lines: [TaxLine]          // itemised: id, label, amount, what it was charged on
     public var contributions: [TaxLine]  // social contributions paid
-    public var accruals: [Accrual]       // credits to pension schemes
+    public var accruals: [Accrual]       // credits to pension schemes and wrappers (e.g. TFR)
     public var issues: [TaxIssue]        // e.g. "forfettario revenue limit exceeded in 2031"
     public var nextState: TaxState
 }
@@ -113,15 +121,18 @@ public struct TaxAssessment: Sendable {
 public struct RegimeDescriptor: Sendable {
     public let id: String                // "it.forfettario"
     public let name: String              // "Regime forfettario"
-    public let scope: RegimeScope        // .earnedIncome(.selfEmployed) or .overlay
+    public let scope: RegimeScope        // .earnedIncome([.selfEmployed]) or .overlay
     public let options: [OptionField]    // rendered as a form, validated generically
     public let excludes: [String]        // regimes it can't be combined with on the same income
 }
 
 public protocol PensionScheme: Sendable {
     var id: String { get }                                        // "it.inps"
-    func accrue(_ accruals: [Accrual], in year: Int, to record: inout PensionRecord)
-    func claimOptions(for record: PensionRecord, birthDate: Date, parameters: ParameterStore) -> [ClaimOption]
+    func startingRecord(options: OptionValues, year: Int, parameters: any ParameterStore) -> PensionRecord
+    func accrue(_ accruals: [Accrual], in year: Int, to record: inout PensionRecord,
+                options: OptionValues, parameters: ParameterSet)
+    func claimOptions(for record: PensionRecord, context: ClaimContext,
+                      parameters: any ParameterStore) -> [ClaimOption]
 }
 ```
 

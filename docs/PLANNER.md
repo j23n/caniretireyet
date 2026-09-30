@@ -37,7 +37,7 @@ Each year:
 
 ## Plan file
 
-`plans/<id>.json`. All numbers below are made up. Keys are shown in reading order here; the app writes them sorted.
+`plans/<id>.json`. All numbers below are made up. Keys are shown in reading order here; the app writes them sorted. Only `id`, `name`, `retirement` and `spending` are required: every other section can be left out, and then takes the defaults in the table below.
 
 ```json
 {
@@ -87,9 +87,9 @@ Each year:
     "returns": {
       "equity": { "real": "0.045", "volatility": "0.17" },
       "bonds":  { "real": "0.01",  "volatility": "0.06" },
-      "cash":   { "real": "0.0",   "volatility": "0.01" },
+      "cash":   { "real": "0",     "volatility": "0.01" },
       "gold":   { "real": "0.01",  "volatility": "0.15" },
-      "crypto": { "real": "0.0",   "volatility": "0.70" }
+      "crypto": { "real": "0",     "volatility": "0.7" }
     }
   },
   "withdrawals": { "strategy": "fixed-real", "cashBuffer": "10000" },
@@ -100,17 +100,17 @@ Each year:
 | Section | Meaning |
 | --- | --- |
 | `retirement` | The age at which work stops. Use `"age": "earliest"` to let the planner find it. |
-| `endAge` | The last age the plan must fund. |
+| `endAge` | The last age the plan must fund. Default 95. |
 | `tax` | Your tax residence over time (a tax system per period, with its options) and any special regimes, such as impatriati. See [TAXES.md](TAXES.md). |
-| `work` | Working phases, described by what happens economically: `employee` (gross salary), `selfEmployed` (revenue and costs) or `net` (net income entered directly). `regime` picks the tax treatment from the residence's system, e.g. `it.forfettario`. When it's left out, the system's default for that kind of work applies. An end of `"retirement"` follows the retirement age. |
+| `work` | Working phases, described by what happens economically: `employee` (`grossSalary`, optional `realGrowth`), `selfEmployed` (`revenue` and `costs`) or `net` (`netIncome`, entered directly). `regime` picks the tax treatment from the residence's system, e.g. `it.forfettario`. When it's left out, the system's default for that kind of work applies. `from` is a date; `until` is a date or `"retirement"`, which follows the retirement age. |
 | `spending` | Yearly spending while working and in retirement, with optional phase factors by age. Savings are what's left of net income after spending. |
-| `pensions` | Each pension names a scheme: `it.inps` (projected from your contributions) or `fixed` (an amount and start age from a statement, such as a foreign pension). `claim` is `earliest` or an age. `taxedIn` says whether your country of residence or the paying country taxes it. Settings specific to a scheme, such as INPS's montante, go in `options`. |
-| `contributions` | Regular payments into specific accounts while working, such as the pension fund. The rest of your savings goes to the liquid bucket. |
-| `events` | One-off amounts by age or year: positive for windfalls, negative for expenses. An optional `probability` makes a windfall uncertain. Each Monte Carlo run draws whether it happens; the deterministic run includes it if the probability is at least 50%. |
-| `portfolio` | Where the plan starts, normally the latest check-in. Also lets you exclude accounts, override the target asset mix, or estimate unrealised gains where no purchase cost was recorded. |
-| `assumptions` | Inflation, and the expected real return and volatility for each asset class. |
-| `withdrawals` | How to draw money in retirement (see below). |
-| `simulation` | The number of runs, the random seed, and the confidence level required for a "yes". |
+| `pensions` | Each pension names a scheme: `it.inps` (projected from your contributions) or `fixed` (an amount and start age from a statement, such as a foreign pension: `fromAge` and `perYear`). `claim` is `earliest` (the default) or an age. `taxedIn` is `residence` (the default) or `source`: whether your country of residence or the paying country taxes it. Settings specific to a scheme, such as INPS's montante, go in `options`. |
+| `contributions` | Regular payments into specific accounts while working, such as the pension fund. The rest of your savings goes to the liquid bucket. `until` defaults to `"retirement"`. |
+| `events` | One-off amounts by `age` or `year` (exactly one of the two): positive for windfalls, negative for expenses. An optional `probability` makes a windfall uncertain. Each Monte Carlo run draws whether it happens; the deterministic run includes it if the probability is at least 50%. An optional `kind` (`windfall`, `expense`, `inheritance`) tells the tax system what it is; by default positive amounts are windfalls and negative ones expenses. |
+| `portfolio` | Where the plan starts: `start` is `"latest-check-in"` (the default) or a check-in date. Also lets you exclude accounts (`exclude`, a list of account IDs), override the target asset mix (`targetMix`), or estimate unrealised gains where no purchase cost was recorded (`unrealizedGainShare`). |
+| `assumptions` | Inflation (default 2%), and the expected real return and volatility for each asset class (defaults as in the example). Optional `correlations` between asset classes, as nested objects: `{ "equity": { "bonds": "0.1", "crypto": "0.4" } }`. |
+| `withdrawals` | How to draw money in retirement (see below): `strategy` (default `fixed-real`) and `cashBuffer` (default 0). |
+| `simulation` | The number of runs (default 2,000), the random seed (default 1), and the confidence level required for a "yes" (default 0.9). |
 
 ## The yearly step
 
