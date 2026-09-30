@@ -9,16 +9,19 @@ private let url = URL(string: "https://example.test/quote")!
 private let rateLimitBody = #"{"status":{"error_code":429,"error_message":"You've exceeded the Rate Limit."}}"#
 
 struct HTTPFetcherTests {
-    @Test func timesOutASlowRequest() async throws {
+    /// A request that never answers fails with a timeout. (The time limit
+    /// only guards against a hang: how long the timeout takes depends on the
+    /// machine's load, not on the code.)
+    @Test(.timeLimit(.minutes(1)))
+    func timesOutASlowRequest() async throws {
         let client = MockHTTPClient()
-        await client.on("quote", HTTPResponse(statusCode: 200, text: "{}"), delay: .seconds(30))
+        await client.on("quote", HTTPResponse(statusCode: 200, text: "{}"), delay: MockHTTPClient.never)
         let fetcher = HTTPFetcher(client: client, policy: RequestPolicy(timeout: .milliseconds(50)), service: "Example")
 
-        let start = ContinuousClock.now
         await #expect(throws: PriceFetchError.timedOut(service: "Example", after: .milliseconds(50))) {
             _ = try await fetcher.get(url)
         }
-        #expect(ContinuousClock.now - start < .seconds(5))
+        #expect(await client.requestCount == 1)
     }
 
     @Test func retriesARateLimitThatAsksForAShortWait() async throws {
