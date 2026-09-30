@@ -17,7 +17,7 @@ Stores (@Observable, @MainActor)
  LibraryStore ─ LibrarySync (CloudSync actor) ─ LibraryFolder (Storage) ─ files
  PriceStore   ─ PriceService (Prices)
  CheckInStore ─ CheckInDraft (Tracker), kept in Application Support
- PlanStore    ─ PlanEngine (stub today; the Planner later)
+ PlanStore    ─ PlanEngine (PlannerPlanEngine: the Planner and the tax registry)
  PrivacySettings · AppPreferences · AppNavigation
 ```
 
@@ -103,13 +103,12 @@ Owns a `Tracker.CheckInDraft`, kept as JSON in `Application Support/<bundle id>/
 
 ### PlanStore — runs, results, headlines, baselines
 
-**Stubbed until the Planner lands.** The numbers come from a `PlanEngine` (see `Stores/PlanEngine.swift`); the app uses `UnavailablePlanEngine`, whose runs throw `PlanEngineError.unavailable`, and previews use `PreviewPlanEngine` (made-up but plausible results).
+The numbers come from a `PlanEngine` (see `Stores/PlanEngine.swift`). The app uses `PlannerPlanEngine` (`Stores/PlannerPlanEngine.swift`): `Planner.run` with `AppTaxRegistry.standard` (Italy and generic), results cached per plan hash and library inputs. Previews use `PreviewPlanEngine` (made-up but plausible results); `UnavailablePlanEngine` remains for a build without a planner.
 
-- `run(_ plan:mode:whatIf:) async -> PlanResults?` runs off the main thread and cancels the previous run of the same plan (`mode: .fast` for fewer runs while a slider moves; `whatIf: PlanWhatIf(retirementAge:retiredSpending:monthlySaving:equityReturn:)` for what-ifs, kept apart in `whatIfResults`). `scheduleRun(_:after:)` debounces, `cancel(_:)`, `clearWhatIf(_:)`, `isRunning(_:)`, `running`, `errors`.
-- `results[planID]`: `PlanResults` — `headline: PlanHeadline` (earliest age and date, confidence, success today and at the target age, sustainable spending, FI progress), `successByAge`, `portfolio` (fan), `markers`, `income`, `taxes`, `spending`, `failure`, and what a baseline saves (`start`, `accounts`, `taxParameters`, `years`). All plain values that feed the chart components directly.
+- `run(_ plan:mode:whatIf:focusAge:) async -> PlanResults?` runs off the main thread and cancels the previous run of the same plan and kind, or joins it when the request is the same (`mode: .fast` for fewer runs while a slider moves; `whatIf: PlanWhatIf(retirementAge:retiredSpending:monthlySaving:equityReturn:)` for what-ifs, kept apart in `whatIfResults`; `focusAge:` for the charts at another retirement age, in `focusResults`). `scheduleRun(_:after:)` debounces, `cancel(_:)`, `clearWhatIf(_:)`, `cancelWhatIf(_:)`, `clearFocus(_:)`, `isRunning(_:)`, `running`, `errors`.
+- `results[planID]`: `PlanResults` — `headline: PlanHeadline` (earliest age and date, confidence, success today and at the target age, sustainable spending, FI progress), `successByAge`, `portfolio` (fan), `markers`, `income`, `taxes`, `spending`, `failure`, what a baseline saves (`start`, `accounts`, `taxParameters`, `years`), and `details` from the Planner (plan hash, FI number, pensions, net income by year, lifetime taxes, the run's warnings; `nil` from the preview engine). All plain values that feed the chart components directly.
 - `mainHeadline`: the Overview's answer: the main plan's latest results, or its last recorded headline.
-- `checkInSaved(on:)` re-runs the main plan, records its headline (`projections/<plan>/headlines`) and saves the yearly baseline at the year's first check-in. `saveBaseline(for:label:kind:on:)`, `recordedHeadlines(for:)`, `hash(of:)` (a plan's `planHash`).
-- **Plan engineer:** write `PlannerEngine: PlanEngine` mapping `PlanRunRequest` (plan, library snapshot, mode, what-if, as-of date) to the Planner and its output to `PlanResults`, then switch `AppModel.live()` to it. Extend `PlanResults` as your screens need.
+- `checkInSaved(on:)` re-runs the main plan, records its headline (`projections/<plan>/headlines`) and saves the yearly baseline at the year's first check-in. `saveBaseline(for:label:kind:on:)`, `recordedHeadlines(for:)`, `hash(of:)` (a plan's `planHash`, the Planner's).
 
 ### Small stores
 
@@ -162,7 +161,6 @@ At launch `LibraryStore.start()` asks `CloudSync.LibraryLocator` for the iCloud 
 
 ## Stubbed or not done yet
 
-- **PlanStore's engine** is `UnavailablePlanEngine` until the Planner module is merged (see above). The Overview's answer falls back to recorded headlines.
 - **Placeholders** (replace their contents): `OverviewScreen`, `AccountsScreen`, `AccountDetailScreen`, `NewAccountScreen`, `InstrumentsScreen`, `CheckInScreen`, `PlanScreen`, `ImportScreen`.
 - **Not built:** separate windows for plan comparison and import on the Mac (add `WindowGroup(id:)` scenes and `openWindow`), Face ID lock (M3), widgets (M3), an app icon (add an `AppIcon` set and set `ASSETCATALOG_COMPILER_APPICON_NAME` in project.yml), opening CSV files from Files on iPhone (document types), and reacting to the iCloud account changing while the app runs.
 - `CheckInDraft` has no way to refresh its rows when the library changes under an open draft (e.g. an account added on the other device); the draft keeps the rows it started with.

@@ -1,17 +1,13 @@
 import Foundation
 import Model
 
-// ┌──────────────────────────────────────────────────────────────────────────┐
-// │ PLAN ENGINEER: this is the seam to the Planner module.                    │
-// │                                                                          │
-// │ `PlanStore` does caching, cancellation, fast mode, headlines and          │
-// │ baselines; it asks a `PlanEngine` for the numbers. Until the Planner      │
-// │ lands, the app uses `UnavailablePlanEngine` (below) and previews use      │
-// │ `PreviewPlanEngine` (Preview/). Write `PlannerEngine: PlanEngine` that    │
-// │ maps a `PlanRunRequest` to the Planner and its output to `PlanResults`,  │
-// │ then switch `AppModel.live()` to it. Extend `PlanResults` as the Plan    │
-// │ screens need; keep it plain values.                                       │
-// └──────────────────────────────────────────────────────────────────────────┘
+// The seam to the Planner module. `PlanStore` does cancellation, fast mode,
+// headlines and baselines; it asks a `PlanEngine` for the numbers. The app
+// uses `PlannerPlanEngine` (the Planner with the Italian and generic tax
+// systems, PlannerPlanEngine.swift), previews use `PreviewPlanEngine`
+// (Preview/), and `UnavailablePlanEngine` (below) remains for builds without
+// a planner. `PlanResultsMapping.swift` maps the Planner's `PlanResult` to
+// `PlanResults`, which stays plain values.
 
 /// How thoroughly to run a plan.
 enum PlanRunMode: String, Hashable, Sendable {

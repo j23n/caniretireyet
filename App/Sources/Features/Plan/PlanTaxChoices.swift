@@ -2,6 +2,22 @@ import Foundation
 import Model
 import TaxKit
 
+/// A bar on the tax timeline: a residence period or an overlay, in years.
+struct PlanTimelineSegment: Hashable, Sendable, Identifiable {
+    var id: String
+    var name: String
+    var start: Int
+    var end: Int
+    /// The end isn't known (an overlay whose length TaxKit doesn't describe).
+    var isOpenEnded: Bool
+}
+
+/// Something to pick: a tax system, a regime, a pension scheme.
+struct PlanChoice: Hashable, Sendable, Identifiable {
+    var id: String
+    var name: String
+}
+
 /// What the plan editor offers, read from the tax registry (TAXES.md,
 /// "Choosing them in a plan"): the systems for the residence timeline, the
 /// regimes that fit a work phase, the overlays and the pension schemes. A
@@ -33,8 +49,16 @@ enum PlanTaxChoices {
     }
 
     /// Every system, for the residence picker.
-    static func allSystems(_ registry: TaxRegistry) -> [any TaxSystem] {
-        registry.systems
+    static func allSystems(_ registry: TaxRegistry) -> [PlanChoice] {
+        registry.systems.map { PlanChoice(id: $0.id, name: $0.name) }
+    }
+
+    /// The pension schemes as choices.
+    static func schemeChoices(for plan: PlanDocument, settings: LibrarySettings, registry: TaxRegistry)
+        -> [PlanChoice] {
+        pensionSchemes(for: plan, settings: settings, registry: registry).map {
+            PlanChoice(id: $0.id, name: $0.id == FixedPensionScheme.schemeID ? "Fixed amount (from a statement)" : $0.name)
+        }
     }
 
     /// The years a work phase covers: from its start to its end, or open.
@@ -74,6 +98,17 @@ enum PlanTaxChoices {
               let id = system.defaultRegime(for: kind)
         else { return nil }
         return system.regime(id)?.name ?? id
+    }
+
+    /// The regime whose options a phase's form shows: its own, else the
+    /// default of the system in force when it starts.
+    static func effectiveRegimeID(for phase: WorkPhase, in plan: PlanDocument, settings: LibrarySettings,
+                                  registry: TaxRegistry) -> String? {
+        if let regime = phase.regime { return regime.rawValue }
+        let years = years(of: phase)
+        let kind = EarnedIncomeKind(rawValue: phase.kind.rawValue)
+        return systems(for: plan, from: years.from, through: years.from, settings: settings, registry: registry)
+            .first?.defaultRegime(for: kind)
     }
 
     /// The overlays (special regimes) of the plan's residence systems.
@@ -120,6 +155,38 @@ enum PlanTaxChoices {
     /// The fields of a residence entry's options.
     static func systemFields(_ id: TaxSystemID, registry: TaxRegistry) -> [OptionField] {
         registry.system(id.rawValue)?.options ?? []
+    }
+
+    /// The residence timeline as bars from `first` through `last`: one per
+    /// entry, until the next one starts.
+    static func residenceSegments(for plan: PlanDocument, first: Int, last: Int, settings: LibrarySettings,
+                                  registry: TaxRegistry) -> [PlanTimelineSegment] {
+        let residence = plan.tax.residence.sorted { $0.from < $1.from }
+        guard !residence.isEmpty else {
+            let name = defaultSystem(for: settings, registry: registry)?.name ?? "No tax system"
+            return [PlanTimelineSegment(id: "default", name: name, start: first, end: last, isOpenEnded: false)]
+        }
+        var segments: [PlanTimelineSegment] = []
+        for (index, entry) in residence.enumerated() {
+            let start = index == 0 ? min(first, entry.from) : entry.from
+            let end = index + 1 < residence.count ? residence[index + 1].from - 1 : last
+            guard end >= start else { continue }
+            let name = registry.system(entry.system.rawValue)?.name ?? entry.system.rawValue
+            segments.append(PlanTimelineSegment(id: "residence-\(index)", name: name, start: max(first, start),
+                                                end: min(last, end), isOpenEnded: false))
+        }
+        return segments.filter { $0.end >= $0.start }
+    }
+
+    /// The overlays as bars: from their start to their end, or one year
+    /// marked open-ended when the end isn't known.
+    static func overlaySegments(for plan: PlanDocument, registry: TaxRegistry) -> [PlanTimelineSegment] {
+        plan.tax.overlays.enumerated().compactMap { index, overlay in
+            guard let years = overlayYears(overlay, plan: plan, registry: registry) else { return nil }
+            let name = registry.regime(overlay.regime.rawValue)?.regime.name ?? overlay.regime.rawValue
+            return PlanTimelineSegment(id: "overlay-\(index)", name: name, start: years.start,
+                                       end: years.end ?? years.start, isOpenEnded: years.end == nil)
+        }
     }
 
     /// When an overlay starts, as far as the editor can tell: its first

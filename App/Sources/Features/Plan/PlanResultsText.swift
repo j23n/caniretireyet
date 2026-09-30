@@ -17,7 +17,7 @@ enum PlanFigure: Hashable, Sendable {
     /// Words or an age, e.g. "54 · Mar 2042".
     case text(String)
     /// Nothing to show.
-    case none
+    case missing
 }
 
 /// One row of a table of figures: "FI number · 780.000 €".

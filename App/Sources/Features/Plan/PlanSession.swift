@@ -270,6 +270,46 @@ final class PlanSession {
         saveNow()
     }
 
+    // MARK: Bindings
+
+    /// The plan for the editors (`$session.editablePlan`): reads the plan
+    /// shown, and an edit replaces it (saved after a pause).
+    var editablePlan: PlanDocument {
+        get {
+            plan ?? PlanDocument(id: planID, name: "", retirement: PlanRetirement(age: .earliest),
+                                 spending: PlanSpending(working: 0, retired: 0))
+        }
+        set { update(newValue) }
+    }
+
+    /// The focus age for a stepper: reading the one shown, writing selects it.
+    var editableFocusAge: Int {
+        get { shownFocusAge ?? 55 }
+        set { selectFocus(newValue) }
+    }
+
+    /// The what-if sliders' values, for `Slider`s: reading the value shown,
+    /// writing moves it (see ``set(_:to:)``).
+    var whatIfRetirementAge: Double {
+        get { whatIfModel?.value(.retirementAge) ?? 0 }
+        set { set(.retirementAge, to: newValue) }
+    }
+
+    var whatIfSpending: Double {
+        get { whatIfModel?.value(.spending) ?? 0 }
+        set { set(.spending, to: newValue) }
+    }
+
+    var whatIfSaving: Double {
+        get { whatIfModel?.value(.saving) ?? 0 }
+        set { set(.saving, to: newValue) }
+    }
+
+    var whatIfEquityReturn: Double {
+        get { whatIfModel?.value(.equityReturn) ?? 0 }
+        set { set(.equityReturn, to: newValue) }
+    }
+
     // MARK: Baselines
 
     /// Saves the plan's full results as a manual baseline, running it first

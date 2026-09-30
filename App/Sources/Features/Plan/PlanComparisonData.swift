@@ -65,7 +65,7 @@ struct PlanComparisonData: Sendable {
         if let year {
             rows.append(("Net income \(year)", sides.map { side in
                 guard let value = side.results?.details?.focus.netIncome.first(where: { $0.year == year })?.value
-                else { return .none }
+                else { return .missing }
                 return .amount(PlanResultsText.whole(value), unit: nil)
             }))
         }
@@ -73,23 +73,23 @@ struct PlanComparisonData: Sendable {
             rows.append(("\(scheme.name) pension", sides.map { side in
                 guard let pension = side.results?.details?.focus.pensions.first(where: { $0.scheme == scheme.scheme }),
                       let amount = pension.perYear
-                else { return .none }
+                else { return .missing }
                 return .amount(PlanResultsText.whole(amount), unit: pension.age.map { "/yr at \($0)" } ?? "/yr")
             }))
         }
         rows.append(("Taxes, lifetime", sides.map { side in
-            side.results?.details.map { .amount(PlanResultsText.whole($0.focus.lifetimeTaxes), unit: nil) } ?? .none
+            side.results?.details.map { .amount(PlanResultsText.whole($0.focus.lifetimeTaxes), unit: nil) } ?? .missing
         }))
         rows.append(("Earliest retirement", sides.map { side in
-            guard let results = side.results else { return .none }
+            guard let results = side.results else { return .missing }
             return .text(results.headline.earliestAge.map(String.init) ?? "None yet")
         }))
         rows.append(("Chance of success at target", sides.map { side in
-            guard let headline = side.results?.headline, let success = headline.successAtTarget else { return .none }
+            guard let headline = side.results?.headline, let success = headline.successAtTarget else { return .missing }
             return .percent(success)
         }))
         rows.append(("Sustainable spending", sides.map { side in
-            side.results?.headline.sustainableSpending.map { .amount($0, unit: "/yr") } ?? .none
+            side.results?.headline.sustainableSpending.map { .amount($0, unit: "/yr") } ?? .missing
         }))
         return rows
     }

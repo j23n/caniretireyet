@@ -229,9 +229,30 @@ struct PlanBaselineComparison: Sendable {
     }
 
     /// A plan's baselines with their IDs, newest first.
-    static func baselines(for plan: PlanID, in library: Library) -> [(id: BaselineID, baseline: Baseline)] {
+    static func baselines(for plan: PlanID, in library: Library) -> [PlanBaselineEntry] {
         (library.projections[plan]?.baselines ?? [:])
-            .map { (id: $0.key, baseline: $0.value) }
+            .map { PlanBaselineEntry(id: $0.key, baseline: $0.value) }
             .sorted { ($0.baseline.created, $0.id.rawValue) > ($1.baseline.created, $1.id.rawValue) }
+    }
+}
+
+/// A saved baseline and its ID (its file name).
+struct PlanBaselineEntry: Hashable, Sendable, Identifiable {
+    var id: BaselineID
+    var baseline: Baseline
+}
+
+/// Your actual plan assets, for the "Your money over time" fan: drawn in
+/// ink to the left of today, in the same euros as the projection.
+enum PlanActualHistory {
+    /// Plan assets at each check-in through `asOf`, in euros of `reference`
+    /// where the library has inflation values for both dates, else as recorded.
+    static func points(library: Library, valuator: Valuator, through asOf: CalendarDate,
+                       inEurosOf reference: CalendarDate) -> [ChartPoint] {
+        let index = InflationIndex(library: library)
+        return valuator.series(.planAssets, grid: .checkIns, through: asOf).map { point in
+            let value = index.convert(point.value, from: point.date, to: reference) ?? point.value
+            return ChartPoint(date: point.date.dateValue, value: value.doubleValue, isComplete: point.isComplete)
+        }
     }
 }

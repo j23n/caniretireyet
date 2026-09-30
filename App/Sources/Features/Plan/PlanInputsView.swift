@@ -1,0 +1,418 @@
+import Model
+import Planner
+import SwiftUI
+import TaxKit
+
+/// Inputs (UI.md, "Inputs"): a collapsible card per section of the plan
+/// file, each with a one-line summary, so the whole plan fits on one screen
+/// when collapsed. Issues show on the card they concern. Edits are saved as
+/// you go and the results follow.
+struct PlanInputsView: View {
+    let session: PlanSession
+    /// In the Mac inspector: a narrower column with its own header.
+    var isInspector = false
+
+    @Environment(LibraryStore.self) private var library
+    @Environment(\.hidesAmounts) private var hidesAmounts
+    @Environment(\.baseCurrency) private var baseCurrency
+    @Environment(\.locale) private var locale
+    @State private var expanded: [PlanInputSection: Bool] = [:]
+    @State private var editing: PlanEditTarget?
+
+    var body: some View {
+        @Bindable var session = session
+        if let plan = session.plan {
+            let issues = session.inputIssues
+            let summaries = PlanInputSummaries(plan: plan, library: library.library, registry: AppTaxRegistry.standard,
+                                               currency: baseCurrency, hidesAmounts: hidesAmounts, locale: locale)
+            ScrollView {
+                VStack(alignment: .leading, spacing: Metrics.s) {
+                    if isInspector {
+                        PlanInputsHeader(issues: issues)
+                    }
+                    if !session.canEdit {
+                        StatusBanner(.info, "Read-only", message: "This library can't be changed here.")
+                    }
+                    ForEach(PlanInputSection.allCases) { section in
+                        PlanSectionCard(section: section, summary: summaries.summary(for: section),
+                                        issues: issues.issues(for: section),
+                                        listedIssues: issues.cardIssues(for: section, in: plan),
+                                        isExpanded: $expanded[planFlag: section]) {
+                            PlanSectionEditor(section: section, plan: $session.editablePlan, summaries: summaries,
+                                              issues: issues, editing: $editing)
+                                .disabled(!session.canEdit)
+                        }
+                    }
+                }
+                .padding(isInspector ? Metrics.m : Metrics.l)
+                .frame(maxWidth: isInspector ? .infinity : Metrics.readableWidth)
+                .frame(maxWidth: .infinity)
+            }
+            .background(isInspector ? Color.clear : Palette.page)
+            .sheet(item: $editing) { target in
+                PlanItemSheet(session: session, target: target, issues: issues)
+            }
+            .onDisappear { session.saveNow() }
+        } else {
+            ContentUnavailableView("No plan", systemImage: AppSymbol.plan)
+        }
+    }
+}
+
+/// "Inputs · ⚠︎ 1 warning", at the top of the Mac inspector.
+struct PlanInputsHeader: View {
+    let issues: PlanInputIssues
+
+    var body: some View {
+        HStack(alignment: .firstTextBaseline) {
+            Text("Inputs")
+                .font(.headline)
+                .accessibilityAddTraits(.isHeader)
+            Spacer()
+            if issues.errorCount > 0 {
+                Label(Self.count(issues.errorCount, "error"), systemImage: "xmark.octagon.fill")
+                    .foregroundStyle(Palette.critical)
+                    .font(.caption)
+            } else if issues.warningCount > 0 {
+                Label(Self.count(issues.warningCount, "warning"), systemImage: "exclamationmark.triangle.fill")
+                    .foregroundStyle(Palette.warning)
+                    .font(.caption)
+            }
+        }
+        .padding(.horizontal, Metrics.xs)
+    }
+
+    /// "1 warning", "2 warnings".
+    private static func count(_ count: Int, _ noun: String) -> String {
+        count == 1 ? "1 \(noun)" : "\(count) \(noun)s"
+    }
+}
+
+/// Which item a sheet edits: its position (the list's count for a new
+/// one) and a copy taken when the sheet opened.
+enum PlanEditTarget: Hashable, Identifiable {
+    case work(index: Int, phase: WorkPhase)
+    case pension(index: Int, pension: PlanPension)
+    case event(index: Int, event: PlanEvent)
+    case residence(index: Int, residence: PlanResidence)
+    case overlay(index: Int, overlay: PlanOverlay)
+
+    var id: String {
+        switch self {
+        case .work(let index, _): "work-\(index)"
+        case .pension(let index, _): "pension-\(index)"
+        case .event(let index, _): "event-\(index)"
+        case .residence(let index, _): "residence-\(index)"
+        case .overlay(let index, _): "overlay-\(index)"
+        }
+    }
+}
+
+/// The editor inside one card.
+struct PlanSectionEditor: View {
+    let section: PlanInputSection
+    @Binding var plan: PlanDocument
+    let summaries: PlanInputSummaries
+    let issues: PlanInputIssues
+    @Binding var editing: PlanEditTarget?
+
+    var body: some View {
+        switch section {
+        case .you:
+            PlanYouEditor(plan: $plan)
+        case .work:
+            PlanWorkList(plan: plan, summaries: summaries, issues: issues, editing: $editing)
+        case .spending:
+            PlanSpendingEditor(plan: $plan)
+        case .pensions:
+            PlanPensionList(plan: plan, summaries: summaries, issues: issues, editing: $editing)
+        case .contributions:
+            PlanContributionsEditor(plan: $plan)
+        case .events:
+            PlanEventList(plan: plan, summaries: summaries, issues: issues, editing: $editing)
+        case .taxes:
+            PlanTaxesEditor(plan: $plan, summaries: summaries, issues: issues, editing: $editing)
+        case .assumptions:
+            PlanAssumptionsEditor(plan: $plan)
+        case .simulation:
+            PlanSimulationEditor(plan: $plan)
+        case .withdrawals:
+            PlanWithdrawalsEditor(plan: $plan)
+        }
+    }
+}
+
+// MARK: - You
+
+/// Birth date (from the library), retirement age and the plan's end.
+struct PlanYouEditor: View {
+    @Binding var plan: PlanDocument
+    @Environment(LibraryStore.self) private var library
+    @State private var birthDate = Date()
+    @State private var loaded = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: Metrics.s) {
+            DatePicker("Born", selection: $birthDate, in: ...Date(), displayedComponents: .date)
+            if library.settings.person?.birthDate == nil {
+                PlanIssueLine(message: "Add your birth date: plans need it for ages.", isError: true)
+            }
+            Toggle("Retire as early as possible", isOn: $plan.planRetiresEarliest)
+            if !plan.planRetiresEarliest {
+                Stepper("Retire at \(plan.planRetirementAge)", value: $plan.planRetirementAge, in: 30...85)
+            }
+            Stepper("Plan to age \(plan.planEndAge)", value: $plan.planEndAge, in: 70...110)
+        }
+        .font(.subheadline)
+        .onAppear {
+            birthDate = (library.settings.person?.birthDate ?? CalendarDate(year: 1985, month: 1, day: 1)
+                ?? CalendarDate.today()).dateValue
+            loaded = true
+        }
+        .onChange(of: birthDate) { _, date in
+            let birth = CalendarDate(date, in: .current)
+            guard loaded, birth != library.settings.person?.birthDate else { return }
+            try? library.updateSettings { settings in
+                settings.person = Person(name: settings.person?.name, birthDate: birth)
+            }
+        }
+    }
+}
+
+// MARK: - Spending
+
+/// Spending while working and in retirement, and the later phases' factors.
+struct PlanSpendingEditor: View {
+    @Binding var plan: PlanDocument
+
+    private static let fallback = SpendingPhase(fromAge: 75, factor: 1)
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: Metrics.s) {
+            PlanNumberRow("While working", value: $plan.spending.working, unit: "/yr")
+            PlanNumberRow("In retirement", value: $plan.spending.retired, unit: "/yr")
+            if !plan.spending.phases.isEmpty {
+                Text("Later in retirement, a share of that")
+                    .font(.caption)
+                    .foregroundStyle(Palette.secondaryInk)
+            }
+            ForEach(plan.spending.phases.indices, id: \.self) { index in
+                HStack(spacing: Metrics.s) {
+                    Stepper("From \(plan.spending.phases[planSafe: index, default: Self.fallback].fromAge)",
+                            value: $plan.spending.phases[planSafe: index, default: Self.fallback].fromAge, in: 40...110)
+                    PlanNumberField("Share of spending",
+                                    value: $plan.spending.phases[planSafe: index, default: Self.fallback].factor,
+                                    kind: .percent)
+                        .frame(maxWidth: 64)
+                    Text("%")
+                        .foregroundStyle(Palette.secondaryInk)
+                    Button {
+                        plan.spending.phases = PlanEditing.removing(at: index, from: plan.spending.phases)
+                    } label: {
+                        Label("Remove", systemImage: "minus.circle")
+                            .labelStyle(.iconOnly)
+                    }
+                    .buttonStyle(.borderless)
+                }
+            }
+            Button {
+                plan.spending.phases.append(PlanEditing.newSpendingPhase(in: plan))
+            } label: {
+                Label("Add a later phase", systemImage: "plus")
+            }
+            .buttonStyle(.borderless)
+        }
+        .font(.subheadline)
+    }
+}
+
+// MARK: - Contributions
+
+/// Regular payments into specific accounts while working.
+struct PlanContributionsEditor: View {
+    @Binding var plan: PlanDocument
+    @Environment(LibraryStore.self) private var library
+
+    var body: some View {
+        let accounts = PlanEditing.contributionAccounts(in: library.library)
+        let fallback = PlanContribution(account: accounts.first?.id ?? "account", perYear: 0)
+        VStack(alignment: .leading, spacing: Metrics.s) {
+            ForEach(plan.contributions.indices, id: \.self) { index in
+                let contribution = plan.contributions[planSafe: index, default: fallback]
+                VStack(alignment: .leading, spacing: Metrics.xs) {
+                    HStack {
+                        Picker("Account", selection: $plan.contributions[planSafe: index, default: fallback].account) {
+                            ForEach(accounts) { account in
+                                Text(account.name).tag(account.id)
+                            }
+                            if !accounts.contains(where: { $0.id == contribution.account }) {
+                                Text(contribution.account.rawValue).tag(contribution.account)
+                            }
+                        }
+                        .labelsHidden()
+                        Spacer()
+                        Button {
+                            plan.contributions = PlanEditing.removing(at: index, from: plan.contributions)
+                        } label: {
+                            Label("Remove", systemImage: "minus.circle")
+                                .labelStyle(.iconOnly)
+                        }
+                        .buttonStyle(.borderless)
+                    }
+                    PlanNumberRow("Per year", value: $plan.contributions[planSafe: index, default: fallback].perYear,
+                                  unit: "/yr")
+                    Toggle("Until retirement",
+                           isOn: $plan.contributions[planSafe: index, default: fallback].planUntilRetirement)
+                    if !contribution.planUntilRetirement {
+                        DatePicker("Until",
+                                   selection: $plan.contributions[planSafe: index, default: fallback].planUntilDate.planDate,
+                                   displayedComponents: .date)
+                    }
+                }
+                Divider()
+            }
+            Button {
+                if let contribution = PlanEditing.newContribution(in: library.library) {
+                    plan.contributions.append(contribution)
+                }
+            } label: {
+                Label("Add a contribution", systemImage: "plus")
+            }
+            .buttonStyle(.borderless)
+            .disabled(accounts.isEmpty)
+        }
+        .font(.subheadline)
+    }
+}
+
+// MARK: - Assumptions
+
+/// Inflation, returns and volatility by asset class, and the portfolio's
+/// estimate for unrecorded gains and the accounts it leaves out.
+struct PlanAssumptionsEditor: View {
+    @Binding var plan: PlanDocument
+    @Environment(LibraryStore.self) private var library
+
+    private struct AssetRow: Identifiable {
+        var assetClass: AssetClass
+        var name: String
+        var id: String { assetClass.rawValue }
+    }
+
+    private static let rows: [AssetRow] = [
+        AssetRow(assetClass: .equity, name: "Equity"), AssetRow(assetClass: .bonds, name: "Bonds"),
+        AssetRow(assetClass: .cash, name: "Cash"), AssetRow(assetClass: .gold, name: "Gold"),
+        AssetRow(assetClass: .crypto, name: "Crypto"),
+    ]
+
+    var body: some View {
+        let accounts = PlanEditing.excludableAccounts(in: library.library)
+        VStack(alignment: .leading, spacing: Metrics.s) {
+            PlanNumberRow("Inflation", value: $plan.assumptions.inflation, kind: .percent, unit: "%", prompt: "2")
+            Text("Real return · volatility")
+                .font(.caption)
+                .foregroundStyle(Palette.secondaryInk)
+            ForEach(Self.rows) { row in
+                HStack(spacing: Metrics.xs) {
+                    Text(row.name)
+                    Spacer(minLength: Metrics.s)
+                    PlanNumberField("\(row.name) real return",
+                                    value: $plan.assumptions[planReal: row.assetClass], kind: .percent)
+                        .frame(maxWidth: 56)
+                    Text("% ·")
+                        .foregroundStyle(Palette.secondaryInk)
+                    PlanNumberField("\(row.name) volatility",
+                                    value: $plan.assumptions[planVolatility: row.assetClass], kind: .percent)
+                        .frame(maxWidth: 56)
+                    Text("%")
+                        .foregroundStyle(Palette.secondaryInk)
+                }
+            }
+            Text("Placeholders to review, not forecasts: real returns after fund costs.")
+                .font(.caption)
+                .foregroundStyle(Palette.mutedInk)
+                .fixedSize(horizontal: false, vertical: true)
+            Divider()
+            PlanNumberRow("Unrealised gains, estimate", value: $plan.portfolio.unrealizedGainShare, kind: .percent,
+                          unit: "%", prompt: "–")
+            Text("For holdings with no purchase cost recorded: the share of their value that's gain.")
+                .font(.caption)
+                .foregroundStyle(Palette.mutedInk)
+                .fixedSize(horizontal: false, vertical: true)
+            if !accounts.isEmpty {
+                Text("Accounts in this plan")
+                    .font(.caption)
+                    .foregroundStyle(Palette.secondaryInk)
+                ForEach(accounts) { account in
+                    Toggle(account.name, isOn: $plan.portfolio[planIncludes: account.id])
+                }
+            }
+        }
+        .font(.subheadline)
+    }
+}
+
+// MARK: - Simulation and withdrawals
+
+/// The number of runs, the confidence level and the random seed.
+struct PlanSimulationEditor: View {
+    @Binding var plan: PlanDocument
+    @Environment(\.locale) private var locale
+
+    private var runChoices: [Int] {
+        Array(Set([500, 1_000, 2_000, 5_000, plan.simulation.effectiveRuns])).sorted()
+    }
+
+    private var confidenceChoices: [Decimal] {
+        let standard = ["0.8", "0.85", "0.9", "0.95"].compactMap { Decimal(string: $0) }
+        return Array(Set(standard + [plan.simulation.effectiveConfidence])).sorted()
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: Metrics.s) {
+            Picker("Runs", selection: $plan.simulation.planRuns) {
+                ForEach(runChoices, id: \.self) { runs in
+                    Text(AmountFormat.number(Decimal(runs), locale: locale)).tag(runs)
+                }
+            }
+            Picker("Confidence for a “yes”", selection: $plan.simulation.planConfidence) {
+                ForEach(confidenceChoices, id: \.self) { share in
+                    Text(AmountFormat.percent(share, digits: 0, locale: locale)).tag(share)
+                }
+            }
+            Text("A “yes” needs success \(PlanResultsText.confidence(plan.simulation.effectiveConfidence.doubleValue)).")
+                .font(.caption)
+                .foregroundStyle(Palette.mutedInk)
+            PlanNumberRow("Random seed", value: $plan.simulation.planSeed, kind: .integer)
+            Text("Every run of this plan uses the same random draws, so differences come from your changes.")
+                .font(.caption)
+                .foregroundStyle(Palette.mutedInk)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .font(.subheadline)
+    }
+}
+
+/// How money is drawn in retirement.
+struct PlanWithdrawalsEditor: View {
+    @Binding var plan: PlanDocument
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: Metrics.s) {
+            LabeledContent("Strategy", value: "Fixed real spending")
+            Text("You spend what the plan says, adjusted for inflation, and the portfolio absorbs market swings. "
+                + "Cash above the buffer goes first, then investments, then pension money once it opens.")
+                .font(.caption)
+                .foregroundStyle(Palette.mutedInk)
+                .fixedSize(horizontal: false, vertical: true)
+            PlanNumberRow("Cash buffer", value: $plan.withdrawals.cashBuffer, prompt: "0")
+        }
+        .font(.subheadline)
+    }
+}
+
+#Preview("Inputs") {
+    PlanPreviewHost(model: AppModel.preview(planEngine: PlanPreviewEngine())) { session in
+        PlanInputsView(session: session)
+    }
+}

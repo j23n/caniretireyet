@@ -91,6 +91,38 @@ struct PlanInputIssues: Hashable, Sendable {
         issues(for: section).filter { $0.index == index || (regime != nil && $0.index == nil && $0.regime == regime) }
     }
 
+    /// The issues a card lists itself: those not shown on one of its rows
+    /// (work phases by position or regime, pensions and events by position,
+    /// tax overlays by regime, residence entries by position).
+    func cardIssues(for section: PlanInputSection, in plan: PlanDocument) -> [PlanIssue] {
+        let all = issues(for: section)
+        switch section {
+        case .work:
+            let regimes = Set(plan.work.compactMap { $0.regime?.rawValue })
+            return all.filter { $0.index == nil && !($0.regime.map { regimes.contains($0) } ?? false) }
+        case .pensions, .events:
+            return all.filter { $0.index == nil }
+        case .taxes:
+            let overlays = Set(plan.tax.overlays.map(\.regime.rawValue))
+            return all.filter { issue in
+                if let regime = issue.regime { return !overlays.contains(regime) }
+                return issue.index == nil
+            }
+        default:
+            return all
+        }
+    }
+
+    /// The issues about one tax residence entry.
+    func residenceIssues(index: Int) -> [PlanIssue] {
+        issues(for: .taxes).filter { $0.index == index && $0.regime == nil }
+    }
+
+    /// The issues about one overlay (special regime).
+    func overlayIssues(regime: String) -> [PlanIssue] {
+        issues(for: .taxes).filter { $0.regime == regime }
+    }
+
     var errorCount: Int { bySection.values.reduce(0) { $0 + $1.filter(\.isError).count } }
     var warningCount: Int { bySection.values.reduce(0) { $0 + $1.filter { !$0.isError }.count } }
     var all: [PlanIssue] { PlanInputSection.allCases.flatMap { issues(for: $0) } }
@@ -252,6 +284,65 @@ struct PlanInputSummaries {
     var simulation: String {
         let runs = AmountFormat.number(Decimal(plan.simulation.effectiveRuns), locale: locale)
         return "\(runs) runs · \(percent(plan.simulation.effectiveConfidence, digits: 0)) confidence"
+    }
+
+    // MARK: List rows
+
+    /// A work phase's second line: "65.000 € gross · +1%/yr · TFR to fund",
+    /// "Forfettario · 70.000 € revenue · 67%".
+    func detail(of phase: WorkPhase) -> String {
+        var parts: [String] = []
+        if let regime = phase.regime, let found = registry.regime(regime.rawValue), phase.kind != .employee {
+            parts.append(PlanWorkText.shortRegimeName(found.regime.name))
+        }
+        switch phase.kind {
+        case .employee:
+            if let salary = phase.grossSalary { parts.append("\(amount(salary)) gross") }
+        case .selfEmployed:
+            if let revenue = phase.revenue { parts.append("\(amount(revenue)) revenue") }
+            if let costs = phase.costs, costs > 0 { parts.append("\(amount(costs)) costs") }
+        case .net:
+            if let net = phase.netIncome { parts.append("\(amount(net)) net") }
+        default:
+            break
+        }
+        if let growth = phase.realGrowth, growth != 0 {
+            parts.append("\(growth > 0 ? "+" : "")\(percent(growth))/yr")
+        }
+        if phase.options["tfr"]?.stringValue == "pensionFund" { parts.append("TFR to fund") }
+        if let coefficient = phase.options["coefficient"]?.decimalValue { parts.append(percent(coefficient, digits: 0)) }
+        return parts.joined(separator: " · ")
+    }
+
+    /// A pension's second line: "Claimed as early as possible", "From 67 · 4.800 €/yr".
+    func detail(of pension: PlanPension) -> String {
+        var parts: [String] = []
+        if pension.scheme == .fixed {
+            if let age = pension.fromAge { parts.append("From \(age)") }
+            if let amount = pension.perYear { parts.append("\(self.amount(amount))/yr") }
+        } else {
+            switch pension.effectiveClaim {
+            case .earliest: parts.append("Claimed as early as possible")
+            case .age(let age): parts.append("Claimed at \(age)")
+            }
+        }
+        if pension.effectiveTaxedIn == .source { parts.append("taxed where it's paid") }
+        return parts.joined(separator: " · ")
+    }
+
+    /// An event's second line: "+150.000 € · 80% likely", "−25.000 €".
+    func detail(of event: PlanEvent) -> String {
+        let sign = event.amount > 0 ? "+" : ""
+        var text = hidesAmounts ? AmountFormat.hidden : sign + AmountFormat.amount(event.amount, currency: currency, locale: locale)
+        if event.effectiveProbability < 1 { text += " · \(percent(event.effectiveProbability, digits: 0)) likely" }
+        if event.kind == .inheritance { text += " · inheritance" }
+        return text
+    }
+
+    /// A residence entry's line: "From 2026 · Italy".
+    func title(of residence: PlanResidence) -> String {
+        let name = registry.system(residence.system.rawValue)?.name ?? residence.system.rawValue
+        return "From \(residence.from) · \(name)"
     }
 
     var withdrawals: String {
