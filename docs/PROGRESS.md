@@ -68,6 +68,12 @@ The returns on your investments over a period:
 - **Breakdowns:** for the whole portfolio, by asset class and by account.
 - **Periods:** since the last check-in, year to date, 1, 3 and 5 years, and since the start. Periods longer than a year are annualised.
 - **What it needs:** knowing how much money went in or out of each account (see below). Accounts without that information show their change in value, but no return.
+- **How it's computed** (Tracker):
+  - The period is cut at every valuation date. On each piece the time-weighted return is Modified Dietz: a flow is assumed to happen halfway between the account's previous valuation and the one that records it. The pieces are chained.
+  - The money-weighted return is the XIRR of the start value, the flows and the end value.
+  - Real returns use the change in `hicp-it` over the period. The real money-weighted return first converts every flow into euros of the start date.
+  - Debts are left out of the portfolio and the asset classes. For an asset class, buying a position with the account's cash moves money between classes, so it doesn't count as a return.
+  - An account is left out, and listed as such, when a valuation in the period has no flow, or when it carries into the period a balance that had none (a home that never gets flows, for example). It is also left out when a price or FX rate is missing.
 
 ## Baselines
 

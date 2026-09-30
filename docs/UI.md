@@ -125,6 +125,9 @@ The home screen. Top to bottom:
 - **Can I retire yet?** The plan's headline, progress toward financial independence, and how you compare with the latest baseline. Tapping it opens the Plan tab.
 - **Needs attention.** Only shown when something needs you: stale accounts, prices that couldn't be fetched, sync conflicts that were merged, and plan warnings.
 - **Allocation.** Horizontal bars with values and percentages; a donut would be harder to read. The dimension can be switched between asset class, account group, currency, institution, and liquid vs locked.
+  - *Asset class* splits holdings by their instrument's mix and balances by the account's mix, and shows debts as their own bar.
+  - *Currency* is where each part is priced; bitcoin in a euro wallet counts as dollars.
+  - *Locked* is pension funds, TFR, property and vehicles, and the mortgage secured on the property.
 
 ## Check-in
 
