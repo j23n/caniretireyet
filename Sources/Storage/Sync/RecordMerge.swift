@@ -56,6 +56,8 @@ public enum RecordMerger {
                           conflicts: &conflicts) { "\($0.date) \($0.base) \($0.quote)" }
         merged.indices = merge(base.indices, ours.indices, theirs.indices, rule: rule, list: "indices",
                                conflicts: &conflicts) { "\($0.date) \($0.index)" }
+        merged.trades = merge(base.trades, ours.trades, theirs.trades, rule: rule, list: "trades",
+                              conflicts: &conflicts) { "\($0.date) \($0.account) \($0.id)" }
         return RecordMerge(value: merged, conflicts: conflicts)
     }
 

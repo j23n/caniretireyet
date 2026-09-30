@@ -302,6 +302,8 @@ extension KeyPreservation.RecordList {
                    isReadable: { LenientDecoding.decodes(FXRecord.self, from: $0) }),
         "indices": Self(keyFields: ["date", "index"], rule: .init(IndexRecord.self),
                         isReadable: { LenientDecoding.decodes(IndexRecord.self, from: $0) }),
+        "trades": Self(keyFields: ["date", "account", "id"], rule: .init(Trade.self),
+                       isReadable: { LenientDecoding.decodes(Trade.self, from: $0) }),
     ]
 
     /// The record list of a headline file: one headline per check-in date.
