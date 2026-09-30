@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     container: swift:6.3-noble
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Build
         run: swift build
       - name: Test
@@ -20,7 +20,7 @@ jobs:
     name: macOS · package and app (iOS Simulator and Mac)
     runs-on: macos-26
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Toolchain
         run: |
           xcodebuild -version
@@ -33,14 +33,16 @@ jobs:
         run: xcodegen generate --spec App/project.yml
       - name: Build the app for iOS Simulator
         run: >
-          xcodebuild build
+          xcodebuild build -quiet
           -project App/CanIRetireYet.xcodeproj
           -scheme CanIRetireYet
           -destination 'generic/platform=iOS Simulator'
           CODE_SIGNING_ALLOWED=NO
       - name: Build the app for macOS
+        # Runs even when the iOS build failed, so one run reports both platforms' errors.
+        if: success() || failure()
         run: >
-          xcodebuild build
+          xcodebuild build -quiet
           -project App/CanIRetireYet.xcodeproj
           -scheme CanIRetireYet
           -destination 'platform=macOS'
