@@ -9,6 +9,9 @@ import Storage
 /// - Writes replace the file atomically inside a coordinated write, creating
 ///   missing parent folders.
 /// - Deletes are coordinated.
+/// - ``replaceData(at:ifContentsAre:with:)`` compares and writes inside one
+///   coordinated write, so a version iCloud Drive delivers meanwhile is
+///   never overwritten unseen.
 /// - Listing includes files that exist only as iCloud placeholders
 ///   (`.name.json.icloud`), under their real names, and ``fileExists(at:)``
 ///   counts them, so a library that isn't fully downloaded still loads whole.
@@ -82,6 +85,29 @@ public struct CoordinatedFileAccess: FileAccessing {
         try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
     }
 
+    public func replaceData(at url: URL, ifContentsAre expected: Data?, with data: Data?) throws -> Bool {
+        let fileManager = FileManager.default
+        // A file that is only a placeholder can't be compared. Reading it
+        // (`readData(at:)`) downloads it; the caller then tries again.
+        if !fileManager.fileExists(atPath: url.path), fileManager.fileExists(atPath: Self.placeholderURL(for: url).path) {
+            return false
+        }
+        if data != nil {
+            try fileManager.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+        }
+        return try Coordination.write(url, deleting: data == nil, merging: true) { accessURL in
+            let fileManager = FileManager.default
+            let current = fileManager.fileExists(atPath: accessURL.path) ? try Data(contentsOf: accessURL) : nil
+            guard current == expected else { return false }
+            if let data {
+                try data.write(to: accessURL, options: .atomic)
+            } else if current != nil {
+                try fileManager.removeItem(at: accessURL)
+            }
+            return true
+        }
+    }
+
     /// Where iCloud keeps the placeholder of a file that isn't downloaded.
     static func placeholderURL(for url: URL) -> URL {
         url.deletingLastPathComponent().appendingPathComponent(ICloudPlaceholder.placeholderName(for: url.lastPathComponent))
@@ -114,12 +140,14 @@ enum Coordination {
         #endif
     }
 
-    /// Runs `body` with the URL to write to (or delete), inside a coordinated write.
-    static func write<Value>(_ url: URL, deleting: Bool, _ body: @Sendable (URL) throws -> Value) throws -> Value {
+    /// Runs `body` with the URL to write to (or delete), inside a coordinated
+    /// write. `merging`: `body` reads the file before it replaces it.
+    static func write<Value>(_ url: URL, deleting: Bool, merging: Bool = false,
+                             _ body: @Sendable (URL) throws -> Value) throws -> Value {
         #if canImport(Darwin)
         let outcome = Outcome<Value>()
         var coordinationError: NSError?
-        let options: NSFileCoordinator.WritingOptions = deleting ? .forDeleting : .forReplacing
+        let options: NSFileCoordinator.WritingOptions = deleting ? .forDeleting : merging ? .forMerging : .forReplacing
         NSFileCoordinator(filePresenter: nil).coordinate(writingItemAt: url, options: options, error: &coordinationError) {
             accessURL in
             outcome.result = Result { try body(accessURL) }

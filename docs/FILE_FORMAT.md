@@ -8,7 +8,7 @@ The library is a folder. Everything the app knows is stored in it. If you delete
 - **Small files.** There is one file for each thing you edit independently, so a sync conflict between devices stays rare and affects little.
 - **Stable IDs you can read.** Files refer to each other by ID, never by display name, so you can rename anything freely.
 - **Only inputs are stored.** Files hold what you entered, plus the prices, FX rates and inflation figures fetched at check-in time. Totals, charts and projections are always computed. The one deliberate exception is `projections/`: saved projections record what you expected at the time, which can't be recomputed later ([PROGRESS.md](PROGRESS.md)).
-- **Unknown data survives.** When the app rewrites a file, it keeps fields it doesn't recognise, such as notes you added by hand.
+- **Unknown data survives.** When the app rewrites a file, it keeps fields it doesn't recognise, such as notes you added by hand, at any depth: in nested objects too, and in list items (a work phase, an event, an import column), which are matched by their key, ID, name or position.
 
 ## Layout
 
@@ -292,7 +292,20 @@ When two devices change the same file before it syncs, iCloud keeps both version
 
 Merges are listed on the Sync screen so you can check them.
 
-Versions modified at the same moment are ordered by their contents, so both devices resolve a conflict the same way. Everything else in a merged history or headline file (its unknown keys, for example) comes from the newest version, and the result is written in the canonical layout. A version that isn't valid JSON is left out of a merge.
+Versions modified at the same moment are ordered by their contents, so both devices resolve a conflict the same way. Within one version, the later of two records with the same key counts, as when loading. Everything else in a merged history or headline file (its unknown keys, for example) comes from the newest version, and the result is written in the canonical layout. A version that isn't valid JSON is left out of a merge.
+
+## Saving
+
+The app keeps the library in memory and writes only the files an edit changed. A file can change on disk after the app read it: the other device's change arrives, or you edit it by hand, and the app hasn't reloaded it yet. So every write compares the file on disk with the version the app last read, and never loses a change it hasn't seen:
+
+| File | Changed on disk since the app read it |
+| --- | --- |
+| `history/…`, `projections/…/headlines/…` | Three-way merge record by record, with the version the app read as the common base. A record changed only on disk keeps the disk's version; a record changed only in the app gets the app's. A record changed on both sides, each in its own way, gets the app's version, unless the app deleted it: then the changed record is kept. Records added on disk, keys the app doesn't know, and records it can't read are kept. |
+| All other files | The app's version is written, after the file on disk is copied to `backups/<timestamp>-conflict/`. A file the app deletes is kept instead. |
+
+When records changed on both sides, the file is copied to `backups/<timestamp>-conflict/` first too. The Sync screen lists what happened, and the app then reloads the merged file. Reading, merging and writing a file is one coordinated operation, so a version iCloud Drive delivers meanwhile is merged as well.
+
+A file that couldn't be read when the library loaded (it isn't valid JSON, or doesn't hold what it should) is copied to `backups/<timestamp>-unreadable/` before the app replaces or deletes it.
 
 ## Versioning
 
@@ -307,11 +320,19 @@ Saved import profiles. Each describes how to read one kind of file (encoding, de
 
 ## `backups/`
 
-Copies of files taken before a schema migration or an import, in dated folders. They're what "Undo import" restores. Safe to delete.
+Copies of files taken before a schema migration, an import, or a save that had to replace a file (see [Saving](#saving)), in dated folders. They're what "Undo import" uses. Safe to delete.
 
-- `backups/<yyyy-MM-dd-HHmmss>-<label>/` for an import (the time is the device's local time), `backups/<yyyy-MM-dd>-v<old>/` for a migration. A second backup with the same name gets `-2`, `-3`, ….
-- Each folder mirrors the library's layout and has a `backup.json` listing the files copied (`files`), the files that didn't exist yet (`absentFiles`, which restoring deletes), a `label` and when it was `created`.
-- When the app has to overwrite a file that isn't valid JSON, it first copies it to `backups/<timestamp>-unreadable/`.
+- `backups/<yyyy-MM-dd-HHmmss>-<label>/` (the time is the device's local time), with the label `import`, `undo-import` (the files as they were before an undo), `prices`, `conflict` or `unreadable`; `backups/<yyyy-MM-dd>-v<old>/` for a migration. A second backup with the same name gets `-2`, `-3`, ….
+- Each folder mirrors the library's layout and has a `backup.json` listing the files copied (`files`), the files that didn't exist yet (`absentFiles`), a `label`, when it was `created`, and the library's `schemaVersion` then.
+- After an import, the files as the import wrote them are copied to the backup's `result/` folder, and `backup.json` lists them under `result` (`{ "files": [...], "absentFiles": [...] }`).
+
+**Undo import** compares each file now with the import's `result` and with the copy from before the import:
+
+- A file unchanged since the import is put back as it was before it; a file the import created is deleted.
+- In a history or headline file changed since, records unchanged since the import go back to how they were before it (records it added are removed), and records changed since keep their new values.
+- Any other file changed since is left as it is.
+
+The app and `retire import --undo` list what was left in place. A backup without `result` (taken by an older app) is restored as it is. A backup is only restored into a library with the same `schemaVersion`.
 
 ## Canonical layout
 
@@ -326,7 +347,7 @@ The app writes every file the same way, so the same data always gives the same b
 ## Reading hand-edited files
 
 - A file with a mistake doesn't stop the library from loading. The app lists each problem with the file's path and where in it, like `valuations[2].balance: Expected a decimal such as "1234.56", found "12,5".` or `Line 4, column 3: Expected "," or "}" after a value in an object`.
-- A file that can't be read is left out. In a history or headline file only the records that can't be read are left out, and they're kept in the file when the app rewrites it, until you fix them.
+- A file that can't be read is left out. In a history or headline file only the records that can't be read are left out, and they're kept in the file when the app rewrites it, until you fix them. A file that is left out is copied to `backups/` before the app writes over it or deletes it.
 - A JSON number where text is expected (`"name": 2026`) is read as text, and a whole number written as text where a number is expected (`"endAge": "95"`) as a number.
 - The file name wins over the `id` inside the file, and over the `month` inside a history file; the app points out the mismatch.
 - A record dated outside its month file stays where it is, and the app points it out. When two records have the same key, the later one in the file is used.

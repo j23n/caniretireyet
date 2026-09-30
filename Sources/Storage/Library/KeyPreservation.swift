@@ -3,9 +3,14 @@ import Model
 /// Which keys of a file the model knows, so a rewrite can keep the others:
 /// fields a newer app version wrote, or notes added by hand.
 ///
-/// When a file is rewritten, keys of the old file's top-level object that
-/// aren't in ``knownKeys`` are copied into the new one. The same happens for
-/// nested objects with fixed keys (``objects``) and for records in lists
+/// Files the model can read, other than history and headline files, keep
+/// unknown keys at any depth (``preserving(_:known:in:for:)``): a key is
+/// unknown when reading the old file and writing it back would drop it.
+///
+/// History and headline files, and files the model can't read, follow the
+/// rules here: keys of the old file's top-level object that aren't in
+/// ``knownKeys`` are copied into the new one. The same happens for nested
+/// objects with fixed keys (``objects``) and for records in lists
 /// (``records``), which are matched by their key (account + date, …) rather
 /// than their position. In history and headline files, records in the old
 /// file that the model can't read at all are kept as they are (the loader
@@ -79,6 +84,134 @@ extension KeyPreservation.RecordList {
             }
         }
         return RecordKey(parts: parts)
+    }
+}
+
+// MARK: - Unknown keys at any depth
+
+extension KeyPreservation {
+    /// `new`, the model's JSON of `file`, with what the model doesn't know
+    /// kept from `old`, the file on disk. `known` is the model's view of
+    /// `old`: what loading it and writing it back gives, or `nil` if it
+    /// can't be loaded.
+    ///
+    /// History and headline files, and files the model can't load, follow
+    /// the file's rule (``rule(for:)``). Other files keep every key of `old`
+    /// that `known` doesn't have, at any depth: in nested objects, and in
+    /// list items matched to the new list's items by a natural key (an
+    /// `id`, `name`, `header`, `from`, … that every item has, different in
+    /// each), else by their other values or position (``ListMatching``).
+    /// Unknown keys holding nothing (`null`, `[]`, `{}`) aren't kept.
+    static func preserving(_ old: JSONValue, known: JSONValue?, in new: JSONValue, for file: LibraryFile) -> JSONValue {
+        guard let known, !file.mergesRecords else { return rule(for: file).preserving(old, in: new) }
+        return keepingUnknown(old, known: known, in: new)
+    }
+
+    /// `new` with the members of `old` that `known` lacks, recursively.
+    static func keepingUnknown(_ old: JSONValue, known: JSONValue, in new: JSONValue) -> JSONValue {
+        switch (old, known, new) {
+        case (.object(let old), .object(let known), .object(var result)):
+            for (key, value) in old {
+                if let knownValue = known[key] {
+                    if let newValue = result[key] { result[key] = keepingUnknown(value, known: knownValue, in: newValue) }
+                } else if result[key] == nil, !value.holdsNothing {
+                    result[key] = value
+                }
+            }
+            return .object(result)
+        case (.array(let old), .array(let known), .array(var result)):
+            let knownIndex = Dictionary(ListMatching.pairs(old: old, new: known).map { ($0.old, $0.new) },
+                                        uniquingKeysWith: { first, _ in first })
+            for pair in ListMatching.pairs(old: old, new: result) {
+                guard let knownPosition = knownIndex[pair.old] else { continue }
+                result[pair.new] = keepingUnknown(old[pair.old], known: known[knownPosition], in: result[pair.new])
+            }
+            return .array(result)
+        default:
+            return new
+        }
+    }
+}
+
+/// Pairs the items of two versions of a list that hold the same thing.
+enum ListMatching {
+    /// The fields that can identify a list item, tried in order.
+    static let naturalKeys = [
+        "id", "date", "year", "name", "header", "index", "account", "instrument", "scheme", "regime", "from", "fromAge",
+    ]
+
+    /// Pairs of positions in `old` and `new`: first by the first natural key
+    /// that every item of both lists has, with a different value in each.
+    /// An item left over (renamed, say) is paired with the leftover old item
+    /// that has the most members with the same value, or else with the one
+    /// at its position.
+    static func pairs(old: [JSONValue], new: [JSONValue]) -> [(old: Int, new: Int)] {
+        var oldFor: [Int: Int] = [:]
+        var used = Set<Int>()
+        if let field = naturalKey(old, new) {
+            var positions: [String: Int] = [:]
+            for (position, item) in old.enumerated() {
+                if let key = item[field].flatMap(keyText) { positions[key] = position }
+            }
+            for (position, item) in new.enumerated() {
+                if let key = item[field].flatMap(keyText), let match = positions[key] {
+                    oldFor[position] = match
+                    used.insert(match)
+                }
+            }
+        }
+        for position in new.indices where oldFor[position] == nil {
+            let best = old.indices.filter { !used.contains($0) }
+                .map { (old: $0, shared: sharedMembers(old[$0], new[position]), distance: abs($0 - position)) }
+                .max { ($0.shared, -$0.distance) < ($1.shared, -$1.distance) }
+            guard let best, best.shared > 0 || best.old == position else { continue }
+            oldFor[position] = best.old
+            used.insert(best.old)
+        }
+        return oldFor.sorted { $0.key < $1.key }.map { (old: $0.value, new: $0.key) }
+    }
+
+    /// How many members two objects have with the same value.
+    static func sharedMembers(_ a: JSONValue, _ b: JSONValue) -> Int {
+        guard case .object(let first) = a, case .object(let second) = b else { return 0 }
+        return first.filter { key, value in
+            guard let other = second[key] else { return false }
+            return other == value || (keyText(other) != nil && keyText(other) == keyText(value))
+        }.count
+    }
+
+    /// The first natural key every item of both lists has as text or a
+    /// number, with no value twice in one list.
+    static func naturalKey(_ old: [JSONValue], _ new: [JSONValue]) -> String? {
+        guard !old.isEmpty, !new.isEmpty else { return nil }
+        return naturalKeys.first { field in
+            [old, new].allSatisfy { items in
+                let keys = items.compactMap { $0[field].flatMap(keyText) }
+                return keys.count == items.count && Set(keys).count == keys.count
+            }
+        }
+    }
+
+    /// A key value as text: a string, or a number in its shortest form, so
+    /// `75` and `"75"` match.
+    static func keyText(_ value: JSONValue) -> String? {
+        switch value {
+        case .string(let text): text
+        case .number(let number): number.fileString
+        default: nil
+        }
+    }
+}
+
+extension JSONValue {
+    /// Whether the value holds no data: `null`, `[]` or `{}`.
+    var holdsNothing: Bool {
+        switch self {
+        case .null: true
+        case .array(let items): items.isEmpty
+        case .object(let members): members.isEmpty
+        default: false
+        }
     }
 }
 
