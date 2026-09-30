@@ -175,6 +175,26 @@ The flow that has to be fast. It opens as a full-screen sheet on iPhone and as t
 
   "Review" asks about any rows not reviewed: mark them unchanged, or skip them (then no record is written, and the account will show as stale). A new account with no earlier value can't be unchanged: it's entered or skipped.
 - **Accounts with holdings.** Each position's quantity is pre-filled, and its value updates live with the fetched price. When a quantity goes up, an optional "paid" field appears. What you enter updates the position's purchase cost and the new money, which is how purchase costs are tracked without transactions.
+- **Accounts that record trades** ([TRADES.md](TRADES.md#check-ins)). The row shows what the trades hold on the date, read-only, valued at the check-in's prices ("423 VWCE · from trades"), and records only the cash:
+
+  ```
+  ┌──────────────────────────────────────────┐
+  │ Directa                 59.455,80 €   ●  │
+  │   VWCE  423 × 139,80          59.135,40  │
+  │         +10,5 since 30 Sep · from trades │
+  │   Cash  [    320,40 ]                    │
+  │   was 57.410,35 · new money +1.458,10    │
+  │   deposits +1.450,00 · cash diff. +8,10  │
+  │   ⊕ Add Trade…                           │
+  └──────────────────────────────────────────┘
+  ```
+
+  - The cash is pre-filled with what the trades give. Typing another amount is fine: the difference counts as money added or taken out that no trade records.
+  - The new money is the deposits, withdrawals and transfers recorded as trades since the previous value, plus that cash difference; the line under it shows the split.
+  - *Add Trade…* opens the trade sheet dated on the check-in's date. Once it's saved the row follows: the positions, the pre-filled cash and the new money are worked out again, and a cash you typed stays.
+  - *Unchanged* (and *Mark rest unchanged*) means as the trades say: the cash they give.
+  - *Compare With a Statement* (long-press, or right-click on the Mac) fills in the trades' quantities to correct from a broker statement. They're saved with the value as a check, not as holdings; the review lists where they differ: "The statement on 31 Oct shows 425 VWCE; your trades give 423. Add the missing trade, e.g. a buy or a transfer in." with *Add Trade…*.
+  - On the Mac, the positions are read-only sub-rows (Last and Now are quantities), then the cash, then *Add Trade…* with the split.
 - **New money (flow).** Shown under each account, filled in by the defaults in [PROGRESS.md](PROGRESS.md#data-this-needs-from-day-one), and editable. For pension funds the app asks for "contributions since …".
 - **Keyboard.** A decimal keypad in your locale's format, with ▲ ▼ buttons above it to move between fields. Amounts accept `1.234,56` and `1234.56`. For a debt, type what you owe (`1.200` is recorded as −1.200); if it's in credit, e.g. an overpaid card, type `+` first (`+20`), or use ± above the keypad. *Update value* and a new account's opening balance work the same way.
 - **Draft.** An unfinished check-in is saved as a draft on the device and never half-written to the library. Close the sheet, come back later, and continue.
@@ -203,19 +223,21 @@ The flow that has to be fast. It opens as a full-screen sheet on iPhone and as t
 - **List.** Grouped: Cash, Investments, Crypto & gold, Pension, Property, Debts.
   - Each group shows its subtotal.
   - Each row shows a kind icon, the name, the institution, the value, a sparkline of the last 12 months, and a "stale" badge when needed.
-  - Swipe actions: *Update value* (a one-account valuation) and *Close*. Saved as it is, *Update value* records the account as unchanged; an account with no earlier value needs a value typed, and an emptied field isn't zero (type 0). Its date can be any day up to the closing date (or a year from today), also before the account opened: see [Adding history](#adding-history).
+  - Swipe actions: *Update value* (a one-account valuation) and *Close*. Saved as it is, *Update value* records the account as unchanged; an account with no earlier value needs a value typed, and an emptied field isn't zero (type 0). Its date can be any day up to the closing date (or a year from today), also before the account opened: see [Adding history](#adding-history). An account that records trades offers *Add trade* instead; its *Update Cash…* (in the context menu) shows the holdings from the trades, read-only, and records the cash.
   - Closed accounts sit in a collapsed "Closed (3)" section at the bottom.
 - **Account detail.**
   - The value and its change.
   - A history chart. New-money events are small ticks on the time axis, so jumps you caused are distinguishable from market moves. As on the Overview, a note under it points out values that use a price more than 31 days old, with *Fill In Past Prices…*.
   - For accounts with holdings, the positions: quantity, price, value, purchase cost and unrealised gain.
   - The list of valuations, each editable: date, value, new money, note. *Add Past Value…* adds one on an earlier date.
-  - An info section: kind, institution, country, currency, tax wrapper, and whether it's included in net worth and plans.
+  - An info section: kind, institution, country, currency, tax wrapper, how it's recorded (a balance, snapshots of positions, or trade history), and whether it's included in net worth and plans.
+  - A holdings account offers *Switch to Trade History…* next to *Close Account…*: see [Trade history](#trade-history).
 - **Add account.** A sheet:
   1. Pick a kind from a grid of icons.
   2. Enter the name, institution, currency, country and opening date. The opening date is today by default; the hint says "Set it to when you opened the account, to add its history." The opening balance is the one on that date.
-  3. Enter the positions (choose or create instruments) or the balance, which becomes the first valuation.
-  4. The tax wrapper is pre-selected from the kind and your residence, e.g. a pension fund becomes `it.pensionFund`.
+  3. For a brokerage, crypto or metals account, choose **Track: Trade history / Monthly snapshots**. Trade history is the default: "Record each buy, sell and dividend: holdings, average cost, gains and income follow from them." Snapshots: "Type the quantities and cash at each check-in; no trades to keep."
+  4. Enter the positions (choose or create instruments) or the balance, which becomes the first valuation. For trade history, each position becomes an *opening* trade on the opening date, with what you paid as its purchase cost, and the cash becomes the first value.
+  5. The tax wrapper is pre-selected from the kind and your residence, e.g. a pension fund becomes `it.pensionFund`.
 - **Close account.** A sheet asks for:
   - the closing date;
   - "Where did the money go?", which sets the successor account;
@@ -251,6 +273,69 @@ Accounts added in the app open on the day they're added, unless you set an earli
 **New money after an inserted value.** A value's new money (its flow) is measured from the value before it. When a value is added before another one of the same account, or one is corrected, moved or deleted, the next value's new money is worked out again if it was automatic (the default for the account's kind, as the check-in fills it in), and kept if it was typed in. *Update Value* and the valuation editor say which before saving; a past check-in follows the same rule. A value added before an account's first one turns that first value's automatic new money (the whole amount) into the change since. An import follows the same rule for the library's values after the ones it adds or changes: its Preview says how many, and undoing the import puts them back. A journal's own valuations keep the flows the journal gives them ([IMPORT.md](IMPORT.md#preview-conflicts-and-undo)).
 
 **Answers and baselines are only recorded for the latest check-in.** The plan runs on today's data, so re-running it for a past date would record made-up history in "Your answer over time" and a made-up "Start of <year>" baseline. A check-in dated before the library's latest one records neither, and its confirmation says: "Saved a past check-in (31 Mar 2024). The answer isn't recorded for past dates."
+
+## Trade history
+
+A brokerage, crypto or metals account can record its **trades** instead of monthly snapshots of its positions ([TRADES.md](TRADES.md)): its holdings, average cost, cash, realised gains and income follow from them, and its check-ins record only the cash. New accounts of those kinds record trades by default (see *Add account*); existing ones can switch.
+
+**Account detail** of an account that records trades, top to bottom:
+
+```
+┌──────────────────────────────────────────┐
+│ Directa                            +  ✎  │
+│ 57.410,35 €   ▲ 1.318,92 since 31 Aug    │
+│ ┌ history chart, deposits as ticks ────┐ │
+│ ⚠︎ VWCE differs from the statement       │
+│   The statement on 30 Sep shows 424,5    │
+│   VWCE; your trades give 414,5. Add the  │
+│   missing trade, …        Add Trade…     │
+│ HOLDINGS                                 │
+│ Vanguard FTSE All-World     57.098,25 €  │
+│   412,5 sh × 138,42 EUR   99% of account │
+│   Average cost 116,85 €  ▲ 8.898 ▲ 18,5% │
+│ Cash                           312,10 €  │
+│ Total                       57.410,35 €  │
+│ TRADES                                   │
+│ ⊕ Add Trade…          20 trades Filter ▾ │
+│ AUGUST 2026                              │
+│ ⊕ Buy · 10 VWCE × 134,75   −1.352,50 €   │
+│ ↓ Deposit                    +200,60 €   │
+│ JULY 2026                                │
+│ ⊖ Sell · 8,5 VWCE × 144,56 +1.162,80 €   │
+│                         gain +234,42     │
+│ …                                        │
+│ INCOME & GAINS                           │
+│ 2026   Realised gains · Dividends ·      │
+│        Interest · Fees · Taxes · Net     │
+│ CASH AT CHECK-INS · DETAILS · …          │
+└──────────────────────────────────────────┘
+```
+
+- **Holdings**: per instrument, the quantity, average cost (*costo medio*: what was paid per unit, fees included), value, unrealised gain (amount and %) and its share of the account; then the cash and the total. On the Mac, a grid with those columns.
+- **Trades**: grouped by month, newest first; each row shows the type's icon, what it was ("Buy · 10 VWCE × 134,75", with the price's currency when it isn't the account's), the date and note, and the cash it moved, with a sale's realised gain. *Filter* shows one instrument or one type. Tap a trade to edit it; swipe or long-press to delete it (the confirmation says what deleting brings in, e.g. a later sale now selling more than is held). On the Mac, a Table (date, type, instrument, quantity, price, amount, note): double-click edits, right-click edits or deletes.
+- **Income & gains**, by year: realised gains, dividends, interest, fees and taxes, and the net; a sale whose cost is unknown is left out and said so. In the account's currency.
+- **What needs a look**, as banners with the fix: a trade missing a price or amount, a sale of more than was held, an opening without cost, a missing exchange rate, a trade outside the account's dates, a value with a balance (which isn't used), and a statement that differs from the trades ("The statement on 30 Jun shows 12 VWCE; your trades give 10. Add the missing trade."). Each banner's button opens the trade, a new trade on the statement's date, or the value.
+- **Cash at check-ins**: the account's values, which record its cash. The history chart, the header's change and the new-money ticks come from the Valuator (deposits and transfers on their own dates).
+- The toolbar's **+** adds a trade; *Update Cash…* records the cash on a date; *Switch to Snapshots…* sits next to *Close Account…*.
+
+**Add Trade** (and *Edit Trade*) is a sheet:
+
+- **Type**: Buy, Sell or Dividend as segments, and *More ▸* for interest, fee, tax, deposit, withdrawal, transfer in and out, split and opening (a chosen one shows as a fourth segment). Each type shows only its fields; editing a trade keeps showing any field it has.
+- **Date**, and for most types the **instrument**: the library's instruments, or *New Instrument…* (the instrument form, in a sheet).
+- **Quantity, price and currency** (the instrument's by default). The library's price for the date is a hint with *Use* ("The library's price that day: 138,42 EUR", or the latest before it); *Fetch Price for This Date* asks the instrument's price source.
+- **Fees and tax** (a buy's transaction tax, or tax withheld), in the account's currency.
+- **Amount**: worked out live as −(quantity × price × FX) − fees − tax for a buy, quantity × price × FX − fees − tax for a sale, and shown as the field's placeholder with "Computed …" (with the rate used when the price is in another currency). Type the broker's amount when it differs (their rate, rounding): the typed amount wins, and the hint shows what was computed, with *Use Computed*. Amounts are typed as positive numbers; the type gives the direction (a buy's *Paid*, a sale's *Received*, a fee's *Charged*).
+- **Note**.
+- Numbers read as in the check-in (`1.234,56` or `1234.56`). Problems show under their field: a number that can't be read at once, what the type needs (a buy without a price or an amount) after *Save* is tried, and warnings (a sign that contradicts the type) as they come.
+- **After saving** shows what the edit will change: the cash it moves and the cash after that day, the quantity held after it, a sale's realised gain, the opening date moving back ("Saving moves the account's opening date from 1 Mar 2021 to 15 Jan 2021."), the new money of later values worked out again (or kept when typed), and problems it brings in (a later sale now selling more than is held).
+- *Save* waits for the write; *Delete Trade…* sits at the bottom when editing.
+
+**Switching an account.** *Switch to Trade History…* on a holdings account, and *Switch to Snapshots…* on a trades account, open a sheet with a preview ([TRADES.md](TRADES.md#converting-an-account)):
+
+- what it writes, in a sentence, and the months it changes ("12 months, Oct 2025 – Sep 2026");
+- to trades: the opening positions, the buys and the sales inferred from the changes in quantity, each with its date; the estimates, counted and expandable ("11 buys and sales are estimates, priced at their value's price.", "1 opening position has no recorded cost: its cost is its value on that day.");
+- to snapshots: a warning that each trade's detail is lost (its date, price, fees, and the income and realised gains worked out from it), and the values it adds on a month's last trade;
+- the months' files are backed up first, as for an import, so the switch can be undone from *Sync & backups*. Values and new money stay the same either way.
 
 ## Plan
 
