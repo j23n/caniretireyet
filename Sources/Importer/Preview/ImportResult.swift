@@ -76,6 +76,11 @@ extension ImportPreview {
             result.createdInstruments.append(proposal.instrument.id)
         }
 
+        // Which columns write debts negative, with the accounts' kinds as they are now.
+        let accounts = library.accounts
+        let negativeDebtColumns = ImportedRecord.columnsWritingDebtsNegative(records.map(\.imported)) {
+            accounts[$0]?.kind.isLiability ?? false
+        }
         for record in records {
             let instruments = record.imported.positions.map(\.instrument) + [record.imported.key.instrument]
                 .compactMap { $0 }
@@ -92,7 +97,9 @@ extension ImportPreview {
             // account's kind may have been edited since the preview.
             var imported = record.imported
             if let account = imported.key.account, let kind = library.accounts[account]?.kind {
-                imported.signBalance(isLiability: kind.isLiability)
+                imported.signBalance(isLiability: kind.isLiability,
+                                     columnWritesDebtsNegative: imported.balanceColumn.map(negativeDebtColumns.contains)
+                                         ?? false)
             }
             let existing = library.record(for: imported.key)
             let outcome = RecordMerge.evaluate(imported, existing: existing)

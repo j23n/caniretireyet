@@ -59,6 +59,64 @@ struct DebtSignTests {
         #expect(preview.issues.isEmpty)
     }
 
+    /// A column that already writes debts as negative amounts keeps its
+    /// signs with `auto`: a positive amount there is a debt in credit.
+    @Test func aColumnWritingDebtsNegativeKeepsItsSigns() throws {
+        var library = library()
+        library.accounts["carta"] = Account(id: "carta", name: "Carta", kind: .creditCard, currency: .eur,
+                                            opened: "2020-01-01")
+        let csv = "Date;Conto;Mutuo casa;Carta\n2026-01-31;100;146900;-320.5\n2026-02-28;120;146250;20\n"
+        let preview = try session(csv).preview(against: library)
+
+        let credit = try #require(preview.record(.valuation("carta", "2026-02-28")))
+        #expect(credit.imported.balance == 20)
+        #expect(credit.imported.balanceKeptAsCredit)
+        #expect(!credit.imported.balanceReadAsDebt)
+        #expect(preview.record(.valuation("carta", "2026-01-31"))?.imported.balance == dec("-320.5"))
+        // The mortgage's column writes debts positive: read as owed, as before.
+        #expect(preview.record(.valuation("mutuo-casa", "2026-02-28"))?.imported.balance == -146_250)
+        let note = ImportIssue(kind: .debtsInCredit("carta", count: 1), column: 4, header: "Carta")
+        #expect(preview.issues == [
+            ImportIssue(kind: .positiveDebts("mutuo-casa", count: 2), column: 3, header: "Mutuo casa"), note,
+        ])
+        #expect(note.isNote)
+        #expect(note.description
+            == "“Carta”: the column writes debts as negative amounts, so positive amounts were kept as credit (1 value).")
+
+        let result = preview.apply(to: library)
+        #expect(result.library.valuations(for: "carta").map(\.balance) == [dec("-320.5"), 20])
+        #expect(result.library.valuations(for: "mutuo-casa").map(\.balance) == [-146_900, -146_250])
+    }
+
+    /// In the long layout one value column holds every account: if any debt
+    /// in it is negative, the column's signs are kept.
+    @Test func aLongFileWithNegativeDebtsKeepsItsSigns() throws {
+        var library = library()
+        library.accounts["carta"] = Account(id: "carta", name: "Carta", kind: .creditCard, currency: .eur,
+                                            opened: "2020-01-01")
+        let csv = "date,account,value\n2026-01-31,Mutuo casa,-146900\n2026-01-31,Carta,20\n2026-01-31,Conto,100\n"
+        let preview = try session(csv).preview(against: library)
+        #expect(preview.record(.valuation("carta", "2026-01-31"))?.imported.balance == 20)
+        #expect(preview.record(.valuation("mutuo-casa", "2026-01-31"))?.imported.balance == -146_900)
+        #expect(preview.issues.map(\.kind) == [.debtsInCredit("carta", count: 1)])
+    }
+
+    /// Applying decides again with the accounts' kinds as they are then: a
+    /// proposed account turned into a card joins a column's convention.
+    @Test func applyingDecidesTheConventionWithEditedKinds() throws {
+        let csv = "Date;Nuovo\n2026-01-31;-320.5\n2026-02-28;20\n"
+        var preview = try session(csv).preview(against: Library())
+        let index = try #require(preview.newAccounts.firstIndex { $0.account.id == "nuovo" })
+        #expect(!preview.newAccounts[index].account.kind.isLiability)
+        preview.newAccounts[index].account.kind = .creditCard
+        let result = preview.apply(to: Library())
+        #expect(result.library.valuations(for: "nuovo").map(\.balance) == [dec("-320.5"), 20])
+        // Without the negative value, the card's positive amount is owed.
+        var positive = try session("Date;Nuovo\n2026-02-28;20\n").preview(against: Library())
+        positive.newAccounts[0].account.kind = .creditCard
+        #expect(positive.apply(to: Library()).library.valuations(for: "nuovo").map(\.balance) == [-20])
+    }
+
     @Test func asWrittenKeepsTheFileSigns() throws {
         var session = try session(positive)
         func balance() -> Decimal? {

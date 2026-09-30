@@ -23,6 +23,10 @@ public struct ImportIssue: Hashable, Sendable, CustomStringConvertible {
         /// mortgage or credit card) were read as debts and made negative.
         /// The `liabilitySign` format `asWritten` keeps them as written.
         case positiveDebts(AccountID, count: Int)
+        /// A note: `count` positive balances of a debt account were kept
+        /// positive (in credit), because the column writes debts as negative
+        /// amounts.
+        case debtsInCredit(AccountID, count: Int)
     }
 
     public var kind: Kind
@@ -39,7 +43,10 @@ public struct ImportIssue: Hashable, Sendable, CustomStringConvertible {
     /// Whether this only says how the file was read, rather than something
     /// to fix: nothing is left out because of it.
     public var isNote: Bool {
-        if case .positiveDebts = kind { true } else { false }
+        switch kind {
+        case .positiveDebts, .debtsInCredit: true
+        default: false
+        }
     }
 
     public var description: String {
@@ -62,6 +69,10 @@ public struct ImportIssue: Hashable, Sendable, CustomStringConvertible {
         case .positiveDebts(let account, let count):
             let name = header.map { "“\($0)”" } ?? account.rawValue
             return "\(name): positive amounts were read as debts (\(count) \(count == 1 ? "value" : "values"))."
+        case .debtsInCredit(let account, let count):
+            let name = header.map { "“\($0)”" } ?? account.rawValue
+            return "\(name): the column writes debts as negative amounts, so positive amounts were kept "
+                + "as credit (\(count) \(count == 1 ? "value" : "values"))."
         }
     }
 }
