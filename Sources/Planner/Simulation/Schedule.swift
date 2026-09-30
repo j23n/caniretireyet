@@ -217,9 +217,12 @@ extension AgeSchedule {
             }
 
             // Pensions: claims use the record as it stood at the end of last year.
+            // An `earliest` claim waits for work to stop (when it stops within
+            // the plan), and in that year pays only the months after it.
             var paid: [FixedYear.Pension] = []
             for (index, pension) in model.pensions.enumerated() {
-                if claims[index] == nil,
+                let waitsForWork = pension.claim == .earliest && retirementDate > model.startDate
+                if claims[index] == nil, !(waitsForWork && retirementDate > frame.lastDay),
                    let option = Self.claim(pension, record: records[index], frame: frame, birth: birth) {
                     claims[index] = PensionClaim(pension: index, year: frame.year, age: frame.age, option: option)
                     if case .age(let wanted) = pension.claim, frame.age > wanted {
@@ -229,14 +232,20 @@ extension AgeSchedule {
                     }
                 }
                 guard let claim = claims[index] else { continue }
-                let amount = claim.option.annualAmount(atAge: frame.age)
+                var amount = claim.option.annualAmount(atAge: frame.age)
+                var share = frame.fraction
+                if waitsForWork, claim.year == frame.year, retirementDate > frame.firstDay {
+                    let retiredDays = frame.days(from: retirementDate, until: frame.lastDay)
+                    amount = min(amount, claim.option.yearlyAmount * Double(retiredDays) / daysInYear)
+                    share = retiredDays > 0
+                        ? Double(frame.simulatedDays(from: retirementDate, until: frame.lastDay)) / Double(retiredDays) : 0
+                }
                 guard amount > 0 else { continue }
                 paid.append(FixedYear.Pension(id: pension.id, scheme: pension.schemeID, amount: amount,
                                               taxedIn: pension.taxedIn))
-                shares[pension.id] = frame.fraction
-                cashIn += amount * frame.fraction
-                income.append(IncomeItem(kind: .pension, id: pension.id, label: pension.name,
-                                         amount: amount * frame.fraction))
+                shares[pension.id] = share
+                cashIn += amount * share
+                income.append(IncomeItem(kind: .pension, id: pension.id, label: pension.name, amount: amount * share))
             }
 
             // Taxes on total income, such as IRPEF, belong to no one subject:

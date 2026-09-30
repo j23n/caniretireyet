@@ -233,6 +233,34 @@ struct DeterministicTests {
         #expect(close(result.expectedPath.years.first { $0.year == 2033 }?.savings, 7_400))
     }
 
+    /// An `earliest` claim waits for work to stop, so the pension isn't
+    /// frozen at the amount of an age at which it was never drawn; in the
+    /// year work stops, it pays the months after.
+    @Test func anEarliestClaimWaitsForWorkToStop() async throws {
+        func run(birth: CalendarDate) async throws -> PlanResult {
+            let library = Sample.library(birth: birth, on: "2025-12-31",
+                                         [SampleAccount(id: "broker", balance: 1_000_000)])
+            let plan = Sample.plan(
+                retire: .age(67), endAge: 75, working: "30000", retired: "30000", equityReturn: "0",
+                work: [Sample.employee(from: "2026-01-01", gross: "40000")],
+                pensions: [PlanPension(scheme: "flat.state", options: ["montante": "200000", "contributionYears": "10"])])
+            return try await Sample.run(plan, library)
+        }
+        // Retiring on 1 January 2033 at 67: the scheme's 67 option, 5.4% of 200,000, not its 65 one.
+        let january = try await run(birth: "1966-01-01")
+        let start = try #require(january.markers.first { $0.kind == .pensionStart })
+        #expect(start.age == 67 && start.year == 2033 && close(start.amount, 10_800))
+        #expect(january.successCurve.first { $0.age == 67 }?.pensionStartAges == ["pension-0": 67])
+        let first = try #require(january.expectedPath.years.first { $0.year == 2033 })
+        #expect(close(first.income.first { $0.kind == .pension }?.amount, 10_800))
+
+        // Retiring on 1 July: 184 of 365 days of the yearly 10,800 in 2033.
+        let july = try await run(birth: "1966-07-01")
+        let paid = try #require(july.expectedPath.years.first { $0.year == 2033 }?.income.first { $0.kind == .pension })
+        #expect(close(paid.amount, 10_800 * 184 / 365))
+        #expect(close(july.markers.first { $0.kind == .pensionStart }?.amount, 10_800))
+    }
+
     @Test func workBuildsASchemePension() async throws {
         // Born 1976: works 2026–2035 with 10% of 50,000 credited, retires at 60.
         var system = FlatTaxSystem()
