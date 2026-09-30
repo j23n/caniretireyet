@@ -64,6 +64,8 @@ struct ImportFlow: Sendable {
     private(set) var preview: ImportPreview?
     /// The preview as the importer made it, before ``decisions``.
     private var basePreview: ImportPreview?
+    /// What importing would do now: the preview applied to ``library``.
+    private(set) var planned: ImportResult?
     /// What the user decided about proposals and conflicts.
     private(set) var decisions = ImportDecisions()
     /// Why the file, or the last change to how it's read, didn't work.
@@ -171,6 +173,9 @@ struct ImportFlow: Sendable {
         switch step {
         case .done: return self.step == .done
         case .file: return self.step != .done
+        case .preview where isGuided:
+            // "Import with profile…" needs a profile; the full flow is the fallback.
+            return session != nil && source != .proposed && self.step != .done
         default: return session != nil && self.step != .done
         }
     }
@@ -233,19 +238,18 @@ struct ImportFlow: Sendable {
     /// made again: decisions don't change what the file says).
     mutating func editDecisions(_ edit: (inout ImportDecisions) -> Void) {
         edit(&decisions)
-        preview = basePreview.map { decisions.applied(to: $0) }
+        setPreview(basePreview)
     }
 
     /// Makes the preview again from the mapping and the library.
     mutating func refreshPreview() {
-        guard let session else {
-            basePreview = nil
-            preview = nil
-            return
-        }
-        let base = session.preview(against: library)
+        setPreview(session?.preview(against: library))
+    }
+
+    private mutating func setPreview(_ base: ImportPreview?) {
         basePreview = base
-        preview = decisions.applied(to: base)
+        preview = base.map { decisions.applied(to: $0) }
+        planned = preview?.apply(to: library)
     }
 
     /// A readable message for an error from the importer or the file system.

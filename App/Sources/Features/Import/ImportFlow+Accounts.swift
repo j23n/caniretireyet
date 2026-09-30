@@ -8,6 +8,8 @@ enum NameTarget: Hashable, Sendable {
     case instrument(InstrumentID)
     /// A new account or instrument, proposed for this name.
     case new
+    /// Not imported: the column the name heads is ignored (wide layout).
+    case ignore
 }
 
 /// One choice in a name's picker.
@@ -80,11 +82,15 @@ extension ImportFlow {
             case .account(let id): summary = accountName(id)
             case .instrument(let id): summary = instrumentName(id)
             case .new: summary = kind == .account ? "New account" : "New instrument"
+            case .ignore: summary = "Ignored"
+            }
+            var options = nameOptions(kind: kind, ownID: target == .new ? matchedID : nil, canBeNew: canBeNew)
+            if !columns(headed: match.name).isEmpty {
+                options.append(NameOption(target: .ignore, title: "Ignore the column"))
             }
             rows.append(ImportNameRow(
                 kind: kind, name: match.name, method: match.method, target: target, summary: summary,
-                isEditable: match.method != .profile,
-                options: nameOptions(kind: kind, ownID: match.method == .new ? matchedID : nil, canBeNew: canBeNew)))
+                isEditable: match.method != .profile, options: options))
         }
         return rows
     }
@@ -111,10 +117,15 @@ extension ImportFlow {
     }
 
     /// Matches a name to an account or instrument, remembered in the
-    /// mapping (and in the profile, if saved); `.new` forgets the match.
+    /// mapping (and in the profile, if saved); `.new` forgets the match, and
+    /// `.ignore` ignores the column the name heads.
     mutating func match(_ row: ImportNameRow, to target: NameTarget) {
         guard row.isEditable, target != row.target else { return }
         let name = row.name
+        if target == .ignore {
+            for column in columns(headed: name) { setUse(.ignore, forColumn: column) }
+            return
+        }
         editSession { session in
             switch (row.kind, target) {
             case (.account, .account(let id)):
@@ -133,6 +144,12 @@ extension ImportFlow {
                 break
             }
         }
+    }
+
+    /// Wide layout: the imported columns whose header is `name`.
+    private func columns(headed name: String) -> [Int] {
+        guard layout != .long else { return [] }
+        return columnRows.filter { $0.header == name && $0.isValue }.map(\.column)
     }
 
     /// The remembered match for a name: exactly, then ignoring case and accents.

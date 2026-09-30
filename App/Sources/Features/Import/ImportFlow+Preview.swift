@@ -59,19 +59,20 @@ extension ImportFlow {
         for error in preview?.cellErrors ?? [] where problems[error.cell] == nil {
             problems[error.cell] = error.problem.description
         }
+        let problemRows = Set(problems.keys.map(\.row))
         let columns = columnRows
         let imported = columns.map { $0.use != .ignore }
-        let rows = table.rows.map { row in
+        let shown = onlyProblems ? table.rows.filter { problemRows.contains($0.number) } : table.rows
+        let rows = shown.prefix(limit).map { row in
             let cells = columns.map { column in
                 ImportGrid.Cell(column: column.column, text: row[column.column],
                                 problem: problems[ImportCellRef(row: row.number, column: column.column)],
                                 isImported: column.use != .ignore)
             }
-            return ImportGrid.Row(number: row.number, cells: cells, hasProblem: cells.contains { $0.problem != nil })
+            return ImportGrid.Row(number: row.number, cells: cells, hasProblem: problemRows.contains(row.number))
         }
-        let shown = onlyProblems ? rows.filter(\.hasProblem) : rows
         return ImportGrid(headers: columns.map(\.title), uses: columns.map { useSummary($0) }, imported: imported,
-                          rows: Array(shown.prefix(limit)), totalRows: shown.count)
+                          rows: rows, totalRows: shown.count)
     }
 
     /// What a column is imported as, with what it belongs to:
@@ -126,9 +127,46 @@ extension ImportFlow {
         }.count
     }
 
-    /// What importing would do now: the counts and whether anything changes.
-    func plannedResult() -> ImportResult? {
-        preview?.apply(to: library)
+    /// What importing would do now, e.g. "Importing adds 12 records, fills
+    /// in 3 and overwrites 1. 2 conflicts keep the library's values. It
+    /// creates 2 accounts and closes 1."
+    var plannedSummary: String {
+        guard let planned else { return "" }
+        var changes: [String] = []
+        if planned.added > 0 { changes.append("adds \(Self.counted(planned.added, "record"))") }
+        if planned.updated > 0 { changes.append("fills in \(Self.counted(planned.updated, "record"))") }
+        if planned.overwritten > 0 { changes.append("overwrites \(Self.counted(planned.overwritten, "record"))") }
+        var sentences = [changes.isEmpty ? "Importing changes no records." : "Importing \(Self.list(changes))."]
+        if planned.kept > 0 {
+            sentences.append(planned.kept == 1 ? "1 conflict keeps the library's value."
+                : "\(planned.kept) conflicts keep the library's values.")
+        }
+        var entities: [String] = []
+        if !planned.createdAccounts.isEmpty {
+            entities.append("creates \(Self.counted(planned.createdAccounts.count, "account"))")
+        }
+        if !planned.createdInstruments.isEmpty {
+            entities.append("creates \(Self.counted(planned.createdInstruments.count, "instrument"))")
+        }
+        if !planned.closedAccounts.isEmpty {
+            entities.append("closes \(Self.counted(planned.closedAccounts.count, "account"))")
+        }
+        if !entities.isEmpty { sentences.append("It \(Self.list(entities)).") }
+        if planned.skipped > 0 {
+            sentences.append(
+                "\(Self.counted(planned.skipped, "record")) left out with rejected accounts or instruments.")
+        }
+        return sentences.joined(separator: " ")
+    }
+
+    private static func counted(_ count: Int, _ noun: String) -> String {
+        "\(count) \(noun)\(count == 1 ? "" : "s")"
+    }
+
+    /// "a", "a and b", "a, b and c".
+    private static func list(_ items: [String]) -> String {
+        guard items.count > 1 else { return items.first ?? "" }
+        return items.dropLast().joined(separator: ", ") + " and " + items[items.count - 1]
     }
 
     // MARK: Conflicts
@@ -160,7 +198,7 @@ extension ImportFlow {
     // MARK: Blockers
 
     /// Why Import can't run yet; empty when it can.
-    func blockers(planned: ImportResult?) -> [String] {
+    var blockers: [String] {
         guard session != nil, let preview else { return ["Choose a file to import."] }
         var reasons: [String] = []
         let guesses = ambiguities.count
@@ -237,7 +275,8 @@ extension ImportFlow {
         if id.isEmpty { return "Give the profile an ID." }
         guard Slug.isValid(id) else { return "Use lowercase letters, digits and hyphens, e.g. my-sheet." }
         if let existing = library.importProfiles[ImportProfileID(id)], existing.id != source.profileID {
-            return "“\(existing.name)” already has this ID. Choose another, or update that profile from its own import."
+            return "“\(existing.name)” already has this ID. Choose another, or update that profile from "
+                + "its own import."
         }
         return nil
     }

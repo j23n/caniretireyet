@@ -31,6 +31,10 @@ final class ImportController {
         flow = ImportFlow(library: library, guided: guided)
     }
 
+    /// The import of the Mac's and iPad's Import page, which survives
+    /// visiting other pages (the iPhone's sheet has its own).
+    static let page = ImportController()
+
     // MARK: - The file
 
     /// Starts over with a file's bytes.

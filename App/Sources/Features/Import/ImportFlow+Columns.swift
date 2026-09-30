@@ -305,6 +305,51 @@ extension ImportFlow {
     }
 }
 
+extension ImportColumnRow {
+    /// How the column's values are written, e.g. "1.234,56", "dd/MM/yyyy";
+    /// "—" for columns whose format doesn't matter.
+    var formatSummary: String {
+        switch use {
+        case .date:
+            return effectiveFormat.date?.pattern ?? "—"
+        case .value:
+            var text = NumberParser(format: effectiveFormat.number ?? ImportNumberFormat()).example
+            if effectiveFormat.number?.percent == true { text += " %" }
+            if effectiveFormat.empty == .zero { text += ", empty = 0" }
+            if effectiveFormat.liabilitySign == .asWritten, target == .balance { text += ", signs as written" }
+            return text
+        case .ignore, .field:
+            return "—"
+        }
+    }
+
+    /// Whether the column has format overrides of its own.
+    var hasOwnFormat: Bool { format != ImportFormat() }
+}
+
+extension ImportFlow {
+    /// Problems with the mapping as a whole rather than one column: no date
+    /// column, columns of the profile missing from the file, broken quotes,
+    /// values after an account closed.
+    var mappingIssues: [String] {
+        let issues = preview?.issues ?? session?.issues ?? []
+        return issues.filter { issue in
+            guard !issue.isNote else { return false }
+            switch issue.kind {
+            case .unknownColumn: return false
+            case .missingField, .invalidDatePattern: return issue.column == nil
+            default: return true
+            }
+        }.map(\.description)
+    }
+
+    /// Columns with values that a saved profile doesn't know: they're not
+    /// imported until they're mapped.
+    var unknownColumnCount: Int {
+        columnRows.filter(\.isUnknown).count
+    }
+}
+
 private extension String {
     /// The string with its first letter uppercased: "column 3" → "Column 3".
     var capitalizedFirst: String {

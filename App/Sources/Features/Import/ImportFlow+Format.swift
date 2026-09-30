@@ -389,4 +389,42 @@ enum ImportChoices {
     static func liabilitySignName(_ sign: LiabilitySign) -> String {
         sign == .asWritten ? "Keep the file's signs" : "Positive amounts are debts"
     }
+
+    static func instrumentKindName(_ kind: InstrumentKind) -> String {
+        switch kind {
+        case .etf: "ETF"
+        case .fund: "Fund"
+        case .stock: "Stock"
+        case .bond: "Bond"
+        case .etc: "ETC"
+        case .crypto: "Crypto"
+        case .metal: "Precious metal"
+        case .other: "Other"
+        default: kind.rawValue
+        }
+    }
+
+    static func layoutName(_ layout: ImportLayout) -> String {
+        layout == .long ? "A row per record" : "A row per date"
+    }
+
+    static func conflictPolicyName(_ policy: ConflictPolicy) -> String {
+        switch policy {
+        case .overwrite: "Overwrite"
+        case .keep: "Keep the library's"
+        default: "Decide one by one"
+        }
+    }
+}
+
+extension ImportFlow {
+    /// The file's size as read, e.g. "6 columns, 3 rows (1 left out)".
+    var tableSummary: String {
+        guard let table = session?.table else { return "" }
+        let skipped = table.skippedRows.filter { $0.reason != .empty }.count
+        var text = "\(table.columnCount) \(table.columnCount == 1 ? "column" : "columns"), "
+            + "\(table.rows.count) \(table.rows.count == 1 ? "row" : "rows")"
+        if skipped > 0 { text += " (\(skipped) left out)" }
+        return text
+    }
 }
