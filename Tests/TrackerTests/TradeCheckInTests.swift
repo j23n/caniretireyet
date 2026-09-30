@@ -78,6 +78,35 @@ struct TradeCheckInTests {
         #expect(row.warnings.isEmpty)
     }
 
+    @Test func statementQuantitiesStartFromTheTradesAndCanBeDropped() throws {
+        var draft = CheckInDraft(date: "2024-04-30", library: library())
+        var bank = try #require(draft["bank"])
+        let enteredForBank = bank.enterStatementQuantities()
+        #expect(!enteredForBank)
+        var row = try #require(draft["broker"])
+        let entered = row.enterStatementQuantities()
+        #expect(entered)
+        #expect(row.state == .updated)
+        #expect(row.mode == .trades)
+        #expect(row.positions.map(\.instrument) == ["aapl", "vwce"])
+        #expect(row.positions.map(\.quantity) == [10, 40])
+        // Once entered, it doesn't start again.
+        let enteredAgain = row.enterStatementQuantities()
+        #expect(!enteredAgain)
+        row.setQuantity(12, of: "vwce")
+        draft["broker"] = row
+        #expect(draft.review(in: library()).row(for: "broker")?.mismatches.map(\.instrument) == ["vwce"])
+
+        // Removing a statement quantity drops it (not zero, which would be a sale in a holdings row).
+        row.removePosition("aapl")
+        #expect(row.positions.map(\.instrument) == ["vwce"])
+        row.removeStatementQuantities()
+        #expect(row.positions.isEmpty)
+        #expect(row.state == .updated)
+        draft["broker"] = row
+        #expect(draft.review(in: library()).row(for: "broker")?.mismatches.isEmpty == true)
+    }
+
     @Test func aTradeSavedMeanwhileRefreshesTheStartingPoint() throws {
         var draft = CheckInDraft(date: "2024-04-30", library: library())
         var edited = draft
