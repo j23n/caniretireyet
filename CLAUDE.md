@@ -14,6 +14,8 @@ swift run retire --help                 # the CLI
 - **Cloud sessions (Linux):** the Swift toolchain is in `/opt/swift/usr/bin`, not on the PATH. Prefix every shell command that uses Swift with `export PATH=/opt/swift/usr/bin:$PATH;`. Keep the default build directory (`.build`).
 - **The app** can only be built on a Mac: `brew install xcodegen && xcodegen generate --spec App/project.yml`, then open `App/CanIRetireYet.xcodeproj`. The project is generated, never committed. CI (`.github/workflows/ci.yml`) builds the package on Linux and macOS, and the app for the iOS Simulator and the Mac.
 - `swift build` and `swift test` must pass with no warnings in our code before every commit.
+- **Stale builds:** after a change to a stored property of a Model type, an incremental build can link stale objects. The symptom is an "undefined reference" linker error, or a test crashing with signal 11 while releasing that type. `rm -rf .build` and rebuild before looking for a code bug.
+- **SwiftUI code can't be compiled on Linux.** App changes are only checked by CI's macOS job. Its `xcodebuild -quiet` log ends with the compiler errors.
 
 ## Module map
 
