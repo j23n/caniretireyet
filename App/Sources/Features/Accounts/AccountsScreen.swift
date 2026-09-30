@@ -2,74 +2,54 @@ import Model
 import SwiftUI
 import Tracker
 
-// PLACEHOLDER — Accounts feature engineer: replace this screen's content
-// (UI.md, "Accounts"). Keep the name `AccountsScreen` and
-// `init(filter:)`: the tab and the sidebar create it. Push an account's
-// detail with `NavigationLink(value: account.id)`; the navigation registers
-// the destination.
-
-/// Which accounts the list shows: the sidebar has one place per group.
-enum AccountsFilter: Hashable, Sendable {
-    /// Every open account, grouped; closed ones in a collapsed section.
-    case all
-    /// Open accounts in one group.
-    case group(AccountGroup)
-    /// Closed accounts only.
-    case closed
-}
-
 /// The account list, grouped, with subtotals (UI.md, "Accounts").
+///
+/// - Groups: Cash, Investments, Crypto & gold, Pension, Property, Debts,
+///   each with its subtotal.
+/// - Rows: kind icon, name, institution, a 12-month sparkline, the value,
+///   and a "Stale" badge when the latest value is too old.
+/// - Swipe (or right-click): *Update value* (a one-account valuation) and
+///   *Close*. Closed accounts sit in a collapsed "Closed (n)" section.
+/// - Search by name, institution, kind, tags or notes.
 struct AccountsScreen: View {
     let filter: AccountsFilter
 
     @Environment(LibraryStore.self) private var library
     @Environment(AppNavigation.self) private var navigation
+    @Environment(AppPreferences.self) private var preferences
+    @State private var query = ""
+    @State private var showsClosed = false
+    @State private var action: AccountAction?
+    @State private var errorMessage = ""
+    @State private var showsError = false
 
     init(filter: AccountsFilter = .all) {
         self.filter = filter
     }
 
-    private var groups: [AccountGroup] {
-        switch filter {
-        case .all: library.accountGroups
-        case .group(let group): [group]
-        case .closed: []
-        }
-    }
-
     var body: some View {
-        let valuator = library.valuator
-        let today = CalendarDate.today()
+        let list = AccountList(library: library.library, valuator: library.valuator, filter: filter, query: query,
+                               today: .today(), stalenessThreshold: preferences.stalenessThreshold)
         List {
-            ForEach(groups, id: \.self) { group in
-                let accounts = library.openAccounts(in: group)
+            if filter == .all && query.isEmpty && list.openCount > 0 {
                 Section {
-                    ForEach(accounts) { account in
-                        NavigationLink(value: account.id) {
-                            AccountRow(account: account, valuator: valuator, date: today)
-                        }
+                    summary(list)
+                }
+            }
+            ForEach(list.sections) { section in
+                Section {
+                    ForEach(section.items) { item in
+                        openRow(item)
                     }
                 } header: {
-                    HStack {
-                        Text(group.description)
-                        Spacer()
-                        AmountText(accounts.reduce(Decimal(0)) { $0 + (valuator.value(of: $1.id, on: today)?.knownValue ?? 0) })
-                    }
+                    AccountSectionHeader(section: section)
                 }
             }
-            closedSection(valuator: valuator)
+            closedSection(list)
         }
+        .searchable(text: $query, prompt: "Search accounts")
         .overlay {
-            if library.hasNoAccounts {
-                ContentUnavailableView {
-                    Label("No accounts yet", systemImage: AppSymbol.accounts)
-                } description: {
-                    Text("Add your first account to start tracking your net worth.")
-                } actions: {
-                    Button("Add account") { navigation.newAccount() }
-                        .buttonStyle(.borderedProminent)
-                }
-            }
+            emptyState(list)
         }
         .navigationTitle(title)
         .toolbar {
@@ -79,21 +59,16 @@ struct AccountsScreen: View {
                 } label: {
                     Label("New Account", systemImage: "plus")
                 }
+                .disabled(!library.canEdit)
             }
         }
-    }
-
-    @ViewBuilder
-    private func closedSection(valuator: Valuator) -> some View {
-        let closed = library.closedAccounts
-        if !closed.isEmpty && (filter == .all || filter == .closed) {
-            Section("Closed (\(closed.count))") {
-                ForEach(closed) { account in
-                    NavigationLink(value: account.id) {
-                        AccountRow(account: account, valuator: valuator, date: account.closed ?? .today())
-                    }
-                }
-            }
+        .sheet(item: $action) { action in
+            AccountActionSheet(action: action)
+        }
+        .alert("Couldn't change the account", isPresented: $showsError) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(errorMessage)
         }
     }
 
@@ -104,38 +79,314 @@ struct AccountsScreen: View {
         case .closed: "Closed accounts"
         }
     }
+
+    // MARK: Rows
+
+    private func summary(_ list: AccountList) -> some View {
+        HStack(spacing: Metrics.xs) {
+            Text(Self.count(list.openCount))
+            Text(verbatim: "·")
+            Text("Net worth")
+            AmountText(list.netWorth)
+        }
+        .font(.subheadline)
+        .foregroundStyle(Palette.secondaryInk)
+        .accessibilityElement(children: .combine)
+    }
+
+    private func openRow(_ item: AccountListItem) -> some View {
+        let id = item.account.id
+        return NavigationLink(value: id) {
+            AccountListRow(item: item)
+        }
+        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+            Button {
+                action = AccountAction(.updateValue, id)
+            } label: {
+                Label("Update value", systemImage: "square.and.pencil")
+            }
+            .tint(Palette.accent)
+            Button {
+                action = AccountAction(.close, id)
+            } label: {
+                Label("Close", systemImage: AppSymbol.closed)
+            }
+            .tint(Palette.mutedInk)
+        }
+        .contextMenu {
+            Button {
+                action = AccountAction(.updateValue, id)
+            } label: {
+                Label("Update Value…", systemImage: "square.and.pencil")
+            }
+            Button {
+                action = AccountAction(.edit, id)
+            } label: {
+                Label("Edit Account…", systemImage: "pencil")
+            }
+            Button {
+                action = AccountAction(.close, id)
+            } label: {
+                Label("Close Account…", systemImage: AppSymbol.closed)
+            }
+        }
+    }
+
+    private func closedRow(_ item: AccountListItem) -> some View {
+        let id = item.account.id
+        return NavigationLink(value: id) {
+            AccountListRow(item: item)
+        }
+        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+            Button {
+                reopen(id)
+            } label: {
+                Label("Reopen", systemImage: "arrow.uturn.backward")
+            }
+            .tint(Palette.accent)
+        }
+        .contextMenu {
+            Button {
+                reopen(id)
+            } label: {
+                Label("Reopen Account", systemImage: "arrow.uturn.backward")
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func closedSection(_ list: AccountList) -> some View {
+        if !list.closed.isEmpty {
+            if filter == .closed {
+                Section {
+                    ForEach(list.closed) { item in
+                        closedRow(item)
+                    }
+                }
+            } else {
+                let isExpanded = showsClosed || !query.isEmpty
+                Section {
+                    Button {
+                        withAnimation { showsClosed.toggle() }
+                    } label: {
+                        HStack(spacing: Metrics.m) {
+                            Image(systemName: AppSymbol.closed)
+                                .frame(width: 28)
+                                .accessibilityHidden(true)
+                            Text("Closed (\(list.closed.count))")
+                            Spacer()
+                            Image(systemName: "chevron.right")
+                                .font(.footnote.weight(.semibold))
+                                .rotationEffect(.degrees(isExpanded ? 90 : 0))
+                                .accessibilityHidden(true)
+                        }
+                        .foregroundStyle(Palette.secondaryInk)
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityValue(isExpanded ? "Expanded" : "Collapsed")
+                    if isExpanded {
+                        ForEach(list.closed) { item in
+                            closedRow(item)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func emptyState(_ list: AccountList) -> some View {
+        if library.hasNoAccounts {
+            ContentUnavailableView {
+                Label("No accounts yet", systemImage: AppSymbol.accounts)
+            } description: {
+                Text("Add your first account to start tracking your net worth.")
+            } actions: {
+                Button("Add account") { navigation.newAccount() }
+                    .buttonStyle(.borderedProminent)
+            }
+        } else if list.isEmpty {
+            if !query.isEmpty {
+                ContentUnavailableView.search(text: query)
+            } else if filter == .closed {
+                ContentUnavailableView("No closed accounts", systemImage: AppSymbol.closed,
+                                       description: Text("Accounts you close keep their history and appear here."))
+            } else {
+                ContentUnavailableView {
+                    Label("No accounts here", systemImage: AppSymbol.accounts)
+                } description: {
+                    Text("Add an account of this kind to see it here.")
+                } actions: {
+                    Button("Add account") { navigation.newAccount() }
+                        .buttonStyle(.borderedProminent)
+                }
+            }
+        }
+    }
+
+    private func reopen(_ id: AccountID) {
+        do {
+            try library.reopenAccount(id)
+        } catch {
+            errorMessage = LibraryStore.describe(error)
+            showsError = true
+        }
+    }
+
+    private static func count(_ count: Int) -> String {
+        count == 1 ? "1 account" : "\(count) accounts"
+    }
 }
 
-/// One account in a list: icon, name, institution, value and a 12-month sparkline.
+// MARK: - Rows
+
+/// A group's title and subtotal.
+private struct AccountSectionHeader: View {
+    let section: AccountListSection
+
+    var body: some View {
+        HStack(spacing: Metrics.s) {
+            Text(section.group.description)
+            Spacer(minLength: Metrics.s)
+            AmountText(section.subtotal)
+        }
+        .font(.subheadline.weight(.semibold))
+        .textCase(nil)
+        .accessibilityElement(children: .combine)
+    }
+}
+
+/// One account in a list: kind icon, name, institution (or closing date),
+/// a "Stale" badge, a 12-month sparkline and the value.
+struct AccountListRow: View {
+    let item: AccountListItem
+
+    var body: some View {
+        HStack(spacing: Metrics.m) {
+            Image(systemName: item.account.kind.systemImage)
+                .foregroundStyle(Palette.accent)
+                .frame(width: 28)
+                .accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(item.account.name)
+                    .foregroundStyle(Palette.ink)
+                    .lineLimit(1)
+                HStack(spacing: Metrics.xs) {
+                    if let subtitle {
+                        Text(subtitle)
+                            .lineLimit(1)
+                    }
+                    if item.stale != nil {
+                        AccountStaleBadge()
+                    }
+                }
+                .font(.caption)
+                .foregroundStyle(Palette.secondaryInk)
+            }
+            .layoutPriority(1)
+            Spacer(minLength: Metrics.s)
+            Sparkline(points: item.sparkline)
+            AmountText(item.value)
+                .foregroundStyle(Palette.ink)
+        }
+        .accessibilityElement(children: .combine)
+    }
+
+    private var subtitle: String? {
+        if let closed = item.account.closed, item.date == closed {
+            return "Closed \(AmountFormat.mediumDate(closed))"
+        }
+        return item.account.institution
+    }
+}
+
+/// "Stale": the latest value is older than the staleness threshold.
+struct AccountStaleBadge: View {
+    var body: some View {
+        HStack(spacing: 2) {
+            Image(systemName: "clock")
+                .accessibilityHidden(true)
+            Text("Stale")
+        }
+        .font(.caption2.weight(.semibold))
+        .foregroundStyle(Palette.warning)
+        .padding(.horizontal, 6)
+        .padding(.vertical, 1)
+        .background(Palette.warning.opacity(0.14), in: Capsule())
+        .accessibilityLabel("Stale")
+    }
+}
+
+/// One account in a list, valued on `date` (kept for callers that have a
+/// valuator at hand; the Accounts list uses ``AccountListRow``).
 struct AccountRow: View {
     let account: Account
     let valuator: Valuator
     let date: CalendarDate
 
     var body: some View {
-        HStack(spacing: Metrics.m) {
-            Image(systemName: account.kind.systemImage)
-                .foregroundStyle(Palette.accent)
-                .frame(width: 24)
-                .accessibilityHidden(true)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(account.name)
-                if let institution = account.institution {
-                    Text(institution)
-                        .font(.caption)
-                        .foregroundStyle(Palette.secondaryInk)
-                }
+        AccountListRow(item: AccountListItem(account: account, valuator: valuator, date: date, stalenessThreshold: nil))
+    }
+}
+
+// MARK: - Sheets
+
+/// What a row's swipe action or context menu asked for.
+struct AccountAction: Identifiable, Hashable {
+    enum Kind: String, Hashable {
+        /// A one-account valuation.
+        case updateValue
+        case close
+        case edit
+    }
+
+    var kind: Kind
+    var account: AccountID
+
+    init(_ kind: Kind, _ account: AccountID) {
+        self.kind = kind
+        self.account = account
+    }
+
+    var id: String { "\(kind.rawValue)/\(account.rawValue)" }
+}
+
+/// The sheet for an ``AccountAction``, in its own navigation stack.
+struct AccountActionSheet: View {
+    let action: AccountAction
+
+    var body: some View {
+        NavigationStack {
+            switch action.kind {
+            case .updateValue:
+                UpdateValueSheet(accountID: action.account)
+            case .close:
+                CloseAccountSheet(accountID: action.account)
+            case .edit:
+                EditAccountSheet(accountID: action.account)
             }
-            Spacer(minLength: Metrics.s)
-            Sparkline(points: valuator.series(of: account.id, from: date.adding(months: -12), through: date).chartPoints)
-            AmountText(valuator.value(of: account.id, on: date)?.knownValue ?? 0)
         }
+        #if os(iOS)
+        .presentationDetents(action.kind == .updateValue ? [.medium, .large] : [.large])
+        #endif
+        #if os(macOS)
+        .frame(minWidth: 460, idealWidth: 520, minHeight: 420, idealHeight: 560)
+        #endif
     }
 }
 
 #Preview("Accounts") {
     NavigationStack {
         AccountsScreen()
+            .appDestinations()
+    }
+    .previewEnvironment()
+}
+
+#Preview("Investments") {
+    NavigationStack {
+        AccountsScreen(filter: .group(.investments))
     }
     .previewEnvironment()
 }
@@ -145,4 +396,11 @@ struct AccountRow: View {
         AccountsScreen(filter: .closed)
     }
     .previewEnvironment()
+}
+
+#Preview("Empty") {
+    NavigationStack {
+        AccountsScreen()
+    }
+    .previewEnvironment(PreviewLibrary.empty)
 }
