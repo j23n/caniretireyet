@@ -126,7 +126,7 @@ The numbers come from a `PlanEngine` (see `Stores/PlanEngine.swift`). The app us
 
 ## Menu commands
 
-`App/AppCommands.swift`, on the Mac menu bar and iPad: New Account ⌘N, New Check-in ⌘K, Import CSV ⌘⇧I, Hide Amounts ⌘⇧H, Show Future ⌘⇧F, and a **Plan** menu: Save Baseline ⌘⇧B, Duplicate Plan ⌘D, Compare Plans ⌘⌥C. The plan commands act on the plan on screen, which publishes them:
+`App/AppCommands.swift`, on the Mac menu bar and iPad: New Account ⌘N, New Check-in ⌘K, Import… ⌘⇧I (a spreadsheet or ledger journals), Hide Amounts ⌘⇧H, Show Future ⌘⇧F, and a **Plan** menu: Save Baseline ⌘⇧B, Duplicate Plan ⌘D, Compare Plans ⌘⌥C. The plan commands act on the plan on screen, which publishes them:
 
 ```swift
 .focusedSceneValue(\.planActions, PlanCommandActions(saveBaseline: { … }, duplicate: { … }, compare: { … }))
@@ -136,7 +136,7 @@ Dropping a CSV file anywhere on the window calls `navigation.startImport(file)`;
 
 ## Import
 
-`Features/Import/`: one flow for spreadsheets and journals. `ImportFlow` (plain values) holds the file, the mapping, the preview, the user's decisions and the step; `ImportController` (`@Observable`) does the writing: `runImport(in:)` applies the preview with `LibraryStore.commit(backingUpAs: "import")`, `undoImport(in:)` undoes it with `LibraryStore.undo`, and `saveProfile` writes `imports/<id>.json`.
+`Features/Import/`: one flow for spreadsheets and journals. `ImportFlow` (plain values) holds the file, the mapping, the preview, the user's decisions and the step; `ImportController` (`@Observable`) does the writing: `runImport(in:)` applies the preview with `LibraryStore.commit(backingUpAs: "import")` (`ImportPreview.applyFollowingFlows(to:)`: the import, then Tracker's `Library.followFlows(from:keeping:)` for the automatic flows of the library's values after inserted ones, in the same change and backup), `undoImport(in:)` undoes it with `LibraryStore.undo`, and `saveProfile` writes `imports/<id>.json`.
 
 - **Spreadsheets:** File, Format, Columns, Accounts, Preview, Done, from an `ImportSession` (`ImportFlow+Format`, `+Columns`, `+Accounts`, `+Preview`).
 - **Ledger journals** (IMPORT.md, "Ledger journals"): File, Accounts, Commodities, Preview, Done. `ImportFlow.ledger` holds a `LedgerImportState` (the files, the folders the app may read, the `LedgerJournal`, the `LedgerImportSession`); its preview becomes the flow's, so conflicts, decisions on proposed accounts and instruments, Done, Undo and Save as profile are shared. The logic is in `ImportFlow+Ledger` and `LedgerImportState`, the views in `LedgerFilesStep`, `LedgerAccountsStep` and `LedgerCommoditiesStep`.

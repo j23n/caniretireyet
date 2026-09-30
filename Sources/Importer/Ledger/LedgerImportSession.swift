@@ -205,15 +205,25 @@ public struct LedgerImportSession: Sendable {
     /// instrument the preview used that exists in `library` (pass the library
     /// after the import) is remembered in `matches`, and returns accounts
     /// found by name are written out.
+    ///
+    /// Proposed new accounts that were declined in `preview.preview`
+    /// (``AccountProposal/isAccepted`` false) and aren't in `library` are
+    /// added to `ledger.ignore`, the ledger accounts heading them, so the
+    /// next import leaves them out instead of proposing them again.
     public func makeProfile(id: ImportProfileID, name: String, from preview: LedgerImportPreview,
                             library: Library) -> ImportProfile {
         var session = self
         session.profile.id = id
         session.profile.name = name
         let explicit = Set(profile.matches.accounts.keys.map(LedgerMapper.key))
+        let declined = Set(preview.preview.newAccounts.filter { !$0.isAccepted }.map(\.account.id))
         for row in preview.accounts where row.role.isNetWorth && row.isGroupHead {
-            guard case .account(let account) = row.mapping, library.accounts[account] != nil,
-                  !explicit.contains(LedgerMapper.key(row.name)) else { continue }
+            guard case .account(let account) = row.mapping else { continue }
+            if declined.contains(account), library.accounts[account] == nil {
+                session.ignore(account: row.name)
+                continue
+            }
+            guard library.accounts[account] != nil, !explicit.contains(LedgerMapper.key(row.name)) else { continue }
             session.profile.matches.accounts[row.name] = account
         }
         for row in preview.commodities {

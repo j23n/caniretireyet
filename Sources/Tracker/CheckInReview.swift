@@ -159,7 +159,8 @@ extension CheckInDraft {
 
     /// Saves the check-in into `library`: upserts its valuations, prices and
     /// FX rates, and moves the opening date of accounts that open later
-    /// back to the date (see ``CheckInRow/opensLater``).
+    /// back to the date (see ``CheckInRow/opensLater``), with a pension
+    /// fund's joining date that was the opening date (``Account/moveOpening(to:)``).
     ///
     /// A past check-in can land between two valuations of an account: the
     /// flow of the valuation after it is then worked out again from the new
@@ -184,7 +185,7 @@ extension CheckInDraft {
         for rate in records.fxRates { library.upsert(rate) }
         for valuation in records.valuations { library.upsert(valuation) }
         for account in records.openingMoves where library.accounts[account].map({ $0.opened > date }) ?? false {
-            library.accounts[account]?.opened = date
+            library.accounts[account]?.moveOpening(to: date)
         }
     }
 

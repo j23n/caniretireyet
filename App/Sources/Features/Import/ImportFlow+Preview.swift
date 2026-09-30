@@ -129,7 +129,8 @@ extension ImportFlow {
 
     /// What importing would do now, e.g. "Importing adds 12 records, fills
     /// in 3 and overwrites 1. 2 conflicts keep the library's values. It
-    /// creates 2 accounts and closes 1."
+    /// creates 2 accounts and closes 1. The new money of 1 later value is
+    /// worked out again from the one before it."
     var plannedSummary: String {
         guard let planned else { return "" }
         var changes: [String] = []
@@ -152,6 +153,11 @@ extension ImportFlow {
             entities.append("closes \(Self.counted(planned.closedAccounts.count, "account"))")
         }
         if !entities.isEmpty { sentences.append("It \(Self.list(entities)).") }
+        if !planned.recomputedFlows.isEmpty {
+            let count = planned.recomputedFlows.count
+            sentences.append(count == 1 ? "The new money of 1 later value is worked out again from the one before it."
+                : "The new money of \(count) later values is worked out again from the ones before them.")
+        }
         if planned.skipped > 0 {
             sentences.append(
                 "\(Self.counted(planned.skipped, "record")) left out with rejected accounts or instruments.")
@@ -287,11 +293,14 @@ extension ImportFlow {
 
     /// The mapping as a profile to save, with everything detected written out
     /// and the conflict policy chosen. Pass the library after the import, so
-    /// new accounts' names resolve to their IDs.
+    /// new accounts' names resolve to their IDs. A journal's proposed new
+    /// accounts that were declined are left out next time (`ledger.ignore`).
     func makeProfile(id: ImportProfileID, name: String, library: Library) -> ImportProfile? {
         var profile: ImportProfile
         if let ledger {
-            guard let result = ledger.result else { return nil }
+            guard var result = ledger.result else { return nil }
+            // With the decisions, so declined new accounts are known.
+            if let preview { result.preview = preview }
             profile = ledger.session.makeProfile(id: id, name: name, from: result, library: library)
         } else {
             guard let session else { return nil }

@@ -145,7 +145,7 @@ struct LedgerImportCommand: RetireSubcommand {
             flags: .init(newAccounts: acceptNewAccounts, newInstruments: acceptNewInstruments,
                          closings: acceptClosings, conflictsGiven: onConflict != nil))
         if apply {
-            let result = preview.apply(to: loaded.library)
+            let result = preview.applyFollowingFlows(to: loaded.library)
             report.outcome = try write(result, session: session, ledgerPreview: ledgerPreview, loaded: loaded,
                                        context: context)
         } else if let saveProfile {
