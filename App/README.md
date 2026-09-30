@@ -40,20 +40,24 @@ Keep logic that doesn't need SwiftUI in files that import only Foundation and th
 
 ## Screens and their contracts
 
-| Screen | Created as | Shown by | Placeholder? |
-| --- | --- | --- | --- |
-| `OverviewScreen` | `OverviewScreen()` | Overview tab, sidebar *Overview* (with the eye and gear toolbar added by the navigation) | yes: real hero, chart, waterfall, answer, attention, allocation |
-| `AccountsScreen` | `AccountsScreen(filter: .all / .group(g) / .closed)` | Accounts tab, sidebar groups and *Closed* | yes |
-| `AccountDetailScreen` | `AccountDetailScreen(accountID:)` | pushing an `AccountID` on any stack (`NavigationLink(value: id)`, `navigation.showAccount(id)`) | yes |
-| `NewAccountScreen` | `NewAccountScreen()` | ⌘N, Accounts toolbar, onboarding (sheet in a NavigationStack) | yes, minimal but works |
-| `InstrumentsScreen` | `InstrumentsScreen()` | sidebar *Instruments* | yes, with *Test price fetch* |
-| `CheckInScreen` | `CheckInScreen()` | iPhone: full-screen cover (in a NavigationStack); Mac/iPad: sidebar *Check-in*. Close with `navigation.finishCheckIn()` | yes: edits balances, marks the rest unchanged, saves |
-| `PlanScreen` | `PlanScreen(planID:)`, `nil` = main plan | Plan tab, sidebar plans, pushing a `PlanID` | yes: answer, charts when results exist, recorded headlines, plan commands |
-| `ImportScreen` | `ImportScreen(file:)` | ⌘⇧I, sidebar *Import…*, dropping a CSV on the window (sheet on iPhone) | yes |
-| `SettingsScreen` | `SettingsScreen()` inside a NavigationStack | Mac: Settings window (⌘,); iPhone/iPad: gear → sheet | **done** |
-| `OnboardingScreen` | `OnboardingScreen()` | first launch, when there's no library | **done** |
-| `WelcomeNextStepsView` | sheet `.welcome` | after onboarding: import or add accounts | done |
-| `SyncScreen` | `SyncScreen()` | sidebar *Sync & backups*, Settings | **done** |
+| Screen | Created as | Shown by |
+| --- | --- | --- |
+| `OverviewScreen` | `OverviewScreen()` | Overview tab, sidebar *Overview* (with the eye and gear toolbar added by the navigation) |
+| `AccountsScreen` | `AccountsScreen(filter: .all / .group(g) / .closed)` | Accounts tab, sidebar groups and *Closed* |
+| `AccountDetailScreen` | `AccountDetailScreen(accountID:)` | pushing an `AccountID` on any stack (`NavigationLink(value: id)`, `navigation.showAccount(id)`) |
+| `NewAccountScreen` | `NewAccountScreen()` | ⌘N, Accounts toolbar, onboarding (sheet in a NavigationStack) |
+| `InstrumentsScreen` | `InstrumentsScreen()` | sidebar *Instruments* |
+| `CheckInScreen` | `CheckInScreen()` | iPhone: full-screen cover (in a NavigationStack); Mac/iPad: sidebar *Check-in*. Close with `navigation.finishCheckIn()` |
+| `PlanScreen` | `PlanScreen(planID:)`, `nil` = main plan | Plan tab, sidebar plans, pushing a `PlanID` |
+| `PlanCompareScreen` | `PlanCompareScreen(firstID:)` | Plan menu *Compare Plans* (⌘⌥C), pushed on the plan's stack |
+| `ImportScreen` | `ImportScreen(file:)` | ⌘⇧I, sidebar *Import…*, dropping a CSV on the window, opening a CSV from Files (sheet on iPhone) |
+| `ImportProfilesScreen` | `ImportProfilesScreen()` | *Saved profiles* in the import's first step |
+| `SettingsScreen` | `SettingsScreen()` inside a NavigationStack | Mac: Settings window (⌘,); iPhone/iPad: gear → sheet |
+| `OnboardingScreen` | `OnboardingScreen()` | first launch, when there's no library |
+| `WelcomeNextStepsView` | sheet `.welcome` | after onboarding: import or add accounts |
+| `SyncScreen` | `SyncScreen()` | sidebar *Sync & backups*, Settings |
+
+Each feature folder keeps its logic in files that import only Foundation and the package (`OverviewData`, `AccountDetailData`, `CheckInModel`, `ImportFlow*`, `PlanSession`, `PlanProgressData`, …) and its views in the rest.
 
 ## Stores
 
@@ -84,7 +88,8 @@ For a binding, `@Bindable var navigation = navigation` inside `body`.
   ```
 
   Helpers (`LibraryStore+Editing.swift`): `save(_ account:)`, `closeAccount`, `reopenAccount`, `deleteAccount` (with its valuations), `save(_ instrument:)`, `deleteInstrument`, `upsert(_ valuation:)`, `replace(_:with:)`, `removeValuation`, `upsert(prices:fxRates:indices:)`, `save(_ plan:)`, `deletePlan` (keeps its projections), `duplicatePlan`, `setMainPlan`, `saveBaseline(_:for:)`, `record(_ headline:for:)`, `updateSettings`, `save(_ profile:)`.
-- **Opening:** `start()` at launch (an existing iCloud library wins, then a local one, else onboarding), `createLibrary(in:settings:)`, `open(_:)`, `useLibraryOnThisDevice()`, `moveToICloud()`, `reloadAll()`, `waitForPendingWrites()`, `backups()`.
+- **Backups:** `backups()`, `backup(paths:label:)` copies files into `backups/<timestamp>-<label>/` after the queued saves (the import does this before it writes), `restore(_:)` puts them back, deletes the files the backup didn't have and reloads them (undoing an import).
+- **Opening:** `start()` at launch (an existing iCloud library wins, then a local one, else onboarding), `createLibrary(in:settings:)`, `open(_:)`, `useLibraryOnThisDevice()`, `moveToICloud()`, `reloadAll()`, `waitForPendingWrites()`.
 - **Sync:** files changed by the other device or a text editor are reloaded automatically (only those files' entities are replaced, and never over an edit that's still being saved); sync conflicts are merged record by record and listed in `mergedConflicts`. Show them with `LibraryStatusBanners()` or link to `SyncScreen`.
 - `LibraryStore.inMemory(library)` holds a library without files (previews, tests).
 
@@ -99,7 +104,7 @@ Owns a `Tracker.CheckInDraft`, kept as JSON in `Application Support/<bundle id>/
 - `begin(on:)` resumes the draft (moved to the date if given) or starts one on the suggested date, then fetches prices into it (unless turned off in Settings). `changeDate(to:)`.
 - Edit: `update { draft in … }`, `updateRow(accountID) { row in row.setBalance(…) }`, `markRestUnchanged()`, `setManualPrice(_:for:)`, `setManualFXRate(_:for:)` (typed prices survive re-fetching), `fetchPrices(refresh:)`.
 - Read: `draft`, `review` (the new total, waterfall and warnings, from `CheckInDraft.review`), `priceList` (every instrument, rate and index with its source or failure), `isFetchingPrices`, `indices`, `status` (for the accessory: `CheckInStatus` with `summary()`, `isDue`, `hasDraft`, `nextCheckIn`, progress).
-- `save() async throws -> CheckInSaveResult` writes valuations, prices, FX rates and index values in one edit, deletes the draft, and asks `PlanStore.checkInSaved(on:)` for this month's answer (`result.headline`). `discard()`, `persistNow()` (the root view calls it when the app leaves the foreground), `restoreDraft()` (at launch).
+- `save() async throws -> CheckInSaveResult` writes valuations, prices, FX rates and index values in one edit, deletes the draft, and asks `PlanStore.checkInSaved(on:)` for this month's answer (`result.headline`). `discard()`, `persistNow()` (the root view calls it when the app leaves the foreground), `restoreDraft()` (at launch), `restore(_:indices:)` (puts a check-in back as the draft when saving it didn't reach the files).
 
 ### PlanStore — runs, results, headlines, baselines
 
@@ -159,10 +164,9 @@ Every view has a `#Preview`. `.previewEnvironment()` injects in-memory stores ho
 
 At launch `LibraryStore.start()` asks `CloudSync.LibraryLocator` for the iCloud container's `Documents/` (off the main thread) or `Application Support/<bundle id>/Library`, remembers the choice on the device, and loads through `CloudSync.LibrarySync`: coordinated reads and atomic writes (`CoordinatedFileAccess`), an `NSMetadataQuery` watcher that also downloads files eagerly (polling for a local library), and conflict merging with `Storage.ConflictResolver` (`NSFileVersion`). A library on this device can be moved to iCloud Drive from Settings. A library written by a newer app opens read-only.
 
-## Stubbed or not done yet
+## Not done yet
 
-- **Placeholders** (replace their contents): `OverviewScreen`, `AccountsScreen`, `AccountDetailScreen`, `NewAccountScreen`, `InstrumentsScreen`, `CheckInScreen`, `PlanScreen`, `ImportScreen`.
-- **Not built:** separate windows for plan comparison and import on the Mac (add `WindowGroup(id:)` scenes and `openWindow`), Face ID lock (M3), widgets (M3), an app icon (add an `AppIcon` set and set `ASSETCATALOG_COMPILER_APPICON_NAME` in project.yml), opening CSV files from Files on iPhone (document types), and reacting to the iCloud account changing while the app runs.
+- **Not built:** separate windows for plan comparison and import on the Mac (add `WindowGroup(id:)` scenes and `openWindow`), Face ID lock (M3), widgets (M3), an app icon (add an `AppIcon` set and set `ASSETCATALOG_COMPILER_APPICON_NAME` in project.yml), and reacting to the iCloud account changing while the app runs.
 - `CheckInDraft` has no way to refresh its rows when the library changes under an open draft (e.g. an account added on the other device); the draft keeps the rows it started with.
 
 ## Checking without Xcode
