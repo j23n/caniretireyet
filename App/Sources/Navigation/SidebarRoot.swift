@@ -10,7 +10,7 @@ import Tracker
 ///     Accounts
 ///       Cash · Investments · Crypto & gold · Pension · Property · Debts · Closed
 ///     Plans
-///       Base case …
+///       Base case …             ← "Create a plan" when there are none
 ///     Library
 ///       Import… · Instruments · Sync & backups
 ///
@@ -43,6 +43,10 @@ struct SidebarRoot: View {
                 }
 
                 Section("Plans") {
+                    if library.sortedPlans.isEmpty {
+                        Label("Create a plan", systemImage: "plus")
+                            .tag(SidebarItem.plans)
+                    }
                     ForEach(library.sortedPlans) { plan in
                         Label(plan.name, systemImage: AppSymbol.plan)
                             .tag(SidebarItem.plan(plan.id))
@@ -63,6 +67,15 @@ struct SidebarRoot: View {
         } detail: {
             SidebarDetail(navigation: navigation, item: navigation.sidebarSelection ?? .overview)
         }
+        .onChange(of: navigation.sidebarSelection, initial: true) { selectPlanRow() }
+        .onChange(of: library.sortedPlans.map(\.id)) { selectPlanRow() }
+    }
+
+    /// "The main plan" becomes that plan's row, so the sidebar highlights it.
+    private func selectPlanRow() {
+        guard navigation.sidebarSelection == .plans,
+              let plan = library.mainPlan ?? library.sortedPlans.first else { return }
+        navigation.sidebarSelection = .plan(plan.id)
     }
 
     private var checkInRow: some View {
@@ -111,6 +124,11 @@ private struct SidebarDetail: View {
         case .plan(let id):
             NavigationStack {
                 PlanScreen(planID: id)
+                    .appDestinations()
+            }
+        case .plans:
+            NavigationStack {
+                PlanScreen()
                     .appDestinations()
             }
         case .importData:

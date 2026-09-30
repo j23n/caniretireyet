@@ -18,6 +18,9 @@ enum SidebarItem: Hashable, Sendable {
     case accounts(AccountGroup?)
     case closedAccounts
     case plan(PlanID)
+    /// The main plan, or the first; "create your first plan" when there are
+    /// none. The sidebar replaces it with the plan's own row once one exists.
+    case plans
     case importData
     case instruments
     case sync
@@ -111,7 +114,7 @@ final class AppNavigation {
     func showPlan(_ id: PlanID? = nil) {
         selectedPlan = id
         tab = .plan
-        if let id { sidebarSelection = .plan(id) }
+        sidebarSelection = id.map(SidebarItem.plan) ?? .plans
     }
 
     func showSettings() {
@@ -149,6 +152,7 @@ final class AppNavigation {
         case .checkIn: startCheckIn()
         case .accounts, .closedAccounts: tab = .accounts
         case .plan(let id): showPlan(id)
+        case .plans: showPlan()
         case .importData: startImport()
         }
     }
