@@ -305,8 +305,9 @@ struct DeterministicTests {
         let plan = Sample.plan(retire: .age(59), endAge: 64, retired: "15000", equityReturn: "0", cashBuffer: "10000")
         let result = try await Sample.run(plan, library)
 
-        // Cash above the buffer first, then the broker; the mix stays 50/50
-        // except that cash never drops below the buffer while it can be kept.
+        // 2026 sells both halves alike, keeping the mix at 50/50; in 2027 half
+        // the rest would be less than the buffer, so the buffer stays in cash
+        // and everything else is sold; in 2028 only the buffer is left.
         #expect(close(result.expectedValue(in: 2026), 25_000))
         #expect(close(result.expectedValue(in: 2027), 10_000))
         #expect(result.expectedPath.failure?.age == 62)

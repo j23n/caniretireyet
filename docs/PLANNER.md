@@ -32,7 +32,8 @@ Each year:
 2. Taxes and contributions are computed by the tax system of that year (see [Taxes](#taxes)).
 3. Spending is paid.
 4. A surplus is invested; a shortfall is withdrawn from the portfolio, following a fixed order.
-5. The portfolio earns that year's return.
+5. What's still off the target mix is rebalanced. In a taxable account that's a sale like any other, and its gain is taxed.
+6. The portfolio earns that year's return.
 
 **Deterministic and Monte Carlo runs.** The deterministic run uses the expected returns. The Monte Carlo simulation repeats the same steps 2,000 times with random returns.
 
@@ -128,9 +129,11 @@ for each year from now to endAge:
     if need > 0: sell from the buckets accessible now, in order; the system says how much to sell
     if need < 0: invest the surplus
     if accessible money can't cover the need: this run fails; record the year and the reason
-  wealth taxes on year-end balances  ← system
-  returns: each bucket earns this year's returns for its asset mix, then rebalances
+  rebalance each bucket to its target mix: in a taxable bucket, what the year's cash flows left
+    off target is sold, its gain taxed ← system, and the rest buys what's below target
+  returns: each bucket earns this year's returns for its asset mix
   purchase costs shrink by inflation (tax applies to nominal gains)
+  wealth taxes on year-end balances  ← system
 ```
 
 ### Buckets
@@ -150,7 +153,7 @@ Each bucket has an asset mix, taken from its holdings or from `assetClasses`, an
 - **Assumptions per asset class.** Each asset class has an expected **real** return, net of fund costs, and a volatility. A correlation matrix links them. The defaults are editable; examples are equity–bonds 0.1 and equity–crypto 0.4.
 - **Monte Carlo.** Every year, draw correlated log-normal returns for all asset classes.
 - **Deterministic run.** Uses the expected returns with no volatility.
-- **Rebalancing.** Once a year, back to each bucket's target mix. By default the target is the mix at the start.
+- **Rebalancing.** Once a year, after the year's contributions and withdrawals, back to each bucket's target mix. By default the target is the mix at the start. Money coming in goes to the classes furthest below the target first and money going out comes from those furthest above it, so the cash flows do most of the rebalancing. In a taxable account, what's still off target is sold: the sale realises its share of the unrealised gain, which is taxed like any other sale. Inside a tax-advantaged wrapper, such as the pension fund, rebalancing is free.
 - **Later (M4).** Historical sequences: blocks of real historical returns replayed in order, so bad decades look like real bad decades.
 
 The default assumptions in the example plan (equity 4.5% real, bonds 1%, cash 0%, gold 1%, crypto 0% at 70% volatility) are starting placeholders. They are meant to be reviewed, not to be read as forecasts.
@@ -159,9 +162,9 @@ The default assumptions in the example plan (equity 4.5% real, bonds 1%, cash 0%
 
 - **MVP: fixed real spending.** You spend what the plan says, adjusted for inflation, and the portfolio absorbs market swings.
 - **Order of withdrawals:**
-  1. Cash above the buffer.
-  2. The liquid bucket, sold proportionally so its mix stays on target.
-  3. Tax-advantaged buckets, once accessible.
+  1. The liquid buckets, keeping the cash buffer. Within a bucket, what the target mix doesn't want goes first (e.g. cash above its share), then the classes furthest above their share, so the mix comes back toward the target.
+  2. Tax-advantaged buckets, once accessible.
+  3. The cash buffer.
 - **Later (M4):** guardrail strategies (spend less after bad years and more after good ones), variable percentage withdrawal, and a fixed percentage of the portfolio.
 
 ## Success, and the earliest retirement age
@@ -187,7 +190,7 @@ How `Sources/Planner` fills in what the sections above leave open. `Planner.run(
 - The cash flow of a year is: net income (work, pensions and windfalls, minus the taxes and contributions of the prepared year) + severance pay after its tax − planned contributions − spending − expenses − last year's market-dependent taxes. A surplus is invested in the liquid bucket with the most money. A shortfall is withdrawn, while working as well as in retirement.
 - Planned contributions are paid in full until they stop, even in a year with a shortfall. Credits a system makes into a wrapper, such as TFR, go into that wrapper's bucket, which is created (as cash) if no account uses the wrapper.
 - Severance pay, such as the TFR, is paid out in full when the job ends: the credits a work phase made at the end of that phase (retiring ends every phase), and a balance held at the start at the end of the employee phase running then, or at once if none is. The engine recognises such a wrapper by its access rule: locked while working, and open as soon as work stops whatever the age, membership and contributions. The system assesses the payout (a lump sum with its `costBasis` and `membershipYears`), the tax is withheld, and the rest joins the year's cash flow. Severance buckets get no "accessible" marker.
-- Withdrawals follow the documented order: cash above the buffer, the liquid buckets proportionally, then accessible tax-advantaged buckets proportionally (as payouts). The buffer is drawn last, before the run fails. The amount to sell comes from `grossUp`, or, when a system returns `nil`, from TaxKit's `NumericGrossUp.solve` over `assess`, to within a tenth of a cent.
+- Withdrawals follow the documented order: the liquid buckets in proportion to what each can sell, then accessible tax-advantaged buckets proportionally (as payouts). The buffer is drawn last, before the run fails. Within a liquid bucket the sale is water-filled: classes the target mix leaves out first, then those furthest above their target share down to a common level, below which every class sells in proportion to its share. Deposits are water-filled the other way, into the classes furthest below their share. Cash is sold at its value. The rest of a sale is grossed up by `grossUp` on what's sold (its purchase cost and categories); the sale's classes depend on its size, so a second round settles both, then the sale is scaled to the net needed. For a payout, when a system returns `nil`, the amount comes from TaxKit's `NumericGrossUp.solve` over `assess`, to within a tenth of a cent; for a sale, the tax is then found by assessing it on top of the year.
 - Tax withheld through the gross-up and on severance pay pays the tax on sales and payouts. What else the year's `assess` finds (wealth tax, tax on interest, any difference) is paid the following year. At the end of the plan it's deducted from the final value.
 
 **Portfolio.**
@@ -197,7 +200,7 @@ How `Sources/Planner` fills in what the sections above leave open. `Planner.run(
 - Access rules get the year's `oldAgePensionAge`: from the first of the plan's pension schemes that has one (with that pension's options), else from the residence system's schemes, else none.
 - Instruments map to tax categories by kind (`etf` and `fund` → `fund`, `metal` → `physicalGold`, …). A `govBondShare` splits the bonds part pro rata into `governmentBond` lots.
 - An account without a known wrapper is treated by its category: `pensionFund` and `tfr` accounts as tax-deferred, the rest as taxable, with a warning. Debts included in the plan are paid off from liquid money at the start, also with a warning.
-- Rebalancing restores each bucket's target mix once a year without tax: within a class, lots keep their weights and their share of unrealised gain. The primary liquid bucket keeps up to the cash buffer in cash. `targetMix` applies to taxable buckets; other buckets keep their own starting mix.
+- Rebalancing restores each bucket's target mix once a year, after the cash flows and before the returns. In a liquid bucket it's a sale: each class above its target sells pro rata across its lots at average cost, and every lot other than cash reports a `VariableYear.Sale` with its share of the purchase cost, so the gain is taxed in that year's `assess`. The tax is withheld from the bucket (the bucket ends on target after it; the tax T is found as the fixed point of "allowing for T, the sale is taxed T", in one secant step), and the rest buys the classes below target, at a purchase cost equal to what was paid. So a bucket's total purchase cost only changes by money in and out and by gains that were taxed: money never gains a purchase cost for free. Tax-advantaged buckets rebalance without tax (lots keep their weights within a class). The primary liquid bucket keeps up to the cash buffer in cash: when its target share of cash would be less, the buffer stays aside and the other classes share the rest. `targetMix` applies to taxable buckets; other buckets keep their own starting mix.
 - Liquid cash earns interest (its nominal return), which is reported to the system as capital income. A wrapper's `growthTaxRate` lowers its nominal return symmetrically, so losses give a credit. A wrapper with a `revaluation` set by law (the TFR: 1.5% + 75% of inflation) grows by that instead of by the markets, after its growth tax and in today's euros (`realRate(inflation:taxRate:)`), the same in every run.
 
 **Returns.** The expected real return is the arithmetic mean of a log-normal yearly return with the given volatility. Correlations apply to the log returns, through the Cholesky factor of the matrix; an inconsistent matrix is weakened until it's valid, with a warning. Classes without an assumption earn 0%.
@@ -230,7 +233,7 @@ The engine contains no tax rules. Every tax, contribution and pension rule comes
   - More savings never lowers the chance of success.
   - The chance of success doesn't fall as the retirement age rises, apart from steps caused by pension eligibility rules.
 - **Independent of tax law.** Engine tests use a made-up flat-rate system defined in the tests (`FlatTaxSystem`), so they don't break when Italian law changes. Tax reference cases live with each tax system.
-- **Checked by hand.** With zero volatility and known returns, paths match closed forms: drawdown, saving, gross-up for gains tax, wealth tax, a first year that starts after the check-in, bridge failures and pensions, payouts taxed on what was paid in with membership years, severance pay revalued by law and paid when the job ends, and the old-age pension age behind access rules.
+- **Checked by hand.** With zero volatility and known returns, paths match closed forms: drawdown, saving, gross-up for gains tax, a rebalancing sale taxed on its gain and bought lots costing what was paid (`RebalancingTests`, which also keeps a regression: a 15%-cash target and a 100%-equity one pay gains tax of the same order), wealth tax, a first year that starts after the check-in, bridge failures and pensions, payouts taxed on what was paid in with membership years, severance pay revalued by law and paid when the job ends, and the old-age pension age behind access rules.
 - **End to end.** `EndToEndTests` run the example library's base plan with the Italian and generic systems registered as the app does, in fast mode, and check that the numbers are plausible: no errors, a sane earliest age, an INPS start between 64 and the rising contributiva age, taxes, and a fan in percentile order. A plan on `generic` flat rates matches a closed form, and a plan that moves from `it` to `generic` switches its taxes in that year.
 - **Reproducible.** Same inputs and seed give the same results on every device and in CI.
 - **Fast.** A performance test runs the full scan (2,000 runs × 58 years × 38 ages) on the flat test system. In a release build it takes about 1.6–1.8 seconds on 4 shared cores: `swift test -c release -Xswiftc -enable-testing --filter PlannerTests.PerformanceTests`. It takes about a minute in a debug build, so there it runs only with `PLANNER_PERF_TESTS=1`; a small scan of the same plan always runs. With the Italian system, whose assessments cost more, the example's base plan takes about 5 seconds in release (1.2 in fast mode).
