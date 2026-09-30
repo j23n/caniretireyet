@@ -283,19 +283,40 @@ final class LibraryStore {
     /// app, and ``LibraryStoreError/notLoaded`` before one is open. A failed
     /// write shows in ``lastError`` and reloads what's on disk.
     func update(_ edit: (inout Library) throws -> Void) throws {
+        guard let staged = try stage(edit), let sync else { return }
+        enqueue { [weak self] in _ = await self?.save(staged.next, previous: staged.previous, using: sync) }
+    }
+
+    /// Like ``update(_:)``, and waits until the change is written: throws
+    /// ``LibraryStoreError/saveFailed(_:)`` if it isn't (what's on disk is
+    /// then reloaded, as for ``update(_:)``). Use it where the caller must
+    /// know, e.g. before deleting the check-in draft. For a library without
+    /// files (previews), it returns once memory has changed.
+    func commit(_ edit: (inout Library) throws -> Void) async throws {
+        guard let staged = try stage(edit), let sync else { return }
+        try await enqueueThrowing { [weak self] in
+            guard let self else { throw LibraryStoreError.saveFailed("The library was closed.") }
+            if let failure = await self.save(staged.next, previous: staged.previous, using: sync) {
+                throw LibraryStoreError.saveFailed(failure)
+            }
+        }
+    }
+
+    // MARK: - Internals
+
+    /// Applies `edit` to a copy and makes it the library in memory; `nil`
+    /// when nothing changed.
+    private func stage(_ edit: (inout Library) throws -> Void) throws -> (next: Library, previous: Library)? {
         guard phase == .ready else { throw LibraryStoreError.notLoaded }
         guard !isReadOnly else { throw LibraryStoreError.readOnly }
         let previous = library
         var next = previous
         try edit(&next)
-        guard next != previous else { return }
+        guard next != previous else { return nil }
         setLibrary(next)
         editGeneration += 1
-        guard let sync else { return }
-        enqueue { [weak self] in await self?.save(next, previous: previous, using: sync) }
+        return (next, previous)
     }
-
-    // MARK: - Internals
 
     private func setLibrary(_ library: Library) {
         self.library = library
@@ -334,17 +355,21 @@ final class LibraryStore {
         return try await task.value
     }
 
-    private func save(_ library: Library, previous: Library, using sync: LibrarySync) async {
-        guard sync === self.sync else { return }
+    /// Writes a change; returns why it failed, or `nil` once it's written.
+    private func save(_ library: Library, previous: Library, using sync: LibrarySync) async -> String? {
+        guard sync === self.sync else { return "The library was closed or moved before the change was written." }
         activity = .saving
         defer { activity = .idle }
         do {
             _ = try await sync.save(library, previous: previous)
             lastSavedAt = Date()
             lastError = nil
+            return nil
         } catch {
-            lastError = "Couldn't save your changes. \(Self.describe(error))"
+            let message = Self.describe(error)
+            lastError = "Couldn't save your changes. \(message)"
             await reloadEverything(using: sync)
+            return message
         }
     }
 
@@ -452,6 +477,8 @@ enum LibraryStoreError: Error, Equatable, Sendable, LocalizedError {
     case iCloudUnavailable
     /// The library was created but couldn't be opened.
     case openFailed(String)
+    /// A change couldn't be written; what's on disk was reloaded.
+    case saveFailed(String)
 
     var message: String {
         switch self {
@@ -463,6 +490,8 @@ enum LibraryStoreError: Error, Equatable, Sendable, LocalizedError {
             "iCloud Drive isn't available. Sign in to iCloud and turn on iCloud Drive for this app."
         case .openFailed(let message):
             message
+        case .saveFailed(let message):
+            "Couldn't save your changes. \(message)"
         }
     }
 
