@@ -65,14 +65,16 @@ struct ImportReport {
         return ImportNumberFormat(decimal: decimal, thousands: thousands)
     }
 
-    /// Records whose account or instrument won't be created, so they're left out.
+    /// Records whose account or instrument won't be created, or trades of an
+    /// account that won't record trades, so they're left out.
     var leftOutRecords: Int {
         let accounts = Set(preview.newAccounts.filter { !$0.isAccepted }.map(\.account.id))
         let instruments = Set(preview.newInstruments.filter { !$0.isAccepted }.map(\.instrument.id))
+        let notTrades = Set(preview.accountChanges.filter { $0.recordsTrades && !$0.isAccepted }.map(\.account))
         return preview.records.filter { record in
             if let account = record.imported.key.account, accounts.contains(account) { return true }
-            let used = record.imported.positions.map(\.instrument) + [record.imported.key.instrument].compactMap { $0 }
-            return used.contains { instruments.contains($0) }
+            if case .trade(let key) = record.imported.key, notTrades.contains(key.account) { return true }
+            return record.imported.instruments.contains { instruments.contains($0) }
         }.count
     }
 
