@@ -90,11 +90,20 @@ struct CheckInRebaseTests {
     @Test func theSameValuesSavedElsewhereAreNoConflict() throws {
         var draft = CheckInDraft(date: "2026-10-31", library: library)
         draft["conto-fineco"]?.setBalance(5000)
-        draft.rebase(onto: savedElsewhere(flow: d("789.45")))
+        let changed = savedElsewhere(flow: d("789.45"))
+        draft.rebase(onto: changed)
         let row = try #require(draft["conto-fineco"])
         #expect(row.conflict == nil)
-        #expect(row.existing?.balance == 5000)
         #expect(row.balance == 5000)
+        #expect(draft.records(in: changed).valuations.contains { $0.account == "conto-fineco" })
+
+        // It was this draft's own write, which then failed and was reloaded:
+        // back to what the row started from, still no conflict.
+        draft.rebase(onto: library)
+        #expect(draft.conflicts.isEmpty)
+        // A later, different value saved elsewhere is one.
+        draft.rebase(onto: savedElsewhere(balance: 5100))
+        #expect(draft.conflicts.map(\.account) == ["conto-fineco"])
     }
 
     @Test func settlingEveryConflictAtOnce() throws {

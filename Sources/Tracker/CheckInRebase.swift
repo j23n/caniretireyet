@@ -69,7 +69,7 @@ extension CheckInDraft {
             }
             let row = refreshed(old, account: account, previous: previous, saved: saved, valuator: &valuator)
             if let conflict = row.conflict, conflict != old.conflict { result.newConflicts.append(account.id) }
-            result.refreshed.append(account.id)
+            if row != old { result.refreshed.append(account.id) }
             rebased.append(row)
         }
         rows = rebased
@@ -124,13 +124,13 @@ extension CheckInDraft {
         let baseline = saved == nil || saved == old.existing ? saved : old.existing
         var row = CheckInRow(account: account, previous: previous, existing: baseline, valuator: &valuator)
         row.adoptEdits(from: old)
+        // A different valuation saved on the date is a conflict, unless it
+        // records just what the row would write (e.g. this check-in's own
+        // write, before a failed save was reloaded). The row keeps what it
+        // started from either way.
         if let saved, saved != baseline {
             let written = proposal(for: row, using: valuator.valuator, ignoringConflict: true).written
-            if Self.recordsTheSame(written, saved) {
-                row.existing = saved
-            } else {
-                row.conflict = saved
-            }
+            if !Self.recordsTheSame(written, saved) { row.conflict = saved }
         }
         return row
     }
