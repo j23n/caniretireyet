@@ -259,6 +259,24 @@ struct TradeValuationTests {
         #expect(summary.unconverted.isEmpty)
     }
 
+    @Test func aPositionsReturnIncludesItsDividends() throws {
+        let valuator = Valuator(library: TradeLibrary.recordedDeposits())
+        let vwce = try #require(valuator.instrumentReturn(of: "vwce", in: "broker", from: "2024-01-31",
+                                                          to: "2024-03-31"))
+        #expect(vwce.startValue == 5100)
+        #expect(vwce.endValue == 4400)
+        // 10 moved in at 105, 20 sold for 2,155 before tax.
+        #expect(vwce.netInvested == -1105)
+        #expect(vwce.dividends == 25)
+        #expect(vwce.realizedGain == d("186.67"))
+        // 20 sold 6 up less 5 of fees, 30 kept 8 up, 10 moved in 5 up, and the dividend.
+        #expect(vwce.gain == 430)
+        let mwr = try #require(vwce.moneyWeighted)
+        #expect(mwr.cumulative > d("0.05") && mwr.cumulative < d("0.12"))
+        #expect(valuator.instrumentReturn(of: "vwce", in: "bank", from: "2024-01-31", to: "2024-03-31") == nil)
+        #expect(valuator.instrumentReturn(of: "vwce", in: "broker", from: "2024-03-31", to: "2024-03-31") == nil)
+    }
+
     @Test func editingTradesKeepsAutomaticFlowsInStep() throws {
         var library = TradeLibrary.typedCash()
         let before = library
