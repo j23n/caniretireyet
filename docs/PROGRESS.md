@@ -30,7 +30,7 @@ One chart from your first check-in to the end of the plan:
 
 ### The answer over time (M2)
 
-Each check-in re-runs the main plan (`mainPlan` in `library.json`) and records the headline:
+Each check-in re-runs the main plan (`mainPlan` in `library.json`) and records the headline. Only the library's latest check-in does: a check-in dated before it, filling in history, records no headline, since the plan runs on today's data ([UI.md](UI.md#adding-history)). The headline has:
 
 - the earliest retirement age at your confidence level;
 - the chance of success at your target age;
@@ -81,7 +81,7 @@ A baseline stores the **outputs** of a projection, not just its inputs. If the a
 
 Baselines are created:
 
-- **automatically**, at the first check-in of each year, for the main plan;
+- **automatically**, at the first check-in of each year, for the main plan (a check-in that's the library's latest, not one filling in history);
 - **by hand**, with *Save baseline* and a label, e.g. before a big decision such as switching to forfettario.
 
 `projections/<plan-id>/baselines/<date>.json`, about 10 KB each. The file name is the baseline's ID; a second baseline saved on the same day gets `-2`.
