@@ -53,6 +53,12 @@ struct PensionClaim: Sendable {
     /// Age when payments start.
     let age: Int
     let option: ClaimOption
+
+    /// The gross amount of a whole year at `age`: in the year payments start,
+    /// the rate they start at for twelve months, rather than the months paid.
+    func yearlyAmount(atAge age: Int) -> Double {
+        age <= option.age ? option.yearlyAmount : option.annualAmount(atAge: age)
+    }
 }
 
 /// An amount going into a wrapper's bucket.
@@ -101,6 +107,8 @@ struct ScheduledYear: Sendable {
     let contributionYears: Double
     let yearsSinceWorkStopped: Int?
     let oldAgePensionAge: Int?
+    /// The tax state the year was prepared with (the deterministic run's).
+    let taxState: TaxState
     /// Buckets paid out in full this year because a job ends (severance pay
     /// such as Italy's TFR); set once the portfolio is final.
     var severance: [Int] = []
@@ -294,6 +302,7 @@ extension AgeSchedule {
             }
             let expected = variantIndex[expectedLocal]
             let expectedAssessment = variants[expected].fixed
+            let yearState = state
             state = expectedAssessment.nextState
 
             // Access inputs, before this year's credits.
@@ -344,7 +353,8 @@ extension AgeSchedule {
                 variants: variants, variantIndex: variantIndex, expectedVariant: expected,
                 contributions: contributions, contributionTotal: contributions.reduce(0) { $0 + $1.amount },
                 income: income, contributionYears: contributionYears,
-                yearsSinceWorkStopped: yearsSinceWorkStopped, oldAgePensionAge: model.oldAgePensionAges[frame.index]))
+                yearsSinceWorkStopped: yearsSinceWorkStopped, oldAgePensionAge: model.oldAgePensionAges[frame.index],
+                taxState: yearState))
         }
 
         self.retirementAge = age

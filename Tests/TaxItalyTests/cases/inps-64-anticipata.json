@@ -20,12 +20,14 @@
         "route": "it.inps.anticipata",
         "age": 64,
         "annualAmount": 15426.0,
-        "nextYear": 23139.0
+        "nextYear": 23139.0,
+        "fullYearAmount": 23139.0
       },
       {
         "route": "it.inps.anticipata",
         "age": 65,
-        "annualAmount": 23625.0
+        "annualAmount": 23625.0,
+        "fullYearAmount": 0
       },
       {
         "route": "it.inps.anticipata",
@@ -41,11 +43,12 @@
     "  yearly pension 450,000.00 × 5.142% = 23,139.00; monthly (13 instalments) 1,779.92",
     "  test: 1,779.92 ≥ 3× assegno sociale (1,638.72): passes",
     "  first year, 8 months of 12: 23,139.00 × 8/12 = 15,426.00",
+    "  per year (what the marker and the FI number use): a whole year at the starting rate, 1,779.92 × 13 = 23,139.00",
     "Anticipata claimed at 65 (January 2027): first payment January 2027, at 65 years 0 months",
     "  coefficient at 65 years 0 months: 5.25% + 0/12 × (5.423% − 5.25%) = 5.25%",
     "  yearly pension 450,000.00 × 5.25% = 23,625.00; monthly (13 instalments) 1,817.31",
     "  test: 1,817.31 ≥ 3× assegno sociale (1,638.72): passes",
-    "  first year, 12 months of 12: 23,625.00 × 12/12 = 23,625.00",
+    "  first year, 12 months of 12: 23,625.00 × 12/12 = 23,625.00 (a whole year, so no separate yearly amount)",
     "Anticipata claimed at 66 (January 2028): first payment January 2028, at 66 years 0 months",
     "  coefficient at 66 years 0 months: 5.423% + 0/12 × (5.608% − 5.423%) = 5.423%",
     "  yearly pension 450,000.00 × 5.423% = 24,403.50; monthly (13 instalments) 1,877.19",

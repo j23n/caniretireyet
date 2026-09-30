@@ -130,6 +130,9 @@ struct ReferenceCase: Decodable, Sendable {
         var annualAmount: Double
         /// The amount at `age + 1`, when given.
         var nextYear: Double?
+        /// A whole year at the starting rate, when the first year is only
+        /// part of one (`ClaimOption.fullYearAmount`); `0` means none.
+        var fullYearAmount: Double?
     }
 
     struct GrossUpCheck: Decodable, Sendable {

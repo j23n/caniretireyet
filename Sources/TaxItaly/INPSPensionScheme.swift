@@ -243,7 +243,9 @@ struct INPSClaims {
     }
 
     /// The claim option for a start: the first year's amount (pro rata), then
-    /// the changes from the cap ending and from partial indexation.
+    /// the changes from the cap ending and from partial indexation, and a
+    /// whole year at the starting rate (monthly × instalments) when the
+    /// first year is only part of one.
     private func option(for start: Start, capEnd: Int) -> ClaimOption {
         let rules = rules(start.month / 12)
         let instalments = rules?.instalments ?? 13
@@ -278,8 +280,12 @@ struct INPSClaims {
             if start.monthly > cap { note += ", and capped at \(euros(cap)) a month until the vecchiaia age" }
             note += "."
         }
+        // A start after January pays only part of the first year: the whole
+        // year at the starting rate is what the pension is worth a year.
+        let startingRate = start.month < capEnd ? min(start.monthly, cap) : start.monthly
         return ClaimOption(route: start.route.id, label: start.route.label, age: startYear - context.birthDate.year,
-                           annualAmount: amounts[0].amount, changes: changes, note: note)
+                           annualAmount: amounts[0].amount, changes: changes, note: note,
+                           fullYearAmount: start.month % 12 == 0 ? nil : startingRate * instalments)
     }
 
     private func monthName(_ index: Int) -> String {

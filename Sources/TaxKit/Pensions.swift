@@ -106,24 +106,38 @@ public struct ClaimOption: Hashable, Sendable {
     public var label: String
     /// The age payments start.
     public var age: Int
-    /// The gross yearly amount from `age`, in today's euros.
+    /// The gross yearly amount from `age`, in today's euros. When payments
+    /// start during the year, the amount paid in that calendar year (see
+    /// ``fullYearAmount``).
     public var annualAmount: Double
     /// Later changes to the amount, e.g. a cap that ends at 67.
     public var changes: [AmountChange]
     /// Conditions or caveats to show, e.g. the 3-month wait.
     public var note: String?
+    /// The gross amount of a whole year at the rate payments start at (e.g.
+    /// the monthly amount × 13 instalments), when `annualAmount` covers only
+    /// part of the first year. `nil` when the first year is paid in full.
+    public var fullYearAmount: Double?
 
     public init(route: String, label: String, age: Int, annualAmount: Double, changes: [AmountChange] = [],
-                note: String? = nil) {
+                note: String? = nil, fullYearAmount: Double? = nil) {
         self.route = route
         self.label = label
         self.age = age
         self.annualAmount = annualAmount
         self.changes = changes
         self.note = note
+        self.fullYearAmount = fullYearAmount
     }
 
-    /// The gross yearly amount at `age` (0 before payments start).
+    /// The gross amount of a whole year when payments start: what to show
+    /// as the yearly pension.
+    public var yearlyAmount: Double {
+        fullYearAmount ?? annualAmount
+    }
+
+    /// The gross yearly amount at `age` (0 before payments start): in the
+    /// first year, the amount paid in that calendar year.
     public func annualAmount(atAge age: Int) -> Double {
         guard age >= self.age else { return 0 }
         return changes.filter { $0.age <= age }.max { $0.age < $1.age }?.annualAmount ?? annualAmount

@@ -68,6 +68,10 @@ struct EndToEndTests {
         #expect((64...76).contains(inps.age))
         let inpsAmount = try #require(inps.amount)
         #expect(inpsAmount > 3_000 && inpsAmount < 40_000)
+        // The marker shows a whole year, not the months paid in the first one.
+        let firstFullYear = try #require(result.expectedPath.years.first { $0.age == inps.age + 1 })
+        let paidNextYear = try #require(firstFullYear.income.first { $0.id == "pension-0" }?.amount)
+        #expect(abs(inpsAmount - paidNextYear) < 0.01 * paidNextYear, "\(inpsAmount) against \(paidNextYear)")
         #expect(result.successCurve.first { $0.age == 55 }?.pensionStartAges["pension-0"] == inps.age)
         let fixed = try #require(result.markers.first { $0.kind == .pensionStart && $0.label.hasPrefix("State pension") })
         #expect(fixed.age == 67 && fixed.amount == 4_800)
@@ -102,6 +106,26 @@ struct EndToEndTests {
             pension fund from \(fund.age), TFR paid in 2028: \(Int(tfr.amount)), sustainable spending \
             \(Int(spending.perYear)) (success \(spending.success)), FI number \(Int(fi)).
             """)
+    }
+
+    /// IRPEF and the addizionali on a pension have no subject, since they're
+    /// charged on total income: the FI number takes the tax a pension adds.
+    @Test func theFINumberCountsTheTaxOnPensions() async throws {
+        let library = Sample.library(birth: "1986-01-01", on: "2025-12-31",
+                                     [SampleAccount(id: "cash", kind: .cash, wrapper: "it.ordinary", mix: nil,
+                                                    balance: 150_000)])
+        var plan = Sample.plan(retire: .age(51), endAge: 90, retired: "30000",
+                               pensions: [PlanPension(scheme: .fixed, fromAge: 67, perYear: d("20000"))])
+        plan.tax = PlanTax(residence: [PlanResidence(from: 2026, system: "it")])
+        let result = try await Planner.run(plan: plan, library: library, registry: Self.registry,
+                                           options: PlannerOptions(mode: .fast(runs: 1), ageScan: .headline,
+                                                                   maxRetirementAge: 0, solveSustainableSpending: false))
+        // IRPEF on 20,000: 23% = 4,600 less the pension detrazione
+        // 700 + 1,255 × 8,000 / 19,500 = 1,214.87; addizionali 1.73% + 0.8%
+        // of 20,000 = 506. Net pension 16,108.87; (30,000 − 16,108.87) / 4%.
+        let tax = 4_600 - (700 + 1_255 * 8_000 / 19_500.0) + 506
+        #expect(close(result.answer.fiNumber, (30_000 - (20_000 - tax)) / 0.04, 1e-9))
+        #expect(close(result.answer.fiProgress, 150_000 / ((30_000 - (20_000 - tax)) / 0.04), 1e-9))
     }
 
     @Test func aPlanOnGenericFlatRatesMatchesTheClosedForm() async throws {
