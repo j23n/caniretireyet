@@ -30,12 +30,16 @@ public struct PlanPension: Hashable, Sendable, KnownKeysProviding {
     public var perYear: Decimal?
     /// As written. See ``effectiveTaxedIn``.
     public var taxedIn: TaxedIn?
+    /// The paying country, e.g. for a foreign state pension. Needed when
+    /// `taxedIn` is `source`, and for treaty rules.
+    public var sourceCountry: CountryCode?
     /// Scheme-specific settings.
     public var options: [String: JSONValue]
 
     public init(
         scheme: PensionSchemeID, name: String? = nil, claim: AgeChoice? = nil, fromAge: Int? = nil,
-        perYear: Decimal? = nil, taxedIn: TaxedIn? = nil, options: [String: JSONValue] = [:]
+        perYear: Decimal? = nil, taxedIn: TaxedIn? = nil, sourceCountry: CountryCode? = nil,
+        options: [String: JSONValue] = [:]
     ) {
         self.scheme = scheme
         self.name = name
@@ -43,6 +47,7 @@ public struct PlanPension: Hashable, Sendable, KnownKeysProviding {
         self.fromAge = fromAge
         self.perYear = perYear
         self.taxedIn = taxedIn
+        self.sourceCountry = sourceCountry
         self.options = options
     }
 
@@ -59,7 +64,7 @@ public struct PlanPension: Hashable, Sendable, KnownKeysProviding {
 
 extension PlanPension: Codable {
     enum CodingKeys: String, CodingKey, CaseIterable {
-        case scheme, name, claim, fromAge, perYear, taxedIn, options
+        case scheme, name, claim, fromAge, perYear, taxedIn, sourceCountry, options
     }
 
     public static var knownKeys: Set<String> { Set(CodingKeys.allCases.map(\.stringValue)) }
@@ -72,6 +77,7 @@ extension PlanPension: Codable {
         fromAge = try c.decodeIfPresent(Int.self, forKey: .fromAge)
         perYear = try c.decodeDecimalIfPresent(forKey: .perYear)
         taxedIn = try c.decodeIfPresent(TaxedIn.self, forKey: .taxedIn)
+        sourceCountry = try c.decodeIfPresent(CountryCode.self, forKey: .sourceCountry)
         options = try c.decodeObject(forKey: .options)
     }
 
@@ -83,6 +89,7 @@ extension PlanPension: Codable {
         try c.encodeIfPresent(fromAge, forKey: .fromAge)
         try c.encodeDecimalIfPresent(perYear, forKey: .perYear)
         try c.encodeIfPresent(taxedIn, forKey: .taxedIn)
+        try c.encodeIfPresent(sourceCountry, forKey: .sourceCountry)
         try c.encodeIfNotEmpty(options, forKey: .options)
     }
 }

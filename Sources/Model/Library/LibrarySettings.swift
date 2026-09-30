@@ -15,21 +15,26 @@ public struct LibrarySettings: Codable, Hashable, Sendable, KnownKeysProviding {
     public var person: Person?
     /// The country of tax residence today. Plans set residence over time.
     public var taxResidence: CountryCode?
+    /// The plan shown on the Overview, re-run at each check-in and saved as a
+    /// baseline automatically at the first check-in of each year.
+    public var mainPlan: PlanID?
 
     public init(
         schemaVersion: Int = LibrarySettings.currentSchemaVersion,
         baseCurrency: CurrencyCode = .eur,
         person: Person? = nil,
-        taxResidence: CountryCode? = nil
+        taxResidence: CountryCode? = nil,
+        mainPlan: PlanID? = nil
     ) {
         self.schemaVersion = schemaVersion
         self.baseCurrency = baseCurrency
         self.person = person
         self.taxResidence = taxResidence
+        self.mainPlan = mainPlan
     }
 
     enum CodingKeys: String, CodingKey, CaseIterable {
-        case schemaVersion, baseCurrency, person, taxResidence
+        case schemaVersion, baseCurrency, person, taxResidence, mainPlan
     }
 
     public static var knownKeys: Set<String> { Set(CodingKeys.allCases.map(\.stringValue)) }

@@ -26,7 +26,7 @@ struct KnownKeysTests {
                          revenue: 1, costs: 1, netIncome: 1, regime: "it.employee", options: ["tfr": "pensionFund"])],
         spending: PlanSpending(working: 36000, retired: 36000, phases: [SpendingPhase(fromAge: 75, factor: d("0.9"))]),
         pensions: [PlanPension(scheme: "it.inps", name: "INPS", claim: .earliest, fromAge: 67, perYear: 4800,
-                               taxedIn: .source, options: ["montante": "92000"])],
+                               taxedIn: .source, sourceCountry: "DE", options: ["montante": "92000"])],
         contributions: [PlanContribution(account: "fondo-pensione", perYear: 5000, until: .date("2040-12-31"))],
         events: [PlanEvent(name: "I", timing: .age(62), amount: 150_000, probability: d("0.8"), kind: .inheritance)],
         portfolio: PlanPortfolio(start: .latestCheckIn, unrealizedGainShare: d("0.2"), exclude: ["gold-coins"],
@@ -38,7 +38,7 @@ struct KnownKeysTests {
 
     /// A fully populated value of every type with known keys.
     private static var samples: [(any Encodable, Set<String>)] { [
-        (LibrarySettings(person: Person(name: "Me", birthDate: "1988-04-12"), taxResidence: .it), LibrarySettings.knownKeys),
+        (LibrarySettings(person: Person(name: "Me", birthDate: "1988-04-12"), taxResidence: .it, mainPlan: "base"), LibrarySettings.knownKeys),
         (Person(name: "Me", birthDate: "1988-04-12"), Person.knownKeys),
         (Account(id: "a", name: "A", kind: .cash, currency: .eur, opened: "2020-01-01", closed: "2025-01-01",
                  institution: "Bank", country: .it, valuation: .balance, assetClasses: .single(.cash),

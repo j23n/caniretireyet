@@ -67,6 +67,7 @@ Can I Retire Yet/                   ← the app's folder in iCloud Drive
 ```json
 {
   "baseCurrency": "EUR",
+  "mainPlan": "base",
   "person": {
     "birthDate": "1988-04-12",
     "name": "Me"
@@ -75,6 +76,8 @@ Can I Retire Yet/                   ← the app's folder in iCloud Drive
   "taxResidence": "IT"
 }
 ```
+
+`mainPlan` is the plan shown on the Overview. It's re-run at every check-in, and a baseline of it is saved automatically at the first check-in of each year.
 
 Settings that belong to one device, such as reminder times and UI state, are stored on that device, not in the library.
 
