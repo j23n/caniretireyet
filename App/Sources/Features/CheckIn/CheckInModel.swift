@@ -296,12 +296,13 @@ enum CheckInEditing {
         return "-" + trimmed
     }
 
-    /// Whether the draft holds anything the user entered: a reviewed row, a
-    /// note, or a price or rate typed in. Cancel asks before throwing such a
+    /// Whether the draft holds anything the user entered: a value, a row
+    /// marked unchanged or skipped, a note, or a price or rate typed in.
+    /// Rows only pre-filled from values already saved on the date (e.g. by
+    /// the other device) don't count. Cancel asks before throwing such a
     /// draft away.
     static func hasEdits(_ draft: CheckInDraft) -> Bool {
-        draft.reviewedCount > 0
-            || draft.rows.contains { !($0.note ?? "").isEmpty }
+        draft.rows.contains { $0.hasUserInput || ($0.note ?? "") != ($0.existing?.note ?? "") }
             || draft.prices.contains { $0.source == .manual }
             || draft.fxRates.contains { $0.source == .manual }
     }
