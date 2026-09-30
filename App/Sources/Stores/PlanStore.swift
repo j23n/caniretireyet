@@ -168,6 +168,11 @@ final class PlanStore {
         whatIfResults[plan] = nil
     }
 
+    /// Cancels the what-if run of `plan` in progress, if any (after "Reset").
+    func cancelWhatIf(_ plan: PlanID) {
+        tasks[RunKey(plan: plan, kind: .whatIf)]?.cancel()
+    }
+
     /// Throws away the results for another focus age (back to the plan's own).
     func clearFocus(_ plan: PlanID) {
         focusResults[plan] = nil
