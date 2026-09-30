@@ -20,6 +20,7 @@ extension Valuator {
     /// the account is unknown or a price or FX rate is missing.
     public func amountInAccountCurrency(of valuation: Valuation, on date: CalendarDate) -> Decimal? {
         guard let account = accounts[valuation.account] else { return nil }
+        let valuation = account.recordsTrades ? tradeSnapshot(for: valuation, in: account) : valuation
         if let balance = valuation.balance { return balance }
         var total = valuation.cash ?? 0
         for position in valuation.positions {
@@ -43,12 +44,17 @@ extension Valuator {
     ///   the quantity change × price. Price movement isn't new money.
     /// - Asked (pension fund, TFR, property, other): `nil`, i.e. unknown until
     ///   the user enters it.
+    /// - An account that records trades, whatever its kind: its deposits,
+    ///   withdrawals, transfers and openings since `previous`, plus the
+    ///   valuation's residual (its cash minus the cash the trades give);
+    ///   see ``TradeFlow``. `paid` isn't used.
     ///
     /// Without a previous valuation, the whole amount is new money. `nil`
     /// also when the account is unknown or a needed price or rate is missing.
     public func defaultFlow(for valuation: Valuation, previous: Valuation?,
                             paid: [InstrumentID: Decimal] = [:]) -> Decimal? {
         guard let account = accounts[valuation.account] else { return nil }
+        if account.recordsTrades { return tradeFlow(for: valuation, previous: previous)?.roundedToCents }
         let date = valuation.date
         switch account.kind.defaultFlow {
         case .ask:

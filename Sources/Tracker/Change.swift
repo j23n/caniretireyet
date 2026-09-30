@@ -107,6 +107,11 @@ extension Valuator {
     ///   rest, i.e. the changes in quantity and cash.
     /// - **Balance, flow unknown:** market is only the FX effect on the old
     ///   balance, and the rest is other.
+    /// - **Trades accounts:** values are snapshots (``snapshot(of:on:)``),
+    ///   and new money is the account's ``TradeFlow``s in the period
+    ///   (deposits, withdrawals, transfers and residuals), each converted at
+    ///   its date; the stored `flow`s aren't used. Dividends, interest and
+    ///   fees are market. Without a price for a transfer, the flow is unknown.
     /// - An account that closes in the period ends at zero: its value on the
     ///   closing day leaves as new money. One that opens starts at zero.
     public func change(from: CalendarDate, to: CalendarDate, in scope: NetWorthScope = .netWorth) -> ChangeReport {
@@ -142,10 +147,10 @@ extension Valuator {
             return value.knownValue
         }
 
-        let startValuation = account.isOpen(on: from) ? latestValuation(for: account.id, onOrBefore: from) : nil
+        let startValuation = account.isOpen(on: from) ? carried(account, on: from) : nil
         let closing = account.closed.flatMap { $0 < to ? $0 : nil }
         let endDate = closing ?? to
-        let endValuation = account.opened <= endDate ? latestValuation(for: account.id, onOrBefore: endDate) : nil
+        let endValuation = account.opened <= endDate ? carried(account, on: endDate) : nil
         if endValuation == nil && account.isOpen(on: endDate) { problems.append(.noValuation(account: account.id)) }
 
         let start = valued(startValuation, on: from)
@@ -174,9 +179,14 @@ extension Valuator {
 
     /// The flows of the account's valuations dated after `from` through
     /// `through`, each converted at its own date; zero if there are none,
-    /// `nil` if one is unknown.
+    /// `nil` if one is unknown. For a trades account, its ``TradeFlow``s
+    /// instead: deposits, withdrawals, transfers and residuals.
     func recordedFlows(of account: Account, after from: CalendarDate, through: CalendarDate,
                        problems: inout [ValuationProblem]) -> Decimal? {
+        if account.recordsTrades {
+            return tradeFlowsInBaseCurrency(of: account, after: from, through: through, problems: &problems)?
+                .reduce(0) { $0 + $1.amount }
+        }
         var total: Decimal = 0
         var known = true
         for valuation in valuations(for: account.id) where valuation.date > from && valuation.date <= through {

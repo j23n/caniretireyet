@@ -3,8 +3,9 @@ import Model
 /// An account whose latest valuation is too old (FILE_FORMAT.md, "Staleness").
 public struct StaleAccount: Hashable, Sendable {
     public let account: AccountID
-    /// The date of the latest valuation on or before the date checked; `nil`
-    /// if the account has never been valued.
+    /// The date of the latest valuation on or before the date checked (or,
+    /// for a trades account, of its latest valuation or trade); `nil` if the
+    /// account has never been valued.
     public let lastValuation: CalendarDate?
     /// Days from the latest valuation to the date checked; `nil` if never valued.
     public let age: Int?
@@ -16,12 +17,13 @@ extension Valuator {
     public static let defaultStalenessThreshold = 45
 
     /// Whether `account` is stale on `date`: open, and its latest valuation
-    /// is more than `threshold` days old, or it has none. `nil` if the
-    /// account is unknown or not open on the date.
+    /// (or, for a trades account, its latest valuation or trade) is more
+    /// than `threshold` days old, or it has none. `nil` if the account is
+    /// unknown or not open on the date.
     public func staleness(of account: AccountID, on date: CalendarDate,
                           threshold: Int = defaultStalenessThreshold) -> StaleAccount? {
         guard let found = accounts[account], found.isOpen(on: date) else { return nil }
-        let last = latestValuation(for: account, onOrBefore: date)?.date
+        let last = latestRecordDate(of: account, onOrBefore: date)
         let age = last.map { $0.days(to: date) }
         guard age.map({ $0 > threshold }) ?? true else { return nil }
         return StaleAccount(account: account, lastValuation: last, age: age)
