@@ -111,6 +111,29 @@ struct ImportTableTests {
         #expect(byDefault.excludeRows == ["Totale", "Total"])
     }
 
+    /// The footer rule can be turned off: `"excludeRows": []` excludes no
+    /// row, while leaving the key out uses the default rule.
+    @Test func footerRuleCanExcludeNothing() throws {
+        let text = "Data;Saldo\n31/01/2026;10\nTotale;10\n"
+        #expect(try ImportTable(text: text).rows.map(\.number) == [2])
+        let none = try ImportTable(text: text, settings: ImportFileSettings(excludesNoRows: true))
+        #expect(none.rows.map(\.number) == [2, 3])
+        #expect(none.excludeRows.isEmpty)
+        #expect(none.settings.excludesNoRows)
+        #expect(none.settings.writtenExcludeRows == [])
+
+        // A profile made from such a file says so, and reads it the same way again.
+        var session = try ImportSession(data: Data(text.utf8))
+        try session.reread(with: ImportFileSettings(delimiter: ";", headerRow: 1, excludesNoRows: true))
+        let profile = session.makeProfile(id: "p", name: "P", library: Library())
+        #expect(profile.file.writtenExcludeRows == [])
+        let json = String(decoding: try JSONEncoder().encode(profile.file), as: UTF8.self)
+        #expect(json.contains(#""excludeRows":[]"#))
+        let again = try ImportSession(data: Data(text.utf8), profile: JSONDecoder().decode(
+            ImportProfile.self, from: JSONEncoder().encode(profile)))
+        #expect(again.table.rows.map(\.number) == [2, 3])
+    }
+
     @Test func readsAFileWithoutHeader() throws {
         let table = try ImportTable(text: "2026-01-31,Conto,100\n2026-02-28,Conto,110\n")
         #expect(table.headerRow == 0)

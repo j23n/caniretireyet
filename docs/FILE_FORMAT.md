@@ -305,6 +305,8 @@ Versions modified at the same moment are ordered by their contents, so both devi
 
 Saved import profiles. Each describes how to read one kind of file (encoding, delimiter, number and date formats) and what each column becomes. See [IMPORT.md](IMPORT.md#import-profiles) for the fields and an example.
 
+In a profile, an empty list and a missing one differ in one place: `file.excludeRows` left out uses the importer's default footer rule (rows starting with "Totale" or "Total"), while `"excludeRows": []` skips no rows.
+
 ## `backups/`
 
 Copies of files taken before a schema migration or an import, in dated folders. They're what "Undo import" restores. Safe to delete.
