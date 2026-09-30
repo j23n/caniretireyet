@@ -17,7 +17,7 @@
 	</array>
 	<key>com.apple.security.app-sandbox</key>
 	<true/>
-	<!-- Open CSV files to import and export, chosen by the user. -->
+	<!-- Open files the user chooses: CSV exports and ledger journals to import. -->
 	<key>com.apple.security.files.user-selected.read-write</key>
 	<true/>
 	<!-- Fetch prices and FX rates. -->
