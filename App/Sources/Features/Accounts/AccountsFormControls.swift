@@ -51,7 +51,7 @@ struct AccountsTextField: View {
     }
 }
 
-extension AssetMixForm {
+extension AccountsAssetMixForm {
     /// The typed percentage of one class, for a text field.
     subscript(text assetClass: AssetClass) -> String {
         get { percents[assetClass] ?? "" }
@@ -61,8 +61,8 @@ extension AssetMixForm {
 
 /// One row per asset class with its percentage, and what's wrong when the
 /// percentages don't add up to 100%.
-struct AssetMixFields: View {
-    @Binding var mix: AssetMixForm
+struct AccountsAssetMixFields: View {
+    @Binding var mix: AccountsAssetMixForm
     @Environment(\.locale) private var locale
 
     var body: some View {

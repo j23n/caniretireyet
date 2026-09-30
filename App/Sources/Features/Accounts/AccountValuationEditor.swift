@@ -13,14 +13,14 @@ struct AccountValuationTarget: Identifiable, Hashable {
 /// valuation is editable): date, value (balance, or cash and positions),
 /// new money and note. Deleting it sits at the bottom. Shown in a sheet
 /// inside a NavigationStack.
-struct ValuationEditor: View {
+struct AccountValuationEditor: View {
     let key: ValuationKey
 
     @Environment(LibraryStore.self) private var library
     @Environment(\.dismiss) private var dismiss
     @Environment(\.locale) private var locale
 
-    @State private var form: ValuationForm?
+    @State private var form: AccountValuationForm?
     @State private var confirmsDelete = false
     @State private var errorMessage: String?
 
@@ -49,7 +49,7 @@ struct ValuationEditor: View {
         library.library.valuations(for: key.account).first { $0.key == key }
     }
 
-    private func fields(_ form: Binding<ValuationForm>, account: Account) -> some View {
+    private func fields(_ form: Binding<AccountValuationForm>, account: Account) -> some View {
         let symbol = AmountFormat.symbol(for: account.currency, locale: locale)
         let problems = form.wrappedValue.problems(locale: locale)
         let replaces = form.wrappedValue.date != key.date
@@ -131,7 +131,7 @@ struct ValuationEditor: View {
     }
 
     @ViewBuilder
-    private func addPositionMenu(_ form: Binding<ValuationForm>) -> some View {
+    private func addPositionMenu(_ form: Binding<AccountValuationForm>) -> some View {
         let held = Set(form.wrappedValue.positions.map(\.instrument))
         let others = library.library.instruments.values
             .filter { !held.contains($0.id) }
@@ -151,10 +151,10 @@ struct ValuationEditor: View {
 
     private func load() {
         guard form == nil, let original, let account = library.account(key.account) else { return }
-        form = ValuationForm(original, holdsPositions: account.valuationMode == .holdings, locale: locale)
+        form = AccountValuationForm(original, holdsPositions: account.valuationMode == .holdings, locale: locale)
     }
 
-    private func save(_ form: ValuationForm) {
+    private func save(_ form: AccountValuationForm) {
         guard let valuation = form.valuation(locale: locale) else { return }
         do {
             try library.replace(key, with: valuation)
@@ -176,14 +176,14 @@ struct ValuationEditor: View {
 
 #Preview("Edit a balance") {
     NavigationStack {
-        ValuationEditor(key: ValuationKey(account: "conto-fineco", date: "2026-09-30"))
+        AccountValuationEditor(key: ValuationKey(account: "conto-fineco", date: "2026-09-30"))
     }
     .previewEnvironment()
 }
 
 #Preview("Edit holdings") {
     NavigationStack {
-        ValuationEditor(key: ValuationKey(account: "directa", date: "2026-09-30"))
+        AccountValuationEditor(key: ValuationKey(account: "directa", date: "2026-09-30"))
     }
     .previewEnvironment()
 }

@@ -287,7 +287,7 @@ struct AccountTaxFields: View {
         }
         if form.takesAssetMix {
             Section {
-                AssetMixFields(mix: $form.assetMix)
+                AccountsAssetMixFields(mix: $form.assetMix)
             } header: {
                 Text("Asset mix")
             } footer: {

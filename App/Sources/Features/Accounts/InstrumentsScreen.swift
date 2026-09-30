@@ -278,7 +278,7 @@ struct InstrumentEditor: View {
                 Text("A price is per unit, in this currency: e.g. EUR per share, USD per BTC, or EUR per gram.")
             }
             Section {
-                AssetMixFields(mix: form.assetMix)
+                AccountsAssetMixFields(mix: form.assetMix)
             } header: {
                 Text("Asset mix")
             } footer: {

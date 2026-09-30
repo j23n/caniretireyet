@@ -15,7 +15,7 @@ struct InstrumentForm: Hashable, Sendable {
     var unit: String
     var isin: String
     var ticker: String
-    var assetMix: AssetMixForm
+    var assetMix: AccountsAssetMixForm
     /// `nil`: prices are typed in by hand.
     var provider: PriceProvider?
     var symbol: String
@@ -30,7 +30,7 @@ struct InstrumentForm: Hashable, Sendable {
         unit = InstrumentUnit.share.rawValue
         isin = ""
         ticker = ""
-        assetMix = AssetMixForm(.single(.equity))
+        assetMix = AccountsAssetMixForm(.single(.equity))
         provider = .yahoo
         symbol = ""
         original = nil
@@ -43,7 +43,7 @@ struct InstrumentForm: Hashable, Sendable {
         unit = instrument.unit.rawValue
         isin = instrument.isin ?? ""
         ticker = instrument.ticker ?? ""
-        assetMix = AssetMixForm(instrument.assetClasses, locale: locale)
+        assetMix = AccountsAssetMixForm(instrument.assetClasses, locale: locale)
         provider = instrument.priceSource?.provider
         symbol = instrument.priceSource?.symbol ?? ""
         original = instrument
@@ -59,28 +59,28 @@ struct InstrumentForm: Hashable, Sendable {
         switch kind {
         case .crypto:
             unit = ticker.isEmpty ? "BTC" : ticker.uppercased()
-            assetMix = AssetMixForm(.single(.crypto))
+            assetMix = AccountsAssetMixForm(.single(.crypto))
             provider = .coingecko
         case .metal:
             unit = InstrumentUnit.gram.rawValue
-            assetMix = AssetMixForm(.single(.gold))
+            assetMix = AccountsAssetMixForm(.single(.gold))
             provider = .goldAPI
             if symbol.isEmpty { symbol = "XAU" }
         case .bond:
             unit = InstrumentUnit.share.rawValue
-            assetMix = AssetMixForm(.single(.bonds))
+            assetMix = AccountsAssetMixForm(.single(.bonds))
             provider = .yahoo
         case .etf, .stock:
             unit = InstrumentUnit.share.rawValue
-            assetMix = AssetMixForm(.single(.equity))
+            assetMix = AccountsAssetMixForm(.single(.equity))
             provider = .yahoo
         case .fund:
             unit = InstrumentUnit.share.rawValue
-            assetMix = AssetMixForm()
+            assetMix = AccountsAssetMixForm()
             provider = nil
         default:
             unit = InstrumentUnit.share.rawValue
-            assetMix = AssetMixForm(.single(.other))
+            assetMix = AccountsAssetMixForm(.single(.other))
             provider = nil
         }
     }
@@ -159,7 +159,7 @@ struct InstrumentForm: Hashable, Sendable {
         instrument.kind = kind
         instrument.currency = currency
         instrument.unit = InstrumentUnit(rawValue: unit.trimmingCharacters(in: .whitespaces))
-        if let original, assetMix == AssetMixForm(original.assetClasses, locale: locale) {
+        if let original, assetMix == AccountsAssetMixForm(original.assetClasses, locale: locale) {
             instrument.assetClasses = original.assetClasses
         } else {
             instrument.assetClasses = mix

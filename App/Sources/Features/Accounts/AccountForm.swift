@@ -49,7 +49,7 @@ enum AccountWrapperDefaults {
 }
 
 /// An asset mix as percentages typed by hand, e.g. equity 60, bonds 40.
-struct AssetMixForm: Hashable, Sendable {
+struct AccountsAssetMixForm: Hashable, Sendable {
     /// The classes offered, in stacking order.
     static let classes: [AssetClass] = BreakdownKey.assetClassOrder
 
@@ -129,7 +129,7 @@ struct AccountForm: Hashable, Sendable {
     /// Whether "include in plans" was set by hand; otherwise it follows the kind.
     var isPlanInclusionChosen: Bool
     /// The mix of a balance account; empty for the kind's default.
-    var assetMix: AssetMixForm
+    var assetMix: AccountsAssetMixForm
     var notes: String
     /// Your tax residence, which the default wrapper depends on.
     let residence: CountryCode?
@@ -150,7 +150,7 @@ struct AccountForm: Hashable, Sendable {
         includedInNetWorth = true
         includedInPlan = true
         isPlanInclusionChosen = false
-        assetMix = AssetMixForm()
+        assetMix = AccountsAssetMixForm()
         notes = ""
         self.residence = residence
         original = nil
@@ -169,7 +169,7 @@ struct AccountForm: Hashable, Sendable {
         includedInNetWorth = account.includedInNetWorth
         includedInPlan = account.includedInPlan
         isPlanInclusionChosen = true
-        assetMix = AssetMixForm(account.assetClasses, locale: locale)
+        assetMix = AccountsAssetMixForm(account.assetClasses, locale: locale)
         notes = account.notes ?? ""
         self.residence = residence
         original = account
@@ -281,7 +281,7 @@ struct AccountForm: Hashable, Sendable {
 
         if !takesAssetMix {
             account.assetClasses = original?.assetClasses
-        } else if let original, assetMix == AssetMixForm(original.assetClasses, locale: locale) {
+        } else if let original, assetMix == AccountsAssetMixForm(original.assetClasses, locale: locale) {
             account.assetClasses = original.assetClasses
         } else {
             account.assetClasses = assetMix.mix(locale: locale)

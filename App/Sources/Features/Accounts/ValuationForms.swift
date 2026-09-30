@@ -166,7 +166,7 @@ struct AccountValuationInput: Hashable, Sendable {
 
 /// The fields of a valuation already saved, while it's edited: date,
 /// balance (or cash and positions), new money and note.
-struct ValuationForm: Hashable, Sendable {
+struct AccountValuationForm: Hashable, Sendable {
     struct PositionField: Hashable, Sendable, Identifiable {
         var instrument: InstrumentID
         var quantity: String

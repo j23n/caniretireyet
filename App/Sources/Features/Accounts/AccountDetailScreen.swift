@@ -39,7 +39,7 @@ struct AccountDetailScreen: View {
                 }
                 .sheet(item: $editing) { target in
                     NavigationStack {
-                        ValuationEditor(key: target.key)
+                        AccountValuationEditor(key: target.key)
                     }
                     #if os(macOS)
                     .frame(minWidth: 440, idealWidth: 500, minHeight: 420, idealHeight: 540)
