@@ -56,33 +56,43 @@ struct SettingsScreen: View {
 }
 
 /// Name, birth date, base currency and tax residence, saved in `library.json`.
+///
+/// Each control writes its own field from its binding's setter, only when
+/// you change it (`YouSettings`): opening Settings writes nothing, and a
+/// birth date or tax residence that isn't set stays "Not set".
 private struct YouSection: View {
     @Environment(LibraryStore.self) private var library
     @Environment(\.locale) private var locale
-    @State private var name = ""
-    @State private var birthDate = Date()
-    @State private var hasBirthDate = false
-    @State private var currency: CurrencyCode = .eur
-    @State private var residence: CountryCode = .it
-    @State private var loaded = false
+    /// The name as typed; `nil` until the field is edited.
+    @State private var typedName: String?
+    /// Whether the birth date picker is shown before a date is picked.
+    @State private var addsBirthDate = false
     @State private var error: String?
 
     var body: some View {
+        let settings = library.settings
+        let birthDate = settings.person?.birthDate
         Section {
-            TextField("Name", text: $name)
-                .onSubmit(save)
-            Toggle("Birth date", isOn: $hasBirthDate)
-            if hasBirthDate {
-                DatePicker("Born", selection: $birthDate, in: ...Date(), displayedComponents: .date)
+            TextField("Name", text: nameBinding)
+                .onSubmit(saveName)
+            Toggle("Birth date", isOn: hasBirthDateBinding)
+            if birthDate != nil || addsBirthDate {
+                DatePicker("Born", selection: birthDateBinding, in: ...Date(), displayedComponents: .date)
+                if birthDate == nil {
+                    Text("Not set yet: pick the date to save it.")
+                        .font(.footnote)
+                        .foregroundStyle(Palette.secondaryInk)
+                }
             }
-            Picker("Base currency", selection: $currency) {
-                ForEach(options(CurrencyChoices.common, current: currency), id: \.self) { code in
+            Picker("Base currency", selection: currencyBinding) {
+                ForEach(options(CurrencyChoices.common, current: settings.baseCurrency), id: \.self) { code in
                     Text(CurrencyChoices.name(of: code, locale: locale)).tag(code)
                 }
             }
-            Picker("Tax residence", selection: $residence) {
-                ForEach(options(CountryChoices.common, current: residence), id: \.self) { code in
-                    Text(CountryChoices.name(of: code, locale: locale)).tag(code)
+            Picker("Tax residence", selection: residenceBinding) {
+                Text("Not set").tag(CountryCode?.none)
+                ForEach(options(CountryChoices.common, current: settings.taxResidence), id: \.self) { code in
+                    Text(CountryChoices.name(of: code, locale: locale)).tag(Optional(code))
                 }
             }
             if let error {
@@ -94,45 +104,80 @@ private struct YouSection: View {
             Text("Plans use your birth date for ages. The tax residence is the default for new plans.")
         }
         .disabled(!library.canEdit)
-        .onAppear(perform: load)
-        .onDisappear(perform: save)
-        .onChange(of: birthDate) { save() }
-        .onChange(of: hasBirthDate) { save() }
-        .onChange(of: currency) { save() }
-        .onChange(of: residence) { save() }
+        .onDisappear(perform: saveName)
     }
 
-    private func options<Code: Hashable>(_ common: [Code], current: Code) -> [Code] {
-        common.contains(current) ? common : [current] + common
+    private func options<Code: Hashable>(_ common: [Code], current: Code?) -> [Code] {
+        guard let current, !common.contains(current) else { return common }
+        return [current] + common
     }
 
-    private func load() {
-        let settings = library.settings
-        name = settings.person?.name ?? ""
-        hasBirthDate = settings.person?.birthDate != nil
-        birthDate = settings.person?.birthDate?.dateValue ?? Calendar.current.date(byAdding: .year, value: -35, to: Date())
-            ?? Date()
-        currency = settings.baseCurrency
-        residence = settings.taxResidence ?? .it
-        loaded = true
+    // MARK: Bindings that write what you change
+
+    private var nameBinding: Binding<String> {
+        Binding(get: { typedName ?? library.settings.person?.name ?? "" }, set: { typedName = $0 })
     }
 
-    private func save() {
-        guard loaded, library.canEdit else { return }
-        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
-        let birth = hasBirthDate ? CalendarDate(birthDate, in: .current) : nil
+    private var hasBirthDateBinding: Binding<Bool> {
+        Binding(
+            get: { library.settings.person?.birthDate != nil || addsBirthDate },
+            set: { isOn in
+                addsBirthDate = isOn
+                if !isOn, library.settings.person?.birthDate != nil {
+                    write { YouSettings.setting(birthDate: nil, in: $0) }
+                }
+            })
+    }
+
+    private var birthDateBinding: Binding<Date> {
+        Binding(
+            get: { (library.settings.person?.birthDate ?? YouSettings.suggestedBirthDate()).dateValue },
+            set: { date in
+                let birth = CalendarDate(date, in: .current)
+                guard birth != library.settings.person?.birthDate else { return }
+                write { YouSettings.setting(birthDate: birth, in: $0) }
+            })
+    }
+
+    private var currencyBinding: Binding<CurrencyCode> {
+        Binding(
+            get: { library.settings.baseCurrency },
+            set: { code in
+                guard code != library.settings.baseCurrency else { return }
+                write { settings in
+                    var settings = settings
+                    settings.baseCurrency = code
+                    return settings
+                }
+            })
+    }
+
+    private var residenceBinding: Binding<CountryCode?> {
+        Binding(
+            get: { library.settings.taxResidence },
+            set: { code in
+                guard code != library.settings.taxResidence else { return }
+                write { settings in
+                    var settings = settings
+                    settings.taxResidence = code
+                    return settings
+                }
+            })
+    }
+
+    /// Writes the typed name, if it was edited and differs from the saved one.
+    private func saveName() {
+        guard let typedName, library.canEdit, YouSettings.isNameChanged(typedName, in: library.settings) else { return }
+        write { YouSettings.setting(name: typedName, in: $0) }
+    }
+
+    private func write(_ change: (LibrarySettings) -> LibrarySettings) {
+        guard library.canEdit else { return }
         do {
-            try library.updateSettings { settings in
-                var person = settings.person ?? Person()
-                person.name = trimmed.isEmpty ? nil : trimmed
-                person.birthDate = birth
-                settings.person = person.name == nil && person.birthDate == nil ? nil : person
-                settings.baseCurrency = currency
-                settings.taxResidence = residence
-            }
+            try library.updateSettings { $0 = change($0) }
             error = nil
         } catch {
-            self.error = error.localizedDescription
+            self.error = LibraryStore.describe(error)
         }
     }
 }
@@ -180,26 +225,27 @@ private struct PricesSection: View {
     }
 }
 
-/// The monthly check-in reminder: this device only.
+/// The monthly check-in reminder: this device only. Like "You", each control
+/// changes the reminder from its own setter, so opening Settings changes
+/// nothing.
 private struct ReminderSection: View {
     @Environment(AppPreferences.self) private var preferences
-    @State private var isOn = false
-    @State private var day = CheckInReminder.lastDay
-    @State private var time = Date()
-    @State private var loaded = false
     @State private var notAllowed = false
+
+    /// Without a reminder: the last day of the month at 19:00.
+    private static let standard = CheckInReminder(day: CheckInReminder.lastDay, hour: 19, minute: 0)
 
     var body: some View {
         Section {
-            Toggle("Remind me each month", isOn: $isOn)
-            if isOn {
-                Picker("Day", selection: $day) {
+            Toggle("Remind me each month", isOn: isOnBinding)
+            if preferences.reminder != nil {
+                Picker("Day", selection: dayBinding) {
                     Text("Last day of the month").tag(CheckInReminder.lastDay)
                     ForEach(1...28, id: \.self) { day in
                         Text("Day \(day)").tag(day)
                     }
                 }
-                DatePicker("Time", selection: $time, displayedComponents: .hourAndMinute)
+                DatePicker("Time", selection: timeBinding, displayedComponents: .hourAndMinute)
             }
             if notAllowed {
                 Text("Notifications are off for this app. Turn them on in the system settings to get reminders.")
@@ -211,29 +257,40 @@ private struct ReminderSection: View {
         } footer: {
             Text("Only on this device, so you aren't reminded twice.")
         }
-        .onAppear(perform: load)
-        .onChange(of: isOn) { apply() }
-        .onChange(of: day) { apply() }
-        .onChange(of: time) { apply() }
     }
 
-    private func load() {
-        if let reminder = preferences.reminder {
-            isOn = true
-            day = reminder.day
-            time = Calendar.current.date(bySettingHour: reminder.hour, minute: reminder.minute, second: 0, of: Date())
-                ?? Date()
-        } else {
-            time = Calendar.current.date(bySettingHour: 19, minute: 0, second: 0, of: Date()) ?? Date()
-        }
-        loaded = true
+    private var isOnBinding: Binding<Bool> {
+        Binding(get: { preferences.reminder != nil }, set: { apply($0 ? Self.standard : nil) })
     }
 
-    private func apply() {
-        guard loaded else { return }
-        let components = Calendar.current.dateComponents([.hour, .minute], from: time)
-        let reminder = isOn
-            ? CheckInReminder(day: day, hour: components.hour ?? 19, minute: components.minute ?? 0) : nil
+    private var dayBinding: Binding<Int> {
+        Binding(
+            get: { preferences.reminder?.day ?? CheckInReminder.lastDay },
+            set: { day in
+                var reminder = preferences.reminder ?? Self.standard
+                reminder.day = day
+                apply(reminder)
+            })
+    }
+
+    private var timeBinding: Binding<Date> {
+        Binding(
+            get: {
+                let reminder = preferences.reminder ?? Self.standard
+                return Calendar.current.date(bySettingHour: reminder.hour, minute: reminder.minute, second: 0, of: Date())
+                    ?? Date()
+            },
+            set: { time in
+                let components = Calendar.current.dateComponents([.hour, .minute], from: time)
+                var reminder = preferences.reminder ?? Self.standard
+                reminder.hour = components.hour ?? 19
+                reminder.minute = components.minute ?? 0
+                apply(reminder)
+            })
+    }
+
+    private func apply(_ reminder: CheckInReminder?) {
+        guard reminder != preferences.reminder else { return }
         preferences.reminder = reminder
         #if canImport(UserNotifications)
         Task {

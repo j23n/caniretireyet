@@ -145,16 +145,33 @@ struct PlanSectionEditor: View {
 // MARK: - You
 
 /// Birth date (from the library), retirement age and the plan's end.
+///
+/// The birth date is written only when you pick one, from the picker's own
+/// setter (`YouSettings`): opening the card writes nothing, and without a
+/// birth date it says "Not set" rather than assuming one.
 struct PlanYouEditor: View {
     @Binding var plan: PlanDocument
     @Environment(LibraryStore.self) private var library
-    @State private var birthDate = Date()
-    @State private var loaded = false
+    /// Whether the picker is shown before a birth date is picked.
+    @State private var addsBirthDate = false
 
     var body: some View {
+        let birthDate = library.settings.person?.birthDate
         VStack(alignment: .leading, spacing: Metrics.s) {
-            DatePicker("Born", selection: $birthDate, in: ...Date(), displayedComponents: .date)
-            if library.settings.person?.birthDate == nil {
+            if birthDate != nil || addsBirthDate {
+                DatePicker("Born", selection: birthDateBinding, in: ...Date(), displayedComponents: .date)
+            } else {
+                HStack {
+                    Text("Born")
+                    Spacer()
+                    Text("Not set")
+                        .foregroundStyle(Palette.secondaryInk)
+                    Button("Add") { addsBirthDate = true }
+                        .buttonStyle(.borderless)
+                        .disabled(!library.canEdit)
+                }
+            }
+            if birthDate == nil {
                 PlanIssueLine(message: "Add your birth date: plans need it for ages.", isError: true)
             }
             Toggle("Retire as early as possible", isOn: $plan.planRetiresEarliest)
@@ -164,18 +181,20 @@ struct PlanYouEditor: View {
             Stepper("Plan to age \(plan.planEndAge)", value: $plan.planEndAge, in: 70...110)
         }
         .font(.subheadline)
-        .onAppear {
-            birthDate = (library.settings.person?.birthDate ?? CalendarDate(year: 1985, month: 1, day: 1)
-                ?? CalendarDate.today()).dateValue
-            loaded = true
-        }
-        .onChange(of: birthDate) { _, date in
-            let birth = CalendarDate(date, in: .current)
-            guard loaded, birth != library.settings.person?.birthDate else { return }
-            try? library.updateSettings { settings in
-                settings.person = Person(name: settings.person?.name, birthDate: birth)
-            }
-        }
+    }
+
+    /// The picker's date: the birth date, or where the picker starts
+    /// before one is picked. Picking a date saves it.
+    private var birthDateBinding: Binding<Date> {
+        Binding(
+            get: { (library.settings.person?.birthDate ?? YouSettings.suggestedBirthDate()).dateValue },
+            set: { date in
+                let birth = CalendarDate(date, in: .current)
+                guard library.canEdit, birth != library.settings.person?.birthDate else { return }
+                try? library.updateSettings { settings in
+                    settings = YouSettings.setting(birthDate: birth, in: settings)
+                }
+            })
     }
 }
 
