@@ -293,11 +293,14 @@ extension ImportFlow {
 
     /// The mapping as a profile to save, with everything detected written out
     /// and the conflict policy chosen. Pass the library after the import, so
-    /// new accounts' names resolve to their IDs.
+    /// new accounts' names resolve to their IDs. A journal's proposed new
+    /// accounts that were declined are left out next time (`ledger.ignore`).
     func makeProfile(id: ImportProfileID, name: String, library: Library) -> ImportProfile? {
         var profile: ImportProfile
         if let ledger {
-            guard let result = ledger.result else { return nil }
+            guard var result = ledger.result else { return nil }
+            // With the decisions, so declined new accounts are known.
+            if let preview { result.preview = preview }
             profile = ledger.session.makeProfile(id: id, name: name, from: result, library: library)
         } else {
             guard let session else { return nil }

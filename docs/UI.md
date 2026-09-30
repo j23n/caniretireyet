@@ -386,7 +386,7 @@ Ledger journals (one or several `.ledger`, `.journal`, `.hledger`, `.j` or `.dat
 1. **Files.** What was read: the files, transactions, dates, problems with their file and line, and includes the app can't read, with **Choose the Journal's Folder…**. The saved ledger profiles, best fit first.
 2. **Accounts.** The ledger's assets and liabilities as a tree, each with a picker: as proposed (matched or new), a library account, a new account, or left out; the new accounts to create; closings; the income and expense accounts that are returns; month, quarter or activity snapshots.
 3. **Commodities.** Each commodity as cash, an instrument (matched, new or chosen) or left out; the new instruments; whether `@` prices are recorded.
-4. **Preview** and 5. **Done**, as for a spreadsheet, with the journal's notes (flows that couldn't be valued) instead of the grid.
+4. **Preview** and 5. **Done**, as for a spreadsheet, with the journal's notes (flows that couldn't be valued) instead of the grid. **Save as profile** remembers the new accounts you didn't create as left out (`ledger.ignore`), so the next import doesn't propose them again.
 
 On iPhone, journals use "Import with profile…" with a saved ledger profile, like a CSV.
 
