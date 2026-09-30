@@ -6,12 +6,13 @@ import Tracker
 
 private func d(_ string: String) -> Decimal { Decimal(fileString: string)! }
 
-/// An October check-in on the example library.
+/// An October check-in on the example library, with Directa recorded as
+/// positions (see TradeCheckInTests for an account that records trades).
 struct CheckInDraftTests {
     let library: Library
 
     init() throws {
-        library = try Fixtures.exampleLibrary()
+        library = try exampleLibraryWithHoldings()
     }
 
     /// A new draft for 2026-10-31 with fetched prices and rates.

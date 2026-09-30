@@ -232,7 +232,7 @@ struct TradeStorageTests {
                 + "record its cash instead. The balance isn't used.",
         ])
         // Nothing was dropped.
-        #expect(result.library.allTrades.count == 4)
+        #expect(result.library.months["2026-10"]?.trades.count == 4)
     }
 
     @Test func tradesBeforeTheAccountOpenedOrOfUnknownAccountsArePointedOut() throws {

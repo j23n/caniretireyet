@@ -4,13 +4,15 @@ import Model
 /// The made-up example library shipped with the tests, in the FILE_FORMAT.md
 /// layout (`Resources/ExampleLibrary/`). All names and numbers are fake.
 ///
-/// Contents: 10 accounts (current, savings, brokerage with ETF positions and
-/// cash, crypto wallet, gold coins, pension fund, TFR, a home and its
-/// mortgage, both excluded from plans, and `old-bank`, closed on 2025-11-15
-/// with a successor);
+/// Contents: 10 accounts (current, savings, `directa`, a brokerage that
+/// records trades, crypto wallet, gold coins, pension fund, TFR, a home and
+/// its mortgage, both excluded from plans, and `old-bank`, closed on
+/// 2025-11-15 with a successor);
 /// instruments `vwce` (EUR), `btc` (priced in USD) and `gold` (per gram);
-/// month files 2025-10 to 2026-09 with month-end valuations, prices, EUR/USD
-/// rates and `hicp-it` values (none yet for 2026-09); plans `base` and
+/// month files 2025-10 to 2026-09 with month-end valuations (Directa's
+/// record its cash), prices, EUR/USD rates and `hicp-it` values (none yet
+/// for 2026-09), and Directa's trades: an opening of 338 VWCE, a deposit and
+/// a buy each month, and a sale in July 2026; plans `base` and
 /// `part-time-from-50`; the import profile `net-worth-sheet`; and a baseline
 /// and a headline file for `base`.
 public enum Fixtures {

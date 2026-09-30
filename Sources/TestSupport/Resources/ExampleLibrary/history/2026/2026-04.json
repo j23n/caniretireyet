@@ -11,16 +11,23 @@
     { "currency": "EUR", "date": "2026-04-30", "instrument": "gold", "price": "98.6", "source": "gold-api" },
     { "currency": "EUR", "date": "2026-04-30", "instrument": "vwce", "price": "131.9", "source": "yahoo" }
   ],
+  "trades": [
+    { "account": "directa", "amount": "1726.1", "date": "2026-04-03", "id": "6tolmwxn", "type": "deposit" },
+    {
+      "account": "directa",
+      "date": "2026-04-15",
+      "fees": "1.5",
+      "id": "jrkg56ll",
+      "instrument": "vwce",
+      "price": "131.4",
+      "quantity": "3",
+      "type": "buy"
+    }
+  ],
   "valuations": [
     { "account": "conto-deposito", "balance": "16193.15", "date": "2026-04-30", "flow": "0" },
     { "account": "conto-fineco", "balance": "4410.65", "date": "2026-04-30", "flow": "-1119.45" },
-    {
-      "account": "directa",
-      "cash": "1480.6",
-      "date": "2026-04-30",
-      "flow": "1726.1",
-      "positions": [{ "instrument": "vwce", "quantity": "391" }]
-    },
+    { "account": "directa", "cash": "1480.6", "date": "2026-04-30", "flow": "1726.1" },
     { "account": "mutuo-casa", "balance": "-144300", "date": "2026-04-30", "flow": "650" }
   ]
 }
