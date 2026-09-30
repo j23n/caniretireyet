@@ -320,9 +320,9 @@ enum OverviewAttention {
                                asOf: CalendarDate) -> [(InstrumentID, CalendarDate)] {
         var oldest: [InstrumentID: CalendarDate] = [:]
         for account in library.accounts.values where account.isOpen(on: asOf) && account.includedInNetWorth {
-            guard let valuation = valuator.latestValuation(for: account.id, onOrBefore: asOf),
-                  !valuation.isBalance
-            else { continue }
+            // What the account holds: its latest valuation, or a trades account's snapshot
+            // (dated its latest valuation or trade).
+            guard let valuation = valuator.snapshot(of: account.id, on: asOf), !valuation.isBalance else { continue }
             for position in valuation.positions where position.quantity != 0 {
                 guard let price = valuator.prices.latest(for: position.instrument, onOrBefore: asOf),
                       price.date < valuation.date
