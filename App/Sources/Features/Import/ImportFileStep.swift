@@ -22,8 +22,10 @@ struct ImportFileStep: View {
             Section {
                 ImportDropZone(fileName: flow.fileName, isTargeted: isTargeted, chooseFile: chooseFile)
             } footer: {
-                Text("A CSV or TSV file, as Excel, Numbers or a bank exports it: any delimiter, encoding, date and "
-                    + "number format. Or ledger-cli and hledger journals: choose one or several.")
+                Text("Spreadsheets: a CSV or TSV file, as Excel, Numbers or a bank exports it, in any delimiter, "
+                    + "encoding, date and number format.\nLedger journals: ledger-cli or hledger files "
+                    + "(.journal, .ledger, .hledger). Choose one or several, e.g. one per year; the files they "
+                    + "include are read too.")
             }
 
             if let problem = flow.problem, !flow.hasFile {
@@ -144,11 +146,11 @@ private struct ImportDropZone: View {
                 .font(.system(size: 34, weight: .light))
                 .foregroundStyle(Palette.accent)
                 .accessibilityHidden(true)
-            Text(fileName ?? "Drop a spreadsheet export here")
+            Text(fileName ?? "Drop a spreadsheet export or ledger journals here")
                 .font(.headline)
                 .foregroundStyle(Palette.ink)
                 .multilineTextAlignment(.center)
-            Button(fileName == nil ? "Choose File…" : "Choose Another File…", action: chooseFile)
+            Button(fileName == nil ? "Choose Files…" : "Choose Other Files…", action: chooseFile)
                 .buttonStyle(.bordered)
         }
         .frame(maxWidth: .infinity)

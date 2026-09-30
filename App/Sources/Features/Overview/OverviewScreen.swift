@@ -179,11 +179,11 @@ private struct OverviewEmptyState: View {
         ContentUnavailableView {
             Label("Nothing here yet", systemImage: AppSymbol.overview)
         } description: {
-            Text("Add your accounts, or import the spreadsheet you've kept so far.")
+            Text("Add your accounts, or import the spreadsheet or ledger journals you've kept so far.")
         } actions: {
             Button("Add accounts") { navigation.newAccount() }
                 .buttonStyle(.borderedProminent)
-            Button("Import a spreadsheet") { navigation.startImport() }
+            Button("Import…") { navigation.startImport() }
         }
         .background(Palette.page)
     }

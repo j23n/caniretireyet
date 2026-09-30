@@ -455,7 +455,7 @@ On iPhone, journals use "Import with profile…" with a saved ledger profile, li
 1. Welcome.
 2. Where to keep your data (iCloud Drive is recommended).
 3. Birth date, base currency and tax residence.
-4. "Import a spreadsheet" or "Add accounts".
+4. "Import a spreadsheet or journals" or "Add accounts".
 5. The first check-in.
 6. "Create your first plan" (a guided form covering work, spending and pensions).
 

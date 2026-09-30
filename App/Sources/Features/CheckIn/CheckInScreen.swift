@@ -244,7 +244,7 @@ struct CheckInStartView: View {
                 Button("Add an account") { addAccount() }
                     .buttonStyle(.borderedProminent)
                     .disabled(!library.canEdit)
-                Button("Import a spreadsheet") { importSpreadsheet() }
+                Button("Import…") { importSpreadsheet() }
                     .disabled(!library.canEdit)
             }
             .background(Palette.page)

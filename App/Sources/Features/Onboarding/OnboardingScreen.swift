@@ -250,13 +250,13 @@ struct WelcomeNextStepsView: View {
         VStack(alignment: .leading, spacing: Metrics.l) {
             Text("Your library is ready")
                 .font(.title2.bold())
-            Text("Bring in your history from a spreadsheet, or add your accounts one by one. Then do your first check-in, and create your first plan.")
+            Text("Bring in your history from a spreadsheet or ledger journals, or add your accounts one by one. Then do your first check-in, and create your first plan.")
                 .foregroundStyle(Palette.secondaryInk)
             Button {
                 dismiss()
                 navigation.startImport()
             } label: {
-                Label("Import a spreadsheet", systemImage: AppSymbol.importData)
+                Label("Import a spreadsheet or journals", systemImage: AppSymbol.importData)
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
             .buttonStyle(.bordered)
