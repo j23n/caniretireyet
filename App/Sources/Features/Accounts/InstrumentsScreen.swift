@@ -4,21 +4,45 @@ import SwiftUI
 import Tracker
 
 /// Every instrument (UI.md, "Instruments"): anything held as a quantity,
-/// with its price source and latest price. Under Library on the Mac (a
-/// table), and from an account's positions on iPhone (a list). Tapping or
+/// with its price source and latest saved price, marked when it's older
+/// than the staleness threshold. Under Library on the Mac (a table), and
+/// from an account's positions on iPhone (a list). Tapping or
 /// double-clicking one edits it.
+///
+/// - *Update Prices* (the toolbar, or pulling down on iPhone) fetches today's
+///   price of every instrument an open account holds that has a price
+///   source, with the exchange rates, and saves them. A banner shows its
+///   progress and what happened; Details lists every instrument.
+/// - Each row (swipe or right-click): *Update Price* and *Set Price…*.
 struct InstrumentsScreen: View {
     @Environment(LibraryStore.self) private var library
-    @Environment(\.locale) private var locale
+    @Environment(PriceStore.self) private var prices
+    @Environment(AppPreferences.self) private var preferences
     @State private var editing: InstrumentEditTarget?
+    @State private var settingPrice: InstrumentEditTarget?
     @State private var selection: InstrumentID?
+    @State private var updater = InstrumentPriceUpdater()
+    @State private var showsUpdateDetails = false
 
     init() {}
+
+    /// The line under the list.
+    static let footer = "Prices are also fetched at every check-in. "
+        + "Net worth uses the price on or before each check-in's date."
 
     var body: some View {
         content
             .navigationTitle("Instruments")
             .toolbar {
+                ToolbarItem(placement: .primaryAction) {
+                    Button {
+                        updateAll()
+                    } label: {
+                        Label("Update Prices", systemImage: "arrow.clockwise")
+                    }
+                    .disabled(!updater.canUpdate(library: library, prices: prices))
+                    .help("Fetch today's price of every instrument an open account holds")
+                }
                 ToolbarItem(placement: .primaryAction) {
                     Button {
                         editing = InstrumentEditTarget(instrument: nil)
@@ -34,6 +58,22 @@ struct InstrumentsScreen: View {
                 }
                 #if os(macOS)
                 .frame(minWidth: 460, idealWidth: 520, minHeight: 480, idealHeight: 640)
+                #endif
+            }
+            .sheet(item: $settingPrice) { target in
+                NavigationStack {
+                    setPriceSheet(target.instrument)
+                }
+                #if os(macOS)
+                .frame(minWidth: 380, idealWidth: 440, minHeight: 320, idealHeight: 380)
+                #endif
+            }
+            .sheet(isPresented: $showsUpdateDetails) {
+                NavigationStack {
+                    InstrumentPriceUpdateSheet(updater: updater)
+                }
+                #if os(macOS)
+                .frame(minWidth: 460, idealWidth: 520, minHeight: 420, idealHeight: 560)
                 #endif
             }
             .overlay {
@@ -78,10 +118,13 @@ struct InstrumentsScreen: View {
             }
             .width(min: 90, ideal: 120)
             TableColumn("Latest price") { (instrument: Instrument) in
-                Text(latestPrice(of: instrument))
-                    .monospacedDigit()
+                HStack(spacing: Metrics.xs) {
+                    InstrumentLatestPriceLabel(latest: latest(of: instrument),
+                                               threshold: preferences.stalenessThreshold)
+                    InstrumentUpdateIndicator(line: updateLine(of: instrument))
+                }
             }
-            .width(min: 100, ideal: 150)
+            .width(min: 120, ideal: 180)
             TableColumn("Price source") { (instrument: Instrument) in
                 Text(InstrumentText.source(of: instrument))
                     .foregroundStyle(Palette.secondaryInk)
@@ -90,64 +133,156 @@ struct InstrumentsScreen: View {
         .contextMenu(forSelectionType: InstrumentID.self) { ids in
             if let id = ids.first {
                 Button("Edit Instrument…") { editing = InstrumentEditTarget(instrument: id) }
+                if let instrument = library.library.instruments[id] {
+                    priceActions(for: instrument)
+                }
             }
         } primaryAction: { ids in
             if let id = ids.first { editing = InstrumentEditTarget(instrument: id) }
         }
+        .safeAreaInset(edge: .top, spacing: 0) {
+            if let run = updater.run {
+                banner(run)
+                    .padding(.horizontal, Metrics.l)
+                    .padding(.vertical, Metrics.s)
+                    .background(.bar)
+            }
+        }
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            Text(Self.footer)
+                .font(.footnote)
+                .foregroundStyle(Palette.secondaryInk)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, Metrics.l)
+                .padding(.vertical, Metrics.s)
+                .background(.bar)
+        }
         #else
         List {
-            ForEach(instruments) { instrument in
-                NavigationLink {
-                    InstrumentEditor(instrumentID: instrument.id)
-                } label: {
-                    InstrumentListRow(instrument: instrument, latestPrice: latestPrice(of: instrument))
+            if let run = updater.run {
+                Section {
+                    banner(run)
                 }
             }
+            Section {
+                ForEach(instruments) { instrument in
+                    NavigationLink {
+                        InstrumentEditor(instrumentID: instrument.id)
+                    } label: {
+                        InstrumentListRow(instrument: instrument, latest: latest(of: instrument),
+                                          threshold: preferences.stalenessThreshold,
+                                          update: updateLine(of: instrument))
+                    }
+                    .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                        swipeActions(for: instrument)
+                    }
+                    .contextMenu {
+                        priceActions(for: instrument)
+                    }
+                }
+            } footer: {
+                if !instruments.isEmpty {
+                    Text(Self.footer)
+                }
+            }
+        }
+        .refreshable {
+            await updater.updateAll(library: library, prices: prices)
         }
         #endif
     }
 
-    /// "138,42 EUR on 30 Sep", or "No price yet".
-    private func latestPrice(of instrument: Instrument) -> String {
-        guard let price = library.valuator.prices.latest(for: instrument.id, onOrBefore: .today()) else {
-            return "No price yet"
+    private func banner(_ run: InstrumentPriceUpdate) -> some View {
+        InstrumentPriceUpdateBanner(run: run, isRunning: updater.isRunning,
+                                    showDetails: { showsUpdateDetails = true },
+                                    close: { updater.dismiss() })
+    }
+
+    // MARK: Row actions
+
+    /// *Update Price* (for an instrument with a price source) and *Set Price…*.
+    @ViewBuilder
+    private func priceActions(for instrument: Instrument) -> some View {
+        if InstrumentPriceUpdatePlan.isFetched(instrument) {
+            Button {
+                update(instrument.id)
+            } label: {
+                Label("Update Price", systemImage: "arrow.clockwise")
+            }
+            .disabled(!updater.canUpdate(library: library, prices: prices))
         }
-        return "\(AmountFormat.number(price.price, maxDigits: 4, locale: locale)) \(price.currency) on "
-            + AmountFormat.shortDate(price.date, locale: locale)
+        Button {
+            settingPrice = InstrumentEditTarget(instrument: instrument.id)
+        } label: {
+            Label("Set Price…", systemImage: "square.and.pencil")
+        }
+        .disabled(!library.canEdit)
+    }
+
+    @ViewBuilder
+    private func swipeActions(for instrument: Instrument) -> some View {
+        if InstrumentPriceUpdatePlan.isFetched(instrument) {
+            Button {
+                update(instrument.id)
+            } label: {
+                Label("Update", systemImage: "arrow.clockwise")
+            }
+            .tint(Palette.accent)
+            .disabled(!updater.canUpdate(library: library, prices: prices))
+        }
+        Button {
+            settingPrice = InstrumentEditTarget(instrument: instrument.id)
+        } label: {
+            Label("Set Price", systemImage: "square.and.pencil")
+        }
+        .tint(Palette.mutedInk)
+        .disabled(!library.canEdit)
+    }
+
+    @ViewBuilder
+    private func setPriceSheet(_ id: InstrumentID?) -> some View {
+        if let id, let instrument = library.library.instruments[id] {
+            InstrumentSetPriceSheet(instrumentID: id, name: instrument.name, currency: instrument.currency,
+                                    unit: instrument.unit)
+        } else {
+            ContentUnavailableView("This instrument no longer exists", systemImage: "questionmark.folder")
+        }
+    }
+
+    // MARK: Actions and values
+
+    private func updateAll() {
+        Task { await updater.updateAll(library: library, prices: prices) }
+    }
+
+    private func update(_ id: InstrumentID) {
+        Task { await updater.update(id, library: library, prices: prices) }
+    }
+
+    private func latest(of instrument: Instrument) -> InstrumentLatestPrice? {
+        InstrumentLatestPrice(of: instrument, prices: library.valuator.prices, today: .today(),
+                              stalenessThreshold: preferences.stalenessThreshold)
+    }
+
+    /// The instrument's line in the latest price update, if it's in it.
+    private func updateLine(of instrument: Instrument) -> InstrumentPriceUpdate.Line? {
+        updater.run?.line(for: .instrument(instrument.id))
     }
 }
 
-/// Which instrument the editor sheet shows; `nil` for a new one.
+/// Which instrument a sheet shows; `nil` for a new one.
 struct InstrumentEditTarget: Identifiable, Hashable {
     var instrument: InstrumentID?
 
     var id: String { instrument?.rawValue ?? "new instrument" }
 }
 
-/// How an instrument's details read in lists.
-enum InstrumentText {
-    /// "IE00BK5BQT80 · VWCE", or "–".
-    static func identifiers(of instrument: Instrument) -> String {
-        let parts = [instrument.isin, instrument.ticker].compactMap { $0 }
-        return parts.isEmpty ? "–" : parts.joined(separator: " · ")
-    }
-
-    /// "EUR per share".
-    static func pricedIn(_ instrument: Instrument) -> String {
-        "\(instrument.currency) per \(InstrumentForm.name(of: instrument.unit))"
-    }
-
-    /// "Yahoo Finance · VWCE.DE", or "Typed in by hand".
-    static func source(of instrument: Instrument) -> String {
-        guard let source = instrument.priceSource else { return "Typed in by hand" }
-        return "\(InstrumentForm.name(of: source.provider)) · \(source.symbol)"
-    }
-}
-
 /// One instrument in the iPhone list.
 private struct InstrumentListRow: View {
     let instrument: Instrument
-    let latestPrice: String
+    let latest: InstrumentLatestPrice?
+    let threshold: Int
+    let update: InstrumentPriceUpdate.Line?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
@@ -157,12 +292,45 @@ private struct InstrumentListRow: View {
             Text("\(InstrumentForm.name(of: instrument.kind)) · \(InstrumentText.identifiers(of: instrument))")
                 .font(.caption)
                 .foregroundStyle(Palette.secondaryInk)
-            Text("\(latestPrice) · \(InstrumentText.source(of: instrument))")
-                .font(.caption)
-                .foregroundStyle(Palette.secondaryInk)
-                .monospacedDigit()
+            HStack(spacing: Metrics.xs) {
+                InstrumentLatestPriceLabel(latest: latest, threshold: threshold)
+                Text(verbatim: "· " + InstrumentText.source(of: instrument))
+                    .lineLimit(1)
+                InstrumentUpdateIndicator(line: update)
+            }
+            .font(.caption)
+            .foregroundStyle(Palette.secondaryInk)
         }
         .padding(.vertical, 2)
+    }
+}
+
+/// How the latest price update went for one instrument, next to its price:
+/// a spinner while it's fetched, a mark when it failed or a typed price was
+/// kept. Nothing once the new price is saved: it shows.
+private struct InstrumentUpdateIndicator: View {
+    let line: InstrumentPriceUpdate.Line?
+
+    var body: some View {
+        if let line {
+            switch line.status {
+            case .fetching, .fetched:
+                ProgressView()
+                    .controlSize(.mini)
+            case .keptTyped:
+                Image(systemName: "hand.raised")
+                    .foregroundStyle(Palette.warning)
+                    .help("A price typed in for today was kept")
+                    .accessibilityLabel("Typed price kept")
+            case .failed(let reason):
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .foregroundStyle(Palette.critical)
+                    .help(reason)
+                    .accessibilityLabel("Update failed: \(reason)")
+            case .updated, .unchanged:
+                EmptyView()
+            }
+        }
     }
 }
 
@@ -170,7 +338,12 @@ private struct InstrumentListRow: View {
 
 /// Adds or edits an instrument (UI.md, "Instruments"): name, ISIN or
 /// ticker, currency, unit, asset mix and price source, with a *Test price
-/// fetch* button. Pushed from a list, or shown in a sheet (`isSheet`).
+/// fetch* button, its latest price and *Set Price…*. Pushed from a list, or
+/// shown in a sheet (`isSheet`).
+///
+/// A test fetch saves nothing by itself. For an existing instrument it
+/// offers *Save Price*; otherwise the price is saved with the instrument, as
+/// is a price set by hand on a new one.
 struct InstrumentEditor: View {
     /// `nil` for a new instrument.
     let instrumentID: InstrumentID?
@@ -183,13 +356,18 @@ struct InstrumentEditor: View {
 
     @Environment(LibraryStore.self) private var library
     @Environment(PriceStore.self) private var prices
+    @Environment(AppPreferences.self) private var preferences
     @Environment(\.dismiss) private var dismiss
     @Environment(\.locale) private var locale
 
     @State private var form: InstrumentForm?
     @State private var showsProblems = false
-    @State private var testResult: String?
+    @State private var testQuote: InstrumentTestQuote?
     @State private var isTesting = false
+    /// A price set by hand on a new instrument, saved with it.
+    @State private var typedPrice: PriceRecord?
+    @State private var showsSetPrice = false
+    @State private var confirmsReplacingTyped = false
     @State private var confirmsDelete = false
     @State private var errorMessage: String?
 
@@ -285,6 +463,7 @@ struct InstrumentEditor: View {
                 Text("What it's invested in: a world ETF is 100% equity, a 60/40 fund 60% equity and 40% bonds.")
             }
             priceSourceSection(form)
+            pricesSection(form.wrappedValue)
             if !holders.isEmpty {
                 Section("Held in") {
                     Text(holders.joined(separator: ", "))
@@ -323,10 +502,25 @@ struct InstrumentEditor: View {
                     .disabled(!library.canEdit)
             }
         }
+        .sheet(isPresented: $showsSetPrice) {
+            NavigationStack {
+                setPriceSheet(form.wrappedValue)
+            }
+            #if os(macOS)
+            .frame(minWidth: 380, idealWidth: 440, minHeight: 320, idealHeight: 380)
+            #endif
+        }
         .confirmationDialog("Delete this instrument?", isPresented: $confirmsDelete, titleVisibility: .visible) {
             Button("Delete Instrument", role: .destructive) { delete() }
         } message: {
             Text("Its prices stay in the history files.")
+        }
+        .confirmationDialog("Replace the price you typed in?", isPresented: $confirmsReplacingTyped,
+                            titleVisibility: .visible) {
+            Button("Replace") { saveTestPrice(replacingTyped: true) }
+            Button("Keep Mine", role: .cancel) {}
+        } message: {
+            Text("A price typed in by hand for the same day is kept unless you replace it.")
         }
     }
 
@@ -339,7 +533,7 @@ struct InstrumentEditor: View {
                 }
             }
             if form.wrappedValue.provider != nil {
-                AccountsTextField(title: "Symbol", text: form.symbol, prompt: symbolPrompt(form.wrappedValue))
+                AccountsTextField(title: "Symbol", text: form.symbol, prompt: form.wrappedValue.symbolPrompt)
             }
             Button {
                 test(form.wrappedValue)
@@ -353,26 +547,99 @@ struct InstrumentEditor: View {
                 }
             }
             .disabled(isTesting || form.wrappedValue.provider == nil)
-            if let testResult {
-                Text(testResult)
+            if let testQuote {
+                Text(testQuote.describe(canFetch: prices.canFetch, locale: locale))
                     .font(.footnote)
                     .foregroundStyle(Palette.secondaryInk)
                     .fixedSize(horizontal: false, vertical: true)
+                testQuoteAction(testQuote, form: form.wrappedValue)
             }
         } header: {
             Text("Price source")
         } footer: {
-            Text("Where its price comes from at each check-in. Without one, you type the price in. "
-                + "Only the symbol and the date leave this device.")
+            Text(sourceFooter(form.wrappedValue))
         }
     }
 
-    private func symbolPrompt(_ form: InstrumentForm) -> String {
-        let suggested = form.suggestedSymbol
-        if !suggested.isEmpty { return suggested }
-        if form.provider == PriceProvider.coingecko { return "e.g. bitcoin" }
-        if form.provider == PriceProvider.goldAPI { return "XAU or XAG" }
-        return "e.g. VWCE.DE"
+    private func sourceFooter(_ form: InstrumentForm) -> String {
+        let text = "Where its price comes from at each check-in and with Update Prices. Without one, you type "
+            + "the price in. Only the symbol and the date leave this device."
+        guard let hint = form.symbolHint else { return text }
+        return hint + " " + text
+    }
+
+    /// Under a successful test: *Save Price* for an existing instrument, or
+    /// that the price is saved with the instrument, unless the currency,
+    /// unit or price source changed since.
+    @ViewBuilder
+    private func testQuoteAction(_ quote: InstrumentTestQuote, form: InstrumentForm) -> some View {
+        if let price = quote.price {
+            if quote.isSaved {
+                let date = AmountFormat.shortDate(price.date, locale: locale)
+                Label("Saved for \(date)", systemImage: "checkmark.circle")
+                    .font(.footnote)
+                    .foregroundStyle(Palette.good)
+            } else if !quote.fits(form.testInstrument(id: instrumentID ?? "test")) {
+                Text("The currency, unit or symbol changed since the test. Test again to keep a price.")
+                    .font(.footnote)
+                    .foregroundStyle(Palette.secondaryInk)
+            } else if let existing, quote.fits(existing) {
+                Button("Save Price") { saveTestPrice(replacingTyped: false) }
+                    .disabled(!library.canEdit)
+            } else {
+                Text("The price is saved with the instrument.")
+                    .font(.footnote)
+                    .foregroundStyle(Palette.secondaryInk)
+            }
+        }
+    }
+
+    /// The latest saved price, a price set for a new instrument, and *Set Price…*.
+    private func pricesSection(_ form: InstrumentForm) -> some View {
+        Section {
+            if let existing {
+                LabeledContent("Latest") {
+                    InstrumentLatestPriceLabel(
+                        latest: InstrumentLatestPrice(of: existing, prices: library.valuator.prices, today: .today(),
+                                                      stalenessThreshold: preferences.stalenessThreshold),
+                        threshold: preferences.stalenessThreshold)
+                }
+            }
+            if let typedPrice {
+                LabeledContent("Typed in") {
+                    Text(verbatim: InstrumentText.price(typedPrice.price, currency: typedPrice.currency, locale: locale)
+                        + " on " + AmountFormat.shortDate(typedPrice.date, locale: locale))
+                        .monospacedDigit()
+                }
+            }
+            Button("Set Price…") { showsSetPrice = true }
+                .disabled(!library.canEdit)
+        } header: {
+            Text("Prices")
+        } footer: {
+            if existing == nil && typedPrice != nil {
+                Text("It's saved with the instrument.")
+            } else {
+                Text("Type a price in for an instrument without a price source, or to correct one. "
+                    + "Update Prices won't replace it.")
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func setPriceSheet(_ form: InstrumentForm) -> some View {
+        if let existing {
+            InstrumentSetPriceSheet(instrumentID: existing.id, name: existing.name, currency: existing.currency,
+                                    unit: existing.unit)
+        } else {
+            let unit = form.unit.trimmingCharacters(in: .whitespaces)
+            InstrumentSetPriceSheet(
+                instrumentID: nil, name: form.trimmedName.isEmpty ? "New instrument" : form.trimmedName,
+                currency: form.currency, unit: unit.isEmpty ? .share : InstrumentUnit(rawValue: unit)
+            ) { record in
+                typedPrice = record
+            }
+        }
     }
 
     private func kinds(_ form: InstrumentForm) -> [InstrumentKind] {
@@ -405,22 +672,55 @@ struct InstrumentEditor: View {
         let instrument = form.testInstrument(id: instrumentID ?? "test")
         let baseCurrency = library.baseCurrency
         isTesting = true
-        testResult = nil
+        testQuote = nil
         Task {
-            let entry = await prices.testFetch(instrument, baseCurrency: baseCurrency)
-            testResult = InstrumentForm.describe(entry, canFetch: prices.canFetch, locale: locale)
+            let fetched = await prices.quote(instrument, baseCurrency: baseCurrency)
+            testQuote = InstrumentTestQuote(fetched, for: instrument)
             isTesting = false
         }
     }
 
+    /// Saves the tested price of an existing instrument. A different price
+    /// typed in by hand for the same day is replaced only once confirmed.
+    private func saveTestPrice(replacingTyped: Bool) {
+        guard var quote = testQuote, let existing, let price = quote.price else { return }
+        if !replacingTyped, let typed = quote.typedPrice(for: existing.id, in: library.library),
+           typed.price != price.price || typed.currency != price.currency {
+            confirmsReplacingTyped = true
+            return
+        }
+        let records = quote.records(for: existing.id, in: library.library, replacingTyped: replacingTyped)
+        do {
+            try library.upsert(prices: records.prices, fxRates: records.fxRates)
+            quote.isSaved = true
+            testQuote = quote
+            errorMessage = nil
+        } catch {
+            errorMessage = LibraryStore.describe(error)
+        }
+    }
+
+    /// Saves the instrument, with a price set by hand on a new one and a
+    /// tested price not saved yet that still fits it, in one edit.
     private func save(_ form: InstrumentForm) {
         let id = instrumentID ?? library.newInstrumentID(for: form.trimmedName)
         guard form.problems(locale: locale).isEmpty, let instrument = form.instrument(id: id, locale: locale) else {
             showsProblems = true
             return
         }
+        var prices: [PriceRecord] = []
+        var rates: [FXRecord] = []
+        if var typedPrice {
+            typedPrice.instrument = id
+            prices.append(typedPrice)
+        }
+        if let testQuote, !testQuote.isSaved, testQuote.fits(instrument) {
+            let records = testQuote.records(for: id, in: library.library)
+            prices += records.prices.filter { price in !prices.contains { $0.key == price.key } }
+            rates = records.fxRates
+        }
         do {
-            try library.save(instrument)
+            try library.save(instrument, prices: prices, fxRates: rates)
             onSave?(instrument.id)
             dismiss()
         } catch {

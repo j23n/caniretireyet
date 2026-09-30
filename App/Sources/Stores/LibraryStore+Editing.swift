@@ -46,6 +46,16 @@ extension LibraryStore {
         try update { $0.instruments[instrument.id] = instrument }
     }
 
+    /// Adds or replaces an instrument together with prices and FX rates, in
+    /// one edit (e.g. a new instrument with the price its test fetch found).
+    func save(_ instrument: Instrument, prices: [PriceRecord], fxRates: [FXRecord] = []) throws {
+        try update { library in
+            library.instruments[instrument.id] = instrument
+            prices.forEach { library.upsert($0) }
+            fxRates.forEach { library.upsert($0) }
+        }
+    }
+
     /// Deletes an instrument no position refers to.
     func deleteInstrument(_ id: InstrumentID) throws {
         try update { library in
