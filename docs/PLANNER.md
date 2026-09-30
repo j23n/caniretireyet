@@ -9,6 +9,7 @@
 
 Alongside the headline, it shows:
 
+- **What you could spend.** The highest yearly spending in retirement that still reaches your confidence level at your target retirement age. The engine finds it the same way it finds the earliest age.
 - **Chance of success against retirement age.** A curve showing what each extra year of work buys you.
 - **Portfolio over time.** The median, with a band from the 10th to the 90th percentile.
 - **Income by source for each retirement year**: portfolio withdrawals, public pensions, the pension fund, TFR and windfalls, together with each tax paid.
