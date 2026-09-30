@@ -125,6 +125,21 @@ struct ConflictResolverTests {
         #expect(result.summary == "Merged 2 versions of history/2026/2026-09.json; they had the same records.")
     }
 
+    @Test func withinOneVersionTheLaterDuplicateWinsAsWhenLoading() throws {
+        let newest = Data("""
+            {"month": "2026-10", "valuations": [
+              {"account": "tfr", "balance": "1", "date": "2026-10-31"},
+              {"account": "tfr", "balance": "2", "date": "2026-10-31"}]}
+            """.utf8)
+        let older = Data(#"{"month": "2026-10", "valuations": [{"account": "casa", "balance": "3", "date": "2026-10-31"}]}"#.utf8)
+        let result = ConflictResolver.merge(path: "history/2026/2026-10.json", [
+            ConflictVersion(older, modified: earlier), ConflictVersion(newest, modified: later),
+        ])
+        let valuations = try CanonicalJSON.parse(result.value)["valuations"]?.arrayValue ?? []
+        #expect(valuations.map { $0["balance"] } == ["3", "2"])
+        #expect(result.conflictingRecords.isEmpty)
+    }
+
     @Test func versionsThatAreNotJSONAreLeftOut() {
         let good = Data(#"{"month": "2026-10", "valuations": [{"account": "tfr", "balance": "1", "date": "2026-10-31"}]}"#.utf8)
         let broken = Data("{ not json".utf8)

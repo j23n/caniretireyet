@@ -43,6 +43,7 @@ public struct MergeResult<Value: Sendable>: Sendable {
 ///   every version is kept, matched by its key (account + date, instrument +
 ///   date, currency pair + date, index + date, check-in date). When versions
 ///   disagree about a record, the most recently modified version wins.
+///   Within one version, the last record with a key counts, as when loading.
 /// - Every other file: the most recently modified version wins.
 ///
 /// Versions modified at the same moment are ordered by their contents, so
@@ -162,6 +163,9 @@ public enum ConflictResolver {
             for (rank, version) in ranked.enumerated() {
                 guard case .array(let records)? = version.value[listName] else { continue }
                 present = true
+                // Within one version, the last record with a key counts, as when loading.
+                var latest: [RecordKey: JSONValue] = [:]
+                var keys: [RecordKey] = []
                 for record in records {
                     guard let key = list.key(of: record) else {
                         if !unkeyed.contains(record) {
@@ -170,6 +174,11 @@ public enum ConflictResolver {
                         }
                         continue
                     }
+                    if latest[key] == nil { keys.append(key) }
+                    latest[key] = record
+                }
+                for key in keys {
+                    let record = latest[key]!
                     if let kept = chosen[key] {
                         if kept != record, !conflicts.contains("\(listName): \(key)") {
                             conflicts.append("\(listName): \(key)")
