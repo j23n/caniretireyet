@@ -367,6 +367,9 @@ struct AccountActionSheet: View {
                 EditAccountSheet(accountID: action.account)
             }
         }
+        #if os(iOS)
+        .presentationDetents(action.kind == .updateValue ? [.medium, .large] : [.large])
+        #endif
         #if os(macOS)
         .frame(minWidth: 460, idealWidth: 520, minHeight: 420, idealHeight: 560)
         #endif
