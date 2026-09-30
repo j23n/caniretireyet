@@ -1,0 +1,58 @@
+{
+  "name": "INPS pension of 12,000 and forfettario on 30,000 revenue in the same year",
+  "year": 2026,
+  "input": {
+    "age": 67,
+    "systemOptions": {
+      "addizionaleRegionale": "0.0173",
+      "addizionaleComunale": "0.008"
+    },
+    "work": [
+      {
+        "phaseID": "freelance",
+        "kind": "selfEmployed",
+        "regime": "it.forfettario",
+        "gross": 30000,
+        "options": {
+          "coefficient": "0.67",
+          "startedIn": 2019
+        }
+      }
+    ],
+    "pensions": [
+      {
+        "id": "inps",
+        "scheme": "it.inps",
+        "amount": 12000.0
+      }
+    ]
+  },
+  "expected": {
+    "lines": {
+      "it.irpef": 1936.626264,
+      "it.addizionaleRegionale": 207.6,
+      "it.addizionaleComunale": 96.0,
+      "it.forfettario": 2228.9895
+    },
+    "contributions": {
+      "it.inps.gestioneSeparata": 5240.07
+    },
+    "accruals": {
+      "pensionScheme:it.inps": 5025.0
+    },
+    "totalTax": 4469.215764,
+    "netIncome": 32290.714236
+  },
+  "workings": [
+    "Forfettario base: 30,000.00 × 67% = 20,100.00; Gestione Separata 26.07% × 20,100.00 = 5,240.07",
+    "Forfettario income: 20,100.00 − 5,240.07 = 14,859.93; substitute tax 15% × 14,859.93 = 2,228.99",
+    "Total income for IRPEF (reddito complessivo) = taxable income = the pension, 12,000.00",
+    "Income for the detrazioni: 12,000.00 + 14,859.93 = 26,859.93, since forfettario income counts wherever a benefit depends on income (L. 190/2014 art. 1 c. 75)",
+    "Gross IRPEF on 12,000.00: 23% × 12,000.00 = 2,760.00",
+    "Pension detrazione at 26,859.93: 700 + 1,255 × (28,000 − 26,859.93) / 19,500 = 773.37, plus 50 between 25,000 and 29,000 = 823.37",
+    "Net IRPEF: 2,760.00 − 823.37 = 1,936.63 (on 12,000.00 alone the detrazione would be 1,729.74)",
+    "Addizionali on taxable income 12,000.00: regionale 1.73% = 207.60; comunale 0.8% = 96.00",
+    "INPS montante credit: 25% × 20,100.00 = 5,025.00",
+    "Net income: 12,000.00 + 30,000.00 − 5,240.07 − (1,936.63 + 207.60 + 96.00 + 2,228.99) = 32,290.71"
+  ]
+}

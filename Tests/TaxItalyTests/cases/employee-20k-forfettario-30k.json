@@ -1,0 +1,62 @@
+{
+  "name": "Employee on 20,000 and forfettario on 30,000 revenue in the same year",
+  "year": 2026,
+  "input": {
+    "age": 40,
+    "systemOptions": {
+      "addizionaleRegionale": "0.0173",
+      "addizionaleComunale": "0.008"
+    },
+    "work": [
+      {
+        "phaseID": "job",
+        "kind": "employee",
+        "regime": "it.employee",
+        "gross": 20000
+      },
+      {
+        "phaseID": "freelance",
+        "kind": "selfEmployed",
+        "regime": "it.forfettario",
+        "gross": 30000,
+        "options": {
+          "coefficient": "0.67",
+          "startedIn": 2019
+        }
+      }
+    ]
+  },
+  "expected": {
+    "lines": {
+      "it.irpef": 1765.996082,
+      "it.addizionaleRegionale": 314.2026,
+      "it.addizionaleComunale": 145.296,
+      "it.forfettario": 2228.9895
+    },
+    "contributions": {
+      "it.inps.employee": 1838.0,
+      "it.inps.gestioneSeparata": 5240.07
+    },
+    "accruals": {
+      "pensionScheme:it.inps": 11625.0,
+      "wrapper:it.tfr": 1382.0
+    },
+    "totalTax": 4454.484182,
+    "netIncome": 38467.445818
+  },
+  "workings": [
+    "INPS: 9.19% × 20,000.00 = 1,838.00; employment income 20,000.00 − 1,838.00 = 18,162.00",
+    "Forfettario base: 30,000.00 × 67% = 20,100.00; Gestione Separata 26.07% × 20,100.00 = 5,240.07",
+    "Forfettario income: 20,100.00 − 5,240.07 = 14,859.93; substitute tax 15% × 14,859.93 = 2,228.99",
+    "Total income for IRPEF (reddito complessivo) = taxable income = 18,162.00: forfettario income stays out of IRPEF",
+    "Income for the detrazioni, the cuneo and the trattamento integrativo: 18,162.00 + 14,859.93 = 33,021.93, since forfettario income counts wherever a benefit depends on income (L. 190/2014 art. 1 c. 75)",
+    "Gross IRPEF on 18,162.00: 23% × 18,162.00 = 4,177.26",
+    "Employment detrazione at 33,021.93: 1,910 × (50,000 − 33,021.93) / 22,000 = 1,474.01, plus 65 between 25,000 and 35,000 = 1,539.01",
+    "Cuneo: income for its limits 33,021.93 > 20,000, so no tax-free sum; extra detrazione 1,000 × (40,000 − 33,021.93) / 8,000 = 872.26",
+    "Trattamento integrativo: income 33,021.93 > 15,000, none",
+    "Net IRPEF: 4,177.26 − 1,539.01 − 872.26 = 1,766.00 (on 18,162.00 alone the detrazione would be 2,810.56 plus a tax-free sum of 871.78)",
+    "Addizionali on taxable income 18,162.00: regionale 1.73% = 314.20; comunale 0.8% = 145.30",
+    "INPS montante credit: 33% × 20,000.00 + 25% × 20,100.00 = 6,600.00 + 5,025.00 = 11,625.00; TFR accrual 6.91% × 20,000.00 = 1,382.00",
+    "Net income: 50,000.00 − 1,838.00 − 5,240.07 − (1,766.00 + 314.20 + 145.30 + 2,228.99) = 38,467.45"
+  ]
+}

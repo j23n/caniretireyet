@@ -14,8 +14,16 @@ struct IrpefBreakdown: Hashable, Sendable {
     var exemptIncome: Double = 0
     /// The part of `exemptIncome` that is employment income.
     var exemptEmploymentIncome: Double = 0
-    /// Reddito complessivo: the income the detrazioni formulas use (R).
+    /// Reddito complessivo: the income IRPEF is charged on, before deductions.
     var totalIncome: Double = 0
+    /// Forfettario income (revenue × coefficient less the contributions
+    /// paid), which is outside IRPEF.
+    var forfettarioIncome: Double = 0
+    /// The income the detrazioni formulas use (R), and that decides the
+    /// cuneo and the trattamento integrativo: total income plus forfettario
+    /// income, which counts wherever a benefit depends on income
+    /// (L. 190/2014 art. 1 c. 75).
+    var thresholdIncome: Double = 0
     /// Gestione Separata contributions deducted (regime ordinario).
     var contributionDeduction: Double = 0
     /// Pension-fund contributions deducted.
@@ -31,7 +39,8 @@ struct IrpefBreakdown: Hashable, Sendable {
     var cuneoDetrazione: Double = 0
     var otherCredits: Double = 0
     var netIrpef: Double = 0
-    /// Total income for the cuneo's limits (including exempt impatriati income).
+    /// Income for the cuneo's limits: the threshold income plus exempt
+    /// impatriati income.
     var cuneoIncome: Double = 0
     /// The cuneo's tax-free sum, paid with the salary.
     var cuneoExemptSum: Double = 0
@@ -54,8 +63,12 @@ extension ItalyYearCalculator {
         b.exemptIncome = b.exemptEmploymentIncome + professionals.reduce(0) { $0 + $1.exempt }
         b.pensionIncome = year.pensions.filter { $0.taxedIn == .residence }.reduce(0) { $0 + max(0, $1.amount) }
 
-        // Stage 4: reddito complessivo.
+        // Stage 4: reddito complessivo, and the income benefits are tested on:
+        // forfettario income counts there although it's outside IRPEF.
         b.totalIncome = max(0, b.employmentIncome + b.professionalIncome + b.pensionIncome)
+        b.forfettarioIncome = work.filter { $0.regime == ItalyRegime.forfettario }
+            .reduce(0) { $0 + $1.forfettarioTaxable }
+        b.thresholdIncome = b.totalIncome + b.forfettarioIncome
 
         // Stage 5: deductions.
         b.contributionDeduction = min(b.totalIncome, work.reduce(0) { $0 + $1.deductibleContribution })
@@ -68,7 +81,7 @@ extension ItalyYearCalculator {
         // Stage 6: IRPEF and detrazioni.
         b.grossIrpef = p.irpef.tax(on: b.taxableIncome)
         let employedShare = min(1, employees.reduce(0) { $0 + $1.fractionOfYear })
-        let r = b.totalIncome
+        let r = b.thresholdIncome
         if !employees.isEmpty {
             b.employmentDetrazione = p.employmentDetrazione.value(at: r) * employedShare
         }
