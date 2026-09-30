@@ -67,7 +67,9 @@ struct CheckInList: View {
 
     private func list(review: CheckInReview, sections: [CheckInSection], order: CheckInFieldOrder,
                       proxy: ScrollViewProxy) -> some View {
-        List {
+        let showsLater = CheckInSection.showsOpenedLater(in: sections, expanded: session.showsOpenedLater)
+        let canCollapse = sections.contains { !$0.isOpenedLater }
+        return List {
             Section {
                 CheckInListHeader(draft: draft, review: review, session: session)
                     .listRowBackground(Color.clear)
@@ -82,7 +84,7 @@ struct CheckInList: View {
             }
             ForEach(sections) { section in
                 Section {
-                    if !section.isOpenedLater || session.showsOpenedLater {
+                    if !section.isOpenedLater || showsLater {
                         ForEach(section.rows) { row in
                             CheckInListRow(
                                 row: row, review: review.row(for: row.account), date: draft.date,
@@ -95,13 +97,13 @@ struct CheckInList: View {
                         }
                     }
                 } header: {
-                    if section.isOpenedLater {
+                    if section.isOpenedLater && canCollapse {
                         openedLaterHeader(count: section.rows.count)
                     } else {
                         Text(verbatim: section.title)
                     }
                 } footer: {
-                    if section.isOpenedLater && session.showsOpenedLater {
+                    if section.isOpenedLater && showsLater {
                         Text("These accounts open after this date. Leave them empty to change nothing; a value "
                             + "moves the account's opening date back to this check-in.")
                     }

@@ -241,10 +241,18 @@ struct CheckInSection: Identifiable, Hashable, Sendable {
         return sections
     }
 
+    /// Whether the iPhone list shows the "Opened later" section's rows: when
+    /// it's expanded, or when it's the only section (every account opens
+    /// after the date), so the list is never just a collapsed header.
+    static func showsOpenedLater(in sections: [CheckInSection], expanded: Bool) -> Bool {
+        expanded || sections.allSatisfy(\.isOpenedLater)
+    }
+
     /// The rows the iPhone list shows: every section's, except the "Opened
     /// later" section's while it's collapsed.
     static func visibleRows(of sections: [CheckInSection], showsOpenedLater: Bool) -> [CheckInRow] {
-        sections.filter { !$0.isOpenedLater || showsOpenedLater }.flatMap(\.rows)
+        let shows = Self.showsOpenedLater(in: sections, expanded: showsOpenedLater)
+        return sections.filter { !$0.isOpenedLater || shows }.flatMap(\.rows)
     }
 }
 
