@@ -21,7 +21,7 @@ struct KnownKeysTests {
     private static let format = ImportFormat(
         date: ImportDateFormat(pattern: "dd/MM/yyyy", monthOnly: .start, timeZone: "Europe/Rome"),
         number: ImportNumberFormat(decimal: ",", thousands: ".", percent: false), empty: .zero,
-        liabilitySign: .asWritten)
+        liabilitySign: .asWritten, amountSign: .fromType)
     private static let plan = PlanDocument(
         id: "base", name: "Base", retirement: PlanRetirement(age: .age(55)), endAge: 95,
         tax: PlanTax(residence: [PlanResidence(from: 2026, system: "it", options: ["a": "0.01"])],
@@ -43,7 +43,7 @@ struct KnownKeysTests {
 
     private static let ledgerSettings = LedgerImportSettings(
         roots: ["Assets"], ignore: ["Assets:Loans"], returns: ["Income:Dividends"], flows: ["Income:Interest:Loan"],
-        ignoreCommodities: ["MILES"], frequency: .quarter, transactionPrices: false)
+        ignoreCommodities: ["MILES"], frequency: .quarter, transactionPrices: false, cashChecks: true)
 
     /// A fully populated value of every type with known keys.
     private static var samples: [(any Encodable, Set<String>)] { [
@@ -84,7 +84,7 @@ struct KnownKeysTests {
                        defaults: format, layout: .long, dateColumn: "Data", target: .balance,
                        constants: ImportConstants(account: "a"), columns: [ImportColumn(header: "A")],
                        matches: ImportMatches(accounts: ["A": "a"]), onConflict: .keep,
-                       ledger: ledgerSettings), ImportProfile.knownKeys),
+                       ledger: ledgerSettings, tradeTypes: ["Acquisto": .buy]), ImportProfile.knownKeys),
         (ledgerSettings, LedgerImportSettings.knownKeys),
         (ImportFileSettings(encoding: .utf8, delimiter: ";", headerRow: 1, excludeRows: ["Totale"]), ImportFileSettings.knownKeys),
         (ImportColumn(header: "A", index: 1, target: .fx, field: .value, account: "a", instrument: "i", currency: .eur,

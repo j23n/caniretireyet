@@ -1,5 +1,6 @@
 /// A ledger profile's `ledger` section: how a plain-text accounting journal
-/// (ledger-cli, hledger) becomes valuations. See IMPORT.md, "Ledger journals".
+/// (ledger-cli, hledger) becomes valuations, and trades for accounts that
+/// record trades. See IMPORT.md, "Ledger journals".
 ///
 /// Which ledger account goes to which library account, and which commodity
 /// is which instrument, is remembered in the profile's `matches`: a ledger
@@ -24,10 +25,14 @@ public struct LedgerImportSettings: Hashable, Sendable, KnownKeysProviding {
     /// Whether `@` prices on transactions become price records, as written.
     /// See ``effectiveTransactionPrices``.
     public var transactionPrices: Bool?
+    /// Whether library accounts that record trades also get a valuation with
+    /// the journal's cash at each snapshot date, as a check on the cash the
+    /// trades give, as written. See ``effectiveCashChecks``.
+    public var cashChecks: Bool?
 
     public init(roots: [String] = [], ignore: [String] = [], returns: [String] = [], flows: [String] = [],
                 ignoreCommodities: [String] = [], frequency: LedgerSnapshotFrequency? = nil,
-                transactionPrices: Bool? = nil) {
+                transactionPrices: Bool? = nil, cashChecks: Bool? = nil) {
         self.roots = roots
         self.ignore = ignore
         self.returns = returns
@@ -35,6 +40,7 @@ public struct LedgerImportSettings: Hashable, Sendable, KnownKeysProviding {
         self.ignoreCommodities = ignoreCommodities
         self.frequency = frequency
         self.transactionPrices = transactionPrices
+        self.cashChecks = cashChecks
     }
 
     /// The accounts that count toward net worth when `roots` is empty: assets
@@ -52,11 +58,15 @@ public struct LedgerImportSettings: Hashable, Sendable, KnownKeysProviding {
 
     /// Whether `@` prices become price records (default: yes).
     public var effectiveTransactionPrices: Bool { transactionPrices ?? true }
+
+    /// Whether trades accounts get cash valuations too (default: no: their
+    /// cash is fully derived from their trades).
+    public var effectiveCashChecks: Bool { cashChecks ?? false }
 }
 
 extension LedgerImportSettings: Codable {
     enum CodingKeys: String, CodingKey, CaseIterable {
-        case roots, ignore, returns, flows, ignoreCommodities, frequency, transactionPrices
+        case roots, ignore, returns, flows, ignoreCommodities, frequency, transactionPrices, cashChecks
     }
 
     public static var knownKeys: Set<String> { Set(CodingKeys.allCases.map(\.stringValue)) }
@@ -70,6 +80,7 @@ extension LedgerImportSettings: Codable {
         ignoreCommodities = try c.decodeArray([String].self, forKey: .ignoreCommodities)
         frequency = try c.decodeIfPresent(LedgerSnapshotFrequency.self, forKey: .frequency)
         transactionPrices = try c.decodeIfPresent(Bool.self, forKey: .transactionPrices)
+        cashChecks = try c.decodeIfPresent(Bool.self, forKey: .cashChecks)
     }
 
     public func encode(to encoder: any Encoder) throws {
@@ -81,6 +92,7 @@ extension LedgerImportSettings: Codable {
         try c.encodeIfNotEmpty(ignoreCommodities, forKey: .ignoreCommodities)
         try c.encodeIfPresent(frequency, forKey: .frequency)
         try c.encodeIfPresent(transactionPrices, forKey: .transactionPrices)
+        try c.encodeIfPresent(cashChecks, forKey: .cashChecks)
     }
 }
 

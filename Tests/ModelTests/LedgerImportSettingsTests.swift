@@ -55,3 +55,59 @@ struct LedgerImportSettingsTests {
         #expect(!LedgerSnapshotFrequency("weekly").isKnown)
     }
 }
+
+/// A trades import profile: `layout: "trades"`, fields per column, and the
+/// file's type words in `tradeTypes`.
+struct TradesImportProfileTests {
+    @Test func tradesProfileRoundTrips() throws {
+        let json = """
+            {
+              "columns": [
+                { "field": "date", "header": "Data operazione" },
+                { "field": "type", "header": "Tipo operazione" },
+                { "field": "instrument", "header": "ISIN" },
+                { "field": "quantity", "header": "Quantità" },
+                { "field": "price", "header": "Prezzo" },
+                { "field": "amount", "format": { "amountSign": "asWritten" }, "header": "Importo euro" },
+                { "field": "gross", "header": "Controvalore" },
+                { "field": "fees", "header": "Commissioni" },
+                { "field": "tax", "header": "Ritenuta" },
+                { "field": "ratio", "header": "Rapporto" },
+                { "field": "note", "header": "Descrizione" }
+              ],
+              "constants": { "account": "directa" },
+              "defaults": { "amountSign": "fromType" },
+              "id": "directa",
+              "layout": "trades",
+              "name": "Directa",
+              "tradeTypes": { "Acquisto": "buy", "Rimborso": "ignore", "Vendita": "sell" }
+            }
+            """
+        let profile = try JSONDecoder().decode(ImportProfile.self, from: Data(json.utf8))
+        #expect(profile.layout == .trades)
+        #expect(profile.layout.isKnown)
+        #expect(profile.tradeTypes == ["Acquisto": .buy, "Rimborso": "ignore", "Vendita": .sell])
+        #expect(profile.defaults.amountSign == .fromType)
+        #expect(profile.columns.map(\.field) == [.date, .type, .instrument, .quantity, .price, .amount, .gross,
+                                                 .fees, .tax, .ratio, .note])
+        #expect(profile.columns.compactMap(\.field).allSatisfy { $0.isKnown })
+        #expect(profile.columns[5].format?.amountSign == .asWritten)
+
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = .sortedKeys
+        let again = try JSONDecoder().decode(ImportProfile.self, from: encoder.encode(profile))
+        #expect(again == profile)
+        // Without trade types, the key stays out of the file.
+        var plain = profile
+        plain.tradeTypes = [:]
+        #expect(try JSONValue(encoding: plain)["tradeTypes"] == nil)
+    }
+
+    @Test func cashChecksAreOffByDefault() throws {
+        #expect(!LedgerImportSettings().effectiveCashChecks)
+        let settings = LedgerImportSettings(cashChecks: true)
+        #expect(settings.effectiveCashChecks)
+        #expect(try JSONValue(encoding: settings) == ["cashChecks": true])
+        #expect(TradeAmountSign.knownValues == [.auto, .fromType, .asWritten])
+    }
+}

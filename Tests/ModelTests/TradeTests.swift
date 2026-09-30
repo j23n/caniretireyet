@@ -198,6 +198,71 @@ struct LibraryTradeTests {
     }
 }
 
+/// `TradeID.stable`: the same trade in a file always gets the same ID.
+struct StableTradeIDTests {
+    private static let buy = Trade(account: "directa", date: "2026-03-12", type: .buy, instrument: "vwce",
+                                   quantity: 10, price: d("127.35"), amount: d("-1278.5"), fees: 5)
+
+    @Test func stableIDsLookLikeRandomOnes() {
+        let id = TradeID.stable(for: Self.buy)
+        #expect(id.rawValue.count == TradeID.randomLength)
+        #expect(id.isValidSlug)
+        #expect(id.rawValue.unicodeScalars.allSatisfy { ("a"..."z").contains($0) || ("2"..."7").contains($0) })
+    }
+
+    @Test func theSameFieldsGiveTheSameID() {
+        let id = TradeID.stable(for: Self.buy)
+        #expect(TradeID.stable(for: Self.buy) == id)
+        #expect(TradeID.stable(account: "directa", date: "2026-03-12", type: .buy, instrument: "vwce", quantity: 10,
+                               amount: d("-1278.5"), price: d("127.35")) == id)
+        // Decimals count by value: 10 and 10.0 are the same quantity.
+        var written = Self.buy
+        written.quantity = d("10.0")
+        #expect(TradeID.stable(for: written) == id)
+        // Its own ID, fees, tax, currency and note don't count.
+        var other = Self.buy
+        other.id = "k3q7vz2m"
+        other.fees = 7
+        other.tax = 1
+        other.currency = .eur
+        other.note = "monthly"
+        #expect(TradeID.stable(for: other) == id)
+    }
+
+    @Test func whatIdentifiesTheTradeChangesTheID() {
+        let id = TradeID.stable(for: Self.buy)
+        let changes: [(inout Trade) -> Void] = [
+            { $0.account = "fineco" },
+            { $0.date = "2026-03-13" },
+            { $0.type = .sell },
+            { $0.instrument = "swda" },
+            { $0.instrument = nil },
+            { $0.quantity = 11 },
+            { $0.amount = d("-1278.51") },
+            { $0.amount = nil },
+            { $0.price = d("127.36") },
+        ]
+        let ids = changes.map { change in
+            var trade = Self.buy
+            change(&trade)
+            return TradeID.stable(for: trade)
+        }
+        #expect(!ids.contains(id))
+        #expect(Set(ids).count == ids.count)
+        // Identical rows of a file are told apart by their ordinal.
+        let second = TradeID.stable(for: Self.buy, ordinal: 1)
+        #expect(second != id)
+        #expect(TradeID.stable(for: Self.buy, ordinal: 0) == id)
+    }
+
+    @Test func stableIDsDontChangeBetweenVersions() {
+        // They're written in history files: the hash must never change, or
+        // importing a file again would add its trades a second time.
+        #expect(TradeID.stable(for: Self.buy).rawValue == "qb5fhcaz")
+        #expect(TradeID.stable(for: Self.buy, ordinal: 1).rawValue == "b4c457br")
+    }
+}
+
 /// A small deterministic generator (SplitMix64) for tests.
 struct SeededGenerator: RandomNumberGenerator {
     var state: UInt64

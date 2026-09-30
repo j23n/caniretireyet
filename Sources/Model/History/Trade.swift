@@ -250,3 +250,50 @@ public struct TradeID: StringValue {
     /// Whether the ID is a valid slug: one or more of `a-z`, `0-9` and `-`.
     public var isValidSlug: Bool { Slug.isValid(rawValue) }
 }
+
+extension TradeID {
+    /// A stable ID for an imported trade: 8 lowercase base32 characters, like
+    /// a random ID, made from a hash of what the file says about it, so
+    /// importing the same file again gives the same IDs and changes nothing.
+    ///
+    /// The hash is FNV-1a (64-bit, mixed with MurmurHash3's finalizer) of the
+    /// account, date, type, instrument, quantity, amount and price (decimals
+    /// in their exact file form), and
+    /// `ordinal`: the trade's position among the rows of the file with all
+    /// of these equal, from 0, so two identical trades on one day stay
+    /// distinct. Fees, tax, the currency and the note aren't part of it: a
+    /// file that corrects them gives the same ID, and the import compares
+    /// the values (a conflict, or values filled in).
+    public static func stable(account: AccountID, date: CalendarDate, type: TradeType, instrument: InstrumentID?,
+                              quantity: Decimal?, amount: Decimal?, price: Decimal?, ordinal: Int = 0) -> TradeID {
+        let fields = [
+            account.rawValue, date.description, type.rawValue, instrument?.rawValue ?? "",
+            quantity?.fileString ?? "", amount?.fileString ?? "", price?.fileString ?? "", String(ordinal),
+        ]
+        var hash: UInt64 = 0xCBF2_9CE4_8422_2325
+        for byte in fields.joined(separator: "\u{1F}").utf8 {
+            hash ^= UInt64(byte)
+            hash = hash &* 0x0000_0100_0000_01B3
+        }
+        // MurmurHash3's finalizer, so a change in the last field (the
+        // ordinal) changes every character, then the top 40 bits, 5 per character.
+        hash ^= hash >> 33
+        hash = hash &* 0xFF51_AFD7_ED55_8CCD
+        hash ^= hash >> 33
+        hash = hash &* 0xC4CE_B9FE_1A85_EC53
+        hash ^= hash >> 33
+        let bits = hash >> 24
+        var text = String.UnicodeScalarView()
+        for index in 0..<randomLength {
+            text.append(alphabet[Int((bits >> UInt64(5 * (randomLength - 1 - index))) & 31)])
+        }
+        return TradeID(rawValue: String(text))
+    }
+
+    /// ``stable(account:date:type:instrument:quantity:amount:price:ordinal:)``
+    /// of a trade's own fields (its ID is ignored).
+    public static func stable(for trade: Trade, ordinal: Int = 0) -> TradeID {
+        stable(account: trade.account, date: trade.date, type: trade.type, instrument: trade.instrument,
+               quantity: trade.quantity, amount: trade.amount, price: trade.price, ordinal: ordinal)
+    }
+}
