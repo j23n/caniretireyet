@@ -6,7 +6,9 @@ import Tracker
 /// the waterfall since the last check-in (markets, new money, other), the
 /// accounts that changed, the accounts whose opening date moves back,
 /// anything unusual, then Save. Accounts not reviewed yet are asked about:
-/// mark them unchanged, or skip them.
+/// mark them unchanged, or skip them. A statement's quantities entered for
+/// a trades account that differ from its trades are listed with *Add
+/// Trade…* (`CheckInRowReview.mismatches`).
 ///
 /// Pushed on iPhone; a sheet on the Mac, where ⌘↩ saves.
 struct CheckInReviewView: View {
@@ -17,6 +19,9 @@ struct CheckInReviewView: View {
     @Environment(CheckInStore.self) private var checkIn
     @Environment(LibraryStore.self) private var library
     @Environment(\.locale) private var locale
+
+    /// A trade being added from a statement that differs from the trades.
+    @State private var tradeTarget: TradeEditorTarget?
 
     init(session: CheckInSession, isSheet: Bool = false) {
         _session = Bindable(session)
@@ -46,6 +51,7 @@ struct CheckInReviewView: View {
             } message: {
                 Text("Unchanged keeps their last values, so they don't go stale. Skipped accounts get no value this time.")
             }
+            .tradeEditorSheet($tradeTarget)
     }
 
     @ViewBuilder
@@ -60,8 +66,9 @@ struct CheckInReviewView: View {
             .background(Palette.page)
         } else if let draft = checkIn.draft {
             ScrollView {
-                CheckInReviewContent(draft: draft, review: draft.review(in: library.library), session: session) {
-                    save()
+                CheckInReviewContent(draft: draft, review: draft.review(in: library.library), session: session,
+                                     onSave: { save() }) { account, instrument in
+                    tradeTarget = TradeEditorTarget(account: account, date: draft.date, instrument: instrument)
                 }
                 .padding(Metrics.l)
                 .frame(maxWidth: Metrics.readableWidth)
@@ -103,6 +110,8 @@ private struct CheckInReviewContent: View {
     let review: CheckInReview
     let session: CheckInSession
     let onSave: () -> Void
+    /// Opens the trade editor for an account (and instrument) on the check-in's date.
+    let addTrade: (AccountID, InstrumentID?) -> Void
 
     @Environment(CheckInStore.self) private var checkIn
     @Environment(LibraryStore.self) private var library
@@ -146,7 +155,7 @@ private struct CheckInReviewContent: View {
                     }
                 }
             }
-            if !review.warnings.isEmpty {
+            if !review.warnings.isEmpty || !mismatches.isEmpty {
                 warningsCard
             }
             Button {
@@ -267,12 +276,22 @@ private struct CheckInReviewContent: View {
         }
     }
 
+    /// Statement quantities entered for trades accounts that differ from their trades.
+    private var mismatches: [PositionMismatch] {
+        review.rows.flatMap(\.mismatches)
+    }
+
     private var warningsCard: some View {
         Card("Worth a look") {
             VStack(alignment: .leading, spacing: Metrics.m) {
                 ForEach(review.warnings, id: \.self) { warning in
                     CheckInWarningRow(text: CheckInWarningText.make(warning, library: library.library, locale: locale),
-                                      session: session)
+                                      session: session, addTrade: addTrade)
+                }
+                ForEach(mismatches, id: \.self) { mismatch in
+                    CheckInWarningRow(text: CheckInWarningText.mismatch(mismatch, library: library.library,
+                                                                        locale: locale),
+                                      session: session, addTrade: addTrade)
                 }
             }
         }
@@ -371,6 +390,7 @@ private struct CheckInReviewRow: View {
 private struct CheckInWarningRow: View {
     let text: CheckInWarningText
     let session: CheckInSession
+    let addTrade: (AccountID, InstrumentID?) -> Void
 
     @Environment(CheckInStore.self) private var checkIn
 
@@ -415,6 +435,11 @@ private struct CheckInWarningRow: View {
                 CheckInPriceListView()
             }
             .buttonStyle(.borderless)
+        case .addTrade(let account, let instrument):
+            Button(title) {
+                addTrade(account, instrument)
+            }
+            .buttonStyle(.borderless)
         }
     }
 }
@@ -424,4 +449,11 @@ private struct CheckInWarningRow: View {
         CheckInReviewView(session: CheckInSession())
     }
     .previewEnvironment(model: CheckInPreviewData.model())
+}
+
+#Preview("Review with a statement that differs") {
+    NavigationStack {
+        CheckInReviewView(session: CheckInSession())
+    }
+    .previewEnvironment(model: CheckInPreviewData.modelComparingStatement())
 }

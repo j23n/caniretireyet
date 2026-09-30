@@ -85,6 +85,10 @@ struct CheckInPriceList: Hashable, Sendable {
         // Instruments.
         var instrumentIDs = Set(draft.rows.filter { $0.mode == .holdings }
             .flatMap { $0.positions.filter { $0.quantity != 0 }.map(\.instrument) })
+        // What trades accounts hold comes from their trades.
+        for row in draft.rows where row.isTrades {
+            instrumentIDs.formUnion((row.derived?.positions ?? []).filter { $0.quantity != 0 }.map(\.instrument))
+        }
         for entry in fetched?.entries ?? [] {
             if case .instrument(let id) = entry.item { instrumentIDs.insert(id) }
         }

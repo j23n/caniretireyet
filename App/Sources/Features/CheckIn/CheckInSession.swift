@@ -44,6 +44,9 @@ final class CheckInSession {
     var showsOpenedLater = false
     /// A field to focus once the list shows it, e.g. from a review warning.
     var focusRequest: CheckInField?
+    /// A trade being added from a trades account's row (*Add Trade…*),
+    /// dated on the check-in's date. Saving it refreshes the row.
+    var tradeRequest: TradeEditorTarget?
     var showsCancelDialog = false
     /// Asks before throwing a resumed check-in away to start over.
     var showsStartOverDialog = false
@@ -104,6 +107,13 @@ final class CheckInSession {
         } else {
             expanded.insert(account)
         }
+    }
+
+    /// Opens the trade editor on a new trade of a trades account, on the
+    /// check-in's `date`, optionally for `instrument` (e.g. one a statement
+    /// shows more of than the trades).
+    func addTrade(to account: AccountID, on date: CalendarDate, instrument: InstrumentID? = nil) {
+        tradeRequest = TradeEditorTarget(account: account, date: date, instrument: instrument)
     }
 
     /// Shows a row's new-money field and asks for the focus there.
