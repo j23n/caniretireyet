@@ -18,7 +18,7 @@ struct NewLibraryTests {
             {
               "baseCurrency": "EUR",
               "person": { "name": "Sam Sample" },
-              "schemaVersion": 1,
+              "schemaVersion": 2,
               "taxResidence": "IT"
             }
 

@@ -38,7 +38,13 @@ struct LibraryOptions: ParsableArguments {
         guard folder.containsLibrary else {
             throw CLIError("\(folder.root.path) isn't a library: it has no library.json. Create one with `retire init`.")
         }
-        let result = try folder.load()
+        var result = try folder.load()
+        if result.report.needsMigration, let migration = try folder.migrate() {
+            // As the app does: an older library is upgraded, after a backup, before anything is written.
+            context.console.error("Upgraded the library from format version \(migration.fromVersion) to "
+                + "\(migration.toVersion); the files as they were are in \(migration.backup.path)/.")
+            result = try folder.load()
+        }
         let errors = result.report.errors.count
         if errors > 0 {
             context.console.error("Warning: \(Format.count(errors, "file problem")) while loading the library; "

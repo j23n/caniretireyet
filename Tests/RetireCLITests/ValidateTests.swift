@@ -8,7 +8,7 @@ struct ValidateTests {
         #expect(run.status == 0, "\(run.all)")
         #expect(run.output == """
             Library \(library.path)
-              Format version  1 (current)
+              Format version  2 (current)
               Read-only       no
               Files read      31
               Contents        10 accounts (1 closed), 3 instruments, 12 months of history (2025-10 to 2026-09), \
@@ -106,7 +106,7 @@ struct ValidateTests {
         let run = await retire(["validate", "--library", library.path, "--json"])
         #expect(run.status == 1)
         let json = try parseJSON(run.output)
-        #expect(json["schemaVersion"] as? Int == 1)
+        #expect(json["schemaVersion"] as? Int == 2)
         #expect(json["readOnly"] as? Bool == false)
         #expect(json["errors"] as? Int == 1)
         #expect(json["warnings"] as? Int == 5)
@@ -117,11 +117,11 @@ struct ValidateTests {
 
     @Test func aNewerLibraryIsReadOnly() async throws {
         let library = try TemporaryFolder.exampleLibrary()
-        let settings = try library.text("library.json").replacingOccurrences(of: #""schemaVersion": 1"#,
-                                                                              with: #""schemaVersion": 2"#)
+        let settings = try library.text("library.json").replacingOccurrences(of: #""schemaVersion": 2"#,
+                                                                              with: #""schemaVersion": 3"#)
         try library.write("library.json", settings)
         let run = await retire(["validate", "--library", library.path])
-        #expect(run.output.contains("  Format version  2, newer than this version understands (1)\n"))
+        #expect(run.output.contains("  Format version  3, newer than this version understands (2)\n"))
         #expect(run.output.contains("  Read-only       yes: update the app to make changes\n"))
     }
 

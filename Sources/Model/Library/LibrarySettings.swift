@@ -5,7 +5,13 @@
 public struct LibrarySettings: Codable, Hashable, Sendable, KnownKeysProviding {
     /// The schema version this app writes. An app that finds a newer version
     /// opens the library read-only.
-    public static let currentSchemaVersion = 1
+    ///
+    /// - 1: the first version.
+    /// - 2: accounts can record trades (`"valuation": "trades"`, `trades` in
+    ///   the history files). Nothing changes in existing files; the version
+    ///   goes up so an older app, which would value a trades account without
+    ///   its holdings, opens the library read-only.
+    public static let currentSchemaVersion = 2
 
     /// The library's schema version. Adding optional fields doesn't change it.
     public var schemaVersion: Int
