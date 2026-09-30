@@ -125,6 +125,30 @@ struct ValidateTests {
         #expect(run.output.contains("  Read-only       yes: update the app to make changes\n"))
     }
 
+    @Test func tradesThatNeedMoreThanTheirFileAreChecked() async throws {
+        let library = try TemporaryFolder.exampleLibrary()
+        // A statement listing one VWCE too few, and a sale of more than Directa holds.
+        var september = try library.text("history/2026/2026-09.json")
+        september = september.replacingOccurrences(
+            of: #"{ "account": "directa", "cash": "312.1", "date": "2026-09-30", "flow": "11.3" }"#,
+            with: #"{ "account": "directa", "cash": "312.1", "date": "2026-09-30", "flow": "11.3", "#
+                + #""positions": [{ "instrument": "vwce", "quantity": "411.5" }] }"#)
+        september = september.replacingOccurrences(of: "  \"valuations\": [\n", with: """
+              "trades": [
+                { "account": "directa", "amount": "60000", "date": "2026-09-29", "id": "toomuch1", "instrument": "vwce", "quantity": "500", "type": "sell" }
+              ],
+              "valuations": [
+
+            """)
+        try library.write("history/2026/2026-09.json", september)
+        let run = await retire(["validate", "--library", library.path])
+        #expect(run.output.contains("warning The sell of vwce in directa on 2026-09-29 (toomuch1) takes away 87.5 "
+            + "more than the account held then (412.5). Is a buy or an opening missing, or the date wrong?"),
+                "\(run.all)")
+        #expect(run.output.contains("warning directa: The valuation on 2026-09-30 lists 411.5 vwce, but the trades "
+            + "give -87.5. Is a trade missing or wrong?"), "\(run.all)")
+    }
+
     @Test func aFolderWithoutALibrary() async throws {
         let folder = try TemporaryFolder()
         let run = await retire(["validate", "--library", folder.path])
