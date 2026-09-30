@@ -340,29 +340,56 @@ struct LedgerLoader {
     /// The decimal mark most numbers in postings and prices show, if any do.
     static func decimalEvidence(in text: String) -> Character? {
         var votes: [Character: Int] = [:]
-        for line in text.split(omittingEmptySubsequences: true, whereSeparator: \.isNewline) {
+        let space = UInt8(ascii: " "), tab = UInt8(ascii: "\t"), newline = UInt8(ascii: "\n")
+        let dot = UInt8(ascii: "."), comma = UInt8(ascii: ","), apostrophe = UInt8(ascii: "'")
+        let semicolon = UInt8(ascii: ";"), hash = UInt8(ascii: "#"), price = UInt8(ascii: "P")
+        func isDigit(_ byte: UInt8) -> Bool { byte >= 48 && byte <= 57 }
+        var number: [UInt8] = []
+        func vote() {
+            if !number.isEmpty, let mark = LedgerAmountParser.evidence(String(decoding: number, as: UTF8.self)) {
+                votes[mark, default: 0] += 1
+            }
+            number.removeAll(keepingCapacity: true)
+        }
+        var bytes = text.utf8[...]
+        while !bytes.isEmpty {
+            let line = bytes.prefix { $0 != newline }
+            bytes = bytes.dropFirst(line.count + 1)
             guard let first = line.first else { continue }
-            var amounts: Substring
-            if first == " " || first == "\t" {
-                let content = line.drop { $0 == " " || $0 == "\t" }
-                guard !content.hasPrefix(";"), !content.hasPrefix("#"),
-                      let separator = LedgerFileParser.separatorIndex(in: content) else { continue }
-                amounts = content[separator...]
-            } else if first == "P" {
-                amounts = line.split(separator: " ", maxSplits: 2).dropFirst(2).first ?? ""
+            var amounts: Substring.UTF8View.SubSequence
+            if first == space || first == tab {
+                let content = line.drop { $0 == space || $0 == tab }
+                guard let lead = content.first, lead != semicolon, lead != hash else { continue }
+                // After the account: two spaces or a tab.
+                var index = content.startIndex
+                var found: Substring.UTF8View.Index?
+                while index < content.endIndex {
+                    let next = content.index(after: index)
+                    if content[index] == tab || (content[index] == space && next < content.endIndex && content[next] == space) {
+                        found = index
+                        break
+                    }
+                    index = next
+                }
+                guard let found else { continue }
+                amounts = content[found...]
+            } else if first == price {
+                // Skip `P` and the date.
+                var rest = line.dropFirst().drop { $0 == space || $0 == tab }
+                rest = rest.drop { $0 != space && $0 != tab }
+                amounts = rest
             } else {
                 continue
             }
-            if let comment = amounts.firstIndex(of: ";") { amounts = amounts[..<comment] }
-            var number = ""
-            for character in amounts + " " {
-                if TextTools.isDigit(character) || (!number.isEmpty && ".,'".contains(character)) {
-                    number.append(character)
-                } else if !number.isEmpty {
-                    if let mark = LedgerAmountParser.evidence(number) { votes[mark, default: 0] += 1 }
-                    number = ""
+            for byte in amounts {
+                if byte == semicolon { break }
+                if isDigit(byte) || (!number.isEmpty && (byte == dot || byte == comma || byte == apostrophe)) {
+                    number.append(byte)
+                } else {
+                    vote()
                 }
             }
+            vote()
         }
         guard let best = votes.max(by: { ($0.value, $0.key) < ($1.value, $1.key) }) else { return nil }
         return best.key

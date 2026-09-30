@@ -116,8 +116,8 @@ struct LedgerFileParser {
             rest = rest[rest.index(after: close)...].drop { $0 == " " || $0 == "\t" }
         }
         if let comment = rest.firstIndex(of: ";") { rest = rest[..<comment] }
-        current = RawTransaction(date: date, status: status, code: code,
-                                 description: rest.trimmingCharacters(in: .whitespaces), location: location)
+        current = RawTransaction(date: date, status: status, code: code, description: String(Self.trimmed(rest)),
+                                 location: location)
         block = .transaction
     }
 
@@ -202,11 +202,11 @@ struct LedgerFileParser {
             accountPart = text[..<separator]
             amountPart = text[separator...]
         }
-        if let comment = accountPart.range(of: " ;") {
-            accountPart = accountPart[..<comment.lowerBound]
+        if let comment = Self.commentStart(in: accountPart) {
+            accountPart = accountPart[..<comment]
             amountPart = ""
         }
-        var account = accountPart.trimmingCharacters(in: .whitespaces)
+        var account = String(Self.trimmed(accountPart))
         var kind = LedgerPosting.Kind.real
         if account.count > 2, account.hasPrefix("("), account.hasSuffix(")") {
             kind = .unbalancedVirtual
@@ -217,7 +217,7 @@ struct LedgerFileParser {
         }
         guard !account.isEmpty else { return .failure(PostingProblem(message: "A posting has no account.")) }
         var posting = RawPosting(account: state.fullName(account), kind: kind, location: location)
-        let amounts = Self.withoutComment(amountPart).trimmingCharacters(in: .whitespaces)
+        let amounts = String(Self.trimmed(Self.withoutComment(amountPart)))
         guard !amounts.isEmpty else { return .success(posting) }
         do {
             try parseAmounts(amounts, into: &posting, loader: &loader)
@@ -308,6 +308,26 @@ struct LedgerFileParser {
         }
         if isPosting { loader.precision[commodity] = max(loader.precision[commodity] ?? 0, decimals) }
         return ParsedAmount(quantity: value, commodity: commodity, decimals: decimals)
+    }
+
+    /// The text without spaces and tabs around it.
+    static func trimmed(_ text: Substring) -> Substring {
+        var start = text.startIndex, end = text.endIndex
+        while start < end, text[start] == " " || text[start] == "\t" { start = text.index(after: start) }
+        while end > start, text[text.index(before: end)] == " " || text[text.index(before: end)] == "\t" {
+            end = text.index(before: end)
+        }
+        return text[start..<end]
+    }
+
+    /// Where a ` ;` comment starts in an account name.
+    private static func commentStart(in text: Substring) -> Substring.Index? {
+        var previous: Character?
+        for index in text.indices {
+            if text[index] == ";", previous == " " || previous == "\t" { return text.index(before: index) }
+            previous = text[index]
+        }
+        return nil
     }
 
     /// The text before a `;` comment (outside quotes).

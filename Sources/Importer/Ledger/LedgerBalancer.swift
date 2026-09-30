@@ -22,10 +22,7 @@ struct LedgerBalancer {
 
     /// Half a unit of the commodity's last written decimal: sums within it are zero.
     func tolerance(_ commodity: String) -> Decimal {
-        var value = Decimal(5)
-        let places = (precision[commodity] ?? 2) + 1
-        for _ in 0..<places { value /= 10 }
-        return value
+        Decimal(sign: .plus, exponent: -((precision[commodity] ?? 2) + 1), significand: 5)
     }
 
     /// The balanced transaction, or `nil` (with an error) if it can't be balanced.

@@ -44,7 +44,18 @@ struct LedgerPriceBook {
 
     /// The latest price of one unit of a commodity on or before `date`.
     func price(of commodity: String, on date: CalendarDate) -> LedgerAmount? {
-        prices[commodity]?.last { $0.date <= date }?.price
+        prices[commodity].flatMap { Self.latest($0, onOrBefore: date, date: \.date)?.price }
+    }
+
+    /// The last element dated on or before `date` in a list sorted by date.
+    private static func latest<Element>(_ list: [Element], onOrBefore date: CalendarDate,
+                                        date key: (Element) -> CalendarDate) -> Element? {
+        var low = 0, high = list.count
+        while low < high {
+            let middle = (low + high) / 2
+            if key(list[middle]) <= date { low = middle + 1 } else { high = middle }
+        }
+        return low > 0 ? list[low - 1] : nil
     }
 
     /// `amount` converted at the latest rate on or before `date`: direct,
@@ -61,8 +72,8 @@ struct LedgerPriceBook {
     }
 
     private func rate(from: CurrencyCode, to: CurrencyCode, on date: CalendarDate) -> Decimal? {
-        let direct = rates[Pair(from: from, to: to)]?.last { $0.date <= date }
-        let inverse = rates[Pair(from: to, to: from)]?.last { $0.date <= date }
+        let direct = rates[Pair(from: from, to: to)].flatMap { Self.latest($0, onOrBefore: date, date: \.date) }
+        let inverse = rates[Pair(from: to, to: from)].flatMap { Self.latest($0, onOrBefore: date, date: \.date) }
         switch (direct, inverse) {
         case (let direct?, let inverse?):
             return inverse.date > direct.date && inverse.rate != 0 ? 1 / inverse.rate : direct.rate
@@ -99,9 +110,12 @@ private struct Holdings {
         }
     }
 
+    private static let cashTolerance = Decimal(sign: .plus, exponent: -3, significand: 5)
+    private static let quantityTolerance = Decimal(sign: .plus, exponent: -9, significand: 5)
+
     var isZero: Bool {
-        cash.values.allSatisfy { abs($0) < Decimal(string: "0.005")! }
-            && quantities.values.allSatisfy { abs($0) < Decimal(string: "0.000000005")! }
+        cash.values.allSatisfy { abs($0) < Self.cashTolerance }
+            && quantities.values.allSatisfy { abs($0) < Self.quantityTolerance }
     }
 }
 

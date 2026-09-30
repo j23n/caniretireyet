@@ -147,6 +147,8 @@ struct LedgerMapper {
     private(set) var newInstrumentNames: [InstrumentID: [String]] = [:]
 
     private let foldedCommodities: Set<String>
+    /// ``explicitTarget(of:)`` of every net-worth account.
+    private var explicitTargets: [String: (target: AccountID?, at: String)] = [:]
     private let matchKeys: [String: String]
     private let ignoreKeys: Set<String>
     private let returnsKeys: Set<String>
@@ -164,6 +166,9 @@ struct LedgerMapper {
         flowsKeys = Set(settings.flows.map(Self.key))
         collectAccounts()
         classify()
+        for name in accounts where role(of: name).isNetWorth {
+            if let explicit = explicitTarget(of: name) { explicitTargets[name] = explicit }
+        }
         mapCommodities()
         mapAccounts()
     }
@@ -299,7 +304,7 @@ struct LedgerMapper {
         // Heads without an explicit setting, in name order, so IDs are stable.
         var headsToPropose: [String] = []
         for name in netWorth {
-            if let explicit = explicitTarget(of: name) {
+            if let explicit = explicitTargets[name] {
                 targets[name] = (explicit.target, explicit.at == name ? .explicit : .inherited(from: explicit.at))
                 if explicit.at == name { heads.insert(name) }
             } else if let head = head(of: name), !headsToPropose.contains(head) {
@@ -516,8 +521,8 @@ struct LedgerMapper {
         var symbols: [String] = []
         for transaction in journal.transactions {
             for posting in transaction.postings where posting.kind != .unbalancedVirtual {
-                guard role(of: posting.account).isNetWorth, explicitTarget(of: posting.account).map({ $0.target != nil })
-                    ?? true else { continue }
+                guard role(of: posting.account).isNetWorth,
+                      explicitTargets[posting.account].map({ $0.target != nil }) ?? true else { continue }
                 if commodityPostings[posting.amount.commodity] == nil { symbols.append(posting.amount.commodity) }
                 commodityPostings[posting.amount.commodity, default: 0] += 1
             }

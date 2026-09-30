@@ -23,6 +23,8 @@ struct AmountText: Hashable, Sendable {
 /// `-€5`, `€-5`), quoted commodities (`"VWCE.MI"`), and numbers with
 /// thousands separators and a decimal point or comma.
 enum LedgerAmountParser {
+    private static let posix = Locale(identifier: "en_US_POSIX")
+
     /// Characters that end an unquoted commodity symbol.
     private static let reserved: Set<Character> = ["-", "+", ";", "@", "{", "}", "[", "]", "(", ")", "=", "*", "\"",
                                                    "!", "&", "|", ","]
@@ -36,7 +38,11 @@ enum LedgerAmountParser {
     /// Splits an amount into sign, number text and commodity. Returns a
     /// reason when the text isn't an amount.
     static func split(_ text: String) -> Result<AmountText, AmountError> {
-        let characters = Array(text.trimmingCharacters(in: .whitespaces))
+        var characters = Array(text)
+        while let last = characters.last, last == " " || last == "\t" { characters.removeLast() }
+        if let start = characters.firstIndex(where: { $0 != " " && $0 != "\t" }), start > 0 {
+            characters.removeFirst(start)
+        }
         guard !characters.isEmpty else { return .failure(.empty) }
         var index = 0
         var negative = false
@@ -169,7 +175,7 @@ enum LedgerAmountParser {
         }
         if digits.hasPrefix(".") { digits = "0" + digits }
         if digits.hasSuffix(".") { digits.removeLast() }
-        guard let value = Decimal(string: digits, locale: Locale(identifier: "en_US_POSIX")) else { return nil }
+        guard let value = Decimal(string: digits, locale: posix) else { return nil }
         return (negative ? -value : value, decimals)
     }
 
