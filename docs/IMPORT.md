@@ -2,13 +2,13 @@
 
 Imports any spreadsheet or export by mapping its columns to what the library stores. It handles whatever date and number formats the file uses, and a mapping can be saved and reused, so the next file of the same shape imports in one step.
 
-It also imports ledger-cli and hledger journals: see [Ledger journals](#ledger-journals).
+It also imports a broker's transactions as trades (see [Broker transactions](#broker-transactions)) and ledger-cli and hledger journals (see [Ledger journals](#ledger-journals)).
 
 ## Steps
 
 1. **Open.** Pick a CSV or TSV file.
 2. **Detect.** The importer guesses the encoding, the delimiter, the header row, and the number and date formats. Every guess can be overridden.
-3. **Map.** Say what each column is (see [Layouts](#layouts) and [Targets](#targets)).
+3. **Map.** Say what each column is (see [Layouts](#layouts) and [Targets](#targets)). For a broker's transactions, also say what the file's words for its transactions are ([Types](#types)).
 4. **Match.** Link names in the file to existing accounts and instruments, or create new ones.
 5. **Preview.** Every parsed value is shown, problems are highlighted, and a summary lists what will be added, updated or left alone. Nothing is written yet.
 6. **Import.** Records are written to the monthly history files. The affected files are backed up first, so the import can be undone.
@@ -37,6 +37,12 @@ It also imports ledger-cli and hledger journals: see [Ledger journals](#ledger-j
   date,account,value,currency
   2024-01-31,Conto Fineco,5120.33,EUR
   ```
+- **Trades:** one row per trade, a broker's transactions export. Each column is a field of the trade. See [Broker transactions](#broker-transactions).
+
+  ```
+  Data operazione;Tipo operazione;ISIN;Quantità;Prezzo;Importo euro;Commissioni
+  12/01/2026;Acquisto;IE00BK5BQT80;15;102,30;-1.539,50;5,00
+  ```
 
 ## Targets
 
@@ -58,9 +64,9 @@ Each field a target needs can come from one of three places:
 - **a constant**, e.g. "every row of this file is account Directa";
 - **the column header**, in the wide layout: the column "Directa" means account `directa`. The header gives what the column and the constants leave out: the account of a balance or cash column, the instrument of a price column, and for a quantity or purchase cost, the instrument once the account is set. Headers are matched without their decorations, so "BTC (qtà)" means `btc`. A header the importer can't use this way is flagged rather than guessed.
 
-When there's no profile yet, the importer proposes a mapping from the headers and the values: a column of dates holds the dates; number columns become balances, or quantities, prices, cash, purchase costs or FX rates when the header says so (`BTC (qtà)`, `Prezzo VWCE`, `EUR/USD`); text, percentage and total columns are ignored. The layout is long when a text column's header names accounts or instruments.
+When there's no profile yet, the importer proposes a mapping from the headers and the values: a column of dates holds the dates; number columns become balances, or quantities, prices, cash, purchase costs or FX rates when the header says so (`BTC (qtà)`, `Prezzo VWCE`, `EUR/USD`); text, percentage and total columns are ignored. The layout is long when a text column's header names accounts or instruments, and trades when the file looks like a broker's transactions ([Detecting a transactions file](#detecting-a-transactions-file)).
 
-Buy and sell transactions aren't a target in the MVP, because the tracker stores holdings month by month rather than transactions. A later target could turn a broker's transaction export into monthly holdings and purchase costs.
+Buys, sells and the rest of a broker's transactions aren't a target: they're read in the trades layout, as the trades of an account that records them ([Broker transactions](#broker-transactions)).
 
 ## Value formats
 
@@ -107,7 +113,7 @@ Every column has a format. The file sets the defaults, a column can override the
 ## Preview, conflicts and undo
 
 - **Preview.** Cells that can't be parsed are highlighted with the reason, e.g. "not a date in dd/MM/yyyy". You can fix the format, exclude the rows, or cancel.
-- **Records already in the library** are matched by key: account + date, instrument + date, or currency pair + date.
+- **Records already in the library** are matched by key: account + date, instrument + date, currency pair + date, or for a trade account + date + ID (a stable ID made from the row: [Importing again](#importing-again)).
   - An identical record is left alone. Only the values the file has are compared: a flow or a note in the library stays.
   - A record the library has without some of the file's values, such as a purchase cost, is *updated*: the missing values are filled in, and nothing in the library changes.
   - A record with a different value follows the policy you choose: overwrite, keep the existing value, or decide one by one. Conflicts still undecided when you import are kept. Switching a valuation between a balance and positions is a conflict too.
@@ -158,12 +164,143 @@ Other fields a profile can have, all optional:
 | `defaults.liabilitySign` | How balances of debt accounts are signed in the file: `auto` (the default: a positive amount is a debt and is stored negative, unless its column writes any debt as a negative amount, when the column's signs are kept) or `asWritten` (keep the file's sign). See [Debts](#value-formats). |
 | `columns[].index` | The 1-based column position, used only when the file has no header. |
 | `columns[].currency`, `base`, `quote` | The currency of a column's amounts or prices, or an FX column's pair. |
-| `columns[].format` | Overrides of `defaults` for one column: `date`, `number`, `empty`, `liabilitySign`. |
-| `columns[].field` | Long layout: what the column holds for each row's record: `date`, `account`, `instrument`, `value`, `currency`, `base`, `quote` or `ignore`. |
+| `defaults.amountSign` | Trades layout: how amounts are signed: `auto` (the default), `fromType` or `asWritten`. See [Signs](#signs). |
+| `columns[].format` | Overrides of `defaults` for one column: `date`, `number`, `empty`, `liabilitySign`, `amountSign`. |
+| `columns[].field` | Long layout: what the column holds for each row's record: `date`, `account`, `instrument`, `value`, `currency`, `base`, `quote` or `ignore`. Trades layout: `date`, `type`, `account`, `instrument` (several columns can), `quantity`, `price`, `currency`, `amount`, `gross`, `fees`, `tax`, `ratio`, `note` or `ignore` ([Columns](#columns)). |
 | `target` | Long layout: what each row becomes (`balance`, `quantity`, `costBasis`, `cash`, `price` or `fx`). A value column can set its own `target`, so one row can hold a quantity, a price and a purchase cost. |
-| `constants` | Long layout: fields that are the same for every row: `account`, `instrument`, `currency`, `base`, `quote`. Wide columns that leave these out use them too. |
+| `constants` | Long layout: fields that are the same for every row: `account`, `instrument`, `currency`, `base`, `quote`. Wide columns that leave these out use them too. Trades layout: `account`. |
+| `tradeTypes` | Trades layout: the file's type words, as written, → trade types, or `ignore` to leave their rows out. Matched exactly, then ignoring case and accents. See [Types](#types). |
 | `matches` | Names found in files matched to IDs, remembered from earlier imports: `{ "accounts": { "Fineco": "conto-fineco" }, "instruments": { … } }`. |
 | `onConflict` | `ask` (the default), `overwrite` or `keep`. |
+
+## Broker transactions
+
+A broker's transactions export (Directa's or Fineco's movements, Degiro's transactions, an IBKR flex query) is read in the **trades layout**: each row is one trade of an account that records trades ([TRADES.md](TRADES.md)), a buy, a sell, a dividend, a fee, a deposit. The account's holdings, average cost, cash and realised gains then come from them.
+
+**Steps.** File, Format, Columns, **Types**, Accounts, Preview, Done. Types maps the file's words for its transactions to trade types. Everything else is as for any spreadsheet: the preview shows the trades like other records, conflicts follow the policy, and Done has Undo.
+
+### Detecting a transactions file
+
+Without a profile, a file is read as trades when it has a quantity or price column and either a column of types (a text column whose values are mostly trade types in the usual words, at least half and two different types, or whose header names types: `Tipo operazione`, `Operazione`, `Type`, `Buy/Sell`) or a quantity column with negative values next to a price column (Degiro's sells). Its columns are proposed by their headers, with camel case spaced out (`NetCash` → net cash): the first date column (a second one, the value date, is ignored), the type column, instruments, quantities, prices, the currency, the net amount, the gross value, fees, tax, notes and an account column. Each field is used once, by the column whose header says it most plainly (`Netto`, `Net cash` over `Importo`, `Amount`); values in another currency (`Local value`) and exchange rates are ignored. Every choice can be changed in Columns, or with `--layout trades` on the command line.
+
+### Columns
+
+| Field | What it holds |
+| --- | --- |
+| `date` | The trade date. |
+| `type` | The trade's type in the file's words: `Acquisto`, `Compravendita vendita`, `Dividend`. See [Types](#types). Without a type column, a positive quantity is a buy and a negative one a sell. |
+| `account` | The account's name. Without an account column, every row is the account the profile's `constants.account` names (*Account of every row* in Columns; `--account` on the command line). |
+| `instrument` | Its name, ticker or ISIN. Several columns can hold it (e.g. `Titolo`, `Ticker`, `ISIN`); they're tried in order. |
+| `quantity` | Units. The sign is dropped. |
+| `price` | The price per unit. |
+| `currency` | The price's currency. A currency marked in the price cell (`$230.50`) counts too. |
+| `amount` | The cash the trade moved in the account's currency, **net** of fees and tax. |
+| `gross` | The value before fees and tax: a sale's proceeds, a buy's quantity × price, a dividend before tax (`Controvalore`). Used when there's no amount: the amount is then gross − fees − tax, signed. |
+| `fees`, `tax` | Commissions, and tax withheld or charged, in the account's currency. The sign is dropped. |
+| `ratio` | A split's new units per old unit. |
+| `note` | Free text for the trade's note (`Descrizione`). |
+
+Amount, gross, fees and tax are in the account's currency; a column whose mapping or header names another currency (`Total USD` for an account in euros) is flagged. A row with a cell that can't be read is left out whole, with the cell's error: one row is one trade.
+
+### Types
+
+The profile's `tradeTypes` maps the file's words to trade types, and is written out in full when the profile is saved. Words it doesn't have are read with the usual words, in Italian and English:
+
+| Type | Usual words |
+| --- | --- |
+| `buy` | Acquisto, Compravendita acquisto, Acquisto titoli, Sottoscrizione, Buy, Bought, Purchase |
+| `sell` | Vendita, Compravendita vendita, Vendita titoli, Sell, Sold, Sale |
+| `dividend` | Dividendo, Dividendi, Cedola, Cedole, Distribuzione, Dividend, Coupon, Distribution |
+| `interest` | Interessi, Interessi attivi, Interessi creditori, Interest |
+| `fee` | Commissioni, Commissione, Spese, Fee, Fees, Commission |
+| `tax` | Bollo, Imposta, Imposta di bollo, Imposte, Ritenuta, Tassa, Tasse, Tax, Taxes, Withholding tax, Tobin tax, FTT |
+| `deposit` | Versamento, Bonifico in entrata, Deposit, Deposits, Deposits/Withdrawals |
+| `withdrawal` | Prelievo, Prelevamento, Bonifico in uscita, Withdrawal, Withdrawals |
+| `split` | Frazionamento, Raggruppamento, Split, Reverse split, Stock split |
+
+- Words are compared ignoring case, accents and punctuation. A value is first compared whole; otherwise the usual words it contains count (`Broker Interest Received` is interest), as long as they point to one type, or to a charge on something else (`Ritenuta su dividendo`, `Dividend Tax`: a tax; `Commissioni su vendita`: a fee).
+- **Nothing is guessed.** A value that matches nothing, or several types (`Acquisto/Vendita`, `Giroconto`, `Rimborso`), is flagged: its rows are left out, each with an error, until it's mapped in Types (or with `--type "Giroconto=deposit"`). Mapping it to `ignore` leaves its rows out on purpose, with a note.
+- The Types step lists every value with its rows and where its type comes from (the profile, the usual words, or nothing), and the preview's notes say how signs were read.
+
+### Signs
+
+The library stores quantities, prices, fees and tax as positive numbers, and a trade's `amount` as its signed cash effect: negative for buys, fees, taxes and withdrawals ([TRADES.md](TRADES.md#trades-in-the-files)). Brokers write them every way, so:
+
+- **Quantities, prices, fees and tax** are made positive, whatever the file writes (Directa and Degiro write sells as negative quantities, IBKR commissions as negative amounts); the type says the direction. The preview notes how many quantities were negative.
+- **Amounts** (and gross values) follow the column's `amountSign`, in `defaults` or in the column's `format`:
+  - `auto` (the default): a column with any negative amount writes signed amounts, and its signs are kept (Degiro's buys are negative, its sells positive); a column without one writes absolute values, and each amount's sign comes from its type (Fineco's `Controvalore`).
+  - `fromType`: absolute values, whatever the signs.
+  - `asWritten`: the file's signs, whatever they are.
+  The preview notes which, for each amount column.
+- In a file with signed amounts, a deposit or withdrawal goes by its sign: IBKR writes both as `Deposits/Withdrawals`, a negative one is a withdrawal. The preview notes how many.
+- Without a type column, a negative quantity is a sell and a positive one a buy; without quantities, a negative signed amount is a buy.
+- Zero is no value: a quantity or price of 0 is left out. Deposits, withdrawals, fees and taxes don't keep a row's quantity and price, and a split keeps only its ratio.
+
+A row whose trade can't be applied (a buy without a price or an amount, a split without a ratio) is left out with the reason; smaller problems (a buy with a positive amount) are imported and pointed out by `retire validate`.
+
+### Accounts and instruments
+
+- **Account.** A name in the account column is matched like any account name, or the constant gives it. A new account is proposed recording trades (`"valuation": "trades"`), a brokerage account unless its instruments are all crypto or metals.
+- **An account that doesn't record trades** gets a proposal to record them (*Record Conto Fineco's trades*), accepted unless you turn it off; on the command line only with `--accept-trades-mode`. Accepted, the account records trades from then on: its holdings and cash come from its trades, the positions of its valuations become checks, and a balance no longer counts (to keep past balances as cash, convert the account first: [TRADES.md](TRADES.md#converting-an-account), `retire trades convert`). Rejected, its trades are left out. Or choose another account.
+- Trades from before the account opened propose to open it earlier. A transactions file never proposes closing an account.
+- **Instruments** are read only for the types that have one (buys, sells, dividends, splits, transfers, openings): the columns are tried in order, each name matched to the library's instruments by name, ID, ticker, ISIN or a remembered match. A new instrument is named after the column that's neither an ISIN nor a ticker (`VANGUARD FTSE ALL-WORLD HIGH DIV`), with the ISIN and ticker of the others, and in the currency of its prices. Rows naming the same new instrument differently share it.
+- A trade's `currency` is written only when the price's currency isn't the instrument's.
+
+### Importing again
+
+Each trade gets a **stable ID** (`TradeID.stable`): 8 base32 characters from a hash of its account, date, type, instrument, quantity, amount and price, and its position among the file's rows with all of these equal (two identical orders on one day stay two trades). Importing the same file again finds the same trades: identical ones are left alone, fees, tax or a note the library lacks are filled in, and different ones (a corrected fee) follow the conflict policy. A trade the library has with a note of its own keeps it. A row whose amount, price or quantity changed is another trade; the old one stays until you remove it.
+
+### Profiles
+
+The example library's `imports/directa-movimenti.json` reads Directa-like movements:
+
+```json
+{
+  "columns": [
+    { "field": "date", "header": "Data operazione" },
+    { "field": "ignore", "header": "Data valuta" },
+    { "field": "type", "header": "Tipo operazione" },
+    { "field": "instrument", "header": "Ticker" },
+    { "field": "instrument", "header": "ISIN" },
+    { "field": "instrument", "header": "Titolo" },
+    { "field": "quantity", "header": "Quantità" },
+    { "field": "price", "header": "Prezzo" },
+    { "field": "amount", "header": "Importo euro" },
+    { "field": "fees", "header": "Commissioni" },
+    { "field": "currency", "header": "Divisa" },
+    { "field": "note", "header": "Descrizione" }
+  ],
+  "constants": { "account": "directa" },
+  "defaults": { "date": { "pattern": "dd/MM/yyyy" }, "number": { "decimal": ",", "thousands": "." } },
+  "file": { "delimiter": ";", "encoding": "utf-8", "headerRow": 5 },
+  "id": "directa-movimenti",
+  "layout": "trades",
+  "matches": { "instruments": { "IE00BK5BQT80": "vwce", "VWCE": "vwce" } },
+  "name": "Directa, movimenti",
+  "onConflict": "ask",
+  "tradeTypes": {
+    "Acquisto": "buy",
+    "Bonifico in entrata": "deposit",
+    "Commissioni": "fee",
+    "Dividendo": "dividend",
+    "Giroconto": "ignore",
+    "Imposta di bollo": "tax",
+    "Ritenuta su dividendo": "tax",
+    "Vendita": "sell"
+  }
+}
+```
+
+The fields are those of any profile ([Import profiles](#import-profiles)), with `tradeTypes` and the `amountSign` format.
+
+### The sample exports
+
+The importer is tested with made-up exports in the shapes of real ones (`Tests/ImporterTests/Samples/trades/`), end to end into the example library:
+
+- **Directa-like** (`directa.csv`): title rows above the header, `;`, `1.234,56`, `dd/MM/yyyy`, UTF-8 with a byte-order mark; signed amounts net of fees, a sale as a negative quantity, a dividend and its tax on two rows, two identical buys on one day, and `Giroconto`, which isn't mapped.
+- **Fineco-like** (`fineco.csv`): Windows-1252, `Compravendita acquisto` and `vendita`, absolute gross values (`Controvalore`) with fees and tax (`Ritenuta`) columns, a dividend with its per-share amount, stamp duty; no account column.
+- **Degiro-like** (`degiro.csv`): English, `,`, `dd-MM-yyyy`; no type column (sells are negative quantities, buys negative amounts), a stock priced in dollars with the amount in euros at Degiro's rate, costs as negative amounts.
+- **IBKR-like** (`ibkr.csv`): a flex query with camel-case headers, an account column, `BUY`/`SELL`, `Dividends`, `Withholding Tax`, `Broker Interest Received`, `Other Fees`, and `Deposits/Withdrawals` both ways.
 
 ## Ledger journals
 
@@ -248,7 +385,22 @@ Each valuation's `flow` is the money added or taken out since the account's prev
 - Valuations are written with source `ledger` too.
 - A journal rarely has a price for every month end it values a position on, so gold bought years ago would stay at its purchase price. The Done step offers *Fill In Past Prices…* for those dates (`retire prices --fill-history` on the command line); it fetches only what's missing and keeps every `ledger` record ([PLAN.md](PLAN.md#prices-and-fx), "Past prices"). The same goes for a spreadsheet's price columns.
 
-### Importing again
+### Journals into trades accounts
+
+A ledger account that goes to a library account **recording trades** gets the journal's trades instead of month-end positions ([TRADES.md](TRADES.md)). Each transaction touching it becomes its trades:
+
+- **Buys and sells.** A commodity posting with a cost (`@`, `@@`, `{}`) is a buy or a sell of that many units at that price per unit; a sale with a lot cost and an `@` price is priced at its `@` price. Fee and tax postings of the same transaction are its `fees` and `tax` (so a buy's average cost includes its fees, as Italian brokers count it, where the journal's lot cost doesn't).
+- **Income.** Postings from returns accounts are dividends, or interest when the account's name says so (interest, staking, rewards). Realised gains accounts (`Income:Capital gains`) make no trade: the trades work the gain out, on the average cost.
+- **Fees and taxes** on their own: returns expense accounts (`Expenses:Fees`), and expense accounts named for fees or taxes (`Expenses:Taxes:Bollo`, `Ritenuta`), are `fee` and `tax` trades, or the fees and tax of the transaction's dividend or interest.
+- **Rewards.** A commodity received from a returns account without a cost (a staking reward) is a buy at its market value then (the journal's `P` price), paid for with the income it is: its cost is its value, as for snapshots.
+- **Transfers.** Any other commodity moving in or out without a cost is a transfer in or out; a transfer in has no cost (noted), until the position is sold.
+- **Deposits and withdrawals.** Whatever else changes the account's cash came from outside it (another account, income, spending, equity): a deposit or a withdrawal. So the cash the trades give is always the journal's, and an opening balance with a lot cost (`10 VWCE {95 EUR}` against `Equity`) is a deposit of its cost and a buy.
+- Amounts are converted into the account's currency as for flows. A buy's or sell's `amount` is left out when its price, quantity, fees and tax give it; otherwise (a price paid with `@@`, a price in another currency) it's written.
+- Trades get stable IDs, as for [broker exports](#importing-again), so importing the journal again changes nothing. Their `source` is `ledger`, and their note the transaction's description.
+
+Such an account gets **no valuations**: its cash comes from its trades. With the profile's `ledger.cashChecks` (*Cash checks* in the Accounts step, `--cash-checks`), it also gets a valuation at each snapshot date with the journal's cash, as a check, and the money added or taken out as the trades count it. Accounts recording balances or holdings keep their month-end snapshots.
+
+### Importing the journal again
 
 Everything goes through the preview: records identical to the library's are left alone, missing values (such as a flow) are filled in, and different ones follow the conflict policy. So importing the journal again next month only adds the new months.
 
@@ -284,6 +436,7 @@ A ledger profile has `layout: "ledger"` and a `ledger` section. Ledger accounts 
 | `ledger.ignoreCommodities` | Commodities left out. |
 | `ledger.frequency` | `month` (the default), `quarter` or `activity`. |
 | `ledger.transactionPrices` | `false` to leave `@` prices out. |
+| `ledger.cashChecks` | `true` to give accounts that record trades valuations with the journal's cash too, as checks. See [Journals into trades accounts](#journals-into-trades-accounts). |
 | `onConflict` | As for spreadsheets. |
 
 Saving writes out every account and instrument the import used and the returns accounts found by name, so the mapping stays the same when the app's guesses change.
@@ -299,7 +452,10 @@ Value expressions, periodic and automated transactions, budgets, timeclock and t
   - `session.preview(against:)` returns an `ImportPreview`: every record with its status, cell errors, issues, ambiguities, name matches, and the proposed accounts, instruments and account changes.
   - `preview.apply(to:)` returns an `ImportResult`: the new library and the month files, accounts and instruments that changed.
   - `session.makeProfile(id:name:library:)` saves the mapping with everything detected written out.
+  - Broker transactions: the trades layout reads each row into a trade with a stable ID (`TradeID.stable`), keyed `ImportRecordKey.trade`. `ImportSession.looksLikeTransactions` tells a transactions file; `tradeTypeValues` lists the type column's values with the type each is read as (`TradeTypeValue`: from the profile, the usual words in `TradeTypeWords`, or unmapped), and `setTradeType(_:for:)` maps one. The preview carries them in `ImportPreview.tradeTypes`; proposals to make an account record trades are `AccountChangeProposal.Change.recordTrades`, and `ImportResult.tradesAccounts` and `tradesWritten` say what applying did. Tested with the made-up exports in `Tests/ImporterTests/Samples/trades/`.
   - Journals: `LedgerReader.read(_:files:)` reads journal files and their includes through a `LedgerFileProvider` (`LocalLedgerFiles`, or the app's, which reads only what it was given access to) into a `LedgerJournal`: balanced transactions, prices, and diagnostics with file and line. `LedgerImportSession(journal:profile:)` holds the mapping as a ledger `ImportProfile`, with helpers to map, ignore or reset an account or commodity and mark returns; `preview(against:until:)` returns a `LedgerImportPreview`: the account and commodity rows, notes, and an `ImportPreview` that applies like any other. `makeProfile(id:name:from:library:)` saves the mapping, with the declined new accounts of the preview it's given in `ledger.ignore`. Tested with made-up journals in `Tests/ImporterTests/Samples/ledger/`.
-- **App.** The same SwiftUI flow on Mac and iPhone. The Mac, with its big table, is the comfortable place to build a profile. On the iPhone, you can open a CSV from Files and import it with a saved profile. Journals (one or several files, chosen or dropped together) go through Files, Accounts, Commodities, Preview and Done; on the iPhone, with a saved ledger profile.
+- **App.** The same SwiftUI flow on Mac and iPhone. The Mac, with its big table, is the comfortable place to build a profile. On the iPhone, you can open a CSV from Files and import it with a saved profile. A broker's transactions add a Types step after Columns. Journals (one or several files, chosen or dropped together) go through Files, Accounts, Commodities, Preview and Done; on the iPhone, with a saved ledger profile.
 - **CLI.** `retire import <file>` previews without writing (the default, `--dry-run`): the detected settings, what each column becomes, the formats to confirm, notes, proposed accounts and closings, a summary with sample records and conflicts, and the cells that can't be read. `--save-profile <id>` saves the proposed mapping as `imports/<id>.json` to edit and reuse with `--profile <id>`; options such as `--date-format`, `--decimal`, `--delimiter` and `--liability-sign` override what was detected. `--apply` backs up the files that change to `backups/<timestamp>-import/` and writes them; it refuses while formats are still guesses (unless `--accept-guesses`). Non-interactively, new accounts and instruments and closings are only made with `--accept-new-accounts`, `--accept-new-instruments` and `--accept-closings` (their records are left out otherwise), and conflicts follow `--on-conflict keep|overwrite` (undecided ones keep the library's values). `retire import --undo` undoes the latest import not undone yet, leaving later edits in place and listing them, after copying the current files to `backups/<timestamp>-undo-import/`.
-- **CLI, journals.** `retire import ledger <files…>` previews the journals (a dry run by default): the files read and their problems, where each ledger account and commodity goes, returns accounts, proposals, closings, and the records with their flows. `--profile <id>` reads them with a saved ledger profile and `--save-profile <id>` saves the mapping; `--frequency month|quarter|activity`, `--until <date>` (default today) and `--no-transaction-prices` change what's written. `--apply` writes with the same backup, accept flags and `--on-conflict` (or `--policy`) as a spreadsheet, and `retire import --undo` undoes it. `retire import <file>` is `retire import csv <file>`.
+- **CLI, broker transactions.** `retire import <file>` reads a transactions file as trades, or with `--layout trades`; the report lists the file's type words with their trade types (**Types**) and notes on signs, and the trades among the records. `--account <id>` names the account of every row, `--type "<word>=<type>"` (repeatable) maps a word, or `--type "<word>=ignore"` leaves its rows out, and `--amount-sign auto|from-type|as-written` sets how amounts are signed. An account that doesn't record trades is switched only with `--accept-trades-mode`; otherwise its trades are left out. `--save-profile` writes the types too. JSON output adds `tradeTypes`, `summary.trades` and `result.tradesAccounts`.
+- **CLI, trades.** `retire trades list <account> [--year] [--instrument] [--json]`, `add <account> --type … [--instrument --quantity --price --currency --amount --fees --tax --cost --ratio --note --id]`, `remove <account> <id>`, `summary <account> | --all [--year] [--json]` and `convert <account> --to trades|snapshots [--apply]` ([TRADES.md](TRADES.md)). `add` and `remove` write after a backup (`backups/<timestamp>-trades/`; `--dry-run` shows the effects), and `convert` previews unless you pass `--apply` (backups labelled `convert-to-trades` and `convert-to-snapshots`, as in the app).
+- **CLI, journals.** `retire import ledger <files…>` previews the journals (a dry run by default): the files read and their problems, where each ledger account and commodity goes, returns accounts, proposals, closings, and the records with their flows. `--profile <id>` reads them with a saved ledger profile and `--save-profile <id>` saves the mapping; `--frequency month|quarter|activity`, `--until <date>` (default today), `--no-transaction-prices` and `--cash-checks` change what's written; the report names the accounts that record trades, which get the journal's trades. `--apply` writes with the same backup, accept flags and `--on-conflict` (or `--policy`) as a spreadsheet, and `retire import --undo` undoes it. `retire import <file>` is `retire import csv <file>`.

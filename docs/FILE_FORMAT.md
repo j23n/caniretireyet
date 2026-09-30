@@ -342,7 +342,16 @@ Saved import profiles. Each describes how to read one kind of file (encoding, de
 
 In a profile, an empty list and a missing one differ in one place: `file.excludeRows` left out uses the importer's default footer rule (rows starting with "Totale" or "Total"), while `"excludeRows": []` skips no rows.
 
-A profile with `"layout": "ledger"` reads ledger-cli and hledger journals instead. Its optional `ledger` section (roots, ignored accounts, returns accounts, ignored commodities, `frequency`, `transactionPrices`) and its `matches` (a ledger account, with its subaccounts, → an account; a commodity → an instrument) are described in [IMPORT.md](IMPORT.md#ledger-profiles). Records a journal import writes have `"source": "ledger"`.
+A profile with `"layout": "ledger"` reads ledger-cli and hledger journals instead. Its optional `ledger` section (roots, ignored accounts, returns accounts, ignored commodities, `frequency`, `transactionPrices`, `cashChecks`) and its `matches` (a ledger account, with its subaccounts, → an account; a commodity → an instrument) are described in [IMPORT.md](IMPORT.md#ledger-profiles). Records a journal import writes have `"source": "ledger"`; an account that records trades gets the journal's trades rather than valuations, and with `"cashChecks": true` valuations of its cash too ([IMPORT.md](IMPORT.md#journals-into-trades-accounts)).
+
+A profile with `"layout": "trades"` reads a broker's transactions, a row per trade ([IMPORT.md](IMPORT.md#broker-transactions)):
+
+- each column's `field` is a field of the trade: `date`, `type`, `account`, `instrument` (several columns can hold it: a name, a ticker, an ISIN, tried in order), `quantity`, `price`, `currency` (the price's), `amount` (the cash moved, net of fees and tax), `gross` (before fees and tax), `fees`, `tax`, `ratio`, `note`, or `ignore`;
+- `constants.account` names the account when the file has no account column;
+- `tradeTypes`, optional, maps the file's words for types, as written, to trade types: `{ "Acquisto": "buy", "Giroconto": "ignore" }`; `ignore` leaves those rows out. Left out (or for a word it doesn't have), the usual Italian and English words apply ([IMPORT.md](IMPORT.md#types));
+- `amountSign`, optional in `defaults` or a column's `format`, says how amounts are signed: `auto` (the default), `fromType` (absolute values, signed by the type) or `asWritten` ([IMPORT.md](IMPORT.md#signs)).
+
+Trades it writes have `"source": "import"` and a stable `id` (`TradeID.stable`: 8 base32 characters hashed from the row's account, date, type, instrument, quantity, amount and price, and its position among identical rows), so importing the same file again finds them instead of adding them twice.
 
 ## `backups/`
 

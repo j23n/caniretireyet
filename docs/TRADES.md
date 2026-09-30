@@ -59,7 +59,7 @@ From the example library (`history/2026/2026-08.json` and `2026-07.json`):
 | Field | Meaning |
 | --- | --- |
 | `account`, `date` | The account and the trade date. The key is account + date + `id`. |
-| `id` | A short random slug, e.g. 8 lowercase base32 characters (`TradeID.random()`), stable across edits. Two identical trades on one day stay distinct, and a trade edited on two devices merges as the same record. Hand-written IDs can be any slug (`buy-1`); a conversion writes `buy-vwce` (see [Converting an account](#converting-an-account)). |
+| `id` | A short random slug, e.g. 8 lowercase base32 characters (`TradeID.random()`), stable across edits. Two identical trades on one day stay distinct, and a trade edited on two devices merges as the same record. Hand-written IDs can be any slug (`buy-1`); a conversion writes `buy-vwce` (see [Converting an account](#converting-an-account)). An imported trade gets a stable ID made from its row (`TradeID.stable`), so importing the file again finds it ([IMPORT.md](IMPORT.md#importing-again)). |
 | `type` | See [Types](#types). An open enum: a type this version doesn't know is kept and pointed out; only its `amount`, if it has one, counts (in cash), and it doesn't change holdings. |
 | `instrument` | The instrument bought, sold, moved or split, or paying a dividend. |
 | `quantity` | Units, **always positive**; the type says the direction. |
