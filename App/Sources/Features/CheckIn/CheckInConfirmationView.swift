@@ -1,0 +1,183 @@
+import Model
+import SwiftUI
+import Tracker
+
+/// The monthly moment (UI.md, "After saving"): what the check-in did to net
+/// worth, and this month's answer.
+///
+/// > Saved · Net worth 312.480 € (▲ 4.210)
+/// > Can I retire yet? Not yet: earliest at **54**, unchanged since August.
+///
+/// Without an answer it says why, calmly: there's no main plan yet, plans
+/// can't run in this version (the last recorded answer is shown), or the
+/// plan couldn't run.
+struct CheckInConfirmationView: View {
+    let result: CheckInSaveResult
+    let done: () -> Void
+
+    @Environment(LibraryStore.self) private var library
+    @Environment(PlanStore.self) private var plans
+    @Environment(AppNavigation.self) private var navigation
+    @Environment(\.locale) private var locale
+
+    init(result: CheckInSaveResult, done: @escaping () -> Void) {
+        self.result = result
+        self.done = done
+    }
+
+    var body: some View {
+        ScrollView {
+            VStack(spacing: Metrics.xl) {
+                VStack(spacing: Metrics.s) {
+                    Image(systemName: "checkmark.circle")
+                        .font(.system(size: 44))
+                        .foregroundStyle(Palette.good)
+                        .accessibilityHidden(true)
+                    Text("Saved")
+                        .font(.title2.bold())
+                    Text(verbatim: AmountFormat.longDate(result.date, locale: locale))
+                        .foregroundStyle(Palette.secondaryInk)
+                }
+                netWorth
+                Card("Can I retire yet?") {
+                    answer
+                }
+                LibraryStatusBanners()
+                Button {
+                    done()
+                } label: {
+                    Text("Done")
+                        .fontWeight(.semibold)
+                        .frame(maxWidth: 280)
+                }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.large)
+                .keyboardShortcut(.defaultAction)
+            }
+            .padding(Metrics.xl)
+            .frame(maxWidth: Metrics.readableWidth)
+            .frame(maxWidth: .infinity)
+        }
+        .background(Palette.page)
+    }
+
+    /// "Net worth 312.480 € ▲ +4.210 € since 31 Aug".
+    private var netWorth: some View {
+        VStack(spacing: Metrics.xs) {
+            Text("Net worth")
+                .font(.subheadline)
+                .foregroundStyle(Palette.secondaryInk)
+            AmountText(result.netWorth, tabular: false)
+                .font(.largeTitle.bold())
+            if let change = result.change {
+                HStack(spacing: Metrics.xs) {
+                    DeltaText(change.change)
+                    if let previous = previousCheckIn {
+                        Text(verbatim: "since " + AmountFormat.shortDate(previous, locale: locale))
+                            .foregroundStyle(Palette.secondaryInk)
+                    }
+                }
+                .font(.subheadline)
+            }
+        }
+        .accessibilityElement(children: .combine)
+    }
+
+    // MARK: The answer
+
+    @ViewBuilder
+    private var answer: some View {
+        if let headline = result.headline {
+            let parts = CheckInAnswer.make(headline, previous: previousHeadline, locale: locale)
+            VStack(alignment: .leading, spacing: Metrics.s) {
+                answerText(parts)
+                    .font(.title3)
+                    .fixedSize(horizontal: false, vertical: true)
+                if let progress = headline.fiProgress {
+                    Text(verbatim: AmountFormat.percent(progress, digits: 0, locale: locale) + " of the way to financial independence")
+                        .font(.subheadline)
+                        .foregroundStyle(Palette.secondaryInk)
+                }
+                Button("Open the plan") { openPlan() }
+                    .buttonStyle(.borderless)
+            }
+        } else if library.mainPlan == nil {
+            VStack(alignment: .leading, spacing: Metrics.s) {
+                Text("Create a plan to see when you could retire. Every check-in will then end with this month's answer.")
+                    .fixedSize(horizontal: false, vertical: true)
+                Button("Create a plan") { openPlan() }
+                    .buttonStyle(.borderless)
+            }
+        } else {
+            VStack(alignment: .leading, spacing: Metrics.s) {
+                if let last = previousHeadline {
+                    Text(verbatim: lastAnswer(last))
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                Text(verbatim: unavailableReason)
+                    .font(.subheadline)
+                    .foregroundStyle(Palette.secondaryInk)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+    }
+
+    /// The sentence with the age in bold.
+    private func answerText(_ parts: CheckInAnswer) -> Text {
+        if let emphasis = parts.emphasis {
+            return Text("\(parts.lead)\(Text(verbatim: emphasis).bold())\(parts.trail)")
+        }
+        return Text(verbatim: parts.text)
+    }
+
+    /// "Last answer (31 Aug): not yet, earliest at 54."
+    private func lastAnswer(_ headline: Headline) -> String {
+        let date = AmountFormat.shortDate(headline.date, locale: locale)
+        guard let age = headline.earliestAge else { return "Last answer (\(date)): not yet." }
+        return "Last answer (\(date)): not yet, earliest at \(age)."
+    }
+
+    /// Why there's no answer this month, without alarm.
+    private var unavailableReason: String {
+        if !plans.isAvailable {
+            return "This month's answer comes once plans can run in this version of the app."
+        }
+        if let main = library.settings.mainPlan, let error = plans.errors[main] {
+            return "The plan couldn't run this time: \(error)"
+        }
+        return "This month's answer isn't ready yet. Open the plan to run it."
+    }
+
+    // MARK: Helpers
+
+    /// The answer recorded at the check-in before this one.
+    private var previousHeadline: Headline? {
+        CheckInAnswer.previousHeadline(before: result.date, in: library.library)
+    }
+
+    /// The check-in before this one, where the change starts.
+    private var previousCheckIn: CalendarDate? {
+        library.valuator.previousCheckIn(before: result.date)
+    }
+
+    /// Closes the check-in, then shows the main plan.
+    private func openPlan() {
+        let navigation = self.navigation
+        done()
+        Task { @MainActor in
+            // On iPhone the check-in is a full-screen cover: let it close first.
+            try? await Task.sleep(for: .milliseconds(350))
+            navigation.showPlan()
+        }
+    }
+}
+
+#Preview("Saved") {
+    CheckInConfirmationView(result: CheckInPreviewData.saved) {}
+        .previewEnvironment()
+}
+
+#Preview("Saved, no planner") {
+    CheckInConfirmationView(result: CheckInPreviewData.savedWithoutAnswer) {}
+        .previewEnvironment()
+}
