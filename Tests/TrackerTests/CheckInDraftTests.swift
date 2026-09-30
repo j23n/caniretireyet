@@ -204,6 +204,75 @@ struct CheckInDraftTests {
         #expect(draft.records(in: library).valuations == existing)
     }
 
+    /// Correcting a value on a date already saved: a flow that was the
+    /// default for the saved values follows the correction; one typed by
+    /// hand stays; untouched rows are written back as they were.
+    @Test func correctingASavedValueRecomputesAnAutomaticFlow() throws {
+        var draft = CheckInDraft(date: "2026-09-30", library: library)
+        #expect(draft["conto-fineco"]?.enteredFlow == d("-304.65"))
+        // −304.65 is the whole change since August.
+        draft["conto-fineco"]?.setBalance(d("4310.55"))
+        #expect(draft["conto-fineco"]?.isFlowEdited == false)
+        // 11.3 is the change in cash.
+        draft["directa"]?.setCash(d("352.1"))
+        // 500 isn't the change (535.05), so it was typed: it stays.
+        draft["conto-deposito"]?.setBalance(17400)
+        // Contributions are always typed.
+        draft["fondo-pensione"]?.setBalance(18500)
+
+        let written = Dictionary(uniqueKeysWithValues: draft.records(in: library).valuations.map { ($0.account, $0) })
+        #expect(written["conto-fineco"]?.flow == d("-204.65"))
+        #expect(written["directa"]?.flow == d("51.3"))
+        #expect(written["directa"]?.positions == [Position(instrument: "vwce", quantity: d("412.5"), costBasis: 48200)])
+        #expect(written["conto-deposito"]?.flow == 500)
+        #expect(written["fondo-pensione"]?.flow == 1325)
+        #expect(written["mutuo-casa"] == library.months["2026-09"]?.valuations.first { $0.account == "mutuo-casa" })
+        let review = draft.review(in: library)
+        #expect(review.row(for: "conto-fineco")?.flow == review.row(for: "conto-fineco")?.defaultFlow)
+
+        // A flow typed now wins, and a later edit keeps it.
+        draft["conto-fineco"]?.setFlow(-250)
+        draft["conto-fineco"]?.setBalance(d("4320.55"))
+        #expect(draft.records(in: library).valuations.first { $0.account == "conto-fineco" }?.flow == -250)
+    }
+
+    /// "Unchanged" needs a previous value to keep; without one it does
+    /// nothing, and marking the rest unchanged skips the row.
+    @Test func unchangedNeedsAPreviousValue() throws {
+        var library = Library()
+        library.accounts["new-acc"] = Account(id: "new-acc", name: "New", kind: .cash, currency: .eur,
+                                              opened: "2025-01-01")
+        library.upsert(Valuation(account: "new-acc", date: "2026-09-15", balance: 5000))
+
+        var draft = CheckInDraft(date: "2026-09-10", library: library)
+        #expect(draft["new-acc"]?.canMarkUnchanged == false)
+        #expect(draft["new-acc"]?.markUnchanged() == false)
+        #expect(draft["new-acc"]?.state == .notReviewed)
+        draft.markRestUnchanged()
+        #expect(draft["new-acc"]?.state == .skipped)
+        #expect(draft.records(in: library).valuations.isEmpty)
+
+        // Unchanged on 30 Sep, then moved before the first value: nothing to keep.
+        var moved = CheckInDraft(date: "2026-09-30", library: library)
+        moved.markRestUnchanged()
+        #expect(moved.records(in: library).valuations.first?.balance == 5000)
+        moved.changeDate(to: "2026-09-10", library: library)
+        #expect(moved["new-acc"]?.state == .notReviewed)
+        #expect(moved.records(in: library).valuations.isEmpty)
+    }
+
+    /// Moving a re-opened check-in to another date carries only what was
+    /// entered, not values pre-filled from the old date.
+    @Test func changingTheDateOfASavedCheckInCarriesOnlyWhatWasEntered() throws {
+        var draft = CheckInDraft(date: "2026-09-30", library: library)
+        draft["conto-fineco"]?.setBalance(4300)
+        draft.changeDate(to: "2026-10-31", library: library)
+        #expect(draft["conto-fineco"]?.balance == 4300)
+        #expect(draft["conto-fineco"]?.state == .updated)
+        #expect(draft["mutuo-casa"]?.state == .notReviewed)
+        #expect(draft.records(in: library).valuations.map(\.account) == ["conto-fineco"])
+    }
+
     @Test func changingTheDateKeepsWhatWasEntered() throws {
         var draft = filledIn()
         draft.changeDate(to: "2026-10-30", library: library)

@@ -118,7 +118,7 @@ extension CheckInDraft {
             let value = priced.value(of: proposal.valuation, on: date)
             let previousValue = row.previous.flatMap { priced.value(of: $0, on: $0.date)?.knownValue }
             var warnings: [CheckInWarning] = []
-            if row.state == .updated {
+            if row.state == .updated, row.conflict == nil {
                 for position in row.positions where position.quantity < position.previousQuantity {
                     warnings.append(.quantityDecreased(account: row.account, instrument: position.instrument,
                                                        from: position.previousQuantity, to: position.quantity))
@@ -143,7 +143,8 @@ extension CheckInDraft {
 
     /// The valuations (one per row updated or marked unchanged, with flows
     /// and cost bases filled in), prices and FX rates to write. Rows not
-    /// reviewed or skipped write nothing.
+    /// reviewed, skipped or in conflict with a valuation saved on the date
+    /// write nothing.
     public func records(in library: Library) -> CheckInRecords {
         let priced = Valuator(library: libraryWithRates(library))
         return CheckInRecords(valuations: rows.compactMap { proposal(for: $0, using: priced).written },
@@ -164,23 +165,26 @@ extension CheckInDraft {
     }
 
     /// The library with this check-in's prices and FX rates added.
-    private func libraryWithRates(_ library: Library) -> Library {
+    func libraryWithRates(_ library: Library) -> Library {
         var library = library
         for price in prices { library.upsert(price) }
         for rate in fxRates { library.upsert(rate) }
         return library
     }
 
-    private struct Proposal {
+    struct Proposal {
         /// The row's values as a valuation, whatever its state.
         var valuation: Valuation
-        /// What the row writes, with its flow; `nil` unless updated or unchanged.
+        /// What the row writes, with its flow; `nil` unless updated or
+        /// unchanged, and not in conflict.
         var written: Valuation?
         var defaultFlow: Decimal?
         var positions: [CheckInPositionReview]
     }
 
-    private func proposal(for row: CheckInRow, using valuator: Valuator) -> Proposal {
+    /// The row valued with `valuator`. With `ignoringConflict`, `written` is
+    /// what the row would write once its conflict is settled in its favour.
+    func proposal(for row: CheckInRow, using valuator: Valuator, ignoringConflict: Bool = false) -> Proposal {
         let currency = valuator.accounts[row.account]?.currency ?? valuator.baseCurrency
         var valuation = Valuation(account: row.account, date: date, note: row.note, source: row.source)
         var reviews: [CheckInPositionReview] = []
@@ -212,7 +216,7 @@ extension CheckInDraft {
         let defaultFlow = row.state == .unchanged
             ? 0 : valuator.defaultFlow(for: valuation, previous: row.previous, paid: row.paid)
         var written: Valuation?
-        if row.state == .updated || row.state == .unchanged {
+        if row.state == .updated || row.state == .unchanged, ignoringConflict || row.conflict == nil {
             written = valuation
             written?.flow = row.isFlowEdited ? row.enteredFlow : defaultFlow
         }
