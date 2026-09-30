@@ -185,6 +185,7 @@ struct PathSimulator {
             let prepared = schedule.years[t].variants[v].prepared
             let startAssets = details == nil ? 0 : total()
             withheld = 0
+            variable.fractionOfYear = yearFraction[t]
             variable.sales.removeAll(keepingCapacity: true)
             variable.payouts.removeAll(keepingCapacity: true)
             variable.capitalIncome.removeAll(keepingCapacity: true)
@@ -241,8 +242,7 @@ struct PathSimulator {
                 }
             }
             applyReturns(year: t, run: run)
-            let fraction = yearFraction[t]
-            for l in values.indices { variable.balances[l].value = values[l] * fraction }
+            for l in values.indices { variable.balances[l].value = values[l] }
             let assessment = prepared.assess(variable)
             carried = assessment.totalTax + assessment.totalContributions - schedule.years[t].variants[v].fixedTotal
                 - withheld

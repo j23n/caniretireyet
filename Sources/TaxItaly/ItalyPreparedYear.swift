@@ -146,7 +146,7 @@ struct ItalyMarketAssessor {
         for balance in variable.balances where balance.value > 0 {
             switch treatment(of: balance.wrapper) {
             case .ordinary, .unknown:
-                taxWealth(balance)
+                taxWealth(balance, fraction: min(1, max(0, variable.fractionOfYear)))
             default:
                 break
             }
@@ -247,30 +247,32 @@ struct ItalyMarketAssessor {
                 + "as an annuity.", year: context.year))
     }
 
-    /// Stage 9: wealth taxes on year-end values of ordinary accounts.
-    private mutating func taxWealth(_ balance: VariableYear.Balance) {
+    /// Stage 9: wealth taxes on year-end values of ordinary accounts. The
+    /// thresholds are tested on the balance, and `fraction` of a year's tax
+    /// is charged (less than a year in a plan's first year).
+    private mutating func taxWealth(_ balance: VariableYear.Balance, fraction: Double) {
         let wealth = p.wealthTax
         switch balance.category {
         case .cash:
             if balance.value > wealth.currentAccountThreshold {
-                add("it.wealthTax.currentAccount", "Imposta di bollo on current accounts", wealth.currentAccountAmount,
-                    base: balance.value, subject: balance.wrapper)
+                add("it.wealthTax.currentAccount", "Imposta di bollo on current accounts",
+                    wealth.currentAccountAmount * fraction, base: balance.value, subject: balance.wrapper)
             }
         case .crypto, .stablecoin:
             add("it.wealthTax.crypto", "Tax on the value of crypto (\(percent(wealth.cryptoRate)))",
-                wealth.cryptoRate * balance.value, base: balance.value, subject: balance.wrapper)
+                wealth.cryptoRate * balance.value * fraction, base: balance.value, subject: balance.wrapper)
         case .physicalGold:
             break
         case .realEstate:
             guard let country = balance.country?.uppercased(), country != "IT" else { break }
             let tax = wealth.propertyAbroadRate * balance.value
             if tax > wealth.propertyAbroadMinimum {
-                add("it.ivie", "IVIE (property abroad)", tax, base: balance.value, subject: balance.wrapper)
+                add("it.ivie", "IVIE (property abroad)", tax * fraction, base: balance.value, subject: balance.wrapper)
             }
         default:
             let blacklisted = balance.country.map { wealth.blacklist.contains($0.uppercased()) } ?? false
             let rate = blacklisted ? wealth.blacklistRate : wealth.financialRate
-            add("it.wealthTax.financial", "Imposta di bollo / IVAFE (\(percent(rate)))", rate * balance.value,
+            add("it.wealthTax.financial", "Imposta di bollo / IVAFE (\(percent(rate)))", rate * balance.value * fraction,
                 base: balance.value, subject: balance.wrapper)
         }
     }

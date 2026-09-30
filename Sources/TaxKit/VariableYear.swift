@@ -4,7 +4,8 @@
 /// Amounts are in today's euros. Cost bases are nominal purchase costs
 /// deflated to today's euros, so gains are nominal gains.
 public struct VariableYear: Hashable, Sendable {
-    /// Sales from buckets, e.g. to fund spending or rebalance.
+    /// Sales from buckets, e.g. to fund spending or rebalance. A
+    /// rebalancing sale in a taxable account is a sale like any other.
     public var sales: [Sale]
     /// Money taken out of tax-advantaged wrappers.
     public var payouts: [WrapperPayout]
@@ -12,13 +13,19 @@ public struct VariableYear: Hashable, Sendable {
     public var capitalIncome: [CapitalIncome]
     /// Year-end values, for wealth taxes.
     public var balances: [Balance]
+    /// The share of the year the balances are held for, 0...1: less than 1
+    /// in a plan's first year, which starts after the check-in. Wealth taxes
+    /// test their thresholds on the balances as they are and charge this
+    /// share of a year's tax.
+    public var fractionOfYear: Double
 
     public init(sales: [Sale] = [], payouts: [WrapperPayout] = [], capitalIncome: [CapitalIncome] = [],
-                balances: [Balance] = []) {
+                balances: [Balance] = [], fractionOfYear: Double = 1) {
         self.sales = sales
         self.payouts = payouts
         self.capitalIncome = capitalIncome
         self.balances = balances
+        self.fractionOfYear = fractionOfYear
     }
 
     /// A year with no market activity.

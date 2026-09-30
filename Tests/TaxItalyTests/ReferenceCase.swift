@@ -71,6 +71,8 @@ struct ReferenceCase: Decodable, Sendable {
         var payouts: [Payout]?
         var capitalIncome: [CapitalIncome]?
         var balances: [Balance]?
+        /// `VariableYear.fractionOfYear` (default 1).
+        var fractionOfYear: Double?
     }
 
     struct Sale: Decodable, Sendable {
@@ -189,7 +191,8 @@ struct ReferenceCase: Decodable, Sendable {
             balances: (variable?.balances ?? []).map {
                 .init(wrapper: $0.wrapper, category: TaxCategory(rawValue: $0.category), country: $0.country,
                       value: $0.value)
-            })
+            },
+            fractionOfYear: variable?.fractionOfYear ?? 1)
     }
 
     var state: TaxState {
