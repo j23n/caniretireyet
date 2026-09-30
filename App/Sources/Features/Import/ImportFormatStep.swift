@@ -81,7 +81,8 @@ struct ImportFormatStep: View {
             Text("Reading the file")
         } footer: {
             Text("\(flow.tableSummary). Letters such as à or € that look wrong mean another encoding. Rows starting "
-                + "with the words above (e.g. totals) are left out; separate them with commas and press Return.")
+                + "with the words above (e.g. totals) are left out; separate them with commas and press Return. "
+                + "Leave it empty to keep every row.")
         }
     }
 

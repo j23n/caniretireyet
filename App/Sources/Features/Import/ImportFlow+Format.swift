@@ -78,10 +78,13 @@ extension ImportFlow {
     var excludedRows: [String] { session?.table.excludeRows ?? ImportTable.defaultExcludedRows }
 
     /// Sets the footer rule from text such as `Totale, Total`; empty text
-    /// restores the default.
+    /// leaves out no rows (`"excludeRows": []` in the profile).
     mutating func setExcludedRows(_ text: String) {
         let rules = text.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
-        reread { $0.excludeRows = rules == ImportTable.defaultExcludedRows ? [] : rules }
+        reread { settings in
+            settings.excludeRows = rules == ImportTable.defaultExcludedRows ? [] : rules
+            settings.excludesNoRows = rules.isEmpty
+        }
     }
 
     private mutating func reread(_ change: (inout ImportFileSettings) -> Void) {

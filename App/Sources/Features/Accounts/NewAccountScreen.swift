@@ -124,7 +124,8 @@ struct NewAccountScreen: View {
                 Text("Opening balance")
             } footer: {
                 Text(form.kind.isLiability
-                    ? "What you owe on the day it opens. It's recorded as a negative amount."
+                    ? "What you owe on the day it opens. It's recorded as a negative amount. "
+                        + "If the account is in credit, type + first, e.g. +20."
                     : "What it holds on the day it opens. It becomes the account's first value.")
             }
         }

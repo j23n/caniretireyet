@@ -302,12 +302,12 @@ private struct CheckInTableRow: View {
         if row.mode == .balance {
             let field = CheckInField.balance(row.account)
             CheckInNumberField(
-                field, focus: focus, isFocused: focused == field, value: row.balance, prompt: "0,00",
+                field, focus: focus, isFocused: focused == field, value: row.balance,
+                style: CheckInRowDisplay.balanceStyle(of: row.account, in: library.library), prompt: "0,00",
                 label: "\(name), now", onSubmit: { onReturn(field) }
             ) { amount in
                 guard let amount else { return }
-                let isLiability = account?.kind.isLiability ?? false
-                checkIn.updateRow(row.account) { $0.setBalance(CheckInEditing.balance(amount, isLiability: isLiability)) }
+                checkIn.updateRow(row.account) { $0.setBalance(amount) }
             }
             .checkInFieldBox(isFocused: focused == field, height: 26)
         } else {

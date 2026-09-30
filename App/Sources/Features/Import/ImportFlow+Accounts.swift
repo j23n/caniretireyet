@@ -224,9 +224,14 @@ extension ImportFlow {
     // MARK: Debts
 
     /// Notes such as "“Mutuo”: positive amounts were read as debts (12 values)."
+    /// or, for a column that writes debts negative, that positive amounts
+    /// were kept as credit.
     var debtNotes: [String] {
         (preview?.issues ?? []).filter { issue in
-            if case .positiveDebts = issue.kind { true } else { false }
+            switch issue.kind {
+            case .positiveDebts, .debtsInCredit: true
+            default: false
+            }
         }.map(\.description)
     }
 

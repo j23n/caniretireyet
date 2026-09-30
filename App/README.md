@@ -95,16 +95,17 @@ For a binding, `@Bindable var navigation = navigation` inside `body`.
 
 ### PriceStore — prices, FX and inflation
 
-`fetch(for:on:refresh:) async -> CheckInPrices` (never throws; failures are entries with a readable reason), `testFetch(_ instrument:baseCurrency:on:) async -> PriceListEntry`, `isFetching`, `canFetch` (false in previews), `lastResult`. API keys come from the Keychain (`KeychainCredentials`, set in Settings).
+`fetch(for:on:refresh:) async -> CheckInPrices` (never throws; failures are entries with a readable reason), `fetch(for:on:including:refresh:)` (also instruments the library doesn't hold yet, e.g. a position added in a check-in), `testFetch(_ instrument:baseCurrency:on:) async -> PriceListEntry`, `isFetching`, `canFetch` (false in previews), `lastResult`. API keys come from the Keychain (`KeychainCredentials`, set in Settings).
 
 ### CheckInStore — the check-in in progress
 
 Owns a `Tracker.CheckInDraft`, kept as JSON in `Application Support/<bundle id>/CheckIn/draft.json` until saved, never half-written to the library.
 
 - `begin(on:)` resumes the draft (moved to the date if given) or starts one on the suggested date, then fetches prices into it (unless turned off in Settings). `changeDate(to:)`.
-- Edit: `update { draft in … }`, `updateRow(accountID) { row in row.setBalance(…) }`, `markRestUnchanged()`, `setManualPrice(_:for:)`, `setManualFXRate(_:for:)` (typed prices survive re-fetching), `fetchPrices(refresh:)`.
+- **Following the library.** The draft is rebased (`CheckInDraft.rebase(onto:)`) when it's resumed, whenever `LibraryStore.revision` changes while it exists (once the library is loaded), and right before saving: rows are refreshed from the current previous and saved valuations, added for new accounts and dropped for deleted or closed ones; what was entered is kept. A value saved on the draft's date elsewhere (the other device) that differs from what was entered becomes the row's `conflict`: it writes nothing until it's settled with `resolveConflict(of:keepingSaved:)` or `resolveConflicts(keepingSaved:)`. `refresh()` rebases by hand.
+- Edit: `update { draft in … }`, `updateRow(accountID) { row in row.setBalance(…) }`, `markRestUnchanged()` (accounts without an earlier value are skipped), `setManualPrice(_:for:)`, `setManualFXRate(_:for:)` (typed prices survive re-fetching), `fetchPrices(refresh:)` (the library's instruments and the draft's, so a position added in the check-in is priced; adding one fetches again).
 - Read: `draft`, `review` (the new total, waterfall and warnings, from `CheckInDraft.review`), `priceList` (every instrument, rate and index with its source or failure), `isFetchingPrices`, `indices`, `status` (for the accessory: `CheckInStatus` with `summary()`, `isDue`, `hasDraft`, `nextCheckIn`, progress).
-- `save() async throws -> CheckInSaveResult` writes valuations, prices, FX rates and index values in one edit, deletes the draft, and asks `PlanStore.checkInSaved(on:)` for this month's answer (`result.headline`). `discard()`, `persistNow()` (the root view calls it when the app leaves the foreground), `restoreDraft()` (at launch), `restore(_:indices:)` (puts a check-in back as the draft when saving it didn't reach the files).
+- `save() async throws -> CheckInSaveResult` rebases, then writes valuations, prices, FX rates and index values in one `LibraryStore.commit` and waits for the files. Only then does it delete the draft and ask `PlanStore.checkInSaved(on:)` for this month's answer (`result.headline`). A failed write throws and keeps the draft; conflicts found by the rebase just before writing throw `CheckInStoreError.changedElsewhere` and write nothing. `discard()`, `persistNow()` (the root view calls it when the app leaves the foreground), `restoreDraft()` (at launch), `restore(_:indices:)` (puts a check-in back as the draft).
 
 ### PlanStore — runs, results, headlines, baselines
 
@@ -167,7 +168,6 @@ At launch `LibraryStore.start()` asks `CloudSync.LibraryLocator` for the iCloud 
 ## Not done yet
 
 - **Not built:** separate windows for plan comparison and import on the Mac (add `WindowGroup(id:)` scenes and `openWindow`), Face ID lock (M3), widgets (M3), an app icon (add an `AppIcon` set and set `ASSETCATALOG_COMPILER_APPICON_NAME` in project.yml), and reacting to the iCloud account changing while the app runs.
-- `CheckInDraft` has no way to refresh its rows when the library changes under an open draft (e.g. an account added on the other device); the draft keeps the rows it started with.
 
 ## Checking without Xcode
 

@@ -113,6 +113,9 @@ private struct CheckInReviewContent: View {
             if let error = session.saveError {
                 StatusBanner(.error, "Couldn't save the check-in", message: error)
             }
+            if !draft.conflicts.isEmpty {
+                conflictsCard
+            }
             if !draft.isReadyToSave {
                 notReviewedCard
             }
@@ -151,6 +154,24 @@ private struct CheckInReviewContent: View {
     }
 
     // MARK: Cards
+
+    /// Accounts that got a value for this date on another device while the
+    /// check-in was open: keep that value, or use the one entered here.
+    private var conflictsCard: some View {
+        Card("Saved on another device") {
+            VStack(alignment: .leading, spacing: Metrics.m) {
+                Text("These accounts got a value for this date on another device while this check-in was open. "
+                    + "Choose which to keep. Until you do, the saved value stays and yours isn't written.")
+                    .font(.footnote)
+                    .foregroundStyle(Palette.secondaryInk)
+                    .fixedSize(horizontal: false, vertical: true)
+                ForEach(draft.conflicts) { row in
+                    CheckInConflictRow(row: row, mine: review.row(for: row.account)?.value?.knownValue,
+                                       session: session)
+                }
+            }
+        }
+    }
 
     private var notReviewedCard: some View {
         let names = draft.notReviewed.map { library.account($0)?.name ?? $0.rawValue }
@@ -211,7 +232,8 @@ private struct CheckInReviewContent: View {
     }
 
     private var changedCard: some View {
-        let changed = review.rows.filter { $0.state == .updated }
+        // Rows in conflict write nothing yet: they're in their own card.
+        let changed = review.rows.filter { $0.state == .updated && $0.valuation != nil }
         return Card("Changed accounts") {
             if changed.isEmpty {
                 Text("No values changed: every account reviewed is unchanged or skipped.")
@@ -233,6 +255,52 @@ private struct CheckInReviewContent: View {
                     CheckInWarningRow(text: CheckInWarningText.make(warning, library: library.library, locale: locale),
                                       session: session)
                 }
+            }
+        }
+    }
+}
+
+/// An account in conflict: the value saved on the other device and the one
+/// entered here, with the choice between them.
+private struct CheckInConflictRow: View {
+    let row: CheckInRow
+    /// The value entered here, in the base currency.
+    let mine: Decimal?
+    let session: CheckInSession
+
+    @Environment(CheckInStore.self) private var checkIn
+    @Environment(LibraryStore.self) private var library
+
+    var body: some View {
+        let saved = row.conflict.flatMap { library.valuator.value(of: $0, on: $0.date)?.knownValue }
+        VStack(alignment: .leading, spacing: Metrics.xs) {
+            Text(verbatim: library.account(row.account)?.name ?? row.account.rawValue)
+                .font(.subheadline.weight(.semibold))
+            HStack {
+                Text("Saved on the other device")
+                Spacer(minLength: Metrics.s)
+                if let saved {
+                    AmountText(saved, precision: .cents)
+                }
+            }
+            .font(.footnote)
+            HStack {
+                Text("Entered here")
+                Spacer(minLength: Metrics.s)
+                if let mine {
+                    AmountText(mine, precision: .cents)
+                }
+            }
+            .font(.footnote)
+            HStack(spacing: Metrics.s) {
+                Button("Keep saved") {
+                    session.resolveConflict(of: row.account, keepingSaved: true, checkIn: checkIn)
+                }
+                .buttonStyle(.borderedProminent)
+                Button("Use mine") {
+                    session.resolveConflict(of: row.account, keepingSaved: false, checkIn: checkIn)
+                }
+                .buttonStyle(.bordered)
             }
         }
     }

@@ -364,8 +364,9 @@ struct AccountOpeningForm: Hashable, Sendable {
     }
 
     /// The first valuation of `account`, on the day it opened, or `nil` if
-    /// nothing was typed. Debts typed as positive amounts are recorded as
-    /// negative. The flow is what the check-in would suggest for a first
+    /// nothing was typed. A debt's amount is what's owed and is recorded as
+    /// negative, unless typed with a leading "+" (in credit). The flow is
+    /// what the check-in would suggest for a first
     /// valuation (the whole amount, at the day's prices, for most kinds;
     /// unknown for pension funds and property).
     func valuation(for account: Account, in library: Library, locale: Locale = .current) -> Valuation? {
@@ -383,8 +384,8 @@ struct AccountOpeningForm: Hashable, Sendable {
                 if let cost { paid[instrument] = cost }
             }
         } else {
-            guard var amount = AmountInput.decimal(from: balance, locale: locale) else { return nil }
-            if account.kind.isLiability && amount > 0 { amount = -amount }
+            guard let amount = AmountInput.balance(from: balance, isLiability: account.kind.isLiability, locale: locale)
+            else { return nil }
             valuation.balance = amount
         }
         var snapshot = library

@@ -342,12 +342,12 @@ private struct CheckInListRow: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             HStack(spacing: Metrics.xs) {
                 CheckInNumberField(
-                    field, focus: focus, isFocused: focused == field, value: row.balance, prompt: "0",
+                    field, focus: focus, isFocused: focused == field, value: row.balance,
+                    style: CheckInRowDisplay.balanceStyle(of: row.account, in: library.library), prompt: "0",
                     label: "\(name), value", signToggle: signToggle, onSubmit: { next(field) }
                 ) { amount in
                     guard let amount else { return }
-                    let isLiability = account?.kind.isLiability ?? false
-                    checkIn.updateRow(row.account) { $0.setBalance(CheckInEditing.balance(amount, isLiability: isLiability)) }
+                    checkIn.updateRow(row.account) { $0.setBalance(amount) }
                 }
                 Text(verbatim: symbol)
                     .foregroundStyle(Palette.secondaryInk)

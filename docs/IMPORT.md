@@ -16,7 +16,7 @@ Imports any spreadsheet or export by mapping its columns to what the library sto
 
 - **Formats:** CSV and TSV with any delimiter (`,` `;` tab `|`) and quoted fields. Numbers and Excel can export these.
 - **Encodings:** UTF-8 (with or without BOM), UTF-16, and Windows-1252 / ISO-8859-1. Excel on Windows often exports Italian files in Windows-1252.
-- **Rows:** a header row anywhere (with rows above it skipped), empty rows ignored, and footer rows such as "Totale" excluded by a rule you can edit (by default, rows starting with "Totale" or "Total").
+- **Rows:** a header row anywhere (with rows above it skipped), empty rows ignored, and footer rows such as "Totale" excluded by a rule you can edit or turn off (by default, rows starting with "Totale" or "Total").
 - **Later:** reading `.xlsx` and `.numbers` files directly.
 
 ## Layouts
@@ -84,9 +84,10 @@ Every column has a format. The file sets the defaults, a column can override the
 
 **Debts**
 
-- The library stores the balance of a debt account (kind `loan`, `mortgage` or `creditCard`) as a negative amount. Spreadsheets usually write it as a positive one ("146.250" for a mortgage), so by default a positive balance for a debt account is read as a debt and stored negative, and the preview adds a note such as “Mutuo”: positive amounts were read as debts (12 values). Negative amounts are kept as they are.
-- The account's kind decides, including the kind of a new account the import creates: if you change a proposed account's kind, its balances follow when you import.
-- To keep the file's signs, set `liabilitySign` to `asWritten` in the profile's `defaults`, or in one column's `format` (the default is `auto`).
+- The library stores the balance of a debt account (kind `loan`, `mortgage` or `creditCard`) as a negative amount. Spreadsheets usually write it as a positive one ("146.250" for a mortgage), so by default (`auto`) a positive balance for a debt account is read as a debt and stored negative, and the preview adds a note such as “Mutuo”: positive amounts were read as debts (12 values). Negative amounts are kept as they are.
+- `auto` looks at each column's convention first. A column where any balance of a debt account is negative already writes debts as negative amounts, so its signs are kept: a positive amount there is a debt in credit (an overpaid card at +20 stays +20), and the preview notes it: “Carta”: the column writes debts as negative amounts, so positive amounts were kept as credit (1 value). In the long layout, one value column holds every account, so one negative debt keeps the signs of the whole column.
+- The account's kind decides, including the kind of a new account the import creates: if you change a proposed account's kind, its balances (and its column's convention) follow when you import.
+- To keep the file's signs whatever they are, set `liabilitySign` to `asWritten` in the profile's `defaults`, or in one column's `format` (the default is `auto`).
 
 **Text**
 
@@ -147,11 +148,11 @@ Other fields a profile can have, all optional:
 | Field | Meaning |
 | --- | --- |
 | `file.encoding` | The text encoding. Left out, it's detected. A byte-order mark in the file wins, and so does valid UTF-8 with accented letters over `windows-1252` or `iso-8859-1`, as when a file is saved again from another app. |
-| `file.excludeRows` | Rows to skip, such as totals: a row is skipped when its first non-empty cell starts with one of these, ignoring case and accents, e.g. `["Totale"]`. Left out, it's `["Totale", "Total"]`. |
+| `file.excludeRows` | Rows to skip, such as totals: a row is skipped when its first non-empty cell starts with one of these, ignoring case and accents, e.g. `["Totale"]`. Left out, it's `["Totale", "Total"]`; an empty list, `[]`, skips no rows. |
 | `file.headerRow` | The 1-based row holding the headers; `0` means the file has none. Left out, it's detected. |
 | `defaults.date` | `pattern` (e.g. `dd/MM/yyyy`, or `excel-serial`), `monthOnly` (`end`, the default, or `start`), and `timeZone` (an IANA name) for date-times. |
 | `defaults.number` | `decimal` and `thousands` separators (`""` for none), and `percent`. |
-| `defaults.liabilitySign` | How balances of debt accounts are signed in the file: `auto` (the default: a positive amount is a debt and is stored negative) or `asWritten` (keep the file's sign). See [Debts](#value-formats). |
+| `defaults.liabilitySign` | How balances of debt accounts are signed in the file: `auto` (the default: a positive amount is a debt and is stored negative, unless its column writes any debt as a negative amount, when the column's signs are kept) or `asWritten` (keep the file's sign). See [Debts](#value-formats). |
 | `columns[].index` | The 1-based column position, used only when the file has no header. |
 | `columns[].currency`, `base`, `quote` | The currency of a column's amounts or prices, or an FX column's pair. |
 | `columns[].format` | Overrides of `defaults` for one column: `date`, `number`, `empty`, `liabilitySign`. |
@@ -163,7 +164,7 @@ Other fields a profile can have, all optional:
 
 ## Where it runs
 
-- **Engine.** The `Importer` module, in pure Swift. It reads bytes and a `Library` and returns results; the app and the CLI back up and write the files it reports as changed. It's tested on Linux against a folder of sample files (`Tests/ImporterTests/Samples/`): Italian Excel CSVs in Windows-1252, US-style exports, Numbers exports, title and totals rows, month-only dates, Excel serial dates, long files, quantities with prices, debts written as positive amounts, broken rows.
+- **Engine.** The `Importer` module, in pure Swift. It reads bytes and a `Library` and returns results; the app and the CLI back up and write the files it reports as changed. It's tested on Linux against a folder of sample files (`Tests/ImporterTests/Samples/`): Italian Excel CSVs in Windows-1252, US-style exports, Numbers exports, title and totals rows, month-only dates, Excel serial dates, long files, quantities with prices, debts written as positive amounts (and columns that write them negative), broken rows.
   - `ImportSession(data:)` reads a file and proposes a mapping, or `ImportSession(data:profile:)` uses a saved one. The session holds the mapping as an `ImportProfile`, with helpers to map a column, pick the date column, remember a match and settle an ambiguity.
   - `session.preview(against:)` returns an `ImportPreview`: every record with its status, cell errors, issues, ambiguities, name matches, and the proposed accounts, instruments and account changes.
   - `preview.apply(to:)` returns an `ImportResult`: the new library and the month files, accounts and instruments that changed.

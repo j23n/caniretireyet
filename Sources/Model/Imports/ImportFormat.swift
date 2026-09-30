@@ -103,7 +103,9 @@ public struct LiabilitySign: OpenEnum {
 
     /// A positive amount is a debt, as spreadsheets usually write it
     /// ("146.250" for a mortgage), and is stored negative. Negative amounts
-    /// are kept. The default.
+    /// are kept. A column that writes any debt as a negative amount keeps
+    /// all its signs, so a positive amount there is a debt in credit. The
+    /// default.
     public static let auto: LiabilitySign = "auto"
     /// Amounts are stored with the sign the file gives them.
     public static let asWritten: LiabilitySign = "asWritten"

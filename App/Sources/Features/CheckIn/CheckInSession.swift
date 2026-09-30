@@ -110,7 +110,7 @@ final class CheckInSession {
 
     /// Marks the rows not reviewed yet as unchanged (new accounts are skipped).
     func markRestUnchanged(checkIn: CheckInStore) {
-        checkIn.update { CheckInEditing.markRestUnchanged(&$0) }
+        checkIn.markRestUnchanged()
     }
 
     /// Goes back from the review to a row, focusing `field` if given (a
@@ -145,9 +145,11 @@ final class CheckInSession {
 
     /// Saves the check-in: first deals with rows not reviewed yet (`rest`),
     /// then writes it into the library and waits for the files to be
-    /// written. If the write didn't reach the library (a failed save reloads
-    /// what's on disk), the check-in is put back as the draft and the error
-    /// is shown, so nothing typed is lost.
+    /// written. The draft is deleted only once they are; if the write fails,
+    /// the draft stays on this device and the error is shown, so nothing
+    /// typed is lost. Values saved on the same date on another device are
+    /// never overwritten without a choice: rows still in conflict keep the
+    /// saved values, and conflicts found just before writing stop the save.
     func save(checkIn: CheckInStore, library: LibraryStore, rest: Rest? = nil) async {
         guard !isSaving else { return }
         switch rest {
@@ -155,37 +157,30 @@ final class CheckInSession {
         case .skip?: checkIn.update { CheckInEditing.skipRest(&$0) }
         case nil: break
         }
-        guard let draft = checkIn.draft else {
+        guard checkIn.draft != nil else {
             saveError = CheckInStoreError.noDraft.errorDescription
             return
         }
-        let indices = checkIn.indices
-        let records = draft.records(in: library.library)
         isSaving = true
         saveError = nil
         defer { isSaving = false }
         do {
-            let result = try await checkIn.save()
-            await library.waitForPendingWrites()
-            guard Self.contains(records, in: library.library) else {
-                checkIn.restore(draft, indices: indices)
-                let reason = library.lastError.map { " (\($0))" } ?? ""
-                saveError = "The check-in couldn't be written to your library\(reason). "
-                    + "It's kept as a draft on this device, so nothing is lost: try saving again."
-                return
-            }
-            saved = result
+            saved = try await checkIn.save()
             page = nil
         } catch {
             saveError = Self.describe(error)
+            if case CheckInStoreError.changedElsewhere? = error as? CheckInStoreError {
+                return
+            }
+            saveError = (saveError ?? "") + " The check-in is kept as a draft on this device, so nothing is lost: "
+                + "try saving again."
         }
     }
 
-    /// Whether every valuation in `records` is in `library`.
-    static func contains(_ records: CheckInRecords, in library: Library) -> Bool {
-        records.valuations.allSatisfy { valuation in
-            library.valuations(for: valuation.account).contains { $0.date == valuation.date }
-        }
+    /// Settles a conflict with a value saved on another device (see
+    /// `CheckInRow.conflict`): keep the saved value, or use the one entered.
+    func resolveConflict(of account: AccountID, keepingSaved: Bool, checkIn: CheckInStore) {
+        checkIn.resolveConflict(of: account, keepingSaved: keepingSaved)
     }
 
     static func describe(_ error: any Error) -> String {

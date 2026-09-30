@@ -74,10 +74,13 @@ enum CheckInFieldFormat {
         case amount
         /// A quantity: ungrouped, up to eight decimals (`412,5`, `0,4215`).
         case quantity
+        /// A debt's balance: money, where a typed amount is what's owed
+        /// (stored negative) and a leading `+` means in credit (`+20,00`).
+        case debt
     }
 
     /// The text a field shows for `value` while it isn't being edited. It
-    /// reads back to the same value with `AmountInput.decimal(from:locale:)`.
+    /// reads back to the same value with ``value(from:style:locale:)``.
     static func text(for value: Decimal?, style: Style, locale: Locale = .current) -> String {
         guard let value else { return "" }
         switch style {
@@ -85,7 +88,25 @@ enum CheckInFieldFormat {
             return value.formatted(.number.precision(.fractionLength(2)).locale(locale))
         case .quantity:
             return AmountInput.text(for: value, maxDigits: 8, locale: locale)
+        case .debt:
+            let text = value.formatted(.number.precision(.fractionLength(2)).locale(locale))
+            return value > 0 ? "+" + text : text
         }
+    }
+
+    /// The value typed in a field, or `nil` while it can't be read (e.g.
+    /// just "-"). A debt's amount is what's owed, unless it starts with `+`.
+    static func value(from text: String, style: Style, locale: Locale = .current) -> Decimal? {
+        switch style {
+        case .amount, .quantity: AmountInput.decimal(from: text, locale: locale)
+        case .debt: AmountInput.balance(from: text, isLiability: true, locale: locale)
+        }
+    }
+
+    /// `text` after the ± key: the minus sign added or removed, or for a
+    /// debt, switched between owed and in credit.
+    static func toggledSign(_ text: String, style: Style) -> String {
+        style == .debt ? AmountInput.toggledCredit(text) : CheckInEditing.toggledSign(text)
     }
 
     /// An amount without its currency, for table cells and captions:
@@ -228,7 +249,12 @@ enum CheckInRowDisplay {
     /// value to keep. A new account has none, so it can only be entered or
     /// skipped.
     static func canMarkUnchanged(_ row: CheckInRow) -> Bool {
-        row.previous != nil
+        row.canMarkUnchanged
+    }
+
+    /// The style of a row's balance field: a debt's reads amounts as owed.
+    static func balanceStyle(of account: AccountID, in library: Library) -> CheckInFieldFormat.Style {
+        library.accounts[account]?.kind.isLiability == true ? .debt : .amount
     }
 
     /// Whether the row's previous value is older than the previous
@@ -247,15 +273,7 @@ enum CheckInEditing {
     /// previous value (new ones) have nothing to keep, so they're skipped
     /// instead of getting an empty valuation.
     static func markRestUnchanged(_ draft: inout CheckInDraft) {
-        for account in draft.notReviewed {
-            guard var row = draft[account] else { continue }
-            if CheckInRowDisplay.canMarkUnchanged(row) {
-                row.markUnchanged()
-            } else {
-                row.skip()
-            }
-            draft[account] = row
-        }
+        draft.markRestUnchanged()
     }
 
     /// Skips every row not reviewed yet: nothing is written for them, and
@@ -268,13 +286,6 @@ enum CheckInEditing {
         }
     }
 
-    /// The balance to record for an amount typed into a debt's field: debts
-    /// are negative balances, so a positive amount is read as a debt (as the
-    /// importer does). Other accounts record what was typed.
-    static func balance(_ typed: Decimal, isLiability: Bool) -> Decimal {
-        isLiability && typed > 0 ? -typed : typed
-    }
-
     /// `text` with its minus sign added or removed (the ± key above the
     /// iPhone's decimal keypad, which has no minus).
     static func toggledSign(_ text: String) -> String {
@@ -285,12 +296,13 @@ enum CheckInEditing {
         return "-" + trimmed
     }
 
-    /// Whether the draft holds anything the user entered: a reviewed row, a
-    /// note, or a price or rate typed in. Cancel asks before throwing such a
+    /// Whether the draft holds anything the user entered: a value, a row
+    /// marked unchanged or skipped, a note, or a price or rate typed in.
+    /// Rows only pre-filled from values already saved on the date (e.g. by
+    /// the other device) don't count. Cancel asks before throwing such a
     /// draft away.
     static func hasEdits(_ draft: CheckInDraft) -> Bool {
-        draft.reviewedCount > 0
-            || draft.rows.contains { !($0.note ?? "").isEmpty }
+        draft.rows.contains { $0.hasUserInput || ($0.note ?? "") != ($0.existing?.note ?? "") }
             || draft.prices.contains { $0.source == .manual }
             || draft.fxRates.contains { $0.source == .manual }
     }
@@ -340,6 +352,20 @@ enum CheckInWording {
         guard hasValues else { return nil }
         let day = date.dateValue.formatted(.dateTime.day().month(.wide).locale(locale))
         return "There's already a check-in on \(day). Its values are filled in, and saving updates it."
+    }
+
+    /// "Conto Fineco got a value for 31 October on another device while this
+    /// check-in was open. …", when rows are in conflict with values saved on
+    /// the date since the check-in started; `nil` otherwise.
+    static func conflictNote(_ draft: CheckInDraft, in library: Library, locale: Locale = .current) -> String? {
+        let names = draft.conflicts.map { library.accounts[$0.account]?.name ?? $0.account.rawValue }
+        guard let last = names.last else { return nil }
+        let list = names.count == 1 ? last : names.dropLast().joined(separator: ", ") + " and " + last
+        let day = draft.date.dateValue.formatted(.dateTime.day().month(.wide).locale(locale))
+        let one = names.count == 1
+        return "\(list) got \(one ? "a value" : "values") for \(day) on another device while this check-in was open. "
+            + "Until you choose, \(one ? "the saved value is" : "the saved values are") kept and yours "
+            + "\(one ? "isn't" : "aren't") written."
     }
 
     /// What the new-money field is called: "Contributions since June" for

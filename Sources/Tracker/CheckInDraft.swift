@@ -39,11 +39,13 @@ public struct CheckInPosition: Hashable, Sendable, Identifiable {
     /// Whether the quantity went up, so the "paid" field applies.
     public var isIncrease: Bool { quantity > previousQuantity }
 
-    init(instrument: InstrumentID, previous: Position?, quantity: Decimal, enteredCostBasis: Decimal? = nil) {
+    init(instrument: InstrumentID, previous: Position?, quantity: Decimal, paid: Decimal? = nil,
+         enteredCostBasis: Decimal? = nil) {
         self.instrument = instrument
         self.previousQuantity = previous?.quantity ?? 0
         self.previousCostBasis = previous?.costBasis
         self.quantity = quantity
+        self.paid = paid
         self.enteredCostBasis = enteredCostBasis
     }
 }
@@ -59,10 +61,19 @@ public struct CheckInRow: Hashable, Sendable, Identifiable {
     /// The account's latest valuation before the check-in date: what
     /// "unchanged" restores, and what flows and warnings compare with.
     public let previous: Valuation?
+    /// The valuation saved in the library on the check-in date when the row
+    /// was filled in or last refreshed, if any: what the row started from.
+    public internal(set) var existing: Valuation?
+    /// A valuation saved on the check-in date since the row was filled in
+    /// (e.g. on another device) that differs from what the row would write.
+    /// Until it's settled with ``CheckInDraft/resolveConflict(of:keepingSaved:in:)``
+    /// the row writes nothing, so the saved valuation isn't overwritten.
+    public internal(set) var conflict: Valuation?
     public private(set) var balance: Decimal?
     public private(set) var cash: Decimal?
     public private(set) var positions: [CheckInPosition]
-    /// Whether the flow was entered by hand; otherwise it's the default for the account kind.
+    /// Whether the flow was entered by hand (or kept as saved on the date);
+    /// otherwise it's the default for the account kind.
     public private(set) var isFlowEdited: Bool
     /// The flow entered by hand, in the account's currency; `nil` means unknown.
     public private(set) var enteredFlow: Decimal?
@@ -71,14 +82,25 @@ public struct CheckInRow: Hashable, Sendable, Identifiable {
     /// Where the values came from, kept from a valuation already saved on
     /// the date until the row is edited.
     public private(set) var source: DataSource?
+    /// Whether a value was entered in the row since it was filled in. A row
+    /// pre-filled from a valuation already saved on the date is `updated`
+    /// without being edited.
+    public private(set) var isEdited: Bool
+    /// Whether the flow kept from `existing` goes back to the default once a
+    /// value is edited: it was the default for the saved values, so it was
+    /// worked out rather than typed.
+    var resetsFlowOnEdit: Bool
 
     public var id: AccountID { account }
 
     /// A row pre-filled from `existing` (a valuation already saved on the
     /// check-in date, making the row `updated`) or else from `previous`.
-    init(account: Account, previous: Valuation?, existing: Valuation?) {
+    /// `valuator` tells whether the saved flow was the default one.
+    init(account: Account, previous: Valuation?, existing: Valuation?, valuator: inout LazyValuator) {
         self.account = account.id
         self.previous = previous
+        self.existing = existing
+        conflict = nil
         let filled = existing ?? previous
         let mode = Self.mode(of: filled) ?? account.valuationMode
         self.mode = mode
@@ -90,16 +112,58 @@ public struct CheckInRow: Hashable, Sendable, Identifiable {
         enteredFlow = existing?.flow
         note = existing?.note
         source = existing?.source
+        isEdited = false
+        resetsFlowOnEdit = false
         if mode == .holdings {
             for position in filled?.positions ?? [] {
+                let before = previous?.position(for: position.instrument)
                 positions.append(CheckInPosition(
-                    instrument: position.instrument, previous: previous?.position(for: position.instrument),
-                    quantity: position.quantity, enteredCostBasis: existing == nil ? nil : position.costBasis))
+                    instrument: position.instrument, previous: before, quantity: position.quantity,
+                    paid: existing == nil ? nil : Self.paid(for: position, previous: before),
+                    enteredCostBasis: existing == nil ? nil : position.costBasis))
             }
             for position in previous?.positions ?? [] where self.position(for: position.instrument) == nil {
                 positions.append(CheckInPosition(instrument: position.instrument, previous: position, quantity: 0))
             }
         }
+        if let existing, let flow = existing.flow {
+            resetsFlowOnEdit = valuator.valuator.defaultFlow(for: existing, previous: previous, paid: paid) == flow
+        }
+    }
+
+    /// What a saved valuation paid for a position's added quantity, from its
+    /// cost basis and the previous one (what the check-in recorded as
+    /// "paid"). `nil` unless the quantity went up and the costs are known.
+    private static func paid(for position: Position, previous: Position?) -> Decimal? {
+        let before = previous?.quantity ?? 0
+        guard position.quantity > before, let cost = position.costBasis else { return nil }
+        if before <= 0 { return cost }
+        return previous?.costBasis.map { cost - $0 }
+    }
+
+    /// Whether the row holds something decided in this check-in: a value
+    /// entered, or the choice to mark it unchanged or skip it. A row that is
+    /// only pre-filled (not reviewed yet, or from a valuation already saved
+    /// on the date) has none.
+    public var hasUserInput: Bool {
+        switch state {
+        case .notReviewed: false
+        case .updated: isEdited
+        case .unchanged, .skipped: true
+        }
+    }
+
+    /// Whether "unchanged" means something for the row: there's a previous
+    /// value to keep. A new account has none, so it can only be entered or
+    /// skipped.
+    public var canMarkUnchanged: Bool {
+        Self.mode(of: previous) != nil
+    }
+
+    /// Whether the note was typed in this check-in, rather than kept from
+    /// the valuation saved on the date.
+    var hasTypedNote: Bool {
+        note != existing?.note
     }
 
     /// The row's position in `instrument`, if any.
@@ -179,40 +243,57 @@ public struct CheckInRow: Hashable, Sendable, Identifiable {
 
     /// Enters the flow by hand, in the account's currency; `nil` means unknown.
     public mutating func setFlow(_ amount: Decimal?) {
+        touch()
         isFlowEdited = true
         enteredFlow = amount
-        touch()
     }
 
     /// Goes back to the default flow for the account's kind.
     public mutating func resetFlow() {
         isFlowEdited = false
         enteredFlow = nil
+        resetsFlowOnEdit = false
+        if state == .updated { isEdited = true }
     }
 
     /// Confirms the account is the same as in the previous valuation:
-    /// restores its values, with flow 0.
-    public mutating func markUnchanged() {
-        mode = Self.mode(of: previous) ?? mode
-        balance = mode == .balance ? previous?.balance : nil
-        cash = mode == .holdings ? previous?.cash : nil
+    /// restores its values, with flow 0. Does nothing, and returns `false`,
+    /// when there's no previous value to keep (see ``canMarkUnchanged``).
+    @discardableResult
+    public mutating func markUnchanged() -> Bool {
+        guard let previous, let mode = Self.mode(of: previous) else { return false }
+        self.mode = mode
+        balance = mode == .balance ? previous.balance : nil
+        cash = mode == .holdings ? previous.cash : nil
         positions = mode == .holdings
-            ? (previous?.positions ?? []).map { CheckInPosition(instrument: $0.instrument, previous: $0, quantity: $0.quantity) }
+            ? previous.positions.map { CheckInPosition(instrument: $0.instrument, previous: $0, quantity: $0.quantity) }
             : []
         isFlowEdited = false
         enteredFlow = nil
+        resetsFlowOnEdit = false
         source = nil
         state = .unchanged
+        return true
     }
 
-    /// Leaves the account out of this check-in.
+    /// Leaves the account out of this check-in. A conflict no longer
+    /// matters: nothing is written, so the saved valuation stays.
     public mutating func skip() {
         state = .skipped
+        if let conflict {
+            existing = conflict
+            self.conflict = nil
+        }
     }
 
     /// Takes over what was entered in `other`, a row for the same account
-    /// from a draft for another date.
+    /// from a draft for another date or from before the library changed. A
+    /// row that was only pre-filled has nothing to take over but a typed note.
     mutating func adoptEdits(from other: CheckInRow) {
+        guard other.hasUserInput else {
+            if other.hasTypedNote { note = other.note }
+            return
+        }
         switch other.state {
         case .notReviewed: return
         case .skipped: skip()
@@ -239,12 +320,20 @@ public struct CheckInRow: Hashable, Sendable, Identifiable {
         balance = nil
     }
 
+    /// A value was entered: the row is updated, and a flow that was only the
+    /// saved default follows the new values.
     private mutating func touch() {
         state = .updated
         source = nil
+        isEdited = true
+        if resetsFlowOnEdit {
+            resetsFlowOnEdit = false
+            isFlowEdited = false
+            enteredFlow = nil
+        }
     }
 
-    private static func mode(of valuation: Valuation?) -> ValuationMode? {
+    static func mode(of valuation: Valuation?) -> ValuationMode? {
         guard let valuation else { return nil }
         if valuation.isBalance { return .balance }
         if valuation.isHoldings { return .holdings }
@@ -263,7 +352,7 @@ public struct CheckInDraft: Hashable, Sendable, Codable {
     public private(set) var date: CalendarDate
     /// One row per account open on the date, grouped (Cash, Investments, …)
     /// and sorted by name.
-    public private(set) var rows: [CheckInRow]
+    public internal(set) var rows: [CheckInRow]
     /// Prices for this check-in, written to the library with it.
     public private(set) var prices: [PriceRecord]
     /// FX rates for this check-in, written to the library with it.
@@ -277,14 +366,19 @@ public struct CheckInDraft: Hashable, Sendable, Codable {
         self.date = date
         prices = []
         fxRates = []
-        rows = library.accounts.values
+        var valuator = LazyValuator(library: library)
+        rows = Self.accounts(openOn: date, in: library).map { account in
+            let valuations = library.valuations(for: account.id)
+            return CheckInRow(account: account, previous: valuations.last { $0.date < date },
+                              existing: valuations.last { $0.date == date }, valuator: &valuator)
+        }
+    }
+
+    /// The accounts open on `date`, in row order: by group, then by name.
+    static func accounts(openOn date: CalendarDate, in library: Library) -> [Account] {
+        library.accounts.values
             .filter { $0.isOpen(on: date) }
             .sorted { ($0.group, $0.name.lowercased(), $0.id) < ($1.group, $1.name.lowercased(), $1.id) }
-            .map { account in
-                let valuations = library.valuations(for: account.id)
-                return CheckInRow(account: account, previous: valuations.last { $0.date < date },
-                                  existing: valuations.last { $0.date == date })
-            }
     }
 
     /// The date to suggest for a new check-in on `today`: the end of the
@@ -309,10 +403,12 @@ public struct CheckInDraft: Hashable, Sendable, Codable {
         }
     }
 
-    /// Marks every row not reviewed yet as unchanged.
+    /// Marks every row not reviewed yet as unchanged. Rows with nothing to
+    /// keep (a new account without an earlier value) are skipped instead of
+    /// getting an empty valuation.
     public mutating func markRestUnchanged() {
         for index in rows.indices where rows[index].state == .notReviewed {
-            rows[index].markUnchanged()
+            if !rows[index].markUnchanged() { rows[index].skip() }
         }
     }
 
@@ -392,6 +488,13 @@ public struct CheckInDraft: Hashable, Sendable, Codable {
     public var isReadyToSave: Bool {
         !rows.contains { $0.state == .notReviewed }
     }
+
+    /// Rows whose account got a different valuation on the date since the
+    /// draft started (see ``CheckInRow/conflict``), in row order. They write
+    /// nothing until they're settled.
+    public var conflicts: [CheckInRow] {
+        rows.filter { $0.conflict != nil }
+    }
 }
 
 // MARK: - Codable
@@ -424,7 +527,8 @@ extension CheckInPosition: Codable {
 
 extension CheckInRow: Codable {
     enum CodingKeys: String, CodingKey {
-        case account, state, mode, previous, balance, cash, positions, isFlowEdited, enteredFlow, note, source
+        case account, state, mode, previous, existing, conflict, balance, cash, positions, isFlowEdited, enteredFlow,
+             note, source, isEdited, resetsFlowOnEdit
     }
 
     public init(from decoder: any Decoder) throws {
@@ -433,6 +537,8 @@ extension CheckInRow: Codable {
         state = try c.decode(CheckInRowState.self, forKey: .state)
         mode = try c.decode(ValuationMode.self, forKey: .mode)
         previous = try c.decodeIfPresent(Valuation.self, forKey: .previous)
+        existing = try c.decodeIfPresent(Valuation.self, forKey: .existing)
+        conflict = try c.decodeIfPresent(Valuation.self, forKey: .conflict)
         balance = try c.decodeDecimalIfPresent(forKey: .balance)
         cash = try c.decodeDecimalIfPresent(forKey: .cash)
         positions = try c.decodeIfPresent([CheckInPosition].self, forKey: .positions) ?? []
@@ -440,6 +546,9 @@ extension CheckInRow: Codable {
         enteredFlow = try c.decodeDecimalIfPresent(forKey: .enteredFlow)
         note = try c.decodeIfPresent(String.self, forKey: .note)
         source = try c.decodeIfPresent(DataSource.self, forKey: .source)
+        // A draft kept before rows recorded this: an updated row counts as edited.
+        isEdited = try c.decodeIfPresent(Bool.self, forKey: .isEdited) ?? (state == .updated)
+        resetsFlowOnEdit = try c.decodeIfPresent(Bool.self, forKey: .resetsFlowOnEdit) ?? false
     }
 
     public func encode(to encoder: any Encoder) throws {
@@ -448,6 +557,8 @@ extension CheckInRow: Codable {
         try c.encode(state, forKey: .state)
         try c.encode(mode, forKey: .mode)
         try c.encodeIfPresent(previous, forKey: .previous)
+        try c.encodeIfPresent(existing, forKey: .existing)
+        try c.encodeIfPresent(conflict, forKey: .conflict)
         try c.encodeDecimalIfPresent(balance, forKey: .balance)
         try c.encodeDecimalIfPresent(cash, forKey: .cash)
         try c.encode(positions, forKey: .positions)
@@ -455,5 +566,29 @@ extension CheckInRow: Codable {
         try c.encodeDecimalIfPresent(enteredFlow, forKey: .enteredFlow)
         try c.encodeIfPresent(note, forKey: .note)
         try c.encodeIfPresent(source, forKey: .source)
+        try c.encode(isEdited, forKey: .isEdited)
+        try c.encode(resetsFlowOnEdit, forKey: .resetsFlowOnEdit)
+    }
+}
+
+// MARK: - A valuator built when needed
+
+/// A `Valuator` over a library, built the first time it's needed: most rows
+/// are filled in without one.
+struct LazyValuator {
+    let library: Library
+    private var built: Valuator?
+
+    init(library: Library) {
+        self.library = library
+    }
+
+    var valuator: Valuator {
+        mutating get {
+            if let built { return built }
+            let valuator = Valuator(library: library)
+            built = valuator
+            return valuator
+        }
     }
 }

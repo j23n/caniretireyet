@@ -319,7 +319,8 @@ struct PreviewBuilder {
         for proposal in accountProposals { accounts[proposal.account.id] = proposal.account }
 
         var records: [ImportRecordKey: Accumulator] = [:]
-        var debts: [AccountID: DebtNote] = [:]
+        /// Where each balance came from: the name the file uses and its column.
+        var balanceSources: [ImportRecordKey: DebtNote] = [:]
         for (value, accountID, instrumentID) in resolved {
             let key: ImportRecordKey
             let field: RecordField
@@ -368,26 +369,52 @@ struct PreviewBuilder {
                                            : nil)
                 if field == .balance, let accountID, let account = accounts[accountID] {
                     accumulator.record.liabilitySign = value.liabilitySign
-                    accumulator.record.signBalance(isLiability: account.kind.isLiability)
-                    if accumulator.record.balanceReadAsDebt {
-                        var note = debts[accountID]
-                            ?? DebtNote(name: fileName(of: value, account: account), column: value.cell.column)
-                        note.count += 1
-                        debts[accountID] = note
-                    }
+                    accumulator.record.balanceColumn = value.cell.column
+                    balanceSources[key] = DebtNote(name: fileName(of: value, account: account),
+                                                   column: value.cell.column)
                 }
             }
             accumulator.cells.append(value.cell)
+            records[key] = accumulator
+        }
+        signBalances(&records, sources: balanceSources, accounts: accounts)
+        return records
+    }
+
+    /// Signs the balances of debt accounts, once every column's convention
+    /// is known: with `auto`, a column that writes any debt as a negative
+    /// amount keeps its signs (a positive amount is a debt in credit);
+    /// otherwise positive debts are read as owed. Notes say which accounts
+    /// were read either way.
+    private mutating func signBalances(_ records: inout [ImportRecordKey: Accumulator],
+                                       sources: [ImportRecordKey: DebtNote], accounts: [AccountID: Account]) {
+        let negativeColumns = ImportedRecord.columnsWritingDebtsNegative(records.values.map(\.record)) {
+            accounts[$0]?.kind.isLiability ?? false
+        }
+        var debts: [AccountID: DebtNote] = [:]
+        var credits: [AccountID: DebtNote] = [:]
+        for key in records.keys.sorted() {
+            guard var accumulator = records[key], let source = sources[key], let accountID = key.account,
+                  let account = accounts[accountID]
+            else { continue }
+            accumulator.record.signBalance(isLiability: account.kind.isLiability,
+                                           columnWritesDebtsNegative: negativeColumns.contains(source.column))
+            if accumulator.record.balanceReadAsDebt { debts[accountID, default: source].count += 1 }
+            if accumulator.record.balanceKeptAsCredit { credits[accountID, default: source].count += 1 }
             records[key] = accumulator
         }
         for (account, note) in debts.sorted(by: { $0.key < $1.key }) {
             issues.append(ImportIssue(kind: .positiveDebts(account, count: note.count), column: note.column,
                                       header: note.name))
         }
-        return records
+        for (account, note) in credits.sorted(by: { $0.key < $1.key }) {
+            issues.append(ImportIssue(kind: .debtsInCredit(account, count: note.count), column: note.column,
+                                      header: note.name))
+        }
     }
 
-    /// Positive amounts of one debt account that were read as debts.
+    /// Positive amounts of one debt account, read as debts or kept as
+    /// credit; also where one balance came from.
     private struct DebtNote {
         /// The account's name in the file (a header or a cell).
         var name: String

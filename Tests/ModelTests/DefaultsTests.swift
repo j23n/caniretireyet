@@ -156,3 +156,43 @@ struct PlanDefaultsTests {
         #expect(PlanContribution(account: "fondo-pensione", perYear: 5000).effectiveUntil == .retirement)
     }
 }
+
+struct ImportFileSettingsTests {
+    private func decode(_ json: String) throws -> ImportFileSettings {
+        try JSONDecoder().decode(ImportFileSettings.self, from: Data(json.utf8))
+    }
+
+    private func encode(_ settings: ImportFileSettings) throws -> String {
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = .sortedKeys
+        return String(decoding: try encoder.encode(settings), as: UTF8.self)
+    }
+
+    /// Left out, the importer's default footer rule applies; an empty list
+    /// excludes no rows, and is written back as one.
+    @Test func excludeRowsLeftOutOrEmpty() throws {
+        let absent = try decode(#"{ "headerRow": 1 }"#)
+        #expect(absent.excludeRows.isEmpty && !absent.excludesNoRows)
+        #expect(absent.writtenExcludeRows == nil)
+        #expect(try encode(absent) == #"{"headerRow":1}"#)
+
+        let none = try decode(#"{ "excludeRows": [], "headerRow": 1 }"#)
+        #expect(none.excludesNoRows)
+        #expect(none.writtenExcludeRows == [])
+        #expect(try encode(none) == #"{"excludeRows":[],"headerRow":1}"#)
+        #expect(none == ImportFileSettings(headerRow: 1, excludesNoRows: true))
+        #expect(none != ImportFileSettings(headerRow: 1))
+
+        let listed = try decode(#"{ "excludeRows": ["Totale"] }"#)
+        #expect(listed.excludeRows == ["Totale"] && !listed.excludesNoRows)
+        #expect(try encode(listed) == #"{"excludeRows":["Totale"]}"#)
+        // "No rows" only means something without a rule.
+        #expect(ImportFileSettings(excludeRows: ["Totale"], excludesNoRows: true) == listed)
+
+        // A profile whose only setting is "exclude nothing" keeps its `file` section.
+        let profile = ImportProfile(id: "p", name: "P", file: ImportFileSettings(excludesNoRows: true), layout: .wide)
+        let data = try JSONEncoder().encode(profile)
+        #expect(try JSONDecoder().decode(ImportProfile.self, from: data) == profile)
+        #expect(String(decoding: data, as: UTF8.self).contains(#""excludeRows":[]"#))
+    }
+}

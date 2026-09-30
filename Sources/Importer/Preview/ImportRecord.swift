@@ -97,9 +97,15 @@ public struct ImportedRecord: Hashable, Sendable {
     /// Whether `balance` is negative because the file wrote a debt account's
     /// balance as a positive amount (IMPORT.md, "Debts").
     public internal(set) var balanceReadAsDebt = false
+    /// Whether `balance` is positive although its account is a debt, because
+    /// its column writes debts as negative amounts: the account is in credit
+    /// (IMPORT.md, "Debts").
+    public internal(set) var balanceKeptAsCredit = false
     /// The balance as the file wrote it, before its sign was set for a debt
     /// account; `nil` for records made outside a preview.
     var writtenBalance: Decimal?
+    /// The 1-based column the balance was read from.
+    var balanceColumn: Int?
     /// How the balance's column signs debts.
     var liabilitySign: LiabilitySign = .auto
 
@@ -120,15 +126,34 @@ public struct ImportedRecord: Hashable, Sendable {
         (balance ?? 0) == 0 && (cash ?? 0) == 0 && positions.allSatisfy { ($0.quantity ?? 0) == 0 }
     }
 
-    /// Sets the balance's sign for its account: for a debt account, a
-    /// positive amount in the file is a debt and becomes negative, unless the
-    /// column keeps signs as written. Called again when the account's kind
-    /// may have changed, e.g. a proposed account's kind was edited.
-    mutating func signBalance(isLiability: Bool) {
+    /// Sets the balance's sign for its account. With `auto`, a positive
+    /// amount for a debt account is a debt and becomes negative, unless the
+    /// column already writes debts as negative amounts
+    /// (`columnWritesDebtsNegative`): then the file's signs are kept, and a
+    /// positive amount is a debt in credit. `asWritten` always keeps them.
+    /// Called again when the account's kind may have changed, e.g. a proposed
+    /// account's kind was edited.
+    mutating func signBalance(isLiability: Bool, columnWritesDebtsNegative: Bool) {
         guard let written = writtenBalance else { return }
-        let negate = isLiability && liabilitySign != .asWritten && written > 0
-        balance = negate ? -written : written
-        balanceReadAsDebt = negate
+        let decides = isLiability && liabilitySign != .asWritten && written > 0
+        balanceReadAsDebt = decides && !columnWritesDebtsNegative
+        balanceKeptAsCredit = decides && columnWritesDebtsNegative
+        balance = balanceReadAsDebt ? -written : written
+    }
+
+    /// The columns that write debts as negative amounts: those where a
+    /// balance of a debt account (`isLiability`) is negative in the file.
+    /// With `auto`, their signs are kept as written.
+    static func columnsWritingDebtsNegative(_ records: some Sequence<ImportedRecord>,
+                                            isLiability: (AccountID) -> Bool) -> Set<Int> {
+        var columns: Set<Int> = []
+        for record in records {
+            guard let written = record.writtenBalance, written < 0, let column = record.balanceColumn,
+                  let account = record.key.account, isLiability(account)
+            else { continue }
+            columns.insert(column)
+        }
+        return columns
     }
 }
 
