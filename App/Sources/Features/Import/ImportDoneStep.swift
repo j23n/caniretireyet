@@ -67,6 +67,7 @@ struct ImportDoneStep: View {
                      receipt.kept)
             countRow("Already in the library", receipt.identical)
             countRow("Left out", receipt.skipped)
+            countRow("Later new money worked out again", receipt.recomputedFlows)
             namesRow("New accounts", receipt.createdAccounts)
             namesRow("New instruments", receipt.createdInstruments)
             namesRow("Closed accounts", receipt.closedAccounts)

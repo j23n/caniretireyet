@@ -251,6 +251,27 @@ struct ValuationEditTests {
         #expect(library.valuations(for: "cash").map(\.flow) == [1000, 600, -100])
     }
 
+    @Test func flowsFollowAChangeMadeToACopy() throws {
+        // As an import does: values inserted in a copy of the library.
+        var imported = self.library
+        imported.upsert(Valuation(account: "cash", date: "2026-02-28", balance: 1200))
+        imported.upsert(Valuation(account: "broker", date: "2026-02-28",
+                                  positions: [Position(instrument: "etf", quantity: 15, costBasis: 1550)]))
+        let flows = imported.followFlows(from: self.library)
+        #expect(imported.valuations(for: "cash").map(\.flow) == [1000, nil, 300])
+        #expect(imported.valuations(for: "broker").map(\.flow) == [1000, nil, 550])
+        #expect(flows.recomputed.map(\.key) == [ValuationKey(account: "broker", date: "2026-03-31"),
+                                                ValuationKey(account: "cash", date: "2026-03-31")])
+
+        // Valuations whose flows the change gives (a journal's) are kept as they are.
+        var journal = self.library
+        journal.upsert(Valuation(account: "cash", date: "2026-02-28", balance: 1200, flow: 150))
+        let kept = journal.followFlows(from: self.library,
+                                       keeping: [ValuationKey(account: "cash", date: "2026-03-31")])
+        #expect(journal.valuations(for: "cash").map(\.flow) == [1000, 150, 500])
+        #expect(kept.isEmpty)
+    }
+
     @Test func otherEditsLeaveFlowsAlone() throws {
         var library = self.library
         let flows = library.editValuations { $0.accounts["cash"]?.name = "Current account" }

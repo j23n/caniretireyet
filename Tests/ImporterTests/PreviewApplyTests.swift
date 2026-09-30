@@ -204,6 +204,20 @@ struct PreviewApplyTests {
         #expect(preview.issues.contains(ImportIssue(kind: .valuesAfterClosed("cash", closed: "2026-01-15"))))
     }
 
+    @Test func followedFlowsAreWrittenWithTheImport() throws {
+        let base = library()
+        let file = "Date;Cash\n2026-01-15;150\n"
+        var result = try makeSession(file).preview(against: base).apply(to: base)
+        // A spreadsheet gives no flows: none are fixed.
+        #expect(result.fixedFlows.isEmpty)
+        #expect(result.changedMonths == ["2026-01"])
+        // The caller works out the next value's flow again (Tracker) and records it.
+        let next = try #require(result.library.valuations(for: "cash").first { $0.date == "2026-02-28" })
+        result.followedFlows([next])
+        #expect(result.recomputedFlows == [next.key])
+        #expect(result.changedMonths == ["2026-01", "2026-02"])
+    }
+
     @Test func openingEarlierMovesAPensionFundsJoiningDate() throws {
         var base = library()
         base.accounts["fondo"] = Account(id: "fondo", name: "Fondo", kind: .pensionFund, currency: .eur,

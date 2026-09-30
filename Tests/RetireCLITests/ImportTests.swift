@@ -194,6 +194,51 @@ struct ImportTests {
             + "Profiles: bank-sheet, net-worth-sheet."))
     }
 
+    /// A month inserted between two check-ins: the later month's automatic
+    /// flow is worked out again from it, a typed flow is kept, and undoing
+    /// puts both months back.
+    @Test func insertingAMonthRecomputesTheNextAutomaticFlow() async throws {
+        let library = try TemporaryFolder.exampleLibrary()
+        // February is missing for the current account and the savings
+        // account, so March's flows are measured from January: the current
+        // account's is the whole change (automatic), the savings account's
+        // was typed (500 paid in, without the interest).
+        var gap = try library.load()
+        let before = gap
+        gap.removeValuation(ValuationKey(account: "conto-fineco", date: "2026-02-28"))
+        gap.removeValuation(ValuationKey(account: "conto-deposito", date: "2026-02-28"))
+        var march = try #require(gap.valuations(for: "conto-fineco").first { $0.date == "2026-03-31" })
+        march.flow = dec("319.25")
+        gap.upsert(march)
+        try library.library.save(gap, previous: before)
+        let original = try library.snapshot()
+
+        let files = try TemporaryFolder()
+        try files.write("february.csv", "Data;Conto Fineco;Conto deposito\n28/02/2026;4.780,20;15.626,95\n")
+        let run = await retire(["import", files.url("february.csv").path, "--library", library.path, "--apply"])
+        #expect(run.status == 0, "\(run.all)")
+        #expect(run.output.contains("Imported: 2 added, 0 updated, 0 overwritten, 0 kept, 0 identical, 0 left out.\n"))
+        #expect(run.output.contains("Recomputed the automatic flows of later values: conto-fineco on 2026-03-31.\n"))
+        #expect(run.output.contains("Wrote 2 files:\n  history/2026/2026-02.json\n  history/2026/2026-03.json\n"))
+
+        var loaded = try library.load()
+        let fineco = loaded.valuations(for: "conto-fineco").filter { $0.date.yearMonth.year == 2026 }.prefix(3)
+        #expect(fineco.map(\.balance) == [dec("5210.85"), dec("4780.2"), dec("5530.1")])
+        // March's flow is now the change since February: 5530.10 − 4780.20.
+        #expect(fineco.map(\.flow) == [dec("1260.45"), nil, dec("749.9")])
+        #expect(loaded.valuations(for: "conto-deposito").first { $0.date == "2026-03-31" }?.flow == 500)
+        let backup = try #require(try library.backups().last)
+        #expect(backup.files == ["history/2026/2026-02.json", "history/2026/2026-03.json"])
+
+        let undo = await retire(["import", "--undo", "--library", library.path])
+        #expect(undo.status == 0, "\(undo.all)")
+        #expect(undo.output.contains("  restored history/2026/2026-03.json\n"))
+        #expect(try library.snapshot() == original)
+        loaded = try library.load()
+        #expect(loaded.valuations(for: "conto-fineco").first { $0.date == "2026-03-31" }?.flow == dec("319.25"))
+        #expect(loaded.valuations(for: "conto-deposito").first { $0.date == "2026-03-31" }?.flow == 500)
+    }
+
     /// A profile that excludes no rows (`"excludeRows": []`) has no footer rule.
     @Test func aProfileExcludingNoRowsHasNoFooterRule() async throws {
         let library = try TemporaryFolder.exampleLibrary()

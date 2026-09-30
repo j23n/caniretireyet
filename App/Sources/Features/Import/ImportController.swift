@@ -3,6 +3,7 @@ import Importer
 import Model
 import Observation
 import Storage
+import Tracker
 
 /// The Import screen's state: the import in progress (``ImportFlow``) and
 /// the work that touches the library: importing with a backup first,
@@ -75,14 +76,16 @@ final class ImportController {
     /// (only the files that changed), with exactly those files backed up
     /// into `backups/<timestamp>-import/` first, in the same queued
     /// operation, and the files as written recorded in the backup after, so
-    /// undoing leaves later edits alone. Then shows Done.
+    /// undoing leaves later edits alone. Then shows Done. The later values
+    /// whose new money follows an inserted one are part of the same change
+    /// and backup (``ImportPreview/applyFollowingFlows(to:)``).
     func runImport(in store: LibraryStore) async {
         guard let preview = flow.preview, !isWorking else { return }
         isWorking = true
         defer { isWorking = false }
         errorMessage = nil
         let fileName = flow.fileName ?? "the file"
-        let planned = preview.apply(to: store.library)
+        let planned = preview.applyFollowingFlows(to: store.library)
         guard planned.hasChanges else {
             receipt = ImportReceipt(fileName: fileName, result: planned, names: flow)
             flow.finish()
@@ -92,7 +95,7 @@ final class ImportController {
             let before = store.library
             var result = planned
             let backup = try await store.commit(backingUpAs: Self.backupLabel) { library in
-                result = preview.apply(to: library)
+                result = preview.applyFollowingFlows(to: library)
                 library = result.library
             }
             var receipt = ImportReceipt(fileName: fileName, result: result, names: flow)
@@ -175,6 +178,8 @@ struct ImportReceipt: Hashable, Sendable {
     var undecided: Int
     var identical: Int
     var skipped: Int
+    /// Later values whose automatic new money was worked out again.
+    var recomputedFlows: Int
     /// Names of the accounts created and closed, and the instruments created.
     var createdAccounts: [String]
     var closedAccounts: [String]
@@ -201,6 +206,7 @@ struct ImportReceipt: Hashable, Sendable {
         undecided = result.undecided
         identical = result.identical
         skipped = result.skipped
+        recomputedFlows = result.recomputedFlows.count
         createdAccounts = result.createdAccounts.map { result.library.accounts[$0]?.name ?? flow.accountName($0) }
         closedAccounts = result.closedAccounts.map { result.library.accounts[$0]?.name ?? flow.accountName($0) }
         createdInstruments = result.createdInstruments.map {
@@ -234,5 +240,20 @@ extension ImportResult {
     var changedPaths: [String] {
         changedMonths.map { LibraryFile.month($0).path } + changedAccounts.map { LibraryFile.account($0).path }
             + changedInstruments.map { LibraryFile.instrument($0).path }
+    }
+}
+
+extension ImportPreview {
+    /// Applies the preview to `library`, then works out again the automatic
+    /// new money (flows) of the library's values that now follow an inserted
+    /// or changed one, as editing history does (UI.md, "New money after an
+    /// inserted value"). Typed flows and a journal's own flows stay. The
+    /// values touched are in the result, so they're backed up, written and
+    /// undone with the import. `retire import` does the same.
+    func applyFollowingFlows(to library: Library) -> ImportResult {
+        var result = apply(to: library)
+        let flows = result.library.followFlows(from: library, keeping: result.fixedFlows)
+        result.followedFlows(flows.recomputed)
+        return result
     }
 }

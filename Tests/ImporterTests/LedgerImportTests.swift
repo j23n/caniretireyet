@@ -408,6 +408,18 @@ struct LedgerImportTests {
         #expect(second.library == result.library)
     }
 
+    @Test func aJournalsValuationsKeepTheirFlows() throws {
+        // Every valuation the journal gives, with or without a flow, is left
+        // alone when the flows after inserted values are worked out again.
+        let preview = LedgerImportSession(journal: try Self.personal()).preview(against: Self.emptyLibrary()).preview
+        let keys = Set(preview.records.compactMap { record -> ValuationKey? in
+            if case .valuation(let key) = record.imported.key { key } else { nil }
+        })
+        #expect(!keys.isEmpty)
+        #expect(preview.apply(to: Self.emptyLibrary()).fixedFlows == keys)
+        #expect(preview.apply(to: Self.emptyLibrary()).recomputedFlows.isEmpty)
+    }
+
     @Test func aFlowTheLibraryLacksIsFilledInAndADifferentOneConflicts() throws {
         let journal = try Self.personal()
         let session = LedgerImportSession(journal: journal)

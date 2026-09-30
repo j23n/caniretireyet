@@ -358,6 +358,7 @@ struct ImportReport {
                     + (result.undecided > 0 ? " (\(result.undecided) undecided)" : "")
                     + ", \(result.identical) identical, \(result.skipped) left out.")
             }
+            lines += Self.recomputedFlowLines(result)
             if !result.createdAccounts.isEmpty {
                 lines.append("Created accounts: \(result.createdAccounts.map(\.rawValue).joined(separator: ", ")).")
             }
@@ -380,6 +381,15 @@ struct ImportReport {
             lines.append(apply ? "Nothing was written." : "Dry run: nothing was written. To import, run again with --apply.")
         }
         return lines
+    }
+
+    /// The later values whose automatic flows followed an inserted or
+    /// changed one, e.g. "Recomputed the automatic flows of later values:
+    /// conto-fineco on 2026-09-30."
+    static func recomputedFlowLines(_ result: ImportResult) -> [String] {
+        guard !result.recomputedFlows.isEmpty else { return [] }
+        return ["Recomputed the automatic flows of later values: "
+            + result.recomputedFlows.map { ImportRecordKey.valuation($0).description }.joined(separator: ", ") + "."]
     }
 
     // MARK: - Records as text
@@ -505,8 +515,9 @@ struct ImportReport {
                     undecided: result.undecided, identical: result.identical, skipped: result.skipped,
                     createdAccounts: result.createdAccounts.map(\.rawValue),
                     closedAccounts: result.closedAccounts.map(\.rawValue),
-                    createdInstruments: result.createdInstruments.map(\.rawValue), written: outcome.written,
-                    deleted: outcome.deleted, backup: outcome.backup)
+                    createdInstruments: result.createdInstruments.map(\.rawValue),
+                    recomputedFlows: result.recomputedFlows.map { ImportRecordKey.valuation($0).description },
+                    written: outcome.written, deleted: outcome.deleted, backup: outcome.backup)
             },
             savedProfile: outcome?.savedProfile ?? savedProfile)
     }
@@ -635,6 +646,8 @@ struct ImportReport {
             var createdAccounts: [String]
             var closedAccounts: [String]
             var createdInstruments: [String]
+            /// Later values whose automatic flows were worked out again, e.g. "conto-fineco on 2026-09-30".
+            var recomputedFlows: [String]
             var written: [String]
             var deleted: [String]
             var backup: String?

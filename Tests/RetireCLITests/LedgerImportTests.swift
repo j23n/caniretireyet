@@ -130,6 +130,48 @@ struct LedgerImportCommandTests {
         #expect(help.output.contains("--on-conflict, --policy <policy>"))
     }
 
+    /// Valuations the journal inserts between the library's: the next
+    /// library value's automatic flow follows them, but the journal's own
+    /// valuations keep the flows it gives them.
+    @Test func insertedValuationsRecomputeOnlyTheLibrarysNextAutomaticFlow() async throws {
+        let library = try TemporaryFolder.exampleLibrary()
+        let original = try library.snapshot()
+        try journals.write("march.journal", """
+            2026-03-15 * Opening
+                Assets:Bank:Fineco         5000.00 EUR
+                Liabilities:Mutuo casa  -145275.00 EUR
+                Equity:Opening
+            2026-03-31 * Salary
+                Assets:Bank:Fineco          749.90 EUR
+                Income:Salary
+            2026-03-31 * Fees
+                Assets:Bank:Fineco         -219.80 EUR
+                Expenses:Bank fees
+            """)
+        let run = await retire(["import", "ledger", journals.url("march.journal").path, "--library", library.path,
+                                "--frequency", "activity", "--apply"])
+        #expect(run.status == 0, "\(run.all)")
+        #expect(run.output.contains("Preview: 2 new, 0 updated, 1 identical, 0 conflicts\n"), "\(run.output)")
+        #expect(run.output.contains("Recomputed the automatic flows of later values: mutuo-casa on 2026-03-31.\n"))
+
+        let loaded = try library.load()
+        func flow(_ account: AccountID, _ date: CalendarDate) -> Decimal? {
+            loaded.valuations(for: account).first { $0.date == date }?.flow
+        }
+        // The mortgage's March payment was the whole change since February
+        // (automatic): now it's the change since the 15th.
+        #expect(flow("mutuo-casa", "2026-03-15") == -145_275)
+        #expect(flow("mutuo-casa", "2026-03-31") == 325)
+        // Conto Fineco's March value is the journal's too (identical): its
+        // flow, the salary without the fees, isn't worked out again.
+        #expect(flow("conto-fineco", "2026-03-15") == 5000)
+        #expect(flow("conto-fineco", "2026-03-31") == dec("749.9"))
+
+        let undo = await retire(["import", "--undo", "--library", library.path])
+        #expect(undo.status == 0, "\(undo.all)")
+        #expect(try library.snapshot() == original)
+    }
+
     @Test func untilLeavesOutLaterRecords() async throws {
         let library = try TemporaryFolder.exampleLibrary()
         let run = await retire(["import", "ledger"] + (try journal()) + [

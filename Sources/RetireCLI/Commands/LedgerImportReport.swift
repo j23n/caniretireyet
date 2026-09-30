@@ -244,6 +244,7 @@ struct LedgerImportReport {
                 + "\(result.kept) kept" + (result.undecided > 0 ? " (\(result.undecided) undecided)" : "")
                 + ", \(result.identical) identical, \(result.skipped) left out.")
         }
+        lines += ImportReport.recomputedFlowLines(result)
         if !result.createdAccounts.isEmpty {
             lines.append("Created accounts: \(result.createdAccounts.map(\.rawValue).joined(separator: ", ")).")
         }
