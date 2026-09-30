@@ -289,7 +289,7 @@ public struct TradeLedger: Sendable {
         case .fee, .tax: return trade.fees == nil && trade.tax == nil ? nil : -(fees + tax)
         case .deposit, .withdrawal: return nil
         case .transferIn, .transferOut, .opening, .split: return -(fees + tax)
-        default: return 0  // Types this version doesn't know are left out.
+        default: return 0  // A type this version doesn't know counts only by its amount.
         }
     }
 

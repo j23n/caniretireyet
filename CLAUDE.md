@@ -22,7 +22,7 @@ swift run retire --help                 # the CLI
 | Module | What it is | Depends on |
 | --- | --- | --- |
 | `Model` | The library's data model: every file type, decimals, dates, IDs, `Library`. **Shared contract.** | — |
-| `Tracker` | Net-worth math: `Valuator` (values on a date), series, breakdowns, flows, performance | Model |
+| `Tracker` | Net-worth math: `Valuator` (values on a date), series, breakdowns, flows, performance; trades (`TradeLedger`: holdings, average cost, gains; converting and editing) | Model |
 | `Storage` | Library folder ⇄ `Library`: JSON writer, validation, migrations, merging | Model |
 | `Importer` | CSV reading, format detection, column mapping, import profiles | Model |
 | `Prices` | Price, FX and inflation-index providers | Model |
@@ -58,7 +58,8 @@ Six engineers build on `Model` and `TaxKit` in parallel, so their public API onl
 - **Open enums.** Every "kind"-like field is a `RawRepresentable` string struct conforming to `OpenEnum`, with static constants, so values written by a newer app still decode. Typed IDs (`AccountID`, `InstrumentID`, `PlanID`, …) are `SlugID` string structs. Don't add Swift `enum`s for values stored in files.
 - **Defaults are computed, not stored.** Stored properties mirror the JSON exactly (optional when the key is optional); defaults from the docs are computed properties, usually named `effective…` (`plan.effectiveEndAge`) or by what they answer (`account.valuationMode`, `account.includedInPlan`). Files stay minimal: empty collections and empty sections are left out.
 - **Unknown keys survive.** Every JSON object type with fixed keys exposes `static var knownKeys`; Storage keeps other keys when it rewrites a file. Free-form objects (`options`, `overrides`, `AccountTax.details`) are `[String: JSONValue]`.
-- **Records have keys.** `Valuation.key` (account + date), `PriceRecord.key`, `FXRecord.key`, `IndexRecord.key`, `Headline.key`; keys sort by date, then ID, which is the order records are written in.
+- **Records have keys.** `Valuation.key` (account + date), `Trade.key` (account + date + trade ID), `PriceRecord.key`, `FXRecord.key`, `IndexRecord.key`, `Headline.key`; keys sort by date, then ID, which is the order records are written in.
+- **Trades accounts.** An account with `"valuation": "trades"` gets its holdings from its trades (docs/TRADES.md). Read what an account holds with `Valuator.snapshot(of:on:)` or `holdings(of:on:)`, not from its latest valuation's `positions`, which for such an account are only a reconciliation check.
 - **Files.** One type family per file; public API has short doc comments.
 - **Tests.** Swift Testing (`import Testing`, `@Test`, `#expect`), not XCTest. One test target per module (`<Module>Tests`), each depending on `TestSupport`. Use `Fixtures.exampleLibrary()` for a ready `Library` without depending on Storage.
 - **Made-up data only.** Never commit real financial data, real account numbers or personal details. The example library (`Sources/TestSupport/Resources/ExampleLibrary/`) is fake; keep it consistent with FILE_FORMAT.md, and when you change it, keep the tests that check its totals in step.

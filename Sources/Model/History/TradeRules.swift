@@ -61,8 +61,8 @@ extension Trade {
         let name = type.isKnown ? "A \(type.rawValue)" : "A trade"
 
         guard type.isKnown else {
-            warning("type", "The type \"\(type.rawValue)\" isn't known to this version of the app, so the trade is "
-                + "left out of holdings and cash.")
+            warning("type", "The type \"\(type.rawValue)\" isn't known to this version of the app: only its amount, "
+                + "if it has one, counts, and it doesn't change holdings.")
             return problems
         }
 

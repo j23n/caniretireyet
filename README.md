@@ -46,6 +46,7 @@ swift run retire plan --library <folder>
 | --- | --- |
 | [docs/PLAN.md](docs/PLAN.md) | Scope, key decisions, architecture, milestones, open questions |
 | [docs/FILE_FORMAT.md](docs/FILE_FORMAT.md) | The library folder: files, fields, and how sync conflicts are merged |
+| [docs/TRADES.md](docs/TRADES.md) | Accounts that record trades: buys, sells and dividends, average cost, cash, flows, conversion |
 | [docs/PLANNER.md](docs/PLANNER.md) | The retirement simulation |
 | [docs/TAXES.md](docs/TAXES.md) | Pluggable tax systems and regimes: concepts, interfaces, parameter files |
 | [docs/tax/IT.md](docs/tax/IT.md) | The Italian tax system: work income, impatriati, INPS, pension fund, investments |
