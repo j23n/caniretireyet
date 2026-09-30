@@ -13,9 +13,12 @@ import Tracker
 ///   onboarding, which calls ``createLibrary(in:settings:)``.
 /// - **Edit.** ``update(_:)`` changes ``library`` in memory first; the files
 ///   that changed are then written in the background, one save at a time.
+///   Each write is merged with the file on disk (FILE_FORMAT.md, "Saving"),
+///   and what it merged in from disk is reloaded.
 /// - **Watch.** Files changed by the other device or a text editor are
 ///   reloaded, sync conflicts are merged (``mergedConflicts``), and the UI
-///   updates.
+///   updates. A reload never replaces a file that has an edit waiting to be
+///   saved: that save merges the file and reloads it.
 ///
 /// Screens read ``library`` and the derived values (``valuator``, …) and
 /// edit through ``update(_:)`` or the helpers in `LibraryStore+Editing`.
@@ -40,6 +43,22 @@ final class LibraryStore {
         case saving
         /// Reloading files changed elsewhere, or merging conflicts.
         case syncing
+        /// Moving the library into iCloud Drive.
+        case moving
+    }
+
+    /// Something a save found on disk and couldn't simply write over: a file
+    /// changed elsewhere that it replaced (after a copy) or kept, or a file
+    /// that couldn't be read. For the Sync screen and the banners.
+    struct SaveNotice: Hashable, Sendable, Identifiable {
+        var issue: SaveIssue
+        /// When the save happened.
+        var date: Date
+
+        var id: String { "\(issue.path)@\(date.timeIntervalSinceReferenceDate)@\(issue.kind.rawValue)" }
+        var path: String { issue.path }
+        /// What happened, and where the copy is.
+        var summary: String { issue.summary }
     }
 
     // MARK: State
@@ -64,11 +83,16 @@ final class LibraryStore {
     private(set) var mergedConflicts: [ConflictResolution] = []
     /// Sync conflicts that couldn't be merged.
     private(set) var conflictFailures: [ConflictFailure] = []
+    /// Files a save replaced after copying them to `backups/`, or kept,
+    /// since the library was opened, newest first.
+    private(set) var saveNotices: [SaveNotice] = []
     /// Whether the library was written by a newer app version: it's shown,
     /// and every edit is refused.
     private(set) var isReadOnly = false
     /// Whether iCloud Drive is available on this device.
     private(set) var isICloudAvailable = false
+    /// Whether the library is being opened or moved: edits are refused.
+    private(set) var isRelocating = false
 
     // MARK: Plumbing
 
@@ -80,8 +104,13 @@ final class LibraryStore {
     /// The last queued file operation; every save and reload waits for the
     /// one before it, so they reach the folder in order.
     @ObservationIgnored private var ioTail: Task<Void, Never>?
-    /// Goes up with every edit, so a reload can tell it raced one.
-    @ObservationIgnored private var editGeneration = 0
+    /// The files with edits waiting to be saved, and how many. A reload
+    /// leaves them alone: the save merges them with the disk and reloads
+    /// them.
+    @ObservationIgnored private var pendingSaves: [LibraryFile: Int] = [:]
+    /// The files' modification dates when they were last compared, for
+    /// ``refreshFromDisk()``.
+    @ObservationIgnored private var diskSnapshot: FolderSnapshot?
     @ObservationIgnored private var valuatorCache: (revision: Int, valuator: Valuator)?
 
     /// A store that finds its library with `locator` and remembers the
@@ -111,14 +140,20 @@ final class LibraryStore {
         return valuator
     }
 
-    /// Whether edits are possible: loaded and not read-only.
-    var canEdit: Bool { phase == .ready && !isReadOnly }
+    /// Whether edits are possible: loaded, not read-only, and not being
+    /// opened or moved.
+    var canEdit: Bool { phase == .ready && !isReadOnly && !isRelocating }
 
     // MARK: Opening
 
     /// Finds the library and opens it (at launch). On this device's first
     /// launch, an existing library in iCloud Drive wins, then one on this
     /// device; with neither, ``phase`` becomes `.needsSetup`.
+    ///
+    /// On a new device, iCloud Drive may not have listed the library's files
+    /// yet, so iCloud is asked first and given a few seconds to answer
+    /// (`LibraryLocation.containsLibrary(waitingUpTo:)`) before onboarding
+    /// is offered, which would create a second library.
     func start() async {
         isICloudAvailable = locator.isICloudAvailable
         phase = .starting
@@ -134,7 +169,7 @@ final class LibraryStore {
                 return
             }
             for kind in [LibraryLocationKind.iCloud, .local] {
-                if let location = try await locator.location(kind), await LibrarySync(location: location).containsLibrary() {
+                if let location = try await locator.location(kind), await location.containsLibrary() {
                     preferences?.libraryLocation = kind
                     await open(location)
                     return
@@ -146,28 +181,35 @@ final class LibraryStore {
         }
     }
 
-    /// Opens the library at `location`, stopping work on the previous one.
-    /// Without a library there, ``phase`` becomes `.needsSetup`.
+    /// Opens the library at `location`, after the queued saves, stopping
+    /// work on the previous one. Edits are refused meanwhile. Without a
+    /// library there, ``phase`` becomes `.needsSetup`.
     func open(_ location: LibraryLocation) async {
+        isRelocating = true
+        defer { isRelocating = false }
         stopWatching()
         await ioTail?.value
         let sync = LibrarySync(location: location)
         self.sync = sync
         self.location = location
+        pendingSaves = [:]
+        diskSnapshot = nil
         mergedConflicts = []
         conflictFailures = []
+        saveNotices = []
         lastError = nil
-        guard await sync.containsLibrary() else {
+        guard await location.containsLibrary() else {
             phase = .needsSetup
             return
         }
         activity = .loading
         do {
-            let result = try await sync.load()
+            let (result, snapshot) = try await sync.loadWithSnapshot()
             apply(result)
+            diskSnapshot = snapshot
             activity = .idle
             phase = .ready
-            startWatching(location, sync: sync)
+            startWatching(location, sync: sync, since: snapshot)
             if !isReadOnly {
                 enqueue { _ = try? await sync.updateReadme() }
             }
@@ -183,7 +225,7 @@ final class LibraryStore {
     func createLibrary(in kind: LibraryLocationKind, settings: LibrarySettings) async throws {
         guard let location = try await locator.location(kind) else { throw LibraryStoreError.iCloudUnavailable }
         let sync = LibrarySync(location: location)
-        if await !sync.containsLibrary() {
+        if await !location.containsLibrary(waitingUpTo: .seconds(3)) {
             try await sync.createLibrary(settings: settings)
         }
         preferences?.libraryLocation = kind
@@ -198,33 +240,57 @@ final class LibraryStore {
         await start()
     }
 
-    /// Moves a library kept on this device into iCloud Drive and opens it there.
+    /// Moves a library kept on this device into iCloud Drive and opens it
+    /// there. It waits for the queued saves, and edits are refused until
+    /// it's done.
     func moveToICloud() async throws {
         guard let current = location, current.kind == .local, let sync else { return }
+        guard !isRelocating else { throw LibraryStoreError.busy }
         guard let destination = try await locator.location(.iCloud) else { throw LibraryStoreError.iCloudUnavailable }
+        isRelocating = true
         stopWatching()
         await ioTail?.value
+        activity = .moving
         do {
             try await LibraryMover.move(from: current, to: destination)
         } catch {
-            startWatching(current, sync: sync)
+            activity = .idle
+            isRelocating = false
+            startWatching(current, sync: sync, since: diskSnapshot)
             throw error
         }
+        activity = .idle
         preferences?.libraryLocation = .iCloud
         await open(destination)
     }
 
-    /// Reads the whole library again, e.g. for pull to refresh or when the
-    /// app comes back to the foreground.
+    /// Reads the whole library again, e.g. for pull to refresh. Files with
+    /// edits waiting to be saved are left as they are in memory.
     func reloadAll() async {
-        guard let sync else { return }
+        guard let sync, !isRelocating else { return }
         await enqueue { [weak self] in await self?.reloadEverything(using: sync) }.value
+    }
+
+    /// Reloads the files whose modification dates changed since the library
+    /// was loaded or last refreshed: what the watcher may have missed while
+    /// the app wasn't active. The root view calls it when the app becomes
+    /// active.
+    func refreshFromDisk() async {
+        guard phase == .ready, !isRelocating, let sync else { return }
+        await enqueue { [weak self] in
+            guard let self, sync === self.sync, let previous = self.diskSnapshot else { return }
+            let (change, snapshot) = await sync.changes(since: previous)
+            self.diskSnapshot = snapshot
+            if !change.paths.isEmpty { await self.reload(change.paths, using: sync) }
+        }.value
     }
 
     /// Waits until every queued save and reload has finished.
     func waitForPendingWrites() async {
         await ioTail?.value
     }
+
+    // MARK: Backups
 
     /// The backups in the library's `backups/` folder, oldest first.
     func backups() async -> [Backup] {
@@ -235,30 +301,44 @@ final class LibraryStore {
     /// Copies the files at `paths` (relative to the library folder, e.g.
     /// `history/2026/2026-09.json`) into `backups/<timestamp>-<label>/`, after
     /// the saves already queued, so the copy holds the files as they are
-    /// before the next edit. Paths that don't exist yet are recorded, and
-    /// ``restore(_:)`` deletes them. Used before an import (label `import`).
+    /// before the next edit. Paths that don't exist yet are recorded.
     /// Returns `nil` for a library without files (previews).
     func backup(paths: [String], label: String) async throws -> Backup? {
         guard phase == .ready else { throw LibraryStoreError.notLoaded }
         guard !isReadOnly else { throw LibraryStoreError.readOnly }
         guard let sync else { return nil }
-        let folder = sync.folder
-        return try await enqueueThrowing {
-            try await Task.detached { try folder.backup(paths: paths, label: label) }.value
-        }
+        return try await enqueueThrowing { try await sync.backup(paths: paths, label: label) }
     }
 
-    /// Puts a backup's files back in place, deletes the files it didn't
-    /// have, and reloads them: undoes an import. Runs after the saves
-    /// already queued. Does nothing for a library without files.
+    /// Puts a backup's files back as they were, over any later edits,
+    /// deletes the files it didn't have, and reloads them. Runs after the
+    /// saves already queued. Refused for a backup of another format version.
+    /// To undo an import, use ``undo(_:safetyLabel:)``. Does nothing for a
+    /// library without files.
     func restore(_ backup: Backup) async throws {
         guard phase == .ready else { throw LibraryStoreError.notLoaded }
         guard !isReadOnly else { throw LibraryStoreError.readOnly }
         guard let sync else { return }
-        let folder = sync.folder
         try await enqueueThrowing { [weak self] in
-            let report = try await Task.detached { try folder.restore(backup: backup) }.value
+            let report = try await sync.restore(backup)
             await self?.reload(report.written + report.deleted, using: sync)
+        }
+    }
+
+    /// Undoes the change `backup` was taken for (an import made with
+    /// ``commit(backingUpAs:_:)``), leaving edits made since in place (see
+    /// `LibraryFolder.undo(_:dryRun:)`), after copying the files as they are
+    /// now to `backups/<timestamp>-<safetyLabel>/`. Reloads what changed.
+    /// Returns what was left in place; `nil` for a library without files.
+    func undo(_ backup: Backup, safetyLabel: String) async throws -> UndoReport? {
+        guard phase == .ready else { throw LibraryStoreError.notLoaded }
+        guard !isReadOnly else { throw LibraryStoreError.readOnly }
+        guard let sync else { return nil }
+        return try await enqueueThrowing { [weak self] in
+            _ = try await sync.backup(paths: backup.paths, label: safetyLabel)
+            let report = try await sync.undo(backup)
+            await self?.reload(report.changedPaths, using: sync)
+            return report
         }
     }
 
@@ -267,10 +347,11 @@ final class LibraryStore {
         lastError = nil
     }
 
-    /// Forgets the merged conflicts shown in "Needs attention".
+    /// Forgets the merged conflicts and save notices shown in "Needs attention".
     func dismissMergedConflicts() {
         mergedConflicts = []
         conflictFailures = []
+        saveNotices = []
     }
 
     // MARK: Editing
@@ -280,11 +361,12 @@ final class LibraryStore {
     /// background. Nothing happens if `edit` changes nothing.
     ///
     /// Throws ``LibraryStoreError/readOnly`` for a library written by a newer
-    /// app, and ``LibraryStoreError/notLoaded`` before one is open. A failed
+    /// app, ``LibraryStoreError/notLoaded`` before one is open, and
+    /// ``LibraryStoreError/busy`` while it's being opened or moved. A failed
     /// write shows in ``lastError`` and reloads what's on disk.
     func update(_ edit: (inout Library) throws -> Void) throws {
         guard let staged = try stage(edit), let sync else { return }
-        enqueue { [weak self] in _ = await self?.save(staged.next, previous: staged.previous, using: sync) }
+        enqueue { [weak self] in _ = await self?.save(staged, using: sync) }
     }
 
     /// Like ``update(_:)``, and waits until the change is written: throws
@@ -296,26 +378,79 @@ final class LibraryStore {
         guard let staged = try stage(edit), let sync else { return }
         try await enqueueThrowing { [weak self] in
             guard let self else { throw LibraryStoreError.saveFailed("The library was closed.") }
-            if let failure = await self.save(staged.next, previous: staged.previous, using: sync) {
+            if let failure = await self.save(staged, using: sync) {
                 throw LibraryStoreError.saveFailed(failure)
+            }
+        }
+    }
+
+    /// Like ``commit(_:)``, with the files the edit changes copied into
+    /// `backups/<timestamp>-<label>/` first, in the same queued operation,
+    /// so the backup holds exactly what the save replaces; after the save,
+    /// the files as written are recorded in the backup, so
+    /// ``undo(_:safetyLabel:)`` can undo this edit and no later one. Used by
+    /// the import. Returns the backup; `nil` if `edit` changed nothing or
+    /// the library has no files (previews). If the backup can't be made,
+    /// nothing is written and the edit is undone in memory.
+    func commit(backingUpAs label: String, _ edit: (inout Library) throws -> Void) async throws -> Backup? {
+        guard let staged = try stage(edit), let sync else { return nil }
+        return try await enqueueThrowing { [weak self] in
+            guard let self else { throw LibraryStoreError.saveFailed("The library was closed.") }
+            let paths = staged.files.map(\.path).sorted()
+            let backup: Backup
+            do {
+                backup = try await sync.backup(paths: paths, label: label)
+            } catch {
+                self.finishSaving(staged)
+                await self.reload(paths, using: sync)
+                throw error
+            }
+            if let failure = await self.save(staged, using: sync) {
+                throw LibraryStoreError.saveFailed(failure)
+            }
+            do {
+                return try await sync.recordResult(of: backup)
+            } catch {
+                self.lastError = "The change was saved, but what it wrote couldn't be recorded in \(backup.path), so "
+                    + "undoing it would also undo later edits to the same files. \(Self.describe(error))"
+                return backup
             }
         }
     }
 
     // MARK: - Internals
 
+    /// An edit made in memory, waiting to be written.
+    private struct Staged: Sendable {
+        var next: Library
+        var previous: Library
+        /// The files that differ between the two.
+        var files: Set<LibraryFile>
+    }
+
     /// Applies `edit` to a copy and makes it the library in memory; `nil`
-    /// when nothing changed.
-    private func stage(_ edit: (inout Library) throws -> Void) throws -> (next: Library, previous: Library)? {
+    /// when nothing changed. The files it changes count as having a
+    /// pending save until ``finishSaving(_:)``.
+    private func stage(_ edit: (inout Library) throws -> Void) throws -> Staged? {
         guard phase == .ready else { throw LibraryStoreError.notLoaded }
         guard !isReadOnly else { throw LibraryStoreError.readOnly }
+        guard !isRelocating else { throw LibraryStoreError.busy }
         let previous = library
         var next = previous
         try edit(&next)
         guard next != previous else { return nil }
         setLibrary(next)
-        editGeneration += 1
-        return (next, previous)
+        let staged = Staged(next: next, previous: previous, files: sync == nil ? [] : next.files(changedFrom: previous))
+        for file in staged.files { pendingSaves[file, default: 0] += 1 }
+        return staged
+    }
+
+    /// The staged edit's save is over (written or not).
+    private func finishSaving(_ staged: Staged) {
+        for file in staged.files {
+            let count = (pendingSaves[file] ?? 1) - 1
+            pendingSaves[file] = count > 0 ? count : nil
+        }
     }
 
     private func setLibrary(_ library: Library) {
@@ -355,17 +490,31 @@ final class LibraryStore {
         return try await task.value
     }
 
-    /// Writes a change; returns why it failed, or `nil` once it's written.
-    private func save(_ library: Library, previous: Library, using sync: LibrarySync) async -> String? {
-        guard sync === self.sync else { return "The library was closed or moved before the change was written." }
+    /// Writes a staged edit, merged with the disk, then reloads what the
+    /// merge brought in from disk. Returns why it failed, or `nil` once it's
+    /// written. A failure shows in ``lastError``.
+    private func save(_ staged: Staged, using sync: LibrarySync) async -> String? {
+        guard sync === self.sync else {
+            finishSaving(staged)
+            let message = "The library was closed or moved before the change was written."
+            lastError = "Couldn't save your changes. \(message)"
+            return message
+        }
         activity = .saving
         defer { activity = .idle }
         do {
-            _ = try await sync.save(library, previous: previous)
+            let report = try await sync.save(staged.next, previous: staged.previous)
+            finishSaving(staged)
             lastSavedAt = Date()
             lastError = nil
+            let now = Date()
+            saveNotices.insert(contentsOf: report.issues.reversed().map { SaveNotice(issue: $0, date: now) }, at: 0)
+            if !report.reloadPaths.isEmpty {
+                await reload(report.reloadPaths, using: sync)
+            }
             return nil
         } catch {
+            finishSaving(staged)
             let message = Self.describe(error)
             lastError = "Couldn't save your changes. \(message)"
             await reloadEverything(using: sync)
@@ -373,19 +522,29 @@ final class LibraryStore {
         }
     }
 
+    /// Loads the whole library again. Files with edits waiting to be saved
+    /// keep their version in memory; their saves merge them with the disk.
     private func reloadEverything(using sync: LibrarySync) async {
         guard sync === self.sync else { return }
-        let generation = editGeneration
         activity = .loading
         defer { activity = .idle }
         do {
-            let result = try await sync.load()
-            guard generation == editGeneration else {
-                // An edit came in meanwhile; its save is queued behind us.
-                enqueue { [weak self] in await self?.reloadEverything(using: sync) }
+            let (result, snapshot) = try await sync.loadWithSnapshot()
+            guard sync === self.sync else { return }
+            diskSnapshot = snapshot
+            let pending = Set(pendingSaves.keys)
+            guard !pending.isEmpty else {
+                apply(result)
                 return
             }
-            apply(result)
+            var updated = library
+            updated.replaceEntities(of: result.library.libraryFiles.union(library.libraryFiles).subtracting(pending),
+                                    from: result.library)
+            let pendingPaths = Set(pending.map(\.path))
+            loadIssues = (loadIssues.filter { pendingPaths.contains($0.path) }
+                + result.report.issues.filter { !pendingPaths.contains($0.path) }).sorted { $0.path < $1.path }
+            isReadOnly = result.report.isReadOnly
+            if updated != library { setLibrary(updated) }
         } catch {
             lastError = Self.describe(error)
         }
@@ -393,11 +552,11 @@ final class LibraryStore {
 
     // MARK: Watching
 
-    private func startWatching(_ location: LibraryLocation, sync: LibrarySync) {
+    private func startWatching(_ location: LibraryLocation, sync: LibrarySync, since baseline: FolderSnapshot?) {
         stopWatching()
         let watcher = location.makeWatcher()
         self.watcher = watcher
-        let changes = watcher.start()
+        let changes = watcher.start(since: baseline)
         watchTask = Task { [weak self] in
             for await change in changes {
                 self?.receive(change, from: sync)
@@ -435,22 +594,24 @@ final class LibraryStore {
         }
     }
 
-    /// Reloads files changed on disk. Only those files' entities are taken
-    /// over; if an edit happened while they were read, the reload is queued
-    /// again behind that edit's save, so it never undoes the edit.
+    /// Reloads files changed on disk, taking over only those files'
+    /// entities. A file with an edit waiting to be saved is skipped, also
+    /// when the edit happens while the file is read: that save merges the
+    /// file with the disk and reloads it, so a reload never undoes an edit.
     private func reload(_ paths: [String], using sync: LibrarySync) async {
         guard sync === self.sync else { return }
-        let generation = editGeneration
-        let result = await sync.reload(paths: paths, in: library)
-        guard generation == editGeneration else {
-            enqueue { [weak self] in await self?.reload(paths, using: sync) }
-            return
-        }
+        let wanted = Set(paths.compactMap(LibraryFile.init(path:))).filter { pendingSaves[$0] == nil }
+        guard !wanted.isEmpty else { return }
+        let result = await sync.reload(paths: wanted.map(\.path), in: library)
+        guard sync === self.sync else { return }
+        let files = result.files.filter { pendingSaves[$0] == nil }
+        guard !files.isEmpty else { return }
         var updated = library
-        updated.replaceEntities(of: result.files, from: result.library)
-        let reloaded = Set(result.paths)
-        loadIssues = (loadIssues.filter { !reloaded.contains($0.path) } + result.issues).sorted { $0.path < $1.path }
-        if result.files.contains(.settings) {
+        updated.replaceEntities(of: files, from: result.library)
+        let reloaded = Set(files.map(\.path))
+        loadIssues = (loadIssues.filter { !reloaded.contains($0.path) }
+            + result.issues.filter { reloaded.contains($0.path) }).sorted { $0.path < $1.path }
+        if files.contains(.settings) {
             isReadOnly = updated.settings.schemaVersion > LibrarySettings.currentSchemaVersion
         }
         if updated != library {
@@ -479,6 +640,8 @@ enum LibraryStoreError: Error, Equatable, Sendable, LocalizedError {
     case openFailed(String)
     /// A change couldn't be written; what's on disk was reloaded.
     case saveFailed(String)
+    /// The library is being opened or moved.
+    case busy
 
     var message: String {
         switch self {
@@ -492,6 +655,8 @@ enum LibraryStoreError: Error, Equatable, Sendable, LocalizedError {
             message
         case .saveFailed(let message):
             "Couldn't save your changes. \(message)"
+        case .busy:
+            "The library is being opened or moved. Try again in a moment."
         }
     }
 

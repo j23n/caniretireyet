@@ -84,7 +84,8 @@ struct StatusBanner: View {
 }
 
 /// The library's own state as banners: read-only, a failed save, files that
-/// couldn't be read, conflicts that were merged or failed. Shows nothing
+/// couldn't be read, conflicts that were merged or failed, and files a save
+/// copied to backups or kept because they changed elsewhere. Shows nothing
 /// when all is well. Screens put it at the top of their content; the
 /// Overview shows it in "Needs attention".
 struct LibraryStatusBanners: View {
@@ -118,6 +119,13 @@ struct LibraryStatusBanners: View {
                     .warning, "A sync conflict couldn't be merged",
                     message: library.conflictFailures.map(\.path).joined(separator: ", "),
                     actionTitle: "Show details") { navigation.show(.sync) }
+            }
+            if !library.saveNotices.isEmpty {
+                let count = library.saveNotices.count
+                StatusBanner(
+                    .warning, count == 1 ? "Saving found a file changed elsewhere"
+                        : "Saving found \(count) files changed elsewhere",
+                    message: library.saveNotices.first?.summary, actionTitle: "Review") { navigation.show(.sync) }
             }
         }
     }
