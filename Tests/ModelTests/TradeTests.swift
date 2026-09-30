@@ -190,8 +190,8 @@ struct LibraryTradeTests {
         library.upsert(edited)
         #expect(library.trades(for: "directa").count == 2)
         #expect(library.heldQuantities(of: "directa", on: "2026-03-31") == ["vwce": 12])
-        #expect(library.removeTrade(march.key) == edited)
-        #expect(library.removeTrade(march.key) == nil)
+        #expect(library.removeTradeRecord(march.key) == edited)
+        #expect(library.removeTradeRecord(march.key) == nil)
         #expect(library.trades(for: "directa") == [early])
         // Trades aren't check-ins.
         #expect(library.checkInDates.isEmpty)

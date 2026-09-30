@@ -194,10 +194,11 @@ extension Library {
         months[month] = file
     }
 
-    /// Removes the trade with this key, returning it if there was one. An
-    /// emptied month file stays in `months`.
+    /// Removes the trade record with this key, returning it if there was
+    /// one. An emptied month file stays in `months`. (Tracker's
+    /// `removeTrade(_:)` also keeps the flows of later valuations in step.)
     @discardableResult
-    public mutating func removeTrade(_ key: TradeKey) -> Trade? {
+    public mutating func removeTradeRecord(_ key: TradeKey) -> Trade? {
         let month = key.date.yearMonth
         guard let index = months[month]?.trades.firstIndex(where: { $0.key == key }) else { return nil }
         return months[month]?.trades.remove(at: index)
