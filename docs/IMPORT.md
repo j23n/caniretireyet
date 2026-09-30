@@ -132,6 +132,6 @@ Columns are identified by their header text, and by position only when there's n
 
 ## Where it runs
 
-- **Engine.** `Storage/Import`, in pure Swift. It's tested on Linux against a folder of sample files: Italian Excel CSVs in Windows-1252, US-style exports, Numbers exports, month-only dates, Excel serial dates, broken rows.
+- **Engine.** The `Importer` module, in pure Swift. It's tested on Linux against a folder of sample files: Italian Excel CSVs in Windows-1252, US-style exports, Numbers exports, month-only dates, Excel serial dates, broken rows.
 - **App.** The same SwiftUI flow on Mac and iPhone. The Mac, with its big table, is the comfortable place to build a profile. On the iPhone, you can open a CSV from Files and import it with a saved profile.
 - **CLI.** `retire import <file> --profile <id> [--dry-run]` prints the same summary as the preview.

@@ -7,7 +7,7 @@ The library is a folder. Everything the app knows is stored in it. If you delete
 - **Plain, stable JSON.** Files are UTF-8, pretty-printed with two-space indentation, sorted keys and a trailing newline. A record inside a list is kept on a single line when it fits, so a diff shows exactly which records changed. The same data always produces byte-identical files, so a file only changes when its data changes. If you put the folder in git, the diffs stay clean.
 - **Small files.** There is one file for each thing you edit independently, so a sync conflict between devices stays rare and affects little.
 - **Stable IDs you can read.** Files refer to each other by ID, never by display name, so you can rename anything freely.
-- **Only inputs are stored.** Files hold what you entered, plus the prices and FX rates fetched at check-in time. Totals, charts and projections are always computed.
+- **Only inputs are stored.** Files hold what you entered, plus the prices, FX rates and inflation figures fetched at check-in time. Totals, charts and projections are always computed. The one deliberate exception is `projections/`: saved projections record what you expected at the time, which can't be recomputed later ([PROGRESS.md](PROGRESS.md)).
 - **Unknown data survives.** When the app rewrites a file, it keeps fields it doesn't recognise, such as notes you added by hand.
 
 ## Layout
@@ -39,6 +39,12 @@ Can I Retire Yet/                   ← the app's folder in iCloud Drive
 ├── plans/
 │   ├── base.json
 │   └── part-time-from-50.json
+├── projections/
+│   └── base/
+│       ├── baselines/
+│       │   └── 2026-01-05.json     a saved projection (see PROGRESS.md)
+│       └── headlines/
+│           └── 2026.json           the answer at each check-in
 ├── imports/
 │   └── net-worth-sheet.json        saved import mappings (see IMPORT.md)
 └── backups/                        copies made before a migration or an import
@@ -196,12 +202,15 @@ An instrument is anything you hold a quantity of. Its price is always per `unit`
 
 ## `history/YYYY/YYYY-MM.json`
 
-One file per calendar month. It holds the account valuations, prices and FX rates dated in that month.
+One file per calendar month. It holds the account valuations, prices, FX rates and inflation-index values dated in that month.
 
 ```json
 {
   "fx": [
     { "base": "EUR", "date": "2026-09-30", "quote": "USD", "rate": "1.1712", "source": "ecb" }
+  ],
+  "indices": [
+    { "date": "2026-08-31", "index": "hicp-it", "source": "eurostat", "value": "128.41" }
   ],
   "month": "2026-09",
   "prices": [
@@ -210,31 +219,34 @@ One file per calendar month. It holds the account valuations, prices and FX rate
     { "currency": "EUR", "date": "2026-09-30", "instrument": "vwce", "price": "138.42", "source": "yahoo" }
   ],
   "valuations": [
-    { "account": "conto-fineco", "balance": "4210.55", "date": "2026-09-30" },
+    { "account": "conto-fineco", "balance": "4210.55", "date": "2026-09-30", "flow": "-310.20" },
     {
       "account": "directa",
       "cash": "312.10",
       "date": "2026-09-30",
+      "flow": "1500.00",
       "positions": [
         { "costBasis": "48200.00", "instrument": "vwce", "quantity": "412.5" }
       ]
     },
-    { "account": "fondo-pensione", "balance": "18450.12", "date": "2026-09-30", "note": "from Q3 statement" },
+    { "account": "fondo-pensione", "balance": "18450.12", "date": "2026-09-30", "flow": "1325.00", "note": "from Q3 statement" },
     { "account": "gold-coins", "date": "2026-09-30", "positions": [{ "instrument": "gold", "quantity": "62.2" }] },
     { "account": "ledger-wallet", "date": "2026-09-30", "positions": [{ "instrument": "btc", "quantity": "0.4215" }] }
   ]
 }
 ```
 
-(The prices above are made up.)
+(The numbers above are made up.)
 
 Rules:
 
 - **Which file.** A record's date decides its file: `2026-09-30` goes in `history/2026/2026-09.json`.
-- **Uniqueness.** There is at most one valuation per account per date, one price per instrument per date, and one FX rate per currency pair per date.
+- **Uniqueness.** There is at most one valuation per account per date, one price per instrument per date, one FX rate per currency pair per date, and one value per index per date.
 - **Two kinds of valuation.** A valuation holds either a `balance` (one amount in the account's currency, negative for debts) or `positions` plus optional `cash`. An account can switch between them over time. For example, the imported history can be balances and later check-ins can have positions.
 - **Cost basis.** `costBasis` is optional: the total purchase cost of a position in the account's currency (Italian brokers show it as *valore di carico*). The planner uses it to estimate the tax due when you sell. Where it's missing, the plan asks for an estimate instead. It matters most for physical gold: if you can't document the purchase price, Italy taxes the whole sale price.
+- **Flow.** `flow` is optional: the net money added (+) or taken out (−) since the account's previous valuation, in the account's currency. The check-in fills it in from defaults that depend on the kind of account, and you can edit it (see [PROGRESS.md](PROGRESS.md#data-this-needs-from-day-one)). A missing flow means unknown. The sum of all flows over a period is what you actually saved.
 - **FX direction.** FX rates follow the ECB convention: 1 `base` = `rate` × `quote`.
+- **Indices.** `indices` holds consumer-price-index values (`hicp-it`: Italy's HICP from Eurostat). They're used to express history in today's euros and to compute real returns.
 - **Sorting.** Records are sorted by date, then by ID, so files diff cleanly.
 
 ### How values are computed
@@ -255,11 +267,20 @@ The value of an account on a date **D**:
 - **market:** old quantity × price change, including FX;
 - **new money:** everything else, meaning changes in quantity and in cash.
 
-For accounts recorded as a balance, the change can't be split.
+For accounts recorded as a balance, the change can only be split when a `flow` was recorded. The change is then the flow plus the rest.
 
 ## `plans/<id>.json`
 
 There is one file per scenario. Its fields and what they mean are described in [PLANNER.md](PLANNER.md#plan-file).
+
+## `projections/<plan-id>/`
+
+Saved projections for one plan:
+
+- `baselines/<date>.json`: a projection saved at the first check-in of each year, or by hand. It stores the projected percentiles for each year, the expected path, the accounts included, and a copy of the plan's inputs.
+- `headlines/<year>.json`: the headline answer recorded at each check-in.
+
+Fields and examples are in [PROGRESS.md](PROGRESS.md#baselines). These files aren't deleted when a plan changes or is deleted, because they are a record of the past.
 
 ## Sync conflicts
 
@@ -267,7 +288,7 @@ When two devices change the same file before it syncs, iCloud keeps both version
 
 | File | MVP (M1) | Later (M3) |
 | --- | --- | --- |
-| `history/…` | All records from both versions, matched by key: account + date, instrument + date, or currency pair + date. If both versions changed the same record, the more recently modified file wins. | Three-way merge record by record, using the device's last-synced copy as the common base. This also makes deletions merge correctly. |
+| `history/…`, `projections/…/headlines/…` | All records from both versions, matched by key: account + date, instrument + date, currency pair + date, index + date, or check-in date. If both versions changed the same record, the more recently modified file wins. | Three-way merge record by record, using the device's last-synced copy as the common base. This also makes deletions merge correctly. |
 | All other files | The more recently modified version wins. | Three-way merge field by field. |
 
 Merges are listed on the Sync screen so you can check them.

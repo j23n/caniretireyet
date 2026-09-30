@@ -16,3 +16,5 @@ Status: planning. Start with [docs/PLAN.md](docs/PLAN.md).
 | [docs/TAXES.md](docs/TAXES.md) | Pluggable tax systems and regimes: concepts, interfaces, parameter files |
 | [docs/tax/IT.md](docs/tax/IT.md) | The Italian tax system: work income, impatriati, INPS, pension fund, investments |
 | [docs/IMPORT.md](docs/IMPORT.md) | Importing any spreadsheet or export by mapping its columns |
+| [docs/PROGRESS.md](docs/PROGRESS.md) | Net worth, history and projection together, baselines, actual vs. projected, performance |
+| [docs/UI.md](docs/UI.md) | What the app looks like: screens, navigation, charts, iPhone and Mac |

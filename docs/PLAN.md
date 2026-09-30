@@ -45,6 +45,7 @@ All data lives in a folder of plain JSON files in iCloud Drive. The apps on your
   - the change since the last check-in, split into market movement and new money;
   - accounts that haven't been updated recently.
 - Import from any spreadsheet or CSV export: you map the columns, the importer handles the file's date and number formats, and the mapping can be saved and reused ([IMPORT.md](IMPORT.md)).
+- Money in and out of each account (the *flow*), recorded at every check-in with sensible defaults. Savings and returns can then be measured later ([PROGRESS.md](PROGRESS.md)).
 - Sync between iPhone and Mac through iCloud Drive.
 
 **Planner**
@@ -69,10 +70,14 @@ All data lives in a folder of plain JSON files in iCloud Drive. The apps on your
   - the headline answer;
   - the earliest retirement age at your chosen confidence level;
   - charts.
+- Progress ([PROGRESS.md](PROGRESS.md)):
+  - your history and your projection on one chart;
+  - the headline answer recorded at every check-in;
+  - baselines (saved projections), with your actual line drawn over them.
 
 ### Later
 
-These are listed as M3 and M4 in §6: scenario comparison, widgets, the RW/IVAFE helper, historical return sequences, dynamic withdrawal strategies, retiring abroad, partner planning, and transaction-based cost basis.
+These are listed as M3 and M4 in §6: investment performance, explaining the gap to a baseline, widgets, the RW/IVAFE helper, historical return sequences, dynamic withdrawal strategies, retiring abroad, partner planning, and transaction-based cost basis.
 
 ### Non-goals
 
@@ -105,8 +110,10 @@ These are listed as M3 and M4 in §6: scenario comparison, widgets, the RW/IVAFE
 caniretireyet/
 ├── Package.swift
 ├── Sources/
-│   ├── Tracker/      domain model: accounts, instruments, valuations; net-worth math
-│   ├── Storage/      library folder ⇄ model: JSON codec, validation, migrations, merging, importer
+│   ├── Model/        the library's data model: every file type, decimals, dates, IDs
+│   ├── Tracker/      net-worth math: values, series, breakdowns, flows, performance
+│   ├── Storage/      library folder ⇄ model: JSON codec, validation, migrations, merging
+│   ├── Importer/     CSV reading, format detection, column mapping, import profiles
 │   ├── Planner/      simulation engine and return model; no tax rules
 │   ├── TaxKit/       tax plugin interfaces, shared building blocks, parameter loading
 │   ├── TaxItaly/     the Italian tax system: regimes, INPS, wrappers, yearly parameters
@@ -125,9 +132,9 @@ caniretireyet/
 
 Module dependencies:
 
-- `Tracker` and `TaxKit` depend on nothing.
-- `Storage` and `Prices` depend on `Tracker`.
-- `Planner` depends on `Tracker` and `TaxKit`, and never on a specific country.
+- `Model` and `TaxKit` depend on nothing.
+- `Tracker`, `Storage`, `Importer` and `Prices` depend on `Model`.
+- `Planner` depends on `Model`, `Tracker` and `TaxKit`, and never on a specific country.
 - `TaxItaly` and `TaxGeneric` depend on `TaxKit`.
 - `CloudSync` depends on `Storage`.
 - The `retire` CLI and the app sit on top. They register the available tax systems in one place (`TaxRegistry`).
@@ -158,6 +165,8 @@ The iPhone uses a tab bar and the Mac uses a sidebar. The iPad gets the sidebar 
   - the change since the last check-in, split into market and new money;
   - breakdowns;
   - accounts that haven't been updated recently;
+  - a *past and future* switch that continues the chart into the plan's projection;
+  - whether you're ahead of or behind your latest baseline;
   - progress toward financial independence, taken from the active plan.
 - **Accounts.** A grouped list, with closed accounts in a collapsed section. The account detail shows a value chart, the list of valuations, and actions to edit, close or reopen.
 - **Check-in.** The main action. The steps are:
@@ -166,7 +175,12 @@ The iPhone uses a tab bar and the Mac uses a sidebar. The iPad gets the sidebar 
   3. Update the accounts, pre-filled with last time's values. "Unchanged" is one tap.
   4. Review the new total and the changes.
   5. Save.
-- **Plan.** The headline answer and the charts, next to the inputs (side by side on the Mac). Plans can be duplicated as what-if scenarios.
+- **Plan.** Three parts:
+  - *Results*: the headline answer and the charts;
+  - *Progress*: the answer over time, and your actual numbers against baselines;
+  - *Inputs*.
+
+  On the Mac, inputs and results sit side by side. Plans can be duplicated as what-if scenarios. The screens are designed in [UI.md](UI.md).
 - **Settings.** Library location, price sources, a monthly reminder, app lock, and a description of the file format.
 
 On the Mac there are also tables for editing many valuations at once, keyboard navigation through the check-in, and "Show library in Finder".
@@ -228,6 +242,7 @@ The importer works with any spreadsheet or export instead of a fixed layout. Det
 - Accounts and instruments: create, edit, close and reopen.
 - The check-in flow, with pre-filled values, fetched prices and FX rates, and manual overrides.
 - The Overview: net-worth history, breakdowns, and the change since the last check-in split into market and new money. Plus the account detail screen.
+- Flows recorded at each check-in, with defaults per kind of account.
 - Live sync: a check-in on the iPhone appears on the Mac, and edits made directly to files are picked up.
 - The importer: the engine, the mapping and preview flow in the app, saved profiles, and `retire import`.
 
@@ -253,6 +268,7 @@ The importer works with any spreadsheet or export instead of a fixed layout. Det
   - income sources and taxes per year;
   - what-if sliders;
   - two plans side by side, e.g. forfettario against ordinario with impatriati.
+- Progress: the past-and-future chart, the headline recorded at each check-in, yearly and hand-saved baselines, and your actual line over a baseline.
 
 **Done when:** the plan starts from your latest check-in, and the engine matches the reference cases calculated by hand.
 
@@ -260,6 +276,7 @@ The importer works with any spreadsheet or export instead of a fixed layout. Det
 
 - Conflict merging, with the Sync screen. The schema guard. Clear errors for hand-edited files that don't parse.
 - A monthly reminder notification, Face ID lock, and CSV export.
+- Performance (time-weighted and money-weighted returns, nominal and real), the explanation of the gap to a baseline, and fetching Italy's inflation index.
 - Widgets for net worth and years to go.
 - An RW/IVAFE helper that produces year-end values and holding periods for foreign accounts, for your tax return.
 

@@ -15,6 +15,8 @@ Alongside the headline, it shows:
 - **Why failing runs fail**, for example: "runs out of accessible money at 55, two years before the pension fund can be drawn at 57".
 - **An FI number**, for orientation only: the spending your pensions don't cover, divided by a withdrawal rate.
 
+[PROGRESS.md](PROGRESS.md) covers how the answer and your actual numbers develop over time: the answer at each check-in, saved baselines, and actual against projected.
+
 ## Model in brief
 
 The simulation takes yearly steps, from this year to the plan's end age (95 by default). Amounts are in **today's euros** (real terms). Inflation only matters for things fixed in nominal euros:
@@ -67,8 +69,8 @@ Each year:
     "phases": [ { "fromAge": 75, "factor": "0.9" }, { "fromAge": 85, "factor": "0.8" } ]
   },
   "pensions": [
-    { "scheme": "it.inps", "montante": "92000", "contributionYears": "8",
-      "foreignContributionYears": "6", "claim": "earliest" },
+    { "scheme": "it.inps", "claim": "earliest",
+      "options": { "montante": "92000", "contributionYears": "8", "foreignContributionYears": "6" } },
     { "scheme": "fixed", "name": "State pension from previous country",
       "fromAge": 67, "perYear": "4800", "taxedIn": "residence" }
   ],
@@ -102,7 +104,7 @@ Each year:
 | `tax` | Your tax residence over time (a tax system per period, with its options) and any special regimes, such as impatriati. See [TAXES.md](TAXES.md). |
 | `work` | Working phases, described by what happens economically: `employee` (gross salary), `selfEmployed` (revenue and costs) or `net` (net income entered directly). `regime` picks the tax treatment from the residence's system, e.g. `it.forfettario`. When it's left out, the system's default for that kind of work applies. An end of `"retirement"` follows the retirement age. |
 | `spending` | Yearly spending while working and in retirement, with optional phase factors by age. Savings are what's left of net income after spending. |
-| `pensions` | Each pension names a scheme: `it.inps` (projected from your contributions) or `fixed` (an amount and start age from a statement, such as a foreign pension). `taxedIn` says whether your country of residence or the paying country taxes it. |
+| `pensions` | Each pension names a scheme: `it.inps` (projected from your contributions) or `fixed` (an amount and start age from a statement, such as a foreign pension). `claim` is `earliest` or an age. `taxedIn` says whether your country of residence or the paying country taxes it. Settings specific to a scheme, such as INPS's montante, go in `options`. |
 | `contributions` | Regular payments into specific accounts while working, such as the pension fund. The rest of your savings goes to the liquid bucket. |
 | `events` | One-off amounts by age or year: positive for windfalls, negative for expenses. An optional `probability` makes a windfall uncertain. Each Monte Carlo run draws whether it happens; the deterministic run includes it if the probability is at least 50%. |
 | `portfolio` | Where the plan starts, normally the latest check-in. Also lets you exclude accounts, override the target asset mix, or estimate unrealised gains where no purchase cost was recorded. |
