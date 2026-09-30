@@ -58,11 +58,21 @@ public struct VariableYear: Hashable, Sendable {
         public var wrapper: String
         public var amount: Double
         public var form: PayoutForm
+        /// The part of `amount` that is money paid in rather than growth
+        /// (the wrapper's average cost), if known. Some payouts are taxed on
+        /// contributions only, e.g. an Italian pension fund's.
+        public var costBasis: Double?
+        /// Whole years since joining the wrapper, if known, e.g. for a
+        /// pension fund whose payout tax falls with membership.
+        public var membershipYears: Int?
 
-        public init(wrapper: String, amount: Double, form: PayoutForm) {
+        public init(wrapper: String, amount: Double, form: PayoutForm, costBasis: Double? = nil,
+                    membershipYears: Int? = nil) {
             self.wrapper = wrapper
             self.amount = amount
             self.form = form
+            self.costBasis = costBasis
+            self.membershipYears = membershipYears
         }
     }
 
@@ -119,12 +129,17 @@ public struct BucketSnapshot: Hashable, Sendable {
     public var costBasis: Double
     /// The share of `value` in each tax category (sums to 1).
     public var categoryShares: [TaxCategory: Double]
+    /// Whole years since joining the wrapper, if known (see
+    /// ``VariableYear/WrapperPayout/membershipYears``).
+    public var membershipYears: Int?
 
-    public init(wrapper: String, value: Double, costBasis: Double, categoryShares: [TaxCategory: Double]) {
+    public init(wrapper: String, value: Double, costBasis: Double, categoryShares: [TaxCategory: Double],
+                membershipYears: Int? = nil) {
         self.wrapper = wrapper
         self.value = value
         self.costBasis = costBasis
         self.categoryShares = categoryShares
+        self.membershipYears = membershipYears
     }
 
     /// The share of value that is unrealised gain, 0...1.

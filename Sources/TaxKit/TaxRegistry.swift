@@ -1,6 +1,6 @@
 /// The tax systems available to the app or the CLI, registered in one place:
 ///
-///     let registry = TaxRegistry([ItalianTaxSystem(), GenericTaxSystem()])
+///     let registry = TaxRegistry([ItalyTaxSystem(), GenericTaxSystem()])
 ///
 /// The planner looks systems up by the IDs in a plan's residence timeline.
 public struct TaxRegistry: Sendable {

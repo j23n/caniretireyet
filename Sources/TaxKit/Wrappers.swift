@@ -61,20 +61,49 @@ public struct WrapperRule: Sendable {
     /// A yearly tax on growth inside the wrapper, modelled as a lower net
     /// return (e.g. 0.20 for an Italian pension fund). `nil` for none.
     public var growthTaxRate: Double?
+    /// A growth rate set by law instead of by the markets (e.g. Italy's TFR,
+    /// revalued at 1.5% plus 75% of inflation), or `nil` when the wrapper's
+    /// holdings earn market returns.
+    public var revaluation: WrapperRevaluation?
     /// Decides whether the wrapper can be drawn from.
     public var accessRule: @Sendable (WrapperAccessContext) -> WrapperAccess
 
     public init(id: String, name: String, category: WrapperCategory, growthTaxRate: Double? = nil,
+                revaluation: WrapperRevaluation? = nil,
                 access: @escaping @Sendable (WrapperAccessContext) -> WrapperAccess) {
         self.id = id
         self.name = name
         self.category = category
         self.growthTaxRate = growthTaxRate
+        self.revaluation = revaluation
         self.accessRule = access
     }
 
     /// Whether the wrapper can be drawn from in `context`.
     public func access(in context: WrapperAccessContext) -> WrapperAccess {
         accessRule(context)
+    }
+}
+
+/// A yearly growth rate fixed by law: `fixedRate` plus `inflationShare` of
+/// the year's inflation, nominal and before the wrapper's growth tax.
+public struct WrapperRevaluation: Hashable, Sendable {
+    public var fixedRate: Double
+    public var inflationShare: Double
+
+    public init(fixedRate: Double, inflationShare: Double) {
+        self.fixedRate = fixedRate
+        self.inflationShare = inflationShare
+    }
+
+    /// The nominal growth rate in a year with `inflation`.
+    public func nominalRate(inflation: Double) -> Double {
+        fixedRate + inflationShare * inflation
+    }
+
+    /// The growth in today's euros after a growth tax at `taxRate`:
+    /// `(1 + nominal × (1 − taxRate)) / (1 + inflation) − 1`.
+    public func realRate(inflation: Double, taxRate: Double = 0) -> Double {
+        (1 + nominalRate(inflation: inflation) * (1 - taxRate)) / (1 + inflation) - 1
     }
 }
