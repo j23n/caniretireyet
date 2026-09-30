@@ -50,6 +50,64 @@ struct NameMatcher {
         accountCache[ref]
     }
 
+    /// The instrument a row names in several columns (a name, a ticker, an
+    /// ISIN): the first that's remembered or matches an existing instrument;
+    /// otherwise a new one, named after the first that isn't an ISIN or a
+    /// ticker, with the ISIN and ticker the others give.
+    ///
+    /// Rows naming the same new instrument differently (another description,
+    /// the same ISIN or ticker) share its draft. New instruments are named as
+    /// the file writes them, not cleaned like headers.
+    mutating func instrument(candidates names: [String]) -> InstrumentID? {
+        let names = names.map(TextTools.trim).filter { !$0.isEmpty }
+        guard let first = names.first else { return nil }
+        let key = NameRef.name("\u{1F}" + names.joined(separator: "\u{1F}"))
+        if let id = instrumentCache[key] { return id }
+        for name in names where existingInstrument(named: name) != nil {
+            let resolved = instrument(.name(name))
+            instrumentCache[key] = resolved
+            return resolved
+        }
+        let folded = Set(names.map(TextTools.fold))
+        if let draft = instrumentDrafts.values.sorted(by: { $0.id < $1.id }).first(where: { draft in
+            !folded.isDisjoint(with: draft.names.map(TextTools.fold) + [draft.isin, draft.ticker].compactMap { $0 }
+                .map(TextTools.fold))
+        }) {
+            var draft = draft
+            for other in names where !draft.names.contains(other) { draft.names.append(other) }
+            instrumentDrafts[draft.id] = draft
+            record(NameMatch(name: first, instrument: draft.id, method: .new))
+            instrumentCache[key] = draft.id
+            return draft.id
+        }
+        let isin = names.first(where: ImportSession.looksLikeISIN)
+        let ticker = names.first { $0 != isin && Self.looksLikeTicker($0) }
+        let name = names.first { $0 != isin && $0 != ticker } ?? ticker ?? first
+        let id = InstrumentID.make(from: name, existing: Array(library.instruments.keys) + Array(instrumentDrafts.keys))
+        draftInstrument(id: id, name: name)
+        if var draft = instrumentDrafts[id] {
+            draft.isin = isin
+            draft.ticker = ticker
+            for other in names where !draft.names.contains(other) { draft.names.append(other) }
+            instrumentDrafts[id] = draft
+        }
+        instrumentCache[key] = id
+        return id
+    }
+
+    /// A short code in capitals, digits and dots: `VWCE`, `VWCE.MI`, `AAPL`.
+    static func looksLikeTicker(_ text: String) -> Bool {
+        !text.isEmpty && text.count <= 12 && !text.contains(" ")
+            && text.allSatisfy { $0.isASCII && ($0.isUppercase || $0.isNumber || $0 == ".") }
+            && text.contains { $0.isLetter }
+    }
+
+    /// Makes the accounts drafted so far record trades: they're proposed
+    /// for a broker's transactions.
+    mutating func draftAccountsRecordTrades() {
+        for id in accountDrafts.keys { accountDrafts[id]?.recordsTrades = true }
+    }
+
     private mutating func resolveAccount(_ ref: NameRef) -> AccountID {
         switch ref {
         case .id(let raw):
@@ -233,6 +291,8 @@ struct AccountDraft: Hashable {
     var sawPositive = false
     var sawNegative = false
     var firstDate: CalendarDate?
+    /// Whether the account is proposed to record trades.
+    var recordsTrades = false
 
     init(id: AccountID, name: String) {
         self.id = id
@@ -246,7 +306,8 @@ struct AccountDraft: Hashable {
 
     func account(baseCurrency: CurrencyCode, opened: CalendarDate, instrumentKinds: [InstrumentKind]) -> Account {
         Account(id: id, name: name, kind: suggestedKind(instrumentKinds: instrumentKinds),
-                currency: currency(baseCurrency: baseCurrency), opened: opened)
+                currency: currency(baseCurrency: baseCurrency), opened: opened,
+                valuation: recordsTrades ? .trades : nil)
     }
 
     /// From the name, what the account holds and the sign of its values.
@@ -270,6 +331,9 @@ struct InstrumentDraft: Hashable {
     var name: String
     var names: [String] = []
     var currencies: [CurrencyCode: Int] = [:]
+    /// An ISIN and a ticker from other columns of the file.
+    var isin: String?
+    var ticker: String?
 
     init(id: InstrumentID, name: String) {
         self.id = id
@@ -299,7 +363,7 @@ struct InstrumentDraft: Hashable {
         default: .other
         }
         return Instrument(id: id, name: name, kind: kind, currency: currency, unit: unit,
-                          assetClasses: .single(assetClass), isin: isISIN ? compact : nil,
-                          ticker: isTicker ? name : nil)
+                          assetClasses: .single(assetClass), isin: isin ?? (isISIN ? compact : nil),
+                          ticker: ticker ?? (isTicker ? name : nil))
     }
 }

@@ -26,6 +26,14 @@ public enum ImportProblem: Error, Hashable, Sendable, CustomStringConvertible {
     case costWithoutQuantity
     /// The time zone named by the date format doesn't exist.
     case unknownTimeZone(String)
+    /// Trades layout: the row's type isn't mapped to a trade type.
+    case unmappedTradeType(String)
+    /// Trades layout, without a type column: neither the quantity's sign
+    /// nor the amount's says whether the row is a buy or a sell.
+    case noTradeDirection
+    /// Trades layout: the trade the row gives can't be applied, e.g. a buy
+    /// without a price or an amount.
+    case invalidTrade(String)
 
     public var description: String {
         switch self {
@@ -42,6 +50,9 @@ public enum ImportProblem: Error, Hashable, Sendable, CustomStringConvertible {
         case .duplicate(let row): "row \(row) gives a different value for the same record"
         case .costWithoutQuantity: "a purchase cost without a quantity"
         case .unknownTimeZone(let name): "unknown time zone “\(name)”"
+        case .unmappedTradeType(let text): "“\(text)” isn't mapped to a trade type"
+        case .noTradeDirection: "no type, and neither the quantity nor the amount says whether it's a buy or a sell"
+        case .invalidTrade(let message): message
         }
     }
 }

@@ -56,9 +56,13 @@ struct PreviewBuilder {
     /// Accounts and dates of value cells that couldn't be read: a broken
     /// cell still means the account had a value then.
     var unreadValues: [(NameRef, CalendarDate)] = []
+    /// Trades layout: the rows read, before they become trades.
+    var tradeRows: [TradeRow] = []
+    /// Trades layout: the trades, with the cells they came from.
+    var trades: [(record: ImportedRecord, cells: [ImportCellRef])] = []
 
-    private var table: ImportTable { session.table }
-    private var profile: ImportProfile { session.profile }
+    var table: ImportTable { session.table }
+    var profile: ImportProfile { session.profile }
 
     init(session: ImportSession, library: Library) {
         self.session = session
@@ -73,13 +77,19 @@ struct PreviewBuilder {
                                     conflictPolicy: profile.effectiveOnConflict)
         if let dateColumn = bindings.dateColumn {
             let dates = DateParser(format: session.effectiveFormat(forColumn: dateColumn).date ?? ImportDateFormat())
-            if profile.layout == .long {
+            if profile.layout == .trades {
+                extractTrades(dateColumn: dateColumn, dates: dates)
+            } else if profile.layout == .long {
                 extractLong(dateColumn: dateColumn, dates: dates)
             } else {
                 extractWide(dateColumn: dateColumn, dates: dates)
             }
         }
         let records = aggregate()
+        if profile.layout == .trades {
+            makeTrades()
+            preview.tradeTypes = session.tradeTypeValues
+        }
         compare(records, into: &preview)
         preview.cellErrors = errors.sorted { $0.cell < $1.cell }
         preview.issues = issues
@@ -256,7 +266,7 @@ struct PreviewBuilder {
 
     // MARK: - Cells
 
-    private mutating func parseDate(_ text: String, row: Int, column: Int, with parser: DateParser) -> CalendarDate? {
+    mutating func parseDate(_ text: String, row: Int, column: Int, with parser: DateParser) -> CalendarDate? {
         switch parser.parse(text) {
         case .success(let date): return date
         case .failure(let problem):
@@ -265,8 +275,8 @@ struct PreviewBuilder {
         }
     }
 
-    private mutating func parseNumber(_ text: String, row: Int, column: Int, with parser: NumberParser,
-                                      empty: EmptyCellPolicy) -> ParsedNumber? {
+    mutating func parseNumber(_ text: String, row: Int, column: Int, with parser: NumberParser,
+                              empty: EmptyCellPolicy) -> ParsedNumber? {
         if text.isEmpty { return empty == .zero ? ParsedNumber(value: 0) : nil }
         switch parser.parse(text) {
         case .success(let number): return number
@@ -276,7 +286,7 @@ struct PreviewBuilder {
         }
     }
 
-    private mutating func fail(_ row: Int, _ column: Int, _ raw: String, _ problem: ImportProblem) {
+    mutating func fail(_ row: Int, _ column: Int, _ raw: String, _ problem: ImportProblem) {
         errors.append(ImportCellError(cell: ImportCellRef(row: row, column: column), header: table.header(of: column),
                                       raw: raw, problem: problem))
     }
@@ -427,7 +437,7 @@ struct PreviewBuilder {
     /// the wide layout, the account cell in the long one, or else the
     /// account's name.
     private func fileName(of value: ExtractedValue, account: Account) -> String {
-        if profile.layout != .long, let header = table.header(of: value.cell.column) { return header }
+        if !profile.layout.rowIsRecord, let header = table.header(of: value.cell.column) { return header }
         if case .name(let name)? = value.account { return name }
         return account.name
     }
@@ -458,9 +468,17 @@ struct PreviewBuilder {
                 imported: record, status: outcome.status, existing: existing, incoming: outcome.overwritten,
                 cells: accumulator.cells.sorted(), resolution: resolution))
         }
+        for (record, cells) in trades {
+            let existing = library.record(for: record.key)
+            let outcome = RecordMerge.evaluate(record, existing: existing)
+            records.append(ImportRecordPreview(
+                imported: record, status: outcome.status, existing: existing, incoming: outcome.overwritten,
+                cells: cells.sorted(), resolution: resolution))
+        }
+        records.sort { $0.imported.key < $1.imported.key }
         preview.records = records
 
-        let dates = values.map(\.date)
+        let dates = values.map(\.date) + tradeRows.map(\.date)
         preview.firstDate = dates.min()
         preview.lastDate = dates.max()
         preview.newInstruments = instrumentProposals
@@ -483,8 +501,10 @@ struct PreviewBuilder {
                                          newAccounts: [AccountProposal]) -> [AccountChangeProposal] {
         guard let lastDate else { return [] }
         var byAccount: [AccountID: [ImportedRecord]] = [:]
+        var tradesAccounts = Set<AccountID>()
         for record in records {
             if let account = record.imported.key.account { byAccount[account, default: []].append(record.imported) }
+            if case .trade(let key) = record.imported.key { tradesAccounts.insert(key.account) }
         }
         let imported = Set(records.map(\.imported.key))
         var lastCells: [AccountID: CalendarDate] = [:]
@@ -499,6 +519,13 @@ struct PreviewBuilder {
             let first = accountRecords.map(\.key.date).min()!
             if library.accounts[id] != nil, first < account.opened {
                 changes.append(AccountChangeProposal(account: id, change: .openEarlier(on: first)))
+            }
+            if tradesAccounts.contains(id) {
+                // A broker's transactions say nothing about the account closing.
+                if library.accounts[id] != nil, !account.recordsTrades {
+                    changes.append(AccountChangeProposal(account: id, change: .recordTrades))
+                }
+                continue
             }
             let lastValue = (accountRecords.filter { !$0.isZero }.map(\.key.date) + (lastCells[id].map { [$0] } ?? []))
                 .max()

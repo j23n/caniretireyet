@@ -15,8 +15,12 @@ public struct ImportResult: Hashable, Sendable {
     public var createdAccounts: [AccountID]
     public var closedAccounts: [AccountID]
     public var createdInstruments: [InstrumentID]
+    /// Accounts the import made record trades (``AccountChangeProposal/Change/recordTrades``).
+    public var tradesAccounts: [AccountID] = []
     /// Records added.
     public var added = 0
+    /// Trades among the records added, filled in or overwritten.
+    public var tradesWritten = 0
     /// Records with values filled in.
     public var updated = 0
     /// Conflicts overwritten with the file's values.
@@ -71,10 +75,12 @@ extension ImportPreview {
     /// Applies the preview to `library` (normally the one it was made
     /// against) and returns the new library and what changed.
     ///
-    /// Accepted new accounts and instruments are created first. Each record
-    /// is compared with the library again: new records are added, missing
-    /// values filled in, and conflicts overwritten or kept by their
-    /// ``ImportRecordPreview/resolution`` (undecided ones are kept). Accepted
+    /// Accepted new accounts and instruments are created first, and accounts
+    /// switched to recording trades. Each record is compared with the library
+    /// again: new records are added, missing values filled in, and conflicts
+    /// overwritten or kept by their ``ImportRecordPreview/resolution``
+    /// (undecided ones are kept). A trade of an account that doesn't record
+    /// trades (a switch that was rejected) is left out. The other accepted
     /// account changes come last; opening earlier moves a joining date that
     /// was the opening date too (`Account.moveOpening(to:)`). Applying the
     /// same file twice changes nothing.
@@ -101,6 +107,13 @@ extension ImportPreview {
             library.instruments[proposal.instrument.id] = proposal.instrument
             result.createdInstruments.append(proposal.instrument.id)
         }
+        for proposal in accountChanges where proposal.isAccepted && proposal.recordsTrades {
+            guard var account = library.accounts[proposal.account], !account.recordsTrades else { continue }
+            account.valuation = .trades
+            library.accounts[account.id] = account
+            result.tradesAccounts.append(account.id)
+            changedAccounts.insert(account.id)
+        }
 
         // Which columns write debts negative, with the accounts' kinds as they are now.
         let accounts = library.accounts
@@ -112,14 +125,16 @@ extension ImportPreview {
                record.imported.flow != nil || record.imported.source == .ledger {
                 result.fixedFlows.insert(key)
             }
-            let instruments = record.imported.positions.map(\.instrument) + [record.imported.key.instrument]
-                .compactMap { $0 }
             if let account = record.imported.key.account, rejectedAccounts.contains(account)
                 || library.accounts[account] == nil {
                 result.skipped += 1
                 continue
             }
-            if instruments.contains(where: { rejectedInstruments.contains($0) }) {
+            if record.imported.instruments.contains(where: { rejectedInstruments.contains($0) }) {
+                result.skipped += 1
+                continue
+            }
+            if case .trade(let key) = record.imported.key, library.accounts[key.account]?.recordsTrades != true {
                 result.skipped += 1
                 continue
             }
@@ -156,6 +171,7 @@ extension ImportPreview {
             if let write {
                 library.upsert(write)
                 changedMonths.insert(record.imported.key.date.yearMonth)
+                if record.imported.key.isTrade { result.tradesWritten += 1 }
             }
         }
 
@@ -169,6 +185,8 @@ extension ImportPreview {
             case .openEarlier(let date):
                 guard date < account.opened else { continue }
                 account.moveOpening(to: date)
+            case .recordTrades:
+                continue
             }
             library.accounts[account.id] = account
             changedAccounts.insert(account.id)
@@ -181,6 +199,7 @@ extension ImportPreview {
         result.createdAccounts.sort()
         result.createdInstruments.sort()
         result.closedAccounts.sort()
+        result.tradesAccounts.sort()
         return result
     }
 }

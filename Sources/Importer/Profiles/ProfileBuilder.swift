@@ -17,7 +17,7 @@ extension ImportSession {
     /// the import created resolve to their IDs.
     public func makeProfile(id: ImportProfileID, name: String, library: Library) -> ImportProfile {
         let bindings = self.bindings
-        let isWide = self.profile.layout != .long
+        let isWide = !self.profile.layout.rowIsRecord
         var profile = self.profile
         profile.id = id
         profile.name = name
@@ -31,7 +31,7 @@ extension ImportSession {
         }
         let valueColumns = bindings.columns.keys.sorted().filter { column in
             let mapping = self.profile.columns[bindings.columns[column]!]
-            return Self.isUsed(mapping) && (mapping.field == nil || mapping.field == .value)
+            return Self.isUsed(mapping) && (mapping.field?.holdsNumbers ?? true)
         }
         let numberFormats = valueColumns.compactMap { effectiveFormat(forColumn: $0).number }
             .map { ImportNumberFormat(decimal: $0.decimal, thousands: $0.thousands) }
@@ -91,6 +91,16 @@ extension ImportSession {
                 }
             }
         }
+        if profile.layout == .trades {
+            // The types as read now, so the next file maps them the same way.
+            for value in tradeTypeValues {
+                if let type = value.type, TradeTypeWords.lookup(value.value, in: profile.tradeTypes) == nil {
+                    profile.tradeTypes[value.value] = type
+                }
+            }
+        } else {
+            profile.tradeTypes = [:]
+        }
         return profile
     }
 
@@ -121,7 +131,7 @@ extension ImportSession {
                                 isDateColumn: Bool) -> ImportFormat? {
         var format = mapping.format ?? ImportFormat()
         if isDateColumn, format.date?.pattern == defaults.date?.pattern { format.date?.pattern = nil }
-        if Self.isUsed(mapping), mapping.field == nil || mapping.field == .value,
+        if Self.isUsed(mapping), mapping.field?.holdsNumbers ?? true,
            let number = effectiveFormat(forColumn: column).number {
             var own = format.number ?? ImportNumberFormat()
             let differs = number.decimal != defaults.number?.decimal || number.thousands != defaults.number?.thousands

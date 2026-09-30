@@ -172,6 +172,8 @@ struct LedgerImportReport {
             case .openEarlier(let date):
                 let was = library.accounts[proposal.account].map { " (was \($0.opened))" } ?? ""
                 return "  Open \(proposal.account) on \(date), its first posting\(was)"
+            case .recordTrades:
+                return ImportReport.recordTradesLine(proposal, apply: apply)
             }
         }
     }

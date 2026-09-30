@@ -293,8 +293,19 @@ struct ImportReport {
             case .openEarlier(let date):
                 let was = library.accounts[proposal.account].map { " (was \($0.opened))" } ?? ""
                 return "  Open \(proposal.account) on \(date), its first value\(was)"
+            case .recordTrades:
+                return Self.recordTradesLine(proposal, apply: apply)
             }
         }
+    }
+
+    /// `Record trades in directa: its holdings will come from its trades (switched with --apply)`.
+    static func recordTradesLine(_ proposal: AccountChangeProposal, apply: Bool) -> String {
+        let what = proposal.isAccepted ? (apply ? "switched" : "switched with --apply")
+            : "not switched, so its trades are left out: pass --accept-trades-mode, or choose a trades account with "
+                + "--account"
+        return "  Record trades in \(proposal.account): its holdings will come from its trades, and the positions of "
+            + "its valuations become checks (\(what))"
     }
 
     func previewLines() -> [String] {
@@ -399,7 +410,25 @@ struct ImportReport {
         case .valuation(let key): key.account.rawValue
         case .price(let key): "price of \(key.instrument)"
         case .fx(let key): "\(key.base)/\(key.quote)"
+        case .trade(let key): "\(key.account) trade \(key.id)"
         }
+    }
+
+    /// A trade's values: `buy 10 vwce @ 134.75, fees 5.00`, `deposit, amount 200.60`.
+    static func values(_ trade: Trade) -> String {
+        var head = trade.type.rawValue
+        if let quantity = trade.quantity { head += " \(Format.exact(quantity))" }
+        if let instrument = trade.instrument { head += " \(instrument)" }
+        if let price = trade.price {
+            head += " @ \(Format.exact(price))" + (trade.currency.map { " \($0.rawValue)" } ?? "")
+        }
+        if let ratio = trade.ratio { head += " × \(Format.exact(ratio))" }
+        var parts = [head]
+        if let amount = trade.amount { parts.append("amount \(Format.amount(amount))") }
+        if let fees = trade.fees { parts.append("fees \(Format.amount(fees))") }
+        if let tax = trade.tax { parts.append("tax \(Format.amount(tax))") }
+        if let cost = trade.cost { parts.append("cost \(Format.amount(cost))") }
+        return parts.joined(separator: ", ")
     }
 
     static func values(_ record: ImportedRecord) -> String {
@@ -416,6 +445,7 @@ struct ImportReport {
         }
         if let price = record.price { parts.append("\(Format.exact(price)) \(record.currency?.rawValue ?? "")") }
         if let rate = record.rate { parts.append(Format.exact(rate)) }
+        if let trade = record.trade { parts.append(values(trade)) }
         return parts.joined(separator: ", ").trimmingCharacters(in: .whitespaces)
     }
 
@@ -432,6 +462,7 @@ struct ImportReport {
             return parts.joined(separator: ", ")
         case .price(let price): return "\(Format.exact(price.price)) \(price.currency)"
         case .fx(let rate): return Format.exact(rate.rate)
+        case .trade(let trade): return values(trade)
         }
     }
 
@@ -489,6 +520,9 @@ struct ImportReport {
                 case .openEarlier(let date):
                     JSON.AccountChange(account: proposal.account.rawValue, change: "openEarlier",
                                        date: date.description, accepted: proposal.isAccepted)
+                case .recordTrades:
+                    JSON.AccountChange(account: proposal.account.rawValue, change: "recordTrades", date: nil,
+                                       accepted: proposal.isAccepted)
                 }
             },
             summary: JSON.Summary(
@@ -598,7 +632,7 @@ struct ImportReport {
         struct AccountChange: Encodable {
             var account: String
             var change: String
-            var date: String
+            var date: String?
             var accepted: Bool
         }
 
