@@ -10,3 +10,6 @@
 *.xcworkspace/
 xcuserdata/
 DerivedData/
+
+# Claude Code agent worktrees
+.claude/worktrees/
