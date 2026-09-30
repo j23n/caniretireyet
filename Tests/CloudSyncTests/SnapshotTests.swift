@@ -33,6 +33,15 @@ struct SnapshotTests {
         #expect(after.changes(since: after).isEmpty)
     }
 
+    @Test func datesWithinTheToleranceAreTheSame() {
+        let before = FolderSnapshot(files: ["accounts/casa.json": WatchedFileState(modified: t0)])
+        let close = FolderSnapshot(files: ["accounts/casa.json": WatchedFileState(modified: t0.addingTimeInterval(0.4))])
+        #expect(close.changes(since: before).paths == ["accounts/casa.json"])
+        #expect(close.changes(since: before, tolerance: 1).isEmpty)
+        let later = FolderSnapshot(files: ["accounts/casa.json": WatchedFileState(modified: t1)])
+        #expect(later.changes(since: before, tolerance: 1).paths == ["accounts/casa.json"])
+    }
+
     @Test func waitsForDownloads() {
         let before = FolderSnapshot(files: ["history/2026/2026-09.json": WatchedFileState(modified: t0)])
         let downloading = FolderSnapshot(files: [

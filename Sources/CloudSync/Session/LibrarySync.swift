@@ -74,10 +74,57 @@ public actor LibrarySync {
         return result
     }
 
-    /// Writes what changed between `previous` and `library` (see
-    /// `LibraryFolder.save(_:previous:)`).
+    /// Loads the whole library (see ``load()``), with the modification dates
+    /// of its files taken just before. Pass the snapshot to the watcher
+    /// (`LibraryWatching.start(since:)`) so a file that changes while the
+    /// library loads is reloaded, and to ``changes(since:)`` later.
+    public func loadWithSnapshot() throws -> (result: LoadResult, snapshot: FolderSnapshot) {
+        let snapshot = self.snapshot()
+        return (try load(), snapshot)
+    }
+
+    /// The watched files and their modification dates now.
+    public func snapshot() -> FolderSnapshot {
+        FolderSnapshot.scan(folder.root, using: folder.files)
+    }
+
+    /// The files whose modification date changed since `previous` (added,
+    /// changed or removed), and the snapshot they were found with, for the
+    /// next call. For catching up when the app comes back to the
+    /// foreground, whatever the watcher missed.
+    public func changes(since previous: FolderSnapshot) -> (change: LibraryChange, snapshot: FolderSnapshot) {
+        let current = snapshot()
+        return (current.changes(since: previous), current)
+    }
+
+    /// Writes what changed between `previous` and `library`, merged with
+    /// changes made on disk meanwhile (see `LibraryFolder.save(_:previous:)`).
+    /// Reload the report's `reloadPaths`.
     public func save(_ library: Library, previous: Library?) throws -> SaveReport {
         try folder.save(library, previous: previous)
+    }
+
+    /// Copies the files at `paths` into `backups/<timestamp>-<label>/`.
+    public func backup(paths: [String], label: String) throws -> Backup {
+        try folder.backup(paths: paths, label: label)
+    }
+
+    /// Records a backup's files as they are now, after the change it was
+    /// taken for (see `LibraryFolder.recordResult(of:)`).
+    public func recordResult(of backup: Backup) throws -> Backup {
+        try folder.recordResult(of: backup)
+    }
+
+    /// Undoes the change a backup was taken for, leaving later edits in
+    /// place (see `LibraryFolder.undo(_:dryRun:)`).
+    public func undo(_ backup: Backup) throws -> UndoReport {
+        try folder.undo(backup)
+    }
+
+    /// Puts a backup's files back as they were (see
+    /// `LibraryFolder.restore(backup:)`).
+    public func restore(_ backup: Backup) throws -> SaveReport {
+        try folder.restore(backup: backup)
     }
 
     /// Reloads the files at `paths` (relative to the library folder) into a

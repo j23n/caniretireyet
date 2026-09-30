@@ -58,4 +58,41 @@ struct LibraryLocationTests {
         }
         #expect(received?.paths == ["accounts/new-bank.json"])
     }
+
+    @MainActor
+    @Test func theFirstLookReportsWhatChangedSinceTheLibraryWasLoaded() async throws {
+        let folder = try TemporaryFolder.exampleLibrary()
+        let sync = LibrarySync(location: LibraryLocation(kind: .local, url: folder.url), files: CoordinatedFileAccess(),
+                               versions: NoFileVersions())
+        let (_, snapshot) = try await sync.loadWithSnapshot()
+        #expect(snapshot.files["accounts/casa.json"] != nil)
+
+        // A change lands after the load, before the watcher starts.
+        try folder.write("accounts/casa.json", "{}")
+        try folder.setModificationDate(Date(timeIntervalSinceNow: 5), for: "accounts/casa.json")
+        let watcher = PollingLibraryWatcher(root: folder.url, interval: .seconds(60))
+        let changes = watcher.start(since: snapshot)
+        defer { watcher.stop() }
+        var received: LibraryChange?
+        for await change in changes {
+            received = change
+            break
+        }
+        #expect(received?.paths == ["accounts/casa.json"])
+
+        // Catching up later compares with the snapshot too.
+        try folder.remove("accounts/tfr.json")
+        let (change, next) = await sync.changes(since: snapshot)
+        #expect(change.paths == ["accounts/casa.json", "accounts/tfr.json"])
+        #expect(await sync.changes(since: next).change.isEmpty)
+    }
+
+    @MainActor
+    @Test func aLocalFolderContainsALibraryOnlyIfItHasOne() async throws {
+        let folder = try TemporaryFolder()
+        let location = LibraryLocation(kind: .local, url: folder.url)
+        #expect(await !location.containsLibrary(waitingUpTo: .milliseconds(10)))
+        try LibraryFolder(root: folder.url).createLibrary()
+        #expect(await location.containsLibrary())
+    }
 }

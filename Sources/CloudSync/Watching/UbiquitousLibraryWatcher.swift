@@ -10,7 +10,9 @@ import Storage
 /// - Starts downloading every file that isn't downloaded yet, so the whole
 ///   library stays on the device ("Optimize Storage" never leaves gaps).
 /// - Reports files with unresolved sync conflicts, including at the first
-///   look.
+///   look, and there, given a baseline, every file changed since the
+///   library was loaded (dates within a second of the baseline's count as
+///   unchanged: the query's dates and the file system's can differ that much).
 ///
 /// The query runs on the main thread, where its notifications arrive.
 @MainActor
@@ -23,6 +25,8 @@ public final class UbiquitousLibraryWatcher: LibraryWatching {
     private var query: NSMetadataQuery?
     private var observers: [any NSObjectProtocol] = []
     private var snapshot: FolderSnapshot?
+    /// The folder when the library was loaded, until the first look.
+    private var baseline: FolderSnapshot?
     private var batcher = ChangeBatcher()
     private var flushTask: Task<Void, Never>?
     private var continuation: AsyncStream<LibraryChange>.Continuation?
@@ -34,10 +38,15 @@ public final class UbiquitousLibraryWatcher: LibraryWatching {
         folder = LibraryFolder(root: root)
     }
 
-    public func start() -> AsyncStream<LibraryChange> {
+    /// How far apart the query's and the file system's modification dates
+    /// of the same version can be.
+    static let baselineTolerance: TimeInterval = 1
+
+    public func start(since baseline: FolderSnapshot?) -> AsyncStream<LibraryChange> {
         stop()
         let (stream, continuation) = AsyncStream<LibraryChange>.makeStream()
         self.continuation = continuation
+        self.baseline = baseline
 
         let query = NSMetadataQuery()
         query.searchScopes = [NSMetadataQueryUbiquitousDocumentsScope]
@@ -69,6 +78,7 @@ public final class UbiquitousLibraryWatcher: LibraryWatching {
         flushTask?.cancel()
         flushTask = nil
         snapshot = nil
+        baseline = nil
         batcher = ChangeBatcher()
         requestedDownloads = []
         continuation?.finish()
@@ -123,7 +133,16 @@ public final class UbiquitousLibraryWatcher: LibraryWatching {
             }
         }
         let current = FolderSnapshot(files: files)
-        let change = snapshot.map { current.changes(since: $0) } ?? current.initialChange
+        let change: LibraryChange
+        if let snapshot {
+            change = current.changes(since: snapshot)
+        } else if let baseline {
+            // The first look: what changed since the library was loaded.
+            change = current.changes(since: baseline, tolerance: Self.baselineTolerance)
+            self.baseline = nil
+        } else {
+            change = current.initialChange
+        }
         snapshot = current
         guard !change.isEmpty else { return }
         batcher.add(change)
