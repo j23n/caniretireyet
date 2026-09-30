@@ -209,6 +209,19 @@ final class CheckInStore {
         return result
     }
 
+    /// Puts a check-in back as the draft, with its index values, e.g. when
+    /// saving it didn't reach the library's files (a failed write reloads
+    /// what's on disk). It's kept on the device again.
+    func restore(_ draft: CheckInDraft, indices: [IndexRecord] = []) {
+        fetchTask?.cancel()
+        fetchTask = nil
+        isFetchingPrices = false
+        self.draft = draft
+        self.indices = indices
+        priceList = nil
+        schedulePersist()
+    }
+
     /// Throws the draft away.
     func discard() {
         fetchTask?.cancel()
