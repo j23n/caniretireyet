@@ -1,0 +1,47 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  linux:
+    name: Linux · swift build and test
+    runs-on: ubuntu-latest
+    container: swift:6.3-noble
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build
+        run: swift build
+      - name: Test
+        run: swift test
+
+  apple:
+    name: macOS · package and app (iOS Simulator and Mac)
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v4
+      - name: Toolchain
+        run: |
+          xcodebuild -version
+          swift --version
+      - name: Build the package
+        run: swift build
+      - name: Install XcodeGen
+        run: brew install xcodegen
+      - name: Generate the Xcode project
+        run: xcodegen generate --spec App/project.yml
+      - name: Build the app for iOS Simulator
+        run: >
+          xcodebuild build
+          -project App/CanIRetireYet.xcodeproj
+          -scheme CanIRetireYet
+          -destination 'generic/platform=iOS Simulator'
+          CODE_SIGNING_ALLOWED=NO
+      - name: Build the app for macOS
+        run: >
+          xcodebuild build
+          -project App/CanIRetireYet.xcodeproj
+          -scheme CanIRetireYet
+          -destination 'platform=macOS'
+          CODE_SIGNING_ALLOWED=NO
