@@ -378,7 +378,9 @@ struct PathSimulator {
             guard tax > 0, gross - tax > Self.epsilon else { break }
             let wanted = min(limit, gross * net / (gross - tax))
             if round == 1 || abs(wanted - gross) <= Self.grossUpTolerance {
-                if wanted != gross {
+                // When the classes sold keep their proportions, as when the tax is
+                // proportional to the sale, the amount is already right.
+                if abs(wanted - gross) > Self.epsilon {
                     // A class already sold out can't give more; the next pass covers any difference.
                     let scale = wanted / gross
                     for c in 0..<classCount { classSales[c] = min(classPool[c], classSales[c] * scale) }
@@ -713,8 +715,8 @@ struct PathSimulator {
         guard value > Self.epsilon else { return }
         // The bucket ends smaller by the tax, which depends on what's sold.
         // Allowing for a tax T gives a sale taxed g(T); the answer is the
-        // fixed point T = g(T), found in one step once g's slope is known
-        // (exactly, when the tax is proportional to what's sold).
+        // fixed point T = g(T), found in one secant step from g(0) and
+        // g(g(0)) (exactly, when the tax is proportional to what's sold).
         var (selling, buying) = rebalancingTrades(b, value: value, allowingForTax: 0)
         guard selling > Self.rebalanceTolerance else { return }
         let first = saleTax(b, year: t, prepared: prepared)
@@ -725,8 +727,10 @@ struct PathSimulator {
             tax = second
             let slope = (second - first) / first
             if abs(second - first) > Self.grossUpTolerance, slope < 1 {
-                (selling, buying) = rebalancingTrades(b, value: value, allowingForTax: first / (1 - slope))
-                tax = saleTax(b, year: t, prepared: prepared)
+                // The fixed point: exact when the tax is proportional to what's
+                // sold; any difference from the year's assessment is paid next year.
+                tax = first / (1 - slope)
+                (selling, buying) = rebalancingTrades(b, value: value, allowingForTax: tax)
             }
         }
         let proceeds = applySales(b)

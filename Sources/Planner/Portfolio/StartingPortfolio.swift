@@ -218,14 +218,19 @@ struct PortfolioBuilder: Sendable {
 
         for (b, bucket) in buckets.enumerated() {
             let first = lots.count
-            let sorted = bucket.holdings.sorted { classIndex[$0.assetClass]! < classIndex[$1.assetClass]! }
+            // Lots in a fixed order (by class, then as the holdings came), so
+            // sums over them are the same in every process.
+            let sorted = bucket.holdings.enumerated().sorted {
+                (classIndex[$0.element.assetClass]!, $0.offset) < (classIndex[$1.element.assetClass]!, $1.offset)
+            }.map(\.element)
             for holding in sorted {
                 lots.append(Portfolio.Lot(bucket: b, classIndex: classIndex[holding.assetClass]!,
                                           category: holding.category, country: holding.country,
                                           documented: holding.basis != nil, value: holding.value,
                                           basis: holding.basis ?? 0))
             }
-            for (assetClass, share) in bucket.targetMix where share > 0 {
+            for (assetClass, share) in bucket.targetMix.sorted(by: { classIndex[$0.key]! < classIndex[$1.key]! })
+                where share > 0 {
                 let c = classIndex[assetClass]!
                 targetShares[b * classCount + c] = share
                 let inClass = (first..<lots.count).filter { lots[$0].classIndex == c }
@@ -296,7 +301,7 @@ struct PortfolioBuilder: Sendable {
                                        section: .portfolio, account: account.id))
                 return [Holding(assetClass: .cash, category: .cash, country: country, value: value, basis: value)]
             }
-            return mix.map { assetClass, share in
+            return mix.sorted(by: { $0.key < $1.key }).map { assetClass, share in
                 let part = value * share
                 let category = balanceCategory(kind: account.kind, assetClass: assetClass)
                 let basis = category == .cash || !taxable ? part : estimatedBasis(part)
@@ -384,7 +389,8 @@ struct PortfolioBuilder: Sendable {
 
     static func shares(_ amounts: [AssetClass: Double]) -> [AssetClass: Double]? {
         let positive = amounts.filter { $0.value > 0 }
-        let total = positive.values.reduce(0, +)
+        // Summed in the classes' order: a dictionary's order changes from one process to the next.
+        let total = positive.sorted { $0.key < $1.key }.reduce(0) { $0 + $1.value }
         guard total > 0 else { return nil }
         return positive.mapValues { $0 / total }
     }
