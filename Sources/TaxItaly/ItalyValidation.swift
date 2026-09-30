@@ -17,7 +17,7 @@ struct ItalyValidator {
         guard let first = periods.first?.lowerBound else { return issues }
         let p: ItalyParameters
         do {
-            p = try ItalyParameters(try parameters.parameters(for: first))
+            p = try system.parsed.parameters(for: try parameters.parameters(for: first))
         } catch {
             issues.append(.error("it.parameters", "The Italian tax parameters can't be used: \(error)", year: first))
             return issues

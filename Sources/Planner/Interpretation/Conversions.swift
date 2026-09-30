@@ -67,11 +67,27 @@ extension CalendarDate {
 struct OverriddenParameterStore: ParameterStore {
     let base: any ParameterStore
     let overrides: OptionValues
+    /// Each file's set with the overrides applied, made once: every year
+    /// using a file then gets the same set, which a tax system can cache
+    /// its parsing of.
+    private let sets: [Int: ParameterSet]
+
+    init(base: any ParameterStore, overrides: OptionValues) {
+        self.base = base
+        self.overrides = overrides
+        var sets: [Int: ParameterSet] = [:]
+        for year in base.years {
+            guard let set = try? base.parameters(for: year), set.year == year else { continue }
+            sets[year] = overrides.isEmpty ? set : set.applying(overrides: overrides)
+        }
+        self.sets = sets
+    }
 
     var system: String { base.system }
     var years: [Int] { base.years }
 
     func parameters(for year: Int) throws -> ParameterSet {
+        if let fileYear = base.parameterYear(for: year), let set = sets[fileYear] { return set }
         let set = try base.parameters(for: year)
         return overrides.isEmpty ? set : set.applying(overrides: overrides)
     }

@@ -39,7 +39,7 @@ struct ItalyYearCalculator {
         -> ItalyPreparedYear {
         let unscaled: ItalyParameters
         do {
-            unscaled = try ItalyParameters(parameters)
+            unscaled = try system.parsed.parameters(for: parameters)
         } catch {
             let issue = TaxIssue.error("it.parameters", "The Italian tax parameters for \(parameters.year) can't be "
                                        + "used: \(error)", year: year.year)

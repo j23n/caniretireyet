@@ -25,6 +25,9 @@ public struct ItalyTaxSystem: TaxSystem {
     public let options: [OptionField]
     public let regimes: [RegimeDescriptor]
     public let wrappers: [WrapperRule]
+    /// Parameter sets already parsed: a plan prepares thousands of years
+    /// from a few sets.
+    let parsed = ItalyParameterCache()
 
     /// The Italian system with its bundled parameter files. If they can't be
     /// read (which the tests rule out), `parameters` throws and `validate`
@@ -92,6 +95,30 @@ public struct ItalyTaxSystem: TaxSystem {
     /// assesses gains, payouts and wealth per path, and grosses up exactly.
     public func prepare(_ year: FixedYear, state: TaxState, parameters: ParameterSet) -> any PreparedTaxYear {
         ItalyYearCalculator.prepare(system: self, year: year, state: state, parameters: parameters)
+    }
+}
+
+/// The parameter sets a system has parsed, most recent last. A planner
+/// passes the same set for many years, so the lookup is usually an identity
+/// check; other sets are compared in full.
+final class ItalyParameterCache: @unchecked Sendable {
+    private let lock = NSLock()
+    private var entries: [(set: ParameterSet, parameters: ItalyParameters)] = []
+    private static let capacity = 16
+
+    func parameters(for set: ParameterSet) throws -> ItalyParameters {
+        lock.lock()
+        if let hit = entries.last(where: { $0.set.year == set.year && $0.set == set }) {
+            lock.unlock()
+            return hit.parameters
+        }
+        lock.unlock()
+        let parsed = try ItalyParameters(set)
+        lock.lock()
+        entries.append((set, parsed))
+        if entries.count > Self.capacity { entries.removeFirst() }
+        lock.unlock()
+        return parsed
     }
 }
 
