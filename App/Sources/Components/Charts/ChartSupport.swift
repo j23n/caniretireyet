@@ -59,46 +59,36 @@ enum ChartStyle {
 
 /// The y axis most charts use: faint gridlines and compact labels (`312k`)
 /// on the leading edge, or nothing while amounts are hidden.
-struct AmountAxis: AxisContent {
-    var hidesAmounts: Bool
-    var desiredCount = 4
-
-    var body: some AxisContent {
-        AxisMarks(position: .leading, values: .automatic(desiredCount: desiredCount)) { value in
-            AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5))
-                .foregroundStyle(Palette.gridline)
-            AxisValueLabel {
-                if let amount = value.as(Double.self) {
-                    Text(verbatim: hidesAmounts ? "" : AmountFormat.compact(amount))
-                        .font(.caption2)
-                        .monospacedDigit()
-                        .foregroundStyle(Palette.mutedInk)
-                }
+///
+/// A function rather than a custom `AxisContent` type: Swift Charts doesn't
+/// support conforming your own types to `AxisContent`.
+func amountAxis(hidesAmounts: Bool, desiredCount: Int = 4) -> some AxisContent {
+    AxisMarks(position: .leading, values: .automatic(desiredCount: desiredCount)) { value in
+        AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5))
+            .foregroundStyle(Palette.gridline)
+        AxisValueLabel {
+            if let amount = value.as(Double.self) {
+                Text(verbatim: hidesAmounts ? "" : AmountFormat.compact(amount))
+                    .font(.caption2)
+                    .monospacedDigit()
+                    .foregroundStyle(Palette.mutedInk)
             }
         }
     }
 }
 
 /// The date axis most charts use: a few year or month labels, no grid.
-struct DateAxis: AxisContent {
-    /// Whether the chart spans years (labels show years) or months.
-    var spansYears: Bool
-    var desiredCount = 4
-
-    private var style: Date.FormatStyle {
-        spansYears ? Date.FormatStyle.dateTime.year() : Date.FormatStyle.dateTime.month(.abbreviated)
-    }
-
-    var body: some AxisContent {
-        AxisMarks(values: .automatic(desiredCount: desiredCount)) { value in
-            AxisTick(stroke: StrokeStyle(lineWidth: 0.5))
-                .foregroundStyle(Palette.axis)
-            AxisValueLabel {
-                if let date = value.as(Date.self) {
-                    Text(date, format: style)
-                        .font(.caption2)
-                        .foregroundStyle(Palette.mutedInk)
-                }
+/// `spansYears` chooses year labels over month labels.
+func dateAxis(spansYears: Bool, desiredCount: Int = 4) -> some AxisContent {
+    let style = spansYears ? Date.FormatStyle.dateTime.year() : Date.FormatStyle.dateTime.month(.abbreviated)
+    return AxisMarks(values: .automatic(desiredCount: desiredCount)) { value in
+        AxisTick(stroke: StrokeStyle(lineWidth: 0.5))
+            .foregroundStyle(Palette.axis)
+        AxisValueLabel {
+            if let date = value.as(Date.self) {
+                Text(date, format: style)
+                    .font(.caption2)
+                    .foregroundStyle(Palette.mutedInk)
             }
         }
     }

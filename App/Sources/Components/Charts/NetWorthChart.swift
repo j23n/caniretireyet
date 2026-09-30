@@ -102,8 +102,8 @@ struct NetWorthChart: View {
         .chartForegroundStyleScale(domain: stacked.map(\.name), range: stacked.map { Palette.color(for: $0.color) })
         .chartLegend(position: .bottom, alignment: .leading)
         .chartXSelection(value: $selectedDate)
-        .chartYAxis { AmountAxis(hidesAmounts: hidesAmounts) }
-        .chartXAxis { DateAxis(spansYears: (history + projection.map { ChartPoint(date: $0.date, value: $0.p50) }).spansYears) }
+        .chartYAxis { amountAxis(hidesAmounts: hidesAmounts) }
+        .chartXAxis { dateAxis(spansYears: (history + projection.map { ChartPoint(date: $0.date, value: $0.p50) }).spansYears) }
     }
 
     /// The history point nearest to the selected date.

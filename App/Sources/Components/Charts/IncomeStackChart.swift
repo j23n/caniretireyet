@@ -75,7 +75,7 @@ struct IncomeStackChart: View {
         .chartForegroundStyleScale(domain: sources.map(\.name), range: sources.map { Palette.color(for: $0.color) })
         .chartLegend(position: .bottom, alignment: .leading)
         .chartXSelection(value: $selectedYear)
-        .chartYAxis { AmountAxis(hidesAmounts: hidesAmounts) }
+        .chartYAxis { amountAxis(hidesAmounts: hidesAmounts) }
         .chartXAxis {
             AxisMarks(values: years.filter { $0 % 5 == 0 }.map(String.init)) { _ in
                 AxisValueLabel().font(.caption2).foregroundStyle(Palette.mutedInk)

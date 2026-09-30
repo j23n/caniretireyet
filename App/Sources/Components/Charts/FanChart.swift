@@ -91,8 +91,8 @@ struct FanChart: View {
             }
         }
         .chartXSelection(value: $selectedDate)
-        .chartYAxis { AmountAxis(hidesAmounts: hidesAmounts) }
-        .chartXAxis { DateAxis(spansYears: true, desiredCount: 5) }
+        .chartYAxis { amountAxis(hidesAmounts: hidesAmounts) }
+        .chartXAxis { dateAxis(spansYears: true, desiredCount: 5) }
         .chartLegend(.hidden)
     }
 
