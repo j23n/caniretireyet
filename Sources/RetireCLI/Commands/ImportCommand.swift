@@ -4,11 +4,12 @@ import Importer
 import Model
 import Storage
 
-/// `retire import <file>`: previews or imports a spreadsheet, with a
+/// `retire import <file>` (`retire import csv`, the default of
+/// ``ImportGroupCommand``): previews or imports a spreadsheet, with a
 /// proposed mapping or a saved profile, and undoes imports.
 struct ImportCommand: RetireSubcommand {
     static let configuration = CommandConfiguration(
-        commandName: "import",
+        commandName: "csv",
         abstract: "Import a spreadsheet (CSV or TSV) into the library.",
         discussion: """
             Without --profile, the importer detects the file's format and proposes a mapping; \
@@ -174,7 +175,7 @@ struct ImportCommand: RetireSubcommand {
 
     func run(in context: CLIContext) async throws {
         if undo {
-            try runUndo(in: context)
+            try Self.runUndo(options: options, dryRun: dryRun, in: context)
             return
         }
         let loaded = try options.load(in: context)
@@ -340,10 +341,12 @@ struct ImportCommand: RetireSubcommand {
         return stack.last
     }
 
-    private func runUndo(in context: CLIContext) throws {
+    /// Undoes the latest import (of a spreadsheet or a journal), or with
+    /// `dryRun` says what it would do.
+    static func runUndo(options: LibraryOptions, dryRun: Bool, in context: CLIContext) throws {
         let loaded = try options.load(in: context)
         let folder = loaded.folder
-        guard let backup = Self.latestImport(in: try folder.backups()) else {
+        guard let backup = latestImport(in: try folder.backups()) else {
             throw CLIError("There's no import to undo: backups/ has no import backup that hasn't been undone.")
         }
         let console = context.console
@@ -353,15 +356,15 @@ struct ImportCommand: RetireSubcommand {
             let plan = try folder.undo(backup, dryRun: true)
             console.print("Would undo the import of \(created) from \(backup.path):")
             console.print(lines: plan.written.map { "  restore \($0)" } + plan.deleted.map { "  delete  \($0)" })
-            console.print(lines: Self.undoNotes(plan, would: true))
+            console.print(lines: undoNotes(plan, would: true))
             console.print("Dry run: nothing was written.")
             return
         }
-        let safety = try folder.backup(paths: backup.paths, label: Self.undoLabel, date: context.now())
+        let safety = try folder.backup(paths: backup.paths, label: undoLabel, date: context.now())
         let undone = try folder.undo(backup)
         console.print("Undid the import of \(created) from \(backup.path).")
         console.print(lines: undone.written.map { "  restored \($0)" } + undone.deleted.map { "  deleted  \($0)" })
-        console.print(lines: Self.undoNotes(undone, would: false))
+        console.print(lines: undoNotes(undone, would: false))
         console.print("The files as they were before undoing are in \(safety.path).")
     }
 

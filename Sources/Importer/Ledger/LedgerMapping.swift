@@ -49,6 +49,8 @@ public struct LedgerAccountRow: Hashable, Sendable, Identifiable {
     public var shortName: String { name.split(separator: ":").last.map(String.init) ?? name }
     /// 0 for a top-level account.
     public var depth: Int { name.split(separator: ":").count - 1 }
+    /// The parent account's name; `nil` for a top-level account.
+    public var parent: String? { name.lastIndex(of: ":").map { String(name[..<$0]) } }
     public var role: Role
     public var mapping: Mapping
     public var source: Source
