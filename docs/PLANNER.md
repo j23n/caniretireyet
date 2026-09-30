@@ -172,6 +172,45 @@ The default assumptions in the example plan (equity 4.5% real, bonds 1%, cash 0%
 - **Speed.** Everything that doesn't depend on the markets, such as work income and its taxes, is computed once per age rather than once per run. Moving a slider re-runs with fewer runs while you drag, then the full 2,000 when you let go, always with the same random draws. So any difference comes from your change and not from noise.
 - **Compare regimes.** Duplicate a plan with one choice changed, for example forfettario instead of ordinario with impatriati, and see both results side by side.
 
+## Engine details
+
+How `Sources/Planner` fills in what the sections above leave open. `Planner.run(plan:library:registry:options:)` is the entry point; `PlanResult` holds what the Results screen shows.
+
+**Time.**
+
+- The simulation starts the day after the check-in. The first year is only the rest of that year: its income, spending, contributions, credits and returns are scaled to the days left. A check-in on 31 December starts with the next year. Taxes are still computed on the whole calendar year.
+- Ages are ages reached during the year. Retiring at an age means stopping work on that birthday, or on the start date if it has passed. Every work phase stops then, whatever its `until`. The retirement year mixes working and retirement spending by days.
+- Pensions are paid for the whole year in which they're claimed. `claim: "earliest"` takes a scheme's first claim option at or below your age that year. An age waits for that age, or for the first later year the scheme allows, with a warning.
+
+**Money flows.**
+
+- The cash flow of a year is: net income (work, pensions and windfalls, minus the taxes and contributions of the prepared year) − planned contributions − spending − expenses − last year's market-dependent taxes. A surplus is invested in the liquid bucket with the most money. A shortfall is withdrawn, while working as well as in retirement.
+- Planned contributions are paid in full until they stop, even in a year with a shortfall. Credits a system makes into a wrapper, such as TFR, go into that wrapper's bucket, which is created (as cash) if no account uses the wrapper.
+- Withdrawals follow the documented order: cash above the buffer, the liquid buckets proportionally, then accessible tax-advantaged buckets proportionally (as payouts). The buffer is drawn last, before the run fails. The amount to sell comes from `grossUp`, or from bisection on `assess` when a system returns `nil`.
+- Tax withheld through the gross-up pays the tax on sales. What else the year's `assess` finds (wealth tax, tax on interest, any difference) is paid the following year. At the end of the plan it's deducted from the final value.
+
+**Portfolio.**
+
+- Each bucket holds lots by asset class, tax category, country, and whether the purchase cost is known. A position without a recorded cost uses `unrealizedGainShare`. Without that estimate its cost is unknown (`costBasis: nil` on sales), and a warning says so. Cash and wrapper balances have no unrealised gain.
+- Instruments map to tax categories by kind (`etf` and `fund` → `fund`, `metal` → `physicalGold`, …). A `govBondShare` splits the bonds part pro rata into `governmentBond` lots.
+- An account without a known wrapper is treated by its category: `pensionFund` and `tfr` accounts as tax-deferred, the rest as taxable, with a warning. Debts included in the plan are paid off from liquid money at the start, also with a warning.
+- Rebalancing restores each bucket's target mix once a year without tax: within a class, lots keep their weights and their share of unrealised gain. The primary liquid bucket keeps up to the cash buffer in cash. `targetMix` applies to taxable buckets; other buckets keep their own starting mix.
+- Liquid cash earns interest (its nominal return), which is reported to the system as capital income. A wrapper's `growthTaxRate` lowers its nominal return symmetrically, so losses give a credit.
+
+**Returns.** The expected real return is the arithmetic mean of a log-normal yearly return with the given volatility. Correlations apply to the log returns, through the Cholesky factor of the matrix; an inconsistent matrix is weakened until it's valid, with a warning. Classes without an assumption earn 0%.
+
+**Random numbers.** xoshiro256** seeded through SplitMix64, with one stream per run for markets and another for events. Run *r* always gets the same draws, so every retirement age, what-if and fast run shares them, and adding an event doesn't move the market draws. Uncertain windfalls are prepared once per combination that occurs.
+
+**Tax state and issues.** The state carries from year to year along the deterministic run's prepared years. Issues from those years are reported for the age the details are for.
+
+**Results.**
+
+- The success curve covers every age from today's to 75 (at least the plan's age). The headline scan (`AgeScan.headline`) evaluates every fourth age and refines between the last one below the confidence level and the first one at or above it.
+- The fan, the failures and the paths are for the focus age: the plan's age, else the earliest age, else the oldest scanned. The median path is the run in the middle when runs are ranked by the year they fail, then by what's left at the end.
+- Sustainable spending is found by bisection to within 10 € (rounded down to 10 €), reusing each run's result: a run that succeeded at a higher spending succeeds at a lower one.
+- The FI number is the retirement spending not covered by pensions, net of the taxes on them once all have started, over a 4% withdrawal rate. FI progress is today's plan assets divided by it.
+- `PlanResult.headline(date:)` and `baseline(created:kind:label:)` make the files described in [PROGRESS.md](PROGRESS.md). Success rates are rounded to 3 decimals, FI progress to 2, and baseline values to whole euros. `planHash` is FNV-1a (64-bit) of the plan's canonical JSON, with sorted keys and decimals in their file form.
+
 ## Taxes
 
 The engine contains no tax rules. Every tax, contribution and pension rule comes from a pluggable tax system chosen in the plan:
@@ -185,5 +224,7 @@ The engine contains no tax rules. Every tax, contribution and pension rule comes
   - Monte Carlo with zero volatility equals the deterministic run.
   - More savings never lowers the chance of success.
   - The chance of success doesn't fall as the retirement age rises, apart from steps caused by pension eligibility rules.
-- **Independent of tax law.** Engine tests use the `generic` flat-rate tax system, so they don't break when Italian law changes. Tax reference cases live with each tax system.
+- **Independent of tax law.** Engine tests use a made-up flat-rate system defined in the tests (`FlatTaxSystem`), so they don't break when Italian law changes. Tax reference cases live with each tax system.
+- **Checked by hand.** With zero volatility and known returns, paths match closed forms: drawdown, saving, gross-up for gains tax, wealth tax, a first year that starts after the check-in, bridge failures and pensions.
 - **Reproducible.** Same inputs and seed give the same results on every device and in CI.
+- **Fast.** A performance test runs the full scan (2,000 runs × 58 years × 38 ages). In a release build it takes about 3.5 seconds on 4 shared cores: `swift test -c release -Xswiftc -enable-testing --filter PerformanceTests`.
