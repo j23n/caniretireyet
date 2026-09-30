@@ -136,7 +136,8 @@ struct CheckInPriceList: Hashable, Sendable {
             status = .notFetched
         }
         let unit = CheckInWording.unit(of: instrument)
-        let symbol = entry?.symbol ?? instrument?.priceSource?.symbol
+        var symbol = entry?.symbol ?? instrument?.priceSource?.symbol
+        if let typed = symbol, let resolved = entry?.resolvedSymbol { symbol = "\(typed) → \(resolved)" }
         return CheckInPriceLine(
             item: .instrument(id), title: CheckInWording.instrumentLabel(id, instrument: instrument),
             subtitle: instrument.map(\.name).flatMap { $0 == CheckInWording.instrumentLabel(id, instrument: instrument) ? nil : $0 },

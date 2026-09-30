@@ -559,10 +559,9 @@ extension PriceListEntry {
     /// The provider's ID for the symbol when it differs from the one typed
     /// ("ETH" → "ethereum"), shown next to fetch results.
     ///
-    /// Always `nil` on this branch: once the Prices module's CoinGecko ticker
-    /// lookup (`PriceListEntry.resolvedSymbol`) is merged, return
-    /// `resolvedSymbol` here.
-    var shownResolvedSymbol: String? { nil }
+    /// The coin ID a typed ticker resolved to ("ETH" → "ethereum"), shown
+    /// next to the symbol; `nil` when the symbol was used as typed.
+    var shownResolvedSymbol: String? { resolvedSymbol }
 }
 
 extension Library {
