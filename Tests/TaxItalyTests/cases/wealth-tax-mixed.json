@@ -1,0 +1,92 @@
+{
+  "name": "Wealth taxes on a mixed portfolio",
+  "year": 2026,
+  "input": {
+    "age": 50,
+    "systemOptions": {
+      "addizionaleRegionale": "0.0173",
+      "addizionaleComunale": "0.008"
+    },
+    "variable": {
+      "balances": [
+        {
+          "wrapper": "it.ordinary",
+          "category": "fund",
+          "country": "IT",
+          "value": 200000
+        },
+        {
+          "wrapper": "it.ordinary",
+          "category": "stock",
+          "country": "IE",
+          "value": 50000
+        },
+        {
+          "wrapper": "it.ordinary",
+          "category": "fund",
+          "country": "PA",
+          "value": 30000
+        },
+        {
+          "wrapper": "it.ordinary",
+          "category": "crypto",
+          "value": 20000
+        },
+        {
+          "wrapper": "it.ordinary",
+          "category": "cash",
+          "country": "IT",
+          "value": 12000
+        },
+        {
+          "wrapper": "it.ordinary",
+          "category": "cash",
+          "country": "IT",
+          "value": 3000
+        },
+        {
+          "wrapper": "it.ordinary",
+          "category": "physicalGold",
+          "value": 30000
+        },
+        {
+          "wrapper": "it.ordinary",
+          "category": "realEstate",
+          "country": "FR",
+          "value": 250000
+        },
+        {
+          "wrapper": "it.pensionFund",
+          "category": "fund",
+          "value": 80000
+        },
+        {
+          "wrapper": "it.tfr",
+          "category": "cash",
+          "value": 25000
+        }
+      ]
+    }
+  },
+  "expected": {
+    "lines": {
+      "it.wealthTax.financial": 620.0,
+      "it.wealthTax.crypto": 40.0,
+      "it.wealthTax.currentAccount": 34.2,
+      "it.ivie": 2650.0
+    },
+    "totalTax": 3344.2
+  },
+  "workings": [
+    "ETFs held in Italy: 0.2% × 200,000.00 = 400.00 (bollo)",
+    "Shares held in Ireland: 0.2% × 50,000.00 = 100.00 (IVAFE)",
+    "A fund held in Panama (blacklisted): 0.4% × 30,000.00 = 120.00",
+    "Financial assets in total: 620.00",
+    "Crypto: 0.2% × 20,000.00 = 40.00",
+    "Current account with 12,000.00 (above 5,000): 34.20; current account with 3,000.00: nothing",
+    "Physical gold: no wealth tax",
+    "Property in France (IVIE): 1.06% × 250,000.00 = 2,650.00",
+    "Pension fund and TFR: no wealth tax",
+    "Total: 3,344.20"
+  ]
+}

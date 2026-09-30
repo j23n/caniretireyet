@@ -1,0 +1,38 @@
+{
+  "name": "Selling crypto (33%) and a euro stablecoin (26%)",
+  "year": 2026,
+  "input": {
+    "age": 50,
+    "systemOptions": {
+      "addizionaleRegionale": "0.0173",
+      "addizionaleComunale": "0.008"
+    },
+    "variable": {
+      "sales": [
+        {
+          "wrapper": "it.ordinary",
+          "category": "crypto",
+          "proceeds": 10000,
+          "costBasis": 4000
+        },
+        {
+          "wrapper": "it.ordinary",
+          "category": "stablecoin",
+          "proceeds": 5000,
+          "costBasis": 4900
+        }
+      ]
+    }
+  },
+  "expected": {
+    "lines": {
+      "it.capitalGains": 2006.0
+    },
+    "totalTax": 2006.0
+  },
+  "workings": [
+    "Crypto: 33% × (10,000.00 − 4,000.00) = 1,980.00",
+    "Euro stablecoin (e-money token): 26% × (5,000.00 − 4,900.00) = 26.00",
+    "Total 2,006.00"
+  ]
+}

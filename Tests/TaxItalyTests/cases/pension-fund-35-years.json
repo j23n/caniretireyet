@@ -1,0 +1,57 @@
+{
+  "name": "Pension-fund payout after 35 years of membership",
+  "year": 2026,
+  "input": {
+    "age": 67,
+    "systemOptions": {
+      "addizionaleRegionale": "0.0173",
+      "addizionaleComunale": "0.008"
+    },
+    "variable": {
+      "payouts": [
+        {
+          "wrapper": "it.pensionFund",
+          "amount": 30000,
+          "form": "lumpSum",
+          "costBasis": 18000,
+          "membershipYears": 35
+        }
+      ],
+      "balances": [
+        {
+          "wrapper": "it.pensionFund",
+          "category": "fund",
+          "value": 40000
+        }
+      ]
+    }
+  },
+  "expected": {
+    "lines": {
+      "it.pensionFund.payoutTax": 1620.0
+    },
+    "totalTax": 1620.0
+  },
+  "grossUp": [
+    {
+      "net": 10000,
+      "bucket": {
+        "wrapper": "it.pensionFund",
+        "value": 100000,
+        "costBasis": 60000,
+        "categoryShares": {
+          "fund": 1
+        },
+        "membershipYears": 35
+      },
+      "expected": 10570.824524
+    }
+  ],
+  "workings": [
+    "Payout of 30,000.00 as a lump sum; 18,000.00 of it is contributions (the rest is growth, already taxed inside the fund at 20%)",
+    "All contributions were deducted (the state has none recorded, so all count as deducted)",
+    "Rate after 35 years: 15% − 0.3 × 20 = 9% (the 9% floor)",
+    "Tax: 9% × 18,000.00 = 1,620.00",
+    "Gross-up for 10,000.00 net from a fund worth 100,000.00 with 60,000.00 of contributions: 10,000 / (1 − 9% × 60%) = 10,570.82"
+  ]
+}

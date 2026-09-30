@@ -1,0 +1,46 @@
+{
+  "name": "Selling an ETF: 26% on the gain",
+  "year": 2026,
+  "input": {
+    "age": 50,
+    "systemOptions": {
+      "addizionaleRegionale": "0.0173",
+      "addizionaleComunale": "0.008"
+    },
+    "variable": {
+      "sales": [
+        {
+          "wrapper": "it.ordinary",
+          "category": "fund",
+          "proceeds": 10000,
+          "costBasis": 6000
+        }
+      ]
+    }
+  },
+  "expected": {
+    "lines": {
+      "it.capitalGains": 1040.0
+    },
+    "totalTax": 1040.0
+  },
+  "workings": [
+    "Gain: 10,000.00 − 6,000.00 = 4,000.00",
+    "Tax: 26% × 4,000.00 = 1,040.00",
+    "Gross-up for 9,000.00 net from a bucket worth 100,000.00 with a 60,000.00 cost: gain share 40%, sell 9,000 / (1 − 26% × 40%) = 10,044.64"
+  ],
+  "grossUp": [
+    {
+      "net": 9000,
+      "bucket": {
+        "wrapper": "it.ordinary",
+        "value": 100000,
+        "costBasis": 60000,
+        "categoryShares": {
+          "fund": 1
+        }
+      },
+      "expected": 10044.642857
+    }
+  ]
+}

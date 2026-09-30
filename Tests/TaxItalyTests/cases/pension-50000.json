@@ -1,0 +1,35 @@
+{
+  "name": "IRPEF on an INPS pension of 50,000",
+  "year": 2026,
+  "input": {
+    "age": 70,
+    "systemOptions": {
+      "addizionaleRegionale": "0.0173",
+      "addizionaleComunale": "0.008"
+    },
+    "pensions": [
+      {
+        "id": "inps",
+        "scheme": "it.inps",
+        "amount": 50000.0
+      }
+    ]
+  },
+  "expected": {
+    "lines": {
+      "it.irpef": 13700.0,
+      "it.addizionaleRegionale": 865.0,
+      "it.addizionaleComunale": 400.0
+    },
+    "totalTax": 14965.0,
+    "netIncome": 35035.0
+  },
+  "workings": [
+    "Total income R = taxable income = INPS pension 50,000.00",
+    "Gross IRPEF on 50,000.00: 23% × 28,000.00 = 6,440.00 + 33% × 22,000.00 = 7,260.00 = 13,700.00",
+    "Pension detrazione: 700 × (50,000 − 50,000.00) / 22,000 = 0.00",
+    "Net IRPEF: max(0, 13,700.00 − 0.00) = 13,700.00",
+    "Addizionale regionale: 1.73% × 50,000.00 = 865.00; comunale: 0.8% × 50,000.00 = 400.00",
+    "Total tax: 14,965.00; net pension 35,035.00"
+  ]
+}

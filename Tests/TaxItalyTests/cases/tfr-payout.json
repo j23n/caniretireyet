@@ -1,0 +1,37 @@
+{
+  "name": "TFR paid out when the job ends",
+  "year": 2026,
+  "input": {
+    "age": 58,
+    "systemOptions": {
+      "addizionaleRegionale": "0.0173",
+      "addizionaleComunale": "0.008"
+    },
+    "state": {
+      "it.tfr.irpef": 30000,
+      "it.tfr.taxableIncome": 120000
+    },
+    "variable": {
+      "payouts": [
+        {
+          "wrapper": "it.tfr",
+          "amount": 42000,
+          "form": "lumpSum",
+          "costBasis": 40000
+        }
+      ]
+    }
+  },
+  "expected": {
+    "lines": {
+      "it.tfr.payoutTax": 10000.0
+    },
+    "totalTax": 10000.0
+  },
+  "workings": [
+    "State: 120,000.00 of taxable income and 30,000.00 of net IRPEF over the plan's employee years",
+    "Average rate: 30,000 / 120,000 = 25%",
+    "TFR paid out: 42,000.00, of which 40,000.00 accrued (the revaluation was taxed yearly at 17%)",
+    "Tax: 25% × 40,000.00 = 10,000.00"
+  ]
+}
