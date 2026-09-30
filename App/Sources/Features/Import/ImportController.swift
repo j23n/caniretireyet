@@ -64,9 +64,11 @@ final class ImportController {
 
     // MARK: - Importing
 
-    /// Imports: backs up the files the import changes into
-    /// `backups/<timestamp>-import/`, applies the preview to the library as
-    /// it is now, and saves (only the files that changed). Then shows Done.
+    /// Imports: applies the preview to the library as it is now and saves
+    /// (only the files that changed), with exactly those files backed up
+    /// into `backups/<timestamp>-import/` first, in the same queued
+    /// operation, and the files as written recorded in the backup after, so
+    /// undoing leaves later edits alone. Then shows Done.
     func runImport(in store: LibraryStore) async {
         guard let preview = flow.preview, !isWorking else { return }
         isWorking = true
@@ -80,10 +82,9 @@ final class ImportController {
             return
         }
         do {
-            let backup = try await store.backup(paths: planned.changedPaths, label: Self.backupLabel)
             let before = store.library
             var result = planned
-            try store.update { library in
+            let backup = try await store.commit(backingUpAs: Self.backupLabel) { library in
                 result = preview.apply(to: library)
                 library = result.library
             }
@@ -92,14 +93,18 @@ final class ImportController {
             if backup == nil { receipt.libraryBefore = before }
             self.receipt = receipt
             flow.finish()
+        } catch LibraryStoreError.saveFailed(let message) {
+            errorMessage = "The import couldn't be saved. \(message) The library shows what's on disk now."
         } catch {
             errorMessage = "Nothing was imported. \(LibraryStore.describe(error))"
         }
     }
 
-    /// Undoes the import: keeps a copy of the files as they are now
-    /// (`undo-import`, as `retire import --undo` does), then puts the backup
-    /// back, deleting the files the import created.
+    /// Undoes the import, leaving edits made since in place: keeps a copy of
+    /// the files as they are now (`undo-import`, as `retire import --undo`
+    /// does), then puts back what the import changed and deletes the files
+    /// it created, unless they changed since. What was left in place is in
+    /// the receipt (``ImportReceipt/undoNotes``).
     func undoImport(in store: LibraryStore) async {
         guard var receipt, receipt.canUndo, !isWorking else { return }
         isWorking = true
@@ -107,8 +112,7 @@ final class ImportController {
         errorMessage = nil
         do {
             if let backup = receipt.backup {
-                _ = try await store.backup(paths: backup.files + backup.absentFiles, label: Self.undoLabel)
-                try await store.restore(backup)
+                receipt.undoReport = try await store.undo(backup, safetyLabel: Self.undoLabel)
             } else if let before = receipt.libraryBefore {
                 try store.update { $0 = before }
             }
@@ -176,6 +180,8 @@ struct ImportReceipt: Hashable, Sendable {
     /// The library before the import, to undo it where there's no backup (previews).
     var libraryBefore: Library?
     var isUndone = false
+    /// What undoing did, once it's undone (not for previews).
+    var undoReport: UndoReport?
     /// The profile saved from this import.
     var savedProfile: ImportProfileID?
 
@@ -202,6 +208,17 @@ struct ImportReceipt: Hashable, Sendable {
     /// Whether Undo import can run.
     var canUndo: Bool {
         hasChanges && !isUndone && (backup != nil || libraryBefore != nil)
+    }
+
+    /// What undoing couldn't undo because it changed after the import, in
+    /// plain words; empty when everything was undone.
+    var undoNotes: [String] {
+        guard let undoReport else { return [] }
+        if undoReport.restoredWholesale {
+            return ["The backup didn't record what the import wrote, so its files were put back as they were, "
+                + "over any later edits."]
+        }
+        return undoReport.keptChanges.map(\.summary)
     }
 }
 

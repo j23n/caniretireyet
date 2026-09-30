@@ -75,12 +75,19 @@ public struct FolderSnapshot: Hashable, Sendable {
     ///   before, or changed since.
     ///
     /// Files still downloading are left out until they're downloaded.
-    public func changes(since previous: FolderSnapshot) -> LibraryChange {
+    /// Modification dates less than `tolerance` apart count as the same,
+    /// for comparing dates read in different ways (the file system's and
+    /// iCloud's metadata).
+    public func changes(since previous: FolderSnapshot, tolerance: TimeInterval = 0) -> LibraryChange {
+        func sameDate(_ a: Date?, _ b: Date?) -> Bool {
+            guard let a, let b else { return a == b }
+            return a == b || abs(a.timeIntervalSince(b)) < tolerance
+        }
         var paths: Set<String> = []
         var conflicted: Set<String> = []
         for (path, state) in files {
             let old = previous.files[path]
-            if state.isDownloaded, old == nil || old?.modified != state.modified || old?.isDownloaded == false {
+            if state.isDownloaded, old == nil || !sameDate(old?.modified, state.modified) || old?.isDownloaded == false {
                 paths.insert(path)
             }
             if state.hasConflicts, old?.hasConflicts != true || old?.modified != state.modified {
@@ -93,8 +100,10 @@ public struct FolderSnapshot: Hashable, Sendable {
         return LibraryChange(paths: paths.sorted(), conflictedPaths: conflicted.sorted())
     }
 
-    /// What a watcher reports when it first looks: only the conflicts. The
-    /// files themselves were just loaded.
+    /// What a watcher reports when it first looks without a baseline: only
+    /// the conflicts. Pass the snapshot taken when the library was loaded
+    /// to `LibraryWatching.start(since:)` instead, so a change that landed
+    /// meanwhile is reported too.
     public var initialChange: LibraryChange {
         LibraryChange(conflictedPaths: files.filter(\.value.hasConflicts).keys.sorted())
     }

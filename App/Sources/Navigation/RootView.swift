@@ -23,6 +23,7 @@ struct RootView: View {
             }
             .onChange(of: scenePhase) { _, phase in
                 if phase != .active { checkIn.persistNow() }
+                if phase == .active { Task { await library.refreshFromDisk() } }
             }
             .onOpenURL { url in
                 openFile(url)

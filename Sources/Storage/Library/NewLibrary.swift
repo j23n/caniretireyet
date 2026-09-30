@@ -60,7 +60,7 @@ extension LibraryFolder {
         | `plans/` | One file per retirement scenario. |
         | `projections/<plan>/` | Saved projections (`baselines/`) and the answer recorded at each check-in (`headlines/`). They record what you expected at the time, so they're never recalculated. |
         | `imports/` | Saved import settings for spreadsheets and CSV files. |
-        | `backups/` | Copies taken before an upgrade or an import. "Undo import" restores them. Safe to delete. |
+        | `backups/` | Copies taken before an upgrade or an import, and of files the app had to replace because they were changed elsewhere or couldn't be read. "Undo import" uses them. Safe to delete. |
 
         ## Editing by hand
 

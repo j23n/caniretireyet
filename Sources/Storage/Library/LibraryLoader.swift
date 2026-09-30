@@ -76,6 +76,33 @@ struct LibraryLoader {
             if file == .settings { schemaVersion = nil }
             return
         }
+        load(file, data: data, json: json, into: &library)
+    }
+
+    /// Loads `data`, the contents of `file`, into `library`, replacing (or
+    /// removing) what it held.
+    mutating func load(_ file: LibraryFile, data: Data, into library: inout Library) {
+        remove(file, from: &library)
+        guard let json = parse(data, path: file.path) else {
+            if file == .settings { schemaVersion = nil }
+            return
+        }
+        load(file, data: data, json: json, into: &library)
+    }
+
+    /// What the loader makes of `data` as the contents of `file`: a library
+    /// holding only that file's entity (none if it can't be read), and
+    /// whether any of it couldn't be read (an error issue).
+    static func decode(_ file: LibraryFile, from data: Data, in folder: LibraryFolder)
+        -> (library: Library, hasErrors: Bool) {
+        var loader = LibraryLoader(folder: folder)
+        var library = Library()
+        loader.load(file, data: data, into: &library)
+        return (library, loader.issues.contains { $0.severity == .error })
+    }
+
+    private mutating func load(_ file: LibraryFile, data: Data, json: JSONValue, into library: inout Library) {
+        let path = file.path
         switch file {
         case .settings:
             loadSettings(json, data: data, into: &library)
@@ -252,6 +279,11 @@ struct LibraryLoader {
             self.error(path, "The file can't be read: \(error.localizedDescription)")
             return nil
         }
+        return parse(data, path: path).map { (data, $0) }
+    }
+
+    /// The file's JSON, if it is a JSON object.
+    private mutating func parse(_ data: Data, path: String) -> JSONValue? {
         let json: JSONValue
         do {
             json = try CanonicalJSON.parse(data)
@@ -264,7 +296,7 @@ struct LibraryLoader {
             return nil
         }
         filesRead += 1
-        return (data, json)
+        return json
     }
 
     private mutating func decode<T: Decodable>(_ type: T.Type, _ json: JSONValue, data: Data? = nil,

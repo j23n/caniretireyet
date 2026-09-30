@@ -55,6 +55,27 @@ struct FileAccessTests {
         #expect(folder.exists("imports"))
     }
 
+    @Test func replacesOnlyWhatWasRead() throws {
+        let folder = try TemporaryFolder()
+        let access = CoordinatedFileAccess()
+        let url = folder.url("accounts/casa.json")
+        let one = Data("one".utf8)
+        let two = Data("two".utf8)
+
+        #expect(try access.replaceData(at: url, ifContentsAre: nil, with: one))
+        #expect(try !access.replaceData(at: url, ifContentsAre: nil, with: two), "the file exists now")
+        #expect(try !access.replaceData(at: url, ifContentsAre: two, with: two))
+        #expect(try folder.text("accounts/casa.json") == "one")
+        #expect(try access.replaceData(at: url, ifContentsAre: one, with: two))
+        #expect(try folder.text("accounts/casa.json") == "two")
+        #expect(try access.replaceData(at: url, ifContentsAre: two, with: nil))
+        #expect(!folder.exists("accounts/casa.json"))
+
+        // A file that is only a placeholder is read (downloaded) first.
+        try folder.write("accounts/.tfr.json.icloud", "placeholder")
+        #expect(try !access.replaceData(at: folder.url("accounts/tfr.json"), ifContentsAre: nil, with: one))
+    }
+
     @Test func storageLoadsThroughCoordinatedAccess() throws {
         let folder = try TemporaryFolder.exampleLibrary()
         let loaded = try LibraryFolder(root: folder.url, files: CoordinatedFileAccess()).load()

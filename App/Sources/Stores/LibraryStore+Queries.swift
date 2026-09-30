@@ -1,5 +1,6 @@
 import Foundation
 import Model
+import Storage
 import Tracker
 
 /// Read-only shortcuts that many screens need. Everything here is computed
@@ -61,14 +62,25 @@ extension LibraryStore {
         Set(openAccounts.map(\.group)).sorted()
     }
 
-    /// A new account ID made from a display name, unique in the library.
+    /// A new account ID made from a display name, unique in the library and
+    /// among account files that couldn't be loaded.
     func newAccountID(for name: String) -> AccountID {
-        AccountID.make(from: name, existing: library.accounts.keys)
+        let unloaded = unloadedFiles.compactMap { if case .account(let id) = $0 { id } else { nil } }
+        return AccountID.make(from: name, existing: Array(library.accounts.keys) + unloaded)
     }
 
-    /// A new instrument ID made from a display name, unique in the library.
+    /// A new instrument ID made from a display name, unique in the library
+    /// and among instrument files that couldn't be loaded.
     func newInstrumentID(for name: String) -> InstrumentID {
-        InstrumentID.make(from: name, existing: library.instruments.keys)
+        let unloaded = unloadedFiles.compactMap { if case .instrument(let id) = $0 { id } else { nil } }
+        return InstrumentID.make(from: name, existing: Array(library.instruments.keys) + unloaded)
+    }
+
+    /// Library files that exist but couldn't be loaded (they have an error
+    /// issue). New IDs avoid theirs, so a new entity never takes the place
+    /// of a file you're about to fix.
+    var unloadedFiles: [LibraryFile] {
+        loadIssues.filter { $0.severity == .error }.compactMap { LibraryFile(path: $0.path) }
     }
 
     // MARK: Plans
@@ -85,9 +97,11 @@ extension LibraryStore {
         library.settings.mainPlan.flatMap { library.plans[$0] }
     }
 
-    /// A new plan ID made from a display name, unique in the library.
+    /// A new plan ID made from a display name, unique in the library and
+    /// among plan files that couldn't be loaded.
     func newPlanID(for name: String) -> PlanID {
-        PlanID.make(from: name, existing: library.plans.keys)
+        let unloaded = unloadedFiles.compactMap { if case .plan(let id) = $0 { id } else { nil } }
+        return PlanID.make(from: name, existing: Array(library.plans.keys) + unloaded)
     }
 }
 

@@ -121,6 +121,35 @@ struct ImportTests {
         #expect(nothing.errors.contains("There's no import to undo"))
     }
 
+    @Test func undoLeavesEditsMadeAfterTheImportInPlace() async throws {
+        let library = try TemporaryFolder.exampleLibrary()
+        let clock = TestClock()
+        let imported = await retire(["import", try sheet(), "--library", library.path, "--apply",
+                                     "--accept-new-accounts", "--accept-closings", "--on-conflict", "overwrite"],
+                                    clock: clock)
+        #expect(imported.status == 0, "\(imported.all)")
+        #expect(try library.backups().first?.result != nil)
+
+        // Later: a check-in on 2026-10-31 that corrects an imported value and adds another account.
+        let before = try library.load()
+        var edited = before
+        edited.upsert(Valuation(account: "conto-deposito", date: "2026-10-31", balance: 18_000))
+        edited.upsert(Valuation(account: "tfr", date: "2026-10-31", balance: 9000))
+        try library.library.save(edited, previous: before)
+
+        let undo = await retire(["import", "--undo", "--library", library.path], clock: clock)
+        #expect(undo.status == 0, "\(undo.all)")
+        #expect(undo.output.contains("  deleted  accounts/conto-arancio.json\n"))
+        #expect(undo.output.contains("Changed after the import, so it was left in place:\n  In history/2026/2026-10.json, "
+            + "1 record changed after the import kept their new values: valuations: 2026-10-31 conto-deposito.\n"))
+        let after = try library.load()
+        #expect(after.accounts["conto-arancio"] == nil)
+        #expect(after.valuations(for: "conto-arancio").isEmpty)
+        let october = after.months["2026-10"]?.valuations ?? []
+        #expect(october.map(\.account) == ["conto-deposito", "tfr"])
+        #expect(october.first?.balance == 18_000)
+    }
+
     @Test func undoDryRunShowsWhatItWouldRestore() async throws {
         let library = try TemporaryFolder.exampleLibrary()
         _ = await retire(["import", try sheet(), "--library", library.path, "--apply"])

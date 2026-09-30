@@ -144,7 +144,7 @@ Only `CloudSync` and the app need Apple frameworks.
 ### How the app works at runtime
 
 1. **Load.** At launch, `CloudSync` finds the iCloud container. If iCloud is off, it uses a local folder that can be moved to iCloud later. `Storage` then loads the whole library into memory, which takes milliseconds because it's small.
-2. **Edit.** The UI reads from an `@Observable` `LibraryStore`. An edit changes the in-memory model first. `Storage` then writes only the files that changed. Writes are atomic and go through `NSFileCoordinator`.
+2. **Edit.** The UI reads from an `@Observable` `LibraryStore`. An edit changes the in-memory model first. `Storage` then writes only the files that changed. Writes are atomic and go through `NSFileCoordinator`. Each write is merged with the file on disk, so a change that arrived from the other device (or a text editor) and hasn't been reloaded yet is never overwritten unseen ([FILE_FORMAT.md](FILE_FORMAT.md#saving)); the store then reloads what was merged in.
 3. **Watch.** `CloudSync` watches the folder: an `NSMetadataQuery` for a library in iCloud Drive (which also downloads files that aren't on the device yet), or by comparing modification dates for a library on this device. When the other device, or you in a text editor, changes a file, the store reloads that file and the UI updates.
 4. **Plan.** The planner runs in a background task on an immutable snapshot of the library and the plan. It recomputes after changes (debounced), so the results stay live while you edit a plan.
 
@@ -153,6 +153,9 @@ Only `CloudSync` and the app need Apple frameworks.
 - **Location.** The library is the `Documents/` folder of the app's iCloud container. Files are downloaded eagerly because they're tiny, so the "Optimize Storage" setting never leaves gaps.
 - **Keeping conflicts rare.** There is one file per account, instrument and plan. History is grouped by month, so a check-in touches one file and past months are rarely edited. Unchanged files are never rewritten.
 - **Resolving conflicts.** When two devices change the same file before syncing, iCloud keeps both versions (`NSFileVersion`). The app merges them record by record, marks the conflict resolved, and shows what it merged on a Sync screen. The rules are in [FILE_FORMAT.md](FILE_FORMAT.md#sync-conflicts).
+- **Saving over a newer file.** A file can also change on disk between the app reading it and writing an edit to it. The write merges with it: record by record for history and headlines, and for other files with a copy in `backups/` before replacing it ([FILE_FORMAT.md](FILE_FORMAT.md#saving)). The Sync screen lists these too.
+- **Not missing changes.** The store records every file's modification date when it loads the library, and the watcher's first look is compared with them, so a change that lands while the library loads is reloaded too. When the app comes back to the foreground it compares modification dates again.
+- **First launch on a new device.** A library in iCloud Drive may not be on the device yet. Before offering to create a new one, the app asks iCloud Drive whether `library.json` exists (an `NSMetadataQuery`), waiting up to a few seconds for the answer, so the second device opens the existing library instead of creating another.
 - **Schema guard.** Every library records a `schemaVersion`. An app that finds a newer version than it understands opens the library read-only and asks to be updated. That way an old app on one device can't damage data written by a newer app on the other.
 
 ### App structure

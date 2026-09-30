@@ -18,6 +18,12 @@ public enum StorageError: Error, Hashable, Sendable, CustomStringConvertible {
     case backupNotFound(String)
     /// A file Storage needs can't be read.
     case unreadableFile(path: String, message: String)
+    /// A file kept changing on disk while it was being saved, so it wasn't
+    /// written.
+    case fileKeptChanging(path: String)
+    /// The backup was taken from a library in another format version, so
+    /// restoring it would mix formats.
+    case backupFromOtherVersion(name: String, version: Int, current: Int)
 
     public var description: String {
         switch self {
@@ -38,6 +44,11 @@ public enum StorageError: Error, Hashable, Sendable, CustomStringConvertible {
             "The backup \"\(name)\" doesn't exist or can't be read."
         case .unreadableFile(let path, let message):
             "\(path): \(message)"
+        case .fileKeptChanging(let path):
+            "\(path) kept changing on disk while it was being saved, so it wasn't written. Try again."
+        case .backupFromOtherVersion(let name, let version, let current):
+            "The backup \"\(name)\" was taken from a library in format version \(version), and this library uses "
+                + "version \(current), so it can't be restored automatically. Its files are in backups/\(name)/."
         }
     }
 }

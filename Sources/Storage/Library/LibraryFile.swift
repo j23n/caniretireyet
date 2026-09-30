@@ -102,7 +102,7 @@ extension Character {
 extension Library {
     /// Every data file this library has, with nothing for empty month files
     /// (Storage deletes those).
-    var libraryFiles: Set<LibraryFile> {
+    public var libraryFiles: Set<LibraryFile> {
         var files: Set<LibraryFile> = [.settings]
         files.formUnion(accounts.keys.map(LibraryFile.account))
         files.formUnion(instruments.keys.map(LibraryFile.instrument))

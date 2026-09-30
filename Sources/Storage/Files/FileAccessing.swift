@@ -30,6 +30,30 @@ public protocol FileAccessing: Sendable {
     /// Creates a folder at `url`, with any missing parent folders. Does
     /// nothing if it already exists.
     func createDirectory(at url: URL) throws
+
+    /// Replaces the file at `url` with `data`, or deletes it when `data` is
+    /// `nil`, but only if it still holds `expected` (`nil`: there's no file).
+    /// Returns whether it did; `false` means the file changed since
+    /// `expected` was read, and nothing was written.
+    ///
+    /// This is how the library is saved without overwriting a change that
+    /// arrived after the file was read. Implementations that coordinate
+    /// access check and write inside one coordinated write. The default
+    /// implementation reads, compares and writes with the other methods.
+    func replaceData(at url: URL, ifContentsAre expected: Data?, with data: Data?) throws -> Bool
+}
+
+extension FileAccessing {
+    public func replaceData(at url: URL, ifContentsAre expected: Data?, with data: Data?) throws -> Bool {
+        let current = fileExists(at: url) ? try readData(at: url) : nil
+        guard current == expected else { return false }
+        if let data {
+            try writeData(data, to: url)
+        } else {
+            try removeItem(at: url)
+        }
+        return true
+    }
 }
 
 /// File access through `FileManager`, with atomic writes.

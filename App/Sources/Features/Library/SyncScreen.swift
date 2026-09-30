@@ -35,9 +35,22 @@ struct SyncScreen: View {
             }
 
             Section {
-                if library.mergedConflicts.isEmpty && library.conflictFailures.isEmpty {
+                if library.mergedConflicts.isEmpty && library.conflictFailures.isEmpty && library.saveNotices.isEmpty {
                     Text("No sync conflicts since the app opened.")
                         .foregroundStyle(Palette.secondaryInk)
+                }
+                ForEach(library.saveNotices) { notice in
+                    Label {
+                        VStack(alignment: .leading, spacing: Metrics.xs) {
+                            Text(notice.path).font(.callout.monospaced())
+                            Text(notice.summary).font(.footnote).foregroundStyle(Palette.secondaryInk)
+                            Text(notice.date, format: .dateTime.day().month().hour().minute())
+                                .font(.caption)
+                                .foregroundStyle(Palette.mutedInk)
+                        }
+                    } icon: {
+                        Image(systemName: "doc.on.doc").foregroundStyle(Palette.warning)
+                    }
                 }
                 ForEach(library.mergedConflicts) { conflict in
                     VStack(alignment: .leading, spacing: Metrics.xs) {
@@ -58,14 +71,16 @@ struct SyncScreen: View {
                         Image(systemName: "exclamationmark.triangle").foregroundStyle(Palette.warning)
                     }
                 }
-                if !library.mergedConflicts.isEmpty || !library.conflictFailures.isEmpty {
+                if !library.mergedConflicts.isEmpty || !library.conflictFailures.isEmpty || !library.saveNotices.isEmpty {
                     Button("Clear this list") { library.dismissMergedConflicts() }
                 }
             } header: {
                 Text("Sync conflicts")
             } footer: {
                 Text("When two devices change the same file before it syncs, the app merges them record by record. "
-                    + "History keeps every record; for other files the newest version wins.")
+                    + "History keeps every record; for other files the newest version wins. When the app saves a "
+                    + "file that was changed elsewhere, it merges history record by record, and copies any other "
+                    + "file to backups before replacing it.")
             }
 
             Section("Files with problems") {
@@ -118,6 +133,7 @@ struct SyncScreen: View {
         case .loading: "Loading…"
         case .saving: "Saving…"
         case .syncing: "Merging changes…"
+        case .moving: "Moving to iCloud Drive…"
         }
     }
 }

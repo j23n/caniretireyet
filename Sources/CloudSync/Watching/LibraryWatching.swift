@@ -9,10 +9,22 @@ import Foundation
 public protocol LibraryWatching: AnyObject {
     /// Starts watching (stopping a previous run first). Changes arrive on
     /// the stream until ``stop()``, which finishes it.
-    func start() -> AsyncStream<LibraryChange>
+    ///
+    /// `baseline` is the folder as it was when the library was loaded (see
+    /// `LibrarySync.loadWithSnapshot()`): the first look reports every file
+    /// changed since, so a change that landed between loading and watching
+    /// isn't missed. Without it, the first look reports only conflicts.
+    func start(since baseline: FolderSnapshot?) -> AsyncStream<LibraryChange>
 
     /// Stops watching and finishes the stream.
     func stop()
+}
+
+extension LibraryWatching {
+    /// Starts watching without a baseline: the first look reports only conflicts.
+    public func start() -> AsyncStream<LibraryChange> {
+        start(since: nil)
+    }
 }
 
 extension LibraryLocation {
@@ -42,7 +54,7 @@ public final class PollingLibraryWatcher: LibraryWatching {
         self.interval = interval
     }
 
-    public func start() -> AsyncStream<LibraryChange> {
+    public func start(since baseline: FolderSnapshot?) -> AsyncStream<LibraryChange> {
         stop()
         let (stream, continuation) = AsyncStream<LibraryChange>.makeStream()
         self.continuation = continuation
@@ -50,7 +62,7 @@ public final class PollingLibraryWatcher: LibraryWatching {
         let interval = interval
         task = Task.detached(priority: .utility) {
             var previous = FolderSnapshot.scan(root)
-            let initial = previous.initialChange
+            let initial = baseline.map { previous.changes(since: $0) } ?? previous.initialChange
             if !initial.isEmpty { continuation.yield(initial) }
             while !Task.isCancelled {
                 try? await Task.sleep(for: interval)

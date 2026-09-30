@@ -18,7 +18,8 @@ struct ImportCommand: RetireSubcommand {
             import with --profile <id>.
 
             Nothing is written unless you pass --apply. Then the files that change are backed up \
-            to backups/ first, and --undo restores them. New accounts and instruments, and \
+            to backups/ first, and --undo puts them back, leaving edits made after the import \
+            in place. New accounts and instruments, and \
             closing accounts whose values stop, happen only with --accept-new-accounts, \
             --accept-new-instruments and --accept-closings; otherwise those records are left \
             out. Records that differ from the library follow --on-conflict (default: the \
@@ -110,7 +111,8 @@ struct ImportCommand: RetireSubcommand {
     @Flag(help: "With --apply, import even if some formats are guesses (see “Formats to confirm”).")
     var acceptGuesses = false
 
-    @Flag(help: "Undo the latest import that hasn't been undone: restore its files from backups/.")
+    @Flag(help: ArgumentHelp("Undo the latest import that hasn't been undone, from its backup in backups/. Edits "
+                                 + "made after the import stay."))
     var undo = false
 
     @Option(help: ArgumentHelp("How many records and conflicts the preview lists.", valueName: "count"))
@@ -289,7 +291,8 @@ struct ImportCommand: RetireSubcommand {
     }
 
     /// Backs up the files the import changes, then writes them (and the
-    /// profile, if asked).
+    /// profile, if asked), and records in the backup what was written, so
+    /// `--undo` can leave later edits alone.
     private func write(_ result: ImportResult, session: ImportSession, loaded: LoadedLibrary,
                        context: CLIContext) throws -> ImportReport.Outcome {
         var outcome = ImportReport.Outcome(result: result)
@@ -302,13 +305,13 @@ struct ImportCommand: RetireSubcommand {
             throw CLIError("\(LibraryFile.importProfile(newProfile.id).path) already exists. Choose another ID, or "
                 + "update it with --profile \(newProfile.id) --save-profile \(newProfile.id).")
         }
+        var backup: Backup?
         if result.hasChanges {
-            var paths = result.changedMonths.map { LibraryFile.month($0).path }
-                + result.changedAccounts.map { LibraryFile.account($0).path }
-                + result.changedInstruments.map { LibraryFile.instrument($0).path }
+            // Exactly the files the save writes, and the profile.
+            var paths = result.library.files(changedFrom: loaded.library).map(\.path)
             if let newProfile { paths.append(LibraryFile.importProfile(newProfile.id).path) }
-            let backup = try loaded.folder.backup(paths: paths, label: Self.backupLabel, date: context.now())
-            outcome.backup = backup.path
+            backup = try loaded.folder.backup(paths: paths, label: Self.backupLabel, date: context.now())
+            outcome.backup = backup?.path
             let saved = try loaded.folder.save(result.library, previous: loaded.library)
             outcome.written = saved.written
             outcome.deleted = saved.deleted
@@ -317,6 +320,7 @@ struct ImportCommand: RetireSubcommand {
             outcome.savedProfile = try save(newProfile, in: loaded)
             if !outcome.written.contains(outcome.savedProfile!) { outcome.written.append(outcome.savedProfile!) }
         }
+        if let backup { try loaded.folder.recordResult(of: backup) }
         return outcome
     }
 
@@ -344,18 +348,31 @@ struct ImportCommand: RetireSubcommand {
         }
         let console = context.console
         let created = backup.created.formatted(.iso8601)
+        try loaded.checkWritable()
         if dryRun {
-            console.print("Would undo the import of \(created) by restoring \(backup.path):")
-            console.print(lines: backup.files.map { "  restore \($0)" } + backup.absentFiles.map { "  delete  \($0)" })
+            let plan = try folder.undo(backup, dryRun: true)
+            console.print("Would undo the import of \(created) from \(backup.path):")
+            console.print(lines: plan.written.map { "  restore \($0)" } + plan.deleted.map { "  delete  \($0)" })
+            console.print(lines: Self.undoNotes(plan, would: true))
             console.print("Dry run: nothing was written.")
             return
         }
-        try loaded.checkWritable()
-        let safety = try folder.backup(paths: backup.files + backup.absentFiles, label: Self.undoLabel,
-                                       date: context.now())
-        let restored = try folder.restore(backup: backup)
+        let safety = try folder.backup(paths: backup.paths, label: Self.undoLabel, date: context.now())
+        let undone = try folder.undo(backup)
         console.print("Undid the import of \(created) from \(backup.path).")
-        console.print(lines: restored.written.map { "  restored \($0)" } + restored.deleted.map { "  deleted  \($0)" })
+        console.print(lines: undone.written.map { "  restored \($0)" } + undone.deleted.map { "  deleted  \($0)" })
+        console.print(lines: Self.undoNotes(undone, would: false))
         console.print("The files as they were before undoing are in \(safety.path).")
+    }
+
+    /// What an undo left in place, or why it put the files back over later edits.
+    static func undoNotes(_ report: UndoReport, would: Bool) -> [String] {
+        if report.restoredWholesale {
+            return ["This backup doesn't record what the import wrote, so its files \(would ? "would be" : "were") "
+                + "put back as they were, over any later edits."]
+        }
+        guard !report.isComplete else { return [] }
+        return ["Changed after the import, so \(would ? "it would be" : "it was") left in place:"]
+            + report.keptChanges.map { "  \($0.summary)" }
     }
 }
