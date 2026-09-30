@@ -39,14 +39,14 @@ struct FanChart: View {
         Chart {
             ForEach(fan) { point in
                 AreaMark(x: .value("Date", point.date), yStart: .value("10th percentile", point.p10),
-                         yEnd: .value("90th percentile", point.p90), series: .value("Band", "10–90%"))
+                         yEnd: .value("90th percentile", point.p90), series: .value("Series", "10–90%"))
                     .foregroundStyle(Palette.accent.opacity(0.14))
                     .interpolationMethod(.monotone)
                 AreaMark(x: .value("Date", point.date), yStart: .value("25th percentile", point.p25),
-                         yEnd: .value("75th percentile", point.p75), series: .value("Band", "25–75%"))
+                         yEnd: .value("75th percentile", point.p75), series: .value("Series", "25–75%"))
                     .foregroundStyle(Palette.accent.opacity(0.28))
                     .interpolationMethod(.monotone)
-                LineMark(x: .value("Date", point.date), y: .value("Median", point.p50), series: .value("Line", "Median"))
+                LineMark(x: .value("Date", point.date), y: .value("Median", point.p50), series: .value("Series", "Median"))
                     .foregroundStyle(Palette.accent)
                     .lineStyle(StrokeStyle(lineWidth: Metrics.lineWidth, lineCap: .round, lineJoin: .round))
                     .interpolationMethod(.monotone)
@@ -63,7 +63,7 @@ struct FanChart: View {
             }
 
             ForEach(actual) { point in
-                LineMark(x: .value("Date", point.date), y: .value("Actual", point.value), series: .value("Line", "Actual"))
+                LineMark(x: .value("Date", point.date), y: .value("Actual", point.value), series: .value("Series", "Actual"))
                     .foregroundStyle(Palette.ink)
                     .lineStyle(StrokeStyle(lineWidth: Metrics.lineWidth, lineCap: .round, lineJoin: .round))
             }

@@ -51,7 +51,7 @@ struct IncomeStackChart: View {
             }
             ForEach(spending) { value in
                 LineMark(x: .value("Year", String(value.year)), y: .value("Spending", value.value),
-                         series: .value("Line", "Spending"))
+                         series: .value("Series", "Spending"))
                     .foregroundStyle(Palette.ink)
                     .lineStyle(StrokeStyle(lineWidth: Metrics.lineWidth, lineCap: .round, dash: [4, 3]))
             }

@@ -57,7 +57,7 @@ struct NetWorthChart: View {
                 ForEach(stacked) { series in
                     ForEach(series.points) { point in
                         AreaMark(x: .value("Date", point.date), y: .value("Value", point.value), stacking: .standard)
-                            .foregroundStyle(by: .value("Series", series.name))
+                            .foregroundStyle(by: .value("Group", series.name))
                             .interpolationMethod(.monotone)
                     }
                 }
