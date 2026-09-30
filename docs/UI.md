@@ -202,7 +202,7 @@ The flow that has to be fast. It opens as a full-screen sheet on iPhone and as t
 - **List.** Grouped: Cash, Investments, Crypto & gold, Pension, Property, Debts.
   - Each group shows its subtotal.
   - Each row shows a kind icon, the name, the institution, the value, a sparkline of the last 12 months, and a "stale" badge when needed.
-  - Swipe actions: *Update value* (a one-account valuation) and *Close*.
+  - Swipe actions: *Update value* (a one-account valuation) and *Close*. Saved as it is, *Update value* records the account as unchanged; an account with no earlier value needs a value typed, and an emptied field isn't zero (type 0).
   - Closed accounts sit in a collapsed "Closed (3)" section at the bottom.
 - **Account detail.**
   - The value and its change.

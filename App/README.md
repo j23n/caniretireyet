@@ -95,7 +95,7 @@ For a binding, `@Bindable var navigation = navigation` inside `body`.
 
 ### PriceStore — prices, FX and inflation
 
-`fetch(for:on:refresh:) async -> CheckInPrices` (never throws; failures are entries with a readable reason), `testFetch(_ instrument:baseCurrency:on:) async -> PriceListEntry`, `isFetching`, `canFetch` (false in previews), `lastResult`. API keys come from the Keychain (`KeychainCredentials`, set in Settings).
+`fetch(for:on:refresh:) async -> CheckInPrices` (never throws; failures are entries with a readable reason), `fetch(for:on:including:refresh:)` (also instruments the library doesn't hold yet, e.g. a position added in a check-in), `testFetch(_ instrument:baseCurrency:on:) async -> PriceListEntry`, `isFetching`, `canFetch` (false in previews), `lastResult`. API keys come from the Keychain (`KeychainCredentials`, set in Settings).
 
 ### CheckInStore — the check-in in progress
 
