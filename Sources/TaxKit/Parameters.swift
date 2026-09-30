@@ -87,7 +87,9 @@ public struct ParameterSet: Hashable, Sendable {
 
     /// These parameters with a plan's overrides applied. Keys are
     /// system-prefixed dotted paths (`it.irpef.rates`); keys for other
-    /// systems are ignored. Missing objects along a path are created.
+    /// systems are ignored. Missing objects along a path are created. Inside
+    /// a list, a numeric component replaces that element
+    /// (`it.irpef.brackets.1.rate`); other components leave the list alone.
     public func applying(overrides: OptionValues) -> ParameterSet {
         let prefix = system + "."
         var tree = values
@@ -101,6 +103,12 @@ public struct ParameterSet: Hashable, Sendable {
 
     private static func setting(_ value: OptionValue, at path: ArraySlice<String>, in tree: OptionValue) -> OptionValue {
         guard let key = path.first else { return value }
+        if case .list(var list) = tree {
+            // Only an existing element can be replaced; anything else leaves the list alone.
+            guard let index = Int(key), list.indices.contains(index) else { return tree }
+            list[index] = setting(value, at: path.dropFirst(), in: list[index])
+            return .list(list)
+        }
         var object = tree.objectValue ?? [:]
         object[key] = setting(value, at: path.dropFirst(), in: object[key] ?? .object([:]))
         return .object(object)

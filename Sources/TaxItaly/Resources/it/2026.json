@@ -1,0 +1,308 @@
+{
+  "year": 2026,
+  "system": "it",
+  "checked": "2026-09",
+  "note": "Italian tax parameters for 2026, in nominal euros of 2026. Every value cites its source; objects flagged verify need confirming against a ruling or an official text. See docs/tax/IT.md.",
+  "irpef": {
+    "brackets": [
+      { "upTo": "28000", "rate": "0.23" },
+      { "upTo": "50000", "rate": "0.33" },
+      { "rate": "0.43" }
+    ],
+    "source": "L. 199/2025 (Legge di Bilancio 2026), art. 1 c. 1-2; TUIR art. 11. MEF, Principali misure della legge di bilancio 2026: https://www.mef.gov.it/focus/Principali-misure-della-legge-di-bilancio-2026/"
+  },
+  "detrazioni": {
+    "employment": {
+      "segments": [
+        { "upTo": "15000", "base": "1955" },
+        { "upTo": "28000", "base": "1910", "variable": "1190" },
+        { "upTo": "50000", "base": "0", "variable": "1910" }
+      ],
+      "bonuses": [ { "above": "25000", "upTo": "35000", "amount": "65" } ],
+      "source": "TUIR art. 13 c. 1 and 1.1 (L. 207/2024 art. 1 c. 2). Agenzia delle Entrate, circolare 4/E/2025: https://www.agenziaentrate.gov.it/portale/documents/20143/8410823/Circolare+lavoro+dipendente+LB2025+DD+IRPEF+n.+4+del+16+maggio+2025.pdf/36979eaa-9fc5-a4ec-a7aa-136497c53f91"
+    },
+    "pension": {
+      "segments": [
+        { "upTo": "8500", "base": "1955" },
+        { "upTo": "28000", "base": "700", "variable": "1255" },
+        { "upTo": "50000", "base": "0", "variable": "700" }
+      ],
+      "bonuses": [ { "above": "25000", "upTo": "29000", "amount": "50" } ],
+      "source": "TUIR art. 13 c. 3 and 3-bis. INPS, Legge di Bilancio 2026, le novita sulle pensioni: https://www.inps.it/it/it/inps-comunica/notizie/dettaglio-news-page.news.2026.02.legge-di-bilancio-2026-le-novit-sulle-pensioni.html"
+    },
+    "selfEmployment": {
+      "segments": [
+        { "upTo": "5500", "base": "1265" },
+        { "upTo": "28000", "base": "500", "variable": "765" },
+        { "upTo": "50000", "base": "0", "variable": "500" }
+      ],
+      "bonuses": [ { "above": "25000", "upTo": "29000", "amount": "50" } ],
+      "source": "TUIR art. 13 c. 5 and 5-bis (L. 234/2021 art. 1 c. 2)"
+    }
+  },
+  "cuneo": {
+    "exemptSum": {
+      "incomeLimit": "20000",
+      "bands": [
+        { "upTo": "8500", "rate": "0.071" },
+        { "upTo": "15000", "rate": "0.053" },
+        { "rate": "0.048" }
+      ]
+    },
+    "extraDetrazione": {
+      "segments": [
+        { "upTo": "20000", "base": "0" },
+        { "upTo": "32000", "base": "1000" },
+        { "upTo": "40000", "base": "0", "variable": "1000" }
+      ]
+    },
+    "countsExemptImpatriatiIncome": {
+      "value": true,
+      "note": "The exempt share of impatriati income counts toward the cuneo's income limits and the tax-free sum's base.",
+      "source": "L. 207/2024 art. 1 c. 5; Agenzia delle Entrate, circolare 4/E/2025",
+      "verify": true
+    },
+    "source": "L. 207/2024 art. 1 c. 4-9, made permanent. Agenzia delle Entrate, circolare 4/E/2025: https://www.agenziaentrate.gov.it/portale/documents/20143/8410823/Circolare+lavoro+dipendente+LB2025+DD+IRPEF+n.+4+del+16+maggio+2025.pdf/36979eaa-9fc5-a4ec-a7aa-136497c53f91"
+  },
+  "trattamentoIntegrativo": {
+    "amount": "1200",
+    "incomeLimit": "15000",
+    "detrazioneReduction": "75",
+    "note": "Paid to employees with total income up to 15,000 whose gross IRPEF exceeds the employment detrazione less 75 euros. The case between 15,000 and 28,000 (other detrazioni above gross IRPEF) isn't modelled.",
+    "source": "DL 3/2020 art. 1 (as amended by L. 234/2021 art. 1 c. 3); Agenzia delle Entrate, circolare 4/E/2025"
+  },
+  "addizionali": {
+    "onlyWhenIrpefIsDue": true,
+    "note": "The rates are residence options (addizionaleRegionale, addizionaleComunale) and apply to IRPEF taxable income.",
+    "source": "D.Lgs. 446/1997 art. 50 c. 2 (regionale); D.Lgs. 360/1998 art. 1 c. 4 (comunale)"
+  },
+  "inps": {
+    "employee": {
+      "rate": "0.0919",
+      "pensionCreditRate": "0.33",
+      "source": "L. 335/1995 art. 1 c. 9 and art. 2 c. 18; INPS rates for private-sector employees (IVS 33%, of which 9.19% withheld from the employee)"
+    },
+    "gestioneSeparata": {
+      "rate": "0.2607",
+      "pensionCreditRate": "0.25",
+      "minimumBase": "18808",
+      "source": "INPS, Gestione Separata: le aliquote contributive per il 2026: https://www.inps.it/it/it/inps-comunica/notizie/dettaglio-news-page.news.2026.02.gestione-separata-le-aliquote-contributive-per-il-2026.html"
+    },
+    "maximumBase": {
+      "value": "122295",
+      "note": "The massimale contributivo for everyone insured from 1996, employees included.",
+      "source": "L. 335/1995 art. 2 c. 18; INPS, Gestione Separata: le aliquote contributive per il 2026: https://www.inps.it/it/it/inps-comunica/notizie/dettaglio-news-page.news.2026.02.gestione-separata-le-aliquote-contributive-per-il-2026.html"
+    }
+  },
+  "tfr": {
+    "accrualRate": "0.0691",
+    "revaluation": { "fixedRate": "0.015", "inflationShare": "0.75" },
+    "revaluationTaxRate": "0.17",
+    "payoutFallbackRate": "0.23",
+    "note": "Accrual: gross salary / 13.5 less the 0.5% contribution to INPS. At payout the TFR is taxed separately at the average IRPEF rate of the plan's employee years, or at the first bracket's rate when there are none.",
+    "source": "Codice civile art. 2120; L. 297/1982 art. 3; L. 190/2014 art. 1 c. 623 (17% on the revaluation); TUIR art. 17 c. 1 lett. a and art. 19 (separate taxation)"
+  },
+  "forfettario": {
+    "rate": "0.15",
+    "startupRate": "0.05",
+    "startupYears": 5,
+    "revenueLimit": "85000",
+    "immediateExitLimit": "100000",
+    "employmentIncomeLimit": {
+      "value": "35000",
+      "changes": [ { "from": 2027, "value": "30000" } ],
+      "note": "Prior-year employment and pension income. 35,000 in 2025 and 2026; 30,000 from 2027 unless extended again.",
+      "source": "L. 190/2014 art. 1 c. 57 lett. d-ter; L. 207/2024; L. 199/2025",
+      "verify": true
+    },
+    "source": "L. 190/2014 art. 1 c. 54-89 (c. 64-65 for the rates); L. 197/2022 art. 1 c. 54 (85,000, and the immediate exit above 100,000)"
+  },
+  "impatriati2024": {
+    "exemptShare": "0.5",
+    "minorChildExemptShare": "0.6",
+    "incomeCap": "600000",
+    "years": 5,
+    "firstMoveYear": 2024,
+    "minimumStayYears": 4,
+    "forfettarioOnArrival": {
+      "rulesOutImpatriati": false,
+      "note": "No ruling on the 2024 regime yet: the plan gets a warning, and the exemption is kept.",
+      "source": "No ruling yet (docs/tax/IT.md); by analogy with the 2015 regime: https://www.fiscooggi.it/portale/-/regime-forfetario-incompatibile-con-quello-sui-lavoratori-impatriati",
+      "verify": true
+    },
+    "source": "D.Lgs. 209/2023 art. 5. Agenzia delle Entrate, Lavoratori impatriati: https://www.agenziaentrate.gov.it/portale/lavoratori-impatriati-209-2023/infogen-lavoratori-impatriati-209-2023-cittadini"
+  },
+  "impatriati2015": {
+    "exemptShare": "0.7",
+    "southExemptShare": "0.9",
+    "years": 5,
+    "lastMoveYear": 2023,
+    "reformFromMoveYear": 2020,
+    "preReformExemptShare": "0.5",
+    "minimumStayYears": 2,
+    "extension": {
+      "years": 5,
+      "exemptShare": "0.5",
+      "threeMinorChildrenExemptShare": "0.9",
+      "fromMoveYear": 2020
+    },
+    "forfettarioOnArrival": {
+      "rulesOutImpatriati": true,
+      "note": "Choosing forfettario in the year of the move rules out the 2015 regime in later years.",
+      "source": "Agenzia delle Entrate on the 2015 regime. FiscoOggi, Regime forfetario incompatibile con quello sui lavoratori impatriati: https://www.fiscooggi.it/portale/-/regime-forfetario-incompatibile-con-quello-sui-lavoratori-impatriati"
+    },
+    "source": "D.Lgs. 147/2015 art. 16 (as amended by DL 34/2019 art. 5); Agenzia delle Entrate, circolare 33/E/2020: https://www.agenziaentrate.gov.it/portale/documents/20143/2957155/Circolare+n.+33+del+28122020.pdf/e22ac901-2a2c-e580-5516-9b2725a760b3"
+  },
+  "pensionFund": {
+    "deductionLimit": "5300",
+    "growthTaxRate": "0.20",
+    "minimumMembershipYears": 5,
+    "payoutTax": { "rate": "0.15", "reductionPerYear": "0.003", "reductionAfterYears": 15, "floor": "0.09" },
+    "lumpSum": { "maxShare": "0.5", "annuityShare": "0.7", "smallAnnuityAssegnoSocialeShare": "0.5" },
+    "rita": { "yearsBeforeOldAge": 5, "contributionYears": 20, "extendedYearsBeforeOldAge": 10, "extendedYearsWithoutWork": 2 },
+    "newPayoutOptions": {
+      "modelled": false,
+      "note": "Fixed-term annuities, free withdrawals and instalments over 5+ years since July 2026: details and tax rates still to confirm.",
+      "source": "Ministero del Lavoro: https://www.lavoro.gov.it/notizie/pagine/previdenza-complementare-le-novita-della-legge-di-bilancio-2026-vigore-dal-primo-luglio-2026",
+      "verify": true
+    },
+    "source": "D.Lgs. 252/2005 art. 8 c. 4, art. 11 c. 3-6 and 4-bis (RITA), art. 17; L. 190/2014 art. 1 c. 621 (20%); L. 199/2025 (5,300 from 2026). Ministero del Lavoro: https://www.lavoro.gov.it/notizie/pagine/previdenza-complementare-le-novita-della-legge-di-bilancio-2026-vigore-dal-primo-luglio-2026"
+  },
+  "investments": {
+    "standard": {
+      "rate": "0.26",
+      "note": "ETFs and funds (UCITS), shares, ETCs, other securities, and interest on cash.",
+      "source": "DL 66/2014 art. 3 c. 1; TUIR art. 44 and 67"
+    },
+    "governmentBonds": {
+      "rate": "0.125",
+      "note": "Italian and white-list government bonds, and the government-bond share of funds and ETFs, pro rata.",
+      "source": "DPR 601/1973 art. 31; DL 138/2011 art. 2 c. 6; DM 4 settembre 1996 (white list)"
+    },
+    "crypto": {
+      "rate": "0.33",
+      "stablecoinRate": "0.26",
+      "source": "L. 207/2024 art. 1 c. 24 (33% from 2026); L. 199/2025 (26% for euro e-money tokens). FiscoOggi: https://www.fiscooggi.it/portale/-/bilancio-2026-aliquota-pi%C3%B9-leggera-per-le-criptoattivit%C3%A0-in-euro"
+    },
+    "physicalGold": {
+      "rate": "0.26",
+      "undocumentedCostGainShare": "1",
+      "note": "Without a documented purchase cost, the whole sale price is the gain (since 2024).",
+      "source": "L. 7/2000 art. 4; TUIR art. 67 c. 1 lett. c-ter and art. 68 (as amended). The exact amending provision is to be confirmed.",
+      "verify": true
+    },
+    "realEstate": {
+      "rate": "0",
+      "note": "Gains on property held for more than 5 years aren't taxed; shorter holdings aren't modelled.",
+      "source": "TUIR art. 67 c. 1 lett. b"
+    }
+  },
+  "wealthTax": {
+    "financial": {
+      "rate": "0.002",
+      "blacklistRate": "0.004",
+      "note": "Bollo on investments with Italian intermediaries, IVAFE on those held abroad.",
+      "source": "DPR 642/1972, Tariffa parte I art. 13 c. 2-ter (bollo); DL 201/2011 art. 19 c. 18-20 (IVAFE); L. 213/2023 art. 1 c. 91 (0.4% in blacklisted states)"
+    },
+    "crypto": {
+      "rate": "0.002",
+      "source": "L. 197/2022 art. 1 c. 144-147 (imposta sul valore delle cripto-attivita; IVAFE on crypto held abroad)"
+    },
+    "currentAccount": {
+      "amount": "34.20",
+      "averageBalanceAbove": "5000",
+      "source": "DPR 642/1972, Tariffa parte I art. 13 c. 2-bis lett. a and nota 3-bis; DL 201/2011 art. 19 c. 20"
+    },
+    "propertyAbroad": {
+      "rate": "0.0106",
+      "minimumDue": "200",
+      "source": "DL 201/2011 art. 19 c. 13-17 (IVIE); L. 213/2023 art. 1 c. 91 (1.06%)"
+    },
+    "blacklist": {
+      "countries": [
+        "AD", "AE", "AG", "AI", "AW", "BB", "BH", "BM", "BN", "BS", "BZ", "CK", "CR", "DJ", "DM", "EC",
+        "GD", "GG", "GI", "HK", "IM", "JE", "KN", "KY", "LB", "LC", "LI", "LR", "MC", "MH", "MO", "MS",
+        "MU", "MV", "MY", "NR", "NU", "OM", "PA", "PF", "PH", "SC", "SG", "TC", "TO", "TV", "TW", "UY",
+        "VC", "VG", "VU", "WS"
+      ],
+      "note": "ISO 3166-1 alpha-2 codes of the states and territories with a privileged tax regime for individuals.",
+      "source": "DM 4 maggio 1999 (as amended), referred to by DL 201/2011 art. 19 c. 20",
+      "verify": true
+    }
+  },
+  "inheritance": {
+    "relationships": {
+      "spouse": { "rate": "0.04", "allowance": "1000000" },
+      "lineal": { "rate": "0.04", "allowance": "1000000" },
+      "sibling": { "rate": "0.06", "allowance": "100000" },
+      "relative": { "rate": "0.06" },
+      "other": { "rate": "0.08" }
+    },
+    "defaultRelationship": "lineal",
+    "note": "Per heir. lineal: parents, children and grandchildren; relative: other relatives up to the fourth degree and in-laws. Italian government bonds are exempt (not modelled).",
+    "source": "D.Lgs. 346/1990 art. 7 c. 1-2-bis (as amended by DL 262/2006 art. 2 c. 48-49); D.Lgs. 139/2024"
+  },
+  "inpsPension": {
+    "coefficients": {
+      "ages": {
+        "57": "0.04204", "58": "0.04308", "59": "0.04419", "60": "0.04536", "61": "0.04661",
+        "62": "0.04795", "63": "0.04936", "64": "0.05088", "65": "0.05250", "66": "0.05423",
+        "67": "0.05608", "68": "0.05808", "69": "0.06024", "70": "0.06258", "71": "0.06510"
+      },
+      "lastYear": 2026,
+      "note": "The 2025-2026 conversion coefficients. Between whole ages, a twelfth of the difference per month; above 71, the coefficient for 71.",
+      "source": "L. 335/1995 art. 1 c. 6 and table A; Decreto direttoriale 20/11/2024: https://www.lavoro.gov.it/documenti-e-norme/normativa/decreto-direttoriale-20112024-coefficienti-trasformazione.pdf"
+    },
+    "instalments": {
+      "value": 13,
+      "source": "INPS: pensions are paid in 13 monthly instalments"
+    },
+    "routes": {
+      "anticipata": {
+        "age": 64,
+        "contributionYears": 20,
+        "assegnoSocialeMultiple": "3",
+        "motherMultiples": [ "2.8", "2.6" ],
+        "windowMonths": 3,
+        "capMinimumPensionMultiple": "5"
+      },
+      "vecchiaia": { "age": 67, "contributionYears": 20, "assegnoSocialeMultiple": "1", "windowMonths": 0 },
+      "contributiva": { "age": 71, "contributionYears": 5, "assegnoSocialeMultiple": "0", "windowMonths": 0 },
+      "source": "DL 201/2011 art. 24 c. 6, 7 and 11 (as amended by L. 213/2023, L. 207/2024 and L. 199/2025). INPS, Legge di Bilancio 2026, le novita sulle pensioni: https://www.inps.it/it/it/inps-comunica/notizie/dettaglio-news-page.news.2026.02.legge-di-bilancio-2026-le-novit-sulle-pensioni.html"
+    },
+    "ageIncreaseMonths": {
+      "value": "0",
+      "changes": [ { "from": 2027, "value": "1" }, { "from": 2028, "value": "3" } ],
+      "note": "Added to every route's age. Later increases follow life expectancy, a plan assumption (option ageIncreaseMonthsPerYear).",
+      "source": "L. 199/2025. INPS, Legge di Bilancio 2026, le novita sulle pensioni: https://www.inps.it/it/it/inps-comunica/notizie/dettaglio-news-page.news.2026.02.legge-di-bilancio-2026-le-novit-sulle-pensioni.html"
+    },
+    "anticipataContributionIncreaseMonths": {
+      "value": "0",
+      "changes": [ { "from": 2027, "value": "1" }, { "from": 2028, "value": "3" } ],
+      "source": "L. 199/2025. INPS, Legge di Bilancio 2026, le novita sulle pensioni: https://www.inps.it/it/it/inps-comunica/notizie/dettaglio-news-page.news.2026.02.legge-di-bilancio-2026-le-novit-sulle-pensioni.html"
+    },
+    "assegnoSociale": {
+      "monthly": "546.24",
+      "source": "INPS, Legge di Bilancio 2026, le novita sulle pensioni: https://www.inps.it/it/it/inps-comunica/notizie/dettaglio-news-page.news.2026.02.legge-di-bilancio-2026-le-novit-sulle-pensioni.html"
+    },
+    "minimumPension": {
+      "monthly": "611.85",
+      "source": "INPS, Legge di Bilancio 2026, le novita sulle pensioni: https://www.inps.it/it/it/inps-comunica/notizie/dettaglio-news-page.news.2026.02.legge-di-bilancio-2026-le-novit-sulle-pensioni.html"
+    },
+    "indexation": {
+      "brackets": [
+        { "upTo": "4", "rate": "1" },
+        { "upTo": "5", "rate": "0.9" },
+        { "rate": "0.75" }
+      ],
+      "note": "The share of inflation passed on, by tier of the monthly pension in multiples of the minimum pension.",
+      "source": "L. 388/2000 art. 69 c. 1. INPS, Legge di Bilancio 2026, le novita sulle pensioni: https://www.inps.it/it/it/inps-comunica/notizie/dettaglio-news-page.news.2026.02.legge-di-bilancio-2026-le-novit-sulle-pensioni.html"
+    },
+    "foreignPensionCountsTowardMinimums": {
+      "value": false,
+      "note": "Whether a foreign pension counts toward the 1x and 3x minimum amounts is unclear; the planner doesn't count it.",
+      "source": "docs/tax/IT.md, INPS pension, point 6 (no ruling found)",
+      "verify": true
+    }
+  }
+}

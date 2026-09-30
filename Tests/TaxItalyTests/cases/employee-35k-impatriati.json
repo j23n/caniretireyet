@@ -1,0 +1,54 @@
+{
+  "name": "Employee, 35,000.00 gross salary, impatriati (2024 regime, 50%)",
+  "year": 2026,
+  "input": {
+    "age": 40,
+    "systemOptions": {
+      "addizionaleRegionale": "0.0173",
+      "addizionaleComunale": "0.008"
+    },
+    "overlays": [
+      {
+        "regime": "it.impatriati-2024",
+        "options": {
+          "movedIn": 2025,
+          "minorChild": false
+        }
+      }
+    ],
+    "work": [
+      {
+        "phaseID": "job",
+        "kind": "employee",
+        "regime": "it.employee",
+        "gross": 35000
+      }
+    ]
+  },
+  "expected": {
+    "lines": {},
+    "contributions": {
+      "it.inps.employee": 3216.5
+    },
+    "accruals": {
+      "pensionScheme:it.inps": 11550.0,
+      "wrapper:it.tfr": 2418.5
+    },
+    "totalTax": 0,
+    "netIncome": 31783.5
+  },
+  "workings": [
+    "INPS: 9.19% × 35,000.00 = 3,216.50",
+    "Employment income: 35,000.00 − 3,216.50 = 31,783.50",
+    "Impatriati (2024 regime, moved in 2025): 50% of 31,783.50 exempt = 15,891.75",
+    "Total income R = taxable income = 15,891.75",
+    "Gross IRPEF on 15,891.75: 23% × 15,891.75 = 3,655.10 = 3,655.10",
+    "Employment detrazione: 1,910 + 1,190 × (28,000 − 15,891.75) / 13,000 = 3,018.37",
+    "Cuneo limits count the exempt impatriati income: 15,891.75 + 15,891.75 = 31,783.50",
+    "Cuneo: income for its limits 31,783.50 between 20,000 and 32,000, so an extra detrazione of 1,000.00",
+    "Net IRPEF: 3,655.10 − 3,018.37 − 1,000.00 = 0.00",
+    "Addizionali: none, because no IRPEF is due",
+    "INPS montante credit: 33% × 35,000.00 = 11,550.00; TFR accrual: 6.91% × 35,000.00 = 2,418.50",
+    "Net income: 35,000.00 − 3,216.50 − (0.00 + 0.00 + 0.00) + 0.00 + 0.00 = 31,783.50"
+  ]
+}

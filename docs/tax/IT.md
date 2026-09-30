@@ -38,7 +38,7 @@ The values here are for 2026 and were checked in September 2026 (sources at the 
 | `it.tfr` | TFR left with the employer | tax-deferred |
 | `it.pir` | PIR (later) | tax-free after 5 years |
 
-**Pension scheme:** `it.inps`, the contributory system.
+**Pension schemes:** `it.inps`, the contributory system, and the shared `fixed` scheme (an amount from an age) for foreign and other pensions.
 
 **Validation:**
 
@@ -47,7 +47,7 @@ The values here are for 2026 and were checked in September 2026 (sources at the 
   - prior-year employment income at most €35,000 (€30,000 from 2027 unless extended);
   - above €100,000, out immediately.
 
-  When a plan crosses a limit, the phase continues under `it.professional` and a warning explains why.
+  When a plan crosses a limit, the phase continues under `it.professional` and a warning explains why. These checks need the plan's amounts, so they run year by year in `prepare`; `validate(_:years:parameters:)` collects them over a plan's years.
 - The 5% start-up rate applies only in the first 5 years after `startedIn`.
 - Impatriati covers only its own years, and never forfettario income. Choosing forfettario on arrival may rule it out entirely (see below); this is a warning, since there is no ruling on the 2024 regime.
 
@@ -221,6 +221,7 @@ For the planner, the account's country only matters for the blacklist rate. It m
   - from anyone else: 8%;
   - Italian government bonds are exempt.
 - An inheritance from abroad may also be taxed in the other country.
+- **The relationship is part of the event's `kind`.** `inheritance` alone means an inheritance from a parent (the parameter file's `defaultRelationship`, `lineal`). `inheritance.spouse`, `inheritance.lineal` (parents, children, grandchildren), `inheritance.sibling`, `inheritance.relative` and `inheritance.other` choose another. An unknown relationship is taxed as the default, with a warning. Other windfalls aren't taxed.
 
 ## Simplified in the MVP
 
@@ -228,16 +229,37 @@ For the planner, the account's country only matters for the blacklist rate. It m
 - Other deductions and credits go in as one `otherTaxCredits` amount.
 - From 2027, a new consolidated tax code (TUIR) comes into force, and a new budget law will pass. Both need a `2027.json`.
 
+## How the rules are modelled
+
+Choices the law leaves open, or that an estimate has to make. They're all in the code and the parameter file, and tested.
+
+- **Amounts in today's euros.** Parameter files hold nominal euros of their tax year. Up to that year, and in every year when the plan turns `indexThresholds` off, thresholds and fixed amounts shrink in today's euros as prices rise (fiscal drag). After it, with indexing on, they keep their value. INPS amounts (maximum and minimum bases, assegno sociale, minimum pension) are indexed by law, so they always keep their value.
+- **Detrazioni.** The formulas are applied to reddito complessivo (R), before deductions. The employment detrazione and the cuneo's extra detrazione are pro-rated by the share of the year worked; the pension detrazione applies to the rest of the year. The self-employment detrazione can't be combined with those two, so the larger applies.
+- **Trattamento integrativo.** Not in the list above, but part of the law: €1,200 a year for employees with R up to €15,000 whose gross IRPEF exceeds the employment detrazione less €75. Without it, IRPEF would drop by €1,145 as income crosses €15,000. The case between €15,000 and €28,000 (when other detrazioni exceed gross IRPEF) isn't modelled.
+- **Cuneo and impatriati.** The exempt share of impatriati income counts toward the cuneo's income limits and toward the tax-free sum's base (L. 207/2024 c. 5, *verify*), so impatriati rarely get the cuneo.
+- **Addizionali** are due only when some IRPEF is due after detrazioni.
+- **INPS for employees.** 9.19% of gross salary up to the maximum base (€122,295), which also caps the 33% credited to the montante. The extra 1% on salary above the first pensionable bracket isn't modelled. Gestione Separata credits a full year only on a base of at least the minimum; below it, whole months pro rata.
+- **Forfettario.** The €35,000 limit counts last year's employment income only while the job goes on (not after it ended), plus pensions. A phase that loses forfettario is taxed as `it.professional`; it can come back once last year's revenue is within the limit again. Forfettario income never counts toward IRPEF, so pension-fund contributions paid from it aren't deducted.
+- **Impatriati.** The 2015 regime is 50% for moves before 2020 and 70% (90% in the South) from 2020; its extension needs a move from 2020 (the paid extension for earlier moves isn't modelled). With both regimes chosen, validation reports an error. Choosing forfettario in the year of the move rules out the 2015 regime in later years; for the 2024 regime it's only a warning (`forfettarioOnArrival` in the parameter file).
+- **INPS pension.** Ages are in whole months: a claim starts on the first of the month after the requirement is met (plus the anticipata's 3-month wait), with the conversion coefficient interpolated by month. A claim option's `age` is the age during the calendar year the pension starts, and its first year is paid pro rata. The minimum amounts are tested on the amount at the start, in today's euros. Claim options are listed from the plan's first year up to 71 (or later, if the ages have risen past it). Partial indexation above 4× the minimum pension appears as small yearly changes in the option's amounts, assuming 2% inflation (option `indexationInflation`). `oldAgePensionAge` gives the planner the vecchiaia age in whole years.
+- **Pension fund.** Contributions are deducted up to €5,300, and only from IRPEF income. The tax state tracks, over the plan's years, the contributions deducted, those that weren't, and the TFR paid in; at payout, the share of contributions taxed is (deducted + TFR) / everything paid in (all of it when the plan has paid nothing in yet). A payout's taxable part is that share of its `costBasis` (the whole payout when the planner doesn't pass one), at 15% less 0.3 points per year of membership beyond 15 (`membershipYears`, or the plan's years with contributions as a fallback). A lump sum above half the fund gets a warning, unless 70% of the fund as an annuity would be under half the assegno sociale; the annuity is estimated with the INPS conversion coefficient for the age. Access: from the vecchiaia age after 5 years of membership, or through RITA (route `it.rita`).
+- **TFR.** Accrues 6.91% of gross salary (1/13.5 less the 0.5% INPS contribution) to `it.tfr` or, with the option `tfr: pensionFund`, to the pension fund. The wrapper declares its revaluation (1.5% + 75% of inflation) and the 17% tax on it. At payout the accrued part (`costBasis`) is taxed at the average IRPEF rate (net IRPEF ÷ taxable income) of the plan's employee years, or at 23% when there are none. It can be drawn once work stops.
+- **Investments.** Gains are taxed per sale, never below zero. A sale without a documented cost is taxed on the whole price (physical gold by the law; anything else as a conservative default); cash has no capital gains. Funds with a government-bond share are split pro rata by the planner into `governmentBond` and their own category. Gains on property aren't taxed (held over 5 years).
+- **Wealth taxes** are charged on year-end values of ordinary accounts: 0.2% on securities (0.4% for accounts in a blacklisted country, from the parameter file's list, *verify*), 0.2% on crypto, €34.20 on each current-account balance above €5,000 (year-end standing in for the yearly average), IVIE on property abroad above the €200 minimum, nothing on gold, the pension fund or the TFR.
+- **Other wrappers.** The generic `taxable` and `taxFree` work like `it.ordinary` and a tax-free account; payouts of `taxDeferred` and unknown wrappers are taxed at the marginal IRPEF rate plus addizionali, with a warning.
+- **Cliffs.** `cliffs(in:)` lists every point where a tax jumps as income rises: the detrazioni's jumps (at €15,000 and the €65 and €50 bands), the cuneo's limits and bands, the trattamento integrativo, the addizionali starting, forfettario's immediate exit, and the fixed wealth taxes. The property tests check that taxes fall, and net income falls, nowhere else.
+
 ## Reference cases
 
-These live in `Tests/TaxItalyTests/cases/`:
+These live in `Tests/TaxItalyTests/cases/`, one JSON file per case: the inputs, the expected itemised result, and the arithmetic in `workings`. Adding a case needs no code.
 
-- an employee's net salary, with and without impatriati;
-- net income under forfettario at 5% and 15%, and under ordinario with and without impatriati, for the same revenue;
-- IRPEF on an INPS pension around the €8,500, €28,000 and €50,000 thresholds;
-- an INPS pension from a given montante at 64, 67 and 71, including the 1× and 3× tests;
-- tax on selling ETFs, crypto and gold (with and without a documented purchase cost);
-- pension-fund payout tax after 15, 25 and 35 years of membership.
+- an employee's net salary at €20,000, €35,000 and €65,000, with and without impatriati (and with a minor child at €65,000);
+- net income under forfettario at 5% and 15%, and under ordinario with and without impatriati, for the same €70,000 revenue and €3,000 costs;
+- IRPEF on an INPS pension of €8,500, €28,000 and €50,000;
+- an INPS pension from a given montante at 64, 67 and 71, including the 1× and 3× tests passing and failing;
+- tax on selling ETFs, crypto (and a euro stablecoin), gold with and without a documented purchase cost, and a bond fund with a government-bond share, with gross-ups;
+- pension-fund payout tax after 15, 25 and 35 years of membership, and with contributions that weren't deducted;
+- wealth taxes on a mixed portfolio; inheritance tax by relationship; the TFR paid out.
 
 ## Sources (checked September 2026)
 

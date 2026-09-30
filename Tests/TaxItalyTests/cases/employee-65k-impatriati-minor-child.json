@@ -1,0 +1,58 @@
+{
+  "name": "Employee, 65,000.00 gross salary, impatriati with a minor child (60%)",
+  "year": 2026,
+  "input": {
+    "age": 40,
+    "systemOptions": {
+      "addizionaleRegionale": "0.0173",
+      "addizionaleComunale": "0.008"
+    },
+    "overlays": [
+      {
+        "regime": "it.impatriati-2024",
+        "options": {
+          "movedIn": 2025,
+          "minorChild": true
+        }
+      }
+    ],
+    "work": [
+      {
+        "phaseID": "job",
+        "kind": "employee",
+        "regime": "it.employee",
+        "gross": 65000
+      }
+    ]
+  },
+  "expected": {
+    "lines": {
+      "it.irpef": 3118.639077,
+      "it.addizionaleRegionale": 408.46338,
+      "it.addizionaleComunale": 188.8848
+    },
+    "contributions": {
+      "it.inps.employee": 5973.5
+    },
+    "accruals": {
+      "pensionScheme:it.inps": 21450.0,
+      "wrapper:it.tfr": 4491.5
+    },
+    "totalTax": 3715.987257,
+    "netIncome": 55310.512743
+  },
+  "workings": [
+    "INPS: 9.19% × 65,000.00 = 5,973.50",
+    "Employment income: 65,000.00 − 5,973.50 = 59,026.50",
+    "Impatriati (2024 regime, moved in 2025): 60% of 59,026.50 exempt = 35,415.90",
+    "Total income R = taxable income = 23,610.60",
+    "Gross IRPEF on 23,610.60: 23% × 23,610.60 = 5,430.44 = 5,430.44",
+    "Employment detrazione: 1,910 + 1,190 × (28,000 − 23,610.60) / 13,000 = 2,311.80",
+    "Cuneo limits count the exempt impatriati income: 23,610.60 + 35,415.90 = 59,026.50",
+    "Cuneo: none (income for its limits 59,026.50 > 40,000)",
+    "Net IRPEF: 5,430.44 − 2,311.80 − 0.00 = 3,118.64",
+    "Addizionale regionale: 1.73% × 23,610.60 = 408.46; comunale: 0.8% × 23,610.60 = 188.88",
+    "INPS montante credit: 33% × 65,000.00 = 21,450.00; TFR accrual: 6.91% × 65,000.00 = 4,491.50",
+    "Net income: 65,000.00 − 5,973.50 − (3,118.64 + 408.46 + 188.88) + 0.00 + 0.00 = 55,310.51"
+  ]
+}

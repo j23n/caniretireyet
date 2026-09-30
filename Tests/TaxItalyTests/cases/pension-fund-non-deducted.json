@@ -1,0 +1,39 @@
+{
+  "name": "Pension-fund payout with contributions that weren't deducted",
+  "year": 2026,
+  "input": {
+    "age": 60,
+    "systemOptions": {
+      "addizionaleRegionale": "0.0173",
+      "addizionaleComunale": "0.008"
+    },
+    "state": {
+      "it.pensionFund.deducted": 15000,
+      "it.pensionFund.nonDeducted": 5000
+    },
+    "variable": {
+      "payouts": [
+        {
+          "wrapper": "it.pensionFund",
+          "amount": 30000,
+          "form": "earlyAccess",
+          "costBasis": 18000,
+          "membershipYears": 20
+        }
+      ]
+    }
+  },
+  "expected": {
+    "lines": {
+      "it.pensionFund.payoutTax": 1822.5
+    },
+    "totalTax": 1822.5
+  },
+  "workings": [
+    "State: 15,000.00 deducted, 5,000.00 not deducted (paid while only forfettario income), no TFR",
+    "Share of contributions taxed: 15,000 / 20,000 = 75%",
+    "Payout 30,000.00 as RITA; 18,000.00 of it is contributions; taxed part 75% × 18,000.00 = 13,500.00",
+    "Rate after 20 years: 15% − 0.3 × 5 = 13.5%",
+    "Tax: 13.5% × 13,500.00 = 1,822.50"
+  ]
+}

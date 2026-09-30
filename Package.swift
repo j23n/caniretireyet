@@ -22,9 +22,10 @@ let resources: [String: [Resource]] = [
     "TaxItaly": [.process("Resources")],
 ]
 
-/// Test targets with resource folders, e.g. sample files.
+/// Test targets that ship resources, e.g. sample files.
 let testResources: [String: [Resource]] = [
     "ImporterTests": [.copy("Samples")],
+    "TaxItalyTests": [.copy("cases")],
 ]
 
 let package = Package(

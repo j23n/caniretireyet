@@ -1,0 +1,55 @@
+{
+  "name": "INPS: anticipata at 64 with a 450,000 montante (3× test passes)",
+  "kind": "pensionClaims",
+  "year": 2026,
+  "input": {
+    "birthDate": "1962-01-01",
+    "record": {
+      "montante": 450000,
+      "contributionYears": 25
+    },
+    "options": {
+      "realRevaluation": "0",
+      "coefficientDeclinePerYear": "0",
+      "ageIncreaseMonthsPerYear": 0
+    }
+  },
+  "expected": {
+    "claims": [
+      {
+        "route": "it.inps.anticipata",
+        "age": 64,
+        "annualAmount": 15426.0,
+        "nextYear": 23139.0
+      },
+      {
+        "route": "it.inps.anticipata",
+        "age": 65,
+        "annualAmount": 23625.0
+      },
+      {
+        "route": "it.inps.anticipata",
+        "age": 66,
+        "annualAmount": 24403.5
+      }
+    ]
+  },
+  "workings": [
+    "Born 1 January 1962; montante 450,000.00; 25 years of contributions; no revaluation or coefficient decline (options set to 0).",
+    "Anticipata at 64 (64 years, then a 3-month wait): first payment May 2026, at 64 years 4 months",
+    "  coefficient at 64 years 4 months: 5.088% + 4/12 × (5.25% − 5.088%) = 5.142%",
+    "  yearly pension 450,000.00 × 5.142% = 23,139.00; monthly (13 instalments) 1,779.92",
+    "  test: 1,779.92 ≥ 3× assegno sociale (1,638.72): passes",
+    "  first year, 8 months of 12: 23,139.00 × 8/12 = 15,426.00",
+    "Anticipata claimed at 65 (January 2027): first payment January 2027, at 65 years 0 months",
+    "  coefficient at 65 years 0 months: 5.25% + 0/12 × (5.423% − 5.25%) = 5.25%",
+    "  yearly pension 450,000.00 × 5.25% = 23,625.00; monthly (13 instalments) 1,817.31",
+    "  test: 1,817.31 ≥ 3× assegno sociale (1,638.72): passes",
+    "  first year, 12 months of 12: 23,625.00 × 12/12 = 23,625.00",
+    "Anticipata claimed at 66 (January 2028): first payment January 2028, at 66 years 0 months",
+    "  coefficient at 66 years 0 months: 5.423% + 0/12 × (5.608% − 5.423%) = 5.423%",
+    "  yearly pension 450,000.00 × 5.423% = 24,403.50; monthly (13 instalments) 1,877.19",
+    "  test: 1,877.19 ≥ 3× assegno sociale (1,638.72): passes",
+    "  first year, 12 months of 12: 24,403.50 × 12/12 = 24,403.50"
+  ]
+}

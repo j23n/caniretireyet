@@ -149,12 +149,15 @@ The stages are listed in [tax/IT.md](tax/IT.md#how-the-module-is-built). Keeping
 
 `TaxKit` provides shared building blocks, so systems describe the law rather than re-implement arithmetic:
 
-- **progressive schedules** (bracket tables);
-- **linear tapers**, like the Italian detrazioni formulas;
-- **flat rates, allowances and caps**;
-- **cliffs**, e.g. forfettario's €100,000 limit;
-- **indexing** by inflation;
-- **option forms** and **parameter loading**.
+- **progressive schedules** (`BracketSchedule`, with `rates` and `limits` lists a plan can override) and rates chosen by band (`BandRateSchedule`);
+- **linear tapers**, like the Italian detrazioni formulas (`LinearTaper`, with flat `BandAmount`s such as "plus €65 between €25,000 and €35,000");
+- **flat rates, allowances and caps** (`FlatRate`) and **thresholds** (`Threshold`);
+- **cliffs**, e.g. forfettario's €100,000 limit, declared explicitly as `LegalCliff`s so tests can check that taxes change smoothly everywhere else;
+- **indexing** by inflation (`ThresholdIndexing`) and values that change from given years (`YearSchedule`);
+- **option forms** (`OptionField.percent`, `.money`, `.year`, `.choice`, …) with generic validation, and **parameter loading** with typed reads (`ParameterNode`) and a source audit (`ParameterAudit`);
+- a **numeric gross-up** (`NumericGrossUp`, `PreparedTaxYear.numericGrossUp`) for systems whose `grossUp` returns nil;
+- the shared **`fixed` pension scheme** (`FixedPensionScheme`), which every system lists;
+- **shared plan checks** (`commonIssues`: unknown IDs, regime scope and years, options, overrides) and `validate(_:years:parameters:)`, which prepares a plan's years in order and collects the issues that depend on amounts, such as forfettario's revenue limit.
 
 ## Parameters
 
@@ -194,6 +197,8 @@ Each regime declares its own rules, and the plan editor and the results show any
 
 Issues are either *errors*, which block the run (e.g. an unknown regime ID), or *warnings*, which are shown with the results.
 
+`validate` sees only the plan's structure. Checks that need each year's amounts, like forfettario's limits, run in `prepare` and appear in that year's assessment; `validate(_:years:parameters:)` runs them over all of a plan's years at once.
+
 ## Changing residence
 
 - **Switching systems.** From the year in the timeline, a different system assesses everything.
@@ -204,7 +209,7 @@ Issues are either *errors*, which block the run (e.g. an unknown regime ID), or 
 
 | ID | Status | Notes |
 | --- | --- | --- |
-| `generic` | MVP | Flat effective rates on work income, pensions, gains, interest and wealth, plus a social-contribution rate. Good for rough "what if I moved" plans, and used by the engine's own tests. |
+| `generic` | MVP | Flat effective rates on work income, pensions, gains, interest and wealth, plus a social-contribution rate: the residence options `incomeTaxRate`, `pensionTaxRate` (default: the income rate), `capitalGainsRate`, `interestDividendRate` (default: the gains rate), `wealthTaxRate` and `socialContributionRate`. Wrappers `taxable`, `taxDeferred` and `taxFree`. Good for rough "what if I moved" plans, and used by the engine's own tests. |
 | `it` | MVP | Employee, professional (regime ordinario) and forfettario; both impatriati regimes; INPS; pension fund; TFR; investment and wealth taxes. See [tax/IT.md](tax/IT.md). |
 | `it.pensionati-esteri` | Later, if relevant | 7% flat tax on foreign income for pensioners who move to certain towns in southern Italy. It shows why overlays exist: it replaces the tax on foreign income and the wealth tax on foreign assets together. |
 | Other countries | When needed | Added one at a time, e.g. a country you might retire to. |

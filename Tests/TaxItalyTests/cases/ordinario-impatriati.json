@@ -1,0 +1,55 @@
+{
+  "name": "Regime ordinario with impatriati (2024 regime), 70,000 revenue and 3,000 costs",
+  "year": 2026,
+  "input": {
+    "age": 40,
+    "systemOptions": {
+      "addizionaleRegionale": "0.0173",
+      "addizionaleComunale": "0.008"
+    },
+    "overlays": [
+      {
+        "regime": "it.impatriati-2024",
+        "options": {
+          "movedIn": 2025
+        }
+      }
+    ],
+    "work": [
+      {
+        "phaseID": "freelance",
+        "kind": "selfEmployed",
+        "regime": "it.professional",
+        "gross": 70000.0,
+        "costs": 3000.0
+      }
+    ]
+  },
+  "expected": {
+    "lines": {
+      "it.irpef": 3312.613,
+      "it.addizionaleRegionale": 277.37263,
+      "it.addizionaleComunale": 128.2648
+    },
+    "contributions": {
+      "it.inps.gestioneSeparata": 17466.9
+    },
+    "accruals": {
+      "pensionScheme:it.inps": 16750.0
+    },
+    "totalTax": 3718.25043,
+    "netIncome": 45814.84957
+  },
+  "workings": [
+    "Professional income: 70,000.00 − 3,000.00 = 67,000.00",
+    "Gestione Separata on all of it: 26.07% × 67,000.00 = 17,466.90",
+    "Impatriati (2024 regime): 50% exempt, so 33,500.00 counts",
+    "Total income R = 33,500.00; taxable after deducting the contributions: 33,500.00 − 17,466.90 = 16,033.10",
+    "Gross IRPEF on 16,033.10: 23% × 16,033.10 = 3,687.61 = 3,687.61",
+    "Self-employment detrazione: 500 × (50,000 − 33,500.00) / 22,000 = 375.00",
+    "Net IRPEF: 3,687.61 − 375.00 = 3,312.61 (no cuneo for the self-employed)",
+    "Addizionale regionale: 1.73% × 16,033.10 = 277.37; comunale: 0.8% × 16,033.10 = 128.26",
+    "INPS montante credit: 25% × 67,000.00 = 16,750.00",
+    "Net income: 70,000.00 − 3,000.00 − 17,466.90 − 3,718.25 = 45,814.85"
+  ]
+}

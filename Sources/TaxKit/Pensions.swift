@@ -1,8 +1,8 @@
 /// A public pension that builds up from contributions and pays out under
 /// eligibility rules, e.g. `it.inps` (the contributory system).
 ///
-/// `fixed` pensions (an amount and a start age from a statement) are handled
-/// by the planner itself and need no scheme.
+/// `fixed` pensions (an amount and a start age from a statement) use the
+/// shared ``FixedPensionScheme``, which every system lists.
 public protocol PensionScheme: Sendable {
     /// e.g. `it.inps`.
     var id: String { get }
@@ -24,6 +24,18 @@ public protocol PensionScheme: Sendable {
     /// option per eligible age, with the amount for each.
     func claimOptions(for record: PensionRecord, context: ClaimContext, parameters: any ParameterStore)
         -> [ClaimOption]
+
+    /// The age of the scheme's old-age pension under the rules for `year`
+    /// (e.g. INPS vecchiaia: 67 in 2026), in whole years, or `nil` if it has
+    /// none. `options` are the plan's options for the pension. The planner
+    /// uses it for `WrapperAccessContext.oldAgePensionAge`. Defaults to `nil`.
+    func oldAgePensionAge(in year: Int, options: OptionValues, parameters: any ParameterStore) -> Int?
+}
+
+extension PensionScheme {
+    public func oldAgePensionAge(in year: Int, options: OptionValues, parameters: any ParameterStore) -> Int? {
+        nil
+    }
 }
 
 /// What a pension scheme has recorded for you so far.
