@@ -70,7 +70,7 @@ In the results, taxes are itemised per year (IRPEF, addizionali, substitute tax,
 The simulation runs about 2,000 random market paths for every candidate retirement age, so computing taxes has to be cheap. Each year is therefore split into what depends on the markets and what doesn't:
 
 1. **Prepare, once per year of the plan.** Everything fixed by the plan: work income, fixed pensions, windfalls, contributions, and pension accruals such as INPS credits. The system computes whatever it can in advance, for example IRPEF on salary and on the INPS pension.
-2. **Assess, once per simulated path.** Everything that depends on how the markets went: sales and realised gains, payouts from invested wrappers such as the pension fund, and the year-end balances that wealth taxes are charged on.
+2. **Assess, once per simulated path.** Everything that depends on how the markets went: sales and realised gains (a rebalancing sale in a taxable account included), payouts from invested wrappers such as the pension fund, and the year-end balances that wealth taxes are charged on, with the share of the year they're held for (`VariableYear.fractionOfYear`, less than 1 in a plan's first year): thresholds are tested on the balance, and that share of a year's tax is due. `assess` runs for every path and year, so a system should make anything that only depends on the year, such as its line labels, in `prepare`.
 3. **Gross-up.** When the engine needs a net amount of cash, the system says how much to sell. Systems that tax gains separately from income, as Italy does, answer exactly in one step. Otherwise the engine solves for it numerically.
 
 Tax state that carries from one year to the next goes back to the system each year, and the engine never looks inside it. Examples are prior-year revenue (for forfettario eligibility), years left in impatriati, and years of pension-fund membership.
@@ -133,6 +133,8 @@ public protocol PensionScheme: Sendable {
                 options: OptionValues, parameters: ParameterSet)
     func claimOptions(for record: PensionRecord, context: ClaimContext,
                       parameters: any ParameterStore) -> [ClaimOption]
+    // Optional (with defaults): the old-age pension age in whole years and in
+    // months, which wrapper access rules get with the birth date.
 }
 ```
 
