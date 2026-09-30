@@ -76,7 +76,8 @@ struct ItalyValidator {
                 let extended = overlay.options.string("extension", default: "none") != "none"
                 if extended && movedIn < rules.extensionFromMoveYear {
                     issues.append(.warning("it.impatriati.extension", "The extension for moves before "
-                                           + "\(rules.extensionFromMoveYear) needed a one-off payment and isn't modelled.",
+                                           + "\(rules.extensionFromMoveYear) needed a one-off payment and isn't "
+                                           + "modelled.",
                                            regime: overlay.regime, option: "extension"))
                 }
                 lastYear = movedIn + rules.years - 1
@@ -102,7 +103,8 @@ struct ItalyValidator {
                     return lower <= upper ? Array(lower...upper) : []
                 }
                 if let firstLost = lost.first, let lastLost = lost.last {
-                    let span = firstLost == lastLost ? "the \(firstLost) exemption" : "the \(firstLost)–\(lastLost) exemptions"
+                    let span = firstLost == lastLost
+                        ? "the \(firstLost) exemption" : "the \(firstLost)–\(lastLost) exemptions"
                     issues.append(.warning("it.impatriati.forfettario",
                                            "Impatriati doesn't apply to forfettario income: you lose \(span).",
                                            year: firstLost, regime: overlay.regime))

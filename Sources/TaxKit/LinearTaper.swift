@@ -97,7 +97,9 @@ public struct LinearTaper: Hashable, Sendable {
     /// The taper with every limit and amount multiplied by `factor`.
     public func scaled(by factor: Double) -> LinearTaper {
         LinearTaper(
-            segments: segments.map { Segment(upTo: $0.upTo * factor, base: $0.base * factor, variable: $0.variable * factor) },
+            segments: segments.map {
+                Segment(upTo: $0.upTo * factor, base: $0.base * factor, variable: $0.variable * factor)
+            },
             above: above * factor,
             bonuses: bonuses.map { $0.scaled(by: factor) })
     }

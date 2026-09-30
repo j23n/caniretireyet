@@ -64,8 +64,8 @@ extension OptionField {
                 return OptionProblem(key: key, kind: .wrongType, message: "\(label) must be a whole number.")
             }
             if let range, !range.contains(number) {
-                return OptionProblem(key: key, kind: .outOfRange, message: "\(label) must be between "
-                                     + "\(Self.format(range.lowerBound, kind)) and \(Self.format(range.upperBound, kind)).")
+                let bounds = "\(Self.format(range.lowerBound, kind)) and \(Self.format(range.upperBound, kind))"
+                return OptionProblem(key: key, kind: .outOfRange, message: "\(label) must be between \(bounds).")
             }
         case .bool:
             if value.boolValue == nil {

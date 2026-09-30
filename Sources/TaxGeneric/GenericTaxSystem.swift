@@ -34,6 +34,7 @@ public struct GenericTaxSystem: TaxSystem {
             ?? EmptyParameterStore(system: "generic")
     }
 
+    /// The flat rates, all residence options.
     public var options: [OptionField] {
         [
             .percent("incomeTaxRate", "Income tax rate", default: 0,
@@ -50,6 +51,7 @@ public struct GenericTaxSystem: TaxSystem {
         ]
     }
 
+    /// `generic.employee` and `generic.selfEmployed`.
     public var regimes: [RegimeDescriptor] {
         [
             RegimeDescriptor(id: "generic.employee", name: "Employee (flat rate)", scope: .earnedIncome([.employee]),
@@ -60,6 +62,7 @@ public struct GenericTaxSystem: TaxSystem {
         ]
     }
 
+    /// `taxable`, `taxDeferred` (from the public pension age, or 60) and `taxFree`.
     public var wrappers: [WrapperRule] {
         [
             WrapperRule(id: GenericWrapper.taxable, name: "Taxable", category: .taxable) { _ in .accessible(route: nil) },
@@ -69,10 +72,13 @@ public struct GenericTaxSystem: TaxSystem {
                     ? .accessible(route: nil)
                     : .locked(reason: "A tax-deferred account can be drawn from age \(age).")
             },
-            WrapperRule(id: GenericWrapper.taxFree, name: "Tax-free", category: .taxFree) { _ in .accessible(route: nil) },
+            WrapperRule(id: GenericWrapper.taxFree, name: "Tax-free", category: .taxFree) { _ in
+                .accessible(route: nil)
+            },
         ]
     }
 
+    /// The shared `fixed` scheme.
     public var pensionSchemes: [any PensionScheme] {
         [FixedPensionScheme()]
     }
@@ -85,6 +91,7 @@ public struct GenericTaxSystem: TaxSystem {
         }
     }
 
+    /// The shared checks, plus a warning when every rate of a residence period is 0.
     public func validate(_ plan: TaxPlan, parameters: any ParameterStore) -> [TaxIssue] {
         var issues = commonIssues(for: plan)
         for entry in plan.residence where entry.system == id {
@@ -97,6 +104,7 @@ public struct GenericTaxSystem: TaxSystem {
         return issues
     }
 
+    /// Taxes work and pensions at the year's flat rates; the state passes through unchanged.
     public func prepare(_ year: FixedYear, state: TaxState, parameters: ParameterSet) -> any PreparedTaxYear {
         GenericPreparedYear(year: year, state: state, rates: GenericRates(year.systemOptions.withDefaults(from: options)))
     }

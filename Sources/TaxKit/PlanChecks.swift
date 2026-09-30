@@ -78,7 +78,8 @@ extension TaxSystem {
                 continue
             }
             guard descriptor.scope == .overlay else {
-                issues.append(.error("\(id).regimeScope", "\(descriptor.name) is chosen per work phase, not as a special regime.",
+                issues.append(.error("\(id).regimeScope",
+                                     "\(descriptor.name) is chosen per work phase, not as a special regime.",
                                      regime: overlay.regime))
                 continue
             }
@@ -109,7 +110,8 @@ extension TaxSystem {
             let fallback = defaultRegime(for: phase.kind).flatMap { regime($0)?.name } ?? "no regime"
             if chosen.contains(".") {
                 return [.warning("\(id).foreignRegime",
-                                 "\(chosen) doesn't exist in \(name); from \(firstYear) this work is taxed as \(fallback).",
+                                 "\(chosen) doesn't exist in \(name); from \(firstYear) this work is taxed as "
+                                     + "\(fallback).",
                                  year: firstYear, regime: chosen)]
             }
             return [.error("\(id).unknownRegime", "Unknown regime \"\(chosen)\".", year: firstYear, regime: chosen)]

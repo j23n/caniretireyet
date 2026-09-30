@@ -18,7 +18,8 @@ extension ItalyParameters {
         case ItalyRegime.impatriati2024:
             let rules = impatriati2024
             guard movedIn >= rules.firstMoveYear, year >= movedIn, year < movedIn + rules.years else { return nil }
-            let share = overlay.options.bool("minorChild", default: false) ? rules.minorChildExemptShare : rules.exemptShare
+            let minorChild = overlay.options.bool("minorChild", default: false)
+            let share = minorChild ? rules.minorChildExemptShare : rules.exemptShare
             return ImpatriatiYear(regime: overlay.regime, exemptShare: share, incomeCap: rules.incomeCap)
         case ItalyRegime.impatriati2015:
             let rules = impatriati2015

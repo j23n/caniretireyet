@@ -30,6 +30,8 @@ public struct INPSPensionScheme: PensionScheme {
 
     public init() {}
 
+    /// The plan's options for the pension: the starting montante and years,
+    /// and the assumptions about revaluation, coefficients, ages and indexation.
     public var options: [OptionField] {
         [
             .money("montante", "Montante so far", default: 0,
@@ -49,6 +51,7 @@ public struct INPSPensionScheme: PensionScheme {
         ]
     }
 
+    /// The record from the plan's `montante`, `contributionYears` and `foreignContributionYears`.
     public func startingRecord(options: OptionValues, year: Int, parameters: any ParameterStore) -> PensionRecord {
         let options = options.withDefaults(from: self.options)
         return PensionRecord(
@@ -68,6 +71,10 @@ public struct INPSPensionScheme: PensionScheme {
         record.contributionMonths += min(12, mine.reduce(0) { $0 + max(0, $1.contributionMonths) })
     }
 
+    /// One option per age at which the pension can start, from the context's
+    /// year: the route, the first year's amount (pro rata) and later changes
+    /// (the anticipata's cap ending, partial indexation). Empty when no route's
+    /// conditions can be met.
     public func claimOptions(for record: PensionRecord, context: ClaimContext, parameters: any ParameterStore)
         -> [ClaimOption] {
         INPSClaims(record: record, context: context, options: context.options.withDefaults(from: options),

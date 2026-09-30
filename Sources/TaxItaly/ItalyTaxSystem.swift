@@ -67,10 +67,12 @@ public struct ItalyTaxSystem: TaxSystem {
         return try JSONParameterStore(system: "it", files: files)
     }
 
+    /// `it.inps` and the shared `fixed` scheme.
     public var pensionSchemes: [any PensionScheme] {
         [INPSPensionScheme(), FixedPensionScheme()]
     }
 
+    /// `it.employee` for employees, `it.professional` for the self-employed.
     public func defaultRegime(for kind: EarnedIncomeKind) -> String? {
         switch kind {
         case .employee: ItalyRegime.employee
@@ -79,10 +81,15 @@ public struct ItalyTaxSystem: TaxSystem {
         }
     }
 
+    /// Unknown IDs, regime scope and years, options, impatriati's years and
+    /// exclusions, and forfettario's start-up period. Forfettario's revenue
+    /// limits need the amounts: see `validate(_:years:parameters:)`.
     public func validate(_ plan: TaxPlan, parameters: any ParameterStore) -> [TaxIssue] {
         ItalyValidator(system: self, plan: plan, parameters: parameters).issues()
     }
 
+    /// Stages 1–7 and 10 of the year (see docs/tax/IT.md); the prepared year
+    /// assesses gains, payouts and wealth per path, and grosses up exactly.
     public func prepare(_ year: FixedYear, state: TaxState, parameters: ParameterSet) -> any PreparedTaxYear {
         ItalyYearCalculator.prepare(system: self, year: year, state: state, parameters: parameters)
     }

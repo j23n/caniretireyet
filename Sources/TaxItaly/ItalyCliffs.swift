@@ -47,7 +47,8 @@ extension ItalyTaxSystem {
         }
         add("it.forfettario.immediateExit", ItalyCliffMeasure.selfEmployedRevenue, p.forfettario.immediateExitLimit, -1,
             "Above this revenue the whole year is taxed under the regime ordinario.")
-        add("it.wealthTax.currentAccount", ItalyCliffMeasure.currentAccountBalance, p.wealthTax.currentAccountThreshold, -1,
+        add("it.wealthTax.currentAccount", ItalyCliffMeasure.currentAccountBalance,
+            p.wealthTax.currentAccountThreshold, -1,
             "The fixed bollo on current accounts starts.")
         add("it.ivie.minimum", ItalyCliffMeasure.ivie, p.wealthTax.propertyAbroadMinimum, -1,
             "IVIE isn't due up to this amount.")

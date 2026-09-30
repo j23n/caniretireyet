@@ -146,7 +146,8 @@ struct ItalyYearCalculator {
         var issue: TaxIssue?
         if p.inheritance[relationship] == nil {
             issue = .warning("it.inheritance.relationship",
-                             "Unknown relationship \"\(relationship)\" for \(windfall.name): taxed as \(p.defaultRelationship).",
+                             "Unknown relationship \"\(relationship)\" for \(windfall.name): taxed as "
+                                 + "\(p.defaultRelationship).",
                              year: year.year)
             relationship = p.defaultRelationship
         }

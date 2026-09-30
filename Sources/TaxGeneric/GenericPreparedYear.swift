@@ -28,8 +28,8 @@ struct GenericPreparedYear: PreparedTaxYear {
             }
         }
         for pension in year.pensions where pension.taxedIn == .residence && pension.amount > 0 && rates.pension > 0 {
-            lines.append(TaxLine(id: "generic.pensionTax", label: "Tax on pensions", amount: rates.pension * pension.amount,
-                                 base: pension.amount, subject: pension.id))
+            lines.append(TaxLine(id: "generic.pensionTax", label: "Tax on pensions",
+                                 amount: rates.pension * pension.amount, base: pension.amount, subject: pension.id))
         }
         fixedAssessment = TaxAssessment(lines: lines, contributions: contributions, nextState: state)
     }

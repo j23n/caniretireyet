@@ -202,7 +202,8 @@ struct ItalyParameters: Sendable {
 
         let new = root["impatriati2024"]
         impatriati2024 = Impatriati2024(
-            exemptShare: try new["exemptShare"].double(), minorChildExemptShare: try new["minorChildExemptShare"].double(),
+            exemptShare: try new["exemptShare"].double(),
+            minorChildExemptShare: try new["minorChildExemptShare"].double(),
             incomeCap: try new["incomeCap"].double(), years: try new["years"].int(),
             firstMoveYear: try new["firstMoveYear"].int(), minimumStayYears: try new["minimumStayYears"].int(),
             forfettarioOnArrivalRulesOut: try new["forfettarioOnArrival"]["rulesOutImpatriati"].bool())
