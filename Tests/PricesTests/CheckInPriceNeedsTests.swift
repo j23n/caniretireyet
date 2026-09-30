@@ -1,0 +1,105 @@
+import Foundation
+import Model
+import Prices
+import Testing
+import TestSupport
+
+private func d(_ string: String) -> Decimal { Decimal(fileString: string)! }
+
+struct CheckInPriceNeedsTests {
+    @Test func theExampleLibrarysLatestCheckIn() throws {
+        let needs = CheckInPriceNeeds(library: try Fixtures.exampleLibrary(), date: "2026-09-30")
+        #expect(needs.baseCurrency == .eur)
+        // vwce in Directa, btc in the Ledger wallet and gold in the coins,
+        // the last two carried forward from March.
+        #expect(needs.instruments.map(\.id) == ["btc", "gold", "vwce"])
+        #expect(needs.manualInstruments.isEmpty)
+        #expect(needs.unknownInstruments.isEmpty)
+        // btc is priced in USD; every account is in EUR.
+        #expect(needs.currencies == [.usd])
+        // hicp-it is recorded up to August.
+        #expect(needs.indices == [.init(index: .hicpIT, months: ["2026-09"])])
+    }
+
+    @Test func midMonthNeedsOnlyMonthsThatHaveEnded() throws {
+        let needs = CheckInPriceNeeds(library: try Fixtures.exampleLibrary(), date: "2026-09-15")
+        #expect(needs.indices == [.init(index: .hicpIT, months: [])])
+    }
+
+    @Test func missingIndexMonthsAreFilledFromTheFirstCheckIn() throws {
+        var library = try Fixtures.exampleLibrary()
+        library.months["2025-11"]?.indices = []
+        library.months["2026-08"]?.indices = []
+        let needs = CheckInPriceNeeds(library: library, date: "2026-09-30")
+        #expect(needs.indices.first?.months == ["2025-11", "2026-08", "2026-09"])
+
+        let windowed = CheckInPriceNeeds(library: library, date: "2026-09-30", indexWindow: 3)
+        #expect(windowed.indices.first?.months == ["2026-08", "2026-09"])
+        #expect(CheckInPriceNeeds(library: library, date: "2026-09-30", indices: []).indices.isEmpty)
+    }
+
+    @Test func beforeTheFirstCheckInNothingIsHeld() throws {
+        let needs = CheckInPriceNeeds(library: try Fixtures.exampleLibrary(), date: "2025-09-30")
+        #expect(needs.instruments.isEmpty)
+        #expect(needs.currencies.isEmpty)
+        #expect(needs.indices.first?.months == [])
+    }
+
+    @Test func aNewLibraryDoesntBackfillIndexValues() {
+        let needs = CheckInPriceNeeds(library: Library(), date: "2026-09-30")
+        #expect(needs.indices.first?.months == ["2026-09"])
+        #expect(CheckInPriceNeeds(library: Library(), date: "2026-10-02").indices.first?.months == [])
+    }
+
+    @Test func onlyOpenAccountsAndHeldPositionsCount() {
+        let needs = CheckInPriceNeeds(library: NeedsLibrary.make(), date: "2026-09-30")
+        #expect(needs.instruments.map(\.id) == ["aapl"])
+        #expect(needs.manualInstruments == ["private-fund", "typed-in"])
+        #expect(needs.unknownInstruments == ["mystery"])
+        // USD from the IBKR account and aapl; CHF from the Swiss account and
+        // the private fund. Not GBP: that account opens later.
+        #expect(needs.currencies == [.chf, .usd])
+    }
+}
+
+/// A made-up library that exercises every rule of the work-out.
+enum NeedsLibrary {
+    static func make() -> Library {
+        func instrument(_ id: InstrumentID, _ currency: CurrencyCode, _ source: PriceSource?) -> Instrument {
+            Instrument(id: id, name: id.rawValue, kind: .stock, currency: currency, unit: .share,
+                       assetClasses: .single(.equity), priceSource: source)
+        }
+        func holding(_ account: AccountID, _ date: CalendarDate, _ positions: [(InstrumentID, String)]) -> Valuation {
+            Valuation(account: account, date: date,
+                      positions: positions.map { Position(instrument: $0.0, quantity: d($0.1)) })
+        }
+        var library = Library(
+            accounts: [
+                Account(id: "ibkr", name: "IBKR", kind: .brokerage, currency: .usd, opened: "2024-01-01"),
+                Account(id: "swiss-cash", name: "Swiss cash", kind: .cash, currency: .chf, opened: "2024-01-01"),
+                Account(id: "closed-broker", name: "Closed broker", kind: .brokerage, currency: .eur,
+                        opened: "2020-01-01", closed: "2026-01-31"),
+                Account(id: "future", name: "Opens later", kind: .brokerage, currency: .gbp, opened: "2026-10-15"),
+                Account(id: "switched", name: "Switched to a balance", kind: .brokerage, currency: .eur,
+                        opened: "2024-01-01"),
+            ],
+            instruments: [
+                instrument("aapl", .usd, PriceSource(provider: .yahoo, symbol: "AAPL")),
+                instrument("vwce", .eur, PriceSource(provider: .yahoo, symbol: "VWCE.DE")),
+                instrument("btc", .usd, PriceSource(provider: .coingecko, symbol: "bitcoin")),
+                instrument("gold", .eur, PriceSource(provider: .goldAPI, symbol: "XAU")),
+                instrument("private-fund", .chf, nil),
+                instrument("typed-in", .eur, PriceSource(provider: "manual", symbol: "")),
+            ])
+        library.upsert(holding("ibkr", "2026-09-30", [
+            ("aapl", "10"), ("vwce", "0"), ("mystery", "5"), ("private-fund", "3"), ("typed-in", "1"),
+        ]))
+        library.upsert(holding("ibkr", "2026-10-31", [("gold", "1")]))
+        library.upsert(Valuation(account: "swiss-cash", date: "2026-09-30", balance: d("1200")))
+        library.upsert(holding("closed-broker", "2025-12-31", [("btc", "0.5")]))
+        library.upsert(holding("future", "2026-10-15", [("vwce", "3")]))
+        library.upsert(holding("switched", "2026-06-30", [("gold", "10")]))
+        library.upsert(Valuation(account: "switched", date: "2026-08-31", balance: d("950")))
+        return library
+    }
+}
