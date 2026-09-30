@@ -145,7 +145,8 @@ public struct ImportSession: Sendable {
         let percent = numberLayers.lazy.compactMap(\.percent).first
         return ImportFormat(date: date, number: ImportNumberFormat(decimal: decimal, thousands: thousands,
                                                                    percent: percent),
-                            empty: own?.empty ?? profile.defaults.empty ?? .skip)
+                            empty: own?.empty ?? profile.defaults.empty ?? .skip,
+                            liabilitySign: own?.liabilitySign ?? profile.defaults.liabilitySign ?? .auto)
     }
 
     /// What the file leaves open and the mapping hasn't settled yet: only

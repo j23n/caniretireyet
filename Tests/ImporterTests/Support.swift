@@ -15,6 +15,7 @@ import Model
 /// | `long-format.csv` | long layout, names in other cases and accents, a date-time |
 /// | `positions.csv` | long layout with quantity, price and purchase cost per row, `31-gen-26` |
 /// | `broken-rows.csv` | bad dates, bad numbers, a missing date, a quote that never closes |
+/// | `positive-debts.csv` | a mortgage and a loan written as positive amounts, a card written negative |
 enum Samples {
     static func data(_ name: String) throws -> Data {
         guard let url = Bundle.module.url(forResource: "Samples/\(name)", withExtension: nil) else {

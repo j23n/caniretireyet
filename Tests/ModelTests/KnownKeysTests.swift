@@ -16,7 +16,8 @@ struct KnownKeysTests {
                                                  fiProgress: d("0.41"))
     private static let format = ImportFormat(
         date: ImportDateFormat(pattern: "dd/MM/yyyy", monthOnly: .start, timeZone: "Europe/Rome"),
-        number: ImportNumberFormat(decimal: ",", thousands: ".", percent: false), empty: .zero)
+        number: ImportNumberFormat(decimal: ",", thousands: ".", percent: false), empty: .zero,
+        liabilitySign: .asWritten)
     private static let plan = PlanDocument(
         id: "base", name: "Base", retirement: PlanRetirement(age: .age(55)), endAge: 95,
         tax: PlanTax(residence: [PlanResidence(from: 2026, system: "it", options: ["a": "0.01"])],

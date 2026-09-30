@@ -23,6 +23,8 @@ struct ExtractedValue {
     var quote: CurrencyCode?
     var cell: ImportCellRef
     var raw: String
+    /// How the column signs debts, for balances of debt accounts.
+    var liabilitySign: LiabilitySign = .auto
 }
 
 /// A value column of the wide layout, with everything its values need.
@@ -37,6 +39,7 @@ private struct WideColumn {
     var quote: CurrencyCode?
     var parser: NumberParser
     var empty: EmptyCellPolicy
+    var liabilitySign: LiabilitySign
 }
 
 /// Builds an ``ImportPreview``: extraction, matching, aggregation, comparison.
@@ -111,7 +114,8 @@ struct PreviewBuilder {
                 values.append(ExtractedValue(
                     target: spec.target, date: date, value: number.value, account: spec.account,
                     instrument: spec.instrument, currency: currency, base: spec.base, quote: spec.quote,
-                    cell: ImportCellRef(row: row.number, column: spec.column), raw: text))
+                    cell: ImportCellRef(row: row.number, column: spec.column), raw: text,
+                    liabilitySign: spec.liabilitySign))
             }
         }
     }
@@ -159,14 +163,15 @@ struct PreviewBuilder {
         return WideColumn(column: column, header: header, target: target, account: account, instrument: instrument,
                           currency: currency, base: base, quote: quote,
                           parser: NumberParser(format: format.number ?? ImportNumberFormat()),
-                          empty: format.empty ?? .skip)
+                          empty: format.empty ?? .skip, liabilitySign: format.liabilitySign ?? .auto)
     }
 
     // MARK: - Long layout
 
     private mutating func extractLong(dateColumn: Int, dates: DateParser) {
         var fieldColumns: [ImportField: Int] = [:]
-        var valueColumns: [(column: Int, target: ImportTarget, parser: NumberParser, empty: EmptyCellPolicy)] = []
+        var valueColumns: [(column: Int, target: ImportTarget, parser: NumberParser, empty: EmptyCellPolicy,
+                            liabilitySign: LiabilitySign)] = []
         for (column, index) in bindings.columns.sorted(by: { $0.key < $1.key }) {
             let mapping = profile.columns[index]
             let isValue = mapping.field == .value || (mapping.field == nil && mapping.target != nil)
@@ -174,7 +179,7 @@ struct PreviewBuilder {
                 guard let target = mapping.target ?? profile.target, target != .ignore, target.isKnown else { continue }
                 let format = session.effectiveFormat(forColumn: column)
                 valueColumns.append((column, target, NumberParser(format: format.number ?? ImportNumberFormat()),
-                                     format.empty ?? .skip))
+                                     format.empty ?? .skip, format.liabilitySign ?? .auto))
             } else if let field = mapping.field, field != .ignore, fieldColumns[field] == nil {
                 fieldColumns[field] = column
             }
@@ -230,7 +235,8 @@ struct PreviewBuilder {
                 values.append(ExtractedValue(
                     target: target, date: date, value: number.value, account: account, instrument: instrument,
                     currency: currency, base: base.value, quote: quote.value,
-                    cell: ImportCellRef(row: row.number, column: spec.column), raw: text))
+                    cell: ImportCellRef(row: row.number, column: spec.column), raw: text,
+                    liabilitySign: spec.liabilitySign))
             }
         }
     }
@@ -313,6 +319,7 @@ struct PreviewBuilder {
         for proposal in accountProposals { accounts[proposal.account.id] = proposal.account }
 
         var records: [ImportRecordKey: Accumulator] = [:]
+        var debts: [AccountID: DebtNote] = [:]
         for (value, accountID, instrumentID) in resolved {
             let key: ImportRecordKey
             let field: RecordField
@@ -359,11 +366,43 @@ struct PreviewBuilder {
                                        currency: field == .price
                                            ? value.currency ?? instrumentID.flatMap { instruments[$0]?.currency }
                                            : nil)
+                if field == .balance, let accountID, let account = accounts[accountID] {
+                    accumulator.record.liabilitySign = value.liabilitySign
+                    accumulator.record.signBalance(isLiability: account.kind.isLiability)
+                    if accumulator.record.balanceReadAsDebt {
+                        var note = debts[accountID]
+                            ?? DebtNote(name: fileName(of: value, account: account), column: value.cell.column)
+                        note.count += 1
+                        debts[accountID] = note
+                    }
+                }
             }
             accumulator.cells.append(value.cell)
             records[key] = accumulator
         }
+        for (account, note) in debts.sorted(by: { $0.key < $1.key }) {
+            issues.append(ImportIssue(kind: .positiveDebts(account, count: note.count), column: note.column,
+                                      header: note.name))
+        }
         return records
+    }
+
+    /// Positive amounts of one debt account that were read as debts.
+    private struct DebtNote {
+        /// The account's name in the file (a header or a cell).
+        var name: String
+        /// The column of the first such amount.
+        var column: Int
+        var count = 0
+    }
+
+    /// The name the file uses for a value's account: the column's header in
+    /// the wide layout, the account cell in the long one, or else the
+    /// account's name.
+    private func fileName(of value: ExtractedValue, account: Account) -> String {
+        if profile.layout != .long, let header = table.header(of: value.cell.column) { return header }
+        if case .name(let name)? = value.account { return name }
+        return account.name
     }
 
     // MARK: - Comparing with the library
@@ -476,7 +515,9 @@ extension ImportedRecord {
     /// Sets one value; a price also takes its currency.
     mutating func set(field: RecordField, to value: Decimal, currency: CurrencyCode?) {
         switch field {
-        case .balance: balance = value
+        case .balance:
+            balance = value
+            writtenBalance = value
         case .cash: cash = value
         case .price:
             price = value

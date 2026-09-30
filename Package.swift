@@ -56,13 +56,28 @@ let package = Package(
             dependencies: ["Model"],
             resources: [.copy("Resources/ExampleLibrary")]
         ),
-        .executableTarget(
-            name: "retire",
+        // The `retire` command-line tool: its commands live in `RetireCLI`,
+        // a library so they can be tested, and the executable only starts it.
+        // It uses Tracker for net worth, breakdowns and the change split.
+        .target(
+            name: "RetireCLI",
             dependencies: [
                 .product(name: "ArgumentParser", package: "swift-argument-parser"),
-                "Storage", "Importer", "Planner", "Prices",
+                "Model", "Tracker", "Storage", "Importer", "Planner", "Prices",
                 "TaxKit", "TaxGeneric", "TaxItaly",
             ]
+        ),
+        .executableTarget(
+            name: "retire",
+            dependencies: ["RetireCLI"]
+        ),
+        .testTarget(
+            name: "RetireCLITests",
+            dependencies: [
+                "RetireCLI", "TestSupport", "Model", "Storage", "Importer", "Prices",
+                .product(name: "ArgumentParser", package: "swift-argument-parser"),
+            ],
+            resources: [.copy("Samples")]
         ),
     ],
     swiftLanguageModes: [.v6]

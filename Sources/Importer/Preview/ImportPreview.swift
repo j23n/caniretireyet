@@ -11,7 +11,8 @@ public struct ImportPreview: Hashable, Sendable {
     public var records: [ImportRecordPreview]
     /// Cells that couldn't be read, in file order.
     public var cellErrors: [ImportCellError]
-    /// Problems with the mapping or the file as a whole.
+    /// Problems with the mapping or the file as a whole, and notes on how
+    /// it was read (``ImportIssue/isNote``).
     public var issues: [ImportIssue]
     /// Format guesses still to confirm.
     public var ambiguities: [ImportAmbiguity]
@@ -65,7 +66,8 @@ public struct ImportPreview: Hashable, Sendable {
         }
         summary.cellErrors = cellErrors.count
         summary.skippedRows = skippedRows.filter { $0.reason != .empty }.count
-        summary.issues = issues.count
+        summary.issues = issues.filter { !$0.isNote }.count
+        summary.notes = issues.filter(\.isNote).count
         summary.ambiguities = ambiguities.count
         summary.newAccounts = newAccounts.filter(\.isAccepted).count
         summary.newInstruments = newInstruments.filter(\.isAccepted).count
@@ -129,7 +131,10 @@ public struct ImportSummary: Hashable, Sendable, CustomStringConvertible {
     public var cellErrors = 0
     /// Title and footer rows left out (not counting empty rows).
     public var skippedRows = 0
+    /// Problems with the mapping or the file (not counting notes).
     public var issues = 0
+    /// Notes on how the file was read, e.g. debts written as positive amounts.
+    public var notes = 0
     public var ambiguities = 0
     public var newAccounts = 0
     public var newInstruments = 0

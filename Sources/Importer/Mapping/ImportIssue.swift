@@ -1,6 +1,7 @@
 import Model
 
-/// A problem with the mapping or the file as a whole, as opposed to one cell.
+/// A problem with the mapping or the file as a whole, as opposed to one cell,
+/// or a note about how the file was read (see ``isNote``).
 public struct ImportIssue: Hashable, Sendable, CustomStringConvertible {
     public enum Kind: Hashable, Sendable {
         /// A column the profile doesn't know. It isn't imported until it's mapped.
@@ -18,6 +19,10 @@ public struct ImportIssue: Hashable, Sendable, CustomStringConvertible {
         case unterminatedQuote(row: Int)
         /// A closed account has values in the file after the day it closed.
         case valuesAfterClosed(AccountID, closed: CalendarDate)
+        /// A note: `count` positive balances of a debt account (a loan,
+        /// mortgage or credit card) were read as debts and made negative.
+        /// The `liabilitySign` format `asWritten` keeps them as written.
+        case positiveDebts(AccountID, count: Int)
     }
 
     public var kind: Kind
@@ -29,6 +34,12 @@ public struct ImportIssue: Hashable, Sendable, CustomStringConvertible {
         self.kind = kind
         self.column = column
         self.header = header
+    }
+
+    /// Whether this only says how the file was read, rather than something
+    /// to fix: nothing is left out because of it.
+    public var isNote: Bool {
+        if case .positiveDebts = kind { true } else { false }
     }
 
     public var description: String {
@@ -48,6 +59,9 @@ public struct ImportIssue: Hashable, Sendable, CustomStringConvertible {
             return "Row \(row) has a quote that never closes."
         case .valuesAfterClosed(let account, let closed):
             return "\(account) closed on \(closed), but the file has later values."
+        case .positiveDebts(let account, let count):
+            let name = header.map { "“\($0)”" } ?? account.rawValue
+            return "\(name): positive amounts were read as debts (\(count) \(count == 1 ? "value" : "values"))."
         }
     }
 }
