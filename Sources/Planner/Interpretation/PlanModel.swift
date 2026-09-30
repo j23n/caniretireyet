@@ -95,7 +95,8 @@ struct YearFrame: Sendable {
     let parameters: ParameterSet
     /// The residence period's options.
     let systemOptions: OptionValues
-    /// Prices relative to the first simulated year.
+    /// Prices at the start of the simulated part relative to the start date:
+    /// the product of the earlier years' `inflationStep`s (1 in the first year).
     let inflationFactor: Double
     /// Inflation over the simulated part of the year: (1 + i)^fraction.
     let inflationStep: Double

@@ -86,7 +86,16 @@ enum PlanInterpreter {
         var frames: [YearFrame] = []
         var taxParameters: [String: Int] = [:]
         var failedSystems: Set<String> = []
+        // Years simulated before each one: prices at its start are (1 + i)^elapsed
+        // of today's, so a partial first year counts as its share, as in `inflationStep`.
+        var elapsed = 0.0
         for year in firstYear...lastYear {
+            let simulatedFrom = max(CalendarDate.firstDay(of: year), startDate.adding(days: 1))
+            let daysInYear = CalendarDate.isLeapYear(year) ? 366 : 365
+            let fraction = Double(CalendarDate.inclusiveDays(from: simulatedFrom, to: .lastDay(of: year)))
+                / Double(daysInYear)
+            let yearsBefore = elapsed
+            elapsed += fraction
             let entry = residence.lastIndex { $0.from <= year } ?? 0
             let context = systems[entrySystem[entry]]
             let parameters: ParameterSet
@@ -101,15 +110,11 @@ enum PlanInterpreter {
             if let parameterYear = context.parameters.parameterYear(for: year) {
                 taxParameters[context.id] = max(taxParameters[context.id] ?? parameterYear, parameterYear)
             }
-            let simulatedFrom = max(CalendarDate.firstDay(of: year), startDate.adding(days: 1))
-            let daysInYear = CalendarDate.isLeapYear(year) ? 366 : 365
-            let fraction = Double(CalendarDate.inclusiveDays(from: simulatedFrom, to: .lastDay(of: year)))
-                / Double(daysInYear)
             frames.append(YearFrame(
                 index: frames.count, year: year, age: year - birthDate.year, daysInYear: daysInYear,
                 simulatedFrom: simulatedFrom, fraction: fraction, system: entrySystem[entry], parameters: parameters,
                 systemOptions: OptionValues(residence[entry].options),
-                inflationFactor: pow(1 + inflation, Double(year - firstYear)),
+                inflationFactor: pow(1 + inflation, yearsBefore),
                 inflationStep: pow(1 + inflation, fraction)))
         }
 

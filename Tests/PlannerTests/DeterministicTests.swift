@@ -140,6 +140,23 @@ struct DeterministicTests {
         #expect(result.start.date == "2026-09-30" && result.start.age == 60)
     }
 
+    /// Prices in a year are today's grown by the time simulated before it:
+    /// after a first year of 92 days, the second starts 92/365 of a year on.
+    @Test func pricesRiseByTheTimeSimulated() throws {
+        let library = Sample.library(birth: "1966-01-01", on: "2026-09-30",
+                                     [SampleAccount(id: "broker", balance: 100_000)])
+        let plan = Sample.plan(retire: .age(60), endAge: 64, retired: "10000")
+        let model = try #require(PlanInterpreter.interpret(plan: plan, library: library, registry: Sample.registry(),
+                                                           options: PlannerOptions()).model)
+        let frames = model.frames
+        #expect(frames[0].inflationFactor == 1)
+        #expect(close(frames[1].inflationFactor, pow(1.02, 92.0 / 365), 1e-12))
+        #expect(close(frames[2].inflationFactor, pow(1.02, 1 + 92.0 / 365), 1e-12))
+        for k in 1..<frames.count {
+            #expect(close(frames[k].inflationFactor, frames[k - 1].inflationFactor * frames[k - 1].inflationStep, 1e-12))
+        }
+    }
+
     @Test func aCheckInOnTheLastDayOfTheYearStartsNextYear() async throws {
         let plan = Sample.plan(retire: .age(59), endAge: 64, retired: "10000")
         let result = try await Sample.run(plan, retiree)
