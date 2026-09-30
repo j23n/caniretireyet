@@ -76,7 +76,8 @@ let package = Package(
             dependencies: [
                 "RetireCLI", "TestSupport", "Model", "Storage", "Importer", "Prices",
                 .product(name: "ArgumentParser", package: "swift-argument-parser"),
-            ]
+            ],
+            resources: [.copy("Samples")]
         ),
     ],
     swiftLanguageModes: [.v6]
