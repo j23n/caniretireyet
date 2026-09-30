@@ -17,6 +17,15 @@ struct PricesCommand: RetireSubcommand {
             symbols, currencies and dates are sent. With --apply, the fetched records are \
             written to the library, after a backup. Set \(CLIContext.coinGeckoKeyVariable) to \
             use a CoinGecko demo API key. Exits with status 1 when something couldn't be fetched.
+
+            With --fill-history, it fills in the past instead: every date the library values \
+            a position on without a price for that day (valuations, and the month ends they \
+            carry over to), the FX rates those dates need and the missing inflation months. \
+            Each instrument's whole range is one request (gold from Yahoo Finance's GC=F \
+            futures, crypto older than CoinGecko's free year from Yahoo's pairs), then one per \
+            currency and index. The records are written after a backup, never replacing one \
+            the library has; --dry-run fetches and shows what would be written. Exits with \
+            status 1 when a price or rate with a source couldn't be filled.
             """)
 
     @OptionGroup var options: LibraryOptions
@@ -30,12 +39,27 @@ struct PricesCommand: RetireSubcommand {
     @Flag(help: "With --apply, replace records the library already has for the date with different values.")
     var overwrite = false
 
+    @Flag(help: "Fill in the prices, FX rates and inflation months missing on past dates, and write them.")
+    var fillHistory = false
+
+    @Flag(help: "With --fill-history, fetch and show what would be written, but write nothing.")
+    var dryRun = false
+
     @Flag(help: "Print JSON.")
     var json = false
 
     func validate() throws {
         _ = try parseDate(date, option: "--date")
-        if overwrite, !apply { throw ValidationError("--overwrite needs --apply.") }
+        if fillHistory {
+            if date != nil { throw ValidationError("--fill-history fills every past date; it takes no --date.") }
+            if apply {
+                throw ValidationError("--fill-history writes unless you pass --dry-run; it takes no --apply.")
+            }
+            if overwrite { throw ValidationError("--fill-history never replaces a record; it takes no --overwrite.") }
+        } else {
+            if overwrite, !apply { throw ValidationError("--overwrite needs --apply.") }
+            if dryRun { throw ValidationError("--dry-run goes with --fill-history.") }
+        }
     }
 
     mutating func run() async throws {
@@ -43,6 +67,10 @@ struct PricesCommand: RetireSubcommand {
     }
 
     func run(in context: CLIContext) async throws {
+        if fillHistory {
+            try await runFillHistory(in: context)
+            return
+        }
         let loaded = try options.load(in: context)
         let date = try parseDate(date, option: "--date") ?? context.today
         let today = context.today
