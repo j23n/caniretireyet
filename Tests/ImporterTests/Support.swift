@@ -16,6 +16,10 @@ import Model
 /// | `positions.csv` | long layout with quantity, price and purchase cost per row, `31-gen-26` |
 /// | `broken-rows.csv` | bad dates, bad numbers, a missing date, a quote that never closes |
 /// | `positive-debts.csv` | a mortgage and a loan written as positive amounts, a card written negative |
+/// | `trades/directa.csv` | a Directa-like movements export: title rows, UTF-8 with BOM, `;`, `1.234,56`, signed amounts, a sell as a negative quantity, a dividend and its tax on two rows, two identical buys, an unmapped type (`Giroconto`) |
+/// | `trades/fineco.csv` | a Fineco-like export: Windows-1252, `Compravendita acquisto`, gross values without signs (`Controvalore`) with fees and tax columns, no account column |
+/// | `trades/degiro.csv` | a Degiro-like transactions export in English: no type column, sells as negative quantities, buys as negative amounts, a price in dollars, `dd-MM-yyyy` |
+/// | `trades/ibkr.csv` | an IBKR-like flex export: camel-case headers, an account column, `Deposits/Withdrawals` both ways, dividends, withholding tax, interest, fees |
 enum Samples {
     static func data(_ name: String) throws -> Data {
         guard let url = Bundle.module.url(forResource: "Samples/\(name)", withExtension: nil) else {

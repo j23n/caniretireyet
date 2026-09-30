@@ -74,6 +74,9 @@ private struct ImportSummaryCard: View {
                 ImportCountTile(count: summary.conflicts, title: "Conflicting")
                 ImportCountTile(count: summary.skippedRows + flow.leftOutRecords, title: "Skipped")
                 ImportCountTile(count: summary.cellErrors, title: "Can't be read", isProblem: summary.cellErrors > 0)
+                if summary.trades > 0 {
+                    ImportCountTile(count: summary.trades, title: "Of them, trades")
+                }
             }
             Text(flow.plannedSummary)
                 .font(.callout)

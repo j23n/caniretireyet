@@ -191,7 +191,7 @@ struct ImportTests {
         let unknown = await retire(["import", try sheet(), "--library", library.path, "--profile", "nope"])
         #expect(unknown.status == 1)
         #expect(unknown.errors.contains("There's no import profile \"nope\" in imports/. "
-            + "Profiles: bank-sheet, net-worth-sheet."))
+            + "Profiles: bank-sheet, directa-movimenti, net-worth-sheet."))
     }
 
     /// A month inserted between two check-ins: the later month's automatic

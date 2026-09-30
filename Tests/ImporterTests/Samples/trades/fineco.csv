@@ -1,0 +1,9 @@
+Operazione;Data operazione;Data valuta;Titolo;ISIN;Quantità;Prezzo;Divisa;Controvalore;Commissioni;Ritenuta;Descrizione
+Versamento;08/01/2026;08/01/2026;;;;;EUR;6.000,00;;;Bonifico in entrata
+Compravendita acquisto;10/02/2026;12/02/2026;ISHARES CORE EUR GOVT BOND UCITS ETF;IE00B4WXJJ64;40;112,48;EUR;4.499,20;2,95;;Acquisto su ETFplus
+Compravendita acquisto;10/02/2026;12/02/2026;VANGUARD FTSE ALL-WORLD UCITS ETF;IE00BK5BQT80;8;118,20;EUR;945,60;2,95;;Acquisto su ETFplus
+Compravendita acquisto;10/02/2026;12/02/2026;VANGUARD FTSE ALL-WORLD HIGH DIV;IE00B8GKDB10;25;62,10;EUR;1.552,50;2,95;;Acquisto su ETFplus
+Dividendo;26/03/2026;30/03/2026;VANGUARD FTSE ALL-WORLD HIGH DIV;IE00B8GKDB10;25;0,854;EUR;21,35;;5,55;Dividendo netto accreditato
+Compravendita vendita;18/06/2026;22/06/2026;ISHARES CORE EUR GOVT BOND UCITS ETF;IE00B4WXJJ64;15;114,02;EUR;1.710,30;2,95;2,38;Vendita su ETFplus
+Imposta di bollo;30/06/2026;30/06/2026;;;;;EUR;8,37;;;Imposta di bollo, già addebitata
+Prelievo;15/09/2026;15/09/2026;;;;;EUR;500,00;;;Bonifico in uscita

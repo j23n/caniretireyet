@@ -113,6 +113,12 @@ public struct LedgerImportSession: Sendable {
         settings.transactionPrices = recorded ? nil : false
     }
 
+    /// Whether accounts that record trades also get valuations with the
+    /// journal's cash, as checks on the cash their trades give.
+    public mutating func setCashChecks(_ checks: Bool) {
+        settings.cashChecks = checks ? true : nil
+    }
+
     // MARK: - Preview
 
     /// What importing the journal would do: its valuations (one per library
@@ -140,9 +146,7 @@ public struct LedgerImportSession: Sendable {
         preview.newAccounts = mapper.newAccounts.values.filter { usedAccounts.contains($0.id) }
             .sorted { $0.id < $1.id }
             .map { AccountProposal(account: $0, names: mapper.newAccountNames[$0.id] ?? []) }
-        let usedInstruments = Set(records.flatMap { record in
-            record.imported.positions.map(\.instrument) + [record.imported.key.instrument].compactMap { $0 }
-        })
+        let usedInstruments = Set(records.flatMap(\.imported.instruments))
         preview.newInstruments = mapper.newInstruments.values.filter { usedInstruments.contains($0.id) }
             .sorted { $0.id < $1.id }
             .map { InstrumentProposal(instrument: $0, names: mapper.newInstrumentNames[$0.id] ?? []) }
@@ -269,5 +273,14 @@ public struct LedgerImportPreview: Hashable, Sendable {
     /// The row of a commodity.
     public func commodity(_ symbol: String) -> LedgerCommodityRow? {
         commodities.first { $0.symbol == symbol }
+    }
+
+    /// The library accounts the journal goes to that record trades, sorted:
+    /// they get the journal's trades instead of valuations.
+    public func tradesAccounts(in library: Library) -> [AccountID] {
+        let ids = Set(accounts.compactMap { row -> AccountID? in
+            if case .account(let id) = row.mapping, library.accounts[id]?.recordsTrades == true { id } else { nil }
+        })
+        return ids.sorted()
     }
 }

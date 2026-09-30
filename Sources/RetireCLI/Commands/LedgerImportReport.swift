@@ -61,6 +61,12 @@ struct LedgerImportReport {
         default: "at month ends"
         }
         table.add(["Valuations", when])
+        let trades = ledger.tradesAccounts(in: library)
+        if !trades.isEmpty {
+            table.add(["Trades", trades.map(\.rawValue).joined(separator: ", ") + ": the journal's trades, "
+                + (session.settings.effectiveCashChecks ? "and valuations of their cash as checks"
+                    : "and no valuations (their cash comes from their trades)")])
+        }
         if !session.settings.effectiveTransactionPrices { table.add(["@ prices", "not recorded"]) }
         return lines + table.lines()
     }
@@ -76,7 +82,8 @@ struct LedgerImportReport {
             let name = row.name + (others > 0 ? " (+\(others))" : "")
             let target: String = switch row.mapping {
             case .account(let id):
-                id.rawValue + (preview.newAccounts.contains { $0.account.id == id } ? " (new)" : "")
+                id.rawValue + (preview.newAccounts.contains { $0.account.id == id } ? " (new)"
+                    : library.accounts[id]?.recordsTrades == true ? " (trades)" : "")
             case .ignored: "ignored"
             default: ""
             }
@@ -172,6 +179,8 @@ struct LedgerImportReport {
             case .openEarlier(let date):
                 let was = library.accounts[proposal.account].map { " (was \($0.opened))" } ?? ""
                 return "  Open \(proposal.account) on \(date), its first posting\(was)"
+            case .recordTrades:
+                return ImportReport.recordTradesLine(proposal, apply: apply, library: library)
             }
         }
     }
@@ -253,6 +262,9 @@ struct LedgerImportReport {
         }
         if !result.createdInstruments.isEmpty {
             lines.append("Created instruments: \(result.createdInstruments.map(\.rawValue).joined(separator: ", ")).")
+        }
+        if result.tradesWritten > 0 {
+            lines.append("Trades written: \(result.tradesWritten).")
         }
         if !outcome.written.isEmpty {
             lines.append("Wrote \(Format.count(outcome.written.count, "file")):")

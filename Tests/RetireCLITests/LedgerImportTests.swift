@@ -4,7 +4,8 @@ import Storage
 import Testing
 
 /// `retire import ledger` with a made-up journal, split in two files, against
-/// the example library.
+/// the example library, where Directa records trades: the journal's Directa
+/// transactions become its trades.
 struct LedgerImportCommandTests {
     /// Journals are written outside the library.
     private let journals: TemporaryFolder
@@ -56,14 +57,22 @@ struct LedgerImportCommandTests {
               Transactions  5, 2024-01-01 to 2025-02-11
               Prices        1 P directive
               Valuations    at month ends
+              Trades        directa: the journal's trades, and no valuations (their cash comes from their trades)
             """))
-        #expect(output.contains("  Assets:Bank:Fineco          conto-fineco  same name\n"))
-        #expect(output.contains("  Assets:Broker:Directa (+1)  directa       same name\n"))
-        #expect(output.contains("  Liabilities:Card:Visa       visa (new)    nothing matched: new\n"))
+        #expect(output.contains("  Assets:Bank:Fineco          conto-fineco      same name\n"))
+        #expect(output.contains("  Assets:Broker:Directa (+1)  directa (trades)  same name\n"))
+        #expect(output.contains("  Liabilities:Card:Visa       visa (new)        nothing matched: new\n"))
         #expect(output.contains("  Returns, not money added or taken out: Income:Dividends.\n"))
         #expect(output.contains("  VWCE.MI    vwce         matched\n"))
         #expect(output.contains("New accounts (not created: pass --accept-new-accounts)\n"))
-        #expect(output.contains("  2024-01-31  directa        cash 500.00, vwce 5 (cost 500.00), flow +1,000.00  new\n"))
+        #expect(output.contains("Preview: 33 new, 0 updated, 0 identical, 0 conflicts; 3 trades among them\n"))
+        let deposit = TradeID.stable(account: "directa", date: "2024-01-01", type: .deposit, instrument: nil,
+                                     quantity: nil, amount: 1000, price: nil)
+        let buy = TradeID.stable(account: "directa", date: "2024-01-20", type: .buy, instrument: "vwce", quantity: 5,
+                                 amount: nil, price: 100)
+        #expect(output.contains("  2024-01-01  directa trade \(deposit)  deposit, amount 1,000.00          new\n"))
+        #expect(output.contains("  2024-01-20  directa trade \(buy)  buy 5 vwce @ 100                  new\n"))
+        #expect(!output.contains("  directa        "))
         #expect(output.hasSuffix("Dry run: nothing was written. To import, run again with --apply.\n"))
         #expect(try library.snapshot() == before)
     }
@@ -80,11 +89,14 @@ struct LedgerImportCommandTests {
         #expect(first.status == 0, "\(first.all)")
         #expect(first.output.contains("Created accounts: visa.\n"))
         #expect(first.output.contains("  imports/journal.json\n"))
+        #expect(first.output.contains("Trades written: 3.\n"))
         var loaded = try library.load()
-        let directa = try #require(loaded.valuations(for: "directa").first { $0.date == "2024-03-31" })
-        #expect(directa.positions == [Position(instrument: "vwce", quantity: 5, costBasis: 500)])
-        #expect(directa.flow == 1000)
-        #expect(loaded.valuations(for: "directa").first { $0.date == "2025-03-31" }?.flow == 0)
+        // Directa records trades: the journal's, and no valuations of its own.
+        let journalTrades = loaded.trades(for: "directa").filter { $0.source == .ledger }
+        #expect(journalTrades.map(\.type) == [.deposit, .buy, .dividend])
+        #expect(journalTrades[1].quantity == 5)
+        #expect(journalTrades[1].price == 100)
+        #expect(loaded.valuations(for: "directa").filter { $0.date < "2025-10-01" }.isEmpty)
         #expect(loaded.valuations(for: "visa").map(\.balance) == [-80, -80, -80, -80, -80])
         let profile = try #require(loaded.importProfiles["journal"])
         #expect(profile.isLedger)
@@ -94,7 +106,8 @@ struct LedgerImportCommandTests {
         let again = await retire(["import", "ledger"] + files + ["--library", library.path, "--profile", "journal",
                                                                  "--apply"], clock: clock)
         #expect(again.status == 0, "\(again.all)")
-        #expect(again.output.contains("Preview: 0 new, 0 updated, 17 identical, 0 conflicts\n"), "\(again.output)")
+        #expect(again.output.contains("Preview: 0 new, 0 updated, 15 identical, 0 conflicts; 3 trades among them\n"),
+                "\(again.output)")
         #expect(again.output.contains("Nothing to import: the library already has everything in the journal.\n"))
 
         let undo = await retire(["import", "--undo", "--library", library.path], clock: clock)
@@ -178,7 +191,8 @@ struct LedgerImportCommandTests {
             "--library", library.path, "--until", "2024-12-31", "--rows", "100",
         ])
         #expect(run.status == 0, "\(run.all)")
-        #expect(run.output.contains("  2024-12-31  directa"))
+        #expect(run.output.contains("  2024-12-31  conto-fineco"))
+        #expect(run.output.contains("  2024-01-20  directa trade"))
         #expect(!run.output.contains("  2025-"))
     }
 }

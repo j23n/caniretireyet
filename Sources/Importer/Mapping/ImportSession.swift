@@ -55,7 +55,7 @@ public struct ImportSession: Sendable {
     public var columnRoles: [ColumnRole] {
         let bindings = self.bindings
         return (1...max(table.columnCount, 1)).filter { $0 <= table.columnCount }.map { column in
-            if column == bindings.dateColumn, profile.layout != .long { return .date }
+            if column == bindings.dateColumn, !profile.layout.rowIsRecord { return .date }
             if let index = bindings.columns[column] { return .mapped(profileColumn: index) }
             if bindings.unknown.contains(column) { return .unknown }
             return .unused
@@ -84,7 +84,7 @@ public struct ImportSession: Sendable {
         } else {
             profile.columns.append(mapping)
         }
-        if profile.layout != .long, bindings.dateColumn == column, mapping.field != .date {
+        if !profile.layout.rowIsRecord, bindings.dateColumn == column, mapping.field != .date {
             profile.dateColumn = nil
         }
         proposesMapping = false
@@ -100,10 +100,10 @@ public struct ImportSession: Sendable {
         if let previous = bindings.dateColumn, previous != column {
             let header = table.header(of: previous)
             profile.columns.append(ImportColumn(header: header, index: header == nil ? previous : nil,
-                                                target: profile.layout == .long ? nil : .ignore,
-                                                field: profile.layout == .long ? .ignore : nil))
+                                                target: profile.layout.rowIsRecord ? nil : .ignore,
+                                                field: profile.layout.rowIsRecord ? .ignore : nil))
         }
-        if profile.layout == .long {
+        if profile.layout.rowIsRecord {
             profile.dateColumn = nil
             setMapping(ImportColumn(field: .date), forColumn: column)
         } else if let header = table.header(of: column) {
@@ -146,7 +146,8 @@ public struct ImportSession: Sendable {
         return ImportFormat(date: date, number: ImportNumberFormat(decimal: decimal, thousands: thousands,
                                                                    percent: percent),
                             empty: own?.empty ?? profile.defaults.empty ?? .skip,
-                            liabilitySign: own?.liabilitySign ?? profile.defaults.liabilitySign ?? .auto)
+                            liabilitySign: own?.liabilitySign ?? profile.defaults.liabilitySign ?? .auto,
+                            amountSign: own?.amountSign ?? profile.defaults.amountSign ?? .auto)
     }
 
     /// What the file leaves open and the mapping hasn't settled yet: only
@@ -207,7 +208,7 @@ public struct ImportSession: Sendable {
         let bindings = self.bindings
         var issues: [ImportIssue] = []
         if bindings.dateColumn == nil { issues.append(ImportIssue(kind: .noDateColumn)) }
-        if profile.layout != .long, let header = profile.dateColumn, bindings.dateColumn == nil {
+        if !profile.layout.rowIsRecord, let header = profile.dateColumn, bindings.dateColumn == nil {
             issues.append(ImportIssue(kind: .missingColumn, header: header))
         }
         for index in bindings.missing {
@@ -245,7 +246,7 @@ public struct ImportSession: Sendable {
         var bindings = Bindings()
         var claimed = Set<Int>()
         let count = table.columnCount
-        let isWide = profile.layout != .long
+        let isWide = !profile.layout.rowIsRecord
 
         func find(header: String?, index: Int?) -> Int? {
             guard count > 0 else { return nil }

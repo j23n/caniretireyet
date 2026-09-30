@@ -1,24 +1,31 @@
 import Foundation
 import Model
 
-/// The key of a record the import writes: account + date, instrument + date,
-/// or currency pair + date. Sorts by date, then kind, then ID.
+/// The key of a record the import writes: account + date, account + date +
+/// trade ID, instrument + date, or currency pair + date. Sorts by date, then
+/// kind, then ID.
 public enum ImportRecordKey: Hashable, Comparable, Sendable, CustomStringConvertible {
     case valuation(ValuationKey)
     case price(PriceKey)
     case fx(FXKey)
+    case trade(TradeKey)
 
     public var date: CalendarDate {
         switch self {
         case .valuation(let key): key.date
         case .price(let key): key.date
         case .fx(let key): key.date
+        case .trade(let key): key.date
         }
     }
 
-    /// The account of a valuation.
+    /// The account of a valuation or a trade.
     public var account: AccountID? {
-        if case .valuation(let key) = self { key.account } else { nil }
+        switch self {
+        case .valuation(let key): key.account
+        case .trade(let key): key.account
+        default: nil
+        }
     }
 
     /// The instrument of a price.
@@ -26,11 +33,17 @@ public enum ImportRecordKey: Hashable, Comparable, Sendable, CustomStringConvert
         if case .price(let key) = self { key.instrument } else { nil }
     }
 
+    /// Whether this is a trade's key.
+    public var isTrade: Bool {
+        if case .trade = self { true } else { false }
+    }
+
     public var description: String {
         switch self {
         case .valuation(let key): "\(key.account) on \(key.date)"
         case .price(let key): "\(key.instrument) price on \(key.date)"
         case .fx(let key): "\(key.base)/\(key.quote) on \(key.date)"
+        case .trade(let key): "\(key.account) trade \(key.id) on \(key.date)"
         }
     }
 
@@ -39,6 +52,7 @@ public enum ImportRecordKey: Hashable, Comparable, Sendable, CustomStringConvert
         case (.valuation(let a), .valuation(let b)): a < b
         case (.price(let a), .price(let b)): a < b
         case (.fx(let a), .fx(let b)): a < b
+        case (.trade(let a), .trade(let b)): a < b
         default: (lhs.date, lhs.order) < (rhs.date, rhs.order)
         }
     }
@@ -46,8 +60,9 @@ public enum ImportRecordKey: Hashable, Comparable, Sendable, CustomStringConvert
     private var order: Int {
         switch self {
         case .valuation: 0
-        case .price: 1
-        case .fx: 2
+        case .trade: 1
+        case .price: 2
+        case .fx: 3
         }
     }
 }
@@ -57,12 +72,14 @@ public enum LibraryRecord: Hashable, Sendable {
     case valuation(Valuation)
     case price(PriceRecord)
     case fx(FXRecord)
+    case trade(Trade)
 
     public var key: ImportRecordKey {
         switch self {
         case .valuation(let record): .valuation(record.key)
         case .price(let record): .price(record.key)
         case .fx(let record): .fx(record.key)
+        case .trade(let record): .trade(record.key)
         }
     }
 }
@@ -94,6 +111,9 @@ public struct ImportedRecord: Hashable, Sendable {
     public var currency: CurrencyCode?
     /// FX rates: 1 base = rate × quote.
     public var rate: Decimal?
+    /// Trades: the trade as the file gives it, with its stable ID (the key's).
+    /// Fields it leaves out are left as they are in the library.
+    public var trade: Trade?
     /// Valuations: the money added (+) or taken out (−) since the account's
     /// previous valuation, when the file knows it (a ledger journal does).
     public var flow: Decimal?
@@ -127,9 +147,21 @@ public struct ImportedRecord: Hashable, Sendable {
         self.rate = rate
     }
 
+    /// A trade from the file, keyed by its account, date and ID.
+    public init(trade: Trade) {
+        key = .trade(trade.key)
+        positions = []
+        self.trade = trade
+    }
+
+    /// The instruments the record needs: its positions', its price's, its trade's.
+    public var instruments: [InstrumentID] {
+        positions.map(\.instrument) + [key.instrument, trade?.instrument].compactMap { $0 }
+    }
+
     /// Whether every value in the record is zero (a closed account's zeros).
     var isZero: Bool {
-        (balance ?? 0) == 0 && (cash ?? 0) == 0 && positions.allSatisfy { ($0.quantity ?? 0) == 0 }
+        trade == nil && (balance ?? 0) == 0 && (cash ?? 0) == 0 && positions.allSatisfy { ($0.quantity ?? 0) == 0 }
     }
 
     /// Sets the balance's sign for its account. With `auto`, a positive
@@ -222,7 +254,57 @@ enum RecordMerge {
             let same = old.rate == record.rate
             return Outcome(status: same ? .identical : .conflict, kept: .fx(old),
                            overwritten: same ? .fx(old) : .fx(record))
+        case (.trade(let key), let existing):
+            var trade = imported.trade ?? Trade(account: key.account, date: key.date, id: key.id, type: .deposit)
+            trade.account = key.account
+            trade.date = key.date
+            trade.id = key.id
+            guard case .trade(let old)? = existing else {
+                trade.source = trade.source ?? imported.source ?? .import
+                return Outcome(status: .new, kept: .trade(trade), overwritten: .trade(trade))
+            }
+            let (kept, _) = merge(trade, into: old, overwrite: false, source: imported.source)
+            let (overwritten, conflict) = merge(trade, into: old, overwrite: true, source: imported.source)
+            let status: ImportRecordStatus = conflict ? .conflict : kept == old ? .identical : .updated
+            return Outcome(status: status, kept: .trade(kept), overwritten: .trade(overwritten))
         }
+    }
+
+    /// Merges the file's trade into the library's. Only the fields the file
+    /// gives are compared: a note in the library stays. Without `overwrite`,
+    /// only fields the library's trade lacks are filled in. Returns whether
+    /// any field differed.
+    static func merge(_ imported: Trade, into existing: Trade, overwrite: Bool,
+                      source: DataSource?) -> (Trade, conflict: Bool) {
+        var trade = existing
+        var conflict = false
+        if imported.type != existing.type {
+            conflict = true
+            if overwrite { trade.type = imported.type }
+        }
+        func field<Value: Equatable>(_ path: WritableKeyPath<Trade, Value?>) {
+            guard let value = imported[keyPath: path] else { return }
+            if let old = trade[keyPath: path] {
+                if old != value {
+                    conflict = true
+                    if overwrite { trade[keyPath: path] = value }
+                }
+            } else {
+                trade[keyPath: path] = value
+            }
+        }
+        field(\.instrument)
+        field(\.quantity)
+        field(\.price)
+        field(\.currency)
+        field(\.amount)
+        field(\.fees)
+        field(\.tax)
+        field(\.cost)
+        field(\.ratio)
+        field(\.note)
+        if overwrite, conflict { trade.source = source ?? imported.source ?? .import }
+        return (trade, conflict)
     }
 
     /// Merges the file's values into a valuation. Without `overwrite`, only
@@ -306,6 +388,7 @@ extension Library {
         case .valuation(let key): return month.valuations.first { $0.key == key }.map(LibraryRecord.valuation)
         case .price(let key): return month.prices.first { $0.key == key }.map(LibraryRecord.price)
         case .fx(let key): return month.fx.first { $0.key == key }.map(LibraryRecord.fx)
+        case .trade(let key): return month.trades.first { $0.key == key }.map(LibraryRecord.trade)
         }
     }
 
@@ -315,6 +398,7 @@ extension Library {
         case .valuation(let valuation): upsert(valuation)
         case .price(let price): upsert(price)
         case .fx(let rate): upsert(rate)
+        case .trade(let trade): upsert(trade)
         }
     }
 }

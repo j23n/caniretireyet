@@ -34,7 +34,10 @@ struct LedgerImportCommand: RetireSubcommand {
             Give one journal or several (e.g. one per year); the files they include are read too. \
             Assets and liabilities become valuations at month ends (or --frequency quarter or \
             activity), with flows (money added or taken out) and purchase costs; P directives and \
-            @ prices become prices and exchange rates.
+            @ prices become prices and exchange rates. A library account that records trades gets \
+            the journal's trades instead: buys and sells at their @ or {} prices with their fees, \
+            dividends, interest, fees, taxes, deposits and withdrawals, and no valuations (its cash \
+            comes from its trades), unless you pass --cash-checks.
 
             Without --profile, the importer matches ledger accounts and commodities to the library \
             by name and proposes new ones; the preview shows where each goes. Save the mapping with \
@@ -75,6 +78,11 @@ struct LedgerImportCommand: RetireSubcommand {
 
     @Flag(inversion: .prefixedNo, help: "Whether @ prices on transactions become price records too. Default: yes.")
     var transactionPrices: Bool?
+
+    @Flag(inversion: .prefixedNo,
+          help: ArgumentHelp("Whether accounts that record trades also get valuations with the journal's cash, as "
+                                 + "checks. Default: the profile's, else no."))
+    var cashChecks: Bool?
 
     @Flag(help: "Only preview; write nothing. This is the default.")
     var dryRun = false
@@ -143,7 +151,7 @@ struct LedgerImportCommand: RetireSubcommand {
             session: session, ledger: ledgerPreview, preview: preview, library: loaded.library, profileID: profile,
             apply: apply, rows: rows,
             flags: .init(newAccounts: acceptNewAccounts, newInstruments: acceptNewInstruments,
-                         closings: acceptClosings, conflictsGiven: onConflict != nil))
+                         closings: acceptClosings, conflictsGiven: onConflict != nil, tradesMode: false))
         if apply {
             let result = preview.applyFollowingFlows(to: loaded.library)
             report.outcome = try write(result, session: session, ledgerPreview: ledgerPreview, loaded: loaded,
@@ -176,6 +184,7 @@ struct LedgerImportCommand: RetireSubcommand {
         var session = LedgerImportSession(journal: journal, profile: saved)
         if let frequency { session.setFrequency(frequency.value) }
         if let transactionPrices { session.setTransactionPrices(transactionPrices) }
+        if let cashChecks { session.setCashChecks(cashChecks) }
         if let onConflict { session.profile.onConflict = onConflict.policy }
         return session
     }

@@ -37,6 +37,8 @@ The command-line tool works on the same folder, on a Mac or Linux:
 swift run retire --help
 swift run retire import --library <folder> export.csv            # preview; --apply writes
 swift run retire import ledger --library <folder> 2024.journal 2025.journal
+swift run retire import --library <folder> movimenti.csv --account directa   # a broker's export, as trades
+swift run retire trades list directa --library <folder>                      # also add, remove, summary, convert
 swift run retire prices --library <folder> --fill-history --dry-run  # past prices; without --dry-run writes
 swift run retire plan --library <folder>
 ```

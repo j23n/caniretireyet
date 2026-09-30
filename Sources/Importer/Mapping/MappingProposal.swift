@@ -12,15 +12,23 @@ extension ImportSession {
     /// - Long: columns become the date, account, instrument, currency and
     ///   value fields by their headers, each value column with its own target.
     ///
-    /// With no `layout`, the layout is long when a text column's header
-    /// names accounts or instruments, and wide otherwise.
+    /// - Trades: a broker's transactions, a row per trade; see
+    ///   ``proposeTradesMapping()``.
+    ///
+    /// With no `layout`, the layout is trades when the file looks like a
+    /// broker's transactions (``looksLikeTransactions``), long when a text
+    /// column's header names accounts or instruments, and wide otherwise.
     public mutating func proposeMapping(layout: ImportLayout? = nil) {
         let columns = detection.columns
-        let layout = layout ?? Self.guessLayout(columns)
+        let layout = layout ?? (looksLikeTransactions ? .trades : Self.guessLayout(columns))
         profile.layout = layout
         profile.dateColumn = nil
         profile.target = nil
         profile.columns = []
+        if layout == .trades {
+            proposeTradesMapping()
+            return
+        }
         let dateColumn = columns.first { $0.kind == .date }?.column
 
         func mapping(_ column: Int, target: ImportTarget? = nil, field: ImportField? = nil) -> ImportColumn {

@@ -6,8 +6,9 @@ import SwiftUI
 import UniformTypeIdentifiers
 
 /// Importing a spreadsheet or CSV export (UI.md, "Import"; IMPORT.md, "Steps"),
-/// or ledger-cli / hledger journals (IMPORT.md, "Ledger journals"): their
-/// steps are Files, Accounts, Commodities, Preview and Done.
+/// a broker's transactions (IMPORT.md, "Broker transactions": a Types step
+/// after Columns), or ledger-cli / hledger journals (IMPORT.md, "Ledger
+/// journals"): their steps are Files, Accounts, Commodities, Preview and Done.
 ///
 /// - **Mac and iPad:** every step, along the top: File, Format, Columns,
 ///   Accounts, Preview and Done. The page keeps its import while you visit
@@ -175,6 +176,8 @@ struct ImportStepContent: View {
             ImportFormatStep(model: model)
         case .columns:
             ImportColumnsStep(model: model, isCompact: isCompact)
+        case .types:
+            ImportTypesStep(model: model)
         case .accounts:
             if model.flow.isLedger {
                 LedgerAccountsStep(model: model)

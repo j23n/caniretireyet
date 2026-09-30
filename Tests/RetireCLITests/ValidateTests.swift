@@ -10,9 +10,9 @@ struct ValidateTests {
             Library \(library.path)
               Format version  2 (current)
               Read-only       no
-              Files read      31
+              Files read      32
               Contents        10 accounts (1 closed), 3 instruments, 12 months of history (2025-10 to 2026-09), \
-            2 plans, 1 import profile
+            2 plans, 2 import profiles
 
             No problems found.
 

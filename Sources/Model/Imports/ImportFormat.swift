@@ -1,7 +1,7 @@
 /// Value formats for importing: dates, numbers, empty cells and the sign of
-/// debts. Used for a profile's `defaults` and for a column's `format`
-/// overrides; unset fields fall back to the profile's defaults, then to
-/// detection.
+/// debts and trade amounts. Used for a profile's `defaults` and for a
+/// column's `format` overrides; unset fields fall back to the profile's
+/// defaults, then to detection.
 public struct ImportFormat: Codable, Hashable, Sendable, KnownKeysProviding {
     public var date: ImportDateFormat?
     public var number: ImportNumberFormat?
@@ -11,17 +11,21 @@ public struct ImportFormat: Codable, Hashable, Sendable, KnownKeysProviding {
     /// signed in the file (default: ``LiabilitySign/auto``, positive amounts
     /// are debts).
     public var liabilitySign: LiabilitySign?
+    /// Trades layout: how the amounts of trades are signed in the file
+    /// (default: ``TradeAmountSign/auto``).
+    public var amountSign: TradeAmountSign?
 
     public init(date: ImportDateFormat? = nil, number: ImportNumberFormat? = nil, empty: EmptyCellPolicy? = nil,
-                liabilitySign: LiabilitySign? = nil) {
+                liabilitySign: LiabilitySign? = nil, amountSign: TradeAmountSign? = nil) {
         self.date = date
         self.number = number
         self.empty = empty
         self.liabilitySign = liabilitySign
+        self.amountSign = amountSign
     }
 
     enum CodingKeys: String, CodingKey, CaseIterable {
-        case date, number, empty, liabilitySign
+        case date, number, empty, liabilitySign, amountSign
     }
 
     public static var knownKeys: Set<String> { Set(CodingKeys.allCases.map(\.stringValue)) }
@@ -111,6 +115,25 @@ public struct LiabilitySign: OpenEnum {
     public static let asWritten: LiabilitySign = "asWritten"
 
     public static let knownValues: [LiabilitySign] = [.auto, .asWritten]
+}
+
+/// How a broker's transactions file signs the amounts of its trades (the
+/// `amount` and `gross` columns). The library stores a trade's amount as
+/// its signed cash effect: negative for buys, fees, taxes and withdrawals.
+public struct TradeAmountSign: OpenEnum {
+    public let rawValue: String
+    public init(rawValue: String) { self.rawValue = rawValue }
+
+    /// A column with any negative amount writes signed amounts, and its
+    /// signs are kept; a column without one writes absolute values, and each
+    /// amount's sign comes from its trade's type. The default.
+    public static let auto: TradeAmountSign = "auto"
+    /// Absolute values: each amount's sign comes from its trade's type.
+    public static let fromType: TradeAmountSign = "fromType"
+    /// Signed amounts: the file's signs are kept.
+    public static let asWritten: TradeAmountSign = "asWritten"
+
+    public static let knownValues: [TradeAmountSign] = [.auto, .fromType, .asWritten]
 }
 
 /// Where a month-only date lands.

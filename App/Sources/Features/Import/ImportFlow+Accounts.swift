@@ -148,7 +148,7 @@ extension ImportFlow {
 
     /// Wide layout: the imported columns whose header is `name`.
     private func columns(headed name: String) -> [Int] {
-        guard layout != .long else { return [] }
+        guard !layout.rowIsRecord else { return [] }
         return columnRows.filter { $0.header == name && $0.isValue }.map(\.column)
     }
 
@@ -210,6 +210,8 @@ extension ImportFlow {
             return "Close \(name) on \(AmountFormat.mediumDate(date, locale: locale))"
         case .openEarlier(let date):
             return "Open \(name) earlier, on \(AmountFormat.mediumDate(date, locale: locale))"
+        case .recordTrades:
+            return "Record \(name)'s trades"
         }
     }
 
@@ -218,6 +220,13 @@ extension ImportFlow {
         switch change.change {
         case .close: "Its values stop before the file's last date."
         case .openEarlier: "The file has values from before the day it was opened."
+        case .recordTrades:
+            library.accounts[change.account]?.valuationMode == .balance
+                ? "The file has its trades. Its holdings and cash will come from them, and its balances won't count "
+                    + "any more; convert it in its page first to keep them. Off: its trades are left out, or choose "
+                    + "another account."
+                : "The file has its trades. Its holdings and cash will come from them, and the positions of its "
+                    + "values become checks. Off: its trades are left out, or choose another account."
         }
     }
 

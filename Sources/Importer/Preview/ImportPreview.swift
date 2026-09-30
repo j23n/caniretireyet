@@ -31,6 +31,9 @@ public struct ImportPreview: Hashable, Sendable {
     /// The first and last dates in the file.
     public var firstDate: CalendarDate?
     public var lastDate: CalendarDate?
+    /// Trades layout: the values of the file's type column and the trade
+    /// types they're read as.
+    public var tradeTypes: [TradeTypeValue] = []
 
     public init(records: [ImportRecordPreview] = [], cellErrors: [ImportCellError] = [], issues: [ImportIssue] = [],
                 ambiguities: [ImportAmbiguity] = [], nameMatches: [NameMatch] = [],
@@ -55,6 +58,7 @@ public struct ImportPreview: Hashable, Sendable {
     public var summary: ImportSummary {
         var summary = ImportSummary()
         for record in records {
+            if record.imported.key.isTrade { summary.trades += 1 }
             switch record.status {
             case .new: summary.newRecords += 1
             case .updated: summary.updatedRecords += 1
@@ -74,6 +78,7 @@ public struct ImportPreview: Hashable, Sendable {
         summary.closedAccounts = accountChanges.filter {
             if case .close = $0.change { $0.isAccepted } else { false }
         }.count
+        summary.tradesAccounts = accountChanges.filter { $0.recordsTrades && $0.isAccepted }.count
         return summary
     }
 
@@ -139,6 +144,10 @@ public struct ImportSummary: Hashable, Sendable, CustomStringConvertible {
     public var newAccounts = 0
     public var newInstruments = 0
     public var closedAccounts = 0
+    /// Of the records, how many are trades.
+    public var trades = 0
+    /// Accounts switched to recording trades.
+    public var tradesAccounts = 0
 
     public init() {}
 
@@ -147,6 +156,7 @@ public struct ImportSummary: Hashable, Sendable, CustomStringConvertible {
         var parts = ["\(newRecords) new, \(updatedRecords) updated, \(identicalRecords) identical, "
             + "\(Self.count(conflicts, "conflict"))"
             + (undecidedConflicts > 0 ? " (\(undecidedConflicts) undecided)" : "")]
+        if trades > 0 { parts.append("\(Self.count(trades, "trade")) among them") }
         if cellErrors > 0 { parts.append(Self.count(cellErrors, "error")) }
         if issues > 0 { parts.append(Self.count(issues, "issue")) }
         if ambiguities > 0 { parts.append(Self.count(ambiguities, "format to confirm", plural: "formats to confirm")) }
@@ -155,6 +165,9 @@ public struct ImportSummary: Hashable, Sendable, CustomStringConvertible {
         if newAccounts > 0 { entities.append(Self.count(newAccounts, "new account")) }
         if newInstruments > 0 { entities.append(Self.count(newInstruments, "new instrument")) }
         if closedAccounts > 0 { entities.append(Self.count(closedAccounts, "account closed", plural: "accounts closed")) }
+        if tradesAccounts > 0 {
+            entities.append(Self.count(tradesAccounts, "account switched to trades", plural: "accounts switched to trades"))
+        }
         if !entities.isEmpty { parts.append(entities.joined(separator: ", ")) }
         return parts.joined(separator: "; ")
     }

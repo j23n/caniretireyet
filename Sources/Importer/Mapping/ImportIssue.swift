@@ -27,6 +27,21 @@ public struct ImportIssue: Hashable, Sendable, CustomStringConvertible {
         /// positive (in credit), because the column writes debts as negative
         /// amounts.
         case debtsInCredit(AccountID, count: Int)
+        /// Trades layout: `count` rows have a type the mapping doesn't know
+        /// (`value`); they're left out until it's mapped.
+        case unmappedTradeType(String, count: Int)
+        /// A note, trades layout: whether an amount column writes signed
+        /// amounts (kept as written) or absolute values (signed by the type).
+        case tradeAmountSigns(signed: Bool)
+        /// A note, trades layout: `count` negative quantities were made
+        /// positive; the type says the direction (without a type column, a
+        /// negative quantity is a sell).
+        case negativeQuantities(count: Int, byType: Bool)
+        /// A note, trades layout: `count` deposits and withdrawals were told
+        /// apart by their amount's sign.
+        case cashDirectionBySign(count: Int)
+        /// A note, trades layout: `count` rows of types mapped to `ignore` were left out.
+        case ignoredTradeRows(count: Int)
     }
 
     public var kind: Kind
@@ -44,9 +59,15 @@ public struct ImportIssue: Hashable, Sendable, CustomStringConvertible {
     /// to fix: nothing is left out because of it.
     public var isNote: Bool {
         switch kind {
-        case .positiveDebts, .debtsInCredit: true
+        case .positiveDebts, .debtsInCredit, .tradeAmountSigns, .negativeQuantities, .cashDirectionBySign,
+             .ignoredTradeRows: true
         default: false
         }
+    }
+
+    /// `1 row was`, `3 rows were`.
+    private static func rows(_ count: Int) -> String {
+        count == 1 ? "1 row was" : "\(count) rows were"
     }
 
     public var description: String {
@@ -73,6 +94,24 @@ public struct ImportIssue: Hashable, Sendable, CustomStringConvertible {
             let name = header.map { "“\($0)”" } ?? account.rawValue
             return "\(name): the column writes debts as negative amounts, so positive amounts were kept "
                 + "as credit (\(count) \(count == 1 ? "value" : "values"))."
+        case .unmappedTradeType(let value, let count):
+            return "“\(value)” isn't mapped to a trade type, so \(Self.rows(count)) left out until it is."
+        case .tradeAmountSigns(let signed):
+            return signed
+                ? "\(place): amounts are signed, so their signs were kept (negative for buys, fees, taxes and "
+                    + "withdrawals)."
+                : "\(place): amounts are written without signs, so each one's sign comes from its type (negative for "
+                    + "buys, fees, taxes and withdrawals)."
+        case .negativeQuantities(let count, let byType):
+            return "\(place): \(count) negative \(count == 1 ? "quantity was" : "quantities were") made positive; "
+                + (byType ? "the type says whether units come in or go out." : "without a type, a negative quantity "
+                    + "is a sell and a positive one a buy.")
+        case .cashDirectionBySign(let count):
+            return "\(count) \(count == 1 ? "deposit or withdrawal was" : "deposits and withdrawals were") told "
+                + "apart by the amount's sign."
+        case .ignoredTradeRows(let count):
+            return count == 1 ? "1 row was left out: its type is mapped to ignore."
+                : "\(count) rows were left out: their types are mapped to ignore."
         }
     }
 }

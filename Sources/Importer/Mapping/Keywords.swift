@@ -31,6 +31,32 @@ enum Keywords {
                            "performance", "note", "notes", "nota", "commento", "comment", "commenti",
                            "descrizione", "description"]
 
+    // MARK: Trades layout (headers with camel case split: `NetCash` → `net cash`)
+
+    /// A column of trade types.
+    static let tradeType = ["tipo", "tipo operazione", "operazione", "causale", "type", "transaction type", "action",
+                            "buy sell", "segno", "tipologia", "movimento"]
+    /// A column of instrument names, tickers or ISINs.
+    static let tradeInstrument = instrument + ["product", "nome titolo", "descrizione titolo", "securities"]
+    /// A column naming the account.
+    static let tradeAccount = ["account", "conto", "rapporto", "portafoglio", "portfolio", "dossier", "account id"]
+    /// A column of free text for the note.
+    static let tradeNote = ["descrizione", "description", "note", "notes", "nota", "commento", "comment", "dettagli",
+                            "details"]
+    /// Number columns in another currency than the account's, and rates: not imported.
+    static let tradeSkip = ["local", "locale", "cambio", "exchange rate", "fx", "rate", "tasso"]
+    /// The cash a trade moved, net of fees and tax.
+    static let tradeNet = ["netto", "net", "net cash", "netcash", "total", "totale", "net amount"]
+    /// The value before fees and tax, said outright.
+    static let tradeGrossMarkers = ["lordo", "gross"]
+    static let tradeGross = ["controvalore", "value", "valore", "proceeds"]
+    static let tradeAmount = ["importo", "amount", "cash", "somma"]
+    static let tradeFees = ["commissioni", "commissione", "commission", "commissions", "fee", "fees", "spese", "costi",
+                            "costs", "transaction costs", "ibcommission", "comm"]
+    static let tradeTax = ["tasse", "tassa", "tax", "taxes", "imposte", "imposta", "ritenuta", "ritenute", "bollo",
+                           "withholding"]
+    static let tradeRatio = ["ratio", "split ratio", "rapporto"]
+
     /// Words removed from a header to get the name it stands for:
     /// `BTC (qtà)` → `BTC`, `Prezzo VWCE` → `VWCE`.
     static let headerNoise = quantity + price + costBasis + cash + balance
