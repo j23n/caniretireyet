@@ -194,6 +194,22 @@ struct ImportTests {
             + "Profiles: bank-sheet, net-worth-sheet."))
     }
 
+    /// A profile that excludes no rows (`"excludeRows": []`) has no footer rule.
+    @Test func aProfileExcludingNoRowsHasNoFooterRule() async throws {
+        let library = try TemporaryFolder.exampleLibrary()
+        let save = await retire(["import", try sheet(), "--library", library.path, "--save-profile", "bank-sheet"])
+        #expect(save.status == 0, "\(save.all)")
+        var profile = try #require(try library.load().importProfiles["bank-sheet"])
+        profile.file = ImportFileSettings(encoding: profile.file.encoding, delimiter: profile.file.delimiter,
+                                          headerRow: profile.file.headerRow, excludesNoRows: true)
+        try library.library.save(profile)
+        #expect(try library.load().importProfiles["bank-sheet"]?.file.writtenExcludeRows == [])
+
+        let run = await retire(["import", try sheet(), "--library", library.path, "--profile", "bank-sheet"])
+        #expect(run.status == 0, "\(run.all)")
+        #expect(run.output.contains("  Footer rule  none\n"))
+    }
+
     @Test func applyingWithAProfileAndSavingItIsOneUndo() async throws {
         let library = try TemporaryFolder.exampleLibrary()
         let original = try library.snapshot()

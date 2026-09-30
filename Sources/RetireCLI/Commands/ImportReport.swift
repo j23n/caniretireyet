@@ -109,7 +109,8 @@ struct ImportReport {
         settings.add(["Encoding", table.encoding.rawValue])
         settings.add(["Delimiter", Format.delimiter(table.delimiter)])
         settings.add(["Header row", table.hasHeader ? "\(table.headerRow)" : "none"])
-        settings.add(["Footer rule", "rows starting with " + Format.list(table.excludeRows.map { "“\($0)”" }, or: true)])
+        settings.add(["Footer rule", table.excludeRows.isEmpty ? "none"
+            : "rows starting with " + Format.list(table.excludeRows.map { "“\($0)”" }, or: true)])
         let aboveHeader = table.skippedRows.filter { $0.reason == .aboveHeader }.count
         let footers = table.skippedRows.filter { if case .excluded = $0.reason { true } else { false } }.count
         var rowText = Format.count(table.rows.count, "data row")
