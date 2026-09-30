@@ -8,11 +8,23 @@ import Testing
 /// retirement ages (38 to 75), with taxes, pensions, contributions, credits
 /// into wrappers and uncertain events.
 ///
-/// The bound is generous so the test also passes in debug builds; for the
-/// real figure, run it in a release build:
+/// The full scan takes about a minute in a debug build, so it runs only in
+/// release builds, or when `PLANNER_PERF_TESTS=1` is set:
 ///
 ///     swift test -c release -Xswiftc -enable-testing --filter PerformanceTests
+///     PLANNER_PERF_TESTS=1 swift test --filter PerformanceTests
+///
+/// A small scan of the same plan always runs.
 struct PerformanceTests {
+    /// Whether the full scan runs: in release builds, or with `PLANNER_PERF_TESTS=1`.
+    static var fullScanEnabled: Bool {
+        #if DEBUG
+        ProcessInfo.processInfo.environment["PLANNER_PERF_TESTS"] == "1"
+        #else
+        true
+        #endif
+    }
+
     static let library = Sample.library(birth: "1988-04-12", on: "2026-09-30", [
         SampleAccount(id: "broker", mix: [.equity: d("0.8"), .bonds: d("0.2")], balance: 150_000),
         SampleAccount(id: "cash", kind: .cash, mix: nil, balance: 20_000),
@@ -49,7 +61,20 @@ struct PerformanceTests {
         return plan
     }
 
-    @Test func theFullScanIsFast() async throws {
+    @Test func aSmallScanOfTheSamePlanRuns() async throws {
+        let result = try await Planner.run(plan: Self.plan, library: Self.library, registry: Sample.registry(Self.system),
+                                           options: PlannerOptions(mode: .fast(runs: 40), maxRetirementAge: 45))
+        #expect(result.successCurve.map(\.age) == Array(38...45))
+        #expect(result.fan.count == 58)
+        #expect(result.settings.runs == 40)
+        #expect(result.answer.sustainableSpending != nil)
+        for year in result.fan {
+            #expect(year.p10 <= year.p50 && year.p50 <= year.p90)
+        }
+    }
+
+    @Test(.enabled(if: fullScanEnabled, "The full scan runs in release builds, or with PLANNER_PERF_TESTS=1."))
+    func theFullScanIsFast() async throws {
         let clock = ContinuousClock()
         var measured: PlanResult?
         let scan = try await clock.measure {
