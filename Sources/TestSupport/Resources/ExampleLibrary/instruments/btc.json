@@ -1,0 +1,9 @@
+{
+  "assetClasses": { "crypto": "1" },
+  "currency": "USD",
+  "id": "btc",
+  "kind": "crypto",
+  "name": "Bitcoin",
+  "priceSource": { "provider": "coingecko", "symbol": "bitcoin" },
+  "unit": "BTC"
+}

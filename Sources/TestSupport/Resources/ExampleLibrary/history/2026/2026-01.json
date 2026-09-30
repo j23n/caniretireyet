@@ -1,0 +1,26 @@
+{
+  "fx": [
+    { "base": "EUR", "date": "2026-01-31", "quote": "USD", "rate": "1.1034", "source": "ecb" }
+  ],
+  "indices": [
+    { "date": "2026-01-31", "index": "hicp-it", "source": "eurostat", "value": "126.05" }
+  ],
+  "month": "2026-01",
+  "prices": [
+    { "currency": "USD", "date": "2026-01-31", "instrument": "btc", "price": "101300", "source": "coingecko" },
+    { "currency": "EUR", "date": "2026-01-31", "instrument": "gold", "price": "96.8", "source": "gold-api" },
+    { "currency": "EUR", "date": "2026-01-31", "instrument": "vwce", "price": "132.6", "source": "yahoo" }
+  ],
+  "valuations": [
+    { "account": "conto-deposito", "balance": "15594.5", "date": "2026-01-31", "flow": "0" },
+    { "account": "conto-fineco", "balance": "5210.85", "date": "2026-01-31", "flow": "1260.45" },
+    {
+      "account": "directa",
+      "cash": "256.8",
+      "date": "2026-01-31",
+      "flow": "1180.65",
+      "positions": [{ "instrument": "vwce", "quantity": "368" }]
+    },
+    { "account": "mutuo-casa", "balance": "-146250", "date": "2026-01-31", "flow": "650" }
+  ]
+}

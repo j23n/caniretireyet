@@ -1,0 +1,17 @@
+{
+  "columns": [
+    { "account": "conto-fineco", "header": "Conto Fineco", "target": "balance" },
+    { "account": "directa", "header": "Directa", "target": "balance" },
+    { "account": "ledger-wallet", "header": "BTC (qtà)", "instrument": "btc", "target": "quantity" },
+    { "account": "gold-coins", "header": "Oro", "target": "balance" },
+    { "header": "Note", "target": "ignore" }
+  ],
+  "dateColumn": "Data",
+  "defaults": { "date": { "pattern": "dd/MM/yyyy" }, "empty": "skip", "number": { "decimal": ",", "thousands": "." } },
+  "file": { "delimiter": ";", "encoding": "windows-1252", "excludeRows": ["Totale"], "headerRow": 1 },
+  "id": "net-worth-sheet",
+  "layout": "wide",
+  "matches": { "accounts": { "Fineco": "conto-fineco" } },
+  "name": "My net worth spreadsheet",
+  "onConflict": "ask"
+}

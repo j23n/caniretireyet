@@ -1,0 +1,10 @@
+{
+  "country": "IT",
+  "currency": "EUR",
+  "id": "casa",
+  "includeIn": { "plan": false },
+  "kind": "property",
+  "name": "Home",
+  "notes": "Made-up estimate of the home's market value.",
+  "opened": "2024-07-15"
+}

@@ -1,0 +1,11 @@
+{
+  "closed": "2025-11-15",
+  "country": "DE",
+  "currency": "EUR",
+  "id": "old-bank",
+  "institution": "Old Bank AG",
+  "kind": "cash",
+  "name": "Old bank",
+  "opened": "2016-05-01",
+  "successor": "conto-fineco"
+}

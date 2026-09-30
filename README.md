@@ -6,7 +6,7 @@ A personal net-worth tracker and retirement planner for iPhone and Mac.
 - **Plan.** Start from your real numbers and project forward: savings, spending, pensions, windfalls and taxes. Taxes come from pluggable tax systems and regimes. Italy is first, including impatriati and forfettario. The app answers the question in its name: *can I retire yet, and if not, when?*
 - **Your data is files.** Everything is stored as plain JSON files in a folder in iCloud Drive. The iPhone and Mac apps both read and write that folder, and iCloud keeps it in sync. There is no server, no account to create, and no lock-in.
 
-Status: planning. Start with [docs/PLAN.md](docs/PLAN.md).
+Status: M0, foundations: the Swift package, the data model, the tax plugin interfaces and CI. Start with [docs/PLAN.md](docs/PLAN.md). To build and contribute, see [CLAUDE.md](CLAUDE.md).
 
 | Document | What it covers |
 | --- | --- |

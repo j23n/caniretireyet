@@ -56,7 +56,7 @@ Can I Retire Yet/                   ← the app's folder in iCloud Drive
 | --- | --- |
 | IDs | A lowercase slug (`[a-z0-9-]+`), unique within its folder and identical to the file name. The app creates it from the display name ("Conto Fineco" → `conto-fineco`) and adds `-2` if the slug is taken. An ID never changes. |
 | Dates | `YYYY-MM-DD`: a calendar date with no time or time zone. A valuation dated `2026-09-30` means "as of the end of that day". |
-| Amounts | Decimal strings such as `"1234.56"`, negative for debts. The app also accepts plain JSON numbers, for when you edit by hand. |
+| Amounts | Decimal strings such as `"1234.56"`, negative for debts. The app also accepts plain JSON numbers, for when you edit by hand. It writes the shortest exact form: `"1500"`, not `"1500.00"`. Both read as the same value. |
 | Quantities | Decimal strings, e.g. `"0.4215"`. |
 | Rates and shares | Decimal fractions as strings: `"0.26"` means 26%. |
 | Currencies | ISO 4217 codes: `EUR`, `USD`, `CHF`. |
@@ -136,7 +136,7 @@ A closed account:
 | `closed` | no | The last day it counts. Absent while the account is active. |
 | `institution`, `country` | no | The bank or broker, and its country. The tax system may use the country, e.g. Italy's higher wealth-tax rate for blacklisted countries. So does the RW helper, which lists the foreign accounts you have to declare. |
 | `valuation` | no | `balance` or `holdings`. The default depends on `kind`: brokerage, crypto and metals default to holdings. |
-| `assetClasses` | no | The asset mix of an account recorded as a balance, used by the planner. Defaults by kind: cash → `cash`, property → `realEstate`. |
+| `assetClasses` | no | The asset mix of an account recorded as a balance, used by the planner. Defaults by kind: cash and savings → `cash`, property → `realEstate`. |
 | `tax` | no | How the planner taxes this account. `wrapper` names a wrapper defined by a tax system (for Italy: `it.ordinary`, `it.pensionFund`, `it.tfr`) or a generic one (`taxable`, `taxDeferred`, `taxFree`). Wrapper-specific details follow. See [TAXES.md](TAXES.md). |
 | `includeIn` | no | `{ "netWorth": true, "plan": true }`. A primary home would normally set `"plan": false`. |
 | `successor` | no | The account that replaced this one, e.g. when you switched banks, so charts stay continuous. |
@@ -210,26 +210,26 @@ One file per calendar month. It holds the account valuations, prices, FX rates a
     { "base": "EUR", "date": "2026-09-30", "quote": "USD", "rate": "1.1712", "source": "ecb" }
   ],
   "indices": [
-    { "date": "2026-08-31", "index": "hicp-it", "source": "eurostat", "value": "128.41" }
+    { "date": "2026-09-30", "index": "hicp-it", "source": "eurostat", "value": "128.41" }
   ],
   "month": "2026-09",
   "prices": [
-    { "currency": "EUR", "date": "2026-09-30", "instrument": "btc", "price": "95120.00", "source": "coingecko" },
-    { "currency": "EUR", "date": "2026-09-30", "instrument": "gold", "price": "98.40", "source": "gold-api" },
+    { "currency": "EUR", "date": "2026-09-30", "instrument": "btc", "price": "95120", "source": "coingecko" },
+    { "currency": "EUR", "date": "2026-09-30", "instrument": "gold", "price": "98.4", "source": "gold-api" },
     { "currency": "EUR", "date": "2026-09-30", "instrument": "vwce", "price": "138.42", "source": "yahoo" }
   ],
   "valuations": [
-    { "account": "conto-fineco", "balance": "4210.55", "date": "2026-09-30", "flow": "-310.20" },
+    { "account": "conto-fineco", "balance": "4210.55", "date": "2026-09-30", "flow": "-310.2" },
     {
       "account": "directa",
-      "cash": "312.10",
+      "cash": "312.1",
       "date": "2026-09-30",
-      "flow": "1500.00",
+      "flow": "1500",
       "positions": [
-        { "costBasis": "48200.00", "instrument": "vwce", "quantity": "412.5" }
+        { "costBasis": "48200", "instrument": "vwce", "quantity": "412.5" }
       ]
     },
-    { "account": "fondo-pensione", "balance": "18450.12", "date": "2026-09-30", "flow": "1325.00", "note": "from Q3 statement" },
+    { "account": "fondo-pensione", "balance": "18450.12", "date": "2026-09-30", "flow": "1325", "note": "from Q3 statement" },
     { "account": "gold-coins", "date": "2026-09-30", "positions": [{ "instrument": "gold", "quantity": "62.2" }] },
     { "account": "ledger-wallet", "date": "2026-09-30", "positions": [{ "instrument": "btc", "quantity": "0.4215" }] }
   ]
@@ -246,7 +246,7 @@ Rules:
 - **Cost basis.** `costBasis` is optional: the total purchase cost of a position in the account's currency (Italian brokers show it as *valore di carico*). The planner uses it to estimate the tax due when you sell. Where it's missing, the plan asks for an estimate instead. It matters most for physical gold: if you can't document the purchase price, Italy taxes the whole sale price.
 - **Flow.** `flow` is optional: the net money added (+) or taken out (−) since the account's previous valuation, in the account's currency. The check-in fills it in from defaults that depend on the kind of account, and you can edit it (see [PROGRESS.md](PROGRESS.md#data-this-needs-from-day-one)). A missing flow means unknown. The sum of all flows over a period is what you actually saved.
 - **FX direction.** FX rates follow the ECB convention: 1 `base` = `rate` × `quote`.
-- **Indices.** `indices` holds consumer-price-index values (`hicp-it`: Italy's HICP from Eurostat). They're used to express history in today's euros and to compute real returns.
+- **Indices.** `indices` holds consumer-price-index values (`hicp-it`: Italy's HICP from Eurostat). They're used to express history in today's euros and to compute real returns. A monthly value is dated the last day of the month it measures and stored in that month's file, even when it's published and fetched later.
 - **Sorting.** Records are sorted by date, then by ID, so files diff cleanly.
 
 ### How values are computed

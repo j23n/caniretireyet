@@ -1,0 +1,29 @@
+{
+  "events": [
+    { "amount": "-15000", "name": "Sabbatical", "year": 2033 }
+  ],
+  "id": "part-time-from-50",
+  "name": "Part-time from 50",
+  "pensions": [
+    { "claim": 67, "options": { "contributionYears": "8", "montante": "92000" }, "scheme": "it.inps" },
+    { "fromAge": 67, "name": "Pension from previous country", "perYear": "4800", "scheme": "fixed", "taxedIn": "source" }
+  ],
+  "portfolio": { "exclude": ["gold-coins"], "start": "2026-06-30", "targetMix": { "bonds": "0.3", "equity": "0.7" } },
+  "retirement": { "age": "earliest" },
+  "simulation": { "runs": 500 },
+  "spending": { "retired": "32000", "working": "34000" },
+  "tax": {
+    "residence": [
+      { "from": 2026, "options": { "addizionaleComunale": "0.008", "addizionaleRegionale": "0.0173" }, "system": "it" },
+      {
+        "from": 2048,
+        "options": { "capitalGainsRate": "0.28", "incomeTaxRate": "0.2", "wealthTaxRate": "0" },
+        "system": "generic"
+      }
+    ]
+  },
+  "work": [
+    { "from": "2026-01-01", "grossSalary": "65000", "kind": "employee", "realGrowth": "0.01", "until": "2038-04-11" },
+    { "from": "2038-04-12", "kind": "net", "netIncome": "18000", "until": "retirement" }
+  ]
+}

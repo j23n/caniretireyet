@@ -1,0 +1,11 @@
+{
+  "country": "IT",
+  "currency": "EUR",
+  "id": "directa",
+  "institution": "Directa SIM",
+  "kind": "brokerage",
+  "name": "Directa",
+  "opened": "2021-03-01",
+  "tags": ["fire"],
+  "tax": { "wrapper": "it.ordinary" }
+}

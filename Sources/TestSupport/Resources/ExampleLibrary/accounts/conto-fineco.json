@@ -1,0 +1,11 @@
+{
+  "country": "IT",
+  "currency": "EUR",
+  "id": "conto-fineco",
+  "institution": "FinecoBank",
+  "kind": "cash",
+  "name": "Conto Fineco",
+  "opened": "2024-03-01",
+  "tags": ["daily"],
+  "tax": { "wrapper": "it.ordinary" }
+}

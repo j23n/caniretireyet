@@ -1,0 +1,42 @@
+{
+  "fx": [
+    { "base": "EUR", "date": "2025-10-31", "quote": "USD", "rate": "1.0852", "source": "ecb" }
+  ],
+  "indices": [
+    { "date": "2025-10-31", "index": "hicp-it", "source": "eurostat", "value": "126.1" }
+  ],
+  "month": "2025-10",
+  "prices": [
+    { "currency": "USD", "date": "2025-10-31", "instrument": "btc", "price": "98500", "source": "coingecko" },
+    { "currency": "EUR", "date": "2025-10-31", "instrument": "gold", "price": "92.1", "source": "gold-api" },
+    { "currency": "EUR", "date": "2025-10-31", "instrument": "vwce", "price": "128.1", "source": "yahoo" }
+  ],
+  "valuations": [
+    { "account": "casa", "balance": "305000", "date": "2025-10-31", "source": "import" },
+    { "account": "conto-deposito", "balance": "15000", "date": "2025-10-31", "source": "import" },
+    { "account": "conto-fineco", "balance": "4820.3", "date": "2025-10-31", "source": "import" },
+    {
+      "account": "directa",
+      "cash": "215.4",
+      "date": "2025-10-31",
+      "positions": [{ "instrument": "vwce", "quantity": "338" }],
+      "source": "import"
+    },
+    { "account": "fondo-pensione", "balance": "16120", "date": "2025-10-31", "source": "import" },
+    {
+      "account": "gold-coins",
+      "date": "2025-10-31",
+      "positions": [{ "costBasis": "5210", "instrument": "gold", "quantity": "62.2" }],
+      "source": "import"
+    },
+    {
+      "account": "ledger-wallet",
+      "date": "2025-10-31",
+      "positions": [{ "instrument": "btc", "quantity": "0.4215" }],
+      "source": "import"
+    },
+    { "account": "mutuo-casa", "balance": "-148200", "date": "2025-10-31", "source": "import" },
+    { "account": "old-bank", "balance": "850", "date": "2025-10-31", "source": "import" },
+    { "account": "tfr", "balance": "8100", "date": "2025-10-31", "source": "import" }
+  ]
+}
