@@ -110,7 +110,8 @@ public struct ImportIssue: Hashable, Sendable, CustomStringConvertible {
             return "\(count) \(count == 1 ? "deposit or withdrawal was" : "deposits and withdrawals were") told "
                 + "apart by the amount's sign."
         case .ignoredTradeRows(let count):
-            return "\(Self.rows(count)) of types set to be left out."
+            return count == 1 ? "1 row was left out: its type is mapped to ignore."
+                : "\(count) rows were left out: their types are mapped to ignore."
         }
     }
 }

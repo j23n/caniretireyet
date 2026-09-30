@@ -1,0 +1,17 @@
+﻿Directa SIM - Movimenti del conto (esempio inventato)
+Conto: DEMO-0001
+Periodo: 01/01/2026 - 30/09/2026
+
+Data operazione;Data valuta;Tipo operazione;Ticker;ISIN;Titolo;Quantità;Prezzo;Importo euro;Commissioni;Divisa;Descrizione
+05/01/2026;07/01/2026;Bonifico in entrata;;;;;;2.500,00;;EUR;Bonifico dal conto corrente
+12/01/2026;14/01/2026;Acquisto;VWCE;IE00BK5BQT80;VANGUARD FTSE ALL-WORLD UCITS ETF;15;102,30;-1.539,50;5,00;EUR;Eseguito su ETFplus
+20/01/2026;22/01/2026;Acquisto;SWDA;IE00B4L5Y983;ISHARES CORE MSCI WORLD UCITS ETF;10;95,10;-955,00;4,00;EUR;Eseguito su ETFplus
+03/02/2026;05/02/2026;Acquisto;VHYL;IE00B8GKDB10;VANGUARD FTSE ALL-WORLD HIGH DIV;20;61,40;-1.232,00;4,00;EUR;Eseguito su ETFplus
+25/03/2026;27/03/2026;Dividendo;VHYL;IE00B8GKDB10;VANGUARD FTSE ALL-WORLD HIGH DIV;;;17,76;;EUR;Dividendo lordo
+25/03/2026;27/03/2026;Ritenuta su dividendo;VHYL;IE00B8GKDB10;VANGUARD FTSE ALL-WORLD HIGH DIV;;;-4,62;;EUR;Ritenuta 26%
+10/04/2026;14/04/2026;Vendita;SWDA;IE00B4L5Y983;ISHARES CORE MSCI WORLD UCITS ETF;-4;99,80;395,20;4,00;EUR;Eseguito su ETFplus
+12/05/2026;14/05/2026;Acquisto;VWCE;IE00BK5BQT80;VANGUARD FTSE ALL-WORLD UCITS ETF;5;104,10;-525,50;5,00;EUR;Ordine eseguito in due parti
+12/05/2026;14/05/2026;Acquisto;VWCE;IE00BK5BQT80;VANGUARD FTSE ALL-WORLD UCITS ETF;5;104,10;-525,50;5,00;EUR;Ordine eseguito in due parti
+30/06/2026;30/06/2026;Imposta di bollo;;;;;;-8,47;;EUR;Imposta di bollo II trimestre
+15/07/2026;15/07/2026;Commissioni;;;;;;-2,00;;EUR;Canone servizio
+21/07/2026;21/07/2026;Giroconto;;;;;;150,00;;EUR;Giroconto da altro rapporto

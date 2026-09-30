@@ -263,8 +263,21 @@ struct ImportReport {
 
     func noteLines() -> [String] {
         guard !notes.isEmpty else { return [] }
-        return notes.map { "  \($0)" }
-            + ["  To keep the file's signs, pass --liability-sign as-written (or set liabilitySign in the profile)."]
+        var lines = notes.map { "  \($0)" }
+        if notes.contains(where: {
+            switch $0.kind {
+            case .positiveDebts, .debtsInCredit: true
+            default: false
+            }
+        }) {
+            lines.append("  To keep the file's signs, pass --liability-sign as-written (or set liabilitySign in the "
+                + "profile).")
+        }
+        if notes.contains(where: { if case .tradeAmountSigns = $0.kind { true } else { false } }) {
+            lines.append("  To read the amounts otherwise, pass --amount-sign from-type or as-written (or set "
+                + "amountSign in the profile).")
+        }
+        return lines
     }
 
     func nameLines() -> [String] {
@@ -331,18 +344,22 @@ struct ImportReport {
                 let was = library.accounts[proposal.account].map { " (was \($0.opened))" } ?? ""
                 return "  Open \(proposal.account) on \(date), its first value\(was)"
             case .recordTrades:
-                return Self.recordTradesLine(proposal, apply: apply)
+                return Self.recordTradesLine(proposal, apply: apply, library: library)
             }
         }
     }
 
     /// `Record trades in directa: its holdings will come from its trades (switched with --apply)`.
-    static func recordTradesLine(_ proposal: AccountChangeProposal, apply: Bool) -> String {
+    static func recordTradesLine(_ proposal: AccountChangeProposal, apply: Bool, library: Library) -> String {
         let what = proposal.isAccepted ? (apply ? "switched" : "switched with --apply")
             : "not switched, so its trades are left out: pass --accept-trades-mode, or choose a trades account with "
                 + "--account"
-        return "  Record trades in \(proposal.account): its holdings will come from its trades, and the positions of "
-            + "its valuations become checks (\(what))"
+        let valuations = library.accounts[proposal.account]?.valuationMode == .balance
+            ? "the balances of its valuations won't count any more (`retire trades convert \(proposal.account) --to "
+                + "trades` first keeps them, as cash)"
+            : "the positions of its valuations become checks"
+        return "  Record trades in \(proposal.account): its holdings and cash will come from its trades, and "
+            + "\(valuations) (\(what))"
     }
 
     func previewLines() -> [String] {
