@@ -438,17 +438,18 @@ All widgets hide amounts when the device is locked.
 
 ## How it's built
 
-- **State.** `@Observable` stores, injected through the environment:
+- **State.** `@Observable` stores, created once and injected through the environment:
 
   | Store | Holds |
   | --- | --- |
-  | `LibraryStore` | the in-memory library, edits, sync status |
-  | `PlanStore` | runs, cached results, recompute scheduling |
-  | `CheckInSession` | the draft |
-  | `PriceService` | price fetching |
-  | `ImportSession` | an import in progress |
+  | `LibraryStore` | the in-memory library, edits, sync status, merged conflicts |
+  | `PlanStore` | runs, cached results, recompute scheduling, headlines and baselines |
+  | `CheckInStore` | the check-in draft, kept on the device until it's saved |
+  | `PriceStore` | price fetching (wraps `PriceService`) |
+  | `PrivacySettings`, `AppPreferences`, `AppNavigation` | hidden amounts, this device's settings, where you are in the app |
 
+  An import in progress belongs to the Import screen.
 - **Navigation.** One root view chooses between `TabView` (compact width) and `NavigationSplitView` (regular width and Mac). The screens themselves don't know which one they're in.
-- **Folders.** `App/Sources/` holds `App`, `Stores`, `Overview`, `CheckIn`, `Accounts`, `Plan`, `Progress`, `Import`, `Settings`, `Components` (charts, amount text, cards) and `DesignSystem` (colours, number formats, spacing).
+- **Folders.** `App/Sources/` holds `App`, `Stores`, `Navigation`, `DesignSystem` (colours, number formats, spacing, amount text, cards), `Components/Charts`, `Features/<Feature>` (Overview, Accounts, CheckIn, Plan, Import, Settings, Onboarding, Library) and `Preview`. [App/README.md](../App/README.md) describes them and the stores' APIs.
 - **Chart components**, reused everywhere: `NetWorthChart`, `FanChart`, `SuccessCurveChart`, `IncomeStackChart`, `WaterfallChart`, `BreakdownBars`, `Sparkline`.
 - **Previews.** Every screen has SwiftUI previews built from a made-up library in code, with the same numbers as the example library in the tests.

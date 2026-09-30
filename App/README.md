@@ -1,0 +1,172 @@
+# The app
+
+The SwiftUI app for iPhone, iPad and Mac (iOS 26 / macOS 26), on top of the Swift package in the repository root. Read [docs/UI.md](../docs/UI.md) for what it looks like, and this file for how it's built and where your code goes.
+
+Build it on a Mac: `brew install xcodegen && xcodegen generate --spec App/project.yml`, then open `App/CanIRetireYet.xcodeproj`. The project is generated from [project.yml](project.yml) and never committed.
+
+## At a glance
+
+```
+CanIRetireYetApp (@main)          one AppModel, injected into every scene
+ └─ RootView                      launch · onboarding · main navigation
+     ├─ TabRoot (compact)         Overview · Accounts · Plan tabs, check-in in the tab bar accessory
+     └─ SidebarRoot (regular, Mac) Overview · Check-in · Accounts… · Plans… · Library…
+         └─ Features/<Feature>/<Name>Screen      ← your code
+               reads and edits through the stores in the environment
+Stores (@Observable, @MainActor)
+ LibraryStore ─ LibrarySync (CloudSync actor) ─ LibraryFolder (Storage) ─ files
+ PriceStore   ─ PriceService (Prices)
+ CheckInStore ─ CheckInDraft (Tracker), kept in Application Support
+ PlanStore    ─ PlanEngine (stub today; the Planner later)
+ PrivacySettings · AppPreferences · AppNavigation
+```
+
+## Folders
+
+| Folder | What goes there | Owner |
+| --- | --- | --- |
+| `App/` | `@main`, `AppModel` (creates the stores), environment injection, menu commands | app core |
+| `Stores/` | The stores, and the logic they need that isn't UI | app core (PlanStore: Plan engineer fills in the engine) |
+| `Navigation/` | Root view, tabs, sidebar, the check-in accessory, sheets, `AppNavigation` | app core |
+| `DesignSystem/` | Colours, spacing, number formatting, `AmountText`, `DeltaText`, `Card`, `SectionHeader`, `StatusBanner`, input parsing, SF Symbol names | app core |
+| `Components/Charts/` | Reusable Swift Charts views and their plain-value inputs | app core |
+| `Features/<Feature>/` | One folder per feature, starting with its screen | feature engineers |
+| `Preview/` | The made-up library, a made-up plan engine, preview helpers | app core |
+| `Resources/Assets.xcassets` (next to `Sources/`) | Colour sets, light and dark | app core |
+
+**Rules so we don't collide:** feature code lives in its `Features/` folder. Replace the body of your placeholder screen, keep its **name and initializer** (the navigation creates it), and add files next to it. If you need something in a store, the design system or the charts, prefer an extension in your feature folder; if it must change a shared file, keep the change small and additive.
+
+Keep logic that doesn't need SwiftUI in files that import only Foundation and the package modules (like everything in `Stores/`): it can then be type-checked and tested on Linux (see [Checking without Xcode](#checking-without-xcode)).
+
+## Screens and their contracts
+
+| Screen | Created as | Shown by | Placeholder? |
+| --- | --- | --- | --- |
+| `OverviewScreen` | `OverviewScreen()` | Overview tab, sidebar *Overview* (with the eye and gear toolbar added by the navigation) | yes: real hero, chart, waterfall, answer, attention, allocation |
+| `AccountsScreen` | `AccountsScreen(filter: .all / .group(g) / .closed)` | Accounts tab, sidebar groups and *Closed* | yes |
+| `AccountDetailScreen` | `AccountDetailScreen(accountID:)` | pushing an `AccountID` on any stack (`NavigationLink(value: id)`, `navigation.showAccount(id)`) | yes |
+| `NewAccountScreen` | `NewAccountScreen()` | ⌘N, Accounts toolbar, onboarding (sheet in a NavigationStack) | yes, minimal but works |
+| `InstrumentsScreen` | `InstrumentsScreen()` | sidebar *Instruments* | yes, with *Test price fetch* |
+| `CheckInScreen` | `CheckInScreen()` | iPhone: full-screen cover (in a NavigationStack); Mac/iPad: sidebar *Check-in*. Close with `navigation.finishCheckIn()` | yes: edits balances, marks the rest unchanged, saves |
+| `PlanScreen` | `PlanScreen(planID:)`, `nil` = main plan | Plan tab, sidebar plans, pushing a `PlanID` | yes: answer, charts when results exist, recorded headlines, plan commands |
+| `ImportScreen` | `ImportScreen(file:)` | ⌘⇧I, sidebar *Import…*, dropping a CSV on the window (sheet on iPhone) | yes |
+| `SettingsScreen` | `SettingsScreen()` inside a NavigationStack | Mac: Settings window (⌘,); iPhone/iPad: gear → sheet | **done** |
+| `OnboardingScreen` | `OnboardingScreen()` | first launch, when there's no library | **done** |
+| `WelcomeNextStepsView` | sheet `.welcome` | after onboarding: import or add accounts | done |
+| `SyncScreen` | `SyncScreen()` | sidebar *Sync & backups*, Settings | **done** |
+
+## Stores
+
+All stores are `@Observable @MainActor` classes created once in `AppModel` and injected with `.appEnvironment(model)`. In a view:
+
+```swift
+@Environment(LibraryStore.self) private var library
+@Environment(CheckInStore.self) private var checkIn
+@Environment(PlanStore.self) private var plans
+@Environment(PriceStore.self) private var prices
+@Environment(AppNavigation.self) private var navigation
+@Environment(PrivacySettings.self) private var privacy
+@Environment(AppPreferences.self) private var preferences
+```
+
+For a binding, `@Bindable var navigation = navigation` inside `body`.
+
+### LibraryStore — the library in memory, and keeping it in step with the folder
+
+- **State:** `phase` (`.starting`, `.needsSetup`, `.ready`, `.failed(message)`), `library: Library` (the whole library, from Model), `revision` (goes up with every change), `location` (iCloud Drive or this device), `activity` (idle, loading, saving, syncing), `lastSavedAt`, `lastSyncedAt`, `lastError`, `loadIssues` (problems in hand-edited files), `mergedConflicts` / `conflictFailures`, `isReadOnly` (a newer app wrote the library), `isICloudAvailable`, `canEdit`.
+- **Derived:** `valuator` (a `Tracker.Valuator`, rebuilt only when the library changes), `asOfDate` (latest check-in, or today), `netWorth`, `planAssets`, `changeSinceLastCheckIn`, `staleAccounts(threshold:)`, `account(_:)`, `openAccounts`, `openAccounts(in:)`, `closedAccounts`, `accountGroups`, `sortedPlans`, `mainPlan`, `baseCurrency`, `settings`, `newAccountID(for:)`, `newPlanID(for:)`, `newInstrumentID(for:)`.
+- **Editing:** everything goes through `update(_:)`, which changes a copy, replaces `library` at once and writes only the files that changed in the background, one save at a time. It throws `LibraryStoreError.readOnly` / `.notLoaded`; a failed write shows in `lastError` and reloads what's on disk.
+
+  ```swift
+  try library.update { $0.accounts[id]?.name = newName }
+  try library.upsert(valuation)
+  try library.closeAccount(id, on: date, successor: other)
+  ```
+
+  Helpers (`LibraryStore+Editing.swift`): `save(_ account:)`, `closeAccount`, `reopenAccount`, `deleteAccount` (with its valuations), `save(_ instrument:)`, `deleteInstrument`, `upsert(_ valuation:)`, `replace(_:with:)`, `removeValuation`, `upsert(prices:fxRates:indices:)`, `save(_ plan:)`, `deletePlan` (keeps its projections), `duplicatePlan`, `setMainPlan`, `saveBaseline(_:for:)`, `record(_ headline:for:)`, `updateSettings`, `save(_ profile:)`.
+- **Opening:** `start()` at launch (an existing iCloud library wins, then a local one, else onboarding), `createLibrary(in:settings:)`, `open(_:)`, `useLibraryOnThisDevice()`, `moveToICloud()`, `reloadAll()`, `waitForPendingWrites()`, `backups()`.
+- **Sync:** files changed by the other device or a text editor are reloaded automatically (only those files' entities are replaced, and never over an edit that's still being saved); sync conflicts are merged record by record and listed in `mergedConflicts`. Show them with `LibraryStatusBanners()` or link to `SyncScreen`.
+- `LibraryStore.inMemory(library)` holds a library without files (previews, tests).
+
+### PriceStore — prices, FX and inflation
+
+`fetch(for:on:refresh:) async -> CheckInPrices` (never throws; failures are entries with a readable reason), `testFetch(_ instrument:baseCurrency:on:) async -> PriceListEntry`, `isFetching`, `canFetch` (false in previews), `lastResult`. API keys come from the Keychain (`KeychainCredentials`, set in Settings).
+
+### CheckInStore — the check-in in progress
+
+Owns a `Tracker.CheckInDraft`, kept as JSON in `Application Support/<bundle id>/CheckIn/draft.json` until saved, never half-written to the library.
+
+- `begin(on:)` resumes the draft (moved to the date if given) or starts one on the suggested date, then fetches prices into it (unless turned off in Settings). `changeDate(to:)`.
+- Edit: `update { draft in … }`, `updateRow(accountID) { row in row.setBalance(…) }`, `markRestUnchanged()`, `setManualPrice(_:for:)`, `setManualFXRate(_:for:)` (typed prices survive re-fetching), `fetchPrices(refresh:)`.
+- Read: `draft`, `review` (the new total, waterfall and warnings, from `CheckInDraft.review`), `priceList` (every instrument, rate and index with its source or failure), `isFetchingPrices`, `indices`, `status` (for the accessory: `CheckInStatus` with `summary()`, `isDue`, `hasDraft`, `nextCheckIn`, progress).
+- `save() async throws -> CheckInSaveResult` writes valuations, prices, FX rates and index values in one edit, deletes the draft, and asks `PlanStore.checkInSaved(on:)` for this month's answer (`result.headline`). `discard()`, `persistNow()` (the root view calls it when the app leaves the foreground), `restoreDraft()` (at launch).
+
+### PlanStore — runs, results, headlines, baselines
+
+**Stubbed until the Planner lands.** The numbers come from a `PlanEngine` (see `Stores/PlanEngine.swift`); the app uses `UnavailablePlanEngine`, whose runs throw `PlanEngineError.unavailable`, and previews use `PreviewPlanEngine` (made-up but plausible results).
+
+- `run(_ plan:mode:whatIf:) async -> PlanResults?` runs off the main thread and cancels the previous run of the same plan (`mode: .fast` for fewer runs while a slider moves; `whatIf: PlanWhatIf(retirementAge:retiredSpending:monthlySaving:equityReturn:)` for what-ifs, kept apart in `whatIfResults`). `scheduleRun(_:after:)` debounces, `cancel(_:)`, `clearWhatIf(_:)`, `isRunning(_:)`, `running`, `errors`.
+- `results[planID]`: `PlanResults` — `headline: PlanHeadline` (earliest age and date, confidence, success today and at the target age, sustainable spending, FI progress), `successByAge`, `portfolio` (fan), `markers`, `income`, `taxes`, `spending`, `failure`, and what a baseline saves (`start`, `accounts`, `taxParameters`, `years`). All plain values that feed the chart components directly.
+- `mainHeadline`: the Overview's answer: the main plan's latest results, or its last recorded headline.
+- `checkInSaved(on:)` re-runs the main plan, records its headline (`projections/<plan>/headlines`) and saves the yearly baseline at the year's first check-in. `saveBaseline(for:label:kind:on:)`, `recordedHeadlines(for:)`, `hash(of:)` (a plan's `planHash`).
+- **Plan engineer:** write `PlannerEngine: PlanEngine` mapping `PlanRunRequest` (plan, library snapshot, mode, what-if, as-of date) to the Planner and its output to `PlanResults`, then switch `AppModel.live()` to it. Extend `PlanResults` as your screens need.
+
+### Small stores
+
+- `PrivacySettings`: `hidesAmounts` (the eye button and ⌘⇧H), `hideAmountsOnLaunch`, `hideInAppSwitcher` (the root view covers the app while it isn't active), `toggleHidesAmounts()`.
+- `AppPreferences` (this device, `UserDefaults`): `libraryLocation`, `stalenessThreshold` (45 days), `fetchPricesOnCheckIn`, `reminder: CheckInReminder?` (scheduled by `ReminderScheduler`).
+- `AppNavigation`: `layout` (`.tabs` / `.sidebar`, set by the root view), `tab`, `sidebarSelection`, `accountsPath`, `selectedPlan`, `sheet` (`.settings`, `.newAccount`, `.importFile(url)`, `.welcome`), `isCheckInPresented`, `showsFuture` (the Overview's *Future* switch and ⌘⇧F), `pendingImport`. Navigate with `startCheckIn()`, `finishCheckIn()`, `showOverview()`, `showAccounts(_:)`, `showAccount(_:)`, `showPlan(_:)`, `showSettings()`, `newAccount()`, `startImport(_:)`, `show(_ sidebarItem:)`: they work in both layouts.
+
+## Menu commands
+
+`App/AppCommands.swift`, on the Mac menu bar and iPad: New Account ⌘N, New Check-in ⌘K, Import CSV ⌘⇧I, Hide Amounts ⌘⇧H, Show Future ⌘⇧F, and a **Plan** menu: Save Baseline ⌘⇧B, Duplicate Plan ⌘D, Compare Plans ⌘⌥C. The plan commands act on the plan on screen, which publishes them:
+
+```swift
+.focusedSceneValue(\.planActions, PlanCommandActions(saveBaseline: { … }, duplicate: { … }, compare: { … }))
+```
+
+Dropping a CSV file anywhere on the window calls `navigation.startImport(file)`.
+
+## Design system
+
+- **Colours** (`Palette`, backed by colour sets in `App/Resources/Assets.xcassets`, light and dark): the asset-class colours in stacking order (`Palette.color(for: assetClass)`: cash blue, bonds orange, equity aqua, gold yellow, crypto magenta, real estate green, other violet, debt red), the categorical `series` slots in fixed order, `accent` (the one hue for everything else), `ink` (actual history and text), `secondaryInk`, `mutedInk`, `gridline`, `axis`, `positive` / `negative` (changes, always with a sign and arrow), status colours (`good`, `warning`, `serious`, `critical`; always with an icon and a label), surfaces (`page`, `card`, `border`). Charts name colours by role with `ChartColor`.
+- **Spacing:** `Metrics` (`xs` 4, `s` 8, `m` 12, `l` 16, `xl` 24, `cardRadius`, `lineWidth`, `barRadius`, `readableWidth`). Icons: `AccountKind.systemImage`, `AccountGroup.systemImage`, `AppSymbol`.
+- **Numbers** (`AmountFormat`, locale-aware): `amount(_:currency:precision:)` (`.whole` by default, `.cents` in check-in fields and account detail, `.automatic`), `signedAmount`, `percent`, `number`, `compact` (`312k`, `1,2M` for charts), dates (`shortDate` "30 Sep", `mediumDate`, `longDate`, `monthName`). `Decimal.doubleValue` for charts only. `CalendarDate.dateValue` gives a `Date` (noon, local time).
+- **Input:** `AmountInput.decimal(from:locale:)` reads `1.234,56`, `1234.56`, `0,4215` and `−240`; `AmountInput.text(for:)` fills a field. `CurrencyChoices` and `CountryChoices` for pickers.
+- **Views:** `AmountText(amount, currency:, precision:, tabular:, animatesChanges:)` — tabular figures, `•••••` while amounts are hidden, `.privacySensitive()`. `DeltaText(amount)` / `DeltaText(percent:)` — ▲/▼, sign and colour, `invertsColor` for debts. `Card("Title") { … }`, `Card { … } header: { SectionHeader("Title") { accessory } }`. `StatusBanner(.info/.success/.warning/.error, title, message:, actionTitle:, action:)`. `LibraryStatusBanners()` shows read-only, save errors, unreadable files and merged conflicts. `.tabularFigures()`.
+- **Environment values:** `\.baseCurrency` and `\.hidesAmounts`, set by `appEnvironment`; `AmountText` reads them, so you rarely pass a currency.
+
+## Charts
+
+`Components/Charts/`: Swift Charts views that take plain values (`ChartData.swift`), never stores, so they preview with made-up numbers. Thin 2 pt lines, faint gridlines, compact axis labels (hidden while amounts are hidden), direct labels instead of legends where there are few series, drag to read any value (`chartXSelection`), and a VoiceOver summary (`accessibilityChartDescriptor`) on every chart.
+
+| View | Input | Notes |
+| --- | --- | --- |
+| `NetWorthChart(history:stacked:projection:markers:currency:height:)` | `[ChartPoint]`, `[ChartSeries]`, `[FanPoint]`, `[ChartMarker]` | a line in ink with a light fill, or stacked areas by asset class (debts below zero); optional future: 10–90% band and dashed median; callout on drag |
+| `FanChart(fan:actual:markers:currency:height:)` | `[FanPoint]`, `[ChartPoint]` | p10–p90 and p25–p75 bands in one hue, median, actual line in ink, markers |
+| `SuccessCurveChart(points:threshold:highlightedAge:selectedAge:)` / `(series:…)` | `[SuccessPoint]` / `[SuccessSeries]` | dotted confidence rule, crossing marked, bind `selectedAge` |
+| `IncomeStackChart(segments:spending:currency:height:)` | `[IncomeSegment]`, `[YearValue]` | stacked bars by source (colour per `IncomeSegment.color`), spending as a dashed line; pass tax segments for the *Taxes* view |
+| `WaterfallChart(steps:currency:height:)` | `[WaterfallStep]` | `WaterfallStep.steps(for: valueChange)` gives start, markets, new money, other, end |
+| `BreakdownBars(rows:currency:limit:)` | `[BreakdownRow]` | horizontal bars with amount and share; `limit` folds the rest into "Other" |
+| `Sparkline(points:color:)` | `[ChartPoint]` | no axes; for list rows |
+
+Adapters from Tracker: `[SeriesPoint].chartPoints`, `Breakdown.rows`, `StackedSeries.chartSeries`, `BreakdownKey.chartColor`, `ChartPoint(seriesPoint)`.
+
+## Previews
+
+Every view has a `#Preview`. `.previewEnvironment()` injects in-memory stores holding `PreviewLibrary.library` — a made-up library built in code with the same numbers as the test example library (ten accounts, October 2025 to September 2026, two plans, a baseline, headlines); `.previewEnvironment(PreviewLibrary.empty)` for empty states; `.previewEnvironment(model: AppModel.preview(…))` to set a store up first. Nothing is read, written or fetched. Plans run on `PreviewPlanEngine`; `PreviewResultsView { results in … }` hands a view ready plan results.
+
+## Library location and sync
+
+At launch `LibraryStore.start()` asks `CloudSync.LibraryLocator` for the iCloud container's `Documents/` (off the main thread) or `Application Support/<bundle id>/Library`, remembers the choice on the device, and loads through `CloudSync.LibrarySync`: coordinated reads and atomic writes (`CoordinatedFileAccess`), an `NSMetadataQuery` watcher that also downloads files eagerly (polling for a local library), and conflict merging with `Storage.ConflictResolver` (`NSFileVersion`). A library on this device can be moved to iCloud Drive from Settings. A library written by a newer app opens read-only.
+
+## Stubbed or not done yet
+
+- **PlanStore's engine** is `UnavailablePlanEngine` until the Planner module is merged (see above). The Overview's answer falls back to recorded headlines.
+- **Placeholders** (replace their contents): `OverviewScreen`, `AccountsScreen`, `AccountDetailScreen`, `NewAccountScreen`, `InstrumentsScreen`, `CheckInScreen`, `PlanScreen`, `ImportScreen`.
+- **Not built:** separate windows for plan comparison and import on the Mac (add `WindowGroup(id:)` scenes and `openWindow`), Face ID lock (M3), widgets (M3), an app icon (add an `AppIcon` set and set `ASSETCATALOG_COMPILER_APPICON_NAME` in project.yml), opening CSV files from Files on iPhone (document types), and reacting to the iCloud account changing while the app runs.
+- `CheckInDraft` has no way to refresh its rows when the library changes under an open draft (e.g. an account added on the other device); the draft keeps the rows it started with.
+
+## Checking without Xcode
+
+The app only builds on a Mac, but everything that doesn't import SwiftUI (the `Stores/` folder, `AppNavigation`, `AmountFormat`, `AmountInput`, `ChartData`, `AppModel`, `PreviewLibrary`, `PreviewPlanEngine`) compiles on Linux too. To type-check and test it there, make a scratch Swift package outside the repository that depends on this one (`Model`, `Tracker`, `Storage`, `Prices`, `CloudSync`), copy those files into a target, and add Swift Testing tests. That's how the stores were tested: loading, editing and saving a copy of the example library, the watcher reloading a hand-edited file, the read-only guard, a full check-in save, plan runs, and `PreviewLibrary` being identical to the example library.

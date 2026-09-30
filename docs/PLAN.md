@@ -145,7 +145,7 @@ Only `CloudSync` and the app need Apple frameworks.
 
 1. **Load.** At launch, `CloudSync` finds the iCloud container. If iCloud is off, it uses a local folder that can be moved to iCloud later. `Storage` then loads the whole library into memory, which takes milliseconds because it's small.
 2. **Edit.** The UI reads from an `@Observable` `LibraryStore`. An edit changes the in-memory model first. `Storage` then writes only the files that changed. Writes are atomic and go through `NSFileCoordinator`.
-3. **Watch.** `CloudSync` watches the folder using `NSMetadataQuery` and `NSFilePresenter`. When the other device, or you in a text editor, changes a file, the store reloads that file and the UI updates.
+3. **Watch.** `CloudSync` watches the folder: an `NSMetadataQuery` for a library in iCloud Drive (which also downloads files that aren't on the device yet), or by comparing modification dates for a library on this device. When the other device, or you in a text editor, changes a file, the store reloads that file and the UI updates.
 4. **Plan.** The planner runs in a background task on an immutable snapshot of the library and the plan. It recomputes after changes (debounced), so the results stay live while you edit a plan.
 
 ### Sync with iCloud Drive
