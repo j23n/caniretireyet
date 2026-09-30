@@ -29,7 +29,7 @@ You need a Mac with Xcode 26 and an Apple Developer account (for iCloud).
    LIVE_PRICE_TESTS=1 swift test --filter PricesTests
    ```
 
-5. **Bring in your history:** *Import…* (⌘⇧I, or drop files on the window) takes a spreadsheet export (CSV/TSV) or ledger journals; map it once and save the mapping as a profile for next time. Or add values by hand with past check-ins or *Add Past Value…* on an account ([UI.md, "Adding history"](docs/UI.md)).
+5. **Bring in your history:** *Import…* (⌘⇧I, or drop files on the window) takes a spreadsheet export (CSV/TSV) or ledger journals; map it once and save the mapping as a profile for next time. Or add values by hand with past check-ins or *Add Past Value…* on an account ([UI.md, "Adding history"](docs/UI.md)). Then *Fill In Past Prices…* (Instruments, or the import's last step) fetches the prices, exchange rates and inflation figures the history is missing.
 
 The command-line tool works on the same folder, on a Mac or Linux:
 
@@ -37,6 +37,7 @@ The command-line tool works on the same folder, on a Mac or Linux:
 swift run retire --help
 swift run retire import --library <folder> export.csv            # preview; --apply writes
 swift run retire import ledger --library <folder> 2024.journal 2025.journal
+swift run retire prices --library <folder> --fill-history --dry-run  # past prices; without --dry-run writes
 swift run retire plan --library <folder>
 ```
 

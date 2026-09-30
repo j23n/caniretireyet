@@ -192,12 +192,30 @@ On the Mac there are also tables for editing many valuations at once, keyboard n
 
 - Every price can be typed in by hand. Automatic fetching is opt-in per instrument.
 - **FX:** ECB reference rates through Frankfurter, which is free and needs no key.
-- **Crypto:** CoinGecko, or an exchange's public ticker. The symbol is the coin's CoinGecko ID or its ticker (`ETH`), which is resolved to an ID through a built-in table of well-known coins or CoinGecko's search. An optional demo API key, kept in the Keychain, raises its rate limit.
-- **Gold and silver:** a free spot-price API (gold-api.com, USD per troy ounce, converted to the instrument's currency and unit), or the market price of a physical-gold ETC as a proxy. Only today's spot price is available, so the price for a check-in more than a few days old is typed in.
+- **Crypto:** CoinGecko, or an exchange's public ticker. The symbol is the coin's CoinGecko ID or its ticker (`ETH`), which is resolved to an ID through a built-in table of well-known coins or CoinGecko's search. An optional demo API key, kept in the Keychain, raises its rate limit. CoinGecko's free API only has the last 365 days; older prices come from Yahoo Finance's crypto pairs (below).
+- **Gold and silver:** a free spot-price API (gold-api.com, USD per troy ounce, converted to the instrument's currency and unit), or the market price of a physical-gold ETC as a proxy. gold-api.com only has today's spot price, so past prices come from the metal's front-month futures on Yahoo Finance: `GC=F` for gold (`XAU`), `SI=F` for silver, `PL=F` for platinum and `PA=F` for palladium, all in USD per troy ounce and converted the same way. Futures trade within about 1% of spot, so these are an approximation; the price list says so ("Yahoo Finance · GC=F (history)"), and the instrument keeps `gold-api` as its price source.
 - **ETFs on European exchanges:** there's no reliable free official API. We'll start with Yahoo Finance's public chart endpoint. It's unofficial and can break, so providers are pluggable, and a paid one with your own key (EODHD, Twelve Data) can be added.
 - **Inflation:** Italy's HICP from Eurostat (`prc_hicp_minr`, all items, 2015 = 100), fetched with the FX rates for the months the library is missing.
 - **Dates:** each value is the latest on or before the check-in date and is recorded on that date. The price list shows the day it's from, e.g. Friday's close for a Sunday check-in.
 - Fetched prices are cached on the device. Only the prices used in a check-in are written to the library.
+- **Past prices.** An import, or history added by hand, can leave years of positions without a price for their dates: gold bought long ago stays at its purchase price in every month since. *Fill In Past Prices* (the Instruments screen, the import's last step, a note under a chart, `retire prices --fill-history`) finds every date the library values a position on without a price for that day (each valuation, and the month ends it's carried over to in months without one of its own), the FX rates those dates need, and the missing inflation months, and fetches them in as few requests as possible:
+  - **One history per instrument.** Each provider says where its past prices come from, best first, and each source is asked once for the whole range of dates it covers:
+
+    | Provider | History | Reaches back |
+    | --- | --- | --- |
+    | Yahoo Finance | the chart endpoint with `period1`/`period2`: daily closes, or monthly ones for more than five years of month ends | the listing |
+    | CoinGecko | `coins/{id}/market_chart/range` | 365 days (free API) |
+    | ↳ then | Yahoo Finance `<TICKER>-<CUR>` (e.g. `ETH-EUR`), then `<TICKER>-USD` converted with ECB rates; the ticker of a coin given by its ID comes from the built-in table or CoinGecko's search | the pair's listing |
+    | gold-api.com | Yahoo Finance futures: `GC=F`, `SI=F`, `PL=F`, `PA=F` | about 2000 |
+    | Frankfurter (ECB) | the time series `/v1/<from>..<to>`, which may thin a long range out to weekly rates | 1999 |
+    | Eurostat | the series for the missing months | 1996 |
+
+    A provider without a history (a price source the app doesn't fetch, or a metal without futures) is listed with its dates, not skipped.
+  - **Values on or before each date.** Each date takes the latest value on or before it: up to 7 days back in a daily series (weekends and holidays; two weeks for weekly rates), or the month's close in a monthly one. The price list and results show the day it's from.
+  - **Then one request per currency** for the FX rates missing and those that convert a price into its instrument's currency; a rate the library has for the day is used as it is. **One request per index.**
+  - **Nothing is replaced.** Only dates without a record are filled: a price typed in, read from a file (an import, a journal's `P` or `@` prices) or fetched before stays. The records are written in one edit, into each date's month file, after a `fill-history` backup, with the source that answered (`yahoo` for gold from `GC=F`).
+  - **What's left** is listed per instrument with the dates still missing and why (no price source, CoinGecko's year and no Yahoo pair, no listing yet), with *Set Price…* for a date and *Choose a Price Source*.
+  - A check-in on a past date uses the same sources for the instruments whose provider has no price for that date.
 
 ### Importing
 

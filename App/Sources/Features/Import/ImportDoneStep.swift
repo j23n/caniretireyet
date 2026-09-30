@@ -1,24 +1,33 @@
 import Foundation
 import Importer
 import Model
+import Prices
 import SwiftUI
 
 /// Step 6, Done: what the import did, Undo import (which puts the backup
 /// back), and Save as profile, so the next file of the same shape imports
-/// in one step.
+/// in one step. When the import's positions are valued on dates without a
+/// price ("12 past values have no price for XAU"), it offers *Fill In Past
+/// Prices…*.
 struct ImportDoneStep: View {
     let model: ImportController
 
     @Environment(LibraryStore.self) private var library
+    @Environment(PriceStore.self) private var prices
     @State private var profileName = ""
     @State private var profileID = ""
     @State private var isIDEdited = false
     @State private var isConfirmingUndo = false
+    @State private var pastPriceOffers: [String] = []
+    @State private var fillsPastPrices = false
 
     var body: some View {
         Form {
             if let receipt = model.receipt {
                 summarySection(receipt)
+                if !pastPriceOffers.isEmpty {
+                    pastPricesSection
+                }
                 if receipt.hasChanges {
                     undoSection(receipt)
                 }
@@ -31,7 +40,13 @@ struct ImportDoneStep: View {
             }
         }
         .formStyle(.grouped)
-        .onAppear { suggestProfile() }
+        .onAppear {
+            suggestProfile()
+            updatePastPriceOffers()
+        }
+        .onChange(of: model.receipt) { _, _ in updatePastPriceOffers() }
+        .onChange(of: library.revision) { _, _ in updatePastPriceOffers() }
+        .pastPricesSheet(isPresented: $fillsPastPrices)
         .onChange(of: profileName) { _, name in
             if !isIDEdited { profileID = model.flow.suggestedProfileID(for: name) }
         }
@@ -91,6 +106,35 @@ struct ImportDoneStep: View {
         if !names.isEmpty {
             LabeledContent(title, value: names.joined(separator: ", "))
         }
+    }
+
+    // MARK: Past prices
+
+    /// "12 past values have no price for XAU", and *Fill In Past Prices…*.
+    private var pastPricesSection: some View {
+        Section {
+            ForEach(pastPriceOffers, id: \.self) { offer in
+                Label(offer, systemImage: "tag.slash")
+            }
+            Button("Fill In Past Prices…") { fillsPastPrices = true }
+                .disabled(!library.canEdit)
+        } header: {
+            Text("Past prices")
+        } footer: {
+            Text("These values are counted at an older price, or none, because the file has no price for their "
+                + "dates. Fill In Past Prices fetches them from Yahoo Finance, CoinGecko and the ECB, and replaces "
+                + "nothing already saved.")
+        }
+    }
+
+    /// The imported instruments valued on dates without a price, now.
+    private func updatePastPriceOffers() {
+        guard let receipt = model.receipt, receipt.hasChanges, !receipt.isUndone else {
+            pastPriceOffers = []
+            return
+        }
+        let plan = PastPricePlan(needs: prices.pastPriceNeeds(for: library.library), library: library.library)
+        pastPriceOffers = plan.offers(among: receipt.importedInstruments, library: library.library)
     }
 
     // MARK: Undo

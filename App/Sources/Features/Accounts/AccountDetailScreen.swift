@@ -23,6 +23,7 @@ struct AccountDetailScreen: View {
     @State private var confirmsValuationDelete = false
     @State private var errorMessage = ""
     @State private var showsError = false
+    @State private var fillsPastPrices = false
 
     init(accountID: AccountID) {
         self.accountID = accountID
@@ -38,6 +39,7 @@ struct AccountDetailScreen: View {
                 .sheet(item: $action) { action in
                     AccountActionSheet(action: action)
                 }
+                .pastPricesSheet(isPresented: $fillsPastPrices)
                 .sheet(item: $editing) { target in
                     NavigationStack {
                         AccountValuationEditor(key: target.key)
@@ -87,6 +89,9 @@ struct AccountDetailScreen: View {
                 AccountDetailHeader(data: data)
                 AccountHistoryChart(points: data.history, flows: data.flows, currency: currency)
                     .padding(.vertical, Metrics.xs)
+                if let note = oldPriceNote(data) {
+                    OldPriceNoteView(text: note) { fillsPastPrices = true }
+                }
             }
             if data.showsPositions {
                 Section {
@@ -177,6 +182,9 @@ struct AccountDetailScreen: View {
                 AccountDetailHeader(data: data)
                 Card {
                     AccountHistoryChart(points: data.history, flows: data.flows, currency: currency, height: 240)
+                    if let note = oldPriceNote(data) {
+                        OldPriceNoteView(text: note) { fillsPastPrices = true }
+                    }
                 }
                 if data.showsPositions {
                     Card("Positions") {
@@ -300,6 +308,13 @@ struct AccountDetailScreen: View {
     /// Opens *Update Value* on the month end before the first value.
     private func addPastValue(_ data: AccountDetailData) {
         action = AccountAction(.addPastValue, accountID, date: data.pastValueDate)
+    }
+
+    /// The note under the chart when its values use old prices.
+    private func oldPriceNote(_ data: AccountDetailData) -> String? {
+        data.oldPrices.map { summary in
+            OldPriceNote.text(summary) { library.library.instruments[$0]?.name ?? $0.rawValue }
+        }
     }
 
     private func show(_ error: any Error) {

@@ -40,10 +40,14 @@ public struct Quote: Hashable, Sendable {
     /// ticker `ETH`. `nil` when the symbol was used as it is. The price list
     /// can show it as "ETH → ethereum".
     public var resolvedSymbol: String?
+    /// Where the price came from when it isn't the provider's own quote for
+    /// the symbol, e.g. Yahoo Finance's gold futures (`GC=F`) for gold-api's
+    /// `XAU` on a past date. `nil` for the provider's own quote.
+    public var origin: QuoteOrigin?
 
     public init(
         price: Decimal, currency: CurrencyCode, unit: InstrumentUnit? = nil, observedOn: CalendarDate,
-        observedAt: Date? = nil, resolvedSymbol: String? = nil
+        observedAt: Date? = nil, resolvedSymbol: String? = nil, origin: QuoteOrigin? = nil
     ) {
         self.price = price
         self.currency = currency
@@ -51,6 +55,7 @@ public struct Quote: Hashable, Sendable {
         self.observedOn = observedOn
         self.observedAt = observedAt
         self.resolvedSymbol = resolvedSymbol
+        self.origin = origin
     }
 }
 
@@ -82,11 +87,30 @@ public protocol InstrumentPriceProvider: Sendable {
     /// The symbol part of the cache key. By default the symbol; providers
     /// that quote in the requested currency add the currency.
     func cacheSymbol(for request: QuoteRequest) -> String
+    /// How past prices of `symbol` are found, best first: each route
+    /// answers a range of dates in one request, and is tried for the dates
+    /// the routes before it didn't fill. Empty when the provider has no
+    /// history: filling in past prices then lists the instrument's dates as
+    /// needing a price typed in, with the reason. By default empty.
+    func historyRoutes(symbol: String, currency: CurrencyCode, today: CalendarDate) -> [HistoryRoute]
+    /// Whether `error`, thrown by ``quote(for:)``, means the provider has no
+    /// price for that date, so the ``PriceService`` tries the history routes
+    /// for it instead (a past check-in). By default only
+    /// ``PriceFetchError/unsupportedDate(service:detail:)``.
+    func triesHistory(after error: PriceFetchError, for request: QuoteRequest) -> Bool
 }
 
 extension InstrumentPriceProvider {
     public func cacheSymbol(for request: QuoteRequest) -> String {
         request.symbol
+    }
+
+    public func historyRoutes(symbol: String, currency: CurrencyCode, today: CalendarDate) -> [HistoryRoute] {
+        []
+    }
+
+    public func triesHistory(after error: PriceFetchError, for request: QuoteRequest) -> Bool {
+        if case .unsupportedDate = error { true } else { false }
     }
 }
 

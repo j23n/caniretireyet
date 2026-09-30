@@ -1,5 +1,6 @@
 import Foundation
 import Model
+import Prices
 import Storage
 import Tracker
 
@@ -111,6 +112,23 @@ extension LibraryStore {
             fxRates.forEach { library.upsert($0) }
             indices.forEach { library.upsert($0) }
         }
+    }
+
+    /// The backup label of *Fill In Past Prices*, as `retire prices --fill-history` writes it.
+    static let fillHistoryBackupLabel = "fill-history"
+
+    /// Saves what *Fill In Past Prices* fetched, in one edit, into each
+    /// record's month file, and waits for the write: only records the
+    /// library doesn't have by then (`PastPriceFill.insertMissing(into:)`),
+    /// so nothing typed in, imported or fetched before is replaced. The
+    /// files it changes are backed up first (`fill-history`).
+    @discardableResult
+    func insertMissing(_ fill: PastPriceFill) async throws -> PastPriceInsertion {
+        var inserted = PastPriceInsertion()
+        _ = try await commit(backingUpAs: Self.fillHistoryBackupLabel) { library in
+            inserted = fill.insertMissing(into: &library)
+        }
+        return inserted
     }
 
     // MARK: Plans

@@ -141,6 +141,8 @@ struct CheckInPriceList: Hashable, Sendable {
         let unit = CheckInWording.unit(of: instrument)
         var symbol = entry?.symbol ?? instrument?.priceSource?.symbol
         if let typed = symbol, let resolved = entry?.resolvedSymbol { symbol = "\(typed) → \(resolved)" }
+        // A stand-in for a date the source has no price for: "Yahoo Finance · GC=F (history)".
+        if let shown = symbol, let note = entry?.note { symbol = "\(shown) (\(note))" }
         return CheckInPriceLine(
             item: .instrument(id), title: CheckInWording.instrumentLabel(id, instrument: instrument),
             subtitle: instrument.map(\.name).flatMap { $0 == CheckInWording.instrumentLabel(id, instrument: instrument) ? nil : $0 },
@@ -206,8 +208,10 @@ struct CheckInPriceList: Hashable, Sendable {
 
     /// Why an entry failed, for a check-in on `date`. A provider without
     /// history for the date (gold-api.com only has today's price; CoinGecko's
-    /// free API about the last year) says so first: "No history for this
-    /// date: type the price." `nil` unless the entry failed.
+    /// free API about the last year), when its stand-ins had none either
+    /// (the metal's futures, the coin's Yahoo Finance pairs), says so first:
+    /// "No history for this date: type the price." `nil` unless the entry
+    /// failed.
     static func failureText(_ entry: PriceListEntry?, date: CalendarDate, today: CalendarDate = .today()) -> String? {
         guard let entry, let error = entry.failure else { return nil }
         switch error {

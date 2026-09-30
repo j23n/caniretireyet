@@ -14,6 +14,9 @@ import Tracker
 ///   source, with the exchange rates, and saves them. A banner shows its
 ///   progress and what happened; Details lists every instrument.
 /// - Each row (swipe or right-click): *Update Price* and *Set Price…*.
+/// - *Fill In Past Prices…* (the toolbar) lists every past date a position
+///   is valued on without a price, and the rates and inflation figures
+///   missing, and fetches them (``PastPricesSheet``).
 struct InstrumentsScreen: View {
     @Environment(LibraryStore.self) private var library
     @Environment(PriceStore.self) private var prices
@@ -23,12 +26,14 @@ struct InstrumentsScreen: View {
     @State private var selection: InstrumentID?
     @State private var updater = InstrumentPriceUpdater()
     @State private var showsUpdateDetails = false
+    @State private var fillsPastPrices = false
 
     init() {}
 
     /// The line under the list.
     static let footer = "Prices are also fetched at every check-in. "
-        + "Net worth uses the price on or before each check-in's date."
+        + "Net worth uses the price on or before each check-in's date. "
+        + "Fill In Past Prices fetches those missing for earlier dates."
 
     var body: some View {
         content
@@ -43,6 +48,15 @@ struct InstrumentsScreen: View {
                     .disabled(!updater.canUpdate(library: library, prices: prices))
                     .help("Fetch today's price of every instrument an open account holds")
                 }
+                ToolbarItem(placement: .secondaryAction) {
+                    Button {
+                        fillsPastPrices = true
+                    } label: {
+                        Label("Fill In Past Prices…", systemImage: "clock.arrow.circlepath")
+                    }
+                    .disabled(!library.canEdit)
+                    .help("Fetch the prices, exchange rates and inflation figures missing on past dates")
+                }
                 ToolbarItem(placement: .primaryAction) {
                     Button {
                         editing = InstrumentEditTarget(instrument: nil)
@@ -52,6 +66,7 @@ struct InstrumentsScreen: View {
                     .disabled(!library.canEdit)
                 }
             }
+            .pastPricesSheet(isPresented: $fillsPastPrices)
             .sheet(item: $editing) { target in
                 NavigationStack {
                     InstrumentEditor(instrumentID: target.instrument, currency: library.baseCurrency, isSheet: true)

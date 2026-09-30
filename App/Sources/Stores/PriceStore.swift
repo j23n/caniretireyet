@@ -78,6 +78,29 @@ final class PriceStore {
         return await service.fetch(needs)
     }
 
+    /// What *Fill In Past Prices* would fetch for `library`: every past date
+    /// it values a position on without a price for that day, the FX rates
+    /// and index months it's missing, and the instruments whose prices are
+    /// typed in. Works out the same without a service (previews).
+    func pastPriceNeeds(for library: Library, today: CalendarDate = .today()) -> PastPriceNeeds {
+        service?.pastPriceNeeds(for: library) ?? PastPriceNeeds(library: library, today: today)
+    }
+
+    /// Fetches what `needs` asks for, a range per instrument at a time
+    /// (`PriceService.fillPastPrices`), handing each step's progress to
+    /// `progress`. Never throws: what couldn't be fetched is in the results.
+    /// `nil` in previews, which fetch nothing. Save the records with
+    /// `LibraryStore.insertMissing(_:)`.
+    func fillPastPrices(_ needs: PastPriceNeeds, in library: Library,
+                        progress: @escaping @MainActor @Sendable (PastPriceProgress) -> Void) async -> PastPriceFill? {
+        guard let service else { return nil }
+        activeFetches += 1
+        defer { activeFetches -= 1 }
+        return await service.fillPastPrices(needs, in: library) { event in
+            await progress(event)
+        }
+    }
+
     /// Fetches each of `needs` at the same time and hands each result to
     /// `received` as it arrives, e.g. one instrument at a time for *Update
     /// Prices*. With `refresh`, the session's cache is cleared once first.

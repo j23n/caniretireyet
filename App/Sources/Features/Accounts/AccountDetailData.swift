@@ -85,6 +85,9 @@ struct AccountDetailData: Hashable, Sendable {
     var valuations: [AccountValuationRow]
     /// Set when the latest value is too old.
     var stale: StaleAccount?
+    /// The chart's values that use a price more than 31 days older than
+    /// their date, for a note under the chart; `nil` when there are none.
+    var oldPrices: OldPriceSummary?
 
     /// Whether the account holds positions (now, or by its kind's default).
     var showsPositions: Bool {
@@ -120,6 +123,10 @@ struct AccountDetailData: Hashable, Sendable {
         }
         history = valuator.series(of: account.id, through: date).chartPoints
         let all = valuator.valuations(for: account.id)
+        if let first = all.first?.date {
+            oldPrices = OldPriceSummary(valuator.oldPrices(of: account.id,
+                                                           on: DateGrid.monthEnds(from: first, through: date)))
+        }
         flows = all.compactMap { valuation in
             guard let flow = valuation.flow, flow != 0 else { return nil }
             return AccountFlowTick(date: valuation.date, amount: flow)

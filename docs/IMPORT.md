@@ -246,6 +246,7 @@ Each valuation's `flow` is the money added or taken out since the account's prev
 - `P` directives become price records (source `ledger`) for commodities that are instruments, and FX records for pairs of currencies (`P 2024-01-31 USD 0.92 EUR`: 1 USD = 0.92 EUR).
 - Prices paid with `@` or `@@` become price records on the transaction's day, unless a `P` directive gives that day's price. The option `transactionPrices: false` leaves them out.
 - Valuations are written with source `ledger` too.
+- A journal rarely has a price for every month end it values a position on, so gold bought years ago would stay at its purchase price. The Done step offers *Fill In Past Prices…* for those dates (`retire prices --fill-history` on the command line); it fetches only what's missing and keeps every `ledger` record ([PLAN.md](PLAN.md#prices-and-fx), "Past prices"). The same goes for a spreadsheet's price columns.
 
 ### Importing again
 

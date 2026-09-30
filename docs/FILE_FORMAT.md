@@ -7,7 +7,7 @@ The library is a folder. Everything the app knows is stored in it. If you delete
 - **Plain, stable JSON.** Files are UTF-8, pretty-printed with two-space indentation, sorted keys and a trailing newline. A record inside a list is kept on a single line when it fits, so a diff shows exactly which records changed. The same data always produces byte-identical files, so a file only changes when its data changes. If you put the folder in git, the diffs stay clean. The exact layout is in [Canonical layout](#canonical-layout).
 - **Small files.** There is one file for each thing you edit independently, so a sync conflict between devices stays rare and affects little.
 - **Stable IDs you can read.** Files refer to each other by ID, never by display name, so you can rename anything freely.
-- **Only inputs are stored.** Files hold what you entered, plus the prices, FX rates and inflation figures fetched at a check-in or with *Update Prices*. Totals, charts and projections are always computed. The one deliberate exception is `projections/`: saved projections record what you expected at the time, which can't be recomputed later ([PROGRESS.md](PROGRESS.md)).
+- **Only inputs are stored.** Files hold what you entered, plus the prices, FX rates and inflation figures fetched at a check-in, with *Update Prices* or with *Fill In Past Prices*. Totals, charts and projections are always computed. The one deliberate exception is `projections/`: saved projections record what you expected at the time, which can't be recomputed later ([PROGRESS.md](PROGRESS.md)).
 - **Unknown data survives.** When the app rewrites a file, it keeps fields it doesn't recognise, such as notes you added by hand, at any depth: in nested objects too, and in list items (a work phase, an event, an import column), which are matched by their key, ID, name or position.
 
 ## Layout
@@ -202,6 +202,8 @@ An instrument is anything you hold a quantity of. Its price is always per `unit`
 
 For `coingecko`, `symbol` is the coin's CoinGecko ID (`ethereum`, from its page on coingecko.com) or its ticker (`ETH`), in any case. The fetcher resolves it to an ID in this order: a built-in table of well-known tickers (`BTC`, `ETH`, `SOL`, …); a lowercase symbol, tried as an ID as it is; then, for anything else or an ID CoinGecko doesn't know, CoinGecko's search, which takes the coin with that ID, or else the highest-ranked coin with that ticker. The file keeps the symbol as you typed it, and the price list shows what it resolved to, e.g. "ETH → ethereum".
 
+`priceSource` names where today's prices come from. Past prices may come from elsewhere without changing it ([PLAN.md](PLAN.md#prices-and-fx), "Past prices"): a `gold-api` metal's from its futures on Yahoo Finance (`GC=F` for `XAU`), a `coingecko` coin's from before CoinGecko's free year from Yahoo Finance's pair (`ETH-EUR`). The price records say which, in `source`.
+
 ## `history/YYYY/YYYY-MM.json`
 
 One file per calendar month. It holds the account valuations, prices, FX rates and inflation-index values dated in that month.
@@ -246,6 +248,7 @@ Rules:
 - **Cost basis.** `costBasis` is optional: the total purchase cost of a position in the account's currency (Italian brokers show it as *valore di carico*). The planner uses it to estimate the tax due when you sell. Where it's missing, the plan asks for an estimate instead. It matters most for physical gold: if you can't document the purchase price, Italy taxes the whole sale price.
 - **Flow.** `flow` is optional: the net money added (+) or taken out (−) since the account's previous valuation, in the account's currency. The check-in fills it in from defaults that depend on the kind of account, and you can edit it (see [PROGRESS.md](PROGRESS.md#data-this-needs-from-day-one)). A missing flow means unknown. The sum of all flows over a period is what you actually saved.
 - **FX direction.** FX rates follow the ECB convention: 1 `base` = `rate` × `quote`.
+- **Sources.** `source` is optional and says where a record's values came from: `manual` (typed in), `import` (a spreadsheet), `ledger` (a journal), or the service that answered: `yahoo`, `coingecko`, `gold-api`, `ecb`, `eurostat`. Prices, rates and index values fetched for past dates (*Fill In Past Prices*, `retire prices --fill-history`) are ordinary records dated the day they're for, with the source of the service that answered, as usual: gold priced from Yahoo Finance's `GC=F` futures has `"source": "yahoo"` although its instrument's `priceSource` is `gold-api`. Filling in only adds records for dates that have none; it never replaces one, whatever its source.
 - **Indices.** `indices` holds consumer-price-index values (`hicp-it`: Italy's all-items HICP from Eurostat, 2015 = 100). They're used to express history in today's euros and to compute real returns. A monthly value is dated the last day of the month it measures and stored in that month's file, even when it's published and fetched later.
 - **Sorting.** Records are sorted by date, then by ID, so files diff cleanly.
 
@@ -254,7 +257,7 @@ Rules:
 The value of an account on a date **D**:
 
 1. Take the account's latest valuation dated on or before D. Balances, quantities and cash carry forward until the next valuation.
-2. Value each position at the latest price on or before D. So gold coins you never touch still follow the gold price, as long as gold prices are recorded.
+2. Value each position at the latest price on or before D. So gold coins you never touch still follow the gold price, as long as gold prices are recorded. *Fill In Past Prices* records them for past valuations and month ends that have none.
 3. Convert to the base currency at the latest FX rate on or before D.
 4. Count the account only between its `opened` and `closed` dates.
 

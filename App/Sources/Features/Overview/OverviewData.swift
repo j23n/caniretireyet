@@ -121,6 +121,9 @@ struct OverviewHistory: Hashable, Sendable {
     var stacked: [ChartSeries]
     var projection: [FanPoint]
     var markers: [ChartMarker]
+    /// The history's values that use a price more than 31 days older than
+    /// their date, for a note under the chart; `nil` when there are none.
+    var oldPrices: OldPriceSummary?
 
     /// - Parameters:
     ///   - projection: the main plan's portfolio fan, starting at `end`.
@@ -134,6 +137,8 @@ struct OverviewHistory: Hashable, Sendable {
         points = valuator.series(scope, through: end)
             .filter { point in start.map { point.date >= $0 } ?? true }
             .chartPoints
+        let dates = valuator.dates(.monthEnds, in: scope, through: end).filter { date in start.map { date >= $0 } ?? true }
+        oldPrices = OldPriceSummary(valuator.oldPrices(in: scope, on: dates))
         let startDate = start?.dateValue
         if stacked {
             self.stacked = valuator.breakdownSeries(by: .assetClass, in: scope, through: end).chartSeries

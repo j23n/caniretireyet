@@ -64,36 +64,13 @@ public struct YahooChartProvider: InstrumentPriceProvider {
     static func close(
         in envelope: Envelope, symbol: String, onOrBefore date: CalendarDate, service: String
     ) throws(PriceFetchError) -> Quote {
-        guard let chart = envelope.chart else {
-            throw .malformedResponse(service: service, detail: "missing chart")
-        }
-        guard let result = chart.result?.first else {
-            if let error = chart.error {
-                if error.code == "Not Found" {
-                    throw .unknownSymbol(service: service, symbol: symbol, message: error.description)
-                }
-                throw .noData(service: service, detail: error.description ?? error.code ?? "no chart for \(symbol)")
-            }
-            throw .malformedResponse(service: service, detail: "missing chart.result")
-        }
-        guard let currencyCode = result.meta?.currency, !currencyCode.isEmpty else {
-            throw .malformedResponse(service: service, detail: "missing chart.result[0].meta.currency")
-        }
-        guard let timestamps = result.timestamp, !timestamps.isEmpty else {
+        let bars = try Bars(envelope, symbol: symbol, service: service)
+        guard !bars.isEmpty else {
             throw .noData(service: service, detail: "no trading days for \(symbol) up to \(date)")
         }
-        guard let closes = result.indicators?.quote?.first?.close else {
-            throw .malformedResponse(service: service, detail: "missing chart.result[0].indicators.quote[0].close")
-        }
-
-        let timeZone = result.meta?.exchangeTimezoneName.flatMap(TimeZone.init(identifier:))
-            ?? result.meta?.gmtoffset.flatMap(TimeZone.init(secondsFromGMT:))
-            ?? TimeZone(identifier: "UTC")!
         var best: (day: CalendarDate, instant: Date, close: Decimal)?
-        for (timestamp, close) in zip(timestamps, closes) {
-            guard let close, close > 0 else { continue }
-            let instant = Date(timeIntervalSince1970: TimeInterval(timestamp))
-            let day = CalendarDate(instant, in: timeZone)
+        for (instant, close) in bars.closes {
+            let day = CalendarDate(instant, in: bars.timeZone)
             // The latest day wins; on the same day, the later bar (Yahoo
             // sometimes repeats today's bar with the live price).
             if day <= date, best.map({ day >= $0.day }) ?? true { best = (day, instant, close) }
@@ -101,15 +78,122 @@ public struct YahooChartProvider: InstrumentPriceProvider {
         guard let best else {
             throw .noData(service: service, detail: "no close for \(symbol) on or before \(date)")
         }
+        return Quote(price: bars.price(best.close), currency: bars.currency, observedOn: best.day,
+                     observedAt: best.instant)
+    }
 
-        let (currency, divisor) = majorUnit(of: currencyCode)
-        var price = best.close / divisor
-        if let hint = result.meta?.priceHint, (0...8).contains(hint) {
-            price = price.rounded(scale: hint + (divisor == 1 ? 0 : 2))
-        } else {
-            price = price.rounded(significantDigits: 7)
+    // MARK: - History
+
+    /// How long a range of month ends must be before a monthly series is
+    /// asked for instead of a daily one: about five years, over 1,250 daily
+    /// closes.
+    public static let monthlyAfterDays = 1827
+
+    /// The closes of `symbol` over `range`, in one request: one per trading
+    /// day (`interval=1d`), or, when only month ends are wanted over more
+    /// than five years, one per month (`interval=1mo`), each the month's last
+    /// close and observed on the month's last day (today for this month).
+    ///
+    ///     GET v8/finance/chart/GC=F?period1=…&period2=…&interval=1mo&includePrePost=false
+    public func history(symbol: String, range: HistoryRange) async throws -> PriceHistory {
+        let monthly = range.monthEndsOnly && range.from.days(to: range.through) > Self.monthlyAfterDays
+        // A day earlier than asked: the bars of exchanges east of UTC start
+        // on the previous UTC day.
+        let start = (monthly ? range.from.startOfMonth : range.from).adding(days: -1)
+        let url = baseURL.appending(segments: [symbol], query: [
+            ("period1", String(Self.epochSeconds(start))),
+            ("period2", String(Self.epochSeconds(range.through.adding(days: 2)))),
+            ("interval", monthly ? "1mo" : "1d"), ("includePrePost", "false"),
+        ])
+        let response = try await fetcher.get(url, headers: ["User-Agent": userAgent])
+        try response.requireSuccess(service: name, symbol: symbol)
+        let envelope = try response.decodeJSON(Envelope.self, service: name)
+        var history = try Self.history(in: envelope, symbol: symbol, monthly: monthly, today: range.today,
+                                       service: name)
+        history.origin = QuoteOrigin(source: source, service: name, symbol: symbol)
+        return history
+    }
+
+    /// Every close in a chart response, dated by trading day in the
+    /// exchange's time zone, or by month for a monthly series.
+    static func history(
+        in envelope: Envelope, symbol: String, monthly: Bool, today: CalendarDate, service: String
+    ) throws(PriceFetchError) -> PriceHistory {
+        let bars = try Bars(envelope, symbol: symbol, service: service)
+        let quotes = bars.closes.map { instant, close in
+            let day = CalendarDate(instant, in: bars.timeZone)
+            return monthly
+                ? Quote(price: bars.price(close), currency: bars.currency, observedOn: min(day.endOfMonth, today))
+                : Quote(price: bars.price(close), currency: bars.currency, observedOn: day, observedAt: instant)
         }
-        return Quote(price: price, currency: currency, observedOn: best.day, observedAt: best.instant)
+        return PriceHistory(quotes: quotes, spacing: monthly ? .monthly : .daily)
+    }
+
+    /// The symbol's own history: one request per range.
+    public func historyRoutes(symbol: String, currency: CurrencyCode, today: CalendarDate) -> [HistoryRoute] {
+        let provider = self
+        return [HistoryRoute(name: "\(name) · \(symbol)") { range in
+            try await provider.history(symbol: symbol, range: range)
+        }]
+    }
+
+    /// A chart response read field by field: the exchange's time zone, the
+    /// currency (major unit), and the bars that have a close. No bars at all
+    /// (no `timestamp`) reads as empty.
+    struct Bars {
+        var timeZone: TimeZone
+        var currency: CurrencyCode
+        /// 100 for a minor unit such as `GBp`.
+        var divisor: Decimal
+        var priceHint: Int?
+        /// Bars with a positive close, in the response's order.
+        var closes: [(instant: Date, close: Decimal)]
+
+        var isEmpty: Bool { closes.isEmpty }
+
+        init(_ envelope: Envelope, symbol: String, service: String) throws(PriceFetchError) {
+            guard let chart = envelope.chart else {
+                throw .malformedResponse(service: service, detail: "missing chart")
+            }
+            guard let result = chart.result?.first else {
+                if let error = chart.error {
+                    if error.code == "Not Found" {
+                        throw .unknownSymbol(service: service, symbol: symbol, message: error.description)
+                    }
+                    throw .noData(service: service, detail: error.description ?? error.code ?? "no chart for \(symbol)")
+                }
+                throw .malformedResponse(service: service, detail: "missing chart.result")
+            }
+            guard let currencyCode = result.meta?.currency, !currencyCode.isEmpty else {
+                throw .malformedResponse(service: service, detail: "missing chart.result[0].meta.currency")
+            }
+            (currency, divisor) = YahooChartProvider.majorUnit(of: currencyCode)
+            priceHint = result.meta?.priceHint
+            timeZone = result.meta?.exchangeTimezoneName.flatMap(TimeZone.init(identifier:))
+                ?? result.meta?.gmtoffset.flatMap(TimeZone.init(secondsFromGMT:))
+                ?? TimeZone(identifier: "UTC")!
+            guard let timestamps = result.timestamp, !timestamps.isEmpty else {
+                closes = []
+                return
+            }
+            guard let values = result.indicators?.quote?.first?.close else {
+                throw .malformedResponse(service: service, detail: "missing chart.result[0].indicators.quote[0].close")
+            }
+            closes = zip(timestamps, values).compactMap { timestamp, close in
+                guard let close, close > 0 else { return nil }
+                return (Date(timeIntervalSince1970: TimeInterval(timestamp)), close)
+            }
+        }
+
+        /// A close in the major unit, rounded to the exchange's `priceHint`
+        /// decimals (two more for a minor unit), else to 7 significant digits.
+        func price(_ close: Decimal) -> Decimal {
+            let price = close / divisor
+            if let priceHint, (0...8).contains(priceHint) {
+                return price.rounded(scale: priceHint + (divisor == 1 ? 0 : 2))
+            }
+            return price.rounded(significantDigits: 7)
+        }
     }
 
     /// The major currency and divisor for a minor-unit code: `GBp` is 1/100 GBP.

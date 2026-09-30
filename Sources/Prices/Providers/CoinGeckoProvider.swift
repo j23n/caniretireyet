@@ -23,6 +23,13 @@ import Model
 /// It works without a key. A demo API key from the ``CredentialsProvider``
 /// is sent in the `x-cg-demo-api-key` header, never in the URL. Rate limits
 /// (HTTP 429) are retried per the ``RequestPolicy`` and then reported.
+///
+/// **History.** A range of past prices comes from
+/// `coins/{id}/market_chart/range` in one request
+/// (``history(symbol:currency:range:)``), but the free API only reaches back
+/// 365 days. Older dates come from Yahoo Finance's crypto pairs (`ETH-EUR`,
+/// or `ETH-USD` converted with ECB rates), named by the coin's ticker
+/// (``historyRoutes(symbol:currency:today:)``).
 public struct CoinGeckoProvider: InstrumentPriceProvider {
     public static let defaultBaseURL = URL(string: "https://api.coingecko.com/api/v3/")!
     /// The header a demo API key is sent in.
@@ -40,14 +47,20 @@ public struct CoinGeckoProvider: InstrumentPriceProvider {
     private let credentials: any CredentialsProvider
     private let baseURL: URL
     private let resolutions = CoinGeckoResolutions()
+    private let pairs: YahooChartProvider
 
+    /// A provider sending its requests through `client`. `pairs` fetches
+    /// the history older than CoinGecko's free year; by default Yahoo
+    /// Finance through the same client.
     public init(
         client: any HTTPClient = URLSessionHTTPClient(), credentials: any CredentialsProvider = StaticCredentials(),
-        policy: RequestPolicy = .standard, baseURL: URL = CoinGeckoProvider.defaultBaseURL
+        policy: RequestPolicy = .standard, baseURL: URL = CoinGeckoProvider.defaultBaseURL,
+        pairs: YahooChartProvider? = nil
     ) {
         self.fetcher = HTTPFetcher(client: client, policy: policy, service: "CoinGecko")
         self.credentials = credentials
         self.baseURL = baseURL
+        self.pairs = pairs ?? YahooChartProvider(client: client, policy: policy)
     }
 
     /// CoinGecko quotes in the requested currency, so the currency is part of
@@ -58,18 +71,35 @@ public struct CoinGeckoProvider: InstrumentPriceProvider {
     }
 
     public func quote(for request: QuoteRequest) async throws -> Quote {
-        let headers = await credentials.apiKey(for: provider).map { [Self.apiKeyHeader: $0] } ?? [:]
-        let symbol = request.symbol.trimmingCharacters(in: .whitespacesAndNewlines)
+        let headers = await self.headers()
+        return try await withCoin(request.symbol, headers: headers) { coin in
+            try await quote(request, coin: coin, headers: headers)
+        }
+    }
+
+    /// The API key header, if there's a key.
+    private func headers() async -> [String: String] {
+        await credentials.apiKey(for: provider).map { [Self.apiKeyHeader: $0] } ?? [:]
+    }
+
+    /// Runs `body` with the coin ID `symbol` means (see the type's
+    /// description): a well-known ticker, one found before, the symbol as an
+    /// ID, or what CoinGecko's search says. `body` throwing `unknownSymbol`
+    /// for the symbol as an ID leads to the search.
+    private func withCoin<T: Sendable>(
+        _ symbol: String, headers: [String: String], _ body: (String) async throws -> T
+    ) async throws -> T {
+        let symbol = symbol.trimmingCharacters(in: .whitespacesAndNewlines)
         if let coin = CoinGeckoCoinIDs.coinID(forTicker: symbol) {
-            return try await quote(request, coin: coin, headers: headers)
+            return try await body(coin)
         }
         if let known = await resolutions.known(symbol) {
-            return try await quote(request, coin: coin(known, for: request), headers: headers)
+            return try await body(coin(known, symbol: symbol))
         }
         var unknownID: PriceFetchError?
         if CoinGeckoCoinIDs.looksLikeCoinID(symbol) {
             do {
-                return try await quote(request, coin: symbol, headers: headers)
+                return try await body(symbol)
             } catch let error as PriceFetchError {
                 // Not an ID CoinGecko knows? Then perhaps a ticker: search for it.
                 guard case .unknownSymbol = error else { throw error }
@@ -79,30 +109,148 @@ public struct CoinGeckoProvider: InstrumentPriceProvider {
         let resolution = try await resolutions.resolve(symbol) {
             try await search(symbol, headers: headers)
         }
-        let id = try coin(resolution, for: request)
+        let id = try coin(resolution, symbol: symbol)
         if id == symbol, let unknownID { throw unknownID }
-        return try await quote(request, coin: id, headers: headers)
+        return try await body(id)
     }
 
     /// The coin a resolution names, or the error saying there's none.
     private func coin(
-        _ resolution: CoinGeckoResolutions.Resolution, for request: QuoteRequest
+        _ resolution: CoinGeckoResolutions.Resolution, symbol: String
     ) throws(PriceFetchError) -> String {
         switch resolution {
         case .coin(let id): id
-        case .noMatch: throw .unknownSymbol(service: name, symbol: request.symbol, message: Self.unknownCoinAdvice)
+        case .noMatch: throw .unknownSymbol(service: name, symbol: symbol, message: Self.unknownCoinAdvice)
         }
     }
 
-    /// Asks CoinGecko's search which coin `symbol` means.
+    /// Asks CoinGecko's search which coin `symbol` means, and remembers the
+    /// coin's ticker.
     private func search(
         _ symbol: String, headers: [String: String]
     ) async throws -> CoinGeckoResolutions.Resolution {
-        let url = baseURL.appending(segments: ["search"], query: [("query", symbol)])
+        let coins = try await searchCoins(symbol, headers: headers)
+        guard let best = CoinGeckoCoinIDs.bestCoin(for: symbol, in: coins) else { return .noMatch }
+        if let ticker = best.symbol { await resolutions.learn(ticker: ticker, of: best.id) }
+        return .coin(best.id)
+    }
+
+    /// `GET search?query=…`: the coins CoinGecko's search lists.
+    private func searchCoins(
+        _ query: String, headers: [String: String]
+    ) async throws -> [CoinGeckoCoinIDs.SearchCoin] {
+        let url = baseURL.appending(segments: ["search"], query: [("query", query)])
         let response = try await fetcher.get(url, headers: headers)
-        try response.requireSuccess(service: name, symbol: symbol)
-        let body = try response.decodeJSON(CoinGeckoCoinIDs.SearchResults.self, service: name)
-        return CoinGeckoCoinIDs.bestMatch(for: symbol, in: body.coins).map { .coin($0) } ?? .noMatch
+        try response.requireSuccess(service: name, symbol: query)
+        return try response.decodeJSON(CoinGeckoCoinIDs.SearchResults.self, service: name).coins
+    }
+
+    // MARK: - History
+
+    /// How many days back CoinGecko's free API (without a key, or with a
+    /// demo key) has prices.
+    public static let historyDays = 365
+
+    /// The first day the free API has prices for on `today`, a day inside
+    /// its limit.
+    public static func earliestHistoryDate(today: CalendarDate) -> CalendarDate {
+        today.adding(days: -(historyDays - 1))
+    }
+
+    /// Why dates before ``earliestHistoryDate(today:)`` have no CoinGecko price.
+    static let historyLimitReason = "CoinGecko's free API only has prices for the last \(historyDays) days."
+
+    /// Prices of `symbol` in `currency` over `range`, in one request, from
+    /// the start of CoinGecko's free year at the earliest:
+    ///
+    ///     GET coins/ethereum/market_chart/range?vs_currency=eur&from=1759276800&to=1790816400
+    ///     { "prices": [[1759363200000, 3871.2], …], "market_caps": […], "total_volumes": […] }
+    ///
+    /// CoinGecko answers with a value a day for more than 90 days (taken at
+    /// 00:00 UTC, so dated the day before, like the snapshots of
+    /// ``quote(for:)``), hourly for fewer, and the live price last. Values
+    /// are kept to 8 significant digits.
+    public func history(symbol: String, currency: CurrencyCode, range: HistoryRange) async throws -> PriceHistory {
+        let from = max(range.from, Self.earliestHistoryDate(today: range.today))
+        let headers = await self.headers()
+        return try await withCoin(symbol, headers: headers) { coin in
+            let origin = QuoteOrigin(source: source, service: name, symbol: coin)
+            guard from <= range.through else { return PriceHistory(quotes: [], origin: origin) }
+            let url = baseURL.appending(segments: ["coins", coin, "market_chart", "range"], query: [
+                ("vs_currency", currency.rawValue.lowercased()), ("from", String(from.daysSinceEpoch * 86_400)),
+                ("to", String(range.through.adding(days: 1).daysSinceEpoch * 86_400 + 3_600)),
+            ])
+            let response = try await fetcher.get(url, headers: headers)
+            try response.requireSuccess(service: name, symbol: coin)
+            let chart = try response.decodeJSON(MarketChart.self, service: name)
+            return PriceHistory(quotes: Self.quotes(in: chart, currency: currency), origin: origin)
+        }
+    }
+
+    /// The prices of a market chart, each dated by the UTC day it ends: a
+    /// value at 00:00 UTC belongs to the day before.
+    static func quotes(in chart: MarketChart, currency: CurrencyCode) -> [Quote] {
+        (chart.prices ?? []).compactMap { point in
+            guard point.count >= 2, let milliseconds = point[0], let price = point[1], price > 0 else { return nil }
+            let instant = Date(timeIntervalSince1970: (milliseconds as NSDecimalNumber).doubleValue / 1000)
+            let day = CalendarDate(instant.addingTimeInterval(-1), in: TimeZone(identifier: "UTC")!)
+            return Quote(price: price.rounded(significantDigits: 8), currency: currency, observedOn: day,
+                         observedAt: instant)
+        }
+    }
+
+    /// Past prices of a coin, best first: CoinGecko for its free year, then
+    /// Yahoo Finance's pair of the coin's ticker with the currency
+    /// (`ETH-EUR`) for anything older, then the pair with USD (`ETH-USD`),
+    /// converted with ECB rates, where the first doesn't exist or has gaps.
+    public func historyRoutes(symbol: String, currency: CurrencyCode, today: CalendarDate) -> [HistoryRoute] {
+        let provider = self
+        var routes = [HistoryRoute(
+            name: "\(name) · \(symbol)", earliest: Self.earliestHistoryDate(today: today),
+            limitReason: Self.historyLimitReason
+        ) { range in
+            try await provider.history(symbol: symbol, currency: currency, range: range)
+        }]
+        let yahoo = pairs
+        let shownTicker = CoinGeckoCoinIDs.knownTicker(for: symbol) ?? "<ticker>"
+        for pairCurrency in currency == .usd ? [currency] : [currency, .usd] {
+            routes.append(HistoryRoute(name: "\(yahoo.name) · \(shownTicker)-\(pairCurrency)") { range in
+                let ticker = try await provider.ticker(for: symbol)
+                return try await yahoo.history(symbol: "\(ticker)-\(pairCurrency)", range: range).standingIn()
+            })
+        }
+        return routes
+    }
+
+    /// A check-in older than CoinGecko's free year (refused with 401) tries
+    /// the history routes, i.e. Yahoo Finance's pairs.
+    public func triesHistory(after error: PriceFetchError, for request: QuoteRequest) -> Bool {
+        switch error {
+        case .unsupportedDate: true
+        case .unauthorized: request.date < Self.earliestHistoryDate(today: request.today)
+        default: false
+        }
+    }
+
+    /// The coin's ticker, for Yahoo Finance's crypto pairs (`ETH` in
+    /// `ETH-EUR`): the symbol itself when it's a ticker; for a CoinGecko ID,
+    /// the built-in table read backwards, or the ticker CoinGecko's search
+    /// gives the coin (remembered, like resolutions).
+    func ticker(for symbol: String) async throws -> String {
+        let symbol = symbol.trimmingCharacters(in: .whitespacesAndNewlines)
+        if let ticker = CoinGeckoCoinIDs.knownTicker(for: symbol) { return ticker }
+        if let ticker = await resolutions.ticker(of: symbol) { return ticker }
+        let headers = await headers()
+        let resolution = try await resolutions.resolve(symbol) {
+            try await search(symbol, headers: headers)
+        }
+        if case .coin(let id) = resolution {
+            if let ticker = await resolutions.ticker(of: id) { return ticker }
+            // A ticker typed in lowercase, which the search took as such.
+            if id.lowercased() != symbol.lowercased() { return symbol.uppercased() }
+        }
+        throw PriceFetchError.unknownSymbol(service: name, symbol: symbol,
+                                            message: "CoinGecko's search gives no ticker for it.")
     }
 
     /// The price of the coin with ID `coin`, noting the ID when it isn't the
@@ -196,5 +344,11 @@ public struct CoinGeckoProvider: InstrumentPriceProvider {
         enum CodingKeys: String, CodingKey {
             case currentPrice = "current_price"
         }
+    }
+
+    /// `{ "prices": [[<ms since 1970>, <price>], …], … }`; the other series
+    /// (market caps, volumes) aren't read.
+    struct MarketChart: Decodable {
+        let prices: [[Decimal?]]?
     }
 }
