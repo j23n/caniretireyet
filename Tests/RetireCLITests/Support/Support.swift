@@ -26,8 +26,38 @@ func retire(_ arguments: [String], environment: [String: String] = [:], currentD
         console: console, environment: environment,
         currentDirectory: currentDirectory ?? FileManager.default.temporaryDirectory, today: today,
         now: { clock.next() }, httpClient: client ?? MockHTTPClient(), credentials: StaticCredentials())
+    await oneAtATime.acquire()
     let status = await RetireCLI.run(arguments, context: context)
+    await oneAtATime.release()
     return CLIRun(status: status, output: captured.output, errors: captured.errors)
+}
+
+/// Commands run one at a time. They read and write files synchronously, and
+/// many at once would tie up Swift's shared cooperative threads, which other
+/// test targets' timing tests (price fetch timeouts) need too.
+private let oneAtATime = AsyncLock()
+
+/// A lock that waits without blocking a thread.
+actor AsyncLock {
+    private var isLocked = false
+    private var waiting: [CheckedContinuation<Void, Never>] = []
+
+    func acquire() async {
+        guard isLocked else {
+            isLocked = true
+            return
+        }
+        await withCheckedContinuation { waiting.append($0) }
+    }
+
+    /// Hands the lock to the next waiter, if any.
+    func release() {
+        if waiting.isEmpty {
+            isLocked = false
+        } else {
+            waiting.removeFirst().resume()
+        }
+    }
 }
 
 /// A clock for backup time stamps that moves one second per reading, so
