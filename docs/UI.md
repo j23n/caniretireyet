@@ -172,11 +172,14 @@ The flow that has to be fast. It opens as a full-screen sheet on iPhone and as t
   - **unchanged:** you confirmed it's the same. This still writes a valuation, so the account isn't stale;
   - **not reviewed.**
 
-  "Review" asks about any rows not reviewed: mark them unchanged, or skip them (then no record is written, and the account will show as stale).
+  "Review" asks about any rows not reviewed: mark them unchanged, or skip them (then no record is written, and the account will show as stale). A new account with no earlier value can't be unchanged: it's entered or skipped.
 - **Accounts with holdings.** Each position's quantity is pre-filled, and its value updates live with the fetched price. When a quantity goes up, an optional "paid" field appears. What you enter updates the position's purchase cost and the new money, which is how purchase costs are tracked without transactions.
 - **New money (flow).** Shown under each account, filled in by the defaults in [PROGRESS.md](PROGRESS.md#data-this-needs-from-day-one), and editable. For pension funds the app asks for "contributions since …".
-- **Keyboard.** A decimal keypad in your locale's format, with ▲ ▼ buttons above it to move between fields. Amounts accept `1.234,56` and `1234.56`.
+- **Keyboard.** A decimal keypad in your locale's format, with ▲ ▼ buttons above it to move between fields. Amounts accept `1.234,56` and `1234.56`. For a debt, type what you owe (`1.200` is recorded as −1.200); if it's in credit, e.g. an overpaid card, type `+` first (`+20`), or use ± above the keypad. *Update value* and a new account's opening balance work the same way.
 - **Draft.** An unfinished check-in is saved as a draft on the device and never half-written to the library. Close the sheet, come back later, and continue.
+  - The draft follows the library: when you come back, when the other device changes something, and just before saving. Accounts you haven't reviewed take their latest values, new accounts appear and closed ones leave; what you entered stays.
+  - If the other device saved a different value on the same date for an account you entered, a banner says so and the review asks: *Keep saved* or *Use mine*. Until you choose, the saved value stays and yours isn't written.
+  - The draft is deleted only once the check-in is in the library's files. If saving fails, the error is shown and the draft stays.
 - **Review screen.**
   - The new net worth and the waterfall (markets, new money, other).
   - Changed accounts, and anything unusual, e.g. a quantity that went down (did you sell?) or a value that changed more than 30%.

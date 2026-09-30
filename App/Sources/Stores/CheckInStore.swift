@@ -11,8 +11,14 @@ import Tracker
 ///   fetches prices and FX rates into it while you work.
 /// - Edits go through ``update(_:)`` or ``updateRow(_:_:)``; the draft is
 ///   saved to Application Support after each change (debounced).
-/// - ``save()`` writes the check-in into the library, deletes the draft, and
-///   asks the plan store for this month's answer.
+/// - The draft follows the library: when a check-in is resumed, whenever the
+///   library changes (e.g. the other device saved a check-in), and right
+///   before saving, it's rebased (`CheckInDraft.rebase(onto:)`). Values
+///   saved elsewhere on the draft's date that differ from what was entered
+///   become conflicts, which write nothing until they're settled.
+/// - ``save()`` writes the check-in into the library and waits for the
+///   files, deletes the draft only once they're written, and asks the plan
+///   store for this month's answer.
 @Observable @MainActor
 final class CheckInStore {
     /// The check-in in progress, if any.
@@ -34,6 +40,9 @@ final class CheckInStore {
     private let draftURL: URL?
     @ObservationIgnored private var persistTask: Task<Void, Never>?
     @ObservationIgnored private var fetchTask: Task<Void, Never>?
+    /// While a save waits for its write, the library changes under the
+    /// draft because of the save itself: it isn't rebased then.
+    @ObservationIgnored private var isWriting = false
 
     init(library: LibraryStore, prices: PriceStore, plans: PlanStore? = nil, preferences: AppPreferences? = nil,
          draftURL: URL? = CheckInStore.defaultDraftURL()) {
@@ -42,6 +51,23 @@ final class CheckInStore {
         self.plans = plans
         self.preferences = preferences
         self.draftURL = draftURL
+        followLibrary()
+    }
+
+    /// Rebases the draft each time the library changes (loaded, edited here,
+    /// or changed by the other device), for as long as the store exists.
+    private func followLibrary() {
+        withObservationTracking {
+            _ = library.revision
+            _ = library.phase
+        } onChange: { [weak self] in
+            // Called before the change is made: act once it has been.
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                if !isWriting { refresh() }
+                followLibrary()
+            }
+        }
     }
 
     /// `Application Support/<bundle id>/CheckIn/draft.json`.
@@ -72,13 +98,15 @@ final class CheckInStore {
 
     // MARK: Starting
 
-    /// Reads an unfinished check-in saved on this device (at launch).
+    /// Reads an unfinished check-in saved on this device (at launch). It's
+    /// rebased once the library is loaded.
     func restoreDraft() {
         guard draft == nil, let draftURL, let data = try? Data(contentsOf: draftURL),
               let stored = try? JSONDecoder().decode(StoredCheckIn.self, from: data)
         else { return }
         draft = stored.draft
         indices = stored.indices
+        refresh()
     }
 
     /// Resumes the unfinished check-in, moved to `date` if one is given, or
@@ -96,8 +124,25 @@ final class CheckInStore {
         } else if let date, date != draft?.date {
             changeDate(to: date)
             return
+        } else {
+            refresh()
         }
         if preferences?.fetchPricesOnCheckIn ?? true { fetchPrices() }
+    }
+
+    /// Brings the draft up to date with the library (see
+    /// `CheckInDraft.rebase(onto:)`). Does nothing until the library is
+    /// loaded, so a draft restored at launch isn't rebased onto nothing.
+    @discardableResult
+    func refresh() -> CheckInRebase? {
+        guard var draft, library.phase == .ready else { return nil }
+        let before = Set(draft.instruments)
+        let result = draft.rebase(onto: library.library)
+        guard draft != self.draft else { return result }
+        self.draft = draft
+        schedulePersist()
+        if !Set(draft.instruments).isSubset(of: before) { fetchNewPrices() }
+        return result
     }
 
     /// Moves the check-in to another date, keeping what was entered. Prices
@@ -114,12 +159,15 @@ final class CheckInStore {
 
     // MARK: Editing
 
-    /// Changes the draft.
+    /// Changes the draft. A position added in an instrument the draft had no
+    /// price for yet has its price fetched.
     func update(_ edit: (inout CheckInDraft) -> Void) {
         guard var draft else { return }
+        let before = Set(draft.instruments)
         edit(&draft)
         self.draft = draft
         schedulePersist()
+        if !Set(draft.instruments).isSubset(of: before) { fetchNewPrices() }
     }
 
     /// Changes one account's row.
@@ -131,9 +179,23 @@ final class CheckInStore {
         }
     }
 
-    /// Marks every row not reviewed yet as unchanged.
+    /// Marks every row not reviewed yet as unchanged; rows with no earlier
+    /// value to keep (new accounts) are skipped instead.
     func markRestUnchanged() {
         update { $0.markRestUnchanged() }
+    }
+
+    /// Settles a conflict with a valuation saved on the draft's date since
+    /// it started: keep the saved one, or use what was entered.
+    func resolveConflict(of account: AccountID, keepingSaved: Bool) {
+        let snapshot = library.library
+        update { $0.resolveConflict(of: account, keepingSaved: keepingSaved, in: snapshot) }
+    }
+
+    /// Settles every conflict the same way.
+    func resolveConflicts(keepingSaved: Bool) {
+        let snapshot = library.library
+        update { $0.resolveConflicts(keepingSaved: keepingSaved, in: snapshot) }
     }
 
     /// Enters a price by hand (in the instrument's currency, per its unit).
@@ -156,19 +218,30 @@ final class CheckInStore {
     // MARK: Prices
 
     /// Fetches prices, FX rates and index values for the draft's date in the
-    /// background. Prices entered by hand are kept.
+    /// background: for what the library holds, and for the instruments of
+    /// the draft's positions, including ones added in this check-in. Prices
+    /// entered by hand are kept.
     func fetchPrices(refresh: Bool = false) {
-        guard let date = draft?.date, prices.canFetch else { return }
+        guard let draft, prices.canFetch else { return }
+        let date = draft.date
         fetchTask?.cancel()
         let snapshot = library.library
+        let instruments = draft.instruments
         isFetchingPrices = true
         fetchTask = Task { [weak self] in
             guard let self else { return }
-            let fetched = await prices.fetch(for: snapshot, on: date, refresh: refresh)
+            let fetched = await prices.fetch(for: snapshot, on: date, including: instruments, refresh: refresh)
             guard !Task.isCancelled else { return }
             apply(fetched)
             isFetchingPrices = false
         }
+    }
+
+    /// Fetches again after the draft gained an instrument (a position was
+    /// added), unless fetching is turned off in Settings.
+    private func fetchNewPrices() {
+        guard preferences?.fetchPricesOnCheckIn ?? true else { return }
+        fetchPrices()
     }
 
     private func apply(_ fetched: CheckInPrices) {
@@ -190,16 +263,44 @@ final class CheckInStore {
     // MARK: Saving
 
     /// Writes the check-in into the library (valuations, prices, FX rates and
-    /// index values), deletes the draft, re-runs the main plan and returns
-    /// what to show in the confirmation.
+    /// index values) and waits until the files are written. Then deletes the
+    /// draft, re-runs the main plan and returns what to show in the
+    /// confirmation.
+    ///
+    /// The draft is rebased first. If that finds values saved on the date
+    /// meanwhile that differ from what was entered, nothing is written and
+    /// ``CheckInStoreError/changedElsewhere(_:)`` asks to look at them first.
+    /// Rows still in conflict write nothing, so the saved values stay. If the
+    /// write fails, the error is thrown and the draft is kept.
     @discardableResult
     func save() async throws -> CheckInSaveResult {
-        guard let draft else { throw CheckInStoreError.noDraft }
-        let review = draft.review(in: library.library)
+        guard var draft else { throw CheckInStoreError.noDraft }
+        guard library.phase == .ready else { throw LibraryStoreError.notLoaded }
+        let snapshot = library.library
+        let rebase = draft.rebase(onto: snapshot)
+        if draft != self.draft {
+            self.draft = draft
+            schedulePersist()
+        }
+        guard rebase.newConflicts.isEmpty else {
+            throw CheckInStoreError.changedElsewhere(rebase.newConflicts.map { snapshot.accounts[$0]?.name ?? $0.rawValue })
+        }
+        let review = draft.review(in: snapshot)
         let indices = self.indices
-        try library.update { library in
-            draft.apply(to: &library)
-            for value in indices { library.upsert(value) }
+        let saving = draft
+        isWriting = true
+        defer { isWriting = false }
+        do {
+            try await library.commit { library in
+                saving.apply(to: &library)
+                for value in indices { library.upsert(value) }
+            }
+        } catch {
+            // What's on disk is reloaded: follow it, keeping what was entered.
+            await library.waitForPendingWrites()
+            isWriting = false
+            refresh()
+            throw error
         }
         discard()
         let headline = await plans?.checkInSaved(on: draft.date)
@@ -278,11 +379,26 @@ struct CheckInSaveResult: Hashable, Sendable {
 
 enum CheckInStoreError: Error, Equatable, Sendable, LocalizedError {
     case noDraft
+    /// Values were saved on the draft's date elsewhere (e.g. on another
+    /// device) for these accounts, and differ from what was entered. Nothing
+    /// was written.
+    case changedElsewhere([String])
 
     var errorDescription: String? {
         switch self {
-        case .noDraft: "There's no check-in in progress."
+        case .noDraft:
+            "There's no check-in in progress."
+        case .changedElsewhere(let names):
+            "\(Self.list(names)) just got \(names.count == 1 ? "a value" : "values") saved on another device "
+                + "for this date. Nothing was saved yet: choose which values to keep, then save again."
         }
+    }
+
+    /// "Conto Fineco", "Conto Fineco and Directa", "Conto Fineco, Directa and TFR".
+    static func list(_ names: [String]) -> String {
+        guard let last = names.last else { return "" }
+        guard names.count > 1 else { return last }
+        return names.dropLast().joined(separator: ", ") + " and " + last
     }
 }
 

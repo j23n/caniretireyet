@@ -273,15 +273,7 @@ enum CheckInEditing {
     /// previous value (new ones) have nothing to keep, so they're skipped
     /// instead of getting an empty valuation.
     static func markRestUnchanged(_ draft: inout CheckInDraft) {
-        for account in draft.notReviewed {
-            guard var row = draft[account] else { continue }
-            if CheckInRowDisplay.canMarkUnchanged(row) {
-                row.markUnchanged()
-            } else {
-                row.skip()
-            }
-            draft[account] = row
-        }
+        draft.markRestUnchanged()
     }
 
     /// Skips every row not reviewed yet: nothing is written for them, and
@@ -359,6 +351,20 @@ enum CheckInWording {
         guard hasValues else { return nil }
         let day = date.dateValue.formatted(.dateTime.day().month(.wide).locale(locale))
         return "There's already a check-in on \(day). Its values are filled in, and saving updates it."
+    }
+
+    /// "Conto Fineco got a value for 31 October on another device while this
+    /// check-in was open. …", when rows are in conflict with values saved on
+    /// the date since the check-in started; `nil` otherwise.
+    static func conflictNote(_ draft: CheckInDraft, in library: Library, locale: Locale = .current) -> String? {
+        let names = draft.conflicts.map { library.accounts[$0.account]?.name ?? $0.account.rawValue }
+        guard let last = names.last else { return nil }
+        let list = names.count == 1 ? last : names.dropLast().joined(separator: ", ") + " and " + last
+        let day = draft.date.dateValue.formatted(.dateTime.day().month(.wide).locale(locale))
+        let one = names.count == 1
+        return "\(list) got \(one ? "a value" : "values") for \(day) on another device while this check-in was open. "
+            + "Until you choose, \(one ? "the saved value is" : "the saved values are") kept and yours "
+            + "\(one ? "isn't" : "aren't") written."
     }
 
     /// What the new-money field is called: "Contributions since June" for

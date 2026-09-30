@@ -447,6 +447,11 @@ struct CheckInBanners: View {
                     session.saveError = nil
                 }
             }
+            if let note = CheckInWording.conflictNote(draft, in: library.library, locale: locale) {
+                StatusBanner(.warning, "Saved on another device", message: note, actionTitle: "Choose") {
+                    session.page = .review
+                }
+            }
             if let resumed = session.resumedDate {
                 StatusBanner(
                     .info, "Continuing your check-in",

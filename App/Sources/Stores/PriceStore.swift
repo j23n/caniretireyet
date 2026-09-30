@@ -32,10 +32,19 @@ final class PriceStore {
     /// needs. Never throws: failures are entries in the result. With
     /// `refresh`, cached values are fetched again.
     func fetch(for library: Library, on date: CalendarDate, refresh: Bool = false) async -> CheckInPrices {
+        await fetch(for: library, on: date, including: [], refresh: refresh)
+    }
+
+    /// Like ``fetch(for:on:refresh:)``, and also for `instruments` the
+    /// library doesn't hold on `date`, e.g. positions added in a check-in.
+    func fetch(for library: Library, on date: CalendarDate, including instruments: [InstrumentID],
+               refresh: Bool = false) async -> CheckInPrices {
         guard let service else { return CheckInPrices(date: date) }
         activeFetches += 1
         defer { activeFetches -= 1 }
-        let result = await service.fetch(for: library, on: date, refresh: refresh)
+        var needs = service.needs(for: library, on: date)
+        needs.include(instruments, from: library)
+        let result = await service.fetch(needs, refresh: refresh)
         lastResult = result
         return result
     }
@@ -50,5 +59,31 @@ final class PriceStore {
         defer { activeFetches -= 1 }
         let result = await service.fetch(needs)
         return result.entry(for: item) ?? PriceListEntry(item: item, outcome: .manual)
+    }
+}
+
+extension CheckInPriceNeeds {
+    /// Adds `ids` that aren't needed yet, sorted in with the others: an
+    /// instrument with a price source is fetched (with its currency), one
+    /// without is priced by hand, and one missing from `library` is unknown.
+    mutating func include(_ ids: [InstrumentID], from library: Library) {
+        let known = Set(instruments.map(\.id)).union(manualInstruments).union(unknownInstruments)
+        var currencies = Set(self.currencies)
+        for id in Set(ids).subtracting(known) {
+            guard let instrument = library.instruments[id] else {
+                unknownInstruments.append(id)
+                continue
+            }
+            if let source = instrument.priceSource, source.provider.rawValue != "manual", !source.symbol.isEmpty {
+                instruments.append(instrument)
+                if instrument.currency != baseCurrency { currencies.insert(instrument.currency) }
+            } else {
+                manualInstruments.append(id)
+            }
+        }
+        instruments.sort { $0.id < $1.id }
+        manualInstruments.sort()
+        unknownInstruments.sort()
+        self.currencies = currencies.sorted()
     }
 }
