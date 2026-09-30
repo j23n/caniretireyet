@@ -268,7 +268,8 @@ struct PreviewApplyTests {
 
     /// Importing the same file twice changes nothing.
     @Test(arguments: ["italian-excel-1252.csv", "us-export.csv", "numbers-export.csv", "titles-totals-utf16.tsv",
-                      "month-only.csv", "excel-serial.csv", "long-format.csv", "positions.csv", "broken-rows.csv"])
+                      "month-only.csv", "excel-serial.csv", "long-format.csv", "positions.csv", "broken-rows.csv",
+                      "positive-debts.csv"])
     func importingTwiceChangesNothing(name: String) throws {
         let session = try Samples.session(name)
         let library = try Fixtures.exampleLibrary()

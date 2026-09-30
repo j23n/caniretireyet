@@ -82,6 +82,12 @@ Every column has a format. The file sets the defaults, a column can override the
 - **Day or month first:** `dd/MM` and `MM/dd` are told apart as soon as any day in the column is above 12. If none is, the importer asks.
 - **Excel serials or numbers:** whole numbers are read as Excel dates when the header says it's a date column (`Data`, `Date`, `Mese`, …). A first column of increasing serials without such a header is read as dates too, but the importer asks.
 
+**Debts**
+
+- The library stores the balance of a debt account (kind `loan`, `mortgage` or `creditCard`) as a negative amount. Spreadsheets usually write it as a positive one ("146.250" for a mortgage), so by default a positive balance for a debt account is read as a debt and stored negative, and the preview adds a note such as “Mutuo”: positive amounts were read as debts (12 values). Negative amounts are kept as they are.
+- The account's kind decides, including the kind of a new account the import creates: if you change a proposed account's kind, its balances follow when you import.
+- To keep the file's signs, set `liabilitySign` to `asWritten` in the profile's `defaults`, or in one column's `format` (the default is `auto`).
+
 **Text**
 
 - Values are trimmed.
@@ -145,9 +151,10 @@ Other fields a profile can have, all optional:
 | `file.headerRow` | The 1-based row holding the headers; `0` means the file has none. Left out, it's detected. |
 | `defaults.date` | `pattern` (e.g. `dd/MM/yyyy`, or `excel-serial`), `monthOnly` (`end`, the default, or `start`), and `timeZone` (an IANA name) for date-times. |
 | `defaults.number` | `decimal` and `thousands` separators (`""` for none), and `percent`. |
+| `defaults.liabilitySign` | How balances of debt accounts are signed in the file: `auto` (the default: a positive amount is a debt and is stored negative) or `asWritten` (keep the file's sign). See [Debts](#value-formats). |
 | `columns[].index` | The 1-based column position, used only when the file has no header. |
 | `columns[].currency`, `base`, `quote` | The currency of a column's amounts or prices, or an FX column's pair. |
-| `columns[].format` | Overrides of `defaults` for one column: `date`, `number`, `empty`. |
+| `columns[].format` | Overrides of `defaults` for one column: `date`, `number`, `empty`, `liabilitySign`. |
 | `columns[].field` | Long layout: what the column holds for each row's record: `date`, `account`, `instrument`, `value`, `currency`, `base`, `quote` or `ignore`. |
 | `target` | Long layout: what each row becomes (`balance`, `quantity`, `costBasis`, `cash`, `price` or `fx`). A value column can set its own `target`, so one row can hold a quantity, a price and a purchase cost. |
 | `constants` | Long layout: fields that are the same for every row: `account`, `instrument`, `currency`, `base`, `quote`. Wide columns that leave these out use them too. |
@@ -156,7 +163,7 @@ Other fields a profile can have, all optional:
 
 ## Where it runs
 
-- **Engine.** The `Importer` module, in pure Swift. It reads bytes and a `Library` and returns results; the app and the CLI back up and write the files it reports as changed. It's tested on Linux against a folder of sample files (`Tests/ImporterTests/Samples/`): Italian Excel CSVs in Windows-1252, US-style exports, Numbers exports, title and totals rows, month-only dates, Excel serial dates, long files, quantities with prices, broken rows.
+- **Engine.** The `Importer` module, in pure Swift. It reads bytes and a `Library` and returns results; the app and the CLI back up and write the files it reports as changed. It's tested on Linux against a folder of sample files (`Tests/ImporterTests/Samples/`): Italian Excel CSVs in Windows-1252, US-style exports, Numbers exports, title and totals rows, month-only dates, Excel serial dates, long files, quantities with prices, debts written as positive amounts, broken rows.
   - `ImportSession(data:)` reads a file and proposes a mapping, or `ImportSession(data:profile:)` uses a saved one. The session holds the mapping as an `ImportProfile`, with helpers to map a column, pick the date column, remember a match and settle an ambiguity.
   - `session.preview(against:)` returns an `ImportPreview`: every record with its status, cell errors, issues, ambiguities, name matches, and the proposed accounts, instruments and account changes.
   - `preview.apply(to:)` returns an `ImportResult`: the new library and the month files, accounts and instruments that changed.

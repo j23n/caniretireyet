@@ -88,8 +88,14 @@ extension ImportPreview {
                 result.skipped += 1
                 continue
             }
-            let existing = library.record(for: record.imported.key)
-            let outcome = RecordMerge.evaluate(record.imported, existing: existing)
+            // The account's kind decides the balance's sign again: a proposed
+            // account's kind may have been edited since the preview.
+            var imported = record.imported
+            if let account = imported.key.account, let kind = library.accounts[account]?.kind {
+                imported.signBalance(isLiability: kind.isLiability)
+            }
+            let existing = library.record(for: imported.key)
+            let outcome = RecordMerge.evaluate(imported, existing: existing)
             var write: LibraryRecord?
             switch outcome.status {
             case .identical:

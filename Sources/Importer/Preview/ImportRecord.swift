@@ -94,6 +94,14 @@ public struct ImportedRecord: Hashable, Sendable {
     public var currency: CurrencyCode?
     /// FX rates: 1 base = rate × quote.
     public var rate: Decimal?
+    /// Whether `balance` is negative because the file wrote a debt account's
+    /// balance as a positive amount (IMPORT.md, "Debts").
+    public internal(set) var balanceReadAsDebt = false
+    /// The balance as the file wrote it, before its sign was set for a debt
+    /// account; `nil` for records made outside a preview.
+    var writtenBalance: Decimal?
+    /// How the balance's column signs debts.
+    var liabilitySign: LiabilitySign = .auto
 
     public init(key: ImportRecordKey, balance: Decimal? = nil, cash: Decimal? = nil,
                 positions: [ImportedPosition] = [], price: Decimal? = nil, currency: CurrencyCode? = nil,
@@ -110,6 +118,17 @@ public struct ImportedRecord: Hashable, Sendable {
     /// Whether every value in the record is zero (a closed account's zeros).
     var isZero: Bool {
         (balance ?? 0) == 0 && (cash ?? 0) == 0 && positions.allSatisfy { ($0.quantity ?? 0) == 0 }
+    }
+
+    /// Sets the balance's sign for its account: for a debt account, a
+    /// positive amount in the file is a debt and becomes negative, unless the
+    /// column keeps signs as written. Called again when the account's kind
+    /// may have changed, e.g. a proposed account's kind was edited.
+    mutating func signBalance(isLiability: Bool) {
+        guard let written = writtenBalance else { return }
+        let negate = isLiability && liabilitySign != .asWritten && written > 0
+        balance = negate ? -written : written
+        balanceReadAsDebt = negate
     }
 }
 
