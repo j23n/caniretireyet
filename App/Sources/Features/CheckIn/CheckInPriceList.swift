@@ -208,8 +208,10 @@ struct CheckInPriceList: Hashable, Sendable {
 
     /// Why an entry failed, for a check-in on `date`. A provider without
     /// history for the date (gold-api.com only has today's price; CoinGecko's
-    /// free API about the last year) says so first: "No history for this
-    /// date: type the price." `nil` unless the entry failed.
+    /// free API about the last year), when its stand-ins had none either
+    /// (the metal's futures, the coin's Yahoo Finance pairs), says so first:
+    /// "No history for this date: type the price." `nil` unless the entry
+    /// failed.
     static func failureText(_ entry: PriceListEntry?, date: CalendarDate, today: CalendarDate = .today()) -> String? {
         guard let entry, let error = entry.failure else { return nil }
         switch error {
