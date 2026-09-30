@@ -57,6 +57,21 @@ enum CoinGeckoCoinIDs {
         tickers[symbol.uppercased()]
     }
 
+    /// Well-known coins' tickers by coin ID: ``tickers`` read backwards.
+    static let tickersByCoinID: [String: String] = Dictionary(
+        tickers.map { ($0.value, $0.key) }, uniquingKeysWith: { first, _ in first })
+
+    /// The ticker a symbol stands for without asking CoinGecko: a well-known
+    /// ticker itself (uppercased), the ticker of a well-known coin ID, or a
+    /// symbol that can't be an ID (it has capitals or other characters, like
+    /// `MOON`). `nil` for a symbol that may be any coin's ID.
+    static func knownTicker(for symbol: String) -> String? {
+        let symbol = symbol.trimmingCharacters(in: .whitespacesAndNewlines)
+        if coinID(forTicker: symbol) != nil { return symbol.uppercased() }
+        if let ticker = tickersByCoinID[symbol.lowercased()] { return ticker }
+        return looksLikeCoinID(symbol) || symbol.isEmpty ? nil : symbol.uppercased()
+    }
+
     /// Whether `symbol` could be a CoinGecko ID as it is: lowercase ASCII
     /// letters and digits, possibly with `-` (`bitcoin`, `avalanche-2`).
     static func looksLikeCoinID(_ symbol: String) -> Bool {
@@ -70,15 +85,20 @@ enum CoinGeckoCoinIDs {
     /// is `symbol` (lowest market-cap rank; unranked coins last; ties go to
     /// the first listed). Both comparisons ignore case.
     static func bestMatch(for symbol: String, in coins: [SearchCoin]) -> String? {
+        bestCoin(for: symbol, in: coins)?.id
+    }
+
+    /// The coin ``bestMatch(for:in:)`` picks, with its ticker.
+    static func bestCoin(for symbol: String, in coins: [SearchCoin]) -> SearchCoin? {
         let wanted = symbol.lowercased()
         if let exact = coins.first(where: { $0.id.lowercased() == wanted }) {
-            return exact.id
+            return exact
         }
         let matches = coins.enumerated().filter { $0.element.symbol?.lowercased() == wanted }
         let best = matches.min { lhs, rhs in
             (lhs.element.marketCapRank ?? .max, lhs.offset) < (rhs.element.marketCapRank ?? .max, rhs.offset)
         }
-        return best?.element.id
+        return best?.element
     }
 
     /// `GET search?query=ETH` →
@@ -129,10 +149,23 @@ actor CoinGeckoResolutions {
 
     private var entries: [String: Task<Resolution, any Error>] = [:]
     private var answered: [String: Resolution] = [:]
+    /// Tickers (uppercased) by coin ID, from searches.
+    private var tickers: [String: String] = [:]
 
     /// What an earlier search found for `symbol`, ignoring case.
     func known(_ symbol: String) -> Resolution? {
         answered[symbol.lowercased()]
+    }
+
+    /// The ticker a search gave the coin with ID `coin`, ignoring case.
+    func ticker(of coin: String) -> String? {
+        tickers[coin.lowercased()]
+    }
+
+    /// Remembers a coin's ticker from a search.
+    func learn(ticker: String, of coin: String) {
+        guard !ticker.isEmpty else { return }
+        tickers[coin.lowercased()] = ticker.uppercased()
     }
 
     /// What an earlier search found for `symbol`, or the result of `search`,
