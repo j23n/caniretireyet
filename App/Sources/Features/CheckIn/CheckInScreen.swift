@@ -3,217 +3,331 @@ import Prices
 import SwiftUI
 import Tracker
 
-// PLACEHOLDER — Check-in feature engineer: replace this screen's content
-// (UI.md, "Check-in": the one-page flow, price list, keyboard, review,
-// confirmation, and the Mac table). Keep the name `CheckInScreen` and
-// `init()`: it's the full-screen cover on iPhone (inside a NavigationStack)
-// and the Check-in page on Mac and iPad. Close it with
-// `navigation.finishCheckIn()`, which works in both. All state lives in
-// `CheckInStore`; this placeholder already edits balances and saves.
-
-/// The monthly check-in.
+/// The monthly check-in (UI.md, "Check-in"): the flow that has to be fast.
+///
+/// - **iPhone** (a full-screen cover, in a NavigationStack) and iPad: one
+///   scrolling page (``CheckInList``), with Review pushed on top.
+/// - **Mac** (the sidebar's Check-in page): a table (``CheckInTable``) with
+///   the date and prices in the toolbar; Review opens as a sheet (⌘↩).
+///
+/// An unfinished check-in is a draft in `CheckInStore`, kept on this device
+/// and resumed here; Cancel asks whether to keep it or throw it away. After
+/// saving, the confirmation ends with this month's answer. Close with
+/// `navigation.finishCheckIn()`, which works in both layouts.
 struct CheckInScreen: View {
     @Environment(CheckInStore.self) private var checkIn
     @Environment(LibraryStore.self) private var library
     @Environment(AppNavigation.self) private var navigation
-    @State private var saveError: String?
-    @State private var confirmation: CheckInSaveResult?
+    @Environment(\.locale) private var locale
+    @State private var session = CheckInSession()
 
     init() {}
 
     var body: some View {
-        Group {
-            if let draft = checkIn.draft {
-                form(for: draft)
-            } else if let confirmation {
-                ConfirmationView(result: confirmation) { navigation.finishCheckIn() }
-            } else {
+        content
+            .confirmationDialog("Start over?", isPresented: $session.showsStartOverDialog,
+                                titleVisibility: .visible) {
+                Button("Start over", role: .destructive) { session.startOver(checkIn: checkIn) }
+                Button("Keep what I entered", role: .cancel) {}
+            } message: {
+                Text("What you entered in this check-in is thrown away, and a new one starts on the suggested date.")
+            }
+            .navigationTitle("Check-in")
+            #if os(iOS)
+            .navigationBarTitleDisplayMode(.inline)
+            #else
+            .navigationSubtitle(subtitle)
+            #endif
+            .toolbar { toolbar }
+            .onAppear { session.appear(checkIn: checkIn, library: library) }
+            .confirmationDialog("Keep this check-in for later?", isPresented: $session.showsCancelDialog,
+                                titleVisibility: .visible) {
+                Button("Keep for later") {
+                    session.keepForLater(checkIn: checkIn)
+                    close()
+                }
+                Button("Discard", role: .destructive) {
+                    session.discard(checkIn: checkIn)
+                    close()
+                }
+                Button("Continue the check-in", role: .cancel) {}
+            } message: {
+                Text("A draft stays on this device, and nothing is written to your library until you save.")
+            }
+            #if os(iOS)
+            .navigationDestination(item: $session.page) { page in
+                destination(page)
+            }
+            .sensoryFeedback(.impact(weight: .light), trigger: session.saved)
+            #else
+            .sheet(item: $session.page) { page in
+                NavigationStack {
+                    destination(page, isSheet: true)
+                }
+                .frame(minWidth: 560, minHeight: 620)
+            }
+            #endif
+    }
+
+    // MARK: Content
+
+    @ViewBuilder
+    private var content: some View {
+        if let saved = session.saved {
+            CheckInConfirmationView(result: saved) { close() }
+        } else if session.isSaving {
+            VStack(spacing: Metrics.m) {
                 ProgressView()
+                Text("Saving and updating your plan…")
+                    .foregroundStyle(Palette.secondaryInk)
             }
-        }
-        .navigationTitle("Check-in")
-        .toolbar {
-            ToolbarItem(placement: .cancellationAction) {
-                Button("Close") {
-                    checkIn.persistNow()
-                    navigation.finishCheckIn()
-                }
-            }
-            ToolbarItem(placement: .confirmationAction) {
-                Button("Save") { save() }
-                    .disabled(checkIn.draft == nil || !library.canEdit)
-            }
-        }
-        .onAppear {
-            if checkIn.draft == nil && confirmation == nil { checkIn.begin() }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(Palette.page)
+        } else if let draft = checkIn.draft {
+            editor(draft)
+        } else {
+            CheckInStartView(session: session) { close() }
         }
     }
 
-    private func form(for draft: CheckInDraft) -> some View {
-        Form {
-            Section {
-                LabeledContent("Date", value: AmountFormat.longDate(draft.date))
-                LabeledContent("Prices and FX") {
-                    if checkIn.isFetchingPrices {
-                        ProgressView()
-                    } else if let list = checkIn.priceList {
-                        Text(list.isComplete ? "Updated (\(list.entries.count))" : "\(list.failures.count) couldn't be fetched")
-                    } else {
-                        Text("\(draft.prices.count) prices")
-                    }
-                }
-            }
-            ForEach(AccountGroup.allCases, id: \.self) { group in
-                let rows = draft.rows.filter { library.account($0.account)?.group == group }
-                if !rows.isEmpty {
-                    Section(group.description) {
-                        ForEach(rows) { row in
-                            CheckInRowView(row: row)
-                        }
-                    }
-                }
-            }
-            Section {
-                HStack {
-                    Text("\(draft.reviewedCount) of \(draft.rows.count) reviewed")
-                    Spacer()
-                    Button("Mark rest unchanged") { checkIn.markRestUnchanged() }
-                        .disabled(draft.isReadyToSave)
-                }
-                if let review = checkIn.review {
-                    LabeledContent("New net worth") { AmountText(review.netWorth.total) }
-                    if let change = review.change {
-                        LabeledContent("Change") { DeltaText(change.total.change) }
-                    }
-                }
-                if let saveError {
-                    Text(saveError).foregroundStyle(Palette.critical)
-                }
-            }
-        }
-        .formStyle(.grouped)
+    @ViewBuilder
+    private func editor(_ draft: CheckInDraft) -> some View {
+        #if os(macOS)
+        CheckInTable(draft: draft, session: session)
+        #else
+        CheckInList(draft: draft, session: session)
+        #endif
     }
 
-    private func save() {
-        Task {
-            do {
-                confirmation = try await checkIn.save()
-                saveError = nil
-            } catch {
-                saveError = error.localizedDescription
+    @ViewBuilder
+    private func destination(_ page: CheckInSession.Page, isSheet: Bool = false) -> some View {
+        switch page {
+        case .review:
+            CheckInReviewView(session: session, isSheet: isSheet)
+        case .prices:
+            CheckInPriceListView(isSheet: isSheet)
+        }
+    }
+
+    // MARK: Toolbar
+
+    @ToolbarContentBuilder
+    private var toolbar: some ToolbarContent {
+        #if os(iOS)
+        ToolbarItem(placement: .cancellationAction) {
+            cancelButton
+        }
+        ToolbarItem(placement: .confirmationAction) {
+            Button("Review") { session.page = .review }
+                .fontWeight(.semibold)
+                .disabled(checkIn.draft == nil || session.isSaving || session.saved != nil)
+        }
+        #else
+        // On the Mac, primary actions sit after the title: the date and the
+        // prices, as in the mockup; Cancel goes to the trailing end.
+        ToolbarItemGroup(placement: .primaryAction) {
+            if let draft = checkIn.draft, session.saved == nil, !session.isSaving {
+                dateButton(draft)
+                pricesButton(draft)
             }
         }
+        ToolbarItem(placement: .automatic) {
+            cancelButton
+        }
+        #endif
+    }
+
+    private var cancelButton: some View {
+        Button {
+            cancel()
+        } label: {
+            Text(verbatim: session.saved == nil ? "Cancel" : "Close")
+        }
+        .disabled(session.isSaving)
+    }
+
+    #if os(macOS)
+    /// "📅 30 September 2026", opening the date panel.
+    private func dateButton(_ draft: CheckInDraft) -> some View {
+        Button {
+            session.showsDatePicker = true
+        } label: {
+            Label(AmountFormat.longDate(draft.date, locale: locale), systemImage: "calendar")
+        }
+        .labelStyle(.titleAndIcon)
+        .help("Change the check-in's date")
+        .popover(isPresented: $session.showsDatePicker) {
+            CheckInDatePanel(date: draft.date, suggested: suggestedDate) { date in
+                checkIn.changeDate(to: date)
+            }
+        }
+    }
+
+    /// "✓ Prices and FX updated (4)", opening the price list.
+    private func pricesButton(_ draft: CheckInDraft) -> some View {
+        let list = CheckInPriceList.make(draft: draft, fetched: checkIn.priceList, library: library.library,
+                                       locale: locale)
+        let summary = CheckInPriceStatus.make(list, isFetching: checkIn.isFetchingPrices, locale: locale)
+        return Button {
+            session.page = .prices
+        } label: {
+            Label {
+                Text(verbatim: summary?.title ?? "Prices")
+            } icon: {
+                CheckInPriceStatusIcon(kind: summary?.kind ?? .updated)
+            }
+        }
+        .labelStyle(.titleAndIcon)
+        .help(summary?.subtitle ?? "The prices and exchange rates this check-in uses")
+    }
+
+    /// "Draft · kept on this Mac · 7 of 9 reviewed".
+    private var subtitle: String {
+        guard let draft = checkIn.draft, session.saved == nil else { return "" }
+        return "Draft · kept on this Mac · " + CheckInWording.reviewed(draft)
+    }
+    #endif
+
+    private var suggestedDate: CalendarDate {
+        CheckInDraft.suggestedDate(today: .today(), lastCheckIn: library.latestCheckIn)
+    }
+
+    // MARK: Actions
+
+    /// Cancel: closes at once when nothing was entered (throwing the empty
+    /// draft away), otherwise asks whether to keep the draft for later.
+    private func cancel() {
+        if session.saved != nil {
+            close()
+            return
+        }
+        switch session.cancelOutcome(for: checkIn.draft) {
+        case .close:
+            if checkIn.draft != nil { session.discard(checkIn: checkIn) }
+            close()
+        case .ask:
+            session.showsCancelDialog = true
+        }
+    }
+
+    private func close() {
+        navigation.finishCheckIn()
     }
 }
 
-/// One account in the check-in: previous value, a field for the new
-/// balance, and its state (● updated, ✓ unchanged, ○ not reviewed).
-private struct CheckInRowView: View {
-    let row: CheckInRow
+// MARK: - Start
+
+/// Before a check-in is started: when the last one was recent (it isn't due
+/// yet), the library is read-only, or there are no accounts. One clear next
+/// step each time.
+struct CheckInStartView: View {
+    let session: CheckInSession
+    let close: () -> Void
+
     @Environment(CheckInStore.self) private var checkIn
     @Environment(LibraryStore.self) private var library
+    @Environment(AppNavigation.self) private var navigation
     @Environment(\.locale) private var locale
-    @State private var text = ""
+
+    init(session: CheckInSession, close: @escaping () -> Void) {
+        self.session = session
+        self.close = close
+    }
 
     var body: some View {
-        let account = library.account(row.account)
-        HStack {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(account?.name ?? row.account.rawValue)
-                if let previous = row.previous?.balance {
-                    HStack(spacing: 4) {
-                        Text("was")
-                        AmountText(previous, currency: account?.currency, precision: .cents)
+        if library.hasNoAccounts {
+            ContentUnavailableView {
+                Label("No accounts yet", systemImage: AppSymbol.accounts)
+            } description: {
+                Text("A check-in updates your accounts' values. Add an account or import a spreadsheet first.")
+            } actions: {
+                Button("Add an account") { addAccount() }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(!library.canEdit)
+                Button("Import a spreadsheet") { importSpreadsheet() }
+                    .disabled(!library.canEdit)
+            }
+            .background(Palette.page)
+        } else {
+            ScrollView {
+                VStack(spacing: Metrics.l) {
+                    LibraryStatusBanners()
+                    Image(systemName: "calendar")
+                        .font(.system(size: 40))
+                        .foregroundStyle(Palette.accent)
+                        .accessibilityHidden(true)
+                    Text(verbatim: title)
+                        .font(.title2.bold())
+                        .multilineTextAlignment(.center)
+                    Text(verbatim: message)
+                        .foregroundStyle(Palette.secondaryInk)
+                        .multilineTextAlignment(.center)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Button {
+                        session.start(checkIn: checkIn)
+                    } label: {
+                        Text("Start a check-in")
+                            .fontWeight(.semibold)
+                            .frame(maxWidth: 280)
                     }
-                    .font(.caption)
-                    .foregroundStyle(Palette.secondaryInk)
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.large)
+                    .keyboardShortcut(.defaultAction)
+                    .disabled(!library.canEdit)
+                    if let last = checkIn.status.lastCheckIn {
+                        Button {
+                            session.start(on: last, checkIn: checkIn)
+                        } label: {
+                            Text(verbatim: "Update the check-in of " + AmountFormat.shortDate(last, locale: locale))
+                        }
+                        .buttonStyle(.borderless)
+                        .disabled(!library.canEdit)
+                    }
                 }
+                .padding(Metrics.xl)
+                .frame(maxWidth: Metrics.readableWidth)
+                .frame(maxWidth: .infinity)
             }
-            Spacer()
-            if row.mode == .balance {
-                TextField("Balance", text: $text)
-                    .multilineTextAlignment(.trailing)
-                    .monospacedDigit()
-                    .frame(maxWidth: 140)
-                    .onSubmit(commit)
-                    #if os(iOS)
-                    .keyboardType(.numbersAndPunctuation)
-                    #endif
-            } else {
-                Text("\(row.positions.count) position\(row.positions.count == 1 ? "" : "s")")
-                    .foregroundStyle(Palette.secondaryInk)
-            }
-            Button {
-                checkIn.updateRow(row.account) { $0.markUnchanged() }
-            } label: {
-                Image(systemName: stateSymbol)
-                    .foregroundStyle(row.state == .notReviewed ? Palette.mutedInk : Palette.accent)
-            }
-            .buttonStyle(.borderless)
-            .accessibilityLabel(stateLabel)
-        }
-        .onAppear {
-            if let balance = row.balance { text = AmountInput.text(for: balance, maxDigits: 2, locale: locale) }
+            .background(Palette.page)
         }
     }
 
-    private func commit() {
-        guard let amount = AmountInput.decimal(from: text, locale: locale) else { return }
-        checkIn.updateRow(row.account) { $0.setBalance(amount) }
+    private var title: String {
+        let status = checkIn.status
+        guard let last = status.lastCheckIn else { return "Your first check-in" }
+        if status.isDue { return AmountFormat.monthName(status.nextCheckIn, locale: locale) + " check-in" }
+        return "You checked in on " + AmountFormat.longDate(last, locale: locale)
     }
 
-    private var stateSymbol: String {
-        switch row.state {
-        case .updated: "circle.fill"
-        case .unchanged: "checkmark.circle"
-        case .notReviewed: "circle"
-        case .skipped: "minus.circle"
+    private var message: String {
+        let status = checkIn.status
+        guard status.lastCheckIn != nil else {
+            return "Enter what each account is worth today. It takes a few minutes, and every check-in after it is quicker."
+        }
+        if status.isDue { return "It's time for this month's check-in: a few minutes, mostly confirming values." }
+        return "The next one is on \(AmountFormat.longDate(status.nextCheckIn, locale: locale)). "
+            + "Start one now if something changed, or update the last one."
+    }
+
+    /// Closes the check-in, then opens the add-account sheet.
+    private func addAccount() {
+        let navigation = self.navigation
+        close()
+        Task { @MainActor in
+            // On iPhone the check-in is a full-screen cover: let it close first.
+            try? await Task.sleep(for: .milliseconds(350))
+            navigation.newAccount()
         }
     }
 
-    private var stateLabel: String {
-        switch row.state {
-        case .updated: "Updated"
-        case .unchanged: "Unchanged"
-        case .notReviewed: "Not reviewed; mark unchanged"
-        case .skipped: "Skipped"
+    /// Closes the check-in, then starts an import.
+    private func importSpreadsheet() {
+        let navigation = self.navigation
+        close()
+        Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(350))
+            navigation.startImport()
         }
-    }
-}
-
-/// The monthly moment: "Saved · Net worth 312.480 € (▲ 4.210)", then the answer.
-private struct ConfirmationView: View {
-    let result: CheckInSaveResult
-    let done: () -> Void
-
-    var body: some View {
-        VStack(spacing: Metrics.l) {
-            Image(systemName: "checkmark.circle")
-                .font(.largeTitle)
-                .foregroundStyle(Palette.good)
-                .accessibilityHidden(true)
-            HStack(spacing: Metrics.xs) {
-                Text("Saved · Net worth")
-                AmountText(result.netWorth)
-                if let change = result.change {
-                    DeltaText(change.change)
-                }
-            }
-            if let headline = result.headline {
-                Text(answer(headline))
-                    .multilineTextAlignment(.center)
-            }
-            Button("Done", action: done)
-                .buttonStyle(.borderedProminent)
-        }
-        .padding()
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-    }
-
-    private func answer(_ headline: PlanHeadline) -> String {
-        if headline.canRetireNow { return "Can I retire yet? Yes." }
-        if let age = headline.earliestAge { return "Can I retire yet? Not yet: earliest at \(age)." }
-        return "Can I retire yet? Not yet."
     }
 }
 
@@ -221,5 +335,26 @@ private struct ConfirmationView: View {
     NavigationStack {
         CheckInScreen()
     }
+    .previewEnvironment(model: CheckInPreviewData.model())
+}
+
+#Preview("All reviewed") {
+    NavigationStack {
+        CheckInScreen()
+    }
+    .previewEnvironment(model: CheckInPreviewData.model(reviewedAll: true))
+}
+
+#Preview("Not due") {
+    NavigationStack {
+        CheckInScreen()
+    }
     .previewEnvironment()
+}
+
+#Preview("No accounts") {
+    NavigationStack {
+        CheckInScreen()
+    }
+    .previewEnvironment(PreviewLibrary.empty)
 }
