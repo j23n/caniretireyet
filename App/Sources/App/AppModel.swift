@@ -41,8 +41,8 @@ final class AppModel {
             preferences: preferences, privacy: PrivacySettings(),
             library: LibraryStore(locator: LibraryLocator(), preferences: preferences),
             prices: PriceStore(service: .standard(credentials: credentials)),
-            // PLAN ENGINEER: switch to the Planner-backed engine once it lands.
-            planEngine: UnavailablePlanEngine(),
+            // The Planner, with the Italian and generic tax systems (AppTaxRegistry).
+            planEngine: PlannerPlanEngine(),
             draftURL: CheckInStore.defaultDraftURL())
     }
 

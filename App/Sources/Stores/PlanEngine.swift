@@ -46,6 +46,10 @@ struct PlanRunRequest: Sendable {
     var whatIf: PlanWhatIf?
     /// The date the plan starts from (normally the latest check-in).
     var asOf: CalendarDate
+    /// The retirement age the fan, income and failures are for; `nil` for
+    /// the plan's own (its age, or the earliest). Tapping an age on the
+    /// success curve sets it.
+    var focusAge: Int? = nil
 }
 
 /// Computes plan results. Runs off the main thread; must stop promptly
@@ -151,6 +155,8 @@ struct PlanFailureSummary: Hashable, Sendable {
     var bridgeShare: Double?
     /// The age locked money becomes accessible, for the sentence.
     var bridgeAge: Int?
+    /// What the locked money is, e.g. "Pension fund", for the sentence.
+    var bridgeName: String? = nil
 }
 
 /// The results of one run of a plan: what the Plan screens and the
@@ -187,4 +193,9 @@ struct PlanResults: Hashable, Sendable {
     var taxParameters: [TaxSystemID: Int]
     /// Year-end percentiles and the expected path.
     var years: [BaselineYear]
+
+    /// What the Planner adds: key numbers, the what-if's starting values,
+    /// the run's warnings (see `PlanResultsMapping.swift`). `nil` from the
+    /// preview engine.
+    var details: PlanResultDetails? = nil
 }

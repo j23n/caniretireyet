@@ -1,6 +1,7 @@
 import Foundation
 import Model
 import Observation
+import Planner
 import Storage
 
 /// Plan runs and their results (UI.md, "How it's built": runs, cached
@@ -17,6 +18,10 @@ final class PlanStore {
     private(set) var results: [PlanID: PlanResults] = [:]
     /// The latest what-if results per plan, while the sliders are in use.
     private(set) var whatIfResults: [PlanID: PlanResults] = [:]
+    /// The latest results per plan for another retirement age than the
+    /// plan's own (tapping an age on the success curve), without what-if
+    /// changes. See ``run(_:mode:whatIf:focusAge:)``.
+    private(set) var focusResults: [PlanID: PlanResults] = [:]
     /// Plans with a run in progress.
     private(set) var running: Set<PlanID> = []
     /// Why the latest run of a plan failed.
@@ -26,11 +31,31 @@ final class PlanStore {
     private let library: LibraryStore
     @ObservationIgnored private var tasks: [RunKey: Task<PlanResults, any Error>] = [:]
     @ObservationIgnored private var tokens: [RunKey: UUID] = [:]
+    @ObservationIgnored private var signatures: [RunKey: RunSignature] = [:]
     @ObservationIgnored private var scheduled: [PlanID: Task<Void, Never>] = [:]
 
+    /// Runs of the same plan and kind replace each other.
     private struct RunKey: Hashable {
+        enum Kind: Hashable {
+            case base
+            case whatIf
+            case focus
+        }
+
         var plan: PlanID
-        var isWhatIf: Bool
+        var kind: Kind
+    }
+
+    /// Everything a run depends on: an identical request joins the run in
+    /// progress instead of cancelling it (e.g. the Plan screen asking for
+    /// the main plan while a check-in's run of it is still going).
+    private struct RunSignature: Equatable {
+        var plan: PlanDocument
+        var inputs: PlanRunInputs
+        var mode: PlanRunMode
+        var whatIf: PlanWhatIf?
+        var focusAge: Int?
+        var asOf: CalendarDate
     }
 
     init(library: LibraryStore, engine: any PlanEngine = UnavailablePlanEngine()) {
@@ -47,36 +72,55 @@ final class PlanStore {
 
     /// Runs `plan` on the current library and returns its results, or `nil`
     /// if it was cancelled, superseded by a newer run, or failed (see
-    /// ``errors``). A run in progress for the same plan (and the same kind:
-    /// with or without what-if) is cancelled first.
+    /// ``errors``). A run in progress for the same plan and the same kind
+    /// (plain, with what-if changes, or for another focus age) is cancelled
+    /// first, unless it's the very same request, which is joined instead.
+    ///
+    /// - `whatIf`: results go to ``whatIfResults``.
+    /// - `focusAge` without `whatIf`: the charts for that retirement age, in
+    ///   ``focusResults``. With `whatIf`, the what-if run is for that age.
     @discardableResult
-    func run(_ plan: PlanID, mode: PlanRunMode = .full, whatIf: PlanWhatIf? = nil) async -> PlanResults? {
+    func run(_ plan: PlanID, mode: PlanRunMode = .full, whatIf: PlanWhatIf? = nil, focusAge: Int? = nil) async
+        -> PlanResults? {
         guard let document = library.library.plans[plan] else { return nil }
         let whatIf = whatIf?.isEmpty == true ? nil : whatIf
-        let key = RunKey(plan: plan, isWhatIf: whatIf != nil)
+        let kind: RunKey.Kind = whatIf != nil ? .whatIf : focusAge != nil ? .focus : .base
+        let key = RunKey(plan: plan, kind: kind)
+        let signature = RunSignature(plan: document, inputs: PlanRunInputs(library.library), mode: mode,
+                                     whatIf: whatIf, focusAge: focusAge, asOf: library.asOfDate)
+        if let existing = tasks[key], let token = tokens[key], signatures[key] == signature {
+            do {
+                let value = try await existing.value
+                return tokens[key] == nil || tokens[key] == token ? value : nil
+            } catch {
+                return nil
+            }
+        }
         tasks[key]?.cancel()
         let request = PlanRunRequest(plan: document, library: library.library, mode: mode, whatIf: whatIf,
-                                     asOf: library.asOfDate)
+                                     asOf: library.asOfDate, focusAge: focusAge)
         let engine = engine
         let task = Task { try await engine.run(request) }
         let token = UUID()
         tasks[key] = task
         tokens[key] = token
+        signatures[key] = signature
         running.insert(plan)
         defer {
             if tokens[key] == token {
                 tasks[key] = nil
                 tokens[key] = nil
-                running.remove(plan)
+                signatures[key] = nil
+                if !tasks.keys.contains(where: { $0.plan == plan }) { running.remove(plan) }
             }
         }
         do {
             let value = try await task.value
             guard tokens[key] == token else { return nil }
-            if whatIf == nil {
-                results[plan] = value
-            } else {
-                whatIfResults[plan] = value
+            switch kind {
+            case .base: results[plan] = value
+            case .whatIf: whatIfResults[plan] = value
+            case .focus: focusResults[plan] = value
             }
             errors[plan] = nil
             return value
@@ -90,14 +134,24 @@ final class PlanStore {
 
     /// Runs `plan` after `delay`, unless another request for it comes first:
     /// for recomputing while a plan is edited.
-    func scheduleRun(_ plan: PlanID, mode: PlanRunMode = .full, whatIf: PlanWhatIf? = nil,
+    func scheduleRun(_ plan: PlanID, mode: PlanRunMode = .full, whatIf: PlanWhatIf? = nil, focusAge: Int? = nil,
                      after delay: Duration = .milliseconds(300)) {
         scheduled[plan]?.cancel()
         scheduled[plan] = Task { [weak self] in
             try? await Task.sleep(for: delay)
             guard !Task.isCancelled else { return }
-            await self?.run(plan, mode: mode, whatIf: whatIf)
+            await self?.run(plan, mode: mode, whatIf: whatIf, focusAge: focusAge)
         }
+    }
+
+    /// Whether a run of `plan` with what-if changes is in progress.
+    func isRunningWhatIf(_ plan: PlanID) -> Bool {
+        tasks[RunKey(plan: plan, kind: .whatIf)] != nil
+    }
+
+    /// Whether a run of `plan` for another focus age is in progress.
+    func isRunningFocus(_ plan: PlanID) -> Bool {
+        tasks[RunKey(plan: plan, kind: .focus)] != nil
     }
 
     /// Cancels every run of `plan` in progress or scheduled.
@@ -112,6 +166,11 @@ final class PlanStore {
     /// Throws away the what-if results ("Reset").
     func clearWhatIf(_ plan: PlanID) {
         whatIfResults[plan] = nil
+    }
+
+    /// Throws away the results for another focus age (back to the plan's own).
+    func clearFocus(_ plan: PlanID) {
+        focusResults[plan] = nil
     }
 
     // MARK: Headlines
@@ -139,7 +198,8 @@ final class PlanStore {
         let headline = Headline(
             date: date, confidence: Self.decimal(results.headline.confidence), earliestAge: results.headline.earliestAge,
             engine: results.engine, fiProgress: results.headline.fiProgress.map { Self.decimal($0) },
-            planHash: Self.hash(of: plan), successAtTarget: results.headline.successAtTarget.map { Self.decimal($0) },
+            planHash: results.planHash ?? Self.hash(of: plan),
+            successAtTarget: results.headline.successAtTarget.map { Self.decimal($0) },
             taxParameters: results.taxParameters)
         try? library.record(headline, for: main)
         let hasYearly = library.library.baselines(for: main).contains { $0.kind == .yearly && $0.created.year == date.year }
@@ -156,7 +216,9 @@ final class PlanStore {
     @discardableResult
     func saveBaseline(for plan: PlanID, label: String?, kind: BaselineKind = .manual,
                       on date: CalendarDate = .today()) throws -> BaselineID {
-        guard let results = results[plan], results.mode == .full, let document = library.library.plans[plan] else {
+        guard let results = results[plan], results.mode == .full, let document = library.library.plans[plan],
+              results.planHash == nil || results.planHash == Self.hash(of: document)
+        else {
             throw PlanStoreError.noResults
         }
         let headline = HeadlineSummary(
@@ -172,17 +234,11 @@ final class PlanStore {
 
     // MARK: Helpers
 
-    /// A short hash of a plan's inputs (`planHash` in headlines): FNV-1a over
-    /// its canonical JSON, as 8 hex digits.
+    /// A hash of a plan's inputs (`planHash` in headlines): the Planner's
+    /// (FNV-1a, 64-bit, of its canonical JSON, as 16 hex digits), so
+    /// headlines recorded here match the results' and PLANNER.md.
     static func hash(of plan: PlanDocument) -> String {
-        let bytes = (try? CanonicalJSON.data(encoding: plan)) ?? Data()
-        var hash: UInt32 = 2_166_136_261
-        for byte in bytes {
-            hash ^= UInt32(byte)
-            hash = hash &* 16_777_619
-        }
-        let hex = String(hash, radix: 16)
-        return String(repeating: "0", count: 8 - hex.count) + hex
+        Planner.planHash(plan)
     }
 
     /// A share as a decimal with four places, for the files.
