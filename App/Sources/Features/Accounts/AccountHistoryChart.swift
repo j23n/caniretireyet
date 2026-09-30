@@ -81,8 +81,8 @@ struct AccountHistoryChart: View {
         }
         .chartYScale(domain: scale.domain)
         .chartXSelection(value: $selectedDate)
-        .chartYAxis { AmountAxis(hidesAmounts: hidesAmounts) }
-        .chartXAxis { DateAxis(spansYears: points.spansYears) }
+        .chartYAxis { amountAxis(hidesAmounts: hidesAmounts) }
+        .chartXAxis { dateAxis(spansYears: points.spansYears) }
     }
 
     private var selectedPoint: ChartPoint? {
