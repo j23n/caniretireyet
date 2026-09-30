@@ -157,7 +157,8 @@ public struct LedgerSourceFile: Hashable, Sendable {
     public var name: String
     /// The `include` that brought it in; `nil` for a file given.
     public var includedFrom: LedgerLocation?
-    /// Transactions read from it (including ones skipped because of an error).
+    /// Transactions read from it: one that doesn't balance counts, one whose
+    /// date or a posting can't be read doesn't.
     public var transactions: Int
 
     public init(url: URL, name: String, includedFrom: LedgerLocation?, transactions: Int = 0) {
