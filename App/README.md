@@ -46,7 +46,7 @@ Keep logic that doesn't need SwiftUI in files that import only Foundation and th
 | `AccountsScreen` | `AccountsScreen(filter: .all / .group(g) / .closed)` | Accounts tab, sidebar groups and *Closed* |
 | `AccountDetailScreen` | `AccountDetailScreen(accountID:)` | pushing an `AccountID` on any stack (`NavigationLink(value: id)`, `navigation.showAccount(id)`) |
 | `NewAccountScreen` | `NewAccountScreen()` | ⌘N, Accounts toolbar, onboarding (sheet in a NavigationStack) |
-| `InstrumentsScreen` | `InstrumentsScreen()` | sidebar *Instruments* |
+| `InstrumentsScreen` | `InstrumentsScreen()` | sidebar *Instruments*; an account's positions on iPhone. *Update Prices* and *Set Price…* live here (`InstrumentPriceUpdater`, `InstrumentPriceForm`) |
 | `CheckInScreen` | `CheckInScreen()` | iPhone: full-screen cover (in a NavigationStack); Mac/iPad: sidebar *Check-in*. Close with `navigation.finishCheckIn()` |
 | `PlanScreen` | `PlanScreen(planID:)`, `nil` = main plan | Plan tab, sidebar plans, pushing a `PlanID` |
 | `PlanCompareScreen` | `PlanCompareScreen(firstID:)` | Plan menu *Compare Plans* (⌘⌥C), pushed on the plan's stack |
@@ -57,7 +57,7 @@ Keep logic that doesn't need SwiftUI in files that import only Foundation and th
 | `WelcomeNextStepsView` | sheet `.welcome` | after onboarding: import or add accounts |
 | `SyncScreen` | `SyncScreen()` | sidebar *Sync & backups*, Settings |
 
-Each feature folder keeps its logic in files that import only Foundation and the package (`OverviewData`, `AccountDetailData`, `CheckInModel`, `ImportFlow*`, `PlanSession`, `PlanProgressData`, …) and its views in the rest.
+Each feature folder keeps its logic in files that import only Foundation and the package (`OverviewData`, `AccountDetailData`, `InstrumentPriceUpdate`, `CheckInModel`, `ImportFlow*`, `PlanSession`, `PlanProgressData`, …) and its views in the rest.
 
 ## Stores
 
@@ -87,7 +87,7 @@ For a binding, `@Bindable var navigation = navigation` inside `body`.
   try library.closeAccount(id, on: date, successor: other)
   ```
 
-  Helpers (`LibraryStore+Editing.swift`): `save(_ account:)`, `closeAccount`, `reopenAccount`, `deleteAccount` (with its valuations, and clears references to it: successors, plans' excluded accounts and contributions, import profiles' matches and columns), `save(_ instrument:)`, `deleteInstrument`, `upsert(_ valuation:)`, `replace(_:with:)`, `removeValuation`, `upsert(prices:fxRates:indices:)`, `save(_ plan:)`, `deletePlan` (keeps its projections), `duplicatePlan`, `setMainPlan`, `saveBaseline(_:for:)`, `record(_ headline:for:)`, `updateSettings`, `save(_ profile:)`.
+  Helpers (`LibraryStore+Editing.swift`): `save(_ account:)`, `closeAccount`, `reopenAccount`, `deleteAccount` (with its valuations, and clears references to it: successors, plans' excluded accounts and contributions, import profiles' matches and columns), `save(_ instrument:)`, `save(_ instrument:prices:fxRates:)` (a new instrument with its first price), `deleteInstrument`, `upsert(_ valuation:)`, `replace(_:with:)`, `removeValuation`, `upsert(prices:fxRates:indices:)`, `save(_ plan:)`, `deletePlan` (keeps its projections), `duplicatePlan`, `setMainPlan`, `saveBaseline(_:for:)`, `record(_ headline:for:)`, `updateSettings`, `save(_ profile:)`.
 - **Backups:** `backups()`; `backup(paths:label:)` copies files into `backups/<timestamp>-<label>/` after the queued saves; `commit(backingUpAs:_:)` is `commit` with exactly the files the edit changes backed up first, in the same queued operation, and the files as written recorded in the backup after (the import uses it); `undo(_:safetyLabel:)` undoes such an edit and no later one, returning what it left in place (`UndoReport.keptChanges`); `restore(_:)` puts a backup's files back as they were, over later edits, and refuses a backup of another format version.
 - **Opening:** `start()` at launch (an existing iCloud library wins, then a local one, else onboarding; iCloud is asked and given a few seconds, so a new device doesn't create a second library), `createLibrary(in:settings:)`, `open(_:)` and `moveToICloud()` (both wait for the queued saves and refuse edits meanwhile), `useLibraryOnThisDevice()`, `reloadAll()`, `refreshFromDisk()` (reloads files whose modification dates changed; the root view calls it when the app becomes active), `waitForPendingWrites()`.
 - **Sync:** files changed by the other device or a text editor are reloaded automatically, including a change that landed while the library loaded (only those files' entities are replaced, and never a file with an edit waiting to be saved: that save merges the file and reloads it); sync conflicts are merged record by record and listed in `mergedConflicts`. Show them with `LibraryStatusBanners()` or link to `SyncScreen`.
@@ -95,7 +95,9 @@ For a binding, `@Bindable var navigation = navigation` inside `body`.
 
 ### PriceStore — prices, FX and inflation
 
-`fetch(for:on:refresh:) async -> CheckInPrices` (never throws; failures are entries with a readable reason), `fetch(for:on:including:refresh:)` (also instruments the library doesn't hold yet, e.g. a position added in a check-in), `testFetch(_ instrument:baseCurrency:on:) async -> PriceListEntry`, `isFetching`, `canFetch` (false in previews), `lastResult`. API keys come from the Keychain (`KeychainCredentials`, set in Settings).
+`fetch(for:on:refresh:) async -> CheckInPrices` (never throws; failures are entries with a readable reason), `fetch(for:on:including:refresh:)` (also instruments the library doesn't hold yet, e.g. a position added in a check-in), `testFetch(_ instrument:baseCurrency:on:) async -> PriceListEntry`, `quote(_ instrument:baseCurrency:on:) async -> CheckInPrices` (one instrument's price and its currency's rate, as records that can be saved: the editor's *Test price fetch*), `fetchEach(_ needs:refresh:received:)` (several fetches at once, each result handed over as it arrives; `refresh` clears the session's cache once first: *Update Prices*), `isFetching`, `canFetch` (false in previews), `lastResult`. API keys come from the Keychain (`KeychainCredentials`, set in Settings).
+
+Prices are saved outside a check-in by the Instruments screen (`Features/Accounts/InstrumentPriceUpdate.swift`): `InstrumentPriceUpdatePlan` (the held instruments with a price source and their currencies), `InstrumentPriceUpdate` (a line per instrument and rate; `settle(in:replacingTyped:)` decides what to save against the library as it is, keeping prices and rates typed in by hand for the date) and `InstrumentPriceUpdater` (fetches with `fetchEach`, saves with one `upsert(prices:fxRates:)`).
 
 ### CheckInStore — the check-in in progress
 
