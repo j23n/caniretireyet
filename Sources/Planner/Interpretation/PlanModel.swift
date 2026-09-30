@@ -24,6 +24,8 @@ struct PlanModel: Sendable {
     /// (`WrapperAccessContext.oldAgePensionAge`), from the plan's pension
     /// schemes first, then the residence system's.
     let oldAgePensionAges: [Int?]
+    /// Per frame: the same age in months, when the scheme gives one.
+    let oldAgePensionAgesInMonths: [Int?]
     /// The overlays the plan chose.
     let overlays: [RegimeChoice]
     let indexThresholds: Bool

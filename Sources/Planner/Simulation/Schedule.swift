@@ -107,6 +107,7 @@ struct ScheduledYear: Sendable {
     let contributionYears: Double
     let yearsSinceWorkStopped: Int?
     let oldAgePensionAge: Int?
+    let oldAgePensionAgeInMonths: Int?
     /// The tax state the year was prepared with (the deterministic run's).
     let taxState: TaxState
     /// Buckets paid out in full this year because a job ends (severance pay
@@ -375,7 +376,7 @@ extension AgeSchedule {
                 contributions: contributions, contributionTotal: contributions.reduce(0) { $0 + $1.amount },
                 income: income, contributionYears: contributionYears,
                 yearsSinceWorkStopped: yearsSinceWorkStopped, oldAgePensionAge: model.oldAgePensionAges[frame.index],
-                taxState: yearState))
+                oldAgePensionAgeInMonths: model.oldAgePensionAgesInMonths[frame.index], taxState: yearState))
         }
 
         self.retirementAge = age
@@ -448,6 +449,7 @@ extension AgeSchedule {
         membership = []
         access.reserveCapacity(years.count * bucketCount)
         membership.reserveCapacity(years.count * bucketCount)
+        let birth = model.birthDate.birthDate
         for t in years.indices {
             let lastDay = CalendarDate.lastDay(of: years[t].year)
             for (b, bucket) in portfolio.buckets.enumerated() {
@@ -460,7 +462,8 @@ extension AgeSchedule {
                 let context = WrapperAccessContext(
                     year: years[t].year, age: years[t].age, yearsSinceWorkStopped: years[t].yearsSinceWorkStopped,
                     oldAgePensionAge: years[t].oldAgePensionAge, contributionYears: years[t].contributionYears,
-                    membershipYears: members)
+                    membershipYears: members, birthDate: birth,
+                    oldAgePensionAgeInMonths: years[t].oldAgePensionAgeInMonths)
                 access.append(rule.access(in: context))
             }
         }

@@ -169,6 +169,31 @@ struct WrapperTests {
         }
     }
 
+    /// Born in April 1988, with the vecchiaia age at 68 years and 9 months
+    /// under the 2046 rules, the extended RITA (10 years before it, after 2
+    /// years without work) holds from February 2047: the fund opens for
+    /// 2048, the first calendar year it holds for in full. Counting whole
+    /// years, it opened for all of 2046.
+    @Test func pensionFundAgesCountInMonths() throws {
+        let fund = try #require(system.wrapper("it.pensionFund"))
+        func access(in year: Int) -> WrapperAccess {
+            fund.access(in: WrapperAccessContext(
+                year: year, age: year - 1988, yearsSinceWorkStopped: 5, oldAgePensionAge: 68, contributionYears: 10,
+                membershipYears: 10, birthDate: BirthDate(year: 1988, month: 4, day: 15),
+                oldAgePensionAgeInMonths: 825))
+        }
+        #expect(!access(in: 2046).isAccessible)
+        #expect(!access(in: 2047).isAccessible)
+        #expect(access(in: 2048) == .accessible(route: "it.rita"))
+        if case .locked(let reason) = access(in: 2047) {
+            #expect(reason.contains("68 and 9 months") && reason.contains("58 and 9 months"))
+        }
+        // INPS's age in 2046: 67 years, plus 3 months by 2028 and one a year after.
+        let inps = try #require(system.pensionScheme(INPSPensionScheme.schemeID))
+        #expect(inps.oldAgePensionAgeInMonths(in: 2046, options: [:], parameters: system.parameters) == 825)
+        #expect(inps.oldAgePensionAge(in: 2046, options: [:], parameters: system.parameters) == 68)
+    }
+
     @Test func tfrIsPaidWhenTheJobEnds() throws {
         let tfr = try #require(system.wrapper("it.tfr"))
         #expect(!tfr.access(in: context(age: 50, stopped: nil)).isAccessible)

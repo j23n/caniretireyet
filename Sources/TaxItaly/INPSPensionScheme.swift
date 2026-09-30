@@ -81,12 +81,19 @@ public struct INPSPensionScheme: PensionScheme {
                    store: parameters).claimOptions()
     }
 
-    /// The vecchiaia age in `year`, in whole years.
+    /// The vecchiaia age in `year`, in whole years (rounded down).
     public func oldAgePensionAge(in year: Int, options: OptionValues, parameters: any ParameterStore) -> Int? {
+        oldAgePensionAgeInMonths(in: year, options: options, parameters: parameters).map { $0 / 12 }
+    }
+
+    /// The vecchiaia age in `year`, in months: 67 years plus the rise in
+    /// pension ages (the parameter file's steps, then
+    /// `ageIncreaseMonthsPerYear`).
+    public func oldAgePensionAgeInMonths(in year: Int, options: OptionValues, parameters: any ParameterStore) -> Int? {
         guard let set = try? parameters.parameters(for: year),
               let rules = try? INPSPensionParameters(ParameterNode(set)["inpsPension"]) else { return nil }
         let perYear = options.withDefaults(from: self.options).int("ageIncreaseMonthsPerYear", default: 0)
-        return (rules.vecchiaia.age * 12 + rules.ageIncrease(in: year, perYear: perYear)) / 12
+        return rules.vecchiaia.age * 12 + rules.ageIncrease(in: year, perYear: perYear)
     }
 }
 

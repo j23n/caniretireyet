@@ -30,11 +30,21 @@ public protocol PensionScheme: Sendable {
     /// none. `options` are the plan's options for the pension. The planner
     /// uses it for `WrapperAccessContext.oldAgePensionAge`. Defaults to `nil`.
     func oldAgePensionAge(in year: Int, options: OptionValues, parameters: any ParameterStore) -> Int?
+
+    /// ``oldAgePensionAge(in:options:parameters:)`` in months (e.g. 67
+    /// years and 3 months is 807), for rules that count months. The planner
+    /// passes it as `WrapperAccessContext.oldAgePensionAgeInMonths`. Defaults
+    /// to the whole years × 12.
+    func oldAgePensionAgeInMonths(in year: Int, options: OptionValues, parameters: any ParameterStore) -> Int?
 }
 
 extension PensionScheme {
     public func oldAgePensionAge(in year: Int, options: OptionValues, parameters: any ParameterStore) -> Int? {
         nil
+    }
+
+    public func oldAgePensionAgeInMonths(in year: Int, options: OptionValues, parameters: any ParameterStore) -> Int? {
+        oldAgePensionAge(in: year, options: options, parameters: parameters).map { $0 * 12 }
     }
 }
 

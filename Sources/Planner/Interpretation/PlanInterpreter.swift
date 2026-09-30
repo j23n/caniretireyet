@@ -243,19 +243,22 @@ enum PlanInterpreter {
             }
         }
 
-        // The old-age pension age behind wrapper access rules: the plan's
-        // schemes first (with their options), then the residence system's.
-        let oldAgePensionAges = frames.map { frame -> Int? in
+        // The old-age pension age behind wrapper access rules, in whole years
+        // and in months: the plan's schemes first (with their options), then
+        // the residence system's.
+        let oldAgePensionAges = frames.map { frame -> (years: Int, months: Int?)? in
             for pension in pensions {
                 if let age = pension.scheme.oldAgePensionAge(in: frame.year, options: pension.options,
                                                              parameters: pension.schemeParameters) {
-                    return age
+                    return (age, pension.scheme.oldAgePensionAgeInMonths(in: frame.year, options: pension.options,
+                                                                          parameters: pension.schemeParameters))
                 }
             }
             let residence = systems[frame.system]
             for scheme in residence.system.pensionSchemes {
                 if let age = scheme.oldAgePensionAge(in: frame.year, options: [:], parameters: residence.parameters) {
-                    return age
+                    return (age, scheme.oldAgePensionAgeInMonths(in: frame.year, options: [:],
+                                                                 parameters: residence.parameters))
                 }
             }
             return nil
@@ -265,7 +268,8 @@ enum PlanInterpreter {
         let model = PlanModel(
             plan: plan, registry: registry, birthDate: birthDate, startDate: startDate, currentAge: currentAge,
             endAge: endAge, planAge: planAge, frames: frames, systems: systems,
-            oldAgePensionAges: oldAgePensionAges, overlays: overlays,
+            oldAgePensionAges: oldAgePensionAges.map { $0?.years },
+            oldAgePensionAgesInMonths: oldAgePensionAges.map { $0?.months }, overlays: overlays,
             indexThresholds: plan.tax.effectiveIndexThresholds, inflation: inflation, work: work, spending: spending,
             pensions: pensions, contributions: contributions, events: events,
             uncertainEventProbabilities: probabilities, portfolio: portfolio, returns: returns,
