@@ -192,11 +192,18 @@ extension LibraryFolder {
     /// - any other file changed since: left as it is, and listed.
     ///
     /// A backup without a recorded result is restored as it was, over later
-    /// edits (``UndoReport/restoredWholesale``). Throws what
+    /// edits (``UndoReport/restoredWholesale``). With `dryRun`, nothing is
+    /// written and the report says what would be. Throws what
     /// ``restore(backup:)`` throws.
     @discardableResult
-    public func undo(_ backup: Backup) throws -> UndoReport {
+    public func undo(_ backup: Backup, dryRun: Bool = false) throws -> UndoReport {
         guard let result = backup.result else {
+            if dryRun {
+                _ = try checkRestorable(backup)
+                return UndoReport(written: backup.files,
+                                  deleted: backup.absentFiles.filter { files.fileExists(at: url(for: $0)) },
+                                  restoredWholesale: true)
+            }
             let restored = try restore(backup: backup)
             return UndoReport(written: restored.written, deleted: restored.deleted, restoredWholesale: true)
         }
@@ -209,7 +216,7 @@ extension LibraryFolder {
             let after = result.files.contains(path)
                 ? try files.readData(at: url(for: "\(folder)/\(Self.backupResultFolder)/\(path)")) : nil
             var change: KeptChange?
-            try apply(path: path, report: &report) { current in
+            try apply(path: path, report: &report, dryRun: dryRun) { current in
                 change = nil
                 if Self.sameContents(current, after) {
                     return FilePlan(output: before.map { FilePlan.Output.write($0) } ?? .delete)

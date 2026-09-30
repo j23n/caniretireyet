@@ -262,12 +262,22 @@ extension LibraryFolder {
         try apply(path: file.path, report: &report, decide: decide)
     }
 
-    /// ``apply(_:report:decide:)`` for any path in the library folder.
-    func apply(path: String, report: inout SaveReport, decide: (Data?) throws -> FilePlan) throws {
+    /// ``apply(_:report:decide:)`` for any path in the library folder. With
+    /// `dryRun`, nothing is written, and the report says what would be.
+    func apply(path: String, report: inout SaveReport, dryRun: Bool = false,
+               decide: (Data?) throws -> FilePlan) throws {
         let url = url(for: path)
         for _ in 0..<Self.saveAttempts {
             let disk = files.fileExists(at: url) ? try files.readData(at: url) : nil
             var plan = try decide(disk)
+            if dryRun {
+                switch plan.output {
+                case .keep: break
+                case .write(let data): if data != disk { report.written.append(path) }
+                case .delete: if disk != nil { report.deleted.append(path) }
+                }
+                return
+            }
             if let label = plan.backupLabel, let disk {
                 let backup = try makeBackup(contents: [path: disk], label: label)
                 report.backups.append(backup)
