@@ -1,0 +1,77 @@
+/// A record in a list that has a stable key for merging and de-duplicating.
+///
+/// There is at most one record per key in the library. Keys sort by date,
+/// then by ID, which is the order records are written in.
+public protocol KeyedRecord: Sendable {
+    associatedtype Key: Hashable, Comparable, Sendable
+    var key: Key { get }
+}
+
+/// A valuation's key: account + date.
+public struct ValuationKey: Hashable, Comparable, Sendable {
+    public var date: CalendarDate
+    public var account: AccountID
+
+    public init(account: AccountID, date: CalendarDate) {
+        self.account = account
+        self.date = date
+    }
+
+    public static func < (lhs: Self, rhs: Self) -> Bool {
+        (lhs.date, lhs.account) < (rhs.date, rhs.account)
+    }
+}
+
+/// A price's key: instrument + date.
+public struct PriceKey: Hashable, Comparable, Sendable {
+    public var date: CalendarDate
+    public var instrument: InstrumentID
+
+    public init(instrument: InstrumentID, date: CalendarDate) {
+        self.instrument = instrument
+        self.date = date
+    }
+
+    public static func < (lhs: Self, rhs: Self) -> Bool {
+        (lhs.date, lhs.instrument) < (rhs.date, rhs.instrument)
+    }
+}
+
+/// An FX rate's key: base + quote + date.
+public struct FXKey: Hashable, Comparable, Sendable {
+    public var date: CalendarDate
+    public var base: CurrencyCode
+    public var quote: CurrencyCode
+
+    public init(base: CurrencyCode, quote: CurrencyCode, date: CalendarDate) {
+        self.base = base
+        self.quote = quote
+        self.date = date
+    }
+
+    public static func < (lhs: Self, rhs: Self) -> Bool {
+        (lhs.date, lhs.base, lhs.quote) < (rhs.date, rhs.base, rhs.quote)
+    }
+}
+
+/// An index value's key: index + date.
+public struct IndexKey: Hashable, Comparable, Sendable {
+    public var date: CalendarDate
+    public var index: IndexID
+
+    public init(index: IndexID, date: CalendarDate) {
+        self.index = index
+        self.date = date
+    }
+
+    public static func < (lhs: Self, rhs: Self) -> Bool {
+        (lhs.date, lhs.index) < (rhs.date, rhs.index)
+    }
+}
+
+extension Sequence where Element: KeyedRecord {
+    /// The records sorted by key: by date, then by ID.
+    public func sortedByKey() -> [Element] {
+        sorted { $0.key < $1.key }
+    }
+}
