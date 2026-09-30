@@ -1,20 +1,27 @@
-/// Value formats for importing: dates, numbers and empty cells. Used for a
-/// profile's `defaults` and for a column's `format` overrides; unset fields
-/// fall back to the profile's defaults, then to detection.
+/// Value formats for importing: dates, numbers, empty cells and the sign of
+/// debts. Used for a profile's `defaults` and for a column's `format`
+/// overrides; unset fields fall back to the profile's defaults, then to
+/// detection.
 public struct ImportFormat: Codable, Hashable, Sendable, KnownKeysProviding {
     public var date: ImportDateFormat?
     public var number: ImportNumberFormat?
     /// What an empty cell means (default: skip it).
     public var empty: EmptyCellPolicy?
+    /// How balances of debt accounts (loans, mortgages, credit cards) are
+    /// signed in the file (default: ``LiabilitySign/auto``, positive amounts
+    /// are debts).
+    public var liabilitySign: LiabilitySign?
 
-    public init(date: ImportDateFormat? = nil, number: ImportNumberFormat? = nil, empty: EmptyCellPolicy? = nil) {
+    public init(date: ImportDateFormat? = nil, number: ImportNumberFormat? = nil, empty: EmptyCellPolicy? = nil,
+                liabilitySign: LiabilitySign? = nil) {
         self.date = date
         self.number = number
         self.empty = empty
+        self.liabilitySign = liabilitySign
     }
 
     enum CodingKeys: String, CodingKey, CaseIterable {
-        case date, number, empty
+        case date, number, empty, liabilitySign
     }
 
     public static var knownKeys: Set<String> { Set(CodingKeys.allCases.map(\.stringValue)) }
@@ -86,6 +93,22 @@ public struct EmptyCellPolicy: OpenEnum {
     public static let zero: EmptyCellPolicy = "zero"
 
     public static let knownValues: [EmptyCellPolicy] = [.skip, .zero]
+}
+
+/// How a file writes the balances of debt accounts (kinds `loan`, `mortgage`
+/// and `creditCard`), which the library stores as negative amounts.
+public struct LiabilitySign: OpenEnum {
+    public let rawValue: String
+    public init(rawValue: String) { self.rawValue = rawValue }
+
+    /// A positive amount is a debt, as spreadsheets usually write it
+    /// ("146.250" for a mortgage), and is stored negative. Negative amounts
+    /// are kept. The default.
+    public static let auto: LiabilitySign = "auto"
+    /// Amounts are stored with the sign the file gives them.
+    public static let asWritten: LiabilitySign = "asWritten"
+
+    public static let knownValues: [LiabilitySign] = [.auto, .asWritten]
 }
 
 /// Where a month-only date lands.
