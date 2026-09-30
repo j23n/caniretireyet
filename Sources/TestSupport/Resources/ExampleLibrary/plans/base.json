@@ -26,13 +26,7 @@
       "options": { "contributionYears": "8", "foreignContributionYears": "6", "montante": "92000" },
       "scheme": "it.inps"
     },
-    {
-      "fromAge": 67,
-      "name": "State pension from previous country",
-      "perYear": "4800",
-      "scheme": "fixed",
-      "taxedIn": "residence"
-    }
+    { "fromAge": 67, "name": "State pension from previous country", "perYear": "4800", "scheme": "fixed", "taxedIn": "residence" }
   ],
   "portfolio": { "start": "latest-check-in", "unrealizedGainShare": "0.2" },
   "retirement": { "age": 55 },

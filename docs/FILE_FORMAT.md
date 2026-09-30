@@ -4,7 +4,7 @@ The library is a folder. Everything the app knows is stored in it. If you delete
 
 ## Principles
 
-- **Plain, stable JSON.** Files are UTF-8, pretty-printed with two-space indentation, sorted keys and a trailing newline. A record inside a list is kept on a single line when it fits, so a diff shows exactly which records changed. The same data always produces byte-identical files, so a file only changes when its data changes. If you put the folder in git, the diffs stay clean.
+- **Plain, stable JSON.** Files are UTF-8, pretty-printed with two-space indentation, sorted keys and a trailing newline. A record inside a list is kept on a single line when it fits, so a diff shows exactly which records changed. The same data always produces byte-identical files, so a file only changes when its data changes. If you put the folder in git, the diffs stay clean. The exact layout is in [Canonical layout](#canonical-layout).
 - **Small files.** There is one file for each thing you edit independently, so a sync conflict between devices stays rare and affects little.
 - **Stable IDs you can read.** Files refer to each other by ID, never by display name, so you can rename anything freely.
 - **Only inputs are stored.** Files hold what you entered, plus the prices, FX rates and inflation figures fetched at check-in time. Totals, charts and projections are always computed. The one deliberate exception is `projections/`: saved projections record what you expected at the time, which can't be recomputed later ([PROGRESS.md](PROGRESS.md)).
@@ -68,10 +68,7 @@ Can I Retire Yet/                   ← the app's folder in iCloud Drive
 {
   "baseCurrency": "EUR",
   "mainPlan": "base",
-  "person": {
-    "birthDate": "1988-04-12",
-    "name": "Me"
-  },
+  "person": { "birthDate": "1988-04-12", "name": "Me" },
   "schemaVersion": 1,
   "taxResidence": "IT"
 }
@@ -228,9 +225,7 @@ One file per calendar month. It holds the account valuations, prices, FX rates a
       "cash": "312.1",
       "date": "2026-09-30",
       "flow": "1500",
-      "positions": [
-        { "costBasis": "48200", "instrument": "vwce", "quantity": "412.5" }
-      ]
+      "positions": [{ "costBasis": "48200", "instrument": "vwce", "quantity": "412.5" }]
     },
     { "account": "fondo-pensione", "balance": "18450.12", "date": "2026-09-30", "flow": "1325", "note": "from Q3 statement" },
     { "account": "gold-coins", "date": "2026-09-30", "positions": [{ "instrument": "gold", "quantity": "62.2" }] },
@@ -296,11 +291,14 @@ When two devices change the same file before it syncs, iCloud keeps both version
 
 Merges are listed on the Sync screen so you can check them.
 
+Versions modified at the same moment are ordered by their contents, so both devices resolve a conflict the same way. Everything else in a merged history or headline file (its unknown keys, for example) comes from the newest version, and the result is written in the canonical layout. A version that isn't valid JSON is left out of a merge.
+
 ## Versioning
 
 - `schemaVersion` starts at 1. Adding optional fields doesn't change it. Anything else is a new version with a migration.
-- Before migrating, the app copies the library into `backups/<date>-v<old>/`.
-- An app older than the library opens it read-only.
+- Before migrating, the app copies the library into `backups/<yyyy-MM-dd>-v<old>/`. A migration step works on the raw JSON of every file, and nothing is written unless every step succeeds.
+- An app older than the library opens it read-only: it loads, and every save is refused.
+- A library older than the app is migrated before the app saves anything to it.
 
 ## `imports/<id>.json`
 
@@ -309,3 +307,27 @@ Saved import profiles. Each describes how to read one kind of file (encoding, de
 ## `backups/`
 
 Copies of files taken before a schema migration or an import, in dated folders. They're what "Undo import" restores. Safe to delete.
+
+- `backups/<yyyy-MM-dd-HHmmss>-<label>/` for an import (the time is the device's local time), `backups/<yyyy-MM-dd>-v<old>/` for a migration. A second backup with the same name gets `-2`, `-3`, ….
+- Each folder mirrors the library's layout and has a `backup.json` listing the files copied (`files`), the files that didn't exist yet (`absentFiles`, which restoring deletes), a `label` and when it was `created`.
+- When the app has to overwrite a file that isn't valid JSON, it first copies it to `backups/<timestamp>-unreadable/`.
+
+## Canonical layout
+
+The app writes every file the same way, so the same data always gives the same bytes:
+
+- UTF-8 with no byte order mark, two-space indentation, and a newline at the end.
+- Object keys sorted by Unicode code point (so `"B"` comes before `"a"`).
+- Text is written as is; only `"`, `\` and control characters are escaped (`\n`, `\t`, `\u0007`). Numbers (counts, ages, years) are written in their shortest exact form; amounts are strings, as above.
+- A list or object stays on one line, as `{ "a": "1", "b": 2 }` or `["x", "y"]`, when the whole line fits in **130 columns**, counting indentation, the key and a trailing comma, in characters. Otherwise it is spread over several lines with one member or element per line, each laid out by the same rule. Empty ones are `{}` and `[]`.
+- Two exceptions are always spread out: the file's top-level object, and lists of records directly in it (`valuations`, `prices`, `work`, `years`, …), which get one record per line even when they're short.
+
+## Reading hand-edited files
+
+- A file with a mistake doesn't stop the library from loading. The app lists each problem with the file's path and where in it, like `valuations[2].balance: Expected a decimal such as "1234.56", found "12,5".` or `Line 4, column 3: Expected "," or "}" after a value in an object`.
+- A file that can't be read is left out. In a history or headline file only the records that can't be read are left out, and they're kept in the file when the app rewrites it, until you fix them.
+- A JSON number where text is expected (`"name": 2026`) is read as text, and a whole number written as text where a number is expected (`"endAge": "95"`) as a number.
+- The file name wins over the `id` inside the file, and over the `month` inside a history file; the app points out the mismatch.
+- A record dated outside its month file stays where it is, and the app points it out. When two records have the same key, the later one in the file is used.
+- Files the app doesn't know are ignored. JSON files in the library's folders whose names aren't IDs (`My Account.json`) are pointed out.
+- Records that refer to accounts, instruments or plans that don't exist are pointed out.
