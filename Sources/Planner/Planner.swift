@@ -211,21 +211,37 @@ public enum Planner {
             }.sorted { ($1.count, $0.wrapper) < ($0.count, $1.wrapper) })
     }
 
-    /// The FI number: retirement spending not covered by pensions (net of
-    /// the taxes the system charges on them, once all have started), over
-    /// the withdrawal rate.
-    private static func fiNumber(schedule: AgeSchedule, model: PlanModel, rate: Double) -> Double? {
+    /// The FI number: retirement spending not covered by pensions, over the
+    /// withdrawal rate. The pensions count once all have started: a whole
+    /// year of each (the year after the last one starts, when the plan
+    /// reaches it), net of the tax they add. That tax is the difference
+    /// between the year assessed by its residence system with the pensions
+    /// and without them, since taxes such as IRPEF are charged on total
+    /// income and belong to no one pension.
+    static func fiNumber(schedule: AgeSchedule, model: PlanModel, rate: Double) -> Double? {
         guard rate > 0 else { return nil }
         let claims = schedule.claims.compactMap { $0 }
         var pensions = 0.0
-        if let year = claims.map(\.year).max(), let t = schedule.years.firstIndex(where: { $0.year == year }) {
-            let scheduled = schedule.years[t]
-            let fixed = scheduled.variants[scheduled.expectedVariant].fixed
-            for claim in claims {
-                let id = model.pensions[claim.pension].id
-                let taxes = (fixed.lines + fixed.contributions).filter { $0.subject == id }.reduce(0) { $0 + $1.amount }
-                pensions += claim.option.annualAmount(atAge: scheduled.age) - taxes
+        if let last = claims.map(\.year).max(),
+           let t = schedule.years.firstIndex(where: { $0.year == last + 1 })
+            ?? schedule.years.firstIndex(where: { $0.year == last }) {
+            let frame = model.frames[t]
+            let paid = claims.map { claim in
+                let pension = model.pensions[claim.pension]
+                return FixedYear.Pension(id: pension.id, scheme: pension.schemeID,
+                                         amount: claim.yearlyAmount(atAge: frame.age), taxedIn: pension.taxedIn)
             }
+            let system = model.systems[frame.system].system
+            let overlays = model.overlays.filter { system.regime($0.regime) != nil }
+            func taxes(_ pensions: [FixedYear.Pension]) -> Double {
+                let year = FixedYear(year: frame.year, age: frame.age, systemOptions: frame.systemOptions,
+                                     overlays: overlays, pensions: pensions, inflationFactor: frame.inflationFactor,
+                                     indexThresholds: model.indexThresholds)
+                let assessment = system.prepare(year, state: schedule.years[t].taxState, parameters: frame.parameters)
+                    .fixedAssessment
+                return assessment.totalTax + assessment.totalContributions
+            }
+            pensions = paid.reduce(0) { $0 + $1.amount } - (taxes(paid) - taxes([]))
         }
         return max(0, model.spending.retired - pensions) / rate
     }
@@ -252,7 +268,7 @@ public enum Planner {
         for claim in schedule.claims.compactMap({ $0 }) {
             markers.append(TimelineMarker(kind: .pensionStart, year: claim.year, age: claim.age,
                                           label: model.pensions[claim.pension].name,
-                                          amount: claim.option.annualAmount(atAge: claim.age)))
+                                          amount: claim.yearlyAmount(atAge: claim.age)))
         }
         // Severance pay is paid out when the job ends, so it gets no marker.
         for (b, bucket) in engine.portfolio.buckets.enumerated() where !bucket.isLiquid {

@@ -140,6 +140,23 @@ struct DeterministicTests {
         #expect(result.start.date == "2026-09-30" && result.start.age == 60)
     }
 
+    /// Prices in a year are today's grown by the time simulated before it:
+    /// after a first year of 92 days, the second starts 92/365 of a year on.
+    @Test func pricesRiseByTheTimeSimulated() throws {
+        let library = Sample.library(birth: "1966-01-01", on: "2026-09-30",
+                                     [SampleAccount(id: "broker", balance: 100_000)])
+        let plan = Sample.plan(retire: .age(60), endAge: 64, retired: "10000")
+        let model = try #require(PlanInterpreter.interpret(plan: plan, library: library, registry: Sample.registry(),
+                                                           options: PlannerOptions()).model)
+        let frames = model.frames
+        #expect(frames[0].inflationFactor == 1)
+        #expect(close(frames[1].inflationFactor, pow(1.02, 92.0 / 365), 1e-12))
+        #expect(close(frames[2].inflationFactor, pow(1.02, 1 + 92.0 / 365), 1e-12))
+        for k in 1..<frames.count {
+            #expect(close(frames[k].inflationFactor, frames[k - 1].inflationFactor * frames[k - 1].inflationStep, 1e-12))
+        }
+    }
+
     @Test func aCheckInOnTheLastDayOfTheYearStartsNextYear() async throws {
         let plan = Sample.plan(retire: .age(59), endAge: 64, retired: "10000")
         let result = try await Sample.run(plan, retiree)
@@ -177,6 +194,31 @@ struct DeterministicTests {
         #expect(payout?.id == "flat.pension")
     }
 
+    /// Locked money is a bridge failure only if, after tax, it could have
+    /// covered what's missing until it opens: here 10,000 in 2027 and
+    /// 30,000 a year from 52 to 59, 250,000 in all.
+    @Test func lockedMoneyTooSmallToBridgeIsNotABridgeFailure() async throws {
+        func failure(fund: Decimal) async throws -> RunFailure? {
+            let library = Sample.library(birth: "1976-01-01", on: "2025-12-31", [
+                SampleAccount(id: "broker", balance: 50_000),
+                SampleAccount(id: "fund", kind: .pensionFund, wrapper: "flat.pension", balance: fund),
+            ])
+            var system = FlatTaxSystem()
+            system.payoutRate = 0.2
+            let plan = Sample.plan(retire: .age(49), endAge: 70, retired: "30000", equityReturn: "0")
+            return try await Sample.run(plan, library, system: system).expectedPath.failure
+        }
+        // 300,000 nets 240,000 after the 20% payout tax: not enough to bridge.
+        #expect(try await failure(fund: 300_000) == RunFailure(year: 2027, age: 51, reason: .depleted))
+        // 320,000 nets 256,000: enough, so the fix is bridging the gap.
+        let bridged = try #require(try await failure(fund: 320_000))
+        guard case .locked(let money) = bridged.reason else {
+            Issue.record("Expected a bridge failure, got \(bridged.reason)")
+            return
+        }
+        #expect(money.accessibleFromAge == 60 && money.value == 320_000)
+    }
+
     @Test func pensionsReplaceWithdrawals() async throws {
         let plan = Sample.plan(
             retire: .age(59), endAge: 70, retired: "20000", equityReturn: "0",
@@ -206,6 +248,34 @@ struct DeterministicTests {
         #expect(result.issues.contains { $0.code == "planner.duplicateScheme" })
         // From 67 the pensions (27,400) exceed spending, and the surplus is invested.
         #expect(close(result.expectedPath.years.first { $0.year == 2033 }?.savings, 7_400))
+    }
+
+    /// An `earliest` claim waits for work to stop, so the pension isn't
+    /// frozen at the amount of an age at which it was never drawn; in the
+    /// year work stops, it pays the months after.
+    @Test func anEarliestClaimWaitsForWorkToStop() async throws {
+        func run(birth: CalendarDate) async throws -> PlanResult {
+            let library = Sample.library(birth: birth, on: "2025-12-31",
+                                         [SampleAccount(id: "broker", balance: 1_000_000)])
+            let plan = Sample.plan(
+                retire: .age(67), endAge: 75, working: "30000", retired: "30000", equityReturn: "0",
+                work: [Sample.employee(from: "2026-01-01", gross: "40000")],
+                pensions: [PlanPension(scheme: "flat.state", options: ["montante": "200000", "contributionYears": "10"])])
+            return try await Sample.run(plan, library)
+        }
+        // Retiring on 1 January 2033 at 67: the scheme's 67 option, 5.4% of 200,000, not its 65 one.
+        let january = try await run(birth: "1966-01-01")
+        let start = try #require(january.markers.first { $0.kind == .pensionStart })
+        #expect(start.age == 67 && start.year == 2033 && close(start.amount, 10_800))
+        #expect(january.successCurve.first { $0.age == 67 }?.pensionStartAges == ["pension-0": 67])
+        let first = try #require(january.expectedPath.years.first { $0.year == 2033 })
+        #expect(close(first.income.first { $0.kind == .pension }?.amount, 10_800))
+
+        // Retiring on 1 July: 184 of 365 days of the yearly 10,800 in 2033.
+        let july = try await run(birth: "1966-07-01")
+        let paid = try #require(july.expectedPath.years.first { $0.year == 2033 }?.income.first { $0.kind == .pension })
+        #expect(close(paid.amount, 10_800 * 184 / 365))
+        #expect(close(july.markers.first { $0.kind == .pensionStart }?.amount, 10_800))
     }
 
     @Test func workBuildsASchemePension() async throws {
@@ -305,8 +375,9 @@ struct DeterministicTests {
         let plan = Sample.plan(retire: .age(59), endAge: 64, retired: "15000", equityReturn: "0", cashBuffer: "10000")
         let result = try await Sample.run(plan, library)
 
-        // Cash above the buffer first, then the broker; the mix stays 50/50
-        // except that cash never drops below the buffer while it can be kept.
+        // 2026 sells both halves alike, keeping the mix at 50/50; in 2027 half
+        // the rest would be less than the buffer, so the buffer stays in cash
+        // and everything else is sold; in 2028 only the buffer is left.
         #expect(close(result.expectedValue(in: 2026), 25_000))
         #expect(close(result.expectedValue(in: 2027), 10_000))
         #expect(result.expectedPath.failure?.age == 62)

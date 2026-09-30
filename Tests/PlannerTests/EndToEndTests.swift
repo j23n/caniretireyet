@@ -68,6 +68,10 @@ struct EndToEndTests {
         #expect((64...76).contains(inps.age))
         let inpsAmount = try #require(inps.amount)
         #expect(inpsAmount > 3_000 && inpsAmount < 40_000)
+        // The marker shows a whole year, not the months paid in the first one.
+        let firstFullYear = try #require(result.expectedPath.years.first { $0.age == inps.age + 1 })
+        let paidNextYear = try #require(firstFullYear.income.first { $0.id == "pension-0" }?.amount)
+        #expect(abs(inpsAmount - paidNextYear) < 0.01 * paidNextYear, "\(inpsAmount) against \(paidNextYear)")
         #expect(result.successCurve.first { $0.age == 55 }?.pensionStartAges["pension-0"] == inps.age)
         let fixed = try #require(result.markers.first { $0.kind == .pensionStart && $0.label.hasPrefix("State pension") })
         #expect(fixed.age == 67 && fixed.amount == 4_800)
@@ -102,6 +106,62 @@ struct EndToEndTests {
             pension fund from \(fund.age), TFR paid in 2028: \(Int(tfr.amount)), sustainable spending \
             \(Int(spending.perYear)) (success \(spending.success)), FI number \(Int(fi)).
             """)
+    }
+
+    /// IRPEF and the addizionali on a pension have no subject, since they're
+    /// charged on total income: the FI number takes the tax a pension adds.
+    @Test func theFINumberCountsTheTaxOnPensions() async throws {
+        let library = Sample.library(birth: "1986-01-01", on: "2025-12-31",
+                                     [SampleAccount(id: "cash", kind: .cash, wrapper: "it.ordinary", mix: nil,
+                                                    balance: 150_000)])
+        var plan = Sample.plan(retire: .age(51), endAge: 90, retired: "30000",
+                               pensions: [PlanPension(scheme: .fixed, fromAge: 67, perYear: d("20000"))])
+        plan.tax = PlanTax(residence: [PlanResidence(from: 2026, system: "it")])
+        let result = try await Planner.run(plan: plan, library: library, registry: Self.registry,
+                                           options: PlannerOptions(mode: .fast(runs: 1), ageScan: .headline,
+                                                                   maxRetirementAge: 0, solveSustainableSpending: false))
+        // IRPEF on 20,000: 23% = 4,600 less the pension detrazione
+        // 700 + 1,255 × 8,000 / 19,500 = 1,214.87; addizionali 1.73% + 0.8%
+        // of 20,000 = 506. Net pension 16,108.87; (30,000 − 16,108.87) / 4%.
+        let tax = 4_600 - (700 + 1_255 * 8_000 / 19_500.0) + 506
+        #expect(close(result.answer.fiNumber, (30_000 - (20_000 - tax)) / 0.04, 1e-9))
+        #expect(close(result.answer.fiProgress, 150_000 / ((30_000 - (20_000 - tax)) / 0.04), 1e-9))
+    }
+
+    /// A check-in on 30 September: the salary before it was paid, and its
+    /// IRPEF withheld, before the plan starts. Retiring then leaves no IRPEF
+    /// in the plan's first year, while an inheritance received in it is taxed
+    /// in full. IRPEF has no subject, so its share of the year is the
+    /// income-weighted share of the incomes behind it.
+    @Test func theFirstYearTaxesOnlyWhatFallsAfterTheCheckIn() async throws {
+        let library = Sample.library(birth: "1988-06-15", on: "2026-09-30",
+                                     [SampleAccount(id: "broker", wrapper: "it.ordinary", balance: 500_000)])
+        func firstYear(retiring age: Int) async throws -> YearDetail {
+            var plan = Sample.plan(retire: .age(age), endAge: 45, working: "30000", retired: "30000",
+                                   work: [Sample.employee(from: "2026-01-01", gross: "65000")],
+                                   events: [PlanEvent(name: "Aunt", timing: .year(2026), amount: d("100000"),
+                                                      kind: "inheritance.other")])
+            plan.tax = PlanTax(residence: [PlanResidence(from: 2026, system: "it")])
+            let result = try await Planner.run(
+                plan: plan, library: library, registry: Self.registry,
+                options: PlannerOptions(mode: .fast(runs: 1), ageScan: .headline, maxRetirementAge: 0,
+                                        solveSustainableSpending: false))
+            return try #require(result.expectedPath.years.first)
+        }
+        let incomeTaxes: Set<String> = ["it.irpef", "it.addizionaleRegionale", "it.addizionaleComunale",
+                                        "it.cuneo.exemptSum", "it.trattamentoIntegrativo"]
+
+        let retiringNow = try await firstYear(retiring: 38)
+        #expect(retiringNow.year == 2026 && retiringNow.workingShare == 0)
+        #expect(!retiringNow.taxes.contains { incomeTaxes.contains($0.id) && abs($0.amount) > 0.005 },
+                "\(retiringNow.taxes)")
+        #expect(close(retiringNow.taxes.first { $0.id == "it.inheritanceTax" }?.amount, 8_000))
+
+        // Working all year, the salary's share of the year is the part simulated.
+        let working = try await firstYear(retiring: 40)
+        let irpef = try #require(working.taxes.first { $0.id == "it.irpef" }?.amount)
+        #expect(irpef > 0)
+        #expect(close(working.taxes.first { $0.id == "it.inheritanceTax" }?.amount, 8_000))
     }
 
     @Test func aPlanOnGenericFlatRatesMatchesTheClosedForm() async throws {

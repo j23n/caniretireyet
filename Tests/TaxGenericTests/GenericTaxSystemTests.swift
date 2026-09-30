@@ -76,6 +76,14 @@ struct GenericTaxSystemTests {
         #expect(prepared.assess(.empty) == prepared.fixedAssessment)
     }
 
+    @Test func wealthTaxIsForTheShareOfTheYearHeld() throws {
+        let prepared = try prepared(FixedYear(year: 2030, age: 70, systemOptions: rates))
+        let assessment = prepared.assess(VariableYear(
+            balances: [.init(wrapper: "taxable", category: .fund, value: 100_000)], fractionOfYear: 0.25))
+        // 0.5% × 100,000 for a quarter of a year.
+        #expect(abs(assessment.totalTax - 125) < 1e-9)
+    }
+
     @Test func unknownWrappersAreTaxableWithAWarning() throws {
         let prepared = try prepared(FixedYear(year: 2030, age: 70, systemOptions: rates))
         let assessment = prepared.assess(VariableYear(

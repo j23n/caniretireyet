@@ -53,6 +53,12 @@ struct PensionClaim: Sendable {
     /// Age when payments start.
     let age: Int
     let option: ClaimOption
+
+    /// The gross amount of a whole year at `age`: in the year payments start,
+    /// the rate they start at for twelve months, rather than the months paid.
+    func yearlyAmount(atAge age: Int) -> Double {
+        age <= option.age ? option.yearlyAmount : option.annualAmount(atAge: age)
+    }
 }
 
 /// An amount going into a wrapper's bucket.
@@ -101,6 +107,9 @@ struct ScheduledYear: Sendable {
     let contributionYears: Double
     let yearsSinceWorkStopped: Int?
     let oldAgePensionAge: Int?
+    let oldAgePensionAgeInMonths: Int?
+    /// The tax state the year was prepared with (the deterministic run's).
+    let taxState: TaxState
     /// Buckets paid out in full this year because a job ends (severance pay
     /// such as Italy's TFR); set once the portfolio is final.
     var severance: [Int] = []
@@ -208,9 +217,12 @@ extension AgeSchedule {
             }
 
             // Pensions: claims use the record as it stood at the end of last year.
+            // An `earliest` claim waits for work to stop (when it stops within
+            // the plan), and in that year pays only the months after it.
             var paid: [FixedYear.Pension] = []
             for (index, pension) in model.pensions.enumerated() {
-                if claims[index] == nil,
+                let waitsForWork = pension.claim == .earliest && retirementDate > model.startDate
+                if claims[index] == nil, !(waitsForWork && retirementDate > frame.lastDay),
                    let option = Self.claim(pension, record: records[index], frame: frame, birth: birth) {
                     claims[index] = PensionClaim(pension: index, year: frame.year, age: frame.age, option: option)
                     if case .age(let wanted) = pension.claim, frame.age > wanted {
@@ -220,15 +232,36 @@ extension AgeSchedule {
                     }
                 }
                 guard let claim = claims[index] else { continue }
-                let amount = claim.option.annualAmount(atAge: frame.age)
+                var amount = claim.option.annualAmount(atAge: frame.age)
+                var share = frame.fraction
+                if waitsForWork, claim.year == frame.year, retirementDate > frame.firstDay {
+                    let retiredDays = frame.days(from: retirementDate, until: frame.lastDay)
+                    amount = min(amount, claim.option.yearlyAmount * Double(retiredDays) / daysInYear)
+                    share = retiredDays > 0
+                        ? Double(frame.simulatedDays(from: retirementDate, until: frame.lastDay)) / Double(retiredDays) : 0
+                }
                 guard amount > 0 else { continue }
                 paid.append(FixedYear.Pension(id: pension.id, scheme: pension.schemeID, amount: amount,
                                               taxedIn: pension.taxedIn))
-                shares[pension.id] = frame.fraction
-                cashIn += amount * frame.fraction
-                income.append(IncomeItem(kind: .pension, id: pension.id, label: pension.name,
-                                         amount: amount * frame.fraction))
+                shares[pension.id] = share
+                cashIn += amount * share
+                income.append(IncomeItem(kind: .pension, id: pension.id, label: pension.name, amount: amount * share))
             }
+
+            // Taxes on total income, such as IRPEF, belong to no one subject:
+            // their simulated share is each income's share weighted by the income.
+            var incomeWeight = 0.0
+            var simulatedIncome = 0.0
+            for income in workIncomes where income.net == nil {
+                let weight = max(0, income.gross - income.costs)
+                incomeWeight += weight
+                simulatedIncome += weight * (shares[income.phaseID] ?? frame.fraction)
+            }
+            for pension in paid {
+                incomeWeight += max(0, pension.amount)
+                simulatedIncome += max(0, pension.amount) * (shares[pension.id] ?? frame.fraction)
+            }
+            let incomeShare = incomeWeight > 0 ? simulatedIncome / incomeWeight : frame.fraction
 
             // Planned contributions, from the plan's start until they stop.
             var contributions: [WrapperAmount] = []
@@ -274,7 +307,13 @@ extension AgeSchedule {
                 if mask == expectedLocal { fixedYears.append(fixedYear) }
                 let prepared = system.prepare(fixedYear, state: state, parameters: frame.parameters)
                 let fixed = prepared.fixedAssessment
-                let share: (String?) -> Double = { subject in subject.flatMap { shares[$0] } ?? frame.fraction }
+                let windfallNames = Set(windfalls.map(\.name))
+                let share: (String?) -> Double = { subject in
+                    guard let subject else { return incomeShare }
+                    // A windfall arrives in the simulated part, so all of its tax does too.
+                    if windfallNames.contains(subject) { return 1 }
+                    return shares[subject] ?? frame.fraction
+                }
                 let taxes = Self.scaled(fixed.lines, share: share)
                 let socialContributions = Self.scaled(fixed.contributions, share: share)
                 let windfallCash = windfalls.reduce(0) { $0 + $1.amount }
@@ -294,6 +333,7 @@ extension AgeSchedule {
             }
             let expected = variantIndex[expectedLocal]
             let expectedAssessment = variants[expected].fixed
+            let yearState = state
             state = expectedAssessment.nextState
 
             // Access inputs, before this year's credits.
@@ -344,7 +384,8 @@ extension AgeSchedule {
                 variants: variants, variantIndex: variantIndex, expectedVariant: expected,
                 contributions: contributions, contributionTotal: contributions.reduce(0) { $0 + $1.amount },
                 income: income, contributionYears: contributionYears,
-                yearsSinceWorkStopped: yearsSinceWorkStopped, oldAgePensionAge: model.oldAgePensionAges[frame.index]))
+                yearsSinceWorkStopped: yearsSinceWorkStopped, oldAgePensionAge: model.oldAgePensionAges[frame.index],
+                oldAgePensionAgeInMonths: model.oldAgePensionAgesInMonths[frame.index], taxState: yearState))
         }
 
         self.retirementAge = age
@@ -368,11 +409,15 @@ extension AgeSchedule {
     }
 
     /// Tax or contribution lines summed by ID, each scaled by the share of
-    /// its subject that falls in the simulated part of the year.
+    /// its subject that falls in the simulated part of the year: a work
+    /// phase's or pension's simulated share, 1 for a windfall's, and for a
+    /// line without a subject (a tax on total income) the income-weighted
+    /// share of the year's work and pensions.
     private static func scaled(_ lines: [TaxLine], share: (String?) -> Double) -> [AmountItem] {
         var result: [AmountItem] = []
         for line in lines {
             let amount = line.amount * share(line.subject)
+            guard amount != 0 else { continue }
             if let index = result.firstIndex(where: { $0.id == line.id }) {
                 result[index].amount += amount
             } else {
@@ -413,6 +458,7 @@ extension AgeSchedule {
         membership = []
         access.reserveCapacity(years.count * bucketCount)
         membership.reserveCapacity(years.count * bucketCount)
+        let birth = model.birthDate.birthDate
         for t in years.indices {
             let lastDay = CalendarDate.lastDay(of: years[t].year)
             for (b, bucket) in portfolio.buckets.enumerated() {
@@ -425,7 +471,8 @@ extension AgeSchedule {
                 let context = WrapperAccessContext(
                     year: years[t].year, age: years[t].age, yearsSinceWorkStopped: years[t].yearsSinceWorkStopped,
                     oldAgePensionAge: years[t].oldAgePensionAge, contributionYears: years[t].contributionYears,
-                    membershipYears: members)
+                    membershipYears: members, birthDate: birth,
+                    oldAgePensionAgeInMonths: years[t].oldAgePensionAgeInMonths)
                 access.append(rule.access(in: context))
             }
         }

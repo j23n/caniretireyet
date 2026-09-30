@@ -1,0 +1,44 @@
+{
+  "name": "Wealth taxes for a quarter of a year: thresholds on the balance, the tax pro rata",
+  "year": 2026,
+  "input": {
+    "age": 45,
+    "variable": {
+      "fractionOfYear": 0.25,
+      "balances": [
+        {
+          "wrapper": "it.ordinary",
+          "category": "cash",
+          "country": "IT",
+          "value": 10000
+        },
+        {
+          "wrapper": "it.ordinary",
+          "category": "fund",
+          "country": "IE",
+          "value": 100000
+        },
+        {
+          "wrapper": "it.ordinary",
+          "category": "crypto",
+          "value": 8000
+        }
+      ]
+    }
+  },
+  "expected": {
+    "lines": {
+      "it.wealthTax.currentAccount": 8.55,
+      "it.wealthTax.financial": 50.0,
+      "it.wealthTax.crypto": 4.0
+    },
+    "totalTax": 62.55
+  },
+  "workings": [
+    "The year's balances are held for a quarter of the year (a plan's first year after a check-in on 30 September is 92/365; 0.25 here)",
+    "Current account: the balance 10,000.00 is above 5,000, so the bollo is due: 34.20 × 0.25 = 8.55 (testing a quarter of the balance, 2,500.00, would wrongly find none)",
+    "Fund: 0.2% × 100,000.00 × 0.25 = 50.00",
+    "Crypto: 0.2% × 8,000.00 × 0.25 = 4.00",
+    "Total: 62.55"
+  ]
+}

@@ -81,12 +81,19 @@ public struct INPSPensionScheme: PensionScheme {
                    store: parameters).claimOptions()
     }
 
-    /// The vecchiaia age in `year`, in whole years.
+    /// The vecchiaia age in `year`, in whole years (rounded down).
     public func oldAgePensionAge(in year: Int, options: OptionValues, parameters: any ParameterStore) -> Int? {
+        oldAgePensionAgeInMonths(in: year, options: options, parameters: parameters).map { $0 / 12 }
+    }
+
+    /// The vecchiaia age in `year`, in months: 67 years plus the rise in
+    /// pension ages (the parameter file's steps, then
+    /// `ageIncreaseMonthsPerYear`).
+    public func oldAgePensionAgeInMonths(in year: Int, options: OptionValues, parameters: any ParameterStore) -> Int? {
         guard let set = try? parameters.parameters(for: year),
               let rules = try? INPSPensionParameters(ParameterNode(set)["inpsPension"]) else { return nil }
         let perYear = options.withDefaults(from: self.options).int("ageIncreaseMonthsPerYear", default: 0)
-        return (rules.vecchiaia.age * 12 + rules.ageIncrease(in: year, perYear: perYear)) / 12
+        return rules.vecchiaia.age * 12 + rules.ageIncrease(in: year, perYear: perYear)
     }
 }
 
@@ -243,7 +250,9 @@ struct INPSClaims {
     }
 
     /// The claim option for a start: the first year's amount (pro rata), then
-    /// the changes from the cap ending and from partial indexation.
+    /// the changes from the cap ending and from partial indexation, and a
+    /// whole year at the starting rate (monthly × instalments) when the
+    /// first year is only part of one.
     private func option(for start: Start, capEnd: Int) -> ClaimOption {
         let rules = rules(start.month / 12)
         let instalments = rules?.instalments ?? 13
@@ -278,8 +287,12 @@ struct INPSClaims {
             if start.monthly > cap { note += ", and capped at \(euros(cap)) a month until the vecchiaia age" }
             note += "."
         }
+        // A start after January pays only part of the first year: the whole
+        // year at the starting rate is what the pension is worth a year.
+        let startingRate = start.month < capEnd ? min(start.monthly, cap) : start.monthly
         return ClaimOption(route: start.route.id, label: start.route.label, age: startYear - context.birthDate.year,
-                           annualAmount: amounts[0].amount, changes: changes, note: note)
+                           annualAmount: amounts[0].amount, changes: changes, note: note,
+                           fullYearAmount: start.month % 12 == 0 ? nil : startingRate * instalments)
     }
 
     private func monthName(_ index: Int) -> String {

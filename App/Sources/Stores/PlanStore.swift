@@ -200,13 +200,7 @@ final class PlanStore {
         guard let main = library.settings.mainPlan, let plan = library.library.plans[main],
               let results = await run(main, mode: .full)
         else { return nil }
-        let headline = Headline(
-            date: date, confidence: Self.decimal(results.headline.confidence), earliestAge: results.headline.earliestAge,
-            engine: results.engine, fiProgress: results.headline.fiProgress.map { Self.decimal($0) },
-            planHash: results.planHash ?? Self.hash(of: plan),
-            successAtTarget: results.headline.successAtTarget.map { Self.decimal($0) },
-            taxParameters: results.taxParameters)
-        try? library.record(headline, for: main)
+        try? library.record(Self.headline(of: results, plan: plan, on: date), for: main)
         let hasYearly = library.library.baselines(for: main).contains { $0.kind == .yearly && $0.created.year == date.year }
         if !hasYearly {
             _ = try? saveBaseline(for: main, label: "Start of \(date.year)", kind: .yearly, on: date)
@@ -226,13 +220,10 @@ final class PlanStore {
         else {
             throw PlanStoreError.noResults
         }
-        let headline = HeadlineSummary(
-            confidence: Self.decimal(results.headline.confidence), earliestAge: results.headline.earliestAge,
-            successAtTarget: results.headline.successAtTarget.map { Self.decimal($0) },
-            fiProgress: results.headline.fiProgress.map { Self.decimal($0) })
         let baseline = Baseline(
             created: date, kind: kind, label: label, engine: results.engine, accounts: results.accounts,
-            headline: headline, plan: try CanonicalJSON.json(encoding: document), start: results.start,
+            headline: Self.headline(of: results, plan: document, on: date).summary,
+            plan: try CanonicalJSON.json(encoding: document), start: results.start,
             taxParameters: results.taxParameters, years: results.years)
         return try library.saveBaseline(baseline, for: plan)
     }
@@ -246,7 +237,24 @@ final class PlanStore {
         Planner.planHash(plan)
     }
 
-    /// A share as a decimal with four places, for the files.
+    /// The headline to record for `results` on `date`: the Planner's own
+    /// (`PlanResult.headline`), so the app and the CLI write identical
+    /// records. Results without one (the preview engine) are rounded here.
+    static func headline(of results: PlanResults, plan: PlanDocument, on date: CalendarDate) -> Headline {
+        if var headline = results.details?.headline {
+            headline.date = date
+            return headline
+        }
+        return Headline(
+            date: date, confidence: decimal(results.headline.confidence), earliestAge: results.headline.earliestAge,
+            engine: results.engine, fiProgress: results.headline.fiProgress.map { decimal($0) },
+            planHash: results.planHash ?? hash(of: plan),
+            successAtTarget: results.headline.successAtTarget.map { decimal($0) },
+            taxParameters: results.taxParameters)
+    }
+
+    /// A share as a decimal with four places, for results without the
+    /// Planner's headline.
     static func decimal(_ value: Double) -> Decimal {
         Decimal(Int((value * 10_000).rounded())) / 10_000
     }

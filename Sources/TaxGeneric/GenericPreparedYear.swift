@@ -73,11 +73,13 @@ struct GenericPreparedYear: PreparedTaxYear {
             add(&assessment, id: "generic.capitalIncomeTax", label: "Tax on interest and dividends",
                 rate: rates.interestDividend, base: income.amount, subject: income.wrapper)
         }
+        // A year's wealth tax, for the share of the year the balances are held.
+        let fraction = min(1, max(0, variable.fractionOfYear))
         for balance in variable.balances {
             let wrapper = kind(of: balance.wrapper)
             guard wrapper == GenericWrapper.taxable || wrapper == "unknown" else { continue }
-            add(&assessment, id: "generic.wealthTax", label: "Wealth tax", rate: rates.wealth, base: balance.value,
-                subject: balance.wrapper)
+            add(&assessment, id: "generic.wealthTax", label: "Wealth tax", rate: rates.wealth,
+                base: balance.value * fraction, subject: balance.wrapper)
         }
         for wrapper in unknownWrappers.sorted() {
             assessment.issues.append(.warning(

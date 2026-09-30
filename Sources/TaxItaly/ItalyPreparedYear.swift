@@ -5,23 +5,38 @@ import TaxKit
 /// (wealth taxes) and the wrapper payouts, all taxed separately from IRPEF.
 /// That makes the gross-up exact.
 struct ItalyPreparedYear: PreparedTaxYear {
-    /// What the market-dependent stages need from the fixed ones.
-    struct Context: Sendable {
-        var year: Int
-        var age: Int
+    /// What the market-dependent stages need from the fixed ones. A class,
+    /// so each path's assessment shares it instead of copying the parameters.
+    final class Context: Sendable {
+        let year: Int
+        let age: Int
         /// Scaled into today's euros.
-        var parameters: ItalyParameters
+        let parameters: ItalyParameters
         /// IRPEF plus addizionali on the next euro of income, for payouts of
         /// foreign tax-deferred wrappers.
-        var marginalIncomeRate: Double
+        let marginalIncomeRate: Double
         /// The share of pension-fund contributions taxed at payout: deducted
         /// contributions and TFR, as opposed to contributions that weren't deducted.
-        var fundTaxedContributionShare: Double
+        let fundTaxedContributionShare: Double
         /// Plan years with pension-fund contributions, used when the planner
         /// doesn't pass membership years.
-        var fundMembershipYears: Int
+        let fundMembershipYears: Int
         /// The TFR's separate-taxation rate.
-        var tfrRate: Double
+        let tfrRate: Double
+        /// The lines' labels, which only depend on the year's rates.
+        let labels: ItalyMarketLabels
+
+        init(year: Int, age: Int, parameters: ItalyParameters, marginalIncomeRate: Double,
+             fundTaxedContributionShare: Double, fundMembershipYears: Int, tfrRate: Double) {
+            self.year = year
+            self.age = age
+            self.parameters = parameters
+            self.marginalIncomeRate = marginalIncomeRate
+            self.fundTaxedContributionShare = fundTaxedContributionShare
+            self.fundMembershipYears = fundMembershipYears
+            self.tfrRate = tfrRate
+            labels = ItalyMarketLabels(parameters, tfrRate: tfrRate)
+        }
     }
 
     let fixedAssessment: TaxAssessment
@@ -47,20 +62,31 @@ struct ItalyPreparedYear: PreparedTaxYear {
 
     func grossUp(net: Double, from bucket: BucketSnapshot) -> Double? {
         guard let context else { return nil }
-        let p = context.parameters
+        let investments = context.parameters.investments
         let net = max(0, net)
         let costShare = bucket.value > 0 ? min(1, max(0, bucket.costBasis / bucket.value)) : 1
         let rate: Double
         switch WrapperTreatment(bucket.wrapper) {
         case .ordinary, .unknown:
-            let total = bucket.categoryShares.values.reduce(0) { $0 + max(0, $1) }
-            let blended = total > 0
-                ? bucket.categoryShares.reduce(0) { $0 + max(0, $1.value) * p.investments.gainRate(for: $1.key) } / total
-                : p.investments.standardRate
+            // Summed in the categories' order, so the result is the same in
+            // every process (a dictionary's order depends on its hash seed).
+            var total = 0.0
+            var weighted = 0.0
+            func add(_ category: TaxCategory, _ share: Double) {
+                total += max(0, share)
+                weighted += max(0, share) * investments.gainRate(for: category)
+            }
+            if bucket.categoryShares.count > 1 {
+                for (category, share) in bucket.categoryShares.sorted(by: { $0.key < $1.key }) { add(category, share) }
+            } else {
+                for (category, share) in bucket.categoryShares { add(category, share) }
+            }
+            let blended = total > 0 ? weighted / total : investments.standardRate
             rate = blended * bucket.gainShare
         case .pensionFund:
             let years = bucket.membershipYears ?? context.fundMembershipYears
-            rate = p.pensionFund.payoutTaxRate(membershipYears: years) * costShare * context.fundTaxedContributionShare
+            rate = context.parameters.pensionFund.payoutTaxRate(membershipYears: years) * costShare
+                * context.fundTaxedContributionShare
         case .tfr:
             rate = context.tfrRate * costShare
         case .taxDeferred:
@@ -89,6 +115,81 @@ enum WrapperTreatment: Hashable, Sendable {
     }
 }
 
+/// The labels of the market-dependent lines, made once per prepared year
+/// (they're used once per path and year, and only depend on the year's rates).
+struct ItalyMarketLabels: Sendable {
+    private var gains: [TaxCategory: String] = [:]
+    private var capitalIncome: [TaxCategory: String] = [:]
+    let financial: String
+    let blacklisted: String
+    let crypto: String
+    let tfrPayout: String
+    /// Pension-fund payout labels by rate: one per rate the membership
+    /// years can give.
+    private var fundPayouts: [(rate: Double, label: String)] = []
+    let currentAccount = "Imposta di bollo on current accounts"
+    let ivie = "IVIE (property abroad)"
+    let taxDeferredPayout = "IRPEF on tax-deferred payouts"
+
+    private static let categories: [TaxCategory] = [
+        .fund, .stock, .bond, .governmentBond, .etc, .crypto, .stablecoin, .physicalGold, .cash, .realEstate, .other,
+    ]
+
+    init(_ p: ItalyParameters, tfrRate: Double) {
+        for category in Self.categories {
+            gains[category] = Self.gainLabel(category, rate: p.investments.gainRate(for: category))
+            capitalIncome[category] = Self.capitalIncomeLabel(rate: p.investments.rate(for: category))
+        }
+        financial = Self.financialLabel(rate: p.wealthTax.financialRate)
+        blacklisted = Self.financialLabel(rate: p.wealthTax.blacklistRate)
+        crypto = "Tax on the value of crypto (\(percent(p.wealthTax.cryptoRate)))"
+        tfrPayout = "TFR separate taxation (\(percent(tfrRate)))"
+        let fund = p.pensionFund
+        let lastStep = fund.payoutReductionPerYear > 0
+            ? fund.payoutReductionAfterYears + Int(((fund.payoutRate - fund.payoutFloor) / fund.payoutReductionPerYear)
+                .rounded(.up)) + 1
+            : fund.payoutReductionAfterYears
+        for years in 0...max(0, min(lastStep, 100)) {
+            let rate = fund.payoutTaxRate(membershipYears: years)
+            if !fundPayouts.contains(where: { $0.rate == rate }) {
+                fundPayouts.append((rate, Self.fundPayoutLabel(rate: rate)))
+            }
+        }
+    }
+
+    func fundPayout(rate: Double) -> String {
+        fundPayouts.first { $0.rate == rate }?.label ?? Self.fundPayoutLabel(rate: rate)
+    }
+
+    static func fundPayoutLabel(rate: Double) -> String {
+        "Tax on pension-fund payouts (\(percent(rate)))"
+    }
+
+    func gain(_ category: TaxCategory, rate: Double) -> String {
+        gains[category] ?? Self.gainLabel(category, rate: rate)
+    }
+
+    func capitalIncome(_ category: TaxCategory, rate: Double) -> String {
+        capitalIncome[category] ?? Self.capitalIncomeLabel(rate: rate)
+    }
+
+    func financial(blacklisted: Bool) -> String {
+        blacklisted ? self.blacklisted : financial
+    }
+
+    static func gainLabel(_ category: TaxCategory, rate: Double) -> String {
+        "Tax on gains: \(category.rawValue) (\(percent(rate)))"
+    }
+
+    static func capitalIncomeLabel(rate: Double) -> String {
+        "Tax on interest and dividends (\(percent(rate)))"
+    }
+
+    static func financialLabel(rate: Double) -> String {
+        "Imposta di bollo / IVAFE (\(percent(rate)))"
+    }
+}
+
 /// Stages 8 and 9 and the wrapper payouts for one path.
 struct ItalyMarketAssessor {
     let context: ItalyPreparedYear.Context
@@ -96,12 +197,17 @@ struct ItalyMarketAssessor {
     private var unknownWrappers: Set<String> = []
     private var foreignDeferred = false
 
+    /// How many of `assessment`'s lines are the fixed year's.
+    private let fixedLines: Int
+
     init(context: ItalyPreparedYear.Context, assessment: TaxAssessment) {
         self.context = context
         self.assessment = assessment
+        fixedLines = assessment.lines.count
     }
 
-    private var p: ItalyParameters { context.parameters }
+    /// The parameters, read in place (never copied: they hold many arrays).
+    private var p: ItalyParameters { _read { yield context.parameters } }
 
     mutating func assess(_ variable: VariableYear) {
         for sale in variable.sales {
@@ -132,12 +238,12 @@ struct ItalyMarketAssessor {
                 break
             }
         }
-        checkLumpSums(variable)
+        if !variable.payouts.isEmpty { checkLumpSums(variable) }
         for income in variable.capitalIncome where income.amount > 0 {
             switch treatment(of: income.wrapper) {
             case .ordinary, .unknown:
-                let rate = p.investments.rate(for: income.category)
-                add("it.capitalIncome", "Tax on interest and dividends (\(percent(rate)))", rate * income.amount,
+                let rate = context.parameters.investments.rate(for: income.category)
+                add("it.capitalIncome", context.labels.capitalIncome(income.category, rate: rate), rate * income.amount,
                     base: income.amount, subject: income.wrapper)
             default:
                 break
@@ -146,7 +252,7 @@ struct ItalyMarketAssessor {
         for balance in variable.balances where balance.value > 0 {
             switch treatment(of: balance.wrapper) {
             case .ordinary, .unknown:
-                taxWealth(balance)
+                taxWealth(balance, fraction: min(1, max(0, variable.fractionOfYear)))
             default:
                 break
             }
@@ -165,6 +271,11 @@ struct ItalyMarketAssessor {
         }
     }
 
+    /// A country code in capitals, without making a new string when it already is.
+    private static func uppercased(_ code: String) -> String {
+        code.utf8.contains { $0 >= 97 && $0 <= 122 } ? code.uppercased() : code
+    }
+
     private mutating func treatment(of wrapper: String) -> WrapperTreatment {
         let treatment = WrapperTreatment(wrapper)
         if treatment == .unknown { unknownWrappers.insert(wrapper) }
@@ -172,14 +283,28 @@ struct ItalyMarketAssessor {
     }
 
     /// Adds to the line with the same ID, label and subject, or appends one.
+    /// Market lines come after the fixed ones, so only those are searched.
     private mutating func add(_ id: String, _ label: String, _ amount: Double, base: Double, subject: String) {
         guard amount > 1e-9 else { return }
-        if let index = assessment.lines.firstIndex(where: { $0.id == id && $0.label == label && $0.subject == subject }) {
-            assessment.lines[index].amount += amount
-            assessment.lines[index].base = (assessment.lines[index].base ?? 0) + base
-        } else {
-            assessment.lines.append(TaxLine(id: id, label: label, amount: amount, base: base, subject: subject))
+        var index = assessment.lines.count - 1
+        while index >= fixedLines {
+            if assessment.lines[index].id == id && assessment.lines[index].label == label
+                && assessment.lines[index].subject == subject {
+                assessment.lines[index].amount += amount
+                assessment.lines[index].base = (assessment.lines[index].base ?? 0) + base
+                return
+            }
+            index -= 1
         }
+        if fixedLines > 0, let fixed = assessment.lines[..<fixedLines].firstIndex(where: {
+            $0.id == id && $0.label == label && $0.subject == subject
+        }) {
+            assessment.lines[fixed].amount += amount
+            assessment.lines[fixed].base = (assessment.lines[fixed].base ?? 0) + base
+            return
+        }
+        if assessment.lines.count == fixedLines { assessment.lines.reserveCapacity(fixedLines + 8) }
+        assessment.lines.append(TaxLine(id: id, label: label, amount: amount, base: base, subject: subject))
     }
 
     /// Stage 8: rate × realised gain at average cost. Losses aren't offset.
@@ -190,12 +315,12 @@ struct ItalyMarketAssessor {
         if let cost = sale.costBasis {
             gain = max(0, sale.proceeds - cost)
         } else if sale.category == .physicalGold {
-            gain = max(0, sale.proceeds * p.investments.goldUndocumentedGainShare)
+            gain = max(0, sale.proceeds * context.parameters.investments.goldUndocumentedGainShare)
         } else {
             gain = max(0, sale.proceeds)
         }
-        let rate = p.investments.gainRate(for: sale.category)
-        add("it.capitalGains", "Tax on gains: \(sale.category.rawValue) (\(percent(rate)))", rate * gain, base: gain,
+        let rate = context.parameters.investments.gainRate(for: sale.category)
+        add("it.capitalGains", context.labels.gain(sale.category, rate: rate), rate * gain, base: gain,
             subject: sale.wrapper)
     }
 
@@ -205,8 +330,8 @@ struct ItalyMarketAssessor {
         guard amount > 0 else { return }
         let contributions = costBasis.map { min(amount, max(0, $0)) } ?? amount
         let taxable = contributions * context.fundTaxedContributionShare
-        let rate = p.pensionFund.payoutTaxRate(membershipYears: membershipYears ?? context.fundMembershipYears)
-        add("it.pensionFund.payoutTax", "Tax on pension-fund payouts (\(percent(rate)))", rate * taxable, base: taxable,
+        let rate = context.parameters.pensionFund.payoutTaxRate(membershipYears: membershipYears ?? context.fundMembershipYears)
+        add("it.pensionFund.payoutTax", context.labels.fundPayout(rate: rate), rate * taxable, base: taxable,
             subject: wrapper)
     }
 
@@ -215,14 +340,13 @@ struct ItalyMarketAssessor {
     private mutating func taxTFRPayout(amount: Double, costBasis: Double?, wrapper: String) {
         guard amount > 0 else { return }
         let taxable = costBasis.map { min(amount, max(0, $0)) } ?? amount
-        add("it.tfr.payoutTax", "TFR separate taxation (\(percent(context.tfrRate)))", context.tfrRate * taxable,
-            base: taxable, subject: wrapper)
+        add("it.tfr.payoutTax", context.labels.tfrPayout, context.tfrRate * taxable, base: taxable, subject: wrapper)
     }
 
     private mutating func taxForeignPayout(amount: Double, wrapper: String) {
         guard amount > 0 else { return }
         foreignDeferred = true
-        add("it.taxDeferredPayout", "IRPEF on tax-deferred payouts", context.marginalIncomeRate * amount, base: amount,
+        add("it.taxDeferredPayout", context.labels.taxDeferredPayout, context.marginalIncomeRate * amount, base: amount,
             subject: wrapper)
     }
 
@@ -247,31 +371,41 @@ struct ItalyMarketAssessor {
                 + "as an annuity.", year: context.year))
     }
 
-    /// Stage 9: wealth taxes on year-end values of ordinary accounts.
-    private mutating func taxWealth(_ balance: VariableYear.Balance) {
-        let wealth = p.wealthTax
+    /// Stage 9: wealth taxes on year-end values of ordinary accounts. The
+    /// thresholds are tested on the balance, and `fraction` of a year's tax
+    /// is charged (less than a year in a plan's first year).
+    private mutating func taxWealth(_ balance: VariableYear.Balance, fraction: Double) {
+        // The parameters and labels are read in place: this runs for every
+        // balance of every path, and copying them would cost more than the tax.
+        let context = context
         switch balance.category {
         case .cash:
-            if balance.value > wealth.currentAccountThreshold {
-                add("it.wealthTax.currentAccount", "Imposta di bollo on current accounts", wealth.currentAccountAmount,
-                    base: balance.value, subject: balance.wrapper)
+            if balance.value > context.parameters.wealthTax.currentAccountThreshold {
+                add("it.wealthTax.currentAccount", context.labels.currentAccount,
+                    context.parameters.wealthTax.currentAccountAmount * fraction, base: balance.value,
+                    subject: balance.wrapper)
             }
         case .crypto, .stablecoin:
-            add("it.wealthTax.crypto", "Tax on the value of crypto (\(percent(wealth.cryptoRate)))",
-                wealth.cryptoRate * balance.value, base: balance.value, subject: balance.wrapper)
+            add("it.wealthTax.crypto", context.labels.crypto,
+                context.parameters.wealthTax.cryptoRate * balance.value * fraction, base: balance.value,
+                subject: balance.wrapper)
         case .physicalGold:
             break
         case .realEstate:
-            guard let country = balance.country?.uppercased(), country != "IT" else { break }
-            let tax = wealth.propertyAbroadRate * balance.value
-            if tax > wealth.propertyAbroadMinimum {
-                add("it.ivie", "IVIE (property abroad)", tax, base: balance.value, subject: balance.wrapper)
+            guard let country = balance.country.map(Self.uppercased), country != "IT" else { break }
+            let tax = context.parameters.wealthTax.propertyAbroadRate * balance.value
+            if tax > context.parameters.wealthTax.propertyAbroadMinimum {
+                add("it.ivie", context.labels.ivie, tax * fraction, base: balance.value, subject: balance.wrapper)
             }
         default:
-            let blacklisted = balance.country.map { wealth.blacklist.contains($0.uppercased()) } ?? false
-            let rate = blacklisted ? wealth.blacklistRate : wealth.financialRate
-            add("it.wealthTax.financial", "Imposta di bollo / IVAFE (\(percent(rate)))", rate * balance.value,
-                base: balance.value, subject: balance.wrapper)
+            let blacklisted = balance.country.map {
+                !context.parameters.wealthTax.blacklist.isEmpty
+                    && context.parameters.wealthTax.blacklist.contains(Self.uppercased($0))
+            } ?? false
+            let rate = blacklisted ? context.parameters.wealthTax.blacklistRate
+                : context.parameters.wealthTax.financialRate
+            add("it.wealthTax.financial", blacklisted ? context.labels.blacklisted : context.labels.financial,
+                rate * balance.value * fraction, base: balance.value, subject: balance.wrapper)
         }
     }
 }

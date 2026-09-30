@@ -75,7 +75,8 @@ extension ItalyTaxSystem {
 
 /// What the Italian cliffs are measured on (`LegalCliff.measure`).
 public enum ItalyCliffMeasure {
-    /// Reddito complessivo: the income the detrazioni use.
+    /// Reddito complessivo, plus any forfettario income: the income the
+    /// detrazioni and the trattamento integrativo use.
     public static let totalIncome = "reddito complessivo"
     /// Total income plus exempt impatriati income, for the cuneo's limits.
     public static let cuneoIncome = "income for the cuneo"

@@ -136,7 +136,8 @@ struct FlatTaxSystem: TaxSystem {
         }
         for windfall in year.windfalls {
             fixed.lines.append(TaxLine(id: "flat.windfall", label: "Windfall tax",
-                                       amount: windfall.amount * windfallRate, base: windfall.amount))
+                                       amount: windfall.amount * windfallRate, base: windfall.amount,
+                                       subject: windfall.name))
         }
         var next = state
         next["flat.years"] = (state["flat.years"] ?? 0) + 1
@@ -174,7 +175,7 @@ struct FlatPreparedYear: PreparedTaxYear {
                                             amount: interest * system.interestRate, base: interest))
         }
         let wealth = variable.balances.filter { $0.wrapper != "flat.pension" && $0.wrapper != "flat.tfr" }
-            .reduce(0.0) { $0 + $1.value }
+            .reduce(0.0) { $0 + $1.value } * variable.fractionOfYear
         if wealth > 0, system.wealthRate > 0 {
             assessment.lines.append(TaxLine(id: "flat.wealth", label: "Wealth tax", amount: wealth * system.wealthRate,
                                             base: wealth))

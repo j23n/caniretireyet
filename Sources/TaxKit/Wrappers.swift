@@ -25,15 +25,32 @@ public struct WrapperAccessContext: Hashable, Sendable {
     public var contributionYears: Double
     /// Whole years since joining this wrapper (e.g. a pension fund).
     public var membershipYears: Int
+    /// The person's birth date, when known, for rules that count age in
+    /// months (see ``ageInMonthsAtStartOfYear``).
+    public var birthDate: BirthDate?
+    /// `oldAgePensionAge` in months (e.g. 67 years and 3 months is 807), when
+    /// the planner knows it; rules that count months use it instead.
+    public var oldAgePensionAgeInMonths: Int?
 
     public init(year: Int, age: Int, yearsSinceWorkStopped: Int?, oldAgePensionAge: Int?, contributionYears: Double,
-                membershipYears: Int) {
+                membershipYears: Int, birthDate: BirthDate? = nil, oldAgePensionAgeInMonths: Int? = nil) {
         self.year = year
         self.age = age
         self.yearsSinceWorkStopped = yearsSinceWorkStopped
         self.oldAgePensionAge = oldAgePensionAge
         self.contributionYears = contributionYears
         self.membershipYears = membershipYears
+        self.birthDate = birthDate
+        self.oldAgePensionAgeInMonths = oldAgePensionAgeInMonths
+    }
+
+    /// The age in whole months reached by 1 January of `year`, counting from
+    /// the month of birth as pension schemes do (someone born in April 1988
+    /// is 58 years and 8 months on 1 January 2047); `nil` without a birth date.
+    /// A requirement of `n` months is met for the whole year when this is at
+    /// least `n`.
+    public var ageInMonthsAtStartOfYear: Int? {
+        birthDate.map { (year - $0.year) * 12 - $0.month }
     }
 }
 

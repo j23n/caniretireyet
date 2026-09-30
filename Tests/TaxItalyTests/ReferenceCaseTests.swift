@@ -107,6 +107,11 @@ struct ReferenceCaseTests {
             #expect(claim.route == wanted.route, "\(name): route at \(wanted.age) is \(claim.route)")
             #expect(close(claim.annualAmount, wanted.annualAmount),
                     "\(name): amount at \(wanted.age) is \(claim.annualAmount), expected \(wanted.annualAmount)")
+            if let full = wanted.fullYearAmount {
+                let actual = claim.fullYearAmount ?? 0
+                #expect(close(actual, full), "\(name): whole year at \(wanted.age) is \(actual), expected \(full)")
+                #expect(close(claim.yearlyAmount, full == 0 ? claim.annualAmount : full), "\(name): yearly amount")
+            }
             if let next = wanted.nextYear {
                 let actual = claim.annualAmount(atAge: wanted.age + 1)
                 #expect(close(actual, next), "\(name): amount at \(wanted.age + 1) is \(actual), expected \(next)")

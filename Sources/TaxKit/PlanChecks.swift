@@ -32,10 +32,12 @@ extension TaxSystem {
     }
 
     /// The years from `from` to `until` (open-ended when `nil`) in which this
-    /// system is the residence, as closed ranges.
+    /// system is the residence, as closed ranges. Empty when `until` is
+    /// before `from`.
     public func residenceYears(in plan: TaxPlan, from: Int, until: Int?) -> [ClosedRange<Int>] {
-        let span = from...(until ?? Int.max)
-        guard span.lowerBound <= span.upperBound else { return [] }
+        let last = until ?? Int.max
+        guard from <= last else { return [] }
+        let span = from...last
         return residencePeriods(in: plan).compactMap { period in
             let lower = max(period.lowerBound, span.lowerBound)
             let upper = min(period.upperBound, span.upperBound)

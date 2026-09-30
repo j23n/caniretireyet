@@ -86,7 +86,16 @@ enum PlanInterpreter {
         var frames: [YearFrame] = []
         var taxParameters: [String: Int] = [:]
         var failedSystems: Set<String> = []
+        // Years simulated before each one: prices at its start are (1 + i)^elapsed
+        // of today's, so a partial first year counts as its share, as in `inflationStep`.
+        var elapsed = 0.0
         for year in firstYear...lastYear {
+            let simulatedFrom = max(CalendarDate.firstDay(of: year), startDate.adding(days: 1))
+            let daysInYear = CalendarDate.isLeapYear(year) ? 366 : 365
+            let fraction = Double(CalendarDate.inclusiveDays(from: simulatedFrom, to: .lastDay(of: year)))
+                / Double(daysInYear)
+            let yearsBefore = elapsed
+            elapsed += fraction
             let entry = residence.lastIndex { $0.from <= year } ?? 0
             let context = systems[entrySystem[entry]]
             let parameters: ParameterSet
@@ -101,15 +110,11 @@ enum PlanInterpreter {
             if let parameterYear = context.parameters.parameterYear(for: year) {
                 taxParameters[context.id] = max(taxParameters[context.id] ?? parameterYear, parameterYear)
             }
-            let simulatedFrom = max(CalendarDate.firstDay(of: year), startDate.adding(days: 1))
-            let daysInYear = CalendarDate.isLeapYear(year) ? 366 : 365
-            let fraction = Double(CalendarDate.inclusiveDays(from: simulatedFrom, to: .lastDay(of: year)))
-                / Double(daysInYear)
             frames.append(YearFrame(
                 index: frames.count, year: year, age: year - birthDate.year, daysInYear: daysInYear,
                 simulatedFrom: simulatedFrom, fraction: fraction, system: entrySystem[entry], parameters: parameters,
                 systemOptions: OptionValues(residence[entry].options),
-                inflationFactor: pow(1 + inflation, Double(year - firstYear)),
+                inflationFactor: pow(1 + inflation, yearsBefore),
                 inflationStep: pow(1 + inflation, fraction)))
         }
 
@@ -216,15 +221,20 @@ enum PlanInterpreter {
                 indexThresholds: plan.tax.effectiveIndexThresholds,
                 overrides: overrides,
                 work: work.compactMap { phase in
-                    let untilYear = phase.until?.year ?? lastWorkingYear
-                    guard phase.from.year <= last, (untilYear ?? last) >= first else { return nil }
+                    // Retiring ends every phase, whatever its `until`.
+                    let untilYear = [phase.until?.year, lastWorkingYear].compactMap { $0 }.min()
+                    // A phase that ends before it starts (an `until` before `from`, which
+                    // is an error above, or a retirement before the phase begins) never
+                    // happens, so the tax systems don't see it.
+                    let fromYear = max(phase.from.year, first)
+                    guard phase.from.year <= last, (untilYear ?? last) >= fromYear else { return nil }
                     if let regime = phase.regime, context.system.regime(regime) == nil {
                         issues.append(.warning("planner.regimeNotInSystem",
                                                "\(regime) doesn't exist in \(context.system.name); that system's default applies.",
                                                section: .work, index: phase.index, regime: regime))
                     }
                     return TaxPlan.WorkPhase(id: phase.id, kind: phase.kind, regime: phase.regime(in: context.system),
-                                             options: phase.options, fromYear: max(phase.from.year, first),
+                                             options: phase.options, fromYear: fromYear,
                                              untilYear: untilYear.map { min($0, last) })
                 },
                 pensions: pensions.filter { $0.isFixed || context.system.pensionScheme($0.schemeID) != nil }
@@ -238,19 +248,22 @@ enum PlanInterpreter {
             }
         }
 
-        // The old-age pension age behind wrapper access rules: the plan's
-        // schemes first (with their options), then the residence system's.
-        let oldAgePensionAges = frames.map { frame -> Int? in
+        // The old-age pension age behind wrapper access rules, in whole years
+        // and in months: the plan's schemes first (with their options), then
+        // the residence system's.
+        let oldAgePensionAges = frames.map { frame -> (years: Int, months: Int?)? in
             for pension in pensions {
                 if let age = pension.scheme.oldAgePensionAge(in: frame.year, options: pension.options,
                                                              parameters: pension.schemeParameters) {
-                    return age
+                    return (age, pension.scheme.oldAgePensionAgeInMonths(in: frame.year, options: pension.options,
+                                                                          parameters: pension.schemeParameters))
                 }
             }
             let residence = systems[frame.system]
             for scheme in residence.system.pensionSchemes {
                 if let age = scheme.oldAgePensionAge(in: frame.year, options: [:], parameters: residence.parameters) {
-                    return age
+                    return (age, scheme.oldAgePensionAgeInMonths(in: frame.year, options: [:],
+                                                                 parameters: residence.parameters))
                 }
             }
             return nil
@@ -260,7 +273,8 @@ enum PlanInterpreter {
         let model = PlanModel(
             plan: plan, registry: registry, birthDate: birthDate, startDate: startDate, currentAge: currentAge,
             endAge: endAge, planAge: planAge, frames: frames, systems: systems,
-            oldAgePensionAges: oldAgePensionAges, overlays: overlays,
+            oldAgePensionAges: oldAgePensionAges.map { $0?.years },
+            oldAgePensionAgesInMonths: oldAgePensionAges.map { $0?.months }, overlays: overlays,
             indexThresholds: plan.tax.effectiveIndexThresholds, inflation: inflation, work: work, spending: spending,
             pensions: pensions, contributions: contributions, events: events,
             uncertainEventProbabilities: probabilities, portfolio: portfolio, returns: returns,

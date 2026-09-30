@@ -24,7 +24,7 @@ struct PropertyTests {
         let income = year.work.reduce(0) { $0 + $1.gross - $1.costs } + year.pensions.reduce(0) { $0 + $1.amount }
         let irpef = calculator.irpef
         return Point(taxes: taxes, net: income - assessment.totalContributions - assessment.totalTax, measures: [
-            ItalyCliffMeasure.totalIncome: irpef.totalIncome,
+            ItalyCliffMeasure.totalIncome: irpef.thresholdIncome,
             ItalyCliffMeasure.cuneoIncome: irpef.cuneoIncome,
             ItalyCliffMeasure.employmentIncome: irpef.employmentIncome + irpef.exemptEmploymentIncome,
             ItalyCliffMeasure.netIrpef: irpef.netIrpef,

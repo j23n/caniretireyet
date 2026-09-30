@@ -17,7 +17,7 @@ struct ItalyValidator {
         guard let first = periods.first?.lowerBound else { return issues }
         let p: ItalyParameters
         do {
-            p = try ItalyParameters(try parameters.parameters(for: first))
+            p = try system.parsed.parameters(for: try parameters.parameters(for: first))
         } catch {
             issues.append(.error("it.parameters", "The Italian tax parameters can't be used: \(error)", year: first))
             return issues
@@ -84,7 +84,8 @@ struct ItalyValidator {
                     + (extended && movedIn >= rules.extensionFromMoveYear ? rules.extensionYears : 0)
                 stay = rules.minimumStayYears
             }
-            let covered = (movedIn...lastYear).filter(isResident)
+            // An override can make the regime last no years at all.
+            let covered = lastYear >= movedIn ? (movedIn...lastYear).filter(isResident) : []
             if covered.isEmpty {
                 issues.append(.warning("it.impatriati.noYears", "\(name) covers \(movedIn)–\(lastYear), which the plan "
                                        + "doesn't spend resident in Italy.", regime: overlay.regime))
