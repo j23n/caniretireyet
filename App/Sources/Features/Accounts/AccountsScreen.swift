@@ -20,6 +20,7 @@ struct AccountsScreen: View {
     @State private var query = ""
     @State private var showsClosed = false
     @State private var action: AccountAction?
+    @State private var tradeTarget: TradeEditorTarget?
     @State private var errorMessage = ""
     @State private var showsError = false
 
@@ -65,6 +66,7 @@ struct AccountsScreen: View {
         .sheet(item: $action) { action in
             AccountActionSheet(action: action)
         }
+        .tradeEditorSheet($tradeTarget)
         .alert("Couldn't change the account", isPresented: $showsError) {
             Button("OK", role: .cancel) {}
         } message: {
@@ -100,12 +102,21 @@ struct AccountsScreen: View {
             AccountListRow(item: item)
         }
         .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-            Button {
-                action = AccountAction(.updateValue, id)
-            } label: {
-                Label("Update value", systemImage: "square.and.pencil")
+            if item.account.recordsTrades {
+                Button {
+                    tradeTarget = TradeEditorTarget(account: id)
+                } label: {
+                    Label("Add trade", systemImage: "plus.circle")
+                }
+                .tint(Palette.accent)
+            } else {
+                Button {
+                    action = AccountAction(.updateValue, id)
+                } label: {
+                    Label("Update value", systemImage: "square.and.pencil")
+                }
+                .tint(Palette.accent)
             }
-            .tint(Palette.accent)
             Button {
                 action = AccountAction(.close, id)
             } label: {
@@ -114,10 +125,17 @@ struct AccountsScreen: View {
             .tint(Palette.mutedInk)
         }
         .contextMenu {
+            if item.account.recordsTrades {
+                Button {
+                    tradeTarget = TradeEditorTarget(account: id)
+                } label: {
+                    Label("Add Trade…", systemImage: "plus.circle")
+                }
+            }
             Button {
                 action = AccountAction(.updateValue, id)
             } label: {
-                Label("Update Value…", systemImage: "square.and.pencil")
+                Label(item.account.recordsTrades ? "Update Cash…" : "Update Value…", systemImage: "square.and.pencil")
             }
             Button {
                 action = AccountAction(.edit, id)

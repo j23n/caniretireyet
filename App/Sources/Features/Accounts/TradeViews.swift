@@ -1,0 +1,551 @@
+import Model
+import SwiftUI
+import Tracker
+
+// The pieces of a trades account's detail (UI.md, "Account detail" for
+// trades accounts): the holdings card, the trades list (a Table on the
+// Mac), the income and gains by year, and the issue banners. The data is
+// in `TradeListData.swift`.
+
+// MARK: - Amounts
+
+/// A signed amount without colour: "−1.025,95 €", "+200,60 €". A trade's
+/// cash going down isn't bad news, so it isn't red. Hidden with the eye button.
+struct TradeAmountText: View {
+    let amount: Decimal
+    var currency: CurrencyCode?
+    var precision: AmountPrecision = .cents
+
+    @Environment(\.baseCurrency) private var baseCurrency
+    @Environment(\.hidesAmounts) private var hidesAmounts
+    @Environment(\.locale) private var locale
+
+    init(_ amount: Decimal, currency: CurrencyCode? = nil, precision: AmountPrecision = .cents) {
+        self.amount = amount
+        self.currency = currency
+        self.precision = precision
+    }
+
+    var body: some View {
+        let text = hidesAmounts
+            ? AmountFormat.hidden
+            : AmountFormat.signedAmount(amount, currency: currency ?? baseCurrency, precision: precision, locale: locale)
+        Text(verbatim: text)
+            .monospacedDigit()
+            .privacySensitive()
+            .accessibilityLabel(hidesAmounts ? Text("Amount hidden") : Text(verbatim: text))
+    }
+}
+
+/// A trade type's icon, in the accent colour.
+struct TradeTypeIcon: View {
+    let type: TradeType
+
+    var body: some View {
+        Image(systemName: TradeTypeDisplay.systemImage(type))
+            .foregroundStyle(Palette.accent)
+            .frame(width: 24)
+            .accessibilityHidden(true)
+    }
+}
+
+// MARK: - Holdings
+
+/// A trades account's holdings in the iPhone list: each position with its
+/// quantity × price, average cost, unrealised gain and share, then the
+/// cash and the total.
+struct TradeHoldingsRows: View {
+    let holdings: TradeHoldings
+    let currency: CurrencyCode
+
+    @Environment(\.hidesAmounts) private var hidesAmounts
+    @Environment(\.locale) private var locale
+
+    var body: some View {
+        if holdings.rows.isEmpty {
+            Text("No positions: the trades leave only cash.")
+                .foregroundStyle(Palette.secondaryInk)
+        }
+        ForEach(holdings.rows) { row in
+            NavigationLink {
+                InstrumentEditor(instrumentID: row.instrument)
+            } label: {
+                positionRow(row)
+            }
+        }
+        if let cash = holdings.cash {
+            HStack {
+                Text("Cash")
+                    .foregroundStyle(Palette.ink)
+                Spacer(minLength: Metrics.s)
+                if let share = holdings.cashShare {
+                    Text(verbatim: AmountFormat.percent(share, digits: 0, locale: locale))
+                        .font(.footnote)
+                        .foregroundStyle(Palette.secondaryInk)
+                }
+                AmountText(cash, currency: currency, precision: .cents)
+                    .foregroundStyle(Palette.ink)
+            }
+        }
+        HStack {
+            Text("Total")
+                .fontWeight(.semibold)
+            Spacer(minLength: Metrics.s)
+            AmountText(holdings.total, currency: currency, precision: .cents)
+                .fontWeight(.semibold)
+        }
+        if let gain = holdings.totalGain {
+            HStack {
+                Text("Unrealised gain")
+                    .foregroundStyle(Palette.secondaryInk)
+                Spacer(minLength: Metrics.s)
+                DeltaText(gain, currency: currency)
+                if let fraction = holdings.totalGainFraction {
+                    DeltaText(percent: fraction, showsArrow: false)
+                }
+            }
+            .font(.footnote)
+        }
+    }
+
+    private func positionRow(_ row: AccountHoldingRow) -> some View {
+        VStack(alignment: .leading, spacing: Metrics.xs) {
+            HStack(alignment: .firstTextBaseline, spacing: Metrics.s) {
+                Text(row.name)
+                    .foregroundStyle(Palette.ink)
+                    .lineLimit(2)
+                Spacer(minLength: Metrics.s)
+                if let amount = row.amount {
+                    AmountText(amount, currency: currency, precision: .cents)
+                        .foregroundStyle(Palette.ink)
+                } else {
+                    Text("No price")
+                        .foregroundStyle(Palette.secondaryInk)
+                }
+            }
+            HStack(alignment: .firstTextBaseline, spacing: Metrics.s) {
+                Text(AccountPositionText.quantityAndPrice(row, hidesAmounts: hidesAmounts, locale: locale))
+                    .privacySensitive()
+                Spacer(minLength: Metrics.s)
+                if let share = row.share {
+                    Text(verbatim: AmountFormat.percent(share, digits: 0, locale: locale) + " of the account")
+                }
+            }
+            .font(.footnote)
+            .foregroundStyle(Palette.secondaryInk)
+            HStack(alignment: .firstTextBaseline, spacing: Metrics.s) {
+                if let average = row.averageCost {
+                    Text("Average cost")
+                    AmountText(average, currency: currency, precision: .cents)
+                } else {
+                    Text("Average cost unknown")
+                }
+                Spacer(minLength: Metrics.s)
+                if let gain = row.gain {
+                    DeltaText(gain, currency: currency)
+                    if let fraction = row.gainFraction {
+                        DeltaText(percent: fraction, showsArrow: false)
+                    }
+                }
+            }
+            .font(.footnote)
+            .foregroundStyle(Palette.secondaryInk)
+        }
+        .padding(.vertical, 2)
+    }
+}
+
+#if os(macOS)
+/// A trades account's holdings as a grid on the Mac: instrument, quantity,
+/// average cost, price, value, unrealised gain and share; then cash and the total.
+struct TradeHoldingsGrid: View {
+    let holdings: TradeHoldings
+    let currency: CurrencyCode
+
+    @Environment(\.hidesAmounts) private var hidesAmounts
+    @Environment(\.locale) private var locale
+
+    var body: some View {
+        Grid(alignment: .trailing, horizontalSpacing: Metrics.l, verticalSpacing: Metrics.s) {
+            GridRow {
+                Text("Instrument")
+                    .gridColumnAlignment(.leading)
+                Text("Quantity")
+                Text("Average cost")
+                Text("Price")
+                Text("Value")
+                Text("Unrealised gain")
+                Text("Share")
+            }
+            .font(.caption.weight(.semibold))
+            .foregroundStyle(Palette.secondaryInk)
+            Divider()
+            ForEach(holdings.rows) { row in
+                GridRow {
+                    Text(row.name)
+                        .lineLimit(1)
+                    Text(hidesAmounts ? AmountFormat.hidden : AmountFormat.number(row.quantity, maxDigits: 8, locale: locale))
+                        .monospacedDigit()
+                        .privacySensitive()
+                    if let average = row.averageCost {
+                        AmountText(average, currency: currency, precision: .cents)
+                    } else {
+                        Text("–").foregroundStyle(Palette.mutedInk)
+                    }
+                    Text(price(of: row))
+                        .monospacedDigit()
+                    if let amount = row.amount {
+                        AmountText(amount, currency: currency, precision: .cents)
+                    } else {
+                        Text("No price").foregroundStyle(Palette.secondaryInk)
+                    }
+                    gainCell(row)
+                    Text(row.share.map { AmountFormat.percent($0, digits: 0, locale: locale) } ?? "–")
+                        .monospacedDigit()
+                        .foregroundStyle(Palette.secondaryInk)
+                }
+            }
+            if let cash = holdings.cash {
+                GridRow {
+                    Text("Cash")
+                    Text("")
+                    Text("")
+                    Text("")
+                    AmountText(cash, currency: currency, precision: .cents)
+                    Text("")
+                    Text(holdings.cashShare.map { AmountFormat.percent($0, digits: 0, locale: locale) } ?? "–")
+                        .monospacedDigit()
+                        .foregroundStyle(Palette.secondaryInk)
+                }
+            }
+            Divider()
+            GridRow {
+                Text("Total")
+                    .fontWeight(.semibold)
+                Text("")
+                Text("")
+                Text("")
+                AmountText(holdings.total, currency: currency, precision: .cents)
+                    .fontWeight(.semibold)
+                if let gain = holdings.totalGain {
+                    DeltaText(gain, currency: currency)
+                } else {
+                    Text("–").foregroundStyle(Palette.mutedInk)
+                }
+                Text("")
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func gainCell(_ row: AccountHoldingRow) -> some View {
+        if let gain = row.gain {
+            HStack(spacing: Metrics.xs) {
+                DeltaText(gain, currency: currency)
+                if let fraction = row.gainFraction {
+                    DeltaText(percent: fraction, showsArrow: false)
+                        .font(.caption)
+                }
+            }
+        } else {
+            Text("–").foregroundStyle(Palette.mutedInk)
+        }
+    }
+
+    private func price(of row: AccountHoldingRow) -> String {
+        guard let price = row.price else { return "–" }
+        return "\(AmountFormat.number(price.price, maxDigits: 4, locale: locale)) \(price.currency)"
+    }
+}
+#endif
+
+// MARK: - Trades list
+
+/// One trade in the iPhone list: its type's icon, what it was ("Buy · 10
+/// VWCE × 102,30"), its date and note, and the cash it moved.
+struct TradeListRowView: View {
+    let item: TradeListItem
+    let currency: CurrencyCode
+
+    @Environment(\.locale) private var locale
+
+    var body: some View {
+        HStack(alignment: .firstTextBaseline, spacing: Metrics.s) {
+            TradeTypeIcon(type: item.type)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(verbatim: item.title)
+                    .foregroundStyle(Palette.ink)
+                    .lineLimit(2)
+                    .privacySensitive()
+                HStack(spacing: Metrics.xs) {
+                    Text(verbatim: AmountFormat.mediumDate(item.date, locale: locale))
+                    if let note = item.trade.note {
+                        Text(verbatim: "· " + note)
+                            .lineLimit(1)
+                    }
+                }
+                .font(.caption)
+                .foregroundStyle(Palette.secondaryInk)
+            }
+            Spacer(minLength: Metrics.s)
+            VStack(alignment: .trailing, spacing: 2) {
+                if let effect = item.cashEffect {
+                    TradeAmountText(effect, currency: currency)
+                        .foregroundStyle(Palette.ink)
+                } else {
+                    Text("Amount unknown")
+                        .font(.footnote)
+                        .foregroundStyle(Palette.secondaryInk)
+                }
+                if let gain = item.realizedGain {
+                    HStack(spacing: 4) {
+                        Text("gain")
+                            .foregroundStyle(Palette.secondaryInk)
+                        DeltaText(gain, currency: currency, precision: .automatic, showsArrow: false)
+                    }
+                    .font(.caption)
+                }
+                if item.hasIssue {
+                    Label("Needs a look", systemImage: "exclamationmark.triangle")
+                        .font(.caption)
+                        .foregroundStyle(Palette.warning)
+                }
+            }
+        }
+        .contentShape(Rectangle())
+        .accessibilityElement(children: .combine)
+    }
+}
+
+/// The trades list's filter: by instrument and by type.
+struct TradeFilterMenu: View {
+    let list: TradeList
+    @Binding var filter: TradeListFilter
+
+    var body: some View {
+        Menu {
+            Picker("Instrument", selection: $filter.instrument) {
+                Text("All instruments").tag(InstrumentID?.none)
+                ForEach(list.instruments) { option in
+                    Text(verbatim: option.name).tag(Optional(option.value))
+                }
+            }
+            Picker("Type", selection: $filter.type) {
+                Text("All types").tag(TradeType?.none)
+                ForEach(list.types) { option in
+                    Text(verbatim: option.name).tag(Optional(option.value))
+                }
+            }
+            if filter.isActive {
+                Button("Show All Trades") { filter = TradeListFilter() }
+            }
+        } label: {
+            Label("Filter", systemImage: filter.isActive
+                ? "line.3.horizontal.decrease.circle.fill" : "line.3.horizontal.decrease.circle")
+        }
+    }
+}
+
+#if os(macOS)
+/// The trades as a table on the Mac: date, type, instrument, quantity,
+/// price, amount and note. Double-click (or the context menu) edits one.
+struct TradesTable: View {
+    let items: [TradeListItem]
+    let currency: CurrencyCode
+    let edit: (TradeKey) -> Void
+    let delete: (TradeKey) -> Void
+
+    @State private var selection: TradeKey?
+
+    var body: some View {
+        Table(items, selection: $selection) {
+            TableColumn("Date") { (item: TradeListItem) in
+                Text(AmountFormat.mediumDate(item.date))
+                    .monospacedDigit()
+            }
+            .width(min: 90, ideal: 105)
+            TableColumn("Type") { (item: TradeListItem) in
+                TradeTableTypeCell(item: item)
+            }
+            .width(min: 100, ideal: 120)
+            TableColumn("Instrument") { (item: TradeListItem) in
+                Text(item.instrumentLabel ?? "")
+                    .lineLimit(1)
+            }
+            .width(min: 70, ideal: 90)
+            TableColumn("Quantity") { (item: TradeListItem) in
+                TradeTableNumberCell(value: item.trade.quantity ?? item.trade.ratio, digits: 8)
+            }
+            .width(min: 70, ideal: 90)
+            TableColumn("Price") { (item: TradeListItem) in
+                TradeTableNumberCell(value: item.trade.price, digits: 4)
+            }
+            .width(min: 70, ideal: 90)
+            TableColumn("Amount") { (item: TradeListItem) in
+                TradeTableAmountCell(item: item, currency: currency)
+            }
+            .width(min: 100, ideal: 130)
+            TableColumn("Note") { (item: TradeListItem) in
+                Text(item.trade.note ?? "")
+                    .foregroundStyle(Palette.secondaryInk)
+                    .lineLimit(1)
+            }
+        }
+        .contextMenu(forSelectionType: TradeKey.self) { keys in
+            if let key = keys.first {
+                Button("Edit Trade…") { edit(key) }
+                Button("Delete Trade…", role: .destructive) { delete(key) }
+            }
+        } primaryAction: { keys in
+            if let key = keys.first { edit(key) }
+        }
+    }
+}
+
+private struct TradeTableTypeCell: View {
+    let item: TradeListItem
+
+    var body: some View {
+        HStack(spacing: Metrics.xs) {
+            Image(systemName: TradeTypeDisplay.systemImage(item.type))
+                .foregroundStyle(Palette.accent)
+            Text(verbatim: TradeTypeDisplay.name(item.type))
+            if item.hasIssue {
+                Image(systemName: "exclamationmark.triangle")
+                    .foregroundStyle(Palette.warning)
+                    .help("Needs a look: see the notes above the list.")
+            }
+        }
+    }
+}
+
+private struct TradeTableNumberCell: View {
+    let value: Decimal?
+    let digits: Int
+
+    @Environment(\.hidesAmounts) private var hidesAmounts
+    @Environment(\.locale) private var locale
+
+    var body: some View {
+        Group {
+            if let value {
+                Text(hidesAmounts ? AmountFormat.hidden : AmountFormat.number(value, maxDigits: digits, locale: locale))
+                    .monospacedDigit()
+                    .privacySensitive()
+            } else {
+                Text("")
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .trailing)
+    }
+}
+
+private struct TradeTableAmountCell: View {
+    let item: TradeListItem
+    let currency: CurrencyCode
+
+    var body: some View {
+        Group {
+            if let effect = item.cashEffect {
+                TradeAmountText(effect, currency: currency)
+            } else {
+                Text("Unknown")
+                    .foregroundStyle(Palette.mutedInk)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .trailing)
+    }
+}
+#endif
+
+// MARK: - Income and gains
+
+/// One year of income and gains: realised gains, dividends, interest, fees
+/// and taxes, and the net.
+struct TradeIncomeYearView: View {
+    let year: TradeIncomeYear
+    let currency: CurrencyCode
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: Metrics.xs) {
+            Text(verbatim: String(year.year))
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(Palette.ink)
+            ForEach(year.lines) { line in
+                HStack {
+                    Text(verbatim: line.name)
+                        .foregroundStyle(Palette.secondaryInk)
+                    Spacer(minLength: Metrics.s)
+                    if line.isCharge {
+                        TradeAmountText(line.amount, currency: currency)
+                    } else {
+                        DeltaText(line.amount, currency: currency, precision: .cents, showsArrow: false)
+                    }
+                }
+                .font(.footnote)
+            }
+            HStack {
+                Text("Net")
+                    .fontWeight(.semibold)
+                Spacer(minLength: Metrics.s)
+                DeltaText(year.net, currency: currency, precision: .cents, showsArrow: false)
+                    .fontWeight(.semibold)
+            }
+            .font(.footnote)
+            if let note = year.unknownGainNote {
+                Text(verbatim: note)
+                    .font(.caption)
+                    .foregroundStyle(Palette.secondaryInk)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .accessibilityElement(children: .combine)
+    }
+}
+
+// MARK: - Issues
+
+/// The notes about an account's trades as banners, each with its fix.
+struct TradeIssueBanners: View {
+    let notes: [TradeIssueNote]
+    let perform: (TradeIssueAction) -> Void
+
+    var body: some View {
+        VStack(spacing: Metrics.s) {
+            ForEach(notes) { note in
+                if let action = note.action, let title = note.actionTitle {
+                    StatusBanner(note.isError ? .warning : .info, note.title, message: note.message,
+                                 actionTitle: title) { perform(action) }
+                } else {
+                    StatusBanner(note.isError ? .warning : .info, note.title, message: note.message)
+                }
+            }
+        }
+    }
+}
+
+#Preview("Trades pieces") {
+    let library = PreviewLibrary.library
+    let valuator = PreviewLibrary.valuator
+    let list = TradeList(account: "directa", library: library, valuator: valuator)
+    let data = AccountDetailData(account: library.accounts["directa"]!, library: library, valuator: valuator,
+                                 today: PreviewLibrary.latestCheckIn, stalenessThreshold: 45)
+    List {
+        Section("Holdings") {
+            if let holdings = data.tradeHoldings {
+                TradeHoldingsRows(holdings: holdings, currency: "EUR")
+            }
+        }
+        Section("Trades") {
+            ForEach(list.items.prefix(5)) { item in
+                TradeListRowView(item: item, currency: "EUR")
+            }
+        }
+        Section("Income & gains") {
+            ForEach(data.incomeYears) { year in
+                TradeIncomeYearView(year: year, currency: "EUR")
+            }
+        }
+    }
+    .previewEnvironment()
+}

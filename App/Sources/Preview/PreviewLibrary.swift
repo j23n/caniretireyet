@@ -23,6 +23,19 @@ enum PreviewLibrary {
     /// A library with settings and nothing else, for empty states.
     static let empty = Library(settings: settings)
 
+    /// ``library`` with Directa's September check-in listing the positions
+    /// of a made-up broker statement that shows 10 VWCE more than the
+    /// trades give, and a buy without a price, for the trades account's
+    /// banners (a reconciliation mismatch and a trade that needs a look).
+    static let withStatementMismatch: Library = {
+        var copy = PreviewLibrary.library
+        copy.upsert(Valuation(account: "directa", date: "2026-09-30", cash: d("312.1"),
+                              positions: [Position(instrument: "vwce", quantity: d("424.5"))], flow: d("11.3")))
+        copy.upsert(Trade(account: "directa", date: "2026-09-18", id: "nopricex", type: .buy, instrument: "vwce",
+                          quantity: 2, source: .manual))
+        return copy
+    }()
+
     /// A valuator over ``library``.
     static var valuator: Tracker.Valuator { Tracker.Valuator(library: library) }
 

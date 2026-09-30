@@ -8,6 +8,12 @@ import Tracker
 /// the details, and closing, reopening and deleting. On the Mac the
 /// valuations are a table.
 ///
+/// An account that records trades shows, instead of positions, its
+/// holdings with average cost and share, its trades by month (a Table on
+/// the Mac) with *Add Trade…*, its income and gains by year, and what's
+/// wrong with its trades. *Switch to Trade History…* and *Switch to
+/// Snapshots…* convert an account between the two (docs/TRADES.md).
+///
 /// Pushing an `AccountID` onto any navigation stack shows it.
 struct AccountDetailScreen: View {
     let accountID: AccountID
@@ -15,6 +21,7 @@ struct AccountDetailScreen: View {
     @Environment(LibraryStore.self) private var library
     @Environment(AppPreferences.self) private var preferences
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.locale) private var locale
 
     @State private var action: AccountAction?
     @State private var editing: AccountValuationTarget?
@@ -24,6 +31,11 @@ struct AccountDetailScreen: View {
     @State private var errorMessage = ""
     @State private var showsError = false
     @State private var fillsPastPrices = false
+    @State private var tradeTarget: TradeEditorTarget?
+    @State private var tradeFilter = TradeListFilter()
+    @State private var deletingTrade: TradeKey?
+    @State private var confirmsTradeDelete = false
+    @State private var conversion: AccountConversionDirection?
 
     init(accountID: AccountID) {
         self.accountID = accountID
@@ -33,11 +45,30 @@ struct AccountDetailScreen: View {
         if let account = library.account(accountID) {
             let data = AccountDetailData(account: account, library: library.library, valuator: library.valuator,
                                          today: .today(), stalenessThreshold: preferences.stalenessThreshold)
-            layout(data)
+            let trades: TradeList? = account.recordsTrades
+                ? TradeList(account: accountID, library: library.library, valuator: library.valuator,
+                            filter: tradeFilter, locale: locale)
+                : nil
+            layout(data, trades: trades)
                 .navigationTitle(account.name)
                 .toolbar { toolbarContent(data) }
                 .sheet(item: $action) { action in
                     AccountActionSheet(action: action)
+                }
+                .tradeEditorSheet($tradeTarget)
+                .sheet(item: $conversion) { direction in
+                    NavigationStack {
+                        AccountConversionSheet(accountID: accountID, direction: direction)
+                    }
+                    #if os(macOS)
+                    .frame(minWidth: 480, idealWidth: 560, minHeight: 480, idealHeight: 640)
+                    #endif
+                }
+                .confirmationDialog("Delete this trade?", isPresented: $confirmsTradeDelete,
+                                    titleVisibility: .visible, presenting: deletingTrade) { key in
+                    Button("Delete Trade", role: .destructive) { removeTrade(key) }
+                } message: { key in
+                    Text(verbatim: deleteTradeMessage(key))
                 }
                 .pastPricesSheet(isPresented: $fillsPastPrices)
                 .sheet(item: $editing) { target in
@@ -72,17 +103,17 @@ struct AccountDetailScreen: View {
     }
 
     @ViewBuilder
-    private func layout(_ data: AccountDetailData) -> some View {
+    private func layout(_ data: AccountDetailData, trades: TradeList?) -> some View {
         #if os(macOS)
-        macLayout(data)
+        macLayout(data, trades: trades)
         #else
-        listLayout(data)
+        listLayout(data, trades: trades)
         #endif
     }
 
     // MARK: iPhone and iPad
 
-    private func listLayout(_ data: AccountDetailData) -> some View {
+    private func listLayout(_ data: AccountDetailData, trades: TradeList?) -> some View {
         let currency = data.account.currency
         return List {
             Section {
@@ -91,6 +122,43 @@ struct AccountDetailScreen: View {
                     .padding(.vertical, Metrics.xs)
                 if let note = oldPriceNote(data) {
                     OldPriceNoteView(text: note) { fillsPastPrices = true }
+                }
+            }
+            if !data.tradeIssues.isEmpty {
+                Section {
+                    TradeIssueBanners(notes: data.tradeIssues) { perform($0) }
+                        .listRowInsets(EdgeInsets(top: 0, leading: 0, bottom: 0, trailing: 0))
+                        .listRowBackground(Color.clear)
+                }
+            }
+            if let holdings = data.tradeHoldings {
+                Section {
+                    TradeHoldingsRows(holdings: holdings, currency: currency)
+                    NavigationLink {
+                        InstrumentsScreen()
+                    } label: {
+                        Label("Instruments", systemImage: AppSymbol.instruments)
+                    }
+                } header: {
+                    Text("Holdings")
+                } footer: {
+                    Text("From the trades, at the latest prices. The average cost is what was paid per unit, fees "
+                        + "included; the gain is the value minus it.")
+                }
+            }
+            if let trades {
+                tradeSections(trades, currency: currency)
+                if !data.incomeYears.isEmpty {
+                    Section {
+                        ForEach(data.incomeYears) { year in
+                            TradeIncomeYearView(year: year, currency: currency)
+                                .padding(.vertical, 2)
+                        }
+                    } header: {
+                        Text("Income & gains")
+                    } footer: {
+                        Text("Realised gains use the average cost. Dividends and interest are before tax withheld.")
+                    }
                 }
             }
             if data.showsPositions {
@@ -146,9 +214,12 @@ struct AccountDetailScreen: View {
                     }
                 }
             } header: {
-                Text("Values")
+                Text(data.recordsTrades ? "Cash at check-ins" : "Values")
             } footer: {
-                if !data.valuations.isEmpty {
+                if data.recordsTrades {
+                    Text("Each value records the account's cash on its date; its holdings come from the trades. A "
+                        + "cash that differs from the trades counts as money added or taken out.")
+                } else if !data.valuations.isEmpty {
                     Text("Tap a value to change its date, amount, new money or note. A value before the opening "
                         + "date moves it back.")
                 }
@@ -160,6 +231,7 @@ struct AccountDetailScreen: View {
             }
             Section {
                 lifecycleButtons(data)
+                conversionButton(data)
             }
             Section {
                 Button("Delete Account…", role: .destructive) {
@@ -175,7 +247,7 @@ struct AccountDetailScreen: View {
     // MARK: Mac
 
     #if os(macOS)
-    private func macLayout(_ data: AccountDetailData) -> some View {
+    private func macLayout(_ data: AccountDetailData, trades: TradeList?) -> some View {
         let currency = data.account.currency
         return ScrollView {
             VStack(alignment: .leading, spacing: Metrics.l) {
@@ -184,6 +256,36 @@ struct AccountDetailScreen: View {
                     AccountHistoryChart(points: data.history, flows: data.flows, currency: currency, height: 240)
                     if let note = oldPriceNote(data) {
                         OldPriceNoteView(text: note) { fillsPastPrices = true }
+                    }
+                }
+                if !data.tradeIssues.isEmpty {
+                    TradeIssueBanners(notes: data.tradeIssues) { perform($0) }
+                }
+                if let holdings = data.tradeHoldings {
+                    Card("Holdings") {
+                        if holdings.rows.isEmpty && holdings.cash == nil {
+                            Text("No positions: the trades leave nothing held yet.")
+                                .foregroundStyle(Palette.secondaryInk)
+                        } else {
+                            TradeHoldingsGrid(holdings: holdings, currency: currency)
+                        }
+                    }
+                }
+                if let trades {
+                    macTradesCard(trades, currency: currency)
+                    if !data.incomeYears.isEmpty {
+                        Card("Income & gains") {
+                            LazyVGrid(columns: [GridItem(.adaptive(minimum: 220), spacing: Metrics.xl,
+                                                         alignment: .top)],
+                                      alignment: .leading, spacing: Metrics.l) {
+                                ForEach(data.incomeYears) { year in
+                                    TradeIncomeYearView(year: year, currency: currency)
+                                }
+                            }
+                            Text("Realised gains use the average cost. Dividends and interest are before tax withheld.")
+                                .font(.caption)
+                                .foregroundStyle(Palette.mutedInk)
+                        }
                     }
                 }
                 if data.showsPositions {
@@ -206,7 +308,7 @@ struct AccountDetailScreen: View {
                             .frame(height: min(CGFloat(data.valuations.count) * 26 + 36, 380))
                     }
                 } header: {
-                    SectionHeader("Values") {
+                    SectionHeader(data.recordsTrades ? "Cash at check-ins" : "Values") {
                         HStack(spacing: Metrics.m) {
                             Text("Double-click a value to edit it")
                                 .font(.caption)
@@ -225,6 +327,7 @@ struct AccountDetailScreen: View {
                 }
                 HStack(spacing: Metrics.m) {
                     lifecycleButtons(data)
+                    conversionButton(data)
                     Spacer()
                     Button("Delete Account…", role: .destructive) {
                         confirmsDelete = true
@@ -239,7 +342,127 @@ struct AccountDetailScreen: View {
         }
         .background(Palette.page)
     }
+
+    /// The trades as a table, with the filter and *Add Trade…*.
+    private func macTradesCard(_ trades: TradeList, currency: CurrencyCode) -> some View {
+        Card {
+            if trades.isEmpty {
+                Text("No trades yet. Add the account's buys, sells and dividends, or its opening positions.")
+                    .foregroundStyle(Palette.secondaryInk)
+            } else if trades.shownCount == 0 {
+                Text("No trades match the filter.")
+                    .foregroundStyle(Palette.secondaryInk)
+            } else {
+                TradesTable(
+                    items: trades.items, currency: currency,
+                    edit: { key in tradeTarget = .editing(key) },
+                    delete: { key in confirmDeleting(key) })
+                    .frame(height: min(CGFloat(trades.shownCount) * 26 + 36, 420))
+            }
+        } header: {
+            SectionHeader("Trades") {
+                HStack(spacing: Metrics.m) {
+                    Text(tradeCountText(trades))
+                        .font(.caption)
+                        .foregroundStyle(Palette.mutedInk)
+                    if !trades.isEmpty {
+                        TradeFilterMenu(list: trades, filter: $tradeFilter)
+                            .controlSize(.small)
+                            .fixedSize()
+                    }
+                    Button("Add Trade…") { tradeTarget = TradeEditorTarget(account: accountID) }
+                        .controlSize(.small)
+                        .disabled(!library.canEdit)
+                }
+            }
+        }
+    }
     #endif
+
+    // MARK: Trades
+
+    /// *Add Trade…* and the filter, then a section per month, newest first.
+    /// Tap a trade to edit it; swipe or long-press to delete it.
+    @ViewBuilder
+    private func tradeSections(_ trades: TradeList, currency: CurrencyCode) -> some View {
+        Section {
+            Button {
+                tradeTarget = TradeEditorTarget(account: accountID)
+            } label: {
+                Label("Add Trade…", systemImage: "plus.circle")
+            }
+            .disabled(!library.canEdit)
+            if !trades.isEmpty {
+                HStack {
+                    Text(tradeCountText(trades))
+                        .font(.footnote)
+                        .foregroundStyle(Palette.secondaryInk)
+                    Spacer(minLength: Metrics.s)
+                    TradeFilterMenu(list: trades, filter: $tradeFilter)
+                        .labelStyle(.titleAndIcon)
+                        .font(.footnote)
+                }
+            } else {
+                Text("No trades yet. Add the account's buys, sells and dividends, or its opening positions.")
+                    .foregroundStyle(Palette.secondaryInk)
+            }
+        } header: {
+            Text("Trades")
+        }
+        ForEach(trades.sections) { month in
+            Section {
+                ForEach(month.items) { item in
+                    Button {
+                        tradeTarget = .editing(item.id)
+                    } label: {
+                        TradeListRowView(item: item, currency: currency)
+                    }
+                    .buttonStyle(.plain)
+                    .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                        Button {
+                            confirmDeleting(item.id)
+                        } label: {
+                            Label("Delete", systemImage: "trash")
+                        }
+                        .tint(Palette.critical)
+                    }
+                    .contextMenu {
+                        Button {
+                            tradeTarget = .editing(item.id)
+                        } label: {
+                            Label("Edit Trade…", systemImage: "pencil")
+                        }
+                        Button(role: .destructive) {
+                            confirmDeleting(item.id)
+                        } label: {
+                            Label("Delete Trade…", systemImage: "trash")
+                        }
+                    }
+                }
+            } header: {
+                Text(verbatim: month.title(locale: locale))
+            }
+        }
+    }
+
+    /// "24 trades", or "3 of 24 trades" with a filter.
+    private func tradeCountText(_ trades: TradeList) -> String {
+        let total = trades.totalCount == 1 ? "1 trade" : "\(trades.totalCount) trades"
+        return trades.shownCount == trades.totalCount ? total : "\(trades.shownCount) of \(total)"
+    }
+
+    /// *Switch to Trade History…* for an account that records positions,
+    /// *Switch to Snapshots…* for one that records trades.
+    @ViewBuilder
+    private func conversionButton(_ data: AccountDetailData) -> some View {
+        if data.canSwitchToTrades {
+            Button("Switch to Trade History…") { conversion = .toTrades }
+                .disabled(!library.canEdit)
+        } else if data.canSwitchToSnapshots {
+            Button("Switch to Snapshots…") { conversion = .toSnapshots }
+                .disabled(!library.canEdit)
+        }
+    }
 
     // MARK: Shared
 
@@ -249,8 +472,10 @@ struct AccountDetailScreen: View {
             Button("Reopen Account") { reopen() }
                 .disabled(!library.canEdit)
         } else {
-            Button("Update Value…") { action = AccountAction(.updateValue, accountID) }
-                .disabled(!library.canEdit)
+            Button(data.recordsTrades ? "Update Cash…" : "Update Value…") {
+                action = AccountAction(.updateValue, accountID)
+            }
+            .disabled(!library.canEdit)
             Button("Close Account…") { action = AccountAction(.close, accountID) }
                 .disabled(!library.canEdit)
         }
@@ -261,7 +486,14 @@ struct AccountDetailScreen: View {
     @ToolbarContentBuilder
     private func toolbarContent(_ data: AccountDetailData) -> some ToolbarContent {
         ToolbarItemGroup(placement: .primaryAction) {
-            if !data.account.isClosed {
+            if data.recordsTrades {
+                Button {
+                    tradeTarget = TradeEditorTarget(account: accountID)
+                } label: {
+                    Label("Add Trade", systemImage: "plus")
+                }
+                .disabled(!library.canEdit)
+            } else if !data.account.isClosed {
                 Button {
                     action = AccountAction(.updateValue, accountID)
                 } label: {
@@ -308,6 +540,39 @@ struct AccountDetailScreen: View {
     /// Opens *Update Value* on the month end before the first value.
     private func addPastValue(_ data: AccountDetailData) {
         action = AccountAction(.addPastValue, accountID, date: data.pastValueDate)
+    }
+
+    /// Does what a trade issue's banner offers.
+    private func perform(_ action: TradeIssueAction) {
+        switch action {
+        case .editTrade(let key): tradeTarget = .editing(key)
+        case .addTrade(let target): tradeTarget = target
+        case .editValuation(let key): editing = AccountValuationTarget(key: key)
+        case .editAccount: self.action = AccountAction(.edit, accountID)
+        case .switchToTrades: conversion = .toTrades
+        }
+    }
+
+    private func confirmDeleting(_ key: TradeKey) {
+        deletingTrade = key
+        confirmsTradeDelete = true
+    }
+
+    /// What deleting a trade does, before it's confirmed.
+    private func deleteTradeMessage(_ key: TradeKey) -> String {
+        let notes = TradeEditNotes.removal(of: key, in: library.library, locale: locale)
+        return (["The account's holdings, cash and gains are worked out again without it."] + notes)
+            .joined(separator: " ")
+    }
+
+    private func removeTrade(_ key: TradeKey) {
+        Task {
+            do {
+                try await library.removeTrade(key)
+            } catch {
+                show(error)
+            }
+        }
     }
 
     /// The note under the chart when its values use old prices.
@@ -731,7 +996,7 @@ private struct AccountInfoRows: View {
             if let joined = account.tax?.joined {
                 AccountInfoRow(title: "Joined", text: AmountFormat.mediumDate(joined, locale: locale))
             }
-            AccountInfoRow(title: "Recorded as", text: account.valuationMode == .holdings ? "Positions" : "A balance")
+            AccountInfoRow(title: "Recorded as", text: recordedAs)
             if let mix = assetMix {
                 AccountInfoRow(title: "Asset mix", text: mix)
             }
@@ -762,6 +1027,16 @@ private struct AccountInfoRows: View {
         account.wrapper.map { AccountWrapperDefaults.name(of: $0) } ?? "None"
     }
 
+    /// "Trade history", "Monthly snapshots of positions", "A balance".
+    private var recordedAs: String {
+        switch account.valuationMode {
+        case .trades: "Trade history"
+        case .holdings: "Snapshots of positions"
+        case .balance: "A balance"
+        default: account.valuationMode.rawValue
+        }
+    }
+
     /// Closed accounts whose money went to this one.
     private var predecessors: [String] {
         library.library.accounts.values.filter { $0.successor == account.id }.map(\.name).sorted()
@@ -781,9 +1056,25 @@ private struct AccountInfoRows: View {
     }
 }
 
-#Preview("Brokerage") {
+#Preview("Brokerage with trades") {
     NavigationStack {
         AccountDetailScreen(accountID: "directa")
+            .appDestinations()
+    }
+    .previewEnvironment()
+}
+
+#Preview("Trades with a mismatch") {
+    NavigationStack {
+        AccountDetailScreen(accountID: "directa")
+            .appDestinations()
+    }
+    .previewEnvironment(PreviewLibrary.withStatementMismatch)
+}
+
+#Preview("Gold coins (snapshots)") {
+    NavigationStack {
+        AccountDetailScreen(accountID: "gold-coins")
             .appDestinations()
     }
     .previewEnvironment()
