@@ -216,15 +216,20 @@ enum PlanInterpreter {
                 indexThresholds: plan.tax.effectiveIndexThresholds,
                 overrides: overrides,
                 work: work.compactMap { phase in
-                    let untilYear = phase.until?.year ?? lastWorkingYear
-                    guard phase.from.year <= last, (untilYear ?? last) >= first else { return nil }
+                    // Retiring ends every phase, whatever its `until`.
+                    let untilYear = [phase.until?.year, lastWorkingYear].compactMap { $0 }.min()
+                    // A phase that ends before it starts (an `until` before `from`, which
+                    // is an error above, or a retirement before the phase begins) never
+                    // happens, so the tax systems don't see it.
+                    let fromYear = max(phase.from.year, first)
+                    guard phase.from.year <= last, (untilYear ?? last) >= fromYear else { return nil }
                     if let regime = phase.regime, context.system.regime(regime) == nil {
                         issues.append(.warning("planner.regimeNotInSystem",
                                                "\(regime) doesn't exist in \(context.system.name); that system's default applies.",
                                                section: .work, index: phase.index, regime: regime))
                     }
                     return TaxPlan.WorkPhase(id: phase.id, kind: phase.kind, regime: phase.regime(in: context.system),
-                                             options: phase.options, fromYear: max(phase.from.year, first),
+                                             options: phase.options, fromYear: fromYear,
                                              untilYear: untilYear.map { min($0, last) })
                 },
                 pensions: pensions.filter { $0.isFixed || context.system.pensionScheme($0.schemeID) != nil }
