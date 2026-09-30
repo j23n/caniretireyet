@@ -36,9 +36,12 @@ Can I Retire Yet/                   ← the app's folder in iCloud Drive
 │   └── 2026/
 │       ├── 2026-01.json
 │       └── …
-└── plans/
-    ├── base.json
-    └── part-time-from-50.json
+├── plans/
+│   ├── base.json
+│   └── part-time-from-50.json
+├── imports/
+│   └── net-worth-sheet.json        saved import mappings (see IMPORT.md)
+└── backups/                        copies made before a migration or an import
 ```
 
 ## Conventions
@@ -83,7 +86,7 @@ A brokerage account that holds positions:
   "name": "Directa",
   "opened": "2021-03-01",
   "tags": ["fire"],
-  "tax": { "regime": "amministrato", "wrapper": "it.ordinary" }
+  "tax": { "wrapper": "it.ordinary" }
 }
 ```
 
@@ -125,10 +128,10 @@ A closed account:
 | `currency` | yes | The currency of this account's balances and cash. |
 | `opened` | yes | The first day the account counts toward net worth. |
 | `closed` | no | The last day it counts. Absent while the account is active. |
-| `institution`, `country` | no | The bank or broker, and its country. Foreign accounts mean IVAFE instead of bollo, and must be reported in the RW section of the tax return. |
+| `institution`, `country` | no | The bank or broker, and its country. The tax system may use the country, e.g. Italy's higher wealth-tax rate for blacklisted countries. So does the RW helper, which lists the foreign accounts you have to declare. |
 | `valuation` | no | `balance` or `holdings`. The default depends on `kind`: brokerage, crypto and metals default to holdings. |
 | `assetClasses` | no | The asset mix of an account recorded as a balance, used by the planner. Defaults by kind: cash → `cash`, property → `realEstate`. |
-| `tax` | no | How the planner taxes this account. `wrapper` is one of `it.ordinary`, `it.pensionFund`, `it.tfr`, `it.pir` or `none`, followed by wrapper-specific details. |
+| `tax` | no | How the planner taxes this account. `wrapper` names a wrapper defined by a tax system (for Italy: `it.ordinary`, `it.pensionFund`, `it.tfr`) or a generic one (`taxable`, `taxDeferred`, `taxFree`). Wrapper-specific details follow. See [TAXES.md](TAXES.md). |
 | `includeIn` | no | `{ "netWorth": true, "plan": true }`. A primary home would normally set `"plan": false`. |
 | `successor` | no | The account that replaced this one, e.g. when you switched banks, so charts stay continuous. |
 | `tags`, `notes` | no | Free-form. |
@@ -275,27 +278,10 @@ Merges are listed on the Sync screen so you can check them.
 - Before migrating, the app copies the library into `backups/<date>-v<old>/`.
 - An app older than the library opens it read-only.
 
-## CSV import
+## `imports/<id>.json`
 
-The importer reads your spreadsheet as CSV. It detects the delimiter, the decimal separator and the date format, and shows a preview before it writes anything.
+Saved import profiles. Each describes how to read one kind of file (encoding, delimiter, number and date formats) and what each column becomes. See [IMPORT.md](IMPORT.md#import-profiles) for the fields and an example.
 
-Wide layout (one row per month, one column per account):
+## `backups/`
 
-```
-Data;Conto Fineco;Directa;Bitcoin;Oro;Fondo pensione;Mutuo
-31/01/2024;5.120,33;38.400,00;9.870,50;4.100,00;12.300,00;-195.000,00
-29/02/2024;4.980,10;39.950,12;11.020,00;4.180,00;12.410,00;-194.300,00
-```
-
-Long layout:
-
-```
-date,account,value,currency
-2024-01-31,Conto Fineco,5120.33,EUR
-2024-01-31,Directa,38400.00,EUR
-```
-
-- **Mapping.** Each column or account name is mapped to an account. You can create new accounts or match existing ones.
-- **Result.** Values become balance valuations.
-- **Closed accounts.** An account whose values stop before the last row is proposed as closed.
-- **Re-running.** A second import updates the same records instead of duplicating them.
+Copies of files taken before a schema migration or an import, in dated folders. They're what "Undo import" restores. Safe to delete.

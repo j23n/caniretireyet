@@ -1,6 +1,6 @@
 # Plan
 
-> Status: draft for review. The open questions are at the end.
+> Status: reviewed once (answers in §8). The tax architecture is in [TAXES.md](TAXES.md), and the importer is in [IMPORT.md](IMPORT.md).
 
 ## 1. What we're building
 
@@ -8,7 +8,7 @@ A private app for iPhone and Mac with two halves:
 
 1. **Tracker.** Once a month you check in and record what each account is worth. Cash accounts, pension funds, property and debts are recorded as a balance. For ETFs, crypto and gold you record the quantity, and the app multiplies it by the price. Accounts are opened and closed over the years, and their history is kept either way.
 2. **Planner.** Scenarios that start from your latest check-in and simulate the years ahead, covering:
-   - work and savings, with Italian taxes including impatriati and forfettario;
+   - work and savings, with taxes from a pluggable tax system (Italy first, including impatriati and forfettario);
    - spending in retirement;
    - the INPS pension and any other pensions;
    - windfalls and large expenses.
@@ -44,7 +44,7 @@ All data lives in a folder of plain JSON files in iCloud Drive. The apps on your
   - breakdowns by category, asset class, currency and institution;
   - the change since the last check-in, split into market movement and new money;
   - accounts that haven't been updated recently.
-- Import of your existing spreadsheet (CSV).
+- Import from any spreadsheet or CSV export: you map the columns, the importer handles the file's date and number formats, and the mapping can be saved and reused ([IMPORT.md](IMPORT.md)).
 - Sync between iPhone and Mac through iCloud Drive.
 
 **Planner**
@@ -61,12 +61,10 @@ All data lives in a folder of plain JSON files in iCloud Drive. The apps on your
   - foreign and other pensions;
   - the pension fund and TFR;
   - windfalls and one-off expenses.
-- Italian taxes:
-  - IRPEF;
-  - forfettario and impatriati;
-  - 26% / 12.5% / crypto rates on investments;
-  - bollo and IVAFE;
-  - taxation of pension-fund payouts.
+- Pluggable taxes ([TAXES.md](TAXES.md)):
+  - each plan picks a tax system per period of residence, a tax regime for each work phase, and special regimes such as impatriati;
+  - the Italian system ([tax/IT.md](tax/IT.md)): IRPEF, forfettario, ordinario, impatriati, INPS, pension fund, TFR, 26% / 12.5% / 33% on investments, and the 0.2% wealth tax;
+  - a generic flat-rate system for rough plans, e.g. if you retired to another country.
 - A deterministic projection plus a Monte Carlo simulation, which produce:
   - the headline answer;
   - the earliest retirement age at your chosen confidence level;
@@ -94,7 +92,7 @@ These are listed as M3 and M4 in §6: scenario comparison, widgets, the RW/IVAFE
 | Money | `Decimal` for every recorded amount, stored as strings in JSON. | No floating-point rounding errors in the tracker. |
 | Currencies | Each account has its own currency; the base currency is EUR. Each check-in stores the prices and FX rates it used. | Past net worth can always be recomputed, even if a price source goes away. |
 | Planner | Yearly steps in today's euros, deterministic plus Monte Carlo, with a seeded random-number generator. | This approach is standard and easy to explain. It is also fast enough to recompute live while you drag a slider. |
-| Taxes | Pluggable per country, with Italy first. Every rate and threshold lives in yearly parameter files that cite their sources. | Italian tax law changes with every budget law, so parameters must be easy to update and check. |
+| Taxes | The engine contains no tax rules. Tax systems (countries) and regimes (forfettario, impatriati, …) are plugins behind one interface, and plans choose them per period. Rates and thresholds live in yearly parameter files that cite their sources. | Tax law changes with every budget law, regimes come and go, and you might move. Each of these should be a new file or module, not a change to the engine. |
 | Code layout | A Swift package of platform-independent modules, plus a thin app target. | Most of the logic can be built and tested on Linux, in CI and in cloud sessions. Only the UI needs Xcode. |
 | Xcode project | Generated from `App/project.yml` with XcodeGen. | The project definition is readable text, there are no `.pbxproj` merge conflicts, and it can be edited without Xcode. |
 | Dependencies | None in the core modules (Foundation only). The CLI uses Swift Argument Parser. | Fewer moving parts, and the core builds on Linux. |
@@ -108,8 +106,11 @@ caniretireyet/
 ├── Package.swift
 ├── Sources/
 │   ├── Tracker/      domain model: accounts, instruments, valuations; net-worth math
-│   ├── Storage/      library folder ⇄ model: JSON codec, validation, migrations, merging, CSV import
-│   ├── Planner/      simulation engine, return model, Italian tax and pension module
+│   ├── Storage/      library folder ⇄ model: JSON codec, validation, migrations, merging, importer
+│   ├── Planner/      simulation engine and return model; no tax rules
+│   ├── TaxKit/       tax plugin interfaces, shared building blocks, parameter loading
+│   ├── TaxItaly/     the Italian tax system: regimes, INPS, wrappers, yearly parameters
+│   ├── TaxGeneric/   a flat-rate tax system
 │   ├── Prices/       price and FX providers
 │   ├── CloudSync/    iCloud container, coordinated file access, change watching (Apple only)
 │   └── retire/       command-line tool: validate, import, net worth, run a plan
@@ -124,10 +125,12 @@ caniretireyet/
 
 Module dependencies:
 
-- `Tracker` depends on nothing.
-- `Storage`, `Planner` and `Prices` depend on `Tracker`.
+- `Tracker` and `TaxKit` depend on nothing.
+- `Storage` and `Prices` depend on `Tracker`.
+- `Planner` depends on `Tracker` and `TaxKit`, and never on a specific country.
+- `TaxItaly` and `TaxGeneric` depend on `TaxKit`.
 - `CloudSync` depends on `Storage`.
-- The `retire` CLI and the app sit on top.
+- The `retire` CLI and the app sit on top. They register the available tax systems in one place (`TaxRegistry`).
 
 Only `CloudSync` and the app need Apple frameworks.
 
@@ -177,15 +180,16 @@ On the Mac there are also tables for editing many valuations at once, keyboard n
 - **ETFs on European exchanges:** there's no reliable free official API. We'll start with Yahoo Finance's public chart endpoint. It's unofficial and can break, so providers are pluggable, and a paid one with your own key (EODHD, Twelve Data) can be added.
 - Fetched prices are cached on the device. Only the prices used in a check-in are written to the library.
 
-### Importing your spreadsheet
+### Importing
 
-- The importer lives in `Storage` and is exposed through the CLI first (`retire import`), because this is a one-off migration. An import sheet in the Mac app can follow later.
-- It reads two layouts:
-  - wide: one row per month and one column per account;
-  - long: date, account, value.
-- It detects Italian number and date formats such as `1.234,56` and `31/12/2024`.
-- Each column becomes an account, and you confirm the name, kind and currency. A column whose values stop before the last row is proposed as a closed account.
-- Imported values become balance valuations in the monthly history files. Running the import again updates those records instead of duplicating them.
+The importer works with any spreadsheet or export instead of a fixed layout. Details are in [IMPORT.md](IMPORT.md).
+
+- **Files.** It reads CSV and TSV in any delimiter and encoding, including Excel's Windows-1252 exports.
+- **Layouts.** Wide (one row per date, one column per account) or long (one row per record).
+- **Targets.** Each column is mapped to what it holds: a balance, a quantity, a purchase cost, a price or an FX rate. A column can also be ignored.
+- **Formats.** Date and number formats are detected per column and can be overridden: decimal comma or point, thousands separators, currency symbols, day-first or month-first dates, month-only dates, and Excel serial dates.
+- **Preview.** A full preview shows problems highlighted before anything is written. Imports are idempotent and can be undone.
+- **Profiles.** A mapping can be saved as a profile in the library and reused on the Mac, on the iPhone, or with `retire import`.
 
 ### Security and privacy
 
@@ -199,7 +203,9 @@ On the Mac there are also tables for editing many valuations at once, keyboard n
 - Tests use Swift Testing:
   - **Format golden tests:** load the fixture library, save it again, and expect byte-identical files.
   - **Net-worth tests:** unit tests for the math.
-  - **Planner and tax checks:** reference cases calculated by hand, so we can check we're computing the right thing.
+  - **Planner checks:** invariants, run against the `generic` tax system so tax-law changes don't break them.
+  - **Tax reference cases:** data files per tax system, calculated by hand or taken from real payslips and returns, so we can check we're computing the right thing.
+  - **Importer:** a folder of sample files in awkward formats.
 - One-time setup on your Mac:
   1. Join the **Apple Developer Program**, which is paid. iCloud requires it, and without it apps you install on your iPhone stop working after 7 days.
   2. Install Xcode and XcodeGen (`brew install xcodegen`).
@@ -223,7 +229,7 @@ On the Mac there are also tables for editing many valuations at once, keyboard n
 - The check-in flow, with pre-filled values, fetched prices and FX rates, and manual overrides.
 - The Overview: net-worth history, breakdowns, and the change since the last check-in split into market and new money. Plus the account detail screen.
 - Live sync: a check-in on the iPhone appears on the Mac, and edits made directly to files are picked up.
-- Import of your spreadsheet through the CLI.
+- The importer: the engine, the mapping and preview flow in the app, saved profiles, and `retire import`.
 
 **Done when:** your spreadsheet history is in the app, and you've done a real check-in on the iPhone and seen it on the Mac.
 
@@ -231,11 +237,13 @@ On the Mac there are also tables for editing many valuations at once, keyboard n
 
 - Plan files and a plan editor.
 - The engine: yearly simulation, deterministic and Monte Carlo runs, and the earliest-retirement-age search.
-- Italy module v1, as described in [PLANNER.md](PLANNER.md):
+- The tax plugin layer, as described in [TAXES.md](TAXES.md): `TaxKit`, the registry, option forms generated from regime descriptions, validation, and parameter files.
+- The `generic` flat-rate system.
+- The Italian system, as described in [tax/IT.md](tax/IT.md):
   - employee and freelance income (forfettario or regime ordinario), with impatriati where it applies;
   - INPS contributions and the contributory-system pension projection;
   - IRPEF on pensions;
-  - taxes on investment income and gains, bollo and IVAFE;
+  - taxes on investment income and gains, and the 0.2% wealth tax;
   - the pension fund and TFR.
 - Pensions, windfalls, large expenses and spending phases.
 - Results:
@@ -243,15 +251,16 @@ On the Mac there are also tables for editing many valuations at once, keyboard n
   - chance of success against retirement age;
   - a fan chart of the portfolio;
   - income sources and taxes per year;
-  - what-if sliders.
+  - what-if sliders;
+  - two plans side by side, e.g. forfettario against ordinario with impatriati.
 
 **Done when:** the plan starts from your latest check-in, and the engine matches the reference cases calculated by hand.
 
 ### M3: Hardening and polish
 
 - Conflict merging, with the Sync screen. The schema guard. Clear errors for hand-edited files that don't parse.
-- A monthly reminder notification, Face ID lock, CSV export, and import in the Mac app.
-- Side-by-side scenario comparison, and widgets for net worth and years to go.
+- A monthly reminder notification, Face ID lock, and CSV export.
+- Widgets for net worth and years to go.
 - An RW/IVAFE helper that produces year-end values and holding periods for foreign accounts, for your tax return.
 
 ### M4: Depth (pick by interest)
@@ -259,19 +268,21 @@ On the Mac there are also tables for editing many valuations at once, keyboard n
 - Historical and bootstrapped return sequences. Guardrail and variable withdrawal strategies.
 - Tracking actual income and spending, to measure your real savings rate.
 - Cost basis from transactions. PIR and other tax wrappers.
-- Retiring abroad, meaning a change of tax residence partway through a plan.
+- Tax systems for other countries, e.g. one you might retire to. Until then, the `generic` system approximates them.
+- Reading `.xlsx` and `.numbers` files directly, and a target that turns broker transaction exports into monthly holdings.
 - Planning for a partner or household.
 
 ## 7. Risks
 
 - **Unofficial price endpoints break.** Manual entry always works, and providers can be swapped.
-- **Italian tax rules change every year.** Rates and thresholds live in yearly parameter files with sources. Each result shows which year's rules it used.
+- **Tax rules change every year, and so can your situation.** Rates live in yearly parameter files with sources, regimes and countries are plugins, and each result shows which rules it used.
 - **iCloud Drive can be slow or create conflicts.** Small files, record-level merging and a visible sync status keep that manageable.
 - **The planner could grow forever.** The MVP answers one question well, and everything else waits until M4.
 
-## 8. Open questions for you
+## 8. Answers from the first review
 
-1. Do you have a paid Apple Developer Program membership? iCloud needs one.
-2. What does your spreadsheet look like? The column layout, or a copy with made-up numbers, is enough to make the importer fit it.
-3. Are your banks and brokers Italian or foreign, and do they withhold tax for you (*regime amministrato*) or do you declare it yourself (*regime dichiarativo*)? This affects bollo versus IVAFE, and the RW helper.
-4. Are iOS 26 and macOS 26 OK as minimum versions?
+1. **Apple Developer Program:** you have a paid membership, so iCloud is fine.
+2. **Spreadsheet:** the importer maps any layout and format, and doesn't assume a particular spreadsheet ([IMPORT.md](IMPORT.md)).
+3. **Bollo and IVAFE:** the same 0.2%, so the planner treats them as one wealth tax. They differ only in who pays: Italian intermediaries withhold bollo, while for foreign accounts you pay IVAFE and declare the account in RW. Blacklisted countries pay 0.4%. The country only matters to the RW helper.
+4. **iOS 26 and macOS 26** are the minimum versions.
+5. **Taxes must be pluggable:** see [TAXES.md](TAXES.md).
