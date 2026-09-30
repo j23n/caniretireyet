@@ -1,6 +1,7 @@
 import Foundation
 import Importer
 import Model
+import Storage
 
 /// How well a saved import profile fits a file: how many of the file's
 /// columns it imports, and which columns don't line up. Used to suggest a
@@ -82,6 +83,19 @@ struct ProfileFit: Hashable, Sendable, Identifiable {
         }
         return ProfileFit(profile: profile, imported: imported, missing: missing, unknown: unknown,
                           hasDates: hasDates, problem: nil)
+    }
+}
+
+extension ImportProfile {
+    /// A line about the profile for lists, e.g. "A row per date · 4 columns
+    /// imported · dd/MM/yyyy · imports/net-worth-sheet.json".
+    var importSummary: String {
+        let imported = columns.filter(\.isImported).count
+        var parts = [ImportChoices.layoutName(layout),
+                     imported == 1 ? "1 column imported" : "\(imported) columns imported"]
+        if let pattern = defaults.date?.pattern { parts.append(pattern) }
+        parts.append(LibraryFile.importProfile(id).path)
+        return parts.joined(separator: " · ")
     }
 }
 
