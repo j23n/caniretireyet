@@ -81,4 +81,10 @@ enum CheckInPreviewData {
         result.headline = nil
         return result
     }
+
+    /// A past check-in filled in after the latest one: no answer is recorded.
+    static var savedInThePast: CheckInSaveResult {
+        CheckInSaveResult(date: "2024-03-31", netWorth: PreviewLibrary.d("164200"), change: nil, headline: nil,
+                          laterCheckIn: "2026-09-30")
+    }
 }

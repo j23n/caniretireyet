@@ -405,7 +405,8 @@ struct CheckInDatePanel: View {
                     Text(verbatim: "Use \(AmountFormat.longDate(suggested, locale: locale)) (suggested)")
                 }
             }
-            Text("Values are as of the end of this day. What you've entered is kept; prices are fetched again for the new date.")
+            Text("Values are as of the end of this day. What you've entered is kept; prices are fetched again for the new date. "
+                + "An earlier date fills in your history.")
                 .font(.footnote)
                 .foregroundStyle(Palette.secondaryInk)
                 .fixedSize(horizontal: false, vertical: true)
@@ -425,7 +426,8 @@ struct CheckInDatePanel: View {
 // MARK: - Banners
 
 /// The notes at the top of the check-in: the library's own state, a failed
-/// save, a check-in being resumed or updating a saved one, and hidden amounts.
+/// save, a check-in being resumed or updating a saved one, a past check-in
+/// (no answer is recorded for it), and hidden amounts.
 struct CheckInBanners: View {
     let draft: CheckInDraft
     let session: CheckInSession
@@ -462,6 +464,9 @@ struct CheckInBanners: View {
             }
             if let note = CheckInWording.existingCheckInNote(on: draft.date, in: library.library, locale: locale) {
                 StatusBanner(.info, "Updating a saved check-in", message: note)
+            }
+            if let note = CheckInWording.pastCheckInNote(on: draft.date, in: library.library, locale: locale) {
+                StatusBanner(.info, "A past check-in", message: note)
             }
             if privacy.hidesAmounts {
                 StatusBanner(.info, "Amounts are hidden", message: "The fields still show what you type.",

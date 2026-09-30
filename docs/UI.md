@@ -165,7 +165,7 @@ The flow that has to be fast. It opens as a full-screen sheet on iPhone and as t
   ●  updated   ✓  unchanged   ○  not reviewed yet
 ```
 
-- **Date.** Defaults to today. In the first days of a month it suggests the end of the previous month.
+- **Date.** Defaults to today. In the first days of a month it suggests the end of the previous month. An earlier date fills in history: see [Adding history](#adding-history).
 - **Prices.** Fetched as soon as the sheet opens, while you work. The status row opens the price list, where you can see the source and time of each price and type in any that failed.
 - **Accounts, in groups.** Each row has one of three states:
   - **updated:** you entered a new value;
@@ -184,7 +184,7 @@ The flow that has to be fast. It opens as a full-screen sheet on iPhone and as t
   - The new net worth and the waterfall (markets, new money, other).
   - Changed accounts, and anything unusual, e.g. a quantity that went down (did you sell?) or a value that changed more than 30%.
   - Then **Save**.
-- **After saving.** The plan is re-run, and the confirmation ends with this month's answer:
+- **After saving.** The plan is re-run, and the confirmation ends with this month's answer (only for the latest check-in: see [Adding history](#adding-history)):
 
   > Saved · Net worth 312.480 € (▲ 4.210)
   > Can I retire yet? Not yet: earliest at **54**, unchanged since August.
@@ -202,17 +202,17 @@ The flow that has to be fast. It opens as a full-screen sheet on iPhone and as t
 - **List.** Grouped: Cash, Investments, Crypto & gold, Pension, Property, Debts.
   - Each group shows its subtotal.
   - Each row shows a kind icon, the name, the institution, the value, a sparkline of the last 12 months, and a "stale" badge when needed.
-  - Swipe actions: *Update value* (a one-account valuation) and *Close*. Saved as it is, *Update value* records the account as unchanged; an account with no earlier value needs a value typed, and an emptied field isn't zero (type 0).
+  - Swipe actions: *Update value* (a one-account valuation) and *Close*. Saved as it is, *Update value* records the account as unchanged; an account with no earlier value needs a value typed, and an emptied field isn't zero (type 0). Its date can be any day up to the closing date (or a year from today), also before the account opened: see [Adding history](#adding-history).
   - Closed accounts sit in a collapsed "Closed (3)" section at the bottom.
 - **Account detail.**
   - The value and its change.
   - A history chart. New-money events are small ticks on the time axis, so jumps you caused are distinguishable from market moves.
   - For accounts with holdings, the positions: quantity, price, value, purchase cost and unrealised gain.
-  - The list of valuations, each editable: date, value, new money, note.
+  - The list of valuations, each editable: date, value, new money, note. *Add Past Value…* adds one on an earlier date.
   - An info section: kind, institution, country, currency, tax wrapper, and whether it's included in net worth and plans.
 - **Add account.** A sheet:
   1. Pick a kind from a grid of icons.
-  2. Enter the name, institution, currency, country and opening date.
+  2. Enter the name, institution, currency, country and opening date. The opening date is today by default; the hint says "Set it to when you opened the account, to add its history." The opening balance is the one on that date.
   3. Enter the positions (choose or create instruments) or the balance, which becomes the first valuation.
   4. The tax wrapper is pre-selected from the kind and your residence, e.g. a pension fund becomes `it.pensionFund`.
 - **Close account.** A sheet asks for:
@@ -225,6 +225,22 @@ The flow that has to be fast. It opens as a full-screen sheet on iPhone and as t
   - **Update Prices** (toolbar; pull down on iPhone) fetches today's price of every instrument an open account holds that has a price source, and the FX rates that value them in the base currency, and saves them for today in one edit. A banner shows the progress, then the outcome; *Details* lists each instrument as updated, unchanged, failed (with the reason) or kept. A failure doesn't stop the others. A price typed in by hand for today is kept, as in the check-in, unless you choose *Update* on its row. Instruments typed in by hand or not held in an open account are skipped; a row's *Update Price* fetches one anyway.
   - **Set Price…** (on a row, or in the editor) types a price in by hand: the date (today by default), the amount, and the currency (the instrument's by default). It's saved as a `manual` price, which *Update Prices* doesn't replace.
   - The editor's *Test price fetch* saves nothing by itself. For an instrument that exists, a successful test offers *Save price*; a new instrument's tested price is saved with the instrument. The symbol's placeholder follows the source: "Yahoo ticker, e.g. VWCE.DE", or for CoinGecko "e.g. ETH or ethereum" (a ticker or a CoinGecko ID).
+
+## Adding history
+
+Accounts added in the app open on the day they're added, unless you set an earlier opening date. Their past values can be added three ways, without an import file.
+
+- **A past check-in.** Pick an earlier date in the check-in's date panel.
+  - The accounts open on that date are listed as usual. Accounts that open after it are listed last, under **Opened later** (collapsed on iPhone). They're optional: never counted as missing, *Mark rest unchanged* leaves them alone, and left empty they change nothing.
+  - A value entered for one of them moves the account's opening date back to the check-in's date when it's saved. The row says so ("Saving moves its opening date to 31 Mar 2024."), and the review lists the accounts whose opening date will move.
+  - Prices and FX rates are fetched for that date: Yahoo Finance and Frankfurter (ECB) have history, CoinGecko about the last year on its free API. gold-api.com only has today's price, so the price list says "No history for this date: type the price."
+  - Values saved after the date stay as they are, and a banner says it's a past check-in.
+- ***Update Value* with a past date**, or ***Add Past Value…*** on the account's list of values, which starts on the month end before the first value, so an account fills in a month at a time. Any date up to the closing date works. Before the opening date the sheet says "Saving moves the opening date from 30 Sep 2026 to 31 Mar 2024." and moves it in the same edit. Moving a value earlier in the valuation editor does the same.
+- **Import.** For existing accounts, the import's *Accounts* step links the names in the file to them, and the profile remembers the match. Values from before an account's opening date propose to open it on the first of them, applied unless you reject it ([IMPORT.md](IMPORT.md#matching-accounts-and-instruments)).
+
+**New money after an inserted value.** A value's new money (its flow) is measured from the value before it. When a value is added before another one of the same account, or one is corrected, moved or deleted, the next value's new money is worked out again if it was automatic (the default for the account's kind, as the check-in fills it in), and kept if it was typed in. *Update Value* and the valuation editor say which before saving; a past check-in follows the same rule. A value added before an account's first one turns that first value's automatic new money (the whole amount) into the change since. An import leaves flows as they are.
+
+**Answers and baselines are only recorded for the latest check-in.** The plan runs on today's data, so re-running it for a past date would record made-up history in "Your answer over time" and a made-up "Start of <year>" baseline. A check-in dated before the library's latest one records neither, and its confirmation says: "Saved a past check-in (31 Mar 2024). The answer isn't recorded for past dates."
 
 ## Plan
 

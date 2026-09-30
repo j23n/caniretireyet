@@ -337,16 +337,21 @@ struct AccountAction: Identifiable, Hashable {
     enum Kind: String, Hashable {
         /// A one-account valuation.
         case updateValue
+        /// A one-account valuation on an earlier date, to fill in history.
+        case addPastValue
         case close
         case edit
     }
 
     var kind: Kind
     var account: AccountID
+    /// The date the sheet starts on, for ``Kind/addPastValue``.
+    var date: CalendarDate?
 
-    init(_ kind: Kind, _ account: AccountID) {
+    init(_ kind: Kind, _ account: AccountID, date: CalendarDate? = nil) {
         self.kind = kind
         self.account = account
+        self.date = date
     }
 
     var id: String { "\(kind.rawValue)/\(account.rawValue)" }
@@ -361,6 +366,8 @@ struct AccountActionSheet: View {
             switch action.kind {
             case .updateValue:
                 UpdateValueSheet(accountID: action.account)
+            case .addPastValue:
+                UpdateValueSheet(accountID: action.account, date: action.date)
             case .close:
                 CloseAccountSheet(accountID: action.account)
             case .edit:
@@ -368,7 +375,7 @@ struct AccountActionSheet: View {
             }
         }
         #if os(iOS)
-        .presentationDetents(action.kind == .updateValue ? [.medium, .large] : [.large])
+        .presentationDetents(action.kind == .updateValue || action.kind == .addPastValue ? [.medium, .large] : [.large])
         #endif
         #if os(macOS)
         .frame(minWidth: 460, idealWidth: 520, minHeight: 420, idealHeight: 560)

@@ -39,6 +39,9 @@ final class CheckInSession {
     var expanded: Set<AccountID> = []
     /// Rows whose automatic new money is being edited (iPhone).
     var editingFlows: Set<AccountID> = []
+    /// Whether a past check-in's "Opened later" section shows its accounts
+    /// (iPhone, where it starts collapsed).
+    var showsOpenedLater = false
     /// A field to focus once the list shows it, e.g. from a review warning.
     var focusRequest: CheckInField?
     var showsCancelDialog = false
@@ -89,6 +92,7 @@ final class CheckInSession {
         resumedDate = nil
         expanded = []
         editingFlows = []
+        showsOpenedLater = false
         checkIn.begin()
     }
 
@@ -114,11 +118,13 @@ final class CheckInSession {
     }
 
     /// Goes back from the review to a row, focusing `field` if given (a
-    /// new-money field is shown first).
-    func showRow(_ account: AccountID, field: CheckInField? = nil) {
+    /// new-money field is shown first). A row of an account that opens later
+    /// (`opensLater`) opens its section first.
+    func showRow(_ account: AccountID, field: CheckInField? = nil, opensLater: Bool = false) {
         page = nil
         if case .flow? = field { editingFlows.insert(account) }
         if field != nil { expanded.insert(account) }
+        if opensLater { showsOpenedLater = true }
         focusRequest = field
     }
 

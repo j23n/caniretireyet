@@ -4,8 +4,9 @@ import Tracker
 
 /// The review before saving (UI.md, "Review screen"): the new net worth and
 /// the waterfall since the last check-in (markets, new money, other), the
-/// accounts that changed, anything unusual, then Save. Accounts not
-/// reviewed yet are asked about: mark them unchanged, or skip them.
+/// accounts that changed, the accounts whose opening date moves back,
+/// anything unusual, then Save. Accounts not reviewed yet are asked about:
+/// mark them unchanged, or skip them.
 ///
 /// Pushed on iPhone; a sheet on the Mac, where ⌘↩ saves.
 struct CheckInReviewView: View {
@@ -52,7 +53,7 @@ struct CheckInReviewView: View {
         if session.isSaving {
             VStack(spacing: Metrics.m) {
                 ProgressView()
-                Text("Saving and updating your plan…")
+                Text(verbatim: CheckInWording.savingMessage(date: checkIn.draft?.date, in: library.library))
                     .foregroundStyle(Palette.secondaryInk)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -133,6 +134,18 @@ private struct CheckInReviewContent: View {
                 }
             }
             changedCard
+            if let note = CheckInWording.openingMovesNote(review.openingMoves, date: draft.date, in: library.library,
+                                                          locale: locale) {
+                Card("Opening dates") {
+                    Label {
+                        Text(verbatim: note)
+                            .fixedSize(horizontal: false, vertical: true)
+                    } icon: {
+                        Image(systemName: "calendar.badge.clock")
+                            .foregroundStyle(Palette.accent)
+                    }
+                }
+            }
             if !review.warnings.isEmpty {
                 warningsCard
             }
@@ -222,6 +235,12 @@ private struct CheckInReviewContent: View {
                 Text(verbatim: CheckInWording.stateCounts(draft))
                     .font(.footnote)
                     .foregroundStyle(Palette.secondaryInk)
+                if CheckInStore.laterCheckIn(than: draft.date, in: library.library) != nil {
+                    Text("A past check-in: values saved after it stay as they are, and no answer is recorded for it.")
+                        .font(.footnote)
+                        .foregroundStyle(Palette.secondaryInk)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
                 if !review.netWorth.isComplete {
                     Label("Some values are missing a price or a rate; see below.", systemImage: "exclamationmark.triangle")
                         .font(.footnote)
@@ -380,12 +399,15 @@ private struct CheckInWarningRow: View {
     private func actionButton(_ action: CheckInWarningText.Action, title: String) -> some View {
         switch action {
         case .enterFlow(let account):
-            Button(title) { session.showRow(account, field: .flow(account)) }
-                .buttonStyle(.borderless)
+            Button(title) {
+                session.showRow(account, field: .flow(account), opensLater: checkIn.draft?[account]?.opensLater ?? false)
+            }
+            .buttonStyle(.borderless)
         case .showRow(let account):
             Button(title) {
-                let field = checkIn.draft?[account].map { CheckInField.primary(for: $0) }
-                session.showRow(account, field: field)
+                let row = checkIn.draft?[account]
+                session.showRow(account, field: row.map { CheckInField.primary(for: $0) },
+                                opensLater: row?.opensLater ?? false)
             }
             .buttonStyle(.borderless)
         case .openPrices:

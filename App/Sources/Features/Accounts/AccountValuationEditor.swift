@@ -13,6 +13,11 @@ struct AccountValuationTarget: Identifiable, Hashable {
 /// valuation is editable): date, value (balance, or cash and positions),
 /// new money and note. Deleting it sits at the bottom. Shown in a sheet
 /// inside a NavigationStack.
+///
+/// Moving the value before the account's opening date moves the opening
+/// date back. The value after it (where it was and where it goes) gets its
+/// automatic new money worked out again, and a typed one is kept; the form
+/// says so before saving.
 struct AccountValuationEditor: View {
     let key: ValuationKey
 
@@ -23,6 +28,7 @@ struct AccountValuationEditor: View {
     @State private var form: AccountValuationForm?
     @State private var confirmsDelete = false
     @State private var errorMessage: String?
+    @State private var isSaving = false
 
     init(key: ValuationKey) {
         self.key = key
@@ -61,6 +67,13 @@ struct AccountValuationEditor: View {
                     Label("There's already a value on this date. Saving replaces it.", systemImage: "exclamationmark.triangle")
                         .font(.footnote)
                         .foregroundStyle(Palette.secondaryInk)
+                }
+                if let note = AccountValueNotes.openingMove(date: form.wrappedValue.date, account: account,
+                                                            locale: locale) {
+                    AccountsFootnote(note, systemImage: "calendar.badge.clock")
+                }
+                if let note = followUpNote(form.wrappedValue) {
+                    AccountsFootnote(note, systemImage: "arrow.triangle.2.circlepath")
                 }
             } header: {
                 Text(account.name)
@@ -120,14 +133,25 @@ struct AccountValuationEditor: View {
             }
             ToolbarItem(placement: .confirmationAction) {
                 Button("Save") { save(form.wrappedValue) }
-                    .disabled(!problems.isEmpty || !library.canEdit)
+                    .disabled(!problems.isEmpty || !library.canEdit || isSaving)
             }
         }
         .confirmationDialog("Delete this value?", isPresented: $confirmsDelete, titleVisibility: .visible) {
             Button("Delete Value", role: .destructive) { delete() }
         } message: {
-            Text("The account's value then carries forward from the value before it.")
+            Text("The account's value then carries forward from the value before it. The new money of the value "
+                + "after it is worked out again, unless it was typed in.")
         }
+    }
+
+    /// What saving does to the new money of the account's other values, if
+    /// anything.
+    private func followUpNote(_ form: AccountValuationForm) -> String? {
+        guard let valuation = form.valuation(locale: locale) else { return nil }
+        let snapshot = library.library
+        guard snapshot.valuations(for: key.account).contains(where: { $0.date > min(key.date, valuation.date) })
+        else { return nil }
+        return AccountValueNotes.flowFollowUp(snapshot.previewSavingValue(valuation, replacing: key), locale: locale)
     }
 
     @ViewBuilder
@@ -154,19 +178,26 @@ struct AccountValuationEditor: View {
         form = AccountValuationForm(original, holdsPositions: account.valuationMode == .holdings, locale: locale)
     }
 
+    /// Saves and waits for the write. A date before the opening date moves
+    /// it back, and later values' automatic new money follows, in the same edit.
     private func save(_ form: AccountValuationForm) {
         guard let valuation = form.valuation(locale: locale) else { return }
-        do {
-            try library.replace(key, with: valuation)
-            dismiss()
-        } catch {
-            errorMessage = LibraryStore.describe(error)
+        isSaving = true
+        errorMessage = nil
+        Task {
+            do {
+                try await library.saveValue(valuation, replacing: key)
+                dismiss()
+            } catch {
+                errorMessage = LibraryStore.describe(error)
+            }
+            isSaving = false
         }
     }
 
     private func delete() {
         do {
-            try library.removeValuation(key)
+            try library.removeValue(key)
             dismiss()
         } catch {
             errorMessage = LibraryStore.describe(error)

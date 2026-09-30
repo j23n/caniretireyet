@@ -1,6 +1,7 @@
 import Foundation
 import Model
 import Storage
+import Tracker
 
 /// Common edits, each one ``LibraryStore/update(_:)`` call. They throw what
 /// `update` throws (read-only, not loaded) plus ``LibraryEditError``.
@@ -83,6 +84,24 @@ extension LibraryStore {
     /// Removes a valuation.
     func removeValuation(_ key: ValuationKey) throws {
         try update { $0.removeValuation(key) }
+    }
+
+    /// Saves one account's value outside a check-in (*Update Value*, the
+    /// valuation editor), in place of the one at `old` when given, and
+    /// waits for the write. A value dated before the account's opening date
+    /// moves it back, and the automatic new money of the value after it is
+    /// worked out again (a typed one is kept): `Library.saveValue(_:replacing:)`.
+    @discardableResult
+    func saveValue(_ valuation: Valuation, replacing old: ValuationKey? = nil) async throws -> ValueEdit {
+        var edit = ValueEdit()
+        try await commit { edit = $0.saveValue(valuation, replacing: old) }
+        return edit
+    }
+
+    /// Removes one value; the automatic new money of the value after it is
+    /// worked out again (`Library.removeValue(_:)`).
+    func removeValue(_ key: ValuationKey) throws {
+        try update { $0.removeValue(key) }
     }
 
     /// Adds prices, FX rates and index values, replacing those with the same keys.

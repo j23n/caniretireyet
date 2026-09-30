@@ -30,9 +30,12 @@ extension CheckInDraft {
     /// before saving.
     ///
     /// - Each row's previous valuation, and the one saved on the date, are
-    ///   read again. Rows are added for accounts open on the date that have
-    ///   none, and dropped for accounts deleted or closed before it; rows
-    ///   keep the draft's order (by group, then name).
+    ///   read again. Rows are added for accounts not closed before the date
+    ///   (open on it, or opening later) that have none, and dropped for
+    ///   accounts deleted or closed before it; rows keep the draft's order
+    ///   (by group, then name). A row whose account's opening date moved to
+    ///   the other side of the date is filled in again, keeping what was
+    ///   entered.
     /// - Rows with nothing entered (not reviewed yet, or only pre-filled from
     ///   a valuation saved on the date) are filled in again, and skipped rows
     ///   stay skipped. Rows marked unchanged restore the new previous values.
@@ -50,7 +53,7 @@ extension CheckInDraft {
     public mutating func rebase(onto library: Library) -> CheckInRebase {
         var result = CheckInRebase()
         var valuator = LazyValuator(library: libraryWithRates(library))
-        let accounts = Self.accounts(openOn: date, in: library)
+        let accounts = Self.accounts(for: date, in: library)
         let open = Set(accounts.map(\.id))
         result.removed = rows.map(\.account).filter { !open.contains($0) }
         var rebased: [CheckInRow] = []
@@ -59,11 +62,13 @@ extension CheckInDraft {
             let previous = valuations.last { $0.date < date }
             let saved = valuations.last { $0.date == date }
             guard let old = self[account.id] else {
-                rebased.append(CheckInRow(account: account, previous: previous, existing: saved, valuator: &valuator))
+                rebased.append(CheckInRow(account: account, date: date, previous: previous, existing: saved,
+                                          valuator: &valuator))
                 result.added.append(account.id)
                 continue
             }
-            if old.previous == previous, (old.conflict ?? old.existing) == saved {
+            if old.previous == previous, (old.conflict ?? old.existing) == saved,
+               old.opensLater == (account.opened > date) {
                 rebased.append(old)
                 continue
             }
@@ -95,7 +100,8 @@ extension CheckInDraft {
             return
         }
         var valuator = LazyValuator(library: libraryWithRates(library))
-        var row = CheckInRow(account: details, previous: rows[index].previous, existing: saved, valuator: &valuator)
+        var row = CheckInRow(account: details, date: date, previous: rows[index].previous, existing: saved,
+                             valuator: &valuator)
         if rows[index].hasTypedNote, row.note == nil { row.note = rows[index].note }
         rows[index] = row
     }
@@ -115,14 +121,16 @@ extension CheckInDraft {
                            valuator: inout LazyValuator) -> CheckInRow {
         guard old.hasUserInput, old.state != .skipped else {
             // Nothing entered (or skipped, which writes nothing): start again from the library.
-            var row = CheckInRow(account: account, previous: previous, existing: saved, valuator: &valuator)
+            var row = CheckInRow(account: account, date: date, previous: previous, existing: saved,
+                                 valuator: &valuator)
             row.adoptEdits(from: old)
             return row
         }
         // What was entered goes on top of what the row started from, unless
         // the saved valuation is gone.
         let baseline = saved == nil || saved == old.existing ? saved : old.existing
-        var row = CheckInRow(account: account, previous: previous, existing: baseline, valuator: &valuator)
+        var row = CheckInRow(account: account, date: date, previous: previous, existing: baseline,
+                             valuator: &valuator)
         row.adoptEdits(from: old)
         // A different valuation saved on the date is a conflict, unless it
         // records just what the row would write (e.g. this check-in's own

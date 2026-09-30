@@ -91,6 +91,18 @@ struct AccountDetailData: Hashable, Sendable {
         !holdings.isEmpty || (latest.map { !$0.isBalance } ?? (account.valuationMode == .holdings))
     }
 
+    /// The date *Add Past Value…* starts on: the last day of the month
+    /// before the account's first value (or before ``date`` without one),
+    /// so the history fills in a month at a time.
+    var pastValueDate: CalendarDate {
+        Self.pastValueDate(firstValue: valuations.last?.valuation.date, date: date)
+    }
+
+    /// The month end before `firstValue` (or before `date` without one).
+    static func pastValueDate(firstValue: CalendarDate?, date: CalendarDate) -> CalendarDate {
+        (firstValue ?? date).startOfMonth.adding(days: -1)
+    }
+
     init(account: Account, library: Library, valuator: Valuator, today: CalendarDate, stalenessThreshold: Int) {
         self.account = account
         let date = account.closed.map { min($0, today) } ?? today

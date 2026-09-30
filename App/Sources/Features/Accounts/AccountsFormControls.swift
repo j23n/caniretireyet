@@ -94,3 +94,27 @@ struct AccountsProblemsSection: View {
         }
     }
 }
+
+/// A note in a form: an icon and a footnote that wraps, e.g. "Saving moves
+/// the opening date from 30 Sep 2026 to 31 Mar 2024."
+struct AccountsFootnote: View {
+    let text: String
+    let systemImage: String
+
+    init(_ text: String, systemImage: String) {
+        self.text = text
+        self.systemImage = systemImage
+    }
+
+    var body: some View {
+        Label {
+            Text(verbatim: text)
+                .fixedSize(horizontal: false, vertical: true)
+        } icon: {
+            Image(systemName: systemImage)
+                .foregroundStyle(Palette.accent)
+        }
+        .font(.footnote)
+        .foregroundStyle(Palette.secondaryInk)
+    }
+}

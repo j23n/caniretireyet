@@ -78,6 +78,9 @@ public struct CheckInReview: Hashable, Sendable {
     /// The change since the previous check-in (start, market, new money,
     /// other, end); `nil` for the first check-in.
     public let change: ChangeReport?
+    /// Accounts that open after the date and get a value in this check-in:
+    /// saving moves their opening date back to the date. In row order.
+    public let openingMoves: [AccountID]
 
     /// Every warning, in row order.
     public var warnings: [CheckInWarning] {
@@ -96,6 +99,9 @@ public struct CheckInRecords: Hashable, Sendable {
     public let valuations: [Valuation]
     public let prices: [PriceRecord]
     public let fxRates: [FXRecord]
+    /// The accounts among ``valuations`` that open after the check-in's
+    /// date: their opening date moves back to it.
+    public let openingMoves: [AccountID]
 }
 
 extension CheckInDraft {
@@ -108,9 +114,9 @@ extension CheckInDraft {
                        largeChangeThreshold: Decimal = defaultLargeChangeThreshold) -> CheckInReview {
         let priced = Valuator(library: libraryWithRates(library))
         let proposals = rows.map { proposal(for: $0, using: priced) }
+        let records = records(writing: proposals.compactMap(\.written), in: library)
         var saved = library
-        apply(CheckInRecords(valuations: proposals.compactMap(\.written), prices: prices, fxRates: fxRates),
-              to: &saved)
+        apply(records, to: &saved)
         let valuator = Valuator(library: saved)
         let previousCheckIn = priced.previousCheckIn(before: date)
 
@@ -138,30 +144,48 @@ extension CheckInDraft {
         }
         return CheckInReview(
             date: date, previousCheckIn: previousCheckIn, rows: reviews, netWorth: valuator.netWorth(on: date),
-            change: previousCheckIn.map { valuator.change(from: $0, to: date) })
+            change: previousCheckIn.map { valuator.change(from: $0, to: date) }, openingMoves: records.openingMoves)
     }
 
     /// The valuations (one per row updated or marked unchanged, with flows
-    /// and cost bases filled in), prices and FX rates to write. Rows not
+    /// and cost bases filled in), prices and FX rates to write, and the
+    /// accounts whose opening date moves back to the date. Rows not
     /// reviewed, skipped or in conflict with a valuation saved on the date
     /// write nothing.
     public func records(in library: Library) -> CheckInRecords {
         let priced = Valuator(library: libraryWithRates(library))
-        return CheckInRecords(valuations: rows.compactMap { proposal(for: $0, using: priced).written },
-                              prices: prices, fxRates: fxRates)
+        return records(writing: rows.compactMap { proposal(for: $0, using: priced).written }, in: library)
     }
 
-    /// Saves the check-in into `library`: upserts its valuations, prices and FX rates.
-    public func apply(to library: inout Library) {
-        apply(records(in: library), to: &library)
+    /// Saves the check-in into `library`: upserts its valuations, prices and
+    /// FX rates, and moves the opening date of accounts that open later
+    /// back to the date (see ``CheckInRow/opensLater``).
+    ///
+    /// A past check-in can land between two valuations of an account: the
+    /// flow of the valuation after it is then worked out again from the new
+    /// one if it was the automatic one, and kept if it was typed by hand
+    /// (see ``Library/editValuations(_:)``).
+    @discardableResult
+    public func apply(to library: inout Library) -> FlowFollowUp {
+        let records = records(in: library)
+        return library.editValuations { apply(records, to: &$0) }
     }
 
     // MARK: - Internals
+
+    /// The records for the valuations `written`, with this check-in's prices and FX rates.
+    private func records(writing written: [Valuation], in library: Library) -> CheckInRecords {
+        let moves = written.map(\.account).filter { library.accounts[$0].map { $0.opened > date } ?? false }
+        return CheckInRecords(valuations: written, prices: prices, fxRates: fxRates, openingMoves: moves)
+    }
 
     private func apply(_ records: CheckInRecords, to library: inout Library) {
         for price in records.prices { library.upsert(price) }
         for rate in records.fxRates { library.upsert(rate) }
         for valuation in records.valuations { library.upsert(valuation) }
+        for account in records.openingMoves where library.accounts[account].map({ $0.opened > date }) ?? false {
+            library.accounts[account]?.opened = date
+        }
     }
 
     /// The library with this check-in's prices and FX rates added.

@@ -5,9 +5,11 @@ import Tracker
 /// Adds an account (UI.md, "Add account"), as a sheet:
 ///
 /// 1. Pick a kind from a grid of icons.
-/// 2. Name, institution, currency, country and opening date.
-/// 3. The positions (choose or create instruments) or the balance, which
-///    becomes the first valuation.
+/// 2. Name, institution, currency, country and opening date. The opening
+///    date is today by default; set to when the account was opened, it
+///    leaves room to add the account's history.
+/// 3. The positions (choose or create instruments) or the balance on the
+///    opening date, which becomes the first valuation.
 /// 4. The tax wrapper, pre-selected from the kind and your residence (a
 ///    pension fund in Italy is `it.pensionFund`), and whether it counts in
 ///    net worth and plans.
@@ -113,8 +115,7 @@ struct NewAccountScreen: View {
             } header: {
                 Text("Positions")
             } footer: {
-                Text("What it holds on the day it opens: choose an instrument, or create one (an ETF, a coin, gold). "
-                    + "What you paid becomes the purchase cost.")
+                Text(verbatim: AccountOpeningForm.positionsFooter(opened: form.opened, today: .today(), locale: locale))
             }
         } else {
             Section {
@@ -123,10 +124,8 @@ struct NewAccountScreen: View {
             } header: {
                 Text("Opening balance")
             } footer: {
-                Text(form.kind.isLiability
-                    ? "What you owe on the day it opens. It's recorded as a negative amount. "
-                        + "If the account is in credit, type + first, e.g. +20."
-                    : "What it holds on the day it opens. It becomes the account's first value.")
+                Text(verbatim: AccountOpeningForm.balanceFooter(opened: form.opened, today: .today(),
+                                                                isLiability: form.kind.isLiability, locale: locale))
             }
         }
     }
@@ -248,7 +247,9 @@ struct AccountDetailsFields: View {
         } header: {
             Text("Details")
         } footer: {
-            Text("The account counts from the day it opens. The country is the institution's.")
+            Text(form.isNew
+                ? "Set it to when you opened the account, to add its history. The country is the institution's."
+                : "The account counts from the day it opens. The country is the institution's.")
         }
     }
 

@@ -335,6 +335,31 @@ struct AccountOpeningForm: Hashable, Sendable {
             && positions.allSatisfy { $0.quantity.trimmingCharacters(in: .whitespaces).isEmpty }
     }
 
+    /// The opening balance's footer, which names a past opening date so the
+    /// balance typed is the one on that day: "What it held on 1 Jan 2023,
+    /// the day it opened. It becomes the account's first value; add later
+    /// values with Update Value or a check-in."
+    static func balanceFooter(opened: CalendarDate, today: CalendarDate, isLiability: Bool,
+                              locale: Locale = .current) -> String {
+        let isPast = opened < today
+        let day = isPast ? "on \(AmountFormat.mediumDate(opened, locale: locale)), the day it opened" : "on the day it opens"
+        if isLiability {
+            return "What you \(isPast ? "owed" : "owe") \(day). It's recorded as a negative amount. "
+                + "If the account is in credit, type + first, e.g. +20."
+        }
+        return "What it \(isPast ? "held" : "holds") \(day). It becomes the account's first value"
+            + (isPast ? "; add later values with Update Value or a check-in." : ".")
+    }
+
+    /// The opening positions' footer: "What it held on 1 Jan 2023, the day
+    /// it opened: choose an instrument, …".
+    static func positionsFooter(opened: CalendarDate, today: CalendarDate, locale: Locale = .current) -> String {
+        let isPast = opened < today
+        let day = isPast ? "on \(AmountFormat.mediumDate(opened, locale: locale)), the day it opened" : "on the day it opens"
+        return "What it \(isPast ? "held" : "holds") \(day): choose an instrument, or create one (an ETF, a coin, "
+            + "gold). What you paid becomes the purchase cost."
+    }
+
     /// What can't be read.
     func problems(holdsPositions: Bool, locale: Locale = .current) -> [String] {
         var problems: [String] = []

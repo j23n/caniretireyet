@@ -10,7 +10,10 @@ import Tracker
 ///
 /// Without an answer it says why, calmly: there's no main plan yet, plans
 /// can't run in this version (the last recorded answer is shown), or the
-/// plan couldn't run.
+/// plan couldn't run. A past check-in (one before the library's latest)
+/// records no answer, and says so instead:
+///
+/// > Saved a past check-in (31 Mar 2024). The answer isn't recorded for past dates.
 struct CheckInConfirmationView: View {
     let result: CheckInSaveResult
     let done: () -> Void
@@ -39,8 +42,14 @@ struct CheckInConfirmationView: View {
                         .foregroundStyle(Palette.secondaryInk)
                 }
                 netWorth
-                Card("Can I retire yet?") {
-                    answer
+                if result.isPast {
+                    Card {
+                        pastCheckIn
+                    }
+                } else {
+                    Card("Can I retire yet?") {
+                        answer
+                    }
                 }
                 LibraryStatusBanners()
                 Button {
@@ -84,6 +93,18 @@ struct CheckInConfirmationView: View {
     }
 
     // MARK: The answer
+
+    /// A past check-in: saved, with no answer recorded for its date.
+    private var pastCheckIn: some View {
+        Label {
+            Text(verbatim: CheckInWording.pastCheckInSaved(on: result.date, latest: result.laterCheckIn,
+                                                           locale: locale))
+                .fixedSize(horizontal: false, vertical: true)
+        } icon: {
+            Image(systemName: "clock.arrow.circlepath")
+                .foregroundStyle(Palette.accent)
+        }
+    }
 
     @ViewBuilder
     private var answer: some View {
@@ -179,5 +200,10 @@ struct CheckInConfirmationView: View {
 
 #Preview("Saved, no planner") {
     CheckInConfirmationView(result: CheckInPreviewData.savedWithoutAnswer) {}
+        .previewEnvironment()
+}
+
+#Preview("Saved, a past check-in") {
+    CheckInConfirmationView(result: CheckInPreviewData.savedInThePast) {}
         .previewEnvironment()
 }

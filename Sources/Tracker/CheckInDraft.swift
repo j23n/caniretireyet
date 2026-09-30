@@ -90,15 +90,24 @@ public struct CheckInRow: Hashable, Sendable, Identifiable {
     /// value is edited: it was the default for the saved values, so it was
     /// worked out rather than typed.
     var resetsFlowOnEdit: Bool
+    /// Whether the account opens after the check-in's date, e.g. one added
+    /// in the app today while last year is filled in. Such a row is
+    /// optional: it's never counted as missing, *mark rest unchanged* leaves
+    /// it alone, and left empty it changes nothing. Saving a value for it
+    /// moves the account's opening date back to the check-in's date.
+    public private(set) var opensLater: Bool
 
     public var id: AccountID { account }
 
     /// A row pre-filled from `existing` (a valuation already saved on the
     /// check-in date, making the row `updated`) or else from `previous`.
-    /// `valuator` tells whether the saved flow was the default one.
-    init(account: Account, previous: Valuation?, existing: Valuation?, valuator: inout LazyValuator) {
+    /// `date` is the check-in's, and `valuator` tells whether the saved
+    /// flow was the default one.
+    init(account: Account, date: CalendarDate, previous: Valuation?, existing: Valuation?,
+         valuator: inout LazyValuator) {
         self.account = account.id
         self.previous = previous
+        opensLater = account.opened > date
         self.existing = existing
         conflict = nil
         let filled = existing ?? previous
@@ -134,11 +143,23 @@ public struct CheckInRow: Hashable, Sendable, Identifiable {
     /// What a saved valuation paid for a position's added quantity, from its
     /// cost basis and the previous one (what the check-in recorded as
     /// "paid"). `nil` unless the quantity went up and the costs are known.
-    private static func paid(for position: Position, previous: Position?) -> Decimal? {
+    static func paid(for position: Position, previous: Position?) -> Decimal? {
         let before = previous?.quantity ?? 0
         guard position.quantity > before, let cost = position.costBasis else { return nil }
         if before <= 0 { return cost }
         return previous?.costBasis.map { cost - $0 }
+    }
+
+    /// What a saved `valuation` paid, by instrument, for the positions whose
+    /// quantity went up since `previous` (see ``paid(for:previous:)``).
+    static func paid(in valuation: Valuation, since previous: Valuation?) -> [InstrumentID: Decimal] {
+        var paid: [InstrumentID: Decimal] = [:]
+        for position in valuation.positions {
+            if let amount = Self.paid(for: position, previous: previous?.position(for: position.instrument)) {
+                paid[position.instrument] = amount
+            }
+        }
+        return paid
     }
 
     /// Whether the row holds something decided in this check-in: a value
@@ -151,6 +172,13 @@ public struct CheckInRow: Hashable, Sendable, Identifiable {
         case .updated: isEdited
         case .unchanged, .skipped: true
         }
+    }
+
+    /// Whether the row counts in the check-in's progress ("7 of 9
+    /// reviewed"): every account open on the date, and an account that
+    /// opens later once something was decided for it.
+    public var countsInProgress: Bool {
+        !opensLater || state != .notReviewed
     }
 
     /// Whether "unchanged" means something for the row: there's a previous
@@ -341,8 +369,10 @@ public struct CheckInRow: Hashable, Sendable, Identifiable {
     }
 }
 
-/// A check-in in progress (UI.md, "Check-in"): one row per open account,
-/// plus the prices and FX rates fetched or typed in for it.
+/// A check-in in progress (UI.md, "Check-in"): one row per account open on
+/// its date, plus a row for each account that opens after it (see
+/// ``CheckInRow/opensLater``), and the prices and FX rates fetched or typed
+/// in for it.
 ///
 /// Pure data with no UI dependencies, and `Codable`, so the app can keep an
 /// unfinished check-in on the device. Nothing is written to the library
@@ -350,8 +380,8 @@ public struct CheckInRow: Hashable, Sendable, Identifiable {
 public struct CheckInDraft: Hashable, Sendable, Codable {
     /// The date the new valuations carry.
     public private(set) var date: CalendarDate
-    /// One row per account open on the date, grouped (Cash, Investments, …)
-    /// and sorted by name.
+    /// One row per account not closed before the date (open on it, or
+    /// opening later), grouped (Cash, Investments, …) and sorted by name.
     public internal(set) var rows: [CheckInRow]
     /// Prices for this check-in, written to the library with it.
     public private(set) var prices: [PriceRecord]
@@ -362,22 +392,28 @@ public struct CheckInDraft: Hashable, Sendable, Codable {
     /// latest valuation before the date: balance, or cash and positions. An
     /// account that already has a valuation on the date starts from that one,
     /// as `updated`.
+    ///
+    /// Accounts that open after the date get a row too, marked
+    /// ``CheckInRow/opensLater``: an account added in the app opens on the
+    /// day it's added, and a past check-in is one way to fill in its history.
     public init(date: CalendarDate, library: Library) {
         self.date = date
         prices = []
         fxRates = []
         var valuator = LazyValuator(library: library)
-        rows = Self.accounts(openOn: date, in: library).map { account in
+        rows = Self.accounts(for: date, in: library).map { account in
             let valuations = library.valuations(for: account.id)
-            return CheckInRow(account: account, previous: valuations.last { $0.date < date },
+            return CheckInRow(account: account, date: date, previous: valuations.last { $0.date < date },
                               existing: valuations.last { $0.date == date }, valuator: &valuator)
         }
     }
 
-    /// The accounts open on `date`, in row order: by group, then by name.
-    static func accounts(openOn date: CalendarDate, in library: Library) -> [Account] {
+    /// The accounts a check-in on `date` lists, in row order (by group, then
+    /// by name): every account not closed before the date, i.e. open on it
+    /// or opening later.
+    static func accounts(for date: CalendarDate, in library: Library) -> [Account] {
         library.accounts.values
-            .filter { $0.isOpen(on: date) }
+            .filter { account in account.closed.map { date <= $0 } ?? true }
             .sorted { ($0.group, $0.name.lowercased(), $0.id) < ($1.group, $1.name.lowercased(), $1.id) }
     }
 
@@ -405,9 +441,10 @@ public struct CheckInDraft: Hashable, Sendable, Codable {
 
     /// Marks every row not reviewed yet as unchanged. Rows with nothing to
     /// keep (a new account without an earlier value) are skipped instead of
-    /// getting an empty valuation.
+    /// getting an empty valuation. Rows of accounts that open later are
+    /// passed over: they write nothing unless a value is entered.
     public mutating func markRestUnchanged() {
-        for index in rows.indices where rows[index].state == .notReviewed {
+        for index in rows.indices where rows[index].state == .notReviewed && !rows[index].opensLater {
             if !rows[index].markUnchanged() { rows[index].skip() }
         }
     }
@@ -468,25 +505,40 @@ public struct CheckInDraft: Hashable, Sendable, Codable {
 
     // MARK: Progress
 
-    /// The number of rows in `state`.
+    /// The number of rows in `state`, leaving out accounts that open later
+    /// with nothing entered (see ``CheckInRow/countsInProgress``).
     public func count(_ state: CheckInRowState) -> Int {
-        rows.count { $0.state == state }
+        rows.count { $0.state == state && $0.countsInProgress }
     }
 
-    /// Rows updated, unchanged or skipped ("7 of 9 reviewed").
+    /// The rows the progress counts ("7 of **9** reviewed"): every account
+    /// open on the date, and accounts that open later once something was
+    /// entered for them.
+    public var progressTotal: Int {
+        rows.count(where: \.countsInProgress)
+    }
+
+    /// Rows updated, unchanged or skipped ("**7** of 9 reviewed").
     public var reviewedCount: Int {
-        rows.count - count(.notReviewed)
+        progressTotal - count(.notReviewed)
     }
 
-    /// The accounts not reviewed yet, in row order.
+    /// The accounts not reviewed yet, in row order. Accounts that open
+    /// later are never missing, so they aren't listed.
     public var notReviewed: [AccountID] {
-        rows.filter { $0.state == .notReviewed }.map(\.account)
+        rows.filter { $0.state == .notReviewed && !$0.opensLater }.map(\.account)
     }
 
     /// Whether every row has been reviewed, so the check-in can be saved
-    /// without asking about the rest.
+    /// without asking about the rest. Rows of accounts that open later
+    /// needn't be.
     public var isReadyToSave: Bool {
-        !rows.contains { $0.state == .notReviewed }
+        !rows.contains { $0.state == .notReviewed && !$0.opensLater }
+    }
+
+    /// The rows of accounts that open after the date, in row order.
+    public var rowsOpeningLater: [CheckInRow] {
+        rows.filter(\.opensLater)
     }
 
     /// Rows whose account got a different valuation on the date since the
@@ -528,7 +580,7 @@ extension CheckInPosition: Codable {
 extension CheckInRow: Codable {
     enum CodingKeys: String, CodingKey {
         case account, state, mode, previous, existing, conflict, balance, cash, positions, isFlowEdited, enteredFlow,
-             note, source, isEdited, resetsFlowOnEdit
+             note, source, isEdited, resetsFlowOnEdit, opensLater
     }
 
     public init(from decoder: any Decoder) throws {
@@ -549,6 +601,7 @@ extension CheckInRow: Codable {
         // A draft kept before rows recorded this: an updated row counts as edited.
         isEdited = try c.decodeIfPresent(Bool.self, forKey: .isEdited) ?? (state == .updated)
         resetsFlowOnEdit = try c.decodeIfPresent(Bool.self, forKey: .resetsFlowOnEdit) ?? false
+        opensLater = try c.decodeIfPresent(Bool.self, forKey: .opensLater) ?? false
     }
 
     public func encode(to encoder: any Encoder) throws {
@@ -568,6 +621,7 @@ extension CheckInRow: Codable {
         try c.encodeIfPresent(source, forKey: .source)
         try c.encode(isEdited, forKey: .isEdited)
         try c.encode(resetsFlowOnEdit, forKey: .resetsFlowOnEdit)
+        if opensLater { try c.encode(opensLater, forKey: .opensLater) }
     }
 }
 

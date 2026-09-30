@@ -68,6 +68,6 @@ enum CheckInSchedule {
         return CheckInStatus(
             lastCheckIn: lastCheckIn, nextCheckIn: next, daysUntilDue: days,
             isDue: lastCheckIn == nil || days <= dueWindow, draftDate: draft?.date,
-            draftReviewed: draft?.reviewedCount ?? 0, draftTotal: draft?.rows.count ?? 0)
+            draftReviewed: draft?.reviewedCount ?? 0, draftTotal: draft?.progressTotal ?? 0)
     }
 }
