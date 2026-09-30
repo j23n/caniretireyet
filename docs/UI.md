@@ -60,14 +60,14 @@ Library
   | --- | --- |
   | New Account | ⌘N |
   | New Check-in | ⌘K |
-  | Import CSV | ⌘⇧I |
+  | Import… | ⌘⇧I |
   | Save Baseline | ⌘⇧B |
   | Hide Amounts | ⌘⇧H |
   | Show Future | ⌘⇧F |
   | Duplicate Plan | ⌘D |
   | Compare Plans | ⌘⌥C |
 
-- **Drag and drop:** dropping a CSV anywhere on the window starts an import.
+- **Drag and drop:** dropping a CSV, or ledger journals, anywhere on the window starts an import.
 - **Windows:** plan comparison and import can open in their own windows.
 
 ## Overview

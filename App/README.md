@@ -126,7 +126,7 @@ The numbers come from a `PlanEngine` (see `Stores/PlanEngine.swift`). The app us
 
 ## Menu commands
 
-`App/AppCommands.swift`, on the Mac menu bar and iPad: New Account ⌘N, New Check-in ⌘K, Import CSV ⌘⇧I, Hide Amounts ⌘⇧H, Show Future ⌘⇧F, and a **Plan** menu: Save Baseline ⌘⇧B, Duplicate Plan ⌘D, Compare Plans ⌘⌥C. The plan commands act on the plan on screen, which publishes them:
+`App/AppCommands.swift`, on the Mac menu bar and iPad: New Account ⌘N, New Check-in ⌘K, Import… ⌘⇧I (a spreadsheet or ledger journals), Hide Amounts ⌘⇧H, Show Future ⌘⇧F, and a **Plan** menu: Save Baseline ⌘⇧B, Duplicate Plan ⌘D, Compare Plans ⌘⌥C. The plan commands act on the plan on screen, which publishes them:
 
 ```swift
 .focusedSceneValue(\.planActions, PlanCommandActions(saveBaseline: { … }, duplicate: { … }, compare: { … }))

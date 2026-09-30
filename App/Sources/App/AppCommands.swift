@@ -7,7 +7,7 @@ import SwiftUI
 /// | --- | --- |
 /// | New Account | ⌘N |
 /// | New Check-in | ⌘K |
-/// | Import CSV | ⌘⇧I |
+/// | Import… | ⌘⇧I |
 /// | Save Baseline | ⌘⇧B |
 /// | Hide Amounts | ⌘⇧H |
 /// | Show Future | ⌘⇧F |
@@ -33,7 +33,7 @@ struct AppCommands: Commands {
             Button("New Check-in") { navigation.startCheckIn() }
                 .keyboardShortcut("k", modifiers: .command)
             Divider()
-            Button("Import CSV…") { navigation.startImport() }
+            Button("Import…") { navigation.startImport() }
                 .keyboardShortcut("i", modifiers: [.command, .shift])
         }
 
