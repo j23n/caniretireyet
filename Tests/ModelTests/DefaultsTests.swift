@@ -62,6 +62,36 @@ struct AccountDefaultsTests {
             == #"{"currency":"EUR","id":"a","kind":"cash","name":"A","opened":"2024-01-01"}"#)
     }
 
+    @Test func movingTheOpeningMovesAJoiningDateSetFromIt() {
+        var fund = account(.pensionFund)
+        fund.tax = AccountTax(wrapper: "it.pensionFund", details: ["joined": "2024-01-01", "x-custom": [1]])
+        fund.moveOpening(to: "2019-03-31")
+        #expect(fund.opened == "2019-03-31")
+        #expect(fund.tax?.joined == "2019-03-31")
+        #expect(fund.tax?.details["x-custom"] == [1])
+        // Later too: it keeps following the opening date.
+        fund.moveOpening(to: "2020-06-30")
+        #expect(fund.tax?.joined == "2020-06-30")
+    }
+
+    @Test func movingTheOpeningKeepsAJoiningDateSetByHand() {
+        var fund = account(.pensionFund)
+        fund.tax = AccountTax(wrapper: "it.pensionFund", details: ["joined": "2006-01-01"])
+        fund.moveOpening(to: "2019-03-31")
+        #expect(fund.opened == "2019-03-31")
+        #expect(fund.tax?.joined == "2006-01-01")
+
+        // Accounts without a joining date only move their opening date.
+        var bank = account(.cash)
+        bank.tax = AccountTax(wrapper: "it.ordinary")
+        bank.moveOpening(to: "2019-03-31")
+        #expect(bank.opened == "2019-03-31")
+        #expect(bank.tax == AccountTax(wrapper: "it.ordinary"))
+        var untaxed = account(.cash)
+        untaxed.moveOpening(to: "2019-03-31")
+        #expect(untaxed.opened == "2019-03-31" && untaxed.tax == nil)
+    }
+
     @Test func taxKeepsWrapperDetails() throws {
         let json = #"{"joined":"2022-01-01","wrapper":"it.pensionFund","x-custom":[1]}"#
         let tax = try JSONDecoder().decode(AccountTax.self, from: Data(json.utf8))

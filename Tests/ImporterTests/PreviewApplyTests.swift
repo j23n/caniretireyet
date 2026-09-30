@@ -204,6 +204,28 @@ struct PreviewApplyTests {
         #expect(preview.issues.contains(ImportIssue(kind: .valuesAfterClosed("cash", closed: "2026-01-15"))))
     }
 
+    @Test func openingEarlierMovesAPensionFundsJoiningDate() throws {
+        var base = library()
+        base.accounts["fondo"] = Account(id: "fondo", name: "Fondo", kind: .pensionFund, currency: .eur,
+                                         opened: "2026-02-01",
+                                         tax: AccountTax(wrapper: "it.pensionFund", details: ["joined": "2026-02-01"]))
+        base.upsert(Valuation(account: "fondo", date: "2026-02-28", balance: 1000))
+        let file = "Date;Fondo\n2025-12-31;800\n2026-02-28;1000\n"
+        let preview = try makeSession(file).preview(against: base)
+        #expect(preview.accountChanges == [
+            AccountChangeProposal(account: "fondo", change: .openEarlier(on: "2025-12-31")),
+        ])
+        var result = preview.apply(to: base)
+        #expect(result.library.accounts["fondo"]?.opened == date("2025-12-31"))
+        #expect(result.library.accounts["fondo"]?.tax?.joined == date("2025-12-31"))
+
+        // A joining date set by hand stays.
+        base.accounts["fondo"]?.tax?.details["joined"] = "2010-01-01"
+        result = try makeSession(file).preview(against: base).apply(to: base)
+        #expect(result.library.accounts["fondo"]?.opened == date("2025-12-31"))
+        #expect(result.library.accounts["fondo"]?.tax?.joined == date("2010-01-01"))
+    }
+
     @Test func reportsProblemsBetweenCells() throws {
         let file = "Date,Account,Value,Currency\n2026-01-31,Cash,100,EUR\n2026-01-31,Cash,101,EUR\n"
             + "2026-01-31,Cash,$5,\n2026-01-31,,7,EUR\n2026-01-31,Cash,8,EURO\n"

@@ -244,13 +244,15 @@ struct AccountForm: Hashable, Sendable {
 
     /// The account with these fields. An edited account keeps its ID and
     /// everything the form doesn't show (tags, successor, closing date,
-    /// valuation mode, wrapper details); a new one gets `id`.
+    /// valuation mode, wrapper details); a new one gets `id`. A pension
+    /// fund's joining date follows a moved opening date if it was the
+    /// opening date (``Account/moveOpening(to:)``).
     func account(id: AccountID, locale: Locale = .current) -> Account {
         var account = original ?? Account(id: id, name: "", kind: kind, currency: currency, opened: opened)
         account.name = trimmedName
         account.kind = kind
         account.currency = currency
-        account.opened = opened
+        account.moveOpening(to: opened)
         let trimmedInstitution = institution.trimmingCharacters(in: .whitespacesAndNewlines)
         account.institution = trimmedInstitution.isEmpty ? nil : trimmedInstitution
         account.country = country
@@ -258,7 +260,7 @@ struct AccountForm: Hashable, Sendable {
         account.notes = trimmedNotes.isEmpty ? nil : trimmedNotes
 
         if let wrapper {
-            var tax = original?.tax ?? AccountTax(wrapper: wrapper)
+            var tax = account.tax ?? AccountTax(wrapper: wrapper)
             if tax.wrapper != wrapper {
                 tax = AccountTax(wrapper: wrapper)
             }

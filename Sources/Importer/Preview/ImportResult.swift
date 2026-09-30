@@ -56,7 +56,9 @@ extension ImportPreview {
     /// is compared with the library again: new records are added, missing
     /// values filled in, and conflicts overwritten or kept by their
     /// ``ImportRecordPreview/resolution`` (undecided ones are kept). Accepted
-    /// account changes come last. Applying the same file twice changes nothing.
+    /// account changes come last; opening earlier moves a joining date that
+    /// was the opening date too (`Account.moveOpening(to:)`). Applying the
+    /// same file twice changes nothing.
     public func apply(to library: Library) -> ImportResult {
         var library = library
         var result = ImportResult(library: library)
@@ -138,7 +140,7 @@ extension ImportPreview {
                 result.closedAccounts.append(account.id)
             case .openEarlier(let date):
                 guard date < account.opened else { continue }
-                account.opened = date
+                account.moveOpening(to: date)
             }
             library.accounts[account.id] = account
             changedAccounts.insert(account.id)

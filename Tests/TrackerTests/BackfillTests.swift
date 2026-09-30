@@ -88,6 +88,25 @@ struct PastCheckInTests {
         #expect(Valuator(library: saved).netWorth(on: "2024-03-31").total == 12000)
     }
 
+    @Test func aPensionFundsJoiningDateMovesWithItsOpeningDate() throws {
+        var library = self.library
+        library.accounts["fondo"]?.tax = AccountTax(wrapper: "it.pensionFund", details: ["joined": "2026-09-30"])
+        var draft = CheckInDraft(date: "2024-03-31", library: library)
+        draft["fondo"]?.setBalance(15000)
+        draft.markRestUnchanged()
+        #expect(draft.review(in: library).openingMoves == ["fondo"])
+        draft.apply(to: &library)
+        #expect(library.accounts["fondo"]?.opened == "2024-03-31")
+        #expect(library.accounts["fondo"]?.tax?.joined == "2024-03-31")
+
+        // A joining date typed by hand stays.
+        var typed = self.library
+        typed.accounts["fondo"]?.tax = AccountTax(wrapper: "it.pensionFund", details: ["joined": "2010-01-01"])
+        draft.apply(to: &typed)
+        #expect(typed.accounts["fondo"]?.opened == "2024-03-31")
+        #expect(typed.accounts["fondo"]?.tax?.joined == "2010-01-01")
+    }
+
     @Test func emptyOrSkippedRowsChangeNothing() throws {
         var draft = CheckInDraft(date: "2024-03-31", library: library)
         draft["old"]?.setBalance(9100)
@@ -211,6 +230,15 @@ struct ValuationEditTests {
         #expect(library.accounts["cash"]?.opened == "2025-12-31")
         #expect(library.valuations(for: "cash").map(\.flow) == [800, 200, 500])
         #expect(Valuator(library: library).netWorth(on: "2025-12-31").total == 800)
+    }
+
+    @Test func aValueBeforeAPensionFundOpenedMovesItsJoiningDate() throws {
+        var library = self.library
+        library.accounts["fondo"]?.tax = AccountTax(wrapper: "it.pensionFund", details: ["joined": "2026-01-31"])
+        let edit = library.saveValue(Valuation(account: "fondo", date: "2021-06-30", balance: 5000))
+        #expect(edit.movedOpeningFrom == "2026-01-31")
+        #expect(library.accounts["fondo"]?.opened == "2021-06-30")
+        #expect(library.accounts["fondo"]?.tax?.joined == "2021-06-30")
     }
 
     @Test func movingAValueFollowsBothPlaces() throws {

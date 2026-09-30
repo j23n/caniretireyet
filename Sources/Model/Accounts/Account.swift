@@ -96,6 +96,18 @@ extension Account {
     public func isOpen(on date: CalendarDate) -> Bool {
         date >= opened && (closed.map { date <= $0 } ?? true)
     }
+
+    /// Moves the opening date to `date`. A joining date that was the opening
+    /// date (`tax.details["joined"]`, set from it when a pension fund is
+    /// added) moves with it, as it sets the fund's payout tax; one that
+    /// differs was set on purpose and stays.
+    public mutating func moveOpening(to date: CalendarDate) {
+        let old = opened
+        opened = date
+        guard date != old, var tax, tax.joined == old else { return }
+        tax.details["joined"] = .string(date.description)
+        self.tax = tax
+    }
 }
 
 // MARK: - Codable
