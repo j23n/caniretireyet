@@ -78,7 +78,7 @@ struct CheckInScreen: View {
         } else if session.isSaving {
             VStack(spacing: Metrics.m) {
                 ProgressView()
-                Text("Saving and updating your plan…")
+                Text(verbatim: CheckInWording.savingMessage(date: checkIn.draft?.date, in: library.library))
                     .foregroundStyle(Palette.secondaryInk)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)

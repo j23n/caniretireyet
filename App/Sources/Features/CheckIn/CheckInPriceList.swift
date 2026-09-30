@@ -71,7 +71,9 @@ struct CheckInPriceList: Hashable, Sendable {
     /// The list for `draft`, with what the latest fetch (`fetched`) said
     /// about each item. Items are what the draft's rows hold (positions not
     /// sold) and the currencies they need, plus anything the fetch listed.
-    static func make(draft: CheckInDraft, fetched: CheckInPrices?, library: Library,
+    /// `today` tells how far in the past the check-in is, for the reason a
+    /// price failed.
+    static func make(draft: CheckInDraft, fetched: CheckInPrices?, library: Library, today: CalendarDate = .today(),
                      locale: Locale = .current) -> CheckInPriceList {
         let fetched = fetched?.date == draft.date ? fetched : nil
         let base = library.settings.baseCurrency
@@ -88,7 +90,7 @@ struct CheckInPriceList: Hashable, Sendable {
         }
         let instruments = instrumentIDs.map { id in
             instrumentLine(id, draft: draft, entry: fetched?.entry(for: .instrument(id)), library: library,
-                           prices: priceTable, locale: locale)
+                           prices: priceTable, today: today, locale: locale)
         }.sorted { ($0.title.lowercased(), $0.item) < ($1.title.lowercased(), $1.item) }
 
         // Exchange rates against the base currency.
@@ -98,7 +100,7 @@ struct CheckInPriceList: Hashable, Sendable {
         }
         let rates = quotes.sorted().map { quote in
             rateLine(quote, base: base, draft: draft, entry: fetched?.entry(for: .fx(base: base, quote: quote)),
-                     fx: fxTable, locale: locale)
+                     fx: fxTable, today: today, locale: locale)
         }
 
         // Inflation indices, only when the fetch listed them (months missing).
@@ -115,7 +117,8 @@ struct CheckInPriceList: Hashable, Sendable {
     // MARK: Lines
 
     private static func instrumentLine(_ id: InstrumentID, draft: CheckInDraft, entry: PriceListEntry?,
-                                       library: Library, prices: PriceTable, locale: Locale) -> CheckInPriceLine {
+                                       library: Library, prices: PriceTable, today: CalendarDate,
+                                       locale: Locale) -> CheckInPriceLine {
         let instrument = library.instruments[id]
         let own = draft.prices.first { $0.instrument == id }
         let known = own ?? prices.latest(for: id, onOrBefore: draft.date)
@@ -147,12 +150,13 @@ struct CheckInPriceList: Hashable, Sendable {
             status: status,
             source: sourceText(status == .typed ? .manual : (entry?.source ?? own?.source), symbol: status == .typed ? nil : symbol),
             observed: status == .fetched ? observedText(entry?.details, locale: locale) : nil,
-            failure: status == .typed ? nil : entry?.failureReason,
+            failure: status == .typed ? nil : failureText(entry, date: draft.date, today: today),
             canEnter: true)
     }
 
     private static func rateLine(_ quote: CurrencyCode, base: CurrencyCode, draft: CheckInDraft,
-                                 entry: PriceListEntry?, fx: FXTable, locale: Locale) -> CheckInPriceLine {
+                                 entry: PriceListEntry?, fx: FXTable, today: CalendarDate,
+                                 locale: Locale) -> CheckInPriceLine {
         let own = draft.fxRates.first { $0.base == base && $0.quote == quote }
         let known = fx.quote(from: base, to: quote, on: draft.date)
         let status: CheckInPriceLine.Status
@@ -178,7 +182,7 @@ struct CheckInPriceList: Hashable, Sendable {
             source: sourceText(status == .typed ? .manual : (entry?.source ?? own?.source),
                                symbol: status == .typed ? nil : entry?.symbol),
             observed: status == .fetched ? observedText(entry?.details, locale: locale) : nil,
-            failure: status == .typed ? nil : entry?.failureReason,
+            failure: status == .typed ? nil : failureText(entry, date: draft.date, today: today),
             canEnter: true)
     }
 
@@ -196,6 +200,28 @@ struct CheckInPriceList: Hashable, Sendable {
     }
 
     // MARK: Words
+
+    /// How long CoinGecko's free API keeps daily prices: about a year.
+    static let coinGeckoHistoryDays = 365
+
+    /// Why an entry failed, for a check-in on `date`. A provider without
+    /// history for the date (gold-api.com only has today's price; CoinGecko's
+    /// free API about the last year) says so first: "No history for this
+    /// date: type the price." `nil` unless the entry failed.
+    static func failureText(_ entry: PriceListEntry?, date: CalendarDate, today: CalendarDate = .today()) -> String? {
+        guard let entry, let error = entry.failure else { return nil }
+        switch error {
+        case .unsupportedDate:
+            return noHistory + " " + error.description
+        case .unauthorized where entry.source == .coingecko && date < today.adding(days: -coinGeckoHistoryDays):
+            return noHistory + " CoinGecko's free prices only go back about a year."
+        default:
+            return error.description
+        }
+    }
+
+    /// The start of the reason for a price that has no history for a past date.
+    static let noHistory = "No history for this date: type the price."
 
     /// A source's name: "Yahoo Finance", "ECB", "Typed in".
     static func sourceName(_ source: DataSource) -> String {
@@ -262,18 +288,26 @@ struct CheckInPriceStatus: Hashable, Sendable {
             return CheckInPriceStatus(kind: .fetching, title: "Fetching \(noun.lowercased())…",
                                       subtitle: names.isEmpty ? nil : names)
         }
-        let failed = lines.count { $0.status == .failed }
-        let toType = lines.count { $0.status == .manual && $0.needsAttention }
+        // A provider without history for a past date isn't a failure to retry: the price is typed in.
+        let noHistory = lines.count { $0.status == .failed && $0.failure?.hasPrefix(CheckInPriceList.noHistory) == true }
+        let failed = lines.count { $0.status == .failed } - noHistory
+        let noSource = lines.count { $0.status == .manual && $0.needsAttention }
         if failed > 0 {
             return CheckInPriceStatus(
                 kind: .needsAttention,
                 title: failed == 1 ? "1 price couldn't be fetched" : "\(failed) prices couldn't be fetched",
                 subtitle: "The latest known ones are used · tap to type them in")
         }
+        let toType = noSource + noHistory
         if toType > 0 {
+            let reason = switch (noSource > 0, noHistory > 0) {
+            case (true, true): "No price source, or no history for this date"
+            case (false, true): "No history for this date"
+            default: "No price source"
+            }
             return CheckInPriceStatus(
                 kind: .needsAttention, title: toType == 1 ? "1 price to type in" : "\(toType) prices to type in",
-                subtitle: "No price source · tap to enter")
+                subtitle: reason + " · tap to enter")
         }
         if lines.contains(where: { $0.status == .notFetched }) {
             return CheckInPriceStatus(kind: .notFetched, title: "\(noun) not fetched",

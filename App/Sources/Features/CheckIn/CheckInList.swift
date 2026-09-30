@@ -13,6 +13,10 @@ import Tracker
 /// (▲ ▼), flips the sign (±, since the keypad has no minus) and closes it.
 /// Swipe a row right to mark it unchanged, left to skip it; long-press for
 /// the same and more.
+///
+/// A past check-in lists the accounts that open after its date last, in a
+/// collapsed "Opened later" section: a value entered there moves the
+/// account's opening date back when the check-in is saved.
 struct CheckInList: View {
     let draft: CheckInDraft
     @Bindable var session: CheckInSession
@@ -32,7 +36,8 @@ struct CheckInList: View {
         let snapshot = library.library
         let review = draft.review(in: snapshot)
         let sections = CheckInSection.sections(of: draft, in: snapshot)
-        let order = CheckInFieldOrder.list(rows: sections.flatMap(\.rows), library: snapshot,
+        let visible = CheckInSection.visibleRows(of: sections, showsOpenedLater: session.showsOpenedLater)
+        let order = CheckInFieldOrder.list(rows: visible, library: snapshot,
                                            expanded: session.expanded, editingFlows: session.editingFlows)
         ScrollViewReader { proxy in
             list(review: review, sections: sections, order: order, proxy: proxy)
@@ -77,17 +82,29 @@ struct CheckInList: View {
             }
             ForEach(sections) { section in
                 Section {
-                    ForEach(section.rows) { row in
-                        CheckInListRow(
-                            row: row, review: review.row(for: row.account), previousCheckIn: review.previousCheckIn,
-                            session: session, focus: $focus, focused: focus, signToggle: signToggle
-                        ) { field in
-                            if let target = order.next(after: field) { move(to: target, proxy: proxy) }
+                    if !section.isOpenedLater || session.showsOpenedLater {
+                        ForEach(section.rows) { row in
+                            CheckInListRow(
+                                row: row, review: review.row(for: row.account), date: draft.date,
+                                previousCheckIn: review.previousCheckIn, session: session, focus: $focus,
+                                focused: focus, signToggle: signToggle
+                            ) { field in
+                                if let target = order.next(after: field) { move(to: target, proxy: proxy) }
+                            }
+                            .id(row.account)
                         }
-                        .id(row.account)
                     }
                 } header: {
-                    Text(verbatim: section.group.description)
+                    if section.isOpenedLater {
+                        openedLaterHeader(count: section.rows.count)
+                    } else {
+                        Text(verbatim: section.title)
+                    }
+                } footer: {
+                    if section.isOpenedLater && session.showsOpenedLater {
+                        Text("These accounts open after this date. Leave them empty to change nothing; a value "
+                            + "moves the account's opening date back to this check-in.")
+                    }
                 }
             }
             Section {
@@ -96,6 +113,25 @@ struct CheckInList: View {
                     .listRowBackground(Color.clear)
             }
         }
+    }
+
+    /// "OPENED LATER (3) ›", a button that shows or hides the section's accounts.
+    private func openedLaterHeader(count: Int) -> some View {
+        Button {
+            withAnimation { session.showsOpenedLater.toggle() }
+        } label: {
+            HStack(spacing: Metrics.xs) {
+                Text(verbatim: "Opened later (\(count))")
+                Spacer(minLength: Metrics.s)
+                Image(systemName: "chevron.right")
+                    .font(.footnote.weight(.semibold))
+                    .rotationEffect(.degrees(session.showsOpenedLater ? 90 : 0))
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.borderless)
+        .accessibilityLabel(Text(verbatim: "Opened later, \(count) account\(count == 1 ? "" : "s")"))
+        .accessibilityHint(Text(verbatim: session.showsOpenedLater ? "Hides them" : "Shows them"))
     }
 
     /// The prices' status row; `nil` when the check-in needs no prices.
@@ -143,6 +179,7 @@ struct CheckInList: View {
     /// Focuses a field someone asked for (the review, "Add a position").
     private func applyFocusRequest(_ request: CheckInField, proxy: ScrollViewProxy, after delay: Duration) {
         session.focusRequest = nil
+        if draft[request.account]?.opensLater == true { session.showsOpenedLater = true }
         Task { @MainActor in
             try? await Task.sleep(for: delay)
             move(to: request, proxy: proxy)
@@ -200,7 +237,7 @@ private struct CheckInListHeader: View {
                     .presentationDetents([.medium, .large])
                 }
                 Text(verbatim: CheckInWording.dateLine(previousCheckIn: review.previousCheckIn,
-                                                       accounts: draft.rows.count, locale: locale))
+                                                       accounts: CheckInWording.accountCount(draft), locale: locale))
                     .font(.subheadline)
                     .foregroundStyle(Palette.secondaryInk)
             }
@@ -251,6 +288,8 @@ private struct CheckInPriceStatusLabel: View {
 private struct CheckInListRow: View {
     let row: CheckInRow
     let review: CheckInRowReview?
+    /// The check-in's date.
+    let date: CalendarDate
     let previousCheckIn: CalendarDate?
     let session: CheckInSession
     let focus: FocusState<CheckInField?>.Binding
@@ -309,6 +348,10 @@ private struct CheckInListRow: View {
     }
     private var lastValueNote: String? {
         CheckInWording.lastValueNote(for: row, previousCheckIn: previousCheckIn, locale: locale)
+    }
+    /// "Saving moves its opening date to 31 Mar 2024.", for an account that opens later.
+    private var openingNote: String? {
+        CheckInWording.openingNote(for: row, opened: account?.opened, date: date, locale: locale)
     }
     /// The value it was: the previous balance in the account's currency, or
     /// the previous holdings' value in the base currency.
@@ -534,6 +577,17 @@ private struct CheckInListRow: View {
                 .font(.footnote)
                 .foregroundStyle(Palette.secondaryInk)
         }
+        if let openingNote {
+            Label {
+                Text(verbatim: openingNote)
+                    .fixedSize(horizontal: false, vertical: true)
+            } icon: {
+                Image(systemName: "calendar.badge.clock")
+                    .foregroundStyle(Palette.accent)
+            }
+            .font(.footnote)
+            .foregroundStyle(Palette.secondaryInk)
+        }
     }
 
     /// "Contributions since June [ 1.325,00 € ]", or the automatic new money being edited.
@@ -664,7 +718,7 @@ private struct CheckInBottomBar: View {
                 Text(verbatim: CheckInWording.reviewed(draft))
                     .font(.subheadline.weight(.semibold))
                     .monospacedDigit()
-                CheckInProgressBar(reviewed: draft.reviewedCount, total: draft.rows.count)
+                CheckInProgressBar(reviewed: draft.reviewedCount, total: draft.progressTotal)
                     .frame(width: 112)
             }
             Spacer(minLength: Metrics.s)

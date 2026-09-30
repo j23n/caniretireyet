@@ -12,6 +12,10 @@ import Tracker
 /// Tab moves to the next cell, Return down the Now column, ⌘↩ opens the
 /// review, where ⌘↩ saves. Click a row's state to mark it unchanged, or
 /// right-click it for more.
+///
+/// A past check-in lists the accounts that open after its date last, under
+/// "Opened later": a value entered there moves the account's opening date
+/// back when the check-in is saved.
 struct CheckInTable: View {
     let draft: CheckInDraft
     let session: CheckInSession
@@ -61,11 +65,14 @@ struct CheckInTable: View {
             CheckInTableHeader(previousCheckIn: review.previousCheckIn)
             Divider()
             ForEach(sections) { section in
-                CheckInTableGroupHeader(group: section.group)
+                CheckInTableGroupHeader(title: section.title,
+                                        note: section.isOpenedLater
+                                            ? "Optional: a value moves the account's opening date back to this check-in"
+                                            : nil)
                 ForEach(section.rows) { row in
                     CheckInTableRow(
-                        row: row, review: review.row(for: row.account), previousCheckIn: review.previousCheckIn,
-                        session: session, focus: $focus, focused: focus
+                        row: row, review: review.row(for: row.account), date: draft.date,
+                        previousCheckIn: review.previousCheckIn, session: session, focus: $focus, focused: focus
                     ) { field in
                         if let target = order.returnTarget(after: field) { focus = target }
                     }
@@ -172,19 +179,28 @@ private struct CheckInTableHeader: View {
     }
 }
 
-/// "CASH", "INVESTMENTS", … on a band across the table.
+/// "CASH", "INVESTMENTS", …, "OPENED LATER" on a band across the table,
+/// with an optional note after it.
 private struct CheckInTableGroupHeader: View {
-    let group: AccountGroup
+    let title: String
+    var note: String?
 
     var body: some View {
-        Text(verbatim: group.description.uppercased())
-            .tracking(0.5)
-            .font(.caption2.weight(.semibold))
-            .foregroundStyle(Palette.secondaryInk)
-            .padding(.horizontal, CheckInColumns.inset + Metrics.s)
-            .frame(maxWidth: .infinity, minHeight: 26, alignment: .leading)
-            .background(Palette.page)
-            .accessibilityAddTraits(.isHeader)
+        HStack(spacing: Metrics.s) {
+            Text(verbatim: title.uppercased())
+                .tracking(0.5)
+                .font(.caption2.weight(.semibold))
+                .accessibilityAddTraits(.isHeader)
+            if let note {
+                Text(verbatim: note)
+                    .font(.caption2)
+                    .lineLimit(1)
+            }
+        }
+        .foregroundStyle(Palette.secondaryInk)
+        .padding(.horizontal, CheckInColumns.inset + Metrics.s)
+        .frame(maxWidth: .infinity, minHeight: 26, alignment: .leading)
+        .background(Palette.page)
     }
 }
 
@@ -196,6 +212,8 @@ private struct CheckInTableGroupHeader: View {
 private struct CheckInTableRow: View {
     let row: CheckInRow
     let review: CheckInRowReview?
+    /// The check-in's date.
+    let date: CalendarDate
     let previousCheckIn: CalendarDate?
     let session: CheckInSession
     let focus: FocusState<CheckInField?>.Binding
@@ -232,10 +250,14 @@ private struct CheckInTableRow: View {
     private var rule: FlowDefault { CheckInRowDisplay.flowRule(of: row.account, in: library.library) }
 
     /// "FinecoBank", "3 positions · 1 changed", "last value 31 May", plus
-    /// the currency when it isn't the base one.
+    /// the currency when it isn't the base one. For an account that opens
+    /// later, when it opens or that saving moves that.
     private var detail: String? {
         var parts: [String] = []
-        if row.mode == .holdings {
+        if let opening = CheckInWording.openingDetail(for: row, opened: account?.opened, date: date,
+                                                      locale: locale) {
+            parts.append(opening)
+        } else if row.mode == .holdings {
             parts.append(CheckInWording.holdingsSummary(row, instruments: library.library.instruments, locale: locale))
         } else if let note = CheckInWording.lastValueNote(for: row, previousCheckIn: previousCheckIn, locale: locale) {
             parts.append(note.prefix(1).lowercased() + String(note.dropFirst()))
@@ -282,6 +304,7 @@ private struct CheckInTableRow: View {
                 }
             }
             .lineLimit(1)
+            .help(CheckInWording.openingNote(for: row, opened: account?.opened, date: date, locale: locale) ?? "")
         } last: {
             CheckInPlainAmount(lastAmount)
                 .foregroundStyle(Palette.secondaryInk)
@@ -515,7 +538,7 @@ private struct CheckInTableFooter: View {
                 Text(verbatim: CheckInWording.reviewed(draft))
                     .font(.callout.weight(.semibold))
                     .monospacedDigit()
-                CheckInProgressBar(reviewed: draft.reviewedCount, total: draft.rows.count)
+                CheckInProgressBar(reviewed: draft.reviewedCount, total: draft.progressTotal)
                     .frame(width: 140)
             }
             if let notReviewed = CheckInWording.notReviewed(notReviewedNames) {

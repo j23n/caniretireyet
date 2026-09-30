@@ -204,24 +204,47 @@ struct CheckInFieldOrder: Hashable, Sendable {
 // MARK: - Sections
 
 /// The accounts of one group in the check-in (Cash, Investments, …), in the
-/// draft's order.
+/// draft's order; or, at the end of a past check-in, the accounts that open
+/// after its date ("Opened later").
 struct CheckInSection: Identifiable, Hashable, Sendable {
-    var group: AccountGroup
+    enum ID: Hashable, Sendable {
+        case group(AccountGroup)
+        case openedLater
+    }
+
+    /// The accounts' group; `nil` for the "Opened later" section.
+    var group: AccountGroup?
     var rows: [CheckInRow]
 
-    var id: AccountGroup { group }
+    var id: ID { group.map(ID.group) ?? .openedLater }
+
+    /// Whether this is the section of accounts that open after the date.
+    var isOpenedLater: Bool { group == nil }
+
+    /// "Cash", "Investments", …, "Opened later".
+    var title: String { group?.description ?? "Opened later" }
 
     /// The draft's rows by account group, in display order. An account no
-    /// longer in the library goes under "Other".
+    /// longer in the library goes under "Other". Accounts that open after
+    /// the date (``CheckInRow/opensLater``) come last, in their own section.
     static func sections(of draft: CheckInDraft, in library: Library) -> [CheckInSection] {
         var rowsByGroup: [AccountGroup: [CheckInRow]] = [:]
-        for row in draft.rows {
+        for row in draft.rows where !row.opensLater {
             let group = library.accounts[row.account]?.group ?? .other
             rowsByGroup[group, default: []].append(row)
         }
-        return AccountGroup.allCases.compactMap { group in
+        var sections = AccountGroup.allCases.compactMap { group in
             rowsByGroup[group].map { CheckInSection(group: group, rows: $0) }
         }
+        let later = draft.rowsOpeningLater
+        if !later.isEmpty { sections.append(CheckInSection(group: nil, rows: later)) }
+        return sections
+    }
+
+    /// The rows the iPhone list shows: every section's, except the "Opened
+    /// later" section's while it's collapsed.
+    static func visibleRows(of sections: [CheckInSection], showsOpenedLater: Bool) -> [CheckInRow] {
+        sections.filter { !$0.isOpenedLater || showsOpenedLater }.flatMap(\.rows)
     }
 }
 
@@ -322,9 +345,16 @@ enum CheckInWording {
         }
     }
 
-    /// "7 of 9 reviewed".
+    /// "7 of 9 reviewed". Accounts that open later count once something was
+    /// entered for them.
     static func reviewed(_ draft: CheckInDraft) -> String {
-        "\(draft.reviewedCount) of \(draft.rows.count) reviewed"
+        "\(draft.reviewedCount) of \(draft.progressTotal) reviewed"
+    }
+
+    /// The number of accounts a check-in's date line counts: those open on
+    /// its date.
+    static func accountCount(_ draft: CheckInDraft) -> Int {
+        draft.rows.count { !$0.opensLater }
     }
 
     /// "Not reviewed: Fondo pensione, Mutuo" (at most three names, then "and 2 more").
@@ -385,7 +415,8 @@ enum CheckInWording {
     /// The line under a row that isn't updated: "Pre-filled from 31 Aug",
     /// "Unchanged", "Skipped · no value this time", or for a new account
     /// "New account · enter its value". `nil` for an updated row, whose line
-    /// shows the amounts.
+    /// shows the amounts. A row of an account that opens later says so
+    /// instead (see ``openingNote(for:opened:date:locale:)``).
     static func caption(for row: CheckInRow, locale: Locale = .current) -> String? {
         switch row.state {
         case .updated:
@@ -395,9 +426,81 @@ enum CheckInWording {
         case .skipped:
             return "Skipped · no value this time"
         case .notReviewed:
+            if row.opensLater { return "Optional · leave empty to change nothing" }
             guard let previous = row.previous else { return "New account · enter its value" }
             return "Pre-filled from " + AmountFormat.shortDate(previous.date, locale: locale)
         }
+    }
+
+    /// The footnote of a row whose account opens after the check-in's
+    /// `date` (on `opened`): "Opened 30 Sep 2026 · a value here moves its
+    /// opening date to 31 Mar 2024." until a value is entered, then "Saving
+    /// moves its opening date to 31 Mar 2024." `nil` for other rows, and
+    /// for a skipped one (it writes nothing).
+    static func openingNote(for row: CheckInRow, opened: CalendarDate?, date: CalendarDate,
+                            locale: Locale = .current) -> String? {
+        guard row.opensLater, row.state != .skipped else { return nil }
+        let moved = AmountFormat.mediumDate(date, locale: locale)
+        if row.state == .notReviewed {
+            let since = opened.map { "Opened " + AmountFormat.mediumDate($0, locale: locale) + " · " } ?? ""
+            return since + "a value here moves its opening date to \(moved)."
+        }
+        return "Saving moves its opening date to \(moved)."
+    }
+
+    /// The short form for the Mac table's account column: "opened 30 Sep
+    /// 2026 · optional", or once a value is entered "opening date moves to
+    /// 31 Mar 2024". `nil` for other rows, and a skipped one.
+    static func openingDetail(for row: CheckInRow, opened: CalendarDate?, date: CalendarDate,
+                              locale: Locale = .current) -> String? {
+        guard row.opensLater, row.state != .skipped else { return nil }
+        if row.state == .notReviewed {
+            return (opened.map { "opened " + AmountFormat.mediumDate($0, locale: locale) + " · " } ?? "") + "optional"
+        }
+        return "opening date moves to " + AmountFormat.mediumDate(date, locale: locale)
+    }
+
+    /// The review's note on accounts whose opening date saving moves:
+    /// "Saving moves the opening date of Fineco and Directa to 31 Mar
+    /// 2024." `nil` when there are none.
+    static func openingMovesNote(_ accounts: [AccountID], date: CalendarDate, in library: Library,
+                                 locale: Locale = .current) -> String? {
+        guard !accounts.isEmpty else { return nil }
+        let names = CheckInStoreError.list(accounts.map { library.accounts[$0]?.name ?? $0.rawValue })
+        return "Saving moves the opening date of \(names) to \(AmountFormat.mediumDate(date, locale: locale)), "
+            + "so \(accounts.count == 1 ? "its history starts" : "their histories start") there."
+    }
+
+    /// The banner of a past check-in, one dated before the library's latest
+    /// (`latest`): later values stay, and no answer is recorded. `nil` when
+    /// the check-in isn't a past one.
+    static func pastCheckInNote(on date: CalendarDate, in library: Library, locale: Locale = .current) -> String? {
+        guard let latest = CheckInStore.laterCheckIn(than: date, in: library) else { return nil }
+        let hasLaterAccounts = library.accounts.values.contains { $0.opened > date && ($0.closed.map { date <= $0 } ?? true) }
+        return "Your latest check-in is \(AmountFormat.longDate(latest, locale: locale)). Values saved after this "
+            + "date stay as they are, and the answer to \u{201C}Can I retire yet?\u{201D} is only recorded at the "
+            + "latest check-in."
+            + (hasLaterAccounts ? " Accounts opened after this date are listed at the end, under Opened later." : "")
+    }
+
+    /// What shows while a check-in on `date` saves: "Saving and updating your
+    /// plan…", or just "Saving…" for a past check-in, which runs no plan.
+    static func savingMessage(date: CalendarDate?, in library: Library) -> String {
+        guard let date, CheckInStore.laterCheckIn(than: date, in: library) != nil else {
+            return "Saving and updating your plan…"
+        }
+        return "Saving…"
+    }
+
+    /// The confirmation of a past check-in, in place of the answer: "Saved a
+    /// past check-in (31 Mar 2024). The answer isn't recorded for past dates."
+    static func pastCheckInSaved(on date: CalendarDate, latest: CalendarDate?, locale: Locale = .current) -> String {
+        var text = "Saved a past check-in (\(AmountFormat.mediumDate(date, locale: locale))). "
+            + "The answer isn't recorded for past dates"
+        if let latest {
+            text += ": it's worked out at your latest check-in, \(AmountFormat.mediumDate(latest, locale: locale))"
+        }
+        return text + "."
     }
 
     /// "Last value 31 May", when the previous value is older than the

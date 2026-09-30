@@ -18,7 +18,8 @@ import Tracker
 ///   become conflicts, which write nothing until they're settled.
 /// - ``save()`` writes the check-in into the library and waits for the
 ///   files, deletes the draft only once they're written, and asks the plan
-///   store for this month's answer.
+///   store for this month's answer, unless it's a past check-in (a later
+///   one exists): answers and baselines are only recorded for the latest.
 @Observable @MainActor
 final class CheckInStore {
     /// The check-in in progress, if any.
@@ -278,6 +279,15 @@ final class CheckInStore {
     /// draft, re-runs the main plan and returns what to show in the
     /// confirmation.
     ///
+    /// The plan runs on today's data, so its answer (and the year's first
+    /// baseline) is recorded only when this is the library's latest
+    /// check-in: no valuation is dated after it. A past check-in, e.g. one
+    /// filling in last year, returns no headline and ``CheckInSaveResult/laterCheckIn``.
+    ///
+    /// Accounts that open after the date and got a value move their opening
+    /// date back to it, and the automatic flows of the values after a past
+    /// check-in follow it, in the same edit (`CheckInDraft.apply(to:)`).
+    ///
     /// The draft is rebased first. If that finds values saved on the date
     /// meanwhile that differ from what was entered, nothing is written and
     /// ``CheckInStoreError/changedElsewhere(_:)`` asks to look at them first.
@@ -314,11 +324,23 @@ final class CheckInStore {
             throw error
         }
         discard()
-        let headline = await plans?.checkInSaved(on: draft.date)
+        // Only the latest check-in records an answer (and a year's first
+        // baseline): the plan runs on today's data, so for a past date it
+        // would record made-up history.
+        let later = Self.laterCheckIn(than: draft.date, in: library.library)
+        let headline = later == nil ? await plans?.checkInSaved(on: draft.date) : nil
         let result = CheckInSaveResult(
-            date: draft.date, netWorth: review.netWorth.total, change: review.change?.total, headline: headline)
+            date: draft.date, netWorth: review.netWorth.total, change: review.change?.total, headline: headline,
+            laterCheckIn: later)
         lastSaved = result
         return result
+    }
+
+    /// The library's latest check-in when it's after `date`, i.e. when a
+    /// check-in on `date` is a past one: then saving it records no answer
+    /// and no baseline. `nil` when `date` is the latest check-in (or later).
+    nonisolated static func laterCheckIn(than date: CalendarDate, in library: Library) -> CalendarDate? {
+        library.latestCheckInDate.flatMap { $0 > date ? $0 : nil }
     }
 
     /// Puts a check-in back as the draft, with its index values, e.g. when
@@ -384,8 +406,15 @@ struct CheckInSaveResult: Hashable, Sendable {
     var netWorth: Decimal
     /// The change since the previous check-in; `nil` for the first one.
     var change: ValueChange?
-    /// This month's answer from the main plan; `nil` without a planner or plan.
+    /// This month's answer from the main plan; `nil` without a planner or
+    /// plan, and for a past check-in.
     var headline: PlanHeadline?
+    /// The library's latest check-in, when it's after this one: this was a
+    /// past check-in, so no answer was recorded for it.
+    var laterCheckIn: CalendarDate?
+
+    /// Whether this was a past check-in (see ``laterCheckIn``).
+    var isPast: Bool { laterCheckIn != nil }
 }
 
 enum CheckInStoreError: Error, Equatable, Sendable, LocalizedError {
