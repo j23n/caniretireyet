@@ -5,17 +5,92 @@ import Testing
 import TestSupport
 
 struct PlanAndHelpTests {
-    @Test func planIsNotAvailableYet() async throws {
+    @Test func planRunsTheMainPlan() async throws {
         let library = try TemporaryFolder.exampleLibrary()
-        let main = await retire(["plan", "--library", library.path])
-        #expect(main.status == 1)
-        #expect(main.errors.contains("Not available yet: the planner is being integrated. "
-            + "plans/base.json (Base case) will run here once it is."))
-        let other = await retire(["plan", "--library", library.path, "--plan", "part-time-from-50"])
-        #expect(other.errors.contains("plans/part-time-from-50.json"))
+        let run = await retire(["plan", "--library", library.path, "--fast"])
+        #expect(run.status == 0, "\(run.all)")
+        let lines = run.output.split(separator: "\n", omittingEmptySubsequences: false).map(String.init)
+        #expect(lines.first == "Plan base: Base case")
+        #expect(lines.dropFirst().first == "250 runs (fast) from 2026-09-30 · engine 1.0.0 · tax parameters it 2026")
+        #expect(run.output.contains("Not yet: ") || run.output.contains("Yes: "))
+        #expect(run.output.contains("At your target age, 55, the chance of success is "))
+        #expect(run.output.contains("What you could spend: "))
+        #expect(run.output.contains("Chance of success by retirement age"))
+        #expect(run.output.contains("   55  2043  "))
+        // Nothing is written without --save-baseline.
+        #expect(!library.exists("projections/base/baselines/2026-09-30.json"))
+    }
+
+    @Test func planPrintsJSONForAnotherPlan() async throws {
+        let library = try TemporaryFolder.exampleLibrary()
+        let run = await retire(["plan", "--library", library.path, "--plan", "part-time-from-50", "--fast", "--json"])
+        #expect(run.status == 0, "\(run.all)")
+        let json = try parseJSON(run.output)
+        #expect(json["plan"] as? String == "part-time-from-50")
+        #expect(json["runs"] as? Int == 250)
+        #expect(json["fast"] as? Bool == true)
+        #expect(json["engine"] as? String == "1.0.0")
+        // `earliest`: the target age is the earliest age, if one reaches the confidence.
+        let earliest = json["earliestAge"] as? Int
+        #expect(json["targetAge"] as? Int == earliest)
+        let ages = try #require(json["successByAge"] as? [[String: Any]])
+        #expect(ages.count > 10)
+        #expect(ages.allSatisfy { ($0["success"] as? Double).map { (0...1).contains($0) } == true })
+        #expect((json["issues"] as? [[String: Any]])?.contains { $0["severity"] as? String == "error" } == false)
+    }
+
+    @Test func planSavesABaseline() async throws {
+        let library = try TemporaryFolder.exampleLibrary()
+        // Few runs, so the full run is quick in a debug build.
+        var plan = try library.text("plans/base.json")
+        plan = plan.replacingOccurrences(of: #""runs": 2000"#, with: #""runs": 40"#)
+        try library.write("plans/base.json", plan)
+
+        let run = await retire(["plan", "--library", library.path, "--save-baseline", "Before forfettario"])
+        #expect(run.status == 0, "\(run.all)")
+        #expect(run.output.contains("40 runs from 2026-09-30"))
+        #expect(run.output.hasSuffix("Saved the baseline projections/base/baselines/2026-09-30.json.\n"))
+        let saved = try library.load()
+        let baseline = try #require(saved.projections["base"]?.baselines["2026-09-30"])
+        #expect(baseline.kind == .manual)
+        #expect(baseline.label == "Before forfettario")
+        #expect(baseline.created == "2026-09-30")
+        #expect(baseline.start.date == "2026-09-30")
+        #expect(baseline.engine == "1.0.0")
+        #expect(baseline.taxParameters == ["it": 2026])
+        #expect(baseline.years.first?.year == 2026)
+        #expect(baseline.years.last?.year == 1988 + 95)
+        #expect(try baseline.planDocument().id == "base")
+        // The example's baseline from January is still there.
+        #expect(saved.projections["base"]?.baselines["2026-01-05"] != nil)
+
+        // A second one on the same day gets its own file.
+        let again = await retire(["plan", "--library", library.path, "--save-baseline", "Again", "--json"])
+        #expect(again.status == 0, "\(again.all)")
+        let json = try parseJSON(again.output)
+        #expect(json["savedBaseline"] as? String == "projections/base/baselines/2026-09-30-2.json")
+    }
+
+    @Test func planRefusesWhatItCantDo() async throws {
+        let library = try TemporaryFolder.exampleLibrary()
         let missing = await retire(["plan", "--library", library.path, "--plan", "nope"])
         #expect(missing.status == 1)
         #expect(missing.errors.contains("There's no plan \"nope\" in plans/. Plans: base, part-time-from-50."))
+
+        let fastBaseline = await retire(["plan", "--library", library.path, "--fast", "--save-baseline", "x"])
+        #expect(fastBaseline.status == 64)
+        #expect(fastBaseline.errors.contains("A baseline needs every run: leave out --fast to save one."))
+        let emptyLabel = await retire(["plan", "--library", library.path, "--save-baseline", " "])
+        #expect(emptyLabel.status == 64)
+
+        // Without a birth date the plan can't run.
+        var settings = try library.text("library.json")
+        settings = settings.replacingOccurrences(of: #""birthDate": "1988-04-12", "#, with: "")
+        try library.write("library.json", settings)
+        let noBirthDate = await retire(["plan", "--library", library.path, "--fast"])
+        #expect(noBirthDate.status == 1)
+        #expect(noBirthDate.errors.contains(
+            "plans/base.json (Base case) can't run: The plan needs your birth date (library settings)."))
     }
 
     @Test func planReportPrintsTheAnswer() throws {
@@ -50,6 +125,14 @@ struct PlanAndHelpTests {
         let json = try parseJSON(try JSONOutput.string(yes.json))
         #expect(json["canRetireToday"] as? Bool == true)
         #expect(json["earliestAge"] as? Int == 54)
+        #expect(json["runs"] == nil)
+
+        var ran = report
+        ran.run = .init(runs: 2000, fast: false, engine: "1.0.0", startDate: "2026-09-30",
+                        taxParameters: ["it": 2026, "generic": 2026])
+        ran.savedBaseline = "projections/base/baselines/2026-09-30.json"
+        #expect(ran.lines()[1] == "2,000 runs from 2026-09-30 · engine 1.0.0 · tax parameters generic 2026, it 2026")
+        #expect(ran.lines().last == "Saved the baseline projections/base/baselines/2026-09-30.json.")
     }
 
     @Test func helpListsTheCommands() async throws {
@@ -63,5 +146,8 @@ struct PlanAndHelpTests {
         let importHelp = await retire(["help", "import"])
         #expect(importHelp.output.contains("--accept-new-accounts"))
         #expect(importHelp.output.contains("--library <path>"))
+        let planHelp = await retire(["help", "plan"])
+        #expect(planHelp.output.contains("--save-baseline <label>"))
+        #expect(planHelp.output.contains("--fast"))
     }
 }

@@ -3,7 +3,7 @@ import Foundation
 
 /// `retire`: Can I Retire Yet? on the command line. Creates and checks a
 /// library folder, prints net worth, imports spreadsheets, fetches prices,
-/// and (once the planner is integrated) runs plans.
+/// and runs plans.
 ///
 /// The commands live in this library so they can be tested; the `retire`
 /// executable only calls ``Retire/main()``. Tests call ``RetireCLI/run(_:context:)``
