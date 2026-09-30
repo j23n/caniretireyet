@@ -72,8 +72,13 @@ public struct ValuationMode: OpenEnum {
     public static let balance: ValuationMode = "balance"
     /// Positions (quantity × price) plus optional cash.
     public static let holdings: ValuationMode = "holdings"
+    /// Holdings worked out from the account's trades (buys, sells, …),
+    /// valued at quantity × price, plus cash. Its valuations record only
+    /// cash; positions listed in one are a reconciliation check
+    /// (docs/TRADES.md).
+    public static let trades: ValuationMode = "trades"
 
-    public static let knownValues: [ValuationMode] = [.balance, .holdings]
+    public static let knownValues: [ValuationMode] = [.balance, .holdings, .trades]
 }
 
 /// The default for a valuation's `flow` at check-in, by account kind.
