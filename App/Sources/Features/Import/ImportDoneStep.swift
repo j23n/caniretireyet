@@ -40,8 +40,8 @@ struct ImportDoneStep: View {
                 Task { await model.undoImport(in: library) }
             }
         } message: {
-            Text("The files it changed go back to how they were before, and the files it created are deleted. "
-                + "A copy of them as they are now is kept in backups.")
+            Text("What it changed goes back to how it was before, and the files it created are deleted. Edits made "
+                + "since the import stay. A copy of the files as they are now is kept in backups.")
         }
     }
 
@@ -49,7 +49,10 @@ struct ImportDoneStep: View {
 
     private func summarySection(_ receipt: ImportReceipt) -> some View {
         Section {
-            if receipt.isUndone {
+            if receipt.isUndone, !receipt.undoNotes.isEmpty {
+                StatusBanner(.warning, "The import was undone, except for later changes",
+                             message: receipt.undoNotes.joined(separator: "\n"))
+            } else if receipt.isUndone {
                 StatusBanner(.info, "The import was undone",
                              message: "The library's files are back to how they were before it.")
             } else if receipt.hasChanges {
@@ -106,9 +109,13 @@ struct ImportDoneStep: View {
 
     private static func undoFooter(_ receipt: ImportReceipt) -> String {
         let files = receipt.changedFiles.count == 1 ? "1 file" : "\(receipt.changedFiles.count) files"
+        if receipt.isUndone, !receipt.undoNotes.isEmpty {
+            return "Undone, except for what changed after the import, which was left in place."
+        }
         if receipt.isUndone { return "Undone: the \(files) it wrote were put back." }
         if let backup = receipt.backup {
-            return "The import wrote \(files). They were copied to \(backup.path) first; undoing puts them back."
+            return "The import wrote \(files). They were copied to \(backup.path) first; undoing puts back what the "
+                + "import changed and leaves later edits alone."
         }
         return "The import wrote \(files)."
     }
