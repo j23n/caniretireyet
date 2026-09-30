@@ -60,6 +60,43 @@ final class PriceStore {
         let result = await service.fetch(needs)
         return result.entry(for: item) ?? PriceListEntry(item: item, outcome: .manual)
     }
+
+    /// Fetches one instrument's price on `date` and the rate of its currency
+    /// against `baseCurrency`, e.g. for *Test price fetch* when the result
+    /// may be saved. Without a price source, or in previews, the entry is
+    /// `.manual` and there are no records.
+    func quote(_ instrument: Instrument, baseCurrency: CurrencyCode,
+               on date: CalendarDate = .today()) async -> CheckInPrices {
+        let item = PriceListEntry.Item.instrument(instrument.id)
+        guard let service, instrument.priceSource != nil else {
+            return CheckInPrices(date: date, entries: [PriceListEntry(item: item, outcome: .manual)])
+        }
+        let needs = CheckInPriceNeeds(date: date, baseCurrency: baseCurrency, instruments: [instrument],
+                                      currencies: instrument.currency == baseCurrency ? [] : [instrument.currency])
+        activeFetches += 1
+        defer { activeFetches -= 1 }
+        return await service.fetch(needs)
+    }
+
+    /// Fetches each of `needs` at the same time and hands each result to
+    /// `received` as it arrives, e.g. one instrument at a time for *Update
+    /// Prices*. With `refresh`, the session's cache is cleared once first.
+    /// Never throws; does nothing in previews.
+    func fetchEach(_ needs: [CheckInPriceNeeds], refresh: Bool = false,
+                   received: (CheckInPrices) -> Void) async {
+        guard let service, !needs.isEmpty else { return }
+        activeFetches += 1
+        defer { activeFetches -= 1 }
+        if refresh { await service.cache.removeAll() }
+        await withTaskGroup(of: CheckInPrices.self) { group in
+            for need in needs {
+                group.addTask { await service.fetch(need) }
+            }
+            for await result in group {
+                received(result)
+            }
+        }
+    }
 }
 
 extension CheckInPriceNeeds {
