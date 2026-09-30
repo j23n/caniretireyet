@@ -282,6 +282,9 @@ struct ImportTests {
         #expect(both.status == 64)
         let badID = await retire(["import", try sheet(), "--library", library.path, "--save-profile", "My Sheet"])
         #expect(badID.status == 64)
+        let layout = await retire(["import", try sheet(), "--library", library.path, "--profile", "net-worth-sheet",
+                                   "--layout", "long"])
+        #expect(layout.status == 64)
         let missing = await retire(["import", library.url("nope.csv").path, "--library", library.path])
         #expect(missing.status == 1)
         #expect(missing.errors.contains("Can't read"))

@@ -103,7 +103,8 @@ struct ImportCommand: RetireSubcommand {
     @Flag(help: "With --apply, close accounts whose values stop before the file's last date.")
     var acceptClosings = false
 
-    @Option(help: "Records that differ from the library: keep, overwrite or ask (kept). Default: the profile's.")
+    @Option(help: ArgumentHelp("Records that differ from the library: keep, overwrite or ask (kept). "
+                                   + "Default: the profile's.", valueName: "policy"))
     var onConflict: Conflicts?
 
     @Flag(help: "With --apply, import even if some formats are guesses (see “Formats to confirm”).")
@@ -130,6 +131,9 @@ struct ImportCommand: RetireSubcommand {
             if apply { throw ValidationError("--undo restores right away; it takes no --apply.") }
         } else if file == nil {
             throw ValidationError("Give the file to import, or --undo.")
+        }
+        if layout != nil, profile != nil {
+            throw ValidationError("--layout proposes a new mapping; a profile has its own layout.")
         }
         if let saveProfile, !Slug.isValid(saveProfile) {
             throw ValidationError("--save-profile needs an ID such as my-sheet: lowercase letters, digits and hyphens.")
