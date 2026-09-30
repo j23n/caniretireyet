@@ -314,6 +314,42 @@ struct LedgerImportTests {
         #expect(broker?.flow == 100, "the gift at 0.90, plus 10 from the bank")
     }
 
+    @Test func commonIdioms() {
+        // Lowercase hledger accounts, amounts without a commodity, a purchase in dollars for a euro
+        // account, and a sale whose price is inferred from the cash it brought.
+        let journal = LedgerReader.read(text: """
+            P 2024-01-01 USD 0.90 EUR
+            2024-01-02 opening
+                assets:bank:checking      1000
+                equity:opening
+            2024-01-03 buy in dollars
+                assets:broker             10 AAPL @ 150 USD
+                income:gift              -1500 USD
+            2024-01-03 dollars in the wallet
+                assets:wallet             $20
+                income:gift
+            2024-01-04 sell some, price inferred
+                assets:broker             -4 AAPL
+                assets:broker:cash         680 USD
+            """)
+        #expect(journal.errors.isEmpty, "\(journal.messages)")
+        var library = Self.emptyLibrary()
+        library.accounts["broker"] = Account(id: "broker", name: "Broker", kind: .brokerage, currency: .eur,
+                                             opened: "2020-01-01")
+        let preview = LedgerImportSession(journal: journal).preview(against: library)
+        #expect(preview.account("assets:bank:checking")?.role == .asset)
+        #expect(Self.valuation(preview, "bank-checking", "2024-01-31")?.balance == 1000,
+                "no commodity: the base currency")
+        let broker = Self.valuation(preview, "broker", "2024-01-31")
+        // The purchase cost 1,500 dollars, 1,350 euros; six of ten shares remain.
+        #expect(broker?.positions == [ImportedPosition(instrument: "aapl", quantity: 6, costBasis: 810)])
+        #expect(broker?.cash == 612, "680 dollars at 0.90")
+        #expect(broker?.flow == 1350, "the gift, in euros")
+        #expect(preview.commodity("$")?.mapping == .currency(.usd))
+        #expect(preview.preview.newAccounts.first { $0.account.id == "wallet" }?.account.currency == .usd)
+        #expect(Self.valuation(preview, "wallet", "2024-01-31")?.balance == 20)
+    }
+
     // MARK: - Prices
 
     @Test func pricesAndExchangeRates() throws {

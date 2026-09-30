@@ -230,6 +230,10 @@ struct ImportCommand: RetireSubcommand {
                     + (known.isEmpty ? "The library has none yet: save one with --save-profile <id>."
                         : "Profiles: \(known.joined(separator: ", "))."))
             }
+            if saved.isLedger {
+                throw CLIError("imports/\(profile).json reads ledger journals: use it with "
+                    + "`retire import ledger <files> --profile \(profile)`.")
+            }
             overrideFileSettings(&saved.file)
             session = try ImportSession(data: data, profile: saved)
         } else {

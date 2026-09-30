@@ -442,7 +442,8 @@ struct LedgerMapper {
                 kind = byName.first { $0 == .pensionFund || $0.defaultValuationMode == .holdings } ?? .brokerage
             }
         } else {
-            kind = byName.first { !$0.isLiability } ?? .cash
+            // Only currencies: a wallet of dollars is cash, not crypto.
+            kind = byName.first { !$0.isLiability && $0 != .crypto && $0 != .metals } ?? .cash
         }
         let currency = currencies.max { ($0.value, $1.key) < ($1.value, $0.key) }?.key ?? library.settings.baseCurrency
         return Account(id: id, name: Self.displayName(of: head), kind: kind, currency: currency,
