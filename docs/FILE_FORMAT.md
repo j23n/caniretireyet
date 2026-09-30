@@ -249,7 +249,7 @@ Rules:
 - **Cost basis.** `costBasis` is optional: the total purchase cost of a position in the account's currency (Italian brokers show it as *valore di carico*). The planner uses it to estimate the tax due when you sell. Where it's missing, the plan asks for an estimate instead. It matters most for physical gold: if you can't document the purchase price, Italy taxes the whole sale price.
 - **Flow.** `flow` is optional: the net money added (+) or taken out (−) since the account's previous valuation, in the account's currency. The check-in fills it in from defaults that depend on the kind of account, and you can edit it (see [PROGRESS.md](PROGRESS.md#data-this-needs-from-day-one)). A missing flow means unknown. The sum of all flows over a period is what you actually saved.
 - **FX direction.** FX rates follow the ECB convention: 1 `base` = `rate` × `quote`.
-- **Indices.** `indices` holds consumer-price-index values (`hicp-it`: Italy's HICP from Eurostat). They're used to express history in today's euros and to compute real returns. A monthly value is dated the last day of the month it measures and stored in that month's file, even when it's published and fetched later.
+- **Indices.** `indices` holds consumer-price-index values (`hicp-it`: Italy's all-items HICP from Eurostat, 2015 = 100). They're used to express history in today's euros and to compute real returns. A monthly value is dated the last day of the month it measures and stored in that month's file, even when it's published and fetched later.
 - **Sorting.** Records are sorted by date, then by ID, so files diff cleanly.
 
 ### How values are computed

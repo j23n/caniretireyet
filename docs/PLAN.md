@@ -189,9 +189,11 @@ On the Mac there are also tables for editing many valuations at once, keyboard n
 
 - Every price can be typed in by hand. Automatic fetching is opt-in per instrument.
 - **FX:** ECB reference rates through Frankfurter, which is free and needs no key.
-- **Crypto:** CoinGecko, or an exchange's public ticker.
-- **Gold and silver:** a free spot-price API, or the market price of a physical-gold ETC as a proxy.
+- **Crypto:** CoinGecko, or an exchange's public ticker. An optional demo API key, kept in the Keychain, raises its rate limit.
+- **Gold and silver:** a free spot-price API (gold-api.com, USD per troy ounce, converted to the instrument's currency and unit), or the market price of a physical-gold ETC as a proxy. Only today's spot price is available, so the price for a check-in more than a few days old is typed in.
 - **ETFs on European exchanges:** there's no reliable free official API. We'll start with Yahoo Finance's public chart endpoint. It's unofficial and can break, so providers are pluggable, and a paid one with your own key (EODHD, Twelve Data) can be added.
+- **Inflation:** Italy's HICP from Eurostat (`prc_hicp_minr`, all items, 2015 = 100), fetched with the FX rates for the months the library is missing.
+- **Dates:** each value is the latest on or before the check-in date and is recorded on that date. The price list shows the day it's from, e.g. Friday's close for a Sunday check-in.
 - Fetched prices are cached on the device. Only the prices used in a check-in are written to the library.
 
 ### Importing
