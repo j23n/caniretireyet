@@ -236,6 +236,17 @@ struct OverviewAttentionCard: View {
                 id: "plan.error", systemImage: "exclamationmark.triangle",
                 title: "\(library.mainPlan?.name ?? "Your plan") couldn't run", detail: error, target: .plan))
         }
+        if let main = library.settings.mainPlan, let failure = plans.results[main]?.failure,
+           let share = failure.bridgeShare, share >= 0.05 {
+            let futures = Int((share * 100).rounded())
+            let age = failure.bridgeAge.map { " at \($0)" } ?? ""
+            items.append(OverviewAttentionItem(
+                id: "plan.bridge", systemImage: "lock",
+                title: "Money could run short before locked money opens",
+                detail: "In \(futures) of 100 simulated futures, it runs out before your pension money becomes "
+                    + "available\(age).",
+                target: .plan))
+        }
         return items
     }
 
