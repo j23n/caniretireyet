@@ -35,8 +35,19 @@ public enum Planner {
     ///
     /// Throws ``PlannerError/invalidPlan(_:)`` when the plan has errors, and
     /// `CancellationError` when the task is cancelled (e.g. a slider moved on).
+    ///
+    /// The work runs on the planner's own threads (`PlannerExecutor`), never
+    /// on Swift's cooperative thread pool, so other async work in the app,
+    /// such as fetching prices, carries on while it runs.
     public static func run(plan: PlanDocument, library: Library, registry: TaxRegistry,
                            options: PlannerOptions = PlannerOptions()) async throws -> PlanResult {
+        try await withTaskExecutorPreference(PlannerExecutor.shared) {
+            try await compute(plan: plan, library: library, registry: registry, options: options)
+        }
+    }
+
+    private static func compute(plan: PlanDocument, library: Library, registry: TaxRegistry,
+                                options: PlannerOptions) async throws -> PlanResult {
         let (interpreted, issues) = PlanInterpreter.interpret(plan: plan, library: library, registry: registry,
                                                               options: options)
         guard let model = interpreted else { throw PlannerError.invalidPlan(issues) }

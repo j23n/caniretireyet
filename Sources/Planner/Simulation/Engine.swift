@@ -90,7 +90,7 @@ struct Engine: Sendable {
             var simulator = engine.simulator(age: age)
             var successes = 0
             for run in 0..<engine.scenarios.runs {
-                if run % 64 == 0, Task.isCancelled { throw CancellationError() }
+                if run > 0, run % Self.runsPerChunk == 0 { try await Self.pause() }
                 if simulator.run(run, spending: spending).failure == nil { successes += 1 }
             }
             return Double(successes) / Double(engine.scenarios.runs)
@@ -111,7 +111,9 @@ struct Engine: Sendable {
             outcomes.reserveCapacity(range.count)
             values.reserveCapacity(range.count * years)
             for run in range {
-                if run % 64 == 0, Task.isCancelled { throw CancellationError() }
+                if run > range.lowerBound, (run - range.lowerBound) % Self.runsPerChunk == 0 {
+                    try await Self.pause()
+                }
                 outcomes.append(simulator.run(run, spending: spending, recordValues: true))
                 values += simulator.yearValues
             }
@@ -143,10 +145,13 @@ struct Engine: Sendable {
             let chunks = Self.chunks(open.count).map { Array(open[$0]) }
             let results = try await parallelMap(chunks) { chunk -> [(Int, Bool)] in
                 var simulator = engine.simulator(age: age)
-                return try chunk.enumerated().map { offset, run in
-                    if offset % 64 == 0, Task.isCancelled { throw CancellationError() }
-                    return (run, simulator.run(run, spending: level).failure == nil)
+                var settled: [(Int, Bool)] = []
+                settled.reserveCapacity(chunk.count)
+                for (offset, run) in chunk.enumerated() {
+                    if offset > 0, offset % Self.runsPerChunk == 0 { try await Self.pause() }
+                    settled.append((run, simulator.run(run, spending: level).failure == nil))
                 }
+                return settled
             }
             for (run, succeeded) in results.joined() {
                 if succeeded { succeedsUpTo[run] = level } else { failsFrom[run] = level }
@@ -172,22 +177,37 @@ struct Engine: Sendable {
 
     // MARK: - Helpers
 
-    /// Splits `count` items into one range per worker.
+    /// How many runs a task simulates between pauses (``pause()``).
+    static let runsPerChunk = 64
+
+    /// Between chunks of work: stops if the run was cancelled, and lets the
+    /// other jobs waiting for the planner's threads go first.
+    static func pause() async throws {
+        try Task.checkCancellation()
+        await Task.yield()
+    }
+
+    /// Splits `count` items into one range per planner thread.
     static func chunks(_ count: Int) -> [Range<Int>] {
-        let workers = max(1, min(ProcessInfo.processInfo.activeProcessorCount, count))
+        let workers = max(1, min(PlannerExecutor.shared.threadCount, count))
         guard count > 0 else { return [] }
         let size = (count + workers - 1) / workers
         return stride(from: 0, to: count, by: size).map { $0..<min(count, $0 + size) }
     }
 }
 
-/// Maps `items` concurrently, keeping their order.
+/// Maps `items` concurrently, keeping their order. Each item is a child
+/// task, on the planner's threads when the caller prefers them; an item
+/// doesn't start once the task is cancelled.
 func parallelMap<Item: Sendable, Result: Sendable>(
-    _ items: [Item], _ transform: @escaping @Sendable (Item) throws -> Result
+    _ items: [Item], _ transform: @escaping @Sendable (Item) async throws -> Result
 ) async throws -> [Result] {
     try await withThrowingTaskGroup(of: (Int, Result).self) { group in
         for (index, item) in items.enumerated() {
-            group.addTask { (index, try transform(item)) }
+            group.addTask {
+                try Task.checkCancellation()
+                return (index, try await transform(item))
+            }
         }
         var results = [Result?](repeating: nil, count: items.count)
         for try await (index, result) in group { results[index] = result }
