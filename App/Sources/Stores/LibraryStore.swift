@@ -232,6 +232,36 @@ final class LibraryStore {
         return (try? await sync.backups()) ?? []
     }
 
+    /// Copies the files at `paths` (relative to the library folder, e.g.
+    /// `history/2026/2026-09.json`) into `backups/<timestamp>-<label>/`, after
+    /// the saves already queued, so the copy holds the files as they are
+    /// before the next edit. Paths that don't exist yet are recorded, and
+    /// ``restore(_:)`` deletes them. Used before an import (label `import`).
+    /// Returns `nil` for a library without files (previews).
+    func backup(paths: [String], label: String) async throws -> Backup? {
+        guard phase == .ready else { throw LibraryStoreError.notLoaded }
+        guard !isReadOnly else { throw LibraryStoreError.readOnly }
+        guard let sync else { return nil }
+        let folder = sync.folder
+        return try await enqueueThrowing {
+            try await Task.detached { try folder.backup(paths: paths, label: label) }.value
+        }
+    }
+
+    /// Puts a backup's files back in place, deletes the files it didn't
+    /// have, and reloads them: undoes an import. Runs after the saves
+    /// already queued. Does nothing for a library without files.
+    func restore(_ backup: Backup) async throws {
+        guard phase == .ready else { throw LibraryStoreError.notLoaded }
+        guard !isReadOnly else { throw LibraryStoreError.readOnly }
+        guard let sync else { return }
+        let folder = sync.folder
+        try await enqueueThrowing { [weak self] in
+            let report = try await Task.detached { try folder.restore(backup: backup) }.value
+            await self?.reload(report.written + report.deleted, using: sync)
+        }
+    }
+
     /// Clears the error banner.
     func dismissError() {
         lastError = nil
@@ -288,6 +318,20 @@ final class LibraryStore {
         }
         ioTail = task
         return task
+    }
+
+    /// Queues a file operation that returns a value or throws, after the
+    /// ones already queued, and waits for it.
+    private func enqueueThrowing<Value: Sendable>(
+        _ operation: @escaping @MainActor @Sendable () async throws -> Value
+    ) async throws -> Value {
+        let previous = ioTail
+        let task = Task { @MainActor in
+            await previous?.value
+            return try await operation()
+        }
+        ioTail = Task { @MainActor in _ = await task.result }
+        return try await task.value
     }
 
     private func save(_ library: Library, previous: Library, using sync: LibrarySync) async {

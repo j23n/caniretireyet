@@ -24,6 +24,23 @@ struct RootView: View {
             .onChange(of: scenePhase) { _, phase in
                 if phase != .active { checkIn.persistNow() }
             }
+            .onOpenURL { url in
+                openFile(url)
+            }
+    }
+
+    /// A CSV or TSV file opened from Files or Finder starts an import (on
+    /// iPhone, "Import with profile…"). At launch the layout isn't set yet,
+    /// so on iPhone the import sheet is chosen here.
+    private func openFile(_ url: URL) {
+        guard ["csv", "tsv", "txt"].contains(url.pathExtension.lowercased()) else { return }
+        #if os(iOS)
+        if horizontalSizeClass == .compact {
+            navigation.sheet = .importFile(url)
+            return
+        }
+        #endif
+        navigation.startImport(url)
     }
 
     @ViewBuilder
