@@ -1,0 +1,368 @@
+import Foundation
+import Model
+import TaxKit
+
+/// Turns a plan file, the library and the registered tax systems into a
+/// ``PlanModel``: resolves the residence timeline, overlays and regimes,
+/// converts options and amounts to TaxKit's types, builds the starting
+/// portfolio, and runs the engine's and every tax system's validation.
+enum PlanInterpreter {
+    /// The model, or `nil` when there are errors; and every issue found.
+    static func interpret(plan: PlanDocument, library: Library, registry: TaxRegistry,
+                          options: PlannerOptions) -> (model: PlanModel?, issues: [PlanIssue]) {
+        var issues: [PlanIssue] = []
+
+        // The person and the dates.
+        guard let birthDate = library.settings.person?.birthDate else {
+            issues.append(.error("planner.noBirthDate", "The plan needs your birth date (library settings).",
+                                 section: .person))
+            return (nil, issues)
+        }
+        let startDate: CalendarDate
+        switch plan.portfolio.effectiveStart {
+        case .date(let date):
+            startDate = date
+        case .latestCheckIn:
+            if let latest = library.latestCheckInDate {
+                startDate = latest
+            } else {
+                startDate = options.today ?? .today()
+                issues.append(.warning("planner.noCheckIn", "There is no check-in yet; the plan starts from nothing today.",
+                                       section: .portfolio))
+            }
+        }
+        let currentAge = birthDate.wholeYears(to: startDate)
+        let endAge = plan.effectiveEndAge
+        guard endAge > currentAge else {
+            issues.append(.error("planner.endAge", "The plan's end age (\(endAge)) must be after your age today (\(currentAge)).",
+                                 section: .retirement, option: "endAge"))
+            return (nil, issues)
+        }
+        let planAge = plan.retirement.age.age
+        if let planAge, planAge >= endAge {
+            issues.append(.error("planner.retirementAge", "The retirement age must be before the end age.",
+                                 section: .retirement, option: "age"))
+        }
+        let firstYear = startDate == .lastDay(of: startDate.year) ? startDate.year + 1 : startDate.year
+        let lastYear = birthDate.year + endAge
+
+        // The residence timeline.
+        let inflation = plan.assumptions.effectiveInflation.double
+        let overrides = OptionValues(plan.tax.overrides)
+        var residence = plan.tax.residence.sorted { $0.from < $1.from }
+        if residence.isEmpty {
+            let candidates = [library.settings.taxResidence?.rawValue.lowercased(), TaxSystemID.generic.rawValue]
+                + registry.ids
+            if let id = candidates.compactMap({ $0 }).first(where: { registry.system($0) != nil }) {
+                residence = [PlanResidence(from: firstYear, system: TaxSystemID(id))]
+                issues.append(.warning("planner.defaultResidence",
+                                       "The plan has no tax residence; it uses \(registry.system(id)!.name).",
+                                       section: .tax))
+            } else {
+                issues.append(.error("planner.noTaxSystem", "No tax system is available.", section: .tax))
+                return (nil, issues)
+            }
+        }
+        var systems: [SystemContext] = []
+        var entrySystem: [Int] = []
+        for (index, entry) in residence.enumerated() {
+            guard let system = registry.system(entry.system.rawValue) else {
+                issues.append(.error("planner.unknownSystem", "There is no tax system \"\(entry.system)\".",
+                                     section: .tax, index: index))
+                continue
+            }
+            if let existing = systems.firstIndex(where: { $0.id == system.id }) {
+                entrySystem.append(existing)
+            } else {
+                systems.append(SystemContext(system: system,
+                                             parameters: OverriddenParameterStore(base: system.parameters,
+                                                                                  overrides: overrides)))
+                entrySystem.append(systems.count - 1)
+            }
+        }
+        guard entrySystem.count == residence.count else { return (nil, issues) }
+
+        // Year frames.
+        var frames: [YearFrame] = []
+        var taxParameters: [String: Int] = [:]
+        var failedSystems: Set<String> = []
+        for year in firstYear...lastYear {
+            let entry = residence.lastIndex { $0.from <= year } ?? 0
+            let context = systems[entrySystem[entry]]
+            let parameters: ParameterSet
+            do {
+                parameters = try context.parameters.parameters(for: year)
+            } catch {
+                if failedSystems.insert(context.id).inserted {
+                    issues.append(.error("planner.noParameters", "\(error)", section: .tax, year: year))
+                }
+                continue
+            }
+            if let parameterYear = context.parameters.parameterYear(for: year) {
+                taxParameters[context.id] = max(taxParameters[context.id] ?? parameterYear, parameterYear)
+            }
+            let simulatedFrom = max(CalendarDate.firstDay(of: year), startDate.adding(days: 1))
+            let daysInYear = CalendarDate.isLeapYear(year) ? 366 : 365
+            let fraction = Double(CalendarDate.inclusiveDays(from: simulatedFrom, to: .lastDay(of: year)))
+                / Double(daysInYear)
+            frames.append(YearFrame(
+                index: frames.count, year: year, age: year - birthDate.year, daysInYear: daysInYear,
+                simulatedFrom: simulatedFrom, fraction: fraction, system: entrySystem[entry], parameters: parameters,
+                systemOptions: OptionValues(residence[entry].options),
+                inflationFactor: pow(1 + inflation, Double(year - firstYear)),
+                inflationStep: pow(1 + inflation, fraction)))
+        }
+
+        // Overlays and work.
+        var overlays: [RegimeChoice] = []
+        for (index, overlay) in plan.tax.overlays.enumerated() {
+            guard let found = registry.regime(overlay.regime.rawValue) else {
+                issues.append(.error("planner.unknownRegime", "There is no regime \"\(overlay.regime)\".",
+                                     section: .tax, index: index, regime: overlay.regime.rawValue))
+                continue
+            }
+            if found.regime.scope != .overlay {
+                issues.append(.error("planner.notOverlay", "\(found.regime.name) is chosen per work phase, not as a special regime.",
+                                     section: .tax, index: index, regime: overlay.regime.rawValue))
+            }
+            overlays.append(RegimeChoice(regime: overlay.regime.rawValue, options: OptionValues(overlay.options)))
+        }
+        let work = interpretWork(plan.work, firstYear: firstYear, registry: registry, issues: &issues)
+
+        // Spending.
+        let spending = SpendingSpec(
+            working: plan.spending.working.double, retired: plan.spending.retired.double,
+            phases: plan.spending.phases.sorted { $0.fromAge < $1.fromAge }
+                .map { SpendingPhaseSpec(fromAge: $0.fromAge, factor: $0.factor.double) })
+        if spending.working < 0 || spending.retired < 0 || spending.phases.contains(where: { $0.factor < 0 }) {
+            issues.append(.error("planner.negativeSpending", "Spending can't be negative.", section: .spending))
+        }
+
+        let pensions = interpretPensions(plan.pensions, registry: registry, overrides: overrides, issues: &issues)
+
+        // The starting portfolio.
+        let portfolio = PortfolioBuilder(library: library, date: startDate, plan: plan, registry: registry,
+                                         residence: systems.first?.system, issues: &issues)
+
+        var contributions: [ContributionSpec] = []
+        for (index, contribution) in plan.contributions.enumerated() {
+            guard let bucket = portfolio.buckets.first(where: { $0.accounts.contains(contribution.account) }) else {
+                let reason = library.accounts[contribution.account] == nil ? "doesn't exist" : "isn't in the plan"
+                issues.append(.warning("planner.contributionAccount",
+                                       "The account \(contribution.account) \(reason); its contributions stay in your savings.",
+                                       section: .contributions, index: index, account: contribution.account))
+                continue
+            }
+            contributions.append(ContributionSpec(
+                index: index, account: contribution.account, wrapper: bucket.wrapper,
+                perYear: contribution.perYear.double, until: contribution.effectiveUntil.date))
+        }
+
+        // Events.
+        var events: [EventSpec] = []
+        var probabilities: [Double] = []
+        for (index, event) in plan.events.enumerated() {
+            let year = switch event.timing {
+            case .age(let age): birthDate.year + age
+            case .year(let year): year
+            }
+            guard (firstYear...lastYear).contains(year) else {
+                issues.append(.warning("planner.eventOutside", "\(event.name) falls outside the plan's years; it's ignored.",
+                                       section: .events, index: index, year: year))
+                continue
+            }
+            let probability = min(1, max(0, event.effectiveProbability.double))
+            var bit: Int?
+            if probability < 1 {
+                if probabilities.count < 64 {
+                    bit = probabilities.count
+                    probabilities.append(probability)
+                } else {
+                    issues.append(.warning("planner.tooManyUncertainEvents",
+                                           "Only 64 events can be uncertain; \(event.name) is treated as certain if likely.",
+                                           section: .events, index: index))
+                }
+            }
+            if bit == nil, probability < 0.5 { continue }
+            events.append(EventSpec(index: index, name: event.name, year: year, amount: event.amount.double,
+                                    probability: probability, kind: event.effectiveKind.rawValue, bit: bit))
+        }
+
+        // Returns and the simulation settings.
+        let returns = ReturnModel(assumptions: plan.assumptions, heldClasses: portfolio.classes, issues: &issues)
+        if returns.expected.contains(where: { $0 <= -1 }) {
+            issues.append(.error("planner.returnTooLow", "A real return must be above -100%.", section: .assumptions))
+        }
+        let confidence = plan.simulation.effectiveConfidence.double
+        if !(confidence > 0 && confidence <= 1) {
+            issues.append(.error("planner.confidence", "The confidence level must be between 0 and 100%.",
+                                 section: .simulation, option: "confidence"))
+        }
+        if plan.simulation.effectiveRuns < 1 {
+            issues.append(.error("planner.runs", "The plan needs at least one run.", section: .simulation,
+                                 option: "runs"))
+        }
+
+        // The tax systems' own validation.
+        let lastWorkingYear = planAge.map { max(startDate, birthDate.adding(years: $0)).adding(days: -1).year }
+        for (index, context) in systems.enumerated() {
+            let years = frames.filter { $0.system == index }.map(\.year)
+            guard let first = years.min(), let last = years.max() else { continue }
+            let taxPlan = TaxPlan(
+                residence: zip(residence, entrySystem).map { entry, s in
+                    TaxPlan.Residence(from: entry.from, system: systems[s].id, options: OptionValues(entry.options))
+                },
+                overlays: overlays.filter { context.system.regime($0.regime) != nil },
+                indexThresholds: plan.tax.effectiveIndexThresholds,
+                overrides: overrides,
+                work: work.compactMap { phase in
+                    let untilYear = phase.until?.year ?? lastWorkingYear
+                    guard phase.from.year <= last, (untilYear ?? last) >= first else { return nil }
+                    if let regime = phase.regime, context.system.regime(regime) == nil {
+                        issues.append(.warning("planner.regimeNotInSystem",
+                                               "\(regime) doesn't exist in \(context.system.name); that system's default applies.",
+                                               section: .work, index: phase.index, regime: regime))
+                    }
+                    return TaxPlan.WorkPhase(id: phase.id, kind: phase.kind, regime: phase.regime(in: context.system),
+                                             options: phase.options, fromYear: max(phase.from.year, first),
+                                             untilYear: untilYear.map { min($0, last) })
+                },
+                pensions: pensions.filter { $0.isFixed || context.system.pensionScheme($0.schemeID) != nil }
+                    .map { TaxPlan.Pension(id: $0.id, scheme: $0.schemeID, options: $0.options) },
+                birthYear: birthDate.year)
+            for issue in context.system.validate(taxPlan, parameters: context.parameters) {
+                issues.append(PlanIssue(issue, section: section(of: issue, registry: registry)))
+            }
+        }
+
+        guard !issues.contains(where: \.isError) else { return (nil, issues) }
+        let model = PlanModel(
+            plan: plan, registry: registry, birthDate: birthDate, startDate: startDate, currentAge: currentAge,
+            endAge: endAge, planAge: planAge, frames: frames, systems: systems, overlays: overlays,
+            indexThresholds: plan.tax.effectiveIndexThresholds, inflation: inflation, work: work, spending: spending,
+            pensions: pensions, contributions: contributions, events: events,
+            uncertainEventProbabilities: probabilities, portfolio: portfolio, returns: returns,
+            cashBuffer: max(0, plan.withdrawals.effectiveCashBuffer.double),
+            runs: options.runs(planRuns: plan.simulation.effectiveRuns), seed: plan.simulation.effectiveSeed,
+            confidence: confidence, issues: issues, taxParameters: taxParameters)
+        return (model, issues)
+    }
+
+    // MARK: - Sections
+
+    private static func interpretWork(_ phases: [WorkPhase], firstYear: Int, registry: TaxRegistry,
+                                      issues: inout [PlanIssue]) -> [WorkSpec] {
+        var result: [WorkSpec] = []
+        for (index, phase) in phases.enumerated() {
+            let kind = EarnedIncomeKind(rawValue: phase.kind.rawValue)
+            var gross = 0.0
+            var net: Double?
+            var label: String
+            switch phase.kind {
+            case .employee:
+                label = "Employee"
+                guard let salary = phase.grossSalary else {
+                    issues.append(.error("planner.missingAmount", "An employee phase needs grossSalary.",
+                                         section: .work, index: index, option: "grossSalary"))
+                    continue
+                }
+                gross = salary.double
+            case .selfEmployed:
+                label = "Self-employed"
+                guard let revenue = phase.revenue else {
+                    issues.append(.error("planner.missingAmount", "A self-employed phase needs revenue.",
+                                         section: .work, index: index, option: "revenue"))
+                    continue
+                }
+                gross = revenue.double
+            case .net:
+                label = "Net income"
+                guard let income = phase.netIncome else {
+                    issues.append(.error("planner.missingAmount", "A net phase needs netIncome.",
+                                         section: .work, index: index, option: "netIncome"))
+                    continue
+                }
+                net = income.double
+            default:
+                issues.append(.error("planner.unknownWorkKind", "There is no kind of work \"\(phase.kind)\".",
+                                     section: .work, index: index))
+                continue
+            }
+            if let regime = phase.regime?.rawValue {
+                if let found = registry.regime(regime) {
+                    label = found.regime.name
+                    if !found.regime.scope.applies(to: kind) {
+                        issues.append(.error("planner.regimeKind",
+                                             "\(found.regime.name) doesn't apply to \(phase.kind) work.",
+                                             section: .work, index: index, regime: regime))
+                    }
+                } else {
+                    issues.append(.error("planner.unknownRegime", "There is no regime \"\(regime)\".",
+                                         section: .work, index: index, regime: regime))
+                }
+            }
+            if let until = phase.until.date, until < phase.from {
+                issues.append(.error("planner.phaseDates", "A work phase can't end before it starts.",
+                                     section: .work, index: index, option: "until"))
+            }
+            result.append(WorkSpec(
+                index: index, id: "work-\(index)", kind: kind, regime: phase.regime?.rawValue,
+                options: OptionValues(phase.options), from: phase.from, until: phase.until.date, gross: gross,
+                costs: phase.costs?.double ?? 0, net: net, realGrowth: phase.realGrowth?.double ?? 0,
+                baseYear: max(phase.from.year, firstYear), label: label))
+        }
+        return result
+    }
+
+    private static func interpretPensions(_ pensions: [PlanPension], registry: TaxRegistry, overrides: OptionValues,
+                                          issues: inout [PlanIssue]) -> [PensionSpec] {
+        var result: [PensionSpec] = []
+        var schemes: Set<String> = []
+        for (index, pension) in pensions.enumerated() {
+            let id = "pension-\(index)"
+            let taxedIn: FixedYear.TaxedIn = pension.effectiveTaxedIn == .source ? .source : .residence
+            if taxedIn == .source {
+                issues.append(.warning("planner.taxedAtSource",
+                                       "\(pension.name ?? pension.scheme.rawValue) is taxed by the paying country, which "
+                                           + "the plan doesn't compute; enter it after that tax.",
+                                       section: .pensions, index: index, option: "taxedIn"))
+            }
+            if pension.scheme == .fixed {
+                guard let fromAge = pension.fromAge, let perYear = pension.perYear else {
+                    issues.append(.error("planner.fixedPension", "A fixed pension needs fromAge and perYear.",
+                                         section: .pensions, index: index))
+                    continue
+                }
+                result.append(PensionSpec(
+                    index: index, id: id, name: pension.name ?? "Pension", schemeID: pension.scheme.rawValue,
+                    scheme: nil, schemeParameters: nil, claim: pension.claim ?? .age(fromAge), fixedFromAge: fromAge,
+                    fixedAmount: perYear.double, taxedIn: taxedIn, options: OptionValues(pension.options)))
+                continue
+            }
+            guard let owner = registry.systems.first(where: { $0.pensionScheme(pension.scheme.rawValue) != nil }),
+                  let scheme = owner.pensionScheme(pension.scheme.rawValue)
+            else {
+                issues.append(.error("planner.unknownScheme", "There is no pension scheme \"\(pension.scheme)\".",
+                                     section: .pensions, index: index))
+                continue
+            }
+            if !schemes.insert(scheme.id).inserted {
+                issues.append(.warning("planner.duplicateScheme",
+                                       "\(scheme.name) appears twice; work credits count toward both.",
+                                       section: .pensions, index: index))
+            }
+            result.append(PensionSpec(
+                index: index, id: id, name: pension.name ?? scheme.name, schemeID: scheme.id, scheme: scheme,
+                schemeParameters: OverriddenParameterStore(base: owner.parameters, overrides: overrides),
+                claim: pension.effectiveClaim, fixedFromAge: nil, fixedAmount: 0, taxedIn: taxedIn,
+                options: OptionValues(pension.options)))
+        }
+        return result
+    }
+
+    /// The plan section a tax system's issue belongs on.
+    private static func section(of issue: TaxIssue, registry: TaxRegistry) -> PlanSection {
+        guard let regime = issue.regime.flatMap({ registry.regime($0)?.regime }) else { return .tax }
+        return regime.scope == .overlay ? .tax : .work
+    }
+}
