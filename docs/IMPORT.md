@@ -16,7 +16,7 @@ Imports any spreadsheet or export by mapping its columns to what the library sto
 
 - **Formats:** CSV and TSV with any delimiter (`,` `;` tab `|`) and quoted fields. Numbers and Excel can export these.
 - **Encodings:** UTF-8 (with or without BOM), UTF-16, and Windows-1252 / ISO-8859-1. Excel on Windows often exports Italian files in Windows-1252.
-- **Rows:** a header row anywhere (with rows above it skipped), empty rows ignored, and footer rows such as "Totale" excluded by a rule you can edit.
+- **Rows:** a header row anywhere (with rows above it skipped), empty rows ignored, and footer rows such as "Totale" excluded by a rule you can edit (by default, rows starting with "Totale" or "Total").
 - **Later:** reading `.xlsx` and `.numbers` files directly.
 
 ## Layouts
@@ -54,7 +54,9 @@ Each field a target needs can come from one of three places:
 
 - **a column**, e.g. an "Account" column in a long file;
 - **a constant**, e.g. "every row of this file is account Directa";
-- **the column header**, in the wide layout: the column "Directa" means account `directa`.
+- **the column header**, in the wide layout: the column "Directa" means account `directa`. The header gives what the column and the constants leave out: the account of a balance or cash column, the instrument of a price column, and for a quantity or purchase cost, the instrument once the account is set. Headers are matched without their decorations, so "BTC (qtà)" means `btc`. A header the importer can't use this way is flagged rather than guessed.
+
+When there's no profile yet, the importer proposes a mapping from the headers and the values: a column of dates holds the dates; number columns become balances, or quantities, prices, cash, purchase costs or FX rates when the header says so (`BTC (qtà)`, `Prezzo VWCE`, `EUR/USD`); text, percentage and total columns are ignored. The layout is long when a text column's header names accounts or instruments.
 
 Buy and sell transactions aren't a target in the MVP, because the tracker stores holdings month by month rather than transactions. A later target could turn a broker's transaction export into monthly holdings and purchase costs.
 
@@ -78,6 +80,7 @@ Every column has a format. The file sets the defaults, a column can override the
 - **Excel date serial numbers** (e.g. `45322`) are converted.
 - **Date-times:** the time is dropped, using the time zone you choose.
 - **Day or month first:** `dd/MM` and `MM/dd` are told apart as soon as any day in the column is above 12. If none is, the importer asks.
+- **Excel serials or numbers:** whole numbers are read as Excel dates when the header says it's a date column (`Data`, `Date`, `Mese`, …). A first column of increasing serials without such a header is read as dates too, but the importer asks.
 
 **Text**
 
@@ -88,14 +91,17 @@ Every column has a format. The file sets the defaults, a column can override the
 
 - Names are matched ignoring case and accents, and every match you confirm is remembered in the profile.
 - An unmatched name can create a new account or instrument. You confirm its kind and currency; the importer suggests them, e.g. from a currency code in the values.
-- An account whose values stop before the file's last date is proposed as closed, on the day after its last value.
+- An account whose values stop before the file's last date is proposed as closed, on the day after its last value. Trailing zeros don't count as values; a cell that couldn't be read does. It isn't proposed when the library has later values for it.
+- An account with values from before its `opened` date is proposed to open on the first of them.
+- New accounts, new instruments and these changes are applied unless you reject them. A rejected account's or instrument's records are left out.
 
 ## Preview, conflicts and undo
 
 - **Preview.** Cells that can't be parsed are highlighted with the reason, e.g. "not a date in dd/MM/yyyy". You can fix the format, exclude the rows, or cancel.
 - **Records already in the library** are matched by key: account + date, instrument + date, or currency pair + date.
-  - An identical record is left alone.
-  - A record with a different value follows the policy you choose: overwrite, keep the existing value, or decide one by one.
+  - An identical record is left alone. Only the values the file has are compared: a flow or a note in the library stays.
+  - A record the library has without some of the file's values, such as a purchase cost, is *updated*: the missing values are filled in, and nothing in the library changes.
+  - A record with a different value follows the policy you choose: overwrite, keep the existing value, or decide one by one. Conflicts still undecided when you import are kept. Switching a valuation between a balance and positions is a conflict too.
   - Importing the same file twice therefore changes nothing.
 - **Undo.** Before writing, the files about to change are copied to `backups/<timestamp>-import/`. "Undo import" restores them.
 
@@ -134,7 +140,8 @@ Other fields a profile can have, all optional:
 
 | Field | Meaning |
 | --- | --- |
-| `file.excludeRows` | Rows to skip, such as totals: a row is skipped when its first non-empty cell starts with one of these, ignoring case and accents, e.g. `["Totale"]`. |
+| `file.encoding` | The text encoding. Left out, it's detected. A byte-order mark in the file wins, and so does valid UTF-8 with accented letters over `windows-1252` or `iso-8859-1`, as when a file is saved again from another app. |
+| `file.excludeRows` | Rows to skip, such as totals: a row is skipped when its first non-empty cell starts with one of these, ignoring case and accents, e.g. `["Totale"]`. Left out, it's `["Totale", "Total"]`. |
 | `file.headerRow` | The 1-based row holding the headers; `0` means the file has none. Left out, it's detected. |
 | `defaults.date` | `pattern` (e.g. `dd/MM/yyyy`, or `excel-serial`), `monthOnly` (`end`, the default, or `start`), and `timeZone` (an IANA name) for date-times. |
 | `defaults.number` | `decimal` and `thousands` separators (`""` for none), and `percent`. |
@@ -142,13 +149,17 @@ Other fields a profile can have, all optional:
 | `columns[].currency`, `base`, `quote` | The currency of a column's amounts or prices, or an FX column's pair. |
 | `columns[].format` | Overrides of `defaults` for one column: `date`, `number`, `empty`. |
 | `columns[].field` | Long layout: what the column holds for each row's record: `date`, `account`, `instrument`, `value`, `currency`, `base`, `quote` or `ignore`. |
-| `target` | Long layout: what each row becomes (`balance`, `quantity`, `costBasis`, `cash`, `price` or `fx`). |
-| `constants` | Long layout: fields that are the same for every row: `account`, `instrument`, `currency`, `base`, `quote`. |
+| `target` | Long layout: what each row becomes (`balance`, `quantity`, `costBasis`, `cash`, `price` or `fx`). A value column can set its own `target`, so one row can hold a quantity, a price and a purchase cost. |
+| `constants` | Long layout: fields that are the same for every row: `account`, `instrument`, `currency`, `base`, `quote`. Wide columns that leave these out use them too. |
 | `matches` | Names found in files matched to IDs, remembered from earlier imports: `{ "accounts": { "Fineco": "conto-fineco" }, "instruments": { … } }`. |
 | `onConflict` | `ask` (the default), `overwrite` or `keep`. |
 
 ## Where it runs
 
-- **Engine.** The `Importer` module, in pure Swift. It's tested on Linux against a folder of sample files: Italian Excel CSVs in Windows-1252, US-style exports, Numbers exports, month-only dates, Excel serial dates, broken rows.
+- **Engine.** The `Importer` module, in pure Swift. It reads bytes and a `Library` and returns results; the app and the CLI back up and write the files it reports as changed. It's tested on Linux against a folder of sample files (`Tests/ImporterTests/Samples/`): Italian Excel CSVs in Windows-1252, US-style exports, Numbers exports, title and totals rows, month-only dates, Excel serial dates, long files, quantities with prices, broken rows.
+  - `ImportSession(data:)` reads a file and proposes a mapping, or `ImportSession(data:profile:)` uses a saved one. The session holds the mapping as an `ImportProfile`, with helpers to map a column, pick the date column, remember a match and settle an ambiguity.
+  - `session.preview(against:)` returns an `ImportPreview`: every record with its status, cell errors, issues, ambiguities, name matches, and the proposed accounts, instruments and account changes.
+  - `preview.apply(to:)` returns an `ImportResult`: the new library and the month files, accounts and instruments that changed.
+  - `session.makeProfile(id:name:library:)` saves the mapping with everything detected written out.
 - **App.** The same SwiftUI flow on Mac and iPhone. The Mac, with its big table, is the comfortable place to build a profile. On the iPhone, you can open a CSV from Files and import it with a saved profile.
 - **CLI.** `retire import <file> --profile <id> [--dry-run]` prints the same summary as the preview.

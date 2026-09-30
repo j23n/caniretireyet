@@ -22,6 +22,11 @@ let resources: [String: [Resource]] = [
     "TaxItaly": [.process("Resources")],
 ]
 
+/// Test targets with resource folders, e.g. sample files.
+let testResources: [String: [Resource]] = [
+    "ImporterTests": [.copy("Samples")],
+]
+
 let package = Package(
     name: "CanIRetireYetKit",
     platforms: [.macOS("26.0"), .iOS("26.0")],
@@ -40,7 +45,8 @@ let package = Package(
     } + libraries.map { library in
         .testTarget(
             name: "\(library.name)Tests",
-            dependencies: [.target(name: library.name), "TestSupport"]
+            dependencies: [.target(name: library.name), "TestSupport"],
+            resources: testResources["\(library.name)Tests"]
         )
     } + [
         // Test-only helpers and the made-up example library. Not a product.
