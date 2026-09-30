@@ -238,6 +238,21 @@ extension AgeSchedule {
                                          amount: amount * frame.fraction))
             }
 
+            // Taxes on total income, such as IRPEF, belong to no one subject:
+            // their simulated share is each income's share weighted by the income.
+            var incomeWeight = 0.0
+            var simulatedIncome = 0.0
+            for income in workIncomes where income.net == nil {
+                let weight = max(0, income.gross - income.costs)
+                incomeWeight += weight
+                simulatedIncome += weight * (shares[income.phaseID] ?? frame.fraction)
+            }
+            for pension in paid {
+                incomeWeight += max(0, pension.amount)
+                simulatedIncome += max(0, pension.amount) * (shares[pension.id] ?? frame.fraction)
+            }
+            let incomeShare = incomeWeight > 0 ? simulatedIncome / incomeWeight : frame.fraction
+
             // Planned contributions, from the plan's start until they stop.
             var contributions: [WrapperAmount] = []
             var wrapperContributions: [FixedYear.WrapperContribution] = []
@@ -282,7 +297,13 @@ extension AgeSchedule {
                 if mask == expectedLocal { fixedYears.append(fixedYear) }
                 let prepared = system.prepare(fixedYear, state: state, parameters: frame.parameters)
                 let fixed = prepared.fixedAssessment
-                let share: (String?) -> Double = { subject in subject.flatMap { shares[$0] } ?? frame.fraction }
+                let windfallNames = Set(windfalls.map(\.name))
+                let share: (String?) -> Double = { subject in
+                    guard let subject else { return incomeShare }
+                    // A windfall arrives in the simulated part, so all of its tax does too.
+                    if windfallNames.contains(subject) { return 1 }
+                    return shares[subject] ?? frame.fraction
+                }
                 let taxes = Self.scaled(fixed.lines, share: share)
                 let socialContributions = Self.scaled(fixed.contributions, share: share)
                 let windfallCash = windfalls.reduce(0) { $0 + $1.amount }
@@ -378,11 +399,15 @@ extension AgeSchedule {
     }
 
     /// Tax or contribution lines summed by ID, each scaled by the share of
-    /// its subject that falls in the simulated part of the year.
+    /// its subject that falls in the simulated part of the year: a work
+    /// phase's or pension's simulated share, 1 for a windfall's, and for a
+    /// line without a subject (a tax on total income) the income-weighted
+    /// share of the year's work and pensions.
     private static func scaled(_ lines: [TaxLine], share: (String?) -> Double) -> [AmountItem] {
         var result: [AmountItem] = []
         for line in lines {
             let amount = line.amount * share(line.subject)
+            guard amount != 0 else { continue }
             if let index = result.firstIndex(where: { $0.id == line.id }) {
                 result[index].amount += amount
             } else {

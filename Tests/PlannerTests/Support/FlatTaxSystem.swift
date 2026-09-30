@@ -136,7 +136,8 @@ struct FlatTaxSystem: TaxSystem {
         }
         for windfall in year.windfalls {
             fixed.lines.append(TaxLine(id: "flat.windfall", label: "Windfall tax",
-                                       amount: windfall.amount * windfallRate, base: windfall.amount))
+                                       amount: windfall.amount * windfallRate, base: windfall.amount,
+                                       subject: windfall.name))
         }
         var next = state
         next["flat.years"] = (state["flat.years"] ?? 0) + 1
