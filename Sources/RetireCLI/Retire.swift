@@ -17,7 +17,9 @@ public struct Retire: AsyncParsableCommand {
             \(CLIContext.libraryVariable), or run it inside the folder.
             """,
         version: "0.2.0",
-        subcommands: [InitCommand.self, ValidateCommand.self, NetWorthCommand.self, ImportCommand.self]
+        subcommands: [
+            InitCommand.self, ValidateCommand.self, NetWorthCommand.self, ImportCommand.self, PricesCommand.self,
+        ]
     )
 
     public init() {}
