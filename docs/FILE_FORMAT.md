@@ -318,6 +318,8 @@ A file that couldn't be read when the library loaded (it isn't valid JSON, or do
 
 Saved import profiles. Each describes how to read one kind of file (encoding, delimiter, number and date formats) and what each column becomes. See [IMPORT.md](IMPORT.md#import-profiles) for the fields and an example.
 
+A profile with `"layout": "ledger"` reads ledger-cli and hledger journals instead. Its optional `ledger` section (roots, ignored accounts, returns accounts, ignored commodities, `frequency`, `transactionPrices`) and its `matches` (a ledger account, with its subaccounts, → an account; a commodity → an instrument) are described in [IMPORT.md](IMPORT.md#ledger-profiles). Records a journal import writes have `"source": "ledger"`.
+
 ## `backups/`
 
 Copies of files taken before a schema migration, an import, or a save that had to replace a file (see [Saving](#saving)), in dated folders. They're what "Undo import" uses. Safe to delete.
