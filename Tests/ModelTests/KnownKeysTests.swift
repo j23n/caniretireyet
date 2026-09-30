@@ -37,6 +37,10 @@ struct KnownKeysTests {
         withdrawals: PlanWithdrawals(strategy: .fixedReal, cashBuffer: 10000),
         simulation: PlanSimulation(runs: 2000, seed: 1, confidence: d("0.9")))
 
+    private static let ledgerSettings = LedgerImportSettings(
+        roots: ["Assets"], ignore: ["Assets:Loans"], returns: ["Income:Dividends"], flows: ["Income:Interest:Loan"],
+        ignoreCommodities: ["MILES"], frequency: .quarter, transactionPrices: false)
+
     /// A fully populated value of every type with known keys.
     private static var samples: [(any Encodable, Set<String>)] { [
         (LibrarySettings(person: Person(name: "Me", birthDate: "1988-04-12"), taxResidence: .it, mainPlan: "base"), LibrarySettings.knownKeys),
@@ -74,7 +78,9 @@ struct KnownKeysTests {
         (ImportProfile(id: "p", name: "P", file: ImportFileSettings(encoding: .utf8, delimiter: ";", headerRow: 1, excludeRows: ["Totale"]),
                        defaults: format, layout: .long, dateColumn: "Data", target: .balance,
                        constants: ImportConstants(account: "a"), columns: [ImportColumn(header: "A")],
-                       matches: ImportMatches(accounts: ["A": "a"]), onConflict: .keep), ImportProfile.knownKeys),
+                       matches: ImportMatches(accounts: ["A": "a"]), onConflict: .keep,
+                       ledger: ledgerSettings), ImportProfile.knownKeys),
+        (ledgerSettings, LedgerImportSettings.knownKeys),
         (ImportFileSettings(encoding: .utf8, delimiter: ";", headerRow: 1, excludeRows: ["Totale"]), ImportFileSettings.knownKeys),
         (ImportColumn(header: "A", index: 1, target: .fx, field: .value, account: "a", instrument: "i", currency: .eur,
                       base: .eur, quote: .usd, format: format), ImportColumn.knownKeys),

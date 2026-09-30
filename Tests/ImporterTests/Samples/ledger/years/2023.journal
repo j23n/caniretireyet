@@ -1,0 +1,4 @@
+include common.journal
+2023-12-31 Opening
+    Assets:Bank   1,500.00 EUR
+    Equity:Opening

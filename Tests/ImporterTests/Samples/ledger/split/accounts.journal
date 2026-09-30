@@ -1,0 +1,3 @@
+; Made-up account declarations.
+account Assets:Bank
+account Assets:Savings

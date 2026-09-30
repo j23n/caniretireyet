@@ -379,6 +379,15 @@ A window with steps along the top, as described in [IMPORT.md](IMPORT.md):
 
 On iPhone, a CSV opened from Files goes straight to "Import with profile…": choose the profile, preview, import.
 
+Ledger journals (one or several `.ledger`, `.journal`, `.hledger`, `.j` or `.dat` files) have their own steps in the same window:
+
+1. **Files.** What was read: the files, transactions, dates, problems with their file and line, and includes the app can't read, with **Choose the Journal's Folder…**. The saved ledger profiles, best fit first.
+2. **Accounts.** The ledger's assets and liabilities as a tree, each with a picker: as proposed (matched or new), a library account, a new account, or left out; the new accounts to create; closings; the income and expense accounts that are returns; month, quarter or activity snapshots.
+3. **Commodities.** Each commodity as cash, an instrument (matched, new or chosen) or left out; the new instruments; whether `@` prices are recorded.
+4. **Preview** and 5. **Done**, as for a spreadsheet, with the journal's notes (flows that couldn't be valued) instead of the grid.
+
+On iPhone, journals use "Import with profile…" with a saved ledger profile, like a CSV.
+
 ## Settings
 
 | Section | Contents |

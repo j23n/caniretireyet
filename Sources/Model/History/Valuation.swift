@@ -134,6 +134,10 @@ public struct DataSource: OpenEnum {
     public static let yahoo: DataSource = "yahoo"
     public static let coingecko: DataSource = "coingecko"
     public static let goldAPI: DataSource = "gold-api"
+    /// Read from a ledger-cli or hledger journal.
+    public static let ledger: DataSource = "ledger"
 
-    public static let knownValues: [DataSource] = [.manual, .import, .ecb, .eurostat, .yahoo, .coingecko, .goldAPI]
+    public static let knownValues: [DataSource] = [
+        .manual, .import, .ecb, .eurostat, .yahoo, .coingecko, .goldAPI, .ledger,
+    ]
 }

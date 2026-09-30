@@ -108,7 +108,7 @@ private struct ImportNameRowView: View {
 }
 
 /// A proposed account: create it or not, and its name, kind and currency.
-private struct ImportNewAccountRow: View {
+struct ImportNewAccountRow: View {
     let model: ImportController
     let proposal: AccountProposal
 
@@ -162,7 +162,7 @@ private struct ImportNewAccountRow: View {
 }
 
 /// A proposed instrument: create it or not, and its name, kind and currency.
-private struct ImportNewInstrumentRow: View {
+struct ImportNewInstrumentRow: View {
     let model: ImportController
     let proposal: InstrumentProposal
 

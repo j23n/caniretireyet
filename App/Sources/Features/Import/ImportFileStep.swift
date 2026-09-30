@@ -10,6 +10,8 @@ struct ImportFileStep: View {
     let model: ImportController
     let chooseFile: () -> Void
     let openFile: (URL) -> Void
+    /// Reads several files dropped at once (journals); `nil` reads the first.
+    var openFiles: (([URL]) -> Void)?
 
     @Environment(LibraryStore.self) private var library
     @State private var isTargeted = false
@@ -21,7 +23,7 @@ struct ImportFileStep: View {
                 ImportDropZone(fileName: flow.fileName, isTargeted: isTargeted, chooseFile: chooseFile)
             } footer: {
                 Text("A CSV or TSV file, as Excel, Numbers or a bank exports it: any delimiter, encoding, date and "
-                    + "number format.")
+                    + "number format. Or ledger-cli and hledger journals: choose one or several.")
             }
 
             if let problem = flow.problem, !flow.hasFile {
@@ -64,7 +66,7 @@ struct ImportFileStep: View {
         .formStyle(.grouped)
         .dropDestination(for: URL.self) { urls, _ in
             guard let url = urls.first else { return false }
-            openFile(url)
+            if let openFiles { openFiles(urls) } else { openFile(url) }
             return true
         } isTargeted: { targeted in
             isTargeted = targeted

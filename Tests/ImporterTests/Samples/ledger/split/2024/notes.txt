@@ -1,0 +1,1 @@
+Not a journal: the wildcard only matches *.journal.

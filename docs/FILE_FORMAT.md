@@ -322,6 +322,8 @@ Saved import profiles. Each describes how to read one kind of file (encoding, de
 
 In a profile, an empty list and a missing one differ in one place: `file.excludeRows` left out uses the importer's default footer rule (rows starting with "Totale" or "Total"), while `"excludeRows": []` skips no rows.
 
+A profile with `"layout": "ledger"` reads ledger-cli and hledger journals instead. Its optional `ledger` section (roots, ignored accounts, returns accounts, ignored commodities, `frequency`, `transactionPrices`) and its `matches` (a ledger account, with its subaccounts, → an account; a commodity → an instrument) are described in [IMPORT.md](IMPORT.md#ledger-profiles). Records a journal import writes have `"source": "ledger"`.
+
 ## `backups/`
 
 Copies of files taken before a schema migration, an import, or a save that had to replace a file (see [Saving](#saving)), in dated folders. They're what "Undo import" uses. Safe to delete.

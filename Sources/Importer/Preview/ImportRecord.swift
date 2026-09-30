@@ -94,6 +94,12 @@ public struct ImportedRecord: Hashable, Sendable {
     public var currency: CurrencyCode?
     /// FX rates: 1 base = rate × quote.
     public var rate: Decimal?
+    /// Valuations: the money added (+) or taken out (−) since the account's
+    /// previous valuation, when the file knows it (a ledger journal does).
+    public var flow: Decimal?
+    /// Where the values come from, written into new and overwritten
+    /// records; `nil` means `import`.
+    public var source: DataSource?
     /// Whether `balance` is negative because the file wrote a debt account's
     /// balance as a positive amount (IMPORT.md, "Debts").
     public internal(set) var balanceReadAsDebt = false
@@ -196,11 +202,11 @@ enum RecordMerge {
                         Position(instrument: position.instrument, quantity: $0, costBasis: position.costBasis)
                     }
                 }.sorted { $0.instrument < $1.instrument },
-                source: .import)
+                flow: imported.flow, source: imported.source ?? .import)
             return Outcome(status: .new, kept: .valuation(valuation), overwritten: .valuation(valuation))
         case (.price(let key), let existing):
             let record = PriceRecord(instrument: key.instrument, date: key.date, price: imported.price ?? 0,
-                                     currency: imported.currency ?? .eur, source: .import)
+                                     currency: imported.currency ?? .eur, source: imported.source ?? .import)
             guard case .price(let old)? = existing else {
                 return Outcome(status: .new, kept: .price(record), overwritten: .price(record))
             }
@@ -209,7 +215,7 @@ enum RecordMerge {
                            overwritten: same ? .price(old) : .price(record))
         case (.fx(let key), let existing):
             let record = FXRecord(base: key.base, quote: key.quote, date: key.date, rate: imported.rate ?? 0,
-                                  source: .import)
+                                  source: imported.source ?? .import)
             guard case .fx(let old)? = existing else {
                 return Outcome(status: .new, kept: .fx(record), overwritten: .fx(record))
             }
@@ -279,7 +285,15 @@ enum RecordMerge {
                 }
             }
         }
-        if overwrite, conflict { valuation.source = .import }
+        if let flow = imported.flow {
+            if let old = valuation.flow, old != flow {
+                conflict = true
+                if overwrite { valuation.flow = flow }
+            } else if valuation.flow == nil {
+                valuation.flow = flow
+            }
+        }
+        if overwrite, conflict { valuation.source = imported.source ?? .import }
         return (valuation, conflict)
     }
 }

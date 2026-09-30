@@ -1,0 +1,7 @@
+include common.journal
+2024-01-31 Salary
+    Assets:Bank   2,000.00 EUR
+    Income:Salary
+2024-01-05 Rent
+    Expenses:Rent   900.00 EUR
+    Assets:Bank     = 600.00 EUR

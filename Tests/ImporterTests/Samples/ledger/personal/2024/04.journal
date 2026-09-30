@@ -1,0 +1,11 @@
+2024-04-10 * Card payment
+    Liabilities:CreditCard:Visa           60,00 EUR
+    Assets:Bank:Fineco
+
+2024-04-15 * Stipendio
+    Assets:Bank:Fineco                 2.500,00 EUR
+    Income:Salary
+
+2024-04-30 * Staking reward
+    Assets:Crypto:Wallet               0,0001 BTC
+    Income:Staking

@@ -16,10 +16,22 @@
 			<string>Any</string>
 		</dict>
 	</dict>
-	<!-- CSV and TSV files open with the app from Files and Finder, to be imported (IMPORT.md);
-	     they're read where they are, not copied. -->
+	<!-- CSV and TSV files, and ledger-cli / hledger journals, open with the app from Files and
+	     Finder, to be imported (IMPORT.md); they're read where they are, not copied. -->
 	<key>CFBundleDocumentTypes</key>
 	<array>
+		<dict>
+			<key>CFBundleTypeName</key>
+			<string>Ledger journal</string>
+			<key>CFBundleTypeRole</key>
+			<string>Viewer</string>
+			<key>LSHandlerRank</key>
+			<string>Alternate</string>
+			<key>LSItemContentTypes</key>
+			<array>
+				<string>org.ledger-cli.journal</string>
+			</array>
+		</dict>
 		<dict>
 			<key>CFBundleTypeName</key>
 			<string>Spreadsheet export</string>
@@ -36,5 +48,30 @@
 	</array>
 	<key>LSSupportsOpeningDocumentsInPlace</key>
 	<true/>
+	<!-- Plain-text accounting journals, by extension, for the file importer and opening from Files. -->
+	<key>UTImportedTypeDeclarations</key>
+	<array>
+		<dict>
+			<key>UTTypeIdentifier</key>
+			<string>org.ledger-cli.journal</string>
+			<key>UTTypeDescription</key>
+			<string>Ledger journal</string>
+			<key>UTTypeConformsTo</key>
+			<array>
+				<string>public.plain-text</string>
+			</array>
+			<key>UTTypeTagSpecification</key>
+			<dict>
+				<key>public.filename-extension</key>
+				<array>
+					<string>ledger</string>
+					<string>journal</string>
+					<string>hledger</string>
+					<string>j</string>
+					<string>dat</string>
+				</array>
+			</dict>
+		</dict>
+	</array>
 </dict>
 </plist>

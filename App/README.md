@@ -50,7 +50,7 @@ Keep logic that doesn't need SwiftUI in files that import only Foundation and th
 | `CheckInScreen` | `CheckInScreen()` | iPhone: full-screen cover (in a NavigationStack); Mac/iPad: sidebar *Check-in*. Close with `navigation.finishCheckIn()` |
 | `PlanScreen` | `PlanScreen(planID:)`, `nil` = main plan | Plan tab, sidebar plans, pushing a `PlanID` |
 | `PlanCompareScreen` | `PlanCompareScreen(firstID:)` | Plan menu *Compare Plans* (⌘⌥C), pushed on the plan's stack |
-| `ImportScreen` | `ImportScreen(file:)` | ⌘⇧I, sidebar *Import…*, dropping a CSV on the window, opening a CSV from Files (sheet on iPhone) |
+| `ImportScreen` | `ImportScreen(file:)` | ⌘⇧I, sidebar *Import…*, dropping a CSV or journals on the window, opening a CSV or a journal from Files (sheet on iPhone) |
 | `ImportProfilesScreen` | `ImportProfilesScreen()` | *Saved profiles* in the import's first step |
 | `SettingsScreen` | `SettingsScreen()` inside a NavigationStack | Mac: Settings window (⌘,); iPhone/iPad: gear → sheet |
 | `OnboardingScreen` | `OnboardingScreen()` | first launch, when there's no library |
@@ -122,7 +122,7 @@ The numbers come from a `PlanEngine` (see `Stores/PlanEngine.swift`). The app us
 
 - `PrivacySettings`: `hidesAmounts` (the eye button and ⌘⇧H), `hideAmountsOnLaunch`, `hideInAppSwitcher` (the root view covers the app while it isn't active), `toggleHidesAmounts()`.
 - `AppPreferences` (this device, `UserDefaults`): `libraryLocation`, `stalenessThreshold` (45 days), `fetchPricesOnCheckIn`, `reminder: CheckInReminder?` (scheduled by `ReminderScheduler`).
-- `AppNavigation`: `layout` (`.tabs` / `.sidebar`, set by the root view), `tab`, `sidebarSelection`, `accountsPath`, `selectedPlan`, `sheet` (`.settings`, `.newAccount`, `.importFile(url)`, `.welcome`), `isCheckInPresented`, `showsFuture` (the Overview's *Future* switch and ⌘⇧F), `pendingImport`. Navigate with `startCheckIn()`, `finishCheckIn()`, `showOverview()`, `showAccounts(_:)`, `showAccount(_:)`, `showPlan(_:)`, `showSettings()`, `newAccount()`, `startImport(_:)`, `show(_ sidebarItem:)`: they work in both layouts.
+- `AppNavigation`: `layout` (`.tabs` / `.sidebar`, set by the root view), `tab`, `sidebarSelection`, `accountsPath`, `selectedPlan`, `sheet` (`.settings`, `.newAccount`, `.importFile(url)`, `.welcome`), `isCheckInPresented`, `showsFuture` (the Overview's *Future* switch and ⌘⇧F), `pendingImport`. Navigate with `startCheckIn()`, `finishCheckIn()`, `showOverview()`, `showAccounts(_:)`, `showAccount(_:)`, `showPlan(_:)`, `showSettings()`, `newAccount()`, `startImport(_:)`, `startImport(files:)` (several files dropped together, e.g. journals; the Import screen takes the others with `takeAdditionalImportFiles()`), `show(_ sidebarItem:)`: they work in both layouts.
 
 ## Menu commands
 
@@ -132,7 +132,16 @@ The numbers come from a `PlanEngine` (see `Stores/PlanEngine.swift`). The app us
 .focusedSceneValue(\.planActions, PlanCommandActions(saveBaseline: { … }, duplicate: { … }, compare: { … }))
 ```
 
-Dropping a CSV file anywhere on the window calls `navigation.startImport(file)`.
+Dropping a CSV file anywhere on the window calls `navigation.startImport(file)`; dropping ledger journals calls `navigation.startImport(files:)`.
+
+## Import
+
+`Features/Import/`: one flow for spreadsheets and journals. `ImportFlow` (plain values) holds the file, the mapping, the preview, the user's decisions and the step; `ImportController` (`@Observable`) does the writing: `runImport(in:)` applies the preview with `LibraryStore.commit(backingUpAs: "import")`, `undoImport(in:)` undoes it with `LibraryStore.undo`, and `saveProfile` writes `imports/<id>.json`.
+
+- **Spreadsheets:** File, Format, Columns, Accounts, Preview, Done, from an `ImportSession` (`ImportFlow+Format`, `+Columns`, `+Accounts`, `+Preview`).
+- **Ledger journals** (IMPORT.md, "Ledger journals"): File, Accounts, Commodities, Preview, Done. `ImportFlow.ledger` holds a `LedgerImportState` (the files, the folders the app may read, the `LedgerJournal`, the `LedgerImportSession`); its preview becomes the flow's, so conflicts, decisions on proposed accounts and instruments, Done, Undo and Save as profile are shared. The logic is in `ImportFlow+Ledger` and `LedgerImportState`, the views in `LedgerFilesStep`, `LedgerAccountsStep` and `LedgerCommoditiesStep`.
+- **Reading journals in the sandbox:** `ImportController.openLedger(_:)` reads the chosen files off the main thread through `SandboxLedgerFiles` (`ImportController+Ledger`), which uses the security-scoped access of the file or folder holding each file and `CoordinatedFileAccess`. Includes outside what the user chose are listed (`LedgerJournal.missingIncludes`); **Choose the Journal's Folder…** grants the folder (`grantLedgerFolder(_:)`) and reads the journal again, keeping the mapping.
+- **File types:** `Config/Info.plist` declares `org.ledger-cli.journal` (`.ledger`, `.journal`, `.hledger`, `.j`, `.dat`) as a plain-text type the app can open; the file importer allows several files at once.
 
 ## Design system
 
@@ -173,4 +182,4 @@ At launch `LibraryStore.start()` asks `CloudSync.LibraryLocator` for the iCloud 
 
 ## Checking without Xcode
 
-The app only builds on a Mac, but everything that doesn't import SwiftUI (the `Stores/` folder, `AppNavigation`, `AmountFormat`, `AmountInput`, `ChartData`, `AppModel`, `PreviewLibrary`, `PreviewPlanEngine`) compiles on Linux too. To type-check and test it there, make a scratch Swift package outside the repository that depends on this one (`Model`, `Tracker`, `Storage`, `Prices`, `CloudSync`), copy those files into a target, and add Swift Testing tests. That's how the stores were tested: loading, editing and saving a copy of the example library, the watcher reloading a hand-edited file, the read-only guard, a full check-in save, plan runs, and `PreviewLibrary` being identical to the example library.
+The app only builds on a Mac, but everything that doesn't import SwiftUI (the `Stores/` folder, `AppNavigation`, `AmountFormat`, `AmountInput`, `ChartData`, `AppModel`, `PreviewLibrary`, `PreviewPlanEngine`, the import's `ImportFlow*`, `ImportController*`, `LedgerImportState` and `LedgerPreviewData`) compiles on Linux too. To type-check and test it there, make a scratch Swift package outside the repository that depends on this one (`Model`, `Tracker`, `Storage`, `Prices`, `CloudSync`), copy those files into a target, and add Swift Testing tests. That's how the stores were tested: loading, editing and saving a copy of the example library, the watcher reloading a hand-edited file, the read-only guard, a full check-in save, plan runs, and `PreviewLibrary` being identical to the example library.
