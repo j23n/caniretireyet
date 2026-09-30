@@ -19,6 +19,7 @@ public struct Retire: AsyncParsableCommand {
         version: "0.2.0",
         subcommands: [
             InitCommand.self, ValidateCommand.self, NetWorthCommand.self, ImportCommand.self, PricesCommand.self,
+            PlanCommand.self,
         ]
     )
 
