@@ -107,9 +107,10 @@ extension ImportProfile {
 
 extension ImportColumn {
     /// Whether the column's values are imported: it isn't ignored, and in
-    /// the long layout it isn't just a name or currency field.
+    /// the long layout it isn't just a name or currency field (in the trades
+    /// layout, every field is part of the trade).
     var isImported: Bool {
-        if let field { return field == .value }
+        if let field { return field == .value || ImportField.tradeFields.contains(field) }
         if let target { return target != .ignore }
         return false
     }

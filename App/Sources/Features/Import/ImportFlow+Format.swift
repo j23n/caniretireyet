@@ -408,7 +408,11 @@ enum ImportChoices {
     }
 
     static func layoutName(_ layout: ImportLayout) -> String {
-        layout == .long ? "A row per record" : "A row per date"
+        switch layout {
+        case .long: "A row per record"
+        case .trades: "A row per trade"
+        default: "A row per date"
+        }
     }
 
     static func conflictPolicyName(_ policy: ConflictPolicy) -> String {

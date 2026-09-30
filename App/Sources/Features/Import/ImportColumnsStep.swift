@@ -31,7 +31,7 @@ struct ImportColumnsStep: View {
             Section {
                 ImportLayoutPicker(model: model)
                 ImportDateColumnPicker(model: model)
-                if flow.layout == .long {
+                if flow.layout.rowIsRecord {
                     ImportConstantsPickers(model: model)
                 }
             } header: {
@@ -53,7 +53,7 @@ struct ImportColumnsStep: View {
                     LabeledContent("Imports as") {
                         ImportUsePicker(model: model, row: row)
                     }
-                    if row.isValue && flow.layout != .long {
+                    if row.isValue && !flow.layout.rowIsRecord {
                         LabeledContent("Of") {
                             ImportTargetMenu(model: model, row: row)
                         }
@@ -79,9 +79,13 @@ struct ImportColumnsStep: View {
     }
 
     static func layoutFooter(_ layout: ImportLayout) -> String {
-        layout == .long
-            ? "Each row is one record, with its date, account or instrument, and value in columns."
-            : "Each row is a date; each column an account, holding, price or rate, named by its header."
+        switch layout {
+        case .long: "Each row is one record, with its date, account or instrument, and value in columns."
+        case .trades:
+            "Each row is one trade from a broker's export: its date, type, instrument, quantity, price and amounts "
+                + "in columns. The next step maps the file's words to trade types."
+        default: "Each row is a date; each column an account, holding, price or rate, named by its header."
+        }
     }
 }
 
@@ -137,7 +141,7 @@ private struct ImportColumnsSettings: View {
             Text(ImportColumnsStep.layoutFooter(flow.layout))
                 .font(.footnote)
                 .foregroundStyle(Palette.secondaryInk)
-            if flow.layout == .long {
+            if flow.layout.rowIsRecord {
                 HStack(spacing: Metrics.xl) {
                     ImportConstantsPickers(model: model)
                         .fixedSize()
@@ -165,6 +169,7 @@ private struct ImportLayoutPicker: View {
         Picker("Layout", selection: Binding(get: { model.flow.layout }, set: { model.flow.setLayout($0) })) {
             Text(ImportChoices.layoutName(.wide)).tag(ImportLayout.wide)
             Text(ImportChoices.layoutName(.long)).tag(ImportLayout.long)
+            Text(ImportChoices.layoutName(.trades)).tag(ImportLayout.trades)
         }
         .pickerStyle(.segmented)
     }
@@ -193,7 +198,7 @@ private struct ImportDateColumnPicker: View {
 }
 
 /// Long layout: the account, instrument and currency of every row, when
-/// the file has no column for them.
+/// the file has no column for them. Trades layout: the account.
 private struct ImportConstantsPickers: View {
     let model: ImportController
 
@@ -208,25 +213,27 @@ private struct ImportConstantsPickers: View {
             }
         }
         .pickerStyle(.menu)
-        Picker("Instrument of every row", selection: Binding(get: { model.flow.constants.instrument },
-                                                             set: { instrument in
-            model.flow.setConstants { $0.instrument = instrument }
-        })) {
-            Text("From a column").tag(InstrumentID?.none)
-            ForEach(flow.instrumentChoices) { instrument in
-                Text(instrument.name).tag(InstrumentID?.some(instrument.id))
+        if flow.layout != .trades {
+            Picker("Instrument of every row", selection: Binding(get: { model.flow.constants.instrument },
+                                                                 set: { instrument in
+                model.flow.setConstants { $0.instrument = instrument }
+            })) {
+                Text("From a column").tag(InstrumentID?.none)
+                ForEach(flow.instrumentChoices) { instrument in
+                    Text(instrument.name).tag(InstrumentID?.some(instrument.id))
+                }
             }
-        }
-        .pickerStyle(.menu)
-        Picker("Currency", selection: Binding(get: { model.flow.constants.currency }, set: { currency in
-            model.flow.setConstants { $0.currency = currency }
-        })) {
-            Text("From the file").tag(CurrencyCode?.none)
-            ForEach(CurrencyChoices.common, id: \.self) { code in
-                Text(code.rawValue).tag(CurrencyCode?.some(code))
+            .pickerStyle(.menu)
+            Picker("Currency", selection: Binding(get: { model.flow.constants.currency }, set: { currency in
+                model.flow.setConstants { $0.currency = currency }
+            })) {
+                Text("From the file").tag(CurrencyCode?.none)
+                ForEach(CurrencyChoices.common, id: \.self) { code in
+                    Text(code.rawValue).tag(CurrencyCode?.some(code))
+                }
             }
+            .pickerStyle(.menu)
         }
-        .pickerStyle(.menu)
     }
 }
 
@@ -283,7 +290,7 @@ struct ImportTargetMenu: View {
 
     var body: some View {
         let flow = model.flow
-        if let target = row.target, flow.layout != .long {
+        if let target = row.target, !flow.layout.rowIsRecord {
             Menu {
                 if target.needsAccount {
                     Picker("Account", selection: Binding(get: { row.account }, set: { account in
@@ -333,7 +340,7 @@ struct ImportTargetMenu: View {
             }
             .help("Left as “from the header”, the column's header names it.")
         } else {
-            Text(flow.layout == .long && row.isValue ? "Per row" : "—")
+            Text(flow.layout.rowIsRecord && row.isValue ? "Per row" : "—")
                 .foregroundStyle(Palette.mutedInk)
         }
     }
@@ -352,7 +359,7 @@ struct ImportFormatMenu: View {
 
     var body: some View {
         switch row.use {
-        case .value:
+        case _ where row.isValue:
             Menu {
                 Picker("Decimal separator", selection: decimal) {
                     Text("The file's").tag(String?.none)
@@ -381,6 +388,15 @@ struct ImportFormatMenu: View {
                         Text("The file's").tag(LiabilitySign?.none)
                         ForEach(LiabilitySign.knownValues, id: \.self) { sign in
                             Text(ImportChoices.liabilitySignName(sign)).tag(LiabilitySign?.some(sign))
+                        }
+                    }
+                    .pickerStyle(.menu)
+                }
+                if row.use == .field(.amount) || row.use == .field(.gross) {
+                    Picker("Amount signs", selection: amountSign) {
+                        Text("The file's").tag(TradeAmountSign?.none)
+                        ForEach(TradeAmountSign.knownValues, id: \.self) { sign in
+                            Text(ImportFlow.amountSignName(sign)).tag(TradeAmountSign?.some(sign))
                         }
                     }
                     .pickerStyle(.menu)
@@ -445,6 +461,12 @@ struct ImportFormatMenu: View {
     private var liabilitySign: Binding<LiabilitySign?> {
         Binding(get: { row.format.liabilitySign }, set: { value in
             model.flow.setFormat(ofColumn: row.column) { $0.liabilitySign = value }
+        })
+    }
+
+    private var amountSign: Binding<TradeAmountSign?> {
+        Binding(get: { row.format.amountSign }, set: { value in
+            model.flow.setFormat(ofColumn: row.column) { $0.amountSign = value }
         })
     }
 }

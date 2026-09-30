@@ -8,6 +8,7 @@ import SwiftUI
 struct ImportPreviewHost: View {
     let step: ImportStep
     var guided = false
+    var file: ImportPreviewData.File = .sheet
 
     @Environment(LibraryStore.self) private var library
     @State private var model: ImportController?
@@ -32,7 +33,8 @@ struct ImportPreviewHost: View {
         .navigationTitle("Import")
         .task {
             let controller = ImportPreviewData.controller(library: library.library,
-                                                          step: step == .done ? .preview : step, guided: guided)
+                                                          step: step == .done ? .preview : step, guided: guided,
+                                                          file: file)
             if step == .done {
                 await controller.runImport(in: library)
             }

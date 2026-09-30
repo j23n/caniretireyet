@@ -20,6 +20,9 @@ enum ColumnUse: Hashable, Sendable {
     /// The uses offered for a layout, in menu order.
     static func options(for layout: ImportLayout) -> [ColumnUse] {
         let values = targets.map(ColumnUse.value)
+        if layout == .trades {
+            return [.date] + ImportField.tradeFields.map(ColumnUse.field) + [.ignore]
+        }
         if layout == .long {
             return [.date, .field(.account), .field(.instrument)] + values
                 + [.field(.currency), .field(.base), .field(.quote), .ignore]
@@ -52,6 +55,15 @@ enum ColumnUse: Hashable, Sendable {
             case .quote: return "Quote currency"
             case .value: return "Value"
             case .date: return "Date"
+            case .type: return "Trade type"
+            case .quantity: return "Quantity"
+            case .price: return "Price"
+            case .amount: return "Amount (net)"
+            case .gross: return "Gross amount"
+            case .fees: return "Fees"
+            case .tax: return "Tax"
+            case .ratio: return "Split ratio"
+            case .note: return "Note"
             default: return field.rawValue
             }
         }
@@ -97,7 +109,11 @@ struct ImportColumnRow: Identifiable, Hashable, Sendable {
 
     /// Whether the column's values are amounts, prices or quantities.
     var isValue: Bool {
-        if case .value = use { true } else { false }
+        switch use {
+        case .value: true
+        case .field(let field): field.holdsNumbers
+        default: false
+        }
     }
 
     /// The value target, if the column has one.
@@ -110,8 +126,9 @@ struct ImportColumnRow: Identifiable, Hashable, Sendable {
 extension ImportFlow {
     var layout: ImportLayout { session?.profile.layout ?? .wide }
 
-    /// Switches between one row per date (wide) and one row per record
-    /// (long): the importer proposes the columns again for that layout.
+    /// Switches between one row per date (wide), one row per record (long)
+    /// and one row per trade (trades): the importer proposes the columns
+    /// again for that layout.
     mutating func setLayout(_ layout: ImportLayout) {
         guard layout != self.layout else { return }
         editSession { $0.proposeMapping(layout: layout) }
@@ -151,7 +168,7 @@ extension ImportFlow {
             return .ignore
         case .mapped(let index):
             let mapping = session.profile.columns[index]
-            if session.profile.layout == .long, let field = mapping.field, field != .value {
+            if session.profile.layout.rowIsRecord, let field = mapping.field, field != .value {
                 if field == .date { return .date }
                 if field == .ignore { return .ignore }
                 return .field(field)
@@ -170,7 +187,7 @@ extension ImportFlow {
             setDateColumn(column)
             return
         }
-        let isLong = layout == .long
+        let isLong = layout.rowIsRecord
         let wasDate = self.use(ofColumn: column) == .date
         editSession { session in
             let header = session.table.header(of: column)
@@ -262,7 +279,7 @@ extension ImportFlow {
     /// What a wide value column's header stands for, from the preview's
     /// name matches: "Conto Fineco", "new account “BTC”".
     private func headerMeaning(ofColumn column: Int, use: ColumnUse, mapping: ImportColumn?) -> String? {
-        guard layout != .long, case .value(let target) = use, let header = session?.table.header(of: column),
+        guard !layout.rowIsRecord, case .value(let target) = use, let header = session?.table.header(of: column),
               let preview else { return nil }
         let account = mapping?.account ?? constants.account
         let instrument = mapping?.instrument ?? constants.instrument
@@ -312,11 +329,19 @@ extension ImportColumnRow {
         switch use {
         case .date:
             return effectiveFormat.date?.pattern ?? "—"
-        case .value:
+        case .value, .field(.quantity), .field(.price), .field(.amount), .field(.gross), .field(.fees),
+             .field(.tax), .field(.ratio):
             var text = NumberParser(format: effectiveFormat.number ?? ImportNumberFormat()).example
             if effectiveFormat.number?.percent == true { text += " %" }
             if effectiveFormat.empty == .zero { text += ", empty = 0" }
             if effectiveFormat.liabilitySign == .asWritten, target == .balance { text += ", signs as written" }
+            if use == .field(.amount) || use == .field(.gross) {
+                switch effectiveFormat.amountSign {
+                case .fromType?: text += ", signed by type"
+                case .asWritten?: text += ", signs as written"
+                default: break
+                }
+            }
             return text
         case .ignore, .field:
             return "—"

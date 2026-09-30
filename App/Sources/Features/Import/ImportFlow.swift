@@ -3,11 +3,13 @@ import Importer
 import Model
 
 /// A step of the import, shown along the top (UI.md, "Import"; IMPORT.md, "Steps").
-/// A journal import has Commodities instead of Format and Columns.
+/// A journal import has Commodities instead of Format and Columns; a
+/// broker's transactions (the trades layout) have Types after Columns.
 enum ImportStep: Int, Hashable, Sendable, CaseIterable, Comparable, Identifiable {
     case file
     case format
     case columns
+    case types
     case accounts
     case commodities
     case preview
@@ -20,6 +22,7 @@ enum ImportStep: Int, Hashable, Sendable, CaseIterable, Comparable, Identifiable
         case .file: "File"
         case .format: "Format"
         case .columns: "Columns"
+        case .types: "Types"
         case .accounts: "Accounts"
         case .commodities: "Commodities"
         case .preview: "Preview"
@@ -172,6 +175,7 @@ struct ImportFlow: Sendable {
     var steps: [ImportStep] {
         if isGuided { return [.file, .preview, .done] }
         if ledger != nil { return [.file, .accounts, .commodities, .preview, .done] }
+        if session?.profile.layout == .trades { return [.file, .format, .columns, .types, .accounts, .preview, .done] }
         return [.file, .format, .columns, .accounts, .preview, .done]
     }
 
@@ -371,12 +375,20 @@ struct ProposalEdit<Kind: Hashable & Sendable>: Hashable, Sendable {
 /// A proposed account change by account and kind of change (its date can
 /// move when the mapping changes).
 struct AccountChangeKey: Hashable, Sendable {
+    enum Kind: Hashable, Sendable {
+        case close, openEarlier, recordTrades
+    }
+
     var account: AccountID
-    var closes: Bool
+    var kind: Kind
 
     init(_ proposal: AccountChangeProposal) {
         account = proposal.account
-        if case .close = proposal.change { closes = true } else { closes = false }
+        kind = switch proposal.change {
+        case .close: .close
+        case .openEarlier: .openEarlier
+        case .recordTrades: .recordTrades
+        }
     }
 }
 

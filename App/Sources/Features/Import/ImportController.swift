@@ -184,6 +184,9 @@ struct ImportReceipt: Hashable, Sendable {
     var createdAccounts: [String]
     var closedAccounts: [String]
     var createdInstruments: [String]
+    /// Names of the accounts that now record trades, and how many trades were written.
+    var tradesAccounts: [String]
+    var trades: Int
     /// The files written, relative to the library folder.
     var changedFiles: [String]
     /// The instruments held in the valuations of the months the import
@@ -215,9 +218,12 @@ struct ImportReceipt: Hashable, Sendable {
         createdInstruments = result.createdInstruments.map {
             result.library.instruments[$0]?.name ?? flow.instrumentName($0)
         }
+        tradesAccounts = result.tradesAccounts.map { result.library.accounts[$0]?.name ?? flow.accountName($0) }
+        trades = result.tradesWritten
         changedFiles = result.changedPaths
         importedInstruments = Set(result.changedMonths.flatMap { month in
             (result.library.months[month]?.valuations ?? []).flatMap { $0.positions.map(\.instrument) }
+                + (result.library.months[month]?.trades ?? []).compactMap(\.instrument)
         })
     }
 

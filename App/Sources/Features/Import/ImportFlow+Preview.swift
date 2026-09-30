@@ -92,7 +92,7 @@ extension ImportFlow {
     /// What a wide value column belongs to: "Conto Fineco", "Directa · VWCE",
     /// "EUR/USD", or what its header stands for. `nil` in the long layout.
     func targetSummary(of row: ImportColumnRow, target: ImportTarget? = nil) -> String? {
-        guard layout != .long, let target = target ?? row.target else { return nil }
+        guard !layout.rowIsRecord, let target = target ?? row.target else { return nil }
         if target == .fx {
             if let base = row.base, let quote = row.quote { return "\(base.rawValue)/\(quote.rawValue)" }
             return row.header ?? "From header"
@@ -120,10 +120,11 @@ extension ImportFlow {
         guard let preview else { return 0 }
         let accounts = Set(preview.newAccounts.filter { !$0.isAccepted }.map(\.account.id))
         let instruments = Set(preview.newInstruments.filter { !$0.isAccepted }.map(\.instrument.id))
+        let tradesSkipped = Set(preview.accountChanges.filter { $0.recordsTrades && !$0.isAccepted }.map(\.account))
         return preview.records.filter { record in
             if let account = record.imported.key.account, accounts.contains(account) { return true }
-            if let instrument = record.imported.key.instrument, instruments.contains(instrument) { return true }
-            return record.imported.positions.contains { instruments.contains($0.instrument) }
+            if case .trade(let key) = record.imported.key, tradesSkipped.contains(key.account) { return true }
+            return record.imported.instruments.contains { instruments.contains($0) }
         }.count
     }
 
@@ -230,6 +231,10 @@ extension ImportFlow {
         case .valuation(let key): return "\(accountName(key.account)), \(date)"
         case .price(let key): return "\(instrumentName(key.instrument)) price, \(date)"
         case .fx(let key): return "\(key.base.rawValue)/\(key.quote.rawValue), \(date)"
+        case .trade(let key):
+            let type = preview?.records.first { $0.imported.key == .trade(key) }?.imported.trade?.type
+            return "\(accountName(key.account)), \(type.map { ImportFlow.tradeTypeName($0).lowercased() } ?? "trade"), "
+                + date
         }
     }
 
@@ -261,7 +266,37 @@ extension ImportFlow {
         case .fx(let rate):
             return "1 \(rate.base.rawValue) = \(AmountFormat.number(rate.rate, maxDigits: 8, locale: locale)) "
                 + rate.quote.rawValue
+        case .trade(let trade):
+            return describe(trade, locale: locale)
         }
+    }
+
+    /// A trade's values, e.g. "Buy · 10 VWCE at 134,75 · −1.352,50 € · fees 5 €".
+    func describe(_ trade: Trade, locale: Locale = .current) -> String {
+        let currency = library.accounts[trade.account]?.currency
+            ?? preview?.newAccounts.first { $0.account.id == trade.account }?.account.currency
+            ?? library.settings.baseCurrency
+        func amount(_ value: Decimal) -> String {
+            AmountFormat.amount(value, currency: currency, precision: .automatic, locale: locale)
+        }
+        var what = ImportFlow.tradeTypeName(trade.type)
+        if let quantity = trade.quantity {
+            what += " \(AmountFormat.number(quantity, maxDigits: 8, locale: locale))"
+        }
+        if let instrument = trade.instrument { what += " \(instrumentName(instrument))" }
+        if let price = trade.price {
+            what += " at \(AmountFormat.number(price, maxDigits: 8, locale: locale))"
+                + (trade.currency.map { " \($0.rawValue)" } ?? "")
+        }
+        if let ratio = trade.ratio { what += " × \(AmountFormat.number(ratio, maxDigits: 8, locale: locale))" }
+        var parts = [what]
+        if let value = trade.amount {
+            parts.append(AmountFormat.signedAmount(value, currency: currency, precision: .automatic, locale: locale))
+        }
+        if let fees = trade.fees { parts.append("fees \(amount(fees))") }
+        if let tax = trade.tax { parts.append("tax \(amount(tax))") }
+        if let note = trade.note { parts.append(note) }
+        return parts.joined(separator: " · ")
     }
 
     // MARK: Saving the mapping

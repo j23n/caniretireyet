@@ -88,14 +88,29 @@ struct LedgerAccountsStep: View {
                     }
                 }
                 .pickerStyle(.menu)
+                if !flow.ledgerTradesAccounts.isEmpty {
+                    Toggle("Cash checks for accounts that record trades", isOn: Binding(
+                        get: { model.flow.ledgerCashChecks }, set: { model.flow.setLedgerCashChecks($0) }))
+                }
             } header: {
                 Text("Valuations")
             } footer: {
-                Text("Each account gets a valuation from its first posting on, with the money added or taken out "
-                    + "since the one before and, for holdings, what they cost.")
+                Text(Self.valuationsFooter(tradesAccounts: flow.ledgerTradesAccounts))
             }
         }
         .formStyle(.grouped)
+    }
+
+    private static func valuationsFooter(tradesAccounts: [String]) -> String {
+        var text = "Each account gets a valuation from its first posting on, with the money added or taken out since "
+            + "the one before and, for holdings, what they cost."
+        if !tradesAccounts.isEmpty {
+            let names = tradesAccounts.count == 1 ? "\(tradesAccounts[0]) records trades: the journal's transactions "
+                + "become its trades" : "\(tradesAccounts.joined(separator: ", ")) record trades: the journal's "
+                + "transactions become their trades"
+            text += " \(names), with no valuations (the cash comes from the trades) unless cash checks are on."
+        }
+        return text
     }
 
     private static func topLevel(_ accounts: [LedgerAccountRow]) -> String {

@@ -83,9 +83,11 @@ struct ImportDoneStep: View {
             countRow("Already in the library", receipt.identical)
             countRow("Left out", receipt.skipped)
             countRow("Later new money worked out again", receipt.recomputedFlows)
+            countRow("Of them, trades", receipt.trades)
             namesRow("New accounts", receipt.createdAccounts)
             namesRow("New instruments", receipt.createdInstruments)
             namesRow("Closed accounts", receipt.closedAccounts)
+            namesRow("Now recording trades", receipt.tradesAccounts)
         } header: {
             Text("Summary")
         }
