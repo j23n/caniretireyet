@@ -95,10 +95,18 @@ struct AccountValuationEditor: View {
                     }
                     AccountsNumberField(title: "Cash", text: form.cash, prompt: "0", suffix: symbol)
                     addPositionMenu(form)
+                    if account.recordsTrades, let balance = form.wrappedValue.original.balance {
+                        AccountsFootnote("It records a balance of \(AmountFormat.number(balance, locale: locale)), "
+                            + "which isn't used: the holdings come from the trades. Enter the cash; saving drops "
+                            + "the balance.", systemImage: "exclamationmark.triangle")
+                    }
                 } header: {
-                    Text("Positions")
+                    Text(account.recordsTrades ? "Cash, and a statement's positions" : "Positions")
                 } footer: {
-                    Text("A quantity of 0 removes the position.")
+                    Text(account.recordsTrades
+                        ? "The holdings come from the trades. Positions listed here, from a broker statement, are "
+                            + "only checked against them. A quantity of 0 removes one."
+                        : "A quantity of 0 removes the position.")
                 }
             }
             Section {
@@ -175,7 +183,8 @@ struct AccountValuationEditor: View {
 
     private func load() {
         guard form == nil, let original, let account = library.account(key.account) else { return }
-        form = AccountValuationForm(original, holdsPositions: account.valuationMode == .holdings, locale: locale)
+        form = AccountValuationForm(original, holdsPositions: account.valuationMode != .balance,
+                                    recordsTrades: account.recordsTrades, locale: locale)
     }
 
     /// Saves and waits for the write. A date before the opening date moves

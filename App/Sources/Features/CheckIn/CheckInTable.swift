@@ -16,6 +16,11 @@ import Tracker
 /// A past check-in lists the accounts that open after its date last, under
 /// "Opened later": a value entered there moves the account's opening date
 /// back when the check-in is saved.
+///
+/// An account that records trades lists what its trades hold as read-only
+/// sub-rows, then its cash (pre-filled from the trades, editable), and
+/// *Add Trade…* with the split of its new money. Right-click it to compare
+/// with a statement's quantities.
 struct CheckInTable: View {
     let draft: CheckInDraft
     let session: CheckInSession
@@ -55,6 +60,16 @@ struct CheckInTable: View {
         .frame(minWidth: 860)
         .background(Palette.card)
         .defaultFocus($focus, order.fields.first)
+        .tradeEditorSheet(tradeRequest)
+    }
+
+    /// The trade being added from a trades account's row.
+    private var tradeRequest: Binding<TradeEditorTarget?> {
+        Binding {
+            session.tradeRequest
+        } set: { target in
+            session.tradeRequest = target
+        }
     }
 
     private func table(review: CheckInReview, sections: [CheckInSection], order: CheckInFieldOrder) -> some View {
@@ -228,7 +243,16 @@ private struct CheckInTableRow: View {
     var body: some View {
         VStack(spacing: 0) {
             accountLine
-            if row.mode == .holdings {
+            if row.isTrades {
+                ForEach(review?.positions ?? [], id: \.instrument) { position in
+                    derivedLine(position)
+                }
+                ForEach(row.positions) { position in
+                    statementLine(position)
+                }
+                cashLine
+                tradeActionsLine
+            } else if row.mode == .holdings {
                 ForEach(row.positions) { position in
                     positionLine(position)
                 }
@@ -257,6 +281,8 @@ private struct CheckInTableRow: View {
         if let opening = CheckInWording.openingDetail(for: row, opened: account?.opened, date: date,
                                                       locale: locale) {
             parts.append(opening)
+        } else if row.isTrades {
+            parts.append(CheckInWording.tradesSummary(row, instruments: library.library.instruments, locale: locale))
         } else if row.mode == .holdings {
             parts.append(CheckInWording.holdingsSummary(row, instruments: library.library.instruments, locale: locale))
         } else if let note = CheckInWording.lastValueNote(for: row, previousCheckIn: previousCheckIn, locale: locale) {
@@ -439,6 +465,134 @@ private struct CheckInTableRow: View {
         .frame(height: 30)
     }
 
+    // MARK: Trades accounts
+
+    /// A position the trades hold on the date, read-only: "VWCE · × 138,42 = 58.482".
+    private func derivedLine(_ position: CheckInPositionReview) -> some View {
+        let instrument = library.library.instruments[position.instrument]
+        return CheckInTableLine {
+            Color.clear
+        } account: {
+            HStack(spacing: 0) {
+                Text(verbatim: CheckInWording.instrumentLabel(position.instrument, instrument: instrument))
+                    .fontWeight(.medium)
+                Text(verbatim: " · " + priceText(position.price) + " = ")
+                    .foregroundStyle(Palette.secondaryInk)
+                CheckInPlainAmount(position.value)
+                    .foregroundStyle(Palette.secondaryInk)
+            }
+            .lineLimit(1)
+            .padding(.leading, Metrics.l)
+        } last: {
+            Text(verbatim: CheckInWording.quantity(position.previousQuantity, of: position.instrument,
+                                                   instrument: instrument, locale: locale))
+                .monospacedDigit()
+                .foregroundStyle(Palette.secondaryInk)
+        } now: {
+            Text(verbatim: CheckInWording.quantity(position.quantity, of: position.instrument, instrument: instrument,
+                                                   locale: locale))
+                .monospacedDigit()
+                .privacySensitive()
+                .help("From the account's trades. Add a trade to change it.")
+        } change: {
+            CheckInQuantityChange(position.quantity - position.previousQuantity)
+        } newMoney: {
+            Text("from trades")
+                .foregroundStyle(Palette.mutedInk)
+        } note: {
+            Color.clear
+        }
+        .font(.callout)
+        .frame(height: 30)
+    }
+
+    /// A quantity entered from a broker statement, compared with the trades.
+    private func statementLine(_ position: CheckInPosition) -> some View {
+        let instrument = library.library.instruments[position.instrument]
+        let field = CheckInField.quantity(row.account, position.instrument)
+        return CheckInTableLine {
+            Color.clear
+        } account: {
+            HStack(spacing: 0) {
+                Text("Statement")
+                    .foregroundStyle(Palette.secondaryInk)
+                Text(verbatim: " · " + CheckInWording.instrumentLabel(position.instrument, instrument: instrument))
+                    .fontWeight(.medium)
+            }
+            .lineLimit(1)
+            .padding(.leading, Metrics.l)
+        } last: {
+            Text(verbatim: CheckInWording.quantity(position.previousQuantity, of: position.instrument,
+                                                   instrument: instrument, locale: locale))
+                .monospacedDigit()
+                .foregroundStyle(Palette.secondaryInk)
+                .help("What the trades give")
+        } now: {
+            CheckInNumberField(
+                field, focus: focus, isFocused: focused == field, value: position.quantity, style: .quantity,
+                prompt: "0", label: field.name(in: library.library) + ", statement", onSubmit: { onReturn(field) }
+            ) { quantity in
+                guard let quantity else { return }
+                checkIn.updateRow(row.account) { $0.setQuantity(quantity, of: position.instrument) }
+            }
+            .checkInFieldBox(isFocused: focused == field, height: 24)
+        } change: {
+            CheckInQuantityChange(position.quantityChange)
+                .help("The statement minus the trades")
+        } newMoney: {
+            Button("Remove") {
+                checkIn.updateRow(row.account) { $0.removePosition(position.instrument) }
+            }
+            .buttonStyle(.borderless)
+            .controlSize(.small)
+        } note: {
+            Color.clear
+        }
+        .font(.callout)
+        .frame(height: 30)
+    }
+
+    /// *Add Trade…* and the split of the new money.
+    private var tradeActionsLine: some View {
+        CheckInTableLine {
+            Color.clear
+        } account: {
+            HStack(spacing: Metrics.m) {
+                Button("Add Trade…") { session.addTrade(to: row.account, on: date) }
+                    .buttonStyle(.borderless)
+                    .controlSize(.small)
+                    .disabled(!library.canEdit)
+                if let detail = tradeFlowDetail {
+                    Text(verbatim: detail)
+                        .font(.caption)
+                        .foregroundStyle(Palette.secondaryInk)
+                        .lineLimit(1)
+                        .help(CheckInWording.tradeFlowExplanation)
+                }
+            }
+            .padding(.leading, Metrics.l)
+        } last: {
+            Color.clear
+        } now: {
+            Color.clear
+        } change: {
+            Color.clear
+        } newMoney: {
+            Color.clear
+        } note: {
+            Color.clear
+        }
+        .frame(height: 28)
+    }
+
+    /// "deposits +200,60 · cash difference +11,30", when there's something to split.
+    private var tradeFlowDetail: String? {
+        guard row.state == .updated || row.state == .unchanged,
+              let flow = CheckInTradeFlow.make(for: row, date: date, valuator: library.valuator)
+        else { return nil }
+        return CheckInWording.tradeFlowDetail(flow, locale: locale)
+    }
+
     private var cashLine: some View {
         let field = CheckInField.cash(row.account)
         let change: Decimal? = row.cash == nil && row.previous?.cash == nil
@@ -458,7 +612,9 @@ private struct CheckInTableRow: View {
                 .foregroundStyle(Palette.secondaryInk)
         } now: {
             CheckInNumberField(
-                field, focus: focus, isFocused: focused == field, value: row.cash, prompt: "0,00",
+                field, focus: focus, isFocused: focused == field, value: row.cash,
+                prompt: row.isTrades ? CheckInFieldFormat.text(for: row.derived?.cash, style: .amount, locale: locale)
+                    : "0,00",
                 label: field.name(in: library.library), allowsEmpty: true, onSubmit: { onReturn(field) }
             ) { amount in
                 checkIn.updateRow(row.account) { $0.setCash(amount) }
@@ -491,7 +647,21 @@ private struct CheckInTableRow: View {
                 checkIn.updateRow(row.account) { $0.resetFlow() }
             }
         }
-        if row.mode == .holdings {
+        if row.isTrades {
+            Button("Add Trade…") { session.addTrade(to: row.account, on: date) }
+            if row.positions.isEmpty {
+                Button("Compare With a Statement") {
+                    checkIn.updateRow(row.account) { $0.enterStatementQuantities() }
+                    if let first = row.derived?.positions.first(where: { $0.quantity != 0 }) {
+                        session.focusRequest = .quantity(row.account, first.instrument)
+                    }
+                }
+            } else {
+                Button("Stop Comparing With a Statement") {
+                    checkIn.updateRow(row.account) { $0.removeStatementQuantities() }
+                }
+            }
+        } else if row.mode == .holdings {
             let others = library.library.instruments.values
                 .filter { row.position(for: $0.id) == nil }
                 .sorted { $0.name.lowercased() < $1.name.lowercased() }
@@ -573,6 +743,18 @@ private struct CheckInTableFooter: View {
 
 #Preview("Mac table") {
     let model = CheckInPreviewData.model()
+    NavigationStack {
+        if let draft = model.checkIn.draft {
+            CheckInTable(draft: draft, session: CheckInSession())
+                .navigationTitle("Check-in")
+        }
+    }
+    .frame(width: 1100, height: 720)
+    .previewEnvironment(model: model)
+}
+
+#Preview("Mac table, comparing a statement") {
+    let model = CheckInPreviewData.modelComparingStatement()
     NavigationStack {
         if let draft = model.checkIn.draft {
             CheckInTable(draft: draft, session: CheckInSession())

@@ -29,8 +29,17 @@ struct AccountHoldingRow: Hashable, Sendable, Identifiable {
     var value: Decimal?
     /// The purchase cost in the account's currency, if recorded.
     var costBasis: Decimal?
+    /// The position's share of the account's value (positions and cash),
+    /// when known; set for trades accounts' holdings (``TradeHoldings``).
+    var share: Double? = nil
 
     var id: InstrumentID { instrument }
+
+    /// The average cost per unit (*costo medio*), in the account's currency.
+    var averageCost: Decimal? {
+        guard let costBasis, quantity > 0 else { return nil }
+        return costBasis / quantity
+    }
 
     /// `amount − costBasis`, in the account's currency.
     var gain: Decimal? {
@@ -88,10 +97,35 @@ struct AccountDetailData: Hashable, Sendable {
     /// The chart's values that use a price more than 31 days older than
     /// their date, for a note under the chart; `nil` when there are none.
     var oldPrices: OldPriceSummary?
+    /// For an account that records trades: its holdings with average cost
+    /// and share, and its cash and total (docs/TRADES.md).
+    var tradeHoldings: TradeHoldings?
+    /// For an account that records trades: its income and gains by year, newest first.
+    var incomeYears: [TradeIncomeYear] = []
+    /// What's wrong with the account's trades, in words: for a trades
+    /// account, and for another one with trades that are left out.
+    var tradeIssues: [TradeIssueNote] = []
+    /// How many trades the account has (a trades account's list shows them).
+    var tradeCount = 0
+
+    /// Whether the account records trades (``Model/Account/recordsTrades``).
+    var recordsTrades: Bool { account.recordsTrades }
 
     /// Whether the account holds positions (now, or by its kind's default).
     var showsPositions: Bool {
-        !holdings.isEmpty || (latest.map { !$0.isBalance } ?? (account.valuationMode == .holdings))
+        !recordsTrades
+            && (!holdings.isEmpty || (latest.map { !$0.isBalance } ?? (account.valuationMode == .holdings)))
+    }
+
+    /// Whether *Switch to Trade History…* is offered: an open account that
+    /// records positions (brokerage, crypto, metals, or any holdings account).
+    var canSwitchToTrades: Bool {
+        !account.isClosed && account.valuationMode == .holdings
+    }
+
+    /// Whether *Switch to Snapshots…* is offered: an open trades account.
+    var canSwitchToSnapshots: Bool {
+        !account.isClosed && recordsTrades
     }
 
     /// The date *Add Past Value…* starts on: the last day of the month
@@ -113,7 +147,9 @@ struct AccountDetailData: Hashable, Sendable {
         let current = valuator.value(of: account.id, on: date)
         value = current?.knownValue ?? 0
         isComplete = current?.isComplete ?? true
-        latest = valuator.latestValuation(for: account.id, onOrBefore: date)
+        // A trades account's latest state is its snapshot: dated its latest valuation or trade.
+        latest = account.recordsTrades
+            ? valuator.snapshot(of: account.id, on: date) : valuator.latestValuation(for: account.id, onOrBefore: date)
         if account.currency != valuator.baseCurrency, let latest {
             amountInAccountCurrency = valuator.amountInAccountCurrency(of: latest, on: date)
         }
@@ -123,13 +159,23 @@ struct AccountDetailData: Hashable, Sendable {
         }
         history = valuator.series(of: account.id, through: date).chartPoints
         let all = valuator.valuations(for: account.id)
-        if let first = all.first?.date {
+        if let first = valuator.firstRecordDate(of: account.id), first <= date {
             oldPrices = OldPriceSummary(valuator.oldPrices(of: account.id,
                                                            on: DateGrid.monthEnds(from: first, through: date)))
         }
-        flows = all.compactMap { valuation in
-            guard let flow = valuation.flow, flow != 0 else { return nil }
-            return AccountFlowTick(date: valuation.date, amount: flow)
+        if account.recordsTrades {
+            // Deposits, withdrawals, transfers and residuals, on their own dates.
+            var byDate: [CalendarDate: Decimal] = [:]
+            for flow in valuator.tradeFlows(of: account.id, after: nil, through: date) {
+                if let amount = flow.amount { byDate[flow.date, default: 0] += amount }
+            }
+            flows = byDate.filter { $0.value != 0 }.sorted { $0.key < $1.key }
+                .map { AccountFlowTick(date: $0.key, amount: $0.value) }
+        } else {
+            flows = all.compactMap { valuation in
+                guard let flow = valuation.flow, flow != 0 else { return nil }
+                return AccountFlowTick(date: valuation.date, amount: flow)
+            }
         }
         holdings = valuator.holdings(of: account.id, on: date).map { holding in
             let instrument = library.instruments[holding.instrument]
@@ -138,7 +184,17 @@ struct AccountDetailData: Hashable, Sendable {
                 unit: instrument?.unit, quantity: holding.quantity, price: holding.price, amount: holding.amount,
                 value: holding.value, costBasis: holding.costBasis)
         }
-        cash = latest.flatMap { $0.isBalance ? nil : $0.cash }
+        if account.recordsTrades {
+            cash = valuator.tradeCash(of: account.id, on: date)
+            let trades = TradeHoldings(rows: holdings, cash: cash)
+            tradeHoldings = trades
+            holdings = trades.rows
+            incomeYears = TradeIncomeYear.years(of: account.id, valuator: valuator)
+            tradeCount = valuator.ledger(for: account.id)?.entries.count ?? 0
+        } else {
+            cash = latest.flatMap { $0.isBalance ? nil : $0.cash }
+        }
+        tradeIssues = TradeIssueNote.notes(for: account.id, library: library, valuator: valuator)
         valuations = all.reversed().map { valuation in
             AccountValuationRow(
                 valuation: valuation,

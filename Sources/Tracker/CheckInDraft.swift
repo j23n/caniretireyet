@@ -290,16 +290,42 @@ public struct CheckInRow: Hashable, Sendable, Identifiable {
     }
 
     /// Removes a position: a position held before goes to zero (sold), a
-    /// new one is dropped.
+    /// new one is dropped. In a trades account's row, where positions are
+    /// quantities from a statement to compare with the trades, it's
+    /// dropped: the statement no longer lists it.
     public mutating func removePosition(_ instrument: InstrumentID) {
         guard let index = positions.firstIndex(where: { $0.instrument == instrument }) else { return }
-        if positions[index].previousQuantity != 0 {
+        if positions[index].previousQuantity != 0 && !isTrades {
             positions[index].quantity = 0
             positions[index].paid = nil
             positions[index].enteredCostBasis = nil
         } else {
             positions.remove(at: index)
         }
+        touch()
+    }
+
+    /// For a trades account: enters what its trades hold on the date (``derived``)
+    /// as quantities from a statement, to correct where the statement
+    /// differs; they're written as a reconciliation check (docs/TRADES.md).
+    /// Returns `false`, changing nothing, for another row or when
+    /// quantities were entered already.
+    @discardableResult
+    public mutating func enterStatementQuantities() -> Bool {
+        guard isTrades, positions.isEmpty else { return false }
+        switchToHoldings()
+        positions = (derived?.positions ?? []).filter { $0.quantity != 0 }.map { position in
+            CheckInPosition(instrument: position.instrument, previous: position, quantity: position.quantity)
+        }
+        touch()
+        return true
+    }
+
+    /// For a trades account: drops the quantities entered from a statement,
+    /// so nothing is compared.
+    public mutating func removeStatementQuantities() {
+        guard isTrades, !positions.isEmpty else { return }
+        positions = []
         touch()
     }
 

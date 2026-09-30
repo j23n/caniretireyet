@@ -131,6 +131,10 @@ struct AccountForm: Hashable, Sendable {
     /// The mix of a balance account; empty for the kind's default.
     var assetMix: AccountsAssetMixForm
     var notes: String
+    /// How a new brokerage, crypto or metals account records what it
+    /// holds: its trade history (the default) or monthly snapshots of its
+    /// positions (UI.md, "Add account"). See ``offersTracking``.
+    var tracking: ValuationMode = .trades
     /// Your tax residence, which the default wrapper depends on.
     let residence: CountryCode?
     /// The account being edited, whose other fields are kept.
@@ -216,9 +220,41 @@ struct AccountForm: Hashable, Sendable {
         set { opened = CalendarDate(newValue, in: .current) }
     }
 
-    /// Whether the account is recorded as positions (or a balance).
+    /// Whether the kind can record its trades: brokerage, crypto and metals.
+    static func offersTrades(_ kind: AccountKind) -> Bool {
+        kind == .brokerage || kind == .crypto || kind == .metals
+    }
+
+    /// Whether the form offers "Track: trade history / monthly snapshots":
+    /// a new account of a kind that holds positions.
+    var offersTracking: Bool {
+        isNew && Self.offersTrades(kind)
+    }
+
+    /// How the account records its values: as written for an edited
+    /// account (else its kind's default); for a new one, ``tracking`` where
+    /// it's offered, else the kind's default.
+    var valuationMode: ValuationMode {
+        if let original { return original.valuation ?? kind.defaultValuationMode }
+        return offersTracking ? tracking : kind.defaultValuationMode
+    }
+
+    /// Whether the account is recorded as positions, from snapshots or from
+    /// its trades (or else as a balance).
     var holdsPositions: Bool {
-        (original?.valuation ?? kind.defaultValuationMode) == .holdings
+        valuationMode == .holdings || valuationMode == .trades
+    }
+
+    /// Whether the account records its trades.
+    var recordsTrades: Bool {
+        valuationMode == .trades
+    }
+
+    /// The one line under the tracking choice.
+    static func trackingExplanation(_ mode: ValuationMode) -> String {
+        mode == .trades
+            ? "Record each buy, sell and dividend: holdings, average cost, gains and income follow from them."
+            : "Type the quantities and cash at each check-in; no trades to keep."
     }
 
     /// Whether the asset mix applies: balance accounts that aren't debts.
@@ -249,6 +285,10 @@ struct AccountForm: Hashable, Sendable {
     /// opening date (``Account/moveOpening(to:)``).
     func account(id: AccountID, locale: Locale = .current) -> Account {
         var account = original ?? Account(id: id, name: "", kind: kind, currency: currency, opened: opened)
+        if original == nil {
+            // Written only when it isn't the kind's default (brokerage defaults to holdings).
+            account.valuation = valuationMode == kind.defaultValuationMode ? nil : valuationMode
+        }
         account.name = trimmedName
         account.kind = kind
         account.currency = currency
@@ -396,10 +436,24 @@ struct AccountOpeningForm: Hashable, Sendable {
     /// what the check-in would suggest for a first
     /// valuation (the whole amount, at the day's prices, for most kinds;
     /// unknown for pension funds and property).
+    ///
+    /// For an account that records trades, the positions become opening
+    /// trades (``openingTrades(for:locale:)``), and the valuation records
+    /// only the cash; `nil` without cash.
     func valuation(for account: Account, in library: Library, locale: Locale = .current) -> Valuation? {
         guard !isEmpty else { return nil }
         var valuation = Valuation(account: account.id, date: account.opened, source: .manual)
         var paid: [InstrumentID: Decimal] = [:]
+        if account.recordsTrades {
+            guard let cash = AmountInput.decimal(from: cash, locale: locale) else { return nil }
+            valuation.cash = cash
+            var snapshot = library
+            snapshot.accounts[account.id] = account
+            for trade in openingTrades(for: account, locale: locale) { snapshot.upsert(trade) }
+            // The openings at their market value, and the cash typed.
+            valuation.flow = Valuator(library: snapshot).defaultFlow(for: valuation, previous: nil)
+            return valuation
+        }
         if account.valuationMode == .holdings {
             valuation.cash = AmountInput.decimal(from: cash, locale: locale)
             for position in positions {
@@ -419,5 +473,28 @@ struct AccountOpeningForm: Hashable, Sendable {
         snapshot.accounts[account.id] = account
         valuation.flow = Valuator(library: snapshot).defaultFlow(for: valuation, previous: nil, paid: paid)
         return valuation
+    }
+
+    /// For a new account that records trades: an `opening` trade per
+    /// position typed, on the day it opened, with what was paid as its
+    /// purchase cost (unknown when empty). Empty for other accounts.
+    func openingTrades(for account: Account, locale: Locale = .current) -> [Trade] {
+        guard account.recordsTrades else { return [] }
+        return positions.compactMap { position in
+            guard let instrument = position.instrument,
+                  let quantity = AmountInput.decimal(from: position.quantity, locale: locale), quantity > 0
+            else { return nil }
+            return Trade(account: account.id, date: account.opened, type: .opening, instrument: instrument,
+                         quantity: quantity, cost: AmountInput.decimal(from: position.cost, locale: locale),
+                         source: .manual)
+        }
+    }
+
+    /// The opening positions' footer for an account that records trades.
+    static func openingTradesFooter(opened: CalendarDate, today: CalendarDate, locale: Locale = .current) -> String {
+        let isPast = opened < today
+        let day = isPast ? "on \(AmountFormat.mediumDate(opened, locale: locale)), the day it opened" : "on the day it opens"
+        return "What it \(isPast ? "held" : "holds") \(day), if anything: each position becomes an opening trade, "
+            + "with what you paid as its purchase cost. Add later buys and sells as trades."
     }
 }

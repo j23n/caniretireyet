@@ -39,7 +39,8 @@ struct AccountListItem: Hashable, Sendable, Identifiable {
         isComplete = value?.isComplete ?? true
         stale = stalenessThreshold.flatMap { valuator.staleness(of: account.id, on: date, threshold: $0) }
         let yearAgo = date.adding(months: -12)
-        let first = valuator.valuations(for: account.id).first?.date
+        // A trades account's history starts with its first valuation or trade.
+        let first = valuator.firstRecordDate(of: account.id)
         if let first, first <= date {
             sparkline = valuator.series(of: account.id, from: max(yearAgo, first), through: date).chartPoints
         } else {

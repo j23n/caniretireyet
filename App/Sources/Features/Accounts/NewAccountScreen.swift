@@ -9,7 +9,9 @@ import Tracker
 ///    date is today by default; set to when the account was opened, it
 ///    leaves room to add the account's history.
 /// 3. The positions (choose or create instruments) or the balance on the
-///    opening date, which becomes the first valuation.
+///    opening date, which becomes the first valuation. A brokerage, crypto
+///    or metals account chooses how it's tracked: its trade history (the
+///    default: the positions become opening trades) or monthly snapshots.
 /// 4. The tax wrapper, pre-selected from the kind and your residence (a
 ///    pension fund in Italy is `it.pensionFund`), and whether it counts in
 ///    net worth and plans.
@@ -81,6 +83,19 @@ struct NewAccountScreen: View {
     @ViewBuilder
     private var openingSection: some View {
         let symbol = AmountFormat.symbol(for: form.currency, locale: locale)
+        if form.offersTracking {
+            Section {
+                Picker("Track", selection: $form.tracking) {
+                    Text("Trade history").tag(ValuationMode.trades)
+                    Text("Monthly snapshots").tag(ValuationMode.holdings)
+                }
+                .pickerStyle(.segmented)
+            } header: {
+                Text("Track")
+            } footer: {
+                Text(verbatim: AccountForm.trackingExplanation(form.tracking))
+            }
+        }
         if form.holdsPositions {
             Section {
                 ForEach(opening.positions) { position in
@@ -113,9 +128,15 @@ struct NewAccountScreen: View {
                 .buttonStyle(.borderless)
                 AccountsNumberField(title: "Cash", text: $opening.cash, prompt: "0", suffix: symbol)
             } header: {
-                Text("Positions")
+                Text(form.recordsTrades ? "Opening positions" : "Positions")
             } footer: {
-                Text(verbatim: AccountOpeningForm.positionsFooter(opened: form.opened, today: .today(), locale: locale))
+                if form.recordsTrades {
+                    Text(verbatim: AccountOpeningForm.openingTradesFooter(opened: form.opened, today: .today(),
+                                                                          locale: locale))
+                } else {
+                    Text(verbatim: AccountOpeningForm.positionsFooter(opened: form.opened, today: .today(),
+                                                                      locale: locale))
+                }
             }
         } else {
             Section {
@@ -157,10 +178,12 @@ struct NewAccountScreen: View {
         }
         let account = form.account(id: library.newAccountID(for: form.trimmedName), locale: locale)
         let valuation = opening.valuation(for: account, in: library.library, locale: locale)
+        let trades = opening.openingTrades(for: account, locale: locale)
         do {
             try library.update { library in
                 library.accounts[account.id] = account
                 if let valuation { library.upsert(valuation) }
+                for trade in trades { library.upsert(trade) }
             }
             dismiss()
         } catch {

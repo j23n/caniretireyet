@@ -149,6 +149,20 @@ struct UpdateValueSheet: View {
                         + "If the account is in credit, type + first, e.g. +20.")
                 }
             }
+        } else if row.isTrades {
+            // A trades account's holdings come from its trades: only its cash is recorded.
+            Section {
+                ForEach(review?.positions ?? [], id: \.instrument) { position in
+                    tradeHoldingRow(position)
+                }
+                AccountsNumberField(title: "Cash", text: $input[cash: text(prefilled?.cash)], prompt: "0",
+                                    suffix: symbol)
+            } header: {
+                Text("Holdings from trades")
+            } footer: {
+                Text("The positions come from the account's trades: add a trade to change them. The cash is "
+                    + "filled in from the trades; a different amount counts as money added or taken out.")
+            }
         } else {
             Section {
                 ForEach(row.positions) { position in
@@ -190,6 +204,23 @@ struct UpdateValueSheet: View {
         }
     }
 
+    /// A position a trades account's trades hold on the date, read-only.
+    private func tradeHoldingRow(_ position: CheckInPositionReview) -> some View {
+        let instrument = library.library.instruments[position.instrument]
+        return HStack {
+            Text(instrument?.name ?? position.instrument.rawValue)
+            Spacer(minLength: Metrics.s)
+            Text(verbatim: CheckInWording.quantity(position.quantity, of: position.instrument, instrument: instrument,
+                                                   locale: locale))
+                .monospacedDigit()
+                .foregroundStyle(Palette.secondaryInk)
+                .privacySensitive()
+            if let value = position.value {
+                AmountText(value)
+            }
+        }
+    }
+
     @ViewBuilder
     private func addPositionMenu(row: CheckInRow) -> some View {
         let held = Set(row.positions.map(\.instrument))
@@ -219,7 +250,7 @@ struct UpdateValueSheet: View {
             AccountsNumberField(title: title, text: $input[flow: ""], prompt: prompt,
                                 suffix: AmountFormat.symbol(for: account.currency, locale: locale))
         } footer: {
-            Text(flowExplanation(rule))
+            Text(account.recordsTrades ? CheckInWording.tradeFlowExplanation : flowExplanation(rule))
         }
     }
 
@@ -474,6 +505,13 @@ struct EditAccountSheet: View {
 }
 
 #Preview("Update holdings") {
+    NavigationStack {
+        UpdateValueSheet(accountID: "gold-coins")
+    }
+    .previewEnvironment()
+}
+
+#Preview("Update a trades account's cash") {
     NavigationStack {
         UpdateValueSheet(accountID: "directa")
     }

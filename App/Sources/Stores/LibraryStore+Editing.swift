@@ -29,13 +29,16 @@ extension LibraryStore {
         try update { $0.accounts[id]?.closed = nil }
     }
 
-    /// Deletes an account and all its valuations, and what refers to it
-    /// (``Library/removeReferences(to:)``). For mistakes only.
+    /// Deletes an account with all its valuations and trades, and what
+    /// refers to it (``Library/removeReferences(to:)``). For mistakes only.
     func deleteAccount(_ id: AccountID) throws {
         try update { library in
             library.accounts[id] = nil
             for valuation in library.valuations(for: id) {
                 library.removeValuation(valuation.key)
+            }
+            for trade in library.trades(for: id) {
+                library.removeTradeRecord(trade.key)
             }
             library.removeReferences(to: id)
         }
@@ -58,11 +61,10 @@ extension LibraryStore {
         }
     }
 
-    /// Deletes an instrument no position refers to.
+    /// Deletes an instrument no position or trade refers to.
     func deleteInstrument(_ id: InstrumentID) throws {
         try update { library in
-            let held = library.allValuations.contains { $0.position(for: id) != nil }
-            guard !held else { throw LibraryEditError.instrumentInUse(id) }
+            guard !library.refersTo(instrument: id) else { throw LibraryEditError.instrumentInUse(id) }
             library.instruments[id] = nil
         }
     }
@@ -103,6 +105,70 @@ extension LibraryStore {
     /// worked out again (`Library.removeValue(_:)`).
     func removeValue(_ key: ValuationKey) throws {
         try update { $0.removeValue(key) }
+    }
+
+    // MARK: Trades
+
+    /// Adds a trade to an account that records trades, in one edit, and
+    /// waits for the write: a date before the account opened moves its
+    /// opening date back, and the automatic new money of its later values
+    /// is worked out again (a typed one is kept). A trade whose key is taken
+    /// gets a new ID. Tracker's `Library.addTrade(_:)`; its preview is
+    /// `Library.previewAddingTrade(_:)`.
+    @discardableResult
+    func addTrade(_ trade: Trade) async throws -> TradeEdit {
+        var edit = TradeEdit()
+        try await commit { edit = $0.addTrade(trade) }
+        return edit
+    }
+
+    /// Replaces the trade at `old` (its key before the edit, when its date
+    /// changed) with `trade`, with the same follow-on effects as
+    /// ``addTrade(_:)``, and waits for the write (`Library.updateTrade(_:replacing:)`).
+    @discardableResult
+    func updateTrade(_ trade: Trade, replacing old: TradeKey? = nil) async throws -> TradeEdit {
+        var edit = TradeEdit()
+        try await commit { edit = $0.updateTrade(trade, replacing: old) }
+        return edit
+    }
+
+    /// Removes a trade and keeps the automatic new money of the account's
+    /// later values in step, and waits for the write (`Library.removeTrade(_:)`).
+    @discardableResult
+    func removeTrade(_ key: TradeKey) async throws -> TradeEdit {
+        var edit = TradeEdit()
+        try await commit { edit = $0.removeTrade(key) }
+        return edit
+    }
+
+    /// The backup labels of converting an account, as the CLI writes them.
+    static let convertToTradesBackupLabel = "convert-to-trades"
+    static let convertToSnapshotsBackupLabel = "convert-to-snapshots"
+
+    /// Makes an account record trades (docs/TRADES.md, "Converting an
+    /// account"): openings, then the buys and sells its values imply, and
+    /// its valuations keep only their cash. The months it changes are
+    /// backed up first (`convert-to-trades`), as an import is, and it waits
+    /// for the write. Returns what was done; `nil`, changing nothing, when
+    /// the account doesn't exist or already records trades.
+    @discardableResult
+    func convertToTrades(_ account: AccountID) async throws -> AccountConversion? {
+        guard let conversion = library.conversionToTrades(of: account) else { return nil }
+        _ = try await commit(backingUpAs: Self.convertToTradesBackupLabel) { conversion.apply(to: &$0) }
+        return conversion
+    }
+
+    /// Makes a trades account record positions again: each valuation gets
+    /// the positions, average cost and cash the trades give, and the trades
+    /// are removed. The months it changes are backed up first
+    /// (`convert-to-snapshots`), so the trades can be restored from
+    /// *Sync & backups*. Returns what was done; `nil` when the account
+    /// doesn't record trades.
+    @discardableResult
+    func convertToSnapshots(_ account: AccountID) async throws -> AccountConversion? {
+        guard let conversion = library.conversionToSnapshots(of: account) else { return nil }
+        _ = try await commit(backingUpAs: Self.convertToSnapshotsBackupLabel) { conversion.apply(to: &$0) }
+        return conversion
     }
 
     /// Adds prices, FX rates and index values, replacing those with the same keys.
@@ -200,6 +266,13 @@ extension LibraryStore {
 }
 
 extension Library {
+    /// Whether a valuation's position or a trade refers to `instrument`, so
+    /// it can't be deleted.
+    func refersTo(instrument: InstrumentID) -> Bool {
+        allValuations.contains { $0.position(for: instrument) != nil }
+            || allTrades.contains { $0.instrument == instrument }
+    }
+
     /// Removes what refers to an account that's being deleted: other
     /// accounts' `successor`, plans' `portfolio.exclude` and contributions
     /// into it, and import profiles' remembered name matches and column or

@@ -87,17 +87,23 @@ enum AccountValueNotes {
     /// was typed in, so it stays as it is." for typed ones. `nil` when no
     /// other value is concerned.
     static func flowFollowUp(_ edit: ValueEdit, locale: Locale = .current) -> String? {
+        flowFollowUp(edit.flows, locale: locale)
+    }
+
+    /// The same for the flows any edit worked out again or kept, e.g. a
+    /// trade's (`TradeEdit.flows`).
+    static func flowFollowUp(_ flows: FlowFollowUp, locale: Locale = .current) -> String? {
         func dates(_ valuations: [Valuation]) -> String {
             CheckInStoreError.list(valuations.map { AmountFormat.mediumDate($0.date, locale: locale) })
         }
         func values(_ count: Int) -> String { count == 1 ? "value" : "values" }
         var sentences: [String] = []
-        let recomputed = edit.flows.recomputed
+        let recomputed = flows.recomputed
         if !recomputed.isEmpty {
             sentences.append("Saving also works out again the new money of the \(values(recomputed.count)) on "
                 + "\(dates(recomputed)).")
         }
-        let kept = edit.flows.kept
+        let kept = flows.kept
         if !kept.isEmpty {
             sentences.append("The new money of the \(values(kept.count)) on \(dates(kept)) was typed in, "
                 + "so it stays as it is.")
@@ -247,10 +253,13 @@ struct AccountValuationForm: Hashable, Sendable {
     var flow: String
     var note: String
 
-    init(_ valuation: Valuation, holdsPositions: Bool, locale: Locale = .current) {
+    /// The fields of `valuation`. A trades account's (`recordsTrades`) is
+    /// never a balance: it records cash, and a balance written by hand
+    /// isn't used, so saving drops it (docs/TRADES.md).
+    init(_ valuation: Valuation, holdsPositions: Bool, recordsTrades: Bool = false, locale: Locale = .current) {
         original = valuation
         date = valuation.date
-        isBalance = valuation.isBalance || (!valuation.isHoldings && !holdsPositions)
+        isBalance = !recordsTrades && (valuation.isBalance || (!valuation.isHoldings && !holdsPositions))
         balance = valuation.balance.map { AmountInput.text(for: $0, locale: locale) } ?? ""
         cash = valuation.cash.map { AmountInput.text(for: $0, locale: locale) } ?? ""
         positions = valuation.positions.map { position in

@@ -419,21 +419,22 @@ struct InstrumentEditor: View {
         instrumentID.flatMap { library.library.instruments[$0] }
     }
 
-    /// The accounts whose latest value holds the instrument.
+    /// The accounts that hold the instrument today: in their latest value,
+    /// or for a trades account, from its trades (its snapshot).
     private var holders: [String] {
         guard let instrumentID else { return [] }
         let valuator = library.valuator
         let today = CalendarDate.today()
         return library.library.accounts.values
-            .filter { valuator.latestValuation(for: $0.id, onOrBefore: today)?.position(for: instrumentID) != nil }
+            .filter { valuator.snapshot(of: $0.id, on: today)?.position(for: instrumentID) != nil }
             .map(\.name)
             .sorted()
     }
 
-    /// Whether any valuation holds it, so it can't be deleted.
+    /// Whether any valuation or trade refers to it, so it can't be deleted.
     private var isHeld: Bool {
         guard let instrumentID else { return false }
-        return library.library.allValuations.contains { $0.position(for: instrumentID) != nil }
+        return library.library.refersTo(instrument: instrumentID)
     }
 
     private func fields(_ form: Binding<InstrumentForm>) -> some View {
@@ -500,7 +501,7 @@ struct InstrumentEditor: View {
                         .disabled(isHeld || !library.canEdit)
                 } footer: {
                     if isHeld {
-                        Text("It's held in an account's history, so it can't be deleted.")
+                        Text("It's held in an account's history or trades, so it can't be deleted.")
                     }
                 }
             }
