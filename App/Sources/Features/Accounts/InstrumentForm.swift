@@ -121,9 +121,36 @@ struct InstrumentForm: Hashable, Sendable {
         guard let provider else { return "" }
         switch provider {
         case .yahoo, .eodhd, .twelveData: return ticker.trimmingCharacters(in: .whitespaces)
-        case .coingecko: return Slug.make(from: name)
+        case .coingecko: return trimmedName.isEmpty ? "" : Slug.make(from: trimmedName)
         case .goldAPI: return "XAU"
         default: return ""
+        }
+    }
+
+    /// The symbol field's placeholder: the suggested symbol, or an example
+    /// for the price source ("Yahoo ticker, e.g. VWCE.DE", "e.g. ETH or
+    /// ethereum", "XAU or XAG").
+    var symbolPrompt: String {
+        let suggested = suggestedSymbol
+        guard suggested.isEmpty else { return suggested }
+        guard let provider else { return "" }
+        switch provider {
+        case .yahoo: return "Yahoo ticker, e.g. VWCE.DE"
+        case .coingecko: return "e.g. ETH or ethereum"
+        case .goldAPI: return "XAU or XAG"
+        default: return "e.g. VWCE.DE"
+        }
+    }
+
+    /// What the symbol is for the chosen price source, for the section's
+    /// footer; `nil` when there's nothing to add.
+    var symbolHint: String? {
+        guard let provider else { return nil }
+        switch provider {
+        case .yahoo: return "The symbol is the Yahoo Finance ticker with its exchange, e.g. VWCE.DE (Xetra)."
+        case .coingecko: return "The symbol is the coin's ticker or its CoinGecko ID, e.g. ETH or ethereum."
+        case .goldAPI: return "XAU is gold, XAG silver."
+        default: return nil
         }
     }
 
