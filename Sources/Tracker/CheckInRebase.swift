@@ -67,8 +67,11 @@ extension CheckInDraft {
                 result.added.append(account.id)
                 continue
             }
+            // A trades account's starting point also moves when its trades change.
+            let derived = account.recordsTrades
+                ? valuator.valuator.derivedSnapshot(of: account, on: date, previous: previous) : nil
             if old.previous == previous, (old.conflict ?? old.existing) == saved,
-               old.opensLater == (account.opened > date) {
+               old.opensLater == (account.opened > date), old.isTrades == account.recordsTrades, old.derived == derived {
                 rebased.append(old)
                 continue
             }

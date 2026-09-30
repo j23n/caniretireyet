@@ -74,6 +74,19 @@ extension Valuator {
                          positions: ledger?.positions(on: date) ?? [])
     }
 
+    /// What a trades account's trades give at the end of `date`, counting
+    /// its cash from `previous` (its valuation before the date), whatever
+    /// is saved on the date itself: what a check-in on the date starts
+    /// from. `nil` without a previous valuation or a trade on or before the date.
+    func derivedSnapshot(of account: Account, on date: CalendarDate, previous: Valuation?) -> Valuation? {
+        guard let ledger = ledgers[account.id] else { return nil }
+        guard previous != nil || (ledger.firstDate.map { $0 <= date } ?? false) else { return nil }
+        let anchor = previous?.cash != nil
+            ? previous : previous.flatMap { cashAnchor(for: account.id, onOrBefore: $0.date) }
+        return Valuation(account: account.id, date: date, cash: derivedCash(of: account.id, on: date, from: anchor),
+                         positions: ledger.positions(on: date))
+    }
+
     /// `valuation` of a trades account as a snapshot on its own date: its
     /// cash (by the cash rule when it has none), and the positions the
     /// account's trades leave on its date in place of any it lists (those

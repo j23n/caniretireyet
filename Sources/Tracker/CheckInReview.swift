@@ -58,10 +58,16 @@ public struct CheckInRowReview: Hashable, Sendable, Identifiable {
     /// The default flow for the row's values ("new money"), in the account's currency.
     public let defaultFlow: Decimal?
     /// How the account's kind fills in the flow; `.ask` means the app asks
-    /// for it (e.g. "contributions since …").
+    /// for it (e.g. "contributions since …"). A trades account's flow comes
+    /// from its trades and cash, whatever this says (see ``CheckInRow/isTrades``).
     public let flowRule: FlowDefault
+    /// The row's positions, valued; for a trades account, what its trades
+    /// hold on the date (and what they held at the previous valuation).
     public let positions: [CheckInPositionReview]
     public let warnings: [CheckInWarning]
+    /// For a trades account with positions entered (from a broker
+    /// statement, say): where they differ from what its trades give.
+    public let mismatches: [PositionMismatch]
 
     public var id: AccountID { account }
 }
@@ -125,7 +131,7 @@ extension CheckInDraft {
             let previousValue = row.previous.flatMap { priced.value(of: $0, on: $0.date)?.knownValue }
             var warnings: [CheckInWarning] = []
             if row.state == .updated, row.conflict == nil {
-                for position in row.positions where position.quantity < position.previousQuantity {
+                for position in row.positions where position.quantity < position.previousQuantity && !row.isTrades {
                     warnings.append(.quantityDecreased(account: row.account, instrument: position.instrument,
                                                        from: position.previousQuantity, to: position.quantity))
                 }
@@ -140,7 +146,7 @@ extension CheckInDraft {
                 account: row.account, state: row.state, valuation: proposal.written, value: value,
                 previousValue: previousValue, flow: proposal.written?.flow, defaultFlow: proposal.defaultFlow,
                 flowRule: priced.accounts[row.account]?.kind.defaultFlow ?? .ask, positions: proposal.positions,
-                warnings: warnings)
+                warnings: warnings, mismatches: row.isTrades ? priced.reconcile(proposal.valuation) : [])
         }
         return CheckInReview(
             date: date, previousCheckIn: previousCheckIn, rows: reviews, netWorth: valuator.netWorth(on: date),
@@ -215,6 +221,30 @@ extension CheckInDraft {
         var reviews: [CheckInPositionReview] = []
         if row.mode == .balance {
             valuation.balance = row.balance
+        } else if row.mode == .trades {
+            // The cash; positions entered are a reconciliation check, written as entered.
+            valuation.cash = row.cash
+            valuation.positions = row.positions.filter { $0.quantity != 0 }.map {
+                Position(instrument: $0.instrument, quantity: $0.quantity, costBasis: $0.enteredCostBasis)
+            }
+            // The review shows what the trades hold.
+            let ledger = valuator.ledger(for: row.account)
+            let held = ledger?.positions(on: date) ?? []
+            let before = row.previous.flatMap { ledger?.positions(on: $0.date) } ?? []
+            var instruments = held.map(\.instrument)
+            for position in before where !instruments.contains(position.instrument) {
+                instruments.append(position.instrument)
+            }
+            for instrument in instruments {
+                let position = held.first { $0.instrument == instrument }
+                let quantity = position?.quantity ?? 0
+                reviews.append(CheckInPositionReview(
+                    instrument: instrument, quantity: quantity,
+                    previousQuantity: before.first { $0.instrument == instrument }?.quantity ?? 0,
+                    price: valuator.prices.latest(for: instrument, onOrBefore: date),
+                    value: valuator.marketValue(of: quantity, of: instrument, in: valuator.baseCurrency, on: date),
+                    estimatedPaid: nil, costBasis: position?.costBasis))
+            }
         } else {
             valuation.cash = row.cash
             for position in row.positions {
@@ -238,7 +268,8 @@ extension CheckInDraft {
                     estimatedPaid: estimate, costBasis: position.quantity == 0 ? nil : cost))
             }
         }
-        let defaultFlow = row.state == .unchanged
+        // Unchanged is no new money, except in a trades account: its deposits and withdrawals since.
+        let defaultFlow = row.state == .unchanged && !row.isTrades
             ? 0 : valuator.defaultFlow(for: valuation, previous: row.previous, paid: row.paid)
         var written: Valuation?
         if row.state == .updated || row.state == .unchanged, ignoringConflict || row.conflict == nil {
