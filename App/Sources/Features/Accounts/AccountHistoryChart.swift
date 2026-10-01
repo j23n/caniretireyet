@@ -3,21 +3,39 @@ import Model
 import SwiftUI
 import Tracker
 
-/// An account's value over time, with its new-money events as small ticks
-/// along the bottom (UI.md, "Account detail"), so jumps you caused are
-/// told apart from market moves. The line is in ink, like all actual
-/// history. Drag across it to read a month: the value and the new money
-/// recorded since the point before.
+/// An account's value over time in its own currency (UI.md, "Account
+/// detail"), with its new-money events as small ticks in a lane along the
+/// bottom, so jumps you caused are told apart from market moves. The line
+/// is in ink, like all actual history.
+///
+/// - A value that couldn't be worked out (a price missing, or a rate for a
+///   position priced in another currency) is a gap, never drawn as zero;
+///   the note under the chart says what's missing.
+/// - The value axis always includes zero, with round ticks that read apart
+///   (``AmountScale``). The new-money ticks have a lane of their own below
+///   it, pointing up for money added and down for money taken out, so they
+///   never stretch the scale; their amounts are in the callout.
+/// - Drag across it to read a month: the value and the new money recorded
+///   since the point before. The callout stays inside the chart.
 struct AccountHistoryChart: View {
+    /// In ``currency``; incomplete points are left out as gaps.
     var points: [ChartPoint]
     var flows: [AccountFlowTick]
-    /// The account's currency, which flows are recorded in.
+    /// The currency of the points and the flows: the account's.
     var currency: CurrencyCode
     var height: CGFloat = 200
 
     @State private var selectedDate: Date?
     @Environment(\.hidesAmounts) private var hidesAmounts
-    @Environment(\.baseCurrency) private var baseCurrency
+
+    /// A new-money tick in the lane: up for money added, down for money taken out.
+    private struct LaneTick: Identifiable {
+        var id: CalendarDate
+        var date: Date
+        var low: Double
+        var high: Double
+        var isUp: Bool
+    }
 
     var body: some View {
         if points.count < 2 {
@@ -29,65 +47,93 @@ struct AccountHistoryChart: View {
         }
     }
 
-    /// The value range, including zero, with room at the bottom for the ticks.
-    private var scale: (domain: ClosedRange<Double>, tickLow: Double, tickHigh: Double) {
-        let values = points.map(\.value)
-        let low = min(values.min() ?? 0, 0)
-        let high = max(values.max() ?? 0, 0)
-        let span = max(high - low, 1)
-        let bottom = low - span * 0.12
-        let top = high + span * 0.05
-        return (bottom...top, bottom, bottom + span * 0.07)
-    }
-
     /// Flows within the chart's dates.
     private var shownFlows: [AccountFlowTick] {
         guard let first = points.first?.date, let last = points.last?.date else { return [] }
         return flows.filter { $0.date.dateValue >= first && $0.date.dateValue <= last }
     }
 
+    /// Zero and the values that could be worked out, with a lane for the ticks.
+    private var scale: AmountScale {
+        AmountScale(values: points.filter(\.isComplete).map(\.value), reservesLane: !shownFlows.isEmpty)
+    }
+
+    /// The whole history, gaps included.
+    private var dateRange: ClosedRange<Date> {
+        let first = points.first?.date ?? Date()
+        return first...max(first, points.last?.date ?? first)
+    }
+
+    private func laneTicks(_ scale: AmountScale) -> [LaneTick] {
+        guard let up = scale.laneTick(up: true), let down = scale.laneTick(up: false) else { return [] }
+        return shownFlows.map { flow in
+            let range = flow.amount >= 0 ? up : down
+            return LaneTick(id: flow.date, date: flow.date.dateValue, low: range.lowerBound, high: range.upperBound,
+                            isUp: flow.amount >= 0)
+        }
+    }
+
     private var chart: some View {
         let scale = self.scale
+        let runs = points.completeRuns
+        let isolated = points.isolatedPoints
+        let ticks = laneTicks(scale)
         return Chart {
-            ForEach(points) { point in
-                AreaMark(x: .value("Date", point.date), y: .value("Value", point.value),
-                         series: .value("Series", "Fill"))
-                    .foregroundStyle(Palette.ink.opacity(0.08))
-                    .interpolationMethod(.monotone)
-                LineMark(x: .value("Date", point.date), y: .value("Value", point.value),
-                         series: .value("Series", "Value"))
-                    .foregroundStyle(Palette.ink)
-                    .lineStyle(StrokeStyle(lineWidth: Metrics.lineWidth, lineCap: .round, lineJoin: .round))
-                    .interpolationMethod(.monotone)
+            ForEach(runs) { run in
+                ForEach(run.points) { point in
+                    AreaMark(x: .value("Date", point.date), y: .value("Value", point.value),
+                             series: .value("Series", "Fill \(run.id)"))
+                        .foregroundStyle(Palette.ink.opacity(0.08))
+                        .interpolationMethod(.monotone)
+                    LineMark(x: .value("Date", point.date), y: .value("Value", point.value),
+                             series: .value("Series", "Value \(run.id)"))
+                        .foregroundStyle(Palette.ink)
+                        .lineStyle(StrokeStyle(lineWidth: Metrics.lineWidth, lineCap: .round, lineJoin: .round))
+                        .interpolationMethod(.monotone)
+                }
             }
-            ForEach(shownFlows) { flow in
-                RuleMark(x: .value("Date", flow.date.dateValue), yStart: .value("Tick", scale.tickLow),
-                         yEnd: .value("Tick top", scale.tickHigh))
-                    .foregroundStyle(Palette.accent)
+            ForEach(isolated) { point in
+                PointMark(x: .value("Date", point.date), y: .value("Value", point.value))
+                    .foregroundStyle(Palette.ink)
+                    .symbolSize(16)
+            }
+            ForEach(ticks) { tick in
+                RuleMark(x: .value("Date", tick.date), yStart: .value("Tick", tick.low),
+                         yEnd: .value("Tick top", tick.high))
+                    .foregroundStyle(tick.isUp ? Palette.positive : Palette.negative)
                     .lineStyle(StrokeStyle(lineWidth: 2, lineCap: .round))
             }
             if let selected = selectedPoint {
+                // The callout stays inside the chart, never over the header above it.
                 RuleMark(x: .value("Date", selected.date))
                     .foregroundStyle(Palette.axis)
                     .lineStyle(StrokeStyle(lineWidth: 1))
                     .annotation(position: .top, spacing: 4,
-                                overflowResolution: .init(x: .fit(to: .chart), y: .disabled)) {
+                                overflowResolution: .init(x: .fit(to: .chart), y: .fit(to: .chart))) {
                         callout(for: selected)
                     }
+            }
+            if let selected = selectedCompletePoint {
                 PointMark(x: .value("Date", selected.date), y: .value("Value", selected.value))
                     .foregroundStyle(Palette.ink)
                     .symbolSize(60)
             }
         }
+        .chartXScale(domain: dateRange)
         .chartYScale(domain: scale.domain)
         .chartXSelection(value: $selectedDate)
-        .chartYAxis { amountAxis(hidesAmounts: hidesAmounts) }
+        .chartYAxis { amountAxis(hidesAmounts: hidesAmounts, scale: scale) }
         .chartXAxis { dateAxis(spansYears: points.spansYears) }
     }
 
     private var selectedPoint: ChartPoint? {
         guard let selectedDate else { return nil }
         return points.nearest(to: selectedDate)
+    }
+
+    /// The selected point when its value is known: it gets a dot on the line.
+    private var selectedCompletePoint: ChartPoint? {
+        selectedPoint.flatMap { $0.isComplete ? $0 : nil }
     }
 
     /// The new money recorded after the point before `point`, up to `point`.
@@ -102,8 +148,14 @@ struct AccountHistoryChart: View {
             Text(point.date, format: .dateTime.day().month(.abbreviated).year())
                 .font(.caption2)
                 .foregroundStyle(Palette.secondaryInk)
-            AmountText(Decimal(Int(point.value.rounded())))
-                .font(.caption.weight(.semibold))
+            if point.isComplete {
+                AmountText(Decimal(Int(point.value.rounded())), currency: currency)
+                    .font(.caption.weight(.semibold))
+            } else {
+                Text("Can't be valued: see below")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(Palette.secondaryInk)
+            }
             if let flow = flow(upTo: point) {
                 HStack(spacing: 4) {
                     Text("New money")
@@ -120,13 +172,18 @@ struct AccountHistoryChart: View {
     }
 
     private var summary: ChartSummary {
-        let described = points.map { (AmountFormat.mediumDate(CalendarDate($0.date, in: .current)), $0.value) }
+        let complete = points.filter(\.isComplete)
+        let described = complete.map { (AmountFormat.mediumDate(CalendarDate($0.date, in: .current)), $0.value) }
         var text = "Value over \(points.count) dates"
-        if let first = points.first, let last = points.last, !hidesAmounts {
-            text += ", from \(AmountFormat.amount(Decimal(Int(first.value.rounded())), currency: baseCurrency)) "
-                + "to \(AmountFormat.amount(Decimal(Int(last.value.rounded())), currency: baseCurrency))"
+        if let first = complete.first, let last = complete.last, !hidesAmounts {
+            text += ", from \(AmountFormat.amount(Decimal(Int(first.value.rounded())), currency: currency)) "
+                + "to \(AmountFormat.amount(Decimal(Int(last.value.rounded())), currency: currency))"
         }
         text += "."
+        let missing = points.count - complete.count
+        if missing > 0 {
+            text += " \(missing == 1 ? "1 date" : "\(missing) dates") can't be valued and \(missing == 1 ? "is" : "are") left out."
+        }
         let ticks = shownFlows
         if !ticks.isEmpty {
             text += " New money was recorded on \(ticks.count) \(ticks.count == 1 ? "date" : "dates")"
@@ -139,7 +196,7 @@ struct AccountHistoryChart: View {
         return ChartSummary(
             title: "Account value", summary: text, xTitle: "Date", yTitle: "Value",
             series: [ChartSummary.Series(name: "Value", points: described)],
-            describeValue: ChartStyle.spokenAmount(currency: baseCurrency))
+            describeValue: ChartStyle.spokenAmount(currency: currency))
     }
 }
 
@@ -149,7 +206,7 @@ struct AccountHistoryChart: View {
     let detail = AccountDetailData(account: library.accounts["directa"]!, library: library, valuator: valuator,
                                    today: PreviewLibrary.latestCheckIn, stalenessThreshold: 45)
     Card("Directa") {
-        AccountHistoryChart(points: detail.history, flows: detail.flows, currency: .eur)
+        AccountHistoryChart(points: detail.history, flows: detail.flows, currency: detail.currency)
     }
     .padding()
     .background(Palette.page)

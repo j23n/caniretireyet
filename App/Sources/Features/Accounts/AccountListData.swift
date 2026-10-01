@@ -29,7 +29,9 @@ struct AccountListItem: Hashable, Sendable, Identifiable {
     var isComplete: Bool
     /// Set when the latest value is too old (open accounts only).
     var stale: StaleAccount?
-    /// The last 12 months, for the sparkline.
+    /// The last 12 months in the account's own currency (no exchange rate
+    /// needed), for the sparkline; values that can't be worked out are
+    /// incomplete, drawn as gaps.
     var sparkline: [ChartPoint]
 
     var id: AccountID { account.id }
@@ -48,7 +50,8 @@ struct AccountListItem: Hashable, Sendable, Identifiable {
         // A trades account's history starts with its first valuation or trade.
         let first = valuator.firstRecordDate(of: account.id)
         if includesSparkline, let first, first <= date {
-            sparkline = valuator.series(of: account.id, from: max(yearAgo, first), through: date).chartPoints
+            sparkline = valuator.series(of: account.id, in: .account, from: max(yearAgo, first), through: date)
+                .chartPoints
         } else {
             sparkline = []
         }

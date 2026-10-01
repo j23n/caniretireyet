@@ -120,6 +120,9 @@ struct AccountDetailScreen: View {
                 AccountDetailHeader(data: data)
                 AccountHistoryChart(points: data.history, flows: data.flows, currency: currency)
                     .padding(.vertical, Metrics.xs)
+                if let note = missingValueNote(data) {
+                    OldPriceNoteView(text: note, systemImage: "exclamationmark.triangle") { fillsPastPrices = true }
+                }
                 if let note = oldPriceNote(data) {
                     OldPriceNoteView(text: note) { fillsPastPrices = true }
                 }
@@ -254,6 +257,9 @@ struct AccountDetailScreen: View {
                 AccountDetailHeader(data: data)
                 Card {
                     AccountHistoryChart(points: data.history, flows: data.flows, currency: currency, height: 240)
+                    if let note = missingValueNote(data) {
+                        OldPriceNoteView(text: note, systemImage: "exclamationmark.triangle") { fillsPastPrices = true }
+                    }
                     if let note = oldPriceNote(data) {
                         OldPriceNoteView(text: note) { fillsPastPrices = true }
                     }
@@ -575,6 +581,14 @@ struct AccountDetailScreen: View {
         }
     }
 
+    /// The note under the chart when some values can't be worked out, or
+    /// can't be converted to the base currency for net worth.
+    private func missingValueNote(_ data: AccountDetailData) -> String? {
+        MissingValueNote.account(chart: data.missing, netWorth: data.missingBaseRates, name: { id in
+            library.library.instruments[id]?.name ?? id.rawValue
+        }, locale: locale)
+    }
+
     /// The note under the chart when its values use old prices.
     private func oldPriceNote(_ data: AccountDetailData) -> String? {
         data.oldPrices.map { summary in
@@ -617,26 +631,30 @@ private struct AccountDetailHeader: View {
             }
             .font(.subheadline)
             .foregroundStyle(Palette.secondaryInk)
-            AmountText(data.value, precision: .cents, tabular: false, animatesChanges: true)
+            AmountText(data.amount, currency: data.currency, precision: .cents, tabular: false,
+                       animatesChanges: true)
                 .font(.largeTitle.bold())
                 .foregroundStyle(Palette.ink)
                 .lineLimit(1)
                 .minimumScaleFactor(0.6)
                 .dynamicTypeSize(...DynamicTypeSize.accessibility2)
-            if let amount = data.amountInAccountCurrency {
-                AmountText(amount, currency: data.account.currency, precision: .cents)
-                    .font(.subheadline)
+            baseValueLine
+            if !data.amountIsComplete {
+                Text("A price or exchange rate is missing, so part of the value is left out.")
+                    .font(.footnote)
                     .foregroundStyle(Palette.secondaryInk)
+                    .fixedSize(horizontal: false, vertical: true)
             }
             if let change = data.change, let from = data.changeFrom {
                 HStack(spacing: Metrics.xs) {
-                    DeltaText(change.change, precision: .cents)
-                    Text("since \(AmountFormat.shortDate(from, locale: locale))")
+                    DeltaText(change.change, currency: data.currency, precision: .cents)
+                    Text("since \(AmountFormat.shortDate(from, relativeTo: .today(), locale: locale))")
                         .foregroundStyle(Palette.secondaryInk)
                 }
                 .font(.subheadline)
                 let parts = self.parts(of: change)
-                if parts.count > 1 {
+                // One part alone repeats the change, unless it says it was new money (or other).
+                if parts.count > 1 || parts.first.map({ $0.name != "Markets" }) == true {
                     ViewThatFits(in: .horizontal) {
                         HStack(spacing: Metrics.m) { partViews(parts) }
                         VStack(alignment: .leading, spacing: 2) { partViews(parts) }
@@ -651,9 +669,29 @@ private struct AccountDetailHeader: View {
         .padding(.vertical, Metrics.xs)
     }
 
+    /// For an account in another currency, its value in the base currency
+    /// at the date's rate, or that the rate is missing.
+    @ViewBuilder
+    private var baseValueLine: some View {
+        switch data.baseValue {
+        case .known(let value):
+            AmountText(value, precision: .cents)
+                .font(.subheadline)
+                .foregroundStyle(Palette.secondaryInk)
+        case .rateMissing:
+            Text("Value in \(data.baseCurrency.rawValue): rate missing")
+                .font(.subheadline)
+                .foregroundStyle(Palette.secondaryInk)
+        case nil:
+            EmptyView()
+        }
+    }
+
+    /// The parts that don't show as zero.
     private func parts(of change: ValueChange) -> [Part] {
         [Part(name: "Markets", amount: change.market), Part(name: "New money", amount: change.newMoney),
-         Part(name: "Other", amount: change.other)].filter { $0.amount != 0 }
+         Part(name: "Other", amount: change.other)]
+            .filter { DeltaFormat.direction(of: $0.amount, precision: .whole) != 0 }
     }
 
     private func partViews(_ parts: [Part]) -> some View {
@@ -661,7 +699,7 @@ private struct AccountDetailHeader: View {
             HStack(spacing: 4) {
                 Text(part.name)
                     .foregroundStyle(Palette.secondaryInk)
-                DeltaText(part.amount, showsArrow: false)
+                DeltaText(part.amount, currency: data.currency, showsArrow: false)
             }
         }
     }
