@@ -448,19 +448,27 @@ struct PlanContentView: View {
 }
 
 /// The Mac's inspector: Inputs, with What-if pinned below.
+///
+/// Both scroll. The What-if takes its own height, up to 60% of the
+/// inspector, and scrolls beyond that, so the inputs keep room. Pinned
+/// content that doesn't scroll would set the window's minimum height: the
+/// What-if's sliders and wrapped text made the window taller than the
+/// screen, with the inputs squeezed out above them.
 struct PlanInspector: View {
     let session: PlanSession
 
     var body: some View {
-        PlanInputsView(session: session, isInspector: true)
-            .safeAreaInset(edge: .bottom, spacing: 0) {
-                VStack(spacing: 0) {
-                    Divider()
-                    PlanWhatIfPanel(session: session)
-                        .padding(Metrics.m)
-                }
-                .background(.bar)
+        VStack(spacing: 0) {
+            PlanInputsView(session: session, isInspector: true)
+            Divider()
+            OverflowScrollView(maxShare: 0.6) {
+                PlanWhatIfPanel(session: session)
+                    .padding(Metrics.m)
             }
+            .background(.bar)
+            // Offered the whole column first, then the inputs take the rest.
+            .layoutPriority(1)
+        }
     }
 }
 
