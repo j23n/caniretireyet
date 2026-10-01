@@ -7,7 +7,8 @@ import Tracker
 /// - Groups: Cash, Investments, Crypto & gold, Pension, Property, Debts,
 ///   each with its subtotal.
 /// - Rows: kind icon, name, institution, a 12-month sparkline, the value,
-///   and a "Stale" badge when the latest value is too old.
+///   and a "Stale" badge when the latest value is too old (not for an
+///   account that holds nothing: ``AccountStaleness``).
 /// - Swipe (or right-click): *Update value* (a one-account valuation) and
 ///   *Close*. Closed accounts sit in a "Closed (n)" section at the bottom.
 /// - Tapping a section's header collapses or expands it, chevron turning
@@ -421,7 +422,8 @@ struct AccountAction: Identifiable, Hashable {
 
     var kind: Kind
     var account: AccountID
-    /// The date the sheet starts on, for ``Kind/addPastValue``.
+    /// The date the sheet starts on, for ``Kind/addPastValue`` and
+    /// ``Kind/close`` (an empty account closes on the day it emptied).
     var date: CalendarDate?
 
     init(_ kind: Kind, _ account: AccountID, date: CalendarDate? = nil) {
@@ -445,7 +447,7 @@ struct AccountActionSheet: View {
             case .addPastValue:
                 UpdateValueSheet(accountID: action.account, date: action.date)
             case .close:
-                CloseAccountSheet(accountID: action.account)
+                CloseAccountSheet(accountID: action.account, date: action.date)
             case .edit:
                 EditAccountSheet(accountID: action.account)
             }

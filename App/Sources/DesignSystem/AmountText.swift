@@ -52,7 +52,9 @@ struct AmountText: View {
 }
 
 /// A change with a sign, an arrow and colour, never colour alone (UI.md,
-/// "Changes"): `▲ +4.210 €` in the success green, `▼ −240 €` in red.
+/// "Changes"): `▲ +4.210 €` in the success green, `▼ −240 €` in red. A
+/// change that shows as zero has neither arrow nor sign: `0 €`, in grey
+/// (``DeltaFormat``).
 ///
 ///     DeltaText(change.change)
 ///     DeltaText(percent: 0.142)            // ▲ +14,2%
@@ -90,15 +92,12 @@ struct DeltaText: View {
         self.showsArrow = showsArrow
     }
 
-    private var sign: Double {
+    /// 1, −1, or 0 for a change that shows as zero (no arrow, no sign).
+    private var sign: Int {
         switch value {
-        case .amount(let amount, _): amount.doubleValue
-        case .percent(let fraction): fraction
+        case .amount(let amount, _): DeltaFormat.direction(of: amount, precision: precision)
+        case .percent(let fraction): DeltaFormat.direction(ofFraction: fraction)
         }
-    }
-
-    private var arrow: String {
-        sign > 0 ? "▲" : sign < 0 ? "▼" : "–"
     }
 
     private var color: Color {
@@ -119,7 +118,7 @@ struct DeltaText: View {
     }
 
     var body: some View {
-        Text(verbatim: showsArrow ? "\(arrow) \(number)" : number)
+        Text(verbatim: DeltaFormat.text(number, direction: sign, showsArrow: showsArrow))
             .monospacedDigit()
             .foregroundStyle(color)
             .privacySensitive()
@@ -155,6 +154,7 @@ extension View {
         AmountText(Decimal(string: "4210.55")!, precision: .cents)
         DeltaText(Decimal(4210))
         DeltaText(Decimal(-240))
+        DeltaText(Decimal(string: "-0.001")!, precision: .cents)
         DeltaText(percent: 0.142)
         DeltaText(Decimal(650), invertsColor: true)
         AmountText(Decimal(312_480)).environment(\.hidesAmounts, true)

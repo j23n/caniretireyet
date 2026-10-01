@@ -54,6 +54,15 @@ struct AccountHoldingRow: Hashable, Sendable, Identifiable {
     }
 }
 
+/// The value in the base currency, under the value of an account in
+/// another currency.
+enum AccountBaseValue: Hashable, Sendable {
+    /// Converted at the date's rate.
+    case known(Decimal)
+    /// No exchange rate to the base currency on or before the date.
+    case rateMissing
+}
+
 /// One valuation in the account's list.
 struct AccountValuationRow: Hashable, Sendable, Identifiable {
     var valuation: Valuation
@@ -66,24 +75,46 @@ struct AccountValuationRow: Hashable, Sendable, Identifiable {
     var id: ValuationKey { valuation.key }
 }
 
-/// Everything the account detail shows.
+/// Everything the account detail shows. Amounts are in the account's own
+/// currency (``currency``), which needs no exchange rate: a dollar account
+/// in a euro library shows dollars, with its value in euros under it
+/// (``baseValue``) when the rate is known (UI.md, "Account detail").
 struct AccountDetailData: Hashable, Sendable {
     var account: Account
+    /// The library's base currency.
+    var baseCurrency: CurrencyCode
     /// The date the page reports on: today, or the closing date.
     var date: CalendarDate
+    /// The value in the account's currency on ``date`` (what could be valued).
+    var amount: Decimal
+    /// Whether ``amount`` is fully known: no price missing, nor a rate for a
+    /// position priced in another currency.
+    var amountIsComplete: Bool
     /// The value in the base currency on ``date`` (what could be valued).
     var value: Decimal
     var isComplete: Bool
-    /// The value in the account's own currency, when it isn't the base currency.
-    var amountInAccountCurrency: Decimal?
+    /// For an account in another currency than the base one: its value in
+    /// the base currency, or that the rate is missing. `nil` for an account
+    /// in the base currency, or when a price is missing too.
+    var baseValue: AccountBaseValue?
     /// The latest valuation on or before ``date``.
     var latest: Valuation?
-    /// The change from the valuation before the latest one to the latest one.
+    /// The change from the valuation before the latest one to the latest
+    /// one, in the account's currency.
     var change: ValueChange?
     /// The date of the valuation before the latest one.
     var changeFrom: CalendarDate?
-    /// The value over time (month ends), from the first valuation.
+    /// The value over time (month ends) in the account's currency, from the
+    /// first valuation. A point that couldn't be valued is incomplete: a
+    /// gap in the chart, never a zero.
     var history: [ChartPoint]
+    /// What the chart's values are missing (prices, and rates for positions
+    /// priced in another currency); `nil` when they're complete.
+    var missing: MissingValues?
+    /// For an account in another currency: the dates its own currency has
+    /// no rate to the base currency, which leave it out of net worth then;
+    /// `nil` when there are none.
+    var missingBaseRates: MissingValues?
     /// New-money events, oldest first.
     var flows: [AccountFlowTick]
     /// The positions of the latest valuation, for holdings.
@@ -92,8 +123,13 @@ struct AccountDetailData: Hashable, Sendable {
     var cash: Decimal?
     /// Every valuation, newest first.
     var valuations: [AccountValuationRow]
-    /// Set when the latest value is too old.
+    /// Set when the latest value is too old, unless the account is empty
+    /// (``AccountStaleness``).
     var stale: StaleAccount?
+    /// The day an open account has held nothing since, when that's longer
+    /// ago than the staleness threshold: the detail suggests closing it on
+    /// that day ("This account has been empty since 1 Jan 2022. Close it?").
+    var emptySince: CalendarDate?
     /// The chart's values that use a price more than 31 days older than
     /// their date, for a note under the chart; `nil` when there are none.
     var oldPrices: OldPriceSummary?
@@ -110,6 +146,12 @@ struct AccountDetailData: Hashable, Sendable {
 
     /// Whether the account records trades (``Model/Account/recordsTrades``).
     var recordsTrades: Bool { account.recordsTrades }
+
+    /// The currency the page shows amounts in: the account's own.
+    var currency: CurrencyCode { account.currency }
+
+    /// Whether the account's currency isn't the base currency.
+    var isForeign: Bool { account.currency != baseCurrency }
 
     /// Whether the account holds positions (now, or by its kind's default).
     var showsPositions: Bool {
@@ -142,26 +184,41 @@ struct AccountDetailData: Hashable, Sendable {
 
     init(account: Account, library: Library, valuator: Valuator, today: CalendarDate, stalenessThreshold: Int) {
         self.account = account
+        baseCurrency = valuator.baseCurrency
         let date = account.closed.map { min($0, today) } ?? today
         self.date = date
+        let own = valuator.value(of: account.id, on: date, in: .account)
+        amount = own?.knownValue ?? 0
+        amountIsComplete = own?.isComplete ?? true
         let current = valuator.value(of: account.id, on: date)
         value = current?.knownValue ?? 0
         isComplete = current?.isComplete ?? true
+        if account.currency != valuator.baseCurrency, let current, current.status == .valued {
+            if current.isComplete {
+                baseValue = .known(current.knownValue)
+            } else if current.problems.contains(.missingFX(account: account.id, from: account.currency,
+                                                           to: valuator.baseCurrency)) {
+                baseValue = .rateMissing
+            }
+        }
         // A trades account's latest state is its snapshot: dated its latest valuation or trade.
         latest = account.recordsTrades
             ? valuator.snapshot(of: account.id, on: date) : valuator.latestValuation(for: account.id, onOrBefore: date)
-        if account.currency != valuator.baseCurrency, let latest {
-            amountInAccountCurrency = valuator.amountInAccountCurrency(of: latest, on: date)
-        }
         if let latest, let previous = valuator.previousValuation(for: account.id, before: latest.date) {
-            change = valuator.change(of: account.id, from: previous.date, to: latest.date)?.change
+            change = valuator.change(of: account.id, from: previous.date, to: latest.date, in: .account)?.change
             changeFrom = previous.date
         }
-        history = valuator.series(of: account.id, through: date).chartPoints
+        history = valuator.series(of: account.id, in: .account, through: date).chartPoints
         let all = valuator.valuations(for: account.id)
         if let first = valuator.firstRecordDate(of: account.id), first <= date {
-            oldPrices = OldPriceSummary(valuator.oldPrices(of: account.id,
-                                                           on: DateGrid.monthEnds(from: first, through: date)))
+            let dates = DateGrid.monthEnds(from: first, through: date)
+            oldPrices = OldPriceSummary(valuator.oldPrices(of: account.id, on: dates))
+            missing = valuator.missingValues(of: account.id, on: dates, in: .account)
+            if account.currency != valuator.baseCurrency {
+                missingBaseRates = valuator.missingValues(of: account.id, on: dates, in: .base)?.filter { gap in
+                    if case .rate(let from, _) = gap.item { from == account.currency } else { false }
+                }
+            }
         }
         if account.recordsTrades {
             // Deposits, withdrawals, transfers and residuals, on their own dates.
@@ -201,7 +258,9 @@ struct AccountDetailData: Hashable, Sendable {
                 amount: valuator.amountInAccountCurrency(of: valuation, on: valuation.date),
                 value: valuator.value(of: valuation, on: valuation.date)?.knownValue ?? 0)
         }
-        stale = account.isClosed ? nil : valuator.staleness(of: account.id, on: today, threshold: stalenessThreshold)
+        stale = account.isClosed
+            ? nil : AccountStaleness.stale(account.id, valuator: valuator, on: today, threshold: stalenessThreshold)
+        emptySince = AccountStaleness.emptySince(account, valuator: valuator, on: today, threshold: stalenessThreshold)
     }
 }
 

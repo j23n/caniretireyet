@@ -265,11 +265,12 @@ struct UpdateValueSheet: View {
         }
     }
 
-    /// "New money", or for pension funds and the like "Paid in since 30 Jun".
+    /// "New money", or for pension funds and the like "Paid in since 30 Jun"
+    /// ("since 30 Jun 2025" in another year).
     private func flowTitle(rule: FlowDefault, previous: Valuation?) -> String {
         guard rule == .ask else { return "New money" }
         guard let previous else { return "Paid in" }
-        return "Paid in since \(AmountFormat.shortDate(previous.date, locale: locale))"
+        return "Paid in since \(AmountFormat.shortDate(previous.date, relativeTo: .today(), locale: locale))"
     }
 
     private func text(_ value: Decimal?) -> String {
@@ -324,12 +325,14 @@ struct CloseAccountSheet: View {
     @Environment(LibraryStore.self) private var library
     @Environment(\.dismiss) private var dismiss
 
-    @State private var date = Date()
+    @State private var date: Date
     @State private var successor: AccountID?
     @State private var errorMessage: String?
 
-    init(accountID: AccountID) {
+    /// Starts on `date` (e.g. the day an empty account emptied), or today.
+    init(accountID: AccountID, date: CalendarDate? = nil) {
         self.accountID = accountID
+        _date = State(initialValue: date?.dateValue ?? Date())
     }
 
     var body: some View {

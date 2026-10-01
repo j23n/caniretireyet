@@ -36,6 +36,32 @@ enum PreviewLibrary {
         return copy
     }()
 
+    /// ``library`` with a made-up dollar brokerage account, "US brokerage",
+    /// whose history was imported without filling in past prices: dollar
+    /// balances from June 2018, all of it taken out on 1 January 2022, and
+    /// no USD rate before October 2025. Its detail shows dollars with a
+    /// full chart, says net worth leaves those values out (*Fill In Past
+    /// Prices…*), and suggests closing it rather than calling it stale.
+    static let withForeignAccount: Library = {
+        var copy = PreviewLibrary.library
+        copy.accounts[foreignAccount] = Account(
+            id: foreignAccount, name: "US brokerage", kind: .brokerage, currency: .usd, opened: "2018-06-01",
+            institution: "Example Brokerage Inc.", country: "US",
+            notes: "Made-up example: imported from a spreadsheet, without past exchange rates.")
+        for (date, balance, flow) in [
+            ("2018-06-30", "80000", "80000"), ("2018-12-31", "76500", "0"), ("2019-06-30", "88200", "2500"),
+            ("2019-12-31", "97400", "0"), ("2020-06-30", "92100", "0"), ("2020-12-31", "109800", "5000"),
+            ("2021-06-30", "118600", nil), ("2021-11-30", "123959", nil), ("2022-01-01", "0", "-123959"),
+        ] as [(String, String, String?)] {
+            copy.upsert(Valuation(account: foreignAccount, date: CalendarDate(date)!, balance: d(balance),
+                                  flow: flow.map(d), source: .`import`))
+        }
+        return copy
+    }()
+
+    /// The dollar account of ``withForeignAccount``.
+    static let foreignAccount: AccountID = "us-brokerage"
+
     /// A valuator over ``library``.
     static var valuator: Tracker.Valuator { Tracker.Valuator(library: library) }
 

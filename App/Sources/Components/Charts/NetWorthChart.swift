@@ -5,9 +5,13 @@ import Tracker
 
 /// Net worth over time (UI.md, "History chart").
 ///
-/// - By default a single line in ink with a light fill. With `stacked`
+/// - By default a single line in ink with a light fill. Where a total is
+///   partial (a price or exchange rate missing: `isComplete == false`) the
+///   line is dashed and grey, and the callout says so. With `stacked`
 ///   series (e.g. by asset class) it draws stacked areas instead, debts
 ///   below the zero line, with a legend.
+/// - The value axis always includes zero, with distinct round ticks
+///   (``AmountScale``), even for flat or near-zero data.
 /// - `projection` continues the chart into the plan's future: a dashed
 ///   median with the 10–90% band. `markers` label retirement, pension
 ///   starts and the like on the time axis.
@@ -39,19 +43,38 @@ struct NetWorthChart: View {
         }
     }
 
+    /// The value axis: zero, the history (or the stacked areas) and the projection's band.
+    private var scale: AmountScale {
+        AmountScale(values: history.map(\.value) + stacked.stackedExtents
+            + projection.flatMap { [$0.p10, $0.p90] })
+    }
+
+    /// Solid for complete values; dashed where a price or rate is missing,
+    /// so a partial total doesn't look like a fall.
+    private func lineStyle(complete: Bool) -> StrokeStyle {
+        complete
+            ? StrokeStyle(lineWidth: Metrics.lineWidth, lineCap: .round, lineJoin: .round)
+            : StrokeStyle(lineWidth: Metrics.lineWidth, lineCap: .round, lineJoin: .round, dash: [3, 4])
+    }
+
     private var chart: some View {
-        Chart {
+        let scale = self.scale
+        return Chart {
             if stacked.isEmpty {
                 ForEach(history) { point in
                     AreaMark(x: .value("Date", point.date), y: .value("Net worth", point.value),
                              series: .value("Series", "History fill"))
                         .foregroundStyle(Palette.ink.opacity(0.08))
                         .interpolationMethod(.monotone)
-                    LineMark(x: .value("Date", point.date), y: .value("Net worth", point.value),
-                             series: .value("Series", "History"))
-                        .foregroundStyle(Palette.ink)
-                        .lineStyle(StrokeStyle(lineWidth: Metrics.lineWidth, lineCap: .round, lineJoin: .round))
-                        .interpolationMethod(.monotone)
+                }
+                ForEach(history.segments) { segment in
+                    ForEach(segment.points) { point in
+                        LineMark(x: .value("Date", point.date), y: .value("Net worth", point.value),
+                                 series: .value("Series", "History \(segment.id)"))
+                            .foregroundStyle(segment.isComplete ? Palette.ink : Palette.secondaryInk)
+                            .lineStyle(lineStyle(complete: segment.isComplete))
+                            .interpolationMethod(.monotone)
+                    }
                 }
             } else {
                 ForEach(stacked) { series in
@@ -87,11 +110,12 @@ struct NetWorthChart: View {
             }
 
             if let selected = selectedPoint {
+                // The callout stays inside the chart, never over what's above it.
                 RuleMark(x: .value("Date", selected.date))
                     .foregroundStyle(Palette.axis)
                     .lineStyle(StrokeStyle(lineWidth: 1))
                     .annotation(position: .top, spacing: 4,
-                                overflowResolution: .init(x: .fit(to: .chart), y: .disabled)) {
+                                overflowResolution: .init(x: .fit(to: .chart), y: .fit(to: .chart))) {
                         callout(for: selected)
                     }
                 PointMark(x: .value("Date", selected.date), y: .value("Net worth", selected.value))
@@ -102,7 +126,8 @@ struct NetWorthChart: View {
         .chartForegroundStyleScale(domain: stacked.map(\.name), range: stacked.map { Palette.color(for: $0.color) })
         .chartLegend(position: .bottom, alignment: .leading)
         .chartXSelection(value: $selectedDate)
-        .chartYAxis { amountAxis(hidesAmounts: hidesAmounts) }
+        .chartYScale(domain: scale.domain)
+        .chartYAxis { amountAxis(hidesAmounts: hidesAmounts, scale: scale) }
         .chartXAxis { dateAxis(spansYears: (history + projection.map { ChartPoint(date: $0.date, value: $0.p50) }).spansYears) }
     }
 
@@ -119,6 +144,11 @@ struct NetWorthChart: View {
                 .foregroundStyle(Palette.secondaryInk)
             AmountText(Decimal(Int(point.value.rounded())), currency: currency)
                 .font(.caption.weight(.semibold))
+            if !point.isComplete {
+                Text("Partial: some values are missing")
+                    .font(.caption2)
+                    .foregroundStyle(Palette.secondaryInk)
+            }
             ForEach(stacked) { series in
                 if let value = series.points.first(where: { $0.date == point.date })?.value, value != 0 {
                     HStack(spacing: 4) {
@@ -143,6 +173,10 @@ struct NetWorthChart: View {
         if let first = history.first, let last = history.last {
             text += hidesAmounts ? "." : ", from \(AmountFormat.amount(Decimal(Int(first.value.rounded())), currency: resolved)) "
                 + "to \(AmountFormat.amount(Decimal(Int(last.value.rounded())), currency: resolved))."
+        }
+        let partial = history.filter { !$0.isComplete }.count
+        if partial > 0 {
+            text += " \(partial == 1 ? "1 date is" : "\(partial) dates are") partial: some values are missing."
         }
         if let end = projection.last {
             text += hidesAmounts ? " Projected ahead." : " Projected median at the end: "
@@ -190,6 +224,18 @@ struct ChartPlaceholder: View {
                                  FanPoint(date: end.adding(years: 5).dateValue, p10: 260_000, p25: 300_000, p50: 330_000,
                                           p75: 360_000, p90: 420_000)],
                     markers: [ChartMarker(date: end.adding(years: 3).dateValue, label: "New car")])
+            }
+            Card("Some values missing") {
+                // Made-up: an account's rate is missing for the first five months.
+                NetWorthChart(history: (0..<12).map { month in
+                    ChartPoint(date: end.adding(months: month - 11).dateValue, value: month < 5 ? 180_000 : 260_000,
+                               isComplete: month >= 5)
+                })
+            }
+            Card("Flat at zero") {
+                NetWorthChart(history: (0..<12).map { month in
+                    ChartPoint(date: end.adding(months: month - 11).dateValue, value: 0)
+                })
             }
             Card("Empty") {
                 NetWorthChart(history: [])

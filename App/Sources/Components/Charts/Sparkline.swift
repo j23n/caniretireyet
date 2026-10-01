@@ -28,30 +28,43 @@ struct Sparkline: View {
     }
 
     private var accessibilityText: String {
-        guard let first = points.first?.value, let last = points.last?.value, first != 0 else { return "Trend" }
+        let complete = points.filter(\.isComplete)
+        guard let first = complete.first?.value, let last = complete.last?.value, first != 0 else { return "Trend" }
         let change = (last - first) / abs(first)
         return "Trend over \(points.count) points, \(change >= 0 ? "up" : "down") \(AmountFormat.percent(abs(change), digits: 0))"
     }
 }
 
-/// The chart inside a ``Sparkline``: a thin line, no axes, no grid.
+/// The chart inside a ``Sparkline``: a thin line, no axes, no grid. A
+/// value that couldn't be worked out (a price or rate missing) is a gap,
+/// never drawn as a lower one; the dates keep their place.
 private struct SparklineChart: View {
     var points: [ChartPoint]
     var color: Color
 
     var body: some View {
         Chart {
-            ForEach(points) { point in
-                LineMark(x: .value("Date", point.date), y: .value("Value", point.value))
-                    .foregroundStyle(color)
-                    .lineStyle(StrokeStyle(lineWidth: 1.5, lineCap: .round, lineJoin: .round))
-                    .interpolationMethod(.monotone)
+            ForEach(points.completeRuns) { run in
+                ForEach(run.points) { point in
+                    LineMark(x: .value("Date", point.date), y: .value("Value", point.value),
+                             series: .value("Series", "Run \(run.id)"))
+                        .foregroundStyle(color)
+                        .lineStyle(StrokeStyle(lineWidth: 1.5, lineCap: .round, lineJoin: .round))
+                        .interpolationMethod(.monotone)
+                }
             }
         }
         .chartXAxis(.hidden)
         .chartYAxis(.hidden)
         .chartLegend(.hidden)
+        .chartXScale(domain: dateRange)
         .chartYScale(domain: .automatic(includesZero: false))
+    }
+
+    /// The first point's date to the last one's.
+    private var dateRange: ClosedRange<Date> {
+        let first = points.first?.date ?? Date()
+        return first...max(first, points.last?.date ?? first)
     }
 }
 

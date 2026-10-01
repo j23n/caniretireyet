@@ -138,9 +138,10 @@ The home screen. Top to bottom:
   - Drag across it to read any month: a vertical rule with a callout showing the date, the total and the breakdown.
   - **Future** continues the chart into the active plan's projection: a dashed median with the 10–90% band, plus markers for retirement and pension starts. See [PROGRESS.md](PROGRESS.md#past-and-future-m2).
   - **Old prices.** When a value in the chart uses a price more than 31 days older than its date, a note under it says so: "10 values in the chart use a price more than 31 days older than their date (Gold coins)." with *Fill In Past Prices…* (see [Instruments](#accounts)).
+  - **Partial totals.** Net worth adds up what can be valued. Where a total misses something (a price or an exchange rate, or an account with no value yet), the line is dashed and grey, the callout says "Partial: some values are missing", and a note under the chart says what and when: "Where the line is dashed, the total is partial: exchange rates for US$ are missing for Jun 2018 – Dec 2021 (US brokerage) and 3 accounts have no value yet for Jun 2018 – Sep 2025 (Directa, Fondo pensione and Old bank)." with *Fill In Past Prices…* when some of it is prices or rates.
 - **Since last check-in.** A small waterfall from last month's total to this month's: markets, new money, and other. It's the most useful single number after the total, because it separates "I saved" from "markets moved".
 - **Can I retire yet?** The plan's headline, progress toward financial independence, and how you compare with the latest baseline. Tapping it opens the Plan tab. It shows the main plan's latest results, or else the answer recorded at the last check-in, dated; it never starts a calculation. While one is going (a check-in's, or one started on the Plan screen) it says how far along it is, and results that no longer fit the plan or your data say "Calculated before your latest changes".
-- **Needs attention.** Only shown when something needs you: stale accounts, prices that couldn't be fetched, sync conflicts that were merged, and plan warnings.
+- **Needs attention.** Only shown when something needs you: stale accounts (not one that holds nothing: see [Accounts](#accounts)), prices that couldn't be fetched, sync conflicts that were merged, and plan warnings. Prices and exchange rates missing on past month ends get an item each, which opens *Fill In Past Prices*: "Past exchange rates for US$ are missing · US brokerage isn't fully counted in your net worth for Jun 2018 – Dec 2021. Fill in past prices to fetch them."
 - **Allocation.** Horizontal bars with values and percentages; a donut would be harder to read. The dimension can be switched between asset class, account group, currency, institution, and liquid vs locked.
   - *Asset class* splits holdings by their instrument's mix and balances by the account's mix, and shows debts as their own bar.
   - *Currency* is where each part is priced; bitcoin in a euro wallet counts as dollars.
@@ -253,14 +254,18 @@ The flow that has to be fast. It opens as a full-screen sheet on iPhone and as t
   ```
 
   - Each group's header shows its name and subtotal.
-  - Each row shows a kind icon, the name, the institution, the value, a sparkline of the last 12 months, and a "stale" badge when needed.
+  - Each row shows a kind icon, the name, the institution, the value, a sparkline of the last 12 months (in the account's own currency, with gaps where a value can't be worked out), and a "stale" badge when needed.
+  - **Stale** means the latest value is older than the threshold (45 days by default). An account that holds nothing (a zero balance, or no cash and no quantity) has nothing to check in, so it's never stale: not in the list, the sidebar, its detail or *Needs attention*.
   - Swipe actions: *Update value* (a one-account valuation) and *Close*. Saved as it is, *Update value* records the account as unchanged; an account with no earlier value needs a value typed, and an emptied field isn't zero (type 0). Its date can be any day up to the closing date (or a year from today), also before the account opened: see [Adding history](#adding-history). An account that records trades offers *Add trade* instead; its *Update Cash…* (in the context menu) shows the holdings from the trades, read-only, and records the cash.
   - Closed accounts sit in a "Closed (3)" section at the bottom.
   - **Collapsing.** Tapping a group's header, or *Closed*'s, collapses the group to its header (name and subtotal) or expands it again, with an animation; the chevron at the right of the header points down while it's expanded. The groups start expanded and *Closed* collapsed. The device remembers which are collapsed, and the sidebar shares them: collapsing Cash on *All accounts* collapses it in the sidebar too, and the other way round.
   - **Search** (by name, institution, kind, tags or notes) shows every group expanded while there's a query, so no result is hidden. Clearing it brings back the collapsed ones.
 - **Account detail.**
-  - The value and its change.
-  - A history chart. New-money events are small ticks on the time axis, so jumps you caused are distinguishable from market moves. As on the Overview, a note under it points out values that use a price more than 31 days old, with *Fill In Past Prices…*.
+  - **In the account's own currency.** The value, its change, the chart and the values list are in the account's currency, which needs no exchange rate: a dollar account in a euro library shows `0,00 US$`. Under the value, its value in the base currency at the day's rate, or "Value in EUR: rate missing".
+  - The value and its change since the value before, with the year when it isn't this one: "▼ −123.959,00 US$ since 30 Nov 2021", then its parts (markets, new money, other). A change that shows as zero has no arrow and no sign.
+  - A history chart. New-money events are small ticks in a lane along the bottom, pointing up for money added and down for money taken out, coloured by sign, so jumps you caused are distinguishable from market moves; they never stretch the value axis, and the callout gives their amount. The value axis always includes zero, with round ticks that read apart, even for an account that's been at zero. The callout stays inside the chart.
+  - A value that can't be worked out (a price missing, or the rate for a position priced in another currency) is a gap in the line, never a zero. A note under the chart says what's missing and when, with *Fill In Past Prices…*: "Some values can't be shown: prices for Gold coins are missing for Mar 2023 – Sep 2025." For an account in another currency, it also says when net worth leaves it out: "Net worth leaves out this account's values for Jun 2018 – Dec 2021: exchange rates for US$ are missing." As on the Overview, a note points out values that use a price more than 31 days old.
+  - **Empty accounts.** Once an open account has held nothing for longer than the staleness threshold, it isn't called stale; instead: "This account has been empty since 1 Jan 2022. Close it?" with *Close Account…*, which opens the Close sheet on that day.
   - For accounts with holdings, the positions: quantity, price, value, purchase cost and unrealised gain.
   - The list of valuations, each editable: date, value, new money, note. *Add Past Value…* adds one on an earlier date.
   - An info section: kind, institution, country, currency, tax wrapper, how it's recorded (a balance, snapshots of positions, or trade history), and whether it's included in net worth and plans.
@@ -585,8 +590,10 @@ On iPhone, journals use "Import with profile…" with a saved ledger profile, li
 - The system font. Large standalone numbers use its default figures; columns that must line up (tables, check-in fields, axis labels) use tabular figures (`.monospacedDigit()`).
 - Formatted for your locale and base currency: in Italian, `312.480 €`, with decimals only where they matter (check-in fields, account detail).
 - Charts use compact numbers (`312k`).
+- Zero never has a sign: an amount that rounds to zero reads `0,00 €`, never `−0,00 €`, and an axis never reads `−0`.
+- Dates in "since …" leave out the year only when it's this one: "since 30 Sep", "since 30 Nov 2021".
 
-**Changes.** Always a sign and an arrow as well as colour: ▲ +4.210 in the success-green text colour, ▼ −240 in red. Never colour alone.
+**Changes.** Always a sign and an arrow as well as colour: ▲ +4.210 in the success-green text colour, ▼ −240 in red. Never colour alone. A change that shows as zero gets neither: `0 €`, in grey.
 
 **Colour in charts** follows the dataviz reference palette, in light and dark variants.
 
@@ -604,8 +611,10 @@ On iPhone, journals use "Import with profile…" with a saved ledger profile, li
 
 - Swift Charts, with thin marks: 2 pt lines and rounded bar ends.
 - Faint gridlines.
+- A value axis always includes zero and has round ticks whose labels read apart; flat or near-zero data gets a sensible span (0 to 1 at least), never a sliver labelled "0, 0, −0, −0".
+- A value that couldn't be worked out (a price or exchange rate missing) is never drawn as zero: an account's line has a gap there, and a total that adds up what it could is drawn dashed and grey. A note under the chart says what's missing.
 - Direct labels on the last point instead of legends, wherever there are four series or fewer.
-- Every chart can be read by dragging across it (`chartXSelection`) and has a VoiceOver summary (`accessibilityChartDescriptor`).
+- Every chart can be read by dragging across it (`chartXSelection`) and has a VoiceOver summary (`accessibilityChartDescriptor`). The callout stays inside the chart, never over what's above it.
 - No dual axes. When two measures need comparing, they get two charts.
 
 **Uncertainty** is always a band, never just the median. The words are "in 9 of 10 simulated futures", not "90% probability".

@@ -324,6 +324,88 @@ final class PastPriceFiller {
     }
 }
 
+/// The note under a chart some of whose values couldn't be worked out
+/// because a price or an exchange rate is missing (UI.md, "Account detail"
+/// and "Overview"), with *Fill In Past Prices…*.
+enum MissingValueNote {
+    /// Under an account's chart, in its own currency: "Some values can't be
+    /// shown: exchange rates for US$ are missing for Jun 2018 – Dec 2021."
+    /// Then, for an account in another currency than the base one whose
+    /// own values are there but can't be converted: "Net worth leaves out
+    /// this account's values for Jun 2018 – Dec 2021: exchange rates for
+    /// US$ are missing." `nil` when nothing is missing.
+    static func account(chart: MissingValues?, netWorth: MissingValues?, name: (InstrumentID) -> String,
+                        locale: Locale = .current) -> String? {
+        var sentences: [String] = []
+        if let chart = chart?.filter({ $0.item.isPriceOrRate }) {
+            sentences.append("Some values can't be shown: "
+                + OverviewAttention.list(clauses(chart, name: name, locale: locale)) + ".")
+        }
+        if let netWorth {
+            let subjects = netWorth.gaps.map { subject($0.item, name: name, locale: locale) }
+            sentences.append("Net worth leaves out this account's values \(when(netWorth.dates, locale: locale)): "
+                + OverviewAttention.list(subjects) + " are missing.")
+        }
+        return sentences.isEmpty ? nil : sentences.joined(separator: " ")
+    }
+
+    /// Under the Overview's chart: "Where the line is dashed, the total is
+    /// partial: exchange rates for US$ are missing for Jun 2018 – Dec 2021
+    /// (Brokerage), and 3 accounts have no value yet for Mar 2024 – Sep
+    /// 2025 (Home, Mutuo casa and Old bank)."
+    static func overview(_ missing: MissingValues, accountName: (AccountID) -> String,
+                         instrumentName: (InstrumentID) -> String, locale: Locale = .current) -> String {
+        var parts = missing.gaps.filter(\.item.isPriceOrRate).map { gap in
+            clause(gap, name: instrumentName, locale: locale)
+                + " (\(OverviewAttention.list(gap.accounts.map(accountName))))"
+        }
+        let unvalued = missing.gaps.filter { !$0.item.isPriceOrRate }
+        let names = unvalued.flatMap(\.accounts).map(accountName)
+        if let first = names.first {
+            let dates = Set(unvalued.flatMap(\.dates)).sorted()
+            parts.append(names.count == 1
+                ? "\(first) has no value yet \(when(dates, locale: locale))"
+                : "\(names.count) accounts have no value yet \(when(dates, locale: locale)) (\(shortList(names)))")
+        }
+        return "Where the line is dashed, the total is partial: " + OverviewAttention.list(parts) + "."
+    }
+
+    /// "A, B and C", or "A, B, C and 4 more".
+    static func shortList(_ names: [String], limit: Int = 3) -> String {
+        guard names.count > limit + 1 else { return OverviewAttention.list(names) }
+        return names.prefix(limit).joined(separator: ", ") + " and \(names.count - limit) more"
+    }
+
+    /// "exchange rates for US$ are missing for Jun 2018 – Dec 2021", one per
+    /// missing price or rate.
+    static func clauses(_ missing: MissingValues, name: (InstrumentID) -> String,
+                        locale: Locale = .current) -> [String] {
+        missing.gaps.map { clause($0, name: name, locale: locale) }
+    }
+
+    static func clause(_ gap: MissingValues.Gap, name: (InstrumentID) -> String, locale: Locale = .current) -> String {
+        "\(subject(gap.item, name: name, locale: locale)) are missing \(when(gap.dates, locale: locale))"
+    }
+
+    /// "exchange rates for US$", "prices for Gold coins".
+    static func subject(_ item: MissingValues.Item, name: (InstrumentID) -> String,
+                        locale: Locale = .current) -> String {
+        switch item {
+        case .rate(let from, _): "exchange rates for \(AmountFormat.symbol(for: from, locale: locale))"
+        case .price(let instrument): "prices for \(name(instrument))"
+        case .noValuation(let account): "values of \(account.rawValue)"
+        }
+    }
+
+    /// "for Jun 2018 – Dec 2021", or "on 30 Sep 2026" for one date.
+    static func when(_ dates: [CalendarDate], locale: Locale = .current) -> String {
+        guard let first = dates.first, let last = dates.last else { return "" }
+        return first == last
+            ? "on \(AmountFormat.mediumDate(first, locale: locale))"
+            : "for \(PastPriceText.range(first, last, locale: locale))"
+    }
+}
+
 /// The note under a chart whose values use old prices (UI.md, "Overview" and
 /// "Account detail").
 enum OldPriceNote {
