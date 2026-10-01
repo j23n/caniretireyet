@@ -31,7 +31,10 @@ struct AccountListItem: Hashable, Sendable, Identifiable {
 
     var id: AccountID { account.id }
 
-    init(account: Account, valuator: Valuator, date: CalendarDate, stalenessThreshold: Int?) {
+    /// `includesSparkline: false` leaves ``sparkline`` empty, for places that
+    /// don't draw it (the sidebar).
+    init(account: Account, valuator: Valuator, date: CalendarDate, stalenessThreshold: Int?,
+         includesSparkline: Bool = true) {
         self.account = account
         self.date = date
         let value = valuator.value(of: account.id, on: date)
@@ -41,7 +44,7 @@ struct AccountListItem: Hashable, Sendable, Identifiable {
         let yearAgo = date.adding(months: -12)
         // A trades account's history starts with its first valuation or trade.
         let first = valuator.firstRecordDate(of: account.id)
-        if let first, first <= date {
+        if includesSparkline, let first, first <= date {
             sparkline = valuator.series(of: account.id, from: max(yearAgo, first), through: date).chartPoints
         } else {
             sparkline = []
@@ -71,7 +74,6 @@ struct AccountList: Hashable, Sendable {
     /// Net worth today (every open account included in it).
     var netWorth: Decimal
 
-    /// How many open accounts are shown.
     /// The value whose text is widest among the rows (open and closed), in
     /// the base currency. Each row reserves this width for its amount, so the
     /// amounts line up on the right and the sparklines in a column beside them.
@@ -83,6 +85,7 @@ struct AccountList: Hashable, Sendable {
         }
     }
 
+    /// How many open accounts are shown.
     var openCount: Int {
         sections.reduce(0) { $0 + $1.items.count }
     }
@@ -91,12 +94,13 @@ struct AccountList: Hashable, Sendable {
         sections.isEmpty && closed.isEmpty
     }
 
+    /// `includesSparklines: false` leaves every row's sparkline empty.
     init(library: Library, valuator: Valuator, filter: AccountsFilter, query: String = "", today: CalendarDate,
-         stalenessThreshold: Int) {
+         stalenessThreshold: Int, includesSparklines: Bool = true) {
         let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
         let accounts = library.accounts.values.filter { Self.matches($0, query: trimmed) }
-        let open = accounts.filter { !$0.isClosed || $0.isOpen(on: today) }.sortedForDisplay()
-        let closedAccounts = accounts.filter { $0.isClosed && !$0.isOpen(on: today) }
+        let open = accounts.filter { !Self.listsAsClosed($0, today: today) }.sortedForDisplay()
+        let closedAccounts = accounts.filter { Self.listsAsClosed($0, today: today) }
             .sorted { ($0.closed ?? $0.opened, $1.name) > ($1.closed ?? $1.opened, $0.name) }
 
         var sections: [AccountListSection] = []
@@ -104,7 +108,8 @@ struct AccountList: Hashable, Sendable {
             for account in open {
                 if case .group(let group) = filter, account.group != group { continue }
                 let item = AccountListItem(account: account, valuator: valuator, date: today,
-                                           stalenessThreshold: stalenessThreshold)
+                                           stalenessThreshold: stalenessThreshold,
+                                           includesSparkline: includesSparklines)
                 if let index = sections.firstIndex(where: { $0.group == account.group }) {
                     sections[index].items.append(item)
                 } else {
@@ -116,10 +121,16 @@ struct AccountList: Hashable, Sendable {
         closed = filter == .all || filter == .closed
             ? closedAccounts.map { account in
                 AccountListItem(account: account, valuator: valuator, date: account.closed ?? today,
-                                stalenessThreshold: nil)
+                                stalenessThreshold: nil, includesSparkline: includesSparklines)
             }
             : []
         netWorth = valuator.netWorth(on: today).total
+    }
+
+    /// Whether `account` is listed with the closed accounts on `today`: it
+    /// closed before today. One closing today or later is still open.
+    static func listsAsClosed(_ account: Account, today: CalendarDate) -> Bool {
+        account.isClosed && !account.isOpen(on: today)
     }
 
     /// Whether `account` matches a search: its name, institution, kind,
