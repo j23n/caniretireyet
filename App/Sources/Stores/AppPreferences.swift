@@ -37,11 +37,13 @@ final class AppPreferences {
         }
     }
 
-    /// The sidebar's account folders that are collapsed on this device
+    /// The account groups (and *Closed*) that are collapsed on this device,
+    /// in the sidebar and in the Accounts list alike
     /// (``SidebarAccountFolder/key``: a group's raw value, or `"closed"`).
     /// Until one is toggled, only *Closed* is collapsed
     /// (``defaultCollapsedAccountFolders``). Read and change it with
-    /// `isExpanded(_:)` and `setExpanded(_:_:)`.
+    /// `isExpanded(_:)` and `setExpanded(_:_:)`; the list reads it through
+    /// ``AccountListExpansion``, which expands everything while searching.
     var collapsedAccountFolders: Set<String> {
         didSet { defaults.set(collapsedAccountFolders.sorted(), forKey: Keys.collapsedAccountFolders) }
     }

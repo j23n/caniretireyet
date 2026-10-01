@@ -6,7 +6,9 @@ import Tracker
 // computed without SwiftUI so it can be checked on Linux. The view is
 // `SidebarAccountsSection` in SidebarRoot.swift.
 
-/// A collapsible row in the sidebar's Accounts section: a group, or *Closed*.
+/// A collapsible group of accounts, or *Closed*: a row in the sidebar's
+/// Accounts section, and a section of the Accounts list
+/// (``AccountListExpansion``). Both share its expanded state.
 enum SidebarAccountFolder: Hashable, Sendable {
     case group(AccountGroup)
     case closed
@@ -68,8 +70,9 @@ struct SidebarAccountReveal: Hashable, Sendable {
 }
 
 extension AppPreferences {
-    /// Whether `folder` is expanded in the sidebar on this device. The
-    /// groups start expanded, *Closed* collapsed.
+    /// Whether `folder` is expanded in the sidebar, and in the Accounts list
+    /// when not searching, on this device. The groups start expanded,
+    /// *Closed* collapsed.
     func isExpanded(_ folder: SidebarAccountFolder) -> Bool {
         !collapsedAccountFolders.contains(folder.key)
     }

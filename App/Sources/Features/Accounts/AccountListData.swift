@@ -2,14 +2,15 @@ import Foundation
 import Model
 import Tracker
 
-// The account list's rows, groups and subtotals, computed without SwiftUI so
-// they can be checked on Linux.
+// The account list's rows, groups and subtotals, and which groups show their
+// rows, computed without SwiftUI so they can be checked on Linux.
 
 /// Which accounts the list shows. The app shows `.all` (the Accounts tab,
 /// and *All accounts* in the sidebar, which lists each group's accounts
 /// itself: ``SidebarAccounts``).
 enum AccountsFilter: Hashable, Sendable {
-    /// Every open account, grouped; closed ones in a collapsed section.
+    /// Every open account, grouped, then the closed ones under *Closed*.
+    /// Each group, and *Closed*, collapses (``AccountListExpansion``).
     case all
     /// Open accounts in one group.
     case group(AccountGroup)
@@ -129,6 +130,12 @@ struct AccountList: Hashable, Sendable {
         netWorth = valuator.netWorth(on: today).total
     }
 
+    /// Whether `query` searches: it has more than spaces. A blank query
+    /// lists every account, as an empty one does.
+    static func isSearching(_ query: String) -> Bool {
+        !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
     /// Whether `account` is listed with the closed accounts on `today`: it
     /// closed before today. One closing today or later is still open.
     static func listsAsClosed(_ account: Account, today: CalendarDate) -> Bool {
@@ -147,5 +154,31 @@ struct AccountList: Hashable, Sendable {
         return words.allSatisfy { word in
             haystack.range(of: word, options: [.caseInsensitive, .diacriticInsensitive]) != nil
         }
+    }
+}
+
+/// Which of the list's sections show their rows (UI.md, "Accounts").
+///
+/// On the full list (``AccountsFilter/all``), a group's header, or
+/// *Closed*'s, expands or collapses it. Which ones are collapsed is the
+/// sidebar's state (``AppPreferences/collapsedAccountFolders``, keyed by
+/// ``SidebarAccountFolder/key``), so a group collapsed in one place is
+/// collapsed in the other, and the device remembers it. While searching,
+/// every section is expanded and none collapses, so no result is hidden. A
+/// list of one group, or of the closed accounts, doesn't collapse.
+struct AccountListExpansion: Hashable, Sendable {
+    /// Whether the headers expand and collapse their sections.
+    var isCollapsible: Bool
+    /// The folders collapsed on this device.
+    var collapsed: Set<String>
+
+    init(filter: AccountsFilter, query: String, collapsed: Set<String>) {
+        isCollapsible = filter == .all && !AccountList.isSearching(query)
+        self.collapsed = collapsed
+    }
+
+    /// Whether the list shows `folder`'s rows.
+    func isExpanded(_ folder: SidebarAccountFolder) -> Bool {
+        !isCollapsible || !collapsed.contains(folder.key)
     }
 }
