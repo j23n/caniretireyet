@@ -117,7 +117,9 @@ struct PreviewPlanEngine: PlanEngine {
         let registry = AppTaxRegistry.standard
         let income = PlanResultsMapping.income(retiredYears, plan: plan, registry: registry)
         let taxes = PlanResultsMapping.taxes(retiredYears)
-        let spendingLine = retiredYears.map { YearValue(year: $0.year, value: PlanResultsMapping.whole($0.spending, $0)) }
+        let spendingLine = retiredYears.map {
+            YearValue(year: $0.year, value: PlanResultsMapping.whole($0.spending, $0))
+        }
 
         var timeline = [
             TimelineMarker(kind: .retirement, year: birth.year + target, age: target, label: "Retirement"),

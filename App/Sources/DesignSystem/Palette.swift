@@ -10,9 +10,9 @@ import SwiftUI
 ///   stacking order, bottom to top, and passes colour-blindness checks
 ///   between neighbouring bands.
 /// - **Lines, edges and small marks** (legend swatches, dots, thin bars)
-///   use ``stroke(for:)``: in light mode aqua, yellow and magenta have a
-///   darker step of the same hue there, so every mark reaches 3:1 on the
-///   chart surface. Washes keep the lighter step (``color(for:)``).
+///   use ``stroke(for:)``: in light mode orange, aqua, yellow and magenta
+///   have a darker step of the same hue there, so every mark reaches 3:1 on
+///   the card and on the page. Washes keep the lighter step (``color(for:)``).
 /// - **Everything else** is one hue, ``accent`` (blue), with labels.
 /// - **Actual history** is drawn in ``ink``, never a series colour.
 /// - **Changes** use ``positive`` and ``negative`` text, always with a sign
@@ -36,22 +36,24 @@ enum Palette {
 
     // MARK: Line steps
     //
-    // Validated as a set on the light chart surface (#fcfcfb): every slot
-    // reaches 3:1, worst neighbouring pair CVD ΔE 8.4, normal vision 18.8.
-    // In light mode aqua, yellow and magenta only reach 2.7, 2.1 and 2.6:1,
-    // so their lines take a darker step of the same hue: aqua and magenta
-    // the palette's dark-mode steps (3.3 and 3.8:1); yellow, whose dark-mode
-    // step falls just short (2.99:1), a step a little darker (3.1:1). In
-    // dark mode every slot already reaches 3:1 and the line step is the
-    // slot's colour.
+    // Charts sit on the card (#fcfcfb) or, like the Overview's history, on
+    // the page (#f4f4f1). On the card aqua, yellow and magenta reach only
+    // 2.7, 2.1 and 2.6:1, and on the page orange only 2.9:1 too, so their
+    // lines take a darker step of the same hue: orange, aqua and magenta
+    // the palette's dark-mode steps (3.5, 3.1 and 3.6:1 on the page);
+    // yellow, whose dark-mode step falls short (2.8:1), a step darker (3.1:1).
+    // Validated as a set on both surfaces: every slot reaches 3:1, worst
+    // neighbouring pair CVD ΔE 9.2, normal vision 18.2. In dark mode every
+    // slot already reaches 3:1 on both, and the line step is the slot's colour.
 
+    static let orangeStroke = Color("SeriesOrangeStroke")
     static let aquaStroke = Color("SeriesAquaStroke")
     static let yellowStroke = Color("SeriesYellowStroke")
     static let magentaStroke = Color("SeriesMagentaStroke")
 
     /// The categorical slots' line steps, in the order of ``series``: for
     /// lines, the edges along stacked areas, and small marks.
-    static let seriesStroke: [Color] = [blue, orange, aquaStroke, yellowStroke, magentaStroke, green, violet, red]
+    static let seriesStroke: [Color] = [blue, orangeStroke, aquaStroke, yellowStroke, magentaStroke, green, violet, red]
 
     // MARK: Roles
 
