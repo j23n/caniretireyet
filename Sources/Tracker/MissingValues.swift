@@ -1,26 +1,42 @@
 import Model
 
 /// What a series of values couldn't value: each missing price or FX rate,
-/// with the accounts it leaves incomplete and the dates it's missing on.
-/// Missing data is reported, never counted as zero (FILE_FORMAT.md, "How
-/// values are computed"), so a chart can leave those points out or mark
-/// them, and say what's missing under it.
+/// and each open account without a value yet, with the accounts it leaves
+/// incomplete and the dates it's missing on. Missing data is reported,
+/// never counted as zero (FILE_FORMAT.md, "How values are computed"), so a
+/// chart can leave those points out or mark them, and say what's missing
+/// under it.
 public struct MissingValues: Hashable, Sendable {
-    /// A price or an FX rate that's missing.
+    /// What's missing.
     public enum Item: Hashable, Sendable, Comparable {
         /// No FX rate from `from` to `to` on or before the date.
         case rate(from: CurrencyCode, to: CurrencyCode)
         /// No price for the instrument on or before the date.
         case price(InstrumentID)
+        /// The account is open but has no valuation on or before the date.
+        case noValuation(AccountID)
 
-        /// Rates first, then prices.
+        /// Rates first, then prices, then accounts without a value.
         public static func < (lhs: Item, rhs: Item) -> Bool {
             switch (lhs, rhs) {
             case (.rate(let a, let b), .rate(let c, let d)): (a, b) < (c, d)
-            case (.rate, .price): true
-            case (.price, .rate): false
             case (.price(let a), .price(let b)): a < b
+            case (.noValuation(let a), .noValuation(let b)): a < b
+            default: lhs.rank < rhs.rank
             }
+        }
+
+        private var rank: Int {
+            switch self {
+            case .rate: 0
+            case .price: 1
+            case .noValuation: 2
+            }
+        }
+
+        /// Whether it's a price or a rate, which *Fill In Past Prices* can fetch.
+        public var isPriceOrRate: Bool {
+            if case .noValuation = self { false } else { true }
         }
     }
 
@@ -48,19 +64,17 @@ public struct MissingValues: Hashable, Sendable {
         self.gaps = gaps.sorted { $0.item < $1.item }
     }
 
-    /// What `values` are missing: their missing prices and FX rates; `nil`
-    /// when there are none. An account without a valuation isn't counted
-    /// here (``Valuator/staleAccounts(on:threshold:in:)`` covers it).
+    /// What `values` are missing: their missing prices and FX rates, and
+    /// open accounts without a valuation; `nil` when there's nothing.
     public init?(_ values: [AccountValue]) {
         var accounts: [Item: Set<AccountID>] = [:]
         var dates: [Item: Set<CalendarDate>] = [:]
         for value in values {
             for problem in value.problems {
-                let item: Item
-                switch problem {
-                case .missingFX(_, let from, let to): item = .rate(from: from, to: to)
-                case .missingPrice(_, let instrument): item = .price(instrument)
-                case .noValuation: continue
+                let item: Item = switch problem {
+                case .missingFX(_, let from, let to): .rate(from: from, to: to)
+                case .missingPrice(_, let instrument): .price(instrument)
+                case .noValuation(let account): .noValuation(account)
                 }
                 accounts[item, default: []].insert(problem.account)
                 dates[item, default: []].insert(value.date)

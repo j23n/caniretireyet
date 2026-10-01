@@ -206,4 +206,14 @@ struct MissingValuesTests {
         #expect(valuator.missingValues(in: .netWorth, on: ["2025-10-31"]) == nil)
         #expect(MissingValues([]) == nil)
     }
+
+    @Test func openAccountsWithoutAValueComeLast() throws {
+        // The bank opened in January 2025 but has no value before September.
+        let missing = try #require(valuator.missingValues(in: .netWorth, on: ["2025-08-31", "2025-09-30"]))
+        #expect(missing.gaps.map(\.item) == [.rate(from: .usd, to: .eur), .price("nope"), .noValuation("bank")])
+        #expect(missing.gaps.last?.dates == ["2025-08-31"])
+        #expect(missing.gaps.map(\.item.isPriceOrRate) == [true, true, false])
+        let fetchable = missing.filter { $0.item.isPriceOrRate }
+        #expect(fetchable?.gaps.count == 2)
+    }
 }
