@@ -325,34 +325,55 @@ enum OverviewAttention {
     }
 
     /// Prices and exchange rates missing on month ends before `asOf`, which
-    /// leave accounts out of the net-worth history: one item each, with
-    /// *Fill In Past Prices*. (The latest check-in's own gaps are the items
-    /// above, typed in at the next check-in.)
+    /// leave accounts out of the net-worth history, with *Fill In Past
+    /// Prices*: an item per currency, and per instrument for one or two
+    /// (more are one item, so they don't crowd the card). The latest
+    /// check-in's own gaps are the items above, typed in at the next check-in.
     static func pastGaps(library: Library, valuator: Valuator, asOf: CalendarDate,
                          locale: Locale = .current) -> [OverviewAttentionItem] {
         let dates = valuator.dates(.monthEnds, in: .netWorth, through: asOf).filter { $0 < asOf }
         guard let missing = valuator.missingValues(in: .netWorth, on: dates)?.filter({ $0.item.isPriceOrRate })
         else { return [] }
-        return missing.gaps.compactMap { gap -> OverviewAttentionItem? in
-            let names = list(gap.accounts.map { library.accounts[$0]?.name ?? $0.rawValue })
-            let counted = "\(names) \(gap.accounts.count == 1 ? "isn't" : "aren't") fully counted in your net worth "
-                + MissingValueNote.when(gap.dates, locale: locale)
+        func counted(_ accounts: [AccountID], _ dates: [CalendarDate]) -> String {
+            let names = Set(accounts).map { library.accounts[$0]?.name ?? $0.rawValue }.sorted()
+            return "\(MissingValueNote.shortList(names)) \(names.count == 1 ? "isn't" : "aren't") fully counted in "
+                + "your net worth \(MissingValueNote.when(dates, locale: locale))"
+        }
+        var items: [OverviewAttentionItem] = []
+        var prices: [(InstrumentID, MissingValues.Gap)] = []
+        for gap in missing.gaps {
             switch gap.item {
             case .rate(let from, let to):
-                return OverviewAttentionItem(
+                items.append(OverviewAttentionItem(
                     id: "past.fx.\(from)-\(to)", systemImage: "arrow.left.arrow.right",
                     title: "Past exchange rates for \(AmountFormat.symbol(for: from, locale: locale)) are missing",
-                    detail: counted + ". Fill in past prices to fetch them.", target: .fillPastPrices)
+                    detail: counted(gap.accounts, gap.dates) + ". Fill in past prices to fetch them.",
+                    target: .fillPastPrices))
             case .price(let instrument):
-                return OverviewAttentionItem(
-                    id: "past.price.\(instrument)", systemImage: "tag.slash",
-                    title: "Past prices for \(library.instruments[instrument]?.name ?? instrument.rawValue) are missing",
-                    detail: counted + ". Fill in past prices to fetch them, or type them in.",
-                    target: .fillPastPrices)
+                prices.append((instrument, gap))
             case .noValuation:
-                return nil
+                break
             }
         }
+        func name(_ id: InstrumentID) -> String { library.instruments[id]?.name ?? id.rawValue }
+        let fetchOrType = ". Fill in past prices to fetch them, or type them in."
+        if prices.count > 2 {
+            let gaps = prices.map(\.1)
+            items.append(OverviewAttentionItem(
+                id: "past.prices", systemImage: "tag.slash",
+                title: "Past prices for \(prices.count) instruments are missing",
+                detail: "\(MissingValueNote.shortList(prices.map { name($0.0) })): "
+                    + counted(gaps.flatMap(\.accounts), Set(gaps.flatMap(\.dates)).sorted()) + fetchOrType,
+                target: .fillPastPrices))
+        } else {
+            for (instrument, gap) in prices {
+                items.append(OverviewAttentionItem(
+                    id: "past.price.\(instrument)", systemImage: "tag.slash",
+                    title: "Past prices for \(name(instrument)) are missing",
+                    detail: counted(gap.accounts, gap.dates) + fetchOrType, target: .fillPastPrices))
+            }
+        }
+        return items
     }
 
     /// Instruments held in accounts open on `asOf` whose latest price is
