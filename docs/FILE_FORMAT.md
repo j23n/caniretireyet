@@ -251,7 +251,7 @@ One file per calendar month. It holds the account valuations, trades, prices, FX
 ]
 ```
 
-The fields and types of a trade, and how holdings, cost and cash are worked out from them, are in [TRADES.md](TRADES.md#trades-in-the-files).
+The fields and types of a trade, and how holdings, cost and cash are worked out from them, are in [TRADES.md](TRADES.md#trades-in-the-files). A buy, sell, fee or tax with `"settlement": "external"` was paid from or into another account (gold bought from a dealer, paid from the bank): it leaves the account's cash alone, and its amount counts as money added or taken out ([TRADES.md](TRADES.md#paid-from-outside-the-account)).
 
 Rules:
 

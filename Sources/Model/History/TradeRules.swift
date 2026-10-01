@@ -127,6 +127,15 @@ extension Trade {
         if type == .split, quantity != nil || amount != nil {
             warning(nil, "A split only uses its instrument and ratio; quantity and amount are ignored.")
         }
+        if let settlement {
+            if !type.canSettleExternally {
+                warning("settlement", "Only a buy, a sell, a fee or a tax can be paid outside the account; the "
+                    + "settlement is ignored.")
+            } else if !settlement.isKnown {
+                warning("settlement", "The settlement \"\(settlement.rawValue)\" isn't known to this version of the "
+                    + "app: the trade counts as paid from the account's cash.")
+            }
+        }
         return problems
     }
 }

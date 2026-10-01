@@ -54,6 +54,53 @@ struct TradeRecordTests {
         #expect(!many.contains(fresh))
     }
 
+    @Test func settlementIsWrittenOnlyWhenGiven() throws {
+        let gold = Trade(account: "gold-coins", date: "2026-03-20", id: "buy-gold", type: .buy, instrument: "gold",
+                         quantity: d("31.1"), amount: d("-3026.03"), settlement: .external)
+        let json = try JSONValue(encoding: gold)
+        #expect(json["settlement"] == "external")
+        #expect(try json.decode(as: Trade.self) == gold)
+        #expect(gold.isSettledExternally)
+        #expect(gold.isFlow)
+        #expect(gold.problems.isEmpty)
+
+        var plain = gold
+        plain.settlement = nil
+        #expect(try JSONValue(encoding: plain)["settlement"] == nil)
+        #expect(!plain.isSettledExternally)
+        #expect(!plain.isFlow)
+        plain.settlement = .account
+        #expect(!plain.isSettledExternally)
+        #expect(try JSONValue(encoding: plain)["settlement"] == "account")
+
+        // A value a newer app wrote is kept, and counts as the account's own cash.
+        let newer: JSONValue = [
+            "account": "a", "date": "2026-01-02", "id": "x", "type": "sell", "instrument": "gold", "quantity": "1",
+            "amount": "70", "settlement": "escrow",
+        ]
+        let trade = try newer.decode(as: Trade.self)
+        #expect(trade.settlement == "escrow")
+        #expect(!trade.isSettledExternally)
+        #expect(trade.problems.map(\.field) == ["settlement"])
+        #expect(try JSONValue(encoding: trade)["settlement"] == "escrow")
+    }
+
+    @Test func onlyBuysSellsFeesAndTaxesSettleExternally() {
+        #expect(TradeType.knownValues.filter(\.canSettleExternally) == [.buy, .sell, .fee, .tax])
+        let fee = Trade(account: "a", date: "2026-01-02", id: "x", type: .fee, amount: -40, settlement: .external)
+        #expect(fee.isSettledExternally)
+        #expect(fee.problems.isEmpty)
+        let deposit = Trade(account: "a", date: "2026-01-02", id: "x", type: .deposit, amount: 40,
+                            settlement: .external)
+        #expect(!deposit.isSettledExternally)
+        #expect(deposit.isFlow)
+        #expect(deposit.problems.map(\.field) == ["settlement"])
+        #expect(deposit.problems.first?.severity == .warning)
+        let dividend = Trade(account: "a", date: "2026-01-02", id: "x", type: .dividend, amount: 4,
+                             settlement: .account)
+        #expect(dividend.problems.map(\.field) == ["settlement"])
+    }
+
     @Test func monthFilesLeaveOutAnEmptyTradeList() throws {
         let empty = try JSONValue(encoding: MonthFile(month: "2026-09"))
         #expect(empty["trades"] == nil)

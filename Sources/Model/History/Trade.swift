@@ -11,11 +11,11 @@ import Foundation
 ///
 /// | Type | Fields |
 /// | --- | --- |
-/// | `buy`, `sell` | `instrument`, `quantity`, `price` and/or `amount`; `fees`, `tax` |
+/// | `buy`, `sell` | `instrument`, `quantity`, `price` and/or `amount`; `fees`, `tax`, `settlement` |
 /// | `dividend` | `amount` (or `quantity` × `price`); `instrument`, `tax`, `fees` |
 /// | `interest` | `amount`; `tax` |
-/// | `fee` | `amount` (or `fees`) |
-/// | `tax` | `amount` (or `tax`) |
+/// | `fee` | `amount` (or `fees`); `settlement` |
+/// | `tax` | `amount` (or `tax`); `settlement` |
 /// | `deposit`, `withdrawal` | `amount` |
 /// | `transferIn`, `opening` | `instrument`, `quantity`; `cost` |
 /// | `transferOut` | `instrument`, `quantity` |
@@ -42,7 +42,9 @@ public struct Trade: Hashable, Sendable, KeyedRecord, KnownKeysProviding {
     /// proceeds, dividends, interest and deposits. It's net of ``fees`` and
     /// ``tax``: what the account's cash actually changed by. Optional where
     /// it can be computed from quantity × price (converted at the trade
-    /// date), fees and tax; when written, it wins.
+    /// date), fees and tax; when written, it wins. For a trade settled
+    /// outside the account (``settlement``), it's what was paid or received
+    /// elsewhere, signed the same way, and the account's cash doesn't change.
     public var amount: Decimal?
     /// Commissions and other costs, positive, in the account's currency.
     /// Part of ``amount``, and of a buy's purchase cost.
@@ -60,12 +62,21 @@ public struct Trade: Hashable, Sendable, KeyedRecord, KnownKeysProviding {
     public var note: String?
     /// Where the trade came from, e.g. `import`.
     public var source: DataSource?
+    /// Where a buy, a sell, a fee or a tax was paid from or into: the
+    /// account's cash (``TradeSettlement/account``, the default when `nil`),
+    /// or outside it (``TradeSettlement/external``): a buy paid from a bank
+    /// account, a sale whose proceeds went elsewhere. A trade settled
+    /// outside the account doesn't change its cash; its amount counts as
+    /// money added (a buy, a fee, a tax) or taken out (a sell). See
+    /// ``isSettledExternally``.
+    public var settlement: TradeSettlement?
 
     public init(
         account: AccountID, date: CalendarDate, id: TradeID = .random(), type: TradeType,
         instrument: InstrumentID? = nil, quantity: Decimal? = nil, price: Decimal? = nil,
         currency: CurrencyCode? = nil, amount: Decimal? = nil, fees: Decimal? = nil, tax: Decimal? = nil,
-        cost: Decimal? = nil, ratio: Decimal? = nil, note: String? = nil, source: DataSource? = nil
+        cost: Decimal? = nil, ratio: Decimal? = nil, note: String? = nil, source: DataSource? = nil,
+        settlement: TradeSettlement? = nil
     ) {
         self.account = account
         self.date = date
@@ -82,15 +93,31 @@ public struct Trade: Hashable, Sendable, KeyedRecord, KnownKeysProviding {
         self.ratio = ratio
         self.note = note
         self.source = source
+        self.settlement = settlement
     }
 
     public var key: TradeKey { TradeKey(account: account, date: date, id: id) }
+
+    /// Whether the trade was paid or received outside the account: its
+    /// ``settlement`` is ``TradeSettlement/external`` and its type can be
+    /// (``TradeType/canSettleExternally``: a buy, a sell, a fee or a tax).
+    /// Its cash effect on the account is then zero, and its amount is a
+    /// flow: money added for a buy, a fee or a tax, taken out for a sell.
+    public var isSettledExternally: Bool {
+        settlement == .external && type.canSettleExternally
+    }
+
+    /// Whether the trade moves money or securities into or out of the
+    /// account (a flow, PROGRESS.md): a deposit, withdrawal, transfer or
+    /// opening (``TradeType/isFlow``), or a trade settled outside it
+    /// (``isSettledExternally``).
+    public var isFlow: Bool { type.isFlow || isSettledExternally }
 }
 
 extension Trade: Codable {
     enum CodingKeys: String, CodingKey, CaseIterable {
         case account, date, id, type, instrument, quantity, price, currency, amount, fees, tax, cost, ratio, note,
-             source
+             source, settlement
     }
 
     public static var knownKeys: Set<String> { Set(CodingKeys.allCases.map(\.stringValue)) }
@@ -112,6 +139,7 @@ extension Trade: Codable {
         ratio = try c.decodeDecimalIfPresent(forKey: .ratio)
         note = try c.decodeIfPresent(String.self, forKey: .note)
         source = try c.decodeIfPresent(DataSource.self, forKey: .source)
+        settlement = try c.decodeIfPresent(TradeSettlement.self, forKey: .settlement)
     }
 
     public func encode(to encoder: any Encoder) throws {
@@ -131,6 +159,7 @@ extension Trade: Codable {
         try c.encodeDecimalIfPresent(ratio, forKey: .ratio)
         try c.encodeIfPresent(note, forKey: .note)
         try c.encodeIfPresent(source, forKey: .source)
+        try c.encodeIfPresent(settlement, forKey: .settlement)
     }
 }
 
@@ -139,7 +168,8 @@ public struct TradeType: OpenEnum {
     public let rawValue: String
     public init(rawValue: String) { self.rawValue = rawValue }
 
-    /// Units bought with the account's cash.
+    /// Units bought with the account's cash (or, settled externally, paid
+    /// from outside the account).
     public static let buy: TradeType = "buy"
     /// Units sold for cash.
     public static let sell: TradeType = "sell"
@@ -187,6 +217,14 @@ extension TradeType {
         self == .deposit || self == .withdrawal || self == .transferIn || self == .transferOut || self == .opening
     }
 
+    /// Whether a trade of this type can be settled outside the account
+    /// (``Trade/settlement``): a buy, a sell, a fee or a tax, the payments
+    /// that a holding kept outside a broker (coins, bars, a property) makes
+    /// and gets through another account.
+    public var canSettleExternally: Bool {
+        self == .buy || self == .sell || self == .fee || self == .tax
+    }
+
     /// Where trades of this type go among a day's trades (see
     /// ``Swift/Sequence/inProcessingOrder()``): a split first, so the day's
     /// other trades are in post-split units; then what brings units and
@@ -209,6 +247,23 @@ extension TradeType {
         default: 12
         }
     }
+}
+
+/// Where a trade was paid from or into (``Trade/settlement``).
+public struct TradeSettlement: OpenEnum {
+    public let rawValue: String
+    public init(rawValue: String) { self.rawValue = rawValue }
+
+    /// The account's own cash: a buy takes from it, a sale adds to it. The
+    /// default.
+    public static let account: TradeSettlement = "account"
+    /// Outside the account: a buy paid from a bank account (gold bought from
+    /// a dealer), a sale whose proceeds went straight elsewhere, a vault's fee
+    /// billed to the bank. The account's cash doesn't change; the amount is
+    /// money added or taken out.
+    public static let external: TradeSettlement = "external"
+
+    public static let knownValues: [TradeSettlement] = [.account, .external]
 }
 
 /// The ID of a trade: a slug, unique among its account's trades on its date.

@@ -99,6 +99,43 @@ struct TradeStorageTests {
         #expect(trades[2]["fees"] == "5")
     }
 
+    @Test func aBuyPaidFromOutsideTheAccountIsWrittenAndReadBack() throws {
+        let folder = try TemporaryFolder.exampleLibrary()
+        try addBroker(to: folder)
+        let previous = try folder.library.load().library
+        var library = previous
+        let external = Trade(account: "broker", date: "2026-10-12", id: "gold1abc", type: .buy, instrument: "gold",
+                             quantity: .d("31.1"), amount: .d("-3026.03"), settlement: .external)
+        library.upsert(external)
+        try folder.library.save(library, previous: previous)
+
+        #expect(try folder.text(october).contains("""
+                {
+                  "account": "broker",
+                  "amount": "-3026.03",
+                  "date": "2026-10-12",
+                  "id": "gold1abc",
+                  "instrument": "gold",
+                  "quantity": "31.1",
+                  "settlement": "external",
+                  "type": "buy"
+                }
+            """))
+        let loaded = try folder.library.load()
+        #expect(loaded.library.trades(for: "broker") == [external])
+        #expect(loaded.report.issues(for: october).isEmpty)
+
+        // A settlement on a type that can't have one is pointed out, and kept.
+        var deposit = deposit
+        deposit.settlement = .external
+        var withDeposit = loaded.library
+        withDeposit.upsert(deposit)
+        try folder.library.save(withDeposit, previous: loaded.library)
+        let reloaded = try folder.library.load()
+        #expect(reloaded.report.issues(for: october).map(\.message).contains { $0.contains("settlement is ignored") })
+        #expect(reloaded.library.trade(deposit.key)?.settlement == .external)
+    }
+
     @Test func aTradeTheModelCannotReadIsKeptOnRewrite() throws {
         let folder = try TemporaryFolder.exampleLibrary()
         try addBroker(to: folder)

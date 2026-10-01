@@ -65,11 +65,12 @@ From the example library (`history/2026/2026-08.json` and `2026-07.json`):
 | `quantity` | Units, **always positive**; the type says the direction. |
 | `price` | Per unit, in `currency`. |
 | `currency` | The price's currency. Default: the instrument's (the account's without an instrument). |
-| `amount` | The **cash effect** on the account, in the **account's** currency, signed: negative for a buy, a fee, a tax or a withdrawal; positive for sale proceeds, dividends, interest and deposits. It's what the cash actually changed by, **net of `fees` and `tax`**. Optional where it can be computed; when written, it wins (it's what the broker charged, at the broker's FX rate). |
+| `amount` | The **cash effect** on the account, in the **account's** currency, signed: negative for a buy, a fee, a tax or a withdrawal; positive for sale proceeds, dividends, interest and deposits. It's what the cash actually changed by, **net of `fees` and `tax`**. Optional where it can be computed; when written, it wins (it's what the broker charged, at the broker's FX rate). For a trade [paid from outside the account](#paid-from-outside-the-account), it's what was paid or received there, signed the same way. |
 | `fees` | Commissions, positive, in the account's currency. Part of `amount`. |
 | `tax` | Tax withheld, positive, in the account's currency: on a sale's gain, a dividend or interest, or a transaction tax on a buy (e.g. the Italian FTT). Part of `amount`. |
 | `cost` | The total purchase cost carried, for `opening` and `transferIn`. Without it, the cost is unknown. |
 | `ratio` | For `split`: new units per old unit. `"2"` for a 2-for-1 split, `"0.1"` for a 1-for-10 reverse split. |
+| `settlement` | For `buy`, `sell`, `fee` and `tax`: where it was paid from or into. `account` (the default, left out): the account's cash. `external`: **outside the account**, e.g. gold bought from a dealer and paid from a bank account, or a sale whose proceeds went to the bank. Such a trade doesn't change the account's cash; its amount is money added or taken out ([Paid from outside the account](#paid-from-outside-the-account)). An open enum: a value this version doesn't know counts as `account`, and is pointed out. |
 | `note`, `source` | Free text, and where it came from (`manual`, `import`, …). |
 
 Decimals are strings, as everywhere ([Conventions](FILE_FORMAT.md#conventions)).
@@ -78,18 +79,45 @@ Decimals are strings, as everywhere ([Conventions](FILE_FORMAT.md#conventions)).
 
 | Type | Fields | Cash effect when there's no `amount` |
 | --- | --- | --- |
-| `buy` | `instrument`, `quantity`, `price` and/or `amount`; `fees`, `tax` | −(quantity × price + fees + tax) |
-| `sell` | `instrument`, `quantity`, `price` and/or `amount`; `fees`, `tax` | quantity × price − fees − tax |
+| `buy` | `instrument`, `quantity`, `price` and/or `amount`; `fees`, `tax`, `settlement` | −(quantity × price + fees + tax) |
+| `sell` | `instrument`, `quantity`, `price` and/or `amount`; `fees`, `tax`, `settlement` | quantity × price − fees − tax |
 | `dividend` | `amount` (or `quantity` and the dividend per unit as `price`); `instrument`, `tax`, `fees` | quantity × price − fees − tax |
 | `interest` | `amount`; `tax` | as a dividend |
-| `fee` | `amount` (or `fees`) | −fees |
-| `tax` | `amount` (or `tax`): a tax charged on its own, e.g. imposta di bollo | −tax |
+| `fee` | `amount` (or `fees`); `settlement` | −fees |
+| `tax` | `amount` (or `tax`): a tax charged on its own, e.g. imposta di bollo; `settlement` | −tax |
 | `deposit`, `withdrawal` | `amount`: money into or out of the account | — (needed) |
 | `transferIn`, `transferOut` | `instrument`, `quantity`, `cost` (in): securities moved between accounts or brokers | 0 (−fees if any) |
 | `split` | `instrument`, `ratio` | 0 |
 | `opening` | `instrument`, `quantity`, `cost`: a holding on the date the account's history starts | 0 |
 
-quantity × price is converted into the account's currency at the latest FX rate on or before the trade date ([FILE_FORMAT.md](FILE_FORMAT.md), FX direction), and computed amounts are rounded to cents.
+quantity × price is converted into the account's currency at the latest FX rate on or before the trade date ([FILE_FORMAT.md](FILE_FORMAT.md), FX direction), and computed amounts are rounded to cents. A trade with `"settlement": "external"` has a cash effect of 0: its amount, worked out the same way, was paid or received outside the account.
+
+### Paid from outside the account
+
+A broker account holds cash: you deposit money and buy with it. Precious metals bought from a dealer, or anything bought with money that never sits in the account, are paid from somewhere else. A plain `buy` would then take the account's cash below zero, and the account would be worth the gold minus what it cost, about nothing. So a `buy`, `sell`, `fee` or `tax` can say it was settled outside the account (`Trade.settlement`, `TradeSettlement.external`; `Trade.isSettledExternally`):
+
+```json
+{
+  "account": "gold-coins",
+  "amount": "-3026.03",
+  "date": "2026-03-20",
+  "id": "buy-gold",
+  "instrument": "gold",
+  "quantity": "31.1",
+  "settlement": "external",
+  "type": "buy"
+}
+```
+
+(Made up: 31,1 g of gold, paid from the bank.)
+
+- **Cash.** Its cash effect is 0: the account's cash doesn't change.
+- **Flows.** Its amount is a [flow](#flows) on its date: an external buy's cost (quantity × price × FX + fees + tax, or −`amount`) is **money added**, an external sell's proceeds are **money taken out**, and an external fee or tax is money added that the fee then took. So the account is worth what it holds, and its return is the gold's.
+- **Cost and gains** are what they'd be for the same trade paid from the account's cash: a buy adds what it cost to the average cost, and a sale's realised gain is its proceeds before tax minus the average cost.
+- `settlement` on another type is pointed out and ignored. Dividends and interest paid elsewhere are a dividend and a withdrawal, as before.
+- It replaces the old workaround of a `deposit` of the same amount on the day of every buy, which went wrong when the buy was edited or deleted.
+
+The app's Add Trade sheet offers it as *Paid from outside this account* (a buy, fee or tax) and *Proceeds leave this account* (a sale), on by default for a metals account and for a trades account that has never held cash (`Library.hasHeldCash(_:)`: no valuation with cash other than zero, no deposit and no sale whose proceeds stayed in it; `Library.defaultSettlement(for:in:)`). On the command line: `retire trades add … --paid-from-outside` or `--proceeds-out`.
 
 ### Order within a day
 
