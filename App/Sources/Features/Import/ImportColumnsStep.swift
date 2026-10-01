@@ -16,8 +16,14 @@ struct ImportColumnsStep: View {
             compactList
         } else {
             VStack(alignment: .leading, spacing: 0) {
-                ImportColumnsSettings(model: model)
-                    .padding(Metrics.l)
+                // At most half the page, scrolling beyond: with many issues
+                // the settings would otherwise push the table out, and make
+                // the Mac window taller than the screen.
+                OverflowScrollView(maxShare: 0.5) {
+                    ImportColumnsSettings(model: model)
+                        .padding(Metrics.l)
+                }
+                .layoutPriority(1)
                 Divider()
                 ImportColumnsTable(model: model)
             }

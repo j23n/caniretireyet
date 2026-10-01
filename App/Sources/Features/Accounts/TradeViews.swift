@@ -354,55 +354,53 @@ struct TradeFilterMenu: View {
 #if os(macOS)
 /// The trades as a table on the Mac: date, type, instrument, quantity,
 /// price, amount and note. Double-click (or the context menu) edits one.
+/// It's as tall as its lines, so the account's page scrolls them with the
+/// rest (`PageTable`).
 struct TradesTable: View {
     let items: [TradeListItem]
     let currency: CurrencyCode
     let edit: (TradeKey) -> Void
     let delete: (TradeKey) -> Void
 
-    @State private var selection: TradeKey?
+    private enum Columns {
+        static let date = PageTableColumn(min: 80, max: 110)
+        static let type = PageTableColumn(min: 80, max: 140)
+        static let instrument = PageTableColumn(min: 50, max: 140)
+        static let quantity = PageTableColumn(min: 56, max: 100, alignment: .trailing)
+        static let price = PageTableColumn(min: 56, max: 100, alignment: .trailing)
+        static let amount = PageTableColumn(min: 84, max: 140, alignment: .trailing)
+        static let note = PageTableColumn(min: 0, max: .infinity)
+    }
 
     var body: some View {
-        Table(items, selection: $selection) {
-            TableColumn("Date") { (item: TradeListItem) in
-                Text(AmountFormat.mediumDate(item.date))
-                    .monospacedDigit()
-            }
-            .width(min: 90, ideal: 105)
-            TableColumn("Type") { (item: TradeListItem) in
-                TradeTableTypeCell(item: item)
-            }
-            .width(min: 100, ideal: 120)
-            TableColumn("Instrument") { (item: TradeListItem) in
-                Text(item.instrumentLabel ?? "")
-                    .lineLimit(1)
-            }
-            .width(min: 70, ideal: 90)
-            TableColumn("Quantity") { (item: TradeListItem) in
-                TradeTableNumberCell(value: item.trade.quantity ?? item.trade.ratio, digits: 8)
-            }
-            .width(min: 70, ideal: 90)
-            TableColumn("Price") { (item: TradeListItem) in
-                TradeTableNumberCell(value: item.trade.price, digits: 4)
-            }
-            .width(min: 70, ideal: 90)
-            TableColumn("Amount") { (item: TradeListItem) in
-                TradeTableAmountCell(item: item, currency: currency)
-            }
-            .width(min: 100, ideal: 130)
-            TableColumn("Note") { (item: TradeListItem) in
-                Text([item.settlementLabel, item.trade.note].compactMap { $0 }.joined(separator: " · "))
-                    .foregroundStyle(Palette.secondaryInk)
-                    .lineLimit(1)
-            }
-        }
-        .contextMenu(forSelectionType: TradeKey.self) { keys in
-            if let key = keys.first {
-                Button("Edit Trade…") { edit(key) }
-                Button("Delete Trade…", role: .destructive) { delete(key) }
-            }
-        } primaryAction: { keys in
-            if let key = keys.first { edit(key) }
+        PageTable(items, open: edit) {
+            Text("Date").pageTableColumn(Columns.date)
+            Text("Type").pageTableColumn(Columns.type)
+            Text("Instrument").pageTableColumn(Columns.instrument)
+            Text("Quantity").pageTableColumn(Columns.quantity)
+            Text("Price").pageTableColumn(Columns.price)
+            Text("Amount").pageTableColumn(Columns.amount)
+            Text("Note").pageTableColumn(Columns.note)
+        } row: { item in
+            Text(AmountFormat.mediumDate(item.date))
+                .monospacedDigit()
+                .pageTableColumn(Columns.date)
+            TradeTableTypeCell(item: item)
+                .pageTableColumn(Columns.type)
+            Text(item.instrumentLabel ?? "")
+                .pageTableColumn(Columns.instrument)
+            TradeTableNumberCell(value: item.trade.quantity ?? item.trade.ratio, digits: 8)
+                .pageTableColumn(Columns.quantity)
+            TradeTableNumberCell(value: item.trade.price, digits: 4)
+                .pageTableColumn(Columns.price)
+            TradeTableAmountCell(item: item, currency: currency)
+                .pageTableColumn(Columns.amount)
+            Text([item.settlementLabel, item.trade.note].compactMap { $0 }.joined(separator: " · "))
+                .foregroundStyle(Palette.secondaryInk)
+                .pageTableColumn(Columns.note)
+        } menu: { item in
+            Button("Edit Trade…") { edit(item.id) }
+            Button("Delete Trade…", role: .destructive) { delete(item.id) }
         }
     }
 }
