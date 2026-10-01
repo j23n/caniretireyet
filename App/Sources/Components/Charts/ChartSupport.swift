@@ -77,6 +77,25 @@ func amountAxis(hidesAmounts: Bool, desiredCount: Int = 4) -> some AxisContent {
     }
 }
 
+/// The y axis of a chart with an ``AmountScale``: faint gridlines at the
+/// scale's ticks, labelled compactly so no two read alike (never "−0"), on
+/// the leading edge, or no labels while amounts are hidden. The chart sets
+/// `.chartYScale(domain: scale.domain)` to match.
+func amountAxis(hidesAmounts: Bool, scale: AmountScale) -> some AxisContent {
+    AxisMarks(position: .leading, values: scale.ticks) { value in
+        AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5))
+            .foregroundStyle(Palette.gridline)
+        AxisValueLabel {
+            if let amount = value.as(Double.self) {
+                Text(verbatim: hidesAmounts ? "" : scale.label(amount))
+                    .font(.caption2)
+                    .monospacedDigit()
+                    .foregroundStyle(Palette.mutedInk)
+            }
+        }
+    }
+}
+
 /// The date axis most charts use: a few year or month labels, no grid.
 /// `spansYears` chooses year labels over month labels.
 func dateAxis(spansYears: Bool, desiredCount: Int = 4) -> some AxisContent {

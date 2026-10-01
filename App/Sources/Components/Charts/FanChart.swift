@@ -9,7 +9,7 @@ import Tracker
 ///
 /// - `actual` draws your real past values as a solid line in ink, so "what
 ///   happened" never looks like "what was projected" (Progress: actual vs
-///   baseline; *Future* history).
+///   baseline; *Future* history); dashed and grey where a total is partial.
 /// - `markers` label retirement, locked money becoming accessible, pension
 ///   starts, windfalls and large expenses along the time axis.
 /// - Drag across it to read the percentiles at any date.
@@ -62,10 +62,16 @@ struct FanChart: View {
                     }
             }
 
-            ForEach(actual) { point in
-                LineMark(x: .value("Date", point.date), y: .value("Actual", point.value), series: .value("Series", "Actual"))
-                    .foregroundStyle(Palette.ink)
-                    .lineStyle(StrokeStyle(lineWidth: Metrics.lineWidth, lineCap: .round, lineJoin: .round))
+            // Dashed and grey where a past total is partial (a price or rate missing).
+            ForEach(actual.segments) { segment in
+                ForEach(segment.points) { point in
+                    LineMark(x: .value("Date", point.date), y: .value("Actual", point.value),
+                             series: .value("Series", "Actual \(segment.id)"))
+                        .foregroundStyle(segment.isComplete ? Palette.ink : Palette.secondaryInk)
+                        .lineStyle(segment.isComplete
+                            ? StrokeStyle(lineWidth: Metrics.lineWidth, lineCap: .round, lineJoin: .round)
+                            : StrokeStyle(lineWidth: Metrics.lineWidth, lineCap: .round, lineJoin: .round, dash: [3, 4]))
+                }
             }
 
             ForEach(markers) { marker in
@@ -85,7 +91,7 @@ struct FanChart: View {
                     .foregroundStyle(Palette.axis)
                     .lineStyle(StrokeStyle(lineWidth: 1))
                     .annotation(position: .top, spacing: 4,
-                                overflowResolution: .init(x: .fit(to: .chart), y: .disabled)) {
+                                overflowResolution: .init(x: .fit(to: .chart), y: .fit(to: .chart))) {
                         callout(for: selected)
                     }
             }
