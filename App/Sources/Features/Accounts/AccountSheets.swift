@@ -265,11 +265,12 @@ struct UpdateValueSheet: View {
         }
     }
 
-    /// "New money", or for pension funds and the like "Paid in since 30 Jun".
+    /// "New money", or for pension funds and the like "Paid in since 30 Jun"
+    /// ("since 30 Jun 2025" in another year).
     private func flowTitle(rule: FlowDefault, previous: Valuation?) -> String {
         guard rule == .ask else { return "New money" }
         guard let previous else { return "Paid in" }
-        return "Paid in since \(AmountFormat.shortDate(previous.date, locale: locale))"
+        return "Paid in since \(AmountFormat.shortDate(previous.date, relativeTo: .today(), locale: locale))"
     }
 
     private func text(_ value: Decimal?) -> String {

@@ -125,7 +125,7 @@ private struct OverviewHeroView: View {
         if let change = hero.sinceLastCheckIn, let from = hero.lastCheckIn {
             HStack(spacing: Metrics.xs) {
                 DeltaText(change)
-                Text("since \(AmountFormat.shortDate(from))")
+                Text("since \(AmountFormat.shortDate(from, relativeTo: .today()))")
                     .foregroundStyle(Palette.secondaryInk)
             }
         }
