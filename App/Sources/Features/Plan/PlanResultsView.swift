@@ -333,12 +333,17 @@ struct PlanSuccessCard: View {
 }
 
 /// Your money over time: the fan in one hue, your actual history in ink,
-/// and markers for retirement, pensions, locked money and events.
+/// and markers for retirement, pensions, locked money and events. One
+/// control sets the time span, how far back and how far ahead (shared with
+/// the Overview's chart and remembered on the device), so the years that
+/// matter aren't a sliver of a chart running to 95.
 struct PlanFanCard: View {
     let session: PlanSession
     let results: PlanResults
 
     @Environment(LibraryStore.self) private var library
+    @Environment(AppPreferences.self) private var preferences
+    @AppStorage("overview.range") private var range: OverviewRange = .threeYears
 
     private var actual: [ChartPoint] {
         PlanActualHistory.points(library: library.library, valuator: library.valuator, through: results.start.date,
@@ -346,12 +351,26 @@ struct PlanFanCard: View {
     }
 
     var body: some View {
+        let now = results.start.date.dateValue
+        let retirement = results.retirementDate
+        let window = ProjectionWindow(now: now, range: range, horizon: preferences.futureHorizon,
+                                      retirement: retirement, planEnd: results.portfolio.last?.date ?? now)
+        let history = window.history(actual)
         Card {
-            PlanFanLegend(showsActual: true)
-            FanChart(fan: results.portfolio, actual: actual, markers: results.markers)
-            Text("In today's euros. Markers: retirement, pensions, locked money opening, windfalls and expenses.")
-                .font(.caption)
-                .foregroundStyle(Palette.mutedInk)
+            HStack {
+                TimeSpanMenu(range: $range, horizon: preferences.horizonBinding(start: now, retirement: retirement),
+                             choices: FutureHorizon.choices(start: now, retirement: retirement))
+                Spacer(minLength: 0)
+            }
+            FanChart(fan: window.fan(results.portfolio), actual: history,
+                     markers: window.markers(results.markers, from: history.first?.date ?? now), showsLegend: true)
+            ChartCaption(
+                text: "In today's euros.",
+                detail: "Your plan assets in today's euros: your actual values in ink, then the plan's projection. "
+                    + "The line is the median of the simulated futures, the darker band holds half of them and the "
+                    + "lighter band 8 in 10; the lighter band can run off the top, so the rest stays readable. "
+                    + "Markers show retirement, pensions starting, locked money becoming accessible, windfalls and "
+                    + "large expenses. The time span menu sets how far back and ahead the chart reaches.")
         } header: {
             SectionHeader((results.details?.focus.age ?? session.shownFocusAge)
                 .map { "Your money over time · retiring at \($0)" } ?? "Your money over time")
@@ -359,29 +378,13 @@ struct PlanFanCard: View {
     }
 }
 
-/// The fan chart's key: actual, median and the two bands.
+/// The fan chart's key: actual, median and the two bands, for a fan chart
+/// that doesn't show its own (`FanChart(showsLegend: false)`).
 struct PlanFanLegend: View {
     var showsActual = true
 
     var body: some View {
-        HStack(spacing: Metrics.m) {
-            if showsActual {
-                item("Actual") { Capsule().fill(Palette.ink).frame(width: 14, height: 2) }
-            }
-            item("Median") { Capsule().fill(Palette.accent).frame(width: 14, height: 2) }
-            item("25–75%") { RoundedRectangle(cornerRadius: 2).fill(Palette.accent.opacity(0.28)).frame(width: 14, height: 10) }
-            item("10–90%") { RoundedRectangle(cornerRadius: 2).fill(Palette.accent.opacity(0.14)).frame(width: 14, height: 10) }
-        }
-        .font(.caption)
-        .foregroundStyle(Palette.secondaryInk)
-        .accessibilityElement(children: .combine)
-    }
-
-    private func item<Swatch: View>(_ title: String, @ViewBuilder swatch: () -> Swatch) -> some View {
-        HStack(spacing: Metrics.xs) {
-            swatch()
-            Text(title)
-        }
+        ProjectionLegend(showsActual: showsActual)
     }
 }
 
