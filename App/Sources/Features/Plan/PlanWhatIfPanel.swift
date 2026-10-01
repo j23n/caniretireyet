@@ -2,13 +2,16 @@ import Model
 import SwiftUI
 
 /// What if… (UI.md, "What if"): sliders for retirement age, spending,
-/// saving and equity return. Results follow as you drag, with fewer runs;
-/// letting go runs them all. The headline shows the difference
-/// ("Earliest 54 → 53"); *Keep* writes the change into the plan, *Reset*
-/// throws it away. On iPhone it's a bottom sheet; on the Mac, in the inspector.
+/// saving and equity return. Moving one runs nothing: the answer next to
+/// the sliders says it's from before the change until *Run What-If* runs
+/// a quick estimate with fewer runs, then every run. The headline then
+/// shows the difference ("Earliest 54 → 53"); *Keep* writes the change into
+/// the plan, *Reset* throws it away. On iPhone it's a bottom sheet; on the
+/// Mac, in the inspector.
 struct PlanWhatIfPanel: View {
     let session: PlanSession
-    /// Shows the answer at the top (the iPhone sheet covers the headline).
+    /// Shows the answer at the top even without a what-if (the iPhone sheet
+    /// covers the headline).
     var showsAnswer = false
 
     @Environment(\.locale) private var locale
@@ -26,12 +29,12 @@ struct PlanWhatIfPanel: View {
                     Button("Reset") { session.reset() }
                         .buttonStyle(.borderless)
                     Button("Keep") { session.keep() }
-                        .buttonStyle(.borderedProminent)
+                        .buttonStyle(.bordered)
                         .controlSize(.small)
                         .disabled(!session.canEdit)
                 }
             }
-            if showsAnswer {
+            if showsAnswer || session.hasWhatIf {
                 answer
             }
             if let model = session.whatIfModel {
@@ -39,44 +42,77 @@ struct PlanWhatIfPanel: View {
                     sliderRow(slider, model: model, value: binding(slider, $session))
                 }
             }
+            run
             Text(footnote)
                 .font(.caption)
                 .foregroundStyle(Palette.mutedInk)
+                .fixedSize(horizontal: false, vertical: true)
         }
         #if os(iOS)
-        // A light tap when a slider moves the earliest age (UI.md, "Haptics").
+        // A light tap when a what-if run moves the earliest age (UI.md, "Haptics").
         .sensoryFeedback(.selection, trigger: session.shownResults?.headline.earliestAge)
         #endif
     }
 
     private var footnote: String {
         let runs = session.plan?.simulation.effectiveRuns ?? 2_000
-        return "Fewer runs while you drag · all \(AmountFormat.number(Decimal(runs), locale: locale)) when you let go"
+        return "Moving a slider runs nothing. Run What-If gives a quick estimate, then all "
+            + "\(AmountFormat.number(Decimal(runs), locale: locale)) runs."
     }
 
-    /// "Not yet · Earliest 54 → 53".
+    /// Run What-If while the what-if is out of date; its progress while it runs.
+    @ViewBuilder
+    private var run: some View {
+        if session.isRunningWhatIf, let progress = session.runProgress {
+            PlanRunProgressView(progress: progress, onCancel: { session.cancel() })
+        } else if session.whatIfIsOutOfDate {
+            Button {
+                session.runWhatIf()
+            } label: {
+                Label("Run What-If", systemImage: "play.fill")
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.borderedProminent)
+            .disabled(session.isRunning)
+        }
+    }
+
+    /// "Not yet · Earliest 54 → 53", or the answer from before the change.
     private var answer: some View {
-        HStack(spacing: Metrics.s) {
-            if let results = session.shownResults {
-                Text(PlanResultsText.answer(results.headline))
-                    .font(.title3.weight(.bold))
-                if let base = session.baseResults, session.hasWhatIf,
-                   let change = PlanResultsText.change(from: base.headline.earliestAge,
-                                                       to: results.headline.earliestAge) {
-                    Text("Earliest \(change)")
-                        .foregroundStyle(Palette.accent)
-                } else if let age = results.headline.earliestAge {
-                    Text("Earliest \(age)")
+        VStack(alignment: .leading, spacing: 2) {
+            HStack(spacing: Metrics.s) {
+                if let results = session.shownResults {
+                    Text(PlanResultsText.answer(results.headline))
+                        .font(.title3.weight(.bold))
+                    if let change {
+                        Text("Earliest \(change)")
+                            .foregroundStyle(Palette.accent)
+                    } else if let age = results.headline.earliestAge {
+                        Text("Earliest \(age)")
+                            .foregroundStyle(Palette.secondaryInk)
+                    }
+                } else {
+                    Text("No answer yet")
                         .foregroundStyle(Palette.secondaryInk)
                 }
+                Spacer(minLength: 0)
             }
-            Spacer(minLength: 0)
-            if session.isRunning {
-                ProgressView()
-                    .controlSize(.small)
+            .font(.subheadline.weight(.semibold))
+            .monospacedDigit()
+            if session.whatIfIsOutOfDate {
+                Label(PlanRunText.beforeWhatIf, systemImage: "clock.arrow.circlepath")
+                    .font(.caption)
+                    .foregroundStyle(Palette.secondaryInk)
             }
         }
-        .font(.subheadline.weight(.semibold))
+        .accessibilityElement(children: .combine)
+    }
+
+    /// "54 → 53" when the what-if's own results move the earliest age.
+    private var change: String? {
+        guard session.hasWhatIf, !session.whatIfIsOutOfDate, session.baseIsUpToDate,
+              let base = session.baseResults, let results = session.shownResults else { return nil }
+        return PlanResultsText.change(from: base.headline.earliestAge, to: results.headline.earliestAge)
     }
 
     /// The slider's value in the session.
@@ -101,9 +137,7 @@ struct PlanWhatIfPanel: View {
                     .font(.subheadline.weight(model.isChanged(slider) ? .semibold : .regular))
                     .foregroundStyle(model.isChanged(slider) ? Palette.accent : Palette.ink)
             }
-            Slider(
-                value: binding, in: model.range(slider), step: slider.step,
-                onEditingChanged: { editing in session.setDragging(editing) })
+            Slider(value: binding, in: model.range(slider), step: slider.step)
                 .disabled(!model.isAvailable(slider))
                 .accessibilityLabel(Text(slider.title))
         }

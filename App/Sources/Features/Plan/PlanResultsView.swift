@@ -6,6 +6,12 @@ import SwiftUI
 /// retirement age, the money over time, retirement income, when it fails
 /// and, on the Mac and iPad, the key numbers. On iPhone the What-if panel
 /// opens from the headline; on the Mac it's in the inspector.
+///
+/// Nothing runs on its own (UI.md, "Calculating"): before the first
+/// calculation it shows the answer recorded at the last check-in and
+/// *Calculate*; when the plan, the library or the what-if changed, an
+/// *Out of date* banner with *Recalculate* or *Run What-If*; while a run
+/// goes, its progress with *Cancel*, over the old results dimmed.
 struct PlanResultsView: View {
     let session: PlanSession
     /// The sidebar layout: two columns and the key numbers.
@@ -17,33 +23,27 @@ struct PlanResultsView: View {
     @Environment(PlanStore.self) private var plans
 
     var body: some View {
+        let state = session.state
         ScrollView {
             VStack(alignment: .leading, spacing: Metrics.l) {
                 PlanResultsBanners(session: session)
-                if let results = session.shownResults {
-                    PlanHeadlineCard(session: session, results: results, isWide: isWide, onWhatIf: onWhatIf)
-                    if isWide {
-                        Grid(alignment: .topLeading, horizontalSpacing: Metrics.l, verticalSpacing: Metrics.l) {
-                            GridRow {
-                                PlanSuccessCard(session: session, results: results)
-                                PlanFanCard(session: session, results: results)
-                            }
-                            GridRow {
-                                PlanIncomeCard(results: results)
-                                VStack(spacing: Metrics.l) {
-                                    PlanKeyNumbersCard(results: results)
-                                    PlanFailureCard(results: results)
-                                }
-                            }
-                        }
-                    } else {
-                        PlanSuccessCard(session: session, results: results)
-                        PlanFanCard(session: session, results: results)
-                        PlanIncomeCard(results: results)
-                        PlanFailureCard(results: results)
+                if let progress = state.progress {
+                    Card {
+                        PlanRunProgressView(progress: progress, isCheckIn: session.isCheckInRun,
+                                            onCancel: state.canCancel ? { session.cancel() } : nil)
                     }
                 } else {
-                    PlanResultsPlaceholder(session: session)
+                    PlanOutOfDateBanner(state: state) { session.perform($0) }
+                }
+                if let results = state.results {
+                    resultCards(results)
+                        .opacity(state.isRunning ? 0.4 : state.isOutOfDate ? 0.65 : 1)
+                        .animation(.default, value: state.dimsResults)
+                } else if !state.isRunning {
+                    PlanCalculatePrompt(state: state, runs: session.plan?.simulation.effectiveRuns ?? 2_000,
+                                        isAvailable: plans.isAvailable) {
+                        session.calculate()
+                    }
                 }
             }
             .padding(Metrics.l)
@@ -52,29 +52,30 @@ struct PlanResultsView: View {
         }
         .background(Palette.page)
     }
-}
 
-/// Before the first results: running, or why the plan can't run.
-private struct PlanResultsPlaceholder: View {
-    let session: PlanSession
-    @Environment(PlanStore.self) private var plans
-
-    var body: some View {
-        Card("Can I retire yet?") {
-            if session.isRunning {
-                HStack(spacing: Metrics.s) {
-                    ProgressView()
-                        .controlSize(.small)
-                    Text("Simulating…")
-                        .foregroundStyle(Palette.secondaryInk)
-                }
-            } else if plans.isAvailable, session.runError == nil {
-                Button("Run the plan") {
-                    Task { await session.refresh() }
+    @ViewBuilder
+    private func resultCards(_ results: PlanResults) -> some View {
+        VStack(alignment: .leading, spacing: Metrics.l) {
+            PlanHeadlineCard(session: session, results: results, isWide: isWide, onWhatIf: onWhatIf)
+            if isWide {
+                Grid(alignment: .topLeading, horizontalSpacing: Metrics.l, verticalSpacing: Metrics.l) {
+                    GridRow {
+                        PlanSuccessCard(session: session, results: results)
+                        PlanFanCard(session: session, results: results)
+                    }
+                    GridRow {
+                        PlanIncomeCard(results: results)
+                        VStack(spacing: Metrics.l) {
+                            PlanKeyNumbersCard(results: results)
+                            PlanFailureCard(results: results)
+                        }
+                    }
                 }
             } else {
-                Text("No answer yet.")
-                    .foregroundStyle(Palette.secondaryInk)
+                PlanSuccessCard(session: session, results: results)
+                PlanFanCard(session: session, results: results)
+                PlanIncomeCard(results: results)
+                PlanFailureCard(results: results)
             }
         }
     }
@@ -132,9 +133,10 @@ struct PlanHeadlineCard: View {
         session.hasWhatIf ? "What if… (changed)" : "What if…"
     }
 
-    /// "54 → 53" while a what-if moves the earliest age.
+    /// "54 → 53" while a what-if's own results move the earliest age.
     private var change: String? {
-        guard session.hasWhatIf, let base = session.baseResults else { return nil }
+        guard session.hasWhatIf, !session.whatIfIsOutOfDate, session.baseIsUpToDate,
+              let base = session.baseResults else { return nil }
         return PlanResultsText.change(from: base.headline.earliestAge, to: headline.earliestAge)
     }
 
@@ -227,7 +229,8 @@ struct PlanStat<Value: View>: View {
     }
 }
 
-/// "2.000 runs · updated 09:41", or a spinner while a run is going.
+/// "2.000 runs · 09:41", "Out of date", or "Calculating 34%" while a run
+/// is going.
 struct PlanRunStatus: View {
     let session: PlanSession
     let results: PlanResults?
@@ -235,12 +238,17 @@ struct PlanRunStatus: View {
     @Environment(\.locale) private var locale
 
     var body: some View {
+        let state = session.state
         HStack(spacing: Metrics.xs) {
-            if session.isRunning {
-                ProgressView()
-                    .controlSize(.small)
-                Text("Updating…")
+            if let progress = state.progress {
+                Text(PlanRunText.status(progress, isCheckIn: session.isCheckInRun, locale: locale))
+                    .monospacedDigit()
             } else if let results {
+                if state.isOutOfDate {
+                    Label(PlanRunText.outOfDateTitle, systemImage: "clock.arrow.circlepath")
+                        .foregroundStyle(Palette.warning)
+                    Text("·")
+                }
                 Text(runs(results) + " · " + results.computedAt.formatted(.dateTime.hour().minute().locale(locale)))
             }
         }
@@ -345,8 +353,8 @@ struct PlanFanCard: View {
                 .font(.caption)
                 .foregroundStyle(Palette.mutedInk)
         } header: {
-            SectionHeader(session.shownFocusAge.map { "Your money over time · retiring at \($0)" }
-                ?? "Your money over time")
+            SectionHeader((results.details?.focus.age ?? session.shownFocusAge)
+                .map { "Your money over time · retiring at \($0)" } ?? "Your money over time")
         }
     }
 }
@@ -496,7 +504,8 @@ struct PlanResultsPreview: View {
     }
 }
 
-/// Makes a session for the preview library's base plan and runs it.
+/// Makes a session for the preview library's base plan and calculates it,
+/// as the Calculate button would.
 struct PlanPreviewHost<Content: View>: View {
     let model: AppModel
     private let content: (PlanSession) -> Content
@@ -513,6 +522,6 @@ struct PlanPreviewHost<Content: View>: View {
             content(session)
         }
         .previewEnvironment(model: model)
-        .task { await session.refresh() }
+        .task { session.calculate() }
     }
 }
