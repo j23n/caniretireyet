@@ -249,7 +249,15 @@ enum PlanResultsMapping {
     }
 
     static func markers(_ result: PlanResult, birthDate: CalendarDate, retirementDate: CalendarDate?) -> [ChartMarker] {
-        result.markers.map { marker in
+        markers(result.markers, birthDate: birthDate, retirementDate: retirementDate)
+    }
+
+    /// The planner's markers on the time axis: "Retire at 55", "INPS 67",
+    /// "Pension fund 57", "Inheritance 62", "New car 2031", each with its
+    /// icon and kind, on its birthday (retirement on `retirementDate`).
+    static func markers(_ markers: [TimelineMarker], birthDate: CalendarDate,
+                        retirementDate: CalendarDate?) -> [ChartMarker] {
+        markers.map { marker in
             let when = date(year: marker.year, birthDate: birthDate,
                             exact: marker.kind == .retirement ? retirementDate : nil)
             let label: String
