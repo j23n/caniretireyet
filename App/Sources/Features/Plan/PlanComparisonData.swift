@@ -9,10 +9,29 @@ struct PlanComparisonData: Sendable {
     struct Side: Sendable {
         var plan: PlanDocument
         var results: PlanResults?
+        /// Why `results` no longer fit the plan and the library; empty when they do.
+        var staleReasons: [PlanStaleReason] = []
+        /// The answer recorded at the plan's last check-in, for before its
+        /// first calculation.
+        var recorded: PlanHeadline?
+
+        /// Whether *Calculate* has anything to do for this plan.
+        var needsCalculation: Bool { results == nil || !staleReasons.isEmpty }
     }
 
     var first: Side
     var second: Side
+
+    /// The plans one *Calculate* runs, in order: those without results or
+    /// with results out of date.
+    var plansToCalculate: [PlanID] {
+        [first, second].filter(\.needsCalculation).map(\.plan.id)
+    }
+
+    /// "Calculate" before either plan has results, else "Recalculate".
+    var calculateTitle: String {
+        first.results == nil && second.results == nil ? "Calculate" : "Recalculate"
+    }
 
     /// Both curves, direct-labelled by plan name.
     var series: [SuccessSeries] {
