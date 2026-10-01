@@ -156,6 +156,9 @@ struct AccountConversionSummary: Hashable, Sendable {
                 : "\(count) values are added on a month's last trade, so the history keeps what the trades did."
         case .tradesRemoved:
             return "The trades are removed: their income, fees and realised gains are no longer recorded."
+        case .settledOutside:
+            return "The account has never held cash, so its buys and sales are paid from outside it: its cash stays "
+                + "at zero, and what they cost or brought in is new money."
         default:
             return count == 1 ? "1 note." : "\(count) notes."
         }

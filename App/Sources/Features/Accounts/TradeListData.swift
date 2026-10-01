@@ -61,8 +61,8 @@ enum TradeTypeDisplay {
     /// What the type does, in one line, for the *More* menu and the sheet.
     static func explanation(_ type: TradeType) -> String {
         switch type {
-        case .buy: "Units bought with the account's cash."
-        case .sell: "Units sold for cash."
+        case .buy: "Units bought with the account's cash, or paid from outside it."
+        case .sell: "Units sold for cash, kept in the account or paid out."
         case .dividend: "A dividend or distribution paid in cash."
         case .interest: "Interest paid on the account's cash."
         case .fee: "A fee charged on its own, e.g. a custody fee."
@@ -117,6 +117,14 @@ enum TradeWording {
             ?? library.accounts[trade.account]?.currency ?? library.settings.baseCurrency
     }
 
+    /// "paid from outside" for a buy, fee or tax paid from another account,
+    /// "proceeds paid out" for a sale whose proceeds left it; `nil` for
+    /// other trades.
+    static func settlementLabel(of trade: Trade) -> String? {
+        guard trade.isSettledExternally else { return nil }
+        return trade.type == .sell ? "proceeds paid out" : "paid from outside"
+    }
+
     /// "the buy of VWCE on 12 Mar 2026", for sentences.
     static func phrase(_ trade: Trade, in library: Library, locale: Locale = .current) -> String {
         let what = trade.instrument.map { " of " + instrumentLabel($0, in: library) } ?? ""
@@ -139,10 +147,14 @@ struct TradeListItem: Hashable, Sendable, Identifiable {
     var title: String
     /// The instrument's short name, if the trade has one.
     var instrumentLabel: String?
-    /// What the account's cash changed by, in the account's currency, as
-    /// the ledger applied it: the amount written, or worked out. `nil` when
-    /// it can't be worked out.
-    var cashEffect: Decimal?
+    /// What the trade paid or brought in, in the account's currency, as
+    /// the ledger applied it: the amount written, or worked out. It's what
+    /// the account's cash changed by, unless it was paid from or into
+    /// another account (``settlementLabel``). `nil` when it can't be worked out.
+    var amount: Decimal?
+    /// "paid from outside", "proceeds paid out": a trade that didn't change
+    /// the account's cash (``TradeWording/settlementLabel(of:)``).
+    var settlementLabel: String?
     /// For a sale: its realised gain, when known.
     var realizedGain: Decimal?
     /// Whether a check found something wrong with it.
@@ -216,7 +228,8 @@ struct TradeList: Hashable, Sendable {
             TradeListItem(
                 trade: entry.trade, title: TradeWording.title(of: entry.trade, in: library, locale: locale),
                 instrumentLabel: entry.trade.instrument.map { TradeWording.instrumentLabel($0, in: library) },
-                cashEffect: entry.cashEffect, realizedGain: entry.realizedGain,
+                amount: entry.amount, settlementLabel: TradeWording.settlementLabel(of: entry.trade),
+                realizedGain: entry.realizedGain,
                 hasIssue: flagged.contains(entry.trade.key))
         }
         var sections: [TradeMonthSection] = []

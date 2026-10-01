@@ -94,6 +94,13 @@ struct TradeForm: Hashable, Sendable {
     var cost = ""
     var ratio = ""
     var note = ""
+    /// Whether a buy, fee or tax was paid from outside the account, or a
+    /// sale's proceeds left it (`"settlement": "external"`, docs/TRADES.md).
+    /// Only a type that can be (``Model/TradeType/canSettleExternally``)
+    /// writes it. A new trade starts from the account's default
+    /// (``Model/Library/defaultSettlement(for:in:)``): on for a metals
+    /// account and one that has never held cash.
+    var paidOutside = false
 
     /// A new trade from `target`, or the trade it points to. `nil` when the
     /// account, or the trade to edit, isn't in `library`.
@@ -108,6 +115,7 @@ struct TradeForm: Hashable, Sendable {
         let instrument = target.instrument
             ?? library.trades(for: account.id).last(where: { $0.instrument != nil })?.instrument
         self.init(account: account, type: target.type ?? .buy, date: target.date ?? today, instrument: instrument)
+        paidOutside = library.defaultSettlement(for: .buy, in: account.id) == .external
     }
 
     /// A new, empty trade.
@@ -141,6 +149,7 @@ struct TradeForm: Hashable, Sendable {
         cost = text(trade.cost, digits: 2)
         ratio = text(trade.ratio)
         note = trade.note ?? ""
+        paidOutside = trade.settlement == .external
     }
 
     var isNew: Bool { original == nil }
@@ -197,6 +206,60 @@ struct TradeForm: Hashable, Sendable {
     }
 
     func shows(_ field: TradeFormField) -> Bool { fields.contains(field) }
+
+    // MARK: Paid from outside
+
+    /// Whether the type offers "Paid from outside this account" (a buy, fee
+    /// or tax) or "Proceeds leave this account" (a sale).
+    var showsSettlement: Bool { type.canSettleExternally }
+
+    /// Whether the trade as typed is paid from or into another account.
+    var isSettledOutside: Bool { paidOutside && showsSettlement }
+
+    /// The switch's label: "Paid from outside this account", or for a
+    /// sale "Proceeds leave this account".
+    var settlementTitle: String {
+        type == .sell ? "Proceeds leave this account" : "Paid from outside this account"
+    }
+
+    /// What the switch means, when it's on.
+    var settlementExplanation: String? {
+        guard isSettledOutside else { return nil }
+        return type == .sell
+            ? "The proceeds went to another account, e.g. your bank: this account's cash doesn't change, and they "
+                + "count as money taken out."
+            : "Paid from another account, e.g. your bank: this account's cash doesn't change, and what it cost "
+                + "counts as money added."
+    }
+
+    /// The amount section's footer.
+    var amountFooter: String {
+        switch type {
+        case .buy:
+            isSettledOutside
+                ? "What was paid, fees and tax included." : "What the account's cash went down by, fees and tax included."
+        case .sell:
+            isSettledOutside
+                ? "What was received, after fees and tax." : "What the account's cash went up by, after fees and tax."
+        case .dividend, .interest: "What was paid into the account, after tax withheld and fees."
+        case .withdrawal: "What was taken out of the account."
+        case .deposit: "What was paid into the account."
+        default: isSettledOutside ? "What was paid." : "What the account's cash changed by."
+        }
+    }
+
+    /// "Cash would go to −1.200,00 €. Paid from outside this account?":
+    /// for a buy, fee or tax paid from the account's cash that leaves it
+    /// below zero on the trade's day (`preview`), with a switch to turn it
+    /// into one paid from outside. `nil` otherwise.
+    func negativeCashHint(_ preview: TradeFormPreview?, locale: Locale = .current) -> String? {
+        guard showsSettlement, type != .sell, !paidOutside, let preview, let effect = preview.cashEffect, effect < 0,
+              let cash = preview.cashAfter, cash < 0
+        else { return nil }
+        return "Cash would go to " + AmountFormat.amount(cash, currency: accountCurrency, precision: .cents,
+                                                         locale: locale)
+            + ". Paid from outside this account?"
+    }
 
     // MARK: The amount
 
@@ -429,6 +492,10 @@ struct TradeForm: Hashable, Sendable {
         if shows(.amount) { trade.amount = typedAmount(locale: locale) }
         trade.cost = value(.cost, cost)
         trade.ratio = value(.ratio, ratio)
+        if showsSettlement {
+            // Paid from outside, else as written (an explicit "account", or a value a newer app wrote).
+            trade.settlement = paidOutside ? .external : original?.settlement.flatMap { $0 == .external ? nil : $0 }
+        }
         let trimmedNote = note.trimmingCharacters(in: .whitespacesAndNewlines)
         trade.note = trimmedNote.isEmpty ? nil : trimmedNote
         if let original {
@@ -455,7 +522,8 @@ struct TradeForm: Hashable, Sendable {
         return TradeFormPreview(
             edit: edit, instrument: saved.instrument,
             quantityAfter: saved.type.changesHoldings ? entry?.quantityAfter : nil,
-            cashEffect: entry?.cashEffect, realizedGain: entry?.realizedGain,
+            cashEffect: entry?.cashEffect, isSettledOutside: saved.isSettledExternally,
+            newMoney: entry?.externalFlow, realizedGain: entry?.realizedGain,
             cashAfter: valuator.tradeCash(of: account, on: saved.date),
             newIssues: edit.newIssues.filter { $0.kind != .reconciliation }
                 .compactMap { TradeIssueNote.note(for: $0, library: after, locale: locale) }
@@ -515,6 +583,12 @@ struct TradeFormPreview: Hashable, Sendable {
     var quantityAfter: Decimal?
     /// What the account's cash changes by; `nil` when it can't be worked out.
     var cashEffect: Decimal?
+    /// Whether the trade is paid from or into another account: the cash
+    /// doesn't change, and ``newMoney`` is what it adds or takes out.
+    var isSettledOutside = false
+    /// For a trade paid from outside the account: the money it adds (a
+    /// buy's cost) or takes out (a sale's proceeds); `nil` otherwise.
+    var newMoney: Decimal?
     /// A sale's realised gain, when known.
     var realizedGain: Decimal?
     /// The account's cash at the end of the trade's date, after the edit.
