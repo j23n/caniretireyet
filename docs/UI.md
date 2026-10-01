@@ -9,7 +9,7 @@ The app has one user, and three situations to design for:
 | Situation | Where | How often | What matters |
 | --- | --- | --- | --- |
 | **Monthly check-in** | Mostly iPhone | Monthly, about 5 minutes | Speed. Values are pre-filled, and only what changed needs a tap. It ends with this month's answer. |
-| **Planning session** | Mostly Mac | A few times a year, 30–60 minutes | Inputs and results side by side, what-ifs that update instantly, comparing two plans. |
+| **Planning session** | Mostly Mac | A few times a year, 30–60 minutes | Inputs and results side by side, what-ifs a click away, comparing two plans. |
 | **Looking after the data** | Mac | Occasionally | Adding and closing accounts, importing, fixing a value, looking at the files. |
 
 Plus the glance: "how am I doing?" in a widget or on the Overview.
@@ -76,6 +76,7 @@ Library
   | New Account | ⌘N |
   | New Check-in | ⌘K |
   | Import… | ⌘⇧I |
+  | Recalculate | ⌘R |
   | Save Baseline | ⌘⇧B |
   | Hide Amounts | ⌘⇧H |
   | Show Future | ⌘⇧F |
@@ -138,7 +139,7 @@ The home screen. Top to bottom:
   - **Future** continues the chart into the active plan's projection: a dashed median with the 10–90% band, plus markers for retirement and pension starts. See [PROGRESS.md](PROGRESS.md#past-and-future-m2).
   - **Old prices.** When a value in the chart uses a price more than 31 days older than its date, a note under it says so: "10 values in the chart use a price more than 31 days older than their date (Gold coins)." with *Fill In Past Prices…* (see [Instruments](#accounts)).
 - **Since last check-in.** A small waterfall from last month's total to this month's: markets, new money, and other. It's the most useful single number after the total, because it separates "I saved" from "markets moved".
-- **Can I retire yet?** The plan's headline, progress toward financial independence, and how you compare with the latest baseline. Tapping it opens the Plan tab.
+- **Can I retire yet?** The plan's headline, progress toward financial independence, and how you compare with the latest baseline. Tapping it opens the Plan tab. It shows the main plan's latest results, or else the answer recorded at the last check-in, dated; it never starts a calculation. While one is going (a check-in's, or one started on the Plan screen) it says how far along it is, and results that no longer fit the plan or your data say "Calculated before your latest changes".
 - **Needs attention.** Only shown when something needs you: stale accounts, prices that couldn't be fetched, sync conflicts that were merged, and plan warnings.
 - **Allocation.** Horizontal bars with values and percentages; a donut would be harder to read. The dimension can be switched between asset class, account group, currency, institution, and liquid vs locked.
   - *Asset class* splits holdings by their instrument's mix and balances by the account's mix, and shows debts as their own bar.
@@ -220,12 +221,12 @@ The flow that has to be fast. It opens as a full-screen sheet on iPhone and as t
   - The new net worth and the waterfall (markets, new money, other).
   - Changed accounts, and anything unusual, e.g. a quantity that went down (did you sell?) or a value that changed more than 30%.
   - Then **Save**.
-- **After saving.** The plan is re-run, and the confirmation ends with this month's answer (only for the latest check-in: see [Adding history](#adding-history)):
+- **After saving.** The confirmation shows as soon as the check-in is written. The main plan then runs to record this month's answer (only for the latest check-in: see [Adding history](#adding-history)), and the answer card shows its progress ([Calculating](#calculating)) in the meantime, the same as on the Plan screen, without a Cancel button. Then it ends with the answer:
 
   > Saved · Net worth 312.480 € (▲ 4.210)
   > Can I retire yet? Not yet: earliest at **54**, unchanged since August.
 
-  This is the monthly moment the app is built around.
+  This is the monthly moment the app is built around, and the one time a plan runs without a button: recording the month's answer is what the check-in is for. *Done* can close the confirmation while it runs; the answer is still recorded.
 
 **On the Mac**, the check-in is a table, and the whole thing can be done without touching the mouse:
 
@@ -356,6 +357,44 @@ A brokerage, crypto or metals account can record its **trades** instead of month
 
 A plan picker sits at the top (Base case ▾, with New, Duplicate, Compare, Rename and Delete), then three parts: **Results**, **Progress** and **Inputs**.
 
+### Calculating
+
+A plan is calculated only when you ask: *Calculate*, *Recalculate* (⌘R, and a toolbar button on the Mac), *Run What-If*, or a check-in recording its answer. Opening a plan, editing an input, moving a what-if slider or choosing another age for the charts runs nothing; the screen says what's out of date instead. Each plan keeps its own results, what-if and chosen age while you switch between plans.
+
+- **Before the first calculation.** The answer recorded at the last check-in, dated ("Recorded at the check-in on 30 Sep 2026", and "before the plan's latest changes" when the plan was edited since), with "Calculate the plan to see its charts." and **Calculate**. With nothing recorded either, a sentence on what calculating does ("simulates 2.000 possible futures… takes a few seconds, and runs only when you ask") and **Calculate**.
+- **Out of date.** Results stay on screen, slightly dimmed, under a banner that says why and offers the button that brings them up to date:
+
+  ```
+  ┌──────────────────────────────────────────┐
+  │ ◷ Out of date                            │
+  │   Inputs changed since this was          │
+  │   calculated.             [↻ Recalculate]│
+  └──────────────────────────────────────────┘
+  ```
+
+  - *Inputs changed since this was calculated.*: the plan was edited (a rename doesn't count). Recalculate.
+  - *Your accounts or prices changed since this was calculated.*: the library data the plan reads changed, e.g. a check-in or new prices. Recalculate.
+  - *What-if values changed since this was calculated.*: a slider moved. Run What-If.
+  - *Calculate to see the charts for retiring at 57.*: another age was chosen on the success curve. Calculate.
+
+  Results calculated before for exactly the current inputs, e.g. after changing an input back, show again at once, without a run.
+- **Calculating.** While a calculation runs, its progress replaces the banner, and the old results stay underneath, dimmed:
+
+  ```
+  ┌──────────────────────────────────────────┐
+  │ Calculating…                    [Cancel] │
+  │ Earliest age · ages 38–75: 12 / 38       │
+  │ ▇▇▇▇▇▇▇▇▇▇░░░░░░░░░░░░░░░░░░░░░░░░░░░░░  │
+  │ Overall                             29%  │
+  │ ▇▇▇▇▇▇▇▇▇▇░░░░░░░░░░░░░░░░░░░░░░░░░░░░░  │
+  └──────────────────────────────────────────┘
+  ```
+
+  - The phase and its own bar, in the locale's numbers with tabular figures: "Earliest age · ages 38–75: 12 / 38" (most of the time: the chance at every age), "Simulating 1.234 / 2.000 runs" (the chosen age in detail), "Sustainable spending: step 4 / 16", "Summarising". Then the whole calculation's bar. A what-if's first pass says "Quick estimate…".
+  - **Cancel** stops it; the old results stay as they were (and out of date). A check-in's calculation can't be cancelled here: it says "Working out this month's answer…".
+  - Editing an input while it runs lets it finish: its results then show as out of date, with Recalculate. Cancelling instead would throw away a calculation you asked for, while it's usually seconds from done.
+  - The same view shows on iPhone and Mac, in Compare and in the check-in's confirmation. The header of the answer says "Calculating 29%" meanwhile, and the iPhone pill shows a small bar.
+
 ### Results
 
 ```
@@ -404,7 +443,7 @@ A plan picker sits at the top (Base case ▾, with New, Duplicate, Compare, Rena
   - Two secondary numbers: the chance if you retired today, and **how much you could spend** if you retired at your target age. The second comes from the engine's solver for the highest spending that still meets your confidence level.
 - **Chance of success by retirement age.**
   - One line; a dotted rule at your confidence level; the earliest age marked where they cross.
-  - Tapping another age makes it the selected age for the charts below.
+  - Tapping another age makes it the selected age for the charts below. Charts calculated before for that age show at once; otherwise the banner offers *Calculate* for it.
   - Steps caused by pension eligibility (e.g. at 64 or 67) show as steps, with a note explaining why.
 - **Your money over time.**
   - A fan chart in one hue: the median line, a darker 25–75% band and a lighter 10–90% band.
@@ -414,9 +453,9 @@ A plan picker sits at the top (Base case ▾, with New, Duplicate, Compare, Rena
 - **When it fails.** A sentence or two about the failing runs, including bridge failures, i.e. running out before locked money opens.
 - **What if.**
   - Sliders for retirement age, spending, saving and equity return. On iPhone they're in a bottom sheet; on the Mac, in the inspector.
-  - Results update as you drag: fewer runs while dragging, the full 2,000 when you let go.
-  - The headline shows the difference ("Earliest 54 → 53").
-  - *Keep* writes the change into the plan; *Reset* throws it away.
+  - Moving a slider runs nothing. The answer next to the sliders says "From before your what-if changes" until **Run What-If** runs it: a quick estimate with fewer runs first, then the full 2,000, with the same random draws, its progress under the sliders. A position calculated before shows again at once.
+  - Once it has run, the headline shows the difference ("Earliest 54 → 53").
+  - *Keep* writes the change into the plan (its results become the plan's own); *Reset* throws it away.
 
 ### Progress
 
@@ -457,12 +496,13 @@ Simulation     2.000 runs · 90% confidence
 - **Validation.** Issues appear on the section they concern:
   - ⚠︎ for warnings, e.g. "Impatriati doesn't apply to forfettario income: 2029 is lost";
   - ⛔︎ for errors that stop the plan from running.
-- **Staying in view.** On iPhone, a small sticky pill at the top ("Earliest 54") keeps the answer visible while you edit. On the Mac, Inputs and Results are side by side, so results update next to the field you're editing.
+- **Staying in view.** On iPhone, a small sticky pill at the top ("Earliest 54") keeps the answer visible while you edit; once an edit makes it out of date it says so, with *Recalculate*, and shows a small bar while that runs. On the Mac, Inputs and Results are side by side, so the out-of-date banner and *Recalculate* (⌘R) are next to the field you're editing.
 
 ### Comparing two plans
 
 A window on the Mac (a pushed page on iPhone):
 
+- one **Calculate** (or *Recalculate*) for the plans that have no results or whose results are out of date, run one after the other, with the progress of each ("Calculating Base case (1 of 2)…") and Cancel. Until then each side shows its latest results, dimmed with "Out of date" when they are, or its recorded answer, dated;
 - both headlines;
 - the two success curves overlaid (two series, direct-labelled);
 - a table of key numbers.
@@ -591,7 +631,7 @@ All widgets hide amounts when the device is locked.
   | Store | Holds |
   | --- | --- |
   | `LibraryStore` | the in-memory library, edits, sync status, merged conflicts |
-  | `PlanStore` | runs, cached results, recompute scheduling, headlines and baselines |
+  | `PlanStore` | runs on request, their progress, results and what they were calculated from (out of date or not), headlines and baselines |
   | `CheckInStore` | the check-in draft, kept on the device until it's saved |
   | `PriceStore` | price fetching (wraps `PriceService`) |
   | `PrivacySettings`, `AppPreferences`, `AppNavigation` | hidden amounts, this device's settings, where you are in the app |

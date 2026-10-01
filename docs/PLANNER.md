@@ -172,7 +172,7 @@ The default assumptions in the example plan (equity 4.5% real, bonds 1%, cash 0%
 - **Failure.** A run fails in the first year in which accessible money can't cover the need. The failure is labelled either *ran out entirely* or *ran out before locked money became accessible*. The second kind is a bridging problem, and the fix is different. So a failure only gets that label when the locked money, after its payout tax, could have covered what's missing until it opens (the year's shortfall plus each later year's need before then); money too small for that, or locked for the rest of the plan, means the money ran out.
 - **Success rate.** The share of runs that never fail before `endAge`.
 - **Earliest retirement age.** The planner searches over retirement ages, using the **same random draws** for every age so the curve is smooth and comparisons are fair. The first age that reaches the confidence level is the answer.
-- **Speed.** Everything that doesn't depend on the markets, such as work income and its taxes, is computed once per age rather than once per run. Moving a slider re-runs with fewer runs while you drag, then the full 2,000 when you let go, always with the same random draws. So any difference comes from your change and not from noise.
+- **Speed.** Everything that doesn't depend on the markets, such as work income and its taxes, is computed once per age rather than once per run. A what-if runs a quick estimate with fewer runs first, then the full 2,000, always with the same random draws. So any difference comes from your change and not from noise.
 - **Compare regimes.** Duplicate a plan with one choice changed, for example forfettario instead of ordinario with impatriati, and see both results side by side.
 
 ## Engine details
