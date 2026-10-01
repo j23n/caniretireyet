@@ -10,7 +10,7 @@ Build it on a Mac: `brew install xcodegen && xcodegen generate --spec App/projec
 CanIRetireYetApp (@main)          one AppModel, injected into every scene
  └─ RootView                      launch · onboarding · main navigation
      ├─ TabRoot (compact)         Overview · Accounts · Plan tabs, check-in in the tab bar accessory
-     └─ SidebarRoot (regular, Mac) Overview · Check-in · Accounts… · Plans… · Library…
+     └─ SidebarRoot (regular, Mac) Overview · Check-in · Accounts (groups ▸ accounts) · Plans… · Library…
          └─ Features/<Feature>/<Name>Screen      ← your code
                reads and edits through the stores in the environment
 Stores (@Observable, @MainActor)
@@ -43,8 +43,8 @@ Keep logic that doesn't need SwiftUI in files that import only Foundation and th
 | Screen | Created as | Shown by |
 | --- | --- | --- |
 | `OverviewScreen` | `OverviewScreen()` | Overview tab, sidebar *Overview* (with the eye and gear toolbar added by the navigation) |
-| `AccountsScreen` | `AccountsScreen(filter: .all / .group(g) / .closed)` | Accounts tab, sidebar groups and *Closed* |
-| `AccountDetailScreen` | `AccountDetailScreen(accountID:)` | pushing an `AccountID` on any stack (`NavigationLink(value: id)`, `navigation.showAccount(id)`). A trades account shows its holdings, trades, income and gains, and issues (see [Trade history](#trade-history)) |
+| `AccountsScreen` | `AccountsScreen(filter: .all)` (`.group(g)` and `.closed` filter it) | Accounts tab, sidebar *All accounts* |
+| `AccountDetailScreen` | `AccountDetailScreen(accountID:)` | pushing an `AccountID` on any stack (`NavigationLink(value: id)`, `navigation.showAccount(id)` on iPhone); selecting an account in the sidebar (`navigation.showAccount(id)` on the Mac and iPad), in a stack of its own. A trades account shows its holdings, trades, income and gains, and issues (see [Trade history](#trade-history)) |
 | `TradeEditorSheet` | `TradeEditorSheet(target:)` in a NavigationStack, or `.tradeEditorSheet($target)` with a `TradeEditorTarget?` | *Add Trade…* / editing a trade: the account detail, the account list's swipe action, a check-in's trades row and review |
 | `AccountConversionSheet` | `AccountConversionSheet(accountID:direction:)` in a NavigationStack | *Switch to Trade History…* / *Switch to Snapshots…* on the account detail |
 | `NewAccountScreen` | `NewAccountScreen()` | ⌘N, Accounts toolbar, onboarding (sheet in a NavigationStack) |
@@ -135,8 +135,24 @@ The numbers come from a `PlanEngine` (see `Stores/PlanEngine.swift`). The app us
 ### Small stores
 
 - `PrivacySettings`: `hidesAmounts` (the eye button and ⌘⇧H), `hideAmountsOnLaunch`, `hideInAppSwitcher` (the root view covers the app while it isn't active), `toggleHidesAmounts()`.
-- `AppPreferences` (this device, `UserDefaults`): `libraryLocation`, `stalenessThreshold` (45 days), `fetchPricesOnCheckIn`, `reminder: CheckInReminder?` (scheduled by `ReminderScheduler`).
-- `AppNavigation`: `layout` (`.tabs` / `.sidebar`, set by the root view), `tab`, `sidebarSelection`, `accountsPath`, `selectedPlan`, `sheet` (`.settings`, `.newAccount`, `.importFile(url)`, `.welcome`), `isCheckInPresented`, `showsFuture` (the Overview's *Future* switch and ⌘⇧F), `pendingImport`. Navigate with `startCheckIn()`, `finishCheckIn()`, `showOverview()`, `showAccounts(_:)`, `showAccount(_:)`, `showPlan(_:)`, `showSettings()`, `newAccount()`, `startImport(_:)`, `startImport(files:)` (several files dropped together, e.g. journals; the Import screen takes the others with `takeAdditionalImportFiles()`), `show(_ sidebarItem:)`: they work in both layouts.
+- `AppPreferences` (this device, `UserDefaults`): `libraryLocation`, `stalenessThreshold` (45 days), `fetchPricesOnCheckIn`, `reminder: CheckInReminder?` (scheduled by `ReminderScheduler`), `collapsedAccountFolders` (the sidebar's collapsed groups; see [Sidebar](#sidebar)).
+- `AppNavigation`: `layout` (`.tabs` / `.sidebar`, set by the root view), `tab`, `sidebarSelection` (a `SidebarItem`), `selectedAccount`, `accountsPath`, `selectedPlan`, `sheet` (`.settings`, `.newAccount`, `.importFile(url)`, `.welcome`), `isCheckInPresented`, `showsFuture` (the Overview's *Future* switch and ⌘⇧F), `pendingImport`. Navigate with `startCheckIn()`, `finishCheckIn()`, `showOverview()`, `showAccounts()`, `showAccount(_:)` (pushes the detail on the Accounts tab; selects the account in the sidebar), `showPlan(_:)`, `showSettings()`, `newAccount()`, `startImport(_:)`, `startImport(files:)` (several files dropped together, e.g. journals; the Import screen takes the others with `takeAdditionalImportFiles()`), `show(_ sidebarItem:)`: they work in both layouts. `libraryChanged(_:)` keeps the sidebar off a deleted account.
+
+## Sidebar
+
+`Navigation/SidebarRoot.swift` (Mac, and iPad in regular width): a `NavigationSplitView` whose `List(selection:)` is bound to `navigation.sidebarSelection`, the single source of truth. Each `SidebarItem` gets its own `NavigationStack` in the content area:
+
+| `SidebarItem` | Shows |
+| --- | --- |
+| `.overview`, `.checkIn` | `OverviewScreen`, `CheckInScreen` |
+| `.accounts` | *All accounts*: `AccountsScreen(filter: .all)` on the Accounts stack (`accountsPath`), whose rows push details |
+| `.account(id)` | `AccountDetailScreen(accountID: id)` in a stack of its own (`.id(id)`, so each account starts fresh) |
+| `.plan(id)`, `.plans` | `PlanScreen(planID:)`; `.plans` (the main plan, or "Create a plan") becomes the plan's row once one exists |
+| `.importData`, `.instruments`, `.sync` | `ImportScreen`, `InstrumentsScreen`, `SyncScreen` |
+
+- **Accounts section** (`SidebarAccountsSection`): *All accounts*, then a `DisclosureGroup(isExpanded:)` per group with open accounts (label: group icon, name, subtotal) holding its account rows (kind icon, name, a clock when stale, value), then one for *Closed (n)*. Amounts are left out while hidden. The rows come from `SidebarAccounts` (`Navigation/SidebarAccounts.swift`, Foundation only): `AccountList`'s sections and closed rows without sparklines, so values, subtotals and staleness match the list. On the Mac a click on a group's label toggles it too.
+- **Expanded state** is per device: `AppPreferences.collapsedAccountFolders`, keyed by `SidebarAccountFolder.key` (a group's raw value, or `"closed"`); read and change it with `isExpanded(_:)` and `setExpanded(_:_:)`. Groups start expanded, *Closed* collapsed.
+- **Keeping the selection in view:** `SidebarAccountReveal` is the selected account and its folder (`SidebarAccountFolder(account, today:)`); the sidebar expands the folder whenever either changes: `showAccount(_:)`, or the selected account being closed (it moves under *Closed* and stays selected) or reopened. On every `LibraryStore.revision` it calls `navigation.libraryChanged(_:)`, which shows *All accounts* when the selected account was deleted. The list never clears the selection, so collapsing the selected account's group keeps its detail on screen.
 
 ## Menu commands
 
@@ -197,4 +213,4 @@ At launch `LibraryStore.start()` asks `CloudSync.LibraryLocator` for the iCloud 
 
 ## Checking without Xcode
 
-The app only builds on a Mac, but everything that doesn't import SwiftUI (the `Stores/` folder, `AppNavigation`, `AmountFormat`, `AmountInput`, `ChartData`, `AppModel`, `PreviewLibrary`, `PreviewPlanEngine`, the import's `ImportFlow*`, `ImportController*`, `LedgerImportState` and `LedgerPreviewData`, `PastPriceFilling`, and the trades logic: `TradeListData`, `TradeForm`, `AccountConversionData`, `AccountDetailData`, `CheckInModel`, `CheckInSession`) compiles on Linux too. To type-check and test it there, make a scratch Swift package outside the repository that depends on this one (`Model`, `Tracker`, `Storage`, `Prices`, `CloudSync`), copy those files into a target, and add Swift Testing tests. That's how the stores were tested: loading, editing and saving a copy of the example library, the watcher reloading a hand-edited file, the read-only guard, a full check-in save, plan runs, `PreviewLibrary` being identical to the example library, and the trades screens' logic (the list, holdings, income, issues, the trade form and its previews, the store's trade and conversion helpers, the check-in's trades rows). Views can be type-checked too, against a stand-in `SwiftUI` module with the SDK's signatures that draws nothing: copy the view files in with their `#Preview` blocks removed and `#if os(iOS)` / `#if os(macOS)` turned on (Linux is neither), stub the views they use from elsewhere, and add the modifiers the compiler asks for. That catches wrong labels, types and missing members before CI's macOS job, which stays the real check.
+The app only builds on a Mac, but everything that doesn't import SwiftUI (the `Stores/` folder, `AppNavigation`, `SidebarAccounts`, `AmountFormat`, `AmountInput`, `ChartData`, `AppModel`, `PreviewLibrary`, `PreviewPlanEngine`, the import's `ImportFlow*`, `ImportController*`, `LedgerImportState` and `LedgerPreviewData`, `PastPriceFilling`, and the trades logic: `TradeListData`, `TradeForm`, `AccountConversionData`, `AccountDetailData`, `CheckInModel`, `CheckInSession`) compiles on Linux too. To type-check and test it there, make a scratch Swift package outside the repository that depends on this one (`Model`, `Tracker`, `Storage`, `Prices`, `CloudSync`), copy those files into a target, and add Swift Testing tests. That's how the stores were tested: loading, editing and saving a copy of the example library, the watcher reloading a hand-edited file, the read-only guard, a full check-in save, plan runs, `PreviewLibrary` being identical to the example library, the trades screens' logic (the list, holdings, income, issues, the trade form and its previews, the store's trade and conversion helpers, the check-in's trades rows), and the sidebar's accounts (groups and values matching the list, the remembered expanded state, selecting, closing and deleting the selected account). Views can be type-checked too, against a stand-in `SwiftUI` module with the SDK's signatures that draws nothing: copy the view files in with their `#Preview` blocks removed and `#if os(iOS)` / `#if os(macOS)` turned on (Linux is neither), stub the views they use from elsewhere, and add the modifiers the compiler asks for. That catches wrong labels, types and missing members before CI's macOS job, which stays the real check.
