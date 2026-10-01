@@ -9,8 +9,10 @@ import Tracker
 
 // MARK: - Since last check-in
 
-/// A small waterfall from the previous check-in's total to the latest one:
-/// markets, new money and other.
+/// The change since the previous check-in (UI.md, "Since last check-in"):
+/// a headline ("▲ +5.730 € since 31 Aug"), the totals before and after,
+/// and a bar each for markets, new money and other, from a shared zero
+/// line (``WaterfallChart``).
 struct OverviewChangeCard: View {
     let report: ChangeReport
     @Environment(\.locale) private var locale
@@ -18,24 +20,16 @@ struct OverviewChangeCard: View {
     var body: some View {
         Card("Since last check-in") {
             VStack(alignment: .leading, spacing: Metrics.m) {
-                Text(period)
-                    .font(.subheadline)
-                    .foregroundStyle(Palette.secondaryInk)
                 WaterfallChart(steps: WaterfallStep.steps(
-                    for: report.total, startLabel: AmountFormat.shortDate(report.from, locale: locale),
-                    endLabel: AmountFormat.shortDate(report.to, locale: locale)))
+                    for: report.total,
+                    startLabel: AmountFormat.shortDate(report.from, relativeTo: .today(), locale: locale),
+                    endLabel: AmountFormat.shortDate(report.to, relativeTo: .today(), locale: locale)))
                 Text(explanation)
                     .font(.footnote)
                     .foregroundStyle(Palette.mutedInk)
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
-    }
-
-    /// "31 August → 30 September".
-    private var period: String {
-        let style = Date.FormatStyle.dateTime.day().month(.wide).locale(locale)
-        return "\(report.from.dateValue.formatted(style)) → \(report.to.dateValue.formatted(style))"
     }
 
     private var explanation: String {

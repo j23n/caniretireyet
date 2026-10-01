@@ -99,18 +99,19 @@ The home screen. Top to bottom:
 │ 312.480 €                                │
 │ ▲ 4.210 € since 31 Aug   ▲ 14,2% this yr │
 │                                          │
-│  1Y  [3Y]  5Y  All            Future ◯   │
+│ 3Y ▾   [Total│By asset class]   Future ◯ │
 │ ┌──────────────────────────────────────┐ │
 │ │                          ╱‾‾╲__╱‾    │ │
 │ │              ___╱‾‾‾‾‾‾‾‾            │ │
 │ │ ____╱‾‾‾‾‾‾‾‾                        │ │
 │ └──────────────────────────────────────┘ │
-│  Total │ By asset class                  │
 │                                          │
 │ ┌ Since last check-in ─────────────────┐ │
-│ │ 308.270  ▮ markets   +2.950          │ │
-│ │          ▮ new money +1.500          │ │
-│ │          ▯ other       −240  312.480 │ │
+│ │ ▲ +4.210 € since 31 Aug              │ │
+│ │ 308.270 € → 312.480 €                │ │
+│ │ Markets    │▇▇▇▇▇▇▇▇▇      +2.950 €  │ │
+│ │ New money  │▇▇▇▇▇          +1.500 €  │ │
+│ │ Other     ▇│                 −240 €  │ │
 │ └──────────────────────────────────────┘ │
 │ ┌ Can I retire yet? ───────────────────┐ │
 │ │ Not yet · earliest at 54 (2042)      │ │
@@ -135,12 +136,17 @@ The home screen. Top to bottom:
   - It animates when it changes (`.contentTransition(.numericText())`).
   - Tapping it switches between net worth and *plan assets* (what the plan counts, e.g. without your home).
 - **History chart.**
-  - By default, a single net-worth line with a light fill. *By asset class* switches to stacked areas, with debts below the zero line.
-  - Drag across it to read any month: a vertical rule with a callout showing the date, the total and the breakdown.
-  - **Future** continues the chart into the active plan's projection: a dashed median with the 10–90% band, plus markers for retirement and pension starts. See [PROGRESS.md](PROGRESS.md#past-and-future-m2).
+  - **One row of controls above it:** the time span, *Total / By asset class* and *Future*. On iPhone the row gets shorter words and icons so it fits.
+  - By default, a single net-worth line with a light fill. *By asset class* switches to stacked areas, with debts below the zero line, and a legend in its own row above.
+  - Drag across it to read any month: a vertical rule with a callout showing the date, the total and the breakdown; over the projection, its median and bands.
+  - **Future** continues the chart into the active plan's projection: a dashed median with a darker 25–75% band and a lighter 10–90% band, plus markers for retirement, pension starts and the like. See [PROGRESS.md](PROGRESS.md#past-and-future-m2).
+    - The projection is a total, so with *Future* on the past is the total line too; *By asset class* is for the past alone (it's greyed out, and the caption says so).
+    - The value axis fits the history, the median and the 25–75% band. The 10–90% band may run off the top, and the legend says "↑ 10–90% continues above".
+    - A short caption under the chart ("Plan assets, then Base case's projection, in today's money.") with an ⓘ that opens the full explanation.
+  - **Time span.** One menu sets how far back and, with *Future* on, how far ahead: *History* last year, 3 or 5 years, or all of it; *Future* to retirement, retirement + 15 years (the default), 20 years or the whole plan, never past the plan's end. Once retirement is behind you, the retirement-based choices give way to 20 years. The menu's label says both ("3Y · retirement +15"). The choice is remembered on the device and shared with the plan's "Your money over time".
   - **Old prices.** When a value in the chart uses a price more than 31 days older than its date, a note under it says so: "10 values in the chart use a price more than 31 days older than their date (Gold coins)." with *Fill In Past Prices…* (see [Instruments](#accounts)).
   - **Partial totals.** Net worth adds up what can be valued. Where a total misses something (a price or an exchange rate, or an account with no value yet), the line is dashed and grey, the callout says "Partial: some values are missing", and a note under the chart says what and when: "Where the line is dashed, the total is partial: exchange rates for US$ are missing for Jun 2018 – Dec 2021 (US brokerage) and 3 accounts have no value yet for Jun 2018 – Sep 2025 (Directa, Fondo pensione and Old bank)." with *Fill In Past Prices…* when some of it is prices or rates.
-- **Since last check-in.** A small waterfall from last month's total to this month's: markets, new money, and other. It's the most useful single number after the total, because it separates "I saved" from "markets moved".
+- **Since last check-in.** A headline, "▲ +4.210 € since 31 Aug", the totals before and after in words, and a bar each for markets, new money and other, from a shared zero line and to the same scale: gains go right in the positive colour, losses left in the negative one, with their signed amounts in a column of their own. It's the most useful single number after the total, because it separates "I saved" from "markets moved". (It used to be a waterfall, whose bars from zero made the totals huge grey blocks and the changes slivers on top.) While amounts are hidden, the headline shows the change in per cent and the bars keep their proportions.
 - **Can I retire yet?** The plan's headline, progress toward financial independence, and how you compare with the latest baseline. Tapping it opens the Plan tab. It shows the main plan's latest results, or else the answer recorded at the last check-in, dated; it never starts a calculation. While one is going (a check-in's, or one started on the Plan screen) it says how far along it is, and results that no longer fit the plan or your data say "Calculated before your latest changes".
 - **Needs attention.** Only shown when something needs you: stale accounts (not one that holds nothing: see [Accounts](#accounts)), prices that couldn't be fetched, sync conflicts that were merged, and plan warnings. Prices and exchange rates missing on past month ends get an item each, which opens *Fill In Past Prices*: "Past exchange rates for US$ are missing · US brokerage isn't fully counted in your net worth for Jun 2018 – Dec 2021. Fill in past prices to fetch them."
 - **Allocation.** Horizontal bars with values and percentages; a donut would be harder to read. The dimension can be switched between asset class, account group, currency, institution, and liquid vs locked.
@@ -220,7 +226,7 @@ The flow that has to be fast. It opens as a full-screen sheet on iPhone and as t
   - If the other device saved a different value on the same date for an account you entered, a banner says so and the review asks: *Keep saved* or *Use mine*. Until you choose, the saved value stays and yours isn't written.
   - The draft is deleted only once the check-in is in the library's files. If saving fails, the error is shown and the draft stays.
 - **Review screen.**
-  - The new net worth and the waterfall (markets, new money, other).
+  - The new net worth and the change since the last check-in: a headline and a bar each for markets, new money and other.
   - Changed accounts, and anything unusual, e.g. a quantity that went down (did you sell?) or a value that changed more than 30%.
   - Then **Save**.
 - **After saving.** The confirmation shows as soon as the check-in is written. The main plan then runs to record this month's answer (only for the latest check-in: see [Adding history](#adding-history)), and the answer card shows its progress ([Calculating](#calculating)) in the meantime, the same as on the Plan screen, without a Cancel button. Then it ends with the answer:
@@ -434,19 +440,25 @@ A plan is calculated only when you ask: *Calculate*, *Recalculate* (⌘R, and a 
 │ At 55 you could spend 38.400 €/yr        │
 │                                          │
 │ Chance of success by retirement age      │
-│ 100% ┤                 ●━━━━━━━━━━━━     │
-│  90% ┤┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄╱┄┄┄┄┄┄┄┄┄┄┄┄┄     │
-│      ┤           ╱‾‾‾                    │
-│   0% ┼━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━     │
-│       40    45    50  54      60         │
+│ 100% ┤                 ●━━━━━━━━━━━━━━━━━│
+│  90% ┤┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄╱┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄│
+│      ┤      ___╱‾‾‾‾‾‾     90% confidence│
+│   0% ┼━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━│
+│       40   45   50  54   60   65   70  75│
 │                                          │
 │ Your money over time · retiring at 54    │
-│      ░░░░▒▒▒▒▓▓▓▓━━━━▓▓▓▒▒▒░░            │
-│      ↑retire  ↑fund 57  ↑inheritance 62  │
-│      ↑INPS 67                            │
+│ 3Y · retirement +15 ▾                    │
+│ — Actual — Median ▓ 25–75% ░ 10–90% ↑    │
+│      ⚑ fund 57    ⚑ inheritance 62       │
+│  ⚑ retire 54           ⚑ INPS 67         │
+│ ━━━━━━━░░░░▒▒▒▒▓▓▓▓━━━━▓▓▓▒▒▒░░░░░░░░░░░ │
 │                                          │
 │ Retirement income · median  Income│Taxes │
-│  ▇▇▇▇▇▇▇▇▇▇▇▇ stacked by source …        │
+│ ▇ Withdrawals ▇ INPS ▇ Pension fund ▇ Tax│
+│  ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░          │
+│  ┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄ Spending  │
+│  ▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇           │
+│   2045      2055      2065      2075     │
 │                                          │
 │ When it fails (1 in 10)                  │
 │ Money usually runs out around 84.        │
@@ -466,14 +478,21 @@ A plan is calculated only when you ask: *Calculate*, *Recalculate* (⌘R, and a 
   - "Yes." or "Not yet.", then the earliest age and date, and the confidence in plain words ("in 9 of 10 simulated futures").
   - Two secondary numbers: the chance if you retired today, and **how much you could spend** if you retired at your target age. The second comes from the engine's solver for the highest spending that still meets your confidence level.
 - **Chance of success by retirement age.**
-  - One line; a dotted rule at your confidence level; the earliest age marked where they cross.
+  - One line; a dotted rule at your confidence level, labelled at its right end, below the rule where the curve ends above it; the earliest age marked where they cross.
+  - The age axis runs from today's age to the last age simulated, labelled every 5 years (every 10 when narrow), never from 0.
   - Tapping another age makes it the selected age for the charts below. Charts calculated before for that age show at once; otherwise the banner offers *Calculate* for it.
   - Steps caused by pension eligibility (e.g. at 64 or 67) show as steps, with a note explaining why.
 - **Your money over time.**
-  - A fan chart in one hue: the median line, a darker 25–75% band and a lighter 10–90% band.
-  - With *Future* history turned on, your actual past values are drawn as a solid line in ink (not the plan's colour) to the left of today.
-  - Markers along the time axis: retirement, when locked money becomes accessible, pension starts, windfalls and large expenses.
-- **Retirement income.** Stacked bars per year, by source: withdrawals, INPS, other pensions, pension fund, TFR and windfalls, with the spending target as a line. *Taxes* switches to the same years stacked by tax line: IRPEF, addizionali, the tax on gains, and the 0.2% wealth tax.
+  - A fan chart in one hue: the median line, a darker 25–75% band and a lighter 10–90% band, with its legend in a row of its own above it.
+  - Your actual past values are drawn as a solid line in ink (not the plan's colour) to the left of today.
+  - **Time span:** the same menu as the Overview's (and the same remembered choice): how far back, and how far ahead, retirement + 15 years by default, so the years around retirement aren't a sliver of a chart running to 95.
+  - The value axis fits your history, the median and the 25–75% band; the 10–90% band may run off the top, and the legend says so.
+  - Markers above the data: retirement, when locked money becomes accessible, pension starts, windfalls and large expenses. Labels that would collide go in a second row; a marker without room in either shows its icon, and its label is in the callout.
+- **Retirement income.**
+  - Stacked areas, one flat step a year, by source: withdrawals, work (the year you retire), INPS, other pensions, the pension fund, windfalls and TFR, then the taxes they pay in grey on top. The spending target is a dashed line, labelled "Spending" at its end, outside the areas. Years are labelled every 5 or 10.
+  - *Why the taxes are on top:* the planner reports income before tax. A withdrawal is what's sold: it pays the tax on the sale and the previous year's wealth tax as well as the spending, so in a rich run's later years it can be twice the spending. So that the chart reads against the spending line, each source is shown after its share of the year's taxes (in proportion), and the taxes paid from the year's income are the grey band: the sources reach the spending line (plus expenses and what's saved), the stack the income before tax. The year the money runs out falls short of the line. Taxes on rebalancing are paid inside the portfolio; *Taxes* shows them.
+  - A one-off (a windfall, the TFR) that would flatten the rest runs off the top, with a note under the chart: "Inheritance in 2050 (150k €) runs off the top."
+  - *Taxes* switches to the same years stacked by tax line: IRPEF, addizionali, the tax on gains, and the 0.2% wealth tax.
 - **When it fails.** A sentence or two about the failing runs, including bridge failures, i.e. running out before locked money opens.
 - **What if.**
   - Sliders for retirement age, spending, saving and equity return. On iPhone they're in a bottom sheet; on the Mac, in the inspector.
@@ -604,6 +623,8 @@ On iPhone, journals use "Import with profile…" with a saved ledger profile, li
   | --- | --- | --- | --- | --- | --- | --- | --- |
   | blue | orange | aqua | yellow | magenta | green | violet | red |
 
+- **Retirement income** stacks its sources in a fixed order, each in its own slot of the same palette, so neighbours in the stack are neighbours in the validated order: withdrawals blue, work orange, INPS aqua, other pensions yellow, the pension fund magenta, windfalls green, TFR violet, other red. The taxes on top are a neutral grey (the secondary ink colour), which stays apart from all eight hues in light and dark. Each band is a wash of its colour with a 2-point line in the colour along its top, never a saturated block.
+- **Changes** (the bars since the last check-in) use the positive and negative colours, with a sign and an amount in ink beside each bar.
 - **Everything else** is one hue (blue) with labels: allocation by account group, fan charts (the bands are lighter steps of blue), success curves.
 - **Your actual history** is always drawn in ink, not a series colour, so "what happened" never looks like "what was projected".
 - **Status colours** (warning, error) appear only with an icon and a label.
@@ -611,10 +632,15 @@ On iPhone, journals use "Import with profile…" with a saved ledger profile, li
 **Charts.**
 
 - Swift Charts, with thin marks: 2 pt lines and rounded bar ends.
-- Faint gridlines.
+- Faint gridlines; marker rules are solid hairlines, never dashed.
 - A value axis always includes zero and has round ticks whose labels read apart; flat or near-zero data gets a sensible span (0 to 1 at least), never a sliver labelled "0, 0, −0, −0".
+- **Domains fit the data.** A time axis spans the dates shown (or the chosen time span), an age axis today's age to the last age simulated, never from 0.
+- **Ticks fit the width.** Years every 1, 2, 5 or 10, or months for a span of a year or two (January says the year); ages every 5. Never a label per bar.
+- **Labels never collide.** Marker labels sit above the data, in room the value axis keeps for them, staggered in up to two rows; a marker without room in either shows its icon, and its label is in the callout. A line's label goes at its end, outside the other marks: the time axis reaches past the data to make room.
+- **Legends sit in a row of their own** above the chart, each swatch mirroring its mark (a line for a line, a block for an area), names in text colours. A single series has none: the title names it.
+- **A projection's value axis** fits the history, the median and the 25–75% band. The 10–90% band may run off the top, cut at the chart's edge, and the legend says "↑ 10–90% continues above". No log scale.
 - A value that couldn't be worked out (a price or exchange rate missing) is never drawn as zero: an account's line has a gap there, and a total that adds up what it could is drawn dashed and grey. A note under the chart says what's missing.
-- Direct labels on the last point instead of legends, wherever there are four series or fewer.
+- Direct labels on the last point as well as the legend, where they don't collide.
 - Every chart can be read by dragging across it (`chartXSelection`) and has a VoiceOver summary (`accessibilityChartDescriptor`). The callout stays inside the chart, never over what's above it.
 - No dual axes. When two measures need comparing, they get two charts.
 
@@ -622,7 +648,7 @@ On iPhone, journals use "Import with profile…" with a saved ledger profile, li
 
 **Privacy.**
 
-- An eye button hides every amount (`•••••`) while charts keep their shape.
+- An eye button hides every amount (`•••••`) while charts keep their shape and a relative value axis: net worth (and an account's value) in multiples of today's (`0`, `1×`, `2×`), the plan's money in multiples of today's plan assets, retirement income in multiples of the spending. Only labels that would reveal amounts hide; the change since the last check-in shows in per cent.
 - Amounts are marked `.privacySensitive()`, so widgets and the app switcher hide them when the device is locked.
 - Optional Face ID lock.
 
@@ -668,5 +694,5 @@ All widgets hide amounts when the device is locked.
 - **Navigation.** One root view chooses between `TabView` (compact width) and `NavigationSplitView` (regular width and Mac). The screens themselves don't know which one they're in.
 - **Mac layouts.** A Mac window can't be smaller than the minimum size of its content, so every page's content scrolls, and what's pinned to a page scrolls when there's no room (`OverflowScrollView`). Tables on a scrolling page are as tall as their rows (`PageTable`), so the page scrolls them; a `Table` is used only as a whole page (Instruments, the import's columns). [App/README.md](../App/README.md#design-system) has the details.
 - **Folders.** `App/Sources/` holds `App`, `Stores`, `Navigation`, `DesignSystem` (colours, number formats, spacing, amount text, cards), `Components/Charts`, `Features/<Feature>` (Overview, Accounts, CheckIn, Plan, Import, Settings, Onboarding, Library) and `Preview`. [App/README.md](../App/README.md) describes them and the stores' APIs.
-- **Chart components**, reused everywhere: `NetWorthChart`, `FanChart`, `SuccessCurveChart`, `IncomeStackChart`, `WaterfallChart`, `BreakdownBars`, `Sparkline`.
+- **Chart components**, reused everywhere: `NetWorthChart`, `FanChart`, `SuccessCurveChart`, `IncomeStackChart`, `WaterfallChart` (now a headline and change bars), `BreakdownBars`, `Sparkline`. Their layout (ticks, marker labels, scales, the time span) is worked out without SwiftUI and tested on Linux.
 - **Previews.** Every screen has SwiftUI previews built from a made-up library in code, with the same numbers as the example library in the tests.

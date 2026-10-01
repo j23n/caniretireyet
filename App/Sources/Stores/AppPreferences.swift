@@ -51,6 +51,13 @@ final class AppPreferences {
     /// The groups start expanded, *Closed* collapsed.
     static let defaultCollapsedAccountFolders: Set<String> = [SidebarAccountFolder.closed.key]
 
+    /// How far ahead charts show a plan's projection: the Overview's net
+    /// worth with *Future* on, and the plan's "Your money over time"
+    /// (UI.md, "Charts"). Retirement and 15 years after it until changed.
+    var futureHorizon: FutureHorizon {
+        didSet { defaults.set(futureHorizon.rawValue, forKey: Keys.futureHorizon) }
+    }
+
     @ObservationIgnored private let defaults: UserDefaults
 
     init(defaults: UserDefaults = .standard) {
@@ -61,6 +68,8 @@ final class AppPreferences {
         fetchPricesOnCheckIn = defaults.object(forKey: Keys.fetchPricesOnCheckIn) as? Bool ?? true
         collapsedAccountFolders = defaults.stringArray(forKey: Keys.collapsedAccountFolders).map(Set.init)
             ?? Self.defaultCollapsedAccountFolders
+        futureHorizon = defaults.string(forKey: Keys.futureHorizon).flatMap(FutureHorizon.init(rawValue:))
+            ?? .standard
         if defaults.bool(forKey: Keys.reminderEnabled) {
             reminder = CheckInReminder(
                 day: defaults.object(forKey: Keys.reminderDay) as? Int ?? CheckInReminder.lastDay,
@@ -80,6 +89,7 @@ final class AppPreferences {
         static let reminderHour = "checkInReminder.hour"
         static let reminderMinute = "checkInReminder.minute"
         static let collapsedAccountFolders = "sidebar.collapsedAccountFolders"
+        static let futureHorizon = "charts.futureHorizon"
     }
 }
 

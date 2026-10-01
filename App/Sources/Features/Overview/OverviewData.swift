@@ -114,8 +114,8 @@ struct OverviewHero: Hashable, Sendable {
 // MARK: - History
 
 /// The history chart's data for one range: the line (or stacked areas by
-/// asset class) and, with *Future* on, the plan's projection clipped to a
-/// matching horizon.
+/// asset class) and, with *Future* on, the plan's projection up to the
+/// chosen horizon (``FutureHorizon``).
 struct OverviewHistory: Hashable, Sendable {
     var points: [ChartPoint]
     var stacked: [ChartSeries]
@@ -131,11 +131,12 @@ struct OverviewHistory: Hashable, Sendable {
     /// - Parameters:
     ///   - projection: the main plan's portfolio fan, starting at `end`.
     ///   - markers: retirement, pension starts and the like.
+    ///   - horizon: where the projection stops (``FutureHorizon``); all of
+    ///     it when `nil`.
     ///
-    /// The projection reaches as far ahead as the range reaches back (all of
-    /// it for *All*); markers outside what's shown are left out.
+    /// Markers outside what's shown are left out.
     init(valuator: Valuator, through end: CalendarDate, scope: NetWorthScope, range: OverviewRange, stacked: Bool,
-         projection: [FanPoint] = [], markers: [ChartMarker] = []) {
+         projection: [FanPoint] = [], markers: [ChartMarker] = [], horizon: Date? = nil) {
         let start = range.years.map { end.adding(years: -$0) }
         points = valuator.series(scope, through: end)
             .filter { point in start.map { point.date >= $0 } ?? true }
@@ -155,28 +156,15 @@ struct OverviewHistory: Hashable, Sendable {
         } else {
             self.stacked = []
         }
-        let horizon = range.years.map { end.adding(years: $0).dateValue }
-        self.projection = horizon.map { Self.clip(projection, at: $0) } ?? projection
+        self.projection = horizon.map { ProjectionWindow.clip(projection, at: $0) } ?? projection
         let first = points.first?.date ?? end.dateValue
         let last = self.projection.last?.date ?? end.dateValue
         self.markers = markers.filter { $0.date >= first && $0.date <= last }
     }
 
-    /// The fan up to `horizon`, with a point interpolated at the horizon when
-    /// the fan goes beyond it.
+    /// The fan up to `horizon` (``ProjectionWindow/clip(_:at:)``).
     static func clip(_ fan: [FanPoint], at horizon: Date) -> [FanPoint] {
-        var kept = fan.filter { $0.date <= horizon }
-        guard let before = kept.last, before.date < horizon,
-              let after = fan.first(where: { $0.date > horizon })
-        else { return kept }
-        let span = after.date.timeIntervalSince(before.date)
-        guard span > 0 else { return kept }
-        let t = horizon.timeIntervalSince(before.date) / span
-        func mix(_ a: Double, _ b: Double) -> Double { a + (b - a) * t }
-        kept.append(FanPoint(date: horizon, p10: mix(before.p10, after.p10), p25: mix(before.p25, after.p25),
-                             p50: mix(before.p50, after.p50), p75: mix(before.p75, after.p75),
-                             p90: mix(before.p90, after.p90)))
-        return kept
+        ProjectionWindow.clip(fan, at: horizon)
     }
 }
 
