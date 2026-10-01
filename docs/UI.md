@@ -65,7 +65,7 @@ Library
 - **Accounts in the sidebar.** The accounts are in the sidebar itself, so an account is one click away and a group of one doesn't need a page of its own.
   - *All accounts* is the overview: the [list](#accounts), grouped, with subtotals and the closed accounts. Its rows open an account's detail with a back button.
   - Under it, a row per group that has open accounts (Cash, Investments, Crypto & gold, Pension, Property, Debts), with its subtotal on the right. It expands to the group's accounts: kind icon, name and value, with a small clock when the latest value is stale. Values and staleness are the same as in the list. *Closed (n)* expands to the closed accounts. Amounts are left out while they're hidden.
-  - Clicking a group, or its disclosure triangle, expands or collapses it; groups aren't pages. They start expanded and *Closed* collapsed, and the device remembers which are collapsed.
+  - Clicking a group, or its disclosure triangle, expands or collapses it; groups aren't pages. They start expanded and *Closed* collapsed, and the device remembers which are collapsed, here and on *All accounts* alike ([Accounts](#accounts)).
   - Selecting an account shows its detail in the content area; the arrow keys move from account to account. Opening an account from elsewhere in the app selects its row and expands its group.
   - The sidebar follows the library, also when it changes on the other device: a new account appears under its group, a selected account that's closed moves under *Closed* and stays selected, and one that's deleted gives way to *All accounts*.
 - **Settings** is the standard Settings window (⌘,).
@@ -236,10 +236,27 @@ The flow that has to be fast. It opens as a full-screen sheet on iPhone and as t
 ## Accounts
 
 - **List.** Grouped: Cash, Investments, Crypto & gold, Pension, Property, Debts. On the Mac and iPad it's *All accounts* in the sidebar, which also lists each group's accounts under it ([Navigation](#navigation)).
-  - Each group shows its subtotal.
+
+  ```
+  Accounts                                  +
+    9 accounts · Net worth 312.480
+  Cash                         12.990  ⌄         ← tap a header to collapse it
+    Conto deposito    ╱‾╲_╱     8.200  ›
+    Conto Fineco  ◷   _╱‾‾      4.790  ›         ← ◷ "Stale"
+  Investments                  71.300  ›         ← collapsed: the header alone
+  Crypto & gold                13.040  ⌄
+    Gold coins        ‾‾╲_      9.640  ›
+    Ledger wallet     _╱‾╲      3.400  ›
+  …
+  Closed (1)                           ›         ← collapsed at first
+  ```
+
+  - Each group's header shows its name and subtotal.
   - Each row shows a kind icon, the name, the institution, the value, a sparkline of the last 12 months, and a "stale" badge when needed.
   - Swipe actions: *Update value* (a one-account valuation) and *Close*. Saved as it is, *Update value* records the account as unchanged; an account with no earlier value needs a value typed, and an emptied field isn't zero (type 0). Its date can be any day up to the closing date (or a year from today), also before the account opened: see [Adding history](#adding-history). An account that records trades offers *Add trade* instead; its *Update Cash…* (in the context menu) shows the holdings from the trades, read-only, and records the cash.
-  - Closed accounts sit in a collapsed "Closed (3)" section at the bottom.
+  - Closed accounts sit in a "Closed (3)" section at the bottom.
+  - **Collapsing.** Tapping a group's header, or *Closed*'s, collapses the group to its header (name and subtotal) or expands it again, with an animation; the chevron at the right of the header points down while it's expanded. The groups start expanded and *Closed* collapsed. The device remembers which are collapsed, and the sidebar shares them: collapsing Cash on *All accounts* collapses it in the sidebar too, and the other way round.
+  - **Search** (by name, institution, kind, tags or notes) shows every group expanded while there's a query, so no result is hidden. Clearing it brings back the collapsed ones.
 - **Account detail.**
   - The value and its change.
   - A history chart. New-money events are small ticks on the time axis, so jumps you caused are distinguishable from market moves. As on the Overview, a note under it points out values that use a price more than 31 days old, with *Fill In Past Prices…*.

@@ -9,8 +9,19 @@ import Tracker
 /// - Rows: kind icon, name, institution, a 12-month sparkline, the value,
 ///   and a "Stale" badge when the latest value is too old.
 /// - Swipe (or right-click): *Update value* (a one-account valuation) and
-///   *Close*. Closed accounts sit in a collapsed "Closed (n)" section.
-/// - Search by name, institution, kind, tags or notes.
+///   *Close*. Closed accounts sit in a "Closed (n)" section at the bottom.
+/// - Tapping a section's header collapses or expands it, chevron turning
+///   (the full list only). The groups start expanded and *Closed* collapsed;
+///   the device remembers which are collapsed, shared with the sidebar's
+///   groups (`AccountListExpansion`, `AppPreferences.collapsedAccountFolders`).
+/// - Search by name, institution, kind, tags or notes. While searching every
+///   section is expanded, so no result is hidden.
+///
+/// A header `Button` collapses a section rather than `Section(isExpanded:)`,
+/// which only draws its disclosure in the `.sidebar` list style: that style
+/// would restyle the list (and on the Mac, where this is the content column,
+/// make it a second sidebar), while the button works the same in any list
+/// style, keeps the subtotal header, and lets a search show everything.
 struct AccountsScreen: View {
     let filter: AccountsFilter
 
@@ -19,7 +30,6 @@ struct AccountsScreen: View {
     @Environment(AppPreferences.self) private var preferences
     @Environment(\.locale) private var locale
     @State private var query = ""
-    @State private var showsClosed = false
     @State private var action: AccountAction?
     @State private var tradeTarget: TradeEditorTarget?
     @State private var errorMessage = ""
@@ -33,6 +43,8 @@ struct AccountsScreen: View {
         let list = AccountList(library: library.library, valuator: library.valuator, filter: filter, query: query,
                                today: .today(), stalenessThreshold: preferences.stalenessThreshold)
         let widest = list.widestValue(currency: library.baseCurrency, locale: locale)
+        let expansion = AccountListExpansion(filter: filter, query: query,
+                                             collapsed: preferences.collapsedAccountFolders)
         List {
             if filter == .all && query.isEmpty && list.openCount > 0 {
                 Section {
@@ -40,15 +52,21 @@ struct AccountsScreen: View {
                 }
             }
             ForEach(list.sections) { section in
+                let folder = SidebarAccountFolder.group(section.group)
+                let isExpanded = expansion.isExpanded(folder)
                 Section {
-                    ForEach(section.items) { item in
-                        openRow(item, widestValue: widest)
+                    if isExpanded {
+                        ForEach(section.items) { item in
+                            openRow(item, widestValue: widest)
+                        }
                     }
                 } header: {
-                    AccountSectionHeader(section: section)
+                    AccountSectionHeader(title: section.group.description, subtotal: section.subtotal,
+                                         isExpanded: isExpanded,
+                                         toggle: expansion.isCollapsible ? { toggle(folder) } : nil)
                 }
             }
-            closedSection(list, widestValue: widest)
+            closedSection(list, expansion: expansion, widestValue: widest)
         }
         .searchable(text: $query, prompt: "Search accounts")
         .overlay {
@@ -174,8 +192,11 @@ struct AccountsScreen: View {
         }
     }
 
+    /// The closed accounts: under a collapsible *Closed (n)* header on the
+    /// full list, or on their own.
     @ViewBuilder
-    private func closedSection(_ list: AccountList, widestValue: Decimal?) -> some View {
+    private func closedSection(_ list: AccountList, expansion: AccountListExpansion,
+                               widestValue: Decimal?) -> some View {
         if !list.closed.isEmpty {
             if filter == .closed {
                 Section {
@@ -184,34 +205,26 @@ struct AccountsScreen: View {
                     }
                 }
             } else {
-                let isExpanded = showsClosed || !query.isEmpty
+                let isExpanded = expansion.isExpanded(.closed)
                 Section {
-                    Button {
-                        withAnimation { showsClosed.toggle() }
-                    } label: {
-                        HStack(spacing: Metrics.m) {
-                            Image(systemName: AppSymbol.closed)
-                                .frame(width: 28)
-                                .accessibilityHidden(true)
-                            Text("Closed (\(list.closed.count))")
-                            Spacer()
-                            Image(systemName: "chevron.right")
-                                .font(.footnote.weight(.semibold))
-                                .rotationEffect(.degrees(isExpanded ? 90 : 0))
-                                .accessibilityHidden(true)
-                        }
-                        .foregroundStyle(Palette.secondaryInk)
-                        .contentShape(Rectangle())
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityValue(isExpanded ? "Expanded" : "Collapsed")
                     if isExpanded {
                         ForEach(list.closed) { item in
                             closedRow(item, widestValue: widestValue)
                         }
                     }
+                } header: {
+                    AccountSectionHeader(title: "Closed (\(list.closed.count))", isExpanded: isExpanded,
+                                         toggle: expansion.isCollapsible ? { toggle(.closed) } : nil)
                 }
             }
+        }
+    }
+
+    /// Expands or collapses a group, or *Closed*: here, in the sidebar, and
+    /// on this device from now on.
+    private func toggle(_ folder: SidebarAccountFolder) {
+        withAnimation {
+            preferences.setExpanded(!preferences.isExpanded(folder), folder)
         }
     }
 
@@ -261,19 +274,52 @@ struct AccountsScreen: View {
 
 // MARK: - Rows
 
-/// A group's title and subtotal.
+/// A section's header: a group's name and subtotal, or *Closed (n)*. With
+/// `toggle`, a tap anywhere on it expands or collapses the section, and a
+/// chevron on the right points down while it's expanded, in the column of
+/// the rows' disclosure chevrons on iPhone, so the subtotal stays over the
+/// amounts.
 private struct AccountSectionHeader: View {
-    let section: AccountListSection
+    let title: String
+    var subtotal: Decimal?
+    let isExpanded: Bool
+    /// Expands or collapses the section; `nil` when it doesn't collapse
+    /// (while searching, or on a list of one group).
+    var toggle: (() -> Void)?
 
     var body: some View {
+        if let toggle {
+            Button(action: toggle) {
+                titleAndSubtotal
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityAddTraits(.isHeader)
+            .accessibilityValue(isExpanded ? "Expanded" : "Collapsed")
+        } else {
+            titleAndSubtotal
+                .accessibilityElement(children: .combine)
+                .accessibilityAddTraits(.isHeader)
+        }
+    }
+
+    private var titleAndSubtotal: some View {
         HStack(spacing: Metrics.s) {
-            Text(section.group.description)
+            Text(title)
             Spacer(minLength: Metrics.s)
-            AmountText(section.subtotal)
+            if let subtotal {
+                AmountText(subtotal)
+            }
+            if toggle != nil {
+                Image(systemName: "chevron.right")
+                    .font(.footnote.weight(.semibold))
+                    .rotationEffect(.degrees(isExpanded ? 90 : 0))
+                    .frame(width: 16)
+                    .accessibilityHidden(true)
+            }
         }
         .font(.subheadline.weight(.semibold))
         .textCase(nil)
-        .accessibilityElement(children: .combine)
     }
 }
 
