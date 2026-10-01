@@ -17,11 +17,12 @@ struct CLIRun {
 
 /// Runs `retire` with `arguments` in a test context: output is captured,
 /// today is 2026-09-30 (the example library's last check-in), and the price
-/// APIs are answered by `client` (by default, every request fails).
+/// APIs are answered by `client` (by default, every request fails). With
+/// `terminal`, standard error acts as a terminal, so status lines show.
 func retire(_ arguments: [String], environment: [String: String] = [:], currentDirectory: URL? = nil,
             today: CalendarDate = "2026-09-30", client: (any HTTPClient)? = nil,
-            clock: TestClock = TestClock()) async -> CLIRun {
-    let (console, captured) = Console.capturing()
+            clock: TestClock = TestClock(), terminal: Bool = false) async -> CLIRun {
+    let (console, captured) = Console.capturing(terminal: terminal)
     let context = CLIContext(
         console: console, environment: environment,
         currentDirectory: currentDirectory ?? FileManager.default.temporaryDirectory, today: today,

@@ -8,6 +8,11 @@ import Tracker
 /// > Saved · Net worth 312.480 € (▲ 4.210)
 /// > Can I retire yet? Not yet: earliest at **54**, unchanged since August.
 ///
+/// It shows as soon as the check-in is written. The main plan then runs to
+/// record the month's answer (`PlanStore.checkInAnswer`): its progress shows
+/// in place of the answer, the same as on the Plan screen, until the answer
+/// is there. Done closes it meanwhile; the run goes on and records the answer.
+///
 /// Without an answer it says why, calmly: there's no main plan yet, plans
 /// can't run in this version (the last recorded answer is shown), or the
 /// plan couldn't run. A past check-in (one before the library's latest)
@@ -108,7 +113,7 @@ struct CheckInConfirmationView: View {
 
     @ViewBuilder
     private var answer: some View {
-        if let headline = result.headline {
+        if let headline = result.headline ?? answerRun?.headline {
             let parts = CheckInAnswer.make(headline, previous: previousHeadline, locale: locale)
             VStack(alignment: .leading, spacing: Metrics.s) {
                 answerText(parts)
@@ -121,6 +126,15 @@ struct CheckInConfirmationView: View {
                 }
                 Button("Open the plan") { openPlan() }
                     .buttonStyle(.borderless)
+            }
+        } else if let run = answerRun, run.isRunning {
+            VStack(alignment: .leading, spacing: Metrics.s) {
+                PlanRunProgressView(progress: plans.progress(of: run.plan, .checkIn) ?? .starting(.full),
+                                    isCheckIn: true)
+                Text("You can close this now: the answer is recorded when it's ready.")
+                    .font(.footnote)
+                    .foregroundStyle(Palette.secondaryInk)
+                    .fixedSize(horizontal: false, vertical: true)
             }
         } else if library.mainPlan == nil {
             VStack(alignment: .leading, spacing: Metrics.s) {
@@ -163,13 +177,20 @@ struct CheckInConfirmationView: View {
         if !plans.isAvailable {
             return "This month's answer comes once plans can run in this version of the app."
         }
-        if let main = library.settings.mainPlan, let error = plans.errors[main] {
+        if let error = answerRun?.error ?? library.settings.mainPlan.flatMap({ plans.errors[$0] }) {
             return "The plan couldn't run this time: \(error)"
         }
-        return "This month's answer isn't ready yet. Open the plan to run it."
+        return "This month's answer isn't ready yet. Open the plan to calculate it."
     }
 
     // MARK: Helpers
+
+    /// The main plan's run for this check-in's answer: its progress, then
+    /// the headline it recorded.
+    private var answerRun: CheckInAnswerRun? {
+        guard let run = plans.checkInAnswer, run.date == result.date else { return nil }
+        return run
+    }
 
     /// The answer recorded at the check-in before this one.
     private var previousHeadline: Headline? {
@@ -196,6 +217,13 @@ struct CheckInConfirmationView: View {
 #Preview("Saved") {
     CheckInConfirmationView(result: CheckInPreviewData.saved) {}
         .previewEnvironment()
+}
+
+#Preview("Saved, working out the answer") {
+    let model = AppModel.preview(planEngine: PlanPreviewEngine(delay: .milliseconds(400)))
+    CheckInConfirmationView(result: CheckInPreviewData.savedWithoutAnswer) {}
+        .previewEnvironment(model: model)
+        .task { model.plans.recordCheckInAnswer(on: CheckInPreviewData.savedWithoutAnswer.date) }
 }
 
 #Preview("Saved, no planner") {

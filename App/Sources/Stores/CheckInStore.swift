@@ -287,8 +287,10 @@ final class CheckInStore {
 
     /// Writes the check-in into the library (valuations, prices, FX rates and
     /// index values) and waits until the files are written. Then deletes the
-    /// draft, re-runs the main plan and returns what to show in the
-    /// confirmation.
+    /// draft, starts the main plan's run that records this month's answer
+    /// (`PlanStore.recordCheckInAnswer(on:)`, without waiting for it: the
+    /// confirmation shows its progress, then the answer) and returns what to
+    /// show in the confirmation.
     ///
     /// The plan runs on today's data, so its answer (and the year's first
     /// baseline) is recorded only when this is the library's latest
@@ -339,9 +341,9 @@ final class CheckInStore {
         // baseline): the plan runs on today's data, so for a past date it
         // would record made-up history.
         let later = Self.laterCheckIn(than: draft.date, in: library.library)
-        let headline = later == nil ? await plans?.checkInSaved(on: draft.date) : nil
+        if later == nil { plans?.recordCheckInAnswer(on: draft.date) }
         let result = CheckInSaveResult(
-            date: draft.date, netWorth: review.netWorth.total, change: review.change?.total, headline: headline,
+            date: draft.date, netWorth: review.netWorth.total, change: review.change?.total, headline: nil,
             laterCheckIn: later)
         lastSaved = result
         return result
@@ -417,8 +419,9 @@ struct CheckInSaveResult: Hashable, Sendable {
     var netWorth: Decimal
     /// The change since the previous check-in; `nil` for the first one.
     var change: ValueChange?
-    /// This month's answer from the main plan; `nil` without a planner or
-    /// plan, and for a past check-in.
+    /// This month's answer from the main plan, when it's known already;
+    /// `nil` without a planner or plan, for a past check-in, and while the
+    /// plan runs: the confirmation then follows `PlanStore.checkInAnswer`.
     var headline: PlanHeadline?
     /// The library's latest check-in, when it's after this one: this was a
     /// past check-in, so no answer was recorded for it.

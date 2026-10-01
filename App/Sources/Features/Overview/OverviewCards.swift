@@ -51,7 +51,8 @@ struct OverviewChangeCard: View {
 
 /// The main plan's answer (its latest results, or the headline recorded at
 /// the last check-in), progress toward financial independence, and how
-/// you compare with the latest baseline. Tapping it opens the plan.
+/// you compare with the latest baseline. Tapping it opens the plan. It
+/// never starts a run: plans run from the Plan screen and at check-ins.
 struct OverviewAnswerCard: View {
     let valuator: Valuator
     let asOf: CalendarDate
@@ -137,8 +138,24 @@ struct OverviewAnswerCard: View {
                 Text("As recorded at the check-in on \(AmountFormat.shortDate(recorded, locale: locale))")
                     .font(.caption)
                     .foregroundStyle(Palette.mutedInk)
+            } else if let status = runStatus {
+                Text(status)
+                    .font(.caption)
+                    .monospacedDigit()
+                    .foregroundStyle(Palette.mutedInk)
             }
         }
+    }
+
+    /// Under an answer from this session's results: a calculation going on,
+    /// or that they're out of date.
+    private var runStatus: String? {
+        guard let main = library.settings.mainPlan else { return nil }
+        if let progress = plans.progress(of: main, .checkIn) ?? plans.progress(of: main, .base) {
+            return PlanRunText.status(progress, isCheckIn: plans.isRunning(main, .checkIn), locale: locale)
+        }
+        guard !plans.staleReasons(of: main).isEmpty else { return nil }
+        return "Calculated before your latest changes · open the plan to recalculate"
     }
 
     @ViewBuilder
@@ -146,8 +163,14 @@ struct OverviewAnswerCard: View {
         if plans.isRunning(plan.id) {
             HStack(spacing: Metrics.s) {
                 ProgressView()
-                Text("Working out \(plan.name)…")
-                    .foregroundStyle(Palette.secondaryInk)
+                if let progress = plans.progress(of: plan.id, .checkIn) ?? plans.progress(of: plan.id, .base) {
+                    Text("Working out \(plan.name)… \(PlanRunText.overall(progress, locale: locale))")
+                        .monospacedDigit()
+                        .foregroundStyle(Palette.secondaryInk)
+                } else {
+                    Text("Working out \(plan.name)…")
+                        .foregroundStyle(Palette.secondaryInk)
+                }
             }
         } else if plans.isAvailable, let error = plans.errors[plan.id] {
             Text(error)
@@ -155,7 +178,7 @@ struct OverviewAnswerCard: View {
                 .foregroundStyle(Palette.secondaryInk)
                 .fixedSize(horizontal: false, vertical: true)
         } else {
-            Text("\(plan.name)'s answer appears here after your next check-in.")
+            Text("\(plan.name)'s answer appears here after your next check-in, or once you calculate the plan.")
                 .font(.callout)
                 .foregroundStyle(Palette.secondaryInk)
                 .fixedSize(horizontal: false, vertical: true)

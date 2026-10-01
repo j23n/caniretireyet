@@ -83,23 +83,31 @@ struct Engine: Sendable {
 
     // MARK: - Evaluating ages
 
-    /// The share of runs that succeed at each age.
-    func successRates(ages: [Int], spending: Double) async throws -> [Int: Double] {
+    /// The share of runs that succeed at each age. `progress` counts the
+    /// runs simulated.
+    func successRates(ages: [Int], spending: Double, progress: ProgressReporter? = nil) async throws
+        -> [Int: Double] {
         let engine = self
         let rates = try await parallelMap(ages) { age -> Double in
             var simulator = engine.simulator(age: age)
             var successes = 0
             for run in 0..<engine.scenarios.runs {
-                if run > 0, run % Self.runsPerChunk == 0 { try await Self.pause() }
+                if run > 0, run % Self.runsPerChunk == 0 {
+                    progress?.advance(Self.runsPerChunk)
+                    try await Self.pause()
+                }
                 if simulator.run(run, spending: spending).failure == nil { successes += 1 }
             }
+            progress?.advance(Self.lastChunk(of: engine.scenarios.runs))
             return Double(successes) / Double(engine.scenarios.runs)
         }
         return Dictionary(uniqueKeysWithValues: zip(ages, rates))
     }
 
     /// Every run at one age, with year-end values: split across workers.
-    func evaluateInDetail(age: Int, spending: Double) async throws -> (outcomes: [RunOutcome], values: [Double]) {
+    /// `progress` counts the runs simulated.
+    func evaluateInDetail(age: Int, spending: Double, progress: ProgressReporter? = nil) async throws
+        -> (outcomes: [RunOutcome], values: [Double]) {
         let runs = scenarios.runs
         let years = model.frames.count
         let engine = self
@@ -112,11 +120,13 @@ struct Engine: Sendable {
             values.reserveCapacity(range.count * years)
             for run in range {
                 if run > range.lowerBound, (run - range.lowerBound) % Self.runsPerChunk == 0 {
+                    progress?.advance(Self.runsPerChunk)
                     try await Self.pause()
                 }
                 outcomes.append(simulator.run(run, spending: spending, recordValues: true))
                 values += simulator.yearValues
             }
+            progress?.advance(Self.lastChunk(of: range.count))
             return (outcomes, values)
         }
         return (parts.flatMap(\.0), parts.flatMap(\.1))
@@ -132,13 +142,16 @@ struct Engine: Sendable {
     /// The highest yearly retirement spending that still reaches the
     /// confidence level at `age`, by bisection. Each run's success is
     /// monotone in spending, so runs already settled at a lower or higher
-    /// level aren't simulated again.
-    func sustainableSpending(age: Int) async throws -> SustainableSpending? {
+    /// level aren't simulated again. `progress` counts the levels tried
+    /// (steps), against an estimate that grows when the search needs more.
+    func sustainableSpending(age: Int, progress: ProgressReporter? = nil) async throws -> SustainableSpending? {
         let runs = scenarios.runs
         let confidence = model.confidence
         var succeedsUpTo = [Double](repeating: -.infinity, count: runs)
         var failsFrom = [Double](repeating: .infinity, count: runs)
         let engine = self
+        // Levels tried so far, for `progress`: each is a step.
+        var steps = 0
 
         func success(at level: Double) async throws -> Double {
             let open = (0..<runs).filter { succeedsUpTo[$0] < level && level < failsFrom[$0] }
@@ -156,17 +169,23 @@ struct Engine: Sendable {
             for (run, succeeded) in results.joined() {
                 if succeeded { succeedsUpTo[run] = level } else { failsFrom[run] = level }
             }
+            steps += 1
+            progress?.advance()
             return Double((0..<runs).filter { succeedsUpTo[$0] >= level }.count) / Double(runs)
         }
 
+        var high = max(1000, model.spending.retired * 1.5)
+        // Zero, the first upper bound, the bisection and the final check.
+        progress?.begin(.sustainableSpending, total: 3 + Self.bisectionSteps(low: 0, high: high))
         guard try await success(at: 0) >= confidence else { return nil }
         var low = 0.0
-        var high = max(1000, model.spending.retired * 1.5)
         while try await success(at: high) >= confidence {
             low = high
             high *= 2
             if high > 1e8 { break }
+            progress?.extend(to: steps + 2 + Self.bisectionSteps(low: low, high: high))
         }
+        progress?.extend(to: steps + 1 + Self.bisectionSteps(low: low, high: high))
         for _ in 0..<60 where high - low > max(10, low * 0.0005) {
             let mid = (low + high) / 2
             if try await success(at: mid) >= confidence { low = mid } else { high = mid }
@@ -175,10 +194,29 @@ struct Engine: Sendable {
         return SustainableSpending(age: age, perYear: perYear, success: try await success(at: perYear))
     }
 
+    /// At most how many halvings the bisection between `low` and `high`
+    /// takes: its tolerance only grows as `low` does.
+    static func bisectionSteps(low: Double, high: Double) -> Int {
+        var steps = 0
+        var gap = high - low
+        while steps < 60, gap > max(10, low * 0.0005) {
+            gap /= 2
+            steps += 1
+        }
+        return steps
+    }
+
     // MARK: - Helpers
 
     /// How many runs a task simulates between pauses (``pause()``).
     static let runsPerChunk = 64
+
+    /// The runs of a loop of `count` after its last pause: what's left to
+    /// count for progress once it ends.
+    static func lastChunk(of count: Int) -> Int {
+        guard count > 0 else { return 0 }
+        return count - (count - 1) / runsPerChunk * runsPerChunk
+    }
 
     /// Between chunks of work: stops if the run was cancelled, and lets the
     /// other jobs waiting for the planner's threads go first.

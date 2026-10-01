@@ -8,8 +8,11 @@ import TaxKit
 /// - **iPhone** (tabs): a segmented Results | Progress | Inputs; What-if is a
 ///   bottom sheet; while editing Inputs a small pill keeps the answer in view.
 /// - **Mac and iPad** (sidebar): Results | Progress in the content area and
-///   Inputs with What-if in the inspector, so results update next to the
-///   field being edited.
+///   Inputs with What-if in the inspector, so the results, and whether
+///   they're out of date, stay next to the field being edited.
+///
+/// The plan is calculated only on request: *Calculate* / *Recalculate* in
+/// the results, the toolbar and the Plan menu (⌘R), *Run What-If*.
 ///
 /// Created by the navigation as `PlanScreen(planID:)`; `nil` is the main plan.
 struct PlanScreen: View {
@@ -169,7 +172,8 @@ struct PlanContentView: View {
             .focusedSceneValue(\.planActions, PlanCommandActions(
                 saveBaseline: { startSavingBaseline() },
                 duplicate: { duplicate() },
-                compare: { isComparing = true }))
+                compare: { isComparing = true },
+                recalculate: { session.calculate() }))
             .onDisappear { session.saveNow() }
     }
 
@@ -263,6 +267,13 @@ struct PlanContentView: View {
                 .fixedSize()
             }
             ToolbarItemGroup(placement: .primaryAction) {
+                Button {
+                    session.calculate()
+                } label: {
+                    Label(session.state.results == nil ? "Calculate" : "Recalculate", systemImage: "arrow.clockwise")
+                }
+                .help("Calculate the plan with its inputs and your latest data (⌘R)")
+                .disabled(!plans.isAvailable || session.state.isRunning)
                 Button {
                     isComparing = true
                 } label: {
@@ -453,9 +464,13 @@ struct PlanInspector: View {
     }
 }
 
-/// A small pill that keeps the answer in view while you edit (iPhone).
+/// A small pill that keeps the answer in view while you edit (iPhone):
+/// "Earliest 54", "Earliest 54 · out of date" with Recalculate, or the
+/// share of a calculation done.
 struct PlanAnswerPill: View {
     let session: PlanSession
+
+    @Environment(\.locale) private var locale
 
     private var text: String {
         guard let results = session.shownResults else { return "No answer yet" }
@@ -464,14 +479,27 @@ struct PlanAnswerPill: View {
     }
 
     var body: some View {
-        HStack(spacing: Metrics.xs) {
-            if session.isRunning {
-                ProgressView()
-                    .controlSize(.mini)
-            }
+        let state = session.state
+        HStack(spacing: Metrics.s) {
             Text(text)
                 .font(.subheadline.weight(.semibold))
                 .monospacedDigit()
+                .opacity(state.dimsResults ? 0.6 : 1)
+            if let progress = state.progress {
+                ProgressView(value: min(1, max(0, progress.fraction)), total: 1)
+                    .frame(width: 60)
+                Text(PlanRunText.short(progress, locale: locale))
+                    .font(.caption)
+                    .monospacedDigit()
+                    .foregroundStyle(Palette.secondaryInk)
+            } else if state.isOutOfDate, let action = state.action {
+                Text("· out of date")
+                    .font(.caption)
+                    .foregroundStyle(Palette.secondaryInk)
+                Button(action.title) { session.perform(action) }
+                    .font(.caption.weight(.semibold))
+                    .buttonStyle(.borderless)
+            }
         }
         .padding(.horizontal, Metrics.m)
         .padding(.vertical, 6)

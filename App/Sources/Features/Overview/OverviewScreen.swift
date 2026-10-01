@@ -30,9 +30,6 @@ struct OverviewScreen: View {
             }
         }
         .navigationTitle("Overview")
-        .task(id: library.settings.mainPlan) {
-            await runMainPlanIfNeeded()
-        }
     }
 
     private var content: some View {
@@ -68,17 +65,6 @@ struct OverviewScreen: View {
             .frame(maxWidth: .infinity)
         }
         .background(Palette.page)
-    }
-
-    /// Runs the main plan once when there are no results for it yet, so the
-    /// answer and the *Future* switch have something to show. Nothing
-    /// happens without a planner (the answer then falls back to the last
-    /// recorded headline).
-    private func runMainPlanIfNeeded() async {
-        guard plans.isAvailable, let main = library.settings.mainPlan, plans.results[main] == nil,
-              !plans.isRunning(main), plans.errors[main] == nil
-        else { return }
-        await plans.run(main)
     }
 }
 

@@ -172,7 +172,7 @@ The default assumptions in the example plan (equity 4.5% real, bonds 1%, cash 0%
 - **Failure.** A run fails in the first year in which accessible money can't cover the need. The failure is labelled either *ran out entirely* or *ran out before locked money became accessible*. The second kind is a bridging problem, and the fix is different. So a failure only gets that label when the locked money, after its payout tax, could have covered what's missing until it opens (the year's shortfall plus each later year's need before then); money too small for that, or locked for the rest of the plan, means the money ran out.
 - **Success rate.** The share of runs that never fail before `endAge`.
 - **Earliest retirement age.** The planner searches over retirement ages, using the **same random draws** for every age so the curve is smooth and comparisons are fair. The first age that reaches the confidence level is the answer.
-- **Speed.** Everything that doesn't depend on the markets, such as work income and its taxes, is computed once per age rather than once per run. Moving a slider re-runs with fewer runs while you drag, then the full 2,000 when you let go, always with the same random draws. So any difference comes from your change and not from noise.
+- **Speed.** Everything that doesn't depend on the markets, such as work income and its taxes, is computed once per age rather than once per run. A what-if runs a quick estimate with fewer runs first, then the full 2,000, always with the same random draws. So any difference comes from your change and not from noise.
 - **Compare regimes.** Duplicate a plan with one choice changed, for example forfettario instead of ordinario with impatriati, and see both results side by side.
 
 ## Engine details
@@ -210,6 +210,20 @@ How `Sources/Planner` fills in what the sections above leave open. `Planner.run(
 **Tax state and issues.** The state carries from year to year along the deterministic run's prepared years. The checks that need each year's amounts, such as forfettario's limits, come from each system's `validate(_:years:parameters:)` over the deterministic years it's the residence for: in a run, for the age the details are for; in `Planner.validate`, for the plan's age when it names one (with `earliest` the years aren't known before a run). Repeated issues are reported once.
 
 **Threads.** A run computes on the planner's own threads (`PlannerExecutor`, one per core), never on Swift's cooperative thread pool, so other async work, such as fetching prices and their timeouts, carries on while it runs. Loops over runs check for cancellation and yield every 64 runs, so a cancelled run stops quickly and concurrent runs share the threads.
+
+**Progress.** `Planner.run(plan:library:registry:options:progress:)` takes an optional handler that's told where the run is, as a `PlannerProgress`:
+
+| `phase` | What it does | `completed` / `total` counts |
+| --- | --- | --- |
+| `earliestAge` | the chance of success at every age of the scan (`ages`, e.g. 41...75), for the curve and the earliest age | ages: the runs simulated so far divided by the runs per age, so the count moves while all ages advance together |
+| `simulating` | every run at the focus age, year by year: the fan, the failures, the paths | runs |
+| `sustainableSpending` | the bisection for the highest sustainable spending | steps (levels tried), against an estimate that can grow by a step or two |
+| `summarising` | percentiles, the median path, the FI number, markers | one step |
+
+- `fraction` is the share of the whole run that's done, for an overall bar. Each phase gets a share by its expected work, measured on the example plan: an age of the scan, the focus age in detail, five ages for the bisection and a tenth for the summary. It never goes back. The headline scan expects up to three refined ages and skips ahead when there are fewer.
+- The engine counts at the points where it already checks for cancellation (every 64 runs, and each bisection step), behind one lock. The handler is called on the planner's threads, one call at a time and in order, at most about ten times a second (the first update always), so it should only hand the value on, e.g. to the main actor.
+- The last update, with `fraction` 1 and `isFinished`, is always delivered, just before the result is returned. A run that fails or is cancelled sends none; cancellation works as before.
+- Counting never touches the simulation: results are bit for bit the same with or without a handler (`ProgressTests`).
 
 **Results.**
 
