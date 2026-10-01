@@ -50,15 +50,24 @@ public enum Planner {
     /// The work runs on the planner's own threads (`PlannerExecutor`), never
     /// on Swift's cooperative thread pool, so other async work in the app,
     /// such as fetching prices, carries on while it runs.
+    ///
+    /// `progress`, when given, is told where the run is (``PlannerProgress``):
+    /// at most about ten times a second, on the planner's threads, one call
+    /// at a time and in order, and always once more with `fraction` 1 just
+    /// before the result is returned (not when the run fails or is
+    /// cancelled). Keep it short, e.g. hand the value to another actor. The
+    /// result is identical with or without it.
     public static func run(plan: PlanDocument, library: Library, registry: TaxRegistry,
-                           options: PlannerOptions = PlannerOptions()) async throws -> PlanResult {
-        try await withTaskExecutorPreference(PlannerExecutor.shared) {
-            try await compute(plan: plan, library: library, registry: registry, options: options)
+                           options: PlannerOptions = PlannerOptions(),
+                           progress: (@Sendable (PlannerProgress) -> Void)? = nil) async throws -> PlanResult {
+        let reporter = progress.map { ProgressReporter(handler: $0) }
+        return try await withTaskExecutorPreference(PlannerExecutor.shared) {
+            try await compute(plan: plan, library: library, registry: registry, options: options, progress: reporter)
         }
     }
 
-    private static func compute(plan: PlanDocument, library: Library, registry: TaxRegistry,
-                                options: PlannerOptions) async throws -> PlanResult {
+    static func compute(plan: PlanDocument, library: Library, registry: TaxRegistry, options: PlannerOptions,
+                        progress: ProgressReporter?) async throws -> PlanResult {
         let (interpreted, issues) = PlanInterpreter.interpret(plan: plan, library: library, registry: registry,
                                                               options: options)
         guard let model = interpreted else { throw PlannerError.invalidPlan(issues) }
@@ -77,9 +86,15 @@ public enum Planner {
         }
         ages = Array(Set(ages + [planAge, options.focusAge.map(clamp)].compactMap { $0 })).sorted()
 
+        // The headline grid may be refined by up to 3 ages between two of its own.
+        let refinement = options.ageScan == .headline ? min(3, max(0, maxAge - current + 1 - ages.count)) : 0
+        progress?.plan(runs: model.runs, ages: ages.count + refinement,
+                       solvesSpending: options.solveSustainableSpending)
+        progress?.begin(.earliestAge, total: ages.count, per: model.runs, expected: ages.count + refinement,
+                        ages: ages[0]...ages[ages.count - 1])
         var engine = try await Engine.make(model: model, ages: ages, maxAge: maxAge)
         let spending = model.spending.retired
-        var rates = try await engine.successRates(ages: ages, spending: spending)
+        var rates = try await engine.successRates(ages: ages, spending: spending, progress: progress)
 
         // The headline scan refines between the last grid age below the
         // confidence level and the first one at or above it.
@@ -87,18 +102,23 @@ public enum Planner {
            let first = rates.keys.sorted().first(where: { rates[$0]! >= model.confidence }),
            let previous = rates.keys.sorted().last(where: { $0 < first }), first - previous > 1 {
             let between = Array((previous + 1)..<first)
+            progress?.extend(to: ages.count + between.count, expected: ages.count + between.count)
             try await engine.prepare(ages: between)
-            rates.merge(try await engine.successRates(ages: between, spending: spending)) { $1 }
+            rates.merge(try await engine.successRates(ages: between, spending: spending, progress: progress)) { $1 }
+        } else {
+            progress?.expect(ages.count)
         }
         try Task.checkCancellation()
         let sortedAges = rates.keys.sorted()
         let earliest = sortedAges.first { rates[$0]! >= model.confidence }
         let target = planAge ?? earliest
         let focus = options.focusAge.map(clamp) ?? target ?? maxAge
+        progress?.begin(.simulating, total: model.runs)
         try await engine.prepare(ages: [focus])
 
         // The focus age in detail.
-        let (outcomes, values) = try await engine.evaluateInDetail(age: focus, spending: spending)
+        let (outcomes, values) = try await engine.evaluateInDetail(age: focus, spending: spending,
+                                                                   progress: progress)
         var simulator = engine.simulator(age: focus)
         let (expectedOutcome, expectedYears) = simulator.detailedRun(nil, spending: spending)
         let years = model.frames.count
@@ -111,8 +131,9 @@ public enum Planner {
         if options.solveSustainableSpending {
             let age = target ?? focus
             try await engine.prepare(ages: [age])
-            sustainable = try await engine.sustainableSpending(age: age)
+            sustainable = try await engine.sustainableSpending(age: age, progress: progress)
         }
+        progress?.begin(.summarising, total: 1)
 
         var fan: [FanYear] = []
         for t in 0..<years {
@@ -142,7 +163,7 @@ public enum Planner {
                        }))
         }
 
-        return PlanResult(
+        let result = PlanResult(
             plan: plan, engine: engineVersion, planHash: planHash(plan), taxParameters: model.taxParameters,
             start: PlanStart(date: model.startDate, age: current, planAssets: model.portfolio.startAssets,
                              accounts: model.portfolio.accounts,
@@ -155,6 +176,8 @@ public enum Planner {
             failures: failureSummary(outcomes),
             markers: markers(schedule: focusSchedule, engine: engine),
             issues: unique(engine.issues + focusSchedule.issues + model.yearIssues(for: focusSchedule)))
+        progress?.finish()
+        return result
     }
 
     /// Issues without repeats, in their first order.
