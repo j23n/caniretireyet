@@ -41,9 +41,18 @@ Plus the glance: "how am I doing?" in a widget or on the Overview.
 
 ```
 Overview
-Check-in                •     ← dot when due
+Check-in                       •     ← dot when due
 Accounts
-  Cash · Investments · Crypto & gold · Pension · Property · Debts · Closed
+  All accounts                       ← the grouped list, with subtotals
+  ▾ Cash                  12.990     ← a group, with its subtotal
+      Conto deposito       8.200
+      Conto Fineco      ◷  4.790     ← ◷ when the value is stale
+  ▸ Investments           71.300     ← collapsed
+  ▾ Crypto & gold         13.040
+      Gold coins           9.640
+      Ledger wallet        3.400
+  ▸ Pension · Property · Debts
+  ▸ Closed (1)                       ← collapsed at first
 Plans
   Base case
   Part-time from 50
@@ -53,6 +62,12 @@ Library
   Sync & backups
 ```
 
+- **Accounts in the sidebar.** The accounts are in the sidebar itself, so an account is one click away and a group of one doesn't need a page of its own.
+  - *All accounts* is the overview: the [list](#accounts), grouped, with subtotals and the closed accounts. Its rows open an account's detail with a back button.
+  - Under it, a row per group that has open accounts (Cash, Investments, Crypto & gold, Pension, Property, Debts), with its subtotal on the right. It expands to the group's accounts: kind icon, name and value, with a small clock when the latest value is stale. Values and staleness are the same as in the list. *Closed (n)* expands to the closed accounts. Amounts are left out while they're hidden.
+  - Clicking a group, or its disclosure triangle, expands or collapses it; groups aren't pages. They start expanded and *Closed* collapsed, and the device remembers which are collapsed.
+  - Selecting an account shows its detail in the content area; the arrow keys move from account to account. Opening an account from elsewhere in the app selects its row and expands its group.
+  - The sidebar follows the library, also when it changes on the other device: a new account appears under its group, a selected account that's closed moves under *Closed* and stays selected, and one that's deleted gives way to *All accounts*.
 - **Settings** is the standard Settings window (⌘,).
 - **Menu commands:**
 
@@ -220,7 +235,7 @@ The flow that has to be fast. It opens as a full-screen sheet on iPhone and as t
 
 ## Accounts
 
-- **List.** Grouped: Cash, Investments, Crypto & gold, Pension, Property, Debts.
+- **List.** Grouped: Cash, Investments, Crypto & gold, Pension, Property, Debts. On the Mac and iPad it's *All accounts* in the sidebar, which also lists each group's accounts under it ([Navigation](#navigation)).
   - Each group shows its subtotal.
   - Each row shows a kind icon, the name, the institution, the value, a sparkline of the last 12 months, and a "stale" badge when needed.
   - Swipe actions: *Update value* (a one-account valuation) and *Close*. Saved as it is, *Update value* records the account as unchanged; an account with no earlier value needs a value typed, and an emptied field isn't zero (type 0). Its date can be any day up to the closing date (or a year from today), also before the account opened: see [Adding history](#adding-history). An account that records trades offers *Add trade* instead; its *Update Cash…* (in the context menu) shows the holdings from the trades, read-only, and records the cash.

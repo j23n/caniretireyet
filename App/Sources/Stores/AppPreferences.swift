@@ -37,6 +37,18 @@ final class AppPreferences {
         }
     }
 
+    /// The sidebar's account folders that are collapsed on this device
+    /// (``SidebarAccountFolder/key``: a group's raw value, or `"closed"`).
+    /// Until one is toggled, only *Closed* is collapsed
+    /// (``defaultCollapsedAccountFolders``). Read and change it with
+    /// `isExpanded(_:)` and `setExpanded(_:_:)`.
+    var collapsedAccountFolders: Set<String> {
+        didSet { defaults.set(collapsedAccountFolders.sorted(), forKey: Keys.collapsedAccountFolders) }
+    }
+
+    /// The groups start expanded, *Closed* collapsed.
+    static let defaultCollapsedAccountFolders: Set<String> = [SidebarAccountFolder.closed.key]
+
     @ObservationIgnored private let defaults: UserDefaults
 
     init(defaults: UserDefaults = .standard) {
@@ -45,6 +57,8 @@ final class AppPreferences {
         stalenessThreshold = defaults.object(forKey: Keys.stalenessThreshold) as? Int
             ?? Valuator.defaultStalenessThreshold
         fetchPricesOnCheckIn = defaults.object(forKey: Keys.fetchPricesOnCheckIn) as? Bool ?? true
+        collapsedAccountFolders = defaults.stringArray(forKey: Keys.collapsedAccountFolders).map(Set.init)
+            ?? Self.defaultCollapsedAccountFolders
         if defaults.bool(forKey: Keys.reminderEnabled) {
             reminder = CheckInReminder(
                 day: defaults.object(forKey: Keys.reminderDay) as? Int ?? CheckInReminder.lastDay,
@@ -63,6 +77,7 @@ final class AppPreferences {
         static let reminderDay = "checkInReminder.day"
         static let reminderHour = "checkInReminder.hour"
         static let reminderMinute = "checkInReminder.minute"
+        static let collapsedAccountFolders = "sidebar.collapsedAccountFolders"
     }
 }
 
