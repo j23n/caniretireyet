@@ -2,21 +2,65 @@ import Foundation
 import Model
 
 // The seam to the Planner module. `PlanStore` does cancellation, fast mode,
-// headlines and baselines; it asks a `PlanEngine` for the numbers. The app
-// uses `PlannerPlanEngine` (the Planner with the Italian and generic tax
-// systems, PlannerPlanEngine.swift), previews use `PreviewPlanEngine`
-// (Preview/), and `UnavailablePlanEngine` (below) remains for builds without
-// a planner. `PlanResultsMapping.swift` maps the Planner's `PlanResult` to
+// progress, headlines and baselines; it asks a `PlanEngine` for the numbers.
+// The app uses `PlannerPlanEngine` (the Planner with the Italian and generic
+// tax systems, PlannerPlanEngine.swift), previews use `PreviewPlanEngine`
+// (Preview/) and `PlanPreviewEngine` (Features/Plan, with made-up progress),
+// and `UnavailablePlanEngine` (below) remains for builds without a planner.
+// `PlanResultsMapping.swift` maps the Planner's `PlanResult` to
 // `PlanResults`, which stays plain values.
 
 /// How thoroughly to run a plan.
 enum PlanRunMode: String, Hashable, Sendable {
     /// Every run the plan asks for (2,000 by default).
     case full
-    /// Fewer runs with the same random draws, while a what-if slider moves
-    /// (PLANNER.md, "Speed").
+    /// Fewer runs with the same random draws: a what-if's quick estimate,
+    /// before its full run (PLANNER.md, "Speed").
     case fast
 }
+
+/// Where a run is (UI.md, "Calculating"): the phase, what's done of it in
+/// its own unit, and the whole run's share done. From the Planner's
+/// `PlannerProgress`; engines report it at most about ten times a second.
+struct PlanRunProgress: Hashable, Sendable {
+    enum Phase: String, CaseIterable, Hashable, Sendable {
+        /// Before the engine's first report.
+        case starting
+        /// The chance of success at every retirement age. Counted in ages.
+        case earliestAge
+        /// Every run at the retirement age the charts are for. Counted in runs.
+        case simulating
+        /// The highest sustainable spending, by bisection. Counted in steps.
+        case sustainableSpending
+        /// Percentiles, the median path, the key numbers. One step.
+        case summarising
+    }
+
+    var phase: Phase
+    /// What's done of the phase: ages, runs or steps.
+    var completed: Int
+    /// The phase's size, in the same unit.
+    var total: Int
+    /// The whole run's share done, 0 to 1.
+    var fraction: Double
+    /// The retirement ages scanned, while finding the earliest age.
+    var ages: ClosedRange<Int>? = nil
+    /// A what-if's quick estimate (fewer runs), or the full run.
+    var mode: PlanRunMode = .full
+
+    /// A run that hasn't reported yet.
+    static func starting(_ mode: PlanRunMode) -> PlanRunProgress {
+        PlanRunProgress(phase: .starting, completed: 0, total: 0, fraction: 0, mode: mode)
+    }
+
+    /// The phase's share done, 0 to 1.
+    var phaseFraction: Double {
+        total > 0 ? min(1, max(0, Double(completed) / Double(total))) : 0
+    }
+}
+
+/// Receives a run's progress, on any thread; it should only hand the value on.
+typealias PlanProgressHandler = @Sendable (PlanRunProgress) -> Void
 
 /// What-if changes applied on top of a plan for one run, without saving it
 /// (UI.md, "What if"). `nil` fields keep the plan's value.
@@ -57,10 +101,24 @@ protocol PlanEngine: Sendable {
     /// The engine version recorded in baselines and headlines.
     var version: String { get }
     func run(_ request: PlanRunRequest) async throws -> PlanResults
+    /// Runs `request`, telling `progress` where it is. The default runs
+    /// without reporting anything.
+    func run(_ request: PlanRunRequest, progress: @escaping PlanProgressHandler) async throws -> PlanResults
+    /// The results of `request` if they were computed already and kept,
+    /// without running anything; `nil` otherwise (the default).
+    func cachedResults(for request: PlanRunRequest) async -> PlanResults?
 }
 
 extension PlanEngine {
     var isAvailable: Bool { true }
+
+    func run(_ request: PlanRunRequest, progress: @escaping PlanProgressHandler) async throws -> PlanResults {
+        try await run(request)
+    }
+
+    func cachedResults(for request: PlanRunRequest) async -> PlanResults? {
+        nil
+    }
 }
 
 enum PlanEngineError: Error, Equatable, Sendable, LocalizedError {
