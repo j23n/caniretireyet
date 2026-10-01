@@ -79,10 +79,17 @@ extension Valuator {
     /// `previous` through the valuation, plus the valuation's residual (its
     /// cash minus the cash the trades give, when it records cash). `nil`
     /// when a transfer can't be valued.
+    ///
+    /// An account whose history is only trades has no valuation before its
+    /// first check-in; its flow then counts from the library's previous
+    /// check-in, the period the check-in covers, not from its first trade.
+    /// Otherwise every purchase since the account began would count as new
+    /// money in that one check-in.
     func tradeFlow(for valuation: Valuation, previous: Valuation?) -> Decimal? {
         guard let ledger = ledgers[valuation.account], let account = accounts[valuation.account] else { return nil }
+        let start = previous?.date ?? previousCheckIn(before: valuation.date)
         var total: Decimal = 0
-        for entry in ledger.entries(after: previous?.date, through: valuation.date) where entry.trade.isFlow {
+        for entry in ledger.entries(after: start, through: valuation.date) where entry.trade.isFlow {
             guard let amount = flowAmount(of: entry, in: account) else { return nil }
             total += amount
         }

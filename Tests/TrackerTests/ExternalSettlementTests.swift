@@ -362,4 +362,26 @@ struct ExternalConversionTests {
         }
         #expect(valuator.netWorth(on: "2026-09-30").total == original.netWorth(on: "2026-09-30").total)
     }
+
+    /// An account made of trades only, with no valuation yet: "unchanged" at
+    /// a check-in counts as new money only what was bought since the
+    /// previous check-in, not every purchase since the first trade.
+    @Test func aFirstCheckInCountsOnlyTheFlowsSinceThePreviousCheckIn() throws {
+        var library = GoldLibrary.external()
+        // An earlier check-in of another account, on 29 February.
+        library.upsert(Valuation(account: "broker", date: "2024-02-29", cash: 100))
+        let valuator = Valuator(library: library)
+        // The coins' first valuation, on 31 March: only the March sale is in the period.
+        let march = Valuation(account: "coins", date: "2024-03-31", cash: 0)
+        #expect(valuator.defaultFlow(for: march, previous: nil) == -680)
+
+        // With no earlier check-in at all, the whole history counts.
+        let alone = Valuator(library: GoldLibrary.external())
+        #expect(alone.defaultFlow(for: march, previous: nil) == 1196)
+
+        // A check-in where nothing was bought or sold: no new money.
+        library.upsert(Valuation(account: "broker", date: "2024-03-31", cash: 100))
+        let april = Valuation(account: "coins", date: "2024-04-30", cash: 0)
+        #expect(Valuator(library: library).defaultFlow(for: april, previous: nil) == 0)
+    }
 }

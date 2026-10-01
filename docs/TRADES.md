@@ -170,7 +170,7 @@ A trades account's flows (the money in and out that [PROGRESS.md](PROGRESS.md) c
 
 Dividends, interest, fees, taxes, buys and sells paid from or into the account's cash are not flows: they're the account's return, or move money within it.
 
-- The **check-in's default flow** for a trades account (`Valuator.defaultFlow(for:previous:)`) is this, since the previous valuation. It's written into the valuation's `flow`, for the record, and kept in step when trades change (`followFlows`).
+- The **check-in's default flow** for a trades account (`Valuator.defaultFlow(for:previous:)`) is this, since the previous valuation, or, for an account with none yet, since the library's previous check-in (so its first check-in doesn't count every purchase since its first trade as new money). It's written into the valuation's `flow`, for the record, and kept in step when trades change (`followFlows`).
 - The **change split** and **performance** use the flows themselves, not the stored `flow`: a deposit counts at its own date, and a trade after the latest check-in counts too. Returns weight each deposit, withdrawal and transfer from its date (Modified Dietz within each piece), and a residual from halfway between the valuation and the one with cash before it.
 - For an asset class, units bought or sold move money between cash and the position at the end price, as for holdings accounts. Units bought or sold outside the account are a flow of their position at their amount, like a transfer at its value; a fee or tax without an instrument is a flow of its cash.
 - **Per position**, `Valuator.instrumentReturn(of:in:from:to:)` gives an instrument's gain and money-weighted return including its dividends.
@@ -184,7 +184,7 @@ A valuation of a trades account that lists `positions` is a check: `Valuator.rec
 A trades account's row in a check-in (`CheckInRow.isTrades`, mode `.trades`) starts from what its trades give on the date (`CheckInRow.derived`), and records the cash:
 
 - The cash is pre-filled with the derived cash. Typing another amount adds a residual to the flow.
-- **Unchanged** means as the trades say: the derived cash. Its flow is still the recorded deposits and withdrawals since the previous valuation.
+- **Unchanged** means as the trades say: the derived cash. Its flow is still the recorded deposits and withdrawals, and the trades paid from outside the account, since the previous valuation (or the previous check-in, for its first).
 - The review lists the positions the trades hold. Positions entered in the row are written as a reconciliation check.
 - If trades change while the check-in is open (the other device), the row is refreshed, keeping what was typed.
 
