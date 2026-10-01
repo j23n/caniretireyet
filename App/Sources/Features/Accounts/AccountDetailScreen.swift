@@ -9,7 +9,7 @@ import Tracker
 /// valuations are a table.
 ///
 /// An account that records trades shows, instead of positions, its
-/// holdings with average cost and share, its trades by month (a Table on
+/// holdings with average cost and share, its trades by month (a table on
 /// the Mac) with *Add Trade…*, its income and gains by year, and what's
 /// wrong with its trades. *Switch to Trade History…* and *Switch to
 /// Snapshots…* convert an account between the two (docs/TRADES.md).
@@ -257,6 +257,11 @@ struct AccountDetailScreen: View {
     // MARK: Mac
 
     #if os(macOS)
+    /// One scrolling page. Everything on it is as tall as its content, and
+    /// nothing scrolls on its own: the values and trades are `PageTable`s,
+    /// not `Table`s with a guessed height, and the income years aren't a
+    /// lazy grid, so the page's height is exact and it scrolls to its last
+    /// button.
     private func macLayout(_ data: AccountDetailData, trades: TradeList?) -> some View {
         let currency = data.account.currency
         return ScrollView {
@@ -291,13 +296,7 @@ struct AccountDetailScreen: View {
                     macTradesCard(trades, currency: currency)
                     if !data.incomeYears.isEmpty {
                         Card("Income & gains") {
-                            LazyVGrid(columns: [GridItem(.adaptive(minimum: 220), spacing: Metrics.xl,
-                                                         alignment: .top)],
-                                      alignment: .leading, spacing: Metrics.l) {
-                                ForEach(data.incomeYears) { year in
-                                    TradeIncomeYearView(year: year, currency: currency)
-                                }
-                            }
+                            TradeIncomeColumns(years: data.incomeYears, currency: currency)
                             Text("Realised gains use the average cost. Dividends and interest are before tax withheld.")
                                 .font(.caption)
                                 .foregroundStyle(Palette.mutedInk)
@@ -321,7 +320,6 @@ struct AccountDetailScreen: View {
                                 deletingValuation = key
                                 confirmsValuationDelete = true
                             })
-                            .frame(height: min(CGFloat(data.valuations.count) * 26 + 36, 380))
                     }
                 } header: {
                     SectionHeader(data.recordsTrades ? "Cash at check-ins" : "Values") {
@@ -373,7 +371,6 @@ struct AccountDetailScreen: View {
                     items: trades.items, currency: currency,
                     edit: { key in tradeTarget = .editing(key) },
                     delete: { key in confirmDeleting(key) })
-                    .frame(height: min(CGFloat(trades.shownCount) * 26 + 36, 420))
             }
         } header: {
             SectionHeader("Trades") {
@@ -926,7 +923,8 @@ private struct AccountValuationListRow: View {
 }
 
 #if os(macOS)
-/// The valuations as a table on the Mac: date, value, new money and note.
+/// The valuations as a table on the Mac: date, value, new money and note,
+/// as tall as its lines, so the page scrolls them (`PageTable`).
 /// Double-click (or the context menu) edits one.
 private struct AccountValuationsTable: View {
     let rows: [AccountValuationRow]
@@ -934,36 +932,72 @@ private struct AccountValuationsTable: View {
     let edit: (ValuationKey) -> Void
     let delete: (ValuationKey) -> Void
 
-    @State private var selection: ValuationKey?
+    private enum Columns {
+        static let date = PageTableColumn(min: 84, max: 120)
+        static let value = PageTableColumn(min: 100, max: 160, alignment: .trailing)
+        static let flow = PageTableColumn(min: 90, max: 140, alignment: .trailing)
+        static let note = PageTableColumn(min: 0, max: .infinity)
+    }
 
     var body: some View {
-        Table(rows, selection: $selection) {
-            TableColumn("Date") { (row: AccountValuationRow) in
-                Text(AmountFormat.mediumDate(row.valuation.date))
-                    .monospacedDigit()
-            }
-            .width(min: 90, ideal: 110)
-            TableColumn("Value") { (row: AccountValuationRow) in
-                AccountValuationValueCell(row: row, currency: currency)
-            }
-            .width(min: 110, ideal: 140)
-            TableColumn("New money") { (row: AccountValuationRow) in
-                AccountValuationFlowCell(row: row, currency: currency)
-            }
-            .width(min: 100, ideal: 130)
-            TableColumn("Note") { (row: AccountValuationRow) in
-                Text(row.valuation.note ?? "")
-                    .foregroundStyle(Palette.secondaryInk)
-                    .lineLimit(1)
-            }
+        PageTable(rows, open: edit) {
+            Text("Date").pageTableColumn(Columns.date)
+            Text("Value").pageTableColumn(Columns.value)
+            Text("New money").pageTableColumn(Columns.flow)
+            Text("Note").pageTableColumn(Columns.note)
+        } row: { row in
+            Text(AmountFormat.mediumDate(row.valuation.date))
+                .monospacedDigit()
+                .pageTableColumn(Columns.date)
+            AccountValuationValueCell(row: row, currency: currency)
+                .pageTableColumn(Columns.value)
+            AccountValuationFlowCell(row: row, currency: currency)
+                .pageTableColumn(Columns.flow)
+            Text(row.valuation.note ?? "")
+                .foregroundStyle(Palette.secondaryInk)
+                .pageTableColumn(Columns.note)
+        } menu: { row in
+            Button("Edit Value…") { edit(row.id) }
+            Button("Delete Value…", role: .destructive) { delete(row.id) }
         }
-        .contextMenu(forSelectionType: ValuationKey.self) { keys in
-            if let key = keys.first {
-                Button("Edit Value…") { edit(key) }
-                Button("Delete Value…", role: .destructive) { delete(key) }
+    }
+}
+
+/// A trades account's income and gains, a year per column: as many columns
+/// of at least 220 points as fit, like an adaptive `LazyVGrid`. Not lazy, so
+/// the page measures its height exactly.
+private struct TradeIncomeColumns: View {
+    let years: [TradeIncomeYear]
+    let currency: CurrencyCode
+
+    private static let columnWidth: CGFloat = 220
+
+    var body: some View {
+        ViewThatFits(in: .horizontal) {
+            grid(columns: 3)
+            grid(columns: 2)
+            grid(columns: 1)
+        }
+    }
+
+    private func grid(columns: Int) -> some View {
+        Grid(alignment: .topLeading, horizontalSpacing: Metrics.xl, verticalSpacing: Metrics.l) {
+            ForEach(Array(stride(from: 0, to: years.count, by: columns)), id: \.self) { start in
+                GridRow {
+                    ForEach(start..<(start + columns), id: \.self) { index in
+                        if index < years.count {
+                            TradeIncomeYearView(year: years[index], currency: currency)
+                                .frame(minWidth: Self.columnWidth, idealWidth: Self.columnWidth, maxWidth: .infinity,
+                                       alignment: .topLeading)
+                        } else {
+                            // Keeps a short last row in the same columns.
+                            Color.clear
+                                .frame(minWidth: Self.columnWidth, idealWidth: Self.columnWidth, maxWidth: .infinity,
+                                       maxHeight: 0)
+                        }
+                    }
+                }
             }
-        } primaryAction: { keys in
-            if let key = keys.first { edit(key) }
         }
     }
 }
