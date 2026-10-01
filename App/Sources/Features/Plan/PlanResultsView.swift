@@ -395,13 +395,23 @@ struct PlanIncomeCard: View {
 
     var body: some View {
         Card {
-            Text("Median run · today's euros")
-                .font(.caption)
-                .foregroundStyle(Palette.secondaryInk)
             if showsTaxes {
                 IncomeStackChart(segments: results.taxes)
+                ChartCaption(
+                    text: "Median run · today's euros.",
+                    detail: "The taxes of each year of retirement in the median run, by tax: on income and "
+                        + "pensions, on gains when investments are sold (also to rebalance), on what's paid out "
+                        + "of the pension fund, and on wealth. In today's euros.")
             } else {
                 IncomeStackChart(segments: results.income, spending: results.spending)
+                ChartCaption(
+                    text: "Median run · today's euros · sources after tax.",
+                    detail: "Where each year's money comes from in the median run, in today's euros. Withdrawals "
+                        + "are what's sold from your investments; they also pay the tax on the sale and the "
+                        + "previous year's wealth tax, so in a rich run they can be well above your spending. So "
+                        + "that the chart reads against the spending line, each source is shown after its share of "
+                        + "the year's taxes, and the taxes paid from this income are the grey band on top. Taxes on "
+                        + "rebalancing are paid inside the portfolio: see Taxes.")
             }
         } header: {
             SectionHeader("Retirement income") {

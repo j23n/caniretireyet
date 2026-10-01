@@ -88,26 +88,6 @@ func amountAxis(hidesAmounts: Bool, scale: AmountScale, relativeTo base: Double?
     }
 }
 
-/// The y axis most charts use: faint gridlines and compact labels (`312k`)
-/// on the leading edge, or nothing while amounts are hidden.
-///
-/// A function rather than a custom `AxisContent` type: Swift Charts doesn't
-/// support conforming your own types to `AxisContent`.
-func amountAxis(hidesAmounts: Bool, desiredCount: Int = 4) -> some AxisContent {
-    AxisMarks(position: .leading, values: .automatic(desiredCount: desiredCount)) { value in
-        AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5))
-            .foregroundStyle(Palette.gridline)
-        AxisValueLabel {
-            if let amount = value.as(Double.self) {
-                Text(verbatim: hidesAmounts ? "" : AmountFormat.compact(amount))
-                    .font(.caption2)
-                    .monospacedDigit()
-                    .foregroundStyle(Palette.mutedInk)
-            }
-        }
-    }
-}
-
 /// A value axis label: the compact amount, or while amounts are hidden the
 /// relative tick's label (nothing without one).
 private func amountLabel(_ amount: Double, hidesAmounts: Bool, scale: AmountScale, relative: [RelativeTick]) -> String {
