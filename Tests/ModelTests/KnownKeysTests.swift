@@ -15,7 +15,7 @@ struct KnownKeysTests {
     private static let trade = Trade(
         account: "directa", date: "2026-03-12", id: "k3q7vz2m", type: .buy, instrument: "vwce", quantity: 10,
         price: d("127.35"), currency: .eur, amount: d("-1278.5"), fees: 5, tax: 0, cost: 1, ratio: 1, note: "n",
-        source: .manual)
+        source: .manual, settlement: .external)
     private static let summary = HeadlineSummary(confidence: d("0.9"), earliestAge: 54, successAtTarget: d("0.86"),
                                                  fiProgress: d("0.41"))
     private static let format = ImportFormat(
@@ -89,7 +89,8 @@ struct KnownKeysTests {
         (ImportFileSettings(encoding: .utf8, delimiter: ";", headerRow: 1, excludeRows: ["Totale"]), ImportFileSettings.knownKeys),
         (ImportColumn(header: "A", index: 1, target: .fx, field: .value, account: "a", instrument: "i", currency: .eur,
                       base: .eur, quote: .usd, format: format), ImportColumn.knownKeys),
-        (ImportConstants(account: "a", instrument: "i", currency: .eur, base: .eur, quote: .usd), ImportConstants.knownKeys),
+        (ImportConstants(account: "a", instrument: "i", currency: .eur, base: .eur, quote: .usd, settlement: .external),
+         ImportConstants.knownKeys),
         (ImportMatches(accounts: ["A": "a"], instruments: ["I": "i"]), ImportMatches.knownKeys),
         (format, ImportFormat.knownKeys),
         (format.date!, ImportDateFormat.knownKeys),

@@ -289,12 +289,17 @@ struct TradeListRowView: View {
             }
             Spacer(minLength: Metrics.s)
             VStack(alignment: .trailing, spacing: 2) {
-                if let effect = item.cashEffect {
-                    TradeAmountText(effect, currency: currency)
+                if let amount = item.amount {
+                    TradeAmountText(amount, currency: currency)
                         .foregroundStyle(Palette.ink)
                 } else {
                     Text("Amount unknown")
                         .font(.footnote)
+                        .foregroundStyle(Palette.secondaryInk)
+                }
+                if let label = item.settlementLabel {
+                    Text(verbatim: label)
+                        .font(.caption)
                         .foregroundStyle(Palette.secondaryInk)
                 }
                 if let gain = item.realizedGain {
@@ -386,7 +391,7 @@ struct TradesTable: View {
             }
             .width(min: 100, ideal: 130)
             TableColumn("Note") { (item: TradeListItem) in
-                Text(item.trade.note ?? "")
+                Text([item.settlementLabel, item.trade.note].compactMap { $0 }.joined(separator: " · "))
                     .foregroundStyle(Palette.secondaryInk)
                     .lineLimit(1)
             }
@@ -446,8 +451,8 @@ private struct TradeTableAmountCell: View {
 
     var body: some View {
         Group {
-            if let effect = item.cashEffect {
-                TradeAmountText(effect, currency: currency)
+            if let amount = item.amount {
+                TradeAmountText(amount, currency: currency)
             } else {
                 Text("Unknown")
                     .foregroundStyle(Palette.mutedInk)

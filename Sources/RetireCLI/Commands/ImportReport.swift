@@ -216,6 +216,7 @@ struct ImportReport {
         case .tax: "taxes"
         case .ratio: "split ratios"
         case .note: "notes"
+        case .settlement: "paid from outside the account or not"
         default: field.rawValue
         }
     }

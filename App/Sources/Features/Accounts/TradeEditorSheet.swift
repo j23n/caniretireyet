@@ -10,7 +10,9 @@ import Tracker
 /// - the fields the type uses: date, instrument (or *New Instrument…*),
 ///   quantity, price and its currency (with the library's price for the
 ///   date as a hint, and *Fetch Price*), fees and tax, the amount worked
-///   out live (editable for the broker's rate or rounding), and a note;
+///   out live (editable for the broker's rate or rounding), whether it was
+///   paid from outside the account (a buy, fee or tax) or its proceeds left
+///   it (a sale), and a note;
 /// - problems inline, and what saving changes: the cash and holdings after
 ///   it, the opening date moving, the new money of later values worked out
 ///   again, and problems it brings in.
@@ -101,7 +103,7 @@ struct TradeEditorSheet: View {
                 Text(verbatim: TradeTypeDisplay.explanation(current.type))
             }
             if current.shows(.amount) {
-                amountSection(form, valuator: valuator, problems: shown)
+                amountSection(form, valuator: valuator, problems: shown, preview: preview)
             }
             Section {
                 TextField("Note", text: form.note, prompt: Text("Optional"), axis: .vertical)
@@ -318,11 +320,20 @@ struct TradeEditorSheet: View {
 
     // MARK: Amount
 
-    private func amountSection(_ form: Binding<TradeForm>, valuator: Valuator,
-                               problems: [TradeFormProblem]) -> some View {
+    private func amountSection(_ form: Binding<TradeForm>, valuator: Valuator, problems: [TradeFormProblem],
+                               preview: TradeFormPreview?) -> some View {
         let current = form.wrappedValue
         let snapshot = library.library
         return Section {
+            if current.showsSettlement {
+                Toggle(current.settlementTitle, isOn: form.paidOutside)
+                if let explanation = current.settlementExplanation {
+                    Text(verbatim: explanation)
+                        .font(.footnote)
+                        .foregroundStyle(Palette.secondaryInk)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
             AccountsNumberField(
                 title: TradeFormField.amount.title(for: current.type), text: form.amount,
                 prompt: current.amountPrompt(in: snapshot, valuator: valuator, locale: locale),
@@ -345,21 +356,22 @@ struct TradeEditorSheet: View {
             ForEach(problems.filter { $0.field == .amount }) { problem in
                 TradeProblemLabel(problem: problem)
             }
+            if let hint = current.negativeCashHint(preview, locale: locale) {
+                HStack(alignment: .firstTextBaseline, spacing: Metrics.s) {
+                    Text(verbatim: hint)
+                        .font(.footnote)
+                        .foregroundStyle(Palette.secondaryInk)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Spacer(minLength: Metrics.s)
+                    Button("Paid from Outside") { form.wrappedValue.paidOutside = true }
+                        .buttonStyle(.borderless)
+                        .font(.footnote.weight(.semibold))
+                }
+            }
         } header: {
             Text("Amount")
         } footer: {
-            Text(amountFooter(current.type))
-        }
-    }
-
-    private func amountFooter(_ type: TradeType) -> String {
-        switch type {
-        case .buy: "What the account's cash went down by, fees and tax included."
-        case .sell: "What the account's cash went up by, after fees and tax."
-        case .dividend, .interest: "What was paid into the account, after tax withheld and fees."
-        case .withdrawal: "What was taken out of the account."
-        case .deposit: "What was paid into the account."
-        default: "What the account's cash changed by."
+            Text(current.amountFooter)
         }
     }
 
@@ -371,9 +383,16 @@ struct TradeEditorSheet: View {
         let currency = account?.currency ?? library.baseCurrency
         let notes = preview.notes(account: account, locale: locale)
         return Section {
-            if let effect = preview.cashEffect, effect != 0 {
+            if preview.isSettledOutside {
+                LabeledContent("Cash", value: "Unchanged")
+            } else if let effect = preview.cashEffect, effect != 0 {
                 LabeledContent("Cash") {
                     TradeAmountText(effect, currency: currency)
+                }
+            }
+            if let newMoney = preview.newMoney, newMoney != 0 {
+                LabeledContent("New money") {
+                    TradeAmountText(newMoney, currency: currency)
                 }
             }
             if let cash = preview.cashAfter {

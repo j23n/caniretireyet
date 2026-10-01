@@ -569,14 +569,18 @@ enum CheckInWording {
         return what + " · from trades"
     }
 
-    /// The parts of a trades account's new money: "deposits +200,60 · cash
-    /// difference +11,30". `nil` when both are zero or unknown.
+    /// The parts of a trades account's new money: "deposits +200,60 · paid
+    /// from outside +1.200,00 · cash difference +11,30". `nil` when all are
+    /// zero or unknown.
     static func tradeFlowDetail(_ flow: CheckInTradeFlow, locale: Locale = .current) -> String? {
         var parts: [String] = []
-        if let recorded = flow.recorded, recorded != 0 {
+        if let recorded = flow.recorded.map({ $0 - flow.paidOutside }), recorded != 0 {
             parts.append("deposits " + CheckInFieldFormat.plain(recorded, signed: true, locale: locale))
         } else if flow.recorded == nil {
             parts.append("transfers not valued")
+        }
+        if flow.paidOutside != 0 {
+            parts.append("paid from outside " + CheckInFieldFormat.plain(flow.paidOutside, signed: true, locale: locale))
         }
         if let residual = flow.residual, residual != 0 {
             parts.append("cash difference " + CheckInFieldFormat.plain(residual, signed: true, locale: locale))
@@ -586,8 +590,9 @@ enum CheckInWording {
 
     /// What a trades account's new money is, for help text and VoiceOver.
     static let tradeFlowExplanation = "New money is the deposits, withdrawals and transfers recorded as trades since "
-        + "the last value, plus any difference between the cash you type and the cash the trades give, which "
-        + "counts as money added or taken out that no trade records."
+        + "the last value, and what was bought or sold paid from outside the account, plus any difference between "
+        + "the cash you type and the cash the trades give, which counts as money added or taken out that no trade "
+        + "records."
 
     /// The short name of an instrument: its ticker, a crypto's unit (BTC),
     /// else its name, else its ID.
@@ -642,6 +647,9 @@ enum CheckInWording {
 struct CheckInTradeFlow: Hashable, Sendable {
     /// What the trades record; `nil` when a transfer can't be valued.
     var recorded: Decimal?
+    /// The part of ``recorded`` from trades paid from or into another
+    /// account: buys' costs in, sales' proceeds out.
+    var paidOutside: Decimal = 0
     /// The cash typed minus the cash the trades give on the date; `nil`
     /// when the row records no cash.
     var residual: Decimal?
@@ -651,12 +659,14 @@ struct CheckInTradeFlow: Hashable, Sendable {
     static func make(for row: CheckInRow, date: CalendarDate, valuator: Valuator) -> CheckInTradeFlow? {
         guard row.isTrades else { return nil }
         var recorded: Decimal? = 0
+        var paidOutside: Decimal = 0
         for flow in valuator.tradeFlows(of: row.account, after: row.previous?.date, through: date)
         where !flow.isResidual {
             recorded = recorded.flatMap { total in flow.amount.map { total + $0 } }
+            if flow.trade?.isSettledExternally == true { paidOutside += flow.amount ?? 0 }
         }
         let residual = row.cash.map { $0 - (row.derived?.cash ?? 0) }
-        return CheckInTradeFlow(recorded: recorded, residual: residual)
+        return CheckInTradeFlow(recorded: recorded, paidOutside: paidOutside, residual: residual)
     }
 
     /// `recorded + residual`: the check-in's default new money.

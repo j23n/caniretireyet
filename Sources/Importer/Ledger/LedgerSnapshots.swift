@@ -159,6 +159,12 @@ struct LedgerSnapshotBuilder {
     private var events: [AccountID: [Event]] = [:]
     /// Trades accounts: how many trades so far have each identity, for their stable IDs.
     var tradeOrdinals: [String: Int] = [:]
+    /// Trades accounts whose ledger accounts never hold a currency (coins
+    /// bought from a dealer and paid from the bank): their buys and sales
+    /// are paid from outside them (`"settlement": "external"`).
+    let cashless: Set<AccountID>
+    /// The cashless accounts already noted.
+    var notedCashless: Set<AccountID> = []
 
     /// A balance that stays zero for this many days before the journal ends
     /// proposes closing the account (so a card paid off last week doesn't).
@@ -172,6 +178,17 @@ struct LedgerSnapshotBuilder {
         self.settings = settings
         self.until = until
         book = LedgerPriceBook(journal: journal, currency: mapper.currency(of:))
+        var seen: Set<AccountID> = []
+        var holdingCash: Set<AccountID> = []
+        for transaction in journal.transactions {
+            for posting in transaction.postings where posting.kind != .unbalancedVirtual {
+                guard mapper.role(of: posting.account).isNetWorth, let id = mapper.libraryAccount(of: posting.account)
+                else { continue }
+                seen.insert(id)
+                if mapper.currency(of: posting.amount.commodity) != nil { holdingCash.insert(id) }
+            }
+        }
+        cashless = seen.subtracting(holdingCash).filter { library.accounts[$0]?.recordsTrades ?? false }
     }
 
     mutating func build() {

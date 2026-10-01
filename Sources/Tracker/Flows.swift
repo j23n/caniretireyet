@@ -45,9 +45,9 @@ extension Valuator {
     /// - Asked (pension fund, TFR, property, other): `nil`, i.e. unknown until
     ///   the user enters it.
     /// - An account that records trades, whatever its kind: its deposits,
-    ///   withdrawals, transfers and openings since `previous`, plus the
-    ///   valuation's residual (its cash minus the cash the trades give);
-    ///   see ``TradeFlow``. `paid` isn't used.
+    ///   withdrawals, transfers, openings and trades settled outside it
+    ///   since `previous`, plus the valuation's residual (its cash minus
+    ///   the cash the trades give); see ``TradeFlow``. `paid` isn't used.
     ///
     /// Without a previous valuation, the whole amount is new money. `nil`
     /// also when the account is unknown or a needed price or rate is missing.

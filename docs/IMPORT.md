@@ -199,6 +199,7 @@ Without a profile, a file is read as trades when it has a quantity or price colu
 | `fees`, `tax` | Commissions, and tax withheld or charged, in the account's currency. The sign is dropped. |
 | `ratio` | A split's new units per old unit. |
 | `note` | Free text for the trade's note (`Descrizione`). |
+| `settlement` | Whether a buy, sell, fee or tax was [paid from or into another account](TRADES.md#paid-from-outside-the-account): `external`, `outside`, `esterno`, `yes`, `sì`, `x` or `1` for another account (a dealer's invoice paid from the bank); empty, `account`, `conto`, `no` or `0` for the account's own cash. Anything else leaves the row out, with an error. Ignored for other types. Never proposed: map it in Columns. Without the column, the profile's `constants.settlement` (`"external"`) applies to every row (`--settlement external` on the command line). |
 
 Amount, gross, fees and tax are in the account's currency; a column whose mapping or header names another currency (`Total USD` for an account in euros) is flagged. A row with a cell that can't be read is left out whole, with the cell's error: one row is one trade.
 
@@ -395,6 +396,7 @@ A ledger account that goes to a library account **recording trades** gets the jo
 - **Rewards.** A commodity received from a returns account without a cost (a staking reward) is a buy at its market value then (the journal's `P` price), paid for with the income it is: its cost is its value, as for snapshots.
 - **Transfers.** Any other commodity moving in or out without a cost is a transfer in or out; a transfer in has no cost (noted), until the position is sold.
 - **Deposits and withdrawals.** Whatever else changes the account's cash came from outside it (another account, income, spending, equity): a deposit or a withdrawal. So the cash the trades give is always the journal's, and an opening balance with a lot cost (`10 VWCE {95 EUR}` against `Equity`) is a deposit of its cost and a buy.
+- **Accounts without cash.** When the ledger accounts that go to a trades account never hold a currency anywhere in the journal (gold coins bought from a dealer and paid from the bank, a hardware wallet), there's no cash to deposit into: its buys and sales, and fees and taxes of their own, are [paid from outside the account](TRADES.md#paid-from-outside-the-account) (`"settlement": "external"`) instead of a deposit and a buy, and the preview's notes say so. An account with currency postings of its own keeps the deposit and the buy. A reward bought with the income it is stays in the account: the two cancel out.
 - Amounts are converted into the account's currency as for flows. A buy's or sell's `amount` is left out when its price, quantity, fees and tax give it; otherwise (a price paid with `@@`, a price in another currency) it's written.
 - Trades get stable IDs, as for [broker exports](#importing-again), so importing the journal again changes nothing. Their `source` is `ledger`, and their note the transaction's description.
 
@@ -403,6 +405,8 @@ Such an account gets **no valuations**: its cash comes from its trades. With the
 ### Importing the journal again
 
 Everything goes through the preview: records identical to the library's are left alone, missing values (such as a flow) are filled in, and different ones follow the conflict policy. So importing the journal again next month only adds the new months.
+
+A journal imported before accounts without cash were paid from outside wrote a deposit and a buy for each purchase. Importing it again marks the buys paid from outside (a value filled in), but the old deposits stay, as any record the file no longer gives does: remove them (`retire trades remove`), or undo that import and import again.
 
 ### Ledger profiles
 

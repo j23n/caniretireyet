@@ -216,18 +216,23 @@ public struct ImportConstants: Codable, Hashable, Sendable, KnownKeysProviding {
     public var currency: CurrencyCode?
     public var base: CurrencyCode?
     public var quote: CurrencyCode?
+    /// Trades layout: where every buy, sell, fee and tax of the file was
+    /// paid from or into, when no column says (`external`: another
+    /// account, e.g. a dealer's invoices paid from the bank).
+    public var settlement: TradeSettlement?
 
     public init(account: AccountID? = nil, instrument: InstrumentID? = nil, currency: CurrencyCode? = nil,
-                base: CurrencyCode? = nil, quote: CurrencyCode? = nil) {
+                base: CurrencyCode? = nil, quote: CurrencyCode? = nil, settlement: TradeSettlement? = nil) {
         self.account = account
         self.instrument = instrument
         self.currency = currency
         self.base = base
         self.quote = quote
+        self.settlement = settlement
     }
 
     enum CodingKeys: String, CodingKey, CaseIterable {
-        case account, instrument, currency, base, quote
+        case account, instrument, currency, base, quote, settlement
     }
 
     public static var knownKeys: Set<String> { Set(CodingKeys.allCases.map(\.stringValue)) }

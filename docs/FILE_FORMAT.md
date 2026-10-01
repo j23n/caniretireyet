@@ -251,7 +251,7 @@ One file per calendar month. It holds the account valuations, trades, prices, FX
 ]
 ```
 
-The fields and types of a trade, and how holdings, cost and cash are worked out from them, are in [TRADES.md](TRADES.md#trades-in-the-files).
+The fields and types of a trade, and how holdings, cost and cash are worked out from them, are in [TRADES.md](TRADES.md#trades-in-the-files). A buy, sell, fee or tax with `"settlement": "external"` was paid from or into another account (gold bought from a dealer, paid from the bank): it leaves the account's cash alone, and its amount counts as money added or taken out ([TRADES.md](TRADES.md#paid-from-outside-the-account)).
 
 Rules:
 
@@ -274,7 +274,7 @@ The value of an account on a date **D**:
 3. Convert to the base currency at the latest FX rate on or before D.
 4. Count the account only between its `opened` and `closed` dates.
 
-An account that records trades holds what its trades leave on D, with its cash: the `cash` of its latest valuation on or before D, plus the cash effect of every trade after it ([TRADES.md](TRADES.md#cash)). Steps 2 to 4 are the same.
+An account that records trades holds what its trades leave on D, with its cash: the `cash` of its latest valuation on or before D, plus the cash effect of every trade after it, none for a trade paid from outside the account ([TRADES.md](TRADES.md#cash)). Steps 2 to 4 are the same.
 
 **Net worth** on D is the sum over all accounts included in net worth.
 
@@ -285,7 +285,7 @@ An account that records trades holds what its trades leave on D, with its cash: 
 - **The flow is known** (every valuation in the period has a `flow`, or there was no new valuation): new money is the flow, and market is the rest. For accounts that hold positions and use the default flow, market is then the old quantity × price change, including FX. A lower flow, e.g. for reinvested dividends, or a purchase below the check-in price counts as market.
 - **Positions, flow unknown:** market is the old quantity × price change, including FX; new money is everything else, meaning changes in quantity and in cash.
 - **Balance, flow unknown:** the change can't be split. Only the FX movement of the old balance counts as market, and the rest is other.
-- **Trades:** new money is the account's deposits, withdrawals, transfers at market value, and residuals (cash typed at a check-in that the trades don't explain), each at its date; market is the rest, including dividends, interest and fees ([TRADES.md](TRADES.md#flows)).
+- **Trades:** new money is the account's deposits, withdrawals, transfers at market value, buys and sales paid from outside the account at their amount, and residuals (cash typed at a check-in that the trades don't explain), each at its date; market is the rest, including dividends, interest and fees ([TRADES.md](TRADES.md#flows)).
 
 An account that closes during the period ends at zero: its value on the closing day leaves as new money.
 
@@ -346,8 +346,8 @@ A profile with `"layout": "ledger"` reads ledger-cli and hledger journals instea
 
 A profile with `"layout": "trades"` reads a broker's transactions, a row per trade ([IMPORT.md](IMPORT.md#broker-transactions)):
 
-- each column's `field` is a field of the trade: `date`, `type`, `account`, `instrument` (several columns can hold it: a name, a ticker, an ISIN, tried in order), `quantity`, `price`, `currency` (the price's), `amount` (the cash moved, net of fees and tax), `gross` (before fees and tax), `fees`, `tax`, `ratio`, `note`, or `ignore`;
-- `constants.account` names the account when the file has no account column;
+- each column's `field` is a field of the trade: `date`, `type`, `account`, `instrument` (several columns can hold it: a name, a ticker, an ISIN, tried in order), `quantity`, `price`, `currency` (the price's), `amount` (the cash moved, net of fees and tax), `gross` (before fees and tax), `fees`, `tax`, `ratio`, `note`, `settlement` (whether a buy, sell, fee or tax was paid from outside the account: `external`, `yes`, …), or `ignore`;
+- `constants.account` names the account when the file has no account column; `constants.settlement`, optional, `"external"` when every buy, sell, fee and tax of the file was paid from or into another account and no column says;
 - `tradeTypes`, optional, maps the file's words for types, as written, to trade types: `{ "Acquisto": "buy", "Giroconto": "ignore" }`; `ignore` leaves those rows out. Left out (or for a word it doesn't have), the usual Italian and English words apply ([IMPORT.md](IMPORT.md#types));
 - `amountSign`, optional in `defaults` or a column's `format`, says how amounts are signed: `auto` (the default), `fromType` (absolute values, signed by the type) or `asWritten` ([IMPORT.md](IMPORT.md#signs)).
 

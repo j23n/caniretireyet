@@ -33,10 +33,13 @@ public struct ConversionNote: Hashable, Sendable, CustomStringConvertible {
         /// The trades were removed: their income, fees and realised gains
         /// are no longer recorded.
         public static let tradesRemoved: Kind = "tradesRemoved"
+        /// The account never held cash, so its buys and sales are paid
+        /// from or into another account (`"settlement": "external"`).
+        public static let settledOutside: Kind = "settledOutside"
 
         public static let knownValues: [Kind] = [
             .costFromMarketValue, .unknownCost, .priceFromValuation, .noPrice, .cashFromBalance, .existingTrades,
-            .addedValuation, .tradesRemoved,
+            .addedValuation, .tradesRemoved, .settledOutside,
         ]
     }
 
@@ -93,6 +96,11 @@ extension Library {
     ///   valuation's date at that date's price. A buy's cost comes from the
     ///   cost basis where it says what was paid (the check-in's "paid");
     ///   otherwise the price is an estimate (noted), as it is for sells.
+    /// - An account that has never held cash (``hasHeldCash(_:)``: its
+    ///   valuations list positions and no cash, like coins or a wallet) and
+    ///   has no balances was paid from elsewhere: its buys and sales are
+    ///   settled outside it (`"settlement": "external"`, noted), so its cash
+    ///   stays at zero and what they cost or brought in is a flow.
     /// - Valuations keep their cash (zero when they had none), flow, note
     ///   and source, and lose their positions. A balance becomes cash, less
     ///   the market value of what the trades hold then (noted).
@@ -101,7 +109,8 @@ extension Library {
     ///
     /// Values and flows stay the same: the trades' cash effects are what the
     /// check-in counted as new money, so each valuation's residual is its
-    /// old flow.
+    /// old flow (or, settled outside the account, the trades' amounts are
+    /// that flow themselves, and there's no residual).
     public func conversionToTrades(of account: AccountID) -> AccountConversion? {
         guard var details = accounts[account], !details.recordsTrades else { return nil }
         let prices = PriceTable(library: self)
@@ -124,6 +133,17 @@ extension Library {
         }
         func note(_ kind: ConversionNote.Kind, _ date: CalendarDate, _ instrument: InstrumentID?, _ message: String) {
             notes.append(ConversionNote(kind: kind, date: date, instrument: instrument, message: message))
+        }
+
+        // Paid from outside the account when it never held cash of its own.
+        let settlement: TradeSettlement? = hasHeldCash(account)
+            || valuations(for: account).contains(where: { $0.balance != nil }) ? nil : .external
+        var notedSettlement = false
+        func noteSettlement(_ date: CalendarDate) {
+            guard settlement == .external, !notedSettlement else { return }
+            notedSettlement = true
+            note(.settledOutside, date, nil, "\(account) has never held cash, so its buys and sales are paid from "
+                + "and into another account: its cash stays at zero, and what they cost or brought in is new money.")
         }
 
         let existing = self.trades(for: account)
@@ -185,6 +205,7 @@ extension Library {
                                         id: id(.opening, instrument, valuation.date), type: .opening,
                                         instrument: instrument, quantity: now, cost: cost, source: valuation.source))
                 } else if change > 0 {
+                    noteSettlement(valuation.date)
                     let paid = position.flatMap { CheckInRow.paid(for: $0, previous: before) }
                     if paid == nil {
                         if market == nil {
@@ -199,8 +220,9 @@ extension Library {
                                         id: id(.buy, instrument, valuation.date), type: .buy, instrument: instrument,
                                         quantity: change, price: market?.price.price,
                                         currency: market.map { $0.price.currency },
-                                        amount: paid.map { -$0 }, source: valuation.source))
+                                        amount: paid.map { -$0 }, source: valuation.source, settlement: settlement))
                 } else {
+                    noteSettlement(valuation.date)
                     let sold = 0 - change
                     if market == nil {
                         note(.noPrice, valuation.date, instrument, "The sale of \(sold.fileString) \(instrument) "
@@ -212,7 +234,8 @@ extension Library {
                     trades.append(Trade(account: account, date: valuation.date,
                                         id: id(.sell, instrument, valuation.date), type: .sell, instrument: instrument,
                                         quantity: sold, price: market?.price.price,
-                                        currency: market.map { $0.price.currency }, source: valuation.source))
+                                        currency: market.map { $0.price.currency }, source: valuation.source,
+                                        settlement: settlement))
                 }
             }
             for instrument in instruments {

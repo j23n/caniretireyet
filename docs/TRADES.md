@@ -65,11 +65,12 @@ From the example library (`history/2026/2026-08.json` and `2026-07.json`):
 | `quantity` | Units, **always positive**; the type says the direction. |
 | `price` | Per unit, in `currency`. |
 | `currency` | The price's currency. Default: the instrument's (the account's without an instrument). |
-| `amount` | The **cash effect** on the account, in the **account's** currency, signed: negative for a buy, a fee, a tax or a withdrawal; positive for sale proceeds, dividends, interest and deposits. It's what the cash actually changed by, **net of `fees` and `tax`**. Optional where it can be computed; when written, it wins (it's what the broker charged, at the broker's FX rate). |
+| `amount` | The **cash effect** on the account, in the **account's** currency, signed: negative for a buy, a fee, a tax or a withdrawal; positive for sale proceeds, dividends, interest and deposits. It's what the cash actually changed by, **net of `fees` and `tax`**. Optional where it can be computed; when written, it wins (it's what the broker charged, at the broker's FX rate). For a trade [paid from outside the account](#paid-from-outside-the-account), it's what was paid or received there, signed the same way. |
 | `fees` | Commissions, positive, in the account's currency. Part of `amount`. |
 | `tax` | Tax withheld, positive, in the account's currency: on a sale's gain, a dividend or interest, or a transaction tax on a buy (e.g. the Italian FTT). Part of `amount`. |
 | `cost` | The total purchase cost carried, for `opening` and `transferIn`. Without it, the cost is unknown. |
 | `ratio` | For `split`: new units per old unit. `"2"` for a 2-for-1 split, `"0.1"` for a 1-for-10 reverse split. |
+| `settlement` | For `buy`, `sell`, `fee` and `tax`: where it was paid from or into. `account` (the default, left out): the account's cash. `external`: **outside the account**, e.g. gold bought from a dealer and paid from a bank account, or a sale whose proceeds went to the bank. Such a trade doesn't change the account's cash; its amount is money added or taken out ([Paid from outside the account](#paid-from-outside-the-account)). An open enum: a value this version doesn't know counts as `account`, and is pointed out. |
 | `note`, `source` | Free text, and where it came from (`manual`, `import`, …). |
 
 Decimals are strings, as everywhere ([Conventions](FILE_FORMAT.md#conventions)).
@@ -78,18 +79,45 @@ Decimals are strings, as everywhere ([Conventions](FILE_FORMAT.md#conventions)).
 
 | Type | Fields | Cash effect when there's no `amount` |
 | --- | --- | --- |
-| `buy` | `instrument`, `quantity`, `price` and/or `amount`; `fees`, `tax` | −(quantity × price + fees + tax) |
-| `sell` | `instrument`, `quantity`, `price` and/or `amount`; `fees`, `tax` | quantity × price − fees − tax |
+| `buy` | `instrument`, `quantity`, `price` and/or `amount`; `fees`, `tax`, `settlement` | −(quantity × price + fees + tax) |
+| `sell` | `instrument`, `quantity`, `price` and/or `amount`; `fees`, `tax`, `settlement` | quantity × price − fees − tax |
 | `dividend` | `amount` (or `quantity` and the dividend per unit as `price`); `instrument`, `tax`, `fees` | quantity × price − fees − tax |
 | `interest` | `amount`; `tax` | as a dividend |
-| `fee` | `amount` (or `fees`) | −fees |
-| `tax` | `amount` (or `tax`): a tax charged on its own, e.g. imposta di bollo | −tax |
+| `fee` | `amount` (or `fees`); `settlement` | −fees |
+| `tax` | `amount` (or `tax`): a tax charged on its own, e.g. imposta di bollo; `settlement` | −tax |
 | `deposit`, `withdrawal` | `amount`: money into or out of the account | — (needed) |
 | `transferIn`, `transferOut` | `instrument`, `quantity`, `cost` (in): securities moved between accounts or brokers | 0 (−fees if any) |
 | `split` | `instrument`, `ratio` | 0 |
 | `opening` | `instrument`, `quantity`, `cost`: a holding on the date the account's history starts | 0 |
 
-quantity × price is converted into the account's currency at the latest FX rate on or before the trade date ([FILE_FORMAT.md](FILE_FORMAT.md), FX direction), and computed amounts are rounded to cents.
+quantity × price is converted into the account's currency at the latest FX rate on or before the trade date ([FILE_FORMAT.md](FILE_FORMAT.md), FX direction), and computed amounts are rounded to cents. A trade with `"settlement": "external"` has a cash effect of 0: its amount, worked out the same way, was paid or received outside the account.
+
+### Paid from outside the account
+
+A broker account holds cash: you deposit money and buy with it. Precious metals bought from a dealer, or anything bought with money that never sits in the account, are paid from somewhere else. A plain `buy` would then take the account's cash below zero, and the account would be worth the gold minus what it cost, about nothing. So a `buy`, `sell`, `fee` or `tax` can say it was settled outside the account (`Trade.settlement`, `TradeSettlement.external`; `Trade.isSettledExternally`):
+
+```json
+{
+  "account": "gold-coins",
+  "amount": "-3026.03",
+  "date": "2026-03-20",
+  "id": "buy-gold",
+  "instrument": "gold",
+  "quantity": "31.1",
+  "settlement": "external",
+  "type": "buy"
+}
+```
+
+(Made up: 31,1 g of gold, paid from the bank.)
+
+- **Cash.** Its cash effect is 0: the account's cash doesn't change.
+- **Flows.** Its amount is a [flow](#flows) on its date: an external buy's cost (quantity × price × FX + fees + tax, or −`amount`) is **money added**, an external sell's proceeds are **money taken out**, and an external fee or tax (a vault's storage fee billed to the bank) is money added that the fee then took, so it still counts against the account's return. So the account is worth what it holds, and its return is the gold's.
+- **Cost and gains** are what they'd be for the same trade paid from the account's cash: a buy adds what it cost to the average cost, and a sale's realised gain is its proceeds before tax minus the average cost.
+- `settlement` on another type is pointed out and ignored. Dividends and interest can't be paid outside the account: one paid into another account is a dividend and a withdrawal of the same amount.
+- It replaces the old workaround of a `deposit` of the same amount on the day of every buy, which went wrong when the buy was edited or deleted.
+
+The app's Add Trade sheet offers it as *Paid from outside this account* (a buy, fee or tax) and *Proceeds leave this account* (a sale), on by default for a metals account and for a trades account that has never held cash (`Library.hasHeldCash(_:)`: no valuation with cash other than zero, no deposit and no sale whose proceeds stayed in it; `Library.defaultSettlement(for:in:)`). On the command line: `retire trades add … --paid-from-outside` (a buy, fee or tax) or `--proceeds-out` (a sale); without them, a buy that takes the cash below zero gets a note saying so. `retire trades list` shows such trades with no cash and what was paid or received in an *Outside* column (`settlement` and `outside` in its JSON).
 
 ### Order within a day
 
@@ -101,7 +129,7 @@ Trades have no time of day, and IDs are random, so the file order says nothing a
 
 - **Quantity** per instrument: buys, openings and transfers in add; sells and transfers out take away; splits multiply.
 - **Average cost** (*costo medio ponderato*, as Italian brokers compute it), in the account's currency:
-  - a buy adds what it cost: −cash effect, i.e. price × quantity × FX at the trade date, plus fees and tax;
+  - a buy adds what it cost: −amount, i.e. price × quantity × FX at the trade date, plus fees and tax, wherever it was paid from;
   - an opening or transfer in adds its `cost`;
   - a sell or transfer out takes away the average cost of the units, pro rata, rounded to cents (so the costs taken away and the cost left always add up to what went in);
   - a split changes the quantity, not the cost;
@@ -114,7 +142,7 @@ Trades have no time of day, and IDs are random, so the file order says nothing a
 
 ## Cash
 
-The cash of a trades account at the end of date *d* is the `cash` of its latest valuation on or before *d* that records cash, plus the cash effect of every trade after that valuation up to *d* (`Valuator.tradeCash(of:on:)`): buys −, sells +, dividends +, interest +, fees −, taxes −, deposits +, withdrawals −, each by its `amount` (net of fees and tax).
+The cash of a trades account at the end of date *d* is the `cash` of its latest valuation on or before *d* that records cash, plus the cash effect of every trade after that valuation up to *d* (`Valuator.tradeCash(of:on:)`): buys −, sells +, dividends +, interest +, fees −, taxes −, deposits +, withdrawals −, each by its `amount` (net of fees and tax). A trade [paid from outside the account](#paid-from-outside-the-account) counts 0 (`TradeEntry.cashEffect`; its `TradeEntry.amount` is what was paid or received elsewhere).
 
 An account with no valuations starts from zero, and its cash is fully derived from its trades. So both styles work:
 
@@ -137,13 +165,14 @@ A trades account's flows (the money in and out that [PROGRESS.md](PROGRESS.md) c
 
 - recorded **deposits** − **withdrawals**;
 - \+ securities **transferred in** − **transferred out**, and **openings**, at their market value on the transfer date (not their cost);
+- \+ what buys, fees and taxes [paid from outside the account](#paid-from-outside-the-account) cost − the proceeds of sales paid out of it (`TradeEntry.externalFlow`, −amount), on their dates;
 - \+ the **residual** of each valuation with cash: its typed cash minus the cash the trades give on its date, treated as deposits or withdrawals nobody recorded.
 
-Dividends, interest, fees, taxes, buys and sells are not flows: they're the account's return, or move money within it.
+Dividends, interest, fees, taxes, buys and sells paid from or into the account's cash are not flows: they're the account's return, or move money within it.
 
 - The **check-in's default flow** for a trades account (`Valuator.defaultFlow(for:previous:)`) is this, since the previous valuation. It's written into the valuation's `flow`, for the record, and kept in step when trades change (`followFlows`).
 - The **change split** and **performance** use the flows themselves, not the stored `flow`: a deposit counts at its own date, and a trade after the latest check-in counts too. Returns weight each deposit, withdrawal and transfer from its date (Modified Dietz within each piece), and a residual from halfway between the valuation and the one with cash before it.
-- For an asset class, units bought or sold move money between cash and the position at the end price, as for holdings accounts.
+- For an asset class, units bought or sold move money between cash and the position at the end price, as for holdings accounts. Units bought or sold outside the account are a flow of their position at their amount, like a transfer at its value; a fee or tax without an instrument is a flow of its cash.
 - **Per position**, `Valuator.instrumentReturn(of:in:from:to:)` gives an instrument's gain and money-weighted return including its dividends.
 
 ## Reconciliation
@@ -177,10 +206,11 @@ Pure functions return the records a conversion writes (`AccountConversion`: the 
 
 - an `opening` per position at the account's first valuation: cost = its `costBasis`, else its value on that date (noted);
 - then, for each later valuation, a `buy` or `sell` per change in quantity on that date, at that date's price. A buy's `amount` is what the cost basis says was paid (the check-in's "paid"); otherwise the price is an estimate (noted), as it always is for a sale;
+- an account that has never held cash (`Library.hasHeldCash(_:)`: valuations with positions and no cash, like coins or a wallet) and has no balances gets its buys and sales **paid from outside the account** (`"settlement": "external"`, noted), so its cash stays at zero and what they cost or brought in is recorded new money rather than a residual;
 - valuations keep their `cash` (zero when they had none), `flow`, `note` and `source`, and lose their `positions`. A balance becomes cash, less the market value of what the trades hold then (noted);
 - trades get readable IDs (`opening-vwce`, `buy-vwce`, `sell-vwce`), one per instrument and date.
 
-Values and flows stay the same: each trade's cash effect is what the check-in counted as new money, so each valuation's residual is its old flow.
+Values and flows stay the same: each trade's cash effect is what the check-in counted as new money, so each valuation's residual is its old flow (paid from outside, the trades' amounts are that flow themselves, and there's no residual).
 
 **Trades → snapshots** (`conversionToSnapshots(of:)`): each valuation gets the derived positions, average cost and cash; a month whose last trade comes after its last valuation gets a valuation on that trade's date (noted), so values at valuation dates and month ends stay the same; the trades are removed (noted: their income and realised gains are no longer recorded).
 
@@ -192,7 +222,7 @@ Invalid trades are never dropped: they're applied as far as they can be, and poi
 
 When the library loads (Storage, in each trade's file):
 
-- what a record is missing or gets wrong on its own (`Trade.problems`): a buy without price or amount, a negative quantity, a split without ratio, an amount whose sign contradicts the type, fields the type doesn't use;
+- what a record is missing or gets wrong on its own (`Trade.problems`): a buy without price or amount, a negative quantity, a split without ratio, an amount whose sign contradicts the type, fields the type doesn't use (a `settlement` on anything but a buy, sell, fee or tax), a settlement this version doesn't know;
 - a sell or transfer out of more than the account holds then (the quantity goes negative, so the mistake shows);
 - trades of an account that doesn't record trades, or dated before it opened or after it closed;
 - a valuation of a trades account with a balance;

@@ -32,7 +32,9 @@ struct ImportCommand: RetireSubcommand {
             (Acquisto → buy, Dividend → dividend, …); map others with --type "Giroconto=deposit", \
             or "Word=ignore" to leave them out. Name the account with --account <id> when the \
             file has no account column. An account that doesn't record trades is switched only \
-            with --accept-trades-mode; otherwise its trades are left out.
+            with --accept-trades-mode; otherwise its trades are left out. --settlement external \
+            says the file's buys and sales were paid from another account (a dealer's invoices \
+            paid from the bank): they leave the account's cash alone.
             """)
 
     enum Layout: String, ExpressibleByArgument, CaseIterable {
@@ -53,6 +55,10 @@ struct ImportCommand: RetireSubcommand {
             case .asWritten: .asWritten
             }
         }
+    }
+
+    enum Settlement: String, ExpressibleByArgument, CaseIterable {
+        case external, account
     }
 
     enum Conflicts: String, ExpressibleByArgument, CaseIterable {
@@ -111,6 +117,11 @@ struct ImportCommand: RetireSubcommand {
     @Option(help: ArgumentHelp("Trades: how the file signs its amounts: auto, from-type (absolute values, signed by "
                                    + "the type) or as-written. Default: the profile's, else auto.", valueName: "sign"))
     var amountSign: AmountSign?
+
+    @Option(help: ArgumentHelp("Trades: where the file's buys, sells, fees and taxes were paid from or into, when "
+                                   + "no column says: external (another account, e.g. gold paid from the bank) or "
+                                   + "account. Default: the profile's, else account.", valueName: "where"))
+    var settlement: Settlement?
 
     @Option(help: ArgumentHelp("The date pattern, e.g. dd/MM/yyyy, MM/dd/yyyy, MMM yyyy or excel-serial. "
                                    + "Default: detected.", valueName: "pattern"))
@@ -313,6 +324,7 @@ struct ImportCommand: RetireSubcommand {
         }
         if let liabilitySign { session.profile.defaults.liabilitySign = liabilitySign.value }
         if let amountSign { session.profile.defaults.amountSign = amountSign.value }
+        if let settlement { session.profile.constants.settlement = settlement == .external ? .external : nil }
         if let account { session.profile.constants.account = AccountID(account) }
         for mapping in types {
             if let (word, type) = Self.typeMapping(mapping) { session.setTradeType(type, for: word) }

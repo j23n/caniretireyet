@@ -303,6 +303,7 @@ enum RecordMerge {
         field(\.cost)
         field(\.ratio)
         field(\.note)
+        field(\.settlement)
         if overwrite, conflict { trade.source = source ?? imported.source ?? .import }
         return (trade, conflict)
     }

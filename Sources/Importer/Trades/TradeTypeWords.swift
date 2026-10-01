@@ -1,6 +1,24 @@
 import Foundation
 import Model
 
+/// The words a trades file's settlement column is read with (IMPORT.md,
+/// "Columns"): whether a buy, sell, fee or tax was paid from or into
+/// another account. Compared ignoring case and accents.
+public enum SettlementWords {
+    /// Paid from or into another account.
+    static let external = ["external", "outside", "esterno", "esterna", "fuori", "yes", "y", "si", "true", "x", "1"]
+    /// The account's own cash.
+    static let account = ["account", "internal", "interno", "conto", "no", "n", "false", "0"]
+
+    /// The settlement `text` says; `nil` when it says neither.
+    public static func settlement(for text: String) -> TradeSettlement? {
+        let folded = TextTools.fold(text)
+        if external.contains(folded) { return .external }
+        if account.contains(folded) { return .account }
+        return nil
+    }
+}
+
 /// The words brokers use for trade types, in Italian and English, and how a
 /// file's word is read as a trade type (IMPORT.md, "Broker transactions").
 ///

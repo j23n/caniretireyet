@@ -12,13 +12,21 @@ public struct TradeEntry: Hashable, Sendable {
     public let gross: Decimal?
     /// The conversion used for ``gross``; `nil` when none was needed.
     public let fx: FXQuote?
-    /// What the account's cash changed by: `amount` as written, or worked
-    /// out from ``gross``, fees and tax (see docs/TRADES.md), rounded to
-    /// cents. `nil` when it can't be worked out; the ledger then counts it
-    /// as zero and reports an issue.
+    /// What the trade paid (negative) or brought in (positive), net of fees
+    /// and tax: `amount` as written, or worked out from ``gross``, fees and
+    /// tax (see docs/TRADES.md), rounded to cents. For a trade settled in
+    /// the account it's its ``cashEffect``; for one settled outside it
+    /// (``Model/Trade/isSettledExternally``) it was paid or received
+    /// elsewhere, and is a flow (``externalFlow``). `nil` when it can't be
+    /// worked out.
+    public let amount: Decimal?
+    /// What the account's cash changed by: ``amount``, or zero for a trade
+    /// settled outside the account. `nil` when it can't be worked out; the
+    /// ledger then counts it as zero and reports an issue.
     public let cashEffect: Decimal?
     /// The purchase cost the trade moved: added by a buy (what it cost,
-    /// fees and tax included), an opening or a transfer in (its `cost`);
+    /// fees and tax included, wherever it was paid from), an opening or a
+    /// transfer in (its `cost`);
     /// taken away by a sell or a transfer out (the average cost of the
     /// units, pro rata), as a positive amount. `nil` when unknown or when
     /// the trade doesn't change holdings.
@@ -36,6 +44,14 @@ public struct TradeEntry: Hashable, Sendable {
 
     public var date: CalendarDate { trade.date }
     public var type: TradeType { trade.type }
+
+    /// For a trade settled outside the account: the money it brought in
+    /// (+: a buy's cost, a fee or tax paid from elsewhere) or took out (−: a
+    /// sale's proceeds paid elsewhere), i.e. −``amount``. `nil` for other
+    /// trades, and when the amount is unknown.
+    public var externalFlow: Decimal? {
+        trade.isSettledExternally ? amount.map { -$0 } : nil
+    }
 }
 
 /// An account's trades applied in order (docs/TRADES.md): the quantity and
@@ -45,13 +61,16 @@ public struct TradeEntry: Hashable, Sendable {
 /// - Trades apply in processing order (``Model/Swift/Sequence/inProcessingOrder()``):
 ///   by date, and within a day splits first, buys before sells.
 /// - **Average cost** (*costo medio ponderato*), in the account's currency:
-///   a buy adds what it cost (−cash effect: price × quantity × FX at the
-///   trade date, plus fees and tax); an opening or transfer in adds its
+///   a buy adds what it cost (−amount: price × quantity × FX at the trade
+///   date, plus fees and tax), wherever it was paid from; an opening or transfer in adds its
 ///   `cost`; a sell or transfer out takes away the average cost of the
 ///   units, pro rata, rounded to cents; a split changes the quantity, not
 ///   the cost. A position that goes back to zero starts afresh.
 /// - A **realised gain** is a sale's proceeds before tax (gross − fees)
 ///   minus the average cost of the units sold.
+/// - **Cash**: each trade's cash effect is its amount, except for a trade
+///   settled outside the account (`"settlement": "external"`), whose cash
+///   effect is zero: its amount is money added or taken out instead.
 ///
 /// Build one with the account, its trades and the library's FX rates (or
 /// take it from ``Valuator/ledger(for:)``); queries by date are binary
@@ -122,7 +141,8 @@ public struct TradeLedger: Sendable {
                         + "\(trade.date), so its amount can't be worked out. Add the rate, or the amount.")
                 }
             }
-            let cashEffect = trade.amount ?? Self.computedCashEffect(of: trade, gross: gross)
+            let amount = trade.amount ?? Self.computedCashEffect(of: trade, gross: gross)
+            let cashEffect: Decimal? = trade.isSettledExternally ? 0 : amount
 
             // Holdings and cost.
             var cost: Decimal?
@@ -144,7 +164,7 @@ public struct TradeLedger: Sendable {
                 case .buy, .opening, .transferIn:
                     guard let quantity = trade.quantity, quantity > 0 else { break }
                     if trade.type == .buy {
-                        cost = cashEffect.map { -$0 }
+                        cost = amount.map { -$0 }
                     } else {
                         cost = trade.cost
                         if cost == nil {
@@ -172,8 +192,8 @@ public struct TradeLedger: Sendable {
                     state.cost = state.cost.flatMap { total in cost.map { total - $0 } }
                     if before - quantity <= 0 { state.cost = 0 }
                     state.quantity = before - quantity
-                    if trade.type == .sell, quantity <= held, let cashEffect, let cost {
-                        gain = cashEffect + (trade.tax ?? 0) - cost
+                    if trade.type == .sell, quantity <= held, let amount, let cost {
+                        gain = amount + (trade.tax ?? 0) - cost
                     }
                 }
                 positions[instrument] = state
@@ -181,16 +201,18 @@ public struct TradeLedger: Sendable {
                 costAfter = state.cost
             }
 
-            if cashEffect == nil, trade.type.isKnown, !missingRate,
+            if amount == nil, trade.type.isKnown, !missingRate,
                !trade.problems.contains(where: { $0.severity == .error }) {
-                issue(.invalidTrade, .error, "Its cash effect can't be worked out.")
+                issue(.invalidTrade, .error, trade.isSettledExternally
+                    ? "Its amount can't be worked out." : "Its cash effect can't be worked out.")
             }
             runningCash += cashEffect ?? 0
             if cashEffect == nil && trade.type.isKnown { runningUnknown += 1 }
             cashTotals.append(runningCash)
             unknownCounts.append(runningUnknown)
-            entries.append(TradeEntry(trade: trade, gross: gross, fx: quote, cashEffect: cashEffect, cost: cost,
-                                      realizedGain: gain, quantityAfter: quantityAfter, costAfter: costAfter))
+            entries.append(TradeEntry(trade: trade, gross: gross, fx: quote, amount: amount, cashEffect: cashEffect,
+                                      cost: cost, realizedGain: gain, quantityAfter: quantityAfter,
+                                      costAfter: costAfter))
             if days.last?.date == trade.date {
                 days[days.count - 1].positions = positions
             } else {
@@ -279,7 +301,8 @@ public struct TradeLedger: Sendable {
     /// The types whose cash effect, without an `amount`, comes from quantity × price.
     static let cashEffectNeedsGross: Set<TradeType> = [.buy, .sell, .dividend, .interest]
 
-    /// The cash effect of a trade without an `amount`: see docs/TRADES.md.
+    /// The amount of a trade without an `amount` (its cash effect, unless
+    /// it's settled outside the account): see docs/TRADES.md.
     static func computedCashEffect(of trade: Trade, gross: Decimal?) -> Decimal? {
         let fees = trade.fees ?? 0
         let tax = trade.tax ?? 0
@@ -372,7 +395,7 @@ public struct TradeYearSummary: Hashable, Sendable {
             self.fees += value(fees) ?? 0
             taxes += value(tax) ?? 0
         case .dividend:
-            if let gross = value(entry.cashEffect.map { $0 + tax + fees }) {
+            if let gross = value(entry.amount.map { $0 + tax + fees }) {
                 dividends += gross
                 if let instrument = trade.instrument { dividendsByInstrument[instrument, default: 0] += gross }
             }
@@ -381,21 +404,21 @@ public struct TradeYearSummary: Hashable, Sendable {
             taxes += withheld
             incomeTax += withheld
         case .interest:
-            interest += value(entry.cashEffect.map { $0 + tax + fees }) ?? 0
+            interest += value(entry.amount.map { $0 + tax + fees }) ?? 0
             self.fees += value(fees) ?? 0
             let withheld = value(tax) ?? 0
             taxes += withheld
             incomeTax += withheld
         case .fee:
-            self.fees += value(entry.cashEffect.map { -$0 - tax }) ?? 0
+            self.fees += value(entry.amount.map { -$0 - tax }) ?? 0
             taxes += value(tax) ?? 0
         case .tax:
-            taxes += value(entry.cashEffect.map { -$0 - fees }) ?? 0
+            taxes += value(entry.amount.map { -$0 - fees }) ?? 0
             self.fees += value(fees) ?? 0
         case .deposit:
-            deposits += value(entry.cashEffect) ?? 0
+            deposits += value(entry.amount) ?? 0
         case .withdrawal:
-            withdrawals -= value(entry.cashEffect) ?? 0
+            withdrawals -= value(entry.amount) ?? 0
         default:
             self.fees += value(fees) ?? 0
             taxes += value(tax) ?? 0

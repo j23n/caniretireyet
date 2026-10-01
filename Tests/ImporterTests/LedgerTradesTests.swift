@@ -65,17 +65,22 @@ struct LedgerTradesTests {
     @Test func rewardsAreBoughtWithTheIncomeTheyAre() throws {
         let preview = try Self.session().preview(against: Self.library(), until: "2026-09-30")
         let wallet = Self.trades(preview, "crypto-wallet")
-        #expect(wallet.map(\.type) == [.deposit, .buy, .buy, .interest])
-        // Bought with @@: the price per unit, paid from the bank (a deposit).
-        #expect(wallet[0].amount == 2000)
-        #expect(wallet[1].quantity == dec("0.05"))
-        #expect(wallet[1].price == 40000)
-        #expect(wallet[1].amount == nil)
-        // Staking: bought at the day's P price with the income it is.
-        #expect(wallet[2].quantity == dec("0.0001"))
-        #expect(wallet[2].price == 58500)
-        #expect(wallet[3].amount == dec("5.85"))
-        #expect(wallet[3].instrument == nil)
+        #expect(wallet.map(\.type) == [.buy, .buy, .interest])
+        // Bought with @@: the price per unit, paid from the bank. The wallet holds no euros in
+        // the journal, so the buy is paid from outside it rather than with a deposit.
+        #expect(wallet[0].quantity == dec("0.05"))
+        #expect(wallet[0].price == 40000)
+        #expect(wallet[0].amount == nil)
+        #expect(wallet[0].settlement == .external)
+        // Staking: bought at the day's P price with the income it is, in the wallet.
+        #expect(wallet[1].quantity == dec("0.0001"))
+        #expect(wallet[1].price == 58500)
+        #expect(wallet[1].settlement == nil)
+        #expect(wallet[2].amount == dec("5.85"))
+        #expect(wallet[2].instrument == nil)
+        #expect(preview.notes.map(\.message).contains {
+            $0.hasPrefix("Crypto Wallet holds no cash in the journal, so what it buys and sells is paid from outside it")
+        })
     }
 
     @Test func averageCostAndCashMatchTheJournal() throws {
@@ -131,9 +136,9 @@ struct LedgerTradesTests {
         let library = Self.library()
         let session = try Self.session()
         var preview = session.preview(against: library, until: "2026-09-30").preview
-        #expect(preview.summary.trades == 9)
+        #expect(preview.summary.trades == 8)
         let first = preview.apply(to: library)
-        #expect(first.tradesWritten == 9)
+        #expect(first.tradesWritten == 8)
         let again = session.preview(against: first.library, until: "2026-09-30").preview
         #expect(again.records.allSatisfy { $0.status == .identical })
         #expect(again.summary.identicalRecords == preview.records.count)
@@ -166,7 +171,68 @@ struct LedgerTradesTests {
     @Test func tradesAfterTheCutOffAreLeftOut() throws {
         let preview = try Self.session().preview(against: Self.library(), until: "2024-02-10")
         #expect(Self.trades(preview, "directa").map(\.type) == [.deposit, .deposit, .buy, .dividend])
-        #expect(Self.trades(preview, "crypto-wallet").map(\.type) == [.deposit, .buy])
+        #expect(Self.trades(preview, "crypto-wallet").map(\.type) == [.buy])
+    }
+
+    /// A broker with cash postings of its own, and made-up gold coins whose
+    /// ledger account only ever holds gold, both bought from the bank.
+    @Test func anAccountWithoutCashIsPaidFromOutsideAndOneWithCashGetsADeposit() throws {
+        let journal = LedgerReader.read(text: """
+            2024-03-01 Deposit
+                Assets:Broker:Directa:Cash     1000 EUR
+                Assets:Bank:Fineco
+
+            2024-03-05 Gold coins from the dealer
+                Assets:Gold:Coins              10 XAU @ 60.00 EUR
+                Assets:Bank:Fineco
+
+            2024-03-06 VWCE paid straight from the bank
+                Assets:Broker:Directa          5 VWCE @ 100.00 EUR
+                Assets:Bank:Fineco
+
+            2024-03-20 A coin sold to the dealer
+                Assets:Bank:Fineco             130 EUR
+                Assets:Gold:Coins              -2 XAU @ 65.00 EUR
+            """)
+        var library = Self.library()
+        library.accounts["gold-coins"] = Account(id: "gold-coins", name: "Gold Coins", kind: .metals, currency: .eur,
+                                                 opened: "2024-01-01", valuation: .trades)
+        library.instruments["gold"] = Instrument(id: "gold", name: "Gold", kind: .metal, currency: .eur, unit: .gram,
+                                                 assetClasses: .single(.gold), ticker: "XAU")
+        var session = LedgerImportSession(journal: journal)
+        session.settings.cashChecks = true
+        let preview = session.preview(against: library, until: "2026-09-30")
+        #expect(preview.account("Assets:Gold:Coins")?.mapping == .account("gold-coins"))
+
+        // The coins: a buy and a sale paid from and into the bank, no deposit or withdrawal.
+        let gold = Self.trades(preview, "gold-coins")
+        #expect(gold.map(\.type) == [.buy, .sell])
+        #expect(gold.map(\.settlement) == [.external, .external])
+        #expect(gold.map(\.price) == [60, 65])
+        #expect(gold.map(\.amount) == [nil, nil])
+        #expect(preview.notes.map(\.message).contains {
+            $0.hasPrefix("Gold Coins holds no cash in the journal, so what it buys and sells is paid from outside it")
+        })
+        // Its cash checks hold no cash, and the money the trades say was added and taken out.
+        let checks = preview.preview.records.filter {
+            if case .valuation(let key) = $0.imported.key { key.account == "gold-coins" } else { false }
+        }.map(\.imported)
+        #expect(checks.map(\.cash) == [0])
+        #expect(checks.map(\.flow) == [470])
+
+        // Directa holds cash, so a buy paid from the bank is still a deposit and a buy.
+        let directa = Self.trades(preview, "directa")
+        #expect(directa.map(\.type) == [.deposit, .deposit, .buy])
+        #expect(directa.map(\.amount) == [1000, 500, nil])
+        #expect(directa.allSatisfy { $0.settlement == nil })
+
+        let imported = preview.preview.apply(to: library).library
+        let valuator = Valuator(library: imported)
+        #expect(valuator.tradeCash(of: "gold-coins", on: "2024-03-31") == 0)
+        #expect(valuator.tradeFlows(of: "gold-coins", after: nil, through: "2024-03-31").map(\.amount) == [600, -130])
+        #expect(valuator.ledger(for: "gold-coins")?.position(of: "gold", on: "2024-03-31")?.costBasis == 480)
+        #expect(valuator.tradeCash(of: "directa", on: "2024-03-31") == 1000)
+        #expect(valuator.tradeIssues(for: "gold-coins").filter { $0.severity == .error }.isEmpty)
     }
 
     @Test func feesTaxesAndWithdrawalsFromTheBroker() throws {

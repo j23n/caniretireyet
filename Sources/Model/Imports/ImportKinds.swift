@@ -78,10 +78,15 @@ public struct ImportField: OpenEnum {
     public static let ratio: ImportField = "ratio"
     /// Free text for the trade's note.
     public static let note: ImportField = "note"
+    /// Where a buy, sell, fee or tax was paid from or into: `external` (or
+    /// yes, outside, esterno) for another account, so the trade's
+    /// `settlement` is external; empty, `account` or no for the account's
+    /// own cash.
+    public static let settlement: ImportField = "settlement"
 
     public static let knownValues: [ImportField] = [
         .date, .account, .instrument, .value, .currency, .base, .quote, .ignore, .type, .quantity, .price, .amount,
-        .gross, .fees, .tax, .ratio, .note,
+        .gross, .fees, .tax, .ratio, .note, .settlement,
     ]
 }
 

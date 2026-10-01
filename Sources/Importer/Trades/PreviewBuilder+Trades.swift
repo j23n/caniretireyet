@@ -17,6 +17,8 @@ struct TradeRow {
     var tax: Decimal?
     var ratio: Decimal?
     var note: String?
+    /// What the row's settlement cell says, if the file has one.
+    var settlement: TradeSettlement?
     var cells: [ImportCellRef]
     /// Set once the row is read: its type, account and instrument.
     var type: TradeType?
@@ -122,6 +124,14 @@ extension PreviewBuilder {
                     continue
                 }
             }
+            var settlement: TradeSettlement?
+            if let column = columns[.settlement], !row[column].isEmpty {
+                guard let read = SettlementWords.settlement(for: row[column]) else {
+                    fail(row.number, column, row[column], .unknownSettlement(row[column]))
+                    continue
+                }
+                settlement = read
+            }
             var cells = [ImportCellRef(row: row.number, column: dateColumn)]
             cells += used.filter { !row[$0].isEmpty }.map { ImportCellRef(row: row.number, column: $0) }
             let account: NameRef? = if let column = columns[.account], !row[column].isEmpty { .name(row[column]) }
@@ -132,7 +142,8 @@ extension PreviewBuilder {
                 quantity: numbers[.quantity]?.value, price: numbers[.price]?.value, currency: currency,
                 amount: numbers[.amount]?.value, gross: numbers[.gross]?.value, fees: numbers[.fees]?.value,
                 tax: numbers[.tax]?.value, ratio: numbers[.ratio]?.value,
-                note: columns[.note].map { row[$0] }.flatMap { $0.isEmpty ? nil : $0 }, cells: cells.sorted()))
+                note: columns[.note].map { row[$0] }.flatMap { $0.isEmpty ? nil : $0 }, settlement: settlement,
+                cells: cells.sorted()))
         }
         readTradeTypes(columns)
     }
@@ -303,6 +314,10 @@ extension PreviewBuilder {
                 trade.quantity = nil
                 trade.price = nil
                 trade.currency = nil
+            }
+            // Paid from or into another account: the row's cell, else the profile's constant.
+            if type.canSettleExternally, (row.settlement ?? profile.constants.settlement) == .external {
+                trade.settlement = .external
             }
             if type == .split {
                 trade.quantity = nil

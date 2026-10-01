@@ -208,6 +208,45 @@ struct TradeSignTests {
         #expect(asWritten.map(\.amount) == [50])
     }
 
+    @Test func aSettlementColumnOrConstantSaysWhatWasPaidFromOutside() throws {
+        func mapSettlement(_ session: inout ImportSession) {
+            guard let index = session.profile.columns.firstIndex(where: { $0.header == "Paid from" }) else { return }
+            session.profile.columns[index].field = .settlement
+        }
+        let (trades, preview) = try Self.trades("""
+            Type,Date,Symbol,Quantity,Price,Amount,Paid from
+            Buy,2026-01-05,VWCE,5,100,-505,outside
+            Buy,2026-01-06,VWCE,1,100,-100,
+            Sell,2026-01-07,VWCE,2,110,215,Yes
+            Fee,2026-01-08,,,,-3,esterno
+            Deposit,2026-01-09,,,,50,external
+            Sell,2026-01-10,VWCE,1,110,110,account
+            """, mapSettlement)
+        #expect(trades.map(\.type) == [.buy, .buy, .sell, .fee, .deposit, .sell])
+        // A deposit can't be paid from outside the account: its cell is ignored.
+        #expect(trades.map(\.settlement) == [.external, nil, .external, .external, nil, nil])
+        #expect(preview.cellErrors.isEmpty)
+
+        let unreadable = try Self.trades("""
+            Type,Date,Symbol,Quantity,Price,Amount,Paid from
+            Buy,2026-01-05,VWCE,5,100,-505,bank transfer
+            Buy,2026-01-06,VWCE,1,100,-100,no
+            """, mapSettlement)
+        #expect(unreadable.trades.map(\.date) == ["2026-01-06"])
+        #expect(unreadable.preview.cellErrors.map(\.problem) == [.unknownSettlement("bank transfer")])
+
+        // The profile's constant, for every buy, sell, fee and tax of a file without the column.
+        let constant = try Self.trades("""
+            Type,Date,Symbol,Quantity,Price,Amount
+            Buy,2026-01-05,VWCE,5,100,-505
+            Dividend,2026-01-20,VWCE,,,4.5
+            """) { $0.profile.constants.settlement = .external }.trades
+        #expect(constant.map(\.settlement) == [.external, nil])
+        #expect(SettlementWords.settlement(for: " SÌ ") == .external)
+        #expect(SettlementWords.settlement(for: "Conto") == .account)
+        #expect(SettlementWords.settlement(for: "maybe") == nil)
+    }
+
     @Test func grossValuesLoseTheirFeesAndTax() throws {
         let (trades, _) = try Self.trades("""
             Operazione;Data;Titolo;Quantità;Prezzo;Controvalore;Commissioni;Ritenuta

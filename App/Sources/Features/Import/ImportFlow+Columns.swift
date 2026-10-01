@@ -64,6 +64,7 @@ enum ColumnUse: Hashable, Sendable {
             case .tax: return "Tax"
             case .ratio: return "Split ratio"
             case .note: return "Note"
+            case .settlement: return "Paid from outside"
             default: return field.rawValue
             }
         }

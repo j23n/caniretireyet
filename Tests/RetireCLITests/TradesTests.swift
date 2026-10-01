@@ -120,6 +120,32 @@ struct TradesImportCommandTests {
         #expect(!run.output.contains("Cells that can't be read"))
     }
 
+    @Test func aDealersInvoicesArePaidFromOutsideTheAccount() async throws {
+        let library = try TemporaryFolder.exampleLibrary()
+        let clock = TestClock()
+        let converted = await retire(["trades", "convert", "gold-coins", "--to", "trades", "--library", library.path,
+                                      "--apply"], clock: clock)
+        #expect(converted.status == 0, "\(converted.all)")
+        let files = try TemporaryFolder()
+        try files.write("dealer.csv", """
+            Tipo;Data;Titolo;Quantità;Prezzo;Importo
+            Acquisto;10/09/2026;gold;10;98,00;980,00
+            Vendita;20/09/2026;gold;2;99,00;198,00
+
+            """)
+        let run = await retire(["import", files.url("dealer.csv").path, "--library", library.path, "--layout", "trades",
+                                "--account", "gold-coins", "--settlement", "external", "--apply"], clock: clock)
+        #expect(run.status == 0, "\(run.all)")
+        #expect(run.output.contains("Imported: 2 added, 0 updated, 0 overwritten, 0 kept, 0 identical, 0 left out.\n"),
+                "\(run.output)")
+        let loaded = try library.load()
+        let imported = loaded.trades(for: "gold-coins").filter { $0.date >= "2026-09-01" }
+        #expect(imported.map(\.type) == [.buy, .sell])
+        #expect(imported.map(\.settlement) == [.external, .external])
+        let list = await retire(["trades", "list", "gold-coins", "--library", library.path], clock: clock)
+        #expect(list.output.hasSuffix("Holds on 2026-09-30: gold 101.3 (cost 9,037.60), cash 0.00.\n"), "\(list.output)")
+    }
+
     @Test func tradeOptionsAreChecked() async throws {
         let library = try TemporaryFolder.exampleLibrary()
         let file = try sample("directa.csv")
@@ -220,6 +246,75 @@ struct TradesCommandTests {
         #expect(changed.allSatisfy { $0.hasPrefix("backups/") }, "\(changed.sorted())")
     }
 
+    @Test func goldPaidFromOutsideTheAccount() async throws {
+        let library = try TemporaryFolder.exampleLibrary()
+        let clock = TestClock()
+        let converted = await retire(["trades", "convert", "gold-coins", "--to", "trades", "--library", library.path,
+                                      "--apply"], clock: clock)
+        #expect(converted.status == 0, "\(converted.all)")
+        #expect(converted.output.contains("""
+              Date        Type     Instrument  Quantity  Price     Amount      Cost  Paid     ID
+              2025-10-31  opening  gold            62.2                    5,210.00           opening-gold
+              2026-03-31  buy      gold            31.1   97.3  -3,026.03            outside  buy-gold
+            """), "\(converted.output)")
+
+        let bought = await retire(["trades", "add", "gold-coins", "--library", library.path, "--type", "buy",
+                                   "--date", "2026-09-20", "--instrument", "gold", "--quantity", "10", "--price", "98",
+                                   "--fees", "15", "--paid-from-outside", "--id", "bar"], clock: clock)
+        #expect(bought.status == 0, "\(bought.all)")
+        #expect(bought.output.hasPrefix(
+            "Added the buy of 10 gold @ 98 on 2026-09-20 (bar): paid from outside the account, -995.00.\n"))
+        var loaded = try library.load()
+        #expect(loaded.trade(TradeKey(account: "gold-coins", date: "2026-09-20", id: "bar"))?.settlement == .external)
+
+        let sold = await retire(["trades", "add", "gold-coins", "--library", library.path, "--type", "sell",
+                                 "--date", "2026-09-25", "--instrument", "gold", "--quantity", "5", "--price", "99",
+                                 "--proceeds-out", "--id", "coin"], clock: clock)
+        #expect(sold.status == 0, "\(sold.all)")
+        #expect(sold.output.hasPrefix(
+            "Added the sell of 5 gold @ 99 on 2026-09-25 (coin): proceeds paid out of the account, +495.00.\n"))
+
+        let list = await retire(["trades", "list", "gold-coins", "--library", library.path], clock: clock)
+        #expect(list.status == 0, "\(list.all)")
+        #expect(list.output.contains("""
+              Date        Type     Instrument  Quantity  Price  Cash    Outside   Fees  Tax    Gain  ID
+              2025-10-31  opening  gold            62.2         0.00                                 opening-gold
+              2026-03-31  buy      gold            31.1   97.3  0.00  -3,026.03                      buy-gold
+              2026-09-20  buy      gold              10     98  0.00    -995.00  15.00               bar
+              2026-09-25  sell     gold               5     99  0.00    +495.00              +48.19  coin
+            """), "\(list.output)")
+        #expect(list.output.hasSuffix("Holds on 2026-09-30: gold 98.3 (cost 8,784.22), cash 0.00.\n"), "\(list.output)")
+        let json = try parseJSON(await retire(["trades", "list", "gold-coins", "--library", library.path, "--json"],
+                                              clock: clock).output)
+        let trades = try #require(json["trades"] as? [[String: Any]])
+        let bar = try #require(trades.first { $0["id"] as? String == "bar" })
+        #expect(bar["settlement"] as? String == "external")
+        #expect(bar["cashEffect"] as? String == "0")
+        #expect(bar["outside"] as? String == "-995")
+        #expect(trades.first?["outside"] == nil)
+
+        // Paid from the account's cash, the buy takes it below zero: the CLI says how to say otherwise.
+        let fromCash = await retire(["trades", "add", "gold-coins", "--library", library.path, "--type", "buy",
+                                     "--date", "2026-09-28", "--instrument", "gold", "--quantity", "1", "--price",
+                                     "98", "--dry-run"], clock: clock)
+        #expect(fromCash.status == 0, "\(fromCash.all)")
+        #expect(fromCash.output.contains("  Note: this takes the cash to -98.00 on 2026-09-28. If it was paid from "
+            + "another account, add it with --paid-from-outside instead.\n"), "\(fromCash.output)")
+        loaded = try library.load()
+        #expect(loaded.trades(for: "gold-coins").count == 4)
+
+        let wrongWay = await retire(["trades", "add", "gold-coins", "--library", library.path, "--type", "sell",
+                                     "--instrument", "gold", "--quantity", "1", "--price", "98",
+                                     "--paid-from-outside"])
+        #expect(wrongWay.status == 64)
+        #expect(wrongWay.errors.contains("--paid-from-outside is for a buy, a fee or a tax; a sale's proceeds leave "
+            + "the account with --proceeds-out."))
+        let deposit = await retire(["trades", "add", "gold-coins", "--library", library.path, "--type", "deposit",
+                                    "--amount", "10", "--proceeds-out"])
+        #expect(deposit.status == 64)
+        #expect(deposit.errors.contains("--proceeds-out is for a sell."))
+    }
+
     @Test func addRefusesWhatCantBeATrade() async throws {
         let library = try TemporaryFolder.exampleLibrary()
         let incomplete = await retire(["trades", "add", "directa", "--library", library.path, "--type", "buy",
@@ -291,12 +386,13 @@ struct TradesCommandTests {
               Months      2025-10 to 2026-03
 
             Trades to add
-              Date        Type     Instrument  Quantity   Price  Amount       Cost  ID
-              2025-10-31  opening  btc           0.4215                  38,258.16  opening-btc
-              2026-03-31  buy      btc             0.03  88,900                     buy-btc
+              Date        Type     Instrument  Quantity   Price  Amount       Cost  Paid     ID
+              2025-10-31  opening  btc           0.4215                  38,258.16           opening-btc
+              2026-03-31  buy      btc             0.03  88,900                     outside  buy-btc
 
             Notes
               2025-10-31: The opening of 0.4215 btc has no recorded cost: it's their value then, 38258.16.
+              2026-03-31: ledger-wallet has never held cash, so its buys and sales are paid from and into another account: its cash stays at zero, and what they cost or brought in is new money.
               2026-03-31: The buy of 0.03 btc is priced at the valuation's price.
 
             Dry run: nothing was written. To convert, run again with --apply.
