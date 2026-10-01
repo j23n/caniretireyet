@@ -49,9 +49,11 @@ public struct ValueComponent: Hashable, Sendable {
     /// The currency of `amount`: the account's for balances and cash, the
     /// price's for positions. `nil` when the price is missing.
     public let currency: CurrencyCode?
-    /// The conversion to the base currency; `nil` when none was needed or none was found.
+    /// The conversion to the value's currency (``AccountValue/currency``,
+    /// normally the base currency); `nil` when none was needed or none was found.
     public let fx: FXQuote?
-    /// The value in the base currency, or `nil` if it couldn't be computed.
+    /// The value in the value's currency (normally the base currency), or
+    /// `nil` if it couldn't be computed.
     public let value: Decimal?
 }
 
@@ -71,7 +73,8 @@ public struct AccountValue: Hashable, Sendable {
 
     public let account: AccountID
     public let date: CalendarDate
-    /// The base currency the value is in.
+    /// The currency the value is in: the base currency, or the account's
+    /// own from ``Valuator/value(of:on:in:)`` with ``ValueCurrency/account``.
     public let currency: CurrencyCode
     public let status: Status
     /// The valuation carried forward to the date, if any.
@@ -89,8 +92,8 @@ public struct AccountValue: Hashable, Sendable {
         problems.isEmpty
     }
 
-    /// The value in the base currency, or `nil` if anything is missing.
-    /// Zero for an account that doesn't count on the date.
+    /// The value in ``currency`` (normally the base currency), or `nil` if
+    /// anything is missing. Zero for an account that doesn't count on the date.
     public var value: Decimal? {
         isComplete ? knownValue : nil
     }

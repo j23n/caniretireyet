@@ -42,12 +42,13 @@ public struct ValueChange: Hashable, Sendable {
     }
 }
 
-/// How one account changed between two dates, in the base currency.
+/// How one account changed between two dates, in the base currency (or in
+/// the account's own, from ``Valuator/change(of:from:to:in:)``).
 public struct AccountChange: Hashable, Sendable, Identifiable {
     public let account: AccountID
     public let change: ValueChange
-    /// The flows recorded in the period, converted to the base currency at
-    /// each valuation's date; zero when there was no new valuation. `nil`
+    /// The flows recorded in the period, converted to the change's currency
+    /// at each valuation's date; zero when there was no new valuation. `nil`
     /// when a valuation in the period has no flow (unknown).
     public let flow: Decimal?
     /// Missing prices and FX rates. Parts that couldn't be valued count as zero.
@@ -138,11 +139,14 @@ extension Valuator {
         accounts[account].map { change(of: $0, from: from, to: to) }
     }
 
-    func change(of account: Account, from: CalendarDate, to: CalendarDate) -> AccountChange {
+    /// How `account` changed, in `currency` (the base currency when `nil`).
+    func change(of account: Account, from: CalendarDate, to: CalendarDate,
+                in currency: CurrencyCode? = nil) -> AccountChange {
+        let target = currency ?? baseCurrency
         var problems: [ValuationProblem] = []
         func valued(_ valuation: Valuation?, on date: CalendarDate) -> Decimal {
             guard let valuation else { return 0 }
-            let value = value(of: account, valuation: valuation, on: date)
+            let value = value(of: account, valuation: valuation, on: date, in: target)
             for problem in value.problems where !problems.contains(problem) { problems.append(problem) }
             return value.knownValue
         }
@@ -157,7 +161,7 @@ extension Valuator {
         let end = valued(endValuation, on: endDate)
         let heldAtEnd = valued(startValuation, on: endDate)
         let heldMarket = heldAtEnd - start
-        let flow = recordedFlows(of: account, after: from, through: endDate, problems: &problems)
+        let flow = recordedFlows(of: account, after: from, through: endDate, in: target, problems: &problems)
 
         var parts = ValueChange(start: start, market: 0, newMoney: 0, other: 0, end: end)
         if let flow {
@@ -180,11 +184,13 @@ extension Valuator {
     /// The flows of the account's valuations dated after `from` through
     /// `through`, each converted at its own date; zero if there are none,
     /// `nil` if one is unknown. For a trades account, its ``TradeFlow``s
-    /// instead: deposits, withdrawals, transfers and residuals.
+    /// instead: deposits, withdrawals, transfers and residuals. Converted to
+    /// `currency` (the base currency when `nil`).
     func recordedFlows(of account: Account, after from: CalendarDate, through: CalendarDate,
-                       problems: inout [ValuationProblem]) -> Decimal? {
+                       in currency: CurrencyCode? = nil, problems: inout [ValuationProblem]) -> Decimal? {
+        let target = currency ?? baseCurrency
         if account.recordsTrades {
-            return tradeFlowsInBaseCurrency(of: account, after: from, through: through, problems: &problems)?
+            return convertedTradeFlows(of: account, after: from, through: through, to: target, problems: &problems)?
                 .reduce(0) { $0 + $1.amount }
         }
         var total: Decimal = 0
@@ -194,12 +200,12 @@ extension Valuator {
                 known = false
                 continue
             }
-            if flow == 0 || account.currency == baseCurrency {
+            if flow == 0 || account.currency == target {
                 total += flow
-            } else if let converted = fx.convert(flow, from: account.currency, to: baseCurrency, on: valuation.date) {
+            } else if let converted = fx.convert(flow, from: account.currency, to: target, on: valuation.date) {
                 total += converted
             } else {
-                let problem = ValuationProblem.missingFX(account: account.id, from: account.currency, to: baseCurrency)
+                let problem = ValuationProblem.missingFX(account: account.id, from: account.currency, to: target)
                 if !problems.contains(problem) { problems.append(problem) }
                 known = false
             }

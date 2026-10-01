@@ -120,9 +120,11 @@ public struct Valuator: Sendable {
 
     // MARK: - Computing one account
 
-    func value(of account: Account, on date: CalendarDate) -> AccountValue {
+    /// `account`'s value on `date`, in `currency` (the base currency when `nil`).
+    func value(of account: Account, on date: CalendarDate, in currency: CurrencyCode? = nil) -> AccountValue {
+        let target = currency ?? baseCurrency
         func result(_ status: AccountValue.Status, _ problems: [ValuationProblem] = []) -> AccountValue {
-            AccountValue(account: account.id, date: date, currency: baseCurrency, status: status,
+            AccountValue(account: account.id, date: date, currency: target, status: status,
                          valuation: nil, components: [], problems: problems)
         }
 
@@ -131,7 +133,7 @@ public struct Valuator: Sendable {
         guard let valuation = carried(account, on: date) else {
             return result(.noValuation, [.noValuation(account: account.id)])
         }
-        return value(of: account, valuation: valuation, on: date, cashIsDerived: account.recordsTrades)
+        return value(of: account, valuation: valuation, on: date, cashIsDerived: account.recordsTrades, in: target)
     }
 
     /// What `account` holds at the end of `date`: its latest valuation on
@@ -144,9 +146,11 @@ public struct Valuator: Sendable {
     /// status. For a trades account, the valuation's positions are those its
     /// trades leave on the valuation's date (see ``tradeSnapshot(for:in:)``),
     /// and its cash comes from the cash rule when it has none, or when
-    /// `cashIsDerived` (a snapshot).
+    /// `cashIsDerived` (a snapshot). Amounts are converted to `currency`
+    /// (the base currency when `nil`).
     func value(of account: Account, valuation original: Valuation, on date: CalendarDate,
-               cashIsDerived: Bool = false) -> AccountValue {
+               cashIsDerived: Bool = false, in currency: CurrencyCode? = nil) -> AccountValue {
+        let target = currency ?? baseCurrency
         var valuation = original
         var problems: [ValuationProblem] = []
         if account.recordsTrades {
@@ -161,13 +165,13 @@ public struct Valuator: Sendable {
             var quote: FXQuote?
             var value: Decimal?
             if let amount, let currency {
-                if amount == 0 || currency == baseCurrency {
+                if amount == 0 || currency == target {
                     value = amount
-                } else if let found = fx.quote(from: currency, to: baseCurrency, on: date) {
+                } else if let found = fx.quote(from: currency, to: target, on: date) {
                     quote = found
                     value = found.convert(amount)
                 } else {
-                    let problem = ValuationProblem.missingFX(account: account.id, from: currency, to: baseCurrency)
+                    let problem = ValuationProblem.missingFX(account: account.id, from: currency, to: target)
                     if !problems.contains(problem) { problems.append(problem) }
                 }
             }
@@ -194,7 +198,7 @@ public struct Valuator: Sendable {
                 }
             }
         }
-        return AccountValue(account: account.id, date: date, currency: baseCurrency, status: .valued,
+        return AccountValue(account: account.id, date: date, currency: target, status: .valued,
                             valuation: valuation, components: components, problems: problems)
     }
 }

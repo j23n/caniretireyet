@@ -13,7 +13,8 @@ public enum SeriesGrid: String, Hashable, Sendable, CaseIterable {
 /// One point of a value series.
 public struct SeriesPoint: Hashable, Sendable {
     public let date: CalendarDate
-    /// The value in the base currency: the sum of what could be valued.
+    /// The value in the base currency (or, for an account's series in its
+    /// own currency, in that): the sum of what could be valued.
     public let value: Decimal
     /// Whether everything was valued; `false` when a price or FX rate is missing.
     public let isComplete: Bool
@@ -126,13 +127,17 @@ extension Valuator {
     /// after it closes.
     public func series(of account: AccountID, grid: SeriesGrid = .monthEnds, from start: CalendarDate? = nil,
                        through end: CalendarDate) -> [SeriesPoint] {
+        series(of: account, in: .base, grid: grid, from: start, through: end)
+    }
+
+    /// The dates of one account's series from `start` (default: its first
+    /// valuation, or first trade) through `end`.
+    func dates(of account: AccountID, grid: SeriesGrid, from start: CalendarDate?,
+               through end: CalendarDate) -> [CalendarDate] {
         guard let first = start ?? firstRecordDate(of: account) else { return [] }
-        let dates: [CalendarDate] = switch grid {
+        return switch grid {
         case .monthEnds: DateGrid.monthEnds(from: first, through: end)
         case .checkIns: valuations(for: account).map(\.date).filter { $0 >= first && $0 <= end }
-        }
-        return dates.compactMap { date in
-            value(of: account, on: date).map { SeriesPoint(date: date, value: $0.knownValue, isComplete: $0.isComplete) }
         }
     }
 }

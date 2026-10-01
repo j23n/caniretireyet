@@ -123,6 +123,16 @@ extension Valuator {
     func tradeFlowsInBaseCurrency(of account: Account, after from: CalendarDate, through: CalendarDate,
                                   problems: inout [ValuationProblem]) -> [(date: CalendarDate, amount: Decimal,
                                                                            flow: TradeFlow)]? {
+        convertedTradeFlows(of: account, after: from, through: through, to: baseCurrency, problems: &problems)
+    }
+
+    /// The flows of a trades account after `from` through `through`, each
+    /// converted into `target` at its date (no conversion for the account's
+    /// own currency); `nil` when one is unknown or can't be converted
+    /// (reported in `problems`).
+    func convertedTradeFlows(of account: Account, after from: CalendarDate, through: CalendarDate,
+                             to target: CurrencyCode, problems: inout [ValuationProblem])
+        -> [(date: CalendarDate, amount: Decimal, flow: TradeFlow)]? {
         var result: [(date: CalendarDate, amount: Decimal, flow: TradeFlow)] = []
         var known = true
         for flow in tradeFlows(of: account.id, after: from, through: through) {
@@ -140,12 +150,12 @@ extension Valuator {
                 known = false
                 continue
             }
-            if amount == 0 || account.currency == baseCurrency {
+            if amount == 0 || account.currency == target {
                 result.append((flow.date, amount, flow))
-            } else if let converted = fx.convert(amount, from: account.currency, to: baseCurrency, on: flow.date) {
+            } else if let converted = fx.convert(amount, from: account.currency, to: target, on: flow.date) {
                 result.append((flow.date, converted, flow))
             } else {
-                let problem = ValuationProblem.missingFX(account: account.id, from: account.currency, to: baseCurrency)
+                let problem = ValuationProblem.missingFX(account: account.id, from: account.currency, to: target)
                 if !problems.contains(problem) { problems.append(problem) }
                 known = false
             }
