@@ -90,6 +90,10 @@ enum Palette {
         case .accent: accent
         case .ink: ink
         case .neutral: mutedInk
+        // Validated against all eight series hues in both modes (CVD ΔE ≥ 10,
+        // normal vision ≥ 17, contrast ≥ 3:1); muted ink isn't (ΔE 1–5 to
+        // aqua and magenta).
+        case .taxes: secondaryInk
         case .positive: positive
         case .negative: negative
         }

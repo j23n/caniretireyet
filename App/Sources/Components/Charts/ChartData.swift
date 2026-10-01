@@ -22,8 +22,11 @@ enum ChartColor: Hashable, Sendable {
     case accent
     /// Actual history, drawn in ink so it never looks projected.
     case ink
-    /// Something neutral, e.g. waterfall totals.
+    /// Something neutral, e.g. the "Other" bar of a breakdown.
     case neutral
+    /// Taxes paid, on top of retirement income: a neutral that isn't a
+    /// source, and stays apart from every series hue in light and dark.
+    case taxes
     /// A good change (▲), with a sign and arrow as well.
     case positive
     /// A bad change (▼), with a sign and arrow as well.
@@ -114,6 +117,9 @@ struct AmountScale: Hashable, Sendable {
     var step: Double
     /// The strip at the bottom for new-money ticks; `nil` without one.
     var lane: ClosedRange<Double>?
+    /// The room above the data for marker labels
+    /// (``reservingTop(points:plotHeight:)``); `nil` without it.
+    var headroom: ClosedRange<Double>?
 
     init(values: [Double], reservesLane: Bool = false, desiredTicks: Int = 4) {
         let finite = values.filter(\.isFinite)
@@ -213,9 +219,20 @@ struct FanPoint: Hashable, Sendable, Identifiable {
 /// Something that happens at a date, marked on a time axis: retirement, a
 /// pension start, a windfall, a new-money tick.
 struct ChartMarker: Hashable, Sendable, Identifiable {
+    /// What a marker stands for, when the chart needs to know (the time
+    /// span counts from retirement).
+    enum Kind: Hashable, Sendable {
+        case retirement
+        case pension
+        case accessible
+        case windfall
+        case expense
+    }
+
     var date: Date
     var label: String
     var systemImage: String?
+    var kind: Kind? = nil
 
     var id: String { "\(date.timeIntervalSinceReferenceDate) \(label)" }
 }
@@ -243,6 +260,12 @@ struct IncomeSegment: Hashable, Sendable, Identifiable {
     var source: String
     var amount: Double
     var color: ChartColor
+    /// A one-off amount (a windfall, severance pay): when it would dwarf the
+    /// rest, it runs off the top of the chart instead of setting its scale.
+    var isOneOff = false
+    /// The amount before its share of the year's taxes, when `amount` is
+    /// after them (retirement income); `nil` when they're the same.
+    var gross: Double? = nil
 
     var id: String { "\(year) \(source)" }
 }
