@@ -1138,6 +1138,15 @@ private struct AccountInfoRows: View {
     .previewEnvironment()
 }
 
+#Preview("Dollar account without past rates") {
+    // Dollars from 2018, emptied in 2022, no USD rate before October 2025.
+    NavigationStack {
+        AccountDetailScreen(accountID: PreviewLibrary.foreignAccount)
+            .appDestinations()
+    }
+    .previewEnvironment(PreviewLibrary.withForeignAccount)
+}
+
 #Preview("Pension fund") {
     NavigationStack {
         AccountDetailScreen(accountID: "fondo-pensione")

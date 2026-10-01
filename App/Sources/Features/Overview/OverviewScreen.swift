@@ -307,6 +307,16 @@ private struct HistoryLegend: View {
     .previewEnvironment()
 }
 
+#Preview("Missing past rates") {
+    // A dollar account imported without past exchange rates: dashed history, a note, and Needs attention.
+    NavigationStack {
+        OverviewScreen()
+            .overviewToolbar()
+            .appDestinations()
+    }
+    .previewEnvironment(PreviewLibrary.withForeignAccount)
+}
+
 #Preview("Hidden amounts") {
     NavigationStack {
         OverviewScreen()

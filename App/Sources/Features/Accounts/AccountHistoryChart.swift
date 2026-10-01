@@ -211,3 +211,30 @@ struct AccountHistoryChart: View {
     .padding()
     .background(Palette.page)
 }
+
+#Preview("Dollar account, gaps and zero") {
+    let library = PreviewLibrary.withForeignAccount
+    let valuator = Tracker.Valuator(library: library)
+    let detail = AccountDetailData(account: library.accounts[PreviewLibrary.foreignAccount]!, library: library,
+                                   valuator: valuator, today: PreviewLibrary.latestCheckIn, stalenessThreshold: 45)
+    // Made-up: the same values with a missing stretch, and an account that's always been empty.
+    let gappy = detail.history.enumerated().map { index, point in
+        ChartPoint(date: point.date, value: point.value, isComplete: !(10..<20).contains(index))
+    }
+    let empty = detail.history.map { ChartPoint(date: $0.date, value: 0) }
+    ScrollView {
+        VStack(spacing: Metrics.l) {
+            Card("US brokerage (US$)") {
+                AccountHistoryChart(points: detail.history, flows: detail.flows, currency: detail.currency)
+            }
+            Card("A stretch that can't be valued") {
+                AccountHistoryChart(points: gappy, flows: detail.flows, currency: detail.currency)
+            }
+            Card("Always zero") {
+                AccountHistoryChart(points: empty, flows: [], currency: detail.currency)
+            }
+        }
+        .padding()
+    }
+    .background(Palette.page)
+}
