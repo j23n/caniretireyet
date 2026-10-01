@@ -11,7 +11,16 @@ import Tracker
 ///   happened" never looks like "what was projected" (Progress: actual vs
 ///   baseline; *Future* history); dashed and grey where a total is partial.
 /// - `markers` label retirement, locked money becoming accessible, pension
-///   starts, windfalls and large expenses along the time axis.
+///   starts, windfalls and large expenses above the data, staggered in up
+///   to two rows so they never collide (``MarkerLabelLayout``); a marker
+///   without room shows its icon, with its label in the callout.
+/// - With `showsLegend`, the legend sits in its own row above the chart,
+///   and the value axis fits the history, the median and the 25–75% band:
+///   the 10–90% band may run off the top, which the legend says
+///   (``ProjectionScale``). Without it (a legend of the caller's own), the
+///   axis fits every band.
+/// - While amounts are hidden the axis reads in multiples of the start
+///   value (today's plan assets).
 /// - Drag across it to read the percentiles at any date.
 struct FanChart: View {
     var fan: [FanPoint]
@@ -20,46 +29,75 @@ struct FanChart: View {
     /// `nil` for the base currency.
     var currency: CurrencyCode?
     var height: CGFloat = 240
+    var showsLegend = false
 
     @State private var selectedDate: Date?
+    @State private var width: CGFloat = ChartStyle.defaultWidth
     @Environment(\.hidesAmounts) private var hidesAmounts
     @Environment(\.baseCurrency) private var baseCurrency
+
+    private struct Layout {
+        var domain: ClosedRange<Date>
+        var ticks: TimeTicks
+        var markers: MarkerLabelLayout
+        var scale: AmountScale
+        var clipsBand: Bool
+        var fan: [FanPoint]
+    }
 
     var body: some View {
         if fan.isEmpty {
             ChartPlaceholder(text: "The projection appears here once the plan has run.", height: height)
         } else {
-            chart
-                .frame(height: height)
-                .accessibilityChartDescriptor(summary)
+            let layout = self.layout
+            VStack(alignment: .leading, spacing: Metrics.s) {
+                if showsLegend {
+                    ProjectionLegend(showsActual: !actual.isEmpty, clipsBand: layout.clipsBand)
+                }
+                chart(layout)
+                    .frame(height: height)
+                    .measuringWidth($width)
+                    .accessibilityChartDescriptor(summary)
+            }
         }
     }
 
-    private var chart: some View {
+    private var layout: Layout {
+        let dates = fan.map(\.date) + actual.map(\.date)
+        let first = dates.min() ?? Date()
+        let last = max(dates.max() ?? first, first.addingTimeInterval(86_400 * 31))
+        let domain = first...last
+        let plotWidth = ChartText.plotWidth(chartWidth: Double(width))
+        let plotHeight = Double(height) - ChartText.timeAxisHeight
+        let markerLayout = MarkerLabelLayout(markers: markers, domain: domain, plotWidth: plotWidth)
+        let ticks = TimeTicks(domain: domain, plotWidth: plotWidth)
+        let history = actual.filter(\.isComplete).map(\.value)
+        if showsLegend {
+            let scale = ProjectionScale(history: history, fan: fan, markerHeadroom: markerLayout.headroom,
+                                        plotHeight: plotHeight)
+            return Layout(domain: domain, ticks: ticks, markers: markerLayout, scale: scale.scale,
+                          clipsBand: scale.clipsBand, fan: fan.map(scale.clamped))
+        }
+        let scale = AmountScale(values: history + fan.flatMap { [$0.p10, $0.p90] })
+            .reservingTop(points: markerLayout.headroom, plotHeight: plotHeight)
+        return Layout(domain: domain, ticks: ticks, markers: markerLayout, scale: scale, clipsBand: false, fan: fan)
+    }
+
+    private func chart(_ layout: Layout) -> some View {
         Chart {
-            ForEach(fan) { point in
+            ForEach(layout.fan) { point in
                 AreaMark(x: .value("Date", point.date), yStart: .value("10th percentile", point.p10),
                          yEnd: .value("90th percentile", point.p90), series: .value("Series", "10–90%"))
-                    .foregroundStyle(Palette.accent.opacity(0.14))
+                    .foregroundStyle(Palette.accent.opacity(ProjectionLegend.outerBand))
                     .interpolationMethod(.monotone)
                 AreaMark(x: .value("Date", point.date), yStart: .value("25th percentile", point.p25),
                          yEnd: .value("75th percentile", point.p75), series: .value("Series", "25–75%"))
-                    .foregroundStyle(Palette.accent.opacity(0.28))
+                    .foregroundStyle(Palette.accent.opacity(ProjectionLegend.innerBand))
                     .interpolationMethod(.monotone)
                 LineMark(x: .value("Date", point.date), y: .value("Median", point.p50), series: .value("Series", "Median"))
                     .foregroundStyle(Palette.accent)
                     .lineStyle(StrokeStyle(lineWidth: Metrics.lineWidth, lineCap: .round, lineJoin: .round))
                     .interpolationMethod(.monotone)
-            }
-            if let last = fan.last {
-                PointMark(x: .value("Date", last.date), y: .value("Median", last.p50))
-                    .foregroundStyle(Palette.accent)
-                    .symbolSize(30)
-                    .annotation(position: .trailing, alignment: .center, spacing: 4) {
-                        Text("median")
-                            .font(.caption2)
-                            .foregroundStyle(Palette.secondaryInk)
-                    }
             }
 
             // Dashed and grey where a past total is partial (a price or rate missing).
@@ -74,32 +112,39 @@ struct FanChart: View {
                 }
             }
 
-            ForEach(markers) { marker in
-                RuleMark(x: .value("Date", marker.date))
+            ForEach(layout.markers.placements) { placement in
+                RuleMark(x: .value("Date", placement.marker.date),
+                         yStart: .value("Bottom", layout.scale.domain.lowerBound),
+                         yEnd: .value("Top", layout.scale.dataTop))
                     .foregroundStyle(Palette.axis)
-                    .lineStyle(StrokeStyle(lineWidth: 1, dash: [2, 3]))
-                    .annotation(position: .top, alignment: .leading, spacing: 2) {
-                        Label(marker.label, systemImage: marker.systemImage ?? "arrowtriangle.up.fill")
-                            .labelStyle(.titleOnly)
-                            .font(.caption2)
-                            .foregroundStyle(Palette.secondaryInk)
+                    .lineStyle(StrokeStyle(lineWidth: 1))
+                    .annotation(position: .top, alignment: markerAlignment(placement),
+                                spacing: 2 + CGFloat(placement.row) * CGFloat(ChartText.rowHeight),
+                                overflowResolution: .init(x: .fit(to: .chart), y: .fit(to: .chart))) {
+                        ChartMarkerLabel(placement: placement)
                     }
             }
 
             if let selected = selectedPoint {
                 RuleMark(x: .value("Date", selected.date))
-                    .foregroundStyle(Palette.axis)
+                    .foregroundStyle(Palette.secondaryInk)
                     .lineStyle(StrokeStyle(lineWidth: 1))
                     .annotation(position: .top, spacing: 4,
                                 overflowResolution: .init(x: .fit(to: .chart), y: .fit(to: .chart))) {
-                        callout(for: selected)
+                        callout(for: selected, layout: layout)
                     }
             }
         }
         .chartXSelection(value: $selectedDate)
-        .chartYAxis { amountAxis(hidesAmounts: hidesAmounts) }
-        .chartXAxis { dateAxis(spansYears: true, desiredCount: 5) }
+        .chartXScale(domain: layout.domain)
+        .chartYScale(domain: layout.scale.domain)
+        .chartYAxis { amountAxis(hidesAmounts: hidesAmounts, scale: layout.scale, relativeTo: fan.first?.p50) }
+        .chartXAxis { dateAxis(layout.ticks) }
         .chartLegend(.hidden)
+    }
+
+    private func markerAlignment(_ placement: MarkerLabelLayout.Placement) -> Alignment {
+        placement.showsLabel ? (placement.endsAtRule ? .trailing : .leading) : .center
     }
 
     private var selectedPoint: FanPoint? {
@@ -107,7 +152,7 @@ struct FanChart: View {
         return fan.min { abs($0.date.timeIntervalSince(selectedDate)) < abs($1.date.timeIntervalSince(selectedDate)) }
     }
 
-    private func callout(for point: FanPoint) -> some View {
+    private func callout(for point: FanPoint, layout: Layout) -> some View {
         VStack(alignment: .leading, spacing: 2) {
             Text(point.date, format: .dateTime.year())
                 .font(.caption2)
@@ -115,6 +160,11 @@ struct FanChart: View {
             row("9 in 10 above", point.p10)
             row("Median", point.p50)
             row("1 in 10 above", point.p90)
+            ForEach(ChartsCallout.nearbyMarkers(layout.markers, at: point.date)) { marker in
+                Label(marker.label, systemImage: marker.systemImage ?? "arrowtriangle.up.fill")
+                    .font(.caption2)
+                    .foregroundStyle(Palette.secondaryInk)
+            }
         }
         .padding(Metrics.s)
         .background(Palette.card, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
@@ -139,6 +189,9 @@ struct FanChart: View {
                 + "in 9 of 10 simulated futures it's above "
                 + "\(AmountFormat.amount(Decimal(Int(last.p10.rounded())), currency: resolved))."
         }
+        if !markers.isEmpty {
+            text += " Marked: \(markers.map(\.label).joined(separator: ", "))."
+        }
         return ChartSummary(
             title: "Your money over time", summary: text, xTitle: "Year", yTitle: "Portfolio",
             series: [ChartSummary.Series(name: "Median", points: points)],
@@ -148,9 +201,20 @@ struct FanChart: View {
 
 #Preview("Fan chart") {
     PreviewResultsView { results in
-        Card("Your money over time") {
-            FanChart(fan: results.portfolio, actual: PreviewLibrary.valuator.series(.planAssets,
-                     through: PreviewLibrary.latestCheckIn).chartPoints, markers: results.markers)
+        let actual = PreviewLibrary.valuator.series(.planAssets, through: PreviewLibrary.latestCheckIn).chartPoints
+        Card("Your money over time · whole plan") {
+            FanChart(fan: results.portfolio, actual: actual, markers: results.markers, showsLegend: true)
+        }
+        Card("Retirement + 15 years") {
+            let window = ProjectionWindow(now: PreviewLibrary.latestCheckIn.dateValue, range: .fiveYears,
+                                          horizon: .retirementPlus15, retirement: results.retirementDate,
+                                          planEnd: results.portfolio.last?.date ?? Date())
+            FanChart(fan: window.fan(results.portfolio), actual: window.history(actual),
+                     markers: window.markers(results.markers), showsLegend: true)
+        }
+        Card("Amounts hidden") {
+            FanChart(fan: results.portfolio, actual: actual, markers: results.markers, showsLegend: true)
+                .environment(\.hidesAmounts, true)
         }
     }
 }

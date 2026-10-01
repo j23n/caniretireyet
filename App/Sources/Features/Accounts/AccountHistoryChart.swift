@@ -12,9 +12,11 @@ import Tracker
 ///   position priced in another currency) is a gap, never drawn as zero;
 ///   the note under the chart says what's missing.
 /// - The value axis always includes zero, with round ticks that read apart
-///   (``AmountScale``). The new-money ticks have a lane of their own below
-///   it, pointing up for money added and down for money taken out, so they
-///   never stretch the scale; their amounts are in the callout.
+///   (``AmountScale``); while amounts are hidden it reads in multiples of
+///   the latest value (`1×`, `2×`). The new-money ticks have a lane of their
+///   own below it, pointing up for money added and down for money taken
+///   out, so they never stretch the scale; their amounts are in the callout.
+/// - Time ticks fit the chart's width (``TimeTicks``).
 /// - Drag across it to read a month: the value and the new money recorded
 ///   since the point before. The callout stays inside the chart.
 struct AccountHistoryChart: View {
@@ -26,6 +28,7 @@ struct AccountHistoryChart: View {
     var height: CGFloat = 200
 
     @State private var selectedDate: Date?
+    @State private var width: CGFloat = ChartStyle.defaultWidth
     @Environment(\.hidesAmounts) private var hidesAmounts
 
     /// A new-money tick in the lane: up for money added, down for money taken out.
@@ -43,6 +46,7 @@ struct AccountHistoryChart: View {
         } else {
             chart
                 .frame(height: height)
+                .measuringWidth($width)
                 .accessibilityChartDescriptor(summary)
         }
     }
@@ -122,8 +126,13 @@ struct AccountHistoryChart: View {
         .chartXScale(domain: dateRange)
         .chartYScale(domain: scale.domain)
         .chartXSelection(value: $selectedDate)
-        .chartYAxis { amountAxis(hidesAmounts: hidesAmounts, scale: scale) }
-        .chartXAxis { dateAxis(spansYears: points.spansYears) }
+        .chartYAxis {
+            amountAxis(hidesAmounts: hidesAmounts, scale: scale,
+                       relativeTo: points.last(where: \.isComplete)?.value)
+        }
+        .chartXAxis {
+            dateAxis(TimeTicks(domain: dateRange, plotWidth: ChartText.plotWidth(chartWidth: Double(width))))
+        }
     }
 
     private var selectedPoint: ChartPoint? {

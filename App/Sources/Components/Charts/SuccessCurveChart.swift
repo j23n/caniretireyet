@@ -5,11 +5,15 @@ import SwiftUI
 /// retirement age"): one line per plan, a dotted rule at the confidence
 /// level, and the earliest age where they cross, marked and labelled.
 ///
+/// - The age axis fits the curve: from the first age simulated (today's)
+///   to the last, with a tick every 5 years (or 2, or 10, as the width
+///   allows), never a label per age.
 /// - Steps caused by pension eligibility show as steps: the line is drawn
 ///   straight between ages, never smoothed.
 /// - Drag or tap to select an age (bind `selectedAge` to use it for the
-///   other charts).
-/// - With two series (comparing plans), each is labelled at its last point.
+///   other charts). The callout stays inside the chart.
+/// - With two series (comparing plans), a legend sits in its own row
+///   above, and each line is labelled at its end when the ends are apart.
 struct SuccessCurveChart: View {
     var series: [SuccessSeries]
     /// The confidence level, e.g. 0.9.
@@ -19,6 +23,7 @@ struct SuccessCurveChart: View {
     var highlightedAge: Int?
     var height: CGFloat = 200
     @Binding var selectedAge: Int?
+    @State private var width: CGFloat = ChartStyle.defaultWidth
 
     /// One plan's curve.
     init(points: [SuccessPoint], threshold: Double, highlightedAge: Int? = nil, height: CGFloat = 200,
@@ -37,6 +42,13 @@ struct SuccessCurveChart: View {
         _selectedAge = selectedAge
     }
 
+    private struct Layout {
+        var domain: ClosedRange<Int>
+        var ticks: [Int]
+        /// Whether each line is labelled at its end.
+        var labelsEnds: Bool
+    }
+
     private var crossing: SuccessPoint? {
         guard let first = series.first else { return nil }
         if let highlightedAge { return first.points.first { $0.age == highlightedAge } }
@@ -47,18 +59,50 @@ struct SuccessCurveChart: View {
         if series.allSatisfy(\.points.isEmpty) {
             ChartPlaceholder(text: "The chance of success by age appears here once the plan has run.", height: height)
         } else {
-            chart
-                .frame(height: height)
-                .accessibilityChartDescriptor(summary)
+            VStack(alignment: .leading, spacing: Metrics.s) {
+                if series.count > 1 {
+                    ChartLegendRow(items: series.map {
+                        ChartLegendItem(name: $0.name, swatch: .line($0.color, dashed: false))
+                    })
+                }
+                chart(layout)
+                    .frame(height: height)
+                    .measuringWidth($width)
+                    .accessibilityChartDescriptor(summary)
+            }
         }
     }
 
-    private var chart: some View {
+    private var layout: Layout {
+        let ages = series.flatMap { $0.points.map(\.age) }
+        let first = ages.min() ?? 0
+        let last = max(ages.max() ?? first, first + 1)
+        let plotWidth = ChartText.plotWidth(chartWidth: Double(width))
+        let ends = series.compactMap { $0.points.max { $0.age < $1.age }?.success }
+        let apart = ends.count > 1 && zip(ends, ends.dropFirst()).allSatisfy { abs($0 - $1) >= 0.12 }
+        let labelWidth = (series.map { ChartText.width(of: $0.name) }.max() ?? 0) + 12
+        let padding = apart
+            ? endLabelPadding(span: Double(last - first), labelWidth: labelWidth, plotWidth: plotWidth) : 0
+        let extra = Int(padding.rounded(.up))
+        let dataWidth = plotWidth * Double(last - first) / Double(last - first + extra)
+        return Layout(domain: first...(last + extra),
+                      ticks: IntegerTicks.values(in: first...last, plotWidth: dataWidth,
+                                                 spacing: IntegerTicks.ageSpacing, steps: [1, 2, 5, 10]),
+                      labelsEnds: apart)
+    }
+
+    /// Whether the first curve ends above the confidence level: its label
+    /// then goes under the rule, where the curve isn't.
+    private var endsAbove: Bool {
+        (series.first?.points.max { $0.age < $1.age }?.success ?? 0) >= threshold
+    }
+
+    private func chart(_ layout: Layout) -> some View {
         Chart {
             RuleMark(y: .value("Confidence", threshold))
                 .foregroundStyle(Palette.mutedInk)
                 .lineStyle(StrokeStyle(lineWidth: 1, dash: [1, 3]))
-                .annotation(position: .top, alignment: .leading, spacing: 2) {
+                .annotation(position: endsAbove ? .bottom : .top, alignment: .trailing, spacing: 2) {
                     Text("\(AmountFormat.percent(threshold, digits: 0)) confidence")
                         .font(.caption2)
                         .foregroundStyle(Palette.secondaryInk)
@@ -71,7 +115,7 @@ struct SuccessCurveChart: View {
                         .foregroundStyle(Palette.color(for: line.color))
                         .lineStyle(StrokeStyle(lineWidth: Metrics.lineWidth, lineCap: .round, lineJoin: .round))
                 }
-                if series.count > 1, let last = line.points.last {
+                if layout.labelsEnds, let last = line.points.max(by: { $0.age < $1.age }) {
                     PointMark(x: .value("Retirement age", last.age), y: .value("Chance of success", last.success))
                         .foregroundStyle(Palette.color(for: line.color))
                         .symbolSize(30)
@@ -85,7 +129,8 @@ struct SuccessCurveChart: View {
                 PointMark(x: .value("Retirement age", crossing.age), y: .value("Chance of success", crossing.success))
                     .foregroundStyle(Palette.accent)
                     .symbolSize(90)
-                    .annotation(position: .top, spacing: 6) {
+                    .annotation(position: .top, spacing: 6,
+                                overflowResolution: .init(x: .fit(to: .chart), y: .fit(to: .chart))) {
                         Text("\(crossing.age)")
                             .font(.caption.weight(.semibold))
                             .foregroundStyle(Palette.ink)
@@ -94,17 +139,21 @@ struct SuccessCurveChart: View {
 
             if let selectedAge, let point = series.first?.points.first(where: { $0.age == selectedAge }) {
                 RuleMark(x: .value("Retirement age", selectedAge))
-                    .foregroundStyle(Palette.axis)
+                    .foregroundStyle(Palette.secondaryInk)
                     .lineStyle(StrokeStyle(lineWidth: 1))
                     .annotation(position: .top, spacing: 4,
-                                overflowResolution: .init(x: .fit(to: .chart), y: .disabled)) {
+                                overflowResolution: .init(x: .fit(to: .chart), y: .fit(to: .chart))) {
                         Text("At \(selectedAge): \(AmountFormat.percent(point.success, digits: 0))")
                             .font(.caption2.weight(.semibold))
                             .padding(Metrics.xs)
                             .background(Palette.card, in: RoundedRectangle(cornerRadius: 6, style: .continuous))
+                            .overlay {
+                                RoundedRectangle(cornerRadius: 6, style: .continuous).strokeBorder(Palette.border)
+                            }
                     }
             }
         }
+        .chartXScale(domain: layout.domain)
         .chartYScale(domain: 0...1)
         .chartXSelection(value: $selectedAge)
         .chartYAxis {
@@ -117,16 +166,7 @@ struct SuccessCurveChart: View {
                 }
             }
         }
-        .chartXAxis {
-            AxisMarks(values: .stride(by: 5)) { value in
-                AxisTick(stroke: StrokeStyle(lineWidth: 0.5)).foregroundStyle(Palette.axis)
-                AxisValueLabel {
-                    if let age = value.as(Int.self) {
-                        Text("\(age)").font(.caption2).foregroundStyle(Palette.mutedInk)
-                    }
-                }
-            }
-        }
+        .chartXAxis { ageAxis(layout.ticks) }
         .chartLegend(.hidden)
     }
 
@@ -157,7 +197,9 @@ struct SuccessCurveChart: View {
                 series: [
                     SuccessSeries(id: "a", name: "Forfettario", color: .series(0), points: results.successByAge),
                     SuccessSeries(id: "b", name: "Ordinario", color: .series(1),
-                                  points: results.successByAge.map { SuccessPoint(age: $0.age + 1, success: $0.success) }),
+                                  points: results.successByAge.map {
+                                      SuccessPoint(age: $0.age + 1, success: $0.success * 0.8)
+                                  }),
                 ],
                 threshold: results.headline.confidence)
         }
