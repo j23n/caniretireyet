@@ -112,9 +112,9 @@ A broker account holds cash: you deposit money and buy with it. Precious metals 
 (Made up: 31,1 g of gold, paid from the bank.)
 
 - **Cash.** Its cash effect is 0: the account's cash doesn't change.
-- **Flows.** Its amount is a [flow](#flows) on its date: an external buy's cost (quantity × price × FX + fees + tax, or −`amount`) is **money added**, an external sell's proceeds are **money taken out**, and an external fee or tax is money added that the fee then took. So the account is worth what it holds, and its return is the gold's.
+- **Flows.** Its amount is a [flow](#flows) on its date: an external buy's cost (quantity × price × FX + fees + tax, or −`amount`) is **money added**, an external sell's proceeds are **money taken out**, and an external fee or tax (a vault's storage fee billed to the bank) is money added that the fee then took, so it still counts against the account's return. So the account is worth what it holds, and its return is the gold's.
 - **Cost and gains** are what they'd be for the same trade paid from the account's cash: a buy adds what it cost to the average cost, and a sale's realised gain is its proceeds before tax minus the average cost.
-- `settlement` on another type is pointed out and ignored. Dividends and interest paid elsewhere are a dividend and a withdrawal, as before.
+- `settlement` on another type is pointed out and ignored. Dividends and interest can't be paid outside the account: one paid into another account is a dividend and a withdrawal of the same amount.
 - It replaces the old workaround of a `deposit` of the same amount on the day of every buy, which went wrong when the buy was edited or deleted.
 
 The app's Add Trade sheet offers it as *Paid from outside this account* (a buy, fee or tax) and *Proceeds leave this account* (a sale), on by default for a metals account and for a trades account that has never held cash (`Library.hasHeldCash(_:)`: no valuation with cash other than zero, no deposit and no sale whose proceeds stayed in it; `Library.defaultSettlement(for:in:)`). On the command line: `retire trades add … --paid-from-outside` (a buy, fee or tax) or `--proceeds-out` (a sale); without them, a buy that takes the cash below zero gets a note saying so. `retire trades list` shows such trades with no cash and what was paid or received in an *Outside* column (`settlement` and `outside` in its JSON).
@@ -222,7 +222,7 @@ Invalid trades are never dropped: they're applied as far as they can be, and poi
 
 When the library loads (Storage, in each trade's file):
 
-- what a record is missing or gets wrong on its own (`Trade.problems`): a buy without price or amount, a negative quantity, a split without ratio, an amount whose sign contradicts the type, fields the type doesn't use;
+- what a record is missing or gets wrong on its own (`Trade.problems`): a buy without price or amount, a negative quantity, a split without ratio, an amount whose sign contradicts the type, fields the type doesn't use (a `settlement` on anything but a buy, sell, fee or tax), a settlement this version doesn't know;
 - a sell or transfer out of more than the account holds then (the quantity goes negative, so the mistake shows);
 - trades of an account that doesn't record trades, or dated before it opened or after it closed;
 - a valuation of a trades account with a balance;
