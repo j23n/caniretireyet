@@ -14,7 +14,8 @@ struct TradesConvertCommand: RetireSubcommand {
         discussion: """
             To trades: an opening per position at the account's first valuation (at its cost, or its \
             value then), then a buy or sell per change in quantity at each later valuation, at that \
-            day's price; the valuations keep their cash and flows and lose their positions. To \
+            day's price (paid from outside the account when it never held cash, like coins or a \
+            wallet); the valuations keep their cash and flows and lose their positions. To \
             snapshots: each valuation gets the positions, average cost and cash the trades give, and \
             the trades are removed (their income and realised gains aren't recorded any more). Values \
             and flows stay the same (docs/TRADES.md, "Converting an account").
@@ -115,13 +116,22 @@ struct TradesConvertCommand: RetireSubcommand {
             if !trades.isEmpty, rows > 0 {
                 lines.append("")
                 lines.append("Trades to add")
-                var list = TextTable([.left("Date"), .left("Type"), .left("Instrument"), .right("Quantity"),
-                                      .right("Price"), .right("Amount"), .right("Cost"), .left("ID")])
+                // Buys and sales paid from or into another account, for an account that never held cash.
+                let showsSettlement = trades.contains(where: \.isSettledExternally)
+                var columns: [TextTable.Column] = [.left("Date"), .left("Type"), .left("Instrument"),
+                                                   .right("Quantity"), .right("Price"), .right("Amount"),
+                                                   .right("Cost")]
+                if showsSettlement { columns.append(.left("Paid")) }
+                columns.append(.left("ID"))
+                var list = TextTable(columns)
                 for trade in trades.prefix(rows) {
-                    list.add([trade.date.description, trade.type.rawValue, trade.instrument?.rawValue ?? "",
-                              trade.quantity.map(Format.exact) ?? "", trade.price.map(Format.exact) ?? "",
-                              trade.amount.map { Format.signed($0) } ?? "", trade.cost.map { Format.amount($0) } ?? "",
-                              trade.id.rawValue])
+                    var cells: [String] = [trade.date.description, trade.type.rawValue, trade.instrument?.rawValue ?? "",
+                                 trade.quantity.map(Format.exact) ?? "", trade.price.map(Format.exact) ?? "",
+                                 trade.amount.map { Format.signed($0) } ?? "",
+                                 trade.cost.map { Format.amount($0) } ?? ""]
+                    if showsSettlement { cells.append(trade.isSettledExternally ? "outside" : "") }
+                    cells.append(trade.id.rawValue)
+                    list.add(cells)
                 }
                 lines += list.lines()
                 if trades.count > rows {

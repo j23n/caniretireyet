@@ -11,7 +11,7 @@ struct TradesGroupCommand: AsyncParsableCommand {
         abstract: "List, add and remove an account's trades, sum up a year, and convert accounts.",
         discussion: """
             retire trades list <account>                   the trades, with their cash and realised gains
-            retire trades add <account> --type buy …       add a trade
+            retire trades add <account> --type buy …       add a trade (--paid-from-outside: from the bank)
             retire trades remove <account> <id>            remove one
             retire trades summary <account> | --all        a year's gains, dividends, interest, fees, taxes
             retire trades convert <account> --to trades    record an account's trades (or --to snapshots)
@@ -36,7 +36,9 @@ struct TradesListCommand: RetireSubcommand {
             Trades are listed in the order they apply: by date, and within a day splits first, then \
             buys before sells. Cash is what each trade changed the account's cash by, in its currency \
             (its amount, or quantity × price with fees and tax); Gain is a sale's realised gain on \
-            the average cost.
+            the average cost. A buy, sell, fee or tax paid from or into another account (gold paid \
+            from the bank) changes no cash: Outside shows what was paid or received there, which \
+            counts as money added or taken out.
             """)
 
     @Argument(help: ArgumentHelp("The account's ID.", valueName: "account"))
@@ -107,22 +109,30 @@ struct TradesListCommand: RetireSubcommand {
                     + "import a broker's export with `retire import`.")
                 return lines
             }
-            var table = TextTable([.left("Date"), .left("Type"), .left("Instrument"), .right("Quantity"),
-                                   .right("Price"), .right("Cash"), .right("Fees"), .right("Tax"), .right("Gain"),
-                                   .left("ID")])
+            // What was paid or received outside the account, when a trade was.
+            let showsOutside = rows.contains { $0.trade.isSettledExternally }
+            var columns: [TextTable.Column] = [.left("Date"), .left("Type"), .left("Instrument"), .right("Quantity"),
+                                               .right("Price"), .right("Cash")]
+            if showsOutside { columns.append(.right("Outside")) }
+            columns += [.right("Fees"), .right("Tax"), .right("Gain"), .left("ID")]
+            var table = TextTable(columns)
             for row in rows {
                 let trade = row.trade
                 let priceCurrency = trade.currency.map { $0 == account.currency ? "" : " \($0.rawValue)" } ?? ""
-                table.add([
+                var cells: [String] = [
                     trade.date.description, trade.type.rawValue, trade.instrument?.rawValue ?? "",
                     trade.quantity.map(Format.exact) ?? trade.ratio.map { "× \(Format.exact($0))" } ?? "",
                     trade.price.map { Format.exact($0) + priceCurrency } ?? "",
                     row.entry.map { $0.cashEffect.map { Format.signed($0) } ?? "?" }
                         ?? trade.amount.map { Format.signed($0) } ?? "",
+                ]
+                if showsOutside { cells.append(Self.outside(row).map { Format.signed($0) } ?? "") }
+                let rest: [String] = [
                     trade.fees.map { Format.amount($0) } ?? "", trade.tax.map { Format.amount($0) } ?? "",
                     trade.type == .sell ? (row.entry?.realizedGain.map { Format.signed($0) } ?? "?") : "",
                     trade.id.rawValue,
-                ])
+                ]
+                table.add(cells + rest)
             }
             lines += table.lines()
             lines.append("")
@@ -142,6 +152,13 @@ struct TradesListCommand: RetireSubcommand {
             return lines
         }
 
+        /// What a trade settled outside the account paid (negative) or
+        /// received there, as the ledger worked it out (else as written).
+        static func outside(_ row: Row) -> Decimal? {
+            guard row.trade.isSettledExternally else { return nil }
+            return row.entry?.amount ?? row.trade.amount
+        }
+
         var json: JSON {
             JSON(account: account.id.rawValue, currency: account.currency.rawValue, recordsTrades: account.recordsTrades,
                  trades: rows.map { row in
@@ -152,7 +169,9 @@ struct TradesListCommand: RetireSubcommand {
                          price: trade.price?.fileString, currency: trade.currency?.rawValue,
                          amount: trade.amount?.fileString, fees: trade.fees?.fileString, tax: trade.tax?.fileString,
                          cost: trade.cost?.fileString, ratio: trade.ratio?.fileString, note: trade.note,
-                         source: trade.source?.rawValue, cashEffect: row.entry?.cashEffect.map { Format.json($0) },
+                         source: trade.source?.rawValue, settlement: trade.settlement?.rawValue,
+                         cashEffect: row.entry?.cashEffect.map { Format.json($0) },
+                         outside: Self.outside(row).map { Format.json($0) },
                          realizedGain: row.entry?.realizedGain.map { Format.json($0) },
                          quantityAfter: row.entry?.quantityAfter?.fileString,
                          costAfter: row.entry?.costAfter.map { Format.json($0) })
@@ -176,8 +195,13 @@ struct TradesListCommand: RetireSubcommand {
                 var ratio: String?
                 var note: String?
                 var source: String?
+                /// As written: `external` for a trade paid from or into another account.
+                var settlement: String?
                 /// What the account's cash changed by, rounded to cents; absent when unknown.
                 var cashEffect: String?
+                /// For a trade settled outside the account: what was paid (negative) or received there,
+                /// rounded to cents; it counts as money added or taken out.
+                var outside: String?
                 var realizedGain: String?
                 var quantityAfter: String?
                 var costAfter: String?
@@ -204,8 +228,11 @@ struct TradesAddCommand: RetireSubcommand {
             --amount; a split its --instrument and --ratio; an opening or transfer in its \
             --instrument, --quantity and --cost. Quantities, fees and tax are positive; an --amount is \
             the signed cash effect in the account's currency (negative for a buy), and when given it \
-            wins over quantity × price. The files that change are backed up to backups/ first; the \
-            flows of later valuations follow, as in the app.
+            wins over quantity × price. A buy, fee or tax paid from another account (gold bought from a \
+            dealer and paid from the bank) takes --paid-from-outside, and a sale whose proceeds went to \
+            another account --proceeds-out: the account's cash doesn't change, and the amount counts as \
+            money added or taken out (docs/TRADES.md). The files that change are backed up to backups/ \
+            first; the flows of later valuations follow, as in the app.
             """)
 
     @Argument(help: ArgumentHelp("The account's ID.", valueName: "account"))
@@ -254,6 +281,14 @@ struct TradesAddCommand: RetireSubcommand {
     @Option(help: ArgumentHelp("The trade's ID, a slug. Default: 8 random characters.", valueName: "id"))
     var id: String?
 
+    @Flag(help: ArgumentHelp("A buy, fee or tax paid from another account, e.g. the bank: the account's cash "
+                             + "doesn't change, and what it cost counts as money added."))
+    var paidFromOutside = false
+
+    @Flag(help: ArgumentHelp("A sale whose proceeds went to another account: the account's cash doesn't change, "
+                             + "and the proceeds count as money taken out."))
+    var proceedsOut = false
+
     @Flag(help: "Show what adding would do; write nothing.")
     var dryRun = false
 
@@ -275,6 +310,14 @@ struct TradesAddCommand: RetireSubcommand {
         if let currency, !CurrencyCode(currency.uppercased()).isWellFormed {
             throw ValidationError("--currency must be a currency code such as EUR or USD.")
         }
+        if paidFromOutside, ![.buy, .fee, .tax].contains(type) {
+            throw ValidationError("--paid-from-outside is for a buy, a fee or a tax"
+                + (type == .sell ? "; a sale's proceeds leave the account with --proceeds-out." : "."))
+        }
+        if proceedsOut, type != .sell {
+            throw ValidationError("--proceeds-out is for a sell"
+                + (type == .buy ? "; a buy paid from another account takes --paid-from-outside." : "."))
+        }
     }
 
     /// A decimal option, written like 102.30 (a dot, no grouping).
@@ -284,6 +327,20 @@ struct TradesAddCommand: RetireSubcommand {
             throw ValidationError("\(option) must be a number written like 102.30, not “\(text)”.")
         }
         return value
+    }
+
+    /// "  Note: this takes the cash to -1,876.00 on 2024-01-15. …": a buy,
+    /// fee or tax paid from the account's cash that leaves it negative, as
+    /// the app's Add Trade sheet points out.
+    static func negativeCashHint(_ trade: Trade, in library: Library) -> String? {
+        guard trade.type.canSettleExternally, trade.type != .sell, !trade.isSettledExternally else { return nil }
+        let valuator = Valuator(library: library)
+        guard let entry = valuator.ledger(for: trade.account)?.entries.first(where: { $0.trade.key == trade.key }),
+              let effect = entry.cashEffect, effect < 0,
+              let cash = valuator.tradeCash(of: trade.account, on: trade.date), cash < 0
+        else { return nil }
+        return "  Note: this takes the cash to \(Format.signed(cash)) on \(trade.date). If it was paid from another "
+            + "account, add it with --paid-from-outside instead."
     }
 
     mutating func run() async throws {
@@ -313,7 +370,8 @@ struct TradesAddCommand: RetireSubcommand {
             price: try Self.decimal(price, option: "--price"), currency: currency.map { CurrencyCode($0.uppercased()) },
             amount: try Self.decimal(amount, option: "--amount"), fees: try Self.decimal(fees, option: "--fees"),
             tax: try Self.decimal(tax, option: "--tax"), cost: try Self.decimal(cost, option: "--cost"),
-            ratio: try Self.decimal(ratio, option: "--ratio"), note: note, source: .manual)
+            ratio: try Self.decimal(ratio, option: "--ratio"), note: note, source: .manual,
+            settlement: paidFromOutside || proceedsOut ? .external : nil)
         let errors = trade.problems.filter { $0.severity == .error }
         guard errors.isEmpty else {
             throw CLIError("The trade can't be added: " + errors.map(\.message).joined(separator: " "))
@@ -324,6 +382,7 @@ struct TradesAddCommand: RetireSubcommand {
         let saved = edit.saved ?? trade
         var lines = [(dryRun ? "Would add " : "Added ") + TradeText.describe(saved, in: library)]
         lines += trade.problems.map { "  Note: \($0.message)" }
+        if let hint = Self.negativeCashHint(saved, in: library) { lines.append(hint) }
         lines += TradeText.followUp(edit, account: account)
         try TradeText.write(library, over: loaded, label: Self.backupLabel, dryRun: dryRun, context: context,
                             lines: &lines)
@@ -416,7 +475,12 @@ enum TradeText {
         }
         text += " on \(trade.date) (\(trade.id))"
         let entry = Valuator(library: library).ledger(for: trade.account)?.entries.first { $0.trade.key == trade.key }
-        if let cash = entry?.cashEffect ?? trade.amount { text += ": cash \(Format.signed(cash))" }
+        if trade.isSettledExternally {
+            let side = trade.type == .sell ? "proceeds paid out of the account" : "paid from outside the account"
+            text += ": \(side)" + ((entry?.amount ?? trade.amount).map { ", \(Format.signed($0))" } ?? "")
+        } else if let cash = entry?.cashEffect ?? trade.amount {
+            text += ": cash \(Format.signed(cash))"
+        }
         return text + "."
     }
 
