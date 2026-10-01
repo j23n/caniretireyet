@@ -21,6 +21,11 @@ import Model
 /// - Whatever else changes the account's cash came from outside it: a
 ///   **deposit** or a **withdrawal**, so the cash the trades give is always
 ///   the journal's.
+/// - An account whose ledger accounts never hold a currency (coins bought
+///   from a dealer and paid from the bank) has no cash to deposit into:
+///   its buys and sales, and fees and taxes of their own, are **paid from
+///   outside it** (`"settlement": "external"`) instead of a deposit and a
+///   buy.
 extension LedgerSnapshotBuilder {
     /// What a returns or charge posting becomes in a trades account.
     enum ReturnKind {
@@ -62,6 +67,8 @@ extension LedgerSnapshotBuilder {
         let date = transaction.date
         let currency = currency(of: id)
         let name = account(id)?.name ?? id.rawValue
+        // No cash of its own: what it buys and sells is paid from outside it.
+        let outside: TradeSettlement? = cashless.contains(id) ? .external : nil
         var trades: [Trade] = []
         var flow: Decimal? = 0
         func trade(_ type: TradeType, instrument: InstrumentID? = nil, quantity: Decimal? = nil, price: Decimal? = nil,
@@ -101,8 +108,10 @@ extension LedgerSnapshotBuilder {
             if let unit, let total, let unitCurrency = mapper.currency(of: unit.commodity),
                let gross = book.convert(total, from: unitCurrency, to: currency, on: date) {
                 let price = unit == posting.unitPrice ? unit.quantity : unit.quantity.ledgerRounded(6)
-                trades.append(trade(buying ? .buy : .sell, instrument: instrument, quantity: quantity, price: price,
-                                    priceCurrency: unitCurrency, amount: buying ? -gross : gross))
+                var bought = trade(buying ? .buy : .sell, instrument: instrument, quantity: quantity, price: price,
+                                   priceCurrency: unitCurrency, amount: buying ? -gross : gross)
+                bought.settlement = outside
+                trades.append(bought)
             } else if buying, rewarded, let value = value(of: posting, in: currency, on: date),
                       let price = book.price(of: posting.amount.commodity, on: date),
                       let priceCurrency = mapper.currency(of: price.commodity) {
@@ -146,7 +155,9 @@ extension LedgerSnapshotBuilder {
             ?? trades.firstIndex { $0.type == .dividend || $0.type == .interest }
         for charge in charges {
             guard let index = bearer else {
-                trades.append(trade(charge.type, amount: -charge.amount))
+                var paid = trade(charge.type, amount: -charge.amount)
+                paid.settlement = outside
+                trades.append(paid)
                 continue
             }
             if charge.type == .fee {
@@ -157,8 +168,20 @@ extension LedgerSnapshotBuilder {
             trades[index].amount = trades[index].amount.map { $0 - charge.amount }
         }
 
+        // Paid from outside the account: its amount is money added or taken out.
+        let external = trades.filter(\.isSettledExternally)
+        flow = flow.map { total in external.reduce(total) { $0 - ($1.amount ?? 0) } }
+        if writes, !external.isEmpty, !notedCashless.contains(id) {
+            notedCashless.insert(id)
+            notes.append(LedgerDiagnostic(
+                .note, "\(name) holds no cash in the journal, so what it buys and sells is paid from outside it: "
+                    + "its cash stays at zero, and what the trades cost or brought in is money added or taken out.",
+                at: transaction.location))
+        }
+
         // Money from outside the account.
-        let residual = (cash - trades.reduce(0) { $0 + ($1.amount ?? 0) }).ledgerRounded(2)
+        let settled = trades.filter { !$0.isSettledExternally }
+        let residual = (cash - settled.reduce(0) { $0 + ($1.amount ?? 0) }).ledgerRounded(2)
         if residual != 0 {
             trades.append(trade(residual > 0 ? .deposit : .withdrawal, amount: residual))
             flow = flow.map { $0 + residual }

@@ -346,8 +346,8 @@ A profile with `"layout": "ledger"` reads ledger-cli and hledger journals instea
 
 A profile with `"layout": "trades"` reads a broker's transactions, a row per trade ([IMPORT.md](IMPORT.md#broker-transactions)):
 
-- each column's `field` is a field of the trade: `date`, `type`, `account`, `instrument` (several columns can hold it: a name, a ticker, an ISIN, tried in order), `quantity`, `price`, `currency` (the price's), `amount` (the cash moved, net of fees and tax), `gross` (before fees and tax), `fees`, `tax`, `ratio`, `note`, or `ignore`;
-- `constants.account` names the account when the file has no account column;
+- each column's `field` is a field of the trade: `date`, `type`, `account`, `instrument` (several columns can hold it: a name, a ticker, an ISIN, tried in order), `quantity`, `price`, `currency` (the price's), `amount` (the cash moved, net of fees and tax), `gross` (before fees and tax), `fees`, `tax`, `ratio`, `note`, `settlement` (whether a buy, sell, fee or tax was paid from outside the account: `external`, `yes`, …), or `ignore`;
+- `constants.account` names the account when the file has no account column; `constants.settlement`, optional, `"external"` when every buy, sell, fee and tax of the file was paid from or into another account and no column says;
 - `tradeTypes`, optional, maps the file's words for types, as written, to trade types: `{ "Acquisto": "buy", "Giroconto": "ignore" }`; `ignore` leaves those rows out. Left out (or for a word it doesn't have), the usual Italian and English words apply ([IMPORT.md](IMPORT.md#types));
 - `amountSign`, optional in `defaults` or a column's `format`, says how amounts are signed: `auto` (the default), `fromType` (absolute values, signed by the type) or `asWritten` ([IMPORT.md](IMPORT.md#signs)).
 

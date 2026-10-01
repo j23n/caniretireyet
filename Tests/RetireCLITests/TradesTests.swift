@@ -120,6 +120,32 @@ struct TradesImportCommandTests {
         #expect(!run.output.contains("Cells that can't be read"))
     }
 
+    @Test func aDealersInvoicesArePaidFromOutsideTheAccount() async throws {
+        let library = try TemporaryFolder.exampleLibrary()
+        let clock = TestClock()
+        let converted = await retire(["trades", "convert", "gold-coins", "--to", "trades", "--library", library.path,
+                                      "--apply"], clock: clock)
+        #expect(converted.status == 0, "\(converted.all)")
+        let files = try TemporaryFolder()
+        try files.write("dealer.csv", """
+            Tipo;Data;Titolo;Quantità;Prezzo;Importo
+            Acquisto;10/09/2026;gold;10;98,00;980,00
+            Vendita;20/09/2026;gold;2;99,00;198,00
+
+            """)
+        let run = await retire(["import", files.url("dealer.csv").path, "--library", library.path, "--layout", "trades",
+                                "--account", "gold-coins", "--settlement", "external", "--apply"], clock: clock)
+        #expect(run.status == 0, "\(run.all)")
+        #expect(run.output.contains("Imported: 2 added, 0 updated, 0 overwritten, 0 kept, 0 identical, 0 left out.\n"),
+                "\(run.output)")
+        let loaded = try library.load()
+        let imported = loaded.trades(for: "gold-coins").filter { $0.date >= "2026-09-01" }
+        #expect(imported.map(\.type) == [.buy, .sell])
+        #expect(imported.map(\.settlement) == [.external, .external])
+        let list = await retire(["trades", "list", "gold-coins", "--library", library.path], clock: clock)
+        #expect(list.output.hasSuffix("Holds on 2026-09-30: gold 101.3 (cost 9,037.60), cash 0.00.\n"), "\(list.output)")
+    }
+
     @Test func tradeOptionsAreChecked() async throws {
         let library = try TemporaryFolder.exampleLibrary()
         let file = try sample("directa.csv")

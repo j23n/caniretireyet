@@ -34,6 +34,9 @@ public enum ImportProblem: Error, Hashable, Sendable, CustomStringConvertible {
     /// Trades layout: the trade the row gives can't be applied, e.g. a buy
     /// without a price or an amount.
     case invalidTrade(String)
+    /// Trades layout: a settlement cell that says neither `external` nor
+    /// `account` (nor yes or no).
+    case unknownSettlement(String)
 
     public var description: String {
         switch self {
@@ -53,6 +56,8 @@ public enum ImportProblem: Error, Hashable, Sendable, CustomStringConvertible {
         case .unmappedTradeType(let text): "“\(text)” isn't mapped to a trade type"
         case .noTradeDirection: "no type, and neither the quantity nor the amount says whether it's a buy or a sell"
         case .invalidTrade(let message): message
+        case .unknownSettlement(let text): "“\(text)” doesn't say whether it was paid from outside the account "
+            + "(external, yes) or not (account, no)"
         }
     }
 }

@@ -16,6 +16,7 @@ extension ImportField {
     /// The fields of the trades layout, in menu order.
     public static let tradeFields: [ImportField] = [
         .type, .account, .instrument, .quantity, .price, .currency, .amount, .gross, .fees, .tax, .ratio, .note,
+        .settlement,
     ]
 }
 
