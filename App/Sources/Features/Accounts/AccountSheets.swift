@@ -448,7 +448,9 @@ struct EditAccountSheet: View {
         #endif
         .onAppear {
             if form == nil, let account = library.account(accountID) {
-                form = AccountForm(editing: account, residence: library.settings.taxResidence, locale: locale)
+                let balances = library.valuator.valuations(for: account.id).filter(\.isBalance).count
+                form = AccountForm(editing: account, residence: library.settings.taxResidence,
+                                   balanceValueCount: balances, locale: locale)
             }
         }
     }

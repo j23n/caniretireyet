@@ -137,7 +137,7 @@ A closed account:
 | `closed` | no | The last day it counts. Absent while the account is active. |
 | `institution`, `country` | no | The bank or broker, and its country. The tax system may use the country, e.g. Italy's higher wealth-tax rate for blacklisted countries. So does the RW helper, which lists the foreign accounts you have to declare. |
 | `valuation` | no | `balance`, `holdings` or `trades`. The default depends on `kind`: brokerage, crypto and metals default to holdings. With `trades`, the account's holdings, purchase cost and cash come from its trades, and its valuations record only cash ([TRADES.md](TRADES.md)). |
-| `assetClasses` | no | The asset mix of an account recorded as a balance, used by the planner. Defaults by kind: cash and savings → `cash`, property → `realEstate`. |
+| `assetClasses` | no | The asset mix of the account's values recorded as a single balance, used by the asset-class breakdowns and the planner: a balance account's, or the balances in a holdings account's imported history (its positions follow their instruments). Defaults by kind: cash and savings → `cash`, property → `realEstate`; otherwise such a value counts as other. |
 | `tax` | no | How the planner taxes this account. `wrapper` names a wrapper defined by a tax system (for Italy: `it.ordinary`, `it.pensionFund`, `it.tfr`) or a generic one (`taxable`, `taxDeferred`, `taxFree`). Wrapper-specific details follow. See [TAXES.md](TAXES.md). |
 | `includeIn` | no | `{ "netWorth": true, "plan": true }`. A primary home would normally set `"plan": false`. |
 | `successor` | no | The account that replaced this one, e.g. when you switched banks, so charts stay continuous. |

@@ -329,6 +329,11 @@ struct AccountTaxFields: View {
     }
 
     private var mixFooter: String {
+        if form.holdsPositions && form.balanceValueCount > 0 {
+            let values = form.balanceValueCount == 1 ? "1 value" : "\(form.balanceValueCount) values"
+            return "For the \(values) recorded as a single balance (positions follow their instruments), "
+                + "e.g. 100% equity. Leave empty for \"other\"."
+        }
         if let mix = form.kind.defaultAssetClasses, let assetClass = mix.assetClasses.first {
             return "Leave empty to count it as \(BreakdownKey.assetClass(assetClass).description.lowercased()). "
                 + "Percentages add up to 100."

@@ -139,6 +139,10 @@ struct AccountForm: Hashable, Sendable {
     let residence: CountryCode?
     /// The account being edited, whose other fields are kept.
     private(set) var original: Account?
+    /// How many of the account's values are recorded as a single balance
+    /// (e.g. imported history of a brokerage that otherwise holds
+    /// positions). The asset mix applies to those.
+    private(set) var balanceValueCount = 0
 
     /// A new account: today, in the base currency, with the defaults for a
     /// current account.
@@ -161,7 +165,9 @@ struct AccountForm: Hashable, Sendable {
     }
 
     /// The fields of an existing account.
-    init(editing account: Account, residence: CountryCode? = nil, locale: Locale = .current) {
+    init(editing account: Account, residence: CountryCode? = nil, balanceValueCount: Int = 0,
+         locale: Locale = .current) {
+        self.balanceValueCount = balanceValueCount
         kind = account.kind
         name = account.name
         institution = account.institution ?? ""
@@ -257,9 +263,11 @@ struct AccountForm: Hashable, Sendable {
             : "Type the quantities and cash at each check-in; no trades to keep."
     }
 
-    /// Whether the asset mix applies: balance accounts that aren't debts.
+    /// Whether the asset mix applies: accounts that aren't debts and record
+    /// a single balance, by default or in some of their values (a
+    /// brokerage's imported history, say). Positions follow their instruments.
     var takesAssetMix: Bool {
-        !holdsPositions && !kind.isLiability
+        !kind.isLiability && (!holdsPositions || balanceValueCount > 0)
     }
 
     var trimmedName: String {

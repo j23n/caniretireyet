@@ -1137,8 +1137,7 @@ private struct AccountInfoRows: View {
     /// "60% equity, 40% bonds" for a balance account; "(default)" when it
     /// comes from the kind.
     private var assetMix: String? {
-        guard account.valuationMode == .balance, !account.kind.isLiability,
-              let mix = account.effectiveAssetClasses, mix.total > 0
+        guard !account.kind.isLiability, let mix = account.effectiveAssetClasses, mix.total > 0
         else { return nil }
         let parts = BreakdownKey.assetClassOrder.filter { mix[$0] != 0 }.map { assetClass in
             "\(AmountFormat.percent(mix[assetClass], digits: 0, locale: locale)) "
