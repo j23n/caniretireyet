@@ -6,41 +6,51 @@ import Tracker
 /// "Navigation"):
 ///
 ///     Overview
-///     Check-in                •     ← dot when due
+///     Check-in                      •     ← dot when due
 ///     Accounts
-///       Cash · Investments · Crypto & gold · Pension · Property · Debts · Closed
+///       All accounts                      ← the grouped list, with subtotals
+///       ▾ Cash                 12.990     ← a group and its subtotal
+///           Conto deposito      8.200
+///           Conto Fineco     ◷  4.790     ← ◷ when the value is stale
+///       ▸ Investments          71.300     ← collapsed
+///       ▾ Crypto & gold        13.040
+///           Gold coins          9.640
+///           Ledger wallet       3.400
+///       …
+///       ▸ Closed (1)                      ← collapsed at first
 ///     Plans
-///       Base case …             ← "Create a plan" when there are none
+///       Base case …                       ← "Create a plan" when there are none
 ///     Library
 ///       Import… · Instruments · Sync & backups
+///
+/// - Selecting an account shows its detail in the content area, in a stack
+///   of its own (`SidebarItem.account`); *All accounts* is the list, whose
+///   rows push details on the Accounts stack.
+/// - A group's row expands or collapses it (click it, or its disclosure
+///   triangle); which ones are collapsed is remembered on the device
+///   (`AppPreferences.collapsedAccountFolders`). Showing an account
+///   (`navigation.showAccount(_:)`) expands its group.
+/// - The sidebar follows the library: accounts added or closed, here or on
+///   the other device, appear in their place at once. A selected account
+///   that's closed moves under *Closed* and stays selected; one that's
+///   deleted gives way to *All accounts*.
 ///
 /// Settings is the Settings window on the Mac (⌘,) and a toolbar button on iPad.
 struct SidebarRoot: View {
     @Environment(AppNavigation.self) private var navigation
     @Environment(LibraryStore.self) private var library
     @Environment(CheckInStore.self) private var checkIn
+    @Environment(AppPreferences.self) private var preferences
 
     var body: some View {
-        @Bindable var navigation = navigation
         NavigationSplitView {
-            List(selection: $navigation.sidebarSelection) {
+            List(selection: selection) {
                 Label("Overview", systemImage: AppSymbol.overview)
                     .tag(SidebarItem.overview)
                 checkInRow
                     .tag(SidebarItem.checkIn)
 
-                Section("Accounts") {
-                    Label("All accounts", systemImage: AppSymbol.accounts)
-                        .tag(SidebarItem.accounts(nil))
-                    ForEach(library.accountGroups, id: \.self) { group in
-                        Label(group.description, systemImage: group.systemImage)
-                            .tag(SidebarItem.accounts(group))
-                    }
-                    if !library.closedAccounts.isEmpty {
-                        Label("Closed", systemImage: AppSymbol.closed)
-                            .tag(SidebarItem.closedAccounts)
-                    }
-                }
+                SidebarAccountsSection()
 
                 Section("Plans") {
                     if library.sortedPlans.isEmpty {
@@ -63,12 +73,32 @@ struct SidebarRoot: View {
                 }
             }
             .navigationTitle("Can I Retire Yet?")
-            .navigationSplitViewColumnWidth(min: 200, ideal: 230)
+            .navigationSplitViewColumnWidth(min: 220, ideal: 270)
         } detail: {
             SidebarDetail(navigation: navigation, item: navigation.sidebarSelection ?? .overview)
         }
         .onChange(of: navigation.sidebarSelection, initial: true) { selectPlanRow() }
         .onChange(of: library.sortedPlans.map(\.id)) { selectPlanRow() }
+        .onChange(of: library.revision, initial: true) { navigation.libraryChanged(library.library) }
+        .onChange(of: accountReveal, initial: true) { _, reveal in
+            if let reveal { preferences.setExpanded(true, reveal.folder) }
+        }
+    }
+
+    /// The list's selection, `navigation.sidebarSelection`, which the list
+    /// never clears: collapsing the group of the selected account keeps its
+    /// detail on screen.
+    private var selection: Binding<SidebarItem?> {
+        Binding(get: { navigation.sidebarSelection },
+                set: { item in
+                    if let item { navigation.sidebarSelection = item }
+                })
+    }
+
+    /// The selected account and its group (or *Closed*), which is expanded
+    /// whenever either changes, so the selected row shows.
+    private var accountReveal: SidebarAccountReveal? {
+        SidebarAccountReveal(selection: navigation.sidebarSelection, library: library.library, today: .today())
     }
 
     /// "The main plan" becomes that plan's row, so the sidebar highlights it.
@@ -93,8 +123,125 @@ struct SidebarRoot: View {
     }
 }
 
+/// The sidebar's Accounts section: *All accounts*, a collapsible row per
+/// group that has open accounts, with its subtotal and its accounts, then
+/// *Closed (n)*. The values and staleness are the Accounts list's
+/// (`SidebarAccounts`); amounts are left out while they're hidden.
+private struct SidebarAccountsSection: View {
+    @Environment(LibraryStore.self) private var library
+    @Environment(AppPreferences.self) private var preferences
+
+    var body: some View {
+        let accounts = SidebarAccounts(library: library.library, valuator: library.valuator, today: .today(),
+                                       stalenessThreshold: preferences.stalenessThreshold)
+        Section("Accounts") {
+            Label("All accounts", systemImage: AppSymbol.accounts)
+                .tag(SidebarItem.accounts)
+            ForEach(accounts.groups) { section in
+                let isExpanded = expansion(of: .group(section.group))
+                DisclosureGroup(isExpanded: isExpanded) {
+                    ForEach(section.items) { item in
+                        SidebarAccountRow(item: item)
+                            .tag(SidebarItem.account(item.id))
+                    }
+                } label: {
+                    SidebarFolderLabel(title: section.group.description, systemImage: section.group.systemImage,
+                                       subtotal: section.subtotal, isExpanded: isExpanded)
+                }
+            }
+            if !accounts.closed.isEmpty {
+                let isExpanded = expansion(of: .closed)
+                DisclosureGroup(isExpanded: isExpanded) {
+                    ForEach(accounts.closed) { item in
+                        SidebarAccountRow(item: item, showsValue: false)
+                            .tag(SidebarItem.account(item.id))
+                    }
+                } label: {
+                    SidebarFolderLabel(title: accounts.closedTitle, systemImage: AppSymbol.closed,
+                                       isExpanded: isExpanded)
+                }
+            }
+        }
+    }
+
+    /// Whether a group (or *Closed*) is expanded, remembered on the device.
+    private func expansion(of folder: SidebarAccountFolder) -> Binding<Bool> {
+        Binding(get: { preferences.isExpanded(folder) },
+                set: { preferences.setExpanded($0, folder) })
+    }
+}
+
+/// A group's row, or *Closed*'s: icon, name and, for a group, its subtotal
+/// on the right. On the Mac, clicking it expands or collapses it like its
+/// disclosure triangle (on iPad, tapping the row does that already).
+private struct SidebarFolderLabel: View {
+    let title: String
+    let systemImage: String
+    var subtotal: Decimal?
+    @Binding var isExpanded: Bool
+
+    @Environment(\.hidesAmounts) private var hidesAmounts
+
+    var body: some View {
+        HStack(spacing: Metrics.s) {
+            Label(title, systemImage: systemImage)
+                .lineLimit(1)
+            Spacer(minLength: Metrics.xs)
+            if let subtotal, !hidesAmounts {
+                AmountText(subtotal)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .layoutPriority(1)
+            }
+        }
+        .accessibilityElement(children: .combine)
+        #if os(macOS)
+        .contentShape(Rectangle())
+        .onTapGesture {
+            withAnimation { isExpanded.toggle() }
+        }
+        #endif
+    }
+}
+
+/// An account under its group (or *Closed*): kind icon, name, a clock when
+/// its latest value is stale, and its value on the right (open accounts).
+private struct SidebarAccountRow: View {
+    let item: AccountListItem
+    var showsValue = true
+
+    @Environment(\.hidesAmounts) private var hidesAmounts
+
+    var body: some View {
+        HStack(spacing: Metrics.s) {
+            Label {
+                Text(item.account.name)
+                    .lineLimit(1)
+            } icon: {
+                Image(systemName: item.account.kind.systemImage)
+            }
+            Spacer(minLength: Metrics.xs)
+            if item.stale != nil {
+                Image(systemName: "clock")
+                    .font(.caption)
+                    .foregroundStyle(Palette.warning)
+                    .help("Stale: the latest value is too old")
+                    .accessibilityLabel("Stale")
+            }
+            if showsValue && !hidesAmounts {
+                AmountText(item.value)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .layoutPriority(1)
+            }
+        }
+        .accessibilityElement(children: .combine)
+    }
+}
+
 /// The content area for a sidebar place. Each place gets its own navigation
-/// stack; account details push onto the Accounts stack.
+/// stack: an account's detail its own, and *All accounts* the Accounts
+/// stack, which its rows push details onto.
 private struct SidebarDetail: View {
     @Bindable var navigation: AppNavigation
     let item: SidebarItem
@@ -111,16 +258,18 @@ private struct SidebarDetail: View {
             NavigationStack {
                 CheckInScreen()
             }
-        case .accounts(let group):
+        case .accounts:
             NavigationStack(path: $navigation.accountsPath) {
-                AccountsScreen(filter: group.map(AccountsFilter.group) ?? .all)
+                AccountsScreen(filter: .all)
                     .appDestinations()
             }
-        case .closedAccounts:
-            NavigationStack(path: $navigation.accountsPath) {
-                AccountsScreen(filter: .closed)
+        case .account(let id):
+            NavigationStack {
+                AccountDetailScreen(accountID: id)
                     .appDestinations()
             }
+            // A fresh stack and screen state for each account.
+            .id(id)
         case .plan(let id):
             NavigationStack {
                 PlanScreen(planID: id)

@@ -1,0 +1,86 @@
+import Foundation
+import Model
+import Tracker
+
+// The Accounts section of the Mac and iPad sidebar (UI.md, "Navigation"),
+// computed without SwiftUI so it can be checked on Linux. The view is
+// `SidebarAccountsSection` in SidebarRoot.swift.
+
+/// A collapsible row in the sidebar's Accounts section: a group, or *Closed*.
+enum SidebarAccountFolder: Hashable, Sendable {
+    case group(AccountGroup)
+    case closed
+
+    /// The name kept in ``AppPreferences/collapsedAccountFolders``: the
+    /// group's raw value (`"cash"`, `"cryptoAndGold"`, …), or `"closed"`.
+    var key: String {
+        switch self {
+        case .group(let group): group.rawValue
+        case .closed: "closed"
+        }
+    }
+
+    /// The folder `account` sits in on `today`: *Closed* once it has closed,
+    /// otherwise its group (as in the Accounts list).
+    init(_ account: Account, today: CalendarDate) {
+        self = AccountList.listsAsClosed(account, today: today) ? .closed : .group(account.group)
+    }
+}
+
+/// What the sidebar's Accounts section lists under *All accounts*: a folder
+/// per group that has open accounts, in display order, with its subtotal,
+/// then *Closed (n)*. The rows, values, subtotals and staleness are the
+/// Accounts list's (``AccountList``), so the two always agree.
+struct SidebarAccounts: Hashable, Sendable {
+    /// Open accounts by group, in display order; only groups that have some.
+    var groups: [AccountListSection]
+    /// Closed accounts, most recently closed first.
+    var closed: [AccountListItem]
+
+    init(library: Library, valuator: Valuator, today: CalendarDate, stalenessThreshold: Int) {
+        let list = AccountList(library: library, valuator: valuator, filter: .all, today: today,
+                               stalenessThreshold: stalenessThreshold, includesSparklines: false)
+        groups = list.sections
+        closed = list.closed
+    }
+
+    /// *Closed (3)*.
+    var closedTitle: String {
+        "Closed (\(closed.count))"
+    }
+}
+
+/// The selected account and the folder it sits in. The sidebar expands
+/// the folder whenever either changes, so the selected row shows: when an
+/// account is shown from elsewhere (``AppNavigation/showAccount(_:)``),
+/// and when the selected account is closed (it moves under *Closed*) or
+/// reopened. Collapsing the folder by hand afterwards is left alone.
+struct SidebarAccountReveal: Hashable, Sendable {
+    var account: AccountID
+    var folder: SidebarAccountFolder
+
+    /// `nil` unless `selection` is an account of `library`.
+    init?(selection: SidebarItem?, library: Library, today: CalendarDate) {
+        guard case .account(let id)? = selection, let account = library.accounts[id] else { return nil }
+        self.account = id
+        folder = SidebarAccountFolder(account, today: today)
+    }
+}
+
+extension AppPreferences {
+    /// Whether `folder` is expanded in the sidebar on this device. The
+    /// groups start expanded, *Closed* collapsed.
+    func isExpanded(_ folder: SidebarAccountFolder) -> Bool {
+        !collapsedAccountFolders.contains(folder.key)
+    }
+
+    /// Expands or collapses `folder`, and remembers it on this device.
+    func setExpanded(_ isExpanded: Bool, _ folder: SidebarAccountFolder) {
+        guard self.isExpanded(folder) != isExpanded else { return }
+        if isExpanded {
+            collapsedAccountFolders.remove(folder.key)
+        } else {
+            collapsedAccountFolders.insert(folder.key)
+        }
+    }
+}

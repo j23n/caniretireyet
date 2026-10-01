@@ -14,9 +14,13 @@ enum AppTab: String, Hashable, Sendable, CaseIterable {
 enum SidebarItem: Hashable, Sendable {
     case overview
     case checkIn
-    /// Open accounts, in one group or all (`nil`).
-    case accounts(AccountGroup?)
-    case closedAccounts
+    /// *All accounts*: the Accounts list, grouped with subtotals and the
+    /// closed accounts; its rows push account details on its own stack
+    /// (``AppNavigation/accountsPath``).
+    case accounts
+    /// One account's detail, selected under its group (or *Closed*) in the
+    /// sidebar's Accounts section.
+    case account(AccountID)
     case plan(PlanID)
     /// The main plan, or the first; "create your first plan" when there are
     /// none. The sidebar replaces it with the plan's own row once one exists.
@@ -65,7 +69,8 @@ final class AppNavigation {
     var layout: NavigationLayout = .sidebar
     var tab: AppTab = .overview
     var sidebarSelection: SidebarItem? = .overview
-    /// The pushed account details, for the Accounts stack.
+    /// The pushed account details, for the Accounts stack: the Accounts tab,
+    /// and *All accounts* in the sidebar.
     var accountsPath: [AccountID] = []
     /// The plan the Plan tab shows; `nil` for the main (or first) plan.
     var selectedPlan: PlanID?
@@ -96,18 +101,37 @@ final class AppNavigation {
         sidebarSelection = .overview
     }
 
-    /// Shows the account list, optionally one group.
-    func showAccounts(_ group: AccountGroup? = nil) {
+    /// Shows the account list.
+    func showAccounts() {
         tab = .accounts
-        sidebarSelection = .accounts(group)
+        sidebarSelection = .accounts
         accountsPath = []
     }
 
-    /// Shows an account's detail.
+    /// Shows an account's detail: pushed on the Accounts tab's stack, or
+    /// selected in the sidebar, which expands its group (or *Closed*) so
+    /// the row shows.
     func showAccount(_ id: AccountID) {
         tab = .accounts
-        if case .accounts? = sidebarSelection {} else { sidebarSelection = .accounts(nil) }
-        accountsPath = [id]
+        switch layout {
+        case .tabs: accountsPath = [id]
+        case .sidebar: sidebarSelection = .account(id)
+        }
+    }
+
+    /// The account selected in the sidebar, if one is.
+    var selectedAccount: AccountID? {
+        if case .account(let id)? = sidebarSelection { id } else { nil }
+    }
+
+    /// Keeps the sidebar on a place that exists: when the selected account
+    /// is no longer in `library` (deleted here or on another device), shows
+    /// *All accounts*. A closed account stays selected; it's listed under
+    /// *Closed*. The sidebar calls it whenever the library changes.
+    func libraryChanged(_ library: Library) {
+        if let id = selectedAccount, library.accounts[id] == nil {
+            sidebarSelection = .accounts
+        }
     }
 
     /// Shows a plan (`nil`: the main plan).
@@ -166,7 +190,8 @@ final class AppNavigation {
         switch item {
         case .overview, .sync, .instruments: tab = .overview
         case .checkIn: startCheckIn()
-        case .accounts, .closedAccounts: tab = .accounts
+        case .accounts: tab = .accounts
+        case .account(let id): showAccount(id)
         case .plan(let id): showPlan(id)
         case .plans: showPlan()
         case .importData: startImport()
