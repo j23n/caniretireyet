@@ -1,5 +1,6 @@
 import Foundation
 import Model
+import Planner
 @testable import RetireCLI
 import Testing
 import TestSupport
@@ -91,6 +92,40 @@ struct PlanAndHelpTests {
         #expect(noBirthDate.status == 1)
         #expect(noBirthDate.errors.contains(
             "plans/base.json (Base case) can't run: The plan needs your birth date (library settings)."))
+    }
+
+    @Test func planShowsItsProgressOnATerminalOnly() async throws {
+        let library = try TemporaryFolder.exampleLibrary()
+        let quiet = await retire(["plan", "--library", library.path, "--fast"])
+        #expect(quiet.status == 0, "\(quiet.all)")
+        #expect(quiet.errors.isEmpty)
+
+        let shown = await retire(["plan", "--library", library.path, "--fast"], terminal: true)
+        #expect(shown.status == 0, "\(shown.all)")
+        #expect(shown.output == quiet.output)
+        // One line, rewritten in place, then erased before the answer.
+        #expect(!shown.errors.contains("\n"))
+        #expect(shown.errors.hasPrefix("\r["))
+        #expect(shown.errors.contains("Earliest age · ages "))
+        #expect(shown.errors.hasSuffix("100% Summarising\u{1B}[K\r\u{1B}[K"))
+
+        let json = await retire(["plan", "--library", library.path, "--fast", "--json"], terminal: true)
+        #expect(json.status == 0, "\(json.all)")
+        #expect(json.errors.isEmpty)
+    }
+
+    @Test func theProgressLineSaysWhereTheRunIs() {
+        let scan = PlannerProgress(phase: .earliestAge, completed: 12, total: 35, fraction: 0.3456, ages: 41...75,
+                                   runs: 2_000)
+        #expect(PlanProgressLine.text(scan) == "[######--------------]  34% Earliest age · ages 41–75: 12 / 35")
+        let runs = PlannerProgress(phase: .simulating, completed: 1_234, total: 2_000, fraction: 0.88, runs: 2_000)
+        #expect(PlanProgressLine.text(runs) == "[#################---]  88% Simulating 1,234 / 2,000 runs")
+        let steps = PlannerProgress(phase: .sustainableSpending, completed: 4, total: 12, fraction: 0.931, runs: 250)
+        #expect(PlanProgressLine.text(steps) == "[##################--]  93% Sustainable spending: step 4 / 12")
+        let done = PlannerProgress(phase: .summarising, completed: 1, total: 1, fraction: 1, runs: 250)
+        #expect(PlanProgressLine.text(done) == "[####################] 100% Summarising")
+        let start = PlannerProgress(phase: .earliestAge, completed: 0, total: 38, fraction: 0, runs: 250)
+        #expect(PlanProgressLine.text(start) == "[--------------------]   0% Earliest age: 0 / 38")
     }
 
     @Test func planReportPrintsTheAnswer() throws {

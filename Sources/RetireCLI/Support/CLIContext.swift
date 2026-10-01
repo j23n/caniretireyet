@@ -1,16 +1,44 @@
+#if canImport(Glibc)
+import Glibc
+#elseif canImport(Darwin)
+import Darwin
+#endif
 import Foundation
 import Model
 import Prices
 
 /// Where a command writes: normal output to standard output, errors and
-/// warnings to standard error. Tests capture both with ``capturing()``.
+/// warnings to standard error. Tests capture both with ``capturing(terminal:)``.
+///
+/// A long command can show a one-line status on standard error while it
+/// works (``status(_:)``), only when that's a terminal: piped, redirected
+/// or captured, nothing is shown.
 public struct Console: Sendable {
     private let writeOutput: @Sendable (String) -> Void
     private let writeError: @Sendable (String) -> Void
+    private let writeStatus: (@Sendable (String) -> Void)?
 
-    public init(output: @escaping @Sendable (String) -> Void, error: @escaping @Sendable (String) -> Void) {
+    /// `status`, when given, writes to a terminal: the status line uses
+    /// carriage returns and erases to the end of the line.
+    public init(output: @escaping @Sendable (String) -> Void, error: @escaping @Sendable (String) -> Void,
+                status: (@Sendable (String) -> Void)? = nil) {
         writeOutput = output
         writeError = error
+        writeStatus = status
+    }
+
+    /// Whether ``status(_:)`` shows anything: standard error is a terminal.
+    public var showsStatus: Bool { writeStatus != nil }
+
+    /// Shows `line` as the status line on standard error, in place of the
+    /// one before. Nothing when standard error isn't a terminal.
+    public func status(_ line: String) {
+        writeStatus?("\r" + line + "\u{1B}[K")
+    }
+
+    /// Erases the status line, before the command's output.
+    public func clearStatus() {
+        writeStatus?("\r\u{1B}[K")
     }
 
     /// Writes a line to standard output.
@@ -28,15 +56,30 @@ public struct Console: Sendable {
         writeError(line + "\n")
     }
 
-    /// The process's standard output and standard error.
+    /// The process's standard output and standard error, with a status line
+    /// when standard error is a terminal.
     public static let standard = Console(
         output: { FileHandle.standardOutput.write(Data($0.utf8)) },
-        error: { FileHandle.standardError.write(Data($0.utf8)) })
+        error: { FileHandle.standardError.write(Data($0.utf8)) },
+        status: terminalStatus())
 
-    /// A console that keeps what is written, for tests.
-    public static func capturing() -> (Console, CapturedOutput) {
+    /// Writes status lines to standard error when it's a terminal.
+    private static func terminalStatus() -> (@Sendable (String) -> Void)? {
+        guard isatty(STDERR_FILENO) == 1 else { return nil }
+        return { FileHandle.standardError.write(Data($0.utf8)) }
+    }
+
+    /// A console that keeps what is written, for tests. With `terminal`, it
+    /// acts as if standard error were a terminal: status lines are kept with
+    /// the errors.
+    public static func capturing(terminal: Bool = false) -> (Console, CapturedOutput) {
         let captured = CapturedOutput()
-        return (Console(output: { captured.append($0, error: false) }, error: { captured.append($0, error: true) }),
+        var status: (@Sendable (String) -> Void)?
+        if terminal {
+            status = { captured.append($0, error: true) }
+        }
+        return (Console(output: { captured.append($0, error: false) }, error: { captured.append($0, error: true) },
+                        status: status),
                 captured)
     }
 }

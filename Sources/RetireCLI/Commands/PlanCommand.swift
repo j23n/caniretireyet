@@ -9,8 +9,13 @@ import Storage
 /// Runs the main plan (`mainPlan` in library.json) or `--plan <id>` with the
 /// tax systems the app registers (``TaxSystems/registry()``), maps the
 /// Planner's `PlanResult` into a ``PlanReport`` and prints it, as text or
-/// JSON. `--fast` uses fewer runs (the app's slider mode); `--save-baseline`
-/// writes the result as a manual baseline (PROGRESS.md, "Baselines").
+/// JSON. `--fast` uses fewer runs (the app's quick what-if mode);
+/// `--save-baseline` writes the result as a manual baseline (PROGRESS.md,
+/// "Baselines").
+///
+/// While the plan runs, a one-line progress shows on standard error when
+/// it's a terminal (``PlanProgressLine``), and is erased before the answer.
+/// Nothing is shown when standard error is piped or captured, or with `--json`.
 struct PlanCommand: RetireSubcommand {
     static let configuration = CommandConfiguration(
         commandName: "plan",
@@ -56,11 +61,17 @@ struct PlanCommand: RetireSubcommand {
         if saveBaseline != nil { try loaded.checkWritable() }
         let document = try Self.plan(plan.map { PlanID($0) }, in: loaded.library)
         let plannerOptions = fast ? PlannerOptions.fast() : PlannerOptions()
+        let console = context.console
+        var progress: (@Sendable (PlannerProgress) -> Void)?
+        if console.showsStatus, !json {
+            progress = { console.status(PlanProgressLine.text($0)) }
+        }
         let result: PlanResult
         do {
+            defer { if progress != nil { console.clearStatus() } }
             result = try await Planner.run(
                 plan: document, library: loaded.library, registry: TaxSystems.registry(),
-                options: Self.options(plannerOptions, today: context.today))
+                options: Self.options(plannerOptions, today: context.today), progress: progress)
         } catch let error as PlannerError {
             throw CLIError(Self.message(for: error, plan: document))
         }
@@ -112,6 +123,38 @@ struct PlanCommand: RetireSubcommand {
         }
         guard let plan = library.plans[id] else { throw CLIError("There's no plan \"\(id)\" in plans/. \(list)") }
         return plan
+    }
+}
+
+/// The progress line `retire plan` shows on a terminal while it runs:
+///
+///     [#######-------------]  34% Earliest age · ages 39–75: 12 / 37
+///     [#################---]  88% Simulating 1,234 / 2,000 runs
+///     [##################--]  93% Sustainable spending: step 4 / 16
+enum PlanProgressLine {
+    static func text(_ progress: PlannerProgress) -> String {
+        let fraction = min(1, max(0, progress.fraction))
+        let filled = Int((fraction * 20).rounded(.down))
+        let bar = "[" + String(repeating: "#", count: filled) + String(repeating: "-", count: 20 - filled) + "]"
+        let percent = String(Int((fraction * 100).rounded(.down)))
+        return bar + " " + String(repeating: " ", count: max(0, 3 - percent.count)) + percent + "% " + phase(progress)
+    }
+
+    /// "Simulating 1,234 / 2,000 runs".
+    static func phase(_ progress: PlannerProgress) -> String {
+        let done = Format.amount(Decimal(progress.completed), places: 0)
+        let total = Format.amount(Decimal(progress.total), places: 0)
+        switch progress.phase {
+        case .earliestAge:
+            let ages = progress.ages.map { " · ages \($0.lowerBound)–\($0.upperBound)" } ?? ""
+            return "Earliest age\(ages): \(done) / \(total)"
+        case .simulating:
+            return "Simulating \(done) / \(total) runs"
+        case .sustainableSpending:
+            return "Sustainable spending: step \(done) / \(total)"
+        case .summarising:
+            return "Summarising"
+        }
     }
 }
 
