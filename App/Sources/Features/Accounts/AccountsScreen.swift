@@ -17,6 +17,7 @@ struct AccountsScreen: View {
     @Environment(LibraryStore.self) private var library
     @Environment(AppNavigation.self) private var navigation
     @Environment(AppPreferences.self) private var preferences
+    @Environment(\.locale) private var locale
     @State private var query = ""
     @State private var showsClosed = false
     @State private var action: AccountAction?
@@ -31,6 +32,7 @@ struct AccountsScreen: View {
     var body: some View {
         let list = AccountList(library: library.library, valuator: library.valuator, filter: filter, query: query,
                                today: .today(), stalenessThreshold: preferences.stalenessThreshold)
+        let widest = list.widestValue(currency: library.baseCurrency, locale: locale)
         List {
             if filter == .all && query.isEmpty && list.openCount > 0 {
                 Section {
@@ -40,13 +42,13 @@ struct AccountsScreen: View {
             ForEach(list.sections) { section in
                 Section {
                     ForEach(section.items) { item in
-                        openRow(item)
+                        openRow(item, widestValue: widest)
                     }
                 } header: {
                     AccountSectionHeader(section: section)
                 }
             }
-            closedSection(list)
+            closedSection(list, widestValue: widest)
         }
         .searchable(text: $query, prompt: "Search accounts")
         .overlay {
@@ -96,10 +98,10 @@ struct AccountsScreen: View {
         .accessibilityElement(children: .combine)
     }
 
-    private func openRow(_ item: AccountListItem) -> some View {
+    private func openRow(_ item: AccountListItem, widestValue: Decimal?) -> some View {
         let id = item.account.id
         return NavigationLink(value: id) {
-            AccountListRow(item: item)
+            AccountListRow(item: item, widestValue: widestValue)
         }
         .swipeActions(edge: .trailing, allowsFullSwipe: false) {
             if item.account.recordsTrades {
@@ -150,10 +152,10 @@ struct AccountsScreen: View {
         }
     }
 
-    private func closedRow(_ item: AccountListItem) -> some View {
+    private func closedRow(_ item: AccountListItem, widestValue: Decimal?) -> some View {
         let id = item.account.id
         return NavigationLink(value: id) {
-            AccountListRow(item: item)
+            AccountListRow(item: item, widestValue: widestValue)
         }
         .swipeActions(edge: .trailing, allowsFullSwipe: false) {
             Button {
@@ -173,12 +175,12 @@ struct AccountsScreen: View {
     }
 
     @ViewBuilder
-    private func closedSection(_ list: AccountList) -> some View {
+    private func closedSection(_ list: AccountList, widestValue: Decimal?) -> some View {
         if !list.closed.isEmpty {
             if filter == .closed {
                 Section {
                     ForEach(list.closed) { item in
-                        closedRow(item)
+                        closedRow(item, widestValue: widestValue)
                     }
                 }
             } else {
@@ -205,7 +207,7 @@ struct AccountsScreen: View {
                     .accessibilityValue(isExpanded ? "Expanded" : "Collapsed")
                     if isExpanded {
                         ForEach(list.closed) { item in
-                            closedRow(item)
+                            closedRow(item, widestValue: widestValue)
                         }
                     }
                 }
@@ -279,6 +281,9 @@ private struct AccountSectionHeader: View {
 /// a "Stale" badge, a 12-month sparkline and the value.
 struct AccountListRow: View {
     let item: AccountListItem
+    /// The list's widest value: the amount reserves its width, so amounts
+    /// and sparklines line up from row to row.
+    var widestValue: Decimal?
 
     var body: some View {
         HStack(spacing: Metrics.m) {
@@ -305,8 +310,15 @@ struct AccountListRow: View {
             .layoutPriority(1)
             Spacer(minLength: Metrics.s)
             Sparkline(points: item.sparkline)
-            AmountText(item.value)
-                .foregroundStyle(Palette.ink)
+            ZStack(alignment: .trailing) {
+                if let widestValue {
+                    AmountText(widestValue)
+                        .hidden()
+                        .accessibilityHidden(true)
+                }
+                AmountText(item.value)
+                    .foregroundStyle(Palette.ink)
+            }
         }
         .accessibilityElement(children: .combine)
     }

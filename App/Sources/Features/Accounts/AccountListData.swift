@@ -72,6 +72,17 @@ struct AccountList: Hashable, Sendable {
     var netWorth: Decimal
 
     /// How many open accounts are shown.
+    /// The value whose text is widest among the rows (open and closed), in
+    /// the base currency. Each row reserves this width for its amount, so the
+    /// amounts line up on the right and the sparklines in a column beside them.
+    func widestValue(currency: CurrencyCode, locale: Locale = .current) -> Decimal? {
+        let values = sections.flatMap(\.items).map(\.value) + closed.map(\.value)
+        return values.max { lhs, rhs in
+            AmountFormat.amount(lhs, currency: currency, locale: locale).count
+                < AmountFormat.amount(rhs, currency: currency, locale: locale).count
+        }
+    }
+
     var openCount: Int {
         sections.reduce(0) { $0 + $1.items.count }
     }
