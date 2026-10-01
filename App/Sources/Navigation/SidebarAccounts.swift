@@ -32,7 +32,8 @@ enum SidebarAccountFolder: Hashable, Sendable {
 /// What the sidebar's Accounts section lists under *All accounts*: a folder
 /// per group that has open accounts, in display order, with its subtotal,
 /// then *Closed (n)*. The rows, values, subtotals and staleness are the
-/// Accounts list's (``AccountList``), so the two always agree.
+/// Accounts list's (``AccountList``), so the two always agree: an account
+/// that holds nothing gets no clock (``AccountStaleness``).
 struct SidebarAccounts: Hashable, Sendable {
     /// Open accounts by group, in display order; only groups that have some.
     var groups: [AccountListSection]

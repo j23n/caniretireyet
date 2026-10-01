@@ -127,6 +127,13 @@ struct AccountDetailScreen: View {
                     OldPriceNoteView(text: note) { fillsPastPrices = true }
                 }
             }
+            if let since = data.emptySince {
+                Section {
+                    emptyAccountBanner(since)
+                        .listRowInsets(EdgeInsets(top: 0, leading: 0, bottom: 0, trailing: 0))
+                        .listRowBackground(Color.clear)
+                }
+            }
             if !data.tradeIssues.isEmpty {
                 Section {
                     TradeIssueBanners(notes: data.tradeIssues) { perform($0) }
@@ -255,6 +262,9 @@ struct AccountDetailScreen: View {
         return ScrollView {
             VStack(alignment: .leading, spacing: Metrics.l) {
                 AccountDetailHeader(data: data)
+                if let since = data.emptySince {
+                    emptyAccountBanner(since)
+                }
                 Card {
                     AccountHistoryChart(points: data.history, flows: data.flows, currency: currency, height: 240)
                     if let note = missingValueNote(data) {
@@ -471,6 +481,16 @@ struct AccountDetailScreen: View {
     }
 
     // MARK: Shared
+
+    /// An open account that's held nothing for a while: offered to be
+    /// closed on the day it emptied, instead of being called stale.
+    private func emptyAccountBanner(_ since: CalendarDate) -> some View {
+        StatusBanner(
+            .info, "This account has been empty since \(AmountFormat.mediumDate(since, locale: locale)). Close it?",
+            message: "Closing keeps its history: it stays in every chart up to that day, and leaves check-ins.",
+            actionTitle: library.canEdit ? "Close Account…" : nil,
+            action: { action = AccountAction(.close, accountID, date: since) })
+    }
 
     @ViewBuilder
     private func lifecycleButtons(_ data: AccountDetailData) -> some View {

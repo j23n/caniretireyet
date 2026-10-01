@@ -325,12 +325,14 @@ struct CloseAccountSheet: View {
     @Environment(LibraryStore.self) private var library
     @Environment(\.dismiss) private var dismiss
 
-    @State private var date = Date()
+    @State private var date: Date
     @State private var successor: AccountID?
     @State private var errorMessage: String?
 
-    init(accountID: AccountID) {
+    /// Starts on `date` (e.g. the day an empty account emptied), or today.
+    init(accountID: AccountID, date: CalendarDate? = nil) {
         self.accountID = accountID
+        _date = State(initialValue: date?.dateValue ?? Date())
     }
 
     var body: some View {

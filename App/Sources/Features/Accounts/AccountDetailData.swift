@@ -123,8 +123,13 @@ struct AccountDetailData: Hashable, Sendable {
     var cash: Decimal?
     /// Every valuation, newest first.
     var valuations: [AccountValuationRow]
-    /// Set when the latest value is too old.
+    /// Set when the latest value is too old, unless the account is empty
+    /// (``AccountStaleness``).
     var stale: StaleAccount?
+    /// The day an open account has held nothing since, when that's longer
+    /// ago than the staleness threshold: the detail suggests closing it on
+    /// that day ("This account has been empty since 1 Jan 2022. Close it?").
+    var emptySince: CalendarDate?
     /// The chart's values that use a price more than 31 days older than
     /// their date, for a note under the chart; `nil` when there are none.
     var oldPrices: OldPriceSummary?
@@ -253,7 +258,9 @@ struct AccountDetailData: Hashable, Sendable {
                 amount: valuator.amountInAccountCurrency(of: valuation, on: valuation.date),
                 value: valuator.value(of: valuation, on: valuation.date)?.knownValue ?? 0)
         }
-        stale = account.isClosed ? nil : valuator.staleness(of: account.id, on: today, threshold: stalenessThreshold)
+        stale = account.isClosed
+            ? nil : AccountStaleness.stale(account.id, valuator: valuator, on: today, threshold: stalenessThreshold)
+        emptySince = AccountStaleness.emptySince(account, valuator: valuator, on: today, threshold: stalenessThreshold)
     }
 }
 

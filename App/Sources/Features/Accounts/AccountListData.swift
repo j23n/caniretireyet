@@ -27,7 +27,8 @@ struct AccountListItem: Hashable, Sendable, Identifiable {
     var value: Decimal
     /// Whether the value is fully known (no missing price or rate).
     var isComplete: Bool
-    /// Set when the latest value is too old (open accounts only).
+    /// Set when the latest value is too old (open accounts that hold
+    /// something only: ``AccountStaleness``).
     var stale: StaleAccount?
     /// The last 12 months in the account's own currency (no exchange rate
     /// needed), for the sparkline; values that can't be worked out are
@@ -45,7 +46,8 @@ struct AccountListItem: Hashable, Sendable, Identifiable {
         let value = valuator.value(of: account.id, on: date)
         self.value = value?.knownValue ?? 0
         isComplete = value?.isComplete ?? true
-        stale = stalenessThreshold.flatMap { valuator.staleness(of: account.id, on: date, threshold: $0) }
+        stale = stalenessThreshold.flatMap { AccountStaleness.stale(account.id, valuator: valuator, on: date,
+                                                                    threshold: $0) }
         let yearAgo = date.adding(months: -12)
         // A trades account's history starts with its first valuation or trade.
         let first = valuator.firstRecordDate(of: account.id)
@@ -55,6 +57,33 @@ struct AccountListItem: Hashable, Sendable, Identifiable {
         } else {
             sparkline = []
         }
+    }
+}
+
+/// When an open account asks for a new value (UI.md, "Accounts"): it's
+/// stale when its latest value is older than the threshold, unless it holds
+/// nothing (a zero balance, or no cash and no quantity). An empty account
+/// has nothing to check in, so it isn't marked stale anywhere (the list,
+/// the sidebar, the detail, *Needs attention*); once it's been empty for
+/// longer than the threshold, its detail suggests closing it instead.
+enum AccountStaleness {
+    /// `account`'s staleness on `date`, or `nil` when it's up to date, not
+    /// open, or empty.
+    static func stale(_ account: AccountID, valuator: Valuator, on date: CalendarDate,
+                      threshold: Int) -> StaleAccount? {
+        guard let stale = valuator.staleness(of: account, on: date, threshold: threshold) else { return nil }
+        return valuator.emptySince(of: account, on: date) == nil ? stale : nil
+    }
+
+    /// The day an open account has held nothing since, when that's more
+    /// than `threshold` days before `date`: the detail offers to close it
+    /// on that day. `nil` for a closed account, or one that holds something.
+    static func emptySince(_ account: Account, valuator: Valuator, on date: CalendarDate,
+                           threshold: Int) -> CalendarDate? {
+        guard !account.isClosed, let since = valuator.emptySince(of: account.id, on: date),
+              since.days(to: date) > threshold
+        else { return nil }
+        return since
     }
 }
 

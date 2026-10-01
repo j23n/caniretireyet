@@ -255,7 +255,9 @@ enum OverviewAttention {
 
         var items: [OverviewAttentionItem] = []
 
-        for stale in valuator.staleAccounts(on: today, threshold: stalenessThreshold, in: .netWorth) {
+        // An account that holds nothing has nothing to check in (AccountStaleness).
+        for stale in valuator.staleAccounts(on: today, threshold: stalenessThreshold, in: .netWorth)
+        where valuator.emptySince(of: stale.account, on: today) == nil {
             let name = accountName(stale.account)
             if let last = stale.lastValuation {
                 items.append(OverviewAttentionItem(
