@@ -223,6 +223,7 @@ private struct OverviewHistorySection: View {
             }
             NetWorthChart(history: history.points, stacked: history.stacked, projection: history.projection,
                           markers: history.markers)
+                .environment(\.chartSurface, Palette.page)
             if future {
                 ChartCaption(text: futureCaption, detail: futureDetail)
             } else if chartScope == .planAssets {
@@ -337,6 +338,16 @@ private struct OverviewHistorySection: View {
             .appDestinations()
     }
     .previewEnvironment(PreviewLibrary.withForeignAccount)
+}
+
+#Preview("Problems with trades") {
+    // Directa's statement differs from its trades, and a buy has no price: one Needs attention item.
+    NavigationStack {
+        OverviewScreen()
+            .overviewToolbar()
+            .appDestinations()
+    }
+    .previewEnvironment(PreviewLibrary.withStatementMismatch)
 }
 
 #Preview("Hidden amounts") {

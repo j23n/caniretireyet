@@ -9,6 +9,11 @@ extension EnvironmentValues {
     /// Whether amounts are hidden (the eye button, ⌘⇧H). Set by the root
     /// view from `PrivacySettings`; `AmountText` reads it.
     @Entry var hidesAmounts: Bool = false
+
+    /// The surface a chart sits on, in which it draws the gaps between its
+    /// stacked areas: a card's by default. A chart placed straight on the
+    /// page (the Overview's history) sets `Palette.page`.
+    @Entry var chartSurface: Color = Palette.card
 }
 
 extension View {

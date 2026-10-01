@@ -7,8 +7,9 @@ import Tracker
 // bottom cover Tracker's), so a chart can be previewed with made-up numbers.
 
 /// A colour role from the design system, resolved to a `Color` by
-/// `Palette.color(for:)`. Kept free of SwiftUI so chart data can be built
-/// anywhere.
+/// `Palette.color(for:)` for washes and fills, and `Palette.stroke(for:)`
+/// for lines and small marks. Kept free of SwiftUI so chart data can be
+/// built anywhere.
 enum ChartColor: Hashable, Sendable {
     /// An asset class's fixed colour (UI.md, "Colour in charts").
     case assetClass(AssetClass)

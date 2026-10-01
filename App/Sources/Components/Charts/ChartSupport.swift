@@ -279,17 +279,17 @@ struct ChartLegendLabel: View {
                 path.move(to: CGPoint(x: 0, y: 5))
                 path.addLine(to: CGPoint(x: 14, y: 5))
             }
-            .stroke(Palette.color(for: color),
+            .stroke(Palette.stroke(for: color),
                     style: StrokeStyle(lineWidth: 2, lineCap: .round, dash: dashed ? [3, 2] : []))
         case .area(let color):
             RoundedRectangle(cornerRadius: 2, style: .continuous)
-                .fill(Palette.color(for: color))
+                .fill(Palette.stroke(for: color))
         case .wash(let color):
             ZStack(alignment: .top) {
                 Rectangle()
                     .fill(Palette.color(for: color).opacity(IncomeChartData.fillOpacity))
                 Rectangle()
-                    .fill(Palette.color(for: color))
+                    .fill(Palette.stroke(for: color))
                     .frame(height: 2)
             }
         case .band(let opacity):

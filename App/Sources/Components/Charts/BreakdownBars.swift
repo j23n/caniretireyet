@@ -68,7 +68,7 @@ struct BreakdownBars: View {
         let fraction = largest > 0 ? abs(row.value.doubleValue) / largest : 0
         return GeometryReader { proxy in
             Capsule()
-                .fill(Palette.color(for: row.color))
+                .fill(Palette.stroke(for: row.color))
                 .frame(width: max(4, proxy.size.width * fraction))
         }
         .frame(height: 10)

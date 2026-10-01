@@ -9,8 +9,9 @@ import SwiftUI
 /// - Stacked areas with a flat step per year (``IncomeChartData``): fifty
 ///   years read as one shape instead of fifty thin bars, each year still
 ///   reads as one value, and a pension's first year is a visible step.
-///   Each source is a wash of its colour, with a 2-point line in the colour
-///   along its top edge: no saturated blocks, and the lines keep
+///   Each source is a wash of its colour, with a 2-point line in its line
+///   step (`Palette.stroke(for:)`) along its top edge and a 2-point surface
+///   gap above the line: no saturated blocks, and the lines and gaps keep
 ///   neighbouring sources apart.
 /// - Sources keep their colour across years (`IncomeSegment.color`, a
 ///   categorical slot in the order they stack) and a legend in its own row
@@ -36,6 +37,7 @@ struct IncomeStackChart: View {
     @Environment(\.hidesAmounts) private var hidesAmounts
     @Environment(\.baseCurrency) private var baseCurrency
     @Environment(\.locale) private var locale
+    @Environment(\.chartSurface) private var surface
 
     /// The spending line's label at its end.
     static let spendingLabel = "Spending"
@@ -73,6 +75,8 @@ struct IncomeStackChart: View {
 
     private func chart(_ data: IncomeChartData) -> some View {
         Chart {
+            // Every wash, then the surface gaps above the lines, then the
+            // lines, so no wash or gap covers a line.
             ForEach(data.sources) { source in
                 ForEach(data.bands.filter { $0.source == source.name }) { point in
                     AreaMark(x: .value("Year", point.x), yStart: .value("From", point.low),
@@ -80,10 +84,20 @@ struct IncomeStackChart: View {
                         .foregroundStyle(Palette.color(for: source.color).opacity(IncomeChartData.fillOpacity))
                         .interpolationMethod(.linear)
                 }
+            }
+            ForEach(data.edges) { point in
+                LineMark(x: .value("Year", point.x), y: .value("Top", point.y),
+                         series: .value("Gap", "Gap \(point.series)"))
+                    .foregroundStyle(surface)
+                    .lineStyle(StrokeStyle(lineWidth: StackedAreaData.gapWidth, lineJoin: .round))
+                    .offset(x: 0, y: -StackedAreaData.gapOffset)
+                    .interpolationMethod(.linear)
+            }
+            ForEach(data.sources) { source in
                 ForEach(data.edges.filter { $0.source == source.name }) { point in
                     LineMark(x: .value("Year", point.x), y: .value("Top", point.y),
                              series: .value("Edge", "Edge \(point.series)"))
-                        .foregroundStyle(Palette.color(for: source.color))
+                        .foregroundStyle(Palette.stroke(for: source.color))
                         .lineStyle(StrokeStyle(lineWidth: Metrics.lineWidth, lineJoin: .round))
                         .interpolationMethod(.linear)
                 }
@@ -137,7 +151,7 @@ struct IncomeStackChart: View {
                 if let amount = data.amounts[year]?[source.name], amount > 0.5 {
                     HStack(spacing: 4) {
                         RoundedRectangle(cornerRadius: 1)
-                            .fill(Palette.color(for: source.color))
+                            .fill(Palette.stroke(for: source.color))
                             .frame(width: 8, height: 8)
                         Text(source.name).font(.caption2)
                         Spacer(minLength: 4)

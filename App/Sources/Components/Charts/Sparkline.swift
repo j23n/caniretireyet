@@ -23,7 +23,7 @@ struct Sparkline: View {
         if points.count < 2 {
             Color.clear
         } else {
-            SparklineChart(points: points, color: Palette.color(for: color))
+            SparklineChart(points: points, color: Palette.stroke(for: color))
         }
     }
 
