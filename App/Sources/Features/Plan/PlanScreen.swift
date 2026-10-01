@@ -172,7 +172,8 @@ struct PlanContentView: View {
             .focusedSceneValue(\.planActions, PlanCommandActions(
                 saveBaseline: { startSavingBaseline() },
                 duplicate: { duplicate() },
-                compare: { isComparing = true }))
+                compare: { isComparing = true },
+                recalculate: { session.calculate() }))
             .onDisappear { session.saveNow() }
     }
 
