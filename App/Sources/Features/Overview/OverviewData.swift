@@ -124,6 +124,9 @@ struct OverviewHistory: Hashable, Sendable {
     /// The history's values that use a price more than 31 days older than
     /// their date, for a note under the chart; `nil` when there are none.
     var oldPrices: OldPriceSummary?
+    /// What the history's partial totals (drawn dashed) are missing: prices,
+    /// rates, accounts without a value yet; `nil` when it's complete.
+    var missing: MissingValues?
 
     /// - Parameters:
     ///   - projection: the main plan's portfolio fan, starting at `end`.
@@ -139,6 +142,7 @@ struct OverviewHistory: Hashable, Sendable {
             .chartPoints
         let dates = valuator.dates(.monthEnds, in: scope, through: end).filter { date in start.map { date >= $0 } ?? true }
         oldPrices = OldPriceSummary(valuator.oldPrices(in: scope, on: dates))
+        missing = points.hasIncompletePoints ? valuator.missingValues(in: scope, on: dates) : nil
         let startDate = start?.dateValue
         if stacked {
             self.stacked = valuator.breakdownSeries(by: .assetClass, in: scope, through: end).chartSeries
@@ -235,6 +239,8 @@ struct OverviewAttentionItem: Hashable, Sendable, Identifiable {
         case instrument(InstrumentID)
         case checkIn
         case plan
+        /// *Fill In Past Prices* (Instruments), for past prices and rates.
+        case fillPastPrices
     }
 
     var id: String
@@ -245,8 +251,10 @@ struct OverviewAttentionItem: Hashable, Sendable, Identifiable {
 }
 
 /// Finds what needs attention in the library's data: stale accounts,
-/// missing and outdated prices, missing exchange rates. The screen adds the
-/// library's own state (sync conflicts, save errors) and plan warnings.
+/// missing and outdated prices, missing exchange rates, and past prices and
+/// rates the net-worth history is missing (with *Fill In Past Prices*).
+/// The screen adds the library's own state (sync conflicts, save errors)
+/// and plan warnings.
 enum OverviewAttention {
     static func items(library: Library, valuator: Valuator, asOf: CalendarDate, today: CalendarDate,
                       stalenessThreshold: Int, locale: Locale = .current) -> [OverviewAttentionItem] {
@@ -312,7 +320,39 @@ enum OverviewAttention {
                 detail: "Older than the account's latest value. Fetch or type in a price at your next check-in.",
                 target: .instrument(instrument)))
         }
+        items += pastGaps(library: library, valuator: valuator, asOf: asOf, locale: locale)
         return items
+    }
+
+    /// Prices and exchange rates missing on month ends before `asOf`, which
+    /// leave accounts out of the net-worth history: one item each, with
+    /// *Fill In Past Prices*. (The latest check-in's own gaps are the items
+    /// above, typed in at the next check-in.)
+    static func pastGaps(library: Library, valuator: Valuator, asOf: CalendarDate,
+                         locale: Locale = .current) -> [OverviewAttentionItem] {
+        let dates = valuator.dates(.monthEnds, in: .netWorth, through: asOf).filter { $0 < asOf }
+        guard let missing = valuator.missingValues(in: .netWorth, on: dates)?.filter({ $0.item.isPriceOrRate })
+        else { return [] }
+        return missing.gaps.compactMap { gap -> OverviewAttentionItem? in
+            let names = list(gap.accounts.map { library.accounts[$0]?.name ?? $0.rawValue })
+            let counted = "\(names) \(gap.accounts.count == 1 ? "isn't" : "aren't") fully counted in your net worth "
+                + MissingValueNote.when(gap.dates, locale: locale)
+            switch gap.item {
+            case .rate(let from, let to):
+                return OverviewAttentionItem(
+                    id: "past.fx.\(from)-\(to)", systemImage: "arrow.left.arrow.right",
+                    title: "Past exchange rates for \(AmountFormat.symbol(for: from, locale: locale)) are missing",
+                    detail: counted + ". Fill in past prices to fetch them.", target: .fillPastPrices)
+            case .price(let instrument):
+                return OverviewAttentionItem(
+                    id: "past.price.\(instrument)", systemImage: "tag.slash",
+                    title: "Past prices for \(library.instruments[instrument]?.name ?? instrument.rawValue) are missing",
+                    detail: counted + ". Fill in past prices to fetch them, or type them in.",
+                    target: .fillPastPrices)
+            case .noValuation:
+                return nil
+            }
+        }
     }
 
     /// Instruments held in accounts open on `asOf` whose latest price is

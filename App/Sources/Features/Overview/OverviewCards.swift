@@ -214,8 +214,10 @@ struct OverviewAnswerCard: View {
 // MARK: - Needs attention
 
 /// Only shown when something needs you: stale accounts, prices that are
-/// missing or couldn't be fetched, the library's own state (merged sync
-/// conflicts, save errors, unreadable files) and plan warnings.
+/// missing or couldn't be fetched, past prices and exchange rates the
+/// history is missing (opening *Fill In Past Prices*), the library's own
+/// state (merged sync conflicts, save errors, unreadable files) and plan
+/// warnings.
 struct OverviewAttentionCard: View {
     let valuator: Valuator
     let asOf: CalendarDate
@@ -226,6 +228,7 @@ struct OverviewAttentionCard: View {
     @Environment(AppPreferences.self) private var preferences
     @Environment(AppNavigation.self) private var navigation
     @Environment(\.locale) private var locale
+    @State private var fillsPastPrices = false
 
     var body: some View {
         let items = self.items
@@ -241,6 +244,7 @@ struct OverviewAttentionCard: View {
                     }
                 }
             }
+            .pastPricesSheet(isPresented: $fillsPastPrices)
         }
     }
 
@@ -303,6 +307,13 @@ struct OverviewAttentionCard: View {
         case .plan:
             Button {
                 navigation.showPlan()
+            } label: {
+                OverviewAttentionRow(item: item)
+            }
+            .buttonStyle(.plain)
+        case .fillPastPrices:
+            Button {
+                fillsPastPrices = true
             } label: {
                 OverviewAttentionRow(item: item)
             }

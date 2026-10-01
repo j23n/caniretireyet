@@ -243,6 +243,9 @@ private struct OverviewHistorySection: View {
                     .font(.footnote)
                     .foregroundStyle(Palette.secondaryInk)
             }
+            if !isStacked, let missing = history.missing {
+                missingNoteView(missing)
+            }
             if let summary = history.oldPrices {
                 OldPriceNoteView(text: OldPriceNote.text(summary) { valuator.instruments[$0]?.name ?? $0.rawValue }) {
                     fillsPastPrices = true
@@ -250,6 +253,16 @@ private struct OverviewHistorySection: View {
             }
         }
         .pastPricesSheet(isPresented: $fillsPastPrices)
+    }
+
+    /// Partial totals are drawn dashed: what they're missing, with *Fill In
+    /// Past Prices…* when some of it is prices or rates.
+    private func missingNoteView(_ missing: MissingValues) -> some View {
+        let text = MissingValueNote.overview(missing, accountName: { valuator.accounts[$0]?.name ?? $0.rawValue },
+                                             instrumentName: { valuator.instruments[$0]?.name ?? $0.rawValue })
+        let canFill = missing.gaps.contains(where: { $0.item.isPriceOrRate })
+        let fill: (() -> Void)? = canFill ? { fillsPastPrices = true } : nil
+        return OldPriceNoteView(text: text, systemImage: "exclamationmark.triangle", fill: fill)
     }
 
     private var futureCaption: String {

@@ -309,11 +309,12 @@ private struct PastPriceLineRow: View {
 /// The note under a chart whose values use a price more than 31 days older
 /// than their date (``OldPriceNote``), or can't be worked out because a
 /// price or rate is missing (``MissingValueNote``, with a warning
-/// `systemImage`), with *Fill In Past Prices…*.
+/// `systemImage`), with *Fill In Past Prices…* (left out without `fill`,
+/// when there's nothing it could fetch).
 struct OldPriceNoteView: View {
     let text: String
     var systemImage = "clock.badge.exclamationmark"
-    let fill: () -> Void
+    var fill: (() -> Void)?
 
     var body: some View {
         VStack(alignment: .leading, spacing: Metrics.xs) {
@@ -325,9 +326,11 @@ struct OldPriceNoteView: View {
             }
             .font(.footnote)
             .foregroundStyle(Palette.secondaryInk)
-            Button("Fill In Past Prices…", action: fill)
-                .buttonStyle(.borderless)
-                .font(.footnote.weight(.semibold))
+            if let fill {
+                Button("Fill In Past Prices…", action: fill)
+                    .buttonStyle(.borderless)
+                    .font(.footnote.weight(.semibold))
+            }
         }
     }
 }
