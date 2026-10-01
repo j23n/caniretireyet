@@ -504,13 +504,10 @@ enum CheckInWording {
             + (hasLaterAccounts ? " Accounts opened after this date are listed at the end, under Opened later." : "")
     }
 
-    /// What shows while a check-in on `date` saves: "Saving and updating your
-    /// plan…", or just "Saving…" for a past check-in, which runs no plan.
+    /// What shows while a check-in on `date` saves: "Saving…". The plan's
+    /// answer is worked out afterwards, with its progress on the confirmation.
     static func savingMessage(date: CalendarDate?, in library: Library) -> String {
-        guard let date, CheckInStore.laterCheckIn(than: date, in: library) != nil else {
-            return "Saving and updating your plan…"
-        }
-        return "Saving…"
+        "Saving…"
     }
 
     /// The confirmation of a past check-in, in place of the answer: "Saved a
