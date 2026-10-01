@@ -37,6 +37,7 @@ struct IncomeStackChart: View {
     @Environment(\.hidesAmounts) private var hidesAmounts
     @Environment(\.baseCurrency) private var baseCurrency
     @Environment(\.locale) private var locale
+    @Environment(\.chartSurface) private var surface
 
     /// The spending line's label at its end.
     static let spendingLabel = "Spending"
@@ -87,7 +88,7 @@ struct IncomeStackChart: View {
             ForEach(data.edges) { point in
                 LineMark(x: .value("Year", point.x), y: .value("Top", point.y),
                          series: .value("Gap", "Gap \(point.series)"))
-                    .foregroundStyle(Palette.card)
+                    .foregroundStyle(surface)
                     .lineStyle(StrokeStyle(lineWidth: StackedAreaData.gapWidth, lineJoin: .round))
                     .offset(x: 0, y: -StackedAreaData.gapOffset)
                     .interpolationMethod(.linear)

@@ -223,6 +223,7 @@ private struct OverviewHistorySection: View {
             }
             NetWorthChart(history: history.points, stacked: history.stacked, projection: history.projection,
                           markers: history.markers)
+                .environment(\.chartSurface, Palette.page)
             if future {
                 ChartCaption(text: futureCaption, detail: futureDetail)
             } else if chartScope == .planAssets {

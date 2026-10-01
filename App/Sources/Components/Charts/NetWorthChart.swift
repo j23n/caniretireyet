@@ -44,6 +44,7 @@ struct NetWorthChart: View {
     @State private var width: CGFloat = ChartStyle.defaultWidth
     @Environment(\.hidesAmounts) private var hidesAmounts
     @Environment(\.baseCurrency) private var baseCurrency
+    @Environment(\.chartSurface) private var surface
 
     /// Everything placed for the chart's width and height.
     private struct Layout {
@@ -192,7 +193,8 @@ struct NetWorthChart: View {
     }
 
     /// Stacked areas (``StackedAreaData``): every band's wash, then the
-    /// surface gaps, then the lines on top, so no wash or gap covers a line.
+    /// gaps in the surface the chart sits on (`\.chartSurface`), then the
+    /// lines on top, so no wash or gap covers a line.
     @ChartContentBuilder
     private func stackedAreas(_ stack: StackedAreaData) -> some ChartContent {
         ForEach(stack.series) { series in
@@ -206,14 +208,14 @@ struct NetWorthChart: View {
         ForEach(stack.edges) { point in
             LineMark(x: .value("Date", point.date), y: .value("Edge", point.y),
                      series: .value("Gap", "Gap \(point.line)"))
-                .foregroundStyle(Palette.card)
+                .foregroundStyle(surface)
                 .lineStyle(StrokeStyle(lineWidth: StackedAreaData.gapWidth, lineJoin: .round))
                 .offset(x: 0, y: point.isBelowZero ? StackedAreaData.gapOffset : -StackedAreaData.gapOffset)
                 .interpolationMethod(.linear)
         }
         ForEach(stack.zeroGap) { point in
             LineMark(x: .value("Date", point.date), y: .value("Zero", 0.0), series: .value("Gap", point.line))
-                .foregroundStyle(Palette.card)
+                .foregroundStyle(surface)
                 .lineStyle(StrokeStyle(lineWidth: StackedAreaData.gapWidth))
         }
         ForEach(stack.series) { series in
