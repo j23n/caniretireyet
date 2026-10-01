@@ -339,6 +339,16 @@ private struct OverviewHistorySection: View {
     .previewEnvironment(PreviewLibrary.withForeignAccount)
 }
 
+#Preview("Problems with trades") {
+    // Directa's statement differs from its trades, and a buy has no price: one Needs attention item.
+    NavigationStack {
+        OverviewScreen()
+            .overviewToolbar()
+            .appDestinations()
+    }
+    .previewEnvironment(PreviewLibrary.withStatementMismatch)
+}
+
 #Preview("Hidden amounts") {
     NavigationStack {
         OverviewScreen()

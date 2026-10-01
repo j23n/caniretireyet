@@ -239,10 +239,10 @@ struct OverviewAttentionItem: Hashable, Sendable, Identifiable {
 }
 
 /// Finds what needs attention in the library's data: stale accounts,
-/// missing and outdated prices, missing exchange rates, and past prices and
-/// rates the net-worth history is missing (with *Fill In Past Prices*).
-/// The screen adds the library's own state (sync conflicts, save errors)
-/// and plan warnings.
+/// accounts with problems in their trades, missing and outdated prices,
+/// missing exchange rates, and past prices and rates the net-worth history
+/// is missing (with *Fill In Past Prices*). The screen adds the library's
+/// own state (sync conflicts, save errors) and plan warnings.
 enum OverviewAttention {
     static func items(library: Library, valuator: Valuator, asOf: CalendarDate, today: CalendarDate,
                       stalenessThreshold: Int, locale: Locale = .current) -> [OverviewAttentionItem] {
@@ -267,6 +267,7 @@ enum OverviewAttention {
                     target: .account(stale.account)))
             }
         }
+        items += tradeProblems(library: library, valuator: valuator, locale: locale)
 
         var missingPrices: [InstrumentID: [AccountID]] = [:]
         var missingRates: [String: (from: CurrencyCode, to: CurrencyCode, accounts: [AccountID])] = [:]
@@ -310,6 +311,33 @@ enum OverviewAttention {
         }
         items += pastGaps(library: library, valuator: valuator, asOf: asOf, locale: locale)
         return items
+    }
+
+    /// An item per account whose trades have problems, opening the account:
+    /// "Directa: 2 problems with trades", then "More sold than held · VWCE
+    /// differs from the statement. Open the account to fix them." The
+    /// problems are the ones the account's page lists
+    /// (``TradeIssueNote/notes(for:library:valuator:locale:)``): more sold
+    /// than held, an opening without a cost, a statement that differs from
+    /// the trades, and the rest. Sorted by account name.
+    static func tradeProblems(library: Library, valuator: Valuator,
+                              locale: Locale = .current) -> [OverviewAttentionItem] {
+        let affected = Set(valuator.tradeIssues().map(\.account)).compactMap { library.accounts[$0] }
+        return affected.sorted { ($0.name, $0.id.rawValue) < ($1.name, $1.id.rawValue) }.compactMap { account in
+            let notes = TradeIssueNote.notes(for: account.id, library: library, valuator: valuator, locale: locale)
+            guard !notes.isEmpty else { return nil }
+            var kinds: [String] = []
+            for note in notes where !kinds.contains(note.title) {
+                kinds.append(note.title)
+            }
+            let shown = kinds.prefix(2).joined(separator: " · ")
+            let more = kinds.count > 2 ? " · \(kinds.count - 2) more" : ""
+            return OverviewAttentionItem(
+                id: "trades.\(account.id)", systemImage: "exclamationmark.triangle",
+                title: "\(account.name): \(notes.count == 1 ? "1 problem" : "\(notes.count) problems") with trades",
+                detail: "\(shown)\(more). Open the account to fix \(notes.count == 1 ? "it" : "them").",
+                target: .account(account.id))
+        }
     }
 
     /// Prices and exchange rates missing on month ends before `asOf`, which

@@ -207,11 +207,11 @@ struct OverviewAnswerCard: View {
 
 // MARK: - Needs attention
 
-/// Only shown when something needs you: stale accounts, prices that are
-/// missing or couldn't be fetched, past prices and exchange rates the
-/// history is missing (opening *Fill In Past Prices*), the library's own
-/// state (merged sync conflicts, save errors, unreadable files) and plan
-/// warnings.
+/// Only shown when something needs you: stale accounts, accounts with
+/// problems in their trades (opening the account), prices that are missing
+/// or couldn't be fetched, past prices and exchange rates the history is
+/// missing (opening *Fill In Past Prices*), the library's own state (merged
+/// sync conflicts, save errors, unreadable files) and plan warnings.
 struct OverviewAttentionCard: View {
     let valuator: Valuator
     let asOf: CalendarDate
