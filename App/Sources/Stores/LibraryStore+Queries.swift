@@ -32,9 +32,13 @@ extension LibraryStore {
     /// before the second check-in.
     var changeSinceLastCheckIn: ChangeReport? { valuator.changeSinceLastCheckIn(asOf: asOfDate) }
 
-    /// The accounts whose latest value is older than `threshold` days, as of today.
+    /// The accounts whose latest value is older than `threshold` days, as of
+    /// today. An account that holds nothing has nothing to check in, so it's
+    /// never stale (``AccountStaleness``).
     func staleAccounts(threshold: Int = Valuator.defaultStalenessThreshold) -> [StaleAccount] {
-        valuator.staleAccounts(on: .today(), threshold: threshold, in: .netWorth)
+        let today = CalendarDate.today()
+        return valuator.staleAccounts(on: today, threshold: threshold, in: .netWorth)
+            .filter { valuator.emptySince(of: $0.account, on: today) == nil }
     }
 
     // MARK: Accounts
