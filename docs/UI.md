@@ -85,6 +85,7 @@ Library
 
 - **Drag and drop:** dropping a CSV, or ledger journals, anywhere on the window starts an import.
 - **Windows:** plan comparison and import can open in their own windows.
+- **Window size (Mac):** the window opens at 1200 × 800 and can be made as small as 900 × 600. Every page scrolls, with what's pinned to it (the plan's What-if, the import's column settings) scrolling too when there's no room, so no page makes the window taller than the screen.
 
 ## Overview
 
@@ -350,7 +351,7 @@ A brokerage, crypto or metals account can record its **trades** instead of month
 ```
 
 - **Holdings**: per instrument, the quantity, average cost (*costo medio*: what was paid per unit, fees included), value, unrealised gain (amount and %) and its share of the account; then the cash and the total. On the Mac, a grid with those columns.
-- **Trades**: grouped by month, newest first; each row shows the type's icon, what it was ("Buy · 10 VWCE × 134,75", with the price's currency when it isn't the account's), the date and note, and the cash it moved, with a sale's realised gain. A trade paid from outside the account shows what was paid or received, marked "paid from outside" (a sale: "proceeds paid out"); on the Mac the mark leads its note. *Filter* shows one instrument or one type. Tap a trade to edit it; swipe or long-press to delete it (the confirmation says what deleting brings in, e.g. a later sale now selling more than is held). On the Mac, a Table (date, type, instrument, quantity, price, amount, note): double-click edits, right-click edits or deletes.
+- **Trades**: grouped by month, newest first; each row shows the type's icon, what it was ("Buy · 10 VWCE × 134,75", with the price's currency when it isn't the account's), the date and note, and the cash it moved, with a sale's realised gain. A trade paid from outside the account shows what was paid or received, marked "paid from outside" (a sale: "proceeds paid out"); on the Mac the mark leads its note. *Filter* shows one instrument or one type. Tap a trade to edit it; swipe or long-press to delete it (the confirmation says what deleting brings in, e.g. a later sale now selling more than is held). On the Mac, a table (date, type, instrument, quantity, price, amount, note) as long as its trades, which scrolls with the page: double-click edits, right-click edits or deletes.
 - **Income & gains**, by year: realised gains, dividends, interest, fees and taxes, and the net; a sale whose cost is unknown is left out and said so. In the account's currency.
 - **What needs a look**, as banners with the fix: a trade missing a price or amount, a sale of more than was held, an opening without cost, a missing exchange rate, a trade outside the account's dates, a value with a balance (which isn't used), and a statement that differs from the trades ("The statement on 30 Jun shows 12 VWCE; your trades give 10. Add the missing trade."). Each banner's button opens the trade, a new trade on the statement's date, or the value.
 - **Cash at check-ins**: the account's values, which record its cash. The history chart, the header's change and the new-money ticks come from the Valuator (deposits and transfers on their own dates).
@@ -665,6 +666,7 @@ All widgets hide amounts when the device is locked.
 
   An import in progress belongs to the Import screen.
 - **Navigation.** One root view chooses between `TabView` (compact width) and `NavigationSplitView` (regular width and Mac). The screens themselves don't know which one they're in.
+- **Mac layouts.** A Mac window can't be smaller than the minimum size of its content, so every page's content scrolls, and what's pinned to a page scrolls when there's no room (`OverflowScrollView`). Tables on a scrolling page are as tall as their rows (`PageTable`), so the page scrolls them; a `Table` is used only as a whole page (Instruments, the import's columns). [App/README.md](../App/README.md#design-system) has the details.
 - **Folders.** `App/Sources/` holds `App`, `Stores`, `Navigation`, `DesignSystem` (colours, number formats, spacing, amount text, cards), `Components/Charts`, `Features/<Feature>` (Overview, Accounts, CheckIn, Plan, Import, Settings, Onboarding, Library) and `Preview`. [App/README.md](../App/README.md) describes them and the stores' APIs.
 - **Chart components**, reused everywhere: `NetWorthChart`, `FanChart`, `SuccessCurveChart`, `IncomeStackChart`, `WaterfallChart`, `BreakdownBars`, `Sparkline`.
 - **Previews.** Every screen has SwiftUI previews built from a made-up library in code, with the same numbers as the example library in the tests.
