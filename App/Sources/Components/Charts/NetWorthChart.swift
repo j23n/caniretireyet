@@ -9,7 +9,10 @@ import Tracker
 ///   partial (a price or exchange rate missing: `isComplete == false`) the
 ///   line is dashed and grey, and the callout says so. With `stacked`
 ///   series (e.g. by asset class) it draws stacked areas instead, debts
-///   below the zero line, with a legend in its own row above.
+///   below the zero line, with a legend in its own row above: each a wash
+///   of its colour with a 2-point line in its line step along its outer
+///   edge, and a 2-point surface gap between neighbours
+///   (``StackedAreaData``), like the retirement income chart.
 /// - The value axis always includes zero, with distinct round ticks
 ///   (``AmountScale``), even for flat or near-zero data. While amounts are
 ///   hidden it reads in multiples of today's value (`1×`, `2×`).
@@ -51,6 +54,8 @@ struct NetWorthChart: View {
         var clipsBand: Bool
         /// The projection with its bands cut at the chart's edges.
         var projection: [FanPoint]
+        /// The stacked areas; `nil` without `stacked` series.
+        var stack: StackedAreaData?
     }
 
     var body: some View {
@@ -73,7 +78,7 @@ struct NetWorthChart: View {
         if !projection.isEmpty {
             ProjectionLegend(showsActual: !history.isEmpty, dashedMedian: true, clipsBand: layout.clipsBand)
         } else if !stacked.isEmpty {
-            ChartLegendRow(items: stacked.map { ChartLegendItem(name: $0.name, swatch: .area($0.color)) })
+            ChartLegendRow(items: stacked.map { ChartLegendItem(name: $0.name, swatch: .wash($0.color)) })
         }
     }
 
@@ -87,15 +92,17 @@ struct NetWorthChart: View {
         let markerLayout = MarkerLabelLayout(markers: markers, domain: domain, plotWidth: plotWidth)
         let values = history.map(\.value) + stacked.stackedExtents
         let ticks = TimeTicks(domain: domain, plotWidth: plotWidth)
+        let stack = stacked.isEmpty ? nil : StackedAreaData(series: stacked)
         if projection.isEmpty {
             let scale = AmountScale(values: values).reservingTop(points: markerLayout.headroom, plotHeight: plotHeight)
             return Layout(domain: domain, ticks: ticks, markers: markerLayout, scale: scale, clipsBand: false,
-                          projection: [])
+                          projection: [], stack: stack)
         }
         let projectionScale = ProjectionScale(history: values, fan: projection, markerHeadroom: markerLayout.headroom,
                                               plotHeight: plotHeight)
         return Layout(domain: domain, ticks: ticks, markers: markerLayout, scale: projectionScale.scale,
-                      clipsBand: projectionScale.clipsBand, projection: projection.map(projectionScale.clamped))
+                      clipsBand: projectionScale.clipsBand, projection: projection.map(projectionScale.clamped),
+                      stack: stack)
     }
 
     /// Today's value, the 1× of the axis while amounts are hidden.
@@ -113,7 +120,9 @@ struct NetWorthChart: View {
 
     private func chart(_ layout: Layout) -> some View {
         Chart {
-            if stacked.isEmpty {
+            if let stack = layout.stack {
+                stackedAreas(stack)
+            } else {
                 ForEach(history) { point in
                     AreaMark(x: .value("Date", point.date), y: .value("Net worth", point.value),
                              series: .value("Series", "History fill"))
@@ -126,14 +135,6 @@ struct NetWorthChart: View {
                                  series: .value("Series", "History \(segment.id)"))
                             .foregroundStyle(segment.isComplete ? Palette.ink : Palette.secondaryInk)
                             .lineStyle(lineStyle(complete: segment.isComplete))
-                            .interpolationMethod(.monotone)
-                    }
-                }
-            } else {
-                ForEach(stacked) { series in
-                    ForEach(series.points) { point in
-                        AreaMark(x: .value("Date", point.date), y: .value("Value", point.value), stacking: .standard)
-                            .foregroundStyle(by: .value("Group", series.name))
                             .interpolationMethod(.monotone)
                     }
                 }
@@ -182,13 +183,48 @@ struct NetWorthChart: View {
                     .symbolSize(60)
             }
         }
-        .chartForegroundStyleScale(domain: stacked.map(\.name), range: stacked.map { Palette.color(for: $0.color) })
         .chartLegend(.hidden)
         .chartXSelection(value: $selectedDate)
         .chartXScale(domain: layout.domain)
         .chartYScale(domain: layout.scale.domain)
         .chartYAxis { amountAxis(hidesAmounts: hidesAmounts, scale: layout.scale, relativeTo: relativeBase) }
         .chartXAxis { dateAxis(layout.ticks) }
+    }
+
+    /// Stacked areas (``StackedAreaData``): every band's wash, then the
+    /// surface gaps, then the lines on top, so no wash or gap covers a line.
+    @ChartContentBuilder
+    private func stackedAreas(_ stack: StackedAreaData) -> some ChartContent {
+        ForEach(stack.series) { series in
+            ForEach(stack.bands(of: series.id)) { point in
+                AreaMark(x: .value("Date", point.date), yStart: .value("From", point.low),
+                         yEnd: .value("To", point.high), series: .value("Group", series.id))
+                    .foregroundStyle(Palette.color(for: series.color).opacity(StackedAreaData.fillOpacity))
+                    .interpolationMethod(.linear)
+            }
+        }
+        ForEach(stack.edges) { point in
+            LineMark(x: .value("Date", point.date), y: .value("Edge", point.y),
+                     series: .value("Gap", "Gap \(point.line)"))
+                .foregroundStyle(Palette.card)
+                .lineStyle(StrokeStyle(lineWidth: StackedAreaData.gapWidth, lineJoin: .round))
+                .offset(x: 0, y: point.isBelowZero ? StackedAreaData.gapOffset : -StackedAreaData.gapOffset)
+                .interpolationMethod(.linear)
+        }
+        ForEach(stack.zeroGap) { point in
+            LineMark(x: .value("Date", point.date), y: .value("Zero", 0.0), series: .value("Gap", point.line))
+                .foregroundStyle(Palette.card)
+                .lineStyle(StrokeStyle(lineWidth: StackedAreaData.gapWidth))
+        }
+        ForEach(stack.series) { series in
+            ForEach(stack.edges(of: series.id)) { point in
+                LineMark(x: .value("Date", point.date), y: .value("Edge", point.y),
+                         series: .value("Edge", "Edge \(point.line)"))
+                    .foregroundStyle(Palette.stroke(for: series.color))
+                    .lineStyle(StrokeStyle(lineWidth: Metrics.lineWidth, lineCap: .round, lineJoin: .round))
+                    .interpolationMethod(.linear)
+            }
+        }
     }
 
     private func markerAlignment(_ placement: MarkerLabelLayout.Placement) -> Alignment {

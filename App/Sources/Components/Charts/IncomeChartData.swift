@@ -6,8 +6,9 @@ import Foundation
 /// - Each year is a flat step a year wide, so a year reads as one value
 ///   (a pension's first year is a step, a windfall a one-year block) and
 ///   fifty years are one shape, not fifty thin bars.
-/// - Each source is a wash of its colour with a 2-point line in the colour
-///   along its top edge (``edges``), where it has an amount.
+/// - Each source is a wash of its colour with a 2-point line in its line
+///   step along its top edge (``edges``), where it has an amount, and a
+///   2-point surface gap above the line (``StackedAreaData/gapOffset``).
 /// - Sources stack in their colour slots' order, bottom first, which is the
 ///   order the palette was validated in: neighbours in the stack are
 ///   neighbours in the palette. Taxes (``ChartColor/taxes``) go on top.
