@@ -97,6 +97,13 @@ extension PlanResults {
     /// The details, when the engine is the Planner.
     var planHash: String? { details?.planHash }
 
+    /// When the charts' retirement happens: the focus age's retirement day,
+    /// or the retirement marker's date (the preview engine has no details).
+    var retirementDate: Date? {
+        details?.focus.retirementDate?.dateValue
+            ?? markers.first { $0.kind == .retirement || $0.systemImage == "figure.walk" }?.date
+    }
+
     /// Results from a Planner run.
     ///
     /// - The fan starts at the check-in's value, then has one point per year-end.
@@ -174,32 +181,43 @@ extension PlanResults {
 
 /// The pieces of ``PlanResults/init(result:mode:birthDate:registry:scansEveryAge:computedAt:)``.
 enum PlanResultsMapping {
-    /// The categories retirement income is stacked by, bottom first, with
-    /// their colour slots (UI.md, "Retirement income").
+    /// The categories retirement income is stacked by, bottom first (UI.md,
+    /// "Retirement income"). Each has its own colour slot, in the same order,
+    /// so neighbours in the stack are neighbours in the validated palette.
     enum IncomeCategory: Hashable, Sendable {
         case withdrawals
-        /// A public pension scheme, e.g. INPS.
+        case work
+        /// The plan's first public pension scheme, e.g. INPS. Another
+        /// scheme's pension counts as one of the other pensions.
         case scheme(String)
         case otherPensions
         case pensionFund
-        case severance
         case windfalls
-        case work
+        case severance
         case other
 
+        /// The stacking order, bottom first, and the colour slot.
         var sortKey: Int {
             switch self {
             case .withdrawals: 0
-            case .scheme: 1
-            case .otherPensions: 2
-            case .pensionFund: 3
-            case .severance: 4
+            case .work: 1
+            case .scheme: 2
+            case .otherPensions: 3
+            case .pensionFund: 4
             case .windfalls: 5
-            case .work: 6
+            case .severance: 6
             case .other: 7
             }
         }
+
+        /// One-off amounts, which may run off the top of the chart.
+        var isOneOff: Bool {
+            self == .windfalls || self == .severance
+        }
     }
+
+    /// The label of the taxes on top of retirement income.
+    static let taxesLabel = "Taxes"
 
     /// The fan in today's euros: the start value, then each year-end.
     static func fan(_ result: PlanResult) -> [FanPoint] {
@@ -236,27 +254,34 @@ enum PlanResultsMapping {
                             exact: marker.kind == .retirement ? retirementDate : nil)
             let label: String
             let symbol: String
+            let kind: ChartMarker.Kind?
             switch marker.kind {
             case .retirement:
                 label = "Retire at \(marker.age)"
                 symbol = "figure.walk"
+                kind = .retirement
             case .pensionStart:
                 label = "\(shortName(marker.label)) \(marker.age)"
                 symbol = "building.columns"
+                kind = .pension
             case .accessible:
                 label = "\(shortName(marker.label)) \(marker.age)"
                 symbol = "lock.open"
+                kind = .accessible
             case .windfall:
                 label = "\(marker.label) \(marker.age)"
                 symbol = "gift"
+                kind = .windfall
             case .expense:
                 label = "\(marker.label) \(marker.year)"
                 symbol = "cart"
+                kind = .expense
             default:
                 label = marker.label
                 symbol = "star"
+                kind = nil
             }
-            return ChartMarker(date: when.dateValue, label: label, systemImage: symbol)
+            return ChartMarker(date: when.dateValue, label: label, systemImage: symbol, kind: kind)
         }
     }
 
@@ -306,52 +331,66 @@ enum PlanResultsMapping {
         }
     }
 
-    /// Colour slots in the palette's order: withdrawals blue, a public
-    /// pension orange, other pensions green, the pension fund yellow,
-    /// windfalls magenta, work aqua, severance violet.
-    static func color(of category: IncomeCategory, schemeRank: Int) -> ChartColor {
-        switch category {
-        case .withdrawals: .series(0)
-        case .scheme: schemeRank == 0 ? .series(1) : .series(7)
-        case .otherPensions: .series(5)
-        case .pensionFund: .series(3)
-        case .severance: .series(6)
-        case .windfalls: .series(4)
-        case .work: .series(2)
-        case .other: .series(7)
-        }
+    /// Each category's colour slot: its place in the stack, so the stack runs
+    /// through the palette in its validated order (withdrawals blue, work
+    /// orange, the public pension aqua, other pensions yellow, the pension
+    /// fund magenta, windfalls green, severance violet, other red). The
+    /// taxes on top are a neutral grey (``ChartColor/taxes``): they're not a source.
+    static func color(of category: IncomeCategory) -> ChartColor {
+        .series(category.sortKey)
     }
 
-    /// Retirement income per year by source, bottom first.
+    /// Retirement income per year by source, bottom first, with the taxes
+    /// it pays on top (UI.md, "Retirement income").
+    ///
+    /// The planner reports income gross: a withdrawal is what's sold,
+    /// before the tax withheld on the sale, and it also pays last year's
+    /// wealth tax and tax on interest. So a year's income reaches spending
+    /// plus taxes, which in a rich run's later years can be twice the
+    /// spending. To read right against the spending line, each source is
+    /// shown after its share of the year's taxes (``paidFromIncome(_:)``,
+    /// shared in proportion to the amounts), keeping its gross amount in
+    /// `gross`, and the taxes are a segment of their own on top: the
+    /// sources add up to spending, expenses and what's saved, and the stack
+    /// to that plus taxes.
     static func income(_ years: [YearDetail], plan: PlanDocument, registry: TaxRegistry?) -> [IncomeSegment] {
-        var totals: [Int: [IncomeCategory: Double]] = [:]
-        var categories: Set<IncomeCategory> = []
-        for year in years {
-            for item in year.income where item.amount > 0.5 {
-                let category = category(of: item, plan: plan)
-                categories.insert(category)
-                totals[year.year, default: [:]][category, default: 0] += whole(item.amount, year)
-            }
-        }
-        let schemes = categories.compactMap { category -> String? in
-            if case .scheme(let id) = category { id } else { nil }
-        }.sorted()
-        let ordered = categories.sorted { a, b in
-            if a.sortKey != b.sortKey { return a.sortKey < b.sortKey }
-            if case .scheme(let x) = a, case .scheme(let y) = b { return x < y }
-            return false
-        }
+        let firstScheme = plan.pensions.first { $0.scheme != .fixed }?.scheme.rawValue
         var segments: [IncomeSegment] = []
-        for year in years.map(\.year) {
-            for category in ordered {
-                guard let amount = totals[year]?[category], amount > 0.5 else { continue }
-                var rank = 0
-                if case .scheme(let id) = category { rank = schemes.firstIndex(of: id) ?? 0 }
-                segments.append(IncomeSegment(year: year, source: label(of: category, registry: registry),
-                                              amount: amount, color: color(of: category, schemeRank: rank)))
+        for year in years {
+            var gross: [IncomeCategory: Double] = [:]
+            for item in year.income where item.amount > 0.5 {
+                var category = category(of: item, plan: plan)
+                if case .scheme(let id) = category, id != firstScheme { category = .otherPensions }
+                gross[category, default: 0] += whole(item.amount, year)
+            }
+            let total = gross.values.reduce(0, +)
+            guard total > 0.5 else { continue }
+            let taxes = min(total, whole(paidFromIncome(year), year))
+            let share = (total - taxes) / total
+            for category in gross.keys.sorted(by: { $0.sortKey < $1.sortKey }) {
+                guard let amount = gross[category], amount * share > 0.5 else { continue }
+                segments.append(IncomeSegment(
+                    year: year.year, source: label(of: category, registry: registry), amount: amount * share,
+                    color: color(of: category), isOneOff: category.isOneOff, gross: amount))
+            }
+            if taxes > 0.5 {
+                segments.append(IncomeSegment(year: year.year, source: taxesLabel, amount: taxes, color: .taxes))
             }
         }
         return segments
+    }
+
+    /// What a year's income pays in taxes and social contributions: on work
+    /// and pensions, the tax withheld on what's sold and paid out, and the
+    /// market taxes of the year before (wealth tax, tax on interest), which
+    /// are paid in this one. Taxes on rebalancing are paid inside the
+    /// portfolio and aren't in it. Worked out from the year's flows: the
+    /// income from outside the plan's accounts (work, pensions, windfalls),
+    /// less spending, expenses and what was saved.
+    static func paidFromIncome(_ year: YearDetail) -> Double {
+        let outside = year.income.filter { $0.kind == .work || $0.kind == .pension || $0.kind == .windfall }
+            .reduce(0) { $0 + $1.amount }
+        return max(0, outside - year.spending - year.expenses - year.savings)
     }
 
     /// Taxes per year by tax line, the largest lines first; beyond seven
