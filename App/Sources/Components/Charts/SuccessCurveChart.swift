@@ -112,12 +112,12 @@ struct SuccessCurveChart: View {
                 ForEach(line.points) { point in
                     LineMark(x: .value("Retirement age", point.age), y: .value("Chance of success", point.success),
                              series: .value("Plan", line.name))
-                        .foregroundStyle(Palette.color(for: line.color))
+                        .foregroundStyle(Palette.stroke(for: line.color))
                         .lineStyle(StrokeStyle(lineWidth: Metrics.lineWidth, lineCap: .round, lineJoin: .round))
                 }
                 if layout.labelsEnds, let last = line.points.max(by: { $0.age < $1.age }) {
                     PointMark(x: .value("Retirement age", last.age), y: .value("Chance of success", last.success))
-                        .foregroundStyle(Palette.color(for: line.color))
+                        .foregroundStyle(Palette.stroke(for: line.color))
                         .symbolSize(30)
                         .annotation(position: .trailing, spacing: 4) {
                             Text(line.name).font(.caption2).foregroundStyle(Palette.secondaryInk)

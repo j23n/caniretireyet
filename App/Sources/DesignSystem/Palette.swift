@@ -9,6 +9,10 @@ import SwiftUI
 ///   bonds, equity, gold, crypto, real estate, other, debt) is also the
 ///   stacking order, bottom to top, and passes colour-blindness checks
 ///   between neighbouring bands.
+/// - **Lines, edges and small marks** (legend swatches, dots, thin bars)
+///   use ``stroke(for:)``: in light mode aqua, yellow and magenta have a
+///   darker step of the same hue there, so every mark reaches 3:1 on the
+///   chart surface. Washes keep the lighter step (``color(for:)``).
 /// - **Everything else** is one hue, ``accent`` (blue), with labels.
 /// - **Actual history** is drawn in ``ink``, never a series colour.
 /// - **Changes** use ``positive`` and ``negative`` text, always with a sign
@@ -29,6 +33,25 @@ enum Palette {
     /// The categorical slots in order. A ninth series folds into "Other";
     /// colours are never cycled.
     static let series: [Color] = [blue, orange, aqua, yellow, magenta, green, violet, red]
+
+    // MARK: Line steps
+    //
+    // Validated as a set on the light chart surface (#fcfcfb): every slot
+    // reaches 3:1, worst neighbouring pair CVD ΔE 8.4, normal vision 18.8.
+    // In light mode aqua, yellow and magenta only reach 2.7, 2.1 and 2.6:1,
+    // so their lines take a darker step of the same hue: aqua and magenta
+    // the palette's dark-mode steps (3.3 and 3.8:1); yellow, whose dark-mode
+    // step falls just short (2.99:1), a step a little darker (3.1:1). In
+    // dark mode every slot already reaches 3:1 and the line step is the
+    // slot's colour.
+
+    static let aquaStroke = Color("SeriesAquaStroke")
+    static let yellowStroke = Color("SeriesYellowStroke")
+    static let magentaStroke = Color("SeriesMagentaStroke")
+
+    /// The categorical slots' line steps, in the order of ``series``: for
+    /// lines, the edges along stacked areas, and small marks.
+    static let seriesStroke: [Color] = [blue, orange, aquaStroke, yellowStroke, magentaStroke, green, violet, red]
 
     // MARK: Roles
 
@@ -68,20 +91,27 @@ enum Palette {
 
     // MARK: Lookups
 
-    /// An asset class's fixed colour. Classes this version doesn't know are "other".
-    static func color(for assetClass: AssetClass) -> Color {
+    /// An asset class's slot in ``series``: cash blue, bonds orange, equity
+    /// aqua, gold yellow, crypto magenta, real estate green, other violet.
+    /// Classes this version doesn't know are "other".
+    static func slot(for assetClass: AssetClass) -> Int {
         switch assetClass {
-        case .cash: blue
-        case .bonds: orange
-        case .equity: aqua
-        case .gold: yellow
-        case .crypto: magenta
-        case .realEstate: green
-        default: violet
+        case .cash: 0
+        case .bonds: 1
+        case .equity: 2
+        case .gold: 3
+        case .crypto: 4
+        case .realEstate: 5
+        default: 6
         }
     }
 
-    /// The colour for a chart colour role.
+    /// An asset class's fixed colour.
+    static func color(for assetClass: AssetClass) -> Color {
+        series[slot(for: assetClass)]
+    }
+
+    /// The colour for a chart colour role: for washes and larger fills.
     static func color(for role: ChartColor) -> Color {
         switch role {
         case .assetClass(let assetClass): color(for: assetClass)
@@ -90,12 +120,24 @@ enum Palette {
         case .accent: accent
         case .ink: ink
         case .neutral: mutedInk
-        // Validated against all eight series hues in both modes (CVD ΔE ≥ 10,
-        // normal vision ≥ 17, contrast ≥ 3:1); muted ink isn't (ΔE 1–5 to
-        // aqua and magenta).
+        // Validated against all eight series hues and their line steps in
+        // both modes (CVD ΔE ≥ 10, normal vision ≥ 17, contrast ≥ 3:1); muted
+        // ink isn't (ΔE 1–5 to aqua and magenta).
         case .taxes: secondaryInk
         case .positive: positive
         case .negative: negative
+        }
+    }
+
+    /// The colour for a line, the edge along a stacked area, or a small mark
+    /// (a legend swatch, a dot, a thin bar) in a chart colour role: the
+    /// categorical slots' line steps (``seriesStroke``), so it reaches 3:1
+    /// on the chart surface in light mode too; other roles as ``color(for:)``.
+    static func stroke(for role: ChartColor) -> Color {
+        switch role {
+        case .assetClass(let assetClass): seriesStroke[slot(for: assetClass)]
+        case .series(let index): seriesStroke[min(max(index, 0), seriesStroke.count - 1)]
+        default: color(for: role)
         }
     }
 }

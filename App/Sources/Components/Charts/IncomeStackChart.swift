@@ -83,7 +83,7 @@ struct IncomeStackChart: View {
                 ForEach(data.edges.filter { $0.source == source.name }) { point in
                     LineMark(x: .value("Year", point.x), y: .value("Top", point.y),
                              series: .value("Edge", "Edge \(point.series)"))
-                        .foregroundStyle(Palette.color(for: source.color))
+                        .foregroundStyle(Palette.stroke(for: source.color))
                         .lineStyle(StrokeStyle(lineWidth: Metrics.lineWidth, lineJoin: .round))
                         .interpolationMethod(.linear)
                 }
@@ -137,7 +137,7 @@ struct IncomeStackChart: View {
                 if let amount = data.amounts[year]?[source.name], amount > 0.5 {
                     HStack(spacing: 4) {
                         RoundedRectangle(cornerRadius: 1)
-                            .fill(Palette.color(for: source.color))
+                            .fill(Palette.stroke(for: source.color))
                             .frame(width: 8, height: 8)
                         Text(source.name).font(.caption2)
                         Spacer(minLength: 4)

@@ -250,7 +250,7 @@ struct NetWorthChart: View {
                 ForEach(stacked) { series in
                     if let value = series.points.first(where: { $0.date == point.date })?.value, value != 0 {
                         HStack(spacing: 4) {
-                            Circle().fill(Palette.color(for: series.color)).frame(width: 6, height: 6)
+                            Circle().fill(Palette.stroke(for: series.color)).frame(width: 6, height: 6)
                             Text(series.name).font(.caption2).foregroundStyle(Palette.secondaryInk)
                             Spacer(minLength: 4)
                             AmountText(Decimal(Int(value.rounded())), currency: currency).font(.caption2)

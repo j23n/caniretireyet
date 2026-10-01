@@ -224,7 +224,7 @@ struct PlanCompareScreen: View {
         Card {
             HStack(spacing: Metrics.s) {
                 Circle()
-                    .fill(Palette.color(for: color))
+                    .fill(Palette.stroke(for: color))
                     .frame(width: 10, height: 10)
                     .accessibilityHidden(true)
                 Text(side.plan.name)
