@@ -50,16 +50,16 @@ extension Valuator {
             var into: Decimal?
             switch trade.type {
             case .buy:
-                into = entry.cashEffect.map { -$0 }
+                into = entry.amount.map { -$0 }
             case .sell:
-                into = entry.cashEffect.map { -($0 + (trade.tax ?? 0)) }
+                into = entry.amount.map { -($0 + (trade.tax ?? 0)) }
                 realized += entry.realizedGain ?? 0
             case .transferIn, .opening, .transferOut:
                 into = entry.trade.quantity.flatMap {
                     marketValue(of: $0, of: instrument, in: details.currency, on: trade.date)
                 }.map { trade.type.removesUnits ? -$0 : $0 }
             case .dividend:
-                let gross = (entry.cashEffect ?? 0) + (trade.tax ?? 0) + (trade.fees ?? 0)
+                let gross = (entry.amount ?? 0) + (trade.tax ?? 0) + (trade.fees ?? 0)
                 dividends += gross
                 flows.append(DatedAmount(date: trade.date, amount: gross))
                 continue

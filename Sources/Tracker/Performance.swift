@@ -403,8 +403,10 @@ extension Valuator {
     /// Values are snapshots. Each flow (``TradeFlow``) is its own piece,
     /// weighted from its date: deposits, withdrawals and residuals go to
     /// cash, transfers and openings to their position at their market
-    /// value, and a residual is placed halfway between the valuation and
-    /// the one with cash before it. Units bought or sold move money between
+    /// value, buys and sales settled outside the account to their position
+    /// at their amount (a fee or tax without an instrument to cash), and a
+    /// residual is placed halfway between the valuation and the one with
+    /// cash before it. Units bought or sold move money between
     /// cash and the position at the end price, weighted as at the end, so
     /// they add nothing for the account. A closing account's value on the
     /// closing day leaves as a flow.

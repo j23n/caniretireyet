@@ -7,18 +7,24 @@ import Model
 ///
 /// - a deposit or withdrawal: its cash effect;
 /// - a transfer in or out, or an opening: the units' market value on its date;
+/// - a buy, sell, fee or tax settled outside the account
+///   (``Model/Trade/isSettledExternally``): −its amount, i.e. a buy's cost
+///   is money added and a sale's proceeds are money taken out;
 /// - a **residual**: a valuation's typed cash minus the cash the trades
 ///   give on its date, treated as deposits or withdrawals nobody recorded.
 ///
-/// Buys, sells, dividends, interest, fees and taxes are not flows: they
-/// move money within the account, or are its return.
+/// Buys, sells, dividends, interest, fees and taxes paid from or into the
+/// account's cash are not flows: they move money within the account, or
+/// are its return.
 public struct TradeFlow: Hashable, Sendable {
     public let date: CalendarDate
     /// In the account's currency; `nil` when a transfer's market value
-    /// can't be worked out (no price or FX rate on or before its date) or
-    /// a deposit has no amount.
+    /// can't be worked out (no price or FX rate on or before its date), a
+    /// deposit has no amount, or a trade settled outside the account has
+    /// an amount that can't be worked out (no FX rate).
     public let amount: Decimal?
-    /// The deposit, withdrawal, transfer or opening; `nil` for a residual.
+    /// The deposit, withdrawal, transfer, opening, or trade settled outside
+    /// the account; `nil` for a residual.
     public let trade: Trade?
     /// For a residual: the valuation whose cash differs from the trades'.
     public let valuation: Valuation?
@@ -33,12 +39,13 @@ public struct TradeFlow: Hashable, Sendable {
 extension Valuator {
     /// The flows of a trades account dated after `start` (from the
     /// beginning when `nil`) through `end`, sorted by date: its deposits,
-    /// withdrawals, transfers and openings, and the residual of each of
-    /// its valuations with cash (when not zero). Empty for other accounts.
+    /// withdrawals, transfers, openings and trades settled outside it, and
+    /// the residual of each of its valuations with cash (when not zero).
+    /// Empty for other accounts.
     public func tradeFlows(of account: AccountID, after start: CalendarDate?, through end: CalendarDate) -> [TradeFlow] {
         guard let ledger = ledgers[account], let details = accounts[account] else { return [] }
         var flows: [TradeFlow] = []
-        for entry in ledger.entries(after: start, through: end) where entry.type.isFlow {
+        for entry in ledger.entries(after: start, through: end) where entry.trade.isFlow {
             flows.append(TradeFlow(date: entry.date, amount: flowAmount(of: entry, in: details), trade: entry.trade,
                                    valuation: nil, since: nil))
         }
@@ -67,14 +74,15 @@ extension Valuator {
     }
 
     /// The flow of `valuation` of a trades account since `previous`, the
-    /// account's valuation before it: the deposits, withdrawals, transfers
-    /// and openings dated after `previous` through the valuation, plus the
-    /// valuation's residual (its cash minus the cash the trades give, when
-    /// it records cash). `nil` when a transfer can't be valued.
+    /// account's valuation before it: the deposits, withdrawals, transfers,
+    /// openings and trades settled outside the account dated after
+    /// `previous` through the valuation, plus the valuation's residual (its
+    /// cash minus the cash the trades give, when it records cash). `nil`
+    /// when a transfer can't be valued.
     func tradeFlow(for valuation: Valuation, previous: Valuation?) -> Decimal? {
         guard let ledger = ledgers[valuation.account], let account = accounts[valuation.account] else { return nil }
         var total: Decimal = 0
-        for entry in ledger.entries(after: previous?.date, through: valuation.date) where entry.type.isFlow {
+        for entry in ledger.entries(after: previous?.date, through: valuation.date) where entry.trade.isFlow {
             guard let amount = flowAmount(of: entry, in: account) else { return nil }
             total += amount
         }
@@ -93,10 +101,12 @@ extension Valuator {
     }
 
     /// A flow trade's amount in the account's currency: a deposit's or
-    /// withdrawal's cash effect, or a transfer's or opening's market value
-    /// on its date (negative for a transfer out).
+    /// withdrawal's cash effect, a transfer's or opening's market value on
+    /// its date (negative for a transfer out), or −the amount of a trade
+    /// settled outside the account.
     func flowAmount(of entry: TradeEntry, in account: Account) -> Decimal? {
         let trade = entry.trade
+        if trade.isSettledExternally { return entry.externalFlow }
         switch trade.type {
         case .deposit, .withdrawal:
             return entry.cashEffect
@@ -117,7 +127,13 @@ extension Valuator {
         var known = true
         for flow in tradeFlows(of: account.id, after: from, through: through) {
             guard let amount = flow.amount else {
-                if let instrument = flow.trade?.instrument {
+                if let trade = flow.trade, trade.isSettledExternally {
+                    // Its amount needs a rate to convert its price.
+                    let from = trade.currency ?? trade.instrument.flatMap { instruments[$0]?.currency }
+                        ?? account.currency
+                    let problem = ValuationProblem.missingFX(account: account.id, from: from, to: account.currency)
+                    if !problems.contains(problem) { problems.append(problem) }
+                } else if let instrument = flow.trade?.instrument {
                     let problem = ValuationProblem.missingPrice(account: account.id, instrument: instrument)
                     if !problems.contains(problem) { problems.append(problem) }
                 }

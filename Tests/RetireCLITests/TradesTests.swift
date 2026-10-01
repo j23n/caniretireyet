@@ -297,6 +297,7 @@ struct TradesCommandTests {
 
             Notes
               2025-10-31: The opening of 0.4215 btc has no recorded cost: it's their value then, 38258.16.
+              2026-03-31: ledger-wallet has never held cash, so its buys and sales are paid from and into another account: its cash stays at zero, and what they cost or brought in is new money.
               2026-03-31: The buy of 0.03 btc is priced at the valuation's price.
 
             Dry run: nothing was written. To convert, run again with --apply.

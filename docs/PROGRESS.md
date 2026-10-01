@@ -74,7 +74,7 @@ The returns on your investments over a period:
   - Real returns use the change in `hicp-it` over the period. The real money-weighted return first converts every flow into euros of the start date.
   - Debts are left out of the portfolio and the asset classes. For an asset class, buying a position with the account's cash moves money between classes, so it doesn't count as a return.
   - An account is left out, and listed as such, when a valuation in the period has no flow, or when it carries into the period a balance that had none (a home that never gets flows, for example). It is also left out when a price or FX rate is missing.
-  - An account that records trades ([TRADES.md](TRADES.md#flows)) has its flows worked out: deposits, withdrawals, and transfers at market value, each weighted from its own date, and residuals (cash typed at a check-in that the trades don't explain) from halfway between that check-in and the one before. Dividends, interest and fees are part of its return. Its flows are known without asking, so it's never left out for an unknown flow.
+  - An account that records trades ([TRADES.md](TRADES.md#flows)) has its flows worked out: deposits, withdrawals, transfers at market value, and buys and sales paid from outside the account at their amount, each weighted from its own date, and residuals (cash typed at a check-in that the trades don't explain) from halfway between that check-in and the one before. Dividends, interest and fees are part of its return. Its flows are known without asking, so it's never left out for an unknown flow.
   - For one position of such an account, the return including its dividends is available too (`instrumentReturn`).
 
 ## Baselines
@@ -137,7 +137,7 @@ Two kinds of data are needed for the comparisons above.
   | Savings accounts | The whole change, but editable, since interest can matter. |
   | Brokerage, crypto, metals | The *new money* part of the change, i.e. everything that isn't price movement. Override it if a distributing fund's dividends were reinvested, since those are returns, not new money. |
   | Pension fund, TFR, property, other balance accounts | Asked for: e.g. contributions from the pension fund's statement. If left empty, the flow is unknown, and the account's change counts as "other". |
-  | Any account that records trades ([TRADES.md](TRADES.md)) | Worked out, whatever its kind: the deposits and withdrawals recorded since the previous check-in, securities moved in or out at their market value, and the **residual**, the cash typed now minus the cash the trades give, as money nobody recorded. Buys, sells, dividends, interest and fees aren't new money. |
+  | Any account that records trades ([TRADES.md](TRADES.md)) | Worked out, whatever its kind: the deposits and withdrawals recorded since the previous check-in, securities moved in or out at their market value, buys and sales paid from or into another account ([TRADES.md](TRADES.md#paid-from-outside-the-account)), and the **residual**, the cash typed now minus the cash the trades give, as money nobody recorded. Buys, sells, dividends, interest and fees paid from the account's cash aren't new money. |
 
 - Moving money between two tracked accounts cancels out at the portfolio level (−1,000 from the current account, +1,000 into the broker). So the sum of all flows is your actual savings for the period, which is what the plan's savings are compared against.
 
