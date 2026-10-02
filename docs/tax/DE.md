@@ -433,7 +433,7 @@ What maps directly:
 | Fixed allowances that don't follow inflation | `ThresholdIndexing.scale(…, indexThresholds: false)` per value |
 | The §32a tariff | kept in `TaxGermany` as a zone tariff; it isn't a bracket schedule, and no other system needs it yet |
 
-The gaps, each with an additive change:
+The gaps, each with an additive change. **Status:** TaxKit, the planner and the file format now have G1, G2, G5 and G11 as proposed (see [TAXES.md](../TAXES.md#what-a-system-can-tell-the-planner-and-whats-told)), plus citizenship (`FixedYear.citizenships`), a plan currency, the residence timeline in each year (`FixedYear.residence`) and a pension's `mandatoryShare`; G4, G6–G10 and G12 are left for later. Where the result differs from the proposal: an ETC with a delivery claim is reported as `etcWithDeliveryClaim` (broader: `etc`), not `physicalGold`, so Italy keeps taxing it as a security, and Germany maps it to its gold rule; a balance also carries `startValue`, since in the planner's real terms `value / (1 + nominalReturn)` misses the year's inflation; a `fixed` pension's kind is the plan's top-level `kind`, and its mandatory share the option `mandatoryShare`; values fixed in nominal euros use `"indexed": "fixed"` in the parameter file (the draft's `"indexing"` key would be renamed), and amounts that grow with wages can use a rule of the system's own (`"indexed": "wages"`).
 
 | # | Gap | Proposed change (additive) |
 | --- | --- | --- |

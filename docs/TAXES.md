@@ -53,7 +53,7 @@ There are three levels of change, from most to least frequent:
 - **`overlays`** are special regimes. Each one knows which years it covers (impatriati: the year you moved plus 4) and which income it applies to.
 - **Work phases** hold the economic facts: gross salary, or revenue and costs. They don't depend on any country. `regime` chooses the tax treatment; when it's left out, the system's default for that kind of work applies. So if you move to another country, you change the residence entry, not your work phases.
 - **`overrides`** replace individual parameters in this plan only. They're for "what if the law changes" questions, such as "what if the middle IRPEF rate goes back to 35%?".
-- **`indexThresholds`** controls whether thresholds rise with inflation after the last known tax year. It's on by default. If it's off, they stay fixed in euros, and fiscal drag builds up.
+- **`indexThresholds`** controls whether thresholds rise with inflation after the last known tax year. It's on by default. If it's off, they stay fixed in nominal terms, and fiscal drag builds up. Values the law indexes, or keeps fixed, follow the law instead (see [Parameters](#parameters)).
 
 In the plan editor, the Taxes section is built from the same data:
 
@@ -88,6 +88,7 @@ public protocol TaxSystem: Sendable {
     var wrappers: [WrapperRule] { get }                 // tax-advantaged accounts
     var pensionSchemes: [any PensionScheme] { get }     // e.g. INPS
     var parameters: any ParameterStore { get }          // the bundled yearly parameter files
+    var currency: String? { get }                       // e.g. "CHF"; nil (the default) for the plan's
 
     func defaultRegime(for kind: EarnedIncomeKind) -> String?
 
@@ -134,11 +135,46 @@ public protocol PensionScheme: Sendable {
     func claimOptions(for record: PensionRecord, context: ClaimContext,
                       parameters: any ParameterStore) -> [ClaimOption]
     // Optional (with defaults): the old-age pension age in whole years and in
-    // months, which wrapper access rules get with the birth date.
+    // months, which wrapper access rules get with the birth date; the record
+    // and accruals with the rate of the system's own currency; the account
+    // wrapper that holds the scheme's record (`seedWrapper`); and what kind
+    // of pension it pays (`pensionKind`).
 }
 ```
 
 The simulation works in `Double`; the tracker uses `Decimal`. Tax amounts in the planner are estimates, so floating point is fine there.
+
+## What a system can tell the planner, and what it's told
+
+Italy needed only the interface above. Other countries need more, and TaxKit has it, all optional, so a system that doesn't use something needs no code for it. The code documents each piece; in short:
+
+**Currency.** Everything that crosses TaxKit is in the plan's currency, in today's money: the plan's `currency`, by default the library's base currency. A system that computes in another one says so in `TaxSystem.currency` (`"CHF"`), and its parameter files are in that currency. The planner then passes the rate, units of the system's currency per unit of the plan's, taken from the library's FX records on the plan's start date and held constant in real terms: `FixedYear.currencyRate` (with `inSystemCurrency(_:)` and `inPlanCurrency(_:)`), `ClaimContext.currencyRate`, and the `currencyRate` of the `PensionScheme` overloads `startingRecord(options:year:parameters:currencyRate:)` and `accrue(_:in:to:options:parameters:currencyRate:)`, which a scheme with its own currency implements (the defaults call the plain ones). The system converts inside: amounts in, through its rules, and lines, accruals and claim options back out. A scheme's record (`PensionRecord`) may stay in the system's currency; the planner doesn't read it. Without a rate in the library the planner warns and uses the latest one recorded, or 1. Inflation is the plan's for every currency.
+
+**The person and the timeline.** `FixedYear.citizenships` and `TaxPlan.citizenships` (from the library's `person.citizenships`, country codes in capitals, empty when unknown; `FixedYear.isCitizen(of:)`), for treaties that decide by citizenship where a pension is taxed. `FixedYear.birthDate`, for rules that count months. `FixedYear.residence`, the whole residence timeline (`residenceSystem(in:)`), for rules that look at other years, such as years of residence or a move ahead.
+
+**Pensions.** Each `FixedYear.Pension` says its `kind` (`PensionKind`: `statutory`, `occupational`, `basicPension`, `privateAnnuity`; the plan's `kind`, else the scheme's `pensionKind(options:)`; INPS says `statutory`), its `startYear` (for one already paid when the plan starts, the year it reached its age), its `sourceCountry`, its `form` (`.annuity`, or `.lumpSum`) and its `mandatoryShare` (the share from an occupational scheme's mandatory part, from the claim option; the `fixed` scheme reads it from the pension's options). A `ClaimOption` can pay a `lumpSum` once in the claim year, which the planner gives to the residence system as a `.lumpSum` pension with the ID `<pension>.lumpSum`, or moves untaxed into its `lumpSumWrapper`; and its annuity can change by `realGrowthPerYear` after the claim. A scheme can list several options at one age with their routes (annuity only, a quarter as capital, all as capital, …): the plan's `claimRoute` chooses, else the first listed. `ClaimContext.yearsSinceWorkStopped` tells the scheme whether work has stopped, e.g. to offer only a transfer to vested benefits when it stops before the earliest age.
+
+**Buy-ins.** A plan's contribution can name a scheme instead of an account (`{ "pension": "ch.bvg", "amount": "20000", "year": 2030 }`). The system sees it as a `FixedYear.WrapperContribution` whose `wrapper` is the scheme's ID, and credits it by returning `Accrual(.pensionScheme("ch.bvg"), amount:, source: contribution.source)` (and any tax relief); the scheme adds it to its record in `accrue`. A system that credits nothing gets a warning.
+
+**Accounts that hold a scheme's record.** A scheme's `seedWrapper` (e.g. `ch.bvg`) names the account wrapper of a balance you track as an account. When the plan has a pension with that scheme, such accounts aren't buckets: their value on the start date becomes the pension's option `startingBalance`, in the plan's currency (so the scheme lists that option and converts it), unless the plan sets it. The result lists them in `PlanStart.schemeSeeds`.
+
+**Payouts the law asks for.** `WrapperRule.mustPayOut` (a closure on the `WrapperAccessContext`): in a year it says so, the planner pays the whole balance out, as a lump-sum payout the system taxes, and the rest joins the year's cash. `WrapperRule.preferredPayoutYears` n: from the first year the wrapper is accessible, the planner pays out 1/n, 1/(n − 1), …, all of the rest in the n-th year, needed or not, so a capital-benefit tax is spread over n years. Wrappers that set neither are drawn only as needed, as before.
+
+**Kinds of fund.** The planner reports an ETF or fund as `equityFund`, `mixedFund`, `realEstateFund`, `foreignRealEstateFund` or `fund` (from the instrument's `tax.fundType`, else its asset mix), and an ETC with a delivery claim as `etcWithDeliveryClaim`. Each has a `broader` category (`fund`, `etc`); a system that taxes all funds alike resolves what it doesn't know with `category.resolved(in: known) ?? category`, as Italy does, so its results and labels don't change.
+
+**Fund income and cost basis.** With `incomeYield` set for an asset class in the plan's assumptions, every holding reports that share of its value each year as capital income of kind `.reportedIncome`, by wrapper and category: income the fund earned and reinvested, part of the return. Systems that tax income only when it's paid out (Italy, `generic`) skip that kind; a system that taxes capital income generically must too. Each year-end `Balance` also carries `startValue` (its value before the year's returns, in the same today's money) and `nominalReturn`, so the nominal rise was `startValue × nominalReturn`. A system that taxes income without a sale (Germany's Vorabpauschale, or reported income) can return `TaxAssessment.costBasisAdjustments` from `assess`: the planner adds each amount to the purchase cost of the wrapper's lots in that category, so a later sale's gain is smaller by it.
+
+**Values indexed by law.** See [Parameters](#parameters).
+
+**Later**, when a system needs them (each would be additive):
+
+- *Expected wealth in `prepare`* (CH gap 6): Swiss AHV contributions without work depend on year-end wealth, known only in `assess`; until then the system credits the year in `prepare` with the minimum contribution's income. A `FixedYear.expectedWealth` from a first deterministic pass would let `prepare` estimate it.
+- *Wealth outside the plan* (CH gap 7): the home and its mortgage, for wealth tax and AHV; system options until then.
+- *Tax in the paying country* (DE G8): `prepareNonResident` for pensions with `taxedIn: source`.
+- *State along a path* (DE G4): loss carry-forwards, health contributions spread over years.
+- *Holding period of a sale* (DE G6), *leaving a country* (exit tax, DE G7), *payout forms a wrapper allows* (annuity only, 30% as a lump sum: DE G9), *access once a public pension has started* (DE G10), and *employer contributions* for the results (DE G12).
+- *Foreign withholding* on capital income (`CapitalIncome.country`, CH gap 11), and a shared *separate-income-rate* block for capital-benefit and one-fifth tariffs (CH gap 12).
+- *A `generic` option to tax reported fund income*: the generic system's option list is pinned by its tests, so it skips that income for now.
 
 ## Inside a tax system
 
@@ -167,6 +203,7 @@ The stages are listed in [tax/IT.md](tax/IT.md#how-the-module-is-built). Keeping
 - A simulated year uses the latest file at or before it. Later years reuse the latest file, indexed or not as the plan says.
 - The parameter files are bundled with the app. They're reference data, not your data, so they don't live in the library. Your plan's `overrides` do.
 - Changing a value means editing a JSON file and adding a test case. No code changes are needed.
+- **How amounts follow prices.** By default a value follows the plan's `indexThresholds` after its file's year (`ThresholdIndexing.scale`). Where the law decides, an object says so with `"indexed"`: `"law"` for amounts the law indexes to prices every year (they keep their value in today's money whatever the plan says, e.g. the Swiss federal tariff), `"fixed"` for amounts the law keeps fixed in nominal terms (they shrink in today's money, e.g. Germany's €1,000 saver's allowance), `"plan"` for the default, or a rule of the system's own (e.g. `"wages"`), which it handles itself. The value can be an object whose `by` gives the rule, with its own `source`: `"indexed": { "by": "law", "source": "DBG Art. 39" }`. A rule covers everything inside its object. `ParameterSet.indexingRule(at:)` reads it for a path (`ParameterNode.indexingRule()` for one object), and `ThresholdIndexing.scale(for:parameterYear:rule:)` (or the `indexedByLaw:` overload) gives the factor.
 
 Excerpt:
 
@@ -214,13 +251,15 @@ Issues are either *errors*, which block the run (e.g. an unknown regime ID), or 
 | `generic` | MVP | Flat effective rates on work income, pensions, gains, interest and wealth, plus a social-contribution rate: the residence options `incomeTaxRate`, `pensionTaxRate` (default: the income rate), `capitalGainsRate`, `interestDividendRate` (default: the gains rate), `wealthTaxRate` and `socialContributionRate`. Wrappers `taxable`, `taxDeferred` and `taxFree`. Good for rough "what if I moved" plans, and used by the engine's own tests. |
 | `it` | MVP | Employee, professional (regime ordinario) and forfettario; both impatriati regimes; INPS; pension fund; TFR; investment and wealth taxes. See [tax/IT.md](tax/IT.md). |
 | `it.pensionati-esteri` | Later, if relevant | 7% flat tax on foreign income for pensioners who move to certain towns in southern Italy. It shows why overlays exist: it replaces the tax on foreign income and the wealth tax on foreign assets together. |
+| `ch` | Designed; module `TaxSwitzerland` in place | Federal, cantonal and communal taxes, AHV, BVG, pillar 3a, vested benefits, the capital withdrawal tax; computes in CHF. See [tax/CH.md](tax/CH.md). |
+| `de` | Designed; module `TaxGermany` in place | The §32a tariff, social contributions, DRV, Riester, Rürup and bAV, the flat tax on investments with the Teilfreistellung and the Vorabpauschale. See [tax/DE.md](tax/DE.md). |
 | Other countries | When needed | Added one at a time, e.g. a country you might retire to. |
 
 ## Adding a system or a regime
 
 A new country:
 
-1. Create a `TaxXX` module that depends on `TaxKit`, containing its parameters struct and `Resources/xx/<year>.json` with sources.
+1. Create a `TaxXX` module that depends on `TaxKit`, containing its parameters struct and `Resources/xx/<year>.json` with sources. (`TaxSwitzerland` and `TaxGermany` exist already, with their test targets and `cases` folders, and the CLI depends on them.)
 2. Implement `TaxSystem`: its stages, regimes, wrappers and pension schemes.
 3. Add reference cases (below).
 4. Register it in the app's and CLI's `TaxRegistry`. That's a one-line change, and the system then appears in the plan editor.
