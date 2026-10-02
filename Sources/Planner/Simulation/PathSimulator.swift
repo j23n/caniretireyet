@@ -16,15 +16,17 @@ struct RunOutcome: Sendable {
 /// yearly step". It keeps its buffers between runs, so a worker makes one
 /// and reuses it for all its runs.
 ///
-/// Each year: wrapper credits and planned contributions go in; severance pay
-/// whose job ends is paid out; income minus taxes, spending and last year's
-/// market-dependent taxes is invested, or the shortfall is withdrawn (the
-/// liquid buckets proportionally, then accessible tax-advantaged buckets,
-/// then the cash buffer); buckets are rebalanced; lots earn the year's
-/// returns (or their wrapper's legal revaluation); and the tax system
-/// assesses sales, payouts, interest and year-end balances. Market-dependent
-/// taxes beyond what sales and payouts already withheld are paid the
-/// following year.
+/// Each year: wrapper credits, planned contributions and pension lump sums
+/// moving into a wrapper go in; severance pay whose job ends, and payouts a
+/// wrapper must make or spreads over several years, are paid out; income
+/// minus taxes, spending and last year's market-dependent taxes is invested,
+/// or the shortfall is withdrawn (the liquid buckets proportionally, then
+/// accessible tax-advantaged buckets, then the cash buffer); buckets are
+/// rebalanced; lots earn the year's returns (or their wrapper's legal
+/// revaluation); and the tax system assesses sales, payouts, interest, fund
+/// income and year-end balances, and may raise the purchase cost of what it
+/// taxed without a sale. Market-dependent taxes beyond what sales and
+/// payouts already withheld are paid the following year.
 ///
 /// **Liquid (taxable) buckets** keep a purchase cost per lot, and money
 /// never gains cost basis for free: every sale, including a rebalancing
@@ -69,8 +71,14 @@ struct PathSimulator {
     private let yearWorkingSpending: [Double]
     private let yearRetiredUnit: [Double]
     private let yearContributions: [Double]
+    /// Per class, the income funds earn as a share of their value.
+    private let incomeYields: [Double]
+    private let reportsIncome: Bool
 
     private var values: [Double]
+    /// Per lot, its nominal return in the year just simulated, and its value before.
+    private var lotReturns: [Double]
+    private var lotStartValues: [Double]
     private var bases: [Double]
     /// Per tax-advantaged bucket, what was paid in (see the type's comment).
     private var wrapperBasis: [Double]
@@ -92,11 +100,11 @@ struct PathSimulator {
     private(set) var yearValues: [Double]
 
     private static let epsilon = 1e-6
-    /// A shortfall up to this many euros doesn't count as failing.
+    /// A shortfall up to this much money (in the plan's currency) doesn't count as failing.
     private static let tolerance = 1.0
-    /// How closely a numeric gross-up matches the cash needed, in euros.
+    /// How closely a numeric gross-up matches the cash needed, in the plan's currency.
     private static let grossUpTolerance = 0.001
-    /// Rebalancing trades below this many euros are skipped.
+    /// Rebalancing trades below this much money are skipped.
     private static let rebalanceTolerance = 0.01
 
     init(schedule: AgeSchedule, scenarios: MarketScenarios, portfolio: Portfolio, model: PlanModel) {
@@ -136,12 +144,17 @@ struct PathSimulator {
         yearWorkingSpending = schedule.years.map(\.workingSpending)
         yearRetiredUnit = schedule.years.map(\.retiredUnit)
         yearContributions = schedule.years.map(\.contributionTotal)
+        incomeYields = model.incomeYields.count == portfolio.classCount
+            ? model.incomeYields : Array(repeating: 0, count: portfolio.classCount)
+        reportsIncome = incomeYields.contains { $0 > 0 }
         // Every lot reports a year-end balance; only the values change.
         variable.balances = portfolio.lots.map { lot in
             VariableYear.Balance(wrapper: portfolio.buckets[lot.bucket].wrapper, category: lot.category,
                                  country: lot.country, value: 0)
         }
         values = portfolio.lots.map(\.value)
+        lotReturns = Array(repeating: 0, count: portfolio.lots.count)
+        lotStartValues = Array(repeating: 0, count: portfolio.lots.count)
         bases = portfolio.lots.map(\.basis)
         classValues = Array(repeating: 0, count: classCount)
         classShares = Array(repeating: 0, count: classCount)
@@ -200,9 +213,16 @@ struct PathSimulator {
             for contribution in schedule.years[t].contributions {
                 deposit(contribution.amount, into: contribution.bucket)
             }
+            for transfer in schedule.years[t].transfers where transfer.amount != 0 {
+                deposit(transfer.amount, into: transfer.bucket)
+                credited += transfer.amount
+            }
             var severancePay = 0.0
             for b in schedule.years[t].severance {
                 severancePay += payOutInFull(bucket: b, year: t, prepared: prepared)
+            }
+            for payout in schedule.years[t].scheduledPayouts {
+                severancePay += payOut(share: payout.share, of: payout.bucket, year: t, prepared: prepared)
             }
             let expenses = schedule.years[t].expenses(for: mask)
             let spending = yearWorkingSpending[t] + yearRetiredUnit[t] * level
@@ -242,10 +262,15 @@ struct PathSimulator {
                 }
             }
             applyReturns(year: t, run: run)
-            for l in values.indices { variable.balances[l].value = values[l] }
+            for l in values.indices {
+                variable.balances[l].value = values[l]
+                variable.balances[l].nominalReturn = lotReturns[l]
+                variable.balances[l].startValue = lotStartValues[l]
+            }
             let assessment = prepared.assess(variable)
             carried = assessment.totalTax + assessment.totalContributions - schedule.years[t].variants[v].fixedTotal
                 - withheld
+            if !assessment.costBasisAdjustments.isEmpty { adjustCostBases(assessment.costBasisAdjustments) }
 
             let endAssets = total() - carried
             if recordValues { yearValues[t] = endAssets }
@@ -316,6 +341,56 @@ struct PathSimulator {
         sold[b] += value
         withheld += tax
         return value - tax
+    }
+
+    /// Pays `share` of tax-advantaged bucket `b` out, from its lots
+    /// proportionally, because its wrapper must pay out or spreads its
+    /// payouts; at a share of 1, all of it, as severance pay. The tax on it is
+    /// withheld; returns what's left, which joins the year's cash flow.
+    private mutating func payOut(share: Double, of b: Int, year t: Int, prepared: any PreparedTaxYear) -> Double {
+        guard share < 1 - 1e-12 else { return payOutInFull(bucket: b, year: t, prepared: prepared) }
+        var value = 0.0
+        for l in bucketStart[b]..<bucketEnd[b] { value += values[l] }
+        guard share > 0, value > Self.epsilon else { return 0 }
+        let amount = value * share
+        let before = prepared.assess(variable)
+        variable.payouts.append(VariableYear.WrapperPayout(
+            wrapper: bucketWrapper[b], amount: amount, form: .lumpSum, costBasis: wrapperBasis[b] * share,
+            membershipYears: schedule.membershipYears(year: t, bucket: b)))
+        let after = prepared.assess(variable)
+        let tax = after.totalTax + after.totalContributions - before.totalTax - before.totalContributions
+        for l in bucketStart[b]..<bucketEnd[b] {
+            values[l] -= values[l] * share
+            bases[l] = lotIsCash[l] ? values[l] : bases[l] - bases[l] * share
+        }
+        wrapperBasis[b] -= wrapperBasis[b] * share
+        sold[b] += amount
+        withheld += tax
+        return amount - tax
+    }
+
+    /// Adds what the tax system taxed without a sale to the purchase cost of
+    /// the matching holdings, in proportion to their value (their cost must
+    /// be known); a tax-advantaged bucket keeps one purchase cost, which
+    /// takes it whole. Never below 0.
+    private mutating func adjustCostBases(_ adjustments: [CostBasisAdjustment]) {
+        for adjustment in adjustments where adjustment.amount != 0 {
+            guard let b = bucketWrapper.firstIndex(of: adjustment.wrapper) else { continue }
+            guard bucketLiquid[b] else {
+                wrapperBasis[b] = max(0, wrapperBasis[b] + adjustment.amount)
+                continue
+            }
+            var total = 0.0
+            for l in bucketStart[b]..<bucketEnd[b]
+            where !lotIsCash[l] && lotDocumented[l] && lotCategory[l] == adjustment.category {
+                total += values[l]
+            }
+            guard total > Self.epsilon else { continue }
+            for l in bucketStart[b]..<bucketEnd[b]
+            where !lotIsCash[l] && lotDocumented[l] && lotCategory[l] == adjustment.category {
+                bases[l] = max(0, bases[l] + adjustment.amount * values[l] / total)
+            }
+        }
     }
 
     // MARK: - Money out
@@ -796,7 +871,9 @@ struct PathSimulator {
     /// Every lot earns its class's return for the year, or its wrapper's
     /// revaluation when the law sets one (after the wrapper's growth tax).
     /// Wrappers with a tax on growth earn less; interest on liquid cash is
-    /// reported as capital income. Cost bases shrink by inflation.
+    /// reported as capital income, and so is the income funds earn (their
+    /// class's income yield on their value, for the part of the year
+    /// simulated), which is part of the return. Cost bases shrink by inflation.
     private mutating func applyReturns(year t: Int, run: Int?) {
         let step = inflationSteps[t]
         let base: Int
@@ -814,11 +891,18 @@ struct PathSimulator {
             let growthTax = revaluation > 0 ? 0 : bucketGrowthTax[b]
             if !bucketLiquid[b] { wrapperBasis[b] /= step }
             var interest = 0.0
+            let reported = variable.capitalIncome.count
             for l in bucketStart[b]..<bucketEnd[b] {
                 var factor = revaluation > 0 ? revaluation : factors[base + lotClass[l]]
                 if growthTax > 0 {
                     let nominal = factor * step - 1
                     factor = (1 + nominal * (1 - growthTax)) / step
+                }
+                lotReturns[l] = factor * step - 1
+                lotStartValues[l] = values[l]
+                if reportsIncome, revaluation == 0, !lotIsCash[l], values[l] > 0, incomeYields[lotClass[l]] > 0 {
+                    reportIncome(values[l] * incomeYields[lotClass[l]] * yearFraction[t], of: l, bucket: b,
+                                 from: reported)
                 }
                 if lotIsCash[l] {
                     if bucketLiquid[b], revaluation == 0 { interest += values[l] * max(0, factor * step - 1) }
@@ -834,6 +918,18 @@ struct PathSimulator {
                     wrapper: bucketWrapper[b], category: .cash, kind: .interest, amount: interest))
             }
         }
+    }
+
+    /// Adds a fund's income to the bucket's `reportedIncome` for the lot's
+    /// category, among the entries from `first` on (this bucket's).
+    private mutating func reportIncome(_ amount: Double, of l: Int, bucket b: Int, from first: Int) {
+        for index in first..<variable.capitalIncome.count
+        where variable.capitalIncome[index].kind == .reportedIncome && variable.capitalIncome[index].category == lotCategory[l] {
+            variable.capitalIncome[index].amount += amount
+            return
+        }
+        variable.capitalIncome.append(VariableYear.CapitalIncome(
+            wrapper: bucketWrapper[b], category: lotCategory[l], kind: .reportedIncome, amount: amount))
     }
 
     // MARK: - Reporting

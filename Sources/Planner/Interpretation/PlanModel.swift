@@ -8,7 +8,13 @@ import TaxKit
 struct PlanModel: Sendable {
     let plan: PlanDocument
     let registry: TaxRegistry
+    /// The currency of every amount in the model and the results.
+    let currency: CurrencyCode
     let birthDate: CalendarDate
+    /// The person's citizenships, as country codes in capitals.
+    let citizenships: [String]
+    /// The residence timeline as the tax systems see it.
+    let residence: [TaxPlan.Residence]
     /// The check-in the plan starts from; simulation starts the day after.
     let startDate: CalendarDate
     /// Age on the start date.
@@ -35,6 +41,9 @@ struct PlanModel: Sendable {
     let pensions: [PensionSpec]
     let contributions: [ContributionSpec]
     let events: [EventSpec]
+    /// Per class of the portfolio, the income funds earn as a share of
+    /// their value (`assumptions.returns.<class>.incomeYield`), 0 for none.
+    let incomeYields: [Double]
     /// The probabilities of the uncertain events, by bit.
     let uncertainEventProbabilities: [Double]
     let portfolio: PortfolioBuilder
@@ -73,6 +82,8 @@ struct SystemContext: Sendable {
     let system: any TaxSystem
     /// The system's parameters with the plan's overrides.
     let parameters: any ParameterStore
+    /// Units of the system's currency per unit of the plan's (1 when it has none).
+    var currencyRate = 1.0
     /// The plan as this system validates it (set once the plan is interpreted).
     var taxPlan = TaxPlan(residence: [])
     var id: String { system.id }
@@ -100,6 +111,8 @@ struct YearFrame: Sendable {
     let inflationFactor: Double
     /// Inflation over the simulated part of the year: (1 + i)^fraction.
     let inflationStep: Double
+    /// The residence system's ``SystemContext/currencyRate``.
+    let currencyRate: Double
 
     var firstDay: CalendarDate { .firstDay(of: year) }
     var lastDay: CalendarDate { .lastDay(of: year) }
@@ -187,20 +200,39 @@ struct PensionSpec: Sendable {
     let claim: AgeChoice
     let taxedIn: FixedYear.TaxedIn
     /// The plan's options for the pension. A `fixed` pension's `fromAge` and
-    /// `perYear` are passed on here, as `FixedPensionScheme` reads them.
-    let options: OptionValues
+    /// `perYear` are passed on here, as `FixedPensionScheme` reads them, and
+    /// a scheme's seed accounts as `startingBalance`.
+    var options: OptionValues
+    /// The claim route the plan asks for, if any.
+    var claimRoute: String? = nil
+    /// The plan's kind for the pension, else the scheme's.
+    var kind: PensionKind? = nil
+    /// The paying country, in capitals.
+    var sourceCountry: String? = nil
+    /// The ID of the system whose scheme it is.
+    var ownerID: String? = nil
+    /// That system's ``SystemContext/currencyRate``.
+    var currencyRate = 1.0
 
     var isFixed: Bool { schemeID == FixedPensionScheme.schemeID }
 }
 
-/// A planned contribution into an account's bucket, resolved.
+/// A planned contribution, resolved: into an account's bucket, or into a
+/// pension scheme (a buy-in); yearly or once.
 struct ContributionSpec: Sendable {
     let index: Int
-    let account: AccountID
+    /// The wrapper of the account's bucket, or the scheme's ID.
     let wrapper: String
+    /// Whether `wrapper` is a pension scheme's ID rather than a bucket's.
+    let isScheme: Bool
     let perYear: Double
     /// The last day, or `nil` for "until retirement".
     let until: CalendarDate?
+    /// A one-off payment instead of `perYear`.
+    let oneOff: (year: Int, amount: Double)?
+
+    /// `contribution-<index>`, used as `FixedYear.WrapperContribution.source`.
+    var id: String { "contribution-\(index)" }
 }
 
 /// A one-off event, resolved to a calendar year.

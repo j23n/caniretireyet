@@ -200,8 +200,9 @@ struct CategoryAndIndexingTests {
     @Test func reportedIncomeAndReturnsAreReported() {
         let income = VariableYear.CapitalIncome(wrapper: "w", category: .equityFund, kind: .reportedIncome, amount: 20)
         #expect(income.kind.rawValue == "reportedIncome")
-        let balance = VariableYear.Balance(wrapper: "w", category: .equityFund, value: 1_050, nominalReturn: 0.05)
-        #expect(abs(balance.value / (1 + balance.nominalReturn!) - 1_000) < 1e-9)
+        let balance = VariableYear.Balance(wrapper: "w", category: .equityFund, value: 1_050, nominalReturn: 0.071,
+                                           startValue: 1_000)
+        #expect(abs(balance.startValue! * balance.nominalReturn! - 71) < 1e-9)
         #expect(VariableYear.Balance(wrapper: "w", category: .cash, value: 1).nominalReturn == nil)
         let adjustment = CostBasisAdjustment(wrapper: "w", category: .equityFund, amount: 15)
         #expect(TaxAssessment(costBasisAdjustments: [adjustment]).costBasisAdjustments == [adjustment])

@@ -41,7 +41,7 @@ extension PlanResult {
     }
 
     /// A baseline of this result: the fan and the deterministic path at the
-    /// focus age, in whole euros of the start date, with a copy of the plan.
+    /// focus age, in whole units of the plan's currency at the start date, with a copy of the plan.
     public func baseline(created: CalendarDate, kind: BaselineKind, label: String? = nil) -> Baseline {
         let savings = Dictionary(expectedPath.years.map { ($0.year, $0.savings) }, uniquingKeysWith: { first, _ in first })
         return Baseline(

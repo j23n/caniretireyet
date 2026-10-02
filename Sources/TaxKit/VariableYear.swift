@@ -126,19 +126,26 @@ public struct VariableYear: Hashable, Sendable {
         public var value: Double
         /// The holding's nominal return over the year (or the part of it
         /// simulated): its growth from the markets, or from a revaluation set
-        /// by law, as a fraction of its value before, after any tax on growth
-        /// inside the wrapper. So its value before the returns was
-        /// `value / (1 + nominalReturn)` (e.g. for Germany's Vorabpauschale).
-        /// `nil` when unknown.
+        /// by law, as a fraction of ``startValue``, after any tax on growth
+        /// inside the wrapper. So its nominal rise in the year was
+        /// `startValue × nominalReturn` (e.g. the cap on Germany's
+        /// Vorabpauschale). `nil` when unknown.
         public var nominalReturn: Double?
+        /// The holding's value before the year's returns, after the year's
+        /// purchases and sales (which the planner makes first), in the same
+        /// today's money as `value`. It differs from `value / (1 +
+        /// nominalReturn)` by the year's inflation, since amounts are in real
+        /// terms. `nil` when unknown.
+        public var startValue: Double?
 
         public init(wrapper: String, category: TaxCategory, country: String? = nil, value: Double,
-                    nominalReturn: Double? = nil) {
+                    nominalReturn: Double? = nil, startValue: Double? = nil) {
             self.wrapper = wrapper
             self.category = category
             self.country = country
             self.value = value
             self.nominalReturn = nominalReturn
+            self.startValue = startValue
         }
     }
 }

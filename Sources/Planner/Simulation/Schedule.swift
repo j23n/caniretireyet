@@ -53,12 +53,32 @@ struct PensionClaim: Sendable {
     /// Age when payments start.
     let age: Int
     let option: ClaimOption
+    /// The year payments started: the claim's, or for a pension already paid
+    /// when the plan starts, the year it reached the option's age.
+    let startYear: Int
 
     /// The gross amount of a whole year at `age`: in the year payments start,
     /// the rate they start at for twelve months, rather than the months paid.
+    /// Later years grow by the option's real growth.
     func yearlyAmount(atAge age: Int) -> Double {
-        age <= option.age ? option.yearlyAmount : option.annualAmount(atAge: age)
+        (age <= option.age ? option.yearlyAmount : option.annualAmount(atAge: age))
+            * option.growthFactor(yearsSinceClaim: age - self.age)
     }
+
+    /// The gross amount paid in calendar year `year`, at `age`, before any
+    /// part-year share: the option's amount, grown since the claim.
+    func annualAmount(atAge age: Int, year: Int) -> Double {
+        option.annualAmount(atAge: age) * option.growthFactor(yearsSinceClaim: year - self.year)
+    }
+}
+
+/// Part of a tax-advantaged bucket paid out in a year whether it's needed
+/// or not: all of it when its wrapper must pay out, or a share when its
+/// payouts are spread over several years.
+struct ScheduledPayout: Sendable {
+    let bucket: Int
+    /// The share of the bucket's value paid out, 0...1.
+    let share: Double
 }
 
 /// An amount going into a wrapper's bucket.
@@ -87,7 +107,7 @@ struct ScheduledYear: Sendable {
     let workingShare: Double
     /// Spending while working, in the simulated part.
     let workingSpending: Double
-    /// Retirement spending per euro of yearly retirement spending: the
+    /// Retirement spending per unit of yearly retirement spending: the
     /// phase factor times the retired share of the year.
     let retiredUnit: Double
     let certainExpenses: Double
@@ -100,7 +120,11 @@ struct ScheduledYear: Sendable {
     let expectedVariant: Int
     /// Planned contributions into accounts, in the simulated part.
     var contributions: [WrapperAmount]
+    /// Every planned contribution in the simulated part, including those
+    /// into pension schemes, which leave the plan's money.
     let contributionTotal: Double
+    /// Lump sums from pension claims that move into a wrapper untaxed.
+    var transfers: [WrapperAmount]
     /// Work and pension income in the simulated part, for reports.
     let income: [IncomeItem]
     /// Access context inputs.
@@ -113,6 +137,9 @@ struct ScheduledYear: Sendable {
     /// Buckets paid out in full this year because a job ends (severance pay
     /// such as Italy's TFR); set once the portfolio is final.
     var severance: [Int] = []
+    /// Buckets whose wrapper must pay out, or spreads its payouts, this year;
+    /// set once the portfolio is final.
+    var scheduledPayouts: [ScheduledPayout] = []
 
     /// The variant for a run's event mask.
     func variant(for mask: UInt64) -> Int {
@@ -180,7 +207,7 @@ extension AgeSchedule {
         var records: [PensionRecord] = model.pensions.map { pension in
             pension.scheme.startingRecord(options: pension.options,
                                           year: model.frames.first?.year ?? model.startDate.year,
-                                          parameters: pension.schemeParameters)
+                                          parameters: pension.schemeParameters, currencyRate: pension.currencyRate)
         }
         var claims: [PensionClaim?] = Array(repeating: nil, count: model.pensions.count)
         let schemeIDs = Set(model.pensions.map(\.schemeID))
@@ -219,12 +246,19 @@ extension AgeSchedule {
             // Pensions: claims use the record as it stood at the end of last year.
             // An `earliest` claim waits for work to stop (when it stops within
             // the plan), and in that year pays only the months after it.
+            let yearsSinceWorkStopped = retirementDate <= frame.lastDay
+                ? retirementDate.wholeYears(to: frame.lastDay) : nil
             var paid: [FixedYear.Pension] = []
+            var transfers: [WrapperAmount] = []
             for (index, pension) in model.pensions.enumerated() {
                 let waitsForWork = pension.claim == .earliest && retirementDate > model.startDate
                 if claims[index] == nil, !(waitsForWork && retirementDate > frame.lastDay),
-                   let option = Self.claim(pension, record: records[index], frame: frame, birth: birth) {
-                    claims[index] = PensionClaim(pension: index, year: frame.year, age: frame.age, option: option)
+                   let option = Self.claim(pension, record: records[index], frame: frame, birth: birth,
+                                           yearsSinceWorkStopped: yearsSinceWorkStopped) {
+                    // A pension already paid when the plan starts started when it reached its age.
+                    let startYear = frame.index == 0 && option.age < frame.age ? model.birthYear + option.age : frame.year
+                    claims[index] = PensionClaim(pension: index, year: frame.year, age: frame.age, option: option,
+                                                 startYear: startYear)
                     if case .age(let wanted) = pension.claim, frame.age > wanted {
                         report(.warning("planner.claimLater",
                                         "\(pension.name) can't be claimed at \(wanted); the plan claims it at \(frame.age).",
@@ -232,7 +266,24 @@ extension AgeSchedule {
                     }
                 }
                 guard let claim = claims[index] else { continue }
-                var amount = claim.option.annualAmount(atAge: frame.age)
+                // A lump sum is paid once, in the year the pension is claimed: taxed
+                // as the system says and into the year's cash, or untaxed into a wrapper.
+                if claim.year == frame.year, let lumpSum = claim.option.lumpSum, lumpSum > 0 {
+                    if let wrapper = claim.option.lumpSumWrapper {
+                        transfers.append(WrapperAmount(wrapper: wrapper, amount: lumpSum, source: pension.id))
+                    } else {
+                        let id = pension.id + ".lumpSum"
+                        paid.append(FixedYear.Pension(
+                            id: id, scheme: pension.schemeID, amount: lumpSum, taxedIn: pension.taxedIn,
+                            kind: pension.kind, startYear: claim.startYear, sourceCountry: pension.sourceCountry,
+                            form: .lumpSum, mandatoryShare: claim.option.mandatoryShare))
+                        shares[id] = 1
+                        cashIn += lumpSum
+                        income.append(IncomeItem(kind: .pension, id: id, label: "\(pension.name) (lump sum)",
+                                                 amount: lumpSum))
+                    }
+                }
+                var amount = claim.annualAmount(atAge: frame.age, year: frame.year)
                 var share = frame.fraction
                 if waitsForWork, claim.year == frame.year, retirementDate > frame.firstDay {
                     let retiredDays = frame.days(from: retirementDate, until: frame.lastDay)
@@ -242,7 +293,9 @@ extension AgeSchedule {
                 }
                 guard amount > 0 else { continue }
                 paid.append(FixedYear.Pension(id: pension.id, scheme: pension.schemeID, amount: amount,
-                                              taxedIn: pension.taxedIn))
+                                              taxedIn: pension.taxedIn, kind: pension.kind, startYear: claim.startYear,
+                                              sourceCountry: pension.sourceCountry,
+                                              mandatoryShare: claim.option.mandatoryShare))
                 shares[pension.id] = share
                 cashIn += amount * share
                 income.append(IncomeItem(kind: .pension, id: pension.id, label: pension.name, amount: amount * share))
@@ -263,18 +316,38 @@ extension AgeSchedule {
             }
             let incomeShare = incomeWeight > 0 ? simulatedIncome / incomeWeight : frame.fraction
 
-            // Planned contributions, from the plan's start until they stop.
+            // Planned contributions, from the plan's start until they stop, and
+            // one-off ones in their year. Those into a pension scheme leave the
+            // plan's money; the system credits them to the scheme.
             var contributions: [WrapperAmount] = []
+            var schemePayments = 0.0
+            var schemesPaid: [String] = []
             var wrapperContributions: [FixedYear.WrapperContribution] = []
             for contribution in model.contributions {
-                let last = contribution.until ?? lastWorkDay
-                let whole = contribution.perYear * Double(frame.days(from: frame.firstDay, until: last)) / daysInYear
-                let simulated = contribution.perYear
-                    * Double(frame.simulatedDays(from: frame.simulatedFrom, until: last)) / daysInYear
-                if whole > 0 {
-                    wrapperContributions.append(FixedYear.WrapperContribution(wrapper: contribution.wrapper, amount: whole))
+                let whole: Double
+                let simulated: Double
+                if let oneOff = contribution.oneOff {
+                    guard oneOff.year == frame.year else { continue }
+                    whole = oneOff.amount
+                    simulated = oneOff.amount
+                } else {
+                    let last = contribution.until ?? lastWorkDay
+                    whole = contribution.perYear * Double(frame.days(from: frame.firstDay, until: last)) / daysInYear
+                    simulated = contribution.perYear
+                        * Double(frame.simulatedDays(from: frame.simulatedFrom, until: last)) / daysInYear
                 }
-                if simulated > 0 { contributions.append(WrapperAmount(wrapper: contribution.wrapper, amount: simulated)) }
+                if whole > 0 {
+                    wrapperContributions.append(FixedYear.WrapperContribution(
+                        wrapper: contribution.wrapper, amount: whole, source: contribution.id))
+                    shares[contribution.id] = simulated / whole
+                }
+                guard simulated > 0 else { continue }
+                if contribution.isScheme {
+                    schemePayments += simulated
+                    if !schemesPaid.contains(contribution.wrapper) { schemesPaid.append(contribution.wrapper) }
+                } else {
+                    contributions.append(WrapperAmount(wrapper: contribution.wrapper, amount: simulated))
+                }
             }
 
             // Events.
@@ -303,7 +376,9 @@ extension AgeSchedule {
                     year: frame.year, age: frame.age, systemOptions: frame.systemOptions, overlays: overlays,
                     work: workIncomes, pensions: paid, wrapperContributions: wrapperContributions,
                     windfalls: windfalls.map { FixedYear.Windfall(name: $0.name, kind: $0.kind, amount: $0.amount) },
-                    inflationFactor: frame.inflationFactor, indexThresholds: model.indexThresholds)
+                    inflationFactor: frame.inflationFactor, indexThresholds: model.indexThresholds,
+                    currencyRate: frame.currencyRate, citizenships: model.citizenships, birthDate: birth,
+                    residence: model.residence)
                 if mask == expectedLocal { fixedYears.append(fixedYear) }
                 let prepared = system.prepare(fixedYear, state: state, parameters: frame.parameters)
                 let fixed = prepared.fixedAssessment
@@ -338,8 +413,12 @@ extension AgeSchedule {
 
             // Access inputs, before this year's credits.
             let contributionYears = records.map(\.totalContributionYears).max() ?? 0
-            let yearsSinceWorkStopped = retirementDate <= frame.lastDay
-                ? retirementDate.wholeYears(to: frame.lastDay) : nil
+            for scheme in schemesPaid
+            where !expectedAssessment.accruals.contains(where: { $0.target == .pensionScheme(scheme) }) {
+                report(.warning("planner.contributionNotCredited",
+                                "\(system.name) doesn't credit payments into \(scheme), so they don't add to the pension.",
+                                section: .contributions))
+            }
 
             // Pension credits from the deterministic year.
             for (index, pension) in model.pensions.enumerated() {
@@ -361,7 +440,7 @@ extension AgeSchedule {
                                    source: accrual.source)
                 }
                 scheme.accrue(credits, in: frame.year, to: &records[index], options: pension.options,
-                              parameters: parameters)
+                              parameters: parameters, currencyRate: pension.currencyRate)
             }
             for accrual in expectedAssessment.accruals {
                 if case .pensionScheme(let scheme) = accrual.target, !schemeIDs.contains(scheme), accrual.amount > 0 {
@@ -382,10 +461,19 @@ extension AgeSchedule {
                 retiredUnit: model.spending.factor(atAge: frame.age) * Double(retiredDays) / daysInYear,
                 certainExpenses: certainExpenses, uncertainExpenses: uncertainExpenses, windfallBits: windfallBits,
                 variants: variants, variantIndex: variantIndex, expectedVariant: expected,
-                contributions: contributions, contributionTotal: contributions.reduce(0) { $0 + $1.amount },
-                income: income, contributionYears: contributionYears,
+                contributions: contributions,
+                contributionTotal: contributions.reduce(0) { $0 + $1.amount } + schemePayments,
+                transfers: transfers, income: income, contributionYears: contributionYears,
                 yearsSinceWorkStopped: yearsSinceWorkStopped, oldAgePensionAge: model.oldAgePensionAges[frame.index],
                 oldAgePensionAgeInMonths: model.oldAgePensionAgesInMonths[frame.index], taxState: yearState))
+        }
+
+        for (index, pension) in model.pensions.enumerated() where claims[index] == nil {
+            if let route = pension.claimRoute {
+                report(.warning("planner.claimRoute",
+                                "\(pension.name) never offers the claim route \(route) in the plan's years, so it isn't paid.",
+                                section: .pensions, index: pension.index, option: "claimRoute"))
+            }
         }
 
         self.retirementAge = age
@@ -397,14 +485,16 @@ extension AgeSchedule {
     }
 
     /// Decides whether a pension is claimed in `frame`'s year, and how: the
-    /// latest of its scheme's claim options at or below the age that year,
-    /// once the age the plan asks for is reached.
+    /// latest of its scheme's claim options at or below the age that year
+    /// (the first listed of those at that age), with the plan's claim route
+    /// if it names one, once the age the plan asks for is reached.
     private static func claim(_ pension: PensionSpec, record: PensionRecord, frame: YearFrame,
-                              birth: BirthDate) -> ClaimOption? {
+                              birth: BirthDate, yearsSinceWorkStopped: Int?) -> ClaimOption? {
         if case .age(let wanted) = pension.claim, frame.age < wanted { return nil }
-        let context = ClaimContext(year: frame.year, birthDate: birth, options: pension.options)
+        let context = ClaimContext(year: frame.year, birthDate: birth, options: pension.options,
+                                   currencyRate: pension.currencyRate, yearsSinceWorkStopped: yearsSinceWorkStopped)
         return pension.scheme.claimOptions(for: record, context: context, parameters: pension.schemeParameters)
-            .filter { $0.age <= frame.age }
+            .filter { $0.age <= frame.age && (pension.claimRoute == nil || $0.route == pension.claimRoute) }
             .max { $0.age < $1.age }
     }
 
@@ -443,6 +533,10 @@ extension AgeSchedule {
                             ?? portfolio.primaryLiquid
                 }
             }
+            for index in years[t].transfers.indices {
+                years[t].transfers[index].bucket =
+                    portfolio.bucketIndex(wrapper: years[t].transfers[index].wrapper) ?? portfolio.primaryLiquid
+            }
         }
 
         // Membership starts when an account joined the wrapper (or opened),
@@ -451,6 +545,7 @@ extension AgeSchedule {
         for t in years.indices {
             let paidIn = years[t].contributions.filter { $0.amount > 0 }.map(\.bucket)
                 + years[t].variants.flatMap { $0.accruals.filter { $0.amount > 0 }.map(\.bucket) }
+                + years[t].transfers.filter { $0.amount > 0 }.map(\.bucket)
             for bucket in paidIn where joined[bucket] == nil { joined[bucket] = model.frames[t].simulatedFrom }
         }
 
@@ -458,6 +553,7 @@ extension AgeSchedule {
         membership = []
         access.reserveCapacity(years.count * bucketCount)
         membership.reserveCapacity(years.count * bucketCount)
+        var forced = [Bool](repeating: false, count: years.count * bucketCount)
         let birth = model.birthDate.birthDate
         for t in years.indices {
             let lastDay = CalendarDate.lastDay(of: years[t].year)
@@ -474,10 +570,39 @@ extension AgeSchedule {
                     membershipYears: members, birthDate: birth,
                     oldAgePensionAgeInMonths: years[t].oldAgePensionAgeInMonths)
                 access.append(rule.access(in: context))
+                if !bucket.isLiquid, rule.mustPayOut != nil { forced[t * bucketCount + b] = rule.mustPayOut(in: context) }
             }
         }
         accessible = access.map(\.isAccessible)
         scheduleSeverancePay(portfolio: portfolio, model: model)
+        schedulePayouts(portfolio: portfolio, forced: forced)
+    }
+
+    /// Payouts a wrapper's rule asks for whether or not the money is needed:
+    /// the whole balance in a year it must pay out (``WrapperRule/mustPayOut``),
+    /// and, for one whose payouts are spread over n years from the first year
+    /// it's accessible (``WrapperRule/preferredPayoutYears``), 1/n of it in the
+    /// first of them, 1/(n − 1) in the next, and the rest in the last.
+    /// Severance pay is left to ``scheduleSeverancePay(portfolio:model:)``.
+    private mutating func schedulePayouts(portfolio: Portfolio, forced: [Bool]) {
+        for t in years.indices { years[t].scheduledPayouts = [] }
+        guard let firstYear = years.first?.year else { return }
+        for (b, bucket) in portfolio.buckets.enumerated() where !bucket.isLiquid {
+            guard let rule = bucket.rule, rule.mustPayOut != nil || (rule.preferredPayoutYears ?? 0) > 0,
+                  !Self.isPaidWhenJobEnds(rule, year: firstYear) else { continue }
+            let spread = max(0, rule.preferredPayoutYears ?? 0)
+            let firstAccess = years.indices.first { isAccessible(year: $0, bucket: b) }
+            for t in years.indices {
+                var share = 0.0
+                if forced[t * bucketCount + b] {
+                    share = 1
+                } else if spread > 0, let first = firstAccess, t >= first, t < first + spread,
+                          isAccessible(year: t, bucket: b) {
+                    share = 1 / Double(first + spread - t)
+                }
+                if share > 0 { years[t].scheduledPayouts.append(ScheduledPayout(bucket: b, share: share)) }
+            }
+        }
     }
 
     /// Severance pay, such as Italy's TFR, is paid out in full when the job

@@ -10,7 +10,7 @@ import TaxKit
 ///
 /// - Builds the starting portfolio from a check-in (`Tracker.Valuator`),
 ///   grouped into buckets by tax wrapper.
-/// - Runs yearly steps in today's euros: income, taxes (prepared once per
+/// - Runs yearly steps in today's money in the plan's currency: income, taxes (prepared once per
 ///   retirement age and year, assessed per path, gross-up for withdrawals),
 ///   spending, withdrawals, returns and rebalancing.
 /// - A deterministic run and a seeded Monte Carlo simulation with common
@@ -167,7 +167,7 @@ public enum Planner {
             plan: plan, engine: engineVersion, planHash: planHash(plan), taxParameters: model.taxParameters,
             start: PlanStart(date: model.startDate, age: current, planAssets: model.portfolio.startAssets,
                              accounts: model.portfolio.accounts,
-                             buckets: bucketSummaries(engine.portfolio)),
+                             buckets: bucketSummaries(engine.portfolio), schemeSeeds: schemeSeeds(model)),
             settings: SimulationSettings(runs: model.runs, seed: model.seed, confidence: model.confidence,
                                          inflation: model.inflation, endAge: model.endAge),
             answer: answer, successCurve: curve, focusAge: focus, fan: fan,
@@ -175,7 +175,8 @@ public enum Planner {
             medianPath: PathDetail(retirementAge: focus, failure: medianOutcome.failure, years: medianYears),
             failures: failureSummary(outcomes),
             markers: markers(schedule: focusSchedule, engine: engine),
-            issues: unique(engine.issues + focusSchedule.issues + model.yearIssues(for: focusSchedule)))
+            issues: unique(engine.issues + focusSchedule.issues + model.yearIssues(for: focusSchedule)),
+            currency: model.currency)
         progress?.finish()
         return result
     }
@@ -252,14 +253,19 @@ public enum Planner {
             let paid = claims.map { claim in
                 let pension = model.pensions[claim.pension]
                 return FixedYear.Pension(id: pension.id, scheme: pension.schemeID,
-                                         amount: claim.yearlyAmount(atAge: frame.age), taxedIn: pension.taxedIn)
+                                         amount: claim.yearlyAmount(atAge: frame.age), taxedIn: pension.taxedIn,
+                                         kind: pension.kind, startYear: claim.startYear,
+                                         sourceCountry: pension.sourceCountry,
+                                         mandatoryShare: claim.option.mandatoryShare)
             }
             let system = model.systems[frame.system].system
             let overlays = model.overlays.filter { system.regime($0.regime) != nil }
             func taxes(_ pensions: [FixedYear.Pension]) -> Double {
                 let year = FixedYear(year: frame.year, age: frame.age, systemOptions: frame.systemOptions,
                                      overlays: overlays, pensions: pensions, inflationFactor: frame.inflationFactor,
-                                     indexThresholds: model.indexThresholds)
+                                     indexThresholds: model.indexThresholds, currencyRate: frame.currencyRate,
+                                     citizenships: model.citizenships, birthDate: model.birthDate.birthDate,
+                                     residence: model.residence)
                 let assessment = system.prepare(year, state: schedule.years[t].taxState, parameters: frame.parameters)
                     .fixedAssessment
                 return assessment.totalTax + assessment.totalContributions
@@ -267,6 +273,16 @@ public enum Planner {
             pensions = paid.reduce(0) { $0 + $1.amount } - (taxes(paid) - taxes([]))
         }
         return max(0, model.spending.retired - pensions) / rate
+    }
+
+    /// The accounts that started a pension scheme, and whether it used them.
+    private static func schemeSeeds(_ model: PlanModel) -> [SchemeSeed] {
+        model.portfolio.seeds.map { seed in
+            let pension = model.pensions.first { $0.schemeID == seed.scheme }
+            let used = pension?.options["startingBalance"] == .number(seed.value)
+            return SchemeSeed(scheme: seed.scheme, name: pension?.scheme.name ?? seed.scheme, wrapper: seed.wrapper,
+                              accounts: seed.accounts, value: seed.value, used: used)
+        }
     }
 
     private static func bucketSummaries(_ portfolio: Portfolio) -> [BucketSummary] {

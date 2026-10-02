@@ -39,7 +39,19 @@ struct PortfolioBuilder: Sendable {
         var value: Double { holdings.reduce(0) { $0 + $1.value } }
     }
 
+    /// Accounts that hold a pension scheme's record (its `seedWrapper`):
+    /// they start the scheme rather than being a bucket.
+    struct Seed: Sendable {
+        let scheme: String
+        let wrapper: String
+        var accounts: [AccountID]
+        /// Their value on the start date, in the plan's currency.
+        var value: Double
+    }
+
     private(set) var buckets: [Bucket]
+    /// The pension schemes started from accounts, in the order first met.
+    let seeds: [Seed]
     /// Every asset class a lot can hold, in canonical order.
     let classes: [AssetClass]
     /// The bucket new savings go into.
@@ -54,11 +66,14 @@ struct PortfolioBuilder: Sendable {
 
     // MARK: - Building from the library
 
-    /// Values the included accounts on `date` and groups them into buckets.
+    /// Values the included accounts on `date`, in `currency`, and groups
+    /// them into buckets. Accounts whose wrapper is in `seedWrappers` (a
+    /// wrapper → the scheme it seeds) become ``seeds`` instead.
     init(library: Library, date: CalendarDate, plan: PlanDocument, registry: TaxRegistry,
-         residence: (any TaxSystem)?, issues: inout [PlanIssue]) {
+         residence: (any TaxSystem)?, currency: CurrencyCode? = nil, seedWrappers: [String: String] = [:],
+         issues: inout [PlanIssue]) {
         self.registry = registry
-        let valuator = Valuator(library: library)
+        let valuator = Self.valuator(library: library, currency: currency ?? library.settings.baseCurrency)
         let excluded = Set(plan.portfolio.exclude)
         let gainShare = plan.portfolio.unrealizedGainShare.map { min(1, max(0, $0.double)) }
         let planMix = plan.portfolio.targetMix.flatMap { Self.normalized($0, section: .portfolio, issues: &issues) }
@@ -69,6 +84,7 @@ struct PortfolioBuilder: Sendable {
         }
 
         var buckets: [Bucket] = []
+        var seeds: [Seed] = []
         var debt = 0.0
         var undocumented: [AccountID] = []
         var included: [AccountID] = []
@@ -89,6 +105,23 @@ struct PortfolioBuilder: Sendable {
                 issues.append(.warning("planner.incompleteValue",
                                        "\(problem.description); the plan counts only what could be valued.",
                                        section: .portfolio, account: account.id))
+            }
+            if let wrapper = account.wrapper?.rawValue, let scheme = seedWrappers[wrapper] {
+                let amount = value.knownValue.double
+                if let index = seeds.firstIndex(where: { $0.scheme == scheme }) {
+                    seeds[index].accounts.append(account.id)
+                    seeds[index].value += amount
+                } else {
+                    seeds.append(Seed(scheme: scheme, wrapper: wrapper, accounts: [account.id], value: amount))
+                }
+                continue
+            }
+            if let wrapper = account.wrapper?.rawValue,
+               let scheme = registry.systems.lazy.flatMap(\.pensionSchemes).first(where: { $0.seedWrapper == wrapper }) {
+                issues.append(.warning("planner.seedWithoutPension",
+                                       "\(account.name) holds a \(scheme.name) record, but the plan has no \(scheme.name) "
+                                           + "pension; the plan treats it as an account.",
+                                       section: .pensions, account: account.id))
             }
             included.append(account.id)
             total += value.knownValue
@@ -178,6 +211,7 @@ struct PortfolioBuilder: Sendable {
         self.classes = AssetClass.knownValues.filter(classes.contains)
             + classes.subtracting(AssetClass.knownValues).sorted()
         self.buckets = buckets
+        self.seeds = seeds
         self.primaryLiquid = primary!
         self.liquidMix = liquidMix
         self.startAssets = total
@@ -259,6 +293,16 @@ struct PortfolioBuilder: Sendable {
     }
 
     // MARK: - Helpers
+
+    /// A valuator that values in `currency`: the library's own when it's the
+    /// base currency, else one converting at the library's FX rates.
+    private static func valuator(library: Library, currency: CurrencyCode) -> Valuator {
+        guard currency != library.settings.baseCurrency else { return Valuator(library: library) }
+        return Valuator(baseCurrency: currency, accounts: Array(library.accounts.values),
+                        valuations: library.months.values.flatMap(\.valuations), prices: PriceTable(library: library),
+                        fx: FXTable(library: library), instruments: Array(library.instruments.values),
+                        trades: library.months.values.flatMap(\.trades))
+    }
 
     /// The wrapper an account belongs to, its category and its rule.
     private static func wrapper(for account: Account, registry: TaxRegistry, issues: inout [PlanIssue])
@@ -406,17 +450,42 @@ struct PortfolioBuilder: Sendable {
         return shares
     }
 
-    /// The tax category of an instrument, from its kind.
+    /// The tax category of an instrument, from its kind: an ETF or fund by
+    /// what kind of fund it is (``fundCategory(of:)``), an ETC with a
+    /// delivery claim as such.
     static func category(of instrument: Instrument) -> TaxCategory {
         switch instrument.kind {
-        case .etf, .fund: .fund
+        case .etf, .fund: fundCategory(of: instrument)
         case .stock: .stock
         case .bond: .bond
-        case .etc: .etc
+        case .etc: instrument.tax?.deliveryClaim == true ? .etcWithDeliveryClaim : .etc
         case .crypto: .crypto
         case .metal: .physicalGold
         default: .other
         }
+    }
+
+    /// The kind of fund an ETF or fund is: its `tax.fundType` when it gives
+    /// one this version knows, else from its asset mix: more than half in
+    /// equity is an equity fund, more than half in real estate a real-estate
+    /// fund, at least a quarter in equity a mixed fund, and anything else a
+    /// plain `fund`. The whole fund gets one category, so both parts of a
+    /// 60/40 fund are an equity fund's.
+    static func fundCategory(of instrument: Instrument) -> TaxCategory {
+        switch instrument.tax?.fundType {
+        case .equity?: return .equityFund
+        case .mixed?: return .mixedFund
+        case .realEstate?: return .realEstateFund
+        case .foreignRealEstate?: return .foreignRealEstateFund
+        case .other?: return .fund
+        default: break
+        }
+        let mix = shares(instrument.assetClasses) ?? [:]
+        let equity = mix[.equity] ?? 0
+        if equity > 0.5 { return .equityFund }
+        if (mix[.realEstate] ?? 0) > 0.5 { return .realEstateFund }
+        if equity >= 0.25 { return .mixedFund }
+        return .fund
     }
 
     /// The tax category of part of a balance account.
@@ -430,10 +499,12 @@ struct PortfolioBuilder: Sendable {
         }
     }
 
-    /// The tax category of new money invested in an asset class.
+    /// The tax category of new money invested in an asset class: equity in
+    /// an equity fund, bonds in a (bond) fund.
     static func defaultCategory(for assetClass: AssetClass) -> TaxCategory {
         switch assetClass {
-        case .equity, .bonds: .fund
+        case .equity: .equityFund
+        case .bonds: .fund
         case .cash: .cash
         case .gold: .etc
         case .crypto: .crypto
