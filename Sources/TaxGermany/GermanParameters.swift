@@ -350,6 +350,9 @@ struct GermanParameters: Sendable {
     var payingStateTaxesItsNationals: [String: Bool]
     var moveToSwitzerlandYears: Int
     var moveToSwitzerlandPriorYears: Int
+    /// The share of a non-resident's income that must be taxed in Germany
+    /// for them to be taxed as a resident (§1 Abs. 3): 90%.
+    var residentTreatmentShare: Double
 
     /// How each group of amounts follows prices, from the file.
     var rules: [String: ThresholdIndexing.Rule]
@@ -545,6 +548,7 @@ struct GermanParameters: Sendable {
         let move = root["treaties"]["CH"]["extendedTaxationAfterMove"]
         moveToSwitzerlandYears = try move["years"].int()
         moveToSwitzerlandPriorYears = try move["minimumPriorGermanYears"].int()
+        residentTreatmentShare = try root["nonResident"]["residentTreatmentShare"].double()
         self.rules = rules
     }
 

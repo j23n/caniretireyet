@@ -44,7 +44,13 @@ struct ReferenceCaseTests {
     private func checkYear(_ reference: ReferenceCase, name: String) throws {
         let system = Self.system
         let parameters = try system.parameters.parameters(for: reference.year)
-        let prepared = system.prepare(reference.fixedYear, state: reference.state, parameters: parameters)
+        let prepared: any PreparedTaxYear
+        if reference.kind == "nonResident" {
+            prepared = try #require(system.prepareNonResident(reference.fixedYear, state: reference.state,
+                                                              parameters: parameters), "\(name): nothing to tax")
+        } else {
+            prepared = system.prepare(reference.fixedYear, state: reference.state, parameters: parameters)
+        }
         let assessment = prepared.assess(reference.variableYear)
         let expected = reference.expected
 
