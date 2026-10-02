@@ -78,6 +78,20 @@ struct PlanModel: Sendable {
     func retirementDate(forAge age: Int) -> CalendarDate {
         max(startDate, birthDate.adding(years: age))
     }
+
+    /// How many years the payouts of a wrapper are spread over when it opens
+    /// in `year`: what the registered system that has the wrapper makes of
+    /// the options of the plan's residence period in that system (the latest
+    /// at or before `year`, else the first after it, else none), through
+    /// ``TaxKit/TaxSystem/preferredPayoutYears(for:options:)``; the rule's
+    /// own value when no system has it. `nil` or 0 for none.
+    func preferredPayoutYears(for rule: WrapperRule, openingIn year: Int) -> Int? {
+        guard let owner = registry.systems.first(where: { $0.wrapper(rule.id) != nil }) else {
+            return rule.preferredPayoutYears
+        }
+        let options = NonResidentTaxes.options(of: owner.id, in: year, residence: residence)
+        return owner.preferredPayoutYears(for: rule.id, options: options)
+    }
 }
 
 /// A tax system as a plan uses it.

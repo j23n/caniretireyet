@@ -224,7 +224,8 @@ struct PortfolioBuilder: Sendable {
     }
 
     /// Adds an empty bucket for a wrapper that receives money but that no
-    /// included account uses. Returns a warning to show.
+    /// included account uses. Returns a warning to show, unless the caller
+    /// expects the money there (a scheme's lump sum moving into it).
     mutating func addBucket(wrapper: String) -> PlanIssue? {
         guard bucketIndex(wrapper: wrapper) == nil else { return nil }
         let rule = registry.wrapper(wrapper)

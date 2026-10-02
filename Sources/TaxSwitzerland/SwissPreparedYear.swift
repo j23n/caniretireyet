@@ -29,6 +29,8 @@ struct SwissPreparedYear: PreparedTaxYear {
         /// The pension lump sums of the year.
         let capitalBenefits: [SwissCapitalBenefit]
         let preparedCapitalTotal: Double
+        /// Credits for tax paid abroad on pensions taxed against their `taxedIn`.
+        let credits: [SwissForeignCredit]
         /// Buy-ins whose deduction a lump sum this year reverses, and
         /// whether prepare already did (for a BVG lump sum).
         let lockedBuyIns: Double
@@ -48,7 +50,7 @@ struct SwissPreparedYear: PreparedTaxYear {
 
         init(year: Int, rate: Double, tariffs: SwissTariffs, labels: SwissLabels, base: SwissIncomeBase?,
              incomeTaxes: SwissIncomeTaxes?, lumpSum: SwissLumpSumYear?, capitalBenefits: [SwissCapitalBenefit],
-             lockedBuyIns: Double, reversedInPrepare: Bool, workAHV: Double, annuities: Double, home: Double,
+             credits: [SwissForeignCredit], lockedBuyIns: Double, reversedInPrepare: Bool, workAHV: Double, annuities: Double, home: Double,
              nonEmployedShare: Double, adminRate: Double, personalTax: Double, fixedContributions: [TaxLine]) {
             self.year = year
             self.rate = rate > 0 ? rate : 1
@@ -59,6 +61,7 @@ struct SwissPreparedYear: PreparedTaxYear {
             self.lumpSum = lumpSum
             self.capitalBenefits = capitalBenefits
             preparedCapitalTotal = capitalBenefits.reduce(0) { $0 + max(0, $1.amount) }
+            self.credits = credits
             self.lockedBuyIns = lockedBuyIns
             self.reversedInPrepare = reversedInPrepare
             self.workAHV = workAHV
@@ -268,6 +271,7 @@ struct SwissMarketAssessor {
 
         // Stage 7: all of the year's capital benefits, taxed together.
         builder.addCapitalBenefits(benefits)
+        builder.addForeignTaxCredits(c.credits, income: c.base.map { $0.income + capitalIncome + extraIncome } ?? 0)
 
         // Stage 9: wealth tax, with Ticino's brake, for the share of the year.
         let fraction = min(1, max(0, variable.fractionOfYear))

@@ -11,7 +11,8 @@
       "realInterest": 0.0,
       "inflation": 0.01
     },
-    "yearsSinceWorkStopped": 0
+    "yearsSinceWorkStopped": 0,
+    "claimRoute": "ch.bvg.capital"
   },
   "expected": {
     "claims": [
@@ -33,6 +34,7 @@
   },
   "workings": [
     "Born 1976-05-01; retirement assets 500,000.00; conversion rate 5.4% at 65, 0.2 points less for each year earlier, more for each later; real interest 0%; Swiss inflation 1%.",
-    "Work stopped at 50, before 58: the assets move untaxed to a vested-benefits account, whatever route the plan names."
+    "Work stopped at 50, before 58: the assets move untaxed to a vested-benefits account, whatever route the plan names.",
+    "The transfer is listed under its own route and under the plan's (ch.bvg.capital here), so the plan's choice finds it; under no other route."
   ]
 }

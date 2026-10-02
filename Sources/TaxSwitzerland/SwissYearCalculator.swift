@@ -68,22 +68,30 @@ struct SwissYearCalculator {
 
         // Stage 4: pensions. Annuities taxed here are income; those a treaty
         // leaves to the paying country count for the rate. Lump sums are
-        // capital benefits.
+        // capital benefits. A pension the plan says the paying country taxes,
+        // but the treaty gives to Switzerland, is taxed here with that
+        // country's tax credited.
         var pensionIncome = 0.0
         var exemptForRate = 0.0
         var annuities = 0.0
         var capitalBenefits: [SwissCapitalBenefit] = []
+        var credits: [SwissForeignCredit] = []
         var bvgLumpSum = false
         for pension in year.pensions where pension.amount > 0 {
             let amount = chf(pension.amount)
+            let taxedHere = taxesInSwitzerland(pension)
+            if taxedHere, pension.taxedIn == .source, let paid = pension.sourceTax, paid > 0 {
+                credits.append(SwissForeignCredit(subject: pension.id, amount: amount, paid: chf(paid),
+                                                  isLumpSum: pension.form == .lumpSum))
+            }
             if pension.form == .lumpSum {
-                if pension.taxedIn == .residence {
+                if taxedHere {
                     capitalBenefits.append(SwissCapitalBenefit(subject: pension.id, amount: amount))
                 }
                 if pension.scheme == BVGPensionScheme.schemeID { bvgLumpSum = true }
             } else {
                 annuities += amount
-                if pension.taxedIn == .residence { pensionIncome += amount } else { exemptForRate += amount }
+                if taxedHere { pensionIncome += amount } else { exemptForRate += amount }
             }
         }
 
@@ -152,6 +160,7 @@ struct SwissYearCalculator {
         }
         builder.addPersonalTax(canton.personalTax)
         builder.addCapitalBenefits(capitalBenefits)
+        builder.addForeignTaxCredits(credits, income: lumpSum == nil ? base.income : 0)
         if let lumpSum {
             builder.addWealth(simple: lumpSum.wealthSimple, netWealth: lumpSum.deemedWealth, fraction: 1)
         }
@@ -209,7 +218,7 @@ struct SwissYearCalculator {
                                   accruals: accruals, issues: issues, nextState: next)
         let context = SwissPreparedYear.Context(
             year: thisYear, rate: rate, tariffs: tariffs, labels: labels, base: lumpSum == nil ? base : nil,
-            incomeTaxes: incomeTaxes, lumpSum: lumpSum, capitalBenefits: capitalBenefits,
+            incomeTaxes: incomeTaxes, lumpSum: lumpSum, capitalBenefits: capitalBenefits, credits: credits,
             lockedBuyIns: lockedBuyIns, reversedInPrepare: reversal > 0,
             workAHV: work.reduce(0) { $0 + $1.ahvOnEarnings }, annuities: annuities, home: home,
             nonEmployedShare: nonEmployedShare,

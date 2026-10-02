@@ -4,8 +4,9 @@ import TaxKit
 /// A reference case from `cases/*.json`: a year's inputs and the expected
 /// itemised result, computed by hand (with the arithmetic in `workings`).
 ///
-/// `kind` is `year` (the default: prepare, then assess) or `claims` (a
-/// pension scheme's claim options for a record).
+/// `kind` is `year` (the default: prepare, then assess), `claims` (a
+/// pension scheme's claim options for a record) or `nonResident` (the
+/// source tax on Swiss pensions paid abroad: `prepareNonResident`).
 struct ReferenceCase: Decodable, Sendable {
     var name: String
     var kind: String?
@@ -34,6 +35,7 @@ struct ReferenceCase: Decodable, Sendable {
         var scheme: String?
         var options: [String: OptionValue]?
         var yearsSinceWorkStopped: Int?
+        var claimRoute: String?
     }
 
     struct Overlay: Decodable, Sendable {
@@ -59,6 +61,8 @@ struct ReferenceCase: Decodable, Sendable {
         var form: String?
         var kind: String?
         var sourceCountry: String?
+        /// The tax the paying country charged on it (`FixedYear.Pension.sourceTax`).
+        var sourceTax: Double?
     }
 
     struct Contribution: Decodable, Sendable {
@@ -175,7 +179,7 @@ struct ReferenceCase: Decodable, Sendable {
                 FixedYear.Pension(id: $0.id, scheme: $0.scheme, amount: $0.amount,
                                   taxedIn: $0.taxedIn == "source" ? .source : .residence,
                                   kind: $0.kind.map(PensionKind.init(rawValue:)), sourceCountry: $0.sourceCountry,
-                                  form: .init(rawValue: $0.form ?? "annuity"))
+                                  form: .init(rawValue: $0.form ?? "annuity"), sourceTax: $0.sourceTax)
             },
             wrapperContributions: (input.wrapperContributions ?? []).map {
                 FixedYear.WrapperContribution(wrapper: $0.wrapper, amount: $0.amount, source: $0.source)

@@ -10,7 +10,7 @@ The module computes in Swiss francs (`SwissTaxSystem.currency` is `CHF`). A plan
 
 ## What the module provides
 
-`SwissTaxSystem()` (public, non-throwing; `SwissTaxSystem(parameters:staggerPayouts:)` for other parameters), with the ID `ch`:
+`SwissTaxSystem()` (public, non-throwing; `SwissTaxSystem(parameters:)` for other parameters), with the ID `ch`:
 
 - **Taxes:** the federal direct tax; the cantonal and communal income tax, church tax and personal tax; the wealth tax; the separate tax on capital benefits from pensions.
 - **Earned-income regimes:** `ch.employee` (the default for employees) and `ch.selfEmployed` (the default for the self-employed), with their social contributions, AHV credits and BVG age credits. Without work, AHV contributions on wealth (`ch.ahv.nonEmployed`).
@@ -19,6 +19,7 @@ The module computes in Swiss francs (`SwissTaxSystem.currency` is `CHF`). A plan
 - **Wrappers:** `ch.ordinary`, `ch.pillar3a`, `ch.vestedBenefits` and `ch.bvg` (a pension-fund balance tracked as an account), and how other systems' wrappers are treated while living in Switzerland.
 - **Validation:** the canton and commune, the tariff, the permit, the overlays' conditions, treaty notes, and year by year the 3a limits and BVG buy-ins.
 - **Cliffs:** `cliffs(in:)` lists every point where a tax or contribution jumps.
+- **Pensions across the border:** `country` is `CH`. Living abroad, `prepareNonResident` gives the Swiss source tax on Swiss pensions the plan says Switzerland taxes, none where a treaty refunds it ([Pensions paid abroad](#pensions-paid-abroad)). Living in Switzerland, a foreign pension the treaty gives to Switzerland is taxed whatever its `taxedIn` says, with the paying country's tax credited ([Foreign pensions](#foreign-pensions-of-a-swiss-resident)).
 
 The app and the CLI register it in their `TaxRegistry` (`TaxRegistry([ItalyTaxSystem(), SwissTaxSystem(), GenericTaxSystem()])`).
 
@@ -38,7 +39,7 @@ These belong to the plan, not to the `ch` system; other systems read them too.
 | Birth date | date | none | Ages: BVG age credits, the AHV and BVG claim options (the first year paid from the month after the birthday), access to 3a and vested benefits, AHV contributions without work in the year of the reference age. |
 | Work phases | employee or self-employed, with amounts | none | The regime defaults to `ch.employee` or `ch.selfEmployed` by kind. |
 | Contributions | amounts into accounts, or into the `ch.bvg` scheme | none | 3a contributions (into a `ch.pillar3a` account) and BVG buy-ins (`{ "pension": "ch.bvg", "amount": …, "year": … }`), deducted and checked. |
-| Pensions | scheme, `claim`, `claimRoute`, options | `claim`: earliest | `ch.ahv` and `ch.bvg` list one claim option per age; the plan's `claim` (`earliest` or an age) chooses the age, `claimRoute` the BVG route. |
+| Pensions | scheme, `claim`, `claimRoute`, `taxedIn`, `sourceCountry`, `kind`, options | `claim`: earliest; `taxedIn`: residence | `ch.ahv` and `ch.bvg` list one claim option per age; the plan's `claim` (`earliest` or an age) chooses the age, `claimRoute` the BVG route. `taxedIn`, the paying country and the kind decide, with the treaty, which country taxes a pension across the border ([Moving between countries](#moving-between-countries)). |
 | `incomeYield` (assumptions) | share of value a year, per asset class | none | Funds' yearly income, taxed every year in Switzerland whether paid out or not. |
 | `indexThresholds` | yes/no | yes | Only for values the law doesn't index: in the 2026 file, Ticino's wealth tariff. |
 
@@ -59,6 +60,8 @@ These belong to the plan, not to the `ch` system; other systems read them too.
 | `mortgage` | money | 0 | Deducted from wealth. |
 | `imputedRentalValue` | money a year | 0 | Income until 2028; a warning when the plan lives in Switzerland after it. |
 | `mortgageInterest` | money a year | 0 | Deduction until 2028, up to investment income (the imputed rent included) + CHF 50,000. |
+| `pillar3aPayoutYears` | years, 0–10 | 5 (the years from first access at 60 to the reference age) | How many years 3a accounts pay out over from 60, like closing one account a year: 1 pays everything at 60, 0 draws only what's needed until it must be paid out (at 65 once work has stopped, at 70 at the latest). Read from the residence period at or before the year the accounts open, else the first one after it (the plan may live elsewhere by then). |
+| `vestedBenefitsPayoutYears` | years, 0–2 | 2 (the accounts one may hold, FZV Art. 12) | The same for vested benefits, one year per account. |
 
 ### Earned-income regimes
 
@@ -88,7 +91,7 @@ These belong to the plan, not to the `ch` system; other systems read them too.
 
 ### Wrappers
 
-`ch.ordinary`, `ch.pillar3a`, `ch.vestedBenefits` and `ch.bvg` have no options: contribution limits come from the year's earned income and pension-fund membership, access from the age. How their payouts are spread is the system's (below, [Pillar 3a](#pillar-3a-chpillar3a-and-3b)); `SwissTaxSystem(parameters:staggerPayouts: false)` turns the spreading off.
+`ch.ordinary`, `ch.pillar3a`, `ch.vestedBenefits` and `ch.bvg` have no options of their own: contribution limits come from the year's earned income and pension-fund membership, access from the age. How many years 3a and vested benefits pay out over is the plan's, in the residence options `pillar3aPayoutYears` and `vestedBenefitsPayoutYears` (above; [Pillar 3a](#pillar-3a-chpillar3a-and-3b)), which the system gives the planner through `TaxSystem.preferredPayoutYears(for:options:)`.
 
 ### Pension schemes
 
@@ -108,7 +111,7 @@ These belong to the plan, not to the `ch` system; other systems read them too.
 | | `inflation` | percent | 1% | How fast the nominal annuity loses value in today's francs. |
 | `fixed` | as shared | | | Other pensions with a known amount, including AHV or BVG pensions already being paid. |
 
-The claim age is the plan's `claim` (`earliest`, or an age): `ch.ahv` lists one option a year from 63 to 70 (routes `ch.ahv.early`, `ch.ahv.reference`, `ch.ahv.deferred`), so `earliest` means 63, with the reduction for life, and `65` the reference age. `ch.bvg` lists, for each age from 58 to 70, `ch.bvg.annuity`, `ch.bvg.capital` and, with a `lumpSumShare` between 0 and 1, `ch.bvg.partialCapital`; the one matching `lumpSumShare` comes first, and the plan's `claimRoute` picks another.
+The claim age is the plan's `claim` (`earliest`, or an age): `ch.ahv` lists one option a year from 63 to 70 (routes `ch.ahv.early`, `ch.ahv.reference`, `ch.ahv.deferred`), so `earliest` means 63, with the reduction for life, and `65` the reference age. `ch.bvg` lists, for each age from 58 to 70, `ch.bvg.annuity`, `ch.bvg.capital` and, with a `lumpSumShare` between 0 and 1, `ch.bvg.partialCapital`; the one matching `lumpSumShare` comes first, and the plan's `claimRoute` picks another. Once work has stopped before 58, the only option is the transfer to vested benefits (`ch.bvg.vestedBenefits`), also listed under the plan's `claimRoute` when that's one of the routes above, so the plan's choice finds it.
 
 ### Overrides
 
@@ -133,7 +136,7 @@ A self-employed person in Ticino: `{ "canton": "TI", "commune": "Locarno" }`, a 
 
 An early retiree in Lugano living on investments: `{ "canton": "TI", "commune": "Lugano" }`, no work after the retirement date, `incomeYield` set for the asset classes, accounts with the wrapper `ch.ordinary`, a home with `homeTaxValue` and `mortgage` if any; `ch.ahv` with `claim: 65`. AHV contributions without work are charged each year until 65.
 
-BVG and 3a as staggered lump sums: `ch.bvg` with `claimRoute: "ch.bvg.capital"` (or `lumpSumShare` and `ch.bvg.partialCapital`) and the claim age; 3a accounts are paid out over the 5 years from 60 by default, vested benefits over 2 years, so they don't fall in the BVG lump sum's year when it's at 65.
+BVG and 3a as staggered lump sums: `ch.bvg` with `claimRoute: "ch.bvg.capital"` (or `lumpSumShare` and `ch.bvg.partialCapital`) and the claim age; 3a accounts are paid out over the 5 years from 60 by default, vested benefits over 2 years, so they don't fall in the BVG lump sum's year when it's at 65; `pillar3aPayoutYears` and `vestedBenefitsPayoutYears` in the residence options choose other spreads (e.g. `{ "canton": "ZH", "pillar3aPayoutYears": 3 }` for three 3a accounts).
 
 ## How the module is built
 
@@ -144,7 +147,7 @@ Each year runs through these stages in order. Regimes and overlays hook into the
 | 1 | Work income by regime. Employee: gross − AHV/IV/EO − ALV − the BVG employee share − accident and sickness insurance. Self-employed: revenue − costs − AHV/IV/EO on the sliding scale − voluntary BVG. | `ch.employee`, `ch.selfEmployed` |
 | 2 | Overlays: expatriate deductions; lump-sum taxation replaces stages 4–6 and the wealth tax with its own base. | `ch.expatriate`, `ch.lumpSum` |
 | 3 | Social contributions, AHV credits (income and months, or a year without work) and BVG age credits. | earned-income regimes |
-| 4 | Net income = net work income + pension annuities taxed in Switzerland (AHV, BVG, foreign) + the imputed rent (until 2028). Pensions a treaty leaves to the paying country count only for the rate. | |
+| 4 | Net income = net work income + pension annuities taxed in Switzerland (AHV, BVG, foreign) + the imputed rent (until 2028). Pensions a treaty leaves to the paying country count only for the rate; one the treaty gives to Switzerland is taxed whatever its `taxedIn` says, and the paying country's tax on it is credited (in stage 6 or 7). | |
 | 5 | Deductions: professional expenses (flat), insurance premiums (with or without pension contributions), pillar 3a, BVG buy-ins (reversed by a 2nd-pillar lump sum within 3 years), expatriate deductions, mortgage interest, `otherDeductions`, Ticino's deduction for single people. Federal and cantonal deductions differ, so there are two taxable incomes. | |
 | 6 | Federal tax on the federal taxable income (none under CHF 25). Cantonal simple tax on the cantonal taxable income, × (canton + commune + church multipliers); personal tax. | |
 | 7 | Capital benefits, taxed separately: pension lump sums (`.lumpSum` pensions), and payouts from 3a, vested benefits, a `ch.bvg` account and foreign pension wrappers. All of a year's are added together. | wrappers, `ch.bvg` |
@@ -170,7 +173,7 @@ So the cantonal and communal tax is `simple tax × (canton + commune + church) +
 
 Cantonal deductions differ from the federal ones, so the module keeps two taxable incomes. The tariffs are continuous everywhere, and there's no splitting between years: Swiss tax years are calendar years (*Postnumerando*).
 
-**Exemption with progression.** Income a treaty leaves to another country still counts for the rate (DBG Art. 7 para. 1): the tax is the rate of the whole income applied to the Swiss part. The module does this for pensions entered with `taxedIn: source`.
+**Exemption with progression.** Income a treaty leaves to another country still counts for the rate (DBG Art. 7 para. 1): the tax is the rate of the whole income applied to the Swiss part. The module does this for pensions entered with `taxedIn: source` that the treaty leaves to the paying country, or whose treaty it doesn't know ([Foreign pensions](#foreign-pensions-of-a-swiss-resident)).
 
 **Single and married.** The single tariff is complete. Married couples are taxed jointly today, with a married tariff (federal) and married tariffs or splitting in the cantons; Ticino's married tariff is in the parameter file, the federal and Zurich ones aren't. In the referendum of 8 March 2026, Switzerland voted for individual taxation of married couples, which must be in force by 1 January 2032 at the latest; it will also change the federal tariff for single people (*verify* once the new tariff is published). The parameter file keeps tariffs under `single` and `married`, so an `individual` tariff can be added beside them.
 
@@ -389,7 +392,7 @@ In the module this runs in `assess`, from the year-end balances, the home and th
 - the assets grow by `realInterest` (default 0%, a plan assumption: the credited interest less Swiss inflation);
 - claim options from 58 to 70: the annuity at the fund's rate for that age (`conversionRate` at 65, less `conversionRateStepPerYear` for each year earlier, more for each later), all of it as a lump sum, or `lumpSumShare` as a lump sum and the rest as an annuity; the plan's `claim` chooses the age and `claimRoute` the route;
 - the annuity is nominal, so in today's money it shrinks by Swiss inflation each year (`inflation`, default 1%, *verify*: `realGrowthPerYear`);
-- once work has stopped before 58, every route moves the assets to `ch.vestedBenefits`, untaxed (a lump sum into that wrapper), whenever the plan claims it;
+- once work has stopped before 58, the assets move to `ch.vestedBenefits`, untaxed (a lump sum into that wrapper), whenever the plan claims it: the transfer is listed as `ch.bvg.vestedBenefits`, and under the plan's `claimRoute` when that's another BVG route (`ClaimContext.claimRoute`); the planner makes a vested-benefits bucket for it when no account has one, without a warning;
 - the lump sum is a `.lumpSum` pension entry in the claim year, taxed as a capital benefit; a buy-in within 3 years reverses its deduction, with a warning.
 
 ## Vested benefits (`ch.vestedBenefits`)
@@ -397,7 +400,7 @@ In the module this runs in `assess`, from the year-end balances, the home and th
 Assets from the 2nd pillar outside a pension fund: between jobs, after stopping work before 58, or after leaving for the EU. They sit in up to two vested-benefits accounts (bank or foundation), as cash or securities.
 
 - **Access:** from 5 years before the reference age (60) as an old-age benefit; due at the reference age (65), deferrable to 70 only while working (Art. 16 FZV, since 2024). Also on leaving Switzerland (over-mandatory part only, for the EU; see above), for self-employment or a home (not modelled).
-- **Staggering:** with two accounts, the money can be taken in two years. The wrapper's rule pays out half from first access and the rest the year after (`preferredPayoutYears` 2), and everything at 65 once work has stopped (`mustPayOut`).
+- **Staggering:** with two accounts, the money can be taken in two years. By default the planner pays out half from first access and the rest the year after (`vestedBenefitsPayoutYears` 2; 1 for one account, 0 to draw only as needed), and everything at 65 once work has stopped (`mustPayOut`).
 - **Tax:** like a BVG lump sum; a payout within 3 years of a buy-in reverses its deduction.
 
 A pension-fund balance tracked as an account with the wrapper `ch.bvg`, when the plan has no `ch.bvg` pension, works the same way, from 58 once work has stopped.
@@ -418,7 +421,7 @@ The module deducts what's paid up to the year's maximum, with a warning above it
 
 - as an old-age benefit from 5 years before the reference age (60); due at 65, or at 70 while working;
 - earlier when leaving Switzerland for good (including to the EU: 3a has no Art. 25f restriction), when starting self-employment, for a home, or on disability (not modelled);
-- each account is paid out in one go. To stagger, people hold several accounts (commonly up to 5) and close one a year. The wrapper's rule pays out a fifth from 60, a quarter of the rest at 61, and so on, all of it by 64 (`preferredPayoutYears` 5), and whatever is left at 65 once work has stopped (`mustPayOut`); the engine's payouts stand in for closing one account a year.
+- each account is paid out in one go. To stagger, people hold several accounts (commonly up to 5) and close one a year. By default the planner pays out a fifth from 60, a quarter of the rest at 61, and so on, all of it by 64 (`pillar3aPayoutYears` 5, the plan's choice: the number of accounts closed one a year, 1 for a single account, 0 to draw only as needed), and whatever is left at 65 once work has stopped (`mustPayOut`); the engine's payouts stand in for closing one account a year.
 
 **Tax.** 3a payouts are capital benefits, taxed separately at the reduced rate and **added to every other capital benefit of the same year** (BVG lump sum, vested benefits). Spreading 3a and vested-benefits withdrawals over the years from 60, away from the BVG lump sum, is the main way to lower that tax: in Zurich, CHF 150,000 of 3a and a CHF 500,000 BVG lump sum cost CHF 12,175 less in separate years than together (`capital-staggering-zh`). In Ticino, sums up to about CHF 378,000 a year pay a flat 2% simple tax, so splitting them saves only the federal part (`capital-staggering-lugano`).
 
@@ -439,7 +442,7 @@ Capital benefits from pensions (BVG and vested-benefits lump sums, 3a payouts, a
 
   Ticino's cap is on the simple tax before the communal multiplier: in Lugano in 2025, the most a capital benefit could cost was 3% cantonal + 2.31% communal (3% × 77%) + 2.30% federal = 7.61%. In 2026, with Lugano at 80%, it is 7.70%. The ESTV conversion factor at 65 is 50.77 per 1,000 for men and 46.67 for women (option `capitalBenefitTable`, default their average); the factors for other ages are still to be copied, and only matter between the 2% and 3% bounds.
 - **Where:** the canton of residence when the money is paid. Moving to a canton with a low capital tax before withdrawing is a common, legal choice; Ticino's cap makes it one of the cheapest cantons for large sums.
-- **Non-residents:** paid to someone living abroad, the Swiss pension institution withholds a source tax at its own canton's rate; it's refunded when the treaty gives the taxing right to the country of residence and the person proves residence there (for Italy, Art. 18 of the treaty; *verify* the procedure).
+- **Non-residents:** paid to someone living abroad, the Swiss pension institution withholds a source tax at its own canton's rate; it's refunded when the treaty gives the taxing right to the country of residence and the person proves residence there (for Italy and Germany, Art. 18 of the treaties; *verify* the procedure). See [Pensions paid abroad](#pensions-paid-abroad).
 
 Totals for a single man of 65 (federal + cantonal + communal, no church tax; the `capital-*` reference cases):
 
@@ -512,20 +515,20 @@ A plan's residence timeline can move between Switzerland and any country the pla
 
 | Income of a Swiss resident | Taxed in | In the module |
 | --- | --- | --- |
-| INPS pension from private-sector work | Switzerland only (Art. 18) | Income. INPS pays it gross with proof of Swiss residence; otherwise it withholds IRPEF, which can be claimed back (*verify* the form). |
-| Pension from Italian public service (ex-INPDAP) to an Italian citizen | Italy only (Art. 19) | Even with dual citizenship (Agenzia delle Entrate, risposta 177/2026). The plan enters it with `taxedIn: source`; Switzerland counts it for the rate (*verify*). Validation reminds an Italian citizen with an Italian pension. |
+| INPS pension from private-sector work | Switzerland only (Art. 18) | Income. INPS pays it gross with proof of Swiss residence; otherwise it withholds IRPEF, which can be claimed back (*verify* the form). Entered with `taxedIn: source` by someone who isn't an Italian citizen, it's still taxed in Switzerland, with any Italian tax credited and a warning. |
+| Pension from Italian public service (ex-INPDAP) to an Italian citizen | Italy only (Art. 19) | Even with dual citizenship (Agenzia delle Entrate, risposta 177/2026). The plan enters it with `taxedIn: source`; Switzerland counts it for the rate (*verify*). Validation reminds an Italian citizen with an Italian pension. Art. 19 doesn't apply to someone without Italian citizenship, so for them Art. 18 does. |
 | Italian pension fund (*previdenza complementare*) | Switzerland only (Art. 18) | `it.pensionFund` is a tax-deferred wrapper: no wealth tax, payouts as capital benefits, with a warning (*verify* Swiss practice: if the fund is comparable to the 2nd pillar or 3a). |
 | TFR from Italian employment | Italy (Art. 15, as pay for work done there) | `it.tfr` payouts aren't taxed in Switzerland, with a warning (*verify*; possibly exempt with progression). |
 | Italian property rent | Italy, and Switzerland counts it for the rate | Not modelled. |
 | Italian accounts (`it.ordinary`) | Switzerland | Like `ch.ordinary`: wealth, income taxed, gains free. |
 
-**From Germany.** A German statutory pension (DRV), and Rürup, bAV and Riester payouts, are taxed in Switzerland under Art. 18 (*verify* for the private ones): a DRV pension in Swiss years is income in full, like an AHV pension; `de.riester`, `de.ruerup`, `de.bav` and `de.altersvorsorgedepot` are tax-deferred wrappers (payouts as capital benefits, with a warning); `de.depot` and `de.lifeInsurance` are ordinary accounts. A German citizen moving from Germany stays taxable in Germany on German-source income for the year of the move and 5 more (Art. 4 para. 4); that's the German system's concern (DE.md).
+**From Germany.** A German statutory pension (DRV), and Rürup, bAV and Riester payouts, are taxed in Switzerland under Art. 18 (*verify* for the private ones): a DRV pension in Swiss years is income in full, like an AHV pension; `de.riester`, `de.ruerup`, `de.bav` and `de.altersvorsorgedepot` are tax-deferred wrappers (payouts as capital benefits, with a warning); `de.depot` and `de.lifeInsurance` are ordinary accounts. Entered with `taxedIn: source`, they're still taxed in Switzerland, with any German tax credited and a warning; only an occupational pension of a German citizen, which may be a public-service pension (*Beamtenversorgung*, Art. 19), counts for the rate only. A German citizen moving from Germany stays taxable in Germany on German-source income for the year of the move and 5 more (Art. 4 para. 4), Germany crediting the Swiss tax; that's the German system's concern (DE.md). Crediting the German tax on the Swiss side instead gives the same total, the higher of the two taxes.
 
 Italian tax law no longer lists Switzerland among the countries where a move is presumed fictitious for Italian citizens (removed from 2024, *verify*), but the person still has to register with AIRE and actually move their life to Switzerland. Neither country has an exit tax on private investments.
 
 **Out of Switzerland (example: to Italy).**
 
-- AHV and BVG pensions (annuities and lump sums) paid to an Italian resident are taxed in Italy only, at a **flat 5%** substitute tax, whoever pays them and wherever they're received: withheld by an Italian bank, or declared in the tax return (L. 413/1991 art. 76 c. 1 and 1-bis; L. 197/2022). Swiss source tax withheld on a BVG lump sum is refunded under the treaty. That's a rule for the `it` system.
+- AHV and BVG pensions (annuities and lump sums) paid to an Italian resident are taxed in Italy only, at a **flat 5%** substitute tax, whoever pays them and wherever they're received: withheld by an Italian bank, or declared in the tax return (L. 413/1991 art. 76 c. 1 and 1-bis; L. 197/2022). Swiss source tax withheld on a BVG lump sum is refunded under the treaty. The 5% is a rule for the `it` system; the `ch` side counts no Swiss tax ([Pensions paid abroad](#pensions-paid-abroad)).
 - Pillar 3a payouts aren't covered by the 5% rule (*verify* how Italy taxes them).
 - On leaving: the BVG mandatory part stays in Switzerland (if insured in Italy), the over-mandatory part and 3a can be paid out, taxed at the Swiss source-tax rate of the paying institution's canton, refundable as above.
 - Swiss accounts held while living in Italy pay IVAFE (0.2%) and go in the RW section.
@@ -535,9 +538,29 @@ So where a plan retires matters a great deal: in Switzerland, BVG and 3a lump su
 **What a mid-plan move changes in the model** (TAXES.md, "Changing residence"):
 
 - From the year in the residence timeline, the new system assesses everything. A year split between countries isn't modelled: Switzerland taxes a part-year resident on the year's income for the rate and on the resident part for the tax, so the 1 January simplification is close for a move at year end.
-- Foreign pensions in Swiss years: `ch` taxes them as income where the treaty says residence (`taxedIn: residence`), and counts those taxed at source for the rate. `ch.ahv` and `ch.bvg` pensions in years abroad: the other country's system needs to know them.
+- Foreign pensions in Swiss years: `ch` taxes them as income where the treaty says residence, whatever `taxedIn` says, and counts those the treaty leaves to the paying country for the rate ([Foreign pensions](#foreign-pensions-of-a-swiss-resident)). `ch.ahv` and `ch.bvg` pensions in years abroad: the other country's system taxes them (Italy and Germany know them); with `taxedIn: source`, `ch` gives the Swiss source tax ([Pensions paid abroad](#pensions-paid-abroad)).
 - Wrappers: other systems' wrappers in Swiss years are treated as above, or as ordinary accounts with a warning when the module doesn't know them; `ch.pillar3a` and `ch.vestedBenefits` in years abroad are unknown to the other system unless it declares them (Germany does). Their access and payout rules (from 60, due at 65) still apply abroad.
 - The AHV contributions without work stop when Swiss residence ends, and so do AHV credits. AHV credits and the other country's credits keep counting for eligibility in each other's scheme (`foreignContributionYears`).
+
+### Foreign pensions of a Swiss resident
+
+The treaties the module knows are in the parameter file under `foreign.pensions.treaties` (Italy and Germany), each with its country, its system and the kinds of pension that can be public-service pensions. A foreign pension in a Swiss year (`FixedYear.Pension`, its country from `sourceCountry` or its scheme's prefix, `it.inps` being Italian):
+
+- with `taxedIn: residence` is taxed in Switzerland;
+- with `taxedIn: source` from a treaty country is taxed in Switzerland when the treaty gives it to Switzerland (Art. 18), following Italy's convention so that no pension is left untaxed: whatever `taxedIn` says, with a warning (`ch.treaty.taxedIn`), and the tax the paying country charged on it (`FixedYear.Pension.sourceTax`, which the planner computes when it has that country's system) is credited (`ch.foreignTaxCredit`) up to the Swiss tax on it: its capital-benefit lines for a lump sum, its share by income of the income taxes for an annuity. The treaty would have the paying country refund that tax; crediting it counts the pension's tax once;
+- is left to the paying country, counting for the rate only, when it may be a public-service pension of that country's citizen (Art. 19): a kind listed for the treaty (Italy: statutory, occupational or unknown; Germany: occupational) and the person a citizen of the paying country, dual citizens included. With no citizenship in the library, Switzerland taxes it, with a warning that citizenship decides (`ch.treaty.citizenship`);
+- from a country whose treaty the module doesn't know follows `taxedIn`: with `source`, it counts for the rate only;
+- from Switzerland is Switzerland's.
+
+### Pensions paid abroad
+
+`SwissTaxSystem.country` is `CH`, so the planner finds it for a Swiss pension (`ch.ahv`, `ch.bvg`, or one with `sourceCountry: CH`) entered with `taxedIn: source`, in the years the person lives elsewhere, and calls `prepareNonResident` with those pensions and the options of the plan's Swiss residence period (the latest before, else the first after).
+
+- **AHV** pensions aren't taxed at source (DBG Art. 95–96 and StHG Art. 35 cover public-law employment and occupational and 3a pensions only): no tax, and a warning that their `taxedIn` should be `residence` (`ch.nonResident.ahv`). A pension of kind `statutory`, or a `ch.ahv` one without a kind, is one.
+- **BVG, 3a and vested-benefits pensions** (any other kind; without a kind, as occupational, with a warning, `ch.nonResident.kind`) are taxed at source by the paying institution: annuities at the federal 1% (DBG Art. 96 para. 2) plus the canton's rate (Zurich 6%, Ticino 9%, cantonal and communal, *verify*), lump sums at the federal tax on capital benefits (Art. 38 para. 2: 1/5 of the tariff) plus the canton's tax on capital benefits at the canton's and the commune's multipliers (no church tax), all of a year's lump sums together. The canton and commune are the plan's Swiss residence's (the institution's canton is usually where one worked, *verify* for a 3a or vested-benefits foundation elsewhere); without a Swiss residence period with a supported canton, only the federal tax, with a warning (`ch.nonResident.canton`).
+- **Treaties.** Where the treaty with the country of residence gives these pensions to that country (Art. 18 with Italy and Germany: the residence timeline's system is one in `foreign.pensions.treaties`), annuities are paid without source tax once residence is shown and the tax on lump sums is refunded on request within 3 years, so none of it is final: no lines, and a warning per pension that its `taxedIn` should be `residence` (`ch.nonResident.treaty`). Elsewhere, including under `generic`, the tax is counted as final, with a warning that a treaty may give the pension to the country of residence (most do), and then `taxedIn` should be `residence` (`ch.nonResident.noTreaty`).
+- Lines are `ch.nonResident.federal` ("Source tax (federal)") and `ch.nonResident.cantonal` ("Source tax (cantonal and communal, Zurich)"), one per pension, with the pension's ID as subject, so the planner passes each pension's tax on as `sourceTax`; the planner shows them as "Switzerland: …". Amounts are converted with the year's `currencyRate`. The state isn't changed.
+- **Not modelled.** Public-law pensions (DBG Art. 95, treaty Art. 19), which Switzerland keeps for some recipients; the official source-tax tables for capital benefits (the ordinary tax is used); payouts from `ch.pillar3a` and `ch.vestedBenefits` accounts while living abroad, which are wrapper payouts the residence system taxes: Switzerland's source tax on them isn't computed (TaxKit has no paying-country hook for wrappers), and under the treaties with Italy and Germany it's refunded anyway.
 
 ## Simplified in this version
 
@@ -548,6 +571,7 @@ So where a plan retires matters a great deal: in Switzerland, BVG and 3a lump su
 - Health insurance premiums (compulsory, roughly CHF 4,000–7,000 a year for an adult) are spending, not tax, but the premium subsidies (*Prämienverbilligung*) for low taxable incomes aren't modelled.
 - The new AHV reduction and supplement rates expected from 2027; partial early or deferred claims; the AHV reference age of women born 1961–1963.
 - Retroactive 3a purchases; early withdrawals of 3a and vested benefits for a home, self-employment or leaving Switzerland; the BVG rule that the mandatory part stays in Switzerland after a move to the EU.
+- Source tax on Swiss pensions paid abroad: the plan's canton and commune stand for the paying institution's; the ordinary capital-benefit tax for the cantons' source-tax tables; public-law pensions taxed like private-law ones; no source tax on 3a and vested-benefits account payouts while living abroad ([Pensions paid abroad](#pensions-paid-abroad)).
 - Cantonal and communal multipliers are fixed at their 2026 values for the whole plan; Ticino's falling maximum rate is applied year by year from the parameter file.
 
 ## How the rules are modelled
@@ -564,15 +588,15 @@ Choices the law leaves open, or that an estimate has to make. They're all in the
 - **AHV record.** Swiss contribution months and the sum of credited incomes, in CHF, relative to the formula's limits: each year after the first, the sum is divided by (1 + `inflation`) × (1 + `realWageGrowth`/2), since credits are nominal (revaluation factor 1.000) while the limits follow the mixed index; each year's credit is divided by the limits' real growth since the plan's first year. A claim option's amount is the formula on the average (Swiss years only) × min(years, 44)/44 (unrounded, *verify* the rounding of the partial scales), × the reduction or supplement, × the limits' real growth to the claim year. Claim options from 63 to 70, 13 payments a year, the first year from the month after the birthday (with its 13th: months × 13/12), growing by `realWageGrowth`/2 a year after the claim. No options without a Swiss year or with less than a year in all (abroad included). Already-paid AHV pensions are `fixed` pensions: the options start at the current age.
 - **AHV credits.** Employees: the gross salary, with months for the share of the year worked; the self-employed: revenue less costs; none from the reference age. The rest of a year between 21 and the reference age is a year without work, credited with the minimum contribution's income (530 × 0.81 / 0.087, *verify*).
 - **AHV without work.** Charged in `assess` on year-end balances of ordinary (and unknown) wrappers plus the home's tax value less the mortgage, plus 20 × the year's pension annuities (all, wherever taxed), by the table's completed steps, × (1 + `nonEmployedAdminRate`), × the share of the year simulated; from 21 to the year before the reference age, and in its year for the months to the birthday month. Not due with work covering at least 9 months of the year; otherwise due less the AHV/IV/EO paid on earnings (both shares), and not at all when those are at least half of it.
-- **BVG.** A pension scheme: record in CHF, `realInterest` a year, age credits from work (both shares), buy-ins, voluntary savings of the self-employed. The routes at each age from 58 to 70: annuity, capital, and `lumpSumShare` as capital (listed first when it's set). The lump sum is paid in the claim year and taxed as a capital benefit; the annuity is nominal (`realGrowthPerYear` = 1/(1 + `inflation`) − 1). Once work has stopped before 58 (the age in the claim year less the years since work stopped), every route moves the assets untaxed to `ch.vestedBenefits` (`lumpSumWrapper`), so a plan's route still finds it.
+- **BVG.** A pension scheme: record in CHF, `realInterest` a year, age credits from work (both shares), buy-ins, voluntary savings of the self-employed. The routes at each age from 58 to 70: annuity, capital, and `lumpSumShare` as capital (listed first when it's set). The lump sum is paid in the claim year and taxed as a capital benefit; the annuity is nominal (`realGrowthPerYear` = 1/(1 + `inflation`) − 1). Once work has stopped before 58 (the age in the claim year less the years since work stopped), the only option moves the assets untaxed to `ch.vestedBenefits` (`lumpSumWrapper`): route `ch.bvg.vestedBenefits`, and the plan's `claimRoute` when it's another BVG route, so the plan's route still finds it.
 - **Capital benefits** are summed over the year (pension lump sums in `prepare`, payouts from `ch.pillar3a`, `ch.vestedBenefits`, `ch.bvg` and foreign pension wrappers in `assess`) and taxed once; the lines are split among them in proportion, each with its subject. In Ticino the conversion factor is the age-65 one from `capitalBenefitTable` at every age.
 - **3-year lock.** The tax state keeps each year's BVG buy-ins (`ch.bvg.buyIn.<year>`) for 3 years. A BVG lump sum in the year of a buy-in or the 3 calendar years after it adds those buy-ins back to the year's income (the deduction is reversed), with a warning; so does a payout from vested benefits or a `ch.bvg` account. This may be one year too strict (*verify*).
-- **Payouts.** `ch.pillar3a` pays out over 5 years from first access (60), `ch.vestedBenefits` over 2; both must pay out at the reference age once work has stopped, at 70 at the latest. `SwissTaxSystem(parameters:staggerPayouts: false)` draws them only as needed until then.
+- **Payouts.** `ch.pillar3a` pays out over `pillar3aPayoutYears` (5) years from first access (60), `ch.vestedBenefits` over `vestedBenefitsPayoutYears` (2); both must pay out at the reference age once work has stopped, at 70 at the latest. With 0 they're drawn only as needed until then. The options come from the residence period at or before the year the wrapper opens, else the first after it, else their defaults.
 - **Investments.** No tax on gains. Interest, dividends, coupons and funds' reported income at the marginal rate on top of the year's other income (federal and cantonal); a 35% Swiss withholding is fully refunded, so it's ignored.
 - **Wealth tax** on year-end values of ordinary accounts (cash, securities, crypto, gold) and the home's tax value less the mortgage; first year pro rata. Ticino's brake after the wealth tax: the cantonal and communal income and wealth tax together are cut to 60% of the cantonal taxable income plus any shortfall of investment income below 1% of net wealth, by reducing the wealth tax (not below 0).
 - **Lump-sum taxation.** Base = max(federal minimum, canton's minimum, 7 × `annualRent`, `livingExpenses`), taxed at the ordinary federal and cantonal tariffs; deemed wealth = 5 × the base at the cantonal wealth tariff. No investment-income tax, no other wealth tax; capital benefits and AHV without work as usual.
 - **Expatriate deductions.** `flat`: CHF 18,000 a year × the share of the year employed; `actual`: the amount entered; for 5 years from `assignmentStart`.
-- **Foreign pensions and wrappers.** Annuities with `taxedIn: residence` are income, with `taxedIn: source` they count for the rate; lump sums are capital benefits. Other systems' wrappers by the table under `foreign.wrappers`; the generic `taxable`, `taxDeferred` and `taxFree` by their names; anything else as an ordinary account, with payouts as capital benefits and a warning.
+- **Foreign pensions and wrappers.** Annuities with `taxedIn: residence` are income, and so are those with `taxedIn: source` that a known treaty gives to Switzerland (the paying country's tax credited up to the Swiss tax on them); the others with `taxedIn: source` count for the rate. Lump sums are capital benefits on the same terms. Other systems' wrappers by the table under `foreign.wrappers`; the generic `taxable`, `taxDeferred` and `taxFree` by their names; anything else as an ordinary account, with payouts as capital benefits and a warning.
 - **Inheritances** aren't taxed by `ch` (the deceased's canton or country taxes them).
 - **Cliffs.** `cliffs(in:)` lists: the federal CHF 25 minimum (at a federal taxable income of about 18,447), the BVG entry threshold (CHF 22,680 of salary: the BVG contribution starts at once, and is deducted), the self-employed minimum contribution (from any income, and below CHF 10,100), the end of AHV contributions without work once those on earnings reach half of them, Ticino's single-person deduction steps (CHF 1,000 every 3,000 between 21,000 and 45,000), Ticino's wealth-tax threshold at CHF 200,000, and each CHF 50,000 step of the non-employed table. The property tests check that taxes fall, and net income falls, nowhere else.
 
@@ -590,18 +614,19 @@ What maps onto the protocols:
 | Currency | `TaxSystem.currency` `CHF`; `FixedYear.currencyRate`, `ClaimContext.currencyRate`, the schemes' `currencyRate` overloads |
 | AHV pension | `PensionScheme`: `montante` = credited incomes relative to the limits, `contributionMonths`, `foreignContributionMonths`; `claimOptions` 63–70 with `fullYearAmount`, `changes` and `realGrowthPerYear`; `oldAgePensionAge` 65 |
 | AHV and BVG credits from work | `Accrual(.pensionScheme("ch.ahv"), amount:, contributionMonths:)`, `Accrual(.pensionScheme("ch.bvg"))` in `prepare` |
-| BVG claims | `ClaimOption.lumpSum`, `lumpSumWrapper` (`ch.vestedBenefits`), `realGrowthPerYear`, `mandatoryShare`, routes; `ClaimContext.yearsSinceWorkStopped` |
+| BVG claims | `ClaimOption.lumpSum`, `lumpSumWrapper` (`ch.vestedBenefits`), `realGrowthPerYear`, `mandatoryShare`, routes; `ClaimContext.yearsSinceWorkStopped` and `claimRoute` |
 | BVG seed account and buy-ins | `seedWrapper` `ch.bvg` and the option `startingBalance`; buy-ins as `WrapperContribution`s to `ch.bvg`, credited with their `source` |
-| 3a and vested benefits | `WrapperRule` with access by age, `mustPayOut` and `preferredPayoutYears` |
+| 3a and vested benefits | `WrapperRule` with access by age, `mustPayOut` and `preferredPayoutYears` (the defaults); the plan's payout years through `TaxSystem.preferredPayoutYears(for:options:)` |
 | Lump sums and payouts as capital benefits | `.lumpSum` pension entries in `prepare`, `VariableYear.payouts` in `assess`; `grossUp` by bisection (`NumericGrossUp`) |
 | Funds' yearly income | `CapitalIncomeKind.reportedIncome`, taxed as income |
 | Wealth tax, Ticino's brake, AHV without work | `assess` on `VariableYear.balances` with `fractionOfYear` |
 | Expatriate and lump-sum overlays | `RegimeDescriptor(scope: .overlay)` with `excludes` |
 | 3-year lock after buy-ins | `TaxState` (`ch.bvg.buyIn.<year>`) |
 | Citizenship, birth date, residence timeline | `TaxPlan.citizenships`, `FixedYear.citizenships`, `birthDate`, `residence` |
-| Moving to and from other countries | the residence timeline; `FixedYear.Pension.scheme`, `kind`, `sourceCountry`, `taxedIn` |
+| Moving to and from other countries | the residence timeline; `FixedYear.Pension.scheme`, `kind`, `sourceCountry`, `taxedIn`, `sourceTax` |
+| Tax in the paying country (G8) | `TaxSystem.country` `CH` and `prepareNonResident` (the source tax on Swiss pensions paid abroad, its lines' `subject` the pension's ID); as the residence, `FixedYear.Pension.sourceTax` credited |
 
-**Status of the gaps the design listed.** Gaps 1–5, 8, 9, 10 and 13 are in TaxKit and the planner and the module uses them (currency, lump sums and their wrapper, buy-ins into a scheme, seeding from an account, reported fund income, forced and spread payouts, indexing by law, real growth in payment, citizenship). Still open:
+**Status of the gaps the design listed.** Gaps 1–5, 8, 9, 10 and 13 are in TaxKit and the planner and the module uses them (currency, lump sums and their wrapper, buy-ins into a scheme, seeding from an account, reported fund income, forced and spread payouts, indexing by law, real growth in payment, citizenship). So are two found while building it: payout years per plan (`TaxSystem.preferredPayoutYears(for:options:)`, read from the residence options) and the claim route in the context (`ClaimContext.claimRoute`). Still open:
 
 - **6. Pension credits that depend on wealth.** The AHV contribution without work depends on year-end wealth, but the engine takes pension credits only from the prepared year: the module credits the minimum contribution's income. *Change:* `FixedYear.expectedWealth: Double?` from a first deterministic pass.
 - **7. Wealth outside the plan.** The home and its mortgage are system options. *Change:* `FixedYear.otherAssets: [VariableYear.Balance]`.
@@ -610,11 +635,9 @@ What maps onto the protocols:
 
 **New gaps found while building it** (each additive):
 
-- **Payout preferences per plan.** `WrapperRule.preferredPayoutYears` is the system's, so how many years 3a and vested benefits are spread over can't be a plan option: the module spreads 3a over 5 years and vested benefits over 2, or neither (`staggerPayouts`). *Change:* a plan-level `withdrawals.payoutYears` by wrapper, which the planner prefers to the rule's.
 - **Gross-up with the year's payouts so far.** `grossUp(net:from:)` gets only the bucket, so a capital-benefit gross-up can't see payouts already made on the path in the year (a forced or spread payout before a needed one): it's a little low, and the engine carries the difference. *Change:* pass the year's `VariableYear` so far (a defaulted overload).
 - **Work intensity.** `FixedYear.WorkIncome` has the share of the year, not of full time, so the AHV rule for people not working full time uses months (9 or more is full time). *Change:* an optional `workloadShare`.
 - **State along a path.** The tax state comes from the prepared year only, so the module can't know whether a 3a account was already drawn (no more contributions after the first withdrawal, a warning after 5 payout years). Same as DE G4.
-- **The claim route in the context.** `ClaimContext` doesn't carry the plan's `claimRoute`, so the transfer to vested benefits is listed under every route. *Change:* `ClaimContext.claimRoute: String?`.
 - **Sex.** Ticino's conversion table and the AHV reference age of women born 1961–1963 depend on it: a system option (`capitalBenefitTable`) for now.
 
 ## Reference cases
@@ -632,7 +655,8 @@ These live in `Tests/TaxSwitzerlandTests/cases/`, one JSON file per case: the in
 - wealth tax on CHF 1M in Zurich, Lugano and Bellinzona, and for part of a year;
 - AHV contributions without work at 55 with CHF 2M in Zurich (with and without a bridging annuity) and in Lugano with the wealth tax;
 - dividends from a Swiss ETF, and the yearly income of an accumulating fund, on top of a salary;
-- an Italian state pension received in Bellinzona, alone and with 10 years of AHV;
+- an Italian state pension received in Bellinzona, alone and with 10 years of AHV; an Italian public-service pension of an Italian citizen there, for the rate only (`inps-public-service-ti`); an INPS pension and a German occupational lump sum of a Swiss citizen in Zurich entered as taxed at source, taxed with the foreign tax credited (`foreign-pension-treaty-credit-zh`, `foreign-lumpsum-treaty-credit-zh`);
+- the source tax on a BVG annuity and lump sum paid abroad, from Zurich and from Lugano in a plan in euros, with no treaty known (`nonresident-bvg-zh`, `nonresident-bvg-lugano-eur`), none for someone living in Italy (`nonresident-bvg-italy`), and only the federal tax without a Swiss residence (`nonresident-no-canton`);
 - lump-sum taxation at the federal minimum in Lugano;
 - a payout from an Italian pension fund and an Italian TFR while living in Zurich.
 
@@ -670,6 +694,8 @@ Each is marked *verify* in this document or the parameter file. The third column
 | 24 | **The professional-trader test's income.** Whether "net income" in circular 36 includes the gains. | It does (gains > 50% of taxable income + gains). | ESTV circular 36. |
 | 25 | **Full-time work.** AHVV Art. 28bis counts hours (half of the usual, 9 months); the module counts months of work. | 9 months or more is full time. | TaxKit gap (work intensity). |
 | 26 | **Coming changes** that later parameter files need: individual taxation of married couples and a new federal tariff by 2032; the 2027 AHV and BVG amounts (minimum pension CHF 1,280, 3a CHF 7,373); the federal tariff +0.47% in 2027; Ticino's maximum rate down 0.5 points a year to 12% in 2030 (in the file); Ticino's insurance deductions (6,500 and 13,000 proposed for 2027, full deductibility of health premiums from 2028); the imputed rent ending in 2029 (in the file); the VAT increase for the 13th pension (a vote is pending; it's spending, not a tax-system parameter). | 2026 values. | The 2027 parameter file. |
+| 27 | **Source tax on pensions paid abroad.** Zurich's rate on annuities (7% in all from search extracts, read as 6% plus the federal 1%), Ticino's (9% cantonal and communal), whether Zurich's table for capital benefits matches the ordinary tax at the canton's and a commune's multipliers, which commune's multiplier applies, and Zurich's CHF 1,000 floor for annuities. | 6% and 9%; the ordinary tax on capital benefits at the plan's commune; no floor. | ZStB 99.1; LT art. 115–116; the cantons' source-tax tables. |
+| 28 | **Treaties on public-service pensions.** Art. 19 of the treaty with Germany for a citizen of neither country (the module treats them as Italy's rule does: Switzerland taxes them); which kinds of pension can be public-service ones. | Italy: statutory, occupational or unknown; Germany: occupational. | The treaties' texts; ESTV practice. |
 
 Settled since the design: Zurich's indexation (every two years by the CPI, StG ZH § 48 para. 2); the federal CHF 25 minimum (DBG Art. 36 para. 3); the wording of Ticino's single-person deduction ("1,000 for every 3,000 of additional income", so completed steps and nothing from 45,000).
 
@@ -709,6 +735,7 @@ Official pages couldn't be opened from the research environment (the network blo
 - Ticino, communal multipliers 2026: [CdT](https://www.cdt.ch/news/economia/moltiplicatori-dimposta-anche-questanno-vince-porza-440391); Lugano: [bluewin](https://www.bluewin.ch/it/attualita/regionali/2026-lugano-alza-il-moltiplicatore-2930484.html), [laRegione](https://www.laregione.ch/cantone/luganese/1892600/moltiplicatore-pse-lugano-cinque-consiglieri-emendamento-imposta-aumento); [Bellinzona, MM 1015](https://www.bellinzona.ch/MM-1015-Bilanci-Preventivi-2026-9dd30000?i=1); [Locarno, Preventivi 2026](https://www.locarno.ch/files/documenti/CS_Preventivi_2026.pdf); [list of all communes](https://www4.ti.ch/dfe/dc/sportello/moltiplicatori-comunali)
 - Other cantons: [ESTV, Steuersatz und Steuerfuss 2026](https://www.estv2.admin.ch/stp/ds/e-steuersatz-steuerfuss-de.pdf); [Zug, Grundtarif 2026](https://zg.ch/dam/jcr:96c7eef4-eb2f-4f8a-a4c4-dad209249598/Grundtarif%202001%20bis%202026.pdf); [Zug, Steuerfüsse](https://zg.ch/de/steuern-finanzen/steuern/natuerliche-personen/steuerfuesse); [Lausanne](https://www.lausanne.ch/officiel/administration/finances-et-mobilite/finances/impots/coefficient-taux-arrete-imposition.html)
 - Source tax: [Kanton Zürich, NOV](https://www.zh.ch/de/steuern-finanzen/steuern/quellensteuer/nachtraegliche-ordentliche-veranlagung-oder-quellensteuerkorrekt.html); [ESTV, Besteuerung an der Quelle](https://www.estv.admin.ch/dam/estv/de/dokumente/estv/steuersystem/dossier-steuerinformationen/e/e-besteuerung-an-der-quelle.pdf.download.pdf/e-besteuerung-an-der-quelle.pdf)
+- Source tax on pensions paid abroad (search extracts): federal 1% on annuities, DBG Art. 95–96, [ESTV, Besteuerung an der Quelle 2025](https://www.estv2.admin.ch/stp/ds/e-besteuerung-an-der-quelle-de.pdf); Zurich, 7% in all on annuities and taxed only where the treaty doesn't give the country of residence the right, [ZStB 99.1](https://www.zh.ch/de/steuern-finanzen/steuern/treuhaender/steuerbuch/steuerbuch-definition/zstb-99-1.html); refund of the tax on capital benefits within 3 years, [Kanton Zürich](https://www.zh.ch/de/steuern-finanzen/steuern/quellensteuer/rueckerstattung-quellensteuer-auf-kapitalleistung.html); Ticino, 9% cantonal and communal on annuities, capital benefits as art. 38, [LT art. 115–116](https://m3.ti.ch/CAN/RLeggi/public/index.php/raccolta-leggi/pdfatto/atto/5421) and [Divisione delle contribuzioni, imposte alla fonte](https://www4.ti.ch/index.php?id=20845)
 - Expatriates: [Basel-Landschaft, Steuerpraxis on the ExpaV](https://kanton.baselland.ch/finanz-und-kirchendirektion/steuerverwaltung-steuerpraxis/downloads-1/1_2016_21-30.pdf/@@download/file/1_2016_21-30.pdf)
 - Lump-sum taxation: [Uri, Merkblatt ab 2026](https://www.ur.ch/_docn/439772/14_Merkblatt_Aufwandbesteuerung_01.01.2026_1.pdf); [Steimle Consulting, Imposizione sul dispendio](https://steimle-consulting.ch/wp-content/uploads/2025/02/Imposizione-sul-dispendio-1.pdf) (secondary)
 - Withholding tax: [ESTV, Verrechnungssteuer](https://www.estv2.admin.ch/stp/ds/d-eidgenoessische-verrechnungssteuer-de.pdf); professional trading: [circular 36](https://www.steuerinformationen.ch/kreisschreiben-nr-36-zum-thema-gewerbsmaessiger-wertschriftenhandel-art-16-dbg-art-18-dbg)

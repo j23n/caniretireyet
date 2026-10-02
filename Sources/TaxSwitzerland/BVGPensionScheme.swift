@@ -16,7 +16,10 @@ import TaxKit
 ///   annuity is the assets × the fund's conversion rate for the age; it's
 ///   nominal, so in today's money it falls by `inflation` a year.
 /// - **Leaving work before 58.** The assets move to a vested-benefits
-///   account (`ch.vestedBenefits`), untaxed, whatever the route.
+///   account (`ch.vestedBenefits`), untaxed, whatever the route: the only
+///   option is that transfer (`ch.bvg.vestedBenefits`), also listed under
+///   the route the plan picked (`ClaimContext.claimRoute`) when it's one of
+///   the scheme's, so the plan's choice finds it.
 public struct BVGPensionScheme: PensionScheme {
     /// `ch.bvg`.
     public static let schemeID = "ch.bvg"
@@ -88,8 +91,10 @@ public struct BVGPensionScheme: PensionScheme {
     }
 
     /// The claim options for the assets: the transfer to vested benefits
-    /// when work stopped before the earliest age, otherwise the three routes
-    /// at each age from the earliest (or the context's) to the latest.
+    /// when work stopped before the earliest age (under its own route, and
+    /// under the plan's route when that's one of the scheme's), otherwise the
+    /// three routes at each age from the earliest (or the context's) to the
+    /// latest.
     public func claimOptions(for record: PensionRecord, context: ClaimContext, parameters: any ParameterStore)
         -> [ClaimOption] {
         let assets = record.montante
@@ -105,7 +110,11 @@ public struct BVGPensionScheme: PensionScheme {
         if let stopped = context.yearsSinceWorkStopped, currentAge - stopped < earliest {
             let transfer = context.inPlanCurrency(assets)
             let note = "Work stopped before \(earliest): the assets move to a vested-benefits account, untaxed."
-            return Self.routes.map { route in
+            var routes = [Self.vestedBenefitsRoute]
+            if let chosen = context.claimRoute, chosen != Self.vestedBenefitsRoute, Self.routes.contains(chosen) {
+                routes.append(chosen)
+            }
+            return routes.map { route in
                 ClaimOption(route: route, label: "Transfer to vested benefits", age: currentAge, annualAmount: 0,
                             note: note, lumpSum: transfer, lumpSumWrapper: SwissWrapper.vestedBenefits,
                             mandatoryShare: mandatory)
@@ -156,6 +165,6 @@ public struct BVGPensionScheme: PensionScheme {
     static let capitalRoute = "ch.bvg.capital"
     static let partialRoute = "ch.bvg.partialCapital"
     static let vestedBenefitsRoute = "ch.bvg.vestedBenefits"
-    /// Every route, so a plan's route still finds the transfer to vested benefits.
+    /// Every route: a plan's route among them still finds the transfer to vested benefits.
     static let routes = [vestedBenefitsRoute, annuityRoute, capitalRoute, partialRoute]
 }

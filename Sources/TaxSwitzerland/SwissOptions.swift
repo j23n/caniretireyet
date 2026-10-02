@@ -4,6 +4,9 @@ extension SwissTaxSystem {
     /// The residence options. The canton and commune choices are built from
     /// the cantons in the parameter file (the latest year).
     static func systemOptions(parameters p: SwissParameters?) -> [OptionField] {
+        let referenceAge = p?.ahv.referenceAge ?? 65
+        let pillar3aYears = p?.pillar3a.earliestYearsBeforeReferenceAge ?? 5
+        let vestedAccounts = p?.vestedBenefits.maxAccounts ?? 2
         let cantons = (p?.cantons.values.map { $0 } ?? []).sorted { $0.code < $1.code }
         let communes = cantons.flatMap { canton in
             canton.communes.keys.sorted().map { (value: $0, label: "\($0) (\(canton.code))") }
@@ -40,6 +43,15 @@ extension SwissTaxSystem {
                    help: "Taxed as income until 2028 (the imputed rent ends in 2029)."),
             .money("mortgageInterest", "Mortgage interest per year", default: 0,
                    help: "Deductible until 2028, up to investment income plus CHF 50,000."),
+            .int(SwissOption.pillar3aPayoutYears, "Years to spread pillar 3a payouts over",
+                 default: pillar3aYears, range: 0...10,
+                 help: "From \(referenceAge - pillar3aYears), like closing one 3a account a year: 1 pays it all in the "
+                     + "first year, 0 draws only what's needed until it must be paid out (at \(referenceAge) once work "
+                     + "has stopped)."),
+            .int(SwissOption.vestedBenefitsPayoutYears, "Years to spread vested-benefits payouts over",
+                 default: vestedAccounts, range: 0...Double(vestedAccounts),
+                 help: "At most one year per vested-benefits account (up to \(vestedAccounts)): 1 pays it all in the "
+                     + "first year, 0 draws only what's needed until it must be paid out."),
         ]
     }
 
@@ -114,6 +126,14 @@ extension SwissTaxSystem {
                     + "is the highest of the living expenses, 7 × the rent and the minimums."),
         ]
     }
+}
+
+/// Keys of the Swiss residence options that other parts of the module read.
+enum SwissOption {
+    /// How many years pillar 3a payouts are spread over (0: only as needed).
+    static let pillar3aPayoutYears = "pillar3aPayoutYears"
+    /// How many years vested-benefits payouts are spread over (0: only as needed).
+    static let vestedBenefitsPayoutYears = "vestedBenefitsPayoutYears"
 }
 
 /// The resolved place of residence in a year: the canton, the commune's

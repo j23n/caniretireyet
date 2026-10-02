@@ -1,0 +1,63 @@
+{
+  "name": "Source tax on a BVG annuity and lump sum paid abroad, from Lugano, in a plan in euros",
+  "kind": "nonResident",
+  "year": 2026,
+  "input": {
+    "age": 65,
+    "currencyRate": 0.93,
+    "systemOptions": {
+      "canton": "TI",
+      "commune": "Lugano"
+    },
+    "residence": [
+      {
+        "from": 2015,
+        "system": "ch",
+        "options": {
+          "canton": "TI",
+          "commune": "Lugano"
+        }
+      },
+      {
+        "from": 2026,
+        "system": "generic"
+      }
+    ],
+    "pensions": [
+      {
+        "id": "pension-0",
+        "scheme": "ch.bvg",
+        "amount": 20000,
+        "kind": "occupational",
+        "taxedIn": "source",
+        "sourceCountry": "CH"
+      },
+      {
+        "id": "pension-0.lumpSum",
+        "scheme": "ch.bvg",
+        "amount": 500000,
+        "kind": "occupational",
+        "form": "lumpSum",
+        "taxedIn": "source",
+        "sourceCountry": "CH"
+      }
+    ]
+  },
+  "expected": {
+    "lines": {
+      "ch.nonResident.federal": 10497.513978,
+      "ch.nonResident.cantonal": 23672.707965
+    },
+    "totalTax": 34170.221943,
+    "issues": [
+      "ch.nonResident.noTreaty"
+    ]
+  },
+  "workings": [
+    "Plan in euros at 0.93 CHF/EUR: the annuity is EUR 20,000.00 = CHF 18,600.00, the lump sum EUR 500,000.00 = CHF 465,000.00. Canton Ticino, commune Lugano (80%).",
+    "Annuity: federal 1% = CHF 186.0000; Ticino 9% cantonal and communal = CHF 1,674.0000.",
+    "Lump sum, federal: 1/5 of the tariff on 465,000 = CHF 9,576.6880.",
+    "Lump sum, Ticino (art. 38): the annuity it buys at the average factor (50.77 + 46.67) / 2 = 48.72 per 1,000 is 22,654.80, rounded down to 22,600; the tariff's average rate there is 2.430301% (between the 2% floor and the 3% cap); simple tax 11,300.899115; x (100% + 80%) = CHF 20,341.618407.",
+    "In euros: federal (186.0000 + 9,576.6880) / 0.93 = 10,497.513978; cantonal and communal (1,674.0000 + 20,341.618407) / 0.93 = 23,672.707965."
+  ]
+}

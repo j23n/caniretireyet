@@ -9,6 +9,9 @@ public enum TaxSwitzerland {
     /// The currency the system computes in and its parameter files are
     /// written in: its `TaxSystem.currency`.
     public static let currency = "CHF"
+    /// The country whose law it is: its `TaxSystem.country`, which the
+    /// planner matches against a pension's `sourceCountry`.
+    public static let country = "CH"
 
     /// The bundled yearly parameter files, `Resources/ch/<year>.json`.
     static func bundledParameters() throws -> JSONParameterStore {
@@ -62,6 +65,13 @@ public enum SwissLine {
     public static let wealthChurch = "ch.wealth.church"
     /// Ticino's wealth-tax brake (art. 49a LT), negative.
     public static let wealthBrake = "ch.wealth.brake"
+    /// A credit for the tax another country charged on a pension Switzerland
+    /// taxes under the treaty although the plan says that country does; negative.
+    public static let foreignTaxCredit = "ch.foreignTaxCredit"
+    /// The source tax on Swiss pensions paid to someone living abroad:
+    /// federal, and cantonal and communal together.
+    public static let nonResidentFederal = "ch.nonResident.federal"
+    public static let nonResidentCantonal = "ch.nonResident.cantonal"
 
     // Contributions.
     public static let ahvEmployee = "ch.ahv.employee"

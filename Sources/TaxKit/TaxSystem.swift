@@ -77,6 +77,16 @@ public protocol TaxSystem: Sendable {
     /// clause, with each one's tax as ``FixedYear/Pension/sourceTax``, to
     /// credit where a treaty says so.
     func prepareNonResident(_ year: FixedYear, state: TaxState, parameters: ParameterSet) -> (any PreparedTaxYear)?
+
+    /// How many years the planner spreads the payouts of this system's
+    /// wrapper `wrapper` over (``WrapperRule/preferredPayoutYears``), given
+    /// `options`: the options of the plan's residence period in this system
+    /// around the year the wrapper opens (the latest at or before it, else
+    /// the first after it), or none when the plan never lives under this
+    /// system. So a plan can choose it, e.g. how many pillar 3a accounts to
+    /// close one a year. `nil` or 0 to draw the wrapper only as needed.
+    /// Defaults to the wrapper rule's ``WrapperRule/preferredPayoutYears``.
+    func preferredPayoutYears(for wrapper: String, options: OptionValues) -> Int?
 }
 
 extension TaxSystem {
@@ -87,6 +97,10 @@ extension TaxSystem {
     public func prepareNonResident(_ year: FixedYear, state: TaxState, parameters: ParameterSet)
         -> (any PreparedTaxYear)? {
         nil
+    }
+
+    public func preferredPayoutYears(for wrapper: String, options: OptionValues) -> Int? {
+        self.wrapper(wrapper)?.preferredPayoutYears
     }
 
     /// The regime with this ID, if the system has it.

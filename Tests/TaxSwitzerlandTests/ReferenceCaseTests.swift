@@ -18,10 +18,10 @@ struct ReferenceCaseTests {
     func referenceCase(_ name: String) throws {
         let reference = try ReferenceCases.load(name)
         #expect(!reference.workings.isEmpty, "\(name) has no workings")
-        if reference.kind == "claims" {
-            try checkClaims(reference, name: name)
-        } else {
-            try checkYear(reference, name: name)
+        switch reference.kind {
+        case "claims": try checkClaims(reference, name: name)
+        case "nonResident": try checkYear(reference, name: name, nonResident: true)
+        default: try checkYear(reference, name: name)
         }
     }
 
@@ -41,11 +41,18 @@ struct ReferenceCaseTests {
         }
     }
 
-    private func checkYear(_ reference: ReferenceCase, name: String) throws {
+    private func checkYear(_ reference: ReferenceCase, name: String, nonResident: Bool = false) throws {
         let system = Self.system
         let parameters = try system.parameters.parameters(for: reference.year)
-        let prepared = system.prepare(reference.fixedYear, state: reference.state, parameters: parameters)
+        let prepared = nonResident
+            ? try #require(system.prepareNonResident(reference.fixedYear, state: reference.state, parameters: parameters))
+            : system.prepare(reference.fixedYear, state: reference.state, parameters: parameters)
         let assessment = prepared.assess(reference.variableYear)
+        if nonResident {
+            #expect(assessment == prepared.fixedAssessment, "\(name): a non-resident year depends on no market")
+            #expect(assessment.lines.allSatisfy { line in reference.fixedYear.pensions.contains { $0.id == line.subject } },
+                    "\(name): every line belongs to a pension")
+        }
         let expected = reference.expected
 
         if let lines = expected.lines { checkSums(sums(assessment.lines), lines, "line", name) }
@@ -102,7 +109,7 @@ struct ReferenceCaseTests {
         let record = scheme.startingRecord(options: options, year: reference.year, parameters: system.parameters,
                                            currencyRate: rate)
         let context = ClaimContext(year: reference.year, birthDate: birth, options: options, currencyRate: rate,
-                                   yearsSinceWorkStopped: input.yearsSinceWorkStopped)
+                                   yearsSinceWorkStopped: input.yearsSinceWorkStopped, claimRoute: input.claimRoute)
         let claims = scheme.claimOptions(for: record, context: context, parameters: system.parameters)
         let expected = try #require(reference.expected.claims)
         #expect(claims.first?.age == expected.first?.age, "\(name): earliest age \(claims.first?.age ?? -1)")

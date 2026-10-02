@@ -36,17 +36,20 @@ struct Engine: Sendable {
             AgeSchedule(model: model, age: age, neededMasks: neededMasks, expectedMask: expected)
         }
 
-        // Every wrapper that receives money needs a bucket.
+        // Every wrapper that receives money needs a bucket. One that only a
+        // scheme's lump sum moves into (pension-fund assets into vested
+        // benefits when work stops early) is expected to be new, so it gets
+        // no warning; money paid or credited into one is worth one.
         var builder = model.portfolio
         var issues = model.issues
-        let wrappers = Set(built.flatMap { schedule in
+        let paidInto = Set(built.flatMap { schedule in
             schedule.years.flatMap { year in
                 year.contributions.map(\.wrapper) + year.variants.flatMap { $0.accruals.map(\.wrapper) }
-                    + year.transfers.map(\.wrapper)
             }
         })
-        for wrapper in wrappers.sorted() {
-            if let issue = builder.addBucket(wrapper: wrapper) { issues.append(issue) }
+        let transferredInto = Set(built.flatMap { $0.years.flatMap { $0.transfers.map(\.wrapper) } })
+        for wrapper in paidInto.union(transferredInto).sorted() {
+            if let issue = builder.addBucket(wrapper: wrapper), paidInto.contains(wrapper) { issues.append(issue) }
         }
         let portfolio = builder.finalized()
         for index in built.indices { built[index].resolve(for: portfolio, model: model) }
