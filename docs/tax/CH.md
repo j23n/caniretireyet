@@ -485,7 +485,7 @@ Written out in [drafts/ch-cases.md](drafts/ch-cases.md), ready to become `Tests/
 - an employee's taxes and net salary at CHF 80,000, 150,000 and 250,000 in Zurich city (complete) and in Zug (federal and social lines; cantonal lines once the Zug tariff is copied in);
 - the CHF 150,000 employee with a full 3a contribution and a CHF 20,000 BVG buy-in;
 - a self-employed person at CHF 120,000 with the largest 3a contribution, and the sliding scale at CHF 30,000;
-- AHV pensions: a full record, a partial record of 25 years at two average incomes, claimed early at 63 and deferred to 70; the tax on a full AHV pension in Zurich;
+- AHV pensions: a full record, a partial record of 25 years at three average incomes, claimed early at 63 and 64 and deferred to 70; the tax on a full AHV pension in Zurich;
 - a CHF 500,000 BVG capital as an annuity or a lump sum, taxed in Zurich;
 - a 3a withdrawal of CHF 150,000 at 60 in Zurich, and the cost of taking it in the same year as the BVG lump sum;
 - capital withdrawal tax in Zurich, Zug and Bellinzona (cross-check);
