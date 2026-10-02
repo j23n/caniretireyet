@@ -282,14 +282,14 @@ The flow that has to be fast. It opens as a full-screen sheet on iPhone and as t
   2. Enter the name, institution, currency, country and opening date. The opening date is today by default; the hint says "Set it to when you opened the account, to add its history." The opening balance is the one on that date.
   3. For a brokerage, crypto or metals account, choose **Track: Trade history / Monthly snapshots**. Trade history is the default: "Record each buy, sell and dividend: holdings, average cost, gains and income follow from them." Snapshots: "Type the quantities and cash at each check-in; no trades to keep."
   4. Enter the positions (choose or create instruments) or the balance, which becomes the first valuation. For trade history, each position becomes an *opening* trade on the opening date, with what you paid as its purchase cost, and the cash becomes the first value.
-  5. The tax wrapper is pre-selected from the kind and your residence, e.g. a pension fund becomes `it.pensionFund`.
+  5. The tax wrapper is pre-selected from the kind and your residence, through the tax registry: your residence's system (the one for that country, else `generic`) gives a current account its first taxable wrapper, a pension fund its first tax-advantaged one (e.g. `it.pensionFund`), and a TFR its severance-pay wrapper. The picker lists your residence's wrappers first, then other countries', then the generic ones ("Pension fund (Italy)", "Tax-deferred"), so a country's system brings its wrappers when it's registered.
 - **Close account.** A sheet asks for:
   - the closing date;
   - "Where did the money go?", which sets the successor account;
   - a short explanation: the account keeps its history, stays in every chart up to that date, and leaves check-ins.
 
   Reopening is one button. Deleting is for mistakes only, sits at the bottom in red, and asks for confirmation.
-- **Instruments** (under Library on the Mac, and from an account's positions on iPhone): name, ISIN or ticker, currency, unit, asset mix, and price source. Each row shows the latest saved price with its date and source, with a small clock when it's older than the staleness threshold. A footer says: "Prices are also fetched at every check-in. Net worth uses the price on or before each check-in's date. Fill In Past Prices fetches those missing for earlier dates."
+- **Instruments** (under Library on the Mac, and from an account's positions on iPhone): name, ISIN or ticker, currency, unit, asset mix, taxes, and price source. **Taxes**, for an ETF or fund: the fund type, *Automatic (equity fund)* from the asset mix as typed (more than half equity is an equity fund, more than half real estate a real-estate fund, a quarter or more equity a mixed fund, anything else another fund, as the planner works it out) or one chosen when the mix doesn't say (equity, mixed, real-estate, foreign real-estate, other); for an ETC, *Right to delivery of the metal*. Some countries tax them differently. Each row shows the latest saved price with its date and source, with a small clock when it's older than the staleness threshold. A footer says: "Prices are also fetched at every check-in. Net worth uses the price on or before each check-in's date. Fill In Past Prices fetches those missing for earlier dates."
   - **Update Prices** (toolbar; pull down on iPhone) fetches today's price of every instrument an open account holds that has a price source, and the FX rates that value them in the base currency, and saves them for today in one edit. A banner shows the progress, then the outcome; *Details* lists each instrument as updated, unchanged, failed (with the reason) or kept. A failure doesn't stop the others. A price typed in by hand for today is kept, as in the check-in, unless you choose *Update* on its row. Instruments typed in by hand or not held in an open account are skipped; a row's *Update Price* fetches one anyway.
   - **Set Price…** (on a row, or in the editor) types a price in by hand: the date (today by default), the amount, and the currency (the instrument's by default). It's saved as a `manual` price, which *Update Prices* doesn't replace.
   - **Fill In Past Prices…** (toolbar; the overflow menu on iPhone) fills in the past: every date a position is valued on without a price for that day (each value, and the month ends it carries over to in months without one of its own), the exchange rates those dates need, and the missing inflation months.
@@ -482,18 +482,21 @@ A plan is calculated only when you ask: *Calculate*, *Recalculate* (⌘R, and a 
   - The age axis runs from today's age to the last age simulated, labelled every 5 years (every 10 when narrow), never from 0.
   - Tapping another age makes it the selected age for the charts below. Charts calculated before for that age show at once; otherwise the banner offers *Calculate* for it.
   - Steps caused by pension eligibility (e.g. at 64 or 67) show as steps, with a note explaining why.
+- **In the plan's currency.** Every amount, chart and caption is in the currency the results were calculated in: the plan's own, else the library's base currency ("In today's CHF.").
 - **Your money over time.**
   - A fan chart in one hue: the median line, a darker 25–75% band and a lighter 10–90% band, with its legend in a row of its own above it.
-  - Your actual past values are drawn as a solid line in ink (not the plan's colour) to the left of today.
+  - Your actual past values are drawn as a solid line in ink (not the plan's colour) to the left of today, in the plan's currency: each check-in converted at the library's exchange rate on its date, then into today's money where the library has an inflation index for that currency (Eurostat's HICP for the euro; otherwise in the money of each date). Check-ins without a rate are left out, with a note: "Your actual values leave out 3 check-ins without a EUR–CHF exchange rate (Mar – May 2024): add the rates to see them."
   - **Time span:** the same menu as the Overview's (and the same remembered choice): how far back, and how far ahead, retirement + 15 years by default, so the years around retirement aren't a sliver of a chart running to 95.
   - The value axis fits your history, the median and the 25–75% band; the 10–90% band may run off the top, and the legend says so.
   - Markers above the data: retirement, when locked money becomes accessible, pension starts, windfalls and large expenses. Labels that would collide go in a second row; a marker without room in either shows its icon, and its label is in the callout.
 - **Retirement income.**
-  - Stacked areas, one flat step a year, by source: withdrawals, work (the year you retire), INPS, other pensions, the pension fund, windfalls and TFR, then the taxes they pay in grey on top. The spending target is a dashed line, labelled "Spending" at its end, outside the areas. Years are labelled every 5 or 10.
+  - Stacked areas, one flat step a year, by source: withdrawals, work (the year you retire), the plan's first public pension (e.g. INPS), other pensions, pension savings drawn as needed, windfalls, and **lump sums and payouts**, then the taxes they pay in grey on top. Lump sums and payouts are money paid whether it's needed or not: a pension's lump sum in the year it's claimed (a route that takes part of it as capital), severance pay when a job ends (Italy's TFR), and what a wrapper's rules pay out (the whole balance at an age, or spread over a few years); the app recognises them by the scheme's claim and the wrapper's rules, not by name, and keeps them apart from withdrawals. Pension savings and lump sums are labelled by their source when there's one ("Pension fund", "TFR", "BVG lump sum"), else as a group. The spending target is a dashed line, labelled "Spending" at its end, outside the areas. Years are labelled every 5 or 10.
   - *Why the taxes are on top:* the planner reports income before tax. A withdrawal is what's sold: it pays the tax on the sale and the previous year's wealth tax as well as the spending, so in a rich run's later years it can be twice the spending. So that the chart reads against the spending line, each source is shown after its share of the year's taxes (in proportion), and the taxes paid from the year's income are the grey band: the sources reach the spending line (plus expenses and what's saved), the stack the income before tax. The year the money runs out falls short of the line. Taxes on rebalancing are paid inside the portfolio; *Taxes* shows them.
   - A one-off (a windfall, the TFR) that would flatten the rest runs off the top, with a note under the chart: "Inheritance in 2050 (150k €) runs off the top."
   - *Taxes* switches to the same years stacked by tax line: IRPEF, addizionali, the tax on gains, and the 0.2% wealth tax.
 - **When it fails.** A sentence or two about the failing runs, including bridge failures, i.e. running out before locked money opens.
+- **How the plan reads your library.** A line per bucket: the accounts of one tax wrapper, their value on the start date, and how they're drawn ("Drawn any time · new savings go here · Conto Fineco and Directa", "Drawn as its tax rules allow · Fondo pensione"); then the accounts whose value starts a pension scheme instead of being money to draw on ("BVG starting balance: Pensionskasse: its value on 30 Sep 2026 is where the pension starts"), or isn't used because the plan sets the pension's starting balance itself.
+- **Problems** are worded for the screen: schemes, accounts and ways to claim by their names, not their IDs ("This contribution goes into BVG, but the plan has no BVG pension to pay it out: add one under Pensions.", "BVG never offers “Capital” in the plan's years, so it isn't paid.").
 - **What if.**
   - Sliders for retirement age, spending, saving and equity return. On iPhone they're in a bottom sheet; on the Mac, in the inspector.
   - Moving a slider runs nothing. The answer next to the sliders says "From before your what-if changes" until **Run What-If** runs it: a quick estimate with fewer runs first, then the full 2,000, with the same random draws, its progress under the sliders. A position calculated before shows again at once.
@@ -507,8 +510,8 @@ See [PROGRESS.md](PROGRESS.md).
 - **Your answer over time.** The earliest retirement age at each check-in, as a step line. Markers show where you changed the plan, where the app's calculations changed, or where new tax rules arrived.
 - **Actual vs baseline.**
   - Pick a baseline, e.g. "Start of 2026 (automatic)" or "Before forfettario (saved 12 Mar)".
-  - Its fan chart runs from its start date, with your actual line drawn over it.
-  - A summary: "12.400 € ahead of the median · 61st percentile".
+  - Its fan chart runs from its start date, with your actual line drawn over it, in the baseline's currency (its plan's when it was saved): the same accounts at each check-in's exchange rate, in money of the start date where an inflation index for that currency allows. A line under the chart says which, and names check-ins left out for want of a rate.
+  - A summary: "12.400 € ahead of the median · 61st percentile". The Overview's "ahead of your Jan baseline" is in the baseline's currency too, and its *Future* projection is converted to the base currency at the plan's start-date rate.
   - M3 adds the waterfall explaining the gap: savings, markets, inflation and other.
 - **Save baseline…** takes a label.
 
@@ -517,26 +520,32 @@ See [PROGRESS.md](PROGRESS.md).
 A form with the same sections as the plan file. Each section is a collapsible card with a one-line summary, so the whole plan fits on one screen when collapsed:
 
 ```
-You            Born 1988 · retire at 55 · plan to 95
+You            Born 1988 · retire at 55 · plan to 95 · in CHF
 Work           Employee 2026–28 · Forfettario 2029–retirement
 Spending       36.000 €/yr · 90% from 75 · 80% from 85
 Pensions       INPS (earliest) · State pension from previous country 67
-Contributions  Fondo pensione 5.000 €/yr
+Contributions  Fondo pensione 5.000 €/yr · BVG 20.000 CHF in 2030
 Events         Inheritance at 62 (80%) · New car 2031
 Taxes          Italy · Impatriati (2024) 2025–29        ⚠︎ 1
-Assumptions    Equity 4,5% · Inflation 2%
+Assumptions    Equity 4,5% (2% income) · Inflation 2%
 Simulation     2.000 runs · 90% confidence
 ```
 
+(The examples mix countries on purpose; every list and picker comes from the registered tax systems.)
+
+- **You.** The birth date and the citizenships, as in Settings (a line says that some tax treaties decide by citizenship which country taxes a pension), the retirement age, the plan's end, and the plan's **currency**: *Library currency (EUR)* by default, any currency the library has exchange rates for, or another code typed in. Every amount in the plan and its results is in it, in today's money; the accounts are converted at the rates on the plan's start date, and check-ins fetch the rates of the plans' currencies. Money options show its code.
 - **Work phases.** Each is a row. Tapping it opens an editor:
   - kind, dates and amounts;
   - a **regime picker** that offers only the regimes that fit (e.g. for self-employed in Italy: *Ordinario* or *Forfettario*);
-  - the regime's options form, **generated from the regime's description** ([TAXES.md](TAXES.md#choosing-them-in-a-plan)), so a new regime needs no new screens.
+  - the regime's options form, **generated from the regime's description** ([TAXES.md](TAXES.md#choosing-them-in-a-plan)), so a new regime needs no new screens. Every kind of option has a control: percentages, amounts, whole numbers and years are typed, switches toggle, choices pick. The row's second line lists the options the plan sets, by their labels ("TFR goes to: A pension fund").
+- **Pensions.** Each is a row ("From 67 · 4.800 €/yr · State pension · from Germany"). The editor has the scheme and name; for a pension from a statement (`fixed`), its amount and age, **what kind it is** (state, occupational, basic pension, private annuity: some systems tax kinds differently) and the **paying country**; for a scheme, when to claim and, when the scheme lists several, **the way to claim it** ("Capital · at 65, lump sum"), from the scheme's own claim options for the pension's details as they are. A scheme that lists none yet gets a text field, and a way it never offers shows as a warning once the plan is calculated. Then who taxes it, and the scheme's options form.
+- **Contributions.** Each is a row ("BVG · Pension scheme (buy-in) · Once in 2030 · 20.000 CHF"). The editor picks where it goes, an account or a pension scheme of the plan's tax systems (a buy-in: the system decides what it adds to the pension and any relief), and whether it's paid every year (until retirement or a date) or once, in a year.
+- **Assumptions.** Each class's real return and volatility, then an optional **income yield** for equity and bonds: "The part of the return paid as income each year; some countries tax it yearly."
 - **Taxes.**
-  - A residence timeline (country system + options per period).
+  - A residence timeline (country system + options per period). A new plan starts in the system of the library's tax residence (the registered system for that country, else `generic`).
   - Overlays (special regimes) with their years shown as a bar.
   - Overrides for what-if law changes.
-- **Validation.** Issues appear on the section they concern:
+- **Validation.** Issues appear on the section they concern, and on the row of the work phase, pension or contribution they're about:
   - ⚠︎ for warnings, e.g. "Impatriati doesn't apply to forfettario income: 2029 is lost";
   - ⛔︎ for errors that stop the plan from running.
 - **Staying in view.** On iPhone, a small sticky pill at the top ("Earliest 54") keeps the answer visible while you edit; once an edit makes it out of date it says so, with *Recalculate*, and shows a small bar while that runs. On the Mac, Inputs and Results are side by side, so the out-of-date banner and *Recalculate* (⌘R) are next to the field you're editing.
@@ -548,7 +557,7 @@ A window on the Mac (a pushed page on iPhone):
 - one **Calculate** (or *Recalculate*) for the plans that have no results or whose results are out of date, run one after the other, with the progress of each ("Calculating Base case (1 of 2)…") and Cancel. Until then each side shows its latest results, dimmed with "Out of date" when they are, or its recorded answer, dated;
 - both headlines;
 - the two success curves overlaid (two series, direct-labelled);
-- a table of key numbers.
+- a table of key numbers, each plan's amounts in its own currency.
 
 | | Forfettario | Ordinario + impatriati |
 | --- | --- | --- |
@@ -593,7 +602,7 @@ On iPhone, journals use "Import with profile…" with a saved ledger profile, li
 | Section | Contents |
 | --- | --- |
 | Library | Location (iCloud Drive or this device), Show in Files/Finder, sync status, merged conflicts, backups, the file format docs |
-| You | Name, birth date, base currency, tax residence (the default for new plans) |
+| You | Name, birth date, citizenships (each with a remove button, and *Add Citizenship*: "Some tax treaties decide by citizenship which country taxes a pension."), base currency, tax residence (the default for new plans) |
 | Prices | Price source per instrument kind, API keys (stored in the Keychain), fetch on check-in |
 | Check-in reminder | Day of the month and time. This device only, so you aren't reminded twice. |
 | Privacy | Face ID lock, hide amounts on launch, hide amounts in the app switcher |
@@ -695,7 +704,7 @@ If nothing moves for 20 seconds, the screen says why it may be stuck and what to
 
 1. Welcome.
 2. Where to keep your data (iCloud Drive is recommended).
-3. Birth date, base currency and tax residence.
+3. Birth date, base currency, tax residence and citizenship, starting from the device's currency and region (nothing else is assumed: without a region the residence is *Not set*). When no tax system is registered for the residence, a note says so: "There are no tax rules for Germany yet: plans use the generic system's flat rates, which you choose."
 4. "Import a spreadsheet or journals" or "Add accounts".
 5. The first check-in.
 6. "Create your first plan" (a guided form covering work, spending and pensions).
