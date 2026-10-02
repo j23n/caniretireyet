@@ -16,6 +16,6 @@
     "Progression clause: the INPS pension as German law counts it, 86% × 12,000 = 10,320.00 (the €102 is already used)",
     "Rate T(25,091.2128) / 25,091.2128 = 11.457643%; tax 1,692.432896, against 392.95 without the INPS pension",
     "Health and care on the INPS pension are still due in Germany, which provides the cover",
-    "Italy's tax on the INPS pension isn't computed (gap G8): the plan enters the pension after it"
+    "Italy taxes the INPS pension as a non-resident's (in the planner, ItalyTaxSystem.prepareNonResident); Germany exempts it, so it credits none of that tax"
   ]
 }

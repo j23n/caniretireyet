@@ -5,11 +5,13 @@ import TaxKit
 /// itemised result, computed by hand (with the arithmetic in `workings`).
 /// The format is Italy's, with what the German rules read besides: the
 /// person (`birthDate`, `citizenships`, the residence timeline), pensions'
-/// kind, start year, paying country and form, the currency rate, and
-/// balances' start value and return.
+/// kind, start year, paying country, form and the tax the paying country
+/// charged, the currency rate, and balances' start value and return.
 ///
-/// `kind` is `year` (the default: prepare, then assess) or `pensionClaims`
-/// (the `de.drv` claim options for a record).
+/// `kind` is `year` (the default: prepare, then assess), `nonResident`
+/// (Germany as the paying country: `prepareNonResident`, with the pensions
+/// the planner would pass it) or `pensionClaims` (the `de.drv` claim
+/// options for a record).
 struct ReferenceCase: Decodable, Sendable {
     var name: String
     var kind: String?
@@ -65,6 +67,8 @@ struct ReferenceCase: Decodable, Sendable {
         var sourceCountry: String?
         var form: String?
         var mandatoryShare: Double?
+        /// The tax the paying country charged (`FixedYear.Pension.sourceTax`).
+        var sourceTax: Double?
     }
 
     struct Contribution: Decodable, Sendable {
@@ -193,7 +197,7 @@ struct ReferenceCase: Decodable, Sendable {
                                   taxedIn: $0.taxedIn == "source" ? .source : .residence,
                                   kind: $0.kind.map(PensionKind.init(rawValue:)), startYear: $0.startYear,
                                   sourceCountry: $0.sourceCountry, form: .init(rawValue: $0.form ?? "annuity"),
-                                  mandatoryShare: $0.mandatoryShare)
+                                  mandatoryShare: $0.mandatoryShare, sourceTax: $0.sourceTax)
             },
             wrapperContributions: (input.wrapperContributions ?? []).map {
                 FixedYear.WrapperContribution(wrapper: $0.wrapper, amount: $0.amount, source: $0.source)

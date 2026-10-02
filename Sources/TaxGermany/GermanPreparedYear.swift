@@ -198,6 +198,7 @@ enum GermanWrapperTreatment: Hashable, Sendable {
 /// The labels of the lines, made once per prepared year.
 struct GermanLabels: Hashable, Sendable {
     let incomeTax = "Income tax"
+    let foreignTaxCredit = "Credit for tax paid abroad"
     let soli = "Solidarity surcharge"
     let churchTax: String
     let capitalIncomeTax: String
@@ -432,7 +433,13 @@ struct GermanMarketAssessor {
             lines.append(TaxLine(id: id, label: label, amount: amount / rate, base: base.map { $0 / rate },
                                  subject: subject))
         }
-        add(GermanLine.incomeTax, labels.incomeTax, result.incomeTax, base: result.taxableIncome)
+        add(GermanLine.incomeTax, labels.incomeTax, result.incomeTax + result.foreignTaxCredit,
+            base: result.taxableIncome)
+        for foreign in inputs.foreignTaxes {
+            guard let credit = result.foreignTaxCredits[foreign.subject] else { continue }
+            add(GermanLine.foreignTaxCredit, labels.foreignTaxCredit, -credit, base: foreign.paid,
+                subject: foreign.subject)
+        }
         add(GermanLine.soli, labels.soli, result.soli, base: result.incomeTax)
         add(GermanLine.churchTax, labels.churchTax, result.churchTax)
         lines += context.otherLines

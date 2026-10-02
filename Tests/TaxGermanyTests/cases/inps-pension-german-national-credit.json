@@ -1,0 +1,25 @@
+{
+  "name": "An INPS pension in Germany (DE, taxedIn source, Italian tax credited)",
+  "year": 2031,
+  "input": {
+    "age": 68,
+    "citizenships": ["DE"],
+    "systemOptions": {"retirementHealthInsurance": "kvdr"},
+    "pensions": [
+      {"id": "drv", "scheme": "de.drv", "amount": 20409.6, "startYear": 2030},
+      {"id": "inps", "scheme": "it.inps", "amount": 12000, "startYear": 2030, "taxedIn": "source", "sourceTax": 1500}
+    ]
+  },
+  "expected": {
+    "lines": {"de.incomeTax": 2467.316394, "de.foreignTaxCredit": -913.550205},
+    "contributions": {"de.kv": 2835.84, "de.pv": 1361.2032},
+    "issues": ["de.treaty.taxedInResidence"]
+  },
+  "workings": [
+    "As inps-pension-german-national-taxed-in-source: the treaty gives Germany the INPS pension of a German national (not Italian), so Germany taxes it although the plan says Italy does; income tax before the credit T(23,537.2128) = 2,467.316394",
+    "Italy charged 1,500 on it (the planner's sourceTax, made up here); Germany credits it up to the German tax on that income (§34c Abs. 1)",
+    "The INPS pension's income: its taxable part 86% × 12,000 = 10,320.00 less its share of the 102 lump sum: 10,320 × 27,770.256 / 27,872.256 = 10,282.233412",
+    "Cap: 2,467.316394 × 10,282.233412 / 27,770.256 (the total income) = 913.550205, less than 1,500: the credit is 913.550205",
+    "Income tax after the credit 1,553.766189; no Soli (under the 20,350 limit)"
+  ]
+}

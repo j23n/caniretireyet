@@ -438,6 +438,11 @@
       "note": "An occupational pension from abroad (other than the Swiss BVG, which treaties.CH.bvgInGermany covers), whose contributions got no German relief, is taxed at the Ertragsanteil like a private annuity (§22 Nr. 5 Satz 2 Buchst. a with Nr. 1 Satz 3 Buchst. a bb). Italian pension-fund annuities are the main case.",
       "source": "EStG §22 Nr. 5 Satz 2: https://www.gesetze-im-internet.de/estg/__22.html; module assumption for foreign funds (open question on Italian pension funds)",
       "verify": true
+    },
+    "foreignTaxCredit": {
+      "modelled": true,
+      "note": "A foreign pension Germany taxes although the plan says the paying country taxes it (a treaty gives it to Germany, or no treaty is in this file): the tax the paying country charged is credited, per country at most the German income tax times that country's income over total income, before the trade-tax credit, Soli and church tax.",
+      "source": "EStG §34c Abs. 1, §2 Abs. 6; EStDV §68a: https://www.gesetze-im-internet.de/estg/__34c.html"
     }
   },
   "pensionHealthInsurance": {
@@ -811,9 +816,9 @@
   "nonResident": {
     "basicAllowance": false,
     "residentTreatmentShare": "0.9",
-    "modelled": false,
-    "note": "A non-resident's German income (e.g. a DRV pension taxed in Germany under the treaty) is taxed without the Grundfreibetrag, unless at least 90% of world income is German-taxed or the rest is under the Grundfreibetrag; then as a resident.",
-    "source": "EStG §1 Abs. 3 and 4, §1a, §49 Abs. 1 Nr. 7, §50 Abs. 1 Satz 2"
+    "modelled": true,
+    "note": "A non-resident's German income (e.g. a DRV pension taxed in Germany under the treaty) is taxed without the Grundfreibetrag and the special-expenses lump sum, unless at least 90% of world income is German-taxed or the rest is under the Grundfreibetrag; then, on application, as a resident, with the rest counted for the progression clause (§32b Abs. 1 Nr. 5). The module sees only the German pensions the plan says Germany taxes, so the rest is what the treaty leaves of them to the country of residence.",
+    "source": "EStG §1 Abs. 3 and 4, §1a, §32b Abs. 1 Satz 1 Nr. 5, §49 Abs. 1 Nr. 7, §50 Abs. 1 Satz 2-3"
   },
   "tradeTax": {
     "modelled": true,

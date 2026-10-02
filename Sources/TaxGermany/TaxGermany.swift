@@ -49,7 +49,8 @@ public enum GermanWrapper {
 
 /// The IDs of the German tax and contribution lines.
 public enum GermanLine {
-    /// Income tax on the §32a tariff, after the trade-tax credit.
+    /// Income tax on the §32a tariff, after the trade-tax credit and before
+    /// the credit for foreign tax (``foreignTaxCredit``).
     public static let incomeTax = "de.incomeTax"
     /// The solidarity surcharge on income tax.
     public static let soli = "de.soli"
@@ -65,6 +66,14 @@ public enum GermanLine {
     public static let capitalIncomeChurchTax = "de.capitalIncomeTax.churchTax"
     /// Inheritance and gift tax.
     public static let inheritanceTax = "de.inheritanceTax"
+    /// The credit for the tax a paying country charged on a foreign pension
+    /// Germany taxes too (§34c Abs. 1 EStG); negative, one line per pension.
+    public static let foreignTaxCredit = "de.foreignTaxCredit"
+    /// Income tax Germany charges a non-resident on German pensions
+    /// (`TaxSystem.prepareNonResident`), one line per pension.
+    public static let nonResidentIncomeTax = "de.nonResident.incomeTax"
+    /// The solidarity surcharge on it.
+    public static let nonResidentSoli = "de.nonResident.soli"
     /// Pension insurance (Rentenversicherung): an employee's share, or a self-employed person's contribution.
     public static let pension = "de.rv"
     /// Unemployment insurance (Arbeitslosenversicherung).

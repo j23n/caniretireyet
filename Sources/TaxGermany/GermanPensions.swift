@@ -29,6 +29,9 @@ struct GermanPensionResult: Hashable, Sendable {
     /// The part taxed on the tariff, before the €102 lump sum (or counted for
     /// the progression clause, when the paying country taxes it).
     var taxable: Double
+    /// The tax the paying country charged that Germany credits, in euros
+    /// (0 when none is credited).
+    var creditedSourceTax = 0.0
 }
 
 extension GermanYearCalculator {
@@ -62,8 +65,17 @@ extension GermanYearCalculator {
     }
 
     /// Stage 3: every pension's taxable part, the €102 lump sum, the
-    /// progression income of pensions the paying country taxes, and the
-    /// treaty checks in a pension's first year.
+    /// progression income of pensions the paying country taxes, the foreign
+    /// tax to credit, and the treaty checks in a pension's first year.
+    ///
+    /// Germany taxes a pension the plan leaves to the residence, a German
+    /// one, one the treaty gives Germany although the plan says the paying
+    /// country taxes it, and one from a country with no treaty in the
+    /// parameters (world income, §2 Abs. 1). On the last two, the paying
+    /// country's tax (`sourceTax`) is credited (§34c Abs. 1). A pension the
+    /// treaty, or the plan, leaves to the paying country only raises the
+    /// rate (progression clause). With ``treatyExempt`` (Germany as the
+    /// paying country), the pensions it names count only for that.
     mutating func computePensions() {
         for pension in year.pensions where pension.amount > 0 {
             let (kind, country, known) = Self.classify(pension)
@@ -79,11 +91,20 @@ extension GermanYearCalculator {
                             + "privateAnnuity): Germany taxes it like a statutory pension.", year: year.year))
                 }
             }
-            // Germany taxes what the plan leaves to it, and what the treaty gives
-            // it even when the plan says the paying country taxes it, so no
-            // pension goes untaxed.
+            // Germany taxes what the plan leaves to it, what the treaty gives it
+            // even when the plan says the paying country taxes it, and, with no
+            // treaty, a foreign pension as world income: then it credits the
+            // paying country's tax, so no pension goes untaxed or is taxed twice.
             let treaty = treatyGivesGermany(pension, kind: kind, country: country, warn: firstSeen)
-            let taxedHere = pension.taxedIn == .residence || country == "DE" || treaty == true
+            let noTreaty = pension.taxedIn == .source && country != "DE"
+                && country.flatMap { p.payingStateTaxesItsNationals[$0] } == nil
+            if noTreaty && firstSeen {
+                issues.append(noTreatyWarning(pension.id, country: country))
+            }
+            let taxedHere = !treatyExempt.contains(pension.id)
+                && (pension.taxedIn == .residence || country == "DE" || treaty == true || noTreaty)
+            let credited = taxedHere && pension.taxedIn == .source && country != "DE"
+                ? max(0, pension.sourceTax ?? 0) * rate : 0
             let way = treatment(kind, country: country, mandatoryShare: pension.mandatoryShare)
             var taxable = 0.0
             let ageAtStart = start - person.birthYear
@@ -118,7 +139,7 @@ extension GermanYearCalculator {
             }
             pensions.append(GermanPensionResult(id: pension.id, amount: amount, kind: kind, country: country,
                                                 form: pension.form, startYear: start, treatment: way,
-                                                taxedHere: taxedHere, taxable: taxable))
+                                                taxedHere: taxedHere, taxable: taxable, creditedSourceTax: credited))
         }
         let taxed = pensions.filter(\.taxedHere).reduce(0) { $0 + $1.taxable }
         let lumpSum = min(p.pensionLumpSum, taxed)
@@ -128,6 +149,32 @@ extension GermanYearCalculator {
         let used = min(pensionLumpSumLeft, exempt)
         pensionProgression = exempt - used
         pensionLumpSumLeft -= used
+        // The foreign pensions taxed here from each country that charged tax on
+        // one of them (the credit is capped per country), each with its income:
+        // its taxable part less its share of the lump sum.
+        let net = taxed > 0 ? pensionIncome / taxed : 0
+        let foreign = pensions.filter { $0.taxedHere && $0.country != "DE" }
+        let charging = Set(foreign.filter { $0.creditedSourceTax > 0 }.map { $0.country ?? "" })
+        foreignTaxes = foreign.filter { charging.contains($0.country ?? "") }.map {
+            ForeignTax(subject: $0.id, country: $0.country, income: $0.taxable * net, paid: $0.creditedSourceTax)
+        }
+    }
+
+    /// The warning for a foreign pension the plan says its paying country
+    /// taxes, from a country without a treaty in the parameters.
+    private func noTreatyWarning(_ id: String, country: String?) -> TaxIssue {
+        let message: String
+        if let country {
+            message = "No treaty between Germany and \(country) is modelled: Germany taxes \(id) as part of your world "
+                + "income and credits the tax \(country) charges on it, up to the German tax on it (§34c EStG), "
+                + "although the plan says the paying country taxes it. Where a treaty leaves the pension to "
+                + "\(country), Germany would only count it toward the rate."
+        } else {
+            message = "\(id) names no paying country (sourceCountry), so no treaty applies: Germany taxes it as part of "
+                + "your world income, although the plan says the paying country taxes it. Tax charged there would be "
+                + "credited (§34c EStG), but the plan computes it only for a paying country with a tax system."
+        }
+        return .warning("de.treaty.none", message, year: year.year)
     }
 
     /// A statutory-type pension's taxable part: the cohort's share in the
@@ -187,7 +234,8 @@ extension GermanYearCalculator {
             issues.append(.warning(
                 "de.treaty.taxedInResidence",
                 "Under the treaty with \(country), Germany taxes \(pension.id) while you live here, so it does, although "
-                    + "the plan says the paying country taxes it: set its taxedIn to residence.", year: year.year))
+                    + "the plan says the paying country taxes it, and credits any tax charged there: set its taxedIn to "
+                    + "residence.", year: year.year))
         }
         return !payingState
     }

@@ -38,6 +38,11 @@ struct GermanYearCalculator {
     var pensionLumpSumLeft = 0.0
     /// Pensions the paying country taxes, as German law would count them.
     var pensionProgression = 0.0
+    /// The paying countries' tax on foreign pensions taxed here, to credit.
+    var foreignTaxes: [ForeignTax] = []
+    /// Pensions a treaty leaves to the country of residence while Germany is
+    /// the paying country (``GermanNonResident``): not taxed, only counted.
+    var treatyExempt: Set<String> = []
     /// The employer's 15% on salary converted into a bAV.
     var bavTopUp = 0.0
 
@@ -345,6 +350,7 @@ struct GermanYearCalculator {
         inputs.provisions = retirement + max(basic, min(basic + other, limit))
         inputs.otherDeductions = max(0, options.double("otherDeductions", default: 0)) * rate
         inputs.progression = pensionProgression
+        inputs.foreignTaxes = foreignTaxes
         inputs.tradeTaxCredit = work.reduce(0) { $0 + $1.tradeCredit }
         inputs.pensionDeduction = riester.deduction + depot.deduction
         inputs.pensionGrant = riester.grant + depot.grant
