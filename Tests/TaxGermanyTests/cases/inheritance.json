@@ -1,0 +1,21 @@
+{
+  "name": "Inheritance tax by relationship",
+  "year": 2026,
+  "input": {
+    "age": 55,
+    "work": [{"phaseID": "job", "kind": "employee", "regime": "de.employee", "gross": 75000}],
+    "windfalls": [
+      {"name": "Parent", "kind": "inheritance", "amount": 150000},
+      {"name": "Sibling", "kind": "inheritance.sibling", "amount": 150000},
+      {"name": "Friend", "kind": "inheritance.other", "amount": 150000},
+      {"name": "Lottery", "kind": "windfall", "amount": 150000}
+    ]
+  },
+  "expected": {"lines": {"de.incomeTax": 13935.657745, "de.inheritanceTax": 65000.0}},
+  "workings": [
+    "From a parent (class I): 150,000 − 400,000 allowance → nothing",
+    "From a sibling (class II): 130,000 in the band up to 300,000: 20% = 26,000",
+    "From a friend (class III): 130,000 × 30% = 39,000",
+    "A lottery win isn't taxed"
+  ]
+}

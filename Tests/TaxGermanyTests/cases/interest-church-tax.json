@@ -1,0 +1,27 @@
+{
+  "name": "Interest of 3,000 with church tax (9%), next to a 75,000 salary",
+  "year": 2026,
+  "input": {
+    "age": 45,
+    "systemOptions": {"bundesland": "NW", "churchMember": true},
+    "work": [{"phaseID": "job", "kind": "employee", "regime": "de.employee", "gross": 75000}],
+    "variable": {
+      "capitalIncome": [{"wrapper": "de.ordinary", "category": "cash", "kind": "interest", "amount": 3000}]
+    }
+  },
+  "expected": {
+    "lines": {
+      "de.incomeTax": 13486.814896,
+      "de.churchTax": 1213.813341,
+      "de.capitalIncomeTax": 488.997555,
+      "de.capitalIncomeTax.soli": 26.894866,
+      "de.capitalIncomeTax.churchTax": 44.00978
+    },
+    "contributions": {"de.rv": 6975.0, "de.av": 975.0, "de.kv": 6103.125, "de.pv": 1674.0}
+  },
+  "workings": [
+    "After the allowance: 2,000. With church tax the flat rate is 25% / (1 + 0.25 × 9%) = 24.449878%",
+    "Flat tax 488.997555; Soli 5.5% of it 26.894866; church tax 9% of it 44.009780: 559.90 in all (27.99% of 2,000), against 527.50 without church tax",
+    "The salary: church tax 9% (North Rhine-Westphalia) as a fixed point, K = 1,213.813341, income tax 13,486.814896"
+  ]
+}

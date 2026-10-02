@@ -1,0 +1,31 @@
+{
+  "name": "Selling an equity ETF after 10 years, the Vorabpauschalen in its cost",
+  "year": 2035,
+  "input": {
+    "age": 55,
+    "systemOptions": {"realWageGrowth": "0"},
+    "work": [{"phaseID": "job", "kind": "employee", "regime": "de.employee", "gross": 75000}],
+    "variable": {
+      "sales": [{"wrapper": "de.ordinary", "category": "equityFund", "proceeds": 196715.1357, "costBasis": 130948.8434}]
+    }
+  },
+  "expected": {
+    "lines": {"de.incomeTax": 13935.657745, "de.capitalIncomeTax": 11259.101153, "de.capitalIncomeTax.soli": 619.250563},
+    "totalTax": 25814.009461
+  },
+  "grossUp": [
+    {
+      "net": 10000,
+      "bucket": {"wrapper": "de.ordinary", "value": 196715.1357, "costBasis": 130948.8434, "categoryShares": {"equityFund": 1}},
+      "expected": 10376.747343
+    }
+  ],
+  "workings": [
+    "Bought for 100,000 in January 2026, up 7% a year; the ten Vorabpauschalen (2,240.00 … 4,118.15) total 30,948.84, already in the purchase cost: 130,948.84",
+    "Gain 65,766.2923; 70% after the partial exemption, less the 1,000 allowance: 45,036.4046",
+    "Flat tax 11,259.1012; Soli 619.2506",
+    "2035 with 2026's parameters, inflation factor 1 (nominal amounts) and realWageGrowth 0, so the salary is taxed as in employee-75k",
+    "Gross-up for 10,000 net: gain share 1 − 130,948.84 / 196,715.14 = 0.334322; tax per euro sold 26.375% × 70% × 0.334322 = 0.0617243; the first 4,273.03 are covered by the allowance: (10,000 − 263.75) / (1 − 0.0617243) = 10,376.75",
+    "Changed from the draft: a salary keeps the Günstigerprüfung from applying (as in vorabpauschale-year)"
+  ]
+}

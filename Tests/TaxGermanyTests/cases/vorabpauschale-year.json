@@ -1,0 +1,26 @@
+{
+  "name": "An equity ETF's Vorabpauschale, next to a 75,000 salary",
+  "year": 2026,
+  "input": {
+    "age": 45,
+    "work": [{"phaseID": "job", "kind": "employee", "regime": "de.employee", "gross": 75000}],
+    "variable": {
+      "balances": [{"wrapper": "de.ordinary", "category": "equityFund", "value": 108000, "nominalReturn": 0.08}]
+    }
+  },
+  "expected": {
+    "lines": {"de.incomeTax": 13935.657745, "de.capitalIncomeTax": 142.0, "de.capitalIncomeTax.soli": 7.81},
+    "contributions": {"de.rv": 6975.0, "de.av": 975.0, "de.kv": 6103.125, "de.pv": 1674.0},
+    "costBasisAdjustments": {"de.ordinary:equityFund": 2240.0},
+    "totalTax": 14085.467745
+  },
+  "workings": [
+    "The ETF was worth 100,000 at the start (108,000 / 1.08) and rose 8%",
+    "Base income: 100,000 × 3.20% × 70% = 2,240.00, below the 8,000 rise: the Vorabpauschale is 2,240.00",
+    "Partial exemption 30%: 1,568.00; less the 1,000 allowance: 568.00",
+    "Flat tax 25% × 568 = 142.00; Soli 5.5% = 7.81. The salary's marginal rate (38%) is above 25%, so the tariff isn't lower",
+    "The 2,240 is added to the purchase cost, so it isn't taxed again on sale",
+    "The salary's income tax as in employee-75k",
+    "Changed from the draft: the draft's person had no other income, for whom the Günstigerprüfung taxes the 568 at the tariff, at 0"
+  ]
+}

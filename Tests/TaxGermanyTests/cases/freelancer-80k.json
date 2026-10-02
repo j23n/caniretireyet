@@ -1,0 +1,31 @@
+{
+  "name": "Freiberufler, 80,000 profit, voluntary GKV",
+  "year": 2026,
+  "input": {
+    "age": 40,
+    "work": [
+      {
+        "phaseID": "practice",
+        "kind": "selfEmployed",
+        "regime": "de.freelancer",
+        "gross": 90000,
+        "costs": 10000,
+        "options": {"drv": "none"}
+      }
+    ]
+  },
+  "expected": {
+    "lines": {"de.incomeTax": 16305.076899},
+    "contributions": {"de.kv": 11787.75, "de.pv": 2929.5},
+    "accruals": {},
+    "totalTax": 16305.076899,
+    "netIncome": 48977.673101
+  },
+  "workings": [
+    "Profit: 90,000 revenue − 10,000 costs = 80,000; a Freiberufler pays no trade tax",
+    "Voluntary GKV on all income, up to the 69,750 ceiling: health (14.0% + 2.9%) × 69,750 = 11,787.75; care 4.2% (childless) × 69,750 = 2,929.50; all paid by the freelancer",
+    "No sick pay, so no 4% reduction: special expenses 14,717.25 + the €36 lump sum",
+    "Taxable income: 80,000 − 14,717.25 − 36 = 65,246.75; T = 16,305.076899",
+    "No DRV contributions (drv: none), so no pension credits"
+  ]
+}

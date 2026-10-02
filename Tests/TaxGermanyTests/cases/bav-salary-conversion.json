@@ -1,0 +1,21 @@
+{
+  "name": "Salary converted into a bAV (Entgeltumwandlung)",
+  "year": 2026,
+  "input": {
+    "age": 40,
+    "work": [{"phaseID": "job", "kind": "employee", "regime": "de.employee", "gross": 60000}],
+    "wrapperContributions": [{"wrapper": "de.bav", "amount": 3000, "source": "contribution-0"}]
+  },
+  "expected": {
+    "lines": {"de.incomeTax": 8595.223842},
+    "contributions": {"de.rv": 5301.0, "de.av": 741.0, "de.kv": 4987.5, "de.pv": 1368.0},
+    "accruals": {"pensionScheme:de.drv": 57000.0, "wrapper:de.bav": 450.0}
+  },
+  "workings": [
+    "3,000 of salary paid into a bAV: within 8% of the pension ceiling (8,112) tax-free, and within 4% (4,056) free of contributions",
+    "Contributions on 57,000: pension 5,301.00, unemployment 741.00, health 4,987.50, care 1,368.00",
+    "The employer adds 15% of the converted salary: 450, credited to the bAV",
+    "Taxable income: 57,000 − 1,230 − 11,457.00 − 36 = 44,277.00; T = 8,595.223842",
+    "The pension credit is on 57,000: converted salary earns no points"
+  ]
+}

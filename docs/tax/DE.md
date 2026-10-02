@@ -1,99 +1,81 @@
 # Germany (`de`)
 
-The German tax system for the planner, as designed for a `TaxGermany` module. It plugs into the engine through the interfaces in [TAXES.md](../TAXES.md), and follows [IT.md](IT.md) in structure.
+The German tax system for the planner, in the `TaxGermany` module (`GermanTaxSystem`). It plugs into the engine through the interfaces in [TAXES.md](../TAXES.md), and follows [IT.md](IT.md) in structure.
 
-**Status: design draft, not implemented.** The values are for 2026 and were checked in October 2026 (sources at the end). The official pages couldn't be opened directly from the build environment; their content was read through search-engine extracts, cross-checked across at least two independent results. Items marked *verify* have a single source, came only from secondary sources, or depend on a ruling that doesn't exist; [de-questions](drafts/de-questions.md#open-legal-and-factual-questions) lists them with what the module assumes and what would settle each. Results are estimates, not tax advice.
+The values are for 2026 and were checked in October 2026 (sources at the end). The official pages couldn't be opened directly from the build environment; their content was read through search-engine extracts, cross-checked across at least two independent results. Items marked *verify* have a single source, came only from secondary sources, or depend on a ruling that doesn't exist; [Open questions](#open-questions) lists them with what the module assumes and what would settle each. Results are estimates, not tax advice.
 
-The module is general. Whatever depends on the person (nationality, health insurance, church membership, children, the kind of work) is a plan setting or an option with a neutral default; [de-questions](drafts/de-questions.md#configuration) lists every one with its type, default and effect. The draft parameter file is [drafts/de-2026.json](drafts/de-2026.json), and the reference cases are in [drafts/de-cases.md](drafts/de-cases.md).
+The module is general. Whatever depends on the person (nationality, health insurance, church membership, children, the kind of work) is a plan setting or an option with a neutral default; [Configuration](#configuration) lists every one. It computes in euros: a plan in another currency is converted at the plan's start rate. The parameters are in `Sources/TaxGermany/Resources/de/2026.json`, and the reference cases in `Tests/TaxGermanyTests/cases/`.
 
 ## What the module provides
 
-**Plan settings it reads.** Two settings belong to the plan rather than to a residence period, because several systems need them (TaxKit gaps G13 and G14):
+**Plan settings it reads**, which belong to the plan or the library rather than to a residence period:
 
-| Setting | Meaning | Default |
-| --- | --- | --- |
-| `tax.citizenship` | The person's nationalities, as ISO country codes (`["DE"]`, `["IT", "DE"]`). Treaty rules read it: Germany–Italy for state pensions, Germany–Switzerland for the years after a move, and §2 AStG. | none: rules that depend on it apply the general treaty rule and warn |
-| `currency` | The plan's currency. The `de` parameters are in euros; with another currency the module converts at the plan's start rate. | the library's base currency |
+| Setting | Effect |
+| --- | --- |
+| the person's citizenships (`person.citizenships`) | Treaty rules: Germany–Italy for state pensions (Art. 19(4)), Germany–Switzerland for the years after a move (Art. 4 Abs. 4). Empty: the plan's `taxedIn` stands, with a warning where nationality decides. |
+| the plan's `currency` | The parameters are in euros; another currency is converted with the year's `currencyRate` (TAXES.md). |
+| the birth date | The standard retirement age and the Aktivrente's months, the childless care surcharge from 23, the Ertragsanteil's age, DRV claim dates, the default `workStartYear`. |
+| the residence timeline | The KVdR's 9/10 rule (years in Germany, in other EU/EEA countries and Switzerland, elsewhere), the exit tax and the Swiss treaty's years after a move. |
+| `tax.indexThresholds`, `tax.overrides` | As for every system ([Parameters](../TAXES.md#parameters)). |
 
-The plan's birth year, `tax.indexThresholds` and `tax.overrides` work as for every system.
-
-**System options** (per residence period):
-
-| Option | Meaning | Default |
-| --- | --- | --- |
-| `bundesland` | Federal state (ISO code: `BW`, `BY`, `SN`, …). Sets the church-tax rate (8% in BY and BW, 9% elsewhere) and Saxony's different split of care insurance. | none: 9% church tax and the standard care split, as in 13 of the 16 states |
-| `churchMember` | Member of a church that levies church tax (*Kirchensteuer*) | false |
-| `childBirthYears` | The children's birth years. No children: the childless care surcharge from 23. Two or more under 25: care discounts. Each child adds 3 years toward KVdR, and Riester and Altersvorsorgedepot child grants. | none |
-| `healthInsurance` | Before a pension is drawn: `gkv` (statutory) or `pkv` (private; for employees only above the compulsory-insurance limit, €77,400 in 2026) | `gkv` |
-| `zusatzbeitrag` | The health fund's additional contribution rate | 0.029 (the 2026 average) |
-| `pkvPremium` | With `pkv`: the monthly premium for health and care, in today's euros | required with `pkv` |
-| `pkvBasicShare` | With `pkv`: the share of the premium for basic cover, which is deductible | 0.8 |
-| `pkvRealPremiumGrowth` | With `pkv`: how much faster than prices the premium rises each year. A plan assumption. | 0.01 |
-| `retirementHealthInsurance` | From the first pension: `auto`, `kvdr` (compulsory pensioners' insurance), `voluntary` (voluntary GKV) or `pkv` | `auto` |
-| `insuredShareBeforePlan` | For `auto`: the share of the working life before the plan spent in statutory health insurance, in Germany or in another EU/EEA country or Switzerland (residence-based systems included) | 1 |
-| `workStartYear` | For `auto`: the year of the first job, which starts the KVdR's reference period | birth year + 20 |
-| `otherDeductions` | Yearly deductions not modelled one by one: work costs above the €1,230 lump sum, donations, extraordinary burdens | 0 |
-| `basiszins` | The base rate for the Vorabpauschale in years after the last published one. A plan assumption. | 0.032 (the 2026 rate) |
-| `realWageGrowth` | Real growth of average earnings, which moves the contribution ceilings and the other wage-linked amounts. A plan assumption. | 0.01 |
-| `indexFixedAllowances` | Whether allowances the law rarely changes (the €1,000 savers' allowance, the lump sums, inheritance allowances) keep their value in today's euros | false |
+**Residence options** (per residence period): `bundesland`, `churchMember`, `children` and `childBirthYears`, `healthInsurance`, `zusatzbeitrag`, `pkvPremium`, `pkvBasicShare`, `pkvRealPremiumGrowth`, `retirementHealthInsurance`, `insuredShareBeforePlan`, `workStartYear`, `otherDeductions`, `basiszins`, `realWageGrowth`, `indexFixedAllowances`. Types, defaults and effects are in [Configuration](#configuration).
 
 **Earned-income regimes:**
 
 | ID | For | Options |
 | --- | --- | --- |
-| `de.employee` | Employees (the default) | none; Entgeltumwandlung into a bAV is a plan contribution to a `de.bav` account |
-| `de.freelancer` | Freiberufler (the default for self-employed): income tax on profit, no trade tax | `drv`: `none`, `voluntary` or `compulsory` (default `none`); `drvContribution` (yearly euros, for `voluntary`; default the minimum); `sickPay` (14.6% instead of 14.0% health contribution, with sick pay from day 43; default false) |
-| `de.trader` | Gewerbetreibende: as `de.freelancer`, plus trade tax, mostly credited against income tax | as `de.freelancer`, plus `hebesatz` (the municipality's multiplier, e.g. 4.0 for 400%; at least 2.0; required) |
+| `de.employee` | Employees (the default) | none. Salary paid into a `de.bav` account is Entgeltumwandlung; past the standard retirement age the Aktivrente applies by itself. |
+| `de.freelancer` | Freiberufler (the default for the self-employed): income tax on profit, no trade tax | `drv` (`none`, `voluntary`, `compulsory`; default `none`), `drvContribution` (yearly), `sickPay` (default false) |
+| `de.trader` | Gewerbetreibende: as `de.freelancer`, plus trade tax, mostly credited against income tax | as `de.freelancer`, plus `hebesatz` (required, at least 200%) |
 
-**Overlays:** none. Germany has no special regime for people moving in, like Italy's impatriati. A 2024 plan for a tax rebate for foreign skilled workers (30%, 20% and 10% of salary tax-free in the first three years) was dropped. The 2026 Aktivrente is not an overlay: it applies automatically to employees past the standard retirement age (see [Work income](#work-income)).
+**Overlays:** none. Germany has no special regime for people moving in, like Italy's impatriati. A 2024 plan for a rebate for foreign skilled workers was dropped. The Aktivrente isn't an overlay: it applies by itself to employees past the standard retirement age.
 
-**Wrappers:**
+**Wrappers** (an account's `tax.wrapper`):
 
-| ID | Account | Generic category |
-| --- | --- | --- |
-| `de.depot` | Current and savings accounts, brokerage, crypto, gold | taxable |
-| `de.riester` | Riester contract (no new contracts from 2027) | tax-deferred |
-| `de.ruerup` | Basisrente (Rürup) | tax-deferred |
-| `de.bav` | Occupational pension through Direktversicherung, Pensionskasse or Pensionsfonds | tax-deferred |
-| `de.altersvorsorgedepot` | The new state-subsidised pension depot, from 2027 | tax-deferred |
-| `de.lifeInsurance` | Capital life insurance and private annuity insurance (later) | taxable |
+| ID | Account | Generic category | Can be drawn | Spread over |
+| --- | --- | --- | --- | --- |
+| `de.ordinary` | Current and savings accounts, brokerage (Depot), crypto, gold | taxable | always | |
+| `de.riester` | A Riester contract (no new contracts from 2027) | tax-deferred | from 62 | 20 years |
+| `de.ruerup` | Basisrente (Rürup) | tax-deferred | from 62 | 25 years |
+| `de.bav` | Occupational pension: Direktversicherung, Pensionskasse, Pensionsfonds | tax-deferred | from the standard retirement age, at least 62 | 20 years |
+| `de.altersvorsorgedepot` | The state-subsidised pension depot, from 2027 | tax-deferred | from 65 | 20 years |
 
-The module also declares how it treats some foreign wrappers and pensions while the residence is `de`: `it.ordinary` and `ch.ordinary` as `de.depot`; `it.pensionFund`, `it.tfr`, `ch.pillar3a`, `ch.vestedBenefits` and the `it.inps`, `ch.ahv` and `ch.bvg` pensions as described in [Moving abroad](#moving-abroad-treaties).
+The last column is `WrapperRule.preferredPayoutYears`: these contracts pay annuities, which the planner can't enforce yet (gap G9), so it pays them out evenly over those years instead. The module also says how it treats other systems' wrappers while the residence is `de`: `it.ordinary`, `ch.ordinary` and the generic `taxable` like `de.ordinary`; `it.pensionFund` and `ch.pillar3a` on their gain; `ch.vestedBenefits` like a BVG lump sum; `it.tfr` not taxed but counted for the progression clause; `taxDeferred` and unknown wrappers in full at the tariff, with a warning ([How the rules are modelled](#how-the-rules-are-modelled)).
 
-**Pension schemes:** `de.drv`, the statutory pension (*gesetzliche Rentenversicherung*), and the shared `fixed` scheme for foreign and other pensions. `de.drv` takes the options `points` (*Entgeltpunkte* so far, from the *Renteninformation*), `contributionYears` (German years toward the 5- and 35-year waiting times), `years45` (German years toward the 45-year waiting time, default `contributionYears`), `foreignContributionYears` (years in other EU/EEA countries, Switzerland and agreement countries, toward the waiting times only), `foreignYears45` (the foreign compulsory years from work that count toward the 45 years, default `foreignContributionYears`), `startYear` (for a pension already paid), and the plan assumptions `realWageGrowth` (default 0.01), `realPensionValueGrowth` (default 0.005) and `ageIncreaseMonthsPerYear` (default 0).
+**Pension schemes:** `de.drv`, the statutory pension (*gesetzliche Rentenversicherung*), with the options `points`, `contributionYears`, `years45`, `foreignContributionYears`, `foreignYears45`, `realWageGrowth`, `realPensionValueGrowth` and `ageIncreaseMonthsPerYear`; and the shared `fixed` scheme, for a pension already paid (from the *Rentenbescheid*), foreign pensions, and Rürup, bAV or private annuities entered from a statement, each with its `kind`.
+
+**Germany as the paying country** (TaxKit gap G8; the planner's hook joins on merge, see [Fit with TaxKit](#fit-with-taxkit)). `GermanTaxSystem.country` is `DE`, and `prepareNonResident(_:state:parameters:)` computes what Germany charges a resident of another country on German pensions the plan says the paying country taxes ([Germany taxing pensions paid abroad](#germany-taxing-pensions-paid-abroad)).
 
 **Validation:**
 
-- `pkv` while working needs a salary above the compulsory-insurance limit (€77,400 in 2026), or self-employment. Otherwise an error. `pkv` without `pkvPremium` is an error.
-- `de.trader` without `hebesatz`, or with one below 2.0, is an error.
-- Riester needs compulsory DRV membership: a warning for self-employment without `drv: compulsory`. Contributions to a new Riester contract from 2027 are a warning (the Altersvorsorgedepot replaces it). A residence outside the EU and EEA (Switzerland included) when Riester payouts start is a warning: the grants and tax savings are paid back.
-- Contributions above a wrapper's yearly limit (Riester €2,100, bAV 8% of the pension ceiling, Rürup the €30,826 maximum less the pension contributions already paid) get a warning; the excess isn't deducted.
-- `retirementHealthInsurance: kvdr` set explicitly gets a warning when the plan's own years would fail the 9/10 rule (years with `pkv`, or under a system outside the EU/EEA and Switzerland), since KVdR may then be refused.
-- `de.altersvorsorgedepot` contributions before 2027 are an error.
-- Leaving German residence after at least 7 of the last 12 years with large fund holdings gets a warning about exit tax (see [Moving into and out of Germany](#moving-into-and-out-of-germany)).
-- `citizenship` against each foreign or German state pension's `taxedIn`: a warning when the treaty gives the other country the right to tax it (Germany–Italy, Art. 19(4)), and when `citizenship` is empty but the rule depends on it.
+- `healthInsurance: pkv`, or `retirementHealthInsurance: pkv`, without `pkvPremium`: an error. `retirementHealthInsurance: kvdr` after PKV: a warning, since PKV years don't count toward the 9/10 rule.
+- `de.trader` without `hebesatz`, or with one below 200%: an error (and a warning in a year that has none, which then uses the legal minimum).
+- `childBirthYears` that isn't a list of years: an error.
+- A `fixed` pension without a `kind`: a warning, and it's taxed like a statutory pension.
+- Leaving Germany after at least 7 of the last 12 years there: a warning about the exit tax on large fund and company holdings. A German national (not Swiss) moving to Switzerland after at least 5 years: a warning about Germany taxing German income for 5 more years.
+- Year by year, in `prepare` (and `validate(_:years:parameters:)` collects them): PKV for an employee earning less than the compulsory-insurance limit (€77,400 in 2026; the job is then insured in GKV); Riester without compulsory DRV insurance; contributions above Riester's €2,100, the bAV's 8% of the pension ceiling, or the €30,826 for pension contributions and Rürup together; bAV payments without a salary; Altersvorsorgedepot payments before 2027; voluntary DRV contributions outside their limits; KVdR chosen on a record that fails the 9/10 rule; the treaty against a foreign pension's `taxedIn` (and missing citizenships where they decide).
 
 ## How the module is built
 
 Each year runs through these stages in order. Regimes and wrappers hook into the stages they change.
 
-| # | Stage | Hooks |
+| # | Stage | Code |
 | --- | --- | --- |
-| 1 | Work income by regime. Employee: gross salary, less tax-free Entgeltumwandlung and the Aktivrente. Self-employed: revenue − costs. | `de.employee`, `de.freelancer`, `de.trader` |
-| 2 | Social contributions (employee shares, or the self-employed person's voluntary health and care insurance and optional DRV), and DRV pension credits. Health and care contributions on pensions (KVdR or voluntary). | regimes, `retirementHealthInsurance` |
-| 3 | Pension income: statutory and Rürup pensions at their cohort's taxable share, Riester and bAV in full, private annuities at their income share. | pension kinds, wrappers |
-| 4 | Total income (*Summe der Einkünfte*): wages less the €1,230 lump sum, profit, pensions less the €102 lump sum. | |
-| 5 | Special expenses (*Sonderausgaben*): pension contributions and Rürup (up to €30,826), basic health and care contributions, church tax paid (at least €36), Riester (with the grant comparison), `otherDeductions`. | wrappers |
-| 6 | Income tax on the §32a tariff, with the progression clause for exempt foreign income and the one-fifth rule for severance pay; trade tax and its credit; then Soli and church tax. | `de.trader` |
-| 7 | Inheritance tax on windfalls. | |
-| 8 | Investment income and gains: interest, the Vorabpauschale, fund and share gains with the partial exemption, at 25% flat (Abgeltungsteuer) or, when lower, at the tariff (Günstigerprüfung). Private sales of gold and crypto within a year, at the tariff. | |
-| 9 | Wrapper payouts (Riester, Rürup, bAV, Altersvorsorgedepot), and health contributions on bAV payouts. | wrappers |
-| 10 | Voluntary health and care contributions on capital income and payouts, above what stage 2 already charged on the minimum base. | `retirementHealthInsurance` |
-| 11 | The state carried into next year: each pension's start year and fixed exempt amount, years of German residence and of statutory health insurance, Riester and bAV contributions. | |
+| 1 | Work income by regime. Employee: gross salary less tax-free Entgeltumwandlung and the Aktivrente. Self-employed: revenue − costs. | `GermanWork.swift` |
+| 2 | Social contributions (an employee's shares, or the self-employed person's DRV contributions) and DRV credits; health and care insurance outside a job: voluntary GKV, KVdR or PKV. | `GermanWork.swift`, `GermanHealth.swift`, `GermanYearCalculator.swift` |
+| 3 | Pensions: statutory and Rürup pensions at their cohort's taxable share, German occupational pensions in full, private annuities at the Ertragsanteil; the treaty for foreign pensions. | `GermanPensions.swift` |
+| 4 | Total income (*Summe der Einkünfte*): wages less the €1,230 lump sum, profit, pensions less the €102 lump sum. | `GermanYearCalculator.swift` |
+| 5 | Special expenses (*Sonderausgaben*): pension contributions and Rürup (up to €30,826), basic health and care contributions, others within €1,900, church tax paid (or the €36 lump sum), Riester and the Altersvorsorgedepot (with the grant comparison), `otherDeductions`. | `GermanYearCalculator.swift` |
+| 6 | Income tax on the §32a tariff, with the progression clause and the one-fifth rule; trade tax and its credit; Soli and church tax. | `GermanIncomeTax.swift` |
+| 7 | Inheritance and gift tax on windfalls. | `GermanYearCalculator.swift` |
+| 8 | Investment income and gains: interest, dividends, the Vorabpauschale, gains after the partial exemption, at the flat rate or, when lower, the tariff (Günstigerprüfung). | `GermanPreparedYear.swift` |
+| 9 | Wrapper payouts (Riester, Rürup, bAV, Altersvorsorgedepot, foreign wrappers). | `GermanPreparedYear.swift` |
+| 10 | Health and care contributions on what stages 8 and 9 added, for a voluntary member (and on bAV payouts under KVdR). | `GermanPreparedYear.swift` |
+| 11 | The state carried into next year: each pension's fixed exempt amount, last year's insured earnings, years of PKV. | `GermanState.swift` |
 
-Stages 1–7 depend only on the plan, so they run in *prepare*. Stages 8–10 depend on the markets and run in *assess*. The prepared year keeps the tariff inputs of stage 6 (taxable income, the progression income, the trade-tax credit, the church-tax rate), so assess can add income taxed at the tariff (gold and crypto sold within a year, the Günstigerprüfung, payouts) cheaply: it reruns stage 6 on the new total, which is one tariff evaluation.
+Stages 1–7 depend only on the plan, so they run in *prepare*. Stages 8–10 depend on the markets and run in *assess*, which then reruns stage 6 on the new total: income tax with the extra contributions deducted and the payouts added, and a second time with the capital income at the tariff, for the Günstigerprüfung. Both are a few tariff evaluations. `fixedAssessment` is `assess` of an empty market year, so the two always agree.
 
-**Gross-up.** In the common case the gross-up is exact: gains taxed at the flat rate, so sell `net ÷ (1 − 26.375% × (1 − partial exemption) × gain share)`, with the first part of the sale tax-free while the €1,000 allowance lasts. `grossUp` returns nil, so the engine solves numerically, when the sale changes something else: a private sale taxed at the tariff, a year where the Günstigerprüfung may win, voluntary health contributions that depend on the gain, or a payout taxed at the tariff.
+**Gross-up.** For a sale from an ordinary account the gross-up is exact when nothing but the flat tax depends on it: sell `(net − r × A) ÷ (1 − r × g)`, with `r` the flat rate with Soli and church tax (26.375% without church tax), `g` the share of each euro sold that is taxable gain (after the partial exemption; none for cash, gold, crypto or property), and `A` the €1,000 allowance, assumed unused (the first `A ÷ g` are tax-free). `grossUp` returns nil, so the engine solves numerically, when the Günstigerprüfung may win (the tariff's rate on the next euro, with Soli and church tax, is below the flat tax's), when a voluntary member pays health contributions on the gain, and for payouts taxed at the tariff.
 
 ## Income tax
 
@@ -107,237 +89,209 @@ Stages 1–7 depend only on the plan, so they run in *prepare*. Stages 8–10 de
 | €69,879 – €277,825 | 0.42 × x − 11,135.63 | 42% |
 | from €277,826 | 0.45 × x − 19,470.38 | 45% |
 
-The tax is continuous. The marginal rate rises smoothly from 14% to 42%, then steps up to 45% at €277,826. Unlike Italy's tariff, it isn't a bracket schedule: the two middle zones are quadratic. The 2027 tariff is in a government bill (Einkommensteuerreformgesetz 2027, cabinet decision 2 September 2026): a Grundfreibetrag of €12,564, 42% from €70,600, 45% from €250,000 and a new 47% from €280,000, and an employee lump sum of €1,430. It isn't law yet (*verify*, and add a `2027.json` once it passes).
+The tax is continuous (the law's quadratic and linear zones meet within 6 cents at €69,878), and the published values come out: €4,217 at €30,000 and €10,548 at €50,000. It isn't a bracket schedule, so the module keeps it as a zone tariff (`ZoneTariff`), written in the parameter file the way the law writes it; a plan overrides any coefficient by path (`de.incomeTax.tariff.zones.4.rate`). The 2027 tariff is in a government bill (Einkommensteuerreformgesetz 2027, cabinet decision 2 September 2026): a Grundfreibetrag of €12,564, 42% from €70,600, 45% from €250,000 and a new 47% from €280,000, and an employee lump sum of €1,430. It isn't law yet (*verify*); once it passes it's a `2027.json` with one more linear zone.
 
-**Solidarity surcharge (Soli).** 5.5% of income tax, but nothing while income tax is at most €20,350 (*Freigrenze*), and at most 11.9% of the income tax above €20,350 (*Milderungszone*). So Soli starts gently at about €75,000 of taxable income and reaches the full 5.5% at €37,838 of income tax (about €116,000 of taxable income). On the flat tax on investment income, Soli is always 5.5%, with no threshold.
+**Solidarity surcharge (Soli).** 5.5% of income tax, but nothing while income tax is at most €20,350 (*Freigrenze*), and at most 11.9% of the income tax above €20,350 (*Milderungszone*). So Soli starts gently at about €75,000 of taxable income and reaches the full 5.5% at €37,838 of income tax. On the flat tax on investment income, Soli is always 5.5%.
 
-**Church tax** (option `churchMember`). 8% of income tax in Bavaria and Baden-Württemberg, 9% elsewhere. The church tax paid in a year is deductible as a special expense. On investment income, it lowers the flat rate itself: 25% ÷ (1 + 0.25 × rate), so 24.51% with 8% church tax and 24.45% with 9%; the combined rate with Soli and church tax is 27.82% or 27.99%, against 26.375% without church tax. Leaving the church ends it.
+**Church tax** (option `churchMember`). 8% of income tax in Bavaria and Baden-Württemberg, 9% elsewhere. Church tax paid is a special expense in the same year, which makes it depend on itself: the module solves it as a fixed point. The trade-tax credit lowers the Soli's base but not the church tax's (§51a Abs. 2 Satz 3). On investment income church tax lowers the flat rate itself: 25% ÷ (1 + 0.25 × rate), so 24.51% with 8% church tax and 24.45% with 9%; with Soli and church tax 27.82% or 27.99%, against 26.375%.
 
-**Joint assessment (Splitting).** Married couples can choose to be taxed together, at twice the tax on half the joint income. The planner models a single person; `incomeTax` takes a `splitting` flag internally so a couple's plan can use it later.
+**Joint assessment (Splitting).** Married couples can be taxed together, at twice the tax on half the joint income. The planner models one person.
 
-**The progression clause (Progressionsvorbehalt, §32b).** Income exempt in Germany under a tax treaty, such as a foreign state pension the treaty leaves to the paying country, isn't taxed, but it raises the rate on the rest: the tax rate for taxable income x plus the exempt income P is applied to x alone, tax = x × T(x + P) / (x + P). It also applies to unemployment benefit and sick pay, which the planner doesn't model.
+**The progression clause (Progressionsvorbehalt, §32b).** Income exempt in Germany under a treaty, such as a foreign state pension the treaty leaves to the paying country, isn't taxed, but it raises the rate on the rest: tax = x × T(x + P) / (x + P). Extraordinary income within P (an Italian TFR) counts at a fifth.
 
-**The one-fifth rule (Fünftelregelung, §34).** Severance pay (*Abfindung*) and other extraordinary income E is taxed at five times the extra tax on a fifth of it: 5 × (T(x + E/5) − T(x)). Since 2025 employers no longer apply it when withholding; it's granted in the tax assessment. In the plan, a windfall of kind `severance` gets it.
+**The one-fifth rule (Fünftelregelung, §34).** Severance pay (*Abfindung*) E is taxed at five times the extra tax on a fifth of it: 5 × (T(x + E/5) − T(x)). Since 2025 it's granted only in the assessment. A windfall of kind `severance` gets it.
 
 ## Work income
 
 **Employee (`de.employee`)**
 
-1. **Social contributions**, the employee's half, on gross salary up to the ceilings (*Beitragsbemessungsgrenzen*):
+1. **Social contributions**, the employee's half, on gross salary up to the ceilings, prorated for a part-year job:
 
    | Insurance | Total rate | Employee | Ceiling 2026 |
    | --- | --- | --- | --- |
-   | Pension (RV) | 18.6% | 9.3% | €101,400 (€8,450 a month) |
+   | Pension (RV) | 18.6% | 9.3% | €101,400 |
    | Unemployment (AV) | 2.6% | 1.3% | €101,400 |
-   | Health (KV) | 14.6% + Zusatzbeitrag (average 2.9%) | 7.3% + 1.45% | €69,750 (€5,812.50 a month) |
-   | Care (PV) | 3.6% | 1.8%; 2.4% if childless from 23; less 0.25 points for each child under 25 from the second to the fifth | €69,750 |
+   | Health (KV) | 14.6% + Zusatzbeitrag (average 2.9%) | 7.3% + 1.45% | €69,750 |
+   | Care (PV) | 3.6% | 1.8%; 2.4% if childless from 23; 0.25 points less for each child under 25 from the second to the fifth | €69,750 |
 
-   So a childless employee pays 21.75% up to €69,750 and 10.6% from there to €101,400; a parent of one child 21.15%. The employer pays about as much again; it isn't part of the employee's cash and the results don't show it. In Saxony the employee's care share is 0.5 points higher.
-2. **DRV credits.** Each year earns pension points (*Entgeltpunkte*): gross salary, capped at the pension ceiling, divided by the year's average earnings (€51,944, provisional for 2026). The most a year can earn is 101,400 ÷ 51,944 = 1.95 points.
-3. **Taxable income** = gross − €1,230 lump sum for work costs (*Arbeitnehmer-Pauschbetrag*) − special expenses:
-   - pension contributions, in full since 2023: employee plus employer share, up to €30,826, less the employer share. For an employee that's the employee's own 9.3%;
-   - basic health and care contributions in full, health less 4% because it includes sick pay. Unemployment and other insurance count only within €1,900 together with health and care, which those alone exceed from about €17,000 of salary, so in practice unemployment contributions aren't deductible;
+   So a childless employee pays 21.75% up to €69,750 and 10.6% from there to €101,400; a parent of one child 21.15%. In Saxony the employee's care share is 0.5 points higher. The employer pays about as much again; it isn't part of the employee's cash and the results don't show it.
+2. **DRV credits.** The insured earnings (gross up to the pension ceiling) are credited to `de.drv`, which divides them by the year's average earnings (€51,944, provisional for 2026): a year at the ceiling is 1.95 points.
+3. **Taxable income** = gross − €1,230 (*Arbeitnehmer-Pauschbetrag*) − special expenses:
+   - pension contributions in full since 2023: employee plus employer share, up to €30,826, less the employer share. For an employee that's the employee's own 9.3%;
+   - basic health and care contributions in full, health less 4% because it includes sick pay. Unemployment and other insurance count only within €1,900 together with health and care, which those alone exceed from about €17,000 of salary;
    - church tax paid, or €36 if that's more.
-4. Income tax, Soli and church tax on it.
-5. **Lohnsteuer and the assessment.** Employers withhold Lohnsteuer monthly, and the assessment (*Veranlagung*) settles the year. The planner computes the assessed tax. From 2026 the withholding's *Vorsorgepauschale* follows the assessment more closely: actual private premiums instead of a minimum, and a part for unemployment insurance, but only within the same €1,900 limit, so it rarely counts. Lohnsteuer therefore stays within a few euros of the assessed tax for an employee with wages only (the withholding uses the reduced 14.0% health rate where the assessment takes 96% of the general rate). Such an employee has to file a return under §46 Abs. 2 Nr. 3 EStG from 2026 only when more than €410 of health and care contributions were refunded. Some online net-pay calculators deduct the whole unemployment contribution and the full health contribution, and show about €180 less tax at €40,000 ([de-cases](drafts/de-cases.md), case 1).
-6. **Health insurance above €77,400.** Above the compulsory-insurance limit an employee can stay in GKV voluntarily or move to PKV. The employer pays half either way, up to half the maximum GKV contribution (€508.59 a month for health in 2026).
-7. **Aktivrente (from 2026, §3 Nr. 21 EStG).** An employee in work subject to social insurance who has reached the standard retirement age keeps up to €2,000 a month of salary tax-free, from the month after reaching it: €24,000 for a full year, without the progression clause. Months not worked don't carry over. It doesn't cover self-employment or mini-jobs taxed at a flat rate; extending it to the self-employed is being discussed but isn't law (*verify*).
+4. Income tax, Soli and church tax on it. The planner computes the assessed tax, not the monthly Lohnsteuer: from 2026 the withholding's *Vorsorgepauschale* counts the unemployment part only within the same €1,900 and health at the reduced 14.0%, so for wages alone it stays within a few euros of the assessed tax. Some online net-pay calculators deduct the whole unemployment contribution and the full health contribution and show about €180 less tax at €40,000.
+5. **Health insurance above €77,400.** Above the compulsory-insurance limit an employee can stay in GKV voluntarily (the same contributions, the salary being above the ceiling) or move to PKV (`healthInsurance: pkv`): then the premium, less the employer's half (at most €508.59 a month for health and €104.63 for care in 2026). Below the limit a job is insured in GKV whatever the option says, with a warning.
+6. **Aktivrente (from 2026, §3 Nr. 21 EStG).** An employee who has reached the standard retirement age keeps up to €2,000 a month of salary tax-free, from the month after reaching it, without the progression clause.
    - The €1,230 lump sum is deducted in full from the taxable part of the salary.
-   - Contributions that belong to the tax-free salary aren't deductible; they're split by the share of salary.
-   - Contributions stay due. Pension insurance in full while no full old-age pension is drawn, which raises the pension (once a full pension is drawn, the employer pays its half and the employee may opt back in). No unemployment insurance from the month after the standard age (the employer still pays its half). Health at the general rate, or at the reduced 14.0% once a full pension is drawn, since there's no sick pay then.
-8. **bAV through Entgeltumwandlung.** Salary paid into a Direktversicherung, Pensionskasse or Pensionsfonds is tax-free up to 8% of the pension ceiling (€8,112 in 2026) and free of social contributions up to 4% (€4,056). The employer must add 15% of the converted amount when it saves contributions. In the plan it's a contribution to a `de.bav` account; the module takes it out of gross salary and credits the employer's 15% to the account. Salary converted within the 4% pays no pension contributions, so it earns no pension points and lowers the statutory pension.
+   - Contributions that belong to the tax-free salary aren't deductible; they're split by the share of salary taxed.
+   - Contributions stay due. Pension insurance while no full old-age pension is drawn (which raises the pension); with a German statutory pension drawn past the standard age, none of the employee's own. No unemployment insurance from the month after the standard age. Health at the general rate, or the reduced 14.0% once a pension is drawn. A pension drawn alongside pays health and care contributions too, within what the salary leaves of the ceiling.
+   - It doesn't cover self-employment; extending it is being discussed but isn't law (*verify*).
+7. **bAV through Entgeltumwandlung.** Salary paid into a Direktversicherung, Pensionskasse or Pensionsfonds is tax-free up to 8% of the pension ceiling (€8,112 in 2026) and free of social contributions up to 4% (€4,056). In the plan it's a contribution to a `de.bav` account: the module takes it out of the salary that's taxed and charged, and credits the employer's 15% of the contribution-free part to the account. Converted salary earns no pension points.
 
 **Freelancer (`de.freelancer`)**
 
-1. **Income** = revenue − costs (*Gewinn*, from the profit-and-loss account, *EÜR*). Freiberufler (the professions listed in §18 EStG, and work like them, e.g. engineering-like software development) pay no trade tax. Whether an activity is a profession or a trade is decided case by case; IT consulting is often classed as a trade, and then `de.trader` applies.
-2. **Health insurance.** Voluntary GKV, on all income (profit plus capital income and rents), between a minimum base of €1,318.33 a month (€15,820 a year) and the ceiling of €69,750, at 14.0% + Zusatzbeitrag (14.6% with `sickPay`), plus care at 3.6% (4.2% childless). The freelancer pays all of it: up to €14,717 a year. Or PKV with a premium (`healthInsurance: pkv`). The contributions are deductible like an employee's.
-3. **Pension.** Most self-employed people aren't compulsorily insured in the DRV; teachers, carers, midwives, some craftsmen, and artists and writers through the KSK are. Options:
-   - `voluntary`: any amount between €112.16 and €1,571.70 a month in 2026 (18.6% of €603 to €8,450). Each euro buys pension points at 18.6% of the average earnings. Voluntary contributions count toward the 35-year waiting time, but toward the 45 years only after 18 years of compulsory contributions.
-   - `compulsory`: insured on application (*Antragspflichtversicherung*, within 5 years of starting): the standard contribution of €735.63 a month, or 18.6% of profit. Required for Riester.
-   - Rürup instead of, or on top of, the DRV: deductible up to €30,826 a year, less any DRV contributions. At a marginal rate of 40%, €10,000 into Rürup saves about €3,900 of tax now; the pension is taxed later at its cohort's taxable share.
-4. **Kleinunternehmer** (revenue up to €25,000 last year and €100,000 this year) is a VAT rule only; the planner doesn't model VAT.
-5. The Alterssicherungskommission proposed compulsory pension provision for the self-employed (June 2026); it isn't law (*verify*).
+1. **Income** = revenue − costs (*Gewinn*). Freiberufler (the professions of §18 EStG and work like them) pay no trade tax. Whether an activity is a profession or a trade is decided case by case; IT consulting is often a trade, and then `de.trader` applies.
+2. **Health insurance.** Voluntary GKV on all income (profit, pensions, capital income), between a minimum base of €15,820 a year and the ceiling of €69,750, at 14.0% + Zusatzbeitrag (14.6% with `sickPay`), plus care at 3.6% (4.2% childless): up to €14,717 a year. Or PKV (`healthInsurance: pkv`). The contributions are deductible like an employee's (health less 4% with sick pay); others within €2,800, as nobody else pays part.
+3. **Pension.** Most self-employed people aren't compulsorily insured in the DRV. The option `drv`:
+   - `voluntary`: any amount between €1,345.92 and €18,860.40 a year in 2026 (`drvContribution`, default the minimum). Each euro buys points at 18.6% of the average earnings. They count toward the 35-year waiting time, and toward the 45 years only after 18 years of compulsory contributions (the scheme counts them; see [Simplified](#simplified-in-this-version)).
+   - `compulsory`: insured on application: the standard contribution of €735.63 a month (default), or `drvContribution`. Needed for Riester.
+   - Rürup instead of, or on top of, the DRV: deductible up to €30,826 a year less any DRV contributions. At €80,000 of profit, €10,000 into Rürup saves €3,867 of income tax now (case `freelancer-80k-ruerup`).
+4. **Kleinunternehmer** is a VAT rule only; the planner doesn't model VAT. The Alterssicherungskommission proposed compulsory pension provision for the self-employed (June 2026); it isn't law (*verify*).
 
 **Trader (`de.trader`)**
 
-1. Everything as for `de.freelancer` (income, health insurance, the `drv` options), plus trade tax (*Gewerbesteuer*) on the profit:
-   - the base amount (*Messbetrag*) = (profit, rounded down to €100, − €24,500) × 3.5%;
-   - trade tax = base amount × the municipality's multiplier (`hebesatz`, at least 2.0; most large cities between 4.0 and 4.9);
+1. Everything as for `de.freelancer`, plus trade tax (*Gewerbesteuer*) on the profit:
+   - the base amount (*Messbetrag*) = (profit − €24,500) × 3.5%;
+   - trade tax = base amount × the municipality's multiplier (`hebesatz`, at least 200%; most large cities 400–490%);
    - it isn't deductible from the profit;
-   - it's credited against income tax at 4.0 × the base amount, at most the trade tax paid and the income tax on the business income (§35 EStG). Soli and church tax are charged on the income tax after the credit.
-2. So up to a multiplier of 4.0 the trade tax costs nothing net, as long as the income tax is large enough to take the credit; above 4.0 the excess is a real cost. At €80,000 of profit and a multiplier of 4.9, a trader pays €1,748 a year more than a Freiberufler ([de-cases](drafts/de-cases.md), case 21). Additions to the profit (*Hinzurechnungen*, e.g. a quarter of financing costs above €200,000) aren't modelled.
+   - it's credited against income tax at 4.0 × the base amount, at most the trade tax paid and the income tax on the business income (§35 EStG). Soli is charged on the income tax after the credit, church tax on the income tax before it.
+2. So up to a multiplier of 400% the trade tax costs nothing net, as long as the income tax is large enough to take the credit; above it the excess is a real cost. At €80,000 of profit and 490%, a trader pays €1,748 a year more than a Freiberufler (case `trader-80k`). Additions to the profit (*Hinzurechnungen*) aren't modelled.
 
 ## Statutory pension (`de.drv`)
 
-1. **Pension points.** Each year adds gross ÷ average earnings, capped at the ceiling. A year at exactly average earnings is 1.0 point. Points don't change once earned.
-2. **The pension.** Monthly pension = points × access factor × pension value (*aktueller Rentenwert*), paid 12 times a year. The pension value is €42.52 from 1 July 2026 (€40.79 before; +4.24%). The *Haltelinie* keeps the pension level at 48% of average earnings until 2031. After that, the sustainability factor slows the pension value below wage growth. In today's euros, the scheme assumes the average earnings grow by `realWageGrowth` and the pension value by `realPensionValueGrowth`, before and after the pension starts.
+1. **Pension points.** Each year adds the insured earnings ÷ the year's average earnings. A year at exactly average earnings is 1.0 point. Points don't change once earned.
+2. **The pension.** Monthly pension = points × access factor × pension value (*aktueller Rentenwert*), paid monthly. The pension value is €42.52 from 1 July 2026 (+4.24%); the module uses it for all of 2026. The *Haltelinie* keeps the pension level at 48% of average earnings until 2031; after that, the sustainability factor slows the pension value below wage growth. In today's euros, average earnings grow by the option `realWageGrowth` (default 1%) and the pension value by `realPensionValueGrowth` (default 0.5%), before and after the pension starts (the claim option's `realGrowthPerYear`).
 3. **When the pension can be claimed** (born 1964 or later):
 
-   | Pension | Age | Waiting time | Access factor |
-   | --- | --- | --- | --- |
-   | Regelaltersrente | 67 | 5 years | 1.0 |
-   | Langjährig Versicherte | from 63 | 35 years | −0.3% a month before 67: 0.856 at 63 |
-   | Besonders langjährig Versicherte | 65 | 45 years | 1.0 |
-   | Deferred | after 67 | 5 years | +0.5% a month: 1.06 at 68, 1.18 at 70 |
+   | Pension | Age | Waiting time | Access factor | Route |
+   | --- | --- | --- | --- | --- |
+   | Regelaltersrente | 67 | 5 years | 1.0 | `de.drv.standard` |
+   | Langjährig Versicherte | from 63 | 35 years | −0.3% a month before 67: 0.856 at 63 | `de.drv.longInsured` |
+   | Besonders langjährig Versicherte | 65 | 45 years | 1.0 | `de.drv.veryLongInsured` |
+   | Deferred | after 67 | 5 years | +0.5% a month: 1.06 at 68, 1.18 at 70 | `de.drv.deferred` |
 
-   Earlier birth years have a lower standard age (66 for 1958, rising by 2 months a year to 67 for 1964). The pension starts on the first of the month after the age is reached (from that month for someone born on the 1st). Since 2023 there's no earnings limit alongside an early pension.
-4. **Proposed changes.** The Alterssicherungskommission (report of June 2026) proposed linking the standard age to life expectancy after 2031 (67.5 in 2041, 68 in 2051), ending the 45-year pension at 65 and raising the 35-year pension's earliest age from 63 to 64. The government said it would follow this line in a reform later in 2026. None of it is law (*verify*). The scheme option `ageIncreaseMonthsPerYear` (default 0) tests it, as for Italy.
-5. **Contributions abroad.** Under EU Regulation 883/2004, which also applies to the EEA and, through the free-movement agreement, to Switzerland, periods in other member countries count toward the waiting times, and each country pays its own pension from its own periods. Germany calculates its pension from German points only (it's exempt from the pro-rata calculation). So years abroad help reach 63 with 35 years, but pay nothing in Germany. Toward the 45 years, compulsory contribution periods abroad count when they come from a system where work is what makes people insured (DRV binding decision, 2008); periods in a residence-based system count only where they're periods of work (*verify*). If the German periods add up to less than a year, Germany pays nothing and the other country counts them instead.
-6. **Starting point.** The plan enters the points from the *Renteninformation* (or *Rentenauskunft*) and the German and foreign contribution years; future work phases add points on top. The scheme's `claimOptions` lists ages from the plan's first year to 70, with amounts in today's euros.
+   Earlier birth years have lower ages (66 for 1958, rising by 2 months a year to 67 for 1964; 63 rising to 65 for the 45-year pension), all in the parameter file. A pension starts on the first of the month after the age is reached (from that month for someone born on the 1st). Since 2023 there's no earnings limit alongside an early pension.
+4. **Claim options.** One or more per calendar year, from the plan's year to 70 (later if the standard age passes it): each route's earliest start in that year, best first (the highest access factor, then the earliest start), leaving out starts that are no earlier and no better than another. A plan claiming at an age gets the first; `claimRoute` picks another. In a year the pension starts after January, `annualAmount` is what that year pays and `fullYearAmount` a whole year.
+5. **Proposed changes.** The Alterssicherungskommission (June 2026) proposed linking the standard age to life expectancy after 2031, ending the 45-year pension at 65 and raising the 35-year pension's earliest age to 64. None of it is law (*verify*). The option `ageIncreaseMonthsPerYear` (default 0) adds that many months to every age for each year from 2032; an age is reached when the age required in that year is.
+6. **Contributions abroad.** Under Regulation 883/2004 (EU, EEA and, through the free-movement agreement, Switzerland), periods in other member countries count toward the waiting times, and each country pays its own pension from its own periods. Germany pays only for German points, so `foreignContributionYears` help reach 63 with 35 years but add nothing. Toward the 45 years, compulsory periods from work abroad count (`foreignYears45`); periods in a residence-based system only where they're periods of work (*verify*). With less than a year of German periods, Germany pays nothing.
+7. **Starting point.** The plan enters the points from the *Renteninformation* and the German and foreign years; future work adds points. A pension already paid is a `fixed` pension (`kind: statutory`, `sourceCountry: DE`) from the *Rentenbescheid*.
 
 ## Taxation of pensions
 
 | Pension | Taxed as | How much is taxable |
 | --- | --- | --- |
-| DRV, foreign statutory (INPS, AHV, the mandatory part of a Swiss BVG pension, when Germany taxes them), Rürup | Leibrente, §22 Nr. 1 S. 3 a aa | The *Besteuerungsanteil* of the year the pension started |
-| Riester, bAV (Direktversicherung, Pensionskasse, Pensionsfonds), Altersvorsorgedepot | §22 Nr. 5 | All of it, where the contributions were tax-free or subsidised |
-| Private annuity insurance, the over-mandatory part of a Swiss BVG pension | Leibrente, §22 Nr. 1 S. 3 a bb | The *Ertragsanteil* for the age at the start (table below) |
-| Capital life insurance | §20 Abs. 1 Nr. 6 | The gain; half of it after 12 years and from 62 (contracts since 2012) |
+| DRV, foreign statutory (`it.inps`, `ch.ahv`, `kind: statutory`), the mandatory part of a Swiss BVG pension, Rürup (`kind: basicPension`) | Leibrente, §22 Nr. 1 S. 3 a aa | The *Besteuerungsanteil* of the year it started |
+| German occupational pensions (`kind: occupational`, from Germany or no country), Riester and Altersvorsorgedepot payouts | §22 Nr. 5 | All of it |
+| Private annuities (`kind: privateAnnuity`), the over-mandatory part of a Swiss BVG pension, other foreign occupational pensions | Leibrente, §22 Nr. 1 S. 3 a bb | The *Ertragsanteil* for the age at the start |
 
-**The Besteuerungsanteil by cohort.** Since the Wachstumschancengesetz, the taxable share rises by 0.5 points a year from 2023 (it rose by 1 point before), so full taxation comes in 2058, not 2040:
+**The Besteuerungsanteil by cohort.** Since the Wachstumschancengesetz it rises by 0.5 points a year from 2023, so full taxation comes in 2058:
 
 | Pension started | 2005 | 2020 | 2022 | 2023 | 2024 | 2025 | 2026 | 2030 | 2040 | 2050 | 2058 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | Taxable share | 50% | 80% | 82% | 82.5% | 83% | 83.5% | 84% | 86% | 91% | 96% | 100% |
 
-The share applies in the first year. From the second year, the exempt part becomes a **fixed amount in euros** (*Rentenfreibetrag*): (1 − share) × the first full year's pension. Later pension increases are taxed in full. In today's euros, the fixed amount shrinks every year with inflation: at 2% inflation, a €2,857 exemption is worth €2,344 after ten years.
+The share applies in the year the pension starts. From the next year the exempt part is a **fixed amount in euros** (*Rentenfreibetrag*): (1 − share) × that year's pension, kept in nominal euros, so later increases are taxed in full and inflation shrinks the exemption in today's euros: at 2% inflation, €2,857 is worth €2,344 ten years later.
 
-**The Ertragsanteil** (§22 Nr. 1 Satz 3 a bb EStG), by the age reached when the annuity starts. It never changes afterwards:
+**The Ertragsanteil** (§22 Nr. 1 Satz 3 a bb), by the age reached in the year the annuity starts; it never changes:
 
 | Age | 50 | 51–52 | 53 | 54 | 55–56 | 57 | 58 | 59 | 60–61 | 62 | 63 | 64 | 65–66 | 67 | 68 | 69–70 | 71 | 72–73 | 74 | 75 | 76–77 | 78–79 | 80 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | Taxable | 30% | 29% | 28% | 27% | 26% | 25% | 24% | 23% | 22% | 21% | 20% | 19% | 18% | 17% | 16% | 15% | 14% | 13% | 12% | 11% | 10% | 9% | 8% |
 
-The parameter file has the whole table, from 59% for an annuity starting before age 2 to 1% from 97.
+The parameter file has the whole table, from 59% to 1%. On top: a €102 lump sum for costs on all pension income together, and the health and care contributions on the pensions as special expenses.
 
-On top: a €102 lump sum for costs on all pension income together, and the health and care contributions on the pensions as special expenses.
+**What it means.** A 2030 retiree with 40 points (€20,410 a year) pays €393 of income tax and €2,643 of health and care contributions; with 60 points (€30,614), €2,130 of tax (cases `drv-pension-tax-2030` and `-60-points`). The contributions cost more than the tax at the lower amount.
 
-**What it means.** A 2030 retiree with 40 points (€20,410 a year) pays about €390 of income tax and €2,640 of health and care contributions; with 60 points (€30,614) about €2,130 of tax. The contributions cost more than the tax at the lower amount. See [de-cases](drafts/de-cases.md), cases 9 and 13.
-
-**The Altersentlastungsbetrag** (an allowance on non-pension income from the year after turning 64) is also being phased out by 2058. For someone turning 64 around 2050 it's under 3% and about €110 at most, so the MVP leaves it out.
+**The Altersentlastungsbetrag** (an allowance on non-pension income from the year after turning 64) is also being phased out by 2058. For someone turning 64 around 2050 it's under 3% and about €110 at most, so the module leaves it out.
 
 ## Health insurance in retirement
 
 This is where Germany differs most from Italy, and it matters most for early retirement.
 
-**KVdR, the pensioners' compulsory insurance** (`retirementHealthInsurance: kvdr`). A pensioner qualifies after being in statutory health insurance (compulsory, voluntary or family) for at least 9/10 of the second half of the working life, counted from the first job to the pension claim.
+**KVdR, the pensioners' compulsory insurance.** A pensioner qualifies after being in statutory health insurance for at least 9/10 of the second half of the working life, counted from the first job to the pension claim. Insurance periods in another EU/EEA country or Switzerland count, and so do residence periods in a member country whose health system covers residents (Italy among them); three years are added per child.
 
-- **Periods abroad.** Insurance periods in the statutory health insurance of another EU or EEA country or Switzerland count (Art. 6 of Regulation 883/2004). So do periods of residence in a member country whose health system covers residents without insurance or work conditions: the joint circular of the GKV-Spitzenverband and the DRV lists among them Bulgaria, the Czech Republic, Denmark, Finland, Hungary, Ireland, Italy, Latvia, Lithuania, Malta, the Netherlands, Portugal, Romania, Slovakia and Sweden. Periods elsewhere count only under a social-security agreement that says so.
-- **Children.** Three years per child are added (for adopted children and stepchildren only if they joined the household while young enough for family insurance).
-- **With `auto`** (the default) the module runs this test when the first pension starts. The second half of the reference period, from `workStartYear` to that year, counts as insured for the share `insuredShareBeforePlan` of its years before the plan, and for the plan's own years with `healthInsurance: gkv` under `de` or with residence in another EU/EEA country or Switzerland (`it`, `ch`); years with `pkv`, and under `generic` (whose country isn't known), count as not insured. Then 3 years per child. Passing gives KVdR; failing gives voluntary GKV, or PKV for someone in PKV before the pension.
+**With `retirementHealthInsurance: auto`** (the default) the module runs this test from the first statutory pension's start year: the second half of the period from `workStartYear` (default: the year of turning 20) counts as insured for `insuredShareBeforePlan` of the years before the residence timeline (default all of them, or none with `healthInsurance: pkv`), and in the timeline for years in `de` with GKV and in EU/EEA countries or Switzerland (`it`, `ch` and other systems named by their country code); years in PKV and under `generic` don't count. Then `children` × 3 years. Passing gives KVdR; failing gives voluntary GKV, or PKV for someone in PKV before. `kvdr`, `voluntary` and `pkv` choose directly (`kvdr` warns when the test fails).
 
 Under KVdR, contributions are due only on:
 
 | Income | Health | Care |
 | --- | --- | --- |
 | Statutory pension (DRV) | half the general rate and half the Zusatzbeitrag (8.75%); the DRV pays the other half | 3.6% (4.2% childless), all paid by the pensioner |
-| Foreign statutory pension and comparable pensions (INPS, AHV, Swiss BVG pensions, mandatory and over-mandatory) | half the general rate and half the Zusatzbeitrag (8.75%); nobody pays the other half | 3.6% / 4.2% |
-| bAV (*Versorgungsbezüge*) | the full 17.5%, on the part above €197.75 a month | 3.6% / 4.2% on all of it once it's above €197.75 (a threshold, not an allowance) |
-| A bAV lump sum | spread as 1/120 a month over 10 years | the same |
-| Self-employment income | the full rate | the full rate |
-| Capital income, Riester, Rürup, private annuities, rent | nothing | nothing |
+| Foreign statutory and comparable pensions (INPS, AHV, Swiss BVG pensions) | half the general rate and half the Zusatzbeitrag; nobody pays the other half | 3.6% / 4.2% |
+| German occupational pensions (*Versorgungsbezüge*) | the full 17.5% on the part above €197.75 a month | 3.6% / 4.2% on all of it once above €197.75 (a threshold) |
+| Self-employment income | 14.0% + Zusatzbeitrag | 3.6% / 4.2% |
+| Capital income, Riester, Rürup, private annuities | nothing | nothing |
 
-**Voluntary GKV** (`voluntary`). Without KVdR, and **always before a pension is drawn** (KVdR starts with the pension claim), a pensioner or early retiree is a voluntary member and pays on everything they live on: pensions, bAV, Riester and Rürup payouts, rents, and **capital income, including realised gains and the Vorabpauschale, without the €1,000 allowance**. Fund income counts after the partial exemption (70% of an equity fund's gains and Vorabpauschale; *verify*, see below). The rates: 14.0% + Zusatzbeitrag on everything but the statutory pension, 14.6% + Zusatzbeitrag on the statutory pension with the DRV paying half, and care at 3.6% (4.2%). The base is at least €15,820 a year and at most €69,750.
+**Voluntary GKV.** Without KVdR, and always before a statutory pension is drawn, a pensioner or early retiree is a voluntary member and pays on everything: pensions, payouts, and **capital income, including realised gains and the Vorabpauschale, without the €1,000 allowance**, after the partial exemption (*verify*). The rates: 14.0% + Zusatzbeitrag on everything but statutory pensions, half of 14.6% + Zusatzbeitrag on those (the DRV pays the other half of a DRV pension's), and care at 3.6% (4.2%). The base is at least €15,820 a year and at most €69,750.
 
 | Early retiree, childless, 2.9% Zusatzbeitrag | Health and care a year |
 | --- | --- |
-| Up to €15,820 of income counted (interest, and gains after the partial exemption) | €3,338 (the minimum) |
+| Up to €15,820 of income counted | €3,338 (the minimum) |
 | Each euro counted above that, up to €69,750 | 21.1 cents |
 | At €69,750 or more | €14,717 (the maximum) |
 
-So for a voluntary member, **health insurance costs more on realised gains than the income tax does**: an equity-ETF gain is taxed at 18.5% (26.375% on 70% of it), and then charged 21.1% × 70% = 14.8% for health and care. The Günstigerprüfung often brings the tax lower, since the contributions are deductible and the tariff starts at zero (case 15: an early retiree living on €15,000 of ETF gains and €1,000 of interest pays no income tax, only the minimum contributions).
+So for a voluntary member **health insurance costs more on realised gains than the income tax does**: an equity-ETF gain is taxed at 18.5% (26.375% on 70% of it), and charged 21.1% × 70% = 14.8% for health and care. The Günstigerprüfung often brings the tax lower, since the contributions are deductible and the tariff starts at zero (case `voluntary-gkv-early-retiree`: €15,000 of ETF gains and €1,000 of interest, no income tax, only the minimum contributions). A voluntary member's contributions also fall slightly as a small pension rises below the minimum base: the DRV pays half the rate on the pension, while the rest of the minimum is charged in full.
 
-The health funds follow the GKV-Spitzenverband's catalogue of income (*Einnahmenkatalog*, last revised 26 May 2026). Secondary sources that cite it say investment income counts after the partial exemption of §20 InvStG, and that distributions, the Vorabpauschale and sale gains all count; the catalogue itself couldn't be read, so the partial exemption stays *verify*. Some funds deduct €51 a year of costs from capital income (the old lump sum); the module doesn't, which overstates contributions by about €11 a year.
+**PKV** (`pkv`). The premium (`pkvPremium`, a month) doesn't depend on income and grows by `pkvRealPremiumGrowth` a year in today's euros. The DRV pays half the general rate and half the Zusatzbeitrag of a German statutory pension toward it, at most half the premium. The basic-cover share (`pkvBasicShare`) is deductible, less the subsidies; the rest only within €1,900 or €2,800. Returning from PKV to GKV after 55 is nearly impossible.
 
-**PKV** (`pkv`). The premium (option `pkvPremium`) doesn't depend on income. The DRV pays half the general rate and half the Zusatzbeitrag of the pension toward it, at most half the premium. The basic-cover share is deductible. Premiums rise faster than prices over a lifetime; `pkvRealPremiumGrowth` (default 1%) is a plan assumption. Returning from PKV to GKV after 55 is nearly impossible.
-
-**What the planner does.** Before a pension starts, the person is voluntary (or PKV). From the first pension, `retirementHealthInsurance` decides. The minimum contribution is fixed, so it goes in prepare; contributions on capital income go in assess, on top of what prepare charged on the minimum base.
+**In the planner.** The part of the year outside a job is charged in *prepare* on what the plan knows (pensions, self-employment income, and the minimum base), and *assess* charges the difference that capital income and payouts make, deducting it from taxable income too.
 
 ## Private pensions
 
 **Riester (`de.riester`)**
 
-- **Contributions.** Up to €2,100 a year including the state grant (€175 basic, €300 per child born from 2008 and €185 per child born before, while child benefit is paid), for someone in compulsory DRV insurance. The saver gets the grant, and in the tax assessment the deduction of contributions plus grant if that saves more (the excess saving is refunded). The module credits the grant to the wrapper (an accrual, like the TFR in Italy) and applies the comparison.
-- **Growth** isn't taxed.
-- **Payout** from 62 (contracts since 2012; 60 before), as a lifelong annuity. Up to 30% can be taken as a lump sum at the start.
-- **Tax.** Fully taxed as income (§22 Nr. 5). No health contributions under KVdR; the full voluntary rates otherwise.
-- **Moving abroad.** A residence in the EU or EEA keeps the grants. A residence outside them, Switzerland included, when payouts start makes it a harmful use: the grants and tax savings are paid back (§95 EStG).
-- **From 2027** no new Riester contracts; existing ones continue, and can move into the new system.
+- **Contributions.** Up to €2,100 a year including the grant (€175 basic, €300 per child born from 2008 and €185 per child born before, while under 25), for someone in compulsory DRV insurance (a job, or `drv: compulsory`). The full grant needs an own contribution of 4% of last year's insured earnings less the grants, at least €60; below it the grant shrinks in proportion. The grant is credited to the account; contributions plus grant are deducted when that saves more than the grant, and the grant is then added to the tax (cases `riester-grant-only`, `riester-deduction`).
+- **Growth** isn't taxed. **Payout** from 62, as a lifelong annuity (up to 30% as a lump sum at the start), fully taxed (§22 Nr. 5); health contributions only for voluntary members.
+- **Moving abroad.** A residence outside the EU and EEA (Switzerland included) when payouts start is a harmful use: grants and tax savings are paid back (§95 EStG). Not modelled: the planner doesn't show the system a wrapper's accounts outside payouts.
+- **From 2027** no new Riester contracts; existing ones continue.
 
 **Rürup / Basisrente (`de.ruerup`)**
 
-- **Contributions** deductible up to €30,826 a year in 2026 (the maximum contribution to the miners' pension insurance), together with DRV contributions (for employees, both shares count against it).
-- **Payout** only as a lifelong annuity, from 62. No lump sum, not inheritable, not sellable, not usable as collateral.
-- **Tax.** Like the statutory pension: the cohort's taxable share, then a fixed exemption. No health contributions under KVdR; the voluntary rates otherwise.
+- **Contributions** deductible up to €30,826 a year in 2026, together with DRV contributions (for employees, both shares count against it).
+- **Payout** only as a lifelong annuity, from 62; taxed like the statutory pension. Drawn from a `de.ruerup` account, each payout is taxed at the taxable share of the year it's paid (there's no fixed exemption, which needs the start year); entered as a `fixed` pension with `kind: basicPension`, it gets the full cohort rule.
 
 **bAV (`de.bav`)**
 
 - **Contributions** from salary as above; growth untaxed.
-- **Payout** from the contract's age (at least 62 for tax relief), as an annuity, or as a lump sum when the contract allows it.
-- **Tax.** Fully taxed (§22 Nr. 5). A lump sum is taxed in one year, normally without the one-fifth rule (*verify*: the BFH allowed it where the contract only provided for an annuity).
-- **Health and care** under KVdR as above, also on lump sums (1/120 a month for 10 years).
+- **Payout** from the contract's age (at least 62; the module uses the standard retirement age), fully taxed (§22 Nr. 5); under KVdR health and care as above. A lump sum is taxed in one year, normally without the one-fifth rule (*verify*).
 
 **Altersvorsorgedepot (`de.altersvorsorgedepot`, from 2027)**
 
-The private-pension reform (Altersvorsorgereformgesetz, passed by the Bundestag on 27 March 2026 and the Bundesrat on 8 May 2026) replaces Riester for new contracts from 1 January 2027 (*verify* every detail; from the BMF's FAQ and press extracts):
+The private-pension reform (Altersvorsorgereformgesetz, passed in March and May 2026) replaces Riester for new contracts from 1 January 2027 (*verify* every detail; from the BMF's FAQ and press extracts): a depot of shares, funds and ETFs; a grant of 50 cents per euro on the first €360 a year and 25 cents on the next €1,440 (at most €540), plus child grants (not modelled); contributions up to €1,800 plus grants deductible, with the same comparison as Riester; payout from 65 (earlier with a statutory pension, not modelled: gap G10), at the latest from 70, as a payout plan to at least 85 or an annuity, with up to 30% as a lump sum; fully taxed.
 
-- a depot of shares, funds and ETFs, no guarantee needed;
-- a grant of 50 cents per euro on the first €360 a year and 25 cents on the next €1,440, so at most €540, plus child grants;
-- contributions up to €1,800 plus grants deductible, with the same comparison as Riester;
-- payout from 65 (earlier if a statutory pension is already paid), at the latest from 70: up to 30% as a lump sum, the rest as a payout plan to at least 85, or an annuity;
-- fully taxed at payout (§22 Nr. 5).
+**In the planner** these contracts are accounts with their wrapper: contributions to them get the relief above, and their balance is paid out evenly over the years in the wrapper table once it can be drawn, taxed as described. A contract can instead be entered as a `fixed` pension from its statement, with its contributions still paid into an account: Rürup as `basicPension`, a bAV as `occupational`. A Riester or Altersvorsorgedepot annuity as a `fixed` pension is best entered as `occupational` too (taxed in full), though under KVdR that charges it like a bAV, which the law doesn't; TaxKit has no kind for a subsidised private pension yet.
 
-**Capital life insurance and private annuities (`de.lifeInsurance`, later).** Old contracts (before 2005) pay out tax-free after 12 years. Newer ones: the gain is taxed, at the tariff on half of it when paid after 12 years and from 62 (60 for contracts from 2005 to 2011), else at 25%. Annuities from them are taxed at the *Ertragsanteil*.
+**Capital life insurance and private annuities** aren't a wrapper yet. Old contracts (before 2005) pay out tax-free after 12 years; newer ones are taxed on the gain, on half of it at the tariff when paid after 12 years and from 62. Their annuities are private annuities (`fixed`, `kind: privateAnnuity`).
 
-**Lump sums.** Where they're allowed: Riester up to 30%, the Altersvorsorgedepot up to 30%, bAV by contract, life insurance in full; never from Rürup or the DRV (except tiny pensions). Severance pay (*Abfindung*) gets the one-fifth rule; the planner applies it to windfalls of kind `severance`. No social contributions are due on severance pay for losing a job.
+**Lump sums** where they're allowed: Riester and the Altersvorsorgedepot up to 30%, bAV by contract, life insurance in full; never from Rürup or the DRV. Severance pay gets the one-fifth rule; no social contributions are due on it.
 
 ## Investments
 
 | What | Tax |
 | --- | --- |
 | Interest, dividends, bond and share gains | 25% flat (Abgeltungsteuer) + 5.5% Soli = **26.375%** (27.82% / 27.99% with church tax) |
-| Equity funds and ETFs (more than 50% in shares) | the same, on **70%** of the income and gains (30% partial exemption) |
-| Mixed funds (at least 25% in shares) | on 85% (15% exemption) |
-| Real-estate funds | on 40% (60% exemption), or 20% for those investing mainly abroad (80%) |
-| Bond and money-market funds, and other funds | on 100% |
-| Physical gold, gold ETCs with a right to delivery, crypto | **Tax-free after one year**. Within a year: the gain at the marginal rate, unless all such gains in the year are under €1,000. |
-| Crypto staking and lending rewards | income at the marginal rate, unless under €256 a year with other such income |
-| Property (not the person's own home) | tax-free after 10 years; within 10 years at the marginal rate |
+| Equity funds and ETFs (more than 50% in shares, `equityFund`) | the same, on **70%** of the income and gains (30% partial exemption) |
+| Mixed funds (at least 25% in shares, `mixedFund`) | on 85% |
+| Real-estate funds (`realEstateFund`, `foreignRealEstateFund`) | on 40%, or 20% for those investing mainly abroad |
+| Bond, money-market and other funds (`fund`) | on 100% |
+| Physical gold, gold ETCs with a right to delivery (`etcWithDeliveryClaim`), crypto, stablecoins | **tax-free after one year**; within a year at the tariff, unless the year's such gains are under €1,000 |
+| Property (not the person's own home) | tax-free after 10 years |
 
-- **Allowance.** The first €1,000 a year of investment income is tax-free (*Sparer-Pauschbetrag*). Costs can't be deducted.
-- **Vorabpauschale.** Accumulating funds pay a deemed yearly income, so they don't defer all tax until sold:
-  - base income = the fund's value on 1 January × 70% × the base rate (*Basiszins*). For 2026 the base rate is **3.20%**, so the base income is 2.24% of the start value;
-  - but at most the fund's actual rise in value over the year plus its distributions; nothing in a year it falls;
-  - less the year's distributions;
-  - the partial exemption applies to it;
-  - it counts as received on the first working day of the next year (for 2026: 4 January 2027), so it uses that year's allowance and is withheld then;
-  - on a sale, the Vorabpauschalen taxed while the fund was held are deducted from the gain, in full (before the partial exemption), so nothing is taxed twice.
-
-  At a 3.20% base rate, an equity ETF that rises by at least 2.24% in a year is taxed on 70% × 2.24% = 1.57% of its start value: €413 of tax on €100,000 before the allowance.
-- **Losses.** Losses on shares only offset gains on shares. All other investment losses (including funds and ETFs) offset any investment income. Unused losses carry forward indefinitely. The €20,000 limit on derivative losses was abolished for all open cases in December 2024. The MVP offsets losses within a year but doesn't carry them forward (it slightly overstates tax).
-- **Günstigerprüfung.** If the personal tariff would tax the investment income at less than 25%, all of it can be taxed at the tariff instead (with the €1,000 allowance and the partial exemption still applying). The planner computes both and takes the lower one. For early retirees with little other income this is large: the tariff starts at zero below €12,348.
-- **Foreign withholding tax** is credited against the 25%, up to the treaty rate. Italy: 10% on interest, 15% on dividends; interest on Italian government bonds paid to a resident of a white-list country such as Germany is normally exempt from Italian tax (*verify* with the broker), and then there's nothing to credit. Switzerland withholds 35% on dividends and interest: 15% of dividends is credited and the other 20% reclaimed from the Swiss tax administration; interest withholding is reclaimed in full.
-- **Accounts abroad.** A foreign broker withholds nothing; the income, Vorabpauschale included, goes in the German return. The tax is the same.
+- **Allowance.** The first €1,000 a year of investment income is tax-free (*Sparer-Pauschbetrag*), fixed in nominal euros. Costs can't be deducted.
+- **Vorabpauschale.** Accumulating funds pay a deemed yearly income: base income = the value on 1 January × 70% × the base rate (*Basiszins*, **3.20%** for 2026, then the option `basiszins`), at most the year's rise in value, nothing in a year it falls; the partial exemption applies to it. It counts as received at the start of the next year; the planner pays the year's market taxes in the following year anyway, but uses the year's own allowance (a small shift). Its full amount raises the purchase cost (`TaxAssessment.costBasisAdjustments`), so a later sale's gain is smaller by it. At 3.20%, an equity ETF that rises by at least 2.24% is taxed on 1.57% of its start value: €413 of tax on €100,000 before the allowance (case `vorabpauschale-year`).
+- **Reported income.** With a plan's `incomeYield`, holdings report the income they reinvest (`reportedIncome`). A fund's is part of its rise, which the Vorabpauschale taxes, so it's skipped. A share's dividends or a bond's coupons are paid and taxed even when reinvested: they're taxed, and raise the purchase cost (case `reported-income`).
+- **Losses.** Losses on shares only offset gains on shares; all other investment losses (funds included) offset any investment income. Unused losses carry forward indefinitely; the module offsets within a year only (gap G4).
+- **Günstigerprüfung.** If the personal tariff gives less income tax, including Soli and church tax (§32d Abs. 6), all capital income is taxed at the tariff instead, with the allowance and the partial exemption still applying. The module computes both and takes the lower. For early retirees with little other income this is large: the tariff starts at zero below €12,348.
+- **Foreign withholding tax** is credited against the 25%, up to the treaty rate (Italy 10% on interest and 15% on dividends; Switzerland's 35% is 15% credited and the rest reclaimed). Not modelled (gap 11 in TAXES.md): the planner passes no country with capital income.
+- **Accounts abroad.** A foreign broker withholds nothing; the income goes in the German return. The tax is the same.
 
 ## No wealth tax; property
 
-Germany has no wealth tax (it hasn't been levied since 1997) and no tax on holding investments. Italy's 0.2% (bollo and IVAFE) and Switzerland's wealth tax stop when residence moves to Germany.
-
-- **Property tax (Grundsteuer)** on land and buildings, set by the municipality's multiplier. Since 2025 it follows a new valuation that differs by state. It's a cost of owning property, which the planner doesn't simulate; it goes in spending.
-- **Selling property** within 10 years of buying it is taxed at the marginal rate, unless the owner lived in it in the year of sale and the two years before. The planner assumes property is held for more than 10 years.
+Germany has no wealth tax (it hasn't been levied since 1997). Italy's 0.2% (bollo and IVAFE) and Switzerland's wealth tax stop when residence moves to Germany. Property tax (Grundsteuer) is a cost of owning property, which belongs in spending; selling property within 10 years (not the owner's home) would be taxed at the tariff, and the module assumes longer holdings.
 
 ## Inheritance and gift tax
 
-Per heir, on what each heir receives, after the allowance:
+Per event, on what the heir receives, after the allowance:
 
-| Class | Who | Allowance |
+| Class | Who (`kind`) | Allowance |
 | --- | --- | --- |
-| I | Spouse | €500,000 |
-| I | Children (also from a parent's spouse) | €400,000 |
-| I | Grandchildren | €200,000 (€400,000 if their parent has died) |
-| I | Parents and grandparents (inheritance only) | €100,000 |
-| II | Siblings, nephews and nieces, parents-in-law, children-in-law, step-parents, divorced spouse; parents for gifts | €20,000 |
-| III | Everyone else | €20,000 |
+| I | Spouse (`inheritance.spouse`) | €500,000 |
+| I | Children: from a parent (`inheritance`, `inheritance.lineal`) | €400,000 |
+| I | Grandchildren (`inheritance.grandparent`) | €200,000 (€400,000 if their parent has died) |
+| I | Parents and grandparents, by inheritance (`inheritance.parent`) | €100,000 |
+| II | Siblings, nephews and nieces, in-laws (`.sibling`, `.relative`); parents receiving a gift (`gift.parent`) | €20,000 |
+| III | Everyone else (`.other`) | €20,000 |
 
 Rates on the whole taxable amount, by the band it falls in:
 
@@ -351,235 +305,289 @@ Rates on the whole taxable amount, by the band it falls in:
 | €26,000,000 | 27% | 40% | 50% |
 | above | 30% | 43% | 50% |
 
-- **Hardship relief (§19 Abs. 3)** keeps the tax from jumping at a band limit: above a limit, the tax is at most the tax at the limit plus half the excess (three quarters where the rate is above 30%). So the tax rises steeply just above a limit but never jumps.
-- Gifts within 10 years are added together with the inheritance, and allowances renew every 10 years.
-- The allowances haven't changed since 2009. The Federal Constitutional Court heard a challenge to them on 12–13 October 2026; a ruling is expected in 2027 (*verify*).
-- **Abroad.** Germany taxes everything an heir resident in Germany receives, wherever the deceased lived. There is no inheritance-tax treaty with Italy, and the one with Switzerland covers only estates; foreign inheritance tax is credited (§21 ErbStG).
-- **Relationships in the plan.** As in Italy, the event's `kind` gives the relationship: `inheritance` and `inheritance.lineal` mean from a parent (class I, €400,000); `inheritance.spouse` €500,000; `inheritance.grandparent` €200,000 (new kind); `inheritance.sibling` and `inheritance.relative` class II; `inheritance.other` class III. `relative` is ambiguous in Germany (nephews are class II, cousins class III); the module uses class II.
+- **Hardship relief (§19 Abs. 3).** Above a band's limit the tax is at most the tax at the limit plus half the excess (three quarters where the rate is above 30%), so it never jumps.
+- **Gifts** (`gift`, `gift.<relationship>`) are taxed like inheritances. Gifts within 10 years are added together by law; the module taxes each event on its own.
+- The allowances, fixed since 2009, shrink in today's euros. The Federal Constitutional Court heard a challenge on 12–13 October 2026 (*verify*).
+- **Abroad.** Germany taxes everything an heir resident in Germany receives, wherever the deceased lived; foreign inheritance tax is credited (not modelled). An unknown relationship is taxed as the default (`lineal`), with a warning; `relative` is ambiguous (nephews are class II, cousins class III) and is class II.
 
 ## Moving abroad: treaties
 
-A plan may move between Germany and other countries. A tax treaty decides who taxes what; "Germany taxes" below means the `de` system computes it, and "the other country taxes" means the pension is `taxedIn: source` while living in Germany (or the other system computes it, when that country is the residence). Two treaties matter for the systems that exist or are being built: Italy (`it`) and Switzerland (`ch`). For other countries a pension's `taxedIn` says which country taxes it, and the `generic` system approximates the other side.
+A treaty decides who taxes what. A pension's `taxedIn` says what the plan assumes; while Germany is the residence, the module taxes a pension **when the plan says the residence taxes it, or when the treaty gives it to Germany even though the plan says the paying country** (with a warning: no pension is left untaxed, Italy's convention too). A pension the treaty gives to the paying country but the plan leaves to the residence is taxed as the plan says, with a warning. When the paying country taxes it, Germany exempts it with the progression clause.
 
 ### Germany and Italy
 
-The Italy–Germany tax treaty (1989). Its rule for state pensions depends on nationality, so it reads the plan's `citizenship`.
+The Italy–Germany treaty (1989). Its rule for state pensions depends on nationality.
 
 **Living in Germany, with Italian income:**
 
 | Income | Who taxes | Notes |
 | --- | --- | --- |
-| INPS pension (social security) | **Italy, if the recipient is an Italian national and not also German** (Art. 19(4)); otherwise Germany (Art. 18) | In Germany, taxed like a statutory pension: the cohort's taxable share. Exempt income still raises the German rate (progression clause). Health contributions are due in Germany on it either way, when Germany provides the health cover. |
-| Italian pension fund payouts | Germany (Art. 18, as a pension for past work) *verify* | How Germany taxes a foreign fund isn't settled: the module treats annuities at the *Ertragsanteil* and lump sums on the gain (payout − contributions), half of it after 12 years and from 62 *verify*. Italy may withhold at source until the treaty exemption is claimed. |
-| TFR paid after the move | Italy, as pay for work done in Italy (Art. 15) *verify* | Germany exempts it with the progression clause, at one fifth as extraordinary income. |
-| Italian salary or freelance income for work done in Italy | Italy | Germany exempts it with the progression clause. |
-| Interest and dividends from Italy | Germany, with Italian withholding credited up to 10% (interest) or 15% (dividends) | Italian government bonds: usually no Italian tax for non-residents *verify*. |
-| Italian property | Italy (rent and IMU) | Germany exempts the rent with the progression clause. |
+| INPS pension | **Italy, if the recipient is an Italian national and not also German** (Art. 19(4)); otherwise Germany (Art. 18) | In Germany, like a statutory pension. Exempt income still raises the German rate. Health contributions are due in Germany either way, and those on exempt income aren't deducted (*verify*). |
+| Italian pension fund payouts | Germany (Art. 18) *verify* | The gain at the tariff, half of it after 12 years and from 62; annuities at the Ertragsanteil. |
+| TFR paid after the move | Italy (Art. 15) *verify* | Germany counts it for the progression clause at one fifth. |
+| Italian salary for work in Italy | Italy | Not modelled with a German residence. |
+| Interest and dividends from Italy | Germany, Italian withholding credited | Italian government bonds: usually no Italian tax for non-residents *verify*. |
 
 **Living in Italy, with German income:**
 
 | Income | Who taxes | Notes |
 | --- | --- | --- |
-| DRV pension | **Germany, if the recipient is a German national and not also Italian** (Art. 19(4); BFH I R 17/19, 2022); otherwise Italy | As a non-resident, Germany taxes it without the Grundfreibetrag, unless at least 90% of world income is German-taxed or the rest is under the Grundfreibetrag (§1 Abs. 3, §1a), when the person is taxed as a resident. When Italy taxes it, the protocol limits Italy to the part Germany would tax (Protocol no. 14 e). |
+| DRV pension | **Germany, if the recipient is a German national and not also Italian** (Art. 19(4); BFH I R 17/19); otherwise Italy | See [Germany taxing pensions paid abroad](#germany-taxing-pensions-paid-abroad). When Italy taxes it, the protocol limits Italy to the part Germany would tax. |
 | Rürup, Riester, bAV | Italy (Art. 18) *verify* | Riester keeps its grants within the EU. |
-| German investment income | Italy | Germany withholds tax on dividends of German companies (reclaimable down to 15%), but not on interest or fund gains of non-residents. |
+| German investment income | Italy | |
 
-So **nationality matters**: an Italian national (not German) living in Germany keeps paying Italian tax on an INPS pension, and a German national (not Italian) living in Italy keeps paying German tax on a DRV pension. The planner can't yet compute the paying country's tax (see [Fit with TaxKit](#fit-with-taxkit), G8): such a pension is entered after that tax, as the plan already warns. With an empty `citizenship`, the module applies the residence rule (Art. 18) and warns.
+So **nationality matters**: an Italian national (not German) living in Germany keeps paying Italian tax on an INPS pension, and a German national (not Italian) living in Italy keeps paying German tax on a DRV pension. With no citizenships in the library the module follows `taxedIn` and warns.
 
 ### Germany and Switzerland
 
-The Germany–Switzerland tax treaty (1971, last amended by the protocol of 21 August 2023, in force since 27 November 2025 and applied from 2026). Under the free-movement agreement, Regulation 883/2004 also applies between the two countries: contribution periods add up for the waiting times, and each country pays its own pension.
+The Germany–Switzerland treaty (1971, protocol of 2023 applied from 2026). Regulation 883/2004 applies between the two countries.
 
 **Living in Germany, with Swiss income:**
 
 | Income | Who taxes | Notes |
 | --- | --- | --- |
-| AHV pension (`ch.ahv`) | Germany (Art. 18) | Taxed like a statutory pension: the cohort's taxable share. Switzerland pays it abroad without withholding. KVdR contributions are due on it as a comparable foreign pension (BSG B 12 KR 22/14 R, 2016). |
-| BVG pension (`ch.bvg`, annuity) | Germany (Art. 18) | The mandatory part (*Obligatorium*) at the cohort's taxable share, the over-mandatory part at the *Ertragsanteil* (BMF letter of 27 July 2016, after BFH case law). KVdR contributions on both (BSG B 12 KR 32/19 R, 2021). The fund pays gross, or refunds Swiss source tax, against a German residence certificate. |
-| BVG or vested-benefits lump sum (`ch.bvg`, `ch.vestedBenefits`) | Germany (Art. 18) | The mandatory part at the cohort's taxable share, in the year it's paid; the over-mandatory part like a life insurance: tax-free for a fund joined before 2005, otherwise the gain (*verify*). Whether the one-fifth rule applies is *verify*. Switzerland withholds source tax at its canton's rate, refunded once the German taxation is shown. |
-| Pillar 3a payout (`ch.pillar3a`) | Germany *verify* | No ruling found: the module taxes the gain (payout − contributions) at the tariff, half of it after 12 years and from 62, with a warning. |
-| Swiss salary of a cross-border commuter (*Grenzgänger*: works in Switzerland, returns home regularly) | Germany, with Switzerland withholding at most 4.5% of the gross salary, credited in Germany (Art. 15a) | Not returning home on more than 60 working days for work makes it Swiss salary instead. The 2023 protocol added rules for working from home (*verify* the details). |
-| Other Swiss salary | Switzerland | Germany exempts it with the progression clause. |
-| Swiss dividends and interest | Germany | Swiss withholding: 15% of dividends credited, the rest reclaimed; interest reclaimed in full. |
+| AHV pension (`ch.ahv`) | Germany (Art. 18) | Like a statutory pension. KVdR contributions are due on it (BSG B 12 KR 22/14 R). |
+| BVG pension (`ch.bvg`) | Germany (Art. 18) | The mandatory part (`mandatoryShare`, default all of it) at the cohort's share, the rest at the Ertragsanteil (BMF letter of 27 July 2016). KVdR contributions on both (BSG B 12 KR 32/19 R). |
+| BVG or vested-benefits lump sum | Germany (Art. 18) | The mandatory part at the cohort's share; the over-mandatory part is taxed on its gain by law (or nothing, for membership before 2005), which the plan doesn't know: the module taxes it like the mandatory part, with a warning. Whether the one-fifth rule applies is *verify*. |
+| Pillar 3a payout (`ch.pillar3a`) | Germany *verify* | The gain at the tariff, half of it after 12 years and from 62, with a warning. |
+| Swiss salary of a cross-border commuter | Germany, with Swiss withholding of at most 4.5% credited (Art. 15a) | Not modelled. |
+| Swiss dividends and interest | Germany | Swiss withholding: 15% of dividends credited, the rest reclaimed. |
 
-**Living in Switzerland, with German income:**
+**Living in Switzerland, with German income:** the DRV pension, Rürup, bAV and Riester are Switzerland's (Art. 18; Riester's grants are then paid back), except in **the years after a move**: a German national who isn't also Swiss and lived in Germany for at least 5 years stays taxable in Germany on German income, a DRV pension included, in the year of the move and the 5 following years, with the Swiss tax on it credited (Art. 4 Abs. 4, *verify*: referred to the EU Court of Justice). The validator warns, and Germany as the paying country taxes those years.
 
-| Income | Who taxes | Notes |
-| --- | --- | --- |
-| DRV pension | Switzerland (Art. 18) | The DRV pays it gross once the Finanzamt Neubrandenburg confirms the exemption. Switzerland taxes it in full, like an AHV pension (*verify* in the `ch` module). |
-| Rürup, bAV | Switzerland (Art. 18) *verify* | |
-| Riester | Switzerland (Art. 18) *verify* | A Swiss residence when payouts start is a harmful use: grants and tax savings are paid back. |
-| German investment income | Switzerland | Germany withholds 26.375% on German dividends, reclaimable down to 15%. |
-| German property | Germany | |
+**Health insurance across the border.** A pensioner living in one country and drawing pensions from both is normally insured where they live (*verify*; the module assumes the residence country's insurance).
 
-**The years after a move to Switzerland.** A German national who isn't also Swiss and was resident in Germany for at least 5 years remains taxable in Germany on German-source income, a DRV pension included, in the year of the move and the 5 following years, at the German tax level; Germany credits only the Swiss tax on the part of that income the treaty's normal rules would have left to Switzerland (Art. 4 Abs. 4, *überdachende Besteuerung*). Its compatibility with the free-movement agreement has been referred to the EU Court of Justice (*verify*). The module warns; computing it needs G8.
+### Germany taxing pensions paid abroad
 
-**Health insurance across the border.** A pensioner living in one country and drawing pensions from both is normally insured where they live. Someone living in Switzerland with only a German pension can stay insured through Germany (KVdR), and someone living in Germany with only Swiss pensions through Switzerland (*verify* both; the module assumes the residence country's insurance).
+When the plan says the paying country taxes a German pension (`taxedIn: source`, with `sourceCountry` `DE` or the `de.drv` scheme) and the person lives elsewhere, the planner asks Germany what it charges (`prepareNonResident`, gap G8):
+
+- **Which pensions.** By the treaty with the country of residence: Italy leaves a social-security pension to Germany for a German national who isn't also Italian, and private and occupational pensions to Italy; Switzerland leaves pensions to Switzerland except in the years after a move. Without a treaty in the parameters, Germany taxes them (limited tax liability, §49 Abs. 1 Nr. 7). Where the treaty gives a pension to the residence country, Germany taxes nothing and warns.
+- **How.** As for a resident (the cohort's share and the fixed exempt amount, the €102 lump sum), but without the basic allowance: the tariff applies to the taxable income plus €12,348 (§50 Abs. 1 Satz 2), and no special expenses. With at least 90% of the year's income German, or the rest under the basic allowance, the person is taxed as a resident (§1 Abs. 3). Soli; no church tax. The lines name the pension in `subject`. Health contributions abroad aren't modelled.
 
 ### Moving into and out of Germany
 
-**Moving to Germany.** There's no step-up: a fund bought before the move is taxed, when sold, on the whole gain since it was bought. That's still usually cheaper than Italy's 26% on equity ETFs (18.5% after the partial exemption). The Vorabpauschale applies from the first January of German residence. Foreign accounts can stay, but their income goes in the German return.
+**Moving to Germany.** There's no step-up: a fund bought before the move is taxed, when sold, on the whole gain since it was bought. The Vorabpauschale applies from the first year of German residence.
 
-**Leaving Germany (exit tax).**
-
-- **Company shares** (§6 AStG): a deemed sale of holdings of at least 1% of a company held in the last 5 years, after residence in 7 of the last 12 years.
-- **Investment funds, ETFs included** (§19 Abs. 3 InvStG, since 2025): the same for a fund in which the person holds at least 1%, or whose shares **cost at least €500,000**, counted per fund. ETFs are no longer outside the exit tax.
-- The tax can be paid in 7 yearly instalments, and coming back within 7 years cancels it (*verify* how these §6 AStG rules apply to funds).
-- In a plan, a single world ETF bought for €500,000 or more, held at a move out of Germany after 7 years of residence, triggers it. Spreading the money over several funds, each under €500,000, avoids it.
-- Germany also taxes its nationals who move to a low-tax country for 10 years on their German income (§2 AStG). Whether Italy's flat-tax regimes (the 7% for pensioners in the south, the €200,000 lump sum) make Italy "low-tax" for this is *verify*. For Switzerland, Art. 4 Abs. 4 of the treaty (above) is the more specific rule.
-
-**In the model.** A move changes the residence entry on 1 January ([TAXES.md](../TAXES.md#changing-residence)). From that year:
-
-- the other system assesses everything, including wrappers it declares (`de` treats `it.*` and `ch.*` wrappers and pensions as above);
-- DRV credits stop, unless voluntary contributions are paid; INPS and AHV credits stop likewise;
-- pensions keep paying, with `taxedIn` following the treaty tables;
-- the German exit tax, Vorabpauschale and health contributions apply only while `de` is the residence.
+**Leaving Germany (exit tax).** A deemed sale on leaving after residence in 7 of the last 12 years: company shares of at least 1% (§6 AStG), and since 2025 investment funds, ETFs included, in which the person holds at least 1% or whose shares cost at least €500,000, per fund (§19 Abs. 3 InvStG). Payment in 7 instalments, and cancellation on return within 7 years, are *verify* for funds. The planner can't see holdings per fund or a residence ending (gap G7), so the validator warns from the residence timeline. Spreading the money over several funds, each under €500,000, avoids it. Germany also taxes its nationals who move to a low-tax country on German income for 10 years (§2 AStG); not modelled.
 
 ## Special regimes and 2026 changes
 
 | Measure | Status (October 2026) | In the module |
 | --- | --- | --- |
-| Relocation incentives like impatriati | None. The 2024 rebate for foreign skilled workers was dropped. | — |
-| Aktivrente: €2,000 a month tax-free for employees past the standard age | In force from 1 January 2026 (§3 Nr. 21 EStG); extension to the self-employed discussed, not law | `de.employee`, automatic |
-| Vorsorgepauschale in the Lohnsteuer: unemployment part within €1,900, no minimum for PKV | In force from 2026 | None: the planner computes the assessed tax |
-| Frühstartrente: €10 a month into a depot for children aged 6 to 18 | Bill; cabinet 12 August 2026, first reading 25 September 2026; start planned for 2027 | Not modelled |
-| Altersvorsorgedepot, replacing Riester | Law; from 1 January 2027 | `de.altersvorsorgedepot` |
-| Zweites Betriebsrentenstärkungsgesetz | In force since 22 January 2026 (low-earner subsidy from 2027) | No change to the parameters used |
+| Relocation incentives like impatriati | None | — |
+| Aktivrente: €2,000 a month tax-free for employees past the standard age | In force from 2026; for the self-employed discussed, not law | `de.employee`, automatic |
+| Vorsorgepauschale in the Lohnsteuer | In force from 2026 | None: the module computes the assessed tax |
+| Frühstartrente: €10 a month for children aged 6 to 18 | Bill; start planned for 2027 | Not modelled |
+| Altersvorsorgedepot, replacing Riester | Law; from 2027 | `de.altersvorsorgedepot` |
+| Zweites Betriebsrentenstärkungsgesetz | In force since January 2026 | No change to the parameters used |
 | Rentenpaket 2025: 48% pension level to 2031 | In force | `realPensionValueGrowth` |
 | Alterssicherungskommission: retirement age linked to life expectancy | Proposal | `ageIncreaseMonthsPerYear` |
-| GKV-Beitragssatzstabilisierungsgesetz: health ceiling €300 a month higher in 2027 | Passed 10 July 2026 | `2027.json` |
-| Einkommensteuerreformgesetz 2027 | Bill (cabinet 2 September 2026) | `2027.json` once passed |
-| Germany–Switzerland treaty protocol of 2023 | Applied from 2026 | Cross-border commuters (not modelled) |
+| GKV-Beitragssatzstabilisierungsgesetz: health ceiling €300 a month higher in 2027 | Passed July 2026 | A `2027.json` |
+| Einkommensteuerreformgesetz 2027 | Bill | A `2027.json` once passed |
 
-## Simplified in the MVP
+## Configuration
+
+Everything a plan sets for `de`. Options not set take their default.
+
+### Residence options (`de`)
+
+| Option | Type | Default | Effect |
+| --- | --- | --- | --- |
+| `bundesland` | choice: the 16 state codes (`BW`, `BY`, `BE`, `BB`, `HB`, `HH`, `HE`, `MV`, `NI`, `NW`, `RP`, `SL`, `SN`, `ST`, `SH`, `TH`) | none | Church-tax rate (8% in BY and BW, 9% elsewhere) and Saxony's care split (employee +0.5 points). None: 9% and the usual split. |
+| `churchMember` | bool | false | Church tax on income tax, its deduction, and the lower flat rate on investment income. |
+| `children` | whole number | 0 | Any child ends the childless care surcharge; each adds 3 years toward the KVdR. |
+| `childBirthYears` | list of years | none | As `children` (the larger count wins), and the children's ages: two or more under 25 lower the care rate by 0.25 points each from the second to the fifth; Riester's child grants while under 25. TaxKit's option forms have no list kind yet, so the app's form doesn't show it; the plan file and the CLI set it. |
+| `healthInsurance` | `gkv`, `pkv` | `gkv` | Health insurance before a statutory pension. `pkv` for an employee needs a salary above €77,400 (else that job is in GKV, with a warning). |
+| `zusatzbeitrag` | rate | 0.029 | The health fund's additional rate, on wages, self-employment income, pensions and (for voluntary members) capital income. |
+| `pkvPremium` | money a month | required with PKV | The PKV premium for health and care, in today's money in the plan's currency. |
+| `pkvBasicShare` | rate | 0.8 | The deductible share of the premium. |
+| `pkvRealPremiumGrowth` | rate | 0.01 | Real growth of the premium each year (plan assumption). |
+| `retirementHealthInsurance` | `auto`, `kvdr`, `voluntary`, `pkv` | `auto` | Insurance from the first statutory pension (above). |
+| `insuredShareBeforePlan` | rate 0–1 | 1, or 0 with `healthInsurance: pkv` | For `auto`: the share of the years before the residence timeline in statutory health insurance, in Germany, another EU/EEA country or Switzerland. |
+| `workStartYear` | year | the year of turning 20 | For `auto`: the start of the KVdR's reference period. |
+| `otherDeductions` | money a year | 0 | Deductions not modelled one by one: work costs above €1,230, donations, extraordinary burdens. |
+| `basiszins` | rate | 0.032 | The Vorabpauschale's base rate after 2026 (plan assumption). |
+| `realWageGrowth` | rate | 0.01 | Real growth of contribution ceilings, the minimum base and the other amounts set from wages (plan assumption). |
+| `indexFixedAllowances` | bool | false | Whether the amounts the law keeps fixed (the €1,000 allowance, the lump sums, Riester's €2,100, the trade-tax allowance, inheritance allowances) keep their value in today's money. |
+
+### Earned-income regimes
+
+| Regime | Option | Type | Default | Effect |
+| --- | --- | --- | --- | --- |
+| `de.employee` | none | | | |
+| `de.freelancer` | `drv` | `none`, `voluntary`, `compulsory` | `none` | DRV contributions and points; `compulsory` also allows Riester. |
+| | `drvContribution` | money a year | the minimum (`voluntary`) or the standard contribution (`compulsory`) | Kept between €1,345.92 and €18,860.40 (2026), with a warning. |
+| | `sickPay` | bool | false | Health at 14.6% instead of 14.0%; 4% of it then isn't deductible. |
+| `de.trader` | as `de.freelancer`, plus `hebesatz` | rate, at least 2 (200%) | required | Trade tax = (profit − €24,500) × 3.5% × `hebesatz`, credited up to 4.0 × the base amount. |
+
+### Pensions
+
+| Scheme | Option | Type | Default | Effect |
+| --- | --- | --- | --- | --- |
+| `de.drv` | `points` | number | 0 | *Entgeltpunkte* so far. |
+| | `contributionYears` | whole years | 0 | German years toward the 5- and 35-year waiting times. |
+| | `years45` | whole years | `contributionYears` | German years toward the 45 years. |
+| | `foreignContributionYears` | whole years | 0 | Years in other EU/EEA countries, Switzerland and agreement countries. |
+| | `foreignYears45` | whole years | `foreignContributionYears` | Foreign compulsory years from work, toward the 45 years. |
+| | `realWageGrowth` | rate | 0.01 | Growth of average earnings, for future points. |
+| | `realPensionValueGrowth` | rate | 0.005 | Real growth of the pension value. |
+| | `ageIncreaseMonthsPerYear` | whole number | 0 | Months added to the claim ages per year from 2032. |
+| every pension (plan fields) | `claim`, `claimRoute` | | `earliest` | When, and by which route, it's claimed. |
+| | `taxedIn` | `residence`, `source` | `residence` | Which country the plan says taxes it; see [the treaties](#moving-abroad-treaties). |
+| | `sourceCountry` | country code | from the scheme | The paying country. |
+| `fixed` and other schemes | `kind` | `statutory`, `occupational`, `basicPension`, `privateAnnuity` | statutory, with a warning | Cohort share, in full, or the Ertragsanteil; KVdR contributions. |
+| | `mandatoryShare` (option) | rate 0–1 | 1 | For a Swiss occupational pension: the mandatory part. |
+
+### Accounts and instruments
+
+| Wrapper | Detail | Effect |
+| --- | --- | --- |
+| `de.ordinary` | instrument `tax.fundType` (or its asset mix) | The planner's fund kind: `equityFund`, `mixedFund`, `realEstateFund`, `foreignRealEstateFund`, else `fund`: 30%, 15%, 60%, 80% or 0% partial exemption. |
+| | instrument with a delivery claim | A gold ETC with a right to delivery is `etcWithDeliveryClaim`, taxed like gold. |
+| `de.riester`, `de.ruerup`, `de.bav`, `de.altersvorsorgedepot` | contributions into the account | The relief above; payouts spread over the wrapper's years. |
+
+### Event kinds
+
+| Kind | Effect |
+| --- | --- |
+| `severance` | The one-fifth rule; no social contributions. |
+| `inheritance`, `inheritance.<relationship>`, `gift`, `gift.<relationship>` | Inheritance or gift tax, by relationship: `spouse`, `lineal` (the default), `grandparent`, `parent`, `sibling`, `relative`, `other`. |
+| `windfall` and others | Not taxed. |
+
+## Simplified in this version
 
 - One person, taxed alone (no Splitting, no child allowances or child benefit).
 - Each year's taxes are paid in that year; withholding and prepayments aren't modelled. The planner computes the assessed tax, not the monthly Lohnsteuer.
-- Losses are offset within a year but not carried forward.
-- Every fund is treated as accumulating: no distributions, so the Vorabpauschale applies every year. The 1/12 reduction in the year of purchase is ignored.
-- Gold and crypto sales are treated as held over a year (sales come from the oldest units first, and the planner rarely sells what it bought in the last 12 months).
-- Health contributions on a bAV lump sum are charged in the year of the payout, not over 10 years.
+- Losses are offset within a year but not carried forward (gap G4).
+- Every fund is treated as accumulating: no distributions, so the Vorabpauschale applies every year; units bought during the year count as held all year (the 1/12 reduction is ignored). In a plan's first, partial year, the Vorabpauschale is for the share of the year simulated.
+- **Gold, crypto and delivery ETCs are treated as held longer than a year**, so their sales are tax-free: the planner gives no holding period yet (gap G6). Sold within a year, the gain would be taxed at the tariff (case `gold-held-over-a-year` gives the difference).
+- A sale without a documented purchase cost is taxed on 70% of the proceeds (the substitute base of §43a Abs. 2 Satz 7).
+- Health contributions on a bAV lump sum are charged in its year (the law spreads them over 10 years), and wrapper payouts drawn by the planner count as yearly payments, with the monthly allowance for 12 months.
+- A part-year job: ceilings are prorated, and in the rest of the year the person is a voluntary member (or KVdR, or PKV) with the minimum base and ceiling prorated too. The year a statutory pension starts counts as a pension year for all of the months outside the job.
+- Voluntary DRV contributions count toward the 45 years like compulsory ones (the law needs 18 years of compulsory contributions first).
+- Riester's grant comparison is decided on the year's fixed income; the Soli and church tax are on the final income tax. The Altersvorsorgedepot's child grants, Riester's harmful use abroad, and the 30% lump-sum limits aren't modelled.
 - The Altersentlastungsbetrag, the Grundrente supplement, the Kirchgeld, the church-tax cap, the Härteausgleich for small side income, work costs above the lump sum (use `otherDeductions`), extraordinary burdens, trade-tax additions, VAT and the Grundsteuer aren't modelled.
-- Unemployment benefit, and health insurance paid by the employment agency while it's received, aren't modelled.
-- Cross-border commuters (living in Germany and working in Switzerland, Art. 15a) aren't modelled: their salary is taxed in Germany but pays Swiss social contributions, which neither regime describes.
+- Unemployment benefit, cross-border commuters, foreign withholding tax on capital income, §2 AStG, and gifts added together over 10 years aren't modelled.
 - The residence changes on 1 January; a split year isn't modelled.
 
 ## How the rules are modelled
 
 Choices the law leaves open, or that an estimate has to make. They're all in the code and the parameter file, and tested.
 
-- **No rounding.** The law rounds taxable income and the tax down to whole euros; the planner works in `Double` and doesn't, so the tariff stays continuous. Reference cases give both.
-- **Amounts in today's euros.** Three kinds of amounts, flagged in the parameter file:
-  - *tariff amounts* (the tariff's limits and coefficients, the Soli threshold): Germany adjusts these almost every year, so they follow the plan's `indexThresholds`. The tariff is scaled as s × T(x ÷ s), which keeps its shape;
-  - *fixed allowances* the law rarely changes (the €1,000 allowance, the €1,230 and €102 lump sums, the €1,000 and €256 thresholds, Riester's €2,100, the trade-tax allowance, inheritance allowances): fixed in nominal euros, so they shrink in today's euros (option `indexFixedAllowances`, default false);
-  - *social-security amounts* set each year from wages by law (ceilings, minimum base, average earnings, pension value, the bAV limits): they grow with `realWageGrowth` in today's euros.
-
-  Each pension's fixed exemption is kept in nominal euros of the year it was set, in the tax state, and converted with the year's `inflationFactor`.
-- **Church tax deductibility.** The church tax of the year is deductible in the same year, which makes it depend on itself. The module solves it as a fixed point (it converges in a few steps). It replaces the €36 lump sum when larger.
-- **Special expenses.** Pension contributions in full up to €30,826 less the employer share; basic health less 4% when the contribution includes sick pay (employees, and the self-employed with `sickPay`), care in full; unemployment contributions only within €1,900, which health and care alone exceed. Contributions that belong to tax-free salary (Aktivrente) are split off by the share of salary.
-- **Trade tax.** Computed in prepare from the `de.trader` phase's profit, with the credit limited to the income tax on that profit (its share of the total income times the income tax) and to the trade tax itself. With several trader phases in a year, each is computed separately (one business each).
-- **Which pension is which.** `de.drv` and statutory schemes of other countries (`it.inps`, `ch.ahv`) get the cohort's taxable share; `ch.bvg` pensions the cohort's share on their mandatory part and the *Ertragsanteil* on the rest (the mandatory share comes with the pension, G5; until then all of it counts as mandatory, which overstates tax). A `fixed` pension needs a kind (statutory, occupational, Rürup, private annuity) to be taxed correctly; until TaxKit carries it (G5), `fixed` pensions are treated as statutory, with a warning.
-- **The cohort.** A pension's taxable share is set by the first year the system sees it paid, or by its start year for one already running when the plan starts (once TaxKit passes it, G5; until then such a pension counts as starting in the plan's first year, which slightly overstates its taxable share). The exempt amount is fixed in the second year from that year's amount.
-- **The Ertragsanteil** is looked up by the age reached in the year the annuity starts, in whole years. The law uses the age completed on the start date, so an annuity that starts before that year's birthday can be taxed one point higher than the module assumes (G11 would fix it).
-- **DRV points.** Credits are the insured earnings (gross up to the ceiling), and the scheme divides them by the average earnings of the year, both in today's euros. The pension value grows by `realPensionValueGrowth`. Claim options are listed in whole months like INPS; the first year is paid pro rata. Foreign contribution years count toward the waiting times only.
-- **Health insurance in retirement.** Before the first pension, voluntary (or PKV). From it, `retirementHealthInsurance`, with `auto` running the 9/10 test described above from the residence timeline (G15) and the tax state's count of insured years. Under KVdR, contributions on DRV, foreign statutory and comparable pensions and bAV only. Voluntary: on every pension and payout, interest, gains after the partial exemption, and the Vorabpauschale, without the €1,000 allowance, between the minimum base and the ceiling. The minimum is in prepare; the rest in assess.
-- **Children.** `childBirthYears` decides the care surcharge (none once there's a child), the care discount (0.25 points of the employee's share for each child under 25, from the second to the fifth), the KVdR's 3 years per child, and the Riester grant (€300 for children born from 2008, €185 before, until 25).
-- **Teilfreistellung per instrument.** By the fund's equity share as the instrument declares it (`assetClasses`, or an explicit fund type): over 50% equity is an equity fund (30%), at least 25% a mixed fund (15%), over 50% real estate a real-estate fund (60%, or 80% with `foreignRealEstate`), anything else 0%. The whole fund gets one rate, so a 60/40 fund is an equity fund for both its equity and bond parts. Until TaxKit carries the fund type (G1), every `fund` is treated as an equity fund, which understates tax on bond funds.
-- **The Vorabpauschale on a simulated fund.** Each year, for each fund lot in `de.depot`: start value = year-end value ÷ (1 + the year's nominal return); base income = start value × 70% × base rate; Vorabpauschale = max(0, min(base income, year-end value − start value)). Units bought during the year count as held all year (the engine invests before applying returns). It's taxed in that year's assessment, which the engine pays the following year, matching the law's timing; it uses that year's €1,000 allowance (the law would use the next year's: a small shift). Its full amount is added to the lot's purchase cost, so later sales deduct it. The base rate for future years is the option `basiszins`; a reasonable alternative is the plan's real bond return plus inflation.
-- **Flat rate or tariff.** Investment income is taxed at the flat rate unless the Günstigerprüfung gives less, computed in assess. Private sales within a year and crypto staking go to the tariff, with their thresholds tested on the year's total.
-- **Gold ETCs.** `etc` is taxed as a security (flat rate). An instrument with a right to physical delivery (Xetra-Gold, EUWAX Gold) is taxed like physical gold when the instrument says so (`tax.deliveryClaim: true`), which the planner maps to `physicalGold` (part of G1's planner change; Italy taxes both alike).
-- **Riester and the Altersvorsorgedepot.** The grant is credited to the wrapper as an accrual; the deduction comparison reduces income tax by any saving above the grant.
-- **Payout forms.** Rürup and Riester payouts beyond the allowed lump sum should be annuities; until TaxKit can enforce that (G9), a lump sum from Rürup gets a warning and is taxed like a pension in that year.
-- **Foreign wrappers.** `it.ordinary` and `ch.ordinary` are `de.depot`. `it.pensionFund` and `ch.pillar3a` payouts: lump sums taxed at the tariff on the gain (half after 12 years and from 62), annuities at the *Ertragsanteil* *verify*. `ch.vestedBenefits` payouts: like a BVG lump sum (mandatory part at the cohort's share, the rest on the gain). `it.tfr` payouts: not taxed in Germany, but counted for the progression clause at one fifth *verify*. Other unknown tax-deferred wrappers: payouts in full at the tariff, with a warning.
-- **Nationality.** The plan's `citizenship` decides the Germany–Italy state-pension rule and the Swiss 5-year rule. A pension whose `taxedIn` contradicts the treaty gets a warning; the module never overrides `taxedIn`.
-- **Currency.** Parameters are in euros. With a plan currency other than the euro, amounts are converted at the plan's start rate, held constant in real terms (G14, as for Switzerland).
-- **Inheritance.** Per event, per heir, with hardship relief; the taxable amount isn't rounded to €100.
-- **Cliffs.** `cliffs(in:)` lists where a tax jumps as income rises: the €1,000 threshold for private sales and the €256 one for staking (tax rises), and the care-insurance threshold on bAV (€197.75 a month: contributions jump from nothing to the full amount). The tariff, Soli, church tax, trade tax, the one-fifth rule and inheritance tax are continuous.
+- **No rounding.** The law rounds taxable income and the tax down to whole euros; the module works in `Double` and doesn't, so the tariff stays continuous. Within a euro of the legal figures.
+- **Amounts in today's euros.** The parameter file says per object how its amounts follow prices (`"indexed"`): the tariff and the Soli's limit follow the plan's `indexThresholds` (`plan`); the lump sums, the savers' allowance, Riester, the trade-tax allowance, the Aktivrente's €2,000 and the inheritance allowances are fixed in nominal euros (`fixed`; `indexFixedAllowances` treats them as `plan`); contribution ceilings, the minimum base, the compulsory-insurance limit, voluntary DRV limits, €30,826 and the KVdR allowances grow with `realWageGrowth` after 2026 (`wages`, the system's own rule). The tariff is scaled as s × T(x ÷ s), which keeps its shape. Each pension's fixed exemption is kept in nominal euros of the year it was set, in the tax state (case `drv-pension-tax-2041`).
+- **Currency.** The module computes in euros: plan amounts are multiplied by `FixedYear.currencyRate`, results divided by it, and `de.drv` claims and credits convert with the rate the planner passes (case `currency-chf-plan`).
+- **Church tax.** A fixed point (it converges in a few steps); it replaces the €36 lump sum when larger; its base ignores the trade-tax credit.
+- **Special expenses.** Pension contributions in full up to €30,826 less the employer share; basic health less 4% when the contribution includes sick pay, care in full; unemployment contributions and PKV's non-basic share within €1,900 (with an employer's or the DRV's subsidy) or €2,800, which basic cover usually already uses. Contributions that belong to tax-free salary (Aktivrente) are split off by the share of salary.
+- **Trade tax** per `de.trader` phase, with the credit limited to the income tax on the business income (its share of the positive income) and to the trade tax itself. The profit isn't rounded down to €100, so trade tax is continuous.
+- **Which pension is which.** By scheme first (`de.drv`, `it.inps`, `ch.ahv` statutory; `ch.bvg` Swiss occupational), then by `kind` and `sourceCountry`: statutory and `basicPension` by cohort; `occupational` from Germany (or no country) in full, from Switzerland split by `mandatoryShare`, from elsewhere at the Ertragsanteil (*verify*); `privateAnnuity` at the Ertragsanteil. A pension without a kind is statutory, with a warning. Lump sums: statutory ones at the cohort's share, a Swiss one at the cohort's share (with a warning), a private annuity's or foreign occupational one not taxed (its gain is unknown), with a warning.
+- **The cohort.** A pension's taxable share is set by its `startYear` (the planner gives it, also for a pension already paid when the plan starts); the exemption is fixed in the first year after it the system sees, from that year's amount.
+- **The Ertragsanteil** is looked up by the age reached in the year the annuity starts, in whole years. The law uses the age completed on the start date, so an annuity starting before that year's birthday can be one point higher.
+- **DRV points.** Credits are the insured earnings (gross up to the ceiling; for voluntary contributions and buy-ins, the amount ÷ 18.6%), divided by the year's average earnings in today's euros. Claim options are in whole months, the first year paid pro rata. The scheme's `oldAgePensionAge` is the standard age for those born from 1964 (it doesn't know the birth year), which the planner uses for wrapper access.
+- **A buy-in** (a plan contribution naming the `de.drv` pension: voluntary contributions, or the payment to offset an early claim's deduction) is credited as points and deducted with the pension contributions.
+- **Health insurance in retirement.** As [above](#health-insurance-in-retirement): the status from the first statutory pension; the part of the year outside a job; contributions filled up to the ceiling in the law's order (statutory pensions, occupational pensions, self-employment, the rest); the minimum base for voluntary members at their other-income rate.
+- **Children.** `children` and `childBirthYears` (the larger count): the care surcharge (none with a child), the care discount, the KVdR's 3 years per child, and Riester's child grants.
+- **The Vorabpauschale on a simulated fund.** For each fund balance in a taxable account: start value × base rate × 70% × the share of the year simulated, at most `startValue × nominalReturn` (both from the planner, in the year's today's euros), never negative; taxed after the partial exemption that year, and added in full to the purchase cost of the wrapper's lots in that category.
+- **Flat rate or tariff.** Investment income is taxed at the flat rate unless the tariff gives less income tax with Soli and church tax. Both include the health contributions the gains cause, which are deductible.
+- **Gold ETCs.** `etc` is a security (flat rate); `etcWithDeliveryClaim` is taxed like physical gold.
+- **Foreign wrappers.** `it.ordinary` and `ch.ordinary` are like `de.ordinary`. `it.pensionFund` and `ch.pillar3a` payouts: the gain (payout − cost basis) at the tariff, half of it after 12 years of membership and from 62 (*verify*, with a warning). `ch.vestedBenefits`: the cohort share of the year paid. `it.tfr`: not taxed, a fifth counted for the progression clause. `taxDeferred` and unknown wrappers: payouts in full at the tariff, with a warning; unknown wrappers' sales are taxed like an ordinary account's.
+- **Nationality.** Citizenships decide the Germany–Italy state-pension rule and the Swiss years after a move; see [the treaties](#moving-abroad-treaties) for how they meet `taxedIn`.
+- **Inheritance.** Per event, with the hardship relief; the taxable amount isn't rounded to €100.
+- **Cliffs.** `cliffs(in:)` lists where a tax or contribution jumps as income rises: the care threshold on occupational pensions (€197.75 a month), and an employee with `healthInsurance: pkv` crossing the compulsory-insurance limit. The tariff, Soli, church tax, trade tax, the one-fifth rule, the Günstigerprüfung and inheritance tax are continuous; the property tests check that taxes and net income never fall as income rises.
 
 ## Fit with TaxKit
 
-What maps directly:
+The module uses what TaxKit offers, with no change to it: system currency, citizenships, the residence timeline and the birth date; pension kinds, start years, paying countries, forms and mandatory shares; claim options with routes, partial first years and `realGrowthPerYear`; buy-ins; `preferredPayoutYears`; fund kinds with `broader`; `reportedIncome`, `startValue`, `nominalReturn` and `costBasisAdjustments`; the `indexed` rules. The gaps left, each with what the module does until it's closed:
 
-| Need | TaxKit today |
-| --- | --- |
-| Employee, freelancer and trader regimes, their options, validation | `RegimeDescriptor`, `OptionField`, `commonIssues`, `validate(_:years:parameters:)` |
-| Social contributions; DRV points as credits | `TaxAssessment.contributions`; `Accrual(.pensionScheme("de.drv"), amount: insured earnings, contributionMonths:)` |
-| The DRV pension | `PensionScheme` with `PensionRecord.extra["points"]`, `claimOptions`, `oldAgePensionAgeInMonths` |
-| Grants and employer subsidies into Riester, bAV, Altersvorsorgedepot | `Accrual(.wrapper(…))`, as Italy's TFR |
-| Wrapper access from 62, 65 or the contract's age | `WrapperRule.accessRule` with `WrapperAccessContext` |
-| Health contributions on capital income for voluntary members | contribution lines in `assess`; the engine pays them the next year with the other market-dependent amounts |
-| The Günstigerprüfung, tariff-taxed private sales | `assess` reruns the tariff; `grossUp` returns nil, and `NumericGrossUp` solves |
-| Each pension's fixed exemption, years of residence and of statutory health insurance, Riester totals | `TaxState` along the deterministic run (they don't depend on markets). Other systems copy the state forward (Italy's `nextState` starts from the incoming state), so `de.*` keys survive a period abroad. |
-| The progression clause for source-taxed pensions | `FixedYear.pensions` already includes pensions with `taxedIn: .source` |
-| Severance pay, a new inheritance relationship | windfall kinds are open strings: `severance`, `inheritance.grandparent` |
-| Fixed allowances that don't follow inflation | `ThresholdIndexing.scale(…, indexThresholds: false)` per value |
-| The §32a tariff | kept in `TaxGermany` as a zone tariff; it isn't a bracket schedule, and no other system needs it yet |
-
-The gaps, each with an additive change. **Status:** TaxKit, the planner and the file format now have G1, G2, G5 and G11 as proposed (see [TAXES.md](../TAXES.md#what-a-system-can-tell-the-planner-and-whats-told)), plus citizenship (`FixedYear.citizenships`), a plan currency, the residence timeline in each year (`FixedYear.residence`) and a pension's `mandatoryShare`; G4, G6–G10 and G12 are left for later. Where the result differs from the proposal: an ETC with a delivery claim is reported as `etcWithDeliveryClaim` (broader: `etc`), not `physicalGold`, so Italy keeps taxing it as a security, and Germany maps it to its gold rule; a balance also carries `startValue`, since in the planner's real terms `value / (1 + nominalReturn)` misses the year's inflation; a `fixed` pension's kind is the plan's top-level `kind`, and its mandatory share the option `mandatoryShare`; values fixed in nominal euros use `"indexed": "fixed"` in the parameter file (the draft's `"indexing"` key would be renamed), and amounts that grow with wages can use a rule of the system's own (`"indexed": "wages"`).
-
-| # | Gap | Proposed change (additive) |
+| # | Gap | Until then |
 | --- | --- | --- |
-| G1 | **Partial exemption per fund.** The planner maps every ETF and fund to `TaxCategory.fund`; Germany needs the fund's type, set by its whole portfolio (a 60/40 fund is an equity fund). | New `TaxCategory` constants `equityFund`, `mixedFund`, `realEstateFund`, `foreignRealEstateFund`, with `TaxCategory.broader` (`.fund` for these, nil otherwise); systems resolve an unknown category through `broader` before `other`, so Italy keeps treating them as `fund`. The planner derives the type from the instrument's `assetClasses` (equity share > 50%, ≥ 25%; real estate > 50%), with an optional `InstrumentTax.fundType` override in Model, and maps an `etc` with `tax.deliveryClaim: true` to `physicalGold`. Lots already split by category, so both lots of a mixed fund carry its type. |
-| G2 | **Yearly deemed income on unsold funds** (Vorabpauschale). `assess` sees year-end balances only, and can't raise a lot's purchase cost. | `VariableYear.Balance.nominalReturn: Double?`, the year's nominal price return of the holding (the engine has it in `applyReturns`). `TaxAssessment.costBasisAdjustments: [CostBasisAdjustment]` (wrapper, category, amount in today's euros), which the engine adds to the matching lots' purchase cost pro rata. That keeps the engine's rule that purchase cost only changes by money in and out and by gains that were taxed. |
-| G3 | **Health contributions on capital income** for voluntary members. | None needed (see above). The minimum base is charged in prepare, the rest in assess. |
-| G4 | **State that depends on the path:** loss carry-forwards, health contributions on a bAV lump sum spread over 120 months. `TaxState` only follows the deterministic run. | `VariableYear.pathState: TaxState` (default empty) and `TaxAssessment.nextPathState: TaxState?` (nil keeps it); the engine keeps one per run, reset at its start. Not needed for the MVP, which ignores both. |
-| G5 | **What kind of pension a `fixed` one is**, when it started, from where, and for Swiss BVG pensions the mandatory share. The cohort rule needs the start year; a `fixed` pension may be statutory, occupational, Rürup or a private annuity, each taxed differently; the treaty needs the paying country. | `FixedYear.Pension.kind: PensionKind?` (open enum: `statutory`, `occupational`, `basicPension`, `privateAnnuity`), `startYear: Int?`, `sourceCountry: String?` (the plan already has `sourceCountry`) and `mandatoryShare: Double?` (nil: all of it). The exempt amount itself lives in `TaxState`. |
-| G6 | **Holding period** of a sale: gold and crypto are tax-free after a year. | `VariableYear.Sale.shortTermShare: Double?`, the share of proceeds from units held one year or less (nil: unknown, which Germany treats as 0). Later the planner can track purchase years for gold and crypto lots. |
-| G7 | **Leaving the country** (exit tax). `prepare` and `assess` don't know that the residence ends after this year, and balances carry no purchase cost; lots merge instruments, so the €500,000 test per fund can't be done. | `FixedYear.nextResidence: String?` (the system of the following year, if different) and `VariableYear.Balance.costBasis: Double?`. The per-fund test needs per-instrument lots; until then, `validate` warns from the residence timeline. |
-| G8 | **Tax in the paying country** (`taxedIn: source`) isn't computed: the plan enters the pension after that tax. Germany and Italy each tax the other's state pensions by nationality; Germany taxes German-source income for 5 years after a move to Switzerland. | An optional `TaxSystem.prepareNonResident(_ year: FixedYear, state:, parameters:) -> (any PreparedTaxYear)?` with a default of nil. The planner calls the paying country's system (from the pension's `sourceCountry`) with the pensions it taxes. Germany would implement it for DRV pensions (no Grundfreibetrag unless §1 Abs. 3 applies). |
-| G9 | **Payout forms.** Rürup pays only an annuity, Riester and the Altersvorsorgedepot at most 30% as a lump sum, then a plan to 85. The engine withdraws any amount from an accessible wrapper. | `WrapperRule.payoutRule: PayoutRule?`: `.annuityOnly`, `.lumpSumShare(0.3, thenUntilAge: 85)`, with an annuity factor from the system. Until then: model these as `fixed` pensions from the contract's statement (with G5's kind) and their contributions as plan contributions. |
-| G10 | **Access that depends on a public pension having started** (Altersvorsorgedepot before 65). | `WrapperAccessContext.publicPensionStarted: Bool?`. |
-| G11 | **The birth date in the tax year**: the Aktivrente starts the month after the standard age, care insurance's childless surcharge from 23. | `FixedYear.birthDate: BirthDate?`. Without it, whole years. |
-| G12 | **Employer contributions**, for the results' "what the job costs" view. | Optional, informational: `TaxAssessment.employerContributions: [TaxLine]`, not part of any total. |
-| G13 | **Nationality.** Treaty rules (Germany–Italy Art. 19(4), Germany–Switzerland Art. 4 Abs. 4, §2 AStG) need the person's nationalities; they belong to the plan, not to one residence period. | Model: `PlanTax.citizenship: [CountryCode]` (optional, left out when empty). TaxKit: `TaxPlan.citizenship: [String]` and `FixedYear.citizenship: [String]` (default empty). |
-| G14 | **The plan's currency.** The parameters are in euros; a plan in another currency needs a rate. | The plan setting `currency` (default the library's base currency) and CH.md's gap 1 (`TaxSystem.currency`, `FixedYear.currencyRate`, `ClaimContext.currencyRate`); `de` declares `currency: "EUR"`. |
-| G15 | **The residence timeline in a year.** The KVdR test counts years insured under other countries' systems, and the exit tax and the Swiss 5-year rule count years of German residence before the plan's current year; `prepare` sees only its own year. | `FixedYear.residenceTimeline: [TaxPlan.Residence]` (default empty), the plan's whole timeline with options. |
-
-G1, G2 and G5 change results the most and should come with the module; G13 and G15 are small and needed for the treaty and KVdR rules. G1, G5 and G13 also touch Model (`InstrumentTax.fundType`, `PlanTax.citizenship`) and the planner, so their commits state the reason as CLAUDE.md asks.
+| G4 | **State along a path:** loss carry-forwards, health contributions on a bAV lump sum over 120 months. | Losses offset within a year; the 120 months charged in one. |
+| G6 | **Holding period of a sale:** gold and crypto are tax-free after a year. | Treated as held longer than a year. |
+| G7 | **Leaving the country** (a residence ending; cost per fund). | A validation warning about the exit tax. |
+| G8 | **Tax in the paying country.** The planner's hook is on the integration branch, not yet on this module's base. | Germany has `country` and `prepareNonResident` with the signatures the hook announced; joining them to the protocol, and crediting the paying country's tax (`FixedYear.Pension.sourceTax`) as residence, follow the merge. Until then a pension both countries may tax counts only in Germany as residence, with a warning, and nothing calls `prepareNonResident`. |
+| G9 | **Payout forms**: annuity only (Rürup, Riester, bAV), at most 30% as a lump sum. | Payouts spread evenly over the wrapper's years; or a `fixed` pension from the statement. |
+| G10 | **Access once a public pension has started** (the Altersvorsorgedepot before 65). | From 65. |
+| G12 | **Employer contributions**, for a "what the job costs" view. | Not shown. |
+| new | **A list kind for options** (`childBirthYears`). | Read from the plan, validated by the module; not in the generated form (`children` is). |
+| new | **A pension kind for subsidised private pensions** (Riester, Altersvorsorgedepot), taxed in full but free of KVdR contributions. | Accounts with their wrapper; as a `fixed` pension, `occupational`. |
+| new | **The country of capital income** (foreign withholding tax; TAXES.md's gap 11). | Not credited. |
 
 ## Reference cases
 
-Written out with their arithmetic in [drafts/de-cases.md](drafts/de-cases.md), to become `Tests/TaxGermanyTests/cases/*.json`:
+In `Tests/TaxGermanyTests/cases/`, one JSON file per case with its arithmetic in `workings` (48 cases):
 
-- an employee's net income at €40,000, €75,000 and €120,000, each with and without church tax (Soli's taper at €120,000);
-- a Freiberufler at €80,000 profit with voluntary GKV, and the effect of €10,000 into Rürup; a trader with the same profit and a 4.9 trade-tax multiplier;
-- DRV claims from 40 years at 1.0 and 1.5 points: at 63, 67 and 70;
-- income tax and contributions on those pensions for a 2030 retiree, and the fixed exemption ten years later;
-- an equity ETF's Vorabpauschale in one year, and its sale after 10 years with the Vorabpauschalen credited, with gross-ups; interest with church tax;
-- gold sold after 8 months and after 2 years, and the €1,000 threshold;
-- Riester and Rürup payouts next to the statutory pension, under KVdR and as a voluntary member; a bAV pension with KVdR contributions;
-- a voluntarily insured early retiree living on capital, at the minimum base and with large gains (the Günstigerprüfung in both);
-- an INPS pension received in Germany, taxed in Germany and, for an Italian national, in Italy;
-- severance pay with the one-fifth rule; inheritance tax by relationship and the hardship relief; the Aktivrente at 68.
+- employees at €40,000, €75,000 and €120,000, with and without church tax (`employee-*`), Soli's taper at €120,000, and €100,000 with PKV;
+- a Freiberufler at €80,000 with voluntary GKV, with sick pay, and with €10,000 into Rürup; €50,000 with voluntary DRV contributions; traders at €80,000 (490%) and €30,000 (350%);
+- DRV claims from 40 years at 1.0 and 1.5 points (63, 67, 70) and after 45 years (`drv-claims-*`);
+- tax and contributions on those pensions for a 2030 retiree, and ten years later (`drv-pension-tax-*`);
+- a private annuity, Swiss AHV and BVG pensions, an INPS pension by citizenship and `taxedIn` (five cases);
+- Riester and Rürup under KVdR and as a voluntary member, a bAV under KVdR, KVdR refused after years outside the EU (`kvdr-auto-fails`);
+- the Vorabpauschale in a rising, a slow and a falling year, an ETF sold after 10 years with a gross-up, reported income, interest with church tax, gold and crypto, voluntary early retirees with small and large gains (the Günstigerprüfung in both);
+- Riester's grant with and without the deduction, Entgeltumwandlung, the Altersvorsorgedepot in 2027;
+- severance pay, inheritance tax by relationship and the hardship relief, gift tax, the Aktivrente at 68, a plan in CHF.
 
-The tariff values were checked against published 2026 tables; the social contributions match third-party net-pay calculators to the cent. The BMF's own calculator couldn't be reached; case 1 explains why some calculators' Lohnsteuer differs from the assessed tax.
+**Changed from the drafted cases.** The draft's ten-years-later pension (now `drv-pension-tax-2041`) kept the €102 and €36 lump sums at their nominal value, though the design fixes them in nominal euros: the tax is €496.86, not €489.98. The draft's Vorabpauschale and ETF sale had no other income, for which the Günstigerprüfung taxes the gain at the tariff; the cases add a salary. Gold within a year needs a holding period the planner doesn't give (G6), so the case shows it held longer. The bAV and ETF cases in later years set `realWageGrowth` to 0 to keep 2026's allowance and ceilings. Tests found two rules the design had wrong: the church tax's base ignores the trade-tax credit (§51a Abs. 2 Satz 3; the design applied the credit to both), and the Günstigerprüfung compares income tax including Soli and church tax (§32d Abs. 6), which keeps the result continuous.
+
+## Open questions
+
+| # | Question | Assumed until settled | What would settle it |
+| --- | --- | --- | --- |
+| 1 | For voluntary GKV members, does the fund apply the partial exemption (§20 InvStG) to fund gains and the Vorabpauschale? | Yes: secondary sources cite the GKV-Spitzenverband's catalogue for it. | The catalogue's entry on *Investmenterträge* (26 May 2026), or a health fund's written answer. |
+| 2 | Do health funds deduct €51 a year of costs from capital income? | Not modelled (about €11 a year). | The same catalogue's entry on *Werbungskosten*. |
+| 3 | Are health and care contributions on a pension Italy taxes (Art. 19(4)) deductible in Germany (§10 Abs. 2 Satz 1 Nr. 1 and its EU exception)? | Not deductible (case `inps-pension-italian-national`). | The BMF letter on *Vorsorgeaufwendungen*. |
+| 4 | How does Germany tax payouts from an Italian pension fund, and does Italy withhold at source? | Art. 18 (Germany): annuities at the Ertragsanteil, lump sums on the gain, half after 12 years and from 62. | A ruling or BMF letter on foreign pension funds. |
+| 5 | Is the TFR paid after moving to Germany taxed by Italy (Art. 15) or Germany (Art. 18)? | Italy; Germany counts a fifth for the progression clause. | A ruling, or the Agenzia delle Entrate's practice. |
+| 6 | Is interest on Italian government bonds paid to a German resident free of Italian tax? | Yes; nothing to credit. | The broker's practice. |
+| 7 | The exit tax on funds (§19 Abs. 3 InvStG): do §6 AStG's instalments and cancellation on return apply? | Yes; the module only warns. | A BMF letter. |
+| 8 | Do Italy's flat-tax regimes make Italy a low-tax country for §2 AStG? | Not modelled. | A ruling or BMF letter. |
+| 9 | Does a bAV lump sum get the one-fifth rule? | No. | The BFH's line on capital options. |
+| 10 | How is Riester's 30% lump sum taxed? | All in that year, no one-fifth rule. | The BMF letter on private pensions. |
+| 11 | The Altersvorsorgedepot: can the self-employed join; the child grants and payout rules. | As above, without child grants. | The law as published. |
+| 12 | Crypto staking: the €256 threshold. | Not modelled (no staking income in the planner). | The BMF letter of 6 March 2025. |
+| 13 | Do periods in a residence-based pension system count toward the 45 years? | No, only periods of work. | The DRV's practice on Art. 6. |
+| 14 | Germany–Switzerland: a BVG lump sum's one-fifth rule; the over-mandatory part of a lump sum. | No one-fifth rule; taxed like the mandatory part, with a warning. | The BMF letter of 27 July 2016, or a later BFH ruling. |
+| 15 | How does Germany tax a pillar 3a payout? | The gain at the tariff, half after 12 years and from 62. | A BMF letter or ruling. |
+| 16 | Art. 4 Abs. 4 of the Swiss treaty and the free-movement agreement. | It applies. | The EU Court of Justice. |
+| 17 | Which country insures a pensioner with pensions only from the other? | The residence country's insurance. | The DVKA's guidance. |
+| 18 | The KVdR circular's list of residence-based systems. | The parameter file's EU/EEA/Swiss list. | The current circular. |
+| 19 | Rürup, Riester and bAV paid to residents of Italy or Switzerland: only there (Art. 18)? A DRV pension in Switzerland, taxed in full? | Yes; Germany taxes none of them as the paying country. | The treaties' protocols; the `ch` module. |
+| 20 | Voluntary members' contributions on foreign statutory pensions: half the general rate, as under KVdR (§247 Satz 3)? | Yes. | A health fund's practice. |
+| 21 | A non-resident's DRV pension: health contributions to the German KVdR (an S1 certificate) when Germany is the only paying country. | Not modelled. | The DVKA's guidance. |
+| 22 | The Altersentlastungsbetrag's 2026 values (12.4%, at most €589). | Not modelled. | §24a EStG as amended. |
+| 23 | The Germany–Switzerland protocol of 2023: the new rules for cross-border commuters working from home. | Not modelled (commuters aren't). | The protocol's text. |
+| 24 | Laws in progress: the 2027 income-tax reform, the pension reform after the Alterssicherungskommission, compulsory provision for the self-employed, the Aktivrente for the self-employed, the Constitutional Court on inheritance tax, the Frühstartrente, the 2027 health ceiling. | 2026 law; a `2027.json` once they pass. | Publication in the Federal Law Gazette; the court's ruling. |
+
+**Settled during the research.** The Lohnsteuer's 2026 Vorsorgepauschale counts the unemployment contribution only within €1,900, so it rarely lowers the Lohnsteuer; periods abroad count toward KVdR (insurance periods in EU/EEA countries and Switzerland, residence periods in residence-based systems); care is charged at the full rate on foreign statutory pensions, and Swiss AHV and BVG pensions are comparable; voluntary members pay on the Vorabpauschale and on Riester and Rürup payouts; the Ertragsanteil table was checked row by row; the Aktivrente's €1,230 is deducted in full and employees past the standard age pay no unemployment contribution; compulsory periods from work abroad count toward the 45 years; the Besteuerungsanteil for a 2025 start is 83.5%; ETFs are no longer outside the exit tax.
 
 ## Sources (checked October 2026)
 
 Read through search-engine extracts; the sites themselves were blocked from the build environment.
 
 - Tariff 2026: [§32a EStG](https://www.gesetze-im-internet.de/estg/__32a.html); [BMF, Lohnsteuer-Handbuch 2026, §32a](https://esth.bundesfinanzministerium.de/lsth/2026/A-Einkommensteuergesetz/IV-Tarif-31-34b/Paragraf-32a/paragraf-32a.html); [Programmablaufplan 2026](https://www.bundesfinanzministerium.de/Content/DE/Downloads/Steuern/Steuerarten/Lohnsteuer/Programmablaufplan/2025-11-12-PAP-2026-anlage-1.pdf)
-- Vorsorgepauschale from 2026: [BMF letter of 14 August 2025](https://www.bundesfinanzministerium.de/Content/DE/Downloads/BMF_Schreiben/Steuerarten/Lohnsteuer/2025-08-14-vorsorgepau-lohnsteuerabzugsverfahren.pdf); [haufe](https://www.haufe.de/steuern/finanzverwaltung/vorsorgepauschale-im-lohnsteuerabzugsverfahren-ab-2026_164_658714.html); [Deloitte](https://www.deloitte-tax-news.de/steuern/arbeitnehmerbesteuerung-sozialversicherung/bmf-aenderungen-bei-der-vorsorgepauschale-ab-dem-01-01-2026.html); filing duty: [haufe, Änderungen bei der Vorsorgepauschale und der Pflichtveranlagung](https://www.haufe.de/steuern/steuerwissen-tipps/aenderungen-bei-der-vorsorgepauschale-und-der-pflichtveranlagung_170_661648.html), [LStH 2026, §46](https://erbsth.bundesfinanzministerium.de/lsth/2026/tabellarische-Uebersicht/46.html)
+- Vorsorgepauschale from 2026: [BMF letter of 14 August 2025](https://www.bundesfinanzministerium.de/Content/DE/Downloads/BMF_Schreiben/Steuerarten/Lohnsteuer/2025-08-14-vorsorgepau-lohnsteuerabzugsverfahren.pdf); [haufe](https://www.haufe.de/steuern/finanzverwaltung/vorsorgepauschale-im-lohnsteuerabzugsverfahren-ab-2026_164_658714.html); [Deloitte](https://www.deloitte-tax-news.de/steuern/arbeitnehmerbesteuerung-sozialversicherung/bmf-aenderungen-bei-der-vorsorgepauschale-ab-dem-01-01-2026.html); filing duty: [haufe](https://www.haufe.de/steuern/steuerwissen-tipps/aenderungen-bei-der-vorsorgepauschale-und-der-pflichtveranlagung_170_661648.html)
 - 2027 bill: [BMF, Einkommensteuerreformgesetz 2027](https://www.bundesfinanzministerium.de/Content/DE/Gesetzestexte/Gesetze_Gesetzesvorhaben/Abteilungen/Abteilung_IV/21_Legislaturperiode/2026-08-18-EStReformG-2027/0-Gesetz.html)
 - Soli: [§3 SolZG](https://www.gesetze-im-internet.de/solzg_1995/__3.html), [§4 SolZG](https://www.gesetze-im-internet.de/solzg_1995/__4.html)
-- Allowances: [§9a EStG](https://www.gesetze-im-internet.de/estg/__9a.html), [§20 EStG](https://www.gesetze-im-internet.de/estg/__20.html); private sales threshold: [BMF, EStH 2024](https://esth.bundesfinanzministerium.de/esth/2024/tabellarische-Uebersicht/Freigrenze-private-Veraeu%C3%9Ferungsgewinne.html)
-- Pension taxation: [§22 EStG](https://www.gesetze-im-internet.de/estg/__22.html); [DRV, rvRecht on §22 EStG](https://rvrecht.deutsche-rentenversicherung.de/SharedDocs/rvRecht/04_GRA_Sonstige/EStG/gra_estg_p_0022.html); Ertragsanteil table: [Finanzverwaltung NRW](https://www.finanzverwaltung.nrw.de/sites/default/files/asset/document/ertragsanteil_bei_lebenslangen_leibrenten.pdf), cross-checked with [lv1871](https://www.lv1871.de/private-rentenversicherung/wiki/ertragsanteilsbesteuerung/) and [steuertipps](https://www.steuertipps.de/lexikon/e/ertragsanteil-tabelle)
-- Social-security values 2026: [SVBezGrV 2026](https://www.gesetze-im-internet.de/svbezgrv_2026/BJNR1160A0025.html); average earnings: [Anlage 1 SGB VI (DRV)](https://rvrecht.deutsche-rentenversicherung.de/SharedDocs/rvRecht/05_Normen_und_Vertraege/01_Sozialgesetzbuch/06_SGB_VI/zz_Anlagen/Anlage0001/Anlage0001_alle.html); voluntary contributions: [DRV](https://www.deutsche-rentenversicherung.de/DRV/DE/Ueber-uns-und-Presse/Presse/Meldungen/2026/260209-freiwillige-beitraege-rente-erhoehen); care discounts for children: [TK](https://www.tk.de/firmenkunden/versicherung/beitraege-faq-und-mehr/pv-beitraege/bis-zu-welchem-alter-der-kinder-gelten-abschlaege-bei-pv-2148702), [BMG](https://www.bundesgesundheitsministerium.de/themen/pflege/online-ratgeber-pflege/die-pflegeversicherung/finanzierung)
+- Church tax and the trade-tax credit: [§51a EStG](https://dejure.org/gesetze/EStG/51a.html) (Abs. 2 Satz 3: no §35 credit in its base)
+- Günstigerprüfung including surcharges: [§32d EStG](https://dejure.org/gesetze/EStG/32d.html) (Abs. 6); [smartsteuer](https://www.smartsteuer.de/online/lexikon/g/guenstigerpruefung/)
+- Allowances: [§9a EStG](https://www.gesetze-im-internet.de/estg/__9a.html), [§20 EStG](https://www.gesetze-im-internet.de/estg/__20.html); substitute base: [§43a EStG](https://www.gesetze-im-internet.de/estg/__43a.html); private sales: [BMF, EStH 2024](https://esth.bundesfinanzministerium.de/esth/2024/tabellarische-Uebersicht/Freigrenze-private-Veraeu%C3%9Ferungsgewinne.html)
+- Non-residents: §1 Abs. 3, §1a, §49 Abs. 1 Nr. 7, §50 Abs. 1 EStG
+- Pension taxation: [§22 EStG](https://www.gesetze-im-internet.de/estg/__22.html); [DRV, rvRecht on §22 EStG](https://rvrecht.deutsche-rentenversicherung.de/SharedDocs/rvRecht/04_GRA_Sonstige/EStG/gra_estg_p_0022.html); Ertragsanteil table: [Finanzverwaltung NRW](https://www.finanzverwaltung.nrw.de/sites/default/files/asset/document/ertragsanteil_bei_lebenslangen_leibrenten.pdf), [lv1871](https://www.lv1871.de/private-rentenversicherung/wiki/ertragsanteilsbesteuerung/), [steuertipps](https://www.steuertipps.de/lexikon/e/ertragsanteil-tabelle)
+- Social-security values 2026: [SVBezGrV 2026](https://www.gesetze-im-internet.de/svbezgrv_2026/BJNR1160A0025.html); average earnings: [Anlage 1 SGB VI](https://rvrecht.deutsche-rentenversicherung.de/SharedDocs/rvRecht/05_Normen_und_Vertraege/01_Sozialgesetzbuch/06_SGB_VI/zz_Anlagen/Anlage0001/Anlage0001_alle.html); voluntary contributions: [DRV](https://www.deutsche-rentenversicherung.de/DRV/DE/Ueber-uns-und-Presse/Presse/Meldungen/2026/260209-freiwillige-beitraege-rente-erhoehen); care discounts: [TK](https://www.tk.de/firmenkunden/versicherung/beitraege-faq-und-mehr/pv-beitraege/bis-zu-welchem-alter-der-kinder-gelten-abschlaege-bei-pv-2148702), [BMG](https://www.bundesgesundheitsministerium.de/themen/pflege/online-ratgeber-pflege/die-pflegeversicherung/finanzierung)
 - Pension value from July 2026: [DRV, Rentenanpassung 2026](https://www.deutsche-rentenversicherung.de/SharedDocs/FAQ/Gesetzesaenderungen/Rentenanpassung/FAQ-Rentenanpassung-2026/Rentenanpassung-2026); [BMAS](https://www.bmas.de/DE/Service/Presse/Pressemitteilungen/2026/bundeskabinett-beschliesst-rentenanpassung-2026.html)
-- Retirement ages: [DRV, Altersrente für langjährig Versicherte](https://www.deutsche-rentenversicherung.de/DRV/DE/Rente/Allgemeine-Informationen/Rentenarten-und-Leistungen/Altersrente-fuer-langjaehrig-Versicherte/altersrente-fuer-langjaehrig-versicherte_node); foreign periods toward 45 years: [DRV, verbindliche Entscheidung 2008](https://www.deutsche-rentenversicherung.de/DRV/DE/Ueber-uns-und-Presse/Struktur-und-Organisation/Selbstverwaltung/verbindliche-entscheidungen/2008/20080502_Pruefung_wz_45_jahre), [2009](https://www.deutsche-rentenversicherung.de/DRV/DE/Ueber-uns-und-Presse/Struktur-und-Organisation/Selbstverwaltung/verbindliche-entscheidungen/2009/20090610_bilaterale_sv_abkommen_wz_45_jahre); Rentenpaket 2025: [Bundestag](https://www.bundestag.de/dokumente/textarchiv/2025/kw49-de-rentenpaket-1128720); Alterssicherungskommission: [BMAS](https://www.bmas.de/DE/Soziales/Rente-und-Altersvorsorge/Rentenreform-2025/Rentenkommission-2026/rentenkommission-2026.html)
+- Retirement ages: [DRV, langjährig Versicherte](https://www.deutsche-rentenversicherung.de/DRV/DE/Rente/Allgemeine-Informationen/Rentenarten-und-Leistungen/Altersrente-fuer-langjaehrig-Versicherte/altersrente-fuer-langjaehrig-versicherte_node); 45 years and periods abroad: [DRV, 2008](https://www.deutsche-rentenversicherung.de/DRV/DE/Ueber-uns-und-Presse/Struktur-und-Organisation/Selbstverwaltung/verbindliche-entscheidungen/2008/20080502_Pruefung_wz_45_jahre), [2009](https://www.deutsche-rentenversicherung.de/DRV/DE/Ueber-uns-und-Presse/Struktur-und-Organisation/Selbstverwaltung/verbindliche-entscheidungen/2009/20090610_bilaterale_sv_abkommen_wz_45_jahre); Rentenpaket 2025: [Bundestag](https://www.bundestag.de/dokumente/textarchiv/2025/kw49-de-rentenpaket-1128720); Alterssicherungskommission: [BMAS](https://www.bmas.de/DE/Soziales/Rente-und-Altersvorsorge/Rentenreform-2025/Rentenkommission-2026/rentenkommission-2026.html)
 - Zusatzbeitrag 2026: [BMG](https://www.bundesgesundheitsministerium.de/beitraege); GKV-BStabG: [BMG, 10 July 2026](https://www.bundesgesundheitsministerium.de/presse/pressemitteilungen/bundestag-beschliesst-gkv-beitragssatzstabilisierunggesetz-pm-10-07-2026)
-- KVdR and periods abroad: [GKV-Spitzenverband and DRV, joint circular](https://www.vdek.com/vertragspartner/mitgliedschaftsrecht_beitragsrecht/krankenversicherung-rentner-versorgungsbezuege-einkommen-renten/_jcr_content/par/download_23269565/file.res/RS-KVdR-24-10-2019.pdf); [DRV, rvRecht on Art. 6 VO 883/2004](https://rvrecht.deutsche-rentenversicherung.de/SharedDocs/rvRecht/02_GRA_EU_SVA/03_Europarecht/01_VO_EG_Nr_883_2004/art_0001_25/gra_euvo_883_2004_a_0006.html); residence periods: [GGUA, KVdR under Regulation 883/2004](https://www.ggua.de/fileadmin/downloads/ggua/Clearingstelle/KVdR883.pdf); [Bundestag WD 8 - 012/24](https://www.bundestag.de/resource/blob/1001032/WD-8-012-24-pdf.pdf); children: [DRV, rvRecht on §5 SGB V](https://rvrecht.deutsche-rentenversicherung.de/SharedDocs/rvRecht/01_GRA_SGB/05_SGB_V/gra_sgb005_p_0005.html)
+- KVdR and periods abroad: [GKV-Spitzenverband and DRV, joint circular](https://www.vdek.com/vertragspartner/mitgliedschaftsrecht_beitragsrecht/krankenversicherung-rentner-versorgungsbezuege-einkommen-renten/_jcr_content/par/download_23269565/file.res/RS-KVdR-24-10-2019.pdf); [DRV, rvRecht on Art. 6 VO 883/2004](https://rvrecht.deutsche-rentenversicherung.de/SharedDocs/rvRecht/02_GRA_EU_SVA/03_Europarecht/01_VO_EG_Nr_883_2004/art_0001_25/gra_euvo_883_2004_a_0006.html); [GGUA](https://www.ggua.de/fileadmin/downloads/ggua/Clearingstelle/KVdR883.pdf); [Bundestag WD 8 - 012/24](https://www.bundestag.de/resource/blob/1001032/WD-8-012-24-pdf.pdf); children: [DRV, rvRecht on §5 SGB V](https://rvrecht.deutsche-rentenversicherung.de/SharedDocs/rvRecht/01_GRA_SGB/05_SGB_V/gra_sgb005_p_0005.html)
 - Foreign pensions under KVdR: [VdK](https://www.vdk.de/aktuelles/tipp/auch-auf-renten-aus-dem-ausland-werden-krankenkassenbeitraege-faellig/); [sozialversicherung-kompetent](https://sozialversicherung-kompetent.de/krankenversicherung/versicherungsrecht/928-krankenversicherung-der-rentner-beitraege.html); AHV: [BSG B 12 KR 22/14 R](https://www.rechtsportal.de/Rechtsprechung/Rechtsprechung/2016/BSG/Beruecksichtigung-einer-Rente-der-schweizerischen-Alters-und-Hinterlassenenversicherung-Invalidenversicherung-bei-der-Bemessung-der-Beitraege-zur-Krankenversicherung-der-Rentner); BVG: [BSG B 12 KR 32/19 R](https://www.bsg.bund.de/SharedDocs/Entscheidungen/DE/2021/2021_02_23_B_12_KR_32_19_R.html)
-- Voluntary members: [GKV-Spitzenverband, Einnahmenkatalog (26 May 2026)](https://www.gkv-spitzenverband.de/media/dokumente/krankenversicherung_1/grundprinzipien_1/finanzierung/beitragsbemessung/2026-05-26_Katalog_Einnahmen_beitragsrechtliche_Bewertung_240_SGB_V_BF.pdf) (not read; cited by [versicherungenmitkopf](https://www.versicherungenmitkopf.de/kapitalertraege-krankenversicherung)); capital income including the Vorabpauschale: [covago](https://covago.de/krankenversicherungsbeitraege-aktiengewinne/); Riester and Rürup payouts: [sozialversicherung-kompetent](https://sozialversicherung-kompetent.de/krankenversicherung/versicherungsrecht/461-beitragspflicht-private-riester-renten.html), [LV 1871](https://www.lv1871.de/basisrente/fragen/krankenversicherung/), [haufe](https://www.haufe.de/personal/entgelt/versorgungsbezuege-besonderheit-bei-bav-riester-renten_78_447254.html); savers' allowance and costs: [haufe](https://www.haufe.de/id/beitrag/beitragspflichtige-einnahmen-freiwillig-krankenversicherter-16-einnahmen-aus-kapitalvermoegenvermietungverpachtung-HI10152386.html), [TK](https://www.tk.de/techniker/leistungen-und-mitgliedschaft/informationen-versicherte/veraenderung-berufliche-situation/freiwillige-krankenversicherung-tk/beitragspflichtiges-einkommen/einkommen-beitragsberechnung-2006786)
+- Voluntary members: [GKV-Spitzenverband, Einnahmenkatalog](https://www.gkv-spitzenverband.de/media/dokumente/krankenversicherung_1/grundprinzipien_1/finanzierung/beitragsbemessung/2026-05-26_Katalog_Einnahmen_beitragsrechtliche_Bewertung_240_SGB_V_BF.pdf) (not read; cited by [versicherungenmitkopf](https://www.versicherungenmitkopf.de/kapitalertraege-krankenversicherung)); [covago](https://covago.de/krankenversicherungsbeitraege-aktiengewinne/); Riester and Rürup payouts: [sozialversicherung-kompetent](https://sozialversicherung-kompetent.de/krankenversicherung/versicherungsrecht/461-beitragspflicht-private-riester-renten.html), [LV 1871](https://www.lv1871.de/basisrente/fragen/krankenversicherung/), [haufe](https://www.haufe.de/personal/entgelt/versorgungsbezuege-besonderheit-bei-bav-riester-renten_78_447254.html); [TK](https://www.tk.de/techniker/leistungen-und-mitgliedschaft/informationen-versicherte/veraenderung-berufliche-situation/freiwillige-krankenversicherung-tk/beitragspflichtiges-einkommen/einkommen-beitragsberechnung-2006786)
 - Investment funds: [§18 InvStG](https://www.gesetze-im-internet.de/invstg_2018/__18.html), [§19](https://www.gesetze-im-internet.de/invstg_2018/__19.html), [§20](https://www.gesetze-im-internet.de/invstg_2018/__20.html); Basiszins 2026: [BMF, 13 January 2026](https://www.bundesfinanzministerium.de/Content/DE/Downloads/BMF_Schreiben/Steuerarten/Investmentsteuer/2026-01-13-basiszins-berechnung-vorabpauschale.pdf)
-- Exit tax on funds: [KPMG, Wegzugsbesteuerung ab 2025](https://kpmg.com/de/de/themen/corporate-governance-und-compliance/kpmg-steuertipps/steuertipp-wegzugsbesteuerung-ab-2025.html); [BMF form, December 2025](https://www.bundesfinanzministerium.de/Content/DE/Downloads/BMF_Schreiben/Internationales_Steuerrecht/Allgemeine_Informationen/2025-12-12-vordruck-anwendung-wegzugsbesteuerung.pdf) (secondary for the details)
-- Aktivrente: [BMF FAQ](https://www.bundesfinanzministerium.de/Content/DE/FAQ/FAQ-zur-Aktivrente.html), [BMF FAQ (PDF, 6 February 2026)](https://www.bundesfinanzministerium.de/Content/DE/Standardartikel/Themen/Steuern/2026-02-06-FAQ-Aktivrente-Anlage.pdf); [LOHN + GEHALT, Werbungskosten und Vorsorgeaufwendungen](https://www.lohnundgehalt-magazin.de/artikel/aktivrente-auswirkungen-auf-werbungskosten-und-vorsorgeaufwendungen-2/); [rehm, Arbeitgeberbeiträge zur Rentenversicherung](https://www.rehm-verlag.de/lohnsteuerrecht/aktuelle-beitraege-zum-lohnsteuerrecht/aktivrente-arbeitgeberbeitraege--zuschuesse-zur-rentenversicherung/); unemployment insurance past the standard age: [haufe on §346 Abs. 3 SGB III](https://haufe.de/personal/haufe-personal-office-platin/sauer-sgbiii-346-beitragstragung-bei-beschaeftigten-24-beitragstragung-bei-beschaeftigten-im-regelrentenalter-abs3_idesk_PI42323_HI2006228.html); self-employed: [VGSD](https://www.vgsd.de/zustimmung-durch-bundesrat-aktivrente-kommt-zum-1-1-2026-ohne-selbststaendige/)
-- Frühstartrente: [BMF](https://www.bundesfinanzministerium.de/Content/DE/Gesetzestexte/Gesetze_Gesetzesvorhaben/Abteilungen/Abteilung_IV/21_Legislaturperiode/2026-07-21-FruehStRG/0-Gesetz.html), [Bundestag](https://www.bundestag.de/dokumente/textarchiv/2026/kw39-de-fruehstartrente-1211316)
-- Altersvorsorgedepot: [Bundestag, 27 March 2026](https://www.bundestag.de/dokumente/textarchiv/2026/kw13-de-altersvorsorge-1156798); [BMF FAQ](https://www.bundesfinanzministerium.de/Content/DE/FAQ/reform-der-privaten-altersvorsorge.html); [DRV](https://www.deutsche-rentenversicherung.de/DRV/DE/Rente/Moeglichkeiten-der-Altersvorsorge/Altervorsorgereformgesetz)
-- Riester: child grants: [weltsparen](https://www.weltsparen.de/altersvorsorge/riester-rente/riester-kinder/); residence outside the EU/EEA: [ruhestandimausland](https://www.ruhestandimausland.com/wissen/riester-rente-ausland), [WWK](https://collectiv.wwk.de/riester-rente-im-ausland-foerderung-und-steuervorteile-behalten/)
-- bAV: [aba, Zweites Betriebsrentenstärkungsgesetz](https://www.aba-online.de/infothek/aktuelles/kurzmeldungen/2026-01-21-zweites-betriebsrentenstaerkungsgesetz-im-bundesgesetzblatt); limits computed from the 2026 pension ceiling
+- Exit tax on funds: [KPMG](https://kpmg.com/de/de/themen/corporate-governance-und-compliance/kpmg-steuertipps/steuertipp-wegzugsbesteuerung-ab-2025.html); [BMF form, December 2025](https://www.bundesfinanzministerium.de/Content/DE/Downloads/BMF_Schreiben/Internationales_Steuerrecht/Allgemeine_Informationen/2025-12-12-vordruck-anwendung-wegzugsbesteuerung.pdf)
+- Aktivrente: [BMF FAQ](https://www.bundesfinanzministerium.de/Content/DE/FAQ/FAQ-zur-Aktivrente.html), [BMF FAQ (6 February 2026)](https://www.bundesfinanzministerium.de/Content/DE/Standardartikel/Themen/Steuern/2026-02-06-FAQ-Aktivrente-Anlage.pdf); [LOHN + GEHALT](https://www.lohnundgehalt-magazin.de/artikel/aktivrente-auswirkungen-auf-werbungskosten-und-vorsorgeaufwendungen-2/); [rehm](https://www.rehm-verlag.de/lohnsteuerrecht/aktuelle-beitraege-zum-lohnsteuerrecht/aktivrente-arbeitgeberbeitraege--zuschuesse-zur-rentenversicherung/); [haufe on §346 Abs. 3 SGB III](https://haufe.de/personal/haufe-personal-office-platin/sauer-sgbiii-346-beitragstragung-bei-beschaeftigten-24-beitragstragung-bei-beschaeftigten-im-regelrentenalter-abs3_idesk_PI42323_HI2006228.html); [VGSD](https://www.vgsd.de/zustimmung-durch-bundesrat-aktivrente-kommt-zum-1-1-2026-ohne-selbststaendige/)
+- Frühstartrente: [BMF](https://www.bundesfinanzministerium.de/Content/DE/Gesetzestexte/Gesetze_Gesetzesvorhaben/Abteilungen/Abteilung_IV/21_Legislaturperiode/2026-07-21-FruehStRG/0-Gesetz.html)
+- Altersvorsorgedepot: [Bundestag, 27 March 2026](https://www.bundestag.de/dokumente/textarchiv/2026/kw13-de-altersvorsorge-1156798); [BMF FAQ](https://www.bundesfinanzministerium.de/Content/DE/FAQ/reform-der-privaten-altersvorsorge.html)
+- Riester: [weltsparen](https://www.weltsparen.de/altersvorsorge/riester-rente/riester-kinder/); abroad: [ruhestandimausland](https://www.ruhestandimausland.com/wissen/riester-rente-ausland), [WWK](https://collectiv.wwk.de/riester-rente-im-ausland-foerderung-und-steuervorteile-behalten/)
+- bAV: [aba](https://www.aba-online.de/infothek/aktuelles/kurzmeldungen/2026-01-21-zweites-betriebsrentenstaerkungsgesetz-im-bundesgesetzblatt)
 - Trade tax: §11 and §16 GewStG, §35 EStG; [steuerschroeder](https://www.steuerschroeder.de/Steuerrechner/Gewerbesteueranrechnung.html), [onlinebilanz](https://onlinebilanz.de/gewerbesteuer-berechnen-hebesatz-freibetrag-anrechnung/)
-- Inheritance tax: [§19 ErbStG](https://www.gesetze-im-internet.de/erbstg_1974/__19.html); allowances §16 ErbStG; Constitutional Court hearing (secondary: [kfk-partner](https://kfk-partner.de/erbschaftsteuer-vor-dem-bverfg-verhandlung-am-12-13-oktober-2026/))
-- Italy–Germany treaty: [BFH I R 17/19 on Art. 19(4)](https://www.bundesfinanzhof.de/de/entscheidung/entscheidungen-online/detail/pdf/STRE202310062?type=1646225765)
-- Germany–Switzerland treaty: pensions (Art. 18): [Taxpertise](https://www.taxpertise-online.de/Expertisen/2024/Internationales-Steuerrecht/Besteuerung-deutsche-Rente-bei-Wohnsitz-in-der-Schweiz), [MME](https://www.mme.ch/de-ch/magazin/artikel/rueckkehr-nach-deutschland-besteuerung-von-renten-aus-schweizer-vorsorge-0); Swiss pension funds in Germany: [BMF letter of 27 July 2016](https://www.bundesfinanzministerium.de/Content/DE/Standardartikel/Themen/Steuern/Internationales_Steuerrecht/Staatenbezogene_Informationen/Laender_A_Z/Schweiz/2016-07-27-Schweiz-vorsorgeeinrichtungen-nach-der-zweiten-saeule-der-schweizerischen-altersvorsorge.pdf), [Deloitte](https://www.deloitte-tax-news.de/arbeitnehmerentsendung-personal/thema-des-monats/bmf-schreiben-zur-steuerlichen-einordnung-von-schweizerischen-pensionskassen-in-deutschland-vom-27072016.html), [haufe on BFH VIII R 38/10](https://www.haufe.de/steuern/rechtsprechung/kapitalleistungen-schweizerischer-versorgungseinrichtungen_166_308214.html); cross-border commuters (Art. 15a): [EY](https://www.ey.com/de_de/technical/news-zum-internationalen-mitarbeitereinsatz/dba-schweiz-grenzgaengerregelung), [Kanton Zürich](https://www.zh.ch/content/dam/zhweb/bilder-dokumente/themen/steuern-finanzen/steuern/quellensteuer/informationsblatt_zur_besteuerung_von_deutschen_grenzgaengerinnen_und_grenzgaengern.pdf); Art. 4 Abs. 4: [haufe](https://www.haufe.de/id/beitrag/begriff-und-funktion-der-ansaessigkeit-54-abwanderungsbesteuerung-bei-wohnsitzaufnahme-in-der-schweiz-gem-art4-abs4-dba-schweiz-HI15201785.html), [Betriebs-Berater on the referral](https://betriebs-berater.ruw.de/steuerrecht/urteile/ueberdachende-Besteuerung-gemaess-Art.-4-Abs.-4-Satz-1-DBA-Schweiz-europarechtswidrig-Vorlage-an-den-EuGH-24101); 2023 protocol: [SIF](https://www.sif.admin.ch/de/inkrafttreten-des-aenderungsprotokolls-zum-doppelbesteuerungsabkommen-mit-deutschland); Swiss withholding refunds: [Kanton Zürich](https://www.zh.ch/de/steuern-finanzen/steuern/steuern-natuerliche-personen/wertschriften-verrechnungssteuer.html), [DSW](https://www.dsw-info.de/fileadmin/Redaktion/Dokumente/PDF/Quellensteuer/Formulare/Schweiz-Erlaeuterungsvordruck_2022.pdf)
+- Inheritance tax: [§19 ErbStG](https://www.gesetze-im-internet.de/erbstg_1974/__19.html); §15 and §16 ErbStG; [kfk-partner](https://kfk-partner.de/erbschaftsteuer-vor-dem-bverfg-verhandlung-am-12-13-oktober-2026/)
+- Italy–Germany treaty: [BFH I R 17/19](https://www.bundesfinanzhof.de/de/entscheidung/entscheidungen-online/detail/pdf/STRE202310062?type=1646225765)
+- Germany–Switzerland treaty: [Taxpertise](https://www.taxpertise-online.de/Expertisen/2024/Internationales-Steuerrecht/Besteuerung-deutsche-Rente-bei-Wohnsitz-in-der-Schweiz), [MME](https://www.mme.ch/de-ch/magazin/artikel/rueckkehr-nach-deutschland-besteuerung-von-renten-aus-schweizer-vorsorge-0); [BMF letter of 27 July 2016](https://www.bundesfinanzministerium.de/Content/DE/Standardartikel/Themen/Steuern/Internationales_Steuerrecht/Staatenbezogene_Informationen/Laender_A_Z/Schweiz/2016-07-27-Schweiz-vorsorgeeinrichtungen-nach-der-zweiten-saeule-der-schweizerischen-altersvorsorge.pdf), [Deloitte](https://www.deloitte-tax-news.de/arbeitnehmerentsendung-personal/thema-des-monats/bmf-schreiben-zur-steuerlichen-einordnung-von-schweizerischen-pensionskassen-in-deutschland-vom-27072016.html), [haufe on BFH VIII R 38/10](https://www.haufe.de/steuern/rechtsprechung/kapitalleistungen-schweizerischer-versorgungseinrichtungen_166_308214.html); Art. 15a: [EY](https://www.ey.com/de_de/technical/news-zum-internationalen-mitarbeitereinsatz/dba-schweiz-grenzgaengerregelung); Art. 4 Abs. 4: [haufe](https://www.haufe.de/id/beitrag/begriff-und-funktion-der-ansaessigkeit-54-abwanderungsbesteuerung-bei-wohnsitzaufnahme-in-der-schweiz-gem-art4-abs4-dba-schweiz-HI15201785.html), [Betriebs-Berater](https://betriebs-berater.ruw.de/steuerrecht/urteile/ueberdachende-Besteuerung-gemaess-Art.-4-Abs.-4-Satz-1-DBA-Schweiz-europarechtswidrig-Vorlage-an-den-EuGH-24101); 2023 protocol: [SIF](https://www.sif.admin.ch/de/inkrafttreten-des-aenderungsprotokolls-zum-doppelbesteuerungsabkommen-mit-deutschland)
 - Loss offsetting (JStG 2024): secondary ([ecovis](https://ecovis-kso.com/blog/verlustverrechnung-termingeschaefte-2024/))

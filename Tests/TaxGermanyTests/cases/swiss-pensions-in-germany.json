@@ -1,0 +1,25 @@
+{
+  "name": "Swiss AHV and BVG pensions received in Germany",
+  "year": 2031,
+  "input": {
+    "age": 66,
+    "citizenships": ["DE"],
+    "systemOptions": {"retirementHealthInsurance": "kvdr"},
+    "pensions": [
+      {"id": "ahv", "scheme": "ch.ahv", "amount": 20000, "startYear": 2030},
+      {"id": "bvg", "scheme": "ch.bvg", "amount": 30000, "startYear": 2030, "mandatoryShare": 0.6}
+    ]
+  },
+  "expected": {
+    "lines": {"de.incomeTax": 3722.696052},
+    "contributions": {"de.kv": 4375.0, "de.pv": 2100.0},
+    "nextState": {"de.pension.ahv.exemptAmount": 2800.0, "de.pension.bvg.exemptAmount": 2520.0}
+  },
+  "workings": [
+    "Germany taxes both (treaty Art. 18). Born 1965; both started in 2030, at 65",
+    "AHV: like a statutory pension, 86% for 2030; the exempt 14% fixed in 2031: 2,800.00",
+    "BVG: the mandatory 60% (18,000) like a statutory pension (exempt 2,520.00); the other 40% (12,000) at the Ertragsanteil for 65, 18%: 2,160",
+    "KVdR: comparable foreign pensions at half the rate, 8.75% × 50,000 = 4,375.00; care 4.2% = 2,100.00",
+    "Taxable income: 17,200 + 17,640 − 102 − 6,475 − 36 = 28,227.00; T = 3,722.696052"
+  ]
+}

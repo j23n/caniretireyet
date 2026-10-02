@@ -1,0 +1,28 @@
+{
+  "name": "DRV claims after 45 years, born 15 June 1964",
+  "kind": "pensionClaims",
+  "year": 2026,
+  "input": {
+    "birthDate": "1964-06-15",
+    "record": {"points": 50, "contributionYears": 45},
+    "options": {"realWageGrowth": "0", "realPensionValueGrowth": "0"}
+  },
+  "expected": {
+    "claims": [
+      {"route": "de.drv.longInsured", "age": 63, "annualAmount": 10919.136, "fullYearAmount": 21838.272},
+      {"route": "de.drv.longInsured", "age": 64, "annualAmount": 22297.488},
+      {"route": "de.drv.veryLongInsured", "age": 65, "annualAmount": 12756.0, "fullYearAmount": 25512.0},
+      {"route": "de.drv.veryLongInsured", "age": 66, "annualAmount": 25512.0},
+      {"route": "de.drv.deferred", "age": 68, "annualAmount": 26277.36}
+    ]
+  },
+  "workings": [
+    "Born 15 June 1964; 50 points; 45 years count toward every waiting time",
+    "Standard age 67: reached 15 June 2031, paid from July 2031. 63 from July 2027; 65 (45 years) from July 2029",
+    "At 63 (2027): 48 months early, 0.856: 2,126.00 × 0.856 = 1,819.8560 a month, 6 months in 2027",
+    "At 64 (2028, from January): 42 months early, 0.874: 22,297.4880",
+    "At 65 (2029, from July): the 45-year pension, no deduction: 2,126.00 a month, 6 months",
+    "At 66 (2030): still no deduction: 25,512.00",
+    "At 68 (2032, from January): 6 months after the standard age, 3% more: 26,277.3600"
+  ]
+}

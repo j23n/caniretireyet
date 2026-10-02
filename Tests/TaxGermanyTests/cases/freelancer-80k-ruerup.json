@@ -1,0 +1,19 @@
+{
+  "name": "Freiberufler, 80,000 profit, 10,000 into Rürup",
+  "year": 2026,
+  "input": {
+    "age": 40,
+    "work": [{"phaseID": "practice", "kind": "selfEmployed", "regime": "de.freelancer", "gross": 80000}],
+    "wrapperContributions": [{"wrapper": "de.ruerup", "amount": 10000}]
+  },
+  "expected": {
+    "lines": {"de.incomeTax": 12438.535794},
+    "contributions": {"de.kv": 11787.75, "de.pv": 2929.5},
+    "totalTax": 12438.535794
+  },
+  "workings": [
+    "As freelancer-80k, with 10,000 paid into a Basisrente (de.ruerup)",
+    "Rürup is deductible with pension contributions up to 30,826 a year: all 10,000",
+    "Taxable income: 65,246.75 − 10,000 = 55,246.75; T = 12,438.535794, 3,866.54 less than without"
+  ]
+}
