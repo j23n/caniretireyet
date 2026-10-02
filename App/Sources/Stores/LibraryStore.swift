@@ -8,9 +8,12 @@ import Tracker
 /// The library in memory, and everything about keeping it in step with its
 /// folder (PLAN.md, "How the app works at runtime").
 ///
-/// - **Load.** ``start()`` finds the library (iCloud Drive or this device)
-///   and loads it; without one, ``phase`` is `.needsSetup` and the app shows
-///   onboarding, which calls ``createLibrary(in:settings:)``.
+/// - **Load.** ``start()`` finds the library (iCloud Drive or this device),
+///   downloads a library in iCloud Drive that isn't all on the device, and
+///   loads it; ``opening`` says which step it's at, and whether it has
+///   stalled, for the opening screen. Without a library, ``phase`` is
+///   `.needsSetup` and the app shows onboarding, which calls
+///   ``createLibrary(in:settings:)``.
 /// - **Edit.** ``update(_:)`` changes ``library`` in memory first; the files
 ///   that changed are then written in the background, one save at a time.
 ///   Each write is merged with the file on disk (FILE_FORMAT.md, "Saving"),
@@ -64,6 +67,9 @@ final class LibraryStore {
     // MARK: State
 
     private(set) var phase: Phase = .starting
+    /// What opening the library is doing, for the screen shown while
+    /// ``phase`` is `.starting`.
+    private(set) var opening = LibraryOpening()
     /// The whole library. Change it with ``update(_:)``.
     private(set) var library = Library()
     /// Goes up with every change to ``library``; cheap to compare.
@@ -98,6 +104,8 @@ final class LibraryStore {
 
     private let locator: LibraryLocator
     private let preferences: AppPreferences?
+    /// Makes what downloads a library in iCloud Drive before it's read.
+    private let makeDownloader: @MainActor (LibraryLocation) -> (any LibraryDownloading)?
     @ObservationIgnored private var sync: LibrarySync?
     @ObservationIgnored private var watcher: (any LibraryWatching)?
     @ObservationIgnored private var watchTask: Task<Void, Never>?
@@ -112,12 +120,32 @@ final class LibraryStore {
     /// ``refreshFromDisk()``.
     @ObservationIgnored private var diskSnapshot: FolderSnapshot?
     @ObservationIgnored private var valuatorCache: (revision: Int, valuator: Valuator)?
+    /// Counts the attempts at opening a library. An attempt that a newer one
+    /// overtook (Try Again, another `open`) drops its results.
+    @ObservationIgnored private var openingAttempt = 0
+    /// The current attempt's download from iCloud Drive, while it runs.
+    @ObservationIgnored private var downloader: (any LibraryDownloading)?
+    @ObservationIgnored private var openingStall: StallDetector
+    @ObservationIgnored private var stallCheck: Task<Void, Never>?
+
+    /// How long opening may go without progress before the opening screen
+    /// says "Still waiting for iCloud Drive".
+    nonisolated static let openingStallTime: Duration = .seconds(20)
 
     /// A store that finds its library with `locator` and remembers the
-    /// choice in `preferences`.
-    init(locator: LibraryLocator = LibraryLocator(), preferences: AppPreferences? = nil) {
+    /// choice in `preferences`. Opening counts as stalled after
+    /// `openingStallTime` without progress. `makeDownloader` makes what
+    /// downloads a library in iCloud Drive before it's read (tests pass
+    /// their own).
+    init(locator: LibraryLocator = LibraryLocator(), preferences: AppPreferences? = nil,
+         openingStallTime: Duration = LibraryStore.openingStallTime,
+         makeDownloader: @escaping @MainActor (LibraryLocation) -> (any LibraryDownloading)? = {
+             $0.makeDownloader()
+         }) {
         self.locator = locator
         self.preferences = preferences
+        self.makeDownloader = makeDownloader
+        openingStall = StallDetector(threshold: openingStallTime)
     }
 
     /// A store holding `library` in memory only, for previews and tests:
@@ -154,41 +182,76 @@ final class LibraryStore {
     /// yet, so iCloud is asked first and given a few seconds to answer
     /// (`LibraryLocation.containsLibrary(waitingUpTo:)`) before onboarding
     /// is offered, which would create a second library.
+    ///
+    /// Calling it again (Try Again on the opening screen) starts over: the
+    /// attempt in progress is dropped.
     func start() async {
-        isICloudAvailable = locator.isICloudAvailable
+        let attempt = beginOpening()
         phase = .starting
+        isICloudAvailable = locator.isICloudAvailable
+        let remembered = preferences?.libraryLocation
+        LibraryLog.notice("Opening: iCloud Drive is \(isICloudAvailable ? "available" : "not available"), "
+            + "remembered location: \(remembered.map(\.description) ?? "none")")
         do {
-            if let kind = preferences?.libraryLocation {
-                guard let location = try await locator.location(kind) else {
-                    phase = .failed(
-                        "iCloud Drive isn't available. Sign in to iCloud and turn on iCloud Drive for this app, "
-                            + "then try again.")
+            if let kind = remembered {
+                showOpening(.looking(kind), inICloud: kind == .iCloud)
+                let location = try await locator.location(kind)
+                guard attempt == openingAttempt else { return }
+                guard let location else {
+                    fail("iCloud Drive isn't available. Sign in to iCloud and turn on iCloud Drive for this app, "
+                        + "then try again.")
                     return
                 }
                 await open(location)
                 return
             }
             for kind in [LibraryLocationKind.iCloud, .local] {
-                if let location = try await locator.location(kind), await location.containsLibrary() {
+                guard attempt == openingAttempt else { return }
+                showOpening(.looking(kind), inICloud: kind == .iCloud)
+                guard let location = try await locator.location(kind) else { continue }
+                let found = await location.containsLibrary()
+                guard attempt == openingAttempt else { return }
+                if found {
                     preferences?.libraryLocation = kind
-                    await open(location)
+                    await open(location, holdsLibrary: true)
                     return
                 }
             }
+            guard attempt == openingAttempt else { return }
+            LibraryLog.notice("Opening: no library in iCloud Drive or on this device, so onboarding")
+            endOpening()
             phase = .needsSetup
         } catch {
-            phase = .failed(Self.describe(error))
+            guard attempt == openingAttempt else { return }
+            fail(Self.describe(error))
         }
     }
 
     /// Opens the library at `location`, after the queued saves, stopping
-    /// work on the previous one. Edits are refused meanwhile. Without a
-    /// library there, ``phase`` becomes `.needsSetup`.
+    /// work on the previous one and any opening in progress. Edits are
+    /// refused meanwhile. A library in iCloud Drive is downloaded first; if
+    /// that means waiting for iCloud, ``phase`` is `.starting` meanwhile, so
+    /// the opening screen shows the progress. Without a library there,
+    /// ``phase`` becomes `.needsSetup`.
     func open(_ location: LibraryLocation) async {
+        await open(location, holdsLibrary: false)
+    }
+
+    /// Opens the library at `location`; `holdsLibrary`: the caller has just
+    /// found one there, so it isn't looked for again.
+    private func open(_ location: LibraryLocation, holdsLibrary: Bool) async {
+        let attempt = beginOpening()
         isRelocating = true
-        defer { isRelocating = false }
+        defer {
+            if attempt == openingAttempt {
+                isRelocating = false
+                endOpening()
+            }
+        }
+        LibraryLog.notice("Opening: the library in \(location.kind)")
         stopWatching()
         await ioTail?.value
+        guard attempt == openingAttempt else { return }
         let sync = LibrarySync(location: location)
         self.sync = sync
         self.location = location
@@ -198,13 +261,25 @@ final class LibraryStore {
         conflictFailures = []
         saveNotices = []
         lastError = nil
-        guard await location.containsLibrary() else {
-            phase = .needsSetup
-            return
+        if !holdsLibrary {
+            showOpening(.looking(location.kind), inICloud: location.isUbiquitous)
+            let found = await location.containsLibrary()
+            guard attempt == openingAttempt else { return }
+            guard found else {
+                LibraryLog.notice("Opening: no library in \(location.kind), so onboarding")
+                phase = .needsSetup
+                return
+            }
         }
+        guard await download(location, attempt: attempt) else { return }
+        showOpening(.reading, inICloud: location.isUbiquitous)
         activity = .loading
+        let started = ContinuousClock.now
         do {
             let (result, snapshot) = try await sync.loadWithSnapshot()
+            guard attempt == openingAttempt else { return }
+            LibraryLog.notice("Opening: read \(result.report.filesRead) files in \(LibraryLog.seconds(.now - started)), "
+                + "\(result.report.issues.count) issues\(result.report.isReadOnly ? ", read-only (a newer schema)" : "")")
             apply(result)
             diskSnapshot = snapshot
             activity = .idle
@@ -214,8 +289,9 @@ final class LibraryStore {
                 enqueue { _ = try? await sync.updateReadme() }
             }
         } catch {
+            guard attempt == openingAttempt else { return }
             activity = .idle
-            phase = .failed(Self.describe(error))
+            fail(Self.describe(error))
         }
     }
 
@@ -231,6 +307,17 @@ final class LibraryStore {
         preferences?.libraryLocation = kind
         await open(location)
         if case .failed(let message) = phase { throw LibraryStoreError.openFailed(message) }
+        // Overtaken (Try Again on the opening screen): that attempt opens it.
+        if phase == .starting { throw LibraryStoreError.busy }
+    }
+
+    /// "Keep Waiting" on the opening screen once it has stalled: asks iCloud
+    /// again for the files that haven't arrived, and waits another while
+    /// before saying it's still waiting.
+    func keepWaiting() {
+        LibraryLog.notice("Opening: keep waiting")
+        downloader?.requestAgain()
+        restartStallTimer()
     }
 
     /// Keeps the library on this device from now on, e.g. when iCloud Drive
@@ -416,6 +503,91 @@ final class LibraryStore {
                 return backup
             }
         }
+    }
+
+    // MARK: - Opening
+
+    /// Starts an attempt at opening a library and returns its number. The
+    /// attempt in progress, if any, is overtaken: its download stops, and
+    /// its results are dropped when they arrive.
+    private func beginOpening() -> Int {
+        openingAttempt += 1
+        endOpening()
+        isRelocating = false
+        if activity == .loading { activity = .idle }
+        restartStallTimer()
+        return openingAttempt
+    }
+
+    /// Stops what the current attempt is waiting on: the download and the
+    /// stall timer.
+    private func endOpening() {
+        downloader?.stop()
+        downloader = nil
+        stallCheck?.cancel()
+        stallCheck = nil
+        opening.isStalled = false
+    }
+
+    private func fail(_ message: String) {
+        LibraryLog.error("Opening failed: \(message)")
+        endOpening()
+        phase = .failed(message)
+    }
+
+    /// Shows a step on the opening screen. One that moved on (`advanced`)
+    /// clears "still waiting" and starts its timer again.
+    private func showOpening(_ step: LibraryOpening.Step, inICloud: Bool, advanced: Bool = true) {
+        opening.step = step
+        opening.isICloud = inICloud
+        if advanced { restartStallTimer() }
+    }
+
+    private func restartStallTimer() {
+        openingStall.noteProgress()
+        opening.isStalled = false
+        stallCheck?.cancel()
+        let deadline = openingStall.deadline
+        stallCheck = Task { [weak self] in
+            try? await Task.sleep(until: deadline, clock: .continuous)
+            guard !Task.isCancelled else { return }
+            self?.checkStall()
+        }
+    }
+
+    private func checkStall() {
+        guard openingStall.isStalled(), !opening.isStalled else { return }
+        opening.isStalled = true
+        LibraryLog.notice("Opening: nothing moved for \(LibraryLog.seconds(openingStall.threshold)) at "
+            + "“\(opening.title)”, so “\(opening.stalledTitle)”")
+    }
+
+    /// Downloads the library's files from iCloud Drive before they're read,
+    /// showing the progress. Returns `false` if the attempt was overtaken
+    /// meanwhile. A download that can't be followed (its stream ends early)
+    /// goes on to reading, which downloads what's missing itself.
+    private func download(_ location: LibraryLocation, attempt: Int) async -> Bool {
+        guard let downloader = makeDownloader(location) else { return true }
+        self.downloader = downloader
+        var latest: LibraryDownloadProgress?
+        for await progress in downloader.start() {
+            guard attempt == openingAttempt else { break }
+            if latest == nil, !progress.isComplete, phase != .starting {
+                // Waiting for iCloud: show the opening screen, also when
+                // onboarding found a library or a move needs one.
+                phase = .starting
+            }
+            showOpening(.downloading(progress), inICloud: true, advanced: progress.hasAdvanced(since: latest))
+            latest = progress
+            if progress.isComplete { break }
+        }
+        downloader.stop()
+        guard attempt == openingAttempt else { return false }
+        self.downloader = nil
+        if latest?.isComplete != true {
+            LibraryLog.notice("Opening: couldn't follow the download; reading downloads what's missing")
+        }
+        return true
     }
 
     // MARK: - Internals
