@@ -304,5 +304,44 @@
       "source": "docs/tax/IT.md, INPS pension, point 6 (no ruling found)",
       "verify": true
     }
+  },
+  "foreignPensions": {
+    "switzerland": {
+      "flatRate": "0.05",
+      "note": "AHV/AVS and BVG/LPP benefits (statutory and occupational pensions, annuities and lump sums, vested-benefits accounts included) received by a resident of Italy pay a 5% substitute tax instead of IRPEF: withheld by an Italian intermediary, or declared in the tax return since 2023. Pillar 3a benefits aren't covered: annuities are pension income in IRPEF, lump sums are taxed separately (as the TFR is). Whether a vested-benefits account always qualifies (contributions taxed at source in Switzerland) is verify.",
+      "source": "L. 413/1991 art. 76 c. 1, c. 1-bis (DL 50/2017 art. 55-quinquies) and c. 1-ter (L. 197/2022, Legge di Bilancio 2023); Agenzia delle Entrate, risposta 125/2024 (vested-benefits accounts, verify) and risposta 471/2020 (pillar 3a: TUIR art. 49 c. 2 lett. a, and art. 17 c. 1 lett. a for lump sums). Italy-Switzerland treaty (1976) art. 18"
+    },
+    "germany": {
+      "statutoryTaxableShare": {
+        "byStartYear": [
+          { "year": 2005, "share": "0.5" },
+          { "year": 2020, "share": "0.8" },
+          { "year": 2022, "share": "0.82" },
+          { "year": 2058, "share": "1" }
+        ],
+        "note": "When Italy taxes a German statutory pension (an Italian citizen's), it taxes only the part Germany would tax: the Besteuerungsanteil of the year the pension started, linear between these points (2 points a year to 2020, 1 to 2022, 0.5 from 2023), applied in that year; from the next year the exempt part is a fixed amount in euros, (1 - share) x the first full year's pension, certified by the Finanzamt Neubrandenburg.",
+        "source": "Italy-Germany treaty (1989), protocol no. 14 lett. e); mutual agreement of 15 and 17 November 2025 (one-time certificate, from 2025); EStG par. 22 Nr. 1 S. 3 a aa as amended by the Wachstumschancengesetz (2024)"
+      },
+      "note": "Who taxes a German pension paid to a resident of Italy: statutory (DRV) pensions only Germany for a German citizen who isn't Italian, otherwise Italy (art. 19(4)); occupational and private pensions Italy (art. 18, verify for Riester, Ruerup and bAV). Italy exempts what Germany taxes, without a progression clause.",
+      "source": "Italy-Germany treaty (1989) art. 18, 19(4) and 24(3); BFH I R 17/19 (17 August 2022)"
+    }
+  },
+  "nonResident": {
+    "addizionaleRegionale": {
+      "brackets": [
+        { "upTo": "28000", "rate": "0.0173" },
+        { "upTo": "50000", "rate": "0.0233" },
+        { "rate": "0.0333" }
+      ],
+      "note": "Lazio's 2026 rates by bracket: the addizionali of a pension paid by INPS to a non-resident are due where INPS has its seat (verify).",
+      "source": "Regione Lazio, addizionale regionale IRPEF 2026: https://www.regione.lazio.it/sites/default/files/2026-01/Addizionale-regionale-2026.pdf; Agenzia delle Entrate, risoluzione 261/E/2007 (the seat of the paying institution) (verify)"
+    },
+    "addizionaleComunale": {
+      "rate": "0.009",
+      "note": "Rome's rate, for the same reason (verify).",
+      "source": "Roma Capitale, addizionale comunale IRPEF 0.9% (2026); Agenzia delle Entrate, risoluzione 261/E/2007 (verify)"
+    },
+    "note": "IRPEF on Italian pensions paid to someone living abroad, when Italy taxes them: the brackets with the pension detrazione on Italian income only (non-residents keep the art. 13 detrazioni, not those for dependants), and the addizionali when IRPEF is due.",
+    "source": "TUIR art. 3 c. 1, art. 23 c. 2 lett. a and art. 24 c. 3; Agenzia delle Entrate, risposta 106/2026 (addizionali on pensions of non-residents taxed only in Italy) (verify)"
   }
 }

@@ -8,9 +8,9 @@ A private app for iPhone and Mac with two halves:
 
 1. **Tracker.** Once a month you check in and record what each account is worth. Cash accounts, pension funds, property and debts are recorded as a balance. For ETFs, crypto and gold you record the quantity, and the app multiplies it by the price. An investment account can instead record its trades (buys, sells, deposits, dividends), and its holdings, purchase cost and realised gains are worked out from them ([TRADES.md](TRADES.md)). Accounts are opened and closed over the years, and their history is kept either way.
 2. **Planner.** Scenarios that start from your latest check-in and simulate the years ahead, covering:
-   - work and savings, with taxes from a pluggable tax system (Italy first, including impatriati and forfettario);
+   - work and savings, with taxes from a pluggable tax system per country of residence (Italy first, with its regimes such as impatriati and forfettario; Switzerland and Germany designed; a generic flat-rate system for any other country);
    - spending in retirement;
-   - the INPS pension and any other pensions;
+   - public pensions projected from contributions (Italy's INPS first) and any other pensions, taxed by the country of residence or the paying country;
    - windfalls and large expenses.
 
    The result answers the question in the app's name: **can I retire yet, and if not, at what age, and how confident is that?**
@@ -34,7 +34,7 @@ All data lives in a folder of plain JSON files in iCloud Drive. The apps on your
 
 - Accounts: create, edit, close and reopen them. Closed accounts stay in the history.
 - Holdings: ETFs and stocks, crypto, and precious metals are recorded as quantity × price. Cash, pension funds, TFR, property and debts are recorded as a balance.
-- Multiple currencies, with EUR as the base currency. Every check-in stores the prices and FX rates it used.
+- Multiple currencies, with one base currency for the library (the euro in the example library); a plan can run in any currency. Every check-in stores the prices and FX rates it used.
 - Monthly check-in:
   - pre-filled from the previous check-in;
   - prices and FX rates fetched automatically where possible;
@@ -52,20 +52,20 @@ All data lives in a folder of plain JSON files in iCloud Drive. The apps on your
 
 - Scenarios ("plans"), one file each.
 - Working years:
-  - income as an employee or as a freelancer (forfettario or regime ordinario), with impatriati where it applies;
-  - a side-by-side comparison of forfettario and ordinario with impatriati, since the two can't be combined;
-  - INPS contributions;
+  - income as an employee or self-employed, under the regimes of the residence's tax system (in Italy: forfettario or regime ordinario, with impatriati where it applies);
+  - a side-by-side comparison of two regimes, e.g. forfettario against ordinario with impatriati, which can't be combined;
+  - social contributions and the pension credits they earn (INPS in Italy);
   - savings, calculated as net income minus spending.
 - Retirement years:
   - spending, optionally in phases;
-  - the INPS pension (a projection under the contributory system);
-  - foreign and other pensions;
+  - public pensions projected from contributions (INPS under the contributory system first);
+  - foreign and other pensions, taxed where the plan and the treaties say;
   - the pension fund and TFR;
   - windfalls and one-off expenses.
 - Pluggable taxes ([TAXES.md](TAXES.md)):
   - each plan picks a tax system per period of residence, a tax regime for each work phase, and special regimes such as impatriati;
   - the Italian system ([tax/IT.md](tax/IT.md)): IRPEF, forfettario, ordinario, impatriati, INPS, pension fund, TFR, 26% / 12.5% / 33% on investments, and the 0.2% wealth tax;
-  - a generic flat-rate system for rough plans, e.g. if you retired to another country.
+  - a generic flat-rate system for rough plans in a country that has no system yet.
 - A deterministic projection plus a Monte Carlo simulation, which produce:
   - the headline answer;
   - the earliest retirement age at your chosen confidence level;
@@ -96,7 +96,7 @@ These are listed as M3 and M4 in §6: investment performance, explaining the gap
 | History model | Point-in-time valuations (balances and quantities) by default. An investment account can opt in to trades (`"valuation": "trades"`): its holdings, average cost, cash and realised gains are worked out from buys, sells, deposits and the like, and its check-ins record only cash ([TRADES.md](TRADES.md)). | Valuations match the monthly workflow, and closing an account never touches its history. Trades give an exact purchase cost (*costo medio ponderato*), realised gains, dividends and exact flows for a broker account, which the Italian tax treatment of sales needs. Both styles work for a trades account: record every deposit, or type the cash at each check-in. |
 | Money | `Decimal` for every recorded amount, stored as strings in JSON. | No floating-point rounding errors in the tracker. |
 | Currencies | Each account has its own currency; the base currency is EUR. Each check-in stores the prices and FX rates it used. | Past net worth can always be recomputed, even if a price source goes away. |
-| Planner | Yearly steps in today's euros, deterministic plus Monte Carlo, with a seeded random-number generator. | This approach is standard and easy to explain. It is also fast enough to recompute live while you drag a slider. |
+| Planner | Yearly steps in today's money, in the plan's currency, deterministic plus Monte Carlo, with a seeded random-number generator. | This approach is standard and easy to explain. It is also fast enough to recompute live while you drag a slider. |
 | Taxes | The engine contains no tax rules. Tax systems (countries) and regimes (forfettario, impatriati, …) are plugins behind one interface, and plans choose them per period. Rates and thresholds live in yearly parameter files that cite their sources. | Tax law changes with every budget law, regimes come and go, and you might move. Each of these should be a new file or module, not a change to the engine. |
 | Code layout | A Swift package of platform-independent modules, plus a thin app target. | Most of the logic can be built and tested on Linux, in CI and in cloud sessions. Only the UI needs Xcode. |
 | Xcode project | Generated from `App/project.yml` with XcodeGen. | The project definition is readable text, there are no `.pbxproj` merge conflicts, and it can be edited without Xcode. |
@@ -197,7 +197,7 @@ On the Mac there are also tables for editing many valuations at once, keyboard n
 - **Crypto:** CoinGecko, or an exchange's public ticker. The symbol is the coin's CoinGecko ID or its ticker (`ETH`), which is resolved to an ID through a built-in table of well-known coins or CoinGecko's search. An optional demo API key, kept in the Keychain, raises its rate limit. CoinGecko's free API only has the last 365 days; older prices come from Yahoo Finance's crypto pairs (below).
 - **Gold and silver:** a free spot-price API (gold-api.com, USD per troy ounce, converted to the instrument's currency and unit), or the market price of a physical-gold ETC as a proxy. gold-api.com only has today's spot price, so past prices come from the metal's front-month futures on Yahoo Finance: `GC=F` for gold (`XAU`), `SI=F` for silver, `PL=F` for platinum and `PA=F` for palladium, all in USD per troy ounce and converted the same way. Futures trade within about 1% of spot, so these are an approximation; the price list says so ("Yahoo Finance · GC=F (history)"), and the instrument keeps `gold-api` as its price source.
 - **ETFs on European exchanges:** there's no reliable free official API. We'll start with Yahoo Finance's public chart endpoint. It's unofficial and can break, so providers are pluggable, and a paid one with your own key (EODHD, Twelve Data) can be added.
-- **Inflation:** Italy's HICP from Eurostat (`prc_hicp_minr`, all items, 2015 = 100), fetched with the FX rates for the months the library is missing.
+- **Inflation:** a consumer-price index, fetched with the FX rates for the months the library is missing. The first one supported is Italy's HICP from Eurostat (`hicp-it`: `prc_hicp_minr`, all items, 2015 = 100); others are added as providers.
 - **Dates:** each value is the latest on or before the check-in date and is recorded on that date. The price list shows the day it's from, e.g. Friday's close for a Sunday check-in.
 - Fetched prices are cached on the device. Only the prices used in a check-in are written to the library.
 - **Past prices.** An import, or history added by hand, can leave years of positions without a price for their dates: gold bought long ago stays at its purchase price in every month since. *Fill In Past Prices* (the Instruments screen, the import's last step, a note under a chart, `retire prices --fill-history`) finds every date the library values a position on without a price for that day (each valuation, and the month ends it's carried over to in months without one of its own), the FX rates those dates need, and the missing inflation months, and fetches them in as few requests as possible:
@@ -301,16 +301,16 @@ The importer works with any spreadsheet or export instead of a fixed layout. Det
 
 - Conflict merging, with the Sync screen. The schema guard. Clear errors for hand-edited files that don't parse.
 - A monthly reminder notification, Face ID lock, and CSV export.
-- Performance (time-weighted and money-weighted returns, nominal and real), the explanation of the gap to a baseline, and fetching Italy's inflation index.
+- Performance (time-weighted and money-weighted returns, nominal and real), the explanation of the gap to a baseline, and fetching an inflation index (Italy's first).
 - Widgets for net worth and years to go.
-- An RW/IVAFE helper that produces year-end values and holding periods for foreign accounts, for your tax return.
+- An RW/IVAFE helper that produces year-end values and holding periods for foreign accounts, for an Italian tax return.
 
 ### M4: Depth (pick by interest)
 
 - Historical and bootstrapped return sequences. Guardrail and variable withdrawal strategies.
 - Tracking actual income and spending, to measure your real savings rate.
 - Cost basis from transactions: done, as trades ([TRADES.md](TRADES.md)), with the app's screens, broker transaction CSVs and ledger journals importing into them ([IMPORT.md](IMPORT.md)). Still to do: PIR and other tax wrappers, lots (FIFO), carrying losses forward (minusvalenze).
-- Tax systems for other countries, e.g. one you might retire to. Until then, the `generic` system approximates them.
+- Tax systems for more countries (Switzerland and Germany are designed: [tax/CH.md](tax/CH.md), [tax/DE.md](tax/DE.md)). Until a country has one, the `generic` system approximates it.
 - Reading `.xlsx` and `.numbers` files directly.
 - Planning for a partner or household.
 
@@ -323,8 +323,8 @@ The importer works with any spreadsheet or export instead of a fixed layout. Det
 
 ## 8. Answers from the first review
 
-1. **Apple Developer Program:** you have a paid membership, so iCloud is fine.
+1. **Apple Developer Program:** a paid membership is assumed, so iCloud is fine.
 2. **Spreadsheet:** the importer maps any layout and format, and doesn't assume a particular spreadsheet ([IMPORT.md](IMPORT.md)).
-3. **Bollo and IVAFE:** the same 0.2%, so the planner treats them as one wealth tax. They differ only in who pays: Italian intermediaries withhold bollo, while for foreign accounts you pay IVAFE and declare the account in RW. Blacklisted countries pay 0.4%. The country only matters to the RW helper.
+3. **Bollo and IVAFE:** the same 0.2%, so the planner treats them as one wealth tax. They differ only in who pays: Italian intermediaries withhold bollo, while for foreign accounts the taxpayer pays IVAFE and declares the account in RW. Blacklisted countries pay 0.4%. The country only matters to the RW helper.
 4. **iOS 26 and macOS 26** are the minimum versions.
 5. **Taxes must be pluggable:** see [TAXES.md](TAXES.md).

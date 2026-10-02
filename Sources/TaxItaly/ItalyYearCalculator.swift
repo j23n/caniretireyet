@@ -25,6 +25,10 @@ struct ItalyYearCalculator {
     var issues: [TaxIssue] = []
     var fundContributions: Double = 0
     var arrivedWithForfettario: Int?
+    /// How each pension is taxed (see ``ItalyPensionTreatment``).
+    var pensionTreatments: [ItalyPensionTreatment] = []
+    /// German statutory pensions' exempt amounts fixed this year, by state key.
+    var germanExemptions: [String: Double] = [:]
 
     init(system: ItalyTaxSystem, year: FixedYear, state: TaxState, parameters: ItalyParameters) {
         self.system = system
@@ -46,7 +50,8 @@ struct ItalyYearCalculator {
             return ItalyPreparedYear(failed: TaxAssessment(issues: [issue], nextState: state))
         }
         let scale = ThresholdIndexing.scale(for: year, parameterYear: parameters.year)
-        var calculator = ItalyYearCalculator(system: system, year: year, state: state,
+        // Italy computes in euros: amounts in, results out (nothing changes at a rate of 1).
+        var calculator = ItalyYearCalculator(system: system, year: year.inEuros(), state: state,
                                              parameters: unscaled.scaled(by: scale))
         calculator.computeWork()
         calculator.applyOverlays()
@@ -54,12 +59,14 @@ struct ItalyYearCalculator {
         return calculator.preparedYear()
     }
 
-    /// Stage 7 and 10, and the assessment of the year without market activity.
+    /// Stage 7 and 10, and the assessment of the year without market
+    /// activity, with its amounts back in the plan's currency.
     private func preparedYear() -> ItalyPreparedYear {
+        let rate = year.euroRate
         var lines: [TaxLine] = []
         func add(_ id: String, _ label: String, _ amount: Double, base: Double? = nil, subject: String? = nil) {
             guard abs(amount) > 1e-9 else { return }
-            lines.append(TaxLine(id: id, label: label, amount: amount, base: base, subject: subject))
+            lines.append(TaxLine(id: id, label: label, amount: amount, base: base, subject: subject).fromEuros(rate))
         }
         add("it.irpef", "IRPEF", irpef.netIrpef, base: irpef.taxableIncome)
         add("it.addizionaleRegionale", "Addizionale regionale", irpef.regionalSurcharge, base: irpef.taxableIncome)
@@ -70,6 +77,9 @@ struct ItalyYearCalculator {
         for result in work where result.regime == ItalyRegime.forfettario {
             add("it.forfettario", "Imposta sostitutiva (forfettario \(percent(result.forfettarioRate)))",
                 result.forfettarioTax, base: result.forfettarioTaxable, subject: result.phaseID)
+        }
+        for line in foreignPensionLines() {
+            add(line.id, line.label, line.amount, base: line.base, subject: line.subject)
         }
         var issues = self.issues
         for windfall in year.windfalls {
@@ -83,15 +93,17 @@ struct ItalyYearCalculator {
         for result in work {
             if result.pensionCredit > 0 {
                 accruals.append(Accrual(target: .pensionScheme(INPSPensionScheme.schemeID), amount: result.pensionCredit,
-                                        contributionMonths: result.contributionMonths, source: result.phaseID))
+                                        contributionMonths: result.contributionMonths, source: result.phaseID)
+                    .fromEuros(rate))
             }
             if result.tfrAccrual > 0, let target = result.tfrTarget {
-                accruals.append(Accrual(target: .wrapper(target), amount: result.tfrAccrual, source: result.phaseID))
+                accruals.append(Accrual(target: .wrapper(target), amount: result.tfrAccrual, source: result.phaseID)
+                    .fromEuros(rate))
             }
         }
 
-        let fixed = TaxAssessment(lines: lines, contributions: work.compactMap(\.contribution), accruals: accruals,
-                                  issues: issues, nextState: nextState())
+        let fixed = TaxAssessment(lines: lines, contributions: work.compactMap { $0.contribution?.fromEuros(rate) },
+                                  accruals: accruals, issues: issues, nextState: nextState())
         return ItalyPreparedYear(fixed: fixed, context: assessContext())
     }
 
@@ -105,6 +117,9 @@ struct ItalyYearCalculator {
         next[ItalyStateKey.priorPensionIncome] = irpef.pensionIncome
         if let arrivedWithForfettario {
             next[ItalyStateKey.forfettarioOnArrival] = Double(arrivedWithForfettario)
+        }
+        for (key, exemption) in germanExemptions {
+            next[key] = exemption
         }
         let tfrToFund = work.filter { $0.tfrTarget == ItalyWrapper.pensionFund }.reduce(0) { $0 + $1.tfrAccrual }
         if fundContributions > 0 || tfrToFund > 0 {
@@ -128,13 +143,12 @@ struct ItalyYearCalculator {
         let tfrInFund = state[ItalyStateKey.fundTFR] ?? 0
         let paidIn = deducted + nonDeducted + tfrInFund
         let taxedShare = paidIn > 0 ? (deducted + tfrInFund) / paidIn : 1
-        let tfrIncome = state[ItalyStateKey.tfrTaxableIncome] ?? 0
-        let tfrRate = tfrIncome > 0 ? (state[ItalyStateKey.tfrIrpef] ?? 0) / tfrIncome : p.tfr.payoutFallbackRate
+        let tfrRate = separateTaxationRate
         return ItalyPreparedYear.Context(
             year: year.year, age: year.age, parameters: p, marginalIncomeRate: irpef.marginalRate,
             fundTaxedContributionShare: taxedShare,
             fundMembershipYears: Int(state[ItalyStateKey.fundYears] ?? 0),
-            tfrRate: tfrRate)
+            tfrRate: tfrRate, currencyRate: year.euroRate)
     }
 
     /// Stage 7: inheritance tax on a windfall of kind `inheritance` or

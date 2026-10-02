@@ -1,0 +1,42 @@
+{
+  "name": "A German state pension when the citizenship isn't known: Italy taxes it, and warns",
+  "year": 2026,
+  "input": {
+    "age": 67,
+    "systemOptions": {
+      "addizionaleRegionale": "0.0173",
+      "addizionaleComunale": "0.008"
+    },
+    "pensions": [
+      {
+        "id": "drv",
+        "scheme": "fixed",
+        "amount": 15000.0,
+        "sourceCountry": "DE",
+        "startYear": 2026
+      }
+    ]
+  },
+  "expected": {
+    "issues": [
+      "it.treaty.citizenship"
+    ],
+    "lines": {
+      "it.irpef": 1206.87,
+      "it.addizionaleRegionale": 217.98,
+      "it.addizionaleComunale": 100.8
+    },
+    "totalTax": 1525.65,
+    "netIncome": 13474.35
+  },
+  "workings": [
+    "No kind: taxed as a statutory pension. No citizenship: the residence rule applies, so Italy taxes it, with a warning",
+    "Taxable: 84% × 15,000.00 = 12,600.00",
+    "Total income R = taxable income = the taxable part of the DRV pension = 12,600.00",
+    "Gross IRPEF: 23% × 12,600.00 = 2,898.00",
+    "Pension detrazione: 700 + 1,255 × (28,000 − 12,600.00) / 19,500 = 1,691.13",
+    "Net IRPEF: max(0, 2,898.00 − 1,691.13) = 1,206.87",
+    "Addizionale regionale: 1.73% × 12,600.00 = 217.98; comunale: 0.8% × 12,600.00 = 100.80",
+    "Total tax: 1,525.65"
+  ]
+}

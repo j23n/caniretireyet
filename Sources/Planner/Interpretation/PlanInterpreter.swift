@@ -158,6 +158,16 @@ enum PlanInterpreter {
                 pensions[index].currencyRate = rates.rate(for: owner, issues: &issues)
             }
         }
+        // The paying countries' systems, for pensions taxed at source (G8).
+        var nonResident: [NonResidentSystem] = []
+        for pension in pensions where pension.taxedIn == .source {
+            guard let country = pension.sourceCountry, !nonResident.contains(where: { $0.country == country }),
+                  let system = registry.system(forCountry: country) else { continue }
+            nonResident.append(NonResidentSystem(
+                system: system, country: country,
+                parameters: OverriddenParameterStore(base: system.parameters, overrides: overrides),
+                currencyRate: rates.rate(for: system, issues: &issues)))
+        }
 
         // The starting portfolio. Accounts that hold a pension scheme's record
         // (its seed wrapper) start the scheme instead of being a bucket.
@@ -293,7 +303,7 @@ enum PlanInterpreter {
         let model = PlanModel(
             plan: plan, registry: registry, currency: currency, birthDate: birthDate, citizenships: citizenships,
             residence: timeline, startDate: startDate, currentAge: currentAge,
-            endAge: endAge, planAge: planAge, frames: frames, systems: systems,
+            endAge: endAge, planAge: planAge, frames: frames, systems: systems, nonResidentSystems: nonResident,
             oldAgePensionAges: oldAgePensionAges.map { $0?.years },
             oldAgePensionAgesInMonths: oldAgePensionAges.map { $0?.months }, overlays: overlays,
             indexThresholds: plan.tax.effectiveIndexThresholds, inflation: inflation, work: work, spending: spending,
@@ -378,9 +388,14 @@ enum PlanInterpreter {
         for (index, pension) in pensions.enumerated() {
             let id = "pension-\(index)"
             let taxedIn: FixedYear.TaxedIn = pension.effectiveTaxedIn == .source ? .source : .residence
-            let sourceCountry = pension.sourceCountry?.rawValue.uppercased()
             let planKind = pension.kind.map { PensionKind(rawValue: $0.rawValue) }
-            if taxedIn == .source {
+            let schemeOwner = registry.systems.first { $0.pensionScheme(pension.scheme.rawValue) != nil }
+            // The paying country: the plan's, else the country of the system whose scheme it is.
+            let sourceCountry = pension.sourceCountry?.rawValue.uppercased()
+                ?? (pension.scheme.rawValue == FixedPensionScheme.schemeID ? nil : schemeOwner?.country?.uppercased())
+            // A pension taxed by a country the plan has a system for is taxed by
+            // it (TaxSystem.prepareNonResident); otherwise it's left untaxed.
+            if taxedIn == .source, sourceCountry.flatMap({ registry.system(forCountry: $0) }) == nil {
                 issues.append(.warning("planner.taxedAtSource",
                                        "\(pension.name ?? pension.scheme.rawValue) is taxed by the paying country, which "
                                            + "the plan doesn't compute; enter it after that tax.",
@@ -410,9 +425,7 @@ enum PlanInterpreter {
                     ownerID: owner?.id))
                 continue
             }
-            guard let owner = registry.systems.first(where: { $0.pensionScheme(pension.scheme.rawValue) != nil }),
-                  let scheme = owner.pensionScheme(pension.scheme.rawValue)
-            else {
+            guard let owner = schemeOwner, let scheme = owner.pensionScheme(pension.scheme.rawValue) else {
                 issues.append(.error("planner.unknownScheme", "There is no pension scheme \"\(pension.scheme)\".",
                                      section: .pensions, index: index))
                 continue

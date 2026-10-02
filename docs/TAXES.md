@@ -23,6 +23,8 @@ There are three levels of change, from most to least frequent:
 
 ## Choosing them in a plan
 
+For example, a made-up plan for someone employed and then self-employed in Italy, who moves in 2048 to a country without a system of its own:
+
 ```json
 "tax": {
   "residence": [
@@ -89,6 +91,7 @@ public protocol TaxSystem: Sendable {
     var pensionSchemes: [any PensionScheme] { get }     // e.g. INPS
     var parameters: any ParameterStore { get }          // the bundled yearly parameter files
     var currency: String? { get }                       // e.g. "CHF"; nil (the default) for the plan's
+    var country: String? { get }                        // e.g. "IT"; nil (the default) for none, as `generic`
 
     func defaultRegime(for kind: EarnedIncomeKind) -> String?
 
@@ -97,6 +100,10 @@ public protocol TaxSystem: Sendable {
 
     /// Stage 1: once per plan year, for everything that doesn't depend on markets.
     func prepare(_ year: FixedYear, state: TaxState, parameters: ParameterSet) -> any PreparedTaxYear
+
+    /// The paying country's tax on its pensions to someone living elsewhere
+    /// (`taxedIn: source`); nil (the default) when the system doesn't compute it.
+    func prepareNonResident(_ year: FixedYear, state: TaxState, parameters: ParameterSet) -> (any PreparedTaxYear)?
 }
 
 public protocol PreparedTaxYear: Sendable {
@@ -146,7 +153,7 @@ The simulation works in `Double`; the tracker uses `Decimal`. Tax amounts in the
 
 ## What a system can tell the planner, and what it's told
 
-Italy needed only the interface above. Other countries need more, and TaxKit has it, all optional, so a system that doesn't use something needs no code for it. The code documents each piece; in short:
+Italy began with the interface above, and now also uses its currency (`EUR`), its country (`IT`), the person's citizenships and the pensions' kinds and countries. Other countries need more, and TaxKit has it, all optional, so a system that doesn't use something needs no code for it. The code documents each piece; in short:
 
 **Currency.** Everything that crosses TaxKit is in the plan's currency, in today's money: the plan's `currency`, by default the library's base currency. A system that computes in another one says so in `TaxSystem.currency` (`"CHF"`), and its parameter files are in that currency. The planner then passes the rate, units of the system's currency per unit of the plan's, taken from the library's FX records on the plan's start date and held constant in real terms: `FixedYear.currencyRate` (with `inSystemCurrency(_:)` and `inPlanCurrency(_:)`), `ClaimContext.currencyRate`, and the `currencyRate` of the `PensionScheme` overloads `startingRecord(options:year:parameters:currencyRate:)` and `accrue(_:in:to:options:parameters:currencyRate:)`, which a scheme with its own currency implements (the defaults call the plain ones). The system converts inside: amounts in, through its rules, and lines, accruals and claim options back out. A scheme's record (`PensionRecord`) may stay in the system's currency; the planner doesn't read it. Without a rate in the library the planner warns and uses the latest one recorded, or 1. Inflation is the plan's for every currency.
 
@@ -164,13 +171,16 @@ Italy needed only the interface above. Other countries need more, and TaxKit has
 
 **Fund income and cost basis.** With `incomeYield` set for an asset class in the plan's assumptions, every holding reports that share of its value each year as capital income of kind `.reportedIncome`, by wrapper and category: income the fund earned and reinvested, part of the return. Systems that tax income only when it's paid out (Italy, `generic`) skip that kind; a system that taxes capital income generically must too. Each year-end `Balance` also carries `startValue` (its value before the year's returns, in the same today's money) and `nominalReturn`, so the nominal rise was `startValue × nominalReturn`. A system that taxes income without a sale (Germany's Vorabpauschale, or reported income) can return `TaxAssessment.costBasisAdjustments` from `assess`: the planner adds each amount to the purchase cost of the wrapper's lots in that category, so a later sale's gain is smaller by it.
 
+**Tax in the paying country.** A pension with `taxedIn: source` is taxed by the country that pays it while the person lives elsewhere (for example a state pension that a treaty leaves to the paying country by the person's citizenship). A system says which country's law it is, `TaxSystem.country` (`"IT"`; `nil` for `generic`), and can compute what that country charges a non-resident on the pensions it pays: `prepareNonResident(_:state:parameters:)`, `nil` by default for none. The planner finds the paying system by the pension's `sourceCountry` (the plan's, else the country of the system whose scheme it is, so an `it.inps` pension is paid from `IT`; `TaxRegistry.system(forCountry:)`). In each year the person lives elsewhere, it calls that system with those pensions only, the system's own currency rate, the options of the plan's latest residence period in that system (or none), and the running tax state. Only the fixed assessment is used: its lines and contributions join the year's, labelled with the paying system's name ("Italy: IRPEF (non-resident)"), its issues join the plan's, and what it changes in the state is kept for later years. The residence system still gets the pensions, so it can apply a progression clause, each with the tax charged on it as `FixedYear.Pension.sourceTax` (from `TaxAssessment.taxByPension`: the lines whose subject is the pension's ID, the rest shared by amount), which it credits where a treaty lets both countries tax. In a year the paying country is the residence's, the pension goes to the residence system with `taxedIn: residence`. Without a paying system, or with one that returns `nil`, the pension stays untaxed as before, with a warning (`planner.taxedAtSource`). The FI number counts the paying country's tax too.
+
+To join, a system sets `country` and implements `prepareNonResident` for the pensions its law taxes when paid abroad, applying its treaties (a pension a treaty leaves to the residence country gets no tax, with a warning that `taxedIn` should be `residence`). Italy does it for INPS and other Italian pensions ([tax/IT.md](tax/IT.md#pensions-paid-abroad)). As a residence system, a module that knows a treaty can tax a pension the treaty gives it whatever `taxedIn` says (crediting `sourceTax`), as Italy does for Swiss and German pensions; otherwise it follows `taxedIn`.
+
 **Values indexed by law.** See [Parameters](#parameters).
 
 **Later**, when a system needs them (each would be additive):
 
 - *Expected wealth in `prepare`* (CH gap 6): Swiss AHV contributions without work depend on year-end wealth, known only in `assess`; until then the system credits the year in `prepare` with the minimum contribution's income. A `FixedYear.expectedWealth` from a first deterministic pass would let `prepare` estimate it.
 - *Wealth outside the plan* (CH gap 7): the home and its mortgage, for wealth tax and AHV; system options until then.
-- *Tax in the paying country* (DE G8): `prepareNonResident` for pensions with `taxedIn: source`.
 - *State along a path* (DE G4): loss carry-forwards, health contributions spread over years.
 - *Holding period of a sale* (DE G6), *leaving a country* (exit tax, DE G7), *payout forms a wrapper allows* (annuity only, 30% as a lump sum: DE G9), *access once a public pension has started* (DE G10), and *employer contributions* for the results (DE G12).
 - *Foreign withholding* on capital income (`CapitalIncome.country`, CH gap 11), and a shared *separate-income-rate* block for capital-benefit and one-fifth tariffs (CH gap 12).
@@ -241,7 +251,7 @@ Issues are either *errors*, which block the run (e.g. an unknown regime ID), or 
 ## Changing residence
 
 - **Switching systems.** From the year in the timeline, a different system assesses everything.
-- **Pensions.** Pensions already earned keep paying (INPS pays abroad). Each pension's `taxedIn` decides which system taxes it: the country of residence or the paying country.
+- **Pensions.** Pensions already earned keep paying (INPS pays abroad). Each pension's `taxedIn` decides which system taxes it: the country of residence or the paying country, whose system computes it when one is registered (see [Tax in the paying country](#what-a-system-can-tell-the-planner-and-whats-told)). A residence system that knows the treaty with the paying country may check `taxedIn` against it and warn.
 - **Wrappers.** A wrapper the new system doesn't know, e.g. an Italian pension fund while living in Portugal, is treated by its generic category (taxable, tax-deferred or tax-free), with a warning. A system can also declare how it treats specific foreign wrappers.
 
 ## Systems and regimes
@@ -260,7 +270,7 @@ Issues are either *errors*, which block the run (e.g. an unknown regime ID), or 
 A new country:
 
 1. Create a `TaxXX` module that depends on `TaxKit`, containing its parameters struct and `Resources/xx/<year>.json` with sources. (`TaxSwitzerland` and `TaxGermany` exist already, with their test targets and `cases` folders, and the CLI depends on them.)
-2. Implement `TaxSystem`: its stages, regimes, wrappers and pension schemes.
+2. Implement `TaxSystem`: its stages, regimes, wrappers and pension schemes. Set `country` (ISO code, e.g. `"CH"`, `"DE"`), and, for the tax the country charges on pensions it pays abroad, `prepareNonResident`.
 3. Add reference cases (below).
 4. Register it in the app's and CLI's `TaxRegistry`. That's a one-line change, and the system then appears in the plan editor.
 

@@ -1,0 +1,50 @@
+{
+  "name": "A German state pension of a German citizen is taxed only in Germany, without progression in Italy",
+  "year": 2026,
+  "input": {
+    "age": 69,
+    "systemOptions": {
+      "addizionaleRegionale": "0.0173",
+      "addizionaleComunale": "0.008"
+    },
+    "citizenships": [
+      "DE"
+    ],
+    "pensions": [
+      {
+        "id": "inps",
+        "scheme": "it.inps",
+        "amount": 20000.0
+      },
+      {
+        "id": "drv",
+        "scheme": "fixed",
+        "amount": 15000.0,
+        "kind": "statutory",
+        "sourceCountry": "DE",
+        "taxedIn": "source",
+        "sourceTax": 1200.0,
+        "startYear": 2024
+      }
+    ]
+  },
+  "expected": {
+    "lines": {
+      "it.irpef": 3385.13,
+      "it.addizionaleRegionale": 346.0,
+      "it.addizionaleComunale": 160.0
+    },
+    "totalTax": 3891.13,
+    "netIncome": 31108.87
+  },
+  "workings": [
+    "Treaty art. 19(4): a German citizen who isn't Italian is taxed on the DRV pension only in Germany; the plan says taxedIn source",
+    "Italy exempts it and doesn't count it anywhere (no progression clause); the German tax isn't credited",
+    "Total income R = taxable income = the INPS pension alone = 20,000.00",
+    "Gross IRPEF: 23% × 20,000.00 = 4,600.00",
+    "Pension detrazione: 700 + 1,255 × (28,000 − 20,000.00) / 19,500 = 1,214.87",
+    "Net IRPEF: max(0, 4,600.00 − 1,214.87) = 3,385.13",
+    "Addizionale regionale: 1.73% × 20,000.00 = 346.00; comunale: 0.8% × 20,000.00 = 160.00",
+    "Total tax in Italy: 3,891.13"
+  ]
+}

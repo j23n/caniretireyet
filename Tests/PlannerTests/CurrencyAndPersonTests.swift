@@ -1,6 +1,7 @@
 import Foundation
 import Model
 @testable import Planner
+import TaxItaly
 import TaxKit
 import Testing
 
@@ -102,6 +103,32 @@ struct CurrencyAndPersonTests {
         plan.currency = nil
         let inEuros = try await Sample.run(plan, library)
         #expect(inEuros.currency == .eur && inEuros.start.planAssets == d("110000"))
+    }
+
+    @Test func italyTaxesAPlanInFrancsInEuros() async throws {
+        // Born 1960, living in Italy on a pension of CHF 20,000; 1 EUR = 0.95 CHF.
+        var library = Sample.library(birth: "1960-01-01", on: "2025-12-31",
+                                     [SampleAccount(id: "broker", wrapper: "it.ordinary", balance: 100_000)])
+        library.upsert(FXRecord(base: .eur, quote: .chf, date: "2025-12-31", rate: d("0.95")))
+        var plan = Sample.plan(retire: .age(60), endAge: 68, retired: "20000", equityReturn: "0", runs: 10)
+        plan.currency = .chf
+        plan.tax.residence = [PlanResidence(from: 2020, system: "it")]
+        plan.pensions = [PlanPension(scheme: "fixed", name: "Pension", fromAge: 60, perYear: 20_000)]
+        let italy = ItalyTaxSystem()
+        let result = try await Planner.run(plan: plan, library: library, registry: TaxRegistry([italy]),
+                                           options: PlannerOptions(maxRetirementAge: 62, solveSustainableSpending: false))
+        #expect(!result.issues.contains { $0.code.contains("xchange") })
+
+        // Italy sees €21,052.63 and taxes it in euros; the plan shows the tax in francs.
+        let inEuros = italy.prepare(FixedYear(year: 2026, age: 66, pensions: [
+            .init(id: "pension-0", scheme: "fixed", amount: 20_000 / 0.95),
+        ]), state: .empty, parameters: try italy.parameters.parameters(for: 2026)).fixedAssessment
+        let taxes = try #require(result.expectedPath.years.first { $0.year == 2026 }?.taxes)
+        for id in ["it.irpef", "it.addizionaleRegionale", "it.addizionaleComunale"] {
+            let euros = inEuros.lines.filter { $0.id == id }.reduce(0) { $0 + $1.amount }
+            #expect(euros > 0)
+            #expect(close(taxes.first { $0.id == id }?.amount, euros * 0.95), "\(id)")
+        }
     }
 
     @Test func theSystemsSeeThePersonAndTheResidenceTimeline() throws {

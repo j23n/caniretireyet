@@ -16,11 +16,30 @@ import TaxKit
 ///   scheme `flat.fund` with lump-sum claim options, buy-ins and a seed
 ///   wrapper; and a `flat.pillar` wrapper that must pay out or spreads its
 ///   payouts.
+/// - Optionally, a country, and a tax on pensions it pays to non-residents
+///   (G8): `nonResidentRate` on what's above `nonResidentAllowance` (in its
+///   own currency), plus `nonResidentFee` shared by the pensions; and as the
+///   residence, it can tax pensions taxed at source too, crediting the
+///   paying country's tax (`taxesSourcePensionsWithCredit`).
 struct FlatTaxSystem: TaxSystem {
     var id = "flat"
     var name = "Flat"
     /// The system's own currency, if any.
     var currency: String?
+    /// The system's country, if any.
+    var country: String?
+    /// Pensions paid to non-residents are taxed at this rate; `nil`: not at all.
+    var nonResidentRate: Double?
+    /// Each pension's yearly amount up to this much, in the system's
+    /// currency, isn't taxed for non-residents.
+    var nonResidentAllowance = 0.0
+    /// A fixed yearly amount charged to non-residents, with no subject.
+    var nonResidentFee = 0.0
+    /// A contribution rate on pensions paid to non-residents.
+    var nonResidentContributionRate = 0.0
+    /// As the residence, pensions taxed at source are taxed at the income
+    /// rate too, less what the paying country charged.
+    var taxesSourcePensionsWithCredit = false
     /// Work income up to this much, in the system's currency, isn't taxed.
     var incomeAllowance = 0.0
     var incomeRate = 0.0
@@ -176,6 +195,15 @@ struct FlatTaxSystem: TaxSystem {
                                               source: work.phaseID))
             }
         }
+        for pension in year.pensions where pension.taxedIn == .source && taxesSourcePensionsWithCredit {
+            let tax = pension.amount * incomeRate
+            fixed.lines.append(TaxLine(id: "flat.income", label: "Income tax", amount: tax, base: pension.amount,
+                                       subject: pension.id))
+            if let paid = pension.sourceTax, paid > 0 {
+                fixed.lines.append(TaxLine(id: "flat.foreignCredit", label: "Credit for tax paid abroad",
+                                           amount: -min(paid, tax), subject: pension.id))
+            }
+        }
         for pension in year.pensions where pension.taxedIn == .residence {
             if pension.form == .lumpSum, let lumpSumRate {
                 fixed.lines.append(TaxLine(id: "flat.lumpSum", label: "Lump-sum tax", amount: pension.amount * lumpSumRate,
@@ -197,6 +225,32 @@ struct FlatTaxSystem: TaxSystem {
         }
         var next = state
         next["flat.years"] = (state["flat.years"] ?? 0) + 1
+        fixed.nextState = next
+        return FlatPreparedYear(system: self, fixed: fixed)
+    }
+
+    func prepareNonResident(_ year: FixedYear, state: TaxState, parameters: ParameterSet) -> (any PreparedTaxYear)? {
+        guard let nonResidentRate else { return nil }
+        var fixed = TaxAssessment()
+        for pension in year.pensions {
+            let taxable = year.inPlanCurrency(max(0, year.inSystemCurrency(pension.amount) - nonResidentAllowance))
+            fixed.lines.append(TaxLine(id: "\(id).nonResident", label: "Non-resident tax",
+                                       amount: taxable * nonResidentRate, base: taxable, subject: pension.id))
+            if nonResidentContributionRate > 0 {
+                fixed.contributions.append(TaxLine(id: "\(id).nonResidentHealth", label: "Health contributions",
+                                                   amount: pension.amount * nonResidentContributionRate,
+                                                   base: pension.amount, subject: pension.id))
+            }
+        }
+        if nonResidentFee > 0 {
+            fixed.lines.append(TaxLine(id: "\(id).nonResidentFee", label: "Non-resident fee",
+                                       amount: year.inPlanCurrency(nonResidentFee)))
+        }
+        if year.residenceSystem(in: year.year) == id {
+            fixed.issues.append(.warning("flat.nonResidentAtHome", "Asked about a resident.", year: year.year))
+        }
+        var next = state
+        next["\(id).nonResidentYears"] = (state["\(id).nonResidentYears"] ?? 0) + 1
         fixed.nextState = next
         return FlatPreparedYear(system: self, fixed: fixed)
     }

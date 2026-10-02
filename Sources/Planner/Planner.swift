@@ -260,15 +260,18 @@ public enum Planner {
             }
             let system = model.systems[frame.system].system
             let overlays = model.overlays.filter { system.regime($0.regime) != nil }
+            let state = schedule.years[t].taxState
             func taxes(_ pensions: [FixedYear.Pension]) -> Double {
+                // The paying countries' tax on pensions taxed at source counts too.
+                let foreign = NonResidentTaxes(model: model, frame: frame, pensions: pensions, state: state)
                 let year = FixedYear(year: frame.year, age: frame.age, systemOptions: frame.systemOptions,
-                                     overlays: overlays, pensions: pensions, inflationFactor: frame.inflationFactor,
+                                     overlays: overlays, pensions: foreign.pensions,
+                                     inflationFactor: frame.inflationFactor,
                                      indexThresholds: model.indexThresholds, currencyRate: frame.currencyRate,
                                      citizenships: model.citizenships, birthDate: model.birthDate.birthDate,
                                      residence: model.residence)
-                let assessment = system.prepare(year, state: schedule.years[t].taxState, parameters: frame.parameters)
-                    .fixedAssessment
-                return assessment.totalTax + assessment.totalContributions
+                let assessment = system.prepare(year, state: state, parameters: frame.parameters).fixedAssessment
+                return assessment.totalTax + assessment.totalContributions + foreign.total
             }
             pensions = paid.reduce(0) { $0 + $1.amount } - (taxes(paid) - taxes([]))
         }
