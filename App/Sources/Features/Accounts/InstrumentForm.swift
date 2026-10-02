@@ -19,7 +19,14 @@ struct InstrumentForm: Hashable, Sendable {
     /// `nil`: prices are typed in by hand.
     var provider: PriceProvider?
     var symbol: String
-    /// The instrument being edited, whose other fields (tax) are kept.
+    /// What kind of fund an ETF or fund is for tax purposes
+    /// (`tax.fundType`); `nil` lets the planner work it out from the asset
+    /// mix (``automaticFundType(locale:)``).
+    var fundType: FundType?
+    /// Whether an ETC gives a right to delivery of the metal (`tax.deliveryClaim`).
+    var deliveryClaim: Bool
+    /// The instrument being edited, whose other fields (its other tax
+    /// overrides) are kept.
     private(set) var original: Instrument?
 
     /// A new ETF in `currency`, priced from Yahoo Finance.
@@ -33,6 +40,8 @@ struct InstrumentForm: Hashable, Sendable {
         assetMix = AccountsAssetMixForm(.single(.equity))
         provider = .yahoo
         symbol = ""
+        fundType = nil
+        deliveryClaim = false
         original = nil
     }
 
@@ -46,7 +55,71 @@ struct InstrumentForm: Hashable, Sendable {
         assetMix = AccountsAssetMixForm(instrument.assetClasses, locale: locale)
         provider = instrument.priceSource?.provider
         symbol = instrument.priceSource?.symbol ?? ""
+        fundType = instrument.tax?.fundType
+        deliveryClaim = instrument.tax?.deliveryClaim ?? false
         original = instrument
+    }
+
+    // MARK: Taxes
+
+    /// Whether the kind is a fund (an ETF or a fund), which has a fund type.
+    var takesFundType: Bool { kind == .etf || kind == .fund }
+
+    /// Whether the kind can have a delivery claim (an ETC).
+    var takesDeliveryClaim: Bool { kind == .etc }
+
+    /// The fund type the planner works out from the asset mix as typed, or
+    /// `nil` while it can't be read.
+    func automaticFundType(locale: Locale = .current) -> FundType? {
+        assetMix.mix(locale: locale).map(Self.automaticFundType(for:))
+    }
+
+    /// The fund type of a fund with `mix`, as the planner works it out when
+    /// the instrument doesn't say (PLANNER.md, "Portfolio"): more than half
+    /// in equity is an equity fund, more than half in real estate a
+    /// real-estate fund, at least a quarter in equity a mixed fund, and
+    /// anything else another fund.
+    static func automaticFundType(for mix: AssetMix) -> FundType {
+        let positive = mix.shares.filter { $0.value > 0 }
+        let total = positive.values.reduce(Decimal(0), +)
+        guard total > 0 else { return .other }
+        let equity = (positive[.equity] ?? 0) / total
+        if equity > Decimal(string: "0.5")! { return .equity }
+        if (positive[.realEstate] ?? 0) / total > Decimal(string: "0.5")! { return .realEstate }
+        if equity >= Decimal(string: "0.25")! { return .mixed }
+        return .other
+    }
+
+    /// The fund-type picker's choices: automatic (`nil`), then each type.
+    static let fundTypes: [FundType] = FundType.knownValues
+
+    /// "Equity fund", "Mixed fund", …
+    static func name(of fundType: FundType) -> String {
+        switch fundType {
+        case .equity: "Equity fund"
+        case .mixed: "Mixed fund"
+        case .realEstate: "Real-estate fund"
+        case .foreignRealEstate: "Foreign real-estate fund"
+        case .other: "Other fund"
+        default: fundType.rawValue
+        }
+    }
+
+    /// The automatic choice's label: "Automatic (equity fund)", or
+    /// "Automatic" while the asset mix can't be read.
+    func automaticFundTypeTitle(locale: Locale = .current) -> String {
+        guard let automatic = automaticFundType(locale: locale) else { return "Automatic" }
+        return "Automatic (\(PlanResultsText.lowercasedFirst(Self.name(of: automatic))))"
+    }
+
+    /// The instrument's tax overrides with the form's fund type and
+    /// delivery claim (each only for the kinds it applies to), keeping the
+    /// others; `nil` when there's none left.
+    func tax(keeping original: InstrumentTax?) -> InstrumentTax? {
+        var tax = original ?? InstrumentTax()
+        tax.fundType = takesFundType ? fundType : nil
+        tax.deliveryClaim = takesDeliveryClaim && deliveryClaim ? true : nil
+        return tax == InstrumentTax() ? nil : tax
     }
 
     var isNew: Bool { original == nil }
@@ -198,6 +271,7 @@ struct InstrumentForm: Hashable, Sendable {
         } else {
             instrument.priceSource = nil
         }
+        instrument.tax = tax(keeping: original?.tax)
         return instrument
     }
 
