@@ -29,10 +29,12 @@ swift run retire --help                 # the CLI
 | `TaxKit` | Tax plugin interfaces: `TaxSystem`, `PreparedTaxYear`, parameters, `TaxRegistry`. **Shared contract.** | — |
 | `TaxGeneric` | The `generic` flat-rate tax system | TaxKit |
 | `TaxItaly` | The Italian tax system (`it`), with `Resources/it/<year>.json` | TaxKit |
+| `TaxSwitzerland` | The Swiss tax system (`ch`), with `Resources/ch/<year>.json` (docs/tax/CH.md) | TaxKit |
+| `TaxGermany` | The German tax system (`de`), with `Resources/de/<year>.json` (docs/tax/DE.md) | TaxKit |
 | `Planner` | Simulation engine; no tax rules, never imports a country module | Model, Tracker, TaxKit |
 | `CloudSync` | iCloud container, file coordination, change watching; Apple-only code inside `#if canImport(Darwin)` | Model, Storage |
 | `TestSupport` | Test helpers and the made-up example library (`Fixtures`) — tests only, not a product | Model |
-| `RetireCLI` | The `retire` commands (Swift Argument Parser), a library so `RetireCLITests` can run them | Model, Tracker, Storage, Importer, Planner, Prices, TaxKit, TaxGeneric, TaxItaly |
+| `RetireCLI` | The `retire` commands (Swift Argument Parser), a library so `RetireCLITests` can run them | Model, Tracker, Storage, Importer, Planner, Prices, TaxKit, TaxGeneric, TaxItaly, TaxSwitzerland, TaxGermany |
 | `retire` | Command-line tool: the executable that starts `RetireCLI` | RetireCLI |
 | `App/` | SwiftUI app for iPhone, iPad and Mac (XcodeGen) | all library products |
 
