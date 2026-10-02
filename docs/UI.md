@@ -660,6 +660,37 @@ On iPhone, journals use "Import with profile…" with a saved ledger profile, li
 - Reduce Motion turns off the number animations.
 - Contrast checked in light and dark.
 
+**Opening the library.** While the library opens, the screen says what it's doing, one step at a time: "Looking for your library in iCloud Drive…", "Downloading 52 of 140 files from iCloud Drive…" with a bar and the bytes ("1.3 MB of 3.4 MB"), then "Reading your library…". A library already on the device goes straight to reading, in a blink. Files iCloud couldn't download are named under the bar ("2 files couldn't be downloaded: …").
+
+If nothing moves for 20 seconds, the screen says why it may be stuck and what to do. It never dead-ends, and it never offers to create a library, which would duplicate the one that hasn't arrived:
+
+```
+╭──────────────────────────────────────────────────────────────╮
+│ ☁ Still waiting for iCloud Drive                             │
+│ Your library is in iCloud Drive, but 88 of its files aren't  │
+│ on this device yet.                                          │
+│ ┌──────────────────────────────────────────────────────────┐ │
+│ │ Downloading 52 of 140 files from iCloud Drive…           │ │
+│ │ ━━━━━━━━━━━━━━━━━━━━━━──────────────────────────────     │ │
+│ │ 1.3 MB of 3.4 MB                                         │ │
+│ └──────────────────────────────────────────────────────────┘ │
+│ This can happen when:                                        │
+│ • You're offline, or the connection is poor.                 │
+│ • Cellular data is turned off for iCloud Drive               │
+│   (Settings › Cellular).                                     │
+│ • Low Power Mode is on, which can pause iCloud downloads.    │
+│ • iCloud Drive is turned off for this app                    │
+│   (Settings › [your name] › iCloud › iCloud Drive).          │
+│ [        Try Again        ]                                  │
+│ [      Keep Waiting       ]                                  │
+│ [      Open Settings      ]   iPhone and iPad only           │
+╰──────────────────────────────────────────────────────────────╯
+```
+
+- **Try Again** starts opening from the beginning.
+- **Keep Waiting** asks iCloud again for the missing files and gives it another 20 seconds.
+- **Open Settings** opens the app's page in Settings. The Mac names System Settings in the reasons and has no cellular reason.
+
 **Empty states and first launch.** Every empty screen has one clear next step. First launch runs:
 
 1. Welcome.
@@ -685,7 +716,7 @@ All widgets hide amounts when the device is locked.
 
   | Store | Holds |
   | --- | --- |
-  | `LibraryStore` | the in-memory library, edits, sync status, merged conflicts |
+  | `LibraryStore` | the in-memory library, edits, how far opening it has come, sync status, merged conflicts |
   | `PlanStore` | runs on request, their progress, results and what they were calculated from (out of date or not), headlines and baselines |
   | `CheckInStore` | the check-in draft, kept on the device until it's saved |
   | `PriceStore` | price fetching (wraps `PriceService`) |
