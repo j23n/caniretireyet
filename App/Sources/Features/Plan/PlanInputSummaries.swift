@@ -226,7 +226,11 @@ struct PlanInputSummaries {
     var contributions: String {
         guard !plan.contributions.isEmpty else { return "None" }
         return plan.contributions.map { contribution in
-            let name = library.accounts[contribution.account]?.name ?? contribution.account.rawValue
+            let name = contribution.pension?.rawValue
+                ?? library.accounts[contribution.account]?.name ?? contribution.account.rawValue
+            if let oneOff = contribution.amount {
+                return "\(name) \(amount(oneOff))" + (contribution.year.map { " in \($0)" } ?? "")
+            }
             return "\(name) \(amount(contribution.perYear))/yr"
         }.joined(separator: " · ")
     }

@@ -46,14 +46,19 @@ public struct LibrarySettings: Codable, Hashable, Sendable, KnownKeysProviding {
     public static var knownKeys: Set<String> { Set(CodingKeys.allCases.map(\.stringValue)) }
 }
 
-/// The person a library belongs to. Plans use the birth date for ages.
+/// The person the library belongs to. Plans use the birth date for ages,
+/// and pass the citizenships to the tax systems (treaties can decide by
+/// citizenship which country taxes a pension).
 public struct Person: Codable, Hashable, Sendable, KnownKeysProviding {
     public var name: String?
     public var birthDate: CalendarDate?
+    /// Every citizenship the person holds; empty when not given.
+    public var citizenships: [CountryCode]
 
-    public init(name: String? = nil, birthDate: CalendarDate? = nil) {
+    public init(name: String? = nil, birthDate: CalendarDate? = nil, citizenships: [CountryCode] = []) {
         self.name = name
         self.birthDate = birthDate
+        self.citizenships = citizenships
     }
 
     /// Age in whole years on `date`, if the birth date is known.
@@ -62,8 +67,22 @@ public struct Person: Codable, Hashable, Sendable, KnownKeysProviding {
     }
 
     enum CodingKeys: String, CodingKey, CaseIterable {
-        case name, birthDate
+        case name, birthDate, citizenships
     }
 
     public static var knownKeys: Set<String> { Set(CodingKeys.allCases.map(\.stringValue)) }
+
+    public init(from decoder: any Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        name = try c.decodeIfPresent(String.self, forKey: .name)
+        birthDate = try c.decodeIfPresent(CalendarDate.self, forKey: .birthDate)
+        citizenships = try c.decodeArray([CountryCode].self, forKey: .citizenships)
+    }
+
+    public func encode(to encoder: any Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encodeIfPresent(name, forKey: .name)
+        try c.encodeIfPresent(birthDate, forKey: .birthDate)
+        try c.encodeIfNotEmpty(citizenships, forKey: .citizenships)
+    }
 }

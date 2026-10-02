@@ -109,6 +109,28 @@ public struct PriceProvider: OpenEnum {
     public static let knownValues: [PriceProvider] = [.yahoo, .coingecko, .goldAPI, .eodhd, .twelveData]
 }
 
+/// The kind of fund an ETF or fund is for tax purposes, by what it invests
+/// in: some systems tax them differently (Germany exempts part of an equity
+/// fund's income and gains). The planner derives it from the instrument's
+/// `assetClasses` unless the instrument says it (``InstrumentTax/fundType``).
+public struct FundType: OpenEnum {
+    public let rawValue: String
+    public init(rawValue: String) { self.rawValue = rawValue }
+
+    /// More than half in shares.
+    public static let equity: FundType = "equity"
+    /// At least a quarter, and at most half, in shares.
+    public static let mixed: FundType = "mixed"
+    /// More than half in real estate.
+    public static let realEstate: FundType = "realEstate"
+    /// More than half in real estate, mainly abroad.
+    public static let foreignRealEstate: FundType = "foreignRealEstate"
+    /// Any other fund, e.g. a bond or money-market fund.
+    public static let other: FundType = "other"
+
+    public static let knownValues: [FundType] = [.equity, .mixed, .realEstate, .foreignRealEstate, .other]
+}
+
 /// An instrument's `tax` object: overrides of the treatment implied by its
 /// kind, e.g. `{ "govBondShare": "0.8" }`. Keys other than the typed ones are
 /// kept in `details`.
@@ -116,23 +138,38 @@ public struct InstrumentTax: Hashable, Sendable {
     /// The share of the instrument in government bonds, taxed at a reduced
     /// rate in some systems (12.5% in Italy), pro rata.
     public var govBondShare: Decimal?
+    /// The kind of fund an ETF or fund is, when its `assetClasses` don't say
+    /// it right (e.g. a real-estate fund investing mainly abroad). `nil` to
+    /// derive it from them.
+    public var fundType: FundType?
+    /// Whether an ETC gives a right to delivery of the metal (e.g.
+    /// Xetra-Gold), which some systems tax like the metal itself. `nil` means no.
+    public var deliveryClaim: Bool?
     /// Other overrides, interpreted by the tax system.
     public var details: [String: JSONValue]
 
-    public init(govBondShare: Decimal? = nil, details: [String: JSONValue] = [:]) {
+    public init(govBondShare: Decimal? = nil, details: [String: JSONValue] = [:], fundType: FundType? = nil,
+                deliveryClaim: Bool? = nil) {
         self.govBondShare = govBondShare
         self.details = details
+        self.fundType = fundType
+        self.deliveryClaim = deliveryClaim
     }
 }
 
 extension InstrumentTax: Codable {
     private static let govBondShareKey = AnyCodingKey("govBondShare")
+    private static let fundTypeKey = AnyCodingKey("fundType")
+    private static let deliveryClaimKey = AnyCodingKey("deliveryClaim")
+    private static let typedKeys: Set<String> = ["govBondShare", "fundType", "deliveryClaim"]
 
     public init(from decoder: any Decoder) throws {
         let container = try decoder.container(keyedBy: AnyCodingKey.self)
         govBondShare = try container.decodeDecimalIfPresent(forKey: Self.govBondShareKey)
+        fundType = try container.decodeIfPresent(FundType.self, forKey: Self.fundTypeKey)
+        deliveryClaim = try container.decodeIfPresent(Bool.self, forKey: Self.deliveryClaimKey)
         var details: [String: JSONValue] = [:]
-        for key in container.allKeys where key != Self.govBondShareKey {
+        for key in container.allKeys where !Self.typedKeys.contains(key.stringValue) {
             details[key.stringValue] = try container.decode(JSONValue.self, forKey: key)
         }
         self.details = details
@@ -140,9 +177,11 @@ extension InstrumentTax: Codable {
 
     public func encode(to encoder: any Encoder) throws {
         var container = encoder.container(keyedBy: AnyCodingKey.self)
-        for (key, value) in details where key != Self.govBondShareKey.stringValue {
+        for (key, value) in details where !Self.typedKeys.contains(key) {
             try container.encode(value, forKey: AnyCodingKey(key))
         }
         try container.encodeDecimalIfPresent(govBondShare, forKey: Self.govBondShareKey)
+        try container.encodeIfPresent(fundType, forKey: Self.fundTypeKey)
+        try container.encodeIfPresent(deliveryClaim, forKey: Self.deliveryClaimKey)
     }
 }

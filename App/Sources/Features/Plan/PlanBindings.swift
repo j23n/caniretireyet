@@ -66,8 +66,9 @@ extension PlanAssumptions {
     subscript(planReal assetClass: AssetClass) -> Decimal {
         get { returnAssumption(for: assetClass)?.real ?? 0 }
         set {
-            returns[assetClass] = ReturnAssumption(real: newValue,
-                                                   volatility: returnAssumption(for: assetClass)?.volatility ?? 0)
+            var assumption = returnAssumption(for: assetClass) ?? ReturnAssumption(real: 0, volatility: 0)
+            assumption.real = newValue
+            returns[assetClass] = assumption
         }
     }
 
@@ -75,8 +76,9 @@ extension PlanAssumptions {
     subscript(planVolatility assetClass: AssetClass) -> Decimal {
         get { returnAssumption(for: assetClass)?.volatility ?? 0 }
         set {
-            returns[assetClass] = ReturnAssumption(real: returnAssumption(for: assetClass)?.real ?? 0,
-                                                   volatility: newValue)
+            var assumption = returnAssumption(for: assetClass) ?? ReturnAssumption(real: 0, volatility: 0)
+            assumption.volatility = newValue
+            returns[assetClass] = assumption
         }
     }
 }

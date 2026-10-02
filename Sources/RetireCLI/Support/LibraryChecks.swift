@@ -119,10 +119,16 @@ struct LibraryChecks {
         let systems = registry.ids.joined(separator: ", ")
         for plan in library.plans.values.sorted(by: { $0.id < $1.id }) {
             let path = LibraryFile.plan(plan.id).path
-            for (index, contribution) in plan.contributions.enumerated()
-            where library.accounts[contribution.account] == nil {
-                issues.append(warning(path, "contributions[\(index)].account: the account \"\(contribution.account)\" "
-                    + "doesn't exist."))
+            for (index, contribution) in plan.contributions.enumerated() {
+                if let scheme = contribution.pension {
+                    if registry.pensionScheme(scheme.rawValue) == nil {
+                        issues.append(warning(path, "contributions[\(index)].pension: \"\(scheme)\" isn't a pension "
+                            + "scheme any tax system defines."))
+                    }
+                } else if library.accounts[contribution.account] == nil {
+                    issues.append(warning(path, "contributions[\(index)].account: the account \"\(contribution.account)\" "
+                        + "doesn't exist."))
+                }
             }
             for (index, account) in plan.portfolio.exclude.enumerated() where library.accounts[account] == nil {
                 issues.append(warning(path, "portfolio.exclude[\(index)]: the account \"\(account)\" doesn't exist."))
