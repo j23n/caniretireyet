@@ -1,0 +1,564 @@
+{
+  "year": 2026,
+  "system": "ch",
+  "currency": { "code": "CHF", "source": "All amounts in Swiss francs of the tax year (Federal Act on Currency and Payment Instruments, WZG)" },
+  "checked": "2026-10",
+  "note": "DRAFT for review, not yet a bundled parameter file. Swiss tax and pension parameters for 2026 for a single person, in nominal CHF of 2026. Official pages could not be opened from the research environment; values come from web-search extracts of the official pages named in each source, or from the secondary sources named. Objects flagged verify need checking against the official text; objects flagged complete:false are missing values that a module can't run without. See docs/tax/CH.md.",
+  "federal": {
+    "tariff": {
+      "single": {
+        "brackets": [
+          { "upTo": "15200", "rate": "0" },
+          { "upTo": "33200", "rate": "0.0077" },
+          { "upTo": "43500", "rate": "0.0088" },
+          { "upTo": "58000", "rate": "0.0264" },
+          { "upTo": "76200", "rate": "0.0297" },
+          { "upTo": "82100", "rate": "0.0594" },
+          { "upTo": "108900", "rate": "0.066" },
+          { "upTo": "141500", "rate": "0.088" },
+          { "upTo": "185100", "rate": "0.11" },
+          { "rate": "0.132" }
+        ],
+        "maximumAverageRate": "0.115",
+        "note": "Marginal rates of Art. 36 para. 1 DBG; the tax is at most 11.5% of the whole income, which binds from about 793,900. Limits are the 2012-2022 limits (14,500 ... 755,200) indexed by about 5.15%: the 2025 limits moved by 0.1% for 2026 where rounding allowed. The official table gives 10,936.55 at 185,100, which these brackets reproduce (exact to 5 centimes with the table's rounding). The lower limits (15,200 to 58,000) are the 2025 ones and should be checked against Form 58c 2026.",
+        "source": "DBG Art. 36 para. 1 and Art. 39 (cold progression). ESTV, Form. 58c 2026 Alleinstehende: https://www.estv.admin.ch/dam/de/sd-web/gnde9CmEsalK/dbst-tairfe-58c-2026-dfi.pdf. EFD, 0.1% inflation for 2026: https://www.efd.admin.ch/de/newnsb/VzaAUrhkPx2EPde4a6e3O",
+        "verify": true
+      },
+      "indexed": { "by": "law", "yearly": true, "source": "DBG Art. 39 para. 2 (full yearly compensation of cold progression)" },
+      "nextAdjustment": {
+        "year": 2027,
+        "inflation": "0.0047",
+        "source": "EFD, Steuertarife und -abzuege an Teuerung angepasst (tax year 2027): https://www.efd.admin.ch/de/newnsb/rq9rumbCaofX"
+      }
+    },
+    "deductions": {
+      "professionalExpenses": {
+        "rate": "0.03",
+        "minimum": "2000",
+        "maximum": "4000",
+        "note": "Flat deduction for other professional expenses, as a share of net salary. Commuting and meals are separate (otherDeductions).",
+        "source": "Berufskostenverordnung (SR 642.118.1) Art. 7; ESTV, Berufskosten: https://www.estv2.admin.ch/stp/sm/berufskosten-de-fr.pdf. No change for 2026 (EFD)."
+      },
+      "commutingMaximum": {
+        "value": "3200",
+        "source": "DBG Art. 26 para. 1 lit. a; Kanton Zuerich, ZStB 26.1 (federal cap quoted there): https://www.zh.ch/de/steuern-finanzen/steuern/treuhaender/steuerbuch/steuerbuch-definition/zstb-26-1.html",
+        "verify": true
+      },
+      "insurancePremiums": {
+        "withPensionContributions": "1800",
+        "withoutPensionContributions": "2700",
+        "note": "Single person. 'with' applies to anyone paying into the 2nd pillar or 3a. The planner always takes the maximum (health insurance alone exceeds it).",
+        "source": "DBG Art. 33 para. 1 lit. g and para. 1bis. 1,800 confirmed for 2026 by search extracts; 2,700 from memory of the law.",
+        "verify": true
+      },
+      "indexed": { "by": "law", "yearly": true, "source": "DBG Art. 39 para. 2; Berufskostenverordnung (indexed from 2026)" }
+    },
+    "capitalBenefits": {
+      "method": "fractionOfTariff",
+      "share": "0.2",
+      "note": "Capital benefits from pensions (2nd pillar, vested benefits, 3a) are taxed separately, all of a year's together, at 1/5 of the ordinary tariff.",
+      "source": "DBG Art. 38. Proposal to raise it (Entlastungspaket 27) rejected by both chambers (Dec 2025, Mar 2026): https://www.bdo.ch/de-ch/publikationen/kapitalbezug-vorsorge-steuererhoehung-abgelehnt"
+    },
+    "dividends": {
+      "qualifyingHoldingShare": "0.1",
+      "taxableShare": "0.7",
+      "note": "Partial taxation of dividends from holdings of at least 10%; other dividends fully taxable.",
+      "source": "DBG Art. 20 para. 1bis (as amended by STAF, from 2020)",
+      "verify": true
+    },
+    "lumpSumTaxation": {
+      "minimumBase": "435000",
+      "rentMultiple": "7",
+      "note": "Taxation on expenditure: the base is at least the highest of the minimum, 7 x the yearly rent or rental value, and the household's living expenses. 434,700 in 2025.",
+      "source": "DBG Art. 14. Kanton Uri, Merkblatt Aufwandbesteuerung ab 1.1.2026: https://www.ur.ch/_docn/439772/14_Merkblatt_Aufwandbesteuerung_01.01.2026_1.pdf",
+      "verify": true
+    }
+  },
+  "socialSecurity": {
+    "employee": {
+      "ahvIvEo": { "employeeRate": "0.053", "employerRate": "0.053" },
+      "alv": { "employeeRate": "0.011", "employerRate": "0.011", "salaryCap": "148200" },
+      "retireeAllowance": "16800",
+      "note": "AHV 4.35%, IV 0.7%, EO 0.25% each side; no ceiling. ALV 1.1% each side up to 148,200; no solidarity contribution above since 2023. Working after the reference age: the first 16,800 a year is free.",
+      "source": "AHVG Art. 5 and 6; IVG Art. 3; EOG Art. 27; AVIG Art. 3. BSV, Betraege gueltig ab 1. Januar 2026: https://www.bsv.admin.ch/dam/de/sd-web/sAgdISSXenMT/d_Betr%C3%A4ge%202026.pdf; SECO, ALV-Beitraege: https://www.seco.admin.ch/dam/seco/de/dokumente/Arbeit/ALV/Grundlagen/Faktenblatt_ALV-Beitr%C3%A4ge.pdf.download.pdf/DE_Faktenblatt_ALV-Beitr%C3%A4ge.pdf"
+    },
+    "selfEmployed": {
+      "fullRate": "0.10",
+      "fullRateFrom": "60500",
+      "lowestRate": "0.05371",
+      "slidingScaleFrom": "10100",
+      "minimumContribution": "530",
+      "note": "AHV 8.1%, IV 1.4%, EO 0.5%. Between 10,100 and 60,500 the official scale rises in steps from 5.371% to 10%; the module interpolates linearly (a few francs' difference). Below 10,100 the minimum contribution applies.",
+      "source": "AHVG Art. 8; AHVV Art. 21. AHV/IV, Merkblatt 2.02: https://www.ahv-iv.ch/p/2.02.d; BSV tables: https://sozialversicherungen.admin.ch/de/d/6139/download?version=12",
+      "verify": true
+    },
+    "nonEmployed": {
+      "minimum": "530",
+      "maximum": "26500",
+      "pensionIncomeMultiple": "20",
+      "steps": [
+        { "from": "350000", "contribution": "636", "perFurther50000": "106" },
+        { "from": "1750000", "contribution": "3604", "perFurther50000": "159" }
+      ],
+      "maximumFrom": "8950000",
+      "adminCostMaximumRate": "0.05",
+      "note": "Base: net wealth at 31 December (cantonal tax values, less debts, without 2nd pillar and 3a) + 20 x the year's pension income (all pensions incl. foreign and BVG; not IV pensions or supplementary benefits). Below 350,000 the minimum applies. The step contributions (636 at 350,000; 3,604 at 1,750,000) follow from the published increments and reproduce the maximum at 8,950,000. Due from 1 January after the 20th birthday to the reference age. Compensation offices add admin costs of up to 5%.",
+      "source": "AHVG Art. 10; AHVV Art. 28. AHV/IV, Merkblatt 2.03: https://www.ahv-iv.ch/p/2.03.d; SVA Aargau, Beitraege fuer Nichterwerbstaetige 2026: https://www.sva-aargau.ch/ueber-uns/jahresinformation-2026/fuer-privatpersonen/aenderungen-1-januar-2026/beitraege-fuer"
+    },
+    "indexed": { "by": "law", "everyYears": 2, "index": "mixed", "source": "AHVG Art. 9bis and 33ter (with the pensions, mixed index of wages and prices)" }
+  },
+  "ahvPension": {
+    "minimumMonthly": "1260",
+    "maximumMonthly": "2520",
+    "paymentsPerYear": "13",
+    "fullScaleYears": "44",
+    "referenceAge": "65",
+    "formula": {
+      "lowerBand": { "upToMinimumPensionMultiple": "36", "fixedShareOfMinimum": "0.74", "variableShareOfIncome": "0.0216666667" },
+      "upperBand": { "fixedShareOfMinimum": "1.04", "variableShareOfIncome": "0.0133333333" },
+      "note": "Monthly pension with a full record: fixed share x minimum pension + variable share x average yearly income (13/600 up to 36 x the minimum, 8/600 above), between the minimum and the maximum pension. Partial pension: x Swiss contribution years / 44.",
+      "source": "AHVG Art. 29bis, 34 and 38: https://www.swissrights.ch/gesetze/Artikel-34-AHVG-2025-DE.php"
+    },
+    "thirteenthPayment": {
+      "from": 2026,
+      "note": "Paid each December, 1/12 of the year's old-age pension (first time December 2026).",
+      "source": "BSV, Umsetzung 13. AHV-Rente: https://www.bsv.admin.ch/de/umsetzung-13-ahv-rente"
+    },
+    "revaluationFactor": {
+      "value": "1.000",
+      "note": "For first entries in the individual account from 1986 to 2025, for pensions starting in 2026: earnings count at their nominal value.",
+      "source": "BSV, Aufwertungsfaktoren 2026 (quoted by https://swiss-online-kurs.ch/aufwertungsfaktoren-2026/, secondary)",
+      "verify": true
+    },
+    "earlyWithdrawal": {
+      "maxYears": "2",
+      "reductionPerYear": "0.068",
+      "note": "6.8% a year for life (13.6% for two years). New rates based on life expectancy are expected at the earliest for 2027, lower for small incomes.",
+      "source": "AHVG Art. 40; AHVV Art. 56. AK Bern, Flexibler Rentenbezug: https://www.akbern.ch/de/AHV-21/Flexibler-Rentenbezug/Flexibler-Rentenbezug.html",
+      "verify": true
+    },
+    "deferral": {
+      "supplements": [ "0.052", "0.108", "0.171", "0.24", "0.315" ],
+      "note": "Supplement for 1 to 5 years of deferral.",
+      "source": "AHVG Art. 39; AHVV Art. 55ter. AK Bern, Flexibler Rentenbezug: https://www.akbern.ch/de/AHV-21/Flexibler-Rentenbezug/Flexibler-Rentenbezug.html"
+    },
+    "adjustment2027": {
+      "minimumMonthly": "1280",
+      "maximumMonthly": "2560",
+      "note": "Pensions rise about 1.59% on 1 January 2027 (mixed index). Belongs in 2027.json.",
+      "source": "Federal Council decision of autumn 2026, reported by https://www.bluewin.ch/de/news/minimale-ahv-rente-steigt-um-20-franken-li.3621970",
+      "verify": true
+    },
+    "indexed": { "by": "law", "everyYears": 2, "index": "mixed", "source": "AHVG Art. 33ter" },
+    "source": "AHVG Art. 21, 29ter, 34 and 35ter (13th payment). BSV, Betraege gueltig ab 1. Januar 2026: https://www.bsv.admin.ch/dam/de/sd-web/sAgdISSXenMT/d_Betr%C3%A4ge%202026.pdf; AHV/IV, Merkblatt 3.01: https://www.ahv-iv.ch/p/3.01.d"
+  },
+  "bvg": {
+    "entryThreshold": "22680",
+    "coordinationDeduction": "26460",
+    "upperLimit": "90720",
+    "minimumCoordinatedSalary": "3780",
+    "maximumCoordinatedSalary": "64260",
+    "ageCredits": [
+      { "fromAge": 25, "rate": "0.07" },
+      { "fromAge": 35, "rate": "0.10" },
+      { "fromAge": 45, "rate": "0.15" },
+      { "fromAge": 55, "rate": "0.18" }
+    ],
+    "minimumEmployerShare": "0.5",
+    "minimumInterestRate": "0.0125",
+    "conversionRate": { "mandatoryAt65": "0.068" },
+    "earliestRetirementAge": 58,
+    "latestRetirementAgeIfWorking": 70,
+    "minimumLumpSumShare": "0.25",
+    "buyIns": {
+      "lumpSumLockYears": 3,
+      "arrivalFromAbroad": { "maxShareOfInsuredSalaryPerYear": "0.2", "years": 5 },
+      "source": "BVG Art. 79b para. 3; BVV 2 Art. 60b. Kanton Schwyz, Merkblatt BVG: https://www.sz.ch/public/upload/assets/50127/faq-bvg.pdf"
+    },
+    "note": "Limits unchanged from 2025; they rise in 2027 with the AHV pensions. Minimum interest 1.25% for 2026.",
+    "source": "BVG Art. 2, 7, 8, 13, 14, 15, 16, 37. BSV, Betraege gueltig ab 1. Januar 2026: https://www.bsv.admin.ch/dam/de/sd-web/sAgdISSXenMT/d_Betr%C3%A4ge%202026.pdf; Allianz, BVG-Kennzahlen 2025/2026 (secondary): https://www.allianz.ch/content/dam/onemarketing/azch/common/allianz/de/allianz-bvg-kennzahlen_zins_umwandlungssaetze.pdf; minimum interest: https://www.finews.ch/news/finanzplatz/70038-bvg-mindestzinssatz-obligatorium-vorsorge-bundesrat",
+    "indexed": "law"
+  },
+  "bvgSchemeDefaults": {
+    "conversionRateAt65": "0.054",
+    "conversionRateStepPerYear": "0.002",
+    "realInterest": "0",
+    "inflation": "0.01",
+    "note": "Plan assumptions, not law: a typical envelope conversion rate on all assets, its change per year of age, the real interest credited, and Swiss inflation (BVG annuities are nominal). Users should enter their fund's figures.",
+    "source": "Assumptions for docs/tax/CH.md (fund rules vary; the legal minimum on the mandatory part is 6.8% at 65)",
+    "verify": true
+  },
+  "vestedBenefits": {
+    "earliestYearsBeforeReferenceAge": 5,
+    "dueAtReferenceAge": true,
+    "latestYearsAfterReferenceAgeIfWorking": 5,
+    "maxAccounts": 2,
+    "euDeparture": {
+      "mandatoryPartPaidOut": false,
+      "note": "Moving to an EU/EFTA state where you're compulsorily insured for old age: only the over-mandatory part can be paid out in cash.",
+      "source": "FZG Art. 25f. Sicherheitsfonds BVG: https://sfbvg.ch/hintergrund/rechtliche-grundlagen/art-25-f-einschraenkung-von-barauszahlungen"
+    },
+    "source": "FZV Art. 16 (as amended from 2024); FZV Art. 12. UBS, Bezug von Freizuegigkeitsguthaben: https://www.ubs.com/ch/de/help/pension/payout-vested-benefit-account.html"
+  },
+  "pillar3a": {
+    "maximumWithPensionFund": "7258",
+    "withoutPensionFund": { "shareOfNetEarnedIncome": "0.2", "maximum": "36288" },
+    "earliestYearsBeforeReferenceAge": 5,
+    "dueAtReferenceAge": true,
+    "latestYearsAfterReferenceAgeIfWorking": 5,
+    "retroactivePurchases": {
+      "fromGapYear": 2025,
+      "firstPurchaseYear": 2026,
+      "withinYears": 10,
+      "yearlyMaximum": "7258",
+      "note": "Only for years with AHV-liable earned income, one payment per gap year, and only once the current year's maximum is paid.",
+      "source": "BVV 3 Art. 7a (from 2026). Zurich Insurance, Nachtraegliche Einzahlungen Saeule 3a: https://www.zurich.ch/de/services/wissen/vorsorge-und-anlage/nachtraegliche-einkaeufe-saeule-3a"
+    },
+    "nextYear": { "year": 2027, "maximumWithPensionFund": "7373", "source": "Federal Council, autumn 2026 (reported, https://www.bluewin.ch/de/news/minimale-ahv-rente-steigt-um-20-franken-li.3621970)", "verify": true },
+    "note": "Contributions need Swiss earned income subject to AHV. Each account is paid out in full; people hold several accounts to stagger. Early withdrawal on leaving Switzerland, starting self-employment, buying a home or disability.",
+    "source": "BVV 3 Art. 3 and 7. VZ, Saeule 3a Maximalbetrag 2026: https://www.vermoegenszentrum.ch/wissen/saeule-3a-maximalbetrag",
+    "indexed": "law"
+  },
+  "investments": {
+    "privateCapitalGains": { "rate": "0", "source": "DBG Art. 16 para. 3; StHG Art. 7 para. 4 lit. b" },
+    "professionalTrader": {
+      "minimumHoldingMonths": 6,
+      "maximumVolumeMultipleOfPortfolio": "5",
+      "maximumGainsShareOfNetIncome": "0.5",
+      "note": "Safe harbour of circular 36: all criteria met (plus no debt financing, derivatives only for hedging) means private wealth management. The module only warns.",
+      "source": "ESTV, Kreisschreiben Nr. 36 (27 July 2012): https://www.steuerinformationen.ch/kreisschreiben-nr-36-zum-thema-gewerbsmaessiger-wertschriftenhandel-art-16-dbg-art-18-dbg",
+      "verify": true
+    },
+    "withholdingTax": {
+      "rate": "0.35",
+      "bankInterestExemption": "200",
+      "refundedToResidents": true,
+      "source": "VStG Art. 4, 5 para. 1 lit. c, 13, 21-23. ESTV, Verrechnungssteuer: https://www.estv2.admin.ch/stp/ds/d-eidgenoessische-verrechnungssteuer-de.pdf"
+    },
+    "fundsIncomeTaxedYearly": {
+      "value": true,
+      "note": "Funds' income is taxable every year whether distributed or accumulated, at the values in the ESTV price list.",
+      "source": "DBG Art. 20 para. 1 lit. e; ESTV Kursliste/ICTax"
+    }
+  },
+  "property": {
+    "imputedRentalValue": {
+      "lastYear": 2028,
+      "abolishedFrom": 2029,
+      "note": "Abolition approved by voters on 28 September 2025; in force 1 January 2029 (Federal Council, 1 April 2026). Until then the imputed rent is income and mortgage interest (up to investment income + 50,000) and maintenance are deductible.",
+      "source": "Bundesgesetz ueber den Systemwechsel bei der Besteuerung des Wohneigentums. Blick: https://www.blick.ch/politik/jetzt-hat-der-bundesrat-entschieden-der-eigenmietwert-faellt-erst-2029-id21812710.html",
+      "verify": true
+    }
+  },
+  "cantons": {
+    "ZH": {
+      "description": "Zurich; capital Zurich; complete",
+      "income": {
+        "single": {
+          "brackets": [
+            { "upTo": "7000", "rate": "0" },
+            { "upTo": "12000", "rate": "0.02" },
+            { "upTo": "16800", "rate": "0.03" },
+            { "upTo": "24800", "rate": "0.04" },
+            { "upTo": "34500", "rate": "0.05" },
+            { "upTo": "45700", "rate": "0.06" },
+            { "upTo": "58800", "rate": "0.07" },
+            { "upTo": "76400", "rate": "0.08" },
+            { "upTo": "110400", "rate": "0.09" },
+            { "upTo": "144100", "rate": "0.10" },
+            { "upTo": "197400", "rate": "0.11" },
+            { "upTo": "266700", "rate": "0.12" },
+            { "rate": "0.13" }
+          ],
+          "note": "Simple state tax (einfache Staatssteuer), Grundtarif, from tax period 2026 (indexed). The steps sum to 266,700, as the extract states.",
+          "source": "StG ZH par. 35. Weisung der Finanzdirektion ueber Sozialabzuege und Steuertarife (ab Steuerperiode 2026), ZStB 34.1: https://www.zh.ch/de/steuern-finanzen/steuern/treuhaender/steuerbuch/steuerbuch-definition/zstb-34-1.html",
+          "verify": true
+        },
+        "indexed": { "by": "law", "source": "StG ZH par. 48 (compensation of cold progression; trigger to verify)", "verify": true }
+      },
+      "wealth": {
+        "single": {
+          "brackets": [
+            { "upTo": "80000", "rate": "0" },
+            { "upTo": "318000", "rate": "0.0005" },
+            { "upTo": "717000", "rate": "0.001" },
+            { "upTo": "1353000", "rate": "0.0015" },
+            { "upTo": "2309000", "rate": "0.002" },
+            { "upTo": "3262000", "rate": "0.0025" },
+            { "rate": "0.003" }
+          ],
+          "note": "Simple wealth tax, from tax period 2026; the 0 band is the tax-free amount. Steps sum to 3,262,000 as stated. One extract also mentions a 'Vermoegensabzug' of 204,000, which doesn't fit this tariff and is left out.",
+          "source": "StG ZH par. 47. ZStB 34.1 (as above)",
+          "verify": true
+        }
+      },
+      "multipliers": {
+        "canton": "0.95",
+        "capitalCommune": "1.19",
+        "church": { "reformed": "0.10", "catholic": "0.10", "verify": true },
+        "note": "Canton 95% for 2026 and 2027 (98% in 2025). City of Zurich 119% for 2026. Church multipliers for the city: from memory.",
+        "source": "Kantonsrat ZH, budget 2026: https://www.srf.ch/news/wirtschaft/beschluss-vom-kantonsrat-im-kanton-zuerich-sinken-die-steuern; Stadt Zuerich, Budget 2026: https://www.stadt-zuerich.ch/content/dam/web/de/aktuell/publikationen/2025/budget/budget-2026-beschluss-gemeinderat.pdf"
+      },
+      "personalTax": {
+        "amount": "24",
+        "source": "StG ZH par. 199 (Personalsteuer of the communes)",
+        "verify": true
+      },
+      "deductions": {
+        "professionalExpenses": { "rate": "0.03", "minimum": "2000", "maximum": "4000" },
+        "commutingMaximum": "5000",
+        "insurancePremiums": { "withPensionContributions": "2900", "verify": true },
+        "source": "Verfuegung der Finanzdirektion ueber die Pauschalierung von Berufsauslagen (ab Steuerperiode 2026), ZStB 26.1: https://www.zh.ch/de/steuern-finanzen/steuern/treuhaender/steuerbuch/steuerbuch-definition/zstb-26-1.html. Insurance premiums 2,900 for a single person in 2026: Beobachter, https://www.beobachter.ch/gesundheit/welche-kantone-den-steuerabzug-erhohen-und-wie-sie-profitieren-927246"
+      },
+      "capitalBenefits": {
+        "method": "rateOfFraction",
+        "fraction": "0.05",
+        "minimumSimpleRate": "0.02",
+        "note": "Taxed at the rate the tariff gives on 1/20 of the amount (1/10 until 2021), at least 2% simple tax, then x the multipliers. Reproduces finpension's published examples for 2025 (e.g. 100,000 -> 4,878 with the 2025 multiplier 98%).",
+        "source": "StG ZH par. 37. Weisung zur Besteuerung von Kapitalleistungen aus Vorsorge, ZStB 22.1: https://www.zh.ch/de/steuern-finanzen/steuern/treuhaender/steuerbuch/steuerbuch-definition/zstb-22-1.html; https://finpension.ch/de/wissen/zuerich-kapitalbezugssteuer/"
+      },
+      "lumpSumTaxation": { "available": false, "source": "Abolished by popular vote in 2009 (StG ZH)." },
+      "inheritance": {
+        "exempt": [ "spouse", "lineal" ],
+        "note": "Children and grandchildren exempt; siblings above 15,000, others taxed progressively (up to about 42%, secondary source).",
+        "source": "ESTV, Erbschafts- und Schenkungssteuern: https://www.estv2.admin.ch/stp/ds/d-erbschaft-schenkung-de.pdf",
+        "verify": true
+      }
+    },
+    "ZG": {
+      "description": "Zug; capital Zug; incomplete, see the notes below",
+      "income": {
+        "single": {
+          "brackets": [],
+          "knownSteps": [
+            { "width": "1100", "rate": "0.005" },
+            { "width": "2200", "rate": "0.01" },
+            { "width": "2700", "rate": "0.02" },
+            { "width": "3700", "rate": "0.03" }
+          ],
+          "topRate": "0.08",
+          "note": "INCOMPLETE. Grundtarif 2026 (index 110.2, June 2025), indexed every year. The extracts gave only the first four steps (one extract for 2025 gave 2,800 and 3,800 for steps 3 and 4) and a top simple rate of 8% above about 140,600-147,700. Copy every step from the official PDF before use.",
+          "source": "StG ZG par. 35. Kantonssteuer Grundtarif gueltig Steuerperiode 2026: https://zg.ch/dam/jcr:96c7eef4-eb2f-4f8a-a4c4-dad209249598/Grundtarif%202001%20bis%202026.pdf",
+          "verify": true
+        },
+        "indexed": { "by": "law", "yearly": true, "source": "StG ZG par. 35 (tariff steps adjusted every year to the consumer price index of June); Grundtarif 2026 PDF", "verify": true }
+      },
+      "wealth": {
+        "single": {
+          "allowance": "200000",
+          "brackets": [
+            { "upTo": "250000", "rate": "0.000425" },
+            { "upTo": "500000", "rate": "0.00085" },
+            { "upTo": "750000", "rate": "0.001275" },
+            { "rate": "0.0017" }
+          ],
+          "note": "Simple wealth tax after the 15% cut of 2024, on wealth after the allowance. Secondary source; another extract gives an allowance of 101,000 and a top simple rate of 2 per mille. Verify both against the Grundtarif 2026 PDF.",
+          "source": "StG ZG par. 39 and 43. neho, Vermoegenssteuer Zug (secondary): https://neho.ch/de/blog/vermogenssteuer-zug",
+          "verify": true
+        }
+      },
+      "multipliers": {
+        "canton": "0.78",
+        "capitalCommune": "0.52",
+        "note": "Canton 78% for 2026-2029 (82% before). City of Zug 52% as proposed in its 2026 budget (54% before).",
+        "source": "Kanton Zug, Steuerfuesse: https://zg.ch/de/steuern-finanzen/steuern/natuerliche-personen/steuerfuesse; Stadt Zug, Budget 2026: https://www.stadtzug.ch/aktuellesinformationen/2579062",
+        "verify": true
+      },
+      "deductions": {
+        "lowIncomeDeduction": {
+          "amount": "6000",
+          "maxNetIncome": "60000",
+          "maxNetWealth": "400000",
+          "note": "New from 2026 for single people (insurance-premium-type deduction); a cliff at both limits. Details to verify.",
+          "source": "Aenderung Steuergesetz Zug, vote of 30 November 2025. MME: https://www.mme.ch/en/magazine/articles/amendment-to-the-zug-tax-act-as-of-january-1-2026",
+          "verify": true
+        }
+      },
+      "capitalBenefits": {
+        "method": "separateTariff",
+        "brackets": [],
+        "crossCheck": [
+          { "amount": "250000", "totalWithFederal": "11261" },
+          { "amount": "500000", "totalWithFederal": "28270" }
+        ],
+        "note": "INCOMPLETE: method not confirmed. The cross-check totals (city of Zug, single, 2026, federal included) are from a secondary comparison.",
+        "source": "StG ZG par. 37. geldfuchs, Kapitalbezugssteuer 2026 (secondary): https://geldfuchs.ch/steuern/kapitalbezug/",
+        "verify": true
+      },
+      "lumpSumTaxation": { "available": true, "minimumBase": null, "source": "StG ZG par. 14 (minimum to verify)", "verify": true },
+      "inheritance": {
+        "exempt": [ "spouse", "lineal", "parents" ],
+        "source": "ESTV, Erbschafts- und Schenkungssteuern: https://www.estv2.admin.ch/stp/ds/d-erbschaft-schenkung-de.pdf",
+        "verify": true
+      }
+    },
+    "TI": {
+      "description": "Ticino; capital Bellinzona; incomplete, see the notes below",
+      "income": {
+        "single": {
+          "brackets": [],
+          "topRate": "0.14",
+          "note": "INCOMPLETE. Art. 35 LT as amended by the reform approved on 9 June 2024: all rates cut linearly by 1.667%, and the top rate lowered from 15.076% (2024) to 14.5% (2025), 14% (2026), 13.5% (2027) ... 12% (2030). Copy the 2026 steps from the law or the ESTV cantonal sheet.",
+          "source": "LT art. 35 and transitional provisions: https://m3.ti.ch/CAN/RLeggi/public/index.php/raccolta-leggi/pdfatto/atto/5421; CdT: https://www.cdt.ch/news/la-fiscalita-ticinese-dopo-le-riforme-ecco-dove-siamo-e-dove-arriveremo-434682",
+          "verify": true
+        },
+        "topRateSchedule": {
+          "value": "0.14",
+          "changes": [ { "from": 2027, "value": "0.135" }, { "from": 2030, "value": "0.12" } ],
+          "note": "The years between 2027 and 2030 step down by 0.5 points a year; only the end points are written here.",
+          "source": "As above",
+          "verify": true
+        },
+        "personalDeduction": {
+          "amount": "8000",
+          "fullUpTo": "21000",
+          "reductionPer3000": "1000",
+          "note": "Single tariff (art. 35 cpv. 1): 8,000 up to 21,000 of income, then 1,000 less for every further 3,000.",
+          "source": "LT (deduzioni sociali), via search extract",
+          "verify": true
+        }
+      },
+      "wealth": {
+        "single": {
+          "allowance": "200000",
+          "brackets": [],
+          "note": "INCOMPLETE. Progressive rates up to about 3 per mille of simple tax, with lower rates after the 2018 and 2024 reforms; extracts disagree.",
+          "source": "LT art. 47-48. ESTV, Foglio cantonale TI: https://www.estv2.admin.ch/stp/kb/ti-it.pdf",
+          "verify": true
+        }
+      },
+      "multipliers": {
+        "canton": "1.00",
+        "capitalCommune": "0.93",
+        "otherCommunes": { "Lugano": "0.80" },
+        "note": "Cantonal coefficient back to 100% from 2024 (97% in 2020-2023). Bellinzona 93% for 2026. Lugano raised to 80% for 2026 (one secondary source says 75%).",
+        "source": "Bellinzona, MM 1015 Preventivi 2026: https://www.bellinzona.ch/MM-1015-Bilanci-Preventivi-2026-9dd30000?i=1; RSI: https://www.rsi.ch/info/ticino-grigioni-e-insubria/Moltiplicatori-d%E2%80%99imposta-i-perch%C3%A9-dietro-le-scelte-in-Ticino--3382836.html",
+        "verify": true
+      },
+      "capitalBenefits": {
+        "method": "annuityRate",
+        "minimumSimpleRate": "0.02",
+        "maximumSimpleRate": "0.03",
+        "crossCheck": [
+          { "amount": "250000", "totalWithFederal": "13551" },
+          { "amount": "500000", "totalWithFederal": "35491" }
+        ],
+        "note": "Rate the tariff gives on the life annuity the capital would buy at that age (conversion table), at least 2%, and since the 2024 reform at most 3% for the cantonal tax. Whether the cap applies to the simple rate before the communal multiplier is to verify. Cross-check totals (Bellinzona, 2026) are from a secondary comparison.",
+        "source": "LT art. 38 cpv. 2. Novita fiscali, dicembre 2024: https://novitafiscali.ch/articoli/2024/n0-12-dicembre-2024/limposizione-dei-prelievi-in-capitale-dalla-previdenza-in-ticino-il-nuovo-art-38-cpv-2-lt; geldfuchs (secondary): https://geldfuchs.ch/steuern/kapitalbezug/",
+        "verify": true
+      },
+      "lumpSumTaxation": {
+        "available": true,
+        "minimumBase": "435000",
+        "deemedWealthMultipleOfBase": "5",
+        "source": "LT art. 13. Steimle Consulting, Imposizione sul dispendio (secondary): https://steimle-consulting.ch/wp-content/uploads/2025/02/Imposizione-sul-dispendio-1.pdf",
+        "verify": true
+      },
+      "inheritance": {
+        "exempt": [ "spouse", "lineal" ],
+        "source": "ESTV, Erbschafts- und Schenkungssteuern: https://www.estv2.admin.ch/stp/ds/d-erbschaft-schenkung-de.pdf",
+        "verify": true
+      }
+    },
+    "GE": {
+      "description": "Geneva; capital Geneva; incomplete, see the notes below",
+      "multipliers": {
+        "canton": "0.475",
+        "capitalCommune": "0.4549",
+        "note": "Centimes additionnels: cantonal (47.5 per one extract, 48.5 per another) and the City of Geneva's 45.49. Geneva's tax also has its own base reductions; structure to verify.",
+        "source": "ESTV, Steuersatz und Steuerfuss 2026: https://www.estv2.admin.ch/stp/ds/e-steuersatz-steuerfuss-de.pdf",
+        "verify": true
+      },
+      "lumpSumTaxation": { "available": true, "minimumBase": null, "verify": true, "source": "LIPP (GE)" }
+    },
+    "VD": {
+      "description": "Vaud; capital Lausanne; incomplete, see the notes below",
+      "multipliers": {
+        "canton": "1.55",
+        "capitalCommune": "0.785",
+        "source": "Ville de Lausanne, coefficient et arrete d'imposition: https://www.lausanne.ch/officiel/administration/finances-et-mobilite/finances/impots/coefficient-taux-arrete-imposition.html",
+        "verify": true
+      },
+      "lumpSumTaxation": { "available": true, "minimumBase": null, "verify": true, "source": "LI (VD)" }
+    },
+    "BE": {
+      "description": "Bern; capital Bern; incomplete, see the notes below",
+      "multipliers": {
+        "canton": "2.975",
+        "capitalCommune": "1.54",
+        "note": "Steueranlagen in units of the simple tax.",
+        "source": "ESTV, Steuersatz und Steuerfuss 2026: https://www.estv2.admin.ch/stp/ds/e-steuersatz-steuerfuss-de.pdf",
+        "verify": true
+      },
+      "lumpSumTaxation": { "available": true, "minimumBase": null, "verify": true, "source": "StG BE" }
+    },
+    "BS": {
+      "description": "Basel-Stadt; capital Basel; incomplete, see the notes below",
+      "multipliers": {
+        "canton": "1.00",
+        "capitalCommune": "0",
+        "note": "The cantonal tariff includes the city of Basel's tax; Riehen and Bettingen levy their own.",
+        "source": "StG BS",
+        "verify": true
+      },
+      "lumpSumTaxation": { "available": false, "source": "Abolished (StG BS)." }
+    },
+    "LU": {
+      "description": "Lucerne; capital Lucerne; incomplete, see the notes below",
+      "multipliers": {
+        "canton": null,
+        "capitalCommune": null,
+        "note": "Units of the simple tax; extracts disagree (1.45/1.45 vs 1.55/1.70).",
+        "source": "Kanton Luzern, Steuereinheiten: https://steuern.lu.ch/publikationen/nav_einheiten_tarife",
+        "verify": true
+      },
+      "lumpSumTaxation": { "available": true, "minimumBase": "600000", "verify": true, "source": "StG LU (secondary)" }
+    },
+    "SZ": {
+      "description": "Schwyz; capital Schwyz; incomplete, see the notes below",
+      "multipliers": {
+        "canton": null,
+        "capitalCommune": null,
+        "note": "One extract gives canton 110% and Schwyz 175%; to verify. Wollerau and Freienbach are much lower.",
+        "source": "ESTV, Steuersatz und Steuerfuss 2026: https://www.estv2.admin.ch/stp/ds/e-steuersatz-steuerfuss-de.pdf",
+        "verify": true
+      },
+      "lumpSumTaxation": {
+        "available": true,
+        "minimumBase": "600000",
+        "source": "Kanton Schwyz, Merkblatt Besteuerung nach dem Aufwand: https://www.sz.ch/public/upload/assets/41913/mb_besteuerung_nach_dem_aufwand.pdf",
+        "verify": true
+      },
+      "inheritance": { "exempt": [ "all" ], "note": "No inheritance or gift tax.", "source": "ESTV, Erbschafts- und Schenkungssteuern: https://www.estv2.admin.ch/stp/ds/d-erbschaft-schenkung-de.pdf" }
+    }
+  },
+  "lumpSumTaxationAbolishedIn": {
+    "cantons": [ "ZH", "BS", "BL", "SH", "AR" ],
+    "source": "Swiss cantonal laws; summary: https://www.ur.ch/_docn/439772/14_Merkblatt_Aufwandbesteuerung_01.01.2026_1.pdf",
+    "verify": true
+  },
+  "expatriates": {
+    "maxYears": 5,
+    "flatDeductionPerMonth": "1500",
+    "note": "Expatriates Ordinance: for executives and specialists temporarily assigned (at most 5 years). Flat deduction only where housing costs would be deductible (home abroad kept for own use).",
+    "source": "ExpaV (SR 642.118.3), revised 1 January 2016. Basel-Landschaft, Steuerpraxis: https://kanton.baselland.ch/finanz-und-kirchendirektion/steuerverwaltung-steuerpraxis/downloads-1/1_2016_21-30.pdf/@@download/file/1_2016_21-30.pdf",
+    "verify": true
+  },
+  "sourceTax": {
+    "mandatoryOrdinaryAssessmentFrom": "120000",
+    "requestDeadline": "03-31",
+    "note": "Not used in calculations: the module always estimates the ordinary assessment.",
+    "source": "DBG Art. 89 and 89a; QStV Art. 9. Kanton Zuerich: https://www.zh.ch/de/steuern-finanzen/steuern/quellensteuer/nachtraegliche-ordentliche-veranlagung-oder-quellensteuerkorrekt.html"
+  },
+  "foreign": {
+    "italy": {
+      "inpsPrivatePension": { "taxedIn": "residence", "source": "Italy-Switzerland DTA (9 March 1976) Art. 18" },
+      "italianPublicServicePension": { "taxedIn": "source", "note": "For Italian citizens, even with dual citizenship.", "source": "DTA Art. 19; Agenzia delle Entrate, risposta 177/2026: https://www.agenziaentrate.gov.it/portale/documents/20143/10289089/Risposta+n.+177_2026.pdf/55d779ed-1768-ce69-b129-bacbf32bd34d?t=1790175768749" },
+      "swissPensionsTaxedInItaly": {
+        "rate": "0.05",
+        "note": "AHV and BVG benefits (annuities and lump sums) received by an Italian resident: 5% substitute tax, withheld by an Italian intermediary or declared. For the it module, not ch.",
+        "source": "L. 413/1991 art. 76 c. 1 and 1-bis; L. 197/2022. Gazzetta Svizzera: https://gazzettasvizzera.org/novita-la-legge-italiana-di-bilancio-2023-fissa-al-5-la-tassazione-di-tutte-le-rendite-avs-ed-lpp-ovunque-percepite/"
+      }
+    }
+  }
+}
