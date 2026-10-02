@@ -50,8 +50,9 @@ struct NonResidentContractTests {
 
     @Test func aPayingSystemIsFoundAndCalledThroughTheProtocol() throws {
         let registry = TaxRegistry([try FakeTaxSystem(), PayingSystem()])
-        let paying = try #require(registry.systems.first { $0.country == "XA" })
+        let paying = try #require(registry.system(forCountry: "xa"))
         #expect(paying.id == "paying")
+        #expect(registry.system(forCountry: "XB") == nil)
         let year = FixedYear(year: 2026, age: 70, pensions: [
             .init(id: "a", scheme: "fixed", amount: 3_000, taxedIn: .source, sourceCountry: "XA"),
             .init(id: "b", scheme: "fixed", amount: 1_000, taxedIn: .source, sourceCountry: "XA"),

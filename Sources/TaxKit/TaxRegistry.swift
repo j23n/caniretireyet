@@ -27,6 +27,14 @@ public struct TaxRegistry: Sendable {
         system(id)
     }
 
+    /// The first registered system whose ``TaxSystem/country`` is `country`
+    /// (ISO 3166-1 alpha-2, any case): the paying country's system for a
+    /// pension taxed at source.
+    public func system(forCountry country: String) -> (any TaxSystem)? {
+        let wanted = country.uppercased()
+        return systems.first { $0.country?.uppercased() == wanted }
+    }
+
     /// The regime with this ID in any system, with its system.
     public func regime(_ id: String) -> (system: any TaxSystem, regime: RegimeDescriptor)? {
         for system in systems {
