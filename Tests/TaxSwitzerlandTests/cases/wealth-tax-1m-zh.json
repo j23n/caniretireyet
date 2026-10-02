@@ -1,0 +1,33 @@
+{
+  "name": "Wealth tax on CHF 1,000,000, Zurich",
+  "year": 2026,
+  "input": {
+    "age": 70,
+    "systemOptions": {
+      "canton": "ZH",
+      "commune": "Zurich"
+    },
+    "variable": {
+      "balances": [
+        {
+          "wrapper": "ch.ordinary",
+          "category": "equityFund",
+          "value": 1000000
+        }
+      ]
+    }
+  },
+  "expected": {
+    "lines": {
+      "ch.wealth.cantonal": 895.375,
+      "ch.wealth.communal": 1121.575,
+      "ch.personalTax": 24
+    },
+    "totalTax": 2040.95
+  },
+  "workings": [
+    "Zurich: 0 on 80,000; 0.5‰ × 238,000 = 119.00; 1‰ × 399,000 = 399.00; 1.5‰ × 283,000 = 424.50 → 942.50.",
+    "Simple tax 942.50; cantonal 895.3750, communal 1,121.5750.",
+    "No AHV contributions at 70; personal tax 24."
+  ]
+}

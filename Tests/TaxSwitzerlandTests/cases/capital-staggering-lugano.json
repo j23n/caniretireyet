@@ -1,0 +1,43 @@
+{
+  "name": "3a (CHF 100,000) and BVG (CHF 200,000) lump sums in the same year, Lugano",
+  "year": 2026,
+  "input": {
+    "age": 65,
+    "systemOptions": {
+      "canton": "TI",
+      "commune": "Lugano",
+      "capitalBenefitTable": "male"
+    },
+    "pensions": [
+      {
+        "id": "pension-1.lumpSum",
+        "scheme": "ch.bvg",
+        "amount": 200000,
+        "form": "lumpSum"
+      }
+    ],
+    "variable": {
+      "payouts": [
+        {
+          "wrapper": "ch.pillar3a",
+          "amount": 100000,
+          "form": "lumpSum"
+        }
+      ]
+    }
+  },
+  "expected": {
+    "lines": {
+      "ch.capitalBenefits.federal": 5220.688,
+      "ch.capitalBenefits.cantonal": 6000.0,
+      "ch.capitalBenefits.communal": 4800.0,
+      "ch.personalTax": 40
+    },
+    "totalTax": 16060.688
+  },
+  "workings": [
+    "Federal, 1/5 of the tariff on 300,000: 26,103.44 / 5 = 5,220.6880.",
+    "Ticino: 300,000 × 50.77 per 1,000 = 15,231, rounded down to 15,200; tax 20 + 5.232% × 2,700 = 161.26, a rate of 1.06%, so the 2% floor: simple 6,000; cantonal 6,000, communal 4,800.",
+    "Separately (100,000 at 64, 200,000 at 65): 4,136.888 + 9,780.688 = 13,917.576, a saving of 2,103.112, all federal: in Ticino capital benefits up to about 378,000 a year pay a flat 2% simple tax."
+  ]
+}

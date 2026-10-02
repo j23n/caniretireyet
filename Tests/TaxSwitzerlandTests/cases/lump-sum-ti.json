@@ -1,0 +1,46 @@
+{
+  "name": "Lump-sum taxation at the federal minimum, Lugano",
+  "year": 2026,
+  "input": {
+    "age": 62,
+    "citizenships": [
+      "IT"
+    ],
+    "systemOptions": {
+      "canton": "TI",
+      "commune": "Lugano",
+      "permit": "B"
+    },
+    "overlays": [
+      {
+        "regime": "ch.lumpSum",
+        "options": {
+          "livingExpenses": 300000,
+          "annualRent": 48000,
+          "firstYear": 2026
+        }
+      }
+    ]
+  },
+  "expected": {
+    "lines": {
+      "ch.federal": 43923.44,
+      "ch.cantonal": 54442.793,
+      "ch.communal": 43554.2344,
+      "ch.wealth.cantonal": 5437.5,
+      "ch.wealth.communal": 4350.0,
+      "ch.personalTax": 40
+    },
+    "contributions": {
+      "ch.ahv.nonEmployed": 556.5
+    },
+    "totalTax": 151747.9674
+  },
+  "workings": [
+    "Base = max(435,000 federal minimum, Ticino's minimum 435,000, 7 × 48,000 = 336,000, 300,000 living expenses) = 435,000.",
+    "Federal: 10,936.64 + 13.2% × (435,000 − 185,100) = 43,923.4400 (below 11.5% × 435,000 = 50,025).",
+    "Ticino: the single tariff with every category capped at 14%: 25,434.793 at 227,800 + 14% × 207,200 = 54,442.7930; communal 80% = 43,554.2344. Without the cap on the 14.04% category: +61.12 cantonal (verify how far the cap reaches).",
+    "Deemed wealth 5 × 435,000 = 2,175,000 (verify): simple 2.5‰ × 2,175,000 = 5,437.50; communal 4,350.00.",
+    "AHV without work runs on the real wealth and pensions: none in the year's accounts, so the minimum 530 + 5% = 556.50."
+  ]
+}

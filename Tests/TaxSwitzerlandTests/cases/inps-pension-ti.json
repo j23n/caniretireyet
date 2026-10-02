@@ -1,0 +1,36 @@
+{
+  "name": "A foreign state pension (Italian INPS) received in Bellinzona",
+  "year": 2026,
+  "input": {
+    "age": 67,
+    "systemOptions": {
+      "canton": "TI",
+      "commune": "Bellinzona"
+    },
+    "citizenships": [
+      "IT"
+    ],
+    "pensions": [
+      {
+        "id": "pension-0",
+        "scheme": "it.inps",
+        "amount": 18600,
+        "kind": "statutory",
+        "sourceCountry": "IT"
+      }
+    ]
+  },
+  "expected": {
+    "lines": {
+      "ch.cantonal": 8.16,
+      "ch.communal": 7.5888,
+      "ch.personalTax": 40
+    },
+    "totalTax": 55.7488
+  },
+  "workings": [
+    "Under Art. 18 of the Italy–Switzerland treaty a private-sector INPS pension of a Swiss resident is taxed only in Switzerland (EUR 20,000 at 0.93 CHF/EUR = CHF 18,600).",
+    "Federal taxable 18,600 − 2,700 = 15,900: 0.77% × 700 = 5.39, under the CHF 25 that's levied (DBG Art. 36 para. 3), so no federal tax. (The draft case had 5.39: it missed the minimum.)",
+    "Ticino: net income 18,600 − 5,500 = 13,100, at most 21,000, so the full 8,000 deduction for single people; taxable 5,100; simple 0.16% × 5,100 = 8.1600; cantonal 8.1600, communal 93% = 7.5888; personal tax 40 (verify)."
+  ]
+}

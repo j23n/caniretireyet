@@ -1,0 +1,36 @@
+{
+  "name": "Capital benefit of CHF 500,000, Lugano, men's table",
+  "year": 2026,
+  "input": {
+    "age": 65,
+    "systemOptions": {
+      "canton": "TI",
+      "commune": "Lugano",
+      "capitalBenefitTable": "male"
+    },
+    "variable": {
+      "payouts": [
+        {
+          "wrapper": "ch.vestedBenefits",
+          "amount": 500000,
+          "form": "lumpSum"
+        }
+      ]
+    }
+  },
+  "expected": {
+    "lines": {
+      "ch.capitalBenefits.federal": 10500.688,
+      "ch.capitalBenefits.cantonal": 12948.003953,
+      "ch.capitalBenefits.communal": 10358.403162,
+      "ch.personalTax": 40
+    },
+    "totalTax": 33847.095115
+  },
+  "workings": [
+    "A capital benefit of 500,000.00 alone in the year (a payout from ch.vestedBenefits).",
+    "Federal: 1/5 of the tariff (at most 11.5% of the amount): 10,500.6880.",
+    "Ticino: the annuity it buys (50.77 per 1,000, table male) rounded down to 100: 25,300; the tariff's average rate on it 2.5896%, kept between 2% and 3%: 2.5896%; simple tax 12,948.0040.",
+    "Cantonal 100% = 12,948.0040; communal (Lugano, 80%) = 10,358.4032. Total 33,807.0951; personal tax 40."
+  ]
+}

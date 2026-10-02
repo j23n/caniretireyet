@@ -1,0 +1,42 @@
+{
+  "name": "The BVG assets of CHF 500,000 as a lump sum at 65, Zurich",
+  "year": 2026,
+  "input": {
+    "age": 65,
+    "systemOptions": {
+      "canton": "ZH",
+      "commune": "Zurich"
+    },
+    "pensions": [
+      {
+        "id": "pension-0",
+        "scheme": "ch.ahv",
+        "amount": 32760
+      },
+      {
+        "id": "pension-1.lumpSum",
+        "scheme": "ch.bvg",
+        "amount": 500000,
+        "form": "lumpSum"
+      }
+    ]
+  },
+  "expected": {
+    "lines": {
+      "ch.federal": 114.422,
+      "ch.cantonal": 707.275,
+      "ch.communal": 885.955,
+      "ch.personalTax": 24,
+      "ch.capitalBenefits.federal": 10500.688,
+      "ch.capitalBenefits.cantonal": 10906.0,
+      "ch.capitalBenefits.communal": 13661.2
+    },
+    "totalTax": 36799.54
+  },
+  "workings": [
+    "The AHV pension is taxed as in ahv-full-tax-zh; the lump sum separately, as a capital benefit.",
+    "Federal: 1/5 of the tariff on 500,000: (10,936.64 + 13.2% × 314,900 = 41,566.80) / 5 = 10,500.6880.",
+    "Zurich: the rate on 1/20 × 500,000 = 25,000: simple tax 574, a rate of 2.296% (above the 2% minimum); simple 2.296% × 500,000 = 11,480.00; cantonal 10,906.00, communal 13,661.20.",
+    "The lump sum costs 35,067.888 once, about 8.7 years of the annuity's extra tax (bvg-annuity-tax-zh)."
+  ]
+}

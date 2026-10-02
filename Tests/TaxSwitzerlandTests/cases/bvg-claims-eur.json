@@ -1,0 +1,51 @@
+{
+  "name": "BVG claim options in a plan kept in another currency",
+  "kind": "claims",
+  "year": 2026,
+  "input": {
+    "scheme": "ch.bvg",
+    "birthDate": "1963-03-01",
+    "options": {
+      "startingBalance": 465000,
+      "lumpSumShare": 0.0,
+      "realInterest": 0.0,
+      "inflation": 0.01
+    },
+    "currencyRate": 0.93
+  },
+  "expected": {
+    "claims": [
+      {
+        "route": "ch.bvg.annuity",
+        "age": 63,
+        "annualAmount": 23250.0,
+        "realGrowthPerYear": -0.00990099009900991
+      },
+      {
+        "route": "ch.bvg.capital",
+        "age": 63,
+        "annualAmount": 0.0,
+        "lumpSum": 465000.0
+      },
+      {
+        "route": "ch.bvg.annuity",
+        "age": 65,
+        "annualAmount": 25110.0,
+        "realGrowthPerYear": -0.00990099009900991
+      },
+      {
+        "route": "ch.bvg.capital",
+        "age": 65,
+        "annualAmount": 0.0,
+        "lumpSum": 465000.0
+      }
+    ]
+  },
+  "workings": [
+    "Born 1963-03-01; retirement assets 465,000.00 (plan currency; CHF 432,450.00); conversion rate 5.4% at 65, 0.2 points less for each year earlier, more for each later; real interest 0%; Swiss inflation 1%.",
+    "At 63: assets 465,000.0000; rate 5%; annuity 23,250.0000.",
+    "At 65: assets 465,000.0000; rate 5.4%; annuity 25,110.0000.",
+    "The annuity is nominal: in today's francs it changes by 1/1.01 − 1 = -0.009901 a year.",
+    "The balance is converted to CHF at 0.93 and the options back: the amounts in the plan's currency are the same as without conversion."
+  ]
+}

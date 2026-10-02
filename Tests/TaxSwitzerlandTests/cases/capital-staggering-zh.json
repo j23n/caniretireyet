@@ -1,0 +1,43 @@
+{
+  "name": "Pillar 3a (CHF 150,000) and a BVG lump sum (CHF 500,000) in the same year, Zurich",
+  "year": 2026,
+  "input": {
+    "age": 65,
+    "systemOptions": {
+      "canton": "ZH",
+      "commune": "Zurich"
+    },
+    "pensions": [
+      {
+        "id": "pension-1.lumpSum",
+        "scheme": "ch.bvg",
+        "amount": 500000,
+        "form": "lumpSum"
+      }
+    ],
+    "variable": {
+      "payouts": [
+        {
+          "wrapper": "ch.pillar3a",
+          "amount": 150000,
+          "form": "lumpSum"
+        }
+      ]
+    }
+  },
+  "expected": {
+    "lines": {
+      "ch.capitalBenefits.federal": 14460.688,
+      "ch.capitalBenefits.cantonal": 18031.0,
+      "ch.capitalBenefits.communal": 22586.2,
+      "ch.personalTax": 24
+    },
+    "totalTax": 55101.888
+  },
+  "workings": [
+    "All of a year's capital benefits are taxed together: 650,000.",
+    "Federal: 10,936.64 + 13.2% × 464,900 = 72,303.44 (below 11.5% × 650,000); / 5 = 14,460.6880.",
+    "Zurich: 1/20 = 32,500; simple tax 564 + 5% × 7,700 = 949, a rate of 2.92%; simple 18,980.00; cantonal 18,031.00, communal 22,586.20.",
+    "Total 55,077.888; in separate years 7,835.128 + 35,067.888 = 42,903.016, so taking the 3a in an earlier year saves 12,174.872."
+  ]
+}

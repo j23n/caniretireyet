@@ -1,0 +1,35 @@
+{
+  "name": "Capital benefit of CHF 250,000, Zurich city",
+  "year": 2026,
+  "input": {
+    "age": 65,
+    "systemOptions": {
+      "canton": "ZH",
+      "commune": "Zurich"
+    },
+    "variable": {
+      "payouts": [
+        {
+          "wrapper": "ch.vestedBenefits",
+          "amount": 250000,
+          "form": "lumpSum"
+        }
+      ]
+    }
+  },
+  "expected": {
+    "lines": {
+      "ch.capitalBenefits.federal": 3900.688,
+      "ch.capitalBenefits.cantonal": 4750.0,
+      "ch.capitalBenefits.communal": 5950.0,
+      "ch.personalTax": 24
+    },
+    "totalTax": 14624.688
+  },
+  "workings": [
+    "A capital benefit of 250,000.00 alone in the year (a payout from ch.vestedBenefits).",
+    "Federal: 1/5 of the tariff (at most 11.5% of the amount): 3,900.6880.",
+    "Zurich: the tariff's rate on 1/20 of the amount (12,500.00), at least 2%: 2.0000%; simple tax 5,000.0000.",
+    "Cantonal 95% = 4,750.0000; communal (Zurich, 119%) = 5,950.0000. Total 14,600.6880; personal tax 24."
+  ]
+}

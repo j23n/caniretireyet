@@ -1,0 +1,59 @@
+{
+  "name": "Employee, CHF 80,000, Zurich, paying CHF 10,000 into 3a (above the maximum)",
+  "year": 2026,
+  "input": {
+    "age": 40,
+    "systemOptions": {
+      "canton": "ZH",
+      "commune": "Zurich"
+    },
+    "work": [
+      {
+        "phaseID": "job",
+        "kind": "employee",
+        "regime": "ch.employee",
+        "gross": 80000.0
+      }
+    ],
+    "wrapperContributions": [
+      {
+        "wrapper": "ch.pillar3a",
+        "amount": 10000,
+        "source": "contribution-0"
+      }
+    ]
+  },
+  "expected": {
+    "lines": {
+      "ch.federal": 700.513627,
+      "ch.cantonal": 2588.09716,
+      "ch.communal": 3241.932232,
+      "ch.personalTax": 24.0
+    },
+    "contributions": {
+      "ch.ahv.employee": 4240.0,
+      "ch.alv": 880.0,
+      "ch.bvg.employee": 2677.0
+    },
+    "accruals": {
+      "pensionScheme:ch.ahv": 80000.0,
+      "pensionScheme:ch.bvg": 5354.0
+    },
+    "contributionMonths": 12,
+    "totalTax": 6554.543019,
+    "netIncome": 55648.456981,
+    "issues": [
+      "ch.pillar3a.limit"
+    ]
+  },
+  "workings": [
+    "AHV/IV/EO 5.3% × 80,000.00 = 4,240.00; ALV 1.1% × 80,000.00 = 880.00.",
+    "Coordinated salary min(80,000.00, 90,720) − 26,460 = 53,540.00; age credit at 40 10% = 5,354.00; employee half 2,677.00.",
+    "Net salary 72,203.00; professional expenses federal 2,166.09, ZH 2,166.09.",
+    "Further deductions: pillar 3a 7,258.00.",
+    "Federal taxable 72,203.00 − 11,224.09 of deductions = 60,978.91; federal tax 700.5136.",
+    "Zurich taxable 72,203.00 − 12,324.09 = 59,878.91.",
+    "Simple tax 2,724.3128; cantonal 95% = 2,588.0972; communal (Zurich, 119%) = 3,241.9322; personal tax 24.",
+    "Total tax 6,554.5430. Net income 80,000.00 − 7,797.00 − 6,554.5430 − 10,000.00 paid in = 55,648.4570."
+  ]
+}
