@@ -1,5 +1,6 @@
 import Foundation
 import Model
+import Prices
 import Tracker
 
 // The plan's currency (PLANNER.md, "Plan file": `currency`, by default the
@@ -154,6 +155,17 @@ struct PlanActualSeries: Hashable, Sendable {
         self.points = points
         missingRates = missing
         isInflationAdjusted = adjusted
+    }
+}
+
+extension CheckInPriceNeeds {
+    /// Adds the currencies plans are in (other than the base currency), so a
+    /// check-in fetches their rates: a plan values your accounts in its
+    /// currency at the rate on its start date, and Progress converts each
+    /// check-in at its own.
+    mutating func includePlanCurrencies(of library: Library) {
+        let codes = Set(currencies + library.plans.values.compactMap(\.currency)).subtracting([baseCurrency])
+        currencies = codes.sorted()
     }
 }
 

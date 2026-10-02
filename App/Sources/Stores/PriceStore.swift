@@ -44,6 +44,7 @@ final class PriceStore {
         defer { activeFetches -= 1 }
         var needs = service.needs(for: library, on: date)
         needs.include(instruments, from: library)
+        needs.includePlanCurrencies(of: library)
         let result = await service.fetch(needs, refresh: refresh)
         lastResult = result
         return result
