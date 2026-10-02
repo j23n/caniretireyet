@@ -13,9 +13,9 @@ extension PriceService {
     static let rateLookbackDays = 14
 
     /// What filling in past prices would fetch for `library` up to today,
-    /// for the indices this service provides.
+    /// with the library's indices this service provides (``indices(for:)``).
     public func pastPriceNeeds(for library: Library) -> PastPriceNeeds {
-        PastPriceNeeds(library: library, today: today(), indices: indexProviders.keys.sorted())
+        PastPriceNeeds(library: library, today: today(), indices: indices(for: library))
     }
 
     /// Fetches what `needs` asks for, in as few requests as possible, and
@@ -367,7 +367,7 @@ extension PriceService {
     private func fetchIndex(_ need: CheckInPriceNeeds.IndexMonths) async -> (PastPriceResult, [IndexRecord]) {
         let item = PriceListEntry.Item.index(need.index)
         let needed = need.months.map(\.lastDay)
-        guard let provider = indexProviders[need.index], let first = need.months.first, let last = need.months.last
+        guard let provider = indexProvider(for: need.index), let first = need.months.first, let last = need.months.last
         else {
             return (PastPriceResult(item: item, needed: needed, reason: "There's no provider for the \(need.index) index."),
                     [])

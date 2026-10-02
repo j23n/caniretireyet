@@ -129,6 +129,51 @@ public struct FundType: OpenEnum {
     public static let other: FundType = "other"
 
     public static let knownValues: [FundType] = [.equity, .mixed, .realEstate, .foreignRealEstate, .other]
+
+    /// The fund type of a fund that invests as `mix` says, for when the
+    /// instrument doesn't say (PLANNER.md, "Portfolio"): more than half in
+    /// equity is an equity fund, more than half in real estate a real-estate
+    /// fund, at least a quarter in equity a mixed fund, and anything else
+    /// `other`. Shares are of the mix's positive parts, so a mix that
+    /// doesn't add up to 1 is scaled. It can't tell `foreignRealEstate`.
+    public static func derived(from mix: AssetMix) -> FundType {
+        let positive = mix.shares.filter { $0.value > 0 }
+        let total = positive.values.reduce(Decimal(0), +)
+        guard total > 0 else { return .other }
+        let equity = (positive[.equity] ?? 0) / total
+        let half = Decimal(sign: .plus, exponent: -1, significand: 5)
+        let quarter = Decimal(sign: .plus, exponent: -2, significand: 25)
+        if equity > half { return .equity }
+        if (positive[.realEstate] ?? 0) / total > half { return .realEstate }
+        if equity >= quarter { return .mixed }
+        return .other
+    }
+}
+
+extension InstrumentKind {
+    /// Whether instruments of this kind have a fund type (``FundType``):
+    /// ETFs and funds.
+    public var hasFundType: Bool {
+        self == .etf || self == .fund
+    }
+}
+
+extension Instrument {
+    /// The kind of fund an ETF or fund is taxed as: its `tax.fundType` when
+    /// it gives one this version knows, else the type its asset mix gives
+    /// (``FundType/derived(from:)``). `nil` for other kinds. The planner,
+    /// the app and the CLI all go by it.
+    public var effectiveFundType: FundType? {
+        guard kind.hasFundType else { return nil }
+        if let chosen = tax?.fundType, chosen.isKnown { return chosen }
+        return FundType.derived(from: assetClasses)
+    }
+
+    /// Whether this is an ETC that gives a right to delivery of the metal
+    /// (`tax.deliveryClaim`), which some systems tax like the metal itself.
+    public var hasDeliveryClaim: Bool {
+        kind == .etc && tax?.deliveryClaim == true
+    }
 }
 
 /// An instrument's `tax` object: overrides of the treatment implied by its

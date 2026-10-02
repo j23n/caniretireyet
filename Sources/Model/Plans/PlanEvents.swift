@@ -24,7 +24,7 @@ public enum EventTiming: Hashable, Sendable {
 public struct PlanEvent: Hashable, Sendable, KnownKeysProviding {
     public var name: String
     public var timing: EventTiming
-    /// In today's euros.
+    /// In today's money, in the plan's currency.
     public var amount: Decimal
     /// As written. See ``effectiveProbability``.
     public var probability: Decimal?

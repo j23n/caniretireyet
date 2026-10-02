@@ -119,8 +119,10 @@ struct PlanBaselineComparison: Sendable {
     /// The baseline's currency: its copy of the plan's, else the library's.
     var currency: CurrencyCode
     /// Whether the actual line is in money of the start date (an inflation
-    /// index for the currency has values for its dates) or of each date.
+    /// index has values for its dates) or of each date.
     var isInflationAdjusted: Bool
+    /// The index the actual line is adjusted with; `nil` when the library has none.
+    var inflation: PlanInflationIndex?
     /// Check-ins left out of `actual`: no exchange rate into `currency` on their date.
     var missingRates: [CalendarDate]
     var position: Position?
@@ -141,6 +143,7 @@ struct PlanBaselineComparison: Sendable {
         actual = [ChartPoint(date: baseline.start.date.dateValue, value: baseline.start.value.doubleValue)]
             + series.points
         isInflationAdjusted = series.isInflationAdjusted || series.points.isEmpty
+        inflation = series.inflation
         missingRates = series.missingRates
         position = series.latest.flatMap { Self.position(of: $0.value, on: $0.date, in: baseline) }
     }
@@ -153,9 +156,12 @@ struct PlanBaselineComparison: Sendable {
         if isInflationAdjusted {
             note = "The same accounts as the baseline, in \(code) of "
                 + "\(AmountFormat.mediumDate(baseline.start.date, locale: locale))."
-        } else if PlanMoney.inflationIndex(for: currency) == nil {
-            note = "The same accounts as the baseline, in \(code) of each date: the library has no inflation index "
-                + "for \(code)."
+            if !actual.dropFirst().isEmpty,
+               let standIn = PlanMoney.standInNote(inflation, currency: currency, locale: locale) {
+                note += " " + standIn
+            }
+        } else if inflation == nil {
+            note = "The same accounts as the baseline, in \(code) of each date: the library has no inflation index."
         } else {
             note = "The same accounts as the baseline. Without inflation values for every date, some are in the "
                 + "\(code) of their time."

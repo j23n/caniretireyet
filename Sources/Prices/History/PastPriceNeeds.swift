@@ -22,9 +22,12 @@ import Model
 /// - **FX rates.** On those dates, every currency other than the base
 ///   currency that an amount is in (a balance, cash, or a held instrument's
 ///   price) with no rate against the base currency, either way round,
-///   dated that day.
-/// - **Index months.** For each index, the months from the first
-///   valuation's through the last that has ended by today without a value.
+///   dated that day. And each plan's currency on every check-in date: a
+///   plan's Progress converts each check-in at its own date's rate.
+/// - **Index months.** For each index the library uses (by default
+///   `Library.inflationIndices`: its own, and one for each plan's
+///   currency), the months from the first valuation's through the last that
+///   has ended by today without a value.
 public struct PastPriceNeeds: Hashable, Sendable {
     /// An instrument and the dates it needs a price on.
     public struct InstrumentDates: Hashable, Sendable, Identifiable {
@@ -85,8 +88,9 @@ public struct PastPriceNeeds: Hashable, Sendable {
         self.indices = indices.filter { !$0.months.isEmpty }
     }
 
-    /// Works out what `library` is missing up to `today`, for `indices`.
-    public init(library: Library, today: CalendarDate, indices: [IndexID] = [.hicpIT]) {
+    /// Works out what `library` is missing up to `today`, with the months
+    /// missing of `indices` (`nil`: the library's own, `Library.inflationIndices`).
+    public init(library: Library, today: CalendarDate, indices: [IndexID]? = nil) {
         let base = library.settings.baseCurrency
         var prices: [PriceKey: PriceRecord] = [:]
         var rates: Set<FXKey> = []
@@ -153,6 +157,15 @@ public struct PastPriceNeeds: Hashable, Sendable {
             }
         }
 
+        // Plans in another currency convert each check-in at its own rate.
+        let planCurrencies = Set(library.plans.values.compactMap(\.currency))
+        if !planCurrencies.isEmpty {
+            let checkIns = library.checkInDates.filter { $0 <= today }
+            for currency in planCurrencies {
+                for date in checkIns { needRate(currency, on: date) }
+            }
+        }
+
         var fetched: [InstrumentDates] = []
         var manual: [InstrumentDates] = []
         var unknown: [InstrumentDates] = []
@@ -172,7 +185,7 @@ public struct PastPriceNeeds: Hashable, Sendable {
             today: today, baseCurrency: base, instruments: fetched, manualInstruments: manual,
             unknownInstruments: unknown,
             rates: rateDates.sorted { $0.key < $1.key }.map { RateDates(quote: $0.key, dates: Array($0.value)) },
-            indices: indices.map { Self.missingMonths(of: $0, in: library, today: today) })
+            indices: (indices ?? library.inflationIndices).map { Self.missingMonths(of: $0, in: library, today: today) })
     }
 
     /// The dates `valuation` is valued on: its own, and the month ends after

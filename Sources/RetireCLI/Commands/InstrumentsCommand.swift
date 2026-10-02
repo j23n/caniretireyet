@@ -22,13 +22,13 @@ struct InstrumentsGroupCommand: AsyncParsableCommand {
         subcommands: [InstrumentsListCommand.self, InstrumentsSetCommand.self],
         defaultSubcommand: InstrumentsListCommand.self)
 
-    /// "equity fund (from its mix)", "real-estate fund", "ETC with a delivery claim", "stock".
+    /// "equity fund (from its mix)", "real-estate fund", "ETC with a delivery claim", "stock": the
+    /// planner's own reading (`Instrument.effectiveFundType`, `hasDeliveryClaim`).
     static func taxKind(of instrument: Instrument) -> String {
-        if PlanInputs.takesFundType(instrument.kind) {
-            if let type = instrument.tax?.fundType { return name(of: type) }
-            return name(of: PlanInputs.automaticFundType(for: instrument.assetClasses)) + " (from its mix)"
+        if let type = instrument.effectiveFundType {
+            return instrument.tax?.fundType == type ? name(of: type) : name(of: type) + " (from its mix)"
         }
-        if instrument.kind == .etc { return instrument.tax?.deliveryClaim == true ? "ETC with a delivery claim" : "ETC" }
+        if instrument.kind == .etc { return instrument.hasDeliveryClaim ? "ETC with a delivery claim" : "ETC" }
         return instrument.kind.rawValue
     }
 
@@ -73,12 +73,11 @@ struct InstrumentsListCommand: RetireSubcommand {
                 var deliveryClaim: Bool?
             }
             context.console.print(try JSONOutput.string(instruments.map { instrument in
-                let isFund = PlanInputs.takesFundType(instrument.kind)
-                return Row(id: instrument.id.rawValue, name: instrument.name, kind: instrument.kind.rawValue,
-                           currency: instrument.currency.rawValue, fundType: instrument.tax?.fundType?.rawValue,
-                           automaticFundType: isFund
-                               ? PlanInputs.automaticFundType(for: instrument.assetClasses).rawValue : nil,
-                           deliveryClaim: instrument.tax?.deliveryClaim)
+                Row(id: instrument.id.rawValue, name: instrument.name, kind: instrument.kind.rawValue,
+                    currency: instrument.currency.rawValue, fundType: instrument.tax?.fundType?.rawValue,
+                    automaticFundType: instrument.kind.hasFundType
+                        ? FundType.derived(from: instrument.assetClasses).rawValue : nil,
+                    deliveryClaim: instrument.tax?.deliveryClaim)
             }))
             return
         }
@@ -150,7 +149,7 @@ struct InstrumentsSetCommand: RetireSubcommand {
         }
         var tax = instrument.tax ?? InstrumentTax()
         if let fundType {
-            guard PlanInputs.takesFundType(instrument.kind) else {
+            guard instrument.kind.hasFundType else {
                 throw CLIError("\(instrument.id) is \(instrument.kind == .etc ? "an" : "a") \(instrument.kind): only an "
                     + "ETF or a fund has a fund type.")
             }

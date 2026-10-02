@@ -184,6 +184,17 @@ struct InstrumentPriceUpdateSheet: View {
                     Text(verbatim: "How much of each currency 1 \(run.baseCurrency.rawValue) buys, from the ECB.")
                 }
             }
+            if !run.indices.isEmpty {
+                Section {
+                    ForEach(run.indices) { line in
+                        InstrumentPriceUpdateRow(line: line, canAct: false) { _ in }
+                    }
+                } header: {
+                    Text("Inflation")
+                } footer: {
+                    Text("Consumer prices for the months the library is missing, from Eurostat.")
+                }
+            }
         }
         .formStyle(.grouped)
     }

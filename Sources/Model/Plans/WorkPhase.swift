@@ -19,7 +19,7 @@ public struct WorkKind: OpenEnum {
 ///
 /// Which amounts apply depends on `kind`: `grossSalary` for employees,
 /// `revenue` and `costs` for the self-employed, `netIncome` for `net`.
-/// Amounts are yearly, in today's euros.
+/// Amounts are yearly, in today's money, in the plan's currency.
 public struct WorkPhase: Hashable, Sendable, KnownKeysProviding {
     public var kind: WorkKind
     /// The first day of the phase.

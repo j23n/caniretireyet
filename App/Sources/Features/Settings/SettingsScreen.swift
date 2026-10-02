@@ -55,7 +55,8 @@ struct SettingsScreen: View {
     }
 }
 
-/// Name, birth date, base currency and tax residence, saved in `library.json`.
+/// Name, birth date, base currency, tax residence and inflation index, saved
+/// in `library.json`.
 ///
 /// Each control writes its own field from its binding's setter, only when
 /// you change it (`YouSettings`): opening Settings writes nothing, and a
@@ -96,6 +97,14 @@ private struct YouSection: View {
                     Text(CountryChoices.name(of: code, locale: locale)).tag(Optional(code))
                 }
             }
+            Picker("Inflation", selection: inflationBinding) {
+                Text(InflationIndexText.automaticChoice(YouSettings.automaticInflationIndex(in: library.library),
+                                                        locale: locale))
+                    .tag(IndexID?.none)
+                ForEach(YouSettings.inflationChoices(in: settings, locale: locale), id: \.self) { index in
+                    Text(InflationIndexText.choice(index, locale: locale)).tag(Optional(index))
+                }
+            }
             if let error {
                 Text(error).font(.footnote).foregroundStyle(Palette.critical)
             }
@@ -103,7 +112,7 @@ private struct YouSection: View {
             Text("You")
         } footer: {
             Text("Plans use your birth date for ages. The tax residence is the default for new plans. "
-                + YouSettings.citizenshipExplanation)
+                + YouSettings.citizenshipExplanation + " " + YouSettings.inflationExplanation)
         }
         .disabled(!library.canEdit)
         .onDisappear(perform: saveName)
@@ -167,6 +176,15 @@ private struct YouSection: View {
             })
     }
 
+    private var inflationBinding: Binding<IndexID?> {
+        Binding(
+            get: { library.settings.inflationIndex },
+            set: { index in
+                guard index != library.settings.inflationIndex else { return }
+                write { YouSettings.setting(inflationIndex: index, in: $0) }
+            })
+    }
+
     /// Writes the typed name, if it was edited and differs from the saved one.
     private func saveName() {
         guard let typedName, library.canEdit, YouSettings.isNameChanged(typedName, in: library.settings) else { return }
@@ -198,7 +216,7 @@ private struct PricesSection: View {
             LabeledContent("Crypto", value: "CoinGecko")
             LabeledContent("Gold and silver", value: "gold-api.com")
             LabeledContent("Exchange rates", value: "ECB, via Frankfurter")
-            LabeledContent("Inflation (Italy)", value: "Eurostat HICP")
+            LabeledContent("Inflation", value: "Eurostat HICP")
             #if canImport(Security)
             SecureField("CoinGecko API key (optional)", text: $coinGeckoKey)
                 .onSubmit(saveKey)

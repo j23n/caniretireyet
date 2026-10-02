@@ -38,10 +38,13 @@ struct LivePriceTests {
         let vwce = try await YahooChartProvider().quote(for: request("VWCE.DE", .eur))
         #expect(vwce.currency == .eur && vwce.price > 10)
 
-        let hicp = try await EurostatIndexProvider()
-            .values(from: today.yearMonth.adding(months: -6), through: today.yearMonth)
-        #expect(!hicp.isEmpty)
-        #expect(hicp.allSatisfy { $0.date.isEndOfMonth && $0.value > 100 })
+        // Italy's HICP, the euro area's and Switzerland's, all with 2015 = 100.
+        for series in [EurostatIndexProvider.Series.hicpIT, .hicpEA, .hicp("hicp-ch")!] {
+            let hicp = try await EurostatIndexProvider(series: series)
+                .values(from: today.yearMonth.adding(months: -6), through: today.yearMonth)
+            #expect(!hicp.isEmpty, "\(series.index)")
+            #expect(hicp.allSatisfy { $0.date.isEndOfMonth && $0.value > 90 }, "\(series.index)")
+        }
     }
 
     @Test func theServiceFetchesTheExampleLibrary() async throws {

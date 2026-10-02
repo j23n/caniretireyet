@@ -1,23 +1,62 @@
 import Foundation
 import Model
 import TaxKit
+import Tracker
 
 /// Edits the Plan screens make to a `PlanDocument`, as plain functions:
 /// new plans, new list items with sensible defaults, and the conversions
 /// the editors need. Everything is saved through `LibraryStore.save(_:)`.
+///
+/// Default amounts follow the library (UI.md, "Inputs"): a new plan spends
+/// what your other plans say, else 30.000 euros' worth in the base
+/// currency; a new item's amount is in proportion to the plan's spending.
 enum PlanEditing {
     // MARK: Plans
 
     /// A new plan starting from sensible defaults: retire as early as
-    /// possible, spend 30.000 a year, taxes where you live from this year.
-    static func newPlan(id: PlanID, name: String, settings: LibrarySettings, asOf: CalendarDate,
+    /// possible, spend what the library suggests (``defaultSpending(in:asOf:)``),
+    /// taxes where you live from this year. It's in the library's base currency.
+    static func newPlan(id: PlanID, name: String, library: Library, asOf: CalendarDate,
                         registry: TaxRegistry) -> PlanDocument {
         var plan = PlanDocument(id: id, name: name, retirement: PlanRetirement(age: .earliest),
-                                spending: PlanSpending(working: 30_000, retired: 30_000))
-        if let system = PlanTaxChoices.residenceSystem(for: settings, registry: registry) {
+                                spending: defaultSpending(in: library, asOf: asOf))
+        if let system = PlanTaxChoices.residenceSystem(for: library.settings, registry: registry) {
             plan.tax.residence = [PlanResidence(from: asOf.year, system: TaxSystemID(system.id))]
         }
         return plan
+    }
+
+    /// What a new plan spends a year, while working and in retirement:
+    ///
+    /// 1. what the main plan spends (else the first plan by ID), when it's
+    ///    in the base currency, since you've said it already;
+    /// 2. else 30.000 euros' worth in the base currency, at the library's
+    ///    latest rate on `asOf`, to two significant figures (35.000 for
+    ///    dollars, 4.800.000 for yen);
+    /// 3. else, without a rate to the euro, 30.000 in the base currency.
+    static func defaultSpending(in library: Library, asOf: CalendarDate) -> PlanSpending {
+        let base = library.settings.baseCurrency
+        let plans = library.plans.values.filter { $0.effectiveCurrency(base: base) == base }
+        let main = library.settings.mainPlan.flatMap { id in plans.first { $0.id == id } }
+        if let source = main ?? plans.min(by: { $0.id < $1.id }) {
+            return PlanSpending(working: source.spending.working, retired: source.spending.retired)
+        }
+        let amount = FXTable(library: library).convert(referenceSpending, from: .eur, to: base, on: asOf)
+            .map(roundedForDefault) ?? referenceSpending
+        return PlanSpending(working: amount, retired: amount)
+    }
+
+    /// The yearly spending a new plan starts from without other plans: in
+    /// euros, converted into the base currency.
+    static let referenceSpending: Decimal = 30_000
+
+    /// `amount` to two significant figures: 35.123 → 35.000, 4.812.345 →
+    /// 4.800.000. A default to edit, not a figure to trust.
+    static func roundedForDefault(_ amount: Decimal) -> Decimal {
+        let value = NSDecimalNumber(decimal: amount).doubleValue
+        guard value >= 10, value < 1e17 else { return amount }
+        let step = Int(pow(10, log10(value).rounded(.down) - 1).rounded())
+        return Decimal(Int((value / Double(step)).rounded()) * step)
     }
 
     /// A name no other plan has: "New plan", "New plan 2", …
@@ -32,21 +71,39 @@ enum PlanEditing {
     // MARK: New items
 
     /// A work phase after the plan's last one: from the next day (or the
-    /// start of next year) until retirement.
+    /// start of next year) until retirement, earning in proportion to what
+    /// the plan spends while working (a gross salary of 4/3 of it).
     static func newWorkPhase(in plan: PlanDocument, asOf: CalendarDate, kind: WorkKind = .employee) -> WorkPhase {
         let lastEnd = plan.work.compactMap { $0.until.date }.max()
         let from = lastEnd?.adding(days: 1) ?? asOf.adding(days: 1)
         var phase = WorkPhase(kind: kind, from: from, until: .retirement)
-        applyDefaultAmounts(to: &phase)
+        applyDefaultAmounts(to: &phase, spending: plan.spending.working)
         return phase
     }
 
-    /// Fills in the amount a kind of work needs, if it's missing.
-    static func applyDefaultAmounts(to phase: inout WorkPhase) {
+    /// Fills in the amount a kind of work needs, if it's missing, in
+    /// proportion to a yearly spending: a gross salary of 4/3 of it, revenue
+    /// of 5/3, net income equal to it. The spending is the one the phase's
+    /// amount for another kind of work stands for (a gross salary of 40.000
+    /// stands for 30.000), else `spending`; without either, 40.000, 50.000
+    /// and 30.000.
+    static func applyDefaultAmounts(to phase: inout WorkPhase, spending: Decimal? = nil) {
+        let shares: [WorkKind: Decimal] = [.employee: Decimal(4) / 3, .selfEmployed: Decimal(5) / 3, .net: 1]
+        let typed: Decimal? = if let gross = phase.grossSalary {
+            gross / shares[.employee]!
+        } else if let revenue = phase.revenue {
+            revenue / shares[.selfEmployed]!
+        } else {
+            phase.netIncome
+        }
+        func amount(for kind: WorkKind, fallback: Decimal) -> Decimal {
+            guard let reference = typed ?? spending, reference > 0, let share = shares[kind] else { return fallback }
+            return roundedForDefault(reference * share)
+        }
         switch phase.kind {
-        case .employee: if phase.grossSalary == nil { phase.grossSalary = 40_000 }
-        case .selfEmployed: if phase.revenue == nil { phase.revenue = 50_000 }
-        case .net: if phase.netIncome == nil { phase.netIncome = 30_000 }
+        case .employee: if phase.grossSalary == nil { phase.grossSalary = amount(for: .employee, fallback: 40_000) }
+        case .selfEmployed: if phase.revenue == nil { phase.revenue = amount(for: .selfEmployed, fallback: 50_000) }
+        case .net: if phase.netIncome == nil { phase.netIncome = amount(for: .net, fallback: 30_000) }
         default: break
         }
     }
@@ -100,13 +157,22 @@ enum PlanEditing {
 
     /// A yearly contribution into the first plan account with a
     /// tax-advantaged kind (pension fund), else the first plan account,
-    /// else into the first pension scheme of `schemes`.
-    static func newContribution(in library: Library, schemes: [PlanChoice] = []) -> PlanContribution? {
+    /// else into the first pension scheme of `schemes`: a thirtieth of what
+    /// `plan` spends while working (1.000 of 30.000).
+    static func newContribution(in library: Library, plan: PlanDocument, schemes: [PlanChoice] = [])
+        -> PlanContribution? {
         let accounts = contributionAccounts(in: library)
+        let perYear = share(of: plan, Decimal(1) / 30, fallback: 1_000)
         if let account = accounts.first(where: { $0.kind == .pensionFund }) ?? accounts.first {
-            return PlanContribution(account: account.id, perYear: 1_000)
+            return PlanContribution(account: account.id, perYear: perYear)
         }
-        return schemes.first.map { PlanContribution(pension: PensionSchemeID($0.id), perYear: 1_000) }
+        return schemes.first.map { PlanContribution(pension: PensionSchemeID($0.id), perYear: perYear) }
+    }
+
+    /// `share` of what `plan` spends while working, as a default amount;
+    /// `fallback` when it spends nothing.
+    static func share(of plan: PlanDocument, _ share: Decimal, fallback: Decimal) -> Decimal {
+        plan.spending.working > 0 ? roundedForDefault(plan.spending.working * share) : fallback
     }
 
     /// The pension schemes a contribution can pay into (a buy-in): those of
@@ -117,8 +183,10 @@ enum PlanEditing {
             .filter { $0.id != FixedPensionScheme.schemeID }
     }
 
-    static func newEvent(asOf: CalendarDate) -> PlanEvent {
-        PlanEvent(name: "New event", timing: .year(asOf.year + 5), amount: -10_000)
+    /// An expense in five years of a third of what `plan` spends while
+    /// working (10.000 of 30.000).
+    static func newEvent(in plan: PlanDocument, asOf: CalendarDate) -> PlanEvent {
+        PlanEvent(name: "New event", timing: .year(asOf.year + 5), amount: -share(of: plan, Decimal(1) / 3, fallback: 10_000))
     }
 
     static func newSpendingPhase(in plan: PlanDocument) -> SpendingPhase {

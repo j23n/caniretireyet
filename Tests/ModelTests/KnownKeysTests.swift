@@ -58,7 +58,8 @@ struct KnownKeysTests {
 
     /// A fully populated value of every type with known keys.
     private static var samples: [(any Encodable, Set<String>)] { [
-        (LibrarySettings(person: Person(name: "Me", birthDate: "1988-04-12"), taxResidence: .it, mainPlan: "base"), LibrarySettings.knownKeys),
+        (LibrarySettings(person: Person(name: "Me", birthDate: "1988-04-12"), taxResidence: .it, mainPlan: "base",
+                         inflationIndex: .hicpEA), LibrarySettings.knownKeys),
         (Person(name: "Me", birthDate: "1988-04-12", citizenships: [.it, .ch]), Person.knownKeys),
         (Account(id: "a", name: "A", kind: .cash, currency: .eur, opened: "2020-01-01", closed: "2025-01-01",
                  institution: "Bank", country: .it, valuation: .balance, assetClasses: .single(.cash),

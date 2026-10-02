@@ -437,7 +437,7 @@ struct PlanItemEditor<Item: Equatable, Content: View>: View {
     @Previewable @State var amount: Decimal = 36_000
     @Previewable @State var options: [String: JSONValue] = ["coefficient": .string("0.67")]
     Form {
-        PlanNumberRow("Spending", value: $amount, unit: "€/yr")
+        PlanNumberRow("Spending", value: $amount, unit: "/yr")
         PlanOptionsForm(fields: AppTaxRegistry.standard.regime("it.forfettario")?.regime.options ?? [],
                         options: $options)
         PlanIssueLine(message: "Impatriati doesn't apply to forfettario income: 2029 is lost.", isError: false)

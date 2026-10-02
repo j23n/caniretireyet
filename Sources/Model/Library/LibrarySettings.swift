@@ -24,23 +24,29 @@ public struct LibrarySettings: Codable, Hashable, Sendable, KnownKeysProviding {
     /// The plan shown on the Overview, re-run at each check-in and saved as a
     /// baseline automatically at the first check-in of each year.
     public var mainPlan: PlanID?
+    /// The consumer price index amounts are adjusted for inflation with,
+    /// e.g. `hicp-ea`, when it isn't the default. As written; see
+    /// ``Library/effectiveInflationIndex``.
+    public var inflationIndex: IndexID?
 
     public init(
         schemaVersion: Int = LibrarySettings.currentSchemaVersion,
         baseCurrency: CurrencyCode = .eur,
         person: Person? = nil,
         taxResidence: CountryCode? = nil,
-        mainPlan: PlanID? = nil
+        mainPlan: PlanID? = nil,
+        inflationIndex: IndexID? = nil
     ) {
         self.schemaVersion = schemaVersion
         self.baseCurrency = baseCurrency
         self.person = person
         self.taxResidence = taxResidence
         self.mainPlan = mainPlan
+        self.inflationIndex = inflationIndex
     }
 
     enum CodingKeys: String, CodingKey, CaseIterable {
-        case schemaVersion, baseCurrency, person, taxResidence, mainPlan
+        case schemaVersion, baseCurrency, person, taxResidence, mainPlan, inflationIndex
     }
 
     public static var knownKeys: Set<String> { Set(CodingKeys.allCases.map(\.stringValue)) }

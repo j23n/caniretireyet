@@ -252,7 +252,8 @@ struct ExampleLibraryPerformanceTests {
 
 struct InflationIndexTests {
     @Test func exampleLibraryIndex() throws {
-        let index = InflationIndex(library: try Fixtures.exampleLibrary())
+        let index = try #require(InflationIndex(library: try Fixtures.exampleLibrary()))
+        #expect(index.index == .hicpIT)
         #expect(index.records.count == 11)
         #expect(index.value(on: "2026-09-30")?.date == "2026-08-31")
         #expect(index.value(on: "2026-09-15")?.value == d("128.41"))
@@ -263,10 +264,10 @@ struct InflationIndexTests {
         #expect(index.inflation(from: "2025-11-30", to: "2025-12-31")?.rounded(6) == d("0.002779"))
     }
 
-    @Test func seriesInTodaysEuros() throws {
+    @Test func seriesInTodaysMoney() throws {
         let library = try Fixtures.exampleLibrary()
         let nominal = Valuator(library: library).series(through: "2026-09-30")
-        let real = InflationIndex(library: library).series(nominal, inEurosOf: "2026-09-30")
+        let real = try #require(InflationIndex(library: library)).series(nominal, inMoneyOf: "2026-09-30")
         #expect(real.count == nominal.count)
         #expect(real.last?.value == nominal.last?.value)
         #expect(real.first?.value.rounded(10) == (nominal.first!.value * d("128.41") / d("126.1")).rounded(10))
@@ -277,8 +278,25 @@ struct InflationIndexTests {
             IndexRecord(index: .hicpIT, date: "2025-01-31", value: 100),
             IndexRecord(index: "cpi-us", date: "2025-01-31", value: 300),
             IndexRecord(index: .hicpIT, date: "2026-01-31", value: 103),
-        ])
+        ], index: .hicpIT)
         #expect(index.convert(100, from: "2025-01-31", to: "2026-01-31") == 103)
         #expect(index.convert(103, from: "2026-01-31", to: "2025-06-30") == 100)
+    }
+
+    /// The library's own index follows its settings, not a fixed country.
+    @Test func theLibrarysIndexIsItsOwn() throws {
+        var library = try Fixtures.exampleLibrary()
+        library.settings.taxResidence = .de
+        for (date, value) in [("2025-10-31", "120"), ("2026-08-31", "126")] {
+            library.upsert(IndexRecord(index: "hicp-de", date: CalendarDate(date)!, value: d(value)))
+        }
+        let germany = try #require(InflationIndex(library: library))
+        #expect(germany.index == "hicp-de")
+        #expect(germany.convert(1000, from: "2025-10-31", to: "2026-09-30") == 1050)
+
+        library.settings = LibrarySettings(baseCurrency: .usd, taxResidence: .us)
+        #expect(InflationIndex(library: library) == nil)
+        library.settings.inflationIndex = .hicpIT
+        #expect(InflationIndex(library: library)?.records.count == 11)
     }
 }

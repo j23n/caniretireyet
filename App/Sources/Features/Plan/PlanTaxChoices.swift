@@ -1,5 +1,6 @@
 import Foundation
 import Model
+import Planner
 import TaxKit
 
 /// A bar on the tax timeline: a residence period or an overlay, in years.
@@ -25,20 +26,19 @@ struct PlanChoice: Hashable, Sendable, Identifiable {
 enum PlanTaxChoices {
     /// The system for where you live: the registered system whose country
     /// (`TaxSystem.country`) is the library's tax residence, else `generic`,
-    /// else the first registered. A new plan lives there from its first
-    /// year, so a country's system is picked up once it's registered.
+    /// else the first registered (`Planner.defaultTaxSystem`). A new plan
+    /// lives there from its first year, so a country's system is picked up
+    /// once it's registered.
     static func residenceSystem(for settings: LibrarySettings, registry: TaxRegistry) -> (any TaxSystem)? {
-        settings.taxResidence.flatMap { registry.system(forCountry: $0.rawValue) }
-            ?? registry.system(TaxSystemID.generic.rawValue) ?? registry.systems.first
+        Planner.defaultTaxSystem(for: settings, registry: registry)
     }
 
-    /// The system a plan without a residence timeline uses, as the Planner
-    /// chooses it: the system whose ID is the tax residence's country code
-    /// in lower case, else `generic`, else the first registered. Plans the
-    /// app creates always have a timeline (``residenceSystem(for:registry:)``).
+    /// The system a plan without a residence timeline uses: the Planner's
+    /// own choice (`Planner.defaultTaxSystem`), the same as
+    /// ``residenceSystem(for:registry:)``. Plans the app creates always have
+    /// a timeline.
     static func defaultSystem(for settings: LibrarySettings, registry: TaxRegistry) -> (any TaxSystem)? {
-        let candidates = [settings.taxResidence?.rawValue.lowercased(), TaxSystemID.generic.rawValue] + registry.ids
-        return candidates.compactMap { $0 }.lazy.compactMap { registry.system($0) }.first
+        Planner.defaultTaxSystem(for: settings, registry: registry)
     }
 
     /// The systems in force between `from` and `through` (`nil`: to the end

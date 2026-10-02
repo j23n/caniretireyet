@@ -250,4 +250,33 @@ struct PriceServiceTests {
             #expect(Set(request.headers.keys).isSubset(of: ["User-Agent"]))
         }
     }
+
+    /// The standard service fetches any HICP from Eurostat: the library's
+    /// own and each plan currency's, not a fixed one.
+    @Test func theStandardServiceFetchesTheLibrarysIndices() async throws {
+        let service = Self.service(MockHTTPClient())
+        var library = try Fixtures.exampleLibrary()
+        #expect(service.indices(for: library) == [.hicpIT])
+        #expect(service.indexProvider(for: "hicp-se")?.index == "hicp-se")
+        #expect(service.indexProvider(for: "cpi-us") == nil)
+        library.settings.inflationIndex = "cpi-us"
+        #expect(service.indices(for: library).isEmpty)
+        #expect(service.needs(for: library, on: Self.checkIn).indices.isEmpty)
+
+        library.settings.inflationIndex = nil
+        library.settings.taxResidence = .ch
+        let client = Self.client()
+        let result = await Self.service(client).fetch(for: library, on: Self.checkIn)
+        #expect(result.entry(for: .index("hicp-ch"))?.failureReason == nil)
+        #expect(result.entry(for: .index(.hicpIT)) == nil)
+        #expect(Set(result.indices.map(\.index)) == ["hicp-ch"])
+        let eurostat = await client.requests.map(\.url.absoluteString).filter { $0.contains("prc_hicp_minr") }
+        #expect(eurostat.count == 1 && eurostat[0].contains("geo=CH"))
+
+        // A service with only the providers it's given knows no others.
+        let fixed = PriceService(instrumentProviders: [], fxProvider: FrankfurterProvider(client: client),
+                                 indexProviders: [EurostatIndexProvider(series: .hicpIT, client: client)])
+        #expect(fixed.indexProvider(for: .hicpIT) != nil && fixed.indexProvider(for: "hicp-ch") == nil)
+        #expect(fixed.indices(for: library).isEmpty)
+    }
 }

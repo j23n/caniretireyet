@@ -63,7 +63,7 @@ struct InstrumentForm: Hashable, Sendable {
     // MARK: Taxes
 
     /// Whether the kind is a fund (an ETF or a fund), which has a fund type.
-    var takesFundType: Bool { kind == .etf || kind == .fund }
+    var takesFundType: Bool { kind.hasFundType }
 
     /// Whether the kind can have a delivery claim (an ETC).
     var takesDeliveryClaim: Bool { kind == .etc }
@@ -75,19 +75,12 @@ struct InstrumentForm: Hashable, Sendable {
     }
 
     /// The fund type of a fund with `mix`, as the planner works it out when
-    /// the instrument doesn't say (PLANNER.md, "Portfolio"): more than half
-    /// in equity is an equity fund, more than half in real estate a
-    /// real-estate fund, at least a quarter in equity a mixed fund, and
-    /// anything else another fund.
+    /// the instrument doesn't say (`FundType.derived(from:)`, PLANNER.md,
+    /// "Portfolio"): more than half in equity is an equity fund, more than
+    /// half in real estate a real-estate fund, at least a quarter in equity
+    /// a mixed fund, and anything else another fund.
     static func automaticFundType(for mix: AssetMix) -> FundType {
-        let positive = mix.shares.filter { $0.value > 0 }
-        let total = positive.values.reduce(Decimal(0), +)
-        guard total > 0 else { return .other }
-        let equity = (positive[.equity] ?? 0) / total
-        if equity > Decimal(string: "0.5")! { return .equity }
-        if (positive[.realEstate] ?? 0) / total > Decimal(string: "0.5")! { return .realEstate }
-        if equity >= Decimal(string: "0.25")! { return .mixed }
-        return .other
+        FundType.derived(from: mix)
     }
 
     /// The fund-type picker's choices: automatic (`nil`), then each type.

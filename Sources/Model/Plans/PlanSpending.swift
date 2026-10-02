@@ -1,7 +1,8 @@
 import Foundation
 
-/// A plan's `spending` section: yearly spending in today's euros, while
-/// working and in retirement, with optional phase factors by age.
+/// A plan's `spending` section: yearly spending in today's money, in the
+/// plan's currency, while working and in retirement, with optional phase
+/// factors by age.
 public struct PlanSpending: Hashable, Sendable, KnownKeysProviding {
     /// Yearly spending while working.
     public var working: Decimal

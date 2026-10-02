@@ -6,11 +6,16 @@ import Model
 /// - **Instruments:** those held (quantity not zero) in the latest valuation,
 ///   on or before the date, of each account open on the date. The ones with a
 ///   `priceSource` are fetched; the rest are priced by hand.
-/// - **Currencies:** every held instrument's currency and every open account's
-///   currency other than the base currency, each fetched against the base.
-/// - **Index months:** for each index, the months that have ended by the date
-///   and have no value yet, from the month of the library's first valuation,
-///   at most ``defaultIndexWindow`` months back.
+/// - **Currencies:** every held instrument's currency, every open account's
+///   currency and every plan's currency other than the base currency, each
+///   fetched against the base: a plan values your accounts in its currency
+///   at the rate on its start date, and Progress converts each check-in at
+///   its own.
+/// - **Index months:** for each index the library uses (by default
+///   `Library.inflationIndices`: its own, and one for each plan's currency),
+///   the months that have ended by the date and have no value yet, from the
+///   month of the library's first valuation, at most ``defaultIndexWindow``
+///   months back.
 public struct CheckInPriceNeeds: Hashable, Sendable {
     /// Months of an index to fetch.
     public struct IndexMonths: Hashable, Sendable {
@@ -54,9 +59,11 @@ public struct CheckInPriceNeeds: Hashable, Sendable {
         self.indices = indices
     }
 
-    /// Works out what a check-in on `date` needs from `library`.
+    /// Works out what a check-in on `date` needs from `library`, with the
+    /// months missing of `indices` (`nil`: the library's own,
+    /// `Library.inflationIndices`).
     public init(
-        library: Library, date: CalendarDate, indices: [IndexID] = [.hicpIT], indexWindow: Int = defaultIndexWindow
+        library: Library, date: CalendarDate, indices: [IndexID]? = nil, indexWindow: Int = defaultIndexWindow
     ) {
         let base = library.settings.baseCurrency
         let openAccounts = library.accounts(openOn: date)
@@ -79,7 +86,7 @@ public struct CheckInPriceNeeds: Hashable, Sendable {
         var fetched: [Instrument] = []
         var manual: [InstrumentID] = []
         var unknown: [InstrumentID] = []
-        var currencies = Set(openAccounts.map(\.currency))
+        var currencies = Set(openAccounts.map(\.currency)).union(library.plans.values.compactMap(\.currency))
         for id in held.sorted() {
             guard let instrument = library.instruments[id] else {
                 unknown.append(id)
@@ -97,7 +104,9 @@ public struct CheckInPriceNeeds: Hashable, Sendable {
         self.init(
             date: date, baseCurrency: base, instruments: fetched, manualInstruments: manual,
             unknownInstruments: unknown, currencies: currencies.sorted(),
-            indices: indices.map { Self.missingMonths(of: $0, in: library, upTo: date, window: indexWindow) })
+            indices: (indices ?? library.inflationIndices).map {
+                Self.missingMonths(of: $0, in: library, upTo: date, window: indexWindow)
+            })
     }
 
     /// Whether prices from `source` are fetched: there is one, and its

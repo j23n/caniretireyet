@@ -63,11 +63,11 @@ public struct PerformanceResult: Hashable, Sendable {
     public let timeWeighted: ReturnFigure?
     /// The internal rate of return (XIRR) of the flows: what you experienced.
     public let moneyWeighted: ReturnFigure?
-    /// The change of the inflation index (`hicp-it`) over the period.
+    /// The change of the inflation index (the library's own, e.g. `hicp-de`) over the period.
     public let inflation: ReturnFigure?
     /// The time-weighted return after inflation.
     public let realTimeWeighted: ReturnFigure?
-    /// The money-weighted return after inflation, from flows in euros of the start date.
+    /// The money-weighted return after inflation, from flows in money of the start date.
     public let realMoneyWeighted: ReturnFigure?
     /// The accounts the returns cover.
     public let accounts: [AccountID]

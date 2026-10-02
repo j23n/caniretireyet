@@ -54,12 +54,10 @@ enum PlanInterpreter {
         let overrides = OptionValues(plan.tax.overrides)
         var residence = plan.tax.residence.sorted { $0.from < $1.from }
         if residence.isEmpty {
-            let candidates = [library.settings.taxResidence?.rawValue.lowercased(), TaxSystemID.generic.rawValue]
-                + registry.ids
-            if let id = candidates.compactMap({ $0 }).first(where: { registry.system($0) != nil }) {
-                residence = [PlanResidence(from: firstYear, system: TaxSystemID(id))]
+            if let system = Planner.defaultTaxSystem(for: library.settings, registry: registry) {
+                residence = [PlanResidence(from: firstYear, system: TaxSystemID(system.id))]
                 issues.append(.warning("planner.defaultResidence",
-                                       "The plan has no tax residence; it uses \(registry.system(id)!.name).",
+                                       "The plan has no tax residence; it uses \(system.name).",
                                        section: .tax))
             } else {
                 issues.append(.error("planner.noTaxSystem", "No tax system is available.", section: .tax))

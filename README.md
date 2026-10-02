@@ -36,7 +36,7 @@ The command-line tool works on the same folder, on a Mac or Linux:
 ```sh
 swift run retire --help
 swift run retire init <folder> --currency CHF --residence CH --birth-date 1985-03-01 --citizenship IT
-swift run retire settings --library <folder>                                 # --citizenship sets them
+swift run retire settings --library <folder>          # --citizenship, --inflation-index set them
 swift run retire import --library <folder> export.csv            # preview; --apply writes
 swift run retire import ledger --library <folder> 2024.journal 2025.journal
 swift run retire import --library <folder> movimenti.csv --account directa   # a broker's export, as trades

@@ -6,9 +6,11 @@ import Prices
 // Updating prices outside a check-in (UI.md, "Instruments"): *Update Prices*
 // fetches today's price of every instrument an open account holds that has a
 // price source, with the exchange rates that value them in the base
-// currency, and saves them in one edit. A price or rate typed in by hand for
-// the same date is kept, as in the check-in, unless you choose Update on its
-// row. Free of SwiftUI so it can be checked on Linux.
+// currency, and the months of the library's inflation indices it's missing,
+// and saves them in one edit. A price or rate typed in by hand for the same
+// date is kept, as in the check-in, unless you choose Update on its row; an
+// index value is only added, never replaced. Free of SwiftUI so it can be
+// checked on Linux.
 
 /// What *Update Prices* fetches on a date.
 struct InstrumentPriceUpdatePlan: Hashable, Sendable {
@@ -23,27 +25,35 @@ struct InstrumentPriceUpdatePlan: Hashable, Sendable {
     /// Instruments with a price source that no account open on the date
     /// holds (sold, closed or not used yet). Sorted.
     var unheldInstruments: [InstrumentID]
+    /// The inflation indices with months missing, and those months, as a
+    /// check-in on the date would fetch them.
+    var indices: [CheckInPriceNeeds.IndexMonths]
 
     init(date: CalendarDate, baseCurrency: CurrencyCode, instruments: [Instrument],
-         typedInstruments: [InstrumentID] = [], unheldInstruments: [InstrumentID] = []) {
+         typedInstruments: [InstrumentID] = [], unheldInstruments: [InstrumentID] = [],
+         indices: [CheckInPriceNeeds.IndexMonths] = []) {
         self.date = date
         self.baseCurrency = baseCurrency
         self.instruments = instruments.sorted { ($0.name.lowercased(), $0.id) < ($1.name.lowercased(), $1.id) }
         currencies = Set(instruments.map(\.currency)).subtracting([baseCurrency]).sorted()
         self.typedInstruments = typedInstruments.sorted()
         self.unheldInstruments = unheldInstruments.sorted()
+        self.indices = indices.filter { !$0.months.isEmpty }
     }
 
     /// Every instrument with a price source that's held (quantity not zero)
     /// in the latest valuation of an account open on `date`: the ones a
-    /// check-in on that date fetches.
-    init(library: Library, on date: CalendarDate) {
-        let needs = CheckInPriceNeeds(library: library, date: date, indices: [])
+    /// check-in on that date fetches. And the months missing of `indices`
+    /// (`nil`: the library's, `Library.inflationIndices`), as the check-in
+    /// fetches them.
+    init(library: Library, on date: CalendarDate, indices: [IndexID]? = nil) {
+        let needs = CheckInPriceNeeds(library: library, date: date, indices: indices)
         let held = Set(needs.instruments.map(\.id))
         let all = library.instruments.values
         self.init(date: date, baseCurrency: library.settings.baseCurrency, instruments: needs.instruments,
                   typedInstruments: all.filter { !Self.isFetched($0) }.map(\.id),
-                  unheldInstruments: all.filter { Self.isFetched($0) && !held.contains($0.id) }.map(\.id))
+                  unheldInstruments: all.filter { Self.isFetched($0) && !held.contains($0.id) }.map(\.id),
+                  indices: needs.indices)
     }
 
     /// Just `ids`, held or not (a row's *Update Price*); instruments without
@@ -70,6 +80,18 @@ struct InstrumentPriceUpdatePlan: Hashable, Sendable {
         CheckInPriceNeeds(date: date, baseCurrency: baseCurrency, instruments: [instrument],
                           currencies: instrument.currency == baseCurrency ? [] : [instrument.currency])
     }
+
+    /// What to ask the price service for the indices' missing months; `nil`
+    /// when none is missing.
+    var indexNeeds: CheckInPriceNeeds? {
+        indices.isEmpty ? nil : CheckInPriceNeeds(date: date, baseCurrency: baseCurrency, indices: indices)
+    }
+
+    /// Everything to ask the price service for: each instrument on its own,
+    /// then the indices.
+    var allNeeds: [CheckInPriceNeeds] {
+        instruments.map(needs(for:)) + [indexNeeds].compactMap { $0 }
+    }
 }
 
 /// One *Update Prices* run: a line per instrument and per exchange rate,
@@ -93,7 +115,7 @@ struct InstrumentPriceUpdate: Hashable, Sendable {
         case failed(String)
     }
 
-    /// An instrument's price or an exchange rate.
+    /// An instrument's price, an exchange rate or an inflation index.
     struct Line: Identifiable, Hashable, Sendable {
         var item: PriceListEntry.Item
         /// The instrument's name, or the currency code for a rate.
@@ -103,6 +125,9 @@ struct InstrumentPriceUpdate: Hashable, Sendable {
         var price: PriceRecord?
         /// The fetched rate (rate lines).
         var rate: FXRecord?
+        /// The values fetched for the missing months (index lines), and once
+        /// settled, those that were new.
+        var indexValues: [IndexRecord] = []
         /// The latest value saved before this update, and its date.
         var previous: Decimal?
         var previousDate: CalendarDate?
@@ -118,11 +143,15 @@ struct InstrumentPriceUpdate: Hashable, Sendable {
 
         var id: PriceListEntry.Item { item }
 
-        /// The fetched value: a price or a rate.
-        var value: Decimal? { price?.price ?? rate?.rate }
+        /// The fetched value: a price, a rate, or an index's latest value.
+        var value: Decimal? { price?.price ?? rate?.rate ?? indexValues.last?.value }
 
         var isInstrument: Bool {
             if case .instrument = item { true } else { false }
+        }
+
+        var isIndex: Bool {
+            if case .index = item { true } else { false }
         }
 
         var instrument: InstrumentID? {
@@ -142,8 +171,9 @@ struct InstrumentPriceUpdate: Hashable, Sendable {
     struct Records: Hashable, Sendable {
         var prices: [PriceRecord] = []
         var fxRates: [FXRecord] = []
+        var indices: [IndexRecord] = []
 
-        var isEmpty: Bool { prices.isEmpty && fxRates.isEmpty }
+        var isEmpty: Bool { prices.isEmpty && fxRates.isEmpty && indices.isEmpty }
     }
 
     var date: CalendarDate
@@ -152,6 +182,8 @@ struct InstrumentPriceUpdate: Hashable, Sendable {
     private(set) var instruments: [Line]
     /// Exchange rates against the base currency, sorted by currency.
     private(set) var rates: [Line]
+    /// Inflation indices with months missing, sorted by index.
+    private(set) var indices: [Line]
     /// How many instruments weren't fetched because they're typed in, or no
     /// open account holds them.
     var typedCount: Int
@@ -165,12 +197,13 @@ struct InstrumentPriceUpdate: Hashable, Sendable {
         baseCurrency = plan.baseCurrency
         instruments = []
         rates = []
+        indices = []
         typedCount = plan.typedInstruments.count
         unheldCount = plan.unheldInstruments.count
         add(plan)
     }
 
-    var lines: [Line] { instruments + rates }
+    var lines: [Line] { instruments + rates + indices }
 
     /// The line of an instrument or rate.
     func line(for item: PriceListEntry.Item) -> Line? {
@@ -196,6 +229,11 @@ struct InstrumentPriceUpdate: Hashable, Sendable {
                               status: .fetching))
         }
         rates.sort { $0.item < $1.item }
+        for need in plan.indices where line(for: .index(need.index)) == nil {
+            indices.append(Line(item: .index(need.index), title: InflationIndexText.title(of: need.index),
+                                status: .fetching))
+        }
+        indices.sort { $0.item < $1.item }
     }
 
     // MARK: Fetching
@@ -232,8 +270,16 @@ struct InstrumentPriceUpdate: Hashable, Sendable {
                    !fetched.fx.contains(where: { ($0.base, $0.quote) == (base, quote) }) {
                     rates[index].status = .failed(failure.description)
                 }
-            case .index:
-                continue
+            case .index(let id):
+                guard let index = indices.firstIndex(where: { $0.item == entry.item }) else { continue }
+                indices[index].source = InstrumentText.sourceText(source: entry.source, symbol: nil)
+                if let failure = entry.failure {
+                    indices[index].status = .failed(failure.description)
+                } else {
+                    indices[index].status = .fetched
+                    indices[index].indexValues = fetched.indices.filter { $0.index == id }.sortedByKey()
+                    indices[index].observedOn = entry.details?.observedOn
+                }
             }
         }
         for rate in fetched.fx where rate.base == baseCurrency {
@@ -259,6 +305,9 @@ struct InstrumentPriceUpdate: Hashable, Sendable {
         for index in rates.indices where rates[index].status == .fetching {
             rates[index].status = failure
         }
+        for index in indices.indices where indices[index].status == .fetching {
+            indices[index].status = failure
+        }
     }
 
     /// Marks an instrument whose fetched price was kept because of a typed
@@ -283,6 +332,9 @@ struct InstrumentPriceUpdate: Hashable, Sendable {
     /// - A value equal to the latest saved one is unchanged; it's saved for
     ///   the date only when the latest is older.
     /// - Anything else is saved, replacing a fetched value for the date.
+    /// - An index's values are saved for the months the library still
+    ///   hasn't any for, never replacing one; without any, it's unchanged
+    ///   (the latest months may not be published yet).
     mutating func settle(in library: Library, replacingTyped: Set<InstrumentID> = []) -> Records {
         var records = Records()
         for index in instruments.indices where instruments[index].status == .fetched {
@@ -312,8 +364,17 @@ struct InstrumentPriceUpdate: Hashable, Sendable {
             rates[index].typed = outcome.status == .keptTyped ? sameDay?.rate : nil
             if outcome.writes { records.fxRates.append(rate) }
         }
+        for index in indices.indices where indices[index].status == .fetched {
+            guard case .index(let id) = indices[index].item else { continue }
+            let saved = Set(library.indexValues(for: id).map(\.key))
+            let new = indices[index].indexValues.filter { !saved.contains($0.key) }
+            indices[index].indexValues = new
+            indices[index].status = new.isEmpty ? .unchanged : .updated
+            records.indices += new
+        }
         records.prices = records.prices.sortedByKey()
         records.fxRates = records.fxRates.sortedByKey()
+        records.indices = records.indices.sortedByKey()
         return records
     }
 
@@ -366,6 +427,12 @@ struct InstrumentPriceUpdate: Hashable, Sendable {
                 self.rates[index].status = failure
             }
         }
+        let indexIDs = Set(records.indices.map(\.index))
+        for index in indices.indices {
+            if case .index(let id) = indices[index].item, indexIDs.contains(id) {
+                indices[index].status = failure
+            }
+        }
     }
 
     // MARK: Progress
@@ -405,6 +472,7 @@ struct InstrumentPriceUpdate: Hashable, Sendable {
         if counts.failed > 0 { parts.append("\(counts.failed) failed") }
         let failedRates = rates.count { $0.failure != nil }
         if failedRates > 0 { parts.append(failedRates == 1 ? "1 rate failed" : "\(failedRates) rates failed") }
+        if indices.contains(where: { $0.failure != nil }) { parts.append("inflation failed") }
         return parts.joined(separator: " · ")
     }
 
@@ -427,10 +495,12 @@ extension InstrumentPriceUpdate.Line {
         return "\(source) → \(resolvedSymbol)"
     }
 
-    /// The fetched value: "140 EUR" for a price, "1,15" for a rate.
+    /// The fetched value: "140 EUR" for a price, "1,15" for a rate, "128,41"
+    /// for an index's latest month.
     func valueText(locale: Locale = .current) -> String? {
         if let price { return InstrumentText.price(price.price, currency: price.currency, locale: locale) }
-        return rate.map { AmountFormat.number($0.rate, maxDigits: 4, locale: locale) }
+        if let rate { return AmountFormat.number(rate.rate, maxDigits: 4, locale: locale) }
+        return indexValues.last.map { AmountFormat.number($0.value, maxDigits: 2, locale: locale) }
     }
 
     /// What happened, as a sentence: "Was 137,10 EUR on 29 Sep.",
@@ -444,6 +514,10 @@ extension InstrumentPriceUpdate.Line {
             return "Fetching…"
         case .fetched:
             return "Saving…"
+        case .updated where isIndex:
+            return "Added " + PlanMoney.span(indexValues.map(\.date), locale: locale) + "."
+        case .unchanged where isIndex:
+            return "No new months published yet."
         case .updated:
             if let previous, let previousDate {
                 text = "Was \(amount(previous)) on \(AmountFormat.shortDate(previousDate, locale: locale))."
@@ -492,7 +566,8 @@ final class InstrumentPriceUpdater {
     /// saves them.
     func updateAll(library: LibraryStore, prices: PriceStore, on date: CalendarDate = .today()) async {
         guard canUpdate(library: library, prices: prices) else { return }
-        let plan = InstrumentPriceUpdatePlan(library: library.library, on: date)
+        let plan = InstrumentPriceUpdatePlan(library: library.library, on: date,
+                                             indices: prices.indices(for: library.library))
         run = InstrumentPriceUpdate(plan: plan)
         await fetchAndSave(plan, library: library, prices: prices, replacingTyped: [])
     }
@@ -531,7 +606,7 @@ final class InstrumentPriceUpdater {
                               replacingTyped: Set<InstrumentID>) async {
         isRunning = true
         defer { isRunning = false }
-        await prices.fetchEach(plan.instruments.map(plan.needs(for:)), refresh: true) { fetched in
+        await prices.fetchEach(plan.allNeeds, refresh: true) { fetched in
             run?.receive(fetched)
         }
         save(library: library, replacingTyped: replacingTyped)
@@ -545,7 +620,7 @@ final class InstrumentPriceUpdater {
         let records = run.settle(in: library.library, replacingTyped: replacingTyped)
         if !records.isEmpty {
             do {
-                try library.upsert(prices: records.prices, fxRates: records.fxRates)
+                try library.upsert(prices: records.prices, fxRates: records.fxRates, indices: records.indices)
             } catch {
                 run.saveFailed(records, reason: LibraryStore.describe(error))
             }

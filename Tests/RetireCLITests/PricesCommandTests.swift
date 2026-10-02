@@ -124,4 +124,26 @@ struct PricesCommandTests {
         #expect(overwrite.status == 64)
         #expect(overwrite.errors.contains("--overwrite needs --apply."))
     }
+
+    /// The index follows the library: the tax residence's HICP, and the one
+    /// of each plan's currency, asked of Eurostat by country.
+    @Test func fetchesTheIndicesTheLibraryUses() async throws {
+        let library = try TemporaryFolder.exampleLibrary()
+        try library.write("library.json", try library.text("library.json")
+            .replacingOccurrences(of: #""taxResidence": "IT""#, with: #""taxResidence": "DE""#))
+        try library.write("plans/base.json", try library.text("plans/base.json")
+            .replacingOccurrences(of: #""id": "base","#, with: #""currency": "CHF", "id": "base","#))
+        let client = Responses.client()
+        await client.on("symbols=CHF", HTTPResponse(statusCode: 200, text: Responses.frankfurterUSD
+            .replacingOccurrences(of: "USD", with: "CHF")))
+        let run = await retire(["prices", "--library", library.path, "--date", "2026-09-30"], client: client)
+        #expect(run.output.hasPrefix("A check-in on 2026-09-30 needs 3 prices (btc, gold, vwce), 2 FX rates "
+            + "(EUR/CHF, EUR/USD), hicp-ch for 2025-10 to 2026-09 and hicp-de for 2025-10 to 2026-09.\n"), "\(run.all)")
+        #expect(line("hicp-de", in: run.output) != nil)
+        #expect(line("hicp-ch", in: run.output) != nil)
+        let eurostat = await client.requests.map(\.url.absoluteString).filter { $0.contains("prc_hicp_minr") }
+        #expect(eurostat.count == 2)
+        #expect(eurostat.contains { $0.contains("geo=DE") } && eurostat.contains { $0.contains("geo=CH") })
+        #expect(!eurostat.contains { $0.contains("geo=IT") })
+    }
 }

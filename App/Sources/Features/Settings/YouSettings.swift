@@ -86,6 +86,40 @@ enum YouSettings {
         return "There are no tax rules for \(country) yet: plans use the generic system's flat rates, which you choose."
     }
 
+    // MARK: Inflation
+
+    /// The line under the inflation picker.
+    static let inflationExplanation = "Inflation puts amounts in today's money: automatically with the consumer "
+        + "prices of your tax residence, else of your base currency."
+
+    /// The index the library uses when none is chosen
+    /// (`Library.effectiveInflationIndex` without the setting); `nil` when
+    /// there's none, e.g. for a library in dollars.
+    static func automaticInflationIndex(in library: Library) -> IndexID? {
+        var library = library
+        library.settings.inflationIndex = nil
+        return library.effectiveInflationIndex
+    }
+
+    /// The indices the picker offers besides automatic: the euro area's,
+    /// then every country's HICP by its name, and the chosen one first when
+    /// it's none of those.
+    static func inflationChoices(in settings: LibrarySettings, locale: Locale = .current) -> [IndexID] {
+        let countries = IndexID.hicpCountries.compactMap(IndexID.hicp)
+            .sorted { InflationIndexText.choice($0, locale: locale) < InflationIndexText.choice($1, locale: locale) }
+        let choices = [IndexID.hicpEA] + countries
+        guard let chosen = settings.inflationIndex, !choices.contains(chosen) else { return choices }
+        return [chosen] + choices
+    }
+
+    /// `settings` with `index` as the inflation index; `nil` goes back to
+    /// automatic and leaves the key out.
+    static func setting(inflationIndex index: IndexID?, in settings: LibrarySettings) -> LibrarySettings {
+        var settings = settings
+        settings.inflationIndex = index
+        return settings
+    }
+
     /// Sets one field of the person, leaving the person out when it has none.
     private static func setting<Value>(_ field: WritableKeyPath<Person, Value?>, to value: Value?,
                                        in settings: LibrarySettings) -> LibrarySettings {

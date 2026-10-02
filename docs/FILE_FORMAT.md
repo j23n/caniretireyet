@@ -78,6 +78,17 @@ Can I Retire Yet/                   ← the app's folder in iCloud Drive
 
 `person` holds the person's `name`, `birthDate` (plans need it for ages) and, optionally, `citizenships`: every citizenship held, as country codes (`"citizenships": ["DE", "IT"]`). Plans pass them to the tax systems, since tax treaties can decide by citizenship which country taxes a pension. Left out, they're unknown.
 
+`inflationIndex`, optional, is the consumer price index the library puts amounts in today's money with and computes real returns with, e.g. `"inflationIndex": "hicp-ea"`. It names an index of the history files' `indices`: `hicp-<country>`, a country's harmonised index of consumer prices (`hicp-de`, `hicp-ch`; ISO country codes, so Greece is `hicp-gr`), or `hicp-ea`, the euro area's. Eurostat publishes one for every EU country, Iceland, Norway, Switzerland, Albania, Montenegro, North Macedonia, Serbia and Türkiye. Left out, it's worked out, in this order:
+
+1. the HICP of the tax residence (`"taxResidence": "DE"` → `hicp-de`), when the country has one;
+2. else, of the indices in the base currency the library has values of, the one with the most (so a library that recorded `hicp-it` before this setting existed keeps it);
+3. else the HICP of the base currency: the euro area's for `EUR`, Switzerland's for `CHF`, Sweden's for `SEK`, …;
+4. else none: amounts stay in the money of their dates (e.g. a library in `USD` living in the US).
+
+Settings › You › *Inflation* and `retire settings --inflation-index hicp-ea` set it; *Automatic* and `--inflation-index automatic` leave it out.
+
+A plan in another currency is adjusted with the index for that currency: the library's own when its prices are in it (`hicp-it` for a plan in euros), else that currency's HICP (`hicp-ch` for francs, `hicp-ea` for euros), else the library's own, which the app then names. Check-ins, *Update Prices*, *Fill In Past Prices* and `retire prices` fetch the months missing of each index the library uses this way.
+
 Settings that belong to one device, such as reminder times and UI state, are stored on that device, not in the library.
 
 ## `accounts/<id>.json`
@@ -264,7 +275,7 @@ Rules:
 - **Flow.** `flow` is optional: the net money added (+) or taken out (−) since the account's previous valuation, in the account's currency. The check-in fills it in from defaults that depend on the kind of account, and you can edit it (see [PROGRESS.md](PROGRESS.md#data-this-needs-from-day-one)). A missing flow means unknown. The sum of all flows over a period is what you actually saved. An account that records trades gets its flows from its trades and cash, and its `flow` is written for the record ([TRADES.md](TRADES.md#flows)).
 - **FX direction.** FX rates follow the ECB convention: 1 `base` = `rate` × `quote`.
 - **Sources.** `source` is optional and says where a record's values came from: `manual` (typed in), `import` (a spreadsheet), `ledger` (a journal), or the service that answered: `yahoo`, `coingecko`, `gold-api`, `ecb`, `eurostat`. Prices, rates and index values fetched for past dates (*Fill In Past Prices*, `retire prices --fill-history`) are ordinary records dated the day they're for, with the source of the service that answered, as usual: gold priced from Yahoo Finance's `GC=F` futures has `"source": "yahoo"` although its instrument's `priceSource` is `gold-api`. Filling in only adds records for dates that have none; it never replaces one, whatever its source.
-- **Indices.** `indices` holds consumer-price-index values (`hicp-it`: Italy's all-items HICP from Eurostat, 2015 = 100). They're used to express history in today's euros and to compute real returns. A monthly value is dated the last day of the month it measures and stored in that month's file, even when it's published and fetched later.
+- **Indices.** `indices` holds consumer-price-index values: a country's all-items HICP from Eurostat, 2015 = 100 (`hicp-it` for Italy, `hicp-de`, `hicp-ch`, …), or the euro area's (`hicp-ea`). Which ones a library uses is in [`library.json`](#libraryjson) (`inflationIndex`). They're used to express history in today's money and to compute real returns. A monthly value is dated the last day of the month it measures and stored in that month's file, even when it's published and fetched later.
 - **Sorting.** Records are sorted by date, then by ID, so files diff cleanly.
 
 ### How values are computed
