@@ -95,6 +95,11 @@ public struct INPSPensionScheme: PensionScheme {
         let perYear = options.withDefaults(from: self.options).int("ageIncreaseMonthsPerYear", default: 0)
         return rules.vecchiaia.age * 12 + rules.ageIncrease(in: year, perYear: perYear)
     }
+
+    /// A public pension, as other countries' systems see it.
+    public func pensionKind(options: OptionValues) -> PensionKind? {
+        .statutory
+    }
 }
 
 extension INPSPensionParameters {

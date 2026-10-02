@@ -3,7 +3,8 @@ import Model
 import TaxKit
 
 /// Everything the Results screen needs from one run of a plan. Amounts are
-/// yearly, in today's euros (the base currency, in real terms).
+/// yearly, in today's money in the plan's currency (``currency``: the plan's
+/// `currency`, else the library's base currency), in real terms.
 public struct PlanResult: Hashable, Sendable {
     /// The plan as it was run.
     public var plan: PlanDocument
@@ -38,13 +39,17 @@ public struct PlanResult: Hashable, Sendable {
     public var markers: [TimelineMarker]
     /// Warnings from the plan, the tax systems and the years assessed.
     public var issues: [PlanIssue]
+    /// The currency of every amount: the plan's, else the library's base
+    /// currency. `nil` only in results made without it (previews), where it's
+    /// the plan's `currency` if set.
+    public var currency: CurrencyCode?
 
     /// A result from its parts, e.g. a sample for SwiftUI previews.
     public init(plan: PlanDocument, engine: String = Planner.engineVersion, planHash: String,
                 taxParameters: [String: Int] = [:], start: PlanStart, settings: SimulationSettings, answer: PlanAnswer,
                 successCurve: [AgeSuccess], focusAge: Int, fan: [FanYear], expectedPath: PathDetail,
                 medianPath: PathDetail, failures: FailureSummary, markers: [TimelineMarker] = [],
-                issues: [PlanIssue] = []) {
+                issues: [PlanIssue] = [], currency: CurrencyCode? = nil) {
         self.plan = plan
         self.engine = engine
         self.planHash = planHash
@@ -60,6 +65,7 @@ public struct PlanResult: Hashable, Sendable {
         self.failures = failures
         self.markers = markers
         self.issues = issues
+        self.currency = currency ?? plan.currency
     }
 
     /// The success rate at `age`, if it was simulated.
@@ -74,20 +80,54 @@ public struct PlanStart: Hashable, Sendable {
     public var date: CalendarDate
     /// Age on `date`.
     public var age: Int
-    /// The value of the accounts the plan includes, exactly as the tracker computes it.
+    /// The value of the accounts the plan includes, exactly as the tracker
+    /// computes it, in the plan's currency. Accounts that start a pension
+    /// scheme (``schemeSeeds``) aren't among them.
     public var planAssets: Decimal
     /// The accounts the plan includes, sorted.
     public var accounts: [AccountID]
     /// The buckets the accounts were grouped into, by wrapper.
     public var buckets: [BucketSummary]
+    /// Accounts read as a pension scheme's record rather than as money the
+    /// plan draws on, e.g. a pension-fund balance that becomes the scheme's
+    /// starting balance: how the plan read them.
+    public var schemeSeeds: [SchemeSeed]
 
     public init(date: CalendarDate, age: Int, planAssets: Decimal, accounts: [AccountID] = [],
-                buckets: [BucketSummary] = []) {
+                buckets: [BucketSummary] = [], schemeSeeds: [SchemeSeed] = []) {
         self.date = date
         self.age = age
         self.planAssets = planAssets
         self.accounts = accounts
         self.buckets = buckets
+        self.schemeSeeds = schemeSeeds
+    }
+}
+
+/// Accounts that start a pension scheme: their wrapper is the scheme's
+/// `seedWrapper`, so their value on the start date became the pension's
+/// `startingBalance`.
+public struct SchemeSeed: Hashable, Sendable {
+    /// The scheme's ID, e.g. `ch.bvg`.
+    public var scheme: String
+    /// The scheme's name.
+    public var name: String
+    /// The accounts' wrapper.
+    public var wrapper: String
+    public var accounts: [AccountID]
+    /// Their value on the start date, in the plan's currency.
+    public var value: Double
+    /// Whether the pension took it as its starting balance (`false` when
+    /// the plan sets `startingBalance` itself).
+    public var used: Bool
+
+    public init(scheme: String, name: String, wrapper: String, accounts: [AccountID], value: Double, used: Bool) {
+        self.scheme = scheme
+        self.name = name
+        self.wrapper = wrapper
+        self.accounts = accounts
+        self.value = value
+        self.used = used
     }
 }
 
@@ -101,7 +141,7 @@ public struct BucketSummary: Hashable, Sendable {
     public var category: WrapperCategory
     /// Whether this is the bucket new savings go into.
     public var receivesSavings: Bool
-    /// Value on the start date, in the base currency.
+    /// Value on the start date, in the plan's currency.
     public var value: Double
     /// Purchase cost of the holdings (their value for cash and wrappers).
     public var costBasis: Double

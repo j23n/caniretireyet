@@ -22,6 +22,16 @@ struct KnownKeysTests {
         date: ImportDateFormat(pattern: "dd/MM/yyyy", monthOnly: .start, timeZone: "Europe/Rome"),
         number: ImportNumberFormat(decimal: ",", thousands: ".", percent: false), empty: .zero,
         liabilitySign: .asWritten, amountSign: .fromType)
+    /// A contribution with every key, though a real one names an account or a
+    /// scheme, and a yearly or a one-off amount.
+    private static var contribution: PlanContribution {
+        var contribution = PlanContribution(account: "fondo-pensione", perYear: 5000, until: .date("2040-12-31"))
+        contribution.pension = "ch.bvg"
+        contribution.amount = 20_000
+        contribution.year = 2030
+        return contribution
+    }
+
     private static let plan = PlanDocument(
         id: "base", name: "Base", retirement: PlanRetirement(age: .age(55)), endAge: 95,
         tax: PlanTax(residence: [PlanResidence(from: 2026, system: "it", options: ["a": "0.01"])],
@@ -31,15 +41,16 @@ struct KnownKeysTests {
                          revenue: 1, costs: 1, netIncome: 1, regime: "it.employee", options: ["tfr": "pensionFund"])],
         spending: PlanSpending(working: 36000, retired: 36000, phases: [SpendingPhase(fromAge: 75, factor: d("0.9"))]),
         pensions: [PlanPension(scheme: "it.inps", name: "INPS", claim: .earliest, fromAge: 67, perYear: 4800,
-                               taxedIn: .source, sourceCountry: "DE", options: ["montante": "92000"])],
-        contributions: [PlanContribution(account: "fondo-pensione", perYear: 5000, until: .date("2040-12-31"))],
+                               taxedIn: .source, sourceCountry: "DE", options: ["montante": "92000"],
+                               claimRoute: "it.inps.vecchiaia", kind: .statutory)],
+        contributions: [contribution],
         events: [PlanEvent(name: "I", timing: .age(62), amount: 150_000, probability: d("0.8"), kind: .inheritance)],
         portfolio: PlanPortfolio(start: .latestCheckIn, unrealizedGainShare: d("0.2"), exclude: ["gold-coins"],
                                  targetMix: [.equity: 1]),
         assumptions: PlanAssumptions(inflation: d("0.02"), returns: [.equity: ReturnAssumption(real: d("0.045"), volatility: d("0.17"))],
                                      correlations: CorrelationTable([.equity: [.bonds: d("0.1")]])),
         withdrawals: PlanWithdrawals(strategy: .fixedReal, cashBuffer: 10000),
-        simulation: PlanSimulation(runs: 2000, seed: 1, confidence: d("0.9")))
+        simulation: PlanSimulation(runs: 2000, seed: 1, confidence: d("0.9")), currency: .chf)
 
     private static let ledgerSettings = LedgerImportSettings(
         roots: ["Assets"], ignore: ["Assets:Loans"], returns: ["Income:Dividends"], flows: ["Income:Interest:Loan"],
@@ -48,7 +59,7 @@ struct KnownKeysTests {
     /// A fully populated value of every type with known keys.
     private static var samples: [(any Encodable, Set<String>)] { [
         (LibrarySettings(person: Person(name: "Me", birthDate: "1988-04-12"), taxResidence: .it, mainPlan: "base"), LibrarySettings.knownKeys),
-        (Person(name: "Me", birthDate: "1988-04-12"), Person.knownKeys),
+        (Person(name: "Me", birthDate: "1988-04-12", citizenships: [.it, .ch]), Person.knownKeys),
         (Account(id: "a", name: "A", kind: .cash, currency: .eur, opened: "2020-01-01", closed: "2025-01-01",
                  institution: "Bank", country: .it, valuation: .balance, assetClasses: .single(.cash),
                  tax: AccountTax(wrapper: .taxable), includeIn: IncludeIn(netWorth: true, plan: false),
@@ -77,7 +88,7 @@ struct KnownKeysTests {
         (plan.contributions[0], PlanContribution.knownKeys),
         (plan.portfolio, PlanPortfolio.knownKeys),
         (plan.assumptions, PlanAssumptions.knownKeys),
-        (ReturnAssumption(real: 0, volatility: 0), ReturnAssumption.knownKeys),
+        (ReturnAssumption(real: 0, volatility: 0, incomeYield: d("0.02")), ReturnAssumption.knownKeys),
         (plan.withdrawals, PlanWithdrawals.knownKeys),
         (plan.simulation, PlanSimulation.knownKeys),
         (ImportProfile(id: "p", name: "P", file: ImportFileSettings(encoding: .utf8, delimiter: ";", headerRow: 1, excludeRows: ["Totale"]),

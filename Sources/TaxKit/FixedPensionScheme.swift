@@ -5,7 +5,10 @@
 ///
 /// The amount and age come from the options `perYear` and `fromAge`. A
 /// plan's pension entry writes them as top-level keys (`"fromAge": 67,
-/// "perYear": "4800"`); the planner passes them on as options.
+/// "perYear": "4800"`); the planner passes them on as options. The optional
+/// `mandatoryShare` in the entry's `options` (0...1, e.g. from a Swiss
+/// pension fund's statement) is the share of the pension from an
+/// occupational scheme's mandatory part (``ClaimOption/mandatoryShare``).
 public struct FixedPensionScheme: PensionScheme {
     /// `fixed`.
     public static let schemeID = "fixed"
@@ -18,7 +21,7 @@ public struct FixedPensionScheme: PensionScheme {
     public var options: [OptionField] {
         [
             .money("perYear", "Gross amount per year", required: true,
-                   help: "From your statement, in today's euros."),
+                   help: "From your statement, in today's money in the plan's currency."),
             .int("fromAge", "Paid from age", range: 0...120, required: true),
         ]
     }
@@ -42,6 +45,8 @@ public struct FixedPensionScheme: PensionScheme {
         guard let amount = context.options.double("perYear") ?? record.extra["perYear"],
               let age = context.options.int("fromAge") ?? record.extra["fromAge"].map({ Int($0) })
         else { return [] }
-        return [ClaimOption(route: id, label: "Fixed pension", age: age, annualAmount: amount)]
+        let mandatoryShare = context.options.double("mandatoryShare").map { min(1, max(0, $0)) }
+        return [ClaimOption(route: id, label: "Fixed pension", age: age, annualAmount: amount,
+                            mandatoryShare: mandatoryShare)]
     }
 }

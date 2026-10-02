@@ -74,7 +74,7 @@ struct ItalyPreparedYear: PreparedTaxYear {
             var weighted = 0.0
             func add(_ category: TaxCategory, _ share: Double) {
                 total += max(0, share)
-                weighted += max(0, share) * investments.gainRate(for: category)
+                weighted += max(0, share) * investments.gainRate(for: ItalyMarketLabels.resolve(category))
             }
             if bucket.categoryShares.count > 1 {
                 for (category, share) in bucket.categoryShares.sorted(by: { $0.key < $1.key }) { add(category, share) }
@@ -134,6 +134,16 @@ struct ItalyMarketLabels: Sendable {
     private static let categories: [TaxCategory] = [
         .fund, .stock, .bond, .governmentBond, .etc, .crypto, .stablecoin, .physicalGold, .cash, .realEstate, .other,
     ]
+    private static let knownCategories = Set(categories)
+
+    /// The category Italy taxes `category` as: itself, or the broader one
+    /// Italy knows (every kind of fund is a `fund`, an ETC with a delivery
+    /// claim an `etc`). Italy taxes all funds alike, so the planner's fund
+    /// kinds change neither its rates nor its labels.
+    static func resolve(_ category: TaxCategory) -> TaxCategory {
+        guard category.broader != nil else { return category }
+        return category.resolved(in: knownCategories) ?? category
+    }
 
     init(_ p: ItalyParameters, tfrRate: Double) {
         for category in Self.categories {
@@ -239,11 +249,14 @@ struct ItalyMarketAssessor {
             }
         }
         if !variable.payouts.isEmpty { checkLumpSums(variable) }
-        for income in variable.capitalIncome where income.amount > 0 {
+        // Income a fund earned without paying it out isn't taxed until it's
+        // paid or the fund is sold (accumulating funds).
+        for income in variable.capitalIncome where income.amount > 0 && income.kind != .reportedIncome {
             switch treatment(of: income.wrapper) {
             case .ordinary, .unknown:
-                let rate = context.parameters.investments.rate(for: income.category)
-                add("it.capitalIncome", context.labels.capitalIncome(income.category, rate: rate), rate * income.amount,
+                let category = ItalyMarketLabels.resolve(income.category)
+                let rate = context.parameters.investments.rate(for: category)
+                add("it.capitalIncome", context.labels.capitalIncome(category, rate: rate), rate * income.amount,
                     base: income.amount, subject: income.wrapper)
             default:
                 break
@@ -311,16 +324,17 @@ struct ItalyMarketAssessor {
     /// Without a documented cost, physical gold is taxed on the whole price
     /// (the parameter's share of it), and anything else as if it cost nothing.
     private mutating func taxGain(_ sale: VariableYear.Sale) {
+        let category = ItalyMarketLabels.resolve(sale.category)
         let gain: Double
         if let cost = sale.costBasis {
             gain = max(0, sale.proceeds - cost)
-        } else if sale.category == .physicalGold {
+        } else if category == .physicalGold {
             gain = max(0, sale.proceeds * context.parameters.investments.goldUndocumentedGainShare)
         } else {
             gain = max(0, sale.proceeds)
         }
-        let rate = context.parameters.investments.gainRate(for: sale.category)
-        add("it.capitalGains", context.labels.gain(sale.category, rate: rate), rate * gain, base: gain,
+        let rate = context.parameters.investments.gainRate(for: category)
+        add("it.capitalGains", context.labels.gain(category, rate: rate), rate * gain, base: gain,
             subject: sale.wrapper)
     }
 
@@ -378,7 +392,7 @@ struct ItalyMarketAssessor {
         // The parameters and labels are read in place: this runs for every
         // balance of every path, and copying them would cost more than the tax.
         let context = context
-        switch balance.category {
+        switch ItalyMarketLabels.resolve(balance.category) {
         case .cash:
             if balance.value > context.parameters.wealthTax.currentAccountThreshold {
                 add("it.wealthTax.currentAccount", context.labels.currentAccount,

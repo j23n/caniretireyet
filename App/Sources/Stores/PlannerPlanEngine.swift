@@ -273,8 +273,10 @@ extension PlanWhatIf {
             plan.spending.working = max(0, plan.spending.working - (monthlySaving - baseMonthlySaving) * 12)
         }
         if let equityReturn {
-            let volatility = plan.assumptions.returnAssumption(for: .equity)?.volatility ?? Decimal(string: "0.17")!
-            plan.assumptions.returns[.equity] = ReturnAssumption(real: equityReturn, volatility: volatility)
+            let current = plan.assumptions.returnAssumption(for: .equity)
+            plan.assumptions.returns[.equity] = ReturnAssumption(
+                real: equityReturn, volatility: current?.volatility ?? Decimal(string: "0.17")!,
+                incomeYield: current?.incomeYield)
         }
         return plan
     }

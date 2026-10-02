@@ -20,6 +20,18 @@ public protocol TaxSystem: Sendable {
     var pensionSchemes: [any PensionScheme] { get }
     /// The system's bundled yearly parameters.
     var parameters: any ParameterStore { get }
+    /// The currency the system computes in (ISO 4217, e.g. `CHF`), or `nil`
+    /// for the plan's currency. Defaults to `nil`.
+    ///
+    /// Every amount that crosses TaxKit stays in the plan's currency, in
+    /// today's money. A system with its own currency converts inside, with
+    /// the rate the planner passes (``FixedYear/currencyRate``,
+    /// ``ClaimContext/currencyRate``, and the `currencyRate` of
+    /// ``PensionScheme/accrue(_:in:to:options:parameters:currencyRate:)``):
+    /// units of the system's currency per unit of the plan's, from the
+    /// library's exchange rate on the plan's start date, held constant in
+    /// real terms. Its parameter files are in its own currency.
+    var currency: String? { get }
 
     /// The regime a work phase of `kind` gets when it doesn't choose one.
     func defaultRegime(for kind: EarnedIncomeKind) -> String?
@@ -34,6 +46,8 @@ public protocol TaxSystem: Sendable {
 }
 
 extension TaxSystem {
+    public var currency: String? { nil }
+
     /// The regime with this ID, if the system has it.
     public func regime(_ id: String) -> RegimeDescriptor? {
         regimes.first { $0.id == id }

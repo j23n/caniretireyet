@@ -82,20 +82,27 @@ extension PlanAssumptions: Codable {
     }
 }
 
-/// The expected real return (net of fund costs) and volatility of an asset class.
+/// The expected real return (net of fund costs) and volatility of an asset
+/// class, and optionally the part of the return funds earn as income.
 public struct ReturnAssumption: Hashable, Sendable, KnownKeysProviding {
     public var real: Decimal
     public var volatility: Decimal
+    /// The yearly income (dividends, interest) funds of this class earn, as
+    /// a share of their value, e.g. `0.02`. It's part of the return, not on
+    /// top of it, and is reinvested; the planner reports it to the tax
+    /// system, which may tax it every year (Switzerland). `nil` for none.
+    public var incomeYield: Decimal?
 
-    public init(real: Decimal, volatility: Decimal) {
+    public init(real: Decimal, volatility: Decimal, incomeYield: Decimal? = nil) {
         self.real = real
         self.volatility = volatility
+        self.incomeYield = incomeYield
     }
 }
 
 extension ReturnAssumption: Codable {
     enum CodingKeys: String, CodingKey, CaseIterable {
-        case real, volatility
+        case real, volatility, incomeYield
     }
 
     public static var knownKeys: Set<String> { Set(CodingKeys.allCases.map(\.stringValue)) }
@@ -104,12 +111,14 @@ extension ReturnAssumption: Codable {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         real = try c.decodeDecimal(forKey: .real)
         volatility = try c.decodeDecimal(forKey: .volatility)
+        incomeYield = try c.decodeDecimalIfPresent(forKey: .incomeYield)
     }
 
     public func encode(to encoder: any Encoder) throws {
         var c = encoder.container(keyedBy: CodingKeys.self)
         try c.encodeDecimal(real, forKey: .real)
         try c.encodeDecimal(volatility, forKey: .volatility)
+        try c.encodeDecimalIfPresent(incomeYield, forKey: .incomeYield)
     }
 }
 

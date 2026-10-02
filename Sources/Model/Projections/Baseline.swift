@@ -18,7 +18,7 @@ public struct BaselineKind: OpenEnum {
 /// old plan with today's code and tax parameters would give a different
 /// answer. See PROGRESS.md, "Baselines".
 ///
-/// Values are in euros of the start date.
+/// Values are in money of the start date, in the plan's currency (its `currency`, else the library's base currency).
 public struct Baseline: Hashable, Sendable, KnownKeysProviding {
     /// When the baseline was saved.
     public var created: CalendarDate

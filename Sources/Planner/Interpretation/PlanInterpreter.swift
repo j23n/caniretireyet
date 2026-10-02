@@ -45,6 +45,9 @@ enum PlanInterpreter {
         }
         let firstYear = startDate == .lastDay(of: startDate.year) ? startDate.year + 1 : startDate.year
         let lastYear = birthDate.year + endAge
+        let currency = plan.effectiveCurrency(base: library.settings.baseCurrency)
+        var rates = CurrencyRates(planCurrency: currency, date: startDate, library: library)
+        let citizenships = (library.settings.person?.citizenships ?? []).map { $0.rawValue.uppercased() }
 
         // The residence timeline.
         let inflation = plan.assumptions.effectiveInflation.double
@@ -76,11 +79,15 @@ enum PlanInterpreter {
             } else {
                 systems.append(SystemContext(system: system,
                                              parameters: OverriddenParameterStore(base: system.parameters,
-                                                                                  overrides: overrides)))
+                                                                                  overrides: overrides),
+                                             currencyRate: rates.rate(for: system, issues: &issues)))
                 entrySystem.append(systems.count - 1)
             }
         }
         guard entrySystem.count == residence.count else { return (nil, issues) }
+        let timeline = zip(residence, entrySystem).map { entry, s in
+            TaxPlan.Residence(from: entry.from, system: systems[s].id, options: OptionValues(entry.options))
+        }
 
         // Year frames.
         var frames: [YearFrame] = []
@@ -115,7 +122,7 @@ enum PlanInterpreter {
                 simulatedFrom: simulatedFrom, fraction: fraction, system: entrySystem[entry], parameters: parameters,
                 systemOptions: OptionValues(residence[entry].options),
                 inflationFactor: pow(1 + inflation, yearsBefore),
-                inflationStep: pow(1 + inflation, fraction)))
+                inflationStep: pow(1 + inflation, fraction), currencyRate: context.currencyRate))
         }
 
         // Overlays and work.
@@ -143,25 +150,31 @@ enum PlanInterpreter {
             issues.append(.error("planner.negativeSpending", "Spending can't be negative.", section: .spending))
         }
 
-        let pensions = interpretPensions(plan.pensions, registry: registry, overrides: overrides, issues: &issues)
-
-        // The starting portfolio.
-        let portfolio = PortfolioBuilder(library: library, date: startDate, plan: plan, registry: registry,
-                                         residence: systems.first?.system, issues: &issues)
-
-        var contributions: [ContributionSpec] = []
-        for (index, contribution) in plan.contributions.enumerated() {
-            guard let bucket = portfolio.buckets.first(where: { $0.accounts.contains(contribution.account) }) else {
-                let reason = library.accounts[contribution.account] == nil ? "doesn't exist" : "isn't in the plan"
-                issues.append(.warning("planner.contributionAccount",
-                                       "The account \(contribution.account) \(reason); its contributions stay in your savings.",
-                                       section: .contributions, index: index, account: contribution.account))
-                continue
+        var pensions = interpretPensions(plan.pensions, registry: registry, overrides: overrides, issues: &issues)
+        // A scheme of a system with its own currency gets that system's rate;
+        // the shared `fixed` scheme works in the plan's currency.
+        for index in pensions.indices where !pensions[index].isFixed {
+            if let owner = pensions[index].ownerID.flatMap({ registry.system($0) }) {
+                pensions[index].currencyRate = rates.rate(for: owner, issues: &issues)
             }
-            contributions.append(ContributionSpec(
-                index: index, account: contribution.account, wrapper: bucket.wrapper,
-                perYear: contribution.perYear.double, until: contribution.effectiveUntil.date))
         }
+
+        // The starting portfolio. Accounts that hold a pension scheme's record
+        // (its seed wrapper) start the scheme instead of being a bucket.
+        var seedWrappers: [String: String] = [:]
+        for pension in pensions where !pension.isFixed {
+            if let wrapper = pension.scheme.seedWrapper, seedWrappers[wrapper] == nil {
+                seedWrappers[wrapper] = pension.schemeID
+            }
+        }
+        let portfolio = PortfolioBuilder(library: library, date: startDate, plan: plan, registry: registry,
+                                         residence: systems.first?.system, currency: currency,
+                                         seedWrappers: seedWrappers, issues: &issues)
+        seed(&pensions, from: portfolio.seeds, registry: registry, issues: &issues)
+
+        let contributions = interpretContributions(plan.contributions, portfolio: portfolio, pensions: pensions,
+                                                   library: library, registry: registry, years: firstYear...lastYear,
+                                                   issues: &issues)
 
         // Events.
         var events: [EventSpec] = []
@@ -195,6 +208,14 @@ enum PlanInterpreter {
 
         // Returns and the simulation settings.
         let returns = ReturnModel(assumptions: plan.assumptions, heldClasses: portfolio.classes, issues: &issues)
+        let incomeYields = portfolio.classes.map { assetClass -> Double in
+            guard let yield = plan.assumptions.returnAssumption(for: assetClass)?.incomeYield?.double else { return 0 }
+            if !(0...1).contains(yield) {
+                issues.append(.error("planner.incomeYield", "The income yield of \(assetClass) must be between 0 and 100%.",
+                                     section: .assumptions, option: "incomeYield"))
+            }
+            return min(1, max(0, yield))
+        }
         if returns.expected.contains(where: { $0 <= -1 }) {
             issues.append(.error("planner.returnTooLow", "A real return must be above -100%.", section: .assumptions))
         }
@@ -214,9 +235,7 @@ enum PlanInterpreter {
             let years = frames.filter { $0.system == index }.map(\.year)
             guard let first = years.min(), let last = years.max() else { continue }
             let taxPlan = TaxPlan(
-                residence: zip(residence, entrySystem).map { entry, s in
-                    TaxPlan.Residence(from: entry.from, system: systems[s].id, options: OptionValues(entry.options))
-                },
+                residence: timeline,
                 overlays: overlays.filter { context.system.regime($0.regime) != nil },
                 indexThresholds: plan.tax.effectiveIndexThresholds,
                 overrides: overrides,
@@ -238,8 +257,9 @@ enum PlanInterpreter {
                                              untilYear: untilYear.map { min($0, last) })
                 },
                 pensions: pensions.filter { $0.isFixed || context.system.pensionScheme($0.schemeID) != nil }
-                    .map { TaxPlan.Pension(id: $0.id, scheme: $0.schemeID, options: $0.options) },
-                birthYear: birthDate.year)
+                    .map { TaxPlan.Pension(id: $0.id, scheme: $0.schemeID, options: $0.options, kind: $0.kind,
+                                           sourceCountry: $0.sourceCountry) },
+                birthYear: birthDate.year, citizenships: citizenships)
             systems[index].taxPlan = taxPlan
             // Checks that need each year's amounts come later, from the prepared
             // years of a retirement age (`PlanModel.yearIssues(for:)`).
@@ -271,12 +291,13 @@ enum PlanInterpreter {
 
         guard !issues.contains(where: \.isError) else { return (nil, issues) }
         let model = PlanModel(
-            plan: plan, registry: registry, birthDate: birthDate, startDate: startDate, currentAge: currentAge,
+            plan: plan, registry: registry, currency: currency, birthDate: birthDate, citizenships: citizenships,
+            residence: timeline, startDate: startDate, currentAge: currentAge,
             endAge: endAge, planAge: planAge, frames: frames, systems: systems,
             oldAgePensionAges: oldAgePensionAges.map { $0?.years },
             oldAgePensionAgesInMonths: oldAgePensionAges.map { $0?.months }, overlays: overlays,
             indexThresholds: plan.tax.effectiveIndexThresholds, inflation: inflation, work: work, spending: spending,
-            pensions: pensions, contributions: contributions, events: events,
+            pensions: pensions, contributions: contributions, events: events, incomeYields: incomeYields,
             uncertainEventProbabilities: probabilities, portfolio: portfolio, returns: returns,
             cashBuffer: max(0, plan.withdrawals.effectiveCashBuffer.double),
             runs: options.runs(planRuns: plan.simulation.effectiveRuns), seed: plan.simulation.effectiveSeed,
@@ -357,6 +378,8 @@ enum PlanInterpreter {
         for (index, pension) in pensions.enumerated() {
             let id = "pension-\(index)"
             let taxedIn: FixedYear.TaxedIn = pension.effectiveTaxedIn == .source ? .source : .residence
+            let sourceCountry = pension.sourceCountry?.rawValue.uppercased()
+            let planKind = pension.kind.map { PensionKind(rawValue: $0.rawValue) }
             if taxedIn == .source {
                 issues.append(.warning("planner.taxedAtSource",
                                        "\(pension.name ?? pension.scheme.rawValue) is taxed by the paying country, which "
@@ -378,11 +401,13 @@ enum PlanInterpreter {
                 let parameters: any ParameterStore = owner.map {
                     OverriddenParameterStore(base: $0.parameters, overrides: overrides)
                 } ?? NoParameters(system: FixedPensionScheme.schemeID)
+                let scheme = owner?.pensionScheme(FixedPensionScheme.schemeID) ?? FixedPensionScheme()
                 result.append(PensionSpec(
                     index: index, id: id, name: pension.name ?? "Pension", schemeID: FixedPensionScheme.schemeID,
-                    scheme: owner?.pensionScheme(FixedPensionScheme.schemeID) ?? FixedPensionScheme(),
-                    schemeParameters: parameters, claim: pension.claim ?? .age(fromAge), taxedIn: taxedIn,
-                    options: options))
+                    scheme: scheme, schemeParameters: parameters, claim: pension.claim ?? .age(fromAge),
+                    taxedIn: taxedIn, options: options, claimRoute: pension.claimRoute,
+                    kind: planKind ?? scheme.pensionKind(options: options), sourceCountry: sourceCountry,
+                    ownerID: owner?.id))
                 continue
             }
             guard let owner = registry.systems.first(where: { $0.pensionScheme(pension.scheme.rawValue) != nil }),
@@ -397,10 +422,101 @@ enum PlanInterpreter {
                                        "\(scheme.name) appears twice; work credits count toward both.",
                                        section: .pensions, index: index))
             }
+            let options = OptionValues(pension.options)
             result.append(PensionSpec(
                 index: index, id: id, name: pension.name ?? scheme.name, schemeID: scheme.id, scheme: scheme,
                 schemeParameters: OverriddenParameterStore(base: owner.parameters, overrides: overrides),
-                claim: pension.effectiveClaim, taxedIn: taxedIn, options: OptionValues(pension.options)))
+                claim: pension.effectiveClaim, taxedIn: taxedIn, options: options, claimRoute: pension.claimRoute,
+                kind: planKind ?? scheme.pensionKind(options: options), sourceCountry: sourceCountry,
+                ownerID: owner.id))
+        }
+        return result
+    }
+
+    /// Gives each pension scheme the value of the accounts that seed it, as
+    /// its option `startingBalance` (unless the plan sets it): the first
+    /// pension with the scheme gets it.
+    private static func seed(_ pensions: inout [PensionSpec], from seeds: [PortfolioBuilder.Seed],
+                             registry: TaxRegistry, issues: inout [PlanIssue]) {
+        for seed in seeds {
+            guard let index = pensions.firstIndex(where: { $0.schemeID == seed.scheme }) else { continue }
+            if pensions[index].options["startingBalance"] != nil {
+                issues.append(.warning("planner.seedReplaced",
+                                       "\(pensions[index].name) sets startingBalance, so the value of "
+                                           + "\(seed.accounts.map(\.rawValue).joined(separator: ", ")) isn't used.",
+                                       section: .pensions, index: pensions[index].index, option: "startingBalance"))
+            } else {
+                pensions[index].options["startingBalance"] = .number(seed.value)
+            }
+        }
+    }
+
+    /// The plan's contributions: into an account's bucket, or into a
+    /// pension scheme; yearly while working, or once.
+    private static func interpretContributions(
+        _ entries: [PlanContribution], portfolio: PortfolioBuilder, pensions: [PensionSpec], library: Library,
+        registry: TaxRegistry, years: ClosedRange<Int>, issues: inout [PlanIssue]
+    ) -> [ContributionSpec] {
+        var result: [ContributionSpec] = []
+        for (index, contribution) in entries.enumerated() {
+            if contribution.pension != nil, !contribution.account.rawValue.isEmpty {
+                issues.append(.error("planner.contributionTarget",
+                                     "A contribution goes into an account or a pension scheme, not both.",
+                                     section: .contributions, index: index))
+                continue
+            }
+            var oneOff: (year: Int, amount: Double)?
+            switch (contribution.amount, contribution.year) {
+            case (let amount?, let year?):
+                if contribution.perYear != 0 {
+                    issues.append(.error("planner.contributionAmount",
+                                         "A contribution is paid every year (perYear) or once (amount), not both.",
+                                         section: .contributions, index: index, option: "amount"))
+                    continue
+                }
+                guard years.contains(year) else {
+                    issues.append(.warning("planner.contributionOutside",
+                                           "A contribution in \(year) falls outside the plan's years; it's ignored.",
+                                           section: .contributions, index: index, year: year))
+                    continue
+                }
+                oneOff = (year, amount.double)
+            case (nil, nil):
+                break
+            default:
+                issues.append(.error("planner.contributionYear", "A one-off contribution needs an amount and a year.",
+                                     section: .contributions, index: index, option: "year"))
+                continue
+            }
+            let until = contribution.effectiveUntil.date
+            if let scheme = contribution.pension?.rawValue {
+                guard registry.pensionScheme(scheme) != nil else {
+                    issues.append(.warning("planner.contributionScheme",
+                                           "There is no pension scheme \"\(scheme)\"; its contributions stay in your savings.",
+                                           section: .contributions, index: index, option: "pension"))
+                    continue
+                }
+                if !pensions.contains(where: { $0.schemeID == scheme }) {
+                    issues.append(.warning("planner.contributionWithoutPension",
+                                           "Contributions go into \(scheme), but the plan has no \(scheme) pension to "
+                                               + "claim them.",
+                                           section: .contributions, index: index, option: "pension"))
+                }
+                result.append(ContributionSpec(index: index, wrapper: scheme, isScheme: true,
+                                               perYear: contribution.perYear.double, until: until, oneOff: oneOff))
+                continue
+            }
+            guard let bucket = portfolio.buckets.first(where: { $0.accounts.contains(contribution.account) }) else {
+                let reason = portfolio.seeds.contains(where: { $0.accounts.contains(contribution.account) })
+                    ? "holds a pension scheme's record"
+                    : library.accounts[contribution.account] == nil ? "doesn't exist" : "isn't in the plan"
+                issues.append(.warning("planner.contributionAccount",
+                                       "The account \(contribution.account) \(reason); its contributions stay in your savings.",
+                                       section: .contributions, index: index, account: contribution.account))
+                continue
+            }
+            result.append(ContributionSpec(index: index, wrapper: bucket.wrapper, isScheme: false,
+                                           perYear: contribution.perYear.double, until: until, oneOff: oneOff))
         }
         return result
     }

@@ -67,7 +67,9 @@ struct GenericPreparedYear: PreparedTaxYear {
                     base: payout.amount, subject: payout.wrapper)
             }
         }
-        for income in variable.capitalIncome {
+        // Income a fund earned without paying it out is taxed only when it's
+        // paid or sold, as the gain.
+        for income in variable.capitalIncome where income.kind != .reportedIncome {
             let wrapper = kind(of: income.wrapper)
             guard wrapper == GenericWrapper.taxable || wrapper == "unknown" else { continue }
             add(&assessment, id: "generic.capitalIncomeTax", label: "Tax on interest and dividends",

@@ -42,6 +42,7 @@ struct Engine: Sendable {
         let wrappers = Set(built.flatMap { schedule in
             schedule.years.flatMap { year in
                 year.contributions.map(\.wrapper) + year.variants.flatMap { $0.accruals.map(\.wrapper) }
+                    + year.transfers.map(\.wrapper)
             }
         })
         for wrapper in wrappers.sorted() {

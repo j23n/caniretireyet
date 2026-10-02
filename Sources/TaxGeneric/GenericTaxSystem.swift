@@ -18,7 +18,9 @@ import TaxKit
 /// - Wrappers: `taxable` (gains, interest, dividends and wealth taxed),
 ///   `taxDeferred` (payouts taxed at `pensionTaxRate`), `taxFree` (nothing
 ///   taxed). Wrappers of other systems are treated as `taxable`, or as
-///   `taxDeferred` for payouts, with a warning.
+///   `taxDeferred` for payouts, with a warning. Income a fund keeps
+///   (`reportedIncome`) isn't taxed: it's part of the gain when sold. Every
+///   tax category is taxed alike.
 /// - Pensions: the shared `fixed` scheme.
 /// - Gross-up is exact.
 public struct GenericTaxSystem: TaxSystem {

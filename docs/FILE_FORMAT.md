@@ -76,6 +76,8 @@ Can I Retire Yet/                   ← the app's folder in iCloud Drive
 
 `mainPlan` is the plan shown on the Overview. It's re-run at every check-in, and a baseline of it is saved automatically at the first check-in of each year.
 
+`person` holds the person's `name`, `birthDate` (plans need it for ages) and, optionally, `citizenships`: every citizenship held, as country codes (`"citizenships": ["DE", "IT"]`). Plans pass them to the tax systems, since tax treaties can decide by citizenship which country taxes a pension. Left out, they're unknown.
+
 Settings that belong to one device, such as reminder times and UI state, are stored on that device, not in the library.
 
 ## `accounts/<id>.json`
@@ -198,7 +200,7 @@ An instrument is anything you hold a quantity of. Its price is always per `unit`
 | `currency`, `unit` | yes | What the price is quoted in and per what. The fetcher converts, e.g. USD per troy ounce into EUR per gram. |
 | `assetClasses` | yes | Its mix across `equity`, `bonds`, `cash`, `gold`, `crypto`, `realEstate` and `other`. A 60/40 fund is `{ "equity": "0.6", "bonds": "0.4" }`. |
 | `isin`, `ticker` | no | Identification. |
-| `tax` | no | Overrides the Italian tax treatment implied by `kind`. For example, `{ "govBondShare": "0.8" }` is used for the 12.5% rate on government bonds, applied pro rata. |
+| `tax` | no | Overrides the tax treatment implied by `kind`. `govBondShare` is the share held in government bonds, e.g. `{ "govBondShare": "0.8" }` for Italy's 12.5% rate on them, applied pro rata. `fundType` says what kind of fund an `etf` or `fund` is: `equity` (more than half in shares), `mixed` (at least a quarter), `realEstate`, `foreignRealEstate` (real estate, mainly abroad) or `other`; when it's left out, the planner derives it from `assetClasses` (it can't tell `foreignRealEstate`). `deliveryClaim: true` marks an `etc` that gives a right to delivery of the metal, such as Xetra-Gold, which Germany taxes like the metal. Other keys are kept for the tax systems. |
 | `priceSource` | no | Where prices come from. If it's absent, you enter prices by hand. |
 
 For `coingecko`, `symbol` is the coin's CoinGecko ID (`ethereum`, from its page on coingecko.com) or its ticker (`ETH`), in any case. The fetcher resolves it to an ID in this order: a built-in table of well-known tickers (`BTC`, `ETH`, `SOL`, …); a lowercase symbol, tried as an ID as it is; then, for anything else or an ID CoinGecko doesn't know, CoinGecko's search, which takes the coin with that ID, or else the highest-ranked coin with that ticker. The file keeps the symbol as you typed it, and the price list shows what it resolved to, e.g. "ETH → ethereum".
@@ -291,7 +293,7 @@ An account that closes during the period ends at zero: its value on the closing 
 
 ## `plans/<id>.json`
 
-There is one file per scenario. Its fields and what they mean are described in [PLANNER.md](PLANNER.md#plan-file).
+There is one file per scenario. Its fields and what they mean are described in [PLANNER.md](PLANNER.md#plan-file). Its amounts are in today's money, in the plan's `currency` (by default the library's `baseCurrency`).
 
 ## `projections/<plan-id>/`
 

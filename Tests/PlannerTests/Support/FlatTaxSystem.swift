@@ -10,9 +10,19 @@ import TaxKit
 /// - Pensions taxed at the income rate; windfalls at their own rate.
 /// - Markets: gains tax on sales, payout tax on wrapper payouts, interest tax,
 ///   and a wealth tax on taxable balances.
+/// - Optionally (off by default): its own currency, with an income allowance
+///   in it; a tax on lump sums from pensions; a tax on fund income kept in
+///   the fund, which can raise the funds' purchase cost; an occupational
+///   scheme `flat.fund` with lump-sum claim options, buy-ins and a seed
+///   wrapper; and a `flat.pillar` wrapper that must pay out or spreads its
+///   payouts.
 struct FlatTaxSystem: TaxSystem {
     var id = "flat"
     var name = "Flat"
+    /// The system's own currency, if any.
+    var currency: String?
+    /// Work income up to this much, in the system's currency, isn't taxed.
+    var incomeAllowance = 0.0
     var incomeRate = 0.0
     var contributionRate = 0.0
     var gainsRate = 0.0
@@ -45,6 +55,22 @@ struct FlatTaxSystem: TaxSystem {
     /// A year's work income above this gets a warning from `prepare`: a
     /// check that needs each year's amounts.
     var revenueLimit: Double?
+    /// Lump sums from pensions are taxed at this rate instead of the income rate.
+    var lumpSumRate: Double?
+    /// The tax on fund income kept in the fund (`reportedIncome`).
+    var reportedIncomeRate = 0.0
+    /// Whether that income is added to the funds' purchase cost.
+    var reportedIncomeRaisesCostBasis = false
+    /// When the `flat.pillar` wrapper opens, and its payout rules.
+    var pillarAccessAge = 60
+    var pillarPayoutYears: Int?
+    var pillarMustPayOutAge: Int?
+    /// The `flat.fund` scheme's yearly real growth of its annuity.
+    var fundAnnuityGrowth: Double?
+    /// A tax on taxable holdings' value before the year's returns, capped at
+    /// their nominal rise (each balance's `startValue` and `nominalReturn`),
+    /// like a deemed income on the start value.
+    var startValueRate = 0.0
     let parameters: any ParameterStore
 
     init() {
@@ -78,10 +104,26 @@ struct FlatTaxSystem: TaxSystem {
                         revaluation: tfrRevaluation) { context in
                 context.yearsSinceWorkStopped != nil ? .accessible(route: nil) : .locked(reason: "Paid when work ends")
             },
+            pillarRule,
+            WrapperRule(id: "flat.vested", name: "Vested benefits", category: .taxDeferred) { context in
+                context.age >= 60 ? .accessible(route: nil) : .locked(reason: "Locked until 60")
+            },
         ]
     }
 
-    var pensionSchemes: [any PensionScheme] { [FlatStateScheme(oldAge: oldAgePensionAge)] }
+    private var pillarRule: WrapperRule {
+        let accessAge = pillarAccessAge
+        let mustPayOutAge = pillarMustPayOutAge
+        return WrapperRule(id: "flat.pillar", name: "Pillar", category: .taxDeferred,
+                           preferredPayoutYears: pillarPayoutYears,
+                           mustPayOut: mustPayOutAge.map { age in { @Sendable context in context.age >= age } }) { context in
+            context.age >= accessAge ? .accessible(route: nil) : .locked(reason: "Locked until \(accessAge)")
+        }
+    }
+
+    var pensionSchemes: [any PensionScheme] {
+        [FlatStateScheme(oldAge: oldAgePensionAge), FlatFundScheme(annuityGrowth: fundAnnuityGrowth)]
+    }
 
     /// The payout rate after `membershipYears` of membership.
     func payoutRate(membershipYears: Int?) -> Double {
@@ -106,7 +148,11 @@ struct FlatTaxSystem: TaxSystem {
             ? (parameters.double(at: "bonusShare") ?? 1) : 1
         var fixed = TaxAssessment()
         for work in year.work {
-            let taxable = work.gross - work.costs
+            var taxable = work.gross - work.costs
+            if incomeAllowance > 0 {
+                // The allowance is in the system's currency; the tax goes back in the plan's.
+                taxable = year.inPlanCurrency(max(0, year.inSystemCurrency(taxable) - incomeAllowance))
+            }
             fixed.lines.append(TaxLine(id: "flat.income", label: "Income tax",
                                        amount: taxable * (incomeRate + surcharge) * bonus, base: taxable,
                                        subject: work.phaseID))
@@ -131,8 +177,18 @@ struct FlatTaxSystem: TaxSystem {
             }
         }
         for pension in year.pensions where pension.taxedIn == .residence {
+            if pension.form == .lumpSum, let lumpSumRate {
+                fixed.lines.append(TaxLine(id: "flat.lumpSum", label: "Lump-sum tax", amount: pension.amount * lumpSumRate,
+                                           base: pension.amount, subject: pension.id))
+                continue
+            }
             fixed.lines.append(TaxLine(id: "flat.income", label: "Income tax", amount: pension.amount * incomeRate,
                                        base: pension.amount, subject: pension.id))
+        }
+        // Buy-ins into the fund scheme are credited to it.
+        for contribution in year.wrapperContributions where contribution.wrapper == FlatFundScheme.schemeID {
+            fixed.accruals.append(Accrual(target: .pensionScheme(FlatFundScheme.schemeID), amount: contribution.amount,
+                                          source: contribution.source))
         }
         for windfall in year.windfalls {
             fixed.lines.append(TaxLine(id: "flat.windfall", label: "Windfall tax",
@@ -169,12 +225,32 @@ struct FlatPreparedYear: PreparedTaxYear {
         if payoutBase > 0 {
             assessment.lines.append(TaxLine(id: "flat.payout", label: "Payout tax", amount: payoutTax, base: payoutBase))
         }
-        let interest = variable.capitalIncome.reduce(0.0) { $0 + $1.amount }
+        let interest = variable.capitalIncome.filter { $0.kind != .reportedIncome }.reduce(0.0) { $0 + $1.amount }
         if interest > 0 {
             assessment.lines.append(TaxLine(id: "flat.interest", label: "Interest tax",
                                             amount: interest * system.interestRate, base: interest))
         }
-        let wealth = variable.balances.filter { $0.wrapper != "flat.pension" && $0.wrapper != "flat.tfr" }
+        let reported = variable.capitalIncome.filter { $0.kind == .reportedIncome }
+        let reportedTotal = reported.reduce(0.0) { $0 + $1.amount }
+        if reportedTotal > 0, system.reportedIncomeRate > 0 {
+            assessment.lines.append(TaxLine(id: "flat.fundIncome", label: "Fund income tax",
+                                            amount: reportedTotal * system.reportedIncomeRate, base: reportedTotal))
+            if system.reportedIncomeRaisesCostBasis {
+                assessment.costBasisAdjustments = reported.map {
+                    CostBasisAdjustment(wrapper: $0.wrapper, category: $0.category, amount: $0.amount)
+                }
+            }
+        }
+        if system.startValueRate > 0 {
+            let held = variable.balances.filter { $0.wrapper == "flat.ordinary" && $0.category != .cash }
+            let base = held.reduce(0.0) { total, balance in
+                let start = balance.startValue ?? 0
+                return total + min(start, max(0, start * (balance.nominalReturn ?? 0) / system.startValueRate))
+            }
+            assessment.lines.append(TaxLine(id: "flat.startValue", label: "Start-value tax",
+                                            amount: base * system.startValueRate, base: base))
+        }
+        let wealth = variable.balances.filter { ["flat.ordinary", "taxable"].contains($0.wrapper) || !$0.wrapper.hasPrefix("flat.") }
             .reduce(0.0) { $0 + $1.value } * variable.fractionOfYear
         if wealth > 0, system.wealthRate > 0 {
             assessment.lines.append(TaxLine(id: "flat.wealth", label: "Wealth tax", amount: wealth * system.wealthRate,
@@ -185,7 +261,7 @@ struct FlatPreparedYear: PreparedTaxYear {
 
     func grossUp(net: Double, from bucket: BucketSnapshot) -> Double? {
         guard system.exactGrossUp else { return nil }
-        if bucket.wrapper == "flat.pension" || bucket.wrapper == "flat.tfr" {
+        if bucket.wrapper.hasPrefix("flat."), bucket.wrapper != "flat.ordinary" {
             let taxedShare = system.payoutOnCostBasis ? 1 - bucket.gainShare : 1
             return net / (1 - system.payoutRate(membershipYears: bucket.membershipYears) * taxedShare)
         }
@@ -228,6 +304,67 @@ struct FlatStateScheme: PensionScheme {
         return (65...70).map { age in
             ClaimOption(route: "flat.oldAge", label: "Old age", age: age,
                         annualAmount: record.montante * (0.05 + Double(age - 65) * 0.002))
+        }
+    }
+}
+
+/// A made-up occupational scheme, `flat.fund`: a balance that grows by
+/// nothing, from the option `startingBalance` and buy-ins, kept in the
+/// system's currency. From 60 it pays 5% of the balance a year
+/// (`flat.fund.annuity`), or half of it as a lump sum and 2.5% a year
+/// (`flat.fund.half`), or all of it as a lump sum (`flat.fund.capital`).
+/// When work stops before 60 it moves into `flat.vested` (`flat.fund.transfer`).
+/// Half of each payment is from its mandatory part.
+struct FlatFundScheme: PensionScheme {
+    static let schemeID = "flat.fund"
+    let id = FlatFundScheme.schemeID
+    let name = "Fund"
+    var annuityGrowth: Double?
+    var options: [OptionField] { [.money("startingBalance", "Balance")] }
+    var seedWrapper: String? { "flat.fundAccount" }
+
+    func pensionKind(options: OptionValues) -> PensionKind? { .occupational }
+
+    func startingRecord(options: OptionValues, year: Int, parameters: any ParameterStore) -> PensionRecord {
+        PensionRecord(scheme: id, montante: options.double("startingBalance") ?? 0)
+    }
+
+    func startingRecord(options: OptionValues, year: Int, parameters: any ParameterStore,
+                        currencyRate: Double) -> PensionRecord {
+        PensionRecord(scheme: id, montante: (options.double("startingBalance") ?? 0) * currencyRate)
+    }
+
+    func accrue(_ accruals: [Accrual], in year: Int, to record: inout PensionRecord, options: OptionValues,
+                parameters: ParameterSet) {
+        accrue(accruals, in: year, to: &record, options: options, parameters: parameters, currencyRate: 1)
+    }
+
+    func accrue(_ accruals: [Accrual], in year: Int, to record: inout PensionRecord, options: OptionValues,
+                parameters: ParameterSet, currencyRate: Double) {
+        for accrual in accruals where accrual.target == .pensionScheme(id) {
+            record.montante += accrual.amount * currencyRate
+        }
+    }
+
+    func claimOptions(for record: PensionRecord, context: ClaimContext, parameters: any ParameterStore)
+        -> [ClaimOption] {
+        let balance = context.inPlanCurrency(record.montante)
+        let age = context.year - context.birthDate.year
+        guard balance > 0 else { return [] }
+        if age < 60 {
+            guard context.yearsSinceWorkStopped != nil else { return [] }
+            return [ClaimOption(route: "flat.fund.transfer", label: "Transfer", age: age, annualAmount: 0,
+                                lumpSum: balance, lumpSumWrapper: "flat.vested")]
+        }
+        return (60...70).flatMap { age in
+            [
+                ClaimOption(route: "flat.fund.annuity", label: "Annuity", age: age, annualAmount: balance * 0.05,
+                            realGrowthPerYear: annuityGrowth, mandatoryShare: 0.5),
+                ClaimOption(route: "flat.fund.half", label: "Half as capital", age: age, annualAmount: balance * 0.025,
+                            lumpSum: balance / 2, realGrowthPerYear: annuityGrowth, mandatoryShare: 0.5),
+                ClaimOption(route: "flat.fund.capital", label: "All as capital", age: age, annualAmount: 0,
+                            lumpSum: balance, mandatoryShare: 0.5),
+            ]
         }
     }
 }

@@ -116,6 +116,41 @@ public struct ParameterNode: Sendable {
         guard let object = value?.objectValue else { throw error("is not an object") }
         return Dictionary(uniqueKeysWithValues: object.keys.map { ($0, self[$0]) })
     }
+
+    /// How this object's amounts follow prices, from its `indexed` key:
+    /// `"law"`, `"fixed"`, `"plan"` or a system's own rule, either as a
+    /// string or as an object whose `by` says it (`{ "by": "law", "source":
+    /// "…" }`). `.plan` when the key is absent. Throws when it's malformed.
+    public func indexingRule() throws -> ThresholdIndexing.Rule {
+        let indexed = self["indexed"]
+        guard indexed.exists else { return .plan }
+        if let text = indexed.value?.stringValue { return ThresholdIndexing.Rule(rawValue: text) }
+        let by = indexed["by"]
+        guard by.exists else { throw indexed.error("is neither a rule nor an object with \"by\"") }
+        return ThresholdIndexing.Rule(rawValue: try by.string())
+    }
+}
+
+extension ParameterSet {
+    /// How the amounts at a dotted path follow prices: the `indexed` rule of
+    /// the innermost object along the path that has one (see
+    /// ``ParameterNode/indexingRule()``), so a rule on an object covers
+    /// everything inside it. `.plan` when none has one; a malformed rule is
+    /// skipped.
+    public func indexingRule(at path: String) -> ThresholdIndexing.Rule {
+        var node = ParameterNode(self)
+        var rule = (try? node.indexingRule()) ?? .plan
+        for component in path.split(separator: ".").map(String.init) {
+            if node.value?.listValue != nil, let index = Int(component) {
+                node = node[index]
+            } else {
+                node = node[component]
+            }
+            guard node.exists else { break }
+            if node.value?.objectValue?["indexed"] != nil, let own = try? node.indexingRule() { rule = own }
+        }
+        return rule
+    }
 }
 
 /// A parameter that is missing or has the wrong type.
