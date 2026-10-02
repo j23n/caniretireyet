@@ -25,6 +25,10 @@ struct ItalyYearCalculator {
     var issues: [TaxIssue] = []
     var fundContributions: Double = 0
     var arrivedWithForfettario: Int?
+    /// How each pension is taxed (see ``ItalyPensionTreatment``).
+    var pensionTreatments: [ItalyPensionTreatment] = []
+    /// German statutory pensions' exempt amounts fixed this year, by state key.
+    var germanExemptions: [String: Double] = [:]
 
     init(system: ItalyTaxSystem, year: FixedYear, state: TaxState, parameters: ItalyParameters) {
         self.system = system
@@ -74,6 +78,9 @@ struct ItalyYearCalculator {
             add("it.forfettario", "Imposta sostitutiva (forfettario \(percent(result.forfettarioRate)))",
                 result.forfettarioTax, base: result.forfettarioTaxable, subject: result.phaseID)
         }
+        for line in foreignPensionLines() {
+            add(line.id, line.label, line.amount, base: line.base, subject: line.subject)
+        }
         var issues = self.issues
         for windfall in year.windfalls {
             guard let inheritance = inheritanceTax(windfall) else { continue }
@@ -111,6 +118,9 @@ struct ItalyYearCalculator {
         if let arrivedWithForfettario {
             next[ItalyStateKey.forfettarioOnArrival] = Double(arrivedWithForfettario)
         }
+        for (key, exemption) in germanExemptions {
+            next[key] = exemption
+        }
         let tfrToFund = work.filter { $0.tfrTarget == ItalyWrapper.pensionFund }.reduce(0) { $0 + $1.tfrAccrual }
         if fundContributions > 0 || tfrToFund > 0 {
             next[ItalyStateKey.fundDeducted] = (state[ItalyStateKey.fundDeducted] ?? 0) + irpef.pensionFundDeduction
@@ -133,8 +143,7 @@ struct ItalyYearCalculator {
         let tfrInFund = state[ItalyStateKey.fundTFR] ?? 0
         let paidIn = deducted + nonDeducted + tfrInFund
         let taxedShare = paidIn > 0 ? (deducted + tfrInFund) / paidIn : 1
-        let tfrIncome = state[ItalyStateKey.tfrTaxableIncome] ?? 0
-        let tfrRate = tfrIncome > 0 ? (state[ItalyStateKey.tfrIrpef] ?? 0) / tfrIncome : p.tfr.payoutFallbackRate
+        let tfrRate = separateTaxationRate
         return ItalyPreparedYear.Context(
             year: year.year, age: year.age, parameters: p, marginalIncomeRate: irpef.marginalRate,
             fundTaxedContributionShare: taxedShare,

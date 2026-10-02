@@ -1,0 +1,37 @@
+{
+  "name": "A Swiss AHV pension with taxedIn source is taxed in Italy anyway, with the Swiss tax credited",
+  "year": 2026,
+  "input": {
+    "age": 70,
+    "systemOptions": {
+      "addizionaleRegionale": "0.0173",
+      "addizionaleComunale": "0.008"
+    },
+    "pensions": [
+      {
+        "id": "ahv",
+        "scheme": "ch.ahv",
+        "amount": 20000.0,
+        "taxedIn": "source",
+        "sourceTax": 400.0
+      }
+    ]
+  },
+  "expected": {
+    "issues": [
+      "it.treaty.taxedIn"
+    ],
+    "lines": {
+      "it.swissPensionTax": 1000,
+      "it.foreignTaxCredit": -400
+    },
+    "totalTax": 600,
+    "netIncome": 19400
+  },
+  "workings": [
+    "The treaty (art. 18) and art. 76 give Italy the right: the 5% applies whatever taxedIn says, with a warning",
+    "Substitute tax: 5% × 20,000.00 = 1,000.00",
+    "Credit for the 400.00 charged in Switzerland, up to the Italian tax on it: −400.00",
+    "Total tax in Italy: 600.00"
+  ]
+}

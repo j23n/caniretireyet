@@ -1,0 +1,53 @@
+{
+  "name": "Pillar 3a from a statement: the annuity in IRPEF, the lump sum taxed separately",
+  "year": 2026,
+  "input": {
+    "age": 66,
+    "systemOptions": {
+      "addizionaleRegionale": "0.0173",
+      "addizionaleComunale": "0.008"
+    },
+    "pensions": [
+      {
+        "id": "inps",
+        "scheme": "it.inps",
+        "amount": 20000.0
+      },
+      {
+        "id": "pillar",
+        "scheme": "fixed",
+        "amount": 6000.0,
+        "kind": "privateAnnuity",
+        "sourceCountry": "CH"
+      },
+      {
+        "id": "pillar.lumpSum",
+        "scheme": "fixed",
+        "amount": 50000.0,
+        "kind": "privateAnnuity",
+        "sourceCountry": "CH",
+        "form": "lumpSum"
+      }
+    ]
+  },
+  "expected": {
+    "lines": {
+      "it.irpef": 5101.28,
+      "it.addizionaleRegionale": 449.8,
+      "it.addizionaleComunale": 208.0,
+      "it.separateTaxation": 11500.0
+    },
+    "totalTax": 17259.08,
+    "netIncome": 58740.92
+  },
+  "workings": [
+    "A Swiss private pension (pillar 3a) isn't covered by the 5% rule: its annuity is pension income (TUIR art. 49 c. 2 lett. a), its lump sum is taxed separately (art. 17 c. 1 lett. a; risposta 471/2020)",
+    "Lump sum: no employee years in the state, so the fallback rate 23%: 23% × 50,000.00 = 11,500.00",
+    "Total income R = taxable income = INPS 20,000.00 + the pillar 3a annuity 6,000.00 = 26,000.00",
+    "Gross IRPEF: 23% × 26,000.00 = 5,980.00",
+    "Pension detrazione: 700 + 1,255 × (28,000 − 26,000.00) / 19,500 = 828.72, plus 50 (R between 25,000 and 29,000) = 878.72",
+    "Net IRPEF: max(0, 5,980.00 − 878.72) = 5,101.28",
+    "Addizionale regionale: 1.73% × 26,000.00 = 449.80; comunale: 0.8% × 26,000.00 = 208.00",
+    "Total tax: 17,259.08; net 58,740.92"
+  ]
+}

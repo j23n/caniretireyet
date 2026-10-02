@@ -4,8 +4,9 @@ import TaxKit
 /// A reference case from `cases/*.json`: a year's inputs and the expected
 /// itemised result, computed by hand (with the arithmetic in `workings`).
 ///
-/// `kind` is `year` (the default: prepare, then assess) or `pensionClaims`
-/// (the INPS claim options for a record).
+/// `kind` is `year` (the default: prepare, then assess), `nonResident` (the
+/// tax on Italian pensions of someone living abroad: `prepareNonResident`)
+/// or `pensionClaims` (the INPS claim options for a record).
 struct ReferenceCase: Decodable, Sendable {
     var name: String
     var kind: String?
@@ -26,11 +27,22 @@ struct ReferenceCase: Decodable, Sendable {
         var state: [String: Double]?
         var inflationFactor: Double?
         var indexThresholds: Bool?
+        /// The person's citizenships (`FixedYear.citizenships`).
+        var citizenships: [String]?
+        /// The residence timeline (`FixedYear.residence`).
+        var residence: [Residence]?
+        /// Euros per unit of the plan's currency (`FixedYear.currencyRate`, default 1).
+        var currencyRate: Double?
         var variable: Variable?
         // pensionClaims
         var birthDate: String?
         var record: Record?
         var options: [String: OptionValue]?
+    }
+
+    struct Residence: Decodable, Sendable {
+        var from: Int
+        var system: String
     }
 
     struct Overlay: Decodable, Sendable {
@@ -53,6 +65,13 @@ struct ReferenceCase: Decodable, Sendable {
         var scheme: String
         var amount: Double
         var taxedIn: String?
+        var kind: String?
+        var sourceCountry: String?
+        /// `annuity` (the default) or `lumpSum`.
+        var form: String?
+        var startYear: Int?
+        /// The tax the paying country charged (`FixedYear.Pension.sourceTax`).
+        var sourceTax: Double?
     }
 
     struct Contribution: Decodable, Sendable {
@@ -123,6 +142,8 @@ struct ReferenceCase: Decodable, Sendable {
         var netIncome: Double?
         /// Issue codes expected (exactly these, when given).
         var issues: [String]?
+        /// Values of the next year's tax state (only the keys listed are checked).
+        var nextState: [String: Double]?
         var claims: [Claim]?
     }
 
@@ -163,13 +184,18 @@ struct ReferenceCase: Decodable, Sendable {
             },
             pensions: (input.pensions ?? []).map {
                 FixedYear.Pension(id: $0.id, scheme: $0.scheme, amount: $0.amount,
-                                  taxedIn: $0.taxedIn == "source" ? .source : .residence)
+                                  taxedIn: $0.taxedIn == "source" ? .source : .residence,
+                                  kind: $0.kind.map { PensionKind(rawValue: $0) }, startYear: $0.startYear,
+                                  sourceCountry: $0.sourceCountry, form: .init(rawValue: $0.form ?? "annuity"),
+                                  sourceTax: $0.sourceTax)
             },
             wrapperContributions: (input.wrapperContributions ?? []).map {
                 FixedYear.WrapperContribution(wrapper: $0.wrapper, amount: $0.amount)
             },
             windfalls: (input.windfalls ?? []).map { FixedYear.Windfall(name: $0.name, kind: $0.kind, amount: $0.amount) },
-            inflationFactor: input.inflationFactor ?? 1, indexThresholds: input.indexThresholds ?? true)
+            inflationFactor: input.inflationFactor ?? 1, indexThresholds: input.indexThresholds ?? true,
+            currencyRate: input.currencyRate ?? 1, citizenships: input.citizenships ?? [],
+            residence: (input.residence ?? []).map { TaxPlan.Residence(from: $0.from, system: $0.system) })
     }
 
     /// The market part of the year.

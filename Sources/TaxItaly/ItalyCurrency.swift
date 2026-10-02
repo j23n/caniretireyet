@@ -12,9 +12,10 @@ extension FixedYear {
         currencyRate > 0 ? currencyRate : 1
     }
 
-    /// This year with its amounts in euros: work, pensions, contributions,
-    /// windfalls and the `otherTaxCredits` option. `currencyRate` stays, to
-    /// convert the results back.
+    /// This year with its amounts in euros: work, pensions (and the tax
+    /// charged on them abroad), contributions, windfalls and the
+    /// `otherTaxCredits` option. `currencyRate` stays, to convert the
+    /// results back.
     func inEuros() -> FixedYear {
         let rate = euroRate
         guard rate != 1 else { return self }
@@ -29,6 +30,7 @@ extension FixedYear {
         year.pensions = pensions.map { pension in
             var pension = pension
             pension.amount *= rate
+            pension.sourceTax = pension.sourceTax.map { $0 * rate }
             return pension
         }
         year.wrapperContributions = wrapperContributions.map { contribution in

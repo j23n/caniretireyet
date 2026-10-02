@@ -1,0 +1,83 @@
+{
+  "name": "A BVG lump sum and a vested-benefits payout at 5%, a pillar 3a lump sum taxed separately",
+  "year": 2026,
+  "input": {
+    "age": 65,
+    "systemOptions": {
+      "addizionaleRegionale": "0.0173",
+      "addizionaleComunale": "0.008"
+    },
+    "pensions": [
+      {
+        "id": "bvg.lumpSum",
+        "scheme": "ch.bvg",
+        "amount": 300000.0,
+        "kind": "occupational",
+        "form": "lumpSum"
+      }
+    ],
+    "state": {
+      "it.tfr.irpef": 50000.0,
+      "it.tfr.taxableIncome": 200000.0
+    },
+    "variable": {
+      "payouts": [
+        {
+          "wrapper": "ch.vestedBenefits",
+          "amount": 50000.0,
+          "form": "lumpSum",
+          "costBasis": 40000.0
+        },
+        {
+          "wrapper": "ch.pillar3a",
+          "amount": 40000.0,
+          "form": "lumpSum",
+          "costBasis": 30000.0
+        }
+      ],
+      "balances": [
+        {
+          "wrapper": "ch.pillar3a",
+          "category": "fund",
+          "country": "CH",
+          "value": 20000.0
+        },
+        {
+          "wrapper": "ch.vestedBenefits",
+          "category": "cash",
+          "country": "CH",
+          "value": 10000.0
+        }
+      ]
+    }
+  },
+  "expected": {
+    "lines": {
+      "it.swissPensionTax": 17500,
+      "it.separateTaxation": 10000
+    },
+    "totalTax": 27500
+  },
+  "grossUp": [
+    {
+      "net": 9500.0,
+      "bucket": {
+        "wrapper": "ch.vestedBenefits",
+        "value": 10000.0,
+        "costBasis": 10000.0,
+        "categoryShares": {
+          "cash": 1.0
+        }
+      },
+      "expected": 10000.0
+    }
+  ],
+  "workings": [
+    "The scheme ch.bvg makes it a Swiss pension; a lump sum from the BVG pays the 5% substitute tax too (art. 76 c. 1-bis): 5% × 300,000.00 = 15,000.00",
+    "A vested-benefits account is BVG money: 5% × 50,000.00 = 2,500.00, on the whole payout",
+    "A pillar 3a lump sum is taxed separately (risposta 471/2020), at the TFR's average rate: 50,000 / 200,000 = 25%; 25% × 40,000.00 = 10,000.00",
+    "No IRPEF income, so no IRPEF or addizionali; no wealth tax on the Swiss pension accounts",
+    "Gross-up from the vested-benefits account: 9,500 / (1 − 5%) = 10,000.00",
+    "Total tax: 27,500.00"
+  ]
+}

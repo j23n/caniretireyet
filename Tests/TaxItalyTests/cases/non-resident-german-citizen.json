@@ -1,0 +1,47 @@
+{
+  "name": "An INPS pension of a German citizen living in Germany: Germany's by treaty, taxed as the plan says, with a warning",
+  "kind": "nonResident",
+  "year": 2026,
+  "input": {
+    "age": 69,
+    "citizenships": [
+      "DE"
+    ],
+    "residence": [
+      {
+        "from": 2020,
+        "system": "de"
+      }
+    ],
+    "pensions": [
+      {
+        "id": "inps",
+        "scheme": "it.inps",
+        "amount": 20000.0,
+        "taxedIn": "source"
+      }
+    ]
+  },
+  "expected": {
+    "issues": [
+      "it.nonResident.treaty"
+    ],
+    "lines": {
+      "it.nonResident.irpef": 3385.13,
+      "it.nonResident.addizionaleRegionale": 346.0,
+      "it.nonResident.addizionaleComunale": 180.0
+    },
+    "totalTax": 3911.13,
+    "netIncome": 16088.87
+  },
+  "workings": [
+    "Treaty art. 19(4): not an Italian citizen, so Germany taxes it; the plan says Italy, which follows it and warns",
+    "Italian income R = 20,000.00",
+    "Gross IRPEF: 23% × 20,000.00 = 4,600.00",
+    "Pension detrazione (non-residents keep the art. 13 detrazioni): 700 + 1,255 × (28,000 − 20,000.00) / 19,500 = 1,214.87",
+    "Net IRPEF: max(0, 4,600.00 − 1,214.87) = 3,385.13",
+    "Addizionale regionale at Lazio's rates (INPS's seat): 1.73% × 20,000.00 = 346.00",
+    "Addizionale comunale at Rome's 0.9%: 0.9% × 20,000.00 = 180.00",
+    "Total tax: 3,911.13"
+  ]
+}

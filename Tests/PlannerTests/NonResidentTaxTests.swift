@@ -2,6 +2,7 @@ import Foundation
 import Model
 @testable import Planner
 import TaxGeneric
+import TaxItaly
 import TaxKit
 import Testing
 
@@ -160,6 +161,65 @@ struct NonResidentTaxTests {
             TaxPlan.Residence(from: 2020, system: "generic"),
             TaxPlan.Residence(from: 2040, system: "payer", options: ["surcharge": "0.01"]),
         ]) == ["surcharge": "0.01"])
+    }
+
+    @Test func italyTaxesAnINPSPensionPaidAbroad() async throws {
+        // An Italian citizen living under generic, with an INPS pension of 25,000 taxed in Italy.
+        var library = library
+        library.settings.person?.citizenships = ["IT"]
+        var plan = plan
+        plan.pensions = [PlanPension(scheme: "fixed", name: "INPS", fromAge: 65, perYear: 25_000, taxedIn: .source,
+                                     sourceCountry: "IT", kind: .statutory)]
+        let italy = ItalyTaxSystem()
+        let result = try await run(plan, [GenericTaxSystem(), italy], library: library)
+        #expect(!result.issues.contains { $0.code == "planner.taxedAtSource" || $0.code.hasPrefix("it.") })
+        let year = FixedYear(year: 2026, age: 70, pensions: [
+            .init(id: "pension-0", scheme: "fixed", amount: 25_000, taxedIn: .source, kind: .statutory,
+                  startYear: 2021, sourceCountry: "IT"),
+        ], citizenships: ["IT"], residence: [TaxPlan.Residence(from: 2020, system: "generic")])
+        let expected = try #require(italy.prepareNonResident(year, state: .empty,
+                                                             parameters: try italy.parameters.parameters(for: 2026)))
+            .fixedAssessment
+        let taxes = taxes(result, in: 2026)
+        for line in expected.lines {
+            let reported = try #require(taxes.first { $0.id == line.id })
+            #expect(reported.label == "Italy: \(line.label)" && close(reported.amount, line.amount))
+        }
+        #expect(close(result.expectedValue(in: 2026), 200_000 + 25_000 - expected.totalTax - 20_000, 1e-9))
+    }
+
+    @Test func livingInItalyAnItalianPensionTaxedAtSourceIsResidenceIncome() async throws {
+        var plan = plan
+        plan.tax.residence = [PlanResidence(from: 2020, system: "it")]
+        plan.pensions = [PlanPension(scheme: "fixed", name: "Italian pension", fromAge: 65, perYear: 28_000,
+                                     taxedIn: .source, sourceCountry: "IT")]
+        var library = library
+        library.accounts["broker"]?.tax = AccountTax(wrapper: "it.ordinary")
+        let result = try await run(plan, [ItalyTaxSystem()], library: library)
+        // IRPEF as for any pension taxed in Italy (the reference case pension-28000).
+        #expect(close(taxes(result, in: 2026).first { $0.id == "it.irpef" }?.amount, 5_690))
+        #expect(!taxes(result, in: 2026).contains { $0.id.hasPrefix("it.nonResident") })
+        #expect(!result.issues.contains { $0.code == "planner.taxedAtSource" })
+    }
+
+    @Test func italyCreditsTheTaxOfAPensionItTaxesAnyway() async throws {
+        // Living in Italy with a Swiss AHV pension that the plan says Switzerland taxes, through a
+        // made-up Swiss-like system: Italy taxes it at 5% anyway, crediting the other country's tax.
+        var swiss = payer
+        swiss.country = "CH"
+        swiss.nonResidentRate = 0.02
+        var plan = plan
+        plan.tax.residence = [PlanResidence(from: 2020, system: "it")]
+        plan.pensions = [PlanPension(scheme: "fixed", name: "AHV", fromAge: 65, perYear: 20_000, taxedIn: .source,
+                                     sourceCountry: "CH", kind: .statutory)]
+        var library = library
+        library.accounts["broker"]?.tax = AccountTax(wrapper: "it.ordinary")
+        let result = try await run(plan, [ItalyTaxSystem(), swiss], library: library)
+        let year = taxes(result, in: 2026)
+        #expect(close(year.first { $0.id == "payer.nonResident" }?.amount, 400))
+        #expect(close(year.first { $0.id == "it.swissPensionTax" }?.amount, 1_000))
+        #expect(close(year.first { $0.id == "it.foreignTaxCredit" }?.amount, -400))
+        #expect(result.issues.contains { $0.code == "it.treaty.taxedIn" })
     }
 
     @Test func aSchemesPensionsComeFromItsSystemsCountry() throws {

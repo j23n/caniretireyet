@@ -135,6 +135,40 @@ struct ItalyParameters: Sendable {
         var blacklist: Set<String>
     }
 
+    /// How Italy taxes pensions from Switzerland and Germany.
+    struct ForeignPensions: Sendable {
+        /// A point of the German taxable share of a statutory pension, by the year it started.
+        struct SharePoint: Sendable {
+            var year: Int
+            var share: Double
+        }
+
+        /// The substitute tax on Swiss AHV and BVG benefits.
+        var swissFlatRate: Double
+        /// The German *Besteuerungsanteil* by start year, ascending.
+        var germanStatutoryShares: [SharePoint]
+
+        /// The share of a German statutory pension started in `year` that
+        /// Germany taxes: linear between the points, the first's before
+        /// them and the last's after.
+        func germanStatutoryShare(startYear year: Int) -> Double {
+            guard let first = germanStatutoryShares.first, let last = germanStatutoryShares.last else { return 1 }
+            if year <= first.year { return first.share }
+            if year >= last.year { return last.share }
+            for (lower, upper) in zip(germanStatutoryShares, germanStatutoryShares.dropFirst()) where year <= upper.year {
+                return lower.share + (upper.share - lower.share) * Double(year - lower.year)
+                    / Double(upper.year - lower.year)
+            }
+            return last.share
+        }
+    }
+
+    /// The addizionali on pensions paid by INPS to non-residents.
+    struct NonResident: Sendable {
+        var regionalSurcharge: BracketSchedule
+        var municipalRate: Double
+    }
+
     var year: Int
     var irpef: BracketSchedule
     var employmentDetrazione: LinearTaper
@@ -154,6 +188,8 @@ struct ItalyParameters: Sendable {
     var inheritance: [String: FlatRate]
     var defaultRelationship: String
     var pension: INPSPensionParameters
+    var foreignPensions: ForeignPensions
+    var nonResident: NonResident
 
     init(_ set: ParameterSet) throws {
         let root = ParameterNode(set)
@@ -264,6 +300,17 @@ struct ItalyParameters: Sendable {
             throw root["inheritance"]["defaultRelationship"].error("names no relationship")
         }
         pension = try INPSPensionParameters(root["inpsPension"])
+
+        let foreign = root["foreignPensions"]
+        let shares = try foreign["germany"]["statutoryTaxableShare"]["byStartYear"].list().map { point in
+            ForeignPensions.SharePoint(year: try point["year"].int(), share: try point["share"].double())
+        }
+        guard !shares.isEmpty else { throw foreign["germany"]["statutoryTaxableShare"]["byStartYear"].error("is empty") }
+        foreignPensions = ForeignPensions(swissFlatRate: try foreign["switzerland"]["flatRate"].double(),
+                                          germanStatutoryShares: shares.sorted { $0.year < $1.year })
+        nonResident = NonResident(
+            regionalSurcharge: try BracketSchedule(root["nonResident"]["addizionaleRegionale"]),
+            municipalRate: try root["nonResident"]["addizionaleComunale"]["rate"].double())
     }
 
     /// These parameters with every amount the plan's `indexThresholds`
@@ -293,6 +340,7 @@ struct ItalyParameters: Sendable {
         result.wealthTax.currentAccountThreshold *= factor
         result.wealthTax.propertyAbroadMinimum *= factor
         result.inheritance = inheritance.mapValues { $0.scaled(by: factor) }
+        result.nonResident.regionalSurcharge = nonResident.regionalSurcharge.scaled(by: factor)
         return result
     }
 }

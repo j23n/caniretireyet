@@ -61,7 +61,9 @@ extension ItalyYearCalculator {
         b.professionalIncome = professionals.reduce(0) { $0 + $1.countedProfessionalIncome }
         b.exemptEmploymentIncome = employees.reduce(0) { $0 + $1.exempt }
         b.exemptIncome = b.exemptEmploymentIncome + professionals.reduce(0) { $0 + $1.exempt }
-        b.pensionIncome = year.pensions.filter { $0.taxedIn == .residence }.reduce(0) { $0 + max(0, $1.amount) }
+        // Pensions taxed in Italy, by where they come from (ItalyPensionTreatment).
+        treatPensions()
+        b.pensionIncome = pensionTreatments.filter { $0.kind == .irpef }.reduce(0) { $0 + max(0, $1.taxable) }
 
         // Stage 4: reddito complessivo, and the income benefits are tested on:
         // forfettario income counts there although it's outside IRPEF.

@@ -99,6 +99,11 @@ struct ItalyPreparedYear: PreparedTaxYear {
             rate = context.marginalIncomeRate
         case .taxFree:
             rate = 0
+        case .swissPension:
+            rate = context.parameters.foreignPensions.swissFlatRate
+        case .swissPillar3a:
+            // Lump sums and annuities are taxed differently: the engine solves it.
+            return nil
         }
         guard rate < 1 else { return nil }
         return net / (1 - rate)
@@ -108,6 +113,10 @@ struct ItalyPreparedYear: PreparedTaxYear {
 /// How the Italian system treats a wrapper ID.
 enum WrapperTreatment: Hashable, Sendable {
     case ordinary, pensionFund, tfr, taxDeferred, taxFree, unknown
+    /// Swiss occupational-pension money (BVG, vested benefits): the 5% substitute tax on payouts.
+    case swissPension
+    /// Swiss pillar 3a: lump sums taxed separately, annuities in IRPEF.
+    case swissPillar3a
 
     init(_ wrapper: String) {
         switch wrapper {
@@ -116,9 +125,18 @@ enum WrapperTreatment: Hashable, Sendable {
         case ItalyWrapper.tfr: self = .tfr
         case "taxDeferred": self = .taxDeferred
         case "taxFree": self = .taxFree
+        case ItalyForeignWrapper.swissVestedBenefits, ItalyForeignWrapper.swissOccupational: self = .swissPension
+        case ItalyForeignWrapper.swissPillar3a: self = .swissPillar3a
         default: self = .unknown
         }
     }
+}
+
+/// Wrappers of other countries' systems that Italy knows by ID.
+enum ItalyForeignWrapper {
+    static let swissOccupational = "ch.bvg"
+    static let swissVestedBenefits = "ch.vestedBenefits"
+    static let swissPillar3a = "ch.pillar3a"
 }
 
 /// The labels of the market-dependent lines, made once per prepared year
@@ -136,6 +154,8 @@ struct ItalyMarketLabels: Sendable {
     let currentAccount = "Imposta di bollo on current accounts"
     let ivie = "IVIE (property abroad)"
     let taxDeferredPayout = "IRPEF on tax-deferred payouts"
+    let swissPension: String
+    let pillar3aLumpSum: String
 
     private static let categories: [TaxCategory] = [
         .fund, .stock, .bond, .governmentBond, .etc, .crypto, .stablecoin, .physicalGold, .cash, .realEstate, .other,
@@ -160,6 +180,8 @@ struct ItalyMarketLabels: Sendable {
         blacklisted = Self.financialLabel(rate: p.wealthTax.blacklistRate)
         crypto = "Tax on the value of crypto (\(percent(p.wealthTax.cryptoRate)))"
         tfrPayout = "TFR separate taxation (\(percent(tfrRate)))"
+        swissPension = Self.swissPensionLabel(rate: p.foreignPensions.swissFlatRate)
+        pillar3aLumpSum = Self.pillar3aLabel(rate: tfrRate)
         let fund = p.pensionFund
         let lastStep = fund.payoutReductionPerYear > 0
             ? fund.payoutReductionAfterYears + Int(((fund.payoutRate - fund.payoutFloor) / fund.payoutReductionPerYear)
@@ -179,6 +201,14 @@ struct ItalyMarketLabels: Sendable {
 
     static func fundPayoutLabel(rate: Double) -> String {
         "Tax on pension-fund payouts (\(percent(rate)))"
+    }
+
+    static func swissPensionLabel(rate: Double) -> String {
+        "Imposta sostitutiva on Swiss pensions (\(percent(rate)))"
+    }
+
+    static func pillar3aLabel(rate: Double) -> String {
+        "Separate taxation of pillar 3a lump sums (\(percent(rate)))"
     }
 
     func gain(_ category: TaxCategory, rate: Double) -> String {
@@ -239,6 +269,8 @@ struct ItalyMarketAssessor {
                 taxForeignPayout(amount: sale.proceeds, wrapper: sale.wrapper)
             case .taxFree:
                 break
+            case .swissPension, .swissPillar3a:
+                taxSwissPayout(amount: sale.proceeds, form: .lumpSum, wrapper: sale.wrapper)
             }
         }
         for payout in variable.payouts {
@@ -252,6 +284,8 @@ struct ItalyMarketAssessor {
                 taxForeignPayout(amount: payout.amount, wrapper: payout.wrapper)
             case .ordinary, .taxFree:
                 break
+            case .swissPension, .swissPillar3a:
+                taxSwissPayout(amount: payout.amount, form: payout.form, wrapper: payout.wrapper)
             }
         }
         if !variable.payouts.isEmpty { checkLumpSums(variable) }
@@ -361,6 +395,23 @@ struct ItalyMarketAssessor {
         guard amount > 0 else { return }
         let taxable = costBasis.map { min(amount, max(0, $0)) } ?? amount
         add("it.tfr.payoutTax", context.labels.tfrPayout, context.tfrRate * taxable, base: taxable, subject: wrapper)
+    }
+
+    /// Swiss pension money: the 5% substitute tax on BVG and vested-benefits
+    /// payouts; for pillar 3a, separate taxation of lump sums (at the TFR's
+    /// average rate) and IRPEF at the marginal rate on annuities.
+    private mutating func taxSwissPayout(amount: Double, form: VariableYear.PayoutForm, wrapper: String) {
+        guard amount > 0 else { return }
+        if WrapperTreatment(wrapper) == .swissPension {
+            let rate = context.parameters.foreignPensions.swissFlatRate
+            add("it.swissPensionTax", context.labels.swissPension, rate * amount, base: amount, subject: wrapper)
+        } else if form == .lumpSum {
+            add("it.separateTaxation", context.labels.pillar3aLumpSum, context.tfrRate * amount, base: amount,
+                subject: wrapper)
+        } else {
+            add("it.taxDeferredPayout", context.labels.taxDeferredPayout, context.marginalIncomeRate * amount,
+                base: amount, subject: wrapper)
+        }
     }
 
     private mutating func taxForeignPayout(amount: Double, wrapper: String) {
