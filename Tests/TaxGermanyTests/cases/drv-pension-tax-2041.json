@@ -19,6 +19,6 @@
     "The €102 and €36 lump sums are fixed in nominal euros too: 75.7875 and 26.7485 today",
     "The tariff keeps its value (indexThresholds on, after 2026); the contributions are the same in today's euros",
     "Taxable income: 20,409.60 − 2,344.0173 − 75.7875 − 2,643.0432 − 26.7485 = 15,320.0035; T = 496.857368, 103.91 more than in 2031: fiscal drag on the exemption and the lump sums",
-    "Changed from the draft (docs/tax/drafts/de-cases.md, case 9), which kept the lump sums at their nominal value although the design fixes them in nominal euros"
+    "Changed from the drafted case (see DE.md, Reference cases), which kept the lump sums at their nominal value although the design fixes them in nominal euros"
   ]
 }

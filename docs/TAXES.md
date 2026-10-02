@@ -252,7 +252,7 @@ Issues are either *errors*, which block the run (e.g. an unknown regime ID), or 
 | `it` | MVP | Employee, professional (regime ordinario) and forfettario; both impatriati regimes; INPS; pension fund; TFR; investment and wealth taxes. See [tax/IT.md](tax/IT.md). |
 | `it.pensionati-esteri` | Later, if relevant | 7% flat tax on foreign income for pensioners who move to certain towns in southern Italy. It shows why overlays exist: it replaces the tax on foreign income and the wealth tax on foreign assets together. |
 | `ch` | Designed; module `TaxSwitzerland` in place | Federal, cantonal and communal taxes, AHV, BVG, pillar 3a, vested benefits, the capital withdrawal tax; computes in CHF. See [tax/CH.md](tax/CH.md). |
-| `de` | Designed; module `TaxGermany` in place | The §32a tariff, social contributions, DRV, Riester, Rürup and bAV, the flat tax on investments with the Teilfreistellung and the Vorabpauschale. See [tax/DE.md](tax/DE.md). |
+| `de` | MVP | Employee (with the Aktivrente and Entgeltumwandlung), Freiberufler and Gewerbetreibender (trade tax); social contributions, voluntary GKV, KVdR and PKV; the DRV (`de.drv`) and pension taxation by cohort; Riester, Rürup, bAV and the Altersvorsorgedepot; the flat tax on investments with the Teilfreistellung, the Vorabpauschale and the Günstigerprüfung; inheritance and gift tax; treaties with Italy and Switzerland, and tax on German pensions paid abroad. See [tax/DE.md](tax/DE.md). |
 | Other countries | When needed | Added one at a time, e.g. a country you might retire to. |
 
 ## Adding a system or a regime
