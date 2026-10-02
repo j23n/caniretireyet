@@ -52,12 +52,16 @@ public struct FixedYear: Hashable, Sendable {
     /// The person's birth date, when known, for rules that count months
     /// (e.g. an allowance from the month after a birthday).
     public var birthDate: BirthDate?
+    /// The plan's whole residence timeline, in order, for rules that look at
+    /// other years: e.g. how many years of a working life were spent in a
+    /// country, or when residence there began or ends. Empty when unknown.
+    public var residence: [TaxPlan.Residence]
 
     public init(
         year: Int, age: Int, systemOptions: OptionValues = [:], overlays: [RegimeChoice] = [], work: [WorkIncome] = [],
         pensions: [Pension] = [], wrapperContributions: [WrapperContribution] = [], windfalls: [Windfall] = [],
         inflationFactor: Double = 1, indexThresholds: Bool = true, currencyRate: Double = 1,
-        citizenships: [String] = [], birthDate: BirthDate? = nil
+        citizenships: [String] = [], birthDate: BirthDate? = nil, residence: [TaxPlan.Residence] = []
     ) {
         self.year = year
         self.age = age
@@ -72,6 +76,14 @@ public struct FixedYear: Hashable, Sendable {
         self.currencyRate = currencyRate
         self.citizenships = citizenships
         self.birthDate = birthDate
+        self.residence = residence
+    }
+
+    /// The residence system in `year` from ``residence`` (the latest entry
+    /// starting at or before it), or `nil` when the timeline is unknown or
+    /// starts later.
+    public func residenceSystem(in year: Int) -> String? {
+        residence.last { $0.from <= year }?.system
     }
 
     /// An amount in the plan's currency, converted to the system's.
@@ -152,10 +164,16 @@ public struct FixedYear: Hashable, Sendable {
         /// `.annuity` for the yearly payments, `.lumpSum` for a lump sum
         /// (``ClaimOption/lumpSum``).
         public var form: VariableYear.PayoutForm
+        /// The share of the pension paid from the mandatory part of an
+        /// occupational scheme (the Swiss BVG minimum), which Germany taxes
+        /// like a statutory pension and the rest by its yield share: the
+        /// claim option's ``ClaimOption/mandatoryShare``. `nil` when unknown
+        /// (systems treat it as 1).
+        public var mandatoryShare: Double?
 
         public init(id: String, scheme: String, amount: Double, taxedIn: TaxedIn = .residence,
                     kind: PensionKind? = nil, startYear: Int? = nil, sourceCountry: String? = nil,
-                    form: VariableYear.PayoutForm = .annuity) {
+                    form: VariableYear.PayoutForm = .annuity, mandatoryShare: Double? = nil) {
             self.id = id
             self.scheme = scheme
             self.amount = amount
@@ -164,6 +182,7 @@ public struct FixedYear: Hashable, Sendable {
             self.startYear = startYear
             self.sourceCountry = sourceCountry
             self.form = form
+            self.mandatoryShare = mandatoryShare
         }
     }
 

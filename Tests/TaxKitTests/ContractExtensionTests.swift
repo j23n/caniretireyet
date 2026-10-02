@@ -98,6 +98,23 @@ struct CurrencyAndPensionContractTests {
         #expect(year.isCitizen(of: "IT") && year.isCitizen(of: "ch") && !year.isCitizen(of: "DE"))
     }
 
+    @Test func aYearSeesTheWholeResidenceTimeline() {
+        let timeline = [TaxPlan.Residence(from: 2026, system: "it"), TaxPlan.Residence(from: 2035, system: "de")]
+        let year = FixedYear(year: 2030, age: 50, residence: timeline)
+        #expect(year.residenceSystem(in: 2030) == "it" && year.residenceSystem(in: 2040) == "de")
+        #expect(year.residenceSystem(in: 2020) == nil)
+        #expect(FixedYear(year: 2030, age: 50).residence.isEmpty)
+    }
+
+    @Test func aFixedPensionCanGiveItsMandatoryShare() throws {
+        let scheme = FixedPensionScheme()
+        let context = ClaimContext(year: 2030, birthDate: BirthDate(year: 1965, month: 1, day: 1),
+                                   options: ["perYear": 12_000, "fromAge": 65, "mandatoryShare": "0.6"])
+        let options = scheme.claimOptions(for: PensionRecord(scheme: "fixed"), context: context, parameters: store)
+        #expect(options.first?.mandatoryShare == 0.6)
+        #expect(FixedYear.Pension(id: "p", scheme: "fixed", amount: 1).mandatoryShare == nil)
+    }
+
     @Test func claimOptionsGrowInRealTerms() {
         let option = ClaimOption(route: "r", label: "R", age: 65, annualAmount: 10_000,
                                  changes: [.init(age: 67, annualAmount: 12_000)], realGrowthPerYear: -0.01)

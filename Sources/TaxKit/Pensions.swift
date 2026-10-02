@@ -236,10 +236,15 @@ public struct ClaimOption: Hashable, Sendable {
     /// inflation, 0.005 for one that follows prices and half of real wage
     /// growth. `nil` or 0 to pay it as `annualAmount` and `changes` say.
     public var realGrowthPerYear: Double?
+    /// The share of the payments (annuity and lump sum) from the mandatory
+    /// part of an occupational scheme, e.g. the Swiss BVG minimum, when the
+    /// scheme knows it; the planner passes it on as
+    /// ``FixedYear/Pension/mandatoryShare``. `nil` when unknown.
+    public var mandatoryShare: Double?
 
     public init(route: String, label: String, age: Int, annualAmount: Double, changes: [AmountChange] = [],
                 note: String? = nil, fullYearAmount: Double? = nil, lumpSum: Double? = nil,
-                lumpSumWrapper: String? = nil, realGrowthPerYear: Double? = nil) {
+                lumpSumWrapper: String? = nil, realGrowthPerYear: Double? = nil, mandatoryShare: Double? = nil) {
         self.route = route
         self.label = label
         self.age = age
@@ -250,6 +255,7 @@ public struct ClaimOption: Hashable, Sendable {
         self.lumpSum = lumpSum
         self.lumpSumWrapper = lumpSumWrapper
         self.realGrowthPerYear = realGrowthPerYear
+        self.mandatoryShare = mandatoryShare
     }
 
     /// The gross amount of a whole year when payments start: what to show
