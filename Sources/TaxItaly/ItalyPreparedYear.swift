@@ -25,9 +25,14 @@ struct ItalyPreparedYear: PreparedTaxYear {
         let tfrRate: Double
         /// The lines' labels, which only depend on the year's rates.
         let labels: ItalyMarketLabels
+        /// Euros per unit of the plan's currency. Taxes proportional to an
+        /// amount don't depend on it; thresholds and fixed amounts in euros
+        /// (the bollo on current accounts, IVIE's minimum, the pension
+        /// fund's small-annuity test) do.
+        let currencyRate: Double
 
         init(year: Int, age: Int, parameters: ItalyParameters, marginalIncomeRate: Double,
-             fundTaxedContributionShare: Double, fundMembershipYears: Int, tfrRate: Double) {
+             fundTaxedContributionShare: Double, fundMembershipYears: Int, tfrRate: Double, currencyRate: Double = 1) {
             self.year = year
             self.age = age
             self.parameters = parameters
@@ -35,6 +40,7 @@ struct ItalyPreparedYear: PreparedTaxYear {
             self.fundTaxedContributionShare = fundTaxedContributionShare
             self.fundMembershipYears = fundMembershipYears
             self.tfrRate = tfrRate
+            self.currencyRate = currencyRate > 0 ? currencyRate : 1
             labels = ItalyMarketLabels(parameters, tfrRate: tfrRate)
         }
     }
@@ -373,9 +379,10 @@ struct ItalyMarketAssessor {
         let balances = variable.balances.filter { $0.wrapper == ItalyWrapper.pensionFund }
         guard lumpSums > 0, !balances.isEmpty else { return }
         let paidOut = variable.payouts.filter { $0.wrapper == ItalyWrapper.pensionFund }.reduce(0) { $0 + $1.amount }
-        let before = balances.reduce(0) { $0 + $1.value } + paidOut
+        // In euros, to compare with the assegno sociale.
+        let before = (balances.reduce(0) { $0 + $1.value } + paidOut) * context.currencyRate
         let rules = p.pensionFund
-        guard lumpSums > rules.lumpSumMaxShare * before + 0.01 else { return }
+        guard lumpSums * context.currencyRate > rules.lumpSumMaxShare * before + 0.01 else { return }
         let annuity = rules.lumpSumAnnuityShare * before * p.pension.coefficient(ageInMonths: context.age * 12)
         let smallAnnuityLimit = rules.smallAnnuityAssegnoSocialeShare * p.pension.assegnoSociale * p.pension.instalments
         guard annuity >= smallAnnuityLimit else { return }
@@ -386,17 +393,18 @@ struct ItalyMarketAssessor {
     }
 
     /// Stage 9: wealth taxes on year-end values of ordinary accounts. The
-    /// thresholds are tested on the balance, and `fraction` of a year's tax
-    /// is charged (less than a year in a plan's first year).
+    /// thresholds are tested on the balance (in euros), and `fraction` of a
+    /// year's tax is charged (less than a year in a plan's first year).
     private mutating func taxWealth(_ balance: VariableYear.Balance, fraction: Double) {
         // The parameters and labels are read in place: this runs for every
         // balance of every path, and copying them would cost more than the tax.
         let context = context
+        let rate = context.currencyRate
         switch ItalyMarketLabels.resolve(balance.category) {
         case .cash:
-            if balance.value > context.parameters.wealthTax.currentAccountThreshold {
+            if balance.value * rate > context.parameters.wealthTax.currentAccountThreshold {
                 add("it.wealthTax.currentAccount", context.labels.currentAccount,
-                    context.parameters.wealthTax.currentAccountAmount * fraction, base: balance.value,
+                    context.parameters.wealthTax.currentAccountAmount / rate * fraction, base: balance.value,
                     subject: balance.wrapper)
             }
         case .crypto, .stablecoin:
@@ -408,7 +416,7 @@ struct ItalyMarketAssessor {
         case .realEstate:
             guard let country = balance.country.map(Self.uppercased), country != "IT" else { break }
             let tax = context.parameters.wealthTax.propertyAbroadRate * balance.value
-            if tax > context.parameters.wealthTax.propertyAbroadMinimum {
+            if tax * rate > context.parameters.wealthTax.propertyAbroadMinimum {
                 add("it.ivie", context.labels.ivie, tax * fraction, base: balance.value, subject: balance.wrapper)
             }
         default:

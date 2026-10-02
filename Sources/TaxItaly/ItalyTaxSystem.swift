@@ -21,6 +21,10 @@ import TaxKit
 public struct ItalyTaxSystem: TaxSystem {
     public let id = "it"
     public let name = "Italy"
+    /// Italy computes in euros: a plan in another currency is converted at
+    /// the planner's rate on the way in, and every line, accrual and claim
+    /// option back on the way out (rate 1 for a plan in euros).
+    public let currency: String? = "EUR"
     public let parameters: any ParameterStore
     public let options: [OptionField]
     public let regimes: [RegimeDescriptor]

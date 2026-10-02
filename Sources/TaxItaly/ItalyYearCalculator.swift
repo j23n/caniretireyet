@@ -46,7 +46,8 @@ struct ItalyYearCalculator {
             return ItalyPreparedYear(failed: TaxAssessment(issues: [issue], nextState: state))
         }
         let scale = ThresholdIndexing.scale(for: year, parameterYear: parameters.year)
-        var calculator = ItalyYearCalculator(system: system, year: year, state: state,
+        // Italy computes in euros: amounts in, results out (nothing changes at a rate of 1).
+        var calculator = ItalyYearCalculator(system: system, year: year.inEuros(), state: state,
                                              parameters: unscaled.scaled(by: scale))
         calculator.computeWork()
         calculator.applyOverlays()
@@ -54,12 +55,14 @@ struct ItalyYearCalculator {
         return calculator.preparedYear()
     }
 
-    /// Stage 7 and 10, and the assessment of the year without market activity.
+    /// Stage 7 and 10, and the assessment of the year without market
+    /// activity, with its amounts back in the plan's currency.
     private func preparedYear() -> ItalyPreparedYear {
+        let rate = year.euroRate
         var lines: [TaxLine] = []
         func add(_ id: String, _ label: String, _ amount: Double, base: Double? = nil, subject: String? = nil) {
             guard abs(amount) > 1e-9 else { return }
-            lines.append(TaxLine(id: id, label: label, amount: amount, base: base, subject: subject))
+            lines.append(TaxLine(id: id, label: label, amount: amount, base: base, subject: subject).fromEuros(rate))
         }
         add("it.irpef", "IRPEF", irpef.netIrpef, base: irpef.taxableIncome)
         add("it.addizionaleRegionale", "Addizionale regionale", irpef.regionalSurcharge, base: irpef.taxableIncome)
@@ -83,15 +86,17 @@ struct ItalyYearCalculator {
         for result in work {
             if result.pensionCredit > 0 {
                 accruals.append(Accrual(target: .pensionScheme(INPSPensionScheme.schemeID), amount: result.pensionCredit,
-                                        contributionMonths: result.contributionMonths, source: result.phaseID))
+                                        contributionMonths: result.contributionMonths, source: result.phaseID)
+                    .fromEuros(rate))
             }
             if result.tfrAccrual > 0, let target = result.tfrTarget {
-                accruals.append(Accrual(target: .wrapper(target), amount: result.tfrAccrual, source: result.phaseID))
+                accruals.append(Accrual(target: .wrapper(target), amount: result.tfrAccrual, source: result.phaseID)
+                    .fromEuros(rate))
             }
         }
 
-        let fixed = TaxAssessment(lines: lines, contributions: work.compactMap(\.contribution), accruals: accruals,
-                                  issues: issues, nextState: nextState())
+        let fixed = TaxAssessment(lines: lines, contributions: work.compactMap { $0.contribution?.fromEuros(rate) },
+                                  accruals: accruals, issues: issues, nextState: nextState())
         return ItalyPreparedYear(fixed: fixed, context: assessContext())
     }
 
@@ -134,7 +139,7 @@ struct ItalyYearCalculator {
             year: year.year, age: year.age, parameters: p, marginalIncomeRate: irpef.marginalRate,
             fundTaxedContributionShare: taxedShare,
             fundMembershipYears: Int(state[ItalyStateKey.fundYears] ?? 0),
-            tfrRate: tfrRate)
+            tfrRate: tfrRate, currencyRate: year.euroRate)
     }
 
     /// Stage 7: inheritance tax on a windfall of kind `inheritance` or
