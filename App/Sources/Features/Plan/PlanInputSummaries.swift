@@ -100,7 +100,7 @@ struct PlanInputIssues: Hashable, Sendable {
         case .work:
             let regimes = Set(plan.work.compactMap { $0.regime?.rawValue })
             return all.filter { $0.index == nil && !($0.regime.map { regimes.contains($0) } ?? false) }
-        case .pensions, .events:
+        case .pensions, .contributions, .events:
             return all.filter { $0.index == nil }
         case .taxes:
             let overlays = Set(plan.tax.overlays.map(\.regime.rawValue))
@@ -185,6 +185,7 @@ struct PlanInputSummaries {
         case .age(let age): parts.append("retire at \(age)")
         }
         parts.append("plan to \(plan.effectiveEndAge)")
+        if let currency = plan.currency { parts.append("in \(currency.rawValue)") }
         return parts.joined(separator: " · ")
     }
 
@@ -226,13 +227,39 @@ struct PlanInputSummaries {
     var contributions: String {
         guard !plan.contributions.isEmpty else { return "None" }
         return plan.contributions.map { contribution in
-            let name = contribution.pension?.rawValue
-                ?? library.accounts[contribution.account]?.name ?? contribution.account.rawValue
+            let name = title(of: contribution)
             if let oneOff = contribution.amount {
                 return "\(name) \(amount(oneOff))" + (contribution.year.map { " in \($0)" } ?? "")
             }
             return "\(name) \(amount(contribution.perYear))/yr"
         }.joined(separator: " · ")
+    }
+
+    /// What a contribution pays into: the account's name, or the pension
+    /// scheme's ("BVG").
+    func title(of contribution: PlanContribution) -> String {
+        if let scheme = contribution.pension {
+            return PlanResultsMapping.shortName(registry.pensionScheme(scheme.rawValue)?.name ?? scheme.rawValue)
+        }
+        return library.accounts[contribution.account]?.name ?? contribution.account.rawValue
+    }
+
+    /// A contribution's second line: "Every year until retirement ·
+    /// 5.000 €/yr", "Pension scheme · once in 2030 · 20.000 €".
+    func detail(of contribution: PlanContribution) -> String {
+        var parts: [String] = []
+        if contribution.pension != nil { parts.append("Pension scheme (buy-in)") }
+        if let oneOff = contribution.amount {
+            parts.append(contribution.year.map { "Once in \($0)" } ?? "Once")
+            parts.append(amount(oneOff))
+        } else {
+            switch contribution.effectiveUntil {
+            case .retirement: parts.append("Every year until retirement")
+            case .date(let date): parts.append("Every year until \(date.year)")
+            }
+            parts.append("\(amount(contribution.perYear))/yr")
+        }
+        return parts.joined(separator: " · ")
     }
 
     var events: String {
@@ -277,8 +304,12 @@ struct PlanInputSummaries {
     }
 
     var assumptions: String {
-        let equity = plan.assumptions.returnAssumption(for: .equity)?.real ?? 0
-        var parts = ["Equity \(percent(equity))", "Inflation \(percent(plan.assumptions.effectiveInflation))"]
+        let equity = plan.assumptions.returnAssumption(for: .equity)
+        var equityText = "Equity \(percent(equity?.real ?? 0))"
+        if let income = equity?.incomeYield { equityText += " (\(percent(income)) income)" }
+        var parts = [equityText, "Inflation \(percent(plan.assumptions.effectiveInflation))"]
+        let otherYields = plan.assumptions.returns.filter { $0.key != .equity && $0.value.incomeYield != nil }.count
+        if otherYields > 0 { parts.append(otherYields == 1 ? "1 other income yield" : "\(otherYields) income yields") }
         if !plan.portfolio.exclude.isEmpty {
             parts.append("\(plan.portfolio.exclude.count) excluded")
         }
@@ -292,8 +323,10 @@ struct PlanInputSummaries {
 
     // MARK: List rows
 
-    /// A work phase's second line: "65.000 € gross · +1%/yr · TFR to fund",
-    /// "Forfettario · 70.000 € revenue · 67%".
+    /// A work phase's second line: "65.000 € gross · +1%/yr · TFR goes to: A
+    /// pension fund", "Forfettario · 70.000 € revenue · Profitability
+    /// coefficient 67%": the amounts, then the options its regime (the one
+    /// chosen, else the default) describes and the plan sets.
     func detail(of phase: WorkPhase) -> String {
         var parts: [String] = []
         if let regime = phase.regime, let found = registry.regime(regime.rawValue), phase.kind != .employee {
@@ -313,12 +346,15 @@ struct PlanInputSummaries {
         if let growth = phase.realGrowth, growth != 0 {
             parts.append("\(growth > 0 ? "+" : "")\(percent(growth))/yr")
         }
-        if phase.options["tfr"]?.stringValue == "pensionFund" { parts.append("TFR to fund") }
-        if let coefficient = phase.options["coefficient"]?.decimalValue { parts.append(percent(coefficient, digits: 0)) }
+        let regime = PlanTaxChoices.effectiveRegimeID(for: phase, in: plan, settings: library.settings,
+                                                      registry: registry)
+        parts += PlanOptionForm.summary(phase.options, fields: PlanTaxChoices.regimeFields(regime, registry: registry),
+                                        currency: currency, hidesAmounts: hidesAmounts, locale: locale)
         return parts.joined(separator: " · ")
     }
 
-    /// A pension's second line: "Claimed as early as possible", "From 67 · 4.800 €/yr".
+    /// A pension's second line: "Claimed as early as possible · Capital",
+    /// "From 67 · 4.800 €/yr · State pension · from Germany".
     func detail(of pension: PlanPension) -> String {
         var parts: [String] = []
         if pension.scheme == .fixed {
@@ -329,6 +365,15 @@ struct PlanInputSummaries {
             case .earliest: parts.append("Claimed as early as possible")
             case .age(let age): parts.append("Claimed at \(age)")
             }
+        }
+        if let route = pension.claimRoute {
+            let routes = PlanPensionChoices.claimRoutes(for: pension, birthDate: library.settings.person?.birthDate,
+                                                        today: .today(), registry: registry)
+            parts.append(PlanPensionChoices.routeName(route, among: routes))
+        }
+        if let kind = pension.kind { parts.append(PlanPensionChoices.name(of: kind)) }
+        if let country = pension.sourceCountry {
+            parts.append("from \(CountryChoices.name(of: country, locale: locale))")
         }
         if pension.effectiveTaxedIn == .source { parts.append("taxed where it's paid") }
         return parts.joined(separator: " · ")

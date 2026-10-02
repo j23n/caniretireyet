@@ -122,7 +122,7 @@ struct OverviewAnswerCard: View {
             }
             if let gap {
                 HStack(spacing: Metrics.xs) {
-                    DeltaText(gap.gap)
+                    DeltaText(gap.gap, currency: gap.currency)
                     Text(gapText(gap))
                         .foregroundStyle(Palette.secondaryInk)
                 }
@@ -181,7 +181,8 @@ struct OverviewAnswerCard: View {
 
     private func baselineGap(for plan: PlanDocument?) -> OverviewBaselineGap? {
         guard let plan, let baseline = library.library.baselines(for: plan.id).last else { return nil }
-        return OverviewBaselineGap(baseline: baseline, valuator: valuator, on: asOf)
+        return OverviewBaselineGap(baseline: baseline, valuator: valuator, on: asOf,
+                                   currency: PlanMoney.currency(of: baseline, settings: library.settings))
     }
 
     private func earliestText(_ headline: PlanHeadline) -> String {

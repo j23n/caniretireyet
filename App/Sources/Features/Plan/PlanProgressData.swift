@@ -96,8 +96,9 @@ struct PlanAnswerHistory: Hashable, Sendable {
 }
 
 /// "Actual vs baseline": a baseline's fan from its start date, your actual
-/// plan assets over it (the same accounts, in euros of the start date when
-/// the inflation index allows), and where you are within it.
+/// plan assets over it (the same accounts, in the baseline's currency at
+/// each date's exchange rate, and in money of the start date when an
+/// inflation index allows), and where you are within it.
 struct PlanBaselineComparison: Sendable {
     /// Where the latest actual value falls in the baseline's projection.
     struct Position: Hashable, Sendable {
@@ -115,9 +116,13 @@ struct PlanBaselineComparison: Sendable {
     var baseline: Baseline
     var fan: [FanPoint]
     var actual: [ChartPoint]
-    /// Whether the actual line is in euros of the start date (the library
-    /// has inflation values for its dates) or in the euros of each date.
+    /// The baseline's currency: its copy of the plan's, else the library's.
+    var currency: CurrencyCode
+    /// Whether the actual line is in money of the start date (an inflation
+    /// index for the currency has values for its dates) or of each date.
     var isInflationAdjusted: Bool
+    /// Check-ins left out of `actual`: no exchange rate into `currency` on their date.
+    var missingRates: [CalendarDate]
     var position: Position?
 
     init(baseline: Baseline, library: Library, asOf: CalendarDate) {
@@ -125,26 +130,41 @@ struct PlanBaselineComparison: Sendable {
         fan = Self.fan(for: baseline)
         let valuator = Valuator(library: library)
         let accounts = Set(baseline.accounts)
-        let index = InflationIndex(library: library)
-        let dates = valuator.checkInDates(in: .planAssets, through: asOf).filter { $0 > baseline.start.date }
-        var adjusted = true
-        var points = [ChartPoint(date: baseline.start.date.dateValue, value: baseline.start.value.doubleValue)]
-        var latest: (CalendarDate, Decimal)?
-        for date in dates {
-            let total = valuator.total(on: date, including: { accounts.contains($0.id) })
-            let value: Decimal
-            if let converted = index.convert(total.total, from: date, to: baseline.start.date) {
-                value = converted
-            } else {
-                value = total.total
-                adjusted = false
+        currency = PlanMoney.currency(of: baseline, settings: library.settings)
+        let values = valuator.checkInDates(in: .planAssets, through: asOf).filter { $0 > baseline.start.date }
+            .map { date in
+                let total = valuator.total(on: date, including: { accounts.contains($0.id) })
+                return SeriesPoint(date: date, value: total.total, isComplete: total.isComplete)
             }
-            points.append(ChartPoint(date: date.dateValue, value: value.doubleValue, isComplete: total.isComplete))
-            latest = (date, value)
+        let series = PlanActualSeries(values: values, library: library, valuator: valuator, currency: currency,
+                                      inMoneyOf: baseline.start.date)
+        actual = [ChartPoint(date: baseline.start.date.dateValue, value: baseline.start.value.doubleValue)]
+            + series.points
+        isInflationAdjusted = series.isInflationAdjusted || series.points.isEmpty
+        missingRates = series.missingRates
+        position = series.latest.flatMap { Self.position(of: $0.value, on: $0.date, in: baseline) }
+    }
+
+    /// The line under the chart: which accounts, in what money, and the
+    /// check-ins left out for want of an exchange rate.
+    func unitsNote(baseCurrency: CurrencyCode, locale: Locale = .current) -> String {
+        let code = currency.rawValue
+        var note: String
+        if isInflationAdjusted {
+            note = "The same accounts as the baseline, in \(code) of "
+                + "\(AmountFormat.mediumDate(baseline.start.date, locale: locale))."
+        } else if PlanMoney.inflationIndex(for: currency) == nil {
+            note = "The same accounts as the baseline, in \(code) of each date: the library has no inflation index "
+                + "for \(code)."
+        } else {
+            note = "The same accounts as the baseline. Without inflation values for every date, some are in the "
+                + "\(code) of their time."
         }
-        actual = points
-        isInflationAdjusted = adjusted
-        position = latest.flatMap { Self.position(of: $0.1, on: $0.0, in: baseline) }
+        if let missing = PlanMoney.missingRatesNote(missingRates, base: baseCurrency, currency: currency,
+                                                    locale: locale) {
+            note += " " + missing
+        }
+        return note
     }
 
     /// The baseline's fan: its start value, then each year-end.
@@ -240,19 +260,4 @@ struct PlanBaselineComparison: Sendable {
 struct PlanBaselineEntry: Hashable, Sendable, Identifiable {
     var id: BaselineID
     var baseline: Baseline
-}
-
-/// Your actual plan assets, for the "Your money over time" fan: drawn in
-/// ink to the left of today, in the same euros as the projection.
-enum PlanActualHistory {
-    /// Plan assets at each check-in through `asOf`, in euros of `reference`
-    /// where the library has inflation values for both dates, else as recorded.
-    static func points(library: Library, valuator: Valuator, through asOf: CalendarDate,
-                       inEurosOf reference: CalendarDate) -> [ChartPoint] {
-        let index = InflationIndex(library: library)
-        return valuator.series(.planAssets, grid: .checkIns, through: asOf).map { point in
-            let value = index.convert(point.value, from: point.date, to: reference) ?? point.value
-            return ChartPoint(date: point.date.dateValue, value: value.doubleValue, isComplete: point.isComplete)
-        }
-    }
 }

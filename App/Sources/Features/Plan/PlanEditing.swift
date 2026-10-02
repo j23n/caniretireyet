@@ -83,24 +83,38 @@ enum PlanEditing {
         return PlanPension(scheme: PensionSchemeID(scheme), claim: .earliest)
     }
 
-    /// A pension moved to another scheme, keeping its name and claim.
+    /// A pension moved to another scheme, keeping its name and claim, what
+    /// kind it is and where it's from. A claim route belongs to its scheme,
+    /// so it goes.
     static func changing(_ pension: PlanPension, toScheme scheme: String, registry: TaxRegistry) -> PlanPension {
         var changed = newPension(scheme: scheme)
         changed.name = pension.name ?? changed.name
         if scheme != FixedPensionScheme.schemeID { changed.claim = pension.claim }
         changed.taxedIn = pension.taxedIn
         changed.sourceCountry = pension.sourceCountry
+        changed.kind = pension.kind
         changed.options = PlanOptionForm.carryOver(
             pension.options, to: PlanTaxChoices.pensionOptionFields(scheme: scheme, registry: registry))
         return changed
     }
 
-    /// A contribution into the first plan account with a tax-advantaged
-    /// kind (pension fund), else the first plan account.
-    static func newContribution(in library: Library) -> PlanContribution? {
-        let accounts = library.accounts.values.filter { $0.includedInPlan && !$0.isClosed }.sorted { $0.name < $1.name }
-        guard let account = accounts.first(where: { $0.kind == .pensionFund }) ?? accounts.first else { return nil }
-        return PlanContribution(account: account.id, perYear: 1_000)
+    /// A yearly contribution into the first plan account with a
+    /// tax-advantaged kind (pension fund), else the first plan account,
+    /// else into the first pension scheme of `schemes`.
+    static func newContribution(in library: Library, schemes: [PlanChoice] = []) -> PlanContribution? {
+        let accounts = contributionAccounts(in: library)
+        if let account = accounts.first(where: { $0.kind == .pensionFund }) ?? accounts.first {
+            return PlanContribution(account: account.id, perYear: 1_000)
+        }
+        return schemes.first.map { PlanContribution(pension: PensionSchemeID($0.id), perYear: 1_000) }
+    }
+
+    /// The pension schemes a contribution can pay into (a buy-in): those of
+    /// the plan's residence systems, without `fixed`, which doesn't build up.
+    static func contributionSchemes(for plan: PlanDocument, settings: LibrarySettings, registry: TaxRegistry)
+        -> [PlanChoice] {
+        PlanTaxChoices.schemeChoices(for: plan, settings: settings, registry: registry)
+            .filter { $0.id != FixedPensionScheme.schemeID }
     }
 
     static func newEvent(asOf: CalendarDate) -> PlanEvent {
@@ -118,6 +132,16 @@ enum PlanEditing {
         let last = plan.tax.residence.map(\.from).max()
         return PlanResidence(from: last.map { $0 + 10 } ?? asOf.year, system: .generic)
     }
+
+    // MARK: Assumptions
+
+    /// The asset classes the editor offers an income yield for: those whose
+    /// funds pay income. Cash earns its interest anyway.
+    static let incomeYieldClasses: [AssetClass] = [.equity, .bonds]
+
+    /// The line under the income yields.
+    static let incomeYieldExplanation = "The part of the return paid as income each year; some countries tax it "
+        + "yearly. Leave it empty for none."
 
     // MARK: Lists
 
@@ -137,7 +161,7 @@ enum PlanEditing {
 
     // MARK: Values
 
-    /// A decimal as a whole number of euros, for sliders and steppers.
+    /// A decimal as a whole number, for sliders and steppers.
     static func whole(_ value: Double) -> Decimal {
         Decimal(Int(value.rounded()))
     }

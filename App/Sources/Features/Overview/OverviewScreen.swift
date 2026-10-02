@@ -200,7 +200,9 @@ private struct OverviewHistorySection: View {
     @State private var fillsPastPrices = false
 
     var body: some View {
-        let projection = results?.portfolio ?? []
+        // In the base currency, as the history is; a plan in another
+        // currency is converted at its start date's rate.
+        let projection = results?.portfolio(in: valuator.baseCurrency, valuator: valuator) ?? []
         let canShowFuture = !projection.isEmpty
         let future = showsFuture && canShowFuture
         let chartScope: NetWorthScope = future ? .planAssets : scope

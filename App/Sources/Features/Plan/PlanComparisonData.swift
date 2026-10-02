@@ -14,9 +14,18 @@ struct PlanComparisonData: Sendable {
         /// The answer recorded at the plan's last check-in, for before its
         /// first calculation.
         var recorded: PlanHeadline?
+        /// The plan's currency (``PlanMoney/currency(of:settings:)``), for
+        /// two plans in different currencies.
+        var currency: CurrencyCode?
 
         /// Whether *Calculate* has anything to do for this plan.
         var needsCalculation: Bool { results == nil || !staleReasons.isEmpty }
+
+        /// An amount of this plan, in its results' currency (else its own).
+        func figure(_ amount: Decimal, unit: String?) -> PlanFigure {
+            guard let currency = results?.currency ?? currency else { return .amount(amount, unit: unit) }
+            return .amountIn(amount, currency: currency, unit: unit)
+        }
     }
 
     var first: Side
@@ -85,7 +94,7 @@ struct PlanComparisonData: Sendable {
             rows.append(("Net income \(year)", sides.map { side in
                 guard let value = side.results?.details?.focus.netIncome.first(where: { $0.year == year })?.value
                 else { return .missing }
-                return .amount(PlanResultsText.whole(value), unit: nil)
+                return side.figure(PlanResultsText.whole(value), unit: nil)
             }))
         }
         for scheme in publicSchemes {
@@ -93,11 +102,12 @@ struct PlanComparisonData: Sendable {
                 guard let pension = side.results?.details?.focus.pensions.first(where: { $0.scheme == scheme.scheme }),
                       let amount = pension.perYear
                 else { return .missing }
-                return .amount(PlanResultsText.whole(amount), unit: pension.age.map { "/yr at \($0)" } ?? "/yr")
+                return side.figure(PlanResultsText.whole(amount), unit: pension.age.map { "/yr at \($0)" } ?? "/yr")
             }))
         }
         rows.append(("Taxes, lifetime", sides.map { side in
-            side.results?.details.map { .amount(PlanResultsText.whole($0.focus.lifetimeTaxes), unit: nil) } ?? .missing
+            side.results?.details.map { side.figure(PlanResultsText.whole($0.focus.lifetimeTaxes), unit: nil) }
+                ?? .missing
         }))
         rows.append(("Earliest retirement", sides.map { side in
             guard let results = side.results else { return .missing }
@@ -108,7 +118,7 @@ struct PlanComparisonData: Sendable {
             return .percent(success)
         }))
         rows.append(("Sustainable spending", sides.map { side in
-            side.results?.headline.sustainableSpending.map { .amount($0, unit: "/yr") } ?? .missing
+            side.results?.headline.sustainableSpending.map { side.figure($0, unit: "/yr") } ?? .missing
         }))
         return rows
     }

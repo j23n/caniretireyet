@@ -111,6 +111,13 @@ extension PlanSimulation {
     }
 }
 
+/// Where a contribution goes, for the editor's one picker: an account, or
+/// a pension scheme (a buy-in).
+enum PlanContributionTarget: Hashable, Sendable {
+    case account(AccountID)
+    case scheme(PensionSchemeID)
+}
+
 extension PlanContribution {
     /// Contributions stop at retirement (the default), or on a date.
     var planUntilRetirement: Bool {
@@ -121,6 +128,53 @@ extension PlanContribution {
     var planUntilDate: CalendarDate {
         get { until?.date ?? CalendarDate.today().adding(years: 10) }
         set { until = .date(newValue) }
+    }
+
+    /// The account or pension scheme it pays into. Choosing one clears the
+    /// other, as the file holds one of `account` and `pension`.
+    var planTarget: PlanContributionTarget {
+        get { pension.map { .scheme($0) } ?? .account(account) }
+        set {
+            switch newValue {
+            case .account(let id):
+                account = id
+                pension = nil
+            case .scheme(let id):
+                account = ""
+                pension = id
+            }
+        }
+    }
+
+    /// Paid once (`amount` in `year`) rather than every year (`perYear`
+    /// until `until`). Switching carries the amount over.
+    var planIsOneOff: Bool {
+        get { isOneOff }
+        set {
+            guard newValue != isOneOff else { return }
+            if newValue {
+                amount = perYear > 0 ? perYear : 10_000
+                year = year ?? CalendarDate.today().year + 1
+                perYear = 0
+                until = nil
+            } else {
+                perYear = amount.map { $0 > 0 ? $0 : 1_000 } ?? 1_000
+                amount = nil
+                year = nil
+            }
+        }
+    }
+
+    /// A one-off amount.
+    var planAmount: Decimal {
+        get { amount ?? 0 }
+        set { amount = newValue }
+    }
+
+    /// The year of a one-off amount.
+    var planYear: Int {
+        get { year ?? CalendarDate.today().year + 1 }
+        set { year = newValue }
     }
 }
 
@@ -186,6 +240,28 @@ extension PlanPension {
     var planTaxedIn: TaxedIn {
         get { effectiveTaxedIn }
         set { taxedIn = newValue == .residence ? nil : newValue }
+    }
+
+    /// The claim route's ID, "" for the scheme's first option at the age.
+    var planClaimRoute: String {
+        get { claimRoute ?? "" }
+        set {
+            let trimmed = newValue.trimmingCharacters(in: .whitespacesAndNewlines)
+            claimRoute = trimmed.isEmpty ? nil : trimmed
+        }
+    }
+}
+
+extension PlanAssumptions {
+    /// An asset class's income yield (the part of its return paid as
+    /// income each year), `nil` for none.
+    subscript(planIncomeYield assetClass: AssetClass) -> Decimal? {
+        get { returnAssumption(for: assetClass)?.incomeYield }
+        set {
+            var assumption = returnAssumption(for: assetClass) ?? ReturnAssumption(real: 0, volatility: 0)
+            assumption.incomeYield = newValue
+            returns[assetClass] = assumption
+        }
     }
 }
 

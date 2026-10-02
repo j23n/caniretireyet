@@ -124,6 +124,8 @@ struct PlanContentView: View {
 
     var body: some View {
         planLayout
+            // The plan's amounts are in its currency (results in theirs: PlanResultsView).
+            .environment(\.baseCurrency, session.currency)
             .navigationTitle(name)
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)

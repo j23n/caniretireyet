@@ -93,6 +93,7 @@ struct PlanInputsHeader: View {
 enum PlanEditTarget: Hashable, Identifiable {
     case work(index: Int, phase: WorkPhase)
     case pension(index: Int, pension: PlanPension)
+    case contribution(index: Int, contribution: PlanContribution)
     case event(index: Int, event: PlanEvent)
     case residence(index: Int, residence: PlanResidence)
     case overlay(index: Int, overlay: PlanOverlay)
@@ -101,6 +102,7 @@ enum PlanEditTarget: Hashable, Identifiable {
         switch self {
         case .work(let index, _): "work-\(index)"
         case .pension(let index, _): "pension-\(index)"
+        case .contribution(let index, _): "contribution-\(index)"
         case .event(let index, _): "event-\(index)"
         case .residence(let index, _): "residence-\(index)"
         case .overlay(let index, _): "overlay-\(index)"
@@ -127,7 +129,7 @@ struct PlanSectionEditor: View {
         case .pensions:
             PlanPensionList(plan: plan, summaries: summaries, issues: issues, editing: $editing)
         case .contributions:
-            PlanContributionsEditor(plan: $plan)
+            PlanContributionList(plan: plan, summaries: summaries, issues: issues, editing: $editing)
         case .events:
             PlanEventList(plan: plan, summaries: summaries, issues: issues, editing: $editing)
         case .taxes:
@@ -144,14 +146,17 @@ struct PlanSectionEditor: View {
 
 // MARK: - You
 
-/// Birth date (from the library), retirement age and the plan's end.
+/// Birth date and citizenships (from the library), retirement age, the
+/// plan's end and its currency.
 ///
 /// The birth date is written only when you pick one, from the picker's own
 /// setter (`YouSettings`): opening the card writes nothing, and without a
-/// birth date it says "Not set" rather than assuming one.
+/// birth date it says "Not set" rather than assuming one. Citizenships are
+/// written when you add or remove one.
 struct PlanYouEditor: View {
     @Binding var plan: PlanDocument
     @Environment(LibraryStore.self) private var library
+    @Environment(\.locale) private var locale
     /// Whether the picker is shown before a birth date is picked.
     @State private var addsBirthDate = false
 
@@ -174,11 +179,22 @@ struct PlanYouEditor: View {
             if birthDate == nil {
                 PlanIssueLine(message: "Add your birth date: plans need it for ages.", isError: true)
             }
+            CitizenshipRows(settings: library.settings) { change in
+                guard library.canEdit else { return }
+                try? library.updateSettings { $0 = change($0) }
+            }
+            Text(YouSettings.citizenshipExplanation)
+                .font(.caption)
+                .foregroundStyle(Palette.mutedInk)
+                .fixedSize(horizontal: false, vertical: true)
+            Divider()
             Toggle("Retire as early as possible", isOn: $plan.planRetiresEarliest)
             if !plan.planRetiresEarliest {
                 Stepper("Retire at \(plan.planRetirementAge)", value: $plan.planRetirementAge, in: 30...85)
             }
             Stepper("Plan to age \(plan.planEndAge)", value: $plan.planEndAge, in: 70...110)
+            Divider()
+            PlanCurrencyEditor(plan: $plan)
         }
         .font(.subheadline)
     }
@@ -195,6 +211,44 @@ struct PlanYouEditor: View {
                     settings = YouSettings.setting(birthDate: birth, in: settings)
                 }
             })
+    }
+}
+
+/// The plan's currency: the library's by default, a currency the library
+/// has exchange rates for, or another code typed in. Amounts and results
+/// are in it; your accounts are converted at the rates on the start date.
+struct PlanCurrencyEditor: View {
+    @Binding var plan: PlanDocument
+    @Environment(LibraryStore.self) private var library
+    @Environment(\.locale) private var locale
+    @State private var typed = ""
+
+    var body: some View {
+        let base = library.settings.baseCurrency
+        VStack(alignment: .leading, spacing: Metrics.s) {
+            Picker("Currency", selection: $plan.currency) {
+                Text(PlanMoney.libraryChoiceTitle(base)).tag(CurrencyCode?.none)
+                ForEach(PlanMoney.currencyChoices(for: plan, library: library.library), id: \.self) { code in
+                    Text(CurrencyChoices.name(of: code, locale: locale)).tag(Optional(code))
+                }
+            }
+            LabeledContent("Another currency") {
+                TextField("Another currency", text: $typed, prompt: Text("e.g. SGD"))
+                    .labelsHidden()
+                    .multilineTextAlignment(.trailing)
+                    .frame(maxWidth: 80)
+                    .onSubmit {
+                        guard let code = PlanMoney.code(from: typed) else { return }
+                        plan.currency = PlanMoney.choosing(code, base: base)
+                        typed = ""
+                    }
+            }
+            Text("Every amount in the plan, and its results, are in this currency in today's money. Your accounts "
+                + "are converted at the exchange rates on the plan's start date.")
+                .font(.caption)
+                .foregroundStyle(Palette.mutedInk)
+                .fixedSize(horizontal: false, vertical: true)
+        }
     }
 }
 
@@ -245,65 +299,6 @@ struct PlanSpendingEditor: View {
     }
 }
 
-// MARK: - Contributions
-
-/// Regular payments into specific accounts while working.
-struct PlanContributionsEditor: View {
-    @Binding var plan: PlanDocument
-    @Environment(LibraryStore.self) private var library
-
-    var body: some View {
-        let accounts = PlanEditing.contributionAccounts(in: library.library)
-        let fallback = PlanContribution(account: accounts.first?.id ?? "account", perYear: 0)
-        VStack(alignment: .leading, spacing: Metrics.s) {
-            ForEach(plan.contributions.indices, id: \.self) { index in
-                let contribution = plan.contributions[planSafe: index, default: fallback]
-                VStack(alignment: .leading, spacing: Metrics.xs) {
-                    HStack {
-                        Picker("Account", selection: $plan.contributions[planSafe: index, default: fallback].account) {
-                            ForEach(accounts) { account in
-                                Text(account.name).tag(account.id)
-                            }
-                            if !accounts.contains(where: { $0.id == contribution.account }) {
-                                Text(contribution.account.rawValue).tag(contribution.account)
-                            }
-                        }
-                        .labelsHidden()
-                        Spacer()
-                        Button {
-                            plan.contributions = PlanEditing.removing(at: index, from: plan.contributions)
-                        } label: {
-                            Label("Remove", systemImage: "minus.circle")
-                                .labelStyle(.iconOnly)
-                        }
-                        .buttonStyle(.borderless)
-                    }
-                    PlanNumberRow("Per year", value: $plan.contributions[planSafe: index, default: fallback].perYear,
-                                  unit: "/yr")
-                    Toggle("Until retirement",
-                           isOn: $plan.contributions[planSafe: index, default: fallback].planUntilRetirement)
-                    if !contribution.planUntilRetirement {
-                        DatePicker("Until",
-                                   selection: $plan.contributions[planSafe: index, default: fallback].planUntilDate.planDate,
-                                   displayedComponents: .date)
-                    }
-                }
-                Divider()
-            }
-            Button {
-                if let contribution = PlanEditing.newContribution(in: library.library) {
-                    plan.contributions.append(contribution)
-                }
-            } label: {
-                Label("Add a contribution", systemImage: "plus")
-            }
-            .buttonStyle(.borderless)
-            .disabled(accounts.isEmpty)
-        }
-        .font(.subheadline)
-    }
-}
-
 // MARK: - Assumptions
 
 /// Inflation, returns and volatility by asset class, and the portfolio's
@@ -323,6 +318,15 @@ struct PlanAssumptionsEditor: View {
         AssetRow(assetClass: .cash, name: "Cash"), AssetRow(assetClass: .gold, name: "Gold"),
         AssetRow(assetClass: .crypto, name: "Crypto"),
     ]
+
+    /// The classes whose income yield can be set: those that pay income
+    /// (equity, bonds), and any other the plan gives one.
+    private var incomeRows: [AssetRow] {
+        Self.rows.filter { row in
+            PlanEditing.incomeYieldClasses.contains(row.assetClass)
+                || plan.assumptions.returnAssumption(for: row.assetClass)?.incomeYield != nil
+        }
+    }
 
     var body: some View {
         let accounts = PlanEditing.excludableAccounts(in: library.library)
@@ -348,6 +352,24 @@ struct PlanAssumptionsEditor: View {
                 }
             }
             Text("Placeholders to review, not forecasts: real returns after fund costs.")
+                .font(.caption)
+                .foregroundStyle(Palette.mutedInk)
+                .fixedSize(horizontal: false, vertical: true)
+            Text("Income yield")
+                .font(.caption)
+                .foregroundStyle(Palette.secondaryInk)
+            ForEach(incomeRows) { row in
+                HStack(spacing: Metrics.xs) {
+                    Text(row.name)
+                    Spacer(minLength: Metrics.s)
+                    PlanNumberField("\(row.name) income yield", value: $plan.assumptions[planIncomeYield: row.assetClass],
+                                    kind: .percent, prompt: "–", isOptional: true)
+                        .frame(maxWidth: 56)
+                    Text("%")
+                        .foregroundStyle(Palette.secondaryInk)
+                }
+            }
+            Text(PlanEditing.incomeYieldExplanation)
                 .font(.caption)
                 .foregroundStyle(Palette.mutedInk)
                 .fixedSize(horizontal: false, vertical: true)

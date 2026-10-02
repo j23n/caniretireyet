@@ -142,6 +142,32 @@ enum PlanOptionForm {
         if case .choice(let choices) = field.kind { choices } else { [] }
     }
 
+    /// The options a plan sets, in words for a summary line, in the
+    /// fields' order: "Profitability coefficient 67%", "TFR goes to: A
+    /// pension fund", "Moved in 2025"; a switch that's on by its label.
+    /// Options at their default aren't written, so neither are they here.
+    static func summary(_ options: [String: JSONValue], fields: [OptionField], currency: CurrencyCode? = nil,
+                        hidesAmounts: Bool = false, locale: Locale = .current) -> [String] {
+        fields.compactMap { field -> String? in
+            guard let value = options[field.key] else { return nil }
+            switch field.kind {
+            case .bool:
+                return value.boolValue == true ? field.label : nil
+            case .choice(let choices):
+                guard let chosen = value.stringValue else { return nil }
+                return "\(field.label): \(choices.first { $0.value == chosen }?.label ?? chosen)"
+            case .percent:
+                return "\(field.label) \(text(for: value, kind: field.kind, locale: locale))%"
+            case .money:
+                guard !hidesAmounts else { return "\(field.label) \(AmountFormat.hidden)" }
+                let amount = text(for: value, kind: field.kind, locale: locale)
+                return "\(field.label) \(amount)" + (currency.map { " \($0.rawValue)" } ?? "")
+            case .int, .year:
+                return "\(field.label) \(text(for: value, kind: field.kind, locale: locale))"
+            }
+        }
+    }
+
     /// Keeps only the options `fields` describe that are still valid for a
     /// newly chosen regime or scheme, so switching doesn't leave stale keys.
     static func carryOver(_ options: [String: JSONValue], to fields: [OptionField]) -> [String: JSONValue] {

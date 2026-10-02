@@ -109,12 +109,15 @@ struct PlanNumberRow: View {
 }
 
 /// A form generated from a regime's, scheme's or system's `OptionField`s
-/// (TAXES.md: a new regime needs no UI code). Percentages and amounts are
-/// typed, switches toggle, choices pick; the field's help and any problem
-/// with its value show under it.
+/// (TAXES.md: a new regime needs no UI code). Every kind has a control:
+/// percentages, amounts (in the plan's currency), whole numbers and years
+/// are typed, switches toggle, choices pick; the field's help and any
+/// problem with its value show under it.
 struct PlanOptionsForm: View {
     let fields: [OptionField]
     @Binding var options: [String: JSONValue]
+    /// The plan's currency, which `money` options are in.
+    @Environment(\.baseCurrency) private var currency
 
     var body: some View {
         let problems = PlanOptionForm.problems(options, fields: fields)
@@ -160,6 +163,8 @@ struct PlanOptionsForm: View {
                         .frame(maxWidth: 140)
                     if field.kind == .percent {
                         Text("%").foregroundStyle(Palette.secondaryInk)
+                    } else if field.kind == .money {
+                        Text(currency.rawValue).foregroundStyle(Palette.secondaryInk)
                     }
                 }
             } label: {
