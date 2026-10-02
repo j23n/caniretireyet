@@ -1,0 +1,505 @@
+{
+  "year": 2026,
+  "system": "de",
+  "checked": "2026-10",
+  "note": "DRAFT German tax and social-security parameters for 2026, in nominal euros of 2026, for a future Sources/TaxGermany/Resources/de/2026.json. Every value cites its source. The official pages were read through search-engine extracts; objects flagged verify have no primary source yet or depend on an open question. indexing: tariff (follows the plan's indexThresholds), fixed (nominal unless indexFixedAllowances), wages (grows with realWageGrowth by law). See docs/tax/DE.md.",
+  "incomeTax": {
+    "tariff": {
+      "indexing": "tariff",
+      "zones": [
+        { "upTo": "12348", "kind": "zero" },
+        { "upTo": "17799", "kind": "quadratic", "from": "12348", "a": "914.51", "b": "1400", "c": "0" },
+        { "upTo": "69878", "kind": "quadratic", "from": "17799", "a": "173.10", "b": "2397", "c": "1034.87" },
+        { "upTo": "277825", "kind": "linear", "rate": "0.42", "minus": "11135.63" },
+        { "kind": "linear", "rate": "0.45", "minus": "19470.38" }
+      ],
+      "note": "Quadratic zones: tax = (a * u + b) * u + c with u = (x - from) / 10000. Linear zones: tax = rate * x - minus. The law rounds x and the tax down to whole euros; the planner doesn't.",
+      "source": "EStG §32a Abs. 1 as amended by the Steuerfortentwicklungsgesetz (BGBl. 2024 I Nr. 449), for 2026: https://www.gesetze-im-internet.de/estg/__32a.html; BMF Lohnsteuer-Handbuch 2026: https://esth.bundesfinanzministerium.de/lsth/2026/A-Einkommensteuergesetz/IV-Tarif-31-34b/Paragraf-32a/paragraf-32a.html"
+    },
+    "splitting": {
+      "modelled": false,
+      "note": "Joint assessment: twice the tax on half the joint income. A hook only; the planner models one person.",
+      "source": "EStG §32a Abs. 5"
+    },
+    "progressionClause": {
+      "extraordinaryIncomeDivisor": 5,
+      "note": "Exempt income (treaty-exempt foreign income) raises the rate on taxable income: tax = x * T(x + P) / (x + P). Extraordinary income within P counts at one fifth.",
+      "source": "EStG §32b Abs. 1 Nr. 3 and Abs. 2"
+    },
+    "oneFifthRule": {
+      "divisor": 5,
+      "windfallKinds": [ "severance" ],
+      "note": "Tax on extraordinary income E = 5 * (T(x + E/5) - T(x)). Applied in the assessment only since 2025.",
+      "source": "EStG §34 Abs. 1 and 2 Nr. 2; Wachstumschancengesetz (no longer applied in wage withholding from 2025)"
+    }
+  },
+  "soli": {
+    "rate": "0.055",
+    "exemptionLimit": "20350",
+    "taperRate": "0.119",
+    "capitalIncomeRate": "0.055",
+    "indexing": "tariff",
+    "note": "No Soli while income tax is at most 20,350 (Freigrenze); at most 11.9% of the income tax above it. On the flat tax on capital income, always 5.5% with no threshold.",
+    "source": "SolZG §3 Abs. 3 Nr. 2 (20,350 for 2026, as amended by BGBl. 2024 I Nr. 449): https://www.gesetze-im-internet.de/solzg_1995/__3.html; §4 Satz 2-3: https://www.gesetze-im-internet.de/solzg_1995/__4.html"
+  },
+  "churchTax": {
+    "rates": { "BY": "0.08", "BW": "0.08", "default": "0.09" },
+    "deductibleAsSpecialExpense": true,
+    "capitalIncomeFormula": "rate on capital income = 0.25 / (1 + 0.25 * churchRate)",
+    "note": "A percentage of income tax (for a single person without children, the income tax itself). Church tax paid is a special expense; on capital income it lowers the flat rate instead.",
+    "source": "Kirchensteuergesetze der Länder; EStG §51a; EStG §32d Abs. 1 Satz 3-5 (flat rate with church tax); EStG §10 Abs. 1 Nr. 4"
+  },
+  "allowances": {
+    "employeeLumpSum": { "value": "1230", "indexing": "fixed", "source": "EStG §9a Satz 1 Nr. 1 Buchst. a: https://www.gesetze-im-internet.de/estg/__9a.html" },
+    "pensionIncomeLumpSum": { "value": "102", "indexing": "fixed", "note": "One amount for all income under §22 Nr. 1, 1a and 5 together.", "source": "EStG §9a Satz 1 Nr. 3: https://www.gesetze-im-internet.de/estg/__9a.html" },
+    "specialExpensesLumpSum": { "value": "36", "indexing": "fixed", "note": "Replaced by church tax paid when that is larger.", "source": "EStG §10c Satz 1" },
+    "saverAllowance": { "value": "1000", "indexing": "fixed", "source": "EStG §20 Abs. 9: https://www.gesetze-im-internet.de/estg/__20.html" },
+    "next": {
+      "employeeLumpSum2027": "1430",
+      "basicAllowance2027": "12564",
+      "note": "Einkommensteuerreformgesetz 2027, government bill of 2 September 2026: also 42% from 70,600, 45% from 250,000 and a new 47% from 280,000. Not law yet; for a 2027.json once passed.",
+      "source": "BMF, Entwurf eines Einkommensteuerreformgesetzes 2027: https://www.bundesfinanzministerium.de/Content/DE/Gesetzestexte/Gesetze_Gesetzesvorhaben/Abteilungen/Abteilung_IV/21_Legislaturperiode/2026-08-18-EStReformG-2027/0-Gesetz.html",
+      "verify": true
+    }
+  },
+  "provisions": {
+    "retirementMaximum": {
+      "value": "30826",
+      "indexing": "wages",
+      "note": "The maximum contribution to the knappschaftliche Rentenversicherung: 124,800 * 24.7%, rounded up. Covers DRV contributions (employee and employer shares) and Rürup; the employer share is then subtracted.",
+      "source": "EStG §10 Abs. 3 Satz 1-6 (100% from 2023); ceiling of the knappschaftliche RV 124,800 a year in SVBezGrV 2026: https://www.gesetze-im-internet.de/svbezgrv_2026/BJNR1160A0025.html"
+    },
+    "otherMaximumEmployee": { "value": "1900", "indexing": "fixed", "source": "EStG §10 Abs. 4 Satz 2" },
+    "otherMaximumSelfPaid": { "value": "2800", "indexing": "fixed", "note": "For those who pay their own health insurance without an employer's subsidy (freelancers).", "source": "EStG §10 Abs. 4 Satz 1" },
+    "basicCoverAlwaysDeductible": { "value": true, "source": "EStG §10 Abs. 4 Satz 4" },
+    "sickPayReduction": { "value": "0.04", "note": "Health contributions that include a right to sick pay are reduced by 4% before deduction.", "source": "EStG §10 Abs. 1 Nr. 3 Buchst. a Satz 4" },
+    "taxFreeIncomeSplit": {
+      "value": true,
+      "note": "Contributions linked to tax-free salary (Aktivrente) aren't deductible; split by the share of salary.",
+      "source": "EStG §10 Abs. 2 Satz 1 Nr. 1; BMF, Fragen und Antworten zur Aktivrente: https://www.bundesfinanzministerium.de/Content/DE/FAQ/FAQ-zur-Aktivrente.html"
+    }
+  },
+  "socialInsurance": {
+    "pension": {
+      "rate": "0.186",
+      "employeeShare": "0.5",
+      "ceiling": "101400",
+      "indexing": "wages",
+      "source": "SGB VI §158 (18.6%); SVBezGrV 2026 (8,450 a month, uniform): https://www.gesetze-im-internet.de/svbezgrv_2026/BJNR1160A0025.html"
+    },
+    "unemployment": {
+      "rate": "0.026",
+      "employeeShare": "0.5",
+      "ceiling": "101400",
+      "freeFromStandardAge": true,
+      "indexing": "wages",
+      "source": "SGB III §341 Abs. 2 (2.6%); §28 Abs. 1 Nr. 1 (employees past the standard retirement age); SVBezGrV 2026"
+    },
+    "health": {
+      "generalRate": "0.146",
+      "reducedRate": "0.140",
+      "averageAdditionalRate": "0.029",
+      "employeeShare": "0.5",
+      "ceiling": "69750",
+      "compulsoryInsuranceLimit": "77400",
+      "voluntaryMinimumBase": "15820",
+      "employerSubsidyMaxMonthly": "508.59",
+      "indexing": "wages",
+      "note": "Voluntary minimum base: 1/90 of the monthly Bezugsgröße per day, 1,318.33 a month. The reduced rate applies without sick pay. Employer subsidy for PKV or voluntary GKV: half of (14.6% + 2.9%) of the monthly ceiling.",
+      "source": "SGB V §241 (14.6%), §243 (14.0%), §242a and the BMG notice of the average Zusatzbeitrag (2.9%): https://www.bundesgesundheitsministerium.de/beitraege; §240 Abs. 4 (minimum base); §257 (subsidy); SVBezGrV 2026 (69,750; 77,400; Bezugsgröße 3,955 a month): https://www.gesetze-im-internet.de/svbezgrv_2026/BJNR1160A0025.html"
+    },
+    "care": {
+      "rate": "0.036",
+      "employeeShare": "0.5",
+      "childlessSurcharge": "0.006",
+      "childlessFromAge": 23,
+      "saxonyEmployeeExtra": "0.005",
+      "ceiling": "69750",
+      "indexing": "wages",
+      "note": "The surcharge is paid by the employee alone. In Saxony the employee pays 2.3% and the employer 1.3%. Pensioners pay the whole care contribution on their pensions.",
+      "source": "SGB XI §55 Abs. 1 and 3, §58 Abs. 3, §59; rate unchanged for 2026 (vdek, Änderungen Gesundheitswesen 2026: https://www.vdek.com/politik/was-aendert-sich/gesundheitswesen-2026/_jcr_content/par/publicationelement/file.res/Aenderungen_Gesundheitswesen_2026.pdf)"
+    },
+    "referenceValue": {
+      "value": "47460",
+      "indexing": "wages",
+      "note": "The Bezugsgröße (3,955 a month).",
+      "source": "SVBezGrV 2026 §2: https://www.gesetze-im-internet.de/svbezgrv_2026/BJNR1160A0025.html"
+    },
+    "next": {
+      "healthCeilingExtraMonthly2027": "300",
+      "note": "GKV-Beitragssatzstabilisierungsgesetz, passed 10 July 2026: the health ceiling rises by 300 a month in 2027 beyond the normal adjustment. For a 2027.json.",
+      "source": "BMG, 10 July 2026: https://www.bundesgesundheitsministerium.de/presse/pressemitteilungen/bundestag-beschliesst-gkv-beitragssatzstabilisierunggesetz-pm-10-07-2026",
+      "verify": true
+    }
+  },
+  "freelancer": {
+    "drvVoluntary": {
+      "minimumMonthly": "112.16",
+      "maximumMonthly": "1571.70",
+      "standardMonthly": "735.63",
+      "minimumBaseMonthly": "603",
+      "indexing": "wages",
+      "note": "Voluntary contributions: 18.6% of 603 to 8,450 a month. Standard contribution for compulsory insurance on application: 18.6% of the Bezugsgröße.",
+      "source": "SGB VI §7, §4 Abs. 2, §165, §167; DRV, freiwillige Beiträge 2026: https://www.deutsche-rentenversicherung.de/DRV/DE/Ueber-uns-und-Presse/Presse/Meldungen/2026/260209-freiwillige-beitraege-rente-erhoehen"
+    },
+    "kleinunternehmer": {
+      "modelled": false,
+      "priorYearRevenue": "25000",
+      "currentYearRevenue": "100000",
+      "note": "VAT only.",
+      "source": "UStG §19 (as amended by JStG 2024)"
+    }
+  },
+  "aktivrente": {
+    "monthlyExemption": "2000",
+    "yearlyExemption": "24000",
+    "progressionClause": false,
+    "appliesTo": [ "employee" ],
+    "note": "Salary of employees who have reached the standard retirement age. Not for self-employment or mini-jobs. Social contributions stay due.",
+    "source": "EStG §3 Nr. 21 (Aktivrentengesetz, Bundesrat 19 December 2025, from 1 January 2026); BMF, Fragen und Antworten zur Aktivrente: https://www.bundesfinanzministerium.de/Content/DE/FAQ/FAQ-zur-Aktivrente.html"
+  },
+  "drv": {
+    "averageEarnings": {
+      "value": "51944",
+      "provisional": true,
+      "indexing": "wages",
+      "source": "SGB VI Anlage 1 (provisional for 2026, SVBezGrV 2026): https://rvrecht.deutsche-rentenversicherung.de/SharedDocs/rvRecht/05_Normen_und_Vertraege/01_Sozialgesetzbuch/06_SGB_VI/zz_Anlagen/Anlage0001/Anlage0001_alle.html"
+    },
+    "pensionValue": {
+      "value": "42.52",
+      "from": "2026-07-01",
+      "previous": "40.79",
+      "indexing": "wages",
+      "note": "Monthly euros per pension point. Raised by 4.24% on 1 July 2026.",
+      "source": "Rentenwertbestimmungsverordnung 2026; DRV, Rentenanpassung 2026: https://www.deutsche-rentenversicherung.de/SharedDocs/FAQ/Gesetzesaenderungen/Rentenanpassung/FAQ-Rentenanpassung-2026/Rentenanpassung-2026"
+    },
+    "payments": { "value": 12, "source": "SGB VI §118 (monthly payment)" },
+    "pensionLevelFloor": {
+      "value": "0.48",
+      "until": "2031-07-01",
+      "note": "The Haltelinie: pensions follow wages until 2031. Later growth is the plan assumption realPensionValueGrowth.",
+      "source": "Rentenpaket 2025 (Bundesrat 19 December 2025): https://www.bundestag.de/dokumente/textarchiv/2025/kw49-de-rentenpaket-1128720"
+    },
+    "standardAge": {
+      "byBirthYear": [
+        { "upTo": 1946, "years": 65, "months": 0 },
+        { "upTo": 1947, "years": 65, "months": 1 },
+        { "upTo": 1948, "years": 65, "months": 2 },
+        { "upTo": 1949, "years": 65, "months": 3 },
+        { "upTo": 1950, "years": 65, "months": 4 },
+        { "upTo": 1951, "years": 65, "months": 5 },
+        { "upTo": 1952, "years": 65, "months": 6 },
+        { "upTo": 1953, "years": 65, "months": 7 },
+        { "upTo": 1954, "years": 65, "months": 8 },
+        { "upTo": 1955, "years": 65, "months": 9 },
+        { "upTo": 1956, "years": 65, "months": 10 },
+        { "upTo": 1957, "years": 65, "months": 11 },
+        { "upTo": 1958, "years": 66, "months": 0 },
+        { "upTo": 1959, "years": 66, "months": 2 },
+        { "upTo": 1960, "years": 66, "months": 4 },
+        { "upTo": 1961, "years": 66, "months": 6 },
+        { "upTo": 1962, "years": 66, "months": 8 },
+        { "upTo": 1963, "years": 66, "months": 10 },
+        { "years": 67, "months": 0 }
+      ],
+      "waitingYears": 5,
+      "source": "SGB VI §35 and §235 Abs. 2"
+    },
+    "longInsured": {
+      "earliestAge": 63,
+      "waitingYears": 35,
+      "reductionPerMonth": "0.003",
+      "note": "Altersrente für langjährig Versicherte: 14.4% less at 63 for those born from 1964.",
+      "source": "SGB VI §36, §236, §77 Abs. 2 Nr. 2 Buchst. a; DRV: https://www.deutsche-rentenversicherung.de/DRV/DE/Rente/Allgemeine-Informationen/Rentenarten-und-Leistungen/Altersrente-fuer-langjaehrig-Versicherte/altersrente-fuer-langjaehrig-versicherte_node"
+    },
+    "veryLongInsured": {
+      "waitingYears": 45,
+      "byBirthYear": [
+        { "upTo": 1952, "years": 63, "months": 0 },
+        { "upTo": 1953, "years": 63, "months": 2 },
+        { "upTo": 1954, "years": 63, "months": 4 },
+        { "upTo": 1955, "years": 63, "months": 6 },
+        { "upTo": 1956, "years": 63, "months": 8 },
+        { "upTo": 1957, "years": 63, "months": 10 },
+        { "upTo": 1958, "years": 64, "months": 0 },
+        { "upTo": 1959, "years": 64, "months": 2 },
+        { "upTo": 1960, "years": 64, "months": 4 },
+        { "upTo": 1961, "years": 64, "months": 6 },
+        { "upTo": 1962, "years": 64, "months": 8 },
+        { "upTo": 1963, "years": 64, "months": 10 },
+        { "years": 65, "months": 0 }
+      ],
+      "voluntaryCountAfterCompulsoryYears": 18,
+      "source": "SGB VI §38, §236b, §51 Abs. 3a"
+    },
+    "deferralIncreasePerMonth": { "value": "0.005", "source": "SGB VI §77 Abs. 2 Nr. 2 Buchst. b" },
+    "pensionStartsMonthAfter": { "value": true, "note": "From the first of the month after the age is reached (from that month for those born on the 1st).", "source": "SGB VI §99 Abs. 1" },
+    "earningsLimitBeforeStandardAge": { "value": null, "note": "Abolished from 2023.", "source": "SGB VI §34 (as amended by the 8. SGB IV-Änderungsgesetz)" },
+    "foreignPeriods": {
+      "countTowardWaitingTimes": true,
+      "proRataCalculation": false,
+      "minimumOwnPeriodMonths": 12,
+      "countTowardFortyFiveYears": { "value": true, "verify": true, "source": "VO (EG) 883/2004 Art. 6; DRV practice to confirm" },
+      "source": "VO (EG) 883/2004 Art. 6, Art. 52 Abs. 4 and Anhang VIII (Germany), Art. 57"
+    },
+    "proposals": {
+      "modelled": false,
+      "note": "Alterssicherungskommission (June 2026): standard age linked to life expectancy after 2031 (67.5 in 2041, 68 in 2051); the 45-year pension at 65 abolished; the 35-year pension from 64. Test with the de.drv option ageIncreaseMonthsPerYear.",
+      "source": "BMAS, Rentenkommission 2026: https://www.bmas.de/DE/Soziales/Rente-und-Altersvorsorge/Rentenreform-2025/Rentenkommission-2026/rentenkommission-2026.html",
+      "verify": true
+    }
+  },
+  "pensionTaxation": {
+    "taxableShare": {
+      "segments": [
+        { "from": 2005, "value": "0.50", "stepPerYear": "0.02", "until": 2020 },
+        { "from": 2021, "value": "0.81", "stepPerYear": "0.01", "until": 2022 },
+        { "from": 2023, "value": "0.825", "stepPerYear": "0.005", "until": 2058 }
+      ],
+      "beforeFirstYear": "0.50",
+      "afterLastYear": "1",
+      "note": "By the year the pension started: 2025 83.5%, 2026 84%, 2030 86%, 2040 91%, 2058 100%. For DRV, foreign statutory pensions and Rürup.",
+      "source": "EStG §22 Nr. 1 Satz 3 Buchst. a Doppelbuchst. aa (Wachstumschancengesetz: +0.5 points a year from 2023): https://www.gesetze-im-internet.de/estg/__22.html; DRV, rvRecht: https://rvrecht.deutsche-rentenversicherung.de/SharedDocs/rvRecht/04_GRA_Sonstige/EStG/gra_estg_p_0022.html"
+    },
+    "fixedExemption": {
+      "fixedFromYear": 2,
+      "indexing": "none",
+      "note": "From the year after the pension starts, the exempt part is fixed in euros: (1 - share) * that year's pension. Later increases are taxed in full.",
+      "source": "EStG §22 Nr. 1 Satz 3 Buchst. a Doppelbuchst. aa Satz 4-6"
+    },
+    "annuityIncomeShare": {
+      "ages": {
+        "55": "0.26", "56": "0.26", "57": "0.25", "58": "0.24", "59": "0.23", "60": "0.22", "61": "0.22",
+        "62": "0.21", "63": "0.20", "64": "0.19", "65": "0.18", "66": "0.18", "67": "0.17", "68": "0.16",
+        "69": "0.15", "70": "0.15", "71": "0.14", "72": "0.13", "73": "0.13", "74": "0.12", "75": "0.11"
+      },
+      "note": "Ertragsanteil for private annuities (not Rürup, Riester or bAV), by age at the start.",
+      "source": "EStG §22 Nr. 1 Satz 3 Buchst. a Doppelbuchst. bb (table); from memory of the statutory table, not re-read",
+      "verify": true
+    },
+    "fullyTaxed": {
+      "wrappers": [ "de.riester", "de.bav", "de.altersvorsorgedepot" ],
+      "source": "EStG §22 Nr. 5 Satz 1"
+    },
+    "ageRelief": {
+      "modelled": false,
+      "rate2026": "0.124",
+      "max2026": "589",
+      "falls": { "ratePerYear": "0.004", "maxPerYear": "19", "zeroFrom": 2058 },
+      "note": "Altersentlastungsbetrag on non-pension income from the year after turning 64, by that year. Under 3% for cohorts turning 64 around 2050.",
+      "source": "EStG §24a (as amended by the Wachstumschancengesetz)",
+      "verify": true
+    }
+  },
+  "pensionHealthInsurance": {
+    "kvdr": {
+      "qualifyingShare": "0.9",
+      "yearsPerChild": 3,
+      "pensionRateShare": "0.5",
+      "foreignPensionRateShare": "0.5",
+      "occupationalHealthAllowanceMonthly": "197.75",
+      "occupationalCareThresholdMonthly": "197.75",
+      "occupationalLumpSumSpreadMonths": 120,
+      "indexing": "wages",
+      "note": "Contributions on statutory pensions (half the general rate and half the Zusatzbeitrag; the DRV pays the other half), foreign statutory pensions (half, nobody pays the other half), bAV (full rate above the allowance; care on all of it above the threshold) and self-employment income. Nothing on capital income, Riester, Rürup or rent. Care: the full rate, paid by the pensioner.",
+      "source": "SGB V §5 Abs. 1 Nr. 11 (9/10 rule), §226, §228, §229 Abs. 1 Satz 3, §237, §247, §248; SGB XI §57, §59; GKV-Spitzenverband and DRV, Rundschreiben KVdR: https://www.vdek.com/vertragspartner/mitgliedschaftsrecht_beitragsrecht/krankenversicherung-rentner-versorgungsbezuege-einkommen-renten/_jcr_content/par/download_23269565/file.res/RS-KVdR-24-10-2019.pdf"
+    },
+    "foreignPensionCare": {
+      "fullRate": true,
+      "note": "Care contributions on a foreign statutory pension at the full rate.",
+      "source": "SGB XI §57 Abs. 1 with SGB V §228 Abs. 1 Satz 2; no primary text read",
+      "verify": true
+    },
+    "euPeriodsForKvdr": {
+      "value": true,
+      "italianResidencePeriods": { "value": true, "note": "Whether years covered by Italy's residence-based health service count as insurance periods.", "source": "VO (EG) 883/2004 Art. 6; no ruling found", "verify": true },
+      "source": "VO (EG) 883/2004 Art. 6; GKV-Spitzenverband and DRV, Rundschreiben KVdR"
+    },
+    "voluntary": {
+      "saverAllowanceDeductible": false,
+      "partialExemptionApplies": { "value": true, "source": "Krankenkassen practice (secondary: versicherungenmitkopf.de, Finanztip forum)", "verify": true },
+      "vorabpauschaleCounts": { "value": true, "source": "Secondary (Finanztip forum)", "verify": true },
+      "riesterRuerupCount": { "value": true, "source": "SGB V §240 (all income for living); not confirmed for each wrapper", "verify": true },
+      "pensionRate": "general",
+      "otherIncomeRate": "reduced",
+      "drvSubsidyShare": "0.5",
+      "note": "All income: pensions, payouts, interest, gains, rent; between the minimum base and the ceiling. DRV pays half the general rate and half the Zusatzbeitrag of the statutory pension (at most half the contribution or premium).",
+      "source": "SGB V §240, §243, §247; SGB VI §106; Beitragsverfahrensgrundsätze Selbstzahler (GKV-Spitzenverband); haufe, Einnahmen aus Kapitalvermögen: https://www.haufe.de/sozialwesen/sgb-office-professional/beitragspflichtige-einnahmen-freiwillig-krankenversicherter-16-einnahmen-aus-kapitalvermoegenvermietungverpachtung_idesk_PI434_HI10152386.html"
+    }
+  },
+  "investments": {
+    "flatRate": {
+      "rate": "0.25",
+      "source": "EStG §32d Abs. 1"
+    },
+    "partialExemption": {
+      "rates": {
+        "equityFund": "0.30",
+        "mixedFund": "0.15",
+        "realEstateFund": "0.60",
+        "foreignRealEstateFund": "0.80",
+        "fund": "0"
+      },
+      "equityFundMinimumShare": "0.5",
+      "equityFundShareInclusive": false,
+      "mixedFundMinimumShare": "0.25",
+      "realEstateFundMinimumShare": "0.51",
+      "note": "Applies to distributions, the Vorabpauschale and sale gains of private investors. Equity funds invest continuously more than 50% in equities, mixed funds at least 25%. fund: bond, money-market and other funds.",
+      "source": "InvStG §20 and §2 Abs. 6, 7 and 9: https://www.gesetze-im-internet.de/invstg_2018/__20.html"
+    },
+    "vorabpauschale": {
+      "basiszins": "0.032",
+      "basisShare": "0.7",
+      "deemedReceived": "2027-01-04",
+      "note": "Base income = 1 January value * 70% * Basiszins, at most the year's rise in value plus distributions, less distributions. Deemed received on the first working day of the next year. Deducted in full from the gain on sale.",
+      "source": "InvStG §18 and §19 Abs. 1 Satz 3: https://www.gesetze-im-internet.de/invstg_2018/__18.html; BMF, Basiszins zum 2. Januar 2026 (13 January 2026): https://www.bundesfinanzministerium.de/Content/DE/Downloads/BMF_Schreiben/Steuerarten/Investmentsteuer/2026-01-13-basiszins-berechnung-vorabpauschale.pdf"
+    },
+    "lossOffsetting": {
+      "sharesOnlyAgainstShares": true,
+      "derivativeLimit": null,
+      "carryForward": true,
+      "modelledCarryForward": false,
+      "note": "Losses on shares only offset gains on shares; other losses (funds included) offset any capital income. The 20,000 limit on derivatives was abolished for all open cases (JStG 2024).",
+      "source": "EStG §20 Abs. 6; JStG 2024 (secondary: https://ecovis-kso.com/blog/verlustverrechnung-termingeschaefte-2024/)"
+    },
+    "lowerTariffOption": {
+      "value": true,
+      "note": "Günstigerprüfung: all capital income at the tariff when that's lower, keeping the saver allowance and the partial exemption.",
+      "source": "EStG §32d Abs. 6"
+    },
+    "foreignTaxCredit": {
+      "treatyCaps": { "IT": { "interest": "0.10", "dividends": "0.15" } },
+      "modelled": false,
+      "source": "EStG §32d Abs. 5; DBA Italien Art. 10 and 11"
+    },
+    "privateSales": {
+      "holdingYears": 1,
+      "propertyHoldingYears": 10,
+      "exemptionLimit": "1000",
+      "exemptionLimitIsThreshold": true,
+      "categories": [ "physicalGold", "crypto" ],
+      "indexing": "fixed",
+      "note": "Gains of private sales within the holding period are taxed at the tariff unless their total in the year is under 1,000 (a threshold: at 1,000 or more, all of it is taxed). Gold ETCs with a right to physical delivery count as gold.",
+      "source": "EStG §23 Abs. 1 Nr. 1-2 and Abs. 3 Satz 5 (1,000 from 2024): https://esth.bundesfinanzministerium.de/esth/2024/tabellarische-Uebersicht/Freigrenze-private-Veraeu%C3%9Ferungsgewinne.html; BFH VIII R 4/15 (Xetra-Gold)"
+    },
+    "otherIncome": {
+      "exemptionLimit": "256",
+      "indexing": "fixed",
+      "note": "Crypto staking and lending rewards: a threshold of 256 a year.",
+      "source": "EStG §22 Nr. 3 Satz 2; BMF, Einzelfragen zur ertragsteuerrechtlichen Behandlung von bestimmten Kryptowerten (6 March 2025)",
+      "verify": true
+    },
+    "lifeInsurance": {
+      "halfIncomeAfterYears": 12,
+      "halfIncomeFromAge": 62,
+      "halfIncomeFromAgeBefore2012": 60,
+      "modelled": false,
+      "source": "EStG §20 Abs. 1 Nr. 6"
+    }
+  },
+  "wrappers": {
+    "riester": {
+      "maximumWithGrant": "2100",
+      "basicGrant": "175",
+      "childGrant": "300",
+      "minimumOwnShareOfPriorIncome": "0.04",
+      "payoutFromAge": 62,
+      "maxLumpSumShare": "0.3",
+      "newContractsUntil": 2026,
+      "indexing": "fixed",
+      "source": "EStG §10a, §79-99 (§84 grant, §85 child grant, §86 minimum contribution); AltZertG §1 Abs. 1 Nr. 2 and 4; Altersvorsorgereformgesetz (no new contracts from 2027)"
+    },
+    "ruerup": {
+      "payoutFromAge": 62,
+      "annuityOnly": true,
+      "note": "Deductible within provisions.retirementMaximum together with DRV contributions.",
+      "source": "EStG §10 Abs. 1 Nr. 2 Buchst. b"
+    },
+    "bav": {
+      "taxFreeShareOfPensionCeiling": "0.08",
+      "contributionFreeShareOfPensionCeiling": "0.04",
+      "employerTopUp": "0.15",
+      "payoutFromAge": 62,
+      "indexing": "wages",
+      "note": "2026: 8,112 tax-free and 4,056 free of contributions a year. The employer adds 15% of converted salary when it saves contributions.",
+      "source": "EStG §3 Nr. 63; SvEV §1 Abs. 1 Nr. 9; BetrAVG §1a Abs. 1a; aba on the Zweites Betriebsrentenstärkungsgesetz: https://www.aba-online.de/infothek/aktuelles/kurzmeldungen/2026-01-21-zweites-betriebsrentenstaerkungsgesetz-im-bundesgesetzblatt"
+    },
+    "altersvorsorgedepot": {
+      "from": 2027,
+      "grant": { "bands": [ { "upTo": "360", "rate": "0.5" }, { "upTo": "1800", "rate": "0.25" } ] },
+      "maximumOwnContribution": "1800",
+      "payoutFromAge": 65,
+      "payoutLatestStartAge": 70,
+      "payoutPlanUntilAge": 85,
+      "maxLumpSumShare": "0.3",
+      "note": "Grants: 50% on the first 360 a year and 25% on the next 1,440 (at most 540), plus child grants. Deduction of contributions plus grants with the Riester-style comparison. Earlier payout if a statutory pension is already paid.",
+      "source": "Altersvorsorgereformgesetz (Bundestag 27 March 2026, Bundesrat 8 May 2026): https://www.bundestag.de/dokumente/textarchiv/2026/kw13-de-altersvorsorge-1156798; BMF FAQ: https://www.bundesfinanzministerium.de/Content/DE/FAQ/reform-der-privaten-altersvorsorge.html",
+      "verify": true
+    }
+  },
+  "inheritance": {
+    "relationships": {
+      "spouse": { "class": 1, "allowance": "500000" },
+      "lineal": { "class": 1, "allowance": "400000" },
+      "grandparent": { "class": 1, "allowance": "200000" },
+      "sibling": { "class": 2, "allowance": "20000" },
+      "relative": { "class": 2, "allowance": "20000" },
+      "other": { "class": 3, "allowance": "20000" }
+    },
+    "defaultRelationship": "lineal",
+    "classRates": {
+      "limits": [ "75000", "300000", "600000", "6000000", "13000000", "26000000" ],
+      "1": [ "0.07", "0.11", "0.15", "0.19", "0.23", "0.27", "0.30" ],
+      "2": [ "0.15", "0.20", "0.25", "0.30", "0.35", "0.40", "0.43" ],
+      "3": [ "0.30", "0.30", "0.30", "0.30", "0.50", "0.50", "0.50" ]
+    },
+    "hardshipRelief": { "shareUpTo30Percent": "0.5", "shareAbove30Percent": "0.75" },
+    "indexing": "fixed",
+    "note": "Per heir. lineal: from a parent (the heir is a child). grandparent: the heir is a grandchild whose parent is alive. relative: class II (nephews, nieces, in-laws); cousins, aunts and uncles are class III (use other). The rate applies to the whole taxable amount; hardship relief caps the tax above a limit at the tax at the limit plus half (three quarters above 30%) of the excess. The Federal Constitutional Court heard a challenge in October 2026.",
+    "source": "ErbStG §15 (classes), §16 (allowances), §19 Abs. 1 and 3: https://www.gesetze-im-internet.de/erbstg_1974/__19.html; §21 (foreign tax credit)"
+  },
+  "exitTax": {
+    "companyShareThreshold": "0.01",
+    "fundShareThreshold": "0.01",
+    "fundCostThreshold": "500000",
+    "fundCostPerFund": true,
+    "residenceYears": 7,
+    "lookbackYears": 12,
+    "instalments": { "value": 7, "verify": true },
+    "returnWithinYears": { "value": 7, "verify": true },
+    "modelled": false,
+    "note": "A deemed sale on leaving German residence. Funds (ETFs included) since 1 January 2025. The planner only warns until TaxKit can see a residence ending and per-fund costs (DE.md, G7).",
+    "source": "AStG §6; InvStG §19 Abs. 3 and §49 Abs. 5 (JStG 2024); KPMG: https://kpmg.com/de/de/themen/corporate-governance-und-compliance/kpmg-steuertipps/steuertipp-wegzugsbesteuerung-ab-2025.html"
+  },
+  "treaties": {
+    "IT": {
+      "socialSecurityPensions": {
+        "rule": "Taxed only in the paying state if the recipient is a national of that state and not of the other; otherwise only in the state of residence.",
+        "italyLimitedToGermanTaxableShare": true,
+        "source": "DBA Italien 1989 Art. 18, Art. 19 Abs. 4 and Protocol Nr. 14 Buchst. e; BFH 17 August 2022, I R 17/19: https://www.bundesfinanzhof.de/de/entscheidung/entscheidungen-online/detail/pdf/STRE202310062?type=1646225765"
+      },
+      "privatePensions": { "rule": "Residence state.", "source": "DBA Italien Art. 18 Abs. 1", "verify": true },
+      "tfr": { "rule": "Italy, as pay for work done there; Germany exempts with the progression clause.", "source": "DBA Italien Art. 15 and Art. 24 Abs. 3", "verify": true },
+      "withholdingCaps": { "interest": "0.10", "dividends": "0.15", "source": "DBA Italien Art. 10 and 11" },
+      "method": {
+        "value": "Germany exempts with progression (employment income, public pensions, property) and credits (dividends, interest).",
+        "source": "DBA Italien Art. 24 Abs. 3"
+      }
+    }
+  },
+  "nonResident": {
+    "basicAllowance": false,
+    "residentTreatmentShare": "0.9",
+    "modelled": false,
+    "note": "A non-resident's German income (e.g. a DRV pension taxed in Germany under the treaty) is taxed without the Grundfreibetrag, unless at least 90% of world income is German-taxed or the rest is under the Grundfreibetrag; then as a resident.",
+    "source": "EStG §1 Abs. 3 and 4, §1a, §49 Abs. 1 Nr. 7, §50 Abs. 1 Satz 2"
+  },
+  "tradeTax": {
+    "modelled": false,
+    "allowance": "24500",
+    "baseRate": "0.035",
+    "incomeTaxCreditFactor": "4.0",
+    "note": "For de.trader (later): (profit - 24,500) * 3.5% * the municipality's multiplier; 4.0 times the base amount is credited against income tax.",
+    "source": "GewStG §11 Abs. 1-2, §16; EStG §35"
+  }
+}
