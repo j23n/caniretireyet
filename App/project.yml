@@ -98,6 +98,12 @@ targets:
         product: TaxGeneric
       - package: CanIRetireYetKit
         product: TaxItaly
+      # Linked so registering the Swiss and German systems is two lines in
+      # Stores/PlannerPlanEngine.swift (AppTaxRegistry): an import and an entry.
+      - package: CanIRetireYetKit
+        product: TaxSwitzerland
+      - package: CanIRetireYetKit
+        product: TaxGermany
       - package: CanIRetireYetKit
         product: Planner
       - package: CanIRetireYetKit

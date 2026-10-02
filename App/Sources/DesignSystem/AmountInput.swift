@@ -61,8 +61,9 @@ enum CurrencyChoices {
     }
 }
 
-/// Countries offered for tax residence. Italy has a full tax system; the
-/// others use the generic flat-rate system in plans for now.
+/// Countries offered for tax residence and citizenship, most common first.
+/// Plans use a country's tax system when one is registered, else the
+/// generic flat-rate system (`YouSettings.taxRulesNote(for:)`).
 enum CountryChoices {
     static let common: [CountryCode] = ["IT", "DE", "FR", "ES", "PT", "NL", "BE", "AT", "IE", "CH", "GB", "US"]
 

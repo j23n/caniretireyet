@@ -32,7 +32,8 @@ extension AccountKind {
         case .crypto: "Crypto wallet"
         case .metals: "Precious metals"
         case .pensionFund: "Pension fund"
-        case .tfr: "TFR"
+        // Italy's trattamento di fine rapporto, by what it is for anyone else.
+        case .tfr: "Severance pay (TFR)"
         case .property: "Property"
         case .vehicle: "Vehicle"
         case .loan: "Loan"

@@ -1,5 +1,6 @@
 import Foundation
 import Model
+import TaxKit
 import Tracker
 
 // The fields of an account being added or edited, and the defaults that
@@ -7,38 +8,90 @@ import Tracker
 // values, so they can be checked on Linux.
 
 /// Tax wrappers offered for accounts, and the one pre-selected for a kind
-/// and residence (e.g. a pension fund in Italy is `it.pensionFund`).
+/// and residence (e.g. a pension fund in Italy is `it.pensionFund`), read
+/// from the tax registry: a system registered later brings its wrappers
+/// with no change here.
 enum AccountWrapperDefaults {
-    /// Every wrapper offered in the picker: Italy's, then the generic ones.
-    static let choices: [WrapperID] = ["it.ordinary", "it.pensionFund", "it.tfr", .taxable, .taxDeferred, .taxFree]
+    /// The system of `residence`: the registered system whose ID is the
+    /// country code in lower case (`it`, `ch`, `de`), else `generic`.
+    static func system(for residence: CountryCode?, registry: TaxRegistry = AppTaxRegistry.standard)
+        -> (any TaxSystem)? {
+        if let residence, let system = registry.system(residence.rawValue.lowercased()) { return system }
+        return registry.system(TaxSystemID.generic.rawValue)
+    }
 
-    /// The wrapper for a new account of `kind` when you live in `residence`.
-    /// Property, vehicles and debts have none.
-    static func wrapper(for kind: AccountKind, residence: CountryCode?) -> WrapperID? {
-        let italy = residence == .it
+    /// Every wrapper offered in the picker: your residence's system's first,
+    /// then the other countries' systems' in registration order, then the
+    /// generic ones; each once.
+    static func choices(residence: CountryCode?, registry: TaxRegistry = AppTaxRegistry.standard) -> [WrapperID] {
+        let own = system(for: residence, registry: registry)
+        let generic = registry.system(TaxSystemID.generic.rawValue)
+        var systems: [any TaxSystem] = own.map { [$0] } ?? []
+        systems += registry.systems.filter { $0.id != own?.id && $0.id != generic?.id }
+        if let generic, generic.id != own?.id { systems.append(generic) }
+        var result: [WrapperID] = []
+        for system in systems {
+            for rule in system.wrappers where !result.contains(WrapperID(rule.id)) {
+                result.append(WrapperID(rule.id))
+            }
+        }
+        return result
+    }
+
+    /// The wrapper for a new account of `kind` when you live in `residence`,
+    /// from that country's system (else the generic one): its first
+    /// tax-advantaged wrapper that isn't severance pay for a pension fund,
+    /// its severance-pay wrapper for a TFR, its first taxable wrapper for the
+    /// rest. Property, vehicles and debts have none.
+    static func wrapper(for kind: AccountKind, residence: CountryCode?,
+                        registry: TaxRegistry = AppTaxRegistry.standard) -> WrapperID? {
+        let own = system(for: residence, registry: registry)?.wrappers ?? []
+        let generic = registry.system(TaxSystemID.generic.rawValue)?.wrappers ?? []
+        func first(_ test: (WrapperRule) -> Bool, fallback: WrapperID) -> WrapperID {
+            (own.first(where: test) ?? generic.first(where: test)).map { WrapperID($0.id) } ?? fallback
+        }
         switch kind {
         case .property, .vehicle, .loan, .mortgage, .creditCard:
             return nil
         case .pensionFund:
-            return italy ? "it.pensionFund" : .taxDeferred
+            return first({ $0.category != .taxable && !isPaidWhenJobEnds($0) }, fallback: .taxDeferred)
         case .tfr:
-            return italy ? "it.tfr" : .taxDeferred
+            if let severance = own.first(where: isPaidWhenJobEnds) { return WrapperID(severance.id) }
+            return first({ $0.category == .taxDeferred && !isPaidWhenJobEnds($0) }, fallback: .taxDeferred)
         default:
-            return italy ? "it.ordinary" : .taxable
+            return first({ $0.category == .taxable }, fallback: .taxable)
         }
     }
 
-    /// A readable name, e.g. "Pension fund (Italy)".
-    static func name(of wrapper: WrapperID) -> String {
-        switch wrapper.rawValue {
-        case "it.ordinary": "Ordinary account (Italy)"
-        case "it.pensionFund": "Pension fund (Italy)"
-        case "it.tfr": "TFR (Italy)"
-        case WrapperID.taxable.rawValue: "Taxable"
-        case WrapperID.taxDeferred.rawValue: "Tax-deferred"
-        case WrapperID.taxFree.rawValue: "Tax-free"
-        default: wrapper.rawValue
+    /// Whether a wrapper is severance pay, paid out when a job ends (Italy's
+    /// TFR): locked while working, open as soon as work stops, whatever the
+    /// age and membership. The planner recognises it the same way.
+    static func isPaidWhenJobEnds(_ rule: WrapperRule) -> Bool {
+        func opens(yearsSinceWorkStopped: Int?) -> Bool {
+            rule.access(in: WrapperAccessContext(year: 2_000, age: 0, yearsSinceWorkStopped: yearsSinceWorkStopped,
+                                                 oldAgePensionAge: nil, contributionYears: 0,
+                                                 membershipYears: 0)).isAccessible
         }
+        return !opens(yearsSinceWorkStopped: nil) && opens(yearsSinceWorkStopped: 0)
+    }
+
+    /// A readable name: the wrapper's, with its country's system for a
+    /// country's wrapper ("Pension fund (Italy)"); the generic ones
+    /// ("Tax-deferred") and unknown IDs as they are.
+    static func name(of wrapper: WrapperID, registry: TaxRegistry = AppTaxRegistry.standard) -> String {
+        for system in registry.systems {
+            guard let rule = system.wrapper(wrapper.rawValue) else { continue }
+            return system.id == TaxSystemID.generic.rawValue ? rule.name : "\(rule.name) (\(system.name))"
+        }
+        return wrapper.rawValue
+    }
+
+    /// Whether a wrapper keeps a joining date (`tax.joined`), which can set
+    /// its payout tax (an Italian pension fund's falls with the years of
+    /// membership): any tax-advantaged wrapper but severance pay.
+    static func recordsJoiningDate(_ wrapper: WrapperID, registry: TaxRegistry = AppTaxRegistry.standard) -> Bool {
+        guard let rule = registry.wrapper(wrapper.rawValue) else { return false }
+        return rule.category != .taxable && !isPaidWhenJobEnds(rule)
     }
 
     /// Whether a new account of `kind` counts in plans by default: a home,
@@ -211,6 +264,14 @@ struct AccountForm: Hashable, Sendable {
         }
     }
 
+    /// The wrappers the picker offers (``AccountWrapperDefaults/choices(residence:registry:)``),
+    /// with the account's own first when no registered system knows it.
+    var wrapperChoices: [WrapperID] {
+        let choices = AccountWrapperDefaults.choices(residence: residence)
+        guard let wrapper, !choices.contains(wrapper) else { return choices }
+        return [wrapper] + choices
+    }
+
     /// Whether plans include it; setting it stops it following the kind.
     var chosenPlanInclusion: Bool {
         get { includedInPlan }
@@ -312,7 +373,7 @@ struct AccountForm: Hashable, Sendable {
             if tax.wrapper != wrapper {
                 tax = AccountTax(wrapper: wrapper)
             }
-            if wrapper == "it.pensionFund", tax.details["joined"] == nil {
+            if AccountWrapperDefaults.recordsJoiningDate(wrapper), tax.details["joined"] == nil {
                 tax.details["joined"] = .string(opened.description)
             }
             account.tax = tax
