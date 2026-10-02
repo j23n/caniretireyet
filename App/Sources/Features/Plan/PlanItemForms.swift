@@ -75,6 +75,42 @@ struct PlanPensionList: View {
     }
 }
 
+/// Contributions as rows ("Fondo pensione · Every year until retirement ·
+/// 5.000 €/yr", "BVG · Pension scheme (buy-in) · Once in 2030 · 20.000
+/// CHF"); a row opens its editor.
+struct PlanContributionList: View {
+    let plan: PlanDocument
+    let summaries: PlanInputSummaries
+    let issues: PlanInputIssues
+    @Binding var editing: PlanEditTarget?
+    @Environment(LibraryStore.self) private var library
+
+    var body: some View {
+        let schemes = PlanEditing.contributionSchemes(for: plan, settings: library.settings,
+                                                      registry: AppTaxRegistry.standard)
+        let accounts = PlanEditing.contributionAccounts(in: library.library)
+        VStack(alignment: .leading, spacing: Metrics.xs) {
+            ForEach(plan.contributions.indices, id: \.self) { index in
+                let contribution = plan.contributions[index]
+                PlanListRow(title: summaries.title(of: contribution), detail: summaries.detail(of: contribution),
+                            issues: issues.issues(for: .contributions, index: index)) {
+                    editing = .contribution(index: index, contribution: contribution)
+                }
+                Divider()
+            }
+            Button {
+                if let contribution = PlanEditing.newContribution(in: library.library, schemes: schemes) {
+                    editing = .contribution(index: plan.contributions.count, contribution: contribution)
+                }
+            } label: {
+                Label("Add a contribution", systemImage: "plus")
+            }
+            .buttonStyle(.borderless)
+            .disabled(accounts.isEmpty && schemes.isEmpty)
+        }
+    }
+}
+
 /// One-off events as rows ("Inheritance · at 62").
 struct PlanEventList: View {
     let plan: PlanDocument
@@ -194,11 +230,9 @@ struct PlanTaxesEditor: View {
     /// "Addizionale regionale 1,73% · Addizionale comunale 0,8%".
     private func optionsSummary(_ entry: PlanResidence) -> String {
         let fields = PlanTaxChoices.systemFields(entry.system, registry: AppTaxRegistry.standard)
-        return fields.compactMap { field -> String? in
-            guard let value = entry.options[field.key] else { return nil }
-            let text = PlanOptionForm.text(for: value, kind: field.kind)
-            return field.kind == .percent ? "\(field.label) \(text)%" : "\(field.label) \(text)"
-        }.joined(separator: " · ")
+        return PlanOptionForm.summary(entry.options, fields: fields, currency: summaries.currency,
+                                      hidesAmounts: summaries.hidesAmounts, locale: summaries.locale)
+            .joined(separator: " · ")
     }
 
     private func overlayYears(_ overlay: PlanOverlay) -> String {
@@ -312,6 +346,16 @@ struct PlanItemSheet: View {
             }) { binding in
                 PlanPensionForm(pension: binding, plan: plan, issues: issues.issues(for: .pensions, index: index))
             }
+        case .contribution(let index, let contribution):
+            PlanItemEditor(index < plan.contributions.count ? "Contribution" : "New contribution", item: contribution,
+                           onSave: { edited in
+                session.edit { $0.contributions = PlanEditing.replacing(at: index, with: edited, in: $0.contributions) }
+            }, onDelete: deletion(index < plan.contributions.count) {
+                session.edit { $0.contributions = PlanEditing.removing(at: index, from: $0.contributions) }
+            }) { binding in
+                PlanContributionForm(contribution: binding, plan: plan,
+                                     issues: issues.issues(for: .contributions, index: index))
+            }
         case .event(let index, let event):
             PlanItemEditor(index < plan.events.count ? "Event" : "New event", item: event, onSave: { edited in
                 session.edit { $0.events = PlanEditing.replacing(at: index, with: edited, in: $0.events) }
@@ -367,6 +411,7 @@ struct PlanWorkPhaseForm: View {
     let plan: PlanDocument
     let issues: [PlanIssue]
     @Environment(LibraryStore.self) private var library
+    @Environment(\.baseCurrency) private var currency
 
     var body: some View {
         let registry = AppTaxRegistry.standard
@@ -403,7 +448,7 @@ struct PlanWorkPhaseForm: View {
         } header: {
             Text("Amounts")
         } footer: {
-            Text("In today's euros. Growth is above inflation.")
+            Text("In \(PlanMoney.todaysMoney(currency)). Growth is above inflation.")
         }
         Section {
             Picker("Regime", selection: $phase.planRegime) {
@@ -436,11 +481,39 @@ struct PlanPensionForm: View {
     let issues: [PlanIssue]
     @Environment(LibraryStore.self) private var library
     @Environment(\.locale) private var locale
+    @Environment(\.baseCurrency) private var currency
+
+    private let registry = AppTaxRegistry.standard
+
+    /// The kinds offered, with the pension's own first when this version doesn't know it.
+    private var kinds: [PlanPensionKind] {
+        guard let kind = pension.kind, !PlanPensionChoices.kinds.contains(kind) else { return PlanPensionChoices.kinds }
+        return [kind] + PlanPensionChoices.kinds
+    }
+
+    /// The paying country.
+    private var countryPicker: some View {
+        Picker("Paying country", selection: $pension.sourceCountry) {
+            Text("Not set").tag(CountryCode?.none)
+            ForEach(countries, id: \.self) { code in
+                Text(CountryChoices.name(of: code, locale: locale)).tag(Optional(code))
+            }
+        }
+    }
+
+    private var countries: [CountryCode] {
+        guard let country = pension.sourceCountry, !CountryChoices.common.contains(country) else {
+            return CountryChoices.common
+        }
+        return [country] + CountryChoices.common
+    }
 
     var body: some View {
-        let registry = AppTaxRegistry.standard
         let schemes = PlanTaxChoices.schemeChoices(for: plan, settings: library.settings, registry: registry)
         let fields = PlanTaxChoices.pensionOptionFields(scheme: pension.scheme.rawValue, registry: registry)
+        let routes: [PlanClaimRoute] = pension.scheme == .fixed ? []
+            : PlanPensionChoices.claimRoutes(for: pension, birthDate: library.settings.person?.birthDate,
+                                             today: .today(), registry: registry)
         Section("Pension") {
             Picker("Scheme", selection: $pension.planScheme) {
                 ForEach(schemes) { scheme in
@@ -454,16 +527,53 @@ struct PlanPensionForm: View {
                       prompt: Text(PlanResultsMapping.pensionName(PlanPension(scheme: pension.scheme), registry: registry)))
         }
         if pension.scheme == .fixed {
-            Section("From your statement") {
+            Section {
                 Stepper("Paid from \(pension.planFromAge)", value: $pension.planFromAge, in: 40...90)
                 PlanNumberRow("Gross per year", value: $pension.perYear, unit: "/yr")
+                Picker("Kind", selection: $pension.kind) {
+                    Text("Not set").tag(PlanPensionKind?.none)
+                    ForEach(kinds, id: \.self) { kind in
+                        Text(PlanPensionChoices.name(of: kind)).tag(Optional(kind))
+                    }
+                }
+                countryPicker
+            } header: {
+                Text("From your statement")
+            } footer: {
+                Text("In \(PlanMoney.todaysMoney(currency)). What kind of pension it is and which country pays it: "
+                    + "some tax systems tax kinds differently, and treaties look at the paying country.")
             }
         } else {
-            Section("When to claim") {
+            Section {
                 Toggle("As early as possible", isOn: $pension.planClaimsEarliest)
                 if !pension.planClaimsEarliest {
                     Stepper("At \(pension.planClaimAge)", value: $pension.planClaimAge, in: 50...80)
                 }
+                if routes.isEmpty {
+                    LabeledContent("Way to claim") {
+                        TextField("Way to claim", text: $pension.planClaimRoute, prompt: Text("The first offered"))
+                            .labelsHidden()
+                            .multilineTextAlignment(.trailing)
+                    }
+                } else if PlanPensionChoices.offersRouteChoice(routes, pension: pension) {
+                    Picker("Way to claim", selection: $pension.planClaimRoute) {
+                        Text("The first offered at the age").tag("")
+                        ForEach(routes) { route in
+                            Text(route.title).tag(route.id)
+                        }
+                        if let route = pension.claimRoute, !routes.contains(where: { $0.id == route }) {
+                            Text(route).tag(route)
+                        }
+                    }
+                }
+            } header: {
+                Text("When to claim")
+            } footer: {
+                Text(routes.isEmpty
+                     ? "The scheme lists its ways to claim once its details below are filled in. A way it never "
+                         + "offers shows as a warning when the plan is calculated."
+                     : "Some schemes can be claimed in several ways, e.g. part as a lump sum. Without a choice, the "
+                         + "first one offered at the age is taken.")
             }
         }
         Section {
@@ -471,18 +581,13 @@ struct PlanPensionForm: View {
                 Text("Where you live").tag(TaxedIn.residence)
                 Text("The paying country").tag(TaxedIn.source)
             }
-            if pension.planTaxedIn == .source {
-                Picker("Paying country", selection: $pension.sourceCountry) {
-                    Text("Not set").tag(CountryCode?.none)
-                    ForEach(CountryChoices.common, id: \.self) { code in
-                        Text(CountryChoices.name(of: code, locale: locale)).tag(Optional(code))
-                    }
-                }
+            if pension.planTaxedIn == .source && pension.scheme != .fixed {
+                countryPicker
             }
         } header: {
             Text("Taxes")
         } footer: {
-            Text("A pension taxed where it's paid is entered after that tax.")
+            Text(PlanPensionChoices.taxNote(for: pension, registry: registry, locale: locale))
         }
         if !fields.isEmpty {
             Section("Details") {
@@ -490,6 +595,82 @@ struct PlanPensionForm: View {
             }
         }
         PlanIssuesSection(issues: issues)
+    }
+}
+
+/// A contribution: into an account or into a pension scheme (a buy-in), and
+/// paid every year while working (until retirement or a date) or once, in
+/// a year.
+struct PlanContributionForm: View {
+    @Binding var contribution: PlanContribution
+    let plan: PlanDocument
+    let issues: [PlanIssue]
+    @Environment(LibraryStore.self) private var library
+    @Environment(\.baseCurrency) private var currency
+
+    var body: some View {
+        let accounts = PlanEditing.contributionAccounts(in: library.library)
+        let schemes = PlanEditing.contributionSchemes(for: plan, settings: library.settings,
+                                                      registry: AppTaxRegistry.standard)
+        let target = contribution.planTarget
+        let isListed = Self.lists(target, accounts: accounts, schemes: schemes)
+        Section {
+            Picker("Into", selection: $contribution.planTarget) {
+                if !isListed {
+                    Text(contribution.pension?.rawValue ?? contribution.account.rawValue).tag(target)
+                }
+                Section("Accounts") {
+                    ForEach(accounts) { account in
+                        Text(account.name).tag(PlanContributionTarget.account(account.id))
+                    }
+                }
+                if !schemes.isEmpty {
+                    Section("Pension schemes") {
+                        ForEach(schemes) { scheme in
+                            Text(scheme.name).tag(PlanContributionTarget.scheme(PensionSchemeID(scheme.id)))
+                        }
+                    }
+                }
+            }
+        } header: {
+            Text("Contribution")
+        } footer: {
+            Text(contribution.pension == nil
+                 ? "Paid into the account, and drawn as its tax wrapper allows. The rest of your savings goes to your "
+                     + "investments."
+                 : "A buy-in: paid into the pension scheme, so its pension grows. The tax system decides what it "
+                     + "adds and any tax relief.")
+        }
+        Section {
+            Picker("Paid", selection: $contribution.planIsOneOff) {
+                Text("Every year").tag(false)
+                Text("Once").tag(true)
+            }
+            .pickerStyle(.segmented)
+            if contribution.planIsOneOff {
+                PlanNumberRow("Amount", value: $contribution.planAmount)
+                Stepper("In \(String(contribution.planYear))", value: $contribution.planYear, in: 2_000...2_150)
+            } else {
+                PlanNumberRow("Per year", value: $contribution.perYear, unit: "/yr")
+                Toggle("Until retirement", isOn: $contribution.planUntilRetirement)
+                if !contribution.planUntilRetirement {
+                    DatePicker("Until", selection: $contribution.planUntilDate.planDate, displayedComponents: .date)
+                }
+            }
+        } header: {
+            Text("Amount")
+        } footer: {
+            Text("In \(PlanMoney.todaysMoney(currency)).")
+        }
+        PlanIssuesSection(issues: issues)
+    }
+
+    /// Whether the picker lists `target` among the accounts and schemes.
+    private static func lists(_ target: PlanContributionTarget, accounts: [Account], schemes: [PlanChoice]) -> Bool {
+        switch target {
+        case .account(let id): accounts.contains { $0.id == id }
+        case .scheme(let id): schemes.contains { $0.id == id.rawValue }
+        }
     }
 }
 

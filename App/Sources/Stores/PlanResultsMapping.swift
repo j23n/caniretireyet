@@ -36,6 +36,66 @@ struct PlanResultDetails: Hashable, Sendable {
     /// the check-in the plan started from): success rates to 3 decimals and
     /// FI progress to 2, exactly as the CLI records it.
     var headline: Headline? = nil
+    /// How the plan read your library: the buckets it grouped the accounts
+    /// into, and the accounts that start a pension scheme.
+    var reading: PlanLibraryReading? = nil
+}
+
+/// How a plan read your library (PLANNER.md, "Buckets", and "Accounts that
+/// hold a scheme's record" in TAXES.md): the accounts grouped by tax
+/// wrapper, with their value on the start date, and the accounts whose value
+/// became a pension scheme's starting balance instead of money to draw on.
+struct PlanLibraryReading: Hashable, Sendable {
+    /// Accounts with one wrapper.
+    struct Bucket: Hashable, Sendable {
+        /// The wrapper's name, e.g. "Pension fund".
+        var name: String
+        /// Drawn any time (taxable), or by the wrapper's rules.
+        var isLiquid: Bool
+        /// Whether new savings go here.
+        var receivesSavings: Bool
+        /// Its value on the start date, in the plan's currency.
+        var value: Double
+        var accounts: [AccountID]
+    }
+
+    /// Accounts that start a pension scheme (`PlanStart.schemeSeeds`).
+    struct Seed: Hashable, Sendable {
+        /// The scheme's ID and name, e.g. `ch.bvg`, "BVG".
+        var scheme: String
+        var name: String
+        var accounts: [AccountID]
+        /// Their value on the start date, in the plan's currency.
+        var value: Double
+        /// Whether it became the pension's starting balance (`false` when
+        /// the plan sets one itself).
+        var used: Bool
+    }
+
+    /// The check-in the plan started from.
+    var date: CalendarDate
+    var buckets: [Bucket]
+    var seeds: [Seed]
+
+    init(date: CalendarDate, buckets: [Bucket] = [], seeds: [Seed] = []) {
+        self.date = date
+        self.buckets = buckets
+        self.seeds = seeds
+    }
+
+    /// From a Planner result.
+    init(_ start: PlanStart) {
+        self.init(
+            date: start.date,
+            buckets: start.buckets.map {
+                Bucket(name: PlanResultsMapping.shortName($0.name), isLiquid: $0.category == .taxable,
+                       receivesSavings: $0.receivesSavings, value: $0.value, accounts: $0.accounts)
+            },
+            seeds: start.schemeSeeds.map {
+                Seed(scheme: $0.scheme, name: PlanResultsMapping.shortName($0.name), accounts: $0.accounts,
+                     value: $0.value, used: $0.used)
+            })
+    }
 }
 
 /// The numbers that belong to one retirement age: the fan, paths and
@@ -50,7 +110,7 @@ struct PlanFocusDetails: Hashable, Sendable {
     /// Median plan assets at the end of the year you retire, and at the plan's end.
     var medianAtRetirement: Double?
     var medianAtEnd: Double?
-    /// All taxes in the median run, in today's euros.
+    /// All taxes in the median run, in today's money.
     var lifetimeTaxes: Double
     /// Net income per year in the deterministic run: work and pensions,
     /// after taxes and social contributions (whole-year amounts).
@@ -73,7 +133,7 @@ struct PlanPensionStart: Hashable, Sendable {
     var scheme: String
     /// The age it starts at, if it starts within the plan.
     var age: Int?
-    /// The gross amount of a whole year when it starts, in today's euros
+    /// The gross amount of a whole year when it starts, in today's money
     /// (a pension starting mid-year pays less in its first calendar year).
     var perYear: Double?
 }
@@ -154,7 +214,9 @@ extension PlanResults {
                 bridges: result.failures.bridges.map {
                     PlanBridgeFailure(name: $0.name, accessibleFromAge: $0.accessibleFromAge, share: $0.share)
                 }),
-            headline: result.headline())
+            headline: result.headline(),
+            reading: PlanLibraryReading(result.start))
+        currency = result.currency
     }
 
     /// These results with the charts and details of `focused`, a run of the
@@ -191,9 +253,14 @@ enum PlanResultsMapping {
         /// scheme's pension counts as one of the other pensions.
         case scheme(String)
         case otherPensions
-        case pensionFund
+        /// Money drawn as needed from tax-advantaged wrappers, e.g. a pension fund.
+        case pensionSavings
         case windfalls
-        case severance
+        /// Paid whether it's needed or not: a pension's lump sum in the year
+        /// it's claimed, severance pay when a job ends (Italy's TFR), and
+        /// payouts a wrapper's rules ask for (the whole balance at an age, or
+        /// spread over a few years).
+        case lumpSums
         case other
 
         /// The stacking order, bottom first, and the colour slot.
@@ -203,23 +270,23 @@ enum PlanResultsMapping {
             case .work: 1
             case .scheme: 2
             case .otherPensions: 3
-            case .pensionFund: 4
+            case .pensionSavings: 4
             case .windfalls: 5
-            case .severance: 6
+            case .lumpSums: 6
             case .other: 7
             }
         }
 
         /// One-off amounts, which may run off the top of the chart.
         var isOneOff: Bool {
-            self == .windfalls || self == .severance
+            self == .windfalls || self == .lumpSums
         }
     }
 
     /// The label of the taxes on top of retirement income.
     static let taxesLabel = "Taxes"
 
-    /// The fan in today's euros: the start value, then each year-end.
+    /// The fan in today's money: the start value, then each year-end.
     static func fan(_ result: PlanResult) -> [FanPoint] {
         let start = result.start.planAssets.doubleValue
         var points = [FanPoint(date: result.start.date.dateValue, p10: start, p25: start, p50: start, p75: start,
@@ -313,26 +380,55 @@ enum PlanResultsMapping {
         return registry?.pensionScheme(pension.scheme.rawValue)?.name ?? pension.scheme.rawValue
     }
 
-    static func category(of item: IncomeItem, plan: PlanDocument) -> IncomeCategory {
+    /// The suffix of a pension's lump sum's ID (`pension-0.lumpSum`): the
+    /// planner pays it once, in the year the pension is claimed.
+    static let lumpSumSuffix = ".lumpSum"
+
+    static func category(of item: IncomeItem, plan: PlanDocument, registry: TaxRegistry? = nil) -> IncomeCategory {
         switch item.kind {
         case .withdrawal: return .withdrawals
         case .pension:
+            if item.id.hasSuffix(lumpSumSuffix) { return .lumpSums }
             guard let found = planPension(id: item.id, in: plan) else { return .otherPensions }
             return found.pension.scheme == .fixed ? .otherPensions : .scheme(found.pension.scheme.rawValue)
-        case .payout: return item.id.hasSuffix(".tfr") || item.id == "tfr" ? .severance : .pensionFund
+        case .payout:
+            guard let rule = registry?.wrapper(item.id) else { return .pensionSavings }
+            return paysOutByRule(rule) ? .lumpSums : .pensionSavings
         case .windfall: return .windfalls
         case .work: return .work
         default: return .other
         }
     }
 
-    static func label(of category: IncomeCategory, registry: TaxRegistry?) -> String {
+    /// Whether a wrapper's money is paid out whether it's needed or not:
+    /// severance pay when a job ends, a balance its rules pay out whole at
+    /// some point (`mustPayOut`), or payouts spread over a few years
+    /// (`preferredPayoutYears`).
+    static func paysOutByRule(_ rule: WrapperRule) -> Bool {
+        rule.mustPayOut != nil || (rule.preferredPayoutYears ?? 0) > 0 || AccountWrapperDefaults.isPaidWhenJobEnds(rule)
+    }
+
+    /// What an income item is called in the chart's legend: a pension's lump
+    /// sum by its pension ("BVG lump sum"), anything else by its own label,
+    /// without the explanation in brackets.
+    static func sourceName(of item: IncomeItem, plan: PlanDocument, registry: TaxRegistry?) -> String {
+        if item.kind == .pension, item.id.hasSuffix(lumpSumSuffix),
+           let found = planPension(id: String(item.id.dropLast(lumpSumSuffix.count)), in: plan) {
+            return "\(shortName(pensionName(found.pension, registry: registry))) lump sum"
+        }
+        return shortName(item.label)
+    }
+
+    /// A category's label. Pension savings and lump sums take the name of
+    /// their one source when they have one ("Pension fund", "TFR"), else
+    /// a name for all of them.
+    static func label(of category: IncomeCategory, registry: TaxRegistry?, sources: Set<String> = []) -> String {
         switch category {
         case .withdrawals: "Withdrawals"
         case .scheme(let id): shortName(registry?.pensionScheme(id)?.name ?? id)
         case .otherPensions: "Other pensions"
-        case .pensionFund: "Pension fund"
-        case .severance: "TFR"
+        case .pensionSavings: sources.count == 1 ? sources.first! : "Pension savings"
+        case .lumpSums: sources.count == 1 ? sources.first! : "Lump sums and payouts"
         case .windfalls: "Windfalls"
         case .work: "Work"
         case .other: "Other"
@@ -341,9 +437,10 @@ enum PlanResultsMapping {
 
     /// Each category's colour slot: its place in the stack, so the stack runs
     /// through the palette in its validated order (withdrawals blue, work
-    /// orange, the public pension aqua, other pensions yellow, the pension
-    /// fund magenta, windfalls green, severance violet, other red). The
-    /// taxes on top are a neutral grey (``ChartColor/taxes``): they're not a source.
+    /// orange, the public pension aqua, other pensions yellow, pension
+    /// savings magenta, windfalls green, lump sums and payouts violet, other
+    /// red). The taxes on top are a neutral grey (``ChartColor/taxes``):
+    /// they're not a source.
     static func color(of category: IncomeCategory) -> ChartColor {
         .series(category.sortKey)
     }
@@ -363,13 +460,24 @@ enum PlanResultsMapping {
     /// to that plus taxes.
     static func income(_ years: [YearDetail], plan: PlanDocument, registry: TaxRegistry?) -> [IncomeSegment] {
         let firstScheme = plan.pensions.first { $0.scheme != .fixed }?.scheme.rawValue
+        func category(_ item: IncomeItem) -> IncomeCategory {
+            let category = self.category(of: item, plan: plan, registry: registry)
+            if case .scheme(let id) = category, id != firstScheme { return .otherPensions }
+            return category
+        }
+        // The names behind each category over all the years, so a category
+        // keeps one label (its single source's, else a general one).
+        var sources: [IncomeCategory: Set<String>] = [:]
+        for year in years {
+            for item in year.income where item.amount > 0.5 {
+                sources[category(item), default: []].insert(sourceName(of: item, plan: plan, registry: registry))
+            }
+        }
         var segments: [IncomeSegment] = []
         for year in years {
             var gross: [IncomeCategory: Double] = [:]
             for item in year.income where item.amount > 0.5 {
-                var category = category(of: item, plan: plan)
-                if case .scheme(let id) = category, id != firstScheme { category = .otherPensions }
-                gross[category, default: 0] += whole(item.amount, year)
+                gross[category(item), default: 0] += whole(item.amount, year)
             }
             let total = gross.values.reduce(0, +)
             guard total > 0.5 else { continue }
@@ -378,8 +486,8 @@ enum PlanResultsMapping {
             for category in gross.keys.sorted(by: { $0.sortKey < $1.sortKey }) {
                 guard let amount = gross[category], amount * share > 0.5 else { continue }
                 segments.append(IncomeSegment(
-                    year: year.year, source: label(of: category, registry: registry), amount: amount * share,
-                    color: color(of: category), isOneOff: category.isOneOff, gross: amount))
+                    year: year.year, source: label(of: category, registry: registry, sources: sources[category] ?? []),
+                    amount: amount * share, color: color(of: category), isOneOff: category.isOneOff, gross: amount))
             }
             if taxes > 0.5 {
                 segments.append(IncomeSegment(year: year.year, source: taxesLabel, amount: taxes, color: .taxes))

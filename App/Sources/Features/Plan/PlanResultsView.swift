@@ -53,6 +53,7 @@ struct PlanResultsView: View {
         .background(Palette.page)
     }
 
+    /// The cards, with amounts in the currency the results were calculated in.
     @ViewBuilder
     private func resultCards(_ results: PlanResults) -> some View {
         VStack(alignment: .leading, spacing: Metrics.l) {
@@ -68,6 +69,7 @@ struct PlanResultsView: View {
                         VStack(spacing: Metrics.l) {
                             PlanKeyNumbersCard(results: results)
                             PlanFailureCard(results: results)
+                            PlanLibraryCard(results: results)
                         }
                     }
                 }
@@ -76,8 +78,10 @@ struct PlanResultsView: View {
                 PlanFanCard(session: session, results: results)
                 PlanIncomeCard(results: results)
                 PlanFailureCard(results: results)
+                PlanLibraryCard(results: results)
             }
         }
+        .environment(\.baseCurrency, session.currency(of: results))
     }
 }
 
@@ -101,7 +105,7 @@ struct PlanResultsBanners: View {
             if let error = session.saveError {
                 StatusBanner(.error, "Your change wasn't saved", message: error)
             }
-            let warnings = PlanResultsText.warnings(session.shownResults)
+            let warnings = session.resultWarnings
             ForEach(Array(warnings.prefix(limit)), id: \.self) { warning in
                 StatusBanner(.warning, warning)
             }
@@ -343,11 +347,14 @@ struct PlanFanCard: View {
 
     @Environment(LibraryStore.self) private var library
     @Environment(AppPreferences.self) private var preferences
+    @Environment(\.baseCurrency) private var currency
+    @Environment(\.locale) private var locale
     @AppStorage("overview.range") private var range: OverviewRange = .threeYears
 
-    private var actual: [ChartPoint] {
-        PlanActualHistory.points(library: library.library, valuator: library.valuator, through: results.start.date,
-                                 inEurosOf: results.start.date)
+    /// Your actual plan assets in the results' currency, at each check-in's rate.
+    private var actual: PlanActualSeries {
+        PlanActualSeries(library: library.library, valuator: library.valuator, through: results.start.date,
+                         currency: currency, inMoneyOf: results.start.date)
     }
 
     var body: some View {
@@ -355,7 +362,9 @@ struct PlanFanCard: View {
         let retirement = results.retirementDate
         let window = ProjectionWindow(now: now, range: range, horizon: preferences.futureHorizon,
                                       retirement: retirement, planEnd: results.portfolio.last?.date ?? now)
-        let history = window.history(actual)
+        let actual = actual
+        let history = window.history(actual.points)
+        let money = PlanMoney.todaysMoney(currency)
         Card {
             HStack {
                 TimeSpanMenu(range: $range, horizon: preferences.horizonBinding(start: now, retirement: retirement),
@@ -365,12 +374,19 @@ struct PlanFanCard: View {
             FanChart(fan: window.fan(results.portfolio), actual: history,
                      markers: window.markers(results.markers, from: history.first?.date ?? now), showsLegend: true)
             ChartCaption(
-                text: "In today's euros.",
-                detail: "Your plan assets in today's euros: your actual values in ink, then the plan's projection. "
+                text: "In \(money).",
+                detail: "Your plan assets in \(money): your actual values in ink, then the plan's projection. "
                     + "The line is the median of the simulated futures, the darker band holds half of them and the "
                     + "lighter band 8 in 10; the lighter band can run off the top, so the rest stays readable. "
                     + "Markers show retirement, pensions starting, locked money becoming accessible, windfalls and "
                     + "large expenses. The time span menu sets how far back and ahead the chart reaches.")
+            if let note = PlanMoney.missingRatesNote(actual.missingRates, base: library.baseCurrency, currency: currency,
+                                                     locale: locale) {
+                Text(note)
+                    .font(.footnote)
+                    .foregroundStyle(Palette.secondaryInk)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
         } header: {
             SectionHeader((results.details?.focus.age ?? session.shownFocusAge)
                 .map { "Your money over time · retiring at \($0)" } ?? "Your money over time")
@@ -392,26 +408,30 @@ struct PlanFanLegend: View {
 struct PlanIncomeCard: View {
     let results: PlanResults
     @State private var showsTaxes = false
+    @Environment(\.baseCurrency) private var currency
 
     var body: some View {
+        let money = PlanMoney.todaysMoney(currency)
         Card {
             if showsTaxes {
                 IncomeStackChart(segments: results.taxes)
                 ChartCaption(
-                    text: "Median run · today's euros.",
+                    text: "Median run · \(money).",
                     detail: "The taxes of each year of retirement in the median run, by tax: on income and "
                         + "pensions, on gains when investments are sold (also to rebalance), on what's paid out "
-                        + "of the pension fund, and on wealth. In today's euros.")
+                        + "of pension savings, and on wealth. In \(money).")
             } else {
                 IncomeStackChart(segments: results.income, spending: results.spending)
                 ChartCaption(
-                    text: "Median run · today's euros · sources after tax.",
-                    detail: "Where each year's money comes from in the median run, in today's euros. Withdrawals "
+                    text: "Median run · \(money) · sources after tax.",
+                    detail: "Where each year's money comes from in the median run, in \(money). Withdrawals "
                         + "are what's sold from your investments; they also pay the tax on the sale and the "
-                        + "previous year's wealth tax, so in a rich run they can be well above your spending. So "
-                        + "that the chart reads against the spending line, each source is shown after its share of "
-                        + "the year's taxes, and the taxes paid from this income are the grey band on top. Taxes on "
-                        + "rebalancing are paid inside the portfolio: see Taxes.")
+                        + "previous year's wealth tax, so in a rich run they can be well above your spending. "
+                        + "Lump sums and payouts are paid whether they're needed or not: a pension taken partly "
+                        + "as capital, severance pay when a job ends, and pension savings the rules pay out at an "
+                        + "age or over a few years. So that the chart reads against the spending line, each source "
+                        + "is shown after its share of the year's taxes, and the taxes paid from this income are the "
+                        + "grey band on top. Taxes on rebalancing are paid inside the portfolio: see Taxes.")
             }
         } header: {
             SectionHeader("Retirement income") {
@@ -442,6 +462,45 @@ struct PlanFailureCard: View {
                         .font(.subheadline)
                         .foregroundStyle(Palette.ink)
                         .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+        }
+    }
+}
+
+/// How the plan reads your library: the accounts grouped by tax wrapper,
+/// with their value on the start date and how they're drawn, and accounts
+/// whose value starts a pension scheme instead of being money to draw on
+/// (UI.md, "Results").
+struct PlanLibraryCard: View {
+    let results: PlanResults
+    @Environment(LibraryStore.self) private var library
+    @Environment(\.locale) private var locale
+
+    var body: some View {
+        let notes = results.details?.reading.map {
+            PlanResultsText.libraryNotes($0, accounts: library.library.accounts, locale: locale)
+        } ?? []
+        if !notes.isEmpty {
+            Card("How the plan reads your library") {
+                ForEach(notes) { note in
+                    VStack(alignment: .leading, spacing: 2) {
+                        HStack(alignment: .firstTextBaseline, spacing: Metrics.s) {
+                            Text(note.title)
+                                .font(.subheadline.weight(.semibold))
+                                .foregroundStyle(Palette.ink)
+                            Spacer(minLength: Metrics.s)
+                            if let amount = note.amount {
+                                AmountText(amount)
+                                    .font(.subheadline)
+                                    .foregroundStyle(Palette.ink)
+                            }
+                        }
+                        Text(note.detail)
+                            .font(.footnote)
+                            .foregroundStyle(Palette.secondaryInk)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
                 }
             }
         }
@@ -481,6 +540,11 @@ struct PlanFigureText: View {
         case .amount(let amount, let unit):
             HStack(spacing: 2) {
                 AmountText(amount)
+                if let unit { Text(unit) }
+            }
+        case .amountIn(let amount, let currency, let unit):
+            HStack(spacing: 2) {
+                AmountText(amount, currency: currency)
                 if let unit { Text(unit) }
             }
         case .percent(let share):

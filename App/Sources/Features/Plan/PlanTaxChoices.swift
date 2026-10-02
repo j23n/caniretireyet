@@ -23,9 +23,19 @@ struct PlanChoice: Hashable, Sendable, Identifiable {
 /// regimes that fit a work phase, the overlays and the pension schemes. A
 /// system or regime added to the registry shows up here with no UI code.
 enum PlanTaxChoices {
-    /// The system a plan without a residence uses, as the Planner chooses
-    /// it: the library's tax residence if a system has that ID, else
-    /// `generic`, else the first registered.
+    /// The system for where you live: the registered system whose country
+    /// (`TaxSystem.country`) is the library's tax residence, else `generic`,
+    /// else the first registered. A new plan lives there from its first
+    /// year, so a country's system is picked up once it's registered.
+    static func residenceSystem(for settings: LibrarySettings, registry: TaxRegistry) -> (any TaxSystem)? {
+        settings.taxResidence.flatMap { registry.system(forCountry: $0.rawValue) }
+            ?? registry.system(TaxSystemID.generic.rawValue) ?? registry.systems.first
+    }
+
+    /// The system a plan without a residence timeline uses, as the Planner
+    /// chooses it: the system whose ID is the tax residence's country code
+    /// in lower case, else `generic`, else the first registered. Plans the
+    /// app creates always have a timeline (``residenceSystem(for:registry:)``).
     static func defaultSystem(for settings: LibrarySettings, registry: TaxRegistry) -> (any TaxSystem)? {
         let candidates = [settings.taxResidence?.rawValue.lowercased(), TaxSystemID.generic.rawValue] + registry.ids
         return candidates.compactMap { $0 }.lazy.compactMap { registry.system($0) }.first

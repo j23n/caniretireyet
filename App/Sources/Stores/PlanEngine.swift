@@ -66,7 +66,7 @@ typealias PlanProgressHandler = @Sendable (PlanRunProgress) -> Void
 /// (UI.md, "What if"). `nil` fields keep the plan's value.
 struct PlanWhatIf: Hashable, Sendable {
     var retirementAge: Int?
-    /// Yearly spending in retirement, in today's euros.
+    /// Yearly spending in retirement, in today's money.
     var retiredSpending: Decimal?
     /// Monthly saving while working.
     var monthlySaving: Decimal?
@@ -226,7 +226,7 @@ struct PlanResults: Hashable, Sendable {
     var headline: PlanHeadline
     /// Chance of success by retirement age.
     var successByAge: [SuccessPoint]
-    /// Portfolio percentiles over time, in today's euros.
+    /// Portfolio percentiles over time, in today's money.
     var portfolio: [FanPoint]
     /// Retirement, pension starts, locked money becoming accessible, windfalls.
     var markers: [ChartMarker]
@@ -252,4 +252,8 @@ struct PlanResults: Hashable, Sendable {
     /// the run's warnings (see `PlanResultsMapping.swift`). `nil` from the
     /// preview engine.
     var details: PlanResultDetails? = nil
+    /// The currency of every amount: the plan's `currency`, else the
+    /// library's base currency (`PlanResult.currency`). `nil` from the
+    /// preview engine, whose amounts are in the plan's currency.
+    var currency: CurrencyCode? = nil
 }

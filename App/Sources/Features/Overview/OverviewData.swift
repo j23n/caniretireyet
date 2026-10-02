@@ -174,11 +174,15 @@ struct OverviewHistory: Hashable, Sendable {
 /// ("12.400 € ahead of your Jan baseline"; PROGRESS.md, "Actual vs. a
 /// baseline"). The median between year ends is interpolated linearly by
 /// day. Basic: amounts are compared as they are, without adjusting the
-/// baseline's euros for inflation.
+/// baseline's money for inflation, in the baseline's currency (its plan's):
+/// your accounts are converted at the date's exchange rate, and without one
+/// there's no gap to show.
 struct OverviewBaselineGap: Hashable, Sendable {
     /// When the baseline was saved.
     var created: CalendarDate
     var label: String?
+    /// The baseline's currency, which `actual` and `expected` are in.
+    var currency: CurrencyCode
     /// The baseline's accounts on the date.
     var actual: Decimal
     /// The baseline's median on the date.
@@ -187,7 +191,9 @@ struct OverviewBaselineGap: Hashable, Sendable {
     /// Positive when ahead.
     var gap: Decimal { actual - expected }
 
-    init?(baseline: Baseline, valuator: Valuator, on date: CalendarDate) {
+    /// `currency` is the baseline's (``PlanMoney/currency(of:settings:)``);
+    /// `nil` takes the valuator's base currency.
+    init?(baseline: Baseline, valuator: Valuator, on date: CalendarDate, currency: CurrencyCode? = nil) {
         guard date > baseline.start.date, !baseline.accounts.isEmpty else { return nil }
         var knots: [(date: CalendarDate, value: Decimal)] = [(baseline.start.date, baseline.start.value)]
         for year in baseline.years.sorted(by: { $0.year < $1.year }) {
@@ -201,9 +207,13 @@ struct OverviewBaselineGap: Hashable, Sendable {
         guard length > 0 else { return nil }
         let fraction = Decimal(from.date.days(to: date)) / Decimal(length)
         expected = from.value + (to.value - from.value) * fraction
-        actual = baseline.accounts.reduce(Decimal(0)) { total, account in
+        let base = baseline.accounts.reduce(Decimal(0)) { total, account in
             total + (valuator.value(of: account, on: date)?.knownValue ?? 0)
         }
+        let currency = currency ?? valuator.baseCurrency
+        guard let converted = PlanMoney.convert(base, to: currency, on: date, valuator: valuator) else { return nil }
+        actual = converted
+        self.currency = currency
         created = baseline.created
         label = baseline.label
     }

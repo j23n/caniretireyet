@@ -322,10 +322,7 @@ struct AccountTaxFields: View {
     }
 
     private var wrappers: [WrapperID] {
-        guard let wrapper = form.wrapper, !AccountWrapperDefaults.choices.contains(wrapper) else {
-            return AccountWrapperDefaults.choices
-        }
-        return [wrapper] + AccountWrapperDefaults.choices
+        form.wrapperChoices
     }
 
     private var mixFooter: String {

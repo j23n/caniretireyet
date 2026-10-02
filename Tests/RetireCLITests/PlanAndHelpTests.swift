@@ -182,7 +182,16 @@ struct PlanAndHelpTests {
         #expect(importHelp.output.contains("--accept-new-accounts"))
         #expect(importHelp.output.contains("--library <path>"))
         let planHelp = await retire(["help", "plan"])
-        #expect(planHelp.output.contains("--save-baseline <label>"))
-        #expect(planHelp.output.contains("--fast"))
+        #expect(planHelp.output.contains("run (default)"))
+        for subcommand in ["show", "set", "contribution", "pension"] {
+            #expect(planHelp.output.contains("  \(subcommand) "), "\(subcommand)")
+        }
+        let runHelp = await retire(["help", "plan", "run"])
+        #expect(runHelp.output.contains("--save-baseline <label>"))
+        #expect(runHelp.output.contains("--fast"))
+        #expect(runHelp.output.contains("--years"))
+        for command in ["settings", "instruments"] {
+            #expect(run.output.contains("  \(command) "), "\(command)")
+        }
     }
 }

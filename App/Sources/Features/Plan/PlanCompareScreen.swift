@@ -41,7 +41,8 @@ struct PlanCompareScreen: View {
     private func side(_ plan: PlanDocument) -> PlanComparisonData.Side {
         PlanComparisonData.Side(
             plan: plan, results: plans.results[plan.id], staleReasons: plans.staleReasons(of: plan.id),
-            recorded: plans.recordedHeadlines(for: plan.id).last.map { PlanHeadline(recorded: $0) })
+            recorded: plans.recordedHeadlines(for: plan.id).last.map { PlanHeadline(recorded: $0) },
+            currency: PlanMoney.currency(of: plan, settings: library.settings))
     }
 
     var body: some View {

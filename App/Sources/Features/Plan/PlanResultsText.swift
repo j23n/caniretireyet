@@ -9,9 +9,12 @@ import Planner
 /// A value in the key numbers, the headline or the comparison table.
 /// Amounts stay numbers so views can hide them (`AmountText`).
 enum PlanFigure: Hashable, Sendable {
-    /// An amount in the base currency, e.g. `38.400 €`, with an optional
-    /// unit after it, e.g. `/yr`.
+    /// An amount in the currency of the screen (the plan's), e.g.
+    /// `38.400 €`, with an optional unit after it, e.g. `/yr`.
     case amount(Decimal, unit: String?)
+    /// An amount in a currency of its own, e.g. one of two plans compared
+    /// that are in different currencies.
+    case amountIn(Decimal, currency: CurrencyCode, unit: String?)
     /// A share, e.g. 0.92 → "92%".
     case percent(Double)
     /// Words or an age, e.g. "54 · Mar 2042".
@@ -176,7 +179,7 @@ enum PlanResultsText {
         return rows
     }
 
-    /// A `Double` as whole euros.
+    /// A `Double` in whole units of the currency.
     static func whole(_ value: Double) -> Decimal {
         guard value.isFinite else { return 0 }
         return Decimal(Int(value.rounded()))
@@ -185,10 +188,59 @@ enum PlanResultsText {
     /// The warnings to show as banners on Results: the run's, without
     /// repeats. Errors stop a run and show as its error instead.
     static func warnings(_ results: PlanResults?) -> [String] {
+        warnings(results?.details?.issues ?? [])
+    }
+
+    /// The warnings among `issues`, each message once.
+    static func warnings(_ issues: [PlanIssue]) -> [String] {
         var seen: [String] = []
-        for issue in results?.details?.issues ?? [] where !issue.isError && !seen.contains(issue.message) {
+        for issue in issues where !issue.isError && !seen.contains(issue.message) {
             seen.append(issue.message)
         }
         return seen
     }
+
+    // MARK: How the plan reads your library
+
+    /// "How the plan reads your library": a line per bucket (the accounts
+    /// of one tax wrapper, their value on the start date, how they're
+    /// drawn), then a line per group of accounts that starts a pension
+    /// scheme instead (`PlanStart.schemeSeeds`).
+    static func libraryNotes(_ reading: PlanLibraryReading, accounts: [AccountID: Account],
+                             locale: Locale = .current) -> [PlanLibraryNote] {
+        func names(_ ids: [AccountID]) -> String {
+            let all = ids.map { accounts[$0]?.name ?? $0.rawValue }
+            guard all.count > 3 else { return list(all) }
+            return all.prefix(3).joined(separator: ", ") + " and \(all.count - 3) more"
+        }
+        let date = AmountFormat.mediumDate(reading.date, locale: locale)
+        var notes: [PlanLibraryNote] = []
+        for bucket in reading.buckets {
+            var parts = [bucket.isLiquid ? "Drawn any time" : "Drawn as its tax rules allow"]
+            if bucket.receivesSavings { parts.append("new savings go here") }
+            if !bucket.accounts.isEmpty { parts.append(names(bucket.accounts)) }
+            notes.append(PlanLibraryNote(title: bucket.name, detail: parts.joined(separator: " · "),
+                                         amount: whole(bucket.value)))
+        }
+        for seed in reading.seeds {
+            let detail = seed.used
+                ? "\(names(seed.accounts)): their value on \(date) is where the pension starts, rather than "
+                    + "money the plan draws on."
+                : "\(names(seed.accounts)) isn't used: the plan gives the pension a starting balance of its own."
+            notes.append(PlanLibraryNote(title: "\(seed.name) starting balance", detail: detail,
+                                         amount: whole(seed.value)))
+        }
+        return notes
+    }
+}
+
+/// One line of "How the plan reads your library": a bucket of accounts, or
+/// accounts that start a pension scheme, with their value.
+struct PlanLibraryNote: Hashable, Sendable, Identifiable {
+    var title: String
+    var detail: String
+    /// In the plan's currency; shown through `AmountText`, so it hides.
+    var amount: Decimal?
+
+    var id: String { title + "|" + detail }
 }

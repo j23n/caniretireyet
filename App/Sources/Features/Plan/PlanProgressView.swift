@@ -83,14 +83,9 @@ struct PlanProgressView: View {
         gap >= 0 ? "ahead of the median" : "behind the median"
     }
 
-    /// "The same accounts as the baseline, in euros of 31 Dec 2025."
+    /// "The same accounts as the baseline, in EUR of 31 Dec 2025."
     private func unitsNote(_ comparison: PlanBaselineComparison) -> String {
-        if comparison.isInflationAdjusted {
-            let date = AmountFormat.mediumDate(comparison.baseline.start.date, locale: locale)
-            return "The same accounts as the baseline, in euros of \(date)."
-        }
-        return "The same accounts as the baseline. Without inflation values for every date, some are in the euros "
-            + "of their time."
+        comparison.unitsNote(baseCurrency: library.baseCurrency, locale: locale)
     }
 
     /// "▼ −3 years".
@@ -113,11 +108,11 @@ struct PlanProgressView: View {
                 let comparison = PlanBaselineComparison(baseline: shown.baseline, library: library.library,
                                                         asOf: library.asOfDate)
                 PlanFanLegend(showsActual: true)
-                FanChart(fan: comparison.fan, actual: comparison.actual)
+                FanChart(fan: comparison.fan, actual: comparison.actual, currency: comparison.currency)
                 if let position = comparison.position {
                     VStack(alignment: .leading, spacing: 2) {
                         HStack(spacing: Metrics.xs) {
-                            DeltaText(position.gap)
+                            DeltaText(position.gap, currency: comparison.currency)
                                 .font(.subheadline.weight(.semibold))
                             Text(Self.side(of: position.gap))
                                 .font(.subheadline)

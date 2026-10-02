@@ -3,7 +3,7 @@
 A personal net-worth tracker and retirement planner for iPhone, iPad and Mac.
 
 - **Track.** Once a month, record what each account and holding is worth: cash, ETFs, crypto, gold, pension funds, property and debts. You can open and close accounts without losing their history.
-- **Plan.** Start from your real numbers and project forward: savings, spending, pensions, windfalls and taxes. Taxes come from pluggable tax systems and regimes. Italy is first, including impatriati and forfettario. The app answers the question in its name: *can I retire yet, and if not, when?*
+- **Plan.** Start from your real numbers and project forward: savings, spending, pensions, windfalls and taxes, in your currency or any other. Taxes come from pluggable tax systems and regimes, picked by where you live: Italy is first, including impatriati and forfettario; Switzerland and Germany are designed; anywhere else uses a generic system with flat rates you choose. The app answers the question in its name: *can I retire yet, and if not, when?*
 - **Your data is files.** Everything is stored as plain JSON files in a folder in iCloud Drive. The app on each device (iPhone, iPad, Mac) reads and writes that folder, and iCloud keeps it in sync. There is no server, no account to create, and no lock-in.
 
 **Status: MVP.** Tracking (accounts, check-ins, history, performance data), import from spreadsheets and ledger-cli / hledger journals, prices, the planner with Italy's tax system, and the iPhone, iPad and Mac app with iCloud sync. The `retire` command-line tool does the same from a terminal. Start with [docs/PLAN.md](docs/PLAN.md); to build and contribute, see [CLAUDE.md](CLAUDE.md).
@@ -35,13 +35,19 @@ The command-line tool works on the same folder, on a Mac or Linux:
 
 ```sh
 swift run retire --help
+swift run retire init <folder> --currency CHF --residence CH --birth-date 1985-03-01 --citizenship IT
+swift run retire settings --library <folder>                                 # --citizenship sets them
 swift run retire import --library <folder> export.csv            # preview; --apply writes
 swift run retire import ledger --library <folder> 2024.journal 2025.journal
 swift run retire import --library <folder> movimenti.csv --account directa   # a broker's export, as trades
 swift run retire trades list directa --library <folder>                      # also add, remove, summary, convert
+swift run retire instruments --library <folder>                  # kinds for taxes; `set` a fund type
 swift run retire prices --library <folder> --fill-history --dry-run  # past prices; without --dry-run writes
-swift run retire plan --library <folder>
+swift run retire plan --library <folder> --years                 # the answer, and the median run by year
+swift run retire plan show --library <folder>                    # also set, contribution, pension
 ```
+
+Commands that change the library back up the files first, and take `--dry-run`; most take `--json`. `retire help <command>` says more.
 
 
 | Document | What it covers |
@@ -52,6 +58,7 @@ swift run retire plan --library <folder>
 | [docs/PLANNER.md](docs/PLANNER.md) | The retirement simulation |
 | [docs/TAXES.md](docs/TAXES.md) | Pluggable tax systems and regimes: concepts, interfaces, parameter files |
 | [docs/tax/IT.md](docs/tax/IT.md) | The Italian tax system: work income, impatriati, INPS, pension fund, investments |
+| [docs/tax/CH.md](docs/tax/CH.md), [docs/tax/DE.md](docs/tax/DE.md) | The Swiss and German tax systems, as designed |
 | [docs/IMPORT.md](docs/IMPORT.md) | Importing any spreadsheet or export by mapping its columns |
 | [docs/PROGRESS.md](docs/PROGRESS.md) | Net worth, history and projection together, baselines, actual vs. projected, performance |
 | [docs/UI.md](docs/UI.md) | What the app looks like: screens, navigation, charts, iPhone, iPad and Mac |

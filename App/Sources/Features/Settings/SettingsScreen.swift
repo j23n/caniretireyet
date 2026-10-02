@@ -84,6 +84,7 @@ private struct YouSection: View {
                         .foregroundStyle(Palette.secondaryInk)
                 }
             }
+            CitizenshipRows(settings: settings) { change in write(change) }
             Picker("Base currency", selection: currencyBinding) {
                 ForEach(options(CurrencyChoices.common, current: settings.baseCurrency), id: \.self) { code in
                     Text(CurrencyChoices.name(of: code, locale: locale)).tag(code)
@@ -101,7 +102,8 @@ private struct YouSection: View {
         } header: {
             Text("You")
         } footer: {
-            Text("Plans use your birth date for ages. The tax residence is the default for new plans.")
+            Text("Plans use your birth date for ages. The tax residence is the default for new plans. "
+                + YouSettings.citizenshipExplanation)
         }
         .disabled(!library.canEdit)
         .onDisappear(perform: saveName)

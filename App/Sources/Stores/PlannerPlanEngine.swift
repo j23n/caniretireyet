@@ -6,8 +6,12 @@ import TaxItaly
 import TaxKit
 
 /// The tax systems the app knows, registered in one place (TAXES.md,
-/// "Adding a system": registering a new one is this one line). The plan
-/// editor reads regimes, options and pension schemes from the same registry.
+/// "Adding a system": registering a new one is an import and an entry
+/// here; the app target links `TaxSwitzerland` and `TaxGermany` already).
+/// Everything else reads this registry: the residence, regime, scheme and
+/// claim-route pickers, the option forms, the account wrappers, a new
+/// plan's residence (the system whose ID is the residence country's code in
+/// lower case, else `generic`) and the onboarding's note on tax rules.
 enum AppTaxRegistry {
     /// Italy (`it`) and the generic flat-rate system (`generic`).
     static let standard = TaxRegistry([ItalyTaxSystem(), GenericTaxSystem()])

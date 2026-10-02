@@ -119,6 +119,9 @@ struct LibraryChecks {
         let systems = registry.ids.joined(separator: ", ")
         for plan in library.plans.values.sorted(by: { $0.id < $1.id }) {
             let path = LibraryFile.plan(plan.id).path
+            if let missing = PlanEdit.missingRate(for: plan, library: library) {
+                issues.append(warning(path, "currency: \(missing)"))
+            }
             for (index, contribution) in plan.contributions.enumerated() {
                 if let scheme = contribution.pension {
                     if registry.pensionScheme(scheme.rawValue) == nil {

@@ -123,13 +123,31 @@ final class PlanSession {
     }
 
     /// Every issue to show on Inputs: validation, and warnings from the
-    /// latest run of the plan as shown.
+    /// latest run of the plan as shown, in words for the screen
+    /// (``PlanIssueText``).
     var inputIssues: PlanInputIssues {
         var issues = validationIssues
         if let results = plans.results[planID], results.planHash == plan.map({ Planner.planHash($0) }) {
             issues += results.details?.issues ?? []
         }
-        return PlanInputIssues(issues)
+        return PlanInputIssues(PlanIssueText.humanized(issues, plan: plan, library: library.library))
+    }
+
+    /// The warnings of the results shown, in words for the screen, each once.
+    var resultWarnings: [String] {
+        PlanResultsText.warnings(PlanIssueText.humanized(shownResults?.details?.issues ?? [], plan: plan,
+                                                         library: library.library))
+    }
+
+    /// The currency of the plan's amounts: its own, else the library's.
+    var currency: CurrencyCode {
+        plan.map { PlanMoney.currency(of: $0, settings: library.settings) } ?? library.settings.baseCurrency
+    }
+
+    /// The currency of `results`' amounts: the one they were calculated in,
+    /// else the plan's.
+    func currency(of results: PlanResults) -> CurrencyCode {
+        results.currency ?? currency
     }
 
     // MARK: What's shown
