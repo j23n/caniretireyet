@@ -86,6 +86,34 @@ public struct TaxAssessment: Hashable, Sendable {
     public var totalContributions: Double {
         contributions.reduce(0) { $0 + $1.amount }
     }
+
+    /// Each pension's share of the tax lines, by pension ID: the lines whose
+    /// `subject` is its ID, plus the other lines (with no subject, or one
+    /// that isn't among `pensions`) in proportion to the pensions' amounts.
+    /// The planner uses it for the tax a paying country charges
+    /// (``FixedYear/Pension/sourceTax``). Contributions aren't included.
+    public func taxByPension(_ pensions: [FixedYear.Pension]) -> [String: Double] {
+        var result: [String: Double] = [:]
+        var shared = 0.0
+        let ids = Set(pensions.map(\.id))
+        for line in lines {
+            if let subject = line.subject, ids.contains(subject) {
+                result[subject, default: 0] += line.amount
+            } else {
+                shared += line.amount
+            }
+        }
+        for pension in pensions where result[pension.id] == nil {
+            result[pension.id] = 0
+        }
+        guard shared != 0 else { return result }
+        let total = pensions.reduce(0) { $0 + max(0, $1.amount) }
+        for pension in pensions {
+            let weight = total > 0 ? max(0, pension.amount) / total : 1 / Double(max(1, pensions.count))
+            result[pension.id, default: 0] += shared * weight
+        }
+        return result
+    }
 }
 
 /// A change to the purchase cost of what a wrapper holds in a category, from
