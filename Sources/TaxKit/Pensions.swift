@@ -173,14 +173,21 @@ public struct ClaimContext: Hashable, Sendable {
     /// still working (or when the planner doesn't say). E.g. for a pension
     /// fund that moves its assets elsewhere when work stops early.
     public var yearsSinceWorkStopped: Int?
+    /// The claim route the plan's pension picks (its `claimRoute`), or `nil`
+    /// when it picks none (the first option listed at the age is taken). A
+    /// scheme whose options don't depend on the route can ignore it; one
+    /// that offers a single way out in some years (e.g. a transfer when work
+    /// stops early) can list it under the route the plan picked.
+    public var claimRoute: String?
 
     public init(year: Int, birthDate: BirthDate, options: OptionValues = [:], currencyRate: Double = 1,
-                yearsSinceWorkStopped: Int? = nil) {
+                yearsSinceWorkStopped: Int? = nil, claimRoute: String? = nil) {
         self.year = year
         self.birthDate = birthDate
         self.options = options
         self.currencyRate = currencyRate
         self.yearsSinceWorkStopped = yearsSinceWorkStopped
+        self.claimRoute = claimRoute
     }
 
     /// An amount in the plan's currency, converted to the system's.
