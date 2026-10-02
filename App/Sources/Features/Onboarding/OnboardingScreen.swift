@@ -21,8 +21,10 @@ struct OnboardingScreen: View {
     @State private var location: LibraryLocationKind = .iCloud
     @State private var name = ""
     @State private var birthDate = Calendar.current.date(byAdding: .year, value: -35, to: Date()) ?? Date()
+    /// The device's currency and region to start with; nothing else is assumed.
     @State private var currency = CurrencyCode(Locale.current.currency?.identifier ?? "EUR")
-    @State private var residence = CountryCode(Locale.current.region?.identifier ?? "IT")
+    @State private var residence: CountryCode? = Locale.current.region.map { CountryCode($0.identifier) }
+    @State private var citizenship: CountryCode?
     @State private var isCreating = false
     @State private var error: String?
 
@@ -113,12 +115,25 @@ struct OnboardingScreen: View {
                 }
                 LabeledContent("Tax residence") {
                     Picker("Tax residence", selection: $residence) {
-                        ForEach(countryOptions, id: \.self) { code in
-                            Text(CountryChoices.name(of: code, locale: locale)).tag(code)
+                        Text("Not set").tag(CountryCode?.none)
+                        ForEach(countryOptions(including: residence), id: \.self) { code in
+                            Text(CountryChoices.name(of: code, locale: locale)).tag(Optional(code))
                         }
                     }
                     .labelsHidden()
                 }
+                LabeledContent("Citizenship") {
+                    Picker("Citizenship", selection: $citizenship) {
+                        Text("Not set").tag(CountryCode?.none)
+                        ForEach(countryOptions(including: citizenship), id: \.self) { code in
+                            Text(CountryChoices.name(of: code, locale: locale)).tag(Optional(code))
+                        }
+                    }
+                    .labelsHidden()
+                }
+                Text(YouSettings.citizenshipExplanation)
+                    .font(.footnote)
+                    .foregroundStyle(Palette.secondaryInk)
             }
             .padding(Metrics.l)
             .background(Palette.card, in: RoundedRectangle(cornerRadius: Metrics.cardRadius, style: .continuous))
@@ -126,8 +141,8 @@ struct OnboardingScreen: View {
                 RoundedRectangle(cornerRadius: Metrics.cardRadius, style: .continuous)
                     .strokeBorder(Palette.border, lineWidth: 1)
             }
-            if residence != .it {
-                Text("Italy has full tax rules so far; plans for other countries use a simpler flat-rate system.")
+            if let note = YouSettings.taxRulesNote(for: residence, locale: locale) {
+                Text(note)
                     .font(.footnote)
                     .foregroundStyle(Palette.secondaryInk)
             }
@@ -172,8 +187,9 @@ struct OnboardingScreen: View {
         CurrencyChoices.common.contains(currency) ? CurrencyChoices.common : [currency] + CurrencyChoices.common
     }
 
-    private var countryOptions: [CountryCode] {
-        CountryChoices.common.contains(residence) ? CountryChoices.common : [residence] + CountryChoices.common
+    private func countryOptions(including code: CountryCode?) -> [CountryCode] {
+        guard let code, !CountryChoices.common.contains(code) else { return CountryChoices.common }
+        return [code] + CountryChoices.common
     }
 
     private func create() {
@@ -182,7 +198,8 @@ struct OnboardingScreen: View {
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
         let settings = LibrarySettings(
             baseCurrency: currency,
-            person: Person(name: trimmed.isEmpty ? nil : trimmed, birthDate: CalendarDate(birthDate, in: .current)),
+            person: Person(name: trimmed.isEmpty ? nil : trimmed, birthDate: CalendarDate(birthDate, in: .current),
+                           citizenships: citizenship.map { [$0] } ?? []),
             taxResidence: residence)
         let kind = location
         Task {
