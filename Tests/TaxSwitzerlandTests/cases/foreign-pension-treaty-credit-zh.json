@@ -1,0 +1,45 @@
+{
+  "name": "An INPS pension of a Swiss citizen in Zurich, entered as taxed in Italy: Switzerland taxes it and credits the Italian tax",
+  "year": 2026,
+  "input": {
+    "age": 68,
+    "citizenships": [
+      "CH"
+    ],
+    "systemOptions": {
+      "canton": "ZH",
+      "commune": "Zurich"
+    },
+    "pensions": [
+      {
+        "id": "pension-0",
+        "scheme": "it.inps",
+        "amount": 30000,
+        "kind": "statutory",
+        "sourceCountry": "IT",
+        "taxedIn": "source",
+        "sourceTax": 500
+      }
+    ]
+  },
+  "expected": {
+    "lines": {
+      "ch.federal": 93.17,
+      "ch.cantonal": 576.175,
+      "ch.communal": 721.735,
+      "ch.personalTax": 24,
+      "ch.foreignTaxCredit": -500
+    },
+    "totalTax": 915.08,
+    "issues": [
+      "ch.treaty.taxedIn"
+    ]
+  },
+  "workings": [
+    "Under Art. 18 of the Italy-Switzerland treaty an INPS pension of a Swiss resident is Switzerland's; Art. 19 would keep a public-service pension in Italy only for an Italian citizen, and this person is Swiss only. So Switzerland taxes it although the plan says taxedIn: source, with a warning, and credits the 500.00 Italy charged (which Italy would refund).",
+    "Income 30,000.00. Federal taxable 30,000 - 2,700 (insurance, without pension contributions) = 27,300; tax 0.77% x (27,300 - 15,200) = 93.1700.",
+    "Zurich taxable 30,000 - 4,350 = 25,650; simple tax 100 + 144 + 320 + 5% x 850 = 606.5000; cantonal 95% = 576.1750, communal (Zurich, 119%) = 721.7350; personal tax 24.",
+    "The pension is all the income, so the Swiss income tax on it is 93.1700 + 576.1750 + 721.7350 = 1,391.0800; the credit is the 500.00 paid, less than that.",
+    "Total 1,391.0800 + 24 - 500 = 915.0800."
+  ]
+}

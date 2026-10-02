@@ -331,7 +331,10 @@ struct MarketTests {
     }
 
     @Test func pensionsTaxedAbroadCountForTheRate() throws {
+        // An Italian citizen's Italian pension entered as taxed in Italy: a
+        // public-service pension, which the treaty leaves to Italy (art. 19).
         var year = Swiss.pensionYear(40_000, commune: "Lugano")
+        year.citizenships = ["IT"]
         let alone = try Swiss.prepare(year).fixedAssessment
         year.pensions.append(.init(id: "italy", scheme: "fixed", amount: 40_000, taxedIn: .source, sourceCountry: "IT"))
         let withExempt = try Swiss.prepare(year).fixedAssessment

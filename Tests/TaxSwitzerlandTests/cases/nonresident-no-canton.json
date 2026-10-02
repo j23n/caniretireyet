@@ -1,0 +1,57 @@
+{
+  "name": "Source tax on Swiss pensions of someone who never lived in Switzerland in the plan: federal only",
+  "kind": "nonResident",
+  "year": 2026,
+  "input": {
+    "age": 64,
+    "residence": [
+      {
+        "from": 2026,
+        "system": "generic"
+      }
+    ],
+    "pensions": [
+      {
+        "id": "pension-0",
+        "scheme": "fixed",
+        "amount": 10000,
+        "kind": "privateAnnuity",
+        "taxedIn": "source",
+        "sourceCountry": "CH"
+      },
+      {
+        "id": "pension-1",
+        "scheme": "fixed",
+        "amount": 5000,
+        "taxedIn": "source",
+        "sourceCountry": "CH"
+      },
+      {
+        "id": "pension-2.lumpSum",
+        "scheme": "fixed",
+        "amount": 60000,
+        "kind": "privateAnnuity",
+        "form": "lumpSum",
+        "taxedIn": "source",
+        "sourceCountry": "CH"
+      }
+    ]
+  },
+  "expected": {
+    "lines": {
+      "ch.nonResident.federal": 284.288
+    },
+    "totalTax": 284.288,
+    "issues": [
+      "ch.nonResident.canton",
+      "ch.nonResident.kind",
+      "ch.nonResident.noTreaty"
+    ]
+  },
+  "workings": [
+    "No Swiss residence in the plan, so no canton for the paying institution: only the federal source tax (a warning).",
+    "A 3a annuity (privateAnnuity) of 10,000.00: federal 1% = 100.0000. A pension of unknown kind, 5,000.00: taxed like an occupational one (a warning), 1% = 50.0000.",
+    "A 3a lump sum of 60,000.00: 1/5 of the federal tariff = 134.2880.",
+    "Federal 100.0000 + 50.0000 + 134.2880 = 284.2880."
+  ]
+}

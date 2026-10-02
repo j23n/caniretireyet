@@ -260,6 +260,28 @@ struct SwissParameters: Sendable {
         }
     }
 
+    /// A tax treaty with another country, as far as pensions go
+    /// (`foreign.pensions.treaties.<country>`): its pension article gives
+    /// private-law and state pensions to the country of residence, and its
+    /// public-service article keeps pensions of the kinds listed with the
+    /// paying country for that country's citizens.
+    struct Treaty: Sendable {
+        /// The other country, ISO 3166-1 alpha-2 in capitals (`IT`).
+        var country: String
+        /// e.g. "Italy".
+        var name: String
+        /// The ID of the other country's tax system (`taxSystem`: `it`), as residence timelines name it.
+        var system: String
+        /// The kinds of pension (`PensionKind` raw values, `unknown` for
+        /// none) that can be public-service pensions.
+        var publicServiceKinds: Set<String>
+
+        /// Whether a pension of `kind` can be a public-service pension.
+        func mayBePublicService(_ kind: PensionKind?) -> Bool {
+            publicServiceKinds.contains(kind?.rawValue ?? "unknown")
+        }
+    }
+
     /// How the system treats another system's wrapper.
     enum ForeignWrapper: String, Sendable {
         /// Like `ch.ordinary`.
@@ -288,6 +310,10 @@ struct SwissParameters: Sendable {
     var ordinaryAssessmentFromSalary: Double
     var cantons: [String: SwissCanton]
     var foreignWrappers: [String: ForeignWrapper]
+    /// The treaties the module knows, by the other country's code.
+    var treaties: [String: Treaty]
+    /// The federal source tax on pension annuities paid abroad (DBG Art. 95–96).
+    var nonResidentFederalAnnuityRate: Double
     /// The indexing rule of each scaled object, by path.
     var rules: [String: ThresholdIndexing.Rule]
 
@@ -393,6 +419,19 @@ struct SwissParameters: Sendable {
             for id in try wrappers[treatment.rawValue].optionalList() { foreign[try id.string()] = treatment }
         }
         foreignWrappers = foreign
+
+        var treaties: [String: Treaty] = [:]
+        let pensions = root["foreign"]["pensions"]
+        if pensions["treaties"].exists {
+            for (code, node) in try pensions["treaties"].members() where !ParameterAudit.metadataKeys.contains(code) {
+                let country = code.uppercased()
+                treaties[country] = Treaty(country: country, name: try node["name"].string(),
+                                           system: try node["taxSystem"].string(),
+                                           publicServiceKinds: Set(try node["publicServiceKinds"].strings()))
+            }
+        }
+        self.treaties = treaties
+        nonResidentFederalAnnuityRate = try root["foreign"]["nonResident"]["federal"]["annuityRate"].double()
 
         var paths = ["federal.tariff", "federal.tariff.minimumTax", "federal.deductions", "federal.lumpSumTaxation",
                      "socialSecurity", "bvg", "pillar3a", "property.mortgageInterest", "expatriates"]
@@ -504,6 +543,9 @@ struct SwissCanton: Sendable {
     var lumpSumAvailable: Bool
     var lumpSumMinimumBase: Double
     var deemedWealthMultiple: Double
+    /// The cantonal and communal source tax on pension annuities paid
+    /// abroad, as a share of the gross pension; `nil` when the file has none.
+    var nonResidentAnnuityRate: Double?
 
     init(code: String, _ node: ParameterNode) throws {
         self.code = code
@@ -557,6 +599,7 @@ struct SwissCanton: Sendable {
         lumpSumAvailable = try lumpSum["available"].bool(default: false)
         lumpSumMinimumBase = try lumpSum["minimumBase"].double(default: 0)
         deemedWealthMultiple = try lumpSum["deemedWealthMultipleOfBase"].double(default: 0)
+        nonResidentAnnuityRate = try node["nonResident"]["annuityRate"].optionalDouble()
     }
 
     /// The simple income tax schedule in `year`: every category's rate

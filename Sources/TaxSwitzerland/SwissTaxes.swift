@@ -105,6 +105,7 @@ struct SwissLabels: Sendable {
     let wealthCommunal: String
     let wealthChurch: String
     let wealthBrake = "Wealth-tax brake"
+    let foreignTaxCredit = "Credit for tax paid abroad"
     let ahvEmployee = "AHV/IV/EO (employee)"
     let alv = "ALV (unemployment insurance)"
     let bvgEmployee = "BVG (employee contribution)"

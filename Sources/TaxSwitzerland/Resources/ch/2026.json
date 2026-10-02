@@ -398,6 +398,12 @@
         "source": "StG ZH par. 37. Weisung zur Besteuerung von Kapitalleistungen aus Vorsorge, ZStB 22.1: https://www.zh.ch/de/steuern-finanzen/steuern/treuhaender/steuerbuch/steuerbuch-definition/zstb-22-1.html; https://finpension.ch/de/wissen/zuerich-kapitalbezugssteuer/"
       },
       "lumpSumTaxation": { "available": false, "source": "Abolished by popular vote in 2009 (StG ZH)." },
+      "nonResident": {
+        "annuityRate": "0.06",
+        "note": "Source tax on pensions and capital benefits that Zurich pension institutions pay to people living abroad, where no treaty gives the country of residence the right. Annuities: 7% of the gross pension in all, read as 6% cantonal and communal plus the federal 1%. Capital benefits: the module charges the ordinary tax on capital benefits (par. 37) at the canton's and the commune's multipliers, without church tax; the official table (by amount, up to CHF 150,000) isn't in the file, and the commune is the plan's, not the institution's seat.",
+        "source": "StG ZH par. 98-99; ZStB 99.1, Merkblatt ueber die Quellenbesteuerung privatrechtlicher Vorsorgeleistungen an Personen ohne Wohnsitz oder Aufenthalt in der Schweiz (search extracts: pensions 'insgesamt 7% der Bruttoleistungen'): https://www.zh.ch/de/steuern-finanzen/steuern/treuhaender/steuerbuch/steuerbuch-definition/zstb-99-1.html",
+        "verify": true
+      },
       "inheritance": {
         "exempt": [ "spouse", "lineal" ],
         "note": "Children and grandchildren exempt; siblings above 15,000, others taxed progressively (up to about 42%, secondary source).",
@@ -626,6 +632,12 @@
           "source": "LT art. 13 (the minimum follows the federal one with the cold-progression adjustment)"
         }
       },
+      "nonResident": {
+        "annuityRate": "0.09",
+        "note": "Source tax on pensions that Ticino pension institutions pay to people living abroad, where no treaty gives the country of residence the right: 9% of the gross pension, cantonal and communal (plus the federal 1%). Capital benefits are taxed as art. 38 says: the module charges the ordinary tax on capital benefits at the canton's and the commune's multipliers (the commune is the plan's, not the institution's seat).",
+        "source": "LT art. 115-116 (search extracts): https://m3.ti.ch/CAN/RLeggi/public/index.php/raccolta-leggi/pdfatto/atto/5421; Divisione delle contribuzioni, imposte alla fonte: https://www4.ti.ch/index.php?id=20845",
+        "verify": true
+      },
       "inheritance": {
         "exempt": [ "spouse", "lineal" ],
         "source": "ESTV, Erbschafts- und Schenkungssteuern: https://www.estv2.admin.ch/stp/ds/d-erbschaft-schenkung-de.pdf",
@@ -786,8 +798,35 @@
       "verify": true
     },
     "pensions": {
-      "note": "Foreign pensions paid to a Swiss resident (state pensions such as INPS or the German DRV, occupational and private pensions) are taxed in Switzerland as income under Art. 18 of the treaties with Italy and Germany; lump sums as capital benefits. A pension a treaty leaves to the paying country (an Italian public-service pension for an Italian citizen, Art. 19) is entered with taxedIn: source: Switzerland then counts it only for the rate (exemption with progression).",
+      "note": "Foreign pensions paid to a Swiss resident (state pensions such as INPS or the German DRV, occupational and private pensions) are taxed in Switzerland as income under Art. 18 of the treaties with Italy and Germany; lump sums as capital benefits. A public-service pension (Art. 19) stays with the paying country for its own citizens, dual citizens included: entered with taxedIn: source, Switzerland counts it only for the rate (exemption with progression). Where the treaty gives Switzerland a pension entered with taxedIn: source (it can't be a public-service one: the kind rules it out, or the person isn't a citizen of the paying country, or the citizenship isn't known), Switzerland taxes it anyway and credits the tax the paying country charged on it, which that country would refund, with a warning. Pensions from countries not listed follow taxedIn.",
+      "treaties": {
+        "IT": {
+          "name": "Italy",
+          "taxSystem": "it",
+          "publicServiceKinds": [ "statutory", "occupational", "unknown" ],
+          "note": "Art. 18: pensions, an INPS pension from private-sector work included, are taxed only in the country of residence. Art. 19: pensions from Italian public service (ex-INPDAP, paid by INPS, so statutory or occupational, or of unknown kind) stay in Italy for Italian citizens, even with dual citizenship.",
+          "source": "Italy-Switzerland DTA (9 March 1976) Art. 18 and 19; Agenzia delle Entrate, risposta 177/2026: https://www.agenziaentrate.gov.it/portale/documents/20143/10289089/Risposta+n.+177_2026.pdf/55d779ed-1768-ce69-b129-bacbf32bd34d?t=1790175768749"
+        },
+        "DE": {
+          "name": "Germany",
+          "taxSystem": "de",
+          "publicServiceKinds": [ "occupational" ],
+          "note": "Art. 18: pensions, the statutory DRV pension included, are taxed only in the country of residence. Germany may also tax the German-source income of a German citizen in the year of a move to Switzerland and the 5 after (Art. 4 para. 4), crediting the Swiss tax: the de system's concern. Art. 19: a public-service pension (Beamtenversorgung, entered as occupational) stays in Germany except for a Swiss citizen without German citizenship; the module applies the test it applies for Italy (Germany's for German citizens, dual citizens included), which differs only for citizens of neither country.",
+          "source": "Germany-Switzerland DTA (11 August 1971, as amended by the protocol of 21 August 2023) Art. 4, 18 and 19; docs/tax/DE.md (Germany and Switzerland)",
+          "verify": true
+        }
+      },
       "source": "Italy-Switzerland DTA Art. 18 and 19; Germany-Switzerland DTA Art. 18 and 19; DBG Art. 7 para. 1 (rate on the whole income)"
+    },
+    "nonResident": {
+      "note": "Swiss pensions paid to someone living abroad: the paying pension fund, vested-benefits or 3a foundation withholds a source tax at the federal rate plus its canton's (cantons.<code>.nonResident). AHV/IV pensions aren't taxed at source. Where a treaty gives private-law pensions to the country of residence (foreign.pensions.treaties: Art. 18 with Italy and Germany), annuities are paid without source tax once residence is shown, and the source tax on lump sums is refunded on request within 3 years, with a confirmation that the country of residence knows of the payment; so none of it is final. Public-law pensions (Art. 19, DBG Art. 95) aren't modelled.",
+      "federal": {
+        "annuityRate": "0.01",
+        "note": "Annuities: 1% of the gross amount. Capital benefits: as for residents (Art. 38 para. 2), so federal.capitalBenefits.",
+        "source": "DBG Art. 95 para. 2 and Art. 96 para. 2; ESTV, Besteuerung an der Quelle (Stand 1. Januar 2025): https://www.estv2.admin.ch/stp/ds/e-besteuerung-an-der-quelle-de.pdf"
+      },
+      "source": "DBG Art. 95-96; StHG Art. 35 para. 1 lit. e-f; Kanton Zuerich, Rueckerstattung der Quellensteuer auf Kapitalleistung aus Vorsorge (search extract): https://www.zh.ch/de/steuern-finanzen/steuern/quellensteuer/rueckerstattung-quellensteuer-auf-kapitalleistung.html; ZStB 99.1 (pensions are taxed at source only where the treaty doesn't give the country of residence the right, search extract): https://www.zh.ch/de/steuern-finanzen/steuern/treuhaender/steuerbuch/steuerbuch-definition/zstb-99-1.html",
+      "verify": true
     }
   }
 }

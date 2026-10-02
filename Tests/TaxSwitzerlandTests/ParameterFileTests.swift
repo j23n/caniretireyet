@@ -35,10 +35,11 @@ struct ParameterFileTests {
             "cantons.TI.deductions.professionalExpenses", "cantons.TI.deductions.singlePersonDeduction",
             "cantons.TI.income.indexed", "cantons.TI.income.married", "cantons.TI.income.maximumCategoryRate",
             "cantons.TI.inheritance", "cantons.TI.lumpSumTaxation", "cantons.TI.multipliers.church",
-            "cantons.TI.personalTax", "cantons.TI.wealth.brake", "cantons.TI.wealth.single",
+            "cantons.TI.nonResident", "cantons.TI.personalTax", "cantons.TI.wealth.brake", "cantons.TI.wealth.single",
             "cantons.ZH.deductions.insurancePremiums", "cantons.ZH.inheritance", "cantons.ZH.multipliers.church",
-            "cantons.ZH.personalTax", "expatriates", "federal.deductions.commutingMaximum", "federal.dividends",
-            "federal.lumpSumTaxation", "federal.tariff.single", "foreign.wrappers", "investments.professionalTrader",
+            "cantons.ZH.nonResident", "cantons.ZH.personalTax", "expatriates", "federal.deductions.commutingMaximum",
+            "federal.dividends", "federal.lumpSumTaxation", "federal.tariff.single", "foreign.nonResident",
+            "foreign.pensions.treaties.DE", "foreign.wrappers", "investments.professionalTrader",
             "lumpSumTaxationAbolishedIn", "pillar3a.nextYear", "property.imputedRentalValue",
             "socialSecurity.nonEmployed.incomeCredit", "socialSecurity.selfEmployed",
         ])
@@ -75,6 +76,15 @@ struct ParameterFileTests {
         #expect(ti.conversionFactor(table: "male") == 0.05077 && zh.conversionFactor(table: "male") == 0)
         #expect(p.foreignWrappers["it.pensionFund"] == .taxDeferred && p.foreignWrappers["it.tfr"] == .taxedAtSource)
         #expect(p.foreignWrappers["de.depot"] == .taxable)
+        // Treaties and the source tax on pensions paid abroad.
+        #expect(Set(p.treaties.keys) == ["IT", "DE"])
+        #expect(p.treaties["IT"]?.system == "it" && p.treaties["DE"]?.system == "de" && p.treaties["DE"]?.name == "Germany")
+        #expect(p.treaties["IT"]?.mayBePublicService(nil) == true && p.treaties["IT"]?.mayBePublicService(.statutory) == true)
+        #expect(p.treaties["DE"]?.mayBePublicService(.statutory) == false
+                && p.treaties["DE"]?.mayBePublicService(.occupational) == true)
+        #expect(p.treaties["IT"]?.mayBePublicService(.privateAnnuity) == false)
+        #expect(p.nonResidentFederalAnnuityRate == 0.01)
+        #expect(zh.nonResidentAnnuityRate == 0.06 && ti.nonResidentAnnuityRate == 0.09)
     }
 
     @Test func indexingRulesFollowTheLaw() throws {
