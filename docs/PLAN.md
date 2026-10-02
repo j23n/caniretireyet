@@ -119,7 +119,7 @@ caniretireyet/
 │   ├── TaxItaly/     the Italian tax system: regimes, INPS, wrappers, yearly parameters
 │   ├── TaxGeneric/   a flat-rate tax system
 │   ├── Prices/       price and FX providers
-│   ├── CloudSync/    iCloud container, coordinated file access, change watching (Apple only)
+│   ├── CloudSync/    iCloud container, coordinated file access, downloading, change watching (Apple only)
 │   └── retire/       command-line tool: validate, import, net worth, run a plan
 ├── Tests/            one test target per module; fixtures are a fake example library
 ├── App/
@@ -143,19 +143,21 @@ Only `CloudSync` and the app need Apple frameworks.
 
 ### How the app works at runtime
 
-1. **Load.** At launch, `CloudSync` finds the iCloud container. If iCloud is off, it uses a local folder that can be moved to iCloud later. `Storage` then loads the whole library into memory, which takes milliseconds because it's small.
+1. **Load.** At launch, `CloudSync` finds the iCloud container. If iCloud is off, it uses a local folder that can be moved to iCloud later. For a library in iCloud Drive, `CloudSync` first makes sure every file is on the device, downloading the missing ones all at once with progress (see "Sync with iCloud Drive"). `Storage` then loads the whole library into memory, which takes milliseconds because it's small. The opening screen says which step it's at, and never dead-ends.
 2. **Edit.** The UI reads from an `@Observable` `LibraryStore`. An edit changes the in-memory model first. `Storage` then writes only the files that changed. Writes are atomic and go through `NSFileCoordinator`. Each write is merged with the file on disk, so a change that arrived from the other device (or a text editor) and hasn't been reloaded yet is never overwritten unseen ([FILE_FORMAT.md](FILE_FORMAT.md#saving)); the store then reloads what was merged in.
 3. **Watch.** `CloudSync` watches the folder: an `NSMetadataQuery` for a library in iCloud Drive (which also downloads files that aren't on the device yet), or by comparing modification dates for a library on this device. When the other device, or you in a text editor, changes a file, the store reloads that file and the UI updates.
 4. **Plan.** The planner runs in a background task on an immutable snapshot of the library and the plan. It recomputes after changes (debounced), so the results stay live while you edit a plan.
 
 ### Sync with iCloud Drive
 
-- **Location.** The library is the `Documents/` folder of the app's iCloud container. Files are downloaded eagerly because they're tiny, so the "Optimize Storage" setting never leaves gaps.
+- **Location.** The library is the `Documents/` folder of the app's iCloud container. Files are downloaded eagerly because they're tiny, before the library is read and whenever they change, so the "Optimize Storage" setting never leaves gaps.
 - **Keeping conflicts rare.** There is one file per account, instrument and plan. History is grouped by month, so a check-in touches one file and past months are rarely edited. Unchanged files are never rewritten.
 - **Resolving conflicts.** When two devices change the same file before syncing, iCloud keeps both versions (`NSFileVersion`). The app merges them record by record, marks the conflict resolved, and shows what it merged on a Sync screen. The rules are in [FILE_FORMAT.md](FILE_FORMAT.md#sync-conflicts).
 - **Saving over a newer file.** A file can also change on disk between the app reading it and writing an edit to it. The write merges with it: record by record for history and headlines, and for other files with a copy in `backups/` before replacing it ([FILE_FORMAT.md](FILE_FORMAT.md#saving)). The Sync screen lists these too.
 - **Not missing changes.** The store records every file's modification date when it loads the library, and the watcher's first look is compared with them, so a change that lands while the library loads is reloaded too. When the app comes back to the foreground it compares modification dates again.
 - **First launch on a new device.** A library in iCloud Drive may not be on the device yet. Before offering to create a new one, the app asks iCloud Drive whether `library.json` exists (an `NSMetadataQuery`), waiting up to a few seconds for the answer, so the second device opens the existing library instead of creating another.
+- **Downloading before reading.** A file iCloud Drive hasn't downloaded is only a placeholder, and a coordinated read of it waits until it's downloaded. Read one by one, a library of a few hundred files (an import back to 2017 makes over a hundred months) would take minutes, and never finish offline. So before reading, the app lists the library's files (the folder on disk, then an `NSMetadataQuery` with each file's download status, size and error), asks iCloud for every missing one at once, and shows "Downloading n of N files from iCloud Drive" with a bar until they're all here. Reads stay coordinated, but no longer wait on the network. A library already on the device is read at once.
+- **Never stuck.** If nothing moves for 20 seconds while opening, the app says it's still waiting for iCloud Drive, lists the likely reasons (offline, cellular data off for iCloud Drive, Low Power Mode, iCloud Drive off for the app), and offers Try Again and Keep Waiting. It never offers to create a library then, since that would duplicate the one that hasn't arrived. Each step of opening is logged (`os.Logger`, category `library`), so Console shows where it stops.
 - **Schema guard.** Every library records a `schemaVersion`. An app that finds a newer version than it understands opens the library read-only and asks to be updated. That way an old app on one device can't damage data written by a newer app on the other.
 
 ### App structure

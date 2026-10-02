@@ -48,9 +48,7 @@ struct RootView: View {
     private var content: some View {
         switch library.phase {
         case .starting:
-            ProgressView("Opening your library…")
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .background(Palette.page)
+            LibraryOpeningView()
         case .needsSetup:
             OnboardingScreen()
         case .failed(let message):
