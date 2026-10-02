@@ -1,0 +1,51 @@
+{
+  "name": "AHV pension with real wage growth and inflation: credits drift, limits grow",
+  "kind": "claims",
+  "year": 2026,
+  "input": {
+    "scheme": "ch.ahv",
+    "birthDate": "1966-07-01",
+    "options": {
+      "contributionYears": 30,
+      "averageIncome": 80000,
+      "foreignContributionYears": 0,
+      "realWageGrowth": 0.01,
+      "inflation": 0.01
+    }
+  },
+  "expected": {
+    "claims": [
+      {
+        "route": "ch.ahv.early",
+        "age": 63,
+        "annualAmount": 7547.937829,
+        "fullYearAmount": 18115.050789,
+        "nextYear": 18115.050789,
+        "realGrowthPerYear": 0.005
+      },
+      {
+        "route": "ch.ahv.reference",
+        "age": 65,
+        "annualAmount": 8709.948205,
+        "fullYearAmount": 20903.875692,
+        "nextYear": 20903.875692,
+        "realGrowthPerYear": 0.005
+      },
+      {
+        "route": "ch.ahv.deferred",
+        "age": 70,
+        "annualAmount": 11379.118944,
+        "fullYearAmount": 27309.885465,
+        "nextYear": 27309.885465,
+        "realGrowthPerYear": 0.005
+      }
+    ]
+  },
+  "workings": [
+    "Born 1966-07-01; 30 Swiss contribution years at an average income of 80,000.00.",
+    "At 63 (2029): average 76,494.05; monthly 2,330.32 for a full record × 30/44 × 0.864 × 1.005^3 = 1,393.4654; a year 18,115.0508 (13 payments); the first year 5 months and their 13th: 7,547.9378.",
+    "At 65 (2031): average 74,242.54; monthly 2,300.30 for a full record × 30/44 × 1.000 × 1.005^5 = 1,607.9904; a year 20,903.8757 (13 payments); the first year 5 months and their 13th: 8,709.9482.",
+    "At 70 (2036): average 68,899.43; monthly 2,229.06 for a full record × 30/44 × 1.315 × 1.005^10 = 2,100.7604; a year 27,309.8855 (13 payments); the first year 5 months and their 13th: 11,379.1189.",
+    "Credited incomes are nominal while the formula's limits follow the mixed index: each year the average loses 1/(1.01 × 1.005) against them; the pension, in today's francs, grows by 0.5% a year until it starts and after (realGrowthPerYear)."
+  ]
+}

@@ -1,0 +1,51 @@
+{
+  "name": "Employee, CHF 100,000, city of Zurich, with church tax at 10%",
+  "year": 2026,
+  "input": {
+    "age": 40,
+    "systemOptions": {
+      "canton": "ZH",
+      "commune": "Zurich",
+      "churchMultiplier": "0.1"
+    },
+    "work": [
+      {
+        "phaseID": "job",
+        "kind": "employee",
+        "regime": "ch.employee",
+        "gross": 100000.0
+      }
+    ]
+  },
+  "expected": {
+    "lines": {
+      "ch.federal": 1752.21574,
+      "ch.cantonal": 4559.795845,
+      "ch.communal": 5711.744269,
+      "ch.personalTax": 24.0,
+      "ch.church": 479.97851
+    },
+    "contributions": {
+      "ch.ahv.employee": 5300.0,
+      "ch.alv": 1100.0,
+      "ch.bvg.employee": 3213.0
+    },
+    "accruals": {
+      "pensionScheme:ch.ahv": 100000.0,
+      "pensionScheme:ch.bvg": 6426.0
+    },
+    "contributionMonths": 12,
+    "totalTax": 12527.734364,
+    "netIncome": 77859.265636
+  },
+  "workings": [
+    "AHV/IV/EO 5.3% × 100,000.00 = 5,300.00; ALV 1.1% × 100,000.00 = 1,100.00.",
+    "Coordinated salary min(100,000.00, 90,720) − 26,460 = 64,260.00; age credit at 40 10% = 6,426.00; employee half 3,213.00.",
+    "Net salary 90,387.00; professional expenses federal 2,711.61, ZH 2,711.61.",
+    "Federal taxable 90,387.00 − 4,511.61 of deductions = 85,875.39; federal tax 1,752.2157.",
+    "Zurich taxable 90,387.00 − 5,611.61 = 84,775.39.",
+    "Simple tax 4,799.7851; cantonal 95% = 4,559.7958; communal (Zurich, 119%) = 5,711.7443; personal tax 24.",
+    "Church tax 10% × 4,799.7851 = 479.9785.",
+    "Total tax 12,527.7344. Net income 100,000.00 − 9,613.00 − 12,527.7344 = 77,859.2656."
+  ]
+}

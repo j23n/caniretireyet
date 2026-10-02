@@ -1,0 +1,55 @@
+{
+  "name": "A BVG lump sum within 3 years of a buy-in reverses its deduction, Zurich",
+  "year": 2026,
+  "input": {
+    "age": 64,
+    "systemOptions": {
+      "canton": "ZH",
+      "commune": "Zurich"
+    },
+    "state": {
+      "ch.bvg.buyIn.2022": 10000,
+      "ch.bvg.buyIn.2024": 30000
+    },
+    "pensions": [
+      {
+        "id": "pension-0.lumpSum",
+        "scheme": "ch.bvg",
+        "amount": 300000,
+        "form": "lumpSum"
+      }
+    ]
+  },
+  "expected": {
+    "lines": {
+      "ch.federal": 93.17,
+      "ch.cantonal": 576.175,
+      "ch.communal": 721.735,
+      "ch.personalTax": 24,
+      "ch.capitalBenefits.federal": 5220.688,
+      "ch.capitalBenefits.cantonal": 5700.0,
+      "ch.capitalBenefits.communal": 7140.0
+    },
+    "contributions": {
+      "ch.ahv.nonEmployed": 556.5
+    },
+    "totalTax": 19475.768,
+    "issues": [
+      "ch.bvg.buyInLock"
+    ],
+    "nextState": {
+      "ch.bvg.buyIn.2024": 30000,
+      "ch.bvg.buyIn.2022": 0
+    }
+  },
+  "workings": [
+    "A 30,000 buy-in in 2024 is within the lock (2026 − 3 = 2023 or later); the 2022 one isn't, and leaves the state.",
+    "The reversed deduction is added to this year's income: 30,000, with no other income.",
+    "No pension contributions this year, so the insurance deductions without them.",
+    "Federal taxable 30,000 − 2,700 = 27,300.00; federal tax 93.1700.",
+    "Zurich taxable 30,000 − 4,350 = 25,650.00.",
+    "Simple tax 606.5000; cantonal 95% = 576.1750; communal (Zurich, 119%) = 721.7350; personal tax 24.",
+    "The lump sum is taxed separately: federal 5,220.6880; Zurich 2% floor (1/20 = 15,000 is taxed at 1.37%): simple 6,000, cantonal 5,700, communal 7,140.",
+    "At 64 without work, AHV without work: the minimum 556.50."
+  ]
+}

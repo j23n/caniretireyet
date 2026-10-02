@@ -1,0 +1,36 @@
+{
+  "name": "Capital benefit of CHF 500,000, Bellinzona, men's table",
+  "year": 2026,
+  "input": {
+    "age": 65,
+    "systemOptions": {
+      "canton": "TI",
+      "commune": "Bellinzona",
+      "capitalBenefitTable": "male"
+    },
+    "pensions": [
+      {
+        "id": "pension-0.lumpSum",
+        "scheme": "ch.bvg",
+        "amount": 500000,
+        "form": "lumpSum"
+      }
+    ]
+  },
+  "expected": {
+    "lines": {
+      "ch.capitalBenefits.federal": 10500.688,
+      "ch.capitalBenefits.cantonal": 12948.003953,
+      "ch.capitalBenefits.communal": 12041.643676,
+      "ch.personalTax": 40
+    },
+    "totalTax": 35530.335629
+  },
+  "workings": [
+    "A capital benefit of 500,000.00 alone in the year (a BVG lump sum).",
+    "Federal: 1/5 of the tariff (at most 11.5% of the amount): 10,500.6880.",
+    "Ticino: the annuity it buys (50.77 per 1,000, table male) rounded down to 100: 25,300; the tariff's average rate on it 2.5896%, kept between 2% and 3%: 2.5896%; simple tax 12,948.0040.",
+    "Cantonal 100% = 12,948.0040; communal (Bellinzona, 93%) = 12,041.6437. Total 35,490.3356; personal tax 40.",
+    "A secondary comparison gives CHF 35,491 for Bellinzona; with the official table's 478.65 at 20,800 the cantonal and communal tax is 24,990.26 against 24,990.31 there."
+  ]
+}

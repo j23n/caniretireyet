@@ -1,0 +1,40 @@
+{
+  "name": "AHV pension, 25 Swiss years at CHF 30,000",
+  "kind": "claims",
+  "year": 2026,
+  "input": {
+    "scheme": "ch.ahv",
+    "birthDate": "1963-01-01",
+    "options": {
+      "contributionYears": 25,
+      "averageIncome": 30000,
+      "foreignContributionYears": 0,
+      "realWageGrowth": 0.0,
+      "inflation": 0.0
+    }
+  },
+  "expected": {
+    "claims": [
+      {
+        "route": "ch.ahv.early",
+        "age": 63,
+        "annualAmount": 9257.04,
+        "fullYearAmount": 10098.589091,
+        "nextYear": 10098.589091
+      },
+      {
+        "route": "ch.ahv.reference",
+        "age": 65,
+        "annualAmount": 10714.166667,
+        "fullYearAmount": 11688.181818,
+        "nextYear": 11688.181818
+      }
+    ]
+  },
+  "workings": [
+    "Born 1963-01-01; 25 Swiss contribution years at an average income of 30,000.00.",
+    "At 63 (2026): average 30,000.00; monthly 1,582.40 for a full record × 25/44 × 0.864 = 776.8145; a year 10,098.5891 (13 payments); the first year 11 months and their 13th: 9,257.0400.",
+    "At 65 (2028): average 30,000.00; monthly 1,582.40 for a full record × 25/44 × 1.000 = 899.0909; a year 11,688.1818 (13 payments); the first year 11 months and their 13th: 10,714.1667.",
+    "30,000 ≤ 45,360: 0.74 × 1,260 + 13/600 × 30,000 = 932.40 + 650.00 = 1,582.40 a month for a full record."
+  ]
+}

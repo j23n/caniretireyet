@@ -1,0 +1,31 @@
+{
+  "name": "An Italian TFR paid to a Zurich resident: taxed in Italy",
+  "year": 2026,
+  "input": {
+    "age": 66,
+    "systemOptions": {
+      "canton": "ZH",
+      "commune": "Zurich"
+    },
+    "variable": {
+      "payouts": [
+        {
+          "wrapper": "it.tfr",
+          "amount": 40000,
+          "form": "lumpSum"
+        }
+      ]
+    }
+  },
+  "expected": {
+    "lines": {
+      "ch.personalTax": 24
+    },
+    "issues": [
+      "ch.foreignWrapper.taxedAtSource"
+    ]
+  },
+  "workings": [
+    "A TFR from work in Italy stays taxable in Italy (treaty Art. 15, verify); Switzerland doesn't tax it, and warns."
+  ]
+}

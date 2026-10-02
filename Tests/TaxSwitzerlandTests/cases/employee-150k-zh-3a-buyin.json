@@ -1,0 +1,66 @@
+{
+  "name": "Employee, CHF 150,000, Zurich, with a full 3a contribution and a CHF 20,000 BVG buy-in",
+  "year": 2026,
+  "input": {
+    "age": 40,
+    "systemOptions": {
+      "canton": "ZH",
+      "commune": "Zurich"
+    },
+    "work": [
+      {
+        "phaseID": "job",
+        "kind": "employee",
+        "regime": "ch.employee",
+        "gross": 150000.0
+      }
+    ],
+    "wrapperContributions": [
+      {
+        "wrapper": "ch.pillar3a",
+        "amount": 7258,
+        "source": "contribution-0"
+      },
+      {
+        "wrapper": "ch.bvg",
+        "amount": 20000,
+        "source": "contribution-1"
+      }
+    ]
+  },
+  "expected": {
+    "lines": {
+      "ch.federal": 2958.2608,
+      "ch.cantonal": 6122.1724,
+      "ch.communal": 7668.82648,
+      "ch.personalTax": 24.0
+    },
+    "contributions": {
+      "ch.ahv.employee": 7950.0,
+      "ch.alv": 1630.2,
+      "ch.bvg.employee": 3213.0
+    },
+    "accruals": {
+      "pensionScheme:ch.ahv": 150000.0,
+      "pensionScheme:ch.bvg": 26426.0
+    },
+    "contributionMonths": 12,
+    "totalTax": 16773.25968,
+    "netIncome": 93175.54032,
+    "nextState": {
+      "ch.bvg.buyIn.2026": 20000
+    }
+  },
+  "workings": [
+    "AHV/IV/EO 5.3% × 150,000.00 = 7,950.00; ALV 1.1% × 148,200.00 = 1,630.20.",
+    "Coordinated salary min(150,000.00, 90,720) − 26,460 = 64,260.00; age credit at 40 10% = 6,426.00; employee half 3,213.00.",
+    "Net salary 137,206.80; professional expenses federal 4,000.00, ZH 4,000.00.",
+    "Further deductions: pillar 3a 7,258.00, BVG buy-in 20,000.00.",
+    "Federal taxable 137,206.80 − 33,058.00 of deductions = 104,148.80; federal tax 2,958.2608.",
+    "Zurich taxable 137,206.80 − 34,158.00 = 103,048.80.",
+    "Simple tax 6,444.3920; cantonal 95% = 6,122.1724; communal (Zurich, 119%) = 7,668.8265; personal tax 24.",
+    "Total tax 16,773.2597. Net income 150,000.00 − 12,793.20 − 16,773.2597 − 27,258.00 paid in = 93,175.5403.",
+    "The buy-in is credited to the BVG with the age credits; the 3a contribution goes into the 3a account (the planner deposits it, so it's no accrual).",
+    "The state keeps the buy-in for 3 years: a 2nd-pillar lump sum in 2026–2029 reverses its deduction."
+  ]
+}

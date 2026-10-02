@@ -1,0 +1,50 @@
+{
+  "name": "Employee, CHF 80,000 in Zurich, in a plan kept in another currency",
+  "year": 2026,
+  "input": {
+    "age": 40,
+    "systemOptions": {
+      "canton": "ZH",
+      "commune": "Zurich"
+    },
+    "work": [
+      {
+        "phaseID": "job",
+        "kind": "employee",
+        "regime": "ch.employee",
+        "gross": 86021.505376
+      }
+    ],
+    "currencyRate": 0.93
+  },
+  "expected": {
+    "lines": {
+      "ch.federal": 985.028201,
+      "ch.cantonal": 3376.027054,
+      "ch.communal": 4228.918099,
+      "ch.personalTax": 25.806452
+    },
+    "contributions": {
+      "ch.ahv.employee": 4559.139785,
+      "ch.alv": 946.236559,
+      "ch.bvg.employee": 2878.494624
+    },
+    "accruals": {
+      "pensionScheme:ch.ahv": 86021.505376,
+      "pensionScheme:ch.bvg": 5756.989247
+    },
+    "contributionMonths": 12,
+    "totalTax": 8615.779805,
+    "netIncome": 69021.854603
+  },
+  "workings": [
+    "The plan is in another currency at 0.93 CHF per unit: the salary of 86,021.51 is CHF 80,000.00, and every amount below is divided by 0.93 again.",
+    "AHV/IV/EO 5.3% × 80,000.00 = 4,240.00; ALV 1.1% × 80,000.00 = 880.00.",
+    "Coordinated salary min(80,000.00, 90,720) − 26,460 = 53,540.00; age credit at 40 10% = 5,354.00; employee half 2,677.00.",
+    "Net salary 72,203.00; professional expenses federal 2,166.09, ZH 2,166.09.",
+    "Federal taxable 72,203.00 − 3,966.09 of deductions = 68,236.91; federal tax 916.0762.",
+    "Zurich taxable 72,203.00 − 5,066.09 = 67,136.91.",
+    "Simple tax 3,304.9528; cantonal 95% = 3,139.7052; communal (Zurich, 119%) = 3,932.8938; personal tax 24.",
+    "Total tax 8,012.6752. Net income 80,000.00 − 7,797.00 − 8,012.6752 = 64,190.3248."
+  ]
+}

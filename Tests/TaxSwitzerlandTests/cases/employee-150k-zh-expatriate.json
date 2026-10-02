@@ -1,0 +1,58 @@
+{
+  "name": "Employee on an assignment, CHF 150,000, Zurich, flat expatriate deduction",
+  "year": 2026,
+  "input": {
+    "age": 40,
+    "systemOptions": {
+      "canton": "ZH",
+      "commune": "Zurich"
+    },
+    "work": [
+      {
+        "phaseID": "job",
+        "kind": "employee",
+        "regime": "ch.employee",
+        "gross": 150000.0
+      }
+    ],
+    "overlays": [
+      {
+        "regime": "ch.expatriate",
+        "options": {
+          "assignmentStart": 2025
+        }
+      }
+    ]
+  },
+  "expected": {
+    "lines": {
+      "ch.federal": 3668.4384,
+      "ch.cantonal": 6931.846,
+      "ch.communal": 8683.0492,
+      "ch.personalTax": 24.0
+    },
+    "contributions": {
+      "ch.ahv.employee": 7950.0,
+      "ch.alv": 1630.2,
+      "ch.bvg.employee": 3213.0
+    },
+    "accruals": {
+      "pensionScheme:ch.ahv": 150000.0,
+      "pensionScheme:ch.bvg": 6426.0
+    },
+    "contributionMonths": 12,
+    "totalTax": 19307.3336,
+    "netIncome": 117899.4664
+  },
+  "workings": [
+    "AHV/IV/EO 5.3% × 150,000.00 = 7,950.00; ALV 1.1% × 148,200.00 = 1,630.20.",
+    "Coordinated salary min(150,000.00, 90,720) − 26,460 = 64,260.00; age credit at 40 10% = 6,426.00; employee half 3,213.00.",
+    "Net salary 137,206.80; professional expenses federal 4,000.00, ZH 4,000.00.",
+    "Further deductions: expatriate deduction 18,000.00.",
+    "Federal taxable 137,206.80 − 23,800.00 of deductions = 113,406.80; federal tax 3,668.4384.",
+    "Zurich taxable 137,206.80 − 24,900.00 = 112,306.80.",
+    "Simple tax 7,296.6800; cantonal 95% = 6,931.8460; communal (Zurich, 119%) = 8,683.0492; personal tax 24.",
+    "Total tax 19,307.3336. Net income 150,000.00 − 12,793.20 − 19,307.3336 = 117,899.4664.",
+    "Assignment from 2025, so 2026 is in its 5 years: CHF 1,500 a month = 18,000, deducted federally and in Zurich."
+  ]
+}

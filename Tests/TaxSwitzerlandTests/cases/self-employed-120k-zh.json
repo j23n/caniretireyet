@@ -1,0 +1,52 @@
+{
+  "name": "Self-employed, CHF 120,000 net business income, city of Zurich",
+  "year": 2026,
+  "input": {
+    "age": 45,
+    "systemOptions": {
+      "canton": "ZH",
+      "commune": "Zurich"
+    },
+    "work": [
+      {
+        "phaseID": "business",
+        "kind": "selfEmployed",
+        "regime": "ch.selfEmployed",
+        "gross": 150000,
+        "costs": 30000
+      }
+    ],
+    "wrapperContributions": [
+      {
+        "wrapper": "ch.pillar3a",
+        "amount": 21600,
+        "source": "contribution-0"
+      }
+    ]
+  },
+  "expected": {
+    "lines": {
+      "ch.federal": 1668.04,
+      "ch.cantonal": 4450.75,
+      "ch.communal": 5575.15,
+      "ch.personalTax": 24
+    },
+    "contributions": {
+      "ch.ahv.selfEmployed": 12000.0
+    },
+    "accruals": {
+      "pensionScheme:ch.ahv": 120000
+    },
+    "contributionMonths": 12,
+    "totalTax": 11717.94,
+    "netIncome": 74682.06
+  },
+  "workings": [
+    "Net income from self-employment 150,000.00 − 30,000.00 = 120,000.00; AHV/IV/EO at the full 10% (above 60,500) = 12,000.00. No ALV, no BVG.",
+    "Largest 3a contribution without a pension fund: 20% × (120,000.00 − 12,000.00) = 21,600.00; 21,600.00 paid, all deductible. Insurance premiums at the amount with pension contributions.",
+    "Federal taxable 108,000.00 − 21,600.00 − 1,800.00 = 84,600.00; federal tax 1,668.0400.",
+    "Zurich taxable 108,000.00 − 21,600.00 − 2,900.00 = 83,500.00.",
+    "Simple tax 4,685.0000; cantonal 95% = 4,450.7500; communal (Zurich, 119%) = 5,575.1500; personal tax 24.",
+    "Net income 120,000.00 − 12,000.00 − 21,600.00 − 11,717.9400 = 74,682.0600."
+  ]
+}
