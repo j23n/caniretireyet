@@ -164,7 +164,7 @@ public struct OptionField: Hashable, Sendable {
     public enum Kind: Hashable, Sendable {
         /// A fraction shown as a percentage: 0.0173 → 1.73%.
         case percent
-        /// An amount in euros (today's euros unless the help says otherwise).
+        /// An amount of money: today's money in the plan's currency unless the help says otherwise.
         case money
         case bool
         case int

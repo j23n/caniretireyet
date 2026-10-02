@@ -67,8 +67,14 @@ public enum WrapperAccess: Hashable, Sendable {
 }
 
 /// How a tax-advantaged account behaves: its generic category, when money
-/// can be taken out, and any tax on growth inside it. Contribution relief and
-/// payout tax are computed by the system in `prepare` and `assess`.
+/// can be taken out, when it must be or is best taken out, and any tax on
+/// growth inside it. Contribution relief and payout tax are computed by the
+/// system in `prepare` and `assess`.
+///
+/// By default the planner draws an accessible wrapper only as needed, in
+/// proportion with the others. ``mustPayOut`` and ``preferredPayoutYears``
+/// change that for wrappers the law makes pay out, or whose payouts are
+/// taxed less when spread over several years.
 public struct WrapperRule: Sendable {
     /// Referenced by accounts' `tax.wrapper`, e.g. `it.pensionFund`.
     public var id: String
@@ -84,21 +90,42 @@ public struct WrapperRule: Sendable {
     public var revaluation: WrapperRevaluation?
     /// Decides whether the wrapper can be drawn from.
     public var accessRule: @Sendable (WrapperAccessContext) -> WrapperAccess
+    /// Decides whether the whole balance must be paid out in a year, e.g. a
+    /// Swiss 3a account at the reference age. When it says so, the planner
+    /// pays everything out that year (taxed as a lump-sum payout), and the
+    /// rest after tax joins the year's cash. `nil` (the default) for never.
+    public var mustPayOut: (@Sendable (WrapperAccessContext) -> Bool)?
+    /// Spread the payout over this many years from the first year the
+    /// wrapper is accessible, e.g. to keep each year's capital-benefit tax
+    /// low: the planner pays out 1/n of the balance in the first of those
+    /// years, 1/(n − 1) in the next, and the rest in the last, whether or
+    /// not the money is needed (what isn't is invested in the liquid bucket).
+    /// Money needed beyond that is still drawn as usual. `nil` (the default)
+    /// to draw only as needed.
+    public var preferredPayoutYears: Int?
 
     public init(id: String, name: String, category: WrapperCategory, growthTaxRate: Double? = nil,
-                revaluation: WrapperRevaluation? = nil,
+                revaluation: WrapperRevaluation? = nil, preferredPayoutYears: Int? = nil,
+                mustPayOut: (@Sendable (WrapperAccessContext) -> Bool)? = nil,
                 access: @escaping @Sendable (WrapperAccessContext) -> WrapperAccess) {
         self.id = id
         self.name = name
         self.category = category
         self.growthTaxRate = growthTaxRate
         self.revaluation = revaluation
+        self.preferredPayoutYears = preferredPayoutYears
+        self.mustPayOut = mustPayOut
         self.accessRule = access
     }
 
     /// Whether the wrapper can be drawn from in `context`.
     public func access(in context: WrapperAccessContext) -> WrapperAccess {
         accessRule(context)
+    }
+
+    /// Whether the whole balance must be paid out in `context` (``mustPayOut``).
+    public func mustPayOut(in context: WrapperAccessContext) -> Bool {
+        mustPayOut?(context) ?? false
     }
 }
 

@@ -18,7 +18,7 @@ public struct FixedPensionScheme: PensionScheme {
     public var options: [OptionField] {
         [
             .money("perYear", "Gross amount per year", required: true,
-                   help: "From your statement, in today's euros."),
+                   help: "From your statement, in today's money in the plan's currency."),
             .int("fromAge", "Paid from age", range: 0...120, required: true),
         ]
     }

@@ -1,15 +1,17 @@
 /// Everything in one year of one simulated path that depends on the
 /// markets: the input to ``PreparedTaxYear/assess(_:)``.
 ///
-/// Amounts are in today's euros. Cost bases are nominal purchase costs
-/// deflated to today's euros, so gains are nominal gains.
+/// Amounts are in today's money in the plan's currency. Cost bases are
+/// nominal purchase costs deflated to today's money, so gains are nominal
+/// gains.
 public struct VariableYear: Hashable, Sendable {
     /// Sales from buckets, e.g. to fund spending or rebalance. A
     /// rebalancing sale in a taxable account is a sale like any other.
     public var sales: [Sale]
     /// Money taken out of tax-advantaged wrappers.
     public var payouts: [WrapperPayout]
-    /// Interest, dividends and coupons received.
+    /// Interest, dividends and coupons received, and income funds earned
+    /// without paying it out (``CapitalIncomeKind/reportedIncome``).
     public var capitalIncome: [CapitalIncome]
     /// Year-end values, for wealth taxes.
     public var balances: [Balance]
@@ -92,6 +94,12 @@ public struct VariableYear: Hashable, Sendable {
         public static let interest: CapitalIncomeKind = "interest"
         public static let dividend: CapitalIncomeKind = "dividend"
         public static let coupon: CapitalIncomeKind = "coupon"
+        /// Income a fund earned in the year and reinvested rather than paid
+        /// out: the plan's `incomeYield` for the asset class times the value
+        /// held. It's part of the holding's return, not extra money. Some
+        /// systems tax it every year (Switzerland); most only tax what's paid
+        /// out or sold, and skip this kind (Italy, `generic`).
+        public static let reportedIncome: CapitalIncomeKind = "reportedIncome"
     }
 
     /// Capital income received in a wrapper.
@@ -116,12 +124,21 @@ public struct VariableYear: Hashable, Sendable {
         /// ISO 3166-1 alpha-2 code of the institution's country, if known.
         public var country: String?
         public var value: Double
+        /// The holding's nominal return over the year (or the part of it
+        /// simulated): its growth from the markets, or from a revaluation set
+        /// by law, as a fraction of its value before, after any tax on growth
+        /// inside the wrapper. So its value before the returns was
+        /// `value / (1 + nominalReturn)` (e.g. for Germany's Vorabpauschale).
+        /// `nil` when unknown.
+        public var nominalReturn: Double?
 
-        public init(wrapper: String, category: TaxCategory, country: String? = nil, value: Double) {
+        public init(wrapper: String, category: TaxCategory, country: String? = nil, value: Double,
+                    nominalReturn: Double? = nil) {
             self.wrapper = wrapper
             self.category = category
             self.country = country
             self.value = value
+            self.nominalReturn = nominalReturn
         }
     }
 }
@@ -130,9 +147,9 @@ public struct VariableYear: Hashable, Sendable {
 /// ``PreparedTaxYear/grossUp(net:from:)``.
 public struct BucketSnapshot: Hashable, Sendable {
     public var wrapper: String
-    /// Current value in today's euros.
+    /// Current value in today's money.
     public var value: Double
-    /// Purchase cost of the bucket's holdings, in today's euros.
+    /// Purchase cost of the bucket's holdings, in today's money.
     public var costBasis: Double
     /// The share of `value` in each tax category (sums to 1).
     public var categoryShares: [TaxCategory: Double]

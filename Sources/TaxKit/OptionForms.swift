@@ -11,7 +11,7 @@ extension OptionField {
                     isRequired: required, range: range, help: help)
     }
 
-    /// An amount in euros, by default not negative.
+    /// An amount of money (in the plan's currency unless the help says otherwise), by default not negative.
     public static func money(_ key: String, _ label: String, default value: Double? = nil,
                              range: ClosedRange<Double>? = 0...Double.greatestFiniteMagnitude,
                              required: Bool = false, help: String? = nil) -> OptionField {

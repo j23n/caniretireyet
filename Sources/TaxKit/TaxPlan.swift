@@ -16,10 +16,13 @@ public struct TaxPlan: Hashable, Sendable {
     public var pensions: [Pension]
     /// The person's birth year, if known.
     public var birthYear: Int?
+    /// The person's citizenships, as ISO 3166-1 alpha-2 codes; empty when
+    /// unknown. See ``FixedYear/citizenships``.
+    public var citizenships: [String]
 
     public init(residence: [Residence], overlays: [RegimeChoice] = [], indexThresholds: Bool = true,
                 overrides: OptionValues = [:], work: [WorkPhase] = [], pensions: [Pension] = [],
-                birthYear: Int? = nil) {
+                birthYear: Int? = nil, citizenships: [String] = []) {
         self.residence = residence
         self.overlays = overlays
         self.indexThresholds = indexThresholds
@@ -27,6 +30,7 @@ public struct TaxPlan: Hashable, Sendable {
         self.work = work
         self.pensions = pensions
         self.birthYear = birthYear
+        self.citizenships = citizenships
     }
 
     /// The residence entry in force in `year`: the latest starting at or before it.
@@ -74,15 +78,22 @@ public struct TaxPlan: Hashable, Sendable {
 
     /// A pension as far as taxes are concerned.
     public struct Pension: Hashable, Sendable {
-        /// The same ID as `FixedYear.Pension.id`.
+        /// The same ID as `FixedYear.Pension.id` (of its yearly payments).
         public var id: String
         public var scheme: String
         public var options: OptionValues
+        /// What kind of pension it is, when known (see ``FixedYear/Pension/kind``).
+        public var kind: PensionKind?
+        /// The paying country (ISO 3166-1 alpha-2), when the plan says.
+        public var sourceCountry: String?
 
-        public init(id: String, scheme: String, options: OptionValues = [:]) {
+        public init(id: String, scheme: String, options: OptionValues = [:], kind: PensionKind? = nil,
+                    sourceCountry: String? = nil) {
             self.id = id
             self.scheme = scheme
             self.options = options
+            self.kind = kind
+            self.sourceCountry = sourceCountry
         }
     }
 }

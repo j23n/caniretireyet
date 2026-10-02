@@ -4,7 +4,8 @@ public struct TaxLine: Hashable, Sendable {
     public var id: String
     /// The name shown in results, e.g. "IRPEF".
     public var label: String
-    /// The amount paid in the year, in today's euros. Negative for a refund or credit.
+    /// The amount paid in the year, in today's money in the plan's currency.
+    /// Negative for a refund or credit.
     public var amount: Double
     /// What it was charged on (the taxable base), if meaningful.
     public var base: Double?
@@ -33,7 +34,7 @@ public struct Accrual: Hashable, Sendable {
     }
 
     public var target: Target
-    /// The amount credited, in today's euros.
+    /// The amount credited, in today's money in the plan's currency.
     public var amount: Double
     /// Months of contributions credited, for pension schemes (0 otherwise).
     public var contributionMonths: Int
@@ -60,14 +61,20 @@ public struct TaxAssessment: Hashable, Sendable {
     public var issues: [TaxIssue]
     /// The state to pass to next year's `prepare`.
     public var nextState: TaxState
+    /// Amounts to add to the purchase cost of holdings, because the year
+    /// taxed income they didn't pay out (e.g. Germany's Vorabpauschale,
+    /// deducted from the gain when the fund is sold). Only from ``PreparedTaxYear/assess(_:)``.
+    public var costBasisAdjustments: [CostBasisAdjustment]
 
     public init(lines: [TaxLine] = [], contributions: [TaxLine] = [], accruals: [Accrual] = [],
-                issues: [TaxIssue] = [], nextState: TaxState = .empty) {
+                issues: [TaxIssue] = [], nextState: TaxState = .empty,
+                costBasisAdjustments: [CostBasisAdjustment] = []) {
         self.lines = lines
         self.contributions = contributions
         self.accruals = accruals
         self.issues = issues
         self.nextState = nextState
+        self.costBasisAdjustments = costBasisAdjustments
     }
 
     /// The sum of all tax lines.
@@ -78,5 +85,26 @@ public struct TaxAssessment: Hashable, Sendable {
     /// The sum of all contribution lines.
     public var totalContributions: Double {
         contributions.reduce(0) { $0 + $1.amount }
+    }
+}
+
+/// A change to the purchase cost of what a wrapper holds in a category, from
+/// a year's assessment: the planner adds `amount` to the matching holdings'
+/// purchase cost, in proportion to their value, after the year's returns.
+/// So a later sale's gain is smaller by what was already taxed.
+///
+/// For a tax-advantaged wrapper, which keeps one purchase cost for all it
+/// holds, the amount goes to that (whatever the category).
+public struct CostBasisAdjustment: Hashable, Sendable {
+    public var wrapper: String
+    public var category: TaxCategory
+    /// In today's money in the plan's currency, like cost bases in
+    /// ``VariableYear``. Negative lowers the purchase cost (never below 0).
+    public var amount: Double
+
+    public init(wrapper: String, category: TaxCategory, amount: Double) {
+        self.wrapper = wrapper
+        self.category = category
+        self.amount = amount
     }
 }
