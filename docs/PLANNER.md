@@ -12,7 +12,7 @@ Alongside the headline, it shows:
 - **What you could spend.** The highest yearly spending in retirement that still reaches your confidence level at your target retirement age. The engine finds it the same way it finds the earliest age.
 - **Chance of success against retirement age.** A curve showing what each extra year of work buys you.
 - **Portfolio over time.** The median, with a band from the 10th to the 90th percentile.
-- **Income by source for each retirement year**: portfolio withdrawals, public pensions, the pension fund, TFR and windfalls, together with each tax paid.
+- **Income by source for each retirement year**: portfolio withdrawals, public pensions, pension funds and other tax-advantaged accounts (such as Italy's TFR), and windfalls, together with each tax paid, in the country that charges it.
 - **Why failing runs fail**, for example: "runs out of accessible money at 55, two years before the pension fund can be drawn at 57".
 - **An FI number**, for orientation only: the spending your pensions don't cover, divided by a withdrawal rate.
 
@@ -39,7 +39,7 @@ Each year:
 
 ## Plan file
 
-`plans/<id>.json`. All numbers below are made up. Keys are shown in reading order here; the app writes them sorted. Only `id`, `name`, `retirement` and `spending` are required: every other section can be left out, and then takes the defaults in the table below.
+`plans/<id>.json`. The example is a made-up person living in Italy, and all its numbers are made up. Keys are shown in reading order here; the app writes them sorted. Only `id`, `name`, `retirement` and `spending` are required: every other section can be left out, and then takes the defaults in the table below.
 
 ```json
 {
@@ -107,7 +107,7 @@ Each year:
 | `tax` | Your tax residence over time (a tax system per period, with its options) and any special regimes, such as impatriati. See [TAXES.md](TAXES.md). |
 | `work` | Working phases, described by what happens economically: `employee` (`grossSalary`, optional `realGrowth`), `selfEmployed` (`revenue` and `costs`) or `net` (`netIncome`, entered directly). `regime` picks the tax treatment from the residence's system, e.g. `it.forfettario`. When it's left out, the system's default for that kind of work applies. `from` is a date; `until` is a date or `"retirement"`, which follows the retirement age. |
 | `spending` | Yearly spending while working and in retirement, with optional phase factors by age. Savings are what's left of net income after spending. |
-| `pensions` | Each pension names a scheme: `it.inps` (projected from your contributions) or `fixed` (an amount and start age from a statement, such as a foreign pension: `fromAge` and `perYear`). `claim` is `earliest` (the default) or an age. `claimRoute` picks one of the scheme's ways to claim by its route, such as taking part of a pension fund as a lump sum; without it, the scheme's first option at the age. `taxedIn` is `residence` (the default) or `source`: whether the country of residence or the paying country taxes it; the paying country's tax is computed when the planner has a system for that country ([TAXES.md](TAXES.md#what-a-system-can-tell-the-planner-and-whats-told)). `sourceCountry` names the paying country (by default, for a scheme such as `it.inps`, its system's country), and `kind` what the pension is (`statutory`, `occupational`, `basicPension` or `privateAnnuity`), for systems that tax kinds differently; a scheme such as `it.inps` knows its own kind. Settings specific to a scheme, such as INPS's montante, go in `options`. |
+| `pensions` | Each pension names a scheme: a public scheme such as `it.inps` (projected from contributions) or `fixed` (an amount and start age from a statement, such as a foreign pension: `fromAge` and `perYear`). `claim` is `earliest` (the default) or an age. `claimRoute` picks one of the scheme's ways to claim by its route, such as taking part of a pension fund as a lump sum; without it, the scheme's first option at the age. `taxedIn` is `residence` (the default) or `source`: whether the country of residence or the paying country taxes it; the paying country's tax is computed when the planner has a system for that country ([TAXES.md](TAXES.md#what-a-system-can-tell-the-planner-and-whats-told)). `sourceCountry` names the paying country (by default, for a scheme such as `it.inps`, its system's country), and `kind` what the pension is (`statutory`, `occupational`, `basicPension` or `privateAnnuity`), for systems that tax kinds differently; a scheme such as `it.inps` knows its own kind. Settings specific to a scheme, such as INPS's montante, go in `options`. |
 | `contributions` | Payments into specific accounts, such as the pension fund, or into a pension scheme (a buy-in): each entry names an `account` or a `pension` scheme, and pays `perYear` while working (`until` defaults to `"retirement"`) or a one-off `amount` in a `year`: `{ "pension": "ch.bvg", "amount": "20000", "year": 2030 }`. The rest of your savings goes to the liquid bucket. |
 | `events` | One-off amounts by `age` or `year` (exactly one of the two): positive for windfalls, negative for expenses. An optional `probability` makes a windfall uncertain. Each Monte Carlo run draws whether it happens; the deterministic run includes it if the probability is at least 50%. An optional `kind` (`windfall`, `expense`, `inheritance`) tells the tax system what it is; by default positive amounts are windfalls and negative ones expenses. |
 | `portfolio` | Where the plan starts: `start` is `"latest-check-in"` (the default) or a check-in date. Also lets you exclude accounts (`exclude`, a list of account IDs), override the target asset mix (`targetMix`), or estimate unrealised gains where no purchase cost was recorded (`unrealizedGainShare`). |
@@ -248,7 +248,8 @@ How `Sources/Planner` fills in what the sections above leave open. `Planner.run(
 The engine contains no tax rules. Every tax, contribution and pension rule comes from a pluggable tax system chosen in the plan:
 
 - [TAXES.md](TAXES.md): the architecture. Tax systems, regimes, wrappers, pension schemes and parameter files, and how to add new ones.
-- [tax/IT.md](tax/IT.md): the Italian system, covering employee, forfettario and ordinario work; impatriati; INPS; the pension fund; TFR; and investment and wealth taxes.
+- [tax/IT.md](tax/IT.md): the Italian system, covering employee, forfettario and ordinario work; impatriati; INPS; the pension fund; TFR; investment and wealth taxes; and pensions from and to other countries.
+- [tax/CH.md](tax/CH.md) and [tax/DE.md](tax/DE.md): the Swiss and German systems.
 
 ## Testing the engine
 

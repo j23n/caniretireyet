@@ -23,6 +23,8 @@ There are three levels of change, from most to least frequent:
 
 ## Choosing them in a plan
 
+For example, a made-up plan for someone employed and then self-employed in Italy, who moves in 2048 to a country without a system of its own:
+
 ```json
 "tax": {
   "residence": [
