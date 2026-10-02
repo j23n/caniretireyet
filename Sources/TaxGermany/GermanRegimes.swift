@@ -39,7 +39,8 @@ extension GermanTaxSystem {
                      ("voluntary", "Voluntary GKV"), ("pkv", "Private (PKV)")], default: "auto",
                     help: "KVdR charges pensions only; voluntary GKV charges all income, capital included."),
             .percent("insuredShareBeforePlan", "Share of working life in statutory health insurance before the plan",
-                     default: 1, help: "In Germany, another EU/EEA country or Switzerland. For the 9/10 rule."),
+                     help: "In Germany, another EU/EEA country or Switzerland, for the 9/10 rule. Default: all of it, or "
+                         + "none with PKV."),
             .year("workStartYear", "Year of the first job",
                   help: "Starts the 9/10 rule's reference period. Default: the year you turned 20."),
             .money("otherDeductions", "Other deductions per year", default: 0,

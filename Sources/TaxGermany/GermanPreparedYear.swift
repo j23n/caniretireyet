@@ -410,7 +410,8 @@ struct GermanMarketAssessor {
         inputs.progression += progression
         var result = context.calculator.compute(inputs)
 
-        // Stage 8: the flat tax, or the tariff when that's lower.
+        // Stage 8: the flat tax, or the tariff when that gives less income tax
+        // including the Soli and church tax (§32d Abs. 6).
         let taxable = max(0, capital - p.saverAllowance)
         var flatTax = context.flatRate * taxable
         if taxable > 0 {
@@ -418,7 +419,7 @@ struct GermanMarketAssessor {
             alternative.income += taxable
             alternative.positiveIncome += taxable
             let tariff = context.calculator.compute(alternative)
-            if tariff.incomeTax < result.incomeTax + flatTax - 1e-9 {
+            if tariff.total < result.total + context.combinedFlatRate * taxable - 1e-9 {
                 result = tariff
                 flatTax = 0
             }

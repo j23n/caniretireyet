@@ -398,7 +398,10 @@ struct GermanYearCalculator {
                                              specialExpensesLumpSum: p.specialExpensesLumpSum,
                                              oneFifthDivisor: p.oneFifthDivisor)
         let flatRate = churchRate > 0 ? p.flatRate / (1 + p.flatRate * churchRate) : p.flatRate
-        let marginal = calculator.marginalRate(inputs).incomeTax
+        // The tariff is never lower when its rate on the next euro (with Soli and
+        // church tax) is already at least the flat tax's, and it stays above it at higher incomes.
+        let marginal = calculator.marginalRate(inputs).total
+        let combinedFlatRate = flatRate * (1 + p.soli.capitalIncomeRate + churchRate)
         let healthOnGains = health.part.map { part in
             part.status == .voluntary && part.items.reduce(0) { $0 + max(0, $1.healthBase) } < part.ceiling - 1e-9
         } ?? false
@@ -408,7 +411,7 @@ struct GermanYearCalculator {
             retirementProvisions: retirement, basicProvisions: basic, otherProvisions: other,
             otherProvisionsLimit: limit, health: health.part, pensionLumpSumLeft: pensionLumpSumLeft,
             ruerupShare: p.taxableShare.share(startedIn: year.year), basiszins: basiszins, flatRate: flatRate,
-            churchRate: churchRate, exactGrossUp: marginal >= flatRate - 1e-9 && !healthOnGains,
+            churchRate: churchRate, exactGrossUp: marginal >= combinedFlatRate - 1e-9 && !healthOnGains,
             otherLines: otherLines, contributions: contributions, accruals: accruals, issues: issues,
             nextState: nextState)
         return GermanPreparedYear(context: context)

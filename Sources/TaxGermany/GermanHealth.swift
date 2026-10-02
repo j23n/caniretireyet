@@ -163,7 +163,10 @@ extension GermanYearCalculator {
         let end = Double(claimYear)
         guard end > start else { return (true, 0, 0) }
         let middle = (start + end) / 2
-        let shareBefore = min(1, max(0, options.double("insuredShareBeforePlan", default: 1)))
+        // Someone in PKV now is taken to have been in PKV before the plan too,
+        // unless the option says otherwise.
+        let privateNow = options.string("healthInsurance") == "pkv"
+        let shareBefore = min(1, max(0, year.systemOptions.double("insuredShareBeforePlan") ?? (privateNow ? 0 : 1)))
         let timelineStart = year.residence.map(\.from).min()
         var insured = 0.0
         var cursor = middle

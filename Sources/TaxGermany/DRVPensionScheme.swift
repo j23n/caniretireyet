@@ -247,10 +247,15 @@ struct DRVClaims {
             consider(.standard, standard)
             consider(.veryLongInsured, veryLong)
             consider(.longInsured, long)
+            // A start no earlier and no higher than another is never worth it.
+            let useful = starts.filter { start in
+                !starts.contains { $0.month <= start.month && $0.factor >= start.factor
+                    && ($0.month < start.month || $0.factor > start.factor) }
+            }
             // The best first (the one a plan claiming at this age gets): the
             // highest access factor, then the earliest start; the others can be
             // chosen with the pension's `claimRoute`.
-            for start in starts.sorted(by: { ($0.factor, -$0.month) > ($1.factor, -$1.month) }) {
+            for start in useful.sorted(by: { ($0.factor, -$0.month) > ($1.factor, -$1.month) }) {
                 result.append(option(start.route, month: start.month, factor: start.factor, points: points))
             }
         }
