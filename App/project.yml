@@ -70,11 +70,14 @@ targets:
         INFOPLIST_KEY_LSApplicationCategoryType: public.app-category.finance
         INFOPLIST_KEY_UILaunchScreen_Generation: YES
         INFOPLIST_KEY_UIApplicationSceneManifest_Generation: YES
-        # iPad: every orientation, so the app takes part in Split View, Slide
-        # Over and Stage Manager (it switches to the sidebar layout when it has
-        # the room, UI.md "Navigation"). iPhone: portrait and landscape.
+        # Every orientation on both, as Xcode 26 requires of an app that
+        # doesn't require full screen: on iPad the app takes part in Split
+        # View, Slide Over and Stage Manager (it switches to the sidebar
+        # layout when it has the room, UI.md "Navigation"); iPhones without a
+        # Home button never use upside down.
+        INFOPLIST_KEY_UISupportedInterfaceOrientations: "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight"
         INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad: "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight"
-        INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone: "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight"
+        INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone: "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight"
         # iCloud Documents on both platforms; the Mac also gets the app sandbox.
         CODE_SIGN_ENTITLEMENTS: Config/CanIRetireYet.entitlements
         "CODE_SIGN_ENTITLEMENTS[sdk=macosx*]": Config/CanIRetireYet-macOS.entitlements
