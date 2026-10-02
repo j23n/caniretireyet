@@ -4,27 +4,34 @@ Hand-calculated cases for the `ch` system, ready to become `Tests/TaxSwitzerland
 
 **Conventions**
 
-- Tax year 2026, a single person without children, no church tax, `currencyRate` 1 (all amounts in CHF; see CH.md, Fit with TaxKit, gap 1).
-- Brackets are applied continuously, as `BracketSchedule` does. The official tables round taxable income down to CHF 100 and amounts to 5 centimes, so official figures can differ by a few francs.
-- Insurance premiums are deducted at the maximum (federal CHF 1,800, Zurich CHF 2,900); professional expenses at the flat 3% (CHF 2,000–4,000). No commuting, meals or other deductions unless stated.
+- Tax year 2026, a single person without children on the single tariff, no church tax, plan currency CHF (`currencyRate` 1; see CH.md, Fit with TaxKit, gap 1).
+- `systemOptions` name the canton and the commune; the commune's multiplier comes from the parameter file (Zurich city 119%, Lugano 80%, Bellinzona 93%).
+- Brackets are applied continuously, as `BracketSchedule` does. The official tables round taxable income down to CHF 100 and amounts to 5 centimes, so official figures can differ by a few francs. Ticino's category rates are capped at the year's maximum category rate (14% in 2026) in every category.
+- Insurance premiums are deducted at the maximum: the "with pension contributions" amount for anyone paying into the 2nd pillar or 3a that year (federal CHF 1,800, Zurich 2,900, Ticino 5,500), the "without" amount for everyone else, so for retirees (federal 2,700, Zurich 4,350; Ticino 5,500 until its "without" amount is found).
+- Professional expenses: federal and Zurich a flat 3% of net salary (CHF 2,000–4,000); Ticino a flat CHF 3,000. No commuting, meals or other deductions unless stated.
+- Ticino's deduction for single people (CHF 8,000, falling to nothing between 21,000 and 45,000 of net income) applies where net income is low enough.
 - Employees are on the BVG legal minimum (`bvgPlan: minimum`), employer pays half the age credits, `employeeInsuranceRate` 0.
+- Ticino capital benefits use the ESTV conversion factor for a man of 65 (50.77 per 1,000) unless stated; it only matters where the cantonal rate lies between its 2% floor and 3% cap.
 - Line IDs: `ch.federal`, `ch.cantonal`, `ch.communal`, `ch.personalTax`; capital benefits `ch.capitalBenefits.federal`, `.cantonal`, `.communal`; wealth `ch.wealth.cantonal`, `.communal`. Contributions: `ch.ahv.employee` (AHV/IV/EO), `ch.alv`, `ch.bvg.employee`, `ch.ahv.selfEmployed`, `ch.ahv.nonEmployed`. Accruals: `pensionScheme:ch.ahv` (AHV income credited), `pensionScheme:ch.bvg` (age credits and buy-ins), `wrapper:ch.pillar3a`.
 - Net income = gross − contributions − taxes − 3a and buy-ins paid.
 
-**Status.** Cases 1–3 and 5–12 are complete. Cases 4, 13, 14, 17 and 18 have exact federal and social lines; their Zug and Ticino cantonal lines wait for the tariffs to be copied from the official documents (see ch-2026.json, `complete: false`) and are given as targets from secondary sources where there are any.
+**Status.** All 24 cases are complete for Zurich and Ticino. Lines that depend on a value marked *verify* say so: Zurich's insurance deduction "without" contributions (cases 8, 10), Ticino's personal tax (all Ticino cases), Ticino's insurance deduction "without" contributions (cases 17, 22), Ticino's professional-expense flat amount (cases 19, 20). The Zug cases of the earlier draft are gone: Zug isn't offered for now (CH.md, Later: other cantons).
 
-**Cross-checks.** The ESTV tax calculator couldn't be opened from the research environment, so nothing here is checked against it yet; that's the first thing to do in review. What was checked:
+**Cross-checks.** The ESTV tax calculator couldn't be opened from the research environment. What was checked:
 
 - The federal tariff reproduces the ESTV's own figure of CHF 10,936.55 at CHF 185,100 (Form. 58c 2026).
+- The Zurich tariff reproduces an independent 2026 example at a taxable income of CHF 100,000 to the centime: simple tax 6,170.00, canton (95%) 5,861.50, city (119%) 7,342.30.
 - The Zurich capital-benefit cases reproduce finpension's published Zurich examples (CHF 4,878 on 100,000; 14,753 on 250,000) once the 2025 cantonal multiplier of 98% is used.
-- The Bellinzona capital-benefit total in a secondary comparison (CHF 13,551 on 250,000) equals the federal tax plus exactly the 2% minimum simple rate × (100% + 93%), which confirms the Ticino structure.
-- The Zurich employee at CHF 100,000 (computed like case 2) pays CHF 10,296 of cantonal and communal tax in 2026. The ESTV's burden statistics give CHF 12,120 for Zurich in 2025 with church tax, the 98% multiplier and the ESTV's own standard deductions; roughly CHF 850 of the gap is explained by the church tax, the higher multiplier and the 2025 tariff, the rest (about CHF 1,000) is open (*verify* with the calculator: probably the ESTV's standard deductions).
+- Ticino's tariff rows were read one by one; each official tax follows from the one before and the category rates to within 30 centimes (the table's own rounding), for single and married people.
+- The Ticino capital-benefit method reproduces both Bellinzona totals of a secondary comparison: CHF 13,551 on 250,000 (the 2% floor) and 35,491 on 500,000 (annuity 25,300, rate 2.5897%, cantonal and communal 24,990.26 against 24,990.31). That checks the tariff, the method, the conversion factor, the rounding of the annuity to 100 francs and that the floor and cap apply to the simple tax before the communal multiplier.
+- The Ticino employee at CHF 150,000 in Bellinzona (case 20's variant) pays CHF 29,366 in all; a secondary calculator gives about 29,500.
+- The Zurich employee at CHF 100,000 against the ESTV's 2025 burden statistics: case 4.
 
 ---
 
 ## 1. Employee, CHF 80,000, city of Zurich
 
-`employee-80k-zh.json` · age 40 · `systemOptions: { canton: ZH, communeMultiplier: 1.19 }` · work: `{ phaseID: job, kind: employee, regime: ch.employee, gross: 80000 }`
+`employee-80k-zh.json` · age 40 · `systemOptions: { canton: ZH, commune: Zurich }` · work: `{ phaseID: job, kind: employee, regime: ch.employee, gross: 80000 }`
 
 | | ID | CHF |
 | --- | --- | --- |
@@ -102,22 +109,47 @@ Workings:
 5. Cantonal 95% = 18,669.2252; communal 119% = 23,385.661; personal tax 24.
 6. Net income 250,000 − 18,093.20 − 58,428.4238 = 173,478.3762.
 
-## 4. Employees at CHF 80,000, 150,000 and 250,000 in the city of Zug (partial)
+## 4. Employee, CHF 100,000, city of Zurich, and the ESTV comparison
 
-`employee-80k-zg.json`, `employee-150k-zg.json`, `employee-250k-zg.json` · age 40 · `systemOptions: { canton: ZG, communeMultiplier: 0.52 }`
+`employee-100k-zh.json` · age 40 · as case 1 with `gross: 100000`
 
-The contributions, BVG credits and federal tax don't depend on the canton, so they're those of cases 1–3:
+| | ID | CHF |
+| --- | --- | --- |
+| AHV/IV/EO | `ch.ahv.employee` | 5,300.00 |
+| ALV | `ch.alv` | 1,100.00 |
+| BVG employee share | `ch.bvg.employee` | 3,213.00 |
+| Federal tax | `ch.federal` | 1,752.2157 |
+| Cantonal tax | `ch.cantonal` | 4,559.7958 |
+| Communal tax | `ch.communal` | 5,711.7443 |
+| Personal tax | `ch.personalTax` | 24.00 |
+| **Total tax** | | **12,047.7558** |
+| Accruals | `pensionScheme:ch.ahv` 100,000.00 (12 months); `pensionScheme:ch.bvg` 6,426.00 | |
+| **Net income** | | **78,339.2442** |
 
-| | 80,000 | 150,000 | 250,000 |
-| --- | --- | --- | --- |
-| `ch.ahv.employee` | 4,240.00 | 7,950.00 | 13,250.00 |
-| `ch.alv` | 880.00 | 1,630.20 | 1,630.20 |
-| `ch.bvg.employee` | 2,677.00 | 3,213.00 | 3,213.00 |
-| `ch.federal` | 916.0762 | 5,252.4384 | 16,349.5376 |
-| `ch.cantonal` | simple × 0.78 | simple × 0.78 | simple × 0.78 |
-| `ch.communal` | simple × 0.52 | simple × 0.52 | simple × 0.52 |
+Workings:
 
-To finish: the Zug taxable income (net salary − Zug professional expenses − Zug insurance deduction; the new CHF 6,000 deduction doesn't apply above CHF 60,000 of net income) and the simple tax from the Zug Grundtarif 2026. Target for review: Zug's cantonal and communal tax should come out at roughly half of Zurich's (the ESTV's 2025 burden statistics give CHF 5,630 in Zug against CHF 12,120 in Zurich at CHF 100,000, with church tax).
+1. AHV/IV/EO 5,300.00; ALV 1,100.00; coordinated salary 90,720 − 26,460 = 64,260, age credit 10% = 6,426, employee half 3,213.00.
+2. Net salary 100,000 − 9,613 = 90,387.00; professional expenses 3% = 2,711.61.
+3. Federal taxable 90,387 − 2,711.61 − 1,800 = 85,875.39: 1,503.04 (at 82,100) + 6.6% × 3,775.39 = 249.1757 → 1,752.2157.
+4. Zurich taxable 90,387 − 2,711.61 − 2,900 = 84,775.39: 4,046.00 (at 76,400) + 9% × 8,375.39 = 753.7851 → 4,799.7851. Cantonal 95% = 4,559.7958; communal 119% = 5,711.7443.
+5. Deduction-free cross-check (the parameters alone): at a taxable income of exactly 100,000 the simple tax is 4,046 + 9% × 23,600 = 6,170.00, the cantonal tax 5,861.50 and the communal tax 7,342.30, which an independent 2026 example gives to the centime.
+
+**The ESTV comparison.** The first draft compared this case with the ESTV's 2025 burden statistics for the city of Zurich at a gross labour income of CHF 100,000 (single, with church tax): CHF 12,120 of cantonal, communal and church tax, against 10,296 here, and left about CHF 1,000 unexplained. Taking the differences one at a time:
+
+| Step | Cantonal + communal (+ church) |
+| --- | --- |
+| This case, 2026 | 10,295.54 |
+| Canton at 98% (2025) instead of 95%: + 3% × 4,799.79 | + 143.99 |
+| Church tax at 10%: + 10% × 4,799.79 | + 479.98 |
+| Insurance deduction 2,600 (2025) instead of 2,900: 300 × 9% × 2.27 | + 61.29 |
+| The case with 2025's multipliers and deductions | 10,980.80 |
+| ESTV burden statistics, 2025 | 12,120 |
+| **Unexplained** | **1,139.20** |
+
+- **The parameters aren't the cause.** The tariff, the canton's and the city's multipliers and the personal tax reproduce an independent 2026 example exactly (step 5), and the 2026 wealth tariff's limits appear unchanged from 2025 in two extracts, so the 2025 income tariff is probably the same as well; had it been about 2.5% lower, it would explain at most another CHF 160–320.
+- **The unexplained CHF 1,139 is the tax on CHF 5,576 of taxable income** (÷ 2.27 ÷ 9%), which is about the size of this case's professional-expense and insurance deductions together (2,711.61 + 2,900 = 5,611.61). Taxing the net salary of 90,387 with neither deduction, at 2025's multipliers with church tax, gives 12,065.96: CHF 54 from the ESTV figure. So the ESTV figure is computed on a larger base than this case's: the burden statistics use the ESTV's own standard deductions, not the ones the module takes, and aren't a like-for-like check of the deduction base.
+- **What changed.** The comparison with the burden statistics is replaced by the deduction-free cross-check of step 5, which confirms the parameters. The deduction base stays *verify*: run the ESTV calculator for 2026 with exactly this case's deductions (BVG 3,213, professional expenses 2,711.61, insurance 2,900, no church), and record which standard deductions the burden statistics use.
+- The same review found a real error in the retiree cases: they deducted the insurance premiums "with pension contributions" for people who pay none. Cases 8 and 10 now use the "without" amounts.
 
 ## 5. Employee, CHF 150,000, with a full 3a contribution and a BVG buy-in
 
@@ -185,22 +217,22 @@ Workings: rate = 5.371% + (10% − 5.371%) × (30,000 − 10,100) / (60,500 − 
 | --- | --- |
 | Monthly pension at 65 | 2,520.00 |
 | Yearly (13 payments) | 32,760.00 |
-| `ch.federal` | 121.3520 |
-| `ch.cantonal` | 776.1500 |
-| `ch.communal` | 972.2300 |
+| `ch.federal` | 114.4220 |
+| `ch.cantonal` | 707.2750 |
+| `ch.communal` | 885.9550 |
 | `ch.personalTax` | 24.00 |
-| Total tax | 1,893.7320 |
+| Total tax | 1,731.6520 |
 
 Workings:
 
 1. Average income above 72 × 1,260 = 90,720, so the maximum: 1.04 × 1,260 + 8/600 × A ≥ 2,520, capped at 2,520.
 2. Yearly 13 × 2,520 = 32,760 (12 monthly payments and the 13th in December).
-3. Federal taxable 32,760 − 1,800 = 30,960: 0.77% × 15,760 = 121.352.
-4. Zurich taxable 32,760 − 2,900 = 29,860: simple 564 + 5% × 5,060 = 253 → 817.00; cantonal 776.15, communal 972.23.
+3. A retiree pays no BVG or 3a contributions, so the insurance deductions are the "without" amounts. Federal taxable 32,760 − 2,700 = 30,060: 0.77% × 14,860 = 114.422.
+4. Zurich taxable 32,760 − 4,350 (*verify*) = 28,410: simple 564 + 5% × 3,610 = 180.50 → 744.50; cantonal 707.275, communal 885.955.
 
 ## 9. AHV pension, partial record of 25 years
 
-`ahv-partial-25y.json` (kind `pensionClaims`) · born 1 January 1961 · 25 Swiss contribution years (`contributionYears: 25`), 19 Italian years (`foreignContributionYears: 19`, eligibility only)
+`ahv-partial-25y.json` (kind `pensionClaims`) · born 1 January 1961 · 25 Swiss contribution years (`contributionYears: 25`), 19 years in an EU country (`foreignContributionYears: 19`, eligibility only)
 
 | Average income | Full pension (monthly) | 25/44 (monthly) | Yearly × 13 |
 | --- | --- | --- | --- |
@@ -223,37 +255,37 @@ Workings:
 2. 30,000 ≤ 45,360: 0.74 × 1,260 + 13/600 × 30,000 = 932.40 + 650.00 = 1,582.40.
 3. Partial: × 25/44. Yearly: × 13.
 4. Early: 18,613.6364 × (1 − 0.136) = 16,082.1818; × (1 − 0.068) = 17,347.9091. Deferred: × 1.315 = 24,476.9318.
-5. Amounts in 2026 francs; the case sets `realWageGrowth: 0` and `creditRealDrift: 0` so nothing moves with time. The 19 Italian years don't change the amount; INPS pays its own pension for them.
+5. Amounts in 2026 francs; the case sets `realWageGrowth: 0` and `creditRealDrift: 0` so nothing moves with time. The 19 foreign years don't change the amount; the other country's scheme pays its own pension for them.
 
 ## 10. BVG capital of CHF 500,000: annuity or lump sum, Zurich
 
-`bvg-annuity-vs-lumpsum-zh.json` · age 65 · ZH city · AHV pension 32,760 as case 8 · BVG record 500,000, `conversionRate` 5.4%
+`bvg-annuity-vs-lumpsum-zh.json` · age 65 · Zurich city · AHV pension 32,760 as case 8 · BVG record 500,000, `conversionRate` 5.4%
 
 | | Annuity (`lumpSumShare: 0`) | Lump sum (`lumpSumShare: 1`) |
 | --- | --- | --- |
 | Paid | 27,000.00 a year | 500,000.00 once |
-| `ch.federal` (year total) | 610.9840 | 121.3520 (AHV only) |
-| `ch.cantonal` | 2,377.0900 | 776.1500 |
-| `ch.communal` | 2,977.6180 | 972.2300 |
+| `ch.federal` (year total) | 587.2240 | 114.4220 (AHV only) |
+| `ch.cantonal` | 2,280.6650 | 707.2750 |
+| `ch.communal` | 2,856.8330 | 885.9550 |
 | `ch.personalTax` | 24.00 | 24.00 |
 | `ch.capitalBenefits.federal` | — | 10,500.6880 |
 | `ch.capitalBenefits.cantonal` | — | 10,906.0000 |
 | `ch.capitalBenefits.communal` | — | 13,661.2000 |
-| Tax caused by the BVG money | 4,095.96 a year | 35,067.888 once |
+| Tax caused by the BVG money | 4,017.07 a year | 35,067.888 once |
 
 Workings:
 
 1. Annuity 5.4% × 500,000 = 27,000. Income 32,760 + 27,000 = 59,760.
-2. Federal taxable 57,960: 138.60 + 90.64 + 2.64% × 14,460 = 381.744 → 610.984.
-3. Zurich taxable 56,860: simple 1,721 (to 45,700) + 7% × 11,160 = 781.20 → 2,502.20; cantonal 2,377.09, communal 2,977.618.
-4. Total 5,989.692, against 1,893.732 with the AHV pension alone: the annuity adds 4,095.96 a year.
+2. Federal taxable 59,760 − 2,700 = 57,060: 138.60 + 90.64 + 2.64% × 13,560 = 357.984 → 587.224.
+3. Zurich taxable 59,760 − 4,350 = 55,410: simple 1,721 (to 45,700) + 7% × 9,710 = 679.70 → 2,400.70; cantonal 2,280.665, communal 2,856.833.
+4. Total 5,748.722, against 1,731.652 with the AHV pension alone: the annuity adds 4,017.07 a year.
 5. Lump sum, federal: tariff on 500,000 = 10,936.64 + 13.2% × 314,900 = 41,566.80 → 52,503.44; ÷ 5 = 10,500.688.
 6. Lump sum, Zurich: 1/20 × 500,000 = 25,000; simple tax on 25,000 = 564 + 5% × 200 = 574, a rate of 2.296% (above the 2% minimum); simple 2.296% × 500,000 = 11,480; cantonal 10,906.00, communal 13,661.20.
-7. The lump sum's tax equals about 8.6 years of the annuity's extra tax. The comparison that matters (in the planner) also counts the annuity's longevity insurance and its loss to inflation, and the lump sum's returns, wealth tax and, before 65, AHV contributions.
+7. The lump sum's tax equals about 8.7 years of the annuity's extra tax. The comparison that matters (in the planner) also counts the annuity's longevity insurance and its loss to inflation, and the lump sum's returns, wealth tax and, before 65, AHV contributions.
 
 ## 11. Pillar 3a withdrawal of CHF 150,000 at 60, Zurich
 
-`pillar3a-60-zh.json` · age 60 · ZH city · `variable.payouts: [{ wrapper: ch.pillar3a, amount: 150000, form: lumpSum }]`
+`pillar3a-60-zh.json` · age 60 · Zurich city · `variable.payouts: [{ wrapper: ch.pillar3a, amount: 150000, form: lumpSum }]`
 
 | | ID | CHF |
 | --- | --- | --- |
@@ -268,9 +300,9 @@ Workings:
 2. Zurich: 1/20 × 150,000 = 7,500; simple tax on it 2% × 500 = 10, a rate of 0.133%, below the 2% minimum; simple 2% × 150,000 = 3,000; cantonal 2,850, communal 3,570.
 3. Gross-up for CHF 100,000 net from a 3a account worth 150,000, alone in the year: Zurich's 2% minimum binds until 1/20 of the amount reaches CHF 21,400 (amounts up to 428,000), so the Zurich part is a flat 2% × 2.14 = 4.28%; the federal part is 1/5 of the tariff. Selling S: S × (1 − 0.0428) − federal(S)/5 = 100,000 → S = 105,102.6356 (`grossUp` expected value).
 
-## 12. Staggering: 3a and BVG lump sum in the same year or in different years
+## 12. Staggering in Zurich: 3a and BVG lump sum in the same year or in different years
 
-`capital-staggering-zh.json` · ZH city
+`capital-staggering-zh.json` · Zurich city
 
 | | Same year | Separate years |
 | --- | --- | --- |
@@ -282,40 +314,44 @@ Workings:
 2. Zurich: 1/20 × 650,000 = 32,500; simple tax 564 + 5% × 7,700 = 385 → 949, a rate of 2.92%; simple 18,980; cantonal 18,031.00, communal 22,586.20.
 3. Total 55,077.888. Separately (cases 10 and 11): 42,903.016. Taking the 3a in an earlier year saves 12,174.872.
 
-## 13. Capital withdrawal tax in Zurich, Zug and Bellinzona (cross-check)
+## 13. Capital withdrawal tax in Zurich, Lugano and Bellinzona
 
-`capital-benefits-cantons.json` · single, no church tax
+`capital-benefits-cantons.json` · single, age 65, no church tax, one capital benefit alone in the year
 
-| Lump sum | Federal | Zurich city: cantonal + communal | Zurich total | Zug total (secondary) | Bellinzona total (secondary) |
-| --- | --- | --- | --- | --- | --- |
-| 250,000 | 3,900.688 | 10,700.00 | 14,600.688 | 11,261 | 13,551 |
-| 500,000 | 10,500.688 | 24,567.20 | 35,067.888 | 28,270 | 35,491 |
+| Lump sum | Federal | Zurich city: cant. + comm. | Zurich total | Lugano: cant. + comm. | Lugano total | Bellinzona total |
+| --- | --- | --- | --- | --- | --- | --- |
+| 100,000 | 536.888 | 4,280.00 | 4,816.888 | 3,600.00 | 4,136.888 | 4,396.888 |
+| 250,000 | 3,900.688 | 10,700.00 | 14,600.688 | 9,000.00 | 12,900.688 | 13,550.688 |
+| 500,000 | 10,500.688 | 24,567.20 | 35,067.888 | 23,306.407 | 33,807.095 | 35,490.336 |
+| 1,000,000 | 23,000.000 | 86,541.60 | 109,541.600 | 54,000.00 | 77,000.000 | 80,900.000 |
 
 Workings:
 
-1. Federal on 250,000: tariff 10,936.64 + 13.2% × 64,900 = 8,566.80 → 19,503.44; ÷ 5 = 3,900.688.
-2. Zurich on 250,000: 1/20 = 12,500, simple tax 100 + 3% × 500 = 115, a rate of 0.92%, so the 2% minimum: 5,000 simple × 2.14 = 10,700.
-3. Ticino on 250,000: the secondary total less the federal tax is 9,650.31 = 2% × 250,000 × 1.93 (canton 100% + Bellinzona 93%): the 2% minimum simple rate. On 500,000: 24,990.31, a simple rate of 2.59%, below the 3% cap. The Ticino lines become exact once the annuity-rate method and the tariff are in.
-4. Zug: the secondary totals imply simple rates of 2.27% (250,000) and 2.73% (500,000) at 78% + 52%; the method needs confirming.
+1. Federal: 1/5 of the tariff. 100,000: 2,684.44 ÷ 5; 250,000: (10,936.64 + 13.2% × 64,900) ÷ 5 = 3,900.688; 1,000,000: the 11.5% maximum binds (115,000 < 118,503.44), ÷ 5 = 23,000.
+2. Zurich: rate of the tariff on 1/20 of the amount, at least 2%. 100,000 and 250,000: the 2% floor (2,000 and 5,000 simple). 1,000,000: 1/20 = 50,000, simple tax 1,721 + 7% × 4,300 = 2,022, a rate of 4.044%; simple 40,440; × 2.14 = 86,541.60.
+3. Ticino: the annuity the capital buys = amount × 50.77‰, rounded down to 100; the rate is the single tariff's average rate on it, between 2% and 3%; × (100% + the communal multiplier).
+   - 100,000 → 5,000; 250,000 → 12,600: rates of 0.16% and 0.20%, so the 2% floor: simple 2,000 and 5,000.
+   - 500,000 → 25,300: tax 478.634 (at 20,800) + 3.923% × 4,500 = 176.535 → 655.169, a rate of 2.5896%; simple 12,948.004; Lugano × 1.80 = 23,306.407; Bellinzona × 1.93 = 24,989.648. With the official table's 478.65 at 20,800, Bellinzona gives 24,990.26, against 24,990.31 in the secondary comparison.
+   - 1,000,000 → 50,700: a rate of 5.99%, so the 3% cap: simple 30,000.
+4. For a man of 65, Ticino's floor binds up to about 378,000 (annuity 19,214) and the cap from about 555,000 (annuity 28,164); for a woman (46.67‰), about 412,000 and 603,000. Below about 400,000 Ticino and Zurich tax capital at the same 2% simple rate; above it Ticino's cap makes large sums much cheaper.
 
 ## 14. Wealth tax on CHF 1,000,000
 
 `wealth-tax-1m.json` · `variable.balances: [{ wrapper: ch.ordinary, category: fund, value: 1000000 }]`
 
-| Canton | Simple tax | Cantonal | Communal | Total |
+| Commune | Simple tax | Cantonal | Communal | Total |
 | --- | --- | --- | --- | --- |
-| Zurich city (complete) | 942.50 | 895.375 | 1,121.575 | 2,016.95 |
-| Zug city (secondary tariff, *verify*) | 722.50 | 563.55 | 375.70 | 939.25 |
-| Bellinzona | pending | | | |
+| Zurich city | 942.50 | 895.375 | 1,121.575 | 2,016.95 |
+| Lugano | 2,310.00 | 2,310.00 | 1,848.00 | 4,158.00 |
+| Bellinzona | 2,310.00 | 2,310.00 | 2,148.30 | 4,458.30 |
 
 Workings:
 
 1. Zurich: 0 on 80,000; 0.5‰ × 238,000 = 119.00; 1‰ × 399,000 = 399.00; 1.5‰ × 283,000 = 424.50 → 942.50; × 95% and 119%.
-2. Zug: 1,000,000 − 200,000 allowance = 800,000; 0.425‰ × 250,000 = 106.25; 0.85‰ × 250,000 = 212.50; 1.275‰ × 250,000 = 318.75; 1.7‰ × 50,000 = 85.00 → 722.50; × 78% and 52%. With a 101,000 allowance instead it would be 890.80 simple, 1,158.04 in total: one of the two extracts is wrong.
-3. Ticino: CHF 200,000 tax-free, then the cantonal scale × (100% + 93%), once copied.
-4. A first plan year with `fractionOfYear: 0.25` charges a quarter of each line.
+2. Ticino: 1,000,000 is above the 200,000 threshold, so the whole scale applies: 1‰ × 200,000 = 200; 2‰ × 80,000 = 160 (360 at 280,000); 2.5‰ × 420,000 = 1,050 (1,410 at 700,000); 3‰ × 300,000 = 900 → 2,310; × 100% and the communal multiplier.
+3. A first plan year with `fractionOfYear: 0.25` charges a quarter of each line.
 
-## 15. AHV contributions without work: 55 years old with CHF 2,000,000
+## 15. AHV contributions without work: 55 years old with CHF 2,000,000, Zurich
 
 `ahv-non-employed-55.json` · age 55, no work, ZH · `variable.balances`: 2,000,000 in `ch.ordinary`, 300,000 in `ch.pillar3a` · `nonEmployedAdminRate: 0.05`
 
@@ -332,7 +368,7 @@ Workings:
 2. Above 1,750,000: 3,604 + 159 × floor(250,000 / 50,000) = 3,604 + 795 = 4,399.00; with 5% admin costs 4,618.95.
 3. Variant: 2,000,000 + 20 × 30,000 = 2,600,000; 3,604 + 159 × 17 = 6,307.00; with admin 6,622.35.
 4. For comparison: 1,000,000 → 636 + 106 × 13 = 2,014; 5,000,000 → 3,604 + 159 × 65 = 13,939; 9,000,000 → the maximum 26,500.
-5. From 55 to 64 at a constant CHF 2M, about CHF 46,000 in total, and no gap in the AHV record.
+5. From 55 to 64 at a constant CHF 2M, about CHF 46,000 in total, and no gap in the AHV record. The contribution is federal law, so it's the same in Ticino (case 24).
 
 ## 16. Dividends from a Swiss ETF, with the 35% withholding tax
 
@@ -352,36 +388,180 @@ Workings:
 3. Zurich taxable 130,306.80 → 140,306.80, within the 10% band (to 144,100): + 1,000 simple; × 95% = 950, × 119% = 1,190.
 4. An accumulating Swiss or Irish ETF with the same reported income is taxed the same (once the engine reports it: CH.md, Fit with TaxKit, gap 5). A 15% US withholding inside an Irish ETF isn't recoverable and is part of the fund's return.
 
-## 17. An Italian INPS pension received in Ticino (partial)
+## 17. A foreign state pension (Italian INPS) received in Bellinzona
 
-`inps-pension-ti.json` · age 67 · `systemOptions: { canton: TI, communeMultiplier: 0.93 }` · `pensions: [{ id: inps, scheme: it.inps, amount: 18600, taxedIn: residence }]` (EUR 20,000 at 0.93 CHF/EUR, the example rate on the plan's start date)
+`inps-pension-ti.json` · age 67 · `systemOptions: { canton: TI, commune: Bellinzona }` · `pensions: [{ id: inps, scheme: it.inps, amount: 18600, taxedIn: residence }]` (EUR 20,000 at 0.93 CHF/EUR, the example rate on the plan's start date)
 
 | | ID | CHF |
 | --- | --- | --- |
-| Federal tax | `ch.federal` | 12.32 |
-| Cantonal tax | `ch.cantonal` | pending (Ticino tariff) |
-| Communal tax | `ch.communal` | pending |
-| Italian tax | — | 0 (taxed only in Switzerland) |
+| Federal tax | `ch.federal` | 5.3900 |
+| Cantonal tax | `ch.cantonal` | 8.1600 |
+| Communal tax | `ch.communal` | 7.5888 |
+| Personal tax | `ch.personalTax` | 40.00 (*verify*) |
+| **Total tax** | | **61.1388** |
+| Tax in Italy | — | 0 (taxed only in Switzerland) |
 
 Workings:
 
-1. Under Art. 18 of the treaty a private-sector INPS pension of a Swiss resident is taxed only in Switzerland. INPS pays it gross once it has the proof of Swiss residence.
-2. Federal taxable 18,600 − 1,800 = 16,800: 0.77% × 1,600 = 12.32.
-3. Ticino taxable: 18,600 less the insurance deduction and the personal deduction of 8,000 (in full below 21,000 of income), then the Ticino scale × (100% + 93%).
-4. Variant with 10 Swiss AHV years at the maximum (32,760 × 10/44 = 7,445.4545): income 26,045.4545, federal taxable 24,245.4545 → 0.77% × 9,045.4545 = 69.65. The Ticino personal deduction falls to 7,000 (one step of 3,000 above 21,000, *verify* the rounding).
+1. Under Art. 18 of the Italy–Switzerland treaty a private-sector INPS pension of a Swiss resident is taxed only in Switzerland; INPS pays it gross once it has proof of Swiss residence.
+2. Federal taxable 18,600 − 2,700 (no pension contributions) = 15,900: 0.77% × 700 = 5.39.
+3. Ticino: net income 18,600 − 5,500 = 13,100, at most 21,000, so the single-person deduction is the full 8,000; taxable 5,100; simple tax 0.16% × 5,100 = 8.16; cantonal 8.16, communal 93% = 7.5888.
+4. Variant with 10 Swiss AHV years at the maximum (32,760 × 10/44 = 7,445.4545): income 26,045.4545. Federal taxable 23,345.4545 → 0.77% × 8,145.4545 = 62.72. Ticino net income 20,545.4545, still at most 21,000, so the full 8,000: taxable 12,545.4545 → 20.00 + 5.232% × 45.4545 = 22.3782; communal 20.8117.
+5. With Ticino's higher insurance deduction for people without pension contributions (not yet found), the Ticino lines would be a little lower.
 
-## 18. Lump-sum taxation at the federal minimum, Ticino (partial)
+## 18. Lump-sum taxation at the federal minimum, Lugano
 
-`lump-sum-ti.json` · age 62 · `overlays: [{ regime: ch.lumpSum, options: { livingExpenses: 300000, annualRent: 48000, firstYear: 2026 } }]` · TI, Lugano (`communeMultiplier: 0.80`)
+`lump-sum-ti.json` · age 62 · `overlays: [{ regime: ch.lumpSum, options: { livingExpenses: 300000, annualRent: 48000, firstYear: 2026 } }]` · `systemOptions: { canton: TI, commune: Lugano }` · citizenship: not Swiss
 
 | | ID | CHF |
 | --- | --- | --- |
-| Federal tax on the base | `ch.federal` | 43,923.44 |
-| Cantonal and communal | | pending (Ticino tariff on 435,000; wealth tax on the deemed wealth of 2,175,000) |
+| Federal tax on the base | `ch.federal` | 43,923.4400 |
+| Cantonal tax on the base | `ch.cantonal` | 54,442.7930 |
+| Communal tax on the base | `ch.communal` | 43,554.2344 |
+| Cantonal wealth tax on the deemed wealth | `ch.wealth.cantonal` | 5,437.5000 |
+| Communal wealth tax | `ch.wealth.communal` | 4,350.0000 |
+| Personal tax | `ch.personalTax` | 40.00 (*verify*) |
+| **Total** | | **151,747.9674** |
 
 Workings:
 
 1. Base = max(435,000 federal minimum, 7 × 48,000 = 336,000, 300,000 living expenses, Ticino's minimum 435,000) = 435,000.
 2. Federal: 10,936.64 + 13.2% × (435,000 − 185,100) = 32,986.80 → 43,923.44 (below 11.5% × 435,000 = 50,025).
-3. Ticino: income tax on 435,000 at the Ticino scale × (100% + 80%); wealth tax on at least 5 × 435,000 = 2,175,000 (*verify*). The control calculation doesn't bind without Swiss-source income.
-4. Validation: an error if the plan has a `ch.employee` or `ch.selfEmployed` phase in a year the overlay covers, or if the canton is ZH, BS, BL, SH or AR.
+3. Ticino: the single tariff with every category capped at 14%: 25,434.793 at 227,800; + 14% × 152,800 = 21,392.00 (the 14.04% category capped); + 14% × 54,400 = 7,616.00 → 54,442.793. Communal 80% = 43,554.2344. Without the cap on the 14.04% category: + 61.12 cantonal (*verify* how far the cap reaches).
+4. Deemed wealth at least 5 × 435,000 = 2,175,000 (*verify*): simple 2.5‰ × 2,175,000 = 5,437.50; communal 4,350.00.
+5. The control calculation doesn't bind without Swiss-source income.
+6. Validation: an error if the plan has a `ch.employee` or `ch.selfEmployed` phase in a year the overlay covers, if the plan's citizenship includes Switzerland, or if the canton is Zurich.
+
+## 19. Employee, CHF 80,000, Lugano
+
+`employee-80k-lugano.json` · age 40 · `systemOptions: { canton: TI, commune: Lugano }` · work: `{ phaseID: job, kind: employee, regime: ch.employee, gross: 80000 }`
+
+| | ID | CHF |
+| --- | --- | --- |
+| AHV/IV/EO | `ch.ahv.employee` | 4,240.00 |
+| ALV | `ch.alv` | 880.00 |
+| BVG employee share | `ch.bvg.employee` | 2,677.00 |
+| Federal tax | `ch.federal` | 916.0762 |
+| Cantonal tax | `ch.cantonal` | 4,500.0290 |
+| Communal tax | `ch.communal` | 3,600.0232 |
+| Personal tax | `ch.personalTax` | 40.00 (*verify*) |
+| **Total tax** | | **9,056.1284** |
+| Accruals | `pensionScheme:ch.ahv` 80,000.00 (12 months); `pensionScheme:ch.bvg` 5,354.00 | |
+| **Net income** | | **63,146.8716** |
+
+Workings:
+
+1. Contributions, BVG credit and federal tax as case 1 (they don't depend on the canton). Net salary 72,203.00.
+2. Ticino taxable 72,203 − 3,000 (flat professional expenses, *verify* 3,000 or 3,500) − 5,500 (insurance) = 63,703; no single-person deduction (net income above 45,000).
+3. Simple tax: 3,838.875 at 58,100 (official table 3,838.85) + 11.8% × 5,603 = 661.154 → 4,500.029. Cantonal 100% = 4,500.029; communal 80% = 3,600.0232.
+4. Net income 80,000 − 7,797 − 9,056.1284 = 63,146.8716. Against Zurich city (case 1): CHF 1,043 more tax.
+
+## 20. Employee, CHF 150,000, Lugano
+
+`employee-150k-lugano.json` · age 40 · as case 19 with `gross: 150000`
+
+| | ID | CHF |
+| --- | --- | --- |
+| AHV/IV/EO | `ch.ahv.employee` | 7,950.00 |
+| ALV | `ch.alv` | 1,630.20 |
+| BVG employee share | `ch.bvg.employee` | 3,213.00 |
+| Federal tax | `ch.federal` | 5,252.4384 |
+| Cantonal tax | `ch.cantonal` | 12,473.4024 |
+| Communal tax | `ch.communal` | 9,978.7220 |
+| Personal tax | `ch.personalTax` | 40.00 (*verify*) |
+| **Total tax** | | **27,744.5628** |
+| Accruals | `pensionScheme:ch.ahv` 150,000.00 (12 months); `pensionScheme:ch.bvg` 6,426.00 | |
+| **Net income** | | **109,462.2372** |
+
+Workings:
+
+1. Contributions and federal tax as case 2. Net salary 137,206.80.
+2. Ticino taxable 137,206.80 − 3,000 − 5,500 = 128,706.80.
+3. Simple tax: 10,536.673 at 113,900 (official 10,536.60) + 13.08% × 14,806.80 = 1,936.7294 → 12,473.4024. Cantonal 12,473.4024; communal 80% = 9,978.7220.
+4. Net income 150,000 − 12,793.20 − 27,744.5628 = 109,462.2372. Against Zurich city (case 2): CHF 3,001 more tax.
+5. Variant in Bellinzona (93%): communal 11,600.2642, total 29,366.1051; a secondary calculator gives about 29,500.
+
+## 21. Self-employed, CHF 120,000 net business income, Bellinzona
+
+`self-employed-120k-bellinzona.json` · age 45 · `systemOptions: { canton: TI, commune: Bellinzona }` · work and 3a as case 6
+
+| | ID | CHF |
+| --- | --- | --- |
+| AHV/IV/EO | `ch.ahv.selfEmployed` | 12,000.00 |
+| Federal tax | `ch.federal` | 1,668.0400 |
+| Cantonal tax | `ch.cantonal` | 6,513.2380 |
+| Communal tax | `ch.communal` | 6,057.3113 |
+| Personal tax | `ch.personalTax` | 40.00 (*verify*) |
+| **Total tax** | | **14,278.5893** |
+| Accruals | `pensionScheme:ch.ahv` 120,000.00 (12 months); `wrapper:ch.pillar3a` 21,600.00 | |
+| **Net income** | | **72,121.4107** |
+
+Workings:
+
+1. AHV/IV/EO 12,000, 3a 21,600 and federal tax as case 6.
+2. Ticino taxable 120,000 − 12,000 − 21,600 − 5,500 = 80,900 (no flat professional expenses: business costs are deducted at their real amount, already in the 120,000).
+3. Simple tax: 5,597.075 at 73,000 + 11.597% × 7,900 = 916.163 → 6,513.238. Cantonal 6,513.238; communal 93% = 6,057.3113.
+4. Net income 120,000 − 12,000 − 21,600 − 14,278.5893 = 72,121.4107.
+
+## 22. Retiree in Lugano: AHV and BVG annuity, CHF 1.5M of wealth
+
+`retiree-lugano.json` · age 67 · `systemOptions: { canton: TI, commune: Lugano }` · `pensions: [{ id: ahv, scheme: ch.ahv, amount: 32760 }, { id: bvg, scheme: ch.bvg, amount: 27000 }]` · `variable.balances: [{ wrapper: ch.ordinary, category: fund, value: 1500000 }]`, no taxable investment income in the year
+
+| | ID | CHF |
+| --- | --- | --- |
+| Federal tax | `ch.federal` | 587.2240 |
+| Cantonal tax | `ch.cantonal` | 3,416.9358 |
+| Communal tax | `ch.communal` | 2,733.5486 |
+| Personal tax | `ch.personalTax` | 40.00 (*verify*) |
+| Cantonal wealth tax | `ch.wealth.cantonal` | 3,750.0000 |
+| Communal wealth tax | `ch.wealth.communal` | 3,000.0000 |
+| **Total** | | **13,527.7084** |
+
+Workings:
+
+1. Income 32,760 + 27,000 = 59,760. Federal taxable 59,760 − 2,700 = 57,060 → 587.224 (as case 10).
+2. Ticino taxable 59,760 − 5,500 = 54,260 (no single-person deduction above 45,000). Simple tax: 3,245.523 at 52,700 + 10.988% × 1,560 = 171.4128 → 3,416.9358; communal 80% = 2,733.5486.
+3. Wealth: above 1,380,000 the tax is 2.5‰ of the whole: 3,750; communal 3,000.
+4. Wealth-tax brake (art. 49a LT): the income counted is 54,260 + 1% × 1,500,000 (the minimum yield, since the case has no investment income) = 69,260; 60% of it is 41,556, far above the cantonal and communal tax of 12,900.48, so no reduction.
+5. In Zurich city the same person pays 5,748.722 on income (case 10) + 3,779.24 of wealth tax (simple 1,766 × 2.14) = 9,527.96.
+6. If Ticino's "without contributions" insurance deduction is, say, 7,700, the Ticino income tax falls by about 430.
+
+## 23. 3a and BVG lump sums of CHF 300,000: one year or two, Lugano
+
+`capital-staggering-lugano.json` · single man · `systemOptions: { canton: TI, commune: Lugano }` · BVG lump sum 200,000 at 65; 3a payout 100,000 at 65 (same year) or at 64 (separate years)
+
+| | Federal | Ticino: cant. + comm. | Total |
+| --- | --- | --- | --- |
+| Same year: 300,000 | 5,220.688 | 6,000 + 4,800 | 16,020.688 |
+| 3a 100,000 at 64 | 536.888 | 2,000 + 1,600 | 4,136.888 |
+| BVG 200,000 at 65 | 2,580.688 | 4,000 + 3,200 | 9,780.688 |
+| Separate years | 3,117.576 | 10,800.00 | 13,917.576 |
+
+Workings:
+
+1. Federal, 1/5 of the tariff: 300,000: (10,936.64 + 13.2% × 114,900 = 15,166.80) → 26,103.44 ÷ 5 = 5,220.688. 200,000: 12,903.44 ÷ 5 = 2,580.688. 100,000: 2,684.44 ÷ 5 = 536.888.
+2. Ticino: 300,000 × 50.77‰ = 15,231 → 15,200; tariff tax 20 + 5.232% × 2,700 = 161.26, a rate of 1.06%, so the 2% floor: simple 6,000. Each smaller amount is under the floor too, whatever the conversion factor at 64 (the floor binds for any annuity under about 19,200). Cantonal 100%, communal 80%.
+3. Staggering saves 2,103.112, all of it federal: in Ticino, capital benefits up to about 378,000 a year pay a flat 2% simple tax. Splitting 150,000 and 150,000 saves 2,390.432 (federal 2 × 1,415.128).
+4. In Zurich city the same amounts cost 18,060.688 together and 15,957.576 apart (its 2% floor binds up to 428,000), so the saving is the same 2,103.112.
+5. Larger sums: above about 378,000 a year the Ticino rate rises from 2% to its 3% cap (at about 555,000), so staggering then saves cantonal tax as well.
+
+## 24. Early retiree at 55 in Lugano: AHV without work on CHF 2,000,000
+
+`early-retiree-55-lugano.json` · age 55, no work · `systemOptions: { canton: TI, commune: Lugano, nonEmployedAdminRate: 0.05 }` · `variable.balances`: 2,000,000 in `ch.ordinary`, 300,000 in `ch.pillar3a`; no pensions, no taxable investment income in the year
+
+| | ID | CHF |
+| --- | --- | --- |
+| AHV/IV/EO without work | `ch.ahv.nonEmployed` | 4,618.95 |
+| Cantonal wealth tax | `ch.wealth.cantonal` | 5,000.00 |
+| Communal wealth tax | `ch.wealth.communal` | 4,000.00 |
+| Personal tax | `ch.personalTax` | 40.00 (*verify*) |
+| **Total** | | **13,658.95** |
+| Accrual | `pensionScheme:ch.ahv` 12 months | |
+
+Workings:
+
+1. AHV without work as case 15: base 2,000,000 (3a excluded), 4,399.00 + 5% admin = 4,618.95.
+2. Wealth: 2.5‰ × 2,000,000 = 5,000 simple; cantonal 5,000, communal 80% 4,000.
+3. Brake: income counted 0 + 1% × 2,000,000 = 20,000; 60% = 12,000, above the 9,000 of cantonal and communal tax: no reduction.
+4. In Zurich city: AHV 4,618.95 + wealth tax 2,766 × 2.14 = 5,919.24 + personal tax 24 = 10,562.19.
+5. From 55 to 64, about CHF 46,000 of AHV contributions and CHF 90,000 of Ticino wealth tax at a constant CHF 2M, before any tax on investment income.
