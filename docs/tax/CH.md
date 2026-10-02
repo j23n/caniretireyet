@@ -113,7 +113,7 @@ The cantonal multipliers for 2026 found so far (simple tax = 100%):
 | Zurich (ZH) | 95% | Zurich | 119% | Canton down from 98% in 2026 and 2027. Personal tax CHF 24. |
 | Zug (ZG) | 78% | Zug | 52% | Canton down from 82% for 2026–2029; city of Zug 52% proposed (from 54%), *verify* |
 | Ticino (TI) | 100% | Bellinzona | 93% | Lugano 80% from 2026 (*verify*) |
-| Geneva (GE) | 47.5% (*verify*) | Geneva | 45.49% | *centimes additionnels*; GE also adds other surcharges, *verify* |
+| Geneva (GE) | the base tax + 47.5 *centimes additionnels* (*verify*) | Geneva | 45.49 centimes | Geneva also reduces the base tax and adds other surcharges; the structure needs checking before it fits the one formula |
 | Vaud (VD) | 155% | Lausanne | 78.5% | |
 | Bern (BE) | 2.975 units | Bern | 1.54 units | |
 | Basel-Stadt (BS) | tariff includes everything | Basel | — | Riehen and Bettingen have their own commune tax |
@@ -190,7 +190,7 @@ They apply to federal and cantonal tax (*verify* per canton). A permanent move f
 - **Where:** abolished in Zurich, Basel-Stadt, Basel-Landschaft, Schaffhausen and Appenzell Ausserrhoden. Cantonal minimums found: Schwyz CHF 600,000; Ticino CHF 435,000 (EU/EFTA nationals); others in the parameter file to *verify*.
 - A spouse is assessed separately under individual taxation (2032 at the latest).
 
-The overlay replaces stages 4–6 (and the wealth tax) with its own base, and lets AHV contributions without work run on the ordinary wealth and pension base. Italian income under lump-sum taxation can lose treaty protection (the Italy–Switzerland treaty grants it only if the income is taxed in Switzerland; *verify*).
+The overlay replaces stages 4–6 (and the wealth tax) with its own base, and lets AHV contributions without work run on the ordinary wealth and pension base. Italian-source income may get treaty relief only under the "modified" lump-sum taxation, which taxes that income in full in Switzerland (*verify* whether Italy is among the treaty partners that require it).
 
 ## State pension (`ch.ahv`)
 
@@ -300,7 +300,7 @@ Assets from the 2nd pillar outside a pension fund: between jobs, after stopping 
 
 **Tax.** 3a payouts are capital benefits, taxed separately at the reduced rate and **added to every other capital benefit of the same year** (BVG lump sum, vested benefits). Spreading 3a and vested-benefits withdrawals over the years from 60, away from the BVG lump sum, is the main way to lower that tax: in Zurich, CHF 150,000 of 3a and a CHF 500,000 BVG lump sum cost CHF 12,175 less in separate years than together ([ch-cases.md](drafts/ch-cases.md)).
 
-**Pillar 3b** is everything else saved privately: ordinary accounts (taxable, `ch.ordinary`), and life insurance. Some cantons give 3b insurance premiums a small deduction (Geneva, Fribourg). Life annuities have had a new taxable share since 2025, depending on the guaranteed return (*verify*). Not modelled beyond `ch.ordinary`.
+**Pillar 3b** is everything else saved privately: ordinary accounts (taxable, `ch.ordinary`), and life insurance. Some cantons give 3b insurance premiums a small deduction (Geneva, Fribourg, *verify*). Life annuities have had a new taxable share since 2025, depending on the guaranteed return (*verify*). Not modelled beyond `ch.ordinary`.
 
 ## Capital withdrawal tax
 
@@ -362,13 +362,13 @@ There's no federal wealth tax. Every canton taxes net worldwide wealth (except f
 
 ## Property
 
-**Imputed rental value (*Eigenmietwert*).** Today, the owner of a home they live in pays income tax on a notional rent (60–70% of market rent), and can deduct mortgage interest and maintenance. Voters approved its abolition on 28 September 2025; the Federal Council set the date as **1 January 2029** (decided 1 April 2026), so that cantons can introduce a special property tax on second homes first.
+**Imputed rental value (*Eigenmietwert*).** Today, the owner of a home they live in pays income tax on a notional rent (by law at least 60% of the market rent; cantons set their own share), and can deduct mortgage interest and maintenance. Voters approved its abolition on 28 September 2025; the Federal Council set the date as **1 January 2029** (decided 1 April 2026), so that cantons can introduce a special property tax on second homes first.
 
 - Until the end of 2028: the imputed rent is income; mortgage interest (up to investment income + CHF 50,000) and maintenance are deductible.
 - From 2029: no imputed rent for homes you live in (first and second homes); no maintenance deduction for them; private mortgage interest is deductible only in proportion to rented or leased property; first-time buyers get a deduction for 10 years, falling each year (*verify* amounts).
 - Rented-out property is unchanged: rent is income, interest and maintenance deductible.
 
-**Property gains tax (*Grundstückgewinnsteuer*)** is a separate cantonal tax on the gain when property is sold, at rates that fall with the years held (in Zurich, from a 50% surcharge for less than a year to a 50% reduction after 20 years). Selling your home and buying another one in Switzerland defers it. Not modelled in the MVP: the planner excludes the home.
+**Property gains tax (*Grundstückgewinnsteuer*)** is a separate cantonal tax on the gain when property is sold, at rates that fall with the years held (in Zurich, from a 50% surcharge for less than a year to a 50% reduction after 20 years, *verify*). Selling your home and buying another one in Switzerland defers it. Not modelled in the MVP: the planner excludes the home.
 
 ## Inheritance and gift tax
 
@@ -391,7 +391,7 @@ Only cantons tax inheritances and gifts, and the canton that taxes is the one wh
 | TFR from Italian employment | Italy (Art. 15, as pay for work done there) | *verify*. Switzerland exempts it, possibly with progression. |
 | Italian property rent | Italy, and Switzerland counts it for the rate | |
 
-Italian tax law no longer lists Switzerland among the countries where a move is presumed fictitious for Italian citizens (Switzerland isn't in the parameter file's blacklist), but you still need to register with AIRE and actually move your life to Switzerland. Neither country has an exit tax on private investments.
+Italian tax law no longer lists Switzerland among the countries where a move is presumed fictitious for Italian citizens (removed from 2024, *verify*; Switzerland isn't in the Italian parameter file's blacklist), but you still need to register with AIRE and actually move your life to Switzerland. Neither country has an exit tax on private investments.
 
 **Switzerland → Italy.**
 
@@ -428,7 +428,7 @@ Choices the law leaves open, or that an estimate has to make. They're all in the
 - **Source tax** is never modelled: the ordinary assessment applies in every year.
 - **AHV record.** Swiss contribution months and the sum of credited incomes, in today's francs. Credits are nominal (revaluation factor 1.000) while the pension formula's limits follow the mixed index, so each year the sum loses inflation plus half of real wage growth against the limits; the scheme keeps the limits fixed and applies `creditRealDrift` (default −2.5% a year, a plan assumption) to the sum. Partial pension = years / 44, unrounded (*verify* the rounding of the partial scales). Claim options from 63 to 70, with −6.8% a year early and the deferral table late, 13 payments a year, growing by `realWageGrowth` / 2 a year in payment. With `claim: "earliest"` the planner would take 63 and the reduction for life; plans should usually claim at 65.
 - **AHV without work.** Charged in `assess` on year-end balances other than `ch.pillar3a`, `ch.vestedBenefits` and `ch.bvg`, plus the home's tax value less the mortgage (system options), plus 20 × the year's pensions, from the year work stops to the year before the reference age, × (1 + `nonEmployedAdminRate`). Each such year credits 12 contribution months to `ch.ahv` in `prepare`, with an income credit from the minimum contribution (the wealth isn't known there).
-- **BVG.** A pension scheme: record in today's francs, `realInterest` a year, age credits from work (both shares), buy-ins. The lump sum, by `lumpSumShare`, is paid in the claim year and taxed as a capital benefit; the rest is an annuity at the fund's rate for the age, nominal, so falling by `inflation` a year in today's money. A plan that stops work before 58 moves the record to `ch.vestedBenefits` (the planner creates the bucket from the scheme's balance; *verify* the engine can).
+- **BVG.** A pension scheme: record in today's francs, `realInterest` a year, age credits from work (both shares), buy-ins. The lump sum, by `lumpSumShare`, is paid in the claim year and taxed as a capital benefit; the rest is an annuity at the fund's rate for the age, nominal, so falling by `inflation` a year in today's money. A plan that stops work before 58 moves the record to a `ch.vestedBenefits` bucket, untaxed (a transfer, through gap 2 of [Fit with TaxKit](#fit-with-taxkit)).
 - **Capital benefits** are summed over the year (BVG lump sum in `prepare`, 3a and vested-benefits payouts in `assess`) and taxed once. Each 3a or vested-benefits payout counts as closing an account: the engine's proportional withdrawals stand in for holding several accounts. More than 5 years of 3a payouts gets a warning.
 - **3-year lock.** The tax state keeps the year of the last BVG buy-in. A BVG or vested-benefits lump sum within 3 calendar years adds the buy-ins of those years back to taxable income (the deduction is reversed), with a warning.
 - **Investments.** No tax on gains. Interest and dividends at the marginal rate on top of the year's other income (federal and cantonal); a 35% Swiss withholding is fully refunded, so it's ignored. Funds' undistributed income is taxed once the engine reports it.
@@ -437,7 +437,7 @@ Choices the law leaves open, or that an estimate has to make. They're all in the
 - **Expatriate deductions.** `flat`: CHF 18,000 a year pro rata; `actual`: the amount entered; for 5 years from `assignmentStart`.
 - **Foreign pensions.** `fixed` pensions and `it.inps` with `taxedIn: residence` are income. `it.pensionFund` payouts: annuities as income, lump sums as capital benefits.
 - **Inheritances** aren't taxed by `ch` (the deceased's canton or country taxes them).
-- **Cliffs.** `cliffs(in:)` lists: the BVG entry threshold (CHF 22,680 of salary: the BVG contribution starts at once), the self-employed minimum contribution below CHF 10,100, each CHF 50,000 step of the non-employed table, the ZH capital-benefit minimum rate (continuous in the amount, so not a cliff), Zug's extra deduction (net income at most CHF 60,000 and net wealth at most CHF 400,000), and the 3a limits. Everything else is continuous.
+- **Cliffs.** `cliffs(in:)` lists: the BVG entry threshold (CHF 22,680 of salary: the BVG contribution starts at once), the self-employed minimum contribution below CHF 10,100, each CHF 50,000 step of the non-employed table, Zug's extra deduction (net income at most CHF 60,000 and net wealth at most CHF 400,000), and the 3a limits. Everything else is continuous.
 
 ## Fit with TaxKit
 
@@ -464,7 +464,7 @@ What maps directly onto the existing protocols:
 The gaps, each with an additive change:
 
 1. **Currency.** TaxKit assumes one currency: the planner's base currency. A CHF system in an EUR library needs a rate. *Change:* `TaxSystem.currency: String?` (default `nil`, the base currency), and `FixedYear.currencyRate: Double` and `ClaimContext.currencyRate: Double` (default 1: units of the system's currency per unit of the base currency, in today's money). Everything crossing TaxKit stays in the base currency; the system converts inside. The planner sets the rate from the library's FX records on the start date. `PensionScheme` gets a defaulted overload `accrue(_:in:to:options:parameters:currencyRate:)` that calls the existing one.
-2. **A lump sum from a pension scheme.** The BVG pays an annuity, a lump sum or both; `ClaimOption` only has yearly amounts. *Change:* `ClaimOption.lumpSum: Double?` (paid once in the claim year, default `nil`), and `FixedYear.Pension.form: VariableYear.PayoutForm` (default `.annuity`) so the system can tax a `.lumpSum` pension entry separately. The planner adds the lump sum, after tax, to the liquid bucket. The same serves Italy's pension-fund lump sum at retirement and Germany's Riester/bAV capital options.
+2. **A lump sum from a pension scheme.** The BVG pays an annuity, a lump sum or both; `ClaimOption` only has yearly amounts. *Change:* `ClaimOption.lumpSum: Double?` (paid once in the claim year, default `nil`) and `ClaimOption.lumpSumWrapper: String?` (default `nil`: the liquid bucket), and `FixedYear.Pension.form: VariableYear.PayoutForm` (default `.annuity`) so the system can tax a `.lumpSum` pension entry separately. The planner adds the lump sum, after tax, to the liquid bucket, or moves it untaxed into the named wrapper's bucket: that's how the BVG's assets go to `ch.vestedBenefits` when work stops before 58. The same serves Italy's pension-fund lump sum at retirement and Germany's Riester/bAV capital options.
 3. **Contributions into a pension scheme (buy-ins).** Plan `contributions` go to accounts. *Change (planner and file format):* a contribution entry may name a scheme, `{ "pension": "ch.bvg", "amount": "20000", "year": 2030 }`; the planner passes it as `FixedYear.WrapperContribution(wrapper: "ch.bvg", …)`, and the system returns the matching `Accrual(.pensionScheme("ch.bvg"))`. No TaxKit type changes; a doc note on `WrapperContribution` that its ID can name a scheme.
 4. **Seeding a scheme from an account.** If you track your BVG balance as an account (wrapper `ch.bvg`), the planner should not treat it as a bucket but as the scheme's starting record. *Change:* `PensionScheme.seedWrapper: String?` (default `nil`); the planner passes the starting value of accounts with that wrapper as the option `startingBalance` and leaves them out of the buckets.
 5. **Fund income that isn't distributed.** Switzerland taxes funds' income every year; Italy only when distributed or sold. The engine reports only cash interest. *Change (planner):* an optional `incomeYield` per asset class in `assumptions.returns` (e.g. equity 2%, bonds 2.5%), reported each year as `VariableYear.CapitalIncome` with a new kind `.reportedIncome` (an open-set constant, additive). Systems that don't tax it (Italy, for accumulating funds) ignore that kind.

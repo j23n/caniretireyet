@@ -463,9 +463,10 @@
     "GE": {
       "description": "Geneva; capital Geneva; incomplete, see the notes below",
       "multipliers": {
-        "canton": "0.475",
+        "canton": null,
+        "cantonalCentimes": "0.475",
         "capitalCommune": "0.4549",
-        "note": "Centimes additionnels: cantonal (47.5 per one extract, 48.5 per another) and the City of Geneva's 45.49. Geneva's tax also has its own base reductions; structure to verify.",
+        "note": "Centimes additionnels: cantonal (47.5 per one extract, 48.5 per another), levied on top of the base tax, and the City of Geneva's 45.49. Geneva also reduces the base tax and adds other surcharges; until the structure is checked, the canton multiplier is left empty.",
         "source": "ESTV, Steuersatz und Steuerfuss 2026: https://www.estv2.admin.ch/stp/ds/e-steuersatz-steuerfuss-de.pdf",
         "verify": true
       },
