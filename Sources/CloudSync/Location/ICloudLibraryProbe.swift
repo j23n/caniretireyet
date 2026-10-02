@@ -16,15 +16,30 @@ extension LibraryLocation {
     /// (not even as a placeholder), this asks iCloud with an `NSMetadataQuery`
     /// for `library.json`: it waits for the query's first results and then a
     /// few seconds more for iCloud to report it, up to `timeout` in all.
-    /// Returns `false` if it doesn't turn up by then.
+    /// Returns `false` if it doesn't turn up by then, or at once if the
+    /// calling task is cancelled.
+    ///
+    /// The folder is looked at off the main thread; nothing is downloaded.
     @MainActor
     public func containsLibrary(waitingUpTo timeout: Duration = LibraryLocation.iCloudLibraryWait) async -> Bool {
-        if LibraryFolder(root: url, files: CoordinatedFileAccess()).containsLibrary { return true }
+        let root = url
+        let onDisk = await Task.detached(priority: .userInitiated) {
+            LibraryFolder(root: root, files: CoordinatedFileAccess()).containsLibrary
+        }.value
+        if onDisk {
+            LibraryLog.notice("\(kind): library.json is on this device (downloaded or not)")
+            return true
+        }
         #if canImport(Darwin)
         if isUbiquitous {
-            return await ICloudLibraryProbe(root: url).libraryExists(timeout: timeout)
+            LibraryLog.notice("iCloud Drive: library.json isn't on this device; asking iCloud Drive (up to \(LibraryLog.seconds(timeout)))")
+            let started = ContinuousClock.now
+            let found = await ICloudLibraryProbe(root: url).libraryExists(timeout: timeout)
+            LibraryLog.notice("iCloud Drive: library.json \(found ? "found" : "not found") after \(LibraryLog.seconds(.now - started))")
+            return found
         }
         #endif
+        LibraryLog.notice("\(kind): no library.json")
         return false
     }
 }
@@ -33,6 +48,11 @@ extension LibraryLocation {
 /// Asks iCloud Drive whether the library folder has a `library.json`, even
 /// one that isn't downloaded yet: an `NSMetadataQuery` on the ubiquitous
 /// documents scope. One use per instance.
+///
+/// It always answers, exactly once, whoever holds it: the query's observers
+/// and the timers hold the probe until it answers, the timeout always fires,
+/// and answering removes the observers and cancels the timers, which lets
+/// it go. The decisions are ``LibraryProbeState``'s.
 @MainActor
 final class ICloudLibraryProbe {
     /// How long to keep listening after the query's first results came
@@ -40,6 +60,7 @@ final class ICloudLibraryProbe {
     static let graceAfterGathering: Duration = .seconds(4)
 
     private let folder: LibraryFolder
+    private var state = LibraryProbeState()
     private var query: NSMetadataQuery?
     private var observers: [any NSObjectProtocol] = []
     private var continuation: CheckedContinuation<Bool, Never>?
@@ -50,35 +71,51 @@ final class ICloudLibraryProbe {
         folder = LibraryFolder(root: root)
     }
 
-    /// Whether iCloud reports the file within `timeout`.
+    /// Whether iCloud reports the file within `limit`.
     func libraryExists(timeout limit: Duration) async -> Bool {
-        await withCheckedContinuation { continuation in
-            self.continuation = continuation
-            let query = NSMetadataQuery()
-            query.searchScopes = [NSMetadataQueryUbiquitousDocumentsScope]
-            query.predicate = NSPredicate(format: "%K == %@", NSMetadataItemFSNameKey, LibraryFile.settings.path)
-            let center = NotificationCenter.default
-            let names: [Notification.Name] = [.NSMetadataQueryDidFinishGathering, .NSMetadataQueryDidUpdate]
-            for name in names {
-                let gathered = name == .NSMetadataQueryDidFinishGathering
-                let observer = center.addObserver(forName: name, object: query, queue: .main) { [weak self] notification in
-                    let urls = Self.urls(of: notification)
-                    MainActor.assumeIsolated {
-                        self?.receive(urls, gathered: gathered)
-                    }
+        await withTaskCancellationHandler {
+            await withCheckedContinuation { continuation in
+                if let answer = state.answer {
+                    continuation.resume(returning: answer)
+                    return
                 }
-                observers.append(observer)
+                self.continuation = continuation
+                begin(timeout: limit)
             }
-            self.query = query
-            guard query.start() else {
-                finish(false)
-                return
+        } onCancel: {
+            Task { @MainActor in
+                self.handle(self.state.cancelled())
             }
-            timeout = Task { [weak self] in
-                try? await Task.sleep(for: limit)
-                guard !Task.isCancelled else { return }
-                self?.finish(false)
+        }
+    }
+
+    private func begin(timeout limit: Duration) {
+        let query = NSMetadataQuery()
+        query.searchScopes = [NSMetadataQueryUbiquitousDocumentsScope]
+        query.predicate = NSPredicate(format: "%K == %@", NSMetadataItemFSNameKey, LibraryFile.settings.path)
+        let center = NotificationCenter.default
+        let names: [Notification.Name] = [.NSMetadataQueryDidFinishGathering, .NSMetadataQueryDidUpdate]
+        for name in names {
+            let gathered = name == .NSMetadataQueryDidFinishGathering
+            // Holds the probe until `finish` removes the observer.
+            let observer = center.addObserver(forName: name, object: query, queue: .main) { notification in
+                let urls = Self.urls(of: notification)
+                MainActor.assumeIsolated {
+                    self.receive(urls, gathered: gathered)
+                }
             }
+            observers.append(observer)
+        }
+        self.query = query
+        // Holds the probe until it fires or `finish` cancels it, so the
+        // probe always answers.
+        timeout = Task {
+            try? await Task.sleep(for: limit)
+            self.handle(self.state.timedOut())
+        }
+        if !query.start() {
+            LibraryLog.error("iCloud Drive: the query for library.json didn't start")
+            handle(state.failedToStart())
         }
     }
 
@@ -92,20 +129,26 @@ final class ICloudLibraryProbe {
     }
 
     private func receive(_ urls: [URL], gathered: Bool) {
-        if urls.contains(where: { folder.relativePath(of: $0) == LibraryFile.settings.path }) {
-            finish(true)
-        } else if gathered, grace == nil {
-            grace = Task { [weak self] in
+        let found = urls.contains { folder.relativePath(of: $0) == LibraryFile.settings.path }
+        handle(state.received(found: found, gathered: gathered))
+    }
+
+    private func handle(_ action: LibraryProbeState.Action) {
+        switch action {
+        case .wait:
+            break
+        case .startGrace:
+            grace = Task {
                 try? await Task.sleep(for: Self.graceAfterGathering)
                 guard !Task.isCancelled else { return }
-                self?.finish(false)
+                self.handle(self.state.graceEnded())
             }
+        case .finish(let found):
+            finish(found)
         }
     }
 
     private func finish(_ found: Bool) {
-        guard let continuation else { return }
-        self.continuation = nil
         query?.stop()
         query = nil
         for observer in observers {
@@ -113,8 +156,12 @@ final class ICloudLibraryProbe {
         }
         observers = []
         timeout?.cancel()
+        timeout = nil
         grace?.cancel()
-        continuation.resume(returning: found)
+        grace = nil
+        let continuation = continuation
+        self.continuation = nil
+        continuation?.resume(returning: found)
     }
 }
 #endif

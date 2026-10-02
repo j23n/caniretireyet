@@ -39,12 +39,18 @@ public struct LibraryLocator: Sendable {
     /// requires. The folder may not exist yet.
     public func iCloudLibraryURL() async -> URL? {
         #if canImport(Darwin)
-        guard isICloudAvailable else { return nil }
+        guard isICloudAvailable else {
+            LibraryLog.notice("iCloud Drive: not signed in, or iCloud Drive is off")
+            return nil
+        }
         let identifier = containerIdentifier
-        return await Task.detached(priority: .userInitiated) {
+        let started = ContinuousClock.now
+        let url = await Task.detached(priority: .userInitiated) {
             FileManager.default.url(forUbiquityContainerIdentifier: identifier)?
                 .appendingPathComponent(Self.iCloudFolderName, isDirectory: true)
         }.value
+        LibraryLog.notice("iCloud Drive: container \(url == nil ? "not available" : "found") after \(LibraryLog.seconds(.now - started))")
+        return url
         #else
         return nil
         #endif
