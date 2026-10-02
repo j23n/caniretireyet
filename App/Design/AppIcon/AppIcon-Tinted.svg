@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <!-- Tinted appearance: grayscale on no background; the system tints by brightness. -->
+  <circle cx="470" cy="700" r="215" fill="#ffffff"/>
+  <path d="M0 790 L 150 735 L 270 765 L 420 650 L 545 700 L 700 560 L 830 600 L 1024 430 L 1024 1024 L 0 1024 Z" fill="#5a5a5a"/>
+  <path d="M0 790 L 150 735 L 270 765 L 420 650 L 545 700 L 700 560 L 830 600 L 1024 430" fill="none" stroke="#d9d9d9" stroke-width="18" stroke-linejoin="round" stroke-linecap="round"/>
+</svg>

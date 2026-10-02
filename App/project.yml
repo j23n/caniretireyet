@@ -60,9 +60,8 @@ targets:
         ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
         ASSETCATALOG_COMPILER_GENERATE_ASSET_SYMBOLS: NO
         ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS: NO
-        # There's no app icon yet; add an AppIcon set to Assets.xcassets and
-        # set this to AppIcon when there is.
-        ASSETCATALOG_COMPILER_APPICON_NAME: ""
+        # The icon set in Assets.xcassets, made from the SVGs in App/Design/AppIcon.
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         # Info.plist: the keys in Config/Info.plist (iCloud Drive folder) plus generated ones.
         INFOPLIST_FILE: Config/Info.plist
         GENERATE_INFOPLIST_FILE: YES

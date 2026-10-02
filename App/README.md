@@ -251,7 +251,7 @@ If the iPhone sticks on the opening screen, Console (on a Mac, with the iPhone c
 
 ## Not done yet
 
-- **Not built:** separate windows for plan comparison and import on the Mac (add `WindowGroup(id:)` scenes and `openWindow`), Face ID lock (M3), widgets (M3), an app icon (add an `AppIcon` set and set `ASSETCATALOG_COMPILER_APPICON_NAME` in project.yml), and reacting to the iCloud account changing while the app runs.
+- **Not built:** separate windows for plan comparison and import on the Mac (add `WindowGroup(id:)` scenes and `openWindow`), Face ID lock (M3), widgets (M3), and reacting to the iCloud account changing while the app runs.
 
 ## Checking without Xcode
 
