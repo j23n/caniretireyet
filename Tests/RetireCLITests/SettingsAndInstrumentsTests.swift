@@ -46,10 +46,10 @@ struct SettingsAndInstrumentsTests {
     @Test func aResidenceWithoutItsOwnSystemUsesGeneric() async throws {
         let library = try TemporaryFolder.exampleLibrary()
         var settings = try library.text("library.json")
-        settings = settings.replacingOccurrences(of: #""taxResidence": "IT""#, with: #""taxResidence": "CH""#)
+        settings = settings.replacingOccurrences(of: #""taxResidence": "IT""#, with: #""taxResidence": "PT""#)
         try library.write("library.json", settings)
         let shown = await retire(["settings", "--library", library.path])
-        #expect(shown.output.contains("Tax residence  CH (plans use generic: Generic (flat rates))"))
+        #expect(shown.output.contains("Tax residence  PT (plans use generic: Generic (flat rates))"))
     }
 
     @Test func instrumentsListTheirKindForTaxes() async throws {

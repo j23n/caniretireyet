@@ -63,7 +63,7 @@ struct ValidateTests {
         #expect(output.contains("""
             plans/base.json
               warning contributions[0].account: the account "fondo-vecchio" doesn't exist.
-              warning tax.residence[0].system: "xx" isn't a tax system this version knows (it, generic).
+              warning tax.residence[0].system: "xx" isn't a tax system this version knows (it, ch, de, generic).
             """))
         #expect(output.hasSuffix("\n1 error, 5 warnings.\n"))
     }

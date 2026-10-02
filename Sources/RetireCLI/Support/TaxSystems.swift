@@ -1,16 +1,18 @@
 import Model
 import TaxGeneric
+import TaxGermany
 import TaxItaly
 import TaxKit
+import TaxSwitzerland
 
-/// The tax systems the CLI knows, registered in one place (TAXES.md). The
-/// CLI already depends on `TaxSwitzerland` and `TaxGermany`, so registering
-/// them is an import and an entry in ``registry()``; everything else reads
+/// The tax systems the CLI knows, registered in one place (TAXES.md). A new
+/// system is an import and an entry in ``registry()``; everything else reads
 /// the registry.
 enum TaxSystems {
-    /// Italy (`it`) and the generic flat-rate system (`generic`).
+    /// Italy (`it`), Switzerland (`ch`), Germany (`de`) and the generic
+    /// flat-rate system (`generic`).
     static func registry() -> TaxRegistry {
-        TaxRegistry([ItalyTaxSystem(), GenericTaxSystem()])
+        TaxRegistry([ItalyTaxSystem(), SwissTaxSystem(), GermanTaxSystem(), GenericTaxSystem()])
     }
 
     /// The system for `settings`' tax residence: the registered system

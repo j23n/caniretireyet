@@ -110,7 +110,7 @@ struct PlanEditTests {
         let unknown = await retire(["plan", "contribution", "add", "--library", library.path, "--pension", "xx.fund",
                                     "--amount", "1", "--year", "2030"])
         #expect(unknown.status == 1)
-        #expect(unknown.errors.contains("There's no pension scheme \"xx.fund\". Schemes: it.inps."))
+        #expect(unknown.errors.contains("There's no pension scheme \"xx.fund\". Schemes: it.inps, ch.ahv, ch.bvg, de.drv."))
         let past = await retire(["plan", "contribution", "remove", "9", "--library", library.path])
         #expect(past.status == 1)
         #expect(past.errors.contains("There's no contribution 9: the plan has 2 contributions, numbered from 1."))
@@ -174,11 +174,11 @@ struct PlanEditTests {
         let italy = await retire(["plan", "pension", "set", "2", "--library", library.path, "--source-country", "IT"])
         #expect(italy.output.contains("Paying country: IT.\nTaxed where it's paid, by Italy's rules.\n"))
         // One without: the amount goes in after that tax, and the planner warns.
-        let swiss = await retire(["plan", "pension", "set", "2", "--library", library.path, "--source-country", "CH"])
-        #expect(swiss.output.contains("Taxed where it's paid, in CH, which has no tax rules yet: enter it after that tax."))
-        #expect(swiss.output.contains("is taxed by the paying country, which the plan doesn't compute"))
+        let portugal = await retire(["plan", "pension", "set", "2", "--library", library.path, "--source-country", "PT"])
+        #expect(portugal.output.contains("Taxed where it's paid, in PT, which has no tax rules yet: enter it after that tax."))
+        #expect(portugal.output.contains("is taxed by the paying country, which the plan doesn't compute"))
         let shown = await retire(["plan", "show", "--library", library.path])
-        #expect(shown.output.contains("4,800 a year from 67 · paid from CH · taxed where it's paid, in CH, which has no "
+        #expect(shown.output.contains("4,800 a year from 67 · paid from PT · taxed where it's paid, in PT, which has no "
             + "tax rules yet"))
 
         // A scheme's pensions are paid from its system's country.
