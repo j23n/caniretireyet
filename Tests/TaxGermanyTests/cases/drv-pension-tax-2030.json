@@ -1,0 +1,23 @@
+{
+  "name": "A 2030 retiree's DRV pension (40 points) in 2031, KVdR",
+  "year": 2031,
+  "input": {
+    "age": 68,
+    "systemOptions": {"retirementHealthInsurance": "kvdr"},
+    "pensions": [{"id": "drv", "scheme": "de.drv", "amount": 20409.6, "startYear": 2030}]
+  },
+  "expected": {
+    "lines": {"de.incomeTax": 392.949456},
+    "contributions": {"de.kv": 1785.84, "de.pv": 857.2032},
+    "totalTax": 392.949456,
+    "netIncome": 17373.607344,
+    "nextState": {"de.pension.drv.exemptAmount": 2857.344}
+  },
+  "workings": [
+    "Taxable share for a 2030 start: 82.5% + 7 × 0.5 = 86.0%",
+    "2031 is the year after the start, so the exempt amount is fixed now: 14% × 20,409.60 = 2,857.3440",
+    "Taxable pension 17,552.2560, less the €102 lump sum",
+    "KVdR: health (7.3% + 1.45%) × 20,409.60 = 1,785.8400 (the DRV pays as much again); care 4.2% = 857.2032",
+    "Taxable income: 17,450.2560 − 2,643.0432 − 36 = 14,771.2128; T = 392.949456"
+  ]
+}

@@ -1,0 +1,18 @@
+{
+  "name": "An early retiree with large gains: contributions and the Günstigerprüfung",
+  "year": 2026,
+  "input": {
+    "age": 60,
+    "variable": {
+      "sales": [{"wrapper": "de.ordinary", "category": "equityFund", "proceeds": 150000, "costBasis": 90000}],
+      "capitalIncome": [{"wrapper": "de.ordinary", "category": "cash", "kind": "interest", "amount": 2000}]
+    }
+  },
+  "expected": {"lines": {"de.incomeTax": 5278.114565}, "contributions": {"de.kv": 7436.0, "de.pv": 1848.0}},
+  "workings": [
+    "Income for health: 60,000 × 70% + 2,000 = 44,000, between the minimum and the 69,750 ceiling",
+    "Health 16.9% × 44,000 = 7,436.00; care 4.2% = 1,848.00; prepare charged the minimum (2,673.58 and 664.44), assess adds the rest",
+    "Flat tax: (44,000 − 1,000) × 26.375% = 11,341.25",
+    "Tariff: 43,000 − 9,284 − 36 = 33,680.00; T = 5,278.114565, lower, so the Günstigerprüfung applies"
+  ]
+}

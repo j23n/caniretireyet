@@ -1,0 +1,36 @@
+{
+  "name": "Physical gold and crypto sold: tax-free after a year",
+  "year": 2026,
+  "input": {
+    "age": 45,
+    "work": [{"phaseID": "job", "kind": "employee", "regime": "de.employee", "gross": 75000}],
+    "variable": {
+      "sales": [
+        {"wrapper": "de.ordinary", "category": "physicalGold", "proceeds": 12000, "costBasis": 10000},
+        {"wrapper": "de.ordinary", "category": "etcWithDeliveryClaim", "proceeds": 5000, "costBasis": 3000},
+        {"wrapper": "de.ordinary", "category": "crypto", "proceeds": 8000, "costBasis": 1000},
+        {"wrapper": "de.ordinary", "category": "etc", "proceeds": 4000, "costBasis": 2000}
+      ]
+    }
+  },
+  "expected": {
+    "lines": {"de.incomeTax": 13935.657745, "de.capitalIncomeTax": 250.0, "de.capitalIncomeTax.soli": 13.75}
+  },
+  "grossUp": [
+    {
+      "net": 10000,
+      "bucket": {
+        "wrapper": "de.ordinary",
+        "value": 50000,
+        "costBasis": 25000,
+        "categoryShares": {"physicalGold": 0.5, "stock": 0.5}
+      },
+      "expected": 10423.553028
+    }
+  ],
+  "workings": [
+    "The planner gives no holding period yet (TaxKit gap G6), so gold, a gold ETC with a delivery claim and crypto are treated as held longer than a year: tax-free",
+    "Held 8 months, the gold's 2,000 gain would be taxed at the tariff (all of it, being ≥ 1,000): 773.16 more",
+    "An ETC without a delivery claim is a security: (2,000 − 1,000 allowance) × 25% = 250.00, Soli 13.75"
+  ]
+}

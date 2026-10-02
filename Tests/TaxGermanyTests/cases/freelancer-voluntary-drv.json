@@ -1,0 +1,30 @@
+{
+  "name": "Freiberufler, 50,000 profit, minimum voluntary DRV contributions",
+  "year": 2026,
+  "input": {
+    "age": 45,
+    "work": [
+      {
+        "phaseID": "practice",
+        "kind": "selfEmployed",
+        "regime": "de.freelancer",
+        "gross": 50000,
+        "options": {"drv": "voluntary"}
+      }
+    ]
+  },
+  "expected": {
+    "lines": {"de.incomeTax": 6604.524907},
+    "contributions": {"de.rv": 1345.92, "de.kv": 8450.0, "de.pv": 2100.0},
+    "accruals": {"pensionScheme:de.drv": 7236.129032},
+    "contributionMonths": 12,
+    "totalTax": 6604.524907
+  },
+  "workings": [
+    "Voluntary DRV contribution: the minimum, 112.16 × 12 = 1,345.92 (18.6% of 603 a month)",
+    "It buys points like insured earnings of 1,345.92 / 18.6% = 7,236.129032",
+    "Voluntary GKV: health 16.9% × 50,000 = 8,450.00; care 4.2% = 2,100.00",
+    "Taxable income: 50,000 − 1,345.92 (within 30,826, no employer share) − 10,550.00 − 36 = 38,068.08",
+    "T = 6,604.524907"
+  ]
+}

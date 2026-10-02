@@ -1,0 +1,24 @@
+{
+  "name": "Riester and Rürup next to the DRV pension, KVdR",
+  "year": 2031,
+  "input": {
+    "age": 68,
+    "systemOptions": {"retirementHealthInsurance": "kvdr"},
+    "pensions": [
+      {"id": "drv", "scheme": "de.drv", "amount": 20409.6, "startYear": 2030},
+      {"id": "ruerup", "scheme": "fixed", "kind": "basicPension", "amount": 6000, "startYear": 2030}
+    ],
+    "variable": {"payouts": [{"wrapper": "de.riester", "amount": 6000, "form": "annuity"}]}
+  },
+  "expected": {
+    "lines": {"de.incomeTax": 3098.637432},
+    "contributions": {"de.kv": 1785.84, "de.pv": 857.2032},
+    "nextState": {"de.pension.drv.exemptAmount": 2857.344, "de.pension.ruerup.exemptAmount": 840.0}
+  },
+  "workings": [
+    "The 40-point DRV pension of drv-pension-tax-2030, and a Rürup annuity of 6,000 (a fixed pension of kind basicPension), both started in 2030; a Riester payout of 6,000 from a de.riester account",
+    "Riester: fully taxed (§22 Nr. 5): 6,000. Rürup: like the statutory pension, 86% for a 2030 start: 5,160 (exempt 840, fixed from 2031)",
+    "One €102 lump sum for all pension income; health and care only on the DRV pension (Riester and Rürup are free under KVdR)",
+    "Taxable income: 17,552.2560 + 6,000 + 5,160 − 102 − 2,643.0432 − 36 = 25,931.2128; T = 3,098.637432"
+  ]
+}

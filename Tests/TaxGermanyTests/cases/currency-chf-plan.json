@@ -1,0 +1,19 @@
+{
+  "name": "A plan in CHF: the employee of employee-40k, at 1.05 EUR per CHF",
+  "year": 2026,
+  "input": {
+    "age": 35,
+    "currencyRate": 1.05,
+    "work": [{"phaseID": "job", "kind": "employee", "regime": "de.employee", "gross": 38095.238095}]
+  },
+  "expected": {
+    "lines": {"de.incomeTax": 4203.460909},
+    "contributions": {"de.rv": 3542.857143, "de.av": 495.238095, "de.kv": 3333.333333, "de.pv": 914.285714},
+    "accruals": {"pensionScheme:de.drv": 38095.238095}
+  },
+  "workings": [
+    "The plan is in CHF; the system computes in EUR at 1.05 EUR per CHF (FixedYear.currencyRate)",
+    "Gross CHF 38,095.24 is EUR 40,000: everything as in employee-40k, in EUR",
+    "Lines, contributions and accruals come back in CHF: EUR amounts ÷ 1.05"
+  ]
+}

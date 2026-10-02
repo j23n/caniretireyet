@@ -1,0 +1,24 @@
+{
+  "name": "DRV claims from 40 points and 40 years, born 1 January 1964",
+  "kind": "pensionClaims",
+  "year": 2026,
+  "input": {
+    "birthDate": "1964-01-01",
+    "record": {"points": 40, "contributionYears": 40},
+    "options": {"realWageGrowth": "0", "realPensionValueGrowth": "0"}
+  },
+  "expected": {
+    "claims": [
+      {"route": "de.drv.longInsured", "age": 63, "annualAmount": 17470.6176, "fullYearAmount": 0},
+      {"route": "de.drv.standard", "age": 67, "annualAmount": 20409.6},
+      {"route": "de.drv.deferred", "age": 70, "annualAmount": 24083.328}
+    ]
+  },
+  "workings": [
+    "Born on 1 January 1964: each age is reached on 31 December, so the pension starts with January: 63 from January 2027, 67 (the standard age for 1964) from January 2031, 70 from January 2034",
+    "Monthly at 67: 40 × 42.52 = 1,700.80; yearly 20,409.60",
+    "At 63: 48 months early × 0.3% = 14.4% less: 20,409.60 × 0.856 = 17,470.6176; 40 years ≥ 35",
+    "At 70: 36 months late × 0.5% = 18% more: 24,083.3280",
+    "The 45-year pension isn't offered (40 < 45); growth assumptions set to 0"
+  ]
+}

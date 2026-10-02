@@ -1,0 +1,24 @@
+{
+  "name": "The 2030 retiree's pension ten years later: the exempt amount shrinks",
+  "year": 2041,
+  "input": {
+    "age": 78,
+    "systemOptions": {"retirementHealthInsurance": "kvdr"},
+    "pensions": [{"id": "drv", "scheme": "de.drv", "amount": 20409.6, "startYear": 2030}],
+    "state": {"de.pension.drv.exemptAmount": 3154.738659},
+    "inflationFactor": 1.345868
+  },
+  "expected": {
+    "lines": {"de.incomeTax": 496.857368},
+    "contributions": {"de.kv": 1785.84, "de.pv": 857.2032},
+    "nextState": {"de.pension.drv.exemptAmount": 3154.738659}
+  },
+  "workings": [
+    "2% inflation a year since 2026: prices are 1.02^15 = 1.345868 times 2026's; the pension is unchanged in today's euros",
+    "The exempt amount was fixed in 2031 at 2,857.3440 in 2031's euros, 3,154.7387 nominal; in today's euros now 2,344.0173",
+    "The €102 and €36 lump sums are fixed in nominal euros too: 75.7875 and 26.7485 today",
+    "The tariff keeps its value (indexThresholds on, after 2026); the contributions are the same in today's euros",
+    "Taxable income: 20,409.60 − 2,344.0173 − 75.7875 − 2,643.0432 − 26.7485 = 15,320.0035; T = 496.857368, 103.91 more than in 2031: fiscal drag on the exemption and the lump sums",
+    "Changed from the draft (docs/tax/drafts/de-cases.md, case 9), which kept the lump sums at their nominal value although the design fixes them in nominal euros"
+  ]
+}
