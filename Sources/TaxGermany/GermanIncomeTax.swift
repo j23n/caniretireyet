@@ -27,6 +27,9 @@ struct TariffInputs: Hashable, Sendable {
     /// special expense when it saves more tax than the grants.
     var pensionDeduction = 0.0
     var pensionGrant = 0.0
+    /// Added to positive taxable income before the tariff: the basic
+    /// allowance for a non-resident, who doesn't get it (§50 Abs. 1 Satz 2).
+    var addedToTaxable = 0.0
 }
 
 /// Stage 6's result.
@@ -79,16 +82,20 @@ struct IncomeTaxCalculator: Sendable {
         func taxable(_ church: Double) -> Double {
             inputs.income - fixedDeductions - max(specialExpensesLumpSum, church)
         }
+        func taxAt(_ x: Double) -> Double {
+            self.tax(onTaxable: x > 0 ? x + inputs.addedToTaxable : x, extraordinary: inputs.extraordinary,
+                     progression: inputs.progression)
+        }
         var church = 0.0
         var x = taxable(0)
-        var tax = self.tax(onTaxable: x, extraordinary: inputs.extraordinary, progression: inputs.progression)
+        var tax = taxAt(x)
         if churchRate > 0 {
             for _ in 0..<60 {
                 let next = churchRate * tax
                 if abs(next - church) < 1e-9 { church = next; break }
                 church = next
                 x = taxable(church)
-                tax = self.tax(onTaxable: x, extraordinary: inputs.extraordinary, progression: inputs.progression)
+                tax = taxAt(x)
             }
             church = churchRate * tax
         }

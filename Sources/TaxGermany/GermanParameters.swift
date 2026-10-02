@@ -126,6 +126,11 @@ struct ZoneTariff: Hashable, Sendable {
     var limits: [Double] {
         zones.compactMap(\.upTo).map { $0 * scale }
     }
+
+    /// The basic allowance (Grundfreibetrag): the end of the zero zone, in today's euros.
+    var basicAllowance: Double {
+        (zones.first { $0.kind == .zero }?.upTo ?? 0) * scale
+    }
 }
 
 /// The solidarity surcharge (SolZG): nothing up to the exemption limit, then

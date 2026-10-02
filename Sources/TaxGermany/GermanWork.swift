@@ -98,8 +98,8 @@ extension GermanYearCalculator {
     /// A German statutory pension is paid this year (a full old-age pension).
     var drawsGermanStatutoryPension: Bool {
         year.pensions.contains { pension in
-            pension.form == .annuity && pension.amount > 0 && classify(pension).kind == .statutory
-                && classify(pension).country == "DE"
+            pension.form == .annuity && pension.amount > 0 && Self.classify(pension).kind == .statutory
+                && Self.classify(pension).country == "DE"
         }
     }
 

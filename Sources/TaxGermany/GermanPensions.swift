@@ -34,7 +34,7 @@ struct GermanPensionResult: Hashable, Sendable {
 extension GermanYearCalculator {
     /// What kind of pension `pension` is, and from where: known schemes
     /// first, then the plan's `kind` (unknown: statutory, with a warning).
-    func classify(_ pension: FixedYear.Pension) -> (kind: PensionKind, country: String?, known: Bool) {
+    static func classify(_ pension: FixedYear.Pension) -> (kind: PensionKind, country: String?, known: Bool) {
         let country = pension.sourceCountry?.uppercased()
         switch pension.scheme {
         case DRVPensionScheme.schemeID: return (.statutory, country ?? "DE", true)
@@ -66,12 +66,11 @@ extension GermanYearCalculator {
     /// treaty checks in a pension's first year.
     mutating func computePensions() {
         for pension in year.pensions where pension.amount > 0 {
-            let (kind, country, known) = classify(pension)
+            let (kind, country, known) = Self.classify(pension)
             let amount = pension.amount * rate
             let start = pension.startYear ?? year.year
-            let taxedHere = pension.taxedIn == .residence || country == "DE"
-            let way = treatment(kind, country: country, mandatoryShare: pension.mandatoryShare)
-            if state[GermanStateKey.seen(pension.id)] == nil {
+            let firstSeen = state[GermanStateKey.seen(pension.id)] == nil
+            if firstSeen {
                 nextState[GermanStateKey.seen(pension.id)] = 1
                 if !known {
                     issues.append(.warning(
@@ -79,8 +78,13 @@ extension GermanYearCalculator {
                         "The pension \(pension.id) doesn't say what kind it is (statutory, occupational, basicPension or "
                             + "privateAnnuity): Germany taxes it like a statutory pension.", year: year.year))
                 }
-                checkTreaty(pension, kind: kind, country: country)
             }
+            // Germany taxes what the plan leaves to it, and what the treaty gives
+            // it even when the plan says the paying country taxes it, so no
+            // pension goes untaxed.
+            let treaty = treatyGivesGermany(pension, kind: kind, country: country, warn: firstSeen)
+            let taxedHere = pension.taxedIn == .residence || country == "DE" || treaty == true
+            let way = treatment(kind, country: country, mandatoryShare: pension.mandatoryShare)
             var taxable = 0.0
             let ageAtStart = start - person.birthYear
             switch way {
@@ -145,39 +149,47 @@ extension GermanYearCalculator {
         return amount - exempt
     }
 
-    /// Whether the plan's `taxedIn` matches the treaty with the paying
-    /// country: Germany–Italy taxes a social-security pension in the paying
-    /// state for its nationals who aren't German too (Art. 19(4)); Germany–
-    /// Switzerland always in the state of residence (Art. 18). The module
-    /// never overrides `taxedIn`; it warns.
-    private mutating func checkTreaty(_ pension: FixedYear.Pension, kind: PensionKind, country: String?) {
+    /// What the treaty with the paying country says about a foreign pension
+    /// while living in Germany: `true` when Germany taxes it, `false` when
+    /// the paying country does, `nil` when the module doesn't know (no treaty
+    /// in the parameters, or the citizenship it depends on). Germany–Italy
+    /// taxes a social-security pension in the paying state for its nationals
+    /// who aren't German too (Art. 19(4)); Germany–Switzerland always in the
+    /// state of residence (Art. 18). With `warn`, it says where the plan's
+    /// `taxedIn` disagrees.
+    private mutating func treatyGivesGermany(_ pension: FixedYear.Pension, kind: PensionKind, country: String?,
+                                             warn: Bool) -> Bool? {
         guard let country, country != "DE", kind == .statutory || country == "CH",
-              let nationals = p.payingStateTaxesItsNationals[country] else { return }
+              let nationals = p.payingStateTaxesItsNationals[country] else { return nil }
         let payingState: Bool
         if nationals {
             guard !year.citizenships.isEmpty else {
-                issues.append(.warning(
-                    "de.treaty.citizenshipUnknown",
-                    "Whether Germany or \(country) taxes \(pension.id) depends on your citizenship (the treaty taxes a "
-                        + "social-security pension in the paying country for its own nationals). Without citizenships "
-                        + "in the library, the plan's taxedIn (\(pension.taxedIn.rawValue)) stands.", year: year.year))
-                return
+                if warn {
+                    issues.append(.warning(
+                        "de.treaty.citizenshipUnknown",
+                        "Whether Germany or \(country) taxes \(pension.id) depends on your citizenship (the treaty taxes "
+                            + "a social-security pension in the paying country for its own nationals). Without "
+                            + "citizenships in the library, the plan's taxedIn (\(pension.taxedIn.rawValue)) stands.",
+                        year: year.year))
+                }
+                return nil
             }
             payingState = year.isCitizen(of: country) && !year.isCitizen(of: "DE")
         } else {
             payingState = false
         }
-        if payingState && pension.taxedIn == .residence {
+        if warn && payingState && pension.taxedIn == .residence {
             issues.append(.warning(
                 "de.treaty.taxedInSource",
                 "Under the treaty with \(country), \(country) taxes \(pension.id) (a social-security pension paid to its "
-                    + "national): set its taxedIn to source.", year: year.year))
-        } else if !payingState && pension.taxedIn == .source {
+                    + "national): set its taxedIn to source. Germany taxes it as the plan says.", year: year.year))
+        } else if warn && !payingState && pension.taxedIn == .source {
             issues.append(.warning(
                 "de.treaty.taxedInResidence",
-                "Under the treaty with \(country), Germany taxes \(pension.id) while you live here: set its taxedIn to "
-                    + "residence.", year: year.year))
+                "Under the treaty with \(country), Germany taxes \(pension.id) while you live here, so it does, although "
+                    + "the plan says the paying country taxes it: set its taxedIn to residence.", year: year.year))
         }
+        return !payingState
     }
 
     /// Health items for the pensions, for the part of the year not covered
