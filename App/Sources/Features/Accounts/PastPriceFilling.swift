@@ -27,7 +27,7 @@ struct PastPriceLine: Identifiable, Hashable, Sendable {
 
     var item: PriceListEntry.Item
     var kind: Kind
-    /// The instrument's name, "USD", "Inflation (Italy)".
+    /// The instrument's name, "USD", "Inflation (Germany)".
     var title: String
     /// Where it's fetched from, before a fill: "gold-api.com · XAU".
     var source: String?
@@ -128,9 +128,9 @@ enum PastPriceText {
         count == 1 ? "1 \(noun)" : "\(count) \(noun)s"
     }
 
-    /// "Inflation (Italy)" for `hicp-it`.
-    static func title(of index: IndexID) -> String {
-        index == .hicpIT ? "Inflation (Italy)" : index.rawValue
+    /// "Inflation (Germany)" for `hicp-de`, "Inflation (euro area)" for `hicp-ea`.
+    static func title(of index: IndexID, locale: Locale = .current) -> String {
+        InflationIndexText.title(of: index, locale: locale)
     }
 
     /// An instrument as the Import Done step names it: its ticker, the

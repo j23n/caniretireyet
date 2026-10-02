@@ -99,7 +99,7 @@ struct PlanContributionList: View {
                 Divider()
             }
             Button {
-                if let contribution = PlanEditing.newContribution(in: library.library, schemes: schemes) {
+                if let contribution = PlanEditing.newContribution(in: library.library, plan: plan, schemes: schemes) {
                     editing = .contribution(index: plan.contributions.count, contribution: contribution)
                 }
             } label: {
@@ -137,7 +137,8 @@ struct PlanEventList: View {
                 Divider()
             }
             Button {
-                editing = .event(index: plan.events.count, event: PlanEditing.newEvent(asOf: library.asOfDate))
+                editing = .event(index: plan.events.count,
+                                 event: PlanEditing.newEvent(in: plan, asOf: library.asOfDate))
             } label: {
                 Label("Add an event", systemImage: "plus")
             }

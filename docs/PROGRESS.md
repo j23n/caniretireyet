@@ -26,7 +26,7 @@ One chart from your first check-in to the end of the plan:
 - **Projection:** from today, the median as a dashed line with the 10th–90th percentile band.
 - **Markers:** the retirement age, pension starts, and when locked money (such as the pension fund) becomes accessible.
 - **Scope:** switch between *net worth* (everything) and *plan assets* (only the accounts the plan counts; your home, for example, is excluded).
-- **Units:** the projection is in today's euros, so by default the history is shown in today's euros too, adjusted with actual inflation. A toggle shows the history in the euros of the time instead.
+- **Units:** the projection is in today's money, so by default the history is shown in today's money too, adjusted with actual inflation (the library's index: [FILE_FORMAT.md](FILE_FORMAT.md#libraryjson), `inflationIndex`). A toggle shows the history in the money of the time instead.
 
 ### The answer over time (M2)
 
@@ -44,7 +44,7 @@ Markers show when the plan's inputs, the app's calculation code or the tax param
 
 A **baseline** is a projection saved at a point in time (see below). Choosing one shows:
 
-- **Chart:** the baseline's projection band from its start date, with your actual line drawn over it. The actual line uses the same accounts, in the same euros.
+- **Chart:** the baseline's projection band from its start date, with your actual line drawn over it. The actual line uses the same accounts, in the same money.
 - **Where you are:** e.g. "€12,400 ahead of the median, at the 61st percentile of what you expected in January 2026".
 - **Why** (M3): the gap between your actual line and the baseline's expected path, split into four parts. The expected path is its deterministic run.
 
@@ -52,7 +52,7 @@ A **baseline** is a projection saved at a point in time (see below). Choosing on
   | --- | --- |
   | Savings | The new money you actually added, minus what the plan expected you to save |
   | Markets | Your actual investment returns, minus the assumed returns |
-  | Inflation | Actual inflation, minus assumed inflation (it changes what your money is worth in the baseline's euros) |
+  | Inflation | Actual inflation, minus assumed inflation (it changes what your money is worth in the baseline's money) |
   | Other | Everything else: windfalls and expenses the plan didn't include, and balance accounts whose changes can't be explained |
 
   The split is an approximation, since the four parts affect each other. It answers the useful question, though: am I behind because I saved less, or because markets were bad?
@@ -71,7 +71,7 @@ The returns on your investments over a period:
 - **How it's computed** (Tracker):
   - The period is cut at every valuation date. On each piece the time-weighted return is Modified Dietz: a flow is assumed to happen halfway between the account's previous valuation and the one that records it. The pieces are chained.
   - The money-weighted return is the XIRR of the start value, the flows and the end value.
-  - Real returns use the change in `hicp-it` over the period. The real money-weighted return first converts every flow into euros of the start date.
+  - Real returns use the change in the library's inflation index over the period (by default the tax residence's HICP, e.g. `hicp-de`). The real money-weighted return first converts every flow into money of the start date.
   - Debts are left out of the portfolio and the asset classes. For an asset class, buying a position with the account's cash moves money between classes, so it doesn't count as a return.
   - An account is left out, and listed as such, when a valuation in the period has no flow, or when it carries into the period a balance that had none (a home that never gets flows, for example). It is also left out when a price or FX rate is missing.
   - An account that records trades ([TRADES.md](TRADES.md#flows)) has its flows worked out: deposits, withdrawals, transfers at market value, and buys and sales paid from outside the account at their amount, each weighted from its own date, and residuals (cash typed at a check-in that the trades don't explain) from halfway between that check-in and the one before. Dividends, interest and fees are part of its return. Its flows are known without asking, so it's never left out for an unknown flow.
@@ -105,7 +105,7 @@ Baselines are created:
 }
 ```
 
-(The numbers are made up. `years` has one row per year up to the plan's end age. Values are in euros of the start date. Months between year-ends are interpolated.)
+(The numbers are made up. `years` has one row per year up to the plan's end age. Values are in money of the start date, in the plan's currency. Months between year-ends are interpolated.)
 
 ## The answer over time
 
@@ -141,7 +141,7 @@ Two kinds of data are needed for the comparisons above.
 
 - Moving money between two tracked accounts cancels out at the portfolio level (−1,000 from the current account, +1,000 into the broker). So the sum of all flows is your actual savings for the period, which is what the plan's savings are compared against.
 
-**Inflation.** Needed to put the actual line in today's euros and to compute real returns. The app fetches Italy's consumer price index (Eurostat HICP) along with FX rates, and stores it in the monthly history files. Past values are public, so this can be filled in later if needed.
+**Inflation.** Needed to put the actual line in today's money and to compute real returns. The app fetches the library's consumer price index (by default the Eurostat HICP of the tax residence, else of the base currency, and one for each plan's currency) along with FX rates, and stores it in the monthly history files. Past values are public, so this can be filled in later if needed.
 
 ## What changes in the files
 

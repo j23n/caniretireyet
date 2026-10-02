@@ -11,7 +11,9 @@ import Model
 ///       "value": { "0": 128.1, "1": 128.41 }, … }
 ///
 /// Each value is dated the last day of the month it measures (FILE_FORMAT.md,
-/// "Indices"), however late it's published or fetched.
+/// "Indices"), however late it's published or fetched. ``Series/hicp(_:)``
+/// gives the series of any HICP the library may use: a country's
+/// (`hicp-de`, `hicp-ch`, …) or the euro area's (`hicp-ea`).
 public struct EurostatIndexProvider: PriceIndexProvider {
     /// A monthly Eurostat series: a dataset, and one code for each of its
     /// dimensions other than time.
@@ -27,13 +29,28 @@ public struct EurostatIndexProvider: PriceIndexProvider {
             self.dimensions = dimensions
         }
 
-        /// `hicp-it`: Italy's all-items HICP with 2015 = 100, from
-        /// `prc_hicp_minr` (ECOICOP 2, which replaced `prc_hicp_midx` from
-        /// January 2026). 2015 = 100 keeps the series continuous with values
-        /// recorded before Eurostat moved its reference year to 2025.
-        public static let hicpIT = Series(
-            index: .hicpIT, dataset: "prc_hicp_minr",
-            dimensions: ["freq": "M", "unit": "I15", "coicop18": "TOTAL", "geo": "IT"])
+        /// The all-items HICP an index ID names (`IndexID.hicpArea`), with
+        /// 2015 = 100, from `prc_hicp_minr` (ECOICOP 2, which replaced
+        /// `prc_hicp_midx` from January 2026); `nil` for an ID that isn't an
+        /// HICP. 2015 = 100 keeps each series continuous with values recorded
+        /// before Eurostat moved its reference year to 2025.
+        public static func hicp(_ index: IndexID) -> Series? {
+            guard let area = index.hicpArea else { return nil }
+            return Series(index: index, dataset: "prc_hicp_minr",
+                          dimensions: ["freq": "M", "unit": "I15", "coicop18": "TOTAL", "geo": geo(area)])
+        }
+
+        /// `hicp-it`: Italy's all-items HICP.
+        public static let hicpIT = hicp(.hicpIT)!
+
+        /// `hicp-ea`: the euro area's all-items HICP (its changing
+        /// composition, `EA`).
+        public static let hicpEA = hicp(.hicpEA)!
+
+        /// Eurostat's code for an area: the ISO code, except Greece's (`EL`).
+        static func geo(_ area: String) -> String {
+            area == "GR" ? "EL" : area
+        }
     }
 
     public static let defaultBaseURL =
@@ -48,7 +65,7 @@ public struct EurostatIndexProvider: PriceIndexProvider {
     private let baseURL: URL
 
     public init(
-        series: Series = .hicpIT, client: any HTTPClient = URLSessionHTTPClient(), policy: RequestPolicy = .standard,
+        series: Series, client: any HTTPClient = URLSessionHTTPClient(), policy: RequestPolicy = .standard,
         baseURL: URL = EurostatIndexProvider.defaultBaseURL
     ) {
         self.series = series

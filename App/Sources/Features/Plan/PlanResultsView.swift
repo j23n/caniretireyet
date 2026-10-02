@@ -387,6 +387,13 @@ struct PlanFanCard: View {
                     .foregroundStyle(Palette.secondaryInk)
                     .fixedSize(horizontal: false, vertical: true)
             }
+            if !actual.points.isEmpty,
+               let note = PlanMoney.standInNote(actual.inflation, currency: currency, locale: locale) {
+                Text(note)
+                    .font(.footnote)
+                    .foregroundStyle(Palette.secondaryInk)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
         } header: {
             SectionHeader((results.details?.focus.age ?? session.shownFocusAge)
                 .map { "Your money over time · retiring at \($0)" } ?? "Your money over time")

@@ -28,6 +28,12 @@ final class PriceStore {
     /// Whether prices can be fetched at all (not in previews).
     var canFetch: Bool { service != nil }
 
+    /// The inflation indices `library` uses that can be fetched
+    /// (`PriceService.indices(for:)`); none in previews.
+    func indices(for library: Library) -> [IndexID] {
+        service?.indices(for: library) ?? []
+    }
+
     /// Fetches the prices, FX rates and index values a check-in on `date`
     /// needs. Never throws: failures are entries in the result. With
     /// `refresh`, cached values are fetched again.
@@ -42,9 +48,9 @@ final class PriceStore {
         guard let service else { return CheckInPrices(date: date) }
         activeFetches += 1
         defer { activeFetches -= 1 }
+        // The plans' currencies and the library's indices come with the needs.
         var needs = service.needs(for: library, on: date)
         needs.include(instruments, from: library)
-        needs.includePlanCurrencies(of: library)
         let result = await service.fetch(needs, refresh: refresh)
         lastResult = result
         return result

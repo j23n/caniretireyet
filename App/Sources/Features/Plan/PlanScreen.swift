@@ -79,7 +79,7 @@ struct PlanEmptyView: View {
 
     private func create() {
         let plan = PlanEditing.newPlan(id: library.newPlanID(for: "Base case"), name: "Base case",
-                                       settings: library.settings, asOf: library.asOfDate,
+                                       library: library.library, asOf: library.asOfDate,
                                        registry: AppTaxRegistry.standard)
         do {
             try library.save(plan)
@@ -379,7 +379,7 @@ struct PlanContentView: View {
 
     private func newPlan() {
         let name = PlanEditing.uniqueName("New plan", among: library.library.plans.values)
-        let plan = PlanEditing.newPlan(id: library.newPlanID(for: name), name: name, settings: library.settings,
+        let plan = PlanEditing.newPlan(id: library.newPlanID(for: name), name: name, library: library.library,
                                        asOf: library.asOfDate, registry: AppTaxRegistry.standard)
         do {
             try library.save(plan)

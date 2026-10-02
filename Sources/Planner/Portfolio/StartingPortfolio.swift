@@ -458,34 +458,25 @@ struct PortfolioBuilder: Sendable {
         case .etf, .fund: fundCategory(of: instrument)
         case .stock: .stock
         case .bond: .bond
-        case .etc: instrument.tax?.deliveryClaim == true ? .etcWithDeliveryClaim : .etc
+        case .etc: instrument.hasDeliveryClaim ? .etcWithDeliveryClaim : .etc
         case .crypto: .crypto
         case .metal: .physicalGold
         default: .other
         }
     }
 
-    /// The kind of fund an ETF or fund is: its `tax.fundType` when it gives
-    /// one this version knows, else from its asset mix: more than half in
-    /// equity is an equity fund, more than half in real estate a real-estate
-    /// fund, at least a quarter in equity a mixed fund, and anything else a
-    /// plain `fund`. The whole fund gets one category, so both parts of a
-    /// 60/40 fund are an equity fund's.
+    /// The category of an ETF or fund, by the kind of fund it is
+    /// (`Instrument.effectiveFundType`: its `tax.fundType` when it gives one
+    /// this version knows, else from its asset mix). The whole fund gets one
+    /// category, so both parts of a 60/40 fund are an equity fund's.
     static func fundCategory(of instrument: Instrument) -> TaxCategory {
-        switch instrument.tax?.fundType {
-        case .equity?: return .equityFund
-        case .mixed?: return .mixedFund
-        case .realEstate?: return .realEstateFund
-        case .foreignRealEstate?: return .foreignRealEstateFund
-        case .other?: return .fund
-        default: break
+        switch instrument.effectiveFundType {
+        case .equity?: .equityFund
+        case .mixed?: .mixedFund
+        case .realEstate?: .realEstateFund
+        case .foreignRealEstate?: .foreignRealEstateFund
+        default: .fund
         }
-        let mix = shares(instrument.assetClasses) ?? [:]
-        let equity = mix[.equity] ?? 0
-        if equity > 0.5 { return .equityFund }
-        if (mix[.realEstate] ?? 0) > 0.5 { return .realEstateFund }
-        if equity >= 0.25 { return .mixedFund }
-        return .fund
     }
 
     /// The tax category of part of a balance account.

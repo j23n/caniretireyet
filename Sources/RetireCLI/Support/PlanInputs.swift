@@ -1,6 +1,5 @@
 import Foundation
 import Model
-import Prices
 import Storage
 import TaxKit
 
@@ -145,29 +144,6 @@ enum PlanInputs {
         return severance || rule.mustPayOut != nil || (rule.preferredPayoutYears ?? 0) > 0
     }
 
-    // MARK: Fund types
-
-    /// The fund type the planner works out for a fund with `mix` when the
-    /// instrument doesn't say (PLANNER.md, "Portfolio"): more than half in
-    /// equity is an equity fund, more than half in real estate a
-    /// real-estate fund, at least a quarter in equity a mixed fund, and
-    /// anything else another fund.
-    static func automaticFundType(for mix: AssetMix) -> FundType {
-        let positive = mix.shares.filter { $0.value > 0 }
-        let total = positive.values.reduce(Decimal(0), +)
-        guard total > 0 else { return .other }
-        let equity = (positive[.equity] ?? 0) / total
-        if equity > Decimal(string: "0.5")! { return .equity }
-        if (positive[.realEstate] ?? 0) / total > Decimal(string: "0.5")! { return .realEstate }
-        if equity >= Decimal(string: "0.25")! { return .mixed }
-        return .other
-    }
-
-    /// Whether an instrument's kind has a fund type (an ETF or a fund).
-    static func takesFundType(_ kind: InstrumentKind) -> Bool {
-        kind == .etf || kind == .fund
-    }
-
     // MARK: Values
 
     /// A plan value as TaxKit reads it.
@@ -223,15 +199,5 @@ enum LibraryEdit {
         try loaded.folder.recordResult(of: backup)
         lines.append("Wrote \(Format.count(saved.written.count, "file")): " + saved.written.joined(separator: ", ") + ".")
         lines.append("Backed up the files it changed to \(backup.path).")
-    }
-}
-
-extension CheckInPriceNeeds {
-    /// Adds the currencies plans are in (other than the base currency), so a
-    /// check-in fetches their rates: a plan values the accounts in its
-    /// currency at the rate on its start date.
-    mutating func includePlanCurrencies(of library: Library) {
-        let codes = Set(currencies + library.plans.values.compactMap(\.currency)).subtracting([baseCurrency])
-        currencies = codes.sorted()
     }
 }

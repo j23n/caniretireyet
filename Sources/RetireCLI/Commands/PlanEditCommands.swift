@@ -122,7 +122,7 @@ struct PlanInputsReport {
     private func residence() -> String {
         let entries = plan.tax.residence.sorted { $0.from < $1.from }
         guard !entries.isEmpty else {
-            let system = TaxSystems.defaultSystem(for: library.settings, registry: registry)
+            let system = TaxSystems.residenceSystem(for: library.settings, registry: registry)
             return "not set: \(system.map { "\($0.id) (\($0.name))" } ?? "no system") applies"
         }
         return entries.map { entry in

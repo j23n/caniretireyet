@@ -25,7 +25,7 @@ struct CheckInPriceLine: Identifiable, Hashable, Sendable {
     }
 
     var item: PriceListEntry.Item
-    /// "VWCE", "USD", "Inflation (Italy)".
+    /// "VWCE", "USD", "Inflation (Germany)".
     var title: String
     /// The instrument's full name, or "1 EUR in US dollars".
     var subtitle: String?
@@ -199,7 +199,7 @@ struct CheckInPriceList: Hashable, Sendable {
         case .failed: .failed
         }
         return CheckInPriceLine(
-            item: .index(index), title: index == .hicpIT ? "Inflation (Italy)" : index.rawValue,
+            item: .index(index), title: InflationIndexText.title(of: index, locale: locale),
             subtitle: "Consumer prices, for plans in today's money", value: nil, currency: nil, per: nil,
             staleDate: nil, status: status, source: sourceText(entry.source, symbol: nil),
             observed: observedText(entry.details, locale: locale), failure: entry.failureReason, canEnter: false)

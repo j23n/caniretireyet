@@ -51,6 +51,34 @@ struct CheckInPriceNeedsTests {
         #expect(CheckInPriceNeeds(library: Library(), date: "2026-10-02").indices.first?.months == [])
     }
 
+    /// The library's own index: the tax residence's HICP, else the base
+    /// currency's; and one for each plan's currency, with its rate.
+    @Test func theIndicesAndCurrenciesFollowTheLibraryAndItsPlans() throws {
+        var library = try Fixtures.exampleLibrary()
+        library.settings.taxResidence = .de
+        let germany = CheckInPriceNeeds(library: library, date: "2026-09-30")
+        let months: [YearMonth] = ["2025-10", "2025-11", "2025-12", "2026-01", "2026-02", "2026-03", "2026-04",
+                                   "2026-05", "2026-06", "2026-07", "2026-08", "2026-09"]
+        #expect(germany.indices == [.init(index: "hicp-de", months: months)])
+
+        library.settings.taxResidence = .it
+        library.plans["base"]?.currency = .chf
+        let swissPlan = CheckInPriceNeeds(library: library, date: "2026-09-30")
+        #expect(swissPlan.currencies == [.chf, .usd])
+        #expect(swissPlan.indices == [.init(index: "hicp-ch", months: months),
+                                      .init(index: .hicpIT, months: ["2026-09"])])
+
+        // A plan in the base currency needs nothing more; one in dollars a rate but no index.
+        library.plans["base"]?.currency = .eur
+        library.plans["part-time-from-50"]?.currency = .usd
+        let dollarPlan = CheckInPriceNeeds(library: library, date: "2026-09-30")
+        #expect(dollarPlan.currencies == [.usd])
+        #expect(dollarPlan.indices.map(\.index) == [.hicpIT])
+
+        // Asked for no indices, there are none; the currencies stay.
+        #expect(CheckInPriceNeeds(library: library, date: "2026-09-30", indices: []).indices.isEmpty)
+    }
+
     @Test func aTradesAccountNeedsWhatItsTradesHold() {
         var library = NeedsLibrary.make()
         library.accounts["ibkr"]?.valuation = .trades

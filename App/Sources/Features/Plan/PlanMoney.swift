@@ -61,13 +61,26 @@ enum PlanMoney {
         "today's \(currency.rawValue)"
     }
 
-    /// The inflation index the library records for amounts in `currency`,
-    /// if any: Eurostat's HICP for Italy (`hicp-it`, the one the price
-    /// sources fetch) for euros. Without one, actual values stay in the
-    /// money of their dates rather than being deflated by another
-    /// country's prices.
-    static func inflationIndex(for currency: CurrencyCode) -> IndexID? {
-        currency == .eur ? .hicpIT : nil
+    /// The inflation index for amounts in `currency`: the one for its
+    /// prices (`Library.inflationIndex(for:)`: the library's own for the
+    /// base currency or a currency its prices are in, `hicp-it` for euros
+    /// in Italy; else that currency's HICP, `hicp-ch` for francs), which
+    /// check-ins fetch; else the library's own as a stand-in, which the
+    /// note under the chart names. `nil` when the library has no index at
+    /// all.
+    static func inflationIndex(for currency: CurrencyCode, library: Library) -> PlanInflationIndex? {
+        if let own = library.inflationIndex(for: currency) { return PlanInflationIndex(index: own, isStandIn: false) }
+        return library.effectiveInflationIndex.map { PlanInflationIndex(index: $0, isStandIn: true) }
+    }
+
+    /// The note under a chart whose actual values are adjusted with another
+    /// currency's index: "There's no inflation index for USD: your actual
+    /// values are adjusted with Italy's prices."; `nil` otherwise.
+    static func standInNote(_ inflation: PlanInflationIndex?, currency: CurrencyCode,
+                            locale: Locale = .current) -> String? {
+        guard let inflation, inflation.isStandIn else { return nil }
+        return "There's no inflation index for \(currency.rawValue): your actual values are adjusted with "
+            + "\(InflationIndexText.prices(of: inflation.index, locale: locale))."
     }
 
     /// `amount` in base-currency money converted into `currency` on `date`
@@ -103,14 +116,26 @@ enum PlanMoney {
     }
 }
 
+/// The inflation index actual values in a plan's currency are adjusted
+/// with (``PlanMoney/inflationIndex(for:library:)``).
+struct PlanInflationIndex: Hashable, Sendable {
+    var index: IndexID
+    /// Whether it's the library's own index standing in for a currency
+    /// without one, e.g. Italy's for dollars.
+    var isStandIn: Bool
+}
+
 /// Your actual plan assets at each check-in, in a plan's currency: each
 /// check-in's value converted at the exchange rate on its date, and in the
-/// money of `reference` where an inflation index for the currency has
-/// values for both dates (else in the money of its date). Check-ins
-/// without a rate are left out and listed in `missingRates`.
+/// money of `reference` where the currency's inflation index (or the
+/// library's, standing in) has values for both dates (else in the money of
+/// its date). Check-ins without a rate are left out and listed in
+/// `missingRates`.
 struct PlanActualSeries: Hashable, Sendable {
     var currency: CurrencyCode
     var points: [ChartPoint]
+    /// The index the points are adjusted with; `nil` when the library has none.
+    var inflation: PlanInflationIndex?
     /// Check-ins left out: no exchange rate from the base currency on their date.
     var missingRates: [CalendarDate]
     /// Whether every point is in the money of `reference`.
@@ -133,7 +158,8 @@ struct PlanActualSeries: Hashable, Sendable {
     init(values: [SeriesPoint], library: Library, valuator: Valuator, currency: CurrencyCode,
          inMoneyOf reference: CalendarDate) {
         self.currency = currency
-        let index = PlanMoney.inflationIndex(for: currency).map { InflationIndex(library: library, index: $0) }
+        inflation = PlanMoney.inflationIndex(for: currency, library: library)
+        let index = inflation.map { InflationIndex(library: library, index: $0.index) }
         var points: [ChartPoint] = []
         var missing: [CalendarDate] = []
         var adjusted = index != nil
@@ -155,17 +181,6 @@ struct PlanActualSeries: Hashable, Sendable {
         self.points = points
         missingRates = missing
         isInflationAdjusted = adjusted
-    }
-}
-
-extension CheckInPriceNeeds {
-    /// Adds the currencies plans are in (other than the base currency), so a
-    /// check-in fetches their rates: a plan values your accounts in its
-    /// currency at the rate on its start date, and Progress converts each
-    /// check-in at its own.
-    mutating func includePlanCurrencies(of library: Library) {
-        let codes = Set(currencies + library.plans.values.compactMap(\.currency)).subtracting([baseCurrency])
-        currencies = codes.sorted()
     }
 }
 

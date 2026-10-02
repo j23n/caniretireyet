@@ -1,4 +1,5 @@
 import Model
+import Planner
 import TaxGeneric
 import TaxItaly
 import TaxKit
@@ -13,19 +14,12 @@ enum TaxSystems {
         TaxRegistry([ItalyTaxSystem(), GenericTaxSystem()])
     }
 
-    /// The system for `settings`' tax residence: the registered system
-    /// whose country (`TaxSystem.country`) it is, else `generic`, else the
-    /// first registered.
+    /// The system for `settings`' tax residence, which a plan without a
+    /// residence timeline uses and a new one starts in: the planner's own
+    /// rule (`Planner.defaultTaxSystem`), the registered system whose
+    /// country (`TaxSystem.country`) it is, else `generic`, else the first
+    /// registered.
     static func residenceSystem(for settings: LibrarySettings, registry: TaxRegistry) -> (any TaxSystem)? {
-        settings.taxResidence.flatMap { registry.system(forCountry: $0.rawValue) }
-            ?? registry.system(TaxSystemID.generic.rawValue) ?? registry.systems.first
-    }
-
-    /// The system a plan without a residence timeline uses, as the planner
-    /// chooses it: the system whose ID is the tax residence's country code
-    /// in lower case, else `generic`, else the first registered.
-    static func defaultSystem(for settings: LibrarySettings, registry: TaxRegistry) -> (any TaxSystem)? {
-        let candidates = [settings.taxResidence?.rawValue.lowercased(), TaxSystemID.generic.rawValue] + registry.ids
-        return candidates.compactMap { $0 }.lazy.compactMap { registry.system($0) }.first
+        Planner.defaultTaxSystem(for: settings, registry: registry)
     }
 }

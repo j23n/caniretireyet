@@ -65,4 +65,34 @@ struct TaxSystemUseTests {
         let result = try await Sample.run(plan, library, system: system)
         #expect(close(incomeTax(result, in: 2026), 12_000))
     }
+
+    /// A plan without a residence lives where the library says, in the
+    /// system whose country that is, whatever the system's ID.
+    @Test func withoutAResidenceThePlanUsesTheSystemOfTheTaxResidence() {
+        var alpine = FlatTaxSystem()
+        alpine.id = "alpine"
+        alpine.name = "Alpine"
+        alpine.country = "CH"
+        let registry = TaxRegistry([system, alpine])
+        var library = library
+        var plan = plan
+        plan.tax.residence = []
+        plan.work[0].regime = nil
+        func used(_ residence: CountryCode?) -> String? {
+            library.settings.taxResidence = residence
+            #expect(Planner.validate(plan: plan, library: library, registry: registry)
+                .contains { $0.code == "planner.defaultResidence" })
+            return Planner.defaultTaxSystem(for: library.settings, registry: registry)?.id
+        }
+        #expect(used(.ch) == "alpine")
+        #expect(used("ch") == "alpine")
+        // No system for the country, and no generic one registered: the first.
+        #expect(used(.de) == "flat")
+        #expect(used(nil) == "flat")
+        library.settings.taxResidence = .ch
+        let message = Planner.validate(plan: plan, library: library, registry: registry)
+            .first { $0.code == "planner.defaultResidence" }?.message
+        #expect(message == "The plan has no tax residence; it uses Alpine.")
+        #expect(Planner.defaultTaxSystem(for: LibrarySettings(), registry: TaxRegistry([])) == nil)
+    }
 }

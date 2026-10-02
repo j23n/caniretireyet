@@ -13,8 +13,9 @@ import Model
 ///   digits.
 /// - **FX rates** are fetched against the library's base currency, as the
 ///   latest ECB rate on or before the date, and dated the check-in date.
-/// - **Index values** are the months the library is missing, each dated the
-///   last day of its month.
+/// - **Index values** are the months the library is missing of each index it
+///   uses (`Library.inflationIndices`: its own, and one for each plan's
+///   currency), each dated the last day of its month.
 ///
 /// A failure affects only its own entry and is reported with a readable
 /// reason; ``fetch(for:on:refresh:)`` never throws. Results are cached by
@@ -36,26 +37,48 @@ public struct PriceService: Sendable {
     public let fxProvider: any FXRateProvider
     /// Index providers by index.
     public let indexProviders: [IndexID: any PriceIndexProvider]
+    /// Makes the provider of an index that isn't in ``indexProviders``, or
+    /// `nil` for none: the standard service's builds Eurostat's series for
+    /// any HICP.
+    let makeIndexProvider: @Sendable (IndexID) -> (any PriceIndexProvider)?
     public let cache: PriceCache
     let today: @Sendable () -> CalendarDate
 
-    /// A service with the given providers. `today` decides whether a
-    /// check-in is in the past (by default the device's current date).
+    /// A service with the given providers. `makeIndexProvider` provides the
+    /// indices `indexProviders` doesn't. `today` decides whether a check-in
+    /// is in the past (by default the device's current date).
     public init(
         instrumentProviders: [any InstrumentPriceProvider], fxProvider: any FXRateProvider,
-        indexProviders: [any PriceIndexProvider] = [], cache: PriceCache = PriceCache(),
+        indexProviders: [any PriceIndexProvider] = [],
+        makeIndexProvider: @escaping @Sendable (IndexID) -> (any PriceIndexProvider)? = { _ in nil },
+        cache: PriceCache = PriceCache(),
         today: @escaping @Sendable () -> CalendarDate = { CalendarDate.today() }
     ) {
         self.instrumentProviders = Dictionary(
             instrumentProviders.map { ($0.provider, $0) }, uniquingKeysWith: { _, last in last })
         self.fxProvider = fxProvider
         self.indexProviders = Dictionary(indexProviders.map { ($0.index, $0) }, uniquingKeysWith: { _, last in last })
+        self.makeIndexProvider = makeIndexProvider
         self.cache = cache
         self.today = today
     }
 
+    /// The provider of `index`: the one given for it, else the one
+    /// `makeIndexProvider` makes; `nil` when there's none.
+    public func indexProvider(for index: IndexID) -> (any PriceIndexProvider)? {
+        indexProviders[index] ?? makeIndexProvider(index)
+    }
+
+    /// The indices `library` uses (`Library.inflationIndices`: its own, and
+    /// one for each plan's currency) that this service can fetch, sorted.
+    public func indices(for library: Library) -> [IndexID] {
+        library.inflationIndices.filter { indexProvider(for: $0) != nil }
+    }
+
     /// The standard providers: Yahoo Finance, CoinGecko and gold-api.com for
-    /// instruments, Frankfurter for ECB rates, and Eurostat for `hicp-it`.
+    /// instruments, Frankfurter for ECB rates, and Eurostat for the HICP of
+    /// every country that has one and of the euro area (`hicp-de`,
+    /// `hicp-ea`, …).
     public static func standard(
         client: any HTTPClient = URLSessionHTTPClient(), credentials: any CredentialsProvider = StaticCredentials(),
         policy: RequestPolicy = .standard, cache: PriceCache = PriceCache(),
@@ -68,13 +91,18 @@ public struct PriceService: Sendable {
                 GoldAPIProvider(client: client, policy: policy),
             ],
             fxProvider: FrankfurterProvider(client: client, policy: policy),
-            indexProviders: [EurostatIndexProvider(series: .hicpIT, client: client, policy: policy)],
+            makeIndexProvider: { index in
+                EurostatIndexProvider.Series.hicp(index).map {
+                    EurostatIndexProvider(series: $0, client: client, policy: policy)
+                }
+            },
             cache: cache, today: today)
     }
 
-    /// What a check-in on `date` needs, for the indices this service provides.
+    /// What a check-in on `date` needs, with the library's indices this
+    /// service provides (``indices(for:)``).
     public func needs(for library: Library, on date: CalendarDate) -> CheckInPriceNeeds {
-        CheckInPriceNeeds(library: library, date: date, indices: indexProviders.keys.sorted())
+        CheckInPriceNeeds(library: library, date: date, indices: indices(for: library))
     }
 
     /// Fetches what a check-in on `date` needs. With `refresh`, the cache is
@@ -274,7 +302,7 @@ public struct PriceService: Sendable {
 
     private func indexPart(_ need: CheckInPriceNeeds.IndexMonths, date: CalendarDate) async -> Part {
         let item = PriceListEntry.Item.index(need.index)
-        guard let provider = indexProviders[need.index], let first = need.months.first, let last = need.months.last
+        guard let provider = indexProvider(for: need.index), let first = need.months.first, let last = need.months.last
         else {
             let failure = PriceFetchError.noData(service: "Prices", detail: "no provider for the \(need.index) index")
             return .index(PriceListEntry(item: item, outcome: .failed(failure)), [])

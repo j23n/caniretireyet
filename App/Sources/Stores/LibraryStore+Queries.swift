@@ -12,6 +12,20 @@ extension LibraryStore {
     /// The currency net worth is reported in.
     var baseCurrency: CurrencyCode { library.settings.baseCurrency }
 
+    /// The currency the screens show amounts in (the environment's
+    /// `baseCurrency`): the library's, once it's loaded. Before that, ISO
+    /// 4217's "no currency", not one made up: no screen shown then (opening,
+    /// onboarding) shows an amount.
+    var shownCurrency: CurrencyCode { phase == .ready ? baseCurrency : .noCurrency }
+}
+
+extension CurrencyCode {
+    /// ISO 4217's code for no currency (`XXX`): the environment's base
+    /// currency until a library is loaded.
+    static let noCurrency: CurrencyCode = "XXX"
+}
+
+extension LibraryStore {
     /// Whether the library has no accounts yet (a new library).
     var hasNoAccounts: Bool { library.accounts.isEmpty }
 

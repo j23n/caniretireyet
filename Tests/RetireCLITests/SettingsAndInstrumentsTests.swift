@@ -5,19 +5,21 @@ import Prices
 import Testing
 import TestSupport
 
-/// `retire settings` (citizenships) and `retire instruments` (fund types).
+/// `retire settings` (citizenships, the inflation index) and `retire
+/// instruments` (fund types).
 struct SettingsAndInstrumentsTests {
     @Test func settingsShowAndSetTheCitizenships() async throws {
         let library = try TemporaryFolder.exampleLibrary()
         let shown = await retire(["settings", "--library", library.path])
         #expect(shown.status == 0, "\(shown.all)")
         #expect(shown.output == """
-            Base currency  EUR
-            Tax residence  IT (plans use it: Italy)
-            Birth date     1988-04-12
-            Citizenships   none
-            Name           Alex Example
-            Main plan      base
+            Base currency    EUR
+            Tax residence    IT (plans use it: Italy)
+            Inflation index  hicp-it (automatic)
+            Birth date       1988-04-12
+            Citizenships     none
+            Name             Alex Example
+            Main plan        base
 
             """)
 
@@ -25,7 +27,7 @@ struct SettingsAndInstrumentsTests {
                                 "--citizenship", "IT"])
         #expect(set.status == 0, "\(set.all)")
         #expect(set.output.hasPrefix("Citizenships: IT, DE.\nWrote 1 file: library.json.\n"))
-        #expect(set.output.contains("Citizenships   IT, DE"))
+        #expect(set.output.contains("Citizenships     IT, DE"))
         #expect(try library.load().settings.person?.citizenships == ["IT", "DE"])
         #expect(try library.text("library.json").contains(#""citizenships": ["IT", "DE"]"#))
 
@@ -49,7 +51,29 @@ struct SettingsAndInstrumentsTests {
         settings = settings.replacingOccurrences(of: #""taxResidence": "IT""#, with: #""taxResidence": "CH""#)
         try library.write("library.json", settings)
         let shown = await retire(["settings", "--library", library.path])
-        #expect(shown.output.contains("Tax residence  CH (plans use generic: Generic (flat rates))"))
+        #expect(shown.output.contains("Tax residence    CH (plans use generic: Generic (flat rates))"))
+        #expect(shown.output.contains("Inflation index  hicp-ch (automatic)"))
+    }
+
+    @Test func settingsSetTheInflationIndex() async throws {
+        let library = try TemporaryFolder.exampleLibrary()
+        let set = await retire(["settings", "--library", library.path, "--inflation-index", "HICP-EA"])
+        #expect(set.status == 0, "\(set.all)")
+        #expect(set.output.hasPrefix("Inflation index: hicp-ea.\nWrote 1 file: library.json.\n"))
+        #expect(try library.load().settings.inflationIndex == .hicpEA)
+        #expect(try library.text("library.json").contains(#""inflationIndex": "hicp-ea""#))
+        let json = try parseJSON(await retire(["settings", "--library", library.path, "--json"]).output)
+        #expect(json["inflationIndex"] as? String == "hicp-ea")
+        #expect(json["inflationIndexSetting"] as? String == "hicp-ea")
+
+        let automatic = await retire(["settings", "--library", library.path, "--inflation-index", "automatic"])
+        #expect(automatic.status == 0, "\(automatic.all)")
+        #expect(automatic.output.hasPrefix("Inflation index: hicp-it (automatic).\n"))
+        #expect(try !library.text("library.json").contains("inflationIndex"))
+
+        let bad = await retire(["settings", "--library", library.path, "--inflation-index", "cpi-us"])
+        #expect(bad.status == 64)
+        #expect(bad.errors.contains("--inflation-index must be an HICP such as hicp-de or hicp-ea"))
     }
 
     @Test func instrumentsListTheirKindForTaxes() async throws {
@@ -86,25 +110,21 @@ struct SettingsAndInstrumentsTests {
         #expect(badType.status == 64)
     }
 
-    @Test func theAutomaticFundTypeFollowsTheMix() {
-        func type(_ mix: AssetMix) -> FundType { PlanInputs.automaticFundType(for: mix) }
-        #expect(type(.single(.equity)) == .equity)
-        #expect(type([.equity: dec("0.6"), .bonds: dec("0.4")]) == .equity)
-        #expect(type([.equity: dec("0.5"), .bonds: dec("0.5")]) == .mixed)
-        #expect(type([.equity: dec("0.25"), .bonds: dec("0.75")]) == .mixed)
-        #expect(type([.equity: dec("0.2"), .bonds: dec("0.8")]) == .other)
-        #expect(type([.realEstate: dec("0.6"), .equity: dec("0.4")]) == .realEstate)
-        #expect(type(AssetMix()) == .other)
-    }
-
-    @Test func checkInsFetchThePlansCurrencies() throws {
-        var library = try Fixtures.exampleLibrary()
-        library.plans["base"]?.currency = .chf
-        var needs = CheckInPriceNeeds(library: library, date: "2026-09-30")
-        let before = needs.currencies
-        needs.includePlanCurrencies(of: library)
-        #expect(needs.currencies == (before + [.chf]).sorted())
-        needs.includePlanCurrencies(of: library)
-        #expect(needs.currencies.filter { $0 == .chf }.count == 1)
+    /// The list says what the planner reads (`Instrument.effectiveFundType`).
+    @Test func theKindForTaxesIsThePlannersOwn() {
+        func kind(_ kind: InstrumentKind, _ mix: AssetMix, _ tax: InstrumentTax? = nil) -> String {
+            InstrumentsGroupCommand.taxKind(of: Instrument(id: "i", name: "I", kind: kind, currency: .usd,
+                                                           unit: .share, assetClasses: mix, tax: tax))
+        }
+        #expect(kind(.etf, .single(.equity)) == "equity fund (from its mix)")
+        #expect(kind(.fund, [.equity: dec("0.25"), .bonds: dec("0.75")]) == "mixed fund (from its mix)")
+        #expect(kind(.etf, [.realEstate: dec("0.6"), .equity: dec("0.4")]) == "real-estate fund (from its mix)")
+        #expect(kind(.etf, .single(.bonds)) == "other fund (from its mix)")
+        #expect(kind(.etf, .single(.equity), InstrumentTax(fundType: .mixed)) == "mixed fund")
+        // A type this version doesn't know: plans go by the mix.
+        #expect(kind(.etf, .single(.equity), InstrumentTax(fundType: "infrastructure")) == "equity fund (from its mix)")
+        #expect(kind(.etc, .single(.gold), InstrumentTax(deliveryClaim: true)) == "ETC with a delivery claim")
+        #expect(kind(.etc, .single(.gold)) == "ETC")
+        #expect(kind(.stock, .single(.equity)) == "stock")
     }
 }

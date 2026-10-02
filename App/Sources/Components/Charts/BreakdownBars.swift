@@ -92,4 +92,5 @@ struct BreakdownBars: View {
         .padding()
     }
     .background(Palette.page)
+    .environment(\.baseCurrency, PreviewLibrary.library.settings.baseCurrency)
 }

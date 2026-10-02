@@ -3,8 +3,10 @@ import SwiftUI
 
 extension EnvironmentValues {
     /// The library's base currency, for `AmountText` and charts. Set by the
-    /// root view from `library.json`.
-    @Entry var baseCurrency: CurrencyCode = .eur
+    /// root view from `library.json` once the library is loaded
+    /// (`LibraryStore.shownCurrency`); until then no currency, since nothing
+    /// shows amounts before.
+    @Entry var baseCurrency: CurrencyCode = .noCurrency
 
     /// Whether amounts are hidden (the eye button, ⌘⇧H). Set by the root
     /// view from `PrivacySettings`; `AmountText` reads it.
@@ -36,7 +38,7 @@ private struct AppEnvironmentModifier: ViewModifier {
             .environment(model.prices)
             .environment(model.plans)
             .environment(model.checkIn)
-            .environment(\.baseCurrency, model.library.library.settings.baseCurrency)
+            .environment(\.baseCurrency, model.library.shownCurrency)
             .environment(\.hidesAmounts, model.privacy.hidesAmounts)
     }
 }

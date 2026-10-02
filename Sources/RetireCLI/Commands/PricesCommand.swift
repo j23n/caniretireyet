@@ -12,8 +12,8 @@ struct PricesCommand: RetireSubcommand {
         discussion: """
             Works out what a check-in on the date needs: a price for every instrument held, \
             an FX rate for every other currency (those of accounts, instruments and plans), and \
-            the inflation-index months the library is \
-            missing. It fetches them (Yahoo Finance, CoinGecko, gold-api.com, the ECB through \
+            the months missing of the library's inflation indices (its own, by default the tax \
+            residence's HICP, and one for each plan's currency: see retire settings). It fetches them (Yahoo Finance, CoinGecko, gold-api.com, the ECB through \
             Frankfurter, Eurostat) and prints the price list with sources and failures. Only \
             symbols, currencies and dates are sent. With --apply, the fetched records are \
             written to the library, after a backup. Set \(CLIContext.coinGeckoKeyVariable) to \
@@ -77,8 +77,7 @@ struct PricesCommand: RetireSubcommand {
         let today = context.today
         let service = PriceService.standard(client: context.httpClient, credentials: context.credentials,
                                             today: { today })
-        var needs = service.needs(for: loaded.library, on: date)
-        needs.includePlanCurrencies(of: loaded.library)
+        let needs = service.needs(for: loaded.library, on: date)
         let fetched = await service.fetch(needs)
         var report = Report(library: loaded.library, needs: needs, fetched: fetched)
         if apply {

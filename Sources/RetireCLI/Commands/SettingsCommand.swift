@@ -3,18 +3,22 @@ import Foundation
 import Model
 import Storage
 
-/// `retire settings`: the library's settings (`library.json`), and the
-/// person's citizenships, which treaties can decide by.
+/// `retire settings`: the library's settings (`library.json`), the
+/// person's citizenships, which treaties can decide by, and the inflation
+/// index.
 struct SettingsCommand: RetireSubcommand {
     static let configuration = CommandConfiguration(
         commandName: "settings",
-        abstract: "Show the library's settings, or set your citizenships.",
+        abstract: "Show the library's settings, or set your citizenships or the inflation index.",
         discussion: """
             Prints the base currency, the tax residence (and the tax system plans use for it), \
-            the birth date, the citizenships and the main plan. --citizenship IT --citizenship DE \
-            sets every citizenship you hold, in place of the ones recorded; --no-citizenships \
-            removes them. Some tax treaties decide by citizenship which country taxes a pension. \
-            Changes are written after a backup of library.json (--dry-run shows them).
+            the inflation index, the birth date, the citizenships and the main plan. \
+            --citizenship IT --citizenship DE sets every citizenship you hold, in place of the \
+            ones recorded; --no-citizenships removes them. Some tax treaties decide by citizenship \
+            which country taxes a pension. --inflation-index hicp-ea picks the consumer price index \
+            amounts are adjusted with (a country's HICP, hicp-<country>, or the euro area's, \
+            hicp-ea); automatic goes back to the default: the tax residence's HICP, else the base \
+            currency's. Changes are written after a backup of library.json (--dry-run shows them).
             """)
 
     @OptionGroup var options: LibraryOptions
@@ -24,6 +28,9 @@ struct SettingsCommand: RetireSubcommand {
 
     @Flag(help: "Remove the citizenships.")
     var noCitizenships = false
+
+    @Option(help: ArgumentHelp("The inflation index, e.g. hicp-ea, or automatic.", valueName: "index"))
+    var inflationIndex: String?
 
     @Flag(help: "Show what would change; write nothing.")
     var dryRun = false
@@ -36,6 +43,27 @@ struct SettingsCommand: RetireSubcommand {
             throw ValidationError("--citizenship and --no-citizenships don't go together.")
         }
         for code in citizenship { _ = try Self.country(code) }
+        if let inflationIndex { _ = try Self.index(inflationIndex) }
+    }
+
+    /// The index `--inflation-index` names: an HICP, or `nil` for automatic.
+    static func index(_ text: String) throws -> IndexID? {
+        let trimmed = text.trimmingCharacters(in: .whitespaces).lowercased()
+        if trimmed == "automatic" { return nil }
+        let index = IndexID(trimmed)
+        guard index.hicpArea != nil else {
+            throw ValidationError("--inflation-index must be an HICP such as hicp-de or hicp-ea, or automatic, "
+                + "not “\(text)”.")
+        }
+        return index
+    }
+
+    /// "hicp-it (automatic)", "hicp-ea", or "none (…)" when no index applies.
+    static func inflationText(_ library: Library) -> String {
+        guard let index = library.effectiveInflationIndex else {
+            return "none (set one to see amounts in today's money)"
+        }
+        return library.settings.inflationIndex == nil ? "\(index) (automatic)" : index.rawValue
     }
 
     static func country(_ text: String) throws -> CountryCode {
@@ -65,11 +93,18 @@ struct SettingsCommand: RetireSubcommand {
         let loaded = try options.load(in: context)
         var lines: [String] = []
         var library = loaded.library
-        if noCitizenships || !citizenship.isEmpty {
-            let codes = try citizenship.map(Self.country)
-            library.settings = Self.setting(citizenships: codes, in: library.settings)
-            let now = library.settings.person?.citizenships ?? []
-            lines.append("Citizenships: " + (now.isEmpty ? "none" : now.map(\.rawValue).joined(separator: ", ")) + ".")
+        if noCitizenships || !citizenship.isEmpty || inflationIndex != nil {
+            if noCitizenships || !citizenship.isEmpty {
+                let codes = try citizenship.map(Self.country)
+                library.settings = Self.setting(citizenships: codes, in: library.settings)
+                let now = library.settings.person?.citizenships ?? []
+                lines.append("Citizenships: " + (now.isEmpty ? "none" : now.map(\.rawValue).joined(separator: ", "))
+                    + ".")
+            }
+            if let inflationIndex {
+                library.settings.inflationIndex = try Self.index(inflationIndex)
+                lines.append("Inflation index: \(Self.inflationText(library)).")
+            }
             try LibraryEdit.write(library, over: loaded, label: "settings", dryRun: dryRun, context: context,
                                   lines: &lines)
             lines.append("")
@@ -81,6 +116,8 @@ struct SettingsCommand: RetireSubcommand {
                 var baseCurrency: String
                 var taxResidence: String?
                 var defaultTaxSystem: String?
+                var inflationIndex: String?
+                var inflationIndexSetting: String?
                 var birthDate: String?
                 var name: String?
                 var citizenships: [String]
@@ -88,7 +125,8 @@ struct SettingsCommand: RetireSubcommand {
             }
             context.console.print(try JSONOutput.string(JSON(
                 baseCurrency: settings.baseCurrency.rawValue, taxResidence: settings.taxResidence?.rawValue,
-                defaultTaxSystem: system?.id, birthDate: settings.person?.birthDate?.description,
+                defaultTaxSystem: system?.id, inflationIndex: library.effectiveInflationIndex?.rawValue,
+                inflationIndexSetting: settings.inflationIndex?.rawValue, birthDate: settings.person?.birthDate?.description,
                 name: settings.person?.name, citizenships: (settings.person?.citizenships ?? []).map(\.rawValue),
                 mainPlan: settings.mainPlan?.rawValue)))
             return
@@ -97,6 +135,7 @@ struct SettingsCommand: RetireSubcommand {
         table.add(["Base currency", settings.baseCurrency.rawValue])
         let residence = settings.taxResidence?.rawValue ?? "not set"
         table.add(["Tax residence", residence + (system.map { " (plans use \($0.id): \($0.name))" } ?? "")])
+        table.add(["Inflation index", Self.inflationText(library)])
         table.add(["Birth date", settings.person?.birthDate?.description ?? "not set (plans need it)"])
         let citizenships = settings.person?.citizenships ?? []
         table.add(["Citizenships", citizenships.isEmpty ? "none" : citizenships.map(\.rawValue).joined(separator: ", ")])
