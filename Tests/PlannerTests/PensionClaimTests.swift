@@ -95,7 +95,8 @@ struct PensionClaimTests {
         #expect(!transfer.taxes.contains { $0.id == "flat.lumpSum" } && !transfer.income.contains { $0.kind == .pension })
         #expect(close(transfer.savings, 100_000))
         #expect(result.start.buckets.contains { $0.wrapper == "flat.vested" && $0.value == 0 })
-        #expect(result.issues.contains { $0.code == "planner.newWrapper" })
+        // The new bucket is expected, so it gets no warning.
+        #expect(!result.issues.contains { $0.code == "planner.newWrapper" })
     }
 
     @Test func aBuyInIsPaidFromSavingsAndCreditedToTheScheme() async throws {

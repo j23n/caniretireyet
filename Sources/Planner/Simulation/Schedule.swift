@@ -509,7 +509,8 @@ extension AgeSchedule {
                               birth: BirthDate, yearsSinceWorkStopped: Int?) -> ClaimOption? {
         if case .age(let wanted) = pension.claim, frame.age < wanted { return nil }
         let context = ClaimContext(year: frame.year, birthDate: birth, options: pension.options,
-                                   currencyRate: pension.currencyRate, yearsSinceWorkStopped: yearsSinceWorkStopped)
+                                   currencyRate: pension.currencyRate, yearsSinceWorkStopped: yearsSinceWorkStopped,
+                                   claimRoute: pension.claimRoute)
         return pension.scheme.claimOptions(for: record, context: context, parameters: pension.schemeParameters)
             .filter { $0.age <= frame.age && (pension.claimRoute == nil || $0.route == pension.claimRoute) }
             .max { $0.age < $1.age }
@@ -592,23 +593,25 @@ extension AgeSchedule {
         }
         accessible = access.map(\.isAccessible)
         scheduleSeverancePay(portfolio: portfolio, model: model)
-        schedulePayouts(portfolio: portfolio, forced: forced)
+        schedulePayouts(portfolio: portfolio, forced: forced, model: model)
     }
 
     /// Payouts a wrapper's rule asks for whether or not the money is needed:
     /// the whole balance in a year it must pay out (``WrapperRule/mustPayOut``),
     /// and, for one whose payouts are spread over n years from the first year
-    /// it's accessible (``WrapperRule/preferredPayoutYears``), 1/n of it in the
-    /// first of them, 1/(n − 1) in the next, and the rest in the last.
+    /// it's accessible, 1/n of it in the first of them, 1/(n − 1) in the
+    /// next, and the rest in the last. n is what the wrapper's system makes of
+    /// the plan's options (``PlanModel/preferredPayoutYears(for:openingIn:)``).
     /// Severance pay is left to ``scheduleSeverancePay(portfolio:model:)``.
-    private mutating func schedulePayouts(portfolio: Portfolio, forced: [Bool]) {
+    private mutating func schedulePayouts(portfolio: Portfolio, forced: [Bool], model: PlanModel) {
         for t in years.indices { years[t].scheduledPayouts = [] }
         guard let firstYear = years.first?.year else { return }
         for (b, bucket) in portfolio.buckets.enumerated() where !bucket.isLiquid {
-            guard let rule = bucket.rule, rule.mustPayOut != nil || (rule.preferredPayoutYears ?? 0) > 0,
-                  !Self.isPaidWhenJobEnds(rule, year: firstYear) else { continue }
-            let spread = max(0, rule.preferredPayoutYears ?? 0)
+            guard let rule = bucket.rule, !Self.isPaidWhenJobEnds(rule, year: firstYear) else { continue }
             let firstAccess = years.indices.first { isAccessible(year: $0, bucket: b) }
+            let opening = firstAccess.map { years[$0].year } ?? firstYear
+            let spread = max(0, model.preferredPayoutYears(for: rule, openingIn: opening) ?? 0)
+            guard rule.mustPayOut != nil || spread > 0 else { continue }
             for t in years.indices {
                 var share = 0.0
                 if forced[t * bucketCount + b] {
