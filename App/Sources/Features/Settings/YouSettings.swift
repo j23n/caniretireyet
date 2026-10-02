@@ -74,15 +74,14 @@ enum YouSettings {
     // MARK: Tax residence
 
     /// What plans do for the tax residence when no registered tax system
-    /// is that country's (`it`, `ch`, `de`: the country code in lower
-    /// case); `nil` when one is, so a system registered later is picked up
-    /// with no change here.
+    /// is that country's (`TaxSystem.country`); `nil` when one is, so a
+    /// system registered later is picked up with no change here.
     static func taxRulesNote(for residence: CountryCode?, locale: Locale = .current,
                              registry: TaxRegistry = AppTaxRegistry.standard) -> String? {
         guard let residence else {
             return "Without a tax residence, plans use the generic system's flat rates, which you choose."
         }
-        guard registry.system(residence.rawValue.lowercased()) == nil else { return nil }
+        guard registry.system(forCountry: residence.rawValue) == nil else { return nil }
         let country = CountryChoices.name(of: residence, locale: locale)
         return "There are no tax rules for \(country) yet: plans use the generic system's flat rates, which you choose."
     }

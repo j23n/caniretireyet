@@ -587,7 +587,7 @@ struct PlanPensionForm: View {
         } header: {
             Text("Taxes")
         } footer: {
-            Text("A pension taxed where it's paid is entered after that tax.")
+            Text(PlanPensionChoices.taxNote(for: pension, registry: registry, locale: locale))
         }
         if !fields.isEmpty {
             Section("Details") {

@@ -161,6 +161,37 @@ struct PlanEditTests {
         #expect(badKind.errors.contains("--kind must be one of statutory, occupational, basicPension, privateAnnuity"))
     }
 
+    @Test func aPensionTaxedWhereItsPaidSaysWhetherThePlanComputesThatTax() async throws {
+        let library = try TemporaryFolder.exampleLibrary()
+        // No paying country: nothing to compute it with.
+        let source = await retire(["plan", "pension", "set", "2", "--library", library.path, "--taxed-in", "source"])
+        #expect(source.status == 0, "\(source.all)")
+        #expect(source.output.contains(
+            "Taxed where it's paid, in no country set: enter it after that tax.\n"))
+        #expect(try library.load().plans["base"]?.pensions[1].taxedIn == .source)
+
+        // A country with a registered system: its rules tax it.
+        let italy = await retire(["plan", "pension", "set", "2", "--library", library.path, "--source-country", "IT"])
+        #expect(italy.output.contains("Paying country: IT.\nTaxed where it's paid, by Italy's rules.\n"))
+        // One without: the amount goes in after that tax, and the planner warns.
+        let swiss = await retire(["plan", "pension", "set", "2", "--library", library.path, "--source-country", "CH"])
+        #expect(swiss.output.contains("Taxed where it's paid, in CH, which has no tax rules yet: enter it after that tax."))
+        #expect(swiss.output.contains("is taxed by the paying country, which the plan doesn't compute"))
+        let shown = await retire(["plan", "show", "--library", library.path])
+        #expect(shown.output.contains("4,800 a year from 67 · paid from CH · taxed where it's paid, in CH, which has no "
+            + "tax rules yet"))
+
+        // A scheme's pensions are paid from its system's country.
+        let inps = await retire(["plan", "pension", "set", "1", "--library", library.path, "--taxed-in", "source"])
+        #expect(inps.output.contains("Taxed where it's paid, by Italy's rules."))
+
+        let back = await retire(["plan", "pension", "set", "2", "--library", library.path, "--taxed-in", "residence"])
+        #expect(back.output.contains("Taxed where you live.\n"))
+        #expect(try library.load().plans["base"]?.pensions[1].taxedIn == nil)
+        let bad = await retire(["plan", "pension", "set", "2", "--library", library.path, "--taxed-in", "abroad"])
+        #expect(bad.status == 64)
+    }
+
     @Test func thePlanRunsInItsCurrencyAndSaysHowItReadTheLibrary() async throws {
         let library = try TemporaryFolder.exampleLibrary()
         _ = await retire(["plan", "set", "--library", library.path, "--currency", "USD"])

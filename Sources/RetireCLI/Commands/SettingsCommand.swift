@@ -75,7 +75,7 @@ struct SettingsCommand: RetireSubcommand {
             lines.append("")
         }
         let settings = library.settings
-        let system = TaxSystems.defaultSystem(for: settings, registry: TaxSystems.registry())
+        let system = TaxSystems.residenceSystem(for: settings, registry: TaxSystems.registry())
         if json {
             struct JSON: Encodable {
                 var baseCurrency: String

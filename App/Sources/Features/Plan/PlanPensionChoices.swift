@@ -97,4 +97,36 @@ enum PlanPensionChoices {
     static func routeName(_ route: String, among routes: [PlanClaimRoute]) -> String {
         routes.first { $0.id == route }?.label ?? route
     }
+
+    // MARK: Taxes
+
+    /// The country that pays `pension`, as the planner reads it: the plan's
+    /// `sourceCountry`, else the country of the system whose scheme it is
+    /// (none for a fixed pension).
+    static func payingCountry(of pension: PlanPension, registry: TaxRegistry) -> CountryCode? {
+        if let country = pension.sourceCountry { return country }
+        guard pension.scheme != .fixed,
+              let owner = registry.systems.first(where: { $0.pensionScheme(pension.scheme.rawValue) != nil }),
+              let country = owner.country else { return nil }
+        return CountryCode(country.uppercased())
+    }
+
+    /// The line under "Taxed by": for a pension taxed where it's paid,
+    /// whether the plan computes that tax (the paying country has a
+    /// registered system) or the amount should be entered after it.
+    static func taxNote(for pension: PlanPension, registry: TaxRegistry, locale: Locale = .current) -> String {
+        guard pension.effectiveTaxedIn == .source else {
+            return "Taxed with your other income where you live in each year."
+        }
+        guard let country = payingCountry(of: pension, registry: registry) else {
+            return "Choose the paying country, so its tax rules can be used; without it, enter the pension after "
+                + "that tax."
+        }
+        let name = CountryChoices.name(of: country, locale: locale)
+        guard let system = registry.system(forCountry: country.rawValue) else {
+            return "There are no tax rules for \(name) yet: enter the pension after its tax there."
+        }
+        return "\(system.name)'s rules tax it as paid to someone living abroad; where you live may count it too, "
+            + "as a treaty says."
+    }
 }

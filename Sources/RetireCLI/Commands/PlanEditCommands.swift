@@ -151,7 +151,7 @@ struct PlanInputsReport {
         }
         if let kind = pension.kind { parts.append("kind \(kind)") }
         if let country = pension.sourceCountry { parts.append("paid from \(country)") }
-        if pension.effectiveTaxedIn == .source { parts.append("taxed where it's paid") }
+        if pension.effectiveTaxedIn == .source { parts.append(PlanInputs.sourceTaxNote(for: pension, registry: registry)) }
         return parts.joined(separator: " · ")
     }
 
@@ -566,13 +566,15 @@ struct PlanPensionRoutesCommand: RetireSubcommand {
 struct PlanPensionSetCommand: RetireSubcommand {
     static let configuration = CommandConfiguration(
         commandName: "set",
-        abstract: "Set a pension's kind, paying country and way to claim.",
+        abstract: "Set a pension's kind, paying country, way to claim and where it's taxed.",
         discussion: """
             --kind says what a pension from a statement is, for tax systems that tax kinds differently: \
             statutory (a state pension), occupational, basicPension (a private pension taxed like a state \
             one) or privateAnnuity; none to leave it to the scheme. --source-country is the paying country \
             (none to clear). --claim-route picks one of the scheme's ways to claim, as `retire plan pension \
-            routes` lists them; default takes the first offered at the age.
+            routes` lists them; default takes the first offered at the age. --taxed-in source has the \
+            paying country tax it, by its rules when the CLI has them (else enter the pension after that tax); \
+            residence (the default) taxes it where you live.
             """)
 
     @Argument(help: ArgumentHelp("The pension's number, from 1.", valueName: "n"))
@@ -592,12 +594,19 @@ struct PlanPensionSetCommand: RetireSubcommand {
     @Option(help: ArgumentHelp("A route from `retire plan pension routes`, or default.", valueName: "route"))
     var claimRoute: String?
 
+    @Option(help: ArgumentHelp("Who taxes it: residence (where you live) or source (the paying country).",
+                               valueName: "where"))
+    var taxedIn: String?
+
     @Flag(help: "Show what would change; write nothing.")
     var dryRun = false
 
     func validate() throws {
-        guard kind != nil || sourceCountry != nil || claimRoute != nil else {
-            throw ValidationError("Say what to set: --kind, --source-country or --claim-route.")
+        guard kind != nil || sourceCountry != nil || claimRoute != nil || taxedIn != nil else {
+            throw ValidationError("Say what to set: --kind, --source-country, --claim-route or --taxed-in.")
+        }
+        if let taxedIn, ![TaxedIn.residence.rawValue, TaxedIn.source.rawValue].contains(taxedIn) {
+            throw ValidationError("--taxed-in must be residence or source.")
         }
         if let kind, kind != "none", !PlanPensionKind.knownValues.contains(PlanPensionKind(kind)) {
             throw ValidationError("--kind must be one of "
@@ -643,6 +652,14 @@ struct PlanPensionSetCommand: RetireSubcommand {
             } else {
                 lines.append("Way to claim: the first offered at the age.")
             }
+        }
+        if let taxedIn {
+            pension.taxedIn = taxedIn == TaxedIn.residence.rawValue ? nil : TaxedIn(taxedIn)
+        }
+        if taxedIn != nil || (sourceCountry != nil && pension.effectiveTaxedIn == .source) {
+            lines.append(pension.effectiveTaxedIn == .source
+                ? "T" + PlanInputs.sourceTaxNote(for: pension, registry: TaxSystems.registry()).dropFirst() + "."
+                : "Taxed where you live.")
         }
         var edited = original
         edited.pensions[index] = pension

@@ -12,11 +12,11 @@ import Tracker
 /// from the tax registry: a system registered later brings its wrappers
 /// with no change here.
 enum AccountWrapperDefaults {
-    /// The system of `residence`: the registered system whose ID is the
-    /// country code in lower case (`it`, `ch`, `de`), else `generic`.
+    /// The system of `residence`: the registered system whose country
+    /// (`TaxSystem.country`) it is, else `generic`.
     static func system(for residence: CountryCode?, registry: TaxRegistry = AppTaxRegistry.standard)
         -> (any TaxSystem)? {
-        if let residence, let system = registry.system(residence.rawValue.lowercased()) { return system }
+        if let residence, let system = registry.system(forCountry: residence.rawValue) { return system }
         return registry.system(TaxSystemID.generic.rawValue)
     }
 

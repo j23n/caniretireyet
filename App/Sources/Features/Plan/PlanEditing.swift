@@ -14,7 +14,7 @@ enum PlanEditing {
                         registry: TaxRegistry) -> PlanDocument {
         var plan = PlanDocument(id: id, name: name, retirement: PlanRetirement(age: .earliest),
                                 spending: PlanSpending(working: 30_000, retired: 30_000))
-        if let system = PlanTaxChoices.defaultSystem(for: settings, registry: registry) {
+        if let system = PlanTaxChoices.residenceSystem(for: settings, registry: registry) {
             plan.tax.residence = [PlanResidence(from: asOf.year, system: TaxSystemID(system.id))]
         }
         return plan

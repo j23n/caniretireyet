@@ -85,6 +85,29 @@ enum PlanInputs {
         return String(name[..<bracket.lowerBound])
     }
 
+    /// The country that pays `pension`, as the planner reads it: the plan's
+    /// `sourceCountry`, else the country of the system whose scheme it is
+    /// (none for a fixed pension).
+    static func payingCountry(of pension: PlanPension, registry: TaxRegistry) -> String? {
+        if let country = pension.sourceCountry { return country.rawValue.uppercased() }
+        guard pension.scheme != .fixed,
+              let owner = registry.systems.first(where: { $0.pensionScheme(pension.scheme.rawValue) != nil })
+        else { return nil }
+        return owner.country?.uppercased()
+    }
+
+    /// For a pension taxed where it's paid: "taxed where it's paid, by
+    /// Italy's rules", or what to do when the plan can't compute that tax.
+    static func sourceTaxNote(for pension: PlanPension, registry: TaxRegistry) -> String {
+        guard let country = payingCountry(of: pension, registry: registry) else {
+            return "taxed where it's paid, in no country set: enter it after that tax"
+        }
+        guard let system = registry.system(forCountry: country) else {
+            return "taxed where it's paid, in \(country), which has no tax rules yet: enter it after that tax"
+        }
+        return "taxed where it's paid, by \(system.name)'s rules"
+    }
+
     /// What a contribution pays into: an account's name and ID, or a scheme's.
     static func target(of contribution: PlanContribution, library: Library, registry: TaxRegistry) -> String {
         if let scheme = contribution.pension {
