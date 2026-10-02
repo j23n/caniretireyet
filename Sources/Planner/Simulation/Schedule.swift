@@ -301,6 +301,21 @@ extension AgeSchedule {
                 income.append(IncomeItem(kind: .pension, id: pension.id, label: pension.name, amount: amount * share))
             }
 
+            // Pensions the paying country taxes while the person lives elsewhere (G8):
+            // their tax joins the year's, and the residence system sees it on each pension.
+            let foreign = NonResidentTaxes(model: model, frame: frame, pensions: paid, state: state)
+            paid = foreign.pensions
+            for issue in foreign.issues {
+                report(PlanIssue(issue, section: .pensions))
+            }
+            for item in foreign.untaxed {
+                let pension = model.pensions.first { item.pension == $0.id || item.pension == $0.id + ".lumpSum" }
+                report(.warning("planner.taxedAtSource",
+                                "\(pension?.name ?? item.pension) is taxed by the paying country, but \(item.system) "
+                                    + "doesn't compute its tax for someone living abroad; enter it after that tax.",
+                                section: .pensions, index: pension?.index, option: "taxedIn"))
+            }
+
             // Taxes on total income, such as IRPEF, belong to no one subject:
             // their simulated share is each income's share weighted by the income.
             var incomeWeight = 0.0
@@ -380,7 +395,9 @@ extension AgeSchedule {
                     currencyRate: frame.currencyRate, citizenships: model.citizenships, birthDate: birth,
                     residence: model.residence)
                 if mask == expectedLocal { fixedYears.append(fixedYear) }
-                let prepared = system.prepare(fixedYear, state: state, parameters: frame.parameters)
+                let residencePrepared = system.prepare(fixedYear, state: state, parameters: frame.parameters)
+                let prepared: any PreparedTaxYear = foreign.isEmpty
+                    ? residencePrepared : WithNonResidentTaxes(base: residencePrepared, foreign: foreign)
                 let fixed = prepared.fixedAssessment
                 let windfallNames = Set(windfalls.map(\.name))
                 let share: (String?) -> Double = { subject in
