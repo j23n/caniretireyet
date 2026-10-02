@@ -32,6 +32,13 @@ public protocol TaxSystem: Sendable {
     /// library's exchange rate on the plan's start date, held constant in
     /// real terms. Its parameter files are in its own currency.
     var currency: String? { get }
+    /// The country whose law the system is, as an ISO 3166-1 alpha-2 code
+    /// (`IT`), or `nil` (the default) for a system of no one country, such as
+    /// `generic`. The planner matches it against a pension's `sourceCountry`
+    /// to find the paying country's system
+    /// (``prepareNonResident(_:state:parameters:)``), and gives the pensions
+    /// of the system's own schemes this country when the plan names none.
+    var country: String? { get }
 
     /// The regime a work phase of `kind` gets when it doesn't choose one.
     func defaultRegime(for kind: EarnedIncomeKind) -> String?
@@ -43,10 +50,44 @@ public protocol TaxSystem: Sendable {
     /// Stage 1: once per plan year, for everything that doesn't depend on
     /// markets. `parameters` is the set for the year, with overrides applied.
     func prepare(_ year: FixedYear, state: TaxState, parameters: ParameterSet) -> any PreparedTaxYear
+
+    /// The tax this system's country charges someone who lives in another
+    /// country on the pensions it pays: the paying country's side of a
+    /// pension whose `taxedIn` is `.source`. `nil` (the default) when the
+    /// system doesn't compute it; the planner then leaves such pensions
+    /// untaxed, as it did before, and warns.
+    ///
+    /// The planner calls it once per plan year in which the person lives
+    /// elsewhere and is paid pensions with `taxedIn` `.source` whose
+    /// `sourceCountry` is this system's ``country``. `year` holds only those
+    /// pensions (no work, contributions or windfalls). As for ``prepare(_:state:parameters:)``,
+    /// amounts are in the plan's currency with this system's
+    /// ``FixedYear/currencyRate``, and `year.residence` says where the person
+    /// lives, for treaty rules. `systemOptions` are the options of the plan's
+    /// latest residence period in this system (at or before the year, else
+    /// the first after it), or none. `state` is the plan's running tax
+    /// state; what the assessment changes in it is kept for later years.
+    ///
+    /// Only the ``PreparedTaxYear/fixedAssessment`` is used: its lines and
+    /// contributions join the year's taxes, labelled with the system's name,
+    /// and its issues the plan's. A line whose `subject` is a pension's ID is
+    /// that pension's tax; other lines are shared by the pensions in
+    /// proportion to their amounts (``TaxAssessment/taxByPension(_:)``). The
+    /// residence system then still sees the pensions, for a progression
+    /// clause, with each one's tax as ``FixedYear/Pension/sourceTax``, to
+    /// credit where a treaty says so.
+    func prepareNonResident(_ year: FixedYear, state: TaxState, parameters: ParameterSet) -> (any PreparedTaxYear)?
 }
 
 extension TaxSystem {
     public var currency: String? { nil }
+
+    public var country: String? { nil }
+
+    public func prepareNonResident(_ year: FixedYear, state: TaxState, parameters: ParameterSet)
+        -> (any PreparedTaxYear)? {
+        nil
+    }
 
     /// The regime with this ID, if the system has it.
     public func regime(_ id: String) -> RegimeDescriptor? {

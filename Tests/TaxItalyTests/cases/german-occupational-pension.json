@@ -1,0 +1,51 @@
+{
+  "name": "A German occupational pension is Italy's to tax, in full; the state pension stays German",
+  "year": 2026,
+  "input": {
+    "age": 68,
+    "systemOptions": {
+      "addizionaleRegionale": "0.0173",
+      "addizionaleComunale": "0.008"
+    },
+    "citizenships": [
+      "DE"
+    ],
+    "pensions": [
+      {
+        "id": "bav",
+        "scheme": "fixed",
+        "amount": 10000.0,
+        "kind": "occupational",
+        "sourceCountry": "DE"
+      },
+      {
+        "id": "drv",
+        "scheme": "fixed",
+        "amount": 12000.0,
+        "kind": "statutory",
+        "sourceCountry": "DE",
+        "taxedIn": "source",
+        "startYear": 2025
+      }
+    ]
+  },
+  "expected": {
+    "lines": {
+      "it.irpef": 441.54,
+      "it.addizionaleRegionale": 173.0,
+      "it.addizionaleComunale": 80.0
+    },
+    "totalTax": 694.54,
+    "netIncome": 21305.46
+  },
+  "workings": [
+    "Treaty art. 18: occupational and private pensions are taxed only where the recipient lives; the protocol's share applies to state pensions only",
+    "The DRV pension is Germany's (art. 19(4), a German citizen) and exempt in Italy",
+    "Total income R = taxable income = the occupational pension (the DRV pension is Germany's) = 10,000.00",
+    "Gross IRPEF: 23% × 10,000.00 = 2,300.00",
+    "Pension detrazione: 700 + 1,255 × (28,000 − 10,000.00) / 19,500 = 1,858.46",
+    "Net IRPEF: max(0, 2,300.00 − 1,858.46) = 441.54",
+    "Addizionale regionale: 1.73% × 10,000.00 = 173.00; comunale: 0.8% × 10,000.00 = 80.00",
+    "Total tax in Italy: 694.54"
+  ]
+}

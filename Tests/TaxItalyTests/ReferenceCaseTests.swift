@@ -44,7 +44,9 @@ struct ReferenceCaseTests {
     private func checkYear(_ reference: ReferenceCase, name: String) throws {
         let system = Self.system
         let parameters = try system.parameters.parameters(for: reference.year)
-        let prepared = system.prepare(reference.fixedYear, state: reference.state, parameters: parameters)
+        let prepared = reference.kind == "nonResident"
+            ? try #require(system.prepareNonResident(reference.fixedYear, state: reference.state, parameters: parameters))
+            : system.prepare(reference.fixedYear, state: reference.state, parameters: parameters)
         let assessment = prepared.assess(reference.variableYear)
         let expected = reference.expected
 
@@ -72,6 +74,12 @@ struct ReferenceCaseTests {
             let income = fixed.work.reduce(0) { $0 + $1.gross - $1.costs } + fixed.pensions.reduce(0) { $0 + $1.amount }
             let actual = income - assessment.totalContributions - assessment.totalTax
             #expect(close(actual, net), "\(name): net income \(actual), expected \(net)")
+        }
+        if let state = expected.nextState {
+            for (key, value) in state.sorted(by: { $0.key < $1.key }) {
+                let actual = assessment.nextState[key]
+                #expect(actual.map { close($0, value) } == true, "\(name): state \(key) is \(actual ?? .nan), expected \(value)")
+            }
         }
         if let issues = expected.issues {
             #expect(assessment.issues.map(\.code).sorted() == issues.sorted(), "\(name): issues")

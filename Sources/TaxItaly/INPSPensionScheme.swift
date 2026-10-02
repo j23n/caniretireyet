@@ -4,11 +4,14 @@ import TaxKit
 /// `it.inps`: the INPS pension under the contributory system (for anyone who
 /// started contributing after 1995). See docs/tax/IT.md, "INPS pension".
 ///
-/// - **Montante.** Starts from the plan's `montante` (today's euros) and
-///   grows each year by `realRevaluation` (the revaluation follows nominal
-///   GDP, which in today's euros is roughly real GDP growth), then adds the
-///   year's credits from work (33% of salary for employees, 25% of the
-///   Gestione Separata base).
+/// - **Montante.** Starts from the plan's `montante` (today's money in the
+///   plan's currency, kept in euros in the record) and grows each year by
+///   `realRevaluation` (the revaluation follows nominal GDP, which in
+///   today's euros is roughly real GDP growth), then adds the year's credits
+///   from work (33% of salary for employees, 25% of the Gestione Separata
+///   base).
+/// - **Currency.** The record is in euros; claim options are converted to
+///   the plan's currency with the claim context's rate.
 /// - **Amount.** Montante × the conversion coefficient for the age at the
 ///   start (by month), paid in 13 instalments. After the table's last year
 ///   the coefficients fall by `coefficientDeclinePerYear` a year.
@@ -51,30 +54,48 @@ public struct INPSPensionScheme: PensionScheme {
         ]
     }
 
-    /// The record from the plan's `montante`, `contributionYears` and `foreignContributionYears`.
+    /// The record from the plan's `montante`, `contributionYears` and
+    /// `foreignContributionYears`, for a plan in euros.
     public func startingRecord(options: OptionValues, year: Int, parameters: any ParameterStore) -> PensionRecord {
+        startingRecord(options: options, year: year, parameters: parameters, currencyRate: 1)
+    }
+
+    /// The record from the plan's options, with the `montante` (in the
+    /// plan's currency) converted to euros at `currencyRate`.
+    public func startingRecord(options: OptionValues, year: Int, parameters: any ParameterStore,
+                               currencyRate: Double) -> PensionRecord {
         let options = options.withDefaults(from: self.options)
+        let montante = max(0, options.double("montante", default: 0))
         return PensionRecord(
-            scheme: id, montante: max(0, options.double("montante", default: 0)),
+            scheme: id, montante: currencyRate > 0 && currencyRate != 1 ? montante * currencyRate : montante,
             contributionMonths: max(0, options.int("contributionYears", default: 0)) * 12,
             foreignContributionMonths: max(0, options.int("foreignContributionYears", default: 0)) * 12)
     }
 
-    /// Revalues the montante, then adds the year's credits. At most 12
-    /// months are credited in a year.
+    /// Revalues the montante, then adds the year's credits (for a plan in euros).
     public func accrue(_ accruals: [Accrual], in year: Int, to record: inout PensionRecord, options: OptionValues,
                        parameters: ParameterSet) {
+        accrue(accruals, in: year, to: &record, options: options, parameters: parameters, currencyRate: 1)
+    }
+
+    /// Revalues the montante, then adds the year's credits, converted from
+    /// the plan's currency to euros at `currencyRate`. At most 12 months are
+    /// credited in a year.
+    public func accrue(_ accruals: [Accrual], in year: Int, to record: inout PensionRecord, options: OptionValues,
+                       parameters: ParameterSet, currencyRate: Double) {
         let options = options.withDefaults(from: self.options)
         record.montante *= 1 + options.double("realRevaluation", default: 0)
         let mine = accruals.filter { $0.target == .pensionScheme(id) }
-        record.montante += mine.reduce(0) { $0 + $1.amount }
+        let credits = mine.reduce(0) { $0 + $1.amount }
+        record.montante += currencyRate > 0 && currencyRate != 1 ? credits * currencyRate : credits
         record.contributionMonths += min(12, mine.reduce(0) { $0 + max(0, $1.contributionMonths) })
     }
 
     /// One option per age at which the pension can start, from the context's
     /// year: the route, the first year's amount (pro rata) and later changes
-    /// (the anticipata's cap ending, partial indexation). Empty when no route's
-    /// conditions can be met.
+    /// (the anticipata's cap ending, partial indexation), in the plan's
+    /// currency (the context's rate). Empty when no route's conditions can be
+    /// met.
     public func claimOptions(for record: PensionRecord, context: ClaimContext, parameters: any ParameterStore)
         -> [ClaimOption] {
         INPSClaims(record: record, context: context, options: context.options.withDefaults(from: options),
@@ -295,9 +316,24 @@ struct INPSClaims {
         // A start after January pays only part of the first year: the whole
         // year at the starting rate is what the pension is worth a year.
         let startingRate = start.month < capEnd ? min(start.monthly, cap) : start.monthly
-        return ClaimOption(route: start.route.id, label: start.route.label, age: startYear - context.birthDate.year,
-                           annualAmount: amounts[0].amount, changes: changes, note: note,
-                           fullYearAmount: start.month % 12 == 0 ? nil : startingRate * instalments)
+        let option = ClaimOption(route: start.route.id, label: start.route.label,
+                                 age: startYear - context.birthDate.year, annualAmount: amounts[0].amount,
+                                 changes: changes, note: note,
+                                 fullYearAmount: start.month % 12 == 0 ? nil : startingRate * instalments)
+        return inPlanCurrency(option)
+    }
+
+    /// An option computed in euros, with its amounts in the plan's currency
+    /// (itself for a plan in euros). The note's amounts stay in euros, as
+    /// the law states them.
+    private func inPlanCurrency(_ option: ClaimOption) -> ClaimOption {
+        let rate = context.currencyRate
+        guard rate > 0, rate != 1 else { return option }
+        var option = option
+        option.annualAmount /= rate
+        option.changes = option.changes.map { .init(age: $0.age, annualAmount: $0.annualAmount / rate) }
+        option.fullYearAmount = option.fullYearAmount.map { $0 / rate }
+        return option
     }
 
     private func monthName(_ index: Int) -> String {

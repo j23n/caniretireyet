@@ -170,10 +170,19 @@ public struct FixedYear: Hashable, Sendable {
         /// claim option's ``ClaimOption/mandatoryShare``. `nil` when unknown
         /// (systems treat it as 1).
         public var mandatoryShare: Double?
+        /// The tax the paying country charges on this pension in the year,
+        /// in today's money in the plan's currency, when the planner computed
+        /// it: for a pension with `taxedIn` `.source` whose paying country
+        /// has a registered system that taxes non-residents
+        /// (``TaxSystem/prepareNonResident(_:state:parameters:)``). `nil`
+        /// when it wasn't computed. A residence system that also taxes the
+        /// pension, where a treaty lets both countries tax it, credits it.
+        public var sourceTax: Double?
 
         public init(id: String, scheme: String, amount: Double, taxedIn: TaxedIn = .residence,
                     kind: PensionKind? = nil, startYear: Int? = nil, sourceCountry: String? = nil,
-                    form: VariableYear.PayoutForm = .annuity, mandatoryShare: Double? = nil) {
+                    form: VariableYear.PayoutForm = .annuity, mandatoryShare: Double? = nil,
+                    sourceTax: Double? = nil) {
             self.id = id
             self.scheme = scheme
             self.amount = amount
@@ -183,6 +192,7 @@ public struct FixedYear: Hashable, Sendable {
             self.sourceCountry = sourceCountry
             self.form = form
             self.mandatoryShare = mandatoryShare
+            self.sourceTax = sourceTax
         }
     }
 

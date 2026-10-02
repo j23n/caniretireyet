@@ -26,6 +26,9 @@ struct PlanModel: Sendable {
     let frames: [YearFrame]
     /// The tax systems of the residence timeline, with the plan's overrides.
     let systems: [SystemContext]
+    /// The systems of the countries that pay pensions taxed at source, by
+    /// country, with the plan's overrides (G8).
+    let nonResidentSystems: [NonResidentSystem]
     /// Per frame: the old-age pension age under that year's rules
     /// (`WrapperAccessContext.oldAgePensionAge`), from the plan's pension
     /// schemes first, then the residence system's.
@@ -87,6 +90,18 @@ struct SystemContext: Sendable {
     /// The plan as this system validates it (set once the plan is interpreted).
     var taxPlan = TaxPlan(residence: [])
     var id: String { system.id }
+}
+
+/// A paying country's system, for the pensions it taxes while the person
+/// lives elsewhere (``TaxKit/TaxSystem/prepareNonResident(_:state:parameters:)``).
+struct NonResidentSystem: Sendable {
+    let system: any TaxSystem
+    /// The system's country, in capitals.
+    let country: String
+    /// The system's parameters with the plan's overrides.
+    let parameters: any ParameterStore
+    /// Units of the system's currency per unit of the plan's (1 when it has none).
+    let currencyRate: Double
 }
 
 /// One simulated calendar year.
