@@ -53,7 +53,7 @@ public struct PlanPension: Hashable, Sendable, KnownKeysProviding {
     public var kind: PlanPensionKind?
     /// `fixed` pensions: the age payments start.
     public var fromAge: Int?
-    /// `fixed` pensions: the gross yearly amount in today's euros.
+    /// `fixed` pensions: the gross yearly amount in today's money, in the plan's currency.
     public var perYear: Decimal?
     /// As written. See ``effectiveTaxedIn``.
     public var taxedIn: TaxedIn?

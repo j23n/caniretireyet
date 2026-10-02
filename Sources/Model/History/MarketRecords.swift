@@ -93,7 +93,8 @@ extension FXRecord: Codable {
     }
 }
 
-/// The ID of a price index, such as Italy's HICP.
+/// The ID of a consumer price index, such as a country's harmonised index
+/// (`hicp-de`) or the euro area's (`hicp-ea`).
 public struct IndexID: StringValue {
     public let rawValue: String
     public init(rawValue: String) { self.rawValue = rawValue }

@@ -15,7 +15,7 @@ public struct WithdrawalStrategy: OpenEnum {
 public struct PlanWithdrawals: Hashable, Sendable, KnownKeysProviding {
     /// As written. See ``effectiveStrategy``.
     public var strategy: WithdrawalStrategy?
-    /// Cash kept aside and not drawn, in today's euros. As written; see ``effectiveCashBuffer``.
+    /// Cash kept aside and not drawn, in today's money. As written; see ``effectiveCashBuffer``.
     public var cashBuffer: Decimal?
 
     public init(strategy: WithdrawalStrategy? = nil, cashBuffer: Decimal? = nil) {
