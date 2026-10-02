@@ -1,16 +1,18 @@
 # German reference cases (draft)
 
-Twenty cases for the `de` system, written out so each can become a `Tests/TaxGermanyTests/cases/<id>.json` in the format of the Italian cases (`Tests/TaxItalyTests/ReferenceCase.swift`): the inputs, the expected itemised result, and the arithmetic. See [DE.md](../DE.md) for the rules and [de-2026.json](de-2026.json) for the values.
+Twenty-one cases for the `de` system, written out so each can become a `Tests/TaxGermanyTests/cases/<id>.json` in the format of the Italian cases (`Tests/TaxItalyTests/ReferenceCase.swift`): the inputs, the expected itemised result, and the arithmetic. See [DE.md](../DE.md) for the rules and [de-2026.json](de-2026.json) for the values. The people in them are made up; each case sets only the options it needs, and every other option has its default ([de-questions](de-questions.md#configuration)).
 
 **Conventions.**
 
-- 2026 parameters, today's euros, `inflationFactor` 1 unless stated. A single person, childless (care at 2.4% as an employee, 4.2% when paying it all), Zusatzbeitrag 2.9%, no church tax unless stated.
+- 2026 parameters, today's euros, `inflationFactor` 1 unless stated. A single person without children (`childBirthYears` empty: care at 2.4% as an employee, 4.2% when paying it all), Zusatzbeitrag 2.9%, no church tax unless stated.
 - Amounts aren't rounded, as in the planner. Where the law rounds (taxable income and income tax down to whole euros, Soli and church tax to cents), the legal figure is given as well; it's never more than €1 off.
-- Line IDs: `de.incomeTax`, `de.soli`, `de.churchTax`, `de.capitalIncomeTax` (with `.soli` and `.churchTax`), `de.inheritanceTax`. Contribution IDs: `de.rv`, `de.av`, `de.kv`, `de.pv`. Accruals: `pensionScheme:de.drv` (insured earnings, which the scheme turns into points).
-- Fields marked with a gap number (G1, G2, …) don't exist in TaxKit yet; see [DE.md, Fit with TaxKit](../DE.md#fit-with-taxkit). `equityFund` is G1's category for an equity ETF.
+- Line IDs: `de.incomeTax`, `de.soli`, `de.churchTax`, `de.tradeTax`, `de.capitalIncomeTax` (with `.soli` and `.churchTax`), `de.inheritanceTax`. Contribution IDs: `de.rv`, `de.av`, `de.kv`, `de.pv`. Accruals: `pensionScheme:de.drv` (insured earnings, which the scheme turns into points).
+- Fields marked with a gap number (G1, G2, …) don't exist in TaxKit yet; see [DE.md, Fit with TaxKit](../DE.md#fit-with-taxkit). `equityFund` is G1's category for an equity ETF; `plan.citizenship` is G13.
 - Net income = gross − contributions − taxes.
 
-**Cross-checks.** The tariff gives the published 2026 table values (e.g. €4,217 at €30,000 and €10,548 at €50,000 of taxable income). The employee contributions match third-party 2026 net-pay calculators to the cent (€8,700.00 at €40,000; €15,727.13 at €75,000). Their Lohnsteuer is lower than the assessed tax here (€4,226.72 against €4,413.63 at €40,000; €13,470.83 against €13,935.66 at €75,000), because from 2026 the withholding deducts the unemployment contribution and the full health contribution, which the assessment (§10 Abs. 4 EStG) doesn't: at €40,000 that's 520 + 4% × 3,500 = €660 of deductions at a marginal rate of 28.3%, or €187. The BMF's own calculator couldn't be reached from the build environment; run cases 1–7 through it before turning them into tests.
+**Cross-checks.** The tariff gives the published 2026 table values (e.g. €4,217 at €30,000 and €10,548 at €50,000 of taxable income). The employee contributions match third-party 2026 net-pay calculators to the cent (€8,700.00 at €40,000; €15,727.13 at €75,000).
+
+Those calculators' Lohnsteuer is lower than the assessed tax here: €4,226.72 against €4,413.63 at €40,000, and €13,470.83 against €13,935.66 at €75,000. They deduct the whole unemployment contribution and the full health contribution: 40,000 − 1,230 − 36 − 3,720 − 3,500 − 960 − 520 = 30,034, whose tariff tax is exactly €4,226.72. The 2026 Vorsorgepauschale in the BMF's program flow (BMF letter of 14 August 2025) does neither. It counts the unemployment part only within €1,900 together with health and care, which health and care alone exceed here, and takes health at the reduced 14.0% rate plus half the Zusatzbeitrag: at €40,000, 40,000 − 1,230 − 36 − 3,720 − (3,380 + 960) = 30,674, tax €4,407.95; at €75,000, taxable 59,191.13, tax €13,922.30. Those are €5.68 and €13.36 below the assessed tax (unrounded; the program rounds). The BMF's own calculator couldn't be reached from the build environment; run cases 1–7 through it before turning them into tests (*verify*: the Lohnsteuer figures from the program's structure, as the extracts describe it).
 
 ## 1. Employee, €40,000 (`employee-40k`)
 
@@ -155,7 +157,7 @@ Input as case 3 with `"bundesland": "BY", "churchMember": true`.
 - At 70: 36 months late × 0.5% = 18% more: 20,409.60 × 1.18 = 24,083.33
 - The 45-year pension at 65 isn't offered (40 < 45)
 - With 60 points (1.5 a year): 26,205.9264 at 63, 30,614.40 at 67, 36,124.992 at 70
-- Italian contribution years (`foreignContributionYears`) would count toward the 35 and 45 years but add no points
+- Contribution years in another EU/EEA country or Switzerland (`foreignContributionYears`, `foreignYears45`) would count toward the 35 and 45 years but add no points
 
 ## 9. Tax on the pension of a 2030 retiree (`drv-pension-tax-2030`)
 
@@ -286,7 +288,20 @@ Year 2031, the 40-point DRV pension of case 9 (started 2030), plus a Riester ann
 - Taxable income: 17,552.256 + 6,000 + 5,160 − 102 − 2,643.0432 − 36 = 25,931.2128; tax 3,098.64
 - Separately: the Riester payout adds 1,369.65 of tax to the pension alone (case 9), the Rürup payout 1,160.88
 - Net: 20,409.60 + 12,000 − 1,785.84 − 857.20 − 3,098.64 = 26,667.92
-- As a voluntary member instead, health and care would also be due on the Riester and Rürup payouts (*verify*)
+
+**13b. The same as a voluntary member** (`"retirementHealthInsurance": "voluntary"`). Health and care are also due on the Riester and Rürup payouts:
+
+```json
+{ "expected": {
+    "lines": { "de.incomeTax": 2431.529294 },
+    "contributions": { "de.kv": 3813.84, "de.pv": 1361.2032 },
+    "totalTax": 2431.529294 } }
+```
+
+- Health on the DRV pension: (14.6% + 2.9%) × 20,409.60, of which the DRV pays half: 1,785.84. On the payouts, at the reduced rate (14.0% + 2.9%) × 12,000 = 2,028.00. Together 3,813.84
+- Care 4.2% × 32,409.60 = 1,361.2032. The base (32,409.60) is between the minimum and the ceiling
+- Taxable income: 28,610.256 − 3,813.84 − 1,361.2032 − 36 = 23,399.2128; tax 2,431.53 (the larger deduction lowers it by 667.11)
+- Net: 32,409.60 − 3,813.84 − 1,361.20 − 2,431.53 = 24,803.03, which is 1,864.89 less than under KVdR
 
 ## 14. A bAV pension under KVdR (`bav-pension-kvdr`)
 
@@ -322,7 +337,7 @@ Age 55, no pension or work. Sells part of an equity ETF: proceeds 40,000, purcha
 ```
 
 - Before a pension, health insurance is voluntary whatever `retirementHealthInsurance` says
-- Income for health insurance: the gain after the partial exemption 15,000 × 70% = 10,500 + interest 1,000 = 11,500, without the €1,000 allowance (*verify* the partial exemption). Below the minimum base of 15,820, so the minimum applies
+- Income for health insurance: the gain after the partial exemption 15,000 × 70% = 10,500 + interest 1,000 = 11,500, without the €1,000 allowance (the partial exemption per secondary sources citing the GKV-Spitzenverband's catalogue, *verify*; without it 16,000, just above the minimum). Below the minimum base of 15,820, so the minimum applies
 - Health (14.0% + 2.9%) × 15,820 = 2,673.58; care 4.2% × 15,820 = 664.44. Both are fixed by the minimum, so they're in `fixedAssessment`; assess adds nothing
 - Flat tax would be (10,500 + 1,000 − 1,000) × 26.375% = 2,769.38
 - Günstigerprüfung: capital income 10,500 + 1,000 − 1,000 = 10,500; less the contributions 3,338.02 and €36: taxable 7,125.98, below the Grundfreibetrag. Tax 0, so the flat tax withheld is refunded
@@ -341,7 +356,7 @@ Age 60, no pension. Sells ETF shares: proceeds 150,000, cost 90,000 (gain 60,000
                 "contributions": { "de.kv": 7436.0, "de.pv": 1848.0 }, "totalTax": 5278.114565 } }
 ```
 
-- Income for health insurance: 60,000 × 70% + 2,000 = 44,000 (between the minimum and the 69,750 ceiling)
+- Income for health insurance: 60,000 × 70% + 2,000 = 44,000 (between the minimum and the 69,750 ceiling; the partial exemption as in case 15)
 - Health 16.9% × 44,000 = 7,436.00; care 4.2% × 44,000 = 1,848.00. Prepare charged the minimum (2,673.58 and 664.44); assess adds 4,762.42 and 1,183.56
 - Flat tax: (44,000 − 1,000) × 26.375% = 11,341.25
 - Tariff: 43,000 − 9,284 − 36 = 33,680; tax 5,278.11; no Soli. Lower, so the Günstigerprüfung applies
@@ -349,12 +364,13 @@ Age 60, no pension. Sells ETF shares: proceeds 150,000, cost 90,000 (gain 60,000
 
 ## 17. An INPS pension received in Germany (`inps-pension-in-germany`)
 
-Year 2031. An INPS pension of 12,000 and the 40-point DRV pension, both started in 2030, KVdR.
+Year 2031. An INPS pension of 12,000 and the 40-point DRV pension, both started in 2030, KVdR. Which country taxes the INPS pension depends on nationality (Germany–Italy treaty, Art. 19(4)), so the case sets the plan's `citizenship` (G13).
 
-**17a. German (not Italian) citizen: Germany taxes both** (`taxedIn: residence`).
+**17a. A German national (not Italian): Germany taxes both** (`taxedIn: residence`).
 
 ```json
-{ "year": 2031, "input": { "systemOptions": { "citizenship": "de", "retirementHealthInsurance": "kvdr" },
+{ "year": 2031, "input": { "plan": { "citizenship": [ "DE" ] },
+    "systemOptions": { "retirementHealthInsurance": "kvdr" },
     "pensions": [ { "id": "drv", "scheme": "de.drv", "amount": 20409.6 },
                   { "id": "inps", "scheme": "it.inps", "amount": 12000, "taxedIn": "residence" } ],
     "state": { "de.pension.drv.startYear": 2030, "de.pension.inps.startYear": 2030 } },
@@ -364,13 +380,14 @@ Year 2031. An INPS pension of 12,000 and the 40-point DRV pension, both started 
 
 - The INPS pension is a foreign statutory pension: 86% taxable for a 2030 start, like the DRV pension
 - Taxable pensions: 86% × 32,409.60 − 102 = 27,770.256
-- Health: DRV 1,785.84 + INPS 8.75% × 12,000 = 1,050.00 (half the general rate and half the Zusatzbeitrag; nobody pays the other half); care 4.2% × 32,409.60 = 1,361.2032 (*verify* care on the foreign pension)
+- Health: DRV 1,785.84 + INPS 8.75% × 12,000 = 1,050.00 (half the general rate and half the Zusatzbeitrag; nobody pays the other half); care 4.2% × 32,409.60 = 1,361.2032 (the full care rate on a foreign pension, as on a German one)
 - Taxable income: 27,770.256 − 2,835.84 − 1,361.2032 − 36 = 23,537.2128; tax 2,467.32
+- With an empty `citizenship` the module computes the same and warns that the treaty rule depends on nationality
 
-**17b. Italian-only citizen: Italy taxes the INPS pension** (`taxedIn: source`, Art. 19(4)).
+**17b. An Italian national (not German): Italy taxes the INPS pension** (`taxedIn: source`, Art. 19(4)).
 
 ```json
-{ "input": { "systemOptions": { "citizenship": "it" },
+{ "input": { "plan": { "citizenship": [ "IT" ] },
     "pensions": [ { "id": "drv", "scheme": "de.drv", "amount": 20409.6 },
                   { "id": "inps", "scheme": "it.inps", "amount": 12000, "taxedIn": "source" } ] },
   "expected": { "lines": { "de.incomeTax": 1692.432896 },
@@ -380,7 +397,7 @@ Year 2031. An INPS pension of 12,000 and the 40-point DRV pension, both started 
 - Germany taxes the DRV pension only: taxable income 14,771.2128 (case 9). The contributions on the INPS pension are linked to income exempt in Germany, so they aren't deducted here (*verify*: §10 Abs. 2 Satz 1 Nr. 1 has an EU exception when the other state allows no deduction)
 - Progression clause: the INPS pension as German law would count it, 86% × 12,000 = 10,320 (the €102 is already used). Rate T(25,091.2128) / 25,091.2128 = 2,874.85 / 25,091.21 = 11.4576%
 - Tax: 11.4576% × 14,771.2128 = 1,692.43, against 392.95 without the INPS pension (case 9)
-- Health and care on the INPS pension are still due in Germany, which covers your health care as a German pensioner living there
+- Health and care on the INPS pension are still due in Germany, which provides the health cover of a pensioner living there
 - Italy's tax on the INPS pension isn't computed (G8); the plan enters the pension after it
 
 ## 18. Severance pay with the one-fifth rule (`severance-one-fifth`)
@@ -430,9 +447,31 @@ Age 68, past the standard age of 67, salary 50,000, the pension deferred.
                 "accruals": { "pensionScheme:de.drv": 50000.0 }, "totalTax": 1449.572999 } }
 ```
 
-- Tax-free: 12 × 2,000 = 24,000; taxable salary 26,000 (52%)
-- Contributions on all of it: RV 9.3% (not drawing a pension, so still insured: the points raise the pension) 4,650; no unemployment contribution past the standard age; health 8.75% 4,375; care 2.4% 1,200 (*verify* each)
+- Tax-free: 12 × 2,000 = 24,000 (past the standard age for the whole year); taxable salary 26,000 (52%)
+- Contributions on all of it: RV 9.3% 4,650 (no full pension drawn, so still compulsorily insured: the points raise the pension); no unemployment contribution past the standard age (the employer still pays its half); health 8.75% 4,375 (the general rate: with no pension, there's sick pay); care 2.4% 1,200
 - Deductible: 52% of the contributions: pension 2,418; health 4,375 × 0.96 × 52% = 2,184; care 624; plus €36
-- Taxable income: 26,000 − 1,230 − 2,418 − 2,808 − 36 = 19,508 (the €1,230 in full: *verify*); tax 1,449.57
+- Taxable income: 26,000 − 1,230 − 2,418 − 2,808 − 36 = 19,508 (the €1,230 in full against the taxable salary, as the BMF's FAQ says); tax 1,449.57
 - Without the Aktivrente: taxable 38,684, tax 6,796.04. It saves 5,346.46 this year
 - The deferred pension grows by 0.5% a month past 67, and the year adds 50,000 / 51,944 = 0.96 points
+- Drawing a full pension instead: no employee pension contribution (the employer's half earns nothing unless the employee opts back in), and health at the reduced 14.0% rate
+
+## 21. A trader with trade tax (`trader-80k`)
+
+The freelancer of case 7 classed as a trade (`de.trader`), in a municipality with a multiplier of 4.9.
+
+```json
+{ "input": { "age": 40,
+    "work": [ { "phaseID": "shop", "kind": "selfEmployed", "regime": "de.trader", "gross": 80000, "costs": 0,
+                "options": { "hebesatz": "4.9", "drv": "none", "sickPay": false } } ] },
+  "expected": {
+    "lines": { "de.incomeTax": 8535.076899, "de.tradeTax": 9518.25 },
+    "contributions": { "de.kv": 11787.75, "de.pv": 2929.5 },
+    "totalTax": 18053.326899, "netIncome": 47229.423101 } }
+```
+
+- Trade tax: base amount (80,000 − 24,500) × 3.5% = 1,942.50; × 4.9 = 9,518.25. Not deductible, so taxable income stays 65,246.75 as in case 7
+- Income tax before the credit: 16,305.08 (case 7). Credit: 4.0 × 1,942.50 = 7,770.00, below the trade tax (9,518.25) and the income tax on the business income (all of it, 16,305.08)
+- Income tax 16,305.08 − 7,770.00 = 8,535.08; no Soli (below 20,350 after the credit)
+- Total tax 18,053.33, against 16,305.08 for a Freiberufler: the 0.9 of multiplier above 4.0 costs 0.9 × 1,942.50 = 1,748.25
+- With a multiplier of 4.0 or less the total equals case 7's: the credit covers the whole trade tax
+- At €30,000 of profit, the base amount is 192.50 and the trade tax 943.25 at 4.9; the credit 770.00 is below the income tax (2,492.46), so the extra cost is again 0.9 × the base amount, 173.25

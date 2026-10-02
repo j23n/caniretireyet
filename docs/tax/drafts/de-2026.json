@@ -2,7 +2,7 @@
   "year": 2026,
   "system": "de",
   "checked": "2026-10",
-  "note": "DRAFT German tax and social-security parameters for 2026, in nominal euros of 2026, for a future Sources/TaxGermany/Resources/de/2026.json. Every value cites its source. The official pages were read through search-engine extracts; objects flagged verify have no primary source yet or depend on an open question. indexing: tariff (follows the plan's indexThresholds), fixed (nominal unless indexFixedAllowances), wages (grows with realWageGrowth by law). See docs/tax/DE.md.",
+  "note": "DRAFT German tax and social-security parameters for 2026, in nominal euros of 2026, for a future Sources/TaxGermany/Resources/de/2026.json. Every value cites its source. The official pages were read through search-engine extracts, cross-checked in at least two; objects flagged verify have a single or only secondary source, or depend on an open question (docs/tax/drafts/de-questions.md). indexing: tariff (follows the plan's indexThresholds), fixed (nominal unless indexFixedAllowances), wages (grows with realWageGrowth by law). Nothing here depends on the person: their circumstances are options (de-questions.md, Configuration). See docs/tax/DE.md.",
   "incomeTax": {
     "tariff": {
       "indexing": "tariff",
@@ -76,8 +76,17 @@
     "taxFreeIncomeSplit": {
       "value": true,
       "note": "Contributions linked to tax-free salary (Aktivrente) aren't deductible; split by the share of salary.",
-      "source": "EStG §10 Abs. 2 Satz 1 Nr. 1; BMF, Fragen und Antworten zur Aktivrente: https://www.bundesfinanzministerium.de/Content/DE/FAQ/FAQ-zur-Aktivrente.html"
+      "source": "EStG §10 Abs. 2 Satz 1 Nr. 1; BMF, Fragen und Antworten zur Aktivrente: https://www.bundesfinanzministerium.de/Content/DE/FAQ/FAQ-zur-Aktivrente.html; LOHN + GEHALT, Aktivrente: Auswirkungen auf Werbungskosten und Vorsorgeaufwendungen: https://www.lohnundgehalt-magazin.de/artikel/aktivrente-auswirkungen-auf-werbungskosten-und-vorsorgeaufwendungen-2/"
     }
+  },
+  "wageTaxWithholding": {
+    "modelled": false,
+    "unemploymentPartWithinOtherMaximum": true,
+    "healthPartRate": "reduced",
+    "minimumAllowance": null,
+    "mandatoryAssessmentRefundThreshold": "410",
+    "note": "The Lohnsteuer's Vorsorgepauschale from 2026: a part for unemployment insurance only within the 1,900 limit together with health and care (which those alone exceed from about 17,000 of salary), health at the reduced rate, actual PKV premiums and no minimum. For reference only: the planner computes the assessed tax. An employee with wages only must file a return under §46 Abs. 2 Nr. 3 only when more than 410 of health and care contributions were refunded.",
+    "source": "EStG §39b Abs. 2 Satz 5 Nr. 3 (JStG 2024); BMF, Vorsorgepauschale im Lohnsteuerabzugsverfahren ab 2026 (14 August 2025): https://www.bundesfinanzministerium.de/Content/DE/Downloads/BMF_Schreiben/Steuerarten/Lohnsteuer/2025-08-14-vorsorgepau-lohnsteuerabzugsverfahren.pdf; haufe: https://www.haufe.de/steuern/finanzverwaltung/vorsorgepauschale-im-lohnsteuerabzugsverfahren-ab-2026_164_658714.html; Deloitte: https://www.deloitte-tax-news.de/steuern/arbeitnehmerbesteuerung-sozialversicherung/bmf-aenderungen-bei-der-vorsorgepauschale-ab-dem-01-01-2026.html; EStG §46 Abs. 2 Nr. 3 with §52 Abs. 36: haufe, Änderungen bei der Vorsorgepauschale und der Pflichtveranlagung: https://www.haufe.de/steuern/steuerwissen-tipps/aenderungen-bei-der-vorsorgepauschale-und-der-pflichtveranlagung_170_661648.html"
   },
   "socialInsurance": {
     "pension": {
@@ -87,13 +96,22 @@
       "indexing": "wages",
       "source": "SGB VI §158 (18.6%); SVBezGrV 2026 (8,450 a month, uniform): https://www.gesetze-im-internet.de/svbezgrv_2026/BJNR1160A0025.html"
     },
+    "pensionPastStandardAge": {
+      "compulsoryUntilFullPension": true,
+      "employerShareWithFullPension": "0.5",
+      "employeeMayOptIn": true,
+      "note": "Past the standard age, employees stay compulsorily insured until they draw a full old-age pension (Flexirentengesetz, from 2017). With a full pension the employer still pays its half (not credited) and the employee may opt back in.",
+      "source": "SGB VI §5 Abs. 4, §172 Abs. 1, §230: DRV, rvRecht on §5 SGB VI: https://rvrecht.deutsche-rentenversicherung.de/SharedDocs/rvRecht/01_GRA_SGB/06_SGB_VI/pp_0001_25/gra_sgb006_p_0005.html; haufe, Flexirentengesetz: https://www.haufe.de/id/beitrag/flexirentengesetz-beschaeftigte-rentnerhinzuverdienstregelungenausgleich-von-rentenabschlaegen-HI10449837.html"
+    },
     "unemployment": {
       "rate": "0.026",
       "employeeShare": "0.5",
       "ceiling": "101400",
       "freeFromStandardAge": true,
+      "employerShareFromStandardAge": "0.5",
       "indexing": "wages",
-      "source": "SGB III §341 Abs. 2 (2.6%); §28 Abs. 1 Nr. 1 (employees past the standard retirement age); SVBezGrV 2026"
+      "note": "Employees are free of unemployment insurance from the month after the standard retirement age; the employer still pays its half.",
+      "source": "SGB III §341 Abs. 2 (2.6%); §28 Abs. 1 Nr. 1 (employees past the standard retirement age); §346 Abs. 3 (employer share): https://haufe.de/personal/haufe-personal-office-platin/sauer-sgbiii-346-beitragstragung-bei-beschaeftigten-24-beitragstragung-bei-beschaeftigten-im-regelrentenalter-abs3_idesk_PI42323_HI2006228.html; SVBezGrV 2026"
     },
     "health": {
       "generalRate": "0.146",
@@ -117,7 +135,15 @@
       "ceiling": "69750",
       "indexing": "wages",
       "note": "The surcharge is paid by the employee alone. In Saxony the employee pays 2.3% and the employer 1.3%. Pensioners pay the whole care contribution on their pensions.",
-      "source": "SGB XI §55 Abs. 1 and 3, §58 Abs. 3, §59; rate unchanged for 2026 (vdek, Änderungen Gesundheitswesen 2026: https://www.vdek.com/politik/was-aendert-sich/gesundheitswesen-2026/_jcr_content/par/publicationelement/file.res/Aenderungen_Gesundheitswesen_2026.pdf)"
+      "source": "SGB XI §55 Abs. 1 and 3, §58 Abs. 3, §59; rate unchanged for 2026 (vdek, Änderungen Gesundheitswesen 2026: https://www.vdek.com/politik/was-aendert-sich/gesundheitswesen-2026/_jcr_content/par/publicationelement/file.res/Aenderungen_Gesundheitswesen_2026.pdf)",
+      "childDiscount": {
+        "perChild": "0.0025",
+        "fromChild": 2,
+        "toChild": 5,
+        "childUnderAge": 25,
+        "note": "Members with two or more children under 25 pay 0.25 points less for each such child from the second to the fifth (at most 1 point), on the employee's or member's share only. A child at any age ends the childless surcharge.",
+        "source": "SGB XI §55 Abs. 3 (PUEG, from July 2023); TK: https://www.tk.de/firmenkunden/versicherung/beitraege-faq-und-mehr/pv-beitraege/bis-zu-welchem-alter-der-kinder-gelten-abschlaege-bei-pv-2148702; mobil krankenkasse: https://mobil-krankenkasse.de/krankenversicherung/beitragssaetze-und-beitragsbemessungsgrenzen/pflegeversicherungsbeitrag.html"
+      }
     },
     "referenceValue": {
       "value": "47460",
@@ -153,10 +179,20 @@
   "aktivrente": {
     "monthlyExemption": "2000",
     "yearlyExemption": "24000",
+    "fromMonthAfterStandardAge": true,
+    "unusedMonthsCarryOver": false,
     "progressionClause": false,
+    "employeeLumpSumInFull": true,
     "appliesTo": [ "employee" ],
-    "note": "Salary of employees who have reached the standard retirement age. Not for self-employment or mini-jobs. Social contributions stay due.",
-    "source": "EStG §3 Nr. 21 (Aktivrentengesetz, Bundesrat 19 December 2025, from 1 January 2026); BMF, Fragen und Antworten zur Aktivrente: https://www.bundesfinanzministerium.de/Content/DE/FAQ/FAQ-zur-Aktivrente.html"
+    "requiresPensionInsuranceContributions": true,
+    "note": "Salary of employees in work subject to social insurance (the employer pays pension contributions, at least its own half) who have reached the standard retirement age, from the month after. Not for self-employment or mini-jobs taxed at a flat rate. The 1,230 lump sum is deducted in full from the taxable salary; contributions linked to the tax-free part aren't deductible (provisions.taxFreeIncomeSplit). Social contributions stay due.",
+    "source": "EStG §3 Nr. 21 (Aktivrentengesetz, Bundesrat 19 December 2025, from 1 January 2026); BMF, Fragen und Antworten zur Aktivrente: https://www.bundesfinanzministerium.de/Content/DE/FAQ/FAQ-zur-Aktivrente.html and FAQ of 6 February 2026: https://www.bundesfinanzministerium.de/Content/DE/Standardartikel/Themen/Steuern/2026-02-06-FAQ-Aktivrente-Anlage.pdf; steuerschroeder, Aktivrente: https://www.steuerschroeder.de/Aktivrente.html; rehm, Arbeitgeberbeiträge zur Rentenversicherung: https://www.rehm-verlag.de/lohnsteuerrecht/aktuelle-beitraege-zum-lohnsteuerrecht/aktivrente-arbeitgeberbeitraege--zuschuesse-zur-rentenversicherung/",
+    "selfEmployedExtension": {
+      "value": false,
+      "note": "Extending the Aktivrente to the self-employed (e.g. from 2027) is being lobbied for; no bill found.",
+      "source": "VGSD: https://www.vgsd.de/zustimmung-durch-bundesrat-aktivrente-kommt-zum-1-1-2026-ohne-selbststaendige/",
+      "verify": true
+    }
   },
   "drv": {
     "averageEarnings": {
@@ -239,8 +275,20 @@
       "countTowardWaitingTimes": true,
       "proRataCalculation": false,
       "minimumOwnPeriodMonths": 12,
-      "countTowardFortyFiveYears": { "value": true, "verify": true, "source": "VO (EG) 883/2004 Art. 6; DRV practice to confirm" },
-      "source": "VO (EG) 883/2004 Art. 6, Art. 52 Abs. 4 and Anhang VIII (Germany), Art. 57"
+      "countTowardFortyFiveYears": {
+        "value": true,
+        "onlyWorkBasedCompulsoryPeriods": true,
+        "note": "Compulsory contribution periods (and equivalent periods) of EU/EEA/Swiss and agreement countries count toward the 45 years when they come from a system in which work is what makes people insured.",
+        "source": "DRV, verbindliche Entscheidungen: Prüfung der Wartezeit von 45 Jahren (2 May 2008): https://www.deutsche-rentenversicherung.de/DRV/DE/Ueber-uns-und-Presse/Struktur-und-Organisation/Selbstverwaltung/verbindliche-entscheidungen/2008/20080502_Pruefung_wz_45_jahre and bilaterale Abkommen (10 June 2009): https://www.deutsche-rentenversicherung.de/DRV/DE/Ueber-uns-und-Presse/Struktur-und-Organisation/Selbstverwaltung/verbindliche-entscheidungen/2009/20090610_bilaterale_sv_abkommen_wz_45_jahre"
+      },
+      "residenceBasedPeriodsTowardFortyFiveYears": {
+        "value": false,
+        "note": "Periods in a residence-based pension system (e.g. Swiss AHV years without work) are assumed not to count toward the 45 years unless they're periods of work.",
+        "source": "Inferred from the DRV decision of 2 May 2008 (work-based systems only); no text read on residence-based systems",
+        "verify": true
+      },
+      "includesEeaAndSwitzerland": true,
+      "source": "VO (EG) 883/2004 Art. 6, Art. 52 Abs. 4 and Anhang VIII (Germany), Art. 57; applied to the EEA and, through the EU–Swiss free-movement agreement, to Switzerland"
     },
     "proposals": {
       "modelled": false,
@@ -268,14 +316,30 @@
       "source": "EStG §22 Nr. 1 Satz 3 Buchst. a Doppelbuchst. aa Satz 4-6"
     },
     "annuityIncomeShare": {
-      "ages": {
-        "55": "0.26", "56": "0.26", "57": "0.25", "58": "0.24", "59": "0.23", "60": "0.22", "61": "0.22",
-        "62": "0.21", "63": "0.20", "64": "0.19", "65": "0.18", "66": "0.18", "67": "0.17", "68": "0.16",
-        "69": "0.15", "70": "0.15", "71": "0.14", "72": "0.13", "73": "0.13", "74": "0.12", "75": "0.11"
-      },
-      "note": "Ertragsanteil for private annuities (not Rürup, Riester or bAV), by age at the start.",
-      "source": "EStG §22 Nr. 1 Satz 3 Buchst. a Doppelbuchst. bb (table); from memory of the statutory table, not re-read",
-      "verify": true
+      "byAgeAtStart": [
+        { "upToAge": 1, "value": "0.59" }, { "upToAge": 3, "value": "0.58" }, { "upToAge": 5, "value": "0.57" },
+        { "upToAge": 8, "value": "0.56" }, { "upToAge": 10, "value": "0.55" }, { "upToAge": 12, "value": "0.54" },
+        { "upToAge": 14, "value": "0.53" }, { "upToAge": 16, "value": "0.52" }, { "upToAge": 18, "value": "0.51" },
+        { "upToAge": 20, "value": "0.50" }, { "upToAge": 22, "value": "0.49" }, { "upToAge": 24, "value": "0.48" },
+        { "upToAge": 26, "value": "0.47" }, { "upToAge": 27, "value": "0.46" }, { "upToAge": 29, "value": "0.45" },
+        { "upToAge": 31, "value": "0.44" }, { "upToAge": 32, "value": "0.43" }, { "upToAge": 34, "value": "0.42" },
+        { "upToAge": 35, "value": "0.41" }, { "upToAge": 37, "value": "0.40" }, { "upToAge": 38, "value": "0.39" },
+        { "upToAge": 40, "value": "0.38" }, { "upToAge": 41, "value": "0.37" }, { "upToAge": 42, "value": "0.36" },
+        { "upToAge": 44, "value": "0.35" }, { "upToAge": 45, "value": "0.34" }, { "upToAge": 47, "value": "0.33" },
+        { "upToAge": 48, "value": "0.32" }, { "upToAge": 49, "value": "0.31" }, { "upToAge": 50, "value": "0.30" },
+        { "upToAge": 52, "value": "0.29" }, { "upToAge": 53, "value": "0.28" }, { "upToAge": 54, "value": "0.27" },
+        { "upToAge": 56, "value": "0.26" }, { "upToAge": 57, "value": "0.25" }, { "upToAge": 58, "value": "0.24" },
+        { "upToAge": 59, "value": "0.23" }, { "upToAge": 61, "value": "0.22" }, { "upToAge": 62, "value": "0.21" },
+        { "upToAge": 63, "value": "0.20" }, { "upToAge": 64, "value": "0.19" }, { "upToAge": 66, "value": "0.18" },
+        { "upToAge": 67, "value": "0.17" }, { "upToAge": 68, "value": "0.16" }, { "upToAge": 70, "value": "0.15" },
+        { "upToAge": 71, "value": "0.14" }, { "upToAge": 73, "value": "0.13" }, { "upToAge": 74, "value": "0.12" },
+        { "upToAge": 75, "value": "0.11" }, { "upToAge": 77, "value": "0.10" }, { "upToAge": 79, "value": "0.09" },
+        { "upToAge": 80, "value": "0.08" }, { "upToAge": 82, "value": "0.07" }, { "upToAge": 84, "value": "0.06" },
+        { "upToAge": 87, "value": "0.05" }, { "upToAge": 91, "value": "0.04" }, { "upToAge": 93, "value": "0.03" },
+        { "upToAge": 96, "value": "0.02" }, { "value": "0.01" }
+      ],
+      "note": "Ertragsanteil for private annuities and the over-mandatory part of Swiss BVG pensions (not Rürup, Riester or bAV), by the age completed when the annuity starts: the first band whose upToAge is at least that age. Every row was cross-checked in October 2026 against the Finanzverwaltung NRW's table and independent extracts (56: 26%, 62: 21%, 68: 16%, 61: 22%, 63: 20%, 65: 18%).",
+      "source": "EStG §22 Nr. 1 Satz 3 Buchst. a Doppelbuchst. bb (table): https://www.gesetze-im-internet.de/estg/__22.html; Finanzverwaltung NRW, Ertragsanteil bei lebenslangen Leibrenten: https://www.finanzverwaltung.nrw.de/sites/default/files/asset/document/ertragsanteil_bei_lebenslangen_leibrenten.pdf; LV 1871: https://www.lv1871.de/private-rentenversicherung/wiki/ertragsanteilsbesteuerung/; steuertipps: https://www.steuertipps.de/lexikon/e/ertragsanteil-tabelle"
     },
     "fullyTaxed": {
       "wrappers": [ "de.riester", "de.bav", "de.altersvorsorgedepot" ],
@@ -301,30 +365,57 @@
       "occupationalCareThresholdMonthly": "197.75",
       "occupationalLumpSumSpreadMonths": 120,
       "indexing": "wages",
-      "note": "Contributions on statutory pensions (half the general rate and half the Zusatzbeitrag; the DRV pays the other half), foreign statutory pensions (half, nobody pays the other half), bAV (full rate above the allowance; care on all of it above the threshold) and self-employment income. Nothing on capital income, Riester, Rürup or rent. Care: the full rate, paid by the pensioner.",
-      "source": "SGB V §5 Abs. 1 Nr. 11 (9/10 rule), §226, §228, §229 Abs. 1 Satz 3, §237, §247, §248; SGB XI §57, §59; GKV-Spitzenverband and DRV, Rundschreiben KVdR: https://www.vdek.com/vertragspartner/mitgliedschaftsrecht_beitragsrecht/krankenversicherung-rentner-versorgungsbezuege-einkommen-renten/_jcr_content/par/download_23269565/file.res/RS-KVdR-24-10-2019.pdf"
+      "note": "Contributions on statutory pensions (half the general rate and half the Zusatzbeitrag; the DRV pays the other half), foreign statutory and comparable pensions (half, nobody pays the other half), bAV (full rate above the allowance; care on all of it above the threshold) and self-employment income. Nothing on capital income, Riester, Rürup or rent. Care: the full rate, paid by the pensioner.",
+      "source": "SGB V §5 Abs. 1 Nr. 11 (9/10 rule) and Abs. 2 Satz 3 (3 years per child), §226, §228, §229 Abs. 1 Satz 3, §237, §247, §248; SGB XI §57, §59; GKV-Spitzenverband and DRV, Rundschreiben KVdR: https://www.vdek.com/vertragspartner/mitgliedschaftsrecht_beitragsrecht/krankenversicherung-rentner-versorgungsbezuege-einkommen-renten/_jcr_content/par/download_23269565/file.res/RS-KVdR-24-10-2019.pdf; DRV, rvRecht on §5 SGB V: https://rvrecht.deutsche-rentenversicherung.de/SharedDocs/rvRecht/01_GRA_SGB/05_SGB_V/gra_sgb005_p_0005.html"
+    },
+    "foreignComparablePensions": {
+      "schemes": [ "it.inps", "ch.ahv", "ch.bvg" ],
+      "bvgOverMandatoryIncluded": true,
+      "note": "Foreign pensions comparable to a statutory pension are charged like one under KVdR (half the general rate and half the Zusatzbeitrag). The Swiss AHV and BVG pensions, the BVG's over-mandatory part included, are comparable.",
+      "source": "SGB V §228 Abs. 1 Satz 2; BSG 30 November 2016, B 12 KR 22/14 R (AHV): https://www.rechtsportal.de/Rechtsprechung/Rechtsprechung/2016/BSG/Beruecksichtigung-einer-Rente-der-schweizerischen-Alters-und-Hinterlassenenversicherung-Invalidenversicherung-bei-der-Bemessung-der-Beitraege-zur-Krankenversicherung-der-Rentner; BSG 23 February 2021, B 12 KR 32/19 R (BVG): https://www.bsg.bund.de/SharedDocs/Entscheidungen/DE/2021/2021_02_23_B_12_KR_32_19_R.html"
     },
     "foreignPensionCare": {
       "fullRate": true,
-      "note": "Care contributions on a foreign statutory pension at the full rate.",
-      "source": "SGB XI §57 Abs. 1 with SGB V §228 Abs. 1 Satz 2; no primary text read",
-      "verify": true
+      "note": "Care contributions on a foreign statutory pension at the full rate (3.6%, 4.2% childless), paid by the pensioner, as on a German pension.",
+      "source": "SGB XI §57 Abs. 1, §59 Abs. 1 with SGB V §228 Abs. 1 Satz 2; VdK: https://www.vdk.de/aktuelles/tipp/auch-auf-renten-aus-dem-ausland-werden-krankenkassenbeitraege-faellig/; sozialversicherung-kompetent: https://sozialversicherung-kompetent.de/krankenversicherung/versicherungsrecht/928-krankenversicherung-der-rentner-beitraege.html; perspektiveausland, Auslandsrenten 2026: https://www.perspektiveausland.com/rente-im-ausland/auslaendische-renten-krankenversicherungspflicht-deutschland"
     },
-    "euPeriodsForKvdr": {
-      "value": true,
-      "italianResidencePeriods": { "value": true, "note": "Whether years covered by Italy's residence-based health service count as insurance periods.", "source": "VO (EG) 883/2004 Art. 6; no ruling found", "verify": true },
-      "source": "VO (EG) 883/2004 Art. 6; GKV-Spitzenverband and DRV, Rundschreiben KVdR"
+    "periodsAbroadForKvdr": {
+      "insurancePeriodsEuEeaSwitzerland": true,
+      "residencePeriodsInResidenceBasedSystems": true,
+      "residenceBasedSystems": [ "BG", "CZ", "DK", "FI", "HU", "IE", "IT", "LT", "LV", "MT", "NL", "PT", "RO", "SE", "SK" ],
+      "note": "Insurance periods in another EU/EEA country or Switzerland count toward the 9/10 rule (Art. 6). So do residence periods in a member country whose health system doesn't depend on insurance or work; the list is the one the KVdR circular gives (the UK, then listed, has since left the EU). Agreement countries only where the agreement says so.",
+      "source": "VO (EG) 883/2004 Art. 6; GKV-Spitzenverband and DRV, Rundschreiben KVdR (via GGUA, Krankenversicherung der Rentner im Rahmen der EG-Verordnungen: https://www.ggua.de/fileadmin/downloads/ggua/Clearingstelle/KVdR883.pdf); DRV, rvRecht on Art. 6 VO 883/2004: https://rvrecht.deutsche-rentenversicherung.de/SharedDocs/rvRecht/02_GRA_EU_SVA/03_Europarecht/01_VO_EG_Nr_883_2004/art_0001_25/gra_euvo_883_2004_a_0006.html; Bundestag WD 8 - 3000 - 012/24: https://www.bundestag.de/resource/blob/1001032/WD-8-012-24-pdf.pdf"
     },
     "voluntary": {
       "saverAllowanceDeductible": false,
-      "partialExemptionApplies": { "value": true, "source": "Krankenkassen practice (secondary: versicherungenmitkopf.de, Finanztip forum)", "verify": true },
-      "vorabpauschaleCounts": { "value": true, "source": "Secondary (Finanztip forum)", "verify": true },
-      "riesterRuerupCount": { "value": true, "source": "SGB V §240 (all income for living); not confirmed for each wrapper", "verify": true },
+      "partialExemptionApplies": {
+        "value": true,
+        "note": "Investment income counts after the partial exemption of §20 InvStG. Secondary sources cite the GKV-Spitzenverband's catalogue of income for it; the catalogue itself couldn't be read.",
+        "source": "GKV-Spitzenverband, Katalog von Einnahmen und deren beitragsrechtliche Bewertung nach § 240 SGB V (26 May 2026): https://www.gkv-spitzenverband.de/media/dokumente/krankenversicherung_1/grundprinzipien_1/finanzierung/beitragsbemessung/2026-05-26_Katalog_Einnahmen_beitragsrechtliche_Bewertung_240_SGB_V_BF.pdf, as cited by versicherungenmitkopf: https://www.versicherungenmitkopf.de/kapitalertraege-krankenversicherung",
+        "verify": true
+      },
+      "vorabpauschaleCounts": {
+        "value": true,
+        "note": "Distributions, the Vorabpauschale and sale gains of investment funds all count as capital income.",
+        "source": "versicherungenmitkopf (citing the catalogue): https://www.versicherungenmitkopf.de/kapitalertraege-krankenversicherung; covago: https://covago.de/krankenversicherungsbeitraege-aktiengewinne/"
+      },
+      "riesterRuerupCount": {
+        "value": true,
+        "note": "Private Riester and Rürup annuities count for voluntary members (they're free only under KVdR).",
+        "source": "SGB V §240; sozialversicherung-kompetent: https://sozialversicherung-kompetent.de/krankenversicherung/versicherungsrecht/461-beitragspflicht-private-riester-renten.html; LV 1871: https://www.lv1871.de/basisrente/fragen/krankenversicherung/; pkvmitplan: https://pkvmitplan.de/allgemein/krankenversicherung-bei-ruerup-rente/"
+      },
+      "capitalIncomeExpenseAllowance": {
+        "value": "51",
+        "modelled": false,
+        "note": "Some funds deduct 51 a year of costs from capital income (TK automatically); not modelled, which overstates contributions by about 11 a year.",
+        "source": "TK: https://www.tk.de/techniker/leistungen-und-mitgliedschaft/informationen-versicherte/veraenderung-berufliche-situation/freiwillige-krankenversicherung-tk/beitragspflichtiges-einkommen/einkommen-beitragsberechnung-2006786; krankenkasseninfo: https://www.krankenkasseninfo.de/ratgeber/61701/krankenkassenbeitrag-auf-kapitalertraege.html",
+        "verify": true
+      },
       "pensionRate": "general",
       "otherIncomeRate": "reduced",
       "drvSubsidyShare": "0.5",
-      "note": "All income: pensions, payouts, interest, gains, rent; between the minimum base and the ceiling. DRV pays half the general rate and half the Zusatzbeitrag of the statutory pension (at most half the contribution or premium).",
-      "source": "SGB V §240, §243, §247; SGB VI §106; Beitragsverfahrensgrundsätze Selbstzahler (GKV-Spitzenverband); haufe, Einnahmen aus Kapitalvermögen: https://www.haufe.de/sozialwesen/sgb-office-professional/beitragspflichtige-einnahmen-freiwillig-krankenversicherter-16-einnahmen-aus-kapitalvermoegenvermietungverpachtung_idesk_PI434_HI10152386.html"
+      "note": "All income: pensions, payouts, interest, gains, rent; between the minimum base and the ceiling. DRV pays half the general rate and half the Zusatzbeitrag of the statutory pension (at most half the contribution or premium). Other income at the reduced rate.",
+      "source": "SGB V §240, §243, §247; SGB VI §106; Beitragsverfahrensgrundsätze Selbstzahler (GKV-Spitzenverband); haufe, Einnahmen aus Kapitalvermögen: https://www.haufe.de/sozialwesen/sgb-office-professional/beitragspflichtige-einnahmen-freiwillig-krankenversicherter-16-einnahmen-aus-kapitalvermoegenvermietungverpachtung_idesk_PI434_HI10152386.html; haufe, Versorgungsbezüge: Besonderheit bei bAV-Riester-Renten: https://www.haufe.de/personal/entgelt/versorgungsbezuege-besonderheit-bei-bav-riester-renten_78_447254.html"
     }
   },
   "investments": {
@@ -368,9 +459,9 @@
       "source": "EStG §32d Abs. 6"
     },
     "foreignTaxCredit": {
-      "treatyCaps": { "IT": { "interest": "0.10", "dividends": "0.15" } },
+      "treatyCaps": { "IT": { "interest": "0.10", "dividends": "0.15" }, "CH": { "interest": "0", "dividends": "0.15" } },
       "modelled": false,
-      "source": "EStG §32d Abs. 5; DBA Italien Art. 10 and 11"
+      "source": "EStG §32d Abs. 5; DBA Italien Art. 10 and 11; DBA Schweiz Art. 10 and 11 (treaties.CH.withholding)"
     },
     "privateSales": {
       "holdingYears": 1,
@@ -402,12 +493,20 @@
       "maximumWithGrant": "2100",
       "basicGrant": "175",
       "childGrant": "300",
+      "childGrantBornBefore2008": "185",
       "minimumOwnShareOfPriorIncome": "0.04",
       "payoutFromAge": 62,
       "maxLumpSumShare": "0.3",
       "newContractsUntil": 2026,
       "indexing": "fixed",
-      "source": "EStG §10a, §79-99 (§84 grant, §85 child grant, §86 minimum contribution); AltZertG §1 Abs. 1 Nr. 2 and 4; Altersvorsorgereformgesetz (no new contracts from 2027)"
+      "note": "Child grants while child benefit is paid for the child: 300 for children born from 2008, 185 before.",
+      "source": "EStG §10a, §79-99 (§84 grant, §85 child grant, §86 minimum contribution); AltZertG §1 Abs. 1 Nr. 2 and 4; Altersvorsorgereformgesetz (no new contracts from 2027); weltsparen, Riester-Kinderzulage: https://www.weltsparen.de/altersvorsorge/riester-rente/riester-kinder/",
+      "residenceOutsideEuEeaHarmful": {
+        "value": true,
+        "atPayoutStart": true,
+        "note": "A residence outside the EU and EEA (Switzerland included) when payouts start is a harmful use: grants and tax savings are paid back.",
+        "source": "EStG §93, §95; ruhestandimausland: https://www.ruhestandimausland.com/wissen/riester-rente-ausland; WWK: https://collectiv.wwk.de/riester-rente-im-ausland-foerderung-und-steuervorteile-behalten/"
+      }
     },
     "ruerup": {
       "payoutFromAge": 62,
@@ -465,8 +564,8 @@
     "fundCostPerFund": true,
     "residenceYears": 7,
     "lookbackYears": 12,
-    "instalments": { "value": 7, "verify": true },
-    "returnWithinYears": { "value": 7, "verify": true },
+    "instalments": { "value": 7, "source": "AStG §6 Abs. 4 (seven yearly instalments for company shares); whether InvStG §19 Abs. 3 carries it over to funds is unconfirmed", "verify": true },
+    "returnWithinYears": { "value": 7, "source": "AStG §6 Abs. 3 (return within seven years cancels the tax for company shares); whether InvStG §19 Abs. 3 carries it over to funds is unconfirmed", "verify": true },
     "modelled": false,
     "note": "A deemed sale on leaving German residence. Funds (ETFs included) since 1 January 2025. The planner only warns until TaxKit can see a residence ending and per-fund costs (DE.md, G7).",
     "source": "AStG §6; InvStG §19 Abs. 3 and §49 Abs. 5 (JStG 2024); KPMG: https://kpmg.com/de/de/themen/corporate-governance-und-compliance/kpmg-steuertipps/steuertipp-wegzugsbesteuerung-ab-2025.html"
@@ -484,6 +583,52 @@
       "method": {
         "value": "Germany exempts with progression (employment income, public pensions, property) and credits (dividends, interest).",
         "source": "DBA Italien Art. 24 Abs. 3"
+      },
+      "nationalityUnknown": {
+        "rule": "Residence state (Art. 18), with a warning, when the plan's citizenship is empty.",
+        "source": "Module choice; DBA Italien Art. 18"
+      }
+    },
+    "CH": {
+      "socialSecurityPensions": {
+        "rule": "Residence state only (AHV, BVG and DRV pensions, annuities and lump sums), whatever the nationality.",
+        "ahvNoSwissWithholdingAbroad": true,
+        "source": "DBA Schweiz 1971 Art. 18; Taxpertise, Besteuerung deutsche Rente bei Wohnsitz in der Schweiz: https://www.taxpertise-online.de/Expertisen/2024/Internationales-Steuerrecht/Besteuerung-deutsche-Rente-bei-Wohnsitz-in-der-Schweiz; MME, Rückkehr nach Deutschland: https://www.mme.ch/de-ch/magazin/artikel/rueckkehr-nach-deutschland-besteuerung-von-renten-aus-schweizer-vorsorge-0"
+      },
+      "publicServicePensions": { "rule": "Paying state (Art. 19), as clarified by the 2023 protocol.", "modelled": false, "source": "DBA Schweiz Art. 19; Änderungsprotokoll of 21 August 2023, in force 27 November 2025, applied from 2026: https://www.sif.admin.ch/de/inkrafttreten-des-aenderungsprotokolls-zum-doppelbesteuerungsabkommen-mit-deutschland" },
+      "bvgInGermany": {
+        "mandatoryPart": "cohort taxable share (Leibrente §22 Nr. 1 Satz 3 a aa), annuities and lump sums alike",
+        "overMandatoryAnnuity": "Ertragsanteil (§22 Nr. 1 Satz 3 a bb)",
+        "overMandatoryLumpSum": "like a life insurance with a capital option: tax-free for membership before 2005, otherwise the gain",
+        "mandatoryShareDefault": "1",
+        "note": "German residents with Swiss pension-fund benefits. Without the split, everything is treated as mandatory (overstates tax).",
+        "source": "BMF letter of 27 July 2016 (IV C 3 - S 2255/07/10005 :004): https://www.bundesfinanzministerium.de/Content/DE/Standardartikel/Themen/Steuern/Internationales_Steuerrecht/Staatenbezogene_Informationen/Laender_A_Z/Schweiz/2016-07-27-Schweiz-vorsorgeeinrichtungen-nach-der-zweiten-saeule-der-schweizerischen-altersvorsorge.pdf; BFH 26 November 2014, VIII R 38/10 (haufe: https://www.haufe.de/steuern/rechtsprechung/kapitalleistungen-schweizerischer-versorgungseinrichtungen_166_308214.html); Deloitte: https://www.deloitte-tax-news.de/arbeitnehmerentsendung-personal/thema-des-monats/bmf-schreiben-zur-steuerlichen-einordnung-von-schweizerischen-pensionskassen-in-deutschland-vom-27072016.html"
+      },
+      "bvgLumpSumOneFifthRule": { "value": false, "note": "Whether the one-fifth rule applies to a mandatory-part lump sum; the BFH denied it for a freely chosen capital option in German bAV.", "source": "Secondary: haufe on BFH VIII R 38/10; magnus-gmbh on BFH case law: https://www.magnus-gmbh.de/themen/keine-steuerermaessigung-fuer-vertragsgemaesse-kapitalauszahlung-durch-pensionskassen/", "verify": true },
+      "pillar3aInGermany": { "rule": "The gain (payout - contributions) at the tariff, half after 12 years and from 62, with a warning.", "source": "No ruling found; module assumption by analogy with §20 Abs. 1 Nr. 6", "verify": true },
+      "crossBorderCommuters": {
+        "workStateWithholdingCap": "0.045",
+        "nonReturnDaysLimit": 60,
+        "modelled": false,
+        "note": "Grenzgänger (live in one state, work in the other and return home regularly): the residence state taxes the salary and credits the work state's withholding of at most 4.5% of gross salary. More than 60 working days without returning home for work: the work state taxes, the residence state exempts with progression. The 2023 protocol adds rules for work from home (verify).",
+        "source": "DBA Schweiz Art. 15a; EY: https://www.ey.com/de_de/technical/news-zum-internationalen-mitarbeitereinsatz/dba-schweiz-grenzgaengerregelung; Kanton Zürich, Informationsblatt deutsche Grenzgänger: https://www.zh.ch/content/dam/zhweb/bilder-dokumente/themen/steuern-finanzen/steuern/quellensteuer/informationsblatt_zur_besteuerung_von_deutschen_grenzgaengerinnen_und_grenzgaengern.pdf"
+      },
+      "extendedTaxationAfterMove": {
+        "years": 5,
+        "minimumPriorGermanYears": 5,
+        "appliesToNationals": [ "DE" ],
+        "exceptIfAlsoNational": [ "CH" ],
+        "modelled": false,
+        "note": "A German national (not Swiss) moving to Switzerland after at least 5 years of unlimited German tax liability stays taxable in Germany on German-source income in the year of the move and the 5 following years, with the Swiss tax on it credited (überdachende Besteuerung). Its compatibility with the free-movement agreement has been referred to the EU Court of Justice (verify).",
+        "source": "DBA Schweiz Art. 4 Abs. 4; haufe: https://www.haufe.de/id/beitrag/begriff-und-funktion-der-ansaessigkeit-54-abwanderungsbesteuerung-bei-wohnsitzaufnahme-in-der-schweiz-gem-art4-abs4-dba-schweiz-HI15201785.html; Betriebs-Berater: https://betriebs-berater.ruw.de/steuerrecht/urteile/ueberdachende-Besteuerung-gemaess-Art.-4-Abs.-4-Satz-1-DBA-Schweiz-europarechtswidrig-Vorlage-an-den-EuGH-24101",
+        "verify": true
+      },
+      "withholding": {
+        "swissRate": "0.35",
+        "dividendsCreditable": "0.15",
+        "interestCreditable": "0",
+        "note": "Swiss withholding tax: 15% of dividends is credited in Germany and the other 20 points reclaimed; interest withholding is reclaimed in full (interest is taxed only in the residence state).",
+        "source": "DBA Schweiz Art. 10 and 11; Kanton Zürich, Verrechnungssteuer: https://www.zh.ch/de/steuern-finanzen/steuern/steuern-natuerliche-personen/wertschriften-verrechnungssteuer.html; DSW, Erläuterungen Schweiz: https://www.dsw-info.de/fileadmin/Redaktion/Dokumente/PDF/Quellensteuer/Formulare/Schweiz-Erlaeuterungsvordruck_2022.pdf"
       }
     }
   },
@@ -495,11 +640,17 @@
     "source": "EStG §1 Abs. 3 and 4, §1a, §49 Abs. 1 Nr. 7, §50 Abs. 1 Satz 2"
   },
   "tradeTax": {
-    "modelled": false,
+    "modelled": true,
     "allowance": "24500",
+    "roundDownTo": "100",
     "baseRate": "0.035",
+    "minimumMultiplier": "2.0",
     "incomeTaxCreditFactor": "4.0",
-    "note": "For de.trader (later): (profit - 24,500) * 3.5% * the municipality's multiplier; 4.0 times the base amount is credited against income tax.",
-    "source": "GewStG §11 Abs. 1-2, §16; EStG §35"
+    "creditCappedAtTradeTax": true,
+    "creditCappedAtIncomeTaxOnBusinessIncome": true,
+    "deductible": false,
+    "indexing": "fixed",
+    "note": "For de.trader: base amount = (profit rounded down to 100 - 24,500) * 3.5%; trade tax = base amount * hebesatz (at least 2.0). Not deductible. Credited against income tax at 4.0 * base amount, at most the trade tax and the income tax on the business income. Additions (Hinzurechnungen) not modelled.",
+    "source": "GewStG §11 Abs. 1-2, §16 Abs. 4; EStG §35 Abs. 1, §4 Abs. 5b; steuerschroeder, Gewerbesteueranrechnung: https://www.steuerschroeder.de/Steuerrechner/Gewerbesteueranrechnung.html; onlinebilanz: https://onlinebilanz.de/gewerbesteuer-berechnen-hebesatz-freibetrag-anrechnung/"
   }
 }
