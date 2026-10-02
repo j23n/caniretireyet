@@ -38,18 +38,17 @@ public struct SwissTaxSystem: TaxSystem {
     }
 
     /// The Swiss system with other parameters, e.g. a newer file or test
-    /// values. With `staggerPayouts` (the default), pillar 3a accounts pay
-    /// out over the years from first access to the year before the AHV
-    /// reference age, and vested-benefits accounts over as many years as one
-    /// may hold accounts, to spread the capital-benefit tax; without it,
-    /// both are drawn only as needed until they must pay out.
-    public init(parameters: any ParameterStore, staggerPayouts: Bool = true) {
+    /// values. How many years pillar 3a and vested-benefits payouts are
+    /// spread over is the plan's choice (the residence options
+    /// `pillar3aPayoutYears` and `vestedBenefitsPayoutYears`,
+    /// ``preferredPayoutYears(for:options:)``).
+    public init(parameters: any ParameterStore) {
         self.parameters = parameters
         let latest = parameters.years.last.flatMap { try? parameters.parameters(for: $0) }
             .flatMap { try? SwissParameters($0) }
         options = Self.systemOptions(parameters: latest)
         regimes = Self.regimeDescriptors(parameters: latest)
-        wrappers = Self.wrapperRules(parameters: latest, staggerPayouts: staggerPayouts)
+        wrappers = Self.wrapperRules(parameters: latest)
         pensionSchemes = [AHVPensionScheme(), BVGPensionScheme(defaults: latest?.bvgDefaults), FixedPensionScheme()]
     }
 
@@ -79,6 +78,24 @@ public struct SwissTaxSystem: TaxSystem {
     /// buy-ins) run in `prepare`; `validate(_:years:parameters:)` collects them.
     public func validate(_ plan: TaxPlan, parameters: any ParameterStore) -> [TaxIssue] {
         SwissValidator(system: self, plan: plan, parameters: parameters).issues()
+    }
+
+    /// The years pillar 3a and vested-benefits accounts pay out over, from
+    /// the year they open: the residence options `pillar3aPayoutYears`
+    /// (default: the years from first access to the reference age, 5) and
+    /// `vestedBenefitsPayoutYears` (default: the accounts one may hold, 2),
+    /// standing for that many accounts closed one a year; 1 pays everything
+    /// in the first year, 0 draws only what's needed until it must be paid
+    /// out (`nil`). Other wrappers as their rules say.
+    public func preferredPayoutYears(for wrapper: String, options: OptionValues) -> Int? {
+        let key: String
+        switch wrapper {
+        case SwissWrapper.pillar3a: key = SwissOption.pillar3aPayoutYears
+        case SwissWrapper.vestedBenefits: key = SwissOption.vestedBenefitsPayoutYears
+        default: return self.wrapper(wrapper)?.preferredPayoutYears
+        }
+        let years = options.withDefaults(from: self.options).int(key) ?? self.wrapper(wrapper)?.preferredPayoutYears ?? 0
+        return years > 0 ? years : nil
     }
 
     /// Stages 1–7 and 10 of the year (docs/tax/CH.md); the prepared year

@@ -34,6 +34,7 @@ struct ReferenceCase: Decodable, Sendable {
         var scheme: String?
         var options: [String: OptionValue]?
         var yearsSinceWorkStopped: Int?
+        var claimRoute: String?
     }
 
     struct Overlay: Decodable, Sendable {

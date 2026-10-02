@@ -4,7 +4,9 @@ extension SwissTaxSystem {
     /// The wrapper rules, with the ages of `p` (the latest year). Payout
     /// taxes are computed in `assess`. Ages are the age during the calendar
     /// year: a pillar 3a account opens in the year of the 60th birthday.
-    static func wrapperRules(parameters p: SwissParameters?, staggerPayouts: Bool) -> [WrapperRule] {
+    /// The rules' payout years are the defaults of the residence options
+    /// that choose them (``SwissTaxSystem/preferredPayoutYears(for:options:)``).
+    static func wrapperRules(parameters p: SwissParameters?) -> [WrapperRule] {
         let referenceAge = p?.ahv.referenceAge ?? 65
         let pillar3aFrom = referenceAge - (p?.pillar3a.earliestYearsBeforeReferenceAge ?? 5)
         let pillar3aLatest = referenceAge + (p?.pillar3a.latestYearsAfterReferenceAgeIfWorking ?? 5)
@@ -20,7 +22,7 @@ extension SwissTaxSystem {
                 .accessible(route: nil)
             },
             WrapperRule(id: SwissWrapper.pillar3a, name: "Pillar 3a", category: .taxDeferred,
-                        preferredPayoutYears: staggerPayouts ? referenceAge - pillar3aFrom : nil,
+                        preferredPayoutYears: referenceAge - pillar3aFrom,
                         mustPayOut: { due($0, latest: pillar3aLatest) }) { context in
                 context.age >= pillar3aFrom
                     ? .accessible(route: nil)
@@ -30,7 +32,7 @@ extension SwissTaxSystem {
                         + "model).")
             },
             WrapperRule(id: SwissWrapper.vestedBenefits, name: "Vested benefits", category: .taxDeferred,
-                        preferredPayoutYears: staggerPayouts ? p?.vestedBenefits.maxAccounts : nil,
+                        preferredPayoutYears: p?.vestedBenefits.maxAccounts ?? 2,
                         mustPayOut: { due($0, latest: vestedLatest) }) { context in
                 context.age >= vestedFrom
                     ? .accessible(route: nil)

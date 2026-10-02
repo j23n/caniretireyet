@@ -10,7 +10,7 @@ The module computes in Swiss francs (`SwissTaxSystem.currency` is `CHF`). A plan
 
 ## What the module provides
 
-`SwissTaxSystem()` (public, non-throwing; `SwissTaxSystem(parameters:staggerPayouts:)` for other parameters), with the ID `ch`:
+`SwissTaxSystem()` (public, non-throwing; `SwissTaxSystem(parameters:)` for other parameters), with the ID `ch`:
 
 - **Taxes:** the federal direct tax; the cantonal and communal income tax, church tax and personal tax; the wealth tax; the separate tax on capital benefits from pensions.
 - **Earned-income regimes:** `ch.employee` (the default for employees) and `ch.selfEmployed` (the default for the self-employed), with their social contributions, AHV credits and BVG age credits. Without work, AHV contributions on wealth (`ch.ahv.nonEmployed`).
@@ -59,6 +59,8 @@ These belong to the plan, not to the `ch` system; other systems read them too.
 | `mortgage` | money | 0 | Deducted from wealth. |
 | `imputedRentalValue` | money a year | 0 | Income until 2028; a warning when the plan lives in Switzerland after it. |
 | `mortgageInterest` | money a year | 0 | Deduction until 2028, up to investment income (the imputed rent included) + CHF 50,000. |
+| `pillar3aPayoutYears` | years, 0–10 | 5 (the years from first access at 60 to the reference age) | How many years 3a accounts pay out over from 60, like closing one account a year: 1 pays everything at 60, 0 draws only what's needed until it must be paid out (at 65 once work has stopped, at 70 at the latest). Read from the residence period at or before the year the accounts open, else the first one after it (the plan may live elsewhere by then). |
+| `vestedBenefitsPayoutYears` | years, 0–2 | 2 (the accounts one may hold, FZV Art. 12) | The same for vested benefits, one year per account. |
 
 ### Earned-income regimes
 
@@ -88,7 +90,7 @@ These belong to the plan, not to the `ch` system; other systems read them too.
 
 ### Wrappers
 
-`ch.ordinary`, `ch.pillar3a`, `ch.vestedBenefits` and `ch.bvg` have no options: contribution limits come from the year's earned income and pension-fund membership, access from the age. How their payouts are spread is the system's (below, [Pillar 3a](#pillar-3a-chpillar3a-and-3b)); `SwissTaxSystem(parameters:staggerPayouts: false)` turns the spreading off.
+`ch.ordinary`, `ch.pillar3a`, `ch.vestedBenefits` and `ch.bvg` have no options of their own: contribution limits come from the year's earned income and pension-fund membership, access from the age. How many years 3a and vested benefits pay out over is the plan's, in the residence options `pillar3aPayoutYears` and `vestedBenefitsPayoutYears` (above; [Pillar 3a](#pillar-3a-chpillar3a-and-3b)), which the system gives the planner through `TaxSystem.preferredPayoutYears(for:options:)`.
 
 ### Pension schemes
 
@@ -108,7 +110,7 @@ These belong to the plan, not to the `ch` system; other systems read them too.
 | | `inflation` | percent | 1% | How fast the nominal annuity loses value in today's francs. |
 | `fixed` | as shared | | | Other pensions with a known amount, including AHV or BVG pensions already being paid. |
 
-The claim age is the plan's `claim` (`earliest`, or an age): `ch.ahv` lists one option a year from 63 to 70 (routes `ch.ahv.early`, `ch.ahv.reference`, `ch.ahv.deferred`), so `earliest` means 63, with the reduction for life, and `65` the reference age. `ch.bvg` lists, for each age from 58 to 70, `ch.bvg.annuity`, `ch.bvg.capital` and, with a `lumpSumShare` between 0 and 1, `ch.bvg.partialCapital`; the one matching `lumpSumShare` comes first, and the plan's `claimRoute` picks another.
+The claim age is the plan's `claim` (`earliest`, or an age): `ch.ahv` lists one option a year from 63 to 70 (routes `ch.ahv.early`, `ch.ahv.reference`, `ch.ahv.deferred`), so `earliest` means 63, with the reduction for life, and `65` the reference age. `ch.bvg` lists, for each age from 58 to 70, `ch.bvg.annuity`, `ch.bvg.capital` and, with a `lumpSumShare` between 0 and 1, `ch.bvg.partialCapital`; the one matching `lumpSumShare` comes first, and the plan's `claimRoute` picks another. Once work has stopped before 58, the only option is the transfer to vested benefits (`ch.bvg.vestedBenefits`), also listed under the plan's `claimRoute` when that's one of the routes above, so the plan's choice finds it.
 
 ### Overrides
 
@@ -133,7 +135,7 @@ A self-employed person in Ticino: `{ "canton": "TI", "commune": "Locarno" }`, a 
 
 An early retiree in Lugano living on investments: `{ "canton": "TI", "commune": "Lugano" }`, no work after the retirement date, `incomeYield` set for the asset classes, accounts with the wrapper `ch.ordinary`, a home with `homeTaxValue` and `mortgage` if any; `ch.ahv` with `claim: 65`. AHV contributions without work are charged each year until 65.
 
-BVG and 3a as staggered lump sums: `ch.bvg` with `claimRoute: "ch.bvg.capital"` (or `lumpSumShare` and `ch.bvg.partialCapital`) and the claim age; 3a accounts are paid out over the 5 years from 60 by default, vested benefits over 2 years, so they don't fall in the BVG lump sum's year when it's at 65.
+BVG and 3a as staggered lump sums: `ch.bvg` with `claimRoute: "ch.bvg.capital"` (or `lumpSumShare` and `ch.bvg.partialCapital`) and the claim age; 3a accounts are paid out over the 5 years from 60 by default, vested benefits over 2 years, so they don't fall in the BVG lump sum's year when it's at 65; `pillar3aPayoutYears` and `vestedBenefitsPayoutYears` in the residence options choose other spreads (e.g. `{ "canton": "ZH", "pillar3aPayoutYears": 3 }` for three 3a accounts).
 
 ## How the module is built
 
@@ -389,7 +391,7 @@ In the module this runs in `assess`, from the year-end balances, the home and th
 - the assets grow by `realInterest` (default 0%, a plan assumption: the credited interest less Swiss inflation);
 - claim options from 58 to 70: the annuity at the fund's rate for that age (`conversionRate` at 65, less `conversionRateStepPerYear` for each year earlier, more for each later), all of it as a lump sum, or `lumpSumShare` as a lump sum and the rest as an annuity; the plan's `claim` chooses the age and `claimRoute` the route;
 - the annuity is nominal, so in today's money it shrinks by Swiss inflation each year (`inflation`, default 1%, *verify*: `realGrowthPerYear`);
-- once work has stopped before 58, every route moves the assets to `ch.vestedBenefits`, untaxed (a lump sum into that wrapper), whenever the plan claims it;
+- once work has stopped before 58, the assets move to `ch.vestedBenefits`, untaxed (a lump sum into that wrapper), whenever the plan claims it: the transfer is listed as `ch.bvg.vestedBenefits`, and under the plan's `claimRoute` when that's another BVG route (`ClaimContext.claimRoute`); the planner makes a vested-benefits bucket for it when no account has one, without a warning;
 - the lump sum is a `.lumpSum` pension entry in the claim year, taxed as a capital benefit; a buy-in within 3 years reverses its deduction, with a warning.
 
 ## Vested benefits (`ch.vestedBenefits`)
@@ -397,7 +399,7 @@ In the module this runs in `assess`, from the year-end balances, the home and th
 Assets from the 2nd pillar outside a pension fund: between jobs, after stopping work before 58, or after leaving for the EU. They sit in up to two vested-benefits accounts (bank or foundation), as cash or securities.
 
 - **Access:** from 5 years before the reference age (60) as an old-age benefit; due at the reference age (65), deferrable to 70 only while working (Art. 16 FZV, since 2024). Also on leaving Switzerland (over-mandatory part only, for the EU; see above), for self-employment or a home (not modelled).
-- **Staggering:** with two accounts, the money can be taken in two years. The wrapper's rule pays out half from first access and the rest the year after (`preferredPayoutYears` 2), and everything at 65 once work has stopped (`mustPayOut`).
+- **Staggering:** with two accounts, the money can be taken in two years. By default the planner pays out half from first access and the rest the year after (`vestedBenefitsPayoutYears` 2; 1 for one account, 0 to draw only as needed), and everything at 65 once work has stopped (`mustPayOut`).
 - **Tax:** like a BVG lump sum; a payout within 3 years of a buy-in reverses its deduction.
 
 A pension-fund balance tracked as an account with the wrapper `ch.bvg`, when the plan has no `ch.bvg` pension, works the same way, from 58 once work has stopped.
@@ -418,7 +420,7 @@ The module deducts what's paid up to the year's maximum, with a warning above it
 
 - as an old-age benefit from 5 years before the reference age (60); due at 65, or at 70 while working;
 - earlier when leaving Switzerland for good (including to the EU: 3a has no Art. 25f restriction), when starting self-employment, for a home, or on disability (not modelled);
-- each account is paid out in one go. To stagger, people hold several accounts (commonly up to 5) and close one a year. The wrapper's rule pays out a fifth from 60, a quarter of the rest at 61, and so on, all of it by 64 (`preferredPayoutYears` 5), and whatever is left at 65 once work has stopped (`mustPayOut`); the engine's payouts stand in for closing one account a year.
+- each account is paid out in one go. To stagger, people hold several accounts (commonly up to 5) and close one a year. By default the planner pays out a fifth from 60, a quarter of the rest at 61, and so on, all of it by 64 (`pillar3aPayoutYears` 5, the plan's choice: the number of accounts closed one a year, 1 for a single account, 0 to draw only as needed), and whatever is left at 65 once work has stopped (`mustPayOut`); the engine's payouts stand in for closing one account a year.
 
 **Tax.** 3a payouts are capital benefits, taxed separately at the reduced rate and **added to every other capital benefit of the same year** (BVG lump sum, vested benefits). Spreading 3a and vested-benefits withdrawals over the years from 60, away from the BVG lump sum, is the main way to lower that tax: in Zurich, CHF 150,000 of 3a and a CHF 500,000 BVG lump sum cost CHF 12,175 less in separate years than together (`capital-staggering-zh`). In Ticino, sums up to about CHF 378,000 a year pay a flat 2% simple tax, so splitting them saves only the federal part (`capital-staggering-lugano`).
 
@@ -564,10 +566,10 @@ Choices the law leaves open, or that an estimate has to make. They're all in the
 - **AHV record.** Swiss contribution months and the sum of credited incomes, in CHF, relative to the formula's limits: each year after the first, the sum is divided by (1 + `inflation`) × (1 + `realWageGrowth`/2), since credits are nominal (revaluation factor 1.000) while the limits follow the mixed index; each year's credit is divided by the limits' real growth since the plan's first year. A claim option's amount is the formula on the average (Swiss years only) × min(years, 44)/44 (unrounded, *verify* the rounding of the partial scales), × the reduction or supplement, × the limits' real growth to the claim year. Claim options from 63 to 70, 13 payments a year, the first year from the month after the birthday (with its 13th: months × 13/12), growing by `realWageGrowth`/2 a year after the claim. No options without a Swiss year or with less than a year in all (abroad included). Already-paid AHV pensions are `fixed` pensions: the options start at the current age.
 - **AHV credits.** Employees: the gross salary, with months for the share of the year worked; the self-employed: revenue less costs; none from the reference age. The rest of a year between 21 and the reference age is a year without work, credited with the minimum contribution's income (530 × 0.81 / 0.087, *verify*).
 - **AHV without work.** Charged in `assess` on year-end balances of ordinary (and unknown) wrappers plus the home's tax value less the mortgage, plus 20 × the year's pension annuities (all, wherever taxed), by the table's completed steps, × (1 + `nonEmployedAdminRate`), × the share of the year simulated; from 21 to the year before the reference age, and in its year for the months to the birthday month. Not due with work covering at least 9 months of the year; otherwise due less the AHV/IV/EO paid on earnings (both shares), and not at all when those are at least half of it.
-- **BVG.** A pension scheme: record in CHF, `realInterest` a year, age credits from work (both shares), buy-ins, voluntary savings of the self-employed. The routes at each age from 58 to 70: annuity, capital, and `lumpSumShare` as capital (listed first when it's set). The lump sum is paid in the claim year and taxed as a capital benefit; the annuity is nominal (`realGrowthPerYear` = 1/(1 + `inflation`) − 1). Once work has stopped before 58 (the age in the claim year less the years since work stopped), every route moves the assets untaxed to `ch.vestedBenefits` (`lumpSumWrapper`), so a plan's route still finds it.
+- **BVG.** A pension scheme: record in CHF, `realInterest` a year, age credits from work (both shares), buy-ins, voluntary savings of the self-employed. The routes at each age from 58 to 70: annuity, capital, and `lumpSumShare` as capital (listed first when it's set). The lump sum is paid in the claim year and taxed as a capital benefit; the annuity is nominal (`realGrowthPerYear` = 1/(1 + `inflation`) − 1). Once work has stopped before 58 (the age in the claim year less the years since work stopped), the only option moves the assets untaxed to `ch.vestedBenefits` (`lumpSumWrapper`): route `ch.bvg.vestedBenefits`, and the plan's `claimRoute` when it's another BVG route, so the plan's route still finds it.
 - **Capital benefits** are summed over the year (pension lump sums in `prepare`, payouts from `ch.pillar3a`, `ch.vestedBenefits`, `ch.bvg` and foreign pension wrappers in `assess`) and taxed once; the lines are split among them in proportion, each with its subject. In Ticino the conversion factor is the age-65 one from `capitalBenefitTable` at every age.
 - **3-year lock.** The tax state keeps each year's BVG buy-ins (`ch.bvg.buyIn.<year>`) for 3 years. A BVG lump sum in the year of a buy-in or the 3 calendar years after it adds those buy-ins back to the year's income (the deduction is reversed), with a warning; so does a payout from vested benefits or a `ch.bvg` account. This may be one year too strict (*verify*).
-- **Payouts.** `ch.pillar3a` pays out over 5 years from first access (60), `ch.vestedBenefits` over 2; both must pay out at the reference age once work has stopped, at 70 at the latest. `SwissTaxSystem(parameters:staggerPayouts: false)` draws them only as needed until then.
+- **Payouts.** `ch.pillar3a` pays out over `pillar3aPayoutYears` (5) years from first access (60), `ch.vestedBenefits` over `vestedBenefitsPayoutYears` (2); both must pay out at the reference age once work has stopped, at 70 at the latest. With 0 they're drawn only as needed until then. The options come from the residence period at or before the year the wrapper opens, else the first after it, else their defaults.
 - **Investments.** No tax on gains. Interest, dividends, coupons and funds' reported income at the marginal rate on top of the year's other income (federal and cantonal); a 35% Swiss withholding is fully refunded, so it's ignored.
 - **Wealth tax** on year-end values of ordinary accounts (cash, securities, crypto, gold) and the home's tax value less the mortgage; first year pro rata. Ticino's brake after the wealth tax: the cantonal and communal income and wealth tax together are cut to 60% of the cantonal taxable income plus any shortfall of investment income below 1% of net wealth, by reducing the wealth tax (not below 0).
 - **Lump-sum taxation.** Base = max(federal minimum, canton's minimum, 7 × `annualRent`, `livingExpenses`), taxed at the ordinary federal and cantonal tariffs; deemed wealth = 5 × the base at the cantonal wealth tariff. No investment-income tax, no other wealth tax; capital benefits and AHV without work as usual.
@@ -590,9 +592,9 @@ What maps onto the protocols:
 | Currency | `TaxSystem.currency` `CHF`; `FixedYear.currencyRate`, `ClaimContext.currencyRate`, the schemes' `currencyRate` overloads |
 | AHV pension | `PensionScheme`: `montante` = credited incomes relative to the limits, `contributionMonths`, `foreignContributionMonths`; `claimOptions` 63–70 with `fullYearAmount`, `changes` and `realGrowthPerYear`; `oldAgePensionAge` 65 |
 | AHV and BVG credits from work | `Accrual(.pensionScheme("ch.ahv"), amount:, contributionMonths:)`, `Accrual(.pensionScheme("ch.bvg"))` in `prepare` |
-| BVG claims | `ClaimOption.lumpSum`, `lumpSumWrapper` (`ch.vestedBenefits`), `realGrowthPerYear`, `mandatoryShare`, routes; `ClaimContext.yearsSinceWorkStopped` |
+| BVG claims | `ClaimOption.lumpSum`, `lumpSumWrapper` (`ch.vestedBenefits`), `realGrowthPerYear`, `mandatoryShare`, routes; `ClaimContext.yearsSinceWorkStopped` and `claimRoute` |
 | BVG seed account and buy-ins | `seedWrapper` `ch.bvg` and the option `startingBalance`; buy-ins as `WrapperContribution`s to `ch.bvg`, credited with their `source` |
-| 3a and vested benefits | `WrapperRule` with access by age, `mustPayOut` and `preferredPayoutYears` |
+| 3a and vested benefits | `WrapperRule` with access by age, `mustPayOut` and `preferredPayoutYears` (the defaults); the plan's payout years through `TaxSystem.preferredPayoutYears(for:options:)` |
 | Lump sums and payouts as capital benefits | `.lumpSum` pension entries in `prepare`, `VariableYear.payouts` in `assess`; `grossUp` by bisection (`NumericGrossUp`) |
 | Funds' yearly income | `CapitalIncomeKind.reportedIncome`, taxed as income |
 | Wealth tax, Ticino's brake, AHV without work | `assess` on `VariableYear.balances` with `fractionOfYear` |
@@ -601,7 +603,7 @@ What maps onto the protocols:
 | Citizenship, birth date, residence timeline | `TaxPlan.citizenships`, `FixedYear.citizenships`, `birthDate`, `residence` |
 | Moving to and from other countries | the residence timeline; `FixedYear.Pension.scheme`, `kind`, `sourceCountry`, `taxedIn` |
 
-**Status of the gaps the design listed.** Gaps 1–5, 8, 9, 10 and 13 are in TaxKit and the planner and the module uses them (currency, lump sums and their wrapper, buy-ins into a scheme, seeding from an account, reported fund income, forced and spread payouts, indexing by law, real growth in payment, citizenship). Still open:
+**Status of the gaps the design listed.** Gaps 1–5, 8, 9, 10 and 13 are in TaxKit and the planner and the module uses them (currency, lump sums and their wrapper, buy-ins into a scheme, seeding from an account, reported fund income, forced and spread payouts, indexing by law, real growth in payment, citizenship). So are two found while building it: payout years per plan (`TaxSystem.preferredPayoutYears(for:options:)`, read from the residence options) and the claim route in the context (`ClaimContext.claimRoute`). Still open:
 
 - **6. Pension credits that depend on wealth.** The AHV contribution without work depends on year-end wealth, but the engine takes pension credits only from the prepared year: the module credits the minimum contribution's income. *Change:* `FixedYear.expectedWealth: Double?` from a first deterministic pass.
 - **7. Wealth outside the plan.** The home and its mortgage are system options. *Change:* `FixedYear.otherAssets: [VariableYear.Balance]`.
@@ -610,11 +612,9 @@ What maps onto the protocols:
 
 **New gaps found while building it** (each additive):
 
-- **Payout preferences per plan.** `WrapperRule.preferredPayoutYears` is the system's, so how many years 3a and vested benefits are spread over can't be a plan option: the module spreads 3a over 5 years and vested benefits over 2, or neither (`staggerPayouts`). *Change:* a plan-level `withdrawals.payoutYears` by wrapper, which the planner prefers to the rule's.
 - **Gross-up with the year's payouts so far.** `grossUp(net:from:)` gets only the bucket, so a capital-benefit gross-up can't see payouts already made on the path in the year (a forced or spread payout before a needed one): it's a little low, and the engine carries the difference. *Change:* pass the year's `VariableYear` so far (a defaulted overload).
 - **Work intensity.** `FixedYear.WorkIncome` has the share of the year, not of full time, so the AHV rule for people not working full time uses months (9 or more is full time). *Change:* an optional `workloadShare`.
 - **State along a path.** The tax state comes from the prepared year only, so the module can't know whether a 3a account was already drawn (no more contributions after the first withdrawal, a warning after 5 payout years). Same as DE G4.
-- **The claim route in the context.** `ClaimContext` doesn't carry the plan's `claimRoute`, so the transfer to vested benefits is listed under every route. *Change:* `ClaimContext.claimRoute: String?`.
 - **Sex.** Ticino's conversion table and the AHV reference age of women born 1961–1963 depend on it: a system option (`capitalBenefitTable`) for now.
 
 ## Reference cases

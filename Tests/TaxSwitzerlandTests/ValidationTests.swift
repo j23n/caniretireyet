@@ -56,6 +56,20 @@ struct ValidationTests {
         #expect(failed.issues.map(\.code) == ["ch.canton.unsupported"] && failed.lines.isEmpty)
     }
 
+    @Test func payoutYearsAreCheckedLikeOtherOptions() {
+        var plan = examplePlan
+        plan.residence[0].options = Swiss.place("Zurich", ["pillar3aPayoutYears": 3, "vestedBenefitsPayoutYears": 1])
+        #expect(codes(plan).isEmpty)
+        // At most one year per vested-benefits account (two), and whole years.
+        plan.residence[0].options = Swiss.place("Zurich", ["vestedBenefitsPayoutYears": 3])
+        #expect(codes(plan) == ["ch.options.outOfRange"])
+        plan.residence[0].options = Swiss.place("Zurich", ["pillar3aPayoutYears": 2.5])
+        #expect(codes(plan) == ["ch.options.wrongType"])
+        let field = system.options.first { $0.key == "pillar3aPayoutYears" }
+        #expect(field?.defaultValue == .number(5) && field?.kind == .int)
+        #expect(system.options.first { $0.key == "vestedBenefitsPayoutYears" }?.defaultValue == .number(2))
+    }
+
     @Test func theMarriedTariffIsRefused() {
         var plan = examplePlan
         plan.residence[0].options["tariff"] = "married"

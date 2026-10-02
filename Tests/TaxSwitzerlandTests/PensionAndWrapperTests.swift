@@ -128,10 +128,25 @@ struct BVGTests {
         let stopped = ClaimContext(year: 2028, birthDate: birth, options: ["lumpSumShare": "0.5"], currencyRate: 0.95,
                                    yearsSinceWorkStopped: 1)
         let options = scheme.claimOptions(for: record, context: stopped, parameters: store)
-        #expect(Set(options.map(\.route)) == ["ch.bvg.vestedBenefits", "ch.bvg.annuity", "ch.bvg.capital",
-                                              "ch.bvg.partialCapital"])
+        // Without a route from the plan, the transfer is the only option.
+        #expect(options.map(\.route) == ["ch.bvg.vestedBenefits"])
         #expect(options.allSatisfy { $0.age == 52 && $0.lumpSumWrapper == "ch.vestedBenefits" && $0.annualAmount == 0 })
         #expect(abs((options.first?.lumpSum ?? 0) - 300_000 / 0.95) < 1e-6)
+        // With one, it's also listed under that route, so the plan's choice finds it.
+        for route in ["ch.bvg.annuity", "ch.bvg.capital", "ch.bvg.partialCapital"] {
+            var chosen = stopped
+            chosen.claimRoute = route
+            let listed = scheme.claimOptions(for: record, context: chosen, parameters: store)
+            #expect(listed.map(\.route) == ["ch.bvg.vestedBenefits", route])
+            #expect(listed.allSatisfy { $0.lumpSumWrapper == "ch.vestedBenefits" && $0.label == "Transfer to vested benefits" })
+        }
+        // A route the scheme doesn't have, or the transfer's own, adds nothing.
+        for route in ["ch.bvg.vestedBenefits", "ch.ahv.reference"] {
+            var chosen = stopped
+            chosen.claimRoute = route
+            #expect(scheme.claimOptions(for: record, context: chosen, parameters: store).map(\.route)
+                    == ["ch.bvg.vestedBenefits"])
+        }
         // Still working: the retirement options from 58, the partial route first.
         let working = ClaimContext(year: 2028, birthDate: birth, options: ["lumpSumShare": "0.5"])
         let later = scheme.claimOptions(for: record, context: working, parameters: store)
@@ -179,9 +194,18 @@ struct WrapperTests {
         if case .locked(let reason) = pillar.access(in: context(age: 50, stopped: 1)) {
             #expect(reason.hasPrefix("A pillar 3a account can be drawn from 60"))
         }
-        let unstaggered = SwissTaxSystem(parameters: system.parameters, staggerPayouts: false)
-        #expect(unstaggered.wrapper("ch.pillar3a")?.preferredPayoutYears == nil)
-        #expect(unstaggered.wrapper("ch.vestedBenefits")?.preferredPayoutYears == nil)
+        // The plan chooses the years in its residence options; the rules hold the defaults.
+        let place = Swiss.place("Zurich")
+        #expect(system.preferredPayoutYears(for: "ch.pillar3a", options: place) == 5)
+        #expect(system.preferredPayoutYears(for: "ch.vestedBenefits", options: [:]) == 2)
+        #expect(system.preferredPayoutYears(for: "ch.pillar3a", options: Swiss.place("Zurich", ["pillar3aPayoutYears": 3]))
+                == 3)
+        #expect(system.preferredPayoutYears(for: "ch.vestedBenefits", options: ["vestedBenefitsPayoutYears": 1]) == 1)
+        // 0: drawn only as needed until they must pay out.
+        #expect(system.preferredPayoutYears(for: "ch.pillar3a", options: ["pillar3aPayoutYears": 0]) == nil)
+        #expect(system.preferredPayoutYears(for: "ch.vestedBenefits", options: ["vestedBenefitsPayoutYears": 0]) == nil)
+        #expect(system.preferredPayoutYears(for: "ch.bvg", options: ["pillar3aPayoutYears": 3]) == nil)
+        #expect(system.preferredPayoutYears(for: "ch.ordinary", options: [:]) == nil)
         // Neither looks like severance pay to the planner (locked while working, open once work stops).
         for rule in system.wrappers {
             let working = rule.access(in: WrapperAccessContext(year: 2026, age: 0, yearsSinceWorkStopped: nil,

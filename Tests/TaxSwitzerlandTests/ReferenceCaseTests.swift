@@ -102,7 +102,7 @@ struct ReferenceCaseTests {
         let record = scheme.startingRecord(options: options, year: reference.year, parameters: system.parameters,
                                            currencyRate: rate)
         let context = ClaimContext(year: reference.year, birthDate: birth, options: options, currencyRate: rate,
-                                   yearsSinceWorkStopped: input.yearsSinceWorkStopped)
+                                   yearsSinceWorkStopped: input.yearsSinceWorkStopped, claimRoute: input.claimRoute)
         let claims = scheme.claimOptions(for: record, context: context, parameters: system.parameters)
         let expected = try #require(reference.expected.claims)
         #expect(claims.first?.age == expected.first?.age, "\(name): earliest age \(claims.first?.age ?? -1)")
