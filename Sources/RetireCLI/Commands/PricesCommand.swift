@@ -11,7 +11,8 @@ struct PricesCommand: RetireSubcommand {
         abstract: "Fetch the prices, FX rates and inflation figures a check-in needs.",
         discussion: """
             Works out what a check-in on the date needs: a price for every instrument held, \
-            an FX rate for every other currency, and the inflation-index months the library is \
+            an FX rate for every other currency (those of accounts, instruments and plans), and \
+            the inflation-index months the library is \
             missing. It fetches them (Yahoo Finance, CoinGecko, gold-api.com, the ECB through \
             Frankfurter, Eurostat) and prints the price list with sources and failures. Only \
             symbols, currencies and dates are sent. With --apply, the fetched records are \
@@ -76,7 +77,8 @@ struct PricesCommand: RetireSubcommand {
         let today = context.today
         let service = PriceService.standard(client: context.httpClient, credentials: context.credentials,
                                             today: { today })
-        let needs = service.needs(for: loaded.library, on: date)
+        var needs = service.needs(for: loaded.library, on: date)
+        needs.includePlanCurrencies(of: loaded.library)
         let fetched = await service.fetch(needs)
         var report = Report(library: loaded.library, needs: needs, fetched: fetched)
         if apply {

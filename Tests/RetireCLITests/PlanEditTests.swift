@@ -1,0 +1,205 @@
+import Foundation
+import Model
+import Planner
+@testable import RetireCLI
+import Testing
+import TestSupport
+
+/// `retire plan show`, `set`, `contribution` and `pension`: what the app's
+/// plan editor changes, from the command line.
+struct PlanEditTests {
+    @Test func showListsThePlansInputs() async throws {
+        let library = try TemporaryFolder.exampleLibrary()
+        let run = await retire(["plan", "show", "--library", library.path])
+        #expect(run.status == 0, "\(run.all)")
+        let lines = run.output.split(separator: "\n", omittingEmptySubsequences: false).map(String.init)
+        #expect(lines.prefix(3) == ["Plan base: Base case", "Currency: EUR (the library's)",
+                                    "Tax residence: it from 2026 (Italy)"])
+        #expect(lines.contains("  1. INPS (it.inps) · claimed as early as possible"))
+        #expect(lines.contains("  2. State pension from previous country (fixed) · 4,800 a year from 67"))
+        #expect(lines.contains("  1. Fondo pensione (fondo-pensione) · 5,000 EUR a year until retirement"))
+        #expect(lines.contains("  equity    4.5%       17.0%             –"))
+
+        let json = try parseJSON(await retire(["plan", "show", "--library", library.path, "--plan",
+                                               "part-time-from-50", "--json"]).output)
+        #expect(json["plan"] as? String == "part-time-from-50")
+        #expect(json["currency"] as? String == "EUR")
+        #expect(json["ownCurrency"] == nil)
+        let returns = try #require(json["returns"] as? [String: [String: Any]])
+        #expect(returns["equity"]?["real"] as? String == "0.045")
+    }
+
+    @Test func setChangesTheCurrencyAndIncomeYields() async throws {
+        let library = try TemporaryFolder.exampleLibrary()
+        let run = await retire(["plan", "set", "--library", library.path, "--currency", "usd",
+                                "--income-yield", "equity=2%", "--income-yield", "bonds=0.03"])
+        #expect(run.status == 0, "\(run.all)")
+        #expect(run.output.hasPrefix("Currency: USD.\nIncome yield of equity: 2.0%.\nIncome yield of bonds: 3.0%.\n"
+            + "Wrote 1 file: plans/base.json.\n"))
+        var plan = try #require(try library.load().plans["base"])
+        #expect(plan.currency == .usd)
+        #expect(plan.assumptions.returns[.equity]?.incomeYield == dec("0.02"))
+        #expect(plan.assumptions.returns[.equity]?.real == dec("0.045"))
+        #expect(plan.assumptions.returns[.bonds]?.incomeYield == dec("0.03"))
+        #expect(try library.text("plans/base.json").contains(#""currency": "USD""#))
+        #expect(try library.backups().count == 1)
+
+        // Back to the library's currency, and no yield.
+        let back = await retire(["plan", "set", "--library", library.path, "--currency", "library",
+                                 "--income-yield", "equity=none"])
+        #expect(back.status == 0, "\(back.all)")
+        plan = try #require(try library.load().plans["base"])
+        #expect(plan.currency == nil)
+        #expect(plan.assumptions.returns[.equity]?.incomeYield == nil)
+
+        // A currency without rates is written, with a note.
+        let francs = await retire(["plan", "set", "--library", library.path, "--currency", "CHF"])
+        #expect(francs.output.contains("Note: the library has no exchange rate between EUR and CHF, so the plan can't "
+            + "value your accounts in CHF."))
+        let validate = await retire(["validate", "--library", library.path])
+        #expect(validate.output.contains("plans/base.json") && validate.output.contains("currency: the library has no "
+            + "exchange rate between EUR and CHF"))
+
+        let nothing = await retire(["plan", "set", "--library", library.path])
+        #expect(nothing.status == 64)
+        let badClass = await retire(["plan", "set", "--library", library.path, "--income-yield", "shares=0.02"])
+        #expect(badClass.status == 64)
+        #expect(badClass.errors.contains("isn't an asset class"))
+        let tooMuch = await retire(["plan", "set", "--library", library.path, "--income-yield", "equity=150%"])
+        #expect(tooMuch.status == 64)
+    }
+
+    @Test func contributionsGoIntoAnAccountOrASchemeYearlyOrOnce() async throws {
+        let library = try TemporaryFolder.exampleLibrary()
+        let buyIn = await retire(["plan", "contribution", "add", "--library", library.path, "--pension", "it.inps",
+                                  "--amount", "20000", "--year", "2030"])
+        #expect(buyIn.status == 0, "\(buyIn.all)")
+        #expect(buyIn.output.hasPrefix("Contribution 2: INPS (it.inps, pension scheme) · 20,000 EUR once in 2030.\n"))
+        let yearly = await retire(["plan", "contribution", "add", "--library", library.path, "--account", "directa",
+                                   "--per-year", "3000", "--until", "2035-12-31"])
+        #expect(yearly.status == 0, "\(yearly.all)")
+        #expect(yearly.output.hasPrefix("Contribution 3: Directa (directa) · 3,000 EUR a year until 2035-12-31.\n"))
+
+        var plan = try #require(try library.load().plans["base"])
+        #expect(plan.contributions.count == 3)
+        #expect(plan.contributions[1] == PlanContribution(pension: "it.inps", amount: 20_000, year: 2030))
+        #expect(plan.contributions[2] == PlanContribution(account: "directa", perYear: 3_000, until: .date("2035-12-31")))
+        let file = try library.text("plans/base.json")
+        #expect(file.contains(#"{ "amount": "20000", "pension": "it.inps", "year": 2030 }"#)
+            || file.contains(#""pension": "it.inps""#))
+
+        let removed = await retire(["plan", "contribution", "remove", "2", "--library", library.path])
+        #expect(removed.status == 0, "\(removed.all)")
+        #expect(removed.output.hasPrefix("Removed contribution 2: INPS (it.inps, pension scheme)"))
+        plan = try #require(try library.load().plans["base"])
+        #expect(plan.contributions.map(\.account) == ["fondo-pensione", "directa"])
+
+        // Dry runs write nothing; mistakes say what's wrong.
+        let before = try library.snapshot()
+        let dry = await retire(["plan", "contribution", "add", "--library", library.path, "--account", "directa",
+                                "--per-year", "100", "--dry-run"])
+        #expect(dry.output.contains("Dry run: nothing was written (1 file would change)."))
+        #expect(try library.snapshot() == before)
+        let both = await retire(["plan", "contribution", "add", "--library", library.path, "--account", "directa",
+                                 "--pension", "it.inps", "--per-year", "1"])
+        #expect(both.status == 64)
+        let noYear = await retire(["plan", "contribution", "add", "--library", library.path, "--account", "directa",
+                                   "--amount", "1"])
+        #expect(noYear.status == 64)
+        #expect(noYear.errors.contains("A one-off --amount needs its --year."))
+        let unknown = await retire(["plan", "contribution", "add", "--library", library.path, "--pension", "xx.fund",
+                                    "--amount", "1", "--year", "2030"])
+        #expect(unknown.status == 1)
+        #expect(unknown.errors.contains("There's no pension scheme \"xx.fund\". Schemes: it.inps."))
+        let past = await retire(["plan", "contribution", "remove", "9", "--library", library.path])
+        #expect(past.status == 1)
+        #expect(past.errors.contains("There's no contribution 9: the plan has 2 contributions, numbered from 1."))
+    }
+
+    @Test func pensionsTakeAKindACountryAndAWayToClaim() async throws {
+        let library = try TemporaryFolder.exampleLibrary()
+        let set = await retire(["plan", "pension", "set", "2", "--library", library.path, "--kind", "statutory",
+                                "--source-country", "de"])
+        #expect(set.status == 0, "\(set.all)")
+        #expect(set.output.hasPrefix("Pension 2, State pension from previous country (fixed):\n"
+            + "Kind: statutory (a state pension).\nPaying country: DE.\n"))
+        var pension = try #require(try library.load().plans["base"]?.pensions[1])
+        #expect(pension.kind == .statutory && pension.sourceCountry == "DE")
+
+        let routes = await retire(["plan", "pension", "routes", "1", "--library", library.path])
+        #expect(routes.status == 0, "\(routes.all)")
+        #expect(routes.output.hasPrefix("Ways to claim pension 1, INPS (it.inps)\n"))
+        #expect(routes.output.contains("it.inps."))
+        let routesJSON = await retire(["plan", "pension", "routes", "1", "--library", library.path, "--json"])
+        let first = try #require((try JSONSerialization.jsonObject(with: Data(routesJSON.output.utf8))
+            as? [[String: Any]])?.first)
+        let route = try #require(first["route"] as? String)
+
+        let chosen = await retire(["plan", "pension", "set", "1", "--library", library.path, "--claim-route", route])
+        #expect(chosen.status == 0, "\(chosen.all)")
+        #expect(chosen.output.contains("Way to claim: \(route) ("))
+        #expect(try library.load().plans["base"]?.pensions[0].claimRoute == route)
+
+        // A route the scheme doesn't list is written, with a note and the planner's warning.
+        let odd = await retire(["plan", "pension", "set", "1", "--library", library.path, "--claim-route",
+                                "it.inps.nope"])
+        #expect(odd.status == 0, "\(odd.all)")
+        #expect(odd.output.contains("Note: the scheme doesn't list it with the pension's details as they are"))
+        #expect(odd.output.contains("warning INPS (contributory system) never offers the claim route it.inps.nope"))
+        let shown = await retire(["plan", "show", "--library", library.path])
+        #expect(shown.output.contains("  1. INPS (it.inps) · claimed as early as possible · way to claim it.inps.nope"))
+        #expect(shown.output.contains("kind statutory · paid from DE"))
+
+        let cleared = await retire(["plan", "pension", "set", "1", "--library", library.path, "--claim-route",
+                                    "default", "--kind", "none"])
+        #expect(cleared.status == 0, "\(cleared.all)")
+        pension = try #require(try library.load().plans["base"]?.pensions[0])
+        #expect(pension.claimRoute == nil && pension.kind == nil)
+
+        let badKind = await retire(["plan", "pension", "set", "1", "--library", library.path, "--kind", "public"])
+        #expect(badKind.status == 64)
+        #expect(badKind.errors.contains("--kind must be one of statutory, occupational, basicPension, privateAnnuity"))
+    }
+
+    @Test func thePlanRunsInItsCurrencyAndSaysHowItReadTheLibrary() async throws {
+        let library = try TemporaryFolder.exampleLibrary()
+        _ = await retire(["plan", "set", "--library", library.path, "--currency", "USD"])
+        let run = await retire(["plan", "--library", library.path, "--fast", "--years"])
+        #expect(run.status == 0, "\(run.all)")
+        #expect(run.output.contains("What you could spend: ") && run.output.contains(" USD a year in today's money"))
+        #expect(run.output.contains("How the plan reads your library, on 2026-09-30 (USD)"))
+        #expect(run.output.contains("  Ordinary account  "))
+        #expect(run.output.contains("The median run, year by year (USD, today's money)"))
+        #expect(run.output.contains("  Year  Age    Work  Pensions  Lump sums  Payouts"))
+
+        let json = try parseJSON(await retire(["plan", "run", "--library", library.path, "--fast", "--json",
+                                               "--years"]).output)
+        #expect(json["currency"] as? String == "USD")
+        let start = try #require(json["start"] as? [String: Any])
+        let buckets = try #require(start["buckets"] as? [[String: Any]])
+        #expect(buckets.contains { $0["wrapper"] as? String == "it.pensionFund" && $0["liquid"] as? Bool == false })
+        let years = try #require(json["years"] as? [[String: Any]])
+        #expect(years.first?["year"] as? Int == 2026)
+        // The TFR is paid when the job ends: a payout by rule, not a withdrawal.
+        #expect(years.contains { ($0["payouts"] as? String).map { $0 != "0" } == true })
+    }
+
+    @Test func yearRowsKeepLumpSumsAndRulePayoutsApart() {
+        let registry = TaxSystems.registry()
+        let detail = YearDetail(year: 2050, age: 62, startAssets: 0, endAssets: 100, spending: 30_000,
+                                expenses: 1_000, income: [
+                                    IncomeItem(kind: .pension, id: "pension-0", label: "INPS", amount: 10_000),
+                                    IncomeItem(kind: .pension, id: "pension-0.lumpSum", label: "INPS (lump sum)",
+                                               amount: 50_000),
+                                    IncomeItem(kind: .payout, id: "it.tfr", label: "TFR", amount: 20_000),
+                                    IncomeItem(kind: .payout, id: "it.pensionFund", label: "Pension fund",
+                                               amount: 5_000),
+                                    IncomeItem(kind: .withdrawal, id: "it.ordinary", label: "Ordinary", amount: 7_000),
+                                ], taxes: [AmountItem(id: "irpef", label: "IRPEF", amount: 3_000)],
+                                contributions: [AmountItem(id: "x", label: "X", amount: 500)])
+        let row = PlanReport.YearRow.rows([detail], registry: registry)[0]
+        #expect(row == PlanReport.YearRow(year: 2050, age: 62, work: 0, pensions: 10_000, lumpSums: 50_000,
+                                          payouts: 20_000, drawn: 12_000, windfalls: 0, taxes: 3_500,
+                                          spending: 31_000, endAssets: 100))
+    }
+}

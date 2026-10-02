@@ -26,11 +26,15 @@ struct InitCommand: RetireSubcommand {
     @Option(help: "Your name, as the library's owner.")
     var name: String?
 
-    @Option(help: ArgumentHelp("The currency net worth is reported in.", valueName: "code"))
-    var currency = "EUR"
+    @Option(help: ArgumentHelp("The currency net worth is reported in, e.g. EUR or CHF.", valueName: "code"))
+    var currency: String
 
-    @Option(help: ArgumentHelp("Your country of tax residence today, e.g. IT.", valueName: "country"))
+    @Option(help: ArgumentHelp("Your country of tax residence today, e.g. DE.", valueName: "country"))
     var residence: String?
+
+    @Option(help: ArgumentHelp("A citizenship you hold, e.g. IT; repeat it for each. Some tax treaties decide by it.",
+                               valueName: "country"))
+    var citizenship: [String] = []
 
     func validate() throws {
         _ = try settings()
@@ -47,10 +51,11 @@ struct InitCommand: RetireSubcommand {
         if let country, !country.isWellFormed {
             throw ValidationError("--residence must be a two-letter country code such as IT, not “\(residence!)”.")
         }
+        let citizenships = try citizenship.map(SettingsCommand.country)
         let trimmedName = name?.trimmingCharacters(in: .whitespaces)
-        let person = birth != nil || trimmedName?.isEmpty == false
-            ? Person(name: trimmedName?.isEmpty == false ? trimmedName : nil, birthDate: birth) : nil
-        return LibrarySettings(baseCurrency: currency, person: person, taxResidence: country)
+        let person = Person(name: trimmedName?.isEmpty == false ? trimmedName : nil, birthDate: birth)
+        let settings = LibrarySettings(baseCurrency: currency, person: person, taxResidence: country)
+        return SettingsCommand.setting(citizenships: citizenships, in: settings)
     }
 
     mutating func run() async throws {
@@ -75,6 +80,9 @@ struct InitCommand: RetireSubcommand {
         table.add(["Base currency", settings.baseCurrency.rawValue])
         table.add(["Tax residence", settings.taxResidence?.rawValue ?? "not set"])
         table.add(["Birth date", settings.person?.birthDate?.description ?? "not set (plans need it)"])
+        if let citizenships = settings.person?.citizenships, !citizenships.isEmpty {
+            table.add(["Citizenships", citizenships.map(\.rawValue).joined(separator: ", ")])
+        }
         if let name = settings.person?.name { table.add(["Name", name]) }
         console.print(lines: table.lines())
         console.print()

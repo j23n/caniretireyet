@@ -2,8 +2,9 @@ import ArgumentParser
 import Foundation
 
 /// `retire`: Can I Retire Yet? on the command line. Creates and checks a
-/// library folder, prints net worth, imports spreadsheets, broker exports
-/// and journals, lists and edits trades, fetches prices, and runs plans.
+/// library folder, shows and sets its settings, prints net worth, imports
+/// spreadsheets, broker exports and journals, lists and edits trades and
+/// instruments' tax kinds, fetches prices, and runs and edits plans.
 ///
 /// The commands live in this library so they can be tested; the `retire`
 /// executable only calls ``Retire/main()``. Tests call ``RetireCLI/run(_:context:)``
@@ -18,8 +19,9 @@ public struct Retire: AsyncParsableCommand {
             """,
         version: "0.2.0",
         subcommands: [
-            InitCommand.self, ValidateCommand.self, NetWorthCommand.self, ImportGroupCommand.self,
-            TradesGroupCommand.self, PricesCommand.self, PlanCommand.self,
+            InitCommand.self, ValidateCommand.self, SettingsCommand.self, NetWorthCommand.self,
+            ImportGroupCommand.self, TradesGroupCommand.self, InstrumentsGroupCommand.self, PricesCommand.self,
+            PlanGroupCommand.self,
         ]
     )
 
