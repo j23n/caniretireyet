@@ -87,28 +87,43 @@ enum TradeWording {
         CheckInWording.instrumentLabel(id, instrument: library.instruments[id])
     }
 
-    /// "Buy · 10 VWCE × 102,30", "Dividend · VWCE", "Deposit", "Split · VWCE × 2",
-    /// "Opening · 338 VWCE". The price's currency follows it when it isn't the account's.
+    /// What a trade was, without its price: "Buy 0,10383916 BTC", "Sell 8,5
+    /// VWCE", "Dividend VWCE", "Deposit", "Split VWCE × 2", "Opening 338
+    /// VWCE". Quantities read as everywhere (``QuantityFormat``).
     static func title(of trade: Trade, in library: Library, locale: Locale = .current) -> String {
         var parts = [TradeTypeDisplay.name(trade.type)]
         let label = trade.instrument.map { instrumentLabel($0, in: library) }
         if trade.type == .split {
-            if let label { parts.append(label + (trade.ratio.map { " × " + AmountFormat.number($0, maxDigits: 6, locale: locale) } ?? "")) }
-            return parts.joined(separator: " · ")
+            if let label {
+                parts.append(label + (trade.ratio.map { " × " + AmountFormat.number($0, maxDigits: 6, locale: locale) } ?? ""))
+            }
+            return parts.joined(separator: " ")
         }
-        var what: [String] = []
-        if let quantity = trade.quantity {
-            what.append(AmountFormat.number(quantity, maxDigits: 8, locale: locale))
-        }
-        if let label { what.append(label) }
-        var text = what.joined(separator: " ")
-        if let price = trade.price, trade.quantity != nil {
-            text += " × " + AmountFormat.number(price, maxDigits: 4, locale: locale)
-            let currency = priceCurrency(of: trade, in: library)
-            if currency != library.accounts[trade.account]?.currency { text += " " + currency.rawValue }
-        }
-        if !text.isEmpty { parts.append(text) }
-        return parts.joined(separator: " · ")
+        if let quantity = trade.quantity { parts.append(QuantityFormat.quantity(quantity, locale: locale)) }
+        if let label { parts.append(label) }
+        return parts.joined(separator: " ")
+    }
+
+    /// A trade's unit price in its own currency, with the currency's symbol
+    /// (``QuantityFormat/unitPrice(_:currency:locale:)``): "101.437,76 €",
+    /// "165,00 $". `nil` without a quantity and a price.
+    static func price(of trade: Trade, in library: Library, locale: Locale = .current) -> String? {
+        guard let price = trade.price, trade.quantity != nil, trade.type != .split else { return nil }
+        return QuantityFormat.unitPrice(price, currency: priceCurrency(of: trade, in: library), locale: locale)
+    }
+
+    /// The whole trade on one line: "Buy 10 VWCE at 134,75 €", "Deposit".
+    static func summary(of trade: Trade, in library: Library, locale: Locale = .current) -> String {
+        let title = title(of: trade, in: library, locale: locale)
+        return price(of: trade, in: library, locale: locale).map { title + " at " + $0 } ?? title
+    }
+
+    /// The line under a trade's title in the list: "at 101.437,76 € · 1 Oct
+    /// 2025 · note"; the date and note alone without a price.
+    static func subtitle(of trade: Trade, in library: Library, locale: Locale = .current) -> String {
+        [price(of: trade, in: library, locale: locale).map { "at " + $0 },
+         AmountFormat.mediumDate(trade.date, locale: locale), trade.note]
+            .compactMap { $0 }.joined(separator: " · ")
     }
 
     /// The currency of a trade's price: as written, else the instrument's, else the account's.
@@ -143,8 +158,13 @@ enum TradeWording {
 /// One trade in the account's list.
 struct TradeListItem: Hashable, Sendable, Identifiable {
     var trade: Trade
-    /// "Buy · 10 VWCE × 102,30".
+    /// "Buy 10 VWCE" (``TradeWording/title(of:in:locale:)``).
     var title: String
+    /// "at 102,30 € · 12 Mar 2026 · note" (``TradeWording/subtitle(of:in:locale:)``).
+    var subtitle: String
+    /// The unit price in its currency, "102,30 €"; `nil` without one (the
+    /// Mac table's Price column).
+    var priceText: String?
     /// The instrument's short name, if the trade has one.
     var instrumentLabel: String?
     /// What the trade paid or brought in, in the account's currency, as
@@ -227,6 +247,8 @@ struct TradeList: Hashable, Sendable {
         let items = entries.reversed().filter { filter.includes($0.trade) }.map { entry in
             TradeListItem(
                 trade: entry.trade, title: TradeWording.title(of: entry.trade, in: library, locale: locale),
+                subtitle: TradeWording.subtitle(of: entry.trade, in: library, locale: locale),
+                priceText: TradeWording.price(of: entry.trade, in: library, locale: locale),
                 instrumentLabel: entry.trade.instrument.map { TradeWording.instrumentLabel($0, in: library) },
                 amount: entry.amount, settlementLabel: TradeWording.settlementLabel(of: entry.trade),
                 realizedGain: entry.realizedGain,
@@ -483,8 +505,8 @@ struct TradeIssueNote: Hashable, Sendable, Identifiable {
     /// missing trade." with *Add Trade…* on the statement's date.
     static func note(for mismatch: PositionMismatch, library: Library, locale: Locale = .current) -> TradeIssueNote {
         let label = TradeWording.instrumentLabel(mismatch.instrument, in: library)
-        let listed = AmountFormat.number(mismatch.listed, maxDigits: 8, locale: locale)
-        let derived = AmountFormat.number(mismatch.derived, maxDigits: 8, locale: locale)
+        let listed = QuantityFormat.quantity(mismatch.listed, locale: locale)
+        let derived = QuantityFormat.quantity(mismatch.derived, locale: locale)
         let fix = mismatch.difference > 0
             ? "Add the missing trade, e.g. a buy or a transfer in."
             : "Add the missing sale or transfer out, or check the statement."

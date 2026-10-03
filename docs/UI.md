@@ -335,19 +335,21 @@ A brokerage, crypto or metals account can record its **trades** instead of month
 │   VWCE; your trades give 414,5. Add the  │
 │   missing trade, …        Add Trade…     │
 │ HOLDINGS                                 │
-│ Vanguard FTSE All-World     57.098,25 €  │
-│   412,5 sh × 138,42 EUR   99% of account │
-│   Average cost 116,85 €  ▲ 8.898 ▲ 18,5% │
+│ Vanguard FTSE All-World      57.098,25 € │
+│   412,5 sh × 138,42 € 99% of the account │
+│   Average cost 116,85 € ▲ 8.898 € +18,5% │
 │ Cash                           312,10 €  │
 │ Total                       57.410,35 €  │
 │ TRADES                                   │
 │ ⊕ Add Trade…          20 trades Filter ▾ │
 │ AUGUST 2026                              │
-│ ⊕ Buy · 10 VWCE × 134,75   −1.352,50 €   │
-│ ↓ Deposit                    +200,60 €   │
+│ ⊕ Buy 10 VWCE                −1.352,50 € │
+│   at 134,75 € · 12 Aug 2026              │
+│ ↓ Deposit                      +200,60 € │
+│   4 Aug 2026                             │
 │ JULY 2026                                │
-│ ⊖ Sell · 8,5 VWCE × 144,56 +1.162,80 €   │
-│                         gain +234,42     │
+│ ⊖ Sell 8,5 VWCE              +1.162,80 € │
+│   at 144,56 € · 14 Jul 2026 gain +234,42 │
 │ …                                        │
 │ INCOME & GAINS                           │
 │ 2026   Realised gains · Dividends ·      │
@@ -356,8 +358,8 @@ A brokerage, crypto or metals account can record its **trades** instead of month
 └──────────────────────────────────────────┘
 ```
 
-- **Holdings**: per instrument, the quantity, average cost (*costo medio*: what was paid per unit, fees included), value, unrealised gain (amount and %) and its share of the account; then the cash and the total. On the Mac, a grid with those columns.
-- **Trades**: grouped by month, newest first; each row shows the type's icon, what it was ("Buy · 10 VWCE × 134,75", with the price's currency when it isn't the account's), the date and note, and the cash it moved, with a sale's realised gain. A trade paid from outside the account shows what was paid or received, marked "paid from outside" (a sale: "proceeds paid out"); on the Mac the mark leads its note. *Filter* shows one instrument or one type. Tap a trade to edit it; swipe or long-press to delete it (the confirmation says what deleting brings in, e.g. a later sale now selling more than is held). On the Mac, a table (date, type, instrument, quantity, price, amount, note) as long as its trades, which scrolls with the page: double-click edits, right-click edits or deletes.
+- **Holdings**: per instrument, the quantity, average cost (*costo medio*: what was paid per unit, fees included), value, unrealised gain (amount and %) and its share of the account; then the cash and the total. Each position is three lines: the name and value; "0,10383916 BTC × 73.785,11 €" and "95 % of the account" (when they don't fit on one line, the quantity and the share share it and "at 73.785,11 €" goes on the next; at the largest text sizes each is a line of its own); "Average cost 101.437,74 €" and the gain ("▼ −2.871 € −27,3 %"), the gain under the cost when they don't fit. A label and its value are one piece of text, so they never wrap apart. On the Mac, a grid with those columns.
+- **Trades**: grouped by month, newest first; each row shows the type's icon, what it was ("Buy 0,10383916 BTC") over its price, date and note ("at 101.437,76 € · 1 Oct 2025", the price in its own currency), and on the other side the cash it moved, with a sale's realised gain. A trade paid from outside the account shows what was paid or received, marked "paid from outside" (a sale: "proceeds paid out"); on the Mac the mark leads its note. At the largest text sizes the amount goes under the description. *Filter* shows one instrument or one type. Tap a trade to edit it; swipe or long-press to delete it (the confirmation says what deleting brings in, e.g. a later sale now selling more than is held). On the Mac, a table (date, type, instrument, quantity, price, amount, note) as long as its trades, which scrolls with the page: double-click edits, right-click edits or deletes.
 - **Income & gains**, by year: realised gains, dividends, interest, fees and taxes, and the net; a sale whose cost is unknown is left out and said so. In the account's currency.
 - **What needs a look**, as banners with the fix: a trade missing a price or amount, a sale of more than was held, an opening without cost, a missing exchange rate, a trade outside the account's dates, a value with a balance (which isn't used), and a statement that differs from the trades ("The statement on 30 Jun shows 12 VWCE; your trades give 10. Add the missing trade."). Each banner's button opens the trade, a new trade on the statement's date, or the value. The Overview's *Needs attention* points to an account with any of these ("Directa: 2 problems with trades").
 - **Cash at check-ins**: the account's values, which record its cash. The history chart, the header's change and the new-money ticks come from the Valuator (deposits and transfers on their own dates).
@@ -367,7 +369,7 @@ A brokerage, crypto or metals account can record its **trades** instead of month
 
 - **Type**: Buy, Sell or Dividend as segments, and *More ▸* for interest, fee, tax, deposit, withdrawal, transfer in and out, split and opening (a chosen one shows as a fourth segment). Each type shows only its fields; editing a trade keeps showing any field it has.
 - **Date**, and for most types the **instrument**: the library's instruments, or *New Instrument…* (the instrument form, in a sheet).
-- **Quantity, price and currency** (the instrument's by default). The library's price for the date is a hint with *Use* ("The library's price that day: 138,42 EUR", or the latest before it); *Fetch Price for This Date* asks the instrument's price source.
+- **Quantity, price and currency** (the instrument's by default). The library's price for the date is a hint with *Use* ("The library's price that day: 138,42 €", or the latest before it); *Fetch Price for This Date* asks the instrument's price source.
 - **Fees and tax** (a buy's transaction tax, or tax withheld), in the account's currency.
 - **Amount**: worked out live as −(quantity × price × FX) − fees − tax for a buy, quantity × price × FX − fees − tax for a sale, and shown as the field's placeholder with "Computed …" (with the rate used when the price is in another currency). Type the broker's amount when it differs (their rate, rounding): the typed amount wins, and the hint shows what was computed, with *Use Computed*. Amounts are typed as positive numbers; the type gives the direction (a buy's *Paid*, a sale's *Received*, a fee's *Charged*).
 - **Paid from outside this account** (a buy, a fee or a tax) or **Proceeds leave this account** (a sale), a switch at the top of the amount ([TRADES.md](TRADES.md#paid-from-outside-the-account)): gold bought from a dealer and paid from the bank, a sale paid into the bank. On, the account's cash doesn't change and the amount counts as new money (a line under the switch says so). It's on by default for a metals account and for a trades account that has never held cash (no value with cash, no deposit, no sale whose proceeds stayed), and off otherwise. When it's off and a buy, fee or tax would take the cash below zero on its day, a hint says so with a one-tap switch: "Cash would go to −1.200,00 €. Paid from outside this account?" *Paid from Outside*.
@@ -619,6 +621,8 @@ On iPhone, journals use "Import with profile…" with a saved ledger profile, li
 
 - The system font. Large standalone numbers use its default figures; columns that must line up (tables, check-in fields, axis labels) use tabular figures (`.monospacedDigit()`).
 - Formatted for your locale and base currency: in Italian, `312.480 €`, with decimals only where they matter (check-in fields, account detail).
+- **Quantities and unit prices** read the same everywhere (account holdings, the trades list, the check-in's positions, the instruments, the trade form, the review; `QuantityFormat`): a quantity has up to 8 decimals, trailing zeros trimmed (`0,10383916 BTC`, `412,5 sh`); a unit price (or an average cost per unit) is money in its own currency, with the currency's symbol, 2 decimals from 1 up (`73.785,11 €`, `165,00 $`) and 4 significant digits below (`0,004312 €`). The import's preview shows prices as read from the file.
+- A label and its value are one piece of text ("Average cost 101.437,74 €"), so they wrap together; a line too narrow for both breaks between the label and the value.
 - Charts use compact numbers (`312k`).
 - Zero never has a sign: an amount that rounds to zero reads `0,00 €`, never `−0,00 €`, and an axis never reads `−0`.
 - Dates in "since …" leave out the year only when it's this one: "since 30 Sep", "since 30 Nov 2021".

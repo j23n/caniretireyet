@@ -732,8 +732,9 @@ private struct AccountDetailHeader: View {
 
 // MARK: - Positions
 
-/// One position in the iPhone list: name and value, quantity × price and
-/// the unrealised gain, and the purchase cost.
+/// One position in the iPhone list: name and value; quantity × price
+/// (`AccountPositionText`, the price on a line of its own when both don't
+/// fit) and the unrealised gain; the purchase cost.
 private struct AccountPositionListRow: View {
     let row: AccountHoldingRow
     let currency: CurrencyCode
@@ -742,54 +743,113 @@ private struct AccountPositionListRow: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: Metrics.xs) {
-            HStack(alignment: .firstTextBaseline, spacing: Metrics.s) {
-                Text(row.name)
-                    .foregroundStyle(Palette.ink)
-                    .lineLimit(2)
-                Spacer(minLength: Metrics.s)
-                if let amount = row.amount {
-                    AmountText(amount, currency: currency, precision: .cents)
-                        .foregroundStyle(Palette.ink)
-                } else {
-                    Text("No price")
-                        .foregroundStyle(Palette.secondaryInk)
-                }
-            }
-            HStack(alignment: .firstTextBaseline, spacing: Metrics.s) {
-                Text(AccountPositionText.quantityAndPrice(row, hidesAmounts: hidesAmounts, locale: locale))
-                    .privacySensitive()
-                Spacer(minLength: Metrics.s)
+            AccountPositionNameLine(row: row, currency: currency)
+            AccountPositionQuantityLine(row: row) {
                 if let gain = row.gain {
-                    DeltaText(gain, currency: currency)
-                    if let fraction = row.gainFraction {
-                        DeltaText(percent: fraction, showsArrow: false)
-                    }
+                    AccountPositionGain(gain: gain, fraction: row.gainFraction, currency: currency)
                 }
             }
-            .font(.footnote)
-            .foregroundStyle(Palette.secondaryInk)
-            if let cost = row.costBasis {
-                HStack {
-                    Text("Purchase cost")
-                    Spacer()
-                    AmountText(cost, currency: currency)
-                }
-                .font(.footnote)
-                .foregroundStyle(Palette.secondaryInk)
+            if let cost = AccountPositionText.purchaseCost(row, currency: currency, hidesAmounts: hidesAmounts,
+                                                           locale: locale) {
+                Text(verbatim: cost)
+                    .privacySensitive()
+                    .font(.footnote)
+                    .foregroundStyle(Palette.secondaryInk)
             }
         }
         .padding(.vertical, 2)
     }
 }
 
-/// How a position's quantity and price read.
-enum AccountPositionText {
-    /// "412,5 sh × 138,42 EUR".
-    static func quantityAndPrice(_ row: AccountHoldingRow, hidesAmounts: Bool, locale: Locale) -> String {
-        let quantity = hidesAmounts ? AmountFormat.hidden : AmountFormat.number(row.quantity, locale: locale)
-        let unit = row.unit.map { InstrumentForm.shortName(of: $0) } ?? ""
-        guard let price = row.price else { return "\(quantity) \(unit)" }
-        return "\(quantity) \(unit) × \(AmountFormat.number(price.price, maxDigits: 4, locale: locale)) \(price.currency)"
+/// A position's first line: its name, and its value in the account's
+/// currency (or "No price").
+struct AccountPositionNameLine: View {
+    let row: AccountHoldingRow
+    let currency: CurrencyCode
+
+    var body: some View {
+        HStack(alignment: .firstTextBaseline, spacing: Metrics.s) {
+            Text(row.name)
+                .foregroundStyle(Palette.ink)
+                .lineLimit(2)
+            Spacer(minLength: Metrics.s)
+            if let amount = row.amount {
+                AmountText(amount, currency: currency, precision: .cents)
+                    .foregroundStyle(Palette.ink)
+                    .layoutPriority(1)
+            } else {
+                Text("No price")
+                    .foregroundStyle(Palette.secondaryInk)
+            }
+        }
+    }
+}
+
+/// A position's quantity × price, with `trailing` (its share, or its gain)
+/// at the end of the line: "0,10383916 BTC × 73.785,11 €   95 % of the
+/// account". When that doesn't fit, the quantity and `trailing` share a
+/// line and "at 73.785,11 €" goes on the next; at the largest text sizes
+/// each is a line of its own. In footnote type, secondary ink.
+struct AccountPositionQuantityLine<Trailing: View>: View {
+    let row: AccountHoldingRow
+    @ViewBuilder let trailing: () -> Trailing
+
+    @Environment(\.hidesAmounts) private var hidesAmounts
+    @Environment(\.locale) private var locale
+
+    var body: some View {
+        let quantity = AccountPositionText.quantity(row, hidesAmounts: hidesAmounts, locale: locale)
+        let price = AccountPositionText.price(row, locale: locale)
+        ViewThatFits(in: .horizontal) {
+            HStack(alignment: .firstTextBaseline, spacing: Metrics.s) {
+                Text(verbatim: AccountPositionText.quantityAndPrice(row, hidesAmounts: hidesAmounts, locale: locale))
+                    .privacySensitive()
+                    .lineLimit(1)
+                Spacer(minLength: Metrics.s)
+                trailing()
+            }
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(alignment: .firstTextBaseline, spacing: Metrics.s) {
+                    Text(verbatim: quantity)
+                        .privacySensitive()
+                        .lineLimit(1)
+                    Spacer(minLength: Metrics.s)
+                    trailing()
+                }
+                if let price {
+                    Text(verbatim: price)
+                        .lineLimit(1)
+                }
+            }
+            VStack(alignment: .leading, spacing: 2) {
+                Text(verbatim: quantity)
+                    .privacySensitive()
+                if let price {
+                    Text(verbatim: price)
+                }
+                trailing()
+            }
+        }
+        .font(.footnote)
+        .foregroundStyle(Palette.secondaryInk)
+    }
+}
+
+/// A position's unrealised gain: "▼ −2.871 € −27,3 %", the amount and its
+/// fraction of the cost kept together.
+struct AccountPositionGain: View {
+    let gain: Decimal
+    let fraction: Double?
+    let currency: CurrencyCode
+
+    var body: some View {
+        HStack(alignment: .firstTextBaseline, spacing: Metrics.xs) {
+            DeltaText(gain, currency: currency)
+            if let fraction {
+                DeltaText(percent: fraction, showsArrow: false)
+            }
+        }
+        .fixedSize()
     }
 }
 
@@ -825,7 +885,7 @@ private struct AccountPositionsGrid: View {
                     GridRow {
                         Text(row.name)
                             .lineLimit(1)
-                        Text(hidesAmounts ? AmountFormat.hidden : AmountFormat.number(row.quantity, locale: locale))
+                        Text(hidesAmounts ? AmountFormat.hidden : QuantityFormat.quantity(row.quantity, locale: locale))
                             .monospacedDigit()
                             .privacySensitive()
                         Text(price(of: row))
@@ -863,7 +923,7 @@ private struct AccountPositionsGrid: View {
 
     private func price(of row: AccountHoldingRow) -> String {
         guard let price = row.price else { return "–" }
-        return "\(AmountFormat.number(price.price, maxDigits: 4, locale: locale)) \(price.currency)"
+        return QuantityFormat.unitPrice(price.price, currency: price.currency, locale: locale)
     }
 }
 #endif

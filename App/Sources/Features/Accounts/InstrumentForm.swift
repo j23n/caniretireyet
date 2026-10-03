@@ -318,7 +318,7 @@ struct InstrumentForm: Hashable, Sendable {
         switch entry.outcome {
         case .fetched(let details):
             guard let quote = details.quote else { return "Fetched a price." }
-            var text = "Fetched \(AmountFormat.number(quote.price, locale: locale)) \(quote.currency)"
+            var text = "Fetched " + QuantityFormat.unitPrice(quote.price, currency: quote.currency, locale: locale)
             if let unit = quote.unit { text += " per \(name(of: unit))" }
             text += " for \(AmountFormat.shortDate(quote.observedOn, locale: locale))."
             return text

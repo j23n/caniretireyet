@@ -495,7 +495,7 @@ extension InstrumentPriceUpdate.Line {
         return "\(source) → \(resolvedSymbol)"
     }
 
-    /// The fetched value: "140 EUR" for a price, "1,15" for a rate, "128,41"
+    /// The fetched value: "140,00 €" for a price, "1,15" for a rate, "128,41"
     /// for an index's latest month.
     func valueText(locale: Locale = .current) -> String? {
         if let price { return InstrumentText.price(price.price, currency: price.currency, locale: locale) }
@@ -503,7 +503,7 @@ extension InstrumentPriceUpdate.Line {
         return indexValues.last.map { AmountFormat.number($0.value, maxDigits: 2, locale: locale) }
     }
 
-    /// What happened, as a sentence: "Was 137,10 EUR on 29 Sep.",
+    /// What happened, as a sentence: "Was 137,10 € on 29 Sep.",
     /// "Unchanged since 30 Sep.", why it failed, or that a typed value was kept.
     func detail(locale: Locale = .current) -> String {
         let currency = price?.currency

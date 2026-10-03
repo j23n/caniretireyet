@@ -188,7 +188,7 @@ struct UpdateValueSheet: View {
                             suffix: instrument.map { InstrumentForm.shortName(of: $0.unit) }, allowsNegative: false)
         if let review, let price = review.price {
             HStack {
-                Text("at \(AmountFormat.number(price.price, maxDigits: 4, locale: locale)) \(price.currency.rawValue)")
+                Text(verbatim: QuantityFormat.atPrice(price.price, currency: price.currency, locale: locale))
                 Spacer()
                 if let value = review.value {
                     AmountText(value)

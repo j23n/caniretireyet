@@ -402,7 +402,7 @@ struct TradeEditorSheet: View {
             }
             if let quantity = preview.quantityAfter, let instrument = preview.instrument {
                 LabeledContent {
-                    Text(verbatim: AmountFormat.number(quantity, maxDigits: 8, locale: locale))
+                    Text(verbatim: QuantityFormat.quantity(quantity, locale: locale))
                         .monospacedDigit()
                         .privacySensitive()
                 } label: {

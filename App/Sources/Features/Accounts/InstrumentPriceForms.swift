@@ -44,15 +44,16 @@ enum InstrumentText {
         return "\(symbol) → \(resolved)"
     }
 
-    /// "138,42 EUR".
+    /// "138,42 €", "0,004312 €" (``QuantityFormat/unitPrice(_:currency:locale:)``);
+    /// the number alone without a currency.
     static func price(_ value: Decimal, currency: CurrencyCode?, locale: Locale = .current) -> String {
-        let number = AmountFormat.number(value, maxDigits: 4, locale: locale)
-        return currency.map { "\(number) \($0)" } ?? number
+        guard let currency else { return QuantityFormat.unitPriceNumber(value, locale: locale) }
+        return QuantityFormat.unitPrice(value, currency: currency, locale: locale)
     }
 }
 
 /// An instrument's latest saved price, as the Instruments list shows it:
-/// "138,42 EUR on 30 Sep", marked when it's older than the staleness
+/// "138,42 € on 30 Sep", marked when it's older than the staleness
 /// threshold (the one accounts use).
 struct InstrumentLatestPrice: Hashable, Sendable {
     var record: PriceRecord
@@ -73,7 +74,7 @@ struct InstrumentLatestPrice: Hashable, Sendable {
         isNotFetched = instrument.priceSource != nil && (record.source == .manual || record.source == .import)
     }
 
-    /// "138,42 EUR on 30 Sep".
+    /// "138,42 € on 30 Sep".
     func text(locale: Locale = .current) -> String {
         InstrumentText.price(record.price, currency: record.currency, locale: locale) + " on "
             + AmountFormat.shortDate(record.date, locale: locale)
@@ -141,7 +142,7 @@ struct InstrumentPriceForm: Hashable, Sendable {
         return PriceRecord(instrument: instrument, date: date, price: price, currency: currency, source: .manual)
     }
 
-    /// "Replaces 138,42 EUR from Yahoo Finance saved for 30 Sep."; `nil`
+    /// "Replaces 138,42 € from Yahoo Finance saved for 30 Sep."; `nil`
     /// when nothing is saved for the date.
     static func replacementNote(_ existing: PriceRecord?, locale: Locale = .current) -> String? {
         guard let existing else { return nil }
