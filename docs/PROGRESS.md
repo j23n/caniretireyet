@@ -34,7 +34,9 @@ Each check-in re-runs the main plan (`mainPlan` in `library.json`) and records t
 
 - the earliest retirement age at your confidence level;
 - the chance of success at your target age;
-- progress toward financial independence.
+- **readiness**: your plan assets as a share of what retiring today with your confidence level would need, from the simulation ([PLANNER.md](PLANNER.md#assets-needed-to-retire-today)). It reaches 100% exactly when retiring today does.
+
+Records also keep the old `fiProgress` (plan assets over the spending pensions don't cover, divided by 4%), with its old meaning. The app no longer shows it: it treated the pensions as already paid and ignored taxes and the plan's confidence, so it could read 75% while retiring today succeeded in 13% of futures. Older records have only `fiProgress`; for them the app shows no progress number.
 
 The chart then shows how "you can retire at 54" moves from month to month.
 
@@ -115,12 +117,12 @@ Baselines are created:
 {
   "headlines": [
     { "date": "2026-09-30", "earliestAge": 54, "engine": "1.2.0", "fiProgress": "0.41",
-      "planHash": "5c1f…", "successAtTarget": "0.86", "taxParameters": { "it": 2026 } }
+      "planHash": "5c1f…", "readiness": "0.07", "successAtTarget": "0.86", "taxParameters": { "it": 2026 } }
   ]
 }
 ```
 
-`planHash` identifies the plan's inputs, so the chart can mark the check-ins where you changed the plan. `earliestAge` is left out when no age reaches the confidence level, and an optional `confidence` records the level used.
+`planHash` identifies the plan's inputs, so the chart can mark the check-ins where you changed the plan. `earliestAge` is left out when no age reaches the confidence level, and an optional `confidence` records the level used. `readiness` (optional) is rounded down to two decimals, so a recorded 1 means retiring today reached the confidence level; it's left out in records made before it existed and when retiring today would need more than 20 times the plan assets. A baseline's `headline` has the same fields.
 
 ## Data this needs from day one
 
