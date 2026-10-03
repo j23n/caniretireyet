@@ -165,9 +165,10 @@ struct PlannerPlanEngine: PlanEngine {
             PlannerOptions(mode: .fast(runs: PlannerOptions.defaultFastRuns), ageScan: .headline, focusAge: focusAge,
                            today: asOf)
         case .focus:
-            // The fewest ages the Planner allows: today's, the plan's and the focus age.
+            // The fewest ages the Planner allows: today's, the plan's and the focus age. The
+            // headline numbers (sustainable spending, what retiring today needs) stay the plan's.
             PlannerOptions(mode: .full, ageScan: .headline, focusAge: focusAge, maxRetirementAge: 0,
-                           solveSustainableSpending: false, today: asOf)
+                           solveSustainableSpending: false, solveAssetsNeeded: false, today: asOf)
         }
     }
 
@@ -222,6 +223,7 @@ extension PlanRunProgress.Phase {
         case .earliestAge: self = .earliestAge
         case .simulating: self = .simulating
         case .sustainableSpending: self = .sustainableSpending
+        case .assetsNeeded: self = .assetsNeeded
         case .summarising: self = .summarising
         }
     }

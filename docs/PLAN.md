@@ -172,7 +172,7 @@ The iPhone uses a tab bar and the Mac uses a sidebar. The iPad gets the sidebar 
   - accounts that haven't been updated recently;
   - a *past and future* switch that continues the chart into the plan's projection;
   - whether you're ahead of or behind your latest baseline;
-  - progress toward financial independence, taken from the active plan.
+  - how close your plan assets are to what retiring today needs, taken from the active plan ([PLANNER.md](PLANNER.md#assets-needed-to-retire-today)).
 - **Accounts.** A grouped list, with closed accounts in a collapsed section. The account detail shows a value chart, the list of valuations, and actions to edit, close or reopen.
 - **Check-in.** The main action. The steps are:
   1. Choose the date (default: today).

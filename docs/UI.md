@@ -115,7 +115,8 @@ The home screen. Top to bottom:
 │ └──────────────────────────────────────┘ │
 │ ┌ Can I retire yet? ───────────────────┐ │
 │ │ Not yet · earliest at 54 (2042)      │ │
-│ │ ▇▇▇▇▇▇▇▇░░░░░░░░░░░ 41% of the way   │ │
+│ │ ▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇░░░░░░░░░░░░░░░ │ │
+│ │ 58% of what retiring today needs ⓘ   │ │
 │ │ 12.400 € ahead of your Jan baseline  │ │
 │ └──────────────────────────────────────┘ │
 │ ┌ Needs attention ─────────────────────┐ │
@@ -147,7 +148,10 @@ The home screen. Top to bottom:
   - **Old prices.** When a value in the chart uses a price more than 31 days older than its date, a note under it says so: "10 values in the chart use a price more than 31 days older than their date (Gold coins)." with *Fill In Past Prices…* (see [Instruments](#accounts)).
   - **Partial totals.** Net worth adds up what can be valued. Where a total misses something (a price or an exchange rate, or an account with no value yet), the line is dashed and grey, the callout says "Partial: some values are missing", and a note under the chart says what and when: "Where the line is dashed, the total is partial: exchange rates for US$ are missing for Jun 2018 – Dec 2021 (US brokerage) and 3 accounts have no value yet for Jun 2018 – Sep 2025 (Directa, Fondo pensione and Old bank)." with *Fill In Past Prices…* when some of it is prices or rates.
 - **Since last check-in.** A headline, "▲ +4.210 € since 31 Aug", the totals before and after in words, and a bar each for markets, new money and other, from a shared zero line and to the same scale: gains go right in the positive colour, losses left in the negative one, with their signed amounts in a column of their own. It's the most useful single number after the total, because it separates "I saved" from "markets moved". (It used to be a waterfall, whose bars from zero made the totals huge grey blocks and the changes slivers on top.) While amounts are hidden, the headline shows the change in per cent and the bars keep their proportions.
-- **Can I retire yet?** The plan's headline, progress toward financial independence, and how you compare with the latest baseline. Tapping it opens the Plan tab. It shows the main plan's latest results, or else the answer recorded at the last check-in, dated; it never starts a calculation. While one is going (a check-in's, or one started on the Plan screen) it says how far along it is, and results that no longer fit the plan or your data say "Calculated before your latest changes".
+- **Can I retire yet?** The plan's headline, how close your plan assets are to what retiring today needs, and how you compare with the latest baseline. Tapping it opens the Plan tab.
+  - **Readiness**: a bar and "58% of what you'd need to retire today" ([PLANNER.md](PLANNER.md#assets-needed-to-retire-today)). Its ⓘ explains it: "Your plan assets compared with what retiring now would need for a 90% chance (the plan's confidence), including the years before your pensions start and taxes." It comes from the same simulation as the chance of retiring today, so it reaches 100% exactly when the answer turns to "Yes" (above 100% it keeps counting: "130% of what you'd need…"). When retiring today would need more than 20 times your plan assets, it says so instead of a percentage.
+  - An answer recorded before readiness existed has only the old "of the way to financial independence", a rule of thumb that ignored the years before the pensions and taxes and so disagreed with the chance of retiring today: the card shows "Calculate the plan to see how close you are to retiring today." instead.
+  - The card opens the plan on a tap anywhere but the ⓘ; the chevron is its button for VoiceOver and the keyboard. It shows the main plan's latest results, or else the answer recorded at the last check-in, dated; it never starts a calculation. While one is going (a check-in's, or one started on the Plan screen) it says how far along it is, and results that no longer fit the plan or your data say "Calculated before your latest changes".
 - **Needs attention.** Only shown when something needs you: stale accounts (not one that holds nothing: see [Accounts](#accounts)), accounts with problems in their trades, prices that couldn't be fetched, sync conflicts that were merged, and plan warnings. An account whose trades have problems (more sold than held, an opening without a cost, a statement that differs from the trades: the notes its page shows) gets one item that opens it: "Directa: 2 problems with trades · More sold than held · VWCE differs from the statement. Open the account to fix them." Prices and exchange rates missing on past month ends get an item each, which opens *Fill In Past Prices*: "Past exchange rates for US$ are missing · US brokerage isn't fully counted in your net worth for Jun 2018 – Dec 2021. Fill in past prices to fetch them."
 - **Allocation.** Horizontal bars with values and percentages; a donut would be harder to read. The dimension can be switched between asset class, account group, currency, institution, and liquid vs locked.
   - *Asset class* splits holdings by their instrument's mix and balances by the account's mix, and shows debts as their own bar.
@@ -233,6 +237,7 @@ The flow that has to be fast. It opens as a full-screen sheet on iPhone and as t
 
   > Saved · Net worth 312.480 € (▲ 4.210)
   > Can I retire yet? Not yet: earliest at **54**, unchanged since August.
+  > 58% of what you'd need to retire today
 
   This is the monthly moment the app is built around, and the one time a plan runs without a button: recording the month's answer is what the check-in is for. *Done* can close the confirmation while it runs; the answer is still recorded.
 
@@ -420,7 +425,7 @@ A plan is calculated only when you ask: *Calculate*, *Recalculate* (⌘R, and a 
   └──────────────────────────────────────────┘
   ```
 
-  - The phase and its own bar, in the locale's numbers with tabular figures: "Earliest age · ages 38–75: 12 / 38" (most of the time: the chance at every age), "Simulating 1.234 / 2.000 runs" (the chosen age in detail), "Sustainable spending: step 4 / 16", "Summarising". Then the whole calculation's bar. A what-if's first pass says "Quick estimate…".
+  - The phase and its own bar, in the locale's numbers with tabular figures: "Earliest age · ages 38–75: 12 / 38" (most of the time: the chance at every age), "Simulating 1.234 / 2.000 runs" (the chosen age in detail), "Sustainable spending: step 4 / 16", "Needed to retire today: step 3 / 9", "Summarising". Then the whole calculation's bar. A what-if's first pass says "Quick estimate…".
   - **Cancel** stops it; the old results stay as they were (and out of date). A check-in's calculation can't be cancelled here: it says "Working out this month's answer…".
   - Editing an input while it runs lets it finish: its results then show as out of date, with Recalculate. Cancelling instead would throw away a calculation you asked for, while it's usually seconds from done.
   - The same view shows on iPhone and Mac, in Compare and in the check-in's confirmation. The header of the answer says "Calculating 29%" meanwhile, and the iPhone pill shows a small bar.
@@ -438,6 +443,9 @@ A plan is calculated only when you ask: *Calculate*, *Recalculate* (⌘R, and a 
 │ in 9 of 10 simulated futures             │
 │ Retiring today: 12%                      │
 │ At 55 you could spend 38.400 €/yr        │
+│ ▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇░░░░░░░░░░░░░░░░  │
+│ 58% of what you'd need to retire today ⓘ │
+│ Needed to retire today: 545.000 €        │
 │                                          │
 │ Chance of success by retirement age      │
 │ 100% ┤                 ●━━━━━━━━━━━━━━━━━│
@@ -477,6 +485,7 @@ A plan is calculated only when you ask: *Calculate*, *Recalculate* (⌘R, and a 
 - **Headline.**
   - "Yes." or "Not yet.", then the earliest age and date, and the confidence in plain words ("in 9 of 10 simulated futures").
   - Two secondary numbers: the chance if you retired today, and **how much you could spend** if you retired at your target age. The second comes from the engine's solver for the highest spending that still meets your confidence level.
+  - **What retiring today would need**: the same bar and sentence as the Overview's, with its ⓘ, and "Needed to retire today: 545.000 €", the plan assets that would make retiring today reach your confidence ([PLANNER.md](PLANNER.md#assets-needed-to-retire-today)). On the Mac and iPad the key numbers list it too ("Needed to retire today", "You have 58%"), where the FI number used to be. The FI number is gone from the screen: nothing in the charts used it, so no marker or line replaces it.
 - **Chance of success by retirement age.**
   - One line; a dotted rule at your confidence level, labelled at its right end, below the rule where the curve ends above it; the earliest age marked where they cross.
   - The age axis runs from today's age to the last age simulated, labelled every 5 years (every 10 when narrow), never from 0.
@@ -507,7 +516,7 @@ A plan is calculated only when you ask: *Calculate*, *Recalculate* (⌘R, and a 
 
 See [PROGRESS.md](PROGRESS.md).
 
-- **Your answer over time.** The earliest retirement age at each check-in, as a step line. Markers show where you changed the plan, where the app's calculations changed, or where new tax rules arrived.
+- **Your answer over time.** The earliest retirement age at each check-in, as a step line. Markers show where you changed the plan, where the app's calculations changed, or where new tax rules arrived. A check-in's callout adds its readiness ("58% of what retiring today needed") when it was recorded; the old FI progress isn't shown.
 - **Actual vs baseline.**
   - Pick a baseline, e.g. "Start of 2026 (automatic)" or "Before forfettario (saved 12 Mar)".
   - Its fan chart runs from its start date, with your actual line drawn over it, in the baseline's currency (its plan's when it was saved): the same accounts at each check-in's exchange rate, in money of the start date where an inflation index for that currency allows. A line under the chart says which, and names check-ins left out for want of a rate.

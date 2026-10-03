@@ -611,23 +611,25 @@ enum PreviewLibrary {
     ]
 
     /// The headline recorded at each check-in of 2026 for `base`: date,
-    /// earliest age, FI progress, plan hash, success at the target age.
-    private static let headlineRows: [(String, Int, String, String, String)] = [
-        ("2026-01-31", 55, "0.37", "5c1f0a9e", "0.81"),
-        ("2026-02-28", 55, "0.38", "5c1f0a9e", "0.8"),
-        ("2026-03-31", 55, "0.37", "5c1f0a9e", "0.78"),
-        ("2026-04-30", 55, "0.37", "5c1f0a9e", "0.79"),
-        ("2026-05-31", 55, "0.38", "7d24b6c1", "0.82"),
-        ("2026-06-30", 54, "0.39", "7d24b6c1", "0.83"),
-        ("2026-07-31", 54, "0.4", "7d24b6c1", "0.85"),
-        ("2026-08-31", 54, "0.4", "7d24b6c1", "0.84"),
-        ("2026-09-30", 54, "0.41", "7d24b6c1", "0.86"),
+    /// earliest age, FI progress, plan hash, success at the target age, and
+    /// readiness, which only the latest records have (as in the example library).
+    private static let headlineRows: [(String, Int, String, String, String, String?)] = [
+        ("2026-01-31", 55, "0.37", "5c1f0a9e", "0.81", nil),
+        ("2026-02-28", 55, "0.38", "5c1f0a9e", "0.8", nil),
+        ("2026-03-31", 55, "0.37", "5c1f0a9e", "0.78", nil),
+        ("2026-04-30", 55, "0.37", "5c1f0a9e", "0.79", nil),
+        ("2026-05-31", 55, "0.38", "7d24b6c1", "0.82", nil),
+        ("2026-06-30", 54, "0.39", "7d24b6c1", "0.83", nil),
+        ("2026-07-31", 54, "0.4", "7d24b6c1", "0.85", nil),
+        ("2026-08-31", 54, "0.4", "7d24b6c1", "0.84", "0.24"),
+        ("2026-09-30", 54, "0.41", "7d24b6c1", "0.86", "0.25"),
     ]
 
     static var headlines: [Headline] {
-        headlineRows.map { date, age, progress, hash, success in
+        headlineRows.map { date, age, progress, hash, success, readiness in
             Headline(date: CalendarDate(date)!, confidence: d("0.9"), earliestAge: age, engine: "0.1.0",
-                     fiProgress: d(progress), planHash: hash, successAtTarget: d(success), taxParameters: ["it": 2026])
+                     fiProgress: d(progress), planHash: hash, readiness: readiness.map(d), successAtTarget: d(success),
+                     taxParameters: ["it": 2026])
         }
     }
 

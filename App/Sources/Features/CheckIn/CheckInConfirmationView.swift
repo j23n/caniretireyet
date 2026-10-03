@@ -119,8 +119,8 @@ struct CheckInConfirmationView: View {
                 answerText(parts)
                     .font(.title3)
                     .fixedSize(horizontal: false, vertical: true)
-                if let progress = headline.fiProgress {
-                    Text(verbatim: AmountFormat.percent(progress, digits: 0, locale: locale) + " of the way to financial independence")
+                if let readiness = PlanResultsText.readiness(headline, locale: locale) {
+                    Text(verbatim: readiness)
                         .font(.subheadline)
                         .foregroundStyle(Palette.secondaryInk)
                 }
