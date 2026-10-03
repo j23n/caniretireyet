@@ -1,6 +1,6 @@
 # Trades: holdings from buys and sells
 
-Most accounts are recorded as point-in-time valuations: a balance, or quantities and cash at each check-in ([FILE_FORMAT.md](FILE_FORMAT.md)). An investment account can instead record its **trades**: "I bought 10 VWCE at 102.30 on 12 March 2019". Its holdings, purchase cost, cash and realised gains are then worked out from them, and its check-ins only record the cash.
+Most accounts are recorded as point-in-time valuations: a balance, or quantities and cash at each check-in ([FILE_FORMAT.md](FILE_FORMAT.md)). An investment account can instead record its **trades**: "I bought 10 VWCE at 102.30 on 12 March 2019". Its holdings, purchase cost, cash and realised gains are then worked out from them, and its check-ins need nothing typed: they record the cash the trades give ([Check-ins](#check-ins)).
 
 This document describes the file format, the maths and the API for such accounts. The code is in `Model` (the records), `Storage` (reading, merging, checks) and `Tracker` (`TradeLedger`, the `Valuator`, flows, conversion, editing).
 
@@ -181,12 +181,15 @@ A valuation of a trades account that lists `positions` is a check: `Valuator.rec
 
 ## Check-ins
 
-A trades account's row in a check-in (`CheckInRow.isTrades`, mode `.trades`) starts from what its trades give on the date (`CheckInRow.derived`), and records the cash:
+A trades account needs nothing typed at a check-in: its value is its trades at the check-in's prices. Its row (`CheckInRow.isTrades`, mode `.trades`) starts from what its trades give on the date (`CheckInRow.derived`), and **counts as done from the start**:
 
-- The cash is pre-filled with the derived cash. Typing another amount adds a residual to the flow.
-- **Unchanged** means as the trades say: the derived cash. Its flow is still the recorded deposits and withdrawals, and the trades paid from outside the account, since the previous valuation (or the previous check-in, for its first).
-- The review lists the positions the trades hold. Positions entered in the row are written as a reconciliation check.
-- If trades change while the check-in is open (the other device), the row is refreshed, keeping what was typed.
+- **As the trades say.** Open on the date and with something recorded before it, the row starts *unchanged*, which for a trades account means as its trades say (`CheckInRow.followsTrades`): it writes the derived cash, and its flow is the recorded deposits and withdrawals, and the trades paid from outside the account, since the previous valuation (or the previous check-in, for its first). The check-in counts it as reviewed, "from trades", and *Mark rest unchanged* leaves it alone. Nothing was decided, so it isn't input to keep (`hasUserInput` is false): Cancel doesn't ask about it, and a rebase fills it in again when trades change.
+- **Trades since the last check-in** are added from the row (*Add Trade…*, dated on the check-in's date); the row follows them.
+- **A cash from a statement** can be entered to compare (`setCash`; `CheckInRow.hasStatementCash` once it differs from the derived cash): it anchors the cash, and the difference is a residual in the flow, as typed cash always was. Going back (*Use the trades' values*, `markUnchanged()`) follows the trades again.
+- **No cash to show.** An account that never holds cash of its own (`Valuator.holdsCash(_:)` is false, `CheckInRow.holdsCash`: no valuation with cash other than zero and no trade that moved its cash, e.g. coins or crypto every trade of which was paid from a bank account) shows no cash at all (`CheckInRow.showsCash`); it still writes cash 0.
+- **Nothing to follow yet.** An account with nothing recorded before the date (a new one), or one that opens after it, starts *not reviewed*: its cash is typed or a trade added, or it's skipped, as for any account.
+- The review lists the positions the trades hold. Positions entered in the row (from a statement) are written as a reconciliation check.
+- If trades change while the check-in is open (the other device), the row is refreshed, keeping what was typed. A draft kept before rows started as their trades say has its trades rows that weren't reviewed follow the trades when it's read.
 
 ## Editing
 

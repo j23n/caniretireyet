@@ -108,50 +108,48 @@ struct TradeHoldingsRows: View {
         }
     }
 
+    /// "Bitcoin   7.661,78 €" / "0,10383916 BTC × 73.785,11 €   95 % of the
+    /// account" / "Average cost 101.437,74 €   ▼ −2.871 € −27,3 %". Lines
+    /// that don't fit break between their parts, never inside a label.
     private func positionRow(_ row: AccountHoldingRow) -> some View {
         VStack(alignment: .leading, spacing: Metrics.xs) {
-            HStack(alignment: .firstTextBaseline, spacing: Metrics.s) {
-                Text(row.name)
-                    .foregroundStyle(Palette.ink)
-                    .lineLimit(2)
-                Spacer(minLength: Metrics.s)
-                if let amount = row.amount {
-                    AmountText(amount, currency: currency, precision: .cents)
-                        .foregroundStyle(Palette.ink)
-                } else {
-                    Text("No price")
-                        .foregroundStyle(Palette.secondaryInk)
+            AccountPositionNameLine(row: row, currency: currency)
+            AccountPositionQuantityLine(row: row) {
+                if let share = AccountPositionText.share(row, locale: locale) {
+                    Text(verbatim: share)
+                        .lineLimit(1)
                 }
             }
-            HStack(alignment: .firstTextBaseline, spacing: Metrics.s) {
-                Text(AccountPositionText.quantityAndPrice(row, hidesAmounts: hidesAmounts, locale: locale))
-                    .privacySensitive()
-                Spacer(minLength: Metrics.s)
-                if let share = row.share {
-                    Text(verbatim: AmountFormat.percent(share, digits: 0, locale: locale) + " of the account")
+            ViewThatFits(in: .horizontal) {
+                HStack(alignment: .firstTextBaseline, spacing: Metrics.s) {
+                    averageCost(row)
+                        .lineLimit(1)
+                    Spacer(minLength: Metrics.s)
+                    gain(row)
                 }
-            }
-            .font(.footnote)
-            .foregroundStyle(Palette.secondaryInk)
-            HStack(alignment: .firstTextBaseline, spacing: Metrics.s) {
-                if let average = row.averageCost {
-                    Text("Average cost")
-                    AmountText(average, currency: currency, precision: .cents)
-                } else {
-                    Text("Average cost unknown")
-                }
-                Spacer(minLength: Metrics.s)
-                if let gain = row.gain {
-                    DeltaText(gain, currency: currency)
-                    if let fraction = row.gainFraction {
-                        DeltaText(percent: fraction, showsArrow: false)
-                    }
+                VStack(alignment: .leading, spacing: 2) {
+                    averageCost(row)
+                    gain(row)
                 }
             }
             .font(.footnote)
             .foregroundStyle(Palette.secondaryInk)
         }
         .padding(.vertical, 2)
+    }
+
+    /// "Average cost 101.437,74 €", label and value in one text.
+    private func averageCost(_ row: AccountHoldingRow) -> some View {
+        Text(verbatim: AccountPositionText.averageCost(row, currency: currency, hidesAmounts: hidesAmounts,
+                                                       locale: locale))
+            .privacySensitive()
+    }
+
+    @ViewBuilder
+    private func gain(_ row: AccountHoldingRow) -> some View {
+        if let gain = row.gain {
+            AccountPositionGain(gain: gain, fraction: row.gainFraction, currency: currency)
+        }
     }
 }
 
@@ -184,11 +182,14 @@ struct TradeHoldingsGrid: View {
                 GridRow {
                     Text(row.name)
                         .lineLimit(1)
-                    Text(hidesAmounts ? AmountFormat.hidden : AmountFormat.number(row.quantity, maxDigits: 8, locale: locale))
+                    Text(hidesAmounts ? AmountFormat.hidden : QuantityFormat.quantity(row.quantity, locale: locale))
                         .monospacedDigit()
                         .privacySensitive()
                     if let average = row.averageCost {
-                        AmountText(average, currency: currency, precision: .cents)
+                        Text(hidesAmounts ? AmountFormat.hidden
+                            : QuantityFormat.unitPrice(average, currency: currency, locale: locale))
+                            .monospacedDigit()
+                            .privacySensitive()
                     } else {
                         Text("–").foregroundStyle(Palette.mutedInk)
                     }
@@ -254,71 +255,86 @@ struct TradeHoldingsGrid: View {
 
     private func price(of row: AccountHoldingRow) -> String {
         guard let price = row.price else { return "–" }
-        return "\(AmountFormat.number(price.price, maxDigits: 4, locale: locale)) \(price.currency)"
+        return QuantityFormat.unitPrice(price.price, currency: price.currency, locale: locale)
     }
 }
 #endif
 
 // MARK: - Trades list
 
-/// One trade in the iPhone list: its type's icon, what it was ("Buy · 10
-/// VWCE × 102,30"), its date and note, and the cash it moved.
+/// One trade in the iPhone list: its type's icon, what it was ("Buy
+/// 0,10383916 BTC") over its price, date and note ("at 101.437,76 € · 1 Oct
+/// 2025"), and on the other side the cash it moved, marked "paid from
+/// outside" for a trade paid from another account, with a sale's gain. At
+/// the largest text sizes the amounts go under the description.
 struct TradeListRowView: View {
     let item: TradeListItem
     let currency: CurrencyCode
 
-    @Environment(\.locale) private var locale
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
         HStack(alignment: .firstTextBaseline, spacing: Metrics.s) {
             TradeTypeIcon(type: item.type)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(verbatim: item.title)
-                    .foregroundStyle(Palette.ink)
-                    .lineLimit(2)
-                    .privacySensitive()
-                HStack(spacing: Metrics.xs) {
-                    Text(verbatim: AmountFormat.mediumDate(item.date, locale: locale))
-                    if let note = item.trade.note {
-                        Text(verbatim: "· " + note)
-                            .lineLimit(1)
-                    }
+            if dynamicTypeSize.isAccessibilitySize {
+                VStack(alignment: .leading, spacing: Metrics.xs) {
+                    description
+                    amounts(alignment: .leading)
                 }
-                .font(.caption)
-                .foregroundStyle(Palette.secondaryInk)
-            }
-            Spacer(minLength: Metrics.s)
-            VStack(alignment: .trailing, spacing: 2) {
-                if let amount = item.amount {
-                    TradeAmountText(amount, currency: currency)
-                        .foregroundStyle(Palette.ink)
-                } else {
-                    Text("Amount unknown")
-                        .font(.footnote)
-                        .foregroundStyle(Palette.secondaryInk)
-                }
-                if let label = item.settlementLabel {
-                    Text(verbatim: label)
-                        .font(.caption)
-                        .foregroundStyle(Palette.secondaryInk)
-                }
-                if let gain = item.realizedGain {
-                    HStack(spacing: 4) {
-                        Text("gain")
-                            .foregroundStyle(Palette.secondaryInk)
-                        DeltaText(gain, currency: currency, precision: .automatic, showsArrow: false)
-                    }
-                    .font(.caption)
-                }
-                if item.hasIssue {
-                    Label("Needs a look", systemImage: "exclamationmark.triangle")
-                        .font(.caption)
-                        .foregroundStyle(Palette.warning)
-                }
+            } else {
+                description
+                Spacer(minLength: Metrics.s)
+                amounts(alignment: .trailing)
             }
         }
         .contentShape(Rectangle())
         .accessibilityElement(children: .combine)
+    }
+
+    /// "Buy 0,10383916 BTC" over "at 101.437,76 € · 1 Oct 2025 · note".
+    private var description: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(verbatim: item.title)
+                .foregroundStyle(Palette.ink)
+                .privacySensitive()
+            Text(verbatim: item.subtitle)
+                .font(.caption)
+                .foregroundStyle(Palette.secondaryInk)
+                .lineLimit(3)
+        }
+    }
+
+    /// The cash it moved, "paid from outside", the gain, "Needs a look".
+    private func amounts(alignment: HorizontalAlignment) -> some View {
+        VStack(alignment: alignment, spacing: 2) {
+            if let amount = item.amount {
+                TradeAmountText(amount, currency: currency)
+                    .foregroundStyle(Palette.ink)
+            } else {
+                Text("Amount unknown")
+                    .font(.footnote)
+                    .foregroundStyle(Palette.secondaryInk)
+            }
+            if let label = item.settlementLabel {
+                Text(verbatim: label)
+                    .font(.caption)
+                    .foregroundStyle(Palette.secondaryInk)
+            }
+            if let gain = item.realizedGain {
+                HStack(spacing: 4) {
+                    Text("gain")
+                        .foregroundStyle(Palette.secondaryInk)
+                    DeltaText(gain, currency: currency, precision: .automatic, showsArrow: false)
+                }
+                .font(.caption)
+            }
+            if item.hasIssue {
+                Label("Needs a look", systemImage: "exclamationmark.triangle")
+                    .font(.caption)
+                    .foregroundStyle(Palette.warning)
+            }
+        }
+        .fixedSize(horizontal: !dynamicTypeSize.isAccessibilitySize, vertical: false)
     }
 }
 
@@ -366,8 +382,8 @@ struct TradesTable: View {
         static let date = PageTableColumn(min: 80, max: 110)
         static let type = PageTableColumn(min: 80, max: 140)
         static let instrument = PageTableColumn(min: 50, max: 140)
-        static let quantity = PageTableColumn(min: 56, max: 100, alignment: .trailing)
-        static let price = PageTableColumn(min: 56, max: 100, alignment: .trailing)
+        static let quantity = PageTableColumn(min: 64, max: 120, alignment: .trailing)
+        static let price = PageTableColumn(min: 72, max: 130, alignment: .trailing)
         static let amount = PageTableColumn(min: 84, max: 140, alignment: .trailing)
         static let note = PageTableColumn(min: 0, max: .infinity)
     }
@@ -389,9 +405,11 @@ struct TradesTable: View {
                 .pageTableColumn(Columns.type)
             Text(item.instrumentLabel ?? "")
                 .pageTableColumn(Columns.instrument)
-            TradeTableNumberCell(value: item.trade.quantity ?? item.trade.ratio, digits: 8)
+            TradeTableQuantityCell(item: item)
                 .pageTableColumn(Columns.quantity)
-            TradeTableNumberCell(value: item.trade.price, digits: 4)
+            Text(item.priceText ?? "")
+                .monospacedDigit()
+                .frame(maxWidth: .infinity, alignment: .trailing)
                 .pageTableColumn(Columns.price)
             TradeTableAmountCell(item: item, currency: currency)
                 .pageTableColumn(Columns.amount)
@@ -422,19 +440,22 @@ private struct TradeTableTypeCell: View {
     }
 }
 
-private struct TradeTableNumberCell: View {
-    let value: Decimal?
-    let digits: Int
+/// A trade's quantity (``QuantityFormat``), or a split's ratio; hidden with the eye button.
+private struct TradeTableQuantityCell: View {
+    let item: TradeListItem
 
     @Environment(\.hidesAmounts) private var hidesAmounts
     @Environment(\.locale) private var locale
 
     var body: some View {
         Group {
-            if let value {
-                Text(hidesAmounts ? AmountFormat.hidden : AmountFormat.number(value, maxDigits: digits, locale: locale))
+            if let quantity = item.trade.quantity {
+                Text(hidesAmounts ? AmountFormat.hidden : QuantityFormat.quantity(quantity, locale: locale))
                     .monospacedDigit()
                     .privacySensitive()
+            } else if let ratio = item.trade.ratio {
+                Text(verbatim: "× " + AmountFormat.number(ratio, maxDigits: 6, locale: locale))
+                    .monospacedDigit()
             } else {
                 Text("")
             }
@@ -527,28 +548,49 @@ struct TradeIssueBanners: View {
     }
 }
 
-#Preview("Trades pieces") {
-    let library = PreviewLibrary.library
-    let valuator = PreviewLibrary.valuator
-    let list = TradeList(account: "directa", library: library, valuator: valuator)
-    let data = AccountDetailData(account: library.accounts["directa"]!, library: library, valuator: valuator,
-                                 today: PreviewLibrary.latestCheckIn, stalenessThreshold: 45)
-    List {
-        Section("Holdings") {
-            if let holdings = data.tradeHoldings {
-                TradeHoldingsRows(holdings: holdings, currency: "EUR")
+/// The trades pieces of Directa in the preview library, in a list.
+private struct TradesPiecesPreview: View {
+    @Environment(\.locale) private var locale
+
+    var body: some View {
+        let library = PreviewLibrary.library
+        let valuator = PreviewLibrary.valuator
+        let list = TradeList(account: "directa", library: library, valuator: valuator, locale: locale)
+        let data = AccountDetailData(account: library.accounts["directa"]!, library: library, valuator: valuator,
+                                     today: PreviewLibrary.latestCheckIn, stalenessThreshold: 45)
+        List {
+            Section("Holdings") {
+                if let holdings = data.tradeHoldings {
+                    TradeHoldingsRows(holdings: holdings, currency: "EUR")
+                }
             }
-        }
-        Section("Trades") {
-            ForEach(list.items.prefix(5)) { item in
-                TradeListRowView(item: item, currency: "EUR")
+            Section("Trades") {
+                ForEach(list.items.prefix(5)) { item in
+                    TradeListRowView(item: item, currency: "EUR")
+                }
             }
-        }
-        Section("Income & gains") {
-            ForEach(data.incomeYears) { year in
-                TradeIncomeYearView(year: year, currency: "EUR")
+            Section("Income & gains") {
+                ForEach(data.incomeYears) { year in
+                    TradeIncomeYearView(year: year, currency: "EUR")
+                }
             }
         }
     }
-    .previewEnvironment()
+}
+
+#Preview("Trades pieces") {
+    TradesPiecesPreview()
+        .previewEnvironment()
+}
+
+#Preview("Trades pieces, large text") {
+    TradesPiecesPreview()
+        .dynamicTypeSize(.accessibility2)
+        .previewEnvironment()
+}
+
+#Preview("Trades pieces, German") {
+    TradesPiecesPreview()
+        .environment(\.locale, Locale(identifier: "de_DE"))
+        .previewEnvironment()
 }

@@ -27,7 +27,7 @@ struct AccountConversionSummary: Hashable, Sendable {
     /// A trade the conversion writes, as the preview lists it.
     struct Line: Hashable, Sendable, Identifiable {
         var trade: Trade
-        /// "Buy · 10 VWCE × 134,15".
+        /// "Buy 10 VWCE at 134,15 €" (``TradeWording/summary(of:in:locale:)``).
         var title: String
         var id: TradeKey { trade.key }
     }
@@ -66,7 +66,7 @@ struct AccountConversionSummary: Hashable, Sendable {
         conversion.apply(to: &after)
         func lines(_ type: TradeType) -> [Line] {
             conversion.trades.filter { $0.type == type }
-                .map { Line(trade: $0, title: TradeWording.title(of: $0, in: after, locale: locale)) }
+                .map { Line(trade: $0, title: TradeWording.summary(of: $0, in: after, locale: locale)) }
         }
         openings = lines(.opening)
         buys = lines(.buy)

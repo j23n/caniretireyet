@@ -420,9 +420,10 @@ struct TradeForm: Hashable, Sendable {
         return valuator.prices.latest(for: instrument, onOrBefore: date)
     }
 
-    /// "Price on 12 Mar 2026: 102,30 EUR", or "Latest price, 30 Sep 2026: 138,42 EUR".
+    /// "The library's price that day: 102,30 €", or "The latest price before
+    /// it, 30 Sep 2026: 138,42 €".
     static func priceHint(_ record: PriceRecord, date: CalendarDate, locale: Locale = .current) -> String {
-        let price = AmountFormat.number(record.price, maxDigits: 4, locale: locale) + " " + record.currency.rawValue
+        let price = QuantityFormat.unitPrice(record.price, currency: record.currency, locale: locale)
         if record.date == date { return "The library's price that day: \(price)" }
         return "The latest price before it, \(AmountFormat.mediumDate(record.date, locale: locale)): \(price)"
     }

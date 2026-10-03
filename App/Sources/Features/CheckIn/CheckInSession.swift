@@ -39,6 +39,9 @@ final class CheckInSession {
     var expanded: Set<AccountID> = []
     /// Rows whose automatic new money is being edited (iPhone).
     var editingFlows: Set<AccountID> = []
+    /// Trades rows showing a field for a cash from a statement (*Enter From
+    /// Statement*), which their trades otherwise give.
+    var editingCash: Set<AccountID> = []
     /// Whether a past check-in's "Opened later" section shows its accounts
     /// (iPhone, where it starts collapsed).
     var showsOpenedLater = false
@@ -95,6 +98,7 @@ final class CheckInSession {
         resumedDate = nil
         expanded = []
         editingFlows = []
+        editingCash = []
         showsOpenedLater = false
         checkIn.begin()
     }
@@ -120,6 +124,48 @@ final class CheckInSession {
     func editFlow(_ account: AccountID) {
         editingFlows.insert(account)
         focusRequest = .flow(account)
+    }
+
+    /// Shows a field for a trades account's cash from a statement, to
+    /// compare with what its trades give, and asks for the focus there.
+    func enterStatementCash(_ account: AccountID) {
+        editingCash.insert(account)
+        focusRequest = .cash(account)
+    }
+
+    /// Takes a row back to its previous values, or for a trades account to
+    /// what its trades say: a cash from a statement, statement quantities
+    /// and new money typed are dropped, and their fields closed.
+    func markUnchanged(_ account: AccountID, checkIn: CheckInStore) {
+        checkIn.updateRow(account) { $0.markUnchanged() }
+        editingFlows.remove(account)
+        editingCash.remove(account)
+    }
+
+    /// Drops a trades account's cash from a statement, going back to the
+    /// cash its trades give, and closes its field. Without statement
+    /// quantities to compare, the row is then as its trades say again.
+    func useTradesCash(_ account: AccountID, checkIn: CheckInStore) {
+        checkIn.updateRow(account) { row in
+            if row.positions.isEmpty {
+                row.markUnchanged()
+            } else {
+                row.setCash(row.derived?.cash)
+                row.resetFlow()
+            }
+        }
+        editingFlows.remove(account)
+        editingCash.remove(account)
+    }
+
+    /// Drops the quantities entered from a statement for a trades account.
+    /// Without a cash from a statement or new money typed, the row is then
+    /// as its trades say again.
+    func stopComparing(_ account: AccountID, checkIn: CheckInStore) {
+        checkIn.updateRow(account) { row in
+            row.removeStatementQuantities()
+            if !row.hasStatementCash && !row.isFlowEdited { row.markUnchanged() }
+        }
     }
 
     /// Marks the rows not reviewed yet as unchanged (new accounts are skipped).

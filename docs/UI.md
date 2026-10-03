@@ -182,7 +182,7 @@ The flow that has to be fast. It opens as a full-screen sheet on iPhone and as t
 │   unchanged                              │
 │ INVESTMENTS                              │
 │ Directa                  57.410 €     ●  │
-│   VWCE  [ 412,5 ] sh × 138,42   57.098   │
+│   VWCE  [ 412,5 ] sh × 138,42 €  57.098  │
 │         +10,5 since Aug · paid [1.450,00]│
 │   Cash  [ 312,10 ]                       │
 │ CRYPTO & GOLD                            │
@@ -198,7 +198,7 @@ The flow that has to be fast. It opens as a full-screen sheet on iPhone and as t
 │ │ 7 of 9 reviewed   Mark rest unchanged│ │
 │ ╰──────────────────────────────────────╯ │
 └──────────────────────────────────────────┘
-  ●  updated   ✓  unchanged   ○  not reviewed yet
+  ●  updated   ✓  unchanged or from trades   ○  not reviewed yet
 ```
 
 - **Date.** Defaults to today. In the first days of a month it suggests the end of the previous month. An earlier date fills in history: see [Adding history](#adding-history).
@@ -208,28 +208,39 @@ The flow that has to be fast. It opens as a full-screen sheet on iPhone and as t
   - **unchanged:** you confirmed it's the same. This still writes a valuation, so the account isn't stale;
   - **not reviewed.**
 
-  "Review" asks about any rows not reviewed: mark them unchanged, or skip them (then no record is written, and the account will show as stale). A new account with no earlier value can't be unchanged: it's entered or skipped.
+  "Review" asks about any rows not reviewed: mark them unchanged, or skip them (then no record is written, and the account will show as stale). A new account with no earlier value can't be unchanged: it's entered or skipped. An account that records trades has nothing to type, so its row is done from the start, "from trades" (below).
 - **Accounts with holdings.** Each position's quantity is pre-filled, and its value updates live with the fetched price. When a quantity goes up, an optional "paid" field appears. What you enter updates the position's purchase cost and the new money, which is how purchase costs are tracked without transactions.
-- **Accounts that record trades** ([TRADES.md](TRADES.md#check-ins)). The row shows what the trades hold on the date, read-only, valued at the check-in's prices ("423 VWCE · from trades"), and records only the cash:
+- **Accounts that record trades** ([TRADES.md](TRADES.md#check-ins)). Nothing to type: the value is the trades at the check-in's prices, so the row is **done from the start** (✓, "From trades" to VoiceOver), and counts as reviewed. It leads with what matters, what the trades hold and their value, and *Add Trade…* for what was bought or sold since the last check-in:
 
   ```
-  ┌──────────────────────────────────────────┐
-  │ Directa                 59.455,80 €   ●  │
-  │   VWCE  423 × 139,80          59.135,40  │
-  │         +10,5 since 30 Sep · from trades │
-  │   Cash  [    320,40 ]                    │
-  │   was 57.410,35 · new money +1.458,10    │
-  │   deposits +1.450,00 · cash diff. +8,10  │
-  │   ⊕ Add Trade…                           │
-  └──────────────────────────────────────────┘
+  ┌────────────────────────────────────────────────────┐
+  │ ▸ Directa                           59.447,70 €  ✓ │
+  │   423 VWCE · from trades                           │
+  │   Bought or sold since 30 Sep?      [⊕ Add Trade…] │
+  │   Cash 312,30 · from trades   Enter From Statement │
+  │   New money +1.450,00 · deposits                   │
+  │ ▸ Gold coins                         9.255,36 €  ✓ │
+  │   93,3 g · from trades                             │
+  │   Bought or sold since 30 Sep?      [⊕ Add Trade…] │
+  └────────────────────────────────────────────────────┘
   ```
 
-  - The cash is pre-filled with what the trades give. Typing another amount is fine: the difference counts as money added or taken out that no trade records.
-  - The new money is the deposits, withdrawals and transfers recorded as trades since the previous value, and what was bought or sold paid from outside the account, plus that cash difference; the line under it shows the split ("deposits +1.450,00 · paid from outside +1.200,00 · cash diff. +8,10").
-  - *Add Trade…* opens the trade sheet dated on the check-in's date. Once it's saved the row follows: the positions, the pre-filled cash and the new money are worked out again, and a cash you typed stays.
-  - *Unchanged* (and *Mark rest unchanged*) means as the trades say: the cash they give.
-  - *Compare With a Statement* (long-press, or right-click on the Mac) fills in the trades' quantities to correct from a broker statement. They're saved with the value as a check, not as holdings; the review lists where they differ: "The statement on 31 Oct shows 425 VWCE; your trades give 423. Add the missing trade, e.g. a buy or a transfer in." with *Add Trade…*.
-  - On the Mac, the positions are read-only sub-rows (Last and Now are quantities), then the cash, then *Add Trade…* with the split.
+  - **As the trades say.** Saving writes the cash the trades give and the new money they record: the deposits, withdrawals and transfers recorded as trades since the previous value, and what was bought or sold paid from outside the account. It's shown read-only when it isn't zero ("New money +1.200,00 · paid from outside", or with several parts "New money +1.650,60 · deposits +450,60 · paid from outside +1.200,00"). *Mark rest unchanged* leaves the row alone.
+  - ***Add Trade…*** (a bordered button, not a footnote) opens the trade sheet dated on the check-in's date. Once it's saved the row follows: the positions, the cash and the new money are worked out again, and a cash from a statement stays.
+  - **Cash.** When the account holds cash by its trades (a trade settled in its cash, a deposit or withdrawal, or a value that recorded cash), it shows read-only, "Cash 312,30 · from trades", with *Enter From Statement* to type the cash from a broker statement to compare. Typed, it anchors the cash and the difference counts as money added or taken out that no trade records; the new money is then shown as for other accounts, editable, with its split:
+
+    ```
+    │   Cash  [    320,40 € ]                            │
+    │   From a statement · the trades give 312,30        │
+    │   Use Trades' Cash                                 │
+    │   was 57.410,35 · new money +1.458,10              │
+    │   deposits +1.450,00 · cash difference +8,10       │
+    ```
+
+    *Use Trades' Cash* (or *Use the Trades' Values* in the menu, the leading swipe *From Trades*) goes back to what the trades say. An account that never holds cash, e.g. coins or crypto whose every trade was paid from a bank account, shows no cash line at all.
+  - **Nothing to follow yet.** A trades account with nothing recorded before the date (a new one) says "No trades yet", has its cash field and *Add Trade…*, and is entered or skipped like any new account; one that opens after the date is optional, under *Opened later*.
+  - **Expanded** (tap the name), the positions the trades hold, read-only at the check-in's prices ("VWCE 423 sh × 139,80 € 59.135,40", "+10,5 since 30 Sep · from trades"), and *Compare With a Statement* (also in the menu: long-press, or right-click on the Mac), which fills in the trades' quantities to correct from a broker statement. They're saved with the value as a check, not as holdings; the review lists where they differ: "The statement on 31 Oct shows 425 VWCE; your trades give 423. Add the missing trade, e.g. a buy or a transfer in." with *Add Trade…*. *Stop Comparing* drops them.
+  - On the Mac, under the account's line (its value, and its new money read-only in the New money column, unless a statement's cash makes it editable): "Bought or sold since 30 Sep? [⊕ Add Trade…]" with the new money's parts, then the positions as read-only sub-rows (Last and Now are quantities), then the cash from the trades with *From Statement…* in the New money column (*Use Trades' Cash* once typed). Return moves down the Now column past a cash that isn't typed.
 - **New money (flow).** Shown under each account, filled in by the defaults in [PROGRESS.md](PROGRESS.md#data-this-needs-from-day-one), and editable. For pension funds the app asks for "contributions since …".
 - **Keyboard.** A decimal keypad in your locale's format, with ▲ ▼ buttons above it to move between fields. Amounts accept `1.234,56` and `1234.56`. For a debt, type what you owe (`1.200` is recorded as −1.200); if it's in credit, e.g. an overpaid card, type `+` first (`+20`), or use ± above the keypad. *Update value* and a new account's opening balance work the same way.
 - **Draft.** An unfinished check-in is saved as a draft on the device and never half-written to the library. Close the sheet, come back later, and continue.
@@ -237,8 +248,8 @@ The flow that has to be fast. It opens as a full-screen sheet on iPhone and as t
   - If the other device saved a different value on the same date for an account you entered, a banner says so and the review asks: *Keep saved* or *Use mine*. Until you choose, the saved value stays and yours isn't written.
   - The draft is deleted only once the check-in is in the library's files. If saving fails, the error is shown and the draft stays.
 - **Review screen.**
-  - The new net worth and the change since the last check-in: a headline and a bar each for markets, new money and other.
-  - Changed accounts, and anything unusual, e.g. a quantity that went down (did you sell?) or a value that changed more than 30%.
+  - The new net worth and the change since the last check-in: a headline and a bar each for markets, new money and other; under it the rows by state, "5 updated · 1 unchanged · 2 from trades".
+  - Changed accounts (accounts that record trades among them when their value or new money changed, "New money +1.450 € · from trades"), and anything unusual, e.g. a quantity that went down (did you sell?) or a value that changed more than 30%.
   - Then **Save**.
 - **After saving.** The confirmation shows as soon as the check-in is written. The main plan then runs to record this month's answer (only for the latest check-in: see [Adding history](#adding-history)), and the answer card shows its progress ([Calculating](#calculating)) in the meantime, the same as on the Plan screen, without a Cancel button. Then it ends with the answer:
 
@@ -333,7 +344,7 @@ Accounts added in the app open on the day they're added, unless you set an earli
 
 ## Trade history
 
-A brokerage, crypto or metals account can record its **trades** instead of monthly snapshots of its positions ([TRADES.md](TRADES.md)): its holdings, average cost, cash, realised gains and income follow from them, and its check-ins record only the cash. New accounts of those kinds record trades by default (see *Add account*); existing ones can switch.
+A brokerage, crypto or metals account can record its **trades** instead of monthly snapshots of its positions ([TRADES.md](TRADES.md)): its holdings, average cost, cash, realised gains and income follow from them, and its check-ins need nothing typed (see [Check-in](#check-in)). New accounts of those kinds record trades by default (see *Add account*); existing ones can switch.
 
 **Account detail** of an account that records trades, top to bottom:
 
@@ -347,19 +358,21 @@ A brokerage, crypto or metals account can record its **trades** instead of month
 │   VWCE; your trades give 414,5. Add the  │
 │   missing trade, …        Add Trade…     │
 │ HOLDINGS                                 │
-│ Vanguard FTSE All-World     57.098,25 €  │
-│   412,5 sh × 138,42 EUR   99% of account │
-│   Average cost 116,85 €  ▲ 8.898 ▲ 18,5% │
+│ Vanguard FTSE All-World      57.098,25 € │
+│   412,5 sh × 138,42 € 99% of the account │
+│   Average cost 116,85 € ▲ 8.898 € +18,5% │
 │ Cash                           312,10 €  │
 │ Total                       57.410,35 €  │
 │ TRADES                                   │
 │ ⊕ Add Trade…          20 trades Filter ▾ │
 │ AUGUST 2026                              │
-│ ⊕ Buy · 10 VWCE × 134,75   −1.352,50 €   │
-│ ↓ Deposit                    +200,60 €   │
+│ ⊕ Buy 10 VWCE                −1.352,50 € │
+│   at 134,75 € · 12 Aug 2026              │
+│ ↓ Deposit                      +200,60 € │
+│   4 Aug 2026                             │
 │ JULY 2026                                │
-│ ⊖ Sell · 8,5 VWCE × 144,56 +1.162,80 €   │
-│                         gain +234,42     │
+│ ⊖ Sell 8,5 VWCE              +1.162,80 € │
+│   at 144,56 € · 14 Jul 2026 gain +234,42 │
 │ …                                        │
 │ INCOME & GAINS                           │
 │ 2026   Realised gains · Dividends ·      │
@@ -368,8 +381,8 @@ A brokerage, crypto or metals account can record its **trades** instead of month
 └──────────────────────────────────────────┘
 ```
 
-- **Holdings**: per instrument, the quantity, average cost (*costo medio*: what was paid per unit, fees included), value, unrealised gain (amount and %) and its share of the account; then the cash and the total. On the Mac, a grid with those columns.
-- **Trades**: grouped by month, newest first; each row shows the type's icon, what it was ("Buy · 10 VWCE × 134,75", with the price's currency when it isn't the account's), the date and note, and the cash it moved, with a sale's realised gain. A trade paid from outside the account shows what was paid or received, marked "paid from outside" (a sale: "proceeds paid out"); on the Mac the mark leads its note. *Filter* shows one instrument or one type. Tap a trade to edit it; swipe or long-press to delete it (the confirmation says what deleting brings in, e.g. a later sale now selling more than is held). On the Mac, a table (date, type, instrument, quantity, price, amount, note) as long as its trades, which scrolls with the page: double-click edits, right-click edits or deletes.
+- **Holdings**: per instrument, the quantity, average cost (*costo medio*: what was paid per unit, fees included), value, unrealised gain (amount and %) and its share of the account; then the cash and the total. Each position is three lines: the name and value; "0,10383916 BTC × 73.785,11 €" and "95 % of the account" (when they don't fit on one line, the quantity and the share share it and "at 73.785,11 €" goes on the next; at the largest text sizes each is a line of its own); "Average cost 101.437,74 €" and the gain ("▼ −2.871 € −27,3 %"), the gain under the cost when they don't fit. A label and its value are one piece of text, so they never wrap apart. On the Mac, a grid with those columns.
+- **Trades**: grouped by month, newest first; each row shows the type's icon, what it was ("Buy 0,10383916 BTC") over its price, date and note ("at 101.437,76 € · 1 Oct 2025", the price in its own currency), and on the other side the cash it moved, with a sale's realised gain. A trade paid from outside the account shows what was paid or received, marked "paid from outside" (a sale: "proceeds paid out"); on the Mac the mark leads its note. At the largest text sizes the amount goes under the description. *Filter* shows one instrument or one type. Tap a trade to edit it; swipe or long-press to delete it (the confirmation says what deleting brings in, e.g. a later sale now selling more than is held). On the Mac, a table (date, type, instrument, quantity, price, amount, note) as long as its trades, which scrolls with the page: double-click edits, right-click edits or deletes.
 - **Income & gains**, by year: realised gains, dividends, interest, fees and taxes, and the net; a sale whose cost is unknown is left out and said so. In the account's currency.
 - **What needs a look**, as banners with the fix: a trade missing a price or amount, a sale of more than was held, an opening without cost, a missing exchange rate, a trade outside the account's dates, a value with a balance (which isn't used), and a statement that differs from the trades ("The statement on 30 Jun shows 12 VWCE; your trades give 10. Add the missing trade."). Each banner's button opens the trade, a new trade on the statement's date, or the value. The Overview's *Needs attention* points to an account with any of these ("Directa: 2 problems with trades").
 - **Cash at check-ins**: the account's values, which record its cash. The history chart, the header's change and the new-money ticks come from the Valuator (deposits and transfers on their own dates).
@@ -379,7 +392,7 @@ A brokerage, crypto or metals account can record its **trades** instead of month
 
 - **Type**: Buy, Sell or Dividend as segments, and *More ▸* for interest, fee, tax, deposit, withdrawal, transfer in and out, split and opening (a chosen one shows as a fourth segment). Each type shows only its fields; editing a trade keeps showing any field it has.
 - **Date**, and for most types the **instrument**: the library's instruments, or *New Instrument…* (the instrument form, in a sheet).
-- **Quantity, price and currency** (the instrument's by default). The library's price for the date is a hint with *Use* ("The library's price that day: 138,42 EUR", or the latest before it); *Fetch Price for This Date* asks the instrument's price source.
+- **Quantity, price and currency** (the instrument's by default). The library's price for the date is a hint with *Use* ("The library's price that day: 138,42 €", or the latest before it); *Fetch Price for This Date* asks the instrument's price source.
 - **Fees and tax** (a buy's transaction tax, or tax withheld), in the account's currency.
 - **Amount**: worked out live as −(quantity × price × FX) − fees − tax for a buy, quantity × price × FX − fees − tax for a sale, and shown as the field's placeholder with "Computed …" (with the rate used when the price is in another currency). Type the broker's amount when it differs (their rate, rounding): the typed amount wins, and the hint shows what was computed, with *Use Computed*. Amounts are typed as positive numbers; the type gives the direction (a buy's *Paid*, a sale's *Received*, a fee's *Charged*).
 - **Paid from outside this account** (a buy, a fee or a tax) or **Proceeds leave this account** (a sale), a switch at the top of the amount ([TRADES.md](TRADES.md#paid-from-outside-the-account)): gold bought from a dealer and paid from the bank, a sale paid into the bank. On, the account's cash doesn't change and the amount counts as new money (a line under the switch says so). It's on by default for a metals account and for a trades account that has never held cash (no value with cash, no deposit, no sale whose proceeds stayed), and off otherwise. When it's off and a buy, fee or tax would take the cash below zero on its day, a hint says so with a one-tap switch: "Cash would go to −1.200,00 €. Paid from outside this account?" *Paid from Outside*.
@@ -635,6 +648,8 @@ On iPhone, journals use "Import with profile…" with a saved ledger profile, li
 
 - The system font. Large standalone numbers use its default figures; columns that must line up (tables, check-in fields, axis labels) use tabular figures (`.monospacedDigit()`).
 - Formatted for your locale and base currency: in Italian, `312.480 €`, with decimals only where they matter (check-in fields, account detail).
+- **Quantities and unit prices** read the same everywhere (account holdings, the trades list, the check-in's positions, the instruments, the trade form, the review; `QuantityFormat`): a quantity has up to 8 decimals, trailing zeros trimmed (`0,10383916 BTC`, `412,5 sh`); a unit price (or an average cost per unit) is money in its own currency, with the currency's symbol, 2 decimals from 1 up (`73.785,11 €`, `165,00 $`) and 4 significant digits below (`0,004312 €`). The import's preview shows prices as read from the file.
+- A label and its value are one piece of text ("Average cost 101.437,74 €"), so they wrap together; a line too narrow for both breaks between the label and the value.
 - Charts use compact numbers (`312k`).
 - Zero never has a sign: an amount that rounds to zero reads `0,00 €`, never `−0,00 €`, and an axis never reads `−0`.
 - Dates in "since …" leave out the year only when it's this one: "since 30 Sep", "since 30 Nov 2021".

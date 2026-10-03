@@ -306,7 +306,7 @@ private struct PriceListRow: View {
     private var valueText: String {
         guard let value = line.value else { return "—" }
         if let currency = line.currency {
-            return formatted(value) + " " + currency.rawValue
+            return QuantityFormat.unitPrice(value, currency: currency, locale: locale)
         }
         return formatted(value)
     }
