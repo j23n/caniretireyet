@@ -3,23 +3,29 @@ import Model
 import SwiftUI
 import Tracker
 
-/// Net worth over time (UI.md, "History chart").
+/// Net worth over time (UI.md, "History chart"); the Overview always
+/// passes it stacked by asset class.
 ///
-/// - By default a single line in ink with a light fill. Where a total is
-///   partial (a price or exchange rate missing: `isComplete == false`) the
-///   line is dashed and grey, and the callout says so. With `stacked`
-///   series (e.g. by asset class) it draws stacked areas instead, debts
-///   below the zero line, with a legend in its own row above: each a wash
-///   of its colour with a 2-point line in its line step along its outer
-///   edge, and a 2-point surface gap between neighbours
-///   (``StackedAreaData``), like the retirement income chart.
+/// - With `stacked` series (e.g. by asset class) it draws stacked areas,
+///   debts below the zero line, with a legend in its own row above: each a
+///   wash of its colour with a 2-point line in its line step along its
+///   outer edge, and a 2-point surface gap between neighbours
+///   (``StackedAreaData``), like the retirement income chart. Where a
+///   total is partial (a price or exchange rate missing: `isComplete ==
+///   false`) the lines are dashed, and the callout says so.
+/// - Without them (or when every one is empty), a single line in ink with
+///   a light fill, dashed and grey where a total is partial.
 /// - The value axis always includes zero, with distinct round ticks
 ///   (``AmountScale``), even for flat or near-zero data. While amounts are
-///   hidden it reads in multiples of today's value (`1×`, `2×`).
+///   hidden it reads in multiples of today's value (`1×`, `2×`): the last
+///   complete `history` total.
 /// - `projection` continues the chart into the plan's future: a dashed
 ///   median, a darker 25–75% band and a lighter 10–90% band. The value axis
 ///   fits the history, the median and the 25–75% band; the 10–90% band may
-///   run off the top, and the legend says so (``ProjectionScale``).
+///   run off the top, and the legend says so (``ProjectionScale``). Stacked,
+///   the legend has two rows: the groups, then the projection's key. The
+///   median starts from the last `history` total, so pass the totals of
+///   what the projection covers.
 /// - `markers` label retirement, pension starts and the like above the
 ///   data, staggered in up to two rows so they never collide; a marker
 ///   without room shows its icon, with its label in the callout
@@ -39,6 +45,8 @@ struct NetWorthChart: View {
     /// The currency of the values; `nil` for the base currency.
     var currency: CurrencyCode?
     var height: CGFloat = 220
+    /// What the history is, for VoiceOver: "Net worth", or "Plan assets".
+    var title = "Net worth"
 
     @State private var selectedDate: Date?
     @State private var width: CGFloat = ChartStyle.defaultWidth
@@ -74,13 +82,25 @@ struct NetWorthChart: View {
         }
     }
 
+    /// The groups' washes, and the projection's key under them: stacked,
+    /// the groups stand for the past, so there's no "Actual" line.
     @ViewBuilder
     private func legend(_ layout: Layout) -> some View {
         if !projection.isEmpty {
-            ProjectionLegend(showsActual: !history.isEmpty, dashedMedian: true, clipsBand: layout.clipsBand)
-        } else if !stacked.isEmpty {
-            ChartLegendRow(items: stacked.map { ChartLegendItem(name: $0.name, swatch: .wash($0.color)) })
+            VStack(alignment: .leading, spacing: Metrics.xs) {
+                if layout.stack != nil {
+                    groupLegend
+                }
+                ProjectionLegend(showsActual: !history.isEmpty && layout.stack == nil, dashedMedian: true,
+                                 clipsBand: layout.clipsBand)
+            }
+        } else if layout.stack != nil {
+            groupLegend
         }
+    }
+
+    private var groupLegend: some View {
+        ChartLegendRow(items: stacked.map { ChartLegendItem(name: $0.name, swatch: .wash($0.color)) })
     }
 
     private var layout: Layout {
@@ -194,7 +214,8 @@ struct NetWorthChart: View {
 
     /// Stacked areas (``StackedAreaData``): every band's wash, then the
     /// gaps in the surface the chart sits on (`\.chartSurface`), then the
-    /// lines on top, so no wash or gap covers a line.
+    /// lines on top, so no wash or gap covers a line. Lines are dashed
+    /// where the totals are partial.
     @ChartContentBuilder
     private func stackedAreas(_ stack: StackedAreaData) -> some ChartContent {
         ForEach(stack.series) { series in
@@ -223,7 +244,7 @@ struct NetWorthChart: View {
                 LineMark(x: .value("Date", point.date), y: .value("Edge", point.y),
                          series: .value("Edge", "Edge \(point.line)"))
                     .foregroundStyle(Palette.stroke(for: series.color))
-                    .lineStyle(StrokeStyle(lineWidth: Metrics.lineWidth, lineCap: .round, lineJoin: .round))
+                    .lineStyle(lineStyle(complete: point.isComplete))
                     .interpolationMethod(.linear)
             }
         }
@@ -327,11 +348,16 @@ struct NetWorthChart: View {
 
     private var summary: ChartSummary {
         let resolved = currency ?? baseCurrency
-        let points = history.map { (AmountFormat.mediumDate(CalendarDate($0.date, in: .current)), $0.value) }
-        var text = "Net worth over \(history.count) dates"
+        func spoken(_ points: [ChartPoint]) -> [(String, Double)] {
+            points.map { (AmountFormat.mediumDate(CalendarDate($0.date, in: .current)), $0.value) }
+        }
+        var text = "\(title) over \(history.count) dates"
         if let first = history.first, let last = history.last {
             text += hidesAmounts ? "." : ", from \(AmountFormat.amount(Decimal(Int(first.value.rounded())), currency: resolved)) "
                 + "to \(AmountFormat.amount(Decimal(Int(last.value.rounded())), currency: resolved))."
+        }
+        if !stacked.isEmpty {
+            text += " Stacked: \(stacked.map(\.name).formatted(.list(type: .and)))."
         }
         let partial = history.filter { !$0.isComplete }.count
         if partial > 0 {
@@ -344,9 +370,10 @@ struct NetWorthChart: View {
         if !markers.isEmpty {
             text += " Marked: \(markers.map(\.label).joined(separator: ", "))."
         }
+        let groups = stacked.map { ChartSummary.Series(name: $0.name, points: spoken($0.points)) }
         return ChartSummary(
-            title: "Net worth", summary: text, xTitle: "Date", yTitle: "Net worth",
-            series: [ChartSummary.Series(name: "Net worth", points: points)],
+            title: title, summary: text, xTitle: "Date", yTitle: title,
+            series: [ChartSummary.Series(name: title, points: spoken(history))] + groups,
             describeValue: ChartStyle.spokenAmount(currency: resolved))
     }
 }
@@ -393,6 +420,16 @@ struct ChartPlaceholder: View {
         ChartMarker(date: end.adding(years: 21).dateValue, label: "INPS 59", systemImage: "building.columns"),
         ChartMarker(date: end.adding(years: 22).dateValue, label: "BMW 60", systemImage: "building.columns"),
     ]
+    let planHistory = valuator.series(.planAssets, through: end).chartPoints
+    let planStacked = valuator.breakdownSeries(in: .planAssets, through: end).chartSeries
+    // Made-up: a dollar account's rate is missing for the first five months, so equity is partly left out.
+    let months = (0..<12).map { end.adding(months: $0 - 11).dateValue }
+    let partialCash = months.enumerated().map { month, date in
+        ChartPoint(date: date, value: 60_000, isComplete: month >= 5)
+    }
+    let partialEquity = months.enumerated().map { month, date in
+        ChartPoint(date: date, value: month < 5 ? 120_000 : 200_000, isComplete: month >= 5)
+    }
     ScrollView {
         VStack(spacing: Metrics.l) {
             Card("Net worth") {
@@ -401,12 +438,24 @@ struct ChartPlaceholder: View {
             Card("By asset class") {
                 NetWorthChart(history: history, stacked: valuator.breakdownSeries(through: end).chartSeries)
             }
-            Card("With the future") {
-                NetWorthChart(history: history, projection: fan, markers: markers)
+            Card("Plan assets by asset class, with the future") {
+                NetWorthChart(history: planHistory, stacked: planStacked, projection: fan, markers: markers,
+                              title: "Plan assets")
             }
             Card("With the future, amounts hidden") {
-                NetWorthChart(history: history, projection: fan, markers: markers)
+                NetWorthChart(history: planHistory, stacked: planStacked, projection: fan, markers: markers,
+                              title: "Plan assets")
                     .environment(\.hidesAmounts, true)
+            }
+            Card("By asset class, some values missing") {
+                NetWorthChart(
+                    history: zip(partialCash, partialEquity).map { cash, equity in
+                        ChartPoint(date: cash.date, value: cash.value + equity.value, isComplete: cash.isComplete)
+                    },
+                    stacked: [
+                        ChartSeries(id: "cash", name: "Cash", color: .assetClass(.cash), points: partialCash),
+                        ChartSeries(id: "equity", name: "Equity", color: .assetClass(.equity), points: partialEquity),
+                    ])
             }
             Card("Some values missing") {
                 // Made-up: an account's rate is missing for the first five months.

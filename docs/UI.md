@@ -99,11 +99,15 @@ The home screen. Top to bottom:
 │ 312.480 €                                │
 │ ▲ 4.210 € since 31 Aug   ▲ 14,2% this yr │
 │                                          │
-│ 3Y ▾   [Total│By asset class]   Future ◯ │
+│ 3Y ▾                            Future ◯ │
+│ ▬ Cash  ▬ Equity  ▬ Real estate  ▬ Debts │
 │ ┌──────────────────────────────────────┐ │
 │ │                          ╱‾‾╲__╱‾    │ │
-│ │              ___╱‾‾‾‾‾‾‾‾            │ │
-│ │ ____╱‾‾‾‾‾‾‾‾                        │ │
+│ │              ___╱‾‾‾‾‾‾‾‾░░░░░░░░    │ │
+│ │ ____╱‾‾‾‾‾‾‾‾░░░░░░░░░░░░░░░░░░░░    │ │
+│ │ ▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒    │ │
+│ │ ─────────────────────────────────    │ │
+│ │ ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓    │ │
 │ └──────────────────────────────────────┘ │
 │                                          │
 │ ┌ Since last check-in ─────────────────┐ │
@@ -131,21 +135,24 @@ The home screen. Top to bottom:
 └──────────────────────────────────────────┘
 ```
 
+The whole screen is net worth: the hero number, the history chart (except with *Future* on, below), the change since the last check-in and the allocation.
+
 - **Hero number.**
   - Net worth at the latest check-in, with its changes since the last check-in and this year.
   - It animates when it changes (`.contentTransition(.numericText())`).
-  - Tapping it switches between net worth and *plan assets* (what the plan counts, e.g. without your home).
+  - It's only a number, not a control. (It used to switch to *plan assets* when tapped; plan assets now show only where they matter, in the chart with *Future* on and on the Plan screen.)
 - **History chart.**
-  - **One row of controls above it:** the time span, *Total / By asset class* and *Future*. On iPhone the row gets shorter words and icons so it fits.
-  - By default, a single net-worth line with a light fill. *By asset class* switches to stacked areas, with debts below the zero line, and a legend in its own row above. Like retirement income, each class is a light wash of its colour with a 2-point line along its edge (the top, or the bottom for debts) and a 2-point gap between neighbours, never a solid block.
+  - **One row of controls above it:** the time span and *Future*. Where the row doesn't fit (an iPhone at larger text sizes), the time span's label gets shorter words ("3Y → ret. +15") and *Future* becomes a button that stays lit while it's on; at the largest sizes *Future* moves under the time span.
+  - Always net worth stacked by asset class, with debts below the zero line, and a legend in its own row above. Like retirement income, each class is a light wash of its colour with a 2-point line along its edge (the top, or the bottom for debts) and a 2-point gap between neighbours, never a solid block. Only when there's nothing to stack (every value zero) is it a single line.
   - Drag across it to read any month: a vertical rule with a callout showing the date, the total and the breakdown; over the projection, its median and bands.
   - **Future** continues the chart into the active plan's projection: a dashed median with a darker 25–75% band and a lighter 10–90% band, plus markers for retirement, pension starts and the like. See [PROGRESS.md](PROGRESS.md#past-and-future-m2).
-    - The projection is a total, so with *Future* on the past is the total line too; *By asset class* is for the past alone (it's greyed out, and the caption says so).
+    - **The past shows plan assets, still by asset class.** The projection is of what the plan counts (*plan assets*: e.g. without your home and its mortgage), so with *Future* on the past covers the same accounts and its total meets the projection's median at today. The alternatives mislead: net worth up to today and then a projection of less would look like a fall at today, and carrying the home on at its last value would invent a forecast the plan doesn't make. The projection is one total, so where the plan counts a debt, the median starts below the top of the stack, at what's left after it.
+    - The legend gets a second row for the projection: the median and the two bands (the asset classes stand for the past, so there's no "Actual" line).
     - The value axis fits the history, the median and the 25–75% band. The 10–90% band may run off the top, and the legend says "↑ 10–90% continues above".
-    - A short caption under the chart ("Plan assets, then Base case's projection, in today's money.") with an ⓘ that opens the full explanation.
+    - A short caption under the chart ("Plan assets by asset class, then Base case's projection, in today's money.") with an ⓘ that opens the full explanation: why the past is plan assets, and that turning *Future* off shows the whole net worth.
   - **Time span.** One menu sets how far back and, with *Future* on, how far ahead: *History* last year, 3 or 5 years, or all of it; *Future* to retirement, retirement + 15 years (the default), 20 years or the whole plan, never past the plan's end. Once retirement is behind you, the retirement-based choices give way to 20 years. The menu's label says both ("3Y · retirement +15"). The choice is remembered on the device and shared with the plan's "Your money over time".
   - **Old prices.** When a value in the chart uses a price more than 31 days older than its date, a note under it says so: "10 values in the chart use a price more than 31 days older than their date (Gold coins)." with *Fill In Past Prices…* (see [Instruments](#accounts)).
-  - **Partial totals.** Net worth adds up what can be valued. Where a total misses something (a price or an exchange rate, or an account with no value yet), the line is dashed and grey, the callout says "Partial: some values are missing", and a note under the chart says what and when: "Where the line is dashed, the total is partial: exchange rates for US$ are missing for Jun 2018 – Dec 2021 (US brokerage) and 3 accounts have no value yet for Jun 2018 – Sep 2025 (Directa, Fondo pensione and Old bank)." with *Fill In Past Prices…* when some of it is prices or rates.
+  - **Partial totals.** Net worth adds up what can be valued. Where a total misses something (a price or an exchange rate, or an account with no value yet), every class's line is dashed (as a partial total's line is elsewhere, so it doesn't look like a fall), the callout says "Partial: some values are missing", and a note under the chart says what and when: "Where lines are dashed, the total is partial: exchange rates for US$ are missing for Jun 2018 – Dec 2021 (US brokerage) and 3 accounts have no value yet for Jun 2018 – Sep 2025 (Directa, Fondo pensione and Old bank)." with *Fill In Past Prices…* when some of it is prices or rates.
 - **Since last check-in.** A headline, "▲ +4.210 € since 31 Aug", the totals before and after in words, and a bar each for markets, new money and other, from a shared zero line and to the same scale: gains go right in the positive colour, losses left in the negative one, with their signed amounts in a column of their own. It's the most useful single number after the total, because it separates "I saved" from "markets moved". (It used to be a waterfall, whose bars from zero made the totals huge grey blocks and the changes slivers on top.) While amounts are hidden, the headline shows the change in per cent and the bars keep their proportions.
 - **Can I retire yet?** The plan's headline, progress toward financial independence, and how you compare with the latest baseline. Tapping it opens the Plan tab. It shows the main plan's latest results, or else the answer recorded at the last check-in, dated; it never starts a calculation. While one is going (a check-in's, or one started on the Plan screen) it says how far along it is, and results that no longer fit the plan or your data say "Calculated before your latest changes".
 - **Needs attention.** Only shown when something needs you: stale accounts (not one that holds nothing: see [Accounts](#accounts)), accounts with problems in their trades, prices that couldn't be fetched, sync conflicts that were merged, and plan warnings. An account whose trades have problems (more sold than held, an opening without a cost, a statement that differs from the trades: the notes its page shows) gets one item that opens it: "Directa: 2 problems with trades · More sold than held · VWCE differs from the statement. Open the account to fix them." Prices and exchange rates missing on past month ends get an item each, which opens *Fill In Past Prices*: "Past exchange rates for US$ are missing · US brokerage isn't fully counted in your net worth for Jun 2018 – Dec 2021. Fill in past prices to fetch them."
@@ -659,7 +666,7 @@ On iPhone, journals use "Import with profile…" with a saved ledger profile, li
 
 **Privacy.**
 
-- An eye button hides every amount (`•••••`) while charts keep their shape and a relative value axis: net worth (and an account's value) in multiples of today's (`0`, `1×`, `2×`), the plan's money in multiples of today's plan assets, retirement income in multiples of the spending. Only labels that would reveal amounts hide; the change since the last check-in shows in per cent.
+- An eye button hides every amount (`•••••`) while charts keep their shape and a relative value axis: net worth (and an account's value) in multiples of today's (`0`, `1×`, `2×`), the plan's money (and the Overview's chart with *Future* on) in multiples of today's plan assets, retirement income in multiples of the spending. Only labels that would reveal amounts hide; the change since the last check-in shows in per cent.
 - Amounts are marked `.privacySensitive()`, so widgets and the app switcher hide them when the device is locked.
 - Optional Face ID lock.
 

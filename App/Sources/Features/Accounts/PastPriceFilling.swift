@@ -349,10 +349,11 @@ enum MissingValueNote {
         return sentences.isEmpty ? nil : sentences.joined(separator: " ")
     }
 
-    /// Under the Overview's chart: "Where the line is dashed, the total is
+    /// Under the Overview's chart: "Where lines are dashed, the total is
     /// partial: exchange rates for US$ are missing for Jun 2018 – Dec 2021
     /// (Brokerage), and 3 accounts have no value yet for Mar 2024 – Sep
-    /// 2025 (Home, Mutuo casa and Old bank)."
+    /// 2025 (Home, Mutuo casa and Old bank)." (Stacked by asset class, every
+    /// band's line is dashed where the total is partial.)
     static func overview(_ missing: MissingValues, accountName: (AccountID) -> String,
                          instrumentName: (InstrumentID) -> String, locale: Locale = .current) -> String {
         var parts = missing.gaps.filter(\.item.isPriceOrRate).map { gap in
@@ -367,7 +368,7 @@ enum MissingValueNote {
                 ? "\(first) has no value yet \(when(dates, locale: locale))"
                 : "\(names.count) accounts have no value yet \(when(dates, locale: locale)) (\(shortList(names)))")
         }
-        return "Where the line is dashed, the total is partial: " + OverviewAttention.list(parts) + "."
+        return "Where lines are dashed, the total is partial: " + OverviewAttention.list(parts) + "."
     }
 
     /// "A, B and C", or "A, B, C and 4 more".

@@ -22,10 +22,10 @@ The Overview described in [PLAN.md](PLAN.md#app-structure):
 
 One chart from your first check-in to the end of the plan:
 
-- **History:** your actual values up to today, as a solid line.
+- **History:** your actual values up to today: a solid line, or on the Overview stacked by asset class.
 - **Projection:** from today, the median as a dashed line with the 10th–90th percentile band.
 - **Markers:** the retirement age, pension starts, and when locked money (such as the pension fund) becomes accessible.
-- **Scope:** switch between *net worth* (everything) and *plan assets* (only the accounts the plan counts; your home, for example, is excluded).
+- **Scope:** next to the projection, the history is *plan assets* (only the accounts the plan counts; your home, for example, is excluded), so it meets the projection at today. Without the projection, the Overview's chart is *net worth* (everything) ([UI.md](UI.md#overview)).
 - **Units:** the projection is in today's money, so by default the history is shown in today's money too, adjusted with actual inflation (the library's index: [FILE_FORMAT.md](FILE_FORMAT.md#libraryjson), `inflationIndex`). A toggle shows the history in the money of the time instead.
 
 ### The answer over time (M2)

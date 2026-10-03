@@ -4,19 +4,19 @@ import Tracker
 
 /// The home screen: net worth, history, how you're doing (UI.md, "Overview").
 ///
-/// Top to bottom: the hero number (tap it to switch to plan assets), the
-/// history chart with its range, *Total / By asset class* and *Future*
-/// switches, the change since the last check-in, the answer to "can I
-/// retire yet?", what needs attention, and the allocation bars. The
+/// Top to bottom: the hero number (net worth), the history chart by asset
+/// class with its time span and *Future* switch, the change since the last
+/// check-in, the answer to "can I retire yet?", what needs attention, and
+/// the allocation bars. Everything is net worth; only the chart with
+/// *Future* on shows plan assets, so its past meets the projection. The
 /// navigation wraps it in a NavigationStack and adds the eye and gear.
 struct OverviewScreen: View {
     @Environment(LibraryStore.self) private var library
     @Environment(PlanStore.self) private var plans
     @Environment(AppNavigation.self) private var navigation
 
-    @AppStorage("overview.scope") private var scope: NetWorthScope = .netWorth
+    // `overview.scope` and `overview.stacked`, stored by earlier versions, are no longer read.
     @AppStorage("overview.range") private var range: OverviewRange = .threeYears
-    @AppStorage("overview.stacked") private var isStacked = false
     @AppStorage("overview.allocation") private var allocation: OverviewAllocation = .assetClass
 
     init() {}
@@ -40,23 +40,21 @@ struct OverviewScreen: View {
         let results = mainPlan.flatMap { plans.results[$0.id] }
         return ScrollView {
             VStack(alignment: .leading, spacing: Metrics.xl) {
-                OverviewHeroView(hero: OverviewHero(valuator: valuator, asOf: asOf, scope: scope)) {
-                    withAnimation { scope = scope == .netWorth ? .planAssets : .netWorth }
-                }
+                OverviewHeroView(hero: OverviewHero(valuator: valuator, asOf: asOf))
                 if library.latestCheckIn == nil {
                     FirstCheckInCard()
                 }
                 OverviewHistorySection(
-                    valuator: valuator, asOf: asOf, scope: scope, results: results, planName: mainPlan?.name,
-                    range: $range, isStacked: $isStacked, showsFuture: $navigation.showsFuture)
+                    valuator: valuator, asOf: asOf, results: results, planName: mainPlan?.name,
+                    range: $range, showsFuture: $navigation.showsFuture)
                 VStack(alignment: .leading, spacing: Metrics.l) {
-                    if let report = valuator.changeSinceLastCheckIn(asOf: asOf, in: scope) {
+                    if let report = valuator.changeSinceLastCheckIn(asOf: asOf) {
                         OverviewChangeCard(report: report)
                     }
                     OverviewAnswerCard(valuator: valuator, asOf: asOf)
                     OverviewAttentionCard(valuator: valuator, asOf: asOf)
                     OverviewAllocationCard(
-                        breakdown: valuator.breakdown(by: allocation.dimension, on: asOf, in: scope),
+                        breakdown: valuator.breakdown(by: allocation.dimension, on: asOf),
                         dimension: $allocation)
                 }
             }
@@ -70,54 +68,34 @@ struct OverviewScreen: View {
 
 // MARK: - Hero
 
-/// Net worth (or plan assets) at the latest check-in, with its changes.
-/// Tapping it switches between the two.
+/// Net worth at the latest check-in, with its changes.
 private struct OverviewHeroView: View {
     let hero: OverviewHero
-    let toggleScope: () -> Void
 
     var body: some View {
-        Button(action: toggleScope) {
-            VStack(alignment: .leading, spacing: Metrics.xs) {
-                HStack(spacing: Metrics.xs) {
-                    Text(title)
-                    Image(systemName: "chevron.up.chevron.down")
-                        .font(.caption2.weight(.semibold))
-                        .accessibilityHidden(true)
-                }
+        VStack(alignment: .leading, spacing: Metrics.xs) {
+            Text("Net worth")
                 .font(.subheadline)
                 .foregroundStyle(Palette.secondaryInk)
-                AmountText(hero.total, tabular: false, animatesChanges: true)
-                    .font(.largeTitle.bold())
-                    .foregroundStyle(Palette.ink)
-                    .dynamicTypeSize(...DynamicTypeSize.accessibility2)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.6)
-                ViewThatFits(in: .horizontal) {
-                    HStack(spacing: Metrics.m) { changes }
-                    VStack(alignment: .leading, spacing: 2) { changes }
-                }
-                .font(.subheadline)
-                if !hero.isComplete {
-                    Text("Some values are missing: see Needs attention.")
-                        .font(.footnote)
-                        .foregroundStyle(Palette.secondaryInk)
-                }
-                if hero.scope == .planAssets {
-                    Text("What your plans count, e.g. without your home.")
-                        .font(.footnote)
-                        .foregroundStyle(Palette.secondaryInk)
-                }
+            AmountText(hero.total, tabular: false, animatesChanges: true)
+                .font(.largeTitle.bold())
+                .foregroundStyle(Palette.ink)
+                .dynamicTypeSize(...DynamicTypeSize.accessibility2)
+                .lineLimit(1)
+                .minimumScaleFactor(0.6)
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: Metrics.m) { changes }
+                VStack(alignment: .leading, spacing: 2) { changes }
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .contentShape(Rectangle())
+            .font(.subheadline)
+            if !hero.isComplete {
+                Text("Some values are missing: see Needs attention.")
+                    .font(.footnote)
+                    .foregroundStyle(Palette.secondaryInk)
+            }
         }
-        .buttonStyle(.plain)
-        .accessibilityHint(hero.scope == .netWorth ? "Switches to plan assets" : "Switches to net worth")
-    }
-
-    private var title: String {
-        hero.scope == .netWorth ? "Net worth" : "Plan assets"
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .accessibilityElement(children: .combine)
     }
 
     @ViewBuilder
@@ -178,23 +156,20 @@ private struct OverviewEmptyState: View {
 // MARK: - History
 
 /// The history chart (UI.md, "History chart"): one row of controls above
-/// it (the time span, *Total / By asset class*, *Future*), the chart with
-/// its legend, a short caption with an ⓘ for the full explanation, and the
-/// notes on missing or old prices.
+/// it (the time span and *Future*), the chart stacked by asset class with
+/// its legend, with *Future* on a short caption with an ⓘ for the full
+/// explanation, and the notes on missing or old prices.
 ///
-/// With *Future* on, the chart shows plan assets, so the history lines up
-/// with the projection, which is of what the plan counts; the history is
-/// the total line, since the projection is a total (*By asset class* is
-/// for the past alone); and the projection reaches as far as the chosen
-/// horizon (``FutureHorizon``, remembered on the device).
+/// The past is net worth. With *Future* on it's plan assets, still by asset
+/// class (``OverviewHistory``): the projection is of what the plan counts,
+/// so the past's total meets it at today. The projection reaches as far as
+/// the chosen horizon (``FutureHorizon``, remembered on the device).
 private struct OverviewHistorySection: View {
     let valuator: Valuator
     let asOf: CalendarDate
-    let scope: NetWorthScope
     let results: PlanResults?
     let planName: String?
     @Binding var range: OverviewRange
-    @Binding var isStacked: Bool
     @Binding var showsFuture: Bool
     @Environment(AppPreferences.self) private var preferences
     @State private var fillsPastPrices = false
@@ -205,13 +180,12 @@ private struct OverviewHistorySection: View {
         let projection = results?.portfolio(in: valuator.baseCurrency, valuator: valuator) ?? []
         let canShowFuture = !projection.isEmpty
         let future = showsFuture && canShowFuture
-        let chartScope: NetWorthScope = future ? .planAssets : scope
         let now = asOf.dateValue
         let retirement = results?.retirementDate
         let planEnd = projection.last?.date ?? now
         let horizon = preferences.futureHorizon.effective(start: now, retirement: retirement)
         let history = OverviewHistory(
-            valuator: valuator, through: asOf, scope: chartScope, range: range, stacked: isStacked && !future,
+            valuator: valuator, through: asOf, range: range,
             projection: future ? projection : [], markers: future ? (results?.markers ?? []) : [],
             horizon: future ? horizon.end(start: now, retirement: retirement, planEnd: planEnd) : nil)
         VStack(alignment: .leading, spacing: Metrics.m) {
@@ -222,18 +196,22 @@ private struct OverviewHistorySection: View {
                          compact: false)
                 controls(future: future, canShowFuture: canShowFuture, horizon: horizonBinding, choices: choices,
                          compact: true)
+                // The largest text sizes: *Future* under the time span.
+                VStack(alignment: .leading, spacing: Metrics.s) {
+                    TimeSpanMenu(range: $range, horizon: future ? horizonBinding : nil, choices: choices,
+                                 compact: true)
+                    if canShowFuture {
+                        futureToggle(compact: true)
+                    }
+                }
             }
             NetWorthChart(history: history.points, stacked: history.stacked, projection: history.projection,
-                          markers: history.markers)
+                          markers: history.markers, title: history.scope == .planAssets ? "Plan assets" : "Net worth")
                 .environment(\.chartSurface, Palette.page)
             if future {
                 ChartCaption(text: futureCaption, detail: futureDetail)
-            } else if chartScope == .planAssets {
-                Text("Plan assets: the accounts your plans count.")
-                    .font(.footnote)
-                    .foregroundStyle(Palette.secondaryInk)
             }
-            if history.stacked.isEmpty, let missing = history.missing {
+            if let missing = history.missing {
                 missingNoteView(missing)
             }
             if let summary = history.oldPrices {
@@ -245,51 +223,42 @@ private struct OverviewHistorySection: View {
         .pastPricesSheet(isPresented: $fillsPastPrices)
     }
 
-    /// The row above the chart: the time span, *Total / By asset class*
-    /// (only for the past alone) and *Future*. The compact one fits an
-    /// iPhone: shorter words, icons for *Total / By asset class*, and
+    /// The row above the chart: the time span and *Future*. The compact
+    /// one is for an iPhone at larger text sizes: shorter words, and
     /// *Future* as a button that stays lit while it's on.
     private func controls(future: Bool, canShowFuture: Bool, horizon: Binding<FutureHorizon>,
                           choices: [FutureHorizon], compact: Bool) -> some View {
         HStack(spacing: Metrics.s) {
             TimeSpanMenu(range: $range, horizon: future ? horizon : nil, choices: choices, compact: compact)
-            Picker("Show", selection: $isStacked) {
-                if compact {
-                    Image(systemName: "chart.xyaxis.line")
-                        .accessibilityLabel("Total")
-                        .tag(false)
-                    Image(systemName: "square.stack.3d.up")
-                        .accessibilityLabel("By asset class")
-                        .tag(true)
-                } else {
-                    Text("Total").tag(false)
-                    Text("By asset class").tag(true)
-                }
-            }
-            .pickerStyle(.segmented)
-            .labelsHidden()
-            .fixedSize()
-            .disabled(future)
-            .help(future ? "With Future on, the past shows as a total" : "Show the total or each asset class")
             Spacer(minLength: 0)
             if canShowFuture {
-                if compact {
-                    Toggle(isOn: $showsFuture) {
-                        Label("Future", systemImage: "chart.line.uptrend.xyaxis")
-                    }
-                    .toggleStyle(.button)
-                    .font(.subheadline)
-                    .fixedSize()
-                } else {
-                    Toggle("Future", isOn: $showsFuture)
-                        .toggleStyle(.switch)
-                        .font(.subheadline)
-                        .fixedSize()
-                        .help("Continue the chart into your plan's projection")
-                }
+                futureToggle(compact: compact)
             }
         }
     }
+
+    /// *Future*: a switch, or where room is short a button that stays lit
+    /// while it's on.
+    @ViewBuilder
+    private func futureToggle(compact: Bool) -> some View {
+        if compact {
+            Toggle(isOn: $showsFuture) {
+                Label("Future", systemImage: "chart.line.uptrend.xyaxis")
+            }
+            .toggleStyle(.button)
+            .font(.subheadline)
+            .fixedSize()
+            .help(Self.futureHelp)
+        } else {
+            Toggle("Future", isOn: $showsFuture)
+                .toggleStyle(.switch)
+                .font(.subheadline)
+                .fixedSize()
+                .help(Self.futureHelp)
+        }
+    }
+
+    private static let futureHelp = "Continue the chart into your plan's projection, from your plan assets"
 
     /// Partial totals are drawn dashed: what they're missing, with *Fill In
     /// Past Prices…* when some of it is prices or rates.
@@ -307,19 +276,18 @@ private struct OverviewHistorySection: View {
 
     /// The short caption under the chart while the future is shown.
     private var futureCaption: String {
-        isStacked
-            ? "Plan assets, then \(planTitle)'s projection. The past shows as a total while Future is on."
-            : "Plan assets, then \(planTitle)'s projection, in today's money."
+        "Plan assets by asset class, then \(planTitle)'s projection, in today's money."
     }
 
     /// The full explanation, in the ⓘ popover.
     private var futureDetail: String {
-        "Plan assets are the accounts your plans count. After today the chart continues with \(planTitle)'s "
-            + "projection, in today's money: the dashed line is the middle of the simulated futures, the darker "
-            + "band holds half of them and the lighter band 8 in 10. The lighter band can run off the top, so "
-            + "the rest stays readable. The projection is a total, so with Future on the past is the total "
-            + "line too; By asset class is for the past alone. The time span menu sets how far back and ahead "
-            + "the chart reaches."
+        "With Future on, the past shows your plan assets: the accounts your plans count, e.g. without your "
+            + "home. That's what the projection is of, so the two meet at today; turn Future off to see your "
+            + "whole net worth. After today the chart continues with \(planTitle)'s projection, in today's "
+            + "money: the dashed line is the middle of the simulated futures, the darker band holds half of them "
+            + "and the lighter band 8 in 10. The lighter band can run off the top, so the rest stays readable. "
+            + "The projection is one total: it starts from what the plan's accounts add up to today, less any "
+            + "debts below the zero line. The time span menu sets how far back and ahead the chart reaches."
     }
 }
 
