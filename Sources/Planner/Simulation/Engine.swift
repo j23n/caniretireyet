@@ -136,9 +136,10 @@ struct Engine: Sendable {
         return (parts.flatMap(\.0), parts.flatMap(\.1))
     }
 
-    /// A simulator for one age's schedule.
-    func simulator(age: Int) -> PathSimulator {
-        PathSimulator(schedule: schedules[age]!, scenarios: scenarios, portfolio: portfolio, model: model)
+    /// A simulator for one age's schedule, starting from `start` (by
+    /// default the plan's own starting portfolio).
+    func simulator(age: Int, start: Portfolio? = nil) -> PathSimulator {
+        PathSimulator(schedule: schedules[age]!, scenarios: scenarios, portfolio: start ?? portfolio, model: model)
     }
 
     // MARK: - Sustainable spending
@@ -196,6 +197,122 @@ struct Engine: Sendable {
         }
         let perYear = (low / 10).rounded(.down) * 10
         return SustainableSpending(age: age, perYear: perYear, success: try await success(at: perYear))
+    }
+
+    // MARK: Assets needed to retire today
+
+    /// The plan assets at the start that make retiring at `age` reach the
+    /// confidence level (PLANNER.md, "Assets needed to retire today").
+    ///
+    /// It scales the starting portfolio (``Portfolio/scaled(by:)``) and
+    /// searches the scale: from 1 it doubles (or halves) until the
+    /// confidence level is crossed, within 1 / ``AssetsNeeded/maximumScale``
+    /// … ``AssetsNeeded/maximumScale``, then bisects on a log scale until
+    /// the bracket is narrower than ``AssetsNeeded/tolerance``. Every scale
+    /// uses the same random draws, and a run is taken to succeed at every
+    /// scale above one it succeeded at (more money in the same mix doesn't
+    /// make it fail), so runs already settled aren't simulated again and the
+    /// success rate never falls as the scale rises. At scale 1 the runs are
+    /// the scan's own, so the result reaches 100% (`readiness` ≥ 1) exactly
+    /// when retiring today does. `progress` counts the scales tried (steps).
+    ///
+    /// - Parameters:
+    ///   - startAssets: today's plan assets (``PlanStart/planAssets``),
+    ///     which the scale multiplies into ``AssetsNeeded/amount``.
+    ///   - successToday: the scan's chance of success at `age`, used when
+    ///     there's nothing to scale.
+    func assetsNeeded(age: Int, startAssets: Double, successToday: Double,
+                      progress: ProgressReporter? = nil) async throws -> AssetsNeeded {
+        let runs = scenarios.runs
+        let confidence = model.confidence
+        let spending = model.spending.retired
+        let maximum = AssetsNeeded.maximumScale
+        let floor = 1 / maximum
+        guard startAssets > 0, portfolio.totalValue > 1e-6 else {
+            let enough = successToday >= confidence
+            return AssetsNeeded(age: age, outcome: .noPlanAssets, amount: enough ? 0 : nil,
+                                success: enough ? successToday : nil, readiness: enough ? nil : 0)
+        }
+
+        // Per run, the smallest scale it succeeded at and the largest it failed at.
+        var succeedsFrom = [Double](repeating: .infinity, count: runs)
+        var failsUpTo = [Double](repeating: -.infinity, count: runs)
+        let engine = self
+        var steps = 0
+
+        func success(at scale: Double) async throws -> Double {
+            let open = (0..<runs).filter { failsUpTo[$0] < scale && scale < succeedsFrom[$0] }
+            let start = engine.portfolio.scaled(by: scale)
+            let chunks = Self.chunks(open.count).map { Array(open[$0]) }
+            let results = try await parallelMap(chunks) { chunk -> [(Int, Bool)] in
+                var simulator = engine.simulator(age: age, start: start)
+                var settled: [(Int, Bool)] = []
+                settled.reserveCapacity(chunk.count)
+                for (offset, run) in chunk.enumerated() {
+                    if offset > 0, offset % Self.runsPerChunk == 0 { try await Self.pause() }
+                    settled.append((run, simulator.run(run, spending: spending).failure == nil))
+                }
+                return settled
+            }
+            for (run, succeeded) in results.joined() {
+                if succeeded { succeedsFrom[run] = scale } else { failsUpTo[run] = scale }
+            }
+            steps += 1
+            progress?.advance()
+            return rate(at: scale)
+        }
+
+        func rate(at scale: Double) -> Double {
+            Double((0..<runs).filter { succeedsFrom[$0] <= scale }.count) / Double(runs)
+        }
+
+        // Scale 1, a step out, the bisection over a doubling.
+        progress?.begin(.assetsNeeded, total: 2 + Self.logBisectionSteps(low: 1, high: 2))
+        var low: Double
+        var high: Double
+        if try await success(at: 1) >= confidence {
+            high = 1
+            low = 0.5
+            while try await success(at: low) >= confidence {
+                high = low
+                if low <= floor {
+                    return AssetsNeeded(age: age, outcome: .atMost, scale: floor, amount: floor * startAssets,
+                                        success: rate(at: floor), readiness: maximum)
+                }
+                low = max(floor, low / 2)
+                progress?.extend(to: steps + 1 + Self.logBisectionSteps(low: low, high: high))
+            }
+        } else {
+            low = 1
+            high = 2
+            while try await success(at: high) < confidence {
+                low = high
+                if high >= maximum {
+                    return AssetsNeeded(age: age, outcome: .moreThanMaximum, scale: maximum)
+                }
+                high = min(maximum, high * 2)
+                progress?.extend(to: steps + 1 + Self.logBisectionSteps(low: low, high: high))
+            }
+        }
+        progress?.extend(to: steps + Self.logBisectionSteps(low: low, high: high))
+        while high / low > 1 + AssetsNeeded.tolerance {
+            let middle = (low * high).squareRoot()
+            if try await success(at: middle) >= confidence { high = middle } else { low = middle }
+        }
+        return AssetsNeeded(age: age, outcome: .found, scale: high, amount: high * startAssets,
+                            success: rate(at: high), readiness: 1 / high)
+    }
+
+    /// How many halvings of the log of `high / low` the search for the
+    /// assets needed takes to get within ``AssetsNeeded/tolerance``.
+    static func logBisectionSteps(low: Double, high: Double) -> Int {
+        var steps = 0
+        var ratio = high / low
+        while steps < 60, ratio > 1 + AssetsNeeded.tolerance {
+            ratio = ratio.squareRoot()
+            steps += 1
+        }
+        return steps
     }
 
     /// At most how many halvings the bisection between `low` and `high`

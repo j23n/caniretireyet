@@ -21,12 +21,15 @@ extension Planner {
 
 extension PlanResult {
     /// The answer as a headline's summary: success rates to 3 decimals, FI
-    /// progress to 2.
+    /// progress to 2, readiness rounded down to 2 (so a recorded 1 means
+    /// retiring today reaches the confidence level). Both are recorded:
+    /// `fiProgress` keeps its old meaning, `readiness` is the one to show.
     public var headlineSummary: HeadlineSummary {
         HeadlineSummary(
             confidence: .rounded(settings.confidence, scale: 3), earliestAge: answer.earliestAge,
             successAtTarget: answer.successAtTarget.map { .rounded($0, scale: 3) },
-            fiProgress: answer.fiProgress.map { .rounded($0, scale: 2) })
+            fiProgress: answer.fiProgress.map { .rounded($0, scale: 2) },
+            readiness: answer.readiness.map { .roundedDown($0, scale: 2) })
     }
 
     /// The headline to record for the check-in on `date` (default: the
@@ -35,7 +38,7 @@ extension PlanResult {
         let summary = headlineSummary
         return Headline(
             date: date ?? start.date, confidence: summary.confidence, earliestAge: summary.earliestAge,
-            engine: engine, fiProgress: summary.fiProgress, planHash: planHash,
+            engine: engine, fiProgress: summary.fiProgress, planHash: planHash, readiness: summary.readiness,
             successAtTarget: summary.successAtTarget,
             taxParameters: Dictionary(uniqueKeysWithValues: taxParameters.map { (TaxSystemID($0.key), $0.value) }))
     }

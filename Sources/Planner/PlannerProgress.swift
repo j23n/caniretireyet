@@ -2,7 +2,8 @@ import Foundation
 
 /// Where a run of ``Planner/run(plan:library:registry:options:progress:)``
 /// is, for a progress bar: "Earliest age · ages 41–75: 12 / 35",
-/// "Simulating 1,234 / 2,000 runs", "Sustainable spending: step 4 / 12".
+/// "Simulating 1,234 / 2,000 runs", "Sustainable spending: step 4 / 12",
+/// "Needed to retire today: step 3 / 9".
 ///
 /// A run goes through the phases in their order, each counted in its own
 /// unit (``completed`` of ``total``), and ``fraction`` is the whole run's
@@ -20,6 +21,10 @@ public struct PlannerProgress: Hashable, Sendable {
         /// The highest sustainable spending, by bisection. Counted in steps;
         /// the total is an estimate that can grow by a step or two.
         case sustainableSpending
+        /// The plan assets retiring today would need: today's age at
+        /// several scales of the starting portfolio, by bisection. Counted
+        /// in steps (scales tried); the total is an estimate that can grow.
+        case assetsNeeded
         /// Percentiles, the median path, the FI number and the markers.
         /// One step.
         case summarising
@@ -100,17 +105,19 @@ final class ProgressReporter: @unchecked Sendable {
 
     /// Sets the phases' shares of the bar from the work each is expected to
     /// take, in runs simulated. Call before the first phase.
-    func plan(runs: Int, ages: Int, solvesSpending: Bool) {
+    func plan(runs: Int, ages: Int, solvesSpending: Bool, solvesAssetsNeeded: Bool = false) {
         lock.withLock {
             self.runs = max(1, runs)
             let perAge = Double(self.runs)
             // Measured on the example plan with the Italian system: the
             // runs of one age in detail take about as long as one age of
-            // the scan, the bisection about five, the summary a tenth.
+            // the scan, the spending bisection about five, the search for
+            // the assets needed today about four, the summary a tenth.
             weights = [
                 .earliestAge: Double(max(1, ages)) * perAge,
                 .simulating: perAge,
                 .sustainableSpending: solvesSpending ? 5 * perAge : 0,
+                .assetsNeeded: solvesAssetsNeeded ? 4 * perAge : 0,
                 .summarising: 0.1 * perAge,
             ]
         }

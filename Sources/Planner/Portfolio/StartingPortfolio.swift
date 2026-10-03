@@ -548,7 +548,25 @@ struct Portfolio: Sendable {
 
     var classCount: Int { classes.count }
 
+    /// The value of every lot at the start.
+    var totalValue: Double { lots.reduce(0) { $0 + $1.value } }
+
     func bucketIndex(wrapper: String) -> Int? {
         buckets.firstIndex { $0.wrapper == wrapper }
+    }
+
+    /// The same portfolio with every lot's value and purchase cost
+    /// multiplied by `factor`: every bucket and class grows in proportion,
+    /// and each lot keeps its share of unrealised gain. For "assets needed
+    /// to retire today" (``Engine/assetsNeeded(age:startAssets:successToday:progress:)``).
+    func scaled(by factor: Double) -> Portfolio {
+        guard factor != 1 else { return self }
+        var scaled = lots
+        for index in scaled.indices {
+            scaled[index].value *= factor
+            scaled[index].basis *= factor
+        }
+        return Portfolio(buckets: buckets, lots: scaled, classes: classes, primaryLiquid: primaryLiquid,
+                         targetShares: targetShares, depositLot: depositLot)
     }
 }

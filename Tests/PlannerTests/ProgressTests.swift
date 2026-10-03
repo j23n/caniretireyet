@@ -119,6 +119,13 @@ struct ProgressTests {
         let last = try #require(steps.last)
         #expect(last.completed >= 10 && last.completed <= last.total && last.total <= last.completed + 3)
         #expect(steps.map(\.completed) == steps.map(\.completed).sorted())
+
+        // The search for the assets needed today: a handful of scales.
+        let scales = updates.filter { $0.phase == .assetsNeeded }
+        let lastScale = try #require(scales.last)
+        #expect(lastScale.completed >= 3 && lastScale.completed <= lastScale.total)
+        #expect(scales.map(\.completed) == scales.map(\.completed).sorted())
+        #expect(result.answer.assetsNeeded != nil)
     }
 
     @Test func theHeadlineScanCountsTheAgesItRefines() async throws {
@@ -129,6 +136,7 @@ struct ProgressTests {
         #expect(last.total == result.successCurve.count)
         #expect(last.completed == last.total)
         #expect(!updates.contains { $0.phase == .sustainableSpending })
+        #expect(updates.contains { $0.phase == .assetsNeeded })
         #expect(updates.map(\.fraction) == updates.map(\.fraction).sorted())
         #expect(updates.last?.isFinished == true)
     }

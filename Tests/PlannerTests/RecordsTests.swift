@@ -39,7 +39,19 @@ struct RecordsTests {
         #expect(headline.successAtTarget == Decimal.rounded(success, scale: 3))
         #expect(headline.taxParameters == ["flat": 2025])
         #expect(headline.fiProgress == Decimal.rounded(result.answer.fiProgress!, scale: 2))
+        // Readiness is rounded down, so a recorded 1 means retiring today works.
+        let readiness = try #require(result.answer.readiness)
+        #expect(headline.readiness == Decimal.roundedDown(readiness, scale: 2))
+        #expect(headline.readiness! <= Decimal(readiness))
         #expect(result.headline(date: "2026-01-31").date == "2026-01-31")
+    }
+
+    @Test func readinessIsRoundedDown() {
+        #expect(Decimal.roundedDown(0.58, scale: 2) == d("0.58"))
+        #expect(Decimal.roundedDown(0.9999, scale: 2) == d("0.99"))
+        #expect(Decimal.roundedDown(1, scale: 2) == 1)
+        #expect(Decimal.roundedDown(1.0049, scale: 2) == d("1"))
+        #expect(Decimal.roundedDown(0.072345, scale: 2) == d("0.07"))
     }
 
     @Test func aBaselineStoresTheProjection() async throws {

@@ -200,16 +200,26 @@ public struct PlanAnswer: Hashable, Sendable {
     /// The highest retirement spending that still reaches the confidence
     /// level at `targetAge`.
     public var sustainableSpending: SustainableSpending?
-    /// For orientation: the retirement spending your pensions don't cover,
-    /// divided by the withdrawal rate.
+    /// The old rule of thumb, kept for compatibility but no longer shown:
+    /// the retirement spending your pensions don't cover once all have
+    /// started, divided by the withdrawal rate. It ignores the years before
+    /// the pensions start, taxes on withdrawals and the plan's horizon and
+    /// confidence, so it can disagree with the simulation; use
+    /// ``assetsNeeded`` instead.
     public var fiNumber: Double?
-    /// Plan assets today divided by the FI number.
+    /// Plan assets today divided by ``fiNumber``. Kept for compatibility
+    /// (headlines still record it); ``readiness`` is the number to show.
     public var fiProgress: Double?
+    /// What retiring today would need, from the same simulation: the plan
+    /// assets that make retiring at ``currentAge`` reach the confidence
+    /// level. `nil` when the run didn't look for it
+    /// (``PlannerOptions/solveAssetsNeeded``).
+    public var assetsNeeded: AssetsNeeded?
 
     public init(canRetireNow: Bool, confidence: Double, currentAge: Int, successIfRetiringNow: Double,
                 earliestAge: Int? = nil, earliestDate: CalendarDate? = nil, targetAge: Int? = nil,
                 successAtTarget: Double? = nil, sustainableSpending: SustainableSpending? = nil,
-                fiNumber: Double? = nil, fiProgress: Double? = nil) {
+                fiNumber: Double? = nil, fiProgress: Double? = nil, assetsNeeded: AssetsNeeded? = nil) {
         self.canRetireNow = canRetireNow
         self.confidence = confidence
         self.currentAge = currentAge
@@ -221,6 +231,83 @@ public struct PlanAnswer: Hashable, Sendable {
         self.sustainableSpending = sustainableSpending
         self.fiNumber = fiNumber
         self.fiProgress = fiProgress
+        self.assetsNeeded = assetsNeeded
+    }
+
+    /// The plan assets that would make retiring today reach the confidence
+    /// level, in the plan's currency (``AssetsNeeded/amount``).
+    public var assetsNeededToday: Double? { assetsNeeded?.amount }
+
+    /// Today's plan assets as a fraction of what retiring today with the
+    /// plan's confidence needs (``AssetsNeeded/readiness``): at least 1
+    /// exactly when ``canRetireNow``.
+    public var readiness: Double? { assetsNeeded?.readiness }
+}
+
+/// What retiring today would need (PLANNER.md, "Assets needed to retire
+/// today"): the plan assets at the start that make retiring at today's age
+/// succeed in the plan's share of simulated futures, with the years before
+/// the pensions start, the taxes on withdrawals and the plan's horizon all
+/// simulated as usual.
+///
+/// The engine finds it by scaling today's starting portfolio (every lot's
+/// value and purchase cost, so buckets, mix and unrealised gains keep their
+/// proportions) and searching the scale by bisection on a log scale, with
+/// the same random draws for every scale, to within ``tolerance``.
+public struct AssetsNeeded: Hashable, Sendable {
+    /// How the search ended.
+    public enum Outcome: Hashable, Sendable {
+        /// ``AssetsNeeded/scale`` reaches the confidence level, and the true threshold
+        /// is at most ``AssetsNeeded/tolerance`` below it.
+        case found
+        /// Even 1 / ``AssetsNeeded/maximumScale`` of today's plan assets
+        /// reach the confidence level: retiring today needs at most
+        /// ``AssetsNeeded/amount``, and ``AssetsNeeded/readiness`` is a lower bound.
+        case atMost
+        /// Even ``AssetsNeeded/maximumScale`` times today's plan assets
+        /// fall short, e.g. because most of them are locked until later
+        /// and scaling them doesn't bridge the years before. ``AssetsNeeded/amount`` and
+        /// ``AssetsNeeded/readiness`` are `nil`.
+        case moreThanMaximum
+        /// The plan counts no assets, so there's nothing to scale.
+        /// ``AssetsNeeded/readiness`` is 0 when retiring today falls short, else `nil`;
+        /// ``AssetsNeeded/amount`` is 0 when retiring today needs nothing.
+        case noPlanAssets
+    }
+
+    /// The highest multiple of today's plan assets searched.
+    public static let maximumScale = 20.0
+    /// How closely the search brackets the scale: the scale found is at
+    /// most this share above the smallest one that reaches the confidence level.
+    public static let tolerance = 0.01
+
+    /// The retirement age it's for: today's.
+    public var age: Int
+    public var outcome: Outcome
+    /// The multiple of today's plan assets needed (`amount / planAssets`):
+    /// within ``tolerance`` when found, the bound searched otherwise; `nil`
+    /// without plan assets.
+    public var scale: Double?
+    /// The plan assets needed at the start, in the plan's currency:
+    /// ``scale`` × today's plan assets (``PlanStart/planAssets``). `nil`
+    /// when more than ``maximumScale`` times today's would be needed.
+    public var amount: Double?
+    /// The chance of success retiring today with ``amount``: at least the
+    /// confidence level.
+    public var success: Double?
+    /// Today's plan assets as a fraction of ``amount`` (`1 / scale`): 1 is
+    /// 100%, reached exactly when retiring today reaches the confidence
+    /// level. A lower bound for ``Outcome/atMost``.
+    public var readiness: Double?
+
+    public init(age: Int, outcome: Outcome, scale: Double? = nil, amount: Double? = nil, success: Double? = nil,
+                readiness: Double? = nil) {
+        self.age = age
+        self.outcome = outcome
+        self.scale = scale
+        self.amount = amount
+        self.success = success
+        self.readiness = readiness
     }
 }
 

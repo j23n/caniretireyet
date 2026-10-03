@@ -15,7 +15,8 @@ import TaxKit
 ///   spending, withdrawals, returns and rebalancing.
 /// - A deterministic run and a seeded Monte Carlo simulation with common
 ///   random numbers across retirement ages and what-ifs; the earliest
-///   retirement age, the success curve and the sustainable spending.
+///   retirement age, the success curve, the sustainable spending and the
+///   plan assets retiring today would need.
 ///
 /// Everything is `Sendable`, and `run` does its work off the main actor.
 public enum Planner {
@@ -41,8 +42,9 @@ public enum Planner {
     }
 
     /// Runs a plan: the success curve by retirement age, the earliest age at
-    /// the plan's confidence level, and the details for one age (the plan's,
-    /// the earliest, or `options.focusAge`).
+    /// the plan's confidence level, the details for one age (the plan's,
+    /// the earliest, or `options.focusAge`), and what retiring today would
+    /// need (``PlanAnswer/assetsNeeded``).
     ///
     /// Throws ``PlannerError/invalidPlan(_:)`` when the plan has errors, and
     /// `CancellationError` when the task is cancelled (e.g. a slider moved on).
@@ -89,7 +91,8 @@ public enum Planner {
         // The headline grid may be refined by up to 3 ages between two of its own.
         let refinement = options.ageScan == .headline ? min(3, max(0, maxAge - current + 1 - ages.count)) : 0
         progress?.plan(runs: model.runs, ages: ages.count + refinement,
-                       solvesSpending: options.solveSustainableSpending)
+                       solvesSpending: options.solveSustainableSpending,
+                       solvesAssetsNeeded: options.solveAssetsNeeded)
         progress?.begin(.earliestAge, total: ages.count, per: model.runs, expected: ages.count + refinement,
                         ages: ages[0]...ages[ages.count - 1])
         var engine = try await Engine.make(model: model, ages: ages, maxAge: maxAge)
@@ -133,6 +136,14 @@ public enum Planner {
             try await engine.prepare(ages: [age])
             sustainable = try await engine.sustainableSpending(age: age, progress: progress)
         }
+        let startValue = model.portfolio.startAssets.double
+        let successNow = rates[current] ?? 0
+        try Task.checkCancellation()
+        var assetsNeeded: AssetsNeeded?
+        if options.solveAssetsNeeded {
+            assetsNeeded = try await engine.assetsNeeded(age: current, startAssets: startValue,
+                                                         successToday: successNow, progress: progress)
+        }
         progress?.begin(.summarising, total: 1)
 
         var fan: [FanYear] = []
@@ -145,15 +156,13 @@ public enum Planner {
                 expected: expectedYears.indices.contains(t) ? expectedYears[t].endAssets : 0))
         }
 
-        let startValue = model.portfolio.startAssets.double
         let fi = fiNumber(schedule: focusSchedule, model: model, rate: options.fiWithdrawalRate)
-        let successNow = rates[current] ?? 0
         let answer = PlanAnswer(
             canRetireNow: successNow >= model.confidence, confidence: model.confidence, currentAge: current,
             successIfRetiringNow: successNow, earliestAge: earliest,
             earliestDate: earliest.map { model.retirementDate(forAge: $0) }, targetAge: target,
             successAtTarget: target.flatMap { rates[$0] }, sustainableSpending: sustainable, fiNumber: fi,
-            fiProgress: fi.map { $0 > 0 ? startValue / $0 : 1 })
+            fiProgress: fi.map { $0 > 0 ? startValue / $0 : 1 }, assetsNeeded: assetsNeeded)
 
         let curve = sortedAges.map { age in
             AgeSuccess(age: age, retirementDate: model.retirementDate(forAge: age), success: rates[age]!,
@@ -235,9 +244,10 @@ public enum Planner {
             }.sorted { ($1.count, $0.wrapper) < ($0.count, $1.wrapper) })
     }
 
-    /// The FI number: retirement spending not covered by pensions, over the
-    /// withdrawal rate. The pensions count once all have started: a whole
-    /// year of each (the year after the last one starts, when the plan
+    /// The FI number, kept for compatibility (``PlanAnswer/fiNumber``; the
+    /// results show ``PlanAnswer/assetsNeeded`` instead): retirement
+    /// spending not covered by pensions, over the withdrawal rate. The
+    /// pensions count once all have started: a whole year of each (the year after the last one starts, when the plan
     /// reaches it), net of the tax they add. That tax is the difference
     /// between the year assessed by its residence system with the pensions
     /// and without them, since taxes such as IRPEF are charged on total
