@@ -75,10 +75,9 @@ enum OverviewAllocation: String, CaseIterable, Hashable, Sendable {
 
 // MARK: - Hero
 
-/// The hero number: net worth (or plan assets) on the latest check-in, with
-/// its change since the check-in before and since the end of last year.
+/// The hero number: net worth on the latest check-in, with its change since
+/// the check-in before and since the end of last year.
 struct OverviewHero: Hashable, Sendable {
-    var scope: NetWorthScope
     /// The date reported on: the latest check-in.
     var date: CalendarDate
     var total: Decimal
@@ -91,19 +90,18 @@ struct OverviewHero: Hashable, Sendable {
     /// The change since 31 December of last year, as a fraction of the value then.
     var thisYear: Double?
 
-    init(valuator: Valuator, asOf date: CalendarDate, scope: NetWorthScope) {
-        self.scope = scope
+    init(valuator: Valuator, asOf date: CalendarDate) {
         self.date = date
-        let now = valuator.total(on: date, in: scope)
+        let now = valuator.total(on: date, in: .netWorth)
         total = now.total
         isComplete = now.isComplete
-        if let report = valuator.changeSinceLastCheckIn(asOf: date, in: scope) {
+        if let report = valuator.changeSinceLastCheckIn(asOf: date, in: .netWorth) {
             sinceLastCheckIn = report.total.change
             lastCheckIn = report.from
         }
         if let yearEnd = YearMonth(year: date.year - 1, month: 12)?.lastDay, yearEnd < date,
-           let first = valuator.firstValuationDate(in: scope), first <= yearEnd {
-            let start = valuator.total(on: yearEnd, in: scope).total
+           let first = valuator.firstValuationDate(in: .netWorth), first <= yearEnd {
+            let start = valuator.total(on: yearEnd, in: .netWorth).total
             if start != 0 {
                 thisYear = ((now.total - start) / abs(start)).doubleValue
             }
@@ -113,11 +111,23 @@ struct OverviewHero: Hashable, Sendable {
 
 // MARK: - History
 
-/// The history chart's data for one range: the line (or stacked areas by
-/// asset class) and, with *Future* on, the plan's projection up to the
-/// chosen horizon (``FutureHorizon``).
+/// The history chart's data for one range (UI.md, "History chart"): the
+/// totals stacked by asset class, debts below zero, and with *Future* on
+/// the plan's projection up to the chosen horizon (``FutureHorizon``).
+///
+/// The past is net worth. With a projection it's plan assets instead (the
+/// accounts the plan counts, e.g. without your home), still by asset class:
+/// the projection is of plan assets, so the past's total meets its start at
+/// today instead of dropping onto it.
 struct OverviewHistory: Hashable, Sendable {
+    /// What the past covers: net worth, or plan assets with a projection.
+    var scope: NetWorthScope
+    /// The total on each date: the callout's total, the relative axis's 1×,
+    /// and the line drawn when nothing can be stacked (every value zero).
     var points: [ChartPoint]
+    /// The totals by asset class, in stacking order (bottom first), on the
+    /// same dates as `points` and with their completeness; groups with no
+    /// value in the range are left out.
     var stacked: [ChartSeries]
     var projection: [FanPoint]
     var markers: [ChartMarker]
@@ -130,41 +140,45 @@ struct OverviewHistory: Hashable, Sendable {
 
     /// - Parameters:
     ///   - projection: the main plan's portfolio fan, starting at `end`.
+    ///     With one, the past covers plan assets (``scope``).
     ///   - markers: retirement, pension starts and the like.
     ///   - horizon: where the projection stops (``FutureHorizon``); all of
     ///     it when `nil`.
     ///
     /// Markers outside what's shown are left out.
-    init(valuator: Valuator, through end: CalendarDate, scope: NetWorthScope, range: OverviewRange, stacked: Bool,
-         projection: [FanPoint] = [], markers: [ChartMarker] = [], horizon: Date? = nil) {
+    init(valuator: Valuator, through end: CalendarDate, range: OverviewRange, projection: [FanPoint] = [],
+         markers: [ChartMarker] = [], horizon: Date? = nil) {
+        let scope: NetWorthScope = projection.isEmpty ? .netWorth : .planAssets
+        self.scope = scope
         let start = range.years.map { end.adding(years: -$0) }
-        points = valuator.series(scope, through: end)
-            .filter { point in start.map { point.date >= $0 } ?? true }
-            .chartPoints
         let dates = valuator.dates(.monthEnds, in: scope, through: end).filter { date in start.map { date >= $0 } ?? true }
-        oldPrices = OldPriceSummary(valuator.oldPrices(in: scope, on: dates))
-        missing = points.hasIncompletePoints ? valuator.missingValues(in: scope, on: dates) : nil
-        let startDate = start?.dateValue
-        if stacked {
-            self.stacked = valuator.breakdownSeries(by: .assetClass, in: scope, through: end).chartSeries
-                .map { series in
-                    var clipped = series
-                    clipped.points = series.points.filter { point in startDate.map { point.date >= $0 } ?? true }
-                    return clipped
-                }
-                .filter { series in series.points.contains { $0.value != 0 } }
-        } else {
-            self.stacked = []
+        // One total per date makes the line, the stacked areas and the missing values.
+        let totals = dates.map { valuator.total(on: $0, in: scope) }
+        points = totals.map { total in
+            ChartPoint(date: total.date.dateValue, value: total.total.doubleValue, isComplete: total.isComplete)
         }
+        stacked = Self.byAssetClass(totals.map { valuator.breakdown(of: $0, by: .assetClass) })
+        oldPrices = OldPriceSummary(valuator.oldPrices(in: scope, on: dates))
+        missing = points.hasIncompletePoints ? MissingValues(totals.flatMap(\.accounts)) : nil
         self.projection = horizon.map { ProjectionWindow.clip(projection, at: $0) } ?? projection
         let first = points.first?.date ?? end.dateValue
         let last = self.projection.last?.date ?? end.dateValue
         self.markers = markers.filter { $0.date >= first && $0.date <= last }
     }
 
-    /// The fan up to `horizon` (``ProjectionWindow/clip(_:at:)``).
-    static func clip(_ fan: [FanPoint], at horizon: Date) -> [FanPoint] {
-        ProjectionWindow.clip(fan, at: horizon)
+    /// One series per asset class, and one for debts, in stacking order
+    /// (bottom first), from a breakdown per date. A point is as complete as
+    /// its date's total; a group that's zero on every date is left out.
+    static func byAssetClass(_ breakdowns: [Breakdown]) -> [ChartSeries] {
+        let keys = Set(breakdowns.flatMap { $0.slices.map(\.key) }).sorted()
+        return keys.compactMap { key in
+            let points = breakdowns.map { breakdown in
+                ChartPoint(date: breakdown.date.dateValue, value: breakdown.value(of: key).doubleValue,
+                           isComplete: breakdown.isComplete)
+            }
+            guard points.contains(where: { $0.value != 0 }) else { return nil }
+            return ChartSeries(id: key.chartID, name: key.description, color: key.chartColor, points: points)
+        }
     }
 }
 
