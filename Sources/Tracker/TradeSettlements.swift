@@ -29,3 +29,21 @@ extension Library {
         return details.kind == .metals || !hasHeldCash(account) ? .external : .account
     }
 }
+
+extension Valuator {
+    /// Whether trades account `account` holds cash of its own, so its cash
+    /// is worth showing (the check-in's cash line): one of its valuations
+    /// records cash other than zero, or one of its trades moved its cash
+    /// (a deposit or withdrawal, or a buy, sale, dividend, interest, fee or
+    /// tax settled in it; one whose amount is unknown counts). An account
+    /// whose trades were all paid from or into another account (coins or
+    /// crypto bought from a bank account) doesn't. Unlike
+    /// ``Library/hasHeldCash(_:)``, a buy that took the cash below
+    /// zero counts.
+    public func holdsCash(_ account: AccountID) -> Bool {
+        if valuations(for: account).contains(where: { ($0.cash ?? 0) != 0 }) { return true }
+        return ledger(for: account)?.entries.contains { entry in
+            !entry.trade.isSettledExternally && entry.cashEffect.map { $0 != 0 } ?? true
+        } ?? false
+    }
+}

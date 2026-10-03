@@ -17,10 +17,12 @@ import Tracker
 /// "Opened later": a value entered there moves the account's opening date
 /// back when the check-in is saved.
 ///
-/// An account that records trades lists what its trades hold as read-only
-/// sub-rows, then its cash (pre-filled from the trades, editable), and
-/// *Add Trade…* with the split of its new money. Right-click it to compare
-/// with a statement's quantities.
+/// An account that records trades needs nothing typed: it's done "from
+/// trades" from the start, with its value and new money from its trades.
+/// Under it, *Add Trade…* on the check-in's date, what its trades hold as
+/// read-only sub-rows, then its cash from the trades with *From
+/// Statement…* to type a statement's (none for an account that holds no
+/// cash). Right-click it to compare with a statement's quantities.
 struct CheckInTable: View {
     let draft: CheckInDraft
     let session: CheckInSession
@@ -37,7 +39,7 @@ struct CheckInTable: View {
         let snapshot = library.library
         let review = draft.review(in: snapshot)
         let sections = CheckInSection.sections(of: draft, in: snapshot)
-        let order = CheckInFieldOrder.nowColumn(rows: sections.flatMap(\.rows))
+        let order = CheckInFieldOrder.nowColumn(rows: sections.flatMap(\.rows), editingCash: session.editingCash)
         VStack(spacing: 0) {
             ScrollViewReader { proxy in
                 ScrollView {
@@ -94,7 +96,7 @@ struct CheckInTable: View {
                     .id(row.account)
                 }
             }
-            CheckInLegend()
+            CheckInLegend(includesTrades: draft.rows.contains(where: \.isTrades))
                 .padding(.horizontal, CheckInColumns.inset + Metrics.s)
                 .padding(.vertical, Metrics.l)
         }
@@ -238,20 +240,23 @@ private struct CheckInTableRow: View {
 
     @Environment(CheckInStore.self) private var checkIn
     @Environment(LibraryStore.self) private var library
+    @Environment(\.hidesAmounts) private var hidesAmounts
     @Environment(\.locale) private var locale
 
     var body: some View {
         VStack(spacing: 0) {
             accountLine
             if row.isTrades {
+                tradeActionsLine
                 ForEach(review?.positions ?? [], id: \.instrument) { position in
                     derivedLine(position)
                 }
                 ForEach(row.positions) { position in
                     statementLine(position)
                 }
-                cashLine
-                tradeActionsLine
+                if row.showsCash && row.state != .skipped {
+                    cashLine
+                }
             } else if row.mode == .holdings {
                 ForEach(row.positions) { position in
                     positionLine(position)
@@ -308,6 +313,13 @@ private struct CheckInTableRow: View {
         return now - last
     }
 
+    /// What the state cell says on hover.
+    private var stateHelp: String {
+        if row.followsTrades { return "From trades: its value and new money come from its trades" }
+        guard CheckInRowDisplay.canMarkUnchanged(row) else { return CheckInWording.stateName(for: row) }
+        return row.isTrades ? "Use the trades' values" : "Mark unchanged"
+    }
+
     // MARK: Account line
 
     private var accountLine: some View {
@@ -315,11 +327,11 @@ private struct CheckInTableRow: View {
             Button {
                 markUnchanged()
             } label: {
-                CheckInStateIndicator(state: row.state, size: 20)
+                CheckInStateIndicator(row: row, size: 20)
             }
             .buttonStyle(.plain)
             .disabled(!CheckInRowDisplay.canMarkUnchanged(row) || row.state == .unchanged)
-            .help(CheckInRowDisplay.canMarkUnchanged(row) ? "Mark unchanged" : CheckInWording.stateName(row.state))
+            .help(stateHelp)
         } account: {
             HStack(spacing: 0) {
                 Text(verbatim: name)
@@ -370,6 +382,10 @@ private struct CheckInTableRow: View {
         if row.state == .skipped {
             Text(verbatim: "—")
                 .foregroundStyle(Palette.mutedInk)
+        } else if row.isTrades && !CheckInRowDisplay.canEditTradeFlow(row) {
+            CheckInPlainAmount(row.state == .notReviewed ? nil : review?.flow, signed: true)
+                .foregroundStyle(Palette.secondaryInk)
+                .help(CheckInWording.tradeFlowExplanation)
         } else {
             let field = CheckInField.flow(row.account)
             let rule = self.rule
@@ -552,21 +568,33 @@ private struct CheckInTableRow: View {
         .frame(height: 30)
     }
 
-    /// *Add Trade…* and the split of the new money.
+    /// "Bought or sold since 30 Sep? [Add Trade…]" and the new money's parts.
     private var tradeActionsLine: some View {
         CheckInTableLine {
             Color.clear
         } account: {
             HStack(spacing: Metrics.m) {
-                Button("Add Trade…") { session.addTrade(to: row.account, on: date) }
-                    .buttonStyle(.borderless)
-                    .controlSize(.small)
-                    .disabled(!library.canEdit)
+                Text(verbatim: CheckInWording.addTradePrompt(for: row, locale: locale))
+                    .font(.callout)
+                    .foregroundStyle(Palette.secondaryInk)
+                    .lineLimit(1)
+                    .accessibilityHidden(true)
+                Button {
+                    session.addTrade(to: row.account, on: date)
+                } label: {
+                    Label("Add Trade…", systemImage: "plus.circle")
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+                .disabled(!library.canEdit)
+                .accessibilityLabel(Text(verbatim: CheckInWording.addTradeLabel(account: name, date: date,
+                                                                                locale: locale)))
                 if let detail = tradeFlowDetail {
                     Text(verbatim: detail)
                         .font(.caption)
                         .foregroundStyle(Palette.secondaryInk)
                         .lineLimit(1)
+                        .privacySensitive()
                         .help(CheckInWording.tradeFlowExplanation)
                 }
             }
@@ -582,7 +610,7 @@ private struct CheckInTableRow: View {
         } note: {
             Color.clear
         }
-        .frame(height: 28)
+        .frame(height: 32)
     }
 
     /// "deposits +200,60 · cash difference +11,30", when there's something to split.
@@ -590,41 +618,51 @@ private struct CheckInTableRow: View {
         guard row.state == .updated || row.state == .unchanged,
               let flow = CheckInTradeFlow.make(for: row, date: date, valuator: library.valuator)
         else { return nil }
-        return CheckInWording.tradeFlowDetail(flow, locale: locale)
+        return CheckInWording.tradeFlowDetail(flow, hidesAmounts: hidesAmounts, locale: locale)
     }
 
+    /// The cash. A trades account's comes from its trades, read-only, with
+    /// *From Statement…* to type a statement's instead; once typed, *Use
+    /// Trades' Cash* goes back.
     private var cashLine: some View {
         let field = CheckInField.cash(row.account)
-        let change: Decimal? = row.cash == nil && row.previous?.cash == nil
-            ? nil : (row.cash ?? 0) - (row.previous?.cash ?? 0)
+        let hasField = CheckInRowDisplay.showsCashField(row, isEditing: session.editingCash.contains(row.account))
+        let cash = row.isTrades && !hasField ? (row.cash ?? row.derived?.cash) : row.cash
+        let change: Decimal? = cash == nil && row.previous?.cash == nil
+            ? nil : (cash ?? 0) - (row.previous?.cash ?? 0)
         return CheckInTableLine {
             Color.clear
         } account: {
             HStack(spacing: 0) {
                 Text("Cash")
                     .fontWeight(.medium)
-                Text(verbatim: " · " + currency.rawValue)
+                Text(verbatim: " · " + currency.rawValue + cashSource)
                     .foregroundStyle(Palette.secondaryInk)
             }
+            .lineLimit(1)
             .padding(.leading, Metrics.l)
         } last: {
             CheckInPlainAmount(row.previous?.cash)
                 .foregroundStyle(Palette.secondaryInk)
         } now: {
-            CheckInNumberField(
-                field, focus: focus, isFocused: focused == field, value: row.cash,
-                prompt: row.isTrades ? CheckInFieldFormat.text(for: row.derived?.cash, style: .amount, locale: locale)
-                    : "0,00",
-                label: field.name(in: library.library), allowsEmpty: true, onSubmit: { onReturn(field) }
-            ) { amount in
-                checkIn.updateRow(row.account) { $0.setCash(amount) }
+            if hasField {
+                CheckInNumberField(
+                    field, focus: focus, isFocused: focused == field, value: row.cash,
+                    prompt: row.isTrades && row.derived != nil
+                        ? CheckInFieldFormat.text(for: row.derived?.cash, style: .amount, locale: locale) : "0,00",
+                    label: field.name(in: library.library), allowsEmpty: true, onSubmit: { onReturn(field) }
+                ) { amount in
+                    checkIn.updateRow(row.account) { $0.setCash(amount) }
+                }
+                .checkInFieldBox(isFocused: focused == field, height: 24)
+            } else {
+                CheckInPlainAmount(cash)
+                    .help("From the account's trades. Use From Statement… to compare with a statement's cash.")
             }
-            .checkInFieldBox(isFocused: focused == field, height: 24)
         } change: {
             CheckInPlainDelta(change)
         } newMoney: {
-            Text(verbatim: "—")
-                .foregroundStyle(Palette.mutedInk)
+            cashAction(hasField: hasField)
         } note: {
             Color.clear
         }
@@ -632,12 +670,40 @@ private struct CheckInTableRow: View {
         .frame(height: 30)
     }
 
+    /// " · from trades" or " · from a statement" after a trades account's cash.
+    private var cashSource: String {
+        guard row.isTrades, row.derived != nil else { return "" }
+        return row.hasStatementCash ? " · from a statement" : " · from trades"
+    }
+
+    /// A trades account's *From Statement…* or *Use Trades' Cash*; "—" otherwise.
+    @ViewBuilder
+    private func cashAction(hasField: Bool) -> some View {
+        if row.isTrades && row.derived != nil {
+            if hasField {
+                Button("Use Trades' Cash") { session.useTradesCash(row.account, checkIn: checkIn) }
+                    .buttonStyle(.borderless)
+                    .controlSize(.small)
+                    .help("Drops the cash from the statement")
+            } else {
+                Button("From Statement…") { session.enterStatementCash(row.account) }
+                    .buttonStyle(.borderless)
+                    .controlSize(.small)
+                    .disabled(!library.canEdit)
+                    .help("Type the cash from a statement, to compare: a difference counts as new money")
+            }
+        } else {
+            Text(verbatim: "—")
+                .foregroundStyle(Palette.mutedInk)
+        }
+    }
+
     // MARK: Actions
 
     @ViewBuilder
     private var rowMenu: some View {
-        if CheckInRowDisplay.canMarkUnchanged(row) {
-            Button("Mark Unchanged") { markUnchanged() }
+        if CheckInRowDisplay.canMarkUnchanged(row) && !row.followsTrades {
+            Button(CheckInWording.markUnchangedTitle(for: row)) { markUnchanged() }
         }
         Button("Skip This Time") {
             checkIn.updateRow(row.account) { $0.skip() }
@@ -649,6 +715,13 @@ private struct CheckInTableRow: View {
         }
         if row.isTrades {
             Button("Add Trade…") { session.addTrade(to: row.account, on: date) }
+            if row.showsCash && row.state != .skipped && row.derived != nil {
+                if CheckInRowDisplay.showsCashField(row, isEditing: session.editingCash.contains(row.account)) {
+                    Button("Use Trades' Cash") { session.useTradesCash(row.account, checkIn: checkIn) }
+                } else {
+                    Button("Enter Cash From a Statement") { session.enterStatementCash(row.account) }
+                }
+            }
             if row.positions.isEmpty {
                 Button("Compare With a Statement") {
                     checkIn.updateRow(row.account) { $0.enterStatementQuantities() }
@@ -658,7 +731,7 @@ private struct CheckInTableRow: View {
                 }
             } else {
                 Button("Stop Comparing With a Statement") {
-                    checkIn.updateRow(row.account) { $0.removeStatementQuantities() }
+                    session.stopComparing(row.account, checkIn: checkIn)
                 }
             }
         } else if row.mode == .holdings {
@@ -679,15 +752,12 @@ private struct CheckInTableRow: View {
     }
 
     private func markUnchanged() {
-        checkIn.updateRow(row.account) { $0.markUnchanged() }
+        session.markUnchanged(row.account, checkIn: checkIn)
     }
 
-    /// "× 138,42", or "× 111.400 USD" in another currency than the account's.
+    /// "× 138,42 €", "× 111.400,00 $": in the price's own currency.
     private func priceText(_ price: PriceRecord?) -> String {
-        guard let price else { return "no price" }
-        var text = "× " + AmountFormat.number(price.price, maxDigits: 4, locale: locale)
-        if price.currency != currency { text += " " + price.currency.rawValue }
-        return text
+        CheckInWording.priceText(unit: "", price: price, locale: locale)
     }
 }
 

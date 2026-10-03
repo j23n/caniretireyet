@@ -157,10 +157,24 @@ extension View {
 
 // MARK: - State
 
-/// A row's state: ● updated, ✓ unchanged, ○ not reviewed yet, – skipped.
+/// A row's state: ● updated, ✓ unchanged (or, for a trades account, from
+/// its trades: done, with nothing typed), ○ not reviewed yet, – skipped.
 struct CheckInStateIndicator: View {
     let state: CheckInRowState
     var size: CGFloat = 22
+    /// A trades account as its trades say: VoiceOver reads "From trades".
+    var followsTrades = false
+
+    init(state: CheckInRowState, size: CGFloat = 22, followsTrades: Bool = false) {
+        self.state = state
+        self.size = size
+        self.followsTrades = followsTrades
+    }
+
+    /// The indicator of `row`.
+    init(row: CheckInRow, size: CGFloat = 22) {
+        self.init(state: row.state, size: size, followsTrades: row.followsTrades)
+    }
 
     var body: some View {
         Group {
@@ -185,25 +199,40 @@ struct CheckInStateIndicator: View {
         }
         .frame(width: size, height: size)
         .accessibilityElement()
-        .accessibilityLabel(Text(verbatim: CheckInWording.stateName(state)))
+        .accessibilityLabel(Text(verbatim: followsTrades && state == .unchanged
+            ? "From trades" : CheckInWording.stateName(state)))
     }
 }
 
-/// "● Updated  ✓ Unchanged  ○ Not reviewed yet".
+/// "● Updated  ✓ Unchanged  ○ Not reviewed yet", and "✓ Unchanged or from
+/// trades" when the check-in has accounts that record trades.
 struct CheckInLegend: View {
+    var includesTrades = false
+
+    init(includesTrades: Bool = false) {
+        self.includesTrades = includesTrades
+    }
+
     var body: some View {
-        HStack(spacing: Metrics.l) {
-            ForEach([CheckInRowState.updated, .unchanged, .notReviewed], id: \.self) { state in
-                HStack(spacing: Metrics.xs) {
-                    CheckInStateIndicator(state: state, size: 16)
-                        .accessibilityHidden(true)
-                    Text(verbatim: CheckInWording.stateName(state))
-                }
-            }
+        // On one line when it fits, else one entry per line.
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: Metrics.l) { entries }
+            VStack(alignment: .leading, spacing: Metrics.xs) { entries }
         }
         .font(.footnote)
         .foregroundStyle(Palette.secondaryInk)
         .accessibilityElement(children: .combine)
+    }
+
+    private var entries: some View {
+        ForEach([CheckInRowState.updated, .unchanged, .notReviewed], id: \.self) { state in
+            HStack(spacing: Metrics.xs) {
+                CheckInStateIndicator(state: state, size: 16)
+                    .accessibilityHidden(true)
+                Text(verbatim: state == .unchanged && includesTrades
+                    ? "Unchanged or from trades" : CheckInWording.stateName(state))
+            }
+        }
     }
 }
 

@@ -18,12 +18,26 @@ struct TradeCheckInTests {
         return library
     }
 
+    /// ``library()`` with gold coins bought in April from a dealer and paid
+    /// from the bank: a trades account with no cash of its own.
+    private func coinsLibrary() -> Library {
+        var library = library()
+        library.accounts["coins"] = Account(id: "coins", name: "Gold coins", kind: .metals, currency: .eur,
+                                            opened: "2024-01-01", valuation: .trades)
+        library.instruments["gold"] = Instrument(id: "gold", name: "Gold", kind: .metal, currency: .eur, unit: .gram,
+                                                 assetClasses: .single(.gold))
+        library.upsert(Trade(account: "coins", date: "2024-04-10", id: "buy-gold", type: .buy, instrument: "gold",
+                             quantity: 10, price: 60, settlement: .external))
+        library.upsert(PriceRecord(instrument: "gold", date: "2024-04-30", price: 70, currency: .eur))
+        return library
+    }
+
     @Test func aTradesRowStartsFromWhatTheTradesGive() throws {
         let draft = CheckInDraft(date: "2024-04-30", library: library())
         let row = try #require(draft["broker"])
         #expect(row.isTrades)
         #expect(row.mode == .trades)
-        #expect(row.state == .notReviewed)
+        #expect(row.state == .unchanged)
         #expect(row.previous?.date == "2024-03-31")
         #expect(row.cash == d("6300.36"))
         #expect(row.positions.isEmpty)
@@ -32,6 +46,145 @@ struct TradeCheckInTests {
         #expect(draft.instruments == ["aapl", "vwce"])
         #expect(draft["bank"]?.isTrades == false)
         #expect(draft["bank"]?.derived == nil)
+    }
+
+    @Test func aTradesRowStartsDoneAsItsTradesSay() throws {
+        let draft = CheckInDraft(date: "2024-04-30", library: library())
+        let row = try #require(draft["broker"])
+        #expect(row.followsTrades)
+        #expect(!row.hasStatementCash)
+        #expect(row.holdsCash)
+        #expect(row.showsCash)
+        // Nothing was typed: Cancel needn't ask, and a rebase may fill it in again.
+        #expect(!row.hasUserInput)
+        // It counts as done; only the bank, which has no value yet, is left.
+        #expect(draft.notReviewed == ["bank"])
+        #expect(draft.reviewedCount == 1)
+        #expect(draft.progressTotal == 2)
+        #expect(draft.count(.unchanged) == 1)
+        #expect(draft["bank"]?.followsTrades == false)
+
+        // Marking the rest unchanged skips the bank and leaves the broker as it is.
+        var marked = draft
+        marked.markRestUnchanged()
+        #expect(marked["broker"] == row)
+        #expect(marked["bank"]?.state == .skipped)
+        #expect(marked.isReadyToSave)
+    }
+
+    @Test func savingWritesWhatUnchangedWrote() throws {
+        let untouched = CheckInDraft(date: "2024-04-30", library: library())
+        var marked = untouched
+        #expect(marked["broker"]?.markUnchanged() == true)
+        let written = untouched.records(in: library()).valuations
+        // The derived cash and the recorded deposits since the previous value.
+        #expect(written == [Valuation(account: "broker", date: "2024-04-30", cash: d("6300.36"), flow: 1000)])
+        #expect(written == marked.records(in: library()).valuations)
+        let review = try #require(untouched.review(in: library()).row(for: "broker"))
+        #expect(review.state == .unchanged)
+        #expect(review.flow == 1000)
+    }
+
+    @Test func aTradesRowWithNothingToFollowWaitsForAValue() throws {
+        var library = library()
+        library.accounts["new-broker"] = Account(id: "new-broker", name: "New broker", kind: .brokerage,
+                                                 currency: .eur, opened: "2024-04-15", valuation: .trades)
+        library.accounts["later"] = Account(id: "later", name: "Later", kind: .brokerage, currency: .eur,
+                                            opened: "2024-06-01", valuation: .trades)
+        library.upsert(Trade(account: "later", date: "2024-06-03", id: "dep", type: .deposit, amount: 100))
+        let draft = CheckInDraft(date: "2024-04-30", library: library)
+        // Nothing recorded yet: its cash is typed, or a trade added.
+        let new = try #require(draft["new-broker"])
+        #expect(new.state == .notReviewed)
+        #expect(new.derived == nil)
+        #expect(new.showsCash)
+        #expect(!new.canMarkUnchanged)
+        // An account that opens after the date stays optional.
+        let later = try #require(draft["later"])
+        #expect(later.opensLater)
+        #expect(later.state == .notReviewed)
+        #expect(draft.notReviewed == ["bank", "new-broker"])
+    }
+
+    @Test func anAccountWithoutCashShowsNoCash() throws {
+        let library = coinsLibrary()
+        let valuator = Valuator(library: library)
+        #expect(!valuator.holdsCash("coins"))
+        #expect(valuator.holdsCash("broker"))
+        let draft = CheckInDraft(date: "2024-04-30", library: library)
+        let coins = try #require(draft["coins"])
+        #expect(coins.followsTrades)
+        #expect(!coins.holdsCash)
+        #expect(!coins.showsCash)
+        #expect(coins.cash == 0)
+        #expect(draft["broker"]?.showsCash == true)
+        // Its new money is what the coins cost, paid from the bank.
+        let review = try #require(draft.review(in: library).row(for: "coins"))
+        #expect(review.valuation == Valuation(account: "coins", date: "2024-04-30", cash: 0, flow: 600))
+        #expect(review.value?.value == 700)
+
+        // A fee taken from its own cash gives it cash to show.
+        var paidFromCash = library
+        paidFromCash.upsert(Trade(account: "coins", date: "2024-04-20", id: "fee", type: .fee, amount: -5))
+        #expect(Valuator(library: paidFromCash).holdsCash("coins"))
+        var rebased = draft
+        let result = rebased.rebase(onto: paidFromCash)
+        #expect(result.refreshed == ["coins"])
+        #expect(rebased["coins"]?.showsCash == true)
+        #expect(rebased["coins"]?.cash == -5)
+        #expect(rebased["coins"]?.followsTrades == true)
+    }
+
+    @Test func typingAStatementCashCreatesAResidual() throws {
+        var draft = CheckInDraft(date: "2024-04-30", library: library())
+        var row = try #require(draft["broker"])
+        row.setCash(6310)
+        #expect(row.state == .updated)
+        #expect(row.hasStatementCash)
+        #expect(row.hasUserInput)
+        #expect(!row.followsTrades)
+        draft["broker"] = row
+        let review = try #require(draft.review(in: library()).row(for: "broker"))
+        // 1,000 deposited, and 9,64 more cash than the trades give.
+        #expect(review.valuation == Valuation(account: "broker", date: "2024-04-30", cash: 6310, flow: d("1009.64")))
+
+        // The trades' own cash is no residual; going back follows the trades again.
+        row.setCash(d("6300.36"))
+        #expect(!row.hasStatementCash)
+        let followsAgain = row.markUnchanged()
+        #expect(followsAgain)
+        #expect(row.followsTrades)
+        #expect(!row.hasUserInput)
+    }
+
+    @Test func aRowFollowingTheTradesFollowsANewTrade() throws {
+        var draft = CheckInDraft(date: "2024-04-30", library: library())
+        var changed = library()
+        changed.upsert(TradeLibrary.trade(.deposit, "2024-04-29", id: "dep3", amount: "250"))
+        let result = draft.rebase(onto: changed)
+        #expect(result.refreshed == ["broker"])
+        #expect(draft["broker"]?.followsTrades == true)
+        #expect(draft["broker"]?.cash == d("6550.36"))
+        #expect(draft.records(in: changed).valuations.first?.flow == 1250)
+    }
+
+    @Test func aDraftKeptBeforeTradesRowsStartedDoneFollowsTheTrades() throws {
+        let draft = CheckInDraft(date: "2024-04-30", library: library())
+        // An older draft: the trades row not reviewed, and no `holdsCash`.
+        var json = try #require(try JSONSerialization.jsonObject(with: JSONEncoder().encode(draft)) as? [String: Any])
+        var rows = try #require(json["rows"] as? [[String: Any]])
+        let index = try #require(rows.firstIndex { $0["account"] as? String == "broker" })
+        rows[index]["state"] = "notReviewed"
+        rows[index]["holdsCash"] = nil
+        json["rows"] = rows
+        let old = try JSONDecoder().decode(CheckInDraft.self, from: JSONSerialization.data(withJSONObject: json))
+        #expect(old["broker"]?.followsTrades == true)
+        #expect(old["broker"]?.holdsCash == true)
+        #expect(old == draft)
+
+        // Without cash of its own, a row round-trips with it.
+        let coins = CheckInDraft(date: "2024-04-30", library: coinsLibrary())
+        #expect(try JSONDecoder().decode(CheckInDraft.self, from: JSONEncoder().encode(coins)) == coins)
     }
 
     @Test func typedCashAddsAResidualToTheRecordedDeposits() throws {

@@ -9,6 +9,10 @@ public enum CheckInRowState: String, Hashable, Sendable, CaseIterable, Codable {
     case updated
     /// Confirmed the same as last time. Still writes a valuation (flow 0),
     /// so the account isn't stale.
+    ///
+    /// For an account that records trades it means as its trades say (see
+    /// ``CheckInRow/followsTrades``): the cash they give and the new money
+    /// they record. Such a row starts so, since there's nothing to type.
     case unchanged
     /// Left out: no valuation is written, and the account will show as stale.
     case skipped
@@ -106,6 +110,12 @@ public struct CheckInRow: Hashable, Sendable, Identifiable {
     /// the positions with their average cost. `nil` for other accounts, and
     /// for a trades account with nothing recorded before the date.
     public internal(set) var derived: Valuation?
+    /// For a trades account: whether it holds cash of its own
+    /// (``Valuator/holdsCash(_:)``): a trade settled in its cash, a deposit
+    /// or withdrawal, or a valuation that recorded cash. One whose trades
+    /// were all paid from outside it (coins or crypto bought from a bank
+    /// account) has no cash to show (``showsCash``). `true` for other accounts.
+    public internal(set) var holdsCash: Bool
 
     public var id: AccountID { account }
 
@@ -113,6 +123,11 @@ public struct CheckInRow: Hashable, Sendable, Identifiable {
     /// check-in date, making the row `updated`) or else from `previous`.
     /// `date` is the check-in's, and `valuator` tells whether the saved
     /// flow was the default one.
+    ///
+    /// A trades account's row needs nothing typed: its value is its trades
+    /// at the check-in's prices. So, open on the date and with something
+    /// recorded before it (``derived``), it starts as its trades say
+    /// (``followsTrades``), as if marked unchanged.
     init(account: Account, date: CalendarDate, previous: Valuation?, existing: Valuation?,
          valuator: inout LazyValuator) {
         self.account = account.id
@@ -123,10 +138,15 @@ public struct CheckInRow: Hashable, Sendable, Identifiable {
         isTrades = account.recordsTrades
         let derived = isTrades ? valuator.valuator.derivedSnapshot(of: account, on: date, previous: previous) : nil
         self.derived = derived
+        holdsCash = isTrades ? valuator.valuator.holdsCash(account.id) : true
         if isTrades {
             // The cash typed on the date, else what the trades give; positions only as entered.
             mode = .trades
-            state = existing == nil ? .notReviewed : .updated
+            if existing != nil {
+                state = .updated
+            } else {
+                state = derived != nil && !opensLater ? .unchanged : .notReviewed
+            }
             balance = nil
             cash = existing?.cash ?? derived?.cash
             positions = (existing?.positions ?? []).map { position in
@@ -204,8 +224,36 @@ public struct CheckInRow: Hashable, Sendable, Identifiable {
         switch state {
         case .notReviewed: false
         case .updated: isEdited
-        case .unchanged, .skipped: true
+        // A trades account's row starts as its trades say: nothing was decided.
+        case .unchanged: !followsTrades
+        case .skipped: true
         }
+    }
+
+    /// For a trades account: whether the row is as its trades say (it's
+    /// ``CheckInRowState/unchanged``, which it starts as): it writes the
+    /// cash they give and the new money they record (docs/TRADES.md,
+    /// "Check-ins"). The check-in counts it as done, "from trades".
+    public var followsTrades: Bool {
+        isTrades && state == .unchanged
+    }
+
+    /// For a trades account: whether a cash other than the trades' was
+    /// entered, e.g. from a broker statement to compare. It anchors the
+    /// cash, and the difference counts as money added or taken out that no
+    /// trade records (a residual, docs/TRADES.md "Flows").
+    public var hasStatementCash: Bool {
+        isTrades && mode == .trades && cash != nil && cash != derived?.cash
+    }
+
+    /// Whether the row shows the account's cash: a holdings row always; a
+    /// trades row when the account holds cash (``holdsCash``), when a cash
+    /// from a statement was entered (``hasStatementCash``), or when nothing
+    /// is recorded yet to work it out from (``derived`` is `nil`). An
+    /// account whose trades were all paid from outside it shows none.
+    public var showsCash: Bool {
+        guard isTrades else { return mode == .holdings }
+        return holdsCash || hasStatementCash || derived == nil
     }
 
     /// Whether the row counts in the check-in's progress ("7 of 9
@@ -347,12 +395,13 @@ public struct CheckInRow: Hashable, Sendable, Identifiable {
     /// Confirms the account is the same as in the previous valuation:
     /// restores its values, with flow 0. Does nothing, and returns `false`,
     /// when there's no previous value to keep (see ``canMarkUnchanged``).
-    @discardableResult
     ///
-    /// For a trades account, "unchanged" means as its trades say: the cash
-    /// they give (``derived``), and no positions entered. Its flow is still
-    /// the default, which counts the deposits and withdrawals recorded
-    /// since the previous valuation.
+    /// For a trades account, "unchanged" means as its trades say
+    /// (``followsTrades``, which its row starts as): the cash they give
+    /// (``derived``), no cash from a statement and no positions entered.
+    /// Its flow is still the default, which counts the deposits and
+    /// withdrawals recorded since the previous valuation.
+    @discardableResult
     public mutating func markUnchanged() -> Bool {
         if isTrades {
             guard let derived else { return false }
@@ -665,7 +714,7 @@ extension CheckInPosition: Codable {
 extension CheckInRow: Codable {
     enum CodingKeys: String, CodingKey {
         case account, state, mode, previous, existing, conflict, balance, cash, positions, isFlowEdited, enteredFlow,
-             note, source, isEdited, resetsFlowOnEdit, opensLater, isTrades, derived
+             note, source, isEdited, resetsFlowOnEdit, opensLater, isTrades, derived, holdsCash
     }
 
     public init(from decoder: any Decoder) throws {
@@ -689,6 +738,13 @@ extension CheckInRow: Codable {
         opensLater = try c.decodeIfPresent(Bool.self, forKey: .opensLater) ?? false
         isTrades = try c.decodeIfPresent(Bool.self, forKey: .isTrades) ?? false
         derived = try c.decodeIfPresent(Valuation.self, forKey: .derived)
+        // A draft kept before rows recorded this shows the cash, as it did; rebasing finds out.
+        holdsCash = try c.decodeIfPresent(Bool.self, forKey: .holdsCash) ?? true
+        // A draft kept before a trades row started as its trades say: one not reviewed yet does now.
+        if isTrades, state == .notReviewed, derived != nil, !opensLater, existing == nil, conflict == nil,
+           positions.isEmpty, cash == derived?.cash {
+            state = .unchanged
+        }
     }
 
     public func encode(to encoder: any Encoder) throws {
@@ -711,6 +767,7 @@ extension CheckInRow: Codable {
         if opensLater { try c.encode(opensLater, forKey: .opensLater) }
         if isTrades { try c.encode(isTrades, forKey: .isTrades) }
         try c.encodeIfPresent(derived, forKey: .derived)
+        if !holdsCash { try c.encode(holdsCash, forKey: .holdsCash) }
     }
 }
 

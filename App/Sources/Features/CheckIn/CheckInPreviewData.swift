@@ -11,27 +11,25 @@ enum CheckInPreviewData {
 
     /// A preview model with the October check-in under way: Conto Fineco
     /// up by a salary bonus (a large change), the savings account
-    /// unchanged, Directa (which records trades) with a deposit and a buy of
-    /// 10,5 VWCE recorded as trades and a little more cash than they give,
-    /// the pension fund's contributions entered, TFR without them (an
-    /// unknown flow), prices for VWCE, gold and the dollar, and the rest not
-    /// reviewed yet.
+    /// unchanged, two accounts that record trades and so are done "from
+    /// trades" with nothing typed (Directa, with a deposit and a buy of 10,5
+    /// VWCE recorded as trades, and the gold coins, bought from a dealer and
+    /// paid from the bank, so with no cash of their own), the pension fund's
+    /// contributions entered, TFR without them (an unknown flow), prices for
+    /// VWCE, gold and the dollar, and the rest not reviewed yet.
     @MainActor
     static func model(reviewedAll: Bool = false) -> AppModel {
         let model = AppModel.preview()
         try? model.library.update { library in
             for trade in octoberTrades { library.upsert(trade) }
+            library.convertToTrades("gold-coins")
         }
         let checkIn = model.checkIn
         checkIn.begin(on: date)
         checkIn.updateRow("conto-fineco") { $0.setBalance(PreviewLibrary.d("6012.35")) }
         checkIn.updateRow("tfr") { $0.setBalance(PreviewLibrary.d("11020.40")) }
         checkIn.updateRow("conto-deposito") { $0.markUnchanged() }
-        checkIn.updateRow("directa") { row in
-            // The trades give 312,30; the statement says 320,40 (interest nobody recorded).
-            row.setCash(PreviewLibrary.d("320.4"))
-            row.note = "Bought 10,5 VWCE"
-        }
+        checkIn.updateRow("directa") { $0.note = "Bought 10,5 VWCE" }
         checkIn.updateRow("fondo-pensione") { row in
             row.setBalance(PreviewLibrary.d("19912.40"))
             row.setFlow(PreviewLibrary.d("1325"))
@@ -45,11 +43,14 @@ enum CheckInPreviewData {
     }
 
     /// ``model(reviewedAll:)`` with Directa compared with a broker statement
-    /// that shows 2 VWCE more than the trades give, for the review's note.
+    /// that shows 2 VWCE more than the trades give, for the review's note,
+    /// and a little more cash: the trades give 312,30, the statement says
+    /// 320,40 (interest nobody recorded), so 8,10 counts as new money.
     @MainActor
     static func modelComparingStatement() -> AppModel {
         let model = model(reviewedAll: true)
         model.checkIn.updateRow("directa") { row in
+            row.setCash(PreviewLibrary.d("320.4"))
             row.enterStatementQuantities()
             row.setQuantity(PreviewLibrary.d("425"), of: "vwce")
         }
@@ -57,11 +58,13 @@ enum CheckInPreviewData {
     }
 
     /// A check-in session with `accounts` expanded, e.g. to show a trades
-    /// account's positions in the iPhone list.
+    /// account's positions in the iPhone list, and with the fields for a
+    /// cash from a statement of `enteringCash` shown.
     @MainActor
-    static func session(expanding accounts: [AccountID]) -> CheckInSession {
+    static func session(expanding accounts: [AccountID], enteringCash: [AccountID] = []) -> CheckInSession {
         let session = CheckInSession()
         session.expanded = Set(accounts)
+        session.editingCash = Set(enteringCash)
         return session
     }
 

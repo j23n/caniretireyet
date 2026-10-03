@@ -4,7 +4,8 @@ import Tracker
 
 /// The review before saving (UI.md, "Review screen"): the new net worth and
 /// the waterfall since the last check-in (markets, new money, other), the
-/// accounts that changed, the accounts whose opening date moves back,
+/// accounts that changed (trades accounts valued from their trades among
+/// them, marked "from trades"), the accounts whose opening date moves back,
 /// anything unusual, then Save. Accounts not reviewed yet are asked about:
 /// mark them unchanged, or skip them. A statement's quantities entered for
 /// a trades account that differ from its trades are listed with *Add
@@ -261,7 +262,7 @@ private struct CheckInReviewContent: View {
 
     private var changedCard: some View {
         // Rows in conflict write nothing yet: they're in their own card.
-        let changed = review.rows.filter { $0.state == .updated && $0.valuation != nil }
+        let changed = CheckInReviewDisplay.changedRows(review, draft: draft)
         return Card("Changed accounts") {
             if changed.isEmpty {
                 Text("No values changed: every account reviewed is unchanged or skipped.")
@@ -269,7 +270,7 @@ private struct CheckInReviewContent: View {
             } else {
                 VStack(spacing: Metrics.m) {
                     ForEach(changed) { row in
-                        CheckInReviewRow(row: row)
+                        CheckInReviewRow(row: row, followsTrades: draft[row.account]?.followsTrades ?? false)
                     }
                 }
             }
@@ -344,27 +345,27 @@ private struct CheckInConflictRow: View {
     }
 }
 
-/// A changed account: its name and new money, its new value and change.
+/// A changed account: its name and new money ("· from trades" for a trades
+/// account valued from its trades), its new value and change.
 private struct CheckInReviewRow: View {
     let row: CheckInRowReview
+    var followsTrades = false
 
     @Environment(LibraryStore.self) private var library
+    @Environment(\.hidesAmounts) private var hidesAmounts
+    @Environment(\.locale) private var locale
 
     var body: some View {
         let account = library.account(row.account)
         HStack(alignment: .firstTextBaseline, spacing: Metrics.s) {
             VStack(alignment: .leading, spacing: 2) {
                 Text(verbatim: account?.name ?? row.account.rawValue)
-                HStack(spacing: Metrics.xs) {
-                    Text(verbatim: flowTitle(account))
-                    if let flow = row.flow {
-                        AmountText(flow, currency: account?.currency, precision: .automatic)
-                    } else {
-                        Text("unknown")
-                    }
-                }
-                .font(.footnote)
-                .foregroundStyle(Palette.secondaryInk)
+                Text(verbatim: CheckInReviewDisplay.flowLine(
+                    row, kind: account?.kind, currency: account?.currency ?? library.baseCurrency,
+                    followsTrades: followsTrades, hidesAmounts: hidesAmounts, locale: locale))
+                    .font(.footnote)
+                    .foregroundStyle(Palette.secondaryInk)
+                    .privacySensitive()
             }
             Spacer(minLength: Metrics.s)
             VStack(alignment: .trailing, spacing: 2) {
@@ -378,11 +379,6 @@ private struct CheckInReviewRow: View {
             }
         }
         .accessibilityElement(children: .combine)
-    }
-
-    private func flowTitle(_ account: Account?) -> String {
-        let isPension = account?.kind == .pensionFund || account?.kind == .tfr
-        return isPension ? "Contributions" : "New money"
     }
 }
 
