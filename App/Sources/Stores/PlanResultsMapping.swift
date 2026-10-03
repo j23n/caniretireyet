@@ -19,8 +19,15 @@ struct PlanResultDetails: Hashable, Sendable {
     /// The last age the plan funds.
     var endAge: Int
     var birthDate: CalendarDate
-    /// The spending your pensions don't cover, over a 4% withdrawal rate.
+    /// The old rule of thumb: the spending your pensions don't cover, over
+    /// a 4% withdrawal rate. Kept for compatibility, never shown: Results
+    /// show ``assetsNeeded`` instead.
     var fiNumber: Double?
+    /// What retiring today would need, from the same simulation (PLANNER.md,
+    /// "Assets needed to retire today"): the plan assets that make retiring
+    /// at today's age reach the plan's confidence. `nil` from the preview
+    /// engine's older samples and runs that don't look for it (a focus age).
+    var assetsNeeded: AssetsNeeded? = nil
     /// The retirement age `sustainableSpending` in the headline is for.
     var sustainableSpendingAge: Int?
     /// Whether the success curve has every age (a full run) or a coarse
@@ -33,8 +40,8 @@ struct PlanResultDetails: Hashable, Sendable {
     /// The details that depend on the retirement age the charts are for.
     var focus: PlanFocusDetails
     /// The headline to record for this run (`PlanResult.headline()`, dated
-    /// the check-in the plan started from): success rates to 3 decimals and
-    /// FI progress to 2, exactly as the CLI records it.
+    /// the check-in the plan started from): success rates to 3 decimals, FI
+    /// progress and readiness to 2, exactly as the CLI records it.
     var headline: Headline? = nil
     /// How the plan read your library: the buckets it grouped the accounts
     /// into, and the accounts that start a pension scheme.
@@ -185,7 +192,8 @@ extension PlanResults {
                 targetAge: answer.targetAge, successAtTarget: answer.successAtTarget,
                 successToday: answer.successIfRetiringNow,
                 sustainableSpending: answer.sustainableSpending.map { Decimal(Int($0.perYear.rounded(.down))) },
-                fiProgress: answer.fiProgress),
+                fiProgress: answer.fiProgress, readiness: answer.readiness,
+                needsMoreThanSearched: answer.assetsNeeded?.outcome == .moreThanMaximum),
             successByAge: result.successCurve.map { SuccessPoint(age: $0.age, success: $0.success) },
             portfolio: PlanResultsMapping.fan(result),
             markers: PlanResultsMapping.markers(result, birthDate: birthDate, retirementDate: focus?.retirementDate),
@@ -199,8 +207,8 @@ extension PlanResults {
             years: baseline.years)
         details = PlanResultDetails(
             planHash: result.planHash, currentAge: answer.currentAge, endAge: result.settings.endAge,
-            birthDate: birthDate, fiNumber: answer.fiNumber, sustainableSpendingAge: answer.sustainableSpending?.age,
-            scansEveryAge: scansEveryAge,
+            birthDate: birthDate, fiNumber: answer.fiNumber, assetsNeeded: answer.assetsNeeded,
+            sustainableSpendingAge: answer.sustainableSpending?.age, scansEveryAge: scansEveryAge,
             pensionSteps: PlanResultsMapping.pensionSteps(result.successCurve, plan: plan, registry: registry),
             issues: result.issues,
             focus: PlanFocusDetails(

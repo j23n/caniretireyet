@@ -15,6 +15,9 @@ struct PlanAnswerHistory: Hashable, Sendable {
         /// `nil` when no age reached the confidence level.
         var earliestAge: Int?
         var successAtTarget: Double?
+        /// Plan assets as a share of what retiring today needed, when the
+        /// check-in recorded it (never the old FI progress).
+        var readiness: Double? = nil
 
         var id: CalendarDate { date }
     }
@@ -59,7 +62,8 @@ struct PlanAnswerHistory: Hashable, Sendable {
     init(_ headlines: [Headline]) {
         let sorted = headlines.sorted { $0.date < $1.date }
         points = sorted.map {
-            Point(date: $0.date, earliestAge: $0.earliestAge, successAtTarget: $0.successAtTarget?.doubleValue)
+            Point(date: $0.date, earliestAge: $0.earliestAge, successAtTarget: $0.successAtTarget?.doubleValue,
+                  readiness: $0.readiness?.doubleValue)
         }
         var markers: [Marker] = []
         for (previous, next) in zip(sorted, sorted.dropFirst()) {

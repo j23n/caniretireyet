@@ -140,10 +140,14 @@ struct PreviewPlanEngine: PlanEngine {
                                                  retirementDate: birth.adding(years: target))
 
         let atTarget = success(target)
+        let successNow = success(age)
+        // What retiring today needs: decades of spending before the pensions, after tax.
+        let readiness = successNow >= confidence ? max(1, start.total.doubleValue / (spending * 30))
+            : min(0.99, start.total.doubleValue / (spending * 34))
         let headline = PlanHeadline(
             confidence: confidence, earliestAge: earliest, earliestDate: earliestDate, targetAge: target,
-            successAtTarget: atTarget, successToday: success(age), sustainableSpending: Self.rounded(spending * 1.07 - 900),
-            fiProgress: min(1, start.total.doubleValue / (spending * 25 * 0.75)))
+            successAtTarget: atTarget, successToday: successNow, sustainableSpending: Self.rounded(spending * 1.07 - 900),
+            fiProgress: min(1, start.total.doubleValue / (spending * 25 * 0.75)), readiness: readiness)
         let accounts = library.accounts.values.filter { $0.includedInPlan && $0.isOpen(on: today) }.map(\.id).sorted()
         return PlanResults(
             plan: plan.id, computedAt: Date(), mode: request.mode,

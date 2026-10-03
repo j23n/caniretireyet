@@ -23,7 +23,7 @@ enum PlanFigure: Hashable, Sendable {
     case missing
 }
 
-/// One row of a table of figures: "FI number · 780.000 €".
+/// One row of a table of figures: "Needed to retire today · 1.240.000 €".
 struct PlanFigureRow: Hashable, Sendable, Identifiable {
     var label: String
     var value: PlanFigure
@@ -139,11 +139,73 @@ enum PlanResultsText {
         return "Steps at \(ages): retiring then changes when \(list(names)) can start."
     }
 
+    // MARK: What retiring today needs
+
+    /// The most times today's plan assets the planner looks for, as words: "20".
+    static var searchedScale: String { String(Int(AssetsNeeded.maximumScale)) }
+
+    /// The readiness as a share to show: below 100% rounded down to a whole
+    /// percent, so it never reads 100% while retiring today falls short.
+    static func readinessShare(_ readiness: Double) -> Double {
+        guard readiness < 1 else { return readiness }
+        return min(0.99, max(0, (readiness * 100 + 1e-9).rounded(.down) / 100))
+    }
+
+    /// The readiness bar's value: the share, at most 100%.
+    static func readinessBar(_ readiness: Double) -> Double {
+        min(1, max(0, readinessShare(readiness)))
+    }
+
+    /// "58% of what you'd need to retire today": today's plan assets
+    /// against what retiring today with the plan's confidence needs
+    /// (PLANNER.md, "Assets needed to retire today"). `nil` when there's no
+    /// readiness, as in answers recorded before it existed: their old
+    /// "of the way to financial independence" disagreed with the chance of
+    /// retiring today, so it isn't shown.
+    static func readiness(_ headline: PlanHeadline, locale: Locale = .current) -> String? {
+        if headline.needsMoreThanSearched {
+            return "Retiring today would need more than \(searchedScale) times your plan assets"
+        }
+        guard let readiness = headline.readiness else { return nil }
+        if readiness >= AssetsNeeded.maximumScale {
+            return "\(searchedScale) times what you'd need to retire today, or more"
+        }
+        let percent = AmountFormat.percent(readinessShare(readiness), digits: 0, locale: locale)
+        return "\(percent) of what you'd need to retire today"
+    }
+
+    /// What the readiness compares, for its ⓘ.
+    static func readinessExplanation(confidence: Double, locale: Locale = .current) -> String {
+        let percent = AmountFormat.percent(confidence, digits: 0, locale: locale)
+        return "Your plan assets compared with what retiring now would need for a \(percent) chance (the plan's "
+            + "confidence), including the years before your pensions start and taxes. The plan finds it by "
+            + "simulating retiring today with more or less money in the same accounts. At 100% you could retire today."
+    }
+
+    /// Under an answer recorded before readiness existed, instead of a number.
+    static let readinessNotRecorded = "Calculate the plan to see how close you are to retiring today."
+
+    /// "Needed to retire today" in the key numbers: the amount, or words
+    /// when the search ended at one of its limits.
+    static func neededToday(_ needed: AssetsNeeded) -> PlanFigure? {
+        switch needed.outcome {
+        case .found:
+            return needed.amount.map { .amount(whole($0), unit: nil) }
+        case .atMost:
+            return .text("Under 1/\(searchedScale) of your plan assets")
+        case .moreThanMaximum:
+            return .text("Over \(searchedScale)× your plan assets")
+        case .noPlanAssets:
+            return needed.amount == 0 ? .text("None") : nil
+        }
+    }
+
     // MARK: Key numbers
 
     /// The key numbers beside the charts (MacPlan: Earliest retirement,
-    /// Success at 55, Spend at 55, FI number, Median at 54 and 95, Lifetime
-    /// taxes, Runs out before 57).
+    /// Success at 55, Spend at 55, Needed to retire today and the share you
+    /// have, Median at 54 and 95, Lifetime taxes, Runs out before 57). The
+    /// old FI number isn't among them: the amount needed today replaces it.
     static func keyNumbers(_ results: PlanResults, locale: Locale = .current) -> [PlanFigureRow] {
         let headline = results.headline
         var rows: [PlanFigureRow] = []
@@ -162,8 +224,11 @@ enum PlanResultsText {
                                       value: .amount(spending, unit: "/yr")))
         }
         guard let details = results.details else { return rows }
-        if let fi = details.fiNumber {
-            rows.append(PlanFigureRow(label: "FI number", value: .amount(whole(fi), unit: nil)))
+        if let needed = details.assetsNeeded, let figure = neededToday(needed) {
+            rows.append(PlanFigureRow(label: "Needed to retire today", value: figure))
+            if needed.outcome == .found, let readiness = needed.readiness {
+                rows.append(PlanFigureRow(label: "You have", value: .percent(readinessShare(readiness))))
+            }
         }
         if let median = details.focus.medianAtRetirement {
             rows.append(PlanFigureRow(label: "Median at \(details.focus.age)", value: .amount(whole(median), unit: nil)))

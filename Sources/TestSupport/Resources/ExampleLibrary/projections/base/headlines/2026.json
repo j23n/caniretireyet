@@ -77,6 +77,7 @@
       "engine": "0.1.0",
       "fiProgress": "0.4",
       "planHash": "7d24b6c1",
+      "readiness": "0.24",
       "successAtTarget": "0.84",
       "taxParameters": { "it": 2026 }
     },
@@ -87,6 +88,7 @@
       "engine": "0.1.0",
       "fiProgress": "0.41",
       "planHash": "7d24b6c1",
+      "readiness": "0.25",
       "successAtTarget": "0.86",
       "taxParameters": { "it": 2026 }
     }

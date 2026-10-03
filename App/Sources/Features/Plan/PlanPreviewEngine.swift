@@ -39,9 +39,15 @@ struct PlanPreviewEngine: PlanEngine {
             let working = age < focusAge
             return YearValue(year: year.year, value: working ? 46_000 + Double(year.year % 7) * 300 : 16_500)
         }
+        let currentAge = birth.wholeYears(to: request.asOf)
+        let assetsNeeded = results.headline.readiness.map { readiness in
+            AssetsNeeded(age: currentAge, outcome: .found, scale: 1 / readiness,
+                         amount: results.start.value.doubleValue / readiness, success: results.headline.confidence,
+                         readiness: readiness)
+        }
         results.details = PlanResultDetails(
-            planHash: Planner.planHash(plan), currentAge: birth.wholeYears(to: request.asOf),
-            endAge: plan.effectiveEndAge, birthDate: birth, fiNumber: 780_000,
+            planHash: Planner.planHash(plan), currentAge: currentAge,
+            endAge: plan.effectiveEndAge, birthDate: birth, fiNumber: 780_000, assetsNeeded: assetsNeeded,
             sustainableSpendingAge: results.headline.targetAge, scansEveryAge: request.mode == .full,
             pensionSteps: [PlanPensionStep(age: 64, pensions: ["INPS"]), PlanPensionStep(age: 67, pensions: ["INPS"])],
             issues: [PlanIssue(.warning, code: "preview.impatriati",
@@ -67,7 +73,8 @@ struct PlanPreviewEngine: PlanEngine {
 
     /// Reports made-up progress through the Planner's phases, as a real run
     /// would: the age scan most of the time, then the focus age's runs, the
-    /// spending bisection and the summary. Stops when cancelled.
+    /// spending bisection, the search for what retiring today needs and the
+    /// summary. Stops when cancelled.
     static func pretendToRun(_ request: PlanRunRequest, delay: Duration, report: PlanProgressHandler) async throws {
         let runs = request.mode == .fast ? 250 : request.plan.simulation.effectiveRuns
         let birth = request.library.settings.person?.birthDate ?? "1988-04-12"
@@ -87,8 +94,8 @@ struct PlanPreviewEngine: PlanEngine {
         -> PlanRunProgress {
         // The phases' shares of a run, as measured on the example plan.
         let phases: [(PlanRunProgress.Phase, share: Double, total: Int)] = [
-            (.earliestAge, 0.8, ages.count), (.simulating, 0.05, runs), (.sustainableSpending, 0.14, 14),
-            (.summarising, 0.01, 1),
+            (.earliestAge, 0.76, ages.count), (.simulating, 0.05, runs), (.sustainableSpending, 0.14, 14),
+            (.assetsNeeded, 0.04, 9), (.summarising, 0.01, 1),
         ]
         var start = 0.0
         for (index, phase) in phases.enumerated() {

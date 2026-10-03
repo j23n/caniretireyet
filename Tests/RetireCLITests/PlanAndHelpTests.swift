@@ -15,6 +15,9 @@ struct PlanAndHelpTests {
         #expect(lines.dropFirst().first == "250 runs (fast) from 2026-09-30 · engine 1.0.0 · tax parameters it 2026")
         #expect(run.output.contains("Not yet: ") || run.output.contains("Yes: "))
         #expect(run.output.contains("At your target age, 55, the chance of success is "))
+        // What retiring today would need replaces the old FI number, which is never printed.
+        #expect(run.output.contains("Needed to retire today: "))
+        #expect(!run.output.contains("FI number") && !run.output.contains("financial independence"))
         #expect(run.output.contains("What you could spend: "))
         #expect(run.output.contains("Chance of success by retirement age"))
         #expect(run.output.contains("   55  2043  "))
@@ -38,6 +41,19 @@ struct PlanAndHelpTests {
         #expect(ages.count > 10)
         #expect(ages.allSatisfy { ($0["success"] as? Double).map { (0...1).contains($0) } == true })
         #expect((json["issues"] as? [[String: Any]])?.contains { $0["severity"] as? String == "error" } == false)
+        // What retiring today would need: found, so an amount and a readiness below 1 (no age works yet).
+        let outcome = try #require(json["assetsNeededOutcome"] as? String)
+        #expect(["found", "atMost", "moreThanMaximum", "noPlanAssets"].contains(outcome))
+        if outcome == "found" {
+            let amount = try #require(json["assetsNeededToday"] as? Double)
+            let readiness = try #require(json["readiness"] as? Double)
+            #expect(amount > 0 && readiness > 0)
+            #expect((readiness >= 1) == (json["canRetireToday"] as? Bool))
+        }
+        // The keys it always had are still there.
+        for key in ["headline", "canRetireToday", "confidence", "successToday", "successByAge", "issues"] {
+            #expect(json[key] != nil, "\(key)")
+        }
     }
 
     @Test func planSavesABaseline() async throws {
@@ -122,6 +138,8 @@ struct PlanAndHelpTests {
         #expect(PlanProgressLine.text(runs) == "[#################---]  88% Simulating 1,234 / 2,000 runs")
         let steps = PlannerProgress(phase: .sustainableSpending, completed: 4, total: 12, fraction: 0.931, runs: 250)
         #expect(PlanProgressLine.text(steps) == "[##################--]  93% Sustainable spending: step 4 / 12")
+        let needed = PlannerProgress(phase: .assetsNeeded, completed: 3, total: 9, fraction: 0.97, runs: 250)
+        #expect(PlanProgressLine.text(needed) == "[###################-]  97% Needed to retire today: step 3 / 9")
         let done = PlannerProgress(phase: .summarising, completed: 1, total: 1, fraction: 1, runs: 250)
         #expect(PlanProgressLine.text(done) == "[####################] 100% Summarising")
         let start = PlannerProgress(phase: .earliestAge, completed: 0, total: 38, fraction: 0, runs: 250)
@@ -161,6 +179,31 @@ struct PlanAndHelpTests {
         #expect(json["canRetireToday"] as? Bool == true)
         #expect(json["earliestAge"] as? Int == 54)
         #expect(json["runs"] == nil)
+
+        // What retiring today would need, after the target age.
+        var needing = report
+        needing.needed = .init(outcome: .found, planAssets: 148_808.36, amount: 545_212.4, readiness: 0.27294)
+        #expect(Array(needing.lines()[3...5]) == [
+            "At your target age, 55, the chance of success is 93%.",
+            "Needed to retire today: 545,212 EUR in plan assets, at 90% confidence. You have 148,808 EUR (27%).",
+            "What you could spend: 38,412 EUR a year in today's money from age 55, at 90% confidence.",
+        ])
+        let neededJSON = try parseJSON(try JSONOutput.string(needing.json))
+        #expect(neededJSON["assetsNeededToday"] as? Double == 545_212)
+        #expect(neededJSON["readiness"] as? Double == 0.2729)
+        #expect(neededJSON["assetsNeededOutcome"] as? String == "found")
+        #expect(json["assetsNeededToday"] == nil && json["readiness"] == nil)
+
+        // Just below 100% never reads 100%; the limits in words.
+        #expect(PlanReport.Needed.percent(0.996) == "99%")
+        #expect(PlanReport.Needed.percent(1.3) == "130%")
+        let far = PlanReport.Needed(outcome: .moreThanMaximum, planAssets: 1_000)
+        #expect(far.text(currency: .eur, confidence: 0.9)
+            == "Needed to retire today: more than 20 times your plan assets (1,000 EUR), at 90% confidence.")
+        let little = PlanReport.Needed(outcome: .atMost, planAssets: 100_000, amount: 5_000, readiness: 20)
+        #expect(little.text(currency: .eur, confidence: 0.9)
+            == "Needed to retire today: at most 5,000 EUR in plan assets, at 90% confidence. "
+            + "You have 100,000 EUR, 20 times that or more.")
 
         var ran = report
         ran.run = .init(runs: 2000, fast: false, engine: "1.0.0", startDate: "2026-09-30",

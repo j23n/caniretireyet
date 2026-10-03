@@ -153,7 +153,8 @@ enum PlanRunText {
     }
 
     /// "Simulating 1.234 / 2.000 runs", "Earliest age · ages 41–75: 12 / 35",
-    /// "Sustainable spending: step 4 / 12", in the locale's numbers.
+    /// "Sustainable spending: step 4 / 12", "Needed to retire today: step 3 /
+    /// 9", in the locale's numbers.
     static func phase(_ progress: PlanRunProgress, locale: Locale = .current) -> String {
         let done = AmountFormat.number(Decimal(progress.completed), locale: locale)
         let total = AmountFormat.number(Decimal(progress.total), locale: locale)
@@ -167,6 +168,8 @@ enum PlanRunText {
             return "Simulating \(done) / \(total) runs"
         case .sustainableSpending:
             return "Sustainable spending: step \(done) / \(total)"
+        case .assetsNeeded:
+            return "Needed to retire today: step \(done) / \(total)"
         case .summarising:
             return "Summarising"
         }

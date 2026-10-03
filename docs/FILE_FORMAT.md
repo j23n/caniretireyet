@@ -311,7 +311,7 @@ There is one file per scenario. Its fields and what they mean are described in [
 Saved projections for one plan:
 
 - `baselines/<date>.json`: a projection saved at the first check-in of each year, or by hand. It stores the projected percentiles for each year, the expected path, the accounts included, and a copy of the plan's inputs.
-- `headlines/<year>.json`: the headline answer recorded at each check-in.
+- `headlines/<year>.json`: the headline answer recorded at each check-in: the earliest age, the chance at the target age, the readiness (plan assets as a share of what retiring today needs) and the old FI progress.
 
 Fields and examples are in [PROGRESS.md](PROGRESS.md#baselines). These files aren't deleted when a plan changes or is deleted, because they are a record of the past.
 

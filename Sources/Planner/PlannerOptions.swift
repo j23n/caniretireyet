@@ -34,7 +34,12 @@ public struct PlannerOptions: Hashable, Sendable {
     public var maxRetirementAge: Int
     /// Whether to solve for the highest sustainable retirement spending.
     public var solveSustainableSpending: Bool
-    /// The withdrawal rate behind the FI number (default 4%).
+    /// Whether to search for the plan assets retiring today would need
+    /// (``PlanAnswer/assetsNeeded``, default on). It simulates today's age
+    /// at about ten scales of the starting portfolio.
+    public var solveAssetsNeeded: Bool
+    /// The withdrawal rate behind the FI number (default 4%), which is
+    /// kept for compatibility but no longer shown.
     public var fiWithdrawalRate: Double
     /// The start date when the library has no check-in yet (default: today).
     public var today: CalendarDate?
@@ -44,12 +49,14 @@ public struct PlannerOptions: Hashable, Sendable {
 
     /// Options for a run; the defaults give the full Results screen.
     public init(mode: Mode = .full, ageScan: AgeScan = .full, focusAge: Int? = nil, maxRetirementAge: Int = 75,
-                solveSustainableSpending: Bool = true, fiWithdrawalRate: Double = 0.04, today: CalendarDate? = nil) {
+                solveSustainableSpending: Bool = true, solveAssetsNeeded: Bool = true, fiWithdrawalRate: Double = 0.04,
+                today: CalendarDate? = nil) {
         self.mode = mode
         self.ageScan = ageScan
         self.focusAge = focusAge
         self.maxRetirementAge = maxRetirementAge
         self.solveSustainableSpending = solveSustainableSpending
+        self.solveAssetsNeeded = solveAssetsNeeded
         self.fiWithdrawalRate = fiWithdrawalRate
         self.today = today
     }

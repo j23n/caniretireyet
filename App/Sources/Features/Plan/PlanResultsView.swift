@@ -1,5 +1,6 @@
 import Charts
 import Model
+import Planner
 import SwiftUI
 
 /// Results (UI.md, "Results"): the headline, the chance of success by
@@ -168,6 +169,7 @@ struct PlanHeadlineCard: View {
                 VStack(alignment: .leading, spacing: Metrics.s) { stats }
             }
             .padding(.top, Metrics.xs)
+            PlanReadinessView(headline: headline, assetsNeeded: results.details?.assetsNeeded)
             if let onWhatIf {
                 Button {
                     onWhatIf()
@@ -202,10 +204,82 @@ struct PlanHeadlineCard: View {
                 }
             }
         }
-        if isWide, let progress = headline.fiProgress {
-            PlanStat(title: "Progress to FI") {
-                Text(AmountFormat.percent(progress, digits: 0, locale: locale))
+    }
+}
+
+/// How close today's plan assets are to what retiring today needs (UI.md,
+/// "Can I retire yet?" and "Results"): a bar, "58% of what you'd need to
+/// retire today" with an ⓘ that says what it compares, and, when a run's
+/// details have it, "Needed to retire today: 1.240.000 €". It comes from the
+/// same simulation as the chance of retiring today, so it reaches 100%
+/// exactly when that chance reaches the plan's confidence. An answer
+/// recorded before it existed shows `fallback`, if any, instead of its old
+/// FI progress.
+struct PlanReadinessView: View {
+    let headline: PlanHeadline
+    /// The search's result, from a run (a recorded answer has none).
+    var assetsNeeded: AssetsNeeded?
+    /// Shown when there's no readiness, e.g. ``PlanResultsText/readinessNotRecorded``.
+    var fallback: String?
+
+    @Environment(\.locale) private var locale
+    @State private var showsExplanation = false
+
+    var body: some View {
+        if let text = PlanResultsText.readiness(headline, locale: locale) {
+            VStack(alignment: .leading, spacing: Metrics.xs) {
+                if let readiness = headline.readiness {
+                    ProgressView(value: PlanResultsText.readinessBar(readiness))
+                        .tint(Palette.accent)
+                        .accessibilityHidden(true)
+                }
+                HStack(alignment: .firstTextBaseline, spacing: Metrics.xs) {
+                    Text(text)
+                        .foregroundStyle(Palette.secondaryInk)
+                        .fixedSize(horizontal: false, vertical: true)
+                    explanationButton
+                }
+                if let amount = neededAmount {
+                    HStack(spacing: Metrics.xs) {
+                        Text("Needed to retire today:")
+                        AmountText(PlanResultsText.whole(amount), tabular: false)
+                    }
+                    .foregroundStyle(Palette.secondaryInk)
+                    .accessibilityElement(children: .combine)
+                }
             }
+            .font(.footnote)
+        } else if let fallback {
+            Text(fallback)
+                .font(.footnote)
+                .foregroundStyle(Palette.mutedInk)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    /// The amount, when the search found one.
+    private var neededAmount: Double? {
+        guard let assetsNeeded, assetsNeeded.outcome == .found else { return nil }
+        return assetsNeeded.amount
+    }
+
+    private var explanationButton: some View {
+        Button {
+            showsExplanation = true
+        } label: {
+            Image(systemName: "info.circle")
+                .foregroundStyle(Palette.accent)
+        }
+        .buttonStyle(.borderless)
+        .accessibilityLabel("About this number")
+        .popover(isPresented: $showsExplanation) {
+            Text(PlanResultsText.readinessExplanation(confidence: headline.confidence, locale: locale))
+                .font(.callout)
+                .foregroundStyle(Palette.ink)
+                .fixedSize(horizontal: false, vertical: true)
+                .padding(Metrics.l)
+                .frame(idealWidth: 320, maxWidth: 360, alignment: .leading)
+                .presentationCompactAdaptation(.popover)
         }
     }
 }

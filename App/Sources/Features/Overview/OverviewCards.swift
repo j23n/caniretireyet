@@ -44,9 +44,14 @@ struct OverviewChangeCard: View {
 // MARK: - Can I retire yet?
 
 /// The main plan's answer (its latest results, or the headline recorded at
-/// the last check-in), progress toward financial independence, and how
-/// you compare with the latest baseline. Tapping it opens the plan. It
-/// never starts a run: plans run from the Plan screen and at check-ins.
+/// the last check-in), how close your plan assets are to what retiring
+/// today needs (``PlanReadinessView``, with an ⓘ), and how you compare with
+/// the latest baseline. Tapping it opens the plan. It never starts a run:
+/// plans run from the Plan screen and at check-ins.
+///
+/// The card opens the plan with a tap gesture rather than being a button,
+/// so the ⓘ inside it gets its own taps; the chevron is the button
+/// VoiceOver and keyboards use.
 struct OverviewAnswerCard: View {
     let valuator: Valuator
     let asOf: CalendarDate
@@ -57,24 +62,30 @@ struct OverviewAnswerCard: View {
     @Environment(\.locale) private var locale
 
     var body: some View {
-        Button {
-            navigation.showPlan()
-        } label: {
-            Card {
-                content
-                    .frame(maxWidth: .infinity, alignment: .leading)
-            } header: {
-                SectionHeader("Can I retire yet?") {
+        Card {
+            content
+                .frame(maxWidth: .infinity, alignment: .leading)
+        } header: {
+            SectionHeader("Can I retire yet?") {
+                Button {
+                    navigation.showPlan()
+                } label: {
                     Image(systemName: "chevron.right")
                         .font(.footnote.weight(.semibold))
                         .foregroundStyle(Palette.mutedInk)
-                        .accessibilityHidden(true)
                 }
+                .buttonStyle(.borderless)
+                .accessibilityLabel("Open the plan")
             }
-            .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
-        .accessibilityHint("Opens the plan")
+        .contentShape(Rectangle())
+        .onTapGesture {
+            navigation.showPlan()
+        }
+        .accessibilityElement(children: .contain)
+        .accessibilityAction(named: "Open the plan") {
+            navigation.showPlan()
+        }
     }
 
     @ViewBuilder
@@ -110,16 +121,11 @@ struct OverviewAnswerCard: View {
                     .font(.footnote)
                     .foregroundStyle(Palette.secondaryInk)
             }
-            if let progress = headline.fiProgress {
-                VStack(alignment: .leading, spacing: Metrics.xs) {
-                    ProgressView(value: min(max(progress, 0), 1))
-                        .tint(Palette.accent)
-                    Text("\(AmountFormat.percent(progress, digits: 0, locale: locale)) of the way to financial independence")
-                        .font(.footnote)
-                        .foregroundStyle(Palette.secondaryInk)
-                }
-                .accessibilityElement(children: .combine)
-            }
+            // Plan assets against what retiring today needs, from the simulation. An answer
+            // recorded before that existed has only the old FI progress, which disagreed with
+            // the chance of retiring today, so it gets a neutral line instead.
+            PlanReadinessView(headline: headline,
+                              fallback: headline.recordedOn != nil ? PlanResultsText.readinessNotRecorded : nil)
             if let gap {
                 HStack(spacing: Metrics.xs) {
                     DeltaText(gap.gap, currency: gap.currency)

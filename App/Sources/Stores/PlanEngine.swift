@@ -32,6 +32,9 @@ struct PlanRunProgress: Hashable, Sendable {
         case simulating
         /// The highest sustainable spending, by bisection. Counted in steps.
         case sustainableSpending
+        /// The plan assets retiring today would need, by bisection over
+        /// scales of today's portfolio. Counted in steps.
+        case assetsNeeded
         /// Percentiles, the median path, the key numbers. One step.
         case summarising
     }
@@ -164,15 +167,30 @@ struct PlanHeadline: Hashable, Sendable {
     var successToday: Double?
     /// The most you could spend a year retiring at the target age.
     var sustainableSpending: Decimal?
-    /// Progress toward financial independence, as a fraction.
+    /// The old rule-of-thumb progress (plan assets over uncovered spending ÷
+    /// 4%). Kept because headlines record it, but never shown: it ignores
+    /// the years before the pensions start and the plan's confidence, so it
+    /// disagreed with the chance of retiring today. Show ``readiness``.
     var fiProgress: Double?
+    /// Plan assets as a fraction of what retiring today with the plan's
+    /// confidence needs, from the simulation (PLANNER.md, "Assets needed to
+    /// retire today"): 1 or more exactly when retiring today works. `nil`
+    /// in older records and when the search found no amount.
+    var readiness: Double?
+    /// Retiring today would need more than the search's maximum
+    /// (`AssetsNeeded.maximumScale`) times today's plan assets, so there's
+    /// no ``readiness``.
+    var needsMoreThanSearched = false
     /// For a headline read from `projections/…/headlines`: when it was recorded.
     var recordedOn: CalendarDate?
 
-    /// "Yes." when retiring today reaches the confidence level.
+    /// "Yes." when retiring today reaches the confidence level: from the
+    /// chance of success today, or, in a recorded headline (which has no
+    /// such chance), from its readiness, which is recorded rounded down.
     var canRetireNow: Bool {
-        guard let successToday else { return false }
-        return successToday >= confidence
+        if let successToday { return successToday >= confidence }
+        if let readiness { return readiness >= 1 }
+        return false
     }
 
     /// A headline recorded at a check-in.
@@ -181,12 +199,13 @@ struct PlanHeadline: Hashable, Sendable {
         earliestAge = headline.earliestAge
         successAtTarget = headline.successAtTarget?.doubleValue
         fiProgress = headline.fiProgress?.doubleValue
+        readiness = headline.readiness?.doubleValue
         recordedOn = headline.date
     }
 
     init(confidence: Double, earliestAge: Int? = nil, earliestDate: CalendarDate? = nil, targetAge: Int? = nil,
          successAtTarget: Double? = nil, successToday: Double? = nil, sustainableSpending: Decimal? = nil,
-         fiProgress: Double? = nil) {
+         fiProgress: Double? = nil, readiness: Double? = nil, needsMoreThanSearched: Bool = false) {
         self.confidence = confidence
         self.earliestAge = earliestAge
         self.earliestDate = earliestDate
@@ -195,6 +214,8 @@ struct PlanHeadline: Hashable, Sendable {
         self.successToday = successToday
         self.sustainableSpending = sustainableSpending
         self.fiProgress = fiProgress
+        self.readiness = readiness
+        self.needsMoreThanSearched = needsMoreThanSearched
     }
 }
 

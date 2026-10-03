@@ -17,7 +17,7 @@ struct KnownKeysTests {
         price: d("127.35"), currency: .eur, amount: d("-1278.5"), fees: 5, tax: 0, cost: 1, ratio: 1, note: "n",
         source: .manual, settlement: .external)
     private static let summary = HeadlineSummary(confidence: d("0.9"), earliestAge: 54, successAtTarget: d("0.86"),
-                                                 fiProgress: d("0.41"))
+                                                 fiProgress: d("0.41"), readiness: d("0.58"))
     private static let format = ImportFormat(
         date: ImportDateFormat(pattern: "dd/MM/yyyy", monthOnly: .start, timeZone: "Europe/Rome"),
         number: ImportNumberFormat(decimal: ",", thousands: ".", percent: false), empty: .zero,
@@ -115,7 +115,8 @@ struct KnownKeysTests {
         (summary, HeadlineSummary.knownKeys),
         (HeadlineFile(headlines: []), HeadlineFile.knownKeys),
         (Headline(date: "2026-09-30", confidence: d("0.9"), earliestAge: 54, engine: "1", fiProgress: d("0.4"),
-                  planHash: "h", successAtTarget: d("0.8"), taxParameters: ["it": 2026]), Headline.knownKeys),
+                  planHash: "h", readiness: d("0.58"), successAtTarget: d("0.8"), taxParameters: ["it": 2026]),
+         Headline.knownKeys),
     ] }
 
     @Test func writtenKeysAreExactlyTheKnownKeys() throws {

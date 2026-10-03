@@ -23,8 +23,9 @@ struct PlanCommand: RetireSubcommand {
         abstract: "Run a plan and print the answer (the default).",
         discussion: """
             Runs the library's main plan (mainPlan in library.json), or --plan <id>, and prints \
-            the headline answer, the chance of success by retirement age, what you could spend, \
-            how the plan read your library (its accounts by tax wrapper, and accounts that start \
+            the headline answer, what retiring today would need (the plan assets that make it reach \
+            the plan's confidence, and your share of them), what you could spend, the chance of \
+            success by retirement age, how the plan read your library (its accounts by tax wrapper, and accounts that start \
             a pension scheme), and any issues, in the plan's currency. The plan starts from the \
             latest check-in. --fast uses \(PlannerOptions.defaultFastRuns) runs instead of the plan's \
             own number (2,000 by default), with the same random draws. --years adds the median run \
@@ -142,6 +143,7 @@ struct PlanCommand: RetireSubcommand {
 ///     [#######-------------]  34% Earliest age · ages 39–75: 12 / 37
 ///     [#################---]  88% Simulating 1,234 / 2,000 runs
 ///     [##################--]  93% Sustainable spending: step 4 / 16
+///     [###################-]  97% Needed to retire today: step 3 / 9
 enum PlanProgressLine {
     static func text(_ progress: PlannerProgress) -> String {
         let fraction = min(1, max(0, progress.fraction))
@@ -163,6 +165,8 @@ enum PlanProgressLine {
             return "Simulating \(done) / \(total) runs"
         case .sustainableSpending:
             return "Sustainable spending: step \(done) / \(total)"
+        case .assetsNeeded:
+            return "Needed to retire today: step \(done) / \(total)"
         case .summarising:
             return "Summarising"
         }
@@ -214,7 +218,77 @@ struct PlanReport {
     /// The highest yearly spending in retirement, in today's money, that
     /// reaches the confidence at the target age.
     var sustainableSpending: Double?
+    /// What retiring today would need, from the simulation. `nil` for a
+    /// report made by hand.
+    var needed: Needed?
     var issues: [Issue]
+
+    /// What retiring today would need (PLANNER.md, "Assets needed to retire
+    /// today"): the plan assets that make retiring at today's age reach the
+    /// confidence level, and today's as a share of them. It replaces the
+    /// old FI number, which the report never shows.
+    struct Needed {
+        /// How the search ended, as in `AssetsNeeded.Outcome`.
+        enum Outcome: String {
+            case found, atMost, moreThanMaximum, noPlanAssets
+        }
+
+        var outcome: Outcome
+        /// Today's plan assets.
+        var planAssets: Double
+        /// The plan assets needed: within 1% when found, the bound for `atMost`.
+        var amount: Double?
+        /// `planAssets / amount`: 1 or more exactly when retiring today works.
+        var readiness: Double?
+        /// The most times today's plan assets the search tries.
+        var maximumScale: Double = AssetsNeeded.maximumScale
+
+        init(outcome: Outcome, planAssets: Double, amount: Double? = nil, readiness: Double? = nil) {
+            self.outcome = outcome
+            self.planAssets = planAssets
+            self.amount = amount
+            self.readiness = readiness
+        }
+
+        init(_ needed: AssetsNeeded, planAssets: Double) {
+            let outcome: Outcome = switch needed.outcome {
+            case .found: .found
+            case .atMost: .atMost
+            case .moreThanMaximum: .moreThanMaximum
+            case .noPlanAssets: .noPlanAssets
+            }
+            self.init(outcome: outcome, planAssets: planAssets, amount: needed.amount, readiness: needed.readiness)
+        }
+
+        /// A readiness as a percentage, rounded down below 100% so it never
+        /// reads 100% while retiring today falls short: "7%".
+        static func percent(_ readiness: Double) -> String {
+            guard readiness < 1 else { return PlanReport.percent(readiness) }
+            return "\(min(99, Int((readiness * 100 + 1e-9).rounded(.down))))%"
+        }
+
+        /// "Needed to retire today: 2,002,118 EUR in plan assets, at 90%
+        /// confidence. You have 148,808 EUR (7%)."
+        func text(currency: CurrencyCode, confidence: Double) -> String {
+            let at = "at \(PlanReport.percent(confidence)) confidence"
+            let have = "\(PlanReport.whole(planAssets)) \(currency)"
+            let times = String(Int(maximumScale))
+            switch outcome {
+            case .found:
+                let share = readiness.map(Self.percent).map { " (\($0))" } ?? ""
+                return "Needed to retire today: \(PlanReport.whole(amount ?? 0)) \(currency) in plan assets, \(at). "
+                    + "You have \(have)\(share)."
+            case .atMost:
+                return "Needed to retire today: at most \(PlanReport.whole(amount ?? 0)) \(currency) in plan assets, "
+                    + "\(at). You have \(have), \(times) times that or more."
+            case .moreThanMaximum:
+                return "Needed to retire today: more than \(times) times your plan assets (\(have)), \(at)."
+            case .noPlanAssets:
+                return amount == 0 ? "Retiring today needs no plan assets, \(at)."
+                    : "The plan counts no assets, and retiring today needs some, \(at)."
+            }
+        }
+    }
     /// How the plan ran: the number of runs, fast or full, the engine and
     /// the tax parameters. `nil` for a report made by hand.
     var run: Run?
@@ -394,6 +468,7 @@ struct PlanReport {
             },
             sustainableSpending: answer.sustainableSpending?.perYear,
             issues: result.issues.map { Issue(isError: $0.isError, message: $0.message) })
+        needed = answer.assetsNeeded.map { Needed($0, planAssets: Double(result.start.planAssets.description) ?? 0) }
         run = Run(runs: result.settings.runs, fast: fast, engine: result.engine, startDate: result.start.date,
                   taxParameters: result.taxParameters)
     }
@@ -436,6 +511,9 @@ struct PlanReport {
         lines += ["", headlineText]
         if let target = headline.targetAge, let success = headline.successAtTarget {
             lines.append("At your target age, \(target), the chance of success is \(Self.percent(success)).")
+        }
+        if let needed {
+            lines.append(needed.text(currency: currency, confidence: headline.confidence))
         }
         if let spending = sustainableSpending, spending.isFinite {
             let amount = Format.amount(Decimal(Int(spending.rounded())), places: 0)
@@ -493,6 +571,9 @@ struct PlanReport {
              successAtTarget: headline.successAtTarget,
              successByAge: successByAge.map { JSON.Age(age: $0.age, year: $0.year, success: $0.success) },
              sustainableSpending: sustainableSpending,
+             assetsNeededToday: needed?.amount.flatMap { $0.isFinite ? $0.rounded() : nil },
+             assetsNeededOutcome: needed?.outcome.rawValue,
+             readiness: needed?.readiness.flatMap { $0.isFinite ? ($0 * 10_000 + 1e-9).rounded(.down) / 10_000 : nil },
              issues: issues.map { JSON.Issue(severity: $0.isError ? "error" : "warning", message: $0.message) },
              runs: run?.runs, fast: run?.fast, engine: run?.engine, startDate: run?.startDate.description,
              taxParameters: run?.taxParameters, savedBaseline: savedBaseline, start: reading?.json,
@@ -570,6 +651,14 @@ struct PlanReport {
         var successAtTarget: Double?
         var successByAge: [Age]
         var sustainableSpending: Double?
+        /// The plan assets retiring today would need, whole; `nil` when more
+        /// than 20 times today's would be needed.
+        var assetsNeededToday: Double?
+        /// How the search ended: found, atMost, moreThanMaximum or noPlanAssets.
+        var assetsNeededOutcome: String?
+        /// Today's plan assets over what retiring today needs, rounded down
+        /// to 4 decimals: 1 or more exactly when retiring today works.
+        var readiness: Double?
         var issues: [Issue]
         var runs: Int?
         var fast: Bool?
