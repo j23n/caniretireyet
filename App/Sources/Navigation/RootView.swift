@@ -93,7 +93,7 @@ private struct AppPresentation: ViewModifier {
     /// Whether the library has an error to show (a failed save, which is
     /// undone, shows wherever the user is); dismissing clears it, also from
     /// the banners that show it (`LibraryStatusBanners`).
-    private var showsLibraryError: Binding<Bool> {
+    @MainActor private var showsLibraryError: Binding<Bool> {
         Binding(get: { library.lastError != nil }, set: { if !$0 { library.dismissError() } })
     }
 
