@@ -73,9 +73,9 @@ The simulation runs about 2,000 random market paths for every candidate retireme
 
 1. **Prepare, once per year of the plan.** Everything fixed by the plan: work income, fixed pensions, windfalls, contributions, and pension accruals such as INPS credits. The system computes whatever it can in advance, for example IRPEF on salary and on the INPS pension.
 2. **Assess, once per simulated path.** Everything that depends on how the markets went: sales and realised gains (a rebalancing sale in a taxable account included), payouts from invested wrappers such as the pension fund, and the year-end balances that wealth taxes are charged on, with the share of the year they're held for (`VariableYear.fractionOfYear`, less than 1 in a plan's first year): thresholds are tested on the balance, and that share of a year's tax is due. `assess` runs for every path and year, so a system should make anything that only depends on the year, such as its line labels, in `prepare`.
-3. **Gross-up.** When the engine needs a net amount of cash, the system says how much to sell. Systems that tax gains separately from income, as Italy does, answer exactly in one step. Otherwise the engine solves for it numerically.
+3. **Gross-up.** When the engine needs a net amount of cash, the system says how much to sell. Systems that tax gains separately from income, as Italy does, answer exactly in one step: for a sale, through `taxOnSales`, the tax those sales (each lot with its gain or loss) add to the year so far on that path. Otherwise the engine solves for it numerically.
 
-Tax state that carries from one year to the next goes back to the system each year, and the engine never looks inside it. Examples are prior-year revenue (for forfettario eligibility), years left in impatriati, and years of pension-fund membership.
+Tax state that carries from one year to the next goes back to the system each year, and the engine never looks inside it. Examples are prior-year revenue (for forfettario eligibility), years left in impatriati, and years of pension-fund membership. That state follows the deterministic run, so it can't depend on the markets. What does, such as losses carried forward, travels along each simulated path instead (the *path state*, below).
 
 ## The interface
 
@@ -120,6 +120,14 @@ public protocol PreparedTaxYear: Sendable {
     /// How much to sell from a bucket to receive `net` after tax,
     /// or nil to let the engine solve for it.
     func grossUp(net: Double, from bucket: BucketSnapshot) -> Double?
+
+    /// The tax that selling `sales` adds to the year so far on a path (with
+    /// its path state), or nil (the default) to use grossUp, else assess.
+    func taxOnSales(_ sales: [VariableYear.Sale], alongside year: VariableYear) -> Double?
+
+    /// What a path state carries into next year, itemised for reports
+    /// (e.g. losses carried forward); empty by default.
+    func carriedForward(in state: TaxState) -> [TaxLine]
 }
 
 public struct TaxAssessment: Sendable {
@@ -128,6 +136,7 @@ public struct TaxAssessment: Sendable {
     public var accruals: [Accrual]       // credits to pension schemes and wrappers (e.g. TFR)
     public var issues: [TaxIssue]        // e.g. "forfettario revenue limit exceeded in 2031"
     public var nextState: TaxState
+    public var nextPathState: TaxState?  // the path state for next year; nil keeps it
 }
 
 public struct RegimeDescriptor: Sendable {
@@ -181,11 +190,23 @@ To join, a system sets `country` and implements `prepareNonResident` for the pen
 
 **Values indexed by law.** See [Parameters](#parameters).
 
+**State along a path (G4).** What a year leaves to later years that depends on the markets, such as losses carried forward, can't live in the state `prepare` gets, which follows the deterministic run. Each simulated path carries its own instead:
+
+- `VariableYear.pathState` (a `TaxState`, empty by default) is what the path carries into the year; `TaxAssessment.nextPathState` is what the year carries out, or `nil` (the default) to keep it as it was. Systems namespace their keys (`it.losses.diversi.2027`), keep amounts in their own currency and in nominal terms where the law does (so a carried loss shrinks in today's money as prices rise), and drop what expires.
+- The engine keeps one per path and never looks inside it. It starts empty in each path's first year (the deterministic run included), and again in the first year of a different residence system: carry-forwards don't survive a move. A loss realised before becoming resident isn't the new country's, and one left in the old country is lost with the residence in practice (a return isn't modelled). A system ignores keys it doesn't know.
+- Every assessment of a year on a path gets the same path state: the hypothetical ones that size a sale, a payout or a numeric gross-up (`NumericGrossUp`, `numericGrossUp(net:from:alongside:)`, whose `alongside` year carries it) as well as the year's final one, and only the final assessment's `nextPathState` is kept. So trials never commit state.
+- `prepareNonResident` only uses the fixed assessment, so the paying country's tax on pensions has no path state; the planner adds its lines to every path's assessment and passes the residence system's path state through.
+- Every sale (`VariableYear.Sale`) carries its realised gain or loss, `proceeds − costBasis` (`Sale.gain`, negative for a loss), per lot and category: the engine never clamps it. When a loss lowers the year's tax, the year's assessment ends below what sales already withheld, and the difference is credited the following year, as any difference is paid.
+- Where a sale's tax depends on the year's other sales and on the path, a system implements `taxOnSales(_:alongside:)`: the tax given sales add to the year so far, which the engine uses to size each withdrawal and rebalancing sale (it sees each lot's own cost, where `grossUp` sees one average cost and no path). Italy, Germany (when the flat tax alone applies) and `generic` do; without it the engine uses `grossUp`, else assesses the year twice.
+- `carriedForward(in:)` describes a path state for reports, in today's money in the plan's currency; the plan debugger shows it for every traced year.
+
+The deterministic side needs nothing: `prepare`, the FI number and the expected path's prepared years don't depend on markets, and the searches (earliest age, sustainable spending, assets needed today) run whole paths, each with its own path state. Italy ([tax/IT.md](tax/IT.md#investments)), Germany ([tax/DE.md](tax/DE.md#investments)) and `generic` carry losses this way; Switzerland doesn't tax private capital gains, so it has nothing to carry.
+
 **Later**, when a system needs them (each would be additive):
 
 - *Expected wealth in `prepare`* (CH gap 6): Swiss AHV contributions without work depend on year-end wealth, known only in `assess`; until then the system credits the year in `prepare` with the minimum contribution's income. A `FixedYear.expectedWealth` from a first deterministic pass would let `prepare` estimate it.
 - *Wealth outside the plan* (CH gap 7): the home and its mortgage, for wealth tax and AHV; system options until then.
-- *State along a path* (DE G4): loss carry-forwards, health contributions spread over years.
+- *More state along a path*: the path state is there (above); health contributions on a German bAV lump sum spread over 120 months, and a Swiss 3a account's payout history, could use it.
 - *Holding period of a sale* (DE G6), *leaving a country* (exit tax, DE G7), *payout forms a wrapper allows* (annuity only, 30% as a lump sum: DE G9), *access once a public pension has started* (DE G10), and *employer contributions* for the results (DE G12).
 - *Foreign withholding* on capital income (`CapitalIncome.country`, CH gap 11), and a shared *separate-income-rate* block for capital-benefit and one-fifth tariffs (CH gap 12).
 - *A `generic` option to tax reported fund income*: the generic system's option list is pinned by its tests, so it skips that income for now.
@@ -254,7 +275,7 @@ Issues are either *errors*, which block the run (e.g. an unknown regime ID), or 
 
 ## Changing residence
 
-- **Switching systems.** From the year in the timeline, a different system assesses everything.
+- **Switching systems.** From the year in the timeline, a different system assesses everything. The state carried along each path, such as losses carried forward, starts empty there: carry-forwards don't follow the person to another country ([State along a path](#what-a-system-can-tell-the-planner-and-whats-told)).
 - **Pensions.** Pensions already earned keep paying (INPS pays abroad). Each pension's `taxedIn` decides which system taxes it: the country of residence or the paying country, whose system computes it when one is registered (see [Tax in the paying country](#what-a-system-can-tell-the-planner-and-whats-told)). A residence system that knows the treaty with the paying country may check `taxedIn` against it and warn.
 - **Wrappers.** A wrapper the new system doesn't know, e.g. an Italian pension fund while living in Portugal, is treated by its generic category (taxable, tax-deferred or tax-free), with a warning. A system can also declare how it treats specific foreign wrappers.
 
@@ -262,11 +283,11 @@ Issues are either *errors*, which block the run (e.g. an unknown regime ID), or 
 
 | ID | Status | Notes |
 | --- | --- | --- |
-| `generic` | MVP | Flat effective rates on work income, pensions, gains, interest and wealth, plus a social-contribution rate: the residence options `incomeTaxRate`, `pensionTaxRate` (default: the income rate), `capitalGainsRate`, `interestDividendRate` (default: the gains rate), `wealthTaxRate` and `socialContributionRate`. Wrappers `taxable`, `taxDeferred` and `taxFree`. Good for rough "what if I moved" plans, and used by the engine's own tests. |
-| `it` | MVP | Employee, professional (regime ordinario) and forfettario; both impatriati regimes; INPS; pension fund; TFR; investment and wealth taxes. See [tax/IT.md](tax/IT.md). |
+| `generic` | MVP | Flat effective rates on work income, pensions, gains, interest and wealth, plus a social-contribution rate: the residence options `incomeTaxRate`, `pensionTaxRate` (default: the income rate), `capitalGainsRate`, `interestDividendRate` (default: the gains rate), `wealthTaxRate` and `socialContributionRate`. Gains and losses on sales net within the year, and a net loss is carried forward along the path, without limit, against later gains (in nominal terms; interest and dividends aren't offset). Wrappers `taxable`, `taxDeferred` and `taxFree`. Good for rough "what if I moved" plans, and used by the engine's own tests. |
+| `it` | MVP | Employee, professional (regime ordinario) and forfettario; both impatriati regimes; INPS; pension fund; TFR; investment and wealth taxes, with losses netted and carried forward four years (crypto in its own basket; fund gains never offset). See [tax/IT.md](tax/IT.md). |
 | `it.pensionati-esteri` | Later, if relevant | 7% flat tax on foreign income for pensioners who move to certain towns in southern Italy. It shows why overlays exist: it replaces the tax on foreign income and the wealth tax on foreign assets together. |
 | `ch` | MVP | Zurich and Ticino, with any commune by its multiplier: federal, cantonal, communal and church income tax, wealth tax with Ticino's brake, and the separate tax on capital benefits; employee and self-employed regimes, AHV contributions without work; the expatriate and lump-sum (Ticino) overlays; `ch.ahv` and `ch.bvg` (annuity, lump sum or both, transfer to vested benefits); pillar 3a and vested benefits with staggered (the plan's choice) and forced payouts; the source tax on Swiss pensions paid abroad and the treaties with Italy and Germany (`country` `CH`); computes in CHF. See [tax/CH.md](tax/CH.md). |
-| `de` | MVP | Employee (with the Aktivrente and Entgeltumwandlung), Freiberufler and Gewerbetreibender (trade tax); social contributions, voluntary GKV, KVdR and PKV; the DRV (`de.drv`) and pension taxation by cohort; Riester, Rürup, bAV and the Altersvorsorgedepot; the flat tax on investments with the Teilfreistellung, the Vorabpauschale and the Günstigerprüfung; inheritance and gift tax; treaties with Italy and Switzerland, and tax on German pensions paid abroad. See [tax/DE.md](tax/DE.md). |
+| `de` | MVP | Employee (with the Aktivrente and Entgeltumwandlung), Freiberufler and Gewerbetreibender (trade tax); social contributions, voluntary GKV, KVdR and PKV; the DRV (`de.drv`) and pension taxation by cohort; Riester, Rürup, bAV and the Altersvorsorgedepot; the flat tax on investments with the Teilfreistellung, the Vorabpauschale, the Günstigerprüfung and the loss pots (shares apart, carried forward without limit); inheritance and gift tax; treaties with Italy and Switzerland, and tax on German pensions paid abroad. See [tax/DE.md](tax/DE.md). |
 | Other countries | When needed | Added one at a time, e.g. a country a plan moves to. |
 
 ## Adding a system or a regime
