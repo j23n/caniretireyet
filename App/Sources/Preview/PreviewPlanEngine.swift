@@ -36,14 +36,17 @@ struct PreviewPlanEngine: PlanEngine {
         let endAge = plan.effectiveEndAge
         let spending = (whatIf.retiredSpending ?? plan.spending.retired).doubleValue
         let saving = whatIf.monthlySaving.map { $0.doubleValue * 12 } ?? 18_000
-        let equity = whatIf.equityReturn?.doubleValue ?? 0.045
+        // Equity's typical year, as the what-if slider moves it.
+        let planEquity = plan.assumptions.returnAssumption(for: .equity)?.medianReturn ?? 0.05
+        let equity = whatIf.equityReturn?.doubleValue ?? planEquity
         let confidence = plan.simulation.effectiveConfidence.doubleValue
         let valuator = Valuator(library: library)
         let start = valuator.total(on: today, in: .planAssets)
 
         // Chance of success by retirement age: a logistic curve whose middle
         // moves with spending, saving, returns and the starting portfolio.
-        let middle = 44 + spending / 6_000 - saving / 9_000 - start.total.doubleValue / 200_000 - (equity - 0.045) * 120
+        let middle = 44 + spending / 6_000 - saving / 9_000 - start.total.doubleValue / 200_000
+            - (equity - planEquity) * 120
         func success(_ retirementAge: Int) -> Double {
             let raw = 1 / (1 + exp(-(Double(retirementAge) - middle) / 1.6))
             let pensionStep = retirementAge >= 67 ? 0.03 : 0
