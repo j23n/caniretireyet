@@ -324,7 +324,7 @@ When two devices change the same file before it syncs, iCloud keeps both version
 | `history/…`, `projections/…/headlines/…` | All records from both versions, matched by key: account + date, account + date + trade ID, instrument + date, currency pair + date, index + date, or check-in date. If both versions changed the same record, the more recently modified file wins. | Three-way merge record by record, using the device's last-synced copy as the common base. This also makes deletions merge correctly. |
 | All other files | The more recently modified version wins. | Three-way merge field by field. |
 
-Merges are listed on the Sync screen so you can check them.
+Merges are listed on the Sync screen so you can check them. Before a merge replaces the file and iCloud's other versions are removed, each version that differs from the result is copied to its own `backups/<timestamp>-conflict/` folder, so nothing a merge drops is lost.
 
 Versions modified at the same moment are ordered by their contents, so both devices resolve a conflict the same way. Within one version, the later of two records with the same key counts, as when loading. Everything else in a merged history or headline file (its unknown keys, for example) comes from the newest version, and the result is written in the canonical layout. A version that isn't valid JSON is left out of a merge.
 
@@ -370,7 +370,7 @@ Trades it writes have `"source": "import"` and a stable `id` (`TradeID.stable`: 
 
 Copies of files taken before a schema migration, an import, or a save that had to replace a file (see [Saving](#saving)), in dated folders. They're what "Undo import" uses. Safe to delete.
 
-- `backups/<yyyy-MM-dd-HHmmss>-<label>/` (the time is the device's local time), with the label `import`, `undo-import` (the files as they were before an undo), `prices`, `conflict` or `unreadable`; `backups/<yyyy-MM-dd>-v<old>/` for a migration. A second backup with the same name gets `-2`, `-3`, ….
+- `backups/<yyyy-MM-dd-HHmmss>-<label>/` (the time is the device's local time), with the label `import`, `undo-import` (the files as they were before an undo), `prices`, `conflict` (a save or a sync conflict's merge replaced the file) or `unreadable`; `backups/<yyyy-MM-dd>-v<old>/` for a migration. A second backup with the same name gets `-2`, `-3`, ….
 - Each folder mirrors the library's layout and has a `backup.json` listing the files copied (`files`), the files that didn't exist yet (`absentFiles`), a `label`, when it was `created`, and the library's `schemaVersion` then.
 - After an import, the files as the import wrote them are copied to the backup's `result/` folder, and `backup.json` lists them under `result` (`{ "files": [...], "absentFiles": [...] }`).
 

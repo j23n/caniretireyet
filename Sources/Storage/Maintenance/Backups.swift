@@ -129,6 +129,16 @@ extension LibraryFolder {
         return try makeBackup(paths: paths, name: "\(Self.timestamp(date))-\(label)", label: label, date: date)
     }
 
+    /// Copies file contents into a new folder `backups/<timestamp>-<label>/`:
+    /// versions of files that aren't on disk, such as the versions of a file
+    /// a sync conflict's resolution is about to replace or remove. `contents`
+    /// maps paths relative to the library folder to their bytes; restoring
+    /// the backup writes them back there.
+    @discardableResult
+    public func backup(contents: [String: Data], label: String, date: Date = Date()) throws -> Backup {
+        try makeBackup(contents: contents, label: Slug.make(from: label), date: date)
+    }
+
     /// Records the backup's files as they are now, after the change it was
     /// taken for (e.g. an import), in `backups/<name>/result/`, so
     /// ``undo(_:)`` can tell later edits apart. Returns the updated backup.
