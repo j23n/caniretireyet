@@ -234,7 +234,7 @@ Italy's `country` is `IT`. For a pension from Italy (an `it.inps` pension, or on
 
 - Tax on a sale = rate × realised gain, using the average purchase cost (the method Italian brokers use).
 - Accumulating ETFs pay no tax until sold.
-- The MVP ignores offsetting losses (*minusvalenze*) against gains, which slightly overstates taxes.
+- The MVP ignores offsetting losses (*minusvalenze*) against gains, which overstates taxes: a little for steady holdings sold to spend, more for a volatile class the plan rebalances every year, whose up years are taxed and down years never credited. In the example's base plan at 20 times its assets, the tax on rebalancing sales over the plan is 38,000 in a 10th-percentile run but 770,000 in a 75th-percentile one ([PLANNER.md, "Plan debugger"](../PLANNER.md#plan-debugger)).
 
 ## Wealth taxes, every year
 
