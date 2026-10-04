@@ -123,7 +123,9 @@ struct NonResidentTaxes: Sendable {
 
 /// The residence system's prepared year with the paying countries' taxes
 /// on top: in the fixed assessment and in every path's, so the year's cash,
-/// its reported taxes and the market-dependent part all include them.
+/// its reported taxes and the market-dependent part all include them. The
+/// paying countries' taxes don't depend on the markets, so sales, gross-ups
+/// and the path's state are the residence system's.
 struct WithNonResidentTaxes: PreparedTaxYear {
     let base: any PreparedTaxYear
     let foreign: NonResidentTaxes
@@ -141,5 +143,13 @@ struct WithNonResidentTaxes: PreparedTaxYear {
 
     func grossUp(net: Double, from bucket: BucketSnapshot) -> Double? {
         base.grossUp(net: net, from: bucket)
+    }
+
+    func taxOnSales(_ sales: [VariableYear.Sale], alongside year: VariableYear) -> Double? {
+        base.taxOnSales(sales, alongside: year)
+    }
+
+    func carriedForward(in state: TaxState) -> [TaxLine] {
+        base.carriedForward(in: state)
     }
 }

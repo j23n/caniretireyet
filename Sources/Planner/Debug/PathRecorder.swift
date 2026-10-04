@@ -57,6 +57,9 @@ final class PathRecorder {
         var assessment: TaxAssessment?
         /// Market-dependent taxes left to pay next year.
         var carriedOut = 0.0
+        /// What the tax system carries along the path into next year, such
+        /// as losses carried forward (``TaxKit/PreparedTaxYear/carriedForward(in:)``).
+        var carriedForward: [TaxLine] = []
         var endAssets = 0.0
         var failure: RunFailure?
     }
@@ -131,13 +134,15 @@ final class PathRecorder {
         withheldMark = simulator.withheld
     }
 
-    func end(assessment: TaxAssessment, carriedOut: Double, endAssets: Double, _ simulator: PathSimulator) {
+    func end(assessment: TaxAssessment, carriedOut: Double, endAssets: Double, carriedForward: [TaxLine],
+             _ simulator: PathSimulator) {
         guard var year = current else { return }
         year.end = Self.bucketValues(simulator)
         year.endClasses = Self.classValues(simulator)
         year.endBasis = Self.bases(simulator)
         year.assessment = assessment
         year.carriedOut = carriedOut
+        year.carriedForward = carriedForward
         year.endAssets = endAssets
         years.append(year)
         current = nil

@@ -90,6 +90,32 @@ struct ReferenceCaseTests {
             let gross = try #require(prepared.grossUp(net: check.net, from: check.bucket.snapshot))
             #expect(close(gross, check.expected), "\(name): gross-up \(gross), expected \(check.expected)")
         }
+        checkPath(prepared, assessment, reference, name: name)
+    }
+
+    /// What the year carries along the path, and the tax of further sales.
+    private func checkPath(_ prepared: any PreparedTaxYear, _ assessment: TaxAssessment, _ reference: ReferenceCase,
+                           name: String) {
+        let variable = reference.variableYear
+        let next = assessment.nextPathState ?? variable.pathState
+        for (key, value) in (reference.expected.nextPathState ?? [:]).sorted(by: { $0.key < $1.key }) {
+            if let value {
+                #expect(next[key].map { close($0, value) } == true, "\(name): path state \(key) is \(next[key] ?? .nan), expected \(value)")
+            } else {
+                #expect(next[key] == nil, "\(name): path state \(key) is \(next[key] ?? .nan), expected none")
+            }
+        }
+        if let carried = reference.expected.carriedForward {
+            checkSums(sums(prepared.carriedForward(in: next)), carried, "carried forward", name)
+        }
+        for check in reference.taxOnSales ?? [] {
+            let tax = prepared.taxOnSales(check.sales.map(\.sale), alongside: variable)
+            if let wanted = check.expected {
+                #expect(tax.map { close($0, wanted) } == true, "\(name): tax on sales \(tax ?? .nan), expected \(wanted)")
+            } else {
+                #expect(tax == nil, "\(name): tax on sales \(tax ?? .nan), expected the engine to find it")
+            }
+        }
     }
 
     private func checkClaims(_ reference: ReferenceCase, name: String) throws {

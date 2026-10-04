@@ -26,7 +26,11 @@ struct RunOutcome: Sendable {
 /// revaluation); and the tax system assesses sales, payouts, interest, fund
 /// income and year-end balances, and may raise the purchase cost of what it
 /// taxed without a sale. Market-dependent taxes beyond what sales and
-/// payouts already withheld are paid the following year.
+/// payouts already withheld are paid the following year (or credited, when
+/// a loss lowered them). The tax state the system carries along the path,
+/// such as losses carried forward, passes from each year's final assessment
+/// to the next year's; it starts empty, and again when the residence system
+/// changes.
 ///
 /// **Liquid (taxable) buckets** keep a purchase cost per lot, and money
 /// never gains cost basis for free: every sale, including a rebalancing
@@ -74,6 +78,9 @@ struct PathSimulator {
     /// Per class, the income funds earn as a share of their value.
     private let incomeYields: [Double]
     private let reportsIncome: Bool
+    /// Per year, whether a path's tax state starts empty: in the first year,
+    /// and when the residence system changes.
+    private let yearStartsResidence: [Bool]
 
     private(set) var values: [Double]
     /// Per lot, its nominal return in the year just simulated, and its value before.
@@ -83,6 +90,12 @@ struct PathSimulator {
     /// Per tax-advantaged bucket, what was paid in (see the type's comment).
     private(set) var wrapperBasis: [Double]
     private(set) var variable = VariableYear()
+    /// The tax state carried along the run (G4): what the last year's final
+    /// assessment returned as its `nextPathState`. Opaque, like the state
+    /// `prepare` gets.
+    private(set) var pathState = TaxState.empty
+    /// Scratch space for the sales whose tax ``saleTax(_:year:prepared:)`` asks for.
+    private var pendingSales: [VariableYear.Sale] = []
     /// Per class, scratch space for the bucket being worked on: its value,
     /// the shares it's steered to, the part that follows them, what to sell
     /// and what to buy.
@@ -147,6 +160,9 @@ struct PathSimulator {
         incomeYields = model.incomeYields.count == portfolio.classCount
             ? model.incomeYields : Array(repeating: 0, count: portfolio.classCount)
         reportsIncome = incomeYields.contains { $0 > 0 }
+        yearStartsResidence = schedule.years.indices.map { t in
+            t == 0 || schedule.years[t].system != schedule.years[t - 1].system
+        }
         // Every lot reports a year-end balance; only the values change.
         variable.balances = portfolio.lots.map { lot in
             VariableYear.Balance(wrapper: portfolio.buckets[lot.bucket].wrapper, category: lot.category,
@@ -201,6 +217,7 @@ struct PathSimulator {
         for b in wrapperBasis.indices { wrapperBasis[b] = startWrapperBasis[b] }
         let mask = run.map { scenarios.eventMasks[$0] } ?? scenarios.expectedEvents
         var carried = 0.0
+        pathState = .empty
 
         for t in schedule.years.indices {
             let v = schedule.years[t].variant(for: mask)
@@ -208,6 +225,10 @@ struct PathSimulator {
             let startAssets = details == nil ? 0 : total()
             withheld = 0
             variable.fractionOfYear = yearFraction[t]
+            // The path's tax state: what last year's final assessment left, or
+            // nothing in the first year and when the residence system changes.
+            if yearStartsResidence[t] { pathState = .empty }
+            variable.pathState = pathState
             variable.sales.removeAll(keepingCapacity: true)
             variable.payouts.removeAll(keepingCapacity: true)
             variable.capitalIncome.removeAll(keepingCapacity: true)
@@ -283,13 +304,17 @@ struct PathSimulator {
                 variable.balances[l].nominalReturn = lotReturns[l]
                 variable.balances[l].startValue = lotStartValues[l]
             }
+            // The year's final assessment: the only one whose path state is kept
+            // (those sizing sales and payouts were hypothetical).
             let assessment = prepared.assess(variable)
             carried = assessment.totalTax + assessment.totalContributions - schedule.years[t].variants[v].fixedTotal
                 - withheld
             if !assessment.costBasisAdjustments.isEmpty { adjustCostBases(assessment.costBasisAdjustments) }
+            if let next = assessment.nextPathState { pathState = next }
 
             let endAssets = total() - carried
-            recorder?.end(assessment: assessment, carriedOut: carried, endAssets: endAssets, self)
+            recorder?.end(assessment: assessment, carriedOut: carried, endAssets: endAssets,
+                          carriedForward: prepared.carriedForward(in: pathState), self)
             if recordValues { yearValues[t] = endAssets }
             if details != nil {
                 details!.append(detail(t, variant: v, assessment: assessment, startAssets: startAssets,
@@ -642,22 +667,34 @@ struct PathSimulator {
     }
 
     /// The tax on selling `classSales` from liquid bucket `b` (each class pro
-    /// rata across its lots, at average cost): from the tax system's gross-up
-    /// of what's sold, or, when it has none, by assessing the sale on top of
-    /// the year so far. Cash is sold at its value, without tax.
+    /// rata across its lots, at average cost): from the tax system's tax on
+    /// those sales alongside the year so far (`taxOnSales`, which sees each
+    /// lot's gain or loss and the path's state), else its gross-up of what's
+    /// sold, else by assessing the sale on top of the year so far. Never
+    /// below 0: a loss that lowers the year's tax lowers what the year's
+    /// assessment leaves to pay next year. Cash is sold at its value, without tax.
     private mutating func saleTax(_ b: Int, year t: Int, prepared: any PreparedTaxYear) -> Double {
         var proceeds = 0.0
-        var basis = 0.0
-        categoryShares.removeAll(keepingCapacity: true)
+        pendingSales.removeAll(keepingCapacity: true)
         for l in bucketStart[b]..<bucketEnd[b] where !lotIsCash[l] && values[l] > 0 {
             let q = saleShare(l)
             guard q > 0 else { continue }
             let amount = values[l] * q
             proceeds += amount
-            if lotDocumented[l] { basis += bases[l] * q }
-            categoryShares[lotCategory[l], default: 0] += amount
+            pendingSales.append(VariableYear.Sale(wrapper: bucketWrapper[b], category: lotCategory[l], proceeds: amount,
+                                                  costBasis: lotDocumented[l] ? bases[l] * q : nil))
         }
         guard proceeds > Self.epsilon else { return 0 }
+        if let tax = prepared.taxOnSales(pendingSales, alongside: variable), tax.isFinite {
+            return max(0, tax)
+        }
+        // What's sold as a bucket, at its average cost, for the gross-up.
+        var basis = 0.0
+        categoryShares.removeAll(keepingCapacity: true)
+        for sale in pendingSales {
+            if let cost = sale.costBasis { basis += cost }
+            categoryShares[sale.category, default: 0] += sale.proceeds
+        }
         for index in categoryShares.values.indices { categoryShares.values[index] /= proceeds }
         let snapshot = BucketSnapshot(wrapper: bucketWrapper[b], value: proceeds, costBasis: basis,
                                       categoryShares: categoryShares)

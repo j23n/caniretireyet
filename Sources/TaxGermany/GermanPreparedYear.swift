@@ -71,12 +71,17 @@ struct GermanPreparedYear: PreparedTaxYear {
         let accruals: [Accrual]
         let issues: [TaxIssue]
         let nextState: TaxState
+        /// The year's prices against the plan's start: losses carried forward
+        /// are kept in nominal euros.
+        let prices: Double
 
         init(year: Int, age: Int, rate: Double, parameters: GermanParameters, calculator: IncomeTaxCalculator,
              inputs: TariffInputs, retirementProvisions: Double, basicProvisions: Double, otherProvisions: Double,
              otherProvisionsLimit: Double, health: HealthPart?, pensionLumpSumLeft: Double, ruerupShare: Double,
              basiszins: Double, flatRate: Double, churchRate: Double, exactGrossUp: Bool, otherLines: [TaxLine],
-             contributions: [TaxLine], accruals: [Accrual], issues: [TaxIssue], nextState: TaxState) {
+             contributions: [TaxLine], accruals: [Accrual], issues: [TaxIssue], nextState: TaxState,
+             prices: Double = 1) {
+            self.prices = prices > 0 ? prices : 1
             self.year = year
             self.age = age
             self.rate = rate
@@ -105,6 +110,21 @@ struct GermanPreparedYear: PreparedTaxYear {
         /// The flat tax with its Soli and church tax, per euro of taxable capital income.
         var combinedFlatRate: Double {
             flatRate * (1 + p.soli.capitalIncomeRate + churchRate)
+        }
+
+        /// The losses a path state carries into the year, in euros of today's money.
+        func carriedLosses(in state: TaxState) -> GermanCarriedLosses {
+            guard !state.values.isEmpty else { return GermanCarriedLosses() }
+            return GermanCarriedLosses(stocks: max(0, state[GermanLossKey.stocks] ?? 0) / prices,
+                                       other: max(0, state[GermanLossKey.other] ?? 0) / prices)
+        }
+
+        /// `state` with the losses carried out of the year (euros of today's money).
+        func state(_ state: TaxState, carrying losses: GermanCarriedLosses) -> TaxState {
+            var next = state
+            next[GermanLossKey.stocks] = losses.stocks > 1e-9 ? losses.stocks * prices : nil
+            next[GermanLossKey.other] = losses.other > 1e-9 ? losses.other * prices : nil
+            return next
         }
     }
 
@@ -161,6 +181,130 @@ struct GermanPreparedYear: PreparedTaxYear {
         default:
             return nil
         }
+    }
+
+    /// The flat tax selling `sales` from ordinary accounts adds to `year`,
+    /// when the flat tax is all a sale changes (as for the exact gross-up):
+    /// the year's share gains and other capital income with the sales, after
+    /// the loss pots (``GermanLossOffset``) and the allowance, against the
+    /// same without them. Interest and the Vorabpauschale come at the
+    /// year-end, so like the gross-up it counts the allowance as unused by
+    /// them. `nil` otherwise, so the engine assesses.
+    func taxOnSales(_ sales: [VariableYear.Sale], alongside year: VariableYear) -> Double? {
+        guard let context, context.exactGrossUp else { return nil }
+        for sale in sales {
+            switch GermanWrapperTreatment(sale.wrapper) {
+            case .taxable, .unknown, .taxFree: continue
+            default: return nil
+            }
+        }
+        var before = GermanGains()
+        before.add(year.sales, context: context)
+        var after = before
+        after.add(sales, context: context)
+        let carried = context.carriedLosses(in: year.pathState)
+        func taxable(_ gains: GermanGains) -> Double {
+            let offset = GermanLossOffset(stockGains: gains.stocks, otherCapital: gains.other, carried: carried)
+            return max(0, offset.income - context.p.saverAllowance)
+        }
+        return context.combinedFlatRate * (taxable(after) - taxable(before)) / context.rate
+    }
+
+    /// The share losses and other capital losses carried into next year.
+    func carriedForward(in state: TaxState) -> [TaxLine] {
+        guard let context else { return [] }
+        let losses = context.carriedLosses(in: state)
+        var lines: [TaxLine] = []
+        if losses.stocks > 0.005 {
+            lines.append(TaxLine(id: GermanLossKey.stocks, label: "Share losses carried forward (against share gains only)",
+                                 amount: losses.stocks / context.rate))
+        }
+        if losses.other > 0.005 {
+            lines.append(TaxLine(id: GermanLossKey.other, label: "Other capital losses carried forward",
+                                 amount: losses.other / context.rate))
+        }
+        return lines
+    }
+}
+
+/// The path-state keys of capital losses carried forward, in nominal euros
+/// (euros of today's money times the prices of the year they were stored in).
+enum GermanLossKey {
+    /// Losses on selling shares, which only offset gains on shares (§20 Abs. 6 Satz 4 EStG).
+    static let stocks = "de.losses.stocks"
+    /// Every other capital loss (funds after the partial exemption, bonds,
+    /// ETCs, …), which offsets any capital income (§20 Abs. 6 Satz 3).
+    static let other = "de.losses.other"
+}
+
+/// Capital losses carried into or out of a year, in euros of today's money.
+struct GermanCarriedLosses: Hashable, Sendable {
+    var stocks = 0.0
+    var other = 0.0
+}
+
+/// The year's gains on sales from ordinary accounts, in euros: on shares,
+/// and the rest after the partial exemption (losses negative).
+struct GermanGains: Sendable {
+    var stocks = 0.0
+    var other = 0.0
+
+    /// Adds a sale's gain at average cost. Without a documented cost, 30% of
+    /// the proceeds stands in for it (the substitute base); cash and private
+    /// sales held long enough (gold, crypto) aren't taxed.
+    mutating func add(_ category: TaxCategory, proceeds: Double, cost: Double?, p: GermanParameters) {
+        guard category != .cash, !p.privateSaleCategories.contains(category) else { return }
+        let gain = proceeds - (cost ?? proceeds * (1 - p.undocumentedGainShare))
+        if category == .stock {
+            stocks += gain
+        } else {
+            other += gain * (1 - p.partialExemption(category))
+        }
+    }
+
+    /// Adds the sales from ordinary accounts (and unknown wrappers, taxed alike).
+    mutating func add(_ sales: [VariableYear.Sale], context: GermanPreparedYear.Context) {
+        for sale in sales where sale.proceeds > 0 {
+            switch GermanWrapperTreatment(sale.wrapper) {
+            case .taxable, .unknown:
+                add(sale.category, proceeds: sale.proceeds * context.rate, cost: sale.costBasis.map { $0 * context.rate },
+                    p: context.p)
+            default:
+                break
+            }
+        }
+    }
+}
+
+/// Capital income after loss offsetting (§20 Abs. 6 EStG), before the
+/// saver's allowance, which comes after every loss (§20 Abs. 9 Satz 4).
+///
+/// Within the year, share losses offset only share gains, and other losses
+/// (funds, bonds, ETCs, …, after the partial exemption) any capital income,
+/// share gains included. Then losses carried forward: share losses against
+/// the share gains left, other losses against anything left. What's left of
+/// each pot is carried forward without limit.
+struct GermanLossOffset: Sendable {
+    /// Capital income left to tax, before the allowance.
+    let income: Double
+    /// The losses carried out of the year.
+    let carried: GermanCarriedLosses
+
+    init(stockGains: Double, otherCapital: Double, carried before: GermanCarriedLosses) {
+        var stocks = max(0, stockGains)
+        let other = max(0, otherCapital)
+        var otherLoss = max(0, -otherCapital)
+        // The year's other losses offset its share gains.
+        let absorbed = min(stocks, otherLoss)
+        stocks -= absorbed
+        otherLoss -= absorbed
+        // Then the losses carried forward.
+        let usedStocks = min(stocks, before.stocks)
+        stocks -= usedStocks
+        let usedOther = min(stocks + other, before.other)
+        income = stocks + other - usedOther
+        carried = GermanCarriedLosses(stocks: before.stocks - usedStocks + max(0, -stockGains),
+                                      other: before.other - usedOther + otherLoss)
     }
 }
 
@@ -236,6 +380,8 @@ struct GermanMarketAssessor {
     /// German occupational-pension payouts (Versorgungsbezüge).
     private var occupationalPayouts = 0.0
     private var basisAdjustments: [String: (wrapper: String, category: TaxCategory, amount: Double)] = [:]
+    /// The path's state, with the losses carried into the year.
+    private var pathState = TaxState.empty
 
     init(context: GermanPreparedYear.Context) {
         self.context = context
@@ -253,6 +399,7 @@ struct GermanMarketAssessor {
 
     mutating func assess(_ variable: VariableYear) -> TaxAssessment {
         let rate = context.rate
+        pathState = variable.pathState
         for sale in variable.sales where sale.proceeds > 0 {
             switch treatment(of: sale.wrapper) {
             case .taxable, .unknown:
@@ -290,16 +437,12 @@ struct GermanMarketAssessor {
         return kind
     }
 
-    /// Stage 8: a sale's gain at average cost. Without a documented cost,
-    /// 30% of the proceeds stands in for it (the substitute base).
+    /// Stage 8: a sale's gain or loss at average cost (``GermanGains``).
     private mutating func gain(_ category: TaxCategory, proceeds: Double, cost: Double?) {
-        guard category != .cash, !p.privateSaleCategories.contains(category) else { return }
-        let gain = proceeds - (cost ?? proceeds * (1 - p.undocumentedGainShare))
-        if category == .stock {
-            stockGains += gain
-        } else {
-            otherCapital += gain * (1 - p.partialExemption(category))
-        }
+        var gains = GermanGains()
+        gains.add(category, proceeds: proceeds, cost: cost, p: p)
+        stockGains += gains.stocks
+        otherCapital += gains.other
     }
 
     /// Interest, dividends and coupons; a fund's distributions after the
@@ -375,7 +518,12 @@ struct GermanMarketAssessor {
     /// Stages 10 and 6, and the assessment.
     private mutating func assessment() -> TaxAssessment {
         let rate = context.rate
+        // The year's capital income after its own losses: the base for health
+        // contributions, which don't count losses carried from other years
+        // (verify). The tax's base also takes the losses carried forward.
         let capital = max(0, max(0, stockGains) + otherCapital)
+        let carried = context.carriedLosses(in: pathState)
+        let offset = GermanLossOffset(stockGains: stockGains, otherCapital: otherCapital, carried: carried)
 
         // Stage 10: health contributions on what the markets added.
         var healthDelta = HealthCharge()
@@ -412,8 +560,9 @@ struct GermanMarketAssessor {
         var result = context.calculator.compute(inputs)
 
         // Stage 8: the flat tax, or the tariff when that gives less income tax
-        // including the Soli and church tax (§32d Abs. 6).
-        let taxable = max(0, capital - p.saverAllowance)
+        // including the Soli and church tax (§32d Abs. 6), on what the loss
+        // pots leave less the allowance (§20 Abs. 9 Satz 4).
+        let taxable = max(0, offset.income - p.saverAllowance)
         var flatTax = context.flatRate * taxable
         if taxable > 0 {
             var alternative = inputs
@@ -474,7 +623,10 @@ struct GermanMarketAssessor {
         }
         let adjustments = basisAdjustments.values.sorted { ($0.wrapper, $0.category) < ($1.wrapper, $1.category) }
             .map { CostBasisAdjustment(wrapper: $0.wrapper, category: $0.category, amount: $0.amount / rate) }
+        // The losses carried forward change only when the year used or added some.
+        let changed = abs(offset.carried.stocks - carried.stocks) > 1e-9 || abs(offset.carried.other - carried.other) > 1e-9
         return TaxAssessment(lines: lines, contributions: contributions, accruals: context.accruals, issues: issues,
-                             nextState: context.nextState, costBasisAdjustments: adjustments)
+                             nextState: context.nextState, costBasisAdjustments: adjustments,
+                             nextPathState: changed ? context.state(pathState, carrying: offset.carried) : nil)
     }
 }

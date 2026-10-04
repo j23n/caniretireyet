@@ -1,0 +1,34 @@
+{
+  "name": "A share loss doesn't offset a fund gain; it's carried forward against share gains",
+  "year": 2026,
+  "input": {
+    "age": 45,
+    "work": [{"phaseID": "job", "kind": "employee", "regime": "de.employee", "gross": 75000}],
+    "variable": {
+      "sales": [
+        {"wrapper": "de.ordinary", "category": "stock", "proceeds": 7000, "costBasis": 10000},
+        {"wrapper": "de.ordinary", "category": "equityFund", "proceeds": 30000, "costBasis": 20000}
+      ]
+    }
+  },
+  "expected": {
+    "lines": {"de.incomeTax": 13935.657745, "de.capitalIncomeTax": 1500.0, "de.capitalIncomeTax.soli": 82.5},
+    "totalTax": 15518.157745,
+    "nextPathState": {"de.losses.stocks": 3000, "de.losses.other": null},
+    "carriedForward": {"de.losses.stocks": 3000}
+  },
+  "taxOnSales": [
+    {
+      "sales": [{"wrapper": "de.ordinary", "category": "stock", "proceeds": 15000, "costBasis": 10000}],
+      "expected": 527.5
+    }
+  ],
+  "workings": [
+    "The salary is taxed as in employee-75k: 13,935.657745, and the tariff's rate on the next euro is above the flat tax's, so the Günstigerprüfung doesn't apply",
+    "Shares: loss 10,000.00 − 7,000.00 = 3,000.00, which only offsets gains on shares (§20 Abs. 6 Satz 4 EStG)",
+    "Equity ETF: gain 10,000.00, 70% after the partial exemption = 7,000.00, in the general pot",
+    "Taxable: 7,000.00 − 1,000 allowance = 6,000.00; flat tax 25% = 1,500.00; Soli 5.5% = 82.50",
+    "Carried forward: 3,000.00 of share losses, without limit",
+    "Selling more shares in the same year with a 5,000.00 gain: the year's share loss offsets 3,000.00 of it, so 2,000.00 more is taxed: 26.375% × 2,000.00 = 527.50"
+  ]
+}

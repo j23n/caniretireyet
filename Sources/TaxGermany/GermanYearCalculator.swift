@@ -419,7 +419,7 @@ struct GermanYearCalculator {
             ruerupShare: p.taxableShare.share(startedIn: year.year), basiszins: basiszins, flatRate: flatRate,
             churchRate: churchRate, exactGrossUp: marginal >= combinedFlatRate - 1e-9 && !healthOnGains,
             otherLines: otherLines, contributions: contributions, accruals: accruals, issues: issues,
-            nextState: nextState)
+            nextState: nextState, prices: year.inflationFactor)
         return GermanPreparedYear(context: context)
     }
 

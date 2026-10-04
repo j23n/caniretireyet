@@ -593,7 +593,8 @@ struct PlanDebugMarkdown {
             + "windfalls after their taxes), payouts the rules require, the spending target and what was met, what "
             + "was drawn (gross, before tax), the gains those sales realised, taxes on income (work, pensions, "
             + "windfalls) and on markets (sales, payouts, interest and balances; paid the next year unless withheld "
-            + "from a sale), and what rebalancing sold. A year in detail follows each path.")
+            + "from a sale), and what rebalancing sold; when the tax system carries something along the path, such as "
+            + "losses it lets later years offset, what it carries into the next year. A year in detail follows each path.")
         if report.paths.isEmpty { paragraph("No paths were traced.") }
         for path in report.paths { writePath(path) }
     }
@@ -632,8 +633,11 @@ struct PlanDebugMarkdown {
         }
         table(balances)
 
+        // What the tax system carries forward gets a column only on a path where it carries something.
+        let carries = years.contains { !($0.carriedForward ?? []).isEmpty }
         var flows = MarkdownTable(["Year", "Age", "Net income", "Payouts", "Spending", "Met", "Drawn", "Gains",
-                                   "Tax on income", "Tax on markets", "Rebalanced", "Saved"], right: Set(0...11))
+                                   "Tax on income", "Tax on markets", "Rebalanced", "Saved"]
+                                      + (carries ? ["Carried forward"] : []), right: Set(0...(carries ? 12 : 11)))
         flows.add(shown: shown) { index in
             let year = years[index]
             let drawn = year.buckets.reduce(0) { $0 + $1.withdrawn }
@@ -641,9 +645,11 @@ struct PlanDebugMarkdown {
             let fixed = year.taxes.reduce(0) { $0 + $1.fixed }
             let market = year.taxes.reduce(0) { $0 + $1.market }
             let rebalanced = year.buckets.reduce(0) { total, bucket in total + bucket.rebalancing.filter { $0 < 0 }.reduce(0, -) }
+            let carried = (year.carriedForward ?? []).reduce(0) { $0 + $1.amount }
             return ["\(year.year)", "\(year.age)", F.money(year.netIncome), F.money(year.payoutsNet),
                     F.money(year.spendingTarget), F.money(year.spendingMet), F.money(drawn), F.money(gains),
                     F.money(fixed), F.money(market), F.money(rebalanced), F.money(max(0, year.cashFlow))]
+                + (carries ? [F.money(carried)] : [])
         }
         table(flows)
 
@@ -695,7 +701,13 @@ struct PlanDebugMarkdown {
                 if abs(tax.market) > 0.005 { parts.append("\(F.money(tax.market)) on markets") }
                 return "\(tax.label) \(parts.joined(separator: " + "))"
             }.joined(separator: "; ") + (year.carriedToNextYear > 0.005
-                ? "; \(F.money(year.carriedToNextYear)) of it is paid next year" : "") + ".")
+                ? "; \(F.money(year.carriedToNextYear)) of it is paid next year"
+                : year.carriedToNextYear < -0.005
+                    ? "; \(F.money(-year.carriedToNextYear)) less than was withheld, credited next year" : "") + ".")
+        }
+        if let carried = year.carriedForward, !carried.isEmpty {
+            line("- Carried into next year by the tax system: "
+                + carried.map { "\($0.label) \(F.money($0.amount))" }.joined(separator: "; ") + ".")
         }
         line()
     }

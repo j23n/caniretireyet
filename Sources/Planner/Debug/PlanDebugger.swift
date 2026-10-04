@@ -747,7 +747,14 @@ private struct Builder {
             sales: sales, payouts: payouts, withheldOnPayouts: year.withheldOnPayouts,
             withheldOnWithdrawals: year.withheldOnWithdrawals, withheldOnRebalancing: year.withheldOnRebalancing,
             taxes: Self.taxLines(variant: variant, assessment: year.assessment), carriedToNextYear: year.carriedOut,
-            failed: failed)
+            failed: failed, carriedForward: Self.carriedForward(year.carriedForward))
+    }
+
+    /// What the tax system carries into the next year, or `nil` for nothing.
+    static func carriedForward(_ lines: [TaxKit.TaxLine]) -> [PlanDebugReport.CarriedAmount]? {
+        let amounts = lines.filter { abs($0.amount) > 0.005 }
+            .map { PlanDebugReport.CarriedAmount(id: $0.id, label: $0.label, amount: $0.amount) }
+        return amounts.isEmpty ? nil : amounts
     }
 
     static func sale(_ sale: VariableYear.Sale, purpose: String) -> PlanDebugReport.Sale {

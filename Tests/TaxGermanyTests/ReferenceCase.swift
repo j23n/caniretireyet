@@ -12,6 +12,10 @@ import TaxKit
 /// (Germany as the paying country: `prepareNonResident`, with the pensions
 /// the planner would pass it) or `pensionClaims` (the `de.drv` claim
 /// options for a record).
+///
+/// Losses carried along a path, as in Italy's: `input.variable.pathState`,
+/// `expected.nextPathState` (`null` for a key that must be gone),
+/// `expected.carriedForward` and `taxOnSales`.
 struct ReferenceCase: Decodable, Sendable {
     var name: String
     var kind: String?
@@ -19,7 +23,14 @@ struct ReferenceCase: Decodable, Sendable {
     var input: Input
     var expected: Expected
     var grossUp: [GrossUpCheck]?
+    var taxOnSales: [TaxOnSalesCheck]?
     var workings: [String]
+
+    /// The tax `sales` add to the case's year (`nil`: the engine decides).
+    struct TaxOnSalesCheck: Decodable, Sendable {
+        var sales: [Sale]
+        var expected: Double?
+    }
 
     struct Input: Decodable, Sendable {
         var age: Int?
@@ -89,6 +100,8 @@ struct ReferenceCase: Decodable, Sendable {
         var capitalIncome: [CapitalIncome]?
         var balances: [Balance]?
         var fractionOfYear: Double?
+        /// `VariableYear.pathState` (default empty).
+        var pathState: [String: Double]?
     }
 
     struct Sale: Decodable, Sendable {
@@ -145,6 +158,11 @@ struct ReferenceCase: Decodable, Sendable {
         var costBasisAdjustments: [String: Double]?
         /// Values the next state must hold.
         var nextState: [String: Double]?
+        /// Values of the path state carried into next year (`nextPathState`,
+        /// else the state the year had); `null` means the key must be absent.
+        var nextPathState: [String: Double?]?
+        /// `carriedForward(in:)` of that state, summed by ID; IDs not listed must be absent.
+        var carriedForward: [String: Double]?
         /// Issue codes expected (exactly these, when given).
         var issues: [String]?
         var claims: [Claim]?
@@ -230,11 +248,18 @@ struct ReferenceCase: Decodable, Sendable {
                 .init(wrapper: $0.wrapper, category: TaxCategory(rawValue: $0.category), country: $0.country,
                       value: $0.value, nominalReturn: $0.nominalReturn, startValue: $0.startValue)
             },
-            fractionOfYear: variable?.fractionOfYear ?? 1)
+            fractionOfYear: variable?.fractionOfYear ?? 1, pathState: TaxState(variable?.pathState ?? [:]))
     }
 
     var state: TaxState {
         TaxState(input.state ?? [:])
+    }
+}
+
+extension ReferenceCase.Sale {
+    var sale: VariableYear.Sale {
+        VariableYear.Sale(wrapper: wrapper, category: TaxCategory(rawValue: category), proceeds: proceeds,
+                          costBasis: costBasis)
     }
 }
 

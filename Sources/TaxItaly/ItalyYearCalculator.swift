@@ -148,7 +148,7 @@ struct ItalyYearCalculator {
             year: year.year, age: year.age, parameters: p, marginalIncomeRate: irpef.marginalRate,
             fundTaxedContributionShare: taxedShare,
             fundMembershipYears: Int(state[ItalyStateKey.fundYears] ?? 0),
-            tfrRate: tfrRate, currencyRate: year.euroRate)
+            tfrRate: tfrRate, currencyRate: year.euroRate, prices: year.inflationFactor)
     }
 
     /// Stage 7: inheritance tax on a windfall of kind `inheritance` or
