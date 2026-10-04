@@ -217,6 +217,10 @@ struct TargetMixTests {
         let base = Planner.validate(plan: Self.plan(target: [.equity: d("0.5")]), library: library,
                                     registry: Sample.registry())
         #expect(base.map(\.message).contains("The target mix adds up to 50%, not 100%; the plan scales it."))
+        // An empty target mix (every share cleared) keeps each account's own mix, and says so.
+        let cleared = Planner.validate(plan: Self.plan(target: AssetMix()), library: library, registry: Sample.registry())
+        #expect(cleared.filter { $0.code == "planner.targetMixEmpty" }.map(\.message)
+            == ["The target mix has no asset class with a share; each ordinary account keeps its own mix."])
     }
 
     // MARK: Today's mix and a mix's growth

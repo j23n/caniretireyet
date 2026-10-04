@@ -135,6 +135,11 @@ struct PortfolioBuilder: Sendable {
         let planMix = plan.portfolio.targetMix.flatMap {
             Self.normalized($0, section: .portfolio, option: "targetMix", issues: &issues)
         }
+        if plan.portfolio.targetMix != nil, planMix == nil {
+            issues.append(.warning("planner.targetMixEmpty",
+                                   "The target mix has no asset class with a share; each ordinary account keeps its "
+                                       + "own mix.", section: .portfolio, option: "targetMix"))
+        }
         var mixSteps: [MixStep] = []
         for (index, step) in plan.portfolio.targetMixByAge.enumerated() {
             guard let mix = Self.normalized(step.mix, section: .portfolio, option: "targetMixByAge",
