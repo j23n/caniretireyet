@@ -291,7 +291,7 @@ struct NetWorthChart: View {
                     .font(.caption2)
                     .foregroundStyle(Palette.secondaryInk)
                 calloutRow("Median") {
-                    AmountText(Decimal(Int(fan.p50.rounded())), currency: currency)
+                    AmountText(Decimal(wholeNumber: fan.p50), currency: currency)
                 }
                 calloutRow("25–75%") { range(fan.p25, fan.p75) }
                 calloutRow("10–90%") { range(fan.p10, fan.p90) }
@@ -299,7 +299,7 @@ struct NetWorthChart: View {
                 Text(point.date, format: .dateTime.day().month(.abbreviated).year())
                     .font(.caption2)
                     .foregroundStyle(Palette.secondaryInk)
-                AmountText(Decimal(Int(point.value.rounded())), currency: currency)
+                AmountText(Decimal(wholeNumber: point.value), currency: currency)
                     .font(.caption.weight(.semibold))
                 if !point.isComplete {
                     Text("Partial: some values are missing")
@@ -312,7 +312,7 @@ struct NetWorthChart: View {
                             Circle().fill(Palette.stroke(for: series.color)).frame(width: 6, height: 6)
                             Text(series.name).font(.caption2).foregroundStyle(Palette.secondaryInk)
                             Spacer(minLength: 4)
-                            AmountText(Decimal(Int(value.rounded())), currency: currency).font(.caption2)
+                            AmountText(Decimal(wholeNumber: value), currency: currency).font(.caption2)
                         }
                     }
                 }
@@ -340,9 +340,9 @@ struct NetWorthChart: View {
 
     private func range(_ low: Double, _ high: Double) -> some View {
         HStack(spacing: 2) {
-            AmountText(Decimal(Int(low.rounded())), currency: currency)
+            AmountText(Decimal(wholeNumber: low), currency: currency)
             Text(verbatim: "–")
-            AmountText(Decimal(Int(high.rounded())), currency: currency)
+            AmountText(Decimal(wholeNumber: high), currency: currency)
         }
     }
 
@@ -353,8 +353,8 @@ struct NetWorthChart: View {
         }
         var text = "\(title) over \(history.count) dates"
         if let first = history.first, let last = history.last {
-            text += hidesAmounts ? "." : ", from \(AmountFormat.amount(Decimal(Int(first.value.rounded())), currency: resolved)) "
-                + "to \(AmountFormat.amount(Decimal(Int(last.value.rounded())), currency: resolved))."
+            text += hidesAmounts ? "." : ", from \(AmountFormat.amount(Decimal(wholeNumber: first.value), currency: resolved)) "
+                + "to \(AmountFormat.amount(Decimal(wholeNumber: last.value), currency: resolved))."
         }
         if !stacked.isEmpty {
             text += " Stacked: \(stacked.map(\.name).formatted(.list(type: .and)))."
@@ -365,7 +365,7 @@ struct NetWorthChart: View {
         }
         if let end = projection.last {
             text += hidesAmounts ? " Projected ahead." : " Projected median at the end: "
-                + "\(AmountFormat.amount(Decimal(Int(end.p50.rounded())), currency: resolved))."
+                + "\(AmountFormat.amount(Decimal(wholeNumber: end.p50), currency: resolved))."
         }
         if !markers.isEmpty {
             text += " Marked: \(markers.map(\.label).joined(separator: ", "))."

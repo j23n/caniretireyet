@@ -155,7 +155,7 @@ struct IncomeStackChart: View {
                             .frame(width: 8, height: 8)
                         Text(source.name).font(.caption2)
                         Spacer(minLength: 4)
-                        AmountText(Decimal(Int(amount.rounded())), currency: currency).font(.caption2)
+                        AmountText(Decimal(wholeNumber: amount), currency: currency).font(.caption2)
                     }
                 }
             }
@@ -163,7 +163,7 @@ struct IncomeStackChart: View {
                 HStack(spacing: 4) {
                     Text(Self.spendingLabel).font(.caption2).foregroundStyle(Palette.secondaryInk)
                     Spacer(minLength: 4)
-                    AmountText(Decimal(Int(spending.rounded())), currency: currency).font(.caption2)
+                    AmountText(Decimal(wholeNumber: spending), currency: currency).font(.caption2)
                 }
             }
         }

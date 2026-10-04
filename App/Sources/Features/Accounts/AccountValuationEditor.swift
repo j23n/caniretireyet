@@ -26,6 +26,8 @@ struct AccountValuationEditor: View {
     @Environment(\.locale) private var locale
 
     @State private var form: AccountValuationForm?
+    /// The fields as loaded, to tell whether anything was changed.
+    @State private var initialForm: AccountValuationForm?
     @State private var confirmsDelete = false
     @State private var errorMessage: String?
     @State private var isSaving = false
@@ -48,6 +50,8 @@ struct AccountValuationEditor: View {
         #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
         #endif
+        // A change isn't lost by swiping the sheet down: only Cancel discards it.
+        .interactiveDismissDisabled(form != initialForm)
         .onAppear(perform: load)
     }
 
@@ -192,6 +196,7 @@ struct AccountValuationEditor: View {
         form = AccountValuationForm(original, holdsPositions: account.valuationMode != .balance,
                                     recordsTrades: account.recordsTrades, isLiability: account.kind.isLiability,
                                     locale: locale)
+        initialForm = form
     }
 
     /// Saves and waits for the write. A date before the opening date moves

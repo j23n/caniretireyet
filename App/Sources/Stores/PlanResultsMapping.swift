@@ -191,7 +191,7 @@ extension PlanResults {
                 confidence: answer.confidence, earliestAge: answer.earliestAge, earliestDate: answer.earliestDate,
                 targetAge: answer.targetAge, successAtTarget: answer.successAtTarget,
                 successToday: answer.successIfRetiringNow,
-                sustainableSpending: answer.sustainableSpending.map { Decimal(Int($0.perYear.rounded(.down))) },
+                sustainableSpending: answer.sustainableSpending.map { Decimal(wholeNumber: $0.perYear, rounding: .down) },
                 fiProgress: answer.fiProgress, readiness: answer.readiness,
                 needsMoreThanSearched: answer.assetsNeeded?.outcome == .moreThanMaximum,
                 readinessIsLowerBound: answer.assetsNeeded?.outcome == .atMost),
@@ -569,7 +569,7 @@ enum PlanResultsMapping {
         else { return nil }
         let share = year.fraction * year.workingShare
         guard share > 0.01 else { return nil }
-        return Decimal(Int((year.savings / share / 12).rounded()))
+        return Decimal(wholeNumber: year.savings / share / 12)
     }
 
     /// Each pension of the plan with its start at the focus age, from the

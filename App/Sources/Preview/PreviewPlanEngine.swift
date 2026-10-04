@@ -162,7 +162,7 @@ struct PreviewPlanEngine: PlanEngine {
     }
 
     private static func rounded(_ value: Double) -> Decimal {
-        Decimal(Int(value.rounded()))
+        Decimal(wholeNumber: value)
     }
 
     /// The plan's pensions as the preview pays them: a fixed pension its

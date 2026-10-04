@@ -47,7 +47,7 @@ enum ChartStyle {
     /// How VoiceOver reads a chart value: the full amount in the currency.
     static func spokenAmount(currency: CurrencyCode) -> @Sendable (Double) -> String {
         { value in
-            AmountFormat.amount(Decimal(Int(value.rounded())), currency: currency)
+            AmountFormat.amount(Decimal(wholeNumber: value), currency: currency)
         }
     }
 

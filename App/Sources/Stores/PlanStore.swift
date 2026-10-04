@@ -405,13 +405,13 @@ final class PlanStore {
     /// A share as a decimal with four places, for results without the
     /// Planner's headline.
     static func decimal(_ value: Double) -> Decimal {
-        Decimal(Int((value * 10_000).rounded())) / 10_000
+        Decimal(wholeNumber: value * 10_000) / 10_000
     }
 
     /// A readiness as a decimal with two places, rounded down as the
     /// Planner records it, so a recorded 1 means retiring today works.
     static func readinessDecimal(_ value: Double) -> Decimal {
-        Decimal(Int((value * 100 + 1e-9).rounded(.down))) / 100
+        Decimal(wholeNumber: value * 100 + 1e-9, rounding: .down) / 100
     }
 
     static func describe(_ error: any Error) -> String {

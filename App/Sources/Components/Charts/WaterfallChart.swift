@@ -74,7 +74,7 @@ struct WaterfallChart: View {
                 if hidesAmounts, let relative = bars.relativeChange {
                     DeltaText(percent: relative)
                 } else {
-                    DeltaText(Decimal(Int(bars.change.rounded())), currency: currency)
+                    DeltaText(Decimal(wholeNumber: bars.change), currency: currency)
                 }
                 if let since = steps.first?.label {
                     Text("since \(since)")
@@ -83,10 +83,10 @@ struct WaterfallChart: View {
             }
             .font(.title3.weight(.semibold))
             HStack(spacing: Metrics.xs) {
-                AmountText(Decimal(Int(bars.start.rounded())), currency: currency)
+                AmountText(Decimal(wholeNumber: bars.start), currency: currency)
                 Text(verbatim: "→")
                     .accessibilityLabel("to")
-                AmountText(Decimal(Int(bars.end.rounded())), currency: currency)
+                AmountText(Decimal(wholeNumber: bars.end), currency: currency)
             }
             .font(.subheadline)
             .foregroundStyle(Palette.secondaryInk)
@@ -102,14 +102,14 @@ struct WaterfallChart: View {
     }
 
     private func signed(_ value: Double) -> String {
-        AmountFormat.signedAmount(Decimal(Int(value.rounded())), currency: currency ?? baseCurrency, locale: locale)
+        AmountFormat.signedAmount(Decimal(wholeNumber: value), currency: currency ?? baseCurrency, locale: locale)
     }
 
     private func summary(_ bars: ChangeBars) -> ChartSummary {
         let resolved = currency ?? baseCurrency
         let parts = steps.map { step in
             hidesAmounts ? step.label
-                : "\(step.label) \(step.kind == .total ? AmountFormat.amount(Decimal(Int(step.value.rounded())), currency: resolved) : AmountFormat.signedAmount(Decimal(Int(step.value.rounded())), currency: resolved))"
+                : "\(step.label) \(step.kind == .total ? AmountFormat.amount(Decimal(wholeNumber: step.value), currency: resolved) : AmountFormat.signedAmount(Decimal(wholeNumber: step.value), currency: resolved))"
         }
         return ChartSummary(
             title: "Change", summary: parts.joined(separator: ", ") + ".", xTitle: "Part", yTitle: "Amount",

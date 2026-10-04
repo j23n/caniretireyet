@@ -159,6 +159,7 @@ The whole screen is net worth: the hero number, the history chart (except with *
 - **Can I retire yet?** The plan's headline, how close your plan assets are to what retiring today needs, and how you compare with the latest baseline. Tapping it opens the Plan tab.
   - **Readiness**: a bar and "58% of what you'd need to retire today" ([PLANNER.md](PLANNER.md#assets-needed-to-retire-today)). Its ⓘ explains it: "Your plan assets compared with what retiring now would need for a 90% chance (the plan's confidence), including the years before your pensions start and taxes. The plan finds it by simulating retiring today with extra money added to accounts you can draw now, or with money taken out of them; money locked in pension funds stays as it is. At 100% you could retire today." It comes from the same simulation as the chance of retiring today, so it reaches 100% exactly when the answer turns to "Yes" (above 100% it keeps counting: "130% of what you'd need…"). When retiring today would need more than 20 times your plan assets, it says so instead of a percentage.
   - An answer recorded before readiness existed has only the old "of the way to financial independence", a rule of thumb that ignored the years before the pensions and taxes and so disagreed with the chance of retiring today: the card shows "Calculate the plan to see how close you are to retiring today." instead.
+  - A caption under the answer says what it is: "Estimates, not financial or tax advice."
   - The card opens the plan on a tap anywhere but the ⓘ; the chevron is its button for VoiceOver and the keyboard. It shows the main plan's latest results, or else the answer recorded at the last check-in, dated; it never starts a calculation. While one is going (a check-in's, or one started on the Plan screen) it says how far along it is, and results that no longer fit the plan or your data say "Calculated before your latest changes".
 - **Needs attention.** Only shown when something needs you: stale accounts (not one that holds nothing: see [Accounts](#accounts)), accounts with problems in their trades, prices that couldn't be fetched, sync conflicts that were merged, and plan warnings. An account whose trades have problems (more sold than held, an opening without a cost, a statement that differs from the trades: the notes its page shows) gets one item that opens it: "Directa: 2 problems with trades · More sold than held · VWCE differs from the statement. Open the account to fix them." Prices and exchange rates missing on past month ends get an item each, which opens *Fill In Past Prices*: "Past exchange rates for US$ are missing · US brokerage isn't fully counted in your net worth for Jun 2018 – Dec 2021. Fill in past prices to fetch them."
 - **Allocation.** Horizontal bars with values and percentages; a donut would be harder to read. The dimension can be switched between asset class, account group, currency, institution, and liquid vs locked.
@@ -507,10 +508,11 @@ A plan is calculated only when you ask: *Calculate*, *Recalculate* (⌘R, and a 
   - "Yes." or "Not yet.", then the earliest age and date, and the confidence in plain words ("in 9 of 10 simulated futures").
   - Two secondary numbers: the chance if you retired today, and **how much you could spend** if you retired at your target age. The second comes from the engine's solver for the highest spending that still meets your confidence level.
   - **What retiring today would need**: the same bar and sentence as the Overview's, with its ⓘ, and "Needed to retire today: 545.000 €", the plan assets that would make retiring today reach your confidence ([PLANNER.md](PLANNER.md#assets-needed-to-retire-today)). On the Mac and iPad the key numbers list it too ("Needed to retire today", "Extra in accounts you can draw now", "You have 58%"), where the FI number used to be. When retiring today works even with the accounts you can draw now emptied, it reads "At most what's locked away", and the readiness "…% or more of what you'd need to retire today". The FI number is gone from the screen: nothing in the charts used it, so no marker or line replaces it.
+  - A footnote, "Estimates, not financial or tax advice.", as under the Overview's answer and the answer recorded at a check-in.
 - **Chance of success by retirement age.**
   - One line; a dotted rule at your confidence level, labelled at its right end, below the rule where the curve ends above it; the earliest age marked where they cross.
   - The age axis runs from today's age to the last age simulated, labelled every 5 years (every 10 when narrow), never from 0.
-  - Tapping another age makes it the selected age for the charts below. Charts calculated before for that age show at once; otherwise the banner offers *Calculate* for it.
+  - Tapping (or clicking) another age makes it the selected age for the charts below; dragging across the curve, or hovering over it on the Mac, only shows the chance at each age. Charts calculated before for that age show at once; otherwise the banner offers *Calculate* for it.
   - Steps caused by pension eligibility (e.g. at 64 or 67) show as steps, with a note explaining why.
 - **In the plan's currency.** Every amount, chart and caption is in the currency the results were calculated in: the plan's own, else the library's base currency ("In today's CHF.").
 - **Your money over time.**
@@ -703,9 +705,10 @@ On iPhone, journals use "Import with profile…" with a saved ledger profile, li
 | --- | --- |
 | Library | Location (iCloud Drive or this device), Show in Files/Finder, for a library on this device *Move to iCloud Drive* (refused when iCloud Drive already has one) and *Use the iCloud Drive Library* (opens that one; this one stays on the device), sync status, merged conflicts, backups, the file format docs |
 | You | Name, birth date, citizenships (each with a remove button, and *Add Citizenship*: "Some tax treaties decide by citizenship which country taxes a pension."), base currency, tax residence (the default for new plans), and **Inflation**: *Automatic: Italy* (the tax residence's HICP, else the base currency's; `inflationIndex` left out) or a choice of the euro area and every country with an HICP |
-| Prices | Price source per instrument kind (inflation: Eurostat HICP), API keys (stored in the Keychain), fetch on check-in |
+| Prices | Price source per instrument kind: *Yahoo Finance (unofficial)* (so named wherever a price source is chosen or shown with an instrument; the footer says it has no official interface for apps and may stop working), CoinGecko with *Powered by CoinGecko* linking to coingecko.com (its attribution), gold-api.com, ECB via Frankfurter, and Eurostat HICP for inflation; API keys (stored in the Keychain), fetch on check-in |
 | Check-in reminder | Day of the month and time. This device only, so you aren't reminded twice. |
-| Privacy | Face ID lock, hide amounts on launch, hide amounts in the app switcher |
+| Privacy | Hide amounts, hide amounts when the app opens, and (iPhone and iPad) cover the app in the app switcher: the whole screen is covered while the app isn't active. The footer says only that. A Face ID lock is planned (M3), not built. |
+| About | The version and the library's format, and under them: "Results are estimates from simplified models of tax and pension rules, which change every year. They aren't financial, tax or legal advice: check important decisions with a professional. Tax rules cover Italy, Switzerland (the cantons of Zurich and Ticino) and Germany for 2026; elsewhere plans use a generic system with flat rates you choose." |
 
 ## Design system
 
@@ -761,8 +764,9 @@ On iPhone, journals use "Import with profile…" with a saved ledger profile, li
 **Privacy.**
 
 - An eye button hides every amount (`•••••`) while charts keep their shape and a relative value axis: net worth (and an account's value) in multiples of today's (`0`, `1×`, `2×`), the plan's money (and the Overview's chart with *Future* on) in multiples of today's plan assets, retirement income in multiples of the spending. Only labels that would reveal amounts hide; the change since the last check-in shows in per cent.
-- Amounts are marked `.privacySensitive()`, so widgets and the app switcher hide them when the device is locked.
-- Optional Face ID lock.
+- Amounts are marked `.privacySensitive()`, so the widgets (M3) can hide them when the device is locked.
+- *Cover the app in the app switcher* (iPhone and iPad) covers the whole screen while the app isn't active.
+- Optional Face ID lock (M3, not built yet).
 
 **Accessibility.**
 
@@ -804,7 +808,7 @@ If nothing moves for 20 seconds, the screen says why it may be stuck and what to
 
 **Empty states and first launch.** Every empty screen has one clear next step. First launch runs:
 
-1. Welcome.
+1. Welcome, with "The answers are estimates, not financial or tax advice."
 2. Where to keep your data (iCloud Drive is recommended).
 3. Birth date, base currency, tax residence and citizenship, starting from the device's currency and region (nothing else is assumed: without a region the residence is *Not set*). When no tax system is registered for the residence, a note says so: "There are no tax rules for Germany yet: plans use the generic system's flat rates, which you choose."
 4. "Import a spreadsheet or journals" or "Add accounts".

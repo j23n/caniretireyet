@@ -258,7 +258,7 @@ enum PlanEditing {
 
     /// A decimal as a whole number, for sliders and steppers.
     static func whole(_ value: Double) -> Decimal {
-        Decimal(Int(value.rounded()))
+        Decimal(wholeNumber: value)
     }
 
     /// Accounts a contribution can go to: open ones the plan counts.

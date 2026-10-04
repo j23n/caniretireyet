@@ -92,10 +92,16 @@ public struct PriceService: Sendable {
         library.inflationIndices.filter { indexProvider(for: $0) != nil }
     }
 
+    /// The instrument price sources ``standard(client:credentials:policy:cache:today:)``
+    /// can fetch from, in the order a picker offers them: Yahoo Finance,
+    /// CoinGecko and gold-api.com. Other `PriceProvider` values a file may
+    /// name (EODHD, Twelve Data) have no provider here, so their fetches fail.
+    public static let standardInstrumentProviders: [PriceProvider] = [.yahoo, .coingecko, .goldAPI]
+
     /// The standard providers: Yahoo Finance, CoinGecko and gold-api.com for
-    /// instruments, Frankfurter for ECB rates, and Eurostat for the HICP of
-    /// every country that has one and of the euro area (`hicp-de`,
-    /// `hicp-ea`, …).
+    /// instruments (``standardInstrumentProviders``), Frankfurter for ECB
+    /// rates, and Eurostat for the HICP of every country that has one and of
+    /// the euro area (`hicp-de`, `hicp-ea`, …).
     public static func standard(
         client: any HTTPClient = URLSessionHTTPClient(), credentials: any CredentialsProvider = StaticCredentials(),
         policy: RequestPolicy = .standard, cache: PriceCache = PriceCache(),

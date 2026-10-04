@@ -150,6 +150,9 @@ struct PlanCalculatePrompt: View {
                             .font(.caption)
                             .foregroundStyle(Palette.mutedInk)
                     }
+                    Text(AboutText.disclaimer)
+                        .font(.caption)
+                        .foregroundStyle(Palette.mutedInk)
                 }
                 Text(PlanRunText.chartsNeedCalculation)
                     .font(.subheadline)

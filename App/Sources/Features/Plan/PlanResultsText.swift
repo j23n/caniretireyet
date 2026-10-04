@@ -64,10 +64,10 @@ enum PlanResultsText {
         for denominator in [2, 3, 4, 5, 10, 20, 25, 50, 100] {
             let numerator = share * Double(denominator)
             if abs(numerator - numerator.rounded()) < 0.001 {
-                return (Int(numerator.rounded()), denominator)
+                return (Int(wholeNumber: numerator), denominator)
             }
         }
-        return (Int((share * 100).rounded()), 100)
+        return (Int(wholeNumber: share * 100), 100)
     }
 
     /// The confidence in plain words: "in 9 of 10 simulated futures".
@@ -86,8 +86,8 @@ enum PlanResultsText {
     static func oneIn(_ share: Double) -> String {
         guard share > 0 else { return "none" }
         if share < 0.005 { return "fewer than 1 in 200" }
-        if share <= 0.5 { return "1 in \(Int((1 / share).rounded()))" }
-        return "\(Int((share * 10).rounded())) in 10"
+        if share <= 0.5 { return "1 in \(Int(wholeNumber: 1 / share))" }
+        return "\(Int(wholeNumber: share * 10)) in 10"
     }
 
     /// "When it fails (1 in 10)".
@@ -251,10 +251,9 @@ enum PlanResultsText {
         return rows
     }
 
-    /// A `Double` in whole units of the currency.
+    /// A `Double` in whole units of the currency (0 when it isn't a number).
     static func whole(_ value: Double) -> Decimal {
-        guard value.isFinite else { return 0 }
-        return Decimal(Int(value.rounded()))
+        Decimal(wholeNumber: value)
     }
 
     /// The warnings to show as banners on Results: the run's, without

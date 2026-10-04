@@ -30,9 +30,13 @@ struct SettingsScreen: View {
             PricesSection()
             ReminderSection()
             PrivacySection()
-            Section("About") {
+            Section {
                 LabeledContent("Version", value: Self.version)
                 LabeledContent("Library format", value: "\(library.settings.schemaVersion)")
+            } header: {
+                Text("About")
+            } footer: {
+                Text(AboutText.about)
             }
         }
         .formStyle(.grouped)
@@ -208,13 +212,17 @@ private struct PricesSection: View {
     @State private var coinGeckoKey = ""
     @State private var keySaved = false
 
+    private static let coinGecko = URL(string: "https://www.coingecko.com")!
+
     var body: some View {
         @Bindable var preferences = preferences
         Section {
             Toggle("Fetch prices when a check-in opens", isOn: $preferences.fetchPricesOnCheckIn)
-            LabeledContent("ETFs and stocks", value: "Yahoo Finance")
-            LabeledContent("Crypto", value: "CoinGecko")
-            LabeledContent("Gold and silver", value: "gold-api.com")
+            LabeledContent("ETFs and stocks", value: InstrumentForm.name(of: PriceProvider.yahoo))
+            LabeledContent("Crypto", value: InstrumentForm.name(of: PriceProvider.coingecko))
+            // CoinGecko's free and Demo plans ask for this attribution, linked to its site.
+            Link("Powered by CoinGecko", destination: Self.coinGecko)
+            LabeledContent("Gold and silver", value: InstrumentForm.name(of: PriceProvider.goldAPI))
             LabeledContent("Exchange rates", value: "ECB, via Frankfurter")
             LabeledContent("Inflation", value: "Eurostat HICP")
             #if canImport(Security)
@@ -227,7 +235,8 @@ private struct PricesSection: View {
         } header: {
             Text("Prices")
         } footer: {
-            Text("Each instrument names its own price source. Only symbols and dates leave this device; any price can be typed in by hand.")
+            Text("Each instrument names its own price source. Only symbols and dates leave this device; any price can be typed in by hand. "
+                + "Yahoo Finance has no official interface for apps, so its prices may stop working without notice.")
         }
         #if canImport(Security)
         .onAppear { coinGeckoKey = KeychainCredentials.read(.coingecko) ?? "" }
@@ -336,8 +345,18 @@ private struct PrivacySection: View {
         } header: {
             Text("Privacy")
         } footer: {
-            Text("Hidden amounts show as •••••; charts keep their shape. Widgets and the app switcher hide amounts while the device is locked.")
+            Text(Self.footer)
         }
+    }
+
+    /// What each toggle does; covering the app is only offered on iPhone and iPad.
+    private static var footer: String {
+        #if os(iOS)
+        return "Hidden amounts show as •••••; charts keep their shape. Covering the app hides the whole screen "
+            + "while the app isn't active, as in the app switcher."
+        #else
+        return "Hidden amounts show as •••••; charts keep their shape."
+        #endif
     }
 }
 

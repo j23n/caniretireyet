@@ -225,7 +225,7 @@ struct PlanBaselineComparison: Sendable {
     static func position(of actual: Decimal, on date: CalendarDate, in baseline: Baseline) -> Position? {
         guard let bands = percentiles(on: date, in: baseline) else { return nil }
         let value = actual.doubleValue
-        return Position(date: date, actual: actual, median: Decimal(Int(bands[2].rounded())),
+        return Position(date: date, actual: actual, median: Decimal(wholeNumber: bands[2]),
                         percentile: percentile(of: value, in: bands), isBelowTenth: value < bands[0],
                         isAboveNinetieth: value > bands[4])
     }
@@ -248,7 +248,7 @@ struct PlanBaselineComparison: Sendable {
         if position.isBelowTenth { return "Below the 10th percentile of what you expected" }
         if position.isAboveNinetieth { return "Above the 90th percentile of what you expected" }
         guard let percentile = position.percentile else { return "" }
-        return "\(ordinal(Int(percentile.rounded()))) percentile of what you expected"
+        return "\(ordinal(Int(wholeNumber: percentile))) percentile of what you expected"
     }
 
     /// The picker's label: "Start of 2026 (automatic)", "Before forfettario (saved 12 Mar)".

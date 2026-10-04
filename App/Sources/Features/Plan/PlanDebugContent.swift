@@ -582,7 +582,7 @@ struct PlanDebugContent: Sendable {
 
         var success = PlanDebugLines()
         success.add("Retiring today", .percent(simulation.successToday, digits: 0), note: "of futures succeed")
-        success.add("Earliest age reaching \(Int((header.confidence * 100).rounded()))%",
+        success.add("Earliest age reaching \(Int(wholeNumber: header.confidence * 100))%",
                     simulation.earliestAge.map { PlanDebugValue.number("\($0)") } ?? .text("none before the plan ends"))
         if let target = simulation.targetAge {
             success.add("At the target age, \(target)", .rate(simulation.successAtTarget), note: "of futures succeed")
@@ -865,7 +865,7 @@ struct PlanDebugContent: Sendable {
             overview.add("Target mix", .text(PlanDebugText.mix(mix)), note: "the ordinary accounts are rebalanced to")
         }
         var notes: [String] = []
-        if year.fraction < 1 { notes.append("\(Int((year.fraction * 100).rounded()))% of the year simulated") }
+        if year.fraction < 1 { notes.append("\(Int(wholeNumber: year.fraction * 100))% of the year simulated") }
         if year.failed { notes.append("the year the money runs out") }
         blocks.append(PlanDebugBlock(id: id, title: "\(year.year) · age \(year.age)",
                                      note: notes.isEmpty ? nil : notes.joined(separator: "; ").capitalizedFirst,

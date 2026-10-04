@@ -48,6 +48,8 @@
 	</array>
 	<key>LSSupportsOpeningDocumentsInPlace</key>
 	<true/>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 	<!-- Plain-text accounting journals, by extension, for the file importer and opening from Files. -->
 	<key>UTImportedTypeDeclarations</key>
 	<array>
