@@ -701,7 +701,7 @@ On iPhone, journals use "Import with profile…" with a saved ledger profile, li
 
 | Section | Contents |
 | --- | --- |
-| Library | Location (iCloud Drive or this device), Show in Files/Finder, sync status, merged conflicts, backups, the file format docs |
+| Library | Location (iCloud Drive or this device), Show in Files/Finder, for a library on this device *Move to iCloud Drive* (refused when iCloud Drive already has one) and *Use the iCloud Drive Library* (opens that one; this one stays on the device), sync status, merged conflicts, backups, the file format docs |
 | You | Name, birth date, citizenships (each with a remove button, and *Add Citizenship*: "Some tax treaties decide by citizenship which country taxes a pension."), base currency, tax residence (the default for new plans), and **Inflation**: *Automatic: Italy* (the tax residence's HICP, else the base currency's; `inflationIndex` left out) or a choice of the euro area and every country with an HICP |
 | Prices | Price source per instrument kind (inflation: Eurostat HICP), API keys (stored in the Keychain), fetch on check-in |
 | Check-in reminder | Day of the month and time. This device only, so you aren't reminded twice. |
