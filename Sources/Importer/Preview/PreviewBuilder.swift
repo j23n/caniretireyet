@@ -58,6 +58,9 @@ struct PreviewBuilder {
     var unreadValues: [(NameRef, CalendarDate)] = []
     /// Trades layout: the rows read, before they become trades.
     var tradeRows: [TradeRow] = []
+    /// Trades layout: whether the amount and gross columns write signed
+    /// amounts, decided once from the rows kept (``readTradeTypes(_:)``).
+    var tradeSigns = TradeSigns()
     /// Trades layout: the trades, with the cells they came from.
     var trades: [(record: ImportedRecord, cells: [ImportCellRef])] = []
 
