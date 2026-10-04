@@ -3,7 +3,8 @@ import SwiftUI
 import TaxKit
 
 /// One plan (UI.md, "Plan"): a plan picker (New, Duplicate, Rename, Delete,
-/// Set as main plan, Compare), then Results, Progress and Inputs.
+/// Set as main plan, Compare, Show Calculations), then Results, Progress
+/// and Inputs.
 ///
 /// - **iPhone** (tabs): a segmented Results | Progress | Inputs; What-if is a
 ///   bottom sheet; while editing Inputs a small pill keeps the answer in view.
@@ -106,6 +107,7 @@ struct PlanContentView: View {
     @State private var isRenaming = false
     @State private var isDeleting = false
     @State private var isSavingBaseline = false
+    @State private var showsCalculations = false
     @State private var newName = ""
     @State private var baselineLabel = ""
     @State private var message: String?
@@ -171,11 +173,13 @@ struct PlanContentView: View {
             .navigationDestination(isPresented: $isComparing) {
                 PlanCompareScreen(firstID: planID)
             }
+            .planDebugSheet(isPresented: $showsCalculations, session: session, library: library, isWide: isWide)
             .focusedSceneValue(\.planActions, PlanCommandActions(
                 saveBaseline: { startSavingBaseline() },
                 duplicate: { duplicate() },
                 compare: { isComparing = true },
-                recalculate: { session.calculate() }))
+                recalculate: { session.calculate() },
+                showCalculations: { showCalculations() }))
             .onDisappear { session.saveNow() }
     }
 
@@ -351,6 +355,14 @@ struct PlanContentView: View {
             }
             .disabled(!library.canEdit)
             Section {
+                Button {
+                    showCalculations()
+                } label: {
+                    Label("Show Calculations…", systemImage: "function")
+                }
+                .disabled(!plans.isAvailable)
+            }
+            Section {
                 Button(role: .destructive) {
                     isDeleting = true
                 } label: {
@@ -434,6 +446,14 @@ struct PlanContentView: View {
     private func startSavingBaseline() {
         baselineLabel = ""
         isSavingBaseline = true
+    }
+
+    /// Show Calculations…: the plan debugger for this plan, with its
+    /// what-if (PlanDebugScreen). Pending edits are saved first.
+    private func showCalculations() {
+        guard plans.isAvailable else { return }
+        session.saveNow()
+        showsCalculations = true
     }
 
     private func saveBaseline() {

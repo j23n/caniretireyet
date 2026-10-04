@@ -82,6 +82,7 @@ Library
   | Show Future | ⌘⇧F |
   | Duplicate Plan | ⌘D |
   | Compare Plans | ⌘⌥C |
+  | Show Calculations… | — |
 
 - **Drag and drop:** dropping a CSV, or ledger journals, anywhere on the window starts an import.
 - **Windows:** plan comparison and import can open in their own windows.
@@ -410,7 +411,7 @@ A brokerage, crypto or metals account can record its **trades** instead of month
 
 ## Plan
 
-A plan picker sits at the top (Base case ▾, with New, Duplicate, Compare, Rename and Delete), then three parts: **Results**, **Progress** and **Inputs**.
+A plan picker sits at the top (Base case ▾, with New, Duplicate, Compare, Rename, *Show Calculations…* and Delete), then three parts: **Results**, **Progress** and **Inputs**.
 
 ### Calculating
 
@@ -598,6 +599,45 @@ A window on the Mac (a pushed page on iPhone):
 
 (The numbers are made up.) This is the screen for regime decisions.
 
+### Calculations (plan debugger)
+
+When an answer looks wrong ("I need 2 million to withdraw 20,000 a year?"), *Show Calculations…* in the plan picker's menu (iPhone, iPad and Mac) and in the Mac's Plan menu shows every calculation behind it: the plan debugger ([PLANNER.md](PLANNER.md#plan-debugger)) for the plan on screen, to check it or to give to someone else. It's a sheet: full height on iPhone, page-sized on iPad, large on the Mac.
+
+```
+┌──────────────────────────────────────────────────────────┐
+│ Done               Calculations                Export…   │
+│ ╭ ƒ What to calculate ─────────────────────────────────╮ │
+│ │ Details for retiring   Runs start from  Traced runs  │ │
+│ │ [Today|Target|Age…]    Automatic ▾      3 runs [−|+] │ │
+│ │ [ƒ Calculate Again]  ◷ The options changed since …   │ │
+│ ╰──────────────────────────────────────────────────────╯ │
+│ Retiring at 38 (today's age) · 2.000 runs · 4 Oct 2026   │
+│ ⓘ The percentiles, failures and traced runs start from   │
+│   3.230.110 €: 20 times today's plan assets, the most …  │
+│ ╭ Diagnosis ───────────────────────────────────────────╮ │
+│ │ • Crypto is 27% of plan assets; at 0.0% expected …   │ │
+│ │ • Retiring today would need …                        │ │
+│ ╰──────────────────────────────────────────────────────╯ │
+│ ▸ What was run                                           │
+│ ▾ Year-by-year schedule                                  │
+│   What doesn't depend on the markets, retiring at 38: …  │
+│   Year  Age   Work  Pensions  …  Spending   To draw  …   │
+│   2026   38      0         0  …   9.074 €   9.074 €      │
+│   2027   39      0         0  …  36.000 €  36.000 €      │
+│ ▸ Simulation summary · Percentiles by year · Traced runs │
+└──────────────────────────────────────────────────────────┘
+```
+
+- **What to calculate.** The retirement age the details are for: *Today* (the "retire today" scenario behind "needed to retire today", the default), *Target* (the plan's age, or the earliest that reaches its confidence) or *Age…* with a stepper (today's age to the year before the plan ends). What the runs start from: *Automatic* (retiring today with too little, what retiring today needs, to show why it's that much; otherwise today's plan assets), *Today's assets*, *What's needed*, or *A multiple* of today's (× 0.5 to × 20). How many runs to trace, chosen by outcome (0 to 6: the median, a 10th-percentile run, the first that fails, then the 25th, 75th and 90th percentiles), with the run at the expected return every year on top. Each control has a line saying what it does.
+- **Calculate** runs the plan on screen with the same tax systems and library data as its results, from the latest check-in, with every run the plan asks for. With a what-if in use, the plan runs with its changes (not saved), unless *Include the what-if* is turned off; the report says which. It takes a few seconds, off the main thread, with a spinner and **Cancel**; it never runs on its own. The report shown stays (dimmed) until the new one is ready, and after a change of option, plan or data it says so next to *Calculate Again*. A plan that can't run says why.
+- **Under the controls,** what was run in one line, what the runs start from when it's a multiple of today's plan assets (and that the rest is about today's), and the what-if.
+- **Diagnosis** comes first: the report's sentences on what weighs most on the result, facts about the plan as entered, not advice.
+- **The sections** follow as disclosure groups, closed at first, each with its line on how to read it: *What was run*; *The person and the plan as read*, with the **assumptions** (per class: share today, target share, expected return, volatility, the median it implies, income yield and the portfolio's median without the class; the target mix's growth; the correlations); *Starting portfolio* (accounts, what they hold, instruments, buckets, scheme seeds, debts); *Year-by-year schedule*; *Simulation summary* (the success-curve chart and table, both searches step by step, failures by age and cause, two runs in brief, the checks); *Percentiles by year* (the fan chart and the table); *Traced runs*; *Issues*.
+- **Traced runs.** A picker of runs ("The median outcome", "A 10th-percentile outcome", …), what the run is and how it ends (and why it fails), then its years as *Money in and out* or *Returns and balances*. Choosing a year shows every step of it: the returns drawn, the cash flow (net income, payouts, contributions, spending, expenses, last year's taxes), the spending target against what was met, each bucket's money in, payouts, withdrawals, rebalancing tax, growth and end, the rebalancing moves per class, every sale with its cost and gain, payouts, the tax withheld, every tax and contribution line split into the part on income (fixed) and on markets, and the failure.
+- **Tables.** On the Mac and iPad a `PageTable`, as wide as the page and scrolling sideways when its columns need more; clicking a year of the schedule or of a traced run shows it in detail below the table, and a row's menu copies it. On iPhone a compact row per year or item, with its key figures, which opens to every column and, for a year, the year in detail. Every year is shown (the Markdown skips some of a long plan's).
+- **Numbers.** Money is in the report's currency (the plan's), whole, through `AmountText`; rates are percentages. The eye hides amounts as everywhere else: figures read `•••••`, charts keep their shape, and amounts inside the report's sentences (the diagnosis, issues) are masked too.
+- **Export…** opens the export: **Anonymize**, on by default ("Replaces account, instrument, plan, pension and event names and IDs with neutral labels, leaves out notes and the birth date (ages stay), and rounds amounts."), with the rounding (*3 significant figures*, *Nearest 100* or *Exact*); **Markdown** (readable, each section explained) or **JSON** (every detail). The file, `plan-calculations-2026-10-04.md` (or `.json`), is written to a temporary folder whenever the choices change; **Share…** hands it to the share sheet (Save to Files on iPhone), and on the Mac **Save…** opens a save panel. **Copy as Markdown** copies the report, anonymized when the switch is on. While amounts are hidden, a line says the file holds them.
+
 ## Import (Mac first)
 
 A window with steps along the top, as described in [IMPORT.md](IMPORT.md):
@@ -765,7 +805,7 @@ All widgets hide amounts when the device is locked.
 
   An import in progress belongs to the Import screen.
 - **Navigation.** One root view chooses between `TabView` (compact width) and `NavigationSplitView` (regular width and Mac). The screens themselves don't know which one they're in.
-- **Mac layouts.** A Mac window can't be smaller than the minimum size of its content, so every page's content scrolls, and what's pinned to a page scrolls when there's no room (`OverflowScrollView`). Tables on a scrolling page are as tall as their rows (`PageTable`), so the page scrolls them; a `Table` is used only as a whole page (Instruments, the import's columns). [App/README.md](../App/README.md#design-system) has the details.
+- **Mac layouts.** A Mac window can't be smaller than the minimum size of its content, so every page's content scrolls, and what's pinned to a page scrolls when there's no room (`OverflowScrollView`). Tables on a scrolling page are as tall as their rows (`PageTable`, also on iPad for the plan debugger), so the page scrolls them; a `Table` is used only as a whole page (Instruments, the import's columns). [App/README.md](../App/README.md#design-system) has the details.
 - **Folders.** `App/Sources/` holds `App`, `Stores`, `Navigation`, `DesignSystem` (colours, number formats, spacing, amount text, cards), `Components/Charts`, `Features/<Feature>` (Overview, Accounts, CheckIn, Plan, Import, Settings, Onboarding, Library) and `Preview`. [App/README.md](../App/README.md) describes them and the stores' APIs.
 - **Chart components**, reused everywhere: `NetWorthChart`, `FanChart`, `SuccessCurveChart`, `IncomeStackChart`, `WaterfallChart` (now a headline and change bars), `BreakdownBars`, `Sparkline`. Their layout (ticks, marker labels, scales, the time span) is worked out without SwiftUI and tested on Linux.
 - **Previews.** Every screen has SwiftUI previews built from a made-up library in code, with the same numbers as the example library in the tests.

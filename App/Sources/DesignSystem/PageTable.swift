@@ -1,17 +1,17 @@
-#if os(macOS)
 import SwiftUI
 
-/// A table that's part of a scrolling page on the Mac (an account's values
-/// and trades): a line of column titles, then a line per item, as tall as
-/// its lines. The page scrolls it with everything else, so it needs no
-/// height of its own. (A `Table` scrolls by itself: on a page it needs a
-/// height, which can only be guessed from its rows, and it takes the
-/// scroll wheel from the page.)
+/// A table that's part of a scrolling page on the Mac and iPad (an
+/// account's values and trades, the plan debugger's tables): a line of
+/// column titles, then a line per item, as tall as its lines. The page
+/// scrolls it with everything else, so it needs no height of its own. (A
+/// `Table` scrolls by itself: on a page it needs a height, which can only
+/// be guessed from its rows, and it takes the scroll wheel from the page.)
 ///
 /// Click a line to select it, double-click to open it, right-click for its
 /// menu. The columns line up because each one is between a fixed minimum
 /// and maximum width whatever its content: give a column's title and cells
-/// the same `PageTableColumn`.
+/// the same `PageTableColumn`. Pass `selection` to keep the selected line
+/// yourself (e.g. to show it in detail below the table).
 ///
 ///     PageTable(rows, open: edit) {
 ///         Text("Date").pageTableColumn(Columns.date)
@@ -28,17 +28,33 @@ struct PageTable<Item: Identifiable, Header: View, Row: View, Menu: View>: View 
     private let header: Header
     private let row: (Item) -> Row
     private let menu: (Item) -> Menu
+    /// The selected line, when the caller keeps it.
+    private let keptSelection: Binding<Item.ID?>?
 
-    @State private var selection: Item.ID?
+    @State private var ownSelection: Item.ID?
     @ScaledMetric(relativeTo: .body) private var lineHeight: CGFloat = 24
 
-    init(_ items: [Item], open: @escaping (Item.ID) -> Void, @ViewBuilder header: () -> Header,
-         @ViewBuilder row: @escaping (Item) -> Row, @ViewBuilder menu: @escaping (Item) -> Menu) {
+    init(_ items: [Item], open: @escaping (Item.ID) -> Void, selection: Binding<Item.ID?>? = nil,
+         @ViewBuilder header: () -> Header, @ViewBuilder row: @escaping (Item) -> Row,
+         @ViewBuilder menu: @escaping (Item) -> Menu) {
         self.items = items
         self.open = open
+        keptSelection = selection
         self.header = header()
         self.row = row
         self.menu = menu
+    }
+
+    private var selection: Item.ID? {
+        keptSelection?.wrappedValue ?? ownSelection
+    }
+
+    private func select(_ id: Item.ID) {
+        if let keptSelection {
+            keptSelection.wrappedValue = id
+        } else {
+            ownSelection = id
+        }
     }
 
     var body: some View {
@@ -77,11 +93,11 @@ struct PageTable<Item: Identifiable, Header: View, Row: View, Menu: View>: View 
         }
         .contentShape(Rectangle())
         .onTapGesture(count: 2) {
-            selection = item.id
+            select(item.id)
             open(item.id)
         }
         .simultaneousGesture(TapGesture().onEnded {
-            selection = item.id
+            select(item.id)
         })
         .contextMenu {
             menu(item)
@@ -149,4 +165,3 @@ private enum PageTablePreviewColumns {
     .frame(width: 600, height: 420)
     .background(Palette.page)
 }
-#endif
