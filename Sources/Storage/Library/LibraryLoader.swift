@@ -52,13 +52,19 @@ extension LibraryFolder {
 /// Reads library files into a `Library`, collecting issues.
 struct LibraryLoader {
     let folder: LibraryFolder
+    /// Today's date, for records dated implausibly far ahead.
+    let today: CalendarDate
     var issues: [LoadIssue] = []
     var filesRead = 0
     var schemaVersion: Int?
 
-    init(folder: LibraryFolder) {
+    init(folder: LibraryFolder, today: CalendarDate = .today()) {
         self.folder = folder
+        self.today = today
     }
+
+    /// Records dated before this are reported as probably mistyped.
+    static let earliestPlausibleDate: CalendarDate = "1900-01-01"
 
     // MARK: Files
 
@@ -211,7 +217,28 @@ struct LibraryLoader {
             warn(path, "Records dated \(dates) belong in another month's file. They're kept here; move them to "
                 + "the file for their month.")
         }
+        checkDates(of: file, path: path)
         return file
+    }
+
+    /// Warns about records dated before 1900 or more than a year after
+    /// today: a typo, or a placeholder such as 9999-12-31 for "no end date",
+    /// which would stretch every chart to that year. They're kept.
+    private mutating func checkDates(of file: MonthFile, path: String) {
+        let latest = today.adding(years: 1)
+        let dates = Set(file.valuations.map(\.date) + file.trades.map(\.date) + file.prices.map(\.date)
+            + file.fx.map(\.date) + file.indices.map(\.date))
+        let early = dates.filter { $0 < Self.earliestPlausibleDate }.sorted().map(\.description)
+        let late = dates.filter { $0 > latest }.sorted().map(\.description)
+        if !early.isEmpty {
+            warn(path, "Records dated \(early.joined(separator: ", ")) are before 1900. Is the date right? "
+                + "They're kept; fix the date or remove them.")
+        }
+        if !late.isEmpty {
+            warn(path, "Records dated \(late.joined(separator: ", ")) are more than a year in the future. Is the "
+                + "date right? A placeholder such as 9999-12-31 for “no end date” stretches charts to that year. "
+                + "They're kept; fix the date or remove them.")
+        }
     }
 
     /// A headline file, record by record if the file as a whole doesn't decode.

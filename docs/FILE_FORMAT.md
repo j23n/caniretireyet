@@ -399,5 +399,6 @@ The app writes every file the same way, so the same data always gives the same b
 - A JSON number where text is expected (`"name": 2026`) is read as text, and a whole number written as text where a number is expected (`"endAge": "95"`) as a number.
 - The file name wins over the `id` inside the file, and over the `month` inside a history file; the app points out the mismatch.
 - A record dated outside its month file stays where it is, and the app points it out. When two records have the same key, the later one in the file is used.
+- Records (valuations, trades, prices, FX rates, index values) dated before 1900, or more than a year after today, are loaded and pointed out: usually a mistyped year, or a placeholder such as `9999-12-31` for "no end date".
 - Files the app doesn't know are ignored. JSON files in the library's folders whose names aren't IDs (`My Account.json`) are pointed out.
 - Records that refer to accounts, instruments or plans that don't exist are pointed out.
