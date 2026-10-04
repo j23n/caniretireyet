@@ -66,6 +66,54 @@ struct ValidationTests {
         #expect(await errors(plan) == ["planner.negativeSpending", "planner.confidence"])
     }
 
+    /// Inputs the engine can't simulate sensibly: inflation that makes prices
+    /// explode or vanish, runs and ages that take forever, and more uncertain
+    /// events in a year than combinations can be prepared for (2^n).
+    @Test func inputsBeyondTheirBoundsAreErrors() async {
+        func codes(_ plan: PlanDocument) -> [String] {
+            Planner.validate(plan: plan, library: library, registry: Sample.registry()).filter(\.isError).map(\.code)
+        }
+        var plan = plan
+        for (inflation, valid) in [("-0.51", false), ("-0.5", true), ("0.5", true), ("0.51", false), ("-1", false)] {
+            plan.assumptions.inflation = d(inflation)
+            #expect(codes(plan) == (valid ? [] : ["planner.inflation"]), "inflation \(inflation)")
+        }
+        #expect(await errors(plan) == ["planner.inflation"])
+        let issue = Planner.validate(plan: plan, library: library, registry: Sample.registry())
+            .first { $0.code == "planner.inflation" }
+        #expect(issue?.section == .assumptions && issue?.option == "inflation")
+
+        plan = self.plan
+        plan.simulation.runs = 10_000
+        #expect(codes(plan) == [])
+        plan.simulation.runs = 10_001
+        #expect(codes(plan) == ["planner.runs"])
+
+        plan = self.plan
+        plan.endAge = 120
+        #expect(codes(plan) == [])
+        plan.endAge = 121
+        #expect(codes(plan) == ["planner.endAge"])
+        plan.endAge = 12_000
+        #expect(await errors(plan) == ["planner.endAge"])
+
+        plan = self.plan
+        let maybe = (0..<9).map { PlanEvent(name: "Maybe \($0)", timing: .year(2030), amount: d("1000"),
+                                            probability: d("0.5")) }
+        plan.events = Array(maybe.prefix(8)) + [PlanEvent(name: "Sure", timing: .year(2030), amount: d("-1000"))]
+        #expect(codes(plan) == [])
+        plan.events = Array(maybe.prefix(8)) + [PlanEvent(name: "Maybe not", timing: .year(2030), amount: d("-1000"),
+                                                          probability: d("0.3"))]
+        #expect(codes(plan) == ["planner.uncertainEventsInYear"])
+        plan.events = maybe
+        let tooMany = Planner.validate(plan: plan, library: library, registry: Sample.registry())
+            .first { $0.code == "planner.uncertainEventsInYear" }
+        #expect(tooMany?.year == 2030 && tooMany?.index == 8 && tooMany?.section == .events)
+        #expect(await errors(plan) == ["planner.uncertainEventsInYear"])
+        plan.events[8].timing = .year(2031)
+        #expect(codes(plan) == [])
+    }
+
     @Test func theTaxSystemsValidationIsReported() async throws {
         var system = FlatTaxSystem()
         system.validationIssues = [.warning("flat.note", "Something to know", regime: "flat.bonus")]

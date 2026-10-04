@@ -275,6 +275,13 @@ struct PathSimulator {
                 - expenses - carried
             recorder?.afterPayouts(severancePay: severancePay, contributions: yearContributions[t], spending: spending,
                                    expenses: expenses, cash: cash, self)
+            // A cash flow that isn't a number (a tax system's NaN, say) can't
+            // be funded: the run fails rather than counting as a success.
+            guard cash.isFinite else {
+                return fail(year: t, variant: v, reason: .depleted, startAssets: startAssets, spending: spending,
+                            expenses: expenses, cash: cash, credited: credited, recordValues: recordValues,
+                            details: &details, recorder: recorder)
+            }
             var shortfall = 0.0
             if cash >= 0 {
                 deposit(cash, into: primaryLiquid)
@@ -283,22 +290,13 @@ struct PathSimulator {
             }
             recorder?.afterFlows(shortfall: shortfall, self)
 
-            if shortfall > Self.tolerance {
-                let reason = failureReason(year: t, shortfall: shortfall, spending: level, mask: mask,
-                                           prepared: prepared)
-                let failure = RunFailure(year: schedule.years[t].year, age: schedule.years[t].age, reason: reason)
-                let remaining = total()
-                recorder?.failed(failure, self)
-                if recordValues {
-                    yearValues[t] = remaining
-                    for later in (t + 1)..<schedule.years.count { yearValues[later] = 0 }
-                }
-                if details != nil {
-                    details!.append(detail(t, variant: v, assessment: nil, startAssets: startAssets,
-                                           endAssets: remaining, spending: spending, expenses: expenses, cash: cash,
-                                           credited: credited))
-                }
-                return RunOutcome(failure: failure, failedYear: t, finalValue: 0)
+            if !shortfall.isFinite || shortfall > Self.tolerance {
+                let reason = shortfall.isFinite
+                    ? failureReason(year: t, shortfall: shortfall, spending: level, mask: mask, prepared: prepared)
+                    : .depleted
+                return fail(year: t, variant: v, reason: reason, startAssets: startAssets, spending: spending,
+                            expenses: expenses, cash: cash, credited: credited, recordValues: recordValues,
+                            details: &details, recorder: recorder)
             }
 
             // Rebalancing what the cash flows left off target, the markets,
@@ -326,6 +324,13 @@ struct PathSimulator {
             if let next = assessment.nextPathState { pathState = next }
 
             let endAssets = total() - carried
+            // Taxes or balances that aren't numbers make the run fail: carried
+            // on, a NaN would fund every later year (NaN > tolerance is false).
+            guard endAssets.isFinite else {
+                return fail(year: t, variant: v, reason: .depleted, startAssets: startAssets, spending: spending,
+                            expenses: expenses, cash: cash, credited: credited, recordValues: recordValues,
+                            details: &details, recorder: recorder)
+            }
             recorder?.end(assessment: assessment, carriedOut: carried, endAssets: endAssets,
                           carriedForward: prepared.carriedForward(in: pathState), self)
             if recordValues { yearValues[t] = endAssets }
@@ -336,6 +341,27 @@ struct PathSimulator {
             }
         }
         return RunOutcome(failure: nil, failedYear: nil, finalValue: total() - carried)
+    }
+
+    /// Ends the run as failed in year `t`: tells the recorder, records what
+    /// was left (0 for what isn't a number) and the year's detail.
+    private mutating func fail(year t: Int, variant v: Int, reason: FailureReason, startAssets: Double,
+                               spending: Double, expenses: Double, cash: Double, credited: Double,
+                               recordValues: Bool, details: inout [YearDetail]?, recorder: PathRecorder?) -> RunOutcome {
+        let failure = RunFailure(year: schedule.years[t].year, age: schedule.years[t].age, reason: reason)
+        let left = total()
+        let remaining = left.isFinite ? left : 0
+        recorder?.failed(failure, self)
+        if recordValues {
+            yearValues[t] = remaining
+            for later in (t + 1)..<schedule.years.count { yearValues[later] = 0 }
+        }
+        if details != nil {
+            details!.append(detail(t, variant: v, assessment: nil, startAssets: startAssets.isFinite ? startAssets : 0,
+                                   endAssets: remaining, spending: spending, expenses: expenses,
+                                   cash: cash.isFinite ? cash : 0, credited: credited))
+        }
+        return RunOutcome(failure: failure, failedYear: t, finalValue: 0)
     }
 
     // MARK: - Money in
