@@ -42,6 +42,37 @@ struct LibraryLocationTests {
         }
     }
 
+    /// A destination holding some of a library's folders without its
+    /// `library.json` (a library still arriving, or one half moved): moving
+    /// the rest would mix two libraries, so nothing moves.
+    @Test func refusesToMoveOverItemsWithTheSameNames() async throws {
+        let folder = try TemporaryFolder()
+        let source = LibraryLocation(kind: .local, url: folder.url.appendingPathComponent("From"))
+        let destination = LibraryLocation(kind: .local, url: folder.url.appendingPathComponent("To"))
+        try LibraryFolder(root: source.url).createLibrary()
+        try folder.write("From/accounts/bank.json", "{\"mine\": true}")
+        try folder.write("To/accounts/bank.json", "{\"theirs\": true}")
+        try folder.write("To/README.md", "theirs")
+        try folder.write("To/notes.txt", "kept")
+
+        await #expect(throws: LibraryMoveError.destinationHasItems(path: destination.url.path,
+                                                                    names: ["README.md", "accounts"])) {
+            try await LibraryMover.move(from: source, to: destination)
+        }
+        #expect(LibraryFolder(root: source.url).containsLibrary)
+        #expect(try folder.text("From/accounts/bank.json") == "{\"mine\": true}")
+        #expect(try folder.text("To/accounts/bank.json") == "{\"theirs\": true}")
+        #expect(!LibraryFolder(root: destination.url).containsLibrary)
+
+        // Once they're gone, it moves, leaving the destination's other items.
+        try folder.remove("To/accounts")
+        try folder.remove("To/README.md")
+        try await LibraryMover.move(from: source, to: destination)
+        #expect(LibraryFolder(root: destination.url).containsLibrary)
+        #expect(try folder.text("To/accounts/bank.json") == "{\"mine\": true}")
+        #expect(try folder.text("To/notes.txt") == "kept")
+    }
+
     @MainActor
     @Test func pollingReportsChangedFiles() async throws {
         let folder = try TemporaryFolder.exampleLibrary()

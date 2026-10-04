@@ -142,7 +142,10 @@ private struct AppSheetView: View {
     }
 }
 
-/// Shown when the library can't be opened, with a way forward.
+/// Shown when the library can't be opened, with a way forward. Starting a
+/// library on this device is offered only when iCloud Drive isn't
+/// available, not for a passing failure: it would leave the library in
+/// iCloud Drive behind (Settings → Library switches back to it).
 private struct LibraryUnavailableView: View {
     let message: String
     @Environment(LibraryStore.self) private var library
@@ -157,8 +160,10 @@ private struct LibraryUnavailableView: View {
                 Task { await library.start() }
             }
             .buttonStyle(.borderedProminent)
-            Button("Keep the library on this device instead") {
-                Task { await library.useLibraryOnThisDevice() }
+            if library.openingFailedWithoutICloud {
+                Button("Start a New Library on This Device") {
+                    Task { await library.useLibraryOnThisDevice() }
+                }
             }
         }
         .background(Palette.page)
