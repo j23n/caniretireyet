@@ -33,8 +33,14 @@ extension LibraryStore {
     var latestCheckIn: CalendarDate? { library.latestCheckInDate }
 
     /// The date the Overview reports on: the latest check-in, or today
-    /// before the first one.
-    var asOfDate: CalendarDate { library.latestCheckInDate ?? .today() }
+    /// before the first one. Never after today: a value dated in the future
+    /// by mistake (`9999-12-31`) would have the Overview walk every month up
+    /// to it.
+    var asOfDate: CalendarDate {
+        let today = CalendarDate.today()
+        guard let latest = library.latestCheckInDate else { return today }
+        return min(latest, today)
+    }
 
     /// Net worth at ``asOfDate``.
     var netWorth: NetWorth { valuator.netWorth(on: asOfDate) }
