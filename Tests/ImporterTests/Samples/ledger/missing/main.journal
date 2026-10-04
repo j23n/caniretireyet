@@ -1,6 +1,0 @@
-; Made-up: includes a file that isn't there, and a folder that isn't either.
-include private.journal
-include archive/*.journal
-2024-03-01 Still read
-    Assets:Cash   20 EUR
-    Equity:Opening

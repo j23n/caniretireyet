@@ -3,7 +3,7 @@ import Foundation
 
 /// `retire`: Can I Retire Yet? on the command line. Creates and checks a
 /// library folder, shows and sets its settings, prints net worth, imports
-/// spreadsheets, broker exports and journals, lists and edits trades and
+/// spreadsheets and broker exports, lists and edits trades and
 /// instruments' tax kinds, fetches prices, and runs and edits plans.
 ///
 /// The commands live in this library so they can be tested; the `retire`

@@ -21,8 +21,6 @@ public struct ImportProfile: Hashable, Sendable, Identifiable, KnownKeysProvidin
     /// What to do with records that differ from the library, as written.
     /// See ``effectiveOnConflict``.
     public var onConflict: ConflictPolicy?
-    /// Ledger layout: how the journal's accounts and commodities are read.
-    public var ledger: LedgerImportSettings?
     /// Trades layout: the file's words for trade types, as written (e.g.
     /// "Acquisto"), mapped to trade types. Matched exactly, then ignoring
     /// case and accents. The value `ignore` leaves the rows of that type out.
@@ -33,7 +31,7 @@ public struct ImportProfile: Hashable, Sendable, Identifiable, KnownKeysProvidin
         defaults: ImportFormat = ImportFormat(), layout: ImportLayout, dateColumn: String? = nil,
         target: ImportTarget? = nil, constants: ImportConstants = ImportConstants(), columns: [ImportColumn] = [],
         matches: ImportMatches = ImportMatches(), onConflict: ConflictPolicy? = nil,
-        ledger: LedgerImportSettings? = nil, tradeTypes: [String: TradeType] = [:]
+        tradeTypes: [String: TradeType] = [:]
     ) {
         self.id = id
         self.name = name
@@ -46,7 +44,6 @@ public struct ImportProfile: Hashable, Sendable, Identifiable, KnownKeysProvidin
         self.columns = columns
         self.matches = matches
         self.onConflict = onConflict
-        self.ledger = ledger
         self.tradeTypes = tradeTypes
     }
 
@@ -59,7 +56,7 @@ public struct ImportProfile: Hashable, Sendable, Identifiable, KnownKeysProvidin
 extension ImportProfile: Codable {
     enum CodingKeys: String, CodingKey, CaseIterable {
         case id, name, file, defaults, layout, dateColumn, target, constants, columns, matches, onConflict
-        case ledger, tradeTypes
+        case tradeTypes
     }
 
     public static var knownKeys: Set<String> { Set(CodingKeys.allCases.map(\.stringValue)) }
@@ -77,7 +74,6 @@ extension ImportProfile: Codable {
         columns = try c.decodeArray([ImportColumn].self, forKey: .columns)
         matches = try c.decodeIfPresent(ImportMatches.self, forKey: .matches) ?? ImportMatches()
         onConflict = try c.decodeIfPresent(ConflictPolicy.self, forKey: .onConflict)
-        ledger = try c.decodeIfPresent(LedgerImportSettings.self, forKey: .ledger)
         tradeTypes = try c.decodeIfPresent([String: TradeType].self, forKey: .tradeTypes) ?? [:]
     }
 
@@ -94,7 +90,6 @@ extension ImportProfile: Codable {
         try c.encodeIfNotEmpty(columns, forKey: .columns)
         if matches != ImportMatches() { try c.encode(matches, forKey: .matches) }
         try c.encodeIfPresent(onConflict, forKey: .onConflict)
-        try c.encodeIfPresent(ledger, forKey: .ledger)
         try c.encodeIfNotEmpty(tradeTypes, forKey: .tradeTypes)
     }
 }

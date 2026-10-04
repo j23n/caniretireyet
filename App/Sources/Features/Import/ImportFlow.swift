@@ -3,15 +3,13 @@ import Importer
 import Model
 
 /// A step of the import, shown along the top (UI.md, "Import"; IMPORT.md, "Steps").
-/// A journal import has Commodities instead of Format and Columns; a
-/// broker's transactions (the trades layout) have Types after Columns.
+/// A broker's transactions (the trades layout) have Types after Columns.
 enum ImportStep: Int, Hashable, Sendable, CaseIterable, Comparable, Identifiable {
     case file
     case format
     case columns
     case types
     case accounts
-    case commodities
     case preview
     case done
 
@@ -24,7 +22,6 @@ enum ImportStep: Int, Hashable, Sendable, CaseIterable, Comparable, Identifiable
         case .columns: "Columns"
         case .types: "Types"
         case .accounts: "Accounts"
-        case .commodities: "Commodities"
         case .preview: "Preview"
         case .done: "Done"
         }
@@ -84,9 +81,6 @@ struct ImportFlow: Sendable {
     /// iPhone's "Import with profile…": the file and a saved profile, then
     /// the preview. Otherwise every step (the Mac-first flow).
     private(set) var isGuided: Bool
-    /// The journal import, when the files are ledger journals rather than a
-    /// spreadsheet (ImportFlow+Ledger.swift); `session` is `nil` then.
-    private(set) var ledger: LedgerImportState?
 
     init(library: Library = Library(), guided: Bool = false) {
         self.library = library
@@ -127,8 +121,8 @@ struct ImportFlow: Sendable {
         self = ImportFlow(library: library, guided: isGuided)
     }
 
-    /// Whether a file (or a journal) has been read.
-    var hasFile: Bool { session != nil || ledger != nil }
+    /// Whether a file has been read.
+    var hasFile: Bool { session != nil }
 
     /// The saved profile the mapping came from, if any.
     var sourceProfile: ImportProfile? {
@@ -174,7 +168,6 @@ struct ImportFlow: Sendable {
     /// The steps shown along the top.
     var steps: [ImportStep] {
         if isGuided { return [.file, .preview, .done] }
-        if ledger != nil { return [.file, .accounts, .commodities, .preview, .done] }
         if session?.profile.layout == .trades { return [.file, .format, .columns, .types, .accounts, .preview, .done] }
         return [.file, .format, .columns, .accounts, .preview, .done]
     }
@@ -256,45 +249,7 @@ struct ImportFlow: Sendable {
 
     /// Makes the preview again from the mapping and the library.
     mutating func refreshPreview() {
-        if var ledger {
-            ledger.refresh(against: library)
-            self.ledger = ledger
-            setPreview(ledger.result?.preview)
-            return
-        }
         setPreview(session?.preview(against: library))
-    }
-
-    // MARK: - Journals
-
-    /// Starts over with journals read from files, and the mapping they're
-    /// read with (a saved ledger profile, or proposed).
-    mutating func openLedger(_ state: LedgerImportState, source: ImportSource) {
-        self = ImportFlow(library: library, guided: isGuided)
-        ledger = state
-        fileName = state.fileName
-        self.source = source
-        refreshPreview()
-    }
-
-    /// Reads the journal with a saved ledger profile, or a mapping the
-    /// importer proposes (`nil`). Decisions start over.
-    mutating func useLedgerProfile(_ id: ImportProfileID?) {
-        guard var ledger else { return }
-        let profile = id.flatMap { library.importProfiles[$0] }
-        ledger.session = LedgerImportSession(journal: ledger.journal, profile: profile)
-        self.ledger = ledger
-        source = profile.map { .profile($0.id) } ?? .proposed
-        decisions = ImportDecisions()
-        refreshPreview()
-    }
-
-    /// Changes the journal's mapping, then makes the preview again.
-    mutating func editLedger(_ edit: (inout LedgerImportState) -> Void) {
-        guard var ledger else { return }
-        edit(&ledger)
-        self.ledger = ledger
-        refreshPreview()
     }
 
     private mutating func setPreview(_ base: ImportPreview?) {

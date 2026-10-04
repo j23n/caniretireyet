@@ -6,7 +6,7 @@ A personal net-worth tracker and retirement planner for iPhone, iPad and Mac.
 - **Plan.** Start from your real numbers and project forward: savings, spending, pensions, windfalls and taxes, in your currency or any other. Taxes come from pluggable tax systems and regimes, picked by where you live: Italy is first, including impatriati and forfettario; Switzerland and Germany are designed; anywhere else uses a generic system with flat rates you choose. The app answers the question in its name: *can I retire yet, and if not, when?* When an answer looks odd, *Show Calculations…* lays out every calculation behind it, and exports it anonymized to give to someone else.
 - **Your data is files.** Everything is stored as plain JSON files in a folder in iCloud Drive. The app on each device (iPhone, iPad, Mac) reads and writes that folder, and iCloud keeps it in sync. There is no server, no account to create, and no lock-in.
 
-**Status: MVP.** Tracking (accounts, check-ins, history, performance data), import from spreadsheets and ledger-cli / hledger journals, prices, the planner with Italy's tax system, and the iPhone, iPad and Mac app with iCloud sync. The `retire` command-line tool does the same from a terminal. Start with [docs/PLAN.md](docs/PLAN.md); to build and contribute, see [CLAUDE.md](CLAUDE.md).
+**Status: MVP.** Tracking (accounts, check-ins, history, performance data), import from spreadsheets, prices, the planner with Italy's tax system, and the iPhone, iPad and Mac app with iCloud sync. The `retire` command-line tool does the same from a terminal. Start with [docs/PLAN.md](docs/PLAN.md); to build and contribute, see [CLAUDE.md](CLAUDE.md).
 
 ## Getting started
 
@@ -29,7 +29,7 @@ You need a Mac with Xcode 26 and an Apple Developer account (for iCloud).
    LIVE_PRICE_TESTS=1 swift test --filter PricesTests
    ```
 
-5. **Bring in your history:** *Import…* (⌘⇧I, or drop files on the window) takes a spreadsheet export (CSV/TSV) or ledger journals; map it once and save the mapping as a profile for next time. Or add values by hand with past check-ins or *Add Past Value…* on an account ([UI.md, "Adding history"](docs/UI.md)). Then *Fill In Past Prices…* (Instruments, or the import's last step) fetches the prices, exchange rates and inflation figures the history is missing.
+5. **Bring in your history:** *Import…* (⌘⇧I, or drop a file on the window) takes a spreadsheet export (CSV/TSV); map it once and save the mapping as a profile for next time. Or add values by hand with past check-ins or *Add Past Value…* on an account ([UI.md, "Adding history"](docs/UI.md)). Then *Fill In Past Prices…* (Instruments, or the import's last step) fetches the prices, exchange rates and inflation figures the history is missing.
 
 The command-line tool works on the same folder, on a Mac or Linux:
 
@@ -38,7 +38,6 @@ swift run retire --help
 swift run retire init <folder> --currency CHF --residence CH --birth-date 1985-03-01 --citizenship IT
 swift run retire settings --library <folder>          # --citizenship, --inflation-index set them
 swift run retire import --library <folder> export.csv            # preview; --apply writes
-swift run retire import ledger --library <folder> 2024.journal 2025.journal
 swift run retire import --library <folder> movimenti.csv --account directa   # a broker's export, as trades
 swift run retire trades list directa --library <folder>                      # also add, remove, summary, convert
 swift run retire instruments --library <folder>                  # kinds for taxes; `set` a fund type

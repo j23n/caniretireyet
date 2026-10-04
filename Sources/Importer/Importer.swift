@@ -24,8 +24,8 @@ import Model
 public enum Importer {
     /// Reads a file with a saved profile and previews it against the
     /// library: what `retire import <file> --profile <id> --dry-run` shows.
-    public static func preview(_ data: Data, profile: ImportProfile, library: Library) throws(ImportError)
-        -> ImportPreview {
-        try ImportSession(data: data, profile: profile).preview(against: library)
+    public static func preview(_ data: Data, profile: ImportProfile, library: Library,
+                               today: CalendarDate = .today()) throws(ImportError) -> ImportPreview {
+        try ImportSession(data: data, profile: profile).preview(against: library, today: today)
     }
 }

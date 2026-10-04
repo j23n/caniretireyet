@@ -26,6 +26,12 @@ struct TradeRow {
     var instrumentID: InstrumentID?
 }
 
+/// Whether a trades file's amount and gross columns write signed amounts.
+struct TradeSigns {
+    var amount = false
+    var gross = false
+}
+
 /// The trades layout (IMPORT.md, "Broker transactions"): each row becomes
 /// one trade, keyed by a stable ID (`TradeID.stable`), so importing the same
 /// file again finds the same trades.
@@ -155,23 +161,41 @@ extension PreviewBuilder {
     }
 
     /// Whether an amount column writes signed amounts: as its format says,
-    /// else (`auto`) whether any of its amounts is negative.
-    private func writesSigns(_ field: ImportField, _ columns: TradeColumns) -> Bool {
+    /// else (`auto`) whether any of `rows`' amounts is negative.
+    private func writesSigns(_ field: ImportField, _ columns: TradeColumns, rows: [TradeRow]) -> Bool {
         guard let column = columns[field] else { return false }
         switch session.effectiveFormat(forColumn: column).amountSign ?? .auto {
         case .asWritten: return true
         case .fromType: return false
         default:
-            return tradeRows.contains { ((field == .amount ? $0.amount : $0.gross) ?? 0) < 0 }
+            return rows.contains { ((field == .amount ? $0.amount : $0.gross) ?? 0) < 0 }
         }
+    }
+
+    /// Whether a row's type keeps it: with a type column, a word mapped to
+    /// a type other than `ignore`; without one, every row.
+    private func typeKeeps(_ row: TradeRow, _ columns: TradeColumns) -> Bool {
+        guard columns[.type] != nil else { return true }
+        guard !row.typeText.isEmpty, let mapped = session.tradeType(for: row.typeText).type else { return false }
+        return mapped != TradeTypeWords.ignore
     }
 
     /// Gives each row its type (the type column mapped, or the quantity's
     /// sign), and matches its account and instrument. Rows whose type isn't
     /// mapped, or is mapped to `ignore`, are left out.
+    ///
+    /// Whether amounts are signed is decided here, once, from the rows kept
+    /// (``tradeSigns``): a row left out says nothing about how the file
+    /// writes the others, so one ignored negative row doesn't turn every
+    /// withdrawal of a file of absolute amounts into a deposit. (Without a
+    /// type column, the rows left out have no direction, so no negative
+    /// amount either.)
     private mutating func readTradeTypes(_ columns: TradeColumns) {
-        let signedAmounts = writesSigns(.amount, columns)
-        let signedGross = writesSigns(.gross, columns)
+        let typed = tradeRows.filter { typeKeeps($0, columns) }
+        tradeSigns = TradeSigns(amount: writesSigns(.amount, columns, rows: typed),
+                                gross: writesSigns(.gross, columns, rows: typed))
+        let signedAmounts = tradeSigns.amount
+        let signedGross = tradeSigns.gross
         let cashCurrency = (columns[.amount] ?? columns[.gross]).flatMap(columnCurrency)
         var unmapped: [(value: String, count: Int)] = []
         var ignored = 0
@@ -272,8 +296,8 @@ extension PreviewBuilder {
     /// with the reason.
     mutating func makeTrades() {
         let columns = tradeColumns
-        let signedAmounts = writesSigns(.amount, columns)
-        let signedGross = writesSigns(.gross, columns)
+        let signedAmounts = tradeSigns.amount
+        let signedGross = tradeSigns.gross
         var accounts = library.accounts
         for proposal in accountProposals { accounts[proposal.account.id] = proposal.account }
         var instruments = library.instruments

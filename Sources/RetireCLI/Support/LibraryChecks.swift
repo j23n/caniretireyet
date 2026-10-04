@@ -13,7 +13,9 @@ import Tracker
 /// - check-ins whose net worth can't be computed (a missing price or FX rate);
 /// - plans naming accounts, tax systems, regimes or pension schemes that don't exist;
 /// - accounts with a tax wrapper no tax system defines;
-/// - import profiles naming accounts or instruments that don't exist;
+/// - import profiles naming accounts or instruments that don't exist, or
+///   with a layout this version doesn't import (a ledger journal's profile
+///   written by an earlier version);
 /// - trades that need their account's other trades or market data to check
 ///   (a missing FX rate, an opening without cost, a split of what isn't
 ///   held) and positions listed in a trades account's valuation that differ
@@ -169,10 +171,16 @@ struct LibraryChecks {
         }.sorted { $0.path < $1.path }
     }
 
-    /// Import profiles that name accounts or instruments that don't exist.
+    /// Import profiles that name accounts or instruments that don't exist,
+    /// or that this version can't use.
     private func importProfileReferences() -> [LoadIssue] {
         var issues: [LoadIssue] = []
         for profile in library.importProfiles.values.sorted(by: { $0.id < $1.id }) {
+            guard profile.layout.isKnown else {
+                issues.append(warning(LibraryFile.importProfile(profile.id).path, "layout: \"\(profile.layout)\" "
+                    + "isn't a layout this version imports, so the profile is kept but not offered."))
+                continue
+            }
             let accounts = Set(profile.columns.compactMap(\.account) + [profile.constants.account].compactMap { $0 }
                 + profile.matches.accounts.values).filter { library.accounts[$0] == nil }
             let instruments = Set(profile.columns.compactMap(\.instrument)

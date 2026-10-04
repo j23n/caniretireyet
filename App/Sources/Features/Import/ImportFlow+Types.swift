@@ -135,21 +135,4 @@ extension ImportFlow {
         default: "Automatic"
         }
     }
-
-    // MARK: Journals into trades accounts
-
-    /// The names of the library accounts a journal goes to that record
-    /// trades: they get the journal's trades instead of valuations.
-    var ledgerTradesAccounts: [String] {
-        (ledgerResult?.tradesAccounts(in: library) ?? []).map { library.accounts[$0]?.name ?? $0.rawValue }
-    }
-
-    /// Whether trades accounts also get valuations of their cash, as checks.
-    var ledgerCashChecks: Bool {
-        ledger?.session.settings.effectiveCashChecks ?? false
-    }
-
-    mutating func setLedgerCashChecks(_ checks: Bool) {
-        editLedger { $0.session.setCashChecks(checks) }
-    }
 }

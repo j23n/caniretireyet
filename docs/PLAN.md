@@ -216,7 +216,7 @@ On the Mac there are also tables for editing many valuations at once, keyboard n
     A provider without a history (a price source the app doesn't fetch, or a metal without futures) is listed with its dates, not skipped.
   - **Values on or before each date.** Each date takes the latest value on or before it: up to 7 days back in a daily series (weekends and holidays; two weeks for weekly rates), or the month's close in a monthly one. The price list and results show the day it's from.
   - **Then one request per currency** for the FX rates missing and those that convert a price into its instrument's currency; a rate the library has for the day is used as it is. **One request per index.**
-  - **Nothing is replaced.** Only dates without a record are filled: a price typed in, read from a file (an import, a journal's `P` or `@` prices) or fetched before stays. The records are written in one edit, into each date's month file, after a `fill-history` backup, with the source that answered (`yahoo` for gold from `GC=F`).
+  - **Nothing is replaced.** Only dates without a record are filled: a price typed in, read from a file (an import) or fetched before stays. The records are written in one edit, into each date's month file, after a `fill-history` backup, with the source that answered (`yahoo` for gold from `GC=F`).
   - **What's left** is listed per instrument with the dates still missing and why (no price source, CoinGecko's year and no Yahoo pair, no listing yet), with *Set Price…* for a date and *Choose a Price Source*.
   - A check-in on a past date uses the same sources for the instruments whose provider has no price for that date.
 
@@ -310,7 +310,7 @@ The importer works with any spreadsheet or export instead of a fixed layout. Det
 
 - Historical and bootstrapped return sequences. Variable withdrawal strategies (a guardrails rule is done: flexible spending, [PLANNER.md](PLANNER.md#flexible-spending)).
 - Tracking actual income and spending, to measure your real savings rate.
-- Cost basis from transactions: done, as trades ([TRADES.md](TRADES.md)), with the app's screens, broker transaction CSVs and ledger journals importing into them ([IMPORT.md](IMPORT.md)). Still to do: PIR and other tax wrappers, lots (FIFO), and carrying actual losses forward (minusvalenze) from the trades; the plan's simulation already nets and carries forward the losses of simulated sales, as each country allows ([TAXES.md](TAXES.md#what-a-system-can-tell-the-planner-and-whats-told)).
+- Cost basis from transactions: done, as trades ([TRADES.md](TRADES.md)), with the app's screens and broker transaction CSVs importing into them ([IMPORT.md](IMPORT.md)). Still to do: PIR and other tax wrappers, lots (FIFO), and carrying actual losses forward (minusvalenze) from the trades; the plan's simulation already nets and carries forward the losses of simulated sales, as each country allows ([TAXES.md](TAXES.md#what-a-system-can-tell-the-planner-and-whats-told)).
 - Tax systems for more countries (Switzerland and Germany are designed: [tax/CH.md](tax/CH.md), [tax/DE.md](tax/DE.md)). Until a country has one, the `generic` system approximates it.
 - Reading `.xlsx` and `.numbers` files directly.
 - Planning for a partner or household.

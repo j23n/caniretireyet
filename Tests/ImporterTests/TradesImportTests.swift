@@ -298,6 +298,27 @@ struct TradeSignTests {
         #expect(preview.cellErrors.isEmpty)
         #expect(preview.issues.contains { $0.kind == .ignoredTradeRows(count: 1) && $0.isNote })
     }
+
+    /// Rows left out (a type ignored or not mapped) don't decide how the
+    /// file writes its amounts: a negative amount among them doesn't make a
+    /// file of absolute amounts signed, which would turn its withdrawals
+    /// into deposits and its buys into money in.
+    @Test func rowsLeftOutDontDecideTheSigns() throws {
+        let csv = """
+            Tipo;Data;Titolo;Quantità;Prezzo;Importo
+            Versamento;02/01/2026;;;;1.000,00
+            Acquisto;05/01/2026;VWCE;5;100,00;505,00
+            Prelievo;10/01/2026;;;;100,00
+            Rimborso;12/01/2026;;;;-40,00
+            """
+        let (ignored, preview) = try Self.trades(csv) { $0.setTradeType(TradeTypeWords.ignore, for: "Rimborso") }
+        #expect(ignored.map(\.type) == [.deposit, .buy, .withdrawal])
+        #expect(ignored.map(\.amount) == [1000, -505, -100])
+        #expect(preview.issues.contains { $0.kind == .tradeAmountSigns(signed: false) })
+        #expect(!preview.issues.contains { if case .cashDirectionBySign = $0.kind { true } else { false } })
+        let unmapped = try Self.trades(csv).trades
+        #expect(unmapped.map(\.amount) == [1000, -505, -100])
+    }
 }
 
 /// Every sample export, end to end into the made-up example library.
@@ -405,21 +426,24 @@ struct BrokerSampleTests {
         let library = try Fixtures.exampleLibrary()
         let session = try Self.session("fineco", account: "conto-fineco")
         var preview = session.preview(against: library)
-        #expect(preview.accountChanges == [AccountChangeProposal(account: "conto-fineco", change: .recordTrades)])
-        #expect(preview.summary.tradesAccounts == 1)
-        // Accepted: the account records trades, and its trades are written.
-        let switched = preview.apply(to: library)
-        #expect(switched.tradesAccounts == ["conto-fineco"])
-        #expect(switched.changedAccounts.contains("conto-fineco"))
-        #expect(switched.library.accounts["conto-fineco"]?.valuation == .trades)
-        #expect(switched.library.trades(for: "conto-fineco").count == 8)
-        // Rejected: nothing changes for the account, and its trades are left out.
-        preview.accountChanges[0].isAccepted = false
+        // Proposed, but only made when accepted.
+        #expect(preview.accountChanges == [AccountChangeProposal(account: "conto-fineco", change: .recordTrades,
+                                                                 isAccepted: false)])
+        #expect(preview.summary.tradesAccounts == 0)
+        // Not accepted: nothing changes for the account, and its trades are left out.
         let kept = preview.apply(to: library)
         #expect(kept.library.accounts["conto-fineco"] == library.accounts["conto-fineco"])
         #expect(kept.library.trades(for: "conto-fineco").isEmpty)
         #expect(kept.skipped == 8)
         #expect(kept.added == 0)
+        // Accepted: the account records trades, and its trades are written.
+        preview.accountChanges[0].isAccepted = true
+        #expect(preview.summary.tradesAccounts == 1)
+        let switched = preview.apply(to: library)
+        #expect(switched.tradesAccounts == ["conto-fineco"])
+        #expect(switched.changedAccounts.contains("conto-fineco"))
+        #expect(switched.library.accounts["conto-fineco"]?.valuation == .trades)
+        #expect(switched.library.trades(for: "conto-fineco").count == 8)
     }
 
     @Test func degiro() throws {

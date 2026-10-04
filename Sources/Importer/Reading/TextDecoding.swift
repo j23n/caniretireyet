@@ -26,6 +26,10 @@ public enum TextDecoding {
     /// ISO-8859-1) gives way to UTF-8 when the bytes are valid UTF-8 with
     /// accented letters, as when a file is saved again from another app. A
     /// given UTF encoding that doesn't fit the bytes throws.
+    ///
+    /// A file that isn't text (an `.xlsx` or `.numbers` spreadsheet, which
+    /// is a ZIP archive, a PDF, or NUL bytes outside UTF-16) throws
+    /// ``ImportError/binaryFile(_:)`` instead of being read as Windows-1252.
     public static func decode(_ data: Data, encoding: TextEncodingName? = nil) throws(ImportError) -> DecodedText {
         let bytes = [UInt8](data)
         let name: TextEncodingName
@@ -36,6 +40,8 @@ public enum TextDecoding {
         } else {
             name = detectEncoding(bytes)
         }
+        let isUTF16 = ["utf16", "utf16le", "utf16be", "unicode"].contains(normalized(name))
+        if let kind = binaryKind(bytes, isUTF16: isUTF16) { throw .binaryFile(kind) }
         switch normalized(name) {
         case "utf8":
             let start = bytes.starts(with: utf8BOM) ? 3 : 0
@@ -85,6 +91,15 @@ public enum TextDecoding {
     }
 
     private static let utf8BOM: [UInt8] = [0xEF, 0xBB, 0xBF]
+
+    /// The kind of file that isn't text, by its first bytes; `nil` for text.
+    static func binaryKind(_ bytes: [UInt8], isUTF16: Bool) -> ImportError.BinaryFileKind? {
+        let zipSignatures: [[UInt8]] = [[0x50, 0x4B, 0x03, 0x04], [0x50, 0x4B, 0x05, 0x06], [0x50, 0x4B, 0x07, 0x08]]
+        if zipSignatures.contains(where: { bytes.starts(with: $0) }) { return .archive }
+        if bytes.starts(with: Array("%PDF".utf8)) { return .pdf }
+        if !isUTF16, bytes.contains(0) { return .other }
+        return nil
+    }
 
     private static func hasByteOrderMark(_ bytes: [UInt8]) -> Bool {
         bytes.starts(with: utf8BOM) || bytes.starts(with: [0xFF, 0xFE]) || bytes.starts(with: [0xFE, 0xFF])

@@ -17,8 +17,8 @@ struct TradesGroupCommand: AsyncParsableCommand {
             retire trades convert <account> --to trades    record an account's trades (or --to snapshots)
 
             Adding and removing write right away, after a backup (--dry-run shows what they would \
-            do); convert previews unless you pass --apply. Broker exports and ledger journals are \
-            imported with `retire import`.
+            do); convert previews unless you pass --apply. Broker exports are imported with \
+            `retire import`.
             """,
         subcommands: [TradesListCommand.self, TradesAddCommand.self, TradesRemoveCommand.self,
                       TradesSummaryCommand.self, TradesConvertCommand.self])

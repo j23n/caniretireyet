@@ -41,8 +41,10 @@ struct ProfileFit: Hashable, Sendable, Identifiable {
 
     /// Reads `data` with each profile and sorts them: those that fit first,
     /// then the fewest columns out of line, the most imported, then by name.
+    /// Profiles with a layout this version doesn't import (a ledger
+    /// journal's, written by an earlier version) are left out.
     static func rank(_ data: Data, profiles: [ImportProfile]) -> [ProfileFit] {
-        profiles.filter { !$0.isLedger }.map { fit(data, profile: $0) }.sorted { lhs, rhs in
+        profiles.filter(\.layout.isKnown).map { fit(data, profile: $0) }.sorted { lhs, rhs in
             let left = (lhs.fits ? 0 : 1, lhs.problem == nil ? 0 : 1, lhs.missing + lhs.unknown, -lhs.imported)
             let right = (rhs.fits ? 0 : 1, rhs.problem == nil ? 0 : 1, rhs.missing + rhs.unknown, -rhs.imported)
             if left != right { return left < right }
@@ -90,10 +92,8 @@ extension ImportProfile {
     /// A line about the profile for lists, e.g. "A row per date · 4 columns
     /// imported · dd/MM/yyyy · imports/net-worth-sheet.json".
     var importSummary: String {
-        if isLedger {
-            let accounts = matches.accounts.count
-            return ["Ledger journal", accounts == 1 ? "1 account" : "\(accounts) accounts",
-                    LedgerChoices.frequencyName(ledger?.effectiveFrequency ?? .month),
+        guard layout.isKnown else {
+            return ["A \(layout.rawValue) layout, which this version doesn't import",
                     LibraryFile.importProfile(id).path].joined(separator: " · ")
         }
         let imported = columns.filter(\.isImported).count

@@ -1,5 +1,0 @@
-; Made-up journal split into files: accounts, then one file per month.
-; The alias applies to the files included after it.
-alias bank = Assets:Bank
-include accounts.journal
-include 2024/*.journal

@@ -171,7 +171,7 @@ extension ImportSession {
     /// A header with camel case and underscores spaced out, for keywords:
     /// `NetCash` → `Net Cash`.
     static func tradeHeader(_ header: String?) -> String? {
-        header.map(LedgerMapper.spaced)
+        header.map(TextTools.spaced)
     }
 
     /// What a text column of a trades file holds, by its header, else by its values.

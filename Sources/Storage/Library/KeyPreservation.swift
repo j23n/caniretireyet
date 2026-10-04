@@ -260,7 +260,6 @@ extension KeyPreservation {
         ]),
         "constants": .init(ImportConstants.self),
         "matches": .init(ImportMatches.self),
-        "ledger": .init(LedgerImportSettings.self),
     ])
 
     static let baseline = KeyPreservation(Baseline.self, objects: [

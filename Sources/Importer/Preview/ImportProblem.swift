@@ -8,6 +8,12 @@ public enum ImportProblem: Error, Hashable, Sendable, CustomStringConvertible {
     case notADate(pattern: String)
     /// The text reads as a date that doesn't exist, e.g. 31/02/2024.
     case noSuchDate
+    /// A date before 1900: most likely a typo.
+    case dateBefore1900
+    /// A date more than a week after today, `latest` being the last day
+    /// allowed: most likely a typo (31/01/2204), which would otherwise
+    /// become the file's last date.
+    case dateInTheFuture(latest: CalendarDate)
     /// A value in a row whose date cell is empty.
     case missingDate
     /// The row has a value but no account or instrument name for it.
@@ -43,6 +49,8 @@ public enum ImportProblem: Error, Hashable, Sendable, CustomStringConvertible {
         case .notANumber(let format): "not a number in \(format)"
         case .notADate(let pattern): "not a date in \(pattern)"
         case .noSuchDate: "no such date"
+        case .dateBefore1900: "before 1900"
+        case .dateInTheFuture(let latest): "after \(latest), more than a week from today"
         case .missingDate: "the row has no date"
         case .missingName(let field): "the row has no \(field.rawValue)"
         case .unknownCurrency(let text): "“\(text)” isn't a currency"
