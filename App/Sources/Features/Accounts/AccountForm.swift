@@ -196,6 +196,9 @@ struct AccountForm: Hashable, Sendable {
     /// (e.g. imported history of a brokerage that otherwise holds
     /// positions). The asset mix applies to those.
     private(set) var balanceValueCount = 0
+    /// Whether the edited account has values or trades, which are in its
+    /// currency: the currency can't change then (``locksCurrency``).
+    private(set) var hasHistory = false
 
     /// A new account: today, in the base currency, with the defaults for a
     /// current account.
@@ -217,10 +220,12 @@ struct AccountForm: Hashable, Sendable {
         original = nil
     }
 
-    /// The fields of an existing account.
+    /// The fields of an existing account; `hasHistory`: it has values or
+    /// trades.
     init(editing account: Account, residence: CountryCode? = nil, balanceValueCount: Int = 0,
-         locale: Locale = .current) {
+         hasHistory: Bool = false, locale: Locale = .current) {
         self.balanceValueCount = balanceValueCount
+        self.hasHistory = hasHistory
         kind = account.kind
         name = account.name
         institution = account.institution ?? ""
@@ -239,6 +244,11 @@ struct AccountForm: Hashable, Sendable {
     }
 
     var isNew: Bool { original == nil }
+
+    /// Whether the currency can't be changed: the account has values or
+    /// trades, whose amounts are in its currency and would otherwise be
+    /// read in the new one ($10,000 becoming €10,000).
+    var locksCurrency: Bool { original != nil && hasHistory }
 
     /// Changes the kind, and with it the defaults not chosen by hand.
     mutating func setKind(_ kind: AccountKind) {
@@ -298,11 +308,12 @@ struct AccountForm: Hashable, Sendable {
         isNew && Self.offersTrades(kind)
     }
 
-    /// How the account records its values: as written for an edited
-    /// account (else its kind's default); for a new one, ``tracking`` where
-    /// it's offered, else the kind's default.
+    /// How the account records its values: an edited account's own mode,
+    /// which changing its kind doesn't change (see ``account(id:locale:)``);
+    /// for a new one, ``tracking`` where it's offered, else the kind's
+    /// default.
     var valuationMode: ValuationMode {
-        if let original { return original.valuation ?? kind.defaultValuationMode }
+        if let original { return original.valuationMode }
         return offersTracking ? tracking : kind.defaultValuationMode
     }
 
@@ -352,15 +363,20 @@ struct AccountForm: Hashable, Sendable {
     /// valuation mode, wrapper details); a new one gets `id`. A pension
     /// fund's joining date follows a moved opening date if it was the
     /// opening date (``Account/moveOpening(to:)``).
+    ///
+    /// An edited account keeps how its values are read: its valuation mode,
+    /// written out when the new kind's default would differ (a current
+    /// account made a brokerage stays a balance), and its currency once it
+    /// has history (``locksCurrency``).
     func account(id: AccountID, locale: Locale = .current) -> Account {
         var account = original ?? Account(id: id, name: "", kind: kind, currency: currency, opened: opened)
-        if original == nil {
+        if original?.kind != kind {
             // Written only when it isn't the kind's default (brokerage defaults to holdings).
             account.valuation = valuationMode == kind.defaultValuationMode ? nil : valuationMode
         }
         account.name = trimmedName
         account.kind = kind
-        account.currency = currency
+        account.currency = locksCurrency ? account.currency : currency
         account.moveOpening(to: opened)
         let trimmedInstitution = institution.trimmingCharacters(in: .whitespacesAndNewlines)
         account.institution = trimmedInstitution.isEmpty ? nil : trimmedInstitution

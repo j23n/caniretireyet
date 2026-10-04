@@ -260,6 +260,7 @@ struct AccountDetailsFields: View {
                     Text(CurrencyChoices.name(of: code, locale: locale)).tag(code)
                 }
             }
+            .disabled(form.locksCurrency)
             Picker("Country", selection: $form.country) {
                 Text("None").tag(CountryCode?.none)
                 ForEach(countries, id: \.self) { code in
@@ -270,10 +271,17 @@ struct AccountDetailsFields: View {
         } header: {
             Text("Details")
         } footer: {
-            Text(form.isNew
-                ? "Set it to when you opened the account, to add its history. The country is the institution's."
-                : "The account counts from the day it opens. The country is the institution's.")
+            Text(footer)
         }
+    }
+
+    private var footer: String {
+        if form.isNew {
+            return "Set it to when you opened the account, to add its history. The country is the institution's."
+        }
+        let currency = form.locksCurrency
+            ? " The currency can't change: the account's values and trades are in \(form.currency.rawValue)." : ""
+        return "The account counts from the day it opens. The country is the institution's." + currency
     }
 
     private var kinds: [AccountKind] {
