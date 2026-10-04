@@ -15,17 +15,44 @@ public struct PlanAssumptions: Hashable, Sendable, KnownKeysProviding {
     /// 2% a year.
     public static let defaultInflation = Decimal.exactly("0.02")
 
-    /// Real returns and volatilities: equity 4.5% (mean) at 17% volatility,
-    /// a median of about 3.1% a year; bonds 1% at 6% (median 0.8%); cash 0%
-    /// at 1% (median 0.0%); gold 1% at 15% (median −0.1%). Crypto is given
-    /// by its median, 0% at 70% volatility (a mean of about 16.6%): with a
-    /// mean of 0% its median would be −18% a year.
+    /// Real returns and volatilities, each given by its median (the typical
+    /// year, what a portfolio rebalanced every year compounds at): equity
+    /// 5.0% at 17% volatility (a mean of about 6.3%), bonds 1.5% at 6%
+    /// (mean 1.7%), cash 0.5% at 1% (mean 0.5%), gold 1.0% at 15% (mean
+    /// 2.1%), crypto 0% at 70% (mean 16.6%).
+    ///
+    /// The medians are long-run world history, from one source: the real
+    /// returns compounded since 1900 in the Dimson–Marsh–Staunton Global
+    /// Investment Returns Yearbook (UBS, 2025 and 2026 editions), rounded
+    /// down to the half percent: world equities 5.2% a year, world bonds
+    /// 1.7%, bills 0.5%, the real gold price 1.3% (US equities alone:
+    /// 6.6%). Crypto has no long history, so its median is 0%. Forward-
+    /// looking estimates from large asset managers are often lower (3–5%
+    /// for equities), and history needn't repeat: these are placeholders
+    /// to review, not forecasts.
+    ///
+    /// Until this version the defaults were means: equity 4.5% at 17% (a
+    /// median of 3.1%), bonds 1%, cash 0%, gold 1% (``previousDefaultReturns``).
     public static let defaultReturns: [AssetClass: ReturnAssumption] = [
-        .equity: ReturnAssumption(real: .exactly("0.045"), volatility: .exactly("0.17")),
-        .bonds: ReturnAssumption(real: .exactly("0.01"), volatility: .exactly("0.06")),
-        .cash: ReturnAssumption(real: 0, volatility: .exactly("0.01")),
-        .gold: ReturnAssumption(real: .exactly("0.01"), volatility: .exactly("0.15")),
+        .equity: ReturnAssumption(medianReal: .exactly("0.05"), volatility: .exactly("0.17")),
+        .bonds: ReturnAssumption(medianReal: .exactly("0.015"), volatility: .exactly("0.06")),
+        .cash: ReturnAssumption(medianReal: .exactly("0.005"), volatility: .exactly("0.01")),
+        .gold: ReturnAssumption(medianReal: .exactly("0.01"), volatility: .exactly("0.15")),
         .crypto: ReturnAssumption(medianReal: 0, volatility: .exactly("0.70")),
+    ]
+
+    /// The defaults of earlier versions, newest first: equity a mean of 4.5%
+    /// at 17%, bonds 1% at 6%, cash 0% at 1%, gold 1% at 15%, crypto a mean
+    /// of 0% at 70%. Earlier versions of the app and the CLI wrote a class's
+    /// default into the plan when one of its numbers was edited, so a plan
+    /// that repeats one exactly most likely never chose it
+    /// (``previousDefaultReturn(for:)``).
+    public static let previousDefaultReturns: [AssetClass: [ReturnAssumption]] = [
+        .equity: [ReturnAssumption(real: .exactly("0.045"), volatility: .exactly("0.17"))],
+        .bonds: [ReturnAssumption(real: .exactly("0.01"), volatility: .exactly("0.06"))],
+        .cash: [ReturnAssumption(real: 0, volatility: .exactly("0.01"))],
+        .gold: [ReturnAssumption(real: .exactly("0.01"), volatility: .exactly("0.15"))],
+        .crypto: [ReturnAssumption(real: 0, volatility: .exactly("0.70"))],
     ]
 
     /// Equity–bonds 0.1 and equity–crypto 0.4; other pairs 0.
@@ -96,6 +123,30 @@ extension PlanAssumptions {
         } else {
             returns[assetClass] = nil
         }
+    }
+
+    /// The earlier default (``previousDefaultReturns``) that the plan's own
+    /// assumption for `assetClass` repeats exactly, return and volatility
+    /// as written (its income yield is the plan's own); `nil` when the plan
+    /// sets nothing for the class or sets anything else. Such a plan most
+    /// likely didn't choose it: an earlier version wrote it.
+    public func previousDefaultReturn(for assetClass: AssetClass) -> ReturnAssumption? {
+        guard var own = returns[assetClass] else { return nil }
+        own.incomeYield = nil
+        return Self.previousDefaultReturns[assetClass]?.first { $0 == own }
+    }
+
+    /// Goes back to the default return and volatility for `assetClass`,
+    /// keeping the plan's income yield: the plan's entry goes, unless it
+    /// has an income yield, which is then kept with the default's return.
+    /// A class without a default loses its entry.
+    public mutating func useDefaultReturn(for assetClass: AssetClass) {
+        guard var assumption = Self.defaultReturns[assetClass] else {
+            returns[assetClass] = nil
+            return
+        }
+        assumption.incomeYield = returns[assetClass]?.incomeYield
+        setReturnAssumption(assumption, for: assetClass)
     }
 }
 

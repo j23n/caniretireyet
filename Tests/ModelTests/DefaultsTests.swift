@@ -115,7 +115,7 @@ struct PlanDefaultsTests {
         #expect(plan.portfolio.effectiveStart == .latestCheckIn)
         #expect(plan.assumptions.effectiveInflation == Decimal(fileString: "0.02"))
         #expect(plan.assumptions.returnAssumption(for: .equity)
-            == ReturnAssumption(real: Decimal(fileString: "0.045")!, volatility: Decimal(fileString: "0.17")!))
+            == ReturnAssumption(medianReal: Decimal(fileString: "0.05")!, volatility: Decimal(fileString: "0.17")!))
         #expect(plan.assumptions.returnAssumption(for: .realEstate) == nil)
         #expect(plan.assumptions.correlation(.bonds, .equity) == Decimal(fileString: "0.1"))
         #expect(plan.assumptions.correlation(.gold, .gold) == 1)

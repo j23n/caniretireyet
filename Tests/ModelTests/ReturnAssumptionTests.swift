@@ -98,13 +98,73 @@ struct ReturnAssumptionTests {
         let crypto = try #require(PlanAssumptions.defaultReturns[.crypto])
         #expect(crypto.isGivenByMedian && crypto.medianReal == 0 && crypto.volatility == Self.d("0.7"))
         #expect(abs(crypto.meanReturn - 0.16629) < 1e-4)
-        // The others are given by their mean; their medians, as documented.
-        let medians: [AssetClass: Double] = [.equity: 0.0314, .bonds: 0.0082, .cash: -0.00005, .gold: -0.001]
-        for (assetClass, median) in medians {
+    }
+
+    /// The defaults are given by their median, long-run history rounded down
+    /// to the half percent (PLANNER.md, "Returns"), with the means they imply.
+    @Test func defaultsAreLongRunMedians() throws {
+        let expected: [(AssetClass, median: String, volatility: String, mean: Double)] = [
+            (.equity, "0.05", "0.17", 0.0633), (.bonds, "0.015", "0.06", 0.0168), (.cash, "0.005", "0.01", 0.0051),
+            (.gold, "0.01", "0.15", 0.0208), (.crypto, "0", "0.7", 0.1663),
+        ]
+        #expect(Set(PlanAssumptions.defaultReturns.keys) == Set(expected.map { $0.0 }))
+        for (assetClass, median, volatility, mean) in expected {
             let assumption = try #require(PlanAssumptions.defaultReturns[assetClass])
-            #expect(!assumption.isGivenByMedian)
-            #expect(abs(assumption.medianReturn - median) < 0.0002, "\(assetClass): \(assumption.medianReturn)")
+            #expect(assumption.isGivenByMedian && assumption.medianReal == Self.d(median), "\(assetClass)")
+            #expect(assumption.volatility == Self.d(volatility) && assumption.incomeYield == nil, "\(assetClass)")
+            #expect(abs(assumption.meanReturn - mean) < 0.0001, "\(assetClass): \(assumption.meanReturn)")
         }
+    }
+
+    // MARK: Previous defaults
+
+    @Test func aPlanRepeatingAnEarlierDefaultIsRecognised() throws {
+        // The defaults of earlier versions, by their mean; their medians as documented then.
+        let medians: [AssetClass: Double] = [.equity: 0.0314, .bonds: 0.0082, .cash: -0.00005, .gold: -0.001,
+                                             .crypto: -0.1808]
+        for (assetClass, median) in medians {
+            let previous = try #require(PlanAssumptions.previousDefaultReturns[assetClass]?.first)
+            #expect(!previous.isGivenByMedian)
+            #expect(abs(previous.medianReturn - median) < 0.0002, "\(assetClass): \(previous.medianReturn)")
+            #expect(previous != PlanAssumptions.defaultReturns[assetClass])
+        }
+
+        // As an earlier version wrote them, one with an income yield of the plan's own.
+        let written = #"{"returns":{"bonds":{"real":"0.010","volatility":"0.06"},"#
+            + #""cash":{"real":"0","volatility":"0.02"},"crypto":{"real":"0","volatility":"0.70"},"#
+            + #""equity":{"incomeYield":"0.02","real":"0.045","volatility":"0.17"},"#
+            + #""gold":{"medianReal":"0.01","volatility":"0.15"}}}"#
+        let assumptions = try decode(PlanAssumptions.self, written)
+        #expect(assumptions.previousDefaultReturn(for: .equity)
+            == ReturnAssumption(real: Self.d("0.045"), volatility: Self.d("0.17")))
+        #expect(assumptions.previousDefaultReturn(for: .bonds) != nil)  // 0.010 is 0.01
+        #expect(assumptions.previousDefaultReturn(for: .crypto) != nil)
+        // Not the same: another volatility, a median instead of a mean, nothing set (the current default).
+        #expect(assumptions.previousDefaultReturn(for: .cash) == nil)
+        #expect(assumptions.previousDefaultReturn(for: .gold) == nil)
+        #expect(PlanAssumptions().previousDefaultReturn(for: .equity) == nil)
+        #expect(assumptions.previousDefaultReturn(for: .realEstate) == nil)
+    }
+
+    @Test func usingTheDefaultRemovesThePlansEntryButKeepsItsIncomeYield() throws {
+        var assumptions = PlanAssumptions(returns: [
+            .equity: ReturnAssumption(real: Self.d("0.045"), volatility: Self.d("0.17"), incomeYield: Self.d("0.02")),
+            .bonds: ReturnAssumption(real: Self.d("0.01"), volatility: Self.d("0.06")),
+            .realEstate: ReturnAssumption(real: Self.d("0.03"), volatility: Self.d("0.1")),
+        ])
+        assumptions.useDefaultReturn(for: .bonds)
+        #expect(assumptions.returns[.bonds] == nil)
+        #expect(assumptions.returnAssumption(for: .bonds) == PlanAssumptions.defaultReturns[.bonds])
+
+        // The income yield is the plan's own: kept, with the default's return.
+        assumptions.useDefaultReturn(for: .equity)
+        var equity = try #require(PlanAssumptions.defaultReturns[.equity])
+        equity.incomeYield = Self.d("0.02")
+        #expect(assumptions.returns[.equity] == equity && assumptions.previousDefaultReturn(for: .equity) == nil)
+
+        // A class without a default loses its entry.
+        assumptions.useDefaultReturn(for: .realEstate)
+        #expect(assumptions.returns.keys.sorted() == [.equity])
     }
 
     @Test func defaultsAreNotWrittenIntoThePlan() throws {

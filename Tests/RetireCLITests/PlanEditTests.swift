@@ -18,9 +18,14 @@ struct PlanEditTests {
         #expect(lines.contains("  1. INPS (it.inps) · claimed as early as possible"))
         #expect(lines.contains("  2. State pension from previous country (fixed) · 4,800 a year from 67"))
         #expect(lines.contains("  1. Fondo pensione (fondo-pensione) · 5,000 EUR a year until retirement"))
-        // Each class's mean and median, whichever the plan gives.
-        #expect(lines.contains("  equity   4.5%    3.1%       17.0%             –  mean"))
+        // Each class's mean and median, whichever the plan gives. The base plan writes out the defaults of
+        // earlier versions, which are marked, with the command that uses the current ones.
+        #expect(lines.contains("  equity   4.5%    3.1%       17.0%             –  mean (previous default)"))
         #expect(lines.contains("  crypto  16.6%    0.0%       70.0%             –  median"))
+        #expect(lines.contains("  The current defaults are medians of 5.0% for equity, 1.5% for bonds, 0.5% for cash, "
+            + "1.0% for gold. To use them:"))
+        #expect(lines.contains("  retire plan set --return equity=default --return bonds=default --return cash=default "
+            + "--return gold=default"))
 
         let json = try parseJSON(await retire(["plan", "show", "--library", library.path, "--plan",
                                                "part-time-from-50", "--json"]).output)
@@ -28,10 +33,29 @@ struct PlanEditTests {
         #expect(json["currency"] as? String == "EUR")
         #expect(json["ownCurrency"] == nil)
         let returns = try #require(json["returns"] as? [String: [String: Any]])
-        #expect(returns["equity"]?["real"] as? String == "0.045")
-        #expect(returns["equity"]?["givenAs"] as? String == "mean" && returns["equity"]?["isDefault"] as? Bool == true)
+        // The defaults, given by their median.
+        #expect(returns["equity"]?["median"] as? String == "0.05" && returns["equity"]?["real"] as? String == "0.063334")
+        #expect(returns["equity"]?["givenAs"] as? String == "median" && returns["equity"]?["isDefault"] as? Bool == true)
+        #expect(returns["equity"]?["isPreviousDefault"] as? Bool == false)
         #expect(returns["crypto"]?["median"] as? String == "0" && returns["crypto"]?["real"] as? String == "0.16629")
         #expect(returns["crypto"]?["givenAs"] as? String == "median")
+    }
+
+    @Test func aPreviousDefaultGoesBackToTheCurrentOne() async throws {
+        let library = try TemporaryFolder.exampleLibrary()
+        let shown = try parseJSON(await retire(["plan", "show", "--library", library.path, "--json"]).output)
+        let returns = try #require(shown["returns"] as? [String: [String: Any]])
+        #expect(returns["bonds"]?["isPreviousDefault"] as? Bool == true && returns["bonds"]?["isDefault"] as? Bool == false)
+        #expect(returns["crypto"]?["isPreviousDefault"] as? Bool == false)
+
+        let run = await retire(["plan", "set", "--library", library.path, "--return", "equity=default"])
+        #expect(run.status == 0, "\(run.all)")
+        #expect(run.output.hasPrefix("Return of equity: median 5.0% (mean 6.3%) at 17.0% volatility, the default.\n"))
+        let plan = try #require(try library.load().plans["base"])
+        #expect(plan.assumptions.returns[.equity] == nil && plan.assumptions.returns[.bonds] != nil)
+        let lines = await retire(["plan", "show", "--library", library.path]).output.split(separator: "\n").map(String.init)
+        #expect(lines.contains("  equity   6.3%    5.0%       17.0%             –  median (default)"))
+        #expect(lines.contains("  retire plan set --return bonds=default --return cash=default --return gold=default"))
     }
 
     @Test func setChangesAReturnByItsMeanOrItsMedian() async throws {

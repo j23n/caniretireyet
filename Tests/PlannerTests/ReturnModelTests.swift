@@ -152,7 +152,9 @@ struct ReturnModelTests {
         var issues: [PlanIssue] = []
         let model = ReturnModel(assumptions: PlanAssumptions(), heldClasses: [.equity, .realEstate], issues: &issues)
         #expect(issues.map(\.code) == ["planner.noReturnAssumption"])
-        #expect(model.expected == [0.045, 0] && model.volatility == [0.17, 0])
+        // Equity's default, a median of 5% at 17% volatility, is a mean of about 6.33%.
+        #expect(abs(model.expected[0] - 0.063334) < 1e-6 && model.expected[1] == 0)
+        #expect(model.volatility == [0.17, 0])
     }
 
     @Test func eventDrawsFollowTheirProbabilities() {
