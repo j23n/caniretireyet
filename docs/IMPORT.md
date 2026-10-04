@@ -19,7 +19,7 @@ It also imports a broker's transactions as trades (see [Broker transactions](#br
 - **Formats:** CSV and TSV with any delimiter (`,` `;` tab `|`) and quoted fields. Numbers and Excel can export these.
 - **Encodings:** UTF-8 (with or without BOM), UTF-16, and Windows-1252 / ISO-8859-1. Excel on Windows often exports Italian files in Windows-1252.
 - **Rows:** a header row anywhere (with rows above it skipped), empty rows ignored, and footer rows such as "Totale" excluded by a rule you can edit or turn off (by default, rows starting with "Totale" or "Total").
-- **Later:** reading `.xlsx` and `.numbers` files directly.
+- **Later:** reading `.xlsx` and `.numbers` files directly. For now, a file that isn't text (an `.xlsx` or `.numbers` spreadsheet, a PDF, or anything with NUL bytes outside UTF-16) isn't read: the error says to export it as CSV.
 
 ## Layouts
 

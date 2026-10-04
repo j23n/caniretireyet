@@ -385,6 +385,17 @@ struct ImportTests {
         #expect(!library.exists("backups"))
     }
 
+    /// An .xlsx (a ZIP archive) isn't read as text: the error says to export CSV.
+    @Test func aSpreadsheetFileSaysToExportCSV() async throws {
+        let library = try TemporaryFolder.exampleLibrary()
+        let files = try TemporaryFolder()
+        try files.write("net-worth.xlsx", Data([0x50, 0x4B, 0x03, 0x04, 0x14, 0x00, 0x06, 0x00]))
+        let run = await runCLI(["import", files.url("net-worth.xlsx").path, "--library", library.path])
+        #expect(run.status == 1)
+        #expect(run.errors.contains("This is a spreadsheet file (such as .xlsx or .numbers), not a CSV file. "
+            + "Export it as CSV from Excel or Numbers, and import that."), "\(run.all)")
+    }
+
     @Test func argumentsAreChecked() async throws {
         let library = try TemporaryFolder.exampleLibrary()
         let noFile = await runCLI(["import", "--library", library.path])
