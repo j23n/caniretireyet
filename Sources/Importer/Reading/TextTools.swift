@@ -63,6 +63,24 @@ enum TextTools {
         }
     }
 
+    /// Underscores and hyphens as spaces, and a space between a lowercase
+    /// letter and the uppercase one after it, with runs of spaces collapsed:
+    /// `CreditCard` → `Credit Card`, `conto_corrente` → `conto corrente`.
+    static func spaced(_ text: String) -> String {
+        var result = ""
+        var previous: Character?
+        for character in text {
+            if character == "_" || character == "-" {
+                result.append(" ")
+            } else {
+                if let previous, previous.isLowercase, character.isUppercase { result.append(" ") }
+                result.append(character)
+            }
+            previous = character
+        }
+        return result.split(separator: " ").joined(separator: " ")
+    }
+
     /// Whether the character is an ASCII digit.
     static func isDigit(_ character: Character) -> Bool {
         character.isASCII && character.isWholeNumber

@@ -163,22 +163,6 @@ final class AppNavigation {
     /// screen takes it with ``takePendingImport()``.
     private(set) var pendingImport: URL?
 
-    /// Starts an import of several files dropped together, e.g. ledger
-    /// journals split by year: the first as ``startImport(_:)`` does, the
-    /// others for the Import screen to take with ``takeAdditionalImportFiles()``.
-    func startImport(files: [URL]) {
-        additionalImportFiles = Array(files.dropFirst())
-        startImport(files.first)
-    }
-
-    /// Files given with the one being imported.
-    private(set) var additionalImportFiles: [URL] = []
-
-    func takeAdditionalImportFiles() -> [URL] {
-        defer { additionalImportFiles = [] }
-        return additionalImportFiles
-    }
-
     func takePendingImport() -> URL? {
         defer { pendingImport = nil }
         return pendingImport

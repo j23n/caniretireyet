@@ -2,7 +2,7 @@
 
 Imports any spreadsheet or export by mapping its columns to what the library stores. It handles whatever date and number formats the file uses, and a mapping can be saved and reused, so the next file of the same shape imports in one step.
 
-It also imports a broker's transactions as trades (see [Broker transactions](#broker-transactions)) and ledger-cli and hledger journals (see [Ledger journals](#ledger-journals)).
+It also imports a broker's transactions as trades (see [Broker transactions](#broker-transactions)).
 
 ## Steps
 
@@ -118,7 +118,7 @@ Every column has a format. The file sets the defaults, a column can override the
   - A record the library has without some of the file's values, such as a purchase cost, is *updated*: the missing values are filled in, and nothing in the library changes.
   - A record with a different value follows the policy you choose: overwrite, keep the existing value, or decide one by one. Conflicts still undecided when you import are kept. Switching a valuation between a balance and positions is a conflict too.
   - Importing the same file twice therefore changes nothing.
-- **Flows after inserted values.** A valuation's flow is measured from the one before it. When the import adds a valuation before one the library already has (a month between two check-ins), or changes the one before it, that later valuation's flow is worked out again if it was automatic (the default for the account's kind, as a check-in fills it in), and kept if it was typed, as when a value is added in the app ([UI.md](UI.md#adding-history)). The app's Preview says how many, and `retire import --apply` lists them. They're written, backed up and undone with the import. A journal's own valuations keep the flows the journal gives them.
+- **Flows after inserted values.** A valuation's flow is measured from the one before it. When the import adds a valuation before one the library already has (a month between two check-ins), or changes the one before it, that later valuation's flow is worked out again if it was automatic (the default for the account's kind, as a check-in fills it in), and kept if it was typed, as when a value is added in the app ([UI.md](UI.md#adding-history)). The app's Preview says how many, and `retire import --apply` lists them. They're written, backed up and undone with the import.
 - **Undo.** Before writing, the files about to change are copied to `backups/<timestamp>-import/`, and after writing, the files as the import wrote them are recorded in the same backup. "Undo import" (and `retire import --undo`) puts back what the import changed and leaves later edits alone: a record you changed after the import keeps its new value, and a file you changed otherwise is left as it is. It lists what it left in place ([FILE_FORMAT.md](FILE_FORMAT.md#backups)).
 
 ## Import profiles
@@ -172,6 +172,8 @@ Other fields a profile can have, all optional:
 | `tradeTypes` | Trades layout: the file's type words, as written, → trade types, or `ignore` to leave their rows out. Matched exactly, then ignoring case and accents. See [Types](#types). |
 | `matches` | Names found in files matched to IDs, remembered from earlier imports: `{ "accounts": { "Fineco": "conto-fineco" }, "instruments": { … } }`. |
 | `onConflict` | `ask` (the default), `overwrite` or `keep`. |
+
+A profile with a layout this version doesn't know, such as `ledger` (a ledger-cli or hledger journal's profile, written by an earlier version that imported journals), is kept as it is but not offered, and `retire validate` warns about it.
 
 ## Broker transactions
 
@@ -303,152 +305,6 @@ The importer is tested with made-up exports in the shapes of real ones (`Tests/I
 - **Degiro-like** (`degiro.csv`): English, `,`, `dd-MM-yyyy`; no type column (sells are negative quantities, buys negative amounts), a stock priced in dollars with the amount in euros at Degiro's rate, costs as negative amounts.
 - **IBKR-like** (`ibkr.csv`): a flex query with camel-case headers, an account column, `BUY`/`SELL`, `Dividends`, `Withholding Tax`, `Broker Interest Received`, `Other Fees`, and `Deposits/Withdrawals` both ways.
 
-## Ledger journals
-
-Plain-text accounting journals, as [ledger-cli](https://ledger-cli.org) and [hledger](https://hledger.org) read them, can be imported too. A journal records every transaction, so the importer works out what a spreadsheet can't give: each account's value month by month, the money added or taken out, and what holdings cost.
-
-**Steps.** Files → Accounts → Commodities → Preview → Done. Preview, conflicts, the backup and Undo are the same as for a spreadsheet, and the mapping can be saved as a profile, so next month's import is one step.
-
-### Files
-
-- Choose one journal or several at once, e.g. one per year (`.ledger`, `.journal`, `.hledger`, `.j`, `.dat`). The files they `include` are read too.
-- Several files are read as one journal. A file both given and included is read once. Transactions are sorted by date, keeping the files' order within a day, before balances, assertions and assignments are worked out.
-- Reading is lenient: a transaction that can't be read, or doesn't balance, is reported with its file and line and left out; the rest is imported.
-- In the app, the files you choose can be read, but files they include from the same folder may not be (the app's sandbox). They're listed, with **Choose the Journal's Folder…** to let the app read them.
-
-### What's read
-
-| | Supported |
-| --- | --- |
-| Dates | `2024-01-31`, `2024/01/31`, `2024.01.31`; `1/31` after `year 2024` (or `Y2024`). A secondary date (`2024-01-31=2024-02-02`) is ignored. |
-| Transactions | Status `*` or `!`, a `(code)`, the description, a `; comment`. |
-| Postings | An account name (single spaces allowed), then two spaces or a tab, then the amount. One posting may leave its amount out: it gets what balances the transaction, one posting per commodity if needed. |
-| Amounts | The commodity before or after, with or without a space: `€5`, `5 EUR`, `-5.00 EUR`, `EUR -5`, `-€5`, `€-5`; quoted commodities (`"VWCE.MI"`, `"BTC-2"`); thousands separators. |
-| Decimal comma | From `decimal-mark ,`, or per commodity from a format (`commodity 1.000,00 EUR`, a `format` line, `D 1.000,00 EUR`). Otherwise a number shows its own mark (`1.234,56`, `12,5`), and one that could be either (`1.000`) is read the way the file's other numbers are. |
-| Prices | `@ unit price`, `@@ total price`, lot prices `{unit}`, `{{total}}`, `{=fixed}` (lot dates `[…]` and notes `(…)` are ignored). A posting with a lot price balances at it, as in ledger. Two commodities exchanged without a price get one inferred: the first posting's commodity is priced in the other. |
-| Balance assertions | `= 100 EUR`, `== 100 EUR` (nothing else in the account), `=* 100 EUR` (with subaccounts), `= 0` (nothing at all). They're checked in date order across all files; one that fails is a warning, and the transaction is still imported. |
-| Balance assignments | A posting with only `= 100 EUR` gets the amount that makes the balance 100 EUR. |
-| Comments | Lines starting with `;` `#` `*` `%` `|`, `;` comments at the end of lines, `comment` … `end comment` (and `test` … `end test`). Tags in comments are ignored. |
-| Virtual postings | `(Account)` doesn't have to balance and is **left out** of the import. `[Account]` must balance with the other bracketed postings and is **imported** like a real posting. |
-| `include` | A path relative to the including file, with wildcards: `include 2024/*.journal`, `include **/*.journal`, `?`, `[…]`. A cycle is reported, and each file is read once. |
-| Directives | `P DATE COMMODITY PRICE` (a time after the date is ignored), `commodity`, `account` (hledger's `type:` tags too), `alias OLD = NEW` (the account and its subaccounts) and `alias /REGEX/ = NEW`, `end aliases`, `apply account` … `end apply account`, `D`, `year` / `Y`, `decimal-mark`. `alias`, `apply account`, `year`, `D` and `decimal-mark` last to the end of their file and apply to the files it includes after them. |
-| Skipped, with a warning | Periodic (`~`) and automated (`=`) transactions, `define`, `tag`, `payee`, `assert`, `check`, `bucket` / `A`, timeclock lines and other directives. Value expressions in amounts (`(2 * 3 EUR)`) make their transaction an error. |
-
-### Accounts
-
-- **Only assets and liabilities count.** Accounts under `Assets` and `Liabilities` (and `Asset`, `Liability`, `Attività`, `Passività`, `Attivo`, `Passivo`, `Aktiva`, `Passiva`, `Actifs`, `Passifs`, `Activos`, `Pasivos`), or declared with hledger's `type: A`, `L` or `C`. The profile's `ledger.roots` replaces the list.
-- **Each ledger account goes to a library account, with its subaccounts**, unless a subaccount is set otherwise. Or it's **ignored**: moving money to an ignored account counts as money taken out.
-- **Grouping.** Accounts nothing is set for are grouped: an account with postings of its own, without subaccounts, or whose subaccounts are all parts of it (`Cash`, `Positions`, a commodity's name, …) is one library account with everything below it. So `Assets:Broker:Directa` with `:Cash` and `:VWCE` is one account, and `Assets:Bank` with `:Fineco` and `:Intesa` is two.
-- **Matching.** A group is matched to a library account by name: its full name, its last two parts, its last part, or its last part inside one account's longer name (`Fineco` → “Conto Fineco”), except generic words such as `Wallet` or `Checking`. Otherwise a new account is proposed, named after the last part (with the part before it when that one is generic: “Crypto Wallet”), opened on its first posting, in its most used currency, of a kind guessed from what it is and holds:
-  - liabilities: a mortgage, loan or credit card by name, else a loan;
-  - holding commodities that aren't currencies: crypto, metals, a pension fund by name, else brokerage;
-  - otherwise by name, e.g. savings, else a current account (`cash`).
-- **Returns.** Income and expense accounts are either returns or money in or out. Returns are income from the investments themselves (dividends, interest, capital gains, staking, rewards, coupons: found by name, in English and Italian) and their costs (fees and commissions). Salary, spending and everything else is money in or out. Mark accounts either way in the Accounts step, or in the profile's `ledger.returns` and `ledger.flows`.
-
-### Commodities
-
-- **Currencies** (ISO codes and symbols such as `€`, `$`, `£`, `CHF`) are cash in that currency. Amounts without a commodity (and no `D`) are in the library's base currency.
-- **Other commodities are instruments**, matched to the library's by ID, ticker, price-source symbol, ISIN or name, with or without an exchange suffix (`VWCE.MI` matches `vwce`); `XAU` and `GOLD` match a gold instrument priced by gold-api. Otherwise a new instrument is proposed:
-  - known crypto tickers (`BTC`, `ETH`, …): crypto, priced by CoinGecko with the ticker as its symbol;
-  - tickers with an exchange suffix (`VWCE.MI`, `SWDA.L`): priced by Yahoo; an ETF for common ETF tickers, else a stock;
-  - `XAU`, `GOLD`, `ORO`, `XAG`, …: a metal priced by gold-api, in troy ounces for `XAU`-style codes and grams otherwise;
-  - anything else: “other”, priced by the journal's `P` directives or by hand.
-- A commodity can be ignored.
-
-### Valuations
-
-- One per library account at each **month end** (by default), **quarter end**, or **date with a posting**, from the account's first posting to the end of the period with the journal's last transaction, and never after today.
-- An account holding only currencies gets a `balance` (other currencies converted at the journal's `P` rates). One holding instruments gets `positions` plus `cash`.
-- **Purchase cost** (`costBasis`) is the average cost: a purchase adds what it cost (`@`, `@@`, `{}` or inferred), a sale reduces the cost pro rata, and selling everything starts over. A quantity received as a return (a staking reward) costs its market value then; one received otherwise without a cost (an opening balance) makes the cost unknown until the position is sold.
-- **Debts** are negative, as in the journal.
-- **Closing.** When an account's balance goes to zero and stays there for at least 45 days before the journal ends, its last valuation is on that day, and closing the account then is proposed. (A card paid off last week isn't closed.)
-
-### Flows
-
-Each valuation's `flow` is the money added or taken out since the account's previous valuation, in the account's currency ([PROGRESS.md](PROGRESS.md#data-this-needs-from-day-one)). For each transaction touching an account, the other side decides:
-
-| The other side is | Flow? | Example |
-| --- | --- | --- |
-| The same library account | No | Buying VWCE with the broker's cash |
-| Another tracked account | Yes, both ways | Moving 1,000 from the bank to the broker: −1,000 and +1,000 |
-| An ignored account | Yes | Lending money out |
-| Income, expenses, equity | Yes | Salary, spending, opening balances |
-| A returns account | No | A dividend, interest, a fee, a capital gain, staking |
-
-- Commodities are valued at their cost (`@`, `@@`, `{}`), else at the latest `P` price on or before the day, and currencies converted at the journal's `P` rates (direct, inverse, or through another currency). When a needed value is missing, the flow is left unknown (`flow` absent) and a note says which posting.
-- An account's first valuation counts everything before it as money added, as the check-in does.
-- When a transaction touches several tracked accounts and a returns account, the returns go to the first account they're paid into.
-
-### Prices
-
-- `P` directives become price records (source `ledger`) for commodities that are instruments, and FX records for pairs of currencies (`P 2024-01-31 USD 0.92 EUR`: 1 USD = 0.92 EUR).
-- Prices paid with `@` or `@@` become price records on the transaction's day, unless a `P` directive gives that day's price. The option `transactionPrices: false` leaves them out.
-- Valuations are written with source `ledger` too.
-- A journal rarely has a price for every month end it values a position on, so gold bought years ago would stay at its purchase price. The Done step offers *Fill In Past Prices…* for those dates (`retire prices --fill-history` on the command line); it fetches only what's missing and keeps every `ledger` record ([PLAN.md](PLAN.md#prices-and-fx), "Past prices"). The same goes for a spreadsheet's price columns.
-
-### Journals into trades accounts
-
-A ledger account that goes to a library account **recording trades** gets the journal's trades instead of month-end positions ([TRADES.md](TRADES.md)). Each transaction touching it becomes its trades:
-
-- **Buys and sells.** A commodity posting with a cost (`@`, `@@`, `{}`) is a buy or a sell of that many units at that price per unit; a sale with a lot cost and an `@` price is priced at its `@` price. Fee and tax postings of the same transaction are its `fees` and `tax` (so a buy's average cost includes its fees, as Italian brokers count it, where the journal's lot cost doesn't).
-- **Income.** Postings from returns accounts are dividends, or interest when the account's name says so (interest, staking, rewards). Realised gains accounts (`Income:Capital gains`) make no trade: the trades work the gain out, on the average cost.
-- **Fees and taxes** on their own: returns expense accounts (`Expenses:Fees`), and expense accounts named for fees or taxes (`Expenses:Taxes:Bollo`, `Ritenuta`), are `fee` and `tax` trades, or the fees and tax of the transaction's dividend or interest.
-- **Rewards.** A commodity received from a returns account without a cost (a staking reward) is a buy at its market value then (the journal's `P` price), paid for with the income it is: its cost is its value, as for snapshots.
-- **Transfers.** Any other commodity moving in or out without a cost is a transfer in or out; a transfer in has no cost (noted), until the position is sold.
-- **Deposits and withdrawals.** Whatever else changes the account's cash came from outside it (another account, income, spending, equity): a deposit or a withdrawal. So the cash the trades give is always the journal's, and an opening balance with a lot cost (`10 VWCE {95 EUR}` against `Equity`) is a deposit of its cost and a buy.
-- **Accounts without cash.** When the ledger accounts that go to a trades account never hold a currency anywhere in the journal (gold coins bought from a dealer and paid from the bank, a hardware wallet), there's no cash to deposit into: its buys and sales, and fees and taxes of their own, are [paid from outside the account](TRADES.md#paid-from-outside-the-account) (`"settlement": "external"`) instead of a deposit and a buy, and the preview's notes say so. An account with currency postings of its own keeps the deposit and the buy. A reward bought with the income it is stays in the account: the two cancel out.
-- Amounts are converted into the account's currency as for flows. A buy's or sell's `amount` is left out when its price, quantity, fees and tax give it; otherwise (a price paid with `@@`, a price in another currency) it's written.
-- Trades get stable IDs, as for [broker exports](#importing-again), so importing the journal again changes nothing. Their `source` is `ledger`, and their note the transaction's description.
-
-Such an account gets **no valuations**: its cash comes from its trades. With the profile's `ledger.cashChecks` (*Cash checks* in the Accounts step, `--cash-checks`), it also gets a valuation at each snapshot date with the journal's cash, as a check, and the money added or taken out as the trades count it. Accounts recording balances or holdings keep their month-end snapshots.
-
-### Importing the journal again
-
-Everything goes through the preview: records identical to the library's are left alone, missing values (such as a flow) are filled in, and different ones follow the conflict policy. So importing the journal again next month only adds the new months.
-
-A journal imported before accounts without cash were paid from outside wrote a deposit and a buy for each purchase. Importing it again marks the buys paid from outside (a value filled in), but the old deposits stay, as any record the file no longer gives does: remove them (`retire trades remove`), or undo that import and import again.
-
-### Ledger profiles
-
-A ledger profile has `layout: "ledger"` and a `ledger` section. Ledger accounts (each with its subaccounts) and commodities are remembered in `matches`:
-
-```json
-{
-  "id": "journal",
-  "layout": "ledger",
-  "ledger": {
-    "frequency": "month",
-    "ignore": ["Assets:Receivables"],
-    "returns": ["Expenses:Fees", "Income:Dividends", "Income:Interest"]
-  },
-  "matches": {
-    "accounts": { "Assets:Bank:Fineco": "conto-fineco", "Assets:Broker:Directa": "directa" },
-    "instruments": { "BTC": "btc", "VWCE.MI": "vwce" }
-  },
-  "name": "My journal",
-  "onConflict": "keep"
-}
-```
-
-| Field | Meaning |
-| --- | --- |
-| `matches.accounts` | A ledger account, with its subaccounts, → a library account. The nearest setting to an account wins. |
-| `matches.instruments` | A commodity → an instrument. |
-| `ledger.roots` | The accounts that count toward net worth. Left out: assets and liabilities, as above. |
-| `ledger.ignore` | Ledger accounts left out, with their subaccounts. Saving a profile in the app adds the proposed new accounts you didn't create, so they aren't proposed again. |
-| `ledger.returns`, `ledger.flows` | Income and expense accounts (with their subaccounts) that are returns, or money in or out, whatever their names say. |
-| `ledger.ignoreCommodities` | Commodities left out. |
-| `ledger.frequency` | `month` (the default), `quarter` or `activity`. |
-| `ledger.transactionPrices` | `false` to leave `@` prices out. |
-| `ledger.cashChecks` | `true` to give accounts that record trades valuations with the journal's cash too, as checks. See [Journals into trades accounts](#journals-into-trades-accounts). |
-| `onConflict` | As for spreadsheets. |
-
-Saving writes out every account and instrument the import used and the returns accounts found by name, so the mapping stays the same when the app's guesses change.
-
-### Not supported
-
-Value expressions, periodic and automated transactions, budgets, timeclock and timedot files, CSV files through `include`, choosing lots when selling (the cost is always the average), posting dates in comments (`; date:`), and `--options` inside journals.
-
 ## Where it runs
 
 - **Engine.** The `Importer` module, in pure Swift. It reads bytes and a `Library` and returns results; the app and the CLI back up and write the files it reports as changed. It's tested on Linux against a folder of sample files (`Tests/ImporterTests/Samples/`): Italian Excel CSVs in Windows-1252, US-style exports, Numbers exports, title and totals rows, month-only dates, Excel serial dates, long files, quantities with prices, debts written as positive amounts (and columns that write them negative), broken rows.
@@ -457,9 +313,7 @@ Value expressions, periodic and automated transactions, budgets, timeclock and t
   - `preview.apply(to:)` returns an `ImportResult`: the new library and the month files, accounts and instruments that changed.
   - `session.makeProfile(id:name:library:)` saves the mapping with everything detected written out.
   - Broker transactions: the trades layout reads each row into a trade with a stable ID (`TradeID.stable`), keyed `ImportRecordKey.trade`. `ImportSession.looksLikeTransactions` tells a transactions file; `tradeTypeValues` lists the type column's values with the type each is read as (`TradeTypeValue`: from the profile, the usual words in `TradeTypeWords`, or unmapped), and `setTradeType(_:for:)` maps one. The preview carries them in `ImportPreview.tradeTypes`; proposals to make an account record trades are `AccountChangeProposal.Change.recordTrades`, and `ImportResult.tradesAccounts` and `tradesWritten` say what applying did. Tested with the made-up exports in `Tests/ImporterTests/Samples/trades/`.
-  - Journals: `LedgerReader.read(_:files:)` reads journal files and their includes through a `LedgerFileProvider` (`LocalLedgerFiles`, or the app's, which reads only what it was given access to) into a `LedgerJournal`: balanced transactions, prices, and diagnostics with file and line. `LedgerImportSession(journal:profile:)` holds the mapping as a ledger `ImportProfile`, with helpers to map, ignore or reset an account or commodity and mark returns; `preview(against:until:)` returns a `LedgerImportPreview`: the account and commodity rows, notes, and an `ImportPreview` that applies like any other. `makeProfile(id:name:from:library:)` saves the mapping, with the declined new accounts of the preview it's given in `ledger.ignore`. Tested with made-up journals in `Tests/ImporterTests/Samples/ledger/`.
-- **App.** The same SwiftUI flow on Mac and iPhone. The Mac, with its big table, is the comfortable place to build a profile. On the iPhone, you can open a CSV from Files and import it with a saved profile. A broker's transactions add a Types step after Columns. Journals (one or several files, chosen or dropped together) go through Files, Accounts, Commodities, Preview and Done; on the iPhone, with a saved ledger profile.
+- **App.** The same SwiftUI flow on Mac and iPhone. The Mac, with its big table, is the comfortable place to build a profile. On the iPhone, you can open a CSV from Files and import it with a saved profile. A broker's transactions add a Types step after Columns.
 - **CLI.** `retire import <file>` previews without writing (the default, `--dry-run`): the detected settings, what each column becomes, the formats to confirm, notes, proposed accounts and closings, a summary with sample records and conflicts, and the cells that can't be read. `--save-profile <id>` saves the proposed mapping as `imports/<id>.json` to edit and reuse with `--profile <id>`; options such as `--date-format`, `--decimal`, `--delimiter` and `--liability-sign` override what was detected. `--apply` backs up the files that change to `backups/<timestamp>-import/` and writes them; it refuses while formats are still guesses (unless `--accept-guesses`). Non-interactively, new accounts and instruments and closings are only made with `--accept-new-accounts`, `--accept-new-instruments` and `--accept-closings` (their records are left out otherwise), and conflicts follow `--on-conflict keep|overwrite` (undecided ones keep the library's values). `retire import --undo` undoes the latest import not undone yet, leaving later edits in place and listing them, after copying the current files to `backups/<timestamp>-undo-import/`.
 - **CLI, broker transactions.** `retire import <file>` reads a transactions file as trades, or with `--layout trades`; the report lists the file's type words with their trade types (**Types**) and notes on signs, and the trades among the records. `--account <id>` names the account of every row, `--type "<word>=<type>"` (repeatable) maps a word, or `--type "<word>=ignore"` leaves its rows out, and `--amount-sign auto|from-type|as-written` sets how amounts are signed. An account that doesn't record trades is switched only with `--accept-trades-mode`; otherwise its trades are left out. `--save-profile` writes the types too. JSON output adds `tradeTypes`, `summary.trades` and `result.tradesAccounts`.
 - **CLI, trades.** `retire trades list <account> [--year] [--instrument] [--json]`, `add <account> --type … [--instrument --quantity --price --currency --amount --fees --tax --cost --ratio --note --id]`, `remove <account> <id>`, `summary <account> | --all [--year] [--json]` and `convert <account> --to trades|snapshots [--apply]` ([TRADES.md](TRADES.md)). `add` and `remove` write after a backup (`backups/<timestamp>-trades/`; `--dry-run` shows the effects), and `convert` previews unless you pass `--apply` (backups labelled `convert-to-trades` and `convert-to-snapshots`, as in the app).
-- **CLI, journals.** `retire import ledger <files…>` previews the journals (a dry run by default): the files read and their problems, where each ledger account and commodity goes, returns accounts, proposals, closings, and the records with their flows. `--profile <id>` reads them with a saved ledger profile and `--save-profile <id>` saves the mapping; `--frequency month|quarter|activity`, `--until <date>` (default today), `--no-transaction-prices` and `--cash-checks` change what's written; the report names the accounts that record trades, which get the journal's trades. `--apply` writes with the same backup, accept flags and `--on-conflict` (or `--policy`) as a spreadsheet, and `retire import --undo` undoes it. `retire import <file>` is `retire import csv <file>`.

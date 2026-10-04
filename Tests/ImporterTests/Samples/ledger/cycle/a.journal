@@ -1,5 +1,0 @@
-; Made-up: a includes b, and b includes a again.
-include b.journal
-2024-01-01 From a
-    Assets:Cash   10 EUR
-    Equity:Opening

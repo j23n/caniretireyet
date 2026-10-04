@@ -35,8 +35,7 @@ public struct ImportResult: Hashable, Sendable {
     public var skipped = 0
     /// Valuations whose flow the import gives, so keeping the flows after
     /// inserted values in step (see ``followedFlows(_:)``) leaves them alone:
-    /// a journal's valuations, with their exact flows (or none, when a flow
-    /// couldn't be valued), and records with a flow from the file.
+    /// records with a flow from the file.
     public var fixedFlows: Set<ValuationKey> = []
     /// The library's valuations after the ones the import added or changed
     /// whose automatic flow was worked out again (``followedFlows(_:)``),
@@ -121,8 +120,7 @@ extension ImportPreview {
             accounts[$0]?.kind.isLiability ?? false
         }
         for record in records {
-            if case .valuation(let key) = record.imported.key,
-               record.imported.flow != nil || record.imported.source == .ledger {
+            if case .valuation(let key) = record.imported.key, record.imported.flow != nil {
                 result.fixedFlows.insert(key)
             }
             if let account = record.imported.key.account, rejectedAccounts.contains(account)

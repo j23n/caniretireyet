@@ -190,4 +190,19 @@ struct ProfileTests {
         // "TOTAL GENERALE" no longer matches the footer rule.
         #expect(session.table.rows.last?.number == 10)
     }
+
+    /// A ledger journal's profile, written by an earlier version that
+    /// imported journals, still decodes but reads no file.
+    @Test func aJournalProfileReadsNoFile() throws {
+        let profile = try JSONDecoder().decode(ImportProfile.self, from: Data("""
+            {
+              "id": "journal", "layout": "ledger", "name": "My journal",
+              "ledger": { "frequency": "quarter" }, "matches": { "accounts": { "Assets:Bank": "conto-fineco" } }
+            }
+            """.utf8))
+        #expect(!profile.layout.isKnown)
+        #expect(throws: ImportError.unsupportedLayout("ledger")) {
+            try ImportSession(data: Samples.data("italian-excel-1252.csv"), profile: profile)
+        }
+    }
 }

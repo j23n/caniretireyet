@@ -1,4 +1,4 @@
-/// The ways a spreadsheet can be laid out, or a ledger journal.
+/// The ways a spreadsheet can be laid out.
 public struct ImportLayout: OpenEnum {
     public let rawValue: String
     public init(rawValue: String) { self.rawValue = rawValue }
@@ -7,14 +7,12 @@ public struct ImportLayout: OpenEnum {
     public static let wide: ImportLayout = "wide"
     /// One row per record.
     public static let long: ImportLayout = "long"
-    /// A ledger-cli or hledger journal, read with the profile's `ledger` section.
-    public static let ledger: ImportLayout = "ledger"
     /// One row per trade: a broker's transactions export. Each column is a
     /// field of the trade (`columns[].field`), and the file's type words are
     /// mapped to trade types by the profile's `tradeTypes`.
     public static let trades: ImportLayout = "trades"
 
-    public static let knownValues: [ImportLayout] = [.wide, .long, .ledger, .trades]
+    public static let knownValues: [ImportLayout] = [.wide, .long, .trades]
 }
 
 /// What a value in the file becomes.

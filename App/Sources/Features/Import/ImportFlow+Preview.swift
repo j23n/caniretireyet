@@ -215,8 +215,7 @@ extension ImportFlow {
         }
         if planned?.hasChanges != true {
             reasons.append(preview.records.isEmpty
-                ? (isLedger ? "Nothing in the journal can be imported: it has no assets or liabilities to value."
-                    : "Nothing in the file can be imported yet: say what its columns hold.")
+                ? "Nothing in the file can be imported yet: say what its columns hold."
                 : "The library already has everything in this file.")
         }
         return reasons
@@ -328,19 +327,10 @@ extension ImportFlow {
 
     /// The mapping as a profile to save, with everything detected written out
     /// and the conflict policy chosen. Pass the library after the import, so
-    /// new accounts' names resolve to their IDs. A journal's proposed new
-    /// accounts that were declined are left out next time (`ledger.ignore`).
+    /// new accounts' names resolve to their IDs.
     func makeProfile(id: ImportProfileID, name: String, library: Library) -> ImportProfile? {
-        var profile: ImportProfile
-        if let ledger {
-            guard var result = ledger.result else { return nil }
-            // With the decisions, so declined new accounts are known.
-            if let preview { result.preview = preview }
-            profile = ledger.session.makeProfile(id: id, name: name, from: result, library: library)
-        } else {
-            guard let session else { return nil }
-            profile = session.makeProfile(id: id, name: name, library: library)
-        }
+        guard let session else { return nil }
+        var profile = session.makeProfile(id: id, name: name, library: library)
         if let policy = decisions.conflictPolicy { profile.onConflict = policy == .ask ? nil : policy }
         return profile
     }

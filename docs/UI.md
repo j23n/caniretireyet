@@ -84,7 +84,7 @@ Library
   | Compare Plans | ⌘⌥C |
   | Show Calculations… | — |
 
-- **Drag and drop:** dropping a CSV, or ledger journals, anywhere on the window starts an import.
+- **Drag and drop:** dropping a CSV anywhere on the window starts an import.
 - **Windows:** plan comparison and import can open in their own windows.
 - **Window size (Mac):** the window opens at 1200 × 800 and can be made as small as 900 × 600. Every page scrolls, with what's pinned to it (the plan's What-if, the import's column settings) scrolling too when there's no room, so no page makes the window taller than the screen.
 
@@ -320,7 +320,7 @@ The flow that has to be fast. It opens as a full-screen sheet on iPhone and as t
     - A sheet lists what's missing: each instrument with where it comes from, its date range and count ("Gold coins · gold-api.com · XAU · Oct 2015 – Sep 2026 · 132 dates"), then the rates and inflation, then **To type in**: instruments without a price source.
     - **Fill In** fetches with a progress bar: each instrument's whole range is one request, then one per currency and index ([PLAN.md](PLAN.md#prices-and-fx)). Metals' past prices come from their futures on Yahoo Finance (`GC=F` for gold), within about 1% of spot; crypto older than CoinGecko's free year from Yahoo's pairs (`BTC-EUR`).
     - Then each line shows how many dates it got and from where: "12 of 12 · Yahoo Finance · GC=F (history)", or "CoinGecko · ethereum back to Oct 2025, Yahoo Finance · ETH-EUR (history) before". What's left is listed with its dates and the reason, never skipped: *Set Price…* opens on one of its dates, and *Choose a Price Source* (or *Change Price Source*) opens the instrument's editor; *Check Again* fills in again after that.
-    - The records are saved in one edit into their month files, after a `fill-history` backup. Nothing already saved is replaced: not a price typed in, not one from an import or a journal, not one fetched before.
+    - The records are saved in one edit into their month files, after a `fill-history` backup. Nothing already saved is replaced: not a price typed in, not one from an import, not one fetched before.
   - The editor's *Test price fetch* saves nothing by itself. For an instrument that exists, a successful test offers *Save price*; a new instrument's tested price is saved with the instrument. The symbol's placeholder follows the source: "Yahoo ticker, e.g. VWCE.DE", or for CoinGecko "e.g. ETH or ethereum" (a ticker or a CoinGecko ID).
 
 ## Adding history
@@ -335,11 +335,11 @@ Accounts added in the app open on the day they're added, unless you set an earli
 - ***Update Value* with a past date**, or ***Add Past Value…*** on the account's list of values, which starts on the month end before the first value, so an account fills in a month at a time. Any date up to the closing date works. Before the opening date the sheet says "Saving moves the opening date from 30 Sep 2026 to 31 Mar 2024." and moves it in the same edit. Moving a value earlier in the valuation editor does the same.
 - **Import.** For existing accounts, the import's *Accounts* step links the names in the file to them, and the profile remembers the match. Values from before an account's opening date propose to open it on the first of them, applied unless you reject it ([IMPORT.md](IMPORT.md#matching-accounts-and-instruments)).
 
-**Past prices.** Whichever way history arrives, its positions only have the prices it brought: a journal's `@` costs and `P` lines, a spreadsheet's price columns, what a past check-in fetched. Gold bought years ago would otherwise stay at its purchase price in every month since. *Fill In Past Prices…* fetches the rest ([Instruments](#accounts)); the import's Done step offers it ("12 past values have no price for XAU"), and so does a note under a chart that uses old prices.
+**Past prices.** Whichever way history arrives, its positions only have the prices it brought: a spreadsheet's price columns, what a past check-in fetched. Gold bought years ago would otherwise stay at its purchase price in every month since. *Fill In Past Prices…* fetches the rest ([Instruments](#accounts)); the import's Done step offers it ("12 past values have no price for XAU"), and so does a note under a chart that uses old prices.
 
 **A pension fund's joining date** (`tax.joined`, which sets the payout tax: 15%, falling towards 9% with the years of membership) is the opening date when the fund is added. Wherever the opening date moves (these three ways, or the account form), the joining date moves with it if it was the opening date; one set to another day stays.
 
-**New money after an inserted value.** A value's new money (its flow) is measured from the value before it. When a value is added before another one of the same account, or one is corrected, moved or deleted, the next value's new money is worked out again if it was automatic (the default for the account's kind, as the check-in fills it in), and kept if it was typed in. *Update Value* and the valuation editor say which before saving; a past check-in follows the same rule. A value added before an account's first one turns that first value's automatic new money (the whole amount) into the change since. An import follows the same rule for the library's values after the ones it adds or changes: its Preview says how many, and undoing the import puts them back. A journal's own valuations keep the flows the journal gives them ([IMPORT.md](IMPORT.md#preview-conflicts-and-undo)).
+**New money after an inserted value.** A value's new money (its flow) is measured from the value before it. When a value is added before another one of the same account, or one is corrected, moved or deleted, the next value's new money is worked out again if it was automatic (the default for the account's kind, as the check-in fills it in), and kept if it was typed in. *Update Value* and the valuation editor say which before saving; a past check-in follows the same rule. A value added before an account's first one turns that first value's automatic new money (the whole amount) into the change since. An import follows the same rule for the library's values after the ones it adds or changes: its Preview says how many, and undoing the import puts them back ([IMPORT.md](IMPORT.md#preview-conflicts-and-undo)).
 
 **Answers and baselines are only recorded for the latest check-in.** The plan runs on today's data, so re-running it for a past date would record made-up history in "Your answer over time" and a made-up "Start of <year>" baseline. A check-in dated before the library's latest one records neither, and its confirmation says: "Saved a past check-in (31 Mar 2024). The answer isn't recorded for past dates."
 
@@ -688,15 +688,6 @@ A broker's transactions (Directa's or Fineco's movements, Degiro's or IBKR's exp
 
 On iPhone, a CSV opened from Files goes straight to "Import with profile…": choose the profile, preview, import.
 
-Ledger journals (one or several `.ledger`, `.journal`, `.hledger`, `.j` or `.dat` files) have their own steps in the same window:
-
-1. **Files.** What was read: the files, transactions, dates, problems with their file and line, and includes the app can't read, with **Choose the Journal's Folder…**. The saved ledger profiles, best fit first.
-2. **Accounts.** The ledger's assets and liabilities as a tree, each with a picker: as proposed (matched or new), a library account, a new account, or left out; the new accounts to create; closings; the income and expense accounts that are returns; month, quarter or activity snapshots. Accounts that record trades get the journal's transactions as trades instead of snapshots, as the footer says, with a **Cash checks** switch for valuations of their cash ([IMPORT.md](IMPORT.md#journals-into-trades-accounts)).
-3. **Commodities.** Each commodity as cash, an instrument (matched, new or chosen) or left out; the new instruments; whether `@` prices are recorded.
-4. **Preview** and 5. **Done**, as for a spreadsheet, with the journal's notes (flows that couldn't be valued) instead of the grid. **Save as profile** remembers the new accounts you didn't create as left out (`ledger.ignore`), so the next import doesn't propose them again.
-
-On iPhone, journals use "Import with profile…" with a saved ledger profile, like a CSV.
-
 ## Settings
 
 | Section | Contents |
@@ -807,7 +798,7 @@ If nothing moves for 20 seconds, the screen says why it may be stuck and what to
 1. Welcome.
 2. Where to keep your data (iCloud Drive is recommended).
 3. Birth date, base currency, tax residence and citizenship, starting from the device's currency and region (nothing else is assumed: without a region the residence is *Not set*). When no tax system is registered for the residence, a note says so: "There are no tax rules for Germany yet: plans use the generic system's flat rates, which you choose."
-4. "Import a spreadsheet or journals" or "Add accounts".
+4. "Import a spreadsheet" or "Add accounts".
 5. The first check-in.
 6. "Create your first plan" (a guided form covering work, spending and pensions).
 

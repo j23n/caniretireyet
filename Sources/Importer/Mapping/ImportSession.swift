@@ -30,8 +30,10 @@ public struct ImportSession: Sendable {
         proposeMapping()
     }
 
-    /// Reads a file with a saved profile.
+    /// Reads a file with a saved profile. A profile with a layout this
+    /// version doesn't know is refused.
     public init(data: Data, profile: ImportProfile) throws(ImportError) {
+        guard profile.layout.isKnown else { throw .unsupportedLayout(profile.layout.rawValue) }
         self.data = data
         table = try ImportTable(data: data, settings: profile.file)
         detection = FormatDetection(table: table)

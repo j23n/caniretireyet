@@ -13,6 +13,9 @@ public enum ImportError: Error, Hashable, Sendable, CustomStringConvertible {
     case unsupportedDelimiter(String)
     /// The header row is past the end of the file.
     case headerRowOutOfRange(Int)
+    /// A profile with a layout this version doesn't import, e.g. a ledger
+    /// journal's profile written by an earlier version.
+    case unsupportedLayout(String)
 
     public var description: String {
         switch self {
@@ -21,6 +24,7 @@ public enum ImportError: Error, Hashable, Sendable, CustomStringConvertible {
         case .unsupportedEncoding(let name): "Unknown text encoding “\(name)”."
         case .unsupportedDelimiter(let delimiter): "“\(delimiter)” can't be used as a delimiter."
         case .headerRowOutOfRange(let row): "Row \(row) can't be the header: the file is shorter."
+        case .unsupportedLayout(let layout): "The profile's layout “\(layout)” isn't one this version imports."
         }
     }
 }
