@@ -190,6 +190,17 @@ final class PlanSession {
     /// answer recorded at the last check-in, else nothing; the run in
     /// progress; and the button that brings it up to date.
     var state: PlanResultsState {
+        var state = stateWithoutProgress
+        state.progress = runProgress
+        return state
+    }
+
+    /// ``state`` without the run's progress: whether a run is going, but not
+    /// how far along it is. Views that don't show the progress read this, so
+    /// they don't redraw with every progress update (on the Mac, the toolbar
+    /// and the results redrawing ten times a second while the window laid
+    /// itself out could loop).
+    var stateWithoutProgress: PlanResultsState {
         let content: PlanResultsState.Content
         var reasons: [PlanStaleReason] = []
         if let shown {
@@ -201,8 +212,8 @@ final class PlanSession {
         } else {
             content = .nothing
         }
-        return PlanResultsState(content: content, staleReasons: reasons, progress: runProgress,
-                                canCancel: canCancelRun, focusAge: focusAge)
+        return PlanResultsState(content: content, staleReasons: reasons, canCancel: canCancelRun,
+                                focusAge: focusAge, running: isRunning)
     }
 
     /// Whether a run of this plan is in progress (also a check-in's).

@@ -162,12 +162,14 @@ extension Array where Element == ChartPoint {
 
 extension View {
     /// Keeps `width` in step with the view's width, so a chart can fit its
-    /// ticks and labels to the room it has.
+    /// ticks and labels to the room it has. Whole points only, so a width
+    /// that wobbles by a fraction while a window lays itself out doesn't
+    /// redraw the chart (and change the layout) each time.
     func measuringWidth(_ width: Binding<CGFloat>) -> some View {
         onGeometryChange(for: CGFloat.self) { proxy in
-            proxy.size.width
+            proxy.size.width.rounded()
         } action: { newWidth in
-            if newWidth > 0 { width.wrappedValue = newWidth }
+            if newWidth > 0, newWidth != width.wrappedValue { width.wrappedValue = newWidth }
         }
     }
 }

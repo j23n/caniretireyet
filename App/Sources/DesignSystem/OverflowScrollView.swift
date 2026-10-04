@@ -11,6 +11,12 @@ import SwiftUI
 /// scrolls makes the window as tall as itself, even taller than the screen
 /// (text that wraps, measured at the narrowest width, is very tall).
 ///
+/// The content is always inside one scroll view, which only scrolls (and
+/// bounces) when it's cut short. It used to switch between the content and
+/// a scrolling copy of it, which on the Mac rebuilt the content's controls
+/// in the middle of laying out the window, and with content near the limit
+/// could keep switching: AppKit stops such a window with an exception.
+///
 ///     VStack(spacing: 0) {
 ///         ScrollView { inputs }
 ///         Divider()
@@ -30,25 +36,31 @@ struct OverflowScrollView<Content: View>: View {
 
     var body: some View {
         HeightShareLayout(share: maxShare) {
-            ViewThatFits(in: .vertical) {
+            ScrollView {
                 content
-                ScrollView {
-                    content
-                }
             }
+            .scrollBounceBehavior(.basedOnSize)
         }
     }
 }
 
-/// Offers its one child a share of the height it's offered, and is as big
-/// as the child.
+/// Sizes its one child, a vertical scroll view, to the child's content
+/// height (its ideal height), but no taller than a share of the height it's
+/// offered; offered no height, it's none (its minimum).
 private struct HeightShareLayout: Layout {
     var share: CGFloat
 
     func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
         guard let child = subviews.first else { return .zero }
-        let height = proposal.height.map { $0.isFinite ? $0 * share : $0 }
-        return child.sizeThatFits(ProposedViewSize(width: proposal.width, height: height))
+        // A scroll view offered no height answers with its content's height.
+        let ideal = child.sizeThatFits(ProposedViewSize(width: proposal.width, height: nil))
+        let height: CGFloat
+        if let offered = proposal.height, offered.isFinite {
+            height = min(ideal.height, offered * share)
+        } else {
+            height = ideal.height
+        }
+        return CGSize(width: proposal.width ?? ideal.width, height: max(0, height))
     }
 
     func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {

@@ -24,15 +24,13 @@ struct PlanResultsView: View {
     @Environment(PlanStore.self) private var plans
 
     var body: some View {
-        let state = session.state
+        // Without the progress: only the progress card follows every update.
+        let state = session.stateWithoutProgress
         ScrollView {
             VStack(alignment: .leading, spacing: Metrics.l) {
                 PlanResultsBanners(session: session)
-                if let progress = state.progress {
-                    Card {
-                        PlanRunProgressView(progress: progress, isCheckIn: session.isCheckInRun,
-                                            onCancel: state.canCancel ? { session.cancel() } : nil)
-                    }
+                if state.isRunning {
+                    PlanRunProgressCard(session: session)
                 } else {
                     PlanOutOfDateBanner(state: state) { session.perform($0) }
                 }
@@ -304,6 +302,21 @@ struct PlanStat<Value: View>: View {
                 .foregroundStyle(Palette.ink)
         }
         .accessibilityElement(children: .combine)
+    }
+}
+
+/// The run in progress, in a card: the one part of the results that reads
+/// the progress, so the rest doesn't redraw with each update.
+private struct PlanRunProgressCard: View {
+    let session: PlanSession
+
+    var body: some View {
+        if let progress = session.runProgress {
+            Card {
+                PlanRunProgressView(progress: progress, isCheckIn: session.isCheckInRun,
+                                    onCancel: session.stateWithoutProgress.canCancel ? { session.cancel() } : nil)
+            }
+        }
     }
 }
 

@@ -50,14 +50,18 @@ struct PlanResultsState: Hashable, Sendable {
     var canCancel = true
     /// The retirement age chosen for the charts, when it isn't the plan's own.
     var focusAge: Int?
+    /// Whether a run is going, for a state built without its ``progress``
+    /// (``PlanSession/stateWithoutProgress``).
+    var running = false
 
     init(content: Content, staleReasons: [PlanStaleReason] = [], progress: PlanRunProgress? = nil,
-         canCancel: Bool = true, focusAge: Int? = nil) {
+         canCancel: Bool = true, focusAge: Int? = nil, running: Bool = false) {
         self.content = content
         self.staleReasons = staleReasons
         self.progress = progress
         self.canCancel = canCancel
         self.focusAge = focusAge
+        self.running = running
     }
 
     /// The results on screen, if any.
@@ -66,7 +70,7 @@ struct PlanResultsState: Hashable, Sendable {
         return nil
     }
 
-    var isRunning: Bool { progress != nil }
+    var isRunning: Bool { running || progress != nil }
 
     /// Whether results are shown and fit the plan, library and what-if as
     /// they are now.

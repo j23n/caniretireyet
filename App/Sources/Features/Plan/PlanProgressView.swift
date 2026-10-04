@@ -147,7 +147,9 @@ struct PlanProgressView: View {
         } header: {
             SectionHeader("Actual vs baseline") {
                 if !baselines.isEmpty {
-                    Picker("Baseline", selection: $selectedBaseline) {
+                    // Never nil while there are baselines: a nil selection has no tag.
+                    Picker("Baseline", selection: Binding(get: { selectedBaseline ?? baselines.first?.id },
+                                                          set: { selectedBaseline = $0 })) {
                         ForEach(baselines) { entry in
                             Text(PlanBaselineComparison.label(for: entry.baseline, locale: locale))
                                 .tag(Optional(entry.id))

@@ -272,10 +272,11 @@ struct PlanContentView: View {
                 Button {
                     session.calculate()
                 } label: {
-                    Label(session.state.results == nil ? "Calculate" : "Recalculate", systemImage: "arrow.clockwise")
+                    // Not `session.state`: the toolbar mustn't redraw with every progress update.
+                    Label(session.shownResults == nil ? "Calculate" : "Recalculate", systemImage: "arrow.clockwise")
                 }
                 .help("Calculate the plan with its inputs and your latest data (⌘R)")
-                .disabled(!plans.isAvailable || session.state.isRunning)
+                .disabled(!plans.isAvailable || session.isRunning)
                 Button {
                     isComparing = true
                 } label: {
