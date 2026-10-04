@@ -496,7 +496,8 @@ struct PreviewBuilder {
 
     /// Accounts whose values stop before the file's last date are proposed
     /// as closed the day after their last non-zero value; accounts with
-    /// values from before they opened are proposed to open earlier.
+    /// values from before they opened are proposed to open earlier. Closing
+    /// an account and making it record trades are proposed unaccepted.
     private mutating func accountChanges(_ records: [ImportRecordPreview], lastDate: CalendarDate?,
                                          newAccounts: [AccountProposal]) -> [AccountChangeProposal] {
         guard let lastDate else { return [] }
@@ -523,7 +524,7 @@ struct PreviewBuilder {
             if tradesAccounts.contains(id) {
                 // A broker's transactions say nothing about the account closing.
                 if library.accounts[id] != nil, !account.recordsTrades {
-                    changes.append(AccountChangeProposal(account: id, change: .recordTrades))
+                    changes.append(AccountChangeProposal(account: id, change: .recordTrades, isAccepted: false))
                 }
                 continue
             }
@@ -541,7 +542,8 @@ struct PreviewBuilder {
                     && !Self.isZero(valuation)
             }
             if !laterInLibrary {
-                changes.append(AccountChangeProposal(account: id, change: .close(on: lastValue.adding(days: 1))))
+                changes.append(AccountChangeProposal(account: id, change: .close(on: lastValue.adding(days: 1)),
+                                                     isAccepted: false))
             }
         }
         return changes

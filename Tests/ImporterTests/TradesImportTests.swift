@@ -405,21 +405,24 @@ struct BrokerSampleTests {
         let library = try Fixtures.exampleLibrary()
         let session = try Self.session("fineco", account: "conto-fineco")
         var preview = session.preview(against: library)
-        #expect(preview.accountChanges == [AccountChangeProposal(account: "conto-fineco", change: .recordTrades)])
-        #expect(preview.summary.tradesAccounts == 1)
-        // Accepted: the account records trades, and its trades are written.
-        let switched = preview.apply(to: library)
-        #expect(switched.tradesAccounts == ["conto-fineco"])
-        #expect(switched.changedAccounts.contains("conto-fineco"))
-        #expect(switched.library.accounts["conto-fineco"]?.valuation == .trades)
-        #expect(switched.library.trades(for: "conto-fineco").count == 8)
-        // Rejected: nothing changes for the account, and its trades are left out.
-        preview.accountChanges[0].isAccepted = false
+        // Proposed, but only made when accepted.
+        #expect(preview.accountChanges == [AccountChangeProposal(account: "conto-fineco", change: .recordTrades,
+                                                                 isAccepted: false)])
+        #expect(preview.summary.tradesAccounts == 0)
+        // Not accepted: nothing changes for the account, and its trades are left out.
         let kept = preview.apply(to: library)
         #expect(kept.library.accounts["conto-fineco"] == library.accounts["conto-fineco"])
         #expect(kept.library.trades(for: "conto-fineco").isEmpty)
         #expect(kept.skipped == 8)
         #expect(kept.added == 0)
+        // Accepted: the account records trades, and its trades are written.
+        preview.accountChanges[0].isAccepted = true
+        #expect(preview.summary.tradesAccounts == 1)
+        let switched = preview.apply(to: library)
+        #expect(switched.tradesAccounts == ["conto-fineco"])
+        #expect(switched.changedAccounts.contains("conto-fineco"))
+        #expect(switched.library.accounts["conto-fineco"]?.valuation == .trades)
+        #expect(switched.library.trades(for: "conto-fineco").count == 8)
     }
 
     @Test func degiro() throws {

@@ -106,7 +106,7 @@ Every column has a format. The file sets the defaults, a column can override the
 
 - Names are matched ignoring case and accents, and every match you confirm is remembered in the profile.
 - An unmatched name can create a new account or instrument. You confirm its kind and currency; the importer suggests them, e.g. from a currency code in the values.
-- An account whose values stop before the file's last date is proposed as closed, on the day after its last value. Trailing zeros don't count as values; a cell that couldn't be read does. It isn't proposed when the library has later values for it.
+- An account whose values stop before the file's last date is proposed as closed, on the day after its last value. Trailing zeros don't count as values; a cell that couldn't be read does. It isn't proposed when the library has later values for it. A closing is made only when you turn it on (on the command line, with `--accept-closings`): an account updated less often than the file, such as a quarterly pension in a monthly sheet, stops early without having closed.
 - An account with values from before its `opened` date is proposed to open on the first of them.
 - New accounts, new instruments and these changes are applied unless you reject them. A rejected account's or instrument's records are left out.
 
@@ -244,7 +244,7 @@ A row whose trade can't be applied (a buy without a price or an amount, a split 
 ### Accounts and instruments
 
 - **Account.** A name in the account column is matched like any account name, or the constant gives it. A new account is proposed recording trades (`"valuation": "trades"`), a brokerage account unless its instruments are all crypto or metals.
-- **An account that doesn't record trades** gets a proposal to record them (*Record Conto Fineco's trades*), accepted unless you turn it off; on the command line only with `--accept-trades-mode`. Accepted, the account records trades from then on: its holdings and cash come from its trades, the positions of its valuations become checks, and a balance no longer counts (to keep past balances as cash, convert the account first: [TRADES.md](TRADES.md#converting-an-account), `retire trades convert`). Rejected, its trades are left out. Or choose another account.
+- **An account that doesn't record trades** gets a proposal to record them (*Record Conto Fineco's trades*), made only when you turn it on; on the command line only with `--accept-trades-mode`. Accepted, the account records trades from then on: its holdings and cash come from its trades, the positions of its valuations become checks, and a balance no longer counts (to keep past balances as cash, convert the account first: [TRADES.md](TRADES.md#converting-an-account), `retire trades convert`). Rejected, its trades are left out. Or choose another account.
 - Trades from before the account opened propose to open it earlier. A transactions file never proposes closing an account.
 - **Instruments** are read only for the types that have one (buys, sells, dividends, splits, transfers, openings): the columns are tried in order, each name matched to the library's instruments by name, ID, ticker, ISIN or a remembered match. A new instrument is named after the column that's neither an ISIN nor a ticker (`VANGUARD FTSE ALL-WORLD HIGH DIV`), with the ISIN and ticker of the others, and in the currency of its prices. Rows naming the same new instrument differently share it.
 - A trade's `currency` is written only when the price's currency isn't the instrument's.
