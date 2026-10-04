@@ -51,6 +51,8 @@ struct UpdateValueSheet: View {
         #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
         #endif
+        // Something typed isn't lost by swiping the sheet down: only Cancel discards it.
+        .interactiveDismissDisabled(input != AccountValuationInput())
     }
 
     private func form(for account: Account) -> some View {
@@ -425,6 +427,8 @@ struct EditAccountSheet: View {
     @Environment(\.locale) private var locale
 
     @State private var form: AccountForm?
+    /// The fields as loaded, to tell whether anything was changed.
+    @State private var initialForm: AccountForm?
     @State private var showsProblems = false
     @State private var errorMessage: String?
 
@@ -446,11 +450,14 @@ struct EditAccountSheet: View {
         #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
         #endif
+        // A change isn't lost by swiping the sheet down: only Cancel discards it.
+        .interactiveDismissDisabled(form != initialForm)
         .onAppear {
             if form == nil, let account = library.account(accountID) {
                 let balances = library.valuator.valuations(for: account.id).filter(\.isBalance).count
                 form = AccountForm(editing: account, residence: library.settings.taxResidence,
                                    balanceValueCount: balances, locale: locale)
+                initialForm = form
             }
         }
     }

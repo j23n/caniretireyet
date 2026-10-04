@@ -25,6 +25,8 @@ struct NewAccountScreen: View {
     @State private var form = AccountForm(residence: nil, currency: .eur, today: .today())
     @State private var opening = AccountOpeningForm()
     @State private var loaded = false
+    /// The fields as the sheet opened with them, to tell whether anything was typed.
+    @State private var initialForm: AccountForm?
     @State private var showsProblems = false
     @State private var showsNewInstrument = false
     @State private var errorMessage: String?
@@ -63,6 +65,7 @@ struct NewAccountScreen: View {
             }
         }
         .onAppear(perform: load)
+        .interactiveDismissDisabled(hasUnsavedChanges)
         .sheet(isPresented: $showsNewInstrument) {
             NavigationStack {
                 InstrumentEditor(instrumentID: nil, currency: form.currency, isSheet: true) { id in
@@ -163,12 +166,20 @@ struct NewAccountScreen: View {
         form.problems(locale: locale) + opening.problems(holdsPositions: form.holdsPositions, locale: locale)
     }
 
+    /// Whether anything was typed or chosen, so swiping the sheet down
+    /// doesn't lose it: only Cancel does.
+    private var hasUnsavedChanges: Bool {
+        guard let initialForm else { return false }
+        return form != initialForm || opening != AccountOpeningForm()
+    }
+
     // MARK: Actions
 
     private func load() {
         guard !loaded else { return }
         loaded = true
         form = AccountForm(residence: library.settings.taxResidence, currency: library.baseCurrency, today: .today())
+        initialForm = form
     }
 
     private func add() {

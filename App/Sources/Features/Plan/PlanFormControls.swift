@@ -378,7 +378,8 @@ struct PlanListRow: View {
 }
 
 /// A sheet editing a copy of one item; *Done* hands it back, *Delete*
-/// removes it.
+/// removes it. Once the item is changed, swiping the sheet down does
+/// nothing: *Cancel* discards the change.
 struct PlanItemEditor<Item: Equatable, Content: View>: View {
     let title: String
     let onSave: (Item) -> Void
@@ -386,6 +387,8 @@ struct PlanItemEditor<Item: Equatable, Content: View>: View {
     private let content: (Binding<Item>) -> Content
 
     @State private var item: Item
+    /// The item as the sheet opened with it.
+    @State private var original: Item
     @Environment(\.dismiss) private var dismiss
 
     init(_ title: String, item: Item, onSave: @escaping (Item) -> Void, onDelete: (() -> Void)? = nil,
@@ -395,6 +398,7 @@ struct PlanItemEditor<Item: Equatable, Content: View>: View {
         self.onDelete = onDelete
         self.content = content
         _item = State(initialValue: item)
+        _original = State(initialValue: item)
     }
 
     var body: some View {
@@ -427,6 +431,7 @@ struct PlanItemEditor<Item: Equatable, Content: View>: View {
                 }
             }
         }
+        .interactiveDismissDisabled(item != original)
         #if os(macOS)
         .frame(minWidth: 460, minHeight: 520)
         #endif

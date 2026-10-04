@@ -359,6 +359,10 @@ private struct InstrumentUpdateIndicator: View {
 /// A test fetch saves nothing by itself. For an existing instrument it
 /// offers *Save Price*; otherwise the price is saved with the instrument, as
 /// is a price set by hand on a new one.
+///
+/// Once something is changed, it isn't lost by going back or swiping a
+/// sheet down: pushed, the back button gives way to *Cancel* and *Save*;
+/// in a sheet, it can't be swiped away.
 struct InstrumentEditor: View {
     /// `nil` for a new instrument.
     let instrumentID: InstrumentID?
@@ -376,6 +380,8 @@ struct InstrumentEditor: View {
     @Environment(\.locale) private var locale
 
     @State private var form: InstrumentForm?
+    /// The fields as loaded, to tell whether anything was changed.
+    @State private var initialForm: InstrumentForm?
     @State private var showsProblems = false
     @State private var testQuote: InstrumentTestQuote?
     @State private var isTesting = false
@@ -407,12 +413,21 @@ struct InstrumentEditor: View {
         .navigationTitle(title)
         #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
+        // Pushed only on iPhone and iPad; the Mac always shows it in a sheet.
+        .navigationBarBackButtonHidden(hasUnsavedChanges)
         #endif
+        .interactiveDismissDisabled(hasUnsavedChanges)
         .onAppear(perform: load)
     }
 
     private var title: String {
         instrumentID == nil ? "New Instrument" : "Instrument"
+    }
+
+    /// Whether saving would write something: a changed field, or a price
+    /// set by hand for a new instrument.
+    private var hasUnsavedChanges: Bool {
+        form != initialForm || typedPrice != nil
     }
 
     private var existing: Instrument? {
@@ -510,7 +525,8 @@ struct InstrumentEditor: View {
         .formStyle(.grouped)
         .toolbar {
             ToolbarItem(placement: .cancellationAction) {
-                if isSheet {
+                // Pushed, Cancel takes the place of the back button while there are changes.
+                if isSheet || hasUnsavedChanges {
                     Button("Cancel") { dismiss() }
                 }
             }
@@ -722,6 +738,7 @@ struct InstrumentEditor: View {
         } else if instrumentID == nil {
             form = InstrumentForm(currency: currency ?? library.baseCurrency)
         }
+        initialForm = form
     }
 
     private func test(_ form: InstrumentForm) {

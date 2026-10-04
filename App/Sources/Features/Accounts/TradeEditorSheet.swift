@@ -27,6 +27,8 @@ struct TradeEditorSheet: View {
     @Environment(\.locale) private var locale
 
     @State private var form: TradeForm?
+    /// The fields as loaded, to tell whether anything was changed.
+    @State private var initialForm: TradeForm?
     @State private var showsProblems = false
     @State private var showsNewInstrument = false
     @State private var isSaving = false
@@ -53,6 +55,8 @@ struct TradeEditorSheet: View {
         #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
         #endif
+        // A change isn't lost by swiping the sheet down: only Cancel discards it.
+        .interactiveDismissDisabled(form != initialForm)
         .onAppear(perform: load)
         .sheet(isPresented: $showsNewInstrument) {
             NavigationStack {
@@ -74,6 +78,7 @@ struct TradeEditorSheet: View {
     private func load() {
         guard form == nil else { return }
         form = TradeForm(target: target, library: library.library, locale: locale)
+        initialForm = form
     }
 
     // MARK: Form
