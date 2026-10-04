@@ -385,6 +385,8 @@ struct PlanContentView: View {
                     .accessibilityHidden(true)
             }
         }
+        // The label draws its own chevron; the toolbar would add a second one.
+        .menuIndicator(.hidden)
         .accessibilityLabel(Text("Plan: \(name)"))
     }
 
