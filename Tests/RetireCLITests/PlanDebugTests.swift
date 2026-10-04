@@ -25,7 +25,8 @@ struct PlanDebugCommandTests {
         }
         #expect(run.output.contains("### The deterministic run (expected returns every year)"))
         #expect(run.output.contains("### The median outcome"))
-        #expect(run.output.contains("Crypto is "))
+        // Crypto, given by its median (0%) since the debugger found the old mean of 0% drags the mix down.
+        #expect(run.output.contains("| Crypto | "))
         #expect(run.output.contains("| Report made on | 2026-09-30 |"))
         // Names as they are.
         #expect(run.output.contains("Ledger wallet (`ledger-wallet`)"))

@@ -250,47 +250,55 @@ public struct PlanAnswer: Hashable, Sendable {
 /// the pensions start, the taxes on withdrawals and the plan's horizon all
 /// simulated as usual.
 ///
-/// The engine finds it by scaling today's starting portfolio (every lot's
-/// value and purchase cost, so buckets, mix and unrealised gains keep their
-/// proportions) and searching the scale by bisection on a log scale, with
-/// the same random draws for every scale, to within ``tolerance``.
+/// The engine finds it by adding extra money only to the buckets that can
+/// be drawn at today's age, the liquid ones, split by their target mix and
+/// with no unrealised gain, as new savings would be (money locked in a
+/// pension fund until later stays as it is: more of it wouldn't pay for the
+/// years before it opens), or, when today's assets are more than enough, by
+/// taking money out of them. It searches the
+/// amount by bisection on a log scale of the plan assets, with the same
+/// random draws for every amount, to within ``tolerance``.
 public struct AssetsNeeded: Hashable, Sendable {
     /// How the search ended.
     public enum Outcome: Hashable, Sendable {
-        /// ``AssetsNeeded/scale`` reaches the confidence level, and the true threshold
-        /// is at most ``AssetsNeeded/tolerance`` below it.
+        /// ``AssetsNeeded/amount`` reaches the confidence level, and the true
+        /// threshold is at most ``AssetsNeeded/tolerance`` below it.
         case found
-        /// Even 1 / ``AssetsNeeded/maximumScale`` of today's plan assets
-        /// reach the confidence level: retiring today needs at most
+        /// Even with the accessible money taken out, down to what's locked
+        /// away (``AssetsNeeded/leavesOnlyLockedMoney``) or to
+        /// 1 / ``AssetsNeeded/maximumScale`` of today's plan assets, retiring
+        /// today reaches the confidence level: it needs at most
         /// ``AssetsNeeded/amount``, and ``AssetsNeeded/readiness`` is a lower bound.
         case atMost
-        /// Even ``AssetsNeeded/maximumScale`` times today's plan assets
-        /// fall short, e.g. because most of them are locked until later
-        /// and scaling them doesn't bridge the years before. ``AssetsNeeded/amount`` and
+        /// Even ``AssetsNeeded/maximumScale`` times today's plan assets, the
+        /// extra in the accessible buckets, fall short, e.g. because the
+        /// assumed returns are poor. ``AssetsNeeded/amount`` and
         /// ``AssetsNeeded/readiness`` are `nil`.
         case moreThanMaximum
-        /// The plan counts no assets, so there's nothing to scale.
+        /// The plan counts no assets, so there's nothing to compare with.
         /// ``AssetsNeeded/readiness`` is 0 when retiring today falls short, else `nil`;
         /// ``AssetsNeeded/amount`` is 0 when retiring today needs nothing.
         case noPlanAssets
     }
 
-    /// The highest multiple of today's plan assets searched.
+    /// The highest multiple of today's plan assets searched: the extra money
+    /// is at most this less one times today's plan assets.
     public static let maximumScale = 20.0
-    /// How closely the search brackets the scale: the scale found is at
+    /// How closely the search brackets the amount: the amount found is at
     /// most this share above the smallest one that reaches the confidence level.
     public static let tolerance = 0.01
 
     /// The retirement age it's for: today's.
     public var age: Int
     public var outcome: Outcome
-    /// The multiple of today's plan assets needed (`amount / planAssets`):
+    /// The plan assets needed as a multiple of today's (`amount / planAssets`):
     /// within ``tolerance`` when found, the bound searched otherwise; `nil`
-    /// without plan assets.
+    /// without plan assets. Only the accessible buckets change, so it isn't
+    /// a factor every holding is multiplied by.
     public var scale: Double?
-    /// The plan assets needed at the start, in the plan's currency:
-    /// ``scale`` × today's plan assets (``PlanStart/planAssets``). `nil`
-    /// when more than ``maximumScale`` times today's would be needed.
+    /// The plan assets needed at the start, in the plan's currency: today's
+    /// plan assets (``PlanStart/planAssets``) plus ``extra``. `nil` when more
+    /// than ``maximumScale`` times today's would be needed.
     public var amount: Double?
     /// The chance of success retiring today with ``amount``: at least the
     /// confidence level.
@@ -299,15 +307,35 @@ public struct AssetsNeeded: Hashable, Sendable {
     /// 100%, reached exactly when retiring today reaches the confidence
     /// level. A lower bound for ``Outcome/atMost``.
     public var readiness: Double?
+    /// The money added to the accessible buckets (`amount − planAssets`), in
+    /// the plan's currency: negative when today's assets are more than
+    /// enough and money could be taken out; the most the search adds for
+    /// ``Outcome/moreThanMaximum``. `nil` without plan assets.
+    public var extra: Double?
+    /// Today's value of the accessible buckets, the liquid ones that can be
+    /// drawn at any age: what the search adds to or takes from. The rest of
+    /// today's plan assets is locked away at today's age. `nil` without plan
+    /// assets.
+    public var accessible: Double?
 
     public init(age: Int, outcome: Outcome, scale: Double? = nil, amount: Double? = nil, success: Double? = nil,
-                readiness: Double? = nil) {
+                readiness: Double? = nil, extra: Double? = nil, accessible: Double? = nil) {
         self.age = age
         self.outcome = outcome
         self.scale = scale
         self.amount = amount
         self.success = success
         self.readiness = readiness
+        self.extra = extra
+        self.accessible = accessible
+    }
+
+    /// For ``Outcome/atMost``: whether the bound is the money locked away,
+    /// because even with every accessible bucket emptied retiring today
+    /// reaches the confidence level.
+    public var leavesOnlyLockedMoney: Bool {
+        guard outcome == .atMost, let extra, let accessible else { return false }
+        return accessible <= 0 || extra <= -accessible * (1 - 1e-9)
     }
 }
 

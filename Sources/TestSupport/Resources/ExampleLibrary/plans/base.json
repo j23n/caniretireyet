@@ -5,7 +5,7 @@
     "returns": {
       "bonds": { "real": "0.01", "volatility": "0.06" },
       "cash": { "real": "0", "volatility": "0.01" },
-      "crypto": { "real": "0", "volatility": "0.7" },
+      "crypto": { "medianReal": "0", "volatility": "0.7" },
       "equity": { "real": "0.045", "volatility": "0.17" },
       "gold": { "real": "0.01", "volatility": "0.15" }
     }

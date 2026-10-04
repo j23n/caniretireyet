@@ -332,26 +332,31 @@ struct PlanAssumptionsEditor: View {
         let accounts = PlanEditing.excludableAccounts(in: library.library)
         VStack(alignment: .leading, spacing: Metrics.s) {
             PlanNumberRow("Inflation", value: $plan.assumptions.inflation, kind: .percent, unit: "%", prompt: "2")
-            Text("Real return · volatility")
+            Text("Real return: mean · median · volatility")
                 .font(.caption)
                 .foregroundStyle(Palette.secondaryInk)
             ForEach(Self.rows) { row in
                 HStack(spacing: Metrics.xs) {
                     Text(row.name)
                     Spacer(minLength: Metrics.s)
-                    PlanNumberField("\(row.name) real return",
+                    PlanNumberField("\(row.name) mean real return",
                                     value: $plan.assumptions[planReal: row.assetClass], kind: .percent)
-                        .frame(maxWidth: 56)
+                        .frame(maxWidth: 52)
+                    Text("% ·")
+                        .foregroundStyle(Palette.secondaryInk)
+                    PlanNumberField("\(row.name) median real return",
+                                    value: $plan.assumptions[planMedianReal: row.assetClass], kind: .percent)
+                        .frame(maxWidth: 52)
                     Text("% ·")
                         .foregroundStyle(Palette.secondaryInk)
                     PlanNumberField("\(row.name) volatility",
                                     value: $plan.assumptions[planVolatility: row.assetClass], kind: .percent)
-                        .frame(maxWidth: 56)
+                        .frame(maxWidth: 52)
                     Text("%")
                         .foregroundStyle(Palette.secondaryInk)
                 }
             }
-            Text("Placeholders to review, not forecasts: real returns after fund costs.")
+            Text(PlanEditing.returnsExplanation)
                 .font(.caption)
                 .foregroundStyle(Palette.mutedInk)
                 .fixedSize(horizontal: false, vertical: true)

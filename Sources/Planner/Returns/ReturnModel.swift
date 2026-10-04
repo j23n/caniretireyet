@@ -43,12 +43,24 @@ struct ReturnModel: Sendable {
         classes = heldClasses
         drawIndex = heldClasses.map { held in drawClasses.firstIndex(of: held)! }
 
+        // A file that writes both the mean and the median gets the mean.
+        for (assetClass, assumption) in assumptions.returns.sorted(by: { $0.key < $1.key })
+            where assumption.setsMeanAndMedian {
+            issues.append(.warning(
+                "planner.meanAndMedian",
+                "\(Self.name(assetClass))'s return assumption sets both real (the mean, "
+                    + "\(Self.percent(assumption.realAsWritten?.double ?? 0))) and medianReal; the plan uses real "
+                    + "and ignores medianReal.",
+                section: .assumptions, option: assetClass.rawValue))
+        }
+
         var expected: [Double] = []
         var volatility: [Double] = []
         for assetClass in heldClasses {
             if let assumption = assumptions.returnAssumption(for: assetClass) {
-                expected.append(assumption.real.double)
-                volatility.append(max(0, assumption.volatility.double))
+                let sd = max(0, assumption.volatility.double)
+                expected.append(Self.mean(of: assumption, volatility: sd))
+                volatility.append(sd)
             } else {
                 issues.append(.warning(
                     "planner.noReturnAssumption",
@@ -65,6 +77,17 @@ struct ReturnModel: Sendable {
         }
         self.logSD = logSD
         logMean = zip(expected, logSD).map { mean, s in log(1 + mean) - s * s / 2 }
+
+        // A class whose typical year loses value drags a rebalanced portfolio down.
+        for (index, assetClass) in heldClasses.enumerated() where expected[index] > -1 {
+            let median = exp(logMean[index]) - 1
+            guard median < Self.lowMedian - 1e-12 else { continue }
+            issues.append(.warning(
+                "planner.lowMedianReturn",
+                "\(Self.name(assetClass))'s assumptions give a median of \(Self.percent(median)) a year: holding and "
+                    + "rebalancing into it shrinks the portfolio. Check the assumption.",
+                section: .assumptions, option: assetClass.rawValue))
+        }
 
         var matrix = drawClasses.map { a in
             drawClasses.map { b in min(1, max(-1, assumptions.correlation(a, b).double)) }
@@ -85,6 +108,38 @@ struct ReturnModel: Sendable {
             }
             cholesky = repaired ?? drawClasses.indices.map { i in drawClasses.indices.map { $0 == i ? 1 : 0 } }
         }
+    }
+
+    /// The median yearly real return below which a held class gets a
+    /// warning (`planner.lowMedianReturn`): −2%.
+    static let lowMedian = -0.02
+
+    /// The arithmetic mean the simulation uses for `assumption`: `real` as
+    /// written, else derived from `medianReal` and `volatility` under the
+    /// same log-normal the draws use (``logMean``, ``logSD``), so the draws'
+    /// median is the median written.
+    static func mean(of assumption: ReturnAssumption, volatility: Double) -> Double {
+        if let real = assumption.realAsWritten { return real.double }
+        guard let median = assumption.medianReal else { return 0 }
+        return ReturnAssumption.arithmeticMean(median: median.double, volatility: volatility)
+    }
+
+    /// "Crypto", "Real estate": an asset class in words, for messages.
+    static func name(_ assetClass: AssetClass) -> String {
+        switch assetClass {
+        case .realEstate: return "Real estate"
+        default:
+            let raw = assetClass.rawValue
+            return raw.prefix(1).uppercased() + raw.dropFirst()
+        }
+    }
+
+    /// "−18%", "−2.5%", "4.5%": a yearly rate for messages, whole from 10%.
+    static func percent(_ value: Double) -> String {
+        let percent = value * 100
+        let text = abs(percent) >= 9.95 ? String(format: "%.0f", abs(percent)) : String(format: "%.1f", abs(percent))
+        let trimmed = text.hasSuffix(".0") ? String(text.dropLast(2)) : text
+        return (percent < 0 && trimmed != "0" ? "−" : "") + trimmed + "%"
     }
 
     /// The Cholesky factor of a symmetric matrix, or `nil` if it isn't

@@ -181,6 +181,10 @@ struct PlanHeadline: Hashable, Sendable {
     /// (`AssetsNeeded.maximumScale`) times today's plan assets, so there's
     /// no ``readiness``.
     var needsMoreThanSearched = false
+    /// ``readiness`` is a lower bound: even with the money that can be drawn
+    /// now taken out (down to what's locked away, or to a twentieth of
+    /// today's plan assets), retiring today works (`AssetsNeeded.Outcome.atMost`).
+    var readinessIsLowerBound = false
     /// For a headline read from `projections/…/headlines`: when it was recorded.
     var recordedOn: CalendarDate?
 
@@ -205,7 +209,8 @@ struct PlanHeadline: Hashable, Sendable {
 
     init(confidence: Double, earliestAge: Int? = nil, earliestDate: CalendarDate? = nil, targetAge: Int? = nil,
          successAtTarget: Double? = nil, successToday: Double? = nil, sustainableSpending: Decimal? = nil,
-         fiProgress: Double? = nil, readiness: Double? = nil, needsMoreThanSearched: Bool = false) {
+         fiProgress: Double? = nil, readiness: Double? = nil, needsMoreThanSearched: Bool = false,
+         readinessIsLowerBound: Bool = false) {
         self.confidence = confidence
         self.earliestAge = earliestAge
         self.earliestDate = earliestDate
@@ -216,6 +221,7 @@ struct PlanHeadline: Hashable, Sendable {
         self.fiProgress = fiProgress
         self.readiness = readiness
         self.needsMoreThanSearched = needsMoreThanSearched
+        self.readinessIsLowerBound = readinessIsLowerBound
     }
 }
 

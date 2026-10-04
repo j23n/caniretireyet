@@ -56,15 +56,21 @@ extension PlanDebugReport {
         public var retirementAge: Int
         /// How it was chosen: `today`, `target` or `age`.
         public var retirementAgeChoice: String
-        /// The multiple of today's starting portfolio the percentiles,
-        /// failures and traced paths start from (1: today's).
+        /// The plan assets the percentiles, failures and traced paths start
+        /// from, as a multiple of today's (1: today's).
         public var startScale: Double
-        /// How it was chosen: `actual`, `assetsNeeded` or `factor`.
+        /// How it was chosen: `actual`, `assetsNeeded` (today's portfolio
+        /// with ``startExtra`` in the accessible buckets) or `factor` (every
+        /// holding multiplied by ``startScale``).
         public var startScaleChoice: String
         /// The plan assets they start from: today's times ``startScale``.
         public var startAssets: Double
         /// What was anonymized; `nil` when nothing was.
         public var anonymization: AnonymizationNote?
+        /// For `assetsNeeded`: the extra money in the buckets that can be
+        /// drawn at any age (negative: taken out of them), as the search
+        /// for the assets needed adds it. `nil` otherwise.
+        public var startExtra: Double? = nil
     }
 
     /// What ``PlanDebugReport/anonymized(_:)`` changed.
@@ -514,25 +520,40 @@ extension PlanDebugReport {
         public var success: Double
     }
 
+    /// The search for the plan assets retiring today needs: extra money in
+    /// the buckets that can be drawn at today's age (``accessible``), or
+    /// money taken out of them.
     public struct AssetsSearch: Codable, Hashable, Sendable {
         public var age: Int
         /// `found`, `atMost`, `moreThanMaximum` or `noPlanAssets`.
         public var outcome: String
+        /// ``amount`` as a multiple of ``planAssets``.
         public var scale: Double?
         public var amount: Double?
         public var success: Double?
         public var readiness: Double?
         public var planAssets: Double
         public var maximumScale: Double
-        /// Every scale tried, in order.
+        /// Every amount tried, in order.
         public var steps: [ScaleStep]
+        /// The extra money in the accessible buckets (`amount − planAssets`;
+        /// negative when money could be taken out), as in
+        /// ``AssetsNeeded/extra``.
+        public var extra: Double? = nil
+        /// Today's value of the accessible buckets, which the search adds to
+        /// or takes from; the rest of ``planAssets`` is locked away today.
+        public var accessible: Double? = nil
     }
 
+    /// One amount the search for the assets needed tried.
     public struct ScaleStep: Codable, Hashable, Sendable {
+        /// ``amount`` as a multiple of today's plan assets.
         public var scale: Double
-        /// The plan assets at that scale.
+        /// The plan assets with ``extra``.
         public var amount: Double
         public var success: Double
+        /// The extra money in the accessible buckets (negative: taken out).
+        public var extra: Double? = nil
     }
 
     public struct Failures: Codable, Hashable, Sendable {

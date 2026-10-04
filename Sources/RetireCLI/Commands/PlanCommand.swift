@@ -242,12 +242,22 @@ struct PlanReport {
         var readiness: Double?
         /// The most times today's plan assets the search tries.
         var maximumScale: Double = AssetsNeeded.maximumScale
+        /// The money added to the accounts that can be drawn now (`amount −
+        /// planAssets`; negative when it could be taken out). `nil` for a
+        /// report made by hand.
+        var extra: Double?
+        /// For `atMost`: whether the bound is what's locked away, with
+        /// nothing left in the accounts that can be drawn now.
+        var onlyLockedMoney = false
 
-        init(outcome: Outcome, planAssets: Double, amount: Double? = nil, readiness: Double? = nil) {
+        init(outcome: Outcome, planAssets: Double, amount: Double? = nil, readiness: Double? = nil,
+             extra: Double? = nil, onlyLockedMoney: Bool = false) {
             self.outcome = outcome
             self.planAssets = planAssets
             self.amount = amount
             self.readiness = readiness
+            self.extra = extra
+            self.onlyLockedMoney = onlyLockedMoney
         }
 
         init(_ needed: AssetsNeeded, planAssets: Double) {
@@ -257,7 +267,9 @@ struct PlanReport {
             case .moreThanMaximum: .moreThanMaximum
             case .noPlanAssets: .noPlanAssets
             }
-            self.init(outcome: outcome, planAssets: planAssets, amount: needed.amount, readiness: needed.readiness)
+            self.init(outcome: outcome, planAssets: planAssets, amount: needed.amount, readiness: needed.readiness,
+                      extra: needed.outcome == .found ? needed.extra : nil,
+                      onlyLockedMoney: needed.leavesOnlyLockedMoney)
         }
 
         /// A readiness as a percentage, rounded down below 100% so it never
@@ -268,7 +280,8 @@ struct PlanReport {
         }
 
         /// "Needed to retire today: 2,002,118 EUR in plan assets, at 90%
-        /// confidence. You have 148,808 EUR (7%)."
+        /// confidence, with the extra 1,853,310 EUR in accounts you can draw
+        /// now. You have 148,808 EUR (7%)."
         func text(currency: CurrencyCode, confidence: Double) -> String {
             let at = "at \(PlanReport.percent(confidence)) confidence"
             let have = "\(PlanReport.whole(planAssets)) \(currency)"
@@ -276,9 +289,19 @@ struct PlanReport {
             switch outcome {
             case .found:
                 let share = readiness.map(Self.percent).map { " (\($0))" } ?? ""
-                return "Needed to retire today: \(PlanReport.whole(amount ?? 0)) \(currency) in plan assets, \(at). "
-                    + "You have \(have)\(share)."
+                var how = ""
+                if let extra, PlanReport.whole(extra) != "0" {
+                    how = extra > 0
+                        ? ", with the extra \(PlanReport.whole(extra)) \(currency) in accounts you can draw now"
+                        : ": \(PlanReport.whole(-extra)) \(currency) less in accounts you can draw now"
+                }
+                return "Needed to retire today: \(PlanReport.whole(amount ?? 0)) \(currency) in plan assets, \(at)"
+                    + "\(how). You have \(have)\(share)."
             case .atMost:
+                if onlyLockedMoney {
+                    return "Needed to retire today: at most the \(PlanReport.whole(amount ?? 0)) \(currency) locked "
+                        + "away, \(at): it works with nothing in accounts you can draw now. You have \(have)."
+                }
                 return "Needed to retire today: at most \(PlanReport.whole(amount ?? 0)) \(currency) in plan assets, "
                     + "\(at). You have \(have), \(times) times that or more."
             case .moreThanMaximum:
@@ -573,6 +596,7 @@ struct PlanReport {
              sustainableSpending: sustainableSpending,
              assetsNeededToday: needed?.amount.flatMap { $0.isFinite ? $0.rounded() : nil },
              assetsNeededOutcome: needed?.outcome.rawValue,
+             assetsNeededExtra: needed?.extra.flatMap { $0.isFinite ? $0.rounded() : nil },
              readiness: needed?.readiness.flatMap { $0.isFinite ? ($0 * 10_000 + 1e-9).rounded(.down) / 10_000 : nil },
              issues: issues.map { JSON.Issue(severity: $0.isError ? "error" : "warning", message: $0.message) },
              runs: run?.runs, fast: run?.fast, engine: run?.engine, startDate: run?.startDate.description,
@@ -656,6 +680,9 @@ struct PlanReport {
         var assetsNeededToday: Double?
         /// How the search ended: found, atMost, moreThanMaximum or noPlanAssets.
         var assetsNeededOutcome: String?
+        /// When found: the money added to the accounts that can be drawn now
+        /// (negative when it could be taken out), whole.
+        var assetsNeededExtra: Double?
         /// Today's plan assets over what retiring today needs, rounded down
         /// to 4 decimals: 1 or more exactly when retiring today works.
         var readiness: Double?

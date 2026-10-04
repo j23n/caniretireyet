@@ -171,7 +171,8 @@ enum PlanResultsText {
             return "\(searchedScale) times what you'd need to retire today, or more"
         }
         let percent = AmountFormat.percent(readinessShare(readiness), digits: 0, locale: locale)
-        return "\(percent) of what you'd need to retire today"
+        return headline.readinessIsLowerBound ? "\(percent) or more of what you'd need to retire today"
+            : "\(percent) of what you'd need to retire today"
     }
 
     /// What the readiness compares, for its ⓘ.
@@ -179,7 +180,8 @@ enum PlanResultsText {
         let percent = AmountFormat.percent(confidence, digits: 0, locale: locale)
         return "Your plan assets compared with what retiring now would need for a \(percent) chance (the plan's "
             + "confidence), including the years before your pensions start and taxes. The plan finds it by "
-            + "simulating retiring today with more or less money in the same accounts. At 100% you could retire today."
+            + "simulating retiring today with extra money added to accounts you can draw now, or with money taken "
+            + "out of them; money locked in pension funds stays as it is. At 100% you could retire today."
     }
 
     /// Under an answer recorded before readiness existed, instead of a number.
@@ -192,7 +194,8 @@ enum PlanResultsText {
         case .found:
             return needed.amount.map { .amount(whole($0), unit: nil) }
         case .atMost:
-            return .text("Under 1/\(searchedScale) of your plan assets")
+            return needed.leavesOnlyLockedMoney ? .text("At most what's locked away")
+                : .text("Under 1/\(searchedScale) of your plan assets")
         case .moreThanMaximum:
             return .text("Over \(searchedScale)× your plan assets")
         case .noPlanAssets:
@@ -226,6 +229,10 @@ enum PlanResultsText {
         guard let details = results.details else { return rows }
         if let needed = details.assetsNeeded, let figure = neededToday(needed) {
             rows.append(PlanFigureRow(label: "Needed to retire today", value: figure))
+            if needed.outcome == .found, let extra = needed.extra, extra >= 0.5 {
+                rows.append(PlanFigureRow(label: "Extra in accounts you can draw now",
+                                          value: .amount(whole(extra), unit: nil)))
+            }
             if needed.outcome == .found, let readiness = needed.readiness {
                 rows.append(PlanFigureRow(label: "You have", value: .percent(readinessShare(readiness))))
             }

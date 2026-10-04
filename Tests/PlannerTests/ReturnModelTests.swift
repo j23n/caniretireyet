@@ -92,6 +92,62 @@ struct ReturnModelTests {
         #expect(abs(scenarios.expectedFactors[0] - pow(1.045, 0.25)) < 1e-12)
     }
 
+    @Test func aMedianIsWhatTheDrawsGiveInATypicalYear() throws {
+        // Crypto's default: a median of 0% at 70% volatility, so a mean of about 16.6%.
+        var issues: [PlanIssue] = []
+        let model = ReturnModel(assumptions: PlanAssumptions(), heldClasses: [.crypto], issues: &issues)
+        #expect(issues.isEmpty)
+        let mean = ReturnAssumption.arithmeticMean(median: 0, volatility: 0.7)
+        #expect(model.expected == [mean] && model.volatility == [0.7])
+        #expect(abs(exp(model.logMean[0]) - 1) < 1e-12)
+
+        let scenarios = MarketScenarios(model: model, fractions: Array(repeating: 1, count: 10), runs: 4000, seed: 5,
+                                        eventProbabilities: [])
+        let sorted = scenarios.factors.sorted()
+        let count = Double(sorted.count)
+        let median = (sorted[sorted.count / 2 - 1] + sorted[sorted.count / 2]) / 2 - 1
+        // About four standard errors of the median of 40,000 draws, and three of the mean.
+        #expect(abs(median) < 0.015, "\(median)")
+        #expect(abs(sorted.reduce(0, +) / count - 1 - mean) < 3 * 0.7 / count.squareRoot())
+    }
+
+    @Test func aClassWhoseTypicalYearLosesValueIsWarnedAbout() throws {
+        var issues: [PlanIssue] = []
+        let old = PlanAssumptions(returns: [.crypto: ReturnAssumption(real: 0, volatility: d("0.7"))])
+        _ = ReturnModel(assumptions: old, heldClasses: [.equity, .crypto], issues: &issues)
+        let issue = try #require(issues.first)
+        #expect(issues.map(\.code) == ["planner.lowMedianReturn"])
+        #expect(issue.message == "Crypto's assumptions give a median of −18% a year: holding and rebalancing into it "
+            + "shrinks the portfolio. Check the assumption.")
+        #expect(issue.section == .assumptions && issue.option == "crypto" && !issue.isError)
+
+        // Not for the defaults, nor for a class the portfolio doesn't hold.
+        issues = []
+        _ = ReturnModel(assumptions: PlanAssumptions(), heldClasses: AssetClass.knownValues.filter { $0 != .realEstate
+            && $0 != .other }, issues: &issues)
+        #expect(issues.isEmpty)
+        _ = ReturnModel(assumptions: old, heldClasses: [.equity, .cash], issues: &issues)
+        #expect(issues.isEmpty)
+        // Just below −2% is a warning; −2% isn't.
+        let edge = PlanAssumptions(returns: [.gold: ReturnAssumption(medianReal: d("-0.021"), volatility: d("0.15")),
+                                             .bonds: ReturnAssumption(medianReal: d("-0.02"), volatility: d("0.06"))])
+        _ = ReturnModel(assumptions: edge, heldClasses: [.bonds, .gold], issues: &issues)
+        #expect(issues.map(\.message) == ["Gold's assumptions give a median of −2.1% a year: holding and rebalancing "
+            + "into it shrinks the portfolio. Check the assumption."])
+    }
+
+    @Test func aFileWithBothTheMeanAndTheMedianUsesTheMean() throws {
+        let both = try JSONDecoder().decode(
+            ReturnAssumption.self, from: Data(#"{ "real": "0.05", "medianReal": "0", "volatility": "0.7" }"#.utf8))
+        var issues: [PlanIssue] = []
+        let model = ReturnModel(assumptions: PlanAssumptions(returns: [.crypto: both]), heldClasses: [.crypto],
+                                issues: &issues)
+        #expect(model.expected == [0.05])
+        #expect(issues.map(\.code) == ["planner.meanAndMedian", "planner.lowMedianReturn"])
+        #expect(issues.first?.message == "Crypto's return assumption sets both real (the mean, 5%) and medianReal; the "
+            + "plan uses real and ignores medianReal.")
+    }
+
     @Test func classesWithoutAnAssumptionEarnNothing() {
         var issues: [PlanIssue] = []
         let model = ReturnModel(assumptions: PlanAssumptions(), heldClasses: [.equity, .realEstate], issues: &issues)

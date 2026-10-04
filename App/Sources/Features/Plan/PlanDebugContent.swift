@@ -590,10 +590,17 @@ struct PlanDebugContent: Sendable {
         if let search = simulation.assetsNeeded {
             var lines = PlanDebugLines()
             lines.add("Today's plan assets", .money(search.planAssets))
+            if let accessible = search.accessible {
+                lines.add("In accounts you can draw now", .money(accessible), note: "what the search adds to")
+            }
             switch search.outcome {
             case "found":
                 lines.add("Retiring today needs", .amount(search.amount),
                           note: search.scale.map { "\(PlanDebugText.times(($0 * 10).rounded() / 10)) today's" })
+                if let extra = search.extra {
+                    lines.add(extra >= 0 ? "Extra in accounts you can draw now" : "Could come out of them",
+                              .money(abs(extra)))
+                }
                 lines.add("Succeeding in", .rate(search.success), note: "of futures")
                 lines.add("Readiness", .rate(search.readiness, digits: 0), note: "of what's needed")
             case "moreThanMaximum":
@@ -601,23 +608,30 @@ struct PlanDebugContent: Sendable {
                           .text("more than \(PlanDebugText.number(search.maximumScale)) times today's"),
                           note: "the most the search tries")
             case "atMost":
-                lines.add("Retiring today needs at most", .amount(search.amount))
+                let lockedOnly = search.extra.flatMap { extra in search.accessible.map { extra <= -$0 * (1 - 1e-9) } }
+                    ?? false
+                lines.add("Retiring today needs at most", .amount(search.amount),
+                          note: lockedOnly ? "what's locked away" : nil)
                 lines.add("Readiness", .rate(search.readiness, digits: 0), note: "at least")
             default:
-                lines.add("Retiring today needs", .text("nothing to scale: the plan counts no assets"))
+                lines.add("Retiring today needs", .text("nothing to compare: the plan counts no assets"))
             }
             var steps = PlanDebugTableBuilder("assets-steps", [
-                .count("Step"), .count("Scale"), .money("Plan assets", key: true), .percent("Success", key: true),
+                .count("Step"), .money("Extra", key: true), .money("Plan assets", key: true), .count("Times today's"),
+                .percent("Success", key: true),
             ])
             for (index, step) in search.steps.enumerated() {
-                steps.add([.count(index + 1), .number(PlanDebugText.times((step.scale * 1000).rounded() / 1000)),
-                           .money(step.amount), .percent(step.success)])
+                steps.add([.count(index + 1), .money(step.extra ?? (step.amount - search.planAssets)),
+                           .money(step.amount), .number(PlanDebugText.times((step.scale * 1000).rounded() / 1000)),
+                           .percent(step.success)])
             }
             blocks.append(PlanDebugBlock(
                 id: "assets-search", title: "Assets needed to retire at \(search.age)",
-                note: "Every holding is scaled by the same factor, so the mix and the buckets keep their proportions: "
-                    + "doubling or halving from 1, then narrowing to within 1%, up to "
-                    + "\(PlanDebugText.number(search.maximumScale)) times today's plan assets.",
+                note: "Extra money goes only into the accounts you can draw now, at their target mix and with no "
+                    + "unrealised gain; money locked in pension funds and the like stays as it is. When today's "
+                    + "assets are more than enough, money comes out of those accounts instead. Doubling or halving "
+                    + "from today's, then narrowing to within 1%, up to \(PlanDebugText.number(search.maximumScale)) "
+                    + "times today's plan assets.",
                 lines: lines.lines, table: steps.table))
         }
 

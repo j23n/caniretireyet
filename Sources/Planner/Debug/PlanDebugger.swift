@@ -52,38 +52,51 @@ enum PlanDebugger {
         let age = computed.result.focusAge
         try Task.checkCancellation()
 
-        // What the percentiles and paths start from.
+        // What the percentiles and paths start from: the portfolio the
+        // search for the assets needed found (today's plus the extra money
+        // in the accessible buckets), or a multiple of every holding.
         let needed = computed.result.answer.assetsNeeded
-        let neededScale = needed?.outcome == .found || needed?.outcome == .moreThanMaximum ? needed?.scale : nil
+        let planAssets = engine.model.portfolio.startAssets.double
+        var neededExtra: Double?
+        if let needed, let extra = needed.extra, planAssets > 0 {
+            switch needed.outcome {
+            case .found, .moreThanMaximum: neededExtra = extra
+            case .atMost: neededExtra = options.startScale == .assetsNeeded ? extra : nil
+            case .noPlanAssets: neededExtra = nil
+            }
+        }
         var scale = 1.0
         var scaleChoice = "actual"
+        var extra: Double?
         switch options.startScale {
         case .automatic:
-            if age == engine.model.currentAge, let neededScale, neededScale > 1 {
-                scale = neededScale
-                scaleChoice = "assetsNeeded"
-            }
+            if age == engine.model.currentAge, let neededExtra, neededExtra > 0 { extra = neededExtra }
         case .actual:
             break
         case .assetsNeeded:
-            if let neededScale {
-                scale = neededScale
-                scaleChoice = "assetsNeeded"
-            }
+            extra = neededExtra
         case .factor(let factor):
             if factor.isFinite, factor > 0 {
                 scale = factor
                 scaleChoice = "factor"
             }
         }
-        let start = scale == 1 ? nil : engine.portfolio.scaled(by: scale)
+        if let extra {
+            scale = (planAssets + extra) / planAssets
+            scaleChoice = "assetsNeeded"
+        }
+        let start: Portfolio? = if let extra {
+            extra == 0 ? nil : engine.portfolio.withExtra(extra)
+        } else {
+            scale == 1 ? nil : engine.portfolio.scaled(by: scale)
+        }
 
         // Every run again, for the percentiles of what's drawn and taxed.
         let flows = try await engine.flowSummaries(age: age, spending: engine.model.spending.retired, start: start)
         try Task.checkCancellation()
 
         let builder = Builder(computed: computed, library: library, registry: registry, plan: plan, flows: flows,
-                              scale: scale, scaleChoice: scaleChoice, start: start)
+                              scale: scale, scaleChoice: scaleChoice, extra: extra, start: start)
         var report = builder.build(options: options, choice: choice)
         if let anonymization = options.anonymization { report = report.anonymized(anonymization) }
         return report
@@ -136,10 +149,13 @@ private struct Builder {
     let plan: PlanDocument
     /// Every run at the chosen age, from the start scale's assets.
     let flows: [RunFlows]
-    /// The multiple of the starting portfolio the percentiles and paths start from.
+    /// The plan assets the percentiles and paths start from, as a multiple of today's.
     let scale: Double
     let scaleChoice: String
-    /// The scaled starting portfolio; `nil` at scale 1.
+    /// The extra money in the accessible buckets they start with, when they
+    /// start from what the search for the assets needed found.
+    let extra: Double?
+    /// The starting portfolio they start from; `nil` for today's.
     let start: Portfolio?
     /// The deterministic run at the chosen age and start scale.
     let expected: (outcome: RunOutcome, years: [YearDetail])
@@ -155,7 +171,7 @@ private struct Builder {
     var outcomes: [RunOutcome] { start == nil ? computed.outcomes : flows.map(\.outcome) }
 
     init(computed: Planner.ComputedRun, library: Library, registry: TaxRegistry, plan: PlanDocument,
-         flows: [RunFlows], scale: Double, scaleChoice: String, start: Portfolio?) {
+         flows: [RunFlows], scale: Double, scaleChoice: String, extra: Double?, start: Portfolio?) {
         self.computed = computed
         self.library = library
         self.registry = registry
@@ -163,6 +179,7 @@ private struct Builder {
         self.flows = flows
         self.scale = scale
         self.scaleChoice = scaleChoice
+        self.extra = extra
         self.start = start
         var simulator = computed.engine.simulator(age: computed.result.focusAge, start: start)
         expected = simulator.detailedRun(nil, spending: computed.engine.model.spending.retired)
@@ -190,7 +207,8 @@ private struct Builder {
             fast: model.runs < plan.simulation.effectiveRuns, seed: model.seed, confidence: model.confidence,
             endAge: model.endAge, taxParameters: model.taxParameters, retirementAge: age,
             retirementAgeChoice: choice, startScale: scale, startScaleChoice: scaleChoice,
-            startAssets: model.portfolio.startAssets.double * scale, anonymization: nil)
+            startAssets: model.portfolio.startAssets.double + (extra ?? model.portfolio.startAssets.double * (scale - 1)),
+            anonymization: nil, startExtra: extra)
     }
 
     func person() -> PlanDebugReport.Person {
@@ -524,8 +542,10 @@ private struct Builder {
                 success: needed.success, readiness: needed.readiness, planAssets: planAssets,
                 maximumScale: AssetsNeeded.maximumScale,
                 steps: computed.scaleSteps.map {
-                    PlanDebugReport.ScaleStep(scale: $0.value, amount: $0.value * planAssets, success: $0.success)
-                })
+                    PlanDebugReport.ScaleStep(scale: planAssets > 0 ? (planAssets + $0.value) / planAssets : 1,
+                                              amount: planAssets + $0.value, success: $0.success, extra: $0.value)
+                },
+                extra: needed.extra, accessible: needed.accessible)
         }
         let outcomes = self.outcomes
         let failures = Planner.failureSummary(outcomes)
@@ -533,7 +553,11 @@ private struct Builder {
         let reproduced = start != nil ? nil : flows.count == computed.outcomes.count
             && zip(flows, computed.outcomes).allSatisfy { $0.outcome.failedYear == $1.failedYear
                 && $0.outcome.finalValue == $1.finalValue }
-        let searched = computed.scaleSteps.last { abs($0.value - scale) < 1e-12 }
+        // The search tried today's portfolio and extra money in the accessible buckets.
+        let startExtra: Double? = extra ?? (start == nil ? 0 : nil)
+        let searched = startExtra.flatMap { wanted in
+            computed.scaleSteps.last { abs($0.value - wanted) <= 1e-9 * max(1, abs(wanted)) }
+        }
         return PlanDebugReport.Simulation(
             successByAge: result.successCurve.map {
                 PlanDebugReport.AgeSuccess(age: $0.age, year: $0.retirementDate.year, success: $0.success)

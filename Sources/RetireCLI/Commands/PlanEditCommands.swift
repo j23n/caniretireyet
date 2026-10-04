@@ -110,14 +110,26 @@ struct PlanInputsReport {
 
         lines.append("")
         lines.append("Returns, real, a year")
-        var table = TextTable([.left("Class"), .right("Return"), .right("Volatility"), .right("Income yield")])
+        var table = TextTable([.left("Class"), .right("Mean"), .right("Median"), .right("Volatility"),
+                               .right("Income yield"), .left("Set as")])
         for (assetClass, assumption) in returns() {
-            table.add([assetClass.rawValue, Format.percent(assumption.real), Format.percent(assumption.volatility),
-                       Format.percent(assumption.incomeYield)])
+            table.add([assetClass.rawValue, Format.percent(assumption.real), Format.percent(assumption.impliedMedianReal),
+                       Format.percent(assumption.volatility), Format.percent(assumption.incomeYield),
+                       Self.setAs(assumption, isDefault: plan.assumptions.returns[assetClass] == nil)])
         }
         lines += table.lines()
+        lines.append("Mean: the average year. Median: the typical year, about what a portfolio rebalanced every year "
+            + "grows at; the more volatile the class, the further below the mean.")
         lines.append("Income yield: the part of the return paid as income each year; some countries tax it yearly.")
         return lines
+    }
+
+    /// "mean", "median (default)", "mean (median ignored)": what a return
+    /// assumption is given by, and where it comes from.
+    static func setAs(_ assumption: ReturnAssumption, isDefault: Bool) -> String {
+        let given = assumption.setsMeanAndMedian ? "mean (median ignored)"
+            : assumption.isGivenByMedian ? "median" : "mean"
+        return isDefault ? given + " (default)" : given
     }
 
     /// "it from 2026 (Italy), generic from 2048", or the default.
@@ -186,9 +198,14 @@ struct PlanInputsReport {
                                    amount: contribution.amount?.fileString, year: contribution.year)
              },
              returns: Dictionary(uniqueKeysWithValues: returns().map { assetClass, assumption in
-                 (assetClass.rawValue, JSON.Return(real: assumption.real.fileString,
-                                                   volatility: assumption.volatility.fileString,
-                                                   incomeYield: assumption.incomeYield?.fileString))
+                 (assetClass.rawValue, JSON.Return(
+                     real: (assumption.realAsWritten ?? Format.rounded(assumption.real, places: 6)).fileString,
+                     volatility: assumption.volatility.fileString,
+                     incomeYield: assumption.incomeYield?.fileString,
+                     median: (assumption.isGivenByMedian ? assumption.impliedMedianReal
+                         : Format.rounded(assumption.impliedMedianReal, places: 6)).fileString,
+                     givenAs: assumption.isGivenByMedian ? "median" : "mean",
+                     isDefault: plan.assumptions.returns[assetClass] == nil))
              }))
     }
 
@@ -229,9 +246,17 @@ struct PlanInputsReport {
         }
 
         struct Return: Encodable {
+            /// The mean (arithmetic) real return: as written, or derived from
+            /// the median, to 6 decimals.
             var real: String
             var volatility: String
             var incomeYield: String?
+            /// The median real return: as written, or derived from the mean.
+            var median: String
+            /// `mean` or `median`: what the plan, or the default, gives.
+            var givenAs: String
+            /// Whether it's the default (the plan sets nothing for the class).
+            var isDefault: Bool
         }
 
         var plan: String
@@ -249,16 +274,21 @@ struct PlanInputsReport {
 
 // MARK: - set
 
-/// `retire plan set`: the plan's currency and income yields.
+/// `retire plan set`: the plan's currency, return assumptions and income yields.
 struct PlanSetCommand: RetireSubcommand {
     static let configuration = CommandConfiguration(
         commandName: "set",
-        abstract: "Set a plan's currency or an asset class's income yield.",
+        abstract: "Set a plan's currency, or an asset class's return, volatility or income yield.",
         discussion: """
             --currency CHF puts the plan's amounts and results in CHF; --currency library goes back to the \
             library's base currency. The library needs exchange rates between the two to value your accounts. \
+            --return equity=4.5% (or 0.045) sets equity's expected real return as its mean, the average \
+            year; --median-return crypto=0% sets it as its median, the typical year, and the mean follows \
+            from the median and the volatility. --volatility crypto=70% sets the volatility, keeping \
+            whichever of the two was given. --return equity=default goes back to the default. \
             --income-yield equity=0.02 (or 2%) is the part of equity's return paid as income each year, which \
-            some countries tax yearly; equity=none removes it. Repeat it for more classes.
+            some countries tax yearly; equity=none removes it. Repeat each for more classes. What equals the \
+            default isn't written to the plan.
             """)
 
     @OptionGroup var options: LibraryOptions
@@ -269,6 +299,19 @@ struct PlanSetCommand: RetireSubcommand {
     @Option(help: ArgumentHelp("The plan's currency, e.g. CHF, or `library` for the library's.", valueName: "code"))
     var currency: String?
 
+    @Option(name: .customLong("return"),
+            help: ArgumentHelp("An asset class's expected real return as its mean, e.g. equity=4.5%, or default.",
+                               valueName: "class=mean"))
+    var meanReturn: [String] = []
+
+    @Option(name: .customLong("median-return"),
+            help: ArgumentHelp("An asset class's expected real return as its median, e.g. crypto=0%.",
+                               valueName: "class=median"))
+    var medianReturn: [String] = []
+
+    @Option(help: ArgumentHelp("An asset class's volatility, e.g. crypto=70%.", valueName: "class=volatility"))
+    var volatility: [String] = []
+
     @Option(help: ArgumentHelp("An asset class's income yield, e.g. equity=0.02, 2%, or none.",
                                valueName: "class=yield"))
     var incomeYield: [String] = []
@@ -277,13 +320,74 @@ struct PlanSetCommand: RetireSubcommand {
     var dryRun = false
 
     func validate() throws {
-        guard currency != nil || !incomeYield.isEmpty else {
-            throw ValidationError("Say what to set: --currency or --income-yield.")
+        guard currency != nil || !incomeYield.isEmpty || !meanReturn.isEmpty || !medianReturn.isEmpty
+            || !volatility.isEmpty else {
+            throw ValidationError("Say what to set: --currency, --return, --median-return, --volatility or "
+                + "--income-yield.")
         }
         if let currency, currency.lowercased() != "library", !CurrencyCode(currency.uppercased()).isWellFormed {
             throw ValidationError("--currency must be a currency code such as CHF, or library.")
         }
         for entry in incomeYield { _ = try Self.yield(entry) }
+        _ = try returnChanges()
+    }
+
+    /// What `--return`, `--median-return` and `--volatility` change, per class.
+    struct ReturnChange {
+        /// `nil`: the default's.
+        var mean: Decimal??
+        var median: Decimal?
+        var volatility: Decimal?
+    }
+
+    /// The return changes, by class in the usual order.
+    func returnChanges() throws -> [(AssetClass, ReturnChange)] {
+        var changes: [AssetClass: ReturnChange] = [:]
+        for entry in meanReturn {
+            let (assetClass, value) = try Self.share(entry, option: "--return", allowsDefault: true)
+            if let value, value <= -1 { throw ValidationError("--return: a real return must be above -100%.") }
+            if value == nil, PlanAssumptions.defaultReturns[assetClass] == nil {
+                throw ValidationError("--return: \(assetClass) has no default return.")
+            }
+            changes[assetClass, default: ReturnChange()].mean = .some(value)
+        }
+        for entry in medianReturn {
+            let (assetClass, value) = try Self.share(entry, option: "--median-return", allowsDefault: false)
+            guard let value, value > -1 else {
+                throw ValidationError("--median-return: a real return must be above -100%.")
+            }
+            if changes[assetClass]?.mean != nil {
+                throw ValidationError("Give \(assetClass)'s return as its mean (--return) or its median "
+                    + "(--median-return), not both.")
+            }
+            changes[assetClass, default: ReturnChange()].median = value
+        }
+        for entry in volatility {
+            let (assetClass, value) = try Self.share(entry, option: "--volatility", allowsDefault: false)
+            guard let value, value >= 0 else { throw ValidationError("--volatility can't be negative.") }
+            changes[assetClass, default: ReturnChange()].volatility = value
+        }
+        return AssetClass.knownValues.compactMap { assetClass in changes[assetClass].map { (assetClass, $0) } }
+    }
+
+    /// `equity=0.045` (or `4.5%`, or `default` when `allowsDefault`) as a
+    /// class and a share; `nil` for `default`.
+    static func share(_ entry: String, option: String, allowsDefault: Bool) throws -> (AssetClass, Decimal?) {
+        let parts = entry.split(separator: "=", maxSplits: 1).map { $0.trimmingCharacters(in: .whitespaces) }
+        guard parts.count == 2, !parts[0].isEmpty else {
+            throw ValidationError("\(option) takes class=value, e.g. equity=0.045, not “\(entry)”.")
+        }
+        let assetClass = AssetClass(parts[0])
+        guard AssetClass.knownValues.contains(assetClass) else {
+            throw ValidationError("\(option): “\(parts[0])” isn't an asset class ("
+                + AssetClass.knownValues.map(\.rawValue).joined(separator: ", ") + ").")
+        }
+        if allowsDefault, parts[1].lowercased() == "default" { return (assetClass, nil) }
+        let isPercent = parts[1].hasSuffix("%")
+        guard let number = Decimal(fileString: isPercent ? String(parts[1].dropLast()) : parts[1]) else {
+            throw ValidationError("\(option): “\(parts[1])” isn't a number written like 0.045 or 4.5%.")
+        }
+        return (assetClass, isPercent ? number / 100 : number)
     }
 
     /// `equity=0.02` (or `2%`, or `none`) as a class and a yield.
@@ -327,12 +431,34 @@ struct PlanSetCommand: RetireSubcommand {
             if let issue = PlanEdit.missingRate(for: edited, library: loaded.library) { lines.append("  Note: \(issue)") }
             sections.append(.tax)
         }
+        for (assetClass, change) in try returnChanges() {
+            var assumption = edited.assumptions.returnAssumption(for: assetClass)
+                ?? ReturnAssumption(real: 0, volatility: 0)
+            if case .some(let mean) = change.mean {
+                if let mean {
+                    assumption.real = mean
+                } else if let fallback = PlanAssumptions.defaultReturns[assetClass] {
+                    let yield = assumption.incomeYield
+                    assumption = fallback
+                    assumption.incomeYield = yield
+                }
+            }
+            if let median = change.median { assumption.medianReal = median }
+            if let volatility = change.volatility { assumption.volatility = volatility }
+            edited.assumptions.setReturnAssumption(assumption, for: assetClass)
+            let given = assumption.isGivenByMedian
+                ? "median \(Format.percent(assumption.impliedMedianReal)) (mean \(Format.percent(assumption.real)))"
+                : "mean \(Format.percent(assumption.real)) (median \(Format.percent(assumption.impliedMedianReal)))"
+            lines.append("Return of \(assetClass): \(given) at \(Format.percent(assumption.volatility)) volatility"
+                + (edited.assumptions.returns[assetClass] == nil ? ", the default." : "."))
+            sections.append(.assumptions)
+        }
         for entry in incomeYield {
             let (assetClass, share) = try Self.yield(entry)
             var assumption = edited.assumptions.returnAssumption(for: assetClass)
                 ?? ReturnAssumption(real: 0, volatility: 0)
             assumption.incomeYield = share
-            edited.assumptions.returns[assetClass] = assumption
+            edited.assumptions.setReturnAssumption(assumption, for: assetClass)
             lines.append("Income yield of \(assetClass): " + (share.map { Format.percent($0) } ?? "none") + ".")
             sections.append(.assumptions)
         }

@@ -211,6 +211,11 @@ enum PlanEditing {
     static let incomeYieldExplanation = "The part of the return paid as income each year; some countries tax it "
         + "yearly. Leave it empty for none."
 
+    /// The line under the returns.
+    static let returnsExplanation = "Placeholders to review, not forecasts: real returns after fund costs. The mean "
+        + "is the average year, the median the typical one, which a portfolio rebalanced every year grows at. Enter "
+        + "either: the other follows from the volatility."
+
     // MARK: Lists
 
     /// `list` without the item at `index` (if it's there).

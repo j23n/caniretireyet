@@ -21,9 +21,10 @@ public struct PlannerProgress: Hashable, Sendable {
         /// The highest sustainable spending, by bisection. Counted in steps;
         /// the total is an estimate that can grow by a step or two.
         case sustainableSpending
-        /// The plan assets retiring today would need: today's age at
-        /// several scales of the starting portfolio, by bisection. Counted
-        /// in steps (scales tried); the total is an estimate that can grow.
+        /// The plan assets retiring today would need: today's age with
+        /// several amounts of extra money in the accessible buckets, by
+        /// bisection. Counted in steps (amounts tried); the total is an
+        /// estimate that can grow.
         case assetsNeeded
         /// Percentiles, the median path, the FI number and the markers.
         /// One step.

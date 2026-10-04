@@ -85,7 +85,8 @@ public enum Planner {
         let outcomes: [RunOutcome]
         /// The sustainable-spending search, in the order tried (empty when not solved).
         let spendingSteps: [SearchStep]
-        /// The assets-needed search's scales, in the order tried (empty when not solved).
+        /// The assets-needed search's steps, each the extra money in the
+        /// accessible buckets, in the order tried (empty when not solved).
         let scaleSteps: [SearchStep]
     }
 

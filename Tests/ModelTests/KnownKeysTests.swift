@@ -89,7 +89,10 @@ struct KnownKeysTests {
         (plan.contributions[0], PlanContribution.knownKeys),
         (plan.portfolio, PlanPortfolio.knownKeys),
         (plan.assumptions, PlanAssumptions.knownKeys),
-        (ReturnAssumption(real: 0, volatility: 0, incomeYield: d("0.02")), ReturnAssumption.knownKeys),
+        // Only a file edited by hand writes both the mean and the median.
+        (try! JSONDecoder().decode(ReturnAssumption.self, from: Data(
+            #"{ "real": "0", "medianReal": "0", "volatility": "0", "incomeYield": "0.02" }"#.utf8)),
+         ReturnAssumption.knownKeys),
         (plan.withdrawals, PlanWithdrawals.knownKeys),
         (plan.simulation, PlanSimulation.knownKeys),
         (ImportProfile(id: "p", name: "P", file: ImportFileSettings(encoding: .utf8, delimiter: ";", headerRow: 1, excludeRows: ["Totale"]),

@@ -643,10 +643,66 @@ struct Portfolio: Sendable {
         buckets.firstIndex { $0.wrapper == wrapper }
     }
 
+    /// The value of the liquid (taxable) buckets at the start: the money
+    /// that can be drawn at any age, which ``withExtra(_:)`` adds to or
+    /// takes from.
+    var accessibleValue: Double {
+        lots.reduce(0) { $0 + (buckets[$1.bucket].isLiquid ? $1.value : 0) }
+    }
+
+    /// The same portfolio with `extra` more money in the buckets that can be
+    /// drawn at any age, the liquid ones (PLANNER.md, "Assets needed to
+    /// retire today"); tax-advantaged buckets stay as they are. More money
+    /// is split between the liquid buckets by their value (all of it into
+    /// the one that receives savings when they're empty), and within each by
+    /// its target mix, into the lots new money goes to, at a purchase cost
+    /// equal to the amount: new money carries no unrealised gain. Less money
+    /// (`extra` < 0) comes out of every liquid lot in proportion, value and
+    /// purchase cost alike, never below zero. For "assets needed to retire
+    /// today" (``Engine/assetsNeeded(age:startAssets:successToday:progress:)``).
+    func withExtra(_ extra: Double) -> Portfolio {
+        guard extra != 0, extra.isFinite else { return self }
+        var changed = lots
+        let liquid = buckets.indices.filter { buckets[$0].isLiquid }
+        let values = liquid.map { b in buckets[b].lots.reduce(0) { $0 + lots[$1].value } }
+        let available = values.reduce(0, +)
+        if extra < 0 {
+            guard available > 0 else { return self }
+            let keep = max(0, 1 + extra / available)
+            for b in liquid {
+                for index in buckets[b].lots {
+                    changed[index].value *= keep
+                    changed[index].basis *= keep
+                }
+            }
+        } else {
+            func targets(_ b: Int) -> [Double] {
+                (0..<classCount).map { depositLot[b * classCount + $0] >= 0 ? targetShares[b * classCount + $0] : 0 }
+            }
+            var shares = zip(liquid, values).map { ($0, available > 0 ? $1 / available : 0) }
+            if available <= 0 { shares = [(primaryLiquid, 1)] }
+            for (b, share) in shares where share > 0 {
+                // A bucket without a target (never the one receiving savings) adds to that one.
+                let bucket = targets(b).reduce(0, +) > 0 ? b : primaryLiquid
+                let weights = targets(bucket)
+                let total = weights.reduce(0, +)
+                guard total > 0 else { continue }
+                for c in 0..<classCount where weights[c] > 0 {
+                    let lot = depositLot[bucket * classCount + c]
+                    let amount = extra * share * weights[c] / total
+                    changed[lot].value += amount
+                    changed[lot].basis += amount
+                }
+            }
+        }
+        return Portfolio(buckets: buckets, lots: changed, classes: classes, primaryLiquid: primaryLiquid,
+                         targetShares: targetShares, depositLot: depositLot)
+    }
+
     /// The same portfolio with every lot's value and purchase cost
     /// multiplied by `factor`: every bucket and class grows in proportion,
-    /// and each lot keeps its share of unrealised gain. For "assets needed
-    /// to retire today" (``Engine/assetsNeeded(age:startAssets:successToday:progress:)``).
+    /// and each lot keeps its share of unrealised gain. The plan debugger
+    /// starts its runs from it when asked for a multiple of today's assets.
     func scaled(by factor: Double) -> Portfolio {
         guard factor != 1 else { return self }
         var scaled = lots

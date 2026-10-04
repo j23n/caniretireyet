@@ -71,6 +71,7 @@ extension PlanDebugReport.Header: DebugMappable {
         h.planID = m.planID(planID)
         h.planName = m.planName(planName)
         h.startAssets = m.money(startAssets)
+        h.startExtra = m.money(startExtra)
         return h
     }
 }
@@ -214,8 +215,11 @@ extension PlanDebugReport.Simulation: DebugMappable {
             var x = search
             x.amount = m.money(search.amount)
             x.planAssets = m.money(search.planAssets)
+            x.extra = m.money(search.extra)
+            x.accessible = m.money(search.accessible)
             x.steps = search.steps.map {
-                PlanDebugReport.ScaleStep(scale: $0.scale, amount: m.money($0.amount), success: $0.success)
+                PlanDebugReport.ScaleStep(scale: $0.scale, amount: m.money($0.amount), success: $0.success,
+                                          extra: m.money($0.extra))
             }
             return x
         }

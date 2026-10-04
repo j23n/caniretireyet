@@ -238,6 +238,26 @@ struct PlanDebugTests {
         // The search counted the same success at that scale as simulating every run gives.
         #expect(report.simulation.searchSuccessAtStartScale == report.simulation.successAtStartScale)
         #expect(report.simulation.successAtStartScale >= report.header.confidence)
+
+        // The runs start from today's portfolio with the extra money in the
+        // broker account, the one that can be drawn now; the pension fund
+        // keeps its 50,000.
+        let extra = try #require(needed.extra)
+        #expect(report.header.startExtra == extra && extra > 0)
+        #expect(needed.accessible == 400_000)
+        #expect(abs(report.header.startAssets - (450_000 + extra)) < 0.01)
+        #expect(needed.steps.first?.extra == 0 && needed.steps.allSatisfy { $0.extra != nil })
+        for path in report.paths {
+            #expect(path.matchesMainRun, "\(path.label)")
+            let first = try #require(path.years.first)
+            #expect(abs(first.startAssets - (450_000 + extra)) < 0.01)
+            let fund = try #require(path.buckets.firstIndex { $0.wrapper == "flat.pension" })
+            #expect(abs(first.buckets[fund].start - 50_000) < 0.01)
+        }
+        let markdown = report.markdown()
+        #expect(markdown.contains("| Step | Extra | Plan assets | Times today's | Success |"))
+        #expect(report.diagnosis.contains { $0.code == "assets.needed"
+            && $0.text.contains("added to the accounts that can be drawn now") })
     }
 
     // MARK: Anonymization

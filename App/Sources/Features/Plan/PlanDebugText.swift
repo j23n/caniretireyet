@@ -129,7 +129,8 @@ enum PlanDebugStartChoice: String, CaseIterable, Hashable, Identifiable, Sendabl
         case .actual:
             "The runs start from today's plan assets."
         case .assetsNeeded:
-            "The runs start from the plan assets retiring today needs (or the most the search tries)."
+            "The runs start from the plan assets retiring today needs (or the most the search tries): today's with "
+                + "the extra money in the accounts you can draw now."
         case .factor:
             "The runs start from a multiple of today's plan assets, every holding scaled alike."
         }
@@ -224,9 +225,15 @@ enum PlanDebugText {
         let times = "\(number((header.startScale * 100).rounded() / 100)) times today's plan assets"
         switch header.startScaleChoice {
         case "assetsNeeded":
+            let extra = header.startExtra.map { extra in
+                extra >= 0 ? ", today's with \(money(extra)) more in the accounts you can draw now"
+                    : ", today's with \(money(-extra)) less in the accounts you can draw now"
+            } ?? ""
             return report.simulation.assetsNeeded?.outcome == "moreThanMaximum"
-                ? times + ", the most the search for what retiring today needs tries (it still falls short)"
-                : times + ": what retiring today needs"
+                ? times + ", the most the search for what retiring today needs tries (it still falls short)\(extra)"
+                : times + ": what retiring today needs\(extra)"
+        case "factor":
+            return times + ", every holding alike"
         default:
             return times
         }
