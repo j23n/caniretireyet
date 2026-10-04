@@ -30,9 +30,13 @@ struct SettingsScreen: View {
             PricesSection()
             ReminderSection()
             PrivacySection()
-            Section("About") {
+            Section {
                 LabeledContent("Version", value: Self.version)
                 LabeledContent("Library format", value: "\(library.settings.schemaVersion)")
+            } header: {
+                Text("About")
+            } footer: {
+                Text(AboutText.about)
             }
         }
         .formStyle(.grouped)

@@ -167,6 +167,9 @@ struct PlanHeadlineCard: View {
             }
             .padding(.top, Metrics.xs)
             PlanReadinessView(headline: headline, assetsNeeded: results.details?.assetsNeeded)
+            Text(AboutText.disclaimer)
+                .font(.footnote)
+                .foregroundStyle(Palette.mutedInk)
             if let onWhatIf {
                 Button {
                     onWhatIf()

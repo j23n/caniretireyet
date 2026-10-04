@@ -69,6 +69,9 @@ struct OnboardingScreen: View {
                 .foregroundStyle(Palette.secondaryInk)
             Text("Everything is kept as plain files that you own. There's no account to create and no server.")
                 .foregroundStyle(Palette.secondaryInk)
+            Text(AboutText.welcome)
+                .font(.footnote)
+                .foregroundStyle(Palette.secondaryInk)
         }
     }
 

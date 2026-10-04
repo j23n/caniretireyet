@@ -144,6 +144,9 @@ struct OverviewAnswerCard: View {
                     .monospacedDigit()
                     .foregroundStyle(Palette.mutedInk)
             }
+            Text(AboutText.disclaimer)
+                .font(.caption)
+                .foregroundStyle(Palette.mutedInk)
         }
     }
 
