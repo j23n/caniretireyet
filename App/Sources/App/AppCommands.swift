@@ -14,6 +14,7 @@ import SwiftUI
 /// | Duplicate Plan | ⌘D |
 /// | Compare Plans | ⌘⌥C |
 /// | Recalculate | ⌘R |
+/// | Show Calculations… | — |
 ///
 /// The plan commands act on the plan on screen, which publishes them with
 /// `.focusedSceneValue(\.planActions, …)`; they're disabled otherwise.
@@ -60,6 +61,9 @@ struct AppCommands: Commands {
             Button("Compare Plans") { planActions?.compare() }
                 .keyboardShortcut("c", modifiers: [.command, .option])
                 .disabled(planActions == nil)
+            Divider()
+            Button("Show Calculations…") { planActions?.showCalculations() }
+                .disabled(planActions == nil)
         }
     }
 }
@@ -76,6 +80,8 @@ struct PlanCommandActions {
     /// Recalculate (⌘R): calculate what's out of date on screen. Plans only
     /// run when asked.
     var recalculate: @MainActor () -> Void
+    /// Show Calculations…: the plan debugger for the plan on screen.
+    var showCalculations: @MainActor () -> Void
 }
 
 extension FocusedValues {
