@@ -257,6 +257,28 @@ public enum PlanDebugDiagnosis {
             add("failures", text)
         }
 
+        // Flexible spending: what it saves, and what it costs in a bad case.
+        if let rule = report.plan.flexibleSpending, let flexible = simulation.flexibleSpending {
+            var text = "With flexible spending (cuts of \(f.percent(rule.cut, places: 0)) down to "
+                + "\(f.percent(rule.floor, places: 0)) of the plan's \(f.money(flexible.planSpending)) a year)"
+            if let needed = simulation.assetsNeeded, needed.outcome == "found", let amount = needed.amount,
+               let without = flexible.assetsNeededWithoutRule ?? (flexible.assetsNeededWithoutRuleOutcome
+                   == "moreThanMaximum" ? .infinity : nil) {
+                text += ", retiring today needs \(f.money(amount)) \(currency) in plan assets instead of "
+                    + (without.isFinite ? f.money(without)
+                        : "more than \(f.number(needed.maximumScale)) times today's")
+            }
+            text += ". Retiring at \(age)" + (scaled ? " with \(f.money(report.header.startAssets)) \(currency)" : "")
+            if let lowest = flexible.p10LowestLevel {
+                text += ", in a bad case (1 in 10) spending drops to \(f.percent(lowest, places: 0)) of the plan's "
+                    + "(\(f.money(lowest * flexible.planSpending)) a year), and 1 in 10 futures spend "
+                    + "\(flexible.p90YearsBelow) or more of \(flexible.retirementYears) years below 100%"
+            } else {
+                text += ", in a bad case (1 in 10) the money runs out even at the floor"
+            }
+            add("flexible", text + "; \(f.percent(1 - flexible.shareWithCut, places: 0)) of futures never cut.")
+        }
+
         // The sustainable spending.
         if let search = report.simulation.sustainableSpending {
             if let perYear = search.perYear {
@@ -276,7 +298,9 @@ public enum PlanDebugDiagnosis {
             add("check.monotone", "With the plan assets the runs start from, the search for the assets needed counted "
                 + "\(f.percent(searched)) of runs succeeding, but simulating every run gives "
                 + "\(f.percent(simulation.successAtStartScale)): the search takes a run that succeeds with less money to "
-                + "succeed with more, which doesn't hold for every run here.")
+                + "succeed with more, which doesn't hold for every run here"
+                + (report.plan.flexibleSpending == nil ? "." : " (with flexible spending, a run with more money can cut "
+                    + "later and so spend more, which now and then ends below the floor)."))
         }
         return findings
     }

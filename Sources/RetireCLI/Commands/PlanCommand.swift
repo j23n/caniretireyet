@@ -24,8 +24,9 @@ struct PlanCommand: RetireSubcommand {
         discussion: """
             Runs the library's main plan (mainPlan in library.json), or --plan <id>, and prints \
             the headline answer, what retiring today would need (the plan assets that make it reach \
-            the plan's confidence, and your share of them), what you could spend, the chance of \
-            success by retirement age, how the plan read your library (its accounts by tax wrapper, and accounts that start \
+            the plan's confidence, and your share of them), what you could spend, with flexible \
+            spending what it did (how low spending goes in a bad case, how often and how long it's cut, \
+            and the spending paid every five years), the chance of success by retirement age, how the plan read your library (its accounts by tax wrapper, and accounts that start \
             a pension scheme), and any issues, in the plan's currency. The plan starts from the \
             latest check-in. --fast uses \(PlannerOptions.defaultFastRuns) runs instead of the plan's \
             own number (2,000 by default), with the same random draws. --years adds the median run \
@@ -322,6 +323,8 @@ struct PlanReport {
     var reading: Reading?
     /// The median run's years, with `--years`.
     var years: [YearRow]?
+    /// What flexible spending did at the focus age; `nil` without it.
+    var flexible: PlanFlexibleSpending.Report?
 
     /// How a plan read the library (PLANNER.md, "Buckets"): the accounts by
     /// tax wrapper, and the accounts whose value starts a pension scheme
@@ -494,6 +497,7 @@ struct PlanReport {
         needed = answer.assetsNeeded.map { Needed($0, planAssets: Double(result.start.planAssets.description) ?? 0) }
         run = Run(runs: result.settings.runs, fast: fast, engine: result.engine, startDate: result.start.date,
                   taxParameters: result.taxParameters)
+        flexible = result.flexibleSpending.map { PlanFlexibleSpending.Report($0, fan: result.fan) }
     }
 
     static func percent(_ share: Double) -> String {
@@ -543,6 +547,10 @@ struct PlanReport {
             lines.append("What you could spend: \(amount) \(currency) a year in today's "
                 + "money\(headline.targetAge.map { " from age \($0)" } ?? ""), "
                 + "at \(Self.percent(headline.confidence)) confidence.")
+        }
+        if let flexible {
+            lines.append("")
+            lines += flexible.lines(currency: currency, startYear: run?.startDate.year ?? 0)
         }
         if !successByAge.isEmpty {
             lines.append("")
@@ -601,6 +609,7 @@ struct PlanReport {
              issues: issues.map { JSON.Issue(severity: $0.isError ? "error" : "warning", message: $0.message) },
              runs: run?.runs, fast: run?.fast, engine: run?.engine, startDate: run?.startDate.description,
              taxParameters: run?.taxParameters, savedBaseline: savedBaseline, start: reading?.json,
+             flexibleSpending: flexible?.json,
              years: years?.map { row in
                  JSON.Year(year: row.year, age: row.age, work: Self.rounded(row.work),
                            pensions: Self.rounded(row.pensions), lumpSums: Self.rounded(row.lumpSums),
@@ -694,6 +703,8 @@ struct PlanReport {
         var taxParameters: [String: Int]?
         var savedBaseline: String?
         var start: Start?
+        /// What flexible spending did at the focus age; absent without it.
+        var flexibleSpending: PlanFlexibleSpending.JSONReport?
         var years: [Year]?
     }
 }

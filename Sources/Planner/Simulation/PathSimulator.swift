@@ -10,6 +10,38 @@ struct RunOutcome: Sendable {
     let failedYear: Int?
     /// Plan assets at the end (0 after a failure).
     let finalValue: Double
+    /// With flexible spending, the lowest spending level paid in a
+    /// retirement year, as a share of the plan's spending (0 for a run that
+    /// fails: its spending falls below the floor, then to nothing); 1 without.
+    var lowestLevel = 1.0
+    /// With flexible spending, the retirement years in which spending was
+    /// below 100% of the plan's, every year from a failure on included.
+    var yearsBelowPlan = 0
+}
+
+/// What the flexible-spending rule did in one year of a traced run (the
+/// plan debugger's), in a year it applies to: work has stopped for some of it.
+struct FlexibleStep: Sendable {
+    /// How the rule moved: `waiting` (no withdrawal rate to compare with
+    /// yet), `start` (this year's rate is the first retirement year's),
+    /// `hold`, `cut`, `raise`, or `floor` (a cut was due, but the level is
+    /// at the floor).
+    let action: String
+    /// The spending level before and after this year's decision, as shares
+    /// of the plan's spending.
+    let previousLevel: Double
+    let level: Double
+    /// The level actually paid: lower than ``level`` when the money that
+    /// could be drawn ran short and spending was forced down toward the floor.
+    let paidLevel: Double
+    /// What spending at ``previousLevel`` draws from the portfolio this year
+    /// (spending less regular net income), for a whole year.
+    let draw: Double
+    /// Plan assets at the start of the year, less last year's taxes still to pay.
+    let assets: Double
+    /// `draw / assets`, and the first retirement year's, once it's known.
+    let rate: Double?
+    let initialRate: Double?
 }
 
 /// Simulates the paths of one retirement age, following PLANNER.md, "The
@@ -84,6 +116,13 @@ struct PathSimulator {
     private let yearWorkingSpending: [Double]
     private let yearRetiredUnit: [Double]
     private let yearContributions: [Double]
+    /// The flexible-spending rule, if the plan uses one.
+    private let flexible: FlexibleSpendingSpec?
+    /// Per year, whether work has stopped for the whole simulated part: the
+    /// years the rule measures the withdrawal rate in.
+    private let yearFullyRetired: [Bool]
+    /// The retirement years of the schedule: those with retirement spending.
+    let retirementYears: Int
     /// Per class, the income funds earn as a share of their value.
     private let incomeYields: [Double]
     private let reportsIncome: Bool
@@ -120,8 +159,20 @@ struct PathSimulator {
     private var sold: [Double]
     /// Year-end plan assets of the last run, when recorded.
     private(set) var yearValues: [Double]
+    /// The spending paid in each year of the last run (0 once it failed),
+    /// when recorded.
+    private(set) var yearSpending: [Double]
 
     private static let epsilon = 1e-6
+    /// Spending levels closer than this are the same (flexible spending).
+    private static let levelEpsilon = 1e-9
+
+    /// A spending level on a grid of 10⁻¹², so steps of a cut add up
+    /// exactly: 0.9 − 0.1 is 0.8, and 0.8 + 0.1 is 0.9 again.
+    @inline(__always)
+    private static func snapped(_ level: Double) -> Double {
+        (level * 1e12).rounded() / 1e12
+    }
     /// A shortfall up to this much money (in the plan's currency) doesn't count as failing.
     private static let tolerance = 1.0
     /// How closely a numeric gross-up matches the cash needed, in the plan's currency.
@@ -129,8 +180,10 @@ struct PathSimulator {
     /// Rebalancing trades below this much money are skipped.
     private static let rebalanceTolerance = 0.01
 
-    init(schedule: AgeSchedule, scenarios: MarketScenarios, portfolio: Portfolio, model: PlanModel) {
+    init(schedule: AgeSchedule, scenarios: MarketScenarios, portfolio: Portfolio, model: PlanModel,
+         flexible: FlexibleSpendingSpec? = nil) {
         self.schedule = schedule
+        self.flexible = flexible
         self.scenarios = scenarios
         self.portfolio = portfolio
         cashBuffer = model.cashBuffer
@@ -168,6 +221,8 @@ struct PathSimulator {
         yearWorkingSpending = schedule.years.map(\.workingSpending)
         yearRetiredUnit = schedule.years.map(\.retiredUnit)
         yearContributions = schedule.years.map(\.contributionTotal)
+        yearFullyRetired = schedule.years.map { $0.workingShare == 0 && $0.retiredUnit > 0 }
+        retirementYears = schedule.years.filter { $0.retiredUnit > 0 }.count
         incomeYields = model.incomeYields.count == portfolio.classCount
             ? model.incomeYields : Array(repeating: 0, count: portfolio.classCount)
         reportsIncome = incomeYields.contains { $0 > 0 }
@@ -192,6 +247,7 @@ struct PathSimulator {
         sellable = Array(repeating: 0, count: portfolio.buckets.count)
         sold = Array(repeating: 0, count: portfolio.buckets.count)
         yearValues = Array(repeating: 0, count: schedule.years.count)
+        yearSpending = Array(repeating: 0, count: schedule.years.count)
     }
 
     /// Simulates run `run` (or the deterministic run for `nil`) with a
@@ -219,7 +275,7 @@ struct PathSimulator {
 
     // MARK: - The yearly loop
 
-    private mutating func simulate(_ run: Int?, spending level: Double, recordValues: Bool,
+    private mutating func simulate(_ run: Int?, spending planSpending: Double, recordValues: Bool,
                                    details: inout [YearDetail]?, recorder: PathRecorder? = nil) -> RunOutcome {
         for index in values.indices {
             values[index] = portfolio.lots[index].value
@@ -229,11 +285,17 @@ struct PathSimulator {
         let mask = run.map { scenarios.eventMasks[$0] } ?? scenarios.expectedEvents
         var carried = 0.0
         pathState = .empty
+        // Flexible spending: the level the rule has set, the first retirement
+        // year's withdrawal rate once it's known, and what the run paid.
+        var level = 1.0
+        var initialRate: Double?
+        var lowestLevel = 1.0
+        var yearsBelowPlan = 0
 
         for t in schedule.years.indices {
             let v = schedule.years[t].variant(for: mask)
             let prepared = schedule.years[t].variants[v].prepared
-            let startAssets = details == nil ? 0 : total()
+            let startAssets = details == nil && flexible == nil ? 0 : total()
             withheld = 0
             variable.fractionOfYear = yearFraction[t]
             // The target mix in force: every flow and rebalancing of a taxable bucket follows it.
@@ -270,7 +332,46 @@ struct PathSimulator {
                 severancePay += payOut(share: payout.share, of: payout.bucket, year: t, prepared: prepared)
             }
             let expenses = schedule.years[t].expenses(for: mask)
-            let spending = yearWorkingSpending[t] + yearRetiredUnit[t] * level
+            // Retirement spending at 100% of the plan's, with the phase factor.
+            let retiredSpending = yearRetiredUnit[t] * planSpending
+            // Flexible spending: in a year retired throughout, this year's
+            // withdrawal rate against the first retirement year's moves the level.
+            var step: FlexibleStep?
+            if let flexible, yearRetiredUnit[t] > 0 {
+                let previous = level
+                var action = "waiting"
+                var rate: Double?
+                var draw = 0.0
+                let assets = startAssets - carried
+                if yearFullyRetired[t] {
+                    let regular = schedule.years[t].variants[v].regularNetCash
+                    let fraction = yearFraction[t]
+                    draw = fraction > 0 ? max(0, retiredSpending * level - regular) / fraction : 0
+                    if let initial = initialRate {
+                        let current = assets > 0 ? draw / assets : .infinity
+                        rate = current
+                        action = "hold"
+                        if current > initial * (1 + flexible.upper) {
+                            if level > flexible.floor + Self.levelEpsilon {
+                                level = Self.snapped(max(flexible.floor, level - flexible.cut))
+                                action = "cut"
+                            } else {
+                                action = "floor"
+                            }
+                        } else if current < initial * (1 - flexible.lower), level < 1 - Self.levelEpsilon {
+                            level = Self.snapped(min(1, level + flexible.cut))
+                            action = "raise"
+                        }
+                    } else if draw * fraction > Self.tolerance, assets > 0 {
+                        initialRate = draw / assets
+                        rate = initialRate
+                        action = "start"
+                    }
+                }
+                step = FlexibleStep(action: action, previousLevel: previous, level: level, paidLevel: level, draw: draw,
+                                    assets: assets, rate: rate, initialRate: initialRate)
+            }
+            let spending = yearWorkingSpending[t] + retiredSpending * level
             let cash = schedule.years[t].variants[v].netCash + severancePay - yearContributions[t] - spending
                 - expenses - carried
             recorder?.afterPayouts(severancePay: severancePay, contributions: yearContributions[t], spending: spending,
@@ -279,8 +380,10 @@ struct PathSimulator {
             // be funded: the run fails rather than counting as a success.
             guard cash.isFinite else {
                 return fail(year: t, variant: v, reason: .depleted, startAssets: startAssets, spending: spending,
-                            expenses: expenses, cash: cash, credited: credited, recordValues: recordValues,
-                            details: &details, recorder: recorder)
+                            paid: 0, expenses: expenses, cash: cash, credited: credited, level: step?.level,
+                            planned: flexible == nil ? nil : yearWorkingSpending[t] + retiredSpending,
+                            yearsBelowPlan: yearsBelowPlan, recordValues: recordValues, details: &details,
+                            recorder: recorder)
             }
             var shortfall = 0.0
             if cash >= 0 {
@@ -288,15 +391,40 @@ struct PathSimulator {
             } else {
                 shortfall = withdraw(-cash, year: t, prepared: prepared)
             }
-            recorder?.afterFlows(shortfall: shortfall, self)
+            // With flexible spending, money that runs short is spending forced
+            // down, as far as the floor; only below it does the run fail.
+            var paid = spending
+            if let flexible, shortfall > Self.tolerance, retiredSpending > 0 {
+                let room = retiredSpending * max(0, level - flexible.floor)
+                if shortfall <= room + Self.tolerance {
+                    paid = spending - min(shortfall, room)
+                    shortfall = 0
+                }
+            }
+            if let current = step, retiredSpending > 0 {
+                let paidLevel = level - (spending - paid) / retiredSpending
+                step = FlexibleStep(action: current.action, previousLevel: current.previousLevel, level: level,
+                                    paidLevel: paidLevel, draw: current.draw, assets: current.assets,
+                                    rate: current.rate, initialRate: current.initialRate)
+                if shortfall <= Self.tolerance {
+                    lowestLevel = min(lowestLevel, paidLevel)
+                    if paidLevel < 1 - Self.levelEpsilon { yearsBelowPlan += 1 }
+                }
+            }
+            recorder?.afterFlows(shortfall: shortfall, paidSpending: paid, flexible: step, self)
 
             if !shortfall.isFinite || shortfall > Self.tolerance {
+                let floor = flexible?.floor ?? 1
                 let reason = shortfall.isFinite
-                    ? failureReason(year: t, shortfall: shortfall, spending: level, mask: mask, prepared: prepared)
+                    ? failureReason(year: t, shortfall: shortfall - retiredSpending * max(0, level - floor),
+                                    spending: planSpending * floor, mask: mask, prepared: prepared)
                     : .depleted
                 return fail(year: t, variant: v, reason: reason, startAssets: startAssets, spending: spending,
-                            expenses: expenses, cash: cash, credited: credited, recordValues: recordValues,
-                            details: &details, recorder: recorder)
+                            paid: spending - shortfall, expenses: expenses, cash: cash, credited: credited,
+                            level: step?.level,
+                            planned: flexible == nil ? nil : yearWorkingSpending[t] + retiredSpending,
+                            yearsBelowPlan: yearsBelowPlan, recordValues: recordValues, details: &details,
+                            recorder: recorder)
             }
 
             // Rebalancing what the cash flows left off target, the markets,
@@ -328,40 +456,60 @@ struct PathSimulator {
             // on, a NaN would fund every later year (NaN > tolerance is false).
             guard endAssets.isFinite else {
                 return fail(year: t, variant: v, reason: .depleted, startAssets: startAssets, spending: spending,
-                            expenses: expenses, cash: cash, credited: credited, recordValues: recordValues,
-                            details: &details, recorder: recorder)
+                            paid: paid, expenses: expenses, cash: cash, credited: credited, level: step?.paidLevel,
+                            planned: flexible == nil ? nil : yearWorkingSpending[t] + retiredSpending,
+                            yearsBelowPlan: yearsBelowPlan, recordValues: recordValues, details: &details,
+                            recorder: recorder)
             }
             recorder?.end(assessment: assessment, carriedOut: carried, endAssets: endAssets,
                           carriedForward: prepared.carriedForward(in: pathState), self)
-            if recordValues { yearValues[t] = endAssets }
+            if recordValues {
+                yearValues[t] = endAssets
+                yearSpending[t] = paid
+            }
             if details != nil {
                 details!.append(detail(t, variant: v, assessment: assessment, startAssets: startAssets,
-                                       endAssets: endAssets, spending: spending, expenses: expenses, cash: cash,
-                                       credited: credited))
+                                       endAssets: endAssets, spending: paid, expenses: expenses, cash: cash,
+                                       credited: credited, level: step?.paidLevel,
+                                       planned: flexible == nil ? nil : yearWorkingSpending[t] + retiredSpending))
             }
         }
-        return RunOutcome(failure: nil, failedYear: nil, finalValue: total() - carried)
+        return RunOutcome(failure: nil, failedYear: nil, finalValue: total() - carried, lowestLevel: lowestLevel,
+                          yearsBelowPlan: yearsBelowPlan)
     }
 
     /// Ends the run as failed in year `t`: tells the recorder, records what
-    /// was left (0 for what isn't a number) and the year's detail.
+    /// was left and the spending paid (0 for what isn't a number) and the
+    /// year's detail. With flexible spending, the failed year and every
+    /// retired year after it count as below the plan, at a level of 0.
     private mutating func fail(year t: Int, variant v: Int, reason: FailureReason, startAssets: Double,
-                               spending: Double, expenses: Double, cash: Double, credited: Double,
-                               recordValues: Bool, details: inout [YearDetail]?, recorder: PathRecorder?) -> RunOutcome {
+                               spending: Double, paid: Double, expenses: Double, cash: Double, credited: Double,
+                               level: Double?, planned: Double?, yearsBelowPlan: Int, recordValues: Bool,
+                               details: inout [YearDetail]?, recorder: PathRecorder?) -> RunOutcome {
         let failure = RunFailure(year: schedule.years[t].year, age: schedule.years[t].age, reason: reason)
         let left = total()
         let remaining = left.isFinite ? left : 0
         recorder?.failed(failure, self)
         if recordValues {
             yearValues[t] = remaining
-            for later in (t + 1)..<schedule.years.count { yearValues[later] = 0 }
+            yearSpending[t] = paid.isFinite ? max(0, paid) : 0
+            for later in (t + 1)..<schedule.years.count {
+                yearValues[later] = 0
+                yearSpending[later] = 0
+            }
         }
         if details != nil {
             details!.append(detail(t, variant: v, assessment: nil, startAssets: startAssets.isFinite ? startAssets : 0,
                                    endAssets: remaining, spending: spending, expenses: expenses,
-                                   cash: cash.isFinite ? cash : 0, credited: credited))
+                                   cash: cash.isFinite ? cash : 0, credited: credited, level: level, planned: planned))
         }
-        return RunOutcome(failure: failure, failedYear: t, finalValue: 0)
+        var outcome = RunOutcome(failure: failure, failedYear: t, finalValue: 0)
+        if flexible != nil {
+            outcome.lowestLevel = 0
+            let retiredYearsLeft = (t..<schedule.years.count).filter { yearRetiredUnit[$0] > 0 }.count
+            outcome.yearsBelowPlan = yearsBelowPlan + retiredYearsLeft
+        }
+        return outcome
     }
 
     // MARK: - Money in
@@ -1095,7 +1243,7 @@ struct PathSimulator {
 
     private func detail(_ t: Int, variant v: Int, assessment: TaxAssessment?, startAssets: Double,
                         endAssets: Double, spending: Double, expenses: Double, cash: Double,
-                        credited: Double) -> YearDetail {
+                        credited: Double, level: Double? = nil, planned: Double? = nil) -> YearDetail {
         let year = schedule.years[t]
         let variant = year.variants[v]
         var income = year.income + variant.windfalls
@@ -1114,7 +1262,8 @@ struct PathSimulator {
         let savings = year.contributionTotal + credited + (cash >= 0 ? cash : 0) - withdrawn
         return YearDetail(year: year.year, age: year.age, fraction: year.fraction, workingShare: year.workingShare,
                           startAssets: startAssets, endAssets: endAssets, spending: spending, expenses: expenses,
-                          income: income, taxes: taxes, contributions: contributions, savings: savings)
+                          income: income, taxes: taxes, contributions: contributions, savings: savings,
+                          plannedSpending: planned, spendingLevel: level)
     }
 
     /// Adds the market-dependent part of an assessment (its lines minus the

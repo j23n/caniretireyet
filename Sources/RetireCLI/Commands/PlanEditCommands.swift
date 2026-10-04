@@ -9,12 +9,14 @@ import Tracker
 /// `retire plan`: runs a plan (the default, ``PlanCommand``), shows its
 /// inputs, and changes what the app's plan editor changes: the currency,
 /// returns and income yields, the target mix and its changes with age,
+/// flexible spending,
 /// contributions (into an account or a pension scheme, every year or once),
 /// and a pension's kind, paying country and way to claim.
 struct PlanGroupCommand: AsyncParsableCommand {
     static let configuration = CommandConfiguration(
         commandName: "plan",
-        abstract: "Run a plan, show its inputs, and change its currency, target mix, contributions, pensions and returns.",
+        abstract: "Run a plan, show its inputs, and change its currency, target mix, flexible spending, contributions, "
+            + "pensions and returns.",
         discussion: """
             retire plan [run] [--fast] [--years]      run the plan, print the answer
             retire plan show                          currency, taxes, pensions, …
@@ -25,6 +27,8 @@ struct PlanGroupCommand: AsyncParsableCommand {
                 --target-mix-from 75:equity=40%,bonds=60%
                                                       the mix to rebalance to, by age
             retire plan set --target-mix today        back to today's mix
+            retire plan set --flexible on --flexible-cut 10% --flexible-floor 80%
+                --flexible-guardrails 20%             cut spending after bad years
             retire plan contribution add --account <id> --per-year 5000
             retire plan contribution add --pension <scheme> --amount 20000
                 --year 2030                           a buy-in, once
@@ -100,6 +104,10 @@ struct PlanInputsReport {
         }
 
         lines.append("")
+        lines.append("Spending: " + spendingText())
+        lines.append("Flexible spending: " + PlanFlexibleSpending.describe(plan.spending, currency: currency))
+
+        lines.append("")
         lines.append("Pensions")
         if plan.pensions.isEmpty { lines.append("  None.") }
         for (index, pension) in plan.pensions.enumerated() {
@@ -164,6 +172,17 @@ struct PlanInputsReport {
             + medians.joined(separator: ", ") + "."
     }
 
+    /// "36,000 EUR a year while working, 36,000 in retirement, 90% of it from 75 and 80% from 85".
+    private func spendingText() -> String {
+        let spending = plan.spending
+        let phases = spending.phases.sorted { $0.fromAge < $1.fromAge }.enumerated().map { index, phase in
+            "\(Format.percent(phase.factor, places: 0))\(index == 0 ? " of it" : "") from \(phase.fromAge)"
+        }
+        return "\(Format.amount(spending.working, places: 0)) \(currency) a year while working, "
+            + "\(Format.amount(spending.retired, places: 0)) in retirement"
+            + (phases.isEmpty ? "" : ", " + Format.list(phases))
+    }
+
     /// "it from 2026 (Italy), generic from 2048", or the default.
     private func residence() -> String {
         let entries = plan.tax.residence.sorted { $0.from < $1.from }
@@ -214,6 +233,9 @@ struct PlanInputsReport {
     var json: JSON {
         JSON(plan: plan.id.rawValue, name: plan.name, currency: currency.rawValue, ownCurrency: plan.currency?.rawValue,
              residence: plan.tax.residence.map { JSON.Residence(from: $0.from, system: $0.system.rawValue) },
+             spending: JSON.Spending(working: plan.spending.working.fileString,
+                                     retired: plan.spending.retired.fileString,
+                                     flexible: PlanFlexibleSpending.JSON(plan.spending)),
              pensions: plan.pensions.enumerated().map { index, pension in
                  JSON.Pension(number: index + 1, scheme: pension.scheme.rawValue, name: pension.name,
                               claim: pension.claim.map { $0 == .earliest ? "earliest" : "\($0.age ?? 0)" },
@@ -254,6 +276,13 @@ struct PlanInputsReport {
         struct Residence: Encodable {
             var from: Int
             var system: String
+        }
+
+        struct Spending: Encodable {
+            var working: String
+            var retired: String
+            /// The flexible-spending rule with its defaults filled in; absent without one.
+            var flexible: PlanFlexibleSpending.JSON?
         }
 
         struct Pension: Encodable {
@@ -303,6 +332,7 @@ struct PlanInputsReport {
         /// As written in the plan; absent for the library's.
         var ownCurrency: String?
         var residence: [Residence]
+        var spending: Spending
         var pensions: [Pension]
         var contributions: [Contribution]
         var returns: [String: Return]
@@ -314,11 +344,12 @@ struct PlanInputsReport {
 // MARK: - set
 
 /// `retire plan set`: the plan's currency, return assumptions, income
-/// yields and target mix.
+/// yields, target mix and flexible spending.
 struct PlanSetCommand: RetireSubcommand {
     static let configuration = CommandConfiguration(
         commandName: "set",
-        abstract: "Set a plan's currency, its target mix, or an asset class's return, volatility or income yield.",
+        abstract: "Set a plan's currency, its target mix, flexible spending, or an asset class's return, volatility "
+            + "or income yield.",
         discussion: """
             --currency CHF puts the plan's amounts and results in CHF; --currency library goes back to the \
             library's base currency. The library needs exchange rates between the two to value your accounts. \
@@ -340,6 +371,14 @@ struct PlanSetCommand: RetireSubcommand {
             each change, in order (the steps given replace the plan's), or give --target-mix-from none to remove \
             them. A change already passed applies from the start. Pension funds and other tax-advantaged \
             accounts keep their own mix.
+
+            --flexible on cuts retirement spending after bad years and restores it after good ones (PLANNER.md, \
+            "Flexible spending"): each year the withdrawal rate is compared with the first retirement year's; \
+            more than --flexible-guardrails above it (default 20%), spending is cut by --flexible-cut of the \
+            plan's (default 10%), never below --flexible-floor (default 80%); as far below it, spending under \
+            100% is raised by the same step, never above 100%. --flexible-guardrails 25%,15% sets the upper and \
+            lower guardrails apart. A run fails only when even the floor can't be paid. --flexible off turns \
+            it off and keeps the settings; a setting given alone turns a rule the plan doesn't have on.
             """)
 
     @OptionGroup var options: LibraryOptions
@@ -379,8 +418,30 @@ struct PlanSetCommand: RetireSubcommand {
                                    + "repeat for each, in order, or none.", valueName: "age:mix"))
     var targetMixFrom: [String] = []
 
+    @Option(help: ArgumentHelp("Flexible spending: on or off.", valueName: "on|off"))
+    var flexible: String?
+
+    @Option(help: ArgumentHelp("How much flexible spending cuts (or raises) at a time, as a share of the plan's "
+                                   + "spending, e.g. 10%.", valueName: "share"))
+    var flexibleCut: String?
+
+    @Option(help: ArgumentHelp("The lowest flexible spending goes, as a share of the plan's spending, e.g. 80%.",
+                               valueName: "share"))
+    var flexibleFloor: String?
+
+    @Option(help: ArgumentHelp("How far the withdrawal rate may move from the first retirement year's before "
+                                   + "spending is cut or raised, e.g. 20% (or upper,lower: 25%,15%).",
+                               valueName: "share"))
+    var flexibleGuardrails: String?
+
     @Flag(help: "Show what would change; write nothing.")
     var dryRun = false
+
+    /// What the flexible-spending options change.
+    func flexibleChange() throws -> PlanFlexibleSpending.Change {
+        try PlanFlexibleSpending.change(flexible: flexible, cut: flexibleCut, floor: flexibleFloor,
+                                        guardrails: flexibleGuardrails)
+    }
 
     /// What `--target-mix` or `--target` sets: today's mix (none), or a mix.
     enum TargetChange: Equatable {
@@ -400,10 +461,12 @@ struct PlanSetCommand: RetireSubcommand {
     }
 
     func validate() throws {
+        let flexible = try flexibleChange()
         guard currency != nil || !incomeYield.isEmpty || !meanReturn.isEmpty || !medianReturn.isEmpty
-            || !volatility.isEmpty || targetMix != nil || !target.isEmpty || !targetMixFrom.isEmpty else {
+            || !volatility.isEmpty || targetMix != nil || !target.isEmpty || !targetMixFrom.isEmpty
+            || !flexible.isEmpty else {
             throw ValidationError("Say what to set: --currency, --return, --median-return, --volatility, "
-                + "--income-yield, --target-mix or --target-mix-from.")
+                + "--income-yield, --target-mix, --target-mix-from or --flexible.")
         }
         _ = try targetChange()
         if !targetMixFrom.isEmpty { _ = try PlanTargetMix.steps(targetMixFrom, option: "--target-mix-from") }
@@ -564,6 +627,13 @@ struct PlanSetCommand: RetireSubcommand {
                 lines.append("From \(PlanTargetMix.describe(step.fromAge)): \(PlanTargetMix.describe(step.mix)).")
             }
             sections.append(.portfolio)
+        }
+        let flexible = try flexibleChange()
+        if !flexible.isEmpty {
+            flexible.apply(to: &edited.spending)
+            lines.append("Flexible spending: "
+                + PlanFlexibleSpending.describe(edited.spending, currency: edited.effectiveCurrency(base: base)) + ".")
+            sections.append(.spending)
         }
         try PlanEdit.write(edited, replacing: original, over: loaded, sections: sections, dryRun: dryRun,
                            context: context, lines: &lines)

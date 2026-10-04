@@ -43,13 +43,17 @@ public struct PlanResult: Hashable, Sendable {
     /// currency. `nil` only in results made without it (previews), where it's
     /// the plan's `currency` if set.
     public var currency: CurrencyCode?
+    /// What flexible spending did at `focusAge`; `nil` when the plan
+    /// doesn't use it (PLANNER.md, "Flexible spending").
+    public var flexibleSpending: FlexibleSpendingSummary?
 
     /// A result from its parts, e.g. a sample for SwiftUI previews.
     public init(plan: PlanDocument, engine: String = Planner.engineVersion, planHash: String,
                 taxParameters: [String: Int] = [:], start: PlanStart, settings: SimulationSettings, answer: PlanAnswer,
                 successCurve: [AgeSuccess], focusAge: Int, fan: [FanYear], expectedPath: PathDetail,
                 medianPath: PathDetail, failures: FailureSummary, markers: [TimelineMarker] = [],
-                issues: [PlanIssue] = [], currency: CurrencyCode? = nil) {
+                issues: [PlanIssue] = [], currency: CurrencyCode? = nil,
+                flexibleSpending: FlexibleSpendingSummary? = nil) {
         self.plan = plan
         self.engine = engine
         self.planHash = planHash
@@ -66,6 +70,7 @@ public struct PlanResult: Hashable, Sendable {
         self.markers = markers
         self.issues = issues
         self.currency = currency ?? plan.currency
+        self.flexibleSpending = flexibleSpending
     }
 
     /// The success rate at `age`, if it was simulated.
@@ -380,7 +385,7 @@ public struct AgeSuccess: Hashable, Sendable {
 }
 
 /// Plan assets at one year-end: percentiles across runs, and the
-/// deterministic run's value.
+/// deterministic run's value; with flexible spending, the spending paid.
 public struct FanYear: Hashable, Sendable {
     public var year: Int
     /// Age during the year.
@@ -391,9 +396,14 @@ public struct FanYear: Hashable, Sendable {
     public var p75: Double
     public var p90: Double
     public var expected: Double
+    /// With flexible spending, the spending paid in the year (the part
+    /// simulated, as ``YearDetail/spending``): percentiles across every
+    /// run, a run counting 0 from the year after it fails (and what it could
+    /// pay in that year). `nil` without flexible spending.
+    public var spending: SpendingPercentiles?
 
     public init(year: Int, age: Int, p10: Double, p25: Double, p50: Double, p75: Double, p90: Double,
-                expected: Double) {
+                expected: Double, spending: SpendingPercentiles? = nil) {
         self.year = year
         self.age = age
         self.p10 = p10
@@ -402,7 +412,86 @@ public struct FanYear: Hashable, Sendable {
         self.p75 = p75
         self.p90 = p90
         self.expected = expected
+        self.spending = spending
     }
+}
+
+/// The spending paid in one year across runs, with flexible spending.
+public struct SpendingPercentiles: Hashable, Sendable {
+    public var p10: Double
+    public var p50: Double
+    public var p90: Double
+
+    public init(p10: Double, p50: Double, p90: Double) {
+        self.p10 = p10
+        self.p50 = p50
+        self.p90 = p90
+    }
+}
+
+/// What flexible spending did when retiring at one age (PLANNER.md,
+/// "Flexible spending"): how often spending was cut, how low it went and
+/// for how long. Levels are shares of the plan's spending (1 is 100%);
+/// a run that fails had its spending forced below the floor, so it counts
+/// as cut, at the lowest level, and below 100% from then on.
+public struct FlexibleSpendingSummary: Hashable, Sendable {
+    /// The rule as the run read it: the step of a cut or a raise, the
+    /// lowest level, and the guardrails (shares of the first retirement
+    /// year's withdrawal rate).
+    public var cut: Double
+    public var floor: Double
+    public var upperGuardrail: Double
+    public var lowerGuardrail: Double
+    /// The plan's yearly retirement spending at 100%, before phase factors.
+    public var planSpending: Double
+    /// The retirement age it's for (``PlanResult/focusAge``).
+    public var age: Int
+    public var runs: Int
+    /// The years with retirement spending at that age.
+    public var retirementYears: Int
+    /// The share of runs whose spending fell below 100% in some retirement year.
+    public var shareWithCut: Double
+    /// The share of runs that fail: spending forced below the floor.
+    public var failureRate: Double
+    /// The lowest level a run paid, in the median run and in a
+    /// 10th-percentile run when runs are ranked by it (nearest rank,
+    /// failures lowest). `nil` when that run fails.
+    public var medianLowestLevel: Double?
+    public var p10LowestLevel: Double?
+    /// The median share of retirement years spent below 100%.
+    public var medianShareBelow: Double
+    /// Retirement years below 100%: in the median run and in a bad case
+    /// (the 90th percentile when runs are ranked by them).
+    public var medianYearsBelow: Int
+    public var p90YearsBelow: Int
+
+    public init(cut: Double, floor: Double, upperGuardrail: Double, lowerGuardrail: Double, planSpending: Double,
+                age: Int, runs: Int, retirementYears: Int, shareWithCut: Double, failureRate: Double,
+                medianLowestLevel: Double?, p10LowestLevel: Double?, medianShareBelow: Double, medianYearsBelow: Int,
+                p90YearsBelow: Int) {
+        self.cut = cut
+        self.floor = floor
+        self.upperGuardrail = upperGuardrail
+        self.lowerGuardrail = lowerGuardrail
+        self.planSpending = planSpending
+        self.age = age
+        self.runs = runs
+        self.retirementYears = retirementYears
+        self.shareWithCut = shareWithCut
+        self.failureRate = failureRate
+        self.medianLowestLevel = medianLowestLevel
+        self.p10LowestLevel = p10LowestLevel
+        self.medianShareBelow = medianShareBelow
+        self.medianYearsBelow = medianYearsBelow
+        self.p90YearsBelow = p90YearsBelow
+    }
+
+    /// The lowest yearly spending in the median run and a 10th-percentile
+    /// run, in the plan's currency: the level times ``planSpending``.
+    public var medianLowestSpending: Double? { medianLowestLevel.map { $0 * planSpending } }
+    public var p10LowestSpending: Double? { p10LowestLevel.map { $0 * planSpending } }
+    /// The floor in the plan's currency, before phase factors.
+    public var floorSpending: Double { floor * planSpending }
 }
 
 /// One simulated path, year by year.
@@ -433,7 +522,9 @@ public struct YearDetail: Hashable, Sendable {
     /// Plan assets at the start and end of the simulated part.
     public var startAssets: Double
     public var endAssets: Double
-    /// Planned spending (while working and in retirement, with phase factors).
+    /// Spending (while working and in retirement, with phase factors): the
+    /// plan's, or with flexible spending what the run paid (see
+    /// ``spendingLevel``); in the year a run fails, what it set out to pay.
     public var spending: Double
     /// One-off expenses.
     public var expenses: Double
@@ -446,10 +537,18 @@ public struct YearDetail: Hashable, Sendable {
     /// Net new money into the plan's accounts: positive when saving,
     /// negative when drawing down.
     public var savings: Double
+    /// With flexible spending: the plan's spending in the year at 100%
+    /// (``spending`` is what was paid). `nil` without flexible spending.
+    public var plannedSpending: Double?
+    /// With flexible spending, in a year with retirement spending: the
+    /// share of the plan's retirement spending paid (1 is 100%), or in the
+    /// year a run fails the level it set out to pay. `nil` otherwise.
+    public var spendingLevel: Double?
 
     public init(year: Int, age: Int, fraction: Double = 1, workingShare: Double = 0, startAssets: Double,
                 endAssets: Double, spending: Double, expenses: Double = 0, income: [IncomeItem] = [],
-                taxes: [AmountItem] = [], contributions: [AmountItem] = [], savings: Double = 0) {
+                taxes: [AmountItem] = [], contributions: [AmountItem] = [], savings: Double = 0,
+                plannedSpending: Double? = nil, spendingLevel: Double? = nil) {
         self.year = year
         self.age = age
         self.fraction = fraction
@@ -462,6 +561,8 @@ public struct YearDetail: Hashable, Sendable {
         self.taxes = taxes
         self.contributions = contributions
         self.savings = savings
+        self.plannedSpending = plannedSpending
+        self.spendingLevel = spendingLevel
     }
 
     /// All taxes in the year.

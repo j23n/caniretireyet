@@ -203,10 +203,38 @@ struct SpendingSpec: Sendable {
     let working: Double
     let retired: Double
     let phases: [SpendingPhaseSpec]
+    /// The flexible-spending rule, when the plan uses one.
+    var flexible: FlexibleSpendingSpec? = nil
 
     /// The factor on retirement spending at `age`.
     func factor(atAge age: Int) -> Double {
         phases.last { $0.fromAge <= age }?.factor ?? 1
+    }
+}
+
+/// The flexible-spending rule, resolved (PLANNER.md, "Flexible spending"):
+/// shares of the plan's retirement spending and of the first retirement
+/// year's withdrawal rate.
+struct FlexibleSpendingSpec: Sendable, Hashable {
+    /// The step a cut or a raise moves the spending level by.
+    let cut: Double
+    /// The lowest spending level.
+    let floor: Double
+    /// A withdrawal rate above the first year's × (1 + upper) cuts.
+    let upper: Double
+    /// One below the first year's × (1 − lower) raises a level below 100%.
+    let lower: Double
+
+    init(cut: Double, floor: Double, upper: Double, lower: Double) {
+        self.cut = cut
+        self.floor = floor
+        self.upper = upper
+        self.lower = lower
+    }
+
+    init(_ rule: FlexibleSpending) {
+        self.init(cut: rule.effectiveCut.double, floor: rule.effectiveFloor.double,
+                  upper: rule.effectiveUpperGuardrail.double, lower: rule.effectiveLowerGuardrail.double)
     }
 }
 

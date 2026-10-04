@@ -95,8 +95,22 @@ enum PlanDebugger {
         let flows = try await engine.flowSummaries(age: age, spending: engine.model.spending.retired, start: start)
         try Task.checkCancellation()
 
+        // With flexible spending, what retiring today needs without it.
+        var withoutRule: (success: Double?, search: AssetsNeeded)?
+        if engine.flexibleSpending != nil, plannerOptions.solveAssetsNeeded {
+            var fixed = engine
+            fixed.flexibleSpending = nil
+            let current = engine.model.currentAge
+            let search = try await fixed.assetsNeededSearch(
+                age: current, startAssets: planAssets,
+                successToday: computed.result.success(atAge: current) ?? 0)
+            withoutRule = (planAssets > 0 ? search.steps.first?.success : nil, search.answer)
+            try Task.checkCancellation()
+        }
+
         let builder = Builder(computed: computed, library: library, registry: registry, plan: plan, flows: flows,
-                              scale: scale, scaleChoice: scaleChoice, extra: extra, start: start)
+                              scale: scale, scaleChoice: scaleChoice, extra: extra, start: start,
+                              withoutRule: withoutRule)
         var report = builder.build(options: options, choice: choice)
         if let anonymization = options.anonymization { report = report.anonymized(anonymization) }
         return report
@@ -112,6 +126,8 @@ struct RunFlows: Sendable {
     let taxes: [Double]
     /// Plan assets at every year-end (0 after a failure).
     let values: [Double]
+    /// The spending paid each year (in the year it failed, what it set out to pay).
+    var spending: [Double] = []
 }
 
 extension Engine {
@@ -132,7 +148,8 @@ extension Engine {
                     withdrawals: years.map { year in
                         year.income.filter { $0.kind == .withdrawal || $0.kind == .payout }.reduce(0) { $0 + $1.amount }
                     },
-                    taxes: years.map { $0.totalTax + $0.totalContributions }, values: simulator.yearValues))
+                    taxes: years.map { $0.totalTax + $0.totalContributions }, values: simulator.yearValues,
+                    spending: years.map(\.spending)))
             }
             return flows
         }
@@ -159,6 +176,9 @@ private struct Builder {
     let start: Portfolio?
     /// The deterministic run at the chosen age and start scale.
     let expected: (outcome: RunOutcome, years: [YearDetail])
+    /// With flexible spending, retiring today with spending fixed in real
+    /// terms: the chance of success and the assets needed.
+    let withoutRule: (success: Double?, search: AssetsNeeded)?
 
     var result: PlanResult { computed.result }
     var engine: Engine { computed.engine }
@@ -171,8 +191,10 @@ private struct Builder {
     var outcomes: [RunOutcome] { start == nil ? computed.outcomes : flows.map(\.outcome) }
 
     init(computed: Planner.ComputedRun, library: Library, registry: TaxRegistry, plan: PlanDocument,
-         flows: [RunFlows], scale: Double, scaleChoice: String, extra: Double?, start: Portfolio?) {
+         flows: [RunFlows], scale: Double, scaleChoice: String, extra: Double?, start: Portfolio?,
+         withoutRule: (success: Double?, search: AssetsNeeded)? = nil) {
         self.computed = computed
+        self.withoutRule = withoutRule
         self.library = library
         self.registry = registry
         self.plan = plan
@@ -302,7 +324,9 @@ private struct Builder {
                                   inDeterministicRun: event.probability >= 0.5)
         }
         let withdrawals = PlanDebugReport.Withdrawals(
-            strategy: plan.withdrawals.effectiveStrategy.rawValue, cashBuffer: model.cashBuffer,
+            strategy: plan.withdrawals.effectiveStrategy.rawValue
+                + (engine.flexibleSpending == nil ? "" : ", with flexible spending"),
+            cashBuffer: model.cashBuffer,
             order: [
                 "The liquid (taxable) buckets, in proportion to what each can sell, keeping the cash buffer: within "
                     + "a bucket, what the target mix doesn't want first, then the classes furthest above their share.",
@@ -320,7 +344,22 @@ private struct Builder {
             contributions: contributions, events: events, withdrawals: withdrawals,
             fees: "No separate fees: each class's expected return is net of fund costs. Taxes on growth inside a "
                 + "wrapper and revaluations set by law are listed with the buckets.",
-            targetMix: targetMixReading())
+            targetMix: targetMixReading(), flexibleSpending: engine.flexibleSpending.map(Self.flexibleReading))
+    }
+
+    /// The flexible-spending rule as read, with its description.
+    static func flexibleReading(_ rule: FlexibleSpendingSpec) -> PlanDebugReport.FlexibleSpendingRule {
+        let f = PlanDebugFormat.self
+        return PlanDebugReport.FlexibleSpendingRule(
+            cut: rule.cut, floor: rule.floor, upperGuardrail: rule.upper, lowerGuardrail: rule.lower,
+            description: "In each year retired throughout, the withdrawal rate (what spending at the current level "
+                + "draws beyond regular net income, over the plan assets at the start of the year) is compared with "
+                + "the first such year's in which the portfolio pays something. More than "
+                + "\(f.percent(rule.upper, places: 0)) above it, spending is cut by \(f.percent(rule.cut, places: 0)) "
+                + "of the plan's, never below \(f.percent(rule.floor, places: 0)); more than "
+                + "\(f.percent(rule.lower, places: 0)) below it, spending under 100% is raised by the same step, never "
+                + "above 100%. Phase factors scale with the level. When the money that can be drawn runs short, "
+                + "spending is forced down as far as the floor that year; a run fails only below it.")
     }
 
     /// The plan's target mix and its steps, with each mix's growth and when
@@ -627,7 +666,24 @@ private struct Builder {
             expectedPath: PlanDebugReport.PathOutcome(
                 run: nil, failed: expected.outcome.failure != nil, failureYear: expected.outcome.failure?.year,
                 failureAge: expected.outcome.failure?.age, finalValue: expected.outcome.finalValue),
-            medianPath: median, allRunsReproduced: reproduced)
+            medianPath: median, allRunsReproduced: reproduced, flexibleSpending: flexibleOutcome(outcomes))
+    }
+
+    /// Flexible spending over the runs at the chosen age and start scale,
+    /// and retiring today without it; `nil` without the rule.
+    func flexibleOutcome(_ outcomes: [RunOutcome]) -> PlanDebugReport.FlexibleSpendingOutcome? {
+        guard let rule = engine.flexibleSpending else { return nil }
+        let years = schedule.years.filter { $0.retiredUnit > 0 }.count
+        guard let summary = Planner.flexibleSummary(outcomes, rule: rule, age: age, planSpending: model.spending.retired,
+                                                    retirementYears: years) else { return nil }
+        return PlanDebugReport.FlexibleSpendingOutcome(
+            planSpending: summary.planSpending, retirementYears: summary.retirementYears,
+            shareWithCut: summary.shareWithCut, failureRate: summary.failureRate,
+            medianLowestLevel: summary.medianLowestLevel, p10LowestLevel: summary.p10LowestLevel,
+            medianShareBelow: summary.medianShareBelow, medianYearsBelow: summary.medianYearsBelow,
+            p90YearsBelow: summary.p90YearsBelow, successTodayWithoutRule: withoutRule?.success,
+            assetsNeededWithoutRuleOutcome: withoutRule.map { Self.outcome($0.search.outcome) },
+            assetsNeededWithoutRule: withoutRule?.search.amount)
     }
 
     static func outcome(_ outcome: AssetsNeeded.Outcome) -> String {
@@ -650,11 +706,13 @@ private struct Builder {
             let going = flows.filter { $0.outcome.failedYear.map { $0 > t } ?? true }
             let withdrawals = going.compactMap { $0.withdrawals.indices.contains(t) ? $0.withdrawals[t] : nil }.sorted()
             let taxes = going.compactMap { $0.taxes.indices.contains(t) ? $0.taxes[t] : nil }.sorted()
+            let spending = going.compactMap { $0.spending.indices.contains(t) ? $0.spending[t] : nil }.sorted()
             return PlanDebugReport.PercentileYear(
                 year: frame.year, age: frame.age, value: Self.percentiles(values),
                 expected: expected.years.indices.contains(t) ? expected.years[t].endAssets : 0,
                 withdrawals: Self.percentiles(withdrawals), taxes: Self.percentiles(taxes),
-                going: Double(going.count) / Double(runs))
+                going: Double(going.count) / Double(runs),
+                spending: engine.flexibleSpending == nil ? nil : Self.percentiles(spending))
         }
     }
 
@@ -810,17 +868,32 @@ private struct Builder {
         let payouts = year.requiredPayouts.map { Self.payout($0, purpose: "required") }
             + year.withdrawalPayouts.map { Self.payout($0, purpose: "withdrawal") }
         let target = year.spending + year.expenses
+        let met = failed ? max(0, target - year.shortfall) : year.paidSpending + year.expenses
         return PlanDebugReport.TracedYear(
             year: scheduled.year, age: scheduled.age, fraction: scheduled.fraction, returns: year.returns,
             startAssets: year.startTotal, endAssets: year.endAssets, netIncome: variant.netCash,
             payoutsNet: year.payoutsNet, contributions: year.contributions, spending: year.spending,
             expenses: year.expenses, lastYearsTaxes: year.carriedIn, cashFlow: year.cash, shortfall: year.shortfall,
-            spendingTarget: target, spendingMet: failed ? max(0, target - year.shortfall) : target, buckets: buckets,
+            spendingTarget: target, spendingMet: met, buckets: buckets,
             sales: sales, payouts: payouts, withheldOnPayouts: year.withheldOnPayouts,
             withheldOnWithdrawals: year.withheldOnWithdrawals, withheldOnRebalancing: year.withheldOnRebalancing,
             taxes: Self.taxLines(variant: variant, assessment: year.assessment), carriedToNextYear: year.carriedOut,
             failed: failed, carriedForward: Self.carriedForward(year.carriedForward),
-            targetMix: targetMix(inYear: year.index))
+            targetMix: targetMix(inYear: year.index),
+            flexible: year.flexible.map { step in
+                flexibleYear(step, planned: scheduled.workingSpending + scheduled.retiredUnit * model.spending.retired)
+            })
+    }
+
+    /// A year of the flexible-spending rule, with its guardrails.
+    func flexibleYear(_ step: FlexibleStep, planned: Double) -> PlanDebugReport.FlexibleYear {
+        let rule = engine.flexibleSpending
+        return PlanDebugReport.FlexibleYear(
+            action: step.action, previousLevel: step.previousLevel, level: step.level, paidLevel: step.paidLevel,
+            draw: step.draw, assets: step.assets, rate: step.rate, initialRate: step.initialRate,
+            upperRate: step.initialRate.flatMap { initial in rule.map { initial * (1 + $0.upper) } },
+            lowerRate: step.initialRate.flatMap { initial in rule.map { initial * (1 - $0.lower) } },
+            plannedSpending: planned)
     }
 
     /// What the tax system carries into the next year, or `nil` for nothing.

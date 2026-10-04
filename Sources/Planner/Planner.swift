@@ -142,8 +142,8 @@ public enum Planner {
         try await engine.prepare(ages: [focus])
 
         // The focus age in detail.
-        let (outcomes, values) = try await engine.evaluateInDetail(age: focus, spending: spending,
-                                                                   progress: progress)
+        let (outcomes, values, paid) = try await engine.evaluateInDetail(age: focus, spending: spending,
+                                                                         progress: progress)
         var simulator = engine.simulator(age: focus)
         let (expectedOutcome, expectedYears) = simulator.detailedRun(nil, spending: spending)
         let years = model.frames.count
@@ -175,11 +175,17 @@ public enum Planner {
         var fan: [FanYear] = []
         for t in 0..<years {
             let column = (0..<outcomes.count).map { values[$0 * years + t] }.sorted()
+            var spent: SpendingPercentiles?
+            if paid.count == outcomes.count * years {
+                let paidColumn = (0..<outcomes.count).map { paid[$0 * years + t] }.sorted()
+                spent = SpendingPercentiles(p10: percentile(paidColumn, 0.1), p50: percentile(paidColumn, 0.5),
+                                            p90: percentile(paidColumn, 0.9))
+            }
             fan.append(FanYear(
                 year: model.frames[t].year, age: model.frames[t].age,
                 p10: percentile(column, 0.1), p25: percentile(column, 0.25), p50: percentile(column, 0.5),
                 p75: percentile(column, 0.75), p90: percentile(column, 0.9),
-                expected: expectedYears.indices.contains(t) ? expectedYears[t].endAssets : 0))
+                expected: expectedYears.indices.contains(t) ? expectedYears[t].endAssets : 0, spending: spent))
         }
 
         let fi = fiNumber(schedule: focusSchedule, model: model, rate: options.fiWithdrawalRate)
@@ -211,7 +217,11 @@ public enum Planner {
             failures: failureSummary(outcomes),
             markers: markers(schedule: focusSchedule, engine: engine),
             issues: unique(engine.issues + focusSchedule.issues + model.yearIssues(for: focusSchedule)),
-            currency: model.currency)
+            currency: model.currency,
+            flexibleSpending: engine.flexibleSpending.flatMap { rule in
+                flexibleSummary(outcomes, rule: rule, age: focus, planSpending: spending,
+                                retirementYears: simulator.retirementYears)
+            })
         progress?.finish()
         return ComputedRun(result: result, engine: engine, outcomes: outcomes, spendingSteps: spendingSteps,
                            scaleSteps: scaleSteps)
@@ -244,6 +254,33 @@ public enum Planner {
         let low = Int(position.rounded(.down))
         let high = min(sorted.count - 1, low + 1)
         return sorted[low] + (sorted[high] - sorted[low]) * (position - Double(low))
+    }
+
+    /// What flexible spending did over `outcomes`, the runs at `age`
+    /// (``FlexibleSpendingSummary``); `nil` without runs or retirement years.
+    static func flexibleSummary(_ outcomes: [RunOutcome], rule: FlexibleSpendingSpec, age: Int, planSpending: Double,
+                                retirementYears: Int) -> FlexibleSpendingSummary? {
+        guard !outcomes.isEmpty, retirementYears > 0 else { return nil }
+        let count = outcomes.count
+        // Nearest rank, so a level is one some run paid; a failure ranks lowest.
+        func rank(_ p: Double) -> Int { Int((Double(count - 1) * p).rounded(.down)) }
+        func key(_ outcome: RunOutcome) -> Double { outcome.failure == nil ? outcome.lowestLevel : -1 }
+        let byLevel = outcomes.sorted { key($0) < key($1) }
+        func level(at p: Double) -> Double? {
+            let outcome = byLevel[rank(p)]
+            return outcome.failure == nil ? outcome.lowestLevel : nil
+        }
+        let below = outcomes.map(\.yearsBelowPlan).sorted()
+        let shares = below.map { Double($0) / Double(retirementYears) }
+        return FlexibleSpendingSummary(
+            cut: rule.cut, floor: rule.floor, upperGuardrail: rule.upper, lowerGuardrail: rule.lower,
+            planSpending: planSpending, age: age, runs: count, retirementYears: retirementYears,
+            shareWithCut: Double(outcomes.filter { $0.failure != nil || $0.lowestLevel < 1 - 1e-9 }.count)
+                / Double(count),
+            failureRate: Double(outcomes.filter { $0.failure != nil }.count) / Double(count),
+            medianLowestLevel: level(at: 0.5), p10LowestLevel: level(at: 0.1),
+            medianShareBelow: percentile(shares, 0.5), medianYearsBelow: below[rank(0.5)],
+            p90YearsBelow: below[Int((Double(count - 1) * 0.9).rounded(.up))])
     }
 
     static func failureSummary(_ outcomes: [RunOutcome]) -> FailureSummary {

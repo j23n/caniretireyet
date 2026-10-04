@@ -12,6 +12,10 @@ struct Engine: Sendable {
     private(set) var issues: [PlanIssue]
     /// Per year, the local windfall masks that occur in some run.
     private let neededMasks: [[Int]]
+    /// The flexible-spending rule every simulator applies: the plan's, or
+    /// `nil` to simulate it with spending fixed in real terms (the plan
+    /// debugger's comparison).
+    var flexibleSpending: FlexibleSpendingSpec?
 
     /// Builds the scenarios and prepares the schedules of `ages` (plus the
     /// oldest age, so every wrapper that work credits gets a bucket).
@@ -67,6 +71,7 @@ struct Engine: Sendable {
         self.portfolio = portfolio
         self.issues = issues
         self.neededMasks = neededMasks
+        flexibleSpending = model.spending.flexible
     }
 
     /// Prepares the schedules of ages not prepared yet.
@@ -108,20 +113,25 @@ struct Engine: Sendable {
         return Dictionary(uniqueKeysWithValues: zip(ages, rates))
     }
 
-    /// Every run at one age, with year-end values: split across workers.
-    /// `progress` counts the runs simulated.
+    /// Every run at one age, with year-end values (and, with flexible
+    /// spending, the spending paid each year, run by run like the values;
+    /// empty without it): split across workers. `progress` counts the runs
+    /// simulated.
     func evaluateInDetail(age: Int, spending: Double, progress: ProgressReporter? = nil) async throws
-        -> (outcomes: [RunOutcome], values: [Double]) {
+        -> (outcomes: [RunOutcome], values: [Double], spending: [Double]) {
         let runs = scenarios.runs
         let years = model.frames.count
         let engine = self
         let chunks = Self.chunks(runs)
-        let parts = try await parallelMap(chunks) { range -> ([RunOutcome], [Double]) in
+        let recordsSpending = flexibleSpending != nil
+        let parts = try await parallelMap(chunks) { range -> ([RunOutcome], [Double], [Double]) in
             var simulator = engine.simulator(age: age)
             var outcomes: [RunOutcome] = []
             var values: [Double] = []
+            var paid: [Double] = []
             outcomes.reserveCapacity(range.count)
             values.reserveCapacity(range.count * years)
+            if recordsSpending { paid.reserveCapacity(range.count * years) }
             for run in range {
                 if run > range.lowerBound, (run - range.lowerBound) % Self.runsPerChunk == 0 {
                     progress?.advance(Self.runsPerChunk)
@@ -129,17 +139,20 @@ struct Engine: Sendable {
                 }
                 outcomes.append(simulator.run(run, spending: spending, recordValues: true))
                 values += simulator.yearValues
+                if recordsSpending { paid += simulator.yearSpending }
             }
             progress?.advance(Self.lastChunk(of: range.count))
-            return (outcomes, values)
+            return (outcomes, values, paid)
         }
-        return (parts.flatMap(\.0), parts.flatMap(\.1))
+        return (parts.flatMap(\.0), parts.flatMap(\.1), parts.flatMap(\.2))
     }
 
     /// A simulator for one age's schedule, starting from `start` (by
-    /// default the plan's own starting portfolio).
+    /// default the plan's own starting portfolio), with the engine's
+    /// flexible-spending rule.
     func simulator(age: Int, start: Portfolio? = nil) -> PathSimulator {
-        PathSimulator(schedule: schedules[age]!, scenarios: scenarios, portfolio: start ?? portfolio, model: model)
+        PathSimulator(schedule: schedules[age]!, scenarios: scenarios, portfolio: start ?? portfolio, model: model,
+                      flexible: flexibleSpending)
     }
 
     // MARK: - Sustainable spending

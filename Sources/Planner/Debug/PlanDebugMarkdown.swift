@@ -218,6 +218,13 @@ struct PlanDebugMarkdown {
         line("- In retirement: \(F.money(plan.spending.retired)) a year"
             + (plan.spending.phases.isEmpty ? "" : ", times "
                 + plan.spending.phases.map { "\(F.number($0.factor)) from \($0.fromAge)" }.joined(separator: ", ")))
+        if let rule = plan.flexibleSpending {
+            line("- Flexible spending: cuts of \(F.percent(rule.cut, places: 0)) of the plan's spending, never below "
+                + "\(F.percent(rule.floor, places: 0)) (\(F.money(rule.floor * plan.spending.retired)) a year before "
+                + "phase factors); guardrails \(F.percent(rule.upperGuardrail, places: 0)) above and "
+                + "\(F.percent(rule.lowerGuardrail, places: 0)) below the first retirement year's withdrawal rate. "
+                + rule.description)
+        }
         line()
 
         line("### Pensions")
@@ -295,7 +302,9 @@ struct PlanDebugMarkdown {
 
         line("### Withdrawals, rebalancing and fees")
         line()
-        line("- Strategy: \(plan.withdrawals.strategy) (spend what the plan says; the portfolio absorbs the markets). "
+        line("- Strategy: \(plan.withdrawals.strategy) "
+            + (plan.flexibleSpending == nil ? "(spend what the plan says; the portfolio absorbs the markets). "
+                : "(spend what the plan says, cut and restored by the flexible-spending rule above). ")
             + "Cash buffer: \(F.money(plan.withdrawals.cashBuffer)).")
         for (index, step) in plan.withdrawals.order.enumerated() { line("- Drawn \(index + 1): \(step)") }
         line("- Rebalancing: \(plan.withdrawals.rebalancing)")
@@ -607,11 +616,38 @@ struct PlanDebugMarkdown {
             }
             if !failures.bridges.isEmpty { line() }
         }
+        if let flexible = simulation.flexibleSpending {
+            writeFlexibleSpending(flexible)
+        }
         if let reproduced = simulation.allRunsReproduced {
             paragraph("Check: re-simulating every run for the percentiles below "
                 + (reproduced ? "reproduced the main run's outcome for each."
                     : "did **not** reproduce every outcome of the main run."))
         }
+    }
+
+    private mutating func writeFlexibleSpending(_ flexible: PlanDebugReport.FlexibleSpendingOutcome) {
+        line("### Flexible spending (retiring at \(age))")
+        line()
+        let planSpending = flexible.planSpending
+        func level(_ value: Double?) -> String {
+            value.map { "\(F.percent($0, places: 0)) (\(F.money($0 * planSpending)) a year)" } ?? "the money runs out"
+        }
+        var facts = ["\(F.percent(flexible.shareWithCut, places: 0)) of runs cut spending at some point "
+            + "(\(F.percent(flexible.failureRate, places: 0)) fail: spending forced below the floor)",
+                     "the lowest level paid is \(level(flexible.medianLowestLevel)) in the median run and "
+            + "\(level(flexible.p10LowestLevel)) in a 10th-percentile one",
+                     "the median run spends \(flexible.medianYearsBelow) of \(flexible.retirementYears) retirement years "
+            + "below 100% (\(F.percent(flexible.medianShareBelow, places: 0))), a bad case (1 in 10) "
+            + "\(flexible.p90YearsBelow) or more"]
+        if let amount = flexible.assetsNeededWithoutRule {
+            facts.append("retiring today without the rule (spending fixed in real terms) would need "
+                + "\(F.money(amount)) in plan assets"
+                + (flexible.successTodayWithoutRule.map { ", and succeeds in \(F.percent($0)) of futures" } ?? ""))
+        } else if let outcome = flexible.assetsNeededWithoutRuleOutcome, outcome == "moreThanMaximum" {
+            facts.append("retiring today without the rule would need more than the search tries")
+        }
+        paragraph("With the plan's spending of \(F.money(planSpending)) a year: " + F.list(facts) + ".")
     }
 
     // MARK: Percentiles
@@ -630,15 +666,20 @@ struct PlanDebugMarkdown {
             keep.formUnion([retired - 1, retired, retired + 1])
         }
         let shown = F.shownRows(ages: years.map(\.age), keep: keep)
+        // With flexible spending, the spending paid among the runs still going.
+        let spends = years.contains { $0.spending != nil }
         var table = MarkdownTable(["Year", "Age", "p10", "p25", "Median", "p75", "p90", "Deterministic",
-                                   "Withdrawals p10", "Withdrawals median", "Withdrawals p90", "Taxes median", "Going"],
-                                  right: Set(0...12))
+                                   "Withdrawals p10", "Withdrawals median", "Withdrawals p90", "Taxes median", "Going"]
+                                      + (spends ? ["Spending p10", "Spending median", "Spending p90"] : []),
+                                  right: Set(0...(spends ? 15 : 12)))
         table.add(shown: shown) { index in
             let year = years[index]
             return ["\(year.year)", "\(year.age)", F.money(year.value.p10), F.money(year.value.p25), F.money(year.value.p50),
                     F.money(year.value.p75), F.money(year.value.p90), F.money(year.expected),
                     F.money(year.withdrawals.p10), F.money(year.withdrawals.p50), F.money(year.withdrawals.p90),
                     F.money(year.taxes.p50), F.percent(year.going, places: 0)]
+                + (spends ? [year.spending.map { F.money($0.p10) } ?? "", year.spending.map { F.money($0.p50) } ?? "",
+                             year.spending.map { F.money($0.p90) } ?? ""] : [])
         }
         self.table(table)
     }
@@ -689,6 +730,13 @@ struct PlanDebugMarkdown {
         for index in years.indices.dropFirst() where years[index].targetMix != years[index - 1].targetMix {
             keep.insert(index)
         }
+        // The years flexible spending starts, cuts, raises or is forced down.
+        for (index, year) in years.enumerated() {
+            guard let flexible = year.flexible else { continue }
+            if ["start", "cut", "raise"].contains(flexible.action) || flexible.paidLevel < flexible.level - 1e-9 {
+                keep.insert(index)
+            }
+        }
         let shown = F.shownRows(ages: years.map(\.age), keep: keep)
         let classes = path.classes.map(F.className)
         var balances = MarkdownTable(["Year", "Age"] + classes + path.buckets.map(\.name) + ["Plan assets"]
@@ -721,6 +769,26 @@ struct PlanDebugMarkdown {
         }
         table(flows)
 
+        // With flexible spending, the rule's decisions year by year.
+        if years.contains(where: { $0.flexible != nil }) {
+            var rule = MarkdownTable(["Year", "Age", "Withdrawal rate", "First year's", "Guardrails", "Action", "Level",
+                                      "Paid", "Spending"], right: [0, 1, 2, 3, 6, 7, 8])
+            rule.add(shown: shown) { index in
+                let year = years[index]
+                guard let flexible = year.flexible else {
+                    return ["\(year.year)", "\(year.age)"] + Array(repeating: "", count: 7)
+                }
+                let guardrails = flexible.lowerRate.flatMap { lower in
+                    flexible.upperRate.map { "\(F.percent(lower, places: 2))–\(F.percent($0, places: 2))" }
+                } ?? ""
+                return ["\(year.year)", "\(year.age)", flexible.rate.map { F.percent($0, places: 2) } ?? "",
+                        flexible.initialRate.map { F.percent($0, places: 2) } ?? "", guardrails, flexible.action,
+                        F.percent(flexible.level, places: 0), F.percent(flexible.paidLevel, places: 0),
+                        F.money(year.spendingMet - year.expenses)]
+            }
+            table(rule)
+        }
+
         // One year in detail: the first year fully retired, else the last.
         let detailIndex = years.indices.first { index in
             report.schedule.years.indices.contains(index) && report.schedule.years[index].workingShare == 0
@@ -738,6 +806,35 @@ struct PlanDebugMarkdown {
             + "last year's taxes \(F.money(year.lastYearsTaxes)) = \(F.money(year.cashFlow))"
             + (year.cashFlow < 0 ? " to draw" : " to invest")
             + (year.shortfall > 0.005 ? "; \(F.money(year.shortfall)) couldn't be raised" : "") + ".")
+        if let flexible = year.flexible {
+            var text = "- Flexible spending: "
+            if let rate = flexible.rate, let initial = flexible.initialRate, flexible.action != "start" {
+                text += "drawing \(F.money(flexible.draw)) a year from \(F.money(flexible.assets)) is a withdrawal rate of "
+                    + "\(F.percent(rate, places: 2)), against \(F.percent(initial, places: 2)) in the first retirement year"
+                    + (flexible.lowerRate.flatMap { lower in flexible.upperRate.map { upper in
+                        " (guardrails \(F.percent(lower, places: 2)) and \(F.percent(upper, places: 2)))" } } ?? "")
+                let decision = switch flexible.action {
+                case "cut": ": spending is cut from \(F.percent(flexible.previousLevel, places: 0)) to "
+                    + "\(F.percent(flexible.level, places: 0)) of the plan's"
+                case "raise": ": spending is raised from \(F.percent(flexible.previousLevel, places: 0)) to "
+                    + "\(F.percent(flexible.level, places: 0)) of the plan's"
+                case "floor": ": a cut is due, but spending is at the floor, \(F.percent(flexible.level, places: 0))"
+                default: ": spending stays at \(F.percent(flexible.level, places: 0)) of the plan's"
+                }
+                text += decision
+            } else if flexible.action == "start", let rate = flexible.rate {
+                text += "the first year retired throughout in which the portfolio pays something: drawing "
+                    + "\(F.money(flexible.draw)) a year from \(F.money(flexible.assets)) is the first withdrawal rate, "
+                    + "\(F.percent(rate, places: 2)), which later years are compared with"
+            } else {
+                text += "no withdrawal rate to compare with yet; spending is at \(F.percent(flexible.level, places: 0))"
+            }
+            if flexible.paidLevel < flexible.level - 1e-9 {
+                text += "; the money that could be drawn ran short, so only \(F.percent(flexible.paidLevel, places: 0)) "
+                    + "was paid"
+            }
+            line(text + ".")
+        }
         for sale in year.sales {
             line("- Sale (\(sale.purpose)) from `\(sale.wrapper)`, \(sale.category): \(F.money(sale.proceeds)) "
                 + (sale.costBasis.map { "with a cost of \(F.money($0)), gain \(F.money(sale.proceeds - $0))" }

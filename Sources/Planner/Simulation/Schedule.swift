@@ -190,6 +190,10 @@ struct YearVariant: Sendable {
     /// Money in during the simulated part: work, pensions and windfalls,
     /// minus the taxes and contributions due on them.
     let netCash: Double
+    /// ``netCash`` without the one-off amounts (windfalls and pension lump
+    /// sums, after the taxes whose subject they are): the regular income the
+    /// flexible-spending rule weighs spending against.
+    let regularNetCash: Double
     /// Credits into wrappers, such as TFR.
     var accruals: [WrapperAmount]
     /// Windfalls received, for reports.
@@ -267,6 +271,9 @@ extension AgeSchedule {
                 ? retirementDate.wholeYears(to: frame.lastDay) : nil
             var paid: [FixedYear.Pension] = []
             var transfers: [WrapperAmount] = []
+            // Lump sums paid into the year's cash: one-off, like windfalls.
+            var lumpSumCash = 0.0
+            var lumpSumIDs: Set<String> = []
             for (index, pension) in model.pensions.enumerated() {
                 let waitsForWork = pension.claim == .earliest && retirementDate > model.startDate
                 if claims[index] == nil, !(waitsForWork && retirementDate > frame.lastDay),
@@ -297,6 +304,8 @@ extension AgeSchedule {
                             form: .lumpSum, mandatoryShare: claim.option.mandatoryShare))
                         shares[id] = 1
                         cashIn += lumpSum
+                        lumpSumCash += lumpSum
+                        lumpSumIDs.insert(id)
                         income.append(IncomeItem(kind: .pension, id: id, label: "\(pension.name) (lump sum)",
                                                  amount: lumpSum))
                     }
@@ -429,6 +438,12 @@ extension AgeSchedule {
                 let windfallCash = windfalls.reduce(0) { $0 + $1.amount }
                 let netCash = cashIn + windfallCash - taxes.reduce(0) { $0 + $1.amount }
                     - socialContributions.reduce(0) { $0 + $1.amount }
+                // The one-off amounts, after the taxes charged on them as their subject.
+                let oneOffTax = (fixed.lines + fixed.contributions).reduce(0) { total, line in
+                    guard let subject = line.subject, windfallNames.contains(subject) || lumpSumIDs.contains(subject)
+                    else { return total }
+                    return total + line.amount * share(subject)
+                }
                 let accruals = fixed.accruals.compactMap { accrual -> WrapperAmount? in
                     guard case .wrapper(let wrapper) = accrual.target else { return nil }
                     return WrapperAmount(wrapper: wrapper, amount: accrual.amount * share(accrual.source),
@@ -437,7 +452,8 @@ extension AgeSchedule {
                 variantIndex[mask] = variants.count
                 variants.append(YearVariant(
                     prepared: prepared, fixed: fixed, fixedTotal: fixed.totalTax + fixed.totalContributions,
-                    netCash: netCash, accruals: accruals,
+                    netCash: netCash, regularNetCash: netCash - (windfallCash + lumpSumCash - oneOffTax),
+                    accruals: accruals,
                     windfalls: windfalls.map { IncomeItem(kind: .windfall, id: $0.name, label: $0.name, amount: $0.amount) },
                     taxes: taxes, contributions: socialContributions))
             }

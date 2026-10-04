@@ -127,6 +127,24 @@ extension PlanDebugReport {
         /// The mix the ordinary (taxable) accounts are rebalanced to, as the
         /// plan chooses it; `nil` when it doesn't (each keeps its mix at the start).
         public var targetMix: TargetMixPlan? = nil
+        /// The flexible-spending rule, as the engine read it; `nil` when the
+        /// plan's retirement spending is fixed in real terms.
+        public var flexibleSpending: FlexibleSpendingRule? = nil
+    }
+
+    /// The plan's flexible-spending rule (`spending.flexible`, PLANNER.md,
+    /// "Flexible spending"). Levels are shares of the plan's spending.
+    public struct FlexibleSpendingRule: Codable, Hashable, Sendable {
+        /// The step a cut or a raise moves the spending level by.
+        public var cut: Double
+        /// The lowest spending level.
+        public var floor: Double
+        /// A withdrawal rate above the first retirement year's × (1 + this) cuts.
+        public var upperGuardrail: Double
+        /// One below the first retirement year's × (1 − this) raises a level below 100%.
+        public var lowerGuardrail: Double
+        /// The rule in words.
+        public var description: String
     }
 
     /// The plan's target mix (`portfolio.targetMix`) and its changes with
@@ -530,6 +548,37 @@ extension PlanDebugReport {
         /// main run's outcome for each; `nil` at another start scale than 1,
         /// where the runs aren't the main run's.
         public var allRunsReproduced: Bool?
+        /// What flexible spending did at the chosen age and start scale, and
+        /// what retiring today needs without it; `nil` without the rule.
+        public var flexibleSpending: FlexibleSpendingOutcome? = nil
+    }
+
+    /// Flexible spending across the runs at the chosen age and start scale
+    /// (``Planner``'s `FlexibleSpendingSummary`), and the plan without it.
+    public struct FlexibleSpendingOutcome: Codable, Hashable, Sendable {
+        /// The plan's retirement spending at 100%, before phase factors.
+        public var planSpending: Double
+        public var retirementYears: Int
+        /// The share of runs whose spending fell below 100% in some retirement year (failures included).
+        public var shareWithCut: Double
+        /// The share of runs that fail: spending forced below the floor.
+        public var failureRate: Double
+        /// The lowest level paid in the median run and in a 10th-percentile
+        /// run (ranked by it, failures lowest); `nil` when that run fails.
+        public var medianLowestLevel: Double?
+        public var p10LowestLevel: Double?
+        /// The median share of retirement years below 100%.
+        public var medianShareBelow: Double
+        /// Retirement years below 100% in the median run and in a bad case
+        /// (the 90th percentile, ranked by them).
+        public var medianYearsBelow: Int
+        public var p90YearsBelow: Int
+        /// Retiring today with spending fixed in real terms: the chance of
+        /// success, and the assets-needed search's outcome and amount. `nil`
+        /// when the run didn't search for the assets needed.
+        public var successTodayWithoutRule: Double? = nil
+        public var assetsNeededWithoutRuleOutcome: String? = nil
+        public var assetsNeededWithoutRule: Double? = nil
     }
 
     public struct AgeSuccess: Codable, Hashable, Sendable {
@@ -646,6 +695,9 @@ extension PlanDebugReport {
         public var taxes: Percentiles
         /// The share of runs that still meet their spending at the year-end.
         public var going: Double
+        /// With flexible spending, the spending paid, among the runs still
+        /// going; `nil` without it.
+        public var spending: Percentiles? = nil
     }
 
     public struct Percentiles: Codable, Hashable, Sendable {
@@ -725,6 +777,37 @@ extension PlanDebugReport {
         /// The mix the ordinary (taxable) accounts are rebalanced to this
         /// year, when the plan's target mix changes with age; `nil` otherwise.
         public var targetMix: [String: Double]? = nil
+        /// What the flexible-spending rule did this year; `nil` without the
+        /// rule, or in a year without retirement spending.
+        public var flexible: FlexibleYear? = nil
+    }
+
+    /// One year of the flexible-spending rule on a traced path. Levels are
+    /// shares of the plan's spending; rates are yearly withdrawal rates.
+    public struct FlexibleYear: Codable, Hashable, Sendable {
+        /// `waiting` (no first-year rate yet), `start` (this year's rate is
+        /// the first retirement year's), `hold`, `cut`, `raise`, or `floor`
+        /// (a cut was due at the floor).
+        public var action: String
+        /// The level before and after this year's decision, and the level paid
+        /// (lower when the money that could be drawn ran short).
+        public var previousLevel: Double
+        public var level: Double
+        public var paidLevel: Double
+        /// What spending at the previous level draws from the portfolio for a
+        /// whole year: spending less regular net income (one-off windfalls,
+        /// lump sums and expenses left out, and taxes on sales).
+        public var draw: Double
+        /// Plan assets at the start of the year, less last year's taxes still to pay.
+        public var assets: Double
+        /// `draw / assets`, and the first retirement year's rate, once known.
+        public var rate: Double?
+        public var initialRate: Double?
+        /// The guardrails: a rate above `upperRate` cuts, one below `lowerRate` raises.
+        public var upperRate: Double?
+        public var lowerRate: Double?
+        /// The year's spending at 100% of the plan's.
+        public var plannedSpending: Double
     }
 
     /// An amount the tax system carries along a path into the next year,

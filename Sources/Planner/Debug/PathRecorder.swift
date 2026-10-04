@@ -43,8 +43,15 @@ final class PathRecorder {
         var expenses = 0.0
         /// The year's cash flow before withdrawals: positive is invested.
         var cash = 0.0
-        /// What couldn't be raised.
+        /// What couldn't be raised (after spending forced down toward the
+        /// floor, with flexible spending).
         var shortfall = 0.0
+        /// The spending paid: ``spending``, or less when flexible spending
+        /// forced it down because the money that could be drawn ran short.
+        var paidSpending = 0.0
+        /// What the flexible-spending rule did this year; `nil` without the
+        /// rule, or in a year without retirement spending.
+        var flexible: FlexibleStep?
 
         var requiredPayouts: [VariableYear.WrapperPayout] = []
         var withdrawalPayouts: [VariableYear.WrapperPayout] = []
@@ -104,7 +111,7 @@ final class PathRecorder {
         current?.cash = cash
     }
 
-    func afterFlows(shortfall: Double, _ simulator: PathSimulator) {
+    func afterFlows(shortfall: Double, paidSpending: Double, flexible: FlexibleStep?, _ simulator: PathSimulator) {
         current?.afterFlows = Self.bucketValues(simulator)
         current?.flowClasses = Self.classValues(simulator)
         current?.withdrawalPayouts = Array(simulator.variable.payouts[payoutMark...])
@@ -113,6 +120,8 @@ final class PathRecorder {
         current?.withheldOnWithdrawals = simulator.withheld - withheldMark
         withheldMark = simulator.withheld
         current?.shortfall = shortfall
+        current?.paidSpending = paidSpending
+        current?.flexible = flexible
     }
 
     func failed(_ failure: RunFailure, _ simulator: PathSimulator) {

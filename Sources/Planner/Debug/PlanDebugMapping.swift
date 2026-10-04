@@ -230,6 +230,12 @@ extension PlanDebugReport.Simulation: DebugMappable {
         }
         s.expectedPath = expectedPath.mapped(m)
         s.medianPath = medianPath.mapped(m)
+        s.flexibleSpending = flexibleSpending.map { outcome in
+            var x = outcome
+            x.planSpending = m.money(outcome.planSpending)
+            x.assetsNeededWithoutRule = m.money(outcome.assetsNeededWithoutRule)
+            return x
+        }
         return s
     }
 }
@@ -260,6 +266,7 @@ extension PlanDebugReport.PercentileYear: DebugMappable {
         y.expected = m.money(expected)
         y.withdrawals = withdrawals.mapped(m)
         y.taxes = taxes.mapped(m)
+        y.spending = spending?.mapped(m)
         return y
     }
 }
@@ -326,6 +333,13 @@ extension PlanDebugReport.TracedYear: DebugMappable {
             c.label = m.text(carried.label)
             c.amount = m.money(carried.amount)
             return c
+        }
+        y.flexible = flexible.map { year in
+            var f = year
+            f.draw = m.money(year.draw)
+            f.assets = m.money(year.assets)
+            f.plannedSpending = m.money(year.plannedSpending)
+            return f
         }
         return y
     }

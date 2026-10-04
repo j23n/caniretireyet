@@ -158,12 +158,19 @@ enum PlanInterpreter {
         let work = interpretWork(plan.work, firstYear: firstYear, registry: registry, issues: &issues)
 
         // Spending.
-        let spending = SpendingSpec(
+        var spending = SpendingSpec(
             working: plan.spending.working.double, retired: plan.spending.retired.double,
             phases: plan.spending.phases.sorted { $0.fromAge < $1.fromAge }
                 .map { SpendingPhaseSpec(fromAge: $0.fromAge, factor: $0.factor.double) })
         if spending.working < 0 || spending.retired < 0 || spending.phases.contains(where: { $0.factor < 0 }) {
             issues.append(.error("planner.negativeSpending", "Spending can't be negative.", section: .spending))
+        }
+        if let rule = plan.spending.flexibleRule {
+            let problems = Self.flexibleSpendingProblems(rule)
+            for problem in problems {
+                issues.append(.error("planner.flexibleSpending", problem, section: .spending, option: "flexible"))
+            }
+            if problems.isEmpty { spending.flexible = FlexibleSpendingSpec(rule) }
         }
 
         var pensions = interpretPensions(plan.pensions, registry: registry, overrides: overrides, issues: &issues)
@@ -348,6 +355,30 @@ enum PlanInterpreter {
     }
 
     // MARK: - Sections
+
+    /// What's wrong with a flexible-spending rule's settings, as messages:
+    /// the cut must be more than 0% and at most 100% of the plan's
+    /// spending, the floor between 0% and 100%, the upper guardrail at
+    /// least 0% and the lower one between 0% and 100%.
+    static func flexibleSpendingProblems(_ rule: FlexibleSpending) -> [String] {
+        var problems: [String] = []
+        let cut = rule.effectiveCut
+        if cut <= 0 || cut > 1 {
+            problems.append("Flexible spending's cut must be more than 0% and at most 100% of the plan's spending.")
+        }
+        let floor = rule.effectiveFloor
+        if floor < 0 || floor > 1 {
+            problems.append("Flexible spending's floor must be between 0% and 100% of the plan's spending.")
+        }
+        if rule.effectiveUpperGuardrail < 0 {
+            problems.append("Flexible spending's upper guardrail can't be negative.")
+        }
+        let lower = rule.effectiveLowerGuardrail
+        if lower < 0 || lower > 1 {
+            problems.append("Flexible spending's lower guardrail must be between 0% and 100%.")
+        }
+        return problems
+    }
 
     /// The ages of the target mix steps (`portfolio.targetMixByAge`; their
     /// mixes are checked with the portfolio): ages must go up in the list,
