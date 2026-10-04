@@ -8,7 +8,7 @@ A private app for iPhone and Mac with two halves:
 
 1. **Tracker.** Once a month you check in and record what each account is worth. Cash accounts, pension funds, property and debts are recorded as a balance. For ETFs, crypto and gold you record the quantity, and the app multiplies it by the price. An investment account can instead record its trades (buys, sells, deposits, dividends), and its holdings, purchase cost and realised gains are worked out from them ([TRADES.md](TRADES.md)). Accounts are opened and closed over the years, and their history is kept either way.
 2. **Planner.** Scenarios that start from your latest check-in and simulate the years ahead, covering:
-   - work and savings, with taxes from a pluggable tax system per country of residence (Italy first, with its regimes such as impatriati and forfettario; Switzerland and Germany designed; a generic flat-rate system for any other country);
+   - work and savings, with taxes from a pluggable tax system per country of residence (Italy, with its regimes such as impatriati and forfettario; Switzerland and Germany; a generic flat-rate system for any other country);
    - spending in retirement;
    - public pensions projected from contributions (Italy's INPS first) and any other pensions, taxed by the country of residence or the paying country;
    - windfalls and large expenses.
@@ -311,7 +311,7 @@ The importer works with any spreadsheet or export instead of a fixed layout. Det
 - Historical and bootstrapped return sequences. Variable withdrawal strategies (a guardrails rule is done: flexible spending, [PLANNER.md](PLANNER.md#flexible-spending)).
 - Tracking actual income and spending, to measure your real savings rate.
 - Cost basis from transactions: done, as trades ([TRADES.md](TRADES.md)), with the app's screens and broker transaction CSVs importing into them ([IMPORT.md](IMPORT.md)). Still to do: PIR and other tax wrappers, lots (FIFO), and carrying actual losses forward (minusvalenze) from the trades; the plan's simulation already nets and carries forward the losses of simulated sales, as each country allows ([TAXES.md](TAXES.md#what-a-system-can-tell-the-planner-and-whats-told)).
-- Tax systems for more countries (Switzerland and Germany are designed: [tax/CH.md](tax/CH.md), [tax/DE.md](tax/DE.md)). Until a country has one, the `generic` system approximates it.
+- Tax systems for more countries (Switzerland and Germany are built: [tax/CH.md](tax/CH.md), [tax/DE.md](tax/DE.md); more Swiss cantons, and joint taxation of couples, are still to do). Until a country has one, the `generic` system approximates it.
 - Reading `.xlsx` and `.numbers` files directly.
 - Planning for a partner or household.
 

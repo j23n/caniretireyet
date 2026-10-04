@@ -3,10 +3,10 @@
 A personal net-worth tracker and retirement planner for iPhone, iPad and Mac.
 
 - **Track.** Once a month, record what each account and holding is worth: cash, ETFs, crypto, gold, pension funds, property and debts. You can open and close accounts without losing their history.
-- **Plan.** Start from your real numbers and project forward: savings, spending, pensions, windfalls and taxes, in your currency or any other. Taxes come from pluggable tax systems and regimes, picked by where you live: Italy is first, including impatriati and forfettario; Switzerland and Germany are designed; anywhere else uses a generic system with flat rates you choose. The app answers the question in its name: *can I retire yet, and if not, when?* When an answer looks odd, *Show Calculations…* lays out every calculation behind it, and exports it anonymized to give to someone else.
+- **Plan.** Start from your real numbers and project forward: savings, spending, pensions, windfalls and taxes, in your currency or any other. Taxes come from pluggable tax systems and regimes, picked by where you live: Italy (including impatriati and forfettario), Switzerland (the cantons of Zurich and Ticino) and Germany, with 2026 rules; anywhere else uses a generic system with flat rates you choose. Results are estimates from simplified models, not financial or tax advice. The app answers the question in its name: *can I retire yet, and if not, when?* When an answer looks odd, *Show Calculations…* lays out every calculation behind it, and exports it anonymized to give to someone else.
 - **Your data is files.** Everything is stored as plain JSON files in a folder in iCloud Drive. The app on each device (iPhone, iPad, Mac) reads and writes that folder, and iCloud keeps it in sync. There is no server, no account to create, and no lock-in.
 
-**Status: MVP.** Tracking (accounts, check-ins, history, performance data), import from spreadsheets, prices, the planner with Italy's tax system, and the iPhone, iPad and Mac app with iCloud sync. The `retire` command-line tool does the same from a terminal. Start with [docs/PLAN.md](docs/PLAN.md); to build and contribute, see [CLAUDE.md](CLAUDE.md).
+**Status: MVP.** Tracking (accounts, check-ins, history, performance data), import from spreadsheets, prices, the planner with the Italian, Swiss and German tax systems, and the iPhone, iPad and Mac app with iCloud sync. The `retire` command-line tool does the same from a terminal. Start with [docs/PLAN.md](docs/PLAN.md); to build and contribute, see [CLAUDE.md](CLAUDE.md).
 
 ## Getting started
 
@@ -61,7 +61,11 @@ Commands that change the library back up the files first, and take `--dry-run`; 
 | [docs/PLANNER.md](docs/PLANNER.md) | The retirement simulation |
 | [docs/TAXES.md](docs/TAXES.md) | Pluggable tax systems and regimes: concepts, interfaces, parameter files |
 | [docs/tax/IT.md](docs/tax/IT.md) | The Italian tax system: work income, impatriati, INPS, pension fund, investments |
-| [docs/tax/CH.md](docs/tax/CH.md), [docs/tax/DE.md](docs/tax/DE.md) | The Swiss and German tax systems, as designed |
+| [docs/tax/CH.md](docs/tax/CH.md), [docs/tax/DE.md](docs/tax/DE.md) | The Swiss and German tax systems |
 | [docs/IMPORT.md](docs/IMPORT.md) | Importing any spreadsheet or export by mapping its columns |
 | [docs/PROGRESS.md](docs/PROGRESS.md) | Net worth, history and projection together, baselines, actual vs. projected, performance |
 | [docs/UI.md](docs/UI.md) | What the app looks like: screens, navigation, charts, iPhone, iPad and Mac |
+
+## License
+
+MIT, see [LICENSE](LICENSE). The CLI uses [Swift Argument Parser](https://github.com/apple/swift-argument-parser) (Apache-2.0).
