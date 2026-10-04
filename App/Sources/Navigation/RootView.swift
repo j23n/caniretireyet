@@ -83,10 +83,23 @@ struct RootView: View {
 /// to import it.
 private struct AppPresentation: ViewModifier {
     @Environment(AppNavigation.self) private var navigation
+    @Environment(LibraryStore.self) private var library
+
+    /// Whether the library has an error to show (a failed save, which is
+    /// undone, shows wherever the user is); dismissing clears it, also from
+    /// the banners that show it (`LibraryStatusBanners`).
+    private var showsLibraryError: Binding<Bool> {
+        Binding(get: { library.lastError != nil }, set: { if !$0 { library.dismissError() } })
+    }
 
     func body(content: Content) -> some View {
         @Bindable var navigation = navigation
         content
+            .alert("Something went wrong with the library", isPresented: showsLibraryError) {
+                Button("OK", role: .cancel) {}
+            } message: {
+                Text(library.lastError ?? "")
+            }
             .sheet(item: $navigation.sheet) { sheet in
                 AppSheetView(sheet: sheet)
             }
