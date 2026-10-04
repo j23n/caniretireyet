@@ -3,9 +3,10 @@ import Model
 
 extension ImportSession {
     /// Reads every row with the mapping, matches names, and compares the
-    /// resulting records with `library`. Nothing is written.
-    public func preview(against library: Library) -> ImportPreview {
-        var builder = PreviewBuilder(session: self, library: library)
+    /// resulting records with `library`. Nothing is written. A date before
+    /// 1900 or more than a week after `today` is a cell problem.
+    public func preview(against library: Library, today: CalendarDate = .today()) -> ImportPreview {
+        var builder = PreviewBuilder(session: self, library: library, today: today)
         return builder.build()
     }
 }
@@ -46,6 +47,8 @@ private struct WideColumn {
 struct PreviewBuilder {
     let session: ImportSession
     let library: Library
+    /// The last date a row may have: a week after today.
+    let latestDate: CalendarDate
     let bindings: ImportSession.Bindings
     var matcher: NameMatcher
     var values: [ExtractedValue] = []
@@ -67,9 +70,13 @@ struct PreviewBuilder {
     var table: ImportTable { session.table }
     var profile: ImportProfile { session.profile }
 
-    init(session: ImportSession, library: Library) {
+    /// The first date a row may have.
+    static let earliestDate: CalendarDate = "1900-01-01"
+
+    init(session: ImportSession, library: Library, today: CalendarDate) {
         self.session = session
         self.library = library
+        latestDate = today.adding(days: 7)
         bindings = session.bindings
         matcher = NameMatcher(library: library, matches: session.profile.matches)
     }
@@ -269,8 +276,16 @@ struct PreviewBuilder {
 
     // MARK: - Cells
 
+    /// The date in a row's date cell. One before 1900 or more than a week
+    /// after today is a problem, as a typo most likely is.
     mutating func parseDate(_ text: String, row: Int, column: Int, with parser: DateParser) -> CalendarDate? {
         switch parser.parse(text) {
+        case .success(let date) where date < Self.earliestDate:
+            fail(row, column, text, .dateBefore1900)
+            return nil
+        case .success(let date) where date > latestDate:
+            fail(row, column, text, .dateInTheFuture(latest: latestDate))
+            return nil
         case .success(let date): return date
         case .failure(let problem):
             fail(row, column, text, problem)

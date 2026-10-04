@@ -273,7 +273,7 @@ struct ImportCommand: RetireSubcommand {
             throw CLIError("Can't read \(fileURL.path): \(error.localizedDescription)")
         }
         let session = try makeSession(data, library: loaded.library)
-        var preview = session.preview(against: loaded.library)
+        var preview = session.preview(against: loaded.library, today: context.today)
         decide(&preview)
 
         var report = ImportReport(fileName: fileURL.lastPathComponent, profileID: profile, session: session,
