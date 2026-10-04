@@ -45,6 +45,7 @@ swift run retire instruments --library <folder>                  # kinds for tax
 swift run retire prices --library <folder> --fill-history --dry-run  # past prices; without --dry-run writes
 swift run retire plan --library <folder> --years                 # the answer, and the median run by year
 swift run retire plan show --library <folder>                    # also set, contribution, pension
+swift run retire plan debug --library <folder> --anonymize --output report.md   # every calculation, to share
 ```
 
 Commands that change the library back up the files first, and take `--dry-run`; most take `--json`. `retire help <command>` says more.

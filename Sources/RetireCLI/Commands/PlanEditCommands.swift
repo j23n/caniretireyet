@@ -26,6 +26,8 @@ struct PlanGroupCommand: AsyncParsableCommand {
             retire plan pension routes <n>            the scheme's ways to claim
             retire plan pension set <n> --kind statutory --source-country DE
             retire plan pension set <n> --claim-route <route>
+            retire plan debug [--age today|target|N] [--anonymize]
+                [--format md|json] [--output file]    every calculation behind the answer
 
             Every command takes --plan <id>; without it, the main plan. Pensions and \
             contributions are numbered from 1, as `retire plan show` lists them. \
@@ -34,7 +36,7 @@ struct PlanGroupCommand: AsyncParsableCommand {
             planner finds with them.
             """,
         subcommands: [PlanCommand.self, PlanShowCommand.self, PlanSetCommand.self, PlanContributionGroup.self,
-                      PlanPensionGroup.self],
+                      PlanPensionGroup.self, PlanDebugCommand.self],
         defaultSubcommand: PlanCommand.self)
 }
 

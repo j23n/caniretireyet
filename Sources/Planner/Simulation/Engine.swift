@@ -150,6 +150,13 @@ struct Engine: Sendable {
     /// level aren't simulated again. `progress` counts the levels tried
     /// (steps), against an estimate that grows when the search needs more.
     func sustainableSpending(age: Int, progress: ProgressReporter? = nil) async throws -> SustainableSpending? {
+        try await sustainableSpendingSearch(age: age, progress: progress).answer
+    }
+
+    /// ``sustainableSpending(age:progress:)`` with every level it tried and
+    /// the success there, in the order tried, for the plan debugger.
+    func sustainableSpendingSearch(age: Int, progress: ProgressReporter? = nil) async throws
+        -> (answer: SustainableSpending?, steps: [SearchStep]) {
         let runs = scenarios.runs
         let confidence = model.confidence
         var succeedsUpTo = [Double](repeating: -.infinity, count: runs)
@@ -157,6 +164,7 @@ struct Engine: Sendable {
         let engine = self
         // Levels tried so far, for `progress`: each is a step.
         var steps = 0
+        var tried: [SearchStep] = []
 
         func success(at level: Double) async throws -> Double {
             let open = (0..<runs).filter { succeedsUpTo[$0] < level && level < failsFrom[$0] }
@@ -176,13 +184,15 @@ struct Engine: Sendable {
             }
             steps += 1
             progress?.advance()
-            return Double((0..<runs).filter { succeedsUpTo[$0] >= level }.count) / Double(runs)
+            let rate = Double((0..<runs).filter { succeedsUpTo[$0] >= level }.count) / Double(runs)
+            tried.append(SearchStep(value: level, success: rate))
+            return rate
         }
 
         var high = max(1000, model.spending.retired * 1.5)
         // Zero, the first upper bound, the bisection and the final check.
         progress?.begin(.sustainableSpending, total: 3 + Self.bisectionSteps(low: 0, high: high))
-        guard try await success(at: 0) >= confidence else { return nil }
+        guard try await success(at: 0) >= confidence else { return (nil, tried) }
         var low = 0.0
         while try await success(at: high) >= confidence {
             low = high
@@ -196,7 +206,8 @@ struct Engine: Sendable {
             if try await success(at: mid) >= confidence { low = mid } else { high = mid }
         }
         let perYear = (low / 10).rounded(.down) * 10
-        return SustainableSpending(age: age, perYear: perYear, success: try await success(at: perYear))
+        let answer = SustainableSpending(age: age, perYear: perYear, success: try await success(at: perYear))
+        return (answer, tried)
     }
 
     // MARK: Assets needed to retire today
@@ -223,6 +234,16 @@ struct Engine: Sendable {
     ///     there's nothing to scale.
     func assetsNeeded(age: Int, startAssets: Double, successToday: Double,
                       progress: ProgressReporter? = nil) async throws -> AssetsNeeded {
+        try await assetsNeededSearch(age: age, startAssets: startAssets, successToday: successToday,
+                                     progress: progress).answer
+    }
+
+    /// ``assetsNeeded(age:startAssets:successToday:progress:)`` with every
+    /// scale it tried and the success there, in the order tried, for the
+    /// plan debugger.
+    func assetsNeededSearch(age: Int, startAssets: Double, successToday: Double,
+                            progress: ProgressReporter? = nil) async throws
+        -> (answer: AssetsNeeded, steps: [SearchStep]) {
         let runs = scenarios.runs
         let confidence = model.confidence
         let spending = model.spending.retired
@@ -230,8 +251,8 @@ struct Engine: Sendable {
         let floor = 1 / maximum
         guard startAssets > 0, portfolio.totalValue > 1e-6 else {
             let enough = successToday >= confidence
-            return AssetsNeeded(age: age, outcome: .noPlanAssets, amount: enough ? 0 : nil,
-                                success: enough ? successToday : nil, readiness: enough ? nil : 0)
+            return (AssetsNeeded(age: age, outcome: .noPlanAssets, amount: enough ? 0 : nil,
+                                 success: enough ? successToday : nil, readiness: enough ? nil : 0), [])
         }
 
         // Per run, the smallest scale it succeeded at and the largest it failed at.
@@ -239,6 +260,7 @@ struct Engine: Sendable {
         var failsUpTo = [Double](repeating: -.infinity, count: runs)
         let engine = self
         var steps = 0
+        var tried: [SearchStep] = []
 
         func success(at scale: Double) async throws -> Double {
             let open = (0..<runs).filter { failsUpTo[$0] < scale && scale < succeedsFrom[$0] }
@@ -259,6 +281,7 @@ struct Engine: Sendable {
             }
             steps += 1
             progress?.advance()
+            tried.append(SearchStep(value: scale, success: rate(at: scale)))
             return rate(at: scale)
         }
 
@@ -276,8 +299,8 @@ struct Engine: Sendable {
             while try await success(at: low) >= confidence {
                 high = low
                 if low <= floor {
-                    return AssetsNeeded(age: age, outcome: .atMost, scale: floor, amount: floor * startAssets,
-                                        success: rate(at: floor), readiness: maximum)
+                    return (AssetsNeeded(age: age, outcome: .atMost, scale: floor, amount: floor * startAssets,
+                                         success: rate(at: floor), readiness: maximum), tried)
                 }
                 low = max(floor, low / 2)
                 progress?.extend(to: steps + 1 + Self.logBisectionSteps(low: low, high: high))
@@ -288,7 +311,7 @@ struct Engine: Sendable {
             while try await success(at: high) < confidence {
                 low = high
                 if high >= maximum {
-                    return AssetsNeeded(age: age, outcome: .moreThanMaximum, scale: maximum)
+                    return (AssetsNeeded(age: age, outcome: .moreThanMaximum, scale: maximum), tried)
                 }
                 high = min(maximum, high * 2)
                 progress?.extend(to: steps + 1 + Self.logBisectionSteps(low: low, high: high))
@@ -299,8 +322,8 @@ struct Engine: Sendable {
             let middle = (low * high).squareRoot()
             if try await success(at: middle) >= confidence { high = middle } else { low = middle }
         }
-        return AssetsNeeded(age: age, outcome: .found, scale: high, amount: high * startAssets,
-                            success: rate(at: high), readiness: 1 / high)
+        return (AssetsNeeded(age: age, outcome: .found, scale: high, amount: high * startAssets,
+                             success: rate(at: high), readiness: 1 / high), tried)
     }
 
     /// How many halvings of the log of `high / low` the search for the
@@ -353,6 +376,13 @@ struct Engine: Sendable {
         let size = (count + workers - 1) / workers
         return stride(from: 0, to: count, by: size).map { $0..<min(count, $0 + size) }
     }
+}
+
+/// One value a search tried, and the share of runs that succeed with it:
+/// a yearly spending, or a scale of the starting portfolio.
+struct SearchStep: Sendable {
+    let value: Double
+    let success: Double
 }
 
 /// Maps `items` concurrently, keeping their order. Each item is a child
