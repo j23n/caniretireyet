@@ -40,6 +40,14 @@ public actor PriceCache {
         entries.removeAll()
     }
 
+    /// Starts `fetch` for `key` unless a value is cached or being fetched,
+    /// e.g. one of several values a single request fetches. ``value(for:fetch:)``
+    /// then waits for it; a failure isn't kept.
+    func start<T: Sendable>(_ key: Key, fetch: @escaping @Sendable () async throws -> T) {
+        guard entries[key] == nil else { return }
+        entries[key] = Task { try await fetch() }
+    }
+
     /// The cached value for `key`, or the result of `fetch`, which is cached
     /// if it succeeds.
     func value<T: Sendable>(for key: Key, fetch: @escaping @Sendable () async throws -> T) async throws -> T {
