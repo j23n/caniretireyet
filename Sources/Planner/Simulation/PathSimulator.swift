@@ -38,7 +38,9 @@ struct RunOutcome: Sendable {
 /// like any other; bought lots cost what was paid for them. Money coming in
 /// goes to the classes furthest below the target mix, and money going out
 /// comes from those furthest above it, so the cash flows rebalance first and
-/// only what's still off target is sold.
+/// only what's still off target is sold. The target is the plan's target mix
+/// step in force that year (``AgeSchedule/targetSteps``), else the bucket's
+/// own; the year a step starts, its rebalancing sells what it doesn't want.
 ///
 /// **Tax-advantaged buckets** keep their cost basis as a whole: what was paid
 /// in (contributions and credits), deflated by inflation, reduced pro rata by
@@ -61,8 +63,15 @@ struct PathSimulator {
     let bucketLiquid: [Bool]
     private let bucketGrowthTax: [Double]
     private let bucketWrapper: [String]
-    /// Target share per bucket and class: `bucket * classCount + class`.
-    private let targetShares: [Double]
+    /// Target shares: per bucket and class (`bucket * classCount + class`),
+    /// the mix before any of the plan's target mix steps starts; then per
+    /// step and class (`(buckets + step) * classCount + class`), the mix the
+    /// taxable buckets follow from its start.
+    private let targets: [Double]
+    /// Per year, the target mix step in force (``AgeSchedule/targetSteps``), `-1` for none.
+    private let yearSteps: [Int]
+    /// Where the step in force this year starts in `targets`, or `-1` for none.
+    private var stepRow = -1
     /// The lot new money goes into per bucket and class (`-1` for none).
     private let depositLot: [Int]
     /// Per year and bucket (`year * buckets + bucket`), the real growth factor
@@ -137,7 +146,9 @@ struct PathSimulator {
         bucketLiquid = portfolio.buckets.map(\.isLiquid)
         bucketGrowthTax = portfolio.buckets.map(\.growthTaxRate)
         bucketWrapper = portfolio.buckets.map(\.wrapper)
-        targetShares = portfolio.targetShares
+        targets = portfolio.targetShares + portfolio.stepShares
+        yearSteps = schedule.targetSteps.count == schedule.years.count
+            ? schedule.targetSteps : Array(repeating: -1, count: schedule.years.count)
         depositLot = portfolio.depositLot
         var revaluationFactors = [Double](repeating: 0, count: schedule.years.count * portfolio.buckets.count)
         for (b, bucket) in portfolio.buckets.enumerated() {
@@ -225,6 +236,8 @@ struct PathSimulator {
             let startAssets = details == nil ? 0 : total()
             withheld = 0
             variable.fractionOfYear = yearFraction[t]
+            // The target mix in force: every flow and rebalancing of a taxable bucket follows it.
+            stepRow = yearSteps[t] >= 0 ? (bucketWrapper.count + yearSteps[t]) * classCount : -1
             // The path's tax state: what last year's final assessment left, or
             // nothing in the first year and when the residence system changes.
             if yearStartsResidence[t] { pathState = .empty }
@@ -334,6 +347,7 @@ struct PathSimulator {
     private mutating func deposit(_ amount: Double, into b: Int) {
         guard amount > 0 else { return }
         let row = b * classCount
+        let target = targetRow(b)
         if bucketLiquid[b] {
             let value = loadClassValues(b)
             let kept = steer(b, finalTotal: value + amount)
@@ -349,10 +363,17 @@ struct PathSimulator {
             wrapperBasis[b] += amount
         }
         for c in 0..<classCount {
-            let share = targetShares[row + c]
+            let share = targets[target + c]
             guard share > 0 else { continue }
             buy(amount * share, into: depositLot[row + c])
         }
+    }
+
+    /// Where bucket `b`'s target shares start in `targets`: the step in
+    /// force for a taxable bucket, else its own.
+    @inline(__always)
+    private func targetRow(_ b: Int) -> Int {
+        stepRow >= 0 && bucketLiquid[b] ? stepRow : b * classCount
     }
 
     /// Adds money to a lot at its price: its cost basis rises by the amount.
@@ -641,8 +662,8 @@ struct PathSimulator {
     /// share of cash would be less, the buffer stays aside and the other
     /// classes share the rest in their target proportions. Uses `classValues`.
     private mutating func steer(_ b: Int, finalTotal: Double, keepingBuffer: Bool = true) -> Double {
-        let row = b * classCount
-        for c in 0..<classCount { classShares[c] = targetShares[row + c] }
+        let row = targetRow(b)
+        for c in 0..<classCount { classShares[c] = targets[row + c] }
         guard keepingBuffer, let cash = cashClass else { return 0 }
         let floor = bufferFloor(b)
         let share = classShares[cash]
@@ -905,9 +926,10 @@ struct PathSimulator {
         let bucketValue = loadClassValues(b)
         guard bucketValue > Self.epsilon else { return }
         let row = b * classCount
+        let shares = targetRow(b)
         for c in 0..<classCount {
             let current = classValues[c]
-            let target = targetShares[row + c] * bucketValue
+            let target = targets[shares + c] * bucketValue
             if current > Self.epsilon {
                 let ratio = target / current
                 for l in bucketStart[b]..<bucketEnd[b] where lotClass[l] == c {

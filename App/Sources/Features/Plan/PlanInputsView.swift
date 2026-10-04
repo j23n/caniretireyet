@@ -136,6 +136,8 @@ struct PlanSectionEditor: View {
             PlanTaxesEditor(plan: $plan, summaries: summaries, issues: issues, editing: $editing)
         case .assumptions:
             PlanAssumptionsEditor(plan: $plan)
+        case .targetMix:
+            PlanTargetMixEditor(plan: $plan)
         case .simulation:
             PlanSimulationEditor(plan: $plan)
         case .withdrawals:

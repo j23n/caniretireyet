@@ -145,7 +145,8 @@ public struct BucketSummary: Hashable, Sendable {
     public var value: Double
     /// Purchase cost of the holdings (their value for cash and wrappers).
     public var costBasis: Double
-    /// The target mix it's rebalanced to every year.
+    /// The target mix it's rebalanced to every year; for a taxable bucket,
+    /// until the plan's target mix changes with age (`portfolio.targetMixByAge`).
     public var targetMix: [AssetClass: Double]
     public var accounts: [AccountID]
 

@@ -131,6 +131,81 @@ struct PlanEditTests {
         #expect(tooMuch.status == 64)
     }
 
+    @Test func setChoosesTheTargetMixAndHowItChangesWithAge() async throws {
+        let library = try TemporaryFolder.exampleLibrary()
+        let plan = "part-time-from-50"
+        func set(_ arguments: [String]) async -> (status: Int32, output: String, errors: String, all: String) {
+            let run = await retire(["plan", "set", "--library", library.path, "--plan", plan] + arguments)
+            return (run.status, run.output, run.errors, run.all)
+        }
+        // The example plan's glide path: `show` puts today's mix next to the target and each change.
+        let show = await retire(["plan", "show", "--library", library.path, "--plan", plan])
+        let lines = show.output.split(separator: "\n").map(String.init)
+        #expect(lines.contains("  Class   Ordinary today  All today  Target  From retirement  From 75  Median"))
+        #expect(lines.contains("  equity             46%        44%     80%              60%      40%    3.1%"))
+        #expect(lines.contains("  crypto             35%        28%       –                –        –    0.0%"))
+        #expect(lines.contains("Today (2026-06-30): 120,058 EUR in the ordinary (taxable) accounts, 148,808 EUR in "
+            + "all plan assets. Median: each class's typical real return a year."))
+        #expect(lines.contains("Median growth, rebalanced every year: the target 2.9%; from retirement 2.5%; from 75 2.1%."))
+        let json = try parseJSON(await retire(["plan", "show", "--library", library.path, "--plan", plan,
+                                               "--json"]).output)
+        let mix = try #require(json["assetMix"] as? [String: Any])
+        #expect(mix["targetMix"] as? [String: String] == ["bonds": "0.2", "equity": "0.8"])
+        let steps = try #require(mix["targetMixByAge"] as? [[String: Any]])
+        #expect(steps.map { $0["fromAge"] as? String } == ["retirement", "75"])
+        let today = try #require(mix["today"] as? [String: Any])
+        #expect(today["ordinaryValue"] as? String == "120057.81" && today["allValue"] as? String == "148808.36")
+        #expect((today["ordinary"] as? [String: String])?["crypto"] == "0.3468")
+
+        // Back to today's mix: nothing about it is left in the file.
+        let todays = await set(["--target-mix", "today"])
+        #expect(todays.status == 0, "\(todays.all)")
+        #expect(todays.output.hasPrefix("Target mix: today's. Each ordinary account is rebalanced back to its own mix "
+            + "today.\nWrote 1 file: plans/part-time-from-50.json.\n"))
+        #expect(!(try library.text("plans/\(plan).json")).contains("targetMix"))
+        let bare = await retire(["plan", "show", "--library", library.path, "--plan", plan])
+        #expect(bare.output.contains("Target: today's mix. Each year the plan rebalances every ordinary account back "
+            + "to its own mix today; set a target with --target-mix."))
+
+        // A glide path again.
+        let glide = await set(["--target-mix", "equity=70%,bonds=30%",
+                               "--target-mix-from", "retirement:equity=60%,bonds=40%",
+                               "--target-mix-from", "80:equity=0.4,bonds=0.6"])
+        #expect(glide.status == 0, "\(glide.all)")
+        #expect(glide.output.hasPrefix("Target mix: equity 70%, bonds 30%.\nFrom retirement: equity 60%, bonds 40%.\n"
+            + "From 80: bonds 60%, equity 40%.\nWrote 1 file: plans/part-time-from-50.json.\n"))
+        var portfolio = try #require(try library.load().plans[PlanID(plan)]).portfolio
+        #expect(portfolio.targetMix == [.equity: dec("0.7"), .bonds: dec("0.3")])
+        #expect(portfolio.targetMixByAge == [
+            TargetMixStep(fromAge: .retirement, mix: [.equity: dec("0.6"), .bonds: dec("0.4")]),
+            TargetMixStep(fromAge: .age(80), mix: [.equity: dec("0.4"), .bonds: dec("0.6")]),
+        ])
+        #expect(try library.text("plans/\(plan).json")
+            .contains(#"{ "fromAge": "retirement", "mix": { "bonds": "0.4", "equity": "0.6" } }"#))
+
+        // The mix by repeated --target; the steps stay until they're removed.
+        let repeated = await set(["--target", "equity=0.8", "--target", "bonds=0.2"])
+        #expect(repeated.status == 0, "\(repeated.all)")
+        portfolio = try #require(try library.load().plans[PlanID(plan)]).portfolio
+        #expect(portfolio.targetMix == [.equity: dec("0.8"), .bonds: dec("0.2")] && portfolio.targetMixByAge.count == 2)
+        let noSteps = await set(["--target-mix-from", "none"])
+        #expect(noSteps.output.hasPrefix("Target mix by age: no changes.\n"))
+        #expect(try #require(try library.load().plans[PlanID(plan)]).portfolio.targetMixByAge.isEmpty)
+
+        // Mixes must add up to 100%, ages must go up, and classes must exist.
+        let short = await set(["--target-mix", "equity=70%,bonds=20%"])
+        #expect(short.status == 64)
+        #expect(short.errors.contains("--target-mix: the mix adds up to 90%; it must add up to 100%."))
+        let backwards = await set(["--target-mix-from", "75:bonds=1", "--target-mix-from", "60:bonds=1"])
+        #expect(backwards.status == 64 && backwards.errors.contains("the ages must go up: 60 comes after 75."))
+        let both = await set(["--target-mix", "equity=1", "--target", "equity=1"])
+        #expect(both.status == 64 && both.errors.contains("not both"))
+        let badClass = await set(["--target-mix", "shares=1"])
+        #expect(badClass.status == 64 && badClass.errors.contains("isn't an asset class"))
+        let badAge = await set(["--target-mix-from", "soon:bonds=1"])
+        #expect(badAge.status == 64 && badAge.errors.contains("“soon” isn't an age or retirement."))
+    }
+
     @Test func contributionsGoIntoAnAccountOrASchemeYearlyOrOnce() async throws {
         let library = try TemporaryFolder.exampleLibrary()
         let buyIn = await retire(["plan", "contribution", "add", "--library", library.path, "--pension", "it.inps",

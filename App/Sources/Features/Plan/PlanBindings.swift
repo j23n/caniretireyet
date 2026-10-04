@@ -120,6 +120,63 @@ extension PlanPortfolio {
             if !newValue { exclude.append(account) }
         }
     }
+
+    // MARK: Target mix (PlanTargetMixModel)
+
+    /// Whether the plan chooses its target mix ("A mix I choose") rather
+    /// than keeping each account's mix today. Choosing starts from
+    /// `suggestion`; keeping today's mix removes the mix and its changes
+    /// with age, so nothing is written.
+    subscript(planChoosesMix suggestion: AssetMix) -> Bool {
+        get { choosesTargetMix }
+        set {
+            guard newValue != choosesTargetMix else { return }
+            if newValue {
+                targetMix = suggestion
+            } else {
+                targetMix = nil
+                targetMixByAge = []
+            }
+        }
+    }
+
+    /// A class's share of the target mix (0.8 is 80%); `nil`, an empty
+    /// field, when it has none. Clearing it, or 0, leaves the class out.
+    subscript(planTargetShare assetClass: AssetClass) -> Decimal? {
+        get { targetMix?.shares[assetClass] }
+        set {
+            var mix = targetMix ?? AssetMix()
+            mix.shares[assetClass] = newValue == 0 ? nil : newValue
+            targetMix = mix
+        }
+    }
+
+    /// A class's share of change `index`'s mix; `nil` when it has none.
+    subscript(planStepShare index: Int, assetClass: AssetClass) -> Decimal? {
+        get { targetMixByAge.indices.contains(index) ? targetMixByAge[index].mix.shares[assetClass] : nil }
+        set {
+            guard targetMixByAge.indices.contains(index) else { return }
+            targetMixByAge[index].mix.shares[assetClass] = newValue == 0 ? nil : newValue
+        }
+    }
+
+    /// Change `index`'s age; `fallback` for one that starts at retirement.
+    subscript(planStepAge index: Int, fallback fallback: Int) -> Int {
+        get { targetMixByAge.indices.contains(index) ? targetMixByAge[index].fromAge.age ?? fallback : fallback }
+        set {
+            guard targetMixByAge.indices.contains(index) else { return }
+            targetMixByAge[index].fromAge = .age(newValue)
+        }
+    }
+
+    /// Whether change `index` starts at retirement; turned off, it starts at `fallbackAge`.
+    subscript(planStepAtRetirement index: Int, fallbackAge fallbackAge: Int) -> Bool {
+        get { targetMixByAge.indices.contains(index) && targetMixByAge[index].fromAge == .retirement }
+        set {
+            guard targetMixByAge.indices.contains(index) else { return }
+            targetMixByAge[index].fromAge = newValue ? .retirement : .age(fallbackAge)
+        }
+    }
 }
 
 extension PlanSimulation {

@@ -86,7 +86,7 @@ enum PlanDebugger {
             scaleChoice = "assetsNeeded"
         }
         let start: Portfolio? = if let extra {
-            extra == 0 ? nil : engine.portfolio.withExtra(extra)
+            extra == 0 ? nil : engine.startPortfolio(extra: extra)
         } else {
             scale == 1 ? nil : engine.portfolio.scaled(by: scale)
         }
@@ -310,14 +310,59 @@ private struct Builder {
                 "The cash buffer, last, before the run fails.",
             ],
             rebalancing: "Once a year, after the cash flows and before the returns, every bucket goes back to its "
-                + "target mix. In a taxable bucket that's a sale: the gain is taxed and the tax paid from the bucket. "
+                + "target mix" + (portfolio.stepStarts.isEmpty ? "" : " (a taxable bucket's is the plan's target mix "
+                    + "in force that year: it changes with age)")
+                + ". In a taxable bucket that's a sale: the gain is taxed and the tax paid from the bucket. "
                 + "Inside a tax-advantaged wrapper it's free.")
         return PlanDebugReport.PlanReading(
             residence: residence, overlays: overlays, indexThresholds: model.indexThresholds,
             overrides: plan.tax.overrides, work: work, spending: spending, pensions: pensions,
             contributions: contributions, events: events, withdrawals: withdrawals,
             fees: "No separate fees: each class's expected return is net of fund costs. Taxes on growth inside a "
-                + "wrapper and revaluations set by law are listed with the buckets.")
+                + "wrapper and revaluations set by law are listed with the buckets.",
+            targetMix: targetMixReading())
+    }
+
+    /// The plan's target mix and its steps, with each mix's growth and when
+    /// each step starts at the chosen age; `nil` when the plan sets neither.
+    func targetMixReading() -> PlanDebugReport.TargetMixPlan? {
+        guard plan.portfolio.choosesTargetMix else { return nil }
+        let base = plan.portfolio.targetMix.flatMap { PortfolioBuilder.shares($0) }
+        let steps = portfolio.stepStarts.indices.map { k -> PlanDebugReport.TargetMixStepReading in
+            let shares = Array(portfolio.stepShares[(k * classes.count)..<((k + 1) * classes.count)])
+            let start = portfolio.stepStarts[k]
+            return PlanDebugReport.TargetMixStepReading(
+                fromAge: PortfolioBuilder.describe(start), startAge: start.startAge(retiringAt: age),
+                applies: schedule.targetSteps.contains(k), mix: Self.mix(shares, classes: classes),
+                growth: growth(of: shares))
+        }
+        return PlanDebugReport.TargetMixPlan(
+            mix: base.map { Dictionary(uniqueKeysWithValues: $0.map { ($0.key.rawValue, $0.value) }) },
+            growth: base.map { mix in growth(of: classes.map { mix[$0] ?? 0 }) }, steps: steps)
+    }
+
+    /// A mix by class (shares in the order of ``classes``) rebalanced every year.
+    func growth(of shares: [Double]) -> PlanDebugReport.Growth {
+        let returns = model.returns
+        return PlanDebugMath.growth(weights: shares, expected: returns.expected, volatility: returns.volatility,
+                                    correlations: effectiveCorrelations())
+    }
+
+    /// Shares in the order of `classes`, by class name, without the empty ones.
+    static func mix(_ shares: [Double], classes: [AssetClass]) -> [String: Double] {
+        var mix: [String: Double] = [:]
+        for (c, share) in shares.enumerated() where share > 0 { mix[classes[c].rawValue] = share }
+        return mix
+    }
+
+    /// The mix the taxable buckets are rebalanced to in year `t` at the
+    /// chosen age (the primary one's, when no step is in force), when the
+    /// plan's target mix changes with age; `nil` otherwise.
+    func targetMix(inYear t: Int) -> [String: Double]? {
+        guard !portfolio.stepStarts.isEmpty, schedule.targetSteps.indices.contains(t) else { return nil }
+        let step = schedule.targetSteps[t] >= 0 ? schedule.targetSteps[t] : nil
+        return Self.mix(classes.indices.map { portfolio.targetShare(bucket: portfolio.primaryLiquid, class: $0, step: step) },
+                        classes: classes)
     }
 
     // MARK: Assumptions
@@ -353,15 +398,17 @@ private struct Builder {
     }
 
     /// Per class, its share of the mix the buckets are rebalanced to: each
-    /// bucket's target mix weighted by its value at the start.
+    /// bucket's target mix in the first year at the chosen age (the plan's
+    /// step in force then, for a taxable bucket), weighted by its value at the start.
     func targetWeights() -> [Double] {
         var weights = [Double](repeating: 0, count: classes.count)
         var total = 0.0
+        let step = schedule.startStep
         for (b, bucket) in portfolio.buckets.enumerated() {
             let value = portfolio.lots[bucket.lots].reduce(0) { $0 + $1.value }
             guard value > 0 else { continue }
             total += value
-            for c in classes.indices { weights[c] += value * portfolio.targetShares[b * classes.count + c] }
+            for c in classes.indices { weights[c] += value * portfolio.targetShare(bucket: b, class: c, step: step) }
         }
         return total > 0 ? weights.map { $0 / total } : weights
     }
@@ -507,7 +554,8 @@ private struct Builder {
                 netIncome: variant.netCash, toDraw: spending + expenses + year.contributionTotal - variant.netCash,
                 requiredPayouts: required,
                 accessible: portfolio.buckets.indices.filter { schedule.isAccessible(year: t, bucket: $0) }
-                    .map { names[$0] })
+                    .map { names[$0] },
+                targetMix: targetMix(inYear: t))
         }
         return PlanDebugReport.Schedule(retirementAge: age, retirementDate: schedule.retirementDate, years: years)
     }
@@ -771,7 +819,8 @@ private struct Builder {
             sales: sales, payouts: payouts, withheldOnPayouts: year.withheldOnPayouts,
             withheldOnWithdrawals: year.withheldOnWithdrawals, withheldOnRebalancing: year.withheldOnRebalancing,
             taxes: Self.taxLines(variant: variant, assessment: year.assessment), carriedToNextYear: year.carriedOut,
-            failed: failed, carriedForward: Self.carriedForward(year.carriedForward))
+            failed: failed, carriedForward: Self.carriedForward(year.carriedForward),
+            targetMix: targetMix(inYear: year.index))
     }
 
     /// What the tax system carries into the next year, or `nil` for nothing.

@@ -403,6 +403,55 @@ struct PlanDebugTests {
         #expect(sold.text.hasPrefix("Crypto is 40% of plan assets today, but 0% of the mix the buckets are rebalanced to"))
     }
 
+    /// A target mix that changes with age: the plan as read lists the steps,
+    /// the schedule and every traced year say which mix is in force, and
+    /// the diagnosis describes them; the target shares are the first year's.
+    @Test func aGlidePathShowsTheMixInForceEachYear() async throws {
+        var plan = Self.plan()
+        plan.portfolio.targetMix = [.equity: d("0.8"), .bonds: d("0.2")]
+        plan.portfolio.targetMixByAge = [
+            TargetMixStep(fromAge: .retirement, mix: [.equity: d("0.6"), .bonds: d("0.4")]),
+            TargetMixStep(fromAge: .age(70), mix: [.equity: d("0.4"), .bonds: d("0.6")]),
+            TargetMixStep(fromAge: .age(90), mix: [.cash: 1]),
+        ]
+        let report = try await report(PlanDebugOptions(planner: Self.planner, retirementAge: .target,
+                                                       paths: .automatic(count: 2)), plan: plan)
+        let target = try #require(report.plan.targetMix)
+        #expect(target.mix == ["equity": 0.8, "bonds": 0.2])
+        #expect(target.steps.map(\.fromAge) == ["retirement", "70", "90"])
+        #expect(target.steps.map(\.startAge) == [50, 70, 90])
+        // The plan ends at 85: the last step never applies.
+        #expect(target.steps.map(\.applies) == [true, true, false])
+        #expect(try #require(target.growth).medianReturn > target.steps[1].growth.medianReturn)
+
+        func expected(_ age: Int) -> [String: Double] {
+            age < 50 ? ["equity": 0.8, "bonds": 0.2] : age < 70 ? ["equity": 0.6, "bonds": 0.4]
+                : ["equity": 0.4, "bonds": 0.6]
+        }
+        for year in report.schedule.years { #expect(year.targetMix == expected(year.age), "\(year.age)") }
+        for path in report.paths {
+            for year in path.years { #expect(year.targetMix == expected(year.age), "\(path.kind) \(year.age)") }
+        }
+        // The broker is all equity today; the first year's mix is 80/20.
+        let equity = try #require(report.assumptions.classes.first { $0.assetClass == "equity" })
+        #expect(abs(equity.targetShare - (400_000 * 0.8 + 50_000 * 0.6) / 450_000) < 1e-9)
+
+        let steps = try #require(report.diagnosis.first { $0.code == "mix.steps" })
+        #expect(steps.text.hasPrefix("The target mix changes with age, retiring at 50: equity 80%, bonds 20% "))
+        #expect(steps.text.contains("; from retirement at 50, equity 60%, bonds 40% ("))
+        #expect(steps.text.contains("; from 70, bonds 60%, equity 40% ("))
+        let markdown = report.markdown()
+        #expect(markdown.contains("### Target mix"))
+        #expect(markdown.contains("| retirement | 50 | equity 60%, bonds 40% |"))
+        #expect(markdown.contains("| To draw | Target mix | Notes |"))
+        #expect(try PlanDebugReport.decode(json: report.json()) == report)
+
+        // Without steps, nothing per year.
+        let flat = try await self.report(PlanDebugOptions(planner: Self.planner, paths: .automatic(count: 1)))
+        #expect(flat.plan.targetMix == nil && flat.schedule.years.allSatisfy { $0.targetMix == nil })
+        #expect(!flat.markdown().contains("| To draw | Target mix |"))
+    }
+
     // MARK: JSON
 
     @Test func theJSONRoundTrips() async throws {

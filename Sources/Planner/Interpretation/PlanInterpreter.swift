@@ -179,6 +179,7 @@ enum PlanInterpreter {
                                          residence: systems.first?.system, currency: currency,
                                          seedWrappers: seedWrappers, issues: &issues)
         seed(&pensions, from: portfolio.seeds, registry: registry, issues: &issues)
+        checkTargetMixSteps(plan.portfolio.targetMixByAge, endAge: endAge, issues: &issues)
 
         let contributions = interpretContributions(plan.contributions, portfolio: portfolio, pensions: pensions,
                                                    library: library, registry: registry, years: firstYear...lastYear,
@@ -315,6 +316,40 @@ enum PlanInterpreter {
     }
 
     // MARK: - Sections
+
+    /// The ages of the target mix steps (`portfolio.targetMixByAge`; their
+    /// mixes are checked with the portfolio): ages must go up in the list,
+    /// a step after the plan's end never applies, and of two `retirement`
+    /// steps only the later can. A step at or before today's age applies
+    /// from the start, which needs no message.
+    static func checkTargetMixSteps(_ steps: [TargetMixStep], endAge: Int, issues: inout [PlanIssue]) {
+        var previous: Int?
+        var lastRetirement: Int?
+        for (index, step) in steps.enumerated() {
+            switch step.fromAge {
+            case .age(let age):
+                if let previous, age <= previous {
+                    issues.append(.error("planner.targetMixAges",
+                                         "The target mix's ages must go up: \(age) comes after \(previous).",
+                                         section: .portfolio, index: index, option: "targetMixByAge"))
+                }
+                if age > endAge {
+                    issues.append(.warning("planner.targetMixLate",
+                                           "The target mix from \(age) starts after the plan's end at \(endAge); "
+                                               + "it never applies.",
+                                           section: .portfolio, index: index, option: "targetMixByAge"))
+                }
+                previous = max(previous ?? age, age)
+            case .retirement:
+                if let earlier = lastRetirement {
+                    issues.append(.warning("planner.targetMixRepeated",
+                                           "Two target mixes start at retirement; only the later one applies.",
+                                           section: .portfolio, index: earlier, option: "targetMixByAge"))
+                }
+                lastRetirement = index
+            }
+        }
+    }
 
     private static func interpretWork(_ phases: [WorkPhase], firstYear: Int, registry: TaxRegistry,
                                       issues: inout [PlanIssue]) -> [WorkSpec] {

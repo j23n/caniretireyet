@@ -14,6 +14,7 @@ enum PlanInputSection: String, CaseIterable, Hashable, Sendable, Identifiable {
     case events
     case taxes
     case assumptions
+    case targetMix
     case simulation
     case withdrawals
 
@@ -29,6 +30,7 @@ enum PlanInputSection: String, CaseIterable, Hashable, Sendable, Identifiable {
         case .events: "Events"
         case .taxes: "Taxes"
         case .assumptions: "Assumptions"
+        case .targetMix: "Target mix"
         case .simulation: "Simulation"
         case .withdrawals: "Withdrawals"
         }
@@ -44,13 +46,24 @@ enum PlanInputSection: String, CaseIterable, Hashable, Sendable, Identifiable {
         case .events: "calendar"
         case .taxes: "percent"
         case .assumptions: "chart.line.uptrend.xyaxis"
+        case .targetMix: "chart.pie"
         case .simulation: "dice"
         case .withdrawals: "arrow.up.forward"
         }
     }
 
-    /// The card an issue about `section` shows on. The portfolio's settings
-    /// (start, excluded accounts, target mix, gains estimate) live on
+    /// The card an issue shows on: the target mix's own card for the
+    /// target mix and its changes with age, else its section's.
+    init(_ issue: PlanIssue) {
+        if issue.section == .portfolio, issue.option == "targetMix" || issue.option == "targetMixByAge" {
+            self = .targetMix
+        } else {
+            self.init(issue.section)
+        }
+    }
+
+    /// The card an issue about `section` shows on. The portfolio's other
+    /// settings (start, excluded accounts, gains estimate) live on
     /// Assumptions.
     init(_ section: PlanSection) {
         switch section {
@@ -77,7 +90,7 @@ struct PlanInputIssues: Hashable, Sendable {
     init(_ issues: [PlanIssue]) {
         var seen: Set<PlanIssue> = []
         for issue in issues where seen.insert(issue).inserted {
-            bySection[PlanInputSection(issue.section), default: []].append(issue)
+            bySection[PlanInputSection(issue), default: []].append(issue)
         }
     }
 
@@ -148,6 +161,7 @@ struct PlanInputSummaries {
         case .events: events
         case .taxes: taxes
         case .assumptions: assumptions
+        case .targetMix: PlanTargetMixModel.summary(plan.portfolio, locale: locale)
         case .simulation: simulation
         case .withdrawals: withdrawals
         }

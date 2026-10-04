@@ -30,6 +30,15 @@ struct AgeSchedule: Sendable {
     /// year: `year * buckets + bucket`.
     var membership: [Int] = []
     var bucketCount = 0
+    /// Per year, the index of the plan's target mix step in force
+    /// (``Portfolio/stepStarts``), or `-1` before any has started.
+    var targetSteps: [Int] = []
+
+    /// The target mix step in force in the first year, if any: the one the
+    /// extra money of "assets needed to retire today" is split by.
+    var startStep: Int? {
+        targetSteps.first.flatMap { $0 >= 0 ? $0 : nil }
+    }
 
     @inline(__always)
     func isAccessible(year: Int, bucket: Int) -> Bool {
@@ -553,6 +562,9 @@ extension AgeSchedule {
     /// in what depends on the buckets: membership, access and severance pay.
     mutating func resolve(for portfolio: Portfolio, model: PlanModel) {
         bucketCount = portfolio.buckets.count
+        // The target mix in force each year: the last step that has started
+        // by that year's age, a `retirement` step at this schedule's age.
+        targetSteps = years.map { portfolio.step(atAge: $0.age, retiringAt: retirementAge) ?? -1 }
         for t in years.indices {
             for index in years[t].contributions.indices {
                 years[t].contributions[index].bucket =

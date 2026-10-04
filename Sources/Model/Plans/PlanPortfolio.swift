@@ -32,8 +32,9 @@ extension PortfolioStart: Codable {
     }
 }
 
-/// A plan's `portfolio` section: where it starts, what it leaves out, and
-/// estimates for data that wasn't recorded.
+/// A plan's `portfolio` section: where it starts, what it leaves out,
+/// estimates for data that wasn't recorded, and the mix the ordinary
+/// (taxable) accounts are rebalanced to, which can change with age.
 public struct PlanPortfolio: Hashable, Sendable, KnownKeysProviding {
     /// As written. See ``effectiveStart``.
     public var start: PortfolioStart?
@@ -42,15 +43,22 @@ public struct PlanPortfolio: Hashable, Sendable, KnownKeysProviding {
     public var unrealizedGainShare: Decimal?
     /// Accounts left out of the plan, in addition to those with `includeIn.plan == false`.
     public var exclude: [AccountID]
-    /// Overrides the target asset mix, which is otherwise the starting mix.
+    /// The mix the ordinary (taxable) accounts are rebalanced to from
+    /// today, until the first of ``targetMixByAge`` starts. `nil`: each
+    /// keeps its own mix at the start.
     public var targetMix: AssetMix?
+    /// Changes of the target mix with age, in order: from each step's age
+    /// on, its mix replaces the one before. Versions before these steps
+    /// ignore them and keep ``targetMix`` all along.
+    public var targetMixByAge: [TargetMixStep]
 
     public init(start: PortfolioStart? = nil, unrealizedGainShare: Decimal? = nil, exclude: [AccountID] = [],
-                targetMix: AssetMix? = nil) {
+                targetMix: AssetMix? = nil, targetMixByAge: [TargetMixStep] = []) {
         self.start = start
         self.unrealizedGainShare = unrealizedGainShare
         self.exclude = exclude
         self.targetMix = targetMix
+        self.targetMixByAge = targetMixByAge
     }
 
     /// Where the plan starts (default: the latest check-in).
@@ -62,11 +70,48 @@ public struct PlanPortfolio: Hashable, Sendable, KnownKeysProviding {
     public var isEmpty: Bool {
         self == PlanPortfolio()
     }
+
+    /// Whether the plan chooses the mix its ordinary accounts are
+    /// rebalanced to, now or from some age; otherwise they keep their mix
+    /// at the start.
+    public var choosesTargetMix: Bool {
+        targetMix != nil || !targetMixByAge.isEmpty
+    }
+
+    /// The index in ``targetMixByAge`` of the step in force at `age` when
+    /// retiring at `retirementAge`: the last step in the list that has
+    /// started by then (a `retirement` step never has, without a retirement
+    /// age). `nil` before any has: ``targetMix`` applies.
+    public func targetMixStep(atAge age: Int, retiringAt retirementAge: Int?) -> Int? {
+        targetMixByAge.indices.last { index in
+            targetMixByAge[index].fromAge.startAge(retiringAt: retirementAge).map { $0 <= age } ?? false
+        }
+    }
+
+    /// The target mix in force at `age` when retiring at `retirementAge`:
+    /// that of the last step in ``targetMixByAge`` that has started, else
+    /// ``targetMix``. `nil`: the ordinary accounts keep their mix at the start.
+    public func targetMix(atAge age: Int, retiringAt retirementAge: Int?) -> AssetMix? {
+        targetMixStep(atAge: age, retiringAt: retirementAge).map { targetMixByAge[$0].mix } ?? targetMix
+    }
+
+    /// Makes the mix in force at `age` the plan's ``targetMix``, for steps
+    /// that have started by then whatever the retirement age: the last step
+    /// with an age of at most `age` becomes ``targetMix``, and it and every
+    /// step before it go, since none of them can apply again. `retirement`
+    /// steps after it stay. Plans then read the same in versions that don't
+    /// know the steps.
+    public mutating func foldTargetMixSteps(passedBy age: Int) {
+        guard let last = targetMixByAge.indices.last(where: { targetMixByAge[$0].fromAge.age.map { $0 <= age } ?? false })
+        else { return }
+        targetMix = targetMixByAge[last].mix
+        targetMixByAge.removeSubrange(...last)
+    }
 }
 
 extension PlanPortfolio: Codable {
     enum CodingKeys: String, CodingKey, CaseIterable {
-        case start, unrealizedGainShare, exclude, targetMix
+        case start, unrealizedGainShare, exclude, targetMix, targetMixByAge
     }
 
     public static var knownKeys: Set<String> { Set(CodingKeys.allCases.map(\.stringValue)) }
@@ -77,6 +122,7 @@ extension PlanPortfolio: Codable {
         unrealizedGainShare = try c.decodeDecimalIfPresent(forKey: .unrealizedGainShare)
         exclude = try c.decodeArray([AccountID].self, forKey: .exclude)
         targetMix = try c.decodeIfPresent(AssetMix.self, forKey: .targetMix)
+        targetMixByAge = try c.decodeArray([TargetMixStep].self, forKey: .targetMixByAge)
     }
 
     public func encode(to encoder: any Encoder) throws {
@@ -85,5 +131,6 @@ extension PlanPortfolio: Codable {
         try c.encodeDecimalIfPresent(unrealizedGainShare, forKey: .unrealizedGainShare)
         try c.encodeIfNotEmpty(exclude, forKey: .exclude)
         try c.encodeIfPresent(targetMix, forKey: .targetMix)
+        try c.encodeIfNotEmpty(targetMixByAge, forKey: .targetMixByAge)
     }
 }
