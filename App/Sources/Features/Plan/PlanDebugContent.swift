@@ -252,9 +252,39 @@ struct PlanDebugContent: Sendable {
         order.append("Fees: \(plan.fees)")
         blocks.append(PlanDebugBlock(id: "withdrawals", title: "Withdrawals, rebalancing and fees", sentences: order,
                                      lines: withdrawals.lines))
+        if let target = plan.targetMix { blocks.append(targetMix(target, age: report.header.retirementAge)) }
 
         blocks += assumptions(report.assumptions)
         return blocks
+    }
+
+    /// The plan's target mix and its changes with age.
+    private static func targetMix(_ target: PlanDebugReport.TargetMixPlan, age: Int) -> PlanDebugBlock {
+        var sentences = ["The ordinary (taxable) accounts are rebalanced to "
+            + (target.mix.map { PlanDebugText.mix($0) } ?? "each one's own mix at the start")
+            + (target.steps.isEmpty ? "." : ", then from each age below to its mix.")]
+        sentences.append("Pension funds and other tax-advantaged accounts keep their own mix.")
+        var lines = PlanDebugLines()
+        if let growth = target.growth {
+            lines.add("Median growth of the target", .percent(growth.medianReturn), note: "a year, rebalanced every year")
+        }
+        var table: PlanDebugTable?
+        if !target.steps.isEmpty {
+            var steps = PlanDebugTableBuilder("target-mix", [
+                .label("From"), .count("Starts at"), .text("Mix", key: true), .percent("Expected"),
+                .percent("Median", key: true), .text("Applies"),
+            ])
+            for step in target.steps {
+                steps.add([.text(step.fromAge), step.startAge.map { .number("\($0)") } ?? .missing,
+                           .text(PlanDebugText.mix(step.mix)), .percent(step.growth.expectedReturn),
+                           .percent(step.growth.medianReturn), .text(step.applies ? "yes" : "no")])
+            }
+            table = steps.table
+        }
+        return PlanDebugBlock(id: "target-mix", title: "Target mix",
+                              note: target.steps.isEmpty ? nil : "“Starts at” is for retiring at \(age). A change a "
+                                  + "later one overtakes, or that starts after the plan's end, never applies.",
+                              sentences: sentences, lines: lines.lines, table: table)
     }
 
     private static func pension(_ pension: PlanDebugReport.Pension, index: Int) -> PlanDebugBlock {
@@ -471,11 +501,13 @@ struct PlanDebugContent: Sendable {
     private static func schedule(_ report: PlanDebugReport) -> [PlanDebugBlock] {
         let years = report.schedule.years
         let retired = years.firstIndex { $0.workingShare < 1 }
+        // The mix the ordinary accounts are rebalanced to, when it changes with age.
+        let mixes = years.contains { $0.targetMix != nil }
         var table = PlanDebugTableBuilder("schedule", [
             .year(), .age(), .money("Work"), .money("Pensions"), .money("Windfalls"), .money("Contributions"),
             .money("Spending", key: true), .money("Expenses"), .money("Taxes"), .money("Net income"),
-            .money("To draw", key: true), .text("Notes"),
-        ], titleColumns: [0, 1], isSelectable: true)
+            .money("To draw", key: true),
+        ] + (mixes ? [.text("Target mix")] : []) + [.text("Notes")], titleColumns: [0, 1], isSelectable: true)
         let buckets = bucketNames(report)
         for (index, year) in years.enumerated() {
             var notes: [String] = []
@@ -489,8 +521,9 @@ struct PlanDebugContent: Sendable {
             let row: [PlanDebugValue] = [
                 .number("\(year.year)"), .number("\(year.age)"), .money(year.work), .money(pensions), .money(windfalls),
                 .money(year.contributions), .money(year.spending), .money(year.expenses), .money(taxes),
-                .money(year.netIncome), .money(year.toDraw), .text(notes.joined(separator: "; ")),
-            ]
+                .money(year.netIncome), .money(year.toDraw),
+            ] + (mixes ? [year.targetMix.map { .text(PlanDebugText.mix($0)) } ?? .missing] : [])
+                + [.text(notes.joined(separator: "; "))]
             table.add(row, isMarked: index == retired)
         }
         return [PlanDebugBlock(id: "schedule", table: table.table)]
@@ -512,6 +545,9 @@ struct PlanDebugContent: Sendable {
         lines.add("Contributions", .money(year.contributions), note: "into accounts and schemes")
         for credit in year.credits { lines.add("Into \(credit.label)", .money(credit.amount), note: "credited") }
         lines.add("Spending target", .money(year.spending))
+        if let mix = year.targetMix {
+            lines.add("Target mix", .text(PlanDebugText.mix(mix)), note: "the ordinary accounts are rebalanced to")
+        }
         var taxes = PlanDebugLines()
         for tax in year.taxes { taxes.add(tax.label, .money(tax.amount), note: "tax") }
         for contribution in year.socialContributions {
@@ -769,6 +805,9 @@ struct PlanDebugContent: Sendable {
         columns += classes.map { PlanDebugColumn.percent($0) }
         columns += path.buckets.map { PlanDebugColumn.money($0.name) }
         columns.append(.money("Plan assets", key: true))
+        // The mix the ordinary accounts are rebalanced to, when it changes with age.
+        let mixes = path.years.contains { $0.targetMix != nil }
+        if mixes { columns.append(.text("Target mix")) }
         var balances = PlanDebugTableBuilder("path-\(index)-balances", columns, titleColumns: [0, 1],
                                              isSelectable: true)
         var flows = PlanDebugTableBuilder("path-\(index)-flows", [
@@ -782,6 +821,7 @@ struct PlanDebugContent: Sendable {
             balance += year.returns.map { PlanDebugValue.signedPercent($0) }
             balance += year.buckets.map { PlanDebugValue.money($0.end) }
             balance.append(.money(year.endAssets))
+            if mixes { balance.append(year.targetMix.map { .text(PlanDebugText.mix($0)) } ?? .missing) }
             balances.add(balance, id: y, isMarked: marked)
             let drawn: Double = year.buckets.reduce(0) { $0 + $1.withdrawn }
             let gains: Double = year.sales.reduce(0) { $0 + ($1.gain ?? 0) }
@@ -820,6 +860,9 @@ struct PlanDebugContent: Sendable {
         overview.add("At the end", .money(year.endAssets), note: "less taxes still to pay")
         for (name, value) in zip(classes, year.returns) {
             overview.add("Return on \(name.lowercased())", .signedPercent(value), note: "real")
+        }
+        if let mix = year.targetMix {
+            overview.add("Target mix", .text(PlanDebugText.mix(mix)), note: "the ordinary accounts are rebalanced to")
         }
         var notes: [String] = []
         if year.fraction < 1 { notes.append("\(Int((year.fraction * 100).rounded()))% of the year simulated") }
