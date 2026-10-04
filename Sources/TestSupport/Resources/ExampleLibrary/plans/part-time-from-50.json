@@ -8,7 +8,15 @@
     { "claim": 67, "options": { "contributionYears": "8", "montante": "92000" }, "scheme": "it.inps" },
     { "fromAge": 67, "name": "Pension from previous country", "perYear": "4800", "scheme": "fixed", "taxedIn": "source" }
   ],
-  "portfolio": { "exclude": ["gold-coins"], "start": "2026-06-30", "targetMix": { "bonds": "0.3", "equity": "0.7" } },
+  "portfolio": {
+    "exclude": ["gold-coins"],
+    "start": "2026-06-30",
+    "targetMix": { "bonds": "0.2", "equity": "0.8" },
+    "targetMixByAge": [
+      { "fromAge": "retirement", "mix": { "bonds": "0.4", "equity": "0.6" } },
+      { "fromAge": 75, "mix": { "bonds": "0.6", "equity": "0.4" } }
+    ]
+  },
   "retirement": { "age": "earliest" },
   "simulation": { "runs": 500 },
   "spending": { "retired": "32000", "working": "34000" },

@@ -114,22 +114,7 @@ struct PlanEditTests {
             let run = await retire(["plan", "set", "--library", library.path, "--plan", plan] + arguments)
             return (run.status, run.output, run.errors, run.all)
         }
-        let glide = await set(["--target-mix", "equity=80%,bonds=20%",
-                               "--target-mix-from", "retirement:equity=60%,bonds=40%",
-                               "--target-mix-from", "75:equity=0.4,bonds=0.6"])
-        #expect(glide.status == 0, "\(glide.all)")
-        #expect(glide.output.hasPrefix("Target mix: equity 80%, bonds 20%.\nFrom retirement: equity 60%, bonds 40%.\n"
-            + "From 75: bonds 60%, equity 40%.\nWrote 1 file: plans/part-time-from-50.json.\n"))
-        var portfolio = try #require(try library.load().plans[PlanID(plan)]).portfolio
-        #expect(portfolio.targetMix == [.equity: dec("0.8"), .bonds: dec("0.2")])
-        #expect(portfolio.targetMixByAge == [
-            TargetMixStep(fromAge: .retirement, mix: [.equity: dec("0.6"), .bonds: dec("0.4")]),
-            TargetMixStep(fromAge: .age(75), mix: [.equity: dec("0.4"), .bonds: dec("0.6")]),
-        ])
-        #expect(try library.text("plans/\(plan).json")
-            .contains(#"{ "fromAge": "retirement", "mix": { "bonds": "0.4", "equity": "0.6" } }"#))
-
-        // `show` puts today's mix next to the target and each change.
+        // The example plan's glide path: `show` puts today's mix next to the target and each change.
         let show = await retire(["plan", "show", "--library", library.path, "--plan", plan])
         let lines = show.output.split(separator: "\n").map(String.init)
         #expect(lines.contains("  Class   Ordinary today  All today  Target  From retirement  From 75  Median"))
@@ -148,25 +133,40 @@ struct PlanEditTests {
         #expect(today["ordinaryValue"] as? String == "120057.81" && today["allValue"] as? String == "148808.36")
         #expect((today["ordinary"] as? [String: String])?["crypto"] == "0.3468")
 
-        // The mix by repeated --target; the steps stay until they're removed.
-        let repeated = await set(["--target", "equity=0.7", "--target", "bonds=0.3"])
-        #expect(repeated.status == 0, "\(repeated.all)")
-        portfolio = try #require(try library.load().plans[PlanID(plan)]).portfolio
-        #expect(portfolio.targetMix == [.equity: dec("0.7"), .bonds: dec("0.3")] && portfolio.targetMixByAge.count == 2)
-        let noSteps = await set(["--target-mix-from", "none"])
-        #expect(noSteps.output.hasPrefix("Target mix by age: no changes.\n"))
-        #expect(try #require(try library.load().plans[PlanID(plan)]).portfolio.targetMixByAge.isEmpty)
-
         // Back to today's mix: nothing about it is left in the file.
-        _ = await set(["--target-mix-from", "60:cash=1"])
-        let today2 = await set(["--target-mix", "today"])
-        #expect(today2.output.hasPrefix("Target mix: today's. Each ordinary account is rebalanced back to its own mix "
-            + "today.\n"))
-        let written = try library.text("plans/\(plan).json")
-        #expect(!written.contains("targetMix"), "\(written)")
+        let todays = await set(["--target-mix", "today"])
+        #expect(todays.status == 0, "\(todays.all)")
+        #expect(todays.output.hasPrefix("Target mix: today's. Each ordinary account is rebalanced back to its own mix "
+            + "today.\nWrote 1 file: plans/part-time-from-50.json.\n"))
+        #expect(!(try library.text("plans/\(plan).json")).contains("targetMix"))
         let bare = await retire(["plan", "show", "--library", library.path, "--plan", plan])
         #expect(bare.output.contains("Target: today's mix. Each year the plan rebalances every ordinary account back "
             + "to its own mix today; set a target with --target-mix."))
+
+        // A glide path again.
+        let glide = await set(["--target-mix", "equity=70%,bonds=30%",
+                               "--target-mix-from", "retirement:equity=60%,bonds=40%",
+                               "--target-mix-from", "80:equity=0.4,bonds=0.6"])
+        #expect(glide.status == 0, "\(glide.all)")
+        #expect(glide.output.hasPrefix("Target mix: equity 70%, bonds 30%.\nFrom retirement: equity 60%, bonds 40%.\n"
+            + "From 80: bonds 60%, equity 40%.\nWrote 1 file: plans/part-time-from-50.json.\n"))
+        var portfolio = try #require(try library.load().plans[PlanID(plan)]).portfolio
+        #expect(portfolio.targetMix == [.equity: dec("0.7"), .bonds: dec("0.3")])
+        #expect(portfolio.targetMixByAge == [
+            TargetMixStep(fromAge: .retirement, mix: [.equity: dec("0.6"), .bonds: dec("0.4")]),
+            TargetMixStep(fromAge: .age(80), mix: [.equity: dec("0.4"), .bonds: dec("0.6")]),
+        ])
+        #expect(try library.text("plans/\(plan).json")
+            .contains(#"{ "fromAge": "retirement", "mix": { "bonds": "0.4", "equity": "0.6" } }"#))
+
+        // The mix by repeated --target; the steps stay until they're removed.
+        let repeated = await set(["--target", "equity=0.8", "--target", "bonds=0.2"])
+        #expect(repeated.status == 0, "\(repeated.all)")
+        portfolio = try #require(try library.load().plans[PlanID(plan)]).portfolio
+        #expect(portfolio.targetMix == [.equity: dec("0.8"), .bonds: dec("0.2")] && portfolio.targetMixByAge.count == 2)
+        let noSteps = await set(["--target-mix-from", "none"])
+        #expect(noSteps.output.hasPrefix("Target mix by age: no changes.\n"))
+        #expect(try #require(try library.load().plans[PlanID(plan)]).portfolio.targetMixByAge.isEmpty)
 
         // Mixes must add up to 100%, ages must go up, and classes must exist.
         let short = await set(["--target-mix", "equity=70%,bonds=20%"])
