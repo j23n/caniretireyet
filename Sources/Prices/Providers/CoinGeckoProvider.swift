@@ -183,16 +183,19 @@ public struct CoinGeckoProvider: InstrumentPriceProvider {
             let response = try await fetcher.get(url, headers: headers)
             try response.requireSuccess(service: name, symbol: coin)
             let chart = try response.decodeJSON(MarketChart.self, service: name)
-            return PriceHistory(quotes: Self.quotes(in: chart, currency: currency), origin: origin)
+            return PriceHistory(quotes: Self.quotes(in: chart, currency: currency, today: range.today), origin: origin)
         }
     }
 
     /// The prices of a market chart, each dated by the UTC day it ends: a
-    /// value at 00:00 UTC belongs to the day before.
-    static func quotes(in chart: MarketChart, currency: CurrencyCode) -> [Quote] {
+    /// value at 00:00 UTC belongs to the day before. Values timed before
+    /// 1970 or after the day two days after `today` (seconds where
+    /// milliseconds are expected, or the other way round) are left out.
+    static func quotes(in chart: MarketChart, currency: CurrencyCode, today: CalendarDate) -> [Quote] {
         (chart.prices ?? []).compactMap { point in
             guard point.count >= 2, let milliseconds = point[0], let price = point[1], price > 0 else { return nil }
             let instant = Date(timeIntervalSince1970: (milliseconds as NSDecimalNumber).doubleValue / 1000)
+            guard ProviderInstants.isPlausible(instant, today: today) else { return nil }
             let day = CalendarDate(instant.addingTimeInterval(-1), in: TimeZone(identifier: "UTC")!)
             return Quote(price: price.rounded(significantDigits: 8), currency: currency, observedOn: day,
                          observedAt: instant)
