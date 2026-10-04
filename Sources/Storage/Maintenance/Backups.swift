@@ -129,6 +129,16 @@ extension LibraryFolder {
         return try makeBackup(paths: paths, name: "\(Self.timestamp(date))-\(label)", label: label, date: date)
     }
 
+    /// Copies file contents into a new folder `backups/<timestamp>-<label>/`:
+    /// versions of files that aren't on disk, such as the versions of a file
+    /// a sync conflict's resolution is about to replace or remove. `contents`
+    /// maps paths relative to the library folder to their bytes; restoring
+    /// the backup writes them back there.
+    @discardableResult
+    public func backup(contents: [String: Data], label: String, date: Date = Date()) throws -> Backup {
+        try makeBackup(contents: contents, label: Slug.make(from: label), date: date)
+    }
+
     /// Records the backup's files as they are now, after the change it was
     /// taken for (e.g. an import), in `backups/<name>/result/`, so
     /// ``undo(_:)`` can tell later edits apart. Returns the updated backup.
@@ -160,7 +170,8 @@ extension LibraryFolder {
     ///
     /// Throws ``StorageError/backupFromOtherVersion(name:version:current:)``
     /// for a backup of a library in another format version, and what
-    /// ``checkWritable(schemaVersion:)`` throws.
+    /// ``checkWritable(schemaVersion:)`` throws (except about an unreadable
+    /// `library.json` when the backup holds a copy of it, which fixes it).
     @discardableResult
     public func restore(backup: Backup) throws -> SaveReport {
         let folder = try checkRestorable(backup)
@@ -328,7 +339,12 @@ extension LibraryFolder {
     /// format version.
     private func checkRestorable(_ backup: Backup) throws -> String {
         let folder = try manifestFolder(of: backup)
-        try checkWritable()
+        if backup.files.contains(LibraryFile.settings.path) {
+            // Restoring a copy of library.json is how an unreadable one is fixed.
+            try checkSchemaVersions(nil)
+        } else {
+            try checkWritable()
+        }
         let current = LibrarySettings.currentSchemaVersion
         if let version = backup.schemaVersion, version != current {
             throw StorageError.backupFromOtherVersion(name: backup.name, version: version, current: current)

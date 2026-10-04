@@ -324,7 +324,7 @@ When two devices change the same file before it syncs, iCloud keeps both version
 | `history/…`, `projections/…/headlines/…` | All records from both versions, matched by key: account + date, account + date + trade ID, instrument + date, currency pair + date, index + date, or check-in date. If both versions changed the same record, the more recently modified file wins. | Three-way merge record by record, using the device's last-synced copy as the common base. This also makes deletions merge correctly. |
 | All other files | The more recently modified version wins. | Three-way merge field by field. |
 
-Merges are listed on the Sync screen so you can check them.
+Merges are listed on the Sync screen so you can check them. Before a merge replaces the file and iCloud's other versions are removed, each version that differs from the result is copied to its own `backups/<timestamp>-conflict/` folder, so nothing a merge drops is lost.
 
 Versions modified at the same moment are ordered by their contents, so both devices resolve a conflict the same way. Within one version, the later of two records with the same key counts, as when loading. Everything else in a merged history or headline file (its unknown keys, for example) comes from the newest version, and the result is written in the canonical layout. A version that isn't valid JSON is left out of a merge.
 
@@ -339,7 +339,7 @@ The app keeps the library in memory and writes only the files an edit changed. A
 
 When records changed on both sides, the file is copied to `backups/<timestamp>-conflict/` first too. The Sync screen lists what happened, and the app then reloads the merged file. Reading, merging and writing a file is one coordinated operation, so a version iCloud Drive delivers meanwhile is merged as well.
 
-A file that couldn't be read when the library loaded (it isn't valid JSON, or doesn't hold what it should) is copied to `backups/<timestamp>-unreadable/` before the app replaces or deletes it.
+A file that couldn't be read when the library loaded (it isn't valid JSON, or doesn't hold what it should) is copied to `backups/<timestamp>-unreadable/` before the app replaces or deletes it. `library.json` is the exception: the app never replaces it, because the settings it would write are only defaults (see [Reading hand-edited files](#reading-hand-edited-files)).
 
 ## Versioning
 
@@ -370,7 +370,7 @@ Trades it writes have `"source": "import"` and a stable `id` (`TradeID.stable`: 
 
 Copies of files taken before a schema migration, an import, or a save that had to replace a file (see [Saving](#saving)), in dated folders. They're what "Undo import" uses. Safe to delete.
 
-- `backups/<yyyy-MM-dd-HHmmss>-<label>/` (the time is the device's local time), with the label `import`, `undo-import` (the files as they were before an undo), `prices`, `conflict` or `unreadable`; `backups/<yyyy-MM-dd>-v<old>/` for a migration. A second backup with the same name gets `-2`, `-3`, ….
+- `backups/<yyyy-MM-dd-HHmmss>-<label>/` (the time is the device's local time), with the label `import`, `undo-import` (the files as they were before an undo), `prices`, `conflict` (a save or a sync conflict's merge replaced the file) or `unreadable`; `backups/<yyyy-MM-dd>-v<old>/` for a migration. A second backup with the same name gets `-2`, `-3`, ….
 - Each folder mirrors the library's layout and has a `backup.json` listing the files copied (`files`), the files that didn't exist yet (`absentFiles`), a `label`, when it was `created`, and the library's `schemaVersion` then.
 - After an import, the files as the import wrote them are copied to the backup's `result/` folder, and `backup.json` lists them under `result` (`{ "files": [...], "absentFiles": [...] }`).
 
@@ -396,8 +396,10 @@ The app writes every file the same way, so the same data always gives the same b
 
 - A file with a mistake doesn't stop the library from loading. The app lists each problem with the file's path and where in it, like `valuations[2].balance: Expected a decimal such as "1234.56", found "12,5".` or `Line 4, column 3: Expected "," or "}" after a value in an object`.
 - A file that can't be read is left out. In a history or headline file only the records that can't be read are left out, and they're kept in the file when the app rewrites it, until you fix them. A file that is left out is copied to `backups/` before the app writes over it or deletes it.
+- A `library.json` that exists but can't be read (it isn't valid JSON, or doesn't hold the settings) opens the library read-only, as a newer library does: the app would otherwise have only default settings (EUR, no birth date) to save over yours. The error on `library.json` says what's wrong; fix the file, or restore it from a backup, and open the library again. A folder with no `library.json` at all isn't affected: that's how a new library starts.
 - A JSON number where text is expected (`"name": 2026`) is read as text, and a whole number written as text where a number is expected (`"endAge": "95"`) as a number.
 - The file name wins over the `id` inside the file, and over the `month` inside a history file; the app points out the mismatch.
 - A record dated outside its month file stays where it is, and the app points it out. When two records have the same key, the later one in the file is used.
+- Records (valuations, trades, prices, FX rates, index values) dated before 1900, or more than a year after today, are loaded and pointed out: usually a mistyped year, or a placeholder such as `9999-12-31` for "no end date".
 - Files the app doesn't know are ignored. JSON files in the library's folders whose names aren't IDs (`My Account.json`) are pointed out.
 - Records that refer to accounts, instruments or plans that don't exist are pointed out.

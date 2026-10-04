@@ -57,13 +57,36 @@ public struct LibraryFolder: Sendable {
     }
 
     /// Throws unless this app version may write to the library: the schema
-    /// version in memory (if given) and on disk must be the current one.
-    /// A library with no readable `library.json` can be written.
+    /// version in memory (if given) and on disk must be the current one, and
+    /// a `library.json` on disk must be readable: one that can't be read,
+    /// isn't valid JSON or doesn't hold the settings throws
+    /// ``StorageError/unreadableFile(path:message:)``, since the settings in
+    /// memory are then only defaults. A folder without `library.json` (a new
+    /// library) can be written.
     public func checkWritable(schemaVersion: Int? = nil) throws {
+        try checkSchemaVersions(schemaVersion)
+        try checkSettingsReadable()
+    }
+
+    /// Throws unless the schema version in memory (if given) and on disk
+    /// are the current one.
+    func checkSchemaVersions(_ schemaVersion: Int?) throws {
         let current = LibrarySettings.currentSchemaVersion
         for version in [schemaVersion, schemaVersionOnDisk()].compactMap({ $0 }) {
             if version > current { throw StorageError.libraryIsNewer(version: version, supported: current) }
             if version < current { throw StorageError.libraryNeedsMigration(version: version, current: current) }
+        }
+    }
+
+    /// Throws when `library.json` exists but can't be loaded as it is
+    /// (``LoadReport/settingsUnreadable``).
+    func checkSettingsReadable() throws {
+        let settings = url(for: LibraryFile.settings)
+        guard files.fileExists(at: settings) else { return }
+        guard let data = try? files.readData(at: settings),
+              !LibraryLoader.decode(.settings, from: data, in: self).hasErrors
+        else {
+            throw StorageError.unreadableSettings
         }
     }
 

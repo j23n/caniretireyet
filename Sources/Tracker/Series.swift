@@ -29,17 +29,26 @@ public struct SeriesPoint: Hashable, Sendable {
 /// Date grids for series.
 public enum DateGrid {
     /// The month ends from `start`'s month through `end`, plus `end` when it
-    /// isn't a month end. Empty when `start` is after `end`.
+    /// isn't a month end. Empty when `start` is after `end`. It stops at
+    /// December 9999, the last month a date can be in.
     public static func monthEnds(from start: CalendarDate, through end: CalendarDate) -> [CalendarDate] {
         guard start <= end else { return [] }
         var dates: [CalendarDate] = []
-        var month = start.yearMonth
-        while month.lastDay <= end {
-            dates.append(month.lastDay)
-            month = month.next
+        var month: YearMonth? = start.yearMonth
+        while let current = month, current.lastDay <= end {
+            dates.append(current.lastDay)
+            month = current.nextIfRepresentable
         }
         if !end.isEndOfMonth { dates.append(end) }
         return dates
+    }
+}
+
+extension YearMonth {
+    /// The following month, or `nil` after December 9999, the last month a
+    /// date can be in (``YearMonth/next`` traps there).
+    var nextIfRepresentable: YearMonth? {
+        month < 12 ? YearMonth(year: year, month: month + 1) : YearMonth(year: year + 1, month: 1)
     }
 }
 

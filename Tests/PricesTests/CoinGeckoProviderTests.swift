@@ -126,6 +126,20 @@ struct CoinGeckoProviderTests {
         ])
     }
 
+    /// A market chart's times are milliseconds. One given in microseconds
+    /// (beyond year 9999) or negative is left out instead of trapping when
+    /// it's turned into a date.
+    @Test func marketChartTimesOutsideTheirPlausibleRangeAreLeftOut() async throws {
+        let client = MockHTTPClient(["market_chart/range": """
+            { "prices": [[-86400000, 1.0], [1790726400000, 3871.2], [1790726400000000, 9.9]] }
+            """])
+        let history = try await CoinGeckoProvider(client: client).history(
+            symbol: "ethereum", currency: .eur,
+            range: HistoryRange(from: "2026-09-25", through: "2026-09-30", today: today))
+        #expect(history.quotes.map(\.observedOn) == ["2026-09-29"])
+        #expect(history.quotes.map(\.price) == [d("3871.2")])
+    }
+
     @Test func anUnknownTickerResolvesThroughSearchToTheBestRankedCoin() async throws {
         let client = MockHTTPClient([
             "search": CoinGeckoResponses.searchMoon, "simple/price": CoinGeckoResponses.spotMoonstoneUSD,

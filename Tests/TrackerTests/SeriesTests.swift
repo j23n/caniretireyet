@@ -14,6 +14,24 @@ struct DateGridTests {
         #expect(DateGrid.monthEnds(from: "2024-02-01", through: "2024-02-29") == ["2024-02-29"])
         #expect(DateGrid.monthEnds(from: "2026-03-01", through: "2026-02-28").isEmpty)
     }
+
+    /// 9999-12-31, a common "no end date" in bank exports, is the last date
+    /// there is: the grid stops there instead of stepping into year 10000.
+    @Test func monthEndsStopAtTheLastRepresentableMonth() {
+        #expect(DateGrid.monthEnds(from: "9999-10-15", through: "9999-12-31")
+            == ["9999-10-31", "9999-11-30", "9999-12-31"])
+        #expect(DateGrid.monthEnds(from: "9999-12-31", through: "9999-12-31") == ["9999-12-31"])
+        #expect(DateGrid.monthEnds(from: "9999-11-01", through: "9999-12-30") == ["9999-11-30", "9999-12-30"])
+    }
+
+    @Test func seriesThroughTheLastDateThereIsDoesNotTrap() {
+        var library = Library()
+        library.accounts["cash"] = Account(id: "cash", name: "Cash", kind: .cash, currency: .eur, opened: "9999-01-01")
+        library.upsert(Valuation(account: "cash", date: "9999-11-30", balance: 100))
+        let series = Valuator(library: library).series(through: "9999-12-31")
+        #expect(series.map(\.date) == ["9999-11-30", "9999-12-31"])
+        #expect(series.last?.value == 100)
+    }
 }
 
 /// Series of the example library, checked against totals worked out by hand.

@@ -17,10 +17,12 @@ public struct FXTable: Sendable {
     private let byPair: [Pair: [FXRecord]]
     private let pivots: [CurrencyCode]
 
-    /// Indexes FX records. For duplicate keys the last record wins.
+    /// Indexes FX records. For duplicate keys the last record wins. Records
+    /// with a rate of zero or less (a typo in a hand-edited file) are
+    /// ignored: converting with them would divide by zero.
     public init(_ records: some Sequence<FXRecord>, pivots: [CurrencyCode] = []) {
         var byKey: [FXKey: FXRecord] = [:]
-        for record in records { byKey[record.key] = record }
+        for record in records where record.rate > 0 { byKey[record.key] = record }
         let byPair = Dictionary(grouping: byKey.values) { Pair(base: $0.base, quote: $0.quote) }
             .mapValues { $0.sortedByKey() }
         self.byPair = byPair

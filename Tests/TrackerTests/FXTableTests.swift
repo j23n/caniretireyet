@@ -52,6 +52,22 @@ struct FXTableTests {
         #expect(table.convert(100, from: .gbp, to: .usd, on: "2026-01-31") == 150)
     }
 
+    /// A rate of 0 (or less) in a hand-edited file would divide by zero
+    /// when inverted; it's ignored, so the latest valid rate is used.
+    @Test func ratesOfZeroOrLessAreIgnored() throws {
+        let table = FXTable([
+            FXRecord(base: .eur, quote: .usd, date: "2026-01-31", rate: d("1.25")),
+            FXRecord(base: .eur, quote: .usd, date: "2026-02-28", rate: 0),
+            FXRecord(base: .eur, quote: .chf, date: "2026-02-28", rate: d("-0.95")),
+        ], pivots: [.eur])
+        let quote = try #require(table.quote(from: .usd, to: .eur, on: "2026-03-01"))
+        #expect(quote.date == "2026-01-31")
+        #expect(quote.convert(1000) == 800)
+        #expect(table.convert(100, from: .eur, to: .usd, on: "2026-03-01") == 125)
+        #expect(table.quote(from: .chf, to: .eur, on: "2026-03-01") == nil)
+        #expect(table.quote(from: .usd, to: .chf, on: "2026-03-01") == nil)
+    }
+
     @Test func missingRate() {
         #expect(table.quote(from: .jpy, to: .eur, on: "2026-02-28") == nil)
         #expect(table.convert(1, from: .eur, to: .jpy, on: "2026-02-28") == nil)

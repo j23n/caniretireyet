@@ -57,14 +57,15 @@ public struct YahooChartProvider: InstrumentPriceProvider {
         let response = try await fetcher.get(url, headers: ["User-Agent": userAgent])
         try response.requireSuccess(service: name, symbol: request.symbol)
         let envelope = try response.decodeJSON(Envelope.self, service: name)
-        return try Self.close(in: envelope, symbol: request.symbol, onOrBefore: request.date, service: name)
+        return try Self.close(in: envelope, symbol: request.symbol, onOrBefore: request.date, today: request.today,
+                              service: name)
     }
 
     /// The latest close on or before `date` in a chart response.
     static func close(
-        in envelope: Envelope, symbol: String, onOrBefore date: CalendarDate, service: String
+        in envelope: Envelope, symbol: String, onOrBefore date: CalendarDate, today: CalendarDate, service: String
     ) throws(PriceFetchError) -> Quote {
-        let bars = try Bars(envelope, symbol: symbol, service: service)
+        let bars = try Bars(envelope, symbol: symbol, today: today, service: service)
         guard !bars.isEmpty else {
             throw .noData(service: service, detail: "no trading days for \(symbol) up to \(date)")
         }
@@ -119,7 +120,7 @@ public struct YahooChartProvider: InstrumentPriceProvider {
     static func history(
         in envelope: Envelope, symbol: String, monthly: Bool, today: CalendarDate, service: String
     ) throws(PriceFetchError) -> PriceHistory {
-        let bars = try Bars(envelope, symbol: symbol, service: service)
+        let bars = try Bars(envelope, symbol: symbol, today: today, service: service)
         let quotes = bars.closes.map { instant, close in
             let day = CalendarDate(instant, in: bars.timeZone)
             return monthly
@@ -139,7 +140,9 @@ public struct YahooChartProvider: InstrumentPriceProvider {
 
     /// A chart response read field by field: the exchange's time zone, the
     /// currency (major unit), and the bars that have a close. No bars at all
-    /// (no `timestamp`) reads as empty.
+    /// (no `timestamp`) reads as empty. Bars timed before 1970 or after the
+    /// day two days after `today` (a timestamp in milliseconds, say) are
+    /// left out.
     struct Bars {
         var timeZone: TimeZone
         var currency: CurrencyCode
@@ -151,7 +154,7 @@ public struct YahooChartProvider: InstrumentPriceProvider {
 
         var isEmpty: Bool { closes.isEmpty }
 
-        init(_ envelope: Envelope, symbol: String, service: String) throws(PriceFetchError) {
+        init(_ envelope: Envelope, symbol: String, today: CalendarDate, service: String) throws(PriceFetchError) {
             guard let chart = envelope.chart else {
                 throw .malformedResponse(service: service, detail: "missing chart")
             }
@@ -180,8 +183,9 @@ public struct YahooChartProvider: InstrumentPriceProvider {
                 throw .malformedResponse(service: service, detail: "missing chart.result[0].indicators.quote[0].close")
             }
             closes = zip(timestamps, values).compactMap { timestamp, close in
-                guard let close, close > 0 else { return nil }
-                return (Date(timeIntervalSince1970: TimeInterval(timestamp)), close)
+                let instant = Date(timeIntervalSince1970: TimeInterval(timestamp))
+                guard let close, close > 0, ProviderInstants.isPlausible(instant, today: today) else { return nil }
+                return (instant, close)
             }
         }
 

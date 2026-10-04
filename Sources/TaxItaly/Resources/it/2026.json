@@ -36,8 +36,8 @@
         { "upTo": "28000", "base": "500", "variable": "765" },
         { "upTo": "50000", "base": "0", "variable": "500" }
       ],
-      "bonuses": [ { "above": "25000", "upTo": "29000", "amount": "50" } ],
-      "source": "TUIR art. 13 c. 5 and 5-bis (L. 234/2021 art. 1 c. 2)"
+      "bonuses": [ { "above": "11000", "upTo": "17000", "amount": "50" } ],
+      "source": "TUIR art. 13 c. 5 and 5-bis (L. 234/2021 art. 1 c. 2): c. 5-bis raises the detrazione by 50 euros when reddito complessivo is above 11,000 and not above 17,000"
     }
   },
   "cuneo": {

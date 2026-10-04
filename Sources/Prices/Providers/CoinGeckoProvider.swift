@@ -30,7 +30,7 @@ import Model
 /// 365 days. Older dates come from Yahoo Finance's crypto pairs (`ETH-EUR`,
 /// or `ETH-USD` converted with ECB rates), named by the coin's ticker
 /// (``historyRoutes(symbol:currency:today:)``).
-public struct CoinGeckoProvider: InstrumentPriceProvider {
+public struct CoinGeckoProvider: BatchQuoteProvider {
     public static let defaultBaseURL = URL(string: "https://api.coingecko.com/api/v3/")!
     /// The header a demo API key is sent in.
     public static let apiKeyHeader = "x-cg-demo-api-key"
@@ -183,16 +183,19 @@ public struct CoinGeckoProvider: InstrumentPriceProvider {
             let response = try await fetcher.get(url, headers: headers)
             try response.requireSuccess(service: name, symbol: coin)
             let chart = try response.decodeJSON(MarketChart.self, service: name)
-            return PriceHistory(quotes: Self.quotes(in: chart, currency: currency), origin: origin)
+            return PriceHistory(quotes: Self.quotes(in: chart, currency: currency, today: range.today), origin: origin)
         }
     }
 
     /// The prices of a market chart, each dated by the UTC day it ends: a
-    /// value at 00:00 UTC belongs to the day before.
-    static func quotes(in chart: MarketChart, currency: CurrencyCode) -> [Quote] {
+    /// value at 00:00 UTC belongs to the day before. Values timed before
+    /// 1970 or after the day two days after `today` (seconds where
+    /// milliseconds are expected, or the other way round) are left out.
+    static func quotes(in chart: MarketChart, currency: CurrencyCode, today: CalendarDate) -> [Quote] {
         (chart.prices ?? []).compactMap { point in
             guard point.count >= 2, let milliseconds = point[0], let price = point[1], price > 0 else { return nil }
             let instant = Date(timeIntervalSince1970: (milliseconds as NSDecimalNumber).doubleValue / 1000)
+            guard ProviderInstants.isPlausible(instant, today: today) else { return nil }
             let day = CalendarDate(instant.addingTimeInterval(-1), in: TimeZone(identifier: "UTC")!)
             return Quote(price: price.rounded(significantDigits: 8), currency: currency, observedOn: day,
                          observedAt: instant)
@@ -272,22 +275,40 @@ public struct CoinGeckoProvider: InstrumentPriceProvider {
     }
 
     private func spot(_ request: QuoteRequest, coin: String, headers: [String: String]) async throws -> Quote {
-        let currency = request.currency.rawValue.lowercased()
+        let body = try await spotPrices(coins: [coin], currencies: [request.currency], headers: headers)
+        return try spotQuote(in: body, coin: coin, request: request)
+    }
+
+    /// `GET simple/price?ids=bitcoin,ethereum&vs_currencies=eur,usd&…`: the
+    /// spot prices of `coins` in each of `currencies`, by coin ID. Coins
+    /// CoinGecko doesn't know are left out of the answer.
+    private func spotPrices(
+        coins: [String], currencies: [CurrencyCode], headers: [String: String]
+    ) async throws -> [String: SpotPrice] {
+        let ids = coins.joined(separator: ",")
         let url = baseURL.appending(segments: ["simple", "price"], query: [
-            ("ids", coin), ("vs_currencies", currency),
+            ("ids", ids), ("vs_currencies", currencies.map { $0.rawValue.lowercased() }.joined(separator: ",")),
             ("include_last_updated_at", "true"), ("precision", "full"),
         ])
         let response = try await fetcher.get(url, headers: headers)
-        try response.requireSuccess(service: name, symbol: coin)
-        let body = try response.decodeJSON([String: SpotPrice].self, service: name)
+        try response.requireSuccess(service: name, symbol: ids)
+        return try response.decodeJSON([String: SpotPrice].self, service: name)
+    }
+
+    /// The spot quote for `request`, priced as `coin`, in a `simple/price` answer.
+    private func spotQuote(
+        in body: [String: SpotPrice], coin: String, request: QuoteRequest
+    ) throws(PriceFetchError) -> Quote {
         guard let spot = body[coin] else {
-            throw PriceFetchError.unknownSymbol(service: name, symbol: coin, message: nil)
+            throw .unknownSymbol(service: name, symbol: coin, message: nil)
         }
-        guard let price = spot.prices[currency] else {
-            throw PriceFetchError.noData(service: name, detail: "no \(request.currency) price for \(coin)")
+        guard let price = spot.prices[request.currency.rawValue.lowercased()] else {
+            throw .noData(service: name, detail: "no \(request.currency) price for \(coin)")
         }
         let updated = spot.lastUpdatedAt.map { Date(timeIntervalSince1970: TimeInterval($0)) }
-        return Quote(price: price, currency: request.currency, observedOn: request.today, observedAt: updated)
+        var quote = Quote(price: price, currency: request.currency, observedOn: request.today, observedAt: updated)
+        if coin != request.symbol { quote.resolvedSymbol = coin }
+        return quote
     }
 
     private func history(_ request: QuoteRequest, coin: String, headers: [String: String]) async throws -> Quote {
@@ -304,6 +325,60 @@ public struct CoinGeckoProvider: InstrumentPriceProvider {
         }
         let midnight = Date(timeIntervalSince1970: TimeInterval(snapshotDay.daysSinceEpoch) * 86_400)
         return Quote(price: price, currency: request.currency, observedOn: request.date, observedAt: midnight)
+    }
+
+    /// Quotes for several requests: the spot prices (a date today or later)
+    /// of every coin known without searching (a well-known ticker, one found
+    /// before, or a symbol that looks like an ID) in one `simple/price`
+    /// call, in all the currencies asked for, since CoinGecko's free tier
+    /// allows only a few calls a minute. Everything else (past dates, symbols
+    /// that need a search, an ID the answer leaves out, which may be a ticker
+    /// after all) goes through ``quote(for:)`` one by one, as before. A
+    /// failed call fails each of its requests.
+    public func quotes(for requests: [QuoteRequest]) async -> [Result<Quote, any Error>] {
+        var results = [Result<Quote, any Error>?](repeating: nil, count: requests.count)
+        // Spot requests by position, with the coin each is priced as, and
+        // whether it's the symbol taken as an ID (searched for if unknown).
+        var spot: [(index: Int, coin: String, mayBeTicker: Bool)] = []
+        for (index, request) in requests.enumerated() where request.date >= request.today {
+            let symbol = request.symbol.trimmingCharacters(in: .whitespacesAndNewlines)
+            if let coin = CoinGeckoCoinIDs.coinID(forTicker: symbol) {
+                spot.append((index, coin, false))
+            } else if let known = await resolutions.known(symbol) {
+                do {
+                    spot.append((index, try coin(known, symbol: symbol), false))
+                } catch {
+                    results[index] = .failure(error)
+                }
+            } else if CoinGeckoCoinIDs.looksLikeCoinID(symbol) {
+                spot.append((index, symbol, true))
+            }
+        }
+        if spot.count > 1 {
+            let coins = Array(Set(spot.map(\.coin))).sorted()
+            let currencies = Array(Set(spot.map { requests[$0.index].currency })).sorted { $0.rawValue < $1.rawValue }
+            do {
+                let body = try await spotPrices(coins: coins, currencies: currencies, headers: await headers())
+                for item in spot where body[item.coin] != nil || !item.mayBeTicker {
+                    let request = requests[item.index]
+                    do {
+                        results[item.index] = .success(try spotQuote(in: body, coin: item.coin, request: request))
+                    } catch {
+                        results[item.index] = .failure(error)
+                    }
+                }
+            } catch {
+                for item in spot { results[item.index] = .failure(error) }
+            }
+        }
+        for index in requests.indices where results[index] == nil {
+            do {
+                results[index] = .success(try await quote(for: requests[index]))
+            } catch {
+                results[index] = .failure(error)
+            }
+        }
+        return results.map { $0! }
     }
 
     /// CoinGecko's history date format: `dd-mm-yyyy`.

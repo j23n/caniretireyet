@@ -94,6 +94,37 @@ struct LoaderTests {
         #expect(result.library.months["2026-09"]?.valuations.contains { $0.date == "2026-08-31" } == true)
     }
 
+    /// A placeholder such as 9999-12-31 ("no end date") or a mistyped year
+    /// is loaded, with a warning that names the dates so they can be found.
+    @Test func implausibleDatesAreKeptWithAWarning() throws {
+        let folder = try TemporaryFolder.exampleLibrary()
+        var placeholder = MonthFile(month: "9999-12")
+        placeholder.valuations = [Valuation(account: "tfr", date: "9999-12-31", balance: 1)]
+        placeholder.fx = [FXRecord(base: .eur, quote: .usd, date: "9999-12-31", rate: Decimal(string: "1.1")!)]
+        try folder.write("history/9999/9999-12.json", JSONEncoder().encode(placeholder))
+        var typo = MonthFile(month: "1026-09")
+        typo.prices = [PriceRecord(instrument: "vwce", date: "1026-09-30", price: 100, currency: .eur)]
+        try folder.write("history/1026/1026-09.json", JSONEncoder().encode(typo))
+        let soon = CalendarDate.today().adding(months: 6)
+        var nextYear = MonthFile(month: soon.yearMonth)
+        nextYear.valuations = [Valuation(account: "tfr", date: soon, balance: 1)]
+        try folder.write(LibraryFile.month(soon.yearMonth).path, JSONEncoder().encode(nextYear))
+
+        let result = try load(folder)
+        let future = result.report.issues(for: "history/9999/9999-12.json")
+        #expect(future.count == 1)
+        #expect(future.first?.severity == .warning)
+        #expect(future.first?.message.contains("9999-12-31 are more than a year in the future") == true)
+        #expect(result.library.months["9999-12"]?.valuations.count == 1)
+        let past = result.report.issues(for: "history/1026/1026-09.json")
+        #expect(past.map(\.severity) == [.warning])
+        #expect(past.first?.message.contains("1026-09-30 are before 1900") == true)
+        #expect(result.library.months["1026-09"]?.prices.count == 1)
+        // Within a year from today is fine: a check-in planned ahead, say.
+        #expect(result.report.issues(for: LibraryFile.month(soon.yearMonth).path).isEmpty)
+        #expect(result.report.errors.isEmpty)
+    }
+
     @Test func aFileNameThatDoesNotMatchTheIDWins() throws {
         let folder = try TemporaryFolder.exampleLibrary()
         try folder.write("accounts/second-broker.json", Fixtures.data(for: "accounts/directa.json"))

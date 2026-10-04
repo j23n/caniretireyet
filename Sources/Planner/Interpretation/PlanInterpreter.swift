@@ -7,6 +7,15 @@ import TaxKit
 /// converts options and amounts to TaxKit's types, builds the starting
 /// portfolio, and runs the engine's and every tax system's validation.
 enum PlanInterpreter {
+    /// The highest end age a plan can have.
+    static let maximumEndAge = 120
+    /// The most Monte Carlo runs a plan can have.
+    static let maximumRuns = 10_000
+    /// The yearly inflation a plan can assume.
+    static let inflationRange = -0.5...0.5
+    /// The most uncertain events (windfalls or expenses) one year can have.
+    static let maximumUncertainEventsPerYear = 8
+
     /// The model, or `nil` when there are errors; and every issue found.
     static func interpret(plan: PlanDocument, library: Library, registry: TaxRegistry,
                           options: PlannerOptions) -> (model: PlanModel?, issues: [PlanIssue]) {
@@ -33,6 +42,11 @@ enum PlanInterpreter {
         }
         let currentAge = birthDate.wholeYears(to: startDate)
         let endAge = plan.effectiveEndAge
+        guard endAge <= Self.maximumEndAge else {
+            issues.append(.error("planner.endAge", "The plan's end age (\(endAge)) can be at most \(Self.maximumEndAge).",
+                                 section: .retirement, option: "endAge"))
+            return (nil, issues)
+        }
         guard endAge > currentAge else {
             issues.append(.error("planner.endAge", "The plan's end age (\(endAge)) must be after your age today (\(currentAge)).",
                                  section: .retirement, option: "endAge"))
@@ -51,6 +65,10 @@ enum PlanInterpreter {
 
         // The residence timeline.
         let inflation = plan.assumptions.effectiveInflation.double
+        if !Self.inflationRange.contains(inflation) {
+            issues.append(.error("planner.inflation", "Inflation must be between -50% and 50% a year.",
+                                 section: .assumptions, option: "inflation"))
+        }
         let overrides = OptionValues(plan.tax.overrides)
         var residence = plan.tax.residence.sorted { $0.from < $1.from }
         if residence.isEmpty {
@@ -214,6 +232,17 @@ enum PlanInterpreter {
             events.append(EventSpec(index: index, name: event.name, year: year, amount: event.amount.double,
                                     probability: probability, kind: event.effectiveKind.rawValue, bit: bit))
         }
+        // Each combination of a year's uncertain windfalls is prepared on its
+        // own (2^n of them), so a year can only have a few.
+        let uncertainByYear = Dictionary(grouping: events.filter { $0.bit != nil }, by: \.year)
+        for (year, uncertain) in uncertainByYear.sorted(by: { $0.key < $1.key })
+        where uncertain.count > Self.maximumUncertainEventsPerYear {
+            issues.append(.error("planner.uncertainEventsInYear",
+                                 "\(year) has \(uncertain.count) uncertain events; at most "
+                                     + "\(Self.maximumUncertainEventsPerYear) in one year can be uncertain.",
+                                 section: .events, index: uncertain[Self.maximumUncertainEventsPerYear].index,
+                                 year: year))
+        }
 
         // Returns and the simulation settings.
         let returns = ReturnModel(assumptions: plan.assumptions, heldClasses: portfolio.classes, issues: &issues)
@@ -236,6 +265,9 @@ enum PlanInterpreter {
         }
         if plan.simulation.effectiveRuns < 1 {
             issues.append(.error("planner.runs", "The plan needs at least one run.", section: .simulation,
+                                 option: "runs"))
+        } else if plan.simulation.effectiveRuns > Self.maximumRuns {
+            issues.append(.error("planner.runs", "A plan can have at most 10,000 runs.", section: .simulation,
                                  option: "runs"))
         }
 
