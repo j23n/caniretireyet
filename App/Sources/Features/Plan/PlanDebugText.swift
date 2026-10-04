@@ -275,7 +275,7 @@ enum PlanDebugText {
     /// A mix as words: "equity 43%, crypto 33%".
     static func mix(_ shares: [String: Double]) -> String {
         shares.filter { $0.value > 0 }.sorted { ($1.value, $0.key) < ($0.value, $1.key) }
-            .map { "\($0.key) \(Int(($0.value * 100).rounded()))%" }.joined(separator: ", ")
+            .map { "\($0.key) \(Int(wholeNumber: $0.value * 100))%" }.joined(separator: ", ")
     }
 
     /// The plan's options as words: "coefficient: 0.67, startedIn: 2029".

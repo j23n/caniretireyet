@@ -203,7 +203,7 @@ struct OverviewAnswerCard: View {
     }
 
     private func confidenceText(_ headline: PlanHeadline) -> String {
-        let tenths = Int((headline.confidence * 10).rounded())
+        let tenths = Int(wholeNumber: headline.confidence * 10)
         return headline.canRetireNow
             ? "It works in at least \(tenths) of 10 simulated futures"
             : "The first age that works in \(tenths) of 10 simulated futures"
@@ -269,7 +269,7 @@ struct OverviewAttentionCard: View {
         }
         if let main = library.settings.mainPlan, let failure = plans.results[main]?.failure,
            let share = failure.bridgeShare, share >= 0.05 {
-            let futures = Int((share * 100).rounded())
+            let futures = Int(wholeNumber: share * 100)
             let age = failure.bridgeAge.map { " at \($0)" } ?? ""
             items.append(OverviewAttentionItem(
                 id: "plan.bridge", systemImage: "lock",

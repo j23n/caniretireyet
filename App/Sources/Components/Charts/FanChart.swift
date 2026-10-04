@@ -175,7 +175,7 @@ struct FanChart: View {
         HStack(spacing: Metrics.s) {
             Text(label).font(.caption2).foregroundStyle(Palette.secondaryInk)
             Spacer(minLength: Metrics.s)
-            AmountText(Decimal(Int(value.rounded())), currency: currency).font(.caption2.weight(.semibold))
+            AmountText(Decimal(wholeNumber: value), currency: currency).font(.caption2.weight(.semibold))
         }
         .frame(width: 180)
     }
@@ -185,9 +185,9 @@ struct FanChart: View {
         let points = fan.map { (String(Calendar.current.component(.year, from: $0.date)), $0.p50) }
         var text = "Projected portfolio: the median, with a band from the 10th to the 90th percentile."
         if let last = fan.last, !hidesAmounts {
-            text += " At the end, the median is \(AmountFormat.amount(Decimal(Int(last.p50.rounded())), currency: resolved)); "
+            text += " At the end, the median is \(AmountFormat.amount(Decimal(wholeNumber: last.p50), currency: resolved)); "
                 + "in 9 of 10 simulated futures it's above "
-                + "\(AmountFormat.amount(Decimal(Int(last.p10.rounded())), currency: resolved))."
+                + "\(AmountFormat.amount(Decimal(wholeNumber: last.p10), currency: resolved))."
         }
         if !markers.isEmpty {
             text += " Marked: \(markers.map(\.label).joined(separator: ", "))."

@@ -134,7 +134,7 @@ struct PlanAnswerHistoryChart: View {
             series: [ChartSummary.Series(name: "Earliest age", points: points.map {
                 (AmountFormat.mediumDate($0.date), Double($0.earliestAge ?? 0))
             })],
-            describeValue: { "\(Int($0.rounded())) years" })
+            describeValue: { "\(Int(wholeNumber: $0)) years" })
     }
 }
 

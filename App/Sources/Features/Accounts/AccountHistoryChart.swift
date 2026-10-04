@@ -158,7 +158,7 @@ struct AccountHistoryChart: View {
                 .font(.caption2)
                 .foregroundStyle(Palette.secondaryInk)
             if point.isComplete {
-                AmountText(Decimal(Int(point.value.rounded())), currency: currency)
+                AmountText(Decimal(wholeNumber: point.value), currency: currency)
                     .font(.caption.weight(.semibold))
             } else {
                 Text("Can't be valued: see below")
@@ -185,8 +185,8 @@ struct AccountHistoryChart: View {
         let described = complete.map { (AmountFormat.mediumDate(CalendarDate($0.date, in: .current)), $0.value) }
         var text = "Value over \(points.count) dates"
         if let first = complete.first, let last = complete.last, !hidesAmounts {
-            text += ", from \(AmountFormat.amount(Decimal(Int(first.value.rounded())), currency: currency)) "
-                + "to \(AmountFormat.amount(Decimal(Int(last.value.rounded())), currency: currency))"
+            text += ", from \(AmountFormat.amount(Decimal(wholeNumber: first.value), currency: currency)) "
+                + "to \(AmountFormat.amount(Decimal(wholeNumber: last.value), currency: currency))"
         }
         text += "."
         let missing = points.count - complete.count
