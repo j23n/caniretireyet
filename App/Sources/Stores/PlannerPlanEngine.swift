@@ -25,13 +25,21 @@ enum AppTaxRegistry {
 /// inflation). Plans, projections and import profiles are left out, so
 /// saving a headline or a baseline doesn't make a plan run again.
 struct PlanRunInputs: Hashable, Sendable {
+    /// The settings without what the Planner never reads, which only the
+    /// screens use: the main plan, the person's name and the inflation
+    /// index actual values are adjusted with. So "Set as Main Plan" doesn't
+    /// make every plan's results out of date.
     var settings: LibrarySettings
     var accounts: [AccountID: Account]
     var instruments: [InstrumentID: Instrument]
     var months: [YearMonth: MonthFile]
 
     init(_ library: Library) {
-        settings = library.settings
+        var settings = library.settings
+        settings.mainPlan = nil
+        settings.person?.name = nil
+        settings.inflationIndex = nil
+        self.settings = settings
         accounts = library.accounts
         instruments = library.instruments
         months = library.months
