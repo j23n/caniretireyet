@@ -32,7 +32,7 @@ Stores (@Observable, @MainActor)
 | `Components/Charts/` | Reusable Swift Charts views and their plain-value inputs | app core |
 | `Features/<Feature>/` | One folder per feature, starting with its screen | feature engineers |
 | `Preview/` | The made-up library, a made-up plan engine, preview helpers | app core |
-| `Resources/Assets.xcassets` (next to `Sources/`) | Colour sets, light and dark | app core |
+| `Resources/` (next to `Sources/`) | `Assets.xcassets` (colour sets, light and dark, and the icon) and `PrivacyInfo.xcprivacy` (the privacy manifest: no tracking, nothing collected, and the reasons for the required-reason APIs: `UserDefaults`, CA92.1; the library files' modification dates, C617.1). A new required-reason API needs its entry there | app core |
 
 **Rules so we don't collide:** feature code lives in its `Features/` folder. Replace the body of your placeholder screen, keep its **name and initializer** (the navigation creates it), and add files next to it. If you need something in a store, the design system or the charts, prefer an extension in your feature folder; if it must change a shared file, keep the change small and additive.
 
