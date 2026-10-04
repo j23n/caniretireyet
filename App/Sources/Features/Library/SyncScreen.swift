@@ -139,12 +139,14 @@ struct SyncScreen: View {
 }
 
 /// Where the library is kept, with the actions that go with it: show it in
-/// Files or Finder, and move a library on this device into iCloud Drive.
-/// Used by Settings and the Sync screen.
+/// Files or Finder, and for a library on this device, move it into iCloud
+/// Drive or switch to the library already there. Used by Settings and the
+/// Sync screen.
 struct LibraryLocationRows: View {
     @Environment(LibraryStore.self) private var library
     @Environment(\.openURL) private var openURL
     @State private var isMoving = false
+    @State private var isSwitching = false
     @State private var moveError: String?
 
     init() {}
@@ -172,7 +174,30 @@ struct LibraryLocationRows: View {
                     Text("Move to iCloud Drive")
                 }
             }
-            .disabled(isMoving)
+            .disabled(isMoving || isSwitching)
+            Button {
+                Task {
+                    isSwitching = true
+                    defer { isSwitching = false }
+                    moveError = nil
+                    do {
+                        try await library.useICloudLibrary()
+                    } catch {
+                        moveError = LibraryStore.describe(error)
+                    }
+                }
+            } label: {
+                if isSwitching {
+                    ProgressView()
+                } else {
+                    Text("Use the iCloud Drive Library")
+                }
+            }
+            .disabled(isMoving || isSwitching)
+            Text("Moving puts this library in iCloud Drive. If iCloud Drive already has one, use that instead: "
+                + "this one then stays on this device.")
+                .font(.footnote)
+                .foregroundStyle(Palette.secondaryInk)
         }
         if let moveError {
             Text(moveError).font(.footnote).foregroundStyle(Palette.critical)

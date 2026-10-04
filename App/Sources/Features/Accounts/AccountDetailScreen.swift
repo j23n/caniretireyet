@@ -544,11 +544,13 @@ struct AccountDetailScreen: View {
     }
 
     private func delete(_ account: Account) {
-        do {
-            try library.deleteAccount(account.id)
-            dismiss()
-        } catch {
-            show(error)
+        Task {
+            do {
+                try await library.deleteAccount(account.id)
+                dismiss()
+            } catch {
+                show(error)
+            }
         }
     }
 

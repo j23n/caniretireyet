@@ -80,7 +80,13 @@ struct AccountValuationEditor: View {
             }
             if form.wrappedValue.isBalance {
                 Section {
-                    AccountsNumberField(title: "Balance", text: form.balance, prompt: "0", suffix: symbol)
+                    AccountsNumberField(title: account.kind.isLiability ? "Owed" : "Balance", text: form.balance,
+                                        prompt: "0", suffix: symbol)
+                } footer: {
+                    if account.kind.isLiability {
+                        Text("Type what you owe, e.g. 1200: debts are recorded as negative amounts. "
+                            + "If the account is in credit, type + first, e.g. +20.")
+                    }
                 }
             } else {
                 Section {
@@ -184,7 +190,8 @@ struct AccountValuationEditor: View {
     private func load() {
         guard form == nil, let original, let account = library.account(key.account) else { return }
         form = AccountValuationForm(original, holdsPositions: account.valuationMode != .balance,
-                                    recordsTrades: account.recordsTrades, locale: locale)
+                                    recordsTrades: account.recordsTrades, isLiability: account.kind.isLiability,
+                                    locale: locale)
     }
 
     /// Saves and waits for the write. A date before the opening date moves

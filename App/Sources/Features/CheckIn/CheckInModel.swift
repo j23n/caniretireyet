@@ -815,18 +815,15 @@ struct CheckInTradeFlow: Hashable, Sendable {
     var residual: Decimal?
 
     /// The split of `row`'s new money on `date`, with the library's trades
-    /// (`valuator`); `nil` for a row that isn't a trades account's.
+    /// (`valuator`); `nil` for a row that isn't a trades account's. The
+    /// trades count from where the saved new money counts them
+    /// (`Valuator.tradeFlowParts(of:on:previous:)`): the row's previous
+    /// value, or at the account's first check-in the library's previous one.
     static func make(for row: CheckInRow, date: CalendarDate, valuator: Valuator) -> CheckInTradeFlow? {
         guard row.isTrades else { return nil }
-        var recorded: Decimal? = 0
-        var paidOutside: Decimal = 0
-        for flow in valuator.tradeFlows(of: row.account, after: row.previous?.date, through: date)
-        where !flow.isResidual {
-            recorded = recorded.flatMap { total in flow.amount.map { total + $0 } }
-            if flow.trade?.isSettledExternally == true { paidOutside += flow.amount ?? 0 }
-        }
+        let parts = valuator.tradeFlowParts(of: row.account, on: date, previous: row.previous)
         let residual = row.cash.map { $0 - (row.derived?.cash ?? 0) }
-        return CheckInTradeFlow(recorded: recorded, paidOutside: paidOutside, residual: residual)
+        return CheckInTradeFlow(recorded: parts.recorded, paidOutside: parts.paidOutside, residual: residual)
     }
 
     /// `recorded + residual`: the check-in's default new money.

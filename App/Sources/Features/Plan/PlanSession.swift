@@ -93,7 +93,9 @@ final class PlanSession {
     }
 
     /// Saves the draft now, if there is one. It doesn't run the plan: the
-    /// results show as out of date until the user recalculates.
+    /// results show as out of date until the user recalculates. If the
+    /// library refuses the edit (read-only, being moved), the draft stays
+    /// on screen with ``saveError``, and the next save tries again.
     func saveNow() {
         saveTask?.cancel()
         saveTask = nil
@@ -103,7 +105,6 @@ final class PlanSession {
             self.draft = nil
         } catch {
             saveError = LibraryStore.describe(error)
-            self.draft = nil
         }
     }
 
