@@ -142,11 +142,11 @@ struct PlanEditTests {
         let show = await retire(["plan", "show", "--library", library.path, "--plan", plan])
         let lines = show.output.split(separator: "\n").map(String.init)
         #expect(lines.contains("  Class   Ordinary today  All today  Target  From retirement  From 75  Median"))
-        #expect(lines.contains("  equity             46%        44%     80%              60%      40%    3.1%"))
+        #expect(lines.contains("  equity             46%        44%     80%              60%      40%    5.0%"))
         #expect(lines.contains("  crypto             35%        28%       –                –        –    0.0%"))
         #expect(lines.contains("Today (2026-06-30): 120,058 EUR in the ordinary (taxable) accounts, 148,808 EUR in "
             + "all plan assets. Median: each class's typical real return a year."))
-        #expect(lines.contains("Median growth, rebalanced every year: the target 2.9%; from retirement 2.5%; from 75 2.1%."))
+        #expect(lines.contains("Median growth, rebalanced every year: the target 4.5%; from retirement 3.9%; from 75 3.2%."))
         let json = try parseJSON(await retire(["plan", "show", "--library", library.path, "--plan", plan,
                                                "--json"]).output)
         let mix = try #require(json["assetMix"] as? [String: Any])
