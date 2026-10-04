@@ -94,13 +94,22 @@ struct AssetsNeededTests {
         let readiness = try #require(result.answer.readiness)
         #expect(readiness < 1 && !result.answer.canRetireNow)
 
-        // Starting with that much, retiring today reaches the confidence level;
-        // starting with 2% less (beyond the 1% tolerance), it doesn't.
-        let enough = try await run(plan(), library(start * Decimal(scale)))
-        #expect(enough.answer.successIfRetiringNow >= 0.9)
-        #expect(enough.answer.canRetireNow)
-        let short = try await run(plan(), library(start * Decimal(scale / 1.02)))
-        #expect(short.answer.successIfRetiringNow < 0.9)
+        // Starting with that much, the extra as new money (bought at its value,
+        // so with no unrealised gain), retiring today reaches the confidence
+        // level; starting with 2% less (beyond the 1% tolerance), it doesn't.
+        let extra = try #require(needed.extra)
+        #expect(abs(try #require(needed.amount) - (400_000 + extra)) < 1e-6)
+        let (interpreted, _) = PlanInterpreter.interpret(plan: plan(), library: library(start), registry: Self.registry,
+                                                         options: options)
+        let model = try #require(interpreted)
+        let engine = try await Engine.make(model: model, ages: [model.currentAge], maxAge: model.currentAge)
+        func success(extra: Double) -> Double {
+            var simulator = engine.simulator(age: model.currentAge, start: engine.portfolio.withExtra(extra))
+            let successes = (0..<model.runs).filter { simulator.run($0, spending: model.spending.retired).failure == nil }
+            return Double(successes.count) / Double(model.runs)
+        }
+        #expect(success(extra: extra) >= 0.9)
+        #expect(success(extra: (400_000 + extra) / 1.02 - 400_000) < 0.9)
     }
 
     @Test func pastOneHundredPercentYouCanRetireToday() async throws {

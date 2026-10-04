@@ -293,6 +293,7 @@ struct PlanDebugSummary: View {
     let content: PlanDebugContent
 
     @Environment(\.locale) private var locale
+    @Environment(\.hidesAmounts) private var hidesAmounts
 
     var body: some View {
         let header = content.report.header
@@ -315,8 +316,10 @@ struct PlanDebugSummary: View {
                             Text("The percentiles, failures and traced runs start from")
                             AmountText(PlanDebugValue.whole(header.startAssets))
                         }
-                        Text(verbatim: scale.prefix(1).uppercased() + scale.dropFirst() + ". The rest is about "
-                            + "today's plan assets.")
+                        let sentence = scale.prefix(1).uppercased() + scale.dropFirst() + ". The rest is about "
+                            + "today's plan assets."
+                        Text(verbatim: hidesAmounts ? PlanDebugText.masked(sentence, currency: content.currency.rawValue)
+                            : sentence)
                             .fixedSize(horizontal: false, vertical: true)
                     }
                 }

@@ -21,8 +21,9 @@ struct PlanDebugCommand: RetireSubcommand {
             The details are for retiring today (--age today, the scenario behind "needed to retire \
             today"), at the plan's target age (--age target), or at an age (--age 60). When the details \
             are for retiring today and today's plan assets fall short, the percentiles and traced runs \
-            start from what retiring today needs, to show why it's that much (--scale actual for \
-            today's assets, needed, or a multiple of today's, e.g. --scale 5). It traces the \
+            start from what retiring today needs, today's with extra money in the accounts that can be \
+            drawn now, to show why it's that much (--scale actual for today's assets, needed, or a \
+            multiple of today's, every holding alike, e.g. --scale 5). It traces the \
             deterministic run and, by default, 3 runs chosen by outcome: the median, a 10th-percentile \
             one and the first that fails (--paths N for more or fewer, --path-index to pick runs by \
             number). --anonymize replaces names and IDs with neutral labels, removes the birth date \
@@ -41,7 +42,7 @@ struct PlanDebugCommand: RetireSubcommand {
     var age = "today"
 
     @Option(help: ArgumentHelp("What the percentiles and traced runs start from: auto, actual (today's plan assets), "
-                               + "needed (what retiring today needs) or a multiple of today's.",
+                               + "needed (what retiring today needs) or a multiple of today's (every holding alike).",
                                valueName: "auto|actual|needed|x"))
     var scale = "auto"
 

@@ -102,15 +102,25 @@ struct PlanDebugMarkdown {
 
     private var isScaled: Bool { abs(report.header.startScale - 1) > 1e-9 }
 
-    /// "2,057,069 EUR, 13.8 times today's plan assets (what retiring today needs)".
+    /// "1,027,069 EUR, 6.9 times today's plan assets (what retiring today
+    /// needs: today's with 878,261 EUR more in the accounts that can be drawn now)".
     private var startText: String {
         let header = report.header
         guard isScaled else { return "today's plan assets, \(F.money(header.startAssets)) \(currency)" }
-        let why = switch header.startScaleChoice {
-        case "assetsNeeded": report.simulation.assetsNeeded?.outcome == "moreThanMaximum"
-            ? " (the most the search for the assets retiring today needs tries; it still falls short)"
-            : " (what retiring today needs)"
-        default: ""
+        let why: String
+        switch header.startScaleChoice {
+        case "assetsNeeded":
+            let extra = header.startExtra.map { extra in
+                extra >= 0 ? ": today's with \(F.money(extra)) \(currency) more in the accounts that can be drawn now"
+                    : ": today's with \(F.money(-extra)) \(currency) less in the accounts that can be drawn now"
+            } ?? ""
+            why = report.simulation.assetsNeeded?.outcome == "moreThanMaximum"
+                ? " (the most the search for the assets retiring today needs tries\(extra); it still falls short)"
+                : " (what retiring today needs\(extra))"
+        case "factor":
+            why = " (every holding multiplied by the same factor)"
+        default:
+            why = ""
         }
         return "\(F.money(header.startAssets)) \(currency), \(F.number((header.startScale * 100).rounded() / 100)) "
             + "times today's plan assets\(why)"
@@ -498,24 +508,39 @@ struct PlanDebugMarkdown {
         if let search = simulation.assetsNeeded {
             line("### Assets needed to retire today")
             line()
+            let accessible = search.accessible.map { " (\(F.money($0)) today)" } ?? ""
             paragraph("The plan assets that would make retiring at \(search.age) reach the confidence level. The "
-                + "search scales every holding of the starting portfolio by the same factor (so the mix, the buckets "
-                + "and the unrealised gains keep their proportions), doubling or halving from 1, then bisecting until "
-                + "within 1%, up to \(F.number(search.maximumScale)) times today's \(F.money(search.planAssets)).")
-            var steps = MarkdownTable(["Step", "Scale", "Plan assets", "Success"], right: [0, 1, 2, 3])
+                + "search adds extra money only to the accounts that can be drawn at \(search.age), the liquid "
+                + "buckets\(accessible), split by their target mix and with no unrealised gain, as new savings would "
+                + "be; money that can't be drawn yet (pension funds and the like) stays as it is. When today's "
+                + "assets are more than enough, it takes money out of those accounts instead, never below zero. It "
+                + "doubles or halves the plan assets from today's, then bisects until within 1%, up to "
+                + "\(F.number(search.maximumScale)) times today's \(F.money(search.planAssets)).")
+            var steps = MarkdownTable(["Step", "Extra", "Plan assets", "Times today's", "Success"],
+                                      right: [0, 1, 2, 3, 4])
             for (index, step) in search.steps.enumerated() {
-                steps.add(["\(index + 1)", F.number((step.scale * 1000).rounded() / 1000), F.money(step.amount),
-                           F.percent(step.success)])
+                let extra = step.extra ?? (step.amount - search.planAssets)
+                steps.add(["\(index + 1)", F.money(extra), F.money(step.amount),
+                           F.number((step.scale * 1000).rounded() / 1000), F.percent(step.success)])
             }
             table(steps)
+            let extra = search.extra.map { extra in
+                extra >= 0 ? ", today's plus \(F.money(extra)) in the accounts that can be drawn now"
+                    : ", today's less \(F.money(-extra)) from the accounts that can be drawn now"
+            } ?? ""
+            let lockedOnly = search.extra.flatMap { extra in
+                search.accessible.map { extra <= -$0 * (1 - 1e-9) }
+            } ?? false
             let result = switch search.outcome {
-            case "found": "\(F.money(search.amount ?? 0)) (\(F.times(search.scale ?? 0)) today's plan assets), "
+            case "found": "\(F.money(search.amount ?? 0)) (\(F.times(search.scale ?? 0)) today's plan assets\(extra)), "
                 + "succeeding in \(F.percent(search.success ?? 0)) of futures; readiness "
                 + "\(F.percent(search.readiness ?? 0, places: 0))."
             case "moreThanMaximum": "more than \(F.number(search.maximumScale)) times today's plan assets."
-            case "atMost": "at most \(F.money(search.amount ?? 0)); readiness at least "
-                + "\(F.percent(search.readiness ?? 0, places: 0))."
-            default: "the plan counts no assets to scale."
+            case "atMost": "at most \(F.money(search.amount ?? 0))"
+                + (lockedOnly ? ", what's locked away: retiring today works even with nothing in the accounts that "
+                    + "can be drawn now" : "")
+                + "; readiness at least \(F.percent(search.readiness ?? 0, places: 0))."
+            default: "the plan counts no assets."
             }
             paragraph("Result: " + result)
         }
@@ -526,7 +551,8 @@ struct PlanDebugMarkdown {
         if isScaled {
             line("Starting from \(startText), retiring at \(age) succeeds in "
                 + "\(F.percent(simulation.successAtStartScale)) of runs"
-                + (simulation.searchSuccessAtStartScale.map { "; the search counted \(F.percent($0)) at this scale" } ?? "")
+                + (simulation.searchSuccessAtStartScale.map { "; the search counted \(F.percent($0)) with this amount" }
+                    ?? "")
                 + ".")
             line()
         }

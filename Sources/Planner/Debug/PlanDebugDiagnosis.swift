@@ -55,11 +55,19 @@ public enum PlanDebugDiagnosis {
         let scaled = abs(scale - 1) > 1e-9
         let simulation = report.simulation
         if scaled {
-            let why = report.header.startScaleChoice == "assetsNeeded"
-                ? (report.simulation.assetsNeeded?.outcome == "moreThanMaximum"
+            var why = ""
+            if report.header.startScaleChoice == "assetsNeeded" {
+                why = report.simulation.assetsNeeded?.outcome == "moreThanMaximum"
                     ? ", the most the search for the assets retiring today needs tries"
-                    : ": the plan assets retiring today needs")
-                : ""
+                    : ": the plan assets retiring today needs"
+                if let extra = report.header.startExtra {
+                    why += extra >= 0
+                        ? " (today's with \(f.money(extra)) \(currency) more in the accounts that can be drawn now)"
+                        : " (today's with \(f.money(-extra)) \(currency) less in the accounts that can be drawn now)"
+                }
+            } else if report.header.startScaleChoice == "factor" {
+                why = ", every holding multiplied alike"
+            }
             add("scale", "The percentiles, failures and traced runs below start from \(f.money(report.header.startAssets)) "
                 + "\(currency), \(f.number((scale * 100).rounded() / 100)) times today's plan assets\(why). Retiring at "
                 + "\(age) with it succeeds in \(f.percent(simulation.successAtStartScale)) of runs.")
@@ -85,19 +93,27 @@ public enum PlanDebugDiagnosis {
             switch needed.outcome {
             case "found":
                 if let amount = needed.amount, amount > 0 {
+                    let extra = needed.extra ?? (amount - needed.planAssets)
+                    let how = extra >= 0
+                        ? "today's \(today) plus \(f.money(extra)) added to the accounts that can be drawn now"
+                        : "today's \(today) less \(f.money(-extra)) taken from the accounts that can be drawn now"
                     add("assets.needed", "Retiring today would need \(f.money(amount)) \(currency) in plan assets for "
-                        + "\(confidence) of futures, \(f.times(needed.scale ?? amount / max(1, needed.planAssets))) "
-                        + "today's \(today): the retirement spending of \(f.money(spending)) is "
-                        + "\(f.percent(spending / amount)) of it.")
+                        + "\(confidence) of futures (\(how)), "
+                        + "\(f.times(needed.scale ?? amount / max(1, needed.planAssets))) today's: the retirement "
+                        + "spending of \(f.money(spending)) is \(f.percent(spending / amount)) of it.")
                 }
             case "moreThanMaximum":
                 add("assets.needed", "Even \(f.number(needed.maximumScale)) times today's plan assets "
-                    + "(\(f.money(needed.maximumScale * needed.planAssets)) \(currency)) don't make retiring today reach "
-                    + "\(confidence): the search scales every holding in proportion, so the mix and its median growth of "
-                    + "\(f.percent(portfolio.medianReturn)) a year stay the same.")
+                    + "(\(f.money(needed.maximumScale * needed.planAssets)) \(currency), the extra in the accounts that "
+                    + "can be drawn now) don't make retiring today reach \(confidence): the extra money is invested in "
+                    + "the target mix, whose median growth is \(f.percent(portfolio.medianReturn)) a year.")
             case "atMost":
+                let lockedOnly = needed.extra.flatMap { extra in needed.accessible.map { extra <= -$0 * (1 - 1e-9) } }
+                    ?? false
                 add("assets.needed", "Retiring today reaches \(confidence) with at most \(f.money(needed.amount ?? 0)) "
-                    + "\(currency) in plan assets, a twentieth of today's \(today).")
+                    + "\(currency) in plan assets, "
+                    + (lockedOnly ? "what's locked away, with nothing in the accounts that can be drawn now; today "
+                        + "there's \(today)." : "a twentieth of today's \(today)."))
             default:
                 break
             }
@@ -238,7 +254,7 @@ public enum PlanDebugDiagnosis {
                 + "match the results. This is a bug worth reporting.")
         }
         if let searched = simulation.searchSuccessAtStartScale, abs(searched - simulation.successAtStartScale) > 1e-9 {
-            add("check.monotone", "At this scale the search for the assets needed counted "
+            add("check.monotone", "With the plan assets the runs start from, the search for the assets needed counted "
                 + "\(f.percent(searched)) of runs succeeding, but simulating every run gives "
                 + "\(f.percent(simulation.successAtStartScale)): the search takes a run that succeeds with less money to "
                 + "succeed with more, which doesn't hold for every run here.")

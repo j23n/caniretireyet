@@ -27,8 +27,9 @@ public struct PlanDebugOptions: Hashable, Sendable {
     }
 
     /// What the percentiles and traced paths start from: today's starting
-    /// portfolio or a multiple of it (every holding scaled alike, as the
-    /// search for the assets needed scales it).
+    /// portfolio, the one the search for the assets needed found (today's
+    /// with extra money in the accounts that can be drawn now), or a
+    /// multiple of today's (every holding scaled alike).
     public enum StartScale: Hashable, Sendable {
         /// The assets retiring today needs when the details are for today's
         /// age and today's assets fall short of it (the most the search
@@ -36,10 +37,13 @@ public struct PlanDebugOptions: Hashable, Sendable {
         case automatic
         /// Today's starting portfolio.
         case actual
-        /// The plan assets retiring today needs (``PlanAnswer/assetsNeeded``),
-        /// or the most the search tries when even that falls short.
+        /// The plan assets retiring today needs (``PlanAnswer/assetsNeeded``):
+        /// today's portfolio with ``AssetsNeeded/extra`` in the accessible
+        /// buckets, as the search tried it, or the most the search tries when
+        /// even that falls short.
         case assetsNeeded
-        /// This multiple of today's starting portfolio.
+        /// This multiple of today's starting portfolio, every holding (locked
+        /// ones too) multiplied alike.
         case factor(Double)
     }
 

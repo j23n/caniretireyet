@@ -215,23 +215,26 @@ struct Engine: Sendable {
     /// The plan assets at the start that make retiring at `age` reach the
     /// confidence level (PLANNER.md, "Assets needed to retire today").
     ///
-    /// It scales the starting portfolio (``Portfolio/scaled(by:)``) and
-    /// searches the scale: from 1 it doubles (or halves) until the
-    /// confidence level is crossed, within 1 / ``AssetsNeeded/maximumScale``
-    /// … ``AssetsNeeded/maximumScale``, then bisects on a log scale until
-    /// the bracket is narrower than ``AssetsNeeded/tolerance``. Every scale
-    /// uses the same random draws, and a run is taken to succeed at every
-    /// scale above one it succeeded at (more money in the same mix doesn't
-    /// make it fail), so runs already settled aren't simulated again and the
-    /// success rate never falls as the scale rises. At scale 1 the runs are
-    /// the scan's own, so the result reaches 100% (`readiness` ≥ 1) exactly
-    /// when retiring today does. `progress` counts the scales tried (steps).
+    /// It adds extra money X to the buckets that can be drawn at any age,
+    /// the liquid ones (``Portfolio/withExtra(_:)``: split by their target
+    /// mix, with no unrealised gain), or takes money out of them (X < 0,
+    /// never below zero), and searches the plan assets S + X as a multiple
+    /// of today's S: from 1 it doubles (or halves) until the confidence
+    /// level is crossed, between ``AssetsNeeded/maximumScale`` and the
+    /// larger of 1 / ``AssetsNeeded/maximumScale`` and what's locked away,
+    /// then bisects on a log scale until the bracket is narrower than
+    /// ``AssetsNeeded/tolerance``. Every amount uses the same random draws,
+    /// and a run is taken to succeed with every amount above one it
+    /// succeeded with (more money to draw doesn't make it fail), so runs
+    /// already settled aren't simulated again and the success rate never
+    /// falls as the amount rises. At X = 0 the runs are the scan's own, so
+    /// the result reaches 100% (`readiness` ≥ 1) exactly when retiring today
+    /// does. `progress` counts the amounts tried (steps).
     ///
     /// - Parameters:
-    ///   - startAssets: today's plan assets (``PlanStart/planAssets``),
-    ///     which the scale multiplies into ``AssetsNeeded/amount``.
+    ///   - startAssets: today's plan assets (``PlanStart/planAssets``), S.
     ///   - successToday: the scan's chance of success at `age`, used when
-    ///     there's nothing to scale.
+    ///     there are no plan assets.
     func assetsNeeded(age: Int, startAssets: Double, successToday: Double,
                       progress: ProgressReporter? = nil) async throws -> AssetsNeeded {
         try await assetsNeededSearch(age: age, startAssets: startAssets, successToday: successToday,
@@ -239,8 +242,8 @@ struct Engine: Sendable {
     }
 
     /// ``assetsNeeded(age:startAssets:successToday:progress:)`` with every
-    /// scale it tried and the success there, in the order tried, for the
-    /// plan debugger.
+    /// amount it tried, as the extra money in the accessible buckets, and
+    /// the success there, in the order tried, for the plan debugger.
     func assetsNeededSearch(age: Int, startAssets: Double, successToday: Double,
                             progress: ProgressReporter? = nil) async throws
         -> (answer: AssetsNeeded, steps: [SearchStep]) {
@@ -248,14 +251,22 @@ struct Engine: Sendable {
         let confidence = model.confidence
         let spending = model.spending.retired
         let maximum = AssetsNeeded.maximumScale
-        let floor = 1 / maximum
         guard startAssets > 0, portfolio.totalValue > 1e-6 else {
             let enough = successToday >= confidence
             return (AssetsNeeded(age: age, outcome: .noPlanAssets, amount: enough ? 0 : nil,
                                  success: enough ? successToday : nil, readiness: enough ? nil : 0), [])
         }
+        // What can be taken out: the accessible money, down to 1 / maximum of today's plan assets.
+        let accessible = portfolio.accessibleValue
+        let lowest = max(startAssets / maximum, startAssets - accessible)
+        let floor = min(1, lowest / startAssets)
+        let fewest = min(0, lowest - startAssets)
+        // The extra money at a multiple of today's plan assets.
+        func extra(at scale: Double) -> Double {
+            scale <= floor ? fewest : scale == 1 ? 0 : (scale - 1) * startAssets
+        }
 
-        // Per run, the smallest scale it succeeded at and the largest it failed at.
+        // Per run, the smallest multiple it succeeded at and the largest it failed at.
         var succeedsFrom = [Double](repeating: .infinity, count: runs)
         var failsUpTo = [Double](repeating: -.infinity, count: runs)
         let engine = self
@@ -264,7 +275,7 @@ struct Engine: Sendable {
 
         func success(at scale: Double) async throws -> Double {
             let open = (0..<runs).filter { failsUpTo[$0] < scale && scale < succeedsFrom[$0] }
-            let start = engine.portfolio.scaled(by: scale)
+            let start = engine.portfolio.withExtra(extra(at: scale))
             let chunks = Self.chunks(open.count).map { Array(open[$0]) }
             let results = try await parallelMap(chunks) { chunk -> [(Int, Bool)] in
                 var simulator = engine.simulator(age: age, start: start)
@@ -281,7 +292,7 @@ struct Engine: Sendable {
             }
             steps += 1
             progress?.advance()
-            tried.append(SearchStep(value: scale, success: rate(at: scale)))
+            tried.append(SearchStep(value: extra(at: scale), success: rate(at: scale)))
             return rate(at: scale)
         }
 
@@ -289,29 +300,29 @@ struct Engine: Sendable {
             Double((0..<runs).filter { succeedsFrom[$0] <= scale }.count) / Double(runs)
         }
 
-        // Scale 1, a step out, the bisection over a doubling.
+        // Today's assets, a step out, the bisection over a doubling.
         progress?.begin(.assetsNeeded, total: 2 + Self.logBisectionSteps(low: 1, high: 2))
-        var low: Double
-        var high: Double
+        var low = 1.0
+        var high = 1.0
         if try await success(at: 1) >= confidence {
-            high = 1
-            low = 0.5
-            while try await success(at: low) >= confidence {
-                high = low
-                if low <= floor {
-                    return (AssetsNeeded(age: age, outcome: .atMost, scale: floor, amount: floor * startAssets,
-                                         success: rate(at: floor), readiness: maximum), tried)
+            while true {
+                guard high > floor else {
+                    return (AssetsNeeded(age: age, outcome: .atMost, scale: floor, amount: startAssets + fewest,
+                                         success: rate(at: floor), readiness: 1 / floor, extra: fewest,
+                                         accessible: accessible), tried)
                 }
-                low = max(floor, low / 2)
-                progress?.extend(to: steps + 1 + Self.logBisectionSteps(low: low, high: high))
+                low = max(floor, high / 2)
+                guard try await success(at: low) >= confidence else { break }
+                high = low
+                progress?.extend(to: steps + 1 + Self.logBisectionSteps(low: max(floor, high / 2), high: high))
             }
         } else {
-            low = 1
             high = 2
             while try await success(at: high) < confidence {
                 low = high
                 if high >= maximum {
-                    return (AssetsNeeded(age: age, outcome: .moreThanMaximum, scale: maximum), tried)
+                    return (AssetsNeeded(age: age, outcome: .moreThanMaximum, scale: maximum,
+                                         extra: extra(at: maximum), accessible: accessible), tried)
                 }
                 high = min(maximum, high * 2)
                 progress?.extend(to: steps + 1 + Self.logBisectionSteps(low: low, high: high))
@@ -322,8 +333,10 @@ struct Engine: Sendable {
             let middle = (low * high).squareRoot()
             if try await success(at: middle) >= confidence { high = middle } else { low = middle }
         }
-        return (AssetsNeeded(age: age, outcome: .found, scale: high, amount: high * startAssets,
-                             success: rate(at: high), readiness: 1 / high), tried)
+        let needed = extra(at: high)
+        return (AssetsNeeded(age: age, outcome: .found, scale: high, amount: startAssets + needed,
+                             success: rate(at: high), readiness: startAssets / (startAssets + needed), extra: needed,
+                             accessible: accessible), tried)
     }
 
     /// How many halvings of the log of `high / low` the search for the
@@ -379,7 +392,7 @@ struct Engine: Sendable {
 }
 
 /// One value a search tried, and the share of runs that succeed with it:
-/// a yearly spending, or a scale of the starting portfolio.
+/// a yearly spending, or the extra money in the accessible buckets.
 struct SearchStep: Sendable {
     let value: Double
     let success: Double

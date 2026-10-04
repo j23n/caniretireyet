@@ -36,7 +36,7 @@ public struct PlannerOptions: Hashable, Sendable {
     public var solveSustainableSpending: Bool
     /// Whether to search for the plan assets retiring today would need
     /// (``PlanAnswer/assetsNeeded``, default on). It simulates today's age
-    /// at about ten scales of the starting portfolio.
+    /// with about ten amounts of extra money in the accessible buckets.
     public var solveAssetsNeeded: Bool
     /// The withdrawal rate behind the FI number (default 4%), which is
     /// kept for compatibility but no longer shown.

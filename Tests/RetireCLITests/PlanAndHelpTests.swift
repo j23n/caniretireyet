@@ -204,6 +204,25 @@ struct PlanAndHelpTests {
         #expect(little.text(currency: .eur, confidence: 0.9)
             == "Needed to retire today: at most 5,000 EUR in plan assets, at 90% confidence. "
             + "You have 100,000 EUR, 20 times that or more.")
+        // The extra money goes into the accounts that can be drawn now.
+        let extra = PlanReport.Needed(outcome: .found, planAssets: 148_808, amount: 545_212, readiness: 0.2729,
+                                      extra: 396_404)
+        #expect(extra.text(currency: .eur, confidence: 0.9)
+            == "Needed to retire today: 545,212 EUR in plan assets, at 90% confidence, with the extra 396,404 EUR in "
+            + "accounts you can draw now. You have 148,808 EUR (27%).")
+        let less = PlanReport.Needed(outcome: .found, planAssets: 900_000, amount: 600_000, readiness: 1.5,
+                                     extra: -300_000)
+        #expect(less.text(currency: .eur, confidence: 0.9)
+            == "Needed to retire today: 600,000 EUR in plan assets, at 90% confidence: 300,000 EUR less in accounts "
+            + "you can draw now. You have 900,000 EUR (150%).")
+        let locked = PlanReport.Needed(outcome: .atMost, planAssets: 160_000, amount: 60_000, readiness: 2.67,
+                                       onlyLockedMoney: true)
+        #expect(locked.text(currency: .eur, confidence: 0.9)
+            == "Needed to retire today: at most the 60,000 EUR locked away, at 90% confidence: it works with nothing "
+            + "in accounts you can draw now. You have 160,000 EUR.")
+        var extraReport = report
+        extraReport.needed = extra
+        #expect(try parseJSON(try JSONOutput.string(extraReport.json))["assetsNeededExtra"] as? Double == 396_404)
 
         var ran = report
         ran.run = .init(runs: 2000, fast: false, engine: "1.0.0", startDate: "2026-09-30",
