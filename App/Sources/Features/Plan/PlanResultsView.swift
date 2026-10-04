@@ -357,14 +357,20 @@ struct PlanRunStatus: View {
 
 // MARK: - Charts
 
-/// Chance of success by retirement age. Tapping (or, on the Mac, resting
-/// on) an age shows the charts below for retiring then; the stepper does
-/// the same without the chart.
+/// Chance of success by retirement age. Tapping or clicking an age shows
+/// the charts below for retiring then; dragging across the curve, or on
+/// the Mac hovering over it, only reads it. The stepper chooses an age
+/// without the chart.
 struct PlanSuccessCard: View {
     let session: PlanSession
     let results: PlanResults
 
+    /// The age being read on the curve (a finger on it, or the pointer over it).
     @State private var chartSelection: Int?
+    /// The age read last and when that reading ended: lifting the finger
+    /// (or the mouse button) can end it before the tap is recognised.
+    @State private var lastReading: Int?
+    @State private var lastReadingEnded = Date.distantPast
 
     private var focus: Int? { session.shownFocusAge }
 
@@ -380,21 +386,15 @@ struct PlanSuccessCard: View {
         Card {
             SuccessCurveChart(points: results.successByAge, threshold: results.headline.confidence,
                               highlightedAge: results.headline.earliestAge, selectedAge: $chartSelection)
-            #if os(iOS)
             .onChange(of: chartSelection) { oldValue, newValue in
-                // The selection ends when the finger lifts: that's the tap.
-                if newValue == nil, let oldValue { session.selectFocus(oldValue) }
+                if newValue == nil, let oldValue {
+                    lastReading = oldValue
+                    lastReadingEnded = Date.now
+                }
             }
-            #endif
-            #if os(macOS)
-            .task(id: chartSelection) {
-                // Resting on an age for a moment chooses it.
-                guard let age = chartSelection else { return }
-                try? await Task.sleep(for: .milliseconds(600))
-                guard !Task.isCancelled else { return }
-                session.selectFocus(age)
-            }
-            #endif
+            // Only a tap or a click chooses the age; reading the curve changes nothing.
+            .contentShape(Rectangle())
+            .simultaneousGesture(TapGesture().onEnded { chooseTappedAge() })
             if let note = PlanResultsText.pensionStepNote(results.details?.pensionSteps ?? []) {
                 Text(note)
                     .font(.footnote)
@@ -422,6 +422,14 @@ struct PlanSuccessCard: View {
                 }
             }
         }
+    }
+
+    /// Chooses the age under a tap or click: the one being read, or the
+    /// one whose reading the tap's lift just ended. A tap where no age is
+    /// read (an axis label) chooses nothing.
+    private func chooseTappedAge() {
+        let justRead = Date.now.timeIntervalSince(lastReadingEnded) < 0.5 ? lastReading : nil
+        if let age = chartSelection ?? justRead { session.selectFocus(age) }
     }
 }
 

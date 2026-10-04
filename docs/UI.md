@@ -512,7 +512,7 @@ A plan is calculated only when you ask: *Calculate*, *Recalculate* (⌘R, and a 
 - **Chance of success by retirement age.**
   - One line; a dotted rule at your confidence level, labelled at its right end, below the rule where the curve ends above it; the earliest age marked where they cross.
   - The age axis runs from today's age to the last age simulated, labelled every 5 years (every 10 when narrow), never from 0.
-  - Tapping another age makes it the selected age for the charts below. Charts calculated before for that age show at once; otherwise the banner offers *Calculate* for it.
+  - Tapping (or clicking) another age makes it the selected age for the charts below; dragging across the curve, or hovering over it on the Mac, only shows the chance at each age. Charts calculated before for that age show at once; otherwise the banner offers *Calculate* for it.
   - Steps caused by pension eligibility (e.g. at 64 or 67) show as steps, with a note explaining why.
 - **In the plan's currency.** Every amount, chart and caption is in the currency the results were calculated in: the plan's own, else the library's base currency ("In today's CHF.").
 - **Your money over time.**
