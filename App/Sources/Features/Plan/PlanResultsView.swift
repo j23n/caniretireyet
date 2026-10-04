@@ -58,18 +58,17 @@ struct PlanResultsView: View {
         VStack(alignment: .leading, spacing: Metrics.l) {
             PlanHeadlineCard(session: session, results: results, isWide: isWide, onWhatIf: onWhatIf)
             if isWide {
-                Grid(alignment: .topLeading, horizontalSpacing: Metrics.l, verticalSpacing: Metrics.l) {
-                    GridRow {
-                        PlanSuccessCard(session: session, results: results)
-                        PlanFanCard(session: session, results: results)
-                    }
-                    GridRow {
-                        PlanIncomeCard(results: results)
-                        VStack(spacing: Metrics.l) {
-                            PlanKeyNumbersCard(results: results)
-                            PlanFailureCard(results: results)
-                            PlanLibraryCard(results: results)
-                        }
+                // Equal columns, not a Grid: the charts' widths mustn't feed back into their columns'.
+                EqualColumns(spacing: Metrics.l) {
+                    PlanSuccessCard(session: session, results: results)
+                    PlanFanCard(session: session, results: results)
+                }
+                EqualColumns(spacing: Metrics.l) {
+                    PlanIncomeCard(results: results)
+                    VStack(spacing: Metrics.l) {
+                        PlanKeyNumbersCard(results: results)
+                        PlanFailureCard(results: results)
+                        PlanLibraryCard(results: results)
                     }
                 }
             } else {
