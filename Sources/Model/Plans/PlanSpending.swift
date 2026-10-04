@@ -2,7 +2,8 @@ import Foundation
 
 /// A plan's `spending` section: yearly spending in today's money, in the
 /// plan's currency, while working and in retirement, with optional phase
-/// factors by age.
+/// factors by age, and optionally a rule that adjusts retirement spending
+/// to the markets (``flexible``).
 public struct PlanSpending: Hashable, Sendable, KnownKeysProviding {
     /// Yearly spending while working.
     public var working: Decimal
@@ -10,11 +11,21 @@ public struct PlanSpending: Hashable, Sendable, KnownKeysProviding {
     public var retired: Decimal
     /// Factors applied to retirement spending from given ages.
     public var phases: [SpendingPhase]
+    /// Flexible spending: cuts after bad years, raises back after good ones
+    /// (PLANNER.md, "Flexible spending"). `nil`: retirement spending is fixed
+    /// in real terms. See ``flexibleRule``.
+    public var flexible: FlexibleSpending?
 
-    public init(working: Decimal, retired: Decimal, phases: [SpendingPhase] = []) {
+    public init(working: Decimal, retired: Decimal, phases: [SpendingPhase] = [], flexible: FlexibleSpending? = nil) {
         self.working = working
         self.retired = retired
         self.phases = phases
+        self.flexible = flexible
+    }
+
+    /// The flexible-spending rule in force: ``flexible`` when it's enabled.
+    public var flexibleRule: FlexibleSpending? {
+        flexible.flatMap { $0.isEnabled ? $0 : nil }
     }
 
     /// The factor in force at `age`: the latest phase starting at or before
@@ -26,7 +37,7 @@ public struct PlanSpending: Hashable, Sendable, KnownKeysProviding {
 
 extension PlanSpending: Codable {
     enum CodingKeys: String, CodingKey, CaseIterable {
-        case working, retired, phases
+        case working, retired, phases, flexible
     }
 
     public static var knownKeys: Set<String> { Set(CodingKeys.allCases.map(\.stringValue)) }
@@ -36,6 +47,7 @@ extension PlanSpending: Codable {
         working = try c.decodeDecimal(forKey: .working)
         retired = try c.decodeDecimal(forKey: .retired)
         phases = try c.decodeArray([SpendingPhase].self, forKey: .phases)
+        flexible = try c.decodeIfPresent(FlexibleSpending.self, forKey: .flexible)
     }
 
     public func encode(to encoder: any Encoder) throws {
@@ -43,6 +55,7 @@ extension PlanSpending: Codable {
         try c.encodeDecimal(working, forKey: .working)
         try c.encodeDecimal(retired, forKey: .retired)
         try c.encodeIfNotEmpty(phases, forKey: .phases)
+        try c.encodeIfPresent(flexible, forKey: .flexible)
     }
 }
 

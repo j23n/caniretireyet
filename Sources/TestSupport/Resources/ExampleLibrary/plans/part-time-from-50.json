@@ -19,7 +19,7 @@
   },
   "retirement": { "age": "earliest" },
   "simulation": { "runs": 500 },
-  "spending": { "retired": "32000", "working": "34000" },
+  "spending": { "flexible": { "enabled": false, "floor": "0.85" }, "retired": "32000", "working": "34000" },
   "tax": {
     "residence": [
       { "from": 2026, "options": { "addizionaleComunale": "0.008", "addizionaleRegionale": "0.0173" }, "system": "it" },
