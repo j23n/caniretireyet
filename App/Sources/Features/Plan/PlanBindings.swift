@@ -62,24 +62,52 @@ extension PlanTax {
 }
 
 extension PlanAssumptions {
-    /// An asset class's expected real return, the plan's or the default.
+    /// An asset class's expected real return as its mean (the average
+    /// year), the plan's or the default; derived from the median when that's
+    /// what's given. Setting it gives the return by its mean. What equals
+    /// the default isn't written to the plan.
     subscript(planReal assetClass: AssetClass) -> Decimal {
-        get { returnAssumption(for: assetClass)?.real ?? 0 }
+        get { Self.rounded(returnAssumption(for: assetClass)?.real ?? 0) }
         set {
             var assumption = returnAssumption(for: assetClass) ?? ReturnAssumption(real: 0, volatility: 0)
+            guard newValue != Self.rounded(assumption.real) || assumption.isGivenByMedian == false else { return }
             assumption.real = newValue
-            returns[assetClass] = assumption
+            setReturnAssumption(assumption, for: assetClass)
         }
     }
 
-    /// An asset class's volatility, the plan's or the default.
+    /// An asset class's expected real return as its median (the typical
+    /// year, which a rebalanced portfolio grows at), the plan's or the
+    /// default; derived from the mean when that's what's given. Setting it
+    /// gives the return by its median, so the mean follows the volatility.
+    subscript(planMedianReal assetClass: AssetClass) -> Decimal {
+        get { Self.rounded(returnAssumption(for: assetClass)?.impliedMedianReal ?? 0) }
+        set {
+            var assumption = returnAssumption(for: assetClass) ?? ReturnAssumption(real: 0, volatility: 0)
+            guard newValue != Self.rounded(assumption.impliedMedianReal) || assumption.isGivenByMedian else { return }
+            assumption.medianReal = newValue
+            setReturnAssumption(assumption, for: assetClass)
+        }
+    }
+
+    /// An asset class's volatility, the plan's or the default. Setting it
+    /// keeps whichever of the mean and the median is given.
     subscript(planVolatility assetClass: AssetClass) -> Decimal {
         get { returnAssumption(for: assetClass)?.volatility ?? 0 }
         set {
             var assumption = returnAssumption(for: assetClass) ?? ReturnAssumption(real: 0, volatility: 0)
             assumption.volatility = newValue
-            returns[assetClass] = assumption
+            setReturnAssumption(assumption, for: assetClass)
         }
+    }
+
+    /// A return to show and edit, to a hundredth of a percent: a mean
+    /// derived from a median (or the other way round) has many decimals.
+    static func rounded(_ value: Decimal) -> Decimal {
+        var input = value
+        var result = Decimal()
+        NSDecimalRound(&result, &input, 4, .plain)
+        return result
     }
 }
 
@@ -260,7 +288,7 @@ extension PlanAssumptions {
         set {
             var assumption = returnAssumption(for: assetClass) ?? ReturnAssumption(real: 0, volatility: 0)
             assumption.incomeYield = newValue
-            returns[assetClass] = assumption
+            setReturnAssumption(assumption, for: assetClass)
         }
     }
 }

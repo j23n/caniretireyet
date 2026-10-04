@@ -57,6 +57,21 @@ enum PlanIssueText {
                 return "\(name) has a starting balance in the plan, so the value of "
                     + accountNames(in: issue.message, library: library) + " isn't used."
             }
+        case "planner.lowMedianReturn":
+            if let option = issue.option,
+               let assumption = (plan?.assumptions ?? PlanAssumptions()).returnAssumption(for: AssetClass(option)) {
+                let median = AmountFormat.percent(assumption.medianReturn, digits: 0)
+                let mean = AmountFormat.percent(assumption.meanReturn, digits: 1)
+                return "\(assetClassName(option))'s returns give a typical year of \(median) (an average of \(mean) at "
+                    + "\(AmountFormat.percent(assumption.volatility, digits: 0)) volatility): holding it and "
+                    + "rebalancing back into it every year shrinks your portfolio. Check its return under Assumptions."
+            }
+        case "planner.meanAndMedian":
+            if let option = issue.option, let assumption = plan?.assumptions.returns[AssetClass(option)] {
+                return "\(assetClassName(option))'s return has both an average (mean) and a typical (median) value in "
+                    + "the plan file: the plan uses the average, \(AmountFormat.percent(assumption.real, digits: 1)). "
+                    + "Enter one of them under Assumptions."
+            }
         default:
             break
         }
@@ -85,6 +100,12 @@ enum PlanIssueText {
             .filter { containsWord($0.id.rawValue, in: message) }
             .map(\.name)
         return names.isEmpty ? "the accounts" : PlanResultsText.list(names)
+    }
+
+    /// An asset class as the assumptions editor names it: "Crypto", "Real estate".
+    static func assetClassName(_ rawValue: String) -> String {
+        if rawValue == AssetClass.realEstate.rawValue { return "Real estate" }
+        return rawValue.prefix(1).uppercased() + rawValue.dropFirst()
     }
 
     /// A pension scheme's name without the explanation in brackets: "BVG".

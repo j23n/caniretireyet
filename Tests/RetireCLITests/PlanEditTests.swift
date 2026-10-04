@@ -18,7 +18,9 @@ struct PlanEditTests {
         #expect(lines.contains("  1. INPS (it.inps) · claimed as early as possible"))
         #expect(lines.contains("  2. State pension from previous country (fixed) · 4,800 a year from 67"))
         #expect(lines.contains("  1. Fondo pensione (fondo-pensione) · 5,000 EUR a year until retirement"))
-        #expect(lines.contains("  equity    4.5%       17.0%             –"))
+        // Each class's mean and median, whichever the plan gives.
+        #expect(lines.contains("  equity   4.5%    3.1%       17.0%             –  mean"))
+        #expect(lines.contains("  crypto  16.6%    0.0%       70.0%             –  median"))
 
         let json = try parseJSON(await retire(["plan", "show", "--library", library.path, "--plan",
                                                "part-time-from-50", "--json"]).output)
@@ -27,6 +29,41 @@ struct PlanEditTests {
         #expect(json["ownCurrency"] == nil)
         let returns = try #require(json["returns"] as? [String: [String: Any]])
         #expect(returns["equity"]?["real"] as? String == "0.045")
+        #expect(returns["equity"]?["givenAs"] as? String == "mean" && returns["equity"]?["isDefault"] as? Bool == true)
+        #expect(returns["crypto"]?["median"] as? String == "0" && returns["crypto"]?["real"] as? String == "0.16629")
+        #expect(returns["crypto"]?["givenAs"] as? String == "median")
+    }
+
+    @Test func setChangesAReturnByItsMeanOrItsMedian() async throws {
+        let library = try TemporaryFolder.exampleLibrary()
+        let plan = "part-time-from-50"
+        let median = await retire(["plan", "set", "--library", library.path, "--plan", plan,
+                                   "--median-return", "crypto=1%", "--volatility", "crypto=0.5"])
+        #expect(median.status == 0, "\(median.all)")
+        #expect(median.output.hasPrefix("Return of crypto: median 1.0% (mean 10.8%) at 50.0% volatility.\n"))
+        let written = try library.text("plans/\(plan).json")
+        #expect(written.contains(#""medianReal": "0.01""#) && !written.contains(#""real""#), "\(written)")
+
+        let mean = await retire(["plan", "set", "--library", library.path, "--plan", plan, "--return", "equity=5%"])
+        #expect(mean.output.hasPrefix("Return of equity: mean 5.0% (median 3.7%) at 17.0% volatility.\n"))
+        var assumptions = try #require(try library.load().plans[PlanID(plan)]).assumptions
+        #expect(assumptions.returns[.equity] == ReturnAssumption(real: dec("0.05"), volatility: dec("0.17")))
+
+        // Back to the defaults: nothing is left in the file.
+        let back = await retire(["plan", "set", "--library", library.path, "--plan", plan,
+                                 "--return", "equity=default", "--return", "crypto=default"])
+        #expect(back.status == 0, "\(back.all)")
+        #expect(back.output.contains("Return of crypto: median 0.0% (mean 16.6%) at 70.0% volatility, the default.\n"))
+        assumptions = try #require(try library.load().plans[PlanID(plan)]).assumptions
+        #expect(assumptions.returns.isEmpty)
+        #expect(!(try library.text("plans/\(plan).json")).contains("assumptions"))
+
+        let both = await retire(["plan", "set", "--library", library.path, "--return", "crypto=0.1",
+                                 "--median-return", "crypto=0"])
+        #expect(both.status == 64)
+        #expect(both.errors.contains("not both"))
+        let tooLow = await retire(["plan", "set", "--library", library.path, "--median-return", "crypto=-100%"])
+        #expect(tooLow.status == 64)
     }
 
     @Test func setChangesTheCurrencyAndIncomeYields() async throws {

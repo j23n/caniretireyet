@@ -224,7 +224,8 @@ enum PlanInterpreter {
             }
             return min(1, max(0, yield))
         }
-        if returns.expected.contains(where: { $0 <= -1 }) {
+        if returns.expected.contains(where: { $0 <= -1 })
+            || plan.assumptions.returns.values.contains(where: { $0.isGivenByMedian && ($0.medianReal ?? 0) <= -1 }) {
             issues.append(.error("planner.returnTooLow", "A real return must be above -100%.", section: .assumptions))
         }
         let confidence = plan.simulation.effectiveConfidence.double
