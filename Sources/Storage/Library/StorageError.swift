@@ -52,3 +52,12 @@ public enum StorageError: Error, Hashable, Sendable, CustomStringConvertible {
         }
     }
 }
+
+extension StorageError {
+    /// What writing to a library whose `library.json` exists but can't be
+    /// used throws (``LoadReport/settingsUnreadable``).
+    public static var unreadableSettings: StorageError {
+        .unreadableFile(path: LibraryFile.settings.path,
+                        message: "The file can't be read. " + LoadReport.unreadableSettingsAdvice)
+    }
+}

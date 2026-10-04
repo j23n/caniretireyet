@@ -170,7 +170,8 @@ extension LibraryFolder {
     ///
     /// Throws ``StorageError/backupFromOtherVersion(name:version:current:)``
     /// for a backup of a library in another format version, and what
-    /// ``checkWritable(schemaVersion:)`` throws.
+    /// ``checkWritable(schemaVersion:)`` throws (except about an unreadable
+    /// `library.json` when the backup holds a copy of it, which fixes it).
     @discardableResult
     public func restore(backup: Backup) throws -> SaveReport {
         let folder = try checkRestorable(backup)
@@ -338,7 +339,12 @@ extension LibraryFolder {
     /// format version.
     private func checkRestorable(_ backup: Backup) throws -> String {
         let folder = try manifestFolder(of: backup)
-        try checkWritable()
+        if backup.files.contains(LibraryFile.settings.path) {
+            // Restoring a copy of library.json is how an unreadable one is fixed.
+            try checkSchemaVersions(nil)
+        } else {
+            try checkWritable()
+        }
         let current = LibrarySettings.currentSchemaVersion
         if let version = backup.schemaVersion, version != current {
             throw StorageError.backupFromOtherVersion(name: backup.name, version: version, current: current)

@@ -339,7 +339,7 @@ The app keeps the library in memory and writes only the files an edit changed. A
 
 When records changed on both sides, the file is copied to `backups/<timestamp>-conflict/` first too. The Sync screen lists what happened, and the app then reloads the merged file. Reading, merging and writing a file is one coordinated operation, so a version iCloud Drive delivers meanwhile is merged as well.
 
-A file that couldn't be read when the library loaded (it isn't valid JSON, or doesn't hold what it should) is copied to `backups/<timestamp>-unreadable/` before the app replaces or deletes it.
+A file that couldn't be read when the library loaded (it isn't valid JSON, or doesn't hold what it should) is copied to `backups/<timestamp>-unreadable/` before the app replaces or deletes it. `library.json` is the exception: the app never replaces it, because the settings it would write are only defaults (see [Reading hand-edited files](#reading-hand-edited-files)).
 
 ## Versioning
 
@@ -396,6 +396,7 @@ The app writes every file the same way, so the same data always gives the same b
 
 - A file with a mistake doesn't stop the library from loading. The app lists each problem with the file's path and where in it, like `valuations[2].balance: Expected a decimal such as "1234.56", found "12,5".` or `Line 4, column 3: Expected "," or "}" after a value in an object`.
 - A file that can't be read is left out. In a history or headline file only the records that can't be read are left out, and they're kept in the file when the app rewrites it, until you fix them. A file that is left out is copied to `backups/` before the app writes over it or deletes it.
+- A `library.json` that exists but can't be read (it isn't valid JSON, or doesn't hold the settings) opens the library read-only, as a newer library does: the app would otherwise have only default settings (EUR, no birth date) to save over yours. The error on `library.json` says what's wrong; fix the file, or restore it from a backup, and open the library again. A folder with no `library.json` at all isn't affected: that's how a new library starts.
 - A JSON number where text is expected (`"name": 2026`) is read as text, and a whole number written as text where a number is expected (`"endAge": "95"`) as a number.
 - The file name wins over the `id` inside the file, and over the `month` inside a history file; the app points out the mismatch.
 - A record dated outside its month file stays where it is, and the app points it out. When two records have the same key, the later one in the file is used.

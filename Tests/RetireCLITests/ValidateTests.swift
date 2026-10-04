@@ -125,6 +125,27 @@ struct ValidateTests {
         #expect(run.output.contains("  Read-only       yes: update the app to make changes\n"))
     }
 
+    /// A library.json that isn't valid JSON leaves only default settings in
+    /// memory, so the library is read-only and no command writes them.
+    @Test func aLibraryWhoseSettingsCantBeReadIsReadOnly() async throws {
+        let library = try TemporaryFolder.exampleLibrary()
+        let broken = String(try library.text("library.json").dropLast(3))
+        try library.write("library.json", broken)
+        let run = await retire(["validate", "--library", library.path])
+        #expect(run.status == 1)
+        #expect(run.output.contains("  Format version  unknown (library.json can't be read)\n"), "\(run.all)")
+        #expect(run.output.contains("  Read-only       yes: library.json can't be read; fix it or restore it from "
+            + "backups/\n"), "\(run.all)")
+        #expect(run.output.contains("library.json\n  error   This isn't valid JSON."), "\(run.all)")
+        let json = try parseJSON(await retire(["validate", "--library", library.path, "--json"]).output)
+        #expect(json["readOnly"] as? Bool == true)
+
+        let set = await retire(["settings", "--library", library.path, "--citizenship", "IT"])
+        #expect(set.status != 0)
+        #expect(set.errors.contains("library.json: The file can't be read. The library is open read-only"), "\(set.all)")
+        #expect(try library.text("library.json") == broken)
+    }
+
     @Test func tradesThatNeedMoreThanTheirFileAreChecked() async throws {
         let library = try TemporaryFolder.exampleLibrary()
         // A statement listing one VWCE too few, and a sale of more than Directa holds.

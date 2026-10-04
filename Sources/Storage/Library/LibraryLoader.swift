@@ -11,8 +11,10 @@ extension LibraryFolder {
     /// are left out. Files that aren't library data files are ignored.
     ///
     /// A library written by a newer app version loads read-only (see
-    /// ``LoadReport/isReadOnly``). Throws only if the folder doesn't exist
-    /// or can't be listed.
+    /// ``LoadReport/isReadOnly``), and so does one whose `library.json`
+    /// exists but can't be used (``LoadReport/settingsUnreadable``): its
+    /// settings are the defaults in memory, which must not be saved over
+    /// the file. Throws only if the folder doesn't exist or can't be listed.
     public func load() throws -> LoadResult {
         guard files.fileExists(at: root) else { throw StorageError.folderNotFound(path: root.path) }
         var loader = LibraryLoader(folder: self)
@@ -34,7 +36,8 @@ extension LibraryFolder {
             ($0.element.path, $0.element.severity == .error ? 0 : 1, $0.offset)
                 < ($1.element.path, $1.element.severity == .error ? 0 : 1, $1.offset)
         }.map(\.element)
-        let report = LoadReport(issues: issues, schemaVersion: loader.schemaVersion, filesRead: loader.filesRead)
+        let report = LoadReport(issues: issues, schemaVersion: loader.schemaVersion, filesRead: loader.filesRead,
+                                settingsUnreadable: loader.settingsUnreadable)
         return LoadResult(library: library, report: report)
     }
 
@@ -57,6 +60,8 @@ struct LibraryLoader {
     var issues: [LoadIssue] = []
     var filesRead = 0
     var schemaVersion: Int?
+    /// Whether `library.json` exists but couldn't be used (``LoadReport/settingsUnreadable``).
+    var settingsUnreadable = false
 
     init(folder: LibraryFolder, today: CalendarDate = .today()) {
         self.folder = folder
@@ -79,7 +84,10 @@ struct LibraryLoader {
             return
         }
         guard let (data, json) = read(path) else {
-            if file == .settings { schemaVersion = nil }
+            if file == .settings {
+                schemaVersion = nil
+                markSettingsUnreadable()
+            }
             return
         }
         load(file, data: data, json: json, into: &library)
@@ -90,7 +98,10 @@ struct LibraryLoader {
     mutating func load(_ file: LibraryFile, data: Data, into library: inout Library) {
         remove(file, from: &library)
         guard let json = parse(data, path: file.path) else {
-            if file == .settings { schemaVersion = nil }
+            if file == .settings {
+                schemaVersion = nil
+                markSettingsUnreadable()
+            }
             return
         }
         load(file, data: data, json: json, into: &library)
@@ -178,9 +189,25 @@ struct LibraryLoader {
         }
         if let settings = decode(LibrarySettings.self, json, data: data, path: path) {
             library.settings = settings
-        } else if let version {
+            return
+        }
+        if let version {
             // Keep the version, so the schema guard still applies.
             library.settings.schemaVersion = version
+        }
+        // A newer app's settings are expected not to decode; that's read-only already.
+        if !(version.map { $0 > current } ?? false) { markSettingsUnreadable() }
+    }
+
+    /// Notes that `library.json` exists but can't be used, so the library
+    /// opens read-only, and says so in the file's error.
+    private mutating func markSettingsUnreadable() {
+        settingsUnreadable = true
+        let path = LibraryFile.settings.path
+        if let index = issues.lastIndex(where: { $0.path == path && $0.severity == .error }) {
+            issues[index].message += " " + LoadReport.unreadableSettingsAdvice
+        } else {
+            error(path, "The file can't be read. " + LoadReport.unreadableSettingsAdvice)
         }
     }
 

@@ -19,18 +19,49 @@ public struct LoadReport: Hashable, Sendable {
     public var schemaVersion: Int?
     /// The number of data files read.
     public var filesRead: Int
+    /// Whether `library.json` exists but couldn't be used: it can't be read,
+    /// isn't valid JSON, or doesn't hold the settings. The library then has
+    /// default settings in memory and is open read-only, so a save can't
+    /// replace your settings with those defaults (see ``readOnlyReason``).
+    /// `false` when there's no `library.json` at all.
+    public var settingsUnreadable: Bool
 
-    public init(issues: [LoadIssue] = [], schemaVersion: Int? = nil, filesRead: Int = 0) {
+    public init(issues: [LoadIssue] = [], schemaVersion: Int? = nil, filesRead: Int = 0,
+                settingsUnreadable: Bool = false) {
         self.issues = issues
         self.schemaVersion = schemaVersion
         self.filesRead = filesRead
+        self.settingsUnreadable = settingsUnreadable
     }
 
     /// Whether the library was written by a newer app version. It is then
     /// open read-only: every save throws ``StorageError/libraryIsNewer(version:supported:)``.
-    public var isReadOnly: Bool {
+    public var isNewerSchema: Bool {
         schemaVersion.map { $0 > LibrarySettings.currentSchemaVersion } ?? false
     }
+
+    /// Whether the library is open read-only: it was written by a newer app
+    /// version (``isNewerSchema``), or its `library.json` can't be used
+    /// (``settingsUnreadable``). Every save then throws.
+    public var isReadOnly: Bool {
+        isNewerSchema || settingsUnreadable
+    }
+
+    /// Why the library is open read-only, in plain words, or `nil` when it isn't.
+    public var readOnlyReason: String? {
+        if let schemaVersion, isNewerSchema {
+            return StorageError.libraryIsNewer(version: schemaVersion, supported: LibrarySettings.currentSchemaVersion)
+                .description
+        }
+        return settingsUnreadable ? Self.unreadableSettingsReason : nil
+    }
+
+    /// Why a library whose `library.json` exists but can't be used is read-only.
+    public static let unreadableSettingsReason = "library.json can't be read. " + unreadableSettingsAdvice
+
+    /// What a library whose `library.json` can't be used means, and what to do.
+    static let unreadableSettingsAdvice = "The library is open read-only: saving would replace your settings with "
+        + "defaults. Fix the file, or restore it from a backup in backups/, then open the library again."
 
     /// Whether the library uses an older schema and must be migrated (see
     /// ``LibraryFolder/migrate(to:steps:date:)``) before it can be saved.

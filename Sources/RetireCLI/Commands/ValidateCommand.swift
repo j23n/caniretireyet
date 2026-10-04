@@ -68,9 +68,16 @@ struct ValidateCommand: RetireSubcommand {
         var versionText: String {
             let current = LibrarySettings.currentSchemaVersion
             guard let version = load.schemaVersion else { return "unknown (library.json can't be read)" }
-            if load.isReadOnly { return "\(version), newer than this version understands (\(current))" }
+            if load.isNewerSchema { return "\(version), newer than this version understands (\(current))" }
             if load.needsMigration { return "\(version), older than this version's \(current): upgrade before saving" }
             return "\(version) (current)"
+        }
+
+        /// Whether the library is read-only, and what to do about it.
+        var readOnlyText: String {
+            if load.isNewerSchema { return "yes: update the app to make changes" }
+            if load.settingsUnreadable { return "yes: library.json can't be read; fix it or restore it from backups/" }
+            return "no"
         }
 
         var contentsText: String {
@@ -92,7 +99,7 @@ struct ValidateCommand: RetireSubcommand {
             var lines = ["Library \(folder.root.path)"]
             var table = TextTable([.left(""), .left("")], showsHeader: false)
             table.add(["Format version", versionText])
-            table.add(["Read-only", load.isReadOnly ? "yes: update the app to make changes" : "no"])
+            table.add(["Read-only", readOnlyText])
             table.add(["Files read", "\(load.filesRead)"])
             table.add(["Contents", contentsText])
             lines += table.lines()
