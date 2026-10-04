@@ -707,7 +707,7 @@ On iPhone, journals use "Import with profile…" with a saved ledger profile, li
 | You | Name, birth date, citizenships (each with a remove button, and *Add Citizenship*: "Some tax treaties decide by citizenship which country taxes a pension."), base currency, tax residence (the default for new plans), and **Inflation**: *Automatic: Italy* (the tax residence's HICP, else the base currency's; `inflationIndex` left out) or a choice of the euro area and every country with an HICP |
 | Prices | Price source per instrument kind (inflation: Eurostat HICP), API keys (stored in the Keychain), fetch on check-in |
 | Check-in reminder | Day of the month and time. This device only, so you aren't reminded twice. |
-| Privacy | Face ID lock, hide amounts on launch, hide amounts in the app switcher |
+| Privacy | Hide amounts, hide amounts when the app opens, and (iPhone and iPad) cover the app in the app switcher: the whole screen is covered while the app isn't active. The footer says only that. A Face ID lock is planned (M3), not built. |
 | About | The version and the library's format, and under them: "Results are estimates from simplified models of tax and pension rules, which change every year. They aren't financial, tax or legal advice: check important decisions with a professional. Tax rules cover Italy, Switzerland (the cantons of Zurich and Ticino) and Germany for 2026; elsewhere plans use a generic system with flat rates you choose." |
 
 ## Design system
@@ -764,8 +764,9 @@ On iPhone, journals use "Import with profile…" with a saved ledger profile, li
 **Privacy.**
 
 - An eye button hides every amount (`•••••`) while charts keep their shape and a relative value axis: net worth (and an account's value) in multiples of today's (`0`, `1×`, `2×`), the plan's money (and the Overview's chart with *Future* on) in multiples of today's plan assets, retirement income in multiples of the spending. Only labels that would reveal amounts hide; the change since the last check-in shows in per cent.
-- Amounts are marked `.privacySensitive()`, so widgets and the app switcher hide them when the device is locked.
-- Optional Face ID lock.
+- Amounts are marked `.privacySensitive()`, so the widgets (M3) can hide them when the device is locked.
+- *Cover the app in the app switcher* (iPhone and iPad) covers the whole screen while the app isn't active.
+- Optional Face ID lock (M3, not built yet).
 
 **Accessibility.**
 

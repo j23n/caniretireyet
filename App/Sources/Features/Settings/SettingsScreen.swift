@@ -340,8 +340,18 @@ private struct PrivacySection: View {
         } header: {
             Text("Privacy")
         } footer: {
-            Text("Hidden amounts show as •••••; charts keep their shape. Widgets and the app switcher hide amounts while the device is locked.")
+            Text(Self.footer)
         }
+    }
+
+    /// What each toggle does; covering the app is only offered on iPhone and iPad.
+    private static var footer: String {
+        #if os(iOS)
+        return "Hidden amounts show as •••••; charts keep their shape. Covering the app hides the whole screen "
+            + "while the app isn't active, as in the app switcher."
+        #else
+        return "Hidden amounts show as •••••; charts keep their shape."
+        #endif
     }
 }
 
