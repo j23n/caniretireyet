@@ -110,7 +110,11 @@ Because gains are taxed separately from IRPEF, the gross-up for a withdrawal is 
 
 1. Professional income = revenue − deductible costs.
 2. INPS Gestione Separata as above, but on the full professional income. The contributions are then deducted from taxable income.
-3. IRPEF and addizionali as for employees. The self-employment detrazione is smaller, and there is no cuneo relief.
+3. IRPEF and addizionali as for employees. The self-employment detrazione is smaller (TUIR art. 13 c. 5 and 5-bis, where R is total income), and there is no cuneo relief:
+   - €1,265 up to €5,500;
+   - 500 + 765 × (28,000 − R) / 22,500 up to €28,000;
+   - 500 × (50,000 − R) / 22,000 up to €50,000;
+   - plus €50 between €11,000 and €17,000.
 4. With impatriati, only 50% of the professional income counts toward IRPEF (40% with a minor child). INPS contributions are still charged on all of it.
 5. VAT passes through and isn't modelled.
 

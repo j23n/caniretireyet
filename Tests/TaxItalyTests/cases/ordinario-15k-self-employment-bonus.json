@@ -1,0 +1,51 @@
+{
+  "name": "Regime ordinario, 18,000 revenue and 3,000 costs: the self-employment detrazione's 50-euro bonus",
+  "year": 2026,
+  "input": {
+    "age": 40,
+    "systemOptions": {
+      "addizionaleRegionale": "0.0173",
+      "addizionaleComunale": "0.008"
+    },
+    "overlays": [],
+    "work": [
+      {
+        "phaseID": "freelance",
+        "kind": "selfEmployed",
+        "regime": "it.professional",
+        "gross": 18000.0,
+        "costs": 3000.0
+      }
+    ]
+  },
+  "expected": {
+    "lines": {
+      "it.irpef": 1558.585,
+      "it.addizionaleRegionale": 191.84835,
+      "it.addizionaleComunale": 88.716
+    },
+    "contributions": {
+      "it.inps.gestioneSeparata": 3910.5
+    },
+    "accruals": {
+      "pensionScheme:it.inps": 3750.0
+    },
+    "contributionMonths": 9,
+    "totalTax": 1839.14935,
+    "netIncome": 9250.35065
+  },
+  "workings": [
+    "A freelancer outside forfettario (regime ordinario), e.g. after leaving it: TUIR art. 13 c. 5 and 5-bis",
+    "Professional income: 18,000.00 − 3,000.00 = 15,000.00",
+    "Gestione Separata on all of it: 26.07% × 15,000.00 = 3,910.50; below the 18,808 minimum base, so 12 × 15,000 / 18,808 = 9.57, i.e. 9 months count",
+    "Total income R = 15,000.00; taxable after deducting the contributions: 15,000.00 − 3,910.50 = 11,089.50",
+    "Gross IRPEF on 11,089.50: 23% × 11,089.50 = 2,550.585",
+    "Self-employment detrazione (c. 5 lett. b): 500 + 765 × (28,000 − 15,000) / 22,500 = 500 + 442.00 = 942.00",
+    "Bonus (c. 5-bis, L. 234/2021): + 50, as R = 15,000 is above 11,000 and not above 17,000; detrazione = 992.00",
+    "Net IRPEF: 2,550.585 − 992.00 = 1,558.585 (no cuneo for the self-employed)",
+    "Addizionale regionale: 1.73% × 11,089.50 = 191.84835; comunale: 0.8% × 11,089.50 = 88.716",
+    "Total tax: 1,558.585 + 191.84835 + 88.716 = 1,839.14935",
+    "INPS montante credit: 25% × 15,000.00 = 3,750.00",
+    "Net income: 18,000.00 − 3,000.00 − 3,910.50 − 1,839.14935 = 9,250.35065"
+  ]
+}
