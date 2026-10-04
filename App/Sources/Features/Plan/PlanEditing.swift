@@ -216,6 +216,28 @@ enum PlanEditing {
         + "is the average year, the median the typical one, which a portfolio rebalanced every year grows at. Enter "
         + "either: the other follows from the volatility."
 
+    /// The note on a class whose return repeats an earlier version's default
+    /// exactly (`PlanAssumptions.previousDefaultReturn(for:)`), which the plan
+    /// most likely didn't choose: "This is the previous default (4.5%
+    /// average). The current default is a 5.0% typical year." `nil` for any
+    /// other class.
+    static func previousDefaultNote(for assetClass: AssetClass, in assumptions: PlanAssumptions,
+                                    locale: Locale = .current) -> String? {
+        guard let previous = assumptions.previousDefaultReturn(for: assetClass),
+              let current = PlanAssumptions.defaultReturns[assetClass] else { return nil }
+        return "This is the previous default (\(returnInWords(previous, locale: locale))). "
+            + "The current default is a \(returnInWords(current, locale: locale))."
+    }
+
+    /// "4.5% average" for a return given by its mean, "5.0% typical year"
+    /// for one given by its median, to one decimal.
+    private static func returnInWords(_ assumption: ReturnAssumption, locale: Locale) -> String {
+        let value = assumption.isGivenByMedian ? assumption.impliedMedianReal : assumption.real
+        let text = AmountFormat.typographicMinus(NSDecimalNumber(decimal: value).doubleValue
+            .formatted(.percent.precision(.fractionLength(1)).locale(locale)))
+        return assumption.isGivenByMedian ? "\(text) typical year" : "\(text) average"
+    }
+
     // MARK: Lists
 
     /// `list` without the item at `index` (if it's there).

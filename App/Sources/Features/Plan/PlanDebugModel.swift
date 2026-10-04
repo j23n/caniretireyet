@@ -65,7 +65,7 @@ struct PlanDebugSource: Sendable {
             }
         }
         if let equity = whatIf.equityReturn {
-            changes.append("an equity return of \(PlanDebugText.number((equity.doubleValue * 1000).rounded() / 10))%")
+            changes.append("equity's typical year at \(PlanDebugText.number((equity.doubleValue * 1000).rounded() / 10))%")
         }
         if !changes.isEmpty {
             notes.insert("Calculated with your what-if, which isn't saved in the plan: "

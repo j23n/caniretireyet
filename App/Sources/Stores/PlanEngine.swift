@@ -73,7 +73,8 @@ struct PlanWhatIf: Hashable, Sendable {
     var retiredSpending: Decimal?
     /// Monthly saving while working.
     var monthlySaving: Decimal?
-    /// The expected real return on equity, as a fraction.
+    /// Equity's median real return (its typical year), as a fraction; the
+    /// mean follows from it and the plan's volatility.
     var equityReturn: Decimal?
 
     var isEmpty: Bool {

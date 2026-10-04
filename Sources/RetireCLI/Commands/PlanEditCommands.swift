@@ -112,24 +112,47 @@ struct PlanInputsReport {
         lines.append("Returns, real, a year")
         var table = TextTable([.left("Class"), .right("Mean"), .right("Median"), .right("Volatility"),
                                .right("Income yield"), .left("Set as")])
+        var previousDefaults: [AssetClass] = []
         for (assetClass, assumption) in returns() {
+            let isPreviousDefault = plan.assumptions.previousDefaultReturn(for: assetClass) != nil
+            if isPreviousDefault { previousDefaults.append(assetClass) }
             table.add([assetClass.rawValue, Format.percent(assumption.real), Format.percent(assumption.impliedMedianReal),
                        Format.percent(assumption.volatility), Format.percent(assumption.incomeYield),
-                       Self.setAs(assumption, isDefault: plan.assumptions.returns[assetClass] == nil)])
+                       Self.setAs(assumption, isDefault: plan.assumptions.returns[assetClass] == nil,
+                                  isPreviousDefault: isPreviousDefault)])
         }
         lines += table.lines()
         lines.append("Mean: the average year. Median: the typical year, about what a portfolio rebalanced every year "
             + "grows at; the more volatile the class, the further below the mean.")
         lines.append("Income yield: the part of the return paid as income each year; some countries tax it yearly.")
+        if !previousDefaults.isEmpty {
+            lines.append("Previous default: what an earlier version used as the default, which the plan most likely "
+                + "didn't choose.")
+            lines.append("  " + Self.currentDefaults(for: previousDefaults) + " To use "
+                + (previousDefaults.count == 1 ? "it:" : "them:"))
+            lines.append("  retire plan set " + previousDefaults.map { "--return \($0.rawValue)=default" }
+                .joined(separator: " "))
+        }
         return lines
     }
 
-    /// "mean", "median (default)", "mean (median ignored)": what a return
-    /// assumption is given by, and where it comes from.
-    static func setAs(_ assumption: ReturnAssumption, isDefault: Bool) -> String {
+    /// "mean", "median (default)", "mean (median ignored)", "mean (previous
+    /// default)": what a return assumption is given by, and where it comes from.
+    static func setAs(_ assumption: ReturnAssumption, isDefault: Bool, isPreviousDefault: Bool) -> String {
         let given = assumption.setsMeanAndMedian ? "mean (median ignored)"
             : assumption.isGivenByMedian ? "median" : "mean"
-        return isDefault ? given + " (default)" : given
+        if isDefault { return given + " (default)" }
+        return isPreviousDefault ? given + " (previous default)" : given
+    }
+
+    /// "The current default is a median of 5.0% for equity.", or "The
+    /// current defaults are medians of 5.0% for equity, 1.5% for bonds.".
+    static func currentDefaults(for classes: [AssetClass]) -> String {
+        let medians = classes.compactMap { assetClass in
+            PlanAssumptions.defaultReturns[assetClass].map { "\(Format.percent($0.impliedMedianReal)) for \(assetClass)" }
+        }
+        return (medians.count == 1 ? "The current default is a median of " : "The current defaults are medians of ")
+            + medians.joined(separator: ", ") + "."
     }
 
     /// "it from 2026 (Italy), generic from 2048", or the default.
@@ -205,7 +228,8 @@ struct PlanInputsReport {
                      median: (assumption.isGivenByMedian ? assumption.impliedMedianReal
                          : Format.rounded(assumption.impliedMedianReal, places: 6)).fileString,
                      givenAs: assumption.isGivenByMedian ? "median" : "mean",
-                     isDefault: plan.assumptions.returns[assetClass] == nil))
+                     isDefault: plan.assumptions.returns[assetClass] == nil,
+                     isPreviousDefault: plan.assumptions.previousDefaultReturn(for: assetClass) != nil))
              }))
     }
 
@@ -257,6 +281,9 @@ struct PlanInputsReport {
             var givenAs: String
             /// Whether it's the default (the plan sets nothing for the class).
             var isDefault: Bool
+            /// Whether the plan repeats an earlier version's default exactly,
+            /// which it most likely didn't choose.
+            var isPreviousDefault: Bool
         }
 
         var plan: String
@@ -285,7 +312,8 @@ struct PlanSetCommand: RetireSubcommand {
             --return equity=4.5% (or 0.045) sets equity's expected real return as its mean, the average \
             year; --median-return crypto=0% sets it as its median, the typical year, and the mean follows \
             from the median and the volatility. --volatility crypto=70% sets the volatility, keeping \
-            whichever of the two was given. --return equity=default goes back to the default. \
+            whichever of the two was given. --return equity=default goes back to the default, e.g. for a \
+            class `retire plan show` marks as the previous default (an earlier version wrote it). \
             --income-yield equity=0.02 (or 2%) is the part of equity's return paid as income each year, which \
             some countries tax yearly; equity=none removes it. Repeat each for more classes. What equals the \
             default isn't written to the plan.

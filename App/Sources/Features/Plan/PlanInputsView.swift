@@ -306,6 +306,7 @@ struct PlanSpendingEditor: View {
 struct PlanAssumptionsEditor: View {
     @Binding var plan: PlanDocument
     @Environment(LibraryStore.self) private var library
+    @Environment(\.locale) private var locale
 
     private struct AssetRow: Identifiable {
         var assetClass: AssetClass
@@ -354,6 +355,20 @@ struct PlanAssumptionsEditor: View {
                         .frame(maxWidth: 52)
                     Text("%")
                         .foregroundStyle(Palette.secondaryInk)
+                }
+                if let note = PlanEditing.previousDefaultNote(for: row.assetClass, in: plan.assumptions,
+                                                              locale: locale) {
+                    HStack(alignment: .firstTextBaseline, spacing: Metrics.s) {
+                        Text(note)
+                            .foregroundStyle(Palette.secondaryInk)
+                            .fixedSize(horizontal: false, vertical: true)
+                        Spacer(minLength: Metrics.xs)
+                        Button("Use Default") { plan.assumptions.useDefaultReturn(for: row.assetClass) }
+                            .buttonStyle(.borderless)
+                            .disabled(!library.canEdit)
+                            .accessibilityLabel("Use the default return for \(row.name)")
+                    }
+                    .font(.caption)
                 }
             }
             Text(PlanEditing.returnsExplanation)

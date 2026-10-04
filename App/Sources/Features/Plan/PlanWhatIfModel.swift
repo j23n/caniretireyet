@@ -2,7 +2,8 @@ import Foundation
 import Model
 
 /// The What-if sliders (UI.md, "What if"): retirement age, spending, saving
-/// per month and equity return. Each starts at the plan's own value; moving
+/// per month and equity's typical year (its median real return, as the
+/// defaults are given). Each starts at the plan's own value; moving
 /// one sets that field of a `PlanWhatIf`. Values are `Double` for `Slider`.
 enum PlanWhatIfSlider: String, CaseIterable, Hashable, Sendable, Identifiable {
     case retirementAge
@@ -17,7 +18,7 @@ enum PlanWhatIfSlider: String, CaseIterable, Hashable, Sendable, Identifiable {
         case .retirementAge: "Retire at"
         case .spending: "Spending"
         case .saving: "Saving/month"
-        case .equityReturn: "Equity return"
+        case .equityReturn: "Equity, typical year"
         }
     }
 
@@ -51,8 +52,10 @@ struct PlanWhatIfModel: Hashable, Sendable {
     /// Saving per month while working, from the plan's own run.
     var planSaving: Decimal? { results?.details?.focus.monthlySaving }
 
+    /// Equity's median real return in the plan (the typical year), to a
+    /// hundredth of a percent: as written, or derived from the mean.
     var planEquityReturn: Decimal {
-        plan.assumptions.returnAssumption(for: .equity)?.real ?? Decimal(string: "0.045")!
+        PlanAssumptions.rounded(plan.assumptions.returnAssumption(for: .equity)?.impliedMedianReal ?? 0)
     }
 
     /// Whether the slider can be used: the age needs results (for today's

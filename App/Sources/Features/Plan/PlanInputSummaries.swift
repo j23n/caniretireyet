@@ -305,11 +305,19 @@ struct PlanInputSummaries {
 
     var assumptions: String {
         let equity = plan.assumptions.returnAssumption(for: .equity)
-        var equityText = "Equity \(percent(equity?.real ?? 0))"
+        // What the return is given by: the typical year (median) or the average (mean).
+        var equityText = equity.map { $0.isGivenByMedian ? "Equity \(percent($0.impliedMedianReal)) typical year"
+            : "Equity \(percent($0.real)) average" } ?? "Equity \(percent(0))"
         if let income = equity?.incomeYield { equityText += " (\(percent(income)) income)" }
         var parts = [equityText, "Inflation \(percent(plan.assumptions.effectiveInflation))"]
         let otherYields = plan.assumptions.returns.filter { $0.key != .equity && $0.value.incomeYield != nil }.count
         if otherYields > 0 { parts.append(otherYields == 1 ? "1 other income yield" : "\(otherYields) income yields") }
+        // Returns an earlier version wrote as its default (the editor offers the current one).
+        let previous = plan.assumptions.returns.keys
+            .filter { plan.assumptions.previousDefaultReturn(for: $0) != nil }.count
+        if previous > 0 {
+            parts.append(previous == 1 ? "1 previous default return" : "\(previous) previous default returns")
+        }
         if !plan.portfolio.exclude.isEmpty {
             parts.append("\(plan.portfolio.exclude.count) excluded")
         }
