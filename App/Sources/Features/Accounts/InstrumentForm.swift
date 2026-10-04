@@ -287,9 +287,12 @@ struct InstrumentForm: Hashable, Sendable {
         }
     }
 
+    /// A price source's name wherever one is chosen or shown with an
+    /// instrument; Yahoo Finance's is marked unofficial, since the app uses
+    /// its website's interface, which has no terms for apps.
     static func name(of provider: PriceProvider) -> String {
         switch provider {
-        case .yahoo: "Yahoo Finance"
+        case .yahoo: "Yahoo Finance (unofficial)"
         case .coingecko: "CoinGecko"
         case .goldAPI: "gold-api.com"
         case .eodhd: "EODHD"
