@@ -668,7 +668,7 @@ struct PlanDebugContent: Sendable {
         var outcomes = PlanDebugLines()
         let expected = simulation.expectedPath
         outcomes.add("Deterministic run", .text(outcome(expected, endAge: header.endAge)),
-                     note: "expected returns every year")
+                     note: "median returns every year")
         outcomes.add("Left at the end", .money(expected.finalValue))
         let median = simulation.medianPath
         outcomes.add("Median run", .text(outcome(median, endAge: header.endAge)),
@@ -735,7 +735,7 @@ struct PlanDebugContent: Sendable {
         }
         var note = "Across all \(report.header.runs) runs"
         if let scale = PlanDebugText.scale(report) { note += ", starting from \(scale)" }
-        note += ". “Deterministic” is the run with the expected return every year; withdrawals (gross sales and "
+        note += ". “Deterministic” is the run with the median (typical) return every year; withdrawals (gross sales and "
             + "payouts) and taxes are among the runs still going, and “Going” is the share still meeting their "
             + "spending."
         return [PlanDebugBlock(id: "percentiles", note: note, table: table.table)]
@@ -752,7 +752,7 @@ struct PlanDebugContent: Sendable {
             lines.add("Run", .number("\(run)"),
                       note: path.rank.map { "ranked \($0) of \(report.header.runs), from worst to best" })
         } else {
-            lines.add("Run", .text("deterministic"), note: "the expected return every year")
+            lines.add("Run", .text("deterministic"), note: "the median return every year")
         }
         if path.failed {
             lines.add("Fails in", .number(path.failureYear.map(String.init) ?? "?"),

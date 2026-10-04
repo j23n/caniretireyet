@@ -189,8 +189,9 @@ struct PlanDebugTests {
         let report = try await report(PlanDebugOptions(planner: Self.planner, retirementAge: .target))
         let result = try await Planner.run(plan: Self.plan(), library: Self.library,
                                            registry: Sample.registry(Self.system), options: Self.planner)
+        // The schedule has every year; the deterministic run (median returns) stops when its money runs out.
         let years = result.expectedPath.years
-        #expect(report.schedule.years.count == years.count)
+        #expect(!years.isEmpty && report.schedule.years.count >= years.count)
         for (row, detail) in zip(report.schedule.years, years) {
             #expect(row.year == detail.year && row.age == detail.age)
             let work = detail.income.filter { $0.kind == .work }.reduce(0) { $0 + $1.amount }

@@ -586,7 +586,7 @@ struct PlanDebugMarkdown {
         line("## 6. Percentiles by year (retiring at \(age))")
         line()
         paragraph("Across all \(report.header.runs) runs, starting from \(startText): plan assets at each year-end, "
-            + "from the 10th to the 90th percentile, and the deterministic run's (expected returns every year). "
+            + "from the 10th to the 90th percentile, and the deterministic run's (median returns every year). "
             + "Withdrawals (gross sales and "
             + "payouts) and taxes are among the runs still going; \"Going\" is the share of runs still meeting their "
             + "spending at the year-end.")

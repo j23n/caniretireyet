@@ -53,7 +53,7 @@ public struct PlanDebugOptions: Hashable, Sendable {
     public var retirementAge: RetirementAge
     public var startScale: StartScale
     public var paths: Paths
-    /// Whether to trace the deterministic run (expected returns every year) too.
+    /// Whether to trace the deterministic run (median returns every year) too.
     public var tracesExpectedPath: Bool
     /// Anonymizes the report as ``PlanDebugReport/anonymized(_:)`` does; `nil` keeps every name.
     public var anonymization: PlanDebugAnonymization?

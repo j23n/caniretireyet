@@ -659,7 +659,7 @@ private struct Builder {
 
         var paths: [PlanDebugReport.TracedPath] = []
         if options.tracesExpectedPath {
-            paths.append(trace(run: nil, kind: "expected", label: "The deterministic run (expected returns every year)",
+            paths.append(trace(run: nil, kind: "expected", label: "The deterministic run (median returns every year)",
                                rank: nil).path)
         }
         var median: PlanDebugReport.PathOutcome?

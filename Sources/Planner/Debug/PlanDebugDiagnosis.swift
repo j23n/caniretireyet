@@ -77,9 +77,9 @@ public enum PlanDebugDiagnosis {
         let expected = report.simulation.expectedPath
         let median = report.simulation.medianPath
         var paths = expected.failed
-            ? "Even with the expected return every year (no ups and downs), the money runs out at "
+            ? "Even with the median (typical) return every year (no ups and downs), the money runs out at "
                 + "\(expected.failureAge.map(String.init) ?? "?") (\(expected.failureYear.map(String.init) ?? "?"))"
-            : "With the expected return every year (no ups and downs), the money lasts to \(report.header.endAge), with "
+            : "With the median (typical) return every year (no ups and downs), the money lasts to \(report.header.endAge), with "
                 + "\(f.money(expected.finalValue)) \(currency) left"
         paths += median.failed
             ? "; the median simulated run runs out at \(median.failureAge.map(String.init) ?? "?")."

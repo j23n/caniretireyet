@@ -169,12 +169,16 @@ struct ReturnModel: Sendable {
         exp(logMean[index] * fraction + logSD[index] * fraction.squareRoot() * draw)
     }
 
-    /// The deterministic factor: the expected return, compounded over
-    /// `fraction` of a year. Computed exactly as a draw with no volatility
-    /// is, so Monte Carlo with zero volatility reproduces the deterministic
-    /// run bit for bit.
+    /// The deterministic factor: the median return (the typical year, a
+    /// draw of zero), compounded over `fraction` of a year. Not the mean:
+    /// compounding a volatile class's average year every year runs far
+    /// ahead of what any typical future does (crypto at a 0% median and 70%
+    /// volatility averages +16.6% a year). With no volatility the median is
+    /// the mean, and this is computed exactly as such a draw is, so Monte
+    /// Carlo with zero volatility reproduces the deterministic run bit for
+    /// bit.
     func expectedFactor(index: Int, fraction: Double) -> Double {
-        exp(log(1 + expected[index]) * fraction)
+        exp(logMean[index] * fraction)
     }
 }
 

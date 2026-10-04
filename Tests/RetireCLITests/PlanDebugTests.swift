@@ -23,7 +23,7 @@ struct PlanDebugCommandTests {
                         "## 6. Percentiles by year (retiring at 38)", "## 7. Traced paths", "## 8. Issues"] {
             #expect(run.output.contains(heading), "\(heading)")
         }
-        #expect(run.output.contains("### The deterministic run (expected returns every year)"))
+        #expect(run.output.contains("### The deterministic run (median returns every year)"))
         #expect(run.output.contains("### The median outcome"))
         // Crypto, given by its median (0%) since the debugger found the old mean of 0% drags the mix down.
         #expect(run.output.contains("| Crypto | "))

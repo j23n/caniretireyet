@@ -35,7 +35,7 @@ Each year:
 5. What's still off the target mix is rebalanced. In a taxable account that's a sale like any other: its gain is taxed, and a loss offsets gains as far as the tax system allows, in the year or carried forward.
 6. The portfolio earns that year's return.
 
-**Deterministic and Monte Carlo runs.** The deterministic run uses the expected returns. The Monte Carlo simulation repeats the same steps 2,000 times with random returns.
+**Deterministic and Monte Carlo runs.** The deterministic run uses each class's median return every year: the typical year, not the average one, which for a volatile class compounds far ahead of any typical future (crypto at a 0% median and 70% volatility averages +16.6% a year). With no volatility the two are the same. The Monte Carlo simulation repeats the same steps 2,000 times with random returns.
 
 ## Plan file
 

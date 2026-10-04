@@ -108,7 +108,8 @@ struct RebalancingTests {
             year.year != withCash.path.failure?.year
                 && year.income.contains { $0.kind == .withdrawal && $0.amount > 1_000 }
         }
-        #expect(sellingYears.count > 30)
+        // The deterministic run compounds the median return, so it runs out before 95.
+        #expect(sellingYears.count > 20)
         for year in sellingYears {
             #expect(year.taxes.contains { $0.id == "it.capitalGains" && $0.amount > 0 }, "\(year.year)")
         }
