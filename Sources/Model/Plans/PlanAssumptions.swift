@@ -109,9 +109,15 @@ extension PlanAssumptions {
 /// differ by the volatility: with gross mean A = 1 + mean, gross median
 /// g = 1 + median and volatility σ, g = A² / √(A² + σ²). So a median of 0%
 /// at 70% volatility is a mean of about 16.6%, and a mean of 0% at 70% is
-/// a median of about −18% a year. A file that writes both keys gets `real`,
-/// which is what older versions read, so every version computes the same;
-/// the planner warns (`planner.meanAndMedian`).
+/// a median of about −18% a year.
+///
+/// A return given by its median is written with both keys: `medianReal`,
+/// and `real` as the mean it implies (to 6 decimals), because older
+/// versions read only `real` and can't open a plan without it. Reading,
+/// when the two agree the median counts; when they don't (an older version
+/// changed the mean or the volatility, keeping `medianReal` as an unknown
+/// key), `real` wins, which is what that version computed with, and the
+/// planner warns (`planner.meanAndMedian`).
 public struct ReturnAssumption: Hashable, Sendable, KnownKeysProviding {
     /// `real` as written; `nil` when the plan gives only `medianReal`.
     private var writtenReal: Decimal?
@@ -180,8 +186,10 @@ public struct ReturnAssumption: Hashable, Sendable, KnownKeysProviding {
     /// and `real` isn't.
     public var isGivenByMedian: Bool { writtenReal == nil && writtenMedian != nil }
 
-    /// Whether both `real` and `medianReal` are written (only a file edited
-    /// by hand does that): `real` wins, and `medianReal` is ignored.
+    /// Whether the file's `real` and `medianReal` disagree (an older version
+    /// or a hand edit changed one of them): `real` wins, and `medianReal` is
+    /// ignored. A `real` that is just the mean the median implies, as this
+    /// version writes it, doesn't count.
     public var setsMeanAndMedian: Bool { writtenReal != nil && writtenMedian != nil }
 
     /// The expected (arithmetic mean) yearly real return as a `Double`,
@@ -249,15 +257,37 @@ extension ReturnAssumption: Codable {
             throw DecodingError.keyNotFound(CodingKeys.real, DecodingError.Context(
                 codingPath: c.codingPath, debugDescription: "A return needs real (its mean) or medianReal."))
         }
+        // `real` written next to `medianReal` for older versions: the median counts.
+        if let real = writtenReal, let median = writtenMedian,
+           abs(real - Self.compatibleMean(median: median, volatility: volatility)) <= Self.compatibilityTolerance {
+            writtenReal = nil
+        }
     }
 
+    /// Writes `volatility` and `real` or `medianReal`; a return given by its
+    /// median also gets `real`, the mean it implies, for older versions.
     public func encode(to encoder: any Encoder) throws {
         var c = encoder.container(keyedBy: CodingKeys.self)
-        try c.encodeDecimalIfPresent(writtenReal, forKey: .real)
+        if let writtenReal {
+            try c.encodeDecimal(writtenReal, forKey: .real)
+        } else if let writtenMedian {
+            try c.encodeDecimal(Self.compatibleMean(median: writtenMedian, volatility: volatility), forKey: .real)
+        }
         try c.encodeDecimalIfPresent(writtenMedian, forKey: .medianReal)
         try c.encodeDecimal(volatility, forKey: .volatility)
         try c.encodeDecimalIfPresent(incomeYield, forKey: .incomeYield)
     }
+
+    /// The mean a median implies, to 6 decimals: the `real` written next to
+    /// `medianReal` for older versions.
+    static func compatibleMean(median: Decimal, volatility: Decimal) -> Decimal {
+        let mean = arithmeticMean(median: median.doubleForReturns, volatility: volatility.doubleForReturns)
+        return Decimal(mean).rounded(scale: 6)
+    }
+
+    /// How far `real` may be from ``compatibleMean(median:volatility:)`` and
+    /// still be the copy written for older versions: half the last digit.
+    static let compatibilityTolerance = Decimal(string: "0.0000005")!
 }
 
 private extension Decimal {

@@ -24,7 +24,15 @@ struct ReturnAssumptionTests {
         let decoded = try decode(ReturnAssumption.self, median)
         #expect(decoded == ReturnAssumption(medianReal: 0, volatility: Self.d("0.7")))
         #expect(decoded.isGivenByMedian && decoded.medianReal == 0 && decoded.realAsWritten == nil)
-        #expect(try json(decoded) == median)
+        // Written with the mean it implies too, for older versions that read only `real`…
+        let withMean = #"{"medianReal":"0","real":"0.16629","volatility":"0.7"}"#
+        #expect(try json(decoded) == withMean)
+        // …which reads back as given by its median.
+        let reread = try decode(ReturnAssumption.self, withMean)
+        #expect(reread == decoded && reread.isGivenByMedian && !reread.setsMeanAndMedian)
+        // A mean that doesn't match (an older version changed it): the mean wins.
+        let changed = try decode(ReturnAssumption.self, #"{"medianReal":"0","real":"0.05","volatility":"0.7"}"#)
+        #expect(changed.setsMeanAndMedian && !changed.isGivenByMedian && changed.real == Self.d("0.05"))
 
         let mean = #"{"incomeYield":"0.02","real":"0.045","volatility":"0.17"}"#
         let byMean = try decode(ReturnAssumption.self, mean)
@@ -107,7 +115,7 @@ struct ReturnAssumptionTests {
         var crypto = try #require(assumptions.returnAssumption(for: .crypto))
         crypto.volatility = Self.d("0.5")
         assumptions.setReturnAssumption(crypto, for: .crypto)
-        #expect(try json(assumptions) == #"{"returns":{"crypto":{"medianReal":"0","volatility":"0.5"}}}"#)
+        #expect(try json(assumptions) == #"{"returns":{"crypto":{"medianReal":"0","real":"0.098684","volatility":"0.5"}}}"#)
 
         // Back to the default: the entry goes.
         crypto.volatility = Self.d("0.70")

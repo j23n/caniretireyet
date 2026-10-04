@@ -42,7 +42,8 @@ struct PlanEditTests {
         #expect(median.status == 0, "\(median.all)")
         #expect(median.output.hasPrefix("Return of crypto: median 1.0% (mean 10.8%) at 50.0% volatility.\n"))
         let written = try library.text("plans/\(plan).json")
-        #expect(written.contains(#""medianReal": "0.01""#) && !written.contains(#""real""#), "\(written)")
+        // The median, and the mean it implies for older versions.
+        #expect(written.contains(#""medianReal": "0.01""#) && written.contains(#""real": "0.108065""#), "\(written)")
 
         let mean = await retire(["plan", "set", "--library", library.path, "--plan", plan, "--return", "equity=5%"])
         #expect(mean.output.hasPrefix("Return of equity: mean 5.0% (median 3.7%) at 17.0% volatility.\n"))
