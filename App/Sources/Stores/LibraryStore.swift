@@ -465,6 +465,13 @@ final class LibraryStore {
         lastError = nil
     }
 
+    /// Shows `message` where a failed save shows (``lastError``): something
+    /// that went wrong with the library outside an edit, e.g. a check-in's
+    /// answer that couldn't be recorded.
+    func reportError(_ message: String) {
+        lastError = message
+    }
+
     /// Forgets the merged conflicts and save notices shown in "Needs attention".
     func dismissMergedConflicts() {
         mergedConflicts = []

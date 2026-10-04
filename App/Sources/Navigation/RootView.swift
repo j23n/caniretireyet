@@ -8,6 +8,7 @@ struct RootView: View {
     @Environment(LibraryStore.self) private var library
     @Environment(AppNavigation.self) private var navigation
     @Environment(CheckInStore.self) private var checkIn
+    @Environment(PlanStore.self) private var plans
     @Environment(PrivacySettings.self) private var privacy
     @Environment(\.scenePhase) private var scenePhase
     #if os(iOS)
@@ -24,6 +25,10 @@ struct RootView: View {
             .onChange(of: scenePhase) { _, phase in
                 if phase != .active { checkIn.persistNow() }
                 if phase == .active { Task { await library.refreshFromDisk() } }
+            }
+            .onChange(of: library.phase) { _, phase in
+                // A check-in's answer that the app was closed before recording.
+                if phase == .ready { plans.recordMissingCheckInAnswer() }
             }
             .onOpenURL { url in
                 openFile(url)
