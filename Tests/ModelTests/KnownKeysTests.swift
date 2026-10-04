@@ -46,7 +46,8 @@ struct KnownKeysTests {
         contributions: [contribution],
         events: [PlanEvent(name: "I", timing: .age(62), amount: 150_000, probability: d("0.8"), kind: .inheritance)],
         portfolio: PlanPortfolio(start: .latestCheckIn, unrealizedGainShare: d("0.2"), exclude: ["gold-coins"],
-                                 targetMix: [.equity: 1]),
+                                 targetMix: [.equity: 1],
+                                 targetMixByAge: [TargetMixStep(fromAge: .retirement, mix: [.bonds: 1])]),
         assumptions: PlanAssumptions(inflation: d("0.02"), returns: [.equity: ReturnAssumption(real: d("0.045"), volatility: d("0.17"))],
                                      correlations: CorrelationTable([.equity: [.bonds: d("0.1")]])),
         withdrawals: PlanWithdrawals(strategy: .fixedReal, cashBuffer: 10000),
@@ -88,6 +89,7 @@ struct KnownKeysTests {
         (plan.pensions[0], PlanPension.knownKeys),
         (plan.contributions[0], PlanContribution.knownKeys),
         (plan.portfolio, PlanPortfolio.knownKeys),
+        (plan.portfolio.targetMixByAge[0], TargetMixStep.knownKeys),
         (plan.assumptions, PlanAssumptions.knownKeys),
         // Only a file edited by hand writes both the mean and the median.
         (try! JSONDecoder().decode(ReturnAssumption.self, from: Data(
