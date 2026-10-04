@@ -13,8 +13,7 @@ let libraries: [(name: String, dependencies: [Target.Dependency])] = [
     ("TaxKit", []),
     ("TaxGeneric", ["TaxKit"]),
     ("TaxItaly", ["TaxKit"]),
-    // The Swiss and German systems (docs/tax/CH.md, DE.md), like TaxItaly:
-    // placeholders until they're built, so filling them in needs no change here.
+    // The Swiss and German systems (docs/tax/CH.md, DE.md), like TaxItaly.
     ("TaxSwitzerland", ["TaxKit"]),
     ("TaxGermany", ["TaxKit"]),
     ("Planner", ["Model", "Tracker", "TaxKit"]),
@@ -38,7 +37,7 @@ let testResources: [String: [Resource]] = [
 
 /// Test targets that need more than their module and `TestSupport`. The
 /// planner's end-to-end tests run the example plans with the real tax
-/// systems (the Swiss and German ones once they're built); the `Planner`
+/// systems (Italian, Swiss, German and generic); the `Planner`
 /// module itself still sees taxes only through TaxKit.
 /// The importer's tests check the holdings, average cost and cash of
 /// imported trades with Tracker's `TradeLedger`; `Importer` itself doesn't use it.
