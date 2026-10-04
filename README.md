@@ -47,6 +47,7 @@ swift run retire plan --library <folder> --years                 # the answer, a
 swift run retire plan show --library <folder>                    # also set, contribution, pension
 swift run retire plan set --library <folder> --target-mix equity=80%,bonds=20% \
     --target-mix-from retirement:equity=60%,bonds=40%            # the mix to rebalance to, by age
+swift run retire plan set --library <folder> --flexible on --flexible-floor 80%   # cut spending after bad years
 swift run retire plan debug --library <folder> --anonymize --output report.md   # every calculation, to share
 ```
 

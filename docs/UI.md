@@ -527,6 +527,31 @@ A plan is calculated only when you ask: *Calculate*, *Recalculate* (⌘R, and a 
   - A one-off (a windfall, the TFR) that would flatten the rest runs off the top, with a note under the chart: "Inheritance in 2050 (150k €) runs off the top."
   - *Taxes* switches to the same years stacked by tax line: IRPEF, addizionali, the tax on gains, and the 0.2% wealth tax.
 - **When it fails.** A sentence or two about the failing runs, including bridge failures, i.e. running out before locked money opens.
+- **Flexible spending** (only for a plan that uses it, [PLANNER.md](PLANNER.md#flexible-spending)): a card after *When it fails*, titled "Flexible spending (cuts of 10% down to 80%)", for the age the charts are for:
+
+  ```
+  ┌──────────────────────────────────────────┐
+  │ Flexible spending (cuts of 10% down to   │
+  │ 80%)                                     │
+  │ In a bad case (1 in 10) you'd spend as   │
+  │ little as 28.800 € a year for a while;   │
+  │ half of all futures never cut.           │
+  │ Half of all futures spend 4 or more of   │
+  │ 41 years in retirement below your plan's │
+  │ spending.                                │
+  │ Spending is cut by 10% of the plan's     │
+  │ when the share of your money you draw    │
+  │ rises 20% above the first year's, and    │
+  │ restored when it falls 20% below: never  │
+  │ under 28.800 € a year, nor above         │
+  │ 36.000 €. Retiring at 55.                │
+  └──────────────────────────────────────────┘
+  ```
+
+  - The first sentence is the lowest spending of a 10th-percentile future (ranked by how low they go) and how many futures never cut: "half of all futures never cut", "72% of futures never cut", "no future cuts". When that future runs out even at the floor, it says so: "In a bad case (1 in 10) the money runs out even at the floor"; when it never cuts, "Even in a bad case (1 in 10) you'd never cut".
+  - The second, when the median future spends some years below the plan's spending, how many.
+  - The rule last, in the footnote style: the cut, the guardrails, the floor and the plan's spending in money.
+  - Amounts hide with the eye (`•••••`). The income chart's spending line is the median run's spending as paid, so its cuts show as steps.
 - **How the plan reads your library.** A line per bucket: the accounts of one tax wrapper, their value on the start date, and how they're drawn ("Drawn any time · new savings go here · Conto Fineco and Directa", "Drawn as its tax rules allow · Fondo pensione"); then the accounts whose value starts a pension scheme instead of being money to draw on ("BVG starting balance: Pensionskasse: its value on 30 Sep 2026 is where the pension starts"), or isn't used because the plan sets the pension's starting balance itself.
 - **Problems** are worded for the screen: schemes, accounts and ways to claim by their names, not their IDs ("This contribution goes into BVG, but the plan has no BVG pension to pay it out: add one under Pensions.", "BVG never offers “Capital” in the plan's years, so it isn't paid.").
 - **What if.**
@@ -554,7 +579,7 @@ A form with the same sections as the plan file. Each section is a collapsible ca
 ```
 You            Born 1988 · retire at 55 · plan to 95 · in CHF
 Work           Employee 2026–28 · Forfettario 2029–retirement
-Spending       36.000 €/yr · 90% from 75 · 80% from 85
+Spending       36.000 €/yr · 90% from 75 · 80% from 85 · flexible, down to 80%
 Pensions       INPS (earliest) · State pension from previous country 67
 Contributions  Fondo pensione 5.000 €/yr · BVG 20.000 CHF in 2030
 Events         Inheritance at 62 (80%) · New car 2031
@@ -574,6 +599,26 @@ Simulation     2.000 runs · 90% confidence
   - the regime's options form, **generated from the regime's description** ([TAXES.md](TAXES.md#choosing-them-in-a-plan)), so a new regime needs no new screens. Every kind of option has a control: percentages, amounts, whole numbers and years are typed, switches toggle, choices pick. The row's second line lists the options the plan sets, by their labels ("TFR goes to: A pension fund").
 - **Pensions.** Each is a row ("From 67 · 4.800 €/yr · State pension · from Germany"). The editor has the scheme and name; for a pension from a statement (`fixed`), its amount and age, **what kind it is** (state, occupational, basic pension, private annuity: some systems tax kinds differently) and the **paying country**; for a scheme, when to claim and, when the scheme lists several, **the way to claim it** ("Capital · at 65, lump sum"), from the scheme's own claim options for the pension's details as they are. A scheme that lists none yet gets a text field, and a way it never offers shows as a warning once the plan is calculated. Then who taxes it: where you live, or the paying country (a scheme's pension is paid from its system's country unless you pick another). Its footer says whether the plan computes the paying country's tax ("Germany's rules tax it as paid to someone living abroad…", when that country's system is registered; the tax shows in the results as "Germany: …") or the amount goes in after that tax ("There are no tax rules for Germany yet…"). Then the scheme's options form.
 - **Contributions.** Each is a row ("BVG · Pension scheme (buy-in) · Once in 2030 · 20.000 CHF"). The editor picks where it goes, an account or a pension scheme of the plan's tax systems (a buy-in: the system decides what it adds to the pension and any relief), and whether it's paid every year (until retirement or a date) or once, in a year.
+- **Spending.** While working, in retirement, and the later phases (from an age, a share of it). Then **Flexible spending** ([PLANNER.md](PLANNER.md#flexible-spending)), after a divider:
+
+  ```
+  Flexible spending                      [ ● ]
+  Cuts spending in retirement after bad years and restores it after good ones, as real
+  retirees do, instead of spending the same whatever the markets do. A future only fails
+  if you'd have to spend less than the floor.
+  Cut by                                [10] %
+  Never below                           [80] %
+  of the plan's spending: 28.800 €/yr
+  ▸ Guardrails
+      Cut when it rises by              [20] %
+      Restore when it falls by          [20] %
+      Each year the plan compares the share of your money you draw with the first year of
+      retirement's: this much above it, spending is cut; this much below it, a cut is restored.
+  ```
+
+  - The switch writes `{ "enabled": true }`; turning it off keeps settings that differ from the defaults (`enabled: false`), and with only defaults removes the rule, so nothing is written.
+  - The fields show the defaults as their prompts; a field left empty, or set to its default, isn't written. *Never below* is also shown in money: the floor share of the retirement spending, before the phases, hidden with the eye.
+  - The guardrails are folded away (*Guardrails*, a disclosure group). Settings out of range show as errors on the card. The card's summary adds "flexible, down to 80%".
 - **Assumptions.** Each class's real return as its mean and its median, and its volatility, three fields a row ("Crypto 16.6 % · 0 % · 70 %"). Either return can be typed: the other follows from it and the volatility, and changing the volatility keeps the one that was given (crypto's default is given by its median). The line under them: "The mean is the average year, the median the typical one, which a portfolio rebalanced every year grows at. Enter either: the other follows from the volatility." What equals the default isn't written to the plan. A class whose return and volatility are exactly an earlier version's default, which that version wrote into the plan when one of the class's numbers was edited ([PLANNER.md](PLANNER.md#returns)), gets a line under its row: "This is the previous default (4.5% average). The current default is a 5.0% typical year.", with a *Use Default* button that removes the plan's entry for the class (keeping its income yield), so it follows the current default. Nothing changes until it's tapped. The card's summary counts them ("4 previous default returns"), and it shows equity's return as it's given: "Equity 5% typical year", or "Equity 4,5% average". Then an optional **income yield** for equity and bonds: "The part of the return paid as income each year; some countries tax it yearly." A class the portfolio holds whose median is below −2% a year gets a warning on the card: "Crypto's returns give a typical year of −18% (an average of 0.0% at 70% volatility): holding it and rebalancing back into it every year shrinks your portfolio. Check its return under Assumptions."
 - **Target mix.** A card of its own, after Assumptions: the mix the plan rebalances the ordinary (taxable) accounts to every year ([PLANNER.md](PLANNER.md#target-mix)). Its first line says what that does: "Each year the plan rebalances your ordinary accounts back to this mix: new money buys what's below target, withdrawals sell what's above, and the rest is sold and bought, with tax on gains."
 
@@ -664,8 +709,8 @@ When an answer looks wrong ("I need 2 million to withdraw 20,000 a year?"), *Sho
 - **Calculate** runs the plan on screen with the same tax systems and library data as its results, from the latest check-in, with every run the plan asks for. With a what-if in use, the plan runs with its changes (not saved), unless *Include the what-if* is turned off; the report says which. It takes a few seconds, off the main thread, with a spinner and **Cancel**; it never runs on its own. The report shown stays (dimmed) until the new one is ready, and after a change of option, plan or data it says so next to *Calculate Again*. A plan that can't run says why.
 - **Under the controls,** what was run in one line, what the runs start from when it's a multiple of today's plan assets (and that the rest is about today's), and the what-if.
 - **Diagnosis** comes first: the report's sentences on what weighs most on the result, facts about the plan as entered, not advice.
-- **The sections** follow as disclosure groups, closed at first, each with its line on how to read it: *What was run*; *The person and the plan as read*, with the **target mix** and its changes with age (each with when it starts at the age shown, its mix, expected and median growth, and whether it applies) and the **assumptions** (per class: share today, target share, expected return, volatility, the median it implies, income yield and the portfolio's median without the class; the target mix's growth; the correlations); *Starting portfolio* (accounts, what they hold, instruments, buckets, scheme seeds, debts); *Year-by-year schedule* (with a *Target mix* column, and a line in each year's detail, when the mix changes with age); *Simulation summary* (the success-curve chart and table, both searches step by step, failures by age and cause, two runs in brief, the checks); *Percentiles by year* (the fan chart and the table); *Traced runs*; *Issues*.
-- **Traced runs.** A picker of runs ("The median outcome", "A 10th-percentile outcome", …), what the run is and how it ends (and why it fails), then its years as *Money in and out* or *Returns and balances* (with the target mix in force, when it changes with age). Choosing a year shows every step of it: the returns drawn, the target mix in force, the cash flow (net income, payouts, contributions, spending, expenses, last year's taxes), the spending target against what was met, each bucket's money in, payouts, withdrawals, rebalancing tax, growth and end, the rebalancing moves per class, every sale with its cost and gain, payouts, the tax withheld, every tax and contribution line split into the part on income (fixed) and on markets, and the failure.
+- **The sections** follow as disclosure groups, closed at first, each with its line on how to read it: *What was run*; *The person and the plan as read*, with the **target mix** and its changes with age (each with when it starts at the age shown, its mix, expected and median growth, and whether it applies) and the **assumptions** (per class: share today, target share, expected return, volatility, the median it implies, income yield and the portfolio's median without the class; the target mix's growth; the correlations); *Starting portfolio* (accounts, what they hold, instruments, buckets, scheme seeds, debts); *Year-by-year schedule* (with a *Target mix* column, and a line in each year's detail, when the mix changes with age); *Simulation summary* (the success-curve chart and table, both searches step by step, failures by age and cause, with flexible spending what it did over every run and what retiring today needs without it, two runs in brief, the checks); the *Spending* block of the plan as read lists the flexible-spending rule (the cut, the floor in percent and money, the guardrails, and the rule in words); *Percentiles by year* (the fan chart and the table); *Traced runs*; *Issues*.
+- **Traced runs.** A picker of runs ("The median outcome", "A 10th-percentile outcome", …), what the run is and how it ends (and why it fails), then its years as *Money in and out* (with flexible spending, also each year's withdrawal rate, the guardrails, what the rule did and the level paid) or *Returns and balances* (with the target mix in force, when it changes with age). Choosing a year shows every step of it: the returns drawn, the target mix in force, the cash flow (net income, payouts, contributions, spending, expenses, last year's taxes), the spending target against what was met, with flexible spending the rule's year (what's drawn, the plan assets it's measured against, the withdrawal rate, the first year's, the guardrails, the decision, the level and what was paid when the money ran short), each bucket's money in, payouts, withdrawals, rebalancing tax, growth and end, the rebalancing moves per class, every sale with its cost and gain, payouts, the tax withheld, every tax and contribution line split into the part on income (fixed) and on markets, and the failure.
 - **Tables.** On the Mac and iPad a `PageTable`, as wide as the page and scrolling sideways when its columns need more; clicking a year of the schedule or of a traced run shows it in detail below the table, and a row's menu copies it. On iPhone a compact row per year or item, with its key figures, which opens to every column and, for a year, the year in detail. Every year is shown (the Markdown skips some of a long plan's).
 - **Numbers.** Money is in the report's currency (the plan's), whole, through `AmountText`; rates are percentages. The eye hides amounts as everywhere else: figures read `•••••`, charts keep their shape, and amounts inside the report's sentences (the diagnosis, issues) are masked too.
 - **Export…** opens the export: **Anonymize**, on by default ("Replaces account, instrument, plan, pension and event names and IDs with neutral labels, leaves out notes and the birth date (ages stay), and rounds amounts."), with the rounding (*3 significant figures*, *Nearest 100* or *Exact*); **Markdown** (readable, each section explained) or **JSON** (every detail). The file, `plan-calculations-2026-10-04.md` (or `.json`), is written to a temporary folder whenever the choices change; **Share…** hands it to the share sheet (Save to Files on iPhone), and on the Mac **Save…** opens a save panel. **Copy as Markdown** copies the report, anonymized when the switch is on. While amounts are hidden, a line says the file holds them.
