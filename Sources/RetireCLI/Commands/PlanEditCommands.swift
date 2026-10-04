@@ -8,17 +8,23 @@ import Tracker
 
 /// `retire plan`: runs a plan (the default, ``PlanCommand``), shows its
 /// inputs, and changes what the app's plan editor changes: the currency,
-/// income yields, contributions (into an account or a pension scheme, every
-/// year or once), and a pension's kind, paying country and way to claim.
+/// returns and income yields, the target mix and its changes with age,
+/// contributions (into an account or a pension scheme, every year or once),
+/// and a pension's kind, paying country and way to claim.
 struct PlanGroupCommand: AsyncParsableCommand {
     static let configuration = CommandConfiguration(
         commandName: "plan",
-        abstract: "Run a plan, show its inputs, and change its currency, contributions, pensions and returns.",
+        abstract: "Run a plan, show its inputs, and change its currency, target mix, contributions, pensions and returns.",
         discussion: """
             retire plan [run] [--fast] [--years]      run the plan, print the answer
             retire plan show                          currency, taxes, pensions, …
             retire plan set --currency CHF            amounts and results in CHF
             retire plan set --income-yield equity=2%  equity's yearly income
+            retire plan set --target-mix equity=80%,bonds=20%
+                --target-mix-from retirement:equity=60%,bonds=40%
+                --target-mix-from 75:equity=40%,bonds=60%
+                                                      the mix to rebalance to, by age
+            retire plan set --target-mix today        back to today's mix
             retire plan contribution add --account <id> --per-year 5000
             retire plan contribution add --pension <scheme> --amount 20000
                 --year 2030                           a buy-in, once
@@ -47,7 +53,7 @@ struct PlanGroupCommand: AsyncParsableCommand {
 struct PlanShowCommand: RetireSubcommand {
     static let configuration = CommandConfiguration(
         commandName: "show",
-        abstract: "Show a plan's currency, taxes, pensions, contributions and returns.")
+        abstract: "Show a plan's currency, taxes, pensions, contributions, asset mix and returns.")
 
     @OptionGroup var options: LibraryOptions
 
@@ -107,6 +113,9 @@ struct PlanInputsReport {
             lines.append("  \(index + 1). \(PlanInputs.target(of: contribution, library: library, registry: registry)) · "
                 + PlanInputs.timing(of: contribution, currency: currency))
         }
+
+        lines.append("")
+        lines += PlanTargetMix.lines(plan: plan, library: library, registry: registry, today: today)
 
         lines.append("")
         lines.append("Returns, real, a year")
@@ -206,7 +215,8 @@ struct PlanInputsReport {
                          : Format.rounded(assumption.impliedMedianReal, places: 6)).fileString,
                      givenAs: assumption.isGivenByMedian ? "median" : "mean",
                      isDefault: plan.assumptions.returns[assetClass] == nil))
-             }))
+             }),
+             assetMix: PlanTargetMix.json(plan: plan, library: library, registry: registry, today: today))
     }
 
     private static func until(_ end: PhaseEnd) -> String {
@@ -269,16 +279,19 @@ struct PlanInputsReport {
         var pensions: [Pension]
         var contributions: [Contribution]
         var returns: [String: Return]
+        /// The target mix, its changes with age, and today's mix.
+        var assetMix: PlanTargetMix.JSON
     }
 }
 
 // MARK: - set
 
-/// `retire plan set`: the plan's currency, return assumptions and income yields.
+/// `retire plan set`: the plan's currency, return assumptions, income
+/// yields and target mix.
 struct PlanSetCommand: RetireSubcommand {
     static let configuration = CommandConfiguration(
         commandName: "set",
-        abstract: "Set a plan's currency, or an asset class's return, volatility or income yield.",
+        abstract: "Set a plan's currency, its target mix, or an asset class's return, volatility or income yield.",
         discussion: """
             --currency CHF puts the plan's amounts and results in CHF; --currency library goes back to the \
             library's base currency. The library needs exchange rates between the two to value your accounts. \
@@ -289,6 +302,16 @@ struct PlanSetCommand: RetireSubcommand {
             --income-yield equity=0.02 (or 2%) is the part of equity's return paid as income each year, which \
             some countries tax yearly; equity=none removes it. Repeat each for more classes. What equals the \
             default isn't written to the plan.
+
+            --target-mix equity=80%,bonds=20% (or repeated --target equity=0.8) is the mix the ordinary \
+            (taxable) accounts are rebalanced to every year: new money buys what's below it, withdrawals sell \
+            what's above, and the rest is sold and bought, with tax on gains. It must add up to 100%. \
+            --target-mix today removes it and any changes with age: each account is rebalanced back to its own \
+            mix today. --target-mix-from 55:equity=60%,bonds=40% changes it from an age, and \
+            --target-mix-from retirement:… from the year you retire, whatever age the plan finds; repeat it for \
+            each change, in order (the steps given replace the plan's), or give --target-mix-from none to remove \
+            them. A change already passed applies from the start. Pension funds and other tax-advantaged \
+            accounts keep their own mix.
             """)
 
     @OptionGroup var options: LibraryOptions
@@ -316,15 +339,46 @@ struct PlanSetCommand: RetireSubcommand {
                                valueName: "class=yield"))
     var incomeYield: [String] = []
 
+    @Option(help: ArgumentHelp("The mix the ordinary accounts are rebalanced to, e.g. equity=70%,bonds=30%, or "
+                                   + "today for today's mix.", valueName: "mix"))
+    var targetMix: String?
+
+    @Option(help: ArgumentHelp("One class of the target mix instead, e.g. equity=0.7; repeat for each.",
+                               valueName: "class=share"))
+    var target: [String] = []
+
+    @Option(help: ArgumentHelp("A change of the target mix from an age or retirement, e.g. 55:equity=60%,bonds=40%; "
+                                   + "repeat for each, in order, or none.", valueName: "age:mix"))
+    var targetMixFrom: [String] = []
+
     @Flag(help: "Show what would change; write nothing.")
     var dryRun = false
 
+    /// What `--target-mix` or `--target` sets: today's mix (none), or a mix.
+    enum TargetChange: Equatable {
+        case today
+        case mix(AssetMix)
+    }
+
+    /// The target mix asked for, if any.
+    func targetChange() throws -> TargetChange? {
+        if let targetMix {
+            guard target.isEmpty else { throw ValidationError("Give the target mix with --target-mix or --target, not both.") }
+            if targetMix.lowercased() == "today" { return .today }
+            return .mix(try PlanTargetMix.mix(targetMix, option: "--target-mix"))
+        }
+        guard !target.isEmpty else { return nil }
+        return .mix(try PlanTargetMix.mix(entries: target, option: "--target"))
+    }
+
     func validate() throws {
         guard currency != nil || !incomeYield.isEmpty || !meanReturn.isEmpty || !medianReturn.isEmpty
-            || !volatility.isEmpty else {
-            throw ValidationError("Say what to set: --currency, --return, --median-return, --volatility or "
-                + "--income-yield.")
+            || !volatility.isEmpty || targetMix != nil || !target.isEmpty || !targetMixFrom.isEmpty else {
+            throw ValidationError("Say what to set: --currency, --return, --median-return, --volatility, "
+                + "--income-yield, --target-mix or --target-mix-from.")
         }
+        _ = try targetChange()
+        if !targetMixFrom.isEmpty { _ = try PlanTargetMix.steps(targetMixFrom, option: "--target-mix-from") }
         if let currency, currency.lowercased() != "library", !CurrencyCode(currency.uppercased()).isWellFormed {
             throw ValidationError("--currency must be a currency code such as CHF, or library.")
         }
@@ -461,6 +515,27 @@ struct PlanSetCommand: RetireSubcommand {
             edited.assumptions.setReturnAssumption(assumption, for: assetClass)
             lines.append("Income yield of \(assetClass): " + (share.map { Format.percent($0) } ?? "none") + ".")
             sections.append(.assumptions)
+        }
+        switch try targetChange() {
+        case .today?:
+            edited.portfolio.targetMix = nil
+            edited.portfolio.targetMixByAge = []
+            lines.append("Target mix: today's. Each ordinary account is rebalanced back to its own mix today.")
+            sections.append(.portfolio)
+        case .mix(let mix)?:
+            edited.portfolio.targetMix = mix
+            lines.append("Target mix: \(PlanTargetMix.describe(mix)).")
+            sections.append(.portfolio)
+        case nil:
+            break
+        }
+        if !targetMixFrom.isEmpty {
+            edited.portfolio.targetMixByAge = try PlanTargetMix.steps(targetMixFrom, option: "--target-mix-from")
+            if edited.portfolio.targetMixByAge.isEmpty { lines.append("Target mix by age: no changes.") }
+            for step in edited.portfolio.targetMixByAge {
+                lines.append("From \(PlanTargetMix.describe(step.fromAge)): \(PlanTargetMix.describe(step.mix)).")
+            }
+            sections.append(.portfolio)
         }
         try PlanEdit.write(edited, replacing: original, over: loaded, sections: sections, dryRun: dryRun,
                            context: context, lines: &lines)
