@@ -42,19 +42,19 @@ struct RunOutcome: Sendable {
 /// the wrapper.
 struct PathSimulator {
     private let schedule: AgeSchedule
-    private let scenarios: MarketScenarios
+    let scenarios: MarketScenarios
     private let portfolio: Portfolio
     private let cashBuffer: Double
-    private let classCount: Int
+    let classCount: Int
     private let cashClass: Int?
     private let primaryLiquid: Int
-    private let lotClass: [Int]
+    let lotClass: [Int]
     private let lotIsCash: [Bool]
-    private let lotDocumented: [Bool]
+    let lotDocumented: [Bool]
     private let lotCategory: [TaxCategory]
-    private let bucketStart: [Int]
-    private let bucketEnd: [Int]
-    private let bucketLiquid: [Bool]
+    let bucketStart: [Int]
+    let bucketEnd: [Int]
+    let bucketLiquid: [Bool]
     private let bucketGrowthTax: [Double]
     private let bucketWrapper: [String]
     /// Target share per bucket and class: `bucket * classCount + class`.
@@ -75,14 +75,14 @@ struct PathSimulator {
     private let incomeYields: [Double]
     private let reportsIncome: Bool
 
-    private var values: [Double]
+    private(set) var values: [Double]
     /// Per lot, its nominal return in the year just simulated, and its value before.
     private var lotReturns: [Double]
     private var lotStartValues: [Double]
-    private var bases: [Double]
+    private(set) var bases: [Double]
     /// Per tax-advantaged bucket, what was paid in (see the type's comment).
-    private var wrapperBasis: [Double]
-    private var variable = VariableYear()
+    private(set) var wrapperBasis: [Double]
+    private(set) var variable = VariableYear()
     /// Per class, scratch space for the bucket being worked on: its value,
     /// the shares it's steered to, the part that follows them, what to sell
     /// and what to buy.
@@ -94,7 +94,7 @@ struct PathSimulator {
     private var classOrder: [Int]
     private var sellable: [Double]
     private var categoryShares: [TaxCategory: Double] = [:]
-    private var withheld = 0.0
+    private(set) var withheld = 0.0
     private var sold: [Double]
     /// Year-end plan assets of the last run, when recorded.
     private(set) var yearValues: [Double]
@@ -181,10 +181,19 @@ struct PathSimulator {
         return (outcome, details ?? [])
     }
 
+    /// The same run, telling `recorder` what happens at each step of each
+    /// year (the plan debugger's trace). Recording only reads the
+    /// simulation's state, so the outcome is the same as ``run(_:spending:recordValues:)``'s.
+    mutating func tracedRun(_ run: Int?, spending: Double, recorder: PathRecorder) -> (RunOutcome, [YearDetail]) {
+        var details: [YearDetail]? = []
+        let outcome = simulate(run, spending: spending, recordValues: true, details: &details, recorder: recorder)
+        return (outcome, details ?? [])
+    }
+
     // MARK: - The yearly loop
 
     private mutating func simulate(_ run: Int?, spending level: Double, recordValues: Bool,
-                                   details: inout [YearDetail]?) -> RunOutcome {
+                                   details: inout [YearDetail]?, recorder: PathRecorder? = nil) -> RunOutcome {
         for index in values.indices {
             values[index] = portfolio.lots[index].value
             bases[index] = portfolio.lots[index].basis
@@ -203,6 +212,7 @@ struct PathSimulator {
             variable.payouts.removeAll(keepingCapacity: true)
             variable.capitalIncome.removeAll(keepingCapacity: true)
             for b in sold.indices { sold[b] = 0 }
+            recorder?.begin(year: t, variant: v, run: run, carriedIn: carried, self)
 
             // Money arriving in wrappers, then the year's cash flow.
             var credited = 0.0
@@ -217,6 +227,7 @@ struct PathSimulator {
                 deposit(transfer.amount, into: transfer.bucket)
                 credited += transfer.amount
             }
+            recorder?.afterCredits(self)
             var severancePay = 0.0
             for b in schedule.years[t].severance {
                 severancePay += payOutInFull(bucket: b, year: t, prepared: prepared)
@@ -228,18 +239,22 @@ struct PathSimulator {
             let spending = yearWorkingSpending[t] + yearRetiredUnit[t] * level
             let cash = schedule.years[t].variants[v].netCash + severancePay - yearContributions[t] - spending
                 - expenses - carried
+            recorder?.afterPayouts(severancePay: severancePay, contributions: yearContributions[t], spending: spending,
+                                   expenses: expenses, cash: cash, self)
             var shortfall = 0.0
             if cash >= 0 {
                 deposit(cash, into: primaryLiquid)
             } else {
                 shortfall = withdraw(-cash, year: t, prepared: prepared)
             }
+            recorder?.afterFlows(shortfall: shortfall, self)
 
             if shortfall > Self.tolerance {
                 let reason = failureReason(year: t, shortfall: shortfall, spending: level, mask: mask,
                                            prepared: prepared)
                 let failure = RunFailure(year: schedule.years[t].year, age: schedule.years[t].age, reason: reason)
                 let remaining = total()
+                recorder?.failed(failure, self)
                 if recordValues {
                     yearValues[t] = remaining
                     for later in (t + 1)..<schedule.years.count { yearValues[later] = 0 }
@@ -261,6 +276,7 @@ struct PathSimulator {
                     rebalanceWithoutTax(b)
                 }
             }
+            recorder?.afterRebalancing(self)
             applyReturns(year: t, run: run)
             for l in values.indices {
                 variable.balances[l].value = values[l]
@@ -273,6 +289,7 @@ struct PathSimulator {
             if !assessment.costBasisAdjustments.isEmpty { adjustCostBases(assessment.costBasisAdjustments) }
 
             let endAssets = total() - carried
+            recorder?.end(assessment: assessment, carriedOut: carried, endAssets: endAssets, self)
             if recordValues { yearValues[t] = endAssets }
             if details != nil {
                 details!.append(detail(t, variant: v, assessment: assessment, startAssets: startAssets,
@@ -934,7 +951,7 @@ struct PathSimulator {
 
     // MARK: - Reporting
 
-    private func total() -> Double {
+    func total() -> Double {
         values.reduce(0, +)
     }
 

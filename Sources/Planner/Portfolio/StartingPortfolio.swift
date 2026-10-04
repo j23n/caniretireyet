@@ -49,9 +49,56 @@ struct PortfolioBuilder: Sendable {
         var value: Double
     }
 
+    /// Where a lot's purchase cost came from.
+    enum BasisSource: String, Sendable {
+        /// Its value: cash, and money in a tax-advantaged wrapper.
+        case value
+        /// The cost basis recorded in the check-in.
+        case recorded
+        /// Estimated from the plan's `unrealizedGainShare`.
+        case estimated
+        /// Unknown: no record and no estimate.
+        case unknown
+    }
+
+    /// How one library account was read, for the plan debugger.
+    struct AccountReading: Sendable {
+        enum Outcome: Sendable {
+            /// In the bucket of this wrapper.
+            case included(wrapper: String)
+            /// Its value starts this pension scheme instead of being a bucket.
+            case seed(scheme: String)
+            /// Left out of the plan, and why.
+            case leftOut(String)
+        }
+
+        /// One part of the account's value (cash, a balance or a position)
+        /// and the lots it became.
+        struct Part: Sendable {
+            let instrument: InstrumentID?
+            let isCash: Bool
+            /// In the plan's currency; negative for a debt.
+            let value: Double
+            /// The conversion the tracker used, if any.
+            let fx: FXQuote?
+            let holdings: [Holding]
+            let basis: BasisSource
+        }
+
+        let account: AccountID
+        var outcome: Outcome
+        /// The value the tracker computes, in the plan's currency.
+        var value: Double?
+        var parts: [Part] = []
+    }
+
     private(set) var buckets: [Bucket]
     /// The pension schemes started from accounts, in the order first met.
     let seeds: [Seed]
+    /// Every library account, by ID, and how it was read.
+    let readings: [AccountReading]
+    /// Debts included in the plan, paid off from liquid money at the start.
+    let debtPaidOff: Double
     /// Every asset class a lot can hold, in canonical order.
     let classes: [AssetClass]
     /// The bucket new savings go into.
@@ -90,6 +137,22 @@ struct PortfolioBuilder: Sendable {
         var included: [AccountID] = []
         var total: Decimal = 0
 
+        var readings: [AccountID: AccountReading] = [:]
+        for account in library.accounts.values {
+            let reason: String? = if excluded.contains(account.id) {
+                "excluded by the plan (portfolio.exclude)"
+            } else if !account.includedInPlan {
+                "left out of plans (includeIn.plan is false)"
+            } else if let closed = account.closed, closed < date {
+                "closed on \(closed)"
+            } else if account.opened > date {
+                "opened after the start date, on \(account.opened)"
+            } else {
+                nil
+            }
+            readings[account.id] = AccountReading(account: account.id, outcome: .leftOut(reason ?? "not valued"))
+        }
+
         let candidates = library.accounts.values
             .filter { $0.includedInPlan && !excluded.contains($0.id) && $0.isOpen(on: date) }
             .sorted { $0.id < $1.id }
@@ -99,8 +162,10 @@ struct PortfolioBuilder: Sendable {
                 issues.append(.warning("planner.noValuation",
                                        "\(account.name) has no value on or before \(date); the plan leaves it out.",
                                        section: .portfolio, account: account.id))
+                readings[account.id]?.outcome = .leftOut("no value on or before \(date)")
                 continue
             }
+            readings[account.id]?.value = value.knownValue.double
             for problem in value.problems {
                 issues.append(.warning("planner.incompleteValue",
                                        "\(problem.description); the plan counts only what could be valued.",
@@ -114,6 +179,7 @@ struct PortfolioBuilder: Sendable {
                 } else {
                     seeds.append(Seed(scheme: scheme, wrapper: wrapper, accounts: [account.id], value: amount))
                 }
+                readings[account.id]?.outcome = .seed(scheme: scheme)
                 continue
             }
             if let wrapper = account.wrapper?.rawValue,
@@ -127,17 +193,27 @@ struct PortfolioBuilder: Sendable {
             total += value.knownValue
 
             let (wrapper, category, rule) = Self.wrapper(for: account, registry: registry, issues: &issues)
+            readings[account.id]?.outcome = .included(wrapper: wrapper)
             var holdings: [Holding] = []
             for component in value.components {
                 guard let amount = component.value?.double else { continue }
+                var instrument: InstrumentID?
+                if case .position(let id) = component.kind { instrument = id }
                 if amount < 0 {
                     debt -= amount
+                    readings[account.id]?.parts.append(AccountReading.Part(
+                        instrument: instrument, isCash: component.kind == .cash, value: amount, fx: component.fx,
+                        holdings: [], basis: .value))
                     continue
                 }
-                holdings += Self.holdings(of: component, value: amount, account: account, valuation: value.valuation,
-                                          library: library, valuator: valuator, date: date,
-                                          taxable: category == .taxable, gainShare: gainShare,
-                                          undocumented: &undocumented, issues: &issues)
+                let (part, basis) = Self.holdings(of: component, value: amount, account: account,
+                                                  valuation: value.valuation, library: library, valuator: valuator,
+                                                  date: date, taxable: category == .taxable, gainShare: gainShare,
+                                                  undocumented: &undocumented, issues: &issues)
+                holdings += part
+                readings[account.id]?.parts.append(AccountReading.Part(
+                    instrument: instrument, isCash: component.kind == .cash, value: amount, fx: component.fx,
+                    holdings: part, basis: basis))
             }
 
             let index: Int
@@ -212,6 +288,8 @@ struct PortfolioBuilder: Sendable {
             + classes.subtracting(AssetClass.knownValues).sorted()
         self.buckets = buckets
         self.seeds = seeds
+        self.readings = readings.keys.sorted().map { readings[$0]! }
+        self.debtPaidOff = debt
         self.primaryLiquid = primary!
         self.liquidMix = liquidMix
         self.startAssets = total
@@ -323,12 +401,14 @@ struct PortfolioBuilder: Sendable {
         return (id, category, nil)
     }
 
-    /// The lots one part of an account's value becomes.
+    /// The lots one part of an account's value becomes, and where their
+    /// purchase cost came from.
     private static func holdings(of component: ValueComponent, value: Double, account: Account,
                                  valuation: Valuation?, library: Library, valuator: Valuator, date: CalendarDate,
                                  taxable: Bool, gainShare: Double?, undocumented: inout [AccountID],
-                                 issues: inout [PlanIssue]) -> [Holding] {
+                                 issues: inout [PlanIssue]) -> ([Holding], BasisSource) {
         let country = account.country?.rawValue
+        let estimate: BasisSource = gainShare == nil ? .unknown : .estimated
         func estimatedBasis(_ value: Double) -> Double? {
             if let gainShare { return value * (1 - gainShare) }
             undocumented.append(account.id)
@@ -337,27 +417,33 @@ struct PortfolioBuilder: Sendable {
 
         switch component.kind {
         case .cash:
-            return [Holding(assetClass: .cash, category: .cash, country: country, value: value, basis: value)]
+            return ([Holding(assetClass: .cash, category: .cash, country: country, value: value, basis: value)], .value)
 
         case .balance:
             guard let mix = account.effectiveAssetClasses.flatMap({ Self.shares($0) }) else {
                 issues.append(.warning("planner.noAssetMix",
                                        "\(account.name) has no asset mix (assetClasses); the plan treats it as cash.",
                                        section: .portfolio, account: account.id))
-                return [Holding(assetClass: .cash, category: .cash, country: country, value: value, basis: value)]
+                return ([Holding(assetClass: .cash, category: .cash, country: country, value: value, basis: value)],
+                        .value)
             }
-            return mix.sorted(by: { $0.key < $1.key }).map { assetClass, share in
+            var source = BasisSource.value
+            let holdings = mix.sorted(by: { $0.key < $1.key }).map { assetClass, share in
                 let part = value * share
                 let category = balanceCategory(kind: account.kind, assetClass: assetClass)
-                let basis = category == .cash || !taxable ? part : estimatedBasis(part)
+                let isValue = category == .cash || !taxable
+                if !isValue { source = estimate }
+                let basis = isValue ? part : estimatedBasis(part)
                 return Holding(assetClass: assetClass, category: category, country: country, value: part, basis: basis)
             }
+            return (holdings, source)
 
         case .position(let instrumentID):
             let instrument = library.instruments[instrumentID]
             let mix = instrument.flatMap { Self.shares($0.assetClasses) } ?? [.other: 1]
             let category = instrument.map(Self.category(of:)) ?? .other
             var basis: Double?
+            var source = BasisSource.recorded
             if let recorded = valuation?.position(for: instrumentID)?.costBasis {
                 if account.currency == valuator.baseCurrency {
                     basis = recorded.double
@@ -367,8 +453,10 @@ struct PortfolioBuilder: Sendable {
             }
             if !taxable {
                 basis = value
+                source = .value
             } else if basis == nil {
                 basis = estimatedBasis(value)
+                source = estimate
             }
             let govShare = instrument?.tax?.govBondShare.map { min(1, max(0, $0.double)) } ?? 0
             var result: [Holding] = []
@@ -384,7 +472,7 @@ struct PortfolioBuilder: Sendable {
                 result.append(Holding(assetClass: assetClass, category: category, country: country,
                                       value: value * part, basis: basis.map { $0 * part }))
             }
-            return result
+            return (result, source)
         }
     }
 

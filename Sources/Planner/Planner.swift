@@ -70,6 +70,27 @@ public enum Planner {
 
     static func compute(plan: PlanDocument, library: Library, registry: TaxRegistry, options: PlannerOptions,
                         progress: ProgressReporter?) async throws -> PlanResult {
+        try await computeRun(plan: plan, library: library, registry: registry, options: options,
+                             progress: progress).result
+    }
+
+    /// A run as ``compute(plan:library:registry:options:progress:)`` makes
+    /// it, with what the plan debugger needs besides the result: the engine
+    /// (its model, portfolio, scenarios and schedules), each run's outcome
+    /// at the focus age, and the values the two searches tried.
+    struct ComputedRun: Sendable {
+        let result: PlanResult
+        let engine: Engine
+        /// Every run at ``PlanResult/focusAge``, by run index.
+        let outcomes: [RunOutcome]
+        /// The sustainable-spending search, in the order tried (empty when not solved).
+        let spendingSteps: [SearchStep]
+        /// The assets-needed search's scales, in the order tried (empty when not solved).
+        let scaleSteps: [SearchStep]
+    }
+
+    static func computeRun(plan: PlanDocument, library: Library, registry: TaxRegistry, options: PlannerOptions,
+                           progress: ProgressReporter?) async throws -> ComputedRun {
         let (interpreted, issues) = PlanInterpreter.interpret(plan: plan, library: library, registry: registry,
                                                               options: options)
         guard let model = interpreted else { throw PlannerError.invalidPlan(issues) }
@@ -131,18 +152,22 @@ public enum Planner {
 
         try Task.checkCancellation()
         var sustainable: SustainableSpending?
+        var spendingSteps: [SearchStep] = []
         if options.solveSustainableSpending {
             let age = target ?? focus
             try await engine.prepare(ages: [age])
-            sustainable = try await engine.sustainableSpending(age: age, progress: progress)
+            (sustainable, spendingSteps) = try await engine.sustainableSpendingSearch(age: age, progress: progress)
         }
         let startValue = model.portfolio.startAssets.double
         let successNow = rates[current] ?? 0
         try Task.checkCancellation()
         var assetsNeeded: AssetsNeeded?
+        var scaleSteps: [SearchStep] = []
         if options.solveAssetsNeeded {
-            assetsNeeded = try await engine.assetsNeeded(age: current, startAssets: startValue,
-                                                         successToday: successNow, progress: progress)
+            let search = try await engine.assetsNeededSearch(age: current, startAssets: startValue,
+                                                             successToday: successNow, progress: progress)
+            assetsNeeded = search.answer
+            scaleSteps = search.steps
         }
         progress?.begin(.summarising, total: 1)
 
@@ -187,7 +212,8 @@ public enum Planner {
             issues: unique(engine.issues + focusSchedule.issues + model.yearIssues(for: focusSchedule)),
             currency: model.currency)
         progress?.finish()
-        return result
+        return ComputedRun(result: result, engine: engine, outcomes: outcomes, spendingSteps: spendingSteps,
+                           scaleSteps: scaleSteps)
     }
 
     /// Issues without repeats, in their first order.
@@ -219,7 +245,7 @@ public enum Planner {
         return sorted[low] + (sorted[high] - sorted[low]) * (position - Double(low))
     }
 
-    private static func failureSummary(_ outcomes: [RunOutcome]) -> FailureSummary {
+    static func failureSummary(_ outcomes: [RunOutcome]) -> FailureSummary {
         let failures = outcomes.compactMap(\.failure)
         let ages = failures.map(\.age).sorted()
         var byAge: [Int: Int] = [:]

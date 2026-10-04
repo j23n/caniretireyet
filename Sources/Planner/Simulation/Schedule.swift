@@ -12,6 +12,10 @@ struct AgeSchedule: Sendable {
     var years: [ScheduledYear]
     /// Each pension's claim, by pension index; `nil` if it's never claimed.
     let claims: [PensionClaim?]
+    /// Each pension's claim options as its scheme listed them in the year it
+    /// was claimed (or the last year it was asked, if never), by pension
+    /// index: what the plan debugger shows the plan chose from.
+    let offeredClaims: [[ClaimOption]]
     /// What the tax systems were asked to prepare in the deterministic run,
     /// per year: the input to their year-by-year validation.
     let fixedYears: [FixedYear]
@@ -210,6 +214,7 @@ extension AgeSchedule {
                                           parameters: pension.schemeParameters, currencyRate: pension.currencyRate)
         }
         var claims: [PensionClaim?] = Array(repeating: nil, count: model.pensions.count)
+        var offeredClaims: [[ClaimOption]] = Array(repeating: [], count: model.pensions.count)
         let schemeIDs = Set(model.pensions.map(\.schemeID))
         var years: [ScheduledYear] = []
         var fixedYears: [FixedYear] = []
@@ -254,7 +259,8 @@ extension AgeSchedule {
                 let waitsForWork = pension.claim == .earliest && retirementDate > model.startDate
                 if claims[index] == nil, !(waitsForWork && retirementDate > frame.lastDay),
                    let option = Self.claim(pension, record: records[index], frame: frame, birth: birth,
-                                           yearsSinceWorkStopped: yearsSinceWorkStopped) {
+                                           yearsSinceWorkStopped: yearsSinceWorkStopped,
+                                           offered: &offeredClaims[index]) {
                     // A pension already paid when the plan starts started when it reached its age.
                     let startYear = frame.index == 0 && option.age < frame.age ? model.birthYear + option.age : frame.year
                     claims[index] = PensionClaim(pension: index, year: frame.year, age: frame.age, option: option,
@@ -497,6 +503,7 @@ extension AgeSchedule {
         self.retirementDate = retirementDate
         self.years = years
         self.claims = claims
+        self.offeredClaims = offeredClaims
         self.fixedYears = fixedYears
         self.issues = issues
     }
@@ -504,14 +511,18 @@ extension AgeSchedule {
     /// Decides whether a pension is claimed in `frame`'s year, and how: the
     /// latest of its scheme's claim options at or below the age that year
     /// (the first listed of those at that age), with the plan's claim route
-    /// if it names one, once the age the plan asks for is reached.
+    /// if it names one, once the age the plan asks for is reached. `offered`
+    /// receives every option the scheme listed, when it was asked.
     private static func claim(_ pension: PensionSpec, record: PensionRecord, frame: YearFrame,
-                              birth: BirthDate, yearsSinceWorkStopped: Int?) -> ClaimOption? {
+                              birth: BirthDate, yearsSinceWorkStopped: Int?,
+                              offered: inout [ClaimOption]) -> ClaimOption? {
         if case .age(let wanted) = pension.claim, frame.age < wanted { return nil }
         let context = ClaimContext(year: frame.year, birthDate: birth, options: pension.options,
                                    currencyRate: pension.currencyRate, yearsSinceWorkStopped: yearsSinceWorkStopped,
                                    claimRoute: pension.claimRoute)
-        return pension.scheme.claimOptions(for: record, context: context, parameters: pension.schemeParameters)
+        let options = pension.scheme.claimOptions(for: record, context: context, parameters: pension.schemeParameters)
+        offered = options
+        return options
             .filter { $0.age <= frame.age && (pension.claimRoute == nil || $0.route == pension.claimRoute) }
             .max { $0.age < $1.age }
     }
