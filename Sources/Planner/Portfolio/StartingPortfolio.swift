@@ -39,6 +39,12 @@ struct PortfolioBuilder: Sendable {
         var value: Double { holdings.reduce(0) { $0 + $1.value } }
     }
 
+    /// A step of the plan's target mix (`portfolio.targetMixByAge`), normalised.
+    struct MixStep: Sendable {
+        let start: MixStepStart
+        let mix: [AssetClass: Double]
+    }
+
     /// Accounts that hold a pension scheme's record (its `seedWrapper`):
     /// they start the scheme rather than being a bucket.
     struct Seed: Sendable {
@@ -105,6 +111,9 @@ struct PortfolioBuilder: Sendable {
     let primaryLiquid: Int
     /// The target mix of a new taxable bucket.
     private let liquidMix: [AssetClass: Double]
+    /// The plan's target mix steps, in the plan's order: from each step's
+    /// start, every taxable bucket is rebalanced to its mix.
+    let mixSteps: [MixStep]
     /// The value of the included accounts, exactly as the tracker computes it.
     let startAssets: Decimal
     /// The included accounts, sorted.
@@ -123,7 +132,20 @@ struct PortfolioBuilder: Sendable {
         let valuator = Self.valuator(library: library, currency: currency ?? library.settings.baseCurrency)
         let excluded = Set(plan.portfolio.exclude)
         let gainShare = plan.portfolio.unrealizedGainShare.map { min(1, max(0, $0.double)) }
-        let planMix = plan.portfolio.targetMix.flatMap { Self.normalized($0, section: .portfolio, issues: &issues) }
+        let planMix = plan.portfolio.targetMix.flatMap {
+            Self.normalized($0, section: .portfolio, option: "targetMix", issues: &issues)
+        }
+        var mixSteps: [MixStep] = []
+        for (index, step) in plan.portfolio.targetMixByAge.enumerated() {
+            guard let mix = Self.normalized(step.mix, section: .portfolio, option: "targetMixByAge",
+                                            step: (step.fromAge, index), issues: &issues) else {
+                issues.append(.error("planner.targetMixEmpty",
+                                     "The target mix from \(Self.describe(step.fromAge)) has no asset class with a share.",
+                                     section: .portfolio, index: index, option: "targetMixByAge"))
+                continue
+            }
+            mixSteps.append(MixStep(start: step.fromAge, mix: mix))
+        }
 
         for id in plan.portfolio.exclude where library.accounts[id] == nil {
             issues.append(.warning("planner.unknownAccount", "Excluded account \(id) doesn't exist.",
@@ -280,6 +302,7 @@ struct PortfolioBuilder: Sendable {
         }
 
         var classes = Set(liquidMix.keys).union([.cash])
+        for step in mixSteps { classes.formUnion(step.mix.keys) }
         for bucket in buckets {
             classes.formUnion(bucket.targetMix.keys)
             classes.formUnion(bucket.holdings.map(\.assetClass))
@@ -292,6 +315,7 @@ struct PortfolioBuilder: Sendable {
         self.debtPaidOff = debt
         self.primaryLiquid = primary!
         self.liquidMix = liquidMix
+        self.mixSteps = mixSteps
         self.startAssets = total
         self.accounts = included
     }
@@ -328,6 +352,12 @@ struct PortfolioBuilder: Sendable {
         var infos: [Portfolio.BucketInfo] = []
         var targetShares = [Double](repeating: 0, count: buckets.count * classCount)
         var depositLot = [Int](repeating: -1, count: buckets.count * classCount)
+        var stepShares = [Double](repeating: 0, count: mixSteps.count * classCount)
+        for (k, step) in mixSteps.enumerated() {
+            for (assetClass, share) in step.mix { stepShares[k * classCount + classIndex[assetClass]!] = share }
+        }
+        // A taxable bucket can buy every class its target mix has at some age.
+        let stepClasses = Set(mixSteps.flatMap { $0.mix.filter { $0.value > 0 }.keys })
 
         for (b, bucket) in buckets.enumerated() {
             let first = lots.count
@@ -342,8 +372,11 @@ struct PortfolioBuilder: Sendable {
                                           documented: holding.basis != nil, value: holding.value,
                                           basis: holding.basis ?? 0))
             }
-            for (assetClass, share) in bucket.targetMix.sorted(by: { classIndex[$0.key]! < classIndex[$1.key]! })
-                where share > 0 {
+            var bought = bucket.targetMix.filter { $0.value > 0 }
+            if bucket.category == .taxable {
+                for assetClass in stepClasses where bought[assetClass] == nil { bought[assetClass] = 0 }
+            }
+            for (assetClass, share) in bought.sorted(by: { classIndex[$0.key]! < classIndex[$1.key]! }) {
                 let c = classIndex[assetClass]!
                 targetShares[b * classCount + c] = share
                 let inClass = (first..<lots.count).filter { lots[$0].classIndex == c }
@@ -368,7 +401,8 @@ struct PortfolioBuilder: Sendable {
                 targetMix: bucket.targetMix))
         }
         return Portfolio(buckets: infos, lots: lots, classes: classes, primaryLiquid: primaryLiquid,
-                         targetShares: targetShares, depositLot: depositLot)
+                         targetShares: targetShares, depositLot: depositLot,
+                         stepStarts: mixSteps.map(\.start), stepShares: stepShares)
     }
 
     // MARK: - Helpers
@@ -528,15 +562,33 @@ struct PortfolioBuilder: Sendable {
         return positive.mapValues { $0 / total }
     }
 
-    /// The plan's target mix, normalised, with a warning when it doesn't sum to 1.
-    private static func normalized(_ mix: AssetMix, section: PlanSection,
+    /// A target mix of the plan, normalised, with a warning when it doesn't
+    /// sum to 1. `step`: when it's a step of `targetMixByAge`, its start and index.
+    private static func normalized(_ mix: AssetMix, section: PlanSection, option: String,
+                                   step: (start: MixStepStart, index: Int)? = nil,
                                    issues: inout [PlanIssue]) -> [AssetClass: Double]? {
         guard let shares = shares(mix) else { return nil }
         if abs(mix.total.double - 1) > 0.001 {
-            issues.append(.warning("planner.targetMixTotal", "The target mix doesn't add up to 100%; the plan scales it.",
-                                   section: section, option: "targetMix"))
+            let which = step.map { "The target mix from \(describe($0.start))" } ?? "The target mix"
+            issues.append(.warning("planner.targetMixTotal",
+                                   "\(which) adds up to \(percent(mix.total.double)), not 100%; the plan scales it.",
+                                   section: section, index: step?.index, option: option))
         }
         return shares
+    }
+
+    /// "55", "retirement": when a target mix step starts, in messages.
+    static func describe(_ start: MixStepStart) -> String {
+        switch start {
+        case .age(let age): "\(age)"
+        case .retirement: "retirement"
+        }
+    }
+
+    /// "95%", "100.5%": a share in messages, to a tenth of a percent at most.
+    static func percent(_ share: Double) -> String {
+        let tenths = (share * 1000).rounded()
+        return tenths.truncatingRemainder(dividingBy: 10) == 0 ? "\(Int(tenths / 10))%" : "\(tenths / 10)%"
     }
 
     /// The tax category of an instrument, from its kind: an ETF or fund by
@@ -629,12 +681,33 @@ struct Portfolio: Sendable {
     let lots: [Lot]
     let classes: [AssetClass]
     let primaryLiquid: Int
-    /// Target share per bucket and class, indexed `bucket * classes.count + class`.
+    /// Target share per bucket and class, indexed `bucket * classes.count + class`:
+    /// the mix each bucket is rebalanced to before any of the plan's target
+    /// mix steps starts (always, for a bucket that isn't taxable).
     let targetShares: [Double]
     /// The lot new money goes into per bucket and class (`-1` for none).
     let depositLot: [Int]
+    /// When each of the plan's target mix steps starts (`portfolio.targetMixByAge`).
+    var stepStarts: [MixStepStart] = []
+    /// Each step's share per class, indexed `step * classes.count + class`:
+    /// from its start, the mix every taxable bucket is rebalanced to.
+    var stepShares: [Double] = []
 
     var classCount: Int { classes.count }
+
+    /// The index of the target mix step in force at `age` when retiring at
+    /// `retirementAge`: the last that has started (``PlanPortfolio/targetMixStep(atAge:retiringAt:)``),
+    /// `nil` before any has.
+    func step(atAge age: Int, retiringAt retirementAge: Int) -> Int? {
+        stepStarts.indices.last { (stepStarts[$0].startAge(retiringAt: retirementAge) ?? .max) <= age }
+    }
+
+    /// The target share of class `c` in bucket `b` while step `step` is in
+    /// force (`nil`: none is): a taxable bucket follows the step.
+    func targetShare(bucket b: Int, class c: Int, step: Int?) -> Double {
+        if let step, buckets[b].isLiquid { return stepShares[step * classCount + c] }
+        return targetShares[b * classCount + c]
+    }
 
     /// The value of every lot at the start.
     var totalValue: Double { lots.reduce(0) { $0 + $1.value } }
@@ -644,7 +717,7 @@ struct Portfolio: Sendable {
     }
 
     /// The value of the liquid (taxable) buckets at the start: the money
-    /// that can be drawn at any age, which ``withExtra(_:)`` adds to or
+    /// that can be drawn at any age, which ``withExtra(_:step:)`` adds to or
     /// takes from.
     var accessibleValue: Double {
         lots.reduce(0) { $0 + (buckets[$1.bucket].isLiquid ? $1.value : 0) }
@@ -655,12 +728,13 @@ struct Portfolio: Sendable {
     /// retire today"); tax-advantaged buckets stay as they are. More money
     /// is split between the liquid buckets by their value (all of it into
     /// the one that receives savings when they're empty), and within each by
-    /// its target mix, into the lots new money goes to, at a purchase cost
-    /// equal to the amount: new money carries no unrealised gain. Less money
-    /// (`extra` < 0) comes out of every liquid lot in proportion, value and
-    /// purchase cost alike, never below zero. For "assets needed to retire
-    /// today" (``Engine/assetsNeeded(age:startAssets:successToday:progress:)``).
-    func withExtra(_ extra: Double) -> Portfolio {
+    /// its target mix in force at the start (the plan's target mix step
+    /// `step`, else the bucket's own), into the lots new money goes to, at a
+    /// purchase cost equal to the amount: new money carries no unrealised
+    /// gain. Less money (`extra` < 0) comes out of every liquid lot in
+    /// proportion, value and purchase cost alike, never below zero. For
+    /// "assets needed to retire today" (``Engine/assetsNeeded(age:startAssets:successToday:progress:)``).
+    func withExtra(_ extra: Double, step: Int? = nil) -> Portfolio {
         guard extra != 0, extra.isFinite else { return self }
         var changed = lots
         let liquid = buckets.indices.filter { buckets[$0].isLiquid }
@@ -677,7 +751,9 @@ struct Portfolio: Sendable {
             }
         } else {
             func targets(_ b: Int) -> [Double] {
-                (0..<classCount).map { depositLot[b * classCount + $0] >= 0 ? targetShares[b * classCount + $0] : 0 }
+                (0..<classCount).map {
+                    depositLot[b * classCount + $0] >= 0 ? targetShare(bucket: b, class: $0, step: step) : 0
+                }
             }
             var shares = zip(liquid, values).map { ($0, available > 0 ? $1 / available : 0) }
             if available <= 0 { shares = [(primaryLiquid, 1)] }
@@ -695,8 +771,7 @@ struct Portfolio: Sendable {
                 }
             }
         }
-        return Portfolio(buckets: buckets, lots: changed, classes: classes, primaryLiquid: primaryLiquid,
-                         targetShares: targetShares, depositLot: depositLot)
+        return replacing(lots: changed)
     }
 
     /// The same portfolio with every lot's value and purchase cost
@@ -710,7 +785,12 @@ struct Portfolio: Sendable {
             scaled[index].value *= factor
             scaled[index].basis *= factor
         }
-        return Portfolio(buckets: buckets, lots: scaled, classes: classes, primaryLiquid: primaryLiquid,
-                         targetShares: targetShares, depositLot: depositLot)
+        return replacing(lots: scaled)
+    }
+
+    /// The same portfolio with other lot values and purchase costs.
+    private func replacing(lots: [Lot]) -> Portfolio {
+        Portfolio(buckets: buckets, lots: lots, classes: classes, primaryLiquid: primaryLiquid,
+                  targetShares: targetShares, depositLot: depositLot, stepStarts: stepStarts, stepShares: stepShares)
     }
 }

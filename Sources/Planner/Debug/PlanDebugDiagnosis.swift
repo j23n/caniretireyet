@@ -49,6 +49,25 @@ public enum PlanDebugDiagnosis {
             + "\(f.percent(portfolio.expectedReturn)) a year in real terms, but at "
             + "\(f.percent(portfolio.volatility, places: 0)) volatility its median (typical) growth is "
             + "\(f.percent(portfolio.medianReturn)) a year.")
+        // A target mix that changes with age.
+        if let target = report.plan.targetMix, target.steps.contains(where: \.applies) {
+            func mix(_ shares: [String: Double]) -> String {
+                shares.filter { $0.value > 0 }.sorted { ($1.value, $0.key) < ($0.value, $1.key) }
+                    .map { "\(f.className($0.key).lowercased()) \(f.percent($0.value, places: 0))" }
+                    .joined(separator: ", ")
+            }
+            var parts = [target.mix.map { shares in
+                "\(mix(shares))" + (target.growth.map { " (a median growth of \(f.percent($0.medianReturn)) a year)" } ?? "")
+            } ?? "each ordinary account's own mix"]
+            for step in target.steps where step.applies {
+                let from = step.fromAge == "retirement" ? "from retirement at \(step.startAge.map(String.init) ?? "?")"
+                    : "from \(step.fromAge)"
+                parts.append("\(from), \(mix(step.mix)) (\(f.percent(step.growth.medianReturn)))")
+            }
+            add("mix.steps", "The target mix changes with age, retiring at \(age): \(parts.joined(separator: "; ")). "
+                + "The year each one starts, rebalancing the ordinary accounts sells what it no longer wants, a "
+                + "sale taxed on its gain; pension funds keep their own mix.")
+        }
 
         // What the percentiles and paths start from.
         let scale = report.header.startScale

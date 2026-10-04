@@ -216,8 +216,8 @@ struct Engine: Sendable {
     /// confidence level (PLANNER.md, "Assets needed to retire today").
     ///
     /// It adds extra money X to the buckets that can be drawn at any age,
-    /// the liquid ones (``Portfolio/withExtra(_:)``: split by their target
-    /// mix, with no unrealised gain), or takes money out of them (X < 0,
+    /// the liquid ones (``startPortfolio(extra:)``: split by the target mix
+    /// in force at today's age, with no unrealised gain), or takes money out of them (X < 0,
     /// never below zero), and searches the plan assets S + X as a multiple
     /// of today's S: from 1 it doubles (or halves) until the confidence
     /// level is crossed, between ``AssetsNeeded/maximumScale`` and the
@@ -275,7 +275,7 @@ struct Engine: Sendable {
 
         func success(at scale: Double) async throws -> Double {
             let open = (0..<runs).filter { failsUpTo[$0] < scale && scale < succeedsFrom[$0] }
-            let start = engine.portfolio.withExtra(extra(at: scale))
+            let start = engine.startPortfolio(extra: extra(at: scale))
             let chunks = Self.chunks(open.count).map { Array(open[$0]) }
             let results = try await parallelMap(chunks) { chunk -> [(Int, Bool)] in
                 var simulator = engine.simulator(age: age, start: start)
@@ -337,6 +337,15 @@ struct Engine: Sendable {
         return (AssetsNeeded(age: age, outcome: .found, scale: high, amount: startAssets + needed,
                              success: rate(at: high), readiness: startAssets / (startAssets + needed), extra: needed,
                              accessible: accessible), tried)
+    }
+
+    /// Today's portfolio with `extra` more money in the buckets that can be
+    /// drawn at any age (less, when negative), as the search for the assets
+    /// needed tries it (``Portfolio/withExtra(_:step:)``): split by the
+    /// target mix in force in the first year of retiring today, so a
+    /// `retirement` step of the plan's target mix applies.
+    func startPortfolio(extra: Double) -> Portfolio {
+        portfolio.withExtra(extra, step: schedules[model.currentAge]?.startStep)
     }
 
     /// How many halvings of the log of `high / low` the search for the

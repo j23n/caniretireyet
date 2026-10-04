@@ -301,6 +301,30 @@ struct PlanDebugMarkdown {
         line("- Rebalancing: \(plan.withdrawals.rebalancing)")
         line("- Fees: \(plan.fees)")
         line()
+        writeTargetMix()
+    }
+
+    /// The plan's target mix and its changes with age, when it sets them.
+    private mutating func writeTargetMix() {
+        guard let target = report.plan.targetMix else { return }
+        line("### Target mix")
+        line()
+        let start = target.mix.map { mix in
+            "\(Self.mix(mix))" + (target.growth.map { " (median growth \(F.percent($0.medianReturn)) a year)" } ?? "")
+        } ?? "each one's own mix at the start"
+        paragraph("The ordinary (taxable) accounts are rebalanced to \(start)"
+            + (target.steps.isEmpty ? "." : ", then from each age below to its mix. A step a later one overtakes, "
+                + "or that starts after the plan's end, never applies.")
+            + " Pension funds and other tax-advantaged accounts keep their own mix.")
+        guard !target.steps.isEmpty else { return }
+        var steps = MarkdownTable(["From", "Starts at (retiring at \(report.header.retirementAge))", "Mix", "Expected",
+                                   "Median", "Applies"], right: [1, 3, 4])
+        for step in target.steps {
+            steps.add([step.fromAge, step.startAge.map(String.init) ?? "–", Self.mix(step.mix),
+                       F.percent(step.growth.expectedReturn), F.percent(step.growth.medianReturn),
+                       step.applies ? "yes" : "no"])
+        }
+        table(steps)
     }
 
     private mutating func writeAssumptions() {
@@ -310,7 +334,9 @@ struct PlanDebugMarkdown {
         paragraph("Each class's expected real return is the average of a log-normal yearly return with the given "
             + "volatility; its median is what a typical year gives, lower the more volatile the class is. A "
             + "portfolio rebalanced every year compounds at about its median. \"Target share\" is the class's share "
-            + "of the mix the buckets are rebalanced to (each bucket's target mix, weighted by its value), and "
+            + "of the mix the buckets are rebalanced to (each bucket's target mix"
+            + (report.plan.targetMix?.steps.isEmpty == false ? " in the first year; it changes with age" : "")
+            + ", weighted by its value), and "
             + "\"Portfolio median without\" that mix's median growth with the class left out and the rest in their "
             + "proportions. Inflation: \(F.percent(assumptions.inflation)) a year.")
         var classes = MarkdownTable(["Class", "Share today", "Target share", "Expected real return", "Volatility",
@@ -438,7 +464,9 @@ struct PlanDebugMarkdown {
             + "pensions, contributions, spending and the taxes on them. \"To draw\" is what the portfolio must "
             + "provide (spending, expenses and contributions less net income); negative means money saved. Taxes on "
             + "sales, payouts and balances come on top, and depend on each path (section 7). The first year is the "
-            + "part after the check-in.")
+            + "part after the check-in."
+            + (report.schedule.years.contains { $0.targetMix != nil }
+                ? " \"Target mix\" is the mix the ordinary accounts are rebalanced to that year." : ""))
         let years = schedule.years
         var keep = Set<Int>()
         if let retired = years.firstIndex(where: { $0.workingShare < 1 }) { keep.formUnion([retired - 1, retired, retired + 1]) }
@@ -448,9 +476,15 @@ struct PlanDebugMarkdown {
         }
         let claimYears = Set(report.plan.pensions.compactMap { $0.claimed?.year })
         for (index, year) in years.enumerated() where claimYears.contains(year.year) { keep.formUnion([index, index + 1]) }
+        // The years the target mix changes, and a column for it, when it changes with age.
+        let mixes = years.contains { $0.targetMix != nil }
+        for index in years.indices.dropFirst() where years[index].targetMix != years[index - 1].targetMix {
+            keep.insert(index)
+        }
         let shown = F.shownRows(ages: years.map(\.age), keep: keep)
         var table = MarkdownTable(["Year", "Age", "Work", "Pensions", "Windfalls", "Contributions", "Spending",
-                                   "Expenses", "Taxes", "Net income", "To draw", "Notes"],
+                                   "Expenses", "Taxes", "Net income", "To draw"] + (mixes ? ["Target mix"] : [])
+                                      + ["Notes"],
                                   right: Set(0...10))
         table.add(shown: shown) { index in
             let year = years[index]
@@ -465,7 +499,8 @@ struct PlanDebugMarkdown {
             return ["\(year.year)", "\(year.age)", F.money(year.work),
                     F.money(year.pensions.reduce(0) { $0 + $1.amount }), F.money(year.windfalls.reduce(0) { $0 + $1.amount }),
                     F.money(year.contributions), F.money(year.spending), F.money(year.expenses), F.money(taxes),
-                    F.money(year.netIncome), F.money(year.toDraw), notes.joined(separator: "; ")]
+                    F.money(year.netIncome), F.money(year.toDraw)]
+                + (mixes ? [year.targetMix.map(Self.mix) ?? ""] : []) + [notes.joined(separator: "; ")]
         }
         self.table(table)
     }
@@ -620,7 +655,8 @@ struct PlanDebugMarkdown {
             + "was drawn (gross, before tax), the gains those sales realised, taxes on income (work, pensions, "
             + "windfalls) and on markets (sales, payouts, interest and balances; paid the next year unless withheld "
             + "from a sale), and what rebalancing sold; when the tax system carries something along the path, such as "
-            + "losses it lets later years offset, what it carries into the next year. A year in detail follows each path.")
+            + "losses it lets later years offset, what it carries into the next year; when the target mix changes "
+            + "with age, the mix the ordinary accounts are rebalanced to that year. A year in detail follows each path.")
         if report.paths.isEmpty { paragraph("No paths were traced.") }
         for path in report.paths { writePath(path) }
     }
@@ -648,14 +684,20 @@ struct PlanDebugMarkdown {
         for (index, year) in years.enumerated() where !year.payouts.filter({ $0.purpose == "required" }).isEmpty {
             keep.insert(index)
         }
+        // The years the target mix changes, and a column for it, when it changes with age.
+        let mixes = years.contains { $0.targetMix != nil }
+        for index in years.indices.dropFirst() where years[index].targetMix != years[index - 1].targetMix {
+            keep.insert(index)
+        }
         let shown = F.shownRows(ages: years.map(\.age), keep: keep)
         let classes = path.classes.map(F.className)
-        var balances = MarkdownTable(["Year", "Age"] + classes + path.buckets.map(\.name) + ["Plan assets"],
+        var balances = MarkdownTable(["Year", "Age"] + classes + path.buckets.map(\.name) + ["Plan assets"]
+                                         + (mixes ? ["Target mix"] : []),
                                      right: Set(0..<(3 + classes.count + path.buckets.count)))
         balances.add(shown: shown) { index in
             let year = years[index]
             return ["\(year.year)", "\(year.age)"] + year.returns.map(F.signedPercent) + year.buckets.map { F.money($0.end) }
-                + [F.money(year.endAssets)]
+                + [F.money(year.endAssets)] + (mixes ? [year.targetMix.map(Self.mix) ?? ""] : [])
         }
         table(balances)
 

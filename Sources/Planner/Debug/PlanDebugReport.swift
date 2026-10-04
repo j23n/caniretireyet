@@ -124,6 +124,36 @@ extension PlanDebugReport {
         public var withdrawals: Withdrawals
         /// How fees enter the plan.
         public var fees: String
+        /// The mix the ordinary (taxable) accounts are rebalanced to, as the
+        /// plan chooses it; `nil` when it doesn't (each keeps its mix at the start).
+        public var targetMix: TargetMixPlan? = nil
+    }
+
+    /// The plan's target mix (`portfolio.targetMix`) and its changes with
+    /// age (`portfolio.targetMixByAge`), as the engine read them.
+    public struct TargetMixPlan: Codable, Hashable, Sendable {
+        /// `targetMix`, scaled to sum to 1: the mix from the start until a
+        /// step starts. `nil`: until then each ordinary account keeps its mix.
+        public var mix: [String: Double]?
+        /// That mix rebalanced every year; `nil` without one.
+        public var growth: Growth?
+        /// The changes with age, in the plan's order.
+        public var steps: [TargetMixStepReading]
+    }
+
+    /// One change of the target mix with age.
+    public struct TargetMixStepReading: Codable, Hashable, Sendable {
+        /// `fromAge` as written: an age or `retirement`.
+        public var fromAge: String
+        /// The age it starts at when retiring at the chosen age.
+        public var startAge: Int?
+        /// Whether it's in force in some year at the chosen age: a step that
+        /// a later one overtakes, or that starts after the plan's end, never is.
+        public var applies: Bool
+        /// Scaled to sum to 1.
+        public var mix: [String: Double]
+        /// The mix rebalanced every year.
+        public var growth: Growth
     }
 
     public struct Residence: Codable, Hashable, Sendable {
@@ -457,6 +487,9 @@ extension PlanDebugReport {
         public var requiredPayouts: [String]
         /// The buckets that can be drawn from.
         public var accessible: [String]
+        /// The mix the ordinary (taxable) accounts are rebalanced to this
+        /// year, when the plan's target mix changes with age; `nil` otherwise.
+        public var targetMix: [String: Double]? = nil
     }
 
     /// An amount by ID and label.
@@ -689,6 +722,9 @@ extension PlanDebugReport {
         /// What the tax system carries along the path into the next year,
         /// such as losses carried forward; `nil` when it carries nothing.
         public var carriedForward: [CarriedAmount]? = nil
+        /// The mix the ordinary (taxable) accounts are rebalanced to this
+        /// year, when the plan's target mix changes with age; `nil` otherwise.
+        public var targetMix: [String: Double]? = nil
     }
 
     /// An amount the tax system carries along a path into the next year,
