@@ -221,6 +221,9 @@ struct PlanInputSummaries {
         for phase in plan.spending.phases.sorted(by: { $0.fromAge < $1.fromAge }) {
             parts.append("\(percent(phase.factor, digits: 0)) from \(phase.fromAge)")
         }
+        if let rule = plan.spending.flexibleRule {
+            parts.append("flexible, down to \(percent(rule.effectiveFloor, digits: 0))")
+        }
         return parts.joined(separator: " · ")
     }
 

@@ -178,6 +178,34 @@ struct PlanDebugChoices: Hashable, Sendable {
 
 /// How the debugger's words read.
 enum PlanDebugText {
+    // MARK: Flexible spending
+
+    /// "20% above, 20% below".
+    static func guardrails(upper: Double, lower: Double, locale: Locale = .current) -> String {
+        "\(AmountFormat.percent(upper, digits: 0, locale: locale)) above, "
+            + "\(AmountFormat.percent(lower, digits: 0, locale: locale)) below"
+    }
+
+    /// "2,40%–3,60%": the withdrawal rates between the guardrails.
+    static func rateRange(_ lower: Double, _ upper: Double, locale: Locale = .current) -> String {
+        AmountFormat.percent(lower, digits: 2, locale: locale) + "–" + AmountFormat.percent(upper, digits: 2, locale: locale)
+    }
+
+    /// What the rule did in a year, in words: "cut to 90%", "raised to
+    /// 100%", "at the floor", "holds", "first year", "waiting".
+    static func flexibleAction(_ year: PlanDebugReport.FlexibleYear, locale: Locale = .current) -> String {
+        let level = AmountFormat.percent(year.level, digits: 0, locale: locale)
+        let action = switch year.action {
+        case "cut": "cut to \(level)"
+        case "raise": "raised to \(level)"
+        case "floor": "at the floor"
+        case "start": "first year"
+        case "waiting": "waiting"
+        default: "holds"
+        }
+        return year.paidLevel < year.level - 1e-9 ? action + ", forced lower" : action
+    }
+
     /// Before the first calculation.
     static let introduction = "Shows every calculation behind the plan's answer: how it read the plan and your "
         + "accounts, the assumptions, the year-by-year schedule, both searches, percentiles and a few runs traced "

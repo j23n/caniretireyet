@@ -139,6 +139,65 @@ enum PlanResultsText {
         return "Steps at \(ages): retiring then changes when \(list(names)) can start."
     }
 
+    // MARK: Flexible spending
+
+    /// "Flexible spending (cuts of 10% down to 80%)", the card's title.
+    static func flexibleTitle(_ summary: FlexibleSpendingSummary, locale: Locale = .current) -> String {
+        "Flexible spending (cuts of \(AmountFormat.percent(summary.cut, digits: 0, locale: locale)) down to "
+            + "\(AmountFormat.percent(summary.floor, digits: 0, locale: locale)))"
+    }
+
+    /// The card's sentences (UI.md, "Results"): how low spending goes in a
+    /// bad case and how many futures never cut, how long spending stays below
+    /// the plan's, and when a cut comes. "In a bad case (1 in 10) you'd spend
+    /// as little as 29.000 € a year for a while; half of all futures never
+    /// cut." Amounts read `•••••` while hidden.
+    static func flexibleSentences(_ summary: FlexibleSpendingSummary, currency: CurrencyCode,
+                                  hidesAmounts: Bool = false, locale: Locale = .current) -> [String] {
+        func money(_ value: Double) -> String {
+            hidesAmounts ? AmountFormat.hidden : AmountFormat.amount(whole(value), currency: currency, locale: locale)
+        }
+        let never = neverCut(1 - summary.shareWithCut, locale: locale)
+        var sentences: [String] = []
+        if let lowest = summary.p10LowestSpending {
+            sentences.append(lowest >= summary.planSpending - 0.5
+                ? "Even in a bad case (1 in 10) you'd never cut; \(never)."
+                : "In a bad case (1 in 10) you'd spend as little as \(money(lowest)) a year for a while; \(never).")
+        } else {
+            sentences.append("In a bad case (1 in 10) the money runs out even at the floor; \(never).")
+        }
+        if summary.medianYearsBelow > 0 {
+            sentences.append("Half of all futures spend \(summary.medianYearsBelow) or more of "
+                + "\(summary.retirementYears) years in retirement below your plan's spending.")
+        }
+        return sentences
+    }
+
+    /// The rule under the card's sentences: "Spending is cut by 10% of the
+    /// plan's when the share of your money you draw rises 20% above the first
+    /// year's, and restored when it falls 20% below: never under 28.800 € a
+    /// year, nor above 36.000 €."
+    static func flexibleRule(_ summary: FlexibleSpendingSummary, currency: CurrencyCode, hidesAmounts: Bool = false,
+                             locale: Locale = .current) -> String {
+        func money(_ value: Double) -> String {
+            hidesAmounts ? AmountFormat.hidden : AmountFormat.amount(whole(value), currency: currency, locale: locale)
+        }
+        let upper = AmountFormat.percent(summary.upperGuardrail, digits: 0, locale: locale)
+        let lower = AmountFormat.percent(summary.lowerGuardrail, digits: 0, locale: locale)
+        return "Spending is cut by \(AmountFormat.percent(summary.cut, digits: 0, locale: locale)) of the plan's when "
+            + "the share of your money you draw rises \(upper) above the first year's, and restored when it falls "
+            + "\(lower) below: never under \(money(summary.floorSpending)) a year, nor above "
+            + "\(money(summary.planSpending)). Retiring at \(summary.age)."
+    }
+
+    /// "half of all futures never cut", "72% of futures never cut".
+    static func neverCut(_ share: Double, locale: Locale = .current) -> String {
+        if share >= 0.995 { return "no future cuts" }
+        if share < 0.005 { return "every future cuts at some point" }
+        if abs(share - 0.5) < 0.05 { return "half of all futures never cut" }
+        return "\(AmountFormat.percent(share, digits: 0, locale: locale)) of futures never cut"
+    }
+
     // MARK: What retiring today needs
 
     /// The most times today's plan assets the planner looks for, as words: "20".

@@ -197,7 +197,18 @@ struct PlanDebugContent: Sendable {
         for phase in plan.spending.phases {
             spending.add("From \(phase.fromAge)", .text(PlanDebugText.times(phase.factor)), note: "of it")
         }
-        blocks.append(PlanDebugBlock(id: "spending", title: "Spending", lines: spending.lines))
+        var flexibleSentences: [String] = []
+        if let rule = plan.flexibleSpending {
+            spending.add("Flexible spending: cuts of", .percent(rule.cut, digits: 0), note: "of the plan's spending")
+            spending.add("Never below", .percent(rule.floor, digits: 0), note: "of it: the floor")
+            spending.add("The floor", .money(rule.floor * plan.spending.retired), note: "a year, before the phases")
+            spending.add("Guardrails", .text(PlanDebugText.guardrails(upper: rule.upperGuardrail,
+                                                                     lower: rule.lowerGuardrail)),
+                         note: "of the first retirement year's withdrawal rate")
+            flexibleSentences.append(rule.description)
+        }
+        blocks.append(PlanDebugBlock(id: "spending", title: "Spending", sentences: flexibleSentences,
+                                     lines: spending.lines))
 
         if plan.pensions.isEmpty {
             blocks.append(PlanDebugBlock(id: "pensions", title: "Pensions", sentences: ["No pensions."]))
@@ -701,6 +712,37 @@ struct PlanDebugContent: Sendable {
         blocks.append(PlanDebugBlock(id: "failures", title: "Why runs fail, retiring at \(age)",
                                      sentences: failureSentences, lines: failureLines.lines, table: byAge))
 
+        if let flexible = simulation.flexibleSpending {
+            var lines = PlanDebugLines()
+            lines.add("Futures that cut spending", .percent(flexible.shareWithCut, digits: 0),
+                      note: "at some point, failures included")
+            lines.add("Futures that fail", .percent(flexible.failureRate, digits: 0),
+                      note: "spending forced below the floor")
+            for (label, level) in [("Lowest level, median run", flexible.medianLowestLevel),
+                                   ("Lowest level, 10th percentile", flexible.p10LowestLevel)] {
+                if let level {
+                    lines.add(label, .percent(level, digits: 0), note: "of the plan's spending")
+                    lines.add("That is", .money(level * flexible.planSpending), note: "a year, before the phases")
+                } else {
+                    lines.add(label, .text("the money runs out"))
+                }
+            }
+            lines.add("Years below 100%, median run",
+                      .text("\(flexible.medianYearsBelow) of \(flexible.retirementYears)"))
+            lines.add("Years below 100%, a bad case", .text("\(flexible.p90YearsBelow) or more"), note: "1 in 10 futures")
+            if let amount = flexible.assetsNeededWithoutRule {
+                lines.add("Retiring today without the rule needs", .money(amount),
+                          note: "spending fixed in real terms")
+            }
+            if let success = flexible.successTodayWithoutRule {
+                lines.add("Retiring today without the rule succeeds in", .percent(success), note: "of futures")
+            }
+            blocks.append(PlanDebugBlock(
+                id: "flexible", title: "Flexible spending, retiring at \(age)",
+                note: "How often the rule cut spending, how low it went and for how long, over every run.",
+                lines: lines.lines))
+        }
+
         var outcomes = PlanDebugLines()
         let expected = simulation.expectedPath
         outcomes.add("Deterministic run", .text(outcome(expected, endAge: header.endAge)),
@@ -810,11 +852,18 @@ struct PlanDebugContent: Sendable {
         if mixes { columns.append(.text("Target mix")) }
         var balances = PlanDebugTableBuilder("path-\(index)-balances", columns, titleColumns: [0, 1],
                                              isSelectable: true)
-        var flows = PlanDebugTableBuilder("path-\(index)-flows", [
+        // With flexible spending, the rule's withdrawal rate and level.
+        let flexible = path.years.contains { $0.flexible != nil }
+        var flowColumns: [PlanDebugColumn] = [
             .year(), .age(), .money("Net income"), .money("Payouts"), .money("Spending"), .money("Met", key: true),
             .money("Drawn", key: true), .money("Gains"), .money("Tax on income"), .money("Tax on markets", key: true),
             .money("Rebalanced"), .money("Saved"),
-        ], titleColumns: [0, 1], isSelectable: true)
+        ]
+        if flexible {
+            flowColumns += [.percent("Withdrawal rate"), .text("Guardrails"), .text("Rule"),
+                            .percent("Level", key: true)]
+        }
+        var flows = PlanDebugTableBuilder("path-\(index)-flows", flowColumns, titleColumns: [0, 1], isSelectable: true)
         for (y, year) in path.years.enumerated() {
             let marked = y == retired || y == failureIndex
             var balance: [PlanDebugValue] = [.number("\(year.year)"), .number("\(year.age)")]
@@ -830,11 +879,22 @@ struct PlanDebugContent: Sendable {
             let rebalanced: Double = year.buckets.reduce(0) { total, bucket in
                 total + bucket.rebalancing.filter { $0 < 0 }.reduce(0, -)
             }
-            let flow: [PlanDebugValue] = [
+            var flow: [PlanDebugValue] = [
                 .number("\(year.year)"), .number("\(year.age)"), .money(year.netIncome), .money(year.payoutsNet),
                 .money(year.spendingTarget), .money(year.spendingMet), .money(drawn), .money(gains), .money(fixed),
                 .money(market), .money(rebalanced), .money(max(0, year.cashFlow)),
             ]
+            if flexible {
+                if let rule = year.flexible {
+                    flow += [.rate(rule.rate, digits: 2),
+                             rule.lowerRate.flatMap { lower in rule.upperRate.map { upper in
+                                 .text(PlanDebugText.rateRange(lower, upper))
+                             } } ?? .missing,
+                             .text(PlanDebugText.flexibleAction(rule)), .percent(rule.paidLevel, digits: 0)]
+                } else {
+                    flow += [.missing, .missing, .missing, .missing]
+                }
+            }
             flows.add(flow, id: y, isMarked: marked)
         }
         let firstRetired = path.years.indices.first { schedule.indices.contains($0) && schedule[$0].workingShare == 0 }
@@ -883,6 +943,25 @@ struct PlanDebugContent: Sendable {
         flow.add("Spending target", .money(year.spendingTarget))
         flow.add("Spending met", .money(year.spendingMet))
         blocks.append(PlanDebugBlock(id: id + "-flow", title: "Cash flow", lines: flow.lines))
+
+        if let rule = year.flexible {
+            var lines = PlanDebugLines()
+            lines.add("Drawn from the portfolio", .money(rule.draw), note: "spending less regular income, for a year")
+            lines.add("Plan assets at the start", .money(rule.assets))
+            lines.add("Withdrawal rate", .rate(rule.rate, digits: 2))
+            lines.add("First retirement year's", .rate(rule.initialRate, digits: 2))
+            if let lower = rule.lowerRate, let upper = rule.upperRate {
+                lines.add("Guardrails", .text(PlanDebugText.rateRange(lower, upper)),
+                          note: "above cuts, below raises")
+            }
+            lines.add("The rule", .text(PlanDebugText.flexibleAction(rule)))
+            lines.add("Spending level", .percent(rule.level, digits: 0), note: "of the plan's spending")
+            if rule.paidLevel < rule.level - 1e-9 {
+                lines.add("Paid", .percent(rule.paidLevel, digits: 0),
+                          note: "the money that could be drawn ran short")
+            }
+            blocks.append(PlanDebugBlock(id: id + "-flexible", title: "Flexible spending", lines: lines.lines))
+        }
 
         var buckets = PlanDebugTableBuilder(id + "-buckets", [
             .label("Bucket"), .money("Start"), .money("In"), .money("Required payouts"), .money("Withdrawn", key: true),

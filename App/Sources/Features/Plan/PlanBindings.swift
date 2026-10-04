@@ -53,6 +53,65 @@ extension PlanDocument {
     }
 }
 
+extension PlanSpending {
+    // MARK: Flexible spending (PLANNER.md, "Flexible spending")
+
+    /// Whether flexible spending is on. Turning it on keeps the settings
+    /// the plan had (or uses the defaults); turning it off keeps settings
+    /// that differ from the defaults (`enabled: false`) and otherwise
+    /// removes the rule, so nothing is written.
+    var planFlexibleOn: Bool {
+        get { flexibleRule != nil }
+        set {
+            guard newValue != planFlexibleOn else { return }
+            var rule = flexible ?? FlexibleSpending()
+            rule.enabled = newValue
+            flexible = newValue || !rule.usesDefaults ? rule : nil
+        }
+    }
+
+    /// The cut, as written (`nil`: the default, 10%). A value equal to the
+    /// default isn't written.
+    var planFlexibleCut: Decimal? {
+        get { flexible?.cut }
+        set { updateFlexible { $0.cut = newValue == FlexibleSpending.defaultCut ? nil : newValue } }
+    }
+
+    /// The floor, as written (`nil`: the default, 80%).
+    var planFlexibleFloor: Decimal? {
+        get { flexible?.floor }
+        set { updateFlexible { $0.floor = newValue == FlexibleSpending.defaultFloor ? nil : newValue } }
+    }
+
+    /// The upper guardrail, as written (`nil`: the default, 20%).
+    var planFlexibleUpperGuardrail: Decimal? {
+        get { flexible?.upperGuardrail }
+        set {
+            updateFlexible { $0.upperGuardrail = newValue == FlexibleSpending.defaultUpperGuardrail ? nil : newValue }
+        }
+    }
+
+    /// The lower guardrail, as written (`nil`: the default, 20%).
+    var planFlexibleLowerGuardrail: Decimal? {
+        get { flexible?.lowerGuardrail }
+        set {
+            updateFlexible { $0.lowerGuardrail = newValue == FlexibleSpending.defaultLowerGuardrail ? nil : newValue }
+        }
+    }
+
+    /// The floor in money: the floor share of retirement spending, before phases.
+    var planFlexibleFloorAmount: Decimal {
+        (flexible ?? FlexibleSpending()).effectiveFloor * retired
+    }
+
+    /// Changes the rule's settings; a rule the plan doesn't have is created on.
+    private mutating func updateFlexible(_ change: (inout FlexibleSpending) -> Void) {
+        var rule = flexible ?? FlexibleSpending()
+        change(&rule)
+        flexible = rule.isEnabled || !rule.usesDefaults ? rule : nil
+    }
+}
+
 extension PlanTax {
     /// Whether thresholds rise with inflation (default on).
     var planIndexThresholds: Bool {

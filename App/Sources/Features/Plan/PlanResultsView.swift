@@ -68,6 +68,7 @@ struct PlanResultsView: View {
                     VStack(spacing: Metrics.l) {
                         PlanKeyNumbersCard(results: results)
                         PlanFailureCard(results: results)
+                        PlanFlexibleSpendingCard(results: results)
                         PlanLibraryCard(results: results)
                     }
                 }
@@ -76,6 +77,7 @@ struct PlanResultsView: View {
                 PlanFanCard(session: session, results: results)
                 PlanIncomeCard(results: results)
                 PlanFailureCard(results: results)
+                PlanFlexibleSpendingCard(results: results)
                 PlanLibraryCard(results: results)
             }
         }
@@ -567,6 +569,36 @@ struct PlanFailureCard: View {
                         .foregroundStyle(Palette.ink)
                         .fixedSize(horizontal: false, vertical: true)
                 }
+            }
+        }
+    }
+}
+
+/// Flexible spending (UI.md, "Results"): how low spending goes in a bad
+/// case, how many futures never cut, how long spending stays below the
+/// plan's, and the rule, for the age the charts are for. Only for a plan
+/// that uses it.
+struct PlanFlexibleSpendingCard: View {
+    let results: PlanResults
+    @Environment(\.locale) private var locale
+    @Environment(\.hidesAmounts) private var hidesAmounts
+    @Environment(\.baseCurrency) private var currency
+
+    var body: some View {
+        if let summary = results.details?.focus.flexible {
+            Card(PlanResultsText.flexibleTitle(summary, locale: locale)) {
+                ForEach(PlanResultsText.flexibleSentences(summary, currency: currency, hidesAmounts: hidesAmounts,
+                                                          locale: locale), id: \.self) { sentence in
+                    Text(sentence)
+                        .font(.subheadline)
+                        .foregroundStyle(Palette.ink)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                Text(PlanResultsText.flexibleRule(summary, currency: currency, hidesAmounts: hidesAmounts,
+                                                  locale: locale))
+                    .font(.footnote)
+                    .foregroundStyle(Palette.secondaryInk)
+                    .fixedSize(horizontal: false, vertical: true)
             }
         }
     }

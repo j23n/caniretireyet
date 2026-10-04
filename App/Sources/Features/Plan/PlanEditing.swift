@@ -189,6 +189,15 @@ enum PlanEditing {
         PlanEvent(name: "New event", timing: .year(asOf.year + 5), amount: -share(of: plan, Decimal(1) / 3, fallback: 10_000))
     }
 
+    /// Under the flexible-spending switch (UI.md, "Inputs").
+    static let flexibleExplanation = "Cuts spending in retirement after bad years and restores it after good ones, "
+        + "as real retirees do, instead of spending the same whatever the markets do. A future only fails if you'd "
+        + "have to spend less than the floor."
+
+    /// Under the guardrails.
+    static let guardrailsExplanation = "Each year the plan compares the share of your money you draw with the first "
+        + "year of retirement's: this much above it, spending is cut; this much below it, a cut is restored."
+
     static func newSpendingPhase(in plan: PlanDocument) -> SpendingPhase {
         let last = plan.spending.phases.map(\.fromAge).max()
         return SpendingPhase(fromAge: last.map { $0 + 10 } ?? 75, factor: Decimal(string: "0.9")!)

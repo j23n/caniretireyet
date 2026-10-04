@@ -296,8 +296,52 @@ struct PlanSpendingEditor: View {
                 Label("Add a later phase", systemImage: "plus")
             }
             .buttonStyle(.borderless)
+            Divider()
+            PlanFlexibleSpendingEditor(spending: $plan.spending)
         }
         .font(.subheadline)
+    }
+}
+
+/// Flexible spending (UI.md, "Inputs"): a switch, and when it's on, how
+/// much a cut takes, the floor (also in money), and the guardrails, folded
+/// away. Fields left empty take the defaults their prompts show.
+struct PlanFlexibleSpendingEditor: View {
+    @Binding var spending: PlanSpending
+    @State private var showsGuardrails = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: Metrics.s) {
+            Toggle("Flexible spending", isOn: $spending.planFlexibleOn)
+            Text(PlanEditing.flexibleExplanation)
+                .font(.caption)
+                .foregroundStyle(Palette.mutedInk)
+                .fixedSize(horizontal: false, vertical: true)
+            if spending.planFlexibleOn {
+                PlanNumberRow("Cut by", value: $spending.planFlexibleCut, kind: .percent, unit: "%", prompt: "10")
+                PlanNumberRow("Never below", value: $spending.planFlexibleFloor, kind: .percent, unit: "%",
+                              prompt: "80")
+                HStack(spacing: Metrics.xs) {
+                    Text("of the plan's spending:")
+                    AmountText(spending.planFlexibleFloorAmount)
+                    Text("/yr")
+                }
+                .font(.caption)
+                .foregroundStyle(Palette.secondaryInk)
+                DisclosureGroup("Guardrails", isExpanded: $showsGuardrails) {
+                    VStack(alignment: .leading, spacing: Metrics.s) {
+                        PlanNumberRow("Cut when it rises by", value: $spending.planFlexibleUpperGuardrail,
+                                      kind: .percent, unit: "%", prompt: "20")
+                        PlanNumberRow("Restore when it falls by", value: $spending.planFlexibleLowerGuardrail,
+                                      kind: .percent, unit: "%", prompt: "20")
+                        Text(PlanEditing.guardrailsExplanation)
+                            .font(.caption)
+                            .foregroundStyle(Palette.mutedInk)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+            }
+        }
     }
 }
 

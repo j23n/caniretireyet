@@ -129,6 +129,9 @@ struct PlanFocusDetails: Hashable, Sendable {
     var monthlySaving: Decimal?
     /// Bridge failures (running out before locked money opens), most frequent first.
     var bridges: [PlanBridgeFailure]
+    /// What flexible spending did at this age (PLANNER.md, "Flexible
+    /// spending"); `nil` when the plan doesn't use it.
+    var flexible: FlexibleSpendingSummary? = nil
 }
 
 /// A pension in the results.
@@ -222,7 +225,8 @@ extension PlanResults {
                 monthlySaving: PlanResultsMapping.monthlySaving(result.expectedPath.years),
                 bridges: result.failures.bridges.map {
                     PlanBridgeFailure(name: $0.name, accessibleFromAge: $0.accessibleFromAge, share: $0.share)
-                }),
+                },
+                flexible: result.flexibleSpending),
             headline: result.headline(),
             reading: PlanLibraryReading(result.start))
         currency = result.currency
