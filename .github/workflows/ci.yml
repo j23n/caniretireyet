@@ -4,6 +4,14 @@ on:
   push:
   pull_request:
 
+permissions:
+  contents: read
+
+# A newer push to the same branch or pull request cancels the run in progress.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   linux:
     name: Linux · swift build and test
@@ -47,3 +55,9 @@ jobs:
           -scheme CanIRetireYet
           -destination 'platform=macOS'
           CODE_SIGNING_ALLOWED=NO
+      - name: Test the package
+        # Also runs the code inside `#if canImport(Darwin)` (CloudSync's
+        # iCloud file versions, watcher and downloader), which Linux skips.
+        # Runs even when an app build failed, like the macOS app build.
+        if: success() || failure()
+        run: swift test
