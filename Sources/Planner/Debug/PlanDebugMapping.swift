@@ -321,6 +321,12 @@ extension PlanDebugReport.TracedYear: DebugMappable {
             return l
         }
         y.carriedToNextYear = m.money(carriedToNextYear)
+        y.carriedForward = carriedForward?.map { carried in
+            var c = carried
+            c.label = m.text(carried.label)
+            c.amount = m.money(carried.amount)
+            return c
+        }
         return y
     }
 }

@@ -5,6 +5,10 @@
 /// Opaque to the engine: it passes each year's `nextState` back to the
 /// system the following year and never looks inside. Systems namespace their
 /// keys (`it.priorRevenue`).
+///
+/// The same type carries state along each simulated path
+/// (``VariableYear/pathState`` and ``TaxAssessment/nextPathState``), for what
+/// depends on the markets, such as losses carried forward.
 public struct TaxState: Hashable, Sendable, ExpressibleByDictionaryLiteral {
     public var values: [String: Double]
 

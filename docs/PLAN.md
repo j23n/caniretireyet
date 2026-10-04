@@ -309,7 +309,7 @@ The importer works with any spreadsheet or export instead of a fixed layout. Det
 
 - Historical and bootstrapped return sequences. Guardrail and variable withdrawal strategies.
 - Tracking actual income and spending, to measure your real savings rate.
-- Cost basis from transactions: done, as trades ([TRADES.md](TRADES.md)), with the app's screens, broker transaction CSVs and ledger journals importing into them ([IMPORT.md](IMPORT.md)). Still to do: PIR and other tax wrappers, lots (FIFO), carrying losses forward (minusvalenze).
+- Cost basis from transactions: done, as trades ([TRADES.md](TRADES.md)), with the app's screens, broker transaction CSVs and ledger journals importing into them ([IMPORT.md](IMPORT.md)). Still to do: PIR and other tax wrappers, lots (FIFO), and carrying actual losses forward (minusvalenze) from the trades; the plan's simulation already nets and carries forward the losses of simulated sales, as each country allows ([TAXES.md](TAXES.md#what-a-system-can-tell-the-planner-and-whats-told)).
 - Tax systems for more countries (Switzerland and Germany are designed: [tax/CH.md](tax/CH.md), [tax/DE.md](tax/DE.md)). Until a country has one, the `generic` system approximates it.
 - Reading `.xlsx` and `.numbers` files directly.
 - Planning for a partner or household.

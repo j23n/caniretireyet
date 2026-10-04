@@ -468,6 +468,8 @@ The Bellinzona figures at 250,000 and 500,000 reproduce a secondary comparison t
 | Physical gold | Wealth tax; gains tax-free; no income |
 | Losses | Not deductible |
 
+Since private capital gains aren't taxed, losses don't matter either: the module ignores a sale's gain or loss (except for the professional-trader warning below, on the year's gains), carries nothing along a path (`VariableYear.pathState` stays as it comes, empty in Swiss years since the planner starts it afresh at a move), and a move from Italy or Germany leaves their carried losses behind.
+
 **Withholding tax (*Verrechnungssteuer*).** Swiss companies, Swiss funds and Swiss banks withhold 35% on dividends and interest (no withholding on bank interest of up to CHF 200 a year per account). A Swiss resident who declares the income and the asset gets it all back, credited against the tax bill or refunded the following year. So the 35% only delays money; the real tax is the income tax at the marginal rate.
 
 **Foreign withholding** is credited or refunded up to the treaty rate (*Anrechnung ausländischer Quellensteuern*, form DA-1), e.g. 15% on US dividends. Withholding inside a foreign fund (an Irish ETF holding US shares loses 15%) is lost, and simply lowers the return.
@@ -637,7 +639,7 @@ What maps onto the protocols:
 
 - **Gross-up with the year's payouts so far.** `grossUp(net:from:)` gets only the bucket, so a capital-benefit gross-up can't see payouts already made on the path in the year (a forced or spread payout before a needed one): it's a little low, and the engine carries the difference. *Change:* pass the year's `VariableYear` so far (a defaulted overload).
 - **Work intensity.** `FixedYear.WorkIncome` has the share of the year, not of full time, so the AHV rule for people not working full time uses months (9 or more is full time). *Change:* an optional `workloadShare`.
-- **State along a path.** The tax state comes from the prepared year only, so the module can't know whether a 3a account was already drawn (no more contributions after the first withdrawal, a warning after 5 payout years). Same as DE G4.
+- **State along a path.** The tax state comes from the prepared year only, so the module can't know whether a 3a account was already drawn (no more contributions after the first withdrawal, a warning after 5 payout years). TaxKit now carries a state along each path (`VariableYear.pathState`, built for loss carry-forwards, DE G4); the module doesn't use it for this yet.
 - **Sex.** Ticino's conversion table and the AHV reference age of women born 1961–1963 depend on it: a system option (`capitalBenefitTable`) for now.
 
 ## Reference cases

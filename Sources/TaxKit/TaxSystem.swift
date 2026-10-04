@@ -134,10 +134,40 @@ public protocol PreparedTaxYear: Sendable {
     /// How much to sell from a bucket to receive `net` after tax, or `nil`
     /// to let the engine solve for it numerically.
     func grossUp(net: Double, from bucket: BucketSnapshot) -> Double?
+
+    /// The tax that selling `sales` adds to `year`, which holds the year's
+    /// activity so far on the path and its ``VariableYear/pathState``: what
+    /// ``assess(_:)`` of `year` with `sales` added would charge more than
+    /// `assess(year)`, as far as the sales go. `nil` (the default) to let the
+    /// engine use ``grossUp(net:from:)``, else assess the year twice.
+    ///
+    /// For systems where a sale's tax depends on the year's other sales and
+    /// on the path, as when losses are offset or carried forward: the
+    /// engine sizes each sale with it (its cost per lot, so gains and losses
+    /// stay apart), where ``grossUp(net:from:)`` sees only a bucket's average
+    /// cost and no path. Like `grossUp`, it may leave out what the rest of
+    /// the year adds after the sale (interest, year-end balances); the
+    /// year's final assessment settles any difference, in the following year.
+    func taxOnSales(_ sales: [VariableYear.Sale], alongside year: VariableYear) -> Double?
+
+    /// What a path state carries into the next year, itemised for reports,
+    /// e.g. losses carried forward per year they were realised: amounts in
+    /// today's money in the plan's currency, as this year counts it. The
+    /// engine never reads the state; the plan debugger shows these lines.
+    /// Empty (the default) for a system that carries nothing along a path.
+    func carriedForward(in state: TaxState) -> [TaxLine]
 }
 
 extension PreparedTaxYear {
     public var fixedAssessment: TaxAssessment {
         assess(.empty)
+    }
+
+    public func taxOnSales(_ sales: [VariableYear.Sale], alongside year: VariableYear) -> Double? {
+        nil
+    }
+
+    public func carriedForward(in state: TaxState) -> [TaxLine] {
+        []
     }
 }

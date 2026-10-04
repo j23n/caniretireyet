@@ -686,6 +686,18 @@ extension PlanDebugReport {
         public var taxes: [TaxLine]
         public var carriedToNextYear: Double
         public var failed: Bool
+        /// What the tax system carries along the path into the next year,
+        /// such as losses carried forward; `nil` when it carries nothing.
+        public var carriedForward: [CarriedAmount]? = nil
+    }
+
+    /// An amount the tax system carries along a path into the next year,
+    /// e.g. the losses of one year it lets later years offset.
+    public struct CarriedAmount: Codable, Hashable, Sendable {
+        public var id: String
+        public var label: String
+        /// In today's money, as the year it's carried out of counts it.
+        public var amount: Double
     }
 
     public struct TracedBucket: Codable, Hashable, Sendable {

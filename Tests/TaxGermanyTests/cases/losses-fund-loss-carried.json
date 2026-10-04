@@ -1,0 +1,27 @@
+{
+  "name": "A fund loss larger than the year's capital income is carried forward in the general pot",
+  "year": 2026,
+  "input": {
+    "age": 45,
+    "work": [{"phaseID": "job", "kind": "employee", "regime": "de.employee", "gross": 75000}],
+    "variable": {
+      "sales": [
+        {"wrapper": "de.ordinary", "category": "equityFund", "proceeds": 10000, "costBasis": 20000}
+      ],
+      "capitalIncome": [
+        {"wrapper": "de.ordinary", "category": "cash", "kind": "interest", "amount": 500}
+      ]
+    }
+  },
+  "expected": {
+    "lines": {"de.incomeTax": 13935.657745},
+    "totalTax": 13935.657745,
+    "nextPathState": {"de.losses.other": 6500, "de.losses.stocks": null},
+    "carriedForward": {"de.losses.other": 6500}
+  },
+  "workings": [
+    "The salary is taxed as in employee-75k: 13,935.657745",
+    "Equity ETF: loss 10,000.00, 70% after the partial exemption = 7,000.00; interest 500.00",
+    "General pot: 500.00 − 7,000.00 = −6,500.00: no capital income to tax (the allowance goes unused), and 6,500.00 is carried forward without limit (§20 Abs. 6 Satz 3)"
+  ]
+}

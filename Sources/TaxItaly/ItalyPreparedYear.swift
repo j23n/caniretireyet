@@ -30,9 +30,14 @@ struct ItalyPreparedYear: PreparedTaxYear {
         /// (the bollo on current accounts, IVIE's minimum, the pension
         /// fund's small-annuity test) do.
         let currencyRate: Double
+        /// The path-state keys of losses carried forward, and how they're scaled.
+        let lossKeys: ItalyLossKeys
+        /// How each category's gains are taxed and netted.
+        let gainRules: ItalyGainRules
 
         init(year: Int, age: Int, parameters: ItalyParameters, marginalIncomeRate: Double,
-             fundTaxedContributionShare: Double, fundMembershipYears: Int, tfrRate: Double, currencyRate: Double = 1) {
+             fundTaxedContributionShare: Double, fundMembershipYears: Int, tfrRate: Double, currencyRate: Double = 1,
+             prices: Double = 1) {
             self.year = year
             self.age = age
             self.parameters = parameters
@@ -42,6 +47,8 @@ struct ItalyPreparedYear: PreparedTaxYear {
             self.tfrRate = tfrRate
             self.currencyRate = currencyRate > 0 ? currencyRate : 1
             labels = ItalyMarketLabels(parameters, tfrRate: tfrRate)
+            lossKeys = ItalyLossKeys(year: year, currencyRate: self.currencyRate, prices: prices > 0 ? prices : 1)
+            gainRules = ItalyGainRules(parameters.investments)
         }
     }
 
@@ -107,6 +114,42 @@ struct ItalyPreparedYear: PreparedTaxYear {
         }
         guard rate < 1 else { return nil }
         return net / (1 - rate)
+    }
+
+    /// The tax selling `sales` from ordinary accounts adds to `year`: each
+    /// gain at its rate, less what the year's losses and those carried
+    /// forward offset, basket by basket. `nil` for sales from other
+    /// wrappers, which the engine sizes with ``grossUp(net:from:)``.
+    func taxOnSales(_ sales: [VariableYear.Sale], alongside year: VariableYear) -> Double? {
+        guard let context else { return nil }
+        for sale in sales {
+            switch WrapperTreatment(sale.wrapper) {
+            case .ordinary, .unknown, .taxFree: continue
+            default: return nil
+            }
+        }
+        let rules = context.gainRules
+        func isLoss(_ sale: VariableYear.Sale) -> Bool {
+            sale.costBasis.map { sale.proceeds < $0 } ?? false
+        }
+        // Without a loss anywhere, each gain is taxed at its rate.
+        if year.pathState.values.isEmpty && !sales.contains(where: isLoss) && !year.sales.contains(where: isLoss) {
+            var gains = ItalyGains()
+            gains.add(sales, rules: rules)
+            return gains.capitalTax + gains.diversiTax + gains.cryptoTax
+        }
+        var before = ItalyGains()
+        before.add(year.sales, rules: rules)
+        var after = before
+        after.add(sales, rules: rules)
+        let carried = context.lossKeys.carried(in: year.pathState)
+        return after.tax(carried) - before.tax(carried)
+    }
+
+    /// The losses carried into next year, per year they were realised.
+    func carriedForward(in state: TaxState) -> [TaxLine] {
+        guard let context, !state.values.isEmpty else { return [] }
+        return context.lossKeys.lines(state)
     }
 }
 
@@ -256,10 +299,16 @@ struct ItalyMarketAssessor {
     private var p: ItalyParameters { _read { yield context.parameters } }
 
     mutating func assess(_ variable: VariableYear) {
+        // Gains and losses on ordinary accounts net by basket, then losses
+        // carried along the path offset what's left.
+        var gains = ItalyGains()
+        gains.add(variable.sales, rules: context.gainRules)
+        let carried = context.lossKeys.carried(in: variable.pathState)
+        let shares = gains.taxedShares(carried)
         for sale in variable.sales {
             switch treatment(of: sale.wrapper) {
             case .ordinary, .unknown:
-                taxGain(sale)
+                taxGain(sale, taxedShares: shares)
             case .pensionFund:
                 taxFundPayout(amount: sale.proceeds, costBasis: sale.costBasis, membershipYears: nil,
                               wrapper: sale.wrapper)
@@ -288,6 +337,7 @@ struct ItalyMarketAssessor {
                 taxSwissPayout(amount: payout.amount, form: payout.form, wrapper: payout.wrapper)
             }
         }
+        carryLosses(gains, carried: carried, state: variable.pathState)
         if !variable.payouts.isEmpty { checkLumpSums(variable) }
         // Income a fund earned without paying it out isn't taxed until it's
         // paid or the fund is sold (accumulating funds).
@@ -360,22 +410,41 @@ struct ItalyMarketAssessor {
         assessment.lines.append(TaxLine(id: id, label: label, amount: amount, base: base, subject: subject))
     }
 
-    /// Stage 8: rate × realised gain at average cost. Losses aren't offset.
-    /// Without a documented cost, physical gold is taxed on the whole price
-    /// (the parameter's share of it), and anything else as if it cost nothing.
-    private mutating func taxGain(_ sale: VariableYear.Sale) {
-        let category = ItalyMarketLabels.resolve(sale.category)
-        let gain: Double
-        if let cost = sale.costBasis {
-            gain = max(0, sale.proceeds - cost)
-        } else if category == .physicalGold {
-            gain = max(0, sale.proceeds * context.parameters.investments.goldUndocumentedGainShare)
-        } else {
-            gain = max(0, sale.proceeds)
+    /// Stage 8: rate × realised gain at average cost, on the share of its
+    /// basket's gains that losses leave (``ItalyGains``); a fund's gain is
+    /// never offset. Without a documented cost, physical gold is taxed on the
+    /// whole price (the parameter's share of it), and anything else as if it
+    /// cost nothing.
+    private mutating func taxGain(_ sale: VariableYear.Sale, taxedShares shares: (diversi: Double, crypto: Double)) {
+        let rule = context.gainRules.rule(for: sale.category)
+        let gain = ItalyGains.gain(of: sale, rule: rule, investments: context.gainRules.investments)
+        guard gain > 0 else { return }
+        let taxed: Double
+        switch rule.kind {
+        case .diversi: taxed = gain * shares.diversi
+        case .crypto: taxed = gain * shares.crypto
+        case .fund, .untaxed: taxed = gain
         }
-        let rate = context.parameters.investments.gainRate(for: category)
-        add("it.capitalGains", context.labels.gain(category, rate: rate), rate * gain, base: gain,
+        add("it.capitalGains", context.labels.gain(rule.category, rate: rule.rate), rule.rate * taxed, base: taxed,
             subject: sale.wrapper)
+    }
+
+    /// The losses carried into next year: what's left of those carried in
+    /// (used oldest first; those of four years ago expire with this year)
+    /// and the year's losses its gains didn't absorb, per basket. Unchanged
+    /// (`nextPathState` `nil`) when nothing was used, lost or expired.
+    private mutating func carryLosses(_ gains: ItalyGains, carried: ItalyCarriedLosses, state: TaxState) {
+        let fromCarriedDiversi = max(0, gains.diversiOffset(carried: carried.diversiTotal) - gains.diversiLosses)
+        let fromCarriedCrypto = max(0, gains.cryptoOffset(carried: carried.cryptoTotal) - gains.cryptoLosses)
+        let newDiversi = max(0, gains.diversiLosses - gains.diversiGains)
+        let newCrypto = max(0, gains.cryptoLosses - gains.cryptoGains)
+        guard fromCarriedDiversi > 0 || fromCarriedCrypto > 0 || newDiversi > 0 || newCrypto > 0 || carried.stale
+        else { return }
+        var left = carried
+        ItalyCarriedLosses.consume(fromCarriedDiversi, from: &left.diversi)
+        ItalyCarriedLosses.consume(fromCarriedCrypto, from: &left.crypto)
+        assessment.nextPathState = context.lossKeys.state(state, carried: carried, left: left, newDiversi: newDiversi,
+                                                          newCrypto: newCrypto)
     }
 
     /// Pension-fund payouts: the payout rate on the contributions that were

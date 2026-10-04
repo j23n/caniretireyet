@@ -65,16 +65,24 @@ public struct TaxAssessment: Hashable, Sendable {
     /// taxed income they didn't pay out (e.g. Germany's Vorabpauschale,
     /// deducted from the gain when the fund is sold). Only from ``PreparedTaxYear/assess(_:)``.
     public var costBasisAdjustments: [CostBasisAdjustment]
+    /// The state to pass to next year's assessment on the same simulated
+    /// path (``VariableYear/pathState``), e.g. losses carried forward, or
+    /// `nil` (the default) to keep the state this year was assessed with.
+    /// Only from ``PreparedTaxYear/assess(_:)``. The engine keeps what the
+    /// year's final assessment returns, and ignores it in the hypothetical
+    /// assessments it makes to size sales and payouts.
+    public var nextPathState: TaxState?
 
     public init(lines: [TaxLine] = [], contributions: [TaxLine] = [], accruals: [Accrual] = [],
                 issues: [TaxIssue] = [], nextState: TaxState = .empty,
-                costBasisAdjustments: [CostBasisAdjustment] = []) {
+                costBasisAdjustments: [CostBasisAdjustment] = [], nextPathState: TaxState? = nil) {
         self.lines = lines
         self.contributions = contributions
         self.accruals = accruals
         self.issues = issues
         self.nextState = nextState
         self.costBasisAdjustments = costBasisAdjustments
+        self.nextPathState = nextPathState
     }
 
     /// The sum of all tax lines.

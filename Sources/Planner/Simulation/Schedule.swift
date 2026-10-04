@@ -105,6 +105,9 @@ struct UncertainAmount: Sendable {
 struct ScheduledYear: Sendable {
     let year: Int
     let age: Int
+    /// The residence system, as an index into ``PlanModel/systems``: a path's
+    /// tax state starts afresh when it changes.
+    let system: Int
     /// The simulated share of the year.
     let fraction: Double
     /// The share of the simulated part before retirement.
@@ -478,7 +481,7 @@ extension AgeSchedule {
             let workDays = frame.simulatedDays(from: frame.simulatedFrom, until: lastWorkDay)
             let retiredDays = simulatedDays - workDays
             years.append(ScheduledYear(
-                year: frame.year, age: frame.age, fraction: frame.fraction,
+                year: frame.year, age: frame.age, system: frame.system, fraction: frame.fraction,
                 workingShare: simulatedDays > 0 ? Double(workDays) / Double(simulatedDays) : 0,
                 workingSpending: model.spending.working * Double(workDays) / daysInYear,
                 retiredUnit: model.spending.factor(atAge: frame.age) * Double(retiredDays) / daysInYear,

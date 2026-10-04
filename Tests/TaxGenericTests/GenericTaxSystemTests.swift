@@ -69,9 +69,10 @@ struct GenericTaxSystemTests {
             balances: [.init(wrapper: "taxable", category: .fund, value: 100_000),
                        .init(wrapper: "taxDeferred", category: .fund, value: 50_000)])
         let assessment = prepared.assess(year)
-        // Gains 20% × 4,000 (the loss isn't offset); payouts 15% × (2,000 + 4,000);
-        // dividends 10% × 500; wealth 0.5% × 100,000.
-        #expect(abs(assessment.totalTax - (800 + 900 + 50 + 500)) < 1e-9)
+        // Gains 20% × (4,000 − 1,000): the loss offsets the gain; payouts 15% ×
+        // (2,000 + 4,000); dividends 10% × 500; wealth 0.5% × 100,000.
+        #expect(abs(assessment.totalTax - (600 + 900 + 50 + 500)) < 1e-9)
+        #expect(assessment.nextPathState == nil)
         #expect(assessment.issues.isEmpty)
         #expect(prepared.assess(.empty) == prepared.fixedAssessment)
     }

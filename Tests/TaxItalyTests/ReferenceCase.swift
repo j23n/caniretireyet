@@ -7,6 +7,12 @@ import TaxKit
 /// `kind` is `year` (the default: prepare, then assess), `nonResident` (the
 /// tax on Italian pensions of someone living abroad: `prepareNonResident`)
 /// or `pensionClaims` (the INPS claim options for a record).
+///
+/// Losses carried along a path: `input.variable.pathState` is the state the
+/// year is assessed with, `expected.nextPathState` what it carries out
+/// (`null` for a key that must be gone), `expected.carriedForward` the
+/// report lines of that by ID, and `taxOnSales` the tax further sales add
+/// to the year.
 struct ReferenceCase: Decodable, Sendable {
     var name: String
     var kind: String?
@@ -14,7 +20,14 @@ struct ReferenceCase: Decodable, Sendable {
     var input: Input
     var expected: Expected
     var grossUp: [GrossUpCheck]?
+    var taxOnSales: [TaxOnSalesCheck]?
     var workings: [String]
+
+    /// The tax `sales` add to the case's year (`nil`: the engine decides).
+    struct TaxOnSalesCheck: Decodable, Sendable {
+        var sales: [Sale]
+        var expected: Double?
+    }
 
     struct Input: Decodable, Sendable {
         var age: Int?
@@ -92,6 +105,8 @@ struct ReferenceCase: Decodable, Sendable {
         var balances: [Balance]?
         /// `VariableYear.fractionOfYear` (default 1).
         var fractionOfYear: Double?
+        /// `VariableYear.pathState` (default empty).
+        var pathState: [String: Double]?
     }
 
     struct Sale: Decodable, Sendable {
@@ -144,6 +159,12 @@ struct ReferenceCase: Decodable, Sendable {
         var issues: [String]?
         /// Values of the next year's tax state (only the keys listed are checked).
         var nextState: [String: Double]?
+        /// Values of the path state carried into next year (`nextPathState`,
+        /// else the state the year had): only the keys listed are checked,
+        /// and `null` means the key must be absent.
+        var nextPathState: [String: Double?]?
+        /// `carriedForward(in:)` of that state, summed by ID; IDs not listed must be absent.
+        var carriedForward: [String: Double]?
         var claims: [Claim]?
     }
 
@@ -218,11 +239,18 @@ struct ReferenceCase: Decodable, Sendable {
                 .init(wrapper: $0.wrapper, category: TaxCategory(rawValue: $0.category), country: $0.country,
                       value: $0.value)
             },
-            fractionOfYear: variable?.fractionOfYear ?? 1)
+            fractionOfYear: variable?.fractionOfYear ?? 1, pathState: TaxState(variable?.pathState ?? [:]))
     }
 
     var state: TaxState {
         TaxState(input.state ?? [:])
+    }
+}
+
+extension ReferenceCase.Sale {
+    var sale: VariableYear.Sale {
+        VariableYear.Sale(wrapper: wrapper, category: TaxCategory(rawValue: category), proceeds: proceeds,
+                          costBasis: costBasis)
     }
 }
 

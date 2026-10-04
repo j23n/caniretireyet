@@ -21,8 +21,13 @@ import TaxKit
 ///   `taxDeferred` for payouts, with a warning. Income a fund keeps
 ///   (`reportedIncome`) isn't taxed: it's part of the gain when sold. Every
 ///   tax category is taxed alike.
+/// - Losses: gains and losses on sales net within the year, and a net loss
+///   is carried forward along the simulated path, without limit, against
+///   later gains (`VariableYear.pathState`, key `generic.losses`, in nominal
+///   terms). Interest and dividends aren't offset.
 /// - Pensions: the shared `fixed` scheme.
-/// - Gross-up is exact.
+/// - Gross-up is exact; with losses to offset, the planner sizes sales with
+///   `taxOnSales`.
 public struct GenericTaxSystem: TaxSystem {
     public let id = "generic"
     public let name = "Generic (flat rates)"

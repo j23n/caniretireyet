@@ -1,0 +1,42 @@
+{
+  "name": "Losses expire after the fourth following year",
+  "year": 2031,
+  "input": {
+    "age": 55,
+    "systemOptions": {
+      "addizionaleRegionale": "0.0173",
+      "addizionaleComunale": "0.008"
+    },
+    "variable": {
+      "sales": [
+        {
+          "wrapper": "it.ordinary",
+          "category": "stock",
+          "proceeds": 14000,
+          "costBasis": 10000
+        }
+      ],
+      "pathState": {
+        "it.losses.diversi.2026": 5000,
+        "it.losses.diversi.2027": 1000
+      }
+    }
+  },
+  "expected": {
+    "lines": {
+      "it.capitalGains": 780.0
+    },
+    "totalTax": 780.0,
+    "nextPathState": {
+      "it.losses.diversi.2026": null,
+      "it.losses.diversi.2027": null,
+      "it.losses.diversi.2031": null
+    },
+    "carriedForward": {}
+  },
+  "workings": [
+    "Losses can offset gains up to the fourth tax year after the one they were realised in (TUIR art. 68 c. 5): 2026's up to 2030, 2027's up to 2031",
+    "2026's 5,000.00 have expired; 2027's 1,000.00 offset the share gain of 4,000.00: 26% × 3,000.00 = 780.00",
+    "Nothing is left to carry forward (inflation factor 1)"
+  ]
+}

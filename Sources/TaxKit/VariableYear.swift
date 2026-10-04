@@ -20,20 +20,39 @@ public struct VariableYear: Hashable, Sendable {
     /// test their thresholds on the balances as they are and charge this
     /// share of a year's tax.
     public var fractionOfYear: Double
+    /// The tax state carried along this simulated path (G4): what the
+    /// previous year's assessment returned as ``TaxAssessment/nextPathState``.
+    ///
+    /// Unlike the state ``TaxSystem/prepare(_:state:parameters:)`` gets,
+    /// which follows the deterministic run and so can't depend on the
+    /// markets, this one is the path's own: losses carried forward, say. The
+    /// engine keeps one per path and never looks inside it. It's empty in a
+    /// path's first year, and again in the first year of a different
+    /// residence system: what one country carries forward doesn't follow the
+    /// person to another. Systems namespace their keys (`it.losses.…`).
+    ///
+    /// Every assessment of a year on a path gets the same state, including
+    /// the hypothetical ones the engine makes to size a sale or a payout;
+    /// only the year's final assessment's ``TaxAssessment/nextPathState`` is
+    /// kept.
+    public var pathState: TaxState
 
     public init(sales: [Sale] = [], payouts: [WrapperPayout] = [], capitalIncome: [CapitalIncome] = [],
-                balances: [Balance] = [], fractionOfYear: Double = 1) {
+                balances: [Balance] = [], fractionOfYear: Double = 1, pathState: TaxState = .empty) {
         self.sales = sales
         self.payouts = payouts
         self.capitalIncome = capitalIncome
         self.balances = balances
         self.fractionOfYear = fractionOfYear
+        self.pathState = pathState
     }
 
     /// A year with no market activity.
     public static let empty = VariableYear()
 
-    /// A sale of holdings.
+    /// A sale of holdings. Its realised gain, `proceeds − costBasis`, is
+    /// negative for a loss: the engine never clamps it, so a system can
+    /// offset losses against gains.
     public struct Sale: Hashable, Sendable {
         public var wrapper: String
         public var category: TaxCategory
@@ -41,6 +60,12 @@ public struct VariableYear: Hashable, Sendable {
         /// The purchase cost of what was sold; `nil` when it can't be
         /// documented (Italy then taxes the whole price of physical gold).
         public var costBasis: Double?
+
+        /// The realised gain, negative for a loss; `nil` when the purchase
+        /// cost isn't documented.
+        public var gain: Double? {
+            costBasis.map { proceeds - $0 }
+        }
 
         public init(wrapper: String, category: TaxCategory, proceeds: Double, costBasis: Double?) {
             self.wrapper = wrapper
