@@ -704,11 +704,13 @@ struct InstrumentEditor: View {
         CurrencyChoices.common.contains(form.currency) ? CurrencyChoices.common : [form.currency] + CurrencyChoices.common
     }
 
+    /// The price sources the app fetches from (`PriceService.standardInstrumentProviders`),
+    /// with the instrument's own first when it's another one (e.g. EODHD in a
+    /// hand-edited file), so the picker shows its current value.
     private func providers(_ form: InstrumentForm) -> [PriceProvider] {
-        guard let provider = form.provider, !PriceProvider.knownValues.contains(provider) else {
-            return PriceProvider.knownValues
-        }
-        return [provider] + PriceProvider.knownValues
+        let supported = PriceService.standardInstrumentProviders
+        guard let provider = form.provider, !supported.contains(provider) else { return supported }
+        return [provider] + supported
     }
 
     // MARK: Actions
