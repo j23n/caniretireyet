@@ -42,8 +42,7 @@ Plus the glance: "how am I doing?" in a widget or on the Overview.
 ```
 Overview
 Check-in                       •     ← dot when due
-Accounts
-  All accounts                       ← the grouped list, with subtotals
+Accounts                  97.330     ← the total of the open accounts
   ▾ Cash                  12.990     ← a group, with its subtotal
       Conto deposito       8.200
       Conto Fineco      ◷  4.790     ← ◷ when the value is stale
@@ -63,11 +62,11 @@ Library
 ```
 
 - **Accounts in the sidebar.** The accounts are in the sidebar itself, so an account is one click away and a group of one doesn't need a page of its own.
-  - *All accounts* is the overview: the [list](#accounts), grouped, with subtotals and the closed accounts. Its rows open an account's detail with a back button.
+  - The *Accounts* header shows the total of the open accounts on the right: the groups' subtotals added up.
   - Under it, a row per group that has open accounts (Cash, Investments, Crypto & gold, Pension, Property, Debts), with its subtotal on the right. It expands to the group's accounts: kind icon, name and value, with a small clock when the latest value is stale. Values and staleness are the same as in the list. *Closed (n)* expands to the closed accounts. Amounts are left out while they're hidden.
-  - Clicking a group, or its disclosure triangle, expands or collapses it; groups aren't pages. They start expanded and *Closed* collapsed, and the device remembers which are collapsed, here and on *All accounts* alike ([Accounts](#accounts)).
+  - Clicking a group, or its disclosure triangle, expands or collapses it; groups aren't pages. They start expanded and *Closed* collapsed, and the device remembers which are collapsed, here and on the iPhone's Accounts tab alike ([Accounts](#accounts)).
   - Selecting an account shows its detail in the content area; the arrow keys move from account to account. Opening an account from elsewhere in the app selects its row and expands its group.
-  - The sidebar follows the library, also when it changes on the other device: a new account appears under its group, a selected account that's closed moves under *Closed* and stays selected, and one that's deleted gives way to *All accounts*.
+  - The sidebar follows the library, also when it changes on the other device: a new account appears under its group, a selected account that's closed moves under *Closed* and stays selected, and one that's deleted gives way to the Overview.
 - **Settings** is the standard Settings window (⌘,).
 - **Menu commands:**
 
@@ -146,6 +145,7 @@ The whole screen is net worth: the hero number, the history chart (except with *
   - Always net worth stacked by asset class, with debts below the zero line, and a legend in its own row above. Like retirement income, each class is a light wash of its colour with a 2-point line along its edge (the top, or the bottom for debts) and a 2-point gap between neighbours, never a solid block. Only when there's nothing to stack (every value zero) is it a single line.
   - Drag across it to read any month: a vertical rule with a callout showing the date, the total and the breakdown; over the projection, its median and bands.
   - **Future** continues the chart into the active plan's projection: a dashed median with a darker 25–75% band and a lighter 10–90% band, plus markers for retirement, pension starts and the like. See [PROGRESS.md](PROGRESS.md#past-and-future-m2).
+    - The switch shows whenever there's a main plan. Plans only run when asked, so when the main plan hasn't been calculated yet, turning *Future* on is that request: it calculates the plan, with "Calculating Base case's projection… 34%" and a bar under the controls until the projection is there. A plan that can't run says why ("Base case can't be calculated: …"), with *Try Again* and *Open Plan*, and isn't tried again on its own.
     - **The past shows plan assets, still by asset class.** The projection is of what the plan counts (*plan assets*: e.g. without your home and its mortgage), so with *Future* on the past covers the same accounts and its total meets the projection's median at today. The alternatives mislead: net worth up to today and then a projection of less would look like a fall at today, and carrying the home on at its last value would invent a forecast the plan doesn't make. The projection is one total, so where the plan counts a debt, the median starts below the top of the stack, at what's left after it.
     - The legend gets a second row for the projection: the median and the two bands (the asset classes stand for the past, so there's no "Actual" line).
     - The value axis fits the history, the median and the 25–75% band. The 10–90% band may run off the top, and the legend says "↑ 10–90% continues above".
@@ -267,7 +267,7 @@ The flow that has to be fast. It opens as a full-screen sheet on iPhone and as t
 
 ## Accounts
 
-- **List.** Grouped: Cash, Investments, Crypto & gold, Pension, Property, Debts. On the Mac and iPad it's *All accounts* in the sidebar, which also lists each group's accounts under it ([Navigation](#navigation)).
+- **List.** Grouped: Cash, Investments, Crypto & gold, Pension, Property, Debts. It's the iPhone's Accounts tab (and the iPad's in compact width); on the Mac and iPad the sidebar lists each group's accounts itself ([Navigation](#navigation)).
 
   ```
   Accounts                                  +
@@ -288,7 +288,7 @@ The flow that has to be fast. It opens as a full-screen sheet on iPhone and as t
   - **Stale** means the latest value is older than the threshold (45 days by default). An account that holds nothing (a zero balance, or no cash and no quantity) has nothing to check in, so it's never stale: not in the list, the sidebar, its detail or *Needs attention*.
   - Swipe actions: *Update value* (a one-account valuation) and *Close*. Saved as it is, *Update value* records the account as unchanged; an account with no earlier value needs a value typed, and an emptied field isn't zero (type 0). Its date can be any day up to the closing date (or a year from today), also before the account opened: see [Adding history](#adding-history). An account that records trades offers *Add trade* instead; its *Update Cash…* (in the context menu) shows the holdings from the trades, read-only, and records the cash.
   - Closed accounts sit in a "Closed (3)" section at the bottom.
-  - **Collapsing.** Tapping a group's header, or *Closed*'s, collapses the group to its header (name and subtotal) or expands it again, with an animation; the chevron at the right of the header points down while it's expanded. The groups start expanded and *Closed* collapsed. The device remembers which are collapsed, and the sidebar shares them: collapsing Cash on *All accounts* collapses it in the sidebar too, and the other way round.
+  - **Collapsing.** Tapping a group's header, or *Closed*'s, collapses the group to its header (name and subtotal) or expands it again, with an animation; the chevron at the right of the header points down while it's expanded. The groups start expanded and *Closed* collapsed. The device remembers which are collapsed, and the sidebar shares them: collapsing Cash on the Accounts tab collapses it in the sidebar too (on an iPad that switches layouts), and the other way round.
   - **Search** (by name, institution, kind, tags or notes) shows every group expanded while there's a query, so no result is hidden. Clearing it brings back the collapsed ones.
 - **Account detail.**
   - **In the account's own currency.** The value, its change, the chart and the values list are in the account's currency, which needs no exchange rate: a dollar account in a euro library shows `0,00 US$`. Under the value, its value in the base currency at the day's rate, or "Value in EUR: rate missing".
@@ -412,7 +412,7 @@ A plan picker sits at the top (Base case ▾, with New Plan, Duplicate, Rename�
 
 ### Calculating
 
-A plan is calculated only when you ask: *Calculate*, *Recalculate* (⌘R, and a toolbar button on the Mac), *Run What-If*, or a check-in recording its answer. Opening a plan, editing an input, moving a what-if slider or choosing another age for the charts runs nothing; the screen says what's out of date instead. Each plan keeps its own results, what-if and chosen age while you switch between plans.
+A plan is calculated only when you ask: *Calculate*, *Recalculate* (⌘R, and a toolbar button on the Mac), *Run What-If*, a check-in recording its answer, or turning on the Overview's *Future* when the main plan has no results yet. Opening a plan, editing an input, moving a what-if slider or choosing another age for the charts runs nothing; the screen says what's out of date instead. Each plan keeps its own results, what-if and chosen age while you switch between plans.
 
 - **Before the first calculation.** The answer recorded at the last check-in, dated ("Recorded at the check-in on 30 Sep 2026", and "before the plan's latest changes" when the plan was edited since), with "Calculate the plan to see its charts." and **Calculate**. With nothing recorded either, a sentence on what calculating does ("simulates 2.000 possible futures… takes a few seconds, and runs only when you ask") and **Calculate**.
 - **Out of date.** Results stay on screen, slightly dimmed, under a banner that says why and offers the button that brings them up to date:

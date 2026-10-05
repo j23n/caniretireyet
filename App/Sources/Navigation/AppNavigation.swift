@@ -14,10 +14,6 @@ enum AppTab: String, Hashable, Sendable, CaseIterable {
 enum SidebarItem: Hashable, Sendable {
     case overview
     case checkIn
-    /// *All accounts*: the Accounts list, grouped with subtotals and the
-    /// closed accounts; its rows push account details on its own stack
-    /// (``AppNavigation/accountsPath``).
-    case accounts
     /// One account's detail, selected under its group (or *Closed*) in the
     /// sidebar's Accounts section.
     case account(AccountID)
@@ -69,8 +65,7 @@ final class AppNavigation {
     var layout: NavigationLayout = .sidebar
     var tab: AppTab = .overview
     var sidebarSelection: SidebarItem? = .overview
-    /// The pushed account details, for the Accounts stack: the Accounts tab,
-    /// and *All accounts* in the sidebar.
+    /// The pushed account details on the Accounts tab's stack.
     var accountsPath: [AccountID] = []
     /// The plan the Plan tab shows; `nil` for the main (or first) plan.
     var selectedPlan: PlanID?
@@ -101,13 +96,6 @@ final class AppNavigation {
         sidebarSelection = .overview
     }
 
-    /// Shows the account list.
-    func showAccounts() {
-        tab = .accounts
-        sidebarSelection = .accounts
-        accountsPath = []
-    }
-
     /// Shows an account's detail: pushed on the Accounts tab's stack, or
     /// selected in the sidebar, which expands its group (or *Closed*) so
     /// the row shows.
@@ -126,11 +114,11 @@ final class AppNavigation {
 
     /// Keeps the sidebar on a place that exists: when the selected account
     /// is no longer in `library` (deleted here or on another device), shows
-    /// *All accounts*. A closed account stays selected; it's listed under
+    /// the Overview. A closed account stays selected; it's listed under
     /// *Closed*. The sidebar calls it whenever the library changes.
     func libraryChanged(_ library: Library) {
         if let id = selectedAccount, library.accounts[id] == nil {
-            sidebarSelection = .accounts
+            sidebarSelection = .overview
         }
     }
 
@@ -174,7 +162,6 @@ final class AppNavigation {
         switch item {
         case .overview, .sync, .instruments: tab = .overview
         case .checkIn: startCheckIn()
-        case .accounts: tab = .accounts
         case .account(let id): showAccount(id)
         case .plan(let id): showPlan(id)
         case .plans: showPlan()

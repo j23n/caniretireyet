@@ -29,9 +29,9 @@ enum SidebarAccountFolder: Hashable, Sendable {
     }
 }
 
-/// What the sidebar's Accounts section lists under *All accounts*: a folder
-/// per group that has open accounts, in display order, with its subtotal,
-/// then *Closed (n)*. The rows, values, subtotals and staleness are the
+/// What the sidebar's Accounts section lists: the total of the open
+/// accounts on its header, a folder per group that has open accounts, in
+/// display order, with its subtotal, then *Closed (n)*. The rows, values, subtotals and staleness are the
 /// Accounts list's (``AccountList``), so the two always agree: an account
 /// that holds nothing gets no clock (``AccountStaleness``).
 struct SidebarAccounts: Hashable, Sendable {
@@ -45,6 +45,12 @@ struct SidebarAccounts: Hashable, Sendable {
                                stalenessThreshold: stalenessThreshold, includesSparklines: false)
         groups = list.sections
         closed = list.closed
+    }
+
+    /// The open accounts' values added up, in the base currency: the sum of
+    /// the groups' subtotals (accounts left out of net worth too, as listed).
+    var total: Decimal {
+        groups.reduce(Decimal(0)) { $0 + $1.subtotal }
     }
 
     /// *Closed (3)*.
