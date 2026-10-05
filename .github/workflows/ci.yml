@@ -45,6 +45,7 @@ jobs:
           -project App/CanIRetireYet.xcodeproj
           -scheme CanIRetireYet
           -destination 'generic/platform=iOS Simulator'
+          -derivedDataPath "${{ runner.temp }}/DerivedData"
           CODE_SIGNING_ALLOWED=NO
       - name: Build the app for macOS
         # Runs even when the iOS build failed, so one run reports both platforms' errors.
@@ -54,7 +55,27 @@ jobs:
           -project App/CanIRetireYet.xcodeproj
           -scheme CanIRetireYet
           -destination 'platform=macOS'
+          -derivedDataPath "${{ runner.temp }}/DerivedData"
           CODE_SIGNING_ALLOWED=NO
+      - name: Check the apps' icons
+        # An app without its icon still builds (an empty or missing
+        # ASSETCATALOG_COMPILER_APPICON_NAME, an icon set the platform can't
+        # use), so look in the built bundles: the icon's name in Info.plist,
+        # and its images in the compiled asset catalog (and the Mac's .icns).
+        if: success() || failure()
+        run: |
+          products="${{ runner.temp }}/DerivedData/Build/Products"
+          mac="$products/Debug/CanIRetireYet.app/Contents"
+          ios="$products/Debug-iphonesimulator/CanIRetireYet.app"
+          echo "Mac Info.plist:"; plutil -p "$mac/Info.plist" | grep -i icon || true
+          echo "Mac Resources:"; ls -l "$mac/Resources"
+          echo "Mac Assets.car, AppIcon renditions:"
+          xcrun assetutil --info "$mac/Resources/Assets.car" | grep -c '"Name" : "AppIcon"' || true
+          echo "iOS Info.plist:"; plutil -p "$ios/Info.plist" | grep -i -A4 icon || true
+          test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIconName' "$mac/Info.plist")" = AppIcon
+          test -s "$mac/Resources/AppIcon.icns"
+          xcrun assetutil --info "$mac/Resources/Assets.car" | grep -q '"Name" : "AppIcon"'
+          test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIcons:CFBundlePrimaryIcon:CFBundleIconName' "$ios/Info.plist")" = AppIcon
       - name: Test the package
         # Also runs the code inside `#if canImport(Darwin)` (CloudSync's
         # iCloud file versions, watcher and downloader), which Linux skips.
