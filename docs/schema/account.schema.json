@@ -1,0 +1,76 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "accounts/<id>.json",
+  "description": "An account, open or closed. Its values are in the history files, which refer to it by ID. Closing an account sets closed and deletes nothing.",
+  "type": "object",
+  "required": ["id", "name", "kind", "currency", "opened"],
+  "properties": {
+    "id": {
+      "description": "The same as the file name.",
+      "$ref": "common.schema.json#/$defs/slug"
+    },
+    "name": {
+      "description": "Display name; change it whenever you like.",
+      "type": "string"
+    },
+    "kind": {
+      "description": "What kind of account it is. loan, mortgage and creditCard are debts, recorded as negative balances. The kind sets the defaults of valuation and assetClasses, and how a check-in fills in a value's flow.",
+      "$comment": "Open enum.",
+      "enum": ["cash", "savings", "brokerage", "crypto", "metals", "pensionFund", "tfr", "property", "vehicle", "loan", "mortgage", "creditCard", "other"]
+    },
+    "currency": {
+      "description": "The currency of the account's balances and cash.",
+      "$ref": "common.schema.json#/$defs/currency"
+    },
+    "opened": {
+      "description": "The first day the account counts toward net worth.",
+      "$ref": "common.schema.json#/$defs/date"
+    },
+    "closed": {
+      "description": "The last day it counts. Absent while the account is open. A closed account leaves check-ins and today's totals, keeps its values, and still shows in every chart up to that day.",
+      "$ref": "common.schema.json#/$defs/date"
+    },
+    "institution": {
+      "description": "The bank or broker.",
+      "type": "string"
+    },
+    "country": {
+      "description": "The institution's country.",
+      "$ref": "common.schema.json#/$defs/country"
+    },
+    "valuation": {
+      "description": "How values are recorded. balance: one amount. holdings: positions (quantity × price) plus optional cash. trades: holdings, purchase cost and cash come from the account's trades (TRADES.md), and its valuations record only cash. Default: holdings for brokerage, crypto and metals, balance for the other kinds.",
+      "$comment": "Open enum.",
+      "enum": ["balance", "holdings", "trades"]
+    },
+    "assetClasses": {
+      "description": "The asset mix of values recorded as a single balance, for the breakdowns and the planner: a balance account's, or the balances in a holdings account's imported history (positions follow their instruments). Default: cash for cash and savings, realEstate for property; otherwise such a value counts as other.",
+      "$ref": "common.schema.json#/$defs/assetMix"
+    },
+    "availableFromAge": {
+      "description": "The age from which plans can draw on the account, e.g. 67 for a pension fund. Until 1 January of the first year you're that age, plans keep it apart: locked, at its own mix, not wealth-taxed (PLANNER.md). Left out, it can be drawn at any age. The app suggests 65 for a new pension fund.",
+      "$ref": "common.schema.json#/$defs/age"
+    },
+    "includeIn": {
+      "description": "What the account counts in. Both default to true; a primary home would normally set plan to false.",
+      "type": "object",
+      "properties": {
+        "netWorth": { "type": "boolean" },
+        "plan": { "type": "boolean" }
+      }
+    },
+    "successor": {
+      "description": "The account that replaced this one, e.g. when you switched banks, so charts stay continuous.",
+      "$ref": "common.schema.json#/$defs/slug"
+    },
+    "tags": {
+      "description": "Free-form. Left out when empty.",
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "notes": {
+      "description": "Free-form.",
+      "type": "string"
+    }
+  }
+}

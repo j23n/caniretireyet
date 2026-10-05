@@ -47,7 +47,7 @@ Every other module builds on `Model`, and the app and the CLI read and write the
 - **Until the first public release (1.0)**, the API may also shrink: removing or renaming something public, or dropping a field or a compatibility path for versions that never shipped, is allowed when the commit message says why and every caller (Sources, App, Tests, docs) is updated in the same change. Files that existing libraries contain must still load: what a library may hold stays readable (an unknown key survives, an unknown open-enum value decodes), or a migration in Storage converts it.
 - **From 1.0 on, additive changes only:** new types, new optional fields, new cases on open enums, new methods, new protocol requirements *with default implementations*. Never rename, remove or change the meaning or type of anything public.
 - **State the reason in the commit message** of any commit that changes `Sources/Model` (e.g. "Model: add `Account.iban` (optional), needed by the RW helper").
-- A change to the file format also updates docs/FILE_FORMAT.md (or PLANNER.md, IMPORT.md, PROGRESS.md), the example library, and the round-trip tests. Adding optional fields keeps `schemaVersion`; anything else is a new schema version with a migration in Storage.
+- A change to the file format also updates its JSON Schema in docs/schema (`JSONSchemaTests` fails until the schema and the Model's `knownKeys` agree), docs/FILE_FORMAT.md where behaviour changes (or PLANNER.md, IMPORT.md, PROGRESS.md), the example library, and the round-trip tests. Adding optional fields keeps `schemaVersion`; anything else is a new schema version with a migration in Storage.
 
 ## Conventions
 

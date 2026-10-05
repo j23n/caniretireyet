@@ -88,7 +88,7 @@ Baselines are created:
 - **automatically**, at the first check-in of each year, for the main plan (a check-in that's the library's latest, not one filling in history);
 - **by hand**, with *Save baseline* and a label, e.g. before a big decision such as switching to forfettario.
 
-`projections/<plan-id>/baselines/<date>.json`, about 10 KB each. The file name is the baseline's ID; a second baseline saved on the same day gets `-2`.
+`projections/<plan-id>/baselines/<date>.json`, about 10 KB each ([baseline.schema.json](schema/baseline.schema.json)). The file name is the baseline's ID; a second baseline saved on the same day gets `-2`.
 
 ```json
 {
@@ -110,7 +110,7 @@ Baselines are created:
 
 ## The answer over time
 
-`projections/<plan-id>/headlines/<year>.json`: one small record per check-in.
+`projections/<plan-id>/headlines/<year>.json`: one small record per check-in ([headlines.schema.json](schema/headlines.schema.json)).
 
 ```json
 {

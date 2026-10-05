@@ -1,4 +1,4 @@
-# Library file format (v2)
+# Library file format
 
 The library is a folder. Everything the app knows is stored in it. If you delete the app and keep the folder, nothing is lost.
 
@@ -50,17 +50,28 @@ Can I Retire Yet/                   ← the app's folder in iCloud Drive
 └── backups/                        copies made before a migration or an import
 ```
 
-## Conventions
+## Schemas
 
-| What | How |
+Every file's fields are in a [JSON Schema](https://json-schema.org) (draft 2020-12) in [schema/](schema/): types, which fields are required, defaults, ranges and what each field means, in the schemas' `description`s. This document covers what the schemas can't: how the files fit together, how values are computed from them, and how the app writes, merges and upgrades them.
+
+| File | Schema |
 | --- | --- |
-| IDs | A lowercase slug (`[a-z0-9-]+`), unique within its folder and identical to the file name. The app creates it from the display name ("Conto Fineco" → `conto-fineco`) and adds `-2` if the slug is taken. An ID never changes. |
-| Dates | `YYYY-MM-DD`: a calendar date with no time or time zone. A valuation dated `2026-09-30` means "as of the end of that day". |
-| Amounts | Decimal strings such as `"1234.56"`, negative for debts. The app also accepts plain JSON numbers, for when you edit by hand. It writes the shortest exact form: `"1500"`, not `"1500.00"`. Both read as the same value. |
-| Quantities | Decimal strings, e.g. `"0.4215"`. |
-| Rates and shares | Decimal fractions as strings: `"0.26"` means 26%. |
-| Currencies | ISO 4217 codes: `EUR`, `USD`, `CHF`. |
-| Countries | ISO 3166-1 alpha-2 codes: `IT`, `IE`, `DE`. |
+| `library.json` | [library.schema.json](schema/library.schema.json) |
+| `accounts/<id>.json` | [account.schema.json](schema/account.schema.json) |
+| `instruments/<id>.json` | [instrument.schema.json](schema/instrument.schema.json) |
+| `history/YYYY/YYYY-MM.json` | [history-month.schema.json](schema/history-month.schema.json) |
+| `plans/<id>.json` | [plan.schema.json](schema/plan.schema.json) |
+| `projections/<plan-id>/baselines/<id>.json` | [baseline.schema.json](schema/baseline.schema.json) |
+| `projections/<plan-id>/headlines/<year>.json` | [headlines.schema.json](schema/headlines.schema.json) |
+| `imports/<id>.json` | [import-profile.schema.json](schema/import-profile.schema.json) |
+| `backups/<name>/backup.json` | [backup.schema.json](schema/backup.schema.json) |
+| Shared values: decimals, dates, IDs, codes, asset mixes | [common.schema.json](schema/common.schema.json) |
+
+- **Unknown keys are allowed.** The app keeps keys it doesn't know (Principles), so the schemas don't forbid them; a validator in strict mode, as the tests run it, reports them.
+- **Open enums.** A "kind"-like field lists the values this version knows. A newer version may add values, which this one reads and writes back unchanged.
+- **Checked by the tests.** `JSONSchemaTests` (StorageTests) validates every file of the example library against its schema, checks that every key the app reads is in its schema and the other way round, and that documents with every field set, as the app writes them, match. Any 2020-12 validator works too, e.g. `check-jsonschema --schemafile docs/schema/account.schema.json accounts/*.json` from the [schema folder](schema/).
+
+The conventions every file shares (common.schema.json): **IDs** are lowercase slugs (`[a-z0-9-]+`), the same as the file name, and never change; files refer to each other by ID, never by name. **Dates** are `YYYY-MM-DD`, with no time or time zone; a value dated `2026-09-30` means "as of the end of that day". **Amounts, quantities, rates and shares** are exact decimals written as strings in their shortest form (`"1500"`, `"0.4215"`, `"0.26"` for 26%), negative for debts; plain JSON numbers are read too. **Currencies** are ISO 4217 codes, **countries** ISO 3166-1 alpha-2.
 
 ## `library.json`
 
@@ -74,24 +85,7 @@ Can I Retire Yet/                   ← the app's folder in iCloud Drive
 }
 ```
 
-`mainPlan` is the plan shown on the Overview. It's re-run at every check-in, and a baseline of it is saved automatically at the first check-in of each year.
-
-`person` holds the person's `name` and `birthDate` (plans need it for ages).
-
-`taxResidence`, optional, is the country you live in, as a country code. It picks the default inflation index (below).
-
-`inflationIndex`, optional, is the consumer price index the library puts amounts in today's money with and computes real returns with, e.g. `"inflationIndex": "hicp-ea"`. It names an index of the history files' `indices`: `hicp-<country>`, a country's harmonised index of consumer prices (`hicp-de`, `hicp-ch`; ISO country codes, so Greece is `hicp-gr`), or `hicp-ea`, the euro area's. Eurostat publishes one for every EU country, Iceland, Norway, Switzerland, Albania, Montenegro, North Macedonia, Serbia and Türkiye. Left out, it's worked out, in this order:
-
-1. the HICP of the tax residence (`"taxResidence": "DE"` → `hicp-de`), when the country has one;
-2. else, of the indices in the base currency the library has values of, the one with the most (so a library that recorded `hicp-it` before this setting existed keeps it);
-3. else the HICP of the base currency: the euro area's for `EUR`, Switzerland's for `CHF`, Sweden's for `SEK`, …;
-4. else none: amounts stay in the money of their dates (e.g. a library in `USD` living in the US).
-
-Settings › You › *Inflation* and `retire settings --inflation-index hicp-ea` set it; *Automatic* and `--inflation-index automatic` leave it out.
-
-Check-ins, *Update Prices*, *Fill In Past Prices* and `retire prices` fetch the months missing of the index the library uses.
-
-Settings that belong to one device, such as reminder times and UI state, are stored on that device, not in the library.
+Fields: [library.schema.json](schema/library.schema.json). Settings › You sets the base currency, the country and the inflation index (*Automatic* leaves `inflationIndex` out, so it's worked out as the schema describes); so do `retire init` and `retire settings --inflation-index hicp-ea` (`automatic` to leave it out). Check-ins, *Update Prices*, *Fill In Past Prices* and `retire prices` fetch the months missing of the index the library uses. Eurostat publishes an HICP for every EU country, Iceland, Norway, Switzerland, Albania, Montenegro, North Macedonia, Serbia and Türkiye (`hicp-gr` for Greece: ISO codes), and the euro area's (`hicp-ea`).
 
 ## `accounts/<id>.json`
 
@@ -141,21 +135,7 @@ A closed account:
 }
 ```
 
-| Field | Required | Meaning |
-| --- | --- | --- |
-| `id` | yes | The slug; same as the file name. |
-| `name` | yes | Display name. Change it whenever you like. |
-| `kind` | yes | `cash`, `savings`, `brokerage`, `crypto`, `metals`, `pensionFund`, `tfr`, `property`, `vehicle`, `loan`, `mortgage`, `creditCard` or `other`. |
-| `currency` | yes | The currency of this account's balances and cash. |
-| `opened` | yes | The first day the account counts toward net worth. |
-| `closed` | no | The last day it counts. Absent while the account is active. |
-| `institution`, `country` | no | The bank or broker, and its country. |
-| `valuation` | no | `balance`, `holdings` or `trades`. The default depends on `kind`: brokerage, crypto and metals default to holdings. With `trades`, the account's holdings, purchase cost and cash come from its trades, and its valuations record only cash ([TRADES.md](TRADES.md)). |
-| `assetClasses` | no | The asset mix of the account's values recorded as a single balance, used by the asset-class breakdowns and the planner: a balance account's, or the balances in a holdings account's imported history (its positions follow their instruments). Defaults by kind: cash and savings → `cash`, property → `realEstate`; otherwise such a value counts as other. |
-| `availableFromAge` | no | The age from which plans can draw on the account, e.g. `67` for a pension fund. Until 1 January of the first year you're that age, plans keep it apart: locked, at its own mix, not wealth-taxed ([PLANNER.md](PLANNER.md#the-model-in-brief)). Left out, it can be drawn at any age. The app suggests 65 for a new pension fund. |
-| `includeIn` | no | `{ "netWorth": true, "plan": true }`. A primary home would normally set `"plan": false`. |
-| `successor` | no | The account that replaced this one, e.g. when you switched banks, so charts stay continuous. |
-| `tags`, `notes` | no | Free-form. |
+Fields: [account.schema.json](schema/account.schema.json).
 
 ### Account lifecycle
 
@@ -206,17 +186,7 @@ An instrument is anything you hold a quantity of. Its price is always per `unit`
 }
 ```
 
-| Field | Required | Meaning |
-| --- | --- | --- |
-| `kind` | yes | `etf`, `fund`, `stock`, `bond`, `etc`, `crypto`, `metal` or `other`. |
-| `currency`, `unit` | yes | What the price is quoted in and per what. The fetcher converts, e.g. USD per troy ounce into EUR per gram. |
-| `assetClasses` | yes | Its mix across `equity`, `bonds`, `cash`, `gold`, `crypto`, `realEstate` and `other`. A 60/40 fund is `{ "equity": "0.6", "bonds": "0.4" }`. |
-| `isin`, `ticker` | no | Identification. |
-| `priceSource` | no | Where prices come from. If it's absent, you enter prices by hand. |
-
-For `coingecko`, `symbol` is the coin's CoinGecko ID (`ethereum`, from its page on coingecko.com) or its ticker (`ETH`), in any case. The fetcher resolves it to an ID in this order: a built-in table of well-known tickers (`BTC`, `ETH`, `SOL`, …); a lowercase symbol, tried as an ID as it is; then, for anything else or an ID CoinGecko doesn't know, CoinGecko's search, which takes the coin with that ID, or else the highest-ranked coin with that ticker. The file keeps the symbol as you typed it, and the price list shows what it resolved to, e.g. "ETH → ethereum".
-
-`priceSource` names where today's prices come from. Past prices may come from elsewhere without changing it ([PLAN.md](PLAN.md#prices-and-fx), "Past prices"): a `gold-api` metal's from its futures on Yahoo Finance (`GC=F` for `XAU`), a `coingecko` coin's from before CoinGecko's free year from Yahoo Finance's pair (`ETH-EUR`). The price records say which, in `source`.
+Fields, and how a price source's symbol is resolved: [instrument.schema.json](schema/instrument.schema.json). The price list shows what a CoinGecko ticker resolved to, e.g. "ETH → ethereum". Past prices may come from another source than `priceSource` ([PLAN.md](PLAN.md#prices-and-fx), "Past prices"): the price records say which, in `source`.
 
 ## `history/YYYY/YYYY-MM.json`
 
@@ -264,19 +234,7 @@ One file per calendar month. It holds the account valuations, trades, prices, FX
 ]
 ```
 
-The fields and types of a trade, and how holdings, cost and cash are worked out from them, are in [TRADES.md](TRADES.md#trades-in-the-files). A buy, sell, fee or tax with `"settlement": "external"` was paid from or into another account (gold bought from a dealer, paid from the bank): it leaves the account's cash alone, and its amount counts as money added or taken out ([TRADES.md](TRADES.md#paid-from-outside-the-account)).
-
-Rules:
-
-- **Which file.** A record's date decides its file: `2026-09-30` goes in `history/2026/2026-09.json`.
-- **Uniqueness.** There is at most one valuation per account per date, one price per instrument per date, one FX rate per currency pair per date, and one value per index per date. Trades are keyed by account, date and their `id`, so an account can have several on one day.
-- **Two kinds of valuation.** A valuation holds either a `balance` (one amount in the account's currency, negative for debts) or `positions` plus optional `cash`. An account can switch between them over time. For example, the imported history can be balances and later check-ins can have positions. An account that records trades (`"valuation": "trades"`) records only `cash`: positions listed in its valuation are a check against its trades, and a balance isn't used ([TRADES.md](TRADES.md)).
-- **Cost basis.** `costBasis` is optional: the total purchase cost of a position in the account's currency (Italian brokers show it as *valore di carico*). The planner uses it to estimate the tax due when you sell. Where it's missing, the plan uses an estimate of the share of gain (`portfolio.unrealizedGainShare`), or else counts the whole value as gain, with a warning.
-- **Flow.** `flow` is optional: the net money added (+) or taken out (−) since the account's previous valuation, in the account's currency. The check-in fills it in from defaults that depend on the kind of account, and you can edit it (see [PROGRESS.md](PROGRESS.md#data-this-needs-from-day-one)). A missing flow means unknown. The sum of all flows over a period is what you actually saved. An account that records trades gets its flows from its trades and cash, and its `flow` is written for the record ([TRADES.md](TRADES.md#flows)).
-- **FX direction.** FX rates follow the ECB convention: 1 `base` = `rate` × `quote`.
-- **Sources.** `source` is optional and says where a record's values came from: `manual` (typed in), `import` (a spreadsheet), `ledger` (a journal, imported by an earlier version), or the service that answered: `yahoo`, `coingecko`, `gold-api`, `ecb`, `eurostat`. Prices, rates and index values fetched for past dates (*Fill In Past Prices*, `retire prices --fill-history`) are ordinary records dated the day they're for, with the source of the service that answered, as usual: gold priced from Yahoo Finance's `GC=F` futures has `"source": "yahoo"` although its instrument's `priceSource` is `gold-api`. Filling in only adds records for dates that have none; it never replaces one, whatever its source.
-- **Indices.** `indices` holds consumer-price-index values: a country's all-items HICP from Eurostat, 2015 = 100 (`hicp-it` for Italy, `hicp-de`, `hicp-ch`, …), or the euro area's (`hicp-ea`). Which ones a library uses is in [`library.json`](#libraryjson) (`inflationIndex`). They're used to express history in today's money and to compute real returns. A monthly value is dated the last day of the month it measures and stored in that month's file, even when it's published and fetched later.
-- **Sorting.** Records are sorted by date, then by ID, so files diff cleanly.
+Fields and rules (which file a record goes in, record keys, the two kinds of valuation, cost basis, flows, FX direction, sources, index values): [history-month.schema.json](schema/history-month.schema.json). How a trades account's holdings, cost and cash are worked out from its trades is in [TRADES.md](TRADES.md).
 
 ### How values are computed
 
@@ -304,7 +262,7 @@ An account that closes during the period ends at zero: its value on the closing 
 
 ## `plans/<id>.json`
 
-There is one file per scenario. Its fields and what they mean are described in [PLANNER.md](PLANNER.md#plan-file). Its amounts are in today's money, in the library's `baseCurrency`.
+There is one file per scenario. Fields: [plan.schema.json](schema/plan.schema.json); how the plan uses them: [PLANNER.md](PLANNER.md). Its amounts are in today's money, in the library's `baseCurrency`.
 
 ## `projections/<plan-id>/`
 
@@ -313,7 +271,7 @@ Saved projections for one plan:
 - `baselines/<date>.json`: a projection saved at the first check-in of each year, or by hand. It stores the projected percentiles for each year, the expected path, the accounts included, and a copy of the plan's inputs.
 - `headlines/<year>.json`: the headline answer recorded at each check-in: the earliest age, the chance at the target age and the readiness (plan assets as a share of what retiring today needs). Records written by earlier versions may also hold the old FI progress and the tax parameters used.
 
-Fields and examples are in [PROGRESS.md](PROGRESS.md#baselines). These files aren't deleted when a plan changes or is deleted, because they are a record of the past.
+Fields: [baseline.schema.json](schema/baseline.schema.json) and [headlines.schema.json](schema/headlines.schema.json); examples in [PROGRESS.md](PROGRESS.md#baselines). These files aren't deleted when a plan changes or is deleted, because they are a record of the past.
 
 ## Sync conflicts
 
@@ -352,28 +310,19 @@ A file that couldn't be read when the library loaded (it isn't valid JSON, or do
 
 ## `imports/<id>.json`
 
-Saved import profiles. Each describes how to read one kind of file (encoding, delimiter, number and date formats) and what each column becomes. See [IMPORT.md](IMPORT.md#import-profiles) for the fields and an example.
-
-In a profile, an empty list and a missing one differ in one place: `file.excludeRows` left out uses the importer's default footer rule (rows starting with "Totale" or "Total"), while `"excludeRows": []` skips no rows.
+Saved import profiles. Each describes how to read one kind of file (encoding, delimiter, number and date formats) and what each column becomes. Fields: [import-profile.schema.json](schema/import-profile.schema.json); how the importer uses them, with examples: [IMPORT.md](IMPORT.md#import-profiles).
 
 A profile with a layout this version doesn't know, such as `"layout": "ledger"` with a `ledger` section (written by an earlier version, which imported ledger-cli and hledger journals), still loads and keeps all its keys when rewritten, but isn't offered for importing.
 
-A profile with `"layout": "trades"` reads a broker's transactions, a row per trade ([IMPORT.md](IMPORT.md#broker-transactions)):
-
-- each column's `field` is a field of the trade: `date`, `type`, `account`, `instrument` (several columns can hold it: a name, a ticker, an ISIN, tried in order), `quantity`, `price`, `currency` (the price's), `amount` (the cash moved, net of fees and tax), `gross` (before fees and tax), `fees`, `tax`, `ratio`, `note`, `settlement` (whether a buy, sell, fee or tax was paid from outside the account: `external`, `yes`, …), or `ignore`;
-- `constants.account` names the account when the file has no account column; `constants.settlement`, optional, `"external"` when every buy, sell, fee and tax of the file was paid from or into another account and no column says;
-- `tradeTypes`, optional, maps the file's words for types, as written, to trade types: `{ "Acquisto": "buy", "Giroconto": "ignore" }`; `ignore` leaves those rows out. Left out (or for a word it doesn't have), the usual Italian and English words apply ([IMPORT.md](IMPORT.md#types));
-- `amountSign`, optional in `defaults` or a column's `format`, says how amounts are signed: `auto` (the default), `fromType` (absolute values, signed by the type) or `asWritten` ([IMPORT.md](IMPORT.md#signs)).
-
-Trades it writes have `"source": "import"` and a stable `id` (`TradeID.stable`: 8 base32 characters hashed from the row's account, date, type, instrument, quantity, amount and price, and its position among identical rows), so importing the same file again finds them instead of adding them twice.
+Trades an import writes have `"source": "import"` and a stable `id` (`TradeID.stable`: 8 base32 characters hashed from the row's account, date, type, instrument, quantity, amount and price, and its position among identical rows), so importing the same file again finds them instead of adding them twice.
 
 ## `backups/`
 
 Copies of files taken before a schema migration, an import, or a save that had to replace a file (see [Saving](#saving)), in dated folders. They're what "Undo import" uses. Safe to delete.
 
 - `backups/<yyyy-MM-dd-HHmmss>-<label>/` (the time is the device's local time), with the label `import`, `undo-import` (the files as they were before an undo), `prices`, `conflict` (a save or a sync conflict's merge replaced the file) or `unreadable`; `backups/<yyyy-MM-dd>-v<old>/` for a migration. A second backup with the same name gets `-2`, `-3`, ….
-- Each folder mirrors the library's layout and has a `backup.json` listing the files copied (`files`), the files that didn't exist yet (`absentFiles`), a `label`, when it was `created`, and the library's `schemaVersion` then.
-- After an import, the files as the import wrote them are copied to the backup's `result/` folder, and `backup.json` lists them under `result` (`{ "files": [...], "absentFiles": [...] }`).
+- Each folder mirrors the library's layout and has a `backup.json` ([backup.schema.json](schema/backup.schema.json)) listing what was copied and what didn't exist yet.
+- After an import, the files as the import wrote them are copied to the backup's `result/` folder, and `backup.json` lists them under `result`.
 
 **Undo import** compares each file now with the import's `result` and with the copy from before the import:
 

@@ -153,26 +153,7 @@ Columns are identified by their header text, and by position only when there's n
 
 (Keys are shown in reading order; the app writes them sorted.)
 
-Other fields a profile can have, all optional:
-
-| Field | Meaning |
-| --- | --- |
-| `file.encoding` | The text encoding. Left out, it's detected. A byte-order mark in the file wins, and so does valid UTF-8 with accented letters over `windows-1252` or `iso-8859-1`, as when a file is saved again from another app. |
-| `file.excludeRows` | Rows to skip, such as totals: a row is skipped when its first non-empty cell starts with one of these, ignoring case and accents, e.g. `["Totale"]`. Left out, it's `["Totale", "Total"]`; an empty list, `[]`, skips no rows. |
-| `file.headerRow` | The 1-based row holding the headers; `0` means the file has none. Left out, it's detected. |
-| `defaults.date` | `pattern` (e.g. `dd/MM/yyyy`, or `excel-serial`), `monthOnly` (`end`, the default, or `start`), and `timeZone` (an IANA name) for date-times. |
-| `defaults.number` | `decimal` and `thousands` separators (`""` for none), and `percent`. |
-| `defaults.liabilitySign` | How balances of debt accounts are signed in the file: `auto` (the default: a positive amount is a debt and is stored negative, unless its column writes any debt as a negative amount, when the column's signs are kept) or `asWritten` (keep the file's sign). See [Debts](#value-formats). |
-| `columns[].index` | The 1-based column position, used only when the file has no header. |
-| `columns[].currency`, `base`, `quote` | The currency of a column's amounts or prices, or an FX column's pair. |
-| `defaults.amountSign` | Trades layout: how amounts are signed: `auto` (the default), `fromType` or `asWritten`. See [Signs](#signs). |
-| `columns[].format` | Overrides of `defaults` for one column: `date`, `number`, `empty`, `liabilitySign`, `amountSign`. |
-| `columns[].field` | Long layout: what the column holds for each row's record: `date`, `account`, `instrument`, `value`, `currency`, `base`, `quote` or `ignore`. Trades layout: `date`, `type`, `account`, `instrument` (several columns can), `quantity`, `price`, `currency`, `amount`, `gross`, `fees`, `tax`, `ratio`, `note` or `ignore` ([Columns](#columns)). |
-| `target` | Long layout: what each row becomes (`balance`, `quantity`, `costBasis`, `cash`, `price` or `fx`). A value column can set its own `target`, so one row can hold a quantity, a price and a purchase cost. |
-| `constants` | Long layout: fields that are the same for every row: `account`, `instrument`, `currency`, `base`, `quote`. Wide columns that leave these out use them too. Trades layout: `account`. |
-| `tradeTypes` | Trades layout: the file's type words, as written, → trade types, or `ignore` to leave their rows out. Matched exactly, then ignoring case and accents. See [Types](#types). |
-| `matches` | Names found in files matched to IDs, remembered from earlier imports: `{ "accounts": { "Fineco": "conto-fineco" }, "instruments": { … } }`. |
-| `onConflict` | `ask` (the default), `overwrite` or `keep`. |
+Every field, with its default: [import-profile.schema.json](schema/import-profile.schema.json). Debts and signs: [Value formats](#value-formats) and [Signs](#signs).
 
 A profile with a layout this version doesn't know, such as `ledger` (a ledger-cli or hledger journal's profile, written by an earlier version that imported journals), is kept as it is but not offered, and `retire validate` warns about it.
 
@@ -295,7 +276,7 @@ The example library's `imports/directa-movimenti.json` reads Directa-like moveme
 }
 ```
 
-The fields are those of any profile ([Import profiles](#import-profiles)), with `tradeTypes` and the `amountSign` format.
+The fields are those of any profile ([import-profile.schema.json](schema/import-profile.schema.json)), with `tradeTypes` and the `amountSign` format.
 
 ### The sample exports
 

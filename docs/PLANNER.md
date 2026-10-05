@@ -60,7 +60,7 @@ for each year from the start to the end age:
 
 ## Plan file
 
-`plans/<id>.json`. The example is made up: the example library's `base` plan, with flexible spending, a target mix and the current default returns. Keys are shown in reading order here; the app writes them sorted. Only `id`, `name`, `retirement` and `spending` are required: every other section can be left out, and then takes the defaults in the table below.
+`plans/<id>.json`. The example is made up: the example library's `base` plan, with flexible spending, a target mix and the current default returns. Keys are shown in reading order here; the app writes them sorted. Only `id`, `name`, `retirement` and `spending` are required: every other section can be left out, and then takes its defaults.
 
 ```json
 {
@@ -109,19 +109,7 @@ for each year from the start to the end age:
 }
 ```
 
-| Section | Meaning |
-| --- | --- |
-| `retirement` | The age at which work stops. `"age": "earliest"` lets the planner find it. Retiring at an age means stopping work on that birthday, or on the start date if it has passed. |
-| `endAge` | The last age the plan must fund. Default 95, at most 120 (error `planner.endAge`). |
-| `tax` | `investmentRate`: the tax on the gain part of what's sold and on investment income, from 0 to 0.9. Required: a plan without it doesn't run (error `planner.investmentRate`); 0 if your investments aren't taxed. `wealthRate`: a yearly tax on the money you can draw, from 0 to 0.1 (default 0). `wealthAllowance`: what's left untaxed by the wealth tax (default 0). |
-| `work` | Working phases: `netIncome`, what reaches your account in a year after income tax and social contributions; optional `realGrowth`, above inflation; optional `name`. `from` is a date; `until` is a date or `"retirement"`, which follows the retirement age. Every phase stops at retirement, whatever its `until`. A phase without `netIncome` is an error (`planner.noNetIncome`). |
-| `spending` | Yearly spending while working and in retirement, with optional phase factors by age. Savings are what's left of income after spending. `flexible`, optional, cuts retirement spending after bad years and restores it after good ones, never below a floor ([Flexible spending](#flexible-spending)); without it retirement spending is fixed in real terms. |
-| `pensions` | Each pension pays `perYear` after tax from the birthday at `fromAge` (part of a year in the year it starts), from your pension statement. Both are required (error `planner.pensionAmount`); `name` is optional. A pension starting after the end age is never paid (warning). |
-| `contributions` | Payments into specific accounts, such as a pension fund: `perYear` every year while working (`until` defaults to `"retirement"`, or a date), or a one-off `amount` in a `year`. They come out of the year's savings; the rest goes to the money you can draw. A contribution into an account the plan doesn't count is left out (warning). |
-| `events` | One-off amounts by `age` or `year` (exactly one of the two): positive for windfalls, negative for expenses. An optional `probability` makes an event uncertain: each Monte Carlo run draws whether it happens; the deterministic run includes it from 50%. At most 64 events can be uncertain (error `planner.uncertainEvents`). |
-| `portfolio` | Where the plan starts: `start` is `"latest-check-in"` (the default) or a check-in date. `exclude` leaves accounts out (a list of IDs). `unrealizedGainShare` estimates the share of gain in holdings without a recorded purchase cost; without it, their whole value counts as gain, with a warning (`planner.unknownCostBasis`). `targetMix` and `targetMixByAge`: the mix the money you can draw is rebalanced to ([Target mix](#target-mix)). |
-| `assumptions` | Inflation (default 2%, between −50% and +50% a year: error `planner.inflation`), and each asset class's real return, volatility and optional income yield ([Returns](#returns)), with optional `correlations` between classes as nested objects: `{ "equity": { "bonds": "0.1", "crypto": "0.4" } }`. |
-| `simulation` | The number of runs (default 2,000, from 1 to 10,000: error `planner.runs`), the random seed (default 1), and the confidence level required for a "yes" (default 0.9). |
+Every field, its default and allowed range, and the error or warning a value out of range gives: [plan.schema.json](schema/plan.schema.json). The sections below say how the plan uses them.
 
 ### The portfolio
 
@@ -178,15 +166,7 @@ With spending fixed in real terms, the plan spends exactly the same every year w
 }
 ```
 
-| Key | Meaning | Default |
-| --- | --- | --- |
-| `enabled` | `false` turns the rule off and keeps its settings in the file (the app's switch does this when a setting differs from its default; with only defaults the section is removed). Present without it, the rule is on. | `true` |
-| `cut` | How much a cut, or a raise, moves the **spending level**, as a share of the plan's spending. | `0.1` |
-| `floor` | The lowest the level goes: the essentials, as a share of the plan's spending. | `0.8` |
-| `upperGuardrail` | How far the withdrawal rate may rise above the first retirement year's, as a share of it, before spending is cut. | `0.2` |
-| `lowerGuardrail` | How far it must fall below the first year's, as a share of it, before a cut is restored. | `0.2` |
-
-`{ "enabled": true }` is the rule with the defaults. A cut outside (0%, 100%], a floor outside [0%, 100%], or guardrails outside their range is an error (`planner.flexibleSpending`) while the rule is on.
+The settings, `enabled`, `cut`, `floor`, `upperGuardrail` and `lowerGuardrail`, with their defaults (10%, 80%, 20% and 20%): [plan.schema.json](schema/plan.schema.json), `flexibleSpending`. `enabled: false` turns the rule off and keeps its settings in the file (the app's switch does this when a setting differs from its default; with only defaults the section is removed).
 
 **The rule.** The *spending level* starts at 100% of the plan's spending. Retirement spending each year is the plan's `retired` × the phase factor in force × the level. Only retirement spending moves.
 

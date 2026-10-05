@@ -1,0 +1,196 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "imports/<id>.json",
+  "description": "A saved import mapping (IMPORT.md): how to read one kind of file and what each column becomes. Columns are identified by their header text, and by position only when the file has no header, so reordered columns still import and a column the profile doesn't know is flagged instead of guessed.",
+  "type": "object",
+  "required": ["id", "name", "layout"],
+  "properties": {
+    "id": {
+      "description": "The same as the file name.",
+      "$ref": "common.schema.json#/$defs/slug"
+    },
+    "name": { "type": "string" },
+    "file": {
+      "description": "How to read the file's text and rows. Left out when everything is detected.",
+      "type": "object",
+      "properties": {
+        "encoding": {
+          "description": "The text encoding. Left out, it's detected. A byte-order mark in the file wins, and so does valid UTF-8 with accented letters over windows-1252 or iso-8859-1.",
+          "$comment": "Open enum.",
+          "enum": ["utf-8", "utf-16", "windows-1252", "iso-8859-1"]
+        },
+        "delimiter": {
+          "description": "The field delimiter: , ; | or a tab. Left out, it's detected.",
+          "type": "string"
+        },
+        "headerRow": {
+          "description": "The 1-based row holding the headers; rows above it are skipped. 0: the file has none. Left out, it's detected.",
+          "type": "integer",
+          "minimum": 0
+        },
+        "excludeRows": {
+          "description": "Rows to skip, such as totals: a row is skipped when its first non-empty cell starts with one of these, ignoring case and accents. Left out, it's [\"Totale\", \"Total\"]; [] skips no rows.",
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "defaults": {
+      "description": "Value formats for every column, unless a column's format overrides them. What's left out is detected.",
+      "$ref": "#/$defs/format"
+    },
+    "layout": {
+      "description": "wide: one row per date, one column per account or value. long: one row per record, each column a field. trades: one row per trade, a broker's transactions export.",
+      "$comment": "Open enum: a profile with a layout this version doesn't know (such as ledger, from an earlier version that imported journals) is kept as it is but not offered.",
+      "enum": ["wide", "long", "trades"]
+    },
+    "dateColumn": {
+      "description": "Wide layout: the header of the column holding the date.",
+      "type": "string"
+    },
+    "target": {
+      "description": "Long layout: what each row becomes. A value column can set its own target, so one row can hold a quantity, a price and a purchase cost.",
+      "$ref": "#/$defs/target"
+    },
+    "constants": {
+      "description": "Fields that are the same for every row. Long layout: account, instrument, currency, base, quote (wide columns that leave these out use them too). Trades layout: account, and settlement.",
+      "type": "object",
+      "properties": {
+        "account": { "$ref": "common.schema.json#/$defs/slug" },
+        "instrument": { "$ref": "common.schema.json#/$defs/slug" },
+        "currency": { "$ref": "common.schema.json#/$defs/currency" },
+        "base": { "$ref": "common.schema.json#/$defs/currency" },
+        "quote": { "$ref": "common.schema.json#/$defs/currency" },
+        "settlement": {
+          "description": "Trades layout: external when every buy, sell, fee and tax of the file was paid from or into another account and no column says so (a dealer's invoices paid from the bank).",
+          "enum": ["account", "external"]
+        }
+      }
+    },
+    "columns": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/column" }
+    },
+    "matches": {
+      "description": "Names found in files matched to IDs, remembered from earlier imports, e.g. both \"Fineco\" and \"Conto Fineco\" → conto-fineco.",
+      "type": "object",
+      "properties": {
+        "accounts": {
+          "type": "object",
+          "additionalProperties": { "$ref": "common.schema.json#/$defs/slug" }
+        },
+        "instruments": {
+          "type": "object",
+          "additionalProperties": { "$ref": "common.schema.json#/$defs/slug" }
+        }
+      }
+    },
+    "onConflict": {
+      "description": "What to do with records that differ from the library's. Default ask.",
+      "$comment": "Open enum.",
+      "enum": ["ask", "overwrite", "keep"]
+    },
+    "tradeTypes": {
+      "description": "Trades layout: the file's type words, as written, mapped to trade types, or ignore to leave their rows out. Matched exactly, then ignoring case and accents. For a word it doesn't have, the usual Italian and English words apply (IMPORT.md, Types).",
+      "type": "object",
+      "additionalProperties": {
+        "enum": ["buy", "sell", "dividend", "interest", "fee", "tax", "deposit", "withdrawal", "transferIn", "transferOut", "split", "opening", "ignore"]
+      }
+    }
+  },
+  "$defs": {
+    "target": {
+      "description": "balance: a valuation's balance. quantity: a position's quantity. costBasis: a position's purchase cost. cash: a valuation's cash. price: a price record. fx: an FX record. ignore: nothing.",
+      "$comment": "Open enum.",
+      "enum": ["balance", "quantity", "costBasis", "cash", "price", "fx", "ignore"]
+    },
+    "column": {
+      "description": "One column of the file. Wide layout: a target, with what it needs from account, instrument and currency here, from constants, or from the header (the column \"Directa\" means account directa). Long and trades layouts: a field.",
+      "type": "object",
+      "properties": {
+        "header": {
+          "description": "The column's header text.",
+          "type": "string"
+        },
+        "index": {
+          "description": "The 1-based column position, used only when the file has no header.",
+          "type": "integer",
+          "minimum": 1
+        },
+        "target": { "$ref": "#/$defs/target" },
+        "field": {
+          "description": "Long layout: date, account, instrument, value, currency, base, quote or ignore. Trades layout: date, type (mapped by tradeTypes), account, instrument (several columns can hold it: a name, a ticker, an ISIN, tried in order), quantity, price, currency (the price's), amount (net, in the account's currency), gross (before fees and tax), fees, tax, ratio, note, settlement or ignore.",
+          "$comment": "Open enum.",
+          "enum": ["date", "account", "instrument", "value", "currency", "base", "quote", "ignore", "type", "quantity", "price", "amount", "gross", "fees", "tax", "ratio", "note", "settlement"]
+        },
+        "account": { "$ref": "common.schema.json#/$defs/slug" },
+        "instrument": { "$ref": "common.schema.json#/$defs/slug" },
+        "currency": {
+          "description": "The currency of the column's amounts or prices.",
+          "$ref": "common.schema.json#/$defs/currency"
+        },
+        "base": {
+          "description": "An FX column's pair, in the ECB convention: 1 base = rate × quote.",
+          "$ref": "common.schema.json#/$defs/currency"
+        },
+        "quote": { "$ref": "common.schema.json#/$defs/currency" },
+        "format": {
+          "description": "Overrides of the profile's defaults for this column.",
+          "$ref": "#/$defs/format"
+        }
+      }
+    },
+    "format": {
+      "description": "Value formats: dates, numbers, empty cells and signs.",
+      "type": "object",
+      "properties": {
+        "date": {
+          "type": "object",
+          "properties": {
+            "pattern": {
+              "description": "A Unicode date pattern such as dd/MM/yyyy, MMM yyyy or d-MMM-yy, or excel-serial for Excel serial numbers (45322).",
+              "type": "string"
+            },
+            "monthOnly": {
+              "description": "Where a month-only date (2024-01, gennaio 2024) lands: end (the default, the last day of the month) or start.",
+              "enum": ["end", "start"]
+            },
+            "timeZone": {
+              "description": "The IANA time zone used to drop the time from date-times, e.g. Europe/Rome.",
+              "type": "string"
+            }
+          }
+        },
+        "number": {
+          "type": "object",
+          "properties": {
+            "decimal": {
+              "description": "The decimal separator: . or ,",
+              "type": "string"
+            },
+            "thousands": {
+              "description": "The thousands separator: . , ' a space, a non-breaking space, or \"\" for none.",
+              "type": "string"
+            },
+            "percent": {
+              "description": "Whether values are percentages (12% → 0.12).",
+              "type": "boolean"
+            }
+          }
+        },
+        "empty": {
+          "description": "What an empty cell means: skip (the default, no value) or zero.",
+          "enum": ["skip", "zero"]
+        },
+        "liabilitySign": {
+          "description": "How balances of debt accounts are signed in the file. auto (the default): a positive amount is a debt and is stored negative, unless its column writes any debt as a negative amount, when the column's signs are kept. asWritten: keep the file's sign.",
+          "enum": ["auto", "asWritten"]
+        },
+        "amountSign": {
+          "description": "Trades layout: how amounts are signed. auto (the default): a column with any negative amount writes signed amounts; one without writes absolute values, signed by the trade type. fromType: always by the type. asWritten: as the file has them.",
+          "enum": ["auto", "fromType", "asWritten"]
+        }
+      }
+    }
+  }
+}

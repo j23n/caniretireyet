@@ -77,6 +77,9 @@ extension LibraryFolder {
         - The app writes the files in a fixed layout (sorted keys, one record per \
         line), so if you keep the folder in git, a change shows up as a clean diff.
 
+        Every file and field is described in docs/FILE_FORMAT.md and, as JSON \
+        Schemas, in docs/schema, at https://github.com/j23n/caniretireyet.
+
         ## Format version
 
         `schemaVersion` in `library.json` is the format version. When a new version \

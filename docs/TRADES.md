@@ -56,24 +56,7 @@ From the example library (`history/2026/2026-08.json` and `2026-07.json`):
 
 (Made up. A trade with many fields is wider than a line, so it's spread out like any other record: [Canonical layout](FILE_FORMAT.md#canonical-layout).)
 
-| Field | Meaning |
-| --- | --- |
-| `account`, `date` | The account and the trade date. The key is account + date + `id`. |
-| `id` | A short random slug, e.g. 8 lowercase base32 characters (`TradeID.random()`), stable across edits. Two identical trades on one day stay distinct, and a trade edited on two devices merges as the same record. Hand-written IDs can be any slug (`buy-1`); a conversion writes `buy-vwce` (see [Converting an account](#converting-an-account)). An imported trade gets a stable ID made from its row (`TradeID.stable`), so importing the file again finds it ([IMPORT.md](IMPORT.md#importing-again)). |
-| `type` | See [Types](#types). An open enum: a type this version doesn't know is kept and pointed out; only its `amount`, if it has one, counts (in cash), and it doesn't change holdings. |
-| `instrument` | The instrument bought, sold, moved or split, or paying a dividend. |
-| `quantity` | Units, **always positive**; the type says the direction. |
-| `price` | Per unit, in `currency`. |
-| `currency` | The price's currency. Default: the instrument's (the account's without an instrument). |
-| `amount` | The **cash effect** on the account, in the **account's** currency, signed: negative for a buy, a fee, a tax or a withdrawal; positive for sale proceeds, dividends, interest and deposits. It's what the cash actually changed by, **net of `fees` and `tax`**. Optional where it can be computed; when written, it wins (it's what the broker charged, at the broker's FX rate). For a trade [paid from outside the account](#paid-from-outside-the-account), it's what was paid or received there, signed the same way. |
-| `fees` | Commissions, positive, in the account's currency. Part of `amount`. |
-| `tax` | Tax withheld, positive, in the account's currency: on a sale's gain, a dividend or interest, or a transaction tax on a buy (e.g. the Italian FTT). Part of `amount`. |
-| `cost` | The total purchase cost carried, for `opening` and `transferIn`. Without it, the cost is unknown. |
-| `ratio` | For `split`: new units per old unit. `"2"` for a 2-for-1 split, `"0.1"` for a 1-for-10 reverse split. |
-| `settlement` | For `buy`, `sell`, `fee` and `tax`: where it was paid from or into. `account` (the default, left out): the account's cash. `external`: **outside the account**, e.g. gold bought from a dealer and paid from a bank account, or a sale whose proceeds went to the bank. Such a trade doesn't change the account's cash; its amount is money added or taken out ([Paid from outside the account](#paid-from-outside-the-account)). An open enum: a value this version doesn't know counts as `account`, and is pointed out. |
-| `note`, `source` | Free text, and where it came from (`manual`, `import`, …). |
-
-Decimals are strings, as everywhere ([Conventions](FILE_FORMAT.md#conventions)).
+Every field, and which ones each type uses: [history-month.schema.json](schema/history-month.schema.json), `trade`. In short: `quantity` is always positive (the type says the direction); `price` is per unit in `currency` (the instrument's by default); `amount` is the **cash effect** on the account, in the **account's** currency, signed (negative for a buy, a fee, a tax or a withdrawal) and **net of `fees` and `tax`**, and when written it wins over what it would be computed as (it's what the broker charged, at the broker's FX rate). A type this version doesn't know is kept and pointed out; only its `amount` counts, in cash, and it doesn't change holdings.
 
 ### Types
 

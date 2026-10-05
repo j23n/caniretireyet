@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "backups/<name>/backup.json",
+  "description": "What a backup folder holds. The folder, backups/<yyyy-MM-dd-HHmmss>-<label>/ (a migration's: backups/<yyyy-MM-dd>-v<old version>/), mirrors the library's layout with the files copied before a migration, an import, an undo or a save that had to replace a file. Restoring copies them back and deletes absentFiles. Backups are safe to delete.",
+  "type": "object",
+  "required": ["label", "created", "files"],
+  "properties": {
+    "label": {
+      "description": "What the backup was taken for, as in the folder name: e.g. import, undo-import, prices, conflict, unreadable, or v2 for a migration from version 2.",
+      "type": "string"
+    },
+    "created": {
+      "description": "When it was taken, ISO 8601 to the second, e.g. 2026-09-30T14:25:01Z.",
+      "type": "string"
+    },
+    "files": {
+      "description": "The files copied, as paths relative to the library folder.",
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "absentFiles": {
+      "description": "Paths that didn't exist when the backup was taken; restoring deletes them, so an import that created a month file is fully undone.",
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "schemaVersion": {
+      "description": "The library's format version when it was taken. A backup is only restored into a library with the same version.",
+      "type": "integer"
+    },
+    "result": {
+      "description": "After an import: the same files as the import wrote them, copied to result/, so undoing it leaves later edits in place. A backup without it is restored as it is.",
+      "type": "object",
+      "required": ["files"],
+      "properties": {
+        "files": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "absentFiles": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    }
+  }
+}
