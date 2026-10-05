@@ -38,6 +38,7 @@ private struct AppEnvironmentModifier: ViewModifier {
             .environment(model.prices)
             .environment(model.plans)
             .environment(model.checkIn)
+            .environment(model.widgets)
             .environment(\.baseCurrency, model.library.shownCurrency)
             .environment(\.hidesAmounts, model.privacy.hidesAmounts)
     }

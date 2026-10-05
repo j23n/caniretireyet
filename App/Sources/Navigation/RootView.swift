@@ -1,3 +1,4 @@
+import Glance
 import SwiftUI
 
 /// The app's root: launch, onboarding or the main navigation, which is a
@@ -10,6 +11,7 @@ struct RootView: View {
     @Environment(CheckInStore.self) private var checkIn
     @Environment(PlanStore.self) private var plans
     @Environment(PrivacySettings.self) private var privacy
+    @Environment(WidgetStore.self) private var widgets
     @Environment(\.scenePhase) private var scenePhase
     #if os(iOS)
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
@@ -30,9 +32,33 @@ struct RootView: View {
                 // A check-in's answer that the app was closed before recording.
                 if phase == .ready { plans.recordMissingCheckInAnswer() }
             }
-            .onOpenURL { url in
-                openFile(url)
+            .task(id: widgets.inputs) {
+                // A burst of changes (a check-in's files, a sync) writes the widgets' snapshot once.
+                try? await Task.sleep(for: .seconds(1))
+                guard !Task.isCancelled else { return }
+                await widgets.refresh()
             }
+            .onOpenURL { url in
+                if let link = GlanceLink(url: url) {
+                    open(link)
+                } else {
+                    openFile(url)
+                }
+            }
+    }
+
+    /// A widget was tapped: its net worth opens the Overview, its answer the
+    /// main plan, its check-in the check-in. At launch the layout isn't set
+    /// yet, so on iPhone it's set here, as the main navigation would.
+    private func open(_ link: GlanceLink) {
+        #if os(iOS)
+        if horizontalSizeClass == .compact { navigation.layout = .tabs }
+        #endif
+        switch link {
+        case .overview: navigation.showOverview()
+        case .plan: navigation.showPlan()
+        case .checkIn: navigation.startCheckIn()
+        }
     }
 
     /// A CSV or TSV file opened from Files or Finder starts an import (on

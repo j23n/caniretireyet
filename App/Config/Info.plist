@@ -34,6 +34,21 @@
 			</array>
 		</dict>
 	</array>
+	<!-- Tapping a widget opens the app on caniretireyet://overview, plan or check-in (Glance.GlanceLink). -->
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>caniretireyet</string>
+			</array>
+		</dict>
+	</array>
+	<!-- The App Group shared with the widgets (AppGroup.swift), as in the entitlements. -->
+	<key>AppGroupIdentifier</key>
+	<string>$(APP_GROUP_IDENTIFIER)</string>
 	<key>LSSupportsOpeningDocumentsInPlace</key>
 	<true/>
 	<key>ITSAppUsesNonExemptEncryption</key>

@@ -12,6 +12,9 @@ let libraries: [(name: String, dependencies: [Target.Dependency])] = [
     ("Prices", ["Model"]),
     ("Planner", ["Model", "Tracker"]),
     ("CloudSync", ["Model", "Storage"]),
+    // What the widgets show: built from the library with Tracker's net
+    // worth, change and breakdown, read by the widget extension.
+    ("Glance", ["Model", "Tracker"]),
 ]
 
 /// Targets that ship resources.

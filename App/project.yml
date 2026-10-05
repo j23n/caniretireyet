@@ -8,12 +8,14 @@
 #
 # ┌──────────────────────────────────────────────────────────────────────────┐
 # │ BEFORE YOU RUN IT ON YOUR OWN DEVICES:                                     │
-# │ 1. Change PRODUCT_BUNDLE_IDENTIFIER below from com.example.caniretireyet   │
-# │    to your own, e.g. com.<yourdomain>.caniretireyet. The iCloud container  │
-# │    is derived from it: iCloud.<bundle id>.                                 │
+# │ 1. Change APP_BUNDLE_IDENTIFIER below from com.example.caniretireyet to    │
+# │    your own, e.g. com.<yourdomain>.caniretireyet. The iCloud container     │
+# │    (iCloud.<bundle id>), the widgets' bundle id (<bundle id>.widgets) and  │
+# │    the App Group they share with the app (group.<bundle id>) follow it.    │
 # │ 2. Set DEVELOPMENT_TEAM to your Apple Developer team ID.                   │
 # │ 3. In Xcode, Signing & Capabilities: check that iCloud → iCloud Documents  │
-# │    lists the container iCloud.<bundle id>.                                 │
+# │    lists the container iCloud.<bundle id>, and that App Groups lists       │
+# │    group.<bundle id> for both the app and CanIRetireYetWidgets.            │
 # └──────────────────────────────────────────────────────────────────────────┘
 
 name: CanIRetireYet
@@ -30,6 +32,10 @@ settings:
     SWIFT_VERSION: "6.0"
     SWIFT_STRICT_CONCURRENCY: complete
     DEVELOPMENT_TEAM: "" # ← your Apple Developer team ID
+    APP_BUNDLE_IDENTIFIER: com.example.caniretireyet # ← change to your own
+    # Shared by the app and its widgets: the app writes the widgets' snapshot
+    # into the group's container (App/Shared/AppGroup.swift).
+    APP_GROUP_IDENTIFIER: group.$(APP_BUNDLE_IDENTIFIER)
 
 # The Swift package at the repository root: every module except the CLI.
 packages:
@@ -43,12 +49,14 @@ targets:
     supportedDestinations: [iOS, macOS]
     sources:
       - path: Sources
+      # Shared with the widgets: the App Group.
+      - path: Shared
       # Assets.xcassets: the design system's colours (light and dark), see
       # Sources/DesignSystem/Palette.swift.
       - path: Resources
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.example.caniretireyet # ← change to your own
+        PRODUCT_BUNDLE_IDENTIFIER: $(APP_BUNDLE_IDENTIFIER)
         PRODUCT_NAME: CanIRetireYet
         MARKETING_VERSION: "0.1.0"
         CURRENT_PROJECT_VERSION: "1"
@@ -96,6 +104,52 @@ targets:
         product: Planner
       - package: CanIRetireYetKit
         product: CloudSync
+      - package: CanIRetireYetKit
+        product: Glance
+      # The widgets, embedded in the app.
+      - target: CanIRetireYetWidgets
+
+  # The widgets (UI.md, "Widgets"): a WidgetKit extension that draws the
+  # snapshot the app writes into the App Group, and never opens the library.
+  CanIRetireYetWidgets:
+    type: app-extension
+    platform: auto
+    supportedDestinations: [iOS, macOS]
+    sources:
+      - path: Widgets
+      - path: Shared
+      # Amounts and dates read as in the app.
+      - path: Sources/DesignSystem/AmountFormat.swift
+      # The design system's colour sets (light and dark), looked up by name.
+      - path: Resources/Assets.xcassets
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: $(APP_BUNDLE_IDENTIFIER).widgets
+        PRODUCT_NAME: CanIRetireYetWidgets
+        MARKETING_VERSION: "0.1.0"
+        CURRENT_PROJECT_VERSION: "1"
+        IPHONEOS_DEPLOYMENT_TARGET: "26.0"
+        MACOSX_DEPLOYMENT_TARGET: "26.0"
+        TARGETED_DEVICE_FAMILY: "1,2"
+        CODE_SIGN_STYLE: Automatic
+        SKIP_INSTALL: YES
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+        ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME: SurfaceCard
+        ASSETCATALOG_COMPILER_GENERATE_ASSET_SYMBOLS: NO
+        ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS: NO
+        # Info.plist: the extension point and the App Group, plus generated keys.
+        INFOPLIST_FILE: Config/Widgets-Info.plist
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_CFBundleDisplayName: "Can I Retire Yet?"
+        # The App Group on both platforms; the Mac also gets the sandbox.
+        CODE_SIGN_ENTITLEMENTS: Config/CanIRetireYetWidgets.entitlements
+        "CODE_SIGN_ENTITLEMENTS[sdk=macosx*]": Config/CanIRetireYetWidgets-macOS.entitlements
+        "ENABLE_HARDENED_RUNTIME[sdk=macosx*]": YES
+    dependencies:
+      - package: CanIRetireYetKit
+        product: Model
+      - package: CanIRetireYetKit
+        product: Glance
 
 schemes:
   CanIRetireYet:

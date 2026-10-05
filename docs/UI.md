@@ -773,7 +773,7 @@ On iPhone, a CSV opened from Files goes straight to "Import with profile…": ch
 **Privacy.**
 
 - An eye button hides every amount (`•••••`) while charts keep their shape and a relative value axis: net worth (and an account's value) in multiples of today's (`0`, `1×`, `2×`), the plan's money (and the Overview's chart with *Future* on) in multiples of today's plan assets, retirement income in multiples of the spending. Only labels that would reveal amounts hide; the change since the last check-in shows in per cent.
-- Amounts are marked `.privacySensitive()`, so the widgets (M3) can hide them when the device is locked.
+- Amounts are marked `.privacySensitive()`, and the widgets hide them while the device is locked ([Widgets](#widgets)).
 - *Cover the app in the app switcher* (iPhone and iPad) covers the whole screen while the app isn't active.
 - Optional Face ID lock (M3, not built yet).
 
@@ -826,13 +826,26 @@ If nothing moves for 20 seconds, the screen says why it may be stuck and what to
 
 **Haptics.** A light tap on save, and when a what-if slider moves the earliest retirement age.
 
-## Widgets (M3)
+## Widgets
 
-- **Small:** net worth and its change.
-- **Medium:** a 12-month sparkline and "Earliest retirement 54".
-- **Lock screen:** "Retire in 15 y 6 m".
+The glance: how am I doing, without opening the app. On the home screen of the iPhone and iPad, the iPhone's lock screen, and the Mac's desktop and Notification Center. Tapping one opens the app where it belongs: net worth on the Overview, the answer on the main plan, the check-in on the check-in.
 
-All widgets hide amounts when the device is locked.
+| Widget | Sizes | What it shows |
+| --- | --- | --- |
+| **Time to retire** | small, medium; lock screen inline and rectangular | "Retire in 15 y 6 m", at 54 · April 2042, in 9 of 10 futures. The small one sits on the app icon's dusk; the medium one adds the earliest age at each check-in of the year as a step line, and "55 → 54 in June". On the lock screen: "Retire in 15y 6m" |
+| **Net worth** | small, medium, large; lock screen rectangular and circular | the total at the latest check-in, "▲ +4.210 € since 31 Aug", and the year's month ends as a line in ink. The medium one adds this year's change and "Earliest retirement 54 · in 15 y 6 m"; the large one is everything at once, with "Can I retire yet?" and the readiness bar. On the lock screen, the changes in per cent |
+| **Since last check-in** | medium | the change split into markets, new money and other, as bars from a shared zero, as on the Overview |
+| **Can I retire yet?** | small; lock screen circular | the readiness as a ring: "58% of what retiring today would need" |
+| **Check-in** | small; lock screen circular | the days to the next check-in, with how much of the month has gone; once it's due, the month and "Start check-in" |
+| **Earliest retirement age** | small; lock screen circular | "54", April 2042, and how it moved |
+| **What you could spend** | small | retiring at the plan's age: "38.400 € a year to spend", "3.200 € a month", in today's money |
+| **Allocation** | medium | what you own by asset class: one bar in the asset classes' colours, and their shares |
+
+- **Where the numbers come from:** the Overview's. Net worth at the latest check-in, and the main plan's latest results, or else the answer recorded at the last check-in (which has no spending, so *What you could spend* asks for the plan to be calculated). The widgets never open the library or run the plan: the app writes a small snapshot of what they show into an App Group whenever the library or the answer changes, and they draw it. The countdowns are worked out each day from its dates.
+- **Locked:** amounts read `•••••` and changes show in per cent, as with the eye button; bars and lines keep their shape. Lock screen widgets never show amounts.
+- **Empty states** say what's missing in a sentence: open the app, the first check-in, the plan's answer.
+- **Tone:** as in the app. The answer always comes with "in 9 of 10 futures"; an earliest age that moved sooner is green, one that moved later is said plainly, in grey.
+- The widget gallery shows made-up numbers, never yours.
 
 ## How it's built
 

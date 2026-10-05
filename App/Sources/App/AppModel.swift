@@ -15,9 +15,10 @@ final class AppModel {
     let prices: PriceStore
     let plans: PlanStore
     let checkIn: CheckInStore
+    let widgets: WidgetStore
 
     init(preferences: AppPreferences, privacy: PrivacySettings, library: LibraryStore, prices: PriceStore,
-         planEngine: any PlanEngine, draftURL: URL?) {
+         planEngine: any PlanEngine, draftURL: URL?, widgetSnapshotURL: URL? = nil) {
         self.preferences = preferences
         self.privacy = privacy
         navigation = AppNavigation()
@@ -26,10 +27,12 @@ final class AppModel {
         plans = PlanStore(library: library, engine: planEngine)
         checkIn = CheckInStore(library: library, prices: prices, plans: plans, preferences: preferences,
                                draftURL: draftURL)
+        widgets = WidgetStore(library: library, plans: plans, snapshotURL: widgetSnapshotURL)
     }
 
     /// The real app: the library in iCloud Drive or on this device, prices
-    /// from the network with API keys from the Keychain.
+    /// from the network with API keys from the Keychain, and the widgets'
+    /// snapshot in the App Group's container.
     static func live() -> AppModel {
         let preferences = AppPreferences()
         #if canImport(Security)
@@ -42,11 +45,13 @@ final class AppModel {
             library: LibraryStore(locator: LibraryLocator(), preferences: preferences),
             prices: PriceStore(service: .standard(credentials: credentials)),
             planEngine: PlannerPlanEngine(),
-            draftURL: CheckInStore.defaultDraftURL())
+            draftURL: CheckInStore.defaultDraftURL(),
+            widgetSnapshotURL: AppGroup.snapshotURL)
     }
 
     /// Previews: `library` in memory (by default the made-up example
-    /// library), no network, no files, and made-up plan results.
+    /// library), no network, no files (not even the widgets' snapshot), and
+    /// made-up plan results.
     static func preview(_ library: Library = PreviewLibrary.library, planEngine: any PlanEngine = PreviewPlanEngine())
         -> AppModel {
         let defaults = UserDefaults(suiteName: "preview") ?? .standard
