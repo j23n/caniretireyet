@@ -3,8 +3,8 @@ import Model
 
 // The seam to the Planner module. `PlanStore` does cancellation, fast mode,
 // progress, headlines and baselines; it asks a `PlanEngine` for the numbers.
-// The app uses `PlannerPlanEngine` (the Planner with the Italian and generic
-// tax systems, PlannerPlanEngine.swift), previews use `PreviewPlanEngine`
+// The app uses `PlannerPlanEngine` (the Planner, PlannerPlanEngine.swift),
+// previews use `PreviewPlanEngine`
 // (Preview/) and `PlanPreviewEngine` (Features/Plan, with made-up progress),
 // and `UnavailablePlanEngine` (below) remains for builds without a planner.
 // `PlanResultsMapping.swift` maps the Planner's `PlanResult` to
@@ -168,11 +168,6 @@ struct PlanHeadline: Hashable, Sendable {
     var successToday: Double?
     /// The most you could spend a year retiring at the target age.
     var sustainableSpending: Decimal?
-    /// The old rule-of-thumb progress (plan assets over uncovered spending ÷
-    /// 4%). Kept because headlines record it, but never shown: it ignores
-    /// the years before the pensions start and the plan's confidence, so it
-    /// disagreed with the chance of retiring today. Show ``readiness``.
-    var fiProgress: Double?
     /// Plan assets as a fraction of what retiring today with the plan's
     /// confidence needs, from the simulation (PLANNER.md, "Assets needed to
     /// retire today"): 1 or more exactly when retiring today works. `nil`
@@ -203,14 +198,13 @@ struct PlanHeadline: Hashable, Sendable {
         confidence = headline.confidence?.doubleValue ?? defaultConfidence
         earliestAge = headline.earliestAge
         successAtTarget = headline.successAtTarget?.doubleValue
-        fiProgress = headline.fiProgress?.doubleValue
         readiness = headline.readiness?.doubleValue
         recordedOn = headline.date
     }
 
     init(confidence: Double, earliestAge: Int? = nil, earliestDate: CalendarDate? = nil, targetAge: Int? = nil,
          successAtTarget: Double? = nil, successToday: Double? = nil, sustainableSpending: Decimal? = nil,
-         fiProgress: Double? = nil, readiness: Double? = nil, needsMoreThanSearched: Bool = false,
+         readiness: Double? = nil, needsMoreThanSearched: Bool = false,
          readinessIsLowerBound: Bool = false) {
         self.confidence = confidence
         self.earliestAge = earliestAge
@@ -219,7 +213,6 @@ struct PlanHeadline: Hashable, Sendable {
         self.successAtTarget = successAtTarget
         self.successToday = successToday
         self.sustainableSpending = sustainableSpending
-        self.fiProgress = fiProgress
         self.readiness = readiness
         self.needsMoreThanSearched = needsMoreThanSearched
         self.readinessIsLowerBound = readinessIsLowerBound
@@ -232,8 +225,8 @@ struct PlanFailureSummary: Hashable, Sendable {
     var share: Double
     /// The typical age money runs out in failing runs.
     var typicalAge: Int?
-    /// The share of runs that run out before locked money (pension fund,
-    /// TFR) becomes accessible: a bridging problem.
+    /// The share of runs that run out while money is still locked away (an
+    /// account available from a later age) that would have bridged the gap.
     var bridgeShare: Double?
     /// The age locked money becomes accessible, for the sentence.
     var bridgeAge: Int?
@@ -271,8 +264,6 @@ struct PlanResults: Hashable, Sendable {
     var start: BaselineStart
     /// The accounts included.
     var accounts: [AccountID]
-    /// The tax parameter year used per tax system.
-    var taxParameters: [TaxSystemID: Int]
     /// Year-end percentiles and the expected path.
     var years: [BaselineYear]
 
@@ -280,8 +271,7 @@ struct PlanResults: Hashable, Sendable {
     /// the run's warnings (see `PlanResultsMapping.swift`). `nil` from the
     /// preview engine.
     var details: PlanResultDetails? = nil
-    /// The currency of every amount: the plan's `currency`, else the
-    /// library's base currency (`PlanResult.currency`). `nil` from the
-    /// preview engine, whose amounts are in the plan's currency.
+    /// The currency of every amount: the library's base currency
+    /// (`PlanResult.currency`). `nil` from the preview engine.
     var currency: CurrencyCode? = nil
 }

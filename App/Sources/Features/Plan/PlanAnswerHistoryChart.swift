@@ -3,8 +3,8 @@ import Model
 import SwiftUI
 
 /// "Your answer over time": the earliest retirement age at each check-in as
-/// a step line, with a mark where the plan, the app's calculations or the
-/// tax rules changed (PROGRESS.md, "The answer over time").
+/// a step line, with a mark where the plan or the app's calculations
+/// changed (PROGRESS.md, "The answer over time").
 struct PlanAnswerHistoryChart: View {
     let history: PlanAnswerHistory
     var height: CGFloat = 180

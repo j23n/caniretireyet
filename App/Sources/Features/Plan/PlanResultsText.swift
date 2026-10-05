@@ -128,16 +128,6 @@ enum PlanResultsText {
         }
     }
 
-    /// "Steps at 64 and 67: that's when INPS can start." for the success curve.
-    static func pensionStepNote(_ steps: [PlanPensionStep]) -> String? {
-        guard !steps.isEmpty else { return nil }
-        var names: [String] = []
-        for step in steps {
-            for name in step.pensions where !names.contains(name) { names.append(name) }
-        }
-        let ages = list(steps.prefix(4).map { String($0.age) })
-        return "Steps at \(ages): retiring then changes when \(list(names)) can start."
-    }
 
     // MARK: Flexible spending
 
@@ -239,8 +229,8 @@ enum PlanResultsText {
         let percent = AmountFormat.percent(confidence, digits: 0, locale: locale)
         return "Your plan assets compared with what retiring now would need for a \(percent) chance (the plan's "
             + "confidence), including the years before your pensions start and taxes. The plan finds it by "
-            + "simulating retiring today with extra money added to accounts you can draw now, or with money taken "
-            + "out of them; money locked in pension funds stays as it is. At 100% you could retire today."
+            + "simulating retiring today with extra money added to the money you can draw now, or with money taken "
+            + "out of it; accounts available only from a later age stay as they are. At 100% you could retire today."
     }
 
     /// Under an answer recorded before readiness existed, instead of a number.
@@ -332,10 +322,8 @@ enum PlanResultsText {
 
     // MARK: How the plan reads your library
 
-    /// "How the plan reads your library": a line per bucket (the accounts
-    /// of one tax wrapper, their value on the start date, how they're
-    /// drawn), then a line per group of accounts that starts a pension
-    /// scheme instead (`PlanStart.schemeSeeds`).
+    /// "How the plan reads your library": a line per group of accounts that
+    /// can be drawn from one age, with their value on the start date.
     static func libraryNotes(_ reading: PlanLibraryReading, accounts: [AccountID: Account],
                              locale: Locale = .current) -> [PlanLibraryNote] {
         func names(_ ids: [AccountID]) -> String {
@@ -343,29 +331,18 @@ enum PlanResultsText {
             guard all.count > 3 else { return list(all) }
             return all.prefix(3).joined(separator: ", ") + " and \(all.count - 3) more"
         }
-        let date = AmountFormat.mediumDate(reading.date, locale: locale)
-        var notes: [PlanLibraryNote] = []
-        for bucket in reading.buckets {
-            var parts = [bucket.isLiquid ? "Drawn any time" : "Drawn as its tax rules allow"]
-            if bucket.receivesSavings { parts.append("new savings go here") }
+        return reading.buckets.map { bucket in
+            var parts = [bucket.availableFromAge.map { "Drawn from \($0)" } ?? "Drawn any time"]
+            if bucket.availableFromAge == nil { parts.append("new savings go here") }
             if !bucket.accounts.isEmpty { parts.append(names(bucket.accounts)) }
-            notes.append(PlanLibraryNote(title: bucket.name, detail: parts.joined(separator: " · "),
-                                         amount: whole(bucket.value)))
+            let title = bucket.availableFromAge == nil ? "Money you can draw" : names(bucket.accounts)
+            return PlanLibraryNote(title: title, detail: parts.joined(separator: " · "), amount: whole(bucket.value))
         }
-        for seed in reading.seeds {
-            let detail = seed.used
-                ? "\(names(seed.accounts)): their value on \(date) is where the pension starts, rather than "
-                    + "money the plan draws on."
-                : "\(names(seed.accounts)) isn't used: the plan gives the pension a starting balance of its own."
-            notes.append(PlanLibraryNote(title: "\(seed.name) starting balance", detail: detail,
-                                         amount: whole(seed.value)))
-        }
-        return notes
     }
 }
 
-/// One line of "How the plan reads your library": a bucket of accounts, or
-/// accounts that start a pension scheme, with their value.
+/// One line of "How the plan reads your library": a group of accounts that
+/// can be drawn from one age, with their value.
 struct PlanLibraryNote: Hashable, Sendable, Identifiable {
     var title: String
     var detail: String

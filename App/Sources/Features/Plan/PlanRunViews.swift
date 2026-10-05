@@ -3,8 +3,7 @@ import SwiftUI
 
 // The pieces of the results area that say where a calculation is and
 // whether the results are current (UI.md, "Calculating" and "Out of
-// date"), shared by the Plan screen, Compare and the check-in's
-// confirmation. Their words come from `PlanRunText`.
+// date"), shared by the Plan screen and the check-in's confirmation. Their words come from `PlanRunText`.
 
 /// A run in progress: what it's doing with that phase's bar ("Simulating
 /// 1.234 / 2.000 runs"), the whole run's bar, and Cancel.

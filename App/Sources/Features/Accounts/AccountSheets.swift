@@ -468,7 +468,7 @@ struct EditAccountSheet: View {
         let problems = form.wrappedValue.problems(locale: locale)
         return Form {
             AccountDetailsFields(form: form, showsKindPicker: true)
-            AccountTaxFields(form: form)
+            AccountPlanFields(form: form)
             Section {
                 TextField("Notes", text: form.notes, prompt: Text("Optional"), axis: .vertical)
                     .lineLimit(2...6)

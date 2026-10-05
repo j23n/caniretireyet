@@ -12,9 +12,8 @@ import Tracker
 ///    opening date, which becomes the first valuation. A brokerage, crypto
 ///    or metals account chooses how it's tracked: its trade history (the
 ///    default: the positions become opening trades) or monthly snapshots.
-/// 4. The tax wrapper, pre-selected from the kind and your residence (a
-///    pension fund in Italy is `it.pensionFund`), and whether it counts in
-///    net worth and plans.
+/// 4. Whether it counts in net worth and plans, and from what age plans can
+///    draw on it (a pension fund from 65 by default).
 ///
 /// ⌘N, the Accounts toolbar and onboarding present it in a NavigationStack.
 struct NewAccountScreen: View {
@@ -42,7 +41,7 @@ struct NewAccountScreen: View {
             }
             AccountDetailsFields(form: $form, showsKindPicker: false)
             openingSection
-            AccountTaxFields(form: $form)
+            AccountPlanFields(form: $form)
             if showsProblems {
                 AccountsProblemsSection(problems: problems)
             }
@@ -309,25 +308,27 @@ struct AccountDetailsFields: View {
     }
 }
 
-/// The tax wrapper, whether it counts in net worth and plans, and (for
-/// balance accounts) the asset mix.
-struct AccountTaxFields: View {
+/// Whether it counts in net worth and plans, from what age plans can draw
+/// on it, and (for balance accounts) the asset mix.
+struct AccountPlanFields: View {
     @Binding var form: AccountForm
 
     var body: some View {
         Section {
-            Picker("Tax wrapper", selection: $form.chosenWrapper) {
-                Text("None").tag(WrapperID?.none)
-                ForEach(wrappers, id: \.self) { wrapper in
-                    Text(AccountWrapperDefaults.name(of: wrapper)).tag(Optional(wrapper))
-                }
-            }
             Toggle("Include in net worth", isOn: $form.includedInNetWorth)
             Toggle("Include in plans", isOn: $form.chosenPlanInclusion)
+            if form.includedInPlan && !form.kind.isLiability {
+                Toggle("Available only from an age", isOn: $form.chosenIsLocked)
+                if form.chosenIsLocked {
+                    Stepper("Available from \(form.chosenAvailableFromAge)", value: $form.chosenAvailableFromAge,
+                            in: 18...90)
+                }
+            }
         } header: {
-            Text("Taxes and plans")
+            Text("Plans")
         } footer: {
-            Text("The wrapper decides how plans tax the account. Plans usually leave out your home and its mortgage.")
+            Text("Plans usually leave out your home and its mortgage. Money available only from an age, such as a "
+                + "pension fund, can't pay for the years before it.")
         }
         if form.takesAssetMix {
             Section {
@@ -338,10 +339,6 @@ struct AccountTaxFields: View {
                 Text(mixFooter)
             }
         }
-    }
-
-    private var wrappers: [WrapperID] {
-        form.wrapperChoices
     }
 
     private var mixFooter: String {

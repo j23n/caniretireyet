@@ -10,11 +10,8 @@ enum AboutText {
     /// On the onboarding's welcome.
     static let welcome = "The answers are estimates, not financial or tax advice."
 
-    /// Settings' About section: what the results are, and which tax rules
-    /// plans know (`AppTaxRegistry.standard`; the Swiss cantons in
-    /// docs/tax/CH.md).
-    static let about = "Results are estimates from simplified models of tax and pension rules, which change every "
-        + "year. They aren't financial, tax or legal advice: check important decisions with a professional. "
-        + "Tax rules cover Italy, Switzerland (the cantons of Zurich and Ticino) and Germany for 2026; "
-        + "elsewhere plans use a generic system with flat rates you choose."
+    /// Settings' About section: what the results are, and how plans treat taxes.
+    static let about = "Results are estimates from a simplified model with the returns, taxes and pensions you "
+        + "enter. Plans take your income and pensions after tax, and tax your investments at the rates you set. "
+        + "They aren't financial, tax or legal advice: check important decisions with a professional."
 }

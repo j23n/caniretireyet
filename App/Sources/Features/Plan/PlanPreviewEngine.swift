@@ -47,27 +47,21 @@ struct PlanPreviewEngine: PlanEngine {
         }
         results.details = PlanResultDetails(
             planHash: Planner.planHash(plan), currentAge: currentAge,
-            endAge: plan.effectiveEndAge, birthDate: birth, fiNumber: 780_000, assetsNeeded: assetsNeeded,
+            endAge: plan.effectiveEndAge, birthDate: birth, assetsNeeded: assetsNeeded,
             sustainableSpendingAge: results.headline.targetAge, scansEveryAge: request.mode == .full,
-            pensionSteps: [PlanPensionStep(age: 64, pensions: ["INPS"]), PlanPensionStep(age: 67, pensions: ["INPS"])],
-            issues: [PlanIssue(.warning, code: "preview.impatriati",
-                               message: "Impatriati doesn't apply to forfettario income: 2029 is lost.",
-                               section: .tax, year: 2029, regime: "it.impatriati-2024")],
+            issues: [PlanIssue(.warning, code: "planner.noAssetMix",
+                               message: "TFR has no asset mix (assetClasses); the plan treats it as cash.",
+                               section: .portfolio, account: "tfr")],
             focus: PlanFocusDetails(
                 age: focusAge, retirementDate: birth.adding(years: focusAge),
                 success: results.successByAge.first { $0.age == focusAge }?.success,
                 medianAtRetirement: medianAtFocus, medianAtEnd: results.years.last?.p50.doubleValue,
                 lifetimeTaxes: results.taxes.reduce(0) { $0 + $1.amount } + 180_000,
                 netIncome: netIncome,
-                pensions: [
-                    PlanPensionStart(index: 0, name: "INPS (contributory system)", scheme: "it.inps", age: 67,
-                                     perYear: 14_200),
-                    PlanPensionStart(index: 1, name: "State pension from previous country", scheme: "fixed", age: 67,
-                                     perYear: 4_800),
-                ],
+                pensions: PlanResultsMapping.pensions(plan),
                 monthlySaving: Decimal(saving.doubleValue.rounded()),
-                bridges: [PlanBridgeFailure(name: "Pension fund", accessibleFromAge: 57, share: 0.03)]))
-        results.failure?.bridgeName = "Pension fund"
+                bridges: [PlanBridgeFailure(name: "Fondo pensione", accessibleFromAge: 67, share: 0.03)]))
+        results.failure?.bridgeName = "Fondo pensione"
         return results
     }
 

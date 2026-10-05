@@ -417,7 +417,7 @@ struct ChartPlaceholder: View {
         ChartMarker(date: end.adding(years: 12).dateValue, label: "Retire at 50", systemImage: "figure.walk",
                     kind: .retirement),
         ChartMarker(date: end.adding(years: 19).dateValue, label: "Pension fund 57", systemImage: "lock.open"),
-        ChartMarker(date: end.adding(years: 21).dateValue, label: "INPS 59", systemImage: "building.columns"),
+        ChartMarker(date: end.adding(years: 21).dateValue, label: "State pension 67", systemImage: "building.columns"),
         ChartMarker(date: end.adding(years: 22).dateValue, label: "BMW 60", systemImage: "building.columns"),
     ]
     let planHistory = valuator.series(.planAssets, through: end).chartPoints

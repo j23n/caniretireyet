@@ -109,7 +109,7 @@ enum CheckInPreviewData {
                                 newMoney: PreviewLibrary.d("1500"), other: PreviewLibrary.d("-240"),
                                 end: PreviewLibrary.d("312480")),
             headline: PlanHeadline(confidence: 0.9, earliestAge: 54, earliestDate: "2042-03-31", targetAge: 55,
-                                   successAtTarget: 0.86, successToday: 0.12, fiProgress: 0.41,
+                                   successAtTarget: 0.86, successToday: 0.12,
                                    readiness: 0.58))
     }
 

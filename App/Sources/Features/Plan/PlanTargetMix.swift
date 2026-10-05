@@ -1,10 +1,9 @@
 import Foundation
 import Model
 import Planner
-import TaxKit
 
-/// The Target mix card (UI.md, "Target mix"): what the ordinary (taxable)
-/// accounts hold today next to the mix the plan rebalances them to, the
+/// The Target mix card (UI.md, "Target mix"): what the money you can draw
+/// holds today next to the mix the plan rebalances it to, the
 /// running total each mix needs, how each mix grows, and the changes with
 /// age. Plain Swift: the view binds to `PlanPortfolio`'s `plan…`
 /// subscripts (PlanBindings.swift), and nothing here writes a default:
@@ -16,7 +15,7 @@ struct PlanTargetMixModel {
         var id: String { assetClass.rawValue }
         /// "Equity", "Real estate".
         let name: String
-        /// Its share of the ordinary accounts today; `nil` without money in them.
+        /// Its share of the money you can draw today; `nil` without any.
         let ordinaryShare: Double?
         /// Its share of every account the plan counts today; `nil` without any.
         let allShare: Double?
@@ -32,8 +31,8 @@ struct PlanTargetMixModel {
     /// One per class offered (``classes(plan:start:)``).
     let rows: [Row]
 
-    init(plan: PlanDocument, library: Library, registry: TaxRegistry, today: CalendarDate = .today()) {
-        self.init(plan: plan, start: Planner.startingMix(plan: plan, library: library, registry: registry, today: today),
+    init(plan: PlanDocument, library: Library, today: CalendarDate = .today()) {
+        self.init(plan: plan, start: Planner.startingMix(plan: plan, library: library, today: today),
                   birthDate: library.settings.person?.birthDate)
     }
 
@@ -41,7 +40,7 @@ struct PlanTargetMixModel {
         self.plan = plan
         self.start = start
         currentAge = birthDate.map { $0.wholeYears(to: start.date) }
-        let ordinary = start.taxableShares
+        let ordinary = start.accessibleShares
         let all = start.allShares
         rows = Self.classes(plan: plan, start: start).map { assetClass in
             Row(assetClass: assetClass, name: PlanIssueText.assetClassName(assetClass.rawValue),
@@ -68,25 +67,26 @@ struct PlanTargetMixModel {
     }
 
     /// The line at the top of the card.
-    static let explanation = "Each year the plan rebalances your ordinary accounts back to this mix: new money buys "
-        + "what's below target, withdrawals sell what's above, and the rest is sold and bought, with tax on gains."
+    static let explanation = "Each year the plan rebalances the money you can draw back to this mix: new money "
+        + "goes in at it, withdrawals sell every class alike, and rebalancing isn't taxed."
 
     /// Under "Today's mix".
-    static let todaysMixExplanation = "Each ordinary account is rebalanced back to its own mix today, whatever it "
+    static let todaysMixExplanation = "The money you can draw is rebalanced back to its mix today, whatever it "
         + "holds, crypto included. Choose a mix to decide it yourself."
 
     /// The note under the card.
-    static let wrappersNote = "Pension funds and other tax-advantaged accounts keep their own mix."
+    static let wrappersNote = "Accounts available only from a later age, such as a pension fund, keep their own mix "
+        + "until then."
 
     /// Under the table: what "Today" counts.
-    static let todayNote = "Today: the share of your ordinary (taxable) accounts, then of all plan assets."
+    static let todayNote = "Today: the share of the money you can draw, then of all plan assets."
 
     // MARK: Totals
 
-    /// The mix "A mix I choose" starts from: today's mix of the ordinary
-    /// accounts in whole percentages adding up to 100, else all equity.
+    /// The mix "A mix I choose" starts from: today's mix of the money you
+    /// can draw in whole percentages adding up to 100, else all equity.
     var suggestion: AssetMix {
-        let shares = start.taxableShares
+        let shares = start.accessibleShares
         return shares.isEmpty ? .single(.equity) : Self.wholePercentages(shares)
     }
 
@@ -138,9 +138,9 @@ struct PlanTargetMixModel {
                        assumptions: plan.assumptions)
     }
 
-    /// The ordinary accounts' mix today rebalanced every year; `nil` without money in them.
+    /// The money you can draw's mix today rebalanced every year; `nil` without any.
     var todaysGrowth: MixGrowth? {
-        let shares = start.taxableShares
+        let shares = start.accessibleShares
         return shares.isEmpty ? nil : Planner.growth(of: shares, assumptions: plan.assumptions)
     }
 

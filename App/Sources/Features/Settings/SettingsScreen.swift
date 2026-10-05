@@ -59,12 +59,12 @@ struct SettingsScreen: View {
     }
 }
 
-/// Name, birth date, base currency, tax residence and inflation index, saved
+/// Name, birth date, base currency, country and inflation index, saved
 /// in `library.json`.
 ///
 /// Each control writes its own field from its binding's setter, only when
 /// you change it (`YouSettings`): opening Settings writes nothing, and a
-/// birth date or tax residence that isn't set stays "Not set".
+/// birth date or country that isn't set stays "Not set".
 private struct YouSection: View {
     @Environment(LibraryStore.self) private var library
     @Environment(\.locale) private var locale
@@ -89,13 +89,12 @@ private struct YouSection: View {
                         .foregroundStyle(Palette.secondaryInk)
                 }
             }
-            CitizenshipRows(settings: settings) { change in write(change) }
             Picker("Base currency", selection: currencyBinding) {
                 ForEach(options(CurrencyChoices.common, current: settings.baseCurrency), id: \.self) { code in
                     Text(CurrencyChoices.name(of: code, locale: locale)).tag(code)
                 }
             }
-            Picker("Tax residence", selection: residenceBinding) {
+            Picker("Country", selection: residenceBinding) {
                 Text("Not set").tag(CountryCode?.none)
                 ForEach(options(CountryChoices.common, current: settings.taxResidence), id: \.self) { code in
                     Text(CountryChoices.name(of: code, locale: locale)).tag(Optional(code))
@@ -115,8 +114,8 @@ private struct YouSection: View {
         } header: {
             Text("You")
         } footer: {
-            Text("Plans use your birth date for ages. The tax residence is the default for new plans. "
-                + YouSettings.citizenshipExplanation + " " + YouSettings.inflationExplanation)
+            Text("Plans use your birth date for ages. The country you live in is the default for new accounts. "
+                + YouSettings.inflationExplanation)
         }
         .disabled(!library.canEdit)
         .onDisappear(perform: saveName)

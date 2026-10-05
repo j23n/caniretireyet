@@ -3,57 +3,20 @@ import Model
 import Prices
 import Tracker
 
-// The plan's currency (PLANNER.md, "Plan file": `currency`, by default the
-// library's base currency): which one the plan is in, what the editor's
-// picker offers, the words the captions use, and your actual numbers
-// converted into it with the library's exchange rates on each date, for the
-// Results' fan, Progress and the Overview. Plain Swift, tested on Linux.
+// The currency a plan's amounts are in (the library's base currency), the
+// words the captions use, and your actual numbers in it, adjusted for
+// inflation, for the Results' fan, Progress and the Overview. Plain Swift,
+// tested on Linux.
 
 enum PlanMoney {
-    /// The plan's currency: its own, else the library's base currency.
+    /// The currency of a plan's amounts: the library's base currency.
     static func currency(of plan: PlanDocument, settings: LibrarySettings) -> CurrencyCode {
-        plan.effectiveCurrency(base: settings.baseCurrency)
+        settings.baseCurrency
     }
 
-    /// The currency a baseline's values are in: its copy of the plan's, else
-    /// the library's base currency.
+    /// The currency a baseline's values are in: the library's base currency.
     static func currency(of baseline: Baseline, settings: LibrarySettings) -> CurrencyCode {
-        (try? baseline.planDocument())?.currency ?? settings.baseCurrency
-    }
-
-    /// The currencies the picker offers besides the library's own ("Library
-    /// currency (EUR)", `nil`): every currency the library has an exchange
-    /// rate for, and the plan's, sorted.
-    static func currencyChoices(for plan: PlanDocument, library: Library) -> [CurrencyCode] {
-        var codes: Set<CurrencyCode> = []
-        for month in library.months.values {
-            for record in month.fx {
-                codes.insert(record.base)
-                codes.insert(record.quote)
-            }
-        }
-        if let own = plan.currency { codes.insert(own) }
-        codes.remove(library.settings.baseCurrency)
-        return codes.sorted()
-    }
-
-    /// "Library currency (EUR)": the picker's choice that leaves `currency` out.
-    static func libraryChoiceTitle(_ base: CurrencyCode) -> String {
-        "Library currency (\(base.rawValue))"
-    }
-
-    /// A currency typed by hand: three letters, in capitals; `nil` otherwise.
-    static func code(from text: String) -> CurrencyCode? {
-        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
-        let code = CurrencyCode(trimmed)
-        return code.isWellFormed ? code : nil
-    }
-
-    /// The plan's `currency` after choosing `code`: `nil` (the library's)
-    /// when it's the base currency, so the file stays minimal.
-    static func choosing(_ code: CurrencyCode?, base: CurrencyCode) -> CurrencyCode? {
-        guard let code, code != base else { return nil }
-        return code
+        settings.baseCurrency
     }
 
     /// "today's CHF", for captions: the plan's amounts are in today's money.

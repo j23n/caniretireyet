@@ -493,7 +493,6 @@ struct InstrumentEditor: View {
             } footer: {
                 Text("What it's invested in: a world ETF is 100% equity, a 60/40 fund 60% equity and 40% bonds.")
             }
-            taxSection(form)
             priceSourceSection(form)
             pricesSection(form.wrappedValue)
             if !holders.isEmpty {
@@ -555,43 +554,6 @@ struct InstrumentEditor: View {
         } message: {
             Text("A price typed in by hand for the same day is kept unless you replace it.")
         }
-    }
-
-    /// How plans tax it, for the kinds where it matters: a fund's type
-    /// (automatic from the asset mix, or chosen), an ETC's delivery claim.
-    @ViewBuilder
-    private func taxSection(_ form: Binding<InstrumentForm>) -> some View {
-        if form.wrappedValue.takesFundType {
-            Section {
-                Picker("Fund type", selection: form.fundType) {
-                    Text(form.wrappedValue.automaticFundTypeTitle(locale: locale)).tag(FundType?.none)
-                    ForEach(fundTypes(form.wrappedValue), id: \.self) { type in
-                        Text(InstrumentForm.name(of: type)).tag(Optional(type))
-                    }
-                }
-            } header: {
-                Text("Taxes")
-            } footer: {
-                Text("Some countries tax funds by what they invest in. Automatic follows the asset mix: more than "
-                    + "half equity is an equity fund, a quarter or more a mixed fund. Choose one when the mix doesn't "
-                    + "say, e.g. a real-estate fund investing abroad.")
-            }
-        } else if form.wrappedValue.takesDeliveryClaim {
-            Section {
-                Toggle("Right to delivery of the metal", isOn: form.deliveryClaim)
-            } header: {
-                Text("Taxes")
-            } footer: {
-                Text("An ETC whose holders can ask for the metal itself (e.g. some gold ETCs), which some countries "
-                    + "tax like the metal.")
-            }
-        }
-    }
-
-    /// The fund types offered, with the instrument's own first when this version doesn't know it.
-    private func fundTypes(_ form: InstrumentForm) -> [FundType] {
-        guard let type = form.fundType, !InstrumentForm.fundTypes.contains(type) else { return InstrumentForm.fundTypes }
-        return [type] + InstrumentForm.fundTypes
     }
 
     private func priceSourceSection(_ form: Binding<InstrumentForm>) -> some View {

@@ -6,9 +6,9 @@ import Tracker
 // recorded at each check-in, and your actual numbers against a baseline.
 
 /// "Your answer over time": the earliest retirement age at each check-in,
-/// with markers where the plan, the app's calculations or the tax rules
+/// with markers where the plan or the app's calculations
 /// changed, so a move caused by markets and savings can be told from one
-/// caused by editing the plan or a new budget law.
+/// caused by editing the plan.
 struct PlanAnswerHistory: Hashable, Sendable {
     struct Point: Hashable, Sendable, Identifiable {
         var date: CalendarDate
@@ -28,14 +28,11 @@ struct PlanAnswerHistory: Hashable, Sendable {
         case plan
         /// The app's calculations changed (`engine`).
         case engine
-        /// New tax parameters (`taxParameters`).
-        case taxRules
 
         var label: String {
             switch self {
             case .plan: "Plan changed"
             case .engine: "Calculations updated"
-            case .taxRules: "New tax rules"
             }
         }
 
@@ -43,7 +40,6 @@ struct PlanAnswerHistory: Hashable, Sendable {
             switch self {
             case .plan: "pencil"
             case .engine: "gearshape"
-            case .taxRules: "doc.text"
             }
         }
     }
@@ -70,7 +66,6 @@ struct PlanAnswerHistory: Hashable, Sendable {
             var changes: [Change] = []
             if previous.planHash != next.planHash { changes.append(.plan) }
             if previous.engine != next.engine { changes.append(.engine) }
-            if previous.taxParameters != next.taxParameters { changes.append(.taxRules) }
             if !changes.isEmpty { markers.append(Marker(date: next.date, changes: changes)) }
         }
         self.markers = markers
@@ -251,7 +246,7 @@ struct PlanBaselineComparison: Sendable {
         return "\(ordinal(Int(wholeNumber: percentile))) percentile of what you expected"
     }
 
-    /// The picker's label: "Start of 2026 (automatic)", "Before forfettario (saved 12 Mar)".
+    /// The picker's label: "Start of 2026 (automatic)", "Before going part-time (saved 12 Mar)".
     static func label(for baseline: Baseline, locale: Locale = .current) -> String {
         let name = baseline.label ?? (baseline.kind == .yearly ? "Start of \(baseline.created.year)" : "Baseline")
         if baseline.kind == .yearly { return "\(name) (automatic)" }

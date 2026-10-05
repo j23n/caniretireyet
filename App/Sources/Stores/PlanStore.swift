@@ -371,8 +371,7 @@ final class PlanStore {
         let baseline = Baseline(
             created: date, kind: kind, label: label, engine: results.engine, accounts: results.accounts,
             headline: Self.headline(of: results, plan: document, on: date).summary,
-            plan: try CanonicalJSON.json(encoding: document), start: results.start,
-            taxParameters: results.taxParameters, years: results.years)
+            plan: try CanonicalJSON.json(encoding: document), start: results.start, years: results.years)
         return try library.saveBaseline(baseline, for: plan)
     }
 
@@ -395,11 +394,9 @@ final class PlanStore {
         }
         return Headline(
             date: date, confidence: decimal(results.headline.confidence), earliestAge: results.headline.earliestAge,
-            engine: results.engine, fiProgress: results.headline.fiProgress.map { decimal($0) },
-            planHash: results.planHash ?? hash(of: plan),
+            engine: results.engine, planHash: results.planHash ?? hash(of: plan),
             readiness: results.headline.readiness.map { readinessDecimal($0) },
-            successAtTarget: results.headline.successAtTarget.map { decimal($0) },
-            taxParameters: results.taxParameters)
+            successAtTarget: results.headline.successAtTarget.map { decimal($0) })
     }
 
     /// A share as a decimal with four places, for results without the

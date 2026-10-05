@@ -63,9 +63,8 @@ enum CurrencyChoices {
     }
 }
 
-/// Countries offered for tax residence and citizenship, most common first.
-/// Plans use a country's tax system when one is registered, else the
-/// generic flat-rate system (`YouSettings.taxRulesNote(for:)`).
+/// Countries offered for where you live and an account's country, most
+/// common first.
 enum CountryChoices {
     static let common: [CountryCode] = ["IT", "DE", "FR", "ES", "PT", "NL", "BE", "AT", "IE", "CH", "GB", "US"]
 

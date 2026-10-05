@@ -1,7 +1,6 @@
 import Foundation
 import Model
 import Planner
-import TaxKit
 
 /// The cards of the Inputs form, in order (UI.md, "Inputs"): the plan
 /// file's sections, plus the birth date from the library.
@@ -16,7 +15,6 @@ enum PlanInputSection: String, CaseIterable, Hashable, Sendable, Identifiable {
     case assumptions
     case targetMix
     case simulation
-    case withdrawals
 
     var id: String { rawValue }
 
@@ -32,7 +30,6 @@ enum PlanInputSection: String, CaseIterable, Hashable, Sendable, Identifiable {
         case .assumptions: "Assumptions"
         case .targetMix: "Target mix"
         case .simulation: "Simulation"
-        case .withdrawals: "Withdrawals"
         }
     }
 
@@ -48,7 +45,6 @@ enum PlanInputSection: String, CaseIterable, Hashable, Sendable, Identifiable {
         case .assumptions: "chart.line.uptrend.xyaxis"
         case .targetMix: "chart.pie"
         case .simulation: "dice"
-        case .withdrawals: "arrow.up.forward"
         }
     }
 
@@ -75,7 +71,6 @@ enum PlanInputSection: String, CaseIterable, Hashable, Sendable, Identifiable {
         case .events: self = .events
         case .tax: self = .taxes
         case .portfolio, .assumptions: self = .assumptions
-        case .withdrawals: self = .withdrawals
         case .simulation: self = .simulation
         default: self = .assumptions
         }
@@ -99,41 +94,20 @@ struct PlanInputIssues: Hashable, Sendable {
     }
 
     /// The issues about one item of a list section (a work phase, a
-    /// pension, an event), by position, or by the regime it chose.
-    func issues(for section: PlanInputSection, index: Int, regime: String? = nil) -> [PlanIssue] {
-        issues(for: section).filter { $0.index == index || (regime != nil && $0.index == nil && $0.regime == regime) }
+    /// pension, a contribution, an event), by position.
+    func issues(for section: PlanInputSection, index: Int) -> [PlanIssue] {
+        issues(for: section).filter { $0.index == index }
     }
 
-    /// The issues a card lists itself: those not shown on one of its rows
-    /// (work phases by position or regime, pensions and events by position,
-    /// tax overlays by regime, residence entries by position).
+    /// The issues a card lists itself: those not shown on one of its rows.
     func cardIssues(for section: PlanInputSection, in plan: PlanDocument) -> [PlanIssue] {
         let all = issues(for: section)
         switch section {
-        case .work:
-            let regimes = Set(plan.work.compactMap { $0.regime?.rawValue })
-            return all.filter { $0.index == nil && !($0.regime.map { regimes.contains($0) } ?? false) }
-        case .pensions, .contributions, .events:
+        case .work, .pensions, .contributions, .events:
             return all.filter { $0.index == nil }
-        case .taxes:
-            let overlays = Set(plan.tax.overlays.map(\.regime.rawValue))
-            return all.filter { issue in
-                if let regime = issue.regime { return !overlays.contains(regime) }
-                return issue.index == nil
-            }
         default:
             return all
         }
-    }
-
-    /// The issues about one tax residence entry.
-    func residenceIssues(index: Int) -> [PlanIssue] {
-        issues(for: .taxes).filter { $0.index == index && $0.regime == nil }
-    }
-
-    /// The issues about one overlay (special regime).
-    func overlayIssues(regime: String) -> [PlanIssue] {
-        issues(for: .taxes).filter { $0.regime == regime }
     }
 
     var errorCount: Int { bySection.values.reduce(0) { $0 + $1.filter(\.isError).count } }
@@ -146,7 +120,6 @@ struct PlanInputIssues: Hashable, Sendable {
 struct PlanInputSummaries {
     var plan: PlanDocument
     var library: Library
-    var registry: TaxRegistry
     var currency: CurrencyCode
     var hidesAmounts = false
     var locale: Locale = .current
@@ -163,7 +136,6 @@ struct PlanInputSummaries {
         case .assumptions: assumptions
         case .targetMix: PlanTargetMixModel.summary(plan.portfolio, locale: locale)
         case .simulation: simulation
-        case .withdrawals: withdrawals
         }
     }
 
@@ -199,14 +171,13 @@ struct PlanInputSummaries {
         case .age(let age): parts.append("retire at \(age)")
         }
         parts.append("plan to \(plan.effectiveEndAge)")
-        if let currency = plan.currency { parts.append("in \(currency.rawValue)") }
         return parts.joined(separator: " · ")
     }
 
     var work: String {
         guard !plan.work.isEmpty else { return "No work phases" }
-        return plan.work.map { phase in
-            "\(PlanWorkText.title(of: phase, registry: registry)) \(PlanWorkText.years(of: phase))"
+        return plan.work.enumerated().map { index, phase in
+            "\(PlanWorkText.title(of: phase, index: index, of: plan.work.count)) \(PlanWorkText.years(of: phase))"
         }.joined(separator: " · ")
     }
 
@@ -229,15 +200,10 @@ struct PlanInputSummaries {
 
     var pensions: String {
         guard !plan.pensions.isEmpty else { return "No pensions" }
-        return plan.pensions.map { pension in
-            let name = PlanResultsMapping.shortName(PlanResultsMapping.pensionName(pension, registry: registry))
-            if pension.scheme == .fixed {
-                return pension.fromAge.map { "\(name) \($0)" } ?? name
-            }
-            switch pension.effectiveClaim {
-            case .earliest: return "\(name) (earliest)"
-            case .age(let age): return "\(name) \(age)"
-            }
+        return plan.pensions.enumerated().map { index, pension in
+            let name = PlanResultsMapping.shortName(
+                PlanResultsMapping.pensionName(pension, index: index, of: plan.pensions.count))
+            return pension.fromAge.map { "\(name) \($0)" } ?? name
         }.joined(separator: " · ")
     }
 
@@ -252,20 +218,15 @@ struct PlanInputSummaries {
         }.joined(separator: " · ")
     }
 
-    /// What a contribution pays into: the account's name, or the pension
-    /// scheme's ("BVG").
+    /// What a contribution pays into: the account's name.
     func title(of contribution: PlanContribution) -> String {
-        if let scheme = contribution.pension {
-            return PlanResultsMapping.shortName(registry.pensionScheme(scheme.rawValue)?.name ?? scheme.rawValue)
-        }
-        return library.accounts[contribution.account]?.name ?? contribution.account.rawValue
+        library.accounts[contribution.account]?.name ?? contribution.account.rawValue
     }
 
     /// A contribution's second line: "Every year until retirement ·
-    /// 5.000 €/yr", "Pension scheme · once in 2030 · 20.000 €".
+    /// 5.000 €/yr", "Once in 2030 · 20.000 €".
     func detail(of contribution: PlanContribution) -> String {
         var parts: [String] = []
-        if contribution.pension != nil { parts.append("Pension scheme (buy-in)") }
         if let oneOff = contribution.amount {
             parts.append(contribution.year.map { "Once in \($0)" } ?? "Once")
             parts.append(amount(oneOff))
@@ -294,28 +255,17 @@ struct PlanInputSummaries {
         }.joined(separator: " · ")
     }
 
+    /// "26% on investments · wealth tax 0.2% above 50.000 €", or what's missing.
     var taxes: String {
-        var parts: [String] = []
-        let residence = plan.tax.residence.sorted { $0.from < $1.from }
-        if residence.isEmpty {
-            let system = PlanTaxChoices.defaultSystem(for: library.settings, registry: registry)
-            parts.append("\(system?.name ?? "No tax system") (default)")
-        }
-        for (index, entry) in residence.enumerated() {
-            let name = registry.system(entry.system.rawValue)?.name ?? entry.system.rawValue
-            parts.append(index == 0 ? name : "\(name) from \(entry.from)")
-        }
-        for overlay in plan.tax.overlays {
-            let name = registry.regime(overlay.regime.rawValue)?.regime.name ?? overlay.regime.rawValue
-            if let years = PlanTaxChoices.overlayYears(overlay, plan: plan, registry: registry) {
-                parts.append(years.end.map { "\(name) \(Self.years(from: years.start, until: $0))" }
-                    ?? "\(name) from \(years.start)")
-            } else {
-                parts.append(name)
-            }
-        }
-        if !plan.tax.overrides.isEmpty {
-            parts.append(plan.tax.overrides.count == 1 ? "1 override" : "\(plan.tax.overrides.count) overrides")
+        guard let rate = plan.tax.investmentRate else { return "Tax on investments not set" }
+        var parts = ["\(percent(rate)) on investments"]
+        let wealth = plan.tax.effectiveWealthRate
+        if wealth > 0 {
+            let allowance = plan.tax.effectiveWealthAllowance
+            parts.append("wealth tax \(percent(wealth, digits: 2))"
+                + (allowance > 0 ? " above \(amount(allowance))" : ""))
+        } else {
+            parts.append("no wealth tax")
         }
         return parts.joined(separator: " · ")
     }
@@ -348,59 +298,29 @@ struct PlanInputSummaries {
 
     // MARK: List rows
 
-    /// A work phase's second line: "65.000 € gross · +1%/yr · TFR goes to: A
-    /// pension fund", "Forfettario · 70.000 € revenue · Profitability
-    /// coefficient 67%": the amounts, then the options its regime (the one
-    /// chosen, else the default) describes and the plan sets.
+    /// A work phase's second line: "40.000 €/yr after tax · +1%/yr".
     func detail(of phase: WorkPhase) -> String {
         var parts: [String] = []
-        if let regime = phase.regime, let found = registry.regime(regime.rawValue), phase.kind != .employee {
-            parts.append(PlanWorkText.shortRegimeName(found.regime.name))
-        }
-        switch phase.kind {
-        case .employee:
-            if let salary = phase.grossSalary { parts.append("\(amount(salary)) gross") }
-        case .selfEmployed:
-            if let revenue = phase.revenue { parts.append("\(amount(revenue)) revenue") }
-            if let costs = phase.costs, costs > 0 { parts.append("\(amount(costs)) costs") }
-        case .net:
-            if let net = phase.netIncome { parts.append("\(amount(net)) net") }
-        default:
-            break
+        if let net = phase.netIncome {
+            parts.append("\(amount(net))/yr after tax")
+        } else {
+            parts.append("Income after tax not set")
         }
         if let growth = phase.realGrowth, growth != 0 {
             parts.append("\(growth > 0 ? "+" : "")\(percent(growth))/yr")
         }
-        let regime = PlanTaxChoices.effectiveRegimeID(for: phase, in: plan, settings: library.settings,
-                                                      registry: registry)
-        parts += PlanOptionForm.summary(phase.options, fields: PlanTaxChoices.regimeFields(regime, registry: registry),
-                                        currency: currency, hidesAmounts: hidesAmounts, locale: locale)
         return parts.joined(separator: " · ")
     }
 
-    /// A pension's second line: "Claimed as early as possible · Capital",
-    /// "From 67 · 4.800 €/yr · State pension · from Germany".
+    /// A pension's second line: "From 67 · 14.000 €/yr after tax".
     func detail(of pension: PlanPension) -> String {
         var parts: [String] = []
-        if pension.scheme == .fixed {
-            if let age = pension.fromAge { parts.append("From \(age)") }
-            if let amount = pension.perYear { parts.append("\(self.amount(amount))/yr") }
+        if let age = pension.fromAge { parts.append("From \(age)") }
+        if let amount = pension.perYear {
+            parts.append("\(self.amount(amount))/yr after tax")
         } else {
-            switch pension.effectiveClaim {
-            case .earliest: parts.append("Claimed as early as possible")
-            case .age(let age): parts.append("Claimed at \(age)")
-            }
+            parts.append("Amount not set")
         }
-        if let route = pension.claimRoute {
-            let routes = PlanPensionChoices.claimRoutes(for: pension, birthDate: library.settings.person?.birthDate,
-                                                        today: .today(), registry: registry)
-            parts.append(PlanPensionChoices.routeName(route, among: routes))
-        }
-        if let kind = pension.kind { parts.append(PlanPensionChoices.name(of: kind)) }
-        if let country = pension.sourceCountry {
-            parts.append("from \(CountryChoices.name(of: country, locale: locale))")
-        }
-        if pension.effectiveTaxedIn == .source { parts.append("taxed where it's paid") }
         return parts.joined(separator: " · ")
     }
 
@@ -409,50 +329,16 @@ struct PlanInputSummaries {
         let sign = event.amount > 0 ? "+" : ""
         var text = hidesAmounts ? AmountFormat.hidden : sign + AmountFormat.amount(event.amount, currency: currency, locale: locale)
         if event.effectiveProbability < 1 { text += " · \(percent(event.effectiveProbability, digits: 0)) likely" }
-        if event.kind == .inheritance { text += " · inheritance" }
         return text
-    }
-
-    /// A residence entry's line: "From 2026 · Italy".
-    func title(of residence: PlanResidence) -> String {
-        let name = registry.system(residence.system.rawValue)?.name ?? residence.system.rawValue
-        return "From \(residence.from) · \(name)"
-    }
-
-    var withdrawals: String {
-        let strategy = plan.withdrawals.effectiveStrategy == .fixedReal
-            ? "Fixed real spending" : plan.withdrawals.effectiveStrategy.rawValue
-        let buffer = plan.withdrawals.effectiveCashBuffer
-        return buffer > 0 ? "\(strategy) · \(amount(buffer)) cash buffer" : strategy
     }
 }
 
 /// How work phases read in rows and summaries.
 enum PlanWorkText {
-    /// "Employee", "Self-employed", "Net income".
-    static func kindName(_ kind: WorkKind) -> String {
-        switch kind {
-        case .employee: "Employee"
-        case .selfEmployed: "Self-employed"
-        case .net: "Net income"
-        default: kind.rawValue
-        }
-    }
-
-    /// A regime's name without "Regime": "Regime forfettario" → "Forfettario".
-    static func shortRegimeName(_ name: String) -> String {
-        let prefix = "Regime "
-        guard name.hasPrefix(prefix), name.count > prefix.count else { return name }
-        let rest = name.dropFirst(prefix.count)
-        return rest.prefix(1).uppercased() + rest.dropFirst()
-    }
-
-    /// The phase's regime by name if it chose one, else its kind: "Forfettario", "Employee".
-    static func title(of phase: WorkPhase, registry: TaxRegistry) -> String {
-        if let regime = phase.regime, let found = registry.regime(regime.rawValue) {
-            return shortRegimeName(found.regime.name)
-        }
-        return kindName(phase.kind)
+    /// The phase's name, else "Work", or "Work 2" when there are several
+    /// (as the planner names it).
+    static func title(of phase: WorkPhase, index: Int, of count: Int) -> String {
+        phase.name ?? (count == 1 ? "Work" : "Work \(index + 1)")
     }
 
     /// "2026–28", "2029–retirement".

@@ -11,7 +11,7 @@ import Tracker
 /// equity return) the way a real engine would, roughly. Its retirement
 /// years are the Planner's kind of `YearDetail` (gross income by source,
 /// taxes by line, spending, savings) with made-up amounts: the plan's
-/// pensions, a pension fund from 57, withdrawals, its windfalls. They go
+/// pensions, withdrawals, its windfalls. They go
 /// through the same mapping as a Planner run (``PlanResultsMapping``), so
 /// income is shown after tax with the taxes on top, in the same colours,
 /// and the markers read the same. Fast and deterministic: the same request
@@ -75,15 +75,13 @@ struct PreviewPlanEngine: PlanEngine {
             let expenses = -(events[year]?.filter { $0.amount < 0 }.reduce(0) { $0 + $1.amount } ?? 0)
             let started = pensions.filter { yearAge >= $0.age }
             let pension = started.reduce(0) { $0 + $1.perYear }
-            let fund = yearAge >= 57 && retired ? 3_000.0 : 0
             let factor = plan.spending.factor(atAge: yearAge).doubleValue
             let need = retired ? spending * factor : 0
-            // Taxes on pensions and payouts, last year's wealth tax, and the tax on
-            // gains withheld on what's sold, which the withdrawal pays for too.
-            let incomeTax = retired ? (pension + fund) * 0.2 : 0
+            // The wealth tax, and the tax on the gains in what's sold, which the
+            // withdrawal pays for too. Pensions are after tax.
             let wealthTax = retired ? median * 0.002 : 0
-            let withdrawal = retired ? max(0, (need + expenses + incomeTax + wealthTax - pension - fund) / 0.95) : 0
-            let taxes = incomeTax + wealthTax + withdrawal * 0.05
+            let withdrawal = retired ? max(0, (need + expenses + wealthTax - pension) / 0.95) : 0
+            let taxes = wealthTax + withdrawal * 0.05
             // What's saved: while working the plan's saving, retired the income
             // from outside the plan's accounts less spending, expenses and
             // taxes (negative while drawing down); windfalls are saved too.
@@ -105,20 +103,17 @@ struct PreviewPlanEngine: PlanEngine {
             income += started.map {
                 IncomeItem(kind: .pension, id: "pension-\($0.index)", label: $0.name, amount: $0.perYear)
             }
-            income.append(IncomeItem(kind: .payout, id: "fondo-pensione", label: "Pension fund", amount: fund))
             income += windfall.map { IncomeItem(kind: .windfall, id: $0.name, label: $0.name, amount: $0.amount) }
             retiredYears.append(YearDetail(
                 year: year, age: yearAge, startAssets: startAssets, endAssets: median, spending: need,
                 expenses: expenses, income: income.filter { $0.amount > 0 },
                 taxes: [
-                    AmountItem(id: "it.irpef", label: "IRPEF", amount: incomeTax),
-                    AmountItem(id: "it.capitalGains", label: "Tax on gains", amount: withdrawal * 0.05),
-                    AmountItem(id: "it.wealthTax", label: "Wealth tax", amount: wealthTax),
+                    AmountItem(id: TaxLine.investment, label: "Tax on investments", amount: withdrawal * 0.05),
+                    AmountItem(id: TaxLine.wealth, label: "Wealth tax", amount: wealthTax),
                 ],
                 savings: savings))
         }
-        let registry = AppTaxRegistry.standard
-        let income = PlanResultsMapping.income(retiredYears, plan: plan, registry: registry)
+        let income = PlanResultsMapping.income(retiredYears)
         let taxes = PlanResultsMapping.taxes(retiredYears)
         let spendingLine = retiredYears.map {
             YearValue(year: $0.year, value: PlanResultsMapping.whole($0.spending, $0))
@@ -126,7 +121,7 @@ struct PreviewPlanEngine: PlanEngine {
 
         var timeline = [
             TimelineMarker(kind: .retirement, year: birth.year + target, age: target, label: "Retirement"),
-            TimelineMarker(kind: .accessible, year: birth.year + 57, age: 57, label: "Pension fund"),
+            TimelineMarker(kind: .accessible, year: birth.year + 67, age: 67, label: "Fondo pensione"),
         ]
         timeline += pensions.map {
             TimelineMarker(kind: .pensionStart, year: birth.year + $0.age, age: $0.age, label: $0.name,
@@ -150,31 +145,26 @@ struct PreviewPlanEngine: PlanEngine {
         let headline = PlanHeadline(
             confidence: confidence, earliestAge: earliest, earliestDate: earliestDate, targetAge: target,
             successAtTarget: atTarget, successToday: successNow, sustainableSpending: Self.rounded(spending * 1.07 - 900),
-            fiProgress: min(1, start.total.doubleValue / (spending * 25 * 0.75)), readiness: readiness)
+            readiness: readiness)
         let accounts = library.accounts.values.filter { $0.includedInPlan && $0.isOpen(on: today) }.map(\.id).sorted()
         return PlanResults(
             plan: plan.id, computedAt: Date(), mode: request.mode,
             runs: request.mode == .fast ? 200 : plan.simulation.effectiveRuns, engine: version, headline: headline,
             successByAge: curve, portfolio: fan, markers: markers, income: income, taxes: taxes, spending: spendingLine,
-            failure: PlanFailureSummary(share: 1 - atTarget, typicalAge: 84, bridgeShare: 0.03, bridgeAge: 57),
-            start: BaselineStart(date: today, value: start.total), accounts: accounts, taxParameters: ["it": today.year],
-            years: years)
+            failure: PlanFailureSummary(share: 1 - atTarget, typicalAge: 84, bridgeShare: 0.03, bridgeAge: 67,
+                                        bridgeName: "Fondo pensione"),
+            start: BaselineStart(date: today, value: start.total), accounts: accounts, years: years)
     }
 
     private static func rounded(_ value: Double) -> Decimal {
         Decimal(wholeNumber: value)
     }
 
-    /// The plan's pensions as the preview pays them: a fixed pension its
-    /// amount from its age, a public scheme a made-up 14.200 a year from its
-    /// chosen age, or 67.
+    /// The plan's pensions as the preview pays them: each its amount from its age.
     static func pensions(of plan: PlanDocument) -> [(index: Int, name: String, age: Int, perYear: Double)] {
         plan.pensions.enumerated().map { index, pension in
-            let name = PlanResultsMapping.pensionName(pension, registry: AppTaxRegistry.standard)
-            if pension.scheme == .fixed {
-                return (index, name, pension.fromAge ?? 67, pension.perYear?.doubleValue ?? 0)
-            }
-            return (index, name, pension.claim?.age ?? 67, 14_200)
+            let name = PlanResultsMapping.pensionName(pension, index: index, of: plan.pensions.count)
+            return (index, name, pension.fromAge ?? 67, pension.perYear?.doubleValue ?? 0)
         }
     }
 

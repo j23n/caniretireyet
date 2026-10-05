@@ -1,7 +1,6 @@
 import Model
 import Planner
 import SwiftUI
-import TaxKit
 
 /// Inputs (UI.md, "Inputs"): a collapsible card per section of the plan
 /// file, each with a one-line summary, so the whole plan fits on one screen
@@ -23,8 +22,8 @@ struct PlanInputsView: View {
         @Bindable var session = session
         if let plan = session.plan {
             let issues = session.inputIssues
-            let summaries = PlanInputSummaries(plan: plan, library: library.library, registry: AppTaxRegistry.standard,
-                                               currency: baseCurrency, hidesAmounts: hidesAmounts, locale: locale)
+            let summaries = PlanInputSummaries(plan: plan, library: library.library, currency: baseCurrency,
+                                               hidesAmounts: hidesAmounts, locale: locale)
             ScrollView {
                 VStack(alignment: .leading, spacing: Metrics.s) {
                     if isInspector {
@@ -95,8 +94,6 @@ enum PlanEditTarget: Hashable, Identifiable {
     case pension(index: Int, pension: PlanPension)
     case contribution(index: Int, contribution: PlanContribution)
     case event(index: Int, event: PlanEvent)
-    case residence(index: Int, residence: PlanResidence)
-    case overlay(index: Int, overlay: PlanOverlay)
 
     var id: String {
         switch self {
@@ -104,8 +101,6 @@ enum PlanEditTarget: Hashable, Identifiable {
         case .pension(let index, _): "pension-\(index)"
         case .contribution(let index, _): "contribution-\(index)"
         case .event(let index, _): "event-\(index)"
-        case .residence(let index, _): "residence-\(index)"
-        case .overlay(let index, _): "overlay-\(index)"
         }
     }
 }
@@ -133,28 +128,24 @@ struct PlanSectionEditor: View {
         case .events:
             PlanEventList(plan: plan, summaries: summaries, issues: issues, editing: $editing)
         case .taxes:
-            PlanTaxesEditor(plan: $plan, summaries: summaries, issues: issues, editing: $editing)
+            PlanTaxesEditor(plan: $plan)
         case .assumptions:
             PlanAssumptionsEditor(plan: $plan)
         case .targetMix:
             PlanTargetMixEditor(plan: $plan)
         case .simulation:
             PlanSimulationEditor(plan: $plan)
-        case .withdrawals:
-            PlanWithdrawalsEditor(plan: $plan)
         }
     }
 }
 
 // MARK: - You
 
-/// Birth date and citizenships (from the library), retirement age, the
-/// plan's end and its currency.
+/// Birth date (from the library), retirement age and the plan's end.
 ///
 /// The birth date is written only when you pick one, from the picker's own
 /// setter (`YouSettings`): opening the card writes nothing, and without a
-/// birth date it says "Not set" rather than assuming one. Citizenships are
-/// written when you add or remove one.
+/// birth date it says "Not set" rather than assuming one.
 struct PlanYouEditor: View {
     @Binding var plan: PlanDocument
     @Environment(LibraryStore.self) private var library
@@ -181,22 +172,12 @@ struct PlanYouEditor: View {
             if birthDate == nil {
                 PlanIssueLine(message: "Add your birth date: plans need it for ages.", isError: true)
             }
-            CitizenshipRows(settings: library.settings) { change in
-                guard library.canEdit else { return }
-                try? library.updateSettings { $0 = change($0) }
-            }
-            Text(YouSettings.citizenshipExplanation)
-                .font(.caption)
-                .foregroundStyle(Palette.mutedInk)
-                .fixedSize(horizontal: false, vertical: true)
             Divider()
             Toggle("Retire as early as possible", isOn: $plan.planRetiresEarliest)
             if !plan.planRetiresEarliest {
                 Stepper("Retire at \(plan.planRetirementAge)", value: $plan.planRetirementAge, in: 30...85)
             }
             Stepper("Plan to age \(plan.planEndAge)", value: $plan.planEndAge, in: 70...110)
-            Divider()
-            PlanCurrencyEditor(plan: $plan)
         }
         .font(.subheadline)
     }
@@ -213,44 +194,6 @@ struct PlanYouEditor: View {
                     settings = YouSettings.setting(birthDate: birth, in: settings)
                 }
             })
-    }
-}
-
-/// The plan's currency: the library's by default, a currency the library
-/// has exchange rates for, or another code typed in. Amounts and results
-/// are in it; your accounts are converted at the rates on the start date.
-struct PlanCurrencyEditor: View {
-    @Binding var plan: PlanDocument
-    @Environment(LibraryStore.self) private var library
-    @Environment(\.locale) private var locale
-    @State private var typed = ""
-
-    var body: some View {
-        let base = library.settings.baseCurrency
-        VStack(alignment: .leading, spacing: Metrics.s) {
-            Picker("Currency", selection: $plan.currency) {
-                Text(PlanMoney.libraryChoiceTitle(base)).tag(CurrencyCode?.none)
-                ForEach(PlanMoney.currencyChoices(for: plan, library: library.library), id: \.self) { code in
-                    Text(CurrencyChoices.name(of: code, locale: locale)).tag(Optional(code))
-                }
-            }
-            LabeledContent("Another currency") {
-                TextField("Another currency", text: $typed, prompt: Text("e.g. SGD"))
-                    .labelsHidden()
-                    .multilineTextAlignment(.trailing)
-                    .frame(maxWidth: 80)
-                    .onSubmit {
-                        guard let code = PlanMoney.code(from: typed) else { return }
-                        plan.currency = PlanMoney.choosing(code, base: base)
-                        typed = ""
-                    }
-            }
-            Text("Every amount in the plan, and its results, are in this currency in today's money. Your accounts "
-                + "are converted at the exchange rates on the plan's start date.")
-                .font(.caption)
-                .foregroundStyle(Palette.mutedInk)
-                .fixedSize(horizontal: false, vertical: true)
-        }
     }
 }
 
@@ -459,7 +402,7 @@ struct PlanAssumptionsEditor: View {
     }
 }
 
-// MARK: - Simulation and withdrawals
+// MARK: - Simulation
 
 /// The number of runs, the confidence level and the random seed.
 struct PlanSimulationEditor: View {
@@ -495,24 +438,6 @@ struct PlanSimulationEditor: View {
                 .font(.caption)
                 .foregroundStyle(Palette.mutedInk)
                 .fixedSize(horizontal: false, vertical: true)
-        }
-        .font(.subheadline)
-    }
-}
-
-/// How money is drawn in retirement.
-struct PlanWithdrawalsEditor: View {
-    @Binding var plan: PlanDocument
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: Metrics.s) {
-            LabeledContent("Strategy", value: "Fixed real spending")
-            Text("You spend what the plan says, adjusted for inflation, and the portfolio absorbs market swings. "
-                + "Cash above the buffer goes first, then investments, then pension money once it opens.")
-                .font(.caption)
-                .foregroundStyle(Palette.mutedInk)
-                .fixedSize(horizontal: false, vertical: true)
-            PlanNumberRow("Cash buffer", value: $plan.withdrawals.cashBuffer, prompt: "0")
         }
         .font(.subheadline)
     }

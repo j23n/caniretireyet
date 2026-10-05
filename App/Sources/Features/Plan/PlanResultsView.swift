@@ -397,12 +397,6 @@ struct PlanSuccessCard: View {
             // Only a tap or a click chooses the age; reading the curve changes nothing.
             .contentShape(Rectangle())
             .simultaneousGesture(TapGesture().onEnded { chooseTappedAge() })
-            if let note = PlanResultsText.pensionStepNote(results.details?.pensionSteps ?? []) {
-                Text(note)
-                    .font(.footnote)
-                    .foregroundStyle(Palette.secondaryInk)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
             if let focus, let ages {
                 Stepper(value: $session.editableFocusAge, in: ages) {
                     HStack(spacing: Metrics.xs) {
@@ -523,21 +517,18 @@ struct PlanIncomeCard: View {
                 IncomeStackChart(segments: results.taxes)
                 ChartCaption(
                     text: "Median run · \(money).",
-                    detail: "The taxes of each year of retirement in the median run, by tax: on income and "
-                        + "pensions, on gains when investments are sold (also to rebalance), on what's paid out "
-                        + "of pension savings, and on wealth. In \(money).")
+                    detail: "The taxes of each year of retirement in the median run: on investments (the gain in "
+                        + "what's sold, and the income your investments pay) and on wealth. Income from work and "
+                        + "pensions is entered after tax. In \(money).")
             } else {
                 IncomeStackChart(segments: results.income, spending: results.spending)
                 ChartCaption(
                     text: "Median run · \(money) · sources after tax.",
                     detail: "Where each year's money comes from in the median run, in \(money). Withdrawals "
-                        + "are what's sold from your investments; they also pay the tax on the sale and the "
-                        + "previous year's wealth tax, so in a rich run they can be well above your spending. "
-                        + "Lump sums and payouts are paid whether they're needed or not: a pension taken partly "
-                        + "as capital, severance pay when a job ends, and pension savings the rules pay out at an "
-                        + "age or over a few years. So that the chart reads against the spending line, each source "
-                        + "is shown after its share of the year's taxes, and the taxes paid from this income are the "
-                        + "grey band on top. Taxes on rebalancing are paid inside the portfolio: see Taxes.")
+                        + "are what's sold from your investments; they also pay the tax on the gain in the sale, "
+                        + "the wealth tax and last year's tax on investment income. So that the chart reads against "
+                        + "the spending line, each source is shown after its share of the year's taxes, and the "
+                        + "taxes are the grey band on top.")
             }
         } header: {
             SectionHeader("Retirement income") {
@@ -604,10 +595,8 @@ struct PlanFlexibleSpendingCard: View {
     }
 }
 
-/// How the plan reads your library: the accounts grouped by tax wrapper,
-/// with their value on the start date and how they're drawn, and accounts
-/// whose value starts a pension scheme instead of being money to draw on
-/// (UI.md, "Results").
+/// How the plan reads your library: the accounts grouped by when they can be
+/// drawn, with their value on the start date (UI.md, "Results").
 struct PlanLibraryCard: View {
     let results: PlanResults
     @Environment(LibraryStore.self) private var library
