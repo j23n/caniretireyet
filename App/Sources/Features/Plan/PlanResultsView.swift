@@ -344,7 +344,7 @@ struct PlanRunStatus: View {
                         .foregroundStyle(Palette.warning)
                     Text("·")
                 }
-                Text(runs(results) + " · " + results.computedAt.formatted(.dateTime.hour().minute().locale(locale)))
+                Text(runs(results) + " · " + PlanRunText.calculatedAt(results.computedAt, locale: locale))
             }
         }
         .font(.caption)

@@ -10,7 +10,7 @@ import Tracker
 /// `Palette.color(for:)` for washes and fills, and `Palette.stroke(for:)`
 /// for lines and small marks. Kept free of SwiftUI so chart data can be
 /// built anywhere.
-enum ChartColor: Hashable, Sendable {
+enum ChartColor: Hashable, Sendable, Codable {
     /// An asset class's fixed colour (UI.md, "Colour in charts").
     case assetClass(AssetClass)
     /// Debts, in the asset-class breakdown.
@@ -206,7 +206,7 @@ extension Array where Element == ChartSeries {
 
 /// A band around a median at one date: the future part of the net-worth
 /// chart, and each point of a fan chart.
-struct FanPoint: Hashable, Sendable, Identifiable {
+struct FanPoint: Hashable, Sendable, Identifiable, Codable {
     var date: Date
     var p10: Double
     var p25: Double
@@ -219,10 +219,10 @@ struct FanPoint: Hashable, Sendable, Identifiable {
 
 /// Something that happens at a date, marked on a time axis: retirement, a
 /// pension start, a windfall, a new-money tick.
-struct ChartMarker: Hashable, Sendable, Identifiable {
+struct ChartMarker: Hashable, Sendable, Identifiable, Codable {
     /// What a marker stands for, when the chart needs to know (the time
     /// span counts from retirement).
-    enum Kind: Hashable, Sendable {
+    enum Kind: Hashable, Sendable, Codable {
         case retirement
         case pension
         case accessible
@@ -239,7 +239,7 @@ struct ChartMarker: Hashable, Sendable, Identifiable {
 }
 
 /// The chance of success when retiring at one age.
-struct SuccessPoint: Hashable, Sendable, Identifiable {
+struct SuccessPoint: Hashable, Sendable, Identifiable, Codable {
     var age: Int
     /// 0...1.
     var success: Double
@@ -256,7 +256,7 @@ struct SuccessSeries: Hashable, Sendable, Identifiable {
 }
 
 /// One source's amount in one year of a stacked income (or tax) chart.
-struct IncomeSegment: Hashable, Sendable, Identifiable {
+struct IncomeSegment: Hashable, Sendable, Identifiable, Codable {
     var year: Int
     var source: String
     var amount: Double
@@ -272,7 +272,7 @@ struct IncomeSegment: Hashable, Sendable, Identifiable {
 }
 
 /// A value in one year, e.g. the spending target over an income chart.
-struct YearValue: Hashable, Sendable, Identifiable {
+struct YearValue: Hashable, Sendable, Identifiable, Codable {
     var year: Int
     var value: Double
 

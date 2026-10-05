@@ -40,6 +40,8 @@ struct PlanRunInputs: Hashable, Sendable {
 /// - **Cache.** Results are kept per plan hash, library inputs, mode, focus
 ///   age and start date, so going back to a plan, or a what-if back to where
 ///   it was, doesn't run again; ``cachedResults(for:)`` looks without running.
+///   Results kept on the device from an earlier launch come back in through
+///   ``remember(_:for:)``.
 /// - **Progress.** The Planner's `PlannerProgress`, as `PlanRunProgress`.
 ///   A request that needs two runs (a what-if's saving needs the plan's own
 ///   run first; a focus age needs the full run) shares the bar between them.
@@ -72,6 +74,15 @@ struct PlannerPlanEngine: PlanEngine {
 
     func cachedResults(for request: PlanRunRequest) async -> PlanResults? {
         try? await resolve(request, running: false, progress: nil)
+    }
+
+    /// Keeps a plan's own results (no what-if, no other age), as its run
+    /// would have.
+    func remember(_ results: PlanResults, for request: PlanRunRequest) async {
+        guard request.whatIf?.isEmpty ?? true, request.focusAge == nil else { return }
+        await cache.insert(results, for: PlanRunCache.Key(plan: request.plan, inputs: PlanRunInputs(request.library),
+                                                         kind: .base(request.mode), focusAge: nil,
+                                                         asOf: request.asOf))
     }
 
     /// The results of `request`: from the cache, else run when `running`

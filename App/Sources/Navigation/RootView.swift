@@ -29,8 +29,15 @@ struct RootView: View {
                 if phase == .active { Task { await library.refreshFromDisk() } }
             }
             .onChange(of: library.phase) { _, phase in
-                // A check-in's answer that the app was closed before recording.
-                if phase == .ready { plans.recordMissingCheckInAnswer() }
+                guard phase == .ready else { return }
+                Task {
+                    // The plans' results from the last launch, so they show
+                    // without calculating again. First: recording a missing
+                    // answer then finds results of exactly this library.
+                    await plans.restoreKeptResults()
+                    // A check-in's answer that the app was closed before recording.
+                    plans.recordMissingCheckInAnswer()
+                }
             }
             .task(id: widgets.inputs) {
                 // A burst of changes (a check-in's files, a sync) writes the widgets' snapshot once.

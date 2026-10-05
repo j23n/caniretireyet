@@ -209,9 +209,9 @@ public struct PlanAnswer: Hashable, Sendable {
 /// taking money out of them. It searches the
 /// amount by bisection on a log scale of the plan assets, with the same
 /// random draws for every amount, to within ``tolerance``.
-public struct AssetsNeeded: Hashable, Sendable {
+public struct AssetsNeeded: Hashable, Sendable, Codable {
     /// How the search ended.
-    public enum Outcome: Hashable, Sendable {
+    public enum Outcome: Hashable, Sendable, Codable {
         /// ``AssetsNeeded/amount`` reaches the confidence level, and the true
         /// threshold is at most ``AssetsNeeded/tolerance`` below it.
         case found
@@ -379,7 +379,7 @@ public struct SpendingPercentiles: Hashable, Sendable {
 /// for how long. Levels are shares of the plan's spending (1 is 100%);
 /// a run that fails had its spending forced below the floor, so it counts
 /// as cut, at the lowest level, and below 100% from then on.
-public struct FlexibleSpendingSummary: Hashable, Sendable {
+public struct FlexibleSpendingSummary: Hashable, Sendable, Codable {
     /// The rule as the run read it: the step of a cut or a raise, the
     /// lowest level, and the guardrails (shares of the first retirement
     /// year's withdrawal rate).

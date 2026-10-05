@@ -10,7 +10,7 @@ import Planner
 /// the Plan screens show next to them (key numbers, "When it fails", the
 /// what-if's starting values, comparing plans) and the run's warnings.
 /// `nil` in results from ``PreviewPlanEngine``.
-struct PlanResultDetails: Hashable, Sendable {
+struct PlanResultDetails: Hashable, Sendable, Codable {
     /// `Planner.planHash` of the plan as it ran (with any what-if applied).
     var planHash: String
     /// Age on the start date.
@@ -43,9 +43,9 @@ struct PlanResultDetails: Hashable, Sendable {
 
 /// How a plan read your library (PLANNER.md, "The portfolio"): the accounts it
 /// counts, grouped by when they can be drawn, with their value on the start date.
-struct PlanLibraryReading: Hashable, Sendable {
+struct PlanLibraryReading: Hashable, Sendable, Codable {
     /// The accounts that can be drawn from one age.
-    struct Bucket: Hashable, Sendable {
+    struct Bucket: Hashable, Sendable, Codable {
         /// "Money you can draw", or the accounts' names.
         var name: String
         /// The age from which it can be drawn; `nil` for the money you can draw now.
@@ -74,7 +74,7 @@ struct PlanLibraryReading: Hashable, Sendable {
 
 /// The numbers that belong to one retirement age: the fan, paths and
 /// failures of the run are for it (`PlanResult.focusAge`).
-struct PlanFocusDetails: Hashable, Sendable {
+struct PlanFocusDetails: Hashable, Sendable, Codable {
     /// The retirement age the fan, income and failures are for.
     var age: Int
     /// The day work stops at that age.
@@ -102,7 +102,7 @@ struct PlanFocusDetails: Hashable, Sendable {
 }
 
 /// A pension in the results.
-struct PlanPensionStart: Hashable, Sendable {
+struct PlanPensionStart: Hashable, Sendable, Codable {
     /// The pension's position in the plan's `pensions`.
     var index: Int
     var name: String
@@ -114,7 +114,7 @@ struct PlanPensionStart: Hashable, Sendable {
 }
 
 /// Runs that ran out while some accounts were still locked away.
-struct PlanBridgeFailure: Hashable, Sendable {
+struct PlanBridgeFailure: Hashable, Sendable, Codable {
     var name: String
     var accessibleFromAge: Int?
     /// The share of all runs.

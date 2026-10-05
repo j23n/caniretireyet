@@ -51,7 +51,7 @@ final class WidgetStore {
         let checkIn = CheckInGlance(last: last, next: last.map(CheckInSchedule.nextCheckIn(after:)) ?? today,
                                     dueWindow: CheckInSchedule.dueWindow)
         let birthDate = library.settings.person?.birthDate
-        let answer = library.settings.mainPlan.flatMap { plans.results[$0] }
+        let answer = library.settings.mainPlan.flatMap { plans.latestResults(of: $0) }
             .map { RetirementAnswer($0.headline, birthDate: birthDate) }
         return GlanceSnapshot(library: library.library, valuator: library.valuator, asOf: library.asOfDate,
                               answer: answer, checkIn: checkIn)

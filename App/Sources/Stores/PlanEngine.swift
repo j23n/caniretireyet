@@ -11,7 +11,7 @@ import Model
 // `PlanResults`, which stays plain values.
 
 /// How thoroughly to run a plan.
-enum PlanRunMode: String, Hashable, Sendable {
+enum PlanRunMode: String, Hashable, Sendable, Codable {
     /// Every run the plan asks for (2,000 by default).
     case full
     /// Fewer runs with the same random draws: a what-if's quick estimate,
@@ -111,6 +111,10 @@ protocol PlanEngine: Sendable {
     /// The results of `request` if they were computed already and kept,
     /// without running anything; `nil` otherwise (the default).
     func cachedResults(for request: PlanRunRequest) async -> PlanResults?
+    /// Keeps `results`, which this engine calculated for `request` in an
+    /// earlier launch, as if it had just run it, so ``cachedResults(for:)``
+    /// finds them. The default keeps nothing.
+    func remember(_ results: PlanResults, for request: PlanRunRequest) async
 }
 
 extension PlanEngine {
@@ -123,6 +127,8 @@ extension PlanEngine {
     func cachedResults(for request: PlanRunRequest) async -> PlanResults? {
         nil
     }
+
+    func remember(_ results: PlanResults, for request: PlanRunRequest) async {}
 }
 
 enum PlanEngineError: Error, Equatable, Sendable, LocalizedError {
@@ -153,7 +159,7 @@ struct UnavailablePlanEngine: PlanEngine {
 // MARK: - Results
 
 /// The answer to "can I retire yet?" for one plan (UI.md, "Headline").
-struct PlanHeadline: Hashable, Sendable {
+struct PlanHeadline: Hashable, Sendable, Codable {
     /// The confidence level required, e.g. 0.9 ("in 9 of 10 simulated futures").
     var confidence: Double
     /// The earliest retirement age reaching the confidence level; `nil` if none does.
@@ -220,7 +226,7 @@ struct PlanHeadline: Hashable, Sendable {
 }
 
 /// Why failing runs fail (UI.md, "When it fails").
-struct PlanFailureSummary: Hashable, Sendable {
+struct PlanFailureSummary: Hashable, Sendable, Codable {
     /// The share of runs that fail.
     var share: Double
     /// The typical age money runs out in failing runs.
@@ -236,7 +242,7 @@ struct PlanFailureSummary: Hashable, Sendable {
 
 /// The results of one run of a plan: what the Plan screens and the
 /// Overview show, and what a baseline saves.
-struct PlanResults: Hashable, Sendable {
+struct PlanResults: Hashable, Sendable, Codable {
     var plan: PlanID
     var computedAt: Date
     var mode: PlanRunMode

@@ -147,6 +147,25 @@ enum PlanRunText {
     /// Under a recorded answer: the charts need a calculation.
     static let chartsNeedCalculation = "Calculate the plan to see its charts."
 
+    /// When results were calculated: "14:05" today, else "3 Oct, 14:05"
+    /// (results kept on the device from an earlier day), with the year
+    /// when it isn't this one.
+    static func calculatedAt(_ date: Date, now: Date = Date(), calendar: Calendar = .current,
+                             locale: Locale = .current) -> String {
+        let style: Date.FormatStyle
+        if calendar.isDate(date, inSameDayAs: now) {
+            style = .dateTime.hour().minute()
+        } else if calendar.isDate(date, equalTo: now, toGranularity: .year) {
+            style = .dateTime.day().month(.abbreviated).hour().minute()
+        } else {
+            style = .dateTime.day().month(.abbreviated).year().hour().minute()
+        }
+        var styled = style.locale(locale)
+        styled.calendar = calendar
+        styled.timeZone = calendar.timeZone
+        return date.formatted(styled)
+    }
+
     // MARK: Progress
 
     /// "Calculating…", "Quick estimate…", or a check-in's "Working out this
