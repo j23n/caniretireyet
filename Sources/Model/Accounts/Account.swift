@@ -14,14 +14,15 @@ public struct Account: Hashable, Sendable, Identifiable, KnownKeysProviding {
     public var closed: CalendarDate?
     /// The bank or broker.
     public var institution: String?
-    /// The institution's country. Tax systems and the RW helper may use it.
+    /// The institution's country.
     public var country: CountryCode?
     /// `valuation` as written in the file. See ``valuationMode`` for the effective value.
     public var valuation: ValuationMode?
     /// The asset mix of a balance account, as written. See ``effectiveAssetClasses``.
     public var assetClasses: AssetMix?
-    /// How the planner taxes this account.
-    public var tax: AccountTax?
+    /// The age from which plans can draw on the account, e.g. 60 for a
+    /// pension fund; `nil` when it can be drawn at any age.
+    public var availableFromAge: Int?
     /// `includeIn` as written. See ``includedInNetWorth`` and ``includedInPlan``.
     public var includeIn: IncludeIn?
     /// The account that replaced this one, so charts stay continuous.
@@ -34,7 +35,7 @@ public struct Account: Hashable, Sendable, Identifiable, KnownKeysProviding {
     public init(
         id: AccountID, name: String, kind: AccountKind, currency: CurrencyCode, opened: CalendarDate,
         closed: CalendarDate? = nil, institution: String? = nil, country: CountryCode? = nil,
-        valuation: ValuationMode? = nil, assetClasses: AssetMix? = nil, tax: AccountTax? = nil,
+        valuation: ValuationMode? = nil, assetClasses: AssetMix? = nil, availableFromAge: Int? = nil,
         includeIn: IncludeIn? = nil, successor: AccountID? = nil, tags: [String] = [], notes: String? = nil
     ) {
         self.id = id
@@ -47,7 +48,7 @@ public struct Account: Hashable, Sendable, Identifiable, KnownKeysProviding {
         self.country = country
         self.valuation = valuation
         self.assetClasses = assetClasses
-        self.tax = tax
+        self.availableFromAge = availableFromAge
         self.includeIn = includeIn
         self.successor = successor
         self.tags = tags
@@ -87,11 +88,6 @@ extension Account {
         includeIn?.plan ?? true
     }
 
-    /// The account's tax wrapper, if it has one.
-    public var wrapper: WrapperID? {
-        tax?.wrapper
-    }
-
     /// Whether the account has been closed.
     public var isClosed: Bool {
         closed != nil
@@ -103,16 +99,9 @@ extension Account {
         date >= opened && (closed.map { date <= $0 } ?? true)
     }
 
-    /// Moves the opening date to `date`. A joining date that was the opening
-    /// date (`tax.details["joined"]`, set from it when a pension fund is
-    /// added) moves with it, as it sets the fund's payout tax; one that
-    /// differs was set on purpose and stays.
+    /// Moves the opening date to `date`.
     public mutating func moveOpening(to date: CalendarDate) {
-        let old = opened
         opened = date
-        guard date != old, var tax, tax.joined == old else { return }
-        tax.details["joined"] = .string(date.description)
-        self.tax = tax
     }
 }
 
@@ -120,8 +109,8 @@ extension Account {
 
 extension Account: Codable {
     enum CodingKeys: String, CodingKey, CaseIterable {
-        case id, name, kind, currency, opened, closed, institution, country, valuation, assetClasses, tax,
-             includeIn, successor, tags, notes
+        case id, name, kind, currency, opened, closed, institution, country, valuation, assetClasses,
+             availableFromAge, includeIn, successor, tags, notes
     }
 
     public static var knownKeys: Set<String> { Set(CodingKeys.allCases.map(\.stringValue)) }
@@ -138,7 +127,7 @@ extension Account: Codable {
         country = try c.decodeIfPresent(CountryCode.self, forKey: .country)
         valuation = try c.decodeIfPresent(ValuationMode.self, forKey: .valuation)
         assetClasses = try c.decodeIfPresent(AssetMix.self, forKey: .assetClasses)
-        tax = try c.decodeIfPresent(AccountTax.self, forKey: .tax)
+        availableFromAge = try c.decodeIfPresent(Int.self, forKey: .availableFromAge)
         includeIn = try c.decodeIfPresent(IncludeIn.self, forKey: .includeIn)
         successor = try c.decodeIfPresent(AccountID.self, forKey: .successor)
         tags = try c.decodeArray([String].self, forKey: .tags)
@@ -157,7 +146,7 @@ extension Account: Codable {
         try c.encodeIfPresent(country, forKey: .country)
         try c.encodeIfPresent(valuation, forKey: .valuation)
         try c.encodeIfPresent(assetClasses, forKey: .assetClasses)
-        try c.encodeIfPresent(tax, forKey: .tax)
+        try c.encodeIfPresent(availableFromAge, forKey: .availableFromAge)
         try c.encodeIfPresent(includeIn, forKey: .includeIn)
         try c.encodeIfPresent(successor, forKey: .successor)
         try c.encodeIfNotEmpty(tags, forKey: .tags)

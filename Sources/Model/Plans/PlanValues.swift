@@ -1,32 +1,7 @@
-/// The ID of a tax system, such as `it` or `generic`.
-public struct TaxSystemID: StringValue {
-    public let rawValue: String
-    public init(rawValue: String) { self.rawValue = rawValue }
-
-    /// The flat-rate system.
-    public static let generic: TaxSystemID = "generic"
-}
-
-/// The ID of a tax regime: an earned-income regime (`it.forfettario`) or an
-/// overlay (`it.impatriati-2024`). Defined by tax systems.
-public struct RegimeID: StringValue {
-    public let rawValue: String
-    public init(rawValue: String) { self.rawValue = rawValue }
-}
-
-/// The ID of a pension scheme: `fixed`, or one defined by a tax system (`it.inps`).
-public struct PensionSchemeID: StringValue {
-    public let rawValue: String
-    public init(rawValue: String) { self.rawValue = rawValue }
-
-    /// An amount and a start age taken from a statement, handled by the planner itself.
-    public static let fixed: PensionSchemeID = "fixed"
-}
-
 /// An age, or "the earliest possible": `"earliest"` or a whole number in JSON.
 ///
-/// Used by `retirement.age` (the planner searches for the earliest age) and
-/// by a pension's `claim` (the earliest age the scheme allows).
+/// Used by `retirement.age`: `earliest` lets the planner search for the
+/// earliest age.
 public enum AgeChoice: Hashable, Sendable {
     case earliest
     case age(Int)

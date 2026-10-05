@@ -1,94 +1,10 @@
-import ArgumentParser
 import Foundation
 import Model
 import Planner
 
 /// Flexible spending in the CLI's words (PLANNER.md, "Flexible spending"):
-/// reading `retire plan set --flexible on|off`, `--flexible-cut 10%`,
-/// `--flexible-floor 80%` and `--flexible-guardrails 20%`, describing the
-/// rule for `retire plan show`, and what it did for `retire plan`.
+/// the rule for `retire plan show`, and what it did for `retire plan`.
 enum PlanFlexibleSpending {
-    // MARK: Reading
-
-    /// What `retire plan set` changes about flexible spending.
-    struct Change: Equatable {
-        /// `--flexible on|off`; `nil` when not given.
-        var enabled: Bool?
-        var cut: Decimal?
-        var floor: Decimal?
-        var upperGuardrail: Decimal?
-        var lowerGuardrail: Decimal?
-
-        var isEmpty: Bool {
-            enabled == nil && cut == nil && floor == nil && upperGuardrail == nil && lowerGuardrail == nil
-        }
-
-        /// Applies the change to a plan's spending. A setting given without
-        /// `--flexible` turns a rule the plan doesn't have on; one that's
-        /// off stays off. Values equal to the default aren't written, and
-        /// turning a rule with only defaults off removes it.
-        func apply(to spending: inout PlanSpending) {
-            var rule = spending.flexible ?? FlexibleSpending(enabled: true)
-            if let cut { rule.cut = cut == FlexibleSpending.defaultCut ? nil : cut }
-            if let floor { rule.floor = floor == FlexibleSpending.defaultFloor ? nil : floor }
-            if let upperGuardrail {
-                rule.upperGuardrail = upperGuardrail == FlexibleSpending.defaultUpperGuardrail ? nil : upperGuardrail
-            }
-            if let lowerGuardrail {
-                rule.lowerGuardrail = lowerGuardrail == FlexibleSpending.defaultLowerGuardrail ? nil : lowerGuardrail
-            }
-            if let enabled { rule.enabled = enabled }
-            spending.flexible = rule.isEnabled || !rule.usesDefaults ? rule : nil
-        }
-    }
-
-    /// The change asked for by the four options.
-    static func change(flexible: String?, cut: String?, floor: String?, guardrails: String?) throws -> Change {
-        var change = Change()
-        if let flexible {
-            switch flexible.lowercased() {
-            case "on", "yes", "true": change.enabled = true
-            case "off", "no", "false": change.enabled = false
-            default: throw ValidationError("--flexible takes on or off, not “\(flexible)”.")
-            }
-        }
-        if let cut {
-            let share = try fraction(cut, option: "--flexible-cut")
-            guard share > 0, share <= 1 else {
-                throw ValidationError("--flexible-cut must be more than 0% and at most 100% of the plan's spending.")
-            }
-            change.cut = share
-        }
-        if let floor {
-            let share = try fraction(floor, option: "--flexible-floor")
-            guard share >= 0, share <= 1 else {
-                throw ValidationError("--flexible-floor must be between 0% and 100% of the plan's spending.")
-            }
-            change.floor = share
-        }
-        if let guardrails {
-            let parts = guardrails.split(separator: ",", maxSplits: 1).map(String.init)
-            let upper = try fraction(parts[0], option: "--flexible-guardrails")
-            let lower = try parts.count > 1 ? fraction(parts[1], option: "--flexible-guardrails") : upper
-            guard upper >= 0, lower >= 0, lower <= 1 else {
-                throw ValidationError("--flexible-guardrails must be at least 0%, and the lower one at most 100%.")
-            }
-            change.upperGuardrail = upper
-            change.lowerGuardrail = lower
-        }
-        return change
-    }
-
-    /// `10%` or `0.1` as a fraction.
-    static func fraction(_ text: String, option: String) throws -> Decimal {
-        let trimmed = text.trimmingCharacters(in: .whitespaces)
-        let isPercent = trimmed.hasSuffix("%")
-        guard let number = Decimal(fileString: isPercent ? String(trimmed.dropLast()) : trimmed) else {
-            throw ValidationError("\(option): “\(text)” isn't a share written like 10% or 0.1.")
-        }
-        return isPercent ? number / 100 : number
-    }
-
     // MARK: Describing
 
     /// "on: cuts of 10% of the plan's spending, never below 80% (28,800 EUR

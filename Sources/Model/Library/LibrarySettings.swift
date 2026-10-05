@@ -11,7 +11,11 @@ public struct LibrarySettings: Codable, Hashable, Sendable, KnownKeysProviding {
     ///   the history files). Nothing changes in existing files; the version
     ///   goes up so an older app, which would value a trades account without
     ///   its holdings, opens the library read-only.
-    public static let currentSchemaVersion = 2
+    /// - 3: plans take income and pensions after tax and two tax rates set by
+    ///   hand (PLANNER.md); accounts say from what age plans can draw on them
+    ///   (`availableFromAge`). The migration carries over what it can
+    ///   (Storage, `Migration.simplePlans`).
+    public static let currentSchemaVersion = 3
 
     /// The library's schema version. Adding optional fields doesn't change it.
     public var schemaVersion: Int
@@ -19,7 +23,8 @@ public struct LibrarySettings: Codable, Hashable, Sendable, KnownKeysProviding {
     public var baseCurrency: CurrencyCode
     /// The person the library belongs to.
     public var person: Person?
-    /// The country of tax residence today. Plans set residence over time.
+    /// The country you live in. It picks the default inflation index
+    /// (``Library/effectiveInflationIndex``).
     public var taxResidence: CountryCode?
     /// The plan shown on the Overview, re-run at each check-in and saved as a
     /// baseline automatically at the first check-in of each year.
@@ -52,19 +57,14 @@ public struct LibrarySettings: Codable, Hashable, Sendable, KnownKeysProviding {
     public static var knownKeys: Set<String> { Set(CodingKeys.allCases.map(\.stringValue)) }
 }
 
-/// The person the library belongs to. Plans use the birth date for ages,
-/// and pass the citizenships to the tax systems (treaties can decide by
-/// citizenship which country taxes a pension).
+/// The person the library belongs to. Plans use the birth date for ages.
 public struct Person: Codable, Hashable, Sendable, KnownKeysProviding {
     public var name: String?
     public var birthDate: CalendarDate?
-    /// Every citizenship the person holds; empty when not given.
-    public var citizenships: [CountryCode]
 
-    public init(name: String? = nil, birthDate: CalendarDate? = nil, citizenships: [CountryCode] = []) {
+    public init(name: String? = nil, birthDate: CalendarDate? = nil) {
         self.name = name
         self.birthDate = birthDate
-        self.citizenships = citizenships
     }
 
     /// Age in whole years on `date`, if the birth date is known.
@@ -73,7 +73,7 @@ public struct Person: Codable, Hashable, Sendable, KnownKeysProviding {
     }
 
     enum CodingKeys: String, CodingKey, CaseIterable {
-        case name, birthDate, citizenships
+        case name, birthDate
     }
 
     public static var knownKeys: Set<String> { Set(CodingKeys.allCases.map(\.stringValue)) }
@@ -82,13 +82,11 @@ public struct Person: Codable, Hashable, Sendable, KnownKeysProviding {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         name = try c.decodeIfPresent(String.self, forKey: .name)
         birthDate = try c.decodeIfPresent(CalendarDate.self, forKey: .birthDate)
-        citizenships = try c.decodeArray([CountryCode].self, forKey: .citizenships)
     }
 
     public func encode(to encoder: any Encoder) throws {
         var c = encoder.container(keyedBy: CodingKeys.self)
         try c.encodeIfPresent(name, forKey: .name)
         try c.encodeIfPresent(birthDate, forKey: .birthDate)
-        try c.encodeIfNotEmpty(citizenships, forKey: .citizenships)
     }
 }

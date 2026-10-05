@@ -80,8 +80,7 @@ extension ImportPreview {
     /// overwritten or kept by their ``ImportRecordPreview/resolution``
     /// (undecided ones are kept). A trade of an account that doesn't record
     /// trades (a switch that was rejected) is left out. The other accepted
-    /// account changes come last; opening earlier moves a joining date that
-    /// was the opening date too (`Account.moveOpening(to:)`). Applying the
+    /// account changes come last (opening earlier: `Account.moveOpening(to:)`). Applying the
     /// same file twice changes nothing.
     ///
     /// The flows of the library's valuations after the ones the import adds

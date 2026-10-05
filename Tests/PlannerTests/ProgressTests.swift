@@ -1,9 +1,6 @@
 import Foundation
 import Model
 @testable import Planner
-import TaxGeneric
-import TaxItaly
-import TaxKit
 import Testing
 import TestSupport
 
@@ -20,7 +17,7 @@ struct ProgressTests {
 
     func plan(retire: AgeChoice = .earliest, runs: Int = 120) -> PlanDocument {
         Sample.plan(retire: retire, endAge: 80, working: "30000", retired: "32000", equityReturn: "0.04",
-                    volatility: "0.15", work: [Sample.employee(from: "2026-01-01", gross: "60000")], runs: runs)
+                    volatility: "0.15", work: [Sample.work(from: "2026-01-01", net: "45000")], runs: runs)
     }
 
     /// Every update a run hands over, in order.
@@ -40,10 +37,9 @@ struct ProgressTests {
     @Test(arguments: [PlannerOptions.AgeScan.full, .headline])
     func theResultIsIdenticalWithOrWithoutProgress(scan: PlannerOptions.AgeScan) async throws {
         let options = PlannerOptions(ageScan: scan, maxRetirementAge: 70, solveSustainableSpending: true)
-        let registry = Sample.registry()
-        let without = try await Planner.run(plan: plan(), library: library, registry: registry, options: options)
+        let without = try await Planner.run(plan: plan(), library: library, options: options)
         let updates = Updates()
-        let with = try await Planner.run(plan: plan(), library: library, registry: registry, options: options,
+        let with = try await Planner.run(plan: plan(), library: library, options: options,
                                          progress: { updates.append($0) })
         #expect(with == without)
         #expect(bits(with) == bits(without))
@@ -53,11 +49,10 @@ struct ProgressTests {
     @Test func theExamplePlanIsIdenticalWithOrWithoutProgress() async throws {
         let library = try Fixtures.exampleLibrary()
         let base = try #require(library.plans["base"])
-        let registry = TaxRegistry([ItalyTaxSystem(), GenericTaxSystem()])
         var options = PlannerOptions.fast(runs: 60)
         options.ageScan = .headline
-        let without = try await Planner.run(plan: base, library: library, registry: registry, options: options)
-        let with = try await Planner.run(plan: base, library: library, registry: registry, options: options,
+        let without = try await Planner.run(plan: base, library: library, options: options)
+        let with = try await Planner.run(plan: base, library: library, options: options,
                                          progress: { _ in })
         #expect(with == without)
         #expect(bits(with) == bits(without))
@@ -80,7 +75,7 @@ struct ProgressTests {
     func everyUpdate(_ plan: PlanDocument, options: PlannerOptions) async throws -> (PlanResult, [PlannerProgress]) {
         let updates = Updates()
         let reporter = ProgressReporter(interval: .zero) { updates.append($0) }
-        let result = try await Planner.compute(plan: plan, library: library, registry: Sample.registry(),
+        let result = try await Planner.compute(plan: plan, library: library,
                                                options: options, progress: reporter)
         return (result, updates.all)
     }
@@ -161,7 +156,7 @@ struct ProgressTests {
     @Test func aRealRunSendsAboutTenUpdatesASecondAtMost() async throws {
         let updates = Updates()
         let start = ContinuousClock.now
-        _ = try await Planner.run(plan: plan(runs: 200), library: library, registry: Sample.registry(),
+        _ = try await Planner.run(plan: plan(runs: 200), library: library,
                                   options: PlannerOptions(maxRetirementAge: 70), progress: { updates.append($0) })
         let seconds = Double((ContinuousClock.now - start).components.seconds) + 1
         #expect(Double(updates.all.count) <= seconds * 10 + 2)
@@ -194,7 +189,7 @@ struct ProgressTests {
         let plan = plan(runs: 2_000)
         let library = library
         let task = Task {
-            try await Planner.run(plan: plan, library: library, registry: Sample.registry(),
+            try await Planner.run(plan: plan, library: library,
                                   options: PlannerOptions(maxRetirementAge: 50), progress: { progress in
                                       updates.append(progress)
                                       signal.yield()

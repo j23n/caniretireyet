@@ -112,11 +112,9 @@ extension Library {
         return IndexID.hicp(currency: currency)
     }
 
-    /// Every index the library needs values of: its own, and the one for
-    /// each plan's currency. Sorted, each once.
+    /// Every index the library needs values of: its own. Plans are in the
+    /// base currency, so they need no other.
     public var inflationIndices: [IndexID] {
-        let currencies = Set(plans.values.map { $0.effectiveCurrency(base: settings.baseCurrency) })
-        let indices = [effectiveInflationIndex].compactMap { $0 } + currencies.compactMap(inflationIndex(for:))
-        return Set(indices).sorted()
+        [effectiveInflationIndex].compactMap { $0 }
     }
 }

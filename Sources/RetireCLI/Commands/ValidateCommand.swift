@@ -37,7 +37,7 @@ struct ValidateCommand: RetireSubcommand {
         let loaded = try folder.load()
         var issues = loaded.report.issues
         if folder.containsLibrary {
-            issues += LibraryChecks(library: loaded.library, registry: TaxSystems.registry()).issues()
+            issues += LibraryChecks(library: loaded.library).issues()
         }
         // By path, then errors before warnings, keeping the order found.
         issues = issues.enumerated().sorted {

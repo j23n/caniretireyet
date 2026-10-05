@@ -5,13 +5,13 @@ struct NetWorthTests {
     @Test func aVersion1LibraryIsUpgradedFirst() async throws {
         let library = try TemporaryFolder.exampleLibrary()
         try library.write("library.json", try library.text("library.json")
-            .replacingOccurrences(of: #""schemaVersion": 2"#, with: #""schemaVersion": 1"#))
+            .replacingOccurrences(of: #""schemaVersion": 3"#, with: #""schemaVersion": 1"#))
         let run = await retire(["networth", "--library", library.path, "--date", "2026-09-30"])
         #expect(run.status == 0, "\(run.all)")
-        #expect(run.errors.hasPrefix("Upgraded the library from format version 1 to 2; the files as they were are in "
+        #expect(run.errors.hasPrefix("Upgraded the library from format version 1 to 3; the files as they were are in "
             + "backups/"))
         #expect(run.output.hasPrefix("Net worth on 2026-09-30: 332,455.49 EUR\n"))
-        #expect(try library.text("library.json").contains(#""schemaVersion": 2"#))
+        #expect(try library.text("library.json").contains(#""schemaVersion": 3"#))
     }
 
     @Test func netWorthOnTheLastCheckIn() async throws {

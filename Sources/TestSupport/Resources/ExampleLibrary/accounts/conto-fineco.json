@@ -6,6 +6,5 @@
   "kind": "cash",
   "name": "Conto Fineco",
   "opened": "2024-03-01",
-  "tags": ["daily"],
-  "tax": { "wrapper": "it.ordinary" }
+  "tags": ["daily"]
 }

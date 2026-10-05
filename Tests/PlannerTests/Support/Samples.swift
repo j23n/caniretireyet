@@ -1,7 +1,6 @@
 import Foundation
 import Model
 @testable import Planner
-import TaxKit
 
 /// A decimal from a literal string.
 func d(_ string: String) -> Decimal { Decimal(fileString: string)! }
@@ -10,12 +9,11 @@ func d(_ string: String) -> Decimal { Decimal(fileString: string)! }
 struct SampleAccount {
     var id: AccountID
     var kind: AccountKind = .brokerage
-    var wrapper: WrapperID? = "flat.ordinary"
     var mix: AssetMix? = [.equity: 1]
     var balance: Decimal
     var includeInPlan = true
-    /// When the account joined its wrapper (`tax.joined`); else it counts from `opened`, 2020-01-01.
-    var joined: CalendarDate?
+    /// The age from which plans can draw on it (`availableFromAge`).
+    var availableFromAge: Int?
 }
 
 /// Made-up libraries and plans for the planner's tests.
@@ -27,10 +25,7 @@ enum Sample {
             accounts: accounts.map { account in
                 Account(id: account.id, name: account.id.rawValue, kind: account.kind, currency: .eur,
                         opened: "2020-01-01", valuation: .balance, assetClasses: account.mix,
-                        tax: account.wrapper.map { wrapper in
-                            AccountTax(wrapper: wrapper,
-                                       details: account.joined.map { ["joined": .string($0.description)] } ?? [:])
-                        },
+                        availableFromAge: account.availableFromAge,
                         includeIn: account.includeInPlan ? nil : IncludeIn(plan: false))
             })
         for account in accounts {
@@ -39,44 +34,43 @@ enum Sample {
         return library
     }
 
-    /// A plan on the flat system, with equity at `equityReturn` real and
-    /// `volatility`, and every other class at 0% with no volatility.
+    /// A plan with equity at `equityReturn` real and `volatility`, every
+    /// other class at 0% with no volatility, and the tax rates given (none
+    /// unless a test says so).
     static func plan(retire: AgeChoice, endAge: Int, working: String = "0", retired: String,
-                     equityReturn: String = "0.05", volatility: String = "0",
+                     equityReturn: String = "0.05", volatility: String = "0", equityYield: String? = nil,
                      work: [WorkPhase] = [], pensions: [PlanPension] = [], contributions: [PlanContribution] = [],
-                     events: [PlanEvent] = [], inflation: String = "0.02", cashBuffer: String? = nil, unrealizedGainShare: String? = nil,
+                     events: [PlanEvent] = [], inflation: String = "0.02", investmentRate: String = "0",
+                     wealthRate: String? = nil, wealthAllowance: String? = nil, unrealizedGainShare: String? = nil,
                      runs: Int = 200, seed: UInt64 = 7, confidence: String = "0.9") -> PlanDocument {
         let zero = ReturnAssumption(real: 0, volatility: 0)
+        var equity = ReturnAssumption(real: d(equityReturn), volatility: d(volatility))
+        equity.incomeYield = equityYield.map(d)
         return PlanDocument(
             id: "test", name: "Test plan", retirement: PlanRetirement(age: retire), endAge: endAge,
-            tax: PlanTax(residence: [PlanResidence(from: 2020, system: "flat")]),
+            tax: PlanTax(investmentRate: d(investmentRate), wealthRate: wealthRate.map(d),
+                         wealthAllowance: wealthAllowance.map(d)),
             work: work, spending: PlanSpending(working: d(working), retired: d(retired)), pensions: pensions,
             contributions: contributions, events: events,
             portfolio: PlanPortfolio(unrealizedGainShare: unrealizedGainShare.map(d)),
             assumptions: PlanAssumptions(
                 inflation: d(inflation),
-                returns: [.equity: ReturnAssumption(real: d(equityReturn), volatility: d(volatility)),
-                          .bonds: zero, .cash: zero, .gold: zero, .crypto: zero]),
-            withdrawals: PlanWithdrawals(cashBuffer: cashBuffer.map(d)),
+                returns: [.equity: equity, .bonds: zero, .cash: zero, .gold: zero, .crypto: zero]),
             simulation: PlanSimulation(runs: runs, seed: seed, confidence: d(confidence)))
     }
 
-    /// An employee phase on the flat system.
-    static func employee(from: CalendarDate, until: PhaseEnd = .retirement, gross: String,
-                         growth: String? = nil) -> WorkPhase {
-        WorkPhase(kind: .employee, from: from, until: until, grossSalary: d(gross), realGrowth: growth.map(d))
-    }
-
-    static func registry(_ system: FlatTaxSystem = FlatTaxSystem()) -> TaxRegistry {
-        TaxRegistry([system])
+    /// A work phase paying `net` a year after tax.
+    static func work(from: CalendarDate, until: PhaseEnd = .retirement, net: String,
+                     growth: String? = nil) -> WorkPhase {
+        WorkPhase(from: from, until: until, netIncome: d(net), realGrowth: growth.map(d))
     }
 
     /// Runs a plan with the options tests use unless they say otherwise:
     /// no spending solver, and ages only up to 70.
-    static func run(_ plan: PlanDocument, _ library: Library, system: FlatTaxSystem = FlatTaxSystem(),
+    static func run(_ plan: PlanDocument, _ library: Library,
                     options: PlannerOptions = PlannerOptions(maxRetirementAge: 70, solveSustainableSpending: false))
         async throws -> PlanResult {
-        try await Planner.run(plan: plan, library: library, registry: registry(system), options: options)
+        try await Planner.run(plan: plan, library: library, options: options)
     }
 }
 
@@ -84,6 +78,11 @@ extension PlanResult {
     /// The deterministic path's year-end value for a calendar year.
     func expectedValue(in year: Int) -> Double? {
         expectedPath.years.first { $0.year == year }?.endAssets
+    }
+
+    /// The deterministic path's detail for a calendar year.
+    func expectedYear(_ year: Int) -> YearDetail? {
+        expectedPath.years.first { $0.year == year }
     }
 }
 

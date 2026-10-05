@@ -5,6 +5,5 @@
   "institution": "Employer",
   "kind": "tfr",
   "name": "TFR",
-  "opened": "2023-09-01",
-  "tax": { "wrapper": "it.tfr" }
+  "opened": "2023-09-01"
 }

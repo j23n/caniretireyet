@@ -165,8 +165,7 @@ extension CheckInDraft {
 
     /// Saves the check-in into `library`: upserts its valuations, prices and
     /// FX rates, and moves the opening date of accounts that open later
-    /// back to the date (see ``CheckInRow/opensLater``), with a pension
-    /// fund's joining date that was the opening date (``Account/moveOpening(to:)``).
+    /// back to the date (see ``CheckInRow/opensLater``, ``Account/moveOpening(to:)``).
     ///
     /// A past check-in can land between two valuations of an account: the
     /// flow of the valuation after it is then worked out again from the new

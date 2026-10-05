@@ -1,9 +1,10 @@
 /// `plans/<id>.json`: one retirement scenario. See PLANNER.md, "Plan file".
 ///
-/// Amounts are yearly and in today's money, in the plan's currency
-/// (``effectiveCurrency(base:)``). Optional sections decode as empty values
-/// when absent and are left out of the file when empty, so a plan only
-/// records what differs from the defaults.
+/// Amounts are yearly and in today's money, in the library's base currency,
+/// after income tax: work income and pensions are entered net, and the
+/// planner computes only the investment and wealth taxes of ``tax``.
+/// Optional sections decode as empty values when absent and are left out of
+/// the file when empty, so a plan only records what differs from the defaults.
 public struct PlanDocument: Hashable, Sendable, Identifiable, KnownKeysProviding {
     public var id: PlanID
     public var name: String
@@ -11,7 +12,7 @@ public struct PlanDocument: Hashable, Sendable, Identifiable, KnownKeysProviding
     public var retirement: PlanRetirement
     /// The last age the plan must fund, as written. See ``effectiveEndAge``.
     public var endAge: Int?
-    /// Tax residence over time, overlays and overrides.
+    /// The investment and wealth tax rates.
     public var tax: PlanTax
     /// Working phases.
     public var work: [WorkPhase]
@@ -22,11 +23,7 @@ public struct PlanDocument: Hashable, Sendable, Identifiable, KnownKeysProviding
     public var events: [PlanEvent]
     public var portfolio: PlanPortfolio
     public var assumptions: PlanAssumptions
-    public var withdrawals: PlanWithdrawals
     public var simulation: PlanSimulation
-    /// The currency of the plan's amounts and results, as written. See
-    /// ``effectiveCurrency(base:)``.
-    public var currency: CurrencyCode?
 
     /// 95.
     public static let defaultEndAge = 95
@@ -35,8 +32,7 @@ public struct PlanDocument: Hashable, Sendable, Identifiable, KnownKeysProviding
         id: PlanID, name: String, retirement: PlanRetirement, endAge: Int? = nil, tax: PlanTax = PlanTax(),
         work: [WorkPhase] = [], spending: PlanSpending, pensions: [PlanPension] = [],
         contributions: [PlanContribution] = [], events: [PlanEvent] = [], portfolio: PlanPortfolio = PlanPortfolio(),
-        assumptions: PlanAssumptions = PlanAssumptions(), withdrawals: PlanWithdrawals = PlanWithdrawals(),
-        simulation: PlanSimulation = PlanSimulation(), currency: CurrencyCode? = nil
+        assumptions: PlanAssumptions = PlanAssumptions(), simulation: PlanSimulation = PlanSimulation()
     ) {
         self.id = id
         self.name = name
@@ -50,27 +46,19 @@ public struct PlanDocument: Hashable, Sendable, Identifiable, KnownKeysProviding
         self.events = events
         self.portfolio = portfolio
         self.assumptions = assumptions
-        self.withdrawals = withdrawals
         self.simulation = simulation
-        self.currency = currency
     }
 
     /// The last age the plan must fund (default 95).
     public var effectiveEndAge: Int {
         endAge ?? Self.defaultEndAge
     }
-
-    /// The currency of the plan's amounts and results: `currency` if set,
-    /// else the library's base currency (`base`).
-    public func effectiveCurrency(base: CurrencyCode) -> CurrencyCode {
-        currency ?? base
-    }
 }
 
 extension PlanDocument: Codable {
     enum CodingKeys: String, CodingKey, CaseIterable {
         case id, name, retirement, endAge, tax, work, spending, pensions, contributions, events, portfolio,
-             assumptions, withdrawals, simulation, currency
+             assumptions, simulation
     }
 
     public static var knownKeys: Set<String> { Set(CodingKeys.allCases.map(\.stringValue)) }
@@ -89,9 +77,7 @@ extension PlanDocument: Codable {
         events = try c.decodeArray([PlanEvent].self, forKey: .events)
         portfolio = try c.decodeIfPresent(PlanPortfolio.self, forKey: .portfolio) ?? PlanPortfolio()
         assumptions = try c.decodeIfPresent(PlanAssumptions.self, forKey: .assumptions) ?? PlanAssumptions()
-        withdrawals = try c.decodeIfPresent(PlanWithdrawals.self, forKey: .withdrawals) ?? PlanWithdrawals()
         simulation = try c.decodeIfPresent(PlanSimulation.self, forKey: .simulation) ?? PlanSimulation()
-        currency = try c.decodeIfPresent(CurrencyCode.self, forKey: .currency)
     }
 
     public func encode(to encoder: any Encoder) throws {
@@ -108,9 +94,7 @@ extension PlanDocument: Codable {
         try c.encodeIfNotEmpty(events, forKey: .events)
         if !portfolio.isEmpty { try c.encode(portfolio, forKey: .portfolio) }
         if !assumptions.isEmpty { try c.encode(assumptions, forKey: .assumptions) }
-        if !withdrawals.isEmpty { try c.encode(withdrawals, forKey: .withdrawals) }
         if !simulation.isEmpty { try c.encode(simulation, forKey: .simulation) }
-        try c.encodeIfPresent(currency, forKey: .currency)
     }
 }
 

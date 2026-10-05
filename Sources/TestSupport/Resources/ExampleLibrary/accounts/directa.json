@@ -7,6 +7,5 @@
   "name": "Directa",
   "opened": "2021-03-01",
   "tags": ["fire"],
-  "tax": { "wrapper": "it.ordinary" },
   "valuation": "trades"
 }

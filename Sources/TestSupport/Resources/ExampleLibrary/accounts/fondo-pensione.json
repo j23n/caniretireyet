@@ -1,11 +1,11 @@
 {
   "assetClasses": { "bonds": "0.4", "equity": "0.6" },
+  "availableFromAge": 67,
   "country": "IT",
   "currency": "EUR",
   "id": "fondo-pensione",
   "institution": "Fondo Esempio",
   "kind": "pensionFund",
   "name": "Fondo pensione",
-  "opened": "2022-01-01",
-  "tax": { "joined": "2022-01-01", "wrapper": "it.pensionFund" }
+  "opened": "2022-01-01"
 }

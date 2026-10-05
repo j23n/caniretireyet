@@ -249,7 +249,6 @@ extension KeyPreservation {
         "spending": .init(PlanSpending.self, objects: ["flexible": .init(FlexibleSpending.self)]),
         "portfolio": .init(PlanPortfolio.self),
         "assumptions": .init(PlanAssumptions.self),
-        "withdrawals": .init(PlanWithdrawals.self),
         "simulation": .init(PlanSimulation.self),
     ])
 

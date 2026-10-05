@@ -2,9 +2,8 @@ import Foundation
 
 /// Any JSON value. Numbers are held as `Decimal`, so they round-trip exactly.
 ///
-/// Used for free-form data: regime, scheme and phase `options`, plan
-/// `overrides`, the plan copy inside a baseline, and by Storage to keep keys
-/// this app version doesn't know.
+/// Used for free-form data: the plan copy inside a baseline, and by Storage
+/// to keep keys this app version doesn't know.
 public enum JSONValue: Hashable, Sendable {
     case null
     case bool(Bool)

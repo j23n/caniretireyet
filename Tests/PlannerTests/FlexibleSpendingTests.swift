@@ -1,15 +1,14 @@
 import Foundation
 import Model
 @testable import Planner
-import TaxKit
 import Testing
 
 /// Flexible spending (PLANNER.md, "Flexible spending"): the guardrails rule
 /// cuts retirement spending when the withdrawal rate rises 20% above the
 /// first retirement year's, never below the floor, and restores it when the
 /// rate falls 20% below, never above 100%; a run fails only when even the
-/// floor can't be paid. On the flat test system with no taxes and no
-/// volatility, with market paths chosen by hand, so every number is exact.
+/// floor can't be paid. With no taxes and no volatility, and market paths
+/// chosen by hand, so every number is exact.
 struct FlexibleSpendingTests {
     /// Born 1966-01-01: 59 on the start date, retiring at once, funding ages
     /// 60–70 (2026–2036), every year whole.
@@ -29,32 +28,31 @@ struct FlexibleSpendingTests {
 
     static func engine(_ plan: PlanDocument, _ library: Library = library()) async throws -> (Engine, PlanModel) {
         let (interpreted, issues) = PlanInterpreter.interpret(
-            plan: plan, library: library, registry: Sample.registry(),
+            plan: plan, library: library,
             options: PlannerOptions(maxRetirementAge: 62, solveSustainableSpending: false))
         let model = try #require(interpreted, "\(issues)")
         let engine = try await Engine.make(model: model, ages: [model.currentAge], maxAge: model.currentAge)
         return (engine, model)
     }
 
-    /// Run 0 of the plan with equity's yearly factors given, traced.
+    /// Run 0 of the plan with equity's yearly factors given, year by year.
     static func trace(_ plan: PlanDocument, equity: [Double], library: Library = library()) async throws
-        -> (outcome: RunOutcome, years: [YearDetail], steps: [FlexibleStep?]) {
+        -> (outcome: RunOutcome, years: [YearDetail]) {
         let (engine, model) = try await engine(plan, library)
         let portfolio = engine.portfolio
-        let classes = portfolio.classCount
+        let classes = portfolio.classes.count
         let column = try #require(portfolio.classes.firstIndex(of: .equity))
         var factors = [Double](repeating: 1, count: equity.count * classes)
         for (t, factor) in equity.enumerated() { factors[t * classes + column] = factor }
         let scenarios = MarketScenarios(factors: factors, expectedFactors: factors, runs: 1, years: equity.count,
                                         classes: classes)
-        var simulator = PathSimulator(schedule: engine.schedules[model.currentAge]!, scenarios: scenarios,
-                                      portfolio: portfolio, model: model, flexible: engine.flexibleSpending)
-        let recorder = PathRecorder()
-        let (outcome, years) = simulator.tracedRun(0, spending: model.spending.retired, recorder: recorder)
-        // The traced run ends as the same run untraced.
-        let untraced = simulator.run(0, spending: model.spending.retired)
-        #expect(untraced.failedYear == outcome.failedYear && untraced.finalValue == outcome.finalValue)
-        return (outcome, years, recorder.years.map(\.flexible))
+        var simulator = PathSimulator(model: model, schedule: engine.schedules[model.currentAge]!,
+                                      scenarios: scenarios, start: portfolio, flexible: engine.flexibleSpending)
+        let (outcome, years) = simulator.detailedRun(0, spending: model.spending.retired)
+        // The detailed run ends as the same run without details.
+        let plain = simulator.run(0, spending: model.spending.retired)
+        #expect(plain.failedYear == outcome.failedYear && plain.finalValue == outcome.finalValue)
+        return (outcome, years)
     }
 
     /// A crash in the first year, two flat years, a recovery, then flat.
@@ -67,21 +65,15 @@ struct FlexibleSpendingTests {
     // MARK: The rule, year by year
 
     @Test func aCrashCutsToTheFloorAndARecoveryRestoresIt() async throws {
-        let (outcome, years, steps) = try await Self.trace(Self.plan(), equity: Self.crash)
+        let (outcome, years) = try await Self.trace(Self.plan(), equity: Self.crash)
         // 2026: 4,000 of 100,000 is the first rate, 4%; the crash leaves 57,600.
         // 2027: 4,000 / 57,600 = 6.9% > 4.8%: cut to 90%. 2028: 3,600 / 54,000 = 6.7%: cut to 80%, the floor.
         // 2029: 3,200 / 50,800 = 6.3%: a cut is due at the floor. ×2.5 → 119,000.
         // 2030: 3,200 / 119,000 = 2.7% < 3.2%: raised to 90%. 2031: 3,600 / 115,400 = 3.1%: back to 100%.
         // Then 4,000 / 111,400 = 3.6% and later rates stay between the guardrails: no raise above 100%.
         #expect(Self.same(years.map(\.spending), [4000, 3600, 3200, 3200, 3600, 4000, 4000, 4000, 4000, 4000, 4000]))
-        #expect(steps.map { $0?.action } == ["start", "cut", "cut", "floor", "raise", "raise", "hold", "hold", "hold",
-                                              "hold", "hold"])
         #expect(Self.same(years.compactMap(\.spendingLevel), [1, 0.9, 0.8, 0.8, 0.9, 1, 1, 1, 1, 1, 1]))
         #expect(Self.same(years.compactMap(\.plannedSpending), Array(repeating: 4000, count: 11)))
-        let first = try #require(steps[0])
-        #expect(abs((first.initialRate ?? 0) - 0.04) < 1e-12 && abs(first.assets - 100_000) < 1e-6)
-        let second = try #require(steps[1])
-        #expect(abs((second.rate ?? 0) - 4000.0 / 57_600) < 1e-12 && abs(second.draw - 4000) < 1e-9)
         #expect(close(years[3].endAssets, 119_000))
         #expect(outcome.failure == nil)
         #expect(outcome.lowestLevel == 0.8 && outcome.yearsBelowPlan == 4)
@@ -89,10 +81,9 @@ struct FlexibleSpendingTests {
     }
 
     @Test func withoutTheRuleTheSameCrashSpendsThePlansAmount() async throws {
-        let (outcome, years, steps) = try await Self.trace(Self.plan(flexible: nil), equity: Self.crash)
+        let (outcome, years) = try await Self.trace(Self.plan(flexible: nil), equity: Self.crash)
         #expect(Self.same(years.map(\.spending), Array(repeating: 4000, count: 11)))
         #expect(years.allSatisfy { $0.spendingLevel == nil && $0.plannedSpending == nil })
-        #expect(steps.allSatisfy { $0 == nil })
         #expect(outcome.lowestLevel == 1 && outcome.yearsBelowPlan == 0)
         // So is a rule that's switched off.
         let off = try await Self.trace(Self.plan(flexible: FlexibleSpending(enabled: false, cut: d("0.2"))),
@@ -103,21 +94,21 @@ struct FlexibleSpendingTests {
     @Test func phasesScaleWithTheLevel() async throws {
         // 75% of the spending from 62 (2028): the level and the phase multiply.
         let plan = Self.plan(phases: [SpendingPhase(fromAge: 62, factor: d("0.75"))])
-        let (_, years, steps) = try await Self.trace(plan, equity: Self.crash)
+        let (_, years) = try await Self.trace(plan, equity: Self.crash)
         // 2028: 0.9 × 0.75 × 4,000 = 2,700 of 54,000 is 5% > 4.8%: cut to 80%, so 0.8 × 0.75 × 4,000 = 2,400.
         // 2029: 2,400 / 51,600 = 4.65%: holds. ×2.5 → 123,000. 2030: 2,400 / 123,000 = 2.0%: raised to 90%.
         #expect(Self.same(Array(years.map(\.spending).prefix(5)), [4000, 3600, 2400, 2400, 2700]))
-        #expect(Array(steps.prefix(5)).map { $0?.action } == ["start", "cut", "cut", "hold", "raise"])
+        #expect(Self.same(Array(years.compactMap(\.spendingLevel).prefix(5)), [1, 0.9, 0.8, 0.8, 0.9]))
         #expect(Self.same(Array(years.compactMap(\.plannedSpending).prefix(3)), [4000, 4000, 3000]))
     }
 
     @Test func customStepsAndGuardrails() async throws {
         // Cuts of 25% down to 50%, with guardrails of 50% above and 10% below.
         let rule = FlexibleSpending(cut: d("0.25"), floor: d("0.5"), upperGuardrail: d("0.5"), lowerGuardrail: d("0.1"))
-        let (_, years, steps) = try await Self.trace(Self.plan(flexible: rule), equity: Self.crash)
+        let (_, years) = try await Self.trace(Self.plan(flexible: rule), equity: Self.crash)
         // 2027: 6.9% > 6%: cut to 75% (3,000). 2028: 3,000 / 54,600 = 5.5%: holds.
         #expect(Self.same(Array(years.map(\.spending).prefix(3)), [4000, 3000, 3000]))
-        #expect(Array(steps.prefix(3)).map { $0?.action } == ["start", "cut", "hold"])
+        #expect(Self.same(Array(years.compactMap(\.spendingLevel).prefix(3)), [1, 0.75, 0.75]))
     }
 
     // MARK: Failure means spending below the floor
@@ -129,12 +120,11 @@ struct FlexibleSpendingTests {
         let rule = FlexibleSpending(upperGuardrail: 10)
         let library = Self.library(balance: 11_500)
         let flat = Array(repeating: 1.0, count: 11)
-        let (outcome, years, steps) = try await Self.trace(Self.plan(retired: "3000", flexible: rule), equity: flat,
-                                                           library: library)
+        let (outcome, years) = try await Self.trace(Self.plan(retired: "3000", flexible: rule), equity: flat,
+                                                    library: library)
         #expect(outcome.failure?.year == 2030 && outcome.failure?.reason == .depleted)
         #expect(Self.same(Array(years.map(\.spending).prefix(4)), [3000, 3000, 3000, 2500]))
-        let forced = try #require(steps[3])
-        #expect(forced.level == 1 && abs(forced.paidLevel - 2500.0 / 3000) < 1e-12)
+        #expect(close(years[3].spendingLevel, 2500.0 / 3000, 1e-12))
         #expect(outcome.lowestLevel == 0)
         #expect(outcome.yearsBelowPlan == 8, "2029 forced down, then 2030–2036 from the failure on")
         // Spending fixed in real terms fails a year earlier.
@@ -146,11 +136,10 @@ struct FlexibleSpendingTests {
         // 20,000 at 0%, 4,000 a year: cuts to 3,600 and 3,200, then the floor
         // runs out in 2031 with 2,800 left.
         let flat = Array(repeating: 1.0, count: 11)
-        let (outcome, years, steps) = try await Self.trace(Self.plan(), equity: flat,
-                                                           library: Self.library(balance: 20_000))
+        let (outcome, years) = try await Self.trace(Self.plan(), equity: flat, library: Self.library(balance: 20_000))
         #expect(Self.same(Array(years.map(\.spending).prefix(5)), [4000, 3600, 3200, 3200, 3200]))
         #expect(outcome.failure == RunFailure(year: 2031, age: 65, reason: .depleted))
-        #expect(steps[5]?.level == 0.8)
+        #expect(years[5].spendingLevel == 0.8)
         #expect(outcome.lowestLevel == 0)
     }
 
@@ -199,7 +188,7 @@ struct FlexibleSpendingTests {
         func plan(_ flexible: FlexibleSpending?) -> PlanDocument {
             var plan = Sample.plan(retire: .age(55), endAge: 90, working: "30000", retired: "20000",
                                    equityReturn: "0.05", volatility: "0.17",
-                                   work: [Sample.employee(from: "2026-01-01", gross: "60000")], inflation: "0",
+                                   work: [Sample.work(from: "2026-01-01", net: "60000")], inflation: "0",
                                    runs: 300)
             plan.spending.flexible = flexible
             return plan
@@ -230,15 +219,15 @@ struct FlexibleSpendingTests {
         for rule in [FlexibleSpending(cut: 0), FlexibleSpending(cut: d("1.5")), FlexibleSpending(floor: d("-0.1")),
                      FlexibleSpending(floor: d("1.2")), FlexibleSpending(upperGuardrail: d("-0.2")),
                      FlexibleSpending(lowerGuardrail: d("1.5"))] {
-            let issues = Planner.validate(plan: Self.plan(flexible: rule), library: library, registry: Sample.registry())
+            let issues = Planner.validate(plan: Self.plan(flexible: rule), library: library)
             #expect(issues.contains { $0.isError && $0.code == "planner.flexibleSpending" && $0.section == .spending },
                     "\(rule)")
         }
         // Off, its settings aren't checked; the defaults are fine.
         let off = Planner.validate(plan: Self.plan(flexible: FlexibleSpending(enabled: false, cut: 0)),
-                                   library: library, registry: Sample.registry())
+                                   library: library)
         #expect(!off.contains { $0.code == "planner.flexibleSpending" })
-        let defaults = Planner.validate(plan: Self.plan(), library: library, registry: Sample.registry())
+        let defaults = Planner.validate(plan: Self.plan(), library: library)
         #expect(!defaults.contains { $0.isError })
     }
 }

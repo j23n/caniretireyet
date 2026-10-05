@@ -136,18 +136,18 @@ struct BackupTests {
         let folder = try TemporaryFolder.exampleLibrary()
         let backup = try folder.library.backup(paths: ["accounts/tfr.json"], label: "import")
         #expect(backup.schemaVersion == LibrarySettings.currentSchemaVersion)
-        #expect(try folder.json("\(backup.path)/backup.json")["schemaVersion"] == 2)
+        #expect(try folder.json("\(backup.path)/backup.json")["schemaVersion"] == 3)
 
         var older = backup
         older.schemaVersion = 0
-        #expect(throws: StorageError.backupFromOtherVersion(name: backup.name, version: 0, current: 2)) {
+        #expect(throws: StorageError.backupFromOtherVersion(name: backup.name, version: 0, current: 3)) {
             try folder.library.restore(backup: older)
         }
         #expect(throws: StorageError.self) { try folder.library.undo(older) }
 
         // A library written by a newer app can't be restored into.
         try folder.write("library.json", #"{ "baseCurrency": "EUR", "schemaVersion": 99 }"#)
-        #expect(throws: StorageError.libraryIsNewer(version: 99, supported: 2)) {
+        #expect(throws: StorageError.libraryIsNewer(version: 99, supported: 3)) {
             try folder.library.restore(backup: backup)
         }
     }

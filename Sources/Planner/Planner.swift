@@ -1,18 +1,17 @@
 import Foundation
 import Model
-import TaxKit
 
 /// # Planner
 ///
-/// The simulation engine (PLANNER.md). It contains no tax rules: every tax,
-/// contribution and pension rule comes from a `TaxKit.TaxSystem` chosen by
-/// the plan and looked up in a `TaxRegistry`.
+/// The simulation engine (PLANNER.md). Income from work and pensions comes
+/// in after tax; the only taxes it computes are the plan's two rates: on
+/// investment income and gains, and on wealth.
 ///
 /// - Builds the starting portfolio from a check-in (`Tracker.Valuator`),
-///   grouped into buckets by tax wrapper.
-/// - Runs yearly steps in today's money in the plan's currency: income, taxes (prepared once per
-///   retirement age and year, assessed per path, gross-up for withdrawals),
-///   spending, withdrawals, returns and rebalancing.
+///   grouped by when the money can be drawn.
+/// - Runs yearly steps in today's money in the base currency: income,
+///   spending, taxes, saving or selling (more by the tax on the gains of
+///   what's sold), returns and rebalancing.
 /// - A deterministic run and a seeded Monte Carlo simulation with common
 ///   random numbers across retirement ages and what-ifs; the earliest
 ///   retirement age, the success curve, the sustainable spending and the
@@ -21,24 +20,12 @@ import TaxKit
 /// Everything is `Sendable`, and `run` does its work off the main actor.
 public enum Planner {
     /// The engine's version, recorded in headlines and baselines.
-    public static let engineVersion = "1.0.0"
+    public static let engineVersion = "2.0.0"
 
-    /// The plan's problems without running it: the engine's checks and every
-    /// tax system's validation. Errors would stop a run.
-    ///
-    /// When the plan names a retirement age, the tax systems also check its
-    /// years one by one (`validate(_:years:parameters:)`), which finds
-    /// problems that depend on each year's amounts, such as forfettario's
-    /// revenue limit. With `earliest` the years aren't known yet; a run
-    /// reports them for the age its details are for.
-    public static func validate(plan: PlanDocument, library: Library, registry: TaxRegistry,
+    /// The plan's problems without running it. Errors would stop a run.
+    public static func validate(plan: PlanDocument, library: Library,
                                 options: PlannerOptions = PlannerOptions()) -> [PlanIssue] {
-        let (interpreted, issues) = PlanInterpreter.interpret(plan: plan, library: library, registry: registry,
-                                                              options: options)
-        guard let model = interpreted, let age = model.planAge else { return issues }
-        let schedule = AgeSchedule(model: model, age: min(max(age, model.currentAge), model.endAge - 1),
-                                   neededMasks: model.frames.map { _ in [] }, expectedMask: model.expectedEvents)
-        return unique(issues + schedule.issues + model.yearIssues(for: schedule))
+        unique(PlanInterpreter.interpret(plan: plan, library: library, options: options).1)
     }
 
     /// Runs a plan: the success curve by retirement age, the earliest age at
@@ -59,23 +46,21 @@ public enum Planner {
     /// before the result is returned (not when the run fails or is
     /// cancelled). Keep it short, e.g. hand the value to another actor. The
     /// result is identical with or without it.
-    public static func run(plan: PlanDocument, library: Library, registry: TaxRegistry,
-                           options: PlannerOptions = PlannerOptions(),
+    public static func run(plan: PlanDocument, library: Library, options: PlannerOptions = PlannerOptions(),
                            progress: (@Sendable (PlannerProgress) -> Void)? = nil) async throws -> PlanResult {
         let reporter = progress.map { ProgressReporter(handler: $0) }
         return try await withTaskExecutorPreference(PlannerExecutor.shared) {
-            try await compute(plan: plan, library: library, registry: registry, options: options, progress: reporter)
+            try await compute(plan: plan, library: library, options: options, progress: reporter)
         }
     }
 
-    static func compute(plan: PlanDocument, library: Library, registry: TaxRegistry, options: PlannerOptions,
+    static func compute(plan: PlanDocument, library: Library, options: PlannerOptions,
                         progress: ProgressReporter?) async throws -> PlanResult {
-        try await computeRun(plan: plan, library: library, registry: registry, options: options,
-                             progress: progress).result
+        try await computeRun(plan: plan, library: library, options: options, progress: progress).result
     }
 
-    /// A run as ``compute(plan:library:registry:options:progress:)`` makes
-    /// it, with what the plan debugger needs besides the result: the engine
+    /// A run as ``compute(plan:library:options:progress:)`` makes it, with
+    /// what the calculations report needs besides the result: the engine
     /// (its model, portfolio, scenarios and schedules), each run's outcome
     /// at the focus age, and the values the two searches tried.
     struct ComputedRun: Sendable {
@@ -90,10 +75,9 @@ public enum Planner {
         let scaleSteps: [SearchStep]
     }
 
-    static func computeRun(plan: PlanDocument, library: Library, registry: TaxRegistry, options: PlannerOptions,
+    static func computeRun(plan: PlanDocument, library: Library, options: PlannerOptions,
                            progress: ProgressReporter?) async throws -> ComputedRun {
-        let (interpreted, issues) = PlanInterpreter.interpret(plan: plan, library: library, registry: registry,
-                                                              options: options)
+        let (interpreted, issues) = PlanInterpreter.interpret(plan: plan, library: library, options: options)
         guard let model = interpreted else { throw PlannerError.invalidPlan(issues) }
         try Task.checkCancellation()
 
@@ -188,27 +172,23 @@ public enum Planner {
                 expected: expectedYears.indices.contains(t) ? expectedYears[t].endAssets : 0, spending: spent))
         }
 
-        let fi = fiNumber(schedule: focusSchedule, model: model, rate: options.fiWithdrawalRate)
         let answer = PlanAnswer(
             canRetireNow: successNow >= model.confidence, confidence: model.confidence, currentAge: current,
             successIfRetiringNow: successNow, earliestAge: earliest,
             earliestDate: earliest.map { model.retirementDate(forAge: $0) }, targetAge: target,
-            successAtTarget: target.flatMap { rates[$0] }, sustainableSpending: sustainable, fiNumber: fi,
-            fiProgress: fi.map { $0 > 0 ? startValue / $0 : 1 }, assetsNeeded: assetsNeeded)
+            successAtTarget: target.flatMap { rates[$0] }, sustainableSpending: sustainable,
+            assetsNeeded: assetsNeeded)
 
+        let pensionAges = Dictionary(model.pensions.map { ($0.id, $0.fromAge) }, uniquingKeysWith: { first, _ in first })
         let curve = sortedAges.map { age in
             AgeSuccess(age: age, retirementDate: model.retirementDate(forAge: age), success: rates[age]!,
-                       runs: model.runs,
-                       pensionStartAges: Dictionary(uniqueKeysWithValues: engine.schedules[age]!.claims.compactMap {
-                           $0.map { (model.pensions[$0.pension].id, $0.age) }
-                       }))
+                       runs: model.runs, pensionStartAges: pensionAges)
         }
 
         let result = PlanResult(
-            plan: plan, engine: engineVersion, planHash: planHash(plan), taxParameters: model.taxParameters,
+            plan: plan, engine: engineVersion, planHash: planHash(plan),
             start: PlanStart(date: model.startDate, age: current, planAssets: model.portfolio.startAssets,
-                             accounts: model.portfolio.accounts,
-                             buckets: bucketSummaries(engine.portfolio), schemeSeeds: schemeSeeds(model)),
+                             accounts: model.portfolio.accounts, buckets: bucketSummaries(engine.portfolio)),
             settings: SimulationSettings(runs: model.runs, seed: model.seed, confidence: model.confidence,
                                          inflation: model.inflation, endAge: model.endAge),
             answer: answer, successCurve: curve, focusAge: focus, fan: fan,
@@ -216,7 +196,7 @@ public enum Planner {
             medianPath: PathDetail(retirementAge: focus, failure: medianOutcome.failure, years: medianYears),
             failures: failureSummary(outcomes),
             markers: markers(schedule: focusSchedule, engine: engine),
-            issues: unique(engine.issues + focusSchedule.issues + model.yearIssues(for: focusSchedule)),
+            issues: unique(engine.issues),
             currency: model.currency,
             flexibleSpending: engine.flexibleSpending.flatMap { rule in
                 flexibleSummary(outcomes, rule: rule, age: focus, planSpending: spending,
@@ -291,9 +271,8 @@ public enum Planner {
         var bridges: [String: BridgeFailure] = [:]
         for failure in failures {
             guard case .locked(let money) = failure.reason else { continue }
-            bridges[money.wrapper, default: BridgeFailure(wrapper: money.wrapper, name: money.name,
-                                                          accessibleFromAge: money.accessibleFromAge, count: 0,
-                                                          share: 0)].count += 1
+            bridges[money.name, default: BridgeFailure(name: money.name, accessibleFromAge: money.accessibleFromAge,
+                                                       count: 0, share: 0)].count += 1
         }
         let runs = max(1, outcomes.count)
         return FailureSummary(
@@ -305,71 +284,20 @@ public enum Planner {
                 var bridge = bridge
                 bridge.share = Double(bridge.count) / Double(runs)
                 return bridge
-            }.sorted { ($1.count, $0.wrapper) < ($0.count, $1.wrapper) })
-    }
-
-    /// The FI number, kept for compatibility (``PlanAnswer/fiNumber``; the
-    /// results show ``PlanAnswer/assetsNeeded`` instead): retirement
-    /// spending not covered by pensions, over the withdrawal rate. The
-    /// pensions count once all have started: a whole year of each (the year after the last one starts, when the plan
-    /// reaches it), net of the tax they add. That tax is the difference
-    /// between the year assessed by its residence system with the pensions
-    /// and without them, since taxes such as IRPEF are charged on total
-    /// income and belong to no one pension.
-    static func fiNumber(schedule: AgeSchedule, model: PlanModel, rate: Double) -> Double? {
-        guard rate > 0 else { return nil }
-        let claims = schedule.claims.compactMap { $0 }
-        var pensions = 0.0
-        if let last = claims.map(\.year).max(),
-           let t = schedule.years.firstIndex(where: { $0.year == last + 1 })
-            ?? schedule.years.firstIndex(where: { $0.year == last }) {
-            let frame = model.frames[t]
-            let paid = claims.map { claim in
-                let pension = model.pensions[claim.pension]
-                return FixedYear.Pension(id: pension.id, scheme: pension.schemeID,
-                                         amount: claim.yearlyAmount(atAge: frame.age), taxedIn: pension.taxedIn,
-                                         kind: pension.kind, startYear: claim.startYear,
-                                         sourceCountry: pension.sourceCountry,
-                                         mandatoryShare: claim.option.mandatoryShare)
-            }
-            let system = model.systems[frame.system].system
-            let overlays = model.overlays.filter { system.regime($0.regime) != nil }
-            let state = schedule.years[t].taxState
-            func taxes(_ pensions: [FixedYear.Pension]) -> Double {
-                // The paying countries' tax on pensions taxed at source counts too.
-                let foreign = NonResidentTaxes(model: model, frame: frame, pensions: pensions, state: state)
-                let year = FixedYear(year: frame.year, age: frame.age, systemOptions: frame.systemOptions,
-                                     overlays: overlays, pensions: foreign.pensions,
-                                     inflationFactor: frame.inflationFactor,
-                                     indexThresholds: model.indexThresholds, currencyRate: frame.currencyRate,
-                                     citizenships: model.citizenships, birthDate: model.birthDate.birthDate,
-                                     residence: model.residence)
-                let assessment = system.prepare(year, state: state, parameters: frame.parameters).fixedAssessment
-                return assessment.totalTax + assessment.totalContributions + foreign.total
-            }
-            pensions = paid.reduce(0) { $0 + $1.amount } - (taxes(paid) - taxes([]))
-        }
-        return max(0, model.spending.retired - pensions) / rate
-    }
-
-    /// The accounts that started a pension scheme, and whether it used them.
-    private static func schemeSeeds(_ model: PlanModel) -> [SchemeSeed] {
-        model.portfolio.seeds.map { seed in
-            let pension = model.pensions.first { $0.schemeID == seed.scheme }
-            let used = pension?.options["startingBalance"] == .number(seed.value)
-            return SchemeSeed(scheme: seed.scheme, name: pension?.scheme.name ?? seed.scheme, wrapper: seed.wrapper,
-                              accounts: seed.accounts, value: seed.value, used: used)
-        }
+            }.sorted { ($1.count, $0.name) < ($0.count, $1.name) })
     }
 
     private static func bucketSummaries(_ portfolio: Portfolio) -> [BucketSummary] {
         portfolio.buckets.map { bucket in
-            let lots = portfolio.lots[bucket.lots]
-            return BucketSummary(
-                wrapper: bucket.wrapper, name: bucket.name, category: bucket.category,
-                receivesSavings: bucket.receivesSavings, value: lots.reduce(0) { $0 + $1.value },
-                costBasis: lots.reduce(0) { $0 + ($1.documented ? $1.basis : 0) }, targetMix: bucket.targetMix,
-                accounts: bucket.accounts)
+            let value = bucket.value
+            var mix: [AssetClass: Double] = [:]
+            if value > 0 {
+                for (c, assetClass) in portfolio.classes.enumerated() where bucket.values[c] > 0 {
+                    mix[assetClass] = bucket.values[c] / value
+                }
+            }
+            return BucketSummary(name: bucket.name, availableFromAge: bucket.opensAtAge, value: value,
+                                 costBasis: bucket.basis, mix: mix, accounts: bucket.accounts)
         }
     }
 
@@ -381,19 +309,19 @@ public enum Planner {
             markers.append(TimelineMarker(kind: .retirement, year: retirement.year, age: schedule.retirementAge,
                                           label: "Retirement"))
         }
-        for claim in schedule.claims.compactMap({ $0 }) {
-            markers.append(TimelineMarker(kind: .pensionStart, year: claim.year, age: claim.age,
-                                          label: model.pensions[claim.pension].name,
-                                          amount: claim.yearlyAmount(atAge: claim.age)))
+        for pension in model.pensions where pension.perYear > 0 {
+            let year = model.birthYear + pension.fromAge
+            guard year > model.startDate.year || pension.fromAge > model.currentAge, year <= model.lastYear else {
+                continue
+            }
+            markers.append(TimelineMarker(kind: .pensionStart, year: year, age: pension.fromAge, label: pension.name,
+                                          amount: pension.perYear))
         }
-        // Severance pay is paid out when the job ends, so it gets no marker.
-        for (b, bucket) in engine.portfolio.buckets.enumerated() where !bucket.isLiquid {
-            guard !schedule.years.isEmpty, !schedule.years.contains(where: { $0.severance.contains(b) }),
-                  !schedule.isAccessible(year: 0, bucket: b),
-                  let t = schedule.years.indices.first(where: { schedule.isAccessible(year: $0, bucket: b) })
-            else { continue }
-            markers.append(TimelineMarker(kind: .accessible, year: schedule.years[t].year, age: schedule.years[t].age,
-                                          label: bucket.name))
+        for bucket in engine.portfolio.buckets {
+            guard let age = bucket.opensAtAge, bucket.value > 0 else { continue }
+            let year = model.firstYear(atAge: age)
+            guard year <= model.lastYear else { continue }
+            markers.append(TimelineMarker(kind: .accessible, year: year, age: age, label: bucket.name))
         }
         for event in model.events {
             markers.append(TimelineMarker(kind: event.isWindfall ? .windfall : .expense, year: event.year,

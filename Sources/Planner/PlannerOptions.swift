@@ -38,9 +38,6 @@ public struct PlannerOptions: Hashable, Sendable {
     /// (``PlanAnswer/assetsNeeded``, default on). It simulates today's age
     /// with about ten amounts of extra money in the accessible buckets.
     public var solveAssetsNeeded: Bool
-    /// The withdrawal rate behind the FI number (default 4%), which is
-    /// kept for compatibility but no longer shown.
-    public var fiWithdrawalRate: Double
     /// The start date when the library has no check-in yet (default: today).
     public var today: CalendarDate?
 
@@ -49,7 +46,7 @@ public struct PlannerOptions: Hashable, Sendable {
 
     /// Options for a run; the defaults give the full Results screen.
     public init(mode: Mode = .full, ageScan: AgeScan = .full, focusAge: Int? = nil, maxRetirementAge: Int = 75,
-                solveSustainableSpending: Bool = true, solveAssetsNeeded: Bool = true, fiWithdrawalRate: Double = 0.04,
+                solveSustainableSpending: Bool = true, solveAssetsNeeded: Bool = true,
                 today: CalendarDate? = nil) {
         self.mode = mode
         self.ageScan = ageScan
@@ -57,7 +54,6 @@ public struct PlannerOptions: Hashable, Sendable {
         self.maxRetirementAge = maxRetirementAge
         self.solveSustainableSpending = solveSustainableSpending
         self.solveAssetsNeeded = solveAssetsNeeded
-        self.fiWithdrawalRate = fiWithdrawalRate
         self.today = today
     }
 

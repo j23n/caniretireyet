@@ -51,8 +51,8 @@ struct TradesSummaryCommand: RetireSubcommand {
         if let id = account {
             let account = try loaded.account(id)
             guard let ledger = valuator.ledger(for: account.id) else {
-                throw CLIError("\(account.id) doesn't record trades, so there's nothing to sum up. Record them with "
-                    + "`retire trades convert \(account.id) --to trades`.")
+                throw CLIError("\(account.id) doesn't record trades, so there's nothing to sum up. Switch it to "
+                    + "recording trades in the app (Switch to Trade History on the account).")
             }
             summary = ledger.summary(for: year)
             title = "\(account.name) (\(account.id))"

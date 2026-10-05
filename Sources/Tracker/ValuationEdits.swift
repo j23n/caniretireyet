@@ -63,8 +63,7 @@ extension Library {
     /// Adds or replaces one account's value outside a check-in (*Update
     /// Value*, the valuation editor): writes `valuation`, in place of the one
     /// at `old` when given, moves the account's opening date back to the
-    /// value's date when it's earlier (with a pension fund's joining date
-    /// that was the opening date, see ``Account/moveOpening(to:)``), and
+    /// value's date when it's earlier (``Account/moveOpening(to:)``), and
     /// keeps the flows of the values after it in step (see ``editValuations(_:)``).
     @discardableResult
     public mutating func saveValue(_ valuation: Valuation, replacing old: ValuationKey? = nil) -> ValueEdit {
