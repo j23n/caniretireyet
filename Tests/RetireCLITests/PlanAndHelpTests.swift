@@ -234,7 +234,7 @@ struct PlanAndHelpTests {
     @Test func helpListsTheCommands() async throws {
         let run = await retire(["--help"])
         #expect(run.status == 0)
-        for command in ["init", "validate", "networth", "import", "prices", "plan"] {
+        for command in ["init", "validate", "networth", "import", "prices", "plan", "export"] {
             #expect(run.output.contains("  \(command) "), "\(command)")
         }
         let version = await retire(["--version"])

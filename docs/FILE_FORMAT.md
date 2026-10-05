@@ -353,3 +353,24 @@ The app writes every file the same way, so the same data always gives the same b
 - Records (valuations, trades, prices, FX rates, index values) dated before 1900, or more than a year after today, are loaded and pointed out: usually a mistyped year, or a placeholder such as `9999-12-31` for "no end date".
 - Files the app doesn't know are ignored. JSON files in the library's folders whose names aren't IDs (`My Account.json`) are pointed out.
 - Records that refer to accounts, instruments or plans that don't exist are pointed out.
+
+## CSV export
+
+To open the library in a spreadsheet or take it to another app, Settings › Library › *Export as CSV…* writes a zip of CSV files, and `retire export <folder>` writes them into a folder. The library isn't changed. Every file is UTF-8 and comma-separated, with a header row and CRLF line ends (RFC 4180); dates are `YYYY-MM-DD` and numbers have a `.` and no grouping, as in the library's files. A field with a comma, a quote or a line break is quoted.
+
+| File | One row per | Columns |
+| --- | --- | --- |
+| `net-worth.csv` | month end | `date`, `currency` (the base currency), `net_worth`, `plan_assets`, `complete` |
+| `account-values.csv` | account and month end, while it's open | `date`, `account`, `name`, `currency`, `value` (in the account's currency), `base_currency`, `value_in_base_currency`, `complete` |
+| `accounts.csv` | account | `id`, `name`, `kind`, `currency`, `institution`, `country`, `opened`, `closed`, `valuation`, `available_from_age`, `in_net_worth`, `in_plans`, `asset_classes`, `successor`, `tags`, `notes` |
+| `instruments.csv` | instrument | `id`, `name`, `kind`, `currency`, `unit`, `isin`, `ticker`, `asset_classes`, `price_provider`, `price_symbol` |
+| `valuations.csv` | valuation | `date`, `account`, `balance`, `cash`, `positions` (how many, in `positions.csv`), `flow`, `note`, `source` |
+| `positions.csv` | position in a valuation | `date`, `account`, `instrument`, `quantity`, `cost_basis` |
+| `trades.csv` | trade | `date`, `account`, `id`, `type`, `instrument`, `quantity`, `price`, `currency`, `amount`, `fees`, `tax`, `cost`, `ratio`, `settlement`, `note`, `source` |
+| `prices.csv` | price | `date`, `instrument`, `price`, `currency`, `source` |
+| `fx.csv` | exchange rate | `date`, `base`, `quote`, `rate` (1 base = rate × quote), `source` |
+| `inflation.csv` | index value | `date`, `index`, `value`, `source` |
+
+- **The first two are worked out**, as the app does ([How values are computed](#how-values-are-computed)), at each month end from the first value through the export's date (and on that date when it isn't a month end), rounded to cents. `complete` is `no` where a price or an exchange rate is missing; the value is then what could be valued.
+- **The others are what's recorded**, field for field as in the library's files, empty where a field isn't set; their meaning is in the schemas. `asset_classes` reads `bonds=0.4; equity=0.6`, `tags` `a; b`, and the yes/no columns `yes` or `no`.
+- Plans, projections and import profiles aren't exported: their files are plain JSON already.

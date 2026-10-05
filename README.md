@@ -45,6 +45,7 @@ swift run retire prices --library <folder> --fill-history --dry-run  # past pric
 swift run retire plan --library <folder> --years                 # the answer, and the median run by year
 swift run retire plan show --library <folder>                    # the plan's inputs
 swift run retire plan debug --library <folder> --anonymize --output report.md   # every calculation, to share
+swift run retire export <folder> --library <library>     # the library as CSV files
 ```
 
 Plans, accounts and trades are edited in the app, or in their JSON files by hand ([docs/FILE_FORMAT.md](docs/FILE_FORMAT.md)). Commands that change the library back up the files first, and take `--dry-run`; most take `--json`. `retire help <command>` says more.

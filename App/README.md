@@ -52,6 +52,7 @@ Keep logic that doesn't need SwiftUI in files that import only Foundation and th
 | `CheckInScreen` | `CheckInScreen()` | iPhone: full-screen cover (in a NavigationStack); Mac/iPad: sidebar *Check-in*. Close with `navigation.finishCheckIn()` |
 | `PlanScreen` | `PlanScreen(planID:)`, `nil` = main plan | Plan tab, sidebar plans, pushing a `PlanID` |
 | `PlanCalculationsSheet` | `PlanCalculationsSheet(export:)` with a `PlanCalculationsExport` (`.sheet(item:)`) | *Export Calculations…* in the plan picker's menu and the Mac's Plan menu: the Markdown calculations of the plan on screen, anonymized by default, to share or save |
+| `LibraryCSVExportSheet` | `LibraryCSVExportSheet(export:)` with a `LibraryCSVExport` (`.sheet(item:)`) | Settings › Library › *Export as CSV…*: the library as CSV files (`Tracker.CSVExport`), zipped through a coordinated read for uploading, to share or save |
 | `ImportScreen` | `ImportScreen(file:)` | ⌘⇧I, sidebar *Import…*, dropping a CSV on the window, opening a CSV from Files (sheet on iPhone) |
 | `ImportProfilesScreen` | `ImportProfilesScreen()` | *Saved profiles* in the import's first step |
 | `SettingsScreen` | `SettingsScreen()` inside a NavigationStack | Mac: Settings window (⌘,); iPhone/iPad: gear → sheet |

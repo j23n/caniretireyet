@@ -12,6 +12,7 @@ import SwiftUI
 /// to this device. Present it inside a `NavigationStack`.
 struct SettingsScreen: View {
     @Environment(LibraryStore.self) private var library
+    @State private var csvExport: LibraryCSVExport?
 
     init() {}
 
@@ -21,6 +22,10 @@ struct SettingsScreen: View {
                 LibraryLocationRows()
                 NavigationLink("Sync & backups") { SyncScreen() }
                 NavigationLink("About the library's files") { LibraryFilesHelp() }
+                Button("Export as CSV…") {
+                    csvExport = LibraryCSVExport(library: library.library, asOf: library.asOfDate)
+                }
+                .disabled(library.hasNoAccounts)
             } header: {
                 Text("Library")
             } footer: {
@@ -41,6 +46,7 @@ struct SettingsScreen: View {
         }
         .formStyle(.grouped)
         .navigationTitle("Settings")
+        .sheet(item: $csvExport) { LibraryCSVExportSheet(export: $0) }
     }
 
     private var syncSummary: String {
