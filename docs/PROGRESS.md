@@ -36,7 +36,7 @@ Each check-in re-runs the main plan (`mainPlan` in `library.json`) and records t
 - the chance of success at your target age;
 - **readiness**: your plan assets as a share of what retiring today with your confidence level would need, from the simulation ([PLANNER.md](PLANNER.md#assets-needed-to-retire-today)). It reaches 100% exactly when retiring today does.
 
-Records also keep the old `fiProgress` (plan assets over the spending pensions don't cover, divided by 4%), with its old meaning. The app no longer shows it: it treated the pensions as already paid and ignored taxes and the plan's confidence, so it could read 75% while retiring today succeeded in 13% of futures. Older records have only `fiProgress`; for them the app shows no progress number.
+Records made by earlier versions may also hold the old `fiProgress` (plan assets over the spending pensions don't cover, divided by 4%), with its old meaning, and `taxParameters` (the years of the tax rules a tax system used); both are kept as they are. The app doesn't show `fiProgress`: it treated the pensions as already paid and ignored taxes and the plan's confidence, so it could read 75% while retiring today succeeded in 13% of futures. Records that have only `fiProgress` show no progress number.
 
 The chart then shows how "you can retire at 54" moves from month to month.
 
@@ -94,20 +94,19 @@ Baselines are created:
 {
   "accounts": ["conto-fineco", "directa", "fondo-pensione", "gold-coins", "ledger-wallet"],
   "created": "2026-01-05",
-  "engine": "1.2.0",
+  "engine": "2.0.0",
   "headline": { "confidence": "0.9", "earliestAge": 54, "successAtTarget": "0.83" },
   "kind": "yearly",
   "label": "Start of 2026",
   "plan": { "…": "a full copy of plans/base.json as it was" },
   "start": { "date": "2025-12-31", "value": "212400" },
-  "taxParameters": { "it": 2026 },
   "years": [
     { "expected": "231500", "p10": "214800", "p25": "223900", "p50": "230900", "p75": "238200", "p90": "249700", "savings": "18000", "year": 2026 }
   ]
 }
 ```
 
-(The numbers are made up. `years` has one row per year up to the plan's end age. Values are in money of the start date, in the plan's currency. Months between year-ends are interpolated.)
+(The numbers are made up. `years` has one row per year up to the plan's end age. Values are in money of the start date, in the base currency (in the plan's currency for a baseline an earlier version saved for a plan in another currency). Months between year-ends are interpolated.)
 
 ## The answer over time
 
@@ -116,8 +115,8 @@ Baselines are created:
 ```json
 {
   "headlines": [
-    { "date": "2026-09-30", "earliestAge": 54, "engine": "1.2.0", "fiProgress": "0.41",
-      "planHash": "5c1f…", "readiness": "0.07", "successAtTarget": "0.86", "taxParameters": { "it": 2026 } }
+    { "date": "2026-09-30", "earliestAge": 54, "engine": "2.0.0", "planHash": "5c1f…", "readiness": "0.07",
+      "successAtTarget": "0.86" }
   ]
 }
 ```

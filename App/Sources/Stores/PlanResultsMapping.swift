@@ -41,7 +41,7 @@ struct PlanResultDetails: Hashable, Sendable {
     var reading: PlanLibraryReading? = nil
 }
 
-/// How a plan read your library (PLANNER.md, "Portfolio"): the accounts it
+/// How a plan read your library (PLANNER.md, "The portfolio"): the accounts it
 /// counts, grouped by when they can be drawn, with their value on the start date.
 struct PlanLibraryReading: Hashable, Sendable {
     /// The accounts that can be drawn from one age.

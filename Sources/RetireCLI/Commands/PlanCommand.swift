@@ -324,7 +324,7 @@ struct PlanReport {
     /// What flexible spending did at the focus age; `nil` without it.
     var flexible: PlanFlexibleSpending.Report?
 
-    /// How a plan read the library (PLANNER.md, "Portfolio"): the money you
+    /// How a plan read the library (PLANNER.md, "The portfolio"): the money you
     /// can draw now, and the accounts available from a later age.
     struct Reading {
         struct Bucket {

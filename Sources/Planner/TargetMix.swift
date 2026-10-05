@@ -2,7 +2,7 @@ import Foundation
 import Model
 
 /// What a plan's starting portfolio holds by asset class, as the planner
-/// reads the library (PLANNER.md, "Portfolio"): the money you can draw now,
+/// reads the library (PLANNER.md, "The portfolio"): the money you can draw now,
 /// which the plan's target mix applies to, and every account the plan
 /// counts. The editors show it next to the target mix
 /// (``Planner/startingMix(plan:library:today:)``).

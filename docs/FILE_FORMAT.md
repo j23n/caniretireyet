@@ -69,14 +69,16 @@ Can I Retire Yet/                   ← the app's folder in iCloud Drive
   "baseCurrency": "EUR",
   "mainPlan": "base",
   "person": { "birthDate": "1988-04-12", "name": "Me" },
-  "schemaVersion": 2,
+  "schemaVersion": 3,
   "taxResidence": "IT"
 }
 ```
 
 `mainPlan` is the plan shown on the Overview. It's re-run at every check-in, and a baseline of it is saved automatically at the first check-in of each year.
 
-`person` holds the person's `name`, `birthDate` (plans need it for ages) and, optionally, `citizenships`: every citizenship held, as country codes (`"citizenships": ["DE", "IT"]`). Plans pass them to the tax systems, since tax treaties can decide by citizenship which country taxes a pension. Left out, they're unknown.
+`person` holds the person's `name` and `birthDate` (plans need it for ages).
+
+`taxResidence`, optional, is the country you live in, as a country code. It picks the default inflation index (below).
 
 `inflationIndex`, optional, is the consumer price index the library puts amounts in today's money with and computes real returns with, e.g. `"inflationIndex": "hicp-ea"`. It names an index of the history files' `indices`: `hicp-<country>`, a country's harmonised index of consumer prices (`hicp-de`, `hicp-ch`; ISO country codes, so Greece is `hicp-gr`), or `hicp-ea`, the euro area's. Eurostat publishes one for every EU country, Iceland, Norway, Switzerland, Albania, Montenegro, North Macedonia, Serbia and Türkiye. Left out, it's worked out, in this order:
 
@@ -87,7 +89,7 @@ Can I Retire Yet/                   ← the app's folder in iCloud Drive
 
 Settings › You › *Inflation* and `retire settings --inflation-index hicp-ea` set it; *Automatic* and `--inflation-index automatic` leave it out.
 
-A plan in another currency is adjusted with the index for that currency: the library's own when its prices are in it (`hicp-it` for a plan in euros), else that currency's HICP (`hicp-ch` for francs, `hicp-ea` for euros), else the library's own, which the app then names. Check-ins, *Update Prices*, *Fill In Past Prices* and `retire prices` fetch the months missing of each index the library uses this way.
+Check-ins, *Update Prices*, *Fill In Past Prices* and `retire prices` fetch the months missing of the index the library uses.
 
 Settings that belong to one device, such as reminder times and UI state, are stored on that device, not in the library.
 
@@ -105,23 +107,22 @@ A brokerage account whose holdings come from its trades ([TRADES.md](TRADES.md))
   "name": "Directa",
   "opened": "2021-03-01",
   "tags": ["fire"],
-  "tax": { "wrapper": "it.ordinary" },
   "valuation": "trades"
 }
 ```
 
-A pension fund, recorded as a balance, with its asset mix:
+A pension fund, recorded as a balance, with its asset mix, that plans can draw on from 67:
 
 ```json
 {
   "assetClasses": { "bonds": "0.4", "equity": "0.6" },
+  "availableFromAge": 67,
   "country": "IT",
   "currency": "EUR",
   "id": "fondo-pensione",
   "kind": "pensionFund",
   "name": "Fondo pensione",
-  "opened": "2022-01-01",
-  "tax": { "joined": "2022-01-01", "wrapper": "it.pensionFund" }
+  "opened": "2022-01-01"
 }
 ```
 
@@ -148,10 +149,10 @@ A closed account:
 | `currency` | yes | The currency of this account's balances and cash. |
 | `opened` | yes | The first day the account counts toward net worth. |
 | `closed` | no | The last day it counts. Absent while the account is active. |
-| `institution`, `country` | no | The bank or broker, and its country. The tax system may use the country, e.g. Italy's higher wealth-tax rate for blacklisted countries. So does the RW helper, which lists the foreign accounts you have to declare. |
+| `institution`, `country` | no | The bank or broker, and its country. |
 | `valuation` | no | `balance`, `holdings` or `trades`. The default depends on `kind`: brokerage, crypto and metals default to holdings. With `trades`, the account's holdings, purchase cost and cash come from its trades, and its valuations record only cash ([TRADES.md](TRADES.md)). |
 | `assetClasses` | no | The asset mix of the account's values recorded as a single balance, used by the asset-class breakdowns and the planner: a balance account's, or the balances in a holdings account's imported history (its positions follow their instruments). Defaults by kind: cash and savings → `cash`, property → `realEstate`; otherwise such a value counts as other. |
-| `tax` | no | How the planner taxes this account. `wrapper` names a wrapper defined by a tax system (for Italy: `it.ordinary`, `it.pensionFund`, `it.tfr`) or a generic one (`taxable`, `taxDeferred`, `taxFree`). Wrapper-specific details follow. See [TAXES.md](TAXES.md). |
+| `availableFromAge` | no | The age from which plans can draw on the account, e.g. `67` for a pension fund. Until 1 January of the first year you're that age, plans keep it apart: locked, at its own mix, not wealth-taxed ([PLANNER.md](PLANNER.md#the-model-in-brief)). Left out, it can be drawn at any age. The app suggests 65 for a new pension fund. |
 | `includeIn` | no | `{ "netWorth": true, "plan": true }`. A primary home would normally set `"plan": false`. |
 | `successor` | no | The account that replaced this one, e.g. when you switched banks, so charts stay continuous. |
 | `tags`, `notes` | no | Free-form. |
@@ -211,7 +212,6 @@ An instrument is anything you hold a quantity of. Its price is always per `unit`
 | `currency`, `unit` | yes | What the price is quoted in and per what. The fetcher converts, e.g. USD per troy ounce into EUR per gram. |
 | `assetClasses` | yes | Its mix across `equity`, `bonds`, `cash`, `gold`, `crypto`, `realEstate` and `other`. A 60/40 fund is `{ "equity": "0.6", "bonds": "0.4" }`. |
 | `isin`, `ticker` | no | Identification. |
-| `tax` | no | Overrides the tax treatment implied by `kind`. `govBondShare` is the share held in government bonds, e.g. `{ "govBondShare": "0.8" }` for Italy's 12.5% rate on them, applied pro rata. `fundType` says what kind of fund an `etf` or `fund` is: `equity` (more than half in shares), `mixed` (at least a quarter), `realEstate`, `foreignRealEstate` (real estate, mainly abroad) or `other`; when it's left out, the planner derives it from `assetClasses` (it can't tell `foreignRealEstate`). `deliveryClaim: true` marks an `etc` that gives a right to delivery of the metal, such as Xetra-Gold, which Germany taxes like the metal. Other keys are kept for the tax systems. |
 | `priceSource` | no | Where prices come from. If it's absent, you enter prices by hand. |
 
 For `coingecko`, `symbol` is the coin's CoinGecko ID (`ethereum`, from its page on coingecko.com) or its ticker (`ETH`), in any case. The fetcher resolves it to an ID in this order: a built-in table of well-known tickers (`BTC`, `ETH`, `SOL`, …); a lowercase symbol, tried as an ID as it is; then, for anything else or an ID CoinGecko doesn't know, CoinGecko's search, which takes the coin with that ID, or else the highest-ranked coin with that ticker. The file keeps the symbol as you typed it, and the price list shows what it resolved to, e.g. "ETH → ethereum".
@@ -271,7 +271,7 @@ Rules:
 - **Which file.** A record's date decides its file: `2026-09-30` goes in `history/2026/2026-09.json`.
 - **Uniqueness.** There is at most one valuation per account per date, one price per instrument per date, one FX rate per currency pair per date, and one value per index per date. Trades are keyed by account, date and their `id`, so an account can have several on one day.
 - **Two kinds of valuation.** A valuation holds either a `balance` (one amount in the account's currency, negative for debts) or `positions` plus optional `cash`. An account can switch between them over time. For example, the imported history can be balances and later check-ins can have positions. An account that records trades (`"valuation": "trades"`) records only `cash`: positions listed in its valuation are a check against its trades, and a balance isn't used ([TRADES.md](TRADES.md)).
-- **Cost basis.** `costBasis` is optional: the total purchase cost of a position in the account's currency (Italian brokers show it as *valore di carico*). The planner uses it to estimate the tax due when you sell. Where it's missing, the plan asks for an estimate instead. It matters most for physical gold: if you can't document the purchase price, Italy taxes the whole sale price.
+- **Cost basis.** `costBasis` is optional: the total purchase cost of a position in the account's currency (Italian brokers show it as *valore di carico*). The planner uses it to estimate the tax due when you sell. Where it's missing, the plan uses an estimate of the share of gain (`portfolio.unrealizedGainShare`), or else counts the whole value as gain, with a warning.
 - **Flow.** `flow` is optional: the net money added (+) or taken out (−) since the account's previous valuation, in the account's currency. The check-in fills it in from defaults that depend on the kind of account, and you can edit it (see [PROGRESS.md](PROGRESS.md#data-this-needs-from-day-one)). A missing flow means unknown. The sum of all flows over a period is what you actually saved. An account that records trades gets its flows from its trades and cash, and its `flow` is written for the record ([TRADES.md](TRADES.md#flows)).
 - **FX direction.** FX rates follow the ECB convention: 1 `base` = `rate` × `quote`.
 - **Sources.** `source` is optional and says where a record's values came from: `manual` (typed in), `import` (a spreadsheet), `ledger` (a journal, imported by an earlier version), or the service that answered: `yahoo`, `coingecko`, `gold-api`, `ecb`, `eurostat`. Prices, rates and index values fetched for past dates (*Fill In Past Prices*, `retire prices --fill-history`) are ordinary records dated the day they're for, with the source of the service that answered, as usual: gold priced from Yahoo Finance's `GC=F` futures has `"source": "yahoo"` although its instrument's `priceSource` is `gold-api`. Filling in only adds records for dates that have none; it never replaces one, whatever its source.
@@ -304,14 +304,14 @@ An account that closes during the period ends at zero: its value on the closing 
 
 ## `plans/<id>.json`
 
-There is one file per scenario. Its fields and what they mean are described in [PLANNER.md](PLANNER.md#plan-file). Its amounts are in today's money, in the plan's `currency` (by default the library's `baseCurrency`).
+There is one file per scenario. Its fields and what they mean are described in [PLANNER.md](PLANNER.md#plan-file). Its amounts are in today's money, in the library's `baseCurrency`.
 
 ## `projections/<plan-id>/`
 
 Saved projections for one plan:
 
 - `baselines/<date>.json`: a projection saved at the first check-in of each year, or by hand. It stores the projected percentiles for each year, the expected path, the accounts included, and a copy of the plan's inputs.
-- `headlines/<year>.json`: the headline answer recorded at each check-in: the earliest age, the chance at the target age, the readiness (plan assets as a share of what retiring today needs) and the old FI progress.
+- `headlines/<year>.json`: the headline answer recorded at each check-in: the earliest age, the chance at the target age and the readiness (plan assets as a share of what retiring today needs). Records written by earlier versions may also hold the old FI progress and the tax parameters used.
 
 Fields and examples are in [PROGRESS.md](PROGRESS.md#baselines). These files aren't deleted when a plan changes or is deleted, because they are a record of the past.
 
@@ -345,6 +345,7 @@ A file that couldn't be read when the library loaded (it isn't valid JSON, or do
 
 - `schemaVersion` starts at 1. Adding optional fields doesn't change it. Anything else is a new version with a migration.
 - Version 2 lets accounts record trades (`"valuation": "trades"`, `trades` in the history files). An app that knows only version 1 would value such an account without its holdings, so it opens the library read-only. The migration from 1 changes nothing but `schemaVersion`.
+- Version 3 drops the tax systems from plans ([PLANNER.md](PLANNER.md#the-model-in-brief)): plans take income and pensions after tax and two tax rates (`tax.investmentRate`, `tax.wealthRate`), and accounts say from what age plans can draw on them (`availableFromAge`). The migration from 2 carries over what it can: the residence in force becomes rates (Italy 26% and 0.2%, Germany 26.375%, the generic system's as written; Swiss rates depend on the canton and aren't guessed, so such a plan asks for them); work phases entered net and fixed pensions stay; a phase entered gross or a pension a tax system projected keeps its dates, and its name says what it was, for the amount after tax to be entered. A pension wrapper sets the account's `availableFromAge` (Italy's pension fund 67, Switzerland's pillar 3a and vested benefits 60, …). Account and instrument `tax` sections, the person's citizenships, pension-scheme contributions, event kinds, plan `withdrawals` and plan `currency` go.
 - Before migrating, the app copies the library into `backups/<yyyy-MM-dd>-v<old>/`. A migration step works on the raw JSON of every file, and nothing is written unless every step succeeds.
 - An app older than the library opens it read-only: it loads, and every save is refused.
 - A library older than the app is migrated before the app saves anything to it.

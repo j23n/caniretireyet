@@ -117,7 +117,7 @@ A broker account holds cash: you deposit money and buy with it. Precious metals 
 - `settlement` on another type is pointed out and ignored. Dividends and interest can't be paid outside the account: one paid into another account is a dividend and a withdrawal of the same amount.
 - It replaces the old workaround of a `deposit` of the same amount on the day of every buy, which went wrong when the buy was edited or deleted.
 
-The app's Add Trade sheet offers it as *Paid from outside this account* (a buy, fee or tax) and *Proceeds leave this account* (a sale), on by default for a metals account and for a trades account that has never held cash (`Library.hasHeldCash(_:)`: no valuation with cash other than zero, no deposit and no sale whose proceeds stayed in it; `Library.defaultSettlement(for:in:)`). On the command line: `retire trades add … --paid-from-outside` (a buy, fee or tax) or `--proceeds-out` (a sale); without them, a buy that takes the cash below zero gets a note saying so. `retire trades list` shows such trades with no cash and what was paid or received in an *Outside* column (`settlement` and `outside` in its JSON).
+The app's Add Trade sheet offers it as *Paid from outside this account* (a buy, fee or tax) and *Proceeds leave this account* (a sale), on by default for a metals account and for a trades account that has never held cash (`Library.hasHeldCash(_:)`: no valuation with cash other than zero, no deposit and no sale whose proceeds stayed in it; `Library.defaultSettlement(for:in:)`). `retire trades list` shows such trades with no cash and what was paid or received in an *Outside* column (`settlement` and `outside` in its JSON).
 
 ### Order within a day
 
@@ -203,7 +203,7 @@ Each has a preview (`previewAddingTrade(_:)`, …) that changes nothing. `addTra
 
 ## Converting an account
 
-Pure functions return the records a conversion writes (`AccountConversion`: the account, its valuations, the trades to add and remove, the months it touches, and notes on what was estimated), so the app and the CLI can preview it, back up those files and apply it (`apply(to:)`, or `convertToTrades(_:)` / `convertToSnapshots(_:)`).
+Pure functions return the records a conversion writes (`AccountConversion`: the account, its valuations, the trades to add and remove, the months it touches, and notes on what was estimated), so the app can preview it, back up those files and apply it (`apply(to:)`, or `convertToTrades(_:)` / `convertToSnapshots(_:)`).
 
 **Snapshots → trades** (`Library.conversionToTrades(of:)`):
 

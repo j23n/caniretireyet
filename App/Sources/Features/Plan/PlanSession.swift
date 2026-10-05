@@ -320,7 +320,7 @@ final class PlanSession {
     }
 
     /// Run What-If: a quick estimate with fewer runs, then every run, with
-    /// the same random draws (PLANNER.md, "Speed").
+    /// the same random draws (PLANNER.md, "Engine details").
     func runWhatIf() {
         saveNow()
         runTask?.cancel()

@@ -2,7 +2,7 @@ import Foundation
 import Model
 import Tracker
 
-/// The money a plan starts with (PLANNER.md, "Portfolio"): the accounts it
+/// The money a plan starts with (PLANNER.md, "The portfolio"): the accounts it
 /// counts, valued on the start date in the base currency, grouped by when
 /// they can be drawn. Bucket 0 is the money you can draw now; each other
 /// bucket holds the accounts available from one later age

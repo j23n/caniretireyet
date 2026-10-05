@@ -135,7 +135,7 @@ struct PlanEventList: View {
 
 // MARK: - Taxes
 
-/// Taxes (PLANNER.md, "Taxes"): one rate on investment income and gains,
+/// Taxes (PLANNER.md, "The model in brief"): one rate on investment income and gains,
 /// and an optional wealth tax on the money you can draw above an allowance.
 /// Income from work and pensions is entered after tax, so it needs none.
 struct PlanTaxesEditor: View {

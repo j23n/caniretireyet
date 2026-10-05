@@ -15,7 +15,7 @@ enum PlanRunMode: String, Hashable, Sendable {
     /// Every run the plan asks for (2,000 by default).
     case full
     /// Fewer runs with the same random draws: a what-if's quick estimate,
-    /// before its full run (PLANNER.md, "Speed").
+    /// before its full run (PLANNER.md, "Engine details").
     case fast
 }
 
