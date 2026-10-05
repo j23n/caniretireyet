@@ -1,0 +1,85 @@
+# TEMPORARY: plays the Plan screen's scenarios (App/Repro) on macOS and the
+# iOS Simulator, to find the crash when switching to Progress during a run.
+name: Repro
+
+on:
+  push:
+    branches: [johanneswindelen/elegant-cannon-8gg3bp]
+    paths: [App/**, .github/workflows/repro.yml]
+
+permissions:
+  contents: read
+
+jobs:
+  mac:
+    name: Repro · macOS
+    runs-on: macos-26
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v5
+      - run: brew install xcodegen
+      - run: xcodegen generate --spec App/repro.yml
+      - name: Build
+        run: >
+          xcodebuild build -quiet -project App/PlanRepro.xcodeproj -scheme PlanRepro
+          -destination 'platform=macOS' -derivedDataPath "$RUNNER_TEMP/DD" CODE_SIGNING_ALLOWED=NO
+      - name: Scenarios
+        run: |
+          app="$RUNNER_TEMP/DD/Build/Products/Debug/PlanRepro.app/Contents/MacOS/PlanRepro"
+          for s in single switch toggle inputs checkIn checkInSwitch whatIf; do
+            echo "::group::$s"
+            REPRO_SCENARIO=$s perl -e 'alarm shift; exec @ARGV' 300 "$app" > "$RUNNER_TEMP/$s.log" 2>&1
+            code=$?
+            grep -E "REPRO|Fatal|fatal|Terminating|exception|Exception|precondition|Thread [0-9]+ Crashed" "$RUNNER_TEMP/$s.log" | head -40
+            echo "RESULT $s exit $code"
+            echo "::endgroup::"
+            echo "RESULT $s exit $code" >> "$RUNNER_TEMP/results.txt"
+          done
+          cat "$RUNNER_TEMP/results.txt"
+      - name: Crash reports
+        if: always()
+        run: |
+          ls -lt ~/Library/Logs/DiagnosticReports/ 2>/dev/null | head -20
+          for f in $(ls -t ~/Library/Logs/DiagnosticReports/PlanRepro* 2>/dev/null | head -3); do
+            echo "=== $f"; head -c 60000 "$f"
+          done
+
+  ios:
+    name: Repro · iOS Simulator
+    runs-on: macos-26
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v5
+      - run: brew install xcodegen
+      - run: xcodegen generate --spec App/repro.yml
+      - name: Build
+        run: >
+          xcodebuild build -quiet -project App/PlanRepro.xcodeproj -scheme PlanRepro
+          -destination 'generic/platform=iOS Simulator' -derivedDataPath "$RUNNER_TEMP/DD" CODE_SIGNING_ALLOWED=NO
+      - name: Scenarios
+        run: |
+          xcrun simctl list devices available | grep -i iphone | head -5
+          udid=$(xcrun simctl list devices available | grep -i "iphone" | grep -oE '[0-9A-F-]{36}' | head -1)
+          echo "device $udid"
+          xcrun simctl boot "$udid" || true
+          xcrun simctl bootstatus "$udid" -b
+          xcrun simctl install "$udid" "$RUNNER_TEMP/DD/Build/Products/Debug-iphonesimulator/PlanRepro.app"
+          for s in single switch toggle inputs checkIn checkInSwitch whatIf; do
+            echo "::group::$s"
+            SIMCTL_CHILD_REPRO_SCENARIO=$s perl -e 'alarm shift; exec @ARGV' 300 \
+              xcrun simctl launch --console-pty --terminate-running-process "$udid" com.example.planrepro \
+              > "$RUNNER_TEMP/$s.log" 2>&1
+            code=$?
+            grep -E "REPRO|Fatal|fatal|Terminating|exception|Exception|precondition|crash" "$RUNNER_TEMP/$s.log" | head -40
+            echo "RESULT $s exit $code"
+            echo "::endgroup::"
+            echo "RESULT $s exit $code" >> "$RUNNER_TEMP/results.txt"
+          done
+          cat "$RUNNER_TEMP/results.txt"
+      - name: Crash reports
+        if: always()
+        run: |
+          ls -lt ~/Library/Logs/DiagnosticReports/ 2>/dev/null | head -20
+          for f in $(ls -t ~/Library/Logs/DiagnosticReports/PlanRepro* 2>/dev/null | head -3); do
+            echo "=== $f"; head -c 60000 "$f"
+          done
