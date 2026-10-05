@@ -1,0 +1,69 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "instruments/<id>.json",
+  "description": "Anything you hold a quantity of. Its price is always per unit, in currency.",
+  "type": "object",
+  "required": ["id", "name", "kind", "currency", "unit", "assetClasses"],
+  "properties": {
+    "id": { "description": "The same as the file name.", "$ref": "common.schema.json#/$defs/slug" },
+    "name": { "type": "string" },
+    "kind": {
+      "description": "etc is an exchange-traded commodity; metal is physical metal (coins, bars).",
+      "$comment": "Open enum.",
+      "enum": ["etf", "fund", "stock", "bond", "etc", "crypto", "metal", "other"]
+    },
+    "currency": {
+      "description": "What prices are quoted in. The fetcher converts, e.g. USD per troy ounce into EUR per gram.",
+      "$ref": "common.schema.json#/$defs/currency"
+    },
+    "unit": { "description": "What one price is per: share, g, kg, ozt, or a coin's symbol (BTC). Free-form.", "type": "string" },
+    "assetClasses": {
+      "description": "The instrument's mix: a 60/40 fund is { \"equity\": \"0.6\", \"bonds\": \"0.4\" }.",
+      "$ref": "common.schema.json#/$defs/assetMix"
+    },
+    "isin": { "type": "string" },
+    "ticker": { "type": "string" },
+    "priceSource": {
+      "description": "Where today's prices come from. Absent: prices are entered by hand. Past prices may come from elsewhere without changing it (a gold-api metal's from its futures on Yahoo Finance, older crypto from Yahoo Finance's pairs); the price records say which, in source.",
+      "type": "object",
+      "required": ["provider", "symbol"],
+      "properties": {
+        "provider": { "$comment": "Open enum.", "enum": ["yahoo", "coingecko", "gold-api", "eodhd", "twelvedata"] },
+        "symbol": {
+          "description": "The provider's identifier: a Yahoo ticker (VWCE.DE), a metal code for gold-api (XAU), or for coingecko the coin's CoinGecko ID (ethereum) or its ticker (ETH), in any case. A ticker is resolved through a built-in table of well-known coins, then CoinGecko's search; the file keeps it as typed. The app's price list shows what a ticker resolved to, e.g. \"ETH → ethereum\".",
+          "type": "string"
+        }
+      }
+    }
+  },
+  "examples": [
+    {
+      "assetClasses": { "equity": "1" },
+      "currency": "EUR",
+      "id": "vwce",
+      "isin": "IE00BK5BQT80",
+      "kind": "etf",
+      "name": "Vanguard FTSE All-World UCITS ETF (Acc)",
+      "priceSource": { "provider": "yahoo", "symbol": "VWCE.DE" },
+      "unit": "share"
+    },
+    {
+      "assetClasses": { "crypto": "1" },
+      "currency": "EUR",
+      "id": "btc",
+      "kind": "crypto",
+      "name": "Bitcoin",
+      "priceSource": { "provider": "coingecko", "symbol": "bitcoin" },
+      "unit": "BTC"
+    },
+    {
+      "assetClasses": { "gold": "1" },
+      "currency": "EUR",
+      "id": "gold",
+      "kind": "metal",
+      "name": "Gold (coins and bars)",
+      "priceSource": { "provider": "gold-api", "symbol": "XAU" },
+      "unit": "g"
+    }
+  ]
+}

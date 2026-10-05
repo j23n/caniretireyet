@@ -8,7 +8,7 @@ struct ValidateTests {
         #expect(run.status == 0, "\(run.all)")
         #expect(run.output == """
             Library \(library.path)
-              Format version  2 (current)
+              Format version  3 (current)
               Read-only       no
               Files read      32
               Contents        10 accounts (1 closed), 3 instruments, 12 months of history (2025-10 to 2026-09), \
@@ -36,9 +36,10 @@ struct ValidateTests {
                 { "account": "old-bank", "balance": "10", "date": "2026-09-30" },
             """)
         try library.write("history/2026/2026-09.json", september)
-        // A plan naming a tax system and an account that don't exist.
+        // A plan naming accounts that don't exist.
         var plan = try library.text("plans/base.json")
-        plan = plan.replacingOccurrences(of: #""system": "it""#, with: #""system": "xx""#)
+        plan = plan.replacingOccurrences(of: #""start": "latest-check-in""#,
+                                         with: #""exclude": ["ghost"], "start": "latest-check-in""#)
         plan = plan.replacingOccurrences(of: #""account": "fondo-pensione""#, with: #""account": "fondo-vecchio""#)
         try library.write("plans/base.json", plan)
         return library
@@ -63,22 +64,22 @@ struct ValidateTests {
         #expect(output.contains("""
             plans/base.json
               warning contributions[0].account: the account "fondo-vecchio" doesn't exist.
-              warning tax.residence[0].system: "xx" isn't a tax system this version knows (it, ch, de, generic).
+              warning portfolio.exclude[0]: the account "ghost" doesn't exist.
             """))
         #expect(output.hasSuffix("\n1 error, 5 warnings.\n"))
     }
 
     @Test func warningsAloneExitZeroUnlessStrict() async throws {
         let library = try TemporaryFolder.exampleLibrary()
-        var account = try library.text("accounts/directa.json")
-        account = account.replacingOccurrences(of: "it.ordinary", with: "it.nothing")
-        try library.write("accounts/directa.json", account)
+        var plan = try library.text("plans/base.json")
+        plan = plan.replacingOccurrences(of: #""account": "fondo-pensione""#, with: #""account": "fondo-vecchio""#)
+        try library.write("plans/base.json", plan)
 
         let run = await retire(["validate", "--library", library.path])
         #expect(run.status == 0)
         #expect(run.output.contains("""
-            accounts/directa.json
-              warning tax.wrapper: "it.nothing" isn't a wrapper any tax system defines.
+            plans/base.json
+              warning contributions[0].account: the account "fondo-vecchio" doesn't exist.
             """))
         #expect(run.output.hasSuffix("0 errors, 1 warning.\n"))
         let strict = await retire(["validate", "--library", library.path, "--strict"])
@@ -106,7 +107,7 @@ struct ValidateTests {
         let run = await retire(["validate", "--library", library.path, "--json"])
         #expect(run.status == 1)
         let json = try parseJSON(run.output)
-        #expect(json["schemaVersion"] as? Int == 2)
+        #expect(json["schemaVersion"] as? Int == 3)
         #expect(json["readOnly"] as? Bool == false)
         #expect(json["errors"] as? Int == 1)
         #expect(json["warnings"] as? Int == 5)
@@ -117,12 +118,33 @@ struct ValidateTests {
 
     @Test func aNewerLibraryIsReadOnly() async throws {
         let library = try TemporaryFolder.exampleLibrary()
-        let settings = try library.text("library.json").replacingOccurrences(of: #""schemaVersion": 2"#,
-                                                                              with: #""schemaVersion": 3"#)
+        let settings = try library.text("library.json").replacingOccurrences(of: #""schemaVersion": 3"#,
+                                                                              with: #""schemaVersion": 4"#)
         try library.write("library.json", settings)
         let run = await retire(["validate", "--library", library.path])
-        #expect(run.output.contains("  Format version  3, newer than this version understands (2)\n"))
+        #expect(run.output.contains("  Format version  4, newer than this version understands (3)\n"))
         #expect(run.output.contains("  Read-only       yes: update the app to make changes\n"))
+    }
+
+    /// A library.json that isn't valid JSON leaves only default settings in
+    /// memory, so the library is read-only and no command writes them.
+    @Test func aLibraryWhoseSettingsCantBeReadIsReadOnly() async throws {
+        let library = try TemporaryFolder.exampleLibrary()
+        let broken = String(try library.text("library.json").dropLast(3))
+        try library.write("library.json", broken)
+        let run = await retire(["validate", "--library", library.path])
+        #expect(run.status == 1)
+        #expect(run.output.contains("  Format version  unknown (library.json can't be read)\n"), "\(run.all)")
+        #expect(run.output.contains("  Read-only       yes: library.json can't be read; fix it or restore it from "
+            + "backups/\n"), "\(run.all)")
+        #expect(run.output.contains("library.json\n  error   This isn't valid JSON."), "\(run.all)")
+        let json = try parseJSON(await retire(["validate", "--library", library.path, "--json"]).output)
+        #expect(json["readOnly"] as? Bool == true)
+
+        let set = await retire(["settings", "--library", library.path, "--inflation-index", "hicp-ea"])
+        #expect(set.status != 0)
+        #expect(set.errors.contains("library.json: The file can't be read. The library is open read-only"), "\(set.all)")
+        #expect(try library.text("library.json") == broken)
     }
 
     @Test func tradesThatNeedMoreThanTheirFileAreChecked() async throws {

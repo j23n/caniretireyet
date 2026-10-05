@@ -1,45 +1,34 @@
 import Foundation
 import Model
 import Planner
-import TaxGeneric
-import TaxGermany
-import TaxItaly
-import TaxKit
-import TaxSwitzerland
-
-/// The tax systems the app knows, registered in one place (TAXES.md,
-/// "Adding a system": registering a new one is an import and an entry
-/// here, and the app target links its library product).
-/// Everything else reads this registry: the residence, regime, scheme and
-/// claim-route pickers, the option forms, the account wrappers, a new
-/// plan's residence (the system for the residence country, else `generic`)
-/// and the onboarding's note on tax rules.
-enum AppTaxRegistry {
-    /// Italy (`it`), Switzerland (`ch`), Germany (`de`) and the generic
-    /// flat-rate system (`generic`).
-    static let standard = TaxRegistry([ItalyTaxSystem(), SwissTaxSystem(), GermanTaxSystem(), GenericTaxSystem()])
-}
 
 /// The parts of a library a plan run reads: settings (birth date, base
 /// currency), accounts, instruments and history (valuations, prices, FX,
 /// inflation). Plans, projections and import profiles are left out, so
 /// saving a headline or a baseline doesn't make a plan run again.
 struct PlanRunInputs: Hashable, Sendable {
+    /// The settings without what the Planner never reads, which only the
+    /// screens use: the main plan, the person's name and the inflation
+    /// index actual values are adjusted with. So "Set as Main Plan" doesn't
+    /// make every plan's results out of date.
     var settings: LibrarySettings
     var accounts: [AccountID: Account]
     var instruments: [InstrumentID: Instrument]
     var months: [YearMonth: MonthFile]
 
     init(_ library: Library) {
-        settings = library.settings
+        var settings = library.settings
+        settings.mainPlan = nil
+        settings.person?.name = nil
+        settings.inflationIndex = nil
+        self.settings = settings
         accounts = library.accounts
         instruments = library.instruments
         months = library.months
     }
 }
 
-/// The `PlanEngine` the app uses: the Planner, with the Italian and generic
-/// tax systems.
+/// The `PlanEngine` the app uses: the Planner.
 ///
 /// - **Modes.** `.full` runs every run the plan asks for over every
 ///   retirement age; `.fast` (what-if sliders being dragged) runs
@@ -57,11 +46,9 @@ struct PlanRunInputs: Hashable, Sendable {
 /// - **Cancellation.** Runs stop promptly when their task is cancelled
 ///   (`PlanStore` cancels a superseded run); cancelled runs aren't cached.
 struct PlannerPlanEngine: PlanEngine {
-    let registry: TaxRegistry
     private let cache: PlanRunCache
 
-    init(registry: TaxRegistry = AppTaxRegistry.standard, cacheCapacity: Int = 32) {
-        self.registry = registry
+    init(cacheCapacity: Int = 32) {
         cache = PlanRunCache(capacity: cacheCapacity)
     }
 
@@ -178,7 +165,7 @@ struct PlannerPlanEngine: PlanEngine {
         try Task.checkCancellation()
         let result: PlanResult
         do {
-            result = try await Planner.run(plan: key.plan, library: library, registry: registry,
+            result = try await Planner.run(plan: key.plan, library: library,
                                            options: Self.options(for: key.kind, focusAge: key.focusAge, asOf: key.asOf),
                                            progress: progress)
         } catch let error as PlannerError {
@@ -188,7 +175,7 @@ struct PlannerPlanEngine: PlanEngine {
         let mode: PlanRunMode = if case .base(let runMode) = key.kind { runMode } else { .full }
         let results = PlanResults(
             result: result, mode: mode, birthDate: library.settings.person?.birthDate ?? result.start.date,
-            registry: registry, scansEveryAge: key.kind == .base(.full))
+            scansEveryAge: key.kind == .base(.full))
         await cache.insert(results, for: key)
         return results
     }
@@ -203,10 +190,9 @@ struct PlannerPlanEngine: PlanEngine {
 
     /// The plan's problems without running it (`Planner.validate`), off the
     /// main actor: it takes about a tenth of a second.
-    static func validate(_ plan: PlanDocument, library: Library, asOf: CalendarDate,
-                         registry: TaxRegistry = AppTaxRegistry.standard) async -> [PlanIssue] {
+    static func validate(_ plan: PlanDocument, library: Library, asOf: CalendarDate) async -> [PlanIssue] {
         let task = Task.detached(priority: .userInitiated) {
-            Planner.validate(plan: plan, library: library, registry: registry, options: PlannerOptions(today: asOf))
+            Planner.validate(plan: plan, library: library, options: PlannerOptions(today: asOf))
         }
         return await withTaskCancellationHandler {
             await task.value

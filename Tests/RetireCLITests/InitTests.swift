@@ -8,18 +8,17 @@ struct InitTests {
         let folder = try TemporaryFolder()
         let path = folder.url("My Library").path
         let run = await retire(["init", path, "--birth-date", "1990-05-01", "--currency", "eur",
-                                "--residence", "it", "--name", "Alex", "--citizenship", "it", "--citizenship", "DE"])
+                                "--residence", "it", "--name", "Alex"])
         #expect(run.status == 0, "\(run.all)")
         #expect(run.output.hasPrefix("Created a new library in \(path)\n"))
         #expect(run.output.contains("  Base currency  EUR\n"))
-        #expect(run.output.contains("  Citizenships   IT, DE\n"))
+        #expect(run.output.contains("  Country        IT\n"))
         #expect(run.output.contains("retire import <file> --library \"\(path)\""))
 
         let loaded = try LibraryFolder(root: URL(fileURLWithPath: path)).load()
         #expect(loaded.report.issues.isEmpty)
         #expect(loaded.library.settings == LibrarySettings(
-            baseCurrency: .eur, person: Person(name: "Alex", birthDate: "1990-05-01", citizenships: ["IT", "DE"]),
-            taxResidence: .it))
+            baseCurrency: .eur, person: Person(name: "Alex", birthDate: "1990-05-01"), taxResidence: .it))
         for folderName in ["accounts", "instruments", "history", "plans"] {
             #expect(folder.exists("My Library/\(folderName)"))
         }

@@ -91,8 +91,7 @@ enum PreviewLibrary {
             currency: "EUR",
             opened: "2025-06-01",
             institution: "Banca Esempio",
-            country: "IT",
-            tax: AccountTax(wrapper: "it.ordinary")),
+            country: "IT"),
         Account(
             id: "conto-fineco",
             name: "Conto Fineco",
@@ -101,7 +100,6 @@ enum PreviewLibrary {
             opened: "2024-03-01",
             institution: "FinecoBank",
             country: "IT",
-            tax: AccountTax(wrapper: "it.ordinary"),
             tags: ["daily"]),
         Account(
             id: "directa",
@@ -112,7 +110,6 @@ enum PreviewLibrary {
             institution: "Directa SIM",
             country: "IT",
             valuation: .trades,
-            tax: AccountTax(wrapper: "it.ordinary"),
             tags: ["fire"]),
         Account(
             id: "fondo-pensione",
@@ -123,7 +120,7 @@ enum PreviewLibrary {
             institution: "Fondo Esempio",
             country: "IT",
             assetClasses: [.bonds: d("0.4"), .equity: d("0.6")],
-            tax: AccountTax(wrapper: "it.pensionFund", details: ["joined": .string("2022-01-01")])),
+            availableFromAge: 67),
         Account(
             id: "gold-coins",
             name: "Gold coins",
@@ -131,7 +128,6 @@ enum PreviewLibrary {
             currency: "EUR",
             opened: "2023-02-01",
             country: "IT",
-            tax: AccountTax(wrapper: "it.ordinary"),
             notes: "Made-up example: coins kept in a safe deposit box."),
         Account(
             id: "ledger-wallet",
@@ -139,7 +135,6 @@ enum PreviewLibrary {
             kind: .crypto,
             currency: "EUR",
             opened: "2022-05-10",
-            tax: AccountTax(wrapper: "it.ordinary"),
             tags: ["fire"]),
         Account(
             id: "mutuo-casa",
@@ -168,8 +163,7 @@ enum PreviewLibrary {
             currency: "EUR",
             opened: "2023-09-01",
             institution: "Employer",
-            country: "IT",
-            tax: AccountTax(wrapper: "it.tfr")),
+            country: "IT"),
     ]
 
     static let instruments: [Instrument] = [
@@ -339,32 +333,24 @@ enum PreviewLibrary {
                 "returns": {
                   "bonds": { "real": "0.01", "volatility": "0.06" },
                   "cash": { "real": "0", "volatility": "0.01" },
-                  "crypto": { "real": "0", "volatility": "0.7" },
+                  "crypto": { "medianReal": "0", "real": "0.16629", "volatility": "0.7" },
                   "equity": { "real": "0.045", "volatility": "0.17" },
                   "gold": { "real": "0.01", "volatility": "0.15" }
                 }
               },
-              "contributions": [{ "account": "fondo-pensione", "perYear": "5000", "until": "retirement" }],
+              "contributions": [
+                { "account": "fondo-pensione", "perYear": "5000", "until": "retirement" }
+              ],
               "endAge": 95,
               "events": [
-                { "age": 62, "amount": "150000", "kind": "inheritance", "name": "Inheritance", "probability": "0.8" },
+                { "age": 62, "amount": "150000", "name": "Inheritance", "probability": "0.8" },
                 { "amount": "-25000", "name": "New car", "year": 2031 }
               ],
               "id": "base",
               "name": "Base case",
               "pensions": [
-                {
-                  "claim": "earliest",
-                  "options": { "contributionYears": "8", "foreignContributionYears": "6", "montante": "92000" },
-                  "scheme": "it.inps"
-                },
-                {
-                  "fromAge": 67,
-                  "name": "State pension from previous country",
-                  "perYear": "4800",
-                  "scheme": "fixed",
-                  "taxedIn": "residence"
-                }
+                { "fromAge": 67, "name": "State pension", "perYear": "14000" },
+                { "fromAge": 67, "name": "State pension from previous country", "perYear": "4800" }
               ],
               "portfolio": { "start": "latest-check-in", "unrealizedGainShare": "0.2" },
               "retirement": { "age": 55 },
@@ -374,45 +360,23 @@ enum PreviewLibrary {
                 "retired": "36000",
                 "working": "36000"
               },
-              "tax": {
-                "indexThresholds": true,
-                "overlays": [{ "options": { "minorChild": false, "movedIn": 2025 }, "regime": "it.impatriati-2024" }],
-                "overrides": { "it.irpef.rates": ["0.23", "0.35", "0.43"] },
-                "residence": [
-                  { "from": 2026, "options": { "addizionaleComunale": "0.008", "addizionaleRegionale": "0.0173" }, "system": "it" }
-                ]
-              },
-              "withdrawals": { "cashBuffer": "10000", "strategy": "fixed-real" },
+              "tax": { "investmentRate": "0.26", "wealthAllowance": "5000", "wealthRate": "0.002" },
               "work": [
-                {
-                  "from": "2026-01-01",
-                  "grossSalary": "65000",
-                  "kind": "employee",
-                  "options": { "tfr": "pensionFund" },
-                  "realGrowth": "0.01",
-                  "regime": "it.employee",
-                  "until": "2028-12-31"
-                },
-                {
-                  "costs": "3000",
-                  "from": "2029-01-01",
-                  "kind": "selfEmployed",
-                  "options": { "coefficient": "0.67", "startedIn": 2029 },
-                  "regime": "it.forfettario",
-                  "revenue": "70000",
-                  "until": "retirement"
-                }
+                { "from": "2026-01-01", "name": "Employee", "netIncome": "40000", "realGrowth": "0.01", "until": "2028-12-31" },
+                { "from": "2029-01-01", "name": "Self-employed", "netIncome": "48000", "until": "retirement" }
               ]
             }
             """),
         decode("""
             {
-              "events": [{ "amount": "-15000", "name": "Sabbatical", "year": 2033 }],
+              "events": [
+                { "amount": "-15000", "name": "Sabbatical", "year": 2033 }
+              ],
               "id": "part-time-from-50",
               "name": "Part-time from 50",
               "pensions": [
-                { "claim": 67, "options": { "contributionYears": "8", "montante": "92000" }, "scheme": "it.inps" },
-                { "fromAge": 67, "name": "Pension from previous country", "perYear": "4800", "scheme": "fixed", "taxedIn": "source" }
+                { "fromAge": 67, "name": "State pension", "perYear": "11000" },
+                { "fromAge": 67, "name": "Pension from previous country", "perYear": "4800" }
               ],
               "portfolio": {
                 "exclude": ["gold-coins"],
@@ -425,20 +389,11 @@ enum PreviewLibrary {
               },
               "retirement": { "age": "earliest" },
               "simulation": { "runs": 500 },
-              "spending": { "retired": "32000", "working": "34000" },
-              "tax": {
-                "residence": [
-                  { "from": 2026, "options": { "addizionaleComunale": "0.008", "addizionaleRegionale": "0.0173" }, "system": "it" },
-                  {
-                    "from": 2048,
-                    "options": { "capitalGainsRate": "0.28", "incomeTaxRate": "0.2", "wealthTaxRate": "0" },
-                    "system": "generic"
-                  }
-                ]
-              },
+              "spending": { "flexible": { "enabled": false, "floor": "0.85" }, "retired": "32000", "working": "34000" },
+              "tax": { "investmentRate": "0.26" },
               "work": [
-                { "from": "2026-01-01", "grossSalary": "65000", "kind": "employee", "realGrowth": "0.01", "until": "2038-04-11" },
-                { "from": "2038-04-12", "kind": "net", "netIncome": "18000", "until": "retirement" }
+                { "from": "2026-01-01", "netIncome": "40000", "realGrowth": "0.01", "until": "2038-04-11" },
+                { "from": "2038-04-12", "name": "Part-time", "netIncome": "18000", "until": "retirement" }
               ]
             }
             """),
@@ -489,32 +444,24 @@ enum PreviewLibrary {
             "returns": {
               "bonds": { "real": "0.01", "volatility": "0.06" },
               "cash": { "real": "0", "volatility": "0.01" },
-              "crypto": { "real": "0", "volatility": "0.7" },
+              "crypto": { "medianReal": "0", "real": "0.16629", "volatility": "0.7" },
               "equity": { "real": "0.045", "volatility": "0.17" },
               "gold": { "real": "0.01", "volatility": "0.15" }
             }
           },
-          "contributions": [{ "account": "fondo-pensione", "perYear": "5000", "until": "retirement" }],
+          "contributions": [
+            { "account": "fondo-pensione", "perYear": "5000", "until": "retirement" }
+          ],
           "endAge": 95,
           "events": [
-            { "age": 62, "amount": "150000", "kind": "inheritance", "name": "Inheritance", "probability": "0.8" },
+            { "age": 62, "amount": "150000", "name": "Inheritance", "probability": "0.8" },
             { "amount": "-25000", "name": "New car", "year": 2031 }
           ],
           "id": "base",
           "name": "Base case",
           "pensions": [
-            {
-              "claim": "earliest",
-              "options": { "contributionYears": "8", "foreignContributionYears": "6", "montante": "92000" },
-              "scheme": "it.inps"
-            },
-            {
-              "fromAge": 67,
-              "name": "State pension from previous country",
-              "perYear": "4800",
-              "scheme": "fixed",
-              "taxedIn": "residence"
-            }
+            { "fromAge": 67, "name": "State pension", "perYear": "14000" },
+            { "fromAge": 67, "name": "State pension from previous country", "perYear": "4800" }
           ],
           "portfolio": { "start": "latest-check-in", "unrealizedGainShare": "0.2" },
           "retirement": { "age": 55 },
@@ -524,34 +471,10 @@ enum PreviewLibrary {
             "retired": "34000",
             "working": "36000"
           },
-          "tax": {
-            "indexThresholds": true,
-            "overlays": [{ "options": { "minorChild": false, "movedIn": 2025 }, "regime": "it.impatriati-2024" }],
-            "overrides": { "it.irpef.rates": ["0.23", "0.35", "0.43"] },
-            "residence": [
-              { "from": 2026, "options": { "addizionaleComunale": "0.008", "addizionaleRegionale": "0.0173" }, "system": "it" }
-            ]
-          },
-          "withdrawals": { "cashBuffer": "10000", "strategy": "fixed-real" },
+          "tax": { "investmentRate": "0.26", "wealthAllowance": "5000", "wealthRate": "0.002" },
           "work": [
-            {
-              "from": "2026-01-01",
-              "grossSalary": "65000",
-              "kind": "employee",
-              "options": { "tfr": "pensionFund" },
-              "realGrowth": "0.01",
-              "regime": "it.employee",
-              "until": "2028-12-31"
-            },
-            {
-              "costs": "3000",
-              "from": "2029-01-01",
-              "kind": "selfEmployed",
-              "options": { "coefficient": "0.67", "startedIn": 2029 },
-              "regime": "it.forfettario",
-              "revenue": "70000",
-              "until": "retirement"
-            }
+            { "from": "2026-01-01", "name": "Employee", "netIncome": "40000", "realGrowth": "0.01", "until": "2028-12-31" },
+            { "from": "2029-01-01", "name": "Self-employed", "netIncome": "48000", "until": "retirement" }
           ]
         }
         """

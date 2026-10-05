@@ -3,20 +3,13 @@ import Model
 import Testing
 import TestSupport
 
-/// Which inflation index a library uses (FILE_FORMAT.md, "library.json":
-/// `inflationIndex`), and which one goes with a plan's currency. All made up.
+/// Which inflation index a library uses (docs/schema,
+/// library.schema.json: `inflationIndex`), and which one goes with a currency. All made up.
 struct InflationIndicesTests {
     private func library(currency: CurrencyCode, residence: CountryCode? = nil, index: IndexID? = nil) -> Library {
         var library = Library()
         library.settings = LibrarySettings(baseCurrency: currency, taxResidence: residence, inflationIndex: index)
         return library
-    }
-
-    private func plan(_ id: PlanID, currency: CurrencyCode? = nil) -> PlanDocument {
-        var plan = PlanDocument(id: id, name: id.rawValue, retirement: PlanRetirement(age: .earliest),
-                                spending: PlanSpending(working: 1, retired: 1))
-        plan.currency = currency
-        return plan
     }
 
     @Test func everyCountryWithAnHICPHasAnIndex() {
@@ -87,7 +80,7 @@ struct InflationIndicesTests {
         #expect(library.inflationIndices == [.hicpIT])
     }
 
-    @Test func aPlanCurrencyGetsTheIndexOfItsArea() {
+    @Test func aCurrencyGetsTheIndexOfItsArea() {
         let italy = library(currency: .eur, residence: .it)
         #expect(italy.inflationIndex(for: .eur) == .hicpIT)
         #expect(italy.inflationIndex(for: .chf) == "hicp-ch")
@@ -107,13 +100,11 @@ struct InflationIndicesTests {
         #expect(us.inflationIndex(for: .eur) == .hicpEA)
     }
 
-    @Test func theLibraryNeedsAnIndexForEachPlansCurrency() {
+    @Test func theLibraryNeedsItsOwnIndex() {
         var library = self.library(currency: .eur, residence: .it)
-        library.plans = ["base": plan("base"), "swiss": plan("swiss", currency: .chf),
-                         "us": plan("us", currency: .usd), "euro": plan("euro", currency: .eur)]
-        #expect(library.inflationIndices == ["hicp-ch", .hicpIT])
+        #expect(library.inflationIndices == [.hicpIT])
         library.settings.inflationIndex = .hicpEA
-        #expect(library.inflationIndices == ["hicp-ch", .hicpEA])
+        #expect(library.inflationIndices == [.hicpEA])
         #expect(self.library(currency: .usd).inflationIndices.isEmpty)
     }
 

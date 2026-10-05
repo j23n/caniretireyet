@@ -51,6 +51,8 @@ struct UpdateValueSheet: View {
         #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
         #endif
+        // Something typed isn't lost by swiping the sheet down: only Cancel discards it.
+        .interactiveDismissDisabled(input != AccountValuationInput())
     }
 
     private func form(for account: Account) -> some View {
@@ -415,8 +417,8 @@ struct CloseAccountSheet: View {
 
 // MARK: - Edit
 
-/// Renaming and re-categorising an account (FILE_FORMAT.md, "Account
-/// lifecycle"): its history refers to its ID, which never changes.
+/// Renaming and re-categorising an account (docs/schema,
+/// account.schema.json): its history refers to its ID, which never changes.
 struct EditAccountSheet: View {
     let accountID: AccountID
 
@@ -425,6 +427,8 @@ struct EditAccountSheet: View {
     @Environment(\.locale) private var locale
 
     @State private var form: AccountForm?
+    /// The fields as loaded, to tell whether anything was changed.
+    @State private var initialForm: AccountForm?
     @State private var showsProblems = false
     @State private var errorMessage: String?
 
@@ -446,11 +450,16 @@ struct EditAccountSheet: View {
         #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
         #endif
+        // A change isn't lost by swiping the sheet down: only Cancel discards it.
+        .interactiveDismissDisabled(form != initialForm)
         .onAppear {
             if form == nil, let account = library.account(accountID) {
-                let balances = library.valuator.valuations(for: account.id).filter(\.isBalance).count
+                let valuations = library.valuator.valuations(for: account.id)
+                let hasHistory = !valuations.isEmpty || !library.library.trades(for: account.id).isEmpty
                 form = AccountForm(editing: account, residence: library.settings.taxResidence,
-                                   balanceValueCount: balances, locale: locale)
+                                   balanceValueCount: valuations.filter(\.isBalance).count, hasHistory: hasHistory,
+                                   locale: locale)
+                initialForm = form
             }
         }
     }
@@ -459,7 +468,7 @@ struct EditAccountSheet: View {
         let problems = form.wrappedValue.problems(locale: locale)
         return Form {
             AccountDetailsFields(form: form, showsKindPicker: true)
-            AccountTaxFields(form: form)
+            AccountPlanFields(form: form)
             Section {
                 TextField("Notes", text: form.notes, prompt: Text("Optional"), axis: .vertical)
                     .lineLimit(2...6)

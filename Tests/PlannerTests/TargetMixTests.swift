@@ -1,14 +1,12 @@
 import Foundation
 import Model
 @testable import Planner
-import TaxKit
 import Testing
 
-/// A target mix that changes with age (PLANNER.md, "Rebalancing"): each
-/// year the taxable buckets are rebalanced, saved into and drawn from
-/// toward the mix in force at that year's age, a `retirement` step follows
-/// each candidate retirement age, and the switch is a taxed sale. On the
-/// flat test system with no volatility, so every number is exact.
+/// A target mix that changes with age (PLANNER.md, "Target mix"): each year
+/// the money you can draw is rebalanced, saved into and drawn from toward
+/// the mix in force at that year's age, and a `retirement` step follows each
+/// candidate retirement age. With no volatility, so every number is exact.
 struct TargetMixTests {
     /// Born 1970-01-01: 55 on the start date, 56 in 2026, 62 in 2032.
     static func library(mix: AssetMix = [.equity: 1], balance: Decimal = 100_000) -> Library {
@@ -24,10 +22,10 @@ struct TargetMixTests {
         return plan
     }
 
-    static func engine(_ plan: PlanDocument, _ library: Library, system: FlatTaxSystem = FlatTaxSystem(),
-                       ages: [Int]? = nil) async throws -> (Engine, PlanModel) {
+    static func engine(_ plan: PlanDocument, _ library: Library, ages: [Int]? = nil) async throws
+        -> (Engine, PlanModel) {
         let (interpreted, issues) = PlanInterpreter.interpret(
-            plan: plan, library: library, registry: Sample.registry(system),
+            plan: plan, library: library,
             options: PlannerOptions(maxRetirementAge: 62, solveSustainableSpending: false))
         let model = try #require(interpreted, "\(issues)")
         let ages = ages ?? [model.currentAge]
@@ -35,23 +33,15 @@ struct TargetMixTests {
         return (engine, model)
     }
 
-    /// The deterministic run at `age`, traced: per year, the liquid bucket's
-    /// share of each class after rebalancing, and the run's years.
-    static func shares(_ engine: Engine, age: Int) throws -> (shares: [[AssetClass: Double]], years: [YearDetail]) {
-        let portfolio = engine.portfolio
-        let liquid = try #require(portfolio.buckets.firstIndex { $0.wrapper == "flat.ordinary" })
-        var simulator = engine.simulator(age: age)
-        let recorder = PathRecorder()
-        let (_, years) = simulator.tracedRun(nil, spending: 0, recorder: recorder)
-        let classes = portfolio.classes
-        let shares = recorder.years.map { year -> [AssetClass: Double] in
-            let values = classes.indices.map { year.rebalancedClasses[liquid * classes.count + $0] }
-            let total = values.reduce(0, +)
-            var shares: [AssetClass: Double] = [:]
-            for (c, value) in values.enumerated() where value > 1e-9 { shares[classes[c]] = value / total }
-            return shares
+    /// The target mix of the money you can draw in each year when retiring
+    /// at `age`, by class.
+    static func mixes(_ engine: Engine, age: Int) -> [[AssetClass: Double]] {
+        let classes = engine.portfolio.classes
+        return engine.schedules[age]!.accessibleMix.map { shares in
+            var mix: [AssetClass: Double] = [:]
+            for (c, share) in shares.enumerated() where share > 1e-12 { mix[classes[c]] = share }
+            return mix
         }
-        return (shares, years)
     }
 
     static func matches(_ shares: [AssetClass: Double], _ expected: [AssetClass: Double]) -> Bool {
@@ -66,56 +56,41 @@ struct TargetMixTests {
             TargetMixStep(fromAge: .age(60), mix: [.equity: d("0.3"), .bonds: d("0.6"), .cash: d("0.1")]),
         ])
         let (engine, model) = try await Self.engine(plan, Self.library())
-        let (shares, years) = try Self.shares(engine, age: model.currentAge)
-        #expect(years.map(\.age) == [56, 57, 58, 59, 60, 61, 62])
-        for (year, share) in zip(years, shares) {
-            let expected: [AssetClass: Double] = switch year.age {
+        let years = model.frames.map(\.age)
+        #expect(years == [56, 57, 58, 59, 60, 61, 62])
+        for (age, mix) in zip(years, Self.mixes(engine, age: model.currentAge)) {
+            let expected: [AssetClass: Double] = switch age {
             case ..<58: [.equity: 0.8, .bonds: 0.2]
             case ..<60: [.equity: 0.5, .bonds: 0.5]
             default: [.equity: 0.3, .bonds: 0.6, .cash: 0.1]
             }
-            #expect(Self.matches(share, expected), "\(year.age): \(share)")
+            #expect(Self.matches(mix, expected), "\(age): \(mix)")
         }
-        // The schedule says which step is in force each year.
-        #expect(engine.schedules[model.currentAge]!.targetSteps == [-1, -1, 0, 0, 1, 1, 1])
-        // Without tax and with equity at 5%, the value compounds the mix's return.
+        // With equity at 5% and the rest at 0%, the value compounds each year's mix's return.
+        let result = try await Sample.run(plan, Self.library(),
+                                          options: PlannerOptions(maxRetirementAge: 56, solveSustainableSpending: false))
         let growth = [1.04, 1.04, 1.025, 1.025, 1.015, 1.015, 1.015].reduce(100_000, *)
-        #expect(close(years.last?.endAssets, growth, 1e-6))
+        #expect(close(result.expectedPath.years.last?.endAssets, growth, 1e-9))
     }
 
     @Test func withoutATargetMixTheAccountsKeepTheirOwnMixUntilTheFirstStep() async throws {
         let plan = Self.plan(steps: [TargetMixStep(fromAge: .age(59), mix: [.bonds: 1])])
         let (engine, model) = try await Self.engine(plan, Self.library(mix: [.equity: d("0.7"), .cash: d("0.3")]))
-        let (shares, years) = try Self.shares(engine, age: model.currentAge)
-        for (year, share) in zip(years, shares) {
-            #expect(Self.matches(share, year.age < 59 ? [.equity: 0.7, .cash: 0.3] : [.bonds: 1]), "\(year.age)")
+        for (age, mix) in zip(model.frames.map(\.age), Self.mixes(engine, age: model.currentAge)) {
+            #expect(Self.matches(mix, age < 59 ? [.equity: 0.7, .cash: 0.3] : [.bonds: 1]), "\(age)")
         }
     }
 
-    /// The year of the switch sells what the new mix doesn't want, and the
-    /// sale's gain is taxed like any other; with no returns, no other year sells.
-    @Test func theSwitchYearSellsAndIsTaxed() async throws {
-        var system = FlatTaxSystem()
-        system.gainsRate = 0.25
-        let plan = Self.plan(equityReturn: "0", gainShare: "0.5",
+    /// Switching the mix isn't taxed: what was paid is tracked for the money
+    /// you can draw as a whole, so its share of gain doesn't change.
+    @Test func theSwitchIsNotTaxed() async throws {
+        var plan = Self.plan(equityReturn: "0", gainShare: "0.5",
                              steps: [TargetMixStep(fromAge: .age(58), mix: [.equity: d("0.6"), .bonds: d("0.4")])])
-        let result = try await Planner.run(plan: plan, library: Self.library(), registry: Sample.registry(system),
-                                           options: PlannerOptions(maxRetirementAge: 56,
-                                                                   solveSustainableSpending: false))
-        let years = result.expectedPath.years
-        // Sell x of equity (half of it gain, taxed at 25%) so that what's left
-        // is 60% of the bucket after the tax: 100,000 − x = 0.6 (100,000 − 0.125 x).
-        let sold = 40_000 / 0.925
-        for year in years {
-            let tax = year.taxes.first { $0.id == "flat.gains" }?.amount ?? 0
-            if year.age == 58 {
-                #expect(close(tax, 0.125 * sold, 1e-3), "\(tax)")
-            } else {
-                #expect(abs(tax) < 1e-6, "\(year.age): \(tax)")
-            }
-        }
-        #expect(close(result.expectedValue(in: 2028), 100_000 - 0.125 * sold, 1e-3))
-        #expect(close(result.expectedValue(in: 2032), 100_000 - 0.125 * sold, 1e-3))
+        plan.tax.investmentRate = d("0.25")
+        let result = try await Sample.run(plan, Self.library(),
+                                          options: PlannerOptions(maxRetirementAge: 56, solveSustainableSpending: false))
+        #expect(result.expectedPath.years.allSatisfy { $0.taxes.isEmpty })
+        #expect(close(result.expectedValue(in: 2032), 100_000))
     }
 
     // MARK: Retirement steps
@@ -127,17 +102,18 @@ struct TargetMixTests {
             TargetMixStep(fromAge: .retirement, mix: [.equity: d("0.5"), .bonds: d("0.5")]),
             TargetMixStep(fromAge: .age(61), mix: [.bonds: 1]),
         ])
-        let (engine, _) = try await Self.engine(plan, Self.library(), ages: [55, 58, 60, 61])
-        #expect(engine.schedules[55]!.targetSteps == [0, 0, 0, 0, 0, 1, 1])
-        #expect(engine.schedules[58]!.targetSteps == [-1, -1, 0, 0, 0, 1, 1])
-        #expect(engine.schedules[60]!.targetSteps == [-1, -1, -1, -1, 0, 1, 1])
-        // Retiring at 61, the later step starts as well and wins: the retirement step never applies.
-        #expect(engine.schedules[61]!.targetSteps == [-1, -1, -1, -1, -1, 1, 1])
-        let (shares, years) = try Self.shares(engine, age: 58)
-        for (year, share) in zip(years, shares) {
-            let expected: [AssetClass: Double] = year.age < 58 ? [.equity: 1]
-                : year.age < 61 ? [.equity: 0.5, .bonds: 0.5] : [.bonds: 1]
-            #expect(Self.matches(share, expected), "\(year.age): \(share)")
+        let (engine, model) = try await Self.engine(plan, Self.library(), ages: [55, 58, 60, 61])
+        let ages = model.frames.map(\.age)
+        func expected(retiring: Int) -> [[AssetClass: Double]] {
+            ages.map { age in
+                age >= 61 ? [.bonds: 1] : age >= max(retiring, 56) && retiring < 61 ? [.equity: 0.5, .bonds: 0.5]
+                    : [.equity: 1]
+            }
+        }
+        for retiring in [55, 58, 60, 61] {
+            let mixes = Self.mixes(engine, age: retiring)
+            #expect(zip(mixes, expected(retiring: retiring)).allSatisfy { Self.matches($0, $1) },
+                    "retiring at \(retiring): \(mixes)")
         }
     }
 
@@ -150,8 +126,9 @@ struct TargetMixTests {
             let (engine, _) = try await Self.engine(Self.plan(target: [.equity: 1], steps: steps), Self.library())
             let start = engine.startPortfolio(extra: 50_000)
             var added: [AssetClass: Double] = [:]
-            for (index, lot) in start.lots.enumerated() where lot.value - engine.portfolio.lots[index].value > 1e-9 {
-                added[start.classes[lot.classIndex], default: 0] += lot.value - engine.portfolio.lots[index].value
+            for (c, value) in start.buckets[0].values.enumerated()
+            where value - engine.portfolio.buckets[0].values[c] > 1e-9 {
+                added[start.classes[c]] = value - engine.portfolio.buckets[0].values[c]
             }
             return added
         }
@@ -171,7 +148,7 @@ struct TargetMixTests {
         func needed(_ steps: [TargetMixStep]) async throws -> Double {
             var plan = Self.plan(target: [.equity: 1], steps: steps)
             plan.spending.retired = d("20000")
-            let result = try await Planner.run(plan: plan, library: library, registry: Sample.registry(),
+            let result = try await Planner.run(plan: plan, library: library,
                                                options: PlannerOptions(maxRetirementAge: 56,
                                                                        solveSustainableSpending: false))
             return try #require(result.answer.assetsNeeded?.amount)
@@ -188,8 +165,8 @@ struct TargetMixTests {
     @Test func validationNamesTheStepsThatCantWork() throws {
         let library = Self.library()
         func issues(_ steps: [TargetMixStep]) -> [PlanIssue] {
-            Planner.validate(plan: Self.plan(target: [.equity: 1], steps: steps), library: library,
-                             registry: Sample.registry()).filter { $0.code.hasPrefix("planner.targetMix") }
+            Planner.validate(plan: Self.plan(target: [.equity: 1], steps: steps), library: library)
+                .filter { $0.code.hasPrefix("planner.targetMix") }
         }
         let backwards = issues([TargetMixStep(fromAge: .age(60), mix: [.bonds: 1]),
                                 TargetMixStep(fromAge: .age(58), mix: [.cash: 1])])
@@ -214,29 +191,28 @@ struct TargetMixTests {
 
         // A step before today's age applies from the start: nothing to say.
         #expect(issues([TargetMixStep(fromAge: .age(40), mix: [.bonds: 1])]).isEmpty)
-        let base = Planner.validate(plan: Self.plan(target: [.equity: d("0.5")]), library: library,
-                                    registry: Sample.registry())
+        let base = Planner.validate(plan: Self.plan(target: [.equity: d("0.5")]), library: library)
         #expect(base.map(\.message).contains("The target mix adds up to 50%, not 100%; the plan scales it."))
-        // An empty target mix (every share cleared) keeps each account's own mix, and says so.
-        let cleared = Planner.validate(plan: Self.plan(target: AssetMix()), library: library, registry: Sample.registry())
+        // An empty target mix (every share cleared) keeps the money's own mix, and says so.
+        let cleared = Planner.validate(plan: Self.plan(target: AssetMix()), library: library)
         #expect(cleared.filter { $0.code == "planner.targetMixEmpty" }.map(\.message)
-            == ["The target mix has no asset class with a share; each ordinary account keeps its own mix."])
+            == ["The target mix has no asset class with a share; the money you can draw keeps its own mix."])
     }
 
     // MARK: Today's mix and a mix's growth
 
-    @Test func theStartingMixSplitsOrdinaryAccountsFromTheRest() throws {
+    @Test func theStartingMixSplitsTheMoneyYouCanDrawFromTheRest() throws {
         let library = Sample.library(birth: "1970-01-01", on: "2025-12-31", [
             SampleAccount(id: "broker", mix: [.equity: d("0.75"), .cash: d("0.25")], balance: 80_000),
-            SampleAccount(id: "fund", kind: .pensionFund, wrapper: "flat.pension", mix: [.bonds: 1], balance: 20_000),
+            SampleAccount(id: "fund", kind: .pensionFund, mix: [.bonds: 1], balance: 20_000, availableFromAge: 60),
             SampleAccount(id: "home", kind: .property, mix: [.realEstate: 1], balance: 300_000, includeInPlan: false),
         ])
-        let mix = Planner.startingMix(plan: Self.plan(), library: library, registry: Sample.registry())
+        let mix = Planner.startingMix(plan: Self.plan(), library: library)
         #expect(mix.date == "2025-12-31" && mix.currency == .eur)
-        #expect(mix.taxable == [.equity: 60_000, .cash: 20_000])
+        #expect(mix.accessible == [.equity: 60_000, .cash: 20_000])
         #expect(mix.all == [.equity: 60_000, .cash: 20_000, .bonds: 20_000])
-        #expect(mix.taxableTotal == 80_000 && mix.allTotal == 100_000)
-        #expect(mix.taxableShares == [.equity: 0.75, .cash: 0.25])
+        #expect(mix.accessibleTotal == 80_000 && mix.allTotal == 100_000)
+        #expect(mix.accessibleShares == [.equity: 0.75, .cash: 0.25])
         #expect(mix.allShares == [.equity: 0.6, .cash: 0.2, .bonds: 0.2])
         #expect(mix.classes == [.equity, .bonds, .cash])
     }

@@ -1,8 +1,8 @@
 import Foundation
 import Model
 
-/// How the app names an inflation index (FILE_FORMAT.md, "library.json":
-/// `inflationIndex`): by the area whose consumer prices it measures, in the
+/// How the app names an inflation index (docs/schema,
+/// library.schema.json: `inflationIndex`): by the area whose consumer prices it measures, in the
 /// user's language. Free of SwiftUI so it can be checked on Linux.
 enum InflationIndexText {
     /// "Germany", "the euro area": the area an HICP measures; `nil` for an

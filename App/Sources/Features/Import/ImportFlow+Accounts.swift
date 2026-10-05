@@ -218,7 +218,9 @@ extension ImportFlow {
     /// Why a change is proposed.
     func reason(for change: AccountChangeProposal) -> String {
         switch change.change {
-        case .close: "Its values stop before the file's last date."
+        case .close:
+            "Its values stop before the file's last date. Turn it on only if the account was closed, not just "
+                + "updated less often than the file."
         case .openEarlier: "The file has values from before the day it was opened."
         case .recordTrades:
             library.accounts[change.account]?.valuationMode == .balance

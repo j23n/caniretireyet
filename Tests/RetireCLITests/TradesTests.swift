@@ -2,6 +2,7 @@ import Foundation
 import Model
 import Storage
 import Testing
+import Tracker
 
 /// `retire import` with a broker's transactions (the made-up
 /// `Samples/trades/`), and `retire trades` against the example library,
@@ -77,8 +78,8 @@ struct TradesImportCommandTests {
         let dry = await retire(["import", file, "--library", library.path, "--account", "conto-fineco"])
         #expect(dry.status == 0, "\(dry.all)")
         #expect(dry.output.contains("  Record trades in conto-fineco: its holdings and cash will come from its trades, "
-            + "and the balances of its valuations won't count any more (`retire trades convert conto-fineco --to "
-            + "trades` first keeps them, as cash) (not switched, so its trades are left out: pass "
+            + "and the balances of its valuations won't count any more (switching it to trades in the app first keeps "
+            + "them, as cash) (not switched, so its trades are left out: pass "
             + "--accept-trades-mode, or choose a trades account with --account)\n"))
 
         let left = await retire(["import", file, "--library", library.path, "--account", "conto-fineco", "--apply",
@@ -123,9 +124,9 @@ struct TradesImportCommandTests {
     @Test func aDealersInvoicesArePaidFromOutsideTheAccount() async throws {
         let library = try TemporaryFolder.exampleLibrary()
         let clock = TestClock()
-        let converted = await retire(["trades", "convert", "gold-coins", "--to", "trades", "--library", library.path,
-                                      "--apply"], clock: clock)
-        #expect(converted.status == 0, "\(converted.all)")
+        var converted = try library.load()
+        _ = converted.convertToTrades("gold-coins")
+        try library.library.save(converted, previous: try library.load())
         let files = try TemporaryFolder()
         try files.write("dealer.csv", """
             Tipo;Data;Titolo;Quantità;Prezzo;Importo
@@ -204,138 +205,6 @@ struct TradesCommandTests {
         #expect(holdings.output.contains("ledger-wallet doesn't record trades, so its trades don't count."))
     }
 
-    @Test func addAndRemoveWriteAfterABackup() async throws {
-        let library = try TemporaryFolder.exampleLibrary()
-        let original = try library.snapshot()
-        let clock = TestClock()
-        let arguments = ["trades", "add", "directa", "--library", library.path, "--type", "buy", "--date", "2026-09-15",
-                         "--instrument", "vwce", "--quantity", "2", "--price", "135.10", "--fees", "2", "--id",
-                         "buy-sept"]
-        let dry = await retire(arguments + ["--dry-run"], clock: clock)
-        #expect(dry.status == 0, "\(dry.all)")
-        #expect(dry.output == """
-            Would add the buy of 2 vwce @ 135.1 on 2026-09-15 (buy-sept): cash -272.20.
-              The flows of later values were worked out again: 2026-09-30 (+283.50).
-            Dry run: nothing was written (1 file would change).
-
-            """)
-        #expect(try library.snapshot() == original)
-
-        let added = await retire(arguments, clock: clock)
-        #expect(added.status == 0, "\(added.all)")
-        #expect(added.output.contains("Wrote 1 file: history/2026/2026-09.json.\n"))
-        var loaded = try library.load()
-        let trade = try #require(loaded.trade(TradeKey(account: "directa", date: "2026-09-15", id: "buy-sept")))
-        #expect(trade == Trade(account: "directa", date: "2026-09-15", id: "buy-sept", type: .buy, instrument: "vwce",
-                               quantity: 2, price: dec("135.1"), fees: 2, source: .manual))
-        // The next check-in's automatic flow follows: the buy's cash came from new money.
-        #expect(loaded.valuations(for: "directa").last?.flow == dec("283.5"))
-        #expect(try library.backups().map(\.label) == ["trades"])
-
-        let taken = await retire(arguments, clock: clock)
-        #expect(taken.status == 1)
-        #expect(taken.errors.contains("directa already has a trade buy-sept on 2026-09-15."))
-
-        let removed = await retire(["trades", "remove", "directa", "buy-sept", "--library", library.path],
-                                   clock: clock)
-        #expect(removed.status == 0, "\(removed.all)")
-        #expect(removed.output.hasPrefix("Removed the buy of 2 vwce @ 135.1 on 2026-09-15 (buy-sept): cash -272.20.\n"))
-        loaded = try library.load()
-        #expect(loaded.trades(for: "directa").count == 20)
-        let changed = try library.snapshot().filter { original[$0.key] != $0.value }.keys
-        #expect(changed.allSatisfy { $0.hasPrefix("backups/") }, "\(changed.sorted())")
-    }
-
-    @Test func goldPaidFromOutsideTheAccount() async throws {
-        let library = try TemporaryFolder.exampleLibrary()
-        let clock = TestClock()
-        let converted = await retire(["trades", "convert", "gold-coins", "--to", "trades", "--library", library.path,
-                                      "--apply"], clock: clock)
-        #expect(converted.status == 0, "\(converted.all)")
-        #expect(converted.output.contains("""
-              Date        Type     Instrument  Quantity  Price     Amount      Cost  Paid     ID
-              2025-10-31  opening  gold            62.2                    5,210.00           opening-gold
-              2026-03-31  buy      gold            31.1   97.3  -3,026.03            outside  buy-gold
-            """), "\(converted.output)")
-
-        let bought = await retire(["trades", "add", "gold-coins", "--library", library.path, "--type", "buy",
-                                   "--date", "2026-09-20", "--instrument", "gold", "--quantity", "10", "--price", "98",
-                                   "--fees", "15", "--paid-from-outside", "--id", "bar"], clock: clock)
-        #expect(bought.status == 0, "\(bought.all)")
-        #expect(bought.output.hasPrefix(
-            "Added the buy of 10 gold @ 98 on 2026-09-20 (bar): paid from outside the account, -995.00.\n"))
-        var loaded = try library.load()
-        #expect(loaded.trade(TradeKey(account: "gold-coins", date: "2026-09-20", id: "bar"))?.settlement == .external)
-
-        let sold = await retire(["trades", "add", "gold-coins", "--library", library.path, "--type", "sell",
-                                 "--date", "2026-09-25", "--instrument", "gold", "--quantity", "5", "--price", "99",
-                                 "--proceeds-out", "--id", "coin"], clock: clock)
-        #expect(sold.status == 0, "\(sold.all)")
-        #expect(sold.output.hasPrefix(
-            "Added the sell of 5 gold @ 99 on 2026-09-25 (coin): proceeds paid out of the account, +495.00.\n"))
-
-        let list = await retire(["trades", "list", "gold-coins", "--library", library.path], clock: clock)
-        #expect(list.status == 0, "\(list.all)")
-        #expect(list.output.contains("""
-              Date        Type     Instrument  Quantity  Price  Cash    Outside   Fees  Tax    Gain  ID
-              2025-10-31  opening  gold            62.2         0.00                                 opening-gold
-              2026-03-31  buy      gold            31.1   97.3  0.00  -3,026.03                      buy-gold
-              2026-09-20  buy      gold              10     98  0.00    -995.00  15.00               bar
-              2026-09-25  sell     gold               5     99  0.00    +495.00              +48.19  coin
-            """), "\(list.output)")
-        #expect(list.output.hasSuffix("Holds on 2026-09-30: gold 98.3 (cost 8,784.22), cash 0.00.\n"), "\(list.output)")
-        let json = try parseJSON(await retire(["trades", "list", "gold-coins", "--library", library.path, "--json"],
-                                              clock: clock).output)
-        let trades = try #require(json["trades"] as? [[String: Any]])
-        let bar = try #require(trades.first { $0["id"] as? String == "bar" })
-        #expect(bar["settlement"] as? String == "external")
-        #expect(bar["cashEffect"] as? String == "0")
-        #expect(bar["outside"] as? String == "-995")
-        #expect(trades.first?["outside"] == nil)
-
-        // Paid from the account's cash, the buy takes it below zero: the CLI says how to say otherwise.
-        let fromCash = await retire(["trades", "add", "gold-coins", "--library", library.path, "--type", "buy",
-                                     "--date", "2026-09-28", "--instrument", "gold", "--quantity", "1", "--price",
-                                     "98", "--dry-run"], clock: clock)
-        #expect(fromCash.status == 0, "\(fromCash.all)")
-        #expect(fromCash.output.contains("  Note: this takes the cash to -98.00 on 2026-09-28. If it was paid from "
-            + "another account, add it with --paid-from-outside instead.\n"), "\(fromCash.output)")
-        loaded = try library.load()
-        #expect(loaded.trades(for: "gold-coins").count == 4)
-
-        let wrongWay = await retire(["trades", "add", "gold-coins", "--library", library.path, "--type", "sell",
-                                     "--instrument", "gold", "--quantity", "1", "--price", "98",
-                                     "--paid-from-outside"])
-        #expect(wrongWay.status == 64)
-        #expect(wrongWay.errors.contains("--paid-from-outside is for a buy, a fee or a tax; a sale's proceeds leave "
-            + "the account with --proceeds-out."))
-        let deposit = await retire(["trades", "add", "gold-coins", "--library", library.path, "--type", "deposit",
-                                    "--amount", "10", "--proceeds-out"])
-        #expect(deposit.status == 64)
-        #expect(deposit.errors.contains("--proceeds-out is for a sell."))
-    }
-
-    @Test func addRefusesWhatCantBeATrade() async throws {
-        let library = try TemporaryFolder.exampleLibrary()
-        let incomplete = await retire(["trades", "add", "directa", "--library", library.path, "--type", "buy",
-                                       "--quantity", "2"])
-        #expect(incomplete.status == 1)
-        #expect(incomplete.errors.contains("A buy needs an instrument. A buy needs a price or an amount."))
-        let notTrades = await retire(["trades", "add", "conto-fineco", "--library", library.path, "--type", "deposit",
-                                      "--amount", "100"])
-        #expect(notTrades.status == 1)
-        #expect(notTrades.errors.contains("conto-fineco doesn't record trades"))
-        let badNumber = await retire(["trades", "add", "directa", "--library", library.path, "--type", "deposit",
-                                      "--amount", "1.000,50"])
-        #expect(badNumber.status == 64)
-        #expect(badNumber.errors.contains("--amount must be a number written like 102.30"))
-        let badType = await retire(["trades", "add", "directa", "--library", library.path, "--type", "gift"])
-        #expect(badType.status == 64)
-        let missing = await retire(["trades", "remove", "directa", "nope", "--library", library.path])
-        #expect(missing.status == 1)
-        #expect(missing.errors.contains("directa has no trade nope."))
-    }
-
     @Test func summaryOfAnAccountAndOfAll() async throws {
         let library = try TemporaryFolder.exampleLibrary()
         let run = await retire(["trades", "summary", "directa", "--library", library.path])
@@ -371,68 +240,5 @@ struct TradesCommandTests {
         let notTrades = await retire(["trades", "summary", "ledger-wallet", "--library", library.path])
         #expect(notTrades.status == 1)
         #expect(notTrades.errors.contains("ledger-wallet doesn't record trades"))
-    }
-
-    @Test func convertPreviewsThenAppliesWithABackup() async throws {
-        let library = try TemporaryFolder.exampleLibrary()
-        let original = try library.snapshot()
-        let preview = await retire(["trades", "convert", "ledger-wallet", "--to", "trades", "--library", library.path])
-        #expect(preview.status == 0, "\(preview.all)")
-        #expect(preview.output == """
-            Converting Ledger wallet (ledger-wallet) to trades
-              Records     holdings → trades
-              Trades      2 added, 0 removed
-              Valuations  2 changed of 2
-              Months      2025-10 to 2026-03
-
-            Trades to add
-              Date        Type     Instrument  Quantity   Price  Amount       Cost  Paid     ID
-              2025-10-31  opening  btc           0.4215                  38,258.16           opening-btc
-              2026-03-31  buy      btc             0.03  88,900                     outside  buy-btc
-
-            Notes
-              2025-10-31: The opening of 0.4215 btc has no recorded cost: it's their value then, 38258.16.
-              2026-03-31: ledger-wallet has never held cash, so its buys and sales are paid from and into another account: its cash stays at zero, and what they cost or brought in is new money.
-              2026-03-31: The buy of 0.03 btc is priced at the valuation's price.
-
-            Dry run: nothing was written. To convert, run again with --apply.
-
-            """)
-        #expect(try library.snapshot() == original)
-
-        let clock = TestClock()
-        let applied = await retire(["trades", "convert", "ledger-wallet", "--to", "trades", "--library", library.path,
-                                    "--apply", "--json"], clock: clock)
-        #expect(applied.status == 0, "\(applied.all)")
-        let json = try parseJSON(applied.output)
-        #expect(json["from"] as? String == "holdings")
-        #expect(json["to"] as? String == "trades")
-        #expect(json["mode"] as? String == "apply")
-        #expect((json["addedTrades"] as? [[String: Any]])?.map { $0["id"] as? String } == ["opening-btc", "buy-btc"])
-        #expect((json["written"] as? [String])?.first
-            == "Wrote 3 files: accounts/ledger-wallet.json, history/2025/2025-10.json, history/2026/2026-03.json.")
-        let loaded = try library.load()
-        #expect(loaded.accounts["ledger-wallet"]?.recordsTrades == true)
-        #expect(loaded.trades(for: "ledger-wallet").map(\.id) == ["opening-btc", "buy-btc"])
-        // Labelled as the app labels its conversions.
-        #expect(try library.backups().map(\.label) == ["convert-to-trades"])
-
-        // And back: the trades become positions again.
-        let back = await retire(["trades", "convert", "ledger-wallet", "--to", "snapshots", "--library", library.path,
-                                 "--apply"], clock: clock)
-        #expect(back.status == 0, "\(back.all)")
-        #expect(back.output.contains("  Trades      0 added, 2 removed\n"))
-        #expect(try library.backups().map(\.label) == ["convert-to-trades", "convert-to-snapshots"])
-        let restored = try library.load()
-        #expect(restored.trades(for: "ledger-wallet").isEmpty)
-        #expect(restored.accounts["ledger-wallet"]?.valuationMode == .holdings)
-        let quantities = { (library: Library) in
-            library.valuations(for: "ledger-wallet").map { $0.positions.map(\.quantity) }
-        }
-        #expect(quantities(restored) == quantities(try TemporaryFolder.exampleLibrary().load()))
-
-        let again = await retire(["trades", "convert", "directa", "--to", "trades", "--library", library.path])
-        #expect(again.status == 1)
-        #expect(again.errors.contains("directa already records trades."))
     }
 }

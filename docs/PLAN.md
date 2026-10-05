@@ -1,6 +1,6 @@
 # Plan
 
-> Status: reviewed once (answers in §8). The tax architecture is in [TAXES.md](TAXES.md), the importer is in [IMPORT.md](IMPORT.md), and accounts that record trades are in [TRADES.md](TRADES.md).
+> Status: reviewed once (answers in §8). The planner is in [PLANNER.md](PLANNER.md), the importer is in [IMPORT.md](IMPORT.md), and accounts that record trades are in [TRADES.md](TRADES.md).
 
 ## 1. What we're building
 
@@ -8,10 +8,11 @@ A private app for iPhone and Mac with two halves:
 
 1. **Tracker.** Once a month you check in and record what each account is worth. Cash accounts, pension funds, property and debts are recorded as a balance. For ETFs, crypto and gold you record the quantity, and the app multiplies it by the price. An investment account can instead record its trades (buys, sells, deposits, dividends), and its holdings, purchase cost and realised gains are worked out from them ([TRADES.md](TRADES.md)). Accounts are opened and closed over the years, and their history is kept either way.
 2. **Planner.** Scenarios that start from your latest check-in and simulate the years ahead, covering:
-   - work and savings, with taxes from a pluggable tax system per country of residence (Italy first, with its regimes such as impatriati and forfettario; Switzerland and Germany designed; a generic flat-rate system for any other country);
+   - work and savings, from income after tax;
    - spending in retirement;
-   - public pensions projected from contributions (Italy's INPS first) and any other pensions, taxed by the country of residence or the paying country;
-   - windfalls and large expenses.
+   - pensions, after tax, from your pension statements;
+   - windfalls and large expenses;
+   - a tax rate on investment gains and income, and an optional wealth tax, set by hand.
 
    The result answers the question in the app's name: **can I retire yet, and if not, at what age, and how confident is that?**
 
@@ -34,7 +35,7 @@ All data lives in a folder of plain JSON files in iCloud Drive. The apps on your
 
 - Accounts: create, edit, close and reopen them. Closed accounts stay in the history.
 - Holdings: ETFs and stocks, crypto, and precious metals are recorded as quantity × price. Cash, pension funds, TFR, property and debts are recorded as a balance.
-- Multiple currencies, with one base currency for the library (the euro in the example library); a plan can run in any currency. Every check-in stores the prices and FX rates it used.
+- Multiple currencies, with one base currency for the library (the euro in the example library), which plans run in. Every check-in stores the prices and FX rates it used.
 - Monthly check-in:
   - pre-filled from the previous check-in;
   - prices and FX rates fetched automatically where possible;
@@ -52,20 +53,16 @@ All data lives in a folder of plain JSON files in iCloud Drive. The apps on your
 
 - Scenarios ("plans"), one file each.
 - Working years:
-  - income as an employee or self-employed, under the regimes of the residence's tax system (in Italy: forfettario or regime ordinario, with impatriati where it applies);
-  - a side-by-side comparison of two regimes, e.g. forfettario against ordinario with impatriati, which can't be combined;
-  - social contributions and the pension credits they earn (INPS in Italy);
-  - savings, calculated as net income minus spending.
+  - phases of work, each with its income after tax and optional real growth;
+  - contributions into specific accounts, such as a pension fund;
+  - savings, calculated as income after tax minus spending.
 - Retirement years:
-  - spending, optionally in phases;
-  - public pensions projected from contributions (INPS under the contributory system first);
-  - foreign and other pensions, taxed where the plan and the treaties say;
-  - the pension fund and TFR;
+  - spending, optionally in phases, and optionally flexible: cut after bad years, never below a floor;
+  - pensions after tax, each from an age;
+  - accounts that can be drawn only from an age, such as a pension fund;
   - windfalls and one-off expenses.
-- Pluggable taxes ([TAXES.md](TAXES.md)):
-  - each plan picks a tax system per period of residence, a tax regime for each work phase, and special regimes such as impatriati;
-  - the Italian system ([tax/IT.md](tax/IT.md)): IRPEF, forfettario, ordinario, impatriati, INPS, pension fund, TFR, 26% / 12.5% / 33% on investments, and the 0.2% wealth tax;
-  - a generic flat-rate system for rough plans in a country that has no system yet.
+- Taxes set by hand: one rate on the gain part of sales and on investment income, and an optional wealth tax above an allowance ([PLANNER.md](PLANNER.md#the-model-in-brief)).
+- A target mix, changing with age, that the portfolio is rebalanced to every year.
 - A deterministic projection plus a Monte Carlo simulation, which produce:
   - the headline answer;
   - the earliest retirement age at your chosen confidence level;
@@ -77,7 +74,7 @@ All data lives in a folder of plain JSON files in iCloud Drive. The apps on your
 
 ### Later
 
-These are listed as M3 and M4 in §6: investment performance, explaining the gap to a baseline, widgets, the RW/IVAFE helper, historical return sequences, dynamic withdrawal strategies, retiring abroad, and partner planning. Transaction-based cost basis is done: accounts can record trades ([TRADES.md](TRADES.md)).
+These are listed as M3 and M4 in §6: investment performance, explaining the gap to a baseline, widgets, the RW/IVAFE helper, historical return sequences, and partner planning. Transaction-based cost basis is done: accounts can record trades ([TRADES.md](TRADES.md)).
 
 ### Non-goals
 
@@ -93,11 +90,11 @@ These are listed as M3 and M4 in §6: investment performance, explaining the gap
 | Platform | One SwiftUI app target for iPhone, iPad and Mac. Minimum iOS 26 and macOS 26. | One codebase with a native feel on both platforms and first-class iCloud Drive APIs. A personal app doesn't need to support old OS versions. |
 | Source of truth | A folder of small JSON files, called "the library". | Human-readable, diffable and easy to back up. The data is tiny (thousands of records), so no database is needed. |
 | Sync | iCloud Drive, in the app's own iCloud container. It shows up as a "Can I Retire Yet" folder in Files and Finder. | No server, it works offline, and the files stay visible and editable. |
-| History model | Point-in-time valuations (balances and quantities) by default. An investment account can opt in to trades (`"valuation": "trades"`): its holdings, average cost, cash and realised gains are worked out from buys, sells, deposits and the like, and its check-ins record only cash ([TRADES.md](TRADES.md)). | Valuations match the monthly workflow, and closing an account never touches its history. Trades give an exact purchase cost (*costo medio ponderato*), realised gains, dividends and exact flows for a broker account, which the Italian tax treatment of sales needs. Both styles work for a trades account: record every deposit, or type the cash at each check-in. |
+| History model | Point-in-time valuations (balances and quantities) by default. An investment account can opt in to trades (`"valuation": "trades"`): its holdings, average cost, cash and realised gains are worked out from buys, sells, deposits and the like, and its check-ins record only cash ([TRADES.md](TRADES.md)). | Valuations match the monthly workflow, and closing an account never touches its history. Trades give an exact purchase cost (*costo medio ponderato*), realised gains, dividends and exact flows for a broker account, which the tax on sales needs. Both styles work for a trades account: record every deposit, or type the cash at each check-in. |
 | Money | `Decimal` for every recorded amount, stored as strings in JSON. | No floating-point rounding errors in the tracker. |
 | Currencies | Each account has its own currency; the base currency is EUR. Each check-in stores the prices and FX rates it used. | Past net worth can always be recomputed, even if a price source goes away. |
-| Planner | Yearly steps in today's money, in the plan's currency, deterministic plus Monte Carlo, with a seeded random-number generator. | This approach is standard and easy to explain. It is also fast enough to recompute live while you drag a slider. |
-| Taxes | The engine contains no tax rules. Tax systems (countries) and regimes (forfettario, impatriati, …) are plugins behind one interface, and plans choose them per period. Rates and thresholds live in yearly parameter files that cite their sources. | Tax law changes with every budget law, regimes come and go, and you might move. Each of these should be a new file or module, not a change to the engine. |
+| Planner | Yearly steps in today's money, in the base currency, deterministic plus Monte Carlo, with a seeded random-number generator. | This approach is standard and easy to explain. It is also fast enough to recompute live while you drag a slider. |
+| Taxes | No tax law. Income from work and pensions is entered after tax; investments pay one rate on gains and income, and an optional wealth tax, both set by hand. | An earlier version modelled the Italian, Swiss and German systems in detail. They were hard to get right, harder to check, and still estimates; a few rates you can see beat rules you can't. The research is kept in [research/tax](research/tax/). |
 | Code layout | A Swift package of platform-independent modules, plus a thin app target. | Most of the logic can be built and tested on Linux, in CI and in cloud sessions. Only the UI needs Xcode. |
 | Xcode project | Generated from `App/project.yml` with XcodeGen. | The project definition is readable text, there are no `.pbxproj` merge conflicts, and it can be edited without Xcode. |
 | Dependencies | None in the core modules (Foundation only). The CLI uses Swift Argument Parser. | Fewer moving parts, and the core builds on Linux. |
@@ -114,13 +111,11 @@ caniretireyet/
 │   ├── Tracker/      net-worth math: values, series, breakdowns, flows, performance
 │   ├── Storage/      library folder ⇄ model: JSON codec, validation, migrations, merging
 │   ├── Importer/     CSV reading, format detection, column mapping, import profiles
-│   ├── Planner/      simulation engine and return model; no tax rules
-│   ├── TaxKit/       tax plugin interfaces, shared building blocks, parameter loading
-│   ├── TaxItaly/     the Italian tax system: regimes, INPS, wrappers, yearly parameters
-│   ├── TaxGeneric/   a flat-rate tax system
+│   ├── Planner/      simulation engine and return model
 │   ├── Prices/       price and FX providers
 │   ├── CloudSync/    iCloud container, coordinated file access, downloading, change watching (Apple only)
-│   └── retire/       command-line tool: validate, import, net worth, run a plan
+│   ├── RetireCLI/    the `retire` commands, a library so they can be tested
+│   └── retire/       command-line tool: validate, import, net worth, prices, run a plan
 ├── Tests/            one test target per module; fixtures are a fake example library
 ├── App/
 │   ├── project.yml   XcodeGen spec → CanIRetireYet.xcodeproj (generated, not committed)
@@ -132,19 +127,18 @@ caniretireyet/
 
 Module dependencies:
 
-- `Model` and `TaxKit` depend on nothing.
+- `Model` depends on nothing.
 - `Tracker`, `Storage`, `Importer` and `Prices` depend on `Model`.
-- `Planner` depends on `Model`, `Tracker` and `TaxKit`, and never on a specific country.
-- `TaxItaly` and `TaxGeneric` depend on `TaxKit`.
+- `Planner` depends on `Model` and `Tracker`.
 - `CloudSync` depends on `Storage`.
-- The `retire` CLI and the app sit on top. They register the available tax systems in one place (`TaxRegistry`).
+- The `retire` CLI and the app sit on top.
 
 Only `CloudSync` and the app need Apple frameworks.
 
 ### How the app works at runtime
 
 1. **Load.** At launch, `CloudSync` finds the iCloud container. If iCloud is off, it uses a local folder that can be moved to iCloud later. For a library in iCloud Drive, `CloudSync` first makes sure every file is on the device, downloading the missing ones all at once with progress (see "Sync with iCloud Drive"). `Storage` then loads the whole library into memory, which takes milliseconds because it's small. The opening screen says which step it's at, and never dead-ends.
-2. **Edit.** The UI reads from an `@Observable` `LibraryStore`. An edit changes the in-memory model first. `Storage` then writes only the files that changed. Writes are atomic and go through `NSFileCoordinator`. Each write is merged with the file on disk, so a change that arrived from the other device (or a text editor) and hasn't been reloaded yet is never overwritten unseen ([FILE_FORMAT.md](FILE_FORMAT.md#saving)); the store then reloads what was merged in.
+2. **Edit.** The UI reads from an `@Observable` `LibraryStore`. An edit changes the in-memory model first. `Storage` then writes only the files that changed. Writes are atomic and go through `NSFileCoordinator`. Each write is merged with the file on disk, so a change that arrived from the other device (or a text editor) and hasn't been reloaded yet is never overwritten unseen ([Merging, saving and undo](#merging-saving-and-undo)); the store then reloads what was merged in.
 3. **Watch.** `CloudSync` watches the folder: an `NSMetadataQuery` for a library in iCloud Drive (which also downloads files that aren't on the device yet), or by comparing modification dates for a library on this device. When the other device, or you in a text editor, changes a file, the store reloads that file and the UI updates.
 4. **Plan.** The planner runs in a background task on an immutable snapshot of the library and the plan. It recomputes after changes (debounced), so the results stay live while you edit a plan.
 
@@ -152,13 +146,23 @@ Only `CloudSync` and the app need Apple frameworks.
 
 - **Location.** The library is the `Documents/` folder of the app's iCloud container. Files are downloaded eagerly because they're tiny, before the library is read and whenever they change, so the "Optimize Storage" setting never leaves gaps.
 - **Keeping conflicts rare.** There is one file per account, instrument and plan. History is grouped by month, so a check-in touches one file and past months are rarely edited. Unchanged files are never rewritten.
-- **Resolving conflicts.** When two devices change the same file before syncing, iCloud keeps both versions (`NSFileVersion`). The app merges them record by record, marks the conflict resolved, and shows what it merged on a Sync screen. The rules are in [FILE_FORMAT.md](FILE_FORMAT.md#sync-conflicts).
-- **Saving over a newer file.** A file can also change on disk between the app reading it and writing an edit to it. The write merges with it: record by record for history and headlines, and for other files with a copy in `backups/` before replacing it ([FILE_FORMAT.md](FILE_FORMAT.md#saving)). The Sync screen lists these too.
+- **Resolving conflicts.** When two devices change the same file before syncing, iCloud keeps both versions (`NSFileVersion`). The app merges them record by record, marks the conflict resolved, and shows what it merged on a Sync screen ([Merging, saving and undo](#merging-saving-and-undo)).
+- **Saving over a newer file.** A file can also change on disk between the app reading it and writing an edit to it. The write merges with it: record by record for history and headlines, and for other files with a copy in `backups/` before replacing it ([Merging, saving and undo](#merging-saving-and-undo)). The Sync screen lists these too.
 - **Not missing changes.** The store records every file's modification date when it loads the library, and the watcher's first look is compared with them, so a change that lands while the library loads is reloaded too. When the app comes back to the foreground it compares modification dates again.
 - **First launch on a new device.** A library in iCloud Drive may not be on the device yet. Before offering to create a new one, the app asks iCloud Drive whether `library.json` exists (an `NSMetadataQuery`), waiting up to a few seconds for the answer, so the second device opens the existing library instead of creating another.
 - **Downloading before reading.** A file iCloud Drive hasn't downloaded is only a placeholder, and a coordinated read of it waits until it's downloaded. Read one by one, a library of a few hundred files (an import back to 2017 makes over a hundred months) would take minutes, and never finish offline. So before reading, the app lists the library's files (the folder on disk, then an `NSMetadataQuery` with each file's download status, size and error), asks iCloud for every missing one at once, and shows "Downloading n of N files from iCloud Drive" with a bar until they're all here. Reads stay coordinated, but no longer wait on the network. A library already on the device is read at once.
 - **Never stuck.** If nothing moves for 20 seconds while opening, the app says it's still waiting for iCloud Drive, lists the likely reasons (offline, cellular data off for iCloud Drive, Low Power Mode, iCloud Drive off for the app), and offers Try Again and Keep Waiting. It never offers to create a library then, since that would duplicate the one that hasn't arrived. Each step of opening is logged (`os.Logger`, category `library`), so Console shows where it stops.
 - **Schema guard.** Every library records a `schemaVersion`. An app that finds a newer version than it understands opens the library read-only and asks to be updated. That way an old app on one device can't damage data written by a newer app on the other.
+
+### Merging, saving and undo
+
+How the app treats the files when two copies differ. History and headline files merge **record by record**, matched by their keys: account + date (valuations), account + date + trade ID (trades), instrument + date (prices), currency pair + date (FX rates), index + date (inflation values), and check-in date (headlines). Other files are taken whole.
+
+- **Sync conflicts.** When two devices change the same file before it syncs, iCloud keeps both versions, and the app merges them. History and headline files: every record from every version, and where versions disagree about a record, the most recently modified version wins. Other files: the most recently modified version wins. Versions modified at the same moment are ordered by their contents, so both devices resolve a conflict the same way; within one version, the later of two records with the same key counts, as when loading. Everything else in a merged history or headline file (its unknown keys, for example) comes from the newest version, and the result is written in the canonical layout. A version that isn't valid JSON is left out. Before the merge replaces the file and iCloud's other versions are removed, each version that differs from the result is copied to its own `backups/<timestamp>-conflict/`, so nothing a merge drops is lost; merges are listed on the Sync screen. (A three-way merge against the last-synced copy, which would also merge deletions, is for later.)
+- **Saving over a file changed on disk.** The app writes only the files an edit changed, and each write compares the file on disk with the version the app last read, so a change it hasn't seen yet (the other device's, or one made in a text editor) is never lost. History and headline files: a three-way merge record by record, with the version the app read as the common base. A record changed only on disk keeps the disk's version; one changed only in the app gets the app's; one changed on both sides gets the app's version, unless the app deleted it, when the changed record is kept. Records added on disk, keys the app doesn't know, and records it can't read are kept; when records changed on both sides, the file is first copied to `backups/<timestamp>-conflict/`. Other files: the app's version is written, after the file on disk is copied to `backups/<timestamp>-conflict/`; a file the app deletes is kept instead. Reading, merging and writing a file is one coordinated operation, so a version iCloud Drive delivers meanwhile is merged as well; the Sync screen lists what happened, and the app reloads the merged file.
+- **Unreadable files.** A file that couldn't be read when the library loaded is copied to `backups/<timestamp>-unreadable/` before the app replaces or deletes it. `library.json` is never replaced: the settings the app would write are only defaults ([schema/README.md](schema/README.md#reading-hand-edited-files)).
+- **Backups.** `backups/<yyyy-MM-dd-HHmmss>-<label>/` (in the device's local time), with the label `import`, `undo-import` (the files as they were before an undo), `prices`, `conflict` or `unreadable`, and `backups/<yyyy-MM-dd>-v<old>/` for a migration; a second backup with the same name gets `-2`, `-3`, …. Each mirrors the library's layout, with a `backup.json` ([backup.schema.json](schema/backup.schema.json)). After an import, the files as the import wrote them are copied to the backup's `result/`.
+- **Undo import** (the app, `retire import --undo`) compares each file now with the import's `result` and with the copy from before the import. A file unchanged since the import is put back as it was before it, and a file the import created is deleted. In a history or headline file changed since, records unchanged since the import go back to how they were before it (records it added are removed), and records changed since keep their new values. Any other file changed since is left as it is. What was left in place is listed. A backup without `result` is restored as it is, and a backup is only restored into a library with the same `schemaVersion`.
 
 ### App structure
 
@@ -197,9 +201,10 @@ On the Mac there are also tables for editing many valuations at once, keyboard n
 - **Crypto:** CoinGecko, or an exchange's public ticker. The symbol is the coin's CoinGecko ID or its ticker (`ETH`), which is resolved to an ID through a built-in table of well-known coins or CoinGecko's search. An optional demo API key, kept in the Keychain, raises its rate limit. CoinGecko's free API only has the last 365 days; older prices come from Yahoo Finance's crypto pairs (below).
 - **Gold and silver:** a free spot-price API (gold-api.com, USD per troy ounce, converted to the instrument's currency and unit), or the market price of a physical-gold ETC as a proxy. gold-api.com only has today's spot price, so past prices come from the metal's front-month futures on Yahoo Finance: `GC=F` for gold (`XAU`), `SI=F` for silver, `PL=F` for platinum and `PA=F` for palladium, all in USD per troy ounce and converted the same way. Futures trade within about 1% of spot, so these are an approximation; the price list says so ("Yahoo Finance · GC=F (history)"), and the instrument keeps `gold-api` as its price source.
 - **ETFs on European exchanges:** there's no reliable free official API. We'll start with Yahoo Finance's public chart endpoint. It's unofficial and can break, so providers are pluggable, and a paid one with your own key (EODHD, Twelve Data) can be added.
-- **Inflation:** a consumer-price index, fetched with the FX rates for the months the library is missing: the library's (`inflationIndex` in `library.json`, by default the HICP of the tax residence, else of the base currency), and one for each plan's currency ([FILE_FORMAT.md](FILE_FORMAT.md#libraryjson)). Eurostat's HICP (`prc_hicp_minr`, all items, 2015 = 100) covers every EU country, Iceland, Norway, Switzerland, the candidate countries and the euro area (`hicp-de`, `hicp-ch`, `hicp-ea`, …), through one series builder; other indices are added as providers.
+- **Inflation:** a consumer-price index, fetched with the FX rates for the months the library is missing: the library's (`inflationIndex` in `library.json`, by default the HICP of the tax residence, else of the base currency; [library.schema.json](schema/library.schema.json)). Eurostat's HICP (`prc_hicp_minr`, all items, 2015 = 100) covers every EU country, Iceland, Norway, Switzerland, the candidate countries and the euro area (`hicp-de`, `hicp-ch`, `hicp-ea`, …), through one series builder; other indices are added as providers.
 - **Dates:** each value is the latest on or before the check-in date and is recorded on that date. The price list shows the day it's from, e.g. Friday's close for a Sunday check-in.
 - Fetched prices are cached on the device. Only the prices used in a check-in are written to the library.
+- **Rate limits.** Free APIs allow only a few calls a minute, so at most four instruments are fetched at once (`PriceService.maxConcurrentFetches`), and a check-in's CoinGecko coins are priced in one `simple/price?ids=bitcoin,ethereum,…` call, in every currency asked for.
 - **Past prices.** An import, or history added by hand, can leave years of positions without a price for their dates: gold bought long ago stays at its purchase price in every month since. *Fill In Past Prices* (the Instruments screen, the import's last step, a note under a chart, `retire prices --fill-history`) finds every date the library values a position on without a price for that day (each valuation, and the month ends it's carried over to in months without one of its own), the FX rates those dates need, and the missing inflation months, and fetches them in as few requests as possible:
   - **One history per instrument.** Each provider says where its past prices come from, best first, and each source is asked once for the whole range of dates it covers:
 
@@ -215,7 +220,7 @@ On the Mac there are also tables for editing many valuations at once, keyboard n
     A provider without a history (a price source the app doesn't fetch, or a metal without futures) is listed with its dates, not skipped.
   - **Values on or before each date.** Each date takes the latest value on or before it: up to 7 days back in a daily series (weekends and holidays; two weeks for weekly rates), or the month's close in a monthly one. The price list and results show the day it's from.
   - **Then one request per currency** for the FX rates missing and those that convert a price into its instrument's currency; a rate the library has for the day is used as it is. **One request per index.**
-  - **Nothing is replaced.** Only dates without a record are filled: a price typed in, read from a file (an import, a journal's `P` or `@` prices) or fetched before stays. The records are written in one edit, into each date's month file, after a `fill-history` backup, with the source that answered (`yahoo` for gold from `GC=F`).
+  - **Nothing is replaced.** Only dates without a record are filled: a price typed in, read from a file (an import) or fetched before stays. The records are written in one edit, into each date's month file, after a `fill-history` backup, with the source that answered (`yahoo` for gold from `GC=F`).
   - **What's left** is listed per instrument with the dates still missing and why (no price source, CoinGecko's year and no Yahoo pair, no listing yet), with *Set Price…* for a date and *Choose a Price Source*.
   - A check-in on a past date uses the same sources for the instruments whose provider has no price for that date.
 
@@ -242,8 +247,7 @@ The importer works with any spreadsheet or export instead of a fixed layout. Det
 - Tests use Swift Testing:
   - **Format golden tests:** load the fixture library, save it again, and expect byte-identical files.
   - **Net-worth tests:** unit tests for the math.
-  - **Planner checks:** invariants, run against the `generic` tax system so tax-law changes don't break them.
-  - **Tax reference cases:** data files per tax system, calculated by hand or taken from real payslips and returns, so we can check we're computing the right thing.
+  - **Planner checks:** cases worked out by hand, and invariants (more savings never lowers the chance of success, and the like).
   - **Importer:** a folder of sample files in awkward formats.
 - One-time setup on your Mac:
   1. Join the **Apple Developer Program**, which is paid. iCloud requires it, and without it apps you install on your iPhone stop working after 7 days.
@@ -277,22 +281,14 @@ The importer works with any spreadsheet or export instead of a fixed layout. Det
 
 - Plan files and a plan editor.
 - The engine: yearly simulation, deterministic and Monte Carlo runs, and the earliest-retirement-age search.
-- The tax plugin layer, as described in [TAXES.md](TAXES.md): `TaxKit`, the registry, option forms generated from regime descriptions, validation, and parameter files.
-- The `generic` flat-rate system.
-- The Italian system, as described in [tax/IT.md](tax/IT.md):
-  - employee and freelance income (forfettario or regime ordinario), with impatriati where it applies;
-  - INPS contributions and the contributory-system pension projection;
-  - IRPEF on pensions;
-  - taxes on investment income and gains, and the 0.2% wealth tax;
-  - the pension fund and TFR.
-- Pensions, windfalls, large expenses and spending phases.
+- Taxes set by hand: a rate on investment gains and income, and a wealth tax.
+- Income after tax, pensions, accounts available from an age, windfalls, large expenses and spending phases.
 - Results:
   - the "Can I retire yet?" headline;
   - chance of success against retirement age;
   - a fan chart of the portfolio;
   - income sources and taxes per year;
-  - what-if sliders;
-  - two plans side by side, e.g. forfettario against ordinario with impatriati.
+  - what-if sliders.
 - Progress: the past-and-future chart, the headline recorded at each check-in, yearly and hand-saved baselines, and your actual line over a baseline.
 
 **Done when:** the plan starts from your latest check-in, and the engine matches the reference cases calculated by hand.
@@ -307,17 +303,16 @@ The importer works with any spreadsheet or export instead of a fixed layout. Det
 
 ### M4: Depth (pick by interest)
 
-- Historical and bootstrapped return sequences. Guardrail and variable withdrawal strategies.
+- Historical and bootstrapped return sequences. Variable withdrawal strategies (a guardrails rule is done: flexible spending, [PLANNER.md](PLANNER.md#flexible-spending)).
 - Tracking actual income and spending, to measure your real savings rate.
-- Cost basis from transactions: done, as trades ([TRADES.md](TRADES.md)), with the app's screens, broker transaction CSVs and ledger journals importing into them ([IMPORT.md](IMPORT.md)). Still to do: PIR and other tax wrappers, lots (FIFO), and carrying actual losses forward (minusvalenze) from the trades; the plan's simulation already nets and carries forward the losses of simulated sales, as each country allows ([TAXES.md](TAXES.md#what-a-system-can-tell-the-planner-and-whats-told)).
-- Tax systems for more countries (Switzerland and Germany are designed: [tax/CH.md](tax/CH.md), [tax/DE.md](tax/DE.md)). Until a country has one, the `generic` system approximates it.
+- Cost basis from transactions: done, as trades ([TRADES.md](TRADES.md)), with the app's screens and broker transaction CSVs importing into them ([IMPORT.md](IMPORT.md)). Still to do: lots (FIFO).
 - Reading `.xlsx` and `.numbers` files directly.
 - Planning for a partner or household.
 
 ## 7. Risks
 
 - **Unofficial price endpoints break.** Manual entry always works, and providers can be swapped.
-- **Tax rules change every year, and so can your situation.** Rates live in yearly parameter files with sources, regimes and countries are plugins, and each result shows which rules it used.
+- **Tax rules change every year, and so can your situation.** The plan takes income after tax and two rates you set, so a change is an edit to a number, and every result can be checked by hand ([PLANNER.md](PLANNER.md#calculations)).
 - **iCloud Drive can be slow or create conflicts.** Small files, record-level merging and a visible sync status keep that manageable.
 - **The planner could grow forever.** The MVP answers one question well, and everything else waits until M4.
 
@@ -325,6 +320,6 @@ The importer works with any spreadsheet or export instead of a fixed layout. Det
 
 1. **Apple Developer Program:** a paid membership is assumed, so iCloud is fine.
 2. **Spreadsheet:** the importer maps any layout and format, and doesn't assume a particular spreadsheet ([IMPORT.md](IMPORT.md)).
-3. **Bollo and IVAFE:** the same 0.2%, so the planner treats them as one wealth tax. They differ only in who pays: Italian intermediaries withhold bollo, while for foreign accounts the taxpayer pays IVAFE and declares the account in RW. Blacklisted countries pay 0.4%. The country only matters to the RW helper.
+3. **Bollo and IVAFE:** the same 0.2%, so in Italy they're one wealth tax rate (`tax.wealthRate` 0.002). They differ only in who pays: Italian intermediaries withhold bollo, while for foreign accounts the taxpayer pays IVAFE and declares the account in RW. Blacklisted countries pay 0.4%. The country only matters to the RW helper.
 4. **iOS 26 and macOS 26** are the minimum versions.
-5. **Taxes must be pluggable:** see [TAXES.md](TAXES.md).
+5. **Taxes must be pluggable:** they were, as tax systems per country, and were later replaced by rates set by hand (§3, "Taxes").

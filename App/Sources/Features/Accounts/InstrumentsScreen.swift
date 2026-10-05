@@ -359,6 +359,10 @@ private struct InstrumentUpdateIndicator: View {
 /// A test fetch saves nothing by itself. For an existing instrument it
 /// offers *Save Price*; otherwise the price is saved with the instrument, as
 /// is a price set by hand on a new one.
+///
+/// Once something is changed, it isn't lost by going back or swiping a
+/// sheet down: pushed, the back button gives way to *Cancel* and *Save*;
+/// in a sheet, it can't be swiped away.
 struct InstrumentEditor: View {
     /// `nil` for a new instrument.
     let instrumentID: InstrumentID?
@@ -376,6 +380,8 @@ struct InstrumentEditor: View {
     @Environment(\.locale) private var locale
 
     @State private var form: InstrumentForm?
+    /// The fields as loaded, to tell whether anything was changed.
+    @State private var initialForm: InstrumentForm?
     @State private var showsProblems = false
     @State private var testQuote: InstrumentTestQuote?
     @State private var isTesting = false
@@ -407,12 +413,21 @@ struct InstrumentEditor: View {
         .navigationTitle(title)
         #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
+        // Pushed only on iPhone and iPad; the Mac always shows it in a sheet.
+        .navigationBarBackButtonHidden(hasUnsavedChanges)
         #endif
+        .interactiveDismissDisabled(hasUnsavedChanges)
         .onAppear(perform: load)
     }
 
     private var title: String {
         instrumentID == nil ? "New Instrument" : "Instrument"
+    }
+
+    /// Whether saving would write something: a changed field, or a price
+    /// set by hand for a new instrument.
+    private var hasUnsavedChanges: Bool {
+        form != initialForm || typedPrice != nil
     }
 
     private var existing: Instrument? {
@@ -478,7 +493,6 @@ struct InstrumentEditor: View {
             } footer: {
                 Text("What it's invested in: a world ETF is 100% equity, a 60/40 fund 60% equity and 40% bonds.")
             }
-            taxSection(form)
             priceSourceSection(form)
             pricesSection(form.wrappedValue)
             if !holders.isEmpty {
@@ -510,7 +524,8 @@ struct InstrumentEditor: View {
         .formStyle(.grouped)
         .toolbar {
             ToolbarItem(placement: .cancellationAction) {
-                if isSheet {
+                // Pushed, Cancel takes the place of the back button while there are changes.
+                if isSheet || hasUnsavedChanges {
                     Button("Cancel") { dismiss() }
                 }
             }
@@ -539,43 +554,6 @@ struct InstrumentEditor: View {
         } message: {
             Text("A price typed in by hand for the same day is kept unless you replace it.")
         }
-    }
-
-    /// How plans tax it, for the kinds where it matters: a fund's type
-    /// (automatic from the asset mix, or chosen), an ETC's delivery claim.
-    @ViewBuilder
-    private func taxSection(_ form: Binding<InstrumentForm>) -> some View {
-        if form.wrappedValue.takesFundType {
-            Section {
-                Picker("Fund type", selection: form.fundType) {
-                    Text(form.wrappedValue.automaticFundTypeTitle(locale: locale)).tag(FundType?.none)
-                    ForEach(fundTypes(form.wrappedValue), id: \.self) { type in
-                        Text(InstrumentForm.name(of: type)).tag(Optional(type))
-                    }
-                }
-            } header: {
-                Text("Taxes")
-            } footer: {
-                Text("Some countries tax funds by what they invest in. Automatic follows the asset mix: more than "
-                    + "half equity is an equity fund, a quarter or more a mixed fund. Choose one when the mix doesn't "
-                    + "say, e.g. a real-estate fund investing abroad.")
-            }
-        } else if form.wrappedValue.takesDeliveryClaim {
-            Section {
-                Toggle("Right to delivery of the metal", isOn: form.deliveryClaim)
-            } header: {
-                Text("Taxes")
-            } footer: {
-                Text("An ETC whose holders can ask for the metal itself (e.g. some gold ETCs), which some countries "
-                    + "tax like the metal.")
-            }
-        }
-    }
-
-    /// The fund types offered, with the instrument's own first when this version doesn't know it.
-    private func fundTypes(_ form: InstrumentForm) -> [FundType] {
-        guard let type = form.fundType, !InstrumentForm.fundTypes.contains(type) else { return InstrumentForm.fundTypes }
-        return [type] + InstrumentForm.fundTypes
     }
 
     private func priceSourceSection(_ form: Binding<InstrumentForm>) -> some View {
@@ -704,11 +682,13 @@ struct InstrumentEditor: View {
         CurrencyChoices.common.contains(form.currency) ? CurrencyChoices.common : [form.currency] + CurrencyChoices.common
     }
 
+    /// The price sources the app fetches from (`PriceService.standardInstrumentProviders`),
+    /// with the instrument's own first when it's another one (e.g. EODHD in a
+    /// hand-edited file), so the picker shows its current value.
     private func providers(_ form: InstrumentForm) -> [PriceProvider] {
-        guard let provider = form.provider, !PriceProvider.knownValues.contains(provider) else {
-            return PriceProvider.knownValues
-        }
-        return [provider] + PriceProvider.knownValues
+        let supported = PriceService.standardInstrumentProviders
+        guard let provider = form.provider, !supported.contains(provider) else { return supported }
+        return [provider] + supported
     }
 
     // MARK: Actions
@@ -720,6 +700,7 @@ struct InstrumentEditor: View {
         } else if instrumentID == nil {
             form = InstrumentForm(currency: currency ?? library.baseCurrency)
         }
+        initialForm = form
     }
 
     private func test(_ form: InstrumentForm) {

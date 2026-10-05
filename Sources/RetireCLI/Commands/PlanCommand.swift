@@ -3,14 +3,12 @@ import Foundation
 import Model
 import Planner
 import Storage
-import TaxKit
 
 /// `retire plan run`, also just `retire plan`: runs a plan and prints the answer.
 ///
-/// Runs the main plan (`mainPlan` in library.json) or `--plan <id>` with the
-/// tax systems the app registers (``TaxSystems/registry()``), maps the
+/// Runs the main plan (`mainPlan` in library.json) or `--plan <id>`, maps the
 /// Planner's `PlanResult` into a ``PlanReport`` and prints it, as text or
-/// JSON, in the plan's currency. `--fast` uses fewer runs (the app's quick
+/// JSON, in the library's base currency. `--fast` uses fewer runs (the app's quick
 /// what-if mode); `--years` adds the median run's years; `--save-baseline`
 /// writes the result as a manual baseline (PROGRESS.md, "Baselines").
 ///
@@ -24,13 +22,15 @@ struct PlanCommand: RetireSubcommand {
         discussion: """
             Runs the library's main plan (mainPlan in library.json), or --plan <id>, and prints \
             the headline answer, what retiring today would need (the plan assets that make it reach \
-            the plan's confidence, and your share of them), what you could spend, the chance of \
-            success by retirement age, how the plan read your library (its accounts by tax wrapper, and accounts that start \
-            a pension scheme), and any issues, in the plan's currency. The plan starts from the \
+            the plan's confidence, and your share of them), what you could spend, with flexible \
+            spending what it did (how low spending goes in a bad case, how often and how long it's cut, \
+            and the spending paid every five years), the chance of success by retirement age, how the \
+            plan read your library (the money you can draw now, and accounts available from a later age), \
+            and any issues, in the library's base currency. The plan starts from the \
             latest check-in. --fast uses \(PlannerOptions.defaultFastRuns) runs instead of the plan's \
             own number (2,000 by default), with the same random draws. --years adds the median run \
-            year by year: income by source (lump sums and payouts the rules require apart from what's \
-            drawn), taxes, spending and what's left. --save-baseline <label> saves the result as a \
+            year by year: income after tax, investments sold, taxes on investments and wealth, spending \
+            and what's left. --save-baseline <label> saves the result as a \
             baseline in projections/<plan>/baselines/, to compare your actual numbers against later.
             """)
 
@@ -56,7 +56,7 @@ struct PlanCommand: RetireSubcommand {
             throw ValidationError("A baseline needs every run: leave out --fast to save one.")
         }
         if let saveBaseline, saveBaseline.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            throw ValidationError("--save-baseline needs a label, e.g. \"Before forfettario\".")
+            throw ValidationError("--save-baseline needs a label, e.g. \"Before the move\".")
         }
     }
 
@@ -78,17 +78,16 @@ struct PlanCommand: RetireSubcommand {
         do {
             defer { if progress != nil { console.clearStatus() } }
             result = try await Planner.run(
-                plan: document, library: loaded.library, registry: TaxSystems.registry(),
+                plan: document, library: loaded.library,
                 options: Self.options(plannerOptions, today: context.today), progress: progress)
         } catch let error as PlannerError {
             throw CLIError(Self.message(for: error, plan: document))
         }
 
-        let registry = TaxSystems.registry()
         var report = PlanReport(result: result, currency: result.currency ?? loaded.library.settings.baseCurrency,
                                 fast: fast)
-        report.reading = PlanReport.Reading(result.start, library: loaded.library)
-        if years { report.years = PlanReport.YearRow.rows(result.medianPath.years, registry: registry) }
+        report.reading = PlanReport.Reading(result.start)
+        if years { report.years = PlanReport.YearRow.rows(result.medianPath.years) }
         if let label = saveBaseline?.trimmingCharacters(in: .whitespacesAndNewlines) {
             report.savedBaseline = try Self.save(result, label: label, loaded: loaded, on: context.today)
         }
@@ -204,7 +203,7 @@ struct PlanReport {
         var success: Double
     }
 
-    /// A problem with the plan, e.g. from the tax system's validation.
+    /// A problem with the plan.
     struct Issue {
         var isError: Bool
         var message: String
@@ -312,131 +311,89 @@ struct PlanReport {
             }
         }
     }
-    /// How the plan ran: the number of runs, fast or full, the engine and
-    /// the tax parameters. `nil` for a report made by hand.
+    /// How the plan ran: the number of runs, fast or full, and the engine.
+    /// `nil` for a report made by hand.
     var run: Run?
     /// The path of the baseline saved with `--save-baseline`.
     var savedBaseline: String?
-    /// How the plan read the library: buckets and accounts that start a
-    /// pension scheme. `nil` for a report made by hand.
+    /// How the plan read the library: the money you can draw now and the
+    /// accounts available from a later age. `nil` for a report made by hand.
     var reading: Reading?
     /// The median run's years, with `--years`.
     var years: [YearRow]?
+    /// What flexible spending did at the focus age; `nil` without it.
+    var flexible: PlanFlexibleSpending.Report?
 
-    /// How a plan read the library (PLANNER.md, "Buckets"): the accounts by
-    /// tax wrapper, and the accounts whose value starts a pension scheme
-    /// instead (`PlanStart.schemeSeeds`).
+    /// How a plan read the library (PLANNER.md, "The portfolio"): the money you
+    /// can draw now, and the accounts available from a later age.
     struct Reading {
         struct Bucket {
-            var wrapper: String
             var name: String
-            var isLiquid: Bool
-            var receivesSavings: Bool
+            var availableFromAge: Int?
             var value: Double
             var accounts: [AccountID]
-        }
-
-        struct Seed {
-            var scheme: String
-            var name: String
-            var wrapper: String
-            var accounts: [AccountID]
-            var value: Double
-            var used: Bool
         }
 
         var date: CalendarDate
         var buckets: [Bucket]
-        var seeds: [Seed]
 
-        init(date: CalendarDate, buckets: [Bucket], seeds: [Seed]) {
+        init(date: CalendarDate, buckets: [Bucket]) {
             self.date = date
             self.buckets = buckets
-            self.seeds = seeds
         }
 
-        init(_ start: PlanStart, library: Library) {
-            self.init(
-                date: start.date,
-                buckets: start.buckets.map {
-                    Bucket(wrapper: $0.wrapper, name: $0.name, isLiquid: $0.category == .taxable,
-                           receivesSavings: $0.receivesSavings, value: $0.value, accounts: $0.accounts)
-                },
-                seeds: start.schemeSeeds.map {
-                    Seed(scheme: $0.scheme, name: $0.name, wrapper: $0.wrapper, accounts: $0.accounts, value: $0.value,
-                         used: $0.used)
-                })
+        init(_ start: PlanStart) {
+            self.init(date: start.date, buckets: start.buckets.map {
+                Bucket(name: $0.name, availableFromAge: $0.availableFromAge, value: $0.value, accounts: $0.accounts)
+            })
         }
 
         func lines(currency: CurrencyCode) -> [String] {
             var lines = ["How the plan reads your library, on \(date) (\(currency))"]
-            var table = TextTable([.left("Bucket"), .right("Value"), .left("Drawn"), .left("Accounts")])
+            var table = TextTable([.left("Money"), .right("Value"), .left("Drawn"), .left("Accounts")])
             for bucket in buckets {
                 table.add([bucket.name, PlanReport.whole(bucket.value),
-                           (bucket.isLiquid ? "any time" : "by its rules") + (bucket.receivesSavings ? ", gets savings" : ""),
+                           bucket.availableFromAge.map { "from \($0)" } ?? "now",
                            bucket.accounts.map(\.rawValue).joined(separator: ", ")])
             }
             lines += table.lines()
-            for seed in seeds {
-                let accounts = Format.list(seed.accounts.map(\.rawValue))
-                lines.append(seed.used
-                    ? "  \(accounts) (\(PlanReport.whole(seed.value))) start \(seed.name) (\(seed.scheme)): their value is "
-                        + "its starting balance, not money the plan draws on."
-                    : "  \(accounts) (\(PlanReport.whole(seed.value))) hold \(seed.name) (\(seed.scheme)), but the plan "
-                        + "sets its starting balance itself, so their value isn't used.")
-            }
             return lines
         }
 
         var json: JSON.Start {
-            JSON.Start(date: date.description,
-                       buckets: buckets.map {
-                           JSON.Bucket(wrapper: $0.wrapper, name: $0.name, liquid: $0.isLiquid,
-                                       receivesSavings: $0.receivesSavings, value: PlanReport.rounded($0.value),
-                                       accounts: $0.accounts.map(\.rawValue))
-                       },
-                       schemeSeeds: seeds.map {
-                           JSON.Seed(scheme: $0.scheme, name: $0.name, wrapper: $0.wrapper,
-                                     accounts: $0.accounts.map(\.rawValue), value: PlanReport.rounded($0.value),
-                                     used: $0.used)
-                       })
+            JSON.Start(date: date.description, buckets: buckets.map {
+                JSON.Bucket(name: $0.name, availableFromAge: $0.availableFromAge, value: PlanReport.rounded($0.value),
+                            accounts: $0.accounts.map(\.rawValue))
+            })
         }
     }
 
-    /// One year of the median run: income by source, with pension lump
-    /// sums and the payouts a wrapper's rules require (severance pay, a
-    /// balance paid out whole or spread over years) apart from what's drawn
-    /// as needed (sales and payouts), then taxes, spending and what's left.
+    /// One year of the median run: income after tax, investments sold,
+    /// taxes on investments and wealth, spending and what's left.
     struct YearRow: Equatable {
         var year: Int
         var age: Int
         var work: Double = 0
         var pensions: Double = 0
-        var lumpSums: Double = 0
-        var payouts: Double = 0
-        var drawn: Double = 0
         var windfalls: Double = 0
-        /// Taxes and social contributions.
+        var sold: Double = 0
         var taxes: Double = 0
         /// Spending and one-off expenses.
         var spending: Double = 0
         var endAssets: Double = 0
 
-        static func rows(_ years: [YearDetail], registry: TaxRegistry) -> [YearRow] {
+        static func rows(_ years: [YearDetail]) -> [YearRow] {
             years.map { detail in
                 var row = YearRow(year: detail.year, age: detail.age)
                 for item in detail.income {
                     switch item.kind {
                     case .work: row.work += item.amount
-                    case .pension where item.id.hasSuffix(".lumpSum"): row.lumpSums += item.amount
                     case .pension: row.pensions += item.amount
                     case .windfall: row.windfalls += item.amount
-                    case .payout where registry.wrapper(item.id).map(PlanInputs.paysOutByRule) == true:
-                        row.payouts += item.amount
-                    default: row.drawn += item.amount
+                    default: row.sold += item.amount
                     }
                 }
-                row.taxes = detail.totalTax + detail.totalContributions
+                row.taxes = detail.totalTax
                 row.spending = detail.spending + detail.expenses
                 row.endAssets = detail.endAssets
                 return row
@@ -462,8 +419,6 @@ struct PlanReport {
         var fast: Bool
         var engine: String
         var startDate: CalendarDate
-        /// The newest tax-parameter year per tax system.
-        var taxParameters: [String: Int]
     }
 
     init(plan: PlanDocument, currency: CurrencyCode, headline: Headline, successByAge: [AgeSuccess],
@@ -492,8 +447,8 @@ struct PlanReport {
             sustainableSpending: answer.sustainableSpending?.perYear,
             issues: result.issues.map { Issue(isError: $0.isError, message: $0.message) })
         needed = answer.assetsNeeded.map { Needed($0, planAssets: Double(result.start.planAssets.description) ?? 0) }
-        run = Run(runs: result.settings.runs, fast: fast, engine: result.engine, startDate: result.start.date,
-                  taxParameters: result.taxParameters)
+        run = Run(runs: result.settings.runs, fast: fast, engine: result.engine, startDate: result.start.date)
+        flexible = result.flexibleSpending.map { PlanFlexibleSpending.Report($0, fan: result.fan) }
     }
 
     static func percent(_ share: Double) -> String {
@@ -515,16 +470,12 @@ struct PlanReport {
             + (headline.earliestYear.map { " (\($0))" } ?? "") + ". \(today)"
     }
 
-    /// "2,000 runs from the check-in on 2026-09-30 · engine 1.0.0 · tax parameters it 2026".
+    /// "2,000 runs from 2026-09-30 · engine 2.0.0".
     var runText: String? {
         guard let run else { return nil }
         var parts = ["\(Format.amount(Decimal(run.runs), places: 0)) \(run.runs == 1 ? "run" : "runs")"
             + (run.fast ? " (fast)" : "") + " from \(run.startDate)"]
         parts.append("engine \(run.engine)")
-        if !run.taxParameters.isEmpty {
-            parts.append("tax parameters " + run.taxParameters.keys.sorted()
-                .map { "\($0) \(run.taxParameters[$0]!)" }.joined(separator: ", "))
-        }
         return parts.joined(separator: " · ")
     }
 
@@ -544,6 +495,10 @@ struct PlanReport {
                 + "money\(headline.targetAge.map { " from age \($0)" } ?? ""), "
                 + "at \(Self.percent(headline.confidence)) confidence.")
         }
+        if let flexible {
+            lines.append("")
+            lines += flexible.lines(currency: currency, startYear: run?.startDate.year ?? 0)
+        }
         if !successByAge.isEmpty {
             lines.append("")
             lines.append("Chance of success by retirement age")
@@ -558,17 +513,15 @@ struct PlanReport {
             lines.append("")
             lines.append("The median run, year by year (\(currency), today's money)")
             var table = TextTable([.right("Year"), .right("Age"), .right("Work"), .right("Pensions"),
-                                   .right("Lump sums"), .right("Payouts"), .right("Drawn"), .right("Windfalls"),
-                                   .right("Taxes"), .right("Spending"), .right("At the end")])
+                                   .right("Windfalls"), .right("Sold"), .right("Taxes"), .right("Spending"),
+                                   .right("At the end")])
             for row in years {
-                table.add(["\(row.year)", "\(row.age)"] + [row.work, row.pensions, row.lumpSums, row.payouts, row.drawn,
-                                                         row.windfalls, row.taxes, row.spending, row.endAssets]
-                    .map(Self.whole))
+                table.add(["\(row.year)", "\(row.age)"] + [row.work, row.pensions, row.windfalls, row.sold, row.taxes,
+                                                         row.spending, row.endAssets].map(Self.whole))
             }
             lines += table.lines()
-            lines.append("Lump sums: pensions taken as capital. Payouts: severance pay, and pension savings the rules "
-                + "pay out at an age or over a few years. Drawn: sold or paid out as needed. The first year is the "
-                + "part after the check-in.")
+            lines.append("Work and pensions after tax. Sold: investments sold to cover the year. Taxes: on "
+                + "investments and on wealth. The first year is the part after the check-in.")
         }
         if let reading {
             lines.append("")
@@ -600,12 +553,12 @@ struct PlanReport {
              readiness: needed?.readiness.flatMap { $0.isFinite ? ($0 * 10_000 + 1e-9).rounded(.down) / 10_000 : nil },
              issues: issues.map { JSON.Issue(severity: $0.isError ? "error" : "warning", message: $0.message) },
              runs: run?.runs, fast: run?.fast, engine: run?.engine, startDate: run?.startDate.description,
-             taxParameters: run?.taxParameters, savedBaseline: savedBaseline, start: reading?.json,
+             savedBaseline: savedBaseline, start: reading?.json,
+             flexibleSpending: flexible?.json,
              years: years?.map { row in
                  JSON.Year(year: row.year, age: row.age, work: Self.rounded(row.work),
-                           pensions: Self.rounded(row.pensions), lumpSums: Self.rounded(row.lumpSums),
-                           payouts: Self.rounded(row.payouts), drawn: Self.rounded(row.drawn),
-                           windfalls: Self.rounded(row.windfalls), taxes: Self.rounded(row.taxes),
+                           pensions: Self.rounded(row.pensions), windfalls: Self.rounded(row.windfalls),
+                           sold: Self.rounded(row.sold), taxes: Self.rounded(row.taxes),
                            spending: Self.rounded(row.spending), endAssets: Self.rounded(row.endAssets))
              })
     }
@@ -626,25 +579,14 @@ struct PlanReport {
         struct Start: Encodable {
             var date: String
             var buckets: [Bucket]
-            var schemeSeeds: [Seed]
         }
 
         struct Bucket: Encodable {
-            var wrapper: String
             var name: String
-            var liquid: Bool
-            var receivesSavings: Bool
+            /// The age from which it can be drawn; absent for the money you can draw now.
+            var availableFromAge: Int?
             var value: String
             var accounts: [String]
-        }
-
-        struct Seed: Encodable {
-            var scheme: String
-            var name: String
-            var wrapper: String
-            var accounts: [String]
-            var value: String
-            var used: Bool
         }
 
         /// A year of the median run (`--years`), whole amounts as strings.
@@ -653,10 +595,8 @@ struct PlanReport {
             var age: Int
             var work: String
             var pensions: String
-            var lumpSums: String
-            var payouts: String
-            var drawn: String
             var windfalls: String
+            var sold: String
             var taxes: String
             var spending: String
             var endAssets: String
@@ -691,9 +631,10 @@ struct PlanReport {
         var fast: Bool?
         var engine: String?
         var startDate: String?
-        var taxParameters: [String: Int]?
         var savedBaseline: String?
         var start: Start?
+        /// What flexible spending did at the focus age; absent without it.
+        var flexibleSpending: PlanFlexibleSpending.JSONReport?
         var years: [Year]?
     }
 }

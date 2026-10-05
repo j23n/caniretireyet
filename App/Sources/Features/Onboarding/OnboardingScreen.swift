@@ -4,7 +4,7 @@ import SwiftUI
 
 /// First launch (UI.md, "Empty states and first launch"): welcome, where to
 /// keep the data (iCloud Drive is recommended), then birth date, base
-/// currency and tax residence, which create the library. What to do next
+/// currency and country, which create the library. What to do next
 /// (import, add accounts) follows in `WelcomeNextStepsView`.
 struct OnboardingScreen: View {
     private enum Step: Int, CaseIterable {
@@ -24,7 +24,6 @@ struct OnboardingScreen: View {
     /// The device's currency and region to start with; nothing else is assumed.
     @State private var currency = CurrencyCode(Locale.current.currency?.identifier ?? "EUR")
     @State private var residence: CountryCode? = Locale.current.region.map { CountryCode($0.identifier) }
-    @State private var citizenship: CountryCode?
     @State private var isCreating = false
     @State private var error: String?
 
@@ -69,6 +68,9 @@ struct OnboardingScreen: View {
                 .foregroundStyle(Palette.secondaryInk)
             Text("Everything is kept as plain files that you own. There's no account to create and no server.")
                 .foregroundStyle(Palette.secondaryInk)
+            Text(AboutText.welcome)
+                .font(.footnote)
+                .foregroundStyle(Palette.secondaryInk)
         }
     }
 
@@ -99,7 +101,8 @@ struct OnboardingScreen: View {
         VStack(alignment: .leading, spacing: Metrics.l) {
             Text("About you")
                 .font(.title2.bold())
-            Text("Plans use your birth date for ages, the base currency for totals, and your tax residence as the default for new plans.")
+            Text("Plans use your birth date for ages, and the base currency for totals. The country you live in "
+                + "picks the inflation index amounts are adjusted with.")
                 .foregroundStyle(Palette.secondaryInk)
             VStack(alignment: .leading, spacing: Metrics.m) {
                 TextField("Name (optional)", text: $name)
@@ -113,8 +116,8 @@ struct OnboardingScreen: View {
                     }
                     .labelsHidden()
                 }
-                LabeledContent("Tax residence") {
-                    Picker("Tax residence", selection: $residence) {
+                LabeledContent("Country") {
+                    Picker("Country", selection: $residence) {
                         Text("Not set").tag(CountryCode?.none)
                         ForEach(countryOptions(including: residence), id: \.self) { code in
                             Text(CountryChoices.name(of: code, locale: locale)).tag(Optional(code))
@@ -122,29 +125,12 @@ struct OnboardingScreen: View {
                     }
                     .labelsHidden()
                 }
-                LabeledContent("Citizenship") {
-                    Picker("Citizenship", selection: $citizenship) {
-                        Text("Not set").tag(CountryCode?.none)
-                        ForEach(countryOptions(including: citizenship), id: \.self) { code in
-                            Text(CountryChoices.name(of: code, locale: locale)).tag(Optional(code))
-                        }
-                    }
-                    .labelsHidden()
-                }
-                Text(YouSettings.citizenshipExplanation)
-                    .font(.footnote)
-                    .foregroundStyle(Palette.secondaryInk)
             }
             .padding(Metrics.l)
             .background(Palette.card, in: RoundedRectangle(cornerRadius: Metrics.cardRadius, style: .continuous))
             .overlay {
                 RoundedRectangle(cornerRadius: Metrics.cardRadius, style: .continuous)
                     .strokeBorder(Palette.border, lineWidth: 1)
-            }
-            if let note = YouSettings.taxRulesNote(for: residence, locale: locale) {
-                Text(note)
-                    .font(.footnote)
-                    .foregroundStyle(Palette.secondaryInk)
             }
         }
     }
@@ -198,8 +184,7 @@ struct OnboardingScreen: View {
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
         let settings = LibrarySettings(
             baseCurrency: currency,
-            person: Person(name: trimmed.isEmpty ? nil : trimmed, birthDate: CalendarDate(birthDate, in: .current),
-                           citizenships: citizenship.map { [$0] } ?? []),
+            person: Person(name: trimmed.isEmpty ? nil : trimmed, birthDate: CalendarDate(birthDate, in: .current)),
             taxResidence: residence)
         let kind = location
         Task {
@@ -267,13 +252,13 @@ struct WelcomeNextStepsView: View {
         VStack(alignment: .leading, spacing: Metrics.l) {
             Text("Your library is ready")
                 .font(.title2.bold())
-            Text("Bring in your history from a spreadsheet or ledger journals, or add your accounts one by one. Then do your first check-in, and create your first plan.")
+            Text("Bring in your history from a spreadsheet, or add your accounts one by one. Then do your first check-in, and create your first plan.")
                 .foregroundStyle(Palette.secondaryInk)
             Button {
                 dismiss()
                 navigation.startImport()
             } label: {
-                Label("Import a spreadsheet or journals", systemImage: AppSymbol.importData)
+                Label("Import a spreadsheet", systemImage: AppSymbol.importData)
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
             .buttonStyle(.bordered)

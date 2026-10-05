@@ -26,6 +26,8 @@ struct AccountValuationEditor: View {
     @Environment(\.locale) private var locale
 
     @State private var form: AccountValuationForm?
+    /// The fields as loaded, to tell whether anything was changed.
+    @State private var initialForm: AccountValuationForm?
     @State private var confirmsDelete = false
     @State private var errorMessage: String?
     @State private var isSaving = false
@@ -48,6 +50,8 @@ struct AccountValuationEditor: View {
         #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
         #endif
+        // A change isn't lost by swiping the sheet down: only Cancel discards it.
+        .interactiveDismissDisabled(form != initialForm)
         .onAppear(perform: load)
     }
 
@@ -80,7 +84,13 @@ struct AccountValuationEditor: View {
             }
             if form.wrappedValue.isBalance {
                 Section {
-                    AccountsNumberField(title: "Balance", text: form.balance, prompt: "0", suffix: symbol)
+                    AccountsNumberField(title: account.kind.isLiability ? "Owed" : "Balance", text: form.balance,
+                                        prompt: "0", suffix: symbol)
+                } footer: {
+                    if account.kind.isLiability {
+                        Text("Type what you owe, e.g. 1200: debts are recorded as negative amounts. "
+                            + "If the account is in credit, type + first, e.g. +20.")
+                    }
                 }
             } else {
                 Section {
@@ -184,7 +194,9 @@ struct AccountValuationEditor: View {
     private func load() {
         guard form == nil, let original, let account = library.account(key.account) else { return }
         form = AccountValuationForm(original, holdsPositions: account.valuationMode != .balance,
-                                    recordsTrades: account.recordsTrades, locale: locale)
+                                    recordsTrades: account.recordsTrades, isLiability: account.kind.isLiability,
+                                    locale: locale)
+        initialForm = form
     }
 
     /// Saves and waits for the write. A date before the opening date moves

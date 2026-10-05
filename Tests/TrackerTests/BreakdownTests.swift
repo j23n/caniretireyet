@@ -151,7 +151,7 @@ struct AssetMixBreakdownTests {
     }
 }
 
-/// Stale accounts (FILE_FORMAT.md, "Staleness").
+/// Stale accounts (docs/schema/README.md, "How values are computed").
 struct StalenessTests {
     @Test func exampleLibraryOnTheLatestCheckIn() throws {
         let valuator = Valuator(library: try Fixtures.exampleLibrary())

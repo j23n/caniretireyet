@@ -8,6 +8,16 @@ import Testing
 /// value differs from the library), the mortgage written as positive amounts,
 /// a new account "Conto Arancio" whose values stop in September, and notes.
 struct ImportTests {
+    /// The day the imports run: after the samples' last dates (`sheet.csv`'s
+    /// 31 October 2026, `broken.csv`'s December, `ambiguous.csv`'s 2027), as
+    /// a date more than a week after today is a cell problem.
+    private static let today: CalendarDate = "2027-04-30"
+
+    /// `retire` on ``today``.
+    private func runCLI(_ arguments: [String], clock: TestClock = TestClock()) async -> CLIRun {
+        await retire(arguments, today: Self.today, clock: clock)
+    }
+
     private func sheet() throws -> String {
         try Samples.url("sheet.csv").path
     }
@@ -15,7 +25,7 @@ struct ImportTests {
     @Test func dryRunPreviewsAndWritesNothing() async throws {
         let library = try TemporaryFolder.exampleLibrary()
         let before = try library.snapshot()
-        let run = await retire(["import", try sheet(), "--library", library.path])
+        let run = await runCLI(["import", try sheet(), "--library", library.path])
         #expect(run.status == 0, "\(run.all)")
         let output = run.output
 
@@ -60,7 +70,7 @@ struct ImportTests {
 
         // Without the accept flags: the new account's records are left out,
         // and the undecided conflict keeps the library's value.
-        let first = await retire(["import", try sheet(), "--library", library.path, "--apply"], clock: clock)
+        let first = await runCLI(["import", try sheet(), "--library", library.path, "--apply"], clock: clock)
         #expect(first.status == 0, "\(first.all)")
         #expect(first.output.contains("Imported: 3 added, 0 updated, 0 overwritten, 1 kept (1 undecided), "
             + "5 identical, 2 left out.\n"))
@@ -79,7 +89,7 @@ struct ImportTests {
         #expect(changed == ["history/2026/2026-10.json"])
 
         // With the flags: the account is created and closed, the conflict overwritten.
-        let second = await retire(["import", try sheet(), "--library", library.path, "--apply",
+        let second = await runCLI(["import", try sheet(), "--library", library.path, "--apply",
                                    "--accept-new-accounts", "--accept-closings", "--on-conflict", "overwrite"],
                                   clock: clock)
         #expect(second.status == 0, "\(second.all)")
@@ -97,26 +107,26 @@ struct ImportTests {
                             "history/2026/2026-10.json"])
 
         // Again: nothing left to do, and no backup.
-        let third = await retire(["import", try sheet(), "--library", library.path, "--apply",
+        let third = await runCLI(["import", try sheet(), "--library", library.path, "--apply",
                                   "--accept-new-accounts", "--accept-closings", "--on-conflict", "overwrite"],
                                  clock: clock)
         #expect(third.output.contains("Nothing to import: the library already has everything in the file.\n"))
         #expect(try library.backups().count == 2)
 
         // Undo twice: back to the library as it was.
-        let undo = await retire(["import", "--undo", "--library", library.path], clock: clock)
+        let undo = await runCLI(["import", "--undo", "--library", library.path], clock: clock)
         #expect(undo.status == 0, "\(undo.all)")
         #expect(undo.output.contains("  deleted  accounts/conto-arancio.json\n"))
         #expect(try library.load().accounts["conto-arancio"] == nil)
         #expect(try library.load().valuations(for: "mutuo-casa").last?.balance == -140_400)
-        let undoAgain = await retire(["import", "--undo", "--library", library.path], clock: clock)
+        let undoAgain = await runCLI(["import", "--undo", "--library", library.path], clock: clock)
         #expect(undoAgain.status == 0, "\(undoAgain.all)")
         #expect(undoAgain.output.contains("  deleted  history/2026/2026-10.json\n"))
         #expect(try library.snapshot() == original)
         backups = try library.backups()
         #expect(backups.map(\.label) == ["import", "import", "undo-import", "undo-import"])
 
-        let nothing = await retire(["import", "--undo", "--library", library.path], clock: clock)
+        let nothing = await runCLI(["import", "--undo", "--library", library.path], clock: clock)
         #expect(nothing.status == 1)
         #expect(nothing.errors.contains("There's no import to undo"))
     }
@@ -124,7 +134,7 @@ struct ImportTests {
     @Test func undoLeavesEditsMadeAfterTheImportInPlace() async throws {
         let library = try TemporaryFolder.exampleLibrary()
         let clock = TestClock()
-        let imported = await retire(["import", try sheet(), "--library", library.path, "--apply",
+        let imported = await runCLI(["import", try sheet(), "--library", library.path, "--apply",
                                      "--accept-new-accounts", "--accept-closings", "--on-conflict", "overwrite"],
                                     clock: clock)
         #expect(imported.status == 0, "\(imported.all)")
@@ -137,7 +147,7 @@ struct ImportTests {
         edited.upsert(Valuation(account: "tfr", date: "2026-10-31", balance: 9000))
         try library.library.save(edited, previous: before)
 
-        let undo = await retire(["import", "--undo", "--library", library.path], clock: clock)
+        let undo = await runCLI(["import", "--undo", "--library", library.path], clock: clock)
         #expect(undo.status == 0, "\(undo.all)")
         #expect(undo.output.contains("  deleted  accounts/conto-arancio.json\n"))
         #expect(undo.output.contains("Changed after the import, so it was left in place:\n  In history/2026/2026-10.json, "
@@ -152,9 +162,9 @@ struct ImportTests {
 
     @Test func undoDryRunShowsWhatItWouldRestore() async throws {
         let library = try TemporaryFolder.exampleLibrary()
-        _ = await retire(["import", try sheet(), "--library", library.path, "--apply"])
+        _ = await runCLI(["import", try sheet(), "--library", library.path, "--apply"])
         let after = try library.snapshot()
-        let run = await retire(["import", "--undo", "--dry-run", "--library", library.path])
+        let run = await runCLI(["import", "--undo", "--dry-run", "--library", library.path])
         #expect(run.status == 0)
         #expect(run.output.contains("  delete  history/2026/2026-10.json\n"))
         #expect(run.output.hasSuffix("Dry run: nothing was written.\n"))
@@ -163,7 +173,7 @@ struct ImportTests {
 
     @Test func savedProfileIsReused() async throws {
         let library = try TemporaryFolder.exampleLibrary()
-        let save = await retire(["import", try sheet(), "--library", library.path, "--save-profile", "bank-sheet",
+        let save = await runCLI(["import", try sheet(), "--library", library.path, "--save-profile", "bank-sheet",
                                  "--profile-name", "My bank sheet"])
         #expect(save.status == 0, "\(save.all)")
         #expect(save.output.contains("Saved the mapping as imports/bank-sheet.json.\n"))
@@ -177,18 +187,18 @@ struct ImportTests {
         #expect(profile.columns.map(\.account) == ["conto-fineco", "conto-deposito", "mutuo-casa", nil, nil])
 
         // The saved profile reads the file the same way.
-        let reuse = await retire(["import", try sheet(), "--library", library.path, "--profile", "bank-sheet"])
+        let reuse = await runCLI(["import", try sheet(), "--library", library.path, "--profile", "bank-sheet"])
         #expect(reuse.status == 0, "\(reuse.all)")
         #expect(reuse.output.contains("  Profile      imports/bank-sheet.json\n"))
         #expect(reuse.output.contains("  4  Mutuo casa      numbers  balance of mutuo-casa  "))
         #expect(reuse.output.contains("Preview: 5 new, 0 updated, 5 identical, 1 conflict (1 undecided)\n"))
 
         // Another profile isn't replaced by accident.
-        let clash = await retire(["import", try sheet(), "--library", library.path, "--save-profile",
+        let clash = await runCLI(["import", try sheet(), "--library", library.path, "--save-profile",
                                   "net-worth-sheet"])
         #expect(clash.status == 1)
         #expect(clash.errors.contains("imports/net-worth-sheet.json already exists."))
-        let unknown = await retire(["import", try sheet(), "--library", library.path, "--profile", "nope"])
+        let unknown = await runCLI(["import", try sheet(), "--library", library.path, "--profile", "nope"])
         #expect(unknown.status == 1)
         #expect(unknown.errors.contains("There's no import profile \"nope\" in imports/. "
             + "Profiles: bank-sheet, directa-movimenti, net-worth-sheet."))
@@ -215,7 +225,7 @@ struct ImportTests {
 
         let files = try TemporaryFolder()
         try files.write("february.csv", "Data;Conto Fineco;Conto deposito\n28/02/2026;4.780,20;15.626,95\n")
-        let run = await retire(["import", files.url("february.csv").path, "--library", library.path, "--apply"])
+        let run = await runCLI(["import", files.url("february.csv").path, "--library", library.path, "--apply"])
         #expect(run.status == 0, "\(run.all)")
         #expect(run.output.contains("Imported: 2 added, 0 updated, 0 overwritten, 0 kept, 0 identical, 0 left out.\n"))
         #expect(run.output.contains("Recomputed the automatic flows of later values: conto-fineco on 2026-03-31.\n"))
@@ -230,7 +240,7 @@ struct ImportTests {
         let backup = try #require(try library.backups().last)
         #expect(backup.files == ["history/2026/2026-02.json", "history/2026/2026-03.json"])
 
-        let undo = await retire(["import", "--undo", "--library", library.path])
+        let undo = await runCLI(["import", "--undo", "--library", library.path])
         #expect(undo.status == 0, "\(undo.all)")
         #expect(undo.output.contains("  restored history/2026/2026-03.json\n"))
         #expect(try library.snapshot() == original)
@@ -242,7 +252,7 @@ struct ImportTests {
     /// A profile that excludes no rows (`"excludeRows": []`) has no footer rule.
     @Test func aProfileExcludingNoRowsHasNoFooterRule() async throws {
         let library = try TemporaryFolder.exampleLibrary()
-        let save = await retire(["import", try sheet(), "--library", library.path, "--save-profile", "bank-sheet"])
+        let save = await runCLI(["import", try sheet(), "--library", library.path, "--save-profile", "bank-sheet"])
         #expect(save.status == 0, "\(save.all)")
         var profile = try #require(try library.load().importProfiles["bank-sheet"])
         profile.file = ImportFileSettings(encoding: profile.file.encoding, delimiter: profile.file.delimiter,
@@ -250,7 +260,7 @@ struct ImportTests {
         try library.library.save(profile)
         #expect(try library.load().importProfiles["bank-sheet"]?.file.writtenExcludeRows == [])
 
-        let run = await retire(["import", try sheet(), "--library", library.path, "--profile", "bank-sheet"])
+        let run = await runCLI(["import", try sheet(), "--library", library.path, "--profile", "bank-sheet"])
         #expect(run.status == 0, "\(run.all)")
         #expect(run.output.contains("  Footer rule  none\n"))
     }
@@ -258,20 +268,20 @@ struct ImportTests {
     @Test func applyingWithAProfileAndSavingItIsOneUndo() async throws {
         let library = try TemporaryFolder.exampleLibrary()
         let original = try library.snapshot()
-        let run = await retire(["import", try sheet(), "--library", library.path, "--apply", "--accept-new-accounts",
+        let run = await runCLI(["import", try sheet(), "--library", library.path, "--apply", "--accept-new-accounts",
                                 "--save-profile", "bank-sheet"])
         #expect(run.status == 0, "\(run.all)")
         #expect(run.output.contains("  imports/bank-sheet.json\n"))
         // The new account's ID is written into the profile.
         let profile = try #require(try library.load().importProfiles["bank-sheet"])
         #expect(profile.columns.first { $0.header == "Conto Arancio" }?.account == "conto-arancio")
-        _ = await retire(["import", "--undo", "--library", library.path])
+        _ = await runCLI(["import", "--undo", "--library", library.path])
         #expect(try library.snapshot() == original)
     }
 
     @Test func debtsCanKeepTheirSigns() async throws {
         let library = try TemporaryFolder.exampleLibrary()
-        let run = await retire(["import", try sheet(), "--library", library.path, "--liability-sign", "as-written"])
+        let run = await runCLI(["import", try sheet(), "--library", library.path, "--liability-sign", "as-written"])
         #expect(!run.output.contains("read as debts"))
         #expect(run.output.contains("  Debts        signs kept as written\n"))
         // The mortgage's two values the library has become conflicts.
@@ -283,17 +293,17 @@ struct ImportTests {
         let file = try Samples.url("ambiguous.csv").path
         let before = try library.snapshot()
 
-        let preview = await retire(["import", file, "--library", library.path])
+        let preview = await runCLI(["import", file, "--library", library.path])
         #expect(preview.status == 0)
         #expect(preview.output.contains("Formats to confirm\n  Dates in “Data” could be "))
         #expect(preview.output.contains("settle it with --date-format dd/MM/yyyy or MM/dd/yyyy."))
 
-        let blocked = await retire(["import", file, "--library", library.path, "--apply"])
+        let blocked = await runCLI(["import", file, "--library", library.path, "--apply"])
         #expect(blocked.status == 1)
         #expect(blocked.errors.contains("Nothing was imported: some formats are guesses"))
         #expect(try library.snapshot() == before)
 
-        let settled = await retire(["import", file, "--library", library.path, "--apply", "--date-format",
+        let settled = await runCLI(["import", file, "--library", library.path, "--apply", "--date-format",
                                     "dd/MM/yyyy"])
         #expect(settled.status == 0, "\(settled.all)")
         #expect(!settled.output.contains("Formats to confirm"))
@@ -304,7 +314,7 @@ struct ImportTests {
     @Test func acceptingGuesses() async throws {
         let library = try TemporaryFolder.exampleLibrary()
         let file = try Samples.url("ambiguous.csv").path
-        let run = await retire(["import", file, "--library", library.path, "--apply", "--accept-guesses"])
+        let run = await runCLI(["import", file, "--library", library.path, "--apply", "--accept-guesses"])
         #expect(run.status == 0, "\(run.all)")
         #expect(run.output.contains("Imported: 3 added"))
     }
@@ -312,7 +322,7 @@ struct ImportTests {
     @Test func cellErrorsAreListed() async throws {
         let library = try TemporaryFolder.exampleLibrary()
         let file = try Samples.url("broken.csv").path
-        let run = await retire(["import", file, "--library", library.path])
+        let run = await runCLI(["import", file, "--library", library.path])
         #expect(run.status == 0)
         #expect(run.output.contains("""
             Cells that can't be read (2)
@@ -322,9 +332,21 @@ struct ImportTests {
         #expect(run.output.contains("Preview: 1 new, 0 updated, 0 identical, 0 conflicts; 2 errors\n"))
     }
 
+    /// On the test day, 30 September 2026, the sheet's 31 October is more
+    /// than a week ahead: most likely a typo, so its row is a cell error.
+    @Test func datesMoreThanAWeekAheadAreCellErrors() async throws {
+        let library = try TemporaryFolder.exampleLibrary()
+        let run = await retire(["import", try sheet(), "--library", library.path])
+        #expect(run.status == 0, "\(run.all)")
+        #expect(run.output.contains("""
+            Cells that can't be read (1)
+              Row 4, “Data”: “31/10/2026”: after 2026-10-07, more than a week from today
+            """))
+    }
+
     @Test func jsonPreviewAndResult() async throws {
         let library = try TemporaryFolder.exampleLibrary()
-        let dryRun = try parseJSON(await retire(["import", try sheet(), "--library", library.path, "--json"]).output)
+        let dryRun = try parseJSON(await runCLI(["import", try sheet(), "--library", library.path, "--json"]).output)
         #expect(dryRun["mode"] as? String == "dry-run")
         let summary = try #require(dryRun["summary"] as? [String: Any])
         #expect(summary["new"] as? Int == 5)
@@ -342,7 +364,7 @@ struct ImportTests {
         #expect(conflict["existing"] as? String == "balance 17,365.55")
         #expect(dryRun["result"] == nil)
 
-        let applied = try parseJSON(await retire(["import", try sheet(), "--library", library.path, "--json",
+        let applied = try parseJSON(await runCLI(["import", try sheet(), "--library", library.path, "--json",
                                                   "--apply"]).output)
         let result = try #require(applied["result"] as? [String: Any])
         #expect(result["added"] as? Int == 3)
@@ -352,30 +374,41 @@ struct ImportTests {
 
     @Test func aLibraryFromANewerAppIsNotWritten() async throws {
         let library = try TemporaryFolder.exampleLibrary()
-        let settings = try library.text("library.json").replacingOccurrences(of: #""schemaVersion": 2"#,
-                                                                              with: #""schemaVersion": 3"#)
+        let settings = try library.text("library.json").replacingOccurrences(of: #""schemaVersion": 3"#,
+                                                                              with: #""schemaVersion": 4"#)
         try library.write("library.json", settings)
         let before = try library.snapshot()
-        let run = await retire(["import", try sheet(), "--library", library.path, "--apply"])
+        let run = await runCLI(["import", try sheet(), "--library", library.path, "--apply"])
         #expect(run.status == 1)
         #expect(run.errors.contains("newer version of the app"))
         #expect(try library.snapshot() == before)
         #expect(!library.exists("backups"))
     }
 
+    /// An .xlsx (a ZIP archive) isn't read as text: the error says to export CSV.
+    @Test func aSpreadsheetFileSaysToExportCSV() async throws {
+        let library = try TemporaryFolder.exampleLibrary()
+        let files = try TemporaryFolder()
+        try files.write("net-worth.xlsx", Data([0x50, 0x4B, 0x03, 0x04, 0x14, 0x00, 0x06, 0x00]))
+        let run = await runCLI(["import", files.url("net-worth.xlsx").path, "--library", library.path])
+        #expect(run.status == 1)
+        #expect(run.errors.contains("This is a spreadsheet file (such as .xlsx or .numbers), not a CSV file. "
+            + "Export it as CSV from Excel or Numbers, and import that."), "\(run.all)")
+    }
+
     @Test func argumentsAreChecked() async throws {
         let library = try TemporaryFolder.exampleLibrary()
-        let noFile = await retire(["import", "--library", library.path])
+        let noFile = await runCLI(["import", "--library", library.path])
         #expect(noFile.status == 64)
         #expect(noFile.errors.contains("Give the file to import, or --undo."))
-        let both = await retire(["import", try sheet(), "--library", library.path, "--apply", "--dry-run"])
+        let both = await runCLI(["import", try sheet(), "--library", library.path, "--apply", "--dry-run"])
         #expect(both.status == 64)
-        let badID = await retire(["import", try sheet(), "--library", library.path, "--save-profile", "My Sheet"])
+        let badID = await runCLI(["import", try sheet(), "--library", library.path, "--save-profile", "My Sheet"])
         #expect(badID.status == 64)
-        let layout = await retire(["import", try sheet(), "--library", library.path, "--profile", "net-worth-sheet",
+        let layout = await runCLI(["import", try sheet(), "--library", library.path, "--profile", "net-worth-sheet",
                                    "--layout", "long"])
         #expect(layout.status == 64)
-        let missing = await retire(["import", library.url("nope.csv").path, "--library", library.path])
+        let missing = await runCLI(["import", library.url("nope.csv").path, "--library", library.path])
         #expect(missing.status == 1)
         #expect(missing.errors.contains("Can't read"))
     }

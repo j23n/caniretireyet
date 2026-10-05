@@ -8,6 +8,7 @@ struct RootView: View {
     @Environment(LibraryStore.self) private var library
     @Environment(AppNavigation.self) private var navigation
     @Environment(CheckInStore.self) private var checkIn
+    @Environment(PlanStore.self) private var plans
     @Environment(PrivacySettings.self) private var privacy
     @Environment(\.scenePhase) private var scenePhase
     #if os(iOS)
@@ -25,16 +26,20 @@ struct RootView: View {
                 if phase != .active { checkIn.persistNow() }
                 if phase == .active { Task { await library.refreshFromDisk() } }
             }
+            .onChange(of: library.phase) { _, phase in
+                // A check-in's answer that the app was closed before recording.
+                if phase == .ready { plans.recordMissingCheckInAnswer() }
+            }
             .onOpenURL { url in
                 openFile(url)
             }
     }
 
-    /// A CSV or TSV file, or a ledger journal, opened from Files or Finder
-    /// starts an import (on iPhone, "Import with profile…"). At launch the
-    /// layout isn't set yet, so on iPhone the import sheet is chosen here.
+    /// A CSV or TSV file opened from Files or Finder starts an import (on
+    /// iPhone, "Import with profile…"). At launch the layout isn't set yet,
+    /// so on iPhone the import sheet is chosen here.
     private func openFile(_ url: URL) {
-        guard ["csv", "tsv", "txt"].contains(url.pathExtension.lowercased()) || LedgerFiles.isJournal(url) else { return }
+        guard ["csv", "tsv", "txt"].contains(url.pathExtension.lowercased()) else { return }
         #if os(iOS)
         if horizontalSizeClass == .compact {
             navigation.sheet = .importFile(url)
@@ -83,10 +88,23 @@ struct RootView: View {
 /// to import it.
 private struct AppPresentation: ViewModifier {
     @Environment(AppNavigation.self) private var navigation
+    @Environment(LibraryStore.self) private var library
+
+    /// Whether the library has an error to show (a failed save, which is
+    /// undone, shows wherever the user is); dismissing clears it, also from
+    /// the banners that show it (`LibraryStatusBanners`).
+    @MainActor private var showsLibraryError: Binding<Bool> {
+        Binding(get: { library.lastError != nil }, set: { if !$0 { library.dismissError() } })
+    }
 
     func body(content: Content) -> some View {
         @Bindable var navigation = navigation
         content
+            .alert("Something went wrong with the library", isPresented: showsLibraryError) {
+                Button("OK", role: .cancel) {}
+            } message: {
+                Text(library.lastError ?? "")
+            }
             .sheet(item: $navigation.sheet) { sheet in
                 AppSheetView(sheet: sheet)
             }
@@ -98,11 +116,6 @@ private struct AppPresentation: ViewModifier {
             }
             #endif
             .dropDestination(for: URL.self) { urls, _ in
-                let journals = urls.filter(LedgerFiles.isJournal)
-                if !journals.isEmpty {
-                    navigation.startImport(files: journals)
-                    return true
-                }
                 guard let file = urls.first(where: { $0.pathExtension.lowercased() == "csv" }) else { return false }
                 navigation.startImport(file)
                 return true
@@ -142,7 +155,10 @@ private struct AppSheetView: View {
     }
 }
 
-/// Shown when the library can't be opened, with a way forward.
+/// Shown when the library can't be opened, with a way forward. Starting a
+/// library on this device is offered only when iCloud Drive isn't
+/// available, not for a passing failure: it would leave the library in
+/// iCloud Drive behind (Settings → Library switches back to it).
 private struct LibraryUnavailableView: View {
     let message: String
     @Environment(LibraryStore.self) private var library
@@ -157,8 +173,10 @@ private struct LibraryUnavailableView: View {
                 Task { await library.start() }
             }
             .buttonStyle(.borderedProminent)
-            Button("Keep the library on this device instead") {
-                Task { await library.useLibraryOnThisDevice() }
+            if library.openingFailedWithoutICloud {
+                Button("Start a New Library on This Device") {
+                    Task { await library.useLibraryOnThisDevice() }
+                }
             }
         }
         .background(Palette.page)

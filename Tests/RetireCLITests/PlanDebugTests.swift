@@ -2,7 +2,8 @@ import Foundation
 import Testing
 import TestSupport
 
-/// `retire plan debug`: the plan debugger's report on the example library.
+/// `retire plan debug`: every calculation behind a plan's answer, as
+/// Markdown (`Planner.calculations`), on the example library.
 struct PlanDebugCommandTests {
     /// A copy of the example library whose plans run 30 times, so a full
     /// report is quick in a debug build.
@@ -15,86 +16,59 @@ struct PlanDebugCommandTests {
 
     @Test func markdownHasEverySection() async throws {
         let library = try library()
-        let run = await retire(["plan", "debug", "--library", library.path, "--paths", "2"])
+        let run = await retire(["plan", "debug", "--library", library.path])
         #expect(run.status == 0, "\(run.all)")
-        for heading in ["# Plan debugger: Base case", "## Diagnosis", "## 1. What was run",
-                        "## 2. The person and the plan as read", "### Assumptions", "## 3. Starting portfolio",
-                        "## 4. Year-by-year schedule (retiring at 38)", "## 5. Simulation summary",
-                        "## 6. Percentiles by year (retiring at 38)", "## 7. Traced paths", "## 8. Issues"] {
-            #expect(run.output.contains(heading), "\(heading)")
+        for heading in ["# Calculations: Base case", "## The answer", "## The plan as read", "## The starting portfolio",
+                        "## Chance of success by retirement age", "## When runs fail"] {
+            #expect(run.output.contains(heading + "\n"), "\(heading)")
         }
-        #expect(run.output.contains("### The deterministic run (median returns every year)"))
-        #expect(run.output.contains("### The median outcome"))
-        // Crypto, given by its median (0%) since the debugger found the old mean of 0% drags the mix down.
-        #expect(run.output.contains("| Crypto | "))
-        #expect(run.output.contains("| Report made on | 2026-09-30 |"))
+        #expect(run.output.contains("the day after 2026-09-30"))
         // Names as they are.
-        #expect(run.output.contains("Ledger wallet (`ledger-wallet`)"))
+        #expect(run.output.contains("| Fondo pensione | 67 |"))
+        #expect(run.output.contains("| Employee | 2026-01-01 | 2028-12-31 | 40,000 | 1% |"))
     }
 
-    @Test func jsonParsesAndCanGoToAFile() async throws {
+    @Test func theReportCanGoToAFile() async throws {
         let library = try library()
-        let run = await retire(["plan", "debug", "--library", library.path, "--age", "target", "--format", "json",
-                                "--output", "reports/base.json", "--path-index", "3", "11"],
+        let run = await retire(["plan", "debug", "--library", library.path, "--output", "reports/base.md"],
                                currentDirectory: library.url)
         #expect(run.status == 0, "\(run.all)")
-        #expect(run.output == "Wrote the report on base to reports/base.json.\n")
-        let json = try parseJSON(try library.text("reports/base.json"))
-        let header = try #require(json["header"] as? [String: Any])
-        #expect(header["retirementAge"] as? Int == 55)
-        #expect(header["retirementAgeChoice"] as? String == "target")
-        #expect(header["runs"] as? Int == 30)
-        let paths = try #require(json["paths"] as? [[String: Any]])
-        #expect(paths.compactMap { $0["run"] as? Int } == [3, 11])
-        #expect(paths.allSatisfy { $0["matchesMainRun"] as? Bool == true })
-        for key in ["diagnosis", "person", "plan", "assumptions", "start", "schedule", "simulation", "percentiles",
-                    "issues"] {
-            #expect(json[key] != nil, "\(key)")
-        }
+        #expect(run.output == "Wrote the report on base to reports/base.md.\n")
+        #expect(try library.text("reports/base.md").hasPrefix("# Calculations: Base case\n"))
     }
 
     @Test func anonymizedOutputHasNoNamesOrIDs() async throws {
         let library = try library()
-        for format in ["md", "json"] {
-            let run = await retire(["plan", "debug", "--library", library.path, "--anonymize", "--format", format,
-                                    "--paths", "2"])
-            #expect(run.status == 0, "\(run.all)")
-            // The example library's names and IDs, except the tax systems'
-            // own words they share (the TFR account and the `it.tfr`
-            // wrapper, the gold instrument and the asset class).
-            let names = ["casa", "Home", "conto-deposito", "Conto deposito", "conto-fineco", "Conto Fineco", "directa",
-                         "Directa", "fondo-pensione", "Fondo pensione", "gold-coins", "Gold coins", "ledger-wallet",
-                         "Ledger wallet", "mutuo-casa", "Mutuo casa", "old-bank", "Old bank", "btc", "Bitcoin", "vwce",
-                         "Vanguard FTSE All-World UCITS ETF (Acc)", "Gold (coins and bars)", "IE00BK5BQT80",
-                         "FinecoBank", "Directa SIM", "Banca Esempio", "base", "Base case", "part-time-from-50",
-                         "State pension from previous country", "New car", "Alex Example", "1988-04-12"]
-            for name in names {
-                #expect(!Self.containsWord(name, in: run.output), "\(name) in the \(format) output")
-            }
-            #expect(run.output.contains("Account 7 (ordinary, crypto)"))
+        let run = await retire(["plan", "debug", "--library", library.path, "--anonymize"])
+        #expect(run.status == 0, "\(run.all)")
+        let names = ["casa", "Home", "conto-deposito", "Conto deposito", "conto-fineco", "Conto Fineco", "directa",
+                     "Directa", "fondo-pensione", "Fondo pensione", "gold-coins", "Gold coins", "ledger-wallet",
+                     "Ledger wallet", "mutuo-casa", "Mutuo casa", "old-bank", "Old bank", "btc", "Bitcoin", "vwce",
+                     "Vanguard FTSE All-World UCITS ETF (Acc)", "Gold (coins and bars)", "IE00BK5BQT80",
+                     "FinecoBank", "Directa SIM", "Banca Esempio", "base", "Base case", "part-time-from-50",
+                     "State pension from previous country", "New car", "Inheritance", "Self-employed", "Alex Example",
+                     "1988-04-12", "2026-09-30"]
+        for name in names {
+            #expect(!Self.containsWord(name, in: run.output), "\(name) in the output")
         }
-        let json = try parseJSON(await retire(["plan", "debug", "--library", library.path, "--anonymize",
-                                               "--round", "100", "--format", "json", "--paths", "1"]).output)
-        let header = try #require(json["header"] as? [String: Any])
-        let anonymization = try #require(header["anonymization"] as? [String: Any])
-        #expect(anonymization["rounding"] as? String == "100")
-        let start = try #require(json["start"] as? [String: Any])
-        let assets = try #require(start["planAssets"] as? Double)
-        #expect(assets.truncatingRemainder(dividingBy: 100) == 0)
+        #expect(run.output.contains("# Calculations: Plan\n"))
+        #expect(run.output.contains("| Accounts available later 1 | 67 |"))
+
+        // Amounts are rounded, to 100 or to --round.
+        let rounded = await retire(["plan", "debug", "--library", library.path, "--anonymize", "--round", "1000"])
+        #expect(rounded.output.contains("| Work 1 | 2026 | 2028 | 40,000 | 1% |"))
+        #expect(rounded.output.contains("| Pension 2 | 67 | 5,000 |"))
     }
 
     @Test func badOptionsAreRefused() async throws {
         let library = try library()
-        let age = await retire(["plan", "debug", "--library", library.path, "--age", "soon"])
-        #expect(age.status != 0)
-        #expect(age.errors.contains("--age takes today, target or an age"))
         let round = await retire(["plan", "debug", "--library", library.path, "--round", "100"])
         #expect(round.status != 0)
         #expect(round.errors.contains("--round goes with --anonymize"))
-        let format = await retire(["plan", "debug", "--library", library.path, "--format", "pdf"])
-        #expect(format.errors.contains("--format takes md or json"))
-        let scale = await retire(["plan", "debug", "--library", library.path, "--scale", "-2"])
-        #expect(scale.status != 0)
+        let zero = await retire(["plan", "debug", "--library", library.path, "--anonymize", "--round", "0"])
+        #expect(zero.errors.contains("--round takes an amount above 0"))
+        let old = await retire(["plan", "debug", "--library", library.path, "--format", "json"])
+        #expect(old.status == 64)
     }
 
     /// Whether `word` appears in `text` as a whole word, ignoring case: not

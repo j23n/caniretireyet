@@ -544,11 +544,13 @@ struct AccountDetailScreen: View {
     }
 
     private func delete(_ account: Account) {
-        do {
-            try library.deleteAccount(account.id)
-            dismiss()
-        } catch {
-            show(error)
+        Task {
+            do {
+                try await library.deleteAccount(account.id)
+                dismiss()
+            } catch {
+                show(error)
+            }
         }
     }
 
@@ -1127,7 +1129,7 @@ extension AccountInfoRow where Value == Text {
     }
 }
 
-/// Kind, institution, country, currency, tax wrapper, what it counts in,
+/// Kind, institution, country, currency, when plans can draw on it, what it counts in,
 /// dates, where the money went, tags and notes.
 private struct AccountInfoRows: View {
     let account: Account
@@ -1144,10 +1146,7 @@ private struct AccountInfoRows: View {
                 AccountInfoRow(title: "Country", text: CountryChoices.name(of: country, locale: locale))
             }
             AccountInfoRow(title: "Currency", text: CurrencyChoices.name(of: account.currency, locale: locale))
-            AccountInfoRow(title: "Tax wrapper", text: wrapperName)
-            if let joined = account.tax?.joined {
-                AccountInfoRow(title: "Joined", text: AmountFormat.mediumDate(joined, locale: locale))
-            }
+            AccountInfoRow(title: "Plans can draw on it", text: availability)
             AccountInfoRow(title: "Recorded as", text: recordedAs)
             if let mix = assetMix {
                 AccountInfoRow(title: "Asset mix", text: mix)
@@ -1175,8 +1174,9 @@ private struct AccountInfoRows: View {
         }
     }
 
-    private var wrapperName: String {
-        account.wrapper.map { AccountWrapperDefaults.name(of: $0) } ?? "None"
+    /// "From 67", "At any age".
+    private var availability: String {
+        account.availableFromAge.map { "From \($0)" } ?? "At any age"
     }
 
     /// "Trade history", "Monthly snapshots of positions", "A balance".

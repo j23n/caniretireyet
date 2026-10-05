@@ -118,24 +118,6 @@ struct PastPriceNeedsTests {
         #expect(needs.manualPriceCount == 2)
     }
 
-    /// A plan in another currency converts every check-in at its own rate,
-    /// and in that currency's money.
-    @Test func plansInAnotherCurrencyNeedItsRatesAndIndex() throws {
-        var library = try Fixtures.exampleLibrary()
-        library.plans["part-time-from-50"]?.currency = .chf
-        let needs = PastPriceNeeds(library: library, today: today)
-        #expect(needs.rates == [PastPriceNeeds.RateDates(quote: .chf, dates: library.checkInDates)])
-        #expect(needs.rateCount == 12)
-        #expect(needs.indices.map(\.index) == ["hicp-ch", .hicpIT])
-        #expect(needs.indices.first?.months.count == 12)
-
-        // A rate the library has, either way round, isn't needed again.
-        library.upsert(FXRecord(base: .chf, quote: .eur, date: "2026-09-30", rate: d("1.07")))
-        let fewer = PastPriceNeeds(library: library, today: today, indices: [])
-        #expect(fewer.rates.first?.dates.count == 11)
-        #expect(fewer.indices.isEmpty)
-    }
-
     @Test func indexMonthsGoBackToTheFirstValuation() {
         var library = Self.library()
         library.upsert(Valuation(account: "usd-cash", date: "2026-05-20", balance: 1))

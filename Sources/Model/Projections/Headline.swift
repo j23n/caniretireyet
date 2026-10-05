@@ -107,13 +107,14 @@ public struct Headline: Hashable, Sendable, KeyedRecord, KnownKeysProviding {
     public var readiness: Decimal?
     /// The chance of success at the plan's target retirement age.
     public var successAtTarget: Decimal?
-    /// The tax parameter year used per tax system.
-    public var taxParameters: [TaxSystemID: Int]
+    /// The tax parameter year used per tax system, e.g. `{ "it": 2026 }`, in
+    /// records made before plans took their tax rates by hand; empty since.
+    public var taxParameters: [String: Int]
 
     public init(
         date: CalendarDate, confidence: Decimal? = nil, earliestAge: Int? = nil, engine: String,
         fiProgress: Decimal? = nil, planHash: String, readiness: Decimal? = nil, successAtTarget: Decimal? = nil,
-        taxParameters: [TaxSystemID: Int] = [:]
+        taxParameters: [String: Int] = [:]
     ) {
         self.date = date
         self.confidence = confidence
@@ -152,7 +153,7 @@ extension Headline: Codable {
         planHash = try c.decode(String.self, forKey: .planHash)
         readiness = try c.decodeDecimalIfPresent(forKey: .readiness)
         successAtTarget = try c.decodeDecimalIfPresent(forKey: .successAtTarget)
-        taxParameters = try c.decodeIfPresent([TaxSystemID: Int].self, forKey: .taxParameters) ?? [:]
+        taxParameters = try c.decodeIfPresent([String: Int].self, forKey: .taxParameters) ?? [:]
     }
 
     public func encode(to encoder: any Encoder) throws {

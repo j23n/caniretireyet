@@ -1,10 +1,8 @@
 import Model
 import SwiftUI
-import TaxKit
 
 /// One plan (UI.md, "Plan"): a plan picker (New, Duplicate, Rename, Delete,
-/// Set as main plan, Compare, Show Calculations), then Results, Progress
-/// and Inputs.
+/// Set as main plan, Export Calculations), then Results, Progress and Inputs.
 ///
 /// - **iPhone** (tabs): a segmented Results | Progress | Inputs; What-if is a
 ///   bottom sheet; while editing Inputs a small pill keeps the answer in view.
@@ -80,8 +78,7 @@ struct PlanEmptyView: View {
 
     private func create() {
         let plan = PlanEditing.newPlan(id: library.newPlanID(for: "Base case"), name: "Base case",
-                                       library: library.library, asOf: library.asOfDate,
-                                       registry: AppTaxRegistry.standard)
+                                       library: library.library, asOf: library.asOfDate)
         do {
             try library.save(plan)
             if library.settings.mainPlan == nil { try library.setMainPlan(plan.id) }
@@ -103,11 +100,10 @@ struct PlanContentView: View {
     @State private var part: PlanPart = .results
     @State private var showsInspector = true
     @State private var showsWhatIf = false
-    @State private var isComparing = false
     @State private var isRenaming = false
     @State private var isDeleting = false
     @State private var isSavingBaseline = false
-    @State private var showsCalculations = false
+    @State private var calculations: PlanCalculationsExport?
     @State private var newName = ""
     @State private var baselineLabel = ""
     @State private var message: String?
@@ -126,7 +122,6 @@ struct PlanContentView: View {
 
     var body: some View {
         planLayout
-            // The plan's amounts are in its currency (results in theirs: PlanResultsView).
             .environment(\.baseCurrency, session.currency)
             .navigationTitle(name)
             #if os(iOS)
@@ -159,7 +154,7 @@ struct PlanContentView: View {
                 Button("Cancel", role: .cancel) {}
             }
             .alert("Save baseline", isPresented: $isSavingBaseline) {
-                TextField("Label, e.g. Before forfettario", text: $baselineLabel)
+                TextField("Label, e.g. Before going part-time", text: $baselineLabel)
                 Button("Save") { saveBaseline() }
                 Button("Cancel", role: .cancel) {}
             } message: {
@@ -170,16 +165,14 @@ struct PlanContentView: View {
             } message: {
                 Text("Its saved baselines and recorded answers stay in the library.")
             }
-            .navigationDestination(isPresented: $isComparing) {
-                PlanCompareScreen(firstID: planID)
+            .sheet(item: $calculations) { export in
+                PlanCalculationsSheet(export: export)
             }
-            .planDebugSheet(isPresented: $showsCalculations, session: session, library: library, isWide: isWide)
             .focusedSceneValue(\.planActions, PlanCommandActions(
                 saveBaseline: { startSavingBaseline() },
                 duplicate: { duplicate() },
-                compare: { isComparing = true },
                 recalculate: { session.calculate() },
-                showCalculations: { showCalculations() }))
+                exportCalculations: { exportCalculations() }))
             .onDisappear { session.saveNow() }
     }
 
@@ -282,12 +275,6 @@ struct PlanContentView: View {
                 .help("Calculate the plan with its inputs and your latest data (⌘R)")
                 .disabled(!plans.isAvailable || session.isRunning)
                 Button {
-                    isComparing = true
-                } label: {
-                    Label("Compare…", systemImage: "square.split.2x1")
-                }
-                .disabled(library.library.plans.count < 2)
-                Button {
                     startSavingBaseline()
                 } label: {
                     Label("Save Baseline…", systemImage: "bookmark")
@@ -342,12 +329,6 @@ struct PlanContentView: View {
                 }
                 .disabled(library.settings.mainPlan == planID)
                 Button {
-                    isComparing = true
-                } label: {
-                    Label("Compare…", systemImage: "square.split.2x1")
-                }
-                .disabled(library.library.plans.count < 2)
-                Button {
                     startSavingBaseline()
                 } label: {
                     Label("Save Baseline…", systemImage: "bookmark")
@@ -356,9 +337,9 @@ struct PlanContentView: View {
             .disabled(!library.canEdit)
             Section {
                 Button {
-                    showCalculations()
+                    exportCalculations()
                 } label: {
-                    Label("Show Calculations…", systemImage: "function")
+                    Label("Export Calculations…", systemImage: "function")
                 }
                 .disabled(!plans.isAvailable)
             }
@@ -385,6 +366,8 @@ struct PlanContentView: View {
                     .accessibilityHidden(true)
             }
         }
+        // The label draws its own chevron; the toolbar would add a second one.
+        .menuIndicator(.hidden)
         .accessibilityLabel(Text("Plan: \(name)"))
     }
 
@@ -393,7 +376,7 @@ struct PlanContentView: View {
     private func newPlan() {
         let name = PlanEditing.uniqueName("New plan", among: library.library.plans.values)
         let plan = PlanEditing.newPlan(id: library.newPlanID(for: name), name: name, library: library.library,
-                                       asOf: library.asOfDate, registry: AppTaxRegistry.standard)
+                                       asOf: library.asOfDate)
         do {
             try library.save(plan)
             navigation.showPlan(plan.id)
@@ -448,12 +431,13 @@ struct PlanContentView: View {
         isSavingBaseline = true
     }
 
-    /// Show Calculations…: the plan debugger for this plan, with its
-    /// what-if (PlanDebugScreen). Pending edits are saved first.
-    private func showCalculations() {
+    /// Export Calculations…: every calculation behind this plan's answer,
+    /// with its what-if, as a Markdown file. Pending edits are saved first.
+    private func exportCalculations() {
         guard plans.isAvailable else { return }
         session.saveNow()
-        showsCalculations = true
+        calculations = PlanCalculationsExport.source(session: session, library: library)
+            .map(PlanCalculationsExport.init(source:))
     }
 
     private func saveBaseline() {

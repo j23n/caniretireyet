@@ -62,9 +62,11 @@ struct LoadedLibrary {
 
     /// Throws unless this version may write to the library.
     func checkWritable() throws {
-        if report.isReadOnly, let version = report.schemaVersion {
+        if report.isNewerSchema, let version = report.schemaVersion {
             throw StorageError.libraryIsNewer(version: version, supported: LibrarySettings.currentSchemaVersion)
         }
+        // Its settings are only defaults: never write them over the file.
+        if report.settingsUnreadable { throw StorageError.unreadableSettings }
         try folder.checkWritable(schemaVersion: library.settings.schemaVersion)
     }
 }

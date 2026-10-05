@@ -53,8 +53,8 @@ extension MixStepStart: Codable {
 }
 
 /// A change of the plan's target mix with age, one entry of
-/// `portfolio.targetMixByAge`: from `fromAge` on, the ordinary (taxable)
-/// accounts are rebalanced to `mix` (PLANNER.md, "Rebalancing").
+/// `portfolio.targetMixByAge`: from `fromAge` on, the money you can draw
+/// is rebalanced to `mix` (PLANNER.md, "Target mix").
 ///
 /// ```json
 /// { "fromAge": "retirement", "mix": { "equity": "0.6", "bonds": "0.4" } }

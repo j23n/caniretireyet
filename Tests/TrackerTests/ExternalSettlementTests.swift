@@ -384,4 +384,40 @@ struct ExternalConversionTests {
         let april = Valuation(account: "coins", date: "2024-04-30", cash: 0)
         #expect(Valuator(library: library).defaultFlow(for: april, previous: nil) == 0)
     }
+
+    /// The parts a check-in shows of a trades account's new money count
+    /// from the same start as the flow it saves: at the account's first
+    /// check-in, the library's previous check-in, not its first trade.
+    @Test func theFlowPartsCountFromTheSameStartAsTheFlow() throws {
+        var library = GoldLibrary.external()
+        library.upsert(Trade(account: "broker", date: "2024-01-10", id: "dep1", type: .deposit, amount: 1_000))
+        library.upsert(Trade(account: "broker", date: "2024-03-10", id: "dep2", type: .deposit, amount: 500))
+        library.upsert(Trade(account: "broker", date: "2024-03-12", id: "buy1", type: .buy, instrument: "vwce",
+                             quantity: 2, price: 105, settlement: .external))
+        // An earlier check-in of another account, on 29 February.
+        library.upsert(Valuation(account: "coins", date: "2024-02-29", cash: 0))
+        let valuator = Valuator(library: library)
+
+        // The broker's first valuation, on 31 March: the March deposit and
+        // the buy paid from outside, not the January deposit.
+        let parts = valuator.tradeFlowParts(of: "broker", on: "2024-03-31", previous: nil)
+        #expect(parts == TradeFlowParts(recorded: 710, paidOutside: 210))
+        let march = Valuation(account: "broker", date: "2024-03-31")
+        #expect(valuator.defaultFlow(for: march, previous: nil) == parts.recorded)
+
+        // After a valuation of its own, from that one.
+        let january = Valuation(account: "broker", date: "2024-01-31", cash: 1_000)
+        library.upsert(january)
+        let since = Valuator(library: library).tradeFlowParts(of: "broker", on: "2024-03-31", previous: january)
+        #expect(since == TradeFlowParts(recorded: 710, paidOutside: 210))
+        let fromStart = Valuator(library: library).tradeFlowParts(of: "broker", on: "2024-01-31", previous: nil)
+        #expect(fromStart == TradeFlowParts(recorded: 1_000, paidOutside: 0))
+
+        // The coins' sale paid into the bank, and nothing for an account
+        // that doesn't record trades.
+        #expect(valuator.tradeFlowParts(of: "coins", on: "2024-03-31", previous: library.valuations(for: "coins").first)
+            == TradeFlowParts(recorded: -680, paidOutside: -680))
+        #expect(valuator.tradeFlowParts(of: "nowhere", on: "2024-03-31", previous: nil)
+            == TradeFlowParts(recorded: 0, paidOutside: 0))
+    }
 }

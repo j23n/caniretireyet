@@ -5,9 +5,8 @@ import Tracker
 // The account list's rows, groups and subtotals, and which groups show their
 // rows, computed without SwiftUI so they can be checked on Linux.
 
-/// Which accounts the list shows. The app shows `.all` (the Accounts tab,
-/// and *All accounts* in the sidebar, which lists each group's accounts
-/// itself: ``SidebarAccounts``).
+/// Which accounts the list shows. The app shows `.all` on the Accounts tab;
+/// the sidebar lists each group's accounts itself (``SidebarAccounts``).
 enum AccountsFilter: Hashable, Sendable {
     /// Every open account, grouped, then the closed ones under *Closed*.
     /// Each group, and *Closed*, collapses (``AccountListExpansion``).

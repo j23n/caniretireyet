@@ -12,9 +12,8 @@ import SwiftUI
 /// | Hide Amounts | ⌘⇧H |
 /// | Show Future | ⌘⇧F |
 /// | Duplicate Plan | ⌘D |
-/// | Compare Plans | ⌘⌥C |
 /// | Recalculate | ⌘R |
-/// | Show Calculations… | — |
+/// | Export Calculations… | — |
 ///
 /// The plan commands act on the plan on screen, which publishes them with
 /// `.focusedSceneValue(\.planActions, …)`; they're disabled otherwise.
@@ -58,11 +57,8 @@ struct AppCommands: Commands {
             Button("Duplicate Plan") { planActions?.duplicate() }
                 .keyboardShortcut("d", modifiers: .command)
                 .disabled(planActions == nil)
-            Button("Compare Plans") { planActions?.compare() }
-                .keyboardShortcut("c", modifiers: [.command, .option])
-                .disabled(planActions == nil)
             Divider()
-            Button("Show Calculations…") { planActions?.showCalculations() }
+            Button("Export Calculations…") { planActions?.exportCalculations() }
                 .disabled(planActions == nil)
         }
     }
@@ -75,13 +71,11 @@ struct PlanCommandActions {
     var saveBaseline: @MainActor () -> Void
     /// Duplicate Plan (⌘D).
     var duplicate: @MainActor () -> Void
-    /// Compare Plans (⌘⌥C).
-    var compare: @MainActor () -> Void
     /// Recalculate (⌘R): calculate what's out of date on screen. Plans only
     /// run when asked.
     var recalculate: @MainActor () -> Void
-    /// Show Calculations…: the plan debugger for the plan on screen.
-    var showCalculations: @MainActor () -> Void
+    /// Export Calculations…: every calculation behind the plan on screen, as Markdown.
+    var exportCalculations: @MainActor () -> Void
 }
 
 extension FocusedValues {

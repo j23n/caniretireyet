@@ -1,10 +1,9 @@
 import Foundation
 import Model
-import TaxKit
 
 /// Everything the Results screen needs from one run of a plan. Amounts are
-/// yearly, in today's money in the plan's currency (``currency``: the plan's
-/// `currency`, else the library's base currency), in real terms.
+/// yearly, in today's money in the library's base currency (``currency``),
+/// in real terms.
 public struct PlanResult: Hashable, Sendable {
     /// The plan as it was run.
     public var plan: PlanDocument
@@ -12,8 +11,6 @@ public struct PlanResult: Hashable, Sendable {
     public var engine: String
     /// ``Planner/planHash(_:)`` of `plan`.
     public var planHash: String
-    /// The newest tax-parameter year used per tax system, e.g. `["it": 2026]`.
-    public var taxParameters: [String: Int]
     /// Where the plan starts.
     public var start: PlanStart
     /// The simulation settings used.
@@ -37,23 +34,25 @@ public struct PlanResult: Hashable, Sendable {
     /// Events along the time axis at `focusAge`: retirement, pension starts,
     /// locked money becoming accessible, windfalls and large expenses.
     public var markers: [TimelineMarker]
-    /// Warnings from the plan, the tax systems and the years assessed.
+    /// Warnings found in the plan.
     public var issues: [PlanIssue]
-    /// The currency of every amount: the plan's, else the library's base
-    /// currency. `nil` only in results made without it (previews), where it's
-    /// the plan's `currency` if set.
+    /// The currency of every amount: the library's base currency. `nil` only
+    /// in results made without it (previews).
     public var currency: CurrencyCode?
+    /// What flexible spending did at `focusAge`; `nil` when the plan
+    /// doesn't use it (PLANNER.md, "Flexible spending").
+    public var flexibleSpending: FlexibleSpendingSummary?
 
     /// A result from its parts, e.g. a sample for SwiftUI previews.
     public init(plan: PlanDocument, engine: String = Planner.engineVersion, planHash: String,
-                taxParameters: [String: Int] = [:], start: PlanStart, settings: SimulationSettings, answer: PlanAnswer,
+                start: PlanStart, settings: SimulationSettings, answer: PlanAnswer,
                 successCurve: [AgeSuccess], focusAge: Int, fan: [FanYear], expectedPath: PathDetail,
                 medianPath: PathDetail, failures: FailureSummary, markers: [TimelineMarker] = [],
-                issues: [PlanIssue] = [], currency: CurrencyCode? = nil) {
+                issues: [PlanIssue] = [], currency: CurrencyCode? = nil,
+                flexibleSpending: FlexibleSpendingSummary? = nil) {
         self.plan = plan
         self.engine = engine
         self.planHash = planHash
-        self.taxParameters = taxParameters
         self.start = start
         self.settings = settings
         self.answer = answer
@@ -65,7 +64,8 @@ public struct PlanResult: Hashable, Sendable {
         self.failures = failures
         self.markers = markers
         self.issues = issues
-        self.currency = currency ?? plan.currency
+        self.currency = currency
+        self.flexibleSpending = flexibleSpending
     }
 
     /// The success rate at `age`, if it was simulated.
@@ -81,85 +81,47 @@ public struct PlanStart: Hashable, Sendable {
     /// Age on `date`.
     public var age: Int
     /// The value of the accounts the plan includes, exactly as the tracker
-    /// computes it, in the plan's currency. Accounts that start a pension
-    /// scheme (``schemeSeeds``) aren't among them.
+    /// computes it, in the base currency.
     public var planAssets: Decimal
     /// The accounts the plan includes, sorted.
     public var accounts: [AccountID]
-    /// The buckets the accounts were grouped into, by wrapper.
+    /// The accounts grouped by when they can be drawn: the money you can
+    /// draw now first, then each later age.
     public var buckets: [BucketSummary]
-    /// Accounts read as a pension scheme's record rather than as money the
-    /// plan draws on, e.g. a pension-fund balance that becomes the scheme's
-    /// starting balance: how the plan read them.
-    public var schemeSeeds: [SchemeSeed]
 
     public init(date: CalendarDate, age: Int, planAssets: Decimal, accounts: [AccountID] = [],
-                buckets: [BucketSummary] = [], schemeSeeds: [SchemeSeed] = []) {
+                buckets: [BucketSummary] = []) {
         self.date = date
         self.age = age
         self.planAssets = planAssets
         self.accounts = accounts
         self.buckets = buckets
-        self.schemeSeeds = schemeSeeds
     }
 }
 
-/// Accounts that start a pension scheme: their wrapper is the scheme's
-/// `seedWrapper`, so their value on the start date became the pension's
-/// `startingBalance`.
-public struct SchemeSeed: Hashable, Sendable {
-    /// The scheme's ID, e.g. `ch.bvg`.
-    public var scheme: String
-    /// The scheme's name.
-    public var name: String
-    /// The accounts' wrapper.
-    public var wrapper: String
-    public var accounts: [AccountID]
-    /// Their value on the start date, in the plan's currency.
-    public var value: Double
-    /// Whether the pension took it as its starting balance (`false` when
-    /// the plan sets `startingBalance` itself).
-    public var used: Bool
-
-    public init(scheme: String, name: String, wrapper: String, accounts: [AccountID], value: Double, used: Bool) {
-        self.scheme = scheme
-        self.name = name
-        self.wrapper = wrapper
-        self.accounts = accounts
-        self.value = value
-        self.used = used
-    }
-}
-
-/// One bucket of the starting portfolio.
+/// The accounts the plan can draw from one age: the money you can draw now
+/// (``availableFromAge`` `nil`), or accounts available from a later age.
 public struct BucketSummary: Hashable, Sendable {
-    /// The wrapper ID, e.g. `it.ordinary` or `it.pensionFund`.
-    public var wrapper: String
-    /// The wrapper's name, or its ID when no tax system defines it.
+    /// "Money you can draw", or the accounts' names.
     public var name: String
-    /// Liquid (`taxable`) or tax-advantaged.
-    public var category: WrapperCategory
-    /// Whether this is the bucket new savings go into.
-    public var receivesSavings: Bool
-    /// Value on the start date, in the plan's currency.
+    /// The age from which it can be drawn; `nil` for the money you can draw now.
+    public var availableFromAge: Int?
+    /// Value on the start date, in the base currency.
     public var value: Double
-    /// Purchase cost of the holdings (their value for cash and wrappers).
+    /// What was paid for what it holds (its value for cash, and for money
+    /// that becomes available later).
     public var costBasis: Double
-    /// The target mix it's rebalanced to every year; for a taxable bucket,
-    /// until the plan's target mix changes with age (`portfolio.targetMixByAge`).
-    public var targetMix: [AssetClass: Double]
+    /// The mix it starts with, as shares by class.
+    public var mix: [AssetClass: Double]
     public var accounts: [AccountID]
 
-    public init(wrapper: String, name: String, category: WrapperCategory, receivesSavings: Bool = false,
-                value: Double, costBasis: Double, targetMix: [AssetClass: Double] = [:],
-                accounts: [AccountID] = []) {
-        self.wrapper = wrapper
+    public init(name: String, availableFromAge: Int? = nil, value: Double, costBasis: Double,
+                mix: [AssetClass: Double] = [:], accounts: [AccountID] = []) {
         self.name = name
-        self.category = category
-        self.receivesSavings = receivesSavings
+        self.availableFromAge = availableFromAge
         self.value = value
         self.costBasis = costBasis
-        self.targetMix = targetMix
+        self.mix = mix
         self.accounts = accounts
     }
 }
@@ -201,16 +163,6 @@ public struct PlanAnswer: Hashable, Sendable {
     /// The highest retirement spending that still reaches the confidence
     /// level at `targetAge`.
     public var sustainableSpending: SustainableSpending?
-    /// The old rule of thumb, kept for compatibility but no longer shown:
-    /// the retirement spending your pensions don't cover once all have
-    /// started, divided by the withdrawal rate. It ignores the years before
-    /// the pensions start, taxes on withdrawals and the plan's horizon and
-    /// confidence, so it can disagree with the simulation; use
-    /// ``assetsNeeded`` instead.
-    public var fiNumber: Double?
-    /// Plan assets today divided by ``fiNumber``. Kept for compatibility
-    /// (headlines still record it); ``readiness`` is the number to show.
-    public var fiProgress: Double?
     /// What retiring today would need, from the same simulation: the plan
     /// assets that make retiring at ``currentAge`` reach the confidence
     /// level. `nil` when the run didn't look for it
@@ -220,7 +172,7 @@ public struct PlanAnswer: Hashable, Sendable {
     public init(canRetireNow: Bool, confidence: Double, currentAge: Int, successIfRetiringNow: Double,
                 earliestAge: Int? = nil, earliestDate: CalendarDate? = nil, targetAge: Int? = nil,
                 successAtTarget: Double? = nil, sustainableSpending: SustainableSpending? = nil,
-                fiNumber: Double? = nil, fiProgress: Double? = nil, assetsNeeded: AssetsNeeded? = nil) {
+                assetsNeeded: AssetsNeeded? = nil) {
         self.canRetireNow = canRetireNow
         self.confidence = confidence
         self.currentAge = currentAge
@@ -230,8 +182,6 @@ public struct PlanAnswer: Hashable, Sendable {
         self.targetAge = targetAge
         self.successAtTarget = successAtTarget
         self.sustainableSpending = sustainableSpending
-        self.fiNumber = fiNumber
-        self.fiProgress = fiProgress
         self.assetsNeeded = assetsNeeded
     }
 
@@ -380,7 +330,7 @@ public struct AgeSuccess: Hashable, Sendable {
 }
 
 /// Plan assets at one year-end: percentiles across runs, and the
-/// deterministic run's value.
+/// deterministic run's value; with flexible spending, the spending paid.
 public struct FanYear: Hashable, Sendable {
     public var year: Int
     /// Age during the year.
@@ -391,9 +341,14 @@ public struct FanYear: Hashable, Sendable {
     public var p75: Double
     public var p90: Double
     public var expected: Double
+    /// With flexible spending, the spending paid in the year (the part
+    /// simulated, as ``YearDetail/spending``): percentiles across every
+    /// run, a run counting 0 from the year after it fails (and what it could
+    /// pay in that year). `nil` without flexible spending.
+    public var spending: SpendingPercentiles?
 
     public init(year: Int, age: Int, p10: Double, p25: Double, p50: Double, p75: Double, p90: Double,
-                expected: Double) {
+                expected: Double, spending: SpendingPercentiles? = nil) {
         self.year = year
         self.age = age
         self.p10 = p10
@@ -402,7 +357,86 @@ public struct FanYear: Hashable, Sendable {
         self.p75 = p75
         self.p90 = p90
         self.expected = expected
+        self.spending = spending
     }
+}
+
+/// The spending paid in one year across runs, with flexible spending.
+public struct SpendingPercentiles: Hashable, Sendable {
+    public var p10: Double
+    public var p50: Double
+    public var p90: Double
+
+    public init(p10: Double, p50: Double, p90: Double) {
+        self.p10 = p10
+        self.p50 = p50
+        self.p90 = p90
+    }
+}
+
+/// What flexible spending did when retiring at one age (PLANNER.md,
+/// "Flexible spending"): how often spending was cut, how low it went and
+/// for how long. Levels are shares of the plan's spending (1 is 100%);
+/// a run that fails had its spending forced below the floor, so it counts
+/// as cut, at the lowest level, and below 100% from then on.
+public struct FlexibleSpendingSummary: Hashable, Sendable {
+    /// The rule as the run read it: the step of a cut or a raise, the
+    /// lowest level, and the guardrails (shares of the first retirement
+    /// year's withdrawal rate).
+    public var cut: Double
+    public var floor: Double
+    public var upperGuardrail: Double
+    public var lowerGuardrail: Double
+    /// The plan's yearly retirement spending at 100%, before phase factors.
+    public var planSpending: Double
+    /// The retirement age it's for (``PlanResult/focusAge``).
+    public var age: Int
+    public var runs: Int
+    /// The years with retirement spending at that age.
+    public var retirementYears: Int
+    /// The share of runs whose spending fell below 100% in some retirement year.
+    public var shareWithCut: Double
+    /// The share of runs that fail: spending forced below the floor.
+    public var failureRate: Double
+    /// The lowest level a run paid, in the median run and in a
+    /// 10th-percentile run when runs are ranked by it (nearest rank,
+    /// failures lowest). `nil` when that run fails.
+    public var medianLowestLevel: Double?
+    public var p10LowestLevel: Double?
+    /// The median share of retirement years spent below 100%.
+    public var medianShareBelow: Double
+    /// Retirement years below 100%: in the median run and in a bad case
+    /// (the 90th percentile when runs are ranked by them).
+    public var medianYearsBelow: Int
+    public var p90YearsBelow: Int
+
+    public init(cut: Double, floor: Double, upperGuardrail: Double, lowerGuardrail: Double, planSpending: Double,
+                age: Int, runs: Int, retirementYears: Int, shareWithCut: Double, failureRate: Double,
+                medianLowestLevel: Double?, p10LowestLevel: Double?, medianShareBelow: Double, medianYearsBelow: Int,
+                p90YearsBelow: Int) {
+        self.cut = cut
+        self.floor = floor
+        self.upperGuardrail = upperGuardrail
+        self.lowerGuardrail = lowerGuardrail
+        self.planSpending = planSpending
+        self.age = age
+        self.runs = runs
+        self.retirementYears = retirementYears
+        self.shareWithCut = shareWithCut
+        self.failureRate = failureRate
+        self.medianLowestLevel = medianLowestLevel
+        self.p10LowestLevel = p10LowestLevel
+        self.medianShareBelow = medianShareBelow
+        self.medianYearsBelow = medianYearsBelow
+        self.p90YearsBelow = p90YearsBelow
+    }
+
+    /// The lowest yearly spending in the median run and a 10th-percentile
+    /// run, in the plan's currency: the level times ``planSpending``.
+    public var medianLowestSpending: Double? { medianLowestLevel.map { $0 * planSpending } }
+    public var p10LowestSpending: Double? { p10LowestLevel.map { $0 * planSpending } }
+    /// The floor in the plan's currency, before phase factors.
+    public var floorSpending: Double { floor * planSpending }
 }
 
 /// One simulated path, year by year.
@@ -433,23 +467,31 @@ public struct YearDetail: Hashable, Sendable {
     /// Plan assets at the start and end of the simulated part.
     public var startAssets: Double
     public var endAssets: Double
-    /// Planned spending (while working and in retirement, with phase factors).
+    /// Spending (while working and in retirement, with phase factors): the
+    /// plan's, or with flexible spending what the run paid (see
+    /// ``spendingLevel``); in the year a run fails, what it set out to pay.
     public var spending: Double
     /// One-off expenses.
     public var expenses: Double
     /// Gross income by source: work, pensions, windfalls, withdrawals.
     public var income: [IncomeItem]
-    /// Taxes by line, as the tax system itemised them (summed by line ID).
+    /// Taxes by line (``TaxLine``): on investments and on wealth.
     public var taxes: [AmountItem]
-    /// Social contributions by line.
-    public var contributions: [AmountItem]
     /// Net new money into the plan's accounts: positive when saving,
     /// negative when drawing down.
     public var savings: Double
+    /// With flexible spending: the plan's spending in the year at 100%
+    /// (``spending`` is what was paid). `nil` without flexible spending.
+    public var plannedSpending: Double?
+    /// With flexible spending, in a year with retirement spending: the
+    /// share of the plan's retirement spending paid (1 is 100%), or in the
+    /// year a run fails the level it set out to pay. `nil` otherwise.
+    public var spendingLevel: Double?
 
     public init(year: Int, age: Int, fraction: Double = 1, workingShare: Double = 0, startAssets: Double,
                 endAssets: Double, spending: Double, expenses: Double = 0, income: [IncomeItem] = [],
-                taxes: [AmountItem] = [], contributions: [AmountItem] = [], savings: Double = 0) {
+                taxes: [AmountItem] = [], savings: Double = 0,
+                plannedSpending: Double? = nil, spendingLevel: Double? = nil) {
         self.year = year
         self.age = age
         self.fraction = fraction
@@ -460,14 +502,13 @@ public struct YearDetail: Hashable, Sendable {
         self.expenses = expenses
         self.income = income
         self.taxes = taxes
-        self.contributions = contributions
         self.savings = savings
+        self.plannedSpending = plannedSpending
+        self.spendingLevel = spendingLevel
     }
 
     /// All taxes in the year.
     public var totalTax: Double { taxes.reduce(0) { $0 + $1.amount } }
-    /// All social contributions in the year.
-    public var totalContributions: Double { contributions.reduce(0) { $0 + $1.amount } }
 }
 
 /// Where income came from.
@@ -476,22 +517,20 @@ public struct IncomeKind: RawRepresentable, Hashable, Sendable, ExpressibleByStr
     public init(rawValue: String) { self.rawValue = rawValue }
     public init(stringLiteral value: String) { self.rawValue = value }
 
-    /// A work phase: gross salary or revenue minus costs, or net income.
+    /// A work phase's income after tax.
     public static let work: IncomeKind = "work"
-    /// A pension being paid, gross.
+    /// A pension being paid, after tax.
     public static let pension: IncomeKind = "pension"
     /// A one-off amount received.
     public static let windfall: IncomeKind = "windfall"
-    /// Sales from the liquid buckets, gross.
+    /// Investments sold, before the tax on their gains.
     public static let withdrawal: IncomeKind = "withdrawal"
-    /// Money taken out of a tax-advantaged wrapper, gross.
-    public static let payout: IncomeKind = "payout"
 }
 
 /// One source of income in a year.
 public struct IncomeItem: Hashable, Sendable {
     public var kind: IncomeKind
-    /// Stable within a plan: a work phase ID, pension ID, event name or wrapper ID.
+    /// Stable within a plan: a work phase ID, pension ID, event ID or `withdrawal`.
     public var id: String
     public var label: String
     public var amount: Double
@@ -532,30 +571,28 @@ public struct RunFailure: Hashable, Sendable {
 
 /// Why a run failed.
 public enum FailureReason: Hashable, Sendable {
-    /// Every bucket was empty: the money ran out entirely.
+    /// Every account was empty: the money ran out entirely.
     case depleted
-    /// Accessible money ran out while a wrapper still held money it wouldn't
-    /// release yet: a bridging problem.
+    /// The money you can draw ran out while accounts available from a later
+    /// age still held money: a bridging problem.
     case locked(LockedMoney)
 }
 
-/// Money a failing run couldn't reach.
+/// Money a failing run couldn't reach yet.
 public struct LockedMoney: Hashable, Sendable {
-    public var wrapper: String
+    /// The accounts' names.
     public var name: String
-    /// What the wrapper held.
+    /// What they held.
     public var value: Double
-    /// The age it becomes accessible, if it does within the plan.
+    /// The age they become available, if it's within the plan.
     public var accessibleFromAge: Int?
-    /// The wrapper's reason for staying locked.
-    public var reason: String
+    public var accounts: [AccountID]
 
-    public init(wrapper: String, name: String, value: Double, accessibleFromAge: Int? = nil, reason: String) {
-        self.wrapper = wrapper
+    public init(name: String, value: Double, accessibleFromAge: Int? = nil, accounts: [AccountID] = []) {
         self.name = name
         self.value = value
         self.accessibleFromAge = accessibleFromAge
-        self.reason = reason
+        self.accounts = accounts
     }
 }
 
@@ -569,9 +606,9 @@ public struct FailureSummary: Hashable, Sendable {
     public var medianFailureAge: Int?
     /// Failures by age, ascending.
     public var byAge: [AgeCount]
-    /// Failures that happened while money was still locked in a wrapper.
+    /// Failures that happened while money was still locked away.
     public var bridgeFailures: Int
-    /// Bridge failures by wrapper, most frequent first.
+    /// Bridge failures by the accounts still locked, most frequent first.
     public var bridges: [BridgeFailure]
 
     public init(runs: Int, failed: Int, failureRate: Double, medianFailureAge: Int? = nil, byAge: [AgeCount] = [],
@@ -597,17 +634,16 @@ public struct AgeCount: Hashable, Sendable {
     }
 }
 
-/// Runs that ran out before one wrapper became accessible.
+/// Runs that ran out before some accounts became available.
 public struct BridgeFailure: Hashable, Sendable {
-    public var wrapper: String
+    /// The accounts' names.
     public var name: String
     public var accessibleFromAge: Int?
     public var count: Int
     /// `count / runs`.
     public var share: Double
 
-    public init(wrapper: String, name: String, accessibleFromAge: Int? = nil, count: Int, share: Double) {
-        self.wrapper = wrapper
+    public init(name: String, accessibleFromAge: Int? = nil, count: Int, share: Double) {
         self.name = name
         self.accessibleFromAge = accessibleFromAge
         self.count = count
@@ -625,7 +661,7 @@ public struct TimelineMarker: Hashable, Sendable {
 
         public static let retirement: Kind = "retirement"
         public static let pensionStart: Kind = "pensionStart"
-        /// Money locked in a wrapper becomes accessible.
+        /// Accounts available from an age become available.
         public static let accessible: Kind = "accessible"
         public static let windfall: Kind = "windfall"
         public static let expense: Kind = "expense"

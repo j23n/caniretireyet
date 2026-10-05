@@ -2,7 +2,7 @@ import Foundation
 import Model
 
 /// Computes account values and net worth on any date, following
-/// FILE_FORMAT.md, "How values are computed":
+/// docs/schema/README.md, "How values are computed":
 ///
 /// 1. The account's latest valuation on or before the date carries forward.
 /// 2. Positions are valued at the latest price on or before the date.

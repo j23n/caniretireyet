@@ -205,7 +205,7 @@ struct ImportDoneStep: View {
     /// The CLI command that imports with the profile.
     private var cliCommand: String {
         let id = profileID.isEmpty ? "<id>" : profileID
-        return model.flow.isLedger ? "retire import ledger <files> --profile \(id)" : "retire import --profile \(id)"
+        return "retire import --profile \(id)"
     }
 
     private func suggestProfile() {

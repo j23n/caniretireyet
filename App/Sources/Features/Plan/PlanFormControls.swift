@@ -1,11 +1,9 @@
 import Model
 import Planner
 import SwiftUI
-import TaxKit
 
-// Controls shared by the plan editors: number fields, forms generated from
-// `OptionField`s, issue rows, the collapsible section card and a sheet for
-// editing one item of a list.
+// Controls shared by the plan editors: number fields, issue rows, the
+// collapsible section card and a sheet for editing one item of a list.
 
 /// A number typed by hand: an amount, a percentage (typed as 4,5 for 4.5%)
 /// or a whole number. The value changes as you type valid text; leaving
@@ -105,107 +103,6 @@ struct PlanNumberRow: View {
         } label: {
             Text(title)
         }
-    }
-}
-
-/// A form generated from a regime's, scheme's or system's `OptionField`s
-/// (TAXES.md: a new regime needs no UI code). Every kind has a control:
-/// percentages, amounts (in the plan's currency), whole numbers and years
-/// are typed, switches toggle, choices pick; the field's help and any
-/// problem with its value show under it.
-struct PlanOptionsForm: View {
-    let fields: [OptionField]
-    @Binding var options: [String: JSONValue]
-    /// The plan's currency, which `money` options are in.
-    @Environment(\.baseCurrency) private var currency
-
-    var body: some View {
-        let problems = PlanOptionForm.problems(options, fields: fields)
-        ForEach(fields, id: \.key) { field in
-            VStack(alignment: .leading, spacing: Metrics.xs) {
-                row(for: field)
-                if let help = field.help {
-                    Text(help)
-                        .font(.caption)
-                        .foregroundStyle(Palette.secondaryInk)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-                if let problem = problems[field.key], problem.kind != .unknownKey {
-                    PlanIssueLine(message: problem.message, isError: true)
-                }
-            }
-        }
-        let unknown = PlanOptionForm.unknownKeys(options, fields: fields)
-        if !unknown.isEmpty {
-            PlanIssueLine(message: "Kept as written in the plan file: \(unknown.joined(separator: ", ")).",
-                          isError: false)
-        }
-    }
-
-    @ViewBuilder
-    private func row(for field: OptionField) -> some View {
-        switch field.kind {
-        case .bool:
-            Toggle(field.label, isOn: $options[planBool: field])
-        case .choice(let choices):
-            Picker(field.label, selection: $options[planChoice: field]) {
-                if PlanOptionForm.choice(field, in: options) == nil {
-                    Text("Not set").tag("")
-                }
-                ForEach(choices, id: \.value) { choice in
-                    Text(choice.label).tag(choice.value)
-                }
-            }
-        default:
-            LabeledContent {
-                HStack(spacing: Metrics.xs) {
-                    PlanOptionTextField(field: field, options: $options)
-                        .frame(maxWidth: 140)
-                    if field.kind == .percent {
-                        Text("%").foregroundStyle(Palette.secondaryInk)
-                    } else if field.kind == .money {
-                        Text(currency.rawValue).foregroundStyle(Palette.secondaryInk)
-                    }
-                }
-            } label: {
-                Text(field.label)
-            }
-        }
-    }
-}
-
-/// A typed option: the text is read by the field's kind as you type.
-struct PlanOptionTextField: View {
-    let field: OptionField
-    @Binding var options: [String: JSONValue]
-
-    @State private var text = ""
-    @FocusState private var isFocused: Bool
-    @Environment(\.locale) private var locale
-
-    var body: some View {
-        TextField(field.label, text: $text, prompt: Text(PlanOptionForm.placeholder(for: field, locale: locale)))
-            .labelsHidden()
-            .focused($isFocused)
-            .multilineTextAlignment(.trailing)
-            .monospacedDigit()
-            #if os(iOS)
-            .keyboardType(field.kind == .int || field.kind == .year ? .numberPad : .decimalPad)
-            #endif
-            .onAppear {
-                text = PlanOptionForm.text(for: options[field.key], kind: field.kind, locale: locale)
-            }
-            .onChange(of: options[field.key]) { _, newValue in
-                if !isFocused { text = PlanOptionForm.text(for: newValue, kind: field.kind, locale: locale) }
-            }
-            .onChange(of: text) { _, newText in
-                guard isFocused else { return }
-                let updated = PlanOptionForm.applying(newText, to: field, in: options, locale: locale)
-                if updated != options { options = updated }
-            }
-            .onChange(of: isFocused) { _, focused in
-                if !focused { text = PlanOptionForm.text(for: options[field.key], kind: field.kind, locale: locale) }
-            }
     }
 }
 
@@ -378,7 +275,8 @@ struct PlanListRow: View {
 }
 
 /// A sheet editing a copy of one item; *Done* hands it back, *Delete*
-/// removes it.
+/// removes it. Once the item is changed, swiping the sheet down does
+/// nothing: *Cancel* discards the change.
 struct PlanItemEditor<Item: Equatable, Content: View>: View {
     let title: String
     let onSave: (Item) -> Void
@@ -386,6 +284,8 @@ struct PlanItemEditor<Item: Equatable, Content: View>: View {
     private let content: (Binding<Item>) -> Content
 
     @State private var item: Item
+    /// The item as the sheet opened with it.
+    @State private var original: Item
     @Environment(\.dismiss) private var dismiss
 
     init(_ title: String, item: Item, onSave: @escaping (Item) -> Void, onDelete: (() -> Void)? = nil,
@@ -395,6 +295,7 @@ struct PlanItemEditor<Item: Equatable, Content: View>: View {
         self.onDelete = onDelete
         self.content = content
         _item = State(initialValue: item)
+        _original = State(initialValue: item)
     }
 
     var body: some View {
@@ -427,6 +328,7 @@ struct PlanItemEditor<Item: Equatable, Content: View>: View {
                 }
             }
         }
+        .interactiveDismissDisabled(item != original)
         #if os(macOS)
         .frame(minWidth: 460, minHeight: 520)
         #endif
@@ -435,12 +337,9 @@ struct PlanItemEditor<Item: Equatable, Content: View>: View {
 
 #Preview("Controls") {
     @Previewable @State var amount: Decimal = 36_000
-    @Previewable @State var options: [String: JSONValue] = ["coefficient": .string("0.67")]
     Form {
         PlanNumberRow("Spending", value: $amount, unit: "/yr")
-        PlanOptionsForm(fields: AppTaxRegistry.standard.regime("it.forfettario")?.regime.options ?? [],
-                        options: $options)
-        PlanIssueLine(message: "Impatriati doesn't apply to forfettario income: 2029 is lost.", isError: false)
+        PlanIssueLine(message: "Set the tax rate on investment income and gains.", isError: true)
     }
     .formStyle(.grouped)
     .previewEnvironment()

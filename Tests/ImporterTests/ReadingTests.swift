@@ -50,6 +50,26 @@ struct TextDecodingTests {
             try TextDecoding.decode(Data([0x71]), encoding: TextEncodingName("ebcdic"))
         }
     }
+
+    /// A spreadsheet saved as .xlsx or .numbers (a ZIP archive), a PDF, or
+    /// bytes with NULs in them aren't read as Windows-1252 text: the error
+    /// says to export the data as CSV.
+    @Test func binaryFilesAreRefused() throws {
+        let xlsx = Data([0x50, 0x4B, 0x03, 0x04, 0x14, 0x00, 0x06, 0x00]) + Data("[Content_Types].xml".utf8)
+        #expect(throws: ImportError.binaryFile(.archive)) { try TextDecoding.decode(xlsx) }
+        #expect(throws: ImportError.binaryFile(.archive)) { try TextDecoding.decode(xlsx, encoding: .utf8) }
+        #expect(throws: ImportError.binaryFile(.archive)) { try ImportSession(data: xlsx) }
+        #expect(ImportError.binaryFile(.archive).description.contains("Export it as CSV"))
+        let pdf = Data("%PDF-1.7\n%\u{E2}\u{E3}".utf8)
+        #expect(throws: ImportError.binaryFile(.pdf)) { try ImportTable(data: pdf) }
+        // An old .xls, or anything else with NUL bytes outside UTF-16.
+        let xls = Data([0xD0, 0xCF, 0x11, 0xE0, 0xA1, 0xB1, 0x1A, 0xE1, 0x00, 0x00, 0x3B, 0x00])
+        #expect(throws: ImportError.binaryFile(.other)) { try TextDecoding.decode(xls) }
+        #expect(throws: ImportError.binaryFile(.other)) { try TextDecoding.decode(Data("a;b\n1\u{0};2\n".utf8)) }
+        // UTF-16 has NUL bytes, and text that starts with "PK" is still text.
+        #expect(try TextDecoding.decode(Data([0x61, 0x00, 0x3B, 0x00, 0x62, 0x00, 0x0A, 0x00])).text == "a;b\n")
+        #expect(try TextDecoding.decode(Data("PK;Conto\n1;2\n".utf8)).text == "PK;Conto\n1;2\n")
+    }
 }
 
 struct CSVParserTests {

@@ -24,8 +24,8 @@ public struct AnyCodingKey: CodingKey, Hashable, Sendable {
 /// Every file's top-level type and every record type in a list conforms, as
 /// do the nested objects with fixed keys. When Storage rewrites a file it
 /// keeps the keys that aren't in `knownKeys`, so data written by a newer app
-/// or added by hand survives. Types that keep free-form keys themselves (such
-/// as ``AccountTax``) don't conform.
+/// or added by hand survives. Types that keep free-form keys themselves
+/// (in a `[String: JSONValue]`) don't conform.
 public protocol KnownKeysProviding {
     /// The JSON keys this type reads and writes.
     static var knownKeys: Set<String> { get }

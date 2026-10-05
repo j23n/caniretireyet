@@ -1,12 +1,11 @@
 import Foundation
 import Model
 @testable import Planner
-import TaxKit
 import Testing
 
-/// Cases worked out by hand: zero volatility, known returns, flat or no
-/// taxes. The start date is a year-end unless a test says otherwise, so
-/// every simulated year is whole.
+/// Cases worked out by hand: zero volatility and known returns. The start
+/// date is a year-end unless a test says otherwise, so every simulated
+/// year is whole.
 struct DeterministicTests {
     /// Born 1966-01-01, 59 on the start date, retiring now, funding ages 60–64.
     let retiree = Sample.library(birth: "1966-01-01", on: "2025-12-31",
@@ -36,6 +35,7 @@ struct DeterministicTests {
         #expect(firstYear.fraction == 1 && firstYear.workingShare == 0)
         #expect(close(firstYear.spending, 10_000))
         #expect(firstYear.income.map(\.kind) == [.withdrawal])
+        #expect(firstYear.taxes.isEmpty)
         #expect(close(firstYear.savings, -10_000))
     }
 
@@ -60,7 +60,7 @@ struct DeterministicTests {
         let library = Sample.library(birth: "1986-01-01", on: "2025-12-31",
                                      [SampleAccount(id: "broker", balance: 50_000)])
         let plan = Sample.plan(retire: .age(45), endAge: 50, working: "40000", retired: "30000",
-                               work: [Sample.employee(from: "2026-01-01", gross: "60000")])
+                               work: [Sample.work(from: "2026-01-01", net: "60000")])
         let result = try await Sample.run(plan, library)
 
         // Savings of 20,000 go in at the start of each working year.
@@ -71,58 +71,122 @@ struct DeterministicTests {
         let first = try #require(result.expectedPath.years.first)
         #expect(first.workingShare == 1)
         #expect(close(first.savings, 20_000))
-        #expect(first.income.map(\.kind) == [.work])
+        #expect(first.income == [IncomeItem(kind: .work, id: "work-0", label: "Work", amount: 60_000)])
+        #expect(first.taxes.isEmpty)
         #expect(result.expectedPath.years.first { $0.year == 2031 }?.workingShare == 0)
         #expect(result.markers.contains(TimelineMarker(kind: .retirement, year: 2031, age: 45, label: "Retirement")))
     }
 
-    @Test func workIsTaxedByTheSystem() async throws {
+    @Test func incomeFromWorkGrowsInRealTerms() async throws {
         let library = Sample.library(birth: "1986-01-01", on: "2025-12-31",
-                                     [SampleAccount(id: "broker", balance: 50_000)])
-        let plan = Sample.plan(retire: .age(45), endAge: 50, working: "30000", retired: "30000",
-                               work: [Sample.employee(from: "2026-01-01", gross: "60000")])
-        var system = FlatTaxSystem()
-        system.incomeRate = 0.2
-        system.contributionRate = 0.1
-        let result = try await Sample.run(plan, library, system: system)
+                                     [SampleAccount(id: "broker", balance: 0)])
+        let plan = Sample.plan(retire: .age(45), endAge: 50, retired: "0", equityReturn: "0",
+                               work: [Sample.work(from: "2026-01-01", net: "40000", growth: "0.1")])
+        let result = try await Sample.run(plan, library)
 
-        // Net 60,000 − 12,000 − 6,000 = 42,000; saving 12,000.
-        #expect(close(result.expectedValue(in: 2026), (50_000 + 12_000) * 1.05))
-        let first = try #require(result.expectedPath.years.first)
-        #expect(first.taxes == [AmountItem(id: "flat.income", label: "Income tax", amount: 12_000)])
-        #expect(first.contributions == [AmountItem(id: "flat.social", label: "Social contributions", amount: 6_000)])
-        #expect(first.income == [IncomeItem(kind: .work, id: "work-0", label: "Employee", amount: 60_000)])
+        // 40,000, then 44,000, then 48,400, all saved.
+        #expect(close(result.expectedValue(in: 2026), 40_000))
+        #expect(close(result.expectedValue(in: 2027), 84_000))
+        #expect(close(result.expectedValue(in: 2028), 132_400))
     }
 
-    @Test(arguments: [true, false])
-    func withdrawalsAreGrossedUpForGainsTax(exact: Bool) async throws {
-        var system = FlatTaxSystem()
-        system.gainsRate = 0.25
-        system.exactGrossUp = exact
-        let plan = Sample.plan(retire: .age(59), endAge: 64, retired: "10000", unrealizedGainShare: "0.5")
-        let result = try await Sample.run(plan, retiree, system: system)
+    @Test func salesPayTaxOnTheirGainShare() async throws {
+        let plan = Sample.plan(retire: .age(59), endAge: 64, retired: "10000", investmentRate: "0.25",
+                               unrealizedGainShare: "0.5")
+        let result = try await Sample.run(plan, retiree)
 
         // Half of each sale is gain: sell 10,000 / (1 − 0.25 × 0.5) = 11,428.57,
-        // leaving 88,571.43, which grows to 93,000. The tax was withheld on the sale.
-        let tolerance = exact ? 1e-9 : 1e-6
-        #expect(close(result.expectedValue(in: 2026), 93_000, tolerance))
+        // leaving 88,571.43, which grows to 93,000. The tax is paid out of the sale.
+        #expect(close(result.expectedValue(in: 2026), 93_000))
         let first = try #require(result.expectedPath.years.first)
-        let gains = try #require(first.taxes.first { $0.id == "flat.gains" })
-        #expect(close(gains.amount, 10_000 / 0.875 * 0.5 * 0.25, tolerance))
-        #expect(close(first.income.first { $0.kind == .withdrawal }?.amount, 10_000 / 0.875, tolerance))
+        #expect(first.taxes.map(\.id) == [TaxLine.investment])
+        #expect(first.taxes.first?.label == "Tax on investments")
+        #expect(close(first.totalTax, 10_000 / 0.875 * 0.5 * 0.25))
+        #expect(close(first.income.first { $0.kind == .withdrawal }?.amount, 10_000 / 0.875))
+        #expect(close(first.savings, -10_000 / 0.875))
     }
 
-    @Test func wealthTaxIsPaidTheFollowingYear() async throws {
-        var system = FlatTaxSystem()
-        system.wealthRate = 0.01
-        let plan = Sample.plan(retire: .age(59), endAge: 64, retired: "0", equityReturn: "0")
-        let result = try await Sample.run(plan, retiree, system: system)
+    /// Purchase costs stay in the money of the day they were paid, so the
+    /// part of a value that's only inflation counts as gain.
+    @Test func inflationCountsAsGain() async throws {
+        let plan = Sample.plan(retire: .age(59), endAge: 64, retired: "10000", equityReturn: "0",
+                               investmentRate: "0.5", unrealizedGainShare: "0")
+        let result = try await Sample.run(plan, retiree)
 
-        // 1% of year-end value each year: V_k = 100,000 × 0.99^k (net of the tax due).
+        // 2026 sells at cost: no tax, 90,000 left, its cost now 90,000 / 1.02 in
+        // today's money. 2027's sale is 1/51 gain: 10,000 / (1 − 0.5 / 51).
+        #expect(close(result.expectedValue(in: 2026), 90_000))
+        #expect(result.expectedYear(2026)?.taxes.isEmpty == true)
+        let sold = 10_000 / (1 - 0.5 / 51)
+        #expect(close(result.expectedYear(2027)?.income.first { $0.kind == .withdrawal }?.amount, sold))
+        #expect(close(result.expectedValue(in: 2027), 90_000 - sold))
+        #expect(close(result.expectedYear(2027)?.totalTax, sold - 10_000))
+    }
+
+    @Test func noCostRecordedMeansEverySaleIsGain() async throws {
+        let plan = Sample.plan(retire: .age(59), endAge: 64, retired: "10000", equityReturn: "0",
+                               investmentRate: "0.2")
+        let result = try await Sample.run(plan, retiree)
+
+        // A balance with no purchase cost and no estimate: 10,000 / 0.8 sold.
+        #expect(close(result.expectedValue(in: 2026), 87_500))
+        #expect(result.issues.contains { $0.code == "planner.unknownCostBasis" && !$0.isError })
+    }
+
+    @Test func investmentIncomeIsTaxedTheFollowingYear() async throws {
+        let plan = Sample.plan(retire: .age(59), endAge: 64, retired: "0", equityReturn: "0", equityYield: "0.02",
+                               inflation: "0", investmentRate: "0.25", unrealizedGainShare: "0")
+        let result = try await Sample.run(plan, retiree)
+
+        // 2026 pays out 2,000 of income, reinvested; its 500 of tax is paid in
+        // 2027 by selling at cost (the reinvested income raised the cost).
+        #expect(close(result.expectedValue(in: 2026), 100_000))
+        #expect(result.expectedYear(2026)?.taxes.isEmpty == true)
+        #expect(close(result.expectedValue(in: 2027), 99_500))
+        #expect(result.expectedYear(2027)?.taxes.map(\.id) == [TaxLine.investment])
+        #expect(close(result.expectedYear(2027)?.totalTax, 500))
+        #expect(close(result.expectedValue(in: 2028), 99_500 - 0.25 * 0.02 * 99_500))
+    }
+
+    @Test func wealthTaxOnWhatIsAboveTheAllowance() async throws {
+        let plan = Sample.plan(retire: .age(59), endAge: 64, retired: "0", equityReturn: "0", wealthRate: "0.01")
+        let result = try await Sample.run(plan, retiree)
+
+        // 1% of the value at the start of each year: V_k = 100,000 × 0.99^k.
         for (k, year) in (2026...2030).enumerated() {
             #expect(close(result.expectedValue(in: year), 100_000 * pow(0.99, Double(k + 1))))
         }
-        #expect(close(result.expectedPath.years[1].taxes.first { $0.id == "flat.wealth" }?.amount, 990))
+        #expect(result.expectedYear(2027)?.taxes.map(\.id) == [TaxLine.wealth])
+        #expect(result.expectedYear(2027)?.taxes.first?.label == "Wealth tax")
+        #expect(close(result.expectedYear(2027)?.totalTax, 990))
+
+        // With 50,000 untaxed: 500, then 1% of 49,500.
+        let allowance = try await Sample.run(
+            Sample.plan(retire: .age(59), endAge: 64, retired: "0", equityReturn: "0", wealthRate: "0.01",
+                        wealthAllowance: "50000"), retiree)
+        #expect(close(allowance.expectedValue(in: 2026), 99_500))
+        #expect(close(allowance.expectedValue(in: 2027), 99_005))
+    }
+
+    @Test func lockedMoneyIsNotWealthTaxed() async throws {
+        let library = Sample.library(birth: "1966-01-01", on: "2025-12-31", [
+            SampleAccount(id: "broker", balance: 100_000),
+            SampleAccount(id: "fund", kind: .pensionFund, balance: 100_000, availableFromAge: 63),
+        ])
+        let plan = Sample.plan(retire: .age(59), endAge: 64, retired: "0", equityReturn: "0", wealthRate: "0.01")
+        let result = try await Sample.run(plan, library)
+
+        // 2026–2028 tax only the broker; from 2029 (63 on 1 January) the fund too.
+        #expect(close(result.expectedYear(2026)?.totalTax, 1_000))
+        #expect(close(result.expectedYear(2029)?.totalTax, 0.01 * (100_000 * pow(0.99, 3) + 100_000)))
+    }
+
+    @Test func aPartYearPaysPartOfTheWealthTax() async throws {
+        let library = Sample.library(birth: "1966-01-01", on: "2026-09-30",
+                                     [SampleAccount(id: "broker", balance: 100_000)])
+        let plan = Sample.plan(retire: .age(60), endAge: 64, retired: "0", equityReturn: "0", wealthRate: "0.01")
+        let result = try await Sample.run(plan, library)
+        #expect(close(result.expectedYear(2026)?.totalTax, 1_000 * 92 / 365))
     }
 
     @Test func theFirstYearStartsAfterTheCheckIn() async throws {
@@ -140,21 +204,15 @@ struct DeterministicTests {
         #expect(result.start.date == "2026-09-30" && result.start.age == 60)
     }
 
-    /// Prices in a year are today's grown by the time simulated before it:
-    /// after a first year of 92 days, the second starts 92/365 of a year on.
-    @Test func pricesRiseByTheTimeSimulated() throws {
+    /// Prices move by the time simulated: a first year of 92 days has 92/365
+    /// of a year's inflation.
+    @Test func inflationCoversTheSimulatedPart() throws {
         let library = Sample.library(birth: "1966-01-01", on: "2026-09-30",
                                      [SampleAccount(id: "broker", balance: 100_000)])
         let plan = Sample.plan(retire: .age(60), endAge: 64, retired: "10000")
-        let model = try #require(PlanInterpreter.interpret(plan: plan, library: library, registry: Sample.registry(),
-                                                           options: PlannerOptions()).model)
-        let frames = model.frames
-        #expect(frames[0].inflationFactor == 1)
-        #expect(close(frames[1].inflationFactor, pow(1.02, 92.0 / 365), 1e-12))
-        #expect(close(frames[2].inflationFactor, pow(1.02, 1 + 92.0 / 365), 1e-12))
-        for k in 1..<frames.count {
-            #expect(close(frames[k].inflationFactor, frames[k - 1].inflationFactor * frames[k - 1].inflationStep, 1e-12))
-        }
+        let model = try #require(PlanInterpreter.interpret(plan: plan, library: library, options: PlannerOptions()).0)
+        #expect(close(model.frames[0].inflationStep, pow(1.02, 92.0 / 365), 1e-12))
+        #expect(close(model.frames[1].inflationStep, 1.02, 1e-12))
     }
 
     @Test func aCheckInOnTheLastDayOfTheYearStartsNextYear() async throws {
@@ -165,135 +223,92 @@ struct DeterministicTests {
     }
 
     @Test func lockedMoneyMakesABridgeFailure() async throws {
-        // Born 1976, retiring at 49 with 50,000 liquid and 500,000 locked until 60.
+        // Born 1976, retiring at 49 with 50,000 to draw and 500,000 available from 60.
         let library = Sample.library(birth: "1976-01-01", on: "2025-12-31", [
             SampleAccount(id: "broker", balance: 50_000),
-            SampleAccount(id: "fund", kind: .pensionFund, wrapper: "flat.pension", balance: 500_000),
+            SampleAccount(id: "fund", kind: .pensionFund, balance: 500_000, availableFromAge: 60),
         ])
         let plan = Sample.plan(retire: .age(49), endAge: 70, retired: "30000", equityReturn: "0")
         let result = try await Sample.run(plan, library)
 
         let failure = try #require(result.expectedPath.failure)
         #expect(failure.year == 2027 && failure.age == 51)
-        guard case .locked(let money) = failure.reason else {
-            Issue.record("Expected a bridge failure, got \(failure.reason)")
-            return
-        }
-        #expect(money.wrapper == "flat.pension" && money.name == "Pension fund")
-        #expect(money.accessibleFromAge == 60 && money.value == 500_000)
-        #expect(money.reason == "Locked until 60")
+        #expect(failure.reason == .locked(LockedMoney(name: "fund", value: 500_000, accessibleFromAge: 60,
+                                                      accounts: ["fund"])))
         #expect(result.failures.bridgeFailures == result.failures.runs)
         #expect(result.failures.bridges.first?.accessibleFromAge == 60)
-        #expect(result.markers.contains { $0.kind == .accessible && $0.age == 60 && $0.label == "Pension fund" })
+        #expect(result.markers.contains { $0.kind == .accessible && $0.age == 60 && $0.label == "fund" })
+        let bucket = try #require(result.start.buckets.first { $0.availableFromAge == 60 })
+        #expect(bucket.accounts == ["fund"] && bucket.value == 500_000)
 
         // Retiring at 59, the fund opens in the second retirement year and carries the rest.
         let later = try await Sample.run(
             Sample.plan(retire: .age(59), endAge: 70, retired: "30000", equityReturn: "0"), library)
         #expect(later.expectedPath.failure == nil)
-        let payout = later.expectedPath.years.first { $0.year == 2036 }?.income.first { $0.kind == .payout }
-        #expect(payout?.id == "flat.pension")
+        #expect(close(later.expectedValue(in: 2036), 20_000 + 500_000 - 30_000))
     }
 
-    /// Locked money is a bridge failure only if, after tax, it could have
-    /// covered what's missing until it opens: here 10,000 in 2027 and
-    /// 30,000 a year from 52 to 59, 250,000 in all.
+    /// Locked money is a bridge failure only if it could have covered what's
+    /// missing until it opens: here 10,000 in 2027 and 30,000 a year from 52
+    /// to 59, 250,000 in all.
     @Test func lockedMoneyTooSmallToBridgeIsNotABridgeFailure() async throws {
         func failure(fund: Decimal) async throws -> RunFailure? {
             let library = Sample.library(birth: "1976-01-01", on: "2025-12-31", [
                 SampleAccount(id: "broker", balance: 50_000),
-                SampleAccount(id: "fund", kind: .pensionFund, wrapper: "flat.pension", balance: fund),
+                SampleAccount(id: "fund", kind: .pensionFund, balance: fund, availableFromAge: 60),
             ])
-            var system = FlatTaxSystem()
-            system.payoutRate = 0.2
             let plan = Sample.plan(retire: .age(49), endAge: 70, retired: "30000", equityReturn: "0")
-            return try await Sample.run(plan, library, system: system).expectedPath.failure
+            return try await Sample.run(plan, library).expectedPath.failure
         }
-        // 300,000 nets 240,000 after the 20% payout tax: not enough to bridge.
-        #expect(try await failure(fund: 300_000) == RunFailure(year: 2027, age: 51, reason: .depleted))
-        // 320,000 nets 256,000: enough, so the fix is bridging the gap.
-        let bridged = try #require(try await failure(fund: 320_000))
-        guard case .locked(let money) = bridged.reason else {
-            Issue.record("Expected a bridge failure, got \(bridged.reason)")
-            return
-        }
-        #expect(money.accessibleFromAge == 60 && money.value == 320_000)
+        #expect(try await failure(fund: 240_000) == RunFailure(year: 2027, age: 51, reason: .depleted))
+        let bridged = try #require(try await failure(fund: 250_000))
+        #expect(bridged.reason == .locked(LockedMoney(name: "fund", value: 250_000, accessibleFromAge: 60,
+                                                      accounts: ["fund"])))
+    }
+
+    @Test func lockedMoneyOpensInTheFirstYearAtThatAge() async throws {
+        // Born mid-June 1976: 60 on 1 January 2037.
+        let library = Sample.library(birth: "1976-06-15", on: "2025-12-31", [
+            SampleAccount(id: "broker", balance: 100_000),
+            SampleAccount(id: "fund", kind: .pensionFund, balance: 50_000, availableFromAge: 60),
+        ])
+        let plan = Sample.plan(retire: .age(49), endAge: 70, retired: "1000", equityReturn: "0")
+        let result = try await Sample.run(plan, library)
+        #expect(result.markers.first { $0.kind == .accessible }?.year == 2037)
     }
 
     @Test func pensionsReplaceWithdrawals() async throws {
         let plan = Sample.plan(
             retire: .age(59), endAge: 70, retired: "20000", equityReturn: "0",
-            pensions: [
-                PlanPension(scheme: .fixed, name: "Old job", fromAge: 62, perYear: d("12000")),
-                PlanPension(scheme: "flat.state", options: ["montante": "200000", "contributionYears": "10"]),
-                PlanPension(scheme: "flat.state", name: "Deferred", claim: .age(67),
-                            options: ["montante": "100000", "contributionYears": "10"]),
-            ])
+            pensions: [PlanPension(name: "Old job", fromAge: 62, perYear: d("12000")),
+                       PlanPension(name: "State pension", fromAge: 67, perYear: d("15400"))])
         let library = Sample.library(birth: "1966-01-01", on: "2025-12-31",
                                      [SampleAccount(id: "broker", balance: 1_000_000)])
         let result = try await Sample.run(plan, library)
 
-        // 2026–2027: 20,000 a year; from 2028 (62) the fixed pension pays 12,000.
+        // 2026–2027: 20,000 a year; from 2028 (62) the first pension pays 12,000.
         #expect(close(result.expectedValue(in: 2027), 960_000))
         #expect(close(result.expectedValue(in: 2028), 952_000))
-        let year2028 = try #require(result.expectedPath.years.first { $0.year == 2028 })
+        let year2028 = try #require(result.expectedYear(2028))
         #expect(year2028.income.contains(IncomeItem(kind: .pension, id: "pension-0", label: "Old job", amount: 12_000)))
-
-        // The scheme's earliest claim is 65 (2031): 5% of 200,000. The deferred one at 67: 5.4% of 100,000.
-        let starts = Dictionary(uniqueKeysWithValues: result.markers.filter { $0.kind == .pensionStart }
-            .map { ($0.label, ($0.age, $0.amount ?? 0)) })
-        #expect(starts["Old job"]?.0 == 62)
-        #expect(starts["State pension"]?.0 == 65 && close(starts["State pension"]?.1, 10_000))
-        #expect(starts["Deferred"]?.0 == 67 && close(starts["Deferred"]?.1, 5_400))
-        #expect(result.successCurve.first?.pensionStartAges == ["pension-0": 62, "pension-1": 65, "pension-2": 67])
-        #expect(result.issues.contains { $0.code == "planner.duplicateScheme" })
+        let starts = result.markers.filter { $0.kind == .pensionStart }
+        #expect(starts.map(\.label) == ["Old job", "State pension"])
+        #expect(starts.map(\.age) == [62, 67] && starts.map(\.amount) == [12_000, 15_400])
         // From 67 the pensions (27,400) exceed spending, and the surplus is invested.
-        #expect(close(result.expectedPath.years.first { $0.year == 2033 }?.savings, 7_400))
+        #expect(close(result.expectedYear(2033)?.savings, 7_400))
     }
 
-    /// An `earliest` claim waits for work to stop, so the pension isn't
-    /// frozen at the amount of an age at which it was never drawn; in the
-    /// year work stops, it pays the months after.
-    @Test func anEarliestClaimWaitsForWorkToStop() async throws {
-        func run(birth: CalendarDate) async throws -> PlanResult {
-            let library = Sample.library(birth: birth, on: "2025-12-31",
-                                         [SampleAccount(id: "broker", balance: 1_000_000)])
-            let plan = Sample.plan(
-                retire: .age(67), endAge: 75, working: "30000", retired: "30000", equityReturn: "0",
-                work: [Sample.employee(from: "2026-01-01", gross: "40000")],
-                pensions: [PlanPension(scheme: "flat.state", options: ["montante": "200000", "contributionYears": "10"])])
-            return try await Sample.run(plan, library)
-        }
-        // Retiring on 1 January 2033 at 67: the scheme's 67 option, 5.4% of 200,000, not its 65 one.
-        let january = try await run(birth: "1966-01-01")
-        let start = try #require(january.markers.first { $0.kind == .pensionStart })
-        #expect(start.age == 67 && start.year == 2033 && close(start.amount, 10_800))
-        #expect(january.successCurve.first { $0.age == 67 }?.pensionStartAges == ["pension-0": 67])
-        let first = try #require(january.expectedPath.years.first { $0.year == 2033 })
-        #expect(close(first.income.first { $0.kind == .pension }?.amount, 10_800))
+    @Test func aPensionPaysFromTheBirthday() async throws {
+        let library = Sample.library(birth: "1966-07-01", on: "2025-12-31",
+                                     [SampleAccount(id: "broker", balance: 1_000_000)])
+        let plan = Sample.plan(retire: .age(59), endAge: 70, retired: "20000", equityReturn: "0",
+                               pensions: [PlanPension(fromAge: 62, perYear: d("12000"))])
+        let result = try await Sample.run(plan, library)
 
-        // Retiring on 1 July: 184 of 365 days of the yearly 10,800 in 2033.
-        let july = try await run(birth: "1966-07-01")
-        let paid = try #require(july.expectedPath.years.first { $0.year == 2033 }?.income.first { $0.kind == .pension })
-        #expect(close(paid.amount, 10_800 * 184 / 365))
-        #expect(close(july.markers.first { $0.kind == .pensionStart }?.amount, 10_800))
-    }
-
-    @Test func workBuildsASchemePension() async throws {
-        // Born 1976: works 2026–2035 with 10% of 50,000 credited, retires at 60.
-        var system = FlatTaxSystem()
-        system.pensionCreditRate = 0.1
-        let library = Sample.library(birth: "1976-01-01", on: "2025-12-31",
-                                     [SampleAccount(id: "broker", balance: 100_000)])
-        let plan = Sample.plan(retire: .age(60), endAge: 70, working: "50000", retired: "20000", equityReturn: "0",
-                               work: [Sample.employee(from: "2026-01-01", gross: "50000")],
-                               pensions: [PlanPension(scheme: "flat.state")])
-        let result = try await Sample.run(plan, library, system: system)
-
-        // Ten years of 5,000 credits: 50,000, paid at 5% from 65.
-        let start = try #require(result.markers.first { $0.kind == .pensionStart })
-        #expect(start.age == 65 && close(start.amount, 2_500))
-        // Retiring now (49), there are no credits and no pension.
-        #expect(result.successCurve.first { $0.age == 49 }?.pensionStartAges == [:])
+        // 62 on 1 July 2028: 184 of 366 days.
+        let paid = try #require(result.expectedYear(2028)?.income.first { $0.kind == .pension })
+        #expect(close(paid.amount, 12_000 * 184 / 366))
+        #expect(paid.label == "Pension")
     }
 
     @Test func eventsHappenInTheirYear() async throws {
@@ -305,81 +320,55 @@ struct DeterministicTests {
                 PlanEvent(name: "Maybe", timing: .year(2030), amount: d("1000"), probability: d("0.8")),
                 PlanEvent(name: "Unlikely", timing: .year(2030), amount: d("5000"), probability: d("0.2")),
             ])
-        var system = FlatTaxSystem()
-        system.windfallRate = 0.1
-        let result = try await Sample.run(plan, retiree, system: system)
+        let result = try await Sample.run(plan, retiree)
 
-        // 2027: +45,000 after tax. 2029: −20,000. 2030: +900 (the 20% event is left out).
+        // 2027: +50,000. 2029: −20,000. 2030: +1,000 (the 20% event is left out of the deterministic run).
         #expect(close(result.expectedValue(in: 2026), 90_000))
-        #expect(close(result.expectedValue(in: 2027), 125_000))
-        #expect(close(result.expectedValue(in: 2028), 115_000))
-        #expect(close(result.expectedValue(in: 2029), 85_000))
-        #expect(close(result.expectedValue(in: 2030), 75_900))
-        let year2027 = try #require(result.expectedPath.years.first { $0.year == 2027 })
-        #expect(year2027.taxes.contains(AmountItem(id: "flat.windfall", label: "Windfall tax", amount: 5_000)))
-        #expect(year2027.income.contains { $0.kind == .windfall && $0.label == "Gift" })
+        #expect(close(result.expectedValue(in: 2027), 130_000))
+        #expect(close(result.expectedValue(in: 2028), 120_000))
+        #expect(close(result.expectedValue(in: 2029), 90_000))
+        #expect(close(result.expectedValue(in: 2030), 81_000))
+        let year2027 = try #require(result.expectedYear(2027))
+        #expect(year2027.income.contains { $0.kind == .windfall && $0.label == "Gift" && $0.amount == 50_000 })
+        #expect(year2027.taxes.isEmpty)
+        #expect(close(result.expectedYear(2029)?.expenses, 20_000))
         #expect(result.markers.filter { $0.kind == .windfall }.map(\.label) == ["Gift", "Maybe", "Unlikely"])
+        #expect(result.markers.filter { $0.kind == .expense }.map(\.label) == ["Roof"])
         #expect(result.markers.first { $0.label == "Maybe" }?.probability == 0.8)
 
         // Each run draws the uncertain events: about 80% and 20% of runs get them.
-        let ends = result.fan.last!
+        let ends = try #require(result.fan.last)
         #expect(ends.p10 < ends.p90)
     }
 
     @Test func contributionsGoIntoTheirAccount() async throws {
         let library = Sample.library(birth: "1986-01-01", on: "2025-12-31", [
             SampleAccount(id: "broker", balance: 0),
-            SampleAccount(id: "fund", kind: .pensionFund, wrapper: "flat.pension", balance: 10_000),
+            SampleAccount(id: "fund", kind: .pensionFund, balance: 10_000, availableFromAge: 60),
         ])
         let plan = Sample.plan(retire: .age(45), endAge: 55, working: "40000", retired: "10000", equityReturn: "0",
-                               work: [Sample.employee(from: "2026-01-01", gross: "60000")],
+                               work: [Sample.work(from: "2026-01-01", net: "60000")],
                                contributions: [PlanContribution(account: "fund", perYear: d("5000"))])
         let result = try await Sample.run(plan, library)
 
-        // Five years of 5,000 into the fund, 15,000 a year into the liquid bucket.
+        // Five years of 5,000 into the fund, 15,000 a year into the money you can draw.
         #expect(close(result.expectedValue(in: 2030), 10_000 + 5 * 20_000))
-        let fund = try #require(result.start.buckets.first { $0.wrapper == "flat.pension" })
-        #expect(fund.category == .taxDeferred && fund.accounts == ["fund"])
         #expect(close(result.expectedPath.years[0].savings, 20_000))
-        // Retired at 45 with the fund locked until 60, the liquid 75,000 runs out at 52.
-        #expect(result.expectedPath.failure?.age == 52)
+        // Retired at 45 with the fund locked past the plan's end, the 75,000 runs out at 52.
+        #expect(result.expectedPath.failure == RunFailure(year: 2038, age: 52, reason: .depleted))
     }
 
-    @Test func creditsToAWrapperNoAccountUsesOpenABucket() async throws {
-        var system = FlatTaxSystem()
-        system.tfrRate = 0.1
-        let library = Sample.library(birth: "1986-01-01", on: "2025-12-31",
-                                     [SampleAccount(id: "broker", balance: 0)])
-        let plan = Sample.plan(retire: .age(45), endAge: 50, working: "60000", retired: "10000", equityReturn: "0",
-                               work: [Sample.employee(from: "2026-01-01", gross: "60000")])
-        let result = try await Sample.run(plan, library, system: system)
-
-        // 6,000 a year for five years, paid out when the job ends on 31 December
-        // 2030 and invested in the liquid bucket; retirement draws on that.
-        #expect(result.start.buckets.contains { $0.wrapper == "flat.tfr" })
-        #expect(result.issues.contains { $0.code == "planner.newWrapper" })
-        #expect(close(result.expectedValue(in: 2030), 30_000))
-        #expect(close(result.expectedValue(in: 2031), 20_000))
-        let lastWorkingYear = try #require(result.expectedPath.years.first { $0.year == 2030 })
-        #expect(lastWorkingYear.income.contains(IncomeItem(kind: .payout, id: "flat.tfr", label: "Severance",
-                                                           amount: 30_000)))
-        #expect(close(lastWorkingYear.savings, 6_000))
-        #expect(result.expectedPath.years.first { $0.year == 2031 }?.income.map(\.kind) == [.withdrawal])
-    }
-
-    @Test func theCashBufferIsDrawnLast() async throws {
-        let library = Sample.library(birth: "1966-01-01", on: "2025-12-31", [
-            SampleAccount(id: "cash", kind: .cash, mix: nil, balance: 20_000),
-            SampleAccount(id: "broker", balance: 20_000),
+    @Test func aOneOffContributionIsPaidInItsYear() async throws {
+        let library = Sample.library(birth: "1986-01-01", on: "2025-12-31", [
+            SampleAccount(id: "broker", balance: 100_000),
+            SampleAccount(id: "fund", kind: .pensionFund, balance: 0, availableFromAge: 60),
         ])
-        let plan = Sample.plan(retire: .age(59), endAge: 64, retired: "15000", equityReturn: "0", cashBuffer: "10000")
+        let plan = Sample.plan(retire: .age(45), endAge: 55, retired: "0", equityReturn: "0",
+                               contributions: [PlanContribution(account: "fund", amount: d("20000"), year: 2027)])
         let result = try await Sample.run(plan, library)
 
-        // 2026 sells both halves alike, keeping the mix at 50/50; in 2027 half
-        // the rest would be less than the buffer, so the buffer stays in cash
-        // and everything else is sold; in 2028 only the buffer is left.
-        #expect(close(result.expectedValue(in: 2026), 25_000))
-        #expect(close(result.expectedValue(in: 2027), 10_000))
-        #expect(result.expectedPath.failure?.age == 62)
+        // The total doesn't change: 20,000 moves from the broker into the fund in 2027.
+        #expect(close(result.expectedValue(in: 2027), 100_000))
+        #expect(close(result.expectedYear(2027)?.savings, 0))
     }
 }

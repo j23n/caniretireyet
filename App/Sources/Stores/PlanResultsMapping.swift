@@ -1,7 +1,6 @@
 import Foundation
 import Model
 import Planner
-import TaxKit
 
 // From the Planner's `PlanResult` to the app's `PlanResults`: plain values
 // that feed the chart components and the Plan screens directly. Pure
@@ -19,10 +18,6 @@ struct PlanResultDetails: Hashable, Sendable {
     /// The last age the plan funds.
     var endAge: Int
     var birthDate: CalendarDate
-    /// The old rule of thumb: the spending your pensions don't cover, over
-    /// a 4% withdrawal rate. Kept for compatibility, never shown: Results
-    /// show ``assetsNeeded`` instead.
-    var fiNumber: Double?
     /// What retiring today would need, from the same simulation (PLANNER.md,
     /// "Assets needed to retire today"): the plan assets that make retiring
     /// at today's age reach the plan's confidence. `nil` from the preview
@@ -33,75 +28,47 @@ struct PlanResultDetails: Hashable, Sendable {
     /// Whether the success curve has every age (a full run) or a coarse
     /// grid refined around the answer (a fast run).
     var scansEveryAge: Bool
-    /// Where the success curve steps because a pension's start changes.
-    var pensionSteps: [PlanPensionStep]
-    /// Warnings from the plan, the tax systems and the years assessed.
+    /// Warnings from the plan and the library.
     var issues: [PlanIssue]
     /// The details that depend on the retirement age the charts are for.
     var focus: PlanFocusDetails
     /// The headline to record for this run (`PlanResult.headline()`, dated
-    /// the check-in the plan started from): success rates to 3 decimals, FI
-    /// progress and readiness to 2, exactly as the CLI records it.
+    /// the check-in the plan started from): success rates to 3 decimals,
+    /// readiness to 2, exactly as the CLI records it.
     var headline: Headline? = nil
-    /// How the plan read your library: the buckets it grouped the accounts
-    /// into, and the accounts that start a pension scheme.
+    /// How the plan read your library: the accounts grouped by when they
+    /// can be drawn.
     var reading: PlanLibraryReading? = nil
 }
 
-/// How a plan read your library (PLANNER.md, "Buckets", and "Accounts that
-/// hold a scheme's record" in TAXES.md): the accounts grouped by tax
-/// wrapper, with their value on the start date, and the accounts whose value
-/// became a pension scheme's starting balance instead of money to draw on.
+/// How a plan read your library (PLANNER.md, "The portfolio"): the accounts it
+/// counts, grouped by when they can be drawn, with their value on the start date.
 struct PlanLibraryReading: Hashable, Sendable {
-    /// Accounts with one wrapper.
+    /// The accounts that can be drawn from one age.
     struct Bucket: Hashable, Sendable {
-        /// The wrapper's name, e.g. "Pension fund".
+        /// "Money you can draw", or the accounts' names.
         var name: String
-        /// Drawn any time (taxable), or by the wrapper's rules.
-        var isLiquid: Bool
-        /// Whether new savings go here.
-        var receivesSavings: Bool
-        /// Its value on the start date, in the plan's currency.
+        /// The age from which it can be drawn; `nil` for the money you can draw now.
+        var availableFromAge: Int?
+        /// Its value on the start date, in the base currency.
         var value: Double
         var accounts: [AccountID]
-    }
-
-    /// Accounts that start a pension scheme (`PlanStart.schemeSeeds`).
-    struct Seed: Hashable, Sendable {
-        /// The scheme's ID and name, e.g. `ch.bvg`, "BVG".
-        var scheme: String
-        var name: String
-        var accounts: [AccountID]
-        /// Their value on the start date, in the plan's currency.
-        var value: Double
-        /// Whether it became the pension's starting balance (`false` when
-        /// the plan sets one itself).
-        var used: Bool
     }
 
     /// The check-in the plan started from.
     var date: CalendarDate
     var buckets: [Bucket]
-    var seeds: [Seed]
 
-    init(date: CalendarDate, buckets: [Bucket] = [], seeds: [Seed] = []) {
+    init(date: CalendarDate, buckets: [Bucket] = []) {
         self.date = date
         self.buckets = buckets
-        self.seeds = seeds
     }
 
     /// From a Planner result.
     init(_ start: PlanStart) {
-        self.init(
-            date: start.date,
-            buckets: start.buckets.map {
-                Bucket(name: PlanResultsMapping.shortName($0.name), isLiquid: $0.category == .taxable,
-                       receivesSavings: $0.receivesSavings, value: $0.value, accounts: $0.accounts)
-            },
-            seeds: start.schemeSeeds.map {
-                Seed(scheme: $0.scheme, name: PlanResultsMapping.shortName($0.name), accounts: $0.accounts,
-                     value: $0.value, used: $0.used)
-            })
+        self.init(date: start.date, buckets: start.buckets.map {
+            Bucket(name: $0.name, availableFromAge: $0.availableFromAge, value: $0.value, accounts: $0.accounts)
+        })
     }
 }
 
@@ -119,8 +86,8 @@ struct PlanFocusDetails: Hashable, Sendable {
     var medianAtEnd: Double?
     /// All taxes in the median run, in today's money.
     var lifetimeTaxes: Double
-    /// Net income per year in the deterministic run: work and pensions,
-    /// after taxes and social contributions (whole-year amounts).
+    /// Income per year in the deterministic run: work and pensions, after
+    /// tax as the plan gives them (whole-year amounts).
     var netIncome: [YearValue]
     /// Each pension: when it starts and how much it pays a year.
     var pensions: [PlanPensionStart]
@@ -129,6 +96,9 @@ struct PlanFocusDetails: Hashable, Sendable {
     var monthlySaving: Decimal?
     /// Bridge failures (running out before locked money opens), most frequent first.
     var bridges: [PlanBridgeFailure]
+    /// What flexible spending did at this age (PLANNER.md, "Flexible
+    /// spending"); `nil` when the plan doesn't use it.
+    var flexible: FlexibleSpendingSummary? = nil
 }
 
 /// A pension in the results.
@@ -136,23 +106,14 @@ struct PlanPensionStart: Hashable, Sendable {
     /// The pension's position in the plan's `pensions`.
     var index: Int
     var name: String
-    /// The scheme, e.g. `it.inps` or `fixed`.
-    var scheme: String
-    /// The age it starts at, if it starts within the plan.
+    /// The age it starts at.
     var age: Int?
-    /// The gross amount of a whole year when it starts, in today's money
-    /// (a pension starting mid-year pays less in its first calendar year).
+    /// What it pays in a whole year after tax, in today's money (a pension
+    /// starting mid-year pays less in its first calendar year).
     var perYear: Double?
 }
 
-/// A step in the success curve: at `age`, retiring a year later changes
-/// when these pensions start.
-struct PlanPensionStep: Hashable, Sendable {
-    var age: Int
-    var pensions: [String]
-}
-
-/// Runs that ran out before one wrapper became accessible.
+/// Runs that ran out while some accounts were still locked away.
 struct PlanBridgeFailure: Hashable, Sendable {
     var name: String
     var accessibleFromAge: Int?
@@ -177,8 +138,8 @@ extension PlanResults {
     /// - Markers sit on the birthday in their year, so "retire at 55" is drawn where you turn 55.
     /// - Income, taxes and spending are the median run's retirement years (the year you
     ///   retire included), as whole-year amounts.
-    init(result: PlanResult, mode: PlanRunMode, birthDate: CalendarDate, registry: TaxRegistry?,
-         scansEveryAge: Bool, computedAt: Date = Date()) {
+    init(result: PlanResult, mode: PlanRunMode, birthDate: CalendarDate, scansEveryAge: Bool,
+         computedAt: Date = Date()) {
         let answer = result.answer
         let plan = result.plan
         let focus = result.successCurve.first { $0.age == result.focusAge }
@@ -191,26 +152,24 @@ extension PlanResults {
                 confidence: answer.confidence, earliestAge: answer.earliestAge, earliestDate: answer.earliestDate,
                 targetAge: answer.targetAge, successAtTarget: answer.successAtTarget,
                 successToday: answer.successIfRetiringNow,
-                sustainableSpending: answer.sustainableSpending.map { Decimal(Int($0.perYear.rounded(.down))) },
-                fiProgress: answer.fiProgress, readiness: answer.readiness,
+                sustainableSpending: answer.sustainableSpending.map { Decimal(wholeNumber: $0.perYear, rounding: .down) },
+                readiness: answer.readiness,
                 needsMoreThanSearched: answer.assetsNeeded?.outcome == .moreThanMaximum,
                 readinessIsLowerBound: answer.assetsNeeded?.outcome == .atMost),
             successByAge: result.successCurve.map { SuccessPoint(age: $0.age, success: $0.success) },
             portfolio: PlanResultsMapping.fan(result),
             markers: PlanResultsMapping.markers(result, birthDate: birthDate, retirementDate: focus?.retirementDate),
-            income: PlanResultsMapping.income(medianRetired, plan: plan, registry: registry),
+            income: PlanResultsMapping.income(medianRetired),
             taxes: PlanResultsMapping.taxes(medianRetired),
             spending: medianRetired.map { YearValue(year: $0.year, value: PlanResultsMapping.whole($0.spending, $0)) },
             failure: PlanResultsMapping.failure(result.failures),
             start: BaselineStart(date: result.start.date, value: result.start.planAssets),
             accounts: result.start.accounts,
-            taxParameters: Dictionary(uniqueKeysWithValues: result.taxParameters.map { (TaxSystemID($0.key), $0.value) }),
             years: baseline.years)
         details = PlanResultDetails(
             planHash: result.planHash, currentAge: answer.currentAge, endAge: result.settings.endAge,
-            birthDate: birthDate, fiNumber: answer.fiNumber, assetsNeeded: answer.assetsNeeded,
+            birthDate: birthDate, assetsNeeded: answer.assetsNeeded,
             sustainableSpendingAge: answer.sustainableSpending?.age, scansEveryAge: scansEveryAge,
-            pensionSteps: PlanResultsMapping.pensionSteps(result.successCurve, plan: plan, registry: registry),
             issues: result.issues,
             focus: PlanFocusDetails(
                 age: result.focusAge, retirementDate: focus?.retirementDate, success: focus?.success,
@@ -218,11 +177,12 @@ extension PlanResults {
                 medianAtEnd: result.fan.last?.p50,
                 lifetimeTaxes: result.medianPath.years.reduce(0) { $0 + $1.totalTax },
                 netIncome: PlanResultsMapping.netIncome(result.expectedPath.years),
-                pensions: PlanResultsMapping.pensions(result, plan: plan, registry: registry),
+                pensions: PlanResultsMapping.pensions(plan),
                 monthlySaving: PlanResultsMapping.monthlySaving(result.expectedPath.years),
                 bridges: result.failures.bridges.map {
                     PlanBridgeFailure(name: $0.name, accessibleFromAge: $0.accessibleFromAge, share: $0.share)
-                }),
+                },
+                flexible: result.flexibleSpending),
             headline: result.headline(),
             reading: PlanLibraryReading(result.start))
         currency = result.currency
@@ -250,7 +210,7 @@ extension PlanResults {
     }
 }
 
-/// The pieces of ``PlanResults/init(result:mode:birthDate:registry:scansEveryAge:computedAt:)``.
+/// The pieces of ``PlanResults/init(result:mode:birthDate:scansEveryAge:computedAt:)``.
 enum PlanResultsMapping {
     /// The categories retirement income is stacked by, bottom first (UI.md,
     /// "Retirement income"). Each has its own colour slot, in the same order,
@@ -258,18 +218,8 @@ enum PlanResultsMapping {
     enum IncomeCategory: Hashable, Sendable {
         case withdrawals
         case work
-        /// The plan's first public pension scheme, e.g. INPS. Another
-        /// scheme's pension counts as one of the other pensions.
-        case scheme(String)
-        case otherPensions
-        /// Money drawn as needed from tax-advantaged wrappers, e.g. a pension fund.
-        case pensionSavings
+        case pensions
         case windfalls
-        /// Paid whether it's needed or not: a pension's lump sum in the year
-        /// it's claimed, severance pay when a job ends (Italy's TFR), and
-        /// payouts a wrapper's rules ask for (the whole balance at an age, or
-        /// spread over a few years).
-        case lumpSums
         case other
 
         /// The stacking order, bottom first, and the colour slot.
@@ -277,18 +227,15 @@ enum PlanResultsMapping {
             switch self {
             case .withdrawals: 0
             case .work: 1
-            case .scheme: 2
-            case .otherPensions: 3
-            case .pensionSavings: 4
+            case .pensions: 2
             case .windfalls: 5
-            case .lumpSums: 6
             case .other: 7
             }
         }
 
         /// One-off amounts, which may run off the top of the chart.
         var isOneOff: Bool {
-            self == .windfalls || self == .lumpSums
+            self == .windfalls
         }
     }
 
@@ -316,8 +263,8 @@ enum PlanResultsMapping {
             ?? YearMonth(year: year, month: 6)?.lastDay ?? birthDate
     }
 
-    /// A pension's or wrapper's name without the explanation in brackets:
-    /// "INPS (contributory system)" → "INPS".
+    /// A name without the explanation in brackets: "State pension (estimate)"
+    /// → "State pension".
     static func shortName(_ name: String) -> String {
         guard let bracket = name.range(of: " (") else { return name }
         let short = name[..<bracket.lowerBound].trimmingCharacters(in: .whitespaces)
@@ -328,8 +275,8 @@ enum PlanResultsMapping {
         markers(result.markers, birthDate: birthDate, retirementDate: retirementDate)
     }
 
-    /// The planner's markers on the time axis: "Retire at 55", "INPS 67",
-    /// "Pension fund 57", "Inheritance 62", "New car 2031", each with its
+    /// The planner's markers on the time axis: "Retire at 55", "State pension 67",
+    /// "Pension fund 67", "Inheritance 62", "New car 2031", each with its
     /// icon and kind, on its birthday (retirement on `retirementDate`).
     static func markers(_ markers: [TimelineMarker], birthDate: CalendarDate,
                         retirementDate: CalendarDate?) -> [ChartMarker] {
@@ -375,69 +322,28 @@ enum PlanResultsMapping {
         year.fraction > 0.01 ? amount / year.fraction : amount
     }
 
-    /// The pension a plan's `pension-N` ID stands for.
-    static func planPension(id: String, in plan: PlanDocument) -> (index: Int, pension: PlanPension)? {
-        guard id.hasPrefix("pension-"), let index = Int(id.dropFirst("pension-".count)),
-              plan.pensions.indices.contains(index) else { return nil }
-        return (index, plan.pensions[index])
+    /// The name the planner gives the pension at `index` (PlanInterpreter):
+    /// its own, else "Pension", or "Pension 2" when there are several.
+    static func pensionName(_ pension: PlanPension, index: Int, of count: Int) -> String {
+        pension.name ?? (count == 1 ? "Pension" : "Pension \(index + 1)")
     }
 
-    /// The name the planner gives a pension: its own, or its scheme's.
-    static func pensionName(_ pension: PlanPension, registry: TaxRegistry?) -> String {
-        if let name = pension.name { return name }
-        if pension.scheme == .fixed { return "Pension" }
-        return registry?.pensionScheme(pension.scheme.rawValue)?.name ?? pension.scheme.rawValue
-    }
-
-    /// The suffix of a pension's lump sum's ID (`pension-0.lumpSum`): the
-    /// planner pays it once, in the year the pension is claimed.
-    static let lumpSumSuffix = ".lumpSum"
-
-    static func category(of item: IncomeItem, plan: PlanDocument, registry: TaxRegistry? = nil) -> IncomeCategory {
+    static func category(of item: IncomeItem) -> IncomeCategory {
         switch item.kind {
-        case .withdrawal: return .withdrawals
-        case .pension:
-            if item.id.hasSuffix(lumpSumSuffix) { return .lumpSums }
-            guard let found = planPension(id: item.id, in: plan) else { return .otherPensions }
-            return found.pension.scheme == .fixed ? .otherPensions : .scheme(found.pension.scheme.rawValue)
-        case .payout:
-            guard let rule = registry?.wrapper(item.id) else { return .pensionSavings }
-            return paysOutByRule(rule) ? .lumpSums : .pensionSavings
-        case .windfall: return .windfalls
-        case .work: return .work
-        default: return .other
+        case .withdrawal: .withdrawals
+        case .pension: .pensions
+        case .windfall: .windfalls
+        case .work: .work
+        default: .other
         }
     }
 
-    /// Whether a wrapper's money is paid out whether it's needed or not:
-    /// severance pay when a job ends, a balance its rules pay out whole at
-    /// some point (`mustPayOut`), or payouts spread over a few years
-    /// (`preferredPayoutYears`).
-    static func paysOutByRule(_ rule: WrapperRule) -> Bool {
-        rule.mustPayOut != nil || (rule.preferredPayoutYears ?? 0) > 0 || AccountWrapperDefaults.isPaidWhenJobEnds(rule)
-    }
-
-    /// What an income item is called in the chart's legend: a pension's lump
-    /// sum by its pension ("BVG lump sum"), anything else by its own label,
-    /// without the explanation in brackets.
-    static func sourceName(of item: IncomeItem, plan: PlanDocument, registry: TaxRegistry?) -> String {
-        if item.kind == .pension, item.id.hasSuffix(lumpSumSuffix),
-           let found = planPension(id: String(item.id.dropLast(lumpSumSuffix.count)), in: plan) {
-            return "\(shortName(pensionName(found.pension, registry: registry))) lump sum"
-        }
-        return shortName(item.label)
-    }
-
-    /// A category's label. Pension savings and lump sums take the name of
-    /// their one source when they have one ("Pension fund", "TFR"), else
-    /// a name for all of them.
-    static func label(of category: IncomeCategory, registry: TaxRegistry?, sources: Set<String> = []) -> String {
+    /// A category's label. Pensions take the name of their one source when
+    /// they have one ("State pension"), else a name for all of them.
+    static func label(of category: IncomeCategory, sources: Set<String> = []) -> String {
         switch category {
         case .withdrawals: "Withdrawals"
-        case .scheme(let id): shortName(registry?.pensionScheme(id)?.name ?? id)
-        case .otherPensions: "Other pensions"
-        case .pensionSavings: sources.count == 1 ? sources.first! : "Pension savings"
-        case .lumpSums: sources.count == 1 ? sources.first! : "Lump sums and payouts"
+        case .pensions: sources.count == 1 ? sources.first! : "Pensions"
         case .windfalls: "Windfalls"
         case .work: "Work"
         case .other: "Other"
@@ -446,10 +352,8 @@ enum PlanResultsMapping {
 
     /// Each category's colour slot: its place in the stack, so the stack runs
     /// through the palette in its validated order (withdrawals blue, work
-    /// orange, the public pension aqua, other pensions yellow, pension
-    /// savings magenta, windfalls green, lump sums and payouts violet, other
-    /// red). The taxes on top are a neutral grey (``ChartColor/taxes``):
-    /// they're not a source.
+    /// orange, pensions aqua, windfalls green, other red). The taxes on top
+    /// are a neutral grey (``ChartColor/taxes``): they're not a source.
     static func color(of category: IncomeCategory) -> ChartColor {
         .series(category.sortKey)
     }
@@ -457,29 +361,23 @@ enum PlanResultsMapping {
     /// Retirement income per year by source, bottom first, with the taxes
     /// it pays on top (UI.md, "Retirement income").
     ///
-    /// The planner reports income gross: a withdrawal is what's sold,
-    /// before the tax withheld on the sale, and it also pays last year's
-    /// wealth tax and tax on interest. So a year's income reaches spending
-    /// plus taxes, which in a rich run's later years can be twice the
-    /// spending. To read right against the spending line, each source is
+    /// A withdrawal is what's sold, before the tax on its gain, and the
+    /// year's income also pays the wealth tax and last year's tax on
+    /// investment income. So a year's income reaches spending plus taxes.
+    /// To read right against the spending line, each source is
     /// shown after its share of the year's taxes (``paidFromIncome(_:)``,
     /// shared in proportion to the amounts), keeping its gross amount in
     /// `gross`, and the taxes are a segment of their own on top: the
     /// sources add up to spending, expenses and what's saved, and the stack
     /// to that plus taxes.
-    static func income(_ years: [YearDetail], plan: PlanDocument, registry: TaxRegistry?) -> [IncomeSegment] {
-        let firstScheme = plan.pensions.first { $0.scheme != .fixed }?.scheme.rawValue
-        func category(_ item: IncomeItem) -> IncomeCategory {
-            let category = self.category(of: item, plan: plan, registry: registry)
-            if case .scheme(let id) = category, id != firstScheme { return .otherPensions }
-            return category
-        }
+    static func income(_ years: [YearDetail]) -> [IncomeSegment] {
+        func category(_ item: IncomeItem) -> IncomeCategory { self.category(of: item) }
         // The names behind each category over all the years, so a category
         // keeps one label (its single source's, else a general one).
         var sources: [IncomeCategory: Set<String>] = [:]
         for year in years {
             for item in year.income where item.amount > 0.5 {
-                sources[category(item), default: []].insert(sourceName(of: item, plan: plan, registry: registry))
+                sources[category(item), default: []].insert(shortName(item.label))
             }
         }
         var segments: [IncomeSegment] = []
@@ -495,7 +393,7 @@ enum PlanResultsMapping {
             for category in gross.keys.sorted(by: { $0.sortKey < $1.sortKey }) {
                 guard let amount = gross[category], amount * share > 0.5 else { continue }
                 segments.append(IncomeSegment(
-                    year: year.year, source: label(of: category, registry: registry, sources: sources[category] ?? []),
+                    year: year.year, source: label(of: category, sources: sources[category] ?? []),
                     amount: amount * share, color: color(of: category), isOneOff: category.isOneOff, gross: amount))
             }
             if taxes > 0.5 {
@@ -505,13 +403,11 @@ enum PlanResultsMapping {
         return segments
     }
 
-    /// What a year's income pays in taxes and social contributions: on work
-    /// and pensions, the tax withheld on what's sold and paid out, and the
-    /// market taxes of the year before (wealth tax, tax on interest), which
-    /// are paid in this one. Taxes on rebalancing are paid inside the
-    /// portfolio and aren't in it. Worked out from the year's flows: the
-    /// income from outside the plan's accounts (work, pensions, windfalls),
-    /// less spending, expenses and what was saved.
+    /// What a year's income pays in taxes: the tax on the gain part of
+    /// what's sold, the wealth tax, and last year's tax on investment
+    /// income. Worked out from the year's flows: the income from outside the
+    /// plan's accounts (work, pensions, windfalls), less spending, expenses
+    /// and what was saved.
     static func paidFromIncome(_ year: YearDetail) -> Double {
         let outside = year.income.filter { $0.kind == .work || $0.kind == .pension || $0.kind == .windfall }
             .reduce(0) { $0 + $1.amount }
@@ -554,11 +450,11 @@ enum PlanResultsMapping {
                                   bridgeName: bridge?.name)
     }
 
-    /// Net income per year: work and pensions, less taxes and contributions.
+    /// Income per year from work and pensions, after tax as the plan gives it.
     static func netIncome(_ years: [YearDetail]) -> [YearValue] {
         years.map { year in
-            let gross = year.income.filter { $0.kind == .work || $0.kind == .pension }.reduce(0) { $0 + $1.amount }
-            return YearValue(year: year.year, value: whole(gross - year.totalTax - year.totalContributions, year))
+            let net = year.income.filter { $0.kind == .work || $0.kind == .pension }.reduce(0) { $0 + $1.amount }
+            return YearValue(year: year.year, value: whole(net, year))
         }
     }
 
@@ -569,36 +465,14 @@ enum PlanResultsMapping {
         else { return nil }
         let share = year.fraction * year.workingShare
         guard share > 0.01 else { return nil }
-        return Decimal(Int((year.savings / share / 12).rounded()))
+        return Decimal(wholeNumber: year.savings / share / 12)
     }
 
-    /// Each pension of the plan with its start at the focus age, from the
-    /// success curve and the markers.
-    static func pensions(_ result: PlanResult, plan: PlanDocument, registry: TaxRegistry?) -> [PlanPensionStart] {
-        let starts = result.successCurve.first { $0.age == result.focusAge }?.pensionStartAges ?? [:]
-        return plan.pensions.enumerated().map { index, pension in
-            let name = pensionName(pension, registry: registry)
-            let age = starts["pension-\(index)"]
-            let marker = result.markers.first { $0.kind == .pensionStart && $0.label == name && (age == nil || $0.age == age) }
-            return PlanPensionStart(index: index, name: name, scheme: pension.scheme.rawValue, age: age ?? marker?.age,
-                                    perYear: marker?.amount)
+    /// Each pension of the plan: when it starts and what it pays a year.
+    static func pensions(_ plan: PlanDocument) -> [PlanPensionStart] {
+        plan.pensions.enumerated().map { index, pension in
+            PlanPensionStart(index: index, name: pensionName(pension, index: index, of: plan.pensions.count),
+                             age: pension.fromAge, perYear: pension.perYear?.doubleValue)
         }
-    }
-
-    /// The ages where retiring a year later changes when a pension starts.
-    static func pensionSteps(_ curve: [AgeSuccess], plan: PlanDocument, registry: TaxRegistry?) -> [PlanPensionStep] {
-        let sorted = curve.sorted { $0.age < $1.age }
-        var steps: [PlanPensionStep] = []
-        for (previous, next) in zip(sorted, sorted.dropFirst()) where next.age == previous.age + 1 {
-            let changed = Set(previous.pensionStartAges.keys).union(next.pensionStartAges.keys)
-                .filter { previous.pensionStartAges[$0] != next.pensionStartAges[$0] }
-                .sorted()
-            guard !changed.isEmpty else { continue }
-            let names = changed.map { id in
-                planPension(id: id, in: plan).map { shortName(pensionName($0.pension, registry: registry)) } ?? id
-            }
-            steps.append(PlanPensionStep(age: next.age, pensions: names))
-        }
-        return steps
     }
 }

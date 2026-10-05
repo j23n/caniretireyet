@@ -17,8 +17,10 @@ import Storage
 /// - **Nothing runs on its own.** A run starts only when asked: the Plan
 ///   screens' *Calculate*, *Recalculate* (⌘R) and *Run What-If* buttons,
 ///   saving a baseline without results, and a check-in recording its month's
-///   answer (``recordCheckInAnswer(on:)``). Opening a screen, editing a plan
-///   or a check-in elsewhere only makes results out of date.
+///   answer (``recordCheckInAnswer(on:)``, caught up once the library is
+///   loaded if it's missing: ``recordMissingCheckInAnswer(today:)``).
+///   Opening a screen, editing a plan or a check-in elsewhere only makes
+///   results out of date.
 /// - **Out of date.** Each result keeps its ``PlanRunBasis``: the plan, the
 ///   library data a run reads, the start date, the what-if and focus age.
 ///   ``staleReasons(of:_:plan:whatIf:focusAge:)`` compares it with the plan
@@ -59,6 +61,9 @@ final class PlanStore {
     @ObservationIgnored private var tasks: [PlanRunKey: Task<PlanResults, any Error>] = [:]
     @ObservationIgnored private var tokens: [PlanRunKey: UUID] = [:]
     @ObservationIgnored private var signatures: [PlanRunKey: PlanRunBasis] = [:]
+    /// The check-in each plan's missing answer was last caught up for
+    /// (``recordMissingCheckInAnswer(today:)``), so it's tried once.
+    @ObservationIgnored private var caughtUpAnswers: [PlanID: CalendarDate] = [:]
 
     init(library: LibraryStore, engine: any PlanEngine = UnavailablePlanEngine()) {
         self.library = library
@@ -277,7 +282,11 @@ final class PlanStore {
     /// Nothing happens without a main plan or a planner.
     ///
     /// This is the one run that starts without a button: recording the
-    /// month's answer is what a check-in is for.
+    /// month's answer is what a check-in is for. The confirmation says the
+    /// app can be closed meanwhile, so on iOS the run and its writes ask for
+    /// background time (``BackgroundActivity``); an answer that still didn't
+    /// get recorded is caught up at the next launch
+    /// (``recordMissingCheckInAnswer(today:)``).
     func recordCheckInAnswer(on date: CalendarDate) {
         guard isAvailable, let main = library.settings.mainPlan, library.library.plans[main] != nil else {
             checkInAnswer = nil
@@ -285,7 +294,9 @@ final class PlanStore {
         }
         let answer = CheckInAnswerRun(date: date, plan: main)
         checkInAnswer = answer
+        let activity = BackgroundActivity(named: "Record this month's answer")
         Task { [weak self] in
+            defer { activity.end() }
             guard let self else { return }
             let headline = await self.checkInSaved(on: date)
             guard self.checkInAnswer == answer else { return }
@@ -295,19 +306,53 @@ final class PlanStore {
         }
     }
 
+    /// Records the main plan's answer for the latest check-in when it's
+    /// missing: the app was closed or stopped before that check-in's run
+    /// finished. The root view calls it once the library is loaded.
+    ///
+    /// It runs as ``recordCheckInAnswer(on:)`` does, at most once per plan
+    /// and date while the app runs, so a plan that fails isn't run again
+    /// and again. Nothing happens without a planner or a main plan, for a
+    /// read-only library, when a headline on or after the latest check-in
+    /// is recorded (also from the other device), or when the latest
+    /// check-in is in the future (a typo).
+    func recordMissingCheckInAnswer(today: CalendarDate = .today()) {
+        guard isAvailable, library.canEdit, let main = library.settings.mainPlan, library.library.plans[main] != nil,
+              let latest = library.latestCheckIn, latest <= today, checkInAnswer?.isRunning != true,
+              !library.library.headlines(for: main).contains(where: { $0.date >= latest }),
+              caughtUpAnswers[main] != latest
+        else { return }
+        caughtUpAnswers[main] = latest
+        recordCheckInAnswer(on: latest)
+    }
+
     /// After a check-in: re-runs the main plan, records its headline, saves
-    /// the yearly baseline at the year's first check-in, and returns the
-    /// answer. `nil` without a main plan or a planner. The Plan screens
-    /// can't cancel this run.
+    /// the yearly baseline at the year's first check-in, waits for the
+    /// writes, and returns the answer. `nil` without a main plan or a
+    /// planner. The Plan screens can't cancel this run. A headline or
+    /// baseline that can't be saved shows in the library's error
+    /// (`LibraryStore.lastError`).
     func checkInSaved(on date: CalendarDate) async -> PlanHeadline? {
         guard let main = library.settings.mainPlan, let plan = library.library.plans[main],
               let results = await run(main, mode: .full, whatIf: nil, focusAge: nil, checkIn: true)
         else { return nil }
-        try? library.record(Self.headline(of: results, plan: plan, on: date), for: main)
+        do {
+            try library.record(Self.headline(of: results, plan: plan, on: date), for: main)
+        } catch {
+            library.reportError("This month's answer couldn't be recorded. \(LibraryStore.describe(error))")
+        }
         let hasYearly = library.library.baselines(for: main).contains { $0.kind == .yearly && $0.created.year == date.year }
         if !hasYearly {
-            _ = try? saveBaseline(for: main, label: "Start of \(date.year)", kind: .yearly, on: date)
+            do {
+                _ = try saveBaseline(for: main, label: "Start of \(date.year)", kind: .yearly, on: date)
+            } catch PlanStoreError.noResults {
+                // The plan changed during the run: the year's next check-in saves it.
+            } catch {
+                library.reportError("The baseline for \(date.year) couldn't be saved. \(LibraryStore.describe(error))")
+            }
         }
+        // A write that fails shows in lastError too.
+        await library.waitForPendingWrites()
         return results.headline
     }
 
@@ -326,8 +371,7 @@ final class PlanStore {
         let baseline = Baseline(
             created: date, kind: kind, label: label, engine: results.engine, accounts: results.accounts,
             headline: Self.headline(of: results, plan: document, on: date).summary,
-            plan: try CanonicalJSON.json(encoding: document), start: results.start,
-            taxParameters: results.taxParameters, years: results.years)
+            plan: try CanonicalJSON.json(encoding: document), start: results.start, years: results.years)
         return try library.saveBaseline(baseline, for: plan)
     }
 
@@ -350,23 +394,21 @@ final class PlanStore {
         }
         return Headline(
             date: date, confidence: decimal(results.headline.confidence), earliestAge: results.headline.earliestAge,
-            engine: results.engine, fiProgress: results.headline.fiProgress.map { decimal($0) },
-            planHash: results.planHash ?? hash(of: plan),
+            engine: results.engine, planHash: results.planHash ?? hash(of: plan),
             readiness: results.headline.readiness.map { readinessDecimal($0) },
-            successAtTarget: results.headline.successAtTarget.map { decimal($0) },
-            taxParameters: results.taxParameters)
+            successAtTarget: results.headline.successAtTarget.map { decimal($0) })
     }
 
     /// A share as a decimal with four places, for results without the
     /// Planner's headline.
     static func decimal(_ value: Double) -> Decimal {
-        Decimal(Int((value * 10_000).rounded())) / 10_000
+        Decimal(wholeNumber: value * 10_000) / 10_000
     }
 
     /// A readiness as a decimal with two places, rounded down as the
     /// Planner records it, so a recorded 1 means retiring today works.
     static func readinessDecimal(_ value: Double) -> Decimal {
-        Decimal(Int((value * 100 + 1e-9).rounded(.down))) / 100
+        Decimal(wholeNumber: value * 100 + 1e-9, rounding: .down) / 100
     }
 
     static func describe(_ error: any Error) -> String {

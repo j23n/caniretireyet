@@ -6,14 +6,11 @@ import Model
 /// - **Instruments:** those held (quantity not zero) in the latest valuation,
 ///   on or before the date, of each account open on the date. The ones with a
 ///   `priceSource` are fetched; the rest are priced by hand.
-/// - **Currencies:** every held instrument's currency, every open account's
-///   currency and every plan's currency other than the base currency, each
-///   fetched against the base: a plan values your accounts in its currency
-///   at the rate on its start date, and Progress converts each check-in at
-///   its own.
+/// - **Currencies:** every held instrument's currency and every open
+///   account's currency other than the base currency, each fetched against
+///   the base.
 /// - **Index months:** for each index the library uses (by default
-///   `Library.inflationIndices`: its own, and one for each plan's currency),
-///   the months that have ended by the date and have no value yet, from the
+///   `Library.inflationIndices`), the months that have ended by the date and have no value yet, from the
 ///   month of the library's first valuation, at most ``defaultIndexWindow``
 ///   months back.
 public struct CheckInPriceNeeds: Hashable, Sendable {
@@ -86,7 +83,7 @@ public struct CheckInPriceNeeds: Hashable, Sendable {
         var fetched: [Instrument] = []
         var manual: [InstrumentID] = []
         var unknown: [InstrumentID] = []
-        var currencies = Set(openAccounts.map(\.currency)).union(library.plans.values.compactMap(\.currency))
+        var currencies = Set(openAccounts.map(\.currency))
         for id in held.sorted() {
             guard let instrument = library.instruments[id] else {
                 unknown.append(id)

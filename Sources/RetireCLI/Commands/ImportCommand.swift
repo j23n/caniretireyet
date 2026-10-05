@@ -4,6 +4,24 @@ import Importer
 import Model
 import Storage
 
+/// `retire import`: a spreadsheet, with `retire import csv` as the default
+/// subcommand, so `retire import <file>` and `retire import --undo` work.
+struct ImportGroupCommand: AsyncParsableCommand {
+    static let configuration = CommandConfiguration(
+        commandName: "import",
+        abstract: "Import a spreadsheet (CSV or TSV) into the library.",
+        discussion: """
+            retire import <file>             a CSV or TSV file (`retire import csv`)
+            retire import --undo             undo the latest import
+
+            Common options: --library <path>, --profile <id>, --save-profile <id>, --apply, \
+            --accept-new-accounts, --accept-new-instruments, --accept-closings, and --on-conflict \
+            keep|overwrite|ask. `retire help import csv` lists them all.
+            """,
+        subcommands: [ImportCommand.self],
+        defaultSubcommand: ImportCommand.self)
+}
+
 /// `retire import <file>` (`retire import csv`, the default of
 /// ``ImportGroupCommand``): previews or imports a spreadsheet, with a
 /// proposed mapping or a saved profile, and undoes imports.
@@ -255,7 +273,7 @@ struct ImportCommand: RetireSubcommand {
             throw CLIError("Can't read \(fileURL.path): \(error.localizedDescription)")
         }
         let session = try makeSession(data, library: loaded.library)
-        var preview = session.preview(against: loaded.library)
+        var preview = session.preview(against: loaded.library, today: context.today)
         decide(&preview)
 
         var report = ImportReport(fileName: fileURL.lastPathComponent, profileID: profile, session: session,
@@ -294,14 +312,16 @@ struct ImportCommand: RetireSubcommand {
         var session: ImportSession
         if let profile {
             guard var saved = library.importProfiles[ImportProfileID(profile)] else {
-                let known = library.importProfiles.keys.sorted().map(\.rawValue)
+                let known = library.importProfiles.values.filter(\.layout.isKnown).map(\.id.rawValue).sorted()
                 throw CLIError("There's no import profile \"\(profile)\" in imports/. "
                     + (known.isEmpty ? "The library has none yet: save one with --save-profile <id>."
                         : "Profiles: \(known.joined(separator: ", "))."))
             }
-            if saved.isLedger {
-                throw CLIError("imports/\(profile).json reads ledger journals: use it with "
-                    + "`retire import ledger <files> --profile \(profile)`.")
+            // A layout this version doesn't know, e.g. a ledger journal's
+            // profile written by an earlier version.
+            guard saved.layout.isKnown else {
+                throw CLIError("imports/\(profile).json has the layout \"\(saved.layout.rawValue)\", which this "
+                    + "version can't import.")
             }
             overrideFileSettings(&saved.file)
             session = try ImportSession(data: data, profile: saved)
@@ -422,7 +442,7 @@ struct ImportCommand: RetireSubcommand {
         return stack.last
     }
 
-    /// Undoes the latest import (of a spreadsheet or a journal), or with
+    /// Undoes the latest import, or with
     /// `dryRun` says what it would do.
     static func runUndo(options: LibraryOptions, dryRun: Bool, in context: CLIContext) throws {
         let loaded = try options.load(in: context)

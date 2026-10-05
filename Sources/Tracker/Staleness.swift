@@ -1,6 +1,6 @@
 import Model
 
-/// An account whose latest valuation is too old (FILE_FORMAT.md, "Staleness").
+/// An account whose latest valuation is too old (docs/schema/README.md, "How values are computed").
 public struct StaleAccount: Hashable, Sendable {
     public let account: AccountID
     /// The date of the latest valuation on or before the date checked (or,

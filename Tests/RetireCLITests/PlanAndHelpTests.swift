@@ -12,7 +12,7 @@ struct PlanAndHelpTests {
         #expect(run.status == 0, "\(run.all)")
         let lines = run.output.split(separator: "\n", omittingEmptySubsequences: false).map(String.init)
         #expect(lines.first == "Plan base: Base case")
-        #expect(lines.dropFirst().first == "250 runs (fast) from 2026-09-30 · engine 1.0.0 · tax parameters it 2026")
+        #expect(lines.dropFirst().first == "250 runs (fast) from 2026-09-30 · engine \(Planner.engineVersion)")
         #expect(run.output.contains("Not yet: ") || run.output.contains("Yes: "))
         #expect(run.output.contains("At your target age, 55, the chance of success is "))
         // What retiring today would need replaces the old FI number, which is never printed.
@@ -33,7 +33,7 @@ struct PlanAndHelpTests {
         #expect(json["plan"] as? String == "part-time-from-50")
         #expect(json["runs"] as? Int == 250)
         #expect(json["fast"] as? Bool == true)
-        #expect(json["engine"] as? String == "1.0.0")
+        #expect(json["engine"] as? String == Planner.engineVersion)
         // `earliest`: the target age is the earliest age, if one reaches the confidence.
         let earliest = json["earliestAge"] as? Int
         #expect(json["targetAge"] as? Int == earliest)
@@ -63,18 +63,18 @@ struct PlanAndHelpTests {
         plan = plan.replacingOccurrences(of: #""runs": 2000"#, with: #""runs": 40"#)
         try library.write("plans/base.json", plan)
 
-        let run = await retire(["plan", "--library", library.path, "--save-baseline", "Before forfettario"])
+        let run = await retire(["plan", "--library", library.path, "--save-baseline", "Before going freelance"])
         #expect(run.status == 0, "\(run.all)")
         #expect(run.output.contains("40 runs from 2026-09-30"))
         #expect(run.output.hasSuffix("Saved the baseline projections/base/baselines/2026-09-30.json.\n"))
         let saved = try library.load()
         let baseline = try #require(saved.projections["base"]?.baselines["2026-09-30"])
         #expect(baseline.kind == .manual)
-        #expect(baseline.label == "Before forfettario")
+        #expect(baseline.label == "Before going freelance")
         #expect(baseline.created == "2026-09-30")
         #expect(baseline.start.date == "2026-09-30")
-        #expect(baseline.engine == "1.0.0")
-        #expect(baseline.taxParameters == ["it": 2026])
+        #expect(baseline.engine == Planner.engineVersion)
+        #expect(baseline.taxParameters.isEmpty)
         #expect(baseline.years.first?.year == 2026)
         #expect(baseline.years.last?.year == 1988 + 95)
         #expect(try baseline.planDocument().id == "base")
@@ -107,7 +107,7 @@ struct PlanAndHelpTests {
         let noBirthDate = await retire(["plan", "--library", library.path, "--fast"])
         #expect(noBirthDate.status == 1)
         #expect(noBirthDate.errors.contains(
-            "plans/base.json (Base case) can't run: The plan needs your birth date (library settings)."))
+            "plans/base.json (Base case) can't run: Add your birth date (Settings): the plan needs your age."))
     }
 
     @Test func planShowsItsProgressOnATerminalOnly() async throws {
@@ -225,17 +225,16 @@ struct PlanAndHelpTests {
         #expect(try parseJSON(try JSONOutput.string(extraReport.json))["assetsNeededExtra"] as? Double == 396_404)
 
         var ran = report
-        ran.run = .init(runs: 2000, fast: false, engine: "1.0.0", startDate: "2026-09-30",
-                        taxParameters: ["it": 2026, "generic": 2026])
+        ran.run = .init(runs: 2000, fast: false, engine: "1.0.0", startDate: "2026-09-30")
         ran.savedBaseline = "projections/base/baselines/2026-09-30.json"
-        #expect(ran.lines()[1] == "2,000 runs from 2026-09-30 · engine 1.0.0 · tax parameters generic 2026, it 2026")
+        #expect(ran.lines()[1] == "2,000 runs from 2026-09-30 · engine 1.0.0")
         #expect(ran.lines().last == "Saved the baseline projections/base/baselines/2026-09-30.json.")
     }
 
     @Test func helpListsTheCommands() async throws {
         let run = await retire(["--help"])
         #expect(run.status == 0)
-        for command in ["init", "validate", "networth", "import", "prices", "plan"] {
+        for command in ["init", "validate", "networth", "import", "prices", "plan", "export"] {
             #expect(run.output.contains("  \(command) "), "\(command)")
         }
         let version = await retire(["--version"])
@@ -245,7 +244,7 @@ struct PlanAndHelpTests {
         #expect(importHelp.output.contains("--library <path>"))
         let planHelp = await retire(["help", "plan"])
         #expect(planHelp.output.contains("run (default)"))
-        for subcommand in ["show", "set", "contribution", "pension"] {
+        for subcommand in ["show", "debug"] {
             #expect(planHelp.output.contains("  \(subcommand) "), "\(subcommand)")
         }
         let runHelp = await retire(["help", "plan", "run"])

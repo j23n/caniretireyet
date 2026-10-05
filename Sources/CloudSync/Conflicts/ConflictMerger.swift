@@ -16,15 +16,20 @@ public struct ConflictResolution: Hashable, Sendable, Identifiable {
     public var conflictingRecords: [String]
     /// When it was resolved.
     public var resolvedAt: Date
+    /// Copies of the versions that differ from the result (the current file
+    /// it replaced, and the other versions removed), one backup each,
+    /// labelled `conflict`.
+    public var backups: [Backup]
 
     public init(path: String, summary: String, versionCount: Int, recordsAdded: Int = 0,
-                conflictingRecords: [String] = [], resolvedAt: Date) {
+                conflictingRecords: [String] = [], resolvedAt: Date, backups: [Backup] = []) {
         self.path = path
         self.summary = summary
         self.versionCount = versionCount
         self.recordsAdded = recordsAdded
         self.conflictingRecords = conflictingRecords
         self.resolvedAt = resolvedAt
+        self.backups = backups
     }
 
     public var id: String { "\(path)@\(resolvedAt.timeIntervalSinceReferenceDate)" }
@@ -59,10 +64,11 @@ public struct ConflictReport: Hashable, Sendable {
     public var isEmpty: Bool { resolved.isEmpty && failed.isEmpty }
 }
 
-/// Resolves sync conflicts in a library folder (FILE_FORMAT.md, "Sync
-/// conflicts"): reads the current file and every unresolved version, merges
-/// them with `ConflictResolver.merge(path:_:)`, writes the result, and marks
-/// the versions resolved.
+/// Resolves sync conflicts in a library folder (PLAN.md, "Merging,
+/// saving and undo"): reads the current file and every unresolved version, merges
+/// them with `ConflictResolver.merge(path:_:)`, copies each version that
+/// differs from the result to `backups/<timestamp>-conflict/`, writes the
+/// result, and marks the versions resolved (which removes them).
 public struct ConflictMerger: Sendable {
     public let folder: LibraryFolder
     public let versions: any FileVersionProviding
@@ -93,13 +99,40 @@ public struct ConflictMerger: Sendable {
             candidates.append(ConflictVersion(data, modified: modified, source: versions.currentVersionSource(of: url)))
         }
         let merged = ConflictResolver.merge(path: path, candidates)
+        // Every version the merge doesn't keep as it is is copied to
+        // backups/ first: the current file is about to be replaced, and the
+        // other versions removed from the version store for good.
+        var losing: [Data] = []
+        for data in (current.map { [$0] } ?? []) + others.map(\.data)
+        where !Self.sameContents(data, merged.value) && !losing.contains(where: { Self.sameContents($0, data) }) {
+            losing.append(data)
+        }
+        let backups = try losing.map { try folder.backup(contents: [path: $0], label: Self.backupLabel, date: date) }
         if merged.value != current {
             try folder.files.writeData(merged.value, to: url)
         }
         try versions.markResolved(others.map(\.id), of: url)
+        var summary = merged.summary
+        if !backups.isEmpty {
+            let folders = backups.map { "\($0.path)/" }.joined(separator: ", ")
+            summary += backups.count == 1
+                ? " A copy of the version that differs from the result is in \(folders)."
+                : " Copies of the \(backups.count) versions that differ from the result are in \(folders)."
+        }
         return ConflictResolution(
-            path: path, summary: merged.summary, versionCount: candidates.count, recordsAdded: merged.recordsAdded,
-            conflictingRecords: merged.conflictingRecords, resolvedAt: date)
+            path: path, summary: summary, versionCount: candidates.count, recordsAdded: merged.recordsAdded,
+            conflictingRecords: merged.conflictingRecords, resolvedAt: date, backups: backups)
+    }
+
+    /// The label of the backups of versions a resolution replaced.
+    public static let backupLabel = "conflict"
+
+    /// Whether two versions of a file hold the same: the same bytes, or the
+    /// same JSON.
+    static func sameContents(_ a: Data, _ b: Data) -> Bool {
+        if a == b { return true }
+        guard let left = try? CanonicalJSON.parse(a), let right = try? CanonicalJSON.parse(b) else { return false }
+        return left == right
     }
 
     /// Resolves the conflicts in each of `paths`, collecting what happened.

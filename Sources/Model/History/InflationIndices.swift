@@ -2,8 +2,8 @@ import Foundation
 
 // Which consumer price index measures prices where: the harmonised index of
 // consumer prices (HICP) of each country that has one and of the euro area,
-// and the one a library adjusts its amounts with (FILE_FORMAT.md,
-// "library.json": `inflationIndex`).
+// and the one a library adjusts its amounts with (docs/schema,
+// library.schema.json: `inflationIndex`).
 
 extension IndexID {
     /// The euro area's harmonised index of consumer prices, from Eurostat:
@@ -72,8 +72,8 @@ extension IndexID {
 
 extension Library {
     /// The consumer price index the library expresses amounts in today's
-    /// money with, and computes real returns with (FILE_FORMAT.md,
-    /// "library.json"):
+    /// money with, and computes real returns with (docs/schema,
+    /// library.schema.json, `inflationIndex`):
     ///
     /// 1. `settings.inflationIndex`, when it's set;
     /// 2. else the HICP of the tax residence (`hicp-de` for `DE`), when the
@@ -112,11 +112,9 @@ extension Library {
         return IndexID.hicp(currency: currency)
     }
 
-    /// Every index the library needs values of: its own, and the one for
-    /// each plan's currency. Sorted, each once.
+    /// Every index the library needs values of: its own. Plans are in the
+    /// base currency, so they need no other.
     public var inflationIndices: [IndexID] {
-        let currencies = Set(plans.values.map { $0.effectiveCurrency(base: settings.baseCurrency) })
-        let indices = [effectiveInflationIndex].compactMap { $0 } + currencies.compactMap(inflationIndex(for:))
-        return Set(indices).sorted()
+        [effectiveInflationIndex].compactMap { $0 }
     }
 }

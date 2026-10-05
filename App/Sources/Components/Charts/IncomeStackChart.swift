@@ -155,7 +155,7 @@ struct IncomeStackChart: View {
                             .frame(width: 8, height: 8)
                         Text(source.name).font(.caption2)
                         Spacer(minLength: 4)
-                        AmountText(Decimal(Int(amount.rounded())), currency: currency).font(.caption2)
+                        AmountText(Decimal(wholeNumber: amount), currency: currency).font(.caption2)
                     }
                 }
             }
@@ -163,7 +163,7 @@ struct IncomeStackChart: View {
                 HStack(spacing: 4) {
                     Text(Self.spendingLabel).font(.caption2).foregroundStyle(Palette.secondaryInk)
                     Spacer(minLength: 4)
-                    AmountText(Decimal(Int(spending.rounded())), currency: currency).font(.caption2)
+                    AmountText(Decimal(wholeNumber: spending), currency: currency).font(.caption2)
                 }
             }
         }
@@ -210,7 +210,7 @@ struct IncomeStackChart: View {
             IncomeStackChart(segments: results.taxes)
         }
         Card("Made up: sources, taxes on top, an inheritance") {
-            // Made-up numbers in the planner's colours: withdrawals, INPS, another pension, a windfall.
+            // Made-up numbers in the planner's colours: withdrawals, a pension, another pension, a windfall.
             let years = Array(2043...2085)
             let segments = years.flatMap { year -> [IncomeSegment] in
                 let pension: Double = year >= 2055 ? 19_000 : 0
@@ -218,7 +218,7 @@ struct IncomeStackChart: View {
                 let withdrawal = max(0, 36_000 - pension - other)
                 var parts = [
                     IncomeSegment(year: year, source: "Withdrawals", amount: withdrawal, color: .series(0)),
-                    IncomeSegment(year: year, source: "INPS", amount: pension, color: .series(2)),
+                    IncomeSegment(year: year, source: "State pension", amount: pension, color: .series(2)),
                     IncomeSegment(year: year, source: "Other pensions", amount: other, color: .series(3)),
                     IncomeSegment(year: year, source: "Taxes", amount: 4_000 + Double(year - 2043) * 120,
                                   color: .taxes),

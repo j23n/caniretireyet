@@ -10,40 +10,22 @@ let libraries: [(name: String, dependencies: [Target.Dependency])] = [
     ("Storage", ["Model"]),
     ("Importer", ["Model"]),
     ("Prices", ["Model"]),
-    ("TaxKit", []),
-    ("TaxGeneric", ["TaxKit"]),
-    ("TaxItaly", ["TaxKit"]),
-    // The Swiss and German systems (docs/tax/CH.md, DE.md), like TaxItaly:
-    // placeholders until they're built, so filling them in needs no change here.
-    ("TaxSwitzerland", ["TaxKit"]),
-    ("TaxGermany", ["TaxKit"]),
-    ("Planner", ["Model", "Tracker", "TaxKit"]),
+    ("Planner", ["Model", "Tracker"]),
     ("CloudSync", ["Model", "Storage"]),
 ]
 
 /// Targets that ship resources.
-let resources: [String: [Resource]] = [
-    "TaxItaly": [.process("Resources")],
-    "TaxSwitzerland": [.process("Resources")],
-    "TaxGermany": [.process("Resources")],
-]
+let resources: [String: [Resource]] = [:]
 
 /// Test targets that ship resources, e.g. sample files.
 let testResources: [String: [Resource]] = [
     "ImporterTests": [.copy("Samples")],
-    "TaxItalyTests": [.copy("cases")],
-    "TaxSwitzerlandTests": [.copy("cases")],
-    "TaxGermanyTests": [.copy("cases")],
 ]
 
 /// Test targets that need more than their module and `TestSupport`. The
-/// planner's end-to-end tests run the example plans with the real tax
-/// systems (the Swiss and German ones once they're built); the `Planner`
-/// module itself still sees taxes only through TaxKit.
-/// The importer's tests check the holdings, average cost and cash of
-/// imported trades with Tracker's `TradeLedger`; `Importer` itself doesn't use it.
+/// importer's tests check the holdings, average cost and cash of imported
+/// trades with Tracker's `TradeLedger`; `Importer` itself doesn't use it.
 let testDependencies: [String: [Target.Dependency]] = [
-    "PlannerTests": ["TaxItaly", "TaxGeneric", "TaxSwitzerland", "TaxGermany"],
     "ImporterTests": ["Tracker"],
 ]
 
@@ -78,15 +60,12 @@ let package = Package(
         ),
         // The `retire` command-line tool: its commands live in `RetireCLI`,
         // a library so they can be tested, and the executable only starts it.
-        // It uses Tracker for net worth, breakdowns and the change split. It
-        // depends on every tax system, so registering a new one (in
-        // `TaxSystems.swift`) is a one-line change.
+        // It uses Tracker for net worth, breakdowns and the change split.
         .target(
             name: "RetireCLI",
             dependencies: [
                 .product(name: "ArgumentParser", package: "swift-argument-parser"),
                 "Model", "Tracker", "Storage", "Importer", "Planner", "Prices",
-                "TaxKit", "TaxGeneric", "TaxItaly", "TaxSwitzerland", "TaxGermany",
             ]
         ),
         .executableTarget(

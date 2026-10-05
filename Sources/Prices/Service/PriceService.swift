@@ -22,6 +22,12 @@ import Model
 /// provider, symbol and date, so re-opening a check-in doesn't fetch again.
 /// Only symbols, currencies and dates are sent, never amounts.
 ///
+/// Free APIs allow only a few calls a minute, so at most
+/// ``maxConcurrentFetches`` instruments are fetched at once, across every
+/// fetch of the service and its copies, and a provider that prices several
+/// symbols per call (``BatchQuoteProvider``: CoinGecko's spot prices) is
+/// asked once for all of a fetch's instruments.
+///
 /// For a date its provider has no price for (gold-api.com only has today's;
 /// CoinGecko's free API only the last year), an instrument's price comes
 /// from the provider's history routes instead: gold from Yahoo Finance's
@@ -43,16 +49,26 @@ public struct PriceService: Sendable {
     let makeIndexProvider: @Sendable (IndexID) -> (any PriceIndexProvider)?
     public let cache: PriceCache
     let today: @Sendable () -> CalendarDate
+    /// Shared by every instrument fetch (see ``maxConcurrentFetches``).
+    let limit: FetchLimit
+
+    /// The default for ``maxConcurrentFetches``.
+    public static let defaultMaxConcurrentFetches = 4
+
+    /// The most instruments whose prices are fetched at once.
+    public var maxConcurrentFetches: Int { limit.limit }
 
     /// A service with the given providers. `makeIndexProvider` provides the
     /// indices `indexProviders` doesn't. `today` decides whether a check-in
     /// is in the past (by default the device's current date).
+    /// `maxConcurrentFetches` caps the instruments fetched at once.
     public init(
         instrumentProviders: [any InstrumentPriceProvider], fxProvider: any FXRateProvider,
         indexProviders: [any PriceIndexProvider] = [],
         makeIndexProvider: @escaping @Sendable (IndexID) -> (any PriceIndexProvider)? = { _ in nil },
         cache: PriceCache = PriceCache(),
-        today: @escaping @Sendable () -> CalendarDate = { CalendarDate.today() }
+        today: @escaping @Sendable () -> CalendarDate = { CalendarDate.today() },
+        maxConcurrentFetches: Int = PriceService.defaultMaxConcurrentFetches
     ) {
         self.instrumentProviders = Dictionary(
             instrumentProviders.map { ($0.provider, $0) }, uniquingKeysWith: { _, last in last })
@@ -61,6 +77,7 @@ public struct PriceService: Sendable {
         self.makeIndexProvider = makeIndexProvider
         self.cache = cache
         self.today = today
+        self.limit = FetchLimit(maxConcurrentFetches)
     }
 
     /// The provider of `index`: the one given for it, else the one
@@ -75,14 +92,21 @@ public struct PriceService: Sendable {
         library.inflationIndices.filter { indexProvider(for: $0) != nil }
     }
 
+    /// The instrument price sources ``standard(client:credentials:policy:cache:today:)``
+    /// can fetch from, in the order a picker offers them: Yahoo Finance,
+    /// CoinGecko and gold-api.com. Other `PriceProvider` values a file may
+    /// name (EODHD, Twelve Data) have no provider here, so their fetches fail.
+    public static let standardInstrumentProviders: [PriceProvider] = [.yahoo, .coingecko, .goldAPI]
+
     /// The standard providers: Yahoo Finance, CoinGecko and gold-api.com for
-    /// instruments, Frankfurter for ECB rates, and Eurostat for the HICP of
-    /// every country that has one and of the euro area (`hicp-de`,
-    /// `hicp-ea`, …).
+    /// instruments (``standardInstrumentProviders``), Frankfurter for ECB
+    /// rates, and Eurostat for the HICP of every country that has one and of
+    /// the euro area (`hicp-de`, `hicp-ea`, …).
     public static func standard(
         client: any HTTPClient = URLSessionHTTPClient(), credentials: any CredentialsProvider = StaticCredentials(),
         policy: RequestPolicy = .standard, cache: PriceCache = PriceCache(),
-        today: @escaping @Sendable () -> CalendarDate = { CalendarDate.today() }
+        today: @escaping @Sendable () -> CalendarDate = { CalendarDate.today() },
+        maxConcurrentFetches: Int = PriceService.defaultMaxConcurrentFetches
     ) -> PriceService {
         PriceService(
             instrumentProviders: [
@@ -96,7 +120,7 @@ public struct PriceService: Sendable {
                     EurostatIndexProvider(series: $0, client: client, policy: policy)
                 }
             },
-            cache: cache, today: today)
+            cache: cache, today: today, maxConcurrentFetches: maxConcurrentFetches)
     }
 
     /// What a check-in on `date` needs, with the library's indices this
@@ -115,6 +139,7 @@ public struct PriceService: Sendable {
     public func fetch(_ needs: CheckInPriceNeeds, refresh: Bool = false) async -> CheckInPrices {
         if refresh { await cache.removeAll() }
         let today = self.today()
+        await startBatches(needs, today: today)
 
         var entries: [PriceListEntry] = []
         var prices: [PriceRecord] = []
@@ -198,8 +223,11 @@ public struct PriceService: Sendable {
         do {
             let key = PriceCache.Key(provider: provider.provider.rawValue, symbol: provider.cacheSymbol(for: request),
                                      date: needs.date)
+            let limit = self.limit
             let cached = try await cache.value(for: key) {
-                CachedQuote(quote: try await Self.quoteOrHistory(provider, request), fetchedAt: Date())
+                try await limit.run {
+                    CachedQuote(quote: try await Self.quoteOrHistory(provider, request), fetchedAt: Date())
+                }
             }
             let (price, rates) = try await convert(cached.quote, for: instrument, needs: needs)
             let record = PriceRecord(instrument: instrument.id, date: needs.date, price: price,
@@ -223,25 +251,78 @@ public struct PriceService: Sendable {
         do {
             return try await provider.quote(for: request)
         } catch {
-            let failure = fetchError(error, service: provider.name)
-            guard provider.triesHistory(after: failure, for: request) else { throw error }
-            let range = HistoryRange(from: request.date.adding(days: -PriceHistory.dailyTolerance),
-                                     through: request.date, today: request.today)
-            var transient: PriceFetchError?
-            for route in provider.historyRoutes(symbol: request.symbol, currency: request.currency,
-                                                today: request.today) where route.covers(request.date) {
-                do {
-                    let history = try await route.fetch(range)
-                    if var quote = history.quote(onOrBefore: request.date) {
-                        quote.origin = history.origin
-                        return quote
+            return try await history(after: error, provider, request)
+        }
+    }
+
+    /// After the provider's quote for the request failed with `error`: the
+    /// latest value on or before the date from its history routes, when
+    /// the error means it has none for that date (see ``quoteOrHistory(_:_:)``);
+    /// else `error` again.
+    static func history(after error: any Error, _ provider: any InstrumentPriceProvider,
+                        _ request: QuoteRequest) async throws -> Quote {
+        let failure = fetchError(error, service: provider.name)
+        guard provider.triesHistory(after: failure, for: request) else { throw error }
+        let range = HistoryRange(from: request.date.adding(days: -PriceHistory.dailyTolerance),
+                                 through: request.date, today: request.today)
+        var transient: PriceFetchError?
+        for route in provider.historyRoutes(symbol: request.symbol, currency: request.currency,
+                                            today: request.today) where route.covers(request.date) {
+            do {
+                let history = try await route.fetch(range)
+                if var quote = history.quote(onOrBefore: request.date) {
+                    quote.origin = history.origin
+                    return quote
+                }
+            } catch {
+                let routeFailure = fetchError(error, service: route.name)
+                if routeFailure.isTransient, transient == nil { transient = routeFailure }
+            }
+        }
+        throw transient ?? error
+    }
+
+    /// For each provider that prices several symbols per call
+    /// (``BatchQuoteProvider``), asks once for all of `needs`' instruments
+    /// it prices that aren't cached yet, and caches each one's quote from
+    /// that answer, so their parts find them there instead of asking one
+    /// by one. A quote the answer fails with tries the history routes, as
+    /// in ``quoteOrHistory(_:_:)``. A single instrument is left to its part.
+    private func startBatches(_ needs: CheckInPriceNeeds, today: CalendarDate) async {
+        var groups: [PriceProvider: [(key: PriceCache.Key, request: QuoteRequest)]] = [:]
+        for instrument in needs.instruments {
+            guard let priceSource = instrument.priceSource,
+                  let provider = instrumentProviders[priceSource.provider], provider is any BatchQuoteProvider
+            else { continue }
+            let request = QuoteRequest(symbol: priceSource.symbol, date: needs.date, currency: instrument.currency,
+                                       today: today)
+            let key = PriceCache.Key(provider: provider.provider.rawValue, symbol: provider.cacheSymbol(for: request),
+                                     date: needs.date)
+            groups[priceSource.provider, default: []].append((key, request))
+        }
+        for (id, items) in groups.sorted(by: { $0.key.rawValue < $1.key.rawValue }) {
+            guard let provider = instrumentProviders[id] as? any BatchQuoteProvider else { continue }
+            var keys: Set<PriceCache.Key> = []
+            var fresh: [(key: PriceCache.Key, request: QuoteRequest)] = []
+            for item in items where keys.insert(item.key).inserted {
+                if await !cache.contains(item.key) { fresh.append(item) }
+            }
+            guard fresh.count > 1 else { continue }
+            let requests = fresh.map { $0.request }
+            let limit = self.limit
+            let batch = Task { await limit.run { await provider.quotes(for: requests) } }
+            for (index, item) in fresh.enumerated() {
+                await cache.start(item.key) {
+                    let quote: Quote
+                    switch await batch.value[index] {
+                    case .success(let answered):
+                        quote = answered
+                    case .failure(let error):
+                        quote = try await limit.run { try await Self.history(after: error, provider, item.request) }
                     }
-                } catch {
-                    let routeFailure = fetchError(error, service: route.name)
-                    if routeFailure.isTransient, transient == nil { transient = routeFailure }
+                    return CachedQuote(quote: quote, fetchedAt: Date())
                 }
             }
-            throw transient ?? error
         }
     }
 

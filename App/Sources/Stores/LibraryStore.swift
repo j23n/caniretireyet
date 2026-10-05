@@ -16,7 +16,7 @@ import Tracker
 ///   ``createLibrary(in:settings:)``.
 /// - **Edit.** ``update(_:)`` changes ``library`` in memory first; the files
 ///   that changed are then written in the background, one save at a time.
-///   Each write is merged with the file on disk (FILE_FORMAT.md, "Saving"),
+///   Each write is merged with the file on disk (PLAN.md, "Merging, saving and undo"),
 ///   and what it merged in from disk is reloaded.
 /// - **Watch.** Files changed by the other device or a text editor are
 ///   reloaded, sync conflicts are merged (``mergedConflicts``), and the UI
@@ -83,7 +83,7 @@ final class LibraryStore {
     private(set) var lastSyncedAt: Date?
     /// The last thing that went wrong reading or writing the folder, for a banner.
     private(set) var lastError: String?
-    /// Problems in individual files, by path (FILE_FORMAT.md, "Reading hand-edited files").
+    /// Problems in individual files, by path (docs/schema/README.md, "Reading hand-edited files").
     private(set) var loadIssues: [LoadIssue] = []
     /// Sync conflicts merged since launch, newest first.
     private(set) var mergedConflicts: [ConflictResolution] = []
@@ -97,6 +97,11 @@ final class LibraryStore {
     private(set) var isReadOnly = false
     /// Whether iCloud Drive is available on this device.
     private(set) var isICloudAvailable = false
+    /// Whether opening failed because iCloud Drive isn't available (signed
+    /// out, iCloud Drive off, no container for the app), rather than for a
+    /// passing reason. Only then does the failure screen offer to start a
+    /// library on this device, which would split the data in two.
+    private(set) var openingFailedWithoutICloud = false
     /// Whether the library is being opened or moved: edits are refused.
     private(set) var isRelocating = false
 
@@ -188,6 +193,7 @@ final class LibraryStore {
     func start() async {
         let attempt = beginOpening()
         phase = .starting
+        openingFailedWithoutICloud = false
         isICloudAvailable = locator.isICloudAvailable
         let remembered = preferences?.libraryLocation
         LibraryLog.notice("Opening: iCloud Drive is \(isICloudAvailable ? "available" : "not available"), "
@@ -198,6 +204,7 @@ final class LibraryStore {
                 let location = try await locator.location(kind)
                 guard attempt == openingAttempt else { return }
                 guard let location else {
+                    openingFailedWithoutICloud = true
                     fail("iCloud Drive isn't available. Sign in to iCloud and turn on iCloud Drive for this app, "
                         + "then try again.")
                     return
@@ -320,20 +327,44 @@ final class LibraryStore {
         restartStallTimer()
     }
 
-    /// Keeps the library on this device from now on, e.g. when iCloud Drive
-    /// is off; then looks for it again.
+    /// Keeps the library on this device from now on, when iCloud Drive
+    /// isn't available (``openingFailedWithoutICloud``); then looks for it
+    /// again, which starts onboarding if there's none here yet. The
+    /// library in iCloud Drive comes back with ``useICloudLibrary()``.
     func useLibraryOnThisDevice() async {
         preferences?.libraryLocation = .local
         await start()
     }
 
+    /// Opens the library in iCloud Drive instead of the one on this device
+    /// (Settings → Library), e.g. once iCloud Drive is back after a library
+    /// was started here without it. The library on this device stays where
+    /// it is. Throws ``LibraryStoreError/iCloudUnavailable`` without iCloud
+    /// Drive, and ``LibraryStoreError/noICloudLibrary`` when iCloud doesn't
+    /// report a library there (*Move to iCloud Drive* moves this one).
+    func useICloudLibrary() async throws {
+        guard location?.kind == .local else { return }
+        guard !isRelocating else { throw LibraryStoreError.busy }
+        guard let destination = try await locator.location(.iCloud) else { throw LibraryStoreError.iCloudUnavailable }
+        guard await destination.containsLibrary() else { throw LibraryStoreError.noICloudLibrary }
+        LibraryLog.notice("Switching to the library in iCloud Drive")
+        preferences?.libraryLocation = .iCloud
+        await open(destination, holdsLibrary: true)
+    }
+
     /// Moves a library kept on this device into iCloud Drive and opens it
     /// there. It waits for the queued saves, and edits are refused until
-    /// it's done.
+    /// it's done. Refused when iCloud Drive already has a library, also one
+    /// iCloud knows of that isn't on this device yet (the probe onboarding
+    /// uses, `LibraryLocation.containsLibrary(waitingUpTo:)`), and when an
+    /// item to move is already there (``LibraryMover``).
     func moveToICloud() async throws {
         guard let current = location, current.kind == .local, let sync else { return }
         guard !isRelocating else { throw LibraryStoreError.busy }
         guard let destination = try await locator.location(.iCloud) else { throw LibraryStoreError.iCloudUnavailable }
+        guard await !destination.containsLibrary() else {
+            throw LibraryMoveError.destinationHasLibrary(path: destination.url.path)
+        }
         isRelocating = true
         stopWatching()
         await ioTail?.value
@@ -432,6 +463,13 @@ final class LibraryStore {
     /// Clears the error banner.
     func dismissError() {
         lastError = nil
+    }
+
+    /// Shows `message` where a failed save shows (``lastError``): something
+    /// that went wrong with the library outside an edit, e.g. a check-in's
+    /// answer that couldn't be recorded.
+    func reportError(_ message: String) {
+        lastError = message
     }
 
     /// Forgets the merged conflicts and save notices shown in "Needs attention".
@@ -808,6 +846,8 @@ enum LibraryStoreError: Error, Equatable, Sendable, LocalizedError {
     case readOnly
     /// iCloud Drive is off, or the user isn't signed in.
     case iCloudUnavailable
+    /// iCloud Drive has no library to switch to.
+    case noICloudLibrary
     /// The library was created but couldn't be opened.
     case openFailed(String)
     /// A change couldn't be written; what's on disk was reloaded.
@@ -823,6 +863,8 @@ enum LibraryStoreError: Error, Equatable, Sendable, LocalizedError {
             "This library was written by a newer version of the app, so it's read-only here. Update the app to make changes."
         case .iCloudUnavailable:
             "iCloud Drive isn't available. Sign in to iCloud and turn on iCloud Drive for this app."
+        case .noICloudLibrary:
+            "There's no library in iCloud Drive. To put this one there, use Move to iCloud Drive."
         case .openFailed(let message):
             message
         case .saveFailed(let message):

@@ -114,6 +114,16 @@ extension InstrumentPriceProvider {
     }
 }
 
+/// An instrument provider whose API prices several symbols in one call,
+/// such as CoinGecko's spot prices. The ``PriceService`` asks it for all
+/// of a check-in's instruments at once.
+public protocol BatchQuoteProvider: InstrumentPriceProvider {
+    /// Quotes for `requests`, in their order, in as few calls as the API
+    /// allows; each result is what ``InstrumentPriceProvider/quote(for:)``
+    /// would give for its request.
+    func quotes(for requests: [QuoteRequest]) async -> [Result<Quote, any Error>]
+}
+
 /// Fetches FX rates.
 public protocol FXRateProvider: Sendable {
     /// The source written on fetched FX records.

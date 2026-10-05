@@ -358,8 +358,8 @@ struct ImportReport {
             : "not switched, so its trades are left out: pass --accept-trades-mode, or choose a trades account with "
                 + "--account"
         let valuations = library.accounts[proposal.account]?.valuationMode == .balance
-            ? "the balances of its valuations won't count any more (`retire trades convert \(proposal.account) --to "
-                + "trades` first keeps them, as cash)"
+            ? "the balances of its valuations won't count any more (switching it to trades in the app first keeps "
+                + "them, as cash)"
             : "the positions of its valuations become checks"
         return "  Record trades in \(proposal.account): its holdings and cash will come from its trades, and "
             + "\(valuations) (\(what))"

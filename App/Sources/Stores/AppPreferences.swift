@@ -4,8 +4,8 @@ import Model
 import Observation
 import Tracker
 
-/// Settings that belong to this device, not to the library (FILE_FORMAT.md:
-/// "Settings that belong to one device … are stored on that device"). Kept
+/// Settings that belong to this device, not to the library (docs/schema,
+/// library.schema.json: "Settings that belong to one device … are stored on that device"). Kept
 /// in `UserDefaults`.
 @Observable @MainActor
 final class AppPreferences {

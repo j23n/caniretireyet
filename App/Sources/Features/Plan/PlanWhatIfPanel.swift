@@ -148,16 +148,16 @@ struct PlanWhatIfPanel: View {
         let number = model.value(slider)
         switch slider {
         case .retirementAge:
-            Text("\(Int(number.rounded()))")
+            Text("\(Int(wholeNumber: number))")
                 .monospacedDigit()
         case .spending:
             HStack(spacing: 2) {
-                AmountText(Decimal(Int(number.rounded())))
+                AmountText(Decimal(wholeNumber: number))
                 Text("/yr")
             }
         case .saving:
             if model.isAvailable(.saving) {
-                AmountText(Decimal(Int(number.rounded())))
+                AmountText(Decimal(wholeNumber: number))
             } else {
                 Text("–")
             }

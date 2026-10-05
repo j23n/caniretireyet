@@ -6,9 +6,8 @@ import SwiftUI
 import UniformTypeIdentifiers
 
 /// Importing a spreadsheet or CSV export (UI.md, "Import"; IMPORT.md, "Steps"),
-/// a broker's transactions (IMPORT.md, "Broker transactions": a Types step
-/// after Columns), or ledger-cli / hledger journals (IMPORT.md, "Ledger
-/// journals"): their steps are Files, Accounts, Commodities, Preview and Done.
+/// or a broker's transactions (IMPORT.md, "Broker transactions": a Types step
+/// after Columns).
 ///
 /// - **Mac and iPad:** every step, along the top: File, Format, Columns,
 ///   Accounts, Preview and Done. The page keeps its import while you visit
@@ -77,10 +76,11 @@ struct ImportScreen: View {
                 }
             }
             .fileImporter(isPresented: $isChoosingFile, allowedContentTypes: ImportFileReader.contentTypes,
-                          allowsMultipleSelection: true) { result in
+                          allowsMultipleSelection: false) { result in
                 switch result {
                 case .success(let urls):
-                    Task { await open(urls) }
+                    guard let url = urls.first else { return }
+                    Task { await open(url) }
                 case .failure(let error):
                     model.errorMessage = error.localizedDescription
                 }
@@ -101,9 +101,7 @@ struct ImportScreen: View {
 
     private var stepContent: some View {
         ImportStepContent(model: model, isCompact: isCompact, chooseFile: { isChoosingFile = true }, openFile: { url in
-            Task { await open([url]) }
-        }, openFiles: { urls in
-            Task { await open(urls) }
+            Task { await open(url) }
         })
     }
 
@@ -125,20 +123,9 @@ struct ImportScreen: View {
     /// Reads the file the screen was created with, then takes it from the navigation.
     private func take(_ file: URL?) async {
         guard let file else { return }
-        await open([file] + navigation.takeAdditionalImportFiles())
+        await open(file)
         if navigation.pendingImport == file {
             _ = navigation.takePendingImport()
-        }
-    }
-
-    /// Journals (one or more) start a journal import; otherwise the first
-    /// file is read as a spreadsheet.
-    private func open(_ urls: [URL]) async {
-        let journals = urls.filter(LedgerFiles.isJournal)
-        if !journals.isEmpty {
-            await model.openLedger(journals)
-        } else if let url = urls.first {
-            await open(url)
         }
     }
 
@@ -161,17 +148,11 @@ struct ImportStepContent: View {
     let chooseFile: () -> Void
     /// Reads a file dropped on the File step.
     let openFile: (URL) -> Void
-    /// Reads files dropped together (journals).
-    var openFiles: ([URL]) -> Void = { _ in }
 
     var body: some View {
         switch model.flow.step {
         case .file:
-            if model.flow.isLedger {
-                LedgerFilesStep(model: model, chooseFiles: chooseFile, openFiles: openFiles)
-            } else {
-                ImportFileStep(model: model, chooseFile: chooseFile, openFile: openFile, openFiles: openFiles)
-            }
+            ImportFileStep(model: model, chooseFile: chooseFile, openFile: openFile)
         case .format:
             ImportFormatStep(model: model)
         case .columns:
@@ -179,13 +160,7 @@ struct ImportStepContent: View {
         case .types:
             ImportTypesStep(model: model)
         case .accounts:
-            if model.flow.isLedger {
-                LedgerAccountsStep(model: model)
-            } else {
-                ImportAccountsStep(model: model)
-            }
-        case .commodities:
-            LedgerCommoditiesStep(model: model)
+            ImportAccountsStep(model: model)
         case .preview:
             ImportPreviewStep(model: model)
         case .done:
@@ -333,9 +308,8 @@ struct ImportBottomBar: View {
 /// thread, with security-scoped access and file coordination (so a file
 /// in iCloud Drive is downloaded first).
 enum ImportFileReader {
-    /// CSV, TSV and plain text, and ledger journals.
+    /// CSV, TSV and plain text.
     static let contentTypes: [UTType] = [.commaSeparatedText, .tabSeparatedText, .delimitedText, .plainText]
-        + LedgerFileTypes.contentTypes
 
     static func read(_ url: URL) async throws -> Data {
         try await Task.detached(priority: .userInitiated) {

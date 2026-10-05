@@ -156,7 +156,7 @@ struct UnknownKeysTests {
             {
               "baseCurrency": "EUR",
               "person": { "birthDate": "1988-04-12", "name": "Alex Example", "nickname": "Al" },
-              "schemaVersion": 2,
+              "schemaVersion": 3,
               "theme": "dark"
             }
             """)
@@ -168,7 +168,7 @@ struct UnknownKeysTests {
             {
               "baseCurrency": "EUR",
               "person": { "name": "Alex", "nickname": "Al" },
-              "schemaVersion": 2,
+              "schemaVersion": 3,
               "theme": "dark"
             }
 
@@ -199,13 +199,13 @@ struct UnknownKeysTests {
     private func planWithNotes(_ folder: TemporaryFolder) throws {
         var plan = try folder.text("plans/base.json")
         for (original, noted) in [
-            ("\"grossSalary\": \"65000\",", "\"grossSalary\": \"65000\",\n      \"myNote\": \"work note\","),
+            ("\"name\": \"Employee\", ", "\"myNote\": \"work note\", \"name\": \"Employee\", "),
             ("{ \"age\": 62, \"amount\"", "{ \"myNote\": \"inheritance note\", \"age\": 62, \"amount\""),
             ("{ \"amount\": \"-25000\"", "{ \"myNote\": \"car note\", \"amount\": \"-25000\""),
             ("{ \"factor\": \"0.9\", \"fromAge\": 75 }", "{ \"factor\": \"0.9\", \"fromAge\": 75, \"myNote\": \"phase note\" }"),
             ("\"equity\": { \"real\": \"0.045\"", "\"equity\": { \"myNote\": \"returns note\", \"real\": \"0.045\""),
-            ("{ \"fromAge\": 67, \"name\"", "{ \"fromAge\": 67, \"myNote\": \"pension note\", \"name\""),
-            ("{ \"from\": 2026, \"options\"", "{ \"from\": 2026, \"myNote\": \"residence note\", \"options\""),
+            ("{ \"fromAge\": 67, \"name\": \"State pension from", "{ \"fromAge\": 67, \"myNote\": \"pension note\", \"name\": \"State pension from"),
+            ("\"tax\": { \"investmentRate\"", "\"tax\": { \"myNote\": \"tax note\", \"investmentRate\""),
             ("\"retirement\": { \"age\": 55 }", "\"retirement\": { \"age\": 55, \"myNote\": \"retirement note\" }"),
         ] {
             #expect(plan.contains(original), "\(original)")
@@ -235,17 +235,17 @@ struct UnknownKeysTests {
 
         var library = loaded.library
         library.plans["base"]?.name = "Base case (renamed)"
-        library.plans["base"]?.work[0].grossSalary = 70000
+        library.plans["base"]?.work[0].netIncome = 41000
         library.importProfiles["net-worth-sheet"]?.name = "Renamed profile"
         try folder.library.save(library, previous: loaded.library)
 
         #expect(try notes(in: folder.json("plans/base.json")).sorted() == [
-            "car note", "inheritance note", "pension note", "phase note", "residence note", "retirement note",
-            "returns note", "work note",
+            "car note", "inheritance note", "pension note", "phase note", "retirement note", "returns note",
+            "tax note", "work note",
         ])
         let plan = try folder.json("plans/base.json")
         #expect(plan["work"]?[0]?["myNote"] == "work note")
-        #expect(plan["work"]?[0]?["grossSalary"] == "70000")
+        #expect(plan["work"]?[0]?["netIncome"] == "41000")
         #expect(plan["assumptions"]?["returns"]?["equity"]?["myNote"] == "returns note")
         #expect(try folder.json("imports/net-worth-sheet.json")["columns"]?[1]?["myNote"] == "column note")
         #expect(try folder.library.load().library == library)
@@ -262,7 +262,7 @@ struct UnknownKeysTests {
         plan.events[0].name = "Newer car"
         plan.spending.phases.insert(SpendingPhase(fromAge: 60, factor: 1), at: 0)
         // A key the model knows, removed in the app, stays removed.
-        plan.pensions[1].taxedIn = nil
+        plan.pensions[1].name = nil
         library.plans["base"] = plan
         try folder.library.save(library, previous: previous)
 
@@ -271,7 +271,7 @@ struct UnknownKeysTests {
         #expect(json["events"]?[0]?["myNote"] == "car note")
         #expect(json["spending"]?["phases"]?[0]?["myNote"] == nil)
         #expect(json["spending"]?["phases"]?[1]?["myNote"] == "phase note")
-        #expect(json["pensions"]?[1]?["taxedIn"] == nil)
+        #expect(json["pensions"]?[1]?["name"] == nil)
         #expect(json["pensions"]?[1]?["myNote"] == "pension note")
         #expect(!notes(in: json).contains("inheritance note"))
     }

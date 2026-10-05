@@ -93,18 +93,6 @@ targets:
       - package: CanIRetireYetKit
         product: Prices
       - package: CanIRetireYetKit
-        product: TaxKit
-      - package: CanIRetireYetKit
-        product: TaxGeneric
-      - package: CanIRetireYetKit
-        product: TaxItaly
-      # Linked so registering the Swiss and German systems is two lines in
-      # Stores/PlannerPlanEngine.swift (AppTaxRegistry): an import and an entry.
-      - package: CanIRetireYetKit
-        product: TaxSwitzerland
-      - package: CanIRetireYetKit
-        product: TaxGermany
-      - package: CanIRetireYetKit
         product: Planner
       - package: CanIRetireYetKit
         product: CloudSync

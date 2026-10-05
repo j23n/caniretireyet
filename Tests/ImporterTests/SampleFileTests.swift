@@ -124,7 +124,8 @@ struct SampleFileTests {
         #expect(preview.record(.valuation("mortgage", "2026-02-28"))?.imported.balance == dec("-146250"))
         let kinds = Dictionary(uniqueKeysWithValues: preview.newAccounts.map { ($0.account.id, $0.account.kind) })
         #expect(kinds == ["savings-account": .savings, "old-savings": .savings, "mortgage": .mortgage])
-        #expect(preview.accountChanges == [AccountChangeProposal(account: "old-savings", change: .close(on: "2026-03-01"))])
+        #expect(preview.accountChanges == [AccountChangeProposal(account: "old-savings", change: .close(on: "2026-03-01"),
+                                                                 isAccepted: false)])
     }
 
     @Test func longFormat() throws {

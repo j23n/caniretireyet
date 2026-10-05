@@ -45,7 +45,7 @@ struct OverviewScreen: View {
                     FirstCheckInCard()
                 }
                 OverviewHistorySection(
-                    valuator: valuator, asOf: asOf, results: results, planName: mainPlan?.name,
+                    valuator: valuator, asOf: asOf, results: results, planID: mainPlan?.id, planName: mainPlan?.name,
                     range: $range, showsFuture: $navigation.showsFuture)
                 VStack(alignment: .leading, spacing: Metrics.l) {
                     if let report = valuator.changeSinceLastCheckIn(asOf: asOf) {
@@ -143,7 +143,7 @@ private struct OverviewEmptyState: View {
         ContentUnavailableView {
             Label("Nothing here yet", systemImage: AppSymbol.overview)
         } description: {
-            Text("Add your accounts, or import the spreadsheet or ledger journals you've kept so far.")
+            Text("Add your accounts, or import the spreadsheet you've kept so far.")
         } actions: {
             Button("Add accounts") { navigation.newAccount() }
                 .buttonStyle(.borderedProminent)
@@ -164,22 +164,31 @@ private struct OverviewEmptyState: View {
 /// class (``OverviewHistory``): the projection is of what the plan counts,
 /// so the past's total meets it at today. The projection reaches as far as
 /// the chosen horizon (``FutureHorizon``, remembered on the device).
+///
+/// *Future* shows whenever there's a main plan. Plans only run when asked,
+/// so the main plan may have no results yet: turning *Future* on is that
+/// request, and calculates it, with its progress (or why it can't run)
+/// under the controls until the projection is there.
 private struct OverviewHistorySection: View {
     let valuator: Valuator
     let asOf: CalendarDate
     let results: PlanResults?
+    let planID: PlanID?
     let planName: String?
     @Binding var range: OverviewRange
     @Binding var showsFuture: Bool
     @Environment(AppPreferences.self) private var preferences
+    @Environment(PlanStore.self) private var plans
+    @Environment(AppNavigation.self) private var navigation
+    @Environment(\.locale) private var locale
     @State private var fillsPastPrices = false
 
     var body: some View {
         // In the base currency, as the history is; a plan in another
         // currency is converted at its start date's rate.
         let projection = results?.portfolio(in: valuator.baseCurrency, valuator: valuator) ?? []
-        let canShowFuture = !projection.isEmpty
-        let future = showsFuture && canShowFuture
+        let canShowFuture = planID != nil
+        let future = showsFuture && !projection.isEmpty
         let now = asOf.dateValue
         let retirement = results?.retirementDate
         let planEnd = projection.last?.date ?? now
@@ -205,6 +214,9 @@ private struct OverviewHistorySection: View {
                     }
                 }
             }
+            if showsFuture, projection.isEmpty, let planID {
+                futureStatus(planID)
+            }
             NetWorthChart(history: history.points, stacked: history.stacked, projection: history.projection,
                           markers: history.markers, title: history.scope == .planAssets ? "Plan assets" : "Net worth")
                 .environment(\.chartSurface, Palette.page)
@@ -221,6 +233,67 @@ private struct OverviewHistorySection: View {
             }
         }
         .pastPricesSheet(isPresented: $fillsPastPrices)
+        .task(id: showsFuture) { await calculateForFuture() }
+    }
+
+    /// Turning *Future* on asks for the main plan's projection: calculates
+    /// it when there are no results and nothing is running. After a failure
+    /// it waits for *Try Again*, so a plan that can't run isn't retried on
+    /// every visit.
+    private func calculateForFuture() async {
+        guard showsFuture, let planID, plans.results[planID] == nil, !isCalculating(planID),
+              plans.errors[planID] == nil else { return }
+        await plans.run(planID)
+    }
+
+    private func isCalculating(_ plan: PlanID) -> Bool {
+        plans.isRunning(plan, .base) || plans.isRunning(plan, .checkIn)
+    }
+
+    /// Under the controls while *Future* is on without a projection: the
+    /// main plan's calculation with its bar, why it can't run (with *Try
+    /// Again* and *Open Plan*), or *Calculate*.
+    @ViewBuilder
+    private func futureStatus(_ plan: PlanID) -> some View {
+        if let progress = plans.progress(of: plan, .base) ?? plans.progress(of: plan, .checkIn) {
+            VStack(alignment: .leading, spacing: Metrics.xs) {
+                HStack {
+                    Text("Calculating \(planTitle)'s projection…")
+                    Spacer(minLength: Metrics.s)
+                    Text(PlanRunText.overall(progress, locale: locale))
+                        .monospacedDigit()
+                }
+                ProgressView(value: min(1, max(0, progress.fraction)), total: 1)
+                    .tint(Palette.accent)
+            }
+            .font(.subheadline)
+            .foregroundStyle(Palette.secondaryInk)
+            .accessibilityElement(children: .combine)
+        } else if let error = plans.errors[plan] {
+            VStack(alignment: .leading, spacing: Metrics.s) {
+                Label("\(planTitle) can't be calculated: \(error)", systemImage: "exclamationmark.triangle")
+                    .foregroundStyle(Palette.secondaryInk)
+                    .fixedSize(horizontal: false, vertical: true)
+                HStack(spacing: Metrics.s) {
+                    Button("Try Again") { Task { await plans.run(plan) } }
+                    Button("Open Plan") { navigation.showPlan(plan) }
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+            }
+            .font(.subheadline)
+        } else {
+            HStack(spacing: Metrics.s) {
+                Text("Calculate \(planTitle) to see its projection.")
+                    .foregroundStyle(Palette.secondaryInk)
+                    .fixedSize(horizontal: false, vertical: true)
+                Spacer(minLength: Metrics.s)
+                Button("Calculate") { Task { await plans.run(plan) } }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+            }
+            .font(.subheadline)
+        }
     }
 
     /// The row above the chart: the time span and *Future*. The compact

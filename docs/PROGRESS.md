@@ -26,7 +26,7 @@ One chart from your first check-in to the end of the plan:
 - **Projection:** from today, the median as a dashed line with the 10th–90th percentile band.
 - **Markers:** the retirement age, pension starts, and when locked money (such as the pension fund) becomes accessible.
 - **Scope:** next to the projection, the history is *plan assets* (only the accounts the plan counts; your home, for example, is excluded), so it meets the projection at today. Without the projection, the Overview's chart is *net worth* (everything) ([UI.md](UI.md#overview)).
-- **Units:** the projection is in today's money, so by default the history is shown in today's money too, adjusted with actual inflation (the library's index: [FILE_FORMAT.md](FILE_FORMAT.md#libraryjson), `inflationIndex`). A toggle shows the history in the money of the time instead.
+- **Units:** the projection is in today's money, so by default the history is shown in today's money too, adjusted with actual inflation (the library's index: [library.schema.json](schema/library.schema.json), `inflationIndex`). A toggle shows the history in the money of the time instead.
 
 ### The answer over time (M2)
 
@@ -36,7 +36,7 @@ Each check-in re-runs the main plan (`mainPlan` in `library.json`) and records t
 - the chance of success at your target age;
 - **readiness**: your plan assets as a share of what retiring today with your confidence level would need, from the simulation ([PLANNER.md](PLANNER.md#assets-needed-to-retire-today)). It reaches 100% exactly when retiring today does.
 
-Records also keep the old `fiProgress` (plan assets over the spending pensions don't cover, divided by 4%), with its old meaning. The app no longer shows it: it treated the pensions as already paid and ignored taxes and the plan's confidence, so it could read 75% while retiring today succeeded in 13% of futures. Older records have only `fiProgress`; for them the app shows no progress number.
+Records made by earlier versions may also hold the old `fiProgress` (plan assets over the spending pensions don't cover, divided by 4%), with its old meaning, and `taxParameters` (the years of the tax rules a tax system used); both are kept as they are. The app doesn't show `fiProgress`: it treated the pensions as already paid and ignored taxes and the plan's confidence, so it could read 75% while retiring today succeeded in 13% of futures. Records that have only `fiProgress` show no progress number.
 
 The chart then shows how "you can retire at 54" moves from month to month.
 
@@ -88,36 +88,35 @@ Baselines are created:
 - **automatically**, at the first check-in of each year, for the main plan (a check-in that's the library's latest, not one filling in history);
 - **by hand**, with *Save baseline* and a label, e.g. before a big decision such as switching to forfettario.
 
-`projections/<plan-id>/baselines/<date>.json`, about 10 KB each. The file name is the baseline's ID; a second baseline saved on the same day gets `-2`.
+`projections/<plan-id>/baselines/<date>.json`, about 10 KB each ([baseline.schema.json](schema/baseline.schema.json)). The file name is the baseline's ID; a second baseline saved on the same day gets `-2`.
 
 ```json
 {
   "accounts": ["conto-fineco", "directa", "fondo-pensione", "gold-coins", "ledger-wallet"],
   "created": "2026-01-05",
-  "engine": "1.2.0",
+  "engine": "2.0.0",
   "headline": { "confidence": "0.9", "earliestAge": 54, "successAtTarget": "0.83" },
   "kind": "yearly",
   "label": "Start of 2026",
   "plan": { "…": "a full copy of plans/base.json as it was" },
   "start": { "date": "2025-12-31", "value": "212400" },
-  "taxParameters": { "it": 2026 },
   "years": [
     { "expected": "231500", "p10": "214800", "p25": "223900", "p50": "230900", "p75": "238200", "p90": "249700", "savings": "18000", "year": 2026 }
   ]
 }
 ```
 
-(The numbers are made up. `years` has one row per year up to the plan's end age. Values are in money of the start date, in the plan's currency. Months between year-ends are interpolated.)
+(The numbers are made up. `years` has one row per year up to the plan's end age. Values are in money of the start date, in the base currency (in the plan's currency for a baseline an earlier version saved for a plan in another currency). Months between year-ends are interpolated.)
 
 ## The answer over time
 
-`projections/<plan-id>/headlines/<year>.json`: one small record per check-in.
+`projections/<plan-id>/headlines/<year>.json`: one small record per check-in ([headlines.schema.json](schema/headlines.schema.json)).
 
 ```json
 {
   "headlines": [
-    { "date": "2026-09-30", "earliestAge": 54, "engine": "1.2.0", "fiProgress": "0.41",
-      "planHash": "5c1f…", "readiness": "0.07", "successAtTarget": "0.86", "taxParameters": { "it": 2026 } }
+    { "date": "2026-09-30", "earliestAge": 54, "engine": "2.0.0", "planHash": "5c1f…", "readiness": "0.07",
+      "successAtTarget": "0.86" }
   ]
 }
 ```
@@ -151,4 +150,4 @@ Two kinds of data are needed for the comparisons above.
 - **Monthly history files:** a list of `indices` (consumer price index values).
 - **A new `projections/` folder:** baselines and headlines. They are the one deliberate exception to "only inputs are stored", because they record what you expected at the time.
 
-Details are in [FILE_FORMAT.md](FILE_FORMAT.md).
+Details are in the [schemas](schema/).

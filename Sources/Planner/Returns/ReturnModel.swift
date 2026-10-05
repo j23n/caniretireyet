@@ -250,4 +250,19 @@ struct MarketScenarios: Sendable {
         }
         self.expectedEvents = expectedEvents
     }
+
+    /// Scenarios with the return factors given rather than drawn: `factors`
+    /// indexed `(run * years + year) * classes + class`, the deterministic
+    /// run's `year * classes + class`, and no uncertain events. For tests
+    /// that need a market path chosen by hand, such as a crash in one year.
+    init(factors: [Double], expectedFactors: [Double], runs: Int, years: Int, classes: Int) {
+        precondition(factors.count == runs * years * classes && expectedFactors.count == years * classes)
+        self.runs = runs
+        self.years = years
+        self.classes = classes
+        self.factors = factors
+        self.expectedFactors = expectedFactors
+        eventMasks = Array(repeating: 0, count: runs)
+        expectedEvents = 0
+    }
 }

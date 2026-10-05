@@ -68,6 +68,7 @@ struct PlanResultsView: View {
                     VStack(spacing: Metrics.l) {
                         PlanKeyNumbersCard(results: results)
                         PlanFailureCard(results: results)
+                        PlanFlexibleSpendingCard(results: results)
                         PlanLibraryCard(results: results)
                     }
                 }
@@ -76,6 +77,7 @@ struct PlanResultsView: View {
                 PlanFanCard(session: session, results: results)
                 PlanIncomeCard(results: results)
                 PlanFailureCard(results: results)
+                PlanFlexibleSpendingCard(results: results)
                 PlanLibraryCard(results: results)
             }
         }
@@ -167,6 +169,9 @@ struct PlanHeadlineCard: View {
             }
             .padding(.top, Metrics.xs)
             PlanReadinessView(headline: headline, assetsNeeded: results.details?.assetsNeeded)
+            Text(AboutText.disclaimer)
+                .font(.footnote)
+                .foregroundStyle(Palette.mutedInk)
             if let onWhatIf {
                 Button {
                     onWhatIf()
@@ -354,14 +359,20 @@ struct PlanRunStatus: View {
 
 // MARK: - Charts
 
-/// Chance of success by retirement age. Tapping (or, on the Mac, resting
-/// on) an age shows the charts below for retiring then; the stepper does
-/// the same without the chart.
+/// Chance of success by retirement age. Tapping or clicking an age shows
+/// the charts below for retiring then; dragging across the curve, or on
+/// the Mac hovering over it, only reads it. The stepper chooses an age
+/// without the chart.
 struct PlanSuccessCard: View {
     let session: PlanSession
     let results: PlanResults
 
+    /// The age being read on the curve (a finger on it, or the pointer over it).
     @State private var chartSelection: Int?
+    /// The age read last and when that reading ended: lifting the finger
+    /// (or the mouse button) can end it before the tap is recognised.
+    @State private var lastReading: Int?
+    @State private var lastReadingEnded = Date.distantPast
 
     private var focus: Int? { session.shownFocusAge }
 
@@ -377,27 +388,15 @@ struct PlanSuccessCard: View {
         Card {
             SuccessCurveChart(points: results.successByAge, threshold: results.headline.confidence,
                               highlightedAge: results.headline.earliestAge, selectedAge: $chartSelection)
-            #if os(iOS)
             .onChange(of: chartSelection) { oldValue, newValue in
-                // The selection ends when the finger lifts: that's the tap.
-                if newValue == nil, let oldValue { session.selectFocus(oldValue) }
+                if newValue == nil, let oldValue {
+                    lastReading = oldValue
+                    lastReadingEnded = Date.now
+                }
             }
-            #endif
-            #if os(macOS)
-            .task(id: chartSelection) {
-                // Resting on an age for a moment chooses it.
-                guard let age = chartSelection else { return }
-                try? await Task.sleep(for: .milliseconds(600))
-                guard !Task.isCancelled else { return }
-                session.selectFocus(age)
-            }
-            #endif
-            if let note = PlanResultsText.pensionStepNote(results.details?.pensionSteps ?? []) {
-                Text(note)
-                    .font(.footnote)
-                    .foregroundStyle(Palette.secondaryInk)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
+            // Only a tap or a click chooses the age; reading the curve changes nothing.
+            .contentShape(Rectangle())
+            .simultaneousGesture(TapGesture().onEnded { chooseTappedAge() })
             if let focus, let ages {
                 Stepper(value: $session.editableFocusAge, in: ages) {
                     HStack(spacing: Metrics.xs) {
@@ -419,6 +418,14 @@ struct PlanSuccessCard: View {
                 }
             }
         }
+    }
+
+    /// Chooses the age under a tap or click: the one being read, or the
+    /// one whose reading the tap's lift just ended. A tap where no age is
+    /// read (an axis label) chooses nothing.
+    private func chooseTappedAge() {
+        let justRead = Date.now.timeIntervalSince(lastReadingEnded) < 0.5 ? lastReading : nil
+        if let age = chartSelection ?? justRead { session.selectFocus(age) }
     }
 }
 
@@ -510,21 +517,18 @@ struct PlanIncomeCard: View {
                 IncomeStackChart(segments: results.taxes)
                 ChartCaption(
                     text: "Median run · \(money).",
-                    detail: "The taxes of each year of retirement in the median run, by tax: on income and "
-                        + "pensions, on gains when investments are sold (also to rebalance), on what's paid out "
-                        + "of pension savings, and on wealth. In \(money).")
+                    detail: "The taxes of each year of retirement in the median run: on investments (the gain in "
+                        + "what's sold, and the income your investments pay) and on wealth. Income from work and "
+                        + "pensions is entered after tax. In \(money).")
             } else {
                 IncomeStackChart(segments: results.income, spending: results.spending)
                 ChartCaption(
                     text: "Median run · \(money) · sources after tax.",
                     detail: "Where each year's money comes from in the median run, in \(money). Withdrawals "
-                        + "are what's sold from your investments; they also pay the tax on the sale and the "
-                        + "previous year's wealth tax, so in a rich run they can be well above your spending. "
-                        + "Lump sums and payouts are paid whether they're needed or not: a pension taken partly "
-                        + "as capital, severance pay when a job ends, and pension savings the rules pay out at an "
-                        + "age or over a few years. So that the chart reads against the spending line, each source "
-                        + "is shown after its share of the year's taxes, and the taxes paid from this income are the "
-                        + "grey band on top. Taxes on rebalancing are paid inside the portfolio: see Taxes.")
+                        + "are what's sold from your investments; they also pay the tax on the gain in the sale, "
+                        + "the wealth tax and last year's tax on investment income. So that the chart reads against "
+                        + "the spending line, each source is shown after its share of the year's taxes, and the "
+                        + "taxes are the grey band on top.")
             }
         } header: {
             SectionHeader("Retirement income") {
@@ -561,10 +565,38 @@ struct PlanFailureCard: View {
     }
 }
 
-/// How the plan reads your library: the accounts grouped by tax wrapper,
-/// with their value on the start date and how they're drawn, and accounts
-/// whose value starts a pension scheme instead of being money to draw on
-/// (UI.md, "Results").
+/// Flexible spending (UI.md, "Results"): how low spending goes in a bad
+/// case, how many futures never cut, how long spending stays below the
+/// plan's, and the rule, for the age the charts are for. Only for a plan
+/// that uses it.
+struct PlanFlexibleSpendingCard: View {
+    let results: PlanResults
+    @Environment(\.locale) private var locale
+    @Environment(\.hidesAmounts) private var hidesAmounts
+    @Environment(\.baseCurrency) private var currency
+
+    var body: some View {
+        if let summary = results.details?.focus.flexible {
+            Card(PlanResultsText.flexibleTitle(summary, locale: locale)) {
+                ForEach(PlanResultsText.flexibleSentences(summary, currency: currency, hidesAmounts: hidesAmounts,
+                                                          locale: locale), id: \.self) { sentence in
+                    Text(sentence)
+                        .font(.subheadline)
+                        .foregroundStyle(Palette.ink)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                Text(PlanResultsText.flexibleRule(summary, currency: currency, hidesAmounts: hidesAmounts,
+                                                  locale: locale))
+                    .font(.footnote)
+                    .foregroundStyle(Palette.secondaryInk)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+    }
+}
+
+/// How the plan reads your library: the accounts grouped by when they can be
+/// drawn, with their value on the start date (UI.md, "Results").
 struct PlanLibraryCard: View {
     let results: PlanResults
     @Environment(LibraryStore.self) private var library

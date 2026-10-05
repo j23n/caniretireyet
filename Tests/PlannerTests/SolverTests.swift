@@ -1,10 +1,9 @@
 import Foundation
 import Model
 @testable import Planner
-import TaxKit
 import Testing
 
-/// The earliest retirement age, the spending solver and the FI number, on
+/// The earliest retirement age and the spending solver, on
 /// plans whose answers can be worked out by hand.
 struct SolverTests {
     /// Born 1986-01-01 (39 on the start date), no money yet, saving 30,000 a
@@ -17,7 +16,7 @@ struct SolverTests {
 
     func plan(retire: AgeChoice, retired: String = "30000") -> PlanDocument {
         Sample.plan(retire: retire, endAge: 60, working: "30000", retired: retired, equityReturn: "0",
-                    work: [Sample.employee(from: "2026-01-01", gross: "60000")], runs: 50)
+                    work: [Sample.work(from: "2026-01-01", net: "60000")], runs: 50)
     }
 
     let options = PlannerOptions(maxRetirementAge: 58, solveSustainableSpending: false)
@@ -84,19 +83,4 @@ struct SolverTests {
         #expect(result.answer.sustainableSpending == nil)
     }
 
-    @Test func theFINumberIsUncoveredSpendingOverTheWithdrawalRate() async throws {
-        let library = Sample.library(birth: "1986-01-01", on: "2025-12-31",
-                                     [SampleAccount(id: "cash", kind: .cash, mix: nil, balance: 150_000)])
-        let result = try await Sample.run(plan(retire: .age(51)), library, options: options)
-        #expect(close(result.answer.fiNumber, 750_000))
-        #expect(close(result.answer.fiProgress, 0.2))
-
-        // A pension of 12,000 taxed at 20% covers 9,600: (30,000 − 9,600) / 4%.
-        var withPension = plan(retire: .age(51))
-        withPension.pensions = [PlanPension(scheme: .fixed, fromAge: 55, perYear: d("12000"))]
-        var system = FlatTaxSystem()
-        system.incomeRate = 0.2
-        let covered = try await Sample.run(withPension, library, system: system, options: options)
-        #expect(close(covered.answer.fiNumber, 510_000))
-    }
 }

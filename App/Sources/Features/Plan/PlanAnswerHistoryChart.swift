@@ -3,8 +3,8 @@ import Model
 import SwiftUI
 
 /// "Your answer over time": the earliest retirement age at each check-in as
-/// a step line, with a mark where the plan, the app's calculations or the
-/// tax rules changed (PROGRESS.md, "The answer over time").
+/// a step line, with a mark where the plan or the app's calculations
+/// changed (PROGRESS.md, "The answer over time").
 struct PlanAnswerHistoryChart: View {
     let history: PlanAnswerHistory
     var height: CGFloat = 180
@@ -134,7 +134,7 @@ struct PlanAnswerHistoryChart: View {
             series: [ChartSummary.Series(name: "Earliest age", points: points.map {
                 (AmountFormat.mediumDate($0.date), Double($0.earliestAge ?? 0))
             })],
-            describeValue: { "\(Int($0.rounded())) years" })
+            describeValue: { "\(Int(wholeNumber: $0)) years" })
     }
 }
 

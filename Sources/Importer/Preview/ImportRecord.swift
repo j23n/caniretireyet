@@ -115,7 +115,7 @@ public struct ImportedRecord: Hashable, Sendable {
     /// Fields it leaves out are left as they are in the library.
     public var trade: Trade?
     /// Valuations: the money added (+) or taken out (−) since the account's
-    /// previous valuation, when the file knows it (a ledger journal does).
+    /// previous valuation, when the file knows it.
     public var flow: Decimal?
     /// Where the values come from, written into new and overwritten
     /// records; `nil` means `import`.

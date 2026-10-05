@@ -15,7 +15,7 @@ extension LibraryStore {
     }
 
     /// Closes an account on `date` (its last day), with the account that
-    /// replaced it. Its history stays (FILE_FORMAT.md, "Account lifecycle").
+    /// replaced it. Its history stays (docs/schema/account.schema.json).
     func closeAccount(_ id: AccountID, on date: CalendarDate, successor: AccountID? = nil) throws {
         try update { library in
             guard library.accounts[id] != nil else { throw LibraryEditError.unknownAccount(id) }
@@ -29,10 +29,16 @@ extension LibraryStore {
         try update { $0.accounts[id]?.closed = nil }
     }
 
+    /// The backup label of deleting an account.
+    static let deleteAccountBackupLabel = "delete-account"
+
     /// Deletes an account with all its valuations and trades, and what
     /// refers to it (``Library/removeReferences(to:)``). For mistakes only.
-    func deleteAccount(_ id: AccountID) throws {
-        try update { library in
+    /// The files it changes are backed up first (`delete-account`), so the
+    /// account can be restored from *Sync & backups*, and it waits for the
+    /// write.
+    func deleteAccount(_ id: AccountID) async throws {
+        _ = try await commit(backingUpAs: Self.deleteAccountBackupLabel) { library in
             library.accounts[id] = nil
             for valuation in library.valuations(for: id) {
                 library.removeValuation(valuation.key)

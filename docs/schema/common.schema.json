@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Shared definitions",
+  "description": "Values used by several library files. The other schemas refer to them as common.schema.json#/$defs/<name>.",
+  "$defs": {
+    "decimal": {
+      "description": "An exact decimal, written as a string in its shortest form: \"1500\", \"0.1\", \"-310.2\" (never \"1500.00\"). The app also reads a plain JSON number, but never through binary floating point. No grouping separators, no leading +, no units.",
+      "anyOf": [{ "type": "string", "pattern": "^-?[0-9]+(\\.[0-9]+)?([eE][-+]?[0-9]+)?$" }, { "type": "number" }]
+    },
+    "date": {
+      "description": "A calendar date, YYYY-MM-DD, with no time or time zone. A value dated 2026-09-30 means \"as of the end of that day\".",
+      "type": "string",
+      "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$"
+    },
+    "yearMonth": { "description": "A calendar month, YYYY-MM.", "type": "string", "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])$" },
+    "slug": {
+      "description": "An ID: lowercase letters, digits and hyphens, unique within its folder and the same as the file name without .json. The app makes it from the display name (\"Conto Fineco\" → conto-fineco, adding -2 when taken). An ID never changes; files refer to each other by ID, never by name.",
+      "type": "string",
+      "pattern": "^[a-z0-9-]+$"
+    },
+    "currency": { "description": "An ISO 4217 currency code: EUR, USD, CHF.", "type": "string", "pattern": "^[A-Z]{3}$" },
+    "country": { "description": "An ISO 3166-1 alpha-2 country code: IT, IE, DE.", "type": "string", "pattern": "^[A-Z]{2}$" },
+    "assetClass": {
+      "description": "An asset class.",
+      "$comment": "Open enum: a value a newer version adds is read and written back as it is.",
+      "enum": ["equity", "bonds", "cash", "gold", "crypto", "realEstate", "other"]
+    },
+    "assetMix": {
+      "description": "A split across asset classes, as fractions that add up to 1: { \"equity\": \"0.6\", \"bonds\": \"0.4\" }. Classes left out have no share.",
+      "type": "object",
+      "propertyNames": { "$ref": "#/$defs/assetClass" },
+      "additionalProperties": { "$ref": "#/$defs/decimal" }
+    },
+    "dataSource": {
+      "description": "Where a record's values came from: manual (typed in), import (a spreadsheet), ledger (a journal, imported by an earlier version), or the service that answered: yahoo, coingecko, gold-api, ecb, eurostat. A price fetched for a past date has the source of the service that answered, which can differ from its instrument's priceSource (gold priced from Yahoo Finance's GC=F futures has \"yahoo\").",
+      "$comment": "Open enum.",
+      "enum": ["manual", "import", "ledger", "yahoo", "coingecko", "gold-api", "ecb", "eurostat"]
+    },
+    "age": { "description": "An age in whole years.", "type": "integer", "minimum": 0, "maximum": 150 }
+  }
+}

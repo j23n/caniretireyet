@@ -25,7 +25,7 @@ public struct Migration: Sendable {
     }
 
     /// The steps this app knows, in order.
-    public static let all: [Migration] = [tradesAccounts]
+    public static let all: [Migration] = [tradesAccounts, simplePlans]
 
     /// 1 → 2: accounts can record trades (docs/TRADES.md). A version 1
     /// library has no trades, so no file changes but `library.json`. The

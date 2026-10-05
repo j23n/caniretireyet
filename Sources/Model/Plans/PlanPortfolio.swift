@@ -33,8 +33,8 @@ extension PortfolioStart: Codable {
 }
 
 /// A plan's `portfolio` section: where it starts, what it leaves out,
-/// estimates for data that wasn't recorded, and the mix the ordinary
-/// (taxable) accounts are rebalanced to, which can change with age.
+/// estimates for data that wasn't recorded, and the mix the money you can
+/// draw is rebalanced to, which can change with age.
 public struct PlanPortfolio: Hashable, Sendable, KnownKeysProviding {
     /// As written. See ``effectiveStart``.
     public var start: PortfolioStart?
@@ -43,9 +43,9 @@ public struct PlanPortfolio: Hashable, Sendable, KnownKeysProviding {
     public var unrealizedGainShare: Decimal?
     /// Accounts left out of the plan, in addition to those with `includeIn.plan == false`.
     public var exclude: [AccountID]
-    /// The mix the ordinary (taxable) accounts are rebalanced to from
-    /// today, until the first of ``targetMixByAge`` starts. `nil`: each
-    /// keeps its own mix at the start.
+    /// The mix the money you can draw is rebalanced to from today, until
+    /// the first of ``targetMixByAge`` starts. `nil`: it keeps its own mix
+    /// at the start.
     public var targetMix: AssetMix?
     /// Changes of the target mix with age, in order: from each step's age
     /// on, its mix replaces the one before. Versions before these steps
@@ -71,9 +71,9 @@ public struct PlanPortfolio: Hashable, Sendable, KnownKeysProviding {
         self == PlanPortfolio()
     }
 
-    /// Whether the plan chooses the mix its ordinary accounts are
-    /// rebalanced to, now or from some age; otherwise they keep their mix
-    /// at the start.
+    /// Whether the plan chooses the mix the money you can draw is
+    /// rebalanced to, now or from some age; otherwise it keeps its mix at
+    /// the start.
     public var choosesTargetMix: Bool {
         targetMix != nil || !targetMixByAge.isEmpty
     }
@@ -90,7 +90,7 @@ public struct PlanPortfolio: Hashable, Sendable, KnownKeysProviding {
 
     /// The target mix in force at `age` when retiring at `retirementAge`:
     /// that of the last step in ``targetMixByAge`` that has started, else
-    /// ``targetMix``. `nil`: the ordinary accounts keep their mix at the start.
+    /// ``targetMix``. `nil`: the money you can draw keeps its mix at the start.
     public func targetMix(atAge age: Int, retiringAt retirementAge: Int?) -> AssetMix? {
         targetMixStep(atAge: age, retiringAt: retirementAge).map { targetMixByAge[$0].mix } ?? targetMix
     }

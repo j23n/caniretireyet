@@ -10,8 +10,8 @@ import Model
 ///       "dimension": { "time": { "category": { "index": { "2026-07": 0, "2026-08": 1 } } }, … },
 ///       "value": { "0": 128.1, "1": 128.41 }, … }
 ///
-/// Each value is dated the last day of the month it measures (FILE_FORMAT.md,
-/// "Indices"), however late it's published or fetched. ``Series/hicp(_:)``
+/// Each value is dated the last day of the month it measures (docs/schema,
+/// history-month.schema.json, `index`), however late it's published or fetched. ``Series/hicp(_:)``
 /// gives the series of any HICP the library may use: a country's
 /// (`hicp-de`, `hicp-ch`, …) or the euro area's (`hicp-ea`).
 public struct EurostatIndexProvider: PriceIndexProvider {

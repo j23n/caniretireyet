@@ -1,5 +1,4 @@
 import Model
-import TaxKit
 
 /// The part of a plan an issue concerns, so the editor can show it on the
 /// right card. Mirrors the plan file's sections, plus `person` for the
@@ -20,70 +19,59 @@ public struct PlanSection: RawRepresentable, Hashable, Sendable, ExpressibleBySt
     public static let events: PlanSection = "events"
     public static let portfolio: PlanSection = "portfolio"
     public static let assumptions: PlanSection = "assumptions"
-    public static let withdrawals: PlanSection = "withdrawals"
     public static let simulation: PlanSection = "simulation"
 }
 
-/// A problem with a plan: found while interpreting it, by a tax system's
-/// validation, or while assessing a year. Errors stop a run; warnings are
-/// shown with the results.
+/// A problem with a plan, found while interpreting it. Errors stop a run;
+/// warnings are shown with the results.
 public struct PlanIssue: Hashable, Sendable {
-    /// Errors stop a run; warnings are shown with the results.
-    public var severity: TaxIssue.Severity
-    /// A stable machine-readable code: `planner.…` for the engine's own
-    /// checks, the tax system's code otherwise.
+    /// How serious an issue is.
+    public enum Severity: String, Hashable, Sendable {
+        /// The plan can't run until it's fixed.
+        case error
+        /// The plan runs; the result may not be what you meant.
+        case warning
+    }
+
+    public var severity: Severity
+    /// A stable identifier, e.g. `planner.noNetIncome`.
     public var code: String
-    /// A message for the user.
+    /// A sentence for the user.
     public var message: String
-    /// The plan section to show it on.
     public var section: PlanSection
-    /// The item within the section (a work phase, pension, event, …), by position.
+    /// The index of the item in a list section (a work phase, a pension, …).
     public var index: Int?
-    /// The year it concerns, if any.
+    /// The calendar year it concerns, if any.
     public var year: Int?
-    /// The regime it concerns, if any.
-    public var regime: String?
-    /// The option it concerns, if any, so the editor can highlight the field.
+    /// The field it concerns, e.g. `investmentRate`.
     public var option: String?
     /// The account it concerns, if any.
     public var account: AccountID?
 
-    /// An issue found by the planner.
-    public init(_ severity: TaxIssue.Severity, code: String, message: String, section: PlanSection,
-                index: Int? = nil, year: Int? = nil, regime: String? = nil, option: String? = nil,
-                account: AccountID? = nil) {
+    public init(_ severity: Severity, code: String, message: String, section: PlanSection, index: Int? = nil,
+                year: Int? = nil, option: String? = nil, account: AccountID? = nil) {
         self.severity = severity
         self.code = code
         self.message = message
         self.section = section
         self.index = index
         self.year = year
-        self.regime = regime
         self.option = option
         self.account = account
     }
 
-    /// A tax system's issue, placed on `section`.
-    public init(_ issue: TaxIssue, section: PlanSection, index: Int? = nil) {
-        self.init(issue.severity, code: issue.code, message: issue.message, section: section, index: index,
-                  year: issue.year, regime: issue.regime, option: issue.option)
-    }
-
-    /// Whether it stops a run.
     public var isError: Bool { severity == .error }
 
     static func error(_ code: String, _ message: String, section: PlanSection, index: Int? = nil,
-                      year: Int? = nil, regime: String? = nil, option: String? = nil,
-                      account: AccountID? = nil) -> PlanIssue {
-        PlanIssue(.error, code: code, message: message, section: section, index: index, year: year,
-                  regime: regime, option: option, account: account)
+                      year: Int? = nil, option: String? = nil, account: AccountID? = nil) -> PlanIssue {
+        PlanIssue(.error, code: code, message: message, section: section, index: index, year: year, option: option,
+                  account: account)
     }
 
     static func warning(_ code: String, _ message: String, section: PlanSection, index: Int? = nil,
-                        year: Int? = nil, regime: String? = nil, option: String? = nil,
-                        account: AccountID? = nil) -> PlanIssue {
+                        year: Int? = nil, option: String? = nil, account: AccountID? = nil) -> PlanIssue {
         PlanIssue(.warning, code: code, message: message, section: section, index: index, year: year,
-                  regime: regime, option: option, account: account)
+                  option: option, account: account)
     }
 }
 

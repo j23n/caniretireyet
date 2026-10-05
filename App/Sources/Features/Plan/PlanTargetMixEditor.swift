@@ -2,8 +2,8 @@ import Model
 import Planner
 import SwiftUI
 
-/// The Target mix card (UI.md, "Target mix"): today's mix of the ordinary
-/// accounts next to the mix the plan rebalances them to, each class's
+/// The Target mix card (UI.md, "Target mix"): today's mix of the money you
+/// can draw next to the mix the plan rebalances it to, each class's
 /// median return, a running total that must reach 100%, and changes with
 /// age. "Today's mix" writes nothing; edits are saved as you type. The
 /// logic is in ``PlanTargetMixModel`` and the `plan…` subscripts.
@@ -13,7 +13,7 @@ struct PlanTargetMixEditor: View {
     @Environment(\.locale) private var locale
 
     var body: some View {
-        let model = PlanTargetMixModel(plan: plan, library: library.library, registry: AppTaxRegistry.standard)
+        let model = PlanTargetMixModel(plan: plan, library: library.library)
         let choosing = plan.portfolio.choosesTargetMix
         VStack(alignment: .leading, spacing: Metrics.s) {
             Text(PlanTargetMixModel.explanation)
@@ -61,7 +61,7 @@ private struct PlanTargetMixNote: View {
     }
 }
 
-/// Per class: today's share of the ordinary accounts (and of all plan
+/// Per class: today's share of the money you can draw (and of all plan
 /// assets below it), the target to type, and the median return.
 private struct PlanTargetMixTable: View {
     @Binding var plan: PlanDocument
@@ -127,7 +127,7 @@ private struct PlanTargetMixTable: View {
                 .foregroundStyle(Palette.mutedInk)
         }
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("\(row.name) today: \(ordinary) of your ordinary accounts, \(all) of all plan assets")
+        .accessibilityLabel("\(row.name) today: \(ordinary) of the money you can draw, \(all) of all plan assets")
     }
 }
 

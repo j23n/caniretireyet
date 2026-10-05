@@ -156,7 +156,7 @@ public actor LibrarySync {
     // MARK: Conflicts
 
     /// Resolves the sync conflicts in the files at `paths`: each version is
-    /// merged into the file (FILE_FORMAT.md, "Sync conflicts"). Reload the
+    /// merged into the file (PLAN.md, "Merging, saving and undo"). Reload the
     /// ``ConflictReport/changedPaths`` afterwards.
     public func resolveConflicts(at paths: [String], date: Date = Date()) -> ConflictReport {
         ConflictMerger(folder: folder, versions: versions).resolve(paths: paths, date: date)

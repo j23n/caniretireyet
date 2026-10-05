@@ -22,11 +22,9 @@ import Model
 /// - **FX rates.** On those dates, every currency other than the base
 ///   currency that an amount is in (a balance, cash, or a held instrument's
 ///   price) with no rate against the base currency, either way round,
-///   dated that day. And each plan's currency on every check-in date: a
-///   plan's Progress converts each check-in at its own date's rate.
+///   dated that day.
 /// - **Index months.** For each index the library uses (by default
-///   `Library.inflationIndices`: its own, and one for each plan's
-///   currency), the months from the first valuation's through the last that
+///   `Library.inflationIndices`), the months from the first valuation's through the last that
 ///   has ended by today without a value.
 public struct PastPriceNeeds: Hashable, Sendable {
     /// An instrument and the dates it needs a price on.
@@ -154,15 +152,6 @@ public struct PastPriceNeeds: Hashable, Sendable {
                         needPrice(position.instrument, on: date)
                     }
                 }
-            }
-        }
-
-        // Plans in another currency convert each check-in at its own rate.
-        let planCurrencies = Set(library.plans.values.compactMap(\.currency))
-        if !planCurrencies.isEmpty {
-            let checkIns = library.checkInDates.filter { $0 <= today }
-            for currency in planCurrencies {
-                for date in checkIns { needRate(currency, on: date) }
             }
         }
 

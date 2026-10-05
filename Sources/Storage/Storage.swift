@@ -2,10 +2,10 @@
 //
 // Library folder ⇄ model: the JSON codec, validation, migrations and merging.
 //
-// - `LibraryFolder` loads the library folder (FILE_FORMAT.md layout) into a
+// - `LibraryFolder` loads the library folder (docs/schema/README.md layout) into a
 //   `Model.Library` with a report of problems per file, and writes back only
 //   the files that changed, atomically, through a `FileAccessing`. Each write
-//   is merged with what's on disk (FILE_FORMAT.md, "Saving"): history and
+//   is merged with what's on disk (PLAN.md, "Merging, saving and undo"): history and
 //   headline files three-way record by record (`RecordMerger`), other files
 //   backed up before a change made elsewhere is replaced.
 // - `CanonicalJSON` writes stable JSON: UTF-8, two-space indentation, sorted

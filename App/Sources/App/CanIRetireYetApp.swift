@@ -8,21 +8,22 @@ import SwiftUI
 ///
 /// **The Mac window** opens at 1200 × 800 and can be made as small as
 /// 900 × 600. A window can't be smaller than the minimum size of its
-/// content, so every page's content scrolls, or is pinned and short, and
-/// the root asks for no more than that minimum: a page that didn't scroll
-/// would otherwise make the window taller than the screen.
+/// content, so the root's minimum is fixed (``FixedMinimumSize``) rather
+/// than measured through the pages, whose minimums move as they lay out
+/// for a narrower width; every page's content scrolls, or is pinned and short.
 @main
 struct CanIRetireYetApp: App {
     @State private var model = AppModel.live()
 
     var body: some Scene {
         WindowGroup {
-            RootView()
-                .appEnvironment(model)
-                .task { await model.start() }
-                #if os(macOS)
-                .frame(minWidth: 900, minHeight: 600)
-                #endif
+            #if os(macOS)
+            FixedMinimumSize(minWidth: 900, minHeight: 600) {
+                root
+            }
+            #else
+            root
+            #endif
         }
         #if os(macOS)
         .defaultSize(width: 1_200, height: 800)
@@ -41,5 +42,12 @@ struct CanIRetireYetApp: App {
             .frame(minWidth: 480, idealWidth: 560, minHeight: 420, idealHeight: 620)
         }
         #endif
+    }
+
+    /// The window's content: the root view with every store.
+    private var root: some View {
+        RootView()
+            .appEnvironment(model)
+            .task { await model.start() }
     }
 }

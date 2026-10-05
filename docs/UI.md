@@ -42,8 +42,7 @@ Plus the glance: "how am I doing?" in a widget or on the Overview.
 ```
 Overview
 Check-in                       •     ← dot when due
-Accounts
-  All accounts                       ← the grouped list, with subtotals
+Accounts                  97.330     ← the total of the open accounts
   ▾ Cash                  12.990     ← a group, with its subtotal
       Conto deposito       8.200
       Conto Fineco      ◷  4.790     ← ◷ when the value is stale
@@ -63,11 +62,11 @@ Library
 ```
 
 - **Accounts in the sidebar.** The accounts are in the sidebar itself, so an account is one click away and a group of one doesn't need a page of its own.
-  - *All accounts* is the overview: the [list](#accounts), grouped, with subtotals and the closed accounts. Its rows open an account's detail with a back button.
+  - The *Accounts* header shows the total of the open accounts on the right: the groups' subtotals added up.
   - Under it, a row per group that has open accounts (Cash, Investments, Crypto & gold, Pension, Property, Debts), with its subtotal on the right. It expands to the group's accounts: kind icon, name and value, with a small clock when the latest value is stale. Values and staleness are the same as in the list. *Closed (n)* expands to the closed accounts. Amounts are left out while they're hidden.
-  - Clicking a group, or its disclosure triangle, expands or collapses it; groups aren't pages. They start expanded and *Closed* collapsed, and the device remembers which are collapsed, here and on *All accounts* alike ([Accounts](#accounts)).
+  - Clicking a group, or its disclosure triangle, expands or collapses it; groups aren't pages. They start expanded and *Closed* collapsed, and the device remembers which are collapsed, here and on the iPhone's Accounts tab alike ([Accounts](#accounts)).
   - Selecting an account shows its detail in the content area; the arrow keys move from account to account. Opening an account from elsewhere in the app selects its row and expands its group.
-  - The sidebar follows the library, also when it changes on the other device: a new account appears under its group, a selected account that's closed moves under *Closed* and stays selected, and one that's deleted gives way to *All accounts*.
+  - The sidebar follows the library, also when it changes on the other device: a new account appears under its group, a selected account that's closed moves under *Closed* and stays selected, and one that's deleted gives way to the Overview.
 - **Settings** is the standard Settings window (⌘,).
 - **Menu commands:**
 
@@ -81,11 +80,9 @@ Library
   | Hide Amounts | ⌘⇧H |
   | Show Future | ⌘⇧F |
   | Duplicate Plan | ⌘D |
-  | Compare Plans | ⌘⌥C |
-  | Show Calculations… | — |
+  | Export Calculations… | — |
 
-- **Drag and drop:** dropping a CSV, or ledger journals, anywhere on the window starts an import.
-- **Windows:** plan comparison and import can open in their own windows.
+- **Drag and drop:** dropping a CSV anywhere on the window starts an import.
 - **Window size (Mac):** the window opens at 1200 × 800 and can be made as small as 900 × 600. Every page scrolls, with what's pinned to it (the plan's What-if, the import's column settings) scrolling too when there's no room, so no page makes the window taller than the screen.
 
 ## Overview
@@ -148,6 +145,7 @@ The whole screen is net worth: the hero number, the history chart (except with *
   - Always net worth stacked by asset class, with debts below the zero line, and a legend in its own row above. Like retirement income, each class is a light wash of its colour with a 2-point line along its edge (the top, or the bottom for debts) and a 2-point gap between neighbours, never a solid block. Only when there's nothing to stack (every value zero) is it a single line.
   - Drag across it to read any month: a vertical rule with a callout showing the date, the total and the breakdown; over the projection, its median and bands.
   - **Future** continues the chart into the active plan's projection: a dashed median with a darker 25–75% band and a lighter 10–90% band, plus markers for retirement, pension starts and the like. See [PROGRESS.md](PROGRESS.md#past-and-future-m2).
+    - The switch shows whenever there's a main plan. Plans only run when asked, so when the main plan hasn't been calculated yet, turning *Future* on is that request: it calculates the plan, with "Calculating Base case's projection… 34%" and a bar under the controls until the projection is there. A plan that can't run says why ("Base case can't be calculated: …"), with *Try Again* and *Open Plan*, and isn't tried again on its own.
     - **The past shows plan assets, still by asset class.** The projection is of what the plan counts (*plan assets*: e.g. without your home and its mortgage), so with *Future* on the past covers the same accounts and its total meets the projection's median at today. The alternatives mislead: net worth up to today and then a projection of less would look like a fall at today, and carrying the home on at its last value would invent a forecast the plan doesn't make. The projection is one total, so where the plan counts a debt, the median starts below the top of the stack, at what's left after it.
     - The legend gets a second row for the projection: the median and the two bands (the asset classes stand for the past, so there's no "Actual" line).
     - The value axis fits the history, the median and the 25–75% band. The 10–90% band may run off the top, and the legend says "↑ 10–90% continues above".
@@ -159,6 +157,7 @@ The whole screen is net worth: the hero number, the history chart (except with *
 - **Can I retire yet?** The plan's headline, how close your plan assets are to what retiring today needs, and how you compare with the latest baseline. Tapping it opens the Plan tab.
   - **Readiness**: a bar and "58% of what you'd need to retire today" ([PLANNER.md](PLANNER.md#assets-needed-to-retire-today)). Its ⓘ explains it: "Your plan assets compared with what retiring now would need for a 90% chance (the plan's confidence), including the years before your pensions start and taxes. The plan finds it by simulating retiring today with extra money added to accounts you can draw now, or with money taken out of them; money locked in pension funds stays as it is. At 100% you could retire today." It comes from the same simulation as the chance of retiring today, so it reaches 100% exactly when the answer turns to "Yes" (above 100% it keeps counting: "130% of what you'd need…"). When retiring today would need more than 20 times your plan assets, it says so instead of a percentage.
   - An answer recorded before readiness existed has only the old "of the way to financial independence", a rule of thumb that ignored the years before the pensions and taxes and so disagreed with the chance of retiring today: the card shows "Calculate the plan to see how close you are to retiring today." instead.
+  - A caption under the answer says what it is: "Estimates, not financial or tax advice."
   - The card opens the plan on a tap anywhere but the ⓘ; the chevron is its button for VoiceOver and the keyboard. It shows the main plan's latest results, or else the answer recorded at the last check-in, dated; it never starts a calculation. While one is going (a check-in's, or one started on the Plan screen) it says how far along it is, and results that no longer fit the plan or your data say "Calculated before your latest changes".
 - **Needs attention.** Only shown when something needs you: stale accounts (not one that holds nothing: see [Accounts](#accounts)), accounts with problems in their trades, prices that couldn't be fetched, sync conflicts that were merged, and plan warnings. An account whose trades have problems (more sold than held, an opening without a cost, a statement that differs from the trades: the notes its page shows) gets one item that opens it: "Directa: 2 problems with trades · More sold than held · VWCE differs from the statement. Open the account to fix them." Prices and exchange rates missing on past month ends get an item each, which opens *Fill In Past Prices*: "Past exchange rates for US$ are missing · US brokerage isn't fully counted in your net worth for Jun 2018 – Dec 2021. Fill in past prices to fetch them."
 - **Allocation.** Horizontal bars with values and percentages; a donut would be harder to read. The dimension can be switched between asset class, account group, currency, institution, and liquid vs locked.
@@ -268,7 +267,7 @@ The flow that has to be fast. It opens as a full-screen sheet on iPhone and as t
 
 ## Accounts
 
-- **List.** Grouped: Cash, Investments, Crypto & gold, Pension, Property, Debts. On the Mac and iPad it's *All accounts* in the sidebar, which also lists each group's accounts under it ([Navigation](#navigation)).
+- **List.** Grouped: Cash, Investments, Crypto & gold, Pension, Property, Debts. It's the iPhone's Accounts tab (and the iPad's in compact width); on the Mac and iPad the sidebar lists each group's accounts itself ([Navigation](#navigation)).
 
   ```
   Accounts                                  +
@@ -289,7 +288,7 @@ The flow that has to be fast. It opens as a full-screen sheet on iPhone and as t
   - **Stale** means the latest value is older than the threshold (45 days by default). An account that holds nothing (a zero balance, or no cash and no quantity) has nothing to check in, so it's never stale: not in the list, the sidebar, its detail or *Needs attention*.
   - Swipe actions: *Update value* (a one-account valuation) and *Close*. Saved as it is, *Update value* records the account as unchanged; an account with no earlier value needs a value typed, and an emptied field isn't zero (type 0). Its date can be any day up to the closing date (or a year from today), also before the account opened: see [Adding history](#adding-history). An account that records trades offers *Add trade* instead; its *Update Cash…* (in the context menu) shows the holdings from the trades, read-only, and records the cash.
   - Closed accounts sit in a "Closed (3)" section at the bottom.
-  - **Collapsing.** Tapping a group's header, or *Closed*'s, collapses the group to its header (name and subtotal) or expands it again, with an animation; the chevron at the right of the header points down while it's expanded. The groups start expanded and *Closed* collapsed. The device remembers which are collapsed, and the sidebar shares them: collapsing Cash on *All accounts* collapses it in the sidebar too, and the other way round.
+  - **Collapsing.** Tapping a group's header, or *Closed*'s, collapses the group to its header (name and subtotal) or expands it again, with an animation; the chevron at the right of the header points down while it's expanded. The groups start expanded and *Closed* collapsed. The device remembers which are collapsed, and the sidebar shares them: collapsing Cash on the Accounts tab collapses it in the sidebar too (on an iPad that switches layouts), and the other way round.
   - **Search** (by name, institution, kind, tags or notes) shows every group expanded while there's a query, so no result is hidden. Clearing it brings back the collapsed ones.
 - **Account detail.**
   - **In the account's own currency.** The value, its change, the chart and the values list are in the account's currency, which needs no exchange rate: a dollar account in a euro library shows `0,00 US$`. Under the value, its value in the base currency at the day's rate, or "Value in EUR: rate missing".
@@ -299,28 +298,28 @@ The flow that has to be fast. It opens as a full-screen sheet on iPhone and as t
   - **Empty accounts.** Once an open account has held nothing for longer than the staleness threshold, it isn't called stale; instead: "This account has been empty since 1 Jan 2022. Close it?" with *Close Account…*, which opens the Close sheet on that day.
   - For accounts with holdings, the positions: quantity, price, value, purchase cost and unrealised gain.
   - The list of valuations, each editable: date, value, new money, note. *Add Past Value…* adds one on an earlier date.
-  - An info section: kind, institution, country, currency, tax wrapper, how it's recorded (a balance, snapshots of positions, or trade history), and whether it's included in net worth and plans.
+  - An info section: kind, institution, country, currency, from what age plans can draw on it ("Plans can draw on it: From 67", or "At any age"), how it's recorded (a balance, snapshots of positions, or trade history), and whether it's included in net worth and plans.
   - A holdings account offers *Switch to Trade History…* next to *Close Account…*: see [Trade history](#trade-history).
 - **Add account.** A sheet:
   1. Pick a kind from a grid of icons.
   2. Enter the name, institution, currency, country and opening date. The opening date is today by default; the hint says "Set it to when you opened the account, to add its history." The opening balance is the one on that date.
   3. For a brokerage, crypto or metals account, choose **Track: Trade history / Monthly snapshots**. Trade history is the default: "Record each buy, sell and dividend: holdings, average cost, gains and income follow from them." Snapshots: "Type the quantities and cash at each check-in; no trades to keep."
   4. Enter the positions (choose or create instruments) or the balance, which becomes the first valuation. For trade history, each position becomes an *opening* trade on the opening date, with what you paid as its purchase cost, and the cash becomes the first value.
-  5. The tax wrapper is pre-selected from the kind and your residence, through the tax registry: your residence's system (the registered system whose `country` it is, else `generic`) gives a current account its first taxable wrapper, a pension fund its first tax-advantaged one (e.g. `it.pensionFund`), and a TFR its severance-pay wrapper. The picker lists your residence's wrappers first, then other countries', then the generic ones ("Pension fund (Italy)", "Tax-deferred"), so a country's system brings its wrappers when it's registered.
+  5. **Plans:** whether it counts in net worth and in plans and, for an asset counted in plans, **Available only from an age** with a stepper ("Available from 65"): money plans can't draw on before then, such as a pension fund ([PLANNER.md](PLANNER.md#the-model-in-brief)). A pension fund starts at 65, every other kind at any age, until you change it; the footer says "Money available only from an age, such as a pension fund, can't pay for the years before it." The account's editor has the same fields.
 - **Close account.** A sheet asks for:
   - the closing date;
   - "Where did the money go?", which sets the successor account;
   - a short explanation: the account keeps its history, stays in every chart up to that date, and leaves check-ins.
 
   Reopening is one button. Deleting is for mistakes only, sits at the bottom in red, and asks for confirmation.
-- **Instruments** (under Library on the Mac, and from an account's positions on iPhone): name, ISIN or ticker, currency, unit, asset mix, taxes, and price source. **Taxes**, for an ETF or fund: the fund type, *Automatic (equity fund)* from the asset mix as typed (more than half equity is an equity fund, more than half real estate a real-estate fund, a quarter or more equity a mixed fund, anything else another fund, as the planner works it out) or one chosen when the mix doesn't say (equity, mixed, real-estate, foreign real-estate, other); for an ETC, *Right to delivery of the metal*. Some countries tax them differently. Each row shows the latest saved price with its date and source, with a small clock when it's older than the staleness threshold. A footer says: "Prices are also fetched at every check-in. Net worth uses the price on or before each check-in's date. Fill In Past Prices fetches those missing for earlier dates."
+- **Instruments** (under Library on the Mac, and from an account's positions on iPhone): name, ISIN or ticker, currency, unit, asset mix, and price source. Each row shows the latest saved price with its date and source, with a small clock when it's older than the staleness threshold. A footer says: "Prices are also fetched at every check-in. Net worth uses the price on or before each check-in's date. Fill In Past Prices fetches those missing for earlier dates."
   - **Update Prices** (toolbar; pull down on iPhone) fetches today's price of every instrument an open account holds that has a price source, the FX rates that value them in the base currency, and the months the library's inflation indices are missing (as a check-in would: an *Inflation* section, "Added Sep 2026." or "No new months published yet."), and saves them for today in one edit. An index value is only added, never replaced. A banner shows the progress, then the outcome; *Details* lists each instrument as updated, unchanged, failed (with the reason) or kept. A failure doesn't stop the others. A price typed in by hand for today is kept, as in the check-in, unless you choose *Update* on its row. Instruments typed in by hand or not held in an open account are skipped; a row's *Update Price* fetches one anyway.
   - **Set Price…** (on a row, or in the editor) types a price in by hand: the date (today by default), the amount, and the currency (the instrument's by default). It's saved as a `manual` price, which *Update Prices* doesn't replace.
   - **Fill In Past Prices…** (toolbar; the overflow menu on iPhone) fills in the past: every date a position is valued on without a price for that day (each value, and the month ends it carries over to in months without one of its own), the exchange rates those dates need, and the missing inflation months.
     - A sheet lists what's missing: each instrument with where it comes from, its date range and count ("Gold coins · gold-api.com · XAU · Oct 2015 – Sep 2026 · 132 dates"), then the rates and inflation, then **To type in**: instruments without a price source.
     - **Fill In** fetches with a progress bar: each instrument's whole range is one request, then one per currency and index ([PLAN.md](PLAN.md#prices-and-fx)). Metals' past prices come from their futures on Yahoo Finance (`GC=F` for gold), within about 1% of spot; crypto older than CoinGecko's free year from Yahoo's pairs (`BTC-EUR`).
     - Then each line shows how many dates it got and from where: "12 of 12 · Yahoo Finance · GC=F (history)", or "CoinGecko · ethereum back to Oct 2025, Yahoo Finance · ETH-EUR (history) before". What's left is listed with its dates and the reason, never skipped: *Set Price…* opens on one of its dates, and *Choose a Price Source* (or *Change Price Source*) opens the instrument's editor; *Check Again* fills in again after that.
-    - The records are saved in one edit into their month files, after a `fill-history` backup. Nothing already saved is replaced: not a price typed in, not one from an import or a journal, not one fetched before.
+    - The records are saved in one edit into their month files, after a `fill-history` backup. Nothing already saved is replaced: not a price typed in, not one from an import, not one fetched before.
   - The editor's *Test price fetch* saves nothing by itself. For an instrument that exists, a successful test offers *Save price*; a new instrument's tested price is saved with the instrument. The symbol's placeholder follows the source: "Yahoo ticker, e.g. VWCE.DE", or for CoinGecko "e.g. ETH or ethereum" (a ticker or a CoinGecko ID).
 
 ## Adding history
@@ -335,11 +334,9 @@ Accounts added in the app open on the day they're added, unless you set an earli
 - ***Update Value* with a past date**, or ***Add Past Value…*** on the account's list of values, which starts on the month end before the first value, so an account fills in a month at a time. Any date up to the closing date works. Before the opening date the sheet says "Saving moves the opening date from 30 Sep 2026 to 31 Mar 2024." and moves it in the same edit. Moving a value earlier in the valuation editor does the same.
 - **Import.** For existing accounts, the import's *Accounts* step links the names in the file to them, and the profile remembers the match. Values from before an account's opening date propose to open it on the first of them, applied unless you reject it ([IMPORT.md](IMPORT.md#matching-accounts-and-instruments)).
 
-**Past prices.** Whichever way history arrives, its positions only have the prices it brought: a journal's `@` costs and `P` lines, a spreadsheet's price columns, what a past check-in fetched. Gold bought years ago would otherwise stay at its purchase price in every month since. *Fill In Past Prices…* fetches the rest ([Instruments](#accounts)); the import's Done step offers it ("12 past values have no price for XAU"), and so does a note under a chart that uses old prices.
+**Past prices.** Whichever way history arrives, its positions only have the prices it brought: a spreadsheet's price columns, what a past check-in fetched. Gold bought years ago would otherwise stay at its purchase price in every month since. *Fill In Past Prices…* fetches the rest ([Instruments](#accounts)); the import's Done step offers it ("12 past values have no price for XAU"), and so does a note under a chart that uses old prices.
 
-**A pension fund's joining date** (`tax.joined`, which sets the payout tax: 15%, falling towards 9% with the years of membership) is the opening date when the fund is added. Wherever the opening date moves (these three ways, or the account form), the joining date moves with it if it was the opening date; one set to another day stays.
-
-**New money after an inserted value.** A value's new money (its flow) is measured from the value before it. When a value is added before another one of the same account, or one is corrected, moved or deleted, the next value's new money is worked out again if it was automatic (the default for the account's kind, as the check-in fills it in), and kept if it was typed in. *Update Value* and the valuation editor say which before saving; a past check-in follows the same rule. A value added before an account's first one turns that first value's automatic new money (the whole amount) into the change since. An import follows the same rule for the library's values after the ones it adds or changes: its Preview says how many, and undoing the import puts them back. A journal's own valuations keep the flows the journal gives them ([IMPORT.md](IMPORT.md#preview-conflicts-and-undo)).
+**New money after an inserted value.** A value's new money (its flow) is measured from the value before it. When a value is added before another one of the same account, or one is corrected, moved or deleted, the next value's new money is worked out again if it was automatic (the default for the account's kind, as the check-in fills it in), and kept if it was typed in. *Update Value* and the valuation editor say which before saving; a past check-in follows the same rule. A value added before an account's first one turns that first value's automatic new money (the whole amount) into the change since. An import follows the same rule for the library's values after the ones it adds or changes: its Preview says how many, and undoing the import puts them back ([IMPORT.md](IMPORT.md#preview-conflicts-and-undo)).
 
 **Answers and baselines are only recorded for the latest check-in.** The plan runs on today's data, so re-running it for a past date would record made-up history in "Your answer over time" and a made-up "Start of <year>" baseline. A check-in dated before the library's latest one records neither, and its confirmation says: "Saved a past check-in (31 Mar 2024). The answer isn't recorded for past dates."
 
@@ -411,11 +408,11 @@ A brokerage, crypto or metals account can record its **trades** instead of month
 
 ## Plan
 
-A plan picker sits at the top (Base case ▾, with New, Duplicate, Compare, Rename, *Show Calculations…* and Delete), then three parts: **Results**, **Progress** and **Inputs**.
+A plan picker sits at the top (Base case ▾, with New Plan, Duplicate, Rename…, Set as Main Plan, Save Baseline…, *Export Calculations…* and Delete…), then three parts: **Results**, **Progress** and **Inputs**.
 
 ### Calculating
 
-A plan is calculated only when you ask: *Calculate*, *Recalculate* (⌘R, and a toolbar button on the Mac), *Run What-If*, or a check-in recording its answer. Opening a plan, editing an input, moving a what-if slider or choosing another age for the charts runs nothing; the screen says what's out of date instead. Each plan keeps its own results, what-if and chosen age while you switch between plans.
+A plan is calculated only when you ask: *Calculate*, *Recalculate* (⌘R, and a toolbar button on the Mac), *Run What-If*, a check-in recording its answer, or turning on the Overview's *Future* when the main plan has no results yet. Opening a plan, editing an input, moving a what-if slider or choosing another age for the charts runs nothing; the screen says what's out of date instead. Each plan keeps its own results, what-if and chosen age while you switch between plans.
 
 - **Before the first calculation.** The answer recorded at the last check-in, dated ("Recorded at the check-in on 30 Sep 2026", and "before the plan's latest changes" when the plan was edited since), with "Calculate the plan to see its charts." and **Calculate**. With nothing recorded either, a sentence on what calculating does ("simulates 2.000 possible futures… takes a few seconds, and runs only when you ask") and **Calculate**.
 - **Out of date.** Results stay on screen, slightly dimmed, under a banner that says why and offers the button that brings them up to date:
@@ -449,7 +446,7 @@ A plan is calculated only when you ask: *Calculate*, *Recalculate* (⌘R, and a 
   - The phase and its own bar, in the locale's numbers with tabular figures: "Earliest age · ages 38–75: 12 / 38" (most of the time: the chance at every age), "Simulating 1.234 / 2.000 runs" (the chosen age in detail), "Sustainable spending: step 4 / 16", "Needed to retire today: step 3 / 9", "Summarising". Then the whole calculation's bar. A what-if's first pass says "Quick estimate…".
   - **Cancel** stops it; the old results stay as they were (and out of date). A check-in's calculation can't be cancelled here: it says "Working out this month's answer…".
   - Editing an input while it runs lets it finish: its results then show as out of date, with Recalculate. Cancelling instead would throw away a calculation you asked for, while it's usually seconds from done.
-  - The same view shows on iPhone and Mac, in Compare and in the check-in's confirmation. The header of the answer says "Calculating 29%" meanwhile, and the iPhone pill shows a small bar.
+  - The same view shows on iPhone and Mac, and in the check-in's confirmation. The header of the answer says "Calculating 29%" meanwhile, and the iPhone pill shows a small bar.
 
 ### Results
 
@@ -478,12 +475,12 @@ A plan is calculated only when you ask: *Calculate*, *Recalculate* (⌘R, and a 
 │ Your money over time · retiring at 54    │
 │ 3Y · retirement +15 ▾                    │
 │ — Actual — Median ▓ 25–75% ░ 10–90% ↑    │
-│      ⚑ fund 57    ⚑ inheritance 62       │
-│  ⚑ retire 54           ⚑ INPS 67         │
+│      ⚑ inheritance 62    ⚑ fund 67       │
+│  ⚑ retire 54        ⚑ State pension 67   │
 │ ━━━━━━━░░░░▒▒▒▒▓▓▓▓━━━━▓▓▓▒▒▒░░░░░░░░░░░ │
 │                                          │
 │ Retirement income · median  Income│Taxes │
-│ ▇ Withdrawals ▇ INPS ▇ Pension fund ▇ Tax│
+│ ▇ Withdrawals ▇ Pensions ▇ Windfalls ▇ Tax│
 │  ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░          │
 │  ┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄ Spending  │
 │  ▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇           │
@@ -492,7 +489,7 @@ A plan is calculated only when you ask: *Calculate*, *Recalculate* (⌘R, and a 
 │ When it fails (1 in 10)                  │
 │ Money usually runs out around 84.        │
 │ 3% run out before the pension fund opens │
-│ at 57.                                   │
+│ at 67.                                   │
 │                                          │
 │ ╭ What if… ────────────────────────────╮ │
 │ │ Retire at     ━━━━━●━━━━  54          │ │
@@ -506,27 +503,53 @@ A plan is calculated only when you ask: *Calculate*, *Recalculate* (⌘R, and a 
 - **Headline.**
   - "Yes." or "Not yet.", then the earliest age and date, and the confidence in plain words ("in 9 of 10 simulated futures").
   - Two secondary numbers: the chance if you retired today, and **how much you could spend** if you retired at your target age. The second comes from the engine's solver for the highest spending that still meets your confidence level.
-  - **What retiring today would need**: the same bar and sentence as the Overview's, with its ⓘ, and "Needed to retire today: 545.000 €", the plan assets that would make retiring today reach your confidence ([PLANNER.md](PLANNER.md#assets-needed-to-retire-today)). On the Mac and iPad the key numbers list it too ("Needed to retire today", "Extra in accounts you can draw now", "You have 58%"), where the FI number used to be. When retiring today works even with the accounts you can draw now emptied, it reads "At most what's locked away", and the readiness "…% or more of what you'd need to retire today". The FI number is gone from the screen: nothing in the charts used it, so no marker or line replaces it.
+  - **What retiring today would need**: the same bar and sentence as the Overview's, with its ⓘ, and "Needed to retire today: 545.000 €", the plan assets that would make retiring today reach your confidence ([PLANNER.md](PLANNER.md#assets-needed-to-retire-today)). On the Mac and iPad the key numbers list it too ("Needed to retire today", "Extra in accounts you can draw now", "You have 58%"). When retiring today works even with the money you can draw emptied, it reads "At most what's locked away", and the readiness "…% or more of what you'd need to retire today".
+  - A footnote, "Estimates, not financial or tax advice.", as under the Overview's answer and the answer recorded at a check-in.
 - **Chance of success by retirement age.**
   - One line; a dotted rule at your confidence level, labelled at its right end, below the rule where the curve ends above it; the earliest age marked where they cross.
   - The age axis runs from today's age to the last age simulated, labelled every 5 years (every 10 when narrow), never from 0.
-  - Tapping another age makes it the selected age for the charts below. Charts calculated before for that age show at once; otherwise the banner offers *Calculate* for it.
-  - Steps caused by pension eligibility (e.g. at 64 or 67) show as steps, with a note explaining why.
-- **In the plan's currency.** Every amount, chart and caption is in the currency the results were calculated in: the plan's own, else the library's base currency ("In today's CHF.").
+  - Tapping (or clicking) another age makes it the selected age for the charts below; dragging across the curve, or hovering over it on the Mac, only shows the chance at each age. Charts calculated before for that age show at once; otherwise the banner offers *Calculate* for it.
+  - Steps where a pension starts or an account opens show as steps.
+- **In today's money,** in the library's base currency ("In today's EUR.").
 - **Your money over time.**
   - A fan chart in one hue: the median line, a darker 25–75% band and a lighter 10–90% band, with its legend in a row of its own above it.
-  - Your actual past values are drawn as a solid line in ink (not the plan's colour) to the left of today, in the plan's currency: each check-in converted at the library's exchange rate on its date, then into today's money with the inflation index for that currency: the library's own when its prices are in that currency, else the currency's HICP (Switzerland's for francs, the euro area's for euros); for a currency without one (dollars), the library's own stands in, with a note: "There's no inflation index for USD: your actual values are adjusted with Italy's prices." Without any index, values stay in the money of each date. Check-ins without a rate are left out, with a note: "Your actual values leave out 3 check-ins without a EUR–CHF exchange rate (Mar – May 2024): add the rates to see them."
+  - Your actual past values are drawn as a solid line in ink (not the plan's colour) to the left of today: the plan's accounts at each check-in, in today's money with the library's inflation index. Without one, values stay in the money of each date.
   - **Time span:** the same menu as the Overview's (and the same remembered choice): how far back, and how far ahead, retirement + 15 years by default, so the years around retirement aren't a sliver of a chart running to 95.
   - The value axis fits your history, the median and the 25–75% band; the 10–90% band may run off the top, and the legend says so.
-  - Markers above the data: retirement, when locked money becomes accessible, pension starts, windfalls and large expenses. Labels that would collide go in a second row; a marker without room in either shows its icon, and its label is in the callout.
+  - Markers above the data: retirement, when an account available from an age opens, pension starts, windfalls and large expenses. Labels that would collide go in a second row; a marker without room in either shows its icon, and its label is in the callout.
 - **Retirement income.**
-  - Stacked areas, one flat step a year, by source: withdrawals, work (the year you retire), the plan's first public pension (e.g. INPS), other pensions, pension savings drawn as needed, windfalls, and **lump sums and payouts**, then the taxes they pay in grey on top. Lump sums and payouts are money paid whether it's needed or not: a pension's lump sum in the year it's claimed (a route that takes part of it as capital), severance pay when a job ends (Italy's TFR), and what a wrapper's rules pay out (the whole balance at an age, or spread over a few years); the app recognises them by the scheme's claim and the wrapper's rules, not by name, and keeps them apart from withdrawals. Pension savings and lump sums are labelled by their source when there's one ("Pension fund", "TFR", "BVG lump sum"), else as a group. The spending target is a dashed line, labelled "Spending" at its end, outside the areas. Years are labelled every 5 or 10.
-  - *Why the taxes are on top:* the planner reports income before tax. A withdrawal is what's sold: it pays the tax on the sale and the previous year's wealth tax as well as the spending, so in a rich run's later years it can be twice the spending. So that the chart reads against the spending line, each source is shown after its share of the year's taxes (in proportion), and the taxes paid from the year's income are the grey band: the sources reach the spending line (plus expenses and what's saved), the stack the income before tax. The year the money runs out falls short of the line. Taxes on rebalancing are paid inside the portfolio; *Taxes* shows them.
-  - A one-off (a windfall, the TFR) that would flatten the rest runs off the top, with a note under the chart: "Inheritance in 2050 (150k €) runs off the top."
-  - *Taxes* switches to the same years stacked by tax line: IRPEF, addizionali, the tax on gains, and the 0.2% wealth tax.
-- **When it fails.** A sentence or two about the failing runs, including bridge failures, i.e. running out before locked money opens.
-- **How the plan reads your library.** A line per bucket: the accounts of one tax wrapper, their value on the start date, and how they're drawn ("Drawn any time · new savings go here · Conto Fineco and Directa", "Drawn as its tax rules allow · Fondo pensione"); then the accounts whose value starts a pension scheme instead of being money to draw on ("BVG starting balance: Pensionskasse: its value on 30 Sep 2026 is where the pension starts"), or isn't used because the plan sets the pension's starting balance itself.
-- **Problems** are worded for the screen: schemes, accounts and ways to claim by their names, not their IDs ("This contribution goes into BVG, but the plan has no BVG pension to pay it out: add one under Pensions.", "BVG never offers “Capital” in the plan's years, so it isn't paid.").
+  - Stacked areas, one flat step a year, by source: withdrawals, work (the year you retire), pensions and windfalls, then the taxes they pay in grey on top. A source is labelled by its name when there's only one ("State pension"), else as a group ("Pensions"). The spending target is a dashed line, labelled "Spending" at its end, outside the areas. Years are labelled every 5 or 10.
+  - *Why the taxes are on top:* a withdrawal is what's sold: it pays the tax on the gain part of the sale, the year's wealth tax and last year's tax on investment income as well as the spending. So that the chart reads against the spending line, each source is shown after its share of the year's taxes (in proportion), and the taxes are the grey band: the sources reach the spending line (plus expenses and what's saved), the stack the income before those taxes. The year the money runs out falls short of the line.
+  - A one-off (a windfall) that would flatten the rest runs off the top, with a note under the chart: "Inheritance in 2050 (150k €) runs off the top."
+  - *Taxes* switches to the same years stacked by tax: the tax on investments (on what's sold and on investment income) and the wealth tax.
+- **When it fails.** A sentence or two about the failing runs, including bridge failures: running out while money that would have covered the years until it opens is still locked away.
+- **Flexible spending** (only for a plan that uses it, [PLANNER.md](PLANNER.md#flexible-spending)): a card after *When it fails*, titled "Flexible spending (cuts of 10% down to 80%)", for the age the charts are for:
+
+  ```
+  ┌──────────────────────────────────────────┐
+  │ Flexible spending (cuts of 10% down to   │
+  │ 80%)                                     │
+  │ In a bad case (1 in 10) you'd spend as   │
+  │ little as 28.800 € a year for a while;   │
+  │ half of all futures never cut.           │
+  │ Half of all futures spend 4 or more of   │
+  │ 41 years in retirement below your plan's │
+  │ spending.                                │
+  │ Spending is cut by 10% of the plan's     │
+  │ when the share of your money you draw    │
+  │ rises 20% above the first year's, and    │
+  │ restored when it falls 20% below: never  │
+  │ under 28.800 € a year, nor above         │
+  │ 36.000 €. Retiring at 55.                │
+  └──────────────────────────────────────────┘
+  ```
+
+  - The first sentence is the lowest spending of a 10th-percentile future (ranked by how low they go) and how many futures never cut: "half of all futures never cut", "72% of futures never cut", "no future cuts". When that future runs out even at the floor, it says so: "In a bad case (1 in 10) the money runs out even at the floor"; when it never cuts, "Even in a bad case (1 in 10) you'd never cut".
+  - The second, when the median future spends some years below the plan's spending, how many.
+  - The rule last, in the footnote style: the cut, the guardrails, the floor and the plan's spending in money.
+  - Amounts hide with the eye (`•••••`). The income chart's spending line is the median run's spending as paid, so its cuts show as steps.
+- **How the plan reads your library.** A line per group of accounts, with its value on the start date: "Money you can draw · Drawn any time · new savings go here · Conto Fineco and Directa", then each group available from a later age ("Fondo pensione · Drawn from 67").
+- **Problems** are worded for the screen: accounts by their names, not their IDs ("A contribution goes into Fondo pensione, which the plan doesn't count; it's left out.").
 - **What if.**
   - Sliders for retirement age, spending, saving and equity's typical year (its median real return, as the defaults are given; the mean follows from the plan's volatility). On iPhone they're in a bottom sheet; on the Mac, in the inspector.
   - Moving a slider runs nothing. The answer next to the sliders says "From before your what-if changes" until **Run What-If** runs it: a quick estimate with fewer runs first, then the full 2,000, with the same random draws, its progress under the sliders. A position calculated before shows again at once.
@@ -537,11 +560,11 @@ A plan is calculated only when you ask: *Calculate*, *Recalculate* (⌘R, and a 
 
 See [PROGRESS.md](PROGRESS.md).
 
-- **Your answer over time.** The earliest retirement age at each check-in, as a step line. Markers show where you changed the plan, where the app's calculations changed, or where new tax rules arrived. A check-in's callout adds its readiness ("58% of what retiring today needed") when it was recorded; the old FI progress isn't shown.
+- **Your answer over time.** The earliest retirement age at each check-in, as a step line. Markers show where you changed the plan or where the app's calculations changed. A check-in's callout adds its readiness ("58% of what retiring today needed") when it was recorded; the old FI progress isn't shown.
 - **Actual vs baseline.**
-  - Pick a baseline, e.g. "Start of 2026 (automatic)" or "Before forfettario (saved 12 Mar)".
-  - Its fan chart runs from its start date, with your actual line drawn over it, in the baseline's currency (its plan's when it was saved): the same accounts at each check-in's exchange rate, in money of the start date where an inflation index for that currency allows. A line under the chart says which, and names check-ins left out for want of a rate.
-  - A summary: "12.400 € ahead of the median · 61st percentile". The Overview's "ahead of your Jan baseline" is in the baseline's currency too, and its *Future* projection is converted to the base currency at the plan's start-date rate.
+  - Pick a baseline, e.g. "Start of 2026 (automatic)" or "Before part-time (saved 12 Mar)".
+  - Its fan chart runs from its start date, with your actual line drawn over it: the same accounts at each check-in, in money of the start date where the inflation index allows. A line under the chart says which.
+  - A summary: "12.400 € ahead of the median · 61st percentile".
   - M3 adds the waterfall explaining the gap: savings, markets, inflation and other.
 - **Save baseline…** takes a label.
 
@@ -550,42 +573,74 @@ See [PROGRESS.md](PROGRESS.md).
 A form with the same sections as the plan file. Each section is a collapsible card with a one-line summary, so the whole plan fits on one screen when collapsed:
 
 ```
-You            Born 1988 · retire at 55 · plan to 95 · in CHF
-Work           Employee 2026–28 · Forfettario 2029–retirement
-Spending       36.000 €/yr · 90% from 75 · 80% from 85
-Pensions       INPS (earliest) · State pension from previous country 67
-Contributions  Fondo pensione 5.000 €/yr · BVG 20.000 CHF in 2030
+You            Born 1988 · retire at 55 · plan to 95
+Work           Employee 2026–28 · Self-employed 2029–retirement
+Spending       36.000 €/yr · 90% from 75 · 80% from 85 · flexible, down to 80%
+Pensions       State pension 67 · State pension from previous country 67
+Contributions  Fondo pensione 5.000 €/yr
 Events         Inheritance at 62 (80%) · New car 2031
-Taxes          Italy · Impatriati (2024) 2025–29        ⚠︎ 1
+Taxes          26% on investments · wealth tax 0.20% above 5.000 €
 Assumptions    Equity 5% typical year (2% income) · Inflation 2%
 Target mix     Equity 80% · bonds 20% · changes at retirement and 75
 Simulation     2.000 runs · 90% confidence
 ```
 
-(The examples mix countries on purpose; every list and picker comes from the registered tax systems.)
+- **You.** The birth date, as in Settings, *Retire as early as possible* or the retirement age, and the age the plan runs to.
+- **New plans and items.** A new plan retires as early as possible, and takes its tax rates and spending from the main plan (else another plan), since you've said them already. A library without plans starts from 30.000 euros' worth of spending in its base currency at its latest exchange rate, to two significant figures (35.000 for dollars, 4.800.000 for yen), or 30.000 when it has no rate to the euro, and with no tax rate on investments, which the plan asks for before it runs. A new work phase earns 4/3 of the plan's spending while working, a new contribution is a thirtieth of it a year and a new event an expense of a third, so every default is in the plan's own money; a new pension starts at 67, with its amount to enter.
+- **Work phases.** Each is a row ("Employee · 2026–28", "40.000 €/yr after tax · +1%/yr"). The editor has the name, the dates (from, and until a date or retirement), **Income after tax** a year and an optional real growth: "What reaches your bank account in a year, after income tax and social contributions, in today's EUR. Growth is above inflation."
+- **Pensions.** Each is a row ("State pension", "From 67 · 14.000 €/yr after tax"). The editor has the name, the age it's paid from, and **After tax per year**: "From your pension statement, after the tax you expect to pay on it, in today's EUR."
+- **Contributions.** Each is a row ("Fondo pensione", "Every year until retirement · 5.000 €/yr"). The editor picks the account it goes into ("Paid into the account, and drawn once it's available (Available from age on the account). The rest of your savings goes to the money you can draw."), and whether it's paid every year (until retirement or a date) or once, in a year.
+- **Spending.** While working, in retirement, and the later phases (from an age, a share of it). Then **Flexible spending** ([PLANNER.md](PLANNER.md#flexible-spending)), after a divider:
 
-- **You.** The birth date and the citizenships, as in Settings (a line says that some tax treaties decide by citizenship which country taxes a pension), the retirement age, the plan's end, and the plan's **currency**: *Library currency (EUR)* by default, any currency the library has exchange rates for, or another code typed in. Every amount in the plan and its results is in it, in today's money; the accounts are converted at the rates on the plan's start date, and check-ins fetch the rates of the plans' currencies. Money options show its code.
-- **New plans and items.** A new plan retires as early as possible, is in the base currency, lives in the system of the tax residence (below), and spends what the main plan spends (else another plan in the base currency), since you've said it already. A library without plans starts from 30.000 euros' worth in its base currency at its latest exchange rate, to two significant figures (35.000 for dollars, 4.800.000 for yen), or 30.000 when it has no rate to the euro: a starting point to change. A new work phase earns in proportion to the plan's spending while working (a gross salary of 4/3 of it, revenue of 5/3, net income equal to it; changing the kind of work keeps that proportion), a new contribution is a thirtieth of it a year and a new event an expense of a third, so every default is in the plan's own money.
-- **Work phases.** Each is a row. Tapping it opens an editor:
-  - kind, dates and amounts;
-  - a **regime picker** that offers only the regimes that fit (e.g. for self-employed in Italy: *Ordinario* or *Forfettario*);
-  - the regime's options form, **generated from the regime's description** ([TAXES.md](TAXES.md#choosing-them-in-a-plan)), so a new regime needs no new screens. Every kind of option has a control: percentages, amounts, whole numbers and years are typed, switches toggle, choices pick. The row's second line lists the options the plan sets, by their labels ("TFR goes to: A pension fund").
-- **Pensions.** Each is a row ("From 67 · 4.800 €/yr · State pension · from Germany"). The editor has the scheme and name; for a pension from a statement (`fixed`), its amount and age, **what kind it is** (state, occupational, basic pension, private annuity: some systems tax kinds differently) and the **paying country**; for a scheme, when to claim and, when the scheme lists several, **the way to claim it** ("Capital · at 65, lump sum"), from the scheme's own claim options for the pension's details as they are. A scheme that lists none yet gets a text field, and a way it never offers shows as a warning once the plan is calculated. Then who taxes it: where you live, or the paying country (a scheme's pension is paid from its system's country unless you pick another). Its footer says whether the plan computes the paying country's tax ("Germany's rules tax it as paid to someone living abroad…", when that country's system is registered; the tax shows in the results as "Germany: …") or the amount goes in after that tax ("There are no tax rules for Germany yet…"). Then the scheme's options form.
-- **Contributions.** Each is a row ("BVG · Pension scheme (buy-in) · Once in 2030 · 20.000 CHF"). The editor picks where it goes, an account or a pension scheme of the plan's tax systems (a buy-in: the system decides what it adds to the pension and any relief), and whether it's paid every year (until retirement or a date) or once, in a year.
-- **Assumptions.** Each class's real return as its mean and its median, and its volatility, three fields a row ("Crypto 16.6 % · 0 % · 70 %"). Either return can be typed: the other follows from it and the volatility, and changing the volatility keeps the one that was given (crypto's default is given by its median). The line under them: "The mean is the average year, the median the typical one, which a portfolio rebalanced every year grows at. Enter either: the other follows from the volatility." What equals the default isn't written to the plan. A class whose return and volatility are exactly an earlier version's default, which that version wrote into the plan when one of the class's numbers was edited ([PLANNER.md](PLANNER.md#returns)), gets a line under its row: "This is the previous default (4.5% average). The current default is a 5.0% typical year.", with a *Use Default* button that removes the plan's entry for the class (keeping its income yield), so it follows the current default. Nothing changes until it's tapped. The card's summary counts them ("4 previous default returns"), and it shows equity's return as it's given: "Equity 5% typical year", or "Equity 4,5% average". Then an optional **income yield** for equity and bonds: "The part of the return paid as income each year; some countries tax it yearly." A class the portfolio holds whose median is below −2% a year gets a warning on the card: "Crypto's returns give a typical year of −18% (an average of 0.0% at 70% volatility): holding it and rebalancing back into it every year shrinks your portfolio. Check its return under Assumptions."
-- **Target mix.** A card of its own, after Assumptions: the mix the plan rebalances the ordinary (taxable) accounts to every year ([PLANNER.md](PLANNER.md#target-mix)). Its first line says what that does: "Each year the plan rebalances your ordinary accounts back to this mix: new money buys what's below target, withdrawals sell what's above, and the rest is sold and bought, with tax on gains."
+  ```
+  Flexible spending                      [ ● ]
+  Cuts spending in retirement after bad years and restores it after good ones, as real
+  retirees do, instead of spending the same whatever the markets do. A future only fails
+  if you'd have to spend less than the floor.
+  Cut by                                [10] %
+  Never below                           [80] %
+  of the plan's spending: 28.800 €/yr
+  ▸ Guardrails
+      Cut when it rises by              [20] %
+      Restore when it falls by          [20] %
+      Each year the plan compares the share of your money you draw with the first year of
+      retirement's: this much above it, spending is cut; this much below it, a cut is restored.
+  ```
+
+  - The switch writes `{ "enabled": true }`; turning it off keeps settings that differ from the defaults (`enabled: false`), and with only defaults removes the rule, so nothing is written.
+  - The fields show the defaults as their prompts; a field left empty, or set to its default, isn't written. *Never below* is also shown in money: the floor share of the retirement spending, before the phases, hidden with the eye.
+  - The guardrails are folded away (*Guardrails*, a disclosure group). Settings out of range show as errors on the card. The card's summary adds "flexible, down to 80%".
+- **Taxes** ([PLANNER.md](PLANNER.md#the-model-in-brief)):
+
+  ```
+  Tax on investments                    [26] %
+  Paid on the gain part of what you sell and, every year, on the income your
+  investments pay out (Assumptions, income yield). 26% in Italy, for example; 0% if
+  they aren't taxed. Income from work and pensions is entered after tax.
+  ──────────────────────────────────────────
+  Wealth tax                             [ ● ]
+  Rate                                [0.2] %/yr
+  Untaxed allowance                  [5000] EUR
+  A yearly tax on the money you can draw, above the allowance. Accounts available only
+  from a later age, such as a pension fund, aren't counted until then.
+  ```
+
+  - The rate on investments is required: until it's set, the card shows the error and the summary says "Tax on investments not set".
+  - Turning the wealth tax off removes its rate and allowance from the plan.
+- **Assumptions.** Inflation, then each class's real return as its mean and its median, and its volatility, three fields a row ("Crypto 16.6 % · 0 % · 70 %"). Either return can be typed: the other follows from it and the volatility, and changing the volatility keeps the one that was given (crypto's default is given by its median). The line under them: "Placeholders to review, not forecasts: real returns after fund costs. The mean is the average year, the median the typical one, which a portfolio rebalanced every year grows at. Enter either: the other follows from the volatility." What equals the default isn't written to the plan. A class whose return and volatility are exactly an earlier version's default, which that version wrote into the plan when one of the class's numbers was edited ([PLANNER.md](PLANNER.md#returns)), gets a line under its row: "This is the previous default (4.5% average). The current default is a 5.0% typical year.", with a *Use Default* button that removes the plan's entry for the class (keeping its income yield), so it follows the current default. Nothing changes until it's tapped. The card's summary counts them ("4 previous default returns"), and it shows equity's return as it's given: "Equity 5% typical year", or "Equity 4,5% average". Then an optional **income yield** for equity and bonds: "The part of the return paid out as income each year (dividends, interest), taxed every year at the rate on investments. Leave it empty to count it as growth, taxed when sold." Then the estimate of unrealised gains for holdings without a purchase cost, and the accounts in the plan, each with a switch. A class the portfolio holds whose median is below −2% a year gets a warning on the card: "Crypto's returns give a typical year of −18% (an average of 0.0% at 70% volatility): holding it and rebalancing back into it every year shrinks your portfolio. Check its return under Assumptions."
+- **Target mix.** A card of its own, after Assumptions: the mix the plan rebalances the money you can draw to every year ([PLANNER.md](PLANNER.md#target-mix)). Its first line says what that does: "Each year the plan rebalances the money you can draw back to this mix: new money goes in at it, withdrawals sell every class alike, and rebalancing isn't taxed."
 
   ```
   [ Today's mix | A mix I choose ]
   Class      Today    Target   Median
-  Equity       46%    [80] %     3.1%
+  Equity       46%    [80] %     5.0%
              44% of all
-  Bonds         0%    [20] %     0.8%
+  Bonds         0%    [20] %     1.5%
               5% of all
   Crypto       35%    [  ] %     0.0%
              28% of all
   ✓ Total 100%
-  Grows at a median of 2.9% a year, rebalanced every year (today's mix: 1.9%).
+  Grows at a median of 4.5% a year, rebalanced every year (today's mix: 3.0%).
   Changes with age
   ╭ From retirement      ⊖ ╮ ╭ From 75             ⊖ ╮
   │ [At an age|At retirement]│ │ [At an age|At retirement]│
@@ -593,80 +648,45 @@ Simulation     2.000 runs · 90% confidence
   │ Bonds           [40] %   │ │ Bonds           [60] %   │
   ╰──────────────────────────╯ ╰──────────────────────────╯
   + Add a change with age
-  Pension funds and other tax-advantaged accounts keep their own mix.
+  Accounts available only from a later age, such as a pension fund, keep their own mix until then.
   ```
 
-  - **Today's mix or a mix I choose.** *Today's mix* writes nothing (no `targetMix`): each ordinary account is rebalanced back to its own mix today, crypto included, and a line says so, with how that mix grows. *A mix I choose* starts from today's mix of the ordinary accounts in whole percentages, to edit; going back to *Today's mix* removes the mix and its changes with age.
-  - **Per asset class** (equity, bonds, cash, gold, crypto, real estate, and any other class held today or named in the plan): *Today*, its share of the ordinary accounts the target applies to, with its share of all plan assets under it ("44% of all"); *Target*, a percentage typed as you go (an empty field or 0 leaves the class out); *Median*, its median real return from the assumptions, so what a class like crypto does to the mix is in view.
+  - **Today's mix or a mix I choose.** *Today's mix* writes nothing (no `targetMix`): the money you can draw is rebalanced back to its own mix today, crypto included, and a line says so, with how that mix grows. *A mix I choose* starts from today's mix of the money you can draw in whole percentages, to edit; going back to *Today's mix* removes the mix and its changes with age.
+  - **Per asset class** (equity, bonds, cash, gold, crypto, real estate, and any other class held today or named in the plan): *Today*, its share of the money you can draw, with its share of all plan assets under it ("44% of all"); *Target*, a percentage typed as you go (an empty field or 0 leaves the class out); *Median*, its median real return from the assumptions, so what a class like crypto does to the mix is in view.
   - **The total** runs under the table: "✓ Total 100%", or an error line until it is ("Total 95%. Adds up to 95%: add 5% to reach 100%."); a plan saved short of 100% runs scaled, with a warning on the card. Then the mix's median growth, rebalanced every year, against today's mix's.
   - **Changes with age.** A card per change, side by side when there's room (one column on iPhone and in the Mac's inspector, two or three on a wide iPad or Mac window), each starting *At an age* (a stepper kept after today's age and between the changes before and after it) or *At retirement* ("The year you stop working, whatever age the plan finds"), with its own percentages, total and growth. *Add a change with age* adds one from retirement first, then ten years after the last, starting from the mix before it. A change whose age has passed says "You're 56: this already applies from the start." with **Make it the target mix**, which makes it the target from today so every version reads the plan the same.
-  - **VoiceOver** reads each class as its name, today's shares in words ("Equity today: 46% of your ordinary accounts, 44% of all plan assets"), its target field ("Equity target, percent") and its median ("Equity median return 3.1% a year"); the column headers are hidden from it, and each change's title is a heading.
+  - **VoiceOver** reads each class as its name, today's shares in words ("Equity today: 46% of the money you can draw, 44% of all plan assets"), its target field ("Equity target, percent") and its median ("Equity median return 5.0% a year"); the column headers are hidden from it, and each change's title is a heading.
   - Issues about the target mix (a total, ages that don't go up, a change after the plan's end) show on this card; the summary reads "Today's mix", or "Equity 80% · bonds 20% · changes at retirement and 75".
-- **Taxes.**
-  - A residence timeline (country system + options per period). A new plan starts in the system of the library's tax residence (the registered system for that country, else `generic`).
-  - Overlays (special regimes) with their years shown as a bar.
-  - Overrides for what-if law changes.
+- **Simulation.** The number of runs, the confidence a "yes" needs, and the random seed.
 - **Validation.** Issues appear on the section they concern, and on the row of the work phase, pension or contribution they're about:
-  - ⚠︎ for warnings, e.g. "Impatriati doesn't apply to forfettario income: 2029 is lost";
-  - ⛔︎ for errors that stop the plan from running.
+  - ⚠︎ for warnings, e.g. "State pension starts after the plan's end age, so the plan never pays it.";
+  - ⛔︎ for errors that stop the plan from running, e.g. "Employee: enter the income after tax for this phase (netIncome)."
 - **Staying in view.** On iPhone, a small sticky pill at the top ("Earliest 54") keeps the answer visible while you edit; once an edit makes it out of date it says so, with *Recalculate*, and shows a small bar while that runs. On the Mac, Inputs and Results are side by side, so the out-of-date banner and *Recalculate* (⌘R) are next to the field you're editing.
 
-### Comparing two plans
+### Export Calculations
 
-A window on the Mac (a pushed page on iPhone):
-
-- one **Calculate** (or *Recalculate*) for the plans that have no results or whose results are out of date, run one after the other, with the progress of each ("Calculating Base case (1 of 2)…") and Cancel. Until then each side shows its latest results, dimmed with "Out of date" when they are, or its recorded answer, dated;
-- both headlines;
-- the two success curves overlaid (two series, direct-labelled);
-- a table of key numbers, each plan's amounts in its own currency.
-
-| | Forfettario | Ordinario + impatriati |
-| --- | --- | --- |
-| Net income 2029 | 49.600 € | 45.800 € |
-| INPS pension at 67 | 14.200 €/yr | 16.900 €/yr |
-| Taxes, lifetime | 212.000 € | 238.000 € |
-| Earliest retirement | 54 | 55 |
-
-(The numbers are made up.) This is the screen for regime decisions.
-
-### Calculations (plan debugger)
-
-When an answer looks wrong ("I need 2 million to withdraw 20,000 a year?"), *Show Calculations…* in the plan picker's menu (iPhone, iPad and Mac) and in the Mac's Plan menu shows every calculation behind it: the plan debugger ([PLANNER.md](PLANNER.md#plan-debugger)) for the plan on screen, to check it or to give to someone else. It's a sheet: full height on iPhone, page-sized on iPad, large on the Mac.
+When an answer looks wrong ("I need 2 million to withdraw 20,000 a year?"), *Export Calculations…* in the plan picker's menu (iPhone, iPad and Mac) and in the Mac's Plan menu writes every calculation behind it as Markdown ([PLANNER.md](PLANNER.md#calculations)), for the plan on screen (with its what-if, when one is in use), to check it or give to someone else. It's a small sheet:
 
 ```
-┌──────────────────────────────────────────────────────────┐
-│ Done               Calculations                Export…   │
-│ ╭ ƒ What to calculate ─────────────────────────────────╮ │
-│ │ Details for retiring   Runs start from  Traced runs  │ │
-│ │ [Today|Target|Age…]    Automatic ▾      3 runs [−|+] │ │
-│ │ [ƒ Calculate Again]  ◷ The options changed since …   │ │
-│ ╰──────────────────────────────────────────────────────╯ │
-│ Retiring at 38 (today's age) · 2.000 runs · 4 Oct 2026   │
-│ ⓘ The percentiles, failures and traced runs start from   │
-│   3.230.110 €: 20 times today's plan assets, the most …  │
-│ ╭ Diagnosis ───────────────────────────────────────────╮ │
-│ │ • Crypto is 27% of plan assets; at 0.0% expected …   │ │
-│ │ • Retiring today would need …                        │ │
-│ ╰──────────────────────────────────────────────────────╯ │
-│ ▸ What was run                                           │
-│ ▾ Year-by-year schedule                                  │
-│   What doesn't depend on the markets, retiring at 38: …  │
-│   Year  Age   Work  Pensions  …  Spending   To draw  …   │
-│   2026   38      0         0  …   9.074 €   9.074 €      │
-│   2027   39      0         0  …  36.000 €  36.000 €      │
-│ ▸ Simulation summary · Percentiles by year · Traced runs │
-└──────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────┐
+│            Export Calculations     Done  │
+│ Anonymize                          [ ● ] │
+│ Round amounts to       The nearest 100 ▾ │
+│ Leaves out names, account and plan names │
+│ and exact dates, and rounds amounts, so  │
+│ the file can be given to someone else.   │
+│ ⇪ Share Plan calculations.md…            │
+│ ⇩ Save Plan calculations.md…             │
+│ Markdown: the plan as read, the starting │
+│ portfolio, the chance of success by      │
+│ retirement age, the expected and median  │
+│ runs year by year, and why runs fail.    │
+└──────────────────────────────────────────┘
 ```
 
-- **What to calculate.** The retirement age the details are for: *Today* (the "retire today" scenario behind "needed to retire today", the default), *Target* (the plan's age, or the earliest that reaches its confidence) or *Age…* with a stepper (today's age to the year before the plan ends). What the runs start from: *Automatic* (retiring today with too little, what retiring today needs, to show why it's that much; otherwise today's plan assets), *Today's assets*, *What's needed* (today's with the search's extra money in the accounts you can draw now), or *A multiple* of today's, every holding alike (× 0.5 to × 20). The search's table shows each step's extra money, the plan assets with it, the multiple of today's and the success. How many runs to trace, chosen by outcome (0 to 6: the median, a 10th-percentile run, the first that fails, then the 25th, 75th and 90th percentiles), with the run at the median return every year on top. Each control has a line saying what it does.
-- **Calculate** runs the plan on screen with the same tax systems and library data as its results, from the latest check-in, with every run the plan asks for. With a what-if in use, the plan runs with its changes (not saved), unless *Include the what-if* is turned off; the report says which. It takes a few seconds, off the main thread, with a spinner and **Cancel**; it never runs on its own. The report shown stays (dimmed) until the new one is ready, and after a change of option, plan or data it says so next to *Calculate Again*. A plan that can't run says why.
-- **Under the controls,** what was run in one line, what the runs start from when it's a multiple of today's plan assets (and that the rest is about today's), and the what-if.
-- **Diagnosis** comes first: the report's sentences on what weighs most on the result, facts about the plan as entered, not advice.
-- **The sections** follow as disclosure groups, closed at first, each with its line on how to read it: *What was run*; *The person and the plan as read*, with the **target mix** and its changes with age (each with when it starts at the age shown, its mix, expected and median growth, and whether it applies) and the **assumptions** (per class: share today, target share, expected return, volatility, the median it implies, income yield and the portfolio's median without the class; the target mix's growth; the correlations); *Starting portfolio* (accounts, what they hold, instruments, buckets, scheme seeds, debts); *Year-by-year schedule* (with a *Target mix* column, and a line in each year's detail, when the mix changes with age); *Simulation summary* (the success-curve chart and table, both searches step by step, failures by age and cause, two runs in brief, the checks); *Percentiles by year* (the fan chart and the table); *Traced runs*; *Issues*.
-- **Traced runs.** A picker of runs ("The median outcome", "A 10th-percentile outcome", …), what the run is and how it ends (and why it fails), then its years as *Money in and out* or *Returns and balances* (with the target mix in force, when it changes with age). Choosing a year shows every step of it: the returns drawn, the target mix in force, the cash flow (net income, payouts, contributions, spending, expenses, last year's taxes), the spending target against what was met, each bucket's money in, payouts, withdrawals, rebalancing tax, growth and end, the rebalancing moves per class, every sale with its cost and gain, payouts, the tax withheld, every tax and contribution line split into the part on income (fixed) and on markets, and the failure.
-- **Tables.** On the Mac and iPad a `PageTable`, as wide as the page and scrolling sideways when its columns need more; clicking a year of the schedule or of a traced run shows it in detail below the table, and a row's menu copies it. On iPhone a compact row per year or item, with its key figures, which opens to every column and, for a year, the year in detail. Every year is shown (the Markdown skips some of a long plan's).
-- **Numbers.** Money is in the report's currency (the plan's), whole, through `AmountText`; rates are percentages. The eye hides amounts as everywhere else: figures read `•••••`, charts keep their shape, and amounts inside the report's sentences (the diagnosis, issues) are masked too.
-- **Export…** opens the export: **Anonymize**, on by default ("Replaces account, instrument, plan, pension and event names and IDs with neutral labels, leaves out notes and the birth date (ages stay), and rounds amounts."), with the rounding (*3 significant figures*, *Nearest 100* or *Exact*); **Markdown** (readable, each section explained) or **JSON** (every detail). The file, `plan-calculations-2026-10-04.md` (or `.json`), is written to a temporary folder whenever the choices change; **Share…** hands it to the share sheet (Save to Files on iPhone), and on the Mac **Save…** opens a save panel. **Copy as Markdown** copies the report, anonymized when the switch is on. While amounts are hidden, a line says the file holds them.
+- **Anonymize** is on by default, with the rounding: whole amounts, or the nearest 100, 1,000 or 10,000.
+- The plan runs in full off the main thread while the sheet shows "Calculating…", and again whenever an option changes; then **Share…** hands the file to the share sheet (Save to Files on iPhone), and on the Mac **Save…** opens a save panel. A plan that can't run says why.
+- The file, *Plan calculations.md* anonymized or *Base case calculations.md* (the plan's name) otherwise, is written to a temporary folder. While amounts are hidden, the file still holds them.
 
 ## Import (Mac first)
 
@@ -675,7 +695,7 @@ A window with steps along the top, as described in [IMPORT.md](IMPORT.md):
 1. **File.** A drop zone, or the result of dragging a file onto the app.
 2. **Format.** The detected settings, each a picker with a live sample: encoding, delimiter, header row, decimal and thousands separators, date format, and whether empty cells are skipped.
 3. **Columns.** A table: the column header, sample values, *Imports as* (Balance of…, Quantity of…, Price of…, Ignore), and a per-column format override. The layout: a row per date, per record, or per trade.
-4. **Accounts.** Names in the file matched to accounts (existing, new, or ignored), plus proposed closings.
+4. **Accounts.** Names in the file matched to accounts (existing, new, or ignored), plus proposed closings, which are off until you turn them on.
 5. **Preview.** The parsed grid with errors highlighted, counts (new, updated, identical, conflicting), and the conflict policy.
 6. **Done.** A summary, **Undo import**, and **Save as profile**. When the import's positions are valued on dates without a price, a **Past prices** section lists them ("12 past values have no price for XAU") with **Fill In Past Prices…** ([Adding history](#adding-history)).
 
@@ -683,29 +703,21 @@ A broker's transactions (Directa's or Fineco's movements, Degiro's or IBKR's exp
 
 - **Columns** offers the trade's fields (Date, Trade type, Instrument, Quantity, Price, Currency, Amount (net), Gross amount, Fees, Tax, Split ratio, Note) and *Account of every row* when the file has no account column. An amount column's format says how its signs are read.
 - **Types**, between Columns and Accounts: each word the file uses for a transaction ("Acquisto", "Ritenuta su dividendo", "Giroconto") with its number of rows, where its type comes from (the usual word, set by you or the profile), and a picker of trade types, or *Leave out*. A word the importer doesn't know shows a warning and its rows are left out until you choose; nothing is guessed. Below, how amounts are signed (automatic, without signs: from the type, signed: as written) and notes on how the file's signs were read.
-- **Accounts** proposes making an account record trades when the file has trades for one that doesn't, with what that changes; turned off, its trades are left out, or choose another account.
+- **Accounts** proposes making an account record trades when the file has trades for one that doesn't, with what that changes. It's off until you turn it on; while off, its trades are left out. Or choose another account.
 - **Preview** shows the trades like other records ("Directa, buy, 12 Jan 2026 · Buy 15 VWCE at 102,30 · −1.539,50 € · fees 5 €"), with how many of the records are trades; **Done** counts them, names the accounts now recording trades, and has **Undo import** as always.
 
 On iPhone, a CSV opened from Files goes straight to "Import with profile…": choose the profile, preview, import.
-
-Ledger journals (one or several `.ledger`, `.journal`, `.hledger`, `.j` or `.dat` files) have their own steps in the same window:
-
-1. **Files.** What was read: the files, transactions, dates, problems with their file and line, and includes the app can't read, with **Choose the Journal's Folder…**. The saved ledger profiles, best fit first.
-2. **Accounts.** The ledger's assets and liabilities as a tree, each with a picker: as proposed (matched or new), a library account, a new account, or left out; the new accounts to create; closings; the income and expense accounts that are returns; month, quarter or activity snapshots. Accounts that record trades get the journal's transactions as trades instead of snapshots, as the footer says, with a **Cash checks** switch for valuations of their cash ([IMPORT.md](IMPORT.md#journals-into-trades-accounts)).
-3. **Commodities.** Each commodity as cash, an instrument (matched, new or chosen) or left out; the new instruments; whether `@` prices are recorded.
-4. **Preview** and 5. **Done**, as for a spreadsheet, with the journal's notes (flows that couldn't be valued) instead of the grid. **Save as profile** remembers the new accounts you didn't create as left out (`ledger.ignore`), so the next import doesn't propose them again.
-
-On iPhone, journals use "Import with profile…" with a saved ledger profile, like a CSV.
 
 ## Settings
 
 | Section | Contents |
 | --- | --- |
-| Library | Location (iCloud Drive or this device), Show in Files/Finder, sync status, merged conflicts, backups, the file format docs |
-| You | Name, birth date, citizenships (each with a remove button, and *Add Citizenship*: "Some tax treaties decide by citizenship which country taxes a pension."), base currency, tax residence (the default for new plans), and **Inflation**: *Automatic: Italy* (the tax residence's HICP, else the base currency's; `inflationIndex` left out) or a choice of the euro area and every country with an HICP |
-| Prices | Price source per instrument kind (inflation: Eurostat HICP), API keys (stored in the Keychain), fetch on check-in |
+| Library | Location (iCloud Drive or this device), Show in Files/Finder, for a library on this device *Move to iCloud Drive* (refused when iCloud Drive already has one) and *Use the iCloud Drive Library* (opens that one; this one stays on the device), sync status, merged conflicts, backups, the file format docs, and *Export as CSV…*: a sheet that writes the library as CSV files ([schema/README.md](schema/README.md#csv-export)), zipped as *Can I Retire Yet CSV 2026-09-30.zip*, with *Share…* and on the Mac *Save…* |
+| You | Name, birth date, base currency, country (it picks the default inflation index), and **Inflation**: *Automatic: Italy* (the tax residence's HICP, else the base currency's; `inflationIndex` left out) or a choice of the euro area and every country with an HICP |
+| Prices | Price source per instrument kind: *Yahoo Finance (unofficial)* (so named wherever a price source is chosen or shown with an instrument; the footer says it has no official interface for apps and may stop working), CoinGecko with *Powered by CoinGecko* linking to coingecko.com (its attribution), gold-api.com, ECB via Frankfurter, and Eurostat HICP for inflation; API keys (stored in the Keychain), fetch on check-in |
 | Check-in reminder | Day of the month and time. This device only, so you aren't reminded twice. |
-| Privacy | Face ID lock, hide amounts on launch, hide amounts in the app switcher |
+| Privacy | Hide amounts, hide amounts when the app opens, and (iPhone and iPad) cover the app in the app switcher: the whole screen is covered while the app isn't active. The footer says only that. A Face ID lock is planned (M3), not built. |
+| About | The version and the library's format, and under them: "Results are estimates from a simplified model with the returns, taxes and pensions you enter. Plans take your income and pensions after tax, and tax your investments at the rates you set. They aren't financial, tax or legal advice: check important decisions with a professional." |
 
 ## Design system
 
@@ -734,7 +746,7 @@ On iPhone, journals use "Import with profile…" with a saved ledger profile, li
   | --- | --- | --- | --- | --- | --- | --- | --- |
   | blue | orange | aqua | yellow | magenta | green | violet | red |
 
-- **Retirement income** stacks its sources in a fixed order, each in its own slot of the same palette, so neighbours in the stack are neighbours in the validated order: withdrawals blue, work orange, INPS aqua, other pensions yellow, the pension fund magenta, windfalls green, TFR violet, other red. The taxes on top are a neutral grey (the secondary ink colour), which stays apart from all eight hues in light and dark. Each band is a wash of its colour with a 2-point line in the colour along its top and a 2-point gap above the line, never a saturated block; net worth by asset class is drawn the same way.
+- **Retirement income** stacks its sources in a fixed order, each in its own slot of the same palette, so neighbours in the stack are neighbours in the validated order: withdrawals blue, work orange, pensions aqua, windfalls green, other red. The taxes on top are a neutral grey (the secondary ink colour), which stays apart from all eight hues in light and dark. Each band is a wash of its colour with a 2-point line in the colour along its top and a 2-point gap above the line, never a saturated block; net worth by asset class is drawn the same way.
 - **Lines and small marks** (the lines along stacked areas, legend swatches, dots, the allocation bars) need 3:1 against what they sit on, the card or the page. In light mode orange, aqua, yellow and magenta don't all reach it, so they use a darker step of the same hue there (orange `#d95926`, aqua `#199e70`, yellow `#ba7e07`, magenta `#d55181`); washes keep the lighter step, and in dark mode every hue already reaches it. Checked as a set on both surfaces with the dataviz validator.
 - **Changes** (the bars since the last check-in) use the positive and negative colours, with a sign and an amount in ink beside each bar.
 - **Everything else** is one hue (blue) with labels: allocation by account group, fan charts (the bands are lighter steps of blue), success curves.
@@ -761,8 +773,9 @@ On iPhone, journals use "Import with profile…" with a saved ledger profile, li
 **Privacy.**
 
 - An eye button hides every amount (`•••••`) while charts keep their shape and a relative value axis: net worth (and an account's value) in multiples of today's (`0`, `1×`, `2×`), the plan's money (and the Overview's chart with *Future* on) in multiples of today's plan assets, retirement income in multiples of the spending. Only labels that would reveal amounts hide; the change since the last check-in shows in per cent.
-- Amounts are marked `.privacySensitive()`, so widgets and the app switcher hide them when the device is locked.
-- Optional Face ID lock.
+- Amounts are marked `.privacySensitive()`, so the widgets (M3) can hide them when the device is locked.
+- *Cover the app in the app switcher* (iPhone and iPad) covers the whole screen while the app isn't active.
+- Optional Face ID lock (M3, not built yet).
 
 **Accessibility.**
 
@@ -804,10 +817,10 @@ If nothing moves for 20 seconds, the screen says why it may be stuck and what to
 
 **Empty states and first launch.** Every empty screen has one clear next step. First launch runs:
 
-1. Welcome.
+1. Welcome, with "The answers are estimates, not financial or tax advice."
 2. Where to keep your data (iCloud Drive is recommended).
-3. Birth date, base currency, tax residence and citizenship, starting from the device's currency and region (nothing else is assumed: without a region the residence is *Not set*). When no tax system is registered for the residence, a note says so: "There are no tax rules for Germany yet: plans use the generic system's flat rates, which you choose."
-4. "Import a spreadsheet or journals" or "Add accounts".
+3. Birth date, base currency and country, starting from the device's currency and region (nothing else is assumed: without a region the country is *Not set*).
+4. "Import a spreadsheet" or "Add accounts".
 5. The first check-in.
 6. "Create your first plan" (a guided form covering work, spending and pensions).
 

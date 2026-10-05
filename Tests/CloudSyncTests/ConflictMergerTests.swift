@@ -63,6 +63,71 @@ struct ConflictMergerTests {
         #expect(try folder.text(path).contains("\"Our home\""))
     }
 
+    /// The losing versions are removed from iCloud's version store for good,
+    /// so each one that differs from the result is copied to backups/ first,
+    /// the replaced current file included.
+    @Test func versionsThatDifferFromTheResultAreBackedUp() throws {
+        let folder = try TemporaryFolder.exampleLibrary()
+        let path = "accounts/casa.json"
+        try folder.setModificationDate(past, for: path)
+        let original = try folder.text(path)
+        let renamed = original.replacingOccurrences(of: "\"Home\"", with: "\"Our home\"")
+        let older = original.replacingOccurrences(of: "\"Home\"", with: "\"House\"")
+        let versions = FakeFileVersions()
+        versions.add(renamed, modified: future, source: "Mac", to: folder.url(path))
+        versions.add(older, modified: past.addingTimeInterval(-60), source: "iPad", to: folder.url(path))
+        // The same as the result, so there's nothing to keep a copy of.
+        versions.add(renamed, modified: past.addingTimeInterval(-120), source: "iPhone", to: folder.url(path))
+
+        let library = LibraryFolder(root: folder.url)
+        let resolution = try #require(try ConflictMerger(folder: library, versions: versions)
+            .resolve(path: path, date: past))
+        #expect(try folder.text(path).contains("\"Our home\""))
+        #expect(resolution.backups.count == 2)
+        #expect(resolution.backups.allSatisfy { $0.label == "conflict" && $0.files == [path] })
+        #expect(resolution.summary.contains("Copies of the 2 versions that differ from the result are in backups/"))
+
+        let backups = try library.backups()
+        #expect(backups.map(\.name) == resolution.backups.map(\.name))
+        let copies = try backups.map { try folder.text("\($0.path)/\(path)") }
+        #expect(copies == [original, older])
+        #expect(try versions.unresolvedVersions(of: folder.url(path)).isEmpty)
+
+        // Restoring a backup puts that version back.
+        try library.restore(backup: backups[1])
+        #expect(try folder.text(path).contains("\"House\""))
+    }
+
+    @Test func aHistoryMergeBacksUpEachVersionItChanged() throws {
+        let folder = try TemporaryFolder.exampleLibrary()
+        let versions = FakeFileVersions()
+        let original = try folder.text(monthPath)
+        versions.add(otherSeptember, modified: past, source: "iPhone", to: folder.url(monthPath))
+
+        let resolution = try #require(try ConflictMerger(folder: LibraryFolder(root: folder.url), versions: versions)
+            .resolve(path: monthPath, date: past))
+        // The merge holds the records of both, so it differs from each.
+        #expect(resolution.backups.count == 2)
+        let copies = try resolution.backups.map { try folder.text("\($0.path)/\(monthPath)") }
+        #expect(copies == [original, otherSeptember])
+        let folders = resolution.backups.map { $0.path + "/" }.joined(separator: ", ")
+        #expect(resolution.summary.hasSuffix("are in \(folders)."))
+    }
+
+    @Test func noBackupWhenTheResultIsTheCurrentFile() throws {
+        let folder = try TemporaryFolder.exampleLibrary()
+        let path = "accounts/casa.json"
+        try folder.setModificationDate(future, for: path)
+        let versions = FakeFileVersions()
+        versions.add(try folder.text(path), modified: past, source: "Mac", to: folder.url(path))
+
+        let library = LibraryFolder(root: folder.url)
+        let resolution = try #require(try ConflictMerger(folder: library, versions: versions).resolve(path: path))
+        #expect(resolution.backups.isEmpty)
+        #expect(try library.backups().isEmpty)
+        #expect(!resolution.summary.contains("backups/"))
+    }
+
     @Test func aFileWithoutConflictsIsLeftAlone() throws {
         let folder = try TemporaryFolder.exampleLibrary()
         let merger = ConflictMerger(folder: LibraryFolder(root: folder.url), versions: FakeFileVersions())
@@ -73,7 +138,7 @@ struct ConflictMergerTests {
     @Test func aNewerLibraryIsLeftForANewerApp() throws {
         let folder = try TemporaryFolder.exampleLibrary()
         let settings = try folder.text("library.json").replacingOccurrences(
-            of: "\"schemaVersion\": 2", with: "\"schemaVersion\": 99")
+            of: "\"schemaVersion\": 3", with: "\"schemaVersion\": 99")
         try folder.write("library.json", settings)
         let versions = FakeFileVersions()
         versions.add(otherSeptember, modified: past, to: folder.url(monthPath))

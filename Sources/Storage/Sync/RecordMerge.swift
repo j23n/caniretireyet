@@ -24,7 +24,7 @@ public struct RecordMerge<Value: Sendable>: Sendable {
     }
 }
 
-/// Three-way merges of keyed records (FILE_FORMAT.md, "Saving"): a common
+/// Three-way merges of keyed records (PLAN.md, "Merging, saving and undo"): a common
 /// base and two versions changed from it, "ours" and "theirs".
 ///
 /// Record by record, matched by key:

@@ -20,15 +20,13 @@ extension Planner {
 }
 
 extension PlanResult {
-    /// The answer as a headline's summary: success rates to 3 decimals, FI
-    /// progress to 2, readiness rounded down to 2 (so a recorded 1 means
-    /// retiring today reaches the confidence level). Both are recorded:
-    /// `fiProgress` keeps its old meaning, `readiness` is the one to show.
+    /// The answer as a headline's summary: success rates to 3 decimals,
+    /// readiness rounded down to 2 (so a recorded 1 means retiring today
+    /// reaches the confidence level).
     public var headlineSummary: HeadlineSummary {
         HeadlineSummary(
             confidence: .rounded(settings.confidence, scale: 3), earliestAge: answer.earliestAge,
             successAtTarget: answer.successAtTarget.map { .rounded($0, scale: 3) },
-            fiProgress: answer.fiProgress.map { .rounded($0, scale: 2) },
             readiness: answer.readiness.map { .roundedDown($0, scale: 2) })
     }
 
@@ -38,20 +36,18 @@ extension PlanResult {
         let summary = headlineSummary
         return Headline(
             date: date ?? start.date, confidence: summary.confidence, earliestAge: summary.earliestAge,
-            engine: engine, fiProgress: summary.fiProgress, planHash: planHash, readiness: summary.readiness,
-            successAtTarget: summary.successAtTarget,
-            taxParameters: Dictionary(uniqueKeysWithValues: taxParameters.map { (TaxSystemID($0.key), $0.value) }))
+            engine: engine, planHash: planHash, readiness: summary.readiness,
+            successAtTarget: summary.successAtTarget)
     }
 
     /// A baseline of this result: the fan and the deterministic path at the
-    /// focus age, in whole units of the plan's currency at the start date, with a copy of the plan.
+    /// focus age, in whole units of the base currency at the start date, with a copy of the plan.
     public func baseline(created: CalendarDate, kind: BaselineKind, label: String? = nil) -> Baseline {
         let savings = Dictionary(expectedPath.years.map { ($0.year, $0.savings) }, uniquingKeysWith: { first, _ in first })
         return Baseline(
             created: created, kind: kind, label: label, engine: engine, accounts: start.accounts,
             headline: headlineSummary, plan: (try? JSONValue(encoding: plan)) ?? .object([:]),
             start: BaselineStart(date: start.date, value: start.planAssets),
-            taxParameters: Dictionary(uniqueKeysWithValues: taxParameters.map { (TaxSystemID($0.key), $0.value) }),
             years: fan.map { year in
                 BaselineYear(
                     year: year.year, expected: .rounded(year.expected, scale: 0), p10: .rounded(year.p10, scale: 0),

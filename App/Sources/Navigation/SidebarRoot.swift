@@ -7,8 +7,7 @@ import Tracker
 ///
 ///     Overview
 ///     Check-in                      •     ← dot when due
-///     Accounts
-///       All accounts                      ← the grouped list, with subtotals
+///     Accounts             97.330     ← the total of the open accounts
 ///       ▾ Cash                 12.990     ← a group and its subtotal
 ///           Conto deposito      8.200
 ///           Conto Fineco     ◷  4.790     ← ◷ when the value is stale
@@ -24,8 +23,8 @@ import Tracker
 ///       Import… · Instruments · Sync & backups
 ///
 /// - Selecting an account shows its detail in the content area, in a stack
-///   of its own (`SidebarItem.account`); *All accounts* is the list, whose
-///   rows push details on the Accounts stack.
+///   of its own (`SidebarItem.account`). The groups and their subtotals are
+///   the list; there's no page for all accounts.
 /// - A group's row expands or collapses it (click it, or its disclosure
 ///   triangle); which ones are collapsed is remembered on the device
 ///   (`AppPreferences.collapsedAccountFolders`). Showing an account
@@ -33,7 +32,7 @@ import Tracker
 /// - The sidebar follows the library: accounts added or closed, here or on
 ///   the other device, appear in their place at once. A selected account
 ///   that's closed moves under *Closed* and stays selected; one that's
-///   deleted gives way to *All accounts*.
+///   deleted gives way to the Overview.
 ///
 /// Settings is the Settings window on the Mac (⌘,) and a toolbar button on iPad.
 struct SidebarRoot: View {
@@ -123,10 +122,11 @@ struct SidebarRoot: View {
     }
 }
 
-/// The sidebar's Accounts section: *All accounts*, a collapsible row per
-/// group that has open accounts, with its subtotal and its accounts, then
-/// *Closed (n)*. The values and staleness are the Accounts list's
-/// (`SidebarAccounts`); amounts are left out while they're hidden.
+/// The sidebar's Accounts section: the total of the open accounts on its
+/// header, a collapsible row per group that has open accounts, with its
+/// subtotal and its accounts, then *Closed (n)*. The values and staleness
+/// are the Accounts list's (`SidebarAccounts`); amounts are left out while
+/// they're hidden.
 private struct SidebarAccountsSection: View {
     @Environment(LibraryStore.self) private var library
     @Environment(AppPreferences.self) private var preferences
@@ -134,9 +134,7 @@ private struct SidebarAccountsSection: View {
     var body: some View {
         let accounts = SidebarAccounts(library: library.library, valuator: library.valuator, today: .today(),
                                        stalenessThreshold: preferences.stalenessThreshold)
-        Section("Accounts") {
-            Label("All accounts", systemImage: AppSymbol.accounts)
-                .tag(SidebarItem.accounts)
+        Section {
             ForEach(accounts.groups) { section in
                 let isExpanded = expansion(of: .group(section.group))
                 DisclosureGroup(isExpanded: isExpanded) {
@@ -161,6 +159,8 @@ private struct SidebarAccountsSection: View {
                                        isExpanded: isExpanded)
                 }
             }
+        } header: {
+            SidebarAccountsHeader(total: accounts.groups.isEmpty ? nil : accounts.total)
         }
     }
 
@@ -168,6 +168,27 @@ private struct SidebarAccountsSection: View {
     private func expansion(of folder: SidebarAccountFolder) -> Binding<Bool> {
         Binding(get: { preferences.isExpanded(folder) },
                 set: { preferences.setExpanded($0, folder) })
+    }
+}
+
+/// "Accounts", with the total of the open accounts on the right (left out
+/// while amounts are hidden, or without open accounts).
+private struct SidebarAccountsHeader: View {
+    let total: Decimal?
+
+    @Environment(\.hidesAmounts) private var hidesAmounts
+
+    var body: some View {
+        HStack(spacing: Metrics.s) {
+            Text("Accounts")
+            Spacer(minLength: Metrics.xs)
+            if let total, !hidesAmounts {
+                AmountText(total)
+                    .lineLimit(1)
+                    .layoutPriority(1)
+            }
+        }
+        .accessibilityElement(children: .combine)
     }
 }
 
@@ -240,8 +261,7 @@ private struct SidebarAccountRow: View {
 }
 
 /// The content area for a sidebar place. Each place gets its own navigation
-/// stack: an account's detail its own, and *All accounts* the Accounts
-/// stack, which its rows push details onto.
+/// stack, an account's detail too.
 private struct SidebarDetail: View {
     @Bindable var navigation: AppNavigation
     let item: SidebarItem
@@ -257,11 +277,6 @@ private struct SidebarDetail: View {
         case .checkIn:
             NavigationStack {
                 CheckInScreen()
-            }
-        case .accounts:
-            NavigationStack(path: $navigation.accountsPath) {
-                AccountsScreen(filter: .all)
-                    .appDestinations()
             }
         case .account(let id):
             NavigationStack {

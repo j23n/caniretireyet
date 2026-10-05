@@ -246,6 +246,9 @@ struct AccountValuationForm: Hashable, Sendable {
     var date: CalendarDate
     /// Whether it records a balance (or cash and positions).
     let isBalance: Bool
+    /// Whether the account is a debt: its balance is typed as what's owed
+    /// and recorded negative (``AmountInput/balance(from:isLiability:locale:)``).
+    let isLiability: Bool
     var balance: String
     var cash: String
     var positions: [PositionField]
@@ -255,12 +258,16 @@ struct AccountValuationForm: Hashable, Sendable {
 
     /// The fields of `valuation`. A trades account's (`recordsTrades`) is
     /// never a balance: it records cash, and a balance written by hand
-    /// isn't used, so saving drops it (docs/TRADES.md).
-    init(_ valuation: Valuation, holdsPositions: Bool, recordsTrades: Bool = false, locale: Locale = .current) {
+    /// isn't used, so saving drops it (docs/TRADES.md). A debt's
+    /// (`isLiability`) balance reads as typed in the check-in.
+    init(_ valuation: Valuation, holdsPositions: Bool, recordsTrades: Bool = false, isLiability: Bool = false,
+         locale: Locale = .current) {
         original = valuation
         date = valuation.date
         isBalance = !recordsTrades && (valuation.isBalance || (!valuation.isHoldings && !holdsPositions))
-        balance = valuation.balance.map { AmountInput.text(for: $0, locale: locale) } ?? ""
+        self.isLiability = isLiability
+        balance = valuation.balance.map { AmountInput.balanceText(for: $0, isLiability: isLiability, locale: locale) }
+            ?? ""
         cash = valuation.cash.map { AmountInput.text(for: $0, locale: locale) } ?? ""
         positions = valuation.positions.map { position in
             PositionField(instrument: position.instrument,
@@ -335,7 +342,7 @@ struct AccountValuationForm: Hashable, Sendable {
         }
         var valuation = Valuation(account: original.account, date: date)
         if isBalance {
-            valuation.balance = number(balance)
+            valuation.balance = AmountInput.balance(from: balance, isLiability: isLiability, locale: locale)
         } else {
             valuation.cash = number(cash)
             valuation.positions = positions.compactMap { field in

@@ -63,6 +63,16 @@ struct PriceServiceTests {
         #expect(await client.requests(matching: "frankfurter").count == 1)
     }
 
+    /// The app's price-source picker offers `standardInstrumentProviders`,
+    /// so it must name exactly the providers the standard service registers.
+    @Test func standardInstrumentProvidersAreTheRegisteredOnes() {
+        let service = Self.service(Self.client())
+        #expect(Set(service.instrumentProviders.keys) == Set(PriceService.standardInstrumentProviders))
+        #expect(PriceService.standardInstrumentProviders.count == service.instrumentProviders.count)
+        #expect(!PriceService.standardInstrumentProviders.contains(.eodhd))
+        #expect(!PriceService.standardInstrumentProviders.contains(.twelveData))
+    }
+
     @Test func reopeningACheckInUsesTheCache() async throws {
         let library = try Fixtures.exampleLibrary()
         let client = Self.client()

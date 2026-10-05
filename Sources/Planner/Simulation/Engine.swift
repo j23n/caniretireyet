@@ -1,87 +1,41 @@
 import Foundation
 import Model
-import TaxKit
 
 /// A plan ready to simulate: the model, the shared random futures, and the
 /// schedule of each retirement age prepared so far.
 struct Engine: Sendable {
     let model: PlanModel
     let scenarios: MarketScenarios
-    private(set) var portfolio: Portfolio
+    let portfolio: Portfolio
     private(set) var schedules: [Int: AgeSchedule] = [:]
-    private(set) var issues: [PlanIssue]
-    /// Per year, the local windfall masks that occur in some run.
-    private let neededMasks: [[Int]]
+    let issues: [PlanIssue]
+    var flexibleSpending: FlexibleSpendingSpec?
 
-    /// Builds the scenarios and prepares the schedules of `ages` (plus the
-    /// oldest age, so every wrapper that work credits gets a bucket).
+    /// The scenarios and the schedules of `ages` (and `maxAge`).
     static func make(model: PlanModel, ages: [Int], maxAge: Int) async throws -> Engine {
         let scenarios = MarketScenarios(model: model.returns, fractions: model.frames.map(\.fraction), runs: model.runs,
                                         seed: model.seed, eventProbabilities: model.uncertainEventProbabilities)
-        let neededMasks = model.frames.map { frame -> [Int] in
-            let bits = model.events.filter { $0.year == frame.year && $0.isWindfall }.compactMap(\.bit)
-            guard !bits.isEmpty else { return [0] }
-            var masks = Set<Int>()
-            for mask in scenarios.eventMasks + [scenarios.expectedEvents] {
-                var local = 0
-                for (position, bit) in bits.enumerated() where mask & (1 << UInt64(bit)) != 0 {
-                    local |= 1 << position
-                }
-                masks.insert(local)
-            }
-            return masks.sorted()
-        }
-        let expected = scenarios.expectedEvents
-        var built = try await parallelMap(Array(Set(ages + [maxAge])).sorted()) { age in
-            AgeSchedule(model: model, age: age, neededMasks: neededMasks, expectedMask: expected)
-        }
-
-        // Every wrapper that receives money needs a bucket. One that only a
-        // scheme's lump sum moves into (pension-fund assets into vested
-        // benefits when work stops early) is expected to be new, so it gets
-        // no warning; money paid or credited into one is worth one.
-        var builder = model.portfolio
-        var issues = model.issues
-        let paidInto = Set(built.flatMap { schedule in
-            schedule.years.flatMap { year in
-                year.contributions.map(\.wrapper) + year.variants.flatMap { $0.accruals.map(\.wrapper) }
-            }
-        })
-        let transferredInto = Set(built.flatMap { $0.years.flatMap { $0.transfers.map(\.wrapper) } })
-        for wrapper in paidInto.union(transferredInto).sorted() {
-            if let issue = builder.addBucket(wrapper: wrapper), paidInto.contains(wrapper) { issues.append(issue) }
-        }
-        let portfolio = builder.finalized()
-        for index in built.indices { built[index].resolve(for: portfolio, model: model) }
-
-        var engine = Engine(model: model, scenarios: scenarios, portfolio: portfolio, issues: issues,
-                            neededMasks: neededMasks)
-        for schedule in built { engine.schedules[schedule.retirementAge] = schedule }
+        var engine = Engine(model: model, scenarios: scenarios, portfolio: model.portfolio, issues: model.issues,
+                            flexibleSpending: model.spending.flexible)
+        try await engine.prepare(ages: Array(Set(ages + [maxAge])).sorted())
         return engine
     }
 
     private init(model: PlanModel, scenarios: MarketScenarios, portfolio: Portfolio, issues: [PlanIssue],
-                 neededMasks: [[Int]]) {
+                 flexibleSpending: FlexibleSpendingSpec?) {
         self.model = model
         self.scenarios = scenarios
         self.portfolio = portfolio
         self.issues = issues
-        self.neededMasks = neededMasks
+        self.flexibleSpending = flexibleSpending
     }
 
-    /// Prepares the schedules of ages not prepared yet.
+    /// Builds the schedules of the ages that don't have one yet.
     mutating func prepare(ages: [Int]) async throws {
         let missing = ages.filter { schedules[$0] == nil }
         guard !missing.isEmpty else { return }
         let model = model
-        let neededMasks = neededMasks
-        let expected = scenarios.expectedEvents
-        let portfolio = portfolio
-        let built = try await parallelMap(missing) { age in
-            var schedule = AgeSchedule(model: model, age: age, neededMasks: neededMasks, expectedMask: expected)
-            schedule.resolve(for: portfolio, model: model)
-            return schedule
-        }
+        let built = try await parallelMap(missing) { age in AgeSchedule(model: model, age: age) }
         for schedule in built { schedules[schedule.retirementAge] = schedule }
     }
 
@@ -108,20 +62,25 @@ struct Engine: Sendable {
         return Dictionary(uniqueKeysWithValues: zip(ages, rates))
     }
 
-    /// Every run at one age, with year-end values: split across workers.
-    /// `progress` counts the runs simulated.
+    /// Every run at one age, with year-end values (and, with flexible
+    /// spending, the spending paid each year, run by run like the values;
+    /// empty without it): split across workers. `progress` counts the runs
+    /// simulated.
     func evaluateInDetail(age: Int, spending: Double, progress: ProgressReporter? = nil) async throws
-        -> (outcomes: [RunOutcome], values: [Double]) {
+        -> (outcomes: [RunOutcome], values: [Double], spending: [Double]) {
         let runs = scenarios.runs
         let years = model.frames.count
         let engine = self
         let chunks = Self.chunks(runs)
-        let parts = try await parallelMap(chunks) { range -> ([RunOutcome], [Double]) in
+        let recordsSpending = flexibleSpending != nil
+        let parts = try await parallelMap(chunks) { range -> ([RunOutcome], [Double], [Double]) in
             var simulator = engine.simulator(age: age)
             var outcomes: [RunOutcome] = []
             var values: [Double] = []
+            var paid: [Double] = []
             outcomes.reserveCapacity(range.count)
             values.reserveCapacity(range.count * years)
+            if recordsSpending { paid.reserveCapacity(range.count * years) }
             for run in range {
                 if run > range.lowerBound, (run - range.lowerBound) % Self.runsPerChunk == 0 {
                     progress?.advance(Self.runsPerChunk)
@@ -129,17 +88,20 @@ struct Engine: Sendable {
                 }
                 outcomes.append(simulator.run(run, spending: spending, recordValues: true))
                 values += simulator.yearValues
+                if recordsSpending { paid += simulator.yearSpending }
             }
             progress?.advance(Self.lastChunk(of: range.count))
-            return (outcomes, values)
+            return (outcomes, values, paid)
         }
-        return (parts.flatMap(\.0), parts.flatMap(\.1))
+        return (parts.flatMap(\.0), parts.flatMap(\.1), parts.flatMap(\.2))
     }
 
     /// A simulator for one age's schedule, starting from `start` (by
-    /// default the plan's own starting portfolio).
+    /// default the plan's own starting portfolio), with the engine's
+    /// flexible-spending rule.
     func simulator(age: Int, start: Portfolio? = nil) -> PathSimulator {
-        PathSimulator(schedule: schedules[age]!, scenarios: scenarios, portfolio: start ?? portfolio, model: model)
+        PathSimulator(model: model, schedule: schedules[age]!, scenarios: scenarios, start: start ?? portfolio,
+                      flexible: flexibleSpending)
     }
 
     // MARK: - Sustainable spending
@@ -339,13 +301,15 @@ struct Engine: Sendable {
                              accessible: accessible), tried)
     }
 
-    /// Today's portfolio with `extra` more money in the buckets that can be
-    /// drawn at any age (less, when negative), as the search for the assets
-    /// needed tries it (``Portfolio/withExtra(_:step:)``): split by the
-    /// target mix in force in the first year of retiring today, so a
-    /// `retirement` step of the plan's target mix applies.
+    /// The starting portfolio with `extra` more money you can draw (less,
+    /// when negative), as the search for the assets needed tries it
+    /// (``Portfolio/withExtra(_:mix:)``): new money is invested at the target
+    /// mix in force in the first year of retiring today, so a `retirement`
+    /// step of the plan's target mix applies.
     func startPortfolio(extra: Double) -> Portfolio {
-        portfolio.withExtra(extra, step: schedules[model.currentAge]?.startStep)
+        let mix = schedules[model.currentAge]?.accessibleMix.first
+            ?? model.portfolio.classes.map { $0 == .cash ? 1 : 0 }
+        return portfolio.withExtra(extra, mix: mix)
     }
 
     /// How many halvings of the log of `high / low` the search for the

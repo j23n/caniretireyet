@@ -5,6 +5,5 @@
   "kind": "metals",
   "name": "Gold coins",
   "notes": "Made-up example: coins kept in a safe deposit box.",
-  "opened": "2023-02-01",
-  "tax": { "wrapper": "it.ordinary" }
+  "opened": "2023-02-01"
 }

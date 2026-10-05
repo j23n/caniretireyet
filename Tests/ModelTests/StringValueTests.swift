@@ -47,9 +47,9 @@ struct StringValueTests {
     @Test func dictionariesKeyedByStringValuesAreJSONObjects() throws {
         let encoder = JSONEncoder()
         encoder.outputFormatting = .sortedKeys
-        let data = try encoder.encode([TaxSystemID("it"): 2026, "generic": 2025])
-        #expect(String(decoding: data, as: UTF8.self) == #"{"generic":2025,"it":2026}"#)
-        #expect(try JSONDecoder().decode([TaxSystemID: Int].self, from: data)["it"] == 2026)
+        let data = try encoder.encode([AccountID("directa"): 2026, "bank": 2025])
+        #expect(String(decoding: data, as: UTF8.self) == #"{"bank":2025,"directa":2026}"#)
+        #expect(try JSONDecoder().decode([AccountID: Int].self, from: data)["directa"] == 2026)
     }
 
     @Test func openEnumsKeepUnknownValues() throws {

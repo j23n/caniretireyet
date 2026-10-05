@@ -21,12 +21,12 @@ enum InstrumentText {
         "\(instrument.currency) per \(InstrumentForm.name(of: instrument.unit))"
     }
 
-    /// "Yahoo Finance · VWCE.DE", or "Typed in by hand".
+    /// "Yahoo Finance (unofficial) · VWCE.DE", or "Typed in by hand".
     static func source(of instrument: Instrument) -> String {
         sourceText(of: instrument) ?? "Typed in by hand"
     }
 
-    /// "Yahoo Finance · VWCE.DE"; `nil` without a price source.
+    /// "Yahoo Finance (unofficial) · VWCE.DE"; `nil` without a price source.
     static func sourceText(of instrument: Instrument) -> String? {
         guard let source = instrument.priceSource else { return nil }
         return "\(InstrumentForm.name(of: source.provider)) · \(source.symbol)"

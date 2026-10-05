@@ -62,45 +62,11 @@ struct AccountDefaultsTests {
             == #"{"currency":"EUR","id":"a","kind":"cash","name":"A","opened":"2024-01-01"}"#)
     }
 
-    @Test func movingTheOpeningMovesAJoiningDateSetFromIt() {
+    @Test func movingTheOpeningMovesTheOpeningDate() {
         var fund = account(.pensionFund)
-        fund.tax = AccountTax(wrapper: "it.pensionFund", details: ["joined": "2024-01-01", "x-custom": [1]])
+        fund.availableFromAge = 67
         fund.moveOpening(to: "2019-03-31")
-        #expect(fund.opened == "2019-03-31")
-        #expect(fund.tax?.joined == "2019-03-31")
-        #expect(fund.tax?.details["x-custom"] == [1])
-        // Later too: it keeps following the opening date.
-        fund.moveOpening(to: "2020-06-30")
-        #expect(fund.tax?.joined == "2020-06-30")
-    }
-
-    @Test func movingTheOpeningKeepsAJoiningDateSetByHand() {
-        var fund = account(.pensionFund)
-        fund.tax = AccountTax(wrapper: "it.pensionFund", details: ["joined": "2006-01-01"])
-        fund.moveOpening(to: "2019-03-31")
-        #expect(fund.opened == "2019-03-31")
-        #expect(fund.tax?.joined == "2006-01-01")
-
-        // Accounts without a joining date only move their opening date.
-        var bank = account(.cash)
-        bank.tax = AccountTax(wrapper: "it.ordinary")
-        bank.moveOpening(to: "2019-03-31")
-        #expect(bank.opened == "2019-03-31")
-        #expect(bank.tax == AccountTax(wrapper: "it.ordinary"))
-        var untaxed = account(.cash)
-        untaxed.moveOpening(to: "2019-03-31")
-        #expect(untaxed.opened == "2019-03-31" && untaxed.tax == nil)
-    }
-
-    @Test func taxKeepsWrapperDetails() throws {
-        let json = #"{"joined":"2022-01-01","wrapper":"it.pensionFund","x-custom":[1]}"#
-        let tax = try JSONDecoder().decode(AccountTax.self, from: Data(json.utf8))
-        #expect(tax.wrapper == "it.pensionFund")
-        #expect(tax.joined == "2022-01-01")
-        #expect(tax.details["x-custom"] == [1])
-        let encoder = JSONEncoder()
-        encoder.outputFormatting = .sortedKeys
-        #expect(String(decoding: try encoder.encode(tax), as: UTF8.self) == json)
+        #expect(fund.opened == "2019-03-31" && fund.availableFromAge == 67)
     }
 }
 
@@ -111,7 +77,7 @@ struct PlanDefaultsTests {
         let plan = try JSONDecoder().decode(PlanDocument.self, from: Data(minimal.utf8))
         #expect(plan.retirement.age == .earliest)
         #expect(plan.effectiveEndAge == 95)
-        #expect(plan.tax.effectiveIndexThresholds)
+        #expect(plan.tax.isEmpty && plan.tax.effectiveWealthRate == 0)
         #expect(plan.portfolio.effectiveStart == .latestCheckIn)
         #expect(plan.assumptions.effectiveInflation == Decimal(fileString: "0.02"))
         #expect(plan.assumptions.returnAssumption(for: .equity)
@@ -120,8 +86,6 @@ struct PlanDefaultsTests {
         #expect(plan.assumptions.correlation(.bonds, .equity) == Decimal(fileString: "0.1"))
         #expect(plan.assumptions.correlation(.gold, .gold) == 1)
         #expect(plan.assumptions.correlation(.gold, .cash) == 0)
-        #expect(plan.withdrawals.effectiveStrategy == .fixedReal)
-        #expect(plan.withdrawals.effectiveCashBuffer == 0)
         #expect(plan.simulation.effectiveRuns == 2000)
         #expect(plan.simulation.effectiveSeed == 1)
         #expect(plan.simulation.effectiveConfidence == Decimal(fileString: "0.9"))
@@ -151,11 +115,9 @@ struct PlanDefaultsTests {
 
         let byAge = try decoder.decode(PlanEvent.self, from: Data(#"{"age":62,"amount":"150000","name":"I","probability":"0.8"}"#.utf8))
         #expect(byAge.timing == .age(62))
-        #expect(byAge.effectiveKind == .windfall)
         #expect(byAge.isInDeterministicRun)
         let byYear = try decoder.decode(PlanEvent.self, from: Data(#"{"amount":"-25000","name":"Car","year":2031}"#.utf8))
         #expect(byYear.timing == .year(2031))
-        #expect(byYear.effectiveKind == .expense)
         #expect(byYear.effectiveProbability == 1)
         #expect(throws: DecodingError.self) {
             try decoder.decode(PlanEvent.self, from: Data(#"{"age":1,"amount":"1","name":"x","year":2030}"#.utf8))
@@ -165,11 +127,7 @@ struct PlanDefaultsTests {
         }
     }
 
-    @Test func residenceAndSpendingLookups() {
-        let tax = PlanTax(residence: [PlanResidence(from: 2026, system: "it"), PlanResidence(from: 2048, system: "generic")])
-        #expect(tax.residence(in: 2025) == nil)
-        #expect(tax.residence(in: 2030)?.system == "it")
-        #expect(tax.residence(in: 2048)?.system == "generic")
+    @Test func spendingLookups() {
         let spending = PlanSpending(working: 1, retired: 1, phases: [
             SpendingPhase(fromAge: 85, factor: Decimal(fileString: "0.8")!),
             SpendingPhase(fromAge: 75, factor: Decimal(fileString: "0.9")!),
@@ -179,10 +137,7 @@ struct PlanDefaultsTests {
         #expect(spending.factor(atAge: 90) == Decimal(fileString: "0.8"))
     }
 
-    @Test func pensionDefaults() {
-        let pension = PlanPension(scheme: .fixed, fromAge: 67, perYear: 4800)
-        #expect(pension.effectiveClaim == .earliest)
-        #expect(pension.effectiveTaxedIn == .residence)
+    @Test func contributionDefaults() {
         #expect(PlanContribution(account: "fondo-pensione", perYear: 5000).effectiveUntil == .retirement)
     }
 }

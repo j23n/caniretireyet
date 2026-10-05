@@ -162,7 +162,8 @@ struct PreviewApplyTests {
         var preview = try makeSession("Date;Cash;Savings;Loan\n2026-01-31;1;2;-3\n2026-02-28;1;2;\n")
             .preview(against: base)
         #expect(preview.newAccounts.map(\.account.id) == ["loan", "savings"])
-        #expect(preview.accountChanges == [AccountChangeProposal(account: "loan", change: .close(on: "2026-02-01"))])
+        #expect(preview.accountChanges == [AccountChangeProposal(account: "loan", change: .close(on: "2026-02-01"),
+                                                                 isAccepted: false)])
         preview.newAccounts[1].account.kind = .other
         preview.newAccounts[1].account.currency = .chf
         preview.newAccounts[0].isAccepted = false
@@ -183,10 +184,17 @@ struct PreviewApplyTests {
         base.accounts["cash"]?.opened = "2026-02-01"
         let file = "Date;Cash;Broker\n2025-12-31;50;10\n2026-01-31;100;0\n2026-02-28;200;0\n"
         var preview = try makeSession(file).preview(against: base)
+        // Closing is proposed but only made when accepted; opening earlier is accepted.
         #expect(preview.accountChanges == [
-            AccountChangeProposal(account: "broker", change: .close(on: "2026-01-01")),
+            AccountChangeProposal(account: "broker", change: .close(on: "2026-01-01"), isAccepted: false),
             AccountChangeProposal(account: "cash", change: .openEarlier(on: "2025-12-31")),
         ])
+        let opened = preview.apply(to: base)
+        #expect(opened.library.accounts["broker"]?.closed == nil)
+        #expect(opened.library.accounts["cash"]?.opened == date("2025-12-31"))
+        #expect(opened.closedAccounts.isEmpty)
+        #expect(opened.changedAccounts == ["cash"])
+        preview.accountChanges[0].isAccepted = true
         let result = preview.apply(to: base)
         #expect(result.library.accounts["broker"]?.closed == date("2026-01-01"))
         #expect(result.library.accounts["cash"]?.opened == date("2025-12-31"))
@@ -218,26 +226,18 @@ struct PreviewApplyTests {
         #expect(result.changedMonths == ["2026-01", "2026-02"])
     }
 
-    @Test func openingEarlierMovesAPensionFundsJoiningDate() throws {
+    @Test func aValueBeforeTheOpeningDateOpensTheAccountEarlier() throws {
         var base = library()
         base.accounts["fondo"] = Account(id: "fondo", name: "Fondo", kind: .pensionFund, currency: .eur,
-                                         opened: "2026-02-01",
-                                         tax: AccountTax(wrapper: "it.pensionFund", details: ["joined": "2026-02-01"]))
+                                         opened: "2026-02-01")
         base.upsert(Valuation(account: "fondo", date: "2026-02-28", balance: 1000))
         let file = "Date;Fondo\n2025-12-31;800\n2026-02-28;1000\n"
         let preview = try makeSession(file).preview(against: base)
         #expect(preview.accountChanges == [
             AccountChangeProposal(account: "fondo", change: .openEarlier(on: "2025-12-31")),
         ])
-        var result = preview.apply(to: base)
+        let result = preview.apply(to: base)
         #expect(result.library.accounts["fondo"]?.opened == date("2025-12-31"))
-        #expect(result.library.accounts["fondo"]?.tax?.joined == date("2025-12-31"))
-
-        // A joining date set by hand stays.
-        base.accounts["fondo"]?.tax?.details["joined"] = "2010-01-01"
-        result = try makeSession(file).preview(against: base).apply(to: base)
-        #expect(result.library.accounts["fondo"]?.opened == date("2025-12-31"))
-        #expect(result.library.accounts["fondo"]?.tax?.joined == date("2010-01-01"))
     }
 
     @Test func reportsProblemsBetweenCells() throws {
@@ -302,7 +302,8 @@ struct PreviewApplyTests {
         #expect(session.preview(against: library()).record(.valuation("cash", "2026-01-31"))?.status == .conflict)
     }
 
-    /// Importing the same file twice changes nothing.
+    /// Importing the same file twice changes nothing. Closings that weren't
+    /// accepted are proposed again, still not accepted.
     @Test(arguments: ["italian-excel-1252.csv", "us-export.csv", "numbers-export.csv", "titles-totals-utf16.tsv",
                       "month-only.csv", "excel-serial.csv", "long-format.csv", "positions.csv", "broken-rows.csv",
                       "positive-debts.csv"])
@@ -318,7 +319,7 @@ struct PreviewApplyTests {
         #expect(second.records.allSatisfy { $0.status == .identical })
         #expect(second.newAccounts.isEmpty)
         #expect(second.newInstruments.isEmpty)
-        #expect(second.accountChanges.isEmpty)
+        #expect(second.accountChanges == first.accountChanges.filter { !$0.isAccepted })
         second.resolveConflicts(.overwrite)
         let twice = second.apply(to: once.library)
         #expect(!twice.hasChanges)

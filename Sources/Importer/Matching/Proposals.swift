@@ -76,7 +76,10 @@ public struct AccountChangeProposal: Hashable, Sendable, CustomStringConvertible
 
     public var account: AccountID
     public var change: Change
-    /// Whether applying makes the change (default `true`).
+    /// Whether applying makes the change. The importer proposes closings
+    /// and switches to trades unaccepted, so they happen only when chosen
+    /// (an account updated less often than the file isn't closed); earlier
+    /// openings are accepted.
     public var isAccepted: Bool
 
     public init(account: AccountID, change: Change, isAccepted: Bool = true) {

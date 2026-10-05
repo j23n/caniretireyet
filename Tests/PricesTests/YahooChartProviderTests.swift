@@ -8,8 +8,10 @@ private func d(_ string: String) -> Decimal { Decimal(fileString: string)! }
 struct YahooChartProviderTests {
     private func quote(_ fixture: String, _ symbol: String, on date: CalendarDate) async throws -> Quote {
         let client = MockHTTPClient(["chart/": fixture])
+        // Fetched on 2 October 2026, or on the date for a later one: bars
+        // after the day two days after today don't exist yet, and are left out.
         return try await YahooChartProvider(client: client)
-            .quote(for: QuoteRequest(symbol: symbol, date: date, currency: .eur, today: "2026-10-02"))
+            .quote(for: QuoteRequest(symbol: symbol, date: date, currency: .eur, today: max(date, "2026-10-02")))
     }
 
     @Test func theCloseOnTheDateRoundedToThePriceHint() async throws {
@@ -114,6 +116,25 @@ struct YahooChartProviderTests {
                                                      detail: "no close for VWCE.DE on or before 2026-09-10")) {
             _ = try await quote(YahooResponses.vwceSeptember, "VWCE.DE", on: "2026-09-10")
         }
+    }
+
+    /// A timestamp in milliseconds is about the year 58,700: converting it
+    /// to a calendar date would trap, so the bar is left out, as is one
+    /// before 1970.
+    @Test func timestampsOutsideTheirPlausibleRangeAreLeftOut() async throws {
+        let response = """
+            {"chart":{"result":[{"meta":{"currency":"EUR","exchangeTimezoneName":"Europe/Berlin","priceHint":2},\
+            "timestamp":[-86400,1790665200,1790751600000],\
+            "indicators":{"quote":[{"close":[1.0,137.63999938964844,999.0]}]}}],"error":null}}
+            """
+        let quote = try await quote(response, "VWCE.DE", on: "2026-09-30")
+        #expect(quote.price == d("137.64"))
+        #expect(quote.observedOn == "2026-09-29")
+
+        let client = MockHTTPClient(["chart/": response])
+        let history = try await YahooChartProvider(client: client).history(
+            symbol: "VWCE.DE", range: HistoryRange(from: "2026-09-01", through: "2026-09-30", today: "2026-10-02"))
+        #expect(history.quotes.map(\.observedOn) == ["2026-09-29"])
     }
 
     @Test func tooManyRequestsIsARateLimit() async throws {

@@ -37,7 +37,7 @@ public struct MergeResult<Value: Sendable>: Sendable {
 }
 
 /// Resolves sync conflicts: two or more versions of the same file saved on
-/// different devices before they synced (FILE_FORMAT.md, "Sync conflicts").
+/// different devices before they synced (PLAN.md, "Merging, saving and undo").
 ///
 /// - History and headline files merge record by record: every record from
 ///   every version is kept, matched by its key (account + date, instrument +

@@ -10,7 +10,7 @@ struct GoldenRoundTripTests {
     @Test func exampleLibraryLoadsWithoutIssues() throws {
         let result = try LibraryFolder(root: Fixtures.exampleLibraryURL).load()
         #expect(result.report.issues.isEmpty, "\(result.report.issues)")
-        #expect(result.report.schemaVersion == 2)
+        #expect(result.report.schemaVersion == 3)
         #expect(!result.report.isReadOnly)
         #expect(result.report.filesRead == Fixtures.allJSONFiles.count)
         #expect(result.library == (try Fixtures.exampleLibrary()))

@@ -4,6 +4,5 @@
   "kind": "crypto",
   "name": "Ledger wallet",
   "opened": "2022-05-10",
-  "tags": ["fire"],
-  "tax": { "wrapper": "it.ordinary" }
+  "tags": ["fire"]
 }

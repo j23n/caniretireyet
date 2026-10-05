@@ -1,7 +1,7 @@
 import Model
 
 /// A data file in the library folder, identified by what it holds. Its
-/// ``path`` is relative to the library folder (FILE_FORMAT.md, "Layout").
+/// ``path`` is relative to the library folder (docs/schema/README.md, "Layout").
 public enum LibraryFile: Hashable, Sendable, Comparable, CustomStringConvertible {
     /// `library.json`
     case settings

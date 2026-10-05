@@ -1,10 +1,9 @@
 import Foundation
 import Model
-import TaxKit
 
 // Get/set views of plan values for the editors' controls, so the views
 // bind by key path (`$plan.spending.phases[planSafe: 0, default: …].factor`,
-// `$pension.planClaimsEarliest`) rather than with `Binding(get:set:)`
+// `$pension.planFromAge`) rather than with `Binding(get:set:)`
 // closures. Plain Swift, tested without SwiftUI. Names start with `plan`
 // so they can't collide with other extensions of the model types.
 
@@ -53,11 +52,79 @@ extension PlanDocument {
     }
 }
 
+extension PlanSpending {
+    // MARK: Flexible spending (PLANNER.md, "Flexible spending")
+
+    /// Whether flexible spending is on. Turning it on keeps the settings
+    /// the plan had (or uses the defaults); turning it off keeps settings
+    /// that differ from the defaults (`enabled: false`) and otherwise
+    /// removes the rule, so nothing is written.
+    var planFlexibleOn: Bool {
+        get { flexibleRule != nil }
+        set {
+            guard newValue != planFlexibleOn else { return }
+            var rule = flexible ?? FlexibleSpending()
+            rule.enabled = newValue
+            flexible = newValue || !rule.usesDefaults ? rule : nil
+        }
+    }
+
+    /// The cut, as written (`nil`: the default, 10%). A value equal to the
+    /// default isn't written.
+    var planFlexibleCut: Decimal? {
+        get { flexible?.cut }
+        set { updateFlexible { $0.cut = newValue == FlexibleSpending.defaultCut ? nil : newValue } }
+    }
+
+    /// The floor, as written (`nil`: the default, 80%).
+    var planFlexibleFloor: Decimal? {
+        get { flexible?.floor }
+        set { updateFlexible { $0.floor = newValue == FlexibleSpending.defaultFloor ? nil : newValue } }
+    }
+
+    /// The upper guardrail, as written (`nil`: the default, 20%).
+    var planFlexibleUpperGuardrail: Decimal? {
+        get { flexible?.upperGuardrail }
+        set {
+            updateFlexible { $0.upperGuardrail = newValue == FlexibleSpending.defaultUpperGuardrail ? nil : newValue }
+        }
+    }
+
+    /// The lower guardrail, as written (`nil`: the default, 20%).
+    var planFlexibleLowerGuardrail: Decimal? {
+        get { flexible?.lowerGuardrail }
+        set {
+            updateFlexible { $0.lowerGuardrail = newValue == FlexibleSpending.defaultLowerGuardrail ? nil : newValue }
+        }
+    }
+
+    /// The floor in money: the floor share of retirement spending, before phases.
+    var planFlexibleFloorAmount: Decimal {
+        (flexible ?? FlexibleSpending()).effectiveFloor * retired
+    }
+
+    /// Changes the rule's settings; a rule the plan doesn't have is created on.
+    private mutating func updateFlexible(_ change: (inout FlexibleSpending) -> Void) {
+        var rule = flexible ?? FlexibleSpending()
+        change(&rule)
+        flexible = rule.isEnabled || !rule.usesDefaults ? rule : nil
+    }
+}
+
 extension PlanTax {
-    /// Whether thresholds rise with inflation (default on).
-    var planIndexThresholds: Bool {
-        get { effectiveIndexThresholds }
-        set { indexThresholds = newValue }
+    /// Whether the plan pays a wealth tax. Turning it off removes the rate
+    /// and the allowance; turning it on starts at 0.2%.
+    var planHasWealthTax: Bool {
+        get { effectiveWealthRate > 0 }
+        set {
+            guard newValue != planHasWealthTax else { return }
+            if newValue {
+                wealthRate = Decimal(string: "0.002")!
+            } else {
+                wealthRate = nil
+                wealthAllowance = nil
+            }
+        }
     }
 }
 
@@ -196,13 +263,6 @@ extension PlanSimulation {
     }
 }
 
-/// Where a contribution goes, for the editor's one picker: an account, or
-/// a pension scheme (a buy-in).
-enum PlanContributionTarget: Hashable, Sendable {
-    case account(AccountID)
-    case scheme(PensionSchemeID)
-}
-
 extension PlanContribution {
     /// Contributions stop at retirement (the default), or on a date.
     var planUntilRetirement: Bool {
@@ -213,22 +273,6 @@ extension PlanContribution {
     var planUntilDate: CalendarDate {
         get { until?.date ?? CalendarDate.today().adding(years: 10) }
         set { until = .date(newValue) }
-    }
-
-    /// The account or pension scheme it pays into. Choosing one clears the
-    /// other, as the file holds one of `account` and `pension`.
-    var planTarget: PlanContributionTarget {
-        get { pension.map { .scheme($0) } ?? .account(account) }
-        set {
-            switch newValue {
-            case .account(let id):
-                account = id
-                pension = nil
-            case .scheme(let id):
-                account = ""
-                pension = id
-            }
-        }
     }
 
     /// Paid once (`amount` in `year`) rather than every year (`perYear`
@@ -264,18 +308,10 @@ extension PlanContribution {
 }
 
 extension WorkPhase {
-    /// The kind of work; changing it clears a regime that no longer fits
-    /// and fills in the amount the new kind needs.
-    var planKind: WorkKind {
-        get { kind }
-        set { self = PlanEditing.changing(self, to: newValue, registry: AppTaxRegistry.standard) }
-    }
-
-    /// The regime's ID, "" for the system's default; changing it keeps only
-    /// the options the new regime knows.
-    var planRegime: String {
-        get { regime?.rawValue ?? "" }
-        set { self = PlanEditing.choosing(newValue.isEmpty ? nil : newValue, for: self, registry: AppTaxRegistry.standard) }
+    /// The display name, "" for none.
+    var planName: String {
+        get { name ?? "" }
+        set { name = newValue.isEmpty ? nil : newValue }
     }
 
     /// The phase lasts until retirement, or to a date.
@@ -291,49 +327,16 @@ extension WorkPhase {
 }
 
 extension PlanPension {
-    /// The scheme's ID; changing it keeps the name and claim and the
-    /// options the new scheme knows.
-    var planScheme: String {
-        get { scheme.rawValue }
-        set { self = PlanEditing.changing(self, toScheme: newValue, registry: AppTaxRegistry.standard) }
-    }
-
-    /// The display name, "" for the scheme's.
+    /// The display name, "" for none.
     var planName: String {
         get { name ?? "" }
         set { name = newValue.isEmpty ? nil : newValue }
     }
 
-    /// Claimed as early as the scheme allows (the default), or at an age.
-    var planClaimsEarliest: Bool {
-        get { effectiveClaim == .earliest }
-        set { claim = newValue ? .earliest : .age(claim?.age ?? 67) }
-    }
-
-    var planClaimAge: Int {
-        get { claim?.age ?? 67 }
-        set { claim = .age(newValue) }
-    }
-
-    /// A fixed pension's start age.
+    /// The age it starts at (67 until set).
     var planFromAge: Int {
         get { fromAge ?? 67 }
         set { fromAge = newValue }
-    }
-
-    /// Who taxes it; the default (residence) is left out of the file.
-    var planTaxedIn: TaxedIn {
-        get { effectiveTaxedIn }
-        set { taxedIn = newValue == .residence ? nil : newValue }
-    }
-
-    /// The claim route's ID, "" for the scheme's first option at the age.
-    var planClaimRoute: String {
-        get { claimRoute ?? "" }
-        set {
-            let trimmed = newValue.trimmingCharacters(in: .whitespacesAndNewlines)
-            claimRoute = trimmed.isEmpty ? nil : trimmed
-        }
     }
 }
 
@@ -350,41 +353,32 @@ extension PlanAssumptions {
     }
 }
 
-/// What a one-off event is, for the editor: money in, an inheritance, or an expense.
+/// What a one-off event is, for the editor: money in (a windfall or an
+/// inheritance), or an expense.
 enum PlanEventType: String, CaseIterable, Hashable, Sendable {
     case windfall
-    case inheritance
     case expense
 
     var title: String {
         switch self {
-        case .windfall: "Windfall"
-        case .inheritance: "Inheritance"
+        case .windfall: "Money in"
         case .expense: "Expense"
         }
     }
 }
 
 extension PlanEvent {
-    /// Windfall, inheritance or expense: sets the amount's sign and the kind.
+    /// Money in or an expense: sets the amount's sign. An expense is certain.
     var planType: PlanEventType {
-        get {
-            if amount < 0 { return .expense }
-            return kind == .inheritance ? .inheritance : .windfall
-        }
+        get { amount < 0 ? .expense : .windfall }
         set {
             let size = amount < 0 ? -amount : amount
             switch newValue {
             case .expense:
                 amount = -size
-                kind = nil
                 probability = nil
             case .windfall:
                 amount = size
-                kind = nil
-            case .inheritance:
-                amount = size
-                kind = .inheritance
             }
         }
     }
@@ -422,43 +416,5 @@ extension PlanEvent {
     var planProbability: Decimal {
         get { effectiveProbability }
         set { probability = newValue >= 1 ? nil : max(0, newValue) }
-    }
-}
-
-extension PlanResidence {
-    /// The tax system's ID; changing it keeps only the options it knows.
-    var planSystem: String {
-        get { system.rawValue }
-        set {
-            system = TaxSystemID(newValue)
-            options = PlanOptionForm.carryOver(options, to: PlanTaxChoices.systemFields(system,
-                                                                                        registry: AppTaxRegistry.standard))
-        }
-    }
-}
-
-extension PlanOverlay {
-    /// The regime's ID; changing it keeps only the options it knows.
-    var planRegime: String {
-        get { regime.rawValue }
-        set {
-            regime = RegimeID(newValue)
-            options = PlanOptionForm.carryOver(options, to: PlanTaxChoices.regimeFields(newValue,
-                                                                                         registry: AppTaxRegistry.standard))
-        }
-    }
-}
-
-extension Dictionary where Key == String, Value == JSONValue {
-    /// A switch option: the plan's value, else the field's default.
-    subscript(planBool field: OptionField) -> Bool {
-        get { PlanOptionForm.bool(field, in: self) }
-        set { self = PlanOptionForm.setting(field.key, to: .bool(newValue), in: self) }
-    }
-
-    /// A choice option: the plan's value, else the default, else "".
-    subscript(planChoice field: OptionField) -> String {
-        get { PlanOptionForm.choice(field, in: self) ?? "" }
-        set { self = PlanOptionForm.setting(field.key, to: newValue.isEmpty ? nil : .string(newValue), in: self) }
     }
 }

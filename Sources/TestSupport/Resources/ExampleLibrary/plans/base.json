@@ -15,18 +15,14 @@
   ],
   "endAge": 95,
   "events": [
-    { "age": 62, "amount": "150000", "kind": "inheritance", "name": "Inheritance", "probability": "0.8" },
+    { "age": 62, "amount": "150000", "name": "Inheritance", "probability": "0.8" },
     { "amount": "-25000", "name": "New car", "year": 2031 }
   ],
   "id": "base",
   "name": "Base case",
   "pensions": [
-    {
-      "claim": "earliest",
-      "options": { "contributionYears": "8", "foreignContributionYears": "6", "montante": "92000" },
-      "scheme": "it.inps"
-    },
-    { "fromAge": 67, "name": "State pension from previous country", "perYear": "4800", "scheme": "fixed", "taxedIn": "residence" }
+    { "fromAge": 67, "name": "State pension", "perYear": "14000" },
+    { "fromAge": 67, "name": "State pension from previous country", "perYear": "4800" }
   ],
   "portfolio": { "start": "latest-check-in", "unrealizedGainShare": "0.2" },
   "retirement": { "age": 55 },
@@ -36,33 +32,9 @@
     "retired": "36000",
     "working": "36000"
   },
-  "tax": {
-    "indexThresholds": true,
-    "overlays": [{ "options": { "minorChild": false, "movedIn": 2025 }, "regime": "it.impatriati-2024" }],
-    "overrides": { "it.irpef.rates": ["0.23", "0.35", "0.43"] },
-    "residence": [
-      { "from": 2026, "options": { "addizionaleComunale": "0.008", "addizionaleRegionale": "0.0173" }, "system": "it" }
-    ]
-  },
-  "withdrawals": { "cashBuffer": "10000", "strategy": "fixed-real" },
+  "tax": { "investmentRate": "0.26", "wealthAllowance": "5000", "wealthRate": "0.002" },
   "work": [
-    {
-      "from": "2026-01-01",
-      "grossSalary": "65000",
-      "kind": "employee",
-      "options": { "tfr": "pensionFund" },
-      "realGrowth": "0.01",
-      "regime": "it.employee",
-      "until": "2028-12-31"
-    },
-    {
-      "costs": "3000",
-      "from": "2029-01-01",
-      "kind": "selfEmployed",
-      "options": { "coefficient": "0.67", "startedIn": 2029 },
-      "regime": "it.forfettario",
-      "revenue": "70000",
-      "until": "retirement"
-    }
+    { "from": "2026-01-01", "name": "Employee", "netIncome": "40000", "realGrowth": "0.01", "until": "2028-12-31" },
+    { "from": "2029-01-01", "name": "Self-employed", "netIncome": "48000", "until": "retirement" }
   ]
 }

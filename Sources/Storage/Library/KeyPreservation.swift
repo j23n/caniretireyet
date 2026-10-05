@@ -246,10 +246,9 @@ extension KeyPreservation {
     static let plan = KeyPreservation(PlanDocument.self, objects: [
         "retirement": .init(PlanRetirement.self),
         "tax": .init(PlanTax.self),
-        "spending": .init(PlanSpending.self),
+        "spending": .init(PlanSpending.self, objects: ["flexible": .init(FlexibleSpending.self)]),
         "portfolio": .init(PlanPortfolio.self),
         "assumptions": .init(PlanAssumptions.self),
-        "withdrawals": .init(PlanWithdrawals.self),
         "simulation": .init(PlanSimulation.self),
     ])
 
@@ -260,7 +259,6 @@ extension KeyPreservation {
         ]),
         "constants": .init(ImportConstants.self),
         "matches": .init(ImportMatches.self),
-        "ledger": .init(LedgerImportSettings.self),
     ])
 
     static let baseline = KeyPreservation(Baseline.self, objects: [

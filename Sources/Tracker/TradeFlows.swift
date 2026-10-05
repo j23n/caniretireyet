@@ -36,6 +36,25 @@ public struct TradeFlow: Hashable, Sendable {
     public var isResidual: Bool { valuation != nil }
 }
 
+/// The recorded part of a trades account's flow for one valuation, split as
+/// a check-in shows it (``Valuator/tradeFlowParts(of:on:previous:)``).
+/// Amounts are in the account's currency.
+public struct TradeFlowParts: Hashable, Sendable {
+    /// What the trades record in the period: deposits, withdrawals,
+    /// transfers, openings and trades settled outside the account; `nil`
+    /// when one of them can't be valued.
+    public var recorded: Decimal?
+    /// The part of ``recorded`` from trades settled outside the account
+    /// (buys' costs in, sales' proceeds out); those that can't be valued
+    /// count as zero.
+    public var paidOutside: Decimal
+
+    public init(recorded: Decimal?, paidOutside: Decimal) {
+        self.recorded = recorded
+        self.paidOutside = paidOutside
+    }
+}
+
 extension Valuator {
     /// The flows of a trades account dated after `start` (from the
     /// beginning when `nil`) through `end`, sorted by date: its deposits,
@@ -86,19 +105,36 @@ extension Valuator {
     /// Otherwise every purchase since the account began would count as new
     /// money in that one check-in.
     func tradeFlow(for valuation: Valuation, previous: Valuation?) -> Decimal? {
-        guard let ledger = ledgers[valuation.account], let account = accounts[valuation.account] else { return nil }
-        let start = previous?.date ?? previousCheckIn(before: valuation.date)
-        var total: Decimal = 0
-        for entry in ledger.entries(after: start, through: valuation.date) where entry.trade.isFlow {
-            guard let amount = flowAmount(of: entry, in: account) else { return nil }
-            total += amount
-        }
+        guard ledgers[valuation.account] != nil,
+              var total = tradeFlowParts(of: valuation.account, on: valuation.date, previous: previous).recorded
+        else { return nil }
         if valuation.cash != nil {
             let anchor = previous?.cash != nil
                 ? previous : previous.flatMap { cashAnchor(for: valuation.account, onOrBefore: $0.date) }
             total += residual(of: valuation, from: anchor) ?? 0
         }
         return total
+    }
+
+    /// The recorded part of the flow of a trades account's valuation on
+    /// `date`, `previous` being the account's valuation before it, split
+    /// into what was paid from or into another account: the period starts
+    /// where ``defaultFlow(for:previous:paid:)`` starts it (`previous`, or
+    /// without one the library's previous check-in), so the parts add up to
+    /// the flow a check-in saves, residual aside. Zero for other accounts.
+    public func tradeFlowParts(of account: AccountID, on date: CalendarDate, previous: Valuation?) -> TradeFlowParts {
+        guard let ledger = ledgers[account], let details = accounts[account] else {
+            return TradeFlowParts(recorded: 0, paidOutside: 0)
+        }
+        let start = previous?.date ?? previousCheckIn(before: date)
+        var recorded: Decimal? = 0
+        var paidOutside: Decimal = 0
+        for entry in ledger.entries(after: start, through: date) where entry.trade.isFlow {
+            let amount = flowAmount(of: entry, in: details)
+            recorded = recorded.flatMap { total in amount.map { total + $0 } }
+            if entry.trade.isSettledExternally { paidOutside += amount ?? 0 }
+        }
+        return TradeFlowParts(recorded: recorded, paidOutside: paidOutside)
     }
 
     /// `valuation`'s cash minus the cash the trades give on its date,

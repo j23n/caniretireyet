@@ -1,97 +1,18 @@
 import Foundation
 import Model
-import TaxKit
 import Tracker
 
 // The fields of an account being added or edited, and the defaults that
-// follow its kind and your tax residence (UI.md, "Add account"). Plain
-// values, so they can be checked on Linux.
+// follow its kind (UI.md, "Add account"). Plain values, so they can be
+// checked on Linux.
 
-/// Tax wrappers offered for accounts, and the one pre-selected for a kind
-/// and residence (e.g. a pension fund in Italy is `it.pensionFund`), read
-/// from the tax registry: a system registered later brings its wrappers
-/// with no change here.
-enum AccountWrapperDefaults {
-    /// The system of `residence`: the registered system whose country
-    /// (`TaxSystem.country`) it is, else `generic`.
-    static func system(for residence: CountryCode?, registry: TaxRegistry = AppTaxRegistry.standard)
-        -> (any TaxSystem)? {
-        if let residence, let system = registry.system(forCountry: residence.rawValue) { return system }
-        return registry.system(TaxSystemID.generic.rawValue)
-    }
-
-    /// Every wrapper offered in the picker: your residence's system's first,
-    /// then the other countries' systems' in registration order, then the
-    /// generic ones; each once.
-    static func choices(residence: CountryCode?, registry: TaxRegistry = AppTaxRegistry.standard) -> [WrapperID] {
-        let own = system(for: residence, registry: registry)
-        let generic = registry.system(TaxSystemID.generic.rawValue)
-        var systems: [any TaxSystem] = own.map { [$0] } ?? []
-        systems += registry.systems.filter { $0.id != own?.id && $0.id != generic?.id }
-        if let generic, generic.id != own?.id { systems.append(generic) }
-        var result: [WrapperID] = []
-        for system in systems {
-            for rule in system.wrappers where !result.contains(WrapperID(rule.id)) {
-                result.append(WrapperID(rule.id))
-            }
-        }
-        return result
-    }
-
-    /// The wrapper for a new account of `kind` when you live in `residence`,
-    /// from that country's system (else the generic one): its first
-    /// tax-advantaged wrapper that isn't severance pay for a pension fund,
-    /// its severance-pay wrapper for a TFR, its first taxable wrapper for the
-    /// rest. Property, vehicles and debts have none.
-    static func wrapper(for kind: AccountKind, residence: CountryCode?,
-                        registry: TaxRegistry = AppTaxRegistry.standard) -> WrapperID? {
-        let own = system(for: residence, registry: registry)?.wrappers ?? []
-        let generic = registry.system(TaxSystemID.generic.rawValue)?.wrappers ?? []
-        func first(_ test: (WrapperRule) -> Bool, fallback: WrapperID) -> WrapperID {
-            (own.first(where: test) ?? generic.first(where: test)).map { WrapperID($0.id) } ?? fallback
-        }
-        switch kind {
-        case .property, .vehicle, .loan, .mortgage, .creditCard:
-            return nil
-        case .pensionFund:
-            return first({ $0.category != .taxable && !isPaidWhenJobEnds($0) }, fallback: .taxDeferred)
-        case .tfr:
-            if let severance = own.first(where: isPaidWhenJobEnds) { return WrapperID(severance.id) }
-            return first({ $0.category == .taxDeferred && !isPaidWhenJobEnds($0) }, fallback: .taxDeferred)
-        default:
-            return first({ $0.category == .taxable }, fallback: .taxable)
-        }
-    }
-
-    /// Whether a wrapper is severance pay, paid out when a job ends (Italy's
-    /// TFR): locked while working, open as soon as work stops, whatever the
-    /// age and membership. The planner recognises it the same way.
-    static func isPaidWhenJobEnds(_ rule: WrapperRule) -> Bool {
-        func opens(yearsSinceWorkStopped: Int?) -> Bool {
-            rule.access(in: WrapperAccessContext(year: 2_000, age: 0, yearsSinceWorkStopped: yearsSinceWorkStopped,
-                                                 oldAgePensionAge: nil, contributionYears: 0,
-                                                 membershipYears: 0)).isAccessible
-        }
-        return !opens(yearsSinceWorkStopped: nil) && opens(yearsSinceWorkStopped: 0)
-    }
-
-    /// A readable name: the wrapper's, with its country's system for a
-    /// country's wrapper ("Pension fund (Italy)"); the generic ones
-    /// ("Tax-deferred") and unknown IDs as they are.
-    static func name(of wrapper: WrapperID, registry: TaxRegistry = AppTaxRegistry.standard) -> String {
-        for system in registry.systems {
-            guard let rule = system.wrapper(wrapper.rawValue) else { continue }
-            return system.id == TaxSystemID.generic.rawValue ? rule.name : "\(rule.name) (\(system.name))"
-        }
-        return wrapper.rawValue
-    }
-
-    /// Whether a wrapper keeps a joining date (`tax.joined`), which can set
-    /// its payout tax (an Italian pension fund's falls with the years of
-    /// membership): any tax-advantaged wrapper but severance pay.
-    static func recordsJoiningDate(_ wrapper: WrapperID, registry: TaxRegistry = AppTaxRegistry.standard) -> Bool {
-        guard let rule = registry.wrapper(wrapper.rawValue) else { return false }
-        return rule.category != .taxable && !isPaidWhenJobEnds(rule)
+/// The defaults that follow an account's kind.
+enum AccountDefaults {
+    /// The age from which plans can draw on a new account of `kind`: 65 for
+    /// a pension fund, a starting point to change to the fund's rules; any
+    /// age for the rest.
+    static func availableFromAge(for kind: AccountKind) -> Int? {
+        kind == .pensionFund ? 65 : nil
     }
 
     /// Whether a new account of `kind` counts in plans by default: a home,
@@ -174,9 +95,10 @@ struct AccountForm: Hashable, Sendable {
     /// The institution's country; `nil` for none.
     var country: CountryCode?
     var opened: CalendarDate
-    var wrapper: WrapperID?
-    /// Whether the wrapper was picked by hand; otherwise it follows the kind.
-    var isWrapperChosen: Bool
+    /// The age from which plans can draw on it; `nil` for any age.
+    var availableFromAge: Int?
+    /// Whether ``availableFromAge`` was set by hand; otherwise it follows the kind.
+    var isAvailabilityChosen: Bool
     var includedInNetWorth: Bool
     var includedInPlan: Bool
     /// Whether "include in plans" was set by hand; otherwise it follows the kind.
@@ -188,7 +110,7 @@ struct AccountForm: Hashable, Sendable {
     /// holds: its trade history (the default) or monthly snapshots of its
     /// positions (UI.md, "Add account"). See ``offersTracking``.
     var tracking: ValuationMode = .trades
-    /// Your tax residence, which the default wrapper depends on.
+    /// The country you live in, a new account's default country.
     let residence: CountryCode?
     /// The account being edited, whose other fields are kept.
     private(set) var original: Account?
@@ -196,6 +118,9 @@ struct AccountForm: Hashable, Sendable {
     /// (e.g. imported history of a brokerage that otherwise holds
     /// positions). The asset mix applies to those.
     private(set) var balanceValueCount = 0
+    /// Whether the edited account has values or trades, which are in its
+    /// currency: the currency can't change then (``locksCurrency``).
+    private(set) var hasHistory = false
 
     /// A new account: today, in the base currency, with the defaults for a
     /// current account.
@@ -206,8 +131,8 @@ struct AccountForm: Hashable, Sendable {
         self.currency = currency
         country = residence
         opened = today
-        wrapper = AccountWrapperDefaults.wrapper(for: .cash, residence: residence)
-        isWrapperChosen = false
+        availableFromAge = AccountDefaults.availableFromAge(for: .cash)
+        isAvailabilityChosen = false
         includedInNetWorth = true
         includedInPlan = true
         isPlanInclusionChosen = false
@@ -217,18 +142,20 @@ struct AccountForm: Hashable, Sendable {
         original = nil
     }
 
-    /// The fields of an existing account.
+    /// The fields of an existing account; `hasHistory`: it has values or
+    /// trades.
     init(editing account: Account, residence: CountryCode? = nil, balanceValueCount: Int = 0,
-         locale: Locale = .current) {
+         hasHistory: Bool = false, locale: Locale = .current) {
         self.balanceValueCount = balanceValueCount
+        self.hasHistory = hasHistory
         kind = account.kind
         name = account.name
         institution = account.institution ?? ""
         currency = account.currency
         country = account.country
         opened = account.opened
-        wrapper = account.wrapper
-        isWrapperChosen = true
+        availableFromAge = account.availableFromAge
+        isAvailabilityChosen = true
         includedInNetWorth = account.includedInNetWorth
         includedInPlan = account.includedInPlan
         isPlanInclusionChosen = true
@@ -240,11 +167,16 @@ struct AccountForm: Hashable, Sendable {
 
     var isNew: Bool { original == nil }
 
+    /// Whether the currency can't be changed: the account has values or
+    /// trades, whose amounts are in its currency and would otherwise be
+    /// read in the new one ($10,000 becoming €10,000).
+    var locksCurrency: Bool { original != nil && hasHistory }
+
     /// Changes the kind, and with it the defaults not chosen by hand.
     mutating func setKind(_ kind: AccountKind) {
         self.kind = kind
-        if !isWrapperChosen { wrapper = AccountWrapperDefaults.wrapper(for: kind, residence: residence) }
-        if !isPlanInclusionChosen { includedInPlan = AccountWrapperDefaults.includedInPlan(kind) }
+        if !isAvailabilityChosen { availableFromAge = AccountDefaults.availableFromAge(for: kind) }
+        if !isPlanInclusionChosen { includedInPlan = AccountDefaults.includedInPlan(kind) }
     }
 
     // For pickers and toggles: setting these is choosing by hand.
@@ -255,21 +187,23 @@ struct AccountForm: Hashable, Sendable {
         set { setKind(newValue) }
     }
 
-    /// The wrapper; setting it stops it following the kind.
-    var chosenWrapper: WrapperID? {
-        get { wrapper }
+    /// Whether plans can draw on it only from an age (a pension fund);
+    /// setting it stops it following the kind. Turned on, it starts at 65.
+    var chosenIsLocked: Bool {
+        get { availableFromAge != nil }
         set {
-            wrapper = newValue
-            isWrapperChosen = true
+            availableFromAge = newValue ? (availableFromAge ?? 65) : nil
+            isAvailabilityChosen = true
         }
     }
 
-    /// The wrappers the picker offers (``AccountWrapperDefaults/choices(residence:registry:)``),
-    /// with the account's own first when no registered system knows it.
-    var wrapperChoices: [WrapperID] {
-        let choices = AccountWrapperDefaults.choices(residence: residence)
-        guard let wrapper, !choices.contains(wrapper) else { return choices }
-        return [wrapper] + choices
+    /// The age from which plans can draw on it (65 until set).
+    var chosenAvailableFromAge: Int {
+        get { availableFromAge ?? 65 }
+        set {
+            availableFromAge = newValue
+            isAvailabilityChosen = true
+        }
     }
 
     /// Whether plans include it; setting it stops it following the kind.
@@ -298,11 +232,12 @@ struct AccountForm: Hashable, Sendable {
         isNew && Self.offersTrades(kind)
     }
 
-    /// How the account records its values: as written for an edited
-    /// account (else its kind's default); for a new one, ``tracking`` where
-    /// it's offered, else the kind's default.
+    /// How the account records its values: an edited account's own mode,
+    /// which changing its kind doesn't change (see ``account(id:locale:)``);
+    /// for a new one, ``tracking`` where it's offered, else the kind's
+    /// default.
     var valuationMode: ValuationMode {
-        if let original { return original.valuation ?? kind.defaultValuationMode }
+        if let original { return original.valuationMode }
         return offersTracking ? tracking : kind.defaultValuationMode
     }
 
@@ -349,18 +284,21 @@ struct AccountForm: Hashable, Sendable {
 
     /// The account with these fields. An edited account keeps its ID and
     /// everything the form doesn't show (tags, successor, closing date,
-    /// valuation mode, wrapper details); a new one gets `id`. A pension
-    /// fund's joining date follows a moved opening date if it was the
-    /// opening date (``Account/moveOpening(to:)``).
+    /// valuation mode); a new one gets `id`.
+    ///
+    /// An edited account keeps how its values are read: its valuation mode,
+    /// written out when the new kind's default would differ (a current
+    /// account made a brokerage stays a balance), and its currency once it
+    /// has history (``locksCurrency``).
     func account(id: AccountID, locale: Locale = .current) -> Account {
         var account = original ?? Account(id: id, name: "", kind: kind, currency: currency, opened: opened)
-        if original == nil {
+        if original?.kind != kind {
             // Written only when it isn't the kind's default (brokerage defaults to holdings).
             account.valuation = valuationMode == kind.defaultValuationMode ? nil : valuationMode
         }
         account.name = trimmedName
         account.kind = kind
-        account.currency = currency
+        account.currency = locksCurrency ? account.currency : currency
         account.moveOpening(to: opened)
         let trimmedInstitution = institution.trimmingCharacters(in: .whitespacesAndNewlines)
         account.institution = trimmedInstitution.isEmpty ? nil : trimmedInstitution
@@ -368,18 +306,7 @@ struct AccountForm: Hashable, Sendable {
         let trimmedNotes = notes.trimmingCharacters(in: .whitespacesAndNewlines)
         account.notes = trimmedNotes.isEmpty ? nil : trimmedNotes
 
-        if let wrapper {
-            var tax = account.tax ?? AccountTax(wrapper: wrapper)
-            if tax.wrapper != wrapper {
-                tax = AccountTax(wrapper: wrapper)
-            }
-            if AccountWrapperDefaults.recordsJoiningDate(wrapper), tax.details["joined"] == nil {
-                tax.details["joined"] = .string(opened.description)
-            }
-            account.tax = tax
-        } else {
-            account.tax = nil
-        }
+        account.availableFromAge = availableFromAge
 
         if let original, original.includedInNetWorth == includedInNetWorth, original.includedInPlan == includedInPlan {
             account.includeIn = original.includeIn

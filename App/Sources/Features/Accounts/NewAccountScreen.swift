@@ -12,9 +12,8 @@ import Tracker
 ///    opening date, which becomes the first valuation. A brokerage, crypto
 ///    or metals account chooses how it's tracked: its trade history (the
 ///    default: the positions become opening trades) or monthly snapshots.
-/// 4. The tax wrapper, pre-selected from the kind and your residence (a
-///    pension fund in Italy is `it.pensionFund`), and whether it counts in
-///    net worth and plans.
+/// 4. Whether it counts in net worth and plans, and from what age plans can
+///    draw on it (a pension fund from 65 by default).
 ///
 /// ⌘N, the Accounts toolbar and onboarding present it in a NavigationStack.
 struct NewAccountScreen: View {
@@ -25,6 +24,8 @@ struct NewAccountScreen: View {
     @State private var form = AccountForm(residence: nil, currency: .eur, today: .today())
     @State private var opening = AccountOpeningForm()
     @State private var loaded = false
+    /// The fields as the sheet opened with them, to tell whether anything was typed.
+    @State private var initialForm: AccountForm?
     @State private var showsProblems = false
     @State private var showsNewInstrument = false
     @State private var errorMessage: String?
@@ -40,7 +41,7 @@ struct NewAccountScreen: View {
             }
             AccountDetailsFields(form: $form, showsKindPicker: false)
             openingSection
-            AccountTaxFields(form: $form)
+            AccountPlanFields(form: $form)
             if showsProblems {
                 AccountsProblemsSection(problems: problems)
             }
@@ -63,6 +64,7 @@ struct NewAccountScreen: View {
             }
         }
         .onAppear(perform: load)
+        .interactiveDismissDisabled(hasUnsavedChanges)
         .sheet(isPresented: $showsNewInstrument) {
             NavigationStack {
                 InstrumentEditor(instrumentID: nil, currency: form.currency, isSheet: true) { id in
@@ -163,12 +165,20 @@ struct NewAccountScreen: View {
         form.problems(locale: locale) + opening.problems(holdsPositions: form.holdsPositions, locale: locale)
     }
 
+    /// Whether anything was typed or chosen, so swiping the sheet down
+    /// doesn't lose it: only Cancel does.
+    private var hasUnsavedChanges: Bool {
+        guard let initialForm else { return false }
+        return form != initialForm || opening != AccountOpeningForm()
+    }
+
     // MARK: Actions
 
     private func load() {
         guard !loaded else { return }
         loaded = true
         form = AccountForm(residence: library.settings.taxResidence, currency: library.baseCurrency, today: .today())
+        initialForm = form
     }
 
     private func add() {
@@ -260,6 +270,7 @@ struct AccountDetailsFields: View {
                     Text(CurrencyChoices.name(of: code, locale: locale)).tag(code)
                 }
             }
+            .disabled(form.locksCurrency)
             Picker("Country", selection: $form.country) {
                 Text("None").tag(CountryCode?.none)
                 ForEach(countries, id: \.self) { code in
@@ -270,10 +281,17 @@ struct AccountDetailsFields: View {
         } header: {
             Text("Details")
         } footer: {
-            Text(form.isNew
-                ? "Set it to when you opened the account, to add its history. The country is the institution's."
-                : "The account counts from the day it opens. The country is the institution's.")
+            Text(footer)
         }
+    }
+
+    private var footer: String {
+        if form.isNew {
+            return "Set it to when you opened the account, to add its history. The country is the institution's."
+        }
+        let currency = form.locksCurrency
+            ? " The currency can't change: the account's values and trades are in \(form.currency.rawValue)." : ""
+        return "The account counts from the day it opens. The country is the institution's." + currency
     }
 
     private var kinds: [AccountKind] {
@@ -290,25 +308,27 @@ struct AccountDetailsFields: View {
     }
 }
 
-/// The tax wrapper, whether it counts in net worth and plans, and (for
-/// balance accounts) the asset mix.
-struct AccountTaxFields: View {
+/// Whether it counts in net worth and plans, from what age plans can draw
+/// on it, and (for balance accounts) the asset mix.
+struct AccountPlanFields: View {
     @Binding var form: AccountForm
 
     var body: some View {
         Section {
-            Picker("Tax wrapper", selection: $form.chosenWrapper) {
-                Text("None").tag(WrapperID?.none)
-                ForEach(wrappers, id: \.self) { wrapper in
-                    Text(AccountWrapperDefaults.name(of: wrapper)).tag(Optional(wrapper))
-                }
-            }
             Toggle("Include in net worth", isOn: $form.includedInNetWorth)
             Toggle("Include in plans", isOn: $form.chosenPlanInclusion)
+            if form.includedInPlan && !form.kind.isLiability {
+                Toggle("Available only from an age", isOn: $form.chosenIsLocked)
+                if form.chosenIsLocked {
+                    Stepper("Available from \(form.chosenAvailableFromAge)", value: $form.chosenAvailableFromAge,
+                            in: 18...90)
+                }
+            }
         } header: {
-            Text("Taxes and plans")
+            Text("Plans")
         } footer: {
-            Text("The wrapper decides how plans tax the account. Plans usually leave out your home and its mortgage.")
+            Text("Plans usually leave out your home and its mortgage. Money available only from an age, such as a "
+                + "pension fund, can't pay for the years before it.")
         }
         if form.takesAssetMix {
             Section {
@@ -319,10 +339,6 @@ struct AccountTaxFields: View {
                 Text(mixFooter)
             }
         }
-    }
-
-    private var wrappers: [WrapperID] {
-        form.wrapperChoices
     }
 
     private var mixFooter: String {

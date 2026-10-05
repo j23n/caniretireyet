@@ -11,9 +11,10 @@ enum AmountInput {
     ///   `1.234,56` and `1,234.56` are both 1234.56.
     /// - With one kind used more than once, it's grouping: `1.234.567`.
     /// - With one separator once, it's the decimal separator if it's the
-    ///   locale's, or if it isn't followed by exactly three digits:
-    ///   in Italian `0,421` is 0.421 and `1.234` is 1234; in English
-    ///   `1.234` is 1.234 and `1,234` is 1234.
+    ///   locale's, if it isn't followed by exactly three digits, or if
+    ///   nothing but zeros comes before it (a leading `0` is never a group):
+    ///   in Italian `0,421` is 0.421, `0.125` is 0.125 and `1.234` is 1234;
+    ///   in English `1.234` is 1.234, `0,125` is 0.125 and `1,234` is 1234.
     static func decimal(from text: String, locale: Locale = .current) -> Decimal? {
         let kept = text.replacingOccurrences(of: "\u{2212}", with: "-").filter { "0123456789.,-".contains($0) }
         guard kept.contains(where: \.isNumber) else { return nil }
@@ -27,7 +28,8 @@ enum AmountInput {
                 decimalIndex = last
             } else if separatorIndices.count == 1 {
                 let isLocaleDecimal = String(characters[last]) == (locale.decimalSeparator ?? ".")
-                if isLocaleDecimal || digitsAfter != 3 { decimalIndex = last }
+                let zeroBefore = characters[..<last].allSatisfy { $0 == "0" || $0 == "-" }
+                if isLocaleDecimal || digitsAfter != 3 || zeroBefore { decimalIndex = last }
             }
         }
         var normalized = ""
@@ -61,9 +63,8 @@ enum CurrencyChoices {
     }
 }
 
-/// Countries offered for tax residence and citizenship, most common first.
-/// Plans use a country's tax system when one is registered, else the
-/// generic flat-rate system (`YouSettings.taxRulesNote(for:)`).
+/// Countries offered for where you live and an account's country, most
+/// common first.
 enum CountryChoices {
     static let common: [CountryCode] = ["IT", "DE", "FR", "ES", "PT", "NL", "BE", "AT", "IE", "CH", "GB", "US"]
 

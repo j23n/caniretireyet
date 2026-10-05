@@ -35,14 +35,15 @@ public struct Baseline: Hashable, Sendable, KnownKeysProviding {
     public var plan: JSONValue
     /// Where the projection started.
     public var start: BaselineStart
-    /// The tax parameter year used per tax system, e.g. `{ "it": 2026 }`.
-    public var taxParameters: [TaxSystemID: Int]
+    /// The tax parameter year used per tax system, e.g. `{ "it": 2026 }`, in
+    /// records made before plans took their tax rates by hand; empty since.
+    public var taxParameters: [String: Int]
     /// One row per year up to the plan's end age.
     public var years: [BaselineYear]
 
     public init(
         created: CalendarDate, kind: BaselineKind, label: String? = nil, engine: String, accounts: [AccountID],
-        headline: HeadlineSummary, plan: JSONValue, start: BaselineStart, taxParameters: [TaxSystemID: Int] = [:],
+        headline: HeadlineSummary, plan: JSONValue, start: BaselineStart, taxParameters: [String: Int] = [:],
         years: [BaselineYear]
     ) {
         self.created = created
@@ -85,7 +86,7 @@ extension Baseline: Codable {
         headline = try c.decode(HeadlineSummary.self, forKey: .headline)
         plan = try c.decode(JSONValue.self, forKey: .plan)
         start = try c.decode(BaselineStart.self, forKey: .start)
-        taxParameters = try c.decodeIfPresent([TaxSystemID: Int].self, forKey: .taxParameters) ?? [:]
+        taxParameters = try c.decodeIfPresent([String: Int].self, forKey: .taxParameters) ?? [:]
         years = try c.decode([BaselineYear].self, forKey: .years)
     }
 

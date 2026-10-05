@@ -12,6 +12,7 @@ import SwiftUI
 /// to this device. Present it inside a `NavigationStack`.
 struct SettingsScreen: View {
     @Environment(LibraryStore.self) private var library
+    @State private var csvExport: LibraryCSVExport?
 
     init() {}
 
@@ -21,6 +22,10 @@ struct SettingsScreen: View {
                 LibraryLocationRows()
                 NavigationLink("Sync & backups") { SyncScreen() }
                 NavigationLink("About the library's files") { LibraryFilesHelp() }
+                Button("Export as CSV…") {
+                    csvExport = LibraryCSVExport(library: library.library, asOf: library.asOfDate)
+                }
+                .disabled(library.hasNoAccounts)
             } header: {
                 Text("Library")
             } footer: {
@@ -30,13 +35,18 @@ struct SettingsScreen: View {
             PricesSection()
             ReminderSection()
             PrivacySection()
-            Section("About") {
+            Section {
                 LabeledContent("Version", value: Self.version)
                 LabeledContent("Library format", value: "\(library.settings.schemaVersion)")
+            } header: {
+                Text("About")
+            } footer: {
+                Text(AboutText.about)
             }
         }
         .formStyle(.grouped)
         .navigationTitle("Settings")
+        .sheet(item: $csvExport) { LibraryCSVExportSheet(export: $0) }
     }
 
     private var syncSummary: String {
@@ -55,12 +65,12 @@ struct SettingsScreen: View {
     }
 }
 
-/// Name, birth date, base currency, tax residence and inflation index, saved
+/// Name, birth date, base currency, country and inflation index, saved
 /// in `library.json`.
 ///
 /// Each control writes its own field from its binding's setter, only when
 /// you change it (`YouSettings`): opening Settings writes nothing, and a
-/// birth date or tax residence that isn't set stays "Not set".
+/// birth date or country that isn't set stays "Not set".
 private struct YouSection: View {
     @Environment(LibraryStore.self) private var library
     @Environment(\.locale) private var locale
@@ -85,13 +95,12 @@ private struct YouSection: View {
                         .foregroundStyle(Palette.secondaryInk)
                 }
             }
-            CitizenshipRows(settings: settings) { change in write(change) }
             Picker("Base currency", selection: currencyBinding) {
                 ForEach(options(CurrencyChoices.common, current: settings.baseCurrency), id: \.self) { code in
                     Text(CurrencyChoices.name(of: code, locale: locale)).tag(code)
                 }
             }
-            Picker("Tax residence", selection: residenceBinding) {
+            Picker("Country", selection: residenceBinding) {
                 Text("Not set").tag(CountryCode?.none)
                 ForEach(options(CountryChoices.common, current: settings.taxResidence), id: \.self) { code in
                     Text(CountryChoices.name(of: code, locale: locale)).tag(Optional(code))
@@ -111,8 +120,8 @@ private struct YouSection: View {
         } header: {
             Text("You")
         } footer: {
-            Text("Plans use your birth date for ages. The tax residence is the default for new plans. "
-                + YouSettings.citizenshipExplanation + " " + YouSettings.inflationExplanation)
+            Text("Plans use your birth date for ages. The country you live in is the default for new accounts. "
+                + YouSettings.inflationExplanation)
         }
         .disabled(!library.canEdit)
         .onDisappear(perform: saveName)
@@ -208,13 +217,17 @@ private struct PricesSection: View {
     @State private var coinGeckoKey = ""
     @State private var keySaved = false
 
+    private static let coinGecko = URL(string: "https://www.coingecko.com")!
+
     var body: some View {
         @Bindable var preferences = preferences
         Section {
             Toggle("Fetch prices when a check-in opens", isOn: $preferences.fetchPricesOnCheckIn)
-            LabeledContent("ETFs and stocks", value: "Yahoo Finance")
-            LabeledContent("Crypto", value: "CoinGecko")
-            LabeledContent("Gold and silver", value: "gold-api.com")
+            LabeledContent("ETFs and stocks", value: InstrumentForm.name(of: PriceProvider.yahoo))
+            LabeledContent("Crypto", value: InstrumentForm.name(of: PriceProvider.coingecko))
+            // CoinGecko's free and Demo plans ask for this attribution, linked to its site.
+            Link("Powered by CoinGecko", destination: Self.coinGecko)
+            LabeledContent("Gold and silver", value: InstrumentForm.name(of: PriceProvider.goldAPI))
             LabeledContent("Exchange rates", value: "ECB, via Frankfurter")
             LabeledContent("Inflation", value: "Eurostat HICP")
             #if canImport(Security)
@@ -227,7 +240,8 @@ private struct PricesSection: View {
         } header: {
             Text("Prices")
         } footer: {
-            Text("Each instrument names its own price source. Only symbols and dates leave this device; any price can be typed in by hand.")
+            Text("Each instrument names its own price source. Only symbols and dates leave this device; any price can be typed in by hand. "
+                + "Yahoo Finance has no official interface for apps, so its prices may stop working without notice.")
         }
         #if canImport(Security)
         .onAppear { coinGeckoKey = KeychainCredentials.read(.coingecko) ?? "" }
@@ -336,8 +350,18 @@ private struct PrivacySection: View {
         } header: {
             Text("Privacy")
         } footer: {
-            Text("Hidden amounts show as •••••; charts keep their shape. Widgets and the app switcher hide amounts while the device is locked.")
+            Text(Self.footer)
         }
+    }
+
+    /// What each toggle does; covering the app is only offered on iPhone and iPad.
+    private static var footer: String {
+        #if os(iOS)
+        return "Hidden amounts show as •••••; charts keep their shape. Covering the app hides the whole screen "
+            + "while the app isn't active, as in the app switcher."
+        #else
+        return "Hidden amounts show as •••••; charts keep their shape."
+        #endif
     }
 }
 

@@ -1,7 +1,6 @@
 import Foundation
 import Model
 @testable import Planner
-import TaxKit
 import Testing
 
 /// Properties that hold for any plan (PLANNER.md, "Testing the engine").
@@ -11,22 +10,8 @@ struct InvariantTests {
     let library = Sample.library(birth: "1980-06-15", on: "2025-12-31", [
         SampleAccount(id: "broker", mix: [.equity: d("0.8"), .bonds: d("0.2")], balance: 180_000),
         SampleAccount(id: "cash", kind: .cash, mix: nil, balance: 20_000),
-        SampleAccount(id: "fund", kind: .pensionFund, wrapper: "flat.pension", balance: 30_000),
+        SampleAccount(id: "fund", kind: .pensionFund, balance: 30_000, availableFromAge: 60),
     ])
-
-    var system: FlatTaxSystem {
-        var system = FlatTaxSystem()
-        system.incomeRate = 0.25
-        system.contributionRate = 0.09
-        system.gainsRate = 0.26
-        system.interestRate = 0.26
-        system.wealthRate = 0.002
-        system.payoutRate = 0.15
-        system.pensionCreditRate = 0.33
-        system.tfrRate = 0.069
-        system.growthTaxRate = 0.2
-        return system
-    }
 
     let options = PlannerOptions(maxRetirementAge: 62, solveSustainableSpending: false)
 
@@ -34,19 +19,19 @@ struct InvariantTests {
               seed: UInt64 = 11) -> PlanDocument {
         var plan = Sample.plan(
             retire: .age(55), endAge: 90, working: working, retired: "38000", volatility: volatility,
-            work: [Sample.employee(from: "2026-01-01", gross: "75000", growth: "0.01")],
-            pensions: [PlanPension(scheme: "flat.state", options: ["montante": "60000", "contributionYears": "10"]),
-                       PlanPension(scheme: .fixed, name: "Abroad", fromAge: 67, perYear: d("3000"))],
+            equityYield: "0.02", work: [Sample.work(from: "2026-01-01", net: "52000", growth: "0.01")],
+            pensions: [PlanPension(name: "State pension", fromAge: 67, perYear: d("9000")),
+                       PlanPension(name: "Abroad", fromAge: 67, perYear: d("3000"))],
             contributions: [PlanContribution(account: "fund", perYear: d("3000"))],
             events: [PlanEvent(name: "Car", timing: .year(2032), amount: d("-20000"))],
-            cashBuffer: "10000", unrealizedGainShare: "0.2", runs: runs, seed: seed)
+            investmentRate: "0.26", wealthRate: "0.002", unrealizedGainShare: "0.2", runs: runs, seed: seed)
         plan.assumptions.returns[.bonds] = ReturnAssumption(real: d("0.01"), volatility: volatility == "0" ? 0 : d("0.06"))
         plan.assumptions.returns[.cash] = ReturnAssumption(real: 0, volatility: volatility == "0" ? 0 : d("0.01"))
         return plan
     }
 
     @Test func monteCarloWithZeroVolatilityEqualsTheDeterministicRun() async throws {
-        let result = try await Sample.run(plan(volatility: "0"), library, system: system, options: options)
+        let result = try await Sample.run(plan(volatility: "0"), library, options: options)
 
         #expect(result.fan.count == 2070 - 2026 + 1)
         for year in result.fan {
@@ -58,8 +43,8 @@ struct InvariantTests {
     }
 
     @Test func moreSavingsNeverLowersTheChanceOfSuccess() async throws {
-        let spendsMore = try await Sample.run(plan(working: "45000"), library, system: system, options: options)
-        let savesMore = try await Sample.run(plan(working: "40000"), library, system: system, options: options)
+        let spendsMore = try await Sample.run(plan(working: "45000"), library, options: options)
+        let savesMore = try await Sample.run(plan(working: "40000"), library, options: options)
 
         #expect(spendsMore.successCurve.map(\.age) == savesMore.successCurve.map(\.age))
         for (a, b) in zip(spendsMore.successCurve, savesMore.successCurve) {
@@ -74,18 +59,18 @@ struct InvariantTests {
     @Test func workingLongerNeverLowersTheChanceOfSuccess() async throws {
         var plan = plan()
         plan.pensions = []
-        let result = try await Sample.run(plan, library, system: system, options: options)
+        let result = try await Sample.run(plan, library, options: options)
         for (younger, older) in zip(result.successCurve, result.successCurve.dropFirst()) {
             #expect(older.success >= younger.success, "at \(older.age)")
         }
     }
 
     @Test func theSameSeedGivesTheSameResults() async throws {
-        let first = try await Sample.run(plan(), library, system: system, options: options)
-        let second = try await Sample.run(plan(), library, system: system, options: options)
+        let first = try await Sample.run(plan(), library, options: options)
+        let second = try await Sample.run(plan(), library, options: options)
         #expect(first == second)
 
-        let other = try await Sample.run(plan(seed: 12), library, system: system, options: options)
+        let other = try await Sample.run(plan(seed: 12), library, options: options)
         #expect(other.fan != first.fan)
         #expect(other.planHash != first.planHash)
     }
@@ -93,8 +78,8 @@ struct InvariantTests {
     @Test func fastRunsAreTheFirstRunsOfTheFullSet() async throws {
         var fast = options
         fast.mode = .fast(runs: 60)
-        let dragging = try await Sample.run(plan(runs: 2000), library, system: system, options: fast)
-        let small = try await Sample.run(plan(runs: 60), library, system: system, options: options)
+        let dragging = try await Sample.run(plan(runs: 2000), library, options: fast)
+        let small = try await Sample.run(plan(runs: 60), library, options: options)
 
         #expect(dragging.settings.runs == 60)
         #expect(dragging.successCurve == small.successCurve)
@@ -103,7 +88,7 @@ struct InvariantTests {
     }
 
     @Test func percentilesAreOrdered() async throws {
-        let result = try await Sample.run(plan(working: "30000"), library, system: system, options: options)
+        let result = try await Sample.run(plan(working: "30000"), library, options: options)
         for year in result.fan {
             #expect(year.p10 <= year.p25 && year.p25 <= year.p50 && year.p50 <= year.p75 && year.p75 <= year.p90)
         }

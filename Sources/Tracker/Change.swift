@@ -95,7 +95,7 @@ public struct ChangeReport: Hashable, Sendable {
 
 extension Valuator {
     /// How the accounts in `scope` changed from `from` to `to`, split into
-    /// market, new money and other (FILE_FORMAT.md, "How values are computed",
+    /// market, new money and other (docs/schema/README.md, "How values are computed",
     /// and PROGRESS.md):
     ///
     /// - **Flow known** (every valuation in the period has a `flow`, or there

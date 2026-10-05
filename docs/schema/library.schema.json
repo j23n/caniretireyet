@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "library.json",
+  "description": "The library's settings and format version. Settings that belong to one device (reminders, UI state) are stored on that device, not here.",
+  "$comment": "Like every library file: keys this version doesn't know are kept when the app rewrites the file.",
+  "type": "object",
+  "required": ["schemaVersion", "baseCurrency"],
+  "properties": {
+    "schemaVersion": {
+      "description": "The format version, 3 at present. Adding optional fields keeps it; anything else is a new version, with a migration in the app. An app older than the library opens it read-only.",
+      "type": "integer",
+      "minimum": 1
+    },
+    "baseCurrency": {
+      "description": "The currency net worth is reported in, and plans run in.",
+      "$ref": "common.schema.json#/$defs/currency"
+    },
+    "person": {
+      "description": "Who the library belongs to.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "birthDate": { "description": "Plans need it for ages.", "$ref": "common.schema.json#/$defs/date" }
+      }
+    },
+    "taxResidence": {
+      "description": "The country you live in. It picks the default inflation index (inflationIndex).",
+      "$ref": "common.schema.json#/$defs/country"
+    },
+    "mainPlan": {
+      "description": "The plan shown on the Overview. It's re-run at every check-in, and a baseline of it is saved at the first check-in of each year.",
+      "$ref": "common.schema.json#/$defs/slug"
+    },
+    "inflationIndex": {
+      "description": "The consumer price index amounts are put in today's money with and real returns computed with: an index of the history files' indices, hicp-<country> (a country's harmonised index, hicp-de, hicp-ch) or hicp-ea (the euro area's). Left out, it's worked out in this order: the HICP of taxResidence, when the country has one; else, of the indices in the base currency the library has values of, the one with the most; else the HICP of the base currency (the euro area's for EUR, Switzerland's for CHF); else none, and amounts stay in the money of their dates. Eurostat publishes an HICP for every EU country, Iceland, Norway, Switzerland, Albania, Montenegro, North Macedonia, Serbia and Türkiye (ISO codes: hicp-gr for Greece). Settings › You and retire settings --inflation-index set it; Automatic leaves it out.",
+      "type": "string",
+      "pattern": "^[a-z0-9-]+$"
+    }
+  },
+  "examples": [
+    {
+      "baseCurrency": "EUR",
+      "mainPlan": "base",
+      "person": { "birthDate": "1988-04-12", "name": "Me" },
+      "schemaVersion": 3,
+      "taxResidence": "IT"
+    }
+  ]
+}

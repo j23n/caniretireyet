@@ -1,8 +1,8 @@
 import Foundation
 import Model
 
-/// The made-up example library shipped with the tests, in the FILE_FORMAT.md
-/// layout (`Resources/ExampleLibrary/`). All names and numbers are fake.
+/// The made-up example library shipped with the tests, in the library
+/// format of docs/schema (`Resources/ExampleLibrary/`). All names and numbers are fake.
 ///
 /// Contents: 10 accounts (current, savings, `directa`, a brokerage that
 /// records trades, crypto wallet, gold coins, pension fund, TFR, a home and
