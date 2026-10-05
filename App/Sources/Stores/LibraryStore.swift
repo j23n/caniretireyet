@@ -16,7 +16,7 @@ import Tracker
 ///   ``createLibrary(in:settings:)``.
 /// - **Edit.** ``update(_:)`` changes ``library`` in memory first; the files
 ///   that changed are then written in the background, one save at a time.
-///   Each write is merged with the file on disk (FILE_FORMAT.md, "Saving"),
+///   Each write is merged with the file on disk (PLAN.md, "Merging, saving and undo"),
 ///   and what it merged in from disk is reloaded.
 /// - **Watch.** Files changed by the other device or a text editor are
 ///   reloaded, sync conflicts are merged (``mergedConflicts``), and the UI
@@ -83,7 +83,7 @@ final class LibraryStore {
     private(set) var lastSyncedAt: Date?
     /// The last thing that went wrong reading or writing the folder, for a banner.
     private(set) var lastError: String?
-    /// Problems in individual files, by path (FILE_FORMAT.md, "Reading hand-edited files").
+    /// Problems in individual files, by path (docs/schema/README.md, "Reading hand-edited files").
     private(set) var loadIssues: [LoadIssue] = []
     /// Sync conflicts merged since launch, newest first.
     private(set) var mergedConflicts: [ConflictResolution] = []

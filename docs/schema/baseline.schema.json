@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "projections/<plan-id>/baselines/<id>.json",
-  "description": "A saved projection (PROGRESS.md, Baselines): the outputs of a plan's run as you saw them, which recalculating later with newer code or data wouldn't give. Saved automatically at the first check-in of each year for the main plan, or by hand. The file name is its ID, normally the date it was created; a second one on the same day gets -2. Values are in money of the start date, in the library's base currency.",
+  "description": "A saved projection (PROGRESS.md, Baselines): the outputs of a plan's run as you saw them, which recalculating later with newer code or data wouldn't give. Saved automatically at the first check-in of each year for the main plan, or by hand. The file name is its ID, normally the date it was created; a second one on the same day gets -2. Values are in money of the start date, in the library's base currency. These files aren't deleted when a plan changes or is deleted: they're a record of the past.",
   "type": "object",
   "required": ["created", "kind", "engine", "headline", "plan", "start", "years"],
   "properties": {
@@ -11,23 +11,14 @@
       "$comment": "Open enum.",
       "enum": ["yearly", "manual"]
     },
-    "label": {
-      "description": "A name given when saved by hand, e.g. \"Before part-time\".",
-      "type": "string"
-    },
-    "engine": {
-      "description": "The planner's version that made it, e.g. 2.0.0.",
-      "type": "string"
-    },
+    "label": { "description": "A name given when saved by hand, e.g. \"Before part-time\".", "type": "string" },
+    "engine": { "description": "The planner's version that made it, e.g. 2.0.0.", "type": "string" },
     "accounts": {
       "description": "The accounts the plan counted, so your actual line can be drawn over the same accounts.",
       "type": "array",
       "items": { "$ref": "common.schema.json#/$defs/slug" }
     },
-    "headline": {
-      "description": "The answer at the time.",
-      "$ref": "headlines.schema.json#/$defs/summary"
-    },
+    "headline": { "description": "The answer at the time.", "$ref": "headlines.schema.json#/$defs/summary" },
     "plan": {
       "description": "A full copy of the plan as it was.",
       "$comment": "As written at the time, in the plan format of that version: not checked against today's plan schema.",
@@ -61,10 +52,7 @@
           "p50": { "$ref": "common.schema.json#/$defs/decimal" },
           "p75": { "$ref": "common.schema.json#/$defs/decimal" },
           "p90": { "$ref": "common.schema.json#/$defs/decimal" },
-          "savings": {
-            "description": "The savings the plan expected that year.",
-            "$ref": "common.schema.json#/$defs/decimal"
-          }
+          "savings": { "description": "The savings the plan expected that year.", "$ref": "common.schema.json#/$defs/decimal" }
         }
       }
     }

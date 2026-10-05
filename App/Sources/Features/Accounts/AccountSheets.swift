@@ -417,8 +417,8 @@ struct CloseAccountSheet: View {
 
 // MARK: - Edit
 
-/// Renaming and re-categorising an account (FILE_FORMAT.md, "Account
-/// lifecycle"): its history refers to its ID, which never changes.
+/// Renaming and re-categorising an account (docs/schema,
+/// account.schema.json): its history refers to its ID, which never changes.
 struct EditAccountSheet: View {
     let accountID: AccountID
 

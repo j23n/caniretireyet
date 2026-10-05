@@ -9,10 +9,7 @@
       "description": "What the backup was taken for, as in the folder name: e.g. import, undo-import, prices, conflict, unreadable, or v2 for a migration from version 2.",
       "type": "string"
     },
-    "created": {
-      "description": "When it was taken, ISO 8601 to the second, e.g. 2026-09-30T14:25:01Z.",
-      "type": "string"
-    },
+    "created": { "description": "When it was taken, ISO 8601 to the second, e.g. 2026-09-30T14:25:01Z.", "type": "string" },
     "files": {
       "description": "The files copied, as paths relative to the library folder.",
       "type": "array",
@@ -32,14 +29,8 @@
       "type": "object",
       "required": ["files"],
       "properties": {
-        "files": {
-          "type": "array",
-          "items": { "type": "string" }
-        },
-        "absentFiles": {
-          "type": "array",
-          "items": { "type": "string" }
-        }
+        "files": { "type": "array", "items": { "type": "string" } },
+        "absentFiles": { "type": "array", "items": { "type": "string" } }
       }
     }
   }

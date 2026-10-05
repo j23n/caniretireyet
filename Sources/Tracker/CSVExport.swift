@@ -2,7 +2,7 @@ import Foundation
 import Model
 
 /// The library as CSV tables, to open in a spreadsheet or take to another
-/// app (FILE_FORMAT.md, "CSV export"): what's recorded, record by record,
+/// app (docs/schema/README.md, "CSV export"): what's recorded, record by record,
 /// and the values worked out from it at every month end.
 ///
 /// Every file is UTF-8, comma-separated with a header row and CRLF line

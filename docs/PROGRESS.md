@@ -26,7 +26,7 @@ One chart from your first check-in to the end of the plan:
 - **Projection:** from today, the median as a dashed line with the 10th–90th percentile band.
 - **Markers:** the retirement age, pension starts, and when locked money (such as the pension fund) becomes accessible.
 - **Scope:** next to the projection, the history is *plan assets* (only the accounts the plan counts; your home, for example, is excluded), so it meets the projection at today. Without the projection, the Overview's chart is *net worth* (everything) ([UI.md](UI.md#overview)).
-- **Units:** the projection is in today's money, so by default the history is shown in today's money too, adjusted with actual inflation (the library's index: [FILE_FORMAT.md](FILE_FORMAT.md#libraryjson), `inflationIndex`). A toggle shows the history in the money of the time instead.
+- **Units:** the projection is in today's money, so by default the history is shown in today's money too, adjusted with actual inflation (the library's index: [library.schema.json](schema/library.schema.json), `inflationIndex`). A toggle shows the history in the money of the time instead.
 
 ### The answer over time (M2)
 
@@ -150,4 +150,4 @@ Two kinds of data are needed for the comparisons above.
 - **Monthly history files:** a list of `indices` (consumer price index values).
 - **A new `projections/` folder:** baselines and headlines. They are the one deliberate exception to "only inputs are stored", because they record what you expected at the time.
 
-Details are in [FILE_FORMAT.md](FILE_FORMAT.md).
+Details are in the [schemas](schema/).

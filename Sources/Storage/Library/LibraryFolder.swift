@@ -1,7 +1,7 @@
 import Foundation
 import Model
 
-/// A library folder on disk (FILE_FORMAT.md): loads it into a `Library`,
+/// A library folder on disk (docs/schema): loads it into a `Library`,
 /// writes back only what changed, and keeps backups.
 ///
 /// It holds no state besides where the folder is and how to reach it, so it

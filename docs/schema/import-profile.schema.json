@@ -5,10 +5,7 @@
   "type": "object",
   "required": ["id", "name", "layout"],
   "properties": {
-    "id": {
-      "description": "The same as the file name.",
-      "$ref": "common.schema.json#/$defs/slug"
-    },
+    "id": { "description": "The same as the file name.", "$ref": "common.schema.json#/$defs/slug" },
     "name": { "type": "string" },
     "file": {
       "description": "How to read the file's text and rows. Left out when everything is detected.",
@@ -19,10 +16,7 @@
           "$comment": "Open enum.",
           "enum": ["utf-8", "utf-16", "windows-1252", "iso-8859-1"]
         },
-        "delimiter": {
-          "description": "The field delimiter: , ; | or a tab. Left out, it's detected.",
-          "type": "string"
-        },
+        "delimiter": { "description": "The field delimiter: , ; | or a tab. Left out, it's detected.", "type": "string" },
         "headerRow": {
           "description": "The 1-based row holding the headers; rows above it are skipped. 0: the file has none. Left out, it's detected.",
           "type": "integer",
@@ -44,10 +38,7 @@
       "$comment": "Open enum: a profile with a layout this version doesn't know (such as ledger, from an earlier version that imported journals) is kept as it is but not offered.",
       "enum": ["wide", "long", "trades"]
     },
-    "dateColumn": {
-      "description": "Wide layout: the header of the column holding the date.",
-      "type": "string"
-    },
+    "dateColumn": { "description": "Wide layout: the header of the column holding the date.", "type": "string" },
     "target": {
       "description": "Long layout: what each row becomes. A value column can set its own target, so one row can hold a quantity, a price and a purchase cost.",
       "$ref": "#/$defs/target"
@@ -67,22 +58,13 @@
         }
       }
     },
-    "columns": {
-      "type": "array",
-      "items": { "$ref": "#/$defs/column" }
-    },
+    "columns": { "type": "array", "items": { "$ref": "#/$defs/column" } },
     "matches": {
       "description": "Names found in files matched to IDs, remembered from earlier imports, e.g. both \"Fineco\" and \"Conto Fineco\" → conto-fineco.",
       "type": "object",
       "properties": {
-        "accounts": {
-          "type": "object",
-          "additionalProperties": { "$ref": "common.schema.json#/$defs/slug" }
-        },
-        "instruments": {
-          "type": "object",
-          "additionalProperties": { "$ref": "common.schema.json#/$defs/slug" }
-        }
+        "accounts": { "type": "object", "additionalProperties": { "$ref": "common.schema.json#/$defs/slug" } },
+        "instruments": { "type": "object", "additionalProperties": { "$ref": "common.schema.json#/$defs/slug" } }
       }
     },
     "onConflict": {
@@ -94,10 +76,42 @@
       "description": "Trades layout: the file's type words, as written, mapped to trade types, or ignore to leave their rows out. Matched exactly, then ignoring case and accents. For a word it doesn't have, the usual Italian and English words apply (IMPORT.md, Types).",
       "type": "object",
       "additionalProperties": {
-        "enum": ["buy", "sell", "dividend", "interest", "fee", "tax", "deposit", "withdrawal", "transferIn", "transferOut", "split", "opening", "ignore"]
+        "enum": [
+          "buy",
+          "sell",
+          "dividend",
+          "interest",
+          "fee",
+          "tax",
+          "deposit",
+          "withdrawal",
+          "transferIn",
+          "transferOut",
+          "split",
+          "opening",
+          "ignore"
+        ]
       }
     }
   },
+  "examples": [
+    {
+      "columns": [
+        { "account": "conto-fineco", "header": "Conto Fineco", "target": "balance" },
+        { "account": "directa", "header": "Directa", "target": "balance" },
+        { "account": "ledger-wallet", "header": "BTC (qtà)", "instrument": "btc", "target": "quantity" },
+        { "account": "gold-coins", "header": "Oro", "target": "balance" },
+        { "header": "Note", "target": "ignore" }
+      ],
+      "dateColumn": "Data",
+      "defaults": { "date": { "pattern": "dd/MM/yyyy" }, "empty": "skip", "number": { "decimal": ",", "thousands": "." } },
+      "file": { "delimiter": ";", "encoding": "windows-1252", "headerRow": 1 },
+      "id": "net-worth-sheet",
+      "layout": "wide",
+      "name": "My net worth spreadsheet",
+      "onConflict": "ask"
+    }
+  ],
   "$defs": {
     "target": {
       "description": "balance: a valuation's balance. quantity: a position's quantity. costBasis: a position's purchase cost. cash: a valuation's cash. price: a price record. fx: an FX record. ignore: nothing.",
@@ -108,10 +122,7 @@
       "description": "One column of the file. Wide layout: a target, with what it needs from account, instrument and currency here, from constants, or from the header (the column \"Directa\" means account directa). Long and trades layouts: a field.",
       "type": "object",
       "properties": {
-        "header": {
-          "description": "The column's header text.",
-          "type": "string"
-        },
+        "header": { "description": "The column's header text.", "type": "string" },
         "index": {
           "description": "The 1-based column position, used only when the file has no header.",
           "type": "integer",
@@ -121,7 +132,26 @@
         "field": {
           "description": "Long layout: date, account, instrument, value, currency, base, quote or ignore. Trades layout: date, type (mapped by tradeTypes), account, instrument (several columns can hold it: a name, a ticker, an ISIN, tried in order), quantity, price, currency (the price's), amount (net, in the account's currency), gross (before fees and tax), fees, tax, ratio, note, settlement or ignore.",
           "$comment": "Open enum.",
-          "enum": ["date", "account", "instrument", "value", "currency", "base", "quote", "ignore", "type", "quantity", "price", "amount", "gross", "fees", "tax", "ratio", "note", "settlement"]
+          "enum": [
+            "date",
+            "account",
+            "instrument",
+            "value",
+            "currency",
+            "base",
+            "quote",
+            "ignore",
+            "type",
+            "quantity",
+            "price",
+            "amount",
+            "gross",
+            "fees",
+            "tax",
+            "ratio",
+            "note",
+            "settlement"
+          ]
         },
         "account": { "$ref": "common.schema.json#/$defs/slug" },
         "instrument": { "$ref": "common.schema.json#/$defs/slug" },
@@ -134,10 +164,7 @@
           "$ref": "common.schema.json#/$defs/currency"
         },
         "quote": { "$ref": "common.schema.json#/$defs/currency" },
-        "format": {
-          "description": "Overrides of the profile's defaults for this column.",
-          "$ref": "#/$defs/format"
-        }
+        "format": { "description": "Overrides of the profile's defaults for this column.", "$ref": "#/$defs/format" }
       }
     },
     "format": {
@@ -164,24 +191,15 @@
         "number": {
           "type": "object",
           "properties": {
-            "decimal": {
-              "description": "The decimal separator: . or ,",
-              "type": "string"
-            },
+            "decimal": { "description": "The decimal separator: . or ,", "type": "string" },
             "thousands": {
               "description": "The thousands separator: . , ' a space, a non-breaking space, or \"\" for none.",
               "type": "string"
             },
-            "percent": {
-              "description": "Whether values are percentages (12% → 0.12).",
-              "type": "boolean"
-            }
+            "percent": { "description": "Whether values are percentages (12% → 0.12).", "type": "boolean" }
           }
         },
-        "empty": {
-          "description": "What an empty cell means: skip (the default, no value) or zero.",
-          "enum": ["skip", "zero"]
-        },
+        "empty": { "description": "What an empty cell means: skip (the default, no value) or zero.", "enum": ["skip", "zero"] },
         "liabilitySign": {
           "description": "How balances of debt accounts are signed in the file. auto (the default): a positive amount is a debt and is stored negative, unless its column writes any debt as a negative amount, when the column's signs are kept. asWritten: keep the file's sign.",
           "enum": ["auto", "asWritten"]

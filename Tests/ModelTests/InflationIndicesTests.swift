@@ -3,8 +3,8 @@ import Model
 import Testing
 import TestSupport
 
-/// Which inflation index a library uses (FILE_FORMAT.md, "library.json":
-/// `inflationIndex`), and which one goes with a currency. All made up.
+/// Which inflation index a library uses (docs/schema,
+/// library.schema.json: `inflationIndex`), and which one goes with a currency. All made up.
 struct InflationIndicesTests {
     private func library(currency: CurrencyCode, residence: CountryCode? = nil, index: IndexID? = nil) -> Library {
         var library = Library()

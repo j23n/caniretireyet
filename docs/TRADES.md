@@ -1,6 +1,6 @@
 # Trades: holdings from buys and sells
 
-Most accounts are recorded as point-in-time valuations: a balance, or quantities and cash at each check-in ([FILE_FORMAT.md](FILE_FORMAT.md)). An investment account can instead record its **trades**: "I bought 10 VWCE at 102.30 on 12 March 2019". Its holdings, purchase cost, cash and realised gains are then worked out from them, and its check-ins need nothing typed: they record the cash the trades give ([Check-ins](#check-ins)).
+Most accounts are recorded as point-in-time valuations: a balance, or quantities and cash at each check-in ([schema/README.md](schema/README.md)). An investment account can instead record its **trades**: "I bought 10 VWCE at 102.30 on 12 March 2019". Its holdings, purchase cost, cash and realised gains are then worked out from them, and its check-ins need nothing typed: they record the cash the trades give ([Check-ins](#check-ins)).
 
 This document describes the file format, the maths and the API for such accounts. The code is in `Model` (the records), `Storage` (reading, merging, checks) and `Tracker` (`TradeLedger`, the `Valuator`, flows, conversion, editing).
 
@@ -54,7 +54,7 @@ From the example library (`history/2026/2026-08.json` and `2026-07.json`):
 }
 ```
 
-(Made up. A trade with many fields is wider than a line, so it's spread out like any other record: [Canonical layout](FILE_FORMAT.md#canonical-layout).)
+(Made up. A trade with many fields is wider than a line, so it's spread out like any other record: [Canonical layout](schema/README.md#canonical-layout).)
 
 Every field, and which ones each type uses: [history-month.schema.json](schema/history-month.schema.json), `trade`. In short: `quantity` is always positive (the type says the direction); `price` is per unit in `currency` (the instrument's by default); `amount` is the **cash effect** on the account, in the **account's** currency, signed (negative for a buy, a fee, a tax or a withdrawal) and **net of `fees` and `tax`**, and when written it wins over what it would be computed as (it's what the broker charged, at the broker's FX rate). A type this version doesn't know is kept and pointed out; only its `amount` counts, in cash, and it doesn't change holdings.
 
@@ -73,7 +73,7 @@ Every field, and which ones each type uses: [history-month.schema.json](schema/h
 | `split` | `instrument`, `ratio` | 0 |
 | `opening` | `instrument`, `quantity`, `cost`: a holding on the date the account's history starts | 0 |
 
-quantity × price is converted into the account's currency at the latest FX rate on or before the trade date ([FILE_FORMAT.md](FILE_FORMAT.md), FX direction), and computed amounts are rounded to cents. A trade with `"settlement": "external"` has a cash effect of 0: its amount, worked out the same way, was paid or received outside the account.
+quantity × price is converted into the account's currency at the latest FX rate on or before the trade date ([history-month.schema.json](schema/history-month.schema.json), `fx`: 1 base = rate × quote), and computed amounts are rounded to cents. A trade with `"settlement": "external"` has a cash effect of 0: its amount, worked out the same way, was paid or received outside the account.
 
 ### Paid from outside the account
 
@@ -218,7 +218,7 @@ In Tracker (`Valuator.tradeIssues(for:)`, `TradeIssue`), and in `retire validate
 
 ## Schema
 
-Trades need schema version 2 (`LibrarySettings.currentSchemaVersion`). An app that doesn't know trades would value a trades account without its holdings, so it must open such a library read-only. The migration from 1 to 2 changes nothing but the version ([FILE_FORMAT.md](FILE_FORMAT.md#versioning)).
+Trades need schema version 2 (`LibrarySettings.currentSchemaVersion`). An app that doesn't know trades would value a trades account without its holdings, so it must open such a library read-only. The migration from 1 to 2 changes nothing but the version ([schema/README.md](schema/README.md#versioning)).
 
 ## Not supported
 

@@ -16,10 +16,7 @@
       "properties": {
         "age": {
           "description": "The age work stops: retiring at an age means stopping work on that birthday, or on the start date if it has passed. \"earliest\" lets the planner find the earliest age that reaches the confidence level. At most endAge (error planner.retirementAge).",
-          "anyOf": [
-            { "$ref": "common.schema.json#/$defs/age" },
-            { "const": "earliest" }
-          ]
+          "anyOf": [{ "$ref": "common.schema.json#/$defs/age" }, { "const": "earliest" }]
         }
       }
     },
@@ -52,10 +49,7 @@
       "items": { "$ref": "#/$defs/workPhase" }
     },
     "spending": { "$ref": "#/$defs/spending" },
-    "pensions": {
-      "type": "array",
-      "items": { "$ref": "#/$defs/pension" }
-    },
+    "pensions": { "type": "array", "items": { "$ref": "#/$defs/pension" } },
     "contributions": {
       "description": "Payments into specific accounts, such as a pension fund. They come out of the year's savings; the rest goes to the money you can draw.",
       "type": "array",
@@ -92,23 +86,14 @@
   "$defs": {
     "phaseEnd": {
       "description": "A date, or \"retirement\", which follows the retirement age.",
-      "anyOf": [
-        { "$ref": "common.schema.json#/$defs/date" },
-        { "const": "retirement" }
-      ]
+      "anyOf": [{ "$ref": "common.schema.json#/$defs/date" }, { "const": "retirement" }]
     },
     "workPhase": {
       "type": "object",
       "required": ["from", "until"],
       "properties": {
-        "name": {
-          "description": "Default \"Work\", or \"Work 2\" when there are several.",
-          "type": "string"
-        },
-        "from": {
-          "description": "The phase's first day.",
-          "$ref": "common.schema.json#/$defs/date"
-        },
+        "name": { "description": "Default \"Work\", or \"Work 2\" when there are several.", "type": "string" },
+        "from": { "description": "The phase's first day.", "$ref": "common.schema.json#/$defs/date" },
         "until": {
           "description": "The phase's last day, or retirement. Not before from (error planner.workDates).",
           "$ref": "#/$defs/phaseEnd"
@@ -128,14 +113,8 @@
       "type": "object",
       "required": ["working", "retired"],
       "properties": {
-        "working": {
-          "description": "While working.",
-          "$ref": "common.schema.json#/$defs/decimal"
-        },
-        "retired": {
-          "description": "In retirement, before phase factors.",
-          "$ref": "common.schema.json#/$defs/decimal"
-        },
+        "working": { "description": "While working.", "$ref": "common.schema.json#/$defs/decimal" },
+        "retired": { "description": "In retirement, before phase factors.", "$ref": "common.schema.json#/$defs/decimal" },
         "phases": {
           "description": "Factors on retirement spending from given ages: the latest phase started is in force, 1 before the first.",
           "type": "array",
@@ -199,38 +178,26 @@
       "description": "Every year while working (perYear, until until), or once (amount in year). One into an account the plan doesn't count is left out (warning planner.contributionOutsidePlan). Not negative.",
       "type": "object",
       "required": ["account"],
-      "anyOf": [
-        { "required": ["perYear"] },
-        { "required": ["amount"] }
-      ],
+      "anyOf": [{ "required": ["perYear"] }, { "required": ["amount"] }],
       "properties": {
         "account": { "$ref": "common.schema.json#/$defs/slug" },
         "perYear": {
           "description": "The yearly amount. Left out for a one-off amount.",
           "$ref": "common.schema.json#/$defs/decimal"
         },
-        "until": {
-          "description": "When yearly contributions stop. Default retirement.",
-          "$ref": "#/$defs/phaseEnd"
-        },
+        "until": { "description": "When yearly contributions stop. Default retirement.", "$ref": "#/$defs/phaseEnd" },
         "amount": {
           "description": "A one-off amount, paid in year, instead of perYear.",
           "$ref": "common.schema.json#/$defs/decimal"
         },
-        "year": {
-          "description": "The calendar year of a one-off amount. Default: the plan's first year.",
-          "type": "integer"
-        }
+        "year": { "description": "The calendar year of a one-off amount. Default: the plan's first year.", "type": "integer" }
       }
     },
     "event": {
       "description": "A one-off amount, at an age or in a year (exactly one of the two).",
       "type": "object",
       "required": ["name", "amount"],
-      "oneOf": [
-        { "required": ["age"] },
-        { "required": ["year"] }
-      ],
+      "oneOf": [{ "required": ["age"] }, { "required": ["year"] }],
       "properties": {
         "name": { "type": "string" },
         "age": { "$ref": "common.schema.json#/$defs/age" },
@@ -251,10 +218,7 @@
       "properties": {
         "start": {
           "description": "The check-in the plan starts from: \"latest-check-in\" (the default) or a date.",
-          "anyOf": [
-            { "const": "latest-check-in" },
-            { "$ref": "common.schema.json#/$defs/date" }
-          ]
+          "anyOf": [{ "const": "latest-check-in" }, { "$ref": "common.schema.json#/$defs/date" }]
         },
         "exclude": {
           "description": "Accounts left out, besides those with includeIn.plan false and closed ones.",
@@ -278,10 +242,7 @@
             "properties": {
               "fromAge": {
                 "description": "An age, or \"retirement\": the year work stops, for whatever retirement age the planner tries.",
-                "anyOf": [
-                  { "$ref": "common.schema.json#/$defs/age" },
-                  { "const": "retirement" }
-                ]
+                "anyOf": [{ "$ref": "common.schema.json#/$defs/age" }, { "const": "retirement" }]
               },
               "mix": { "$ref": "common.schema.json#/$defs/assetMix" }
             }
@@ -318,23 +279,14 @@
       "description": "A log-normal yearly real return, given by its mean (real) or its median (medianReal), with its volatility. With gross mean A, gross median g and volatility σ, g = A² / √(A² + σ²). A return given by its median is written with real too, the mean it implies to 6 decimals; when the two disagree, real wins (warning planner.meanAndMedian).",
       "type": "object",
       "required": ["volatility"],
-      "anyOf": [
-        { "required": ["real"] },
-        { "required": ["medianReal"] }
-      ],
+      "anyOf": [{ "required": ["real"] }, { "required": ["medianReal"] }],
       "properties": {
-        "real": {
-          "description": "The arithmetic mean, as a fraction.",
-          "$ref": "common.schema.json#/$defs/decimal"
-        },
+        "real": { "description": "The arithmetic mean, as a fraction.", "$ref": "common.schema.json#/$defs/decimal" },
         "medianReal": {
           "description": "The median, the typical year, which a portfolio rebalanced every year compounds at.",
           "$ref": "common.schema.json#/$defs/decimal"
         },
-        "volatility": {
-          "description": "The standard deviation of yearly returns.",
-          "$ref": "common.schema.json#/$defs/decimal"
-        },
+        "volatility": { "description": "The standard deviation of yearly returns.", "$ref": "common.schema.json#/$defs/decimal" },
         "incomeYield": {
           "description": "The share of the value paid out as income each year (dividends, interest): part of the return, not extra, and taxed every year at tax.investmentRate. Left out: income counts as growth, taxed when sold.",
           "$ref": "common.schema.json#/$defs/decimal"

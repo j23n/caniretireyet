@@ -4,21 +4,13 @@
   "description": "The answer recorded at each check-in of a year (PROGRESS.md, The answer over time), one small record per check-in, keyed by date. Only the library's latest check-in records one. These files aren't deleted when a plan changes or is deleted: they're a record of the past.",
   "type": "object",
   "required": ["headlines"],
-  "properties": {
-    "headlines": {
-      "type": "array",
-      "items": { "$ref": "#/$defs/headline" }
-    }
-  },
+  "properties": { "headlines": { "type": "array", "items": { "$ref": "#/$defs/headline" } } },
   "$defs": {
     "summary": {
       "description": "The answer: what a baseline's headline holds too.",
       "type": "object",
       "properties": {
-        "confidence": {
-          "description": "The confidence level used.",
-          "$ref": "common.schema.json#/$defs/decimal"
-        },
+        "confidence": { "description": "The confidence level used.", "$ref": "common.schema.json#/$defs/decimal" },
         "earliestAge": {
           "description": "The earliest retirement age reaching the confidence level; left out when none does.",
           "type": "integer"
@@ -41,10 +33,7 @@
       "type": "object",
       "required": ["date", "engine", "planHash"],
       "properties": {
-        "date": {
-          "description": "The check-in's date.",
-          "$ref": "common.schema.json#/$defs/date"
-        },
+        "date": { "description": "The check-in's date.", "$ref": "common.schema.json#/$defs/date" },
         "confidence": { "$ref": "#/$defs/summary/properties/confidence" },
         "earliestAge": { "$ref": "#/$defs/summary/properties/earliestAge" },
         "successAtTarget": { "$ref": "#/$defs/summary/properties/successAtTarget" },

@@ -1,14 +1,11 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "history/YYYY/YYYY-MM.json",
-  "description": "One calendar month: the account valuations, trades, prices, FX rates and inflation-index values dated in it. A record's date decides its file (2026-09-30 goes in history/2026/2026-09.json). Records are sorted by date, then by ID. Keys: one valuation per account and date, one price per instrument and date, one FX rate per currency pair and date, one value per index and date; trades are keyed by account, date and id.",
+  "description": "One calendar month: the account valuations, trades, prices, FX rates and inflation-index values dated in it. A record's date decides its file (2026-09-30 goes in history/2026/2026-09.json). Records are sorted by date, then by ID. Keys: one valuation per account and date, one price per instrument and date, one FX rate per currency pair and date, one value per index and date; trades are keyed by account, date and id. How an account's value and net worth are worked out from these records is in README.md, How values are computed; how a trades account's holdings, cost and cash follow from its trades is in TRADES.md.",
   "type": "object",
   "required": ["month", "valuations", "prices", "fx", "indices"],
   "properties": {
-    "month": {
-      "description": "The month, the same as the file name.",
-      "$ref": "common.schema.json#/$defs/yearMonth"
-    },
+    "month": { "description": "The month, the same as the file name.", "$ref": "common.schema.json#/$defs/yearMonth" },
     "valuations": {
       "description": "Always written, even when empty.",
       "type": "array",
@@ -19,22 +16,42 @@
       "type": "array",
       "items": { "$ref": "#/$defs/trade" }
     },
-    "prices": {
-      "description": "Always written, even when empty.",
-      "type": "array",
-      "items": { "$ref": "#/$defs/price" }
-    },
-    "fx": {
-      "description": "Always written, even when empty.",
-      "type": "array",
-      "items": { "$ref": "#/$defs/fx" }
-    },
-    "indices": {
-      "description": "Always written, even when empty.",
-      "type": "array",
-      "items": { "$ref": "#/$defs/index" }
-    }
+    "prices": { "description": "Always written, even when empty.", "type": "array", "items": { "$ref": "#/$defs/price" } },
+    "fx": { "description": "Always written, even when empty.", "type": "array", "items": { "$ref": "#/$defs/fx" } },
+    "indices": { "description": "Always written, even when empty.", "type": "array", "items": { "$ref": "#/$defs/index" } }
   },
+  "examples": [
+    {
+      "fx": [{ "base": "EUR", "date": "2026-09-30", "quote": "USD", "rate": "1.1712", "source": "ecb" }],
+      "indices": [{ "date": "2026-09-30", "index": "hicp-it", "source": "eurostat", "value": "128.41" }],
+      "month": "2026-09",
+      "prices": [
+        { "currency": "EUR", "date": "2026-09-30", "instrument": "btc", "price": "95120", "source": "coingecko" },
+        { "currency": "EUR", "date": "2026-09-30", "instrument": "gold", "price": "98.4", "source": "gold-api" },
+        { "currency": "EUR", "date": "2026-09-30", "instrument": "vwce", "price": "138.42", "source": "yahoo" }
+      ],
+      "trades": [
+        { "account": "directa", "amount": "200.6", "date": "2026-09-04", "id": "rkbyjhkx", "type": "deposit" },
+        {
+          "account": "directa",
+          "date": "2026-09-12",
+          "fees": "5",
+          "id": "q4nkf6gi",
+          "instrument": "vwce",
+          "price": "134.75",
+          "quantity": "10",
+          "type": "buy"
+        }
+      ],
+      "valuations": [
+        { "account": "conto-fineco", "balance": "4210.55", "date": "2026-09-30", "flow": "-310.2" },
+        { "account": "directa", "cash": "312.1", "date": "2026-09-30", "flow": "11.3" },
+        { "account": "fondo-pensione", "balance": "18450.12", "date": "2026-09-30", "flow": "1325", "note": "from Q3 statement" },
+        { "account": "gold-coins", "date": "2026-09-30", "positions": [{ "instrument": "gold", "quantity": "62.2" }] },
+        { "account": "ledger-wallet", "date": "2026-09-30", "positions": [{ "instrument": "btc", "quantity": "0.4215" }] }
+      ]
+    }
+  ],
   "$defs": {
     "valuation": {
       "description": "What an account was worth on a date: a balance, or positions plus optional cash (an account can switch between the two over time). Values carry forward until the account's next valuation. One with neither is worth zero; one with both counts its balance. An account that records trades records only cash: positions listed in its valuation are a check against its trades (TRADES.md), and a balance isn't used.",
@@ -70,10 +87,7 @@
       "required": ["instrument", "quantity"],
       "properties": {
         "instrument": { "$ref": "common.schema.json#/$defs/slug" },
-        "quantity": {
-          "description": "In the instrument's unit.",
-          "$ref": "common.schema.json#/$defs/decimal"
-        },
+        "quantity": { "description": "In the instrument's unit.", "$ref": "common.schema.json#/$defs/decimal" },
         "costBasis": {
           "description": "The position's total purchase cost in the account's currency (valore di carico). Plans use it to estimate the tax on a sale; where it's missing, the plan's unrealizedGainShare estimate, or else the whole value counts as gain (with a warning).",
           "$ref": "common.schema.json#/$defs/decimal"
@@ -86,10 +100,7 @@
       "required": ["account", "date", "id", "type"],
       "properties": {
         "account": { "$ref": "common.schema.json#/$defs/slug" },
-        "date": {
-          "description": "The trade date.",
-          "$ref": "common.schema.json#/$defs/date"
-        },
+        "date": { "description": "The trade date.", "$ref": "common.schema.json#/$defs/date" },
         "id": {
           "description": "Unique among the account's trades on its date, stable across edits, so two identical trades on one day stay distinct and a trade edited on two devices merges as one. The app makes 8 random lowercase base32 characters; an imported trade gets a stable ID made from its row, so importing the file again finds it. Hand-written IDs can be any slug (buy-1).",
           "$ref": "common.schema.json#/$defs/slug"
@@ -97,7 +108,20 @@
         "type": {
           "description": "What the trade does. transferIn and transferOut move securities between accounts or brokers; opening is a holding on the date the account's history starts.",
           "$comment": "Open enum: a type this version doesn't know is kept and pointed out; only its amount counts, in cash.",
-          "enum": ["buy", "sell", "dividend", "interest", "fee", "tax", "deposit", "withdrawal", "transferIn", "transferOut", "split", "opening"]
+          "enum": [
+            "buy",
+            "sell",
+            "dividend",
+            "interest",
+            "fee",
+            "tax",
+            "deposit",
+            "withdrawal",
+            "transferIn",
+            "transferOut",
+            "split",
+            "opening"
+          ]
         },
         "instrument": {
           "description": "The instrument bought, sold, moved or split, or paying a dividend.",
@@ -107,10 +131,7 @@
           "description": "Units, always positive: the type says the direction.",
           "$ref": "common.schema.json#/$defs/decimal"
         },
-        "price": {
-          "description": "Per unit, in currency.",
-          "$ref": "common.schema.json#/$defs/decimal"
-        },
+        "price": { "description": "Per unit, in currency.", "$ref": "common.schema.json#/$defs/decimal" },
         "currency": {
           "description": "The price's currency. Default: the instrument's (the account's without an instrument).",
           "$ref": "common.schema.json#/$defs/currency"
@@ -152,10 +173,7 @@
         "instrument": { "$ref": "common.schema.json#/$defs/slug" },
         "date": { "$ref": "common.schema.json#/$defs/date" },
         "price": { "$ref": "common.schema.json#/$defs/decimal" },
-        "currency": {
-          "description": "Normally the instrument's currency.",
-          "$ref": "common.schema.json#/$defs/currency"
-        },
+        "currency": { "description": "Normally the instrument's currency.", "$ref": "common.schema.json#/$defs/currency" },
         "source": { "$ref": "common.schema.json#/$defs/dataSource" }
       }
     },

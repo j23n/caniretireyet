@@ -48,6 +48,19 @@ import TestSupport
         }
     }
 
+    /// The schemas define the format, so their examples must be right.
+    @Test func everySchemasExamplesMatchIt() {
+        var checked = 0
+        for (file, schema) in validator.schemas.sorted(by: { $0.key < $1.key }) {
+            for (index, example) in (schema["examples"]?.arrayValue ?? []).enumerated() {
+                let problems = validator.validate(example, against: file)
+                #expect(problems.isEmpty, "\(file) examples[\(index)]: \(problems.joined(separator: "\n"))")
+                checked += 1
+            }
+        }
+        #expect(checked >= 9)
+    }
+
     // MARK: Keys
 
     /// Each Model type with fixed keys, and where its object is described.

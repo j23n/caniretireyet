@@ -4,7 +4,7 @@ import Observation
 import Tracker
 
 /// *Export as CSV…* (UI.md, "Settings"): the library as CSV tables
-/// (``Tracker/CSVExport``, FILE_FORMAT.md "CSV export"), zipped into one
+/// (``Tracker/CSVExport``, docs/schema/README.md, "CSV export"), zipped into one
 /// file to share or save. Values are worked out at each month end through
 /// the library's as-of date. The library isn't changed.
 @MainActor

@@ -3,7 +3,7 @@ import Foundation
 import Model
 import Tracker
 
-/// `retire export`: the library as CSV files (FILE_FORMAT.md, "CSV export").
+/// `retire export`: the library as CSV files (docs/schema/README.md, "CSV export").
 struct ExportCommand: RetireSubcommand {
     static let configuration = CommandConfiguration(
         commandName: "export",

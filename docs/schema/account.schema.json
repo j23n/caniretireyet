@@ -1,43 +1,42 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "accounts/<id>.json",
-  "description": "An account, open or closed. Its values are in the history files, which refer to it by ID. Closing an account sets closed and deletes nothing.",
+  "description": "An account, open or closed. Its values are in the history files, which refer to it by ID. Lifecycle: open it by creating the file with opened; close it by setting closed (it leaves check-ins and today's totals, keeps its values, and still shows in every chart up to that day: nothing is deleted); reopen it by removing closed; rename or re-categorise it by editing the fields (the history refers to the ID, which never changes). Deleting the file, with its values, is only for mistakes.",
   "type": "object",
   "required": ["id", "name", "kind", "currency", "opened"],
   "properties": {
-    "id": {
-      "description": "The same as the file name.",
-      "$ref": "common.schema.json#/$defs/slug"
-    },
-    "name": {
-      "description": "Display name; change it whenever you like.",
-      "type": "string"
-    },
+    "id": { "description": "The same as the file name.", "$ref": "common.schema.json#/$defs/slug" },
+    "name": { "description": "Display name; change it whenever you like.", "type": "string" },
     "kind": {
       "description": "What kind of account it is. loan, mortgage and creditCard are debts, recorded as negative balances. The kind sets the defaults of valuation and assetClasses, and how a check-in fills in a value's flow.",
       "$comment": "Open enum.",
-      "enum": ["cash", "savings", "brokerage", "crypto", "metals", "pensionFund", "tfr", "property", "vehicle", "loan", "mortgage", "creditCard", "other"]
+      "enum": [
+        "cash",
+        "savings",
+        "brokerage",
+        "crypto",
+        "metals",
+        "pensionFund",
+        "tfr",
+        "property",
+        "vehicle",
+        "loan",
+        "mortgage",
+        "creditCard",
+        "other"
+      ]
     },
     "currency": {
       "description": "The currency of the account's balances and cash.",
       "$ref": "common.schema.json#/$defs/currency"
     },
-    "opened": {
-      "description": "The first day the account counts toward net worth.",
-      "$ref": "common.schema.json#/$defs/date"
-    },
+    "opened": { "description": "The first day the account counts toward net worth.", "$ref": "common.schema.json#/$defs/date" },
     "closed": {
       "description": "The last day it counts. Absent while the account is open. A closed account leaves check-ins and today's totals, keeps its values, and still shows in every chart up to that day.",
       "$ref": "common.schema.json#/$defs/date"
     },
-    "institution": {
-      "description": "The bank or broker.",
-      "type": "string"
-    },
-    "country": {
-      "description": "The institution's country.",
-      "$ref": "common.schema.json#/$defs/country"
-    },
+    "institution": { "description": "The bank or broker.", "type": "string" },
+    "country": { "description": "The institution's country.", "$ref": "common.schema.json#/$defs/country" },
     "valuation": {
       "description": "How values are recorded. balance: one amount. holdings: positions (quantity × price) plus optional cash. trades: holdings, purchase cost and cash come from the account's trades (TRADES.md), and its valuations record only cash. Default: holdings for brokerage, crypto and metals, balance for the other kinds.",
       "$comment": "Open enum.",
@@ -54,23 +53,46 @@
     "includeIn": {
       "description": "What the account counts in. Both default to true; a primary home would normally set plan to false.",
       "type": "object",
-      "properties": {
-        "netWorth": { "type": "boolean" },
-        "plan": { "type": "boolean" }
-      }
+      "properties": { "netWorth": { "type": "boolean" }, "plan": { "type": "boolean" } }
     },
     "successor": {
       "description": "The account that replaced this one, e.g. when you switched banks, so charts stay continuous.",
       "$ref": "common.schema.json#/$defs/slug"
     },
-    "tags": {
-      "description": "Free-form. Left out when empty.",
-      "type": "array",
-      "items": { "type": "string" }
+    "tags": { "description": "Free-form. Left out when empty.", "type": "array", "items": { "type": "string" } },
+    "notes": { "description": "Free-form.", "type": "string" }
+  },
+  "examples": [
+    {
+      "country": "IT",
+      "currency": "EUR",
+      "id": "directa",
+      "institution": "Directa SIM",
+      "kind": "brokerage",
+      "name": "Directa",
+      "opened": "2021-03-01",
+      "tags": ["fire"],
+      "valuation": "trades"
     },
-    "notes": {
-      "description": "Free-form.",
-      "type": "string"
+    {
+      "assetClasses": { "bonds": "0.4", "equity": "0.6" },
+      "availableFromAge": 67,
+      "country": "IT",
+      "currency": "EUR",
+      "id": "fondo-pensione",
+      "kind": "pensionFund",
+      "name": "Fondo pensione",
+      "opened": "2022-01-01"
+    },
+    {
+      "closed": "2024-02-29",
+      "country": "DE",
+      "currency": "EUR",
+      "id": "old-bank",
+      "kind": "cash",
+      "name": "Old bank",
+      "opened": "2016-05-01",
+      "successor": "conto-fineco"
     }
-  }
+  ]
 }

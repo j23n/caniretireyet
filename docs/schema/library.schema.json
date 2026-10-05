@@ -20,10 +20,7 @@
       "type": "object",
       "properties": {
         "name": { "type": "string" },
-        "birthDate": {
-          "description": "Plans need it for ages.",
-          "$ref": "common.schema.json#/$defs/date"
-        }
+        "birthDate": { "description": "Plans need it for ages.", "$ref": "common.schema.json#/$defs/date" }
       }
     },
     "taxResidence": {
@@ -35,9 +32,18 @@
       "$ref": "common.schema.json#/$defs/slug"
     },
     "inflationIndex": {
-      "description": "The consumer price index amounts are put in today's money with and real returns computed with: an index of the history files' indices, hicp-<country> (a country's harmonised index, hicp-de, hicp-ch) or hicp-ea (the euro area's). Left out, it's worked out in this order: the HICP of taxResidence, when the country has one; else, of the indices in the base currency the library has values of, the one with the most; else the HICP of the base currency (the euro area's for EUR, Switzerland's for CHF); else none, and amounts stay in the money of their dates.",
+      "description": "The consumer price index amounts are put in today's money with and real returns computed with: an index of the history files' indices, hicp-<country> (a country's harmonised index, hicp-de, hicp-ch) or hicp-ea (the euro area's). Left out, it's worked out in this order: the HICP of taxResidence, when the country has one; else, of the indices in the base currency the library has values of, the one with the most; else the HICP of the base currency (the euro area's for EUR, Switzerland's for CHF); else none, and amounts stay in the money of their dates. Eurostat publishes an HICP for every EU country, Iceland, Norway, Switzerland, Albania, Montenegro, North Macedonia, Serbia and Türkiye (ISO codes: hicp-gr for Greece). Settings › You and retire settings --inflation-index set it; Automatic leaves it out.",
       "type": "string",
       "pattern": "^[a-z0-9-]+$"
     }
-  }
+  },
+  "examples": [
+    {
+      "baseCurrency": "EUR",
+      "mainPlan": "base",
+      "person": { "birthDate": "1988-04-12", "name": "Me" },
+      "schemaVersion": 3,
+      "taxResidence": "IT"
+    }
+  ]
 }

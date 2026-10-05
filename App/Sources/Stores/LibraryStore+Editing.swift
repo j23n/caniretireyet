@@ -15,7 +15,7 @@ extension LibraryStore {
     }
 
     /// Closes an account on `date` (its last day), with the account that
-    /// replaced it. Its history stays (FILE_FORMAT.md, "Account lifecycle").
+    /// replaced it. Its history stays (docs/schema/account.schema.json).
     func closeAccount(_ id: AccountID, on date: CalendarDate, successor: AccountID? = nil) throws {
         try update { library in
             guard library.accounts[id] != nil else { throw LibraryEditError.unknownAccount(id) }

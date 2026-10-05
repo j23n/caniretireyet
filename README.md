@@ -48,14 +48,13 @@ swift run retire plan debug --library <folder> --anonymize --output report.md   
 swift run retire export <folder> --library <library>     # the library as CSV files
 ```
 
-Plans, accounts and trades are edited in the app, or in their JSON files by hand ([docs/FILE_FORMAT.md](docs/FILE_FORMAT.md)). Commands that change the library back up the files first, and take `--dry-run`; most take `--json`. `retire help <command>` says more.
+Plans, accounts and trades are edited in the app, or in their JSON files by hand ([docs/schema](docs/schema/)). Commands that change the library back up the files first, and take `--dry-run`; most take `--json`. `retire help <command>` says more.
 
 
 | Document | What it covers |
 | --- | --- |
 | [docs/PLAN.md](docs/PLAN.md) | Scope, key decisions, architecture, milestones, open questions |
-| [docs/FILE_FORMAT.md](docs/FILE_FORMAT.md) | The library folder: its files, how values are computed from them, and how sync conflicts are merged |
-| [docs/schema](docs/schema/) | A JSON Schema for every file of the library: every field and what it means |
+| [docs/schema](docs/schema/) | The library format: a JSON Schema for every file, how values are computed from them, versions, and the CSV export |
 | [docs/TRADES.md](docs/TRADES.md) | Accounts that record trades: buys, sells and dividends, average cost, cash, flows, conversion |
 | [docs/PLANNER.md](docs/PLANNER.md) | The retirement simulation |
 | [docs/research/tax](docs/research/tax/) | Research notes on the Italian, Swiss and German tax systems, kept from an earlier version that modelled them; not used by the app |

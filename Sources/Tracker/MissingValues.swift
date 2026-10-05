@@ -3,7 +3,7 @@ import Model
 /// What a series of values couldn't value: each missing price or FX rate,
 /// and each open account without a value yet, with the accounts it leaves
 /// incomplete and the dates it's missing on. Missing data is reported,
-/// never counted as zero (FILE_FORMAT.md, "How values are computed"), so a
+/// never counted as zero (docs/schema/README.md, "How values are computed"), so a
 /// chart can leave those points out or mark them, and say what's missing
 /// under it.
 public struct MissingValues: Hashable, Sendable {

@@ -64,8 +64,8 @@ public struct ConflictReport: Hashable, Sendable {
     public var isEmpty: Bool { resolved.isEmpty && failed.isEmpty }
 }
 
-/// Resolves sync conflicts in a library folder (FILE_FORMAT.md, "Sync
-/// conflicts"): reads the current file and every unresolved version, merges
+/// Resolves sync conflicts in a library folder (PLAN.md, "Merging,
+/// saving and undo"): reads the current file and every unresolved version, merges
 /// them with `ConflictResolver.merge(path:_:)`, copies each version that
 /// differs from the result to `backups/<timestamp>-conflict/`, writes the
 /// result, and marks the versions resolved (which removes them).

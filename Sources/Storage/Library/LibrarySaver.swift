@@ -34,7 +34,7 @@ public struct SaveReport: Hashable, Sendable {
 }
 
 /// Something a save found on disk that it couldn't simply write over
-/// (FILE_FORMAT.md, "Saving").
+/// (PLAN.md, "Merging, saving and undo").
 public struct SaveIssue: Hashable, Sendable {
     public enum Kind: String, Hashable, Sendable {
         /// The file was changed on disk and in the library since it was
@@ -102,7 +102,7 @@ extension LibraryFolder {
     /// doesn't. A month file with no records counts as absent.
     ///
     /// A file is only written when its data changed, and each is merged
-    /// with what's on disk now (FILE_FORMAT.md, "Saving"), so a change made
+    /// with what's on disk now (PLAN.md, "Merging, saving and undo"), so a change made
     /// on disk since `previous` was loaded (by the other device, or by hand)
     /// is never lost:
     ///
