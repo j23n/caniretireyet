@@ -231,10 +231,17 @@ struct PlanContentView: View {
     }
 
     /// Mac and iPad: Results | Progress, with Inputs and What-if in the inspector.
+    ///
+    /// On the Mac each is a column of the window's split view, with a fixed
+    /// minimum size rather than one measured through the charts: switching
+    /// to Progress while the plan calculated kept moving the page's
+    /// minimum, and the window never settled (``FixedMinimumSize``).
     private var wideLayout: some View {
         widePart
+            .fixedMinimumSize(width: 320, height: 240)
             .inspector(isPresented: $showsInspector) {
                 PlanInspector(session: session)
+                    .fixedMinimumSize(width: 320, height: 240)
                     .inspectorColumnWidth(min: 320, ideal: 380, max: 520)
             }
     }
