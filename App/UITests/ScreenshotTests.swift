@@ -77,12 +77,26 @@ final class ScreenshotTests: XCTestCase {
         XCTAssertTrue(app.state == .runningForeground, "The app stopped after going back to 2018.")
     }
 
+    /// Progress on a device set to German in Germany. The app is in English
+    /// only, so its sentences are English: their month names should be too,
+    /// while amounts follow the region ("1.234 €").
+    @MainActor
+    func testProgressInGermany() {
+        let app = launch(library: "example", screen: "progress",
+                         arguments: ["-AppleLanguages", "(de)", "-AppleLocale", "de_DE"])
+        waitForScreen(app, showing: text("Year by year", in: app), named: "progress-germany")
+        keepScreenshot(of: app, named: "progress-germany")
+        scrollDown(app)
+        scrollDown(app)
+        keepScreenshot(of: app, named: "progress-germany-year")
+    }
+
     // MARK: Helpers
 
     @MainActor
-    private func launch(library: String, screen: String) -> XCUIApplication {
+    private func launch(library: String, screen: String, arguments: [String] = []) -> XCUIApplication {
         let app = XCUIApplication()
-        app.launchArguments = ["-uiTestLibrary", library, "-uiTestScreen", screen]
+        app.launchArguments = ["-uiTestLibrary", library, "-uiTestScreen", screen] + arguments
         #if os(macOS)
         // No windows restored from the launch before, nor an offer to.
         app.launchArguments += ["-ApplePersistenceIgnoreState", "YES"]
