@@ -302,18 +302,21 @@ struct PlanBaselineEntry: Hashable, Sendable, Identifiable {
 // MARK: - Year by year
 
 /// One calendar year of progress (UI.md, "Progress"): how your plan assets
-/// moved from the check-in before it to its last one, split into what you
-/// saved and what markets did; how the answer moved, and what changed
-/// besides your money; and where its last check-in stands against the
-/// year's automatic baseline.
+/// moved from the end of the year before to its own end (this year's to the
+/// latest check-in), split into what you saved and what markets did; how
+/// the answer moved, and what changed besides your money; and where its end
+/// stands against the year's automatic baseline.
 struct PlanProgressYear: Hashable, Sendable, Identifiable {
     var year: Int
-    /// The check-in the year is measured from: the last one before it, else its first.
+    /// The day the year is measured from: the last day of the year before,
+    /// or in the first year the first record of a plan asset.
     var from: CalendarDate
-    /// Its last check-in.
+    /// Its last day, or in the latest year the latest check-in.
     var to: CalendarDate
     /// How many check-ins it has.
     var checkIns: Int
+    /// Its last check-in; `nil` without one.
+    var lastCheckIn: CalendarDate?
     /// Whether it's the year of the latest check-in, still going.
     var isLatest: Bool
     /// Plan assets from `from` to `to`, in the base currency: the start,
@@ -369,9 +372,9 @@ struct PlanProgressYear: Hashable, Sendable, Identifiable {
 
     /// The plan's progress in each calendar year from the first record of
     /// a plan asset (a value, or a trade) through the latest check-in of
-    /// plan assets on or before `asOf`, newest first. A year without a
-    /// check-in is measured from what you held and its prices, from the end
-    /// of the year before to its own (PROGRESS.md, "Year by year").
+    /// plan assets on or before `asOf`, newest first. Between check-ins,
+    /// and in a year without one, what you held is valued at its prices
+    /// (PROGRESS.md, "Year by year").
     static func years(for plan: PlanID, library: Library, valuator: Valuator,
                       asOf: CalendarDate) -> [PlanProgressYear] {
         let dates = valuator.checkInDates(in: .planAssets, through: asOf)
@@ -382,7 +385,8 @@ struct PlanProgressYear: Hashable, Sendable, Identifiable {
         let byYear = Dictionary(grouping: dates, by: \.year)
         return (start.year...latest.year).reversed().compactMap { year -> PlanProgressYear? in
             let checkIns = byYear[year] ?? []
-            guard let measured = span(of: year, checkIns: checkIns, all: dates, start: start) else { return nil }
+            guard let measured = span(of: year, checkIns: checkIns, start: start, isLatest: year == latest.year)
+            else { return nil }
             let from = measured.from
             let last = measured.to
             let report = valuator.change(from: from, to: last, in: .planAssets)
@@ -396,7 +400,8 @@ struct PlanProgressYear: Hashable, Sendable, Identifiable {
                                        from: from, through: last)
             }
             return PlanProgressYear(
-                year: year, from: from, to: last, checkIns: checkIns.count, isLatest: year == latest.year,
+                year: year, from: from, to: last, checkIns: checkIns.count, lastCheckIn: checkIns.last,
+                isLatest: year == latest.year,
                 change: report.total, isComplete: report.isComplete,
                 expectedSavings: baseline?.baseline.years.first { $0.year == year }?.savings,
                 answerFrom: before ?? inYear.first, answerTo: inYear.last,
@@ -414,24 +419,16 @@ extension PlanProgressYear {
             .max { $0.baseline.start.date < $1.baseline.start.date }
     }
 
-    /// Where a year is measured from and to: from the check-in before it
-    /// when that's in the year before, else that year's last day (or, in
-    /// the first year, the first record); to its last check-in, else its
-    /// last day. `nil` for a year with nothing to measure.
-    static func span(of year: Int, checkIns: [CalendarDate], all dates: [CalendarDate],
-                     start: CalendarDate) -> (from: CalendarDate, to: CalendarDate)? {
+    /// Where a year is measured from and to: from the last day of the year
+    /// before (in the first year, the first record) to its own last day, or
+    /// in the latest year to the latest check-in, so the years meet on 31
+    /// December. `nil` for a year with nothing to measure.
+    static func span(of year: Int, checkIns: [CalendarDate], start: CalendarDate,
+                     isLatest: Bool) -> (from: CalendarDate, to: CalendarDate)? {
         guard let yearEnd = CalendarDate(year: year, month: 12, day: 31),
               let previousEnd = CalendarDate(year: year - 1, month: 12, day: 31) else { return nil }
-        let before = dates.last { $0 <= previousEnd }
-        let from: CalendarDate
-        if let before, before.year == year - 1 {
-            from = before
-        } else if previousEnd >= start {
-            from = previousEnd
-        } else {
-            from = start
-        }
-        let to = checkIns.last ?? yearEnd
+        let from = max(previousEnd, start)
+        let to = isLatest ? (checkIns.last ?? yearEnd) : yearEnd
         guard from < to || (!checkIns.isEmpty && from == to) else { return nil }
         return (from, to)
     }
@@ -789,6 +786,9 @@ enum PlanProgressText {
         var sentences: [String] = []
         if year.checkIns == 0 {
             sentences.append("No check-ins this year: what you held is valued at its prices.")
+        } else if !year.isLatest, let last = year.lastCheckIn, last.month < 12 {
+            sentences.append("No check-ins after \(AmountFormat.monthName(last, locale: locale)): what you held "
+                + "is valued at its prices.")
         }
         if year.from != year.to {
             let saved = year.change.newMoney
