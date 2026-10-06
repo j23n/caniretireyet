@@ -49,19 +49,22 @@ struct UITestLaunch {
             library: .inMemory(library), prices: PriceStore(service: nil), planEngine: PlannerPlanEngine(),
             draftURL: nil)
         let navigation = model.navigation
+        // The main plan by its ID: the sidebar turns "the main plan" into its
+        // row, a new Plan screen, after the first one took the requests.
+        let main = library.settings.mainPlan
         switch screen {
         case .overview:
             navigation.showOverview()
         case .plan:
-            navigation.showPlan()
+            navigation.showPlan(main)
         case .progress:
-            navigation.showPlan()
+            navigation.showPlan(main)
             navigation.requestedPlanPart = .progress
         case .whatIf:
-            navigation.showPlan()
+            navigation.showPlan(main)
             navigation.requestsWhatIf = true
         }
-        if let main = library.settings.mainPlan {
+        if let main {
             Task { _ = await model.plans.run(main) }
         }
         return model

@@ -44,7 +44,7 @@ final class ScreenshotTests: XCTestCase {
         waitForScreen(app, showing: text("Year by year", in: app), named: "progress")
         keepScreenshot(of: app, named: "progress")
         scrollDown(app)
-        scrollDown(app)
+        scrollDown(app, from: belowTheStrip)
         keepScreenshot(of: app, named: "progress-year")
     }
 
@@ -67,12 +67,11 @@ final class ScreenshotTests: XCTestCase {
             }
         }
         pause(seconds: 2)
-        #if os(iOS)
-        scrollUp(app)
-        #endif
         keepScreenshot(of: app, named: "progress-long-2018")
+        #if os(macOS)
         scrollDown(app)
-        scrollDown(app)
+        #endif
+        scrollDown(app, from: belowTheStrip)
         keepScreenshot(of: app, named: "progress-long-2018-year")
         XCTAssertTrue(app.state == .runningForeground, "The app stopped after going back to 2018.")
     }
@@ -87,7 +86,7 @@ final class ScreenshotTests: XCTestCase {
         waitForScreen(app, showing: text("Year by year", in: app), named: "progress-germany")
         keepScreenshot(of: app, named: "progress-germany")
         scrollDown(app)
-        scrollDown(app)
+        scrollDown(app, from: belowTheStrip)
         keepScreenshot(of: app, named: "progress-germany-year")
     }
 
@@ -143,26 +142,25 @@ final class ScreenshotTests: XCTestCase {
         _ = XCTWaiter.wait(for: [XCTestExpectation(description: "The screen settles")], timeout: seconds)
     }
 
-    /// Scrolls the page down, to what's under the strip: on iPhone a drag
-    /// from above the strip, so it moves the page, not a card's read-out.
-    @MainActor
-    private func scrollDown(_ app: XCUIApplication) {
-        #if os(macOS)
-        app.windows.firstMatch.scroll(byDeltaX: 0, deltaY: -700)
-        #else
-        app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.3))
-            .press(forDuration: 0.05, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.02)))
-        #endif
-    }
+    /// Where on iPhone a drag that moves the page starts, once the page
+    /// has moved up by one drag: under the strip of cards, on the chosen
+    /// card's details. A drag that starts on a card mostly reads its line.
+    private let belowTheStrip: CGFloat = 0.75
 
-    /// Scrolls the page back up.
+    /// Scrolls the page down by about a quarter of the screen: on iPhone a
+    /// drag starting `from` that far down the screen, off the strip of cards
+    /// (the default is above it, before the page has moved); on the Mac a
+    /// scroll over the page's scroll bar, at the window's right edge, where
+    /// no strip takes it.
     @MainActor
-    private func scrollUp(_ app: XCUIApplication) {
+    private func scrollDown(_ app: XCUIApplication, from start: CGFloat = 0.3) {
         #if os(macOS)
-        app.windows.firstMatch.scroll(byDeltaX: 0, deltaY: 700)
+        app.windows.firstMatch.coordinate(withNormalizedOffset: CGVector(dx: 0.99, dy: 0.6))
+            .scroll(byDeltaX: 0, deltaY: -300)
         #else
-        app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.3))
-            .press(forDuration: 0.05, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.9)))
+        app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: start))
+            .press(forDuration: 0.05,
+                   thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: start - 0.28)))
         #endif
     }
 
