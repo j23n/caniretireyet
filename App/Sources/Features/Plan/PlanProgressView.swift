@@ -225,7 +225,8 @@ struct PlanProgressView: View {
                         .font(.title3.weight(.bold))
                         .foregroundStyle(Palette.ink)
                         .accessibilityAddTraits(.isHeader)
-                    Text(count > 1 ? "Opens at today. Scroll back for earlier years." : "Opens at today.")
+                    Text((count > 1 ? "Opens at today. Scroll back for earlier years." : "Opens at today.")
+                        + (isWide ? "" : " Touch and hold a line to read it."))
                         .font(.subheadline)
                         .foregroundStyle(Palette.secondaryInk)
                 }
@@ -258,11 +259,14 @@ struct PlanProgressView: View {
                 }
                 .font(.subheadline)
             }
-            ViewThatFits(in: .horizontal) {
+            // On one row on the Mac and iPad, two on iPhone: chosen by the
+            // layout, not measured, so the page's size never depends on it.
+            if isWide {
                 HStack(spacing: Metrics.m) {
                     openAndSave
                     addPast
                 }
+            } else {
                 VStack(alignment: .leading, spacing: Metrics.s) {
                     HStack(spacing: Metrics.m) {
                         openAndSave
@@ -614,6 +618,8 @@ struct PlanYearStrip: View {
             }
             .scrollIndicators(.hidden)
             .defaultScrollAnchor(.trailing)
+            // A finger reading a line moves the read-out, not the strip.
+            .scrollDisabled(pointer?.byTouch == true)
             .onChange(of: selection) { _, index in
                 // Once an early year is chosen, the early years stay laid out.
                 if index < early { showsEarlyYears = true }

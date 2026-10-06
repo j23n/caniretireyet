@@ -164,7 +164,7 @@ struct PlanTimelineView: View {
                     .foregroundStyle(Palette.ink)
                     .accessibilityAddTraits(.isHeader)
                 Text(isWide ? "Scroll sideways, or use the arrows."
-                            : "Scroll sideways through your life; tap a chapter.")
+                            : "Scroll sideways; tap a chapter, or touch and hold the graph to read it.")
                     .font(.subheadline)
                     .foregroundStyle(Palette.secondaryInk)
             }
@@ -610,8 +610,9 @@ struct PlanChapterDetails: View {
 // MARK: - What every chapter assumes
 
 /// What every chapter shares (UI.md, "Plan"): returns, inflation, taxes
-/// and when a plan works, as tiles that open their editors; then the
-/// disclaimer, *All assumptions…* and *Export Calculations…*.
+/// and when a plan works, as tiles that open their editors, in rows of
+/// equal columns; then *All assumptions…*, *Export Calculations…* and the
+/// disclaimer.
 struct PlanAssumptionsFooter: View {
     let plan: PlanDocument
     let words: PlanWords
@@ -634,10 +635,17 @@ struct PlanAssumptionsFooter: View {
                     buttons
                 }
             }
-            LazyVGrid(columns: [GridItem(.adaptive(minimum: 150), spacing: Metrics.s, alignment: .top)],
-                      alignment: .leading, spacing: Metrics.s) {
-                ForEach(PlanAssumptionTile.tiles(plan: plan, words: words)) { tile in
-                    PlanAssumptionTileView(tile: tile, plan: $binding, canEdit: canEdit, onOpen: onOpen)
+            // Rows of equal columns, three to a row on the Mac and iPad and two on
+            // iPhone: never fitted to a measured width (see ``EqualColumns``).
+            let tiles = PlanAssumptionTile.tiles(plan: plan, words: words)
+            let perRow = isWide ? 3 : 2
+            VStack(alignment: .leading, spacing: Metrics.s) {
+                ForEach(Array(stride(from: 0, to: tiles.count, by: perRow)), id: \.self) { start in
+                    EqualColumns(spacing: Metrics.s) {
+                        ForEach(tiles[start..<min(start + perRow, tiles.count)]) { tile in
+                            PlanAssumptionTileView(tile: tile, plan: $binding, canEdit: canEdit, onOpen: onOpen)
+                        }
+                    }
                 }
             }
             if !isWide {

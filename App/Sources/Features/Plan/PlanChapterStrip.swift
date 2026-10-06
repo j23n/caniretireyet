@@ -7,7 +7,7 @@ import SwiftUI
 /// narrow to read), on one money scale, so the graph runs on from card to
 /// card. Choosing a card selects its chapter, whose details show below the
 /// strip; selecting one elsewhere scrolls it into view. The pointer over a
-/// card, or a tap on it, reads the graph there.
+/// card, or a finger touched and held on it, reads the graph there.
 struct PlanChapterStrip: View {
     let timeline: PlanTimeline
     @Binding var selection: Int
@@ -48,6 +48,8 @@ struct PlanChapterStrip: View {
                 .padding(.vertical, 2)
             }
             .scrollIndicators(.hidden)
+            // A finger reading the graph moves the read-out, not the strip.
+            .scrollDisabled(pointer?.byTouch == true)
             .onChange(of: selection) { _, index in
                 withAnimation(.snappy) { proxy.scrollTo(index, anchor: .center) }
             }

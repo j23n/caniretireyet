@@ -2,40 +2,68 @@ import SwiftUI
 
 // Reading the strips' graphs at a point (UI.md, "Plan" and "Progress"): on
 // the Mac and an iPad with a pointer, wherever the pointer is over a card;
-// on iPhone, where a card was tapped, until it's tapped there again. A rule
-// marks the point, and a small label says what the graph shows there.
+// on iPhone, touch and hold a card, then drag, until the finger lifts. A
+// rule marks the point, and a small label says what the graph shows there.
+// A click or a tap still chooses the card.
 
-/// Where the pointer is over one of a strip's cards, or where one was
-/// tapped: the card's index and the point along it, in its coordinates.
+/// Where the pointer is over one of a strip's cards, or the finger on one:
+/// the card's index and the point along it, in its coordinates.
 struct PlanGraphPointer: Equatable {
     var index: Int
     var x: CGFloat
-    /// Set by a tap: a second tap there puts it away.
+    /// A finger, touched and held: the strip doesn't scroll until it lifts.
     var byTouch = false
-
-    /// After a tap at `x` on the card at `index`: the read-out there, or
-    /// none when the tap lands where a tapped one already is.
-    static func tapped(at x: CGFloat, on index: Int, current: PlanGraphPointer?) -> PlanGraphPointer? {
-        if let current, current.byTouch, current.index == index, abs(current.x - x) < 12 { return nil }
-        return PlanGraphPointer(index: index, x: x, byTouch: true)
-    }
 }
 
 extension View {
-    /// Follows the pointer over a strip's card, and a tap on it, into
-    /// `pointer`. A tap still chooses the card.
+    /// Follows the pointer over a strip's card, or a finger touched and
+    /// held on it, into `pointer`.
     func planGraphPointer(_ pointer: Binding<PlanGraphPointer?>, index: Int) -> some View {
-        onContinuousHover { phase in
-            if case .active(let location) = phase {
-                pointer.wrappedValue = PlanGraphPointer(index: index, x: location.x)
-            } else if pointer.wrappedValue?.index == index {
-                pointer.wrappedValue = nil
+        modifier(PlanGraphPointerModifier(pointer: pointer, index: index))
+    }
+}
+
+/// The pointer over a card (`onContinuousHover`), and on iOS a touch and
+/// hold, then a drag: a long press sequenced before a drag, alongside the
+/// card's own tap. The finger's place is gesture state, so it's gone when
+/// the finger lifts or the touch is cancelled, and the read-out with it.
+struct PlanGraphPointerModifier: ViewModifier {
+    @Binding var pointer: PlanGraphPointer?
+    let index: Int
+
+    #if os(iOS)
+    /// Where the finger is along the card while it's touched and held.
+    @GestureState private var finger: CGFloat?
+    #endif
+
+    func body(content: Content) -> some View {
+        content
+            .onContinuousHover { phase in
+                if case .active(let location) = phase {
+                    // Only a move redraws the card.
+                    let moved = PlanGraphPointer(index: index, x: location.x.rounded())
+                    if pointer != moved { pointer = moved }
+                } else if pointer?.index == index, pointer?.byTouch != true {
+                    pointer = nil
+                }
             }
-        }
-        .simultaneousGesture(SpatialTapGesture().onEnded { value in
-            pointer.wrappedValue = PlanGraphPointer.tapped(at: value.location.x, on: index,
-                                                           current: pointer.wrappedValue)
-        })
+            #if os(iOS)
+            .simultaneousGesture(
+                LongPressGesture(minimumDuration: 0.3)
+                    .sequenced(before: DragGesture(minimumDistance: 0, coordinateSpace: .local))
+                    .updating($finger) { value, state, _ in
+                        if case .second(true, let drag?) = value { state = drag.location.x }
+                    }
+            )
+            .onChange(of: finger) { _, x in
+                if let x {
+                    pointer = PlanGraphPointer(index: index, x: x, byTouch: true)
+                } else if pointer?.index == index, pointer?.byTouch == true {
+                    pointer = nil
+                }
+            }
+            .sensoryFeedback(.impact(weight: .light), trigger: finger != nil) { old, new in !old && new }
+            #endif
     }
 }
 

@@ -228,12 +228,20 @@ struct PlanContentView: View {
     }
 
     /// Mac and iPad: Plan | Progress, with What-if in the inspector.
+    ///
+    /// The page beside the inspector has a fixed minimum (``FixedMinimumSize``),
+    /// as the window's root has: measured through the page, its minimum
+    /// moved as the page laid out for the width it got (a strip, a row that
+    /// wraps), and opening the inspector or switching to Progress never
+    /// settled ("needing another Update Constraints in Window pass").
     private var wideLayout: some View {
-        widePart
-            .inspector(isPresented: $showsInspector) {
-                PlanInspector(session: session)
-                    .inspectorColumnWidth(min: 300, ideal: 340, max: 460)
-            }
+        FixedMinimumSize(minWidth: 320, minHeight: 300) {
+            widePart
+        }
+        .inspector(isPresented: $showsInspector) {
+            PlanInspector(session: session)
+                .inspectorColumnWidth(min: 300, ideal: 340, max: 460)
+        }
     }
 
     @ViewBuilder
