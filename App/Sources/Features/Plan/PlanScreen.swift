@@ -2,13 +2,16 @@ import Model
 import SwiftUI
 
 /// One plan (UI.md, "Plan"): a plan picker (New, Duplicate, Rename, Delete,
-/// Set as main plan, Export Calculations), then Results, Progress and Inputs.
+/// Set as main plan, Export Calculations), then Results, Chapters (the
+/// plan's inputs by the stretch of life they belong to) and Progress.
 ///
-/// - **iPhone** (tabs): a segmented Results | Progress | Inputs; What-if is a
-///   bottom sheet; while editing Inputs a small pill keeps the answer in view.
+/// - **iPhone** (tabs): a segmented Results | Chapters | Progress; What-if is
+///   a bottom sheet; while editing the chapters a small pill keeps the
+///   answer in view. Choosing a chapter on the map in Results goes to it.
 /// - **Mac and iPad** (sidebar): Results | Progress in the content area and
-///   Inputs with What-if in the inspector, so the results, and whether
-///   they're out of date, stay next to the field being edited.
+///   the chapters with What-if in the inspector, so the results, and whether
+///   they're out of date, stay next to the field being edited. Choosing a
+///   chapter on the map in Results scrolls the inspector to it.
 ///
 /// The plan is calculated only on request: *Calculate* / *Recalculate* in
 /// the results, the toolbar and the Plan menu (⌘R), *Run What-If*.
@@ -43,16 +46,16 @@ struct PlanScreen: View {
 /// The parts of a plan.
 enum PlanPart: String, CaseIterable, Hashable, Identifiable {
     case results
+    case chapters
     case progress
-    case inputs
 
     var id: String { rawValue }
 
     var title: String {
         switch self {
         case .results: "Results"
+        case .chapters: "Chapters"
         case .progress: "Progress"
-        case .inputs: "Inputs"
         }
     }
 }
@@ -113,12 +116,12 @@ struct PlanContentView: View {
         _session = State(initialValue: PlanSession(planID: planID, library: library, plans: plans))
     }
 
-    /// The sidebar layout (Mac, iPad): Inputs in the inspector.
+    /// The sidebar layout (Mac, iPad): the chapters in the inspector.
     private var isWide: Bool { navigation.layout == .sidebar }
 
     private var name: String { session.plan?.name ?? "Plan" }
 
-    private var inspectorTitle: String { showsInspector ? "Hide Inputs" : "Show Inputs" }
+    private var inspectorTitle: String { showsInspector ? "Hide Chapters" : "Show Chapters" }
 
     var body: some View {
         planLayout
@@ -187,7 +190,7 @@ struct PlanContentView: View {
         }
     }
 
-    /// iPhone: Results | Progress | Inputs.
+    /// iPhone: Results | Chapters | Progress.
     private var compactLayout: some View {
         compactPart
             .safeAreaInset(edge: .top, spacing: 0) {
@@ -199,7 +202,7 @@ struct PlanContentView: View {
                     }
                     .pickerStyle(.segmented)
                     .labelsHidden()
-                    if part == .inputs {
+                    if part == .chapters {
                         PlanAnswerPill(session: session)
                     }
                 }
@@ -222,15 +225,16 @@ struct PlanContentView: View {
     private var compactPart: some View {
         switch part {
         case .results:
-            PlanResultsView(session: session, isWide: false, onWhatIf: { showsWhatIf = true })
+            PlanResultsView(session: session, isWide: false, onWhatIf: { showsWhatIf = true },
+                            onShowChapter: { part = .chapters })
+        case .chapters:
+            PlanChaptersView(session: session)
         case .progress:
             PlanProgressView(session: session, isWide: false, onSaveBaseline: { startSavingBaseline() })
-        case .inputs:
-            PlanInputsView(session: session)
         }
     }
 
-    /// Mac and iPad: Results | Progress, with Inputs and What-if in the inspector.
+    /// Mac and iPad: Results | Progress, with the chapters and What-if in the inspector.
     private var wideLayout: some View {
         widePart
             .inspector(isPresented: $showsInspector) {
@@ -244,7 +248,7 @@ struct PlanContentView: View {
         if part == .progress {
             PlanProgressView(session: session, isWide: true, onSaveBaseline: { startSavingBaseline() })
         } else {
-            PlanResultsView(session: session, isWide: true)
+            PlanResultsView(session: session, isWide: true, onShowChapter: { showsInspector = true })
         }
     }
 
@@ -454,10 +458,10 @@ struct PlanContentView: View {
     }
 }
 
-/// The Mac's inspector: Inputs, with What-if pinned below.
+/// The Mac's inspector: the chapters, with What-if pinned below.
 ///
 /// Both scroll. The What-if takes its own height, up to 60% of the
-/// inspector, and scrolls beyond that, so the inputs keep room. Pinned
+/// inspector, and scrolls beyond that, so the chapters keep room. Pinned
 /// content that doesn't scroll would set the window's minimum height: the
 /// What-if's sliders and wrapped text made the window taller than the
 /// screen, with the inputs squeezed out above them.
@@ -466,14 +470,14 @@ struct PlanInspector: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            PlanInputsView(session: session, isInspector: true)
+            PlanChaptersView(session: session, isInspector: true)
             Divider()
             OverflowScrollView(maxShare: 0.6) {
                 PlanWhatIfPanel(session: session)
                     .padding(Metrics.m)
             }
             .background(.bar)
-            // Offered the whole column first, then the inputs take the rest.
+            // Offered the whole column first, then the chapters take the rest.
             .layoutPriority(1)
         }
     }

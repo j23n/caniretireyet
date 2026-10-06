@@ -44,6 +44,9 @@ final class PlanSession {
     private(set) var whatIf: PlanWhatIf
     /// The retirement age the charts are for, when it isn't the plan's own.
     private(set) var focusAge: Int?
+    /// The chapter selected on the map and in the chapters list, by a year
+    /// it covers, so it stays put while edits renumber the chapters.
+    var selectedChapterYear: Int?
 
     @ObservationIgnored private var saveTask: Task<Void, Never>?
     @ObservationIgnored private var validateTask: Task<Void, Never>?
@@ -346,6 +349,33 @@ final class PlanSession {
         runTask?.cancel()
         runTask = nil
         plans.cancel(planID)
+    }
+
+    // MARK: Chapters
+
+    /// The plan's chapters as shown (UI.md, "Chapters"), cut at the age the
+    /// charts are for, with where the money stands from the results shown;
+    /// `nil` without a plan or a birth date.
+    var chapters: PlanChaptersModel? {
+        guard let plan else { return nil }
+        return PlanChaptersModel(plan: plan, library: library.library, results: shownResults, chosenAge: focusAge,
+                                 whatIfAge: whatIf.retirementAge,
+                                 recordedAge: plans.recordedHeadlines(for: planID).last?.earliestAge,
+                                 today: library.asOfDate)
+    }
+
+    /// The index of the selected chapter in `chapters`.
+    func selectedChapter(in chapters: PlanChaptersModel) -> Int? {
+        selectedChapterYear.flatMap { chapters.chapterIndex(nearest: $0) }
+    }
+
+    /// Selects the chapter at `index` of `chapters`, by its first year.
+    func selectChapter(_ index: Int?, in chapters: PlanChaptersModel) {
+        guard let index, chapters.chapters.chapters.indices.contains(index) else {
+            selectedChapterYear = nil
+            return
+        }
+        selectedChapterYear = chapters.chapters.chapters[index].years.lowerBound
     }
 
     // MARK: Focus age

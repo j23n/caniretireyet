@@ -21,6 +21,10 @@ import Tracker
 ///   axis fits every band.
 /// - While amounts are hidden the axis reads in multiples of the start
 ///   value (today's plan assets).
+/// - `bands` shade stretches of time behind the fan (a plan's chapters,
+///   UI.md "Chapters"); with `selectedBand`, a strip of buttons under the
+///   chart, each under its band, selects one, and the selected band is
+///   tinted.
 /// - Drag across it to read the percentiles at any date.
 struct FanChart: View {
     var fan: [FanPoint]
@@ -30,9 +34,13 @@ struct FanChart: View {
     var currency: CurrencyCode?
     var height: CGFloat = 240
     var showsLegend = false
+    var bands: [ChartBand] = []
+    var selectedBand: Binding<Int?>?
 
     @State private var selectedDate: Date?
     @State private var width: CGFloat = ChartStyle.defaultWidth
+    /// Where the plot is, once drawn: the band strip lines up with it.
+    @State private var plotArea: ChartPlotArea?
     @Environment(\.hidesAmounts) private var hidesAmounts
     @Environment(\.baseCurrency) private var baseCurrency
 
@@ -43,6 +51,8 @@ struct FanChart: View {
         var scale: AmountScale
         var clipsBand: Bool
         var fan: [FanPoint]
+        /// The bands inside the domain, cut to it.
+        var bands: [ChartBand] = []
     }
 
     var body: some View {
@@ -58,8 +68,32 @@ struct FanChart: View {
                     .frame(height: height)
                     .measuringWidth($width)
                     .accessibilityChartDescriptor(summary)
+                if let selectedBand, !layout.bands.isEmpty {
+                    let plot = plotArea ?? ChartPlotArea.estimated(chartWidth: Double(width))
+                    ChartBandStrip(bands: layout.bands,
+                                   layout: ChartBandLayout(bands: layout.bands, domain: layout.domain,
+                                                           plotWidth: plot.width),
+                                   plotX: plot.x, selection: selectedBand)
+                }
             }
         }
+    }
+
+    /// `bands` inside `domain`, cut to it.
+    private func visibleBands(in domain: ClosedRange<Date>) -> [ChartBand] {
+        bands.compactMap { band in
+            var band = band
+            band.start = max(band.start, domain.lowerBound)
+            band.end = min(band.end, domain.upperBound)
+            return band.end > band.start ? band : nil
+        }
+    }
+
+    /// Remembers where the plot is, in whole points, when it moves.
+    private func measure(_ frame: CGRect) {
+        guard frame.width > 0 else { return }
+        let area = ChartPlotArea(x: Double(frame.minX.rounded()), width: Double(frame.width.rounded()))
+        if area != plotArea { plotArea = area }
     }
 
     private var layout: Layout {
@@ -76,15 +110,30 @@ struct FanChart: View {
             let scale = ProjectionScale(history: history, fan: fan, markerHeadroom: markerLayout.headroom,
                                         plotHeight: plotHeight)
             return Layout(domain: domain, ticks: ticks, markers: markerLayout, scale: scale.scale,
-                          clipsBand: scale.clipsBand, fan: fan.map(scale.clamped))
+                          clipsBand: scale.clipsBand, fan: fan.map(scale.clamped), bands: visibleBands(in: domain))
         }
         let scale = AmountScale(values: history + fan.flatMap { [$0.p10, $0.p90] })
             .reservingTop(points: markerLayout.headroom, plotHeight: plotHeight)
-        return Layout(domain: domain, ticks: ticks, markers: markerLayout, scale: scale, clipsBand: false, fan: fan)
+        return Layout(domain: domain, ticks: ticks, markers: markerLayout, scale: scale, clipsBand: false, fan: fan,
+                      bands: visibleBands(in: domain))
+    }
+
+    /// A band's tint: the selected one in the hue, the others in two
+    /// alternating greys, so neighbours stay apart.
+    private func tint(of band: ChartBand) -> Color {
+        if band.id == selectedBand?.wrappedValue { return Palette.accent.opacity(0.14) }
+        return Palette.gridline.opacity(band.id.isMultiple(of: 2) ? 0.25 : 0.55)
     }
 
     private func chart(_ layout: Layout) -> some View {
         Chart {
+            ForEach(layout.bands) { band in
+                RectangleMark(xStart: .value("Start", band.start), xEnd: .value("End", band.end),
+                              yStart: .value("Bottom", layout.scale.domain.lowerBound),
+                              yEnd: .value("Top", layout.scale.dataTop))
+                    .foregroundStyle(tint(of: band))
+            }
+
             ForEach(layout.fan) { point in
                 AreaMark(x: .value("Date", point.date), yStart: .value("10th percentile", point.p10),
                          yEnd: .value("90th percentile", point.p90), series: .value("Series", "10–90%"))
@@ -141,6 +190,15 @@ struct FanChart: View {
         .chartYAxis { amountAxis(hidesAmounts: hidesAmounts, scale: layout.scale, relativeTo: fan.first?.p50) }
         .chartXAxis { dateAxis(layout.ticks) }
         .chartLegend(.hidden)
+        .chartOverlay { proxy in
+            GeometryReader { geometry in
+                let frame = proxy.plotFrame.map { geometry[$0] } ?? .zero
+                Color.clear
+                    .onAppear { measure(frame) }
+                    .onChange(of: frame) { _, newFrame in measure(newFrame) }
+            }
+            .allowsHitTesting(false)
+        }
     }
 
     private func markerAlignment(_ placement: MarkerLabelLayout.Placement) -> Alignment {

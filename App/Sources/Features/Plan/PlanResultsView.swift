@@ -19,6 +19,9 @@ struct PlanResultsView: View {
     var isWide = false
     /// Opens the What-if sheet (iPhone).
     var onWhatIf: (() -> Void)?
+    /// Shows the chapter just chosen on the map: the Chapters part on
+    /// iPhone, the inspector on the Mac.
+    var onShowChapter: (() -> Void)?
 
     @Environment(LibraryStore.self) private var library
     @Environment(PlanStore.self) private var plans
@@ -61,7 +64,7 @@ struct PlanResultsView: View {
                 // Equal columns, not a Grid: the charts' widths mustn't feed back into their columns'.
                 EqualColumns(spacing: Metrics.l) {
                     PlanSuccessCard(session: session, results: results)
-                    PlanFanCard(session: session, results: results)
+                    PlanFanCard(session: session, results: results, onShowChapter: onShowChapter)
                 }
                 EqualColumns(spacing: Metrics.l) {
                     PlanIncomeCard(results: results)
@@ -74,7 +77,7 @@ struct PlanResultsView: View {
                 }
             } else {
                 PlanSuccessCard(session: session, results: results)
-                PlanFanCard(session: session, results: results)
+                PlanFanCard(session: session, results: results, onShowChapter: onShowChapter)
                 PlanIncomeCard(results: results)
                 PlanFailureCard(results: results)
                 PlanFlexibleSpendingCard(results: results)
@@ -433,10 +436,14 @@ struct PlanSuccessCard: View {
 /// and markers for retirement, pensions, locked money and events. One
 /// control sets the time span, how far back and how far ahead (shared with
 /// the Overview's chart and remembered on the device), so the years that
-/// matter aren't a sliver of a chart running to 95.
+/// matter aren't a sliver of a chart running to 95. The plan's chapters are
+/// bands behind the fan (UI.md, "Chapters"), with a button under each that
+/// goes to the chapter.
 struct PlanFanCard: View {
     let session: PlanSession
     let results: PlanResults
+    /// Shows the chapter chosen under the chart.
+    var onShowChapter: (() -> Void)?
 
     @Environment(LibraryStore.self) private var library
     @Environment(AppPreferences.self) private var preferences
@@ -458,6 +465,7 @@ struct PlanFanCard: View {
         let actual = actual
         let history = window.history(actual.points)
         let money = PlanMoney.todaysMoney(currency)
+        let chapters = session.chapters
         Card {
             HStack {
                 TimeSpanMenu(range: $range, horizon: preferences.horizonBinding(start: now, retirement: retirement),
@@ -465,14 +473,16 @@ struct PlanFanCard: View {
                 Spacer(minLength: 0)
             }
             FanChart(fan: window.fan(results.portfolio), actual: history,
-                     markers: window.markers(results.markers, from: history.first?.date ?? now), showsLegend: true)
+                     markers: window.markers(results.markers, from: history.first?.date ?? now), showsLegend: true,
+                     bands: chapters?.bands ?? [], selectedBand: chapters.map { selection($0) })
             ChartCaption(
                 text: "In \(money).",
                 detail: "Your plan assets in \(money): your actual values in ink, then the plan's projection. "
                     + "The line is the median of the simulated futures, the darker band holds half of them and the "
                     + "lighter band 8 in 10; the lighter band can run off the top, so the rest stays readable. "
                     + "Markers show retirement, pensions starting, locked money becoming accessible, windfalls and "
-                    + "large expenses. The time span menu sets how far back and ahead the chart reaches.")
+                    + "large expenses. The shaded bands are the plan's chapters; the buttons under the chart go to "
+                    + "them. The time span menu sets how far back and ahead the chart reaches.")
             if let note = PlanMoney.missingRatesNote(actual.missingRates, base: library.baseCurrency, currency: currency,
                                                      locale: locale) {
                 Text(note)
@@ -491,6 +501,16 @@ struct PlanFanCard: View {
             SectionHeader((results.details?.focus.age ?? session.shownFocusAge)
                 .map { "Your money over time · retiring at \($0)" } ?? "Your money over time")
         }
+    }
+
+    /// The chapter selected, by its index in `chapters`: choosing one
+    /// selects it and shows it.
+    private func selection(_ chapters: PlanChaptersModel) -> Binding<Int?> {
+        Binding(get: { session.selectedChapter(in: chapters) },
+                set: { index in
+                    session.selectChapter(index, in: chapters)
+                    onShowChapter?()
+                })
     }
 }
 

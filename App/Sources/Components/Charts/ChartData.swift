@@ -238,6 +238,21 @@ struct ChartMarker: Hashable, Sendable, Identifiable {
     var id: String { "\(date.timeIntervalSinceReferenceDate) \(label)" }
 }
 
+/// A stretch of time drawn behind a chart, with a button under it that
+/// selects it: one of a plan's chapters on the map (UI.md, "Chapters").
+struct ChartBand: Hashable, Sendable, Identifiable {
+    /// Its position among the bands, from 0.
+    var id: Int
+    var start: Date
+    var end: Date
+    /// The button's words, the longest that fits: "Self-employed", then
+    /// "Work", then the number.
+    var title: String
+    var shortTitle: String
+    /// What it spans, for VoiceOver: "2029 to 2042, ages 41 to 54".
+    var detail: String
+}
+
 /// The chance of success when retiring at one age.
 struct SuccessPoint: Hashable, Sendable, Identifiable {
     var age: Int

@@ -250,3 +250,92 @@ struct MarkerLabelLayout: Hashable, Sendable {
 func chartMarkers(_ markers: [ChartMarker], near date: Date, withinDays days: Double = 200) -> [ChartMarker] {
     markers.filter { abs($0.date.timeIntervalSince(date)) <= days * 86_400 }
 }
+
+// MARK: - Bands
+
+/// Where a chart's plot area is, measured once it's drawn: its leading
+/// edge from the chart's, and its width, in points.
+struct ChartPlotArea: Hashable, Sendable {
+    var x: Double
+    var width: Double
+
+    /// Before it's measured: right of a leading value axis in a chart
+    /// `chartWidth` wide.
+    static func estimated(chartWidth: Double) -> ChartPlotArea {
+        ChartPlotArea(x: ChartText.valueAxisWidth, width: ChartText.plotWidth(chartWidth: chartWidth))
+    }
+}
+
+/// Where the buttons under a chart's bands go (``ChartBand``): each under
+/// its band on the time axis, in order, and at least `minimumWidth` wide.
+/// A band too narrow for its button takes the room from the others, which
+/// shrink in proportion, so a short chapter beside long ones is still a
+/// button you can tap. When even that doesn't fit, the buttons share the
+/// plot's width equally.
+struct ChartBandLayout: Hashable, Sendable {
+    /// One band's button: where it starts from the plot's leading edge, and its width.
+    struct Slot: Hashable, Sendable, Identifiable {
+        var id: Int
+        var x: Double
+        var width: Double
+    }
+
+    var slots: [Slot]
+
+    /// The narrowest button: room for a number, and a target to tap.
+    static let minimumWidth = 28.0
+
+    init(bands: [ChartBand], domain: ClosedRange<Date>, plotWidth: Double, minimumWidth: Double = minimumWidth) {
+        let span = domain.upperBound.timeIntervalSince(domain.lowerBound)
+        guard span > 0, plotWidth > 0 else {
+            slots = []
+            return
+        }
+        func x(_ date: Date) -> Double {
+            min(max(date.timeIntervalSince(domain.lowerBound) / span, 0), 1) * plotWidth
+        }
+        // The bands on the axis, in order; those outside it have no width.
+        let shown = bands.map { (id: $0.id, start: x($0.start), end: x($0.end)) }
+            .filter { $0.end > $0.start }
+            .sorted { $0.start < $1.start }
+        guard let first = shown.first, let last = shown.last else {
+            slots = []
+            return
+        }
+        let count = Double(shown.count)
+        guard last.end - first.start >= minimumWidth * count else {
+            let width = plotWidth / count
+            slots = shown.enumerated().map { Slot(id: $1.id, x: Double($0) * width, width: width) }
+            return
+        }
+        // Buttons narrower than the minimum get it; the others share what's
+        // left in proportion to their bands, until none is too narrow.
+        let total = last.end - first.start
+        let natural = shown.map { $0.end - $0.start }
+        var fixed = [Bool](repeating: false, count: shown.count)
+        var widths = natural
+        var settled = false
+        while !settled {
+            settled = true
+            let fixedWidth = Double(fixed.filter { $0 }.count) * minimumWidth
+            let free = zip(natural, fixed).filter { !$0.1 }.reduce(0) { $0 + $1.0 }
+            let scale = free > 0 ? max(0, total - fixedWidth) / free : 0
+            for index in widths.indices {
+                if fixed[index] {
+                    widths[index] = minimumWidth
+                } else {
+                    widths[index] = natural[index] * scale
+                    if widths[index] < minimumWidth {
+                        fixed[index] = true
+                        settled = false
+                    }
+                }
+            }
+        }
+        var position = first.start
+        slots = shown.indices.map { index in
+            defer { position += widths[index] }
+            return Slot(id: shown[index].id, x: position, width: widths[index])
+        }
+    }
+}

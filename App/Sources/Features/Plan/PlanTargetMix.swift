@@ -217,17 +217,7 @@ struct PlanTargetMixModel {
     /// The card's one line: "Today's mix", "Equity 80% · bonds 20% ·
     /// changes at retirement and 75".
     static func summary(_ portfolio: PlanPortfolio, locale: Locale = .current) -> String {
-        var parts: [String] = []
-        if let mix = portfolio.targetMix, total(mix) > 0 {
-            let classes = mix.shares.filter { $0.value != 0 }.sorted { ($1.value, $0.key) < ($0.value, $1.key) }
-            for (index, (assetClass, share)) in classes.enumerated() {
-                let name = PlanIssueText.assetClassName(assetClass.rawValue)
-                parts.append("\(index == 0 ? name : name.lowercased()) "
-                    + AmountFormat.number(share * 100, maxDigits: 1, locale: locale) + "%")
-            }
-        } else {
-            parts.append("Today's mix")
-        }
+        var parts = [mixSummary(portfolio.targetMix, locale: locale)]
         let steps = portfolio.targetMixByAge.map { step -> String in
             switch step.fromAge {
             case .age(let age): "\(age)"
@@ -236,5 +226,17 @@ struct PlanTargetMixModel {
         }
         if !steps.isEmpty { parts.append("changes at " + PlanResultsText.list(steps)) }
         return parts.joined(separator: " · ")
+    }
+
+    /// One mix in words, largest share first: "Equity 80% · bonds 20%";
+    /// "Today's mix" without one (the plan keeps what you hold).
+    static func mixSummary(_ mix: AssetMix?, locale: Locale = .current) -> String {
+        guard let mix, total(mix) > 0 else { return "Today's mix" }
+        let classes = mix.shares.filter { $0.value != 0 }.sorted { ($1.value, $0.key) < ($0.value, $1.key) }
+        return classes.enumerated().map { index, entry in
+            let name = PlanIssueText.assetClassName(entry.key.rawValue)
+            return "\(index == 0 ? name : name.lowercased()) "
+                + AmountFormat.number(entry.value * 100, maxDigits: 1, locale: locale) + "%"
+        }.joined(separator: " · ")
     }
 }

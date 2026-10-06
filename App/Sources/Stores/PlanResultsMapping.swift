@@ -99,6 +99,9 @@ struct PlanFocusDetails: Hashable, Sendable {
     /// What flexible spending did at this age (PLANNER.md, "Flexible
     /// spending"); `nil` when the plan doesn't use it.
     var flexible: FlexibleSpendingSummary? = nil
+    /// How many runs run out of money at each age, ascending: where each
+    /// chapter's failures are (UI.md, "Chapters").
+    var failuresByAge: [AgeCount] = []
 }
 
 /// A pension in the results.
@@ -182,7 +185,7 @@ extension PlanResults {
                 bridges: result.failures.bridges.map {
                     PlanBridgeFailure(name: $0.name, accessibleFromAge: $0.accessibleFromAge, share: $0.share)
                 },
-                flexible: result.flexibleSpending),
+                flexible: result.flexibleSpending, failuresByAge: result.failures.byAge),
             headline: result.headline(),
             reading: PlanLibraryReading(result.start))
         currency = result.currency

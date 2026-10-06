@@ -2,69 +2,17 @@ import Model
 import Planner
 import SwiftUI
 
-/// Inputs (UI.md, "Inputs"): a collapsible card per section of the plan
-/// file, each with a one-line summary, so the whole plan fits on one screen
-/// when collapsed. Issues show on the card they concern. Edits are saved as
-/// you go and the results follow.
-struct PlanInputsView: View {
-    let session: PlanSession
-    /// In the Mac inspector: a narrower column with its own header.
-    var isInspector = false
+// The editors of the plan's inputs: those of Always's cards (UI.md,
+// "Chapters"), and the pieces the chapters edit in place.
 
-    @Environment(LibraryStore.self) private var library
-    @Environment(\.hidesAmounts) private var hidesAmounts
-    @Environment(\.baseCurrency) private var baseCurrency
-    @Environment(\.locale) private var locale
-    @State private var expanded: [PlanInputSection: Bool] = [:]
-    @State private var editing: PlanEditTarget?
-
-    var body: some View {
-        @Bindable var session = session
-        if let plan = session.plan {
-            let issues = session.inputIssues
-            let summaries = PlanInputSummaries(plan: plan, library: library.library, currency: baseCurrency,
-                                               hidesAmounts: hidesAmounts, locale: locale)
-            ScrollView {
-                VStack(alignment: .leading, spacing: Metrics.s) {
-                    if isInspector {
-                        PlanInputsHeader(issues: issues)
-                    }
-                    if !session.canEdit {
-                        StatusBanner(.info, "Read-only", message: "This library can't be changed here.")
-                    }
-                    ForEach(PlanInputSection.allCases) { section in
-                        PlanSectionCard(section: section, summary: summaries.summary(for: section),
-                                        issues: issues.issues(for: section),
-                                        listedIssues: issues.cardIssues(for: section, in: plan),
-                                        isExpanded: $expanded[planFlag: section]) {
-                            PlanSectionEditor(section: section, plan: $session.editablePlan, summaries: summaries,
-                                              issues: issues, editing: $editing)
-                                .disabled(!session.canEdit)
-                        }
-                    }
-                }
-                .padding(isInspector ? Metrics.m : Metrics.l)
-                .frame(maxWidth: isInspector ? .infinity : Metrics.readableWidth)
-                .frame(maxWidth: .infinity)
-            }
-            .background(isInspector ? Color.clear : Palette.page)
-            .sheet(item: $editing) { target in
-                PlanItemSheet(session: session, target: target, issues: issues)
-            }
-            .onDisappear { session.saveNow() }
-        } else {
-            ContentUnavailableView("No plan", systemImage: AppSymbol.plan)
-        }
-    }
-}
-
-/// "Inputs · ⚠︎ 1 warning", at the top of the Mac inspector.
+/// "Chapters · ⚠︎ 1 warning", at the top of the Mac inspector.
 struct PlanInputsHeader: View {
+    var title = "Inputs"
     let issues: PlanInputIssues
 
     var body: some View {
         HStack(alignment: .firstTextBaseline) {
-            Text("Inputs")
+            Text(title)
                 .font(.headline)
                 .accessibilityAddTraits(.isHeader)
             Spacer()
@@ -142,14 +90,30 @@ struct PlanSectionEditor: View {
 // MARK: - You
 
 /// Birth date (from the library), retirement age and the plan's end.
-///
-/// The birth date is written only when you pick one, from the picker's own
-/// setter (`YouSettings`): opening the card writes nothing, and without a
-/// birth date it says "Not set" rather than assuming one.
 struct PlanYouEditor: View {
     @Binding var plan: PlanDocument
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: Metrics.s) {
+            PlanBirthDateEditor()
+            Divider()
+            Toggle("Retire as early as possible", isOn: $plan.planRetiresEarliest)
+            if !plan.planRetiresEarliest {
+                Stepper("Retire at \(plan.planRetirementAge)", value: $plan.planRetirementAge, in: 30...85)
+            }
+            Stepper("Plan to age \(plan.planEndAge)", value: $plan.planEndAge, in: 70...110)
+        }
+        .font(.subheadline)
+    }
+}
+
+/// The birth date, from the library's settings.
+///
+/// It's written only when you pick one, from the picker's own setter
+/// (`YouSettings`): showing it writes nothing, and without a birth date it
+/// says "Not set" rather than assuming one.
+struct PlanBirthDateEditor: View {
     @Environment(LibraryStore.self) private var library
-    @Environment(\.locale) private var locale
     /// Whether the picker is shown before a birth date is picked.
     @State private var addsBirthDate = false
 
@@ -172,12 +136,6 @@ struct PlanYouEditor: View {
             if birthDate == nil {
                 PlanIssueLine(message: "Add your birth date: plans need it for ages.", isError: true)
             }
-            Divider()
-            Toggle("Retire as early as possible", isOn: $plan.planRetiresEarliest)
-            if !plan.planRetiresEarliest {
-                Stepper("Retire at \(plan.planRetirementAge)", value: $plan.planRetirementAge, in: 30...85)
-            }
-            Stepper("Plan to age \(plan.planEndAge)", value: $plan.planEndAge, in: 70...110)
         }
         .font(.subheadline)
     }
@@ -203,8 +161,6 @@ struct PlanYouEditor: View {
 struct PlanSpendingEditor: View {
     @Binding var plan: PlanDocument
 
-    private static let fallback = SpendingPhase(fromAge: 75, factor: 1)
-
     var body: some View {
         VStack(alignment: .leading, spacing: Metrics.s) {
             PlanNumberRow("While working", value: $plan.spending.working, unit: "/yr")
@@ -215,23 +171,7 @@ struct PlanSpendingEditor: View {
                     .foregroundStyle(Palette.secondaryInk)
             }
             ForEach(plan.spending.phases.indices, id: \.self) { index in
-                HStack(spacing: Metrics.s) {
-                    Stepper("From \(plan.spending.phases[planSafe: index, default: Self.fallback].fromAge)",
-                            value: $plan.spending.phases[planSafe: index, default: Self.fallback].fromAge, in: 40...110)
-                    PlanNumberField("Share of spending",
-                                    value: $plan.spending.phases[planSafe: index, default: Self.fallback].factor,
-                                    kind: .percent)
-                        .frame(maxWidth: 64)
-                    Text("%")
-                        .foregroundStyle(Palette.secondaryInk)
-                    Button {
-                        plan.spending.phases = PlanEditing.removing(at: index, from: plan.spending.phases)
-                    } label: {
-                        Label("Remove", systemImage: "minus.circle")
-                            .labelStyle(.iconOnly)
-                    }
-                    .buttonStyle(.borderless)
-                }
+                PlanSpendingPhaseRow(phases: $plan.spending.phases, index: index)
             }
             Button {
                 plan.spending.phases.append(PlanEditing.newSpendingPhase(in: plan))
@@ -246,7 +186,35 @@ struct PlanSpendingEditor: View {
     }
 }
 
-/// Flexible spending (UI.md, "Inputs"): a switch, and when it's on, how
+/// A later phase of retirement spending: from an age, a share of what the
+/// plan spends in retirement, with a button that removes it.
+struct PlanSpendingPhaseRow: View {
+    @Binding var phases: [SpendingPhase]
+    let index: Int
+
+    private static let fallback = SpendingPhase(fromAge: 75, factor: 1)
+
+    var body: some View {
+        HStack(spacing: Metrics.s) {
+            Stepper("From \(phases[planSafe: index, default: Self.fallback].fromAge)",
+                    value: $phases[planSafe: index, default: Self.fallback].fromAge, in: 40...110)
+            PlanNumberField("Share of spending", value: $phases[planSafe: index, default: Self.fallback].factor,
+                            kind: .percent)
+                .frame(maxWidth: 64)
+            Text("%")
+                .foregroundStyle(Palette.secondaryInk)
+            Button {
+                phases = PlanEditing.removing(at: index, from: phases)
+            } label: {
+                Label("Remove", systemImage: "minus.circle")
+                    .labelStyle(.iconOnly)
+            }
+            .buttonStyle(.borderless)
+        }
+    }
+}
+
+/// Flexible spending (UI.md, "Chapters"): a switch, and when it's on, how
 /// much a cut takes, the floor (also in money), and the guardrails, folded
 /// away. Fields left empty take the defaults their prompts show.
 struct PlanFlexibleSpendingEditor: View {
@@ -440,11 +408,5 @@ struct PlanSimulationEditor: View {
                 .fixedSize(horizontal: false, vertical: true)
         }
         .font(.subheadline)
-    }
-}
-
-#Preview("Inputs") {
-    PlanPreviewHost(model: AppModel.preview(planEngine: PlanPreviewEngine())) { session in
-        PlanInputsView(session: session)
     }
 }
