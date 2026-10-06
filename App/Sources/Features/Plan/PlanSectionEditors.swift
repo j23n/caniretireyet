@@ -53,28 +53,16 @@ enum PlanEditTarget: Hashable, Identifiable {
     }
 }
 
-/// The editor inside one card.
+/// The editor inside one of Always's cards. The other sections are edited
+/// in the chapters, by the stretch of life each input belongs to.
 struct PlanSectionEditor: View {
     let section: PlanInputSection
     @Binding var plan: PlanDocument
-    let summaries: PlanInputSummaries
-    let issues: PlanInputIssues
-    @Binding var editing: PlanEditTarget?
 
     var body: some View {
         switch section {
         case .you:
-            PlanYouEditor(plan: $plan)
-        case .work:
-            PlanWorkList(plan: plan, summaries: summaries, issues: issues, editing: $editing)
-        case .spending:
-            PlanSpendingEditor(plan: $plan)
-        case .pensions:
-            PlanPensionList(plan: plan, summaries: summaries, issues: issues, editing: $editing)
-        case .contributions:
-            PlanContributionList(plan: plan, summaries: summaries, issues: issues, editing: $editing)
-        case .events:
-            PlanEventList(plan: plan, summaries: summaries, issues: issues, editing: $editing)
+            PlanBirthDateEditor()
         case .taxes:
             PlanTaxesEditor(plan: $plan)
         case .assumptions:
@@ -83,29 +71,13 @@ struct PlanSectionEditor: View {
             PlanTargetMixEditor(plan: $plan)
         case .simulation:
             PlanSimulationEditor(plan: $plan)
+        case .work, .spending, .pensions, .contributions, .events:
+            EmptyView()
         }
     }
 }
 
-// MARK: - You
-
-/// Birth date (from the library), retirement age and the plan's end.
-struct PlanYouEditor: View {
-    @Binding var plan: PlanDocument
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: Metrics.s) {
-            PlanBirthDateEditor()
-            Divider()
-            Toggle("Retire as early as possible", isOn: $plan.planRetiresEarliest)
-            if !plan.planRetiresEarliest {
-                Stepper("Retire at \(plan.planRetirementAge)", value: $plan.planRetirementAge, in: 30...85)
-            }
-            Stepper("Plan to age \(plan.planEndAge)", value: $plan.planEndAge, in: 70...110)
-        }
-        .font(.subheadline)
-    }
-}
+// MARK: - Birth date
 
 /// The birth date, from the library's settings.
 ///
@@ -156,35 +128,6 @@ struct PlanBirthDateEditor: View {
 }
 
 // MARK: - Spending
-
-/// Spending while working and in retirement, and the later phases' factors.
-struct PlanSpendingEditor: View {
-    @Binding var plan: PlanDocument
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: Metrics.s) {
-            PlanNumberRow("While working", value: $plan.spending.working, unit: "/yr")
-            PlanNumberRow("In retirement", value: $plan.spending.retired, unit: "/yr")
-            if !plan.spending.phases.isEmpty {
-                Text("Later in retirement, a share of that")
-                    .font(.caption)
-                    .foregroundStyle(Palette.secondaryInk)
-            }
-            ForEach(plan.spending.phases.indices, id: \.self) { index in
-                PlanSpendingPhaseRow(phases: $plan.spending.phases, index: index)
-            }
-            Button {
-                plan.spending.phases.append(PlanEditing.newSpendingPhase(in: plan))
-            } label: {
-                Label("Add a later phase", systemImage: "plus")
-            }
-            .buttonStyle(.borderless)
-            Divider()
-            PlanFlexibleSpendingEditor(spending: $plan.spending)
-        }
-        .font(.subheadline)
-    }
-}
 
 /// A later phase of retirement spending: from an age, a share of what the
 /// plan spends in retirement, with a button that removes it.

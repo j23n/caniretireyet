@@ -310,7 +310,8 @@ struct PlanChaptersModel {
     /// at 55, in 2043.", "… the earliest age the plan found.", "Until the
     /// plan is calculated, its chapters assume work stops at 65."
     var retirementNote: String {
-        let when = retirementYear <= start.year ? "Work stops at the start: you're past \(retirementAge)."
+        let passed = chapters.birthYear + retirementAge < start.year
+        let when = passed ? "Work stops at the start: you're past \(retirementAge)."
             : "Work stops at \(retirementAge), in \(retirementYear)."
         switch ageSource {
         case .chosen:

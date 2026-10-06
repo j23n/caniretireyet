@@ -157,8 +157,7 @@ struct PlanChaptersView: View {
                             issues: issues.issues(for: section),
                             listedIssues: issues.cardIssues(for: section, in: plan),
                             isExpanded: $expanded[planFlag: section]) {
-                PlanSectionEditor(section: section, plan: $session.editablePlan, summaries: summaries,
-                                  issues: issues, editing: $editing)
+                PlanSectionEditor(section: section, plan: $session.editablePlan)
                     .disabled(!session.canEdit)
             }
             .id(PlanChaptersAnchor.section(section))
@@ -337,10 +336,17 @@ struct PlanChapterCard: View {
     }
 
     /// What can start in the chapter: work and contributions before
-    /// retirement, a later spending phase in it, pensions and events in any.
+    /// retirement, a pension and a later spending phase in it, events in any.
     private var addMenu: some View {
         Menu {
-            if !chapter.isRetired {
+            if chapter.isRetired {
+                Button("Pension") {
+                    editing = .pension(index: plan.pensions.count, pension: model.newPension(in: chapter))
+                }
+                Button("Later spending") {
+                    plan.spending.phases.append(model.newSpendingPhase(in: chapter))
+                }
+            } else {
                 Button("Work phase") {
                     editing = .work(index: plan.work.count, phase: model.newWorkPhase(in: chapter))
                 }
@@ -351,16 +357,8 @@ struct PlanChapterCard: View {
                 }
                 .disabled(PlanEditing.contributionAccounts(in: library.library).isEmpty)
             }
-            Button("Pension") {
-                editing = .pension(index: plan.pensions.count, pension: model.newPension(in: chapter))
-            }
             Button("Event") {
                 editing = .event(index: plan.events.count, event: model.newEvent(in: chapter))
-            }
-            if chapter.isRetired {
-                Button("Later spending") {
-                    plan.spending.phases.append(model.newSpendingPhase(in: chapter))
-                }
             }
         } label: {
             Label("Add to this chapter", systemImage: "plus")
