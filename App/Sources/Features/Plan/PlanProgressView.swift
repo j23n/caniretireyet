@@ -580,6 +580,8 @@ struct PlanYearStrip: View {
             .scrollIndicators(.hidden)
             .defaultScrollAnchor(.trailing)
             .onChange(of: selection) { _, index in
+                // Once an early year is chosen, the early years stay laid out.
+                if index < early { showsEarlyYears = true }
                 withAnimation(.snappy) { proxy.scrollTo(index, anchor: .center) }
             }
         }
@@ -610,7 +612,7 @@ struct PlanEarlyYearsCard: View {
 
     private var span: String {
         guard let first = cards.first?.year.year, let last = cards.last?.year.year else { return "" }
-        return first == last ? String(first) : "\(first) to \(last)"
+        return first == last ? String(first) : "\(first)–\(last)"
     }
 
     private var moved: String? {

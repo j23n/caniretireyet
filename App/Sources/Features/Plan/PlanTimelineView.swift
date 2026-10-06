@@ -582,7 +582,6 @@ struct PlanChapterDetails: View {
             : shown.joined(separator: ", ") + more
         return "Along the way, typically: \(list)."
     }
-
 }
 
 // MARK: - What every chapter assumes

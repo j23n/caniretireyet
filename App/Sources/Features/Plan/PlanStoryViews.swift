@@ -65,8 +65,10 @@ struct PlanEditableStory<Editor: View>: View {
     @ViewBuilder let editor: (PlanToken) -> Editor
 
     @State private var token: PlanToken?
-    /// Where the pointer last was over the text: where a click lands.
-    @State private var pointer: CGPoint?
+    @State private var pointer = PointerTracker()
+    /// Where the pointer was when the value was clicked: where the popover
+    /// points, so it stays put while the pointer moves on.
+    @State private var clicked: CGPoint?
 
     var body: some View {
         PlanStoryText(runs: runs) { token in
@@ -74,11 +76,16 @@ struct PlanEditableStory<Editor: View>: View {
             if token.opensSheet {
                 onSheet(token)
             } else {
+                clicked = pointer.location
                 self.token = token
             }
         }
         .onContinuousHover { phase in
-            if case .active(let location) = phase { pointer = location }
+            if case .active(let location) = phase {
+                pointer.location = location
+            } else {
+                pointer.location = nil
+            }
         }
         .popover(item: $token, attachmentAnchor: anchor) { token in
             editor(token)
@@ -86,9 +93,15 @@ struct PlanEditableStory<Editor: View>: View {
     }
 
     private var anchor: PopoverAttachmentAnchor {
-        guard let pointer else { return .rect(.bounds) }
-        return .rect(.rect(CGRect(x: pointer.x - 2, y: pointer.y - 8, width: 4, height: 16)))
+        guard let clicked else { return .rect(.bounds) }
+        return .rect(.rect(CGRect(x: clicked.x - 2, y: clicked.y - 8, width: 4, height: 16)))
     }
+}
+
+/// Where the pointer is over a view, kept outside SwiftUI's state so the
+/// view isn't redrawn on every move.
+private final class PointerTracker {
+    var location: CGPoint?
 }
 
 /// A month's money as one bar, with its words under it ("Pay 4.500 € ·

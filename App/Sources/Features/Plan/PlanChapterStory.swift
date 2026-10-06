@@ -287,8 +287,8 @@ extension PlanChapterStory {
             if let bridge = locked.max(by: { $0.share < $1.share }), let age = bridge.accessibleFromAge {
                 let perHundred = Int(wholeNumber: bridge.share * 100)
                 let often = perHundred < 1 ? "fewer than 1 in 100 futures" : "\(perHundred) in 100 futures"
-                runs.append(.text(" If the money runs out here, it's while \(bridge.name) is still locked, until "
-                    + "\(age): in \(often)."))
+                runs.append(.text(" In \(often), the money you can draw runs out before \(bridge.name) opens at "
+                    + "\(age)."))
             }
         }
         let failing = details.focus.failuresByAge.filter { chapter.ages.contains($0.age) && $0.count > 0 }
