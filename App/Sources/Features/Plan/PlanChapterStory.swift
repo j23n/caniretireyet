@@ -126,19 +126,21 @@ struct PlanChapterStory: Hashable, Sendable {
 
 extension PlanChapterStory {
     /// The words for the chapter at `index` of `model`. `results` add the
-    /// tax on what's sold to retirement's bar.
+    /// tax on what's sold to retirement's bar, what an uncertain windfall
+    /// is worth to the answer, and where and when futures run out.
     init(chapterAt index: Int, in model: PlanChaptersModel, results: PlanResults?, words: PlanWords) {
         let chapter = model.chapters.chapters[index]
-        story = Self.sentences(chapter, model: model, words: words).enumerated().flatMap { offset, sentence in
-            offset == 0 ? sentence : [Run.text(" ")] + sentence
-        }
+        story = Self.sentences(chapter, model: model, words: words, results: results).enumerated()
+            .flatMap { offset, sentence in offset == 0 ? sentence : [Run.text(" ")] + sentence }
         bar = Self.bar(chapter, model: model, results: results, words: words)
         assumes = Self.assumptions(chapter, plan: model.plan, words: words)
+            + Self.risks(chapter, details: results?.details)
     }
 
     // MARK: What happens
 
-    static func sentences(_ chapter: PlanChapter, model: PlanChaptersModel, words: PlanWords) -> [[Run]] {
+    static func sentences(_ chapter: PlanChapter, model: PlanChaptersModel, words: PlanWords,
+                          results: PlanResults? = nil) -> [[Run]] {
         let plan = model.plan
         var sentences: [[Run]] = []
         switch chapter.kind {
@@ -214,7 +216,9 @@ extension PlanChapterStory {
                               .text(".")])
         }
         for case .event(let index) in chapter.items where plan.events.indices.contains(index) {
-            sentences.append(eventSentence(plan.events[index], index: index, words: words))
+            sentences.append(eventSentence(plan.events[index], index: index, words: words,
+                                           without: results?.details?.withoutWindfall(index),
+                                           earliest: results?.headline.earliestAge))
         }
         if chapter.items.contains(.end) {
             sentences.append([.text("The plan ends at "), .token("\(plan.effectiveEndAge)", .endAge), .text(".")])
@@ -227,8 +231,14 @@ extension PlanChapterStory {
     }
 
     /// "In [2031] you spend [25.000 €] on [New car].", "At [62] you may
-    /// receive [150.000 €] from [Inheritance], [80%] likely."
-    static func eventSentence(_ event: PlanEvent, index: Int, words: PlanWords) -> [Run] {
+    /// receive [150.000 €] from [Inheritance], [80%] likely; without it,
+    /// your earliest age would be 56."
+    ///
+    /// - Parameters:
+    ///   - without: the earliest age if an uncertain windfall never came.
+    ///   - earliest: the plan's own earliest age.
+    static func eventSentence(_ event: PlanEvent, index: Int, words: PlanWords, without: AgeWithout? = nil,
+                              earliest: Int? = nil) -> [Run] {
         var sentence: [Run]
         switch event.timing {
         case .year(let year): sentence = [.text("In "), .token("\(year)", .eventWhen(index))]
@@ -246,9 +256,56 @@ extension PlanChapterStory {
         if likely {
             sentence += [.text(", "), .token(words.percent(event.effectiveProbability), .eventProbability(index)),
                          .text(" likely")]
+            if event.amount > 0, let without, earliest != nil {
+                sentence.append(.text("; " + withoutSentence(without, earliest: earliest)))
+            }
         }
         sentence.append(.text("."))
         return sentence
+    }
+
+    /// "without it, your earliest age would be 56", "without it, your
+    /// earliest age stays 54", "without it, no age reaches your bar".
+    static func withoutSentence(_ without: AgeWithout, earliest: Int?) -> String {
+        guard let age = without.earliestAge else { return "without it, no age reaches your bar" }
+        return age == earliest ? "without it, your earliest age stays \(age)"
+            : "without it, your earliest age would be \(age)"
+    }
+
+    // MARK: What can go wrong
+
+    /// Where and when futures run out in the chapter, from the results: the
+    /// money you can draw running out before a locked account opens (in the
+    /// bridge), and the age by which most of the chapter's failures happen.
+    static func risks(_ chapter: PlanChapter, details: PlanResultDetails?) -> [Run] {
+        guard let details, chapter.isRetired else { return [] }
+        var runs: [Run] = []
+        if chapter.kind == .bridge {
+            let locked = details.focus.bridges.filter { bridge in
+                bridge.share > 0 && (bridge.accessibleFromAge.map { $0 > chapter.ages.lowerBound } ?? false)
+            }
+            if let bridge = locked.max(by: { $0.share < $1.share }), let age = bridge.accessibleFromAge {
+                let perHundred = Int(wholeNumber: bridge.share * 100)
+                let often = perHundred < 1 ? "fewer than 1 in 100 futures" : "\(perHundred) in 100 futures"
+                runs.append(.text(" If the money runs out here, it's while \(bridge.name) is still locked, until "
+                    + "\(age): in \(often)."))
+            }
+        }
+        let failing = details.focus.failuresByAge.filter { chapter.ages.contains($0.age) && $0.count > 0 }
+        let total = failing.reduce(0) { $0 + $1.count }
+        if total > 0, chapter.ages.count > 4 {
+            var counted = 0
+            for failure in failing.sorted(by: { $0.age < $1.age }) {
+                counted += failure.count
+                if counted * 2 >= total {
+                    if failure.age < chapter.ages.upperBound {
+                        runs.append(.text(" Most of the futures that run out here do so before \(failure.age + 1)."))
+                    }
+                    break
+                }
+            }
+        }
+        return runs
     }
 
     // MARK: Each month

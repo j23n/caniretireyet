@@ -215,6 +215,7 @@ struct PlanTimelineView: View {
         if let results {
             DisclosureGroup(isExpanded: $showsMoreCharts) {
                 VStack(alignment: .leading, spacing: Metrics.l) {
+                    PlanFanCard(session: session, results: results)
                     if isWide {
                         EqualColumns(spacing: Metrics.l) {
                             PlanSuccessCard(session: session, results: results)
@@ -246,7 +247,7 @@ struct PlanTimelineView: View {
                     Text("More charts")
                         .font(.headline)
                         .foregroundStyle(Palette.ink)
-                    Text("Chance by retirement age, income and taxes, when it fails, key numbers.")
+                    Text("Your money over time, chance by retirement age, income and taxes, when it fails, key numbers.")
                         .font(.footnote)
                         .foregroundStyle(Palette.secondaryInk)
                 }
@@ -467,7 +468,6 @@ struct PlanChapterDetails: View {
     var onSelect: (Int) -> Void = { _ in }
     var onUsePlanAge: () -> Void = {}
 
-    @State private var token: PlanToken?
     @State private var showsInputs = false
 
     private var chapter: PlanChapter { model.chapters.chapters[index] }
@@ -498,9 +498,6 @@ struct PlanChapterDetails: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(Palette.card, in: shape)
         .overlay { shape.strokeBorder(Palette.border, lineWidth: 1) }
-        .popover(item: $token) { token in
-            PlanTokenEditor(token: token, plan: $plan, model: model, onOpen: onOpen)
-        }
     }
 
     private var header: some View {
@@ -525,9 +522,11 @@ struct PlanChapterDetails: View {
 
     private var words: some View {
         VStack(alignment: .leading, spacing: Metrics.m) {
-            PlanStoryText(runs: story.story, onToken: tapped)
-                .font(.body)
-                .foregroundStyle(Palette.ink)
+            PlanEditableStory(runs: story.story, canEdit: canEdit, onSheet: onOpen) { token in
+                PlanTokenEditor(token: token, plan: $plan, model: model, onOpen: onOpen)
+            }
+            .font(.body)
+            .foregroundStyle(Palette.ink)
             if let milestoneText, !milestones.isEmpty {
                 HStack(alignment: .firstTextBaseline, spacing: Metrics.xs) {
                     Image(systemName: "flag")
@@ -542,9 +541,11 @@ struct PlanChapterDetails: View {
             if let bar = story.bar {
                 PlanMonthBarView(bar: bar, maximum: barMaximum)
             }
-            PlanStoryText(runs: story.assumes, onToken: tapped)
-                .font(.footnote)
-                .foregroundStyle(Palette.secondaryInk)
+            PlanEditableStory(runs: story.assumes, canEdit: canEdit, onSheet: onOpen) { token in
+                PlanTokenEditor(token: token, plan: $plan, model: model, onOpen: onOpen)
+            }
+            .font(.footnote)
+            .foregroundStyle(Palette.secondaryInk)
         }
     }
 
@@ -582,14 +583,6 @@ struct PlanChapterDetails: View {
         return "Along the way, typically: \(list)."
     }
 
-    private func tapped(_ token: PlanToken) {
-        guard canEdit else { return }
-        if token.opensSheet {
-            onOpen(token)
-        } else {
-            self.token = token
-        }
-    }
 }
 
 // MARK: - What every chapter assumes
@@ -605,8 +598,6 @@ struct PlanAssumptionsFooter: View {
     var onExport: (() -> Void)?
     @Binding var binding: PlanDocument
 
-    @State private var token: PlanToken?
-
     var body: some View {
         let shape = RoundedRectangle(cornerRadius: Metrics.cardRadius, style: .continuous)
         VStack(alignment: .leading, spacing: Metrics.s) {
@@ -614,8 +605,8 @@ struct PlanAssumptionsFooter: View {
                 .font(.headline)
                 .foregroundStyle(Palette.ink)
                 .accessibilityAddTraits(.isHeader)
-            PlanStoryText(runs: PlanChapterStory.shared(plan: plan, words: words)) { token in
-                if token.opensSheet { onOpen(token) } else { self.token = token }
+            PlanEditableStory(runs: PlanChapterStory.shared(plan: plan, words: words), onSheet: onOpen) { token in
+                PlanTokenEditor(token: token, plan: $binding, onOpen: onOpen)
             }
             .font(.subheadline)
             .foregroundStyle(Palette.ink)
@@ -636,9 +627,6 @@ struct PlanAssumptionsFooter: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(Palette.card, in: shape)
         .overlay { shape.strokeBorder(Palette.border, lineWidth: 1) }
-        .popover(item: $token) { token in
-            PlanTokenEditor(token: token, plan: $binding, onOpen: onOpen)
-        }
     }
 
     private var disclaimer: some View {

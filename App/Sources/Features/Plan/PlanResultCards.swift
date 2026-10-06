@@ -240,6 +240,71 @@ struct PlanSuccessCard: View {
     }
 }
 
+/// Your money over time (UI.md, "More charts"): the fan in one hue, your
+/// actual history in ink, and markers for retirement, pensions, locked
+/// money and events. One control sets the time span, how far back and how
+/// far ahead (shared with the Overview's chart and remembered on the
+/// device), so the years that matter aren't a sliver of a chart running to 95.
+struct PlanFanCard: View {
+    let session: PlanSession
+    let results: PlanResults
+
+    @Environment(LibraryStore.self) private var library
+    @Environment(AppPreferences.self) private var preferences
+    @Environment(\.baseCurrency) private var currency
+    @Environment(\.locale) private var locale
+    @AppStorage("overview.range") private var range: OverviewRange = .threeYears
+
+    /// Your actual plan assets in the results' currency, at each check-in's rate.
+    private var actual: PlanActualSeries {
+        PlanActualSeries(library: library.library, valuator: library.valuator, through: results.start.date,
+                         currency: currency, inMoneyOf: results.start.date)
+    }
+
+    var body: some View {
+        let now = results.start.date.dateValue
+        let retirement = results.retirementDate
+        let window = ProjectionWindow(now: now, range: range, horizon: preferences.futureHorizon,
+                                      retirement: retirement, planEnd: results.portfolio.last?.date ?? now)
+        let actual = actual
+        let history = window.history(actual.points)
+        let money = PlanMoney.todaysMoney(currency)
+        Card {
+            HStack {
+                TimeSpanMenu(range: $range, horizon: preferences.horizonBinding(start: now, retirement: retirement),
+                             choices: FutureHorizon.choices(start: now, retirement: retirement))
+                Spacer(minLength: 0)
+            }
+            FanChart(fan: window.fan(results.portfolio), actual: history,
+                     markers: window.markers(results.markers, from: history.first?.date ?? now), showsLegend: true)
+            ChartCaption(
+                text: "In \(money).",
+                detail: "Your plan assets in \(money): your actual values in ink, then the plan's projection. "
+                    + "The line is the median of the simulated futures, the darker band holds half of them and the "
+                    + "lighter band 8 in 10; the lighter band can run off the top, so the rest stays readable. "
+                    + "Markers show retirement, pensions starting, locked money becoming accessible, windfalls and "
+                    + "large expenses. The time span menu sets how far back and ahead the chart reaches.")
+            if let note = PlanMoney.missingRatesNote(actual.missingRates, base: library.baseCurrency, currency: currency,
+                                                     locale: locale) {
+                Text(note)
+                    .font(.footnote)
+                    .foregroundStyle(Palette.secondaryInk)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            if !actual.points.isEmpty,
+               let note = PlanMoney.standInNote(actual.inflation, currency: currency, locale: locale) {
+                Text(note)
+                    .font(.footnote)
+                    .foregroundStyle(Palette.secondaryInk)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        } header: {
+            SectionHeader((results.details?.focus.age ?? session.shownFocusAge)
+                .map { "Your money over time · retiring at \($0)" } ?? "Your money over time")
+        }
+    }
+}
+
 /// The fan chart's key: actual, median and the two bands, for a fan chart
 /// that doesn't show its own (`FanChart(showsLegend: false)`).
 struct PlanFanLegend: View {

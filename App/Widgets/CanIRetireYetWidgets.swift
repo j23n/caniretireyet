@@ -11,6 +11,7 @@ struct CanIRetireYetWidgets: WidgetBundle {
         NetWorthWidget()
         SinceCheckInWidget()
         ReadinessWidget()
+        MilestoneWidget()
         CheckInWidget()
         EarliestAgeWidget()
         SpendingWidget()

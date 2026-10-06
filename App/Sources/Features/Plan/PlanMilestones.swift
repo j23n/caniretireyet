@@ -13,6 +13,12 @@ struct PlanMilestones {
     /// Soonest first; empty without results.
     let ahead: [ProjectedMilestone]
     let next: NextMilestone?
+    /// The coast age now (PLANNER.md, "Ages without"): from the results
+    /// shown, else the latest check-in's record; `nil` when no age works
+    /// saving nothing more, or when it isn't known (``knowsCoastAge``).
+    let coastAge: Int?
+    /// Whether ``coastAge`` is known: a run looked for it, or a check-in recorded one.
+    let knowsCoastAge: Bool
 
     /// - Parameters:
     ///   - results: the plan's results shown, for what retiring today needs
@@ -37,6 +43,16 @@ struct PlanMilestones {
         }
         ahead = ladder.ahead(of: current, readiness: readiness, median: median)
         next = ladder.next(after: current, readiness: readiness)
+        if let coast = results?.details?.coast {
+            coastAge = coast.earliestAge
+            knowsCoastAge = true
+        } else if let age = recorded?.coastAge {
+            coastAge = age
+            knowsCoastAge = true
+        } else {
+            coastAge = nil
+            knowsCoastAge = false
+        }
     }
 
     /// When the median future reaches the next milestone; `nil` without
@@ -140,6 +156,18 @@ struct PlanMilestoneText {
     static func when(_ date: CalendarDate) -> String {
         let part = date.month <= 4 ? "early" : date.month <= 8 ? "mid" : "late"
         return "\(part) \(date.year)"
+    }
+
+    /// "If you stopped saving today, you could still retire at 63; the coast
+    /// point is 67, when your first pension starts."
+    static func coast(_ age: Int?, target: Int?) -> String {
+        guard let age else { return "If you stopped saving today, no age would reach your bar yet." }
+        let could = "If you stopped saving today, you could still retire at \(age)"
+        guard let target else { return could + "." }
+        if age <= target {
+            return could + ", by your first pension at \(target): you're past the coast point."
+        }
+        return could + "; the coast point is \(target), when your first pension starts."
     }
 
     /// "88% there".

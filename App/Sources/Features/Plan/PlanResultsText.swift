@@ -297,6 +297,10 @@ enum PlanResultsText {
         if let bridge = details.focus.bridges.first, let age = bridge.accessibleFromAge {
             rows.append(PlanFigureRow(label: "Runs out before \(age)", value: .percent(bridge.share)))
         }
+        if let coast = details.coast {
+            rows.append(PlanFigureRow(label: "Saving nothing more, retire at",
+                                      value: .text(coast.earliestAge.map { "\($0)" } ?? "None")))
+        }
         return rows
     }
 

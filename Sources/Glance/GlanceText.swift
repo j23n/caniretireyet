@@ -62,4 +62,46 @@ public enum GlanceText {
         components.hour = 12
         return Calendar(identifier: .gregorian).date(from: components) ?? Date(timeIntervalSince1970: 0)
     }
+
+    // MARK: Milestones
+
+    /// What the next milestone is: the amount ("300.000 €", or "A round
+    /// amount" while amounts are hidden), "10 years of spending", "Half of
+    /// what retiring today needs", "The crossover".
+    public static func milestoneName(_ milestone: MilestoneGlance, amount: (Decimal) -> String?) -> String {
+        switch milestone.kind {
+        case .yearsOfSpending:
+            let years = milestone.years ?? 0
+            return years == 1 ? "A year of spending" : "\(years) years of spending"
+        case .shareOfNeeded:
+            return shareName(milestone.share ?? 0) + " of what retiring today needs"
+        case .crossover:
+            return "The crossover"
+        default:
+            return amount(milestone.amount) ?? "A round amount"
+        }
+    }
+
+    /// "A quarter", "A third", "Half", "Two thirds", "Three quarters", "9 in
+    /// 10", "All", or a percentage.
+    static func shareName(_ share: Decimal) -> String {
+        let hundredths = Int(truncating: NSDecimalNumber(decimal: share * 100))
+        switch hundredths {
+        case 25: return "A quarter"
+        case 33: return "A third"
+        case 50: return "Half"
+        case 66, 67: return "Two thirds"
+        case 75: return "Three quarters"
+        case 90: return "9 in 10"
+        case 100: return "All"
+        default: return "\(hundredths)%"
+        }
+    }
+
+    /// "Typically by mid 2027": the part of the year, as the median of
+    /// many futures.
+    public static func typically(_ date: CalendarDate) -> String {
+        let part = date.month <= 4 ? "early" : date.month <= 8 ? "mid" : "late"
+        return "Typically by \(part) \(date.year)"
+    }
 }

@@ -204,6 +204,38 @@ struct GlanceSnapshotTests {
         #expect(snapshot.checkIn.dueWindow == 3)
     }
 
+    @Test func theNextMilestoneRoundTripsAndOlderSnapshotsHaveNone() throws {
+        let milestone = MilestoneGlance(kind: .shareOfNeeded, amount: 333_333, share: d("0.3333"), progress: 0.88,
+                                        typically: "2028-02-29")
+        let snapshot = GlanceSnapshot(currency: .eur, netWorth: nil, allocation: [], retirement: nil,
+                                      checkIn: CheckInGlance(last: nil, next: "2026-10-31", dueWindow: 3),
+                                      milestone: milestone)
+        let data = try GlanceFile.data(for: snapshot)
+        #expect(GlanceFile.snapshot(from: data)?.milestone == milestone)
+        let text = try #require(String(data: data, encoding: .utf8))
+        #expect(text.contains("\"amount\":\"333333\""))
+
+        let older = #"{"version":1,"currency":"EUR","checkIn":{"next":"2026-10-31"}}"#
+        #expect(try #require(GlanceFile.snapshot(from: Data(older.utf8))).milestone == nil)
+    }
+
+    @Test func theNextMilestoneInWords() {
+        func amount(_ value: Decimal) -> String? { "\(value) €" }
+        #expect(GlanceText.milestoneName(MilestoneGlance(kind: .roundAmount, amount: 300_000, progress: 0.9),
+                                         amount: amount) == "300000 €")
+        #expect(GlanceText.milestoneName(MilestoneGlance(kind: .roundAmount, amount: 300_000, progress: 0.9),
+                                         amount: { _ in nil }) == "A round amount")
+        #expect(GlanceText.milestoneName(MilestoneGlance(kind: .yearsOfSpending, amount: 360_000, years: 10,
+                                                         progress: 0.9), amount: amount) == "10 years of spending")
+        #expect(GlanceText.milestoneName(MilestoneGlance(kind: .shareOfNeeded, amount: 500_000, share: d("0.5"),
+                                                         progress: 0.9), amount: amount)
+            == "Half of what retiring today needs")
+        #expect(GlanceText.milestoneName(MilestoneGlance(kind: .crossover, amount: 400_000, progress: 0.9),
+                                         amount: amount) == "The crossover")
+        #expect(GlanceText.typically("2027-06-30") == "Typically by mid 2027")
+        #expect(GlanceText.typically("2028-02-29") == "Typically by early 2028")
+    }
+
     @Test func aRecordedAnswerNeverRetiresBeforeItsCheckIn() throws {
         let headline = Headline(date: "2026-09-30", confidence: d("0.9"), earliestAge: 38, engine: "0.1.0",
                                 planHash: "x", readiness: d("1.02"))

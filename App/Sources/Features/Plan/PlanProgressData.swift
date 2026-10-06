@@ -428,6 +428,8 @@ struct PlanProgressTimeline {
         let notes: [Note]
         /// The milestones its check-ins reached, flagged on its line.
         let milestones: [ReachedMilestone]
+        /// The year in a line ("Two years sooner, and past 300.000 €."); `nil` for a quiet one.
+        let summary: String?
         /// The money's currency.
         let currency: CurrencyCode
         /// 1 January and 31 December of the year, at noon.
@@ -564,7 +566,8 @@ struct PlanProgressTimeline {
             let notable = Self.notable(in: year, changes: changes, baselines: baselines, text: text)
             let notes = (answerNotes + milestoneNotes + notable).sorted { $0.date < $1.date }
             return Card(year: year, actual: actual, expected: expected, chips: chips, notes: notes,
-                        milestones: inYear, currency: currency, start: start, end: end)
+                        milestones: inYear, summary: PlanProgressText.summary(year, milestones: inYear, text: text),
+                        currency: currency, start: start, end: end)
         }
         scale = Scale(values: cards.flatMap { card in card.actual.map(\.value) + card.expected.map(\.value) })
     }
@@ -579,6 +582,8 @@ struct PlanProgressTimeline {
         var chips: [Chip] = []
         var notes: [Note] = []
         var previous = history.points.last { $0.date.year < year.year }?.earliestAge
+        // The answers the year has had, so one coming back reads "55 again.".
+        var seen = Set(previous.map { [$0] } ?? [])
         for (offset, point) in points.enumerated() {
             let month = Self.month(point.date, locale: locale)
             let marker = markers[point.date]
@@ -593,11 +598,13 @@ struct PlanProgressTimeline {
                     let years = abs(age - before)
                     let move = "\(years == 1 ? "a year" : "\(years) years") \(age < before ? "sooner" : "later")"
                     let cause = marker?.changes.contains(.plan) == true ? "Plan changed: " : ""
-                    notes.append(Note(date: point.date, month: month, text: "\(cause)\(age), \(move)."))
+                    let text = seen.contains(age) ? "\(cause)\(age) again." : "\(cause)\(age), \(move)."
+                    notes.append(Note(date: point.date, month: month, text: text))
                 } else if let marker {
                     notes.append(Note(date: point.date, month: month, text: "\(marker.label)."))
                 }
                 previous = age
+                seen.insert(age)
             } else if previous != nil {
                 notes.append(Note(date: point.date, month: month, text: "No age reached your bar."))
                 previous = nil
@@ -711,7 +718,13 @@ enum PlanProgressText {
             hidesAmounts ? AmountFormat.hidden : AmountFormat.amount(abs(value), currency: currency, locale: locale)
         }
         let when = year.isLatest ? "by now" : "by \(AmountFormat.shortDate(year.to, locale: locale))"
-        var text = "January expected \(amount(position.median)) \(when). "
+        var expected = "January expected \(amount(position.median)) \(when)"
+        if year.isLatest, let entry = year.baseline,
+           let december = CalendarDate(year: year.year, month: 12, day: 31), december > year.to,
+           let bands = PlanBaselineComparison.percentiles(on: december, in: entry.baseline) {
+            expected += " and \(amount(Decimal(wholeNumber: bands[2]))) by December"
+        }
+        var text = expected + ". "
         let side = position.gap >= 0 ? "ahead" : "behind"
         text += year.isLatest ? "You're \(amount(position.gap)) \(side)" : "You ended \(amount(position.gap)) \(side)"
         if let percentile = position.percentile {
@@ -724,6 +737,43 @@ enum PlanProgressText {
             text += "."
         }
         return text
+    }
+
+    /// The year in a line: how the answer moved, the milestone it passed, or
+    /// what markets did: "Two years sooner, and past 300.000 €.", "A strong
+    /// year for markets, and a year sooner."; `nil` for a quiet year.
+    static func summary(_ year: PlanProgressYear, milestones: [ReachedMilestone], text: PlanMilestoneText) -> String? {
+        var parts: [String] = []
+        if let change = year.ageChange, change != 0 {
+            let count = abs(change)
+            let span = count == 1 ? "a year" : Self.number(count) + " years"
+            parts.append("\(span) \(change < 0 ? "sooner" : "later")")
+        }
+        let rounds = milestones.filter { $0.milestone.kind == .roundAmount }
+        if let top = rounds.max(by: { $0.milestone.amount < $1.milestone.amount }) {
+            parts.append(text.hidesAmounts ? "past a round amount" : "past \(text.name(top.milestone))")
+        } else if milestones.contains(where: { $0.milestone.kind == .crossover }) {
+            parts.append("past the crossover")
+        } else if milestones.contains(where: { if case .coastPoint = $0.milestone.kind { true } else { false } }) {
+            parts.append("past the coast point")
+        }
+        if year.from != year.to, year.change.start > 0, parts.count < 2 {
+            let share = year.change.market / year.change.start
+            if share >= Decimal(8) / 100 {
+                parts.insert("a strong year for markets", at: 0)
+            } else if share <= -Decimal(5) / 100 {
+                parts.insert("a hard year for markets", at: 0)
+            }
+        }
+        guard let first = parts.first else { return nil }
+        let sentence = parts.count > 1 ? first + ", and " + parts[1] : first
+        return sentence.prefix(1).uppercased() + sentence.dropFirst() + "."
+    }
+
+    /// "Two", "three", … up to ten, then digits.
+    static func number(_ value: Int) -> String {
+        let words = ["one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten"]
+        return words.indices.contains(value - 1) ? words[value - 1] : "\(value)"
     }
 
     /// "Ahead of plan.", "Behind plan.", "On plan." for the latest year.

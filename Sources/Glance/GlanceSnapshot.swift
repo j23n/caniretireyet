@@ -28,15 +28,65 @@ public struct GlanceSnapshot: Hashable, Sendable {
     public var retirement: RetirementGlance?
     /// When the next check-in is due.
     public var checkIn: CheckInGlance
+    /// The main plan's next milestone (PROGRESS.md, "Milestones"); `nil`
+    /// without one, and in snapshots written before it existed.
+    public var milestone: MilestoneGlance?
 
     public init(version: Int = GlanceSnapshot.currentVersion, currency: CurrencyCode, netWorth: NetWorthGlance?,
-                allocation: [AllocationSlice], retirement: RetirementGlance?, checkIn: CheckInGlance) {
+                allocation: [AllocationSlice], retirement: RetirementGlance?, checkIn: CheckInGlance,
+                milestone: MilestoneGlance? = nil) {
         self.version = version
         self.currency = currency
         self.netWorth = netWorth
         self.allocation = allocation
         self.retirement = retirement
         self.checkIn = checkIn
+        self.milestone = milestone
+    }
+}
+
+// MARK: - The next milestone
+
+/// The main plan's next milestone (PROGRESS.md, "Milestones"): what it is,
+/// how far there, and when the plan's median future typically reaches it.
+public struct MilestoneGlance: Hashable, Sendable {
+    /// What a milestone is, as written in the snapshot.
+    public struct Kind: OpenEnum {
+        public let rawValue: String
+        public init(rawValue: String) { self.rawValue = rawValue }
+
+        /// A round amount of plan assets.
+        public static let roundAmount: Kind = "roundAmount"
+        /// Enough for ``MilestoneGlance/years`` years of retirement spending.
+        public static let yearsOfSpending: Kind = "yearsOfSpending"
+        /// ``MilestoneGlance/share`` of what retiring today needs.
+        public static let shareOfNeeded: Kind = "shareOfNeeded"
+        /// Where a typical year's growth matches a year's saving.
+        public static let crossover: Kind = "crossover"
+
+        public static let knownValues: [Kind] = [.roundAmount, .yearsOfSpending, .shareOfNeeded, .crossover]
+    }
+
+    public var kind: Kind
+    /// The plan assets that reach it, in ``GlanceSnapshot/currency``.
+    public var amount: Decimal
+    /// For years of spending, how many.
+    public var years: Int?
+    /// For a share of what retiring today needs: 0.5 is half.
+    public var share: Decimal?
+    /// How far there, from 0 to 1.
+    public var progress: Double
+    /// When the median future typically reaches it; `nil` without results.
+    public var typically: CalendarDate?
+
+    public init(kind: Kind, amount: Decimal, years: Int? = nil, share: Decimal? = nil, progress: Double,
+                typically: CalendarDate? = nil) {
+        self.kind = kind
+        self.amount = amount
+        self.years = years
+        self.share = share
+        self.progress = progress
+        self.typically = typically
     }
 }
 

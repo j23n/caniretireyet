@@ -2,6 +2,7 @@ import Foundation
 import Glance
 import Model
 import Observation
+import Planner
 import Tracker
 #if canImport(WidgetKit)
 import WidgetKit
@@ -53,8 +54,20 @@ final class WidgetStore {
         let birthDate = library.settings.person?.birthDate
         let answer = library.settings.mainPlan.flatMap { plans.results[$0] }
             .map { RetirementAnswer($0.headline, birthDate: birthDate) }
-        return GlanceSnapshot(library: library.library, valuator: library.valuator, asOf: library.asOfDate,
-                              answer: answer, checkIn: checkIn)
+        var snapshot = GlanceSnapshot(library: library.library, valuator: library.valuator, asOf: library.asOfDate,
+                                      answer: answer, checkIn: checkIn)
+        snapshot.milestone = nextMilestone()
+        return snapshot
+    }
+
+    /// The main plan's next milestone, as Progress shows it (UI.md,
+    /// "Milestones"); `nil` without a main plan or a milestone ahead.
+    private func nextMilestone() -> MilestoneGlance? {
+        guard let main = library.settings.mainPlan, let plan = library.library.plans[main] else { return nil }
+        let milestones = PlanMilestones(plan: plan, library: library.library, valuator: library.valuator,
+                                        asOf: library.asOfDate, results: plans.results[main])
+        guard let next = milestones.next else { return nil }
+        return MilestoneGlance(next.milestone, progress: next.progress, typically: milestones.nextDate)
     }
 
     /// Writes the snapshot if it changed, off the main thread, then asks the
@@ -90,5 +103,23 @@ extension RetirementAnswer {
                   readiness: headline.readiness, readinessIsLowerBound: headline.readinessIsLowerBound,
                   needsMoreThanSearched: headline.needsMoreThanSearched, canRetireNow: headline.canRetireNow,
                   recordedOn: headline.recordedOn)
+    }
+}
+
+extension MilestoneGlance {
+    /// A Planner milestone, as the widgets read it.
+    init(_ milestone: Milestone, progress: Double, typically: CalendarDate?) {
+        switch milestone.kind {
+        case .yearsOfSpending(let years):
+            self.init(kind: .yearsOfSpending, amount: milestone.amount, years: years, progress: progress,
+                      typically: typically)
+        case .shareOfNeeded:
+            self.init(kind: .shareOfNeeded, amount: milestone.amount, share: milestone.share, progress: progress,
+                      typically: typically)
+        case .crossover:
+            self.init(kind: .crossover, amount: milestone.amount, progress: progress, typically: typically)
+        case .roundAmount, .coastPoint:
+            self.init(kind: .roundAmount, amount: milestone.amount, progress: progress, typically: typically)
+        }
     }
 }

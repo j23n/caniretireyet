@@ -53,6 +53,44 @@ struct PlanStoryText: View {
     }
 }
 
+/// The plan's words with their values to change: a value opens its small
+/// editor in a popover pointing where it was clicked (the pointer's last
+/// place over the text, on the Mac and an iPad with a pointer; a sheet on
+/// iPhone), and an item's name or the target mix opens its sheet.
+struct PlanEditableStory<Editor: View>: View {
+    let runs: [PlanChapterStory.Run]
+    var canEdit = true
+    /// Opens an item's sheet, or the target mix's.
+    var onSheet: (PlanToken) -> Void = { _ in }
+    @ViewBuilder let editor: (PlanToken) -> Editor
+
+    @State private var token: PlanToken?
+    /// Where the pointer last was over the text: where a click lands.
+    @State private var pointer: CGPoint?
+
+    var body: some View {
+        PlanStoryText(runs: runs) { token in
+            guard canEdit else { return }
+            if token.opensSheet {
+                onSheet(token)
+            } else {
+                self.token = token
+            }
+        }
+        .onContinuousHover { phase in
+            if case .active(let location) = phase { pointer = location }
+        }
+        .popover(item: $token, attachmentAnchor: anchor) { token in
+            editor(token)
+        }
+    }
+
+    private var anchor: PopoverAttachmentAnchor {
+        guard let pointer else { return .rect(.bounds) }
+        return .rect(.rect(CGRect(x: pointer.x - 2, y: pointer.y - 8, width: 4, height: 16)))
+    }
+}
+
 /// A month's money as one bar, with its words under it ("Pay 4.500 € ·
 /// spend 3.000 €" and "save 1.500 €"). Bars share `maximum`, so a month
 /// in one chapter reads against another's.

@@ -61,6 +61,35 @@ struct PlanNextMilestoneView: View {
     }
 }
 
+/// The coast age: when you could still retire if you stopped saving today,
+/// against the coast point (UI.md, "Milestones").
+struct PlanCoastAgeView: View {
+    let age: Int?
+    var target: Int?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: Metrics.xs) {
+            HStack(alignment: .firstTextBaseline, spacing: Metrics.s) {
+                Label("Saving nothing more", systemImage: "pause.circle")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(Palette.secondaryInk)
+                Spacer(minLength: Metrics.s)
+                if let age {
+                    Text(verbatim: "\(age)")
+                        .font(.headline)
+                        .monospacedDigit()
+                        .foregroundStyle(target.map { age <= $0 } == true ? Palette.positive : Palette.ink)
+                }
+            }
+            Text(PlanMilestoneText.coast(age, target: target))
+                .font(.subheadline)
+                .foregroundStyle(Palette.ink)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .accessibilityElement(children: .combine)
+    }
+}
+
 /// How far to the next milestone, as a thin bar.
 struct PlanMilestoneBar: View {
     let progress: Double
@@ -100,6 +129,10 @@ struct PlanMilestonesCard: View {
         Card {
             if let next = milestones.next {
                 PlanNextMilestoneView(next: next, date: milestones.nextDate, text: text)
+                Divider()
+            }
+            if milestones.knowsCoastAge {
+                PlanCoastAgeView(age: milestones.coastAge, target: milestones.ladder.coastTarget)
                 Divider()
             }
             if isWide {

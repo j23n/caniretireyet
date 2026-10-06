@@ -7,7 +7,7 @@ import Model
 
 extension GlanceSnapshot: Codable {
     enum CodingKeys: String, CodingKey {
-        case version, currency, netWorth, allocation, retirement, checkIn
+        case version, currency, netWorth, allocation, retirement, checkIn, milestone
     }
 
     public init(from decoder: any Decoder) throws {
@@ -18,6 +18,7 @@ extension GlanceSnapshot: Codable {
         allocation = try c.decodeIfPresent([AllocationSlice].self, forKey: .allocation) ?? []
         retirement = try c.decodeIfPresent(RetirementGlance.self, forKey: .retirement)
         checkIn = try c.decode(CheckInGlance.self, forKey: .checkIn)
+        milestone = try c.decodeIfPresent(MilestoneGlance.self, forKey: .milestone)
     }
 
     public func encode(to encoder: any Encoder) throws {
@@ -28,6 +29,33 @@ extension GlanceSnapshot: Codable {
         try c.encode(allocation, forKey: .allocation)
         try c.encodeIfPresent(retirement, forKey: .retirement)
         try c.encode(checkIn, forKey: .checkIn)
+        try c.encodeIfPresent(milestone, forKey: .milestone)
+    }
+}
+
+extension MilestoneGlance: Codable {
+    enum CodingKeys: String, CodingKey {
+        case kind, amount, years, share, progress, typically
+    }
+
+    public init(from decoder: any Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        kind = try c.decode(Kind.self, forKey: .kind)
+        amount = try c.decodeDecimal(forKey: .amount)
+        years = try c.decodeIfPresent(Int.self, forKey: .years)
+        share = try c.decodeDecimalIfPresent(forKey: .share)
+        progress = try c.decode(Double.self, forKey: .progress)
+        typically = try c.decodeIfPresent(CalendarDate.self, forKey: .typically)
+    }
+
+    public func encode(to encoder: any Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(kind, forKey: .kind)
+        try c.encodeDecimal(amount, forKey: .amount)
+        try c.encodeIfPresent(years, forKey: .years)
+        try c.encodeDecimalIfPresent(share, forKey: .share)
+        try c.encode(progress, forKey: .progress)
+        try c.encodeIfPresent(typically, forKey: .typically)
     }
 }
 

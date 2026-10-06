@@ -160,6 +160,9 @@ struct PlanProgressView: View {
             tiles.append(Tile(title: "Since \(PlanResultsText.shortMonthYear(change.since, locale: locale))",
                               value: value))
         }
+        if let coast = session.shownResults?.details?.coast, let age = coast.earliestAge {
+            tiles.append(Tile(title: "Saving nothing more", value: "Retire at \(age)"))
+        }
         if let report = library.valuator.changeSinceLastCheckIn(asOf: library.asOfDate, in: .planAssets) {
             let saved = hidesAmounts ? AmountFormat.hidden
                 : AmountFormat.signedAmount(report.total.newMoney, currency: report.currency, locale: locale)
@@ -531,28 +534,44 @@ struct PlanYearStrip: View {
     @Binding var selection: Int
     /// Points a month along the time axis.
     var pointsPerMonth: CGFloat = 20
-    var cardHeight: CGFloat = 290
+    var cardHeight: CGFloat = 304
     /// The strip's inset at both ends, so its cards line up with the page.
     var inset: CGFloat = Metrics.l
 
     @Environment(\.hidesAmounts) private var hidesAmounts
     @Environment(\.locale) private var locale
+    @State private var showsEarlyYears = false
+
+    /// The oldest years, before the first with a recorded answer: folded
+    /// into one card until shown.
+    private var earlyCount: Int {
+        timeline.cards.firstIndex { $0.year.answerTo != nil } ?? 0
+    }
 
     var body: some View {
+        let early = earlyCount
+        let folds = early > 0 && !showsEarlyYears && selection >= early
         ScrollViewReader { proxy in
             ScrollView(.horizontal) {
                 HStack(alignment: .top, spacing: Metrics.s) {
-                    ForEach(Array(timeline.cards.enumerated()), id: \.element.id) { index, card in
-                        Button {
-                            selection = index
-                        } label: {
-                            PlanYearCardView(card: card, scale: timeline.scale, pointsPerMonth: pointsPerMonth,
-                                             height: cardHeight, isSelected: selection == index)
+                    if folds {
+                        PlanEarlyYearsCard(cards: Array(timeline.cards.prefix(early)), height: cardHeight) {
+                            withAnimation(.snappy) { showsEarlyYears = true }
                         }
-                        .buttonStyle(.plain)
-                        .id(index)
-                        .accessibilityLabel(Text(accessibilityLabel(card)))
-                        .accessibilityAddTraits(selection == index ? .isSelected : [])
+                    }
+                    ForEach(Array(timeline.cards.enumerated()), id: \.element.id) { index, card in
+                        if !folds || index >= early {
+                            Button {
+                                selection = index
+                            } label: {
+                                PlanYearCardView(card: card, scale: timeline.scale, pointsPerMonth: pointsPerMonth,
+                                                 height: cardHeight, isSelected: selection == index)
+                            }
+                            .buttonStyle(.plain)
+                            .id(index)
+                            .accessibilityLabel(Text(accessibilityLabel(card)))
+                            .accessibilityAddTraits(selection == index ? .isSelected : [])
+                        }
                     }
                 }
                 .padding(.horizontal, inset)
@@ -579,6 +598,55 @@ struct PlanYearStrip: View {
     }
 }
 
+/// The years before your first recorded answer, folded into one card: their
+/// span, how plan assets moved over them, and *Show* to lay them out.
+struct PlanEarlyYearsCard: View {
+    let cards: [PlanProgressTimeline.Card]
+    var height: CGFloat = 304
+    let onShow: () -> Void
+
+    @Environment(\.hidesAmounts) private var hidesAmounts
+    @Environment(\.locale) private var locale
+
+    private var span: String {
+        guard let first = cards.first?.year.year, let last = cards.last?.year.year else { return "" }
+        return first == last ? String(first) : "\(first) to \(last)"
+    }
+
+    private var moved: String? {
+        guard let start = cards.first?.year.change.start, let end = cards.last?.year.change.end,
+              let currency = cards.last?.currency else { return nil }
+        guard !hidesAmounts else { return AmountFormat.hidden }
+        return AmountFormat.amount(start, currency: currency, locale: locale) + " → "
+            + AmountFormat.amount(end, currency: currency, locale: locale)
+    }
+
+    var body: some View {
+        let shape = RoundedRectangle(cornerRadius: 14, style: .continuous)
+        VStack(alignment: .leading, spacing: Metrics.xs) {
+            Text(span)
+                .font(.headline)
+                .foregroundStyle(Palette.ink)
+            if let moved {
+                Text(moved)
+                    .font(.subheadline)
+                    .monospacedDigit()
+                    .foregroundStyle(Palette.ink)
+            }
+            Text("Before your first answer.")
+                .font(.caption)
+                .foregroundStyle(Palette.secondaryInk)
+            Spacer(minLength: 0)
+            Button("Show", action: onShow)
+                .buttonStyle(.bordered)
+        }
+        .padding(12)
+        .frame(width: 180, height: height, alignment: .topLeading)
+        .background(Palette.card, in: shape)
+        .overlay { shape.strokeBorder(Palette.border, style: StrokeStyle(lineWidth: 1, dash: [4, 3])) }
+    }
+}
+
 /// One year on the strip: its change, where it ended against January, your
 /// money through it (the line) against what January expected (dashed),
 /// green where you're ahead and orange where behind, the months along its
@@ -588,14 +656,14 @@ struct PlanYearCardView: View {
     let card: PlanProgressTimeline.Card
     let scale: PlanProgressTimeline.Scale?
     var pointsPerMonth: CGFloat = 20
-    var height: CGFloat = 290
+    var height: CGFloat = 304
     var isSelected = false
 
     @Environment(\.hidesAmounts) private var hidesAmounts
     @Environment(\.locale) private var locale
 
     private static let pad: CGFloat = 12
-    private static let graphTop: CGFloat = 70
+    private static let graphTop: CGFloat = 84
     private static let graphHeight: CGFloat = 150
     private var plotBottom: CGFloat { Self.graphTop + Self.graphHeight }
     private var width: CGFloat { 12 * pointsPerMonth + 2 * Self.pad }
@@ -646,6 +714,11 @@ struct PlanYearCardView: View {
                 Text("No January baseline")
                     .font(.caption)
                     .foregroundStyle(Palette.mutedInk)
+            }
+            if let summary = card.summary {
+                Text(summary)
+                    .font(.caption)
+                    .foregroundStyle(Palette.secondaryInk)
             }
         }
         .lineLimit(1)
@@ -828,6 +901,12 @@ struct PlanYearDetails: View {
                 Text(against)
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle((year.position?.gap ?? 0) >= 0 ? Palette.positive : Palette.orangeStroke)
+            }
+            if let summary = card.summary {
+                Text(summary)
+                    .font(.headline)
+                    .foregroundStyle(Palette.ink)
+                    .fixedSize(horizontal: false, vertical: true)
             }
             let story = PlanProgressText.story(year, currency: card.currency, hidesAmounts: hidesAmounts,
                                                locale: locale)
