@@ -9,7 +9,7 @@ The app has one user, and three situations to design for:
 | Situation | Where | How often | What matters |
 | --- | --- | --- | --- |
 | **Monthly check-in** | Mostly iPhone | Monthly, about 5 minutes | Speed. Values are pre-filled, and only what changed needs a tap. It ends with this month's answer. |
-| **Planning session** | Mostly Mac | A few times a year, 30–60 minutes | Inputs and results side by side, what-ifs a click away, comparing two plans. |
+| **Planning session** | Mostly Mac | A few times a year, 30–60 minutes | The plan's chapters and results side by side, what-ifs a click away, comparing two plans. |
 | **Looking after the data** | Mac | Occasionally | Adding and closing accounts, importing, fixing a value, looking at the files. |
 
 Plus the glance: "how am I doing?" in a widget or on the Overview.
@@ -33,7 +33,7 @@ Plus the glance: "how am I doing?" in a widget or on the Overview.
 
 - **Overview:** net worth, history, how you're doing.
 - **Accounts:** the list, account details, adding and closing.
-- **Plan:** results, progress and inputs for each plan.
+- **Plan:** results, chapters (the inputs) and progress for each plan.
 - **Settings** opens from a gear button in the Overview toolbar. It's rarely needed, so it doesn't take a tab.
 - The accessory shows the check-in's state, e.g. "Last check-in 30 Sep · next 31 Oct", or "due" with a start button.
 
@@ -408,7 +408,7 @@ A brokerage, crypto or metals account can record its **trades** instead of month
 
 ## Plan
 
-A plan picker sits at the top (Base case ▾, with New Plan, Duplicate, Rename…, Set as Main Plan, Save Baseline…, *Export Calculations…* and Delete…), then three parts: **Results**, **Progress** and **Inputs**.
+A plan picker sits at the top (Base case ▾, with New Plan, Duplicate, Rename…, Set as Main Plan, Save Baseline…, *Export Calculations…* and Delete…), then three parts: **Results**, **Chapters** (the plan's inputs, by the stretch of life they belong to) and **Progress**.
 
 ### Calculating
 
@@ -453,7 +453,7 @@ A plan is calculated only when you ask: *Calculate*, *Recalculate* (⌘R, and a 
 ```
 ┌──────────────────────────────────────────┐
 │ Base case ▾                          ⋯   │
-│ [ Results ]  Progress   Inputs           │
+│ [ Results ]  Chapters   Progress         │
 │                                          │
 │ Can I retire yet?                        │
 │ Not yet.                                 │
@@ -517,6 +517,7 @@ A plan is calculated only when you ask: *Calculate*, *Recalculate* (⌘R, and a 
   - **Time span:** the same menu as the Overview's (and the same remembered choice): how far back, and how far ahead, retirement + 15 years by default, so the years around retirement aren't a sliver of a chart running to 95.
   - The value axis fits your history, the median and the 25–75% band; the 10–90% band may run off the top, and the legend says so.
   - Markers above the data: retirement, when an account available from an age opens, pension starts, windfalls and large expenses. Labels that would collide go in a second row; a marker without room in either shows its icon, and its label is in the callout.
+  - **The plan's chapters** are bands behind the fan, with a button under each band ([Chapters](#chapters)); choosing one shows that chapter: the Chapters part on iPhone, the inspector on the Mac and iPad.
 - **Retirement income.**
   - Stacked areas, one flat step a year, by source: withdrawals, work (the year you retire), pensions and windfalls, then the taxes they pay in grey on top. A source is labelled by its name when there's only one ("State pension"), else as a group ("Pensions"). The spending target is a dashed line, labelled "Spending" at its end, outside the areas. Years are labelled every 5 or 10.
   - *Why the taxes are on top:* a withdrawal is what's sold: it pays the tax on the gain part of the sale, the year's wealth tax and last year's tax on investment income as well as the spending. So that the chart reads against the spending line, each source is shown after its share of the year's taxes (in proportion), and the taxes are the grey band: the sources reach the spending line (plus expenses and what's saved), the stack the income before those taxes. The year the money runs out falls short of the line.
@@ -561,6 +562,26 @@ A plan is calculated only when you ask: *Calculate*, *Recalculate* (⌘R, and a 
 See [PROGRESS.md](PROGRESS.md).
 
 - **Your answer over time.** The earliest retirement age at each check-in, as a step line. Markers show where you changed the plan or where the app's calculations changed. A check-in's callout adds its readiness ("58% of what retiring today needed") when it was recorded; the old FI progress isn't shown.
+- **Year by year.** A card per calendar year with a check-in of plan assets, newest first, the current one "2026 so far", with its span ("31 Dec 2025 – 30 Sep · 4 check-ins"):
+
+  ```
+  ┌──────────────────────────────────────────┐
+  │ 2026 so far      31 Dec 2025 – 30 Sep · 4│
+  │ Plan assets      212.400 € → 245.000 €   │
+  │ Saved · planned 15.000 €    ▲ +12.400 €  │
+  │ Markets                     ▲ +20.200 €  │
+  │ Earliest age          55 → 54  ▼ −1 year │
+  │ ✎ Plan changed                           │
+  │ Against Start of 2026 (automatic)        │
+  │                       ▲ +8.300 € ahead   │
+  │ 61st percentile of what you expected     │
+  │                       Show on the chart  │
+  └──────────────────────────────────────────┘
+  ```
+
+  - **Plan assets** from the check-in before the year (its first, for the first year) to its last one, then what you **saved** (new money) and what **markets** did, from the same split as the Overview's "since last check-in" (and *Not explained* when an account's flow is unknown). Next to *Saved*, what the year's baseline planned to save.
+  - **Earliest age** going into the year (the last recorded before it) and at its last check-in, with the change in years, and *Plan changed* or *Calculations updated* when that happened during the year.
+  - **Against** the year's automatic baseline: how far ahead of or behind its median the year's last check-in is, and at what percentile. *Show on the chart* picks that baseline in *Actual vs baseline* and scrolls to it.
 - **Actual vs baseline.**
   - Pick a baseline, e.g. "Start of 2026 (automatic)" or "Before part-time (saved 12 Mar)".
   - Its fan chart runs from its start date, with your actual line drawn over it: the same accounts at each check-in, in money of the start date where the inflation index allows. A line under the chart says which.
@@ -568,29 +589,68 @@ See [PROGRESS.md](PROGRESS.md).
   - M3 adds the waterfall explaining the gap: savings, markets, inflation and other.
 - **Save baseline…** takes a label.
 
-### Inputs
+### Chapters
 
-A form with the same sections as the plan file. Each section is a collapsible card with a one-line summary, so the whole plan fits on one screen when collapsed:
+The plan's inputs, grouped by the stretch of life they belong to ([PLANNER.md](PLANNER.md#chapters)). A **chapter** starts in the year the work you do changes, work stops, the first pension is paid, or retirement spending moves to another phase; everything else (another pension, a contribution, an event, a change of the target mix) belongs to the chapter it starts or happens in. So the plan reads as a life: what pays for it in each stretch, what happens in it, and where the money stands at its end.
 
 ```
-You            Born 1988 · retire at 55 · plan to 95
-Work           Employee 2026–28 · Self-employed 2029–retirement
-Spending       36.000 €/yr · 90% from 75 · 80% from 85 · flexible, down to 80%
-Pensions       State pension 67 · State pension from previous country 67
-Contributions  Fondo pensione 5.000 €/yr
-Events         Inheritance at 62 (80%) · New car 2031
-Taxes          26% on investments · wealth tax 0.20% above 5.000 €
-Assumptions    Equity 5% typical year (2% income) · Inflation 2%
-Target mix     Equity 80% · bonds 20% · changes at retirement and 75
-Simulation     2.000 runs · 90% confidence
+┌──────────────────────────────────────────┐
+│ Base case ▾                          ⋯   │
+│  Results  [ Chapters ]  Progress         │
+│        ( Earliest 54 · out of date ↻ )   │
+│ Your chapters                         6  │
+│ ━━━━░░▒▒▓▓━━━━▓▓▒▒░░░░░░░░░░░░░░░░░░░░░  │
+│ [1][Self-employed][Retired][Pensions][…] │
+│ In today's EUR. Choose a chapter to go   │
+│ to it.                                   │
+│                                          │
+│ ② Self-employed                          │
+│   2029–2042 · ages 41–54                 │
+│   Your work pays; what's left over is    │
+│   saved.                                 │
+│ ╭ End of 2042 · age 54 ────────────────╮ │
+│ │ Median 612.000 €                      │ │
+│ │ 8 in 10 futures between 480.000 € and │ │
+│ │ 790.000 €                             │ │
+│ ╰───────────────────────────────────────╯ │
+│   Self-employed · 2029–retirement      ›  │
+│   45.000 €/yr after tax                   │
+│   New car · in 2031                    ›  │
+│   −25.000 €                               │
+│   Continuing: Spending while working ·    │
+│   Saving into Fondo pensione · Target mix │
+│   + Add to this chapter                   │
+│                                          │
+│ ③ Retired, before pensions               │
+│   …                                      │
+│ Always                                   │
+│ You          Born 1988                    │
+│ Taxes        26% on investments · …       │
+│ Assumptions  Equity 5% typical year · …   │
+│ Target mix   Equity 80% · bonds 20% · …   │
+│ Simulation   2.000 runs · 90% confidence  │
+└──────────────────────────────────────────┘
 ```
 
-- **You.** The birth date, as in Settings, *Retire as early as possible* or the retirement age, and the age the plan runs to.
+- **Where it is.** On iPhone, the Chapters part, with the map at the top. On the Mac and iPad, the inspector next to Results or Progress (*Show Chapters*), headed "Chapters" with the count of problems, and without the map: the chart in Results has it.
+- **The map.** The money over the plan's whole length, as in Results, with the chapters as bands behind the fan (two alternating greys, the selected one tinted) and a row of buttons under the chart, each under its band and as wide as it, but never narrower than a finger: its title, a shorter one or its number, whichever fits. Choosing one scrolls to the chapter's card and outlines it. Before the plan is calculated, only the buttons, over the plan's years, with *Calculate*. Results' *Your money over time* has the same bands and buttons.
+- **The age they're cut at.** Work stops at the age the charts are for: one chosen on the success curve, else the what-if's, else the plan's own, else the earliest age the plan found, else the one recorded at the last check-in. A plan asking for the earliest age with none of these yet assumes 65 until it's calculated, and says so where work stops. When the charts are for an age chosen in Results, it says that, with *Plan's age*.
+- **A chapter's card.**
+  - Its number, its title ("Employee", "Not working", "Retired, before pensions", "Retired, with pensions · spending 90%"), its years and ages, and what pays for your life in it.
+  - **Where the money stands at its end**, once the plan is calculated: the median and the range 8 in 10 futures fall in at the end of its last year (at the plan's end, for the last), and how often the money runs out during it ("The money runs out during these years in 3% of futures."). Dimmed while the results are out of date or being recalculated.
+  - **What starts in it**, edited in place or in its sheet: when work stops (*Retire as early as possible*, or the age, and "Work stops at 55, in 2043."; turning *as early as possible* off keeps the age the chapters show), spending while working and in retirement, a later spending phase, the plan's end ("Plan to age 95") in the last chapter; work phases, pensions, contributions and events as rows that open their sheet; the target mix and its changes with age, which open the Target mix card in Always.
+  - **Continuing**: what carries on from earlier chapters, on one line ("Continuing: Spending while working · Saving into Fondo pensione · Target mix").
+  - **Add to this chapter**: a work phase or a contribution before retirement (from the chapter's first day; in a later chapter the contribution is a one-off in its first year), a pension from its first age, an event in its first year, or, in retirement, a later spending phase from its middle.
+- **Outside the plan's years.** Inputs that apply in no year the plan runs (an event after its end, a work phase over before it starts, a pension without an age) are listed after the chapters, editable like the rest.
+- **Always.** What holds in every chapter, as collapsible cards with a one-line summary: **You** (the birth date, as in Settings), **Taxes**, **Assumptions**, **Target mix** and **Simulation**. Without a birth date there are no chapters: a card asks for it instead.
+
+#### The editors
+
 - **New plans and items.** A new plan retires as early as possible, and takes its tax rates and spending from the main plan (else another plan), since you've said them already. A library without plans starts from 30.000 euros' worth of spending in its base currency at its latest exchange rate, to two significant figures (35.000 for dollars, 4.800.000 for yen), or 30.000 when it has no rate to the euro, and with no tax rate on investments, which the plan asks for before it runs. A new work phase earns 4/3 of the plan's spending while working, a new contribution is a thirtieth of it a year and a new event an expense of a third, so every default is in the plan's own money; a new pension starts at 67, with its amount to enter.
 - **Work phases.** Each is a row ("Employee · 2026–28", "40.000 €/yr after tax · +1%/yr"). The editor has the name, the dates (from, and until a date or retirement), **Income after tax** a year and an optional real growth: "What reaches your bank account in a year, after income tax and social contributions, in today's EUR. Growth is above inflation."
 - **Pensions.** Each is a row ("State pension", "From 67 · 14.000 €/yr after tax"). The editor has the name, the age it's paid from, and **After tax per year**: "From your pension statement, after the tax you expect to pay on it, in today's EUR."
 - **Contributions.** Each is a row ("Fondo pensione", "Every year until retirement · 5.000 €/yr"). The editor picks the account it goes into ("Paid into the account, and drawn once it's available (Available from age on the account). The rest of your savings goes to the money you can draw."), and whether it's paid every year (until retirement or a date) or once, in a year.
-- **Spending.** While working, in retirement, and the later phases (from an age, a share of it). Then **Flexible spending** ([PLANNER.md](PLANNER.md#flexible-spending)), after a divider:
+- **Spending.** While working (in the first chapter), in retirement (where you retire), and the later phases (from an age, a share of it, where each begins). Under spending in retirement, folded away, **Flexible spending** ([PLANNER.md](PLANNER.md#flexible-spending)):
 
   ```
   Flexible spending                      [ ● ]
@@ -609,7 +669,7 @@ Simulation     2.000 runs · 90% confidence
 
   - The switch writes `{ "enabled": true }`; turning it off keeps settings that differ from the defaults (`enabled: false`), and with only defaults removes the rule, so nothing is written.
   - The fields show the defaults as their prompts; a field left empty, or set to its default, isn't written. *Never below* is also shown in money: the floor share of the retirement spending, before the phases, hidden with the eye.
-  - The guardrails are folded away (*Guardrails*, a disclosure group). Settings out of range show as errors on the card. The card's summary adds "flexible, down to 80%".
+  - The guardrails are folded away (*Guardrails*, a disclosure group). Settings out of range show as errors above the chapters.
 - **Taxes** ([PLANNER.md](PLANNER.md#the-model-in-brief)):
 
   ```
@@ -628,7 +688,7 @@ Simulation     2.000 runs · 90% confidence
   - The rate on investments is required: until it's set, the card shows the error and the summary says "Tax on investments not set".
   - Turning the wealth tax off removes its rate and allowance from the plan.
 - **Assumptions.** Inflation, then each class's real return as its mean and its median, and its volatility, three fields a row ("Crypto 16.6 % · 0 % · 70 %"). Either return can be typed: the other follows from it and the volatility, and changing the volatility keeps the one that was given (crypto's default is given by its median). The line under them: "Placeholders to review, not forecasts: real returns after fund costs. The mean is the average year, the median the typical one, which a portfolio rebalanced every year grows at. Enter either: the other follows from the volatility." What equals the default isn't written to the plan. A class whose return and volatility are exactly an earlier version's default, which that version wrote into the plan when one of the class's numbers was edited ([PLANNER.md](PLANNER.md#returns)), gets a line under its row: "This is the previous default (4.5% average). The current default is a 5.0% typical year.", with a *Use Default* button that removes the plan's entry for the class (keeping its income yield), so it follows the current default. Nothing changes until it's tapped. The card's summary counts them ("4 previous default returns"), and it shows equity's return as it's given: "Equity 5% typical year", or "Equity 4,5% average". Then an optional **income yield** for equity and bonds: "The part of the return paid out as income each year (dividends, interest), taxed every year at the rate on investments. Leave it empty to count it as growth, taxed when sold." Then the estimate of unrealised gains for holdings without a purchase cost, and the accounts in the plan, each with a switch. A class the portfolio holds whose median is below −2% a year gets a warning on the card: "Crypto's returns give a typical year of −18% (an average of 0.0% at 70% volatility): holding it and rebalancing back into it every year shrinks your portfolio. Check its return under Assumptions."
-- **Target mix.** A card of its own, after Assumptions: the mix the plan rebalances the money you can draw to every year ([PLANNER.md](PLANNER.md#target-mix)). Its first line says what that does: "Each year the plan rebalances the money you can draw back to this mix: new money goes in at it, withdrawals sell every class alike, and rebalancing isn't taxed."
+- **Target mix.** A card of its own in Always, after Assumptions: the mix the plan rebalances the money you can draw to every year ([PLANNER.md](PLANNER.md#target-mix)). Its first line says what that does: "Each year the plan rebalances the money you can draw back to this mix: new money goes in at it, withdrawals sell every class alike, and rebalancing isn't taxed."
 
   ```
   [ Today's mix | A mix I choose ]
@@ -658,10 +718,10 @@ Simulation     2.000 runs · 90% confidence
   - **VoiceOver** reads each class as its name, today's shares in words ("Equity today: 46% of the money you can draw, 44% of all plan assets"), its target field ("Equity target, percent") and its median ("Equity median return 5.0% a year"); the column headers are hidden from it, and each change's title is a heading.
   - Issues about the target mix (a total, ages that don't go up, a change after the plan's end) show on this card; the summary reads "Today's mix", or "Equity 80% · bonds 20% · changes at retirement and 75".
 - **Simulation.** The number of runs, the confidence a "yes" needs, and the random seed.
-- **Validation.** Issues appear on the section they concern, and on the row of the work phase, pension or contribution they're about:
+- **Validation.** Issues appear on the row of the work phase, pension, contribution or event they're about, on the Always card they concern, and the rest (spending's, and those about a whole list) above the chapters:
   - ⚠︎ for warnings, e.g. "State pension starts after the plan's end age, so the plan never pays it.";
   - ⛔︎ for errors that stop the plan from running, e.g. "Employee: enter the income after tax for this phase (netIncome)."
-- **Staying in view.** On iPhone, a small sticky pill at the top ("Earliest 54") keeps the answer visible while you edit; once an edit makes it out of date it says so, with *Recalculate*, and shows a small bar while that runs. On the Mac, Inputs and Results are side by side, so the out-of-date banner and *Recalculate* (⌘R) are next to the field you're editing.
+- **Staying in view.** On iPhone, a small sticky pill at the top of Chapters ("Earliest 54") keeps the answer visible while you edit; once an edit makes it out of date it says so, with *Recalculate*, and shows a small bar while that runs. On the Mac, the chapters and Results are side by side, so the out-of-date banner and *Recalculate* (⌘R) are next to the field you're editing.
 
 ### Export Calculations
 

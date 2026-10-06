@@ -42,6 +42,10 @@ The chart then shows how "you can retire at 54" moves from month to month.
 
 Markers show when the plan's inputs, the app's calculation code or the tax parameters changed. So you can tell a move caused by markets and savings from one caused by changing the plan or by a new budget law.
 
+### Year by year
+
+Each calendar year with a check-in, newest first ([UI.md](UI.md#progress)): your plan assets from the check-in before the year to its last one, split into what you saved (new money, next to what the year's automatic baseline planned to save: its `savings` for the year) and what markets did, as the Overview splits the change since the last check-in; the earliest age going into the year and at its end, with the plan's and the calculations' changes during it; and where the year's last check-in stands against the year's baseline. The years are also bands on the chart of the answer over time.
+
 ### Actual vs. a baseline (basic in M2; the explanation in M3)
 
 A **baseline** is a projection saved at a point in time (see below). Choosing one shows:

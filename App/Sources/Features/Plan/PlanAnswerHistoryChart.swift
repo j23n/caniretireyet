@@ -4,12 +4,19 @@ import SwiftUI
 
 /// "Your answer over time": the earliest retirement age at each check-in as
 /// a step line, with a mark where the plan or the app's calculations
-/// changed (PROGRESS.md, "The answer over time").
+/// changed (PROGRESS.md, "The answer over time"). With `bands`, the years
+/// shaded behind it, and with `selectedBand` a button under each that
+/// selects one (UI.md, "Progress").
 struct PlanAnswerHistoryChart: View {
     let history: PlanAnswerHistory
     var height: CGFloat = 180
+    var bands: [ChartBand] = []
+    var selectedBand: Binding<Int?>?
 
     @State private var selectedDate: Date?
+    @State private var width: CGFloat = ChartStyle.defaultWidth
+    /// Where the plot is, once drawn: the band strip lines up with it.
+    @State private var plotArea: ChartPlotArea?
 
     private var points: [PlanAnswerHistory.Point] {
         history.points.filter { $0.earliestAge != nil }
@@ -22,14 +29,40 @@ struct PlanAnswerHistoryChart: View {
                 .foregroundStyle(Palette.secondaryInk)
                 .frame(maxWidth: .infinity, minHeight: height)
         } else {
-            chart
-                .frame(height: height)
-                .accessibilityChartDescriptor(summary)
+            let domain = self.domain
+            let shown = bands.clipped(to: domain)
+            VStack(alignment: .leading, spacing: Metrics.s) {
+                chart(domain: domain, bands: shown)
+                    .frame(height: height)
+                    .measuringWidth($width)
+                    .accessibilityChartDescriptor(summary)
+                if let selectedBand, !shown.isEmpty {
+                    let plot = plotArea ?? ChartPlotArea.estimated(chartWidth: Double(width))
+                    ChartBandStrip(bands: shown,
+                                   layout: ChartBandLayout(bands: shown, domain: domain, plotWidth: plot.width),
+                                   plotX: plot.x, selection: selectedBand)
+                }
+            }
         }
     }
 
-    private var chart: some View {
+    /// From the first check-in to the last, at least a month.
+    private var domain: ClosedRange<Date> {
+        let dates = points.map(\.date.dateValue)
+        let first = dates.min() ?? Date()
+        let last = max(dates.max() ?? first, first.addingTimeInterval(86_400 * 31))
+        return first...last
+    }
+
+
+    private func chart(domain: ClosedRange<Date>, bands: [ChartBand]) -> some View {
         Chart {
+            ForEach(bands) { band in
+                RectangleMark(xStart: .value("Start", band.start), xEnd: .value("End", band.end),
+                              yStart: .value("Bottom", history.ageRange.lowerBound),
+                              yEnd: .value("Top", history.ageRange.upperBound))
+                    .foregroundStyle(band.tint(selected: selectedBand?.wrappedValue))
+            }
             ForEach(points) { point in
                 LineMark(x: .value("Check-in", point.date.dateValue),
                          y: .value("Earliest age", point.earliestAge ?? 0))
@@ -61,6 +94,7 @@ struct PlanAnswerHistoryChart: View {
                     }
             }
         }
+        .chartXScale(domain: domain)
         .chartYScale(domain: history.ageRange)
         .chartXSelection(value: $selectedDate)
         .chartYAxis {
@@ -90,6 +124,7 @@ struct PlanAnswerHistoryChart: View {
             }
         }
         .chartLegend(.hidden)
+        .measuringPlot($plotArea)
     }
 
     private var selectedPoint: PlanAnswerHistory.Point? {

@@ -2,8 +2,8 @@ import Model
 import Planner
 import SwiftUI
 
-// The list sections of Inputs (work phases, pensions, contributions,
-// events), the Taxes card, and the sheets that edit one item.
+// The lists of a plan's work phases, pensions, contributions and events,
+// the Taxes card, and the sheets that edit one item.
 
 // MARK: - Lists
 

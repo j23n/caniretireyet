@@ -1,10 +1,11 @@
+import Charts
 import SwiftUI
 
 /// A row of buttons under a chart, each under its band on the time axis
 /// (``ChartBandLayout``): the plan's chapters on the map (UI.md,
-/// "Chapters"). The selected band's button is filled; choosing a button
-/// selects its band. Each shows the longest of its band's titles that fits:
-/// "Self-employed", "Work", or its number.
+/// "Chapters"), the years of Progress. The selected band's button is
+/// filled; choosing a button selects its band. Each shows the longest of
+/// its band's titles that fits: "Self-employed", "Work", or its number.
 struct ChartBandStrip: View {
     let bands: [ChartBand]
     let layout: ChartBandLayout
@@ -35,7 +36,7 @@ struct ChartBandStrip: View {
             ViewThatFits(in: .horizontal) {
                 Text(band.title)
                 Text(band.shortTitle)
-                Text(String(band.id + 1))
+                Text(band.tinyTitle ?? String(band.id + 1))
             }
             .font(.caption2.weight(.semibold))
             .lineLimit(1)
@@ -48,9 +49,44 @@ struct ChartBandStrip: View {
         }
         .buttonStyle(.plain)
         .offset(x: CGFloat(plotX + slot.x) + 1)
-        .accessibilityLabel(Text("Chapter \(band.id + 1), \(band.title)"))
+        .accessibilityLabel(Text(band.title))
         .accessibilityValue(Text(band.detail))
         .accessibilityAddTraits(isSelected ? .isSelected : [])
+    }
+}
+
+extension ChartBand {
+    /// Its shade behind a chart: the selected band in the hue, the others
+    /// in two alternating greys, so neighbours stay apart.
+    func tint(selected: Int?) -> Color {
+        if id == selected { return Palette.accent.opacity(0.14) }
+        return Palette.gridline.opacity(id.isMultiple(of: 2) ? 0.25 : 0.55)
+    }
+}
+
+extension View {
+    /// Keeps `area` in step with where the chart's plot is, in whole
+    /// points, so a ``ChartBandStrip`` under it lines up. Apply to a `Chart`.
+    func measuringPlot(_ area: Binding<ChartPlotArea?>) -> some View {
+        chartOverlay { proxy in
+            GeometryReader { geometry in
+                let frame = proxy.plotFrame.map { geometry[$0] } ?? .zero
+                Color.clear
+                    .onAppear { ChartPlotArea.update(area, to: frame) }
+                    .onChange(of: frame) { _, newFrame in ChartPlotArea.update(area, to: newFrame) }
+            }
+            .allowsHitTesting(false)
+        }
+    }
+}
+
+extension ChartPlotArea {
+    /// Sets `area` to `frame` when it moved by a whole point.
+    @MainActor
+    static func update(_ area: Binding<ChartPlotArea?>, to frame: CGRect) {
+        guard frame.width > 0 else { return }
+        let measured = ChartPlotArea(x: Double(frame.minX.rounded()), width: Double(frame.width.rounded()))
+        if measured != area.wrappedValue { area.wrappedValue = measured }
     }
 }
 

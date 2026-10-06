@@ -186,10 +186,10 @@ The iPhone uses a tab bar and the Mac uses a sidebar. The iPad gets the sidebar 
   5. Save.
 - **Plan.** Three parts:
   - *Results*: the headline answer and the charts;
-  - *Progress*: the answer over time, and your actual numbers against baselines;
-  - *Inputs*.
+  - *Chapters*: the inputs, grouped by the stretch of life they belong to (working, retired before the pensions, with them), with where the money stands at the end of each;
+  - *Progress*: the answer over time, each year's progress, and your actual numbers against baselines.
 
-  On the Mac, inputs and results sit side by side. Plans can be duplicated as what-if scenarios. The screens are designed in [UI.md](UI.md).
+  On the Mac, the chapters and results sit side by side. Plans can be duplicated as what-if scenarios. The screens are designed in [UI.md](UI.md).
 - **Settings.** Library location, price sources, a monthly reminder, app lock, and a description of the file format.
 
 On the Mac there are also tables for editing many valuations at once, keyboard navigation through the check-in, and "Show library in Finder".

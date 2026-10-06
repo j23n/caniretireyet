@@ -2,8 +2,9 @@ import Foundation
 import Model
 import Planner
 
-/// The cards of the Inputs form, in order (UI.md, "Inputs"): the plan
-/// file's sections, plus the birth date from the library.
+/// The sections of a plan's inputs, in order (UI.md, "Chapters"): the plan
+/// file's sections, plus the birth date from the library. Always shows
+/// some as cards, and issues are grouped by them.
 enum PlanInputSection: String, CaseIterable, Hashable, Sendable, Identifiable {
     case you
     case work

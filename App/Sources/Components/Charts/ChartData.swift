@@ -246,11 +246,25 @@ struct ChartBand: Hashable, Sendable, Identifiable {
     var start: Date
     var end: Date
     /// The button's words, the longest that fits: "Self-employed", then
-    /// "Work", then the number.
+    /// "Work", then `tinyTitle` (its number, by default).
     var title: String
     var shortTitle: String
-    /// What it spans, for VoiceOver: "2029 to 2042, ages 41 to 54".
+    /// What it is and spans, for VoiceOver: "Chapter 2, 2029 to 2042, ages 41 to 54".
     var detail: String
+    /// The fewest words: "’26"; `nil` for its number, from 1.
+    var tinyTitle: String? = nil
+}
+
+extension Array where Element == ChartBand {
+    /// The bands inside `domain`, cut to it.
+    func clipped(to domain: ClosedRange<Date>) -> [ChartBand] {
+        compactMap { band in
+            var band = band
+            band.start = Swift.max(band.start, domain.lowerBound)
+            band.end = Swift.min(band.end, domain.upperBound)
+            return band.end > band.start ? band : nil
+        }
+    }
 }
 
 /// The chance of success when retiring at one age.

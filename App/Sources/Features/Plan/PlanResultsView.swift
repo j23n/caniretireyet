@@ -113,7 +113,7 @@ struct PlanResultsBanners: View {
                 StatusBanner(.warning, warning)
             }
             if warnings.count > limit {
-                Text("\(warnings.count - limit) more on the Inputs they concern.")
+                Text("\(warnings.count - limit) more in Chapters, with the inputs they concern.")
                     .font(.footnote)
                     .foregroundStyle(Palette.secondaryInk)
                     .frame(maxWidth: .infinity, alignment: .leading)

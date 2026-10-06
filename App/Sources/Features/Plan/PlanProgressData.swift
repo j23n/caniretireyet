@@ -3,7 +3,8 @@ import Model
 import Tracker
 
 // The Progress part of a plan (UI.md, "Progress"; PROGRESS.md): the answer
-// recorded at each check-in, and your actual numbers against a baseline.
+// recorded at each check-in, each year's progress, and your actual numbers
+// against a baseline.
 
 /// "Your answer over time": the earliest retirement age at each check-in,
 /// with markers where the plan or the app's calculations
@@ -127,9 +128,13 @@ struct PlanBaselineComparison: Sendable {
     var position: Position?
 
     init(baseline: Baseline, library: Library, asOf: CalendarDate) {
+        self.init(baseline: baseline, library: library, valuator: Valuator(library: library), asOf: asOf)
+    }
+
+    /// With the library's valuator, so several comparisons share it.
+    init(baseline: Baseline, library: Library, valuator: Valuator, asOf: CalendarDate) {
         self.baseline = baseline
         fan = Self.fan(for: baseline)
-        let valuator = Valuator(library: library)
         let accounts = Set(baseline.accounts)
         currency = PlanMoney.currency(of: baseline, settings: library.settings)
         let values = valuator.checkInDates(in: .planAssets, through: asOf).filter { $0 > baseline.start.date }
@@ -265,4 +270,85 @@ struct PlanBaselineComparison: Sendable {
 struct PlanBaselineEntry: Hashable, Sendable, Identifiable {
     var id: BaselineID
     var baseline: Baseline
+}
+
+// MARK: - Year by year
+
+/// One calendar year of progress (UI.md, "Progress"): how your plan assets
+/// moved from the check-in before it to its last one, split into what you
+/// saved and what markets did; how the answer moved, and what changed
+/// besides your money; and where its last check-in stands against the
+/// year's automatic baseline.
+struct PlanProgressYear: Hashable, Sendable, Identifiable {
+    var year: Int
+    /// The check-in the year is measured from: the last one before it, else its first.
+    var from: CalendarDate
+    /// Its last check-in.
+    var to: CalendarDate
+    /// How many check-ins it has.
+    var checkIns: Int
+    /// Whether it's the year of the latest check-in, still going.
+    var isLatest: Bool
+    /// Plan assets from `from` to `to`, in the base currency: the start,
+    /// what you saved (new money), what markets did, the rest, the end.
+    var change: ValueChange
+    /// Whether every price and rate was known.
+    var isComplete: Bool
+    /// What the year's baseline expected you to save in it.
+    var expectedSavings: Decimal?
+    /// The answer going into the year (the last recorded before it, else
+    /// its first) and at its last check-in with one.
+    var answerFrom: PlanAnswerHistory.Point?
+    var answerTo: PlanAnswerHistory.Point?
+    /// Why the answer may have moved besides your money, during the year.
+    var answerChanges: [PlanAnswerHistory.Change]
+    /// The year's automatic baseline ("Start of 2026").
+    var baseline: PlanBaselineEntry?
+    /// Where the year's last check-in stands against it, in its currency.
+    var position: PlanBaselineComparison.Position?
+    var positionCurrency: CurrencyCode?
+
+    var id: Int { year }
+
+    /// "2026 so far", "2025".
+    var title: String { isLatest ? "\(year) so far" : "\(year)" }
+
+    /// How the earliest age moved in the year: negative is earlier (good);
+    /// `nil` unless both ends have one.
+    var ageChange: Int? {
+        guard let from = answerFrom?.earliestAge, let to = answerTo?.earliestAge else { return nil }
+        return to - from
+    }
+
+    /// The plan's progress in each calendar year with a check-in of plan
+    /// assets, on or before `asOf`, newest first.
+    static func years(for plan: PlanID, library: Library, valuator: Valuator,
+                      asOf: CalendarDate) -> [PlanProgressYear] {
+        let dates = valuator.checkInDates(in: .planAssets, through: asOf)
+        guard let latest = dates.last else { return [] }
+        let history = PlanAnswerHistory(library.headlines(for: plan))
+        let baselines = PlanBaselineComparison.baselines(for: plan, in: library)
+        let byYear = Dictionary(grouping: dates, by: \.year)
+        return byYear.keys.sorted(by: >).compactMap { year -> PlanProgressYear? in
+            guard let checkIns = byYear[year], let first = checkIns.first, let last = checkIns.last else {
+                return nil
+            }
+            let from = dates.last { $0 < first } ?? first
+            let report = valuator.change(from: from, to: last, in: .planAssets)
+            let inYear = history.points.filter { $0.date.year == year && $0.date <= last }
+            let before = history.points.last { $0.date.year < year }
+            let changes = Set(history.markers.filter { $0.date.year == year }.flatMap(\.changes))
+            let baseline = baselines.first { $0.baseline.kind == .yearly && $0.baseline.created.year == year }
+            let comparison = baseline.map {
+                PlanBaselineComparison(baseline: $0.baseline, library: library, valuator: valuator, asOf: last)
+            }
+            return PlanProgressYear(
+                year: year, from: from, to: last, checkIns: checkIns.count, isLatest: year == latest.year,
+                change: report.total, isComplete: report.isComplete,
+                expectedSavings: baseline?.baseline.years.first { $0.year == year }?.savings,
+                answerFrom: before ?? inYear.first, answerTo: inYear.last,
+                answerChanges: PlanAnswerHistory.Change.allCases.filter { changes.contains($0) },
+                baseline: baseline, position: comparison?.position, positionCurrency: comparison?.currency)
+        }
+    }
 }

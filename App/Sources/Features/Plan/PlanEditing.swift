@@ -6,7 +6,7 @@ import Tracker
 /// new plans, new list items with sensible defaults, and the conversions
 /// the editors need. Everything is saved through `LibraryStore.save(_:)`.
 ///
-/// Default amounts follow the library (UI.md, "Inputs"): a new plan spends
+/// Default amounts follow the library (UI.md, "Chapters"): a new plan spends
 /// what your other plans say, else 30.000 euros' worth in the base
 /// currency; a new item's amount is in proportion to the plan's spending.
 enum PlanEditing {
@@ -111,7 +111,7 @@ enum PlanEditing {
         PlanEvent(name: "New event", timing: .year(asOf.year + 5), amount: -share(of: plan, Decimal(1) / 3, fallback: 10_000))
     }
 
-    /// Under the rate on investments (UI.md, "Inputs").
+    /// Under the rate on investments (UI.md, "Chapters").
     static let investmentRateExplanation = "Paid on the gain part of what you sell and, every year, on the income "
         + "your investments pay out (Assumptions, income yield). 26% in Italy, for example; 0% if they aren't taxed. "
         + "Income from work and pensions is entered after tax."
@@ -120,7 +120,7 @@ enum PlanEditing {
     static let wealthTaxExplanation = "A yearly tax on the money you can draw, above the allowance. Accounts "
         + "available only from a later age, such as a pension fund, aren't counted until then."
 
-    /// Under the flexible-spending switch (UI.md, "Inputs").
+    /// Under the flexible-spending switch (UI.md, "Chapters").
     static let flexibleExplanation = "Cuts spending in retirement after bad years and restores it after good ones, "
         + "as real retirees do, instead of spending the same whatever the markets do. A future only fails if you'd "
         + "have to spend less than the floor."

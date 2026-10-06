@@ -79,23 +79,6 @@ struct FanChart: View {
         }
     }
 
-    /// `bands` inside `domain`, cut to it.
-    private func visibleBands(in domain: ClosedRange<Date>) -> [ChartBand] {
-        bands.compactMap { band in
-            var band = band
-            band.start = max(band.start, domain.lowerBound)
-            band.end = min(band.end, domain.upperBound)
-            return band.end > band.start ? band : nil
-        }
-    }
-
-    /// Remembers where the plot is, in whole points, when it moves.
-    private func measure(_ frame: CGRect) {
-        guard frame.width > 0 else { return }
-        let area = ChartPlotArea(x: Double(frame.minX.rounded()), width: Double(frame.width.rounded()))
-        if area != plotArea { plotArea = area }
-    }
-
     private var layout: Layout {
         let dates = fan.map(\.date) + actual.map(\.date)
         let first = dates.min() ?? Date()
@@ -110,19 +93,12 @@ struct FanChart: View {
             let scale = ProjectionScale(history: history, fan: fan, markerHeadroom: markerLayout.headroom,
                                         plotHeight: plotHeight)
             return Layout(domain: domain, ticks: ticks, markers: markerLayout, scale: scale.scale,
-                          clipsBand: scale.clipsBand, fan: fan.map(scale.clamped), bands: visibleBands(in: domain))
+                          clipsBand: scale.clipsBand, fan: fan.map(scale.clamped), bands: bands.clipped(to: domain))
         }
         let scale = AmountScale(values: history + fan.flatMap { [$0.p10, $0.p90] })
             .reservingTop(points: markerLayout.headroom, plotHeight: plotHeight)
         return Layout(domain: domain, ticks: ticks, markers: markerLayout, scale: scale, clipsBand: false, fan: fan,
-                      bands: visibleBands(in: domain))
-    }
-
-    /// A band's tint: the selected one in the hue, the others in two
-    /// alternating greys, so neighbours stay apart.
-    private func tint(of band: ChartBand) -> Color {
-        if band.id == selectedBand?.wrappedValue { return Palette.accent.opacity(0.14) }
-        return Palette.gridline.opacity(band.id.isMultiple(of: 2) ? 0.25 : 0.55)
+                      bands: bands.clipped(to: domain))
     }
 
     private func chart(_ layout: Layout) -> some View {
@@ -131,7 +107,7 @@ struct FanChart: View {
                 RectangleMark(xStart: .value("Start", band.start), xEnd: .value("End", band.end),
                               yStart: .value("Bottom", layout.scale.domain.lowerBound),
                               yEnd: .value("Top", layout.scale.dataTop))
-                    .foregroundStyle(tint(of: band))
+                    .foregroundStyle(band.tint(selected: selectedBand?.wrappedValue))
             }
 
             ForEach(layout.fan) { point in
@@ -190,15 +166,7 @@ struct FanChart: View {
         .chartYAxis { amountAxis(hidesAmounts: hidesAmounts, scale: layout.scale, relativeTo: fan.first?.p50) }
         .chartXAxis { dateAxis(layout.ticks) }
         .chartLegend(.hidden)
-        .chartOverlay { proxy in
-            GeometryReader { geometry in
-                let frame = proxy.plotFrame.map { geometry[$0] } ?? .zero
-                Color.clear
-                    .onAppear { measure(frame) }
-                    .onChange(of: frame) { _, newFrame in measure(newFrame) }
-            }
-            .allowsHitTesting(false)
-        }
+        .measuringPlot($plotArea)
     }
 
     private func markerAlignment(_ placement: MarkerLabelLayout.Placement) -> Alignment {

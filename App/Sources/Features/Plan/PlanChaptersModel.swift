@@ -232,7 +232,8 @@ struct PlanChaptersModel {
             let from = index == 0 ? start : Self.lastDay(of: chapter.years.lowerBound - 1)
             let to = Self.lastDay(of: chapter.years.upperBound)
             return ChartBand(id: index, start: from.dateValue, end: to.dateValue, title: title(of: chapter),
-                             shortTitle: shortTitle(of: chapter), detail: Self.spokenSpan(of: chapter))
+                             shortTitle: shortTitle(of: chapter),
+                             detail: "Chapter \(index + 1), " + Self.spokenSpan(of: chapter))
         }
     }
 
