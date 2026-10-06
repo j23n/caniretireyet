@@ -1088,18 +1088,35 @@ struct PlanYearCardView: View {
     /// price or a rate is missing (those holdings count as zero); a small
     /// dot at each check-in and a larger one at the last point.
     private func drawMoney(in context: inout GraphicsContext, _ scale: PlanProgressTimeline.Scale) {
-        let solid = StrokeStyle(lineWidth: Metrics.lineWidth, lineCap: .round, lineJoin: .round)
+        enum Kind { case checkIn, prices, missing }
+        // Each run of segments drawn alike is one path: the lighter line,
+        // drawn a segment at a time, darkened where the segments' ends overlap.
+        var runs: [(kind: Kind, path: Path)] = []
         for (from, to) in zip(card.actual, card.actual.dropFirst()) {
-            var segment = Path()
-            segment.move(to: position(of: from, scale))
-            segment.addLine(to: position(of: to, scale))
-            if !from.isComplete || !to.isComplete {
-                context.stroke(segment, with: .color(Palette.ink),
-                               style: StrokeStyle(lineWidth: Metrics.lineWidth, lineCap: .round, dash: [0.5, 4]))
+            let kind: Kind = if !from.isComplete || !to.isComplete {
+                .missing
             } else if card.checkIns.contains(to.date) {
-                context.stroke(segment, with: .color(Palette.ink), style: solid)
+                .checkIn
             } else {
-                context.stroke(segment, with: .color(Palette.ink.opacity(0.4)), style: solid)
+                .prices
+            }
+            if runs.last?.kind != kind {
+                var path = Path()
+                path.move(to: position(of: from, scale))
+                runs.append((kind: kind, path: path))
+            }
+            runs[runs.count - 1].path.addLine(to: position(of: to, scale))
+        }
+        let solid = StrokeStyle(lineWidth: Metrics.lineWidth, lineCap: .round, lineJoin: .round)
+        for run in runs {
+            switch run.kind {
+            case .checkIn:
+                context.stroke(run.path, with: .color(Palette.ink), style: solid)
+            case .prices:
+                context.stroke(run.path, with: .color(Palette.ink.opacity(0.4)), style: solid)
+            case .missing:
+                context.stroke(run.path, with: .color(Palette.ink),
+                               style: StrokeStyle(lineWidth: Metrics.lineWidth, lineCap: .round, dash: [0.5, 4]))
             }
         }
         for point in card.actual.dropLast() where card.checkIns.contains(point.date) {
