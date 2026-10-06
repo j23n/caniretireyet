@@ -133,6 +133,7 @@ struct PlanContentView: View {
             .task(id: library.revision) {
                 await session.refresh()
             }
+            .task { takeRequests() }
             .overlay(alignment: .bottom) {
                 if let message {
                     Text(message)
@@ -176,6 +177,19 @@ struct PlanContentView: View {
                 recalculate: { session.calculate() },
                 exportCalculations: { exportCalculations() }))
             .onDisappear { session.saveNow() }
+    }
+
+    /// A part, or What if, asked for before the screen appeared
+    /// (``AppNavigation/requestedPlanPart``).
+    private func takeRequests() {
+        if let requested = navigation.requestedPlanPart {
+            part = requested
+            navigation.requestedPlanPart = nil
+        }
+        if navigation.requestsWhatIf {
+            navigation.requestsWhatIf = false
+            if isWide { showsInspector = true } else { showsWhatIf = true }
+        }
     }
 
     // MARK: Layouts

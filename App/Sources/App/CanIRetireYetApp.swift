@@ -13,7 +13,7 @@ import SwiftUI
 /// for a narrower width; every page's content scrolls, or is pinned and short.
 @main
 struct CanIRetireYetApp: App {
-    @State private var model = AppModel.live()
+    @State private var model = AppModel.atLaunch()
 
     var body: some Scene {
         WindowGroup {

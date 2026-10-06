@@ -62,6 +62,56 @@ enum PreviewLibrary {
     /// The dollar account of ``withForeignAccount``.
     static let foreignAccount: AccountID = "us-brokerage"
 
+    /// ``library`` with a made-up ETF savings plan since January 2018,
+    /// recorded as trades, and no check-ins before October 2025: Progress
+    /// values the years before from what it held and its prices, as for
+    /// someone who imported their history and started checking in late.
+    /// Without the January baseline, which knew nothing of the plan.
+    static let withLongHistory: Library = {
+        var copy = PreviewLibrary.library
+        copy.accounts[longHistoryAccount] = Account(
+            id: longHistoryAccount, name: "ETF savings plan", kind: .brokerage, currency: "EUR",
+            opened: "2018-01-15", institution: "Example Bank", valuation: .trades,
+            notes: "Made-up example: a monthly savings plan, imported as trades.")
+        copy.instruments["world-etf"] = Instrument(
+            id: "world-etf", name: "World equity ETF (made up)", kind: .etf, currency: "EUR", unit: .share,
+            assetClasses: [.equity: d("1")])
+        copy.projections["base"]?.baselines = [:]
+        // Each year's made-up return, spread over its months, with a fall
+        // in March 2020, and what goes in each month.
+        let years: [(year: Int, growth: Double, monthly: Int)] = [
+            (2018, -0.06, 400), (2019, 0.26, 450), (2020, 0.06, 500), (2021, 0.27, 550), (2022, -0.13, 600),
+            (2023, 0.18, 650), (2024, 0.24, 700), (2025, 0.08, 750), (2026, 0.09, 800),
+        ]
+        var price = 50.0
+        // Trade IDs of letters, as random ones are, the deposit's first: "lhaaa", "lhaab", ….
+        let letters = Array("abcdefghijklmnopqrstuvwxyz")
+        var index = 0
+        for (year, growth, monthly) in years {
+            for month in 1...(year == 2026 ? 9 : 12) {
+                defer { index += 1 }
+                price *= pow(1 + growth, 1.0 / 12)
+                if year == 2020 && month == 3 { price *= 0.78 }
+                if year == 2020 && (4...8).contains(month) { price *= 1.05 }
+                guard let monthEnd = YearMonth(year: year, month: month)?.lastDay,
+                      let day = CalendarDate(year: year, month: month, day: 15) else { continue }
+                let quote = d(String(format: "%.2f", price))
+                copy.upsert(PriceRecord(instrument: "world-etf", date: monthEnd, price: quote, currency: .eur))
+                let amount = year == 2018 && month == 1 ? 10_000 : monthly
+                let id = "lh" + String(letters[index / 26]) + String(letters[index % 26])
+                copy.upsert(Trade(account: longHistoryAccount, date: day, id: TradeID(rawValue: id + "a"),
+                                  type: .deposit, amount: Decimal(amount)))
+                let quantity = d(String(format: "%.4f", floor(Double(amount) / price * 10_000) / 10_000))
+                copy.upsert(Trade(account: longHistoryAccount, date: day, id: TradeID(rawValue: id + "b"),
+                                  type: .buy, instrument: "world-etf", quantity: quantity, price: quote))
+            }
+        }
+        return copy
+    }()
+
+    /// The savings plan of ``withLongHistory``.
+    static let longHistoryAccount: AccountID = "etf-plan"
+
     /// A valuator over ``library``.
     static var valuator: Tracker.Valuator { Tracker.Valuator(library: library) }
 

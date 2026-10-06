@@ -96,6 +96,9 @@ struct PlanTimelineView: View {
                                  milestones: milestones, milestoneText: milestoneText,
                                  onShowProgress: onShowProgress, onWhatIf: onWhatIf)
                 .opacity(state.isRunning ? 0.5 : 1)
+                // The UI tests wait for the answer before their screenshot.
+                .accessibilityElement(children: .contain)
+                .accessibilityIdentifier("plan.answer")
         } else if !state.isRunning {
             PlanCalculatePrompt(state: state, runs: session.plan?.simulation.effectiveRuns ?? 2_000,
                                 isAvailable: plans.isAvailable) {

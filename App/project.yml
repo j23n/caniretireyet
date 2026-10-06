@@ -151,6 +151,26 @@ targets:
       - package: CanIRetireYetKit
         product: Glance
 
+  # Opens each screen with a made-up library and keeps a screenshot of it
+  # (App/UITests; CI's "UI tests and screenshots" job).
+  CanIRetireYetUITests:
+    type: bundle.ui-testing
+    platform: auto
+    supportedDestinations: [iOS, macOS]
+    sources:
+      - path: UITests
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: $(APP_BUNDLE_IDENTIFIER).uitests
+        TEST_TARGET_NAME: CanIRetireYet
+        IPHONEOS_DEPLOYMENT_TARGET: "26.0"
+        MACOSX_DEPLOYMENT_TARGET: "26.0"
+        TARGETED_DEVICE_FAMILY: "1,2"
+        CODE_SIGN_STYLE: Automatic
+        GENERATE_INFOPLIST_FILE: YES
+    dependencies:
+      - target: CanIRetireYet
+
 schemes:
   CanIRetireYet:
     build:
@@ -158,5 +178,9 @@ schemes:
         CanIRetireYet: all
     run:
       config: Debug
+    test:
+      config: Debug
+      targets:
+        - CanIRetireYetUITests
     archive:
       config: Release

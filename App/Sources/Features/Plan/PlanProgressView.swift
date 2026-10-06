@@ -621,6 +621,7 @@ struct PlanYearStrip: View {
             .defaultScrollAnchor(.trailing)
             // A finger reading a line moves the read-out, not the strip.
             .scrollDisabled(pointer?.byTouch == true)
+            .accessibilityIdentifier("progress.years")
             .onChange(of: selection) { _, index in
                 // Once an early year is chosen, the early years stay laid out.
                 if index < early { showsEarlyYears = true }

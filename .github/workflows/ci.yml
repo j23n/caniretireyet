@@ -82,3 +82,55 @@ jobs:
         # Runs even when an app build failed, like the macOS app build.
         if: success() || failure()
         run: swift test
+
+  screenshots:
+    name: macOS · UI tests and screenshots (Mac and iPhone Simulator)
+    runs-on: macos-26
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v5
+      - name: Install XcodeGen
+        run: brew install xcodegen
+      - name: Generate the Xcode project
+        run: xcodegen generate --spec App/project.yml
+      - name: Let the UI tests drive the Mac
+        run: sudo automationmodetool enable-automationmode-without-authentication || true
+      - name: UI tests on the Mac
+        # Signed to run locally, without the entitlements (iCloud, the App
+        # Group) that an app without a provisioning profile can't launch
+        # with: the tests' library is in memory (App/UITests).
+        run: >
+          mkdir -p "${{ runner.temp }}/results" &&
+          xcodebuild test
+          -project App/CanIRetireYet.xcodeproj
+          -scheme CanIRetireYet
+          -destination 'platform=macOS'
+          -derivedDataPath "${{ runner.temp }}/DerivedData"
+          -resultBundlePath "${{ runner.temp }}/results/mac.xcresult"
+          CODE_SIGN_IDENTITY=- CODE_SIGN_STYLE=Manual DEVELOPMENT_TEAM= PROVISIONING_PROFILE_SPECIFIER=
+          CODE_SIGN_ENTITLEMENTS= ENABLE_HARDENED_RUNTIME=NO
+      - name: UI tests on iPhone
+        if: success() || failure()
+        run: |
+          mkdir -p "${{ runner.temp }}/results"
+          device=$(python3 .github/scripts/screenshots.py pick-iphone)
+          xcodebuild test \
+            -project App/CanIRetireYet.xcodeproj \
+            -scheme CanIRetireYet \
+            -destination "platform=iOS Simulator,id=$device" \
+            -derivedDataPath "${{ runner.temp }}/DerivedData" \
+            -resultBundlePath "${{ runner.temp }}/results/iphone.xcresult" \
+            CODE_SIGNING_ALLOWED=NO
+      - name: Collect the screenshots
+        if: success() || failure()
+        run: python3 .github/scripts/screenshots.py collect "${{ runner.temp }}/results" "${{ runner.temp }}/screenshots"
+      - name: Upload the screenshots
+        if: success() || failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: screenshots
+          path: ${{ runner.temp }}/screenshots
+          if-no-files-found: warn
+      - name: Print the screenshots (small JPEGs in base64, to read them from the log)
+        if: success() || failure()
+        run: python3 .github/scripts/screenshots.py print "${{ runner.temp }}/screenshots"

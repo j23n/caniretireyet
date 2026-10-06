@@ -30,6 +30,17 @@ final class AppModel {
         widgets = WidgetStore(library: library, plans: plans, snapshotURL: widgetSnapshotURL)
     }
 
+    /// The app's model at launch: ``live()``, or in a Debug build launched by
+    /// the UI tests, their made-up library (``UITestLaunch``).
+    static func atLaunch() -> AppModel {
+        #if DEBUG
+        if let launch = UITestLaunch(arguments: ProcessInfo.processInfo.arguments) {
+            return launch.model()
+        }
+        #endif
+        return live()
+    }
+
     /// The real app: the library in iCloud Drive or on this device, prices
     /// from the network with API keys from the Keychain, and the widgets'
     /// snapshot in the App Group's container.
