@@ -87,6 +87,12 @@ public struct ChangeReport: Hashable, Sendable {
         accounts.allSatisfy(\.problems.isEmpty)
     }
 
+    /// Whether every price and exchange rate was known, an account without
+    /// a value yet aside (``NetWorth/isPriced``).
+    public var isPriced: Bool {
+        problems.allSatisfy(\.isNotTrackedYet)
+    }
+
     /// The change of one account, if it's in the report.
     public func change(of account: AccountID) -> AccountChange? {
         accounts.first { $0.account == account }

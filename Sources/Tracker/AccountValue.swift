@@ -128,4 +128,21 @@ public struct NetWorth: Hashable, Sendable {
     public var isComplete: Bool {
         accounts.allSatisfy(\.isComplete)
     }
+
+    /// Whether every price and exchange rate was known: like
+    /// ``isComplete``, except that an account without a value yet (opened
+    /// before its first value or trade) isn't missing anything; it isn't
+    /// tracked yet. Years valued from what you held and its prices read it
+    /// (PROGRESS.md, "Year by year").
+    public var isPriced: Bool {
+        problems.allSatisfy(\.isNotTrackedYet)
+    }
+}
+
+extension ValuationProblem {
+    /// An account without a value on the date, because its first value or
+    /// trade comes later.
+    public var isNotTrackedYet: Bool {
+        if case .noValuation = self { true } else { false }
+    }
 }

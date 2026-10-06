@@ -157,7 +157,7 @@ struct PlanBaselineComparison: Sendable {
             .filter { $0 != start }
             .map { date in
                 let total = valuator.total(on: date, including: { accounts.contains($0.id) })
-                return SeriesPoint(date: date, value: total.total, isComplete: total.isComplete)
+                return SeriesPoint(date: date, value: total.total, isComplete: total.isPriced)
             }
         let series = PlanActualSeries(values: values, library: library, valuator: valuator, currency: currency,
                                       inMoneyOf: start)
@@ -322,7 +322,8 @@ struct PlanProgressYear: Hashable, Sendable, Identifiable {
     /// Plan assets from `from` to `to`, in the base currency: the start,
     /// what you saved (new money), what markets did, the rest, the end.
     var change: ValueChange
-    /// Whether every price and rate was known.
+    /// Whether every price and rate was known (an account without a value
+    /// yet isn't missing one: ``NetWorth/isPriced``).
     var isComplete: Bool
     /// What the year's baseline expected you to save in it.
     var expectedSavings: Decimal?
@@ -411,7 +412,7 @@ struct PlanProgressYear: Hashable, Sendable, Identifiable {
             return PlanProgressYear(
                 year: year, from: from, to: last, checkIns: checkIns.count, lastCheckIn: checkIns.last,
                 isLatest: year == latest.year,
-                change: report.total, isComplete: report.isComplete,
+                change: report.total, isComplete: report.isPriced,
                 expectedSavings: baseline?.baseline.years.first { $0.year == year }?.savings,
                 answerFrom: before ?? inYear.first, answerTo: inYear.last,
                 answerChanges: PlanAnswerHistory.Change.allCases.filter { changes.contains($0) },
@@ -709,7 +710,7 @@ struct PlanProgressTimeline {
                 let lead = days.last { $0 < firstOfYear } ?? firstOfYear
                 actual = days.filter { $0 >= lead }.map { day in
                     let total = valuator.total(on: day, in: .planAssets)
-                    return ChartPoint(date: day.dateValue, value: total.total.doubleValue, isComplete: total.isComplete)
+                    return ChartPoint(date: day.dateValue, value: total.total.doubleValue, isComplete: total.isPriced)
                 }
             }
             let (chips, answerNotes) = Self.answers(in: year, history: history, locale: locale)
