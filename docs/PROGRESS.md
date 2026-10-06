@@ -46,6 +46,27 @@ Markers show when the plan's inputs, the app's calculation code or the tax param
 
 Each calendar year with a check-in, as a card on a strip that opens at today ([UI.md](UI.md#progress)): your money at each check-in against what the year's automatic baseline expected (its median, from its start to the year's end), ahead or behind; your plan assets from the check-in before the year to its last one, split into what you saved (new money, next to what the baseline planned to save: its `savings` for the year) and what markets did, as the Overview splits the change since the last check-in; the earliest age going into the year, at each check-in where it moved and at its end, with the plan's and the calculations' changes during it; and where the year's last check-in stands against the baseline. The latest year's position is also the answer to "Are you on track?" at the top of Progress, and the plan's answer links to it.
 
+### Milestones
+
+Retiring is years away and the answer moves slowly, so the app marks the points you pass on the way: plain facts about your money, reached at a check-in or ahead in the median future ([UI.md](UI.md#milestones)). They stay calm: a sentence, a small flag on the line and a row in a list, with no badges, confetti or streaks. A milestone you've reached stays reached when markets fall back below it.
+
+Every milestone is an amount of plan assets, in the base currency and today's money (`MilestoneLadder`, in the Planner):
+
+| Milestone | Its amount | In words |
+| --- | --- | --- |
+| Round amounts | 1, 1.5, 2, 2.5, 3, 4, 5, 6 and 7.5 times a power of ten, from 1,000: each about a quarter above the last | "Passed 300.000 €" |
+| Years of spending | 1, 2, 3, 5, 10, 15, 20, 25, 30, 40 and 50 times the plan's retirement spending a year | "Enough for 10 years of the spending you plan for retirement" |
+| What retiring today needs | a quarter, a third, half, two thirds, three quarters, 9 in 10 of it, and all of it | "Halfway to what retiring today needs" |
+| The crossover | a year's saving divided by the typical (median) yearly growth of the plan's mix: where a typical year's growth matches what you save | "A typical year now adds more than you save" |
+
+- **A year's saving** is the take-home pay of the work phase in force less spending while working, the cash the plan invests each year (contributions are part of it). Without saving there's no crossover. The mix is the plan's target mix, or today's mix of the money you can draw.
+- **What retiring today needs** comes from the plan's latest results, else from the readiness recorded at the latest check-in (today's plan assets ÷ readiness).
+- **Reached:** at the first check-in whose plan assets reach a milestone's amount, after one below it. Milestones below your first check-in aren't listed: they were behind you when you started. The shares of what retiring today needs are read from the readiness recorded at each check-in instead, since what retiring today needs changes as you age.
+- **Ahead:** when the plan's median future first reaches each amount, between its year-ends, shown by the part of the year ("typically mid 2027"). The shares use what retiring today needs now; as you get older it needs less, so those dates are, if anything, late.
+- **The next milestone** is the lowest amount ahead, with how far there: today's plan assets as a share of its amount, or for a share of what retiring today needs, today's readiness as a share of it ("88% there").
+- **Notable check-ins** join the milestones in a year's story: a month you saved at least twice your usual (the median of the year before) and at least 1% of plan assets ("You saved 3.200 €, more than usual."); markets moving plan assets by 5% or more since the check-in before ("Markets fell 24.500 €, 8%."); and a baseline saved ("Saved a baseline.").
+- **Later:** the coast age (the earliest age you could retire if you stopped saving today, from a run with no saving) and a widget with the next milestone.
+
 ### Actual vs. a baseline (basic in M2; the explanation in M3)
 
 A **baseline** is a projection saved at a point in time (see below). Choosing one shows:
