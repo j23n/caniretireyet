@@ -34,6 +34,10 @@ final class ScreenshotTests: XCTestCase {
     func testWhatIf() {
         let app = launch(library: "example", screen: "whatIf")
         waitForScreen(app, showing: text("What if…", in: app), named: "what-if", settle: 30)
+        #if os(macOS)
+        // As you would: the plan's What if…, which opens the inspector.
+        click(app.buttons["What if…"].firstMatch)
+        #endif
         pause(seconds: 5)
         keepScreenshot(of: app, named: "what-if")
     }
@@ -42,6 +46,7 @@ final class ScreenshotTests: XCTestCase {
     func testProgress() {
         let app = launch(library: "example", screen: "progress")
         waitForScreen(app, showing: text("Year by year", in: app), named: "progress")
+        chooseProgressOnTheMac(app)
         keepScreenshot(of: app, named: "progress")
         scrollDown(app)
         scrollDown(app, from: belowTheStrip)
@@ -55,6 +60,7 @@ final class ScreenshotTests: XCTestCase {
     func testProgressWithALongHistory() {
         let app = launch(library: "longHistory", screen: "progress")
         waitForScreen(app, showing: text("Year by year", in: app), named: "progress-long")
+        chooseProgressOnTheMac(app)
         keepScreenshot(of: app, named: "progress-long")
         #if os(iOS)
         // On iPhone ‹ is in the chosen year's header, under the strip.
@@ -84,6 +90,7 @@ final class ScreenshotTests: XCTestCase {
         let app = launch(library: "example", screen: "progress",
                          arguments: ["-AppleLanguages", "(de)", "-AppleLocale", "de_DE"])
         waitForScreen(app, showing: text("Year by year", in: app), named: "progress-germany")
+        chooseProgressOnTheMac(app)
         keepScreenshot(of: app, named: "progress-germany")
         scrollDown(app)
         scrollDown(app, from: belowTheStrip)
@@ -135,6 +142,26 @@ final class ScreenshotTests: XCTestCase {
         XCTAssertTrue(app.state == .runningForeground, "\(name): the app isn't running.", file: file, line: line)
         XCTAssertTrue(shown, "\(name): \(element) never showed.", file: file, line: line)
     }
+
+    /// On the Mac, chooses Progress in the toolbar's Plan | Progress, as
+    /// you would: the launch's request hasn't reached the screen there.
+    @MainActor
+    private func chooseProgressOnTheMac(_ app: XCUIApplication) {
+        #if os(macOS)
+        // A segment is a radio button on the Mac; a button, should that change.
+        let segment = app.radioButtons["Progress"].firstMatch
+        click(segment.waitForExistence(timeout: 10) ? segment : app.buttons["Progress"].firstMatch)
+        pause(seconds: 3)
+        #endif
+    }
+
+    #if os(macOS)
+    /// Clicks `element` once it shows; nothing when it doesn't.
+    @MainActor
+    private func click(_ element: XCUIElement) {
+        if element.waitForExistence(timeout: 10), element.isHittable { element.click() }
+    }
+    #endif
 
     /// Lets the screen settle for `seconds`.
     @MainActor

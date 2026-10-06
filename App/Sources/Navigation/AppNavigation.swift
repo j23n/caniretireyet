@@ -76,10 +76,11 @@ final class AppNavigation {
     /// The Overview's *Future* switch (⌘⇧F): continue the history chart into
     /// the main plan's projection.
     var showsFuture = false
-    /// A part of the plan to show when the Plan screen next appears; the
-    /// screen takes it (the UI tests open Progress with it).
+    /// A part of the plan the Plan screen shows when it appears (the UI
+    /// tests open Progress with it). It stays set: on the Mac a screen that
+    /// had taken it still opened on the plan.
     var requestedPlanPart: PlanPart?
-    /// Whether to open What if when the Plan screen next appears.
+    /// Whether the Plan screen opens What if when it appears (the UI tests).
     var requestsWhatIf = false
 
     /// Opens the check-in: full screen with tabs, the Check-in page with a sidebar.

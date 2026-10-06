@@ -179,15 +179,12 @@ struct PlanContentView: View {
             .onDisappear { session.saveNow() }
     }
 
-    /// A part, or What if, asked for before the screen appeared
-    /// (``AppNavigation/requestedPlanPart``).
+    /// A part, or What if, asked for at launch (``AppNavigation/requestedPlanPart``).
     private func takeRequests() {
         if let requested = navigation.requestedPlanPart {
             part = requested
-            navigation.requestedPlanPart = nil
         }
         if navigation.requestsWhatIf {
-            navigation.requestsWhatIf = false
             if isWide { showsInspector = true } else { showsWhatIf = true }
         }
     }
