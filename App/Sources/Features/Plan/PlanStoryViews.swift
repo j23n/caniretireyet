@@ -2,27 +2,18 @@ import Model
 import Planner
 import SwiftUI
 
-// The pieces the plan's words are made of (UI.md, "Plan"): sentences whose
-// values you change where they read, a month's money as a bar, the futures
-// as ten dots, and each chapter's number in its colour.
+// The pieces the plan's words are made of (UI.md, "Plan"): sentences with
+// their values in bold, a month's money as a bar, the futures as ten dots,
+// each chapter's number in its colour, and the small editor a setting opens.
 
-/// Sentences with values to change: each value reads in the hue on a light
-/// wash, and tapping it hands its ``PlanToken`` to `onToken`. The text wraps
-/// as text does; VoiceOver reads it whole, with each value as a link.
+/// Sentences with their values in bold. They only read: values change in
+/// the chapter's settings. The text wraps as text does.
 struct PlanStoryText: View {
     let runs: [PlanChapterStory.Run]
-    var onToken: (PlanToken) -> Void = { _ in }
-
-    private static let scheme = "plan-token"
 
     var body: some View {
         Text(attributed)
             .fixedSize(horizontal: false, vertical: true)
-            .tint(Palette.accent)
-            .environment(\.openURL, OpenURLAction { url in
-                if let token = token(for: url) { onToken(token) }
-                return .handled
-            })
     }
 
     private var attributed: AttributedString {
@@ -31,77 +22,31 @@ struct PlanStoryText: View {
             switch run {
             case .text(let words):
                 text += AttributedString(words)
-            case .token(let words, let token):
+            case .token(let words, _):
                 var value = AttributedString(words)
-                value.link = URL(string: "\(Self.scheme):\(token.id)")
-                value.foregroundColor = Palette.accent
-                value.backgroundColor = Palette.accent.opacity(0.1)
                 value.inlinePresentationIntent = .stronglyEmphasized
                 text += value
             }
         }
         return text
     }
-
-    private func token(for url: URL) -> PlanToken? {
-        guard url.scheme == Self.scheme else { return nil }
-        let id = String(url.absoluteString.dropFirst(Self.scheme.count + 1))
-        for case .token(_, let token) in runs where token.id == id {
-            return token
-        }
-        return nil
-    }
 }
 
-/// The plan's words with their values to change: a value opens its small
-/// editor in a popover pointing where it was clicked (the pointer's last
-/// place over the text, on the Mac and an iPad with a pointer; a sheet on
-/// iPhone), and an item's name or the target mix opens its sheet.
-struct PlanEditableStory<Editor: View>: View {
-    let runs: [PlanChapterStory.Run]
-    var canEdit = true
-    /// Opens an item's sheet, or the target mix's.
-    var onSheet: (PlanToken) -> Void = { _ in }
-    @ViewBuilder let editor: (PlanToken) -> Editor
+/// A part's name in a chapter's words: "What happens", "A month".
+struct PlanPartLabel: View {
+    let title: String
 
-    @State private var token: PlanToken?
-    @State private var pointer = PointerTracker()
-    /// Where the pointer was when the value was clicked: where the popover
-    /// points, so it stays put while the pointer moves on.
-    @State private var clicked: CGPoint?
+    init(_ title: String) {
+        self.title = title
+    }
 
     var body: some View {
-        PlanStoryText(runs: runs) { token in
-            guard canEdit else { return }
-            if token.opensSheet {
-                onSheet(token)
-            } else {
-                clicked = pointer.location
-                self.token = token
-            }
-        }
-        .onContinuousHover { phase in
-            if case .active(let location) = phase {
-                pointer.location = location
-            } else {
-                pointer.location = nil
-            }
-        }
-        .popover(item: $token, attachmentAnchor: anchor) { token in
-            editor(token)
-        }
+        Text(title)
+            .font(.caption.weight(.semibold))
+            .foregroundStyle(Palette.secondaryInk)
+            .textCase(.uppercase)
+            .accessibilityAddTraits(.isHeader)
     }
-
-    private var anchor: PopoverAttachmentAnchor {
-        guard let clicked else { return .rect(.bounds) }
-        return .rect(.rect(CGRect(x: clicked.x - 2, y: clicked.y - 8, width: 4, height: 16)))
-    }
-}
-
-/// Where the pointer is over a view, kept outside SwiftUI's state so the
-/// view isn't redrawn on every move.
-private final class PointerTracker {
-    var location: CGPoint?
 }
 
 /// A month's money as one bar, with its words under it ("Pay 4.500 € ·
@@ -114,9 +59,7 @@ struct PlanMonthBarView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: Metrics.xs) {
-            Text("Each month")
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(Palette.secondaryInk)
+            PlanPartLabel("A month")
             GeometryReader { proxy in
                 HStack(spacing: 2) {
                     ForEach(Array(bar.segments.enumerated()), id: \.offset) { _, segment in
@@ -223,9 +166,9 @@ struct PlanChapterBadge: View {
 
 // MARK: - Changing a value
 
-/// The small editor a value in the plan's words opens: the field, stepper
-/// or switch for that one value, and for an item a way to its whole sheet.
-/// Edits apply at once, as everywhere in the plan.
+/// The small editor a setting opens: the field, stepper or switch for that
+/// one value, and for an item a way to its whole sheet. Edits apply at
+/// once, as everywhere in the plan.
 struct PlanTokenEditor: View {
     let token: PlanToken
     @Binding var plan: PlanDocument
@@ -233,6 +176,8 @@ struct PlanTokenEditor: View {
     var model: PlanChaptersModel?
     /// Opens an item's sheet (or the target mix's).
     var onOpen: (PlanToken) -> Void = { _ in }
+    /// Goes back to the plan's own retirement age, when the charts are for another.
+    var onUsePlanAge: (() -> Void)?
 
     @Environment(\.dismiss) private var dismiss
     @Environment(\.baseCurrency) private var currency
@@ -281,7 +226,16 @@ struct PlanTokenEditor: View {
             if !plan.planRetiresEarliest {
                 Stepper("At \(plan.planRetirementAge)", value: $plan.planRetirementAge, in: 30...85)
             }
-            if let model { note(model.retirementNote) }
+            if let model {
+                note(model.retirementNote)
+                if let onUsePlanAge, model.ageSource == .chosen {
+                    Button("Plan's age") {
+                        dismiss()
+                        onUsePlanAge()
+                    }
+                    .buttonStyle(.borderless)
+                }
+            }
         case .pensionAmount(let index):
             title(pensionName(index))
             PlanNumberRow("A month, after tax",

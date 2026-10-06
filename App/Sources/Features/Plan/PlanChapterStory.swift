@@ -73,9 +73,9 @@ enum PlanToken: Hashable, Sendable, Identifiable {
     }
 }
 
-/// A chapter in words (UI.md, "Plan"): what happens in it, with the values
-/// you can change as tokens; what a month looks like; and what it assumes.
-/// Amounts are a month's, in today's money, from the plan's yearly ones.
+/// A chapter in words (UI.md, "Plan"): what happens in it, its values
+/// marked; what a month looks like; and, once calculated, what can go
+/// wrong. Amounts are a month's, in today's money, from the plan's yearly ones.
 struct PlanChapterStory: Hashable, Sendable {
     /// A piece of a sentence: words, or a value to change.
     enum Run: Hashable, Sendable {
@@ -121,7 +121,8 @@ struct PlanChapterStory: Hashable, Sendable {
 
     var story: [Run]
     var bar: Bar?
-    var assumes: [Run]
+    /// What can go wrong in it, once calculated: sentences.
+    var risks: [String]
 }
 
 extension PlanChapterStory {
@@ -133,8 +134,7 @@ extension PlanChapterStory {
         story = Self.sentences(chapter, model: model, words: words, results: results).enumerated()
             .flatMap { offset, sentence in offset == 0 ? sentence : [Run.text(" ")] + sentence }
         bar = Self.bar(chapter, model: model, results: results, words: words)
-        assumes = Self.assumptions(chapter, plan: model.plan, words: words)
-            + Self.risks(chapter, details: results?.details)
+        risks = Self.risks(chapter, details: results?.details)
     }
 
     // MARK: What happens
@@ -277,9 +277,9 @@ extension PlanChapterStory {
     /// Where and when futures run out in the chapter, from the results: the
     /// money you can draw running out before a locked account opens (in the
     /// bridge), and the age by which most of the chapter's failures happen.
-    static func risks(_ chapter: PlanChapter, details: PlanResultDetails?) -> [Run] {
+    static func risks(_ chapter: PlanChapter, details: PlanResultDetails?) -> [String] {
         guard let details, chapter.isRetired else { return [] }
-        var runs: [Run] = []
+        var sentences: [String] = []
         if chapter.kind == .bridge {
             let locked = details.focus.bridges.filter { bridge in
                 bridge.share > 0 && (bridge.accessibleFromAge.map { $0 > chapter.ages.lowerBound } ?? false)
@@ -287,8 +287,8 @@ extension PlanChapterStory {
             if let bridge = locked.max(by: { $0.share < $1.share }), let age = bridge.accessibleFromAge {
                 let perHundred = Int(wholeNumber: bridge.share * 100)
                 let often = perHundred < 1 ? "fewer than 1 in 100 futures" : "\(perHundred) in 100 futures"
-                runs.append(.text(" In \(often), the money you can draw runs out before \(bridge.name) opens at "
-                    + "\(age)."))
+                sentences.append("In \(often), the money you can draw runs out before \(bridge.name) opens at "
+                    + "\(age).")
             }
         }
         let failing = details.focus.failuresByAge.filter { chapter.ages.contains($0.age) && $0.count > 0 }
@@ -299,13 +299,13 @@ extension PlanChapterStory {
                 counted += failure.count
                 if counted * 2 >= total {
                     if failure.age < chapter.ages.upperBound {
-                        runs.append(.text(" Most of the futures that run out here do so before \(failure.age + 1)."))
+                        sentences.append("Most of the futures that run out here do so before \(failure.age + 1).")
                     }
                     break
                 }
             }
         }
-        return runs
+        return sentences
     }
 
     // MARK: Each month
@@ -396,49 +396,7 @@ extension PlanChapterStory {
         return taxes.reduce(0) { $0 + $1.amount } / 12
     }
 
-    // MARK: What it assumes
-
-    static func assumptions(_ chapter: PlanChapter, plan: PlanDocument, words: PlanWords) -> [Run] {
-        var runs: [Run]
-        if case .working(let index) = chapter.kind, plan.work.indices.contains(index) {
-            runs = [.text("Assumes your pay grows "),
-                    .token(words.percent(plan.work[index].realGrowth ?? 0), .workGrowth(index)),
-                    .text(" a year above inflation, and your savings are ")]
-        } else {
-            runs = [.text("Assumes your savings are ")]
-        }
-        runs += mix(in: chapter, plan: plan, words: words)
-        runs.append(.text("."))
-        if chapter.isRetired, let rule = plan.spending.flexibleRule {
-            runs += [.text(" After bad years you spend less, never below "),
-                     .token(words.percent(rule.effectiveFloor), .flexibleSpending), .text(" of the plan.")]
-        }
-        if chapter.kind == .pensions {
-            runs.append(.text(" Pensions are after tax, in today's money."))
-        }
-        return runs
-    }
-
-    /// The target mix in force: the ones starting in the chapter, else the
-    /// one carried on from before. "[80% in shares] and then [60% in shares]".
-    static func mix(in chapter: PlanChapter, plan: PlanDocument, words: PlanWords) -> [Run] {
-        let starting = chapter.items.filter(isMix)
-        let shown = starting.isEmpty ? Array(chapter.continuing.filter(isMix).suffix(1)) : starting
-        guard !shown.isEmpty else { return [.token("as they are today", .targetMix)] }
-        var runs: [Run] = []
-        for (offset, item) in shown.enumerated() {
-            if offset > 0 { runs.append(.text(offset == shown.count - 1 ? " and then " : ", ")) }
-            runs.append(.token(mixPhrase(item, plan: plan, words: words), .targetMix))
-        }
-        return runs
-    }
-
-    static func isMix(_ item: PlanChapter.Item) -> Bool {
-        switch item {
-        case .targetMix, .targetMixStep: true
-        default: false
-        }
-    }
+    // MARK: The target mix
 
     /// "80% in shares", or the mix in words without shares, or "as they are
     /// today" without a target mix.
@@ -451,34 +409,5 @@ extension PlanChapterStory {
         let equity = (mix.shares[.equity] ?? 0) / PlanTargetMixModel.total(mix)
         guard equity > 0 else { return PlanTargetMixModel.mixSummary(mix, locale: words.locale).lowercased() }
         return "\(words.percent(equity)) in shares"
-    }
-
-    // MARK: Every chapter
-
-    /// The assumptions every chapter shares, for the footer: "Shares grow
-    /// [5%] a year above inflation in a typical year, bonds [1.5%]…"
-    static func shared(plan: PlanDocument, words: PlanWords) -> [Run] {
-        let equity = plan.assumptions.returnAssumption(for: .equity)?.impliedMedianReal ?? 0
-        let bonds = plan.assumptions.returnAssumption(for: .bonds)?.impliedMedianReal ?? 0
-        var runs: [Run] = [.text("Shares grow "), .token(words.percent(equity), .equityReturn),
-                           .text(" a year above inflation in a typical year, bonds "),
-                           .token(words.percent(bonds), .bondsReturn), .text(". Prices rise "),
-                           .token(words.percent(plan.assumptions.effectiveInflation), .inflation),
-                           .text(" a year. ")]
-        if let rate = plan.tax.investmentRate {
-            runs += [.text("Gains are taxed at "), .token(words.percent(rate), .investmentTax)]
-        } else {
-            runs += [.text("The tax on gains "), .token("isn't set", .investmentTax)]
-        }
-        let wealth = plan.tax.effectiveWealthRate
-        if wealth > 0 {
-            runs += [.text(", and wealth at "), .token(words.percent(wealth, maxDigits: 2), .wealthTax), .text(". ")]
-        } else {
-            runs += [.text(", and there's "), .token("no wealth tax", .wealthTax), .text(". ")]
-        }
-        let (numerator, denominator) = PlanResultsText.fraction(plan.simulation.effectiveConfidence.doubleValue)
-        runs += [.text("A plan works when the money lasts in "),
-                 .token("\(numerator) of \(denominator)", .confidence), .text(" futures.")]
-        return runs
     }
 }

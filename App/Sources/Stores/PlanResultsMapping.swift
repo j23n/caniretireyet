@@ -36,9 +36,6 @@ struct PlanResultDetails: Hashable, Sendable {
     /// the check-in the plan started from): success rates to 3 decimals,
     /// readiness to 2, exactly as the CLI records it.
     var headline: Headline? = nil
-    /// How the plan read your library: the accounts grouped by when they
-    /// can be drawn.
-    var reading: PlanLibraryReading? = nil
     /// The earliest age saving nothing more (the coast age) and without
     /// each uncertain windfall (PLANNER.md, "Ages without"); empty from runs
     /// that don't look for them.
@@ -51,37 +48,6 @@ struct PlanResultDetails: Hashable, Sendable {
     /// plan's events, when the run looked for it.
     func withoutWindfall(_ index: Int) -> AgeWithout? {
         agesWithout.first { $0.change == .windfall(index: index) }
-    }
-}
-
-/// How a plan read your library (PLANNER.md, "The portfolio"): the accounts it
-/// counts, grouped by when they can be drawn, with their value on the start date.
-struct PlanLibraryReading: Hashable, Sendable {
-    /// The accounts that can be drawn from one age.
-    struct Bucket: Hashable, Sendable {
-        /// "Money you can draw", or the accounts' names.
-        var name: String
-        /// The age from which it can be drawn; `nil` for the money you can draw now.
-        var availableFromAge: Int?
-        /// Its value on the start date, in the base currency.
-        var value: Double
-        var accounts: [AccountID]
-    }
-
-    /// The check-in the plan started from.
-    var date: CalendarDate
-    var buckets: [Bucket]
-
-    init(date: CalendarDate, buckets: [Bucket] = []) {
-        self.date = date
-        self.buckets = buckets
-    }
-
-    /// From a Planner result.
-    init(_ start: PlanStart) {
-        self.init(date: start.date, buckets: start.buckets.map {
-            Bucket(name: $0.name, availableFromAge: $0.availableFromAge, value: $0.value, accounts: $0.accounts)
-        })
     }
 }
 
@@ -109,9 +75,6 @@ struct PlanFocusDetails: Hashable, Sendable {
     var monthlySaving: Decimal?
     /// Bridge failures (running out before locked money opens), most frequent first.
     var bridges: [PlanBridgeFailure]
-    /// What flexible spending did at this age (PLANNER.md, "Flexible
-    /// spending"); `nil` when the plan doesn't use it.
-    var flexible: FlexibleSpendingSummary? = nil
     /// How many runs run out of money at each age, ascending: where each
     /// chapter's failures are (UI.md, "The plan").
     var failuresByAge: [AgeCount] = []
@@ -198,9 +161,8 @@ extension PlanResults {
                 bridges: result.failures.bridges.map {
                     PlanBridgeFailure(name: $0.name, accessibleFromAge: $0.accessibleFromAge, share: $0.share)
                 },
-                flexible: result.flexibleSpending, failuresByAge: result.failures.byAge),
+                failuresByAge: result.failures.byAge),
             headline: result.headline(),
-            reading: PlanLibraryReading(result.start),
             agesWithout: answer.agesWithout)
         currency = result.currency
     }

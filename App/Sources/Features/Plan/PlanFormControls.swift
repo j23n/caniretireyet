@@ -66,6 +66,23 @@ struct PlanNumberField: View {
     }
 }
 
+extension Binding where Value == Decimal? {
+    /// A yearly amount as a month's, in whole units, as the plan's editors
+    /// show it (UI.md, "The plan"); a month typed in counts twelve times.
+    var perMonth: Binding<Decimal?> {
+        Binding(get: { wrappedValue.map { Decimal(wholeNumber: ($0 / 12).doubleValue) } },
+                set: { wrappedValue = $0.map { $0 * 12 } })
+    }
+}
+
+extension Binding where Value == Decimal {
+    /// A yearly amount as a month's, in whole units; a month typed in counts twelve times.
+    var perMonth: Binding<Decimal> {
+        Binding(get: { Decimal(wholeNumber: (wrappedValue / 12).doubleValue) },
+                set: { wrappedValue = $0 * 12 })
+    }
+}
+
 /// A labelled number field in a form row, with a unit after it.
 struct PlanNumberRow: View {
     let title: String

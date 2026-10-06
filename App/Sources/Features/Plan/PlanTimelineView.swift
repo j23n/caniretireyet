@@ -60,8 +60,8 @@ struct PlanTimelineView: View {
                 .padding(.horizontal, gutter)
                 if let plan = session.plan {
                     chapters(plan, binding: $session.editablePlan, state: state, milestones: milestones)
-                    PlanAssumptionsFooter(plan: plan, words: words, onOpen: show,
-                                          onShowAll: { showsAssumptions = true }, onExport: onExport,
+                    PlanAssumptionsFooter(plan: plan, words: words, isWide: isWide, canEdit: session.canEdit,
+                                          onOpen: show, onShowAll: { showsAssumptions = true }, onExport: onExport,
                                           binding: $session.editablePlan)
                         .padding(.horizontal, gutter)
                     moreCharts(state.results)
@@ -137,9 +137,7 @@ struct PlanTimelineView: View {
                 PlanChapterDetails(
                     model: model, index: selected,
                     story: PlanChapterStory(chapterAt: selected, in: model, results: state.results, words: words),
-                    barMaximum: barMaximum(model, results: state.results), plan: binding,
-                    summaries: PlanInputSummaries(plan: plan, library: library.library, currency: session.currency,
-                                                  hidesAmounts: hidesAmounts, locale: locale),
+                    barMaximum: barMaximum(model, results: state.results), plan: binding, words: words,
                     issues: issues, isWide: isWide, canEdit: session.canEdit, editing: $editing,
                     milestones: timeline.cards.indices.contains(selected) ? timeline.cards[selected].milestones : [],
                     milestoneText: milestoneText,
@@ -148,11 +146,7 @@ struct PlanTimelineView: View {
                     .padding(.horizontal, gutter)
             }
             if !model.chapters.outside.isEmpty {
-                PlanOutsideCard(model: model, plan: binding,
-                                summaries: PlanInputSummaries(plan: plan, library: library.library,
-                                                              currency: session.currency, hidesAmounts: hidesAmounts,
-                                                              locale: locale),
-                                issues: issues, editing: $editing, onShowTargetMix: { showsTargetMix = true })
+                PlanOutsideCard(model: model, plan: binding, issues: issues, words: words, onOpen: show)
                     .padding(.horizontal, gutter)
             }
         } else {
@@ -222,22 +216,14 @@ struct PlanTimelineView: View {
                             PlanIncomeCard(results: results)
                         }
                         EqualColumns(spacing: Metrics.l) {
-                            VStack(spacing: Metrics.l) {
-                                PlanFailureCard(results: results)
-                                PlanFlexibleSpendingCard(results: results)
-                            }
-                            VStack(spacing: Metrics.l) {
-                                PlanKeyNumbersCard(results: results)
-                                PlanLibraryCard(results: results)
-                            }
+                            PlanKeyNumbersCard(results: results)
+                            Color.clear
+                                .frame(height: 1)
                         }
                     } else {
                         PlanSuccessCard(session: session, results: results)
                         PlanIncomeCard(results: results)
-                        PlanFailureCard(results: results)
-                        PlanFlexibleSpendingCard(results: results)
                         PlanKeyNumbersCard(results: results)
-                        PlanLibraryCard(results: results)
                     }
                 }
                 .padding(.top, Metrics.s)
@@ -247,7 +233,7 @@ struct PlanTimelineView: View {
                     Text("More charts")
                         .font(.headline)
                         .foregroundStyle(Palette.ink)
-                    Text("Your money over time, chance by retirement age, income and taxes, when it fails, key numbers.")
+                    Text("Your money over time, chance by retirement age, income and taxes, key numbers.")
                         .font(.footnote)
                         .foregroundStyle(Palette.secondaryInk)
                 }
@@ -443,11 +429,11 @@ struct PlanStepButtons: View {
 
 // MARK: - A chapter in words
 
-/// The chosen chapter (UI.md, "Plan"): its number, name and span, its
-/// story with the values to change where they read, a month's money as a
-/// bar, what it assumes, and everything in it, each input editable, with
-/// *Add to this chapter*. Beside the words on the Mac, folded under them on
-/// iPhone.
+/// The chosen chapter (UI.md, "Plan"): its number, name and span; what
+/// happens in it, in words that only read (its values in bold), a month's
+/// money as a bar, the milestones along the way and what can go wrong; and
+/// its settings, where the plan changes: every input that starts in it,
+/// once. Side by side on the Mac and iPad; on iPhone the settings follow.
 struct PlanChapterDetails: View {
     let model: PlanChaptersModel
     let index: Int
@@ -455,7 +441,8 @@ struct PlanChapterDetails: View {
     /// The largest month among the chapters, for the bar.
     let barMaximum: Double
     @Binding var plan: PlanDocument
-    let summaries: PlanInputSummaries
+    /// Amounts in the plan's currency, hidden with the eye.
+    let words: PlanWords
     let issues: PlanInputIssues
     var isWide = false
     var canEdit = true
@@ -468,36 +455,41 @@ struct PlanChapterDetails: View {
     var onSelect: (Int) -> Void = { _ in }
     var onUsePlanAge: () -> Void = {}
 
-    @State private var showsInputs = false
+    /// The milestones listed before "and N more".
+    private static let shownMilestones = 4
 
     private var chapter: PlanChapter { model.chapters.chapters[index] }
 
     var body: some View {
         let shape = RoundedRectangle(cornerRadius: Metrics.cardRadius, style: .continuous)
-        VStack(alignment: .leading, spacing: Metrics.m) {
-            header
-            if isWide {
+        if isWide {
+            VStack(alignment: .leading, spacing: Metrics.l) {
+                header
                 HStack(alignment: .top, spacing: Metrics.xl) {
-                    words
+                    reading
                         .frame(maxWidth: .infinity, alignment: .leading)
-                    inputs
-                        .frame(width: 360, alignment: .leading)
-                }
-            } else {
-                words
-                DisclosureGroup(isExpanded: $showsInputs) {
-                    inputs
-                        .padding(.top, Metrics.s)
-                } label: {
-                    Text("Everything in this chapter")
-                        .font(.subheadline.weight(.semibold))
+                    Divider()
+                    settings
+                        .frame(width: 380, alignment: .leading)
                 }
             }
+            .padding(Metrics.l)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Palette.card, in: shape)
+            .overlay { shape.strokeBorder(Palette.border, lineWidth: 1) }
+        } else {
+            VStack(alignment: .leading, spacing: Metrics.l) {
+                VStack(alignment: .leading, spacing: Metrics.l) {
+                    header
+                    reading
+                }
+                .padding(Metrics.l)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(Palette.card, in: shape)
+                .overlay { shape.strokeBorder(Palette.border, lineWidth: 1) }
+                settings
+            }
         }
-        .padding(Metrics.l)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Palette.card, in: shape)
-        .overlay { shape.strokeBorder(Palette.border, lineWidth: 1) }
     }
 
     private var header: some View {
@@ -520,46 +512,88 @@ struct PlanChapterDetails: View {
         }
     }
 
-    private var words: some View {
-        VStack(alignment: .leading, spacing: Metrics.m) {
-            PlanEditableStory(runs: story.story, canEdit: canEdit, onSheet: onOpen) { token in
-                PlanTokenEditor(token: token, plan: $plan, model: model, onOpen: onOpen)
-            }
-            .font(.body)
-            .foregroundStyle(Palette.ink)
-            if let milestoneText, !milestones.isEmpty {
-                HStack(alignment: .firstTextBaseline, spacing: Metrics.xs) {
-                    Image(systemName: "flag")
-                        .foregroundStyle(Palette.accent)
-                        .accessibilityHidden(true)
-                    Text(Self.alongTheWay(milestones, text: milestoneText))
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-                .font(.subheadline)
-                .foregroundStyle(Palette.secondaryInk)
+    /// What happens: the words, a month's money, the milestones along the
+    /// way, and what can go wrong.
+    private var reading: some View {
+        VStack(alignment: .leading, spacing: Metrics.l) {
+            VStack(alignment: .leading, spacing: Metrics.xs) {
+                PlanPartLabel("What happens")
+                PlanStoryText(runs: story.story)
+                    .font(.body)
+                    .foregroundStyle(Palette.ink)
             }
             if let bar = story.bar {
                 PlanMonthBarView(bar: bar, maximum: barMaximum)
+                    .frame(maxWidth: 440, alignment: .leading)
             }
-            PlanEditableStory(runs: story.assumes, canEdit: canEdit, onSheet: onOpen) { token in
-                PlanTokenEditor(token: token, plan: $plan, model: model, onOpen: onOpen)
+            if let milestoneText, !milestones.isEmpty {
+                VStack(alignment: .leading, spacing: Metrics.xs) {
+                    PlanPartLabel("Along the way, typically")
+                    ForEach(Array(milestones.prefix(Self.shownMilestones))) { item in
+                        HStack(alignment: .firstTextBaseline, spacing: Metrics.s) {
+                            Image(systemName: "flag")
+                                .foregroundStyle(Palette.accent)
+                                .accessibilityHidden(true)
+                            Text(milestoneText.name(item.milestone))
+                                .foregroundStyle(Palette.ink)
+                                .fixedSize(horizontal: false, vertical: true)
+                            Spacer(minLength: Metrics.s)
+                            Text(PlanMilestoneText.when(item.date))
+                                .monospacedDigit()
+                                .foregroundStyle(Palette.secondaryInk)
+                        }
+                        .font(.subheadline)
+                        .accessibilityElement(children: .combine)
+                    }
+                    if milestones.count > Self.shownMilestones {
+                        Text("And \(milestones.count - Self.shownMilestones) more ahead.")
+                            .font(.footnote)
+                            .foregroundStyle(Palette.secondaryInk)
+                    }
+                }
             }
-            .font(.footnote)
-            .foregroundStyle(Palette.secondaryInk)
+            if !story.risks.isEmpty {
+                VStack(alignment: .leading, spacing: Metrics.xs) {
+                    PlanPartLabel("What can go wrong")
+                    ForEach(story.risks, id: \.self) { risk in
+                        Label {
+                            Text(risk)
+                                .fixedSize(horizontal: false, vertical: true)
+                        } icon: {
+                            Image(systemName: "exclamationmark.triangle.fill")
+                                .foregroundStyle(Palette.orangeStroke)
+                        }
+                        .font(.subheadline)
+                        .foregroundStyle(Palette.ink)
+                    }
+                }
+            }
         }
     }
 
-    private var inputs: some View {
+    /// Every input that starts in the chapter, once; what carries on into
+    /// it; and *Add to this chapter*.
+    private var settings: some View {
         VStack(alignment: .leading, spacing: Metrics.s) {
-            if isWide {
-                Text("In this chapter")
-                    .font(.subheadline.weight(.semibold))
+            HStack(alignment: .firstTextBaseline, spacing: Metrics.s) {
+                Text("Settings")
+                    .font(.headline)
+                    .foregroundStyle(Palette.ink)
+                    .accessibilityAddTraits(.isHeader)
+                Spacer(minLength: Metrics.s)
+                Text("A month, in \(PlanMoney.todaysMoney(words.currency))")
+                    .font(.caption)
                     .foregroundStyle(Palette.secondaryInk)
             }
-            ForEach(chapter.items, id: \.self) { item in
-                PlanChapterItemRow(item: item, model: model, plan: $plan, summaries: summaries, issues: issues,
-                                   editing: $editing, onShowTargetMix: { onOpen(.targetMix) },
-                                   onUsePlanAge: onUsePlanAge)
+            let rows = PlanChapterSettings.rows(for: chapter.items, plan: plan, model: model, issues: issues,
+                                                words: words)
+            if rows.isEmpty {
+                Text("Nothing starts in this chapter.")
+                    .font(.subheadline)
+                    .foregroundStyle(Palette.secondaryInk)
+            } else {
+                PlanSettingsList(rows: rows, plan: $plan, model: model, canEdit: canEdit, onSheet: onOpen,
+                                 onUsePlanAge: onUsePlanAge)
             }
             if let continuing = model.continuing(in: chapter) {
                 Text(continuing)
@@ -568,70 +602,54 @@ struct PlanChapterDetails: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
             PlanChapterAddMenu(chapter: chapter, model: model, plan: $plan, editing: $editing)
+                .disabled(!canEdit)
         }
-        .disabled(!canEdit)
-    }
-
-    /// "Along the way, typically: 400.000 € in mid 2027 and 10 years of
-    /// spending in early 2028."
-    static func alongTheWay(_ milestones: [ProjectedMilestone], text: PlanMilestoneText) -> String {
-        let shown = milestones.prefix(3).map { "\(text.name($0.milestone)) in \(PlanMilestoneText.when($0.date))" }
-        let more = milestones.count > 3 ? ", and \(milestones.count - 3) more" : ""
-        let list = shown.count > 1 && more.isEmpty
-            ? shown.dropLast().joined(separator: ", ") + " and " + (shown.last ?? "")
-            : shown.joined(separator: ", ") + more
-        return "Along the way, typically: \(list)."
     }
 }
 
 // MARK: - What every chapter assumes
 
-/// The assumptions every chapter shares, in words with their values to
-/// change: returns, inflation, taxes and when a plan works; then *All
-/// assumptions…* and *Export Calculations…*.
+/// What every chapter shares (UI.md, "Plan"): returns, inflation, taxes
+/// and when a plan works, as tiles that open their editors; then the
+/// disclaimer, *All assumptions…* and *Export Calculations…*.
 struct PlanAssumptionsFooter: View {
     let plan: PlanDocument
     let words: PlanWords
+    var isWide = false
+    var canEdit = true
     var onOpen: (PlanToken) -> Void = { _ in }
     var onShowAll: () -> Void = {}
     var onExport: (() -> Void)?
     @Binding var binding: PlanDocument
 
     var body: some View {
-        let shape = RoundedRectangle(cornerRadius: Metrics.cardRadius, style: .continuous)
         VStack(alignment: .leading, spacing: Metrics.s) {
-            Text("Assumptions")
-                .font(.headline)
-                .foregroundStyle(Palette.ink)
-                .accessibilityAddTraits(.isHeader)
-            PlanEditableStory(runs: PlanChapterStory.shared(plan: plan, words: words), onSheet: onOpen) { token in
-                PlanTokenEditor(token: token, plan: $binding, onOpen: onOpen)
-            }
-            .font(.subheadline)
-            .foregroundStyle(Palette.ink)
-            Divider()
-            ViewThatFits(in: .horizontal) {
-                HStack(spacing: Metrics.m) {
-                    disclaimer
-                    Spacer(minLength: Metrics.s)
+            HStack(alignment: .firstTextBaseline, spacing: Metrics.m) {
+                Text("Every chapter assumes")
+                    .font(.headline)
+                    .foregroundStyle(Palette.ink)
+                    .accessibilityAddTraits(.isHeader)
+                Spacer(minLength: Metrics.s)
+                if isWide {
                     buttons
                 }
-                VStack(alignment: .leading, spacing: Metrics.s) {
-                    disclaimer
-                    HStack(spacing: Metrics.m) { buttons }
+            }
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 150), spacing: Metrics.s, alignment: .top)],
+                      alignment: .leading, spacing: Metrics.s) {
+                ForEach(PlanAssumptionTile.tiles(plan: plan, words: words)) { tile in
+                    PlanAssumptionTileView(tile: tile, plan: $binding, canEdit: canEdit, onOpen: onOpen)
                 }
             }
+            if !isWide {
+                HStack(spacing: Metrics.l) {
+                    buttons
+                }
+            }
+            Text(AboutText.disclaimer)
+                .font(.footnote)
+                .foregroundStyle(Palette.mutedInk)
+                .fixedSize(horizontal: false, vertical: true)
         }
-        .padding(Metrics.l)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Palette.card, in: shape)
-        .overlay { shape.strokeBorder(Palette.border, lineWidth: 1) }
-    }
-
-    private var disclaimer: some View {
-        Text(AboutText.disclaimer)
-            .font(.footnote)
-            .foregroundStyle(Palette.mutedInk)
     }
 
     @ViewBuilder

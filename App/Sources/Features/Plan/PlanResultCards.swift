@@ -3,10 +3,10 @@ import Model
 import Planner
 import SwiftUI
 
-// The cards behind the plan's answer (UI.md, "Plan", "More charts"): the
-// chance of success by retirement age, retirement income and taxes, when it
-// fails, flexible spending, the key numbers and how the plan reads your
-// library; and the run's banners and status the Plan view shows above them.
+// The cards behind the plan's answer (UI.md, "Plan", "More charts"): your
+// money over time, the chance of success by retirement age, retirement
+// income and taxes, and the key numbers; and the run's banners and status
+// the Plan view shows above them.
 
 
 /// The run's problems as banners: an error that stops the plan, and the
@@ -350,94 +350,6 @@ struct PlanIncomeCard: View {
                 .pickerStyle(.segmented)
                 .labelsHidden()
                 .fixedSize()
-            }
-        }
-    }
-}
-
-/// When it fails: how often, when money usually runs out, and bridge
-/// failures (running out before locked money opens).
-struct PlanFailureCard: View {
-    let results: PlanResults
-    @Environment(\.locale) private var locale
-
-    var body: some View {
-        let sentences = PlanResultsText.failureSentences(results.failure, locale: locale)
-        if !sentences.isEmpty {
-            Card(PlanResultsText.failureTitle(results.failure)) {
-                ForEach(sentences, id: \.self) { sentence in
-                    Text(sentence)
-                        .font(.subheadline)
-                        .foregroundStyle(Palette.ink)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-            }
-        }
-    }
-}
-
-/// Flexible spending (UI.md, "More charts"): how low spending goes in a bad
-/// case, how many futures never cut, how long spending stays below the
-/// plan's, and the rule, for the age the charts are for. Only for a plan
-/// that uses it.
-struct PlanFlexibleSpendingCard: View {
-    let results: PlanResults
-    @Environment(\.locale) private var locale
-    @Environment(\.hidesAmounts) private var hidesAmounts
-    @Environment(\.baseCurrency) private var currency
-
-    var body: some View {
-        if let summary = results.details?.focus.flexible {
-            Card(PlanResultsText.flexibleTitle(summary, locale: locale)) {
-                ForEach(PlanResultsText.flexibleSentences(summary, currency: currency, hidesAmounts: hidesAmounts,
-                                                          locale: locale), id: \.self) { sentence in
-                    Text(sentence)
-                        .font(.subheadline)
-                        .foregroundStyle(Palette.ink)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-                Text(PlanResultsText.flexibleRule(summary, currency: currency, hidesAmounts: hidesAmounts,
-                                                  locale: locale))
-                    .font(.footnote)
-                    .foregroundStyle(Palette.secondaryInk)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-        }
-    }
-}
-
-/// How the plan reads your library: the accounts grouped by when they can be
-/// drawn, with their value on the start date (UI.md, "More charts").
-struct PlanLibraryCard: View {
-    let results: PlanResults
-    @Environment(LibraryStore.self) private var library
-    @Environment(\.locale) private var locale
-
-    var body: some View {
-        let notes = results.details?.reading.map {
-            PlanResultsText.libraryNotes($0, accounts: library.library.accounts, locale: locale)
-        } ?? []
-        if !notes.isEmpty {
-            Card("How the plan reads your library") {
-                ForEach(notes) { note in
-                    VStack(alignment: .leading, spacing: 2) {
-                        HStack(alignment: .firstTextBaseline, spacing: Metrics.s) {
-                            Text(note.title)
-                                .font(.subheadline.weight(.semibold))
-                                .foregroundStyle(Palette.ink)
-                            Spacer(minLength: Metrics.s)
-                            if let amount = note.amount {
-                                AmountText(amount)
-                                    .font(.subheadline)
-                                    .foregroundStyle(Palette.ink)
-                            }
-                        }
-                        Text(note.detail)
-                            .font(.footnote)
-                            .foregroundStyle(Palette.secondaryInk)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
-                }
             }
         }
     }

@@ -82,37 +82,6 @@ enum PlanResultsText {
         return "\(old.map(String.init) ?? "none") → \(new.map(String.init) ?? "none")"
     }
 
-    /// "1 in 10", for "When it fails (1 in 10)".
-    static func oneIn(_ share: Double) -> String {
-        guard share > 0 else { return "none" }
-        if share < 0.005 { return "fewer than 1 in 200" }
-        if share <= 0.5 { return "1 in \(Int(wholeNumber: 1 / share))" }
-        return "\(Int(wholeNumber: share * 10)) in 10"
-    }
-
-    /// "When it fails (1 in 10)".
-    static func failureTitle(_ failure: PlanFailureSummary?) -> String {
-        guard let failure, failure.share > 0 else { return "When it fails" }
-        return "When it fails (\(oneIn(failure.share)))"
-    }
-
-    /// The sentences of "When it fails", including bridge failures.
-    static func failureSentences(_ failure: PlanFailureSummary?, locale: Locale = .current) -> [String] {
-        guard let failure else { return [] }
-        guard failure.share > 0 else { return ["None of the simulated futures run out of money."] }
-        var sentences: [String] = []
-        if let age = failure.typicalAge {
-            sentences.append("Money usually runs out around \(age).")
-        }
-        if let share = failure.bridgeShare, share > 0 {
-            let percent = AmountFormat.percent(share, digits: share < 0.01 ? 1 : 0, locale: locale)
-            let what = failure.bridgeName.map { "the " + lowercasedFirst($0) } ?? "locked money"
-            let opens = failure.bridgeAge.map { " opens at \($0)" } ?? " opens"
-            sentences.append("\(percent) of futures run out before \(what)\(opens).")
-        }
-        return sentences
-    }
-
     /// "Pension fund" → "pension fund"; "TFR" stays.
     static func lowercasedFirst(_ text: String) -> String {
         guard let first = text.first, text.dropFirst().first?.isLowercase ?? true else { return text }
@@ -126,66 +95,6 @@ enum PlanResultsText {
         case 1: items[0]
         default: items.dropLast().joined(separator: ", ") + " and " + items[items.count - 1]
         }
-    }
-
-
-    // MARK: Flexible spending
-
-    /// "Flexible spending (cuts of 10% down to 80%)", the card's title.
-    static func flexibleTitle(_ summary: FlexibleSpendingSummary, locale: Locale = .current) -> String {
-        "Flexible spending (cuts of \(AmountFormat.percent(summary.cut, digits: 0, locale: locale)) down to "
-            + "\(AmountFormat.percent(summary.floor, digits: 0, locale: locale)))"
-    }
-
-    /// The card's sentences (UI.md, "More charts"): how low spending goes in a
-    /// bad case and how many futures never cut, how long spending stays below
-    /// the plan's, and when a cut comes. "In a bad case (1 in 10) you'd spend
-    /// as little as 29.000 € a year for a while; half of all futures never
-    /// cut." Amounts read `•••••` while hidden.
-    static func flexibleSentences(_ summary: FlexibleSpendingSummary, currency: CurrencyCode,
-                                  hidesAmounts: Bool = false, locale: Locale = .current) -> [String] {
-        func money(_ value: Double) -> String {
-            hidesAmounts ? AmountFormat.hidden : AmountFormat.amount(whole(value), currency: currency, locale: locale)
-        }
-        let never = neverCut(1 - summary.shareWithCut, locale: locale)
-        var sentences: [String] = []
-        if let lowest = summary.p10LowestSpending {
-            sentences.append(lowest >= summary.planSpending - 0.5
-                ? "Even in a bad case (1 in 10) you'd never cut; \(never)."
-                : "In a bad case (1 in 10) you'd spend as little as \(money(lowest)) a year for a while; \(never).")
-        } else {
-            sentences.append("In a bad case (1 in 10) the money runs out even at the floor; \(never).")
-        }
-        if summary.medianYearsBelow > 0 {
-            sentences.append("Half of all futures spend \(summary.medianYearsBelow) or more of "
-                + "\(summary.retirementYears) years in retirement below your plan's spending.")
-        }
-        return sentences
-    }
-
-    /// The rule under the card's sentences: "Spending is cut by 10% of the
-    /// plan's when the share of your money you draw rises 20% above the first
-    /// year's, and restored when it falls 20% below: never under 28.800 € a
-    /// year, nor above 36.000 €."
-    static func flexibleRule(_ summary: FlexibleSpendingSummary, currency: CurrencyCode, hidesAmounts: Bool = false,
-                             locale: Locale = .current) -> String {
-        func money(_ value: Double) -> String {
-            hidesAmounts ? AmountFormat.hidden : AmountFormat.amount(whole(value), currency: currency, locale: locale)
-        }
-        let upper = AmountFormat.percent(summary.upperGuardrail, digits: 0, locale: locale)
-        let lower = AmountFormat.percent(summary.lowerGuardrail, digits: 0, locale: locale)
-        return "Spending is cut by \(AmountFormat.percent(summary.cut, digits: 0, locale: locale)) of the plan's when "
-            + "the share of your money you draw rises \(upper) above the first year's, and restored when it falls "
-            + "\(lower) below: never under \(money(summary.floorSpending)) a year, nor above "
-            + "\(money(summary.planSpending)). Retiring at \(summary.age)."
-    }
-
-    /// "half of all futures never cut", "72% of futures never cut".
-    static func neverCut(_ share: Double, locale: Locale = .current) -> String {
-        if share >= 0.995 { return "no future cuts" }
-        if share < 0.005 { return "every future cuts at some point" }
-        if abs(share - 0.5) < 0.05 { return "half of all futures never cut" }
-        return "\(AmountFormat.percent(share, digits: 0, locale: locale)) of futures never cut"
     }
 
     // MARK: What retiring today needs
@@ -323,35 +232,4 @@ enum PlanResultsText {
         }
         return seen
     }
-
-    // MARK: How the plan reads your library
-
-    /// "How the plan reads your library": a line per group of accounts that
-    /// can be drawn from one age, with their value on the start date.
-    static func libraryNotes(_ reading: PlanLibraryReading, accounts: [AccountID: Account],
-                             locale: Locale = .current) -> [PlanLibraryNote] {
-        func names(_ ids: [AccountID]) -> String {
-            let all = ids.map { accounts[$0]?.name ?? $0.rawValue }
-            guard all.count > 3 else { return list(all) }
-            return all.prefix(3).joined(separator: ", ") + " and \(all.count - 3) more"
-        }
-        return reading.buckets.map { bucket in
-            var parts = [bucket.availableFromAge.map { "Drawn from \($0)" } ?? "Drawn any time"]
-            if bucket.availableFromAge == nil { parts.append("new savings go here") }
-            if !bucket.accounts.isEmpty { parts.append(names(bucket.accounts)) }
-            let title = bucket.availableFromAge == nil ? "Money you can draw" : names(bucket.accounts)
-            return PlanLibraryNote(title: title, detail: parts.joined(separator: " · "), amount: whole(bucket.value))
-        }
-    }
-}
-
-/// One line of "How the plan reads your library": a group of accounts that
-/// can be drawn from one age, with their value.
-struct PlanLibraryNote: Hashable, Sendable, Identifiable {
-    var title: String
-    var detail: String
-    /// In the plan's currency; shown through `AmountText`, so it hides.
-    var amount: Decimal?
-
-    var id: String { title + "|" + detail }
 }

@@ -541,6 +541,8 @@ struct PlanYearStrip: View {
     @Environment(\.hidesAmounts) private var hidesAmounts
     @Environment(\.locale) private var locale
     @State private var showsEarlyYears = false
+    /// Where the pointer is over a card, or where one was tapped.
+    @State private var pointer: PlanGraphPointer?
 
     /// The oldest years, before the first with a recorded answer: folded
     /// into one card until shown.
@@ -565,7 +567,9 @@ struct PlanYearStrip: View {
                                 selection = index
                             } label: {
                                 PlanYearCardView(card: card, scale: timeline.scale, pointsPerMonth: pointsPerMonth,
-                                                 height: cardHeight, isSelected: selection == index)
+                                                 height: cardHeight, isSelected: selection == index,
+                                                 pointerX: pointer?.index == index ? pointer?.x : nil)
+                                    .planGraphPointer($pointer, index: index)
                             }
                             .buttonStyle(.plain)
                             .id(index)
@@ -660,6 +664,8 @@ struct PlanYearCardView: View {
     var pointsPerMonth: CGFloat = 20
     var height: CGFloat = 304
     var isSelected = false
+    /// Where the pointer is over the card, or where it was tapped.
+    var pointerX: CGFloat?
 
     @Environment(\.hidesAmounts) private var hidesAmounts
     @Environment(\.locale) private var locale
@@ -682,6 +688,9 @@ struct PlanYearCardView: View {
             amountLabels
             months
             chips
+            if let pointerX {
+                readout(at: pointerX)
+            }
         }
         .frame(width: width, height: height, alignment: .topLeading)
         .background(Palette.card, in: shape)
@@ -772,6 +781,83 @@ struct PlanYearCardView: View {
             end = start + chipWidth + 2
         }
         return placed
+    }
+
+    // MARK: At the pointer
+
+    /// The value nearest a point along the line (a check-in or a month end),
+    /// the milestones flagged there, and the notes of its day.
+    private struct Reading {
+        var point: ChartPoint
+        var expected: Double?
+        var milestones: [ReachedMilestone]
+        var notes: [PlanProgressTimeline.Note]
+    }
+
+    private func reading(at pointerX: CGFloat) -> Reading? {
+        guard let point = card.actual.min(by: { abs(x($0.date) - pointerX) < abs(x($1.date) - pointerX) }) else {
+            return nil
+        }
+        let day = CalendarDate(point.date, in: .current)
+        return Reading(point: point, expected: card.expected(on: point.date),
+                       milestones: card.milestones.filter { flagPoint(for: $0)?.date == point.date },
+                       notes: card.notes.filter { $0.date == day && $0.kind != .milestone })
+    }
+
+    /// The point on the line a milestone's flag stands on: the one nearest the day it was reached.
+    private func flagPoint(for reached: ReachedMilestone) -> ChartPoint? {
+        let day = reached.date.dateValue
+        return card.actual.min { abs($0.date.timeIntervalSince(day)) < abs($1.date.timeIntervalSince(day)) }
+    }
+
+    /// The year at the pointer (UI.md, "Progress"): a rule at the nearest
+    /// value, and a label with its date, a milestone reached there, the
+    /// money, what January expected and the gap, and what changed that day.
+    @ViewBuilder
+    private func readout(at pointerX: CGFloat) -> some View {
+        if let found = reading(at: pointerX) {
+            let at = x(found.point.date)
+            ZStack(alignment: .topLeading) {
+                PlanGraphRule(height: Self.graphHeight)
+                    .offset(x: at - 0.5, y: Self.graphTop)
+                if let scale {
+                    PlanGraphDot(color: Palette.ink)
+                        .offset(x: at - 4.5, y: y(found.point.value, scale) - 4.5)
+                }
+                PlanGraphCallout(lines: lines(for: found))
+                    .offset(x: PlanGraphCallout.leading(at: at, in: width), y: Self.graphTop + 4)
+            }
+            .allowsHitTesting(false)
+            .accessibilityHidden(true)
+        }
+    }
+
+    private func lines(for found: Reading) -> [PlanGraphCallout.Line] {
+        let day = CalendarDate(found.point.date, in: .current)
+        var lines = [PlanGraphCallout.Line(text: AmountFormat.mediumDate(day, locale: locale), style: .context)]
+        let text = PlanMilestoneText(currency: card.currency, hidesAmounts: hidesAmounts, locale: locale)
+        for reached in found.milestones {
+            lines.append(PlanGraphCallout.Line(text: text.reached(reached.milestone), style: .milestone))
+        }
+        lines.append(PlanGraphCallout.Line(text: amount(found.point.value), style: .value))
+        if let expected = found.expected {
+            let gap = found.point.value - expected
+            lines.append(PlanGraphCallout.Line(text: "January expected \(amount(expected))", style: .detail))
+            lines.append(PlanGraphCallout.Line(text: "\(amount(abs(gap))) \(gap >= 0 ? "ahead" : "behind")",
+                                               style: .detail))
+        }
+        if !found.point.isComplete {
+            lines.append(PlanGraphCallout.Line(text: "Not every price is known", style: .detail))
+        }
+        for note in found.notes.prefix(2) {
+            lines.append(PlanGraphCallout.Line(text: note.text, style: .title))
+        }
+        return lines
+    }
+
+    private func amount(_ value: Double) -> String {
+        hidesAmounts ? AmountFormat.hidden
+            : AmountFormat.amount(Decimal(wholeNumber: value), currency: card.currency, locale: locale)
     }
 
     /// "J", "F", … in the locale.

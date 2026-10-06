@@ -6,7 +6,8 @@ import SwiftUI
 /// strip that scrolls sideways, each card as wide as its years (never too
 /// narrow to read), on one money scale, so the graph runs on from card to
 /// card. Choosing a card selects its chapter, whose details show below the
-/// strip; selecting one elsewhere scrolls it into view.
+/// strip; selecting one elsewhere scrolls it into view. The pointer over a
+/// card, or a tap on it, reads the graph there.
 struct PlanChapterStrip: View {
     let timeline: PlanTimeline
     @Binding var selection: Int
@@ -17,6 +18,8 @@ struct PlanChapterStrip: View {
     var inset: CGFloat = Metrics.l
 
     @Environment(\.baseCurrency) private var currency
+    /// Where the pointer is over a card, or where one was tapped.
+    @State private var pointer: PlanGraphPointer?
 
     /// No card narrower: room for its name and where the money stands.
     static let minimumWidth: CGFloat = 164
@@ -31,7 +34,9 @@ struct PlanChapterStrip: View {
                         } label: {
                             PlanChapterCardView(card: card, scale: timeline.scale, width: width(of: card),
                                                 height: cardHeight, isSelected: selection == card.index,
-                                                currency: currency)
+                                                currency: currency,
+                                                pointerX: pointer?.index == card.index ? pointer?.x : nil)
+                                .planGraphPointer($pointer, index: card.index)
                         }
                         .buttonStyle(.plain)
                         .id(card.index)
@@ -66,7 +71,7 @@ struct PlanChapterStrip: View {
 /// money through it (the median in the hue, half the futures in the darker
 /// band and 8 in 10 in the lighter one, on the scale every card shares),
 /// the ages along its bottom, what happens in it, and where the money
-/// stands at its end.
+/// stands at its end; at the pointer, what the graph shows there.
 struct PlanChapterCardView: View {
     let card: PlanTimeline.Card
     let scale: AmountScale?
@@ -74,6 +79,8 @@ struct PlanChapterCardView: View {
     let height: CGFloat
     var isSelected = false
     var currency: CurrencyCode
+    /// Where the pointer is over the card, or where it was tapped.
+    var pointerX: CGFloat?
 
     @Environment(\.hidesAmounts) private var hidesAmounts
     @Environment(\.locale) private var locale
@@ -97,6 +104,9 @@ struct PlanChapterCardView: View {
             eventLabels
             summary
                 .frame(width: width, height: height, alignment: .bottomTrailing)
+            if let pointerX {
+                readout(at: pointerX)
+            }
         }
         .frame(width: width, height: height, alignment: .topLeading)
         .background(Palette.card, in: shape)
@@ -244,6 +254,84 @@ struct PlanChapterCardView: View {
 
     private func compact(_ value: Double) -> String {
         hidesAmounts ? AmountFormat.hidden : AmountFormat.compactAmount(value, currency: currency, locale: locale)
+    }
+
+    // MARK: At the pointer
+
+    /// What the graph shows at a point: a milestone or an event the pointer
+    /// is on, else the date under it.
+    private struct Reading {
+        var x: CGFloat
+        var date: Date
+        var fan: FanPoint?
+        var milestone: ProjectedMilestone?
+        var event: PlanTimeline.Event?
+    }
+
+    /// How near the pointer has to come to a milestone or an event to read it.
+    private static let reach: CGFloat = 10
+
+    private func reading(at pointerX: CGFloat) -> Reading {
+        let at = min(max(0, pointerX), width)
+        func distance(_ date: Date) -> CGFloat { abs(x(date) - at) }
+        if let milestone = card.milestones.min(by: { distance($0.date.dateValue) < distance($1.date.dateValue) }),
+           distance(milestone.date.dateValue) <= Self.reach {
+            let day = milestone.date.dateValue
+            return Reading(x: x(day), date: day, fan: card.fan(on: day), milestone: milestone)
+        }
+        if let event = card.events.min(by: { distance($0.date) < distance($1.date) }),
+           distance(event.date) <= Self.reach {
+            return Reading(x: x(event.date), date: event.date, fan: card.fan(on: event.date), event: event)
+        }
+        let share = width > 0 ? Double(at / width) : 0
+        let date = card.start.addingTimeInterval(card.end.timeIntervalSince(card.start) * share)
+        return Reading(x: at, date: date, fan: card.fan(on: date))
+    }
+
+    /// The graph at the pointer (UI.md, "Plan"): a rule, the median's dot,
+    /// and a label with the age and the year, a milestone or an event
+    /// there, the median and the range 8 in 10 futures fall in.
+    private func readout(at pointerX: CGFloat) -> some View {
+        let found = reading(at: pointerX)
+        return ZStack(alignment: .topLeading) {
+            PlanGraphRule(height: Self.graphHeight)
+                .offset(x: found.x - 0.5, y: Self.graphTop)
+            if let scale, let fan = found.fan {
+                PlanGraphDot()
+                    .offset(x: found.x - 4.5, y: y(fan.p50, scale) - 4.5)
+            }
+            PlanGraphCallout(lines: lines(for: found))
+                .offset(x: PlanGraphCallout.leading(at: found.x, in: width), y: Self.graphTop + 4)
+        }
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
+    }
+
+    private func lines(for found: Reading) -> [PlanGraphCallout.Line] {
+        let year = Calendar.current.component(.year, from: found.date)
+        var lines = [PlanGraphCallout.Line(text: "\(card.age(on: found.date)) · \(String(year))", style: .context)]
+        if let milestone = found.milestone {
+            let text = PlanMilestoneText(currency: currency, hidesAmounts: hidesAmounts, locale: locale)
+            lines.append(PlanGraphCallout.Line(text: text.name(milestone.milestone), style: .milestone))
+            lines.append(PlanGraphCallout.Line(text: "Typically by \(PlanMilestoneText.when(milestone.date))",
+                                               style: .detail))
+        } else if let event = found.event {
+            lines.append(PlanGraphCallout.Line(text: event.title, style: .title))
+            lines.append(PlanGraphCallout.Line(text: event.detail, style: .detail))
+        }
+        if let fan = found.fan {
+            lines.append(PlanGraphCallout.Line(text: "Typically \(rounded(fan.p50))", style: .value))
+            lines.append(PlanGraphCallout.Line(text: "Bad \(compact(fan.p10)), good \(compact(fan.p90))",
+                                               style: .detail))
+        }
+        return lines
+    }
+
+    /// A projected amount to the nearest thousand: "640.000 €".
+    private func rounded(_ value: Double) -> String {
+        guard !hidesAmounts else { return AmountFormat.hidden }
+        let thousands = abs(value) >= 10_000 ? (value / 1_000).rounded() * 1_000 : value.rounded()
+        return AmountFormat.amount(Decimal(wholeNumber: thousands), currency: currency, locale: locale)
     }
 
     // MARK: Drawing

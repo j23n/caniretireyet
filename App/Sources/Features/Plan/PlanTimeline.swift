@@ -57,6 +57,8 @@ struct PlanTimeline {
         /// The milestones the median future reaches in it (PROGRESS.md, "Milestones").
         let milestones: [ProjectedMilestone]
         let outcome: PlanChaptersModel.Outcome?
+        /// Your birth date, for the age on a date.
+        let birthDate: CalendarDate
 
         var id: Int { index }
 
@@ -75,6 +77,28 @@ struct PlanTimeline {
                 return from.p50 + (to.p50 - from.p50) * t
             }
             return fan.last?.p50
+        }
+
+        /// The fan on `date`, each percentile between the fan's points.
+        func fan(on date: Date) -> FanPoint? {
+            guard let first = fan.first, let last = fan.last else { return nil }
+            if date <= first.date { return FanPoint(date: date, p10: first.p10, p25: first.p25, p50: first.p50,
+                                                    p75: first.p75, p90: first.p90) }
+            for (from, to) in zip(fan, fan.dropFirst()) where date <= to.date {
+                let span = to.date.timeIntervalSince(from.date)
+                let t = span > 0 ? date.timeIntervalSince(from.date) / span : 1
+                func between(_ path: KeyPath<FanPoint, Double>) -> Double {
+                    from[keyPath: path] + (to[keyPath: path] - from[keyPath: path]) * t
+                }
+                return FanPoint(date: date, p10: between(\.p10), p25: between(\.p25), p50: between(\.p50),
+                                p75: between(\.p75), p90: between(\.p90))
+            }
+            return FanPoint(date: date, p10: last.p10, p25: last.p25, p50: last.p50, p75: last.p75, p90: last.p90)
+        }
+
+        /// Your age on `date`.
+        func age(on date: Date) -> Int {
+            birthDate.wholeYears(to: CalendarDate(date, in: .current))
         }
     }
 
@@ -113,7 +137,7 @@ struct PlanTimeline {
                 milestones: milestones.filter {
                     $0.date.dateValue > dates.lowerBound && $0.date.dateValue <= dates.upperBound
                 },
-                outcome: model.outcomes[index])
+                outcome: model.outcomes[index], birthDate: birthDate)
         }
         if cards.contains(where: { !$0.fan.isEmpty }) {
             let values = cards.flatMap { card in card.fan.flatMap { point in [point.p25, point.p50, point.p75] } }

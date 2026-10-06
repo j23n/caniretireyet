@@ -125,13 +125,13 @@ struct PlanWorkPhaseForm: View {
             }
         }
         Section {
-            PlanNumberRow("Income after tax", value: $phase.netIncome, unit: "/yr")
+            PlanNumberRow("Take-home pay", value: $phase.netIncome.perMonth, unit: "/month")
             PlanNumberRow("Real growth", value: $phase.realGrowth, kind: .percent, unit: "%/yr", prompt: "0")
         } header: {
             Text("Income")
         } footer: {
-            Text("What reaches your bank account in a year, after income tax and social contributions, in "
-                + "\(PlanMoney.todaysMoney(currency)). Growth is above inflation.")
+            Text("What reaches your bank account in a month, after income tax and social contributions, in "
+                + "\(PlanMoney.todaysMoney(currency)). Growth is a year, above inflation.")
         }
         PlanIssuesSection(issues: issues)
     }
@@ -148,7 +148,7 @@ struct PlanPensionForm: View {
         Section {
             TextField("Name", text: $pension.planName, prompt: Text("Pension"))
             Stepper("Paid from \(pension.planFromAge)", value: $pension.planFromAge, in: 40...90)
-            PlanNumberRow("After tax per year", value: $pension.perYear, unit: "/yr")
+            PlanNumberRow("After tax, a month", value: $pension.perYear.perMonth, unit: "/month")
         } header: {
             Text("Pension")
         } footer: {
@@ -186,7 +186,7 @@ struct PlanContributionForm: View {
         }
         Section {
             Picker("Paid", selection: $contribution.planIsOneOff) {
-                Text("Every year").tag(false)
+                Text("Every month").tag(false)
                 Text("Once").tag(true)
             }
             .pickerStyle(.segmented)
@@ -194,7 +194,7 @@ struct PlanContributionForm: View {
                 PlanNumberRow("Amount", value: $contribution.planAmount)
                 Stepper("In \(String(contribution.planYear))", value: $contribution.planYear, in: 2_000...2_150)
             } else {
-                PlanNumberRow("Per year", value: $contribution.perYear, unit: "/yr")
+                PlanNumberRow("A month", value: $contribution.perYear.perMonth, unit: "/month")
                 Toggle("Until retirement", isOn: $contribution.planUntilRetirement)
                 if !contribution.planUntilRetirement {
                     DatePicker("Until", selection: $contribution.planUntilDate.planDate, displayedComponents: .date)
