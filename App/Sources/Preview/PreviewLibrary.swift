@@ -71,7 +71,7 @@ enum PreviewLibrary {
         var copy = PreviewLibrary.library
         copy.accounts[longHistoryAccount] = Account(
             id: longHistoryAccount, name: "ETF savings plan", kind: .brokerage, currency: "EUR",
-            opened: "2018-01-15", institution: "Example Bank", valuation: .trades,
+            opened: "2018-01-01", institution: "Example Bank", valuation: .trades,
             notes: "Made-up example: a monthly savings plan, imported as trades.")
         copy.instruments["world-etf"] = Instrument(
             id: "world-etf", name: "World equity ETF (made up)", kind: .etf, currency: "EUR", unit: .share,
@@ -93,10 +93,10 @@ enum PreviewLibrary {
                 price *= pow(1 + growth, 1.0 / 12)
                 if year == 2020 && month == 3 { price *= 0.78 }
                 if year == 2020 && (4...8).contains(month) { price *= 1.05 }
-                guard let monthEnd = YearMonth(year: year, month: month)?.lastDay,
-                      let day = CalendarDate(year: year, month: month, day: 15) else { continue }
+                // Bought at the month's end, at its price.
+                guard let day = YearMonth(year: year, month: month)?.lastDay else { continue }
                 let quote = d(String(format: "%.2f", price))
-                copy.upsert(PriceRecord(instrument: "world-etf", date: monthEnd, price: quote, currency: .eur))
+                copy.upsert(PriceRecord(instrument: "world-etf", date: day, price: quote, currency: .eur))
                 let amount = year == 2018 && month == 1 ? 10_000 : monthly
                 let id = "lh" + String(letters[index / 26]) + String(letters[index % 26])
                 copy.upsert(Trade(account: longHistoryAccount, date: day, id: TradeID(rawValue: id + "a"),

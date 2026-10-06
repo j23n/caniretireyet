@@ -8,6 +8,8 @@
   screenshots.py print OUT                   each screenshot as a small JPEG in base64,
                                              between "=== screenshot NAME ===" and
                                              "=== end ===", for reading them from the log
+  screenshots.py failures RESULTS            each result bundle's failed tests and why,
+                                             at the end of the log
 """
 
 import base64
@@ -76,10 +78,26 @@ def print_screenshots(out: pathlib.Path) -> None:
             small = pathlib.Path(scratch) / "small.jpg"
             subprocess.run(["sips", "-s", "format", "jpeg", "-s", "formatOptions", "50", "-Z", "1000", str(image),
                             "--out", str(small)], check=True, capture_output=True)
-            encoded = base64.encodebytes(small.read_bytes()).decode()
+            encoded = base64.b64encode(small.read_bytes()).decode()
+        # Few, long lines: a log is read from its end, a number of lines at a time.
         print(f"=== screenshot {image.stem} ===")
-        print(encoded, end="")
+        for start in range(0, len(encoded), 8000):
+            print(encoded[start:start + 8000])
         print("=== end ===")
+
+
+def failures(results: pathlib.Path) -> None:
+    for bundle in sorted(results.glob("*.xcresult")):
+        summary = subprocess.run(["xcrun", "xcresulttool", "get", "test-results", "summary", "--path", str(bundle)],
+                                 capture_output=True, text=True)
+        print(f"=== {bundle.stem} ===")
+        if summary.returncode != 0:
+            print(summary.stderr.strip())
+            continue
+        result = json.loads(summary.stdout)
+        print(f"{result.get('result')}: {result.get('passedTests')} passed, {result.get('failedTests')} failed")
+        for failure in result.get("testFailures", []):
+            print(f"- {failure.get('testName')}: {failure.get('failureText')}")
 
 
 if __name__ == "__main__":
@@ -90,5 +108,7 @@ if __name__ == "__main__":
         collect(pathlib.Path(sys.argv[2]), pathlib.Path(sys.argv[3]))
     elif command == "print" and len(sys.argv) == 3:
         print_screenshots(pathlib.Path(sys.argv[2]))
+    elif command == "failures" and len(sys.argv) == 3:
+        failures(pathlib.Path(sys.argv[2]))
     else:
         sys.exit(__doc__)

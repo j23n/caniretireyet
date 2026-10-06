@@ -134,3 +134,6 @@ jobs:
       - name: Print the screenshots (small JPEGs in base64, to read them from the log)
         if: success() || failure()
         run: python3 .github/scripts/screenshots.py print "${{ runner.temp }}/screenshots"
+      - name: Failed UI tests
+        if: success() || failure()
+        run: python3 .github/scripts/screenshots.py failures "${{ runner.temp }}/results"
