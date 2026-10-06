@@ -1,5 +1,6 @@
 import Foundation
 import Model
+import Planner
 import Tracker
 
 // The Progress part of a plan (UI.md, "Progress"; PROGRESS.md): the answer
