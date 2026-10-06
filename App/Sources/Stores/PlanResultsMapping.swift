@@ -100,7 +100,7 @@ struct PlanFocusDetails: Hashable, Sendable {
     /// spending"); `nil` when the plan doesn't use it.
     var flexible: FlexibleSpendingSummary? = nil
     /// How many runs run out of money at each age, ascending: where each
-    /// chapter's failures are (UI.md, "Chapters").
+    /// chapter's failures are (UI.md, "The plan").
     var failuresByAge: [AgeCount] = []
 }
 

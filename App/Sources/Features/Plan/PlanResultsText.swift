@@ -2,7 +2,7 @@ import Foundation
 import Model
 import Planner
 
-// The words and numbers of the Results screen (UI.md, "Results"), from
+// The words and numbers of the plan's charts (UI.md, "More charts"), from
 // `PlanResults`. Plain Swift, so it's tested without SwiftUI; views add
 // privacy (amounts go through `AmountText`) and colour.
 
@@ -137,7 +137,7 @@ enum PlanResultsText {
             + "\(AmountFormat.percent(summary.floor, digits: 0, locale: locale)))"
     }
 
-    /// The card's sentences (UI.md, "Results"): how low spending goes in a
+    /// The card's sentences (UI.md, "More charts"): how low spending goes in a
     /// bad case and how many futures never cut, how long spending stays below
     /// the plan's, and when a cut comes. "In a bad case (1 in 10) you'd spend
     /// as little as 29.000 € a year for a while; half of all futures never

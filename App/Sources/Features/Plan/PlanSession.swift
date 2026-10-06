@@ -353,7 +353,7 @@ final class PlanSession {
 
     // MARK: Chapters
 
-    /// The plan's chapters as shown (UI.md, "Chapters"), cut at the age the
+    /// The plan's chapters as shown (UI.md, "The plan"), cut at the age the
     /// charts are for, with where the money stands from the results shown;
     /// `nil` without a plan or a birth date.
     var chapters: PlanChaptersModel? {

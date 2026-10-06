@@ -163,7 +163,7 @@ struct PlanTimelineView: View {
             }
             Spacer(minLength: Metrics.s)
             if isWide {
-                PlanStepButtons(index: selection.wrappedValue, count: count) { selection.wrappedValue = $0 }
+                PlanStepButtons(index: selection.wrappedValue, count: count, today: 0) { selection.wrappedValue = $0 }
             }
         }
     }
@@ -357,14 +357,21 @@ struct PlanTimelineHeadline: View {
     }
 }
 
-/// ‹ › buttons that step through `count` items.
+/// ‹ › buttons that step through `count` items, and *Today* when one of
+/// them is today's.
 struct PlanStepButtons: View {
     let index: Int
     let count: Int
+    /// The item that holds today: *Today* selects it.
+    var today: Int?
     let select: (Int) -> Void
 
     var body: some View {
         HStack(spacing: Metrics.xs) {
+            if let today {
+                Button("Today") { select(today) }
+                    .disabled(index == today)
+            }
             Button {
                 select(index - 1)
             } label: {

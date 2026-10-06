@@ -2,7 +2,7 @@ import Foundation
 import Model
 import Planner
 
-/// The chapters of the plan on screen (UI.md, "Chapters"; PLANNER.md,
+/// The chapters of the plan on screen (UI.md, "The plan"; PLANNER.md,
 /// "Chapters"): its years cut where what pays for your life changes, each
 /// input in the chapter it starts in, and, once the plan has results, where
 /// the money stands at the end of each.

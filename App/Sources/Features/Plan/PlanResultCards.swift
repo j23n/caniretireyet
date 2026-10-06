@@ -44,13 +44,13 @@ struct PlanResultsBanners: View {
 }
 
 /// How close today's plan assets are to what retiring today needs (UI.md,
-/// "Can I retire yet?" and "Results"): a bar, "58% of what you'd need to
-/// retire today" with an ⓘ that says what it compares, and, when a run's
-/// details have it, "Needed to retire today: 1.240.000 €". It comes from the
-/// same simulation as the chance of retiring today, so it reaches 100%
-/// exactly when that chance reaches the plan's confidence. An answer
-/// recorded before it existed shows `fallback`, if any, instead of its old
-/// FI progress.
+/// "Can I retire yet?"; the plan's key numbers say it too): a bar, "58% of
+/// what you'd need to retire today" with an ⓘ that says what it compares,
+/// and, when a run's details have it, "Needed to retire today: 1.240.000 €".
+/// It comes from the same simulation as the chance of retiring today, so it
+/// reaches 100% exactly when that chance reaches the plan's confidence. An
+/// answer recorded before it existed shows `fallback`, if any, instead of
+/// its old FI progress.
 struct PlanReadinessView: View {
     let headline: PlanHeadline
     /// The search's result, from a run (a recorded answer has none).
@@ -311,7 +311,7 @@ struct PlanFailureCard: View {
     }
 }
 
-/// Flexible spending (UI.md, "Results"): how low spending goes in a bad
+/// Flexible spending (UI.md, "More charts"): how low spending goes in a bad
 /// case, how many futures never cut, how long spending stays below the
 /// plan's, and the rule, for the age the charts are for. Only for a plan
 /// that uses it.
@@ -342,7 +342,7 @@ struct PlanFlexibleSpendingCard: View {
 }
 
 /// How the plan reads your library: the accounts grouped by when they can be
-/// drawn, with their value on the start date (UI.md, "Results").
+/// drawn, with their value on the start date (UI.md, "More charts").
 struct PlanLibraryCard: View {
     let results: PlanResults
     @Environment(LibraryStore.self) private var library

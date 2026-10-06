@@ -153,8 +153,8 @@ struct PlanIssueBadge: View {
     }
 }
 
-/// A collapsible card of Always (UI.md, "Chapters"): a title and a
-/// one-line summary when collapsed, the editor when expanded.
+/// A collapsible card of *All assumptions…* (UI.md, "The editors"): a
+/// title and a one-line summary when collapsed, the editor when expanded.
 struct PlanSectionCard<Content: View>: View {
     let section: PlanInputSection
     let summary: String

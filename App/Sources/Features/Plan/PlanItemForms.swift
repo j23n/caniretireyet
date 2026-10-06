@@ -3,7 +3,7 @@ import Planner
 import SwiftUI
 
 // The Taxes card, and the sheets that edit one work phase, pension,
-// contribution or event (the chapters list them, UI.md "Chapters").
+// contribution or event (the chapters list them, UI.md "The editors").
 
 // MARK: - Taxes
 

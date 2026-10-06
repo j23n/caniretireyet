@@ -226,7 +226,7 @@ So a chapter starts in the year the work phase changes, work stops, the first pe
 
 ## Engine details
 
-`Planner.run(plan:library:options:progress:)` is the entry point; `PlanResult` holds what the Results screen shows; `Planner.validate(plan:library:options:)` lists a plan's problems without running it.
+`Planner.run(plan:library:options:progress:)` is the entry point; `PlanResult` holds what the Plan screen shows; `Planner.validate(plan:library:options:)` lists a plan's problems without running it.
 
 - **Ages** are ages reached during the year. An account available from an age opens on 1 January of the first year you're that age on that day. A pension starts on the birthday at its age.
 - **Random numbers.** xoshiro256** seeded through SplitMix64, with one stream per run for markets and another for events. Run *r* always gets the same draws, so every retirement age, what-if and fast run shares them.

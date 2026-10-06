@@ -44,7 +44,7 @@ Markers show when the plan's inputs, the app's calculation code or the tax param
 
 ### Year by year
 
-Each calendar year with a check-in, newest first ([UI.md](UI.md#progress)): your plan assets from the check-in before the year to its last one, split into what you saved (new money, next to what the year's automatic baseline planned to save: its `savings` for the year) and what markets did, as the Overview splits the change since the last check-in; the earliest age going into the year and at its end, with the plan's and the calculations' changes during it; and where the year's last check-in stands against the year's baseline. The years are also bands on the chart of the answer over time.
+Each calendar year with a check-in, as a card on a strip that opens at today ([UI.md](UI.md#progress)): your money at each check-in against what the year's automatic baseline expected (its median, from its start to the year's end), ahead or behind; your plan assets from the check-in before the year to its last one, split into what you saved (new money, next to what the baseline planned to save: its `savings` for the year) and what markets did, as the Overview splits the change since the last check-in; the earliest age going into the year, at each check-in where it moved and at its end, with the plan's and the calculations' changes during it; and where the year's last check-in stands against the baseline. The latest year's position is also the answer to "Are you on track?" at the top of Progress, and the plan's answer links to it.
 
 ### Actual vs. a baseline (basic in M2; the explanation in M3)
 

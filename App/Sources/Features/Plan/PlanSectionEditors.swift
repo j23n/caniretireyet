@@ -2,38 +2,8 @@ import Model
 import Planner
 import SwiftUI
 
-// The editors of the plan's inputs: those of Always's cards (UI.md,
-// "Chapters"), and the pieces the chapters edit in place.
-
-/// "Chapters · ⚠︎ 1 warning", at the top of the Mac inspector.
-struct PlanInputsHeader: View {
-    var title = "Inputs"
-    let issues: PlanInputIssues
-
-    var body: some View {
-        HStack(alignment: .firstTextBaseline) {
-            Text(title)
-                .font(.headline)
-                .accessibilityAddTraits(.isHeader)
-            Spacer()
-            if issues.errorCount > 0 {
-                Label(Self.count(issues.errorCount, "error"), systemImage: "xmark.octagon.fill")
-                    .foregroundStyle(Palette.critical)
-                    .font(.caption)
-            } else if issues.warningCount > 0 {
-                Label(Self.count(issues.warningCount, "warning"), systemImage: "exclamationmark.triangle.fill")
-                    .foregroundStyle(Palette.warning)
-                    .font(.caption)
-            }
-        }
-        .padding(.horizontal, Metrics.xs)
-    }
-
-    /// "1 warning", "2 warnings".
-    private static func count(_ count: Int, _ noun: String) -> String {
-        count == 1 ? "1 \(noun)" : "\(count) \(noun)s"
-    }
-}
+// The editors of the plan's inputs: those of *All assumptions…*'s cards
+// (UI.md, "The editors"), and the pieces the chapters edit in place.
 
 /// Which item a sheet edits: its position (the list's count for a new
 /// one) and a copy taken when the sheet opened.
@@ -157,7 +127,7 @@ struct PlanSpendingPhaseRow: View {
     }
 }
 
-/// Flexible spending (UI.md, "Chapters"): a switch, and when it's on, how
+/// Flexible spending (UI.md, "The editors"): a switch, and when it's on, how
 /// much a cut takes, the floor (also in money), and the guardrails, folded
 /// away. Fields left empty take the defaults their prompts show.
 struct PlanFlexibleSpendingEditor: View {

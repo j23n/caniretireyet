@@ -191,7 +191,9 @@ struct PlanProgressView: View {
                 }
                 Spacer(minLength: Metrics.s)
                 if isWide && count > 1 {
-                    PlanStepButtons(index: selection.wrappedValue, count: count) { selection.wrappedValue = $0 }
+                    PlanStepButtons(index: selection.wrappedValue, count: count, today: count - 1) {
+                        selection.wrappedValue = $0
+                    }
                 }
             }
             PlanYearLegend()
