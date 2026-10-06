@@ -23,6 +23,7 @@ struct PlanProgressView: View {
     /// The year chosen on the strip; the latest when `nil`.
     @State private var selectedYear: Int?
     @State private var showsMoreCharts = false
+    @State private var showsPastBaseline = false
 
     private var gutter: CGFloat { isWide ? Metrics.xl : Metrics.l }
 
@@ -68,6 +69,11 @@ struct PlanProgressView: View {
         .background(Palette.page)
         .onAppear {
             if selectedBaseline == nil { selectedBaseline = baselines.first?.id }
+        }
+        .sheet(isPresented: $showsPastBaseline) {
+            if let plan = session.plan {
+                PlanPastBaselineSheet(session: session, plan: plan)
+            }
         }
     }
 
@@ -252,21 +258,21 @@ struct PlanProgressView: View {
                 }
                 .font(.subheadline)
             }
-            HStack(spacing: Metrics.m) {
-                if let onShowPlan {
-                    Button("Open Plan", action: onShowPlan)
-                        .buttonStyle(.bordered)
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: Metrics.m) {
+                    openAndSave
+                    addPast
                 }
-                Button {
-                    onSaveBaseline()
-                } label: {
-                    Label("Save Baseline…", systemImage: "bookmark")
+                VStack(alignment: .leading, spacing: Metrics.s) {
+                    HStack(spacing: Metrics.m) {
+                        openAndSave
+                    }
+                    addPast
                 }
-                .buttonStyle(.bordered)
-                .disabled(!library.canEdit)
             }
             Text("A baseline remembers what you expect today, so you can measure against it later. "
-                + "One is saved at the first check-in of each year.")
+                + "One is saved at the first check-in of each year. A past baseline is what you planned before: "
+                + "the years without their own are measured against it.")
                 .font(.footnote)
                 .foregroundStyle(Palette.secondaryInk)
                 .fixedSize(horizontal: false, vertical: true)
@@ -275,6 +281,31 @@ struct PlanProgressView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(Palette.card, in: shape)
         .overlay { shape.strokeBorder(Palette.border, lineWidth: 1) }
+    }
+
+    @ViewBuilder
+    private var openAndSave: some View {
+        if let onShowPlan {
+            Button("Open Plan", action: onShowPlan)
+                .buttonStyle(.bordered)
+        }
+        Button {
+            onSaveBaseline()
+        } label: {
+            Label("Save Baseline…", systemImage: "bookmark")
+        }
+        .buttonStyle(.bordered)
+        .disabled(!library.canEdit)
+    }
+
+    private var addPast: some View {
+        Button {
+            showsPastBaseline = true
+        } label: {
+            Label("Add Past Baseline…", systemImage: "clock.arrow.circlepath")
+        }
+        .buttonStyle(.bordered)
+        .disabled(!library.canEdit || session.plan == nil)
     }
 
     // MARK: More charts
@@ -842,7 +873,8 @@ struct PlanYearCardView: View {
         lines.append(PlanGraphCallout.Line(text: amount(found.point.value), style: .value))
         if let expected = found.expected {
             let gap = found.point.value - expected
-            lines.append(PlanGraphCallout.Line(text: "January expected \(amount(expected))", style: .detail))
+            lines.append(PlanGraphCallout.Line(text: "\(card.year.expectationTitle) expected \(amount(expected))",
+                                               style: .detail))
             lines.append(PlanGraphCallout.Line(text: "\(amount(abs(gap))) \(gap >= 0 ? "ahead" : "behind")",
                                                style: .detail))
         }

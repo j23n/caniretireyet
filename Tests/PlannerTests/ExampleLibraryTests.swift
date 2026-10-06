@@ -14,6 +14,26 @@ struct ExampleLibraryTests {
         plan = try #require(library.plans["base"])
     }
 
+    /// A past baseline (PROGRESS.md, "Past baselines"): the plan started on
+    /// an earlier day reads the library as it was that day.
+    @Test func aPastBaselineStartsFromItsDay() async throws {
+        var past = plan
+        past.portfolio.start = .date("2025-12-31")
+        let result = try await Sample.run(past, library,
+                                          options: PlannerOptions(mode: .fast(runs: 50), maxRetirementAge: 60,
+                                                                  solveSustainableSpending: false))
+        #expect(result.issues.filter(\.isError).isEmpty)
+        #expect(result.start.date == "2025-12-31")
+        // Not the latest check-in's 161,505.49.
+        #expect(result.start.planAssets > 0 && result.start.planAssets.rounded(2) != d("161505.49"))
+        let baseline = result.baseline(created: "2026-10-06", kind: .past, label: "What I planned in 2025")
+        #expect(baseline.kind == .past && baseline.created == "2026-10-06")
+        #expect(baseline.start.date == "2025-12-31" && baseline.start.value == result.start.planAssets)
+        #expect(baseline.years.first?.year == 2026)
+        let data = try JSONEncoder().encode(baseline)
+        #expect(try JSONDecoder().decode(Baseline.self, from: data).kind == .past)
+    }
+
     @Test func theStartingPortfolioComesFromTheLatestCheckIn() async throws {
         let result = try await Sample.run(plan, library,
                                           options: PlannerOptions(mode: .fast(runs: 100), maxRetirementAge: 60,

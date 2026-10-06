@@ -9,8 +9,12 @@ public struct BaselineKind: OpenEnum {
     public static let yearly: BaselineKind = "yearly"
     /// Saved by hand, e.g. before a big decision.
     public static let manual: BaselineKind = "manual"
+    /// Added afterwards for a day in the past: what you planned then,
+    /// calculated from your plan assets on that day (PROGRESS.md, "Past
+    /// baselines"). Its `start` is that day; `created`, when it was added.
+    public static let past: BaselineKind = "past"
 
-    public static let knownValues: [BaselineKind] = [.yearly, .manual]
+    public static let knownValues: [BaselineKind] = [.yearly, .manual, .past]
 }
 
 /// `projections/<plan>/baselines/<id>.json`: a projection saved at a point in

@@ -682,7 +682,8 @@ See [PROGRESS.md](PROGRESS.md).
 │ ╰──────────────────────────────────────╯ │
 │ Next in your plan ② Bridge, from 54 in   │
 │ 2042                                     │
-│ [Open Plan]  [Save Baseline…]            │
+│ [Open Plan] [Save Baseline…]             │
+│ [Add Past Baseline…]                     │
 │ ▸ More charts                            │
 └──────────────────────────────────────────┘
 ```
@@ -696,7 +697,8 @@ See [PROGRESS.md](PROGRESS.md).
   - Choosing a card selects it, outlined in the accent; ‹ › step through the years, and on the Mac and iPad *Today* goes back to this year's.
   - The years before your first recorded answer are folded into one card at the strip's start ("2021–2023", "148.000 € → 205.000 €", "Before your first answer.") with *Show*, which lays them out as the others; choosing one of them with the arrows shows them too, and they stay laid out.
 - **The chosen year**, below the strip: its title and change, where it stands against January, its story ("You saved 13.200 € and markets added 22.200 €. Your answer moved from 56 to 54, 2 years sooner."), what you saved against what markets did, as one bar and in figures with what January planned to save, what happened month by month ("Mar · 55, a year sooner.", "Apr · 56, a year later.", "Jun · 55 again.", "Jun · Plan changed: 54, a year sooner.", "Calculations updated."), and January's note ("January expected 298.000 € by now and 303.850 € by December. You're 18.400 € ahead, more than in 68 of its 100 futures."). A year with missing prices or rates says that those holdings count as zero.
-- **Next in your plan.** The chapter after the current one ("② Bridge, from 54 in 2042"), *Open Plan*, and *Save Baseline…*, which takes a label.
+- **Next in your plan.** The chapter after the current one ("② Bridge, from 54 in 2042"), *Open Plan*, *Save Baseline…*, which takes a label, and *Add Past Baseline…*.
+- **Add Past Baseline…** ([PROGRESS.md](PROGRESS.md#past-baselines)): a sheet for what you planned before you used the app. *Planned on* (a day from your first record of a plan asset to your latest check-in, starting at the end of the first month) with your plan assets that day; **What you planned then**: take-home pay, spending while working, when to stop working and spending in retirement, a month each, starting from today's plan ("Returns, taxes, pensions, events and the rest are as in today's plan."); a name ("What I planned in 2021" when left empty). *Calculate and Save* runs the plan from that day and saves it; the baseline picker lists it as "What I planned in 2021 (added 6 Oct 2026)", and the years without their own baseline are measured against it ("12.400 € ahead of your 2021 plan", "Your 2021 plan expected …").
 - **More charts**, folded away:
   - **Your answer over time.** The earliest retirement age at each check-in, as a step line. Markers show where you changed the plan or where the app's calculations changed. A check-in's callout adds its readiness ("58% of what retiring today needed") when it was recorded; the old FI progress isn't shown.
   - **Actual vs baseline.** Pick a baseline, e.g. "Start of 2026 (automatic)" or "Before part-time (saved 12 Mar)". Its fan chart runs from its start date, with your actual line drawn over it: the same accounts at each check-in, in money of the start date where the inflation index allows. A line under the chart says which. A summary: "12.400 € ahead of the median · 61st percentile". M3 adds the waterfall explaining the gap: savings, markets, inflation and other.

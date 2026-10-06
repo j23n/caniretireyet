@@ -113,7 +113,14 @@ A baseline stores the **outputs** of a projection, not just its inputs. If the a
 Baselines are created:
 
 - **automatically**, at the first check-in of each year, for the main plan (a check-in that's the library's latest, not one filling in history);
-- **by hand**, with *Save baseline* and a label, e.g. before a big decision such as switching to forfettario.
+- **by hand**, with *Save baseline* and a label, e.g. before a big decision such as switching to forfettario;
+- **afterwards, for a day in the past** (`"kind": "past"`), with *Add Past Baseline…*: see below.
+
+### Past baselines
+
+What you planned before you used the app, so the years your history goes back to have something to be measured against. You pick a day (between your first record of a plan asset and your latest check-in) and say what you planned then: take-home pay, spending while working, when to stop working and spending in retirement, a month each; everything else (returns, taxes, pensions, events, the target mix) is as in today's plan, and the first work phase is taken to pay from that day. The app calculates that plan starting from your plan assets on the day, as your history values them (the plan's `portfolio.start` is that date), and saves its outputs as a baseline with `"kind": "past"`: its `start` is the day, `created` when it was added, and its `plan` the plan as calculated. Its fan is today's code's answer to an old question, not one you saw then, so it's always labelled as added later ("What I planned in 2021 (added 6 Oct 2026)").
+
+On Progress, a year without its own automatic baseline is measured against the latest past baseline that starts before the year ends: its expected line, how it ended against it ("12.400 € ahead of your 2021 plan"), and the saving it planned for the year.
 
 `projections/<plan-id>/baselines/<date>.json`, about 10 KB each ([baseline.schema.json](schema/baseline.schema.json)). The file name is the baseline's ID; a second baseline saved on the same day gets `-2`.
 

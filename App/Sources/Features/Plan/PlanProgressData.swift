@@ -259,6 +259,10 @@ struct PlanBaselineComparison: Sendable {
 
     /// The picker's label: "Start of 2026 (automatic)", "Before going part-time (saved 12 Mar)".
     static func label(for baseline: Baseline, locale: Locale = .current) -> String {
+        if baseline.kind == .past {
+            let name = baseline.label ?? "What I planned in \(baseline.start.date.year)"
+            return "\(name) (added \(AmountFormat.mediumDate(baseline.created, locale: locale)))"
+        }
         let name = baseline.label ?? (baseline.kind == .yearly ? "Start of \(baseline.created.year)" : "Baseline")
         if baseline.kind == .yearly { return "\(name) (automatic)" }
         return "\(name) (saved \(AmountFormat.shortDate(baseline.created, locale: locale)))"
@@ -308,7 +312,8 @@ struct PlanProgressYear: Hashable, Sendable, Identifiable {
     var answerTo: PlanAnswerHistory.Point?
     /// Why the answer may have moved besides your money, during the year.
     var answerChanges: [PlanAnswerHistory.Change]
-    /// The year's automatic baseline ("Start of 2026").
+    /// The year's automatic baseline ("Start of 2026"), else the latest past
+    /// baseline that starts before the year ends (PROGRESS.md, "Past baselines").
     var baseline: PlanBaselineEntry?
     /// Where the year's last check-in stands against it, in its currency.
     var position: PlanBaselineComparison.Position?
@@ -318,6 +323,18 @@ struct PlanProgressYear: Hashable, Sendable, Identifiable {
 
     /// "2026 so far", "2025".
     var title: String { isLatest ? "\(year) so far" : "\(year)" }
+
+    /// What the year is measured against, in words: "January" (its own
+    /// automatic baseline), "your 2021 plan" (a past baseline).
+    var expectation: String {
+        guard let baseline, baseline.baseline.kind == .past else { return "January" }
+        return "your \(baseline.baseline.start.date.year) plan"
+    }
+
+    /// ``expectation`` starting a sentence: "January", "Your 2021 plan".
+    var expectationTitle: String {
+        expectation.prefix(1).uppercased() + expectation.dropFirst()
+    }
 
     /// How the earliest age moved in the year: negative is earlier (good);
     /// `nil` unless both ends have one.
@@ -349,6 +366,7 @@ struct PlanProgressYear: Hashable, Sendable, Identifiable {
             let before = history.points.last { $0.date.year < year }
             let changes = Set(history.markers.filter { $0.date.year == year }.flatMap(\.changes))
             let baseline = baselines.first { $0.baseline.kind == .yearly && $0.baseline.created.year == year }
+                ?? pastBaseline(for: year, in: baselines)
             let comparison = baseline.map {
                 PlanBaselineComparison(baseline: $0.baseline, library: library, valuator: valuator, asOf: last)
             }
@@ -364,6 +382,13 @@ struct PlanProgressYear: Hashable, Sendable, Identifiable {
 }
 
 extension PlanProgressYear {
+    /// The past baseline a year without its own is measured against: the
+    /// one starting latest before the year ends.
+    static func pastBaseline(for year: Int, in baselines: [PlanBaselineEntry]) -> PlanBaselineEntry? {
+        baselines.filter { $0.baseline.kind == .past && $0.baseline.start.date.year <= year }
+            .max { $0.baseline.start.date < $1.baseline.start.date }
+    }
+
     /// Where a year is measured from and to: from the check-in before it
     /// when that's in the year before, else that year's last day (or, in
     /// the first year, the first record); to its last check-in, else its
@@ -588,7 +613,10 @@ struct PlanProgressTimeline {
             if let entry = year.baseline {
                 let comparison = PlanBaselineComparison(baseline: entry.baseline, library: library, valuator: valuator,
                                                         asOf: year.to)
-                actual = comparison.actual
+                // A past baseline's line can start years before: from the last point before this one.
+                let firstOfYear = (CalendarDate(year: year.year, month: 1, day: 1) ?? year.from).dateValue
+                let lead = comparison.actual.last { $0.date < firstOfYear }?.date ?? firstOfYear
+                actual = comparison.actual.filter { $0.date >= lead }
                 currency = comparison.currency
                 let knots = actual.map { CalendarDate($0.date, in: .current) }
                     + [CalendarDate(year: year.year, month: 12, day: 31) ?? year.to]
@@ -724,12 +752,12 @@ enum PlanProgressText {
         return AmountFormat.signedAmount(year.change.change, currency: currency, locale: locale)
     }
 
-    /// "18.400 € ahead of January", "3.000 € behind January"; `nil` without a baseline.
+    /// "18.400 € ahead of January", "3.000 € behind your 2021 plan"; `nil` without a baseline.
     static func againstJanuary(_ year: PlanProgressYear, hidesAmounts: Bool, locale: Locale = .current) -> String? {
         guard let position = year.position else { return nil }
         let amount = hidesAmounts ? AmountFormat.hidden
             : AmountFormat.amount(abs(position.gap), currency: year.positionCurrency ?? .eur, locale: locale)
-        return position.gap >= 0 ? "\(amount) ahead of January" : "\(amount) behind January"
+        return position.gap >= 0 ? "\(amount) ahead of \(year.expectation)" : "\(amount) behind \(year.expectation)"
     }
 
     /// "You saved 13.200 € and markets added 22.200 €. Your answer moved from
@@ -771,7 +799,7 @@ enum PlanProgressText {
             hidesAmounts ? AmountFormat.hidden : AmountFormat.amount(abs(value), currency: currency, locale: locale)
         }
         let when = year.isLatest ? "by now" : "by \(AmountFormat.shortDate(year.to, locale: locale))"
-        var expected = "January expected \(amount(position.median)) \(when)"
+        var expected = "\(year.expectationTitle) expected \(amount(position.median)) \(when)"
         if year.isLatest, let entry = year.baseline,
            let december = CalendarDate(year: year.year, month: 12, day: 31), december > year.to,
            let bands = PlanBaselineComparison.percentiles(on: december, in: entry.baseline) {

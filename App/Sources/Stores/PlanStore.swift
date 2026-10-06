@@ -375,6 +375,24 @@ final class PlanStore {
         return try library.saveBaseline(baseline, for: plan)
     }
 
+    /// Calculates `document` as you planned it on `start`, a day in the past
+    /// (PROGRESS.md, "Past baselines"): from your plan assets that day, as
+    /// your history values them. Saves the outputs as a past baseline and
+    /// returns its ID.
+    @discardableResult
+    func savePastBaseline(for plan: PlanID, document: PlanDocument, from start: CalendarDate,
+                          label: String?) async throws -> BaselineID {
+        var past = document
+        past.portfolio.start = .date(start)
+        let request = PlanRunRequest(plan: past, library: library.library, mode: .full, whatIf: nil, asOf: start)
+        let results = try await engine.run(request)
+        let baseline = Baseline(
+            created: .today(), kind: .past, label: label, engine: results.engine, accounts: results.accounts,
+            headline: Self.headline(of: results, plan: past, on: start).summary,
+            plan: try CanonicalJSON.json(encoding: past), start: results.start, years: results.years)
+        return try library.saveBaseline(baseline, for: plan)
+    }
+
     // MARK: Helpers
 
     /// A hash of a plan's inputs (`planHash` in headlines): the Planner's

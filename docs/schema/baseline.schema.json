@@ -7,9 +7,9 @@
   "properties": {
     "created": { "$ref": "common.schema.json#/$defs/date" },
     "kind": {
-      "description": "yearly (saved at the year's first check-in) or manual.",
+      "description": "yearly (saved at the year's first check-in), manual (saved by hand), or past (added afterwards for a day in the past: what you planned then, from your plan assets that day; its start is that day).",
       "$comment": "Open enum.",
-      "enum": ["yearly", "manual"]
+      "enum": ["yearly", "manual", "past"]
     },
     "label": { "description": "A name given when saved by hand, e.g. \"Before part-time\".", "type": "string" },
     "engine": { "description": "The planner's version that made it, e.g. 2.0.0.", "type": "string" },

@@ -84,5 +84,6 @@ struct StringValueTests {
         #expect(InstrumentKind.knownValues.contains(.metal))
         #expect(AssetClass.knownValues.contains(.realEstate))
         #expect(DataSource.knownValues.contains(.import))
+        #expect(BaselineKind.knownValues == [.yearly, .manual, .past])
     }
 }
