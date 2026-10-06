@@ -23,10 +23,12 @@ struct PlanPastBaselineSheet: View {
     @State private var isSaving = false
     @State private var failure: String?
 
-    init(session: PlanSession, plan: PlanDocument) {
+    /// - Parameter day: the day it starts on, when a year asked for it (its
+    ///   first); else today. Out of range, it moves into it (``chooseDay()``).
+    init(session: PlanSession, plan: PlanDocument, startingOn day: CalendarDate? = nil) {
         self.session = session
         _draft = State(initialValue: plan)
-        _day = State(initialValue: Date())
+        _day = State(initialValue: day?.dateValue ?? Date())
     }
 
     /// The days it can start on: from the first record of a plan asset to the latest check-in.
@@ -118,11 +120,13 @@ struct PlanPastBaselineSheet: View {
         "What I planned in \(start.year)"
     }
 
-    /// Starts on the end of the first month with a record, or keeps the day chosen.
+    /// Keeps the day it was opened on when it's in range; else starts on
+    /// the end of the first month with a record, or the first record when
+    /// the day asked for is before it.
     private func chooseDay() {
         guard let range, !range.contains(day) else { return }
         let first = CalendarDate(range.lowerBound, in: .current)
-        day = min(first.yearMonth.lastDay.dateValue, range.upperBound)
+        day = day < range.lowerBound ? range.lowerBound : min(first.yearMonth.lastDay.dateValue, range.upperBound)
     }
 
     private func save() {

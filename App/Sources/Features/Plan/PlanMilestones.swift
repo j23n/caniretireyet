@@ -23,17 +23,18 @@ struct PlanMilestones {
     /// - Parameters:
     ///   - results: the plan's results shown, for what retiring today needs
     ///     and the median future; without them, nothing is ahead.
-    ///   - findsReached: whether to find those reached, which values plan
-    ///     assets at every month since the first record; the Plan screen and
-    ///     the widget show only what's ahead.
+    ///   - known: those reached, when already worked out (Progress keeps
+    ///     them, ``PlanProgressModel``), or `[]` where only what's ahead
+    ///     shows (the Plan screen, the widget). `nil` works them out, which
+    ///     values plan assets at every month since the first record.
     init(plan: PlanDocument, library: Library, valuator: Valuator, asOf: CalendarDate, results: PlanResults?,
-         findsReached: Bool = true) {
+         reached known: [ReachedMilestone]? = nil) {
         let recorded = library.headlines(for: plan.id).filter { $0.date <= asOf }.max { $0.date < $1.date }
         let readiness = results?.headline.readiness.map(Self.share) ?? recorded?.readiness
         let needed = results?.details?.assetsNeeded?.amount.map { Decimal(wholeNumber: $0) }
         let ladder = MilestoneLadder(plan: plan, library: library, on: asOf, neededToday: needed)
         self.ladder = ladder
-        reached = findsReached ? ladder.reached(plan: plan.id, library: library, valuator: valuator, through: asOf) : []
+        reached = known ?? ladder.reached(plan: plan.id, library: library, valuator: valuator, through: asOf)
         let current: Decimal
         let median: [SeriesPoint]
         if let results, let start = results.portfolio.first {

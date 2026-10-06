@@ -67,6 +67,28 @@ struct PlanGraphPointerModifier: ViewModifier {
     }
 }
 
+extension DynamicTypeSize {
+    /// The largest text size a strip's cards show (``stripCardScale``):
+    /// their words sit in fixed places on the graph, so past it they stop
+    /// growing; the chosen chapter's or year's details below, and VoiceOver,
+    /// carry them at any size.
+    static let stripCardLimit = DynamicTypeSize.xxxLarge
+
+    /// How much a strip card's words, and the room above and below its
+    /// graph, grow at this text size, up to ``stripCardLimit``.
+    var stripCardScale: CGFloat {
+        switch min(self, Self.stripCardLimit) {
+        case .xSmall: 0.85
+        case .small: 0.9
+        case .medium: 0.95
+        case .large: 1
+        case .xLarge: 1.1
+        case .xxLarge: 1.2
+        default: 1.3
+        }
+    }
+}
+
 /// The label over a graph at the pointer: what the point is (an age and a
 /// year, a date), a milestone or an event there, and the money.
 struct PlanGraphCallout: View {

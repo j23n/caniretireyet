@@ -296,7 +296,7 @@ The importer works with any spreadsheet or export instead of a fixed layout. Det
 
 - Conflict merging, with the Sync screen. The schema guard. Clear errors for hand-edited files that don't parse.
 - A monthly reminder notification, Face ID lock, and CSV export.
-- Performance (time-weighted and money-weighted returns, nominal and real), the explanation of the gap to a baseline, and fetching an inflation index (any country's HICP, or the euro area's).
+- Performance (time-weighted and money-weighted returns, nominal and real), the explanation of the gap to a baseline (done: on each year of Progress, [PROGRESS.md](PROGRESS.md#actual-vs-a-baseline)), and fetching an inflation index (any country's HICP, or the euro area's).
 - Widgets for net worth and years to go: done, on the home screen, the lock screen and the Mac's desktop ([UI.md](UI.md#widgets)).
 - An RW/IVAFE helper that produces year-end values and holding periods for foreign accounts, for an Italian tax return.
 

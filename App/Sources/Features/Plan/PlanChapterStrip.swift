@@ -18,6 +18,8 @@ struct PlanChapterStrip: View {
     var inset: CGFloat = Metrics.l
 
     @Environment(\.baseCurrency) private var currency
+    @Environment(\.hidesAmounts) private var hidesAmounts
+    @Environment(\.dynamicTypeSize) private var typeSize
     /// Where the pointer is over a card, or where one was tapped.
     @State private var pointer: PlanGraphPointer?
 
@@ -25,6 +27,9 @@ struct PlanChapterStrip: View {
     static let minimumWidth: CGFloat = 164
 
     var body: some View {
+        // The words above and below the graph grow with the text size, up to a point.
+        let textScale = typeSize.stripCardScale
+        let height = cardHeight + 190 * (textScale - 1)
         ScrollViewReader { proxy in
             ScrollView(.horizontal) {
                 HStack(alignment: .top, spacing: Metrics.s) {
@@ -33,19 +38,22 @@ struct PlanChapterStrip: View {
                             selection = card.index
                         } label: {
                             PlanChapterCardView(card: card, scale: timeline.scale, width: width(of: card),
-                                                height: cardHeight, isSelected: selection == card.index,
+                                                height: height, isSelected: selection == card.index,
                                                 currency: currency,
-                                                pointerX: pointer?.index == card.index ? pointer?.x : nil)
+                                                pointerX: pointer?.index == card.index ? pointer?.x : nil,
+                                                textScale: textScale)
                                 .planGraphPointer($pointer, index: card.index)
                         }
                         .buttonStyle(.plain)
                         .id(card.index)
                         .accessibilityLabel(Text(accessibilityLabel(card)))
                         .accessibilityAddTraits(selection == card.index ? .isSelected : [])
+                        .accessibilityChartDescriptor(chartSummary(card))
                     }
                 }
                 .padding(.horizontal, inset)
                 .padding(.vertical, 2)
+                .dynamicTypeSize(...DynamicTypeSize.stripCardLimit)
             }
             .scrollIndicators(.hidden)
             // A finger reading the graph moves the read-out, not the strip.
@@ -58,6 +66,26 @@ struct PlanChapterStrip: View {
 
     private func width(of card: PlanTimeline.Card) -> CGFloat {
         max(Self.minimumWidth, CGFloat(card.years) * pointsPerYear)
+    }
+
+    /// The chapter for VoiceOver's audio graph and chart details: your
+    /// money typically, and in a bad and a good future, at its start and
+    /// each year-end.
+    private func chartSummary(_ card: PlanTimeline.Card) -> ChartSummary {
+        let labels = card.fan.enumerated().map { offset, point in
+            let age = card.age(on: point.date)
+            return offset == 0 ? "Start, \(age)" : "\(age) · \(Calendar.current.component(.year, from: point.date))"
+        }
+        func series(_ name: String, _ value: (FanPoint) -> Double) -> ChartSummary.Series {
+            ChartSummary.Series(name: name, points: zip(labels, card.fan).map { ($0, value($1)) })
+        }
+        let describe: @Sendable (Double) -> String = hidesAmounts ? { _ in AmountFormat.hidden }
+            : ChartStyle.spokenAmount(currency: currency)
+        return ChartSummary(
+            title: "Chapter \(card.index + 1), \(card.title)", summary: accessibilityLabel(card),
+            xTitle: "Age and year", yTitle: "Your money",
+            series: [series("Typically", \.p50), series("Bad, 1 in 10", \.p10), series("Good, 1 in 10", \.p90)],
+            describeValue: describe)
     }
 
     private func accessibilityLabel(_ card: PlanTimeline.Card) -> String {
@@ -83,14 +111,18 @@ struct PlanChapterCardView: View {
     var currency: CurrencyCode
     /// Where the pointer is over the card, or where it was tapped.
     var pointerX: CGFloat?
+    /// How much its words have grown with the text size
+    /// (``DynamicTypeSize/stripCardScale``).
+    var textScale: CGFloat = 1
 
     @Environment(\.hidesAmounts) private var hidesAmounts
     @Environment(\.locale) private var locale
 
-    private static let graphTop: CGFloat = 64
     private static let graphHeight: CGFloat = 150
     private static let labelWidth: CGFloat = 132
-    private var plotBottom: CGFloat { Self.graphTop + Self.graphHeight }
+    /// The header's height, which grows with the text size.
+    private var graphTop: CGFloat { 64 * textScale }
+    private var plotBottom: CGFloat { graphTop + Self.graphHeight }
 
     var body: some View {
         let shape = RoundedRectangle(cornerRadius: 14, style: .continuous)
@@ -197,7 +229,7 @@ struct PlanChapterCardView: View {
                 .lineLimit(1)
                 .privacySensitive()
                 .frame(width: labelWidth, alignment: .leading)
-                .offset(x: placed.x, y: plotBottom + 26)
+                .offset(x: placed.x, y: plotBottom + 26 * textScale)
             }
         }
     }
@@ -297,13 +329,13 @@ struct PlanChapterCardView: View {
         let found = reading(at: pointerX)
         return ZStack(alignment: .topLeading) {
             PlanGraphRule(height: Self.graphHeight)
-                .offset(x: found.x - 0.5, y: Self.graphTop)
+                .offset(x: found.x - 0.5, y: graphTop)
             if let scale, let fan = found.fan {
                 PlanGraphDot()
                     .offset(x: found.x - 4.5, y: y(fan.p50, scale) - 4.5)
             }
             PlanGraphCallout(lines: lines(for: found))
-                .offset(x: PlanGraphCallout.leading(at: found.x, in: width), y: Self.graphTop + 4)
+                .offset(x: PlanGraphCallout.leading(at: found.x, in: width), y: graphTop + 4)
         }
         .allowsHitTesting(false)
         .accessibilityHidden(true)

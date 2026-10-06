@@ -339,6 +339,10 @@ struct PlanProgressYear: Hashable, Sendable, Identifiable {
     /// against it, in its currency; `nil` when the baseline starts there.
     var position: PlanBaselineComparison.Position?
     var positionCurrency: CurrencyCode?
+    /// Why it stands there (PROGRESS.md, *Why*): what you saved against the
+    /// plan, markets against what was expected, inflation and the rest,
+    /// from the baseline's start, or the year's when it started before.
+    var explanation: GapExplanation?
 
     var id: Int { year }
 
@@ -399,6 +403,11 @@ struct PlanProgressYear: Hashable, Sendable, Identifiable {
                 PlanBaselineComparison(baseline: $0.baseline, library: library, valuator: valuator, asOf: last,
                                        from: from, through: last)
             }
+            let explanation = baseline.flatMap { entry in
+                comparison.flatMap {
+                    Self.explanation(of: entry.baseline, comparison: $0, from: from, to: last, valuator: valuator)
+                }
+            }
             return PlanProgressYear(
                 year: year, from: from, to: last, checkIns: checkIns.count, lastCheckIn: checkIns.last,
                 isLatest: year == latest.year,
@@ -406,7 +415,8 @@ struct PlanProgressYear: Hashable, Sendable, Identifiable {
                 expectedSavings: baseline?.baseline.years.first { $0.year == year }?.savings,
                 answerFrom: before ?? inYear.first, answerTo: inYear.last,
                 answerChanges: PlanAnswerHistory.Change.allCases.filter { changes.contains($0) },
-                baseline: baseline, position: comparison?.position, positionCurrency: comparison?.currency)
+                baseline: baseline, position: comparison?.position, positionCurrency: comparison?.currency,
+                explanation: explanation)
         }
     }
 }
@@ -417,6 +427,54 @@ extension PlanProgressYear {
     static func pastBaseline(for year: Int, in baselines: [PlanBaselineEntry]) -> PlanBaselineEntry? {
         baselines.filter { $0.baseline.kind == .past && $0.baseline.start.date.year <= year }
             .max { $0.baseline.start.date < $1.baseline.start.date }
+    }
+
+    /// Why a year ends where it does against its baseline
+    /// (``GapExplanation``), from the baseline's start, or the year's when
+    /// it started before, to the year's end: in the baseline's money, the
+    /// same accounts as its line. `nil` without the values for it.
+    static func explanation(of baseline: Baseline, comparison: PlanBaselineComparison, from: CalendarDate,
+                            to end: CalendarDate, valuator: Valuator) -> GapExplanation? {
+        let start = max(from, baseline.start.date)
+        guard start < end, let position = comparison.position, position.date == end,
+              let first = comparison.actual.first(where: { CalendarDate($0.date, in: .current) == start }),
+              let expectedStart = PlanBaselineComparison.percentiles(on: start, in: baseline)?[2],
+              let planned = plannedSaving(in: baseline, from: start, to: end)
+        else { return nil }
+        // As it happened, in the base currency, then in the baseline's.
+        let change = baseline.accounts
+            .compactMap { valuator.change(of: $0, from: start, to: end)?.change }
+            .reduce(ValueChange.zero, +)
+        let currency = comparison.currency
+        guard let newMoney = PlanMoney.convert(change.newMoney, to: currency, on: end, valuator: valuator),
+              let market = PlanMoney.convert(change.market, to: currency, on: end, valuator: valuator),
+              let other = PlanMoney.convert(change.other, to: currency, on: end, valuator: valuator)
+        else { return nil }
+        let actualStart = start == baseline.start.date ? baseline.start.value : Decimal(wholeNumber: first.value)
+        let expectedFirst = start == baseline.start.date ? baseline.start.value : Decimal(wholeNumber: expectedStart)
+        return GapExplanation(
+            actual: (start: actualStart, end: position.actual), expected: (start: expectedFirst, end: position.median),
+            plannedSaving: planned,
+            change: ValueChange(start: 0, market: market, newMoney: newMoney, other: other, end: 0),
+            isInflationAdjusted: comparison.isInflationAdjusted)
+    }
+
+    /// What `baseline` planned you'd save from `start` to `end`: each of its
+    /// years' saving spread evenly over the year (its first year from its
+    /// start); `nil` when a year it needs has none.
+    static func plannedSaving(in baseline: Baseline, from start: CalendarDate, to end: CalendarDate) -> Decimal? {
+        var total: Decimal = 0
+        for year in start.year...end.year {
+            guard let yearEnd = CalendarDate(year: year, month: 12, day: 31),
+                  let previousEnd = CalendarDate(year: year - 1, month: 12, day: 31) else { continue }
+            let stretch = max(previousEnd, baseline.start.date)
+            let overlapStart = max(stretch, start)
+            let overlapEnd = min(yearEnd, end)
+            guard overlapEnd > overlapStart else { continue }
+            guard let saving = baseline.years.first(where: { $0.year == year })?.savings else { return nil }
+            total += saving * Decimal(overlapStart.days(to: overlapEnd)) / Decimal(max(1, stretch.days(to: yearEnd)))
+        }
+        return total
     }
 
     /// Where a year is measured from and to: from the last day of the year
@@ -510,6 +568,9 @@ struct PlanProgressTimeline {
         /// The milestones reached in it, at a check-in or a month end,
         /// flagged on its line.
         let milestones: [ReachedMilestone]
+        /// The days of ``actual`` that are check-ins; its other points are
+        /// valued from what you held and its prices.
+        let checkIns: Set<Date>
         /// The year in a line ("Two years sooner, and past 300.000 €."); `nil` for a quiet one.
         let summary: String?
         /// The money's currency.
@@ -616,6 +677,7 @@ struct PlanProgressTimeline {
             (from: before, to: after, change: valuator.change(from: before, to: after, in: .planAssets).total)
         }
         let baselines = PlanBaselineComparison.baselines(for: plan, in: library)
+        let checkInDays = Set(dates.map(\.dateValue))
         cards = years.sorted { $0.year < $1.year }.map { year in
             let start = CalendarDate(year: year.year, month: 1, day: 1)?.dateValue ?? Date()
             let end = CalendarDate(year: year.year, month: 12, day: 31)?.dateValue ?? start
@@ -659,10 +721,20 @@ struct PlanProgressTimeline {
             let notable = Self.notable(in: year, changes: changes, baselines: baselines, text: text)
             let notes = (answerNotes + milestoneNotes + notable).sorted { $0.date < $1.date }
             return Card(year: year, actual: actual, expected: expected, chips: chips, notes: notes,
-                        milestones: inYear, summary: PlanProgressText.summary(year, milestones: inYear, text: text),
+                        milestones: inYear, checkIns: checkInDays.intersection(actual.map(\.date)),
+                        summary: PlanProgressText.summary(year, milestones: inYear, text: text),
                         currency: currency, start: start, end: end)
         }
         scale = Scale(values: cards.flatMap { card in card.actual.map(\.value) + card.expected.map(\.value) })
+    }
+
+    /// A scale fitted to the cards at `indices`, the ones on screen, so a
+    /// year's moves show however far its money is from other years'
+    /// (UI.md, "Progress"); ``scale``, fitted to every card, without them.
+    func scale(fitting indices: Set<Int>) -> Scale? {
+        let shown = indices.filter(cards.indices.contains)
+        guard !shown.isEmpty else { return scale }
+        return Scale(values: shown.flatMap { cards[$0].actual.map(\.value) + cards[$0].expected.map(\.value) })
     }
 
     /// The answer's moves in `year`: a chip at its first answer and at each

@@ -44,7 +44,7 @@ struct PlanTimelineView: View {
         let state = session.stateWithoutProgress
         let milestones = session.plan.map {
             PlanMilestones(plan: $0, library: library.library, valuator: library.valuator, asOf: library.asOfDate,
-                           results: state.results, findsReached: false)
+                           results: state.results, reached: [])
         }
         ScrollView {
             VStack(alignment: .leading, spacing: Metrics.l) {
@@ -396,8 +396,8 @@ struct PlanTimelineHeadline: View {
     }
 }
 
-/// ‹ › buttons that step through `count` items, and *Today* when one of
-/// them is today's.
+/// ‹ › buttons that step through `count` items (⌘[ and ⌘] with a
+/// keyboard), and *Today* when one of them is today's.
 struct PlanStepButtons: View {
     let index: Int
     let count: Int
@@ -417,6 +417,8 @@ struct PlanStepButtons: View {
                 Label("Earlier", systemImage: "chevron.left")
                     .labelStyle(.iconOnly)
             }
+            .keyboardShortcut("[", modifiers: .command)
+            .help("Earlier (⌘[)")
             .disabled(index <= 0)
             Button {
                 select(index + 1)
@@ -424,6 +426,8 @@ struct PlanStepButtons: View {
                 Label("Later", systemImage: "chevron.right")
                     .labelStyle(.iconOnly)
             }
+            .keyboardShortcut("]", modifiers: .command)
+            .help("Later (⌘])")
             .disabled(index >= count - 1)
         }
         .buttonStyle(.bordered)

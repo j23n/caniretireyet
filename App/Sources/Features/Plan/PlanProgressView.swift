@@ -24,6 +24,9 @@ struct PlanProgressView: View {
     @State private var selectedYear: Int?
     @State private var showsMoreCharts = false
     @State private var showsPastBaseline = false
+    /// The day *Add Past Baseline…* starts on, when a year asked for it.
+    @State private var pastBaselineDay: CalendarDate?
+    @State private var cache = PlanProgressCache()
 
     private var gutter: CGFloat { isWide ? Metrics.xl : Metrics.l }
 
@@ -40,15 +43,13 @@ struct PlanProgressView: View {
     }
 
     var body: some View {
-        let years = PlanProgressYear.years(for: session.planID, library: library.library, valuator: library.valuator,
-                                           asOf: library.asOfDate)
+        let progress = progressModel
+        let years = progress.years
+        let timeline = progress.timeline
         let milestones = session.plan.map {
             PlanMilestones(plan: $0, library: library.library, valuator: library.valuator, asOf: library.asOfDate,
-                           results: session.shownResults)
+                           results: session.shownResults, reached: progress.reached)
         }
-        let timeline = PlanProgressTimeline(years: years, plan: session.planID, library: library.library,
-                                            valuator: library.valuator, milestones: milestones?.reached ?? [],
-                                            text: milestoneText)
         ScrollView {
             VStack(alignment: .leading, spacing: Metrics.l) {
                 headline(years.first)
@@ -72,8 +73,21 @@ struct PlanProgressView: View {
         }
         .sheet(isPresented: $showsPastBaseline) {
             if let plan = session.plan {
-                PlanPastBaselineSheet(session: session, plan: plan)
+                PlanPastBaselineSheet(session: session, plan: plan, startingOn: pastBaselineDay)
             }
+        }
+    }
+
+    /// The years, the milestones reached and the strip, worked out once for
+    /// each state of the library and the plan (``PlanProgressModel``).
+    private var progressModel: PlanProgressModel {
+        let asOf = library.asOfDate
+        let key = PlanProgressModel.Key(revision: library.revision, plan: session.planID,
+                                        document: session.plan?.hashValue ?? 0, asOf: asOf,
+                                        hidesAmounts: hidesAmounts, locale: locale.identifier)
+        return cache.model(for: key) {
+            PlanProgressModel(plan: session.planID, document: session.plan, library: library.library,
+                              valuator: library.valuator, asOf: asOf, text: milestoneText)
         }
     }
 
@@ -212,7 +226,11 @@ struct PlanProgressView: View {
             PlanYearStrip(timeline: timeline, selection: selection, pointsPerMonth: isWide ? 26 : 20,
                           inset: gutter)
             PlanYearDetails(card: cards[selected], index: selected, count: cards.count, isWide: isWide,
-                            onSelect: { selection.wrappedValue = $0 })
+                            onSelect: { selection.wrappedValue = $0 },
+                            onAddPastBaseline: library.canEdit && session.plan != nil ? { year in
+                                pastBaselineDay = CalendarDate(year: year, month: 1, day: 1)
+                                showsPastBaseline = true
+                            } : nil)
                 .padding(.horizontal, gutter)
         }
     }
@@ -237,7 +255,7 @@ struct PlanProgressView: View {
                     }
                 }
             }
-            PlanYearLegend()
+            PlanYearLegend(isWide: isWide)
         }
     }
 
@@ -304,6 +322,7 @@ struct PlanProgressView: View {
 
     private var addPast: some View {
         Button {
+            pastBaselineDay = nil
             showsPastBaseline = true
         } label: {
             Label("Add Past Baseline…", systemImage: "clock.arrow.circlepath")
@@ -485,34 +504,79 @@ struct PlanStatTile: View {
     }
 }
 
-/// The year cards' key: your money, what you expected (the year's
-/// baseline), your answer.
+/// The year cards' key: your money (solid into a check-in, with a dot
+/// there), valued from prices (lighter), what you expected (the year's
+/// baseline) and your answer. One row on the Mac and iPad, two on iPhone.
 struct PlanYearLegend: View {
+    var isWide = false
+
     var body: some View {
-        HStack(spacing: Metrics.m) {
-            HStack(spacing: 5) {
-                Capsule()
-                    .fill(Palette.ink)
-                    .frame(width: 16, height: 2)
-                Text("Your money")
-            }
-            HStack(spacing: 5) {
-                Path { path in
-                    path.move(to: CGPoint(x: 0, y: 1))
-                    path.addLine(to: CGPoint(x: 16, y: 1))
+        Group {
+            if isWide {
+                HStack(spacing: Metrics.m) {
+                    money
+                    prices
+                    expected
+                    answer
                 }
-                .stroke(Palette.secondaryInk, style: StrokeStyle(lineWidth: 1.5, dash: [4, 3]))
-                .frame(width: 16, height: 2)
-                Text("What you expected")
-            }
-            HStack(spacing: 5) {
-                PlanAnswerChip(age: 55, kind: .sooner)
-                Text("Your answer")
+            } else {
+                VStack(alignment: .leading, spacing: Metrics.xs) {
+                    HStack(spacing: Metrics.m) {
+                        money
+                        prices
+                    }
+                    HStack(spacing: Metrics.m) {
+                        expected
+                        answer
+                    }
+                }
             }
         }
         .font(.caption)
         .foregroundStyle(Palette.secondaryInk)
         .accessibilityHidden(true)
+    }
+
+    private var money: some View {
+        HStack(spacing: 5) {
+            ZStack {
+                Capsule()
+                    .fill(Palette.ink)
+                    .frame(width: 16, height: 2)
+                Circle()
+                    .fill(Palette.ink)
+                    .frame(width: 5, height: 5)
+            }
+            Text("Your money")
+        }
+    }
+
+    private var prices: some View {
+        HStack(spacing: 5) {
+            Capsule()
+                .fill(Palette.ink.opacity(0.4))
+                .frame(width: 16, height: 2)
+            Text("Valued from prices")
+        }
+    }
+
+    private var expected: some View {
+        HStack(spacing: 5) {
+            Path { path in
+                path.move(to: CGPoint(x: 0, y: 1))
+                path.addLine(to: CGPoint(x: 16, y: 1))
+            }
+            .stroke(Palette.secondaryInk, style: StrokeStyle(lineWidth: 1.5, dash: [4, 3]))
+            .frame(width: 16, height: 2)
+            Text("What you expected")
+        }
+    }
+
+    private var answer: some View {
+        HStack(spacing: 5) {
+            PlanAnswerChip(age: 55, kind: .sooner)
+            Text("Your answer")
+        }
     }
 }
 
@@ -522,6 +586,8 @@ struct PlanYearLegend: View {
 struct PlanAnswerChip: View {
     let age: Int
     let kind: PlanProgressTimeline.Chip.Kind
+    /// How much it has grown with the text size, on a card.
+    var scale: CGFloat = 1
 
     static let width: CGFloat = 28
 
@@ -530,7 +596,7 @@ struct PlanAnswerChip: View {
             .font(.caption2.weight(.semibold))
             .monospacedDigit()
             .foregroundStyle(foreground)
-            .frame(width: Self.width, height: 18)
+            .frame(width: Self.width * scale, height: 18 * scale)
             .background(background, in: Capsule())
             .overlay {
                 if kind == .start {
@@ -576,9 +642,14 @@ struct PlanYearStrip: View {
 
     @Environment(\.hidesAmounts) private var hidesAmounts
     @Environment(\.locale) private var locale
+    @Environment(\.dynamicTypeSize) private var typeSize
     @State private var showsEarlyYears = false
     /// Where the pointer is over a card, or where one was tapped.
     @State private var pointer: PlanGraphPointer?
+    /// The cards the money scale is fitted to: those on screen when the
+    /// strip last came to rest; the chosen one and those beside it before.
+    @State private var fitted: Set<Int> = []
+    @State private var onScreen = PlanCardsOnScreen()
 
     /// The oldest years, before the first with a recorded answer: folded
     /// into one card until shown.
@@ -589,11 +660,15 @@ struct PlanYearStrip: View {
     var body: some View {
         let early = earlyCount
         let folds = early > 0 && !showsEarlyYears && selection >= early
+        let scale = timeline.scale(fitting: fitted.isEmpty ? [selection - 1, selection, selection + 1] : fitted)
+        // The words above and below the graph grow with the text size, up to a point.
+        let textScale = typeSize.stripCardScale
+        let height = cardHeight + 154 * (textScale - 1)
         ScrollViewReader { proxy in
             ScrollView(.horizontal) {
                 HStack(alignment: .top, spacing: Metrics.s) {
                     if folds {
-                        PlanEarlyYearsCard(cards: Array(timeline.cards.prefix(early)), height: cardHeight) {
+                        PlanEarlyYearsCard(cards: Array(timeline.cards.prefix(early)), height: height) {
                             withAnimation(.snappy) { showsEarlyYears = true }
                         }
                     }
@@ -602,25 +677,36 @@ struct PlanYearStrip: View {
                             Button {
                                 selection = index
                             } label: {
-                                PlanYearCardView(card: card, scale: timeline.scale, pointsPerMonth: pointsPerMonth,
-                                                 height: cardHeight, isSelected: selection == index,
-                                                 pointerX: pointer?.index == index ? pointer?.x : nil)
+                                PlanYearCardView(card: card, scale: scale, pointsPerMonth: pointsPerMonth,
+                                                 height: height, isSelected: selection == index,
+                                                 pointerX: pointer?.index == index ? pointer?.x : nil,
+                                                 textScale: textScale)
                                     .planGraphPointer($pointer, index: index)
                             }
                             .buttonStyle(.plain)
                             .id(index)
+                            .onScrollVisibilityChange(threshold: 0.1) { isVisible in
+                                onScreen.set(index, isVisible)
+                                if !onScreen.isScrolling { fitScale() }
+                            }
                             .accessibilityLabel(Text(accessibilityLabel(card)))
                             .accessibilityAddTraits(selection == index ? .isSelected : [])
+                            .accessibilityChartDescriptor(chartSummary(card))
                         }
                     }
                 }
                 .padding(.horizontal, inset)
                 .padding(.vertical, 2)
+                .dynamicTypeSize(...DynamicTypeSize.stripCardLimit)
             }
             .scrollIndicators(.hidden)
             .defaultScrollAnchor(.trailing)
             // A finger reading a line moves the read-out, not the strip.
             .scrollDisabled(pointer?.byTouch == true)
+            .onScrollPhaseChange { _, phase in
+                onScreen.isScrolling = phase != .idle
+                if phase == .idle { fitScale() }
+            }
             .accessibilityIdentifier("progress.years")
             .onChange(of: selection) { _, index in
                 // Once an early year is chosen, the early years stay laid out.
@@ -628,6 +714,37 @@ struct PlanYearStrip: View {
                 withAnimation(.snappy) { proxy.scrollTo(index, anchor: .center) }
             }
         }
+    }
+
+    /// Fits the money scale to the cards on screen (UI.md, "Progress"): at
+    /// once the first time, then, once the strip comes to rest, with the
+    /// lines fading to their new places.
+    private func fitScale() {
+        let shown = onScreen.cards
+        guard !shown.isEmpty, shown != fitted else { return }
+        if fitted.isEmpty {
+            fitted = shown
+        } else {
+            withAnimation(.easeInOut(duration: 0.3)) { fitted = shown }
+        }
+    }
+
+    /// The year for VoiceOver's audio graph and chart details: your money at
+    /// each check-in and month end, and what its baseline expected.
+    private func chartSummary(_ card: PlanProgressTimeline.Card) -> ChartSummary {
+        let day = { (date: Date) in AmountFormat.mediumDate(CalendarDate(date, in: .current), locale: self.locale) }
+        var series = [ChartSummary.Series(name: "Your money", points: card.actual.map { (day($0.date), $0.value) })]
+        let expected = card.actual.compactMap { point in card.expected(on: point.date).map { (day(point.date), $0) } }
+        if !expected.isEmpty {
+            series.append(ChartSummary.Series(name: "What you expected", points: expected))
+        }
+        let describe: @Sendable (Double) -> String = hidesAmounts ? { _ in AmountFormat.hidden }
+            : ChartStyle.spokenAmount(currency: card.currency)
+        return ChartSummary(
+            title: card.year.title,
+            summary: PlanProgressText.story(card.year, currency: card.currency, hidesAmounts: hidesAmounts,
+                                            locale: locale),
+            xTitle: "Date", yTitle: "Your money", series: series, describeValue: describe)
     }
 
     private func accessibilityLabel(_ card: PlanProgressTimeline.Card) -> String {
@@ -640,6 +757,19 @@ struct PlanYearStrip: View {
             label += ", \(against)"
         }
         return label
+    }
+}
+
+/// The cards of a strip on screen, as it reports them while it scrolls,
+/// and whether it's scrolling. Nothing observes it: following them doesn't
+/// draw the strip again.
+@MainActor
+final class PlanCardsOnScreen {
+    private(set) var cards: Set<Int> = []
+    var isScrolling = false
+
+    func set(_ index: Int, _ isVisible: Bool) {
+        if isVisible { cards.insert(index) } else { cards.remove(index) }
     }
 }
 
@@ -718,14 +848,18 @@ struct PlanYearCardView: View {
     var isSelected = false
     /// Where the pointer is over the card, or where it was tapped.
     var pointerX: CGFloat?
+    /// How much its words have grown with the text size
+    /// (``DynamicTypeSize/stripCardScale``).
+    var textScale: CGFloat = 1
 
     @Environment(\.hidesAmounts) private var hidesAmounts
     @Environment(\.locale) private var locale
 
     private static let pad: CGFloat = 12
-    private static let graphTop: CGFloat = 84
     private static let graphHeight: CGFloat = 150
-    private var plotBottom: CGFloat { Self.graphTop + Self.graphHeight }
+    /// The header's height, which grows with the text size.
+    private var graphTop: CGFloat { 84 * textScale }
+    private var plotBottom: CGFloat { graphTop + Self.graphHeight }
     private var width: CGFloat { 12 * pointsPerMonth + 2 * Self.pad }
 
     var body: some View {
@@ -735,6 +869,9 @@ struct PlanYearCardView: View {
                 draw(in: &context, size: size)
             }
             .frame(width: width, height: height)
+            // A new fit of the scale fades the lines to their new places.
+            .id(scale)
+            .transition(.opacity)
             .accessibilityHidden(true)
             header
             amountLabels
@@ -816,14 +953,14 @@ struct PlanYearCardView: View {
     /// The answer where the year starts and where it moved, under the months.
     private var chips: some View {
         ForEach(placedChips, id: \.chip.id) { placed in
-            PlanAnswerChip(age: placed.chip.age, kind: placed.chip.kind)
-                .offset(x: placed.x, y: plotBottom + 26)
+            PlanAnswerChip(age: placed.chip.age, kind: placed.chip.kind, scale: textScale)
+                .offset(x: placed.x, y: plotBottom + 26 * textScale)
         }
     }
 
     /// The chips that fit without overlapping, each centred on its date.
     private var placedChips: [(chip: PlanProgressTimeline.Chip, x: CGFloat)] {
-        let chipWidth = PlanAnswerChip.width
+        let chipWidth = PlanAnswerChip.width * textScale
         var placed: [(chip: PlanProgressTimeline.Chip, x: CGFloat)] = []
         var end: CGFloat = 0
         for chip in card.chips {
@@ -871,13 +1008,13 @@ struct PlanYearCardView: View {
             let at = x(found.point.date)
             ZStack(alignment: .topLeading) {
                 PlanGraphRule(height: Self.graphHeight)
-                    .offset(x: at - 0.5, y: Self.graphTop)
+                    .offset(x: at - 0.5, y: graphTop)
                 if let scale {
                     PlanGraphDot(color: Palette.ink)
                         .offset(x: at - 4.5, y: y(found.point.value, scale) - 4.5)
                 }
                 PlanGraphCallout(lines: lines(for: found))
-                    .offset(x: PlanGraphCallout.leading(at: at, in: width), y: Self.graphTop + 4)
+                    .offset(x: PlanGraphCallout.leading(at: at, in: width), y: graphTop + 4)
             }
             .allowsHitTesting(false)
             .accessibilityHidden(true)
@@ -886,7 +1023,9 @@ struct PlanYearCardView: View {
 
     private func lines(for found: Reading) -> [PlanGraphCallout.Line] {
         let day = CalendarDate(found.point.date, in: .current)
-        var lines = [PlanGraphCallout.Line(text: AmountFormat.mediumDate(day, locale: locale), style: .context)]
+        let source = card.checkIns.contains(found.point.date) ? "check-in" : "from prices"
+        var lines = [PlanGraphCallout.Line(text: "\(AmountFormat.mediumDate(day, locale: locale)) · \(source)",
+                                           style: .context)]
         let text = PlanMilestoneText(currency: card.currency, hidesAmounts: hidesAmounts, locale: locale)
         for reached in found.milestones {
             lines.append(PlanGraphCallout.Line(text: text.reached(reached.milestone), style: .milestone))
@@ -935,6 +1074,42 @@ struct PlanYearCardView: View {
         return plotBottom - CGFloat(min(1, max(0, share))) * Self.graphHeight
     }
 
+    private func position(of point: ChartPoint, _ scale: PlanProgressTimeline.Scale) -> CGPoint {
+        CGPoint(x: x(point.date), y: y(point.value, scale))
+    }
+
+    /// Your money (UI.md, "Progress"): solid into each check-in, lighter
+    /// where it's valued from what you held and its prices, dotted where a
+    /// price or a rate is missing (those holdings count as zero); a small
+    /// dot at each check-in and a larger one at the last point.
+    private func drawMoney(in context: inout GraphicsContext, _ scale: PlanProgressTimeline.Scale) {
+        let solid = StrokeStyle(lineWidth: Metrics.lineWidth, lineCap: .round, lineJoin: .round)
+        for (from, to) in zip(card.actual, card.actual.dropFirst()) {
+            var segment = Path()
+            segment.move(to: position(of: from, scale))
+            segment.addLine(to: position(of: to, scale))
+            if !from.isComplete || !to.isComplete {
+                context.stroke(segment, with: .color(Palette.ink),
+                               style: StrokeStyle(lineWidth: Metrics.lineWidth, lineCap: .round, dash: [0.5, 4]))
+            } else if card.checkIns.contains(to.date) {
+                context.stroke(segment, with: .color(Palette.ink), style: solid)
+            } else {
+                context.stroke(segment, with: .color(Palette.ink.opacity(0.4)), style: solid)
+            }
+        }
+        for point in card.actual.dropLast() where card.checkIns.contains(point.date) {
+            let center = position(of: point, scale)
+            context.fill(Path(ellipseIn: CGRect(x: center.x - 2.5, y: center.y - 2.5, width: 5, height: 5)),
+                         with: .color(Palette.ink))
+        }
+        if let last = card.actual.last {
+            let center = position(of: last, scale)
+            let dot = Path(ellipseIn: CGRect(x: center.x - 4, y: center.y - 4, width: 8, height: 8))
+            context.fill(dot, with: .color(Palette.ink))
+            context.stroke(dot, with: .color(Palette.card), lineWidth: 1.5)
+        }
+    }
+
     private func line(_ points: [ChartPoint], _ scale: PlanProgressTimeline.Scale) -> Path {
         var path = Path()
         for (offset, point) in points.enumerated() {
@@ -955,7 +1130,7 @@ struct PlanYearCardView: View {
         // The rest of the year, still to come.
         if card.year.isLatest, let last = card.actual.last {
             let today = x(last.date)
-            context.fill(Path(CGRect(x: today, y: Self.graphTop, width: max(0, size.width - today),
+            context.fill(Path(CGRect(x: today, y: graphTop, width: max(0, size.width - today),
                                      height: Self.graphHeight)),
                          with: .color(Palette.gridline.opacity(0.35)))
         }
@@ -979,16 +1154,7 @@ struct PlanYearCardView: View {
         axis.move(to: CGPoint(x: 0, y: plotBottom + 1))
         axis.addLine(to: CGPoint(x: size.width, y: plotBottom + 1))
         context.stroke(axis, with: .color(Palette.border), lineWidth: 1)
-        if card.actual.count >= 2 {
-            context.stroke(line(card.actual, scale), with: .color(Palette.ink),
-                           style: StrokeStyle(lineWidth: Metrics.lineWidth, lineCap: .round, lineJoin: .round))
-        }
-        if let last = card.actual.last {
-            let center = CGPoint(x: x(last.date), y: y(last.value, scale))
-            let dot = Path(ellipseIn: CGRect(x: center.x - 4, y: center.y - 4, width: 8, height: 8))
-            context.fill(dot, with: .color(Palette.ink))
-            context.stroke(dot, with: .color(Palette.card), lineWidth: 1.5)
-        }
+        drawMoney(in: &context, scale)
         for reached in card.milestones {
             let day = reached.date.dateValue
             guard let point = card.actual.min(by: {
@@ -1012,9 +1178,13 @@ struct PlanYearDetails: View {
     let count: Int
     var isWide = false
     var onSelect: (Int) -> Void = { _ in }
+    /// *Add What You Planned in 2021…*, for a year without a baseline: opens
+    /// *Add Past Baseline…* at its start.
+    var onAddPastBaseline: ((Int) -> Void)?
 
     @Environment(\.hidesAmounts) private var hidesAmounts
     @Environment(\.locale) private var locale
+    @State private var fillsPastPrices = false
 
     private var year: PlanProgressYear { card.year }
 
@@ -1082,23 +1252,32 @@ struct PlanYearDetails: View {
                 }
                 .font(.subheadline)
             }
+            if year.baseline == nil, let onAddPastBaseline {
+                Button("Add What You Planned in \(String(year.year))…") { onAddPastBaseline(year.year) }
+                    .buttonStyle(.borderless)
+                    .font(.subheadline.weight(.semibold))
+            }
             if let january = PlanProgressText.january(year, hidesAmounts: hidesAmounts, locale: locale) {
                 Text(january)
                     .font(.footnote)
                     .foregroundStyle(Palette.secondaryInk)
                     .fixedSize(horizontal: false, vertical: true)
             }
-            if !year.isComplete {
-                Text("Some prices or exchange rates were missing: those holdings count as zero.")
-                    .font(.caption)
-                    .foregroundStyle(Palette.mutedInk)
-                    .fixedSize(horizontal: false, vertical: true)
+            if let explanation = year.explanation, year.position != nil {
+                PlanGapExplanationView(explanation: explanation, year: year,
+                                       currency: year.positionCurrency ?? card.currency)
+            }
+            if !year.isComplete || card.actual.contains(where: { !$0.isComplete }) {
+                OldPriceNoteView(text: "Some prices or exchange rates were missing: those holdings count as zero, "
+                                     + "and the line is dotted there.",
+                                 systemImage: "exclamationmark.triangle") { fillsPastPrices = true }
             }
         }
         .padding(Metrics.l)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(Palette.card, in: shape)
         .overlay { shape.strokeBorder(Palette.border, lineWidth: 1) }
+        .pastPricesSheet(isPresented: $fillsPastPrices)
     }
 
     /// What you saved and what markets did: as one bar when both added, and
@@ -1141,6 +1320,101 @@ struct PlanYearDetails: View {
             }
             .font(.subheadline)
         }
+    }
+}
+
+/// Why the year is ahead of or behind its baseline (PROGRESS.md, *Why*;
+/// UI.md, "Progress"): the gap going into the year, against a baseline from
+/// before it; what you saved against what it planned; what markets did
+/// against what it expected; what inflation took; and the rest. Each in
+/// the baseline's money, adding up to the gap.
+struct PlanGapExplanationView: View {
+    let explanation: GapExplanation
+    let year: PlanProgressYear
+    let currency: CurrencyCode
+
+    @Environment(\.hidesAmounts) private var hidesAmounts
+    @Environment(\.locale) private var locale
+
+    private struct Row: Identifiable {
+        var title: String
+        var value: Decimal
+        var detail: String?
+        var id: String { title }
+    }
+
+    private func amount(_ value: Decimal) -> String {
+        hidesAmounts ? AmountFormat.hidden : AmountFormat.amount(abs(value), currency: currency, locale: locale)
+    }
+
+    private func signed(_ value: Decimal) -> String {
+        hidesAmounts ? AmountFormat.hidden : AmountFormat.signedAmount(value, currency: currency, locale: locale)
+    }
+
+    /// "Why you're 3.000 € behind January", "Why you ended 2.100 € ahead of October".
+    private var title: String {
+        let gap = explanation.end
+        let side = gap >= 0 ? "ahead of" : "behind"
+        let verb = year.isLatest ? "you're" : "you ended"
+        return "Why \(verb) \(amount(gap)) \(side) \(year.expectation(locale: locale))"
+    }
+
+    private var rows: [Row] {
+        let expectation = year.expectationTitle(locale: locale)
+        var rows: [Row] = []
+        if abs(explanation.start) >= 1 {
+            rows.append(Row(title: "Going into \(year.year)", value: explanation.start))
+        }
+        let saved = explanation.newMoney >= 0 ? "You saved \(amount(explanation.newMoney))"
+            : "You took out \(amount(explanation.newMoney))"
+        rows.append(Row(title: "Saving", value: explanation.saving,
+                        detail: "\(saved); \(expectation) planned \(amount(explanation.plannedSaving))."))
+        let market = explanation.market >= 0 ? "Markets added \(amount(explanation.market))"
+            : "Markets took \(amount(explanation.market))"
+        let expected = explanation.expectedMarket >= 0 ? "expected them to add \(amount(explanation.expectedMarket))"
+            : "expected them to take \(amount(explanation.expectedMarket))"
+        rows.append(Row(title: "Markets", value: explanation.markets, detail: "\(market); \(expectation) \(expected)."))
+        if let inflation = explanation.inflation {
+            rows.append(Row(title: "Inflation", value: inflation,
+                            detail: "What rising prices took from what your money is worth."))
+        }
+        if abs(explanation.other) >= 1 {
+            rows.append(Row(title: "Other", value: explanation.other,
+                            detail: "Balances that changed without a recorded flow, and exchange rates."))
+        }
+        return rows
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: Metrics.s) {
+            Text(title)
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(Palette.ink)
+                .fixedSize(horizontal: false, vertical: true)
+                .accessibilityAddTraits(.isHeader)
+            ForEach(rows) { row in
+                VStack(alignment: .leading, spacing: 1) {
+                    HStack(alignment: .firstTextBaseline, spacing: Metrics.s) {
+                        Text(row.title)
+                            .foregroundStyle(Palette.ink)
+                        Spacer(minLength: Metrics.s)
+                        Text(signed(row.value))
+                            .monospacedDigit()
+                            .fontWeight(.semibold)
+                            .foregroundStyle(row.value >= 0 ? Palette.positive : Palette.orangeStroke)
+                    }
+                    .font(.subheadline)
+                    if let detail = row.detail {
+                        Text(detail)
+                            .font(.caption)
+                            .foregroundStyle(Palette.secondaryInk)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+                .accessibilityElement(children: .combine)
+            }
+        }
+        .frame(maxWidth: 460, alignment: .leading)
     }
 }
 

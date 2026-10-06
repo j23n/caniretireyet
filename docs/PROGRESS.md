@@ -73,20 +73,20 @@ Every milestone is an amount of plan assets, in the base currency and today's mo
 - **The coast point:** the check-in whose recorded coast age, the earliest age you could retire if you stopped saving today ([PLANNER.md](PLANNER.md#ages-without)), first comes down to the age the first pension starts. Each check-in records the coast age (`Headline.coastAge`).
 - **The widget** *Next milestone* shows the next one, from the snapshot the app writes (`MilestoneGlance`).
 
-### Actual vs. a baseline (basic in M2; the explanation in M3)
+### Actual vs. a baseline
 
 A **baseline** is a projection saved at a point in time (see below). Choosing one shows:
 
 - **Chart:** the baseline's projection band from its start date, with your actual line drawn over it. The actual line uses the same accounts, in the same money.
 - **Where you are:** e.g. "€12,400 ahead of the median, at the 61st percentile of what you expected in January 2026".
-- **Why** (M3): the gap between your actual line and the baseline's expected path, split into four parts. The expected path is its deterministic run.
+- **Why:** on each year of Progress ([UI.md](UI.md#progress)), the gap between your money and what the year's baseline expected (its median, as the year's card shows it), split into four parts, from the baseline's start, or the year's when the baseline started before it (then the gap going into the year comes first). In the baseline's money, the same accounts as its line; the parts add up to the gap exactly (`GapExplanation`, in Tracker).
 
   | Part | Meaning |
   | --- | --- |
-  | Savings | The new money you actually added, minus what the plan expected you to save |
-  | Markets | Your actual investment returns, minus the assumed returns |
-  | Inflation | Actual inflation, minus assumed inflation (it changes what your money is worth in the baseline's money) |
-  | Other | Everything else: windfalls and expenses the plan didn't include, and balance accounts whose changes can't be explained |
+  | Savings | The new money you added, minus what the plan expected you to save (the baseline's `savings` for each year, spread evenly over it) |
+  | Markets | What markets did to your money, minus what the baseline expected them to do (its expected change, less its planned saving) |
+  | Inflation | What rising prices took from your money's worth in the baseline's money: its change in money of the start date, less its change as it happened. Without an inflation index, part of Other |
+  | Other | Everything else: balance accounts whose changes have no recorded flow, and exchange rates |
 
   The split is an approximation, since the four parts affect each other. It answers the useful question, though: am I behind because I saved less, or because markets were bad?
 
