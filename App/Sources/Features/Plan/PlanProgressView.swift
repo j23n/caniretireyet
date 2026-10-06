@@ -1368,7 +1368,7 @@ struct PlanGapExplanationView: View {
         let expectation = year.expectationTitle(locale: locale)
         var rows: [Row] = []
         if abs(explanation.start) >= 1 {
-            rows.append(Row(title: "Going into \(year.year)", value: explanation.start))
+            rows.append(startRow)
         }
         let saved = explanation.newMoney >= 0 ? "You saved \(amount(explanation.newMoney))"
             : "You took out \(amount(explanation.newMoney))"
@@ -1388,6 +1388,21 @@ struct PlanGapExplanationView: View {
                             detail: "Balances that changed without a recorded flow, and exchange rates."))
         }
         return rows
+    }
+
+    /// The gap where the stretch starts: carried into the year from a
+    /// baseline before it, or on the baseline's own start, where your money
+    /// as the library values it now can differ from what it started from
+    /// (past values changed since).
+    private var startRow: Row {
+        guard let baseline = year.baseline?.baseline, baseline.start.date >= year.from else {
+            return Row(title: "Going into \(year.year)", value: explanation.start)
+        }
+        let title = baseline.start.date > year.from
+            ? "On \(AmountFormat.mediumDate(baseline.start.date, locale: locale))" : "Going into \(year.year)"
+        return Row(title: title, value: explanation.start,
+                   detail: "Your money then, as the library values it now, against the "
+                       + "\(amount(baseline.start.value)) \(year.expectation(locale: locale)) started from.")
     }
 
     var body: some View {

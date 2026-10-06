@@ -153,26 +153,27 @@ struct PlanBaselineComparison: Sendable {
         let checkIns = valuator.checkInDates(in: .planAssets, through: asOf)
         let first = from ?? start
         let last = end ?? max(checkIns.last ?? start, start)
-        let values = DateGrid.checkInsAndMonthEnds(from: first, through: last, checkIns: checkIns)
-            .filter { $0 != start }
-            .map { date in
-                let total = valuator.total(on: date, including: { accounts.contains($0.id) })
-                return SeriesPoint(date: date, value: total.total, isComplete: total.isPriced)
-            }
+        var days = DateGrid.checkInsAndMonthEnds(from: first, through: last, checkIns: checkIns)
+        // Also on the start, where the expectation starts: as the library
+        // values it now, which differs from the value the baseline started
+        // from when past values changed since.
+        if first <= start, start <= last, !days.contains(start) {
+            days.insert(start, at: days.firstIndex { $0 > start } ?? days.endIndex)
+        }
+        let values = days.map { date in
+            let total = valuator.total(on: date, including: { accounts.contains($0.id) })
+            return SeriesPoint(date: date, value: total.total, isComplete: total.isPriced)
+        }
         let series = PlanActualSeries(values: values, library: library, valuator: valuator, currency: currency,
                                       inMoneyOf: start)
-        var actual = series.points
-        // On the start, the plan assets the baseline started from.
-        if first <= start, start <= last {
-            let point = ChartPoint(date: start.dateValue, value: baseline.start.value.doubleValue)
-            actual.insert(point, at: actual.firstIndex { $0.date > point.date } ?? actual.endIndex)
-        }
-        self.actual = actual
+        actual = series.points
         isInflationAdjusted = series.isInflationAdjusted || series.points.isEmpty
         inflation = series.inflation
         missingRates = series.missingRates
         // Where you stand: the latest value after the start (none before it).
-        position = series.latest.flatMap { Self.position(of: $0.value, on: $0.date, in: baseline) }
+        position = series.latest.flatMap { latest in
+            latest.date > start ? Self.position(of: latest.value, on: latest.date, in: baseline) : nil
+        }
     }
 
     /// The line under the chart: which accounts, in what money, and the
@@ -442,22 +443,29 @@ extension PlanProgressYear {
               let expectedStart = PlanBaselineComparison.percentiles(on: start, in: baseline)?[2],
               let planned = plannedSaving(in: baseline, from: start, to: end)
         else { return nil }
+        let accounts = Set(baseline.accounts)
+        let currency = comparison.currency
         // As it happened, in the base currency, then in the baseline's.
         let change = baseline.accounts
             .compactMap { valuator.change(of: $0, from: start, to: end)?.change }
             .reduce(ValueChange.zero, +)
-        let currency = comparison.currency
+        func asItWas(on day: CalendarDate) -> Decimal? {
+            PlanMoney.convert(valuator.total(on: day, including: { accounts.contains($0.id) }).total,
+                              to: currency, on: day, valuator: valuator)
+        }
         guard let newMoney = PlanMoney.convert(change.newMoney, to: currency, on: end, valuator: valuator),
               let market = PlanMoney.convert(change.market, to: currency, on: end, valuator: valuator),
-              let other = PlanMoney.convert(change.other, to: currency, on: end, valuator: valuator)
+              let startAsItWas = asItWas(on: start), let endAsItWas = asItWas(on: end)
         else { return nil }
-        let actualStart = start == baseline.start.date ? baseline.start.value : Decimal(wholeNumber: first.value)
+        // At its own start the baseline expected what it started from.
         let expectedFirst = start == baseline.start.date ? baseline.start.value : Decimal(wholeNumber: expectedStart)
         return GapExplanation(
-            actual: (start: actualStart, end: position.actual), expected: (start: expectedFirst, end: position.median),
+            actual: (start: Decimal(wholeNumber: first.value), end: position.actual),
+            expected: (start: expectedFirst, end: position.median),
             plannedSaving: planned,
-            change: ValueChange(start: 0, market: market, newMoney: newMoney, other: other, end: 0),
-            isInflationAdjusted: comparison.isInflationAdjusted)
+            change: ValueChange(start: startAsItWas, market: market, newMoney: newMoney,
+                                other: endAsItWas - startAsItWas - newMoney - market, end: endAsItWas),
+            asItWas: comparison.isInflationAdjusted ? (start: startAsItWas, end: endAsItWas) : nil)
     }
 
     /// What `baseline` planned you'd save from `start` to `end`: each of its
