@@ -1,4 +1,5 @@
 import Model
+import Planner
 import SwiftUI
 import Tracker
 
@@ -26,6 +27,7 @@ struct CheckInConfirmationView: View {
     @Environment(LibraryStore.self) private var library
     @Environment(PlanStore.self) private var plans
     @Environment(AppNavigation.self) private var navigation
+    @Environment(\.hidesAmounts) private var hidesAmounts
     @Environment(\.locale) private var locale
 
     init(result: CheckInSaveResult, done: @escaping () -> Void) {
@@ -47,6 +49,9 @@ struct CheckInConfirmationView: View {
                         .foregroundStyle(Palette.secondaryInk)
                 }
                 netWorth
+                if !result.isPast, !reachedMilestones.isEmpty {
+                    milestones
+                }
                 if result.isPast {
                     Card {
                         pastCheckIn
@@ -95,6 +100,36 @@ struct CheckInConfirmationView: View {
             }
         }
         .accessibilityElement(children: .combine)
+    }
+
+    // MARK: Milestones
+
+    /// The main plan's milestones this check-in reached (UI.md,
+    /// "Milestones"): the amounts it passed. The shares of what retiring
+    /// today needs come with the answer, and show on Progress.
+    private var reachedMilestones: [ReachedMilestone] {
+        guard let plan = library.mainPlan else { return [] }
+        return PlanMilestones(plan: plan, library: library.library, valuator: library.valuator, asOf: result.date,
+                              results: nil).reached(on: result.date)
+    }
+
+    /// "Passed 300.000 €."
+    private var milestones: some View {
+        let text = PlanMilestoneText(currency: library.baseCurrency, hidesAmounts: hidesAmounts, locale: locale)
+        return Card {
+            ForEach(reachedMilestones) { reached in
+                Label {
+                    Text(text.reached(reached.milestone))
+                        .font(.headline)
+                        .fixedSize(horizontal: false, vertical: true)
+                } icon: {
+                    Image(systemName: "flag.fill")
+                        .foregroundStyle(Palette.accent)
+                }
+            }
+        } header: {
+            SectionHeader(reachedMilestones.count == 1 ? "A milestone" : "Milestones")
+        }
     }
 
     // MARK: The answer

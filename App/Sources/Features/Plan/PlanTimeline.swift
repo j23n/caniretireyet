@@ -54,6 +54,8 @@ struct PlanTimeline {
         let endLabel: String?
         let ticks: [Tick]
         let events: [Event]
+        /// The milestones the median future reaches in it (PROGRESS.md, "Milestones").
+        let milestones: [ProjectedMilestone]
         let outcome: PlanChaptersModel.Outcome?
 
         var id: Int { index }
@@ -84,8 +86,9 @@ struct PlanTimeline {
     /// `nil` before the plan has results.
     let scale: AmountScale?
 
+    /// - Parameter milestones: the milestones ahead, each marked on the card it falls in.
     init(model: PlanChaptersModel, results: PlanResults?, birthDate: CalendarDate, currency: CurrencyCode,
-         hidesAmounts: Bool = false, locale: Locale = .current) {
+         milestones: [ProjectedMilestone] = [], hidesAmounts: Bool = false, locale: Locale = .current) {
         let words = PlanWords(currency: currency, hidesAmounts: hidesAmounts, locale: locale)
         let points = results?.portfolio ?? []
         let slack: TimeInterval = 2 * 86_400
@@ -107,6 +110,9 @@ struct PlanTimeline {
                 endLabel: index == all.count - 1 ? "\(chapter.ages.upperBound)" : nil, ticks: ticks,
                 events: Self.events(in: chapter, plan: model.plan, birthDate: birthDate, dates: dates, words: words,
                                     model: model),
+                milestones: milestones.filter {
+                    $0.date.dateValue > dates.lowerBound && $0.date.dateValue <= dates.upperBound
+                },
                 outcome: model.outcomes[index])
         }
         if cards.contains(where: { !$0.fan.isEmpty }) {

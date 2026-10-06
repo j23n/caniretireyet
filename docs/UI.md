@@ -709,6 +709,33 @@ See [PROGRESS.md](PROGRESS.md).
   - **Your answer over time.** The earliest retirement age at each check-in, as a step line. Markers show where you changed the plan or where the app's calculations changed. A check-in's callout adds its readiness ("58% of what retiring today needed") when it was recorded; the old FI progress isn't shown.
   - **Actual vs baseline.** Pick a baseline, e.g. "Start of 2026 (automatic)" or "Before part-time (saved 12 Mar)". Its fan chart runs from its start date, with your actual line drawn over it: the same accounts at each check-in, in money of the start date where the inflation index allows. A line under the chart says which. A summary: "12.400 € ahead of the median · 61st percentile". M3 adds the waterfall explaining the gap: savings, markets, inflation and other.
 
+### Milestones
+
+The points you pass on the way ([PROGRESS.md](PROGRESS.md#milestones)): round amounts of plan assets, years of the spending you plan for retirement, shares of what retiring today needs, and the crossover, where a typical year's growth adds as much as you save. They're there to notice progress between the rare moves of the answer, calmly: a flag, a sentence, a row in a list. No badges, confetti or streaks, and nothing is taken away when markets fall back.
+
+```
+┌──────────────────────────────────────────┐
+│ Milestones                               │
+│ ⚑ Next milestone                88% there│
+│ 400.000 €                                │
+│ ▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇░░░░░   │
+│ Typically by mid 2027.                   │
+│ ──────────────────────────────────────── │
+│ Reached                                  │
+│ ⚑ 300.000 €                    Jun 2026  │
+│ ⚑ A third of what retiring…    Jun 2026  │
+│ ⚑ 250.000 €                    Aug 2025  │
+│ Ahead, typically                         │
+│ ⚐ 10 years of spending         early 2028│
+│ ⚐ 400.000 €                    early 2029│
+└──────────────────────────────────────────┘
+```
+
+- **Progress.** A card after the chosen year: the next milestone with how far there as a bar and when the median future typically reaches it; then what's been reached, newest first, and what's ahead, soonest first (five of each, *Show All* for the rest; side by side on the Mac and iPad). On a year's card, a filled flag on the line at the check-in that reached one, and in the year's story a line for it ("Jun · ⚑ Passed 300.000 €."). Notable check-ins join the story too: "You saved 3.200 €, more than usual.", "Markets fell 24.500 €, 8%.", "Saved the year's baseline."
+- **Plan.** Under the answer, "⚑ Next milestone: 400.000 € · 88% there ›" with its bar, which opens Progress. On the chapter cards, an outlined flag on the median where it reaches one, and in the chosen chapter's words: "Along the way, typically: 400.000 € in mid 2027 and 10 years of spending in early 2028."
+- **Check-in.** After saving, the milestones the check-in passed, each a line with a flag ("Passed 300.000 €."). The shares of what retiring today needs come with the month's answer, and show on Progress.
+- **Words.** A round amount is its amount ("A round amount" while amounts are hidden); "10 years of spending" ("Enough for 10 years of the spending you plan for retirement."); "Half of what retiring today needs" ("Halfway to what retiring today needs."), and all of it "All that retiring today needs: you could stop."; "The crossover" ("A typical year now adds more than you save."). Dates ahead are a part of a year, "early", "mid" or "late 2028", since they're the median of many futures.
+
 ### Export Calculations
 
 When an answer looks wrong ("I need 2 million to withdraw 20,000 a year?"), *Export Calculations…* in the plan picker's menu (iPhone, iPad and Mac) and in the Mac's Plan menu writes every calculation behind it as Markdown ([PLANNER.md](PLANNER.md#calculations)), for the plan on screen (with its what-if, when one is in use), to check it or give to someone else. It's a small sheet:

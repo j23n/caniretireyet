@@ -34,10 +34,18 @@ struct PlanTimelineView: View {
 
     private var gutter: CGFloat { isWide ? Metrics.xl : Metrics.l }
 
+    private var milestoneText: PlanMilestoneText {
+        PlanMilestoneText(currency: session.currency, hidesAmounts: hidesAmounts, locale: locale)
+    }
+
     var body: some View {
         @Bindable var session = session
         // Without the progress: only the progress card follows every update.
         let state = session.stateWithoutProgress
+        let milestones = session.plan.map {
+            PlanMilestones(plan: $0, library: library.library, valuator: library.valuator, asOf: library.asOfDate,
+                           results: state.results)
+        }
         ScrollView {
             VStack(alignment: .leading, spacing: Metrics.l) {
                 VStack(alignment: .leading, spacing: Metrics.m) {
@@ -47,11 +55,11 @@ struct PlanTimelineView: View {
                     } else {
                         PlanOutOfDateBanner(state: state) { session.perform($0) }
                     }
-                    headline(state)
+                    headline(state, milestones: milestones)
                 }
                 .padding(.horizontal, gutter)
                 if let plan = session.plan {
-                    chapters(plan, binding: $session.editablePlan, state: state)
+                    chapters(plan, binding: $session.editablePlan, state: state, milestones: milestones)
                     PlanAssumptionsFooter(plan: plan, words: words, onOpen: show,
                                           onShowAll: { showsAssumptions = true }, onExport: onExport,
                                           binding: $session.editablePlan)
@@ -82,9 +90,10 @@ struct PlanTimelineView: View {
     // MARK: The answer
 
     @ViewBuilder
-    private func headline(_ state: PlanResultsState) -> some View {
+    private func headline(_ state: PlanResultsState, milestones: PlanMilestones?) -> some View {
         if let results = state.results {
             PlanTimelineHeadline(session: session, results: results, isWide: isWide, progress: progress,
+                                 milestones: milestones, milestoneText: milestoneText,
                                  onShowProgress: onShowProgress, onWhatIf: onWhatIf)
                 .opacity(state.isRunning ? 0.5 : 1)
         } else if !state.isRunning {
@@ -104,13 +113,15 @@ struct PlanTimelineView: View {
     // MARK: The chapters
 
     @ViewBuilder
-    private func chapters(_ plan: PlanDocument, binding: Binding<PlanDocument>, state: PlanResultsState) -> some View {
+    private func chapters(_ plan: PlanDocument, binding: Binding<PlanDocument>, state: PlanResultsState,
+                          milestones: PlanMilestones?) -> some View {
         let issues = session.inputIssues
         PlanUnplacedIssues(issues: issues, plan: plan)
             .padding(.horizontal, gutter)
         if let model = session.chapters, let birthDate = library.settings.person?.birthDate {
             let timeline = PlanTimeline(model: model, results: state.results, birthDate: birthDate,
-                                        currency: session.currency, hidesAmounts: hidesAmounts, locale: locale)
+                                        currency: session.currency, milestones: milestones?.ahead ?? [],
+                                        hidesAmounts: hidesAmounts, locale: locale)
             if model.chapters.chapters.isEmpty {
                 PlanNoChapters(plan: binding)
                     .padding(.horizontal, gutter)
@@ -130,6 +141,8 @@ struct PlanTimelineView: View {
                     summaries: PlanInputSummaries(plan: plan, library: library.library, currency: session.currency,
                                                   hidesAmounts: hidesAmounts, locale: locale),
                     issues: issues, isWide: isWide, canEdit: session.canEdit, editing: $editing,
+                    milestones: timeline.cards.indices.contains(selected) ? timeline.cards[selected].milestones : [],
+                    milestoneText: milestoneText,
                     onOpen: show, onSelect: { selection.wrappedValue = $0 },
                     onUsePlanAge: { session.selectFocus(nil) })
                     .padding(.horizontal, gutter)
@@ -252,6 +265,8 @@ struct PlanTimelineHeadline: View {
     let results: PlanResults
     var isWide = false
     var progress: (position: PlanBaselineComparison.Position, currency: CurrencyCode)?
+    var milestones: PlanMilestones?
+    var milestoneText: PlanMilestoneText?
     var onShowProgress: (() -> Void)?
     var onWhatIf: (() -> Void)?
 
@@ -277,6 +292,7 @@ struct PlanTimelineHeadline: View {
                         .foregroundStyle(Palette.ink)
                         .accessibilityAddTraits(.isHeader)
                     lasting
+                    nextMilestone
                     PlanRunStatus(session: session, results: results)
                 }
                 Spacer(minLength: Metrics.l)
@@ -300,6 +316,7 @@ struct PlanTimelineHeadline: View {
                         .accessibilityAddTraits(.isHeader)
                 }
                 lasting
+                nextMilestone
                 HStack(spacing: Metrics.s) {
                     if let onWhatIf {
                         whatIfButton(onWhatIf)
@@ -322,6 +339,38 @@ struct PlanTimelineHeadline: View {
                     .foregroundStyle(Palette.secondaryInk)
                     .fixedSize(horizontal: false, vertical: true)
             }
+        }
+    }
+
+    /// "Next milestone: 400.000 € · 88% there", with its bar; it opens Progress.
+    @ViewBuilder
+    private var nextMilestone: some View {
+        if let milestones, let next = milestones.next, let milestoneText {
+            Button {
+                onShowProgress?()
+            } label: {
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack(spacing: Metrics.xs) {
+                        Image(systemName: "flag")
+                            .accessibilityHidden(true)
+                        Text("Next milestone: \(milestoneText.name(next.milestone)) · \(milestoneText.progress(next))")
+                            .fixedSize(horizontal: false, vertical: true)
+                        if onShowProgress != nil {
+                            Image(systemName: "chevron.right")
+                                .font(.caption2.weight(.semibold))
+                                .accessibilityHidden(true)
+                        }
+                    }
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(Palette.secondaryInk)
+                    PlanMilestoneBar(progress: next.progress)
+                        .frame(maxWidth: 280)
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .disabled(onShowProgress == nil)
+            .accessibilityHint(Text("Shows your milestones in Progress"))
         }
     }
 
@@ -410,6 +459,9 @@ struct PlanChapterDetails: View {
     var isWide = false
     var canEdit = true
     @Binding var editing: PlanEditTarget?
+    /// The milestones the median future reaches in the chapter.
+    var milestones: [ProjectedMilestone] = []
+    var milestoneText: PlanMilestoneText?
     /// Opens an item's sheet, or the target mix's.
     var onOpen: (PlanToken) -> Void = { _ in }
     var onSelect: (Int) -> Void = { _ in }
@@ -476,6 +528,17 @@ struct PlanChapterDetails: View {
             PlanStoryText(runs: story.story, onToken: tapped)
                 .font(.body)
                 .foregroundStyle(Palette.ink)
+            if let milestoneText, !milestones.isEmpty {
+                HStack(alignment: .firstTextBaseline, spacing: Metrics.xs) {
+                    Image(systemName: "flag")
+                        .foregroundStyle(Palette.accent)
+                        .accessibilityHidden(true)
+                    Text(Self.alongTheWay(milestones, text: milestoneText))
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .font(.subheadline)
+                .foregroundStyle(Palette.secondaryInk)
+            }
             if let bar = story.bar {
                 PlanMonthBarView(bar: bar, maximum: barMaximum)
             }
@@ -506,6 +569,17 @@ struct PlanChapterDetails: View {
             PlanChapterAddMenu(chapter: chapter, model: model, plan: $plan, editing: $editing)
         }
         .disabled(!canEdit)
+    }
+
+    /// "Along the way, typically: 400.000 € in mid 2027 and 10 years of
+    /// spending in early 2028."
+    static func alongTheWay(_ milestones: [ProjectedMilestone], text: PlanMilestoneText) -> String {
+        let shown = milestones.prefix(3).map { "\(text.name($0.milestone)) in \(PlanMilestoneText.when($0.date))" }
+        let more = milestones.count > 3 ? ", and \(milestones.count - 3) more" : ""
+        let list = shown.count > 1 && more.isEmpty
+            ? shown.dropLast().joined(separator: ", ") + " and " + (shown.last ?? "")
+            : shown.joined(separator: ", ") + more
+        return "Along the way, typically: \(list)."
     }
 
     private func tapped(_ token: PlanToken) {

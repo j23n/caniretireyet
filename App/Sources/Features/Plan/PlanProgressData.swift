@@ -393,12 +393,23 @@ struct PlanProgressTimeline {
         var id: Date { date }
     }
 
-    /// Something that happened in a month of the year.
+    /// Something that happened at a check-in of the year.
     struct Note: Hashable, Sendable, Identifiable {
+        enum Kind: Hashable, Sendable {
+            /// The answer moved, or the plan or the calculations changed.
+            case answer
+            /// A milestone reached (PROGRESS.md, "Milestones").
+            case milestone
+            /// Saving well above usual, a big move of markets, a baseline saved.
+            case notable
+        }
+
+        var date: CalendarDate
         /// "Mar".
         var month: String
         var text: String
-        var id: String { month + text }
+        var kind: Kind = .answer
+        var id: String { "\(date) \(text)" }
     }
 
     /// One year's card.
@@ -412,7 +423,10 @@ struct PlanProgressTimeline {
         /// the year's end; empty without one.
         let expected: [ChartPoint]
         let chips: [Chip]
+        /// By date.
         let notes: [Note]
+        /// The milestones its check-ins reached, flagged on its line.
+        let milestones: [ReachedMilestone]
         /// The money's currency.
         let currency: CurrencyCode
         /// 1 January and 31 December of the year, at noon.
@@ -504,9 +518,18 @@ struct PlanProgressTimeline {
     /// The money scale every card shares; `nil` without values.
     let scale: Scale?
 
-    init(years: [PlanProgressYear], plan: PlanID, library: Library, valuator: Valuator, locale: Locale = .current) {
+    /// - Parameters:
+    ///   - milestones: the milestones the plan's check-ins reached.
+    ///   - text: the milestones' and the notes' words, with their currency.
+    init(years: [PlanProgressYear], plan: PlanID, library: Library, valuator: Valuator,
+         milestones: [ReachedMilestone] = [], text: PlanMilestoneText) {
+        let locale = text.locale
         let history = PlanAnswerHistory(library.headlines(for: plan))
         let dates = valuator.checkInDates(in: .planAssets)
+        let changes = zip(dates, dates.dropFirst()).map { before, after in
+            (from: before, to: after, change: valuator.change(from: before, to: after, in: .planAssets).total)
+        }
+        let baselines = PlanBaselineComparison.baselines(for: plan, in: library)
         cards = years.sorted { $0.year < $1.year }.map { year in
             let start = CalendarDate(year: year.year, month: 1, day: 1)?.dateValue ?? Date()
             let end = CalendarDate(year: year.year, month: 12, day: 31)?.dateValue ?? start
@@ -531,9 +554,16 @@ struct PlanProgressTimeline {
                     return ChartPoint(date: day.dateValue, value: total.total.doubleValue, isComplete: total.isComplete)
                 }
             }
-            let (chips, notes) = Self.answers(in: year, history: history, locale: locale)
-            return Card(year: year, actual: actual, expected: expected, chips: chips, notes: notes, currency: currency,
-                        start: start, end: end)
+            let (chips, answerNotes) = Self.answers(in: year, history: history, locale: locale)
+            let inYear = milestones.filter { $0.date.year == year.year && $0.date <= year.to }
+            let milestoneNotes = inYear.map { reached in
+                Note(date: reached.date, month: Self.month(reached.date, locale: locale),
+                     text: text.reached(reached.milestone), kind: .milestone)
+            }
+            let notable = Self.notable(in: year, changes: changes, baselines: baselines, text: text)
+            let notes = (answerNotes + milestoneNotes + notable).sorted { $0.date < $1.date }
+            return Card(year: year, actual: actual, expected: expected, chips: chips, notes: notes,
+                        milestones: inYear, currency: currency, start: start, end: end)
         }
         scale = Scale(values: cards.flatMap { card in card.actual.map(\.value) + card.expected.map(\.value) })
     }
@@ -549,7 +579,7 @@ struct PlanProgressTimeline {
         var notes: [Note] = []
         var previous = history.points.last { $0.date.year < year.year }?.earliestAge
         for (offset, point) in points.enumerated() {
-            let month = point.date.dateValue.formatted(.dateTime.month(.abbreviated).locale(locale))
+            let month = Self.month(point.date, locale: locale)
             let marker = markers[point.date]
             if let age = point.earliestAge {
                 if offset == 0 {
@@ -562,17 +592,66 @@ struct PlanProgressTimeline {
                     let years = abs(age - before)
                     let move = "\(years == 1 ? "a year" : "\(years) years") \(age < before ? "sooner" : "later")"
                     let cause = marker?.changes.contains(.plan) == true ? "Plan changed: " : ""
-                    notes.append(Note(month: month, text: "\(cause)\(age), \(move)."))
+                    notes.append(Note(date: point.date, month: month, text: "\(cause)\(age), \(move)."))
                 } else if let marker {
-                    notes.append(Note(month: month, text: "\(marker.label)."))
+                    notes.append(Note(date: point.date, month: month, text: "\(marker.label)."))
                 }
                 previous = age
             } else if previous != nil {
-                notes.append(Note(month: month, text: "No age reached your bar."))
+                notes.append(Note(date: point.date, month: month, text: "No age reached your bar."))
                 previous = nil
             }
         }
         return (chips, notes)
+    }
+
+    /// "Mar".
+    static func month(_ date: CalendarDate, locale: Locale) -> String {
+        date.dateValue.formatted(.dateTime.month(.abbreviated).locale(locale))
+    }
+
+    /// The year's notable check-ins (PROGRESS.md, "Milestones"): saving at
+    /// least twice the usual (the median of the 12 check-ins before) and at
+    /// least 1% of plan assets, markets moving plan assets by 5% or more, and
+    /// the baselines saved since the check-in before.
+    static func notable(in year: PlanProgressYear,
+                        changes: [(from: CalendarDate, to: CalendarDate, change: ValueChange)],
+                        baselines: [PlanBaselineEntry], text: PlanMilestoneText) -> [Note] {
+        var notes: [Note] = []
+        func amount(_ value: Decimal) -> String {
+            text.hidesAmounts ? AmountFormat.hidden
+                : AmountFormat.amount(abs(value), currency: text.currency, locale: text.locale)
+        }
+        for (index, step) in changes.enumerated() where step.to.year == year.year && step.to <= year.to {
+            let month = Self.month(step.to, locale: text.locale)
+            let change = step.change
+            let usual = median(changes[max(0, index - 12)..<index].map(\.change.newMoney))
+            if let usual, usual > 0, change.newMoney >= 2 * usual, change.newMoney >= change.start / 100 {
+                notes.append(Note(date: step.to, month: month,
+                                  text: "You saved \(amount(change.newMoney)), more than usual.", kind: .notable))
+            }
+            if change.start > 0, abs(change.market) >= change.start / 20 {
+                let percent = AmountFormat.percent((abs(change.market) / change.start).doubleValue, digits: 0,
+                                                   locale: text.locale)
+                let moved = change.market < 0 ? "Markets fell \(amount(change.market)), \(percent)."
+                    : "Markets added \(amount(change.market)), \(percent)."
+                notes.append(Note(date: step.to, month: month, text: moved, kind: .notable))
+            }
+            for entry in baselines where entry.baseline.created > step.from && entry.baseline.created <= step.to {
+                let saved = entry.baseline.kind == .yearly ? "Saved the year's baseline."
+                    : entry.baseline.label.map { "Saved a baseline: \($0)." } ?? "Saved a baseline."
+                notes.append(Note(date: step.to, month: month, text: saved, kind: .notable))
+            }
+        }
+        return notes
+    }
+
+    /// The middle value; `nil` when there are none.
+    static func median(_ values: [Decimal]) -> Decimal? {
+        let sorted = values.sorted()
+        guard !sorted.isEmpty else { return nil }
+        let middle = sorted.count / 2
+        return sorted.count % 2 == 1 ? sorted[middle] : (sorted[middle - 1] + sorted[middle]) / 2
     }
 }
 

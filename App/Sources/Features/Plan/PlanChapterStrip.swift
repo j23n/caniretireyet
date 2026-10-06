@@ -1,4 +1,5 @@
 import Model
+import Planner
 import SwiftUI
 
 /// "Your life in 6 chapters" (UI.md, "Plan"): the chapters side by side on a
@@ -306,6 +307,14 @@ struct PlanChapterCardView: View {
             let dot = Path(ellipseIn: CGRect(x: center.x - 4, y: center.y - 4, width: 8, height: 8))
             context.fill(dot, with: .color(Self.color(of: event.kind)))
             context.stroke(dot, with: .color(Palette.card), lineWidth: 1.5)
+        }
+        // Milestones ahead, outlined: the median reaches them.
+        for milestone in card.milestones {
+            let day = milestone.date.dateValue
+            guard let value = card.median(on: day) else { continue }
+            let flag = PlanMilestoneFlag.path(at: point(day, value, scale))
+            context.fill(flag, with: .color(Palette.card))
+            context.stroke(flag, with: .color(Palette.accent), lineWidth: 1.2)
         }
     }
 

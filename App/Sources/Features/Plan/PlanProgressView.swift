@@ -1,4 +1,5 @@
 import Model
+import Planner
 import SwiftUI
 import Tracker
 
@@ -33,16 +34,30 @@ struct PlanProgressView: View {
         PlanBaselineComparison.baselines(for: session.planID, in: library.library)
     }
 
+    private var milestoneText: PlanMilestoneText {
+        PlanMilestoneText(currency: library.baseCurrency, hidesAmounts: hidesAmounts, locale: locale)
+    }
+
     var body: some View {
         let years = PlanProgressYear.years(for: session.planID, library: library.library, valuator: library.valuator,
                                            asOf: library.asOfDate)
+        let milestones = session.plan.map {
+            PlanMilestones(plan: $0, library: library.library, valuator: library.valuator, asOf: library.asOfDate,
+                           results: session.shownResults)
+        }
         let timeline = PlanProgressTimeline(years: years, plan: session.planID, library: library.library,
-                                            valuator: library.valuator, locale: locale)
+                                            valuator: library.valuator, milestones: milestones?.reached ?? [],
+                                            text: milestoneText)
         ScrollView {
             VStack(alignment: .leading, spacing: Metrics.l) {
                 headline(years.first)
                     .padding(.horizontal, gutter)
                 yearByYear(timeline)
+                if let milestones {
+                    PlanMilestonesCard(milestones: milestones, text: milestoneText, isWide: isWide,
+                                       hasResults: session.shownResults != nil)
+                        .padding(.horizontal, gutter)
+                }
                 footer
                     .padding(.horizontal, gutter)
                 moreCharts
@@ -760,6 +775,15 @@ struct PlanYearCardView: View {
             context.fill(dot, with: .color(Palette.ink))
             context.stroke(dot, with: .color(Palette.card), lineWidth: 1.5)
         }
+        for reached in card.milestones {
+            let day = reached.date.dateValue
+            guard let point = card.actual.min(by: {
+                abs($0.date.timeIntervalSince(day)) < abs($1.date.timeIntervalSince(day))
+            }) else { continue }
+            let flag = PlanMilestoneFlag.path(at: CGPoint(x: x(point.date), y: y(point.value, scale)))
+            context.fill(flag, with: .color(Palette.accent))
+            context.stroke(flag, with: .color(Palette.card), lineWidth: 1)
+        }
     }
 }
 
@@ -823,7 +847,14 @@ struct PlanYearDetails: View {
                             Text(note.month)
                                 .foregroundStyle(Palette.secondaryInk)
                                 .frame(width: 44, alignment: .leading)
+                            if note.kind == .milestone {
+                                Image(systemName: "flag.fill")
+                                    .font(.caption)
+                                    .foregroundStyle(Palette.accent)
+                                    .accessibilityLabel("Milestone")
+                            }
                             Text(note.text)
+                                .fontWeight(note.kind == .milestone ? .semibold : .regular)
                                 .foregroundStyle(Palette.ink)
                                 .fixedSize(horizontal: false, vertical: true)
                         }
