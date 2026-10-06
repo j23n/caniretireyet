@@ -62,10 +62,11 @@ public struct Milestone: Hashable, Sendable, Identifiable {
     }
 }
 
-/// A milestone a check-in reached.
+/// A milestone your plan assets reached.
 public struct ReachedMilestone: Hashable, Sendable, Identifiable {
     public var milestone: Milestone
-    /// The check-in that reached it.
+    /// The day that reached it: a check-in, or the end of a month without
+    /// one, valued from what you held and its prices.
     public var date: CalendarDate
 
     public init(milestone: Milestone, date: CalendarDate) {
@@ -177,18 +178,19 @@ public struct MilestoneLadder: Hashable, Sendable {
 
     // MARK: Reached
 
-    /// The milestones the check-ins reached, oldest first: each at the
-    /// first check-in whose plan assets reach its amount, above every
-    /// check-in before (so one passed before the first check-in, or passed
-    /// again after a fall, isn't listed); the shares of what retiring today
-    /// needs where the recorded readiness first reaches them, with the plan
-    /// assets of that check-in as their amount.
+    /// The milestones reached, oldest first: each at the first value of
+    /// plan assets that reaches its amount, above every value before (so
+    /// one passed before the first value, or passed again after a fall,
+    /// isn't listed); the shares of what retiring today needs where the
+    /// recorded readiness first reaches them, with the plan assets then as
+    /// their amount.
     ///
     /// The coast point is reached at the first check-in whose recorded coast
     /// age is at most ``coastTarget``, after one above it.
     ///
     /// - Parameters:
-    ///   - values: plan assets at each check-in, oldest first.
+    ///   - values: plan assets at each check-in and at the end of each
+    ///     month without one, oldest first.
     ///   - readiness: the readiness recorded at check-ins, oldest first
     ///     (1 is all that retiring today needs).
     ///   - coastAges: the coast age recorded at check-ins, oldest first.
@@ -232,12 +234,20 @@ public struct MilestoneLadder: Hashable, Sendable {
         }
     }
 
-    /// The milestones `plan`'s check-ins reached through `date`: plan assets
-    /// at each check-in of them, and the readiness recorded for the plan.
+    /// The milestones `plan` reached through `date`: plan assets on the line
+    /// Progress draws, from the first record of one (a value, or a trade)
+    /// through the latest check-in on or before `date`, at each check-in
+    /// and the end of every month without one (PROGRESS.md, "Milestones");
+    /// and the readiness and coast age recorded for the plan.
     public func reached(plan: PlanID, library: Library, valuator: Valuator,
                         through date: CalendarDate) -> [ReachedMilestone] {
-        let values = valuator.checkInDates(in: .planAssets, through: date).map { day in
-            SeriesPoint(date: day, value: valuator.total(on: day, in: .planAssets).total)
+        let checkIns = valuator.checkInDates(in: .planAssets, through: date)
+        var values: [SeriesPoint] = []
+        if let last = checkIns.last {
+            let first = min(valuator.firstValuationDate(in: .planAssets) ?? last, last)
+            values = DateGrid.checkInsAndMonthEnds(from: first, through: last, checkIns: checkIns).map { day in
+                SeriesPoint(date: day, value: valuator.total(on: day, in: .planAssets).total)
+            }
         }
         let headlines = library.headlines(for: plan)
             .filter { $0.date <= date }

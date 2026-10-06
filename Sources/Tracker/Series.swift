@@ -42,6 +42,24 @@ public enum DateGrid {
         if !end.isEndOfMonth { dates.append(end) }
         return dates
     }
+
+    /// The check-ins from `start` through `end`, the end of every month
+    /// between them without one, and both ends, sorted: the days a line
+    /// through check-ins is drawn at, valued between them from what was
+    /// held and its prices. Empty when `start` is after `end`.
+    public static func checkInsAndMonthEnds(from start: CalendarDate, through end: CalendarDate,
+                                            checkIns: [CalendarDate]) -> [CalendarDate] {
+        guard start <= end else { return [] }
+        let inside = checkIns.filter { $0 >= start && $0 <= end }
+        let months = Set(inside.map(\.yearMonth))
+        var days = Set(inside)
+        days.insert(start)
+        days.insert(end)
+        for monthEnd in monthEnds(from: start, through: end) where !months.contains(monthEnd.yearMonth) {
+            days.insert(monthEnd)
+        }
+        return days.sorted()
+    }
 }
 
 extension YearMonth {

@@ -4,7 +4,7 @@ import Planner
 import Tracker
 
 /// A plan's milestones as the screens show them (UI.md, "Milestones";
-/// PROGRESS.md, "Milestones"): those its check-ins reached, those its
+/// PROGRESS.md, "Milestones"): those its plan assets reached, those its
 /// median future reaches, and the next with how far there.
 struct PlanMilestones {
     let ladder: MilestoneLadder
@@ -23,13 +23,17 @@ struct PlanMilestones {
     /// - Parameters:
     ///   - results: the plan's results shown, for what retiring today needs
     ///     and the median future; without them, nothing is ahead.
-    init(plan: PlanDocument, library: Library, valuator: Valuator, asOf: CalendarDate, results: PlanResults?) {
+    ///   - findsReached: whether to find those reached, which values plan
+    ///     assets at every month since the first record; the Plan screen and
+    ///     the widget show only what's ahead.
+    init(plan: PlanDocument, library: Library, valuator: Valuator, asOf: CalendarDate, results: PlanResults?,
+         findsReached: Bool = true) {
         let recorded = library.headlines(for: plan.id).filter { $0.date <= asOf }.max { $0.date < $1.date }
         let readiness = results?.headline.readiness.map(Self.share) ?? recorded?.readiness
         let needed = results?.details?.assetsNeeded?.amount.map { Decimal(wholeNumber: $0) }
         let ladder = MilestoneLadder(plan: plan, library: library, on: asOf, neededToday: needed)
         self.ladder = ladder
-        reached = ladder.reached(plan: plan.id, library: library, valuator: valuator, through: asOf)
+        reached = findsReached ? ladder.reached(plan: plan.id, library: library, valuator: valuator, through: asOf) : []
         let current: Decimal
         let median: [SeriesPoint]
         if let results, let start = results.portfolio.first {
@@ -62,9 +66,15 @@ struct PlanMilestones {
         return ahead.first { $0.id == next.milestone.id }?.date
     }
 
-    /// The milestones a check-in on `date` reached.
-    func reached(on date: CalendarDate) -> [ReachedMilestone] {
-        reached.filter { $0.date == date }
+    /// The milestones reached by a check-in on `date`: on its day, and at
+    /// the ends of the months since the check-in before (`previous`), which
+    /// are valued from what you held and its prices.
+    func reached(since previous: CalendarDate?, through date: CalendarDate) -> [ReachedMilestone] {
+        reached.filter { milestone in
+            guard milestone.date <= date else { return false }
+            guard let previous else { return milestone.date == date }
+            return milestone.date > previous
+        }
     }
 
     /// A share as the headline records it: rounded down to whole percent.

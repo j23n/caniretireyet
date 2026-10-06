@@ -49,8 +49,9 @@ struct CheckInConfirmationView: View {
                         .foregroundStyle(Palette.secondaryInk)
                 }
                 netWorth
-                if !result.isPast, !reachedMilestones.isEmpty {
-                    milestones
+                let reached = result.isPast ? [] : reachedMilestones
+                if !reached.isEmpty {
+                    milestones(reached)
                 }
                 if result.isPast {
                     Card {
@@ -105,21 +106,23 @@ struct CheckInConfirmationView: View {
     // MARK: Milestones
 
     /// The main plan's milestones this check-in reached (UI.md,
-    /// "Milestones"): the amounts it passed. The shares of what retiring
+    /// "Milestones"): the amounts passed since the check-in before, on its
+    /// day or at a month end between them. The shares of what retiring
     /// today needs come with the answer, and show on Progress.
     private var reachedMilestones: [ReachedMilestone] {
         guard let plan = library.mainPlan else { return [] }
+        let previous = library.valuator.previousCheckIn(before: result.date, in: .planAssets)
         return PlanMilestones(plan: plan, library: library.library, valuator: library.valuator, asOf: result.date,
-                              results: nil).reached(on: result.date)
+                              results: nil).reached(since: previous, through: result.date)
     }
 
     /// "Passed 300.000 €."
-    private var milestones: some View {
+    private func milestones(_ reached: [ReachedMilestone]) -> some View {
         let text = PlanMilestoneText(currency: library.baseCurrency, hidesAmounts: hidesAmounts, locale: locale)
         return Card {
-            ForEach(reachedMilestones) { reached in
+            ForEach(reached) { milestone in
                 Label {
-                    Text(text.reached(reached.milestone))
+                    Text(text.reached(milestone.milestone))
                         .font(.headline)
                         .fixedSize(horizontal: false, vertical: true)
                 } icon: {
@@ -128,7 +131,7 @@ struct CheckInConfirmationView: View {
                 }
             }
         } header: {
-            SectionHeader(reachedMilestones.count == 1 ? "A milestone" : "Milestones")
+            SectionHeader(reached.count == 1 ? "A milestone" : "Milestones")
         }
     }
 

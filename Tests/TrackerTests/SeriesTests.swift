@@ -24,6 +24,17 @@ struct DateGridTests {
         #expect(DateGrid.monthEnds(from: "9999-11-01", through: "9999-12-30") == ["9999-11-30", "9999-12-30"])
     }
 
+    /// Progress's line: each check-in, and the end of each month without one.
+    @Test func checkInsAndTheEndsOfMonthsWithoutOne() {
+        let checkIns: [CalendarDate] = ["2025-09-30", "2025-11-15", "2026-01-31", "2026-03-10"]
+        #expect(DateGrid.checkInsAndMonthEnds(from: "2025-10-20", through: "2026-03-10", checkIns: checkIns)
+            == ["2025-10-20", "2025-10-31", "2025-11-15", "2025-12-31", "2026-01-31", "2026-02-28", "2026-03-10"])
+        // Both ends are on it, also an end that's neither a check-in nor a month end.
+        #expect(DateGrid.checkInsAndMonthEnds(from: "2026-01-31", through: "2026-02-15", checkIns: checkIns)
+            == ["2026-01-31", "2026-02-15"])
+        #expect(DateGrid.checkInsAndMonthEnds(from: "2026-03-01", through: "2026-02-28", checkIns: checkIns).isEmpty)
+    }
+
     @Test func seriesThroughTheLastDateThereIsDoesNotTrap() {
         var library = Library()
         library.accounts["cash"] = Account(id: "cash", name: "Cash", kind: .cash, currency: .eur, opened: "9999-01-01")

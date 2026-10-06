@@ -83,7 +83,7 @@ struct PlanProgressView: View {
     private func headline(_ latest: PlanProgressYear?) -> some View {
         let position = latest?.position
         let title = PlanProgressText.headline(position)
-        let detail = PlanProgressText.headlineDetail(position, currency: latest?.positionCurrency ?? library.baseCurrency,
+        let detail = PlanProgressText.headlineDetail(latest, currency: latest?.positionCurrency ?? library.baseCurrency,
                                                      hidesAmounts: hidesAmounts, locale: locale)
         if isWide {
             HStack(alignment: .top, spacing: Metrics.l) {
@@ -485,7 +485,8 @@ struct PlanStatTile: View {
     }
 }
 
-/// The year cards' key: your money, what January expected, your answer.
+/// The year cards' key: your money, what you expected (the year's
+/// baseline), your answer.
 struct PlanYearLegend: View {
     var body: some View {
         HStack(spacing: Metrics.m) {
@@ -502,7 +503,7 @@ struct PlanYearLegend: View {
                 }
                 .stroke(Palette.secondaryInk, style: StrokeStyle(lineWidth: 1.5, dash: [4, 3]))
                 .frame(width: 16, height: 2)
-                Text("What January expected")
+                Text("What you expected")
             }
             HStack(spacing: 5) {
                 PlanAnswerChip(age: 55, kind: .sooner)
@@ -642,7 +643,8 @@ struct PlanYearStrip: View {
 }
 
 /// The years before your first recorded answer, folded into one card: their
-/// span, how plan assets moved over them, and *Show* to lay them out.
+/// span, how plan assets moved over them, the milestones they passed, and
+/// *Show* to lay them out.
 struct PlanEarlyYearsCard: View {
     let cards: [PlanProgressTimeline.Card]
     var height: CGFloat = 304
@@ -664,6 +666,13 @@ struct PlanEarlyYearsCard: View {
             + AmountFormat.amount(end, currency: currency, locale: locale)
     }
 
+    /// "3 milestones" passed in them; `nil` without one.
+    private var milestones: String? {
+        let count = cards.reduce(0) { $0 + $1.milestones.count }
+        guard count > 0 else { return nil }
+        return count == 1 ? "A milestone" : "\(count) milestones"
+    }
+
     var body: some View {
         let shape = RoundedRectangle(cornerRadius: 14, style: .continuous)
         VStack(alignment: .leading, spacing: Metrics.xs) {
@@ -679,6 +688,11 @@ struct PlanEarlyYearsCard: View {
             Text("Before your first answer.")
                 .font(.caption)
                 .foregroundStyle(Palette.secondaryInk)
+            if let milestones {
+                Label(milestones, systemImage: "flag.fill")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(Palette.accent)
+            }
             Spacer(minLength: 0)
             Button("Show", action: onShow)
                 .buttonStyle(.bordered)
@@ -759,7 +773,7 @@ struct PlanYearCardView: View {
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(aheadColor)
             } else {
-                Text(card.year.checkIns == 0 ? "No check-ins · from prices" : "No January baseline")
+                Text(PlanProgressText.unmeasured(card.year))
                     .font(.caption)
                     .foregroundStyle(Palette.mutedInk)
             }
@@ -879,8 +893,8 @@ struct PlanYearCardView: View {
         lines.append(PlanGraphCallout.Line(text: amount(found.point.value), style: .value))
         if let expected = found.expected {
             let gap = found.point.value - expected
-            lines.append(PlanGraphCallout.Line(text: "\(card.year.expectationTitle) expected \(amount(expected))",
-                                               style: .detail))
+            let expectation = card.year.expectationTitle(locale: locale)
+            lines.append(PlanGraphCallout.Line(text: "\(expectation) expected \(amount(expected))", style: .detail))
             lines.append(PlanGraphCallout.Line(text: "\(amount(abs(gap))) \(gap >= 0 ? "ahead" : "behind")",
                                                style: .detail))
         }

@@ -5,8 +5,8 @@ import Testing
 import TestSupport
 import Tracker
 
-/// Milestones (PROGRESS.md, "Milestones"): the ladder of amounts, what the
-/// check-ins reached, when the median future reaches the rest, and the next.
+/// Milestones (PROGRESS.md, "Milestones"): the ladder of amounts, what your
+/// plan assets reached, when the median future reaches the rest, and the next.
 struct MilestoneTests {
     private func points(_ values: [(String, Decimal)]) -> [SeriesPoint] {
         values.map { SeriesPoint(date: CalendarDate($0.0)!, value: $0.1) }
@@ -94,6 +94,39 @@ struct MilestoneTests {
                 #expect(valuator.total(on: day, in: .planAssets).total < milestone.milestone.amount)
             }
         }
+    }
+
+    /// Before the first check-in and between check-ins, plan assets are
+    /// valued at the end of each month from what you held and its prices,
+    /// as Progress draws them: a round amount passed there is reached there.
+    @Test func monthEndsWithoutACheckInReachMilestonesToo() {
+        var library = Library(
+            settings: LibrarySettings(baseCurrency: .eur),
+            accounts: [
+                Account(id: "broker", name: "Broker", kind: .brokerage, currency: .eur, opened: "2024-01-01",
+                        valuation: .trades),
+                Account(id: "bank", name: "Bank", kind: .cash, currency: .eur, opened: "2024-01-01"),
+            ],
+            instruments: [
+                Instrument(id: "etf", name: "ETF", kind: .etf, currency: .eur, unit: .share,
+                           assetClasses: .single(.equity)),
+            ])
+        library.upsert(Trade(account: "broker", date: "2024-01-31", id: "a", type: .deposit, amount: 100_000))
+        library.upsert(Trade(account: "broker", date: "2024-01-31", id: "b", type: .buy, instrument: "etf",
+                             quantity: 1_000, price: 100))
+        library.upsert(PriceRecord(instrument: "etf", date: "2024-01-31", price: 100, currency: .eur))
+        library.upsert(PriceRecord(instrument: "etf", date: "2024-02-29", price: 160, currency: .eur))
+        library.upsert(PriceRecord(instrument: "etf", date: "2024-03-31", price: 210, currency: .eur))
+        // The first check-in is in April: the broker records trades, not values.
+        library.upsert(Valuation(account: "bank", date: "2024-04-15", balance: 1_000))
+        let valuator = Valuator(library: library)
+        let reached = MilestoneLadder().reached(plan: "test", library: library, valuator: valuator,
+                                                through: "2024-04-30")
+        #expect(reached.map(\.id) == ["round-150000", "round-200000"])
+        #expect(reached.map(\.date) == ["2024-02-29", "2024-03-31"])
+        // Nothing before the first check-in: there's no line yet.
+        #expect(MilestoneLadder().reached(plan: "test", library: library, valuator: valuator,
+                                          through: "2024-04-14").isEmpty)
     }
 
     @Test func theCoastPointIsReachedWhenTheCoastAgeComesDownToThePension() {

@@ -65,7 +65,7 @@ final class WidgetStore {
     private func nextMilestone() -> MilestoneGlance? {
         guard let main = library.settings.mainPlan, let plan = library.library.plans[main] else { return nil }
         let milestones = PlanMilestones(plan: plan, library: library.library, valuator: library.valuator,
-                                        asOf: library.asOfDate, results: plans.results[main])
+                                        asOf: library.asOfDate, results: plans.results[main], findsReached: false)
         guard let next = milestones.next else { return nil }
         return MilestoneGlance(next.milestone, progress: next.progress, typically: milestones.nextDate)
     }
