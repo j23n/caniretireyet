@@ -99,6 +99,22 @@ struct PlanProgressView: View {
                     .font(.subheadline)
                     .foregroundStyle(Palette.ink)
                     .fixedSize(horizontal: false, vertical: true)
+                let tiles = self.tiles
+                if !tiles.isEmpty {
+                    Grid(alignment: .leading, horizontalSpacing: Metrics.m, verticalSpacing: Metrics.xs) {
+                        ForEach(tiles) { tile in
+                            GridRow {
+                                Text(tile.title)
+                                    .foregroundStyle(Palette.secondaryInk)
+                                Text(tile.value)
+                                    .fontWeight(.semibold)
+                                    .foregroundStyle(Palette.ink)
+                                    .fixedSize(horizontal: false, vertical: true)
+                            }
+                        }
+                    }
+                    .font(.footnote)
+                }
             }
         }
     }
