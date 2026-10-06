@@ -238,35 +238,6 @@ struct ChartMarker: Hashable, Sendable, Identifiable {
     var id: String { "\(date.timeIntervalSinceReferenceDate) \(label)" }
 }
 
-/// A stretch of time drawn behind a chart, with a button under it that
-/// selects it: one of a plan's chapters on the map (UI.md, "Chapters").
-struct ChartBand: Hashable, Sendable, Identifiable {
-    /// Its position among the bands, from 0.
-    var id: Int
-    var start: Date
-    var end: Date
-    /// The button's words, the longest that fits: "Self-employed", then
-    /// "Work", then `tinyTitle` (its number, by default).
-    var title: String
-    var shortTitle: String
-    /// What it is and spans, for VoiceOver: "Chapter 2, 2029 to 2042, ages 41 to 54".
-    var detail: String
-    /// The fewest words: "’26"; `nil` for its number, from 1.
-    var tinyTitle: String? = nil
-}
-
-extension Array where Element == ChartBand {
-    /// The bands inside `domain`, cut to it.
-    func clipped(to domain: ClosedRange<Date>) -> [ChartBand] {
-        compactMap { band in
-            var band = band
-            band.start = Swift.max(band.start, domain.lowerBound)
-            band.end = Swift.min(band.end, domain.upperBound)
-            return band.end > band.start ? band : nil
-        }
-    }
-}
-
 /// The chance of success when retiring at one age.
 struct SuccessPoint: Hashable, Sendable, Identifiable {
     var age: Int

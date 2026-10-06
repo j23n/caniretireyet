@@ -2,16 +2,17 @@ import Model
 import SwiftUI
 
 /// One plan (UI.md, "Plan"): a plan picker (New, Duplicate, Rename, Delete,
-/// Set as main plan, Export Calculations), then Results, Chapters (the
-/// plan's inputs by the stretch of life they belong to) and Progress.
+/// Set as main plan, Export Calculations), then Plan and Progress.
 ///
-/// - **iPhone** (tabs): a segmented Results | Chapters | Progress; What-if is
-///   a bottom sheet; while editing the chapters a small pill keeps the
-///   answer in view. Choosing a chapter on the map in Results goes to it.
-/// - **Mac and iPad** (sidebar): Results | Progress in the content area and
-///   the chapters with What-if in the inspector, so the results, and whether
-///   they're out of date, stay next to the field being edited. Choosing a
-///   chapter on the map in Results scrolls the inspector to it.
+/// - **Plan**: the answer, your life as a strip of chapters with one graph
+///   running through them, the chosen chapter in words with its values to
+///   change where they read, and the assumptions every chapter shares.
+/// - **Progress**: whether you're on track, and each year as a card on a
+///   strip that opens at today, with its story below.
+///
+/// On iPhone (tabs) a segmented Plan | Progress, and What-if is a bottom
+/// sheet; on the Mac and iPad (sidebar) the same in the toolbar, and
+/// What-if in the inspector.
 ///
 /// The plan is calculated only on request: *Calculate* / *Recalculate* in
 /// the results, the toolbar and the Plan menu (⌘R), *Run What-If*.
@@ -45,16 +46,14 @@ struct PlanScreen: View {
 
 /// The parts of a plan.
 enum PlanPart: String, CaseIterable, Hashable, Identifiable {
-    case results
-    case chapters
+    case plan
     case progress
 
     var id: String { rawValue }
 
     var title: String {
         switch self {
-        case .results: "Results"
-        case .chapters: "Chapters"
+        case .plan: "Plan"
         case .progress: "Progress"
         }
     }
@@ -100,8 +99,8 @@ struct PlanContentView: View {
     @Environment(PlanStore.self) private var plans
     @Environment(AppNavigation.self) private var navigation
     @State private var session: PlanSession
-    @State private var part: PlanPart = .results
-    @State private var showsInspector = true
+    @State private var part: PlanPart = .plan
+    @State private var showsInspector = false
     @State private var showsWhatIf = false
     @State private var isRenaming = false
     @State private var isDeleting = false
@@ -116,12 +115,12 @@ struct PlanContentView: View {
         _session = State(initialValue: PlanSession(planID: planID, library: library, plans: plans))
     }
 
-    /// The sidebar layout (Mac, iPad): the chapters in the inspector.
+    /// The sidebar layout (Mac, iPad): What-if in the inspector.
     private var isWide: Bool { navigation.layout == .sidebar }
 
     private var name: String { session.plan?.name ?? "Plan" }
 
-    private var inspectorTitle: String { showsInspector ? "Hide Chapters" : "Show Chapters" }
+    private var inspectorTitle: String { showsInspector ? "Hide What If" : "Show What If" }
 
     var body: some View {
         planLayout
@@ -190,22 +189,17 @@ struct PlanContentView: View {
         }
     }
 
-    /// iPhone: Results | Chapters | Progress.
+    /// iPhone: Plan | Progress.
     private var compactLayout: some View {
         compactPart
             .safeAreaInset(edge: .top, spacing: 0) {
-                VStack(spacing: Metrics.s) {
-                    Picker("Show", selection: $part) {
-                        ForEach(PlanPart.allCases) { part in
-                            Text(part.title).tag(part)
-                        }
-                    }
-                    .pickerStyle(.segmented)
-                    .labelsHidden()
-                    if part == .chapters {
-                        PlanAnswerPill(session: session)
+                Picker("Show", selection: $part) {
+                    ForEach(PlanPart.allCases) { part in
+                        Text(part.title).tag(part)
                     }
                 }
+                .pickerStyle(.segmented)
+                .labelsHidden()
                 .padding(.horizontal, Metrics.l)
                 .padding(.vertical, Metrics.s)
                 .background(Palette.page)
@@ -224,31 +218,32 @@ struct PlanContentView: View {
     @ViewBuilder
     private var compactPart: some View {
         switch part {
-        case .results:
-            PlanResultsView(session: session, isWide: false, onWhatIf: { showsWhatIf = true },
-                            onShowChapter: { part = .chapters })
-        case .chapters:
-            PlanChaptersView(session: session)
+        case .plan:
+            PlanTimelineView(session: session, isWide: false, onWhatIf: { showsWhatIf = true },
+                             onShowProgress: { part = .progress }, onExport: { exportCalculations() })
         case .progress:
-            PlanProgressView(session: session, isWide: false, onSaveBaseline: { startSavingBaseline() })
+            PlanProgressView(session: session, isWide: false, onSaveBaseline: { startSavingBaseline() },
+                             onShowPlan: { part = .plan })
         }
     }
 
-    /// Mac and iPad: Results | Progress, with the chapters and What-if in the inspector.
+    /// Mac and iPad: Plan | Progress, with What-if in the inspector.
     private var wideLayout: some View {
         widePart
             .inspector(isPresented: $showsInspector) {
                 PlanInspector(session: session)
-                    .inspectorColumnWidth(min: 320, ideal: 380, max: 520)
+                    .inspectorColumnWidth(min: 300, ideal: 340, max: 460)
             }
     }
 
     @ViewBuilder
     private var widePart: some View {
         if part == .progress {
-            PlanProgressView(session: session, isWide: true, onSaveBaseline: { startSavingBaseline() })
+            PlanProgressView(session: session, isWide: true, onSaveBaseline: { startSavingBaseline() },
+                             onShowPlan: { part = .plan })
         } else {
-            PlanResultsView(session: session, isWide: true, onShowChapter: { showsInspector = true })
+            PlanTimelineView(session: session, isWide: true, onWhatIf: { showsInspector = true },
+                             onShowProgress: { part = .progress }, onExport: { exportCalculations() })
         }
     }
 
@@ -262,7 +257,7 @@ struct PlanContentView: View {
         if isWide {
             ToolbarItem(placement: .principal) {
                 Picker("Show", selection: $part) {
-                    Text("Results").tag(PlanPart.results)
+                    Text("Plan").tag(PlanPart.plan)
                     Text("Progress").tag(PlanPart.progress)
                 }
                 .pickerStyle(.segmented)
@@ -287,7 +282,7 @@ struct PlanContentView: View {
                 Button {
                     showsInspector.toggle()
                 } label: {
-                    Label(inspectorTitle, systemImage: "sidebar.trailing")
+                    Label(inspectorTitle, systemImage: "slider.horizontal.3")
                 }
             }
         }
@@ -458,75 +453,15 @@ struct PlanContentView: View {
     }
 }
 
-/// The Mac's inspector: the chapters, with What-if pinned below.
-///
-/// Both scroll. The What-if takes its own height, up to 60% of the
-/// inspector, and scrolls beyond that, so the chapters keep room. Pinned
-/// content that doesn't scroll would set the window's minimum height: the
-/// What-if's sliders and wrapped text made the window taller than the
-/// screen, with the inputs squeezed out above them.
+/// The Mac's inspector: What-if, its sliders and the answer they give.
 struct PlanInspector: View {
     let session: PlanSession
 
     var body: some View {
-        VStack(spacing: 0) {
-            PlanChaptersView(session: session, isInspector: true)
-            Divider()
-            OverflowScrollView(maxShare: 0.6) {
-                PlanWhatIfPanel(session: session)
-                    .padding(Metrics.m)
-            }
-            .background(.bar)
-            // Offered the whole column first, then the chapters take the rest.
-            .layoutPriority(1)
+        ScrollView {
+            PlanWhatIfPanel(session: session, showsAnswer: true)
+                .padding(Metrics.m)
         }
-    }
-}
-
-/// A small pill that keeps the answer in view while you edit (iPhone):
-/// "Earliest 54", "Earliest 54 · out of date" with Recalculate, or the
-/// share of a calculation done.
-struct PlanAnswerPill: View {
-    let session: PlanSession
-
-    @Environment(\.locale) private var locale
-
-    private var text: String {
-        guard let results = session.shownResults else { return "No answer yet" }
-        if results.headline.canRetireNow { return "Yes, today" }
-        return results.headline.earliestAge.map { "Earliest \($0)" } ?? "No age reaches it yet"
-    }
-
-    var body: some View {
-        let state = session.state
-        HStack(spacing: Metrics.s) {
-            Text(text)
-                .font(.subheadline.weight(.semibold))
-                .monospacedDigit()
-                .opacity(state.dimsResults ? 0.6 : 1)
-            if let progress = state.progress {
-                ProgressView(value: min(1, max(0, progress.fraction)), total: 1)
-                    .frame(width: 60)
-                Text(PlanRunText.short(progress, locale: locale))
-                    .font(.caption)
-                    .monospacedDigit()
-                    .foregroundStyle(Palette.secondaryInk)
-            } else if state.isOutOfDate, let action = state.action {
-                Text("· out of date")
-                    .font(.caption)
-                    .foregroundStyle(Palette.secondaryInk)
-                Button(action.title) { session.perform(action) }
-                    .font(.caption.weight(.semibold))
-                    .buttonStyle(.borderless)
-            }
-        }
-        .padding(.horizontal, Metrics.m)
-        .padding(.vertical, 6)
-        .background(.regularMaterial, in: Capsule())
-        .frame(maxWidth: .infinity)
-        .accessibilityElement(children: .combine)
-        .contentTransition(.numericText())
-        .animation(.default, value: text)
     }
 }
 

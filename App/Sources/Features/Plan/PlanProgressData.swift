@@ -352,3 +352,323 @@ struct PlanProgressYear: Hashable, Sendable, Identifiable {
         }
     }
 }
+
+extension PlanProgressYear {
+    /// Where the latest check-in stands against its year's automatic
+    /// baseline, in the baseline's currency; `nil` without one.
+    static func latestPosition(for plan: PlanID, library: Library, valuator: Valuator, asOf: CalendarDate)
+        -> (position: PlanBaselineComparison.Position, currency: CurrencyCode)? {
+        guard let last = valuator.checkInDates(in: .planAssets, through: asOf).last,
+              let entry = PlanBaselineComparison.baselines(for: plan, in: library)
+                  .first(where: { $0.baseline.kind == .yearly && $0.baseline.created.year == last.year })
+        else { return nil }
+        let comparison = PlanBaselineComparison(baseline: entry.baseline, library: library, valuator: valuator,
+                                                asOf: last)
+        return comparison.position.map { (position: $0, currency: comparison.currency) }
+    }
+}
+
+// MARK: - The years on a strip
+
+/// Progress as a strip of years (UI.md, "Progress"): a card per year with
+/// your money through it against what January expected, on one scale every
+/// card shares, so December of one year meets January of the next; where
+/// the answer moved; and the year's story. Oldest first: the strip opens at
+/// today, on the right.
+struct PlanProgressTimeline {
+    /// The answer at a check-in, on a card: where the year started, and each move.
+    struct Chip: Hashable, Sendable, Identifiable {
+        enum Kind: Hashable, Sendable {
+            /// The year's first answer.
+            case start
+            case sooner
+            case later
+            /// It moved with a change of the plan.
+            case planChanged
+        }
+
+        var date: Date
+        var age: Int
+        var kind: Kind
+        var id: Date { date }
+    }
+
+    /// Something that happened in a month of the year.
+    struct Note: Hashable, Sendable, Identifiable {
+        /// "Mar".
+        var month: String
+        var text: String
+        var id: String { month + text }
+    }
+
+    /// One year's card.
+    struct Card: Identifiable {
+        let year: PlanProgressYear
+        /// The money at the check-in before the year and at each one in it:
+        /// with the year's baseline, the same accounts in its money; else plan
+        /// assets in the base currency.
+        let actual: [ChartPoint]
+        /// What the year's baseline expected: its median from its start to
+        /// the year's end; empty without one.
+        let expected: [ChartPoint]
+        let chips: [Chip]
+        let notes: [Note]
+        /// The money's currency.
+        let currency: CurrencyCode
+        /// 1 January and 31 December of the year, at noon.
+        let start: Date
+        let end: Date
+
+        var id: Int { year.year }
+
+        /// A stretch where your money is above (ahead) or below what January
+        /// expected: the two values at each date along it.
+        struct Gap: Hashable, Sendable {
+            struct Point: Hashable, Sendable {
+                var date: Date
+                var actual: Double
+                var expected: Double
+            }
+
+            var ahead: Bool
+            var points: [Point]
+        }
+
+        /// The stretches ahead of and behind January, split where the lines cross.
+        var gaps: [Gap] {
+            guard !expected.isEmpty, actual.count >= 2 else { return [] }
+            var gaps: [Gap] = []
+            var current: Gap?
+            for (from, to) in zip(actual, actual.dropFirst()) {
+                guard let startExpected = expected(on: from.date), let endExpected = expected(on: to.date) else {
+                    continue
+                }
+                var pieces = [Gap.Point(date: from.date, actual: from.value, expected: startExpected)]
+                let before = from.value - startExpected
+                let after = to.value - endExpected
+                if before * after < 0 {
+                    let t = before / (before - after)
+                    let date = from.date.addingTimeInterval(to.date.timeIntervalSince(from.date) * t)
+                    let value = from.value + (to.value - from.value) * t
+                    pieces.append(Gap.Point(date: date, actual: value, expected: value))
+                }
+                pieces.append(Gap.Point(date: to.date, actual: to.value, expected: endExpected))
+                for (a, b) in zip(pieces, pieces.dropFirst()) {
+                    let ahead = (a.actual - a.expected) + (b.actual - b.expected) >= 0
+                    if current?.ahead != ahead {
+                        if let current { gaps.append(current) }
+                        current = Gap(ahead: ahead, points: [a])
+                    }
+                    current?.points.append(b)
+                }
+            }
+            if let current { gaps.append(current) }
+            return gaps
+        }
+
+        /// What January expected on `date`, between its points; `nil` without a baseline.
+        func expected(on date: Date) -> Double? {
+            guard let first = expected.first else { return nil }
+            if date <= first.date { return first.value }
+            for (from, to) in zip(expected, expected.dropFirst()) where date <= to.date {
+                let span = to.date.timeIntervalSince(from.date)
+                let t = span > 0 ? date.timeIntervalSince(from.date) / span : 1
+                return from.value + (to.value - from.value) * t
+            }
+            return expected.last?.value
+        }
+    }
+
+    /// A money scale fitted to the years' values rather than from zero, so a
+    /// year's movement and its gap to January show; ticks on round steps.
+    struct Scale: Hashable, Sendable {
+        var domain: ClosedRange<Double>
+        /// Lowest first.
+        var ticks: [Double]
+
+        init?(values: [Double], desiredTicks: Int = 3) {
+            let finite = values.filter(\.isFinite)
+            guard let low = finite.min(), let high = finite.max() else { return nil }
+            let room = Swift.max((high - low) * 0.08, abs(high) * 0.01, 1)
+            let step = AmountScale.niceStep((high - low + 2 * room) / Double(Swift.max(desiredTicks, 1)))
+            var bottom = ((low - room) / step).rounded(.down) * step
+            if low >= 0 { bottom = Swift.max(0, bottom) }
+            let top = Swift.max(((high + room) / step).rounded(.up) * step, bottom + step)
+            domain = bottom...top
+            ticks = stride(from: bottom, through: top + step * 1e-9, by: step).map { $0 == 0 ? 0 : $0 }
+        }
+    }
+
+    /// Oldest first.
+    let cards: [Card]
+    /// The money scale every card shares; `nil` without values.
+    let scale: Scale?
+
+    init(years: [PlanProgressYear], plan: PlanID, library: Library, valuator: Valuator, locale: Locale = .current) {
+        let history = PlanAnswerHistory(library.headlines(for: plan))
+        let dates = valuator.checkInDates(in: .planAssets)
+        cards = years.sorted { $0.year < $1.year }.map { year in
+            let start = CalendarDate(year: year.year, month: 1, day: 1)?.dateValue ?? Date()
+            let end = CalendarDate(year: year.year, month: 12, day: 31)?.dateValue ?? start
+            let actual: [ChartPoint]
+            var expected: [ChartPoint] = []
+            var currency = library.settings.baseCurrency
+            if let entry = year.baseline {
+                let comparison = PlanBaselineComparison(baseline: entry.baseline, library: library, valuator: valuator,
+                                                        asOf: year.to)
+                actual = comparison.actual
+                currency = comparison.currency
+                let knots = actual.map { CalendarDate($0.date, in: .current) }
+                    + [CalendarDate(year: year.year, month: 12, day: 31) ?? year.to]
+                for day in knots {
+                    if let bands = PlanBaselineComparison.percentiles(on: day, in: entry.baseline) {
+                        expected.append(ChartPoint(date: day.dateValue, value: bands[2]))
+                    }
+                }
+            } else {
+                actual = dates.filter { $0 >= year.from && $0 <= year.to }.map { day in
+                    let total = valuator.total(on: day, in: .planAssets)
+                    return ChartPoint(date: day.dateValue, value: total.total.doubleValue, isComplete: total.isComplete)
+                }
+            }
+            let (chips, notes) = Self.answers(in: year, history: history, locale: locale)
+            return Card(year: year, actual: actual, expected: expected, chips: chips, notes: notes, currency: currency,
+                        start: start, end: end)
+        }
+        scale = Scale(values: cards.flatMap { card in card.actual.map(\.value) + card.expected.map(\.value) })
+    }
+
+    /// The answer's moves in `year`: a chip at its first answer and at each
+    /// change, and a note for each move and each change of the plan or the
+    /// calculations.
+    static func answers(in year: PlanProgressYear, history: PlanAnswerHistory,
+                        locale: Locale) -> (chips: [Chip], notes: [Note]) {
+        let points = history.points.filter { $0.date.year == year.year && $0.date <= year.to }
+        let markers = Dictionary(history.markers.map { ($0.date, $0) }, uniquingKeysWith: { first, _ in first })
+        var chips: [Chip] = []
+        var notes: [Note] = []
+        var previous = history.points.last { $0.date.year < year.year }?.earliestAge
+        for (offset, point) in points.enumerated() {
+            let month = point.date.dateValue.formatted(.dateTime.month(.abbreviated).locale(locale))
+            let marker = markers[point.date]
+            if let age = point.earliestAge {
+                if offset == 0 {
+                    chips.append(Chip(date: point.date.dateValue, age: age, kind: .start))
+                }
+                if let before = previous, before != age {
+                    let kind: Chip.Kind = marker?.changes.contains(.plan) == true ? .planChanged
+                        : age < before ? .sooner : .later
+                    if offset > 0 { chips.append(Chip(date: point.date.dateValue, age: age, kind: kind)) }
+                    let years = abs(age - before)
+                    let move = "\(years == 1 ? "a year" : "\(years) years") \(age < before ? "sooner" : "later")"
+                    let cause = marker?.changes.contains(.plan) == true ? "Plan changed: " : ""
+                    notes.append(Note(month: month, text: "\(cause)\(age), \(move)."))
+                } else if let marker {
+                    notes.append(Note(month: month, text: "\(marker.label)."))
+                }
+                previous = age
+            } else if previous != nil {
+                notes.append(Note(month: month, text: "No age reached your bar."))
+                previous = nil
+            }
+        }
+        return (chips, notes)
+    }
+}
+
+/// A year's words (UI.md, "Progress"): its change, where it stands against
+/// January, its story and January's note.
+enum PlanProgressText {
+    /// "+34.000 €", or "so far" for the year still going.
+    static func change(_ year: PlanProgressYear, currency: CurrencyCode, hidesAmounts: Bool,
+                       locale: Locale = .current) -> String {
+        guard !year.isLatest else { return "so far" }
+        guard !hidesAmounts else { return AmountFormat.hidden }
+        return AmountFormat.signedAmount(year.change.change, currency: currency, locale: locale)
+    }
+
+    /// "18.400 € ahead of January", "3.000 € behind January"; `nil` without a baseline.
+    static func againstJanuary(_ year: PlanProgressYear, hidesAmounts: Bool, locale: Locale = .current) -> String? {
+        guard let position = year.position else { return nil }
+        let amount = hidesAmounts ? AmountFormat.hidden
+            : AmountFormat.amount(abs(position.gap), currency: year.positionCurrency ?? .eur, locale: locale)
+        return position.gap >= 0 ? "\(amount) ahead of January" : "\(amount) behind January"
+    }
+
+    /// "You saved 13.200 € and markets added 22.200 €. Your answer moved from
+    /// 56 to 54, two years sooner."
+    static func story(_ year: PlanProgressYear, currency: CurrencyCode, hidesAmounts: Bool,
+                      locale: Locale = .current) -> String {
+        func amount(_ value: Decimal) -> String {
+            hidesAmounts ? AmountFormat.hidden : AmountFormat.amount(abs(value), currency: currency, locale: locale)
+        }
+        var sentences: [String] = []
+        if year.from != year.to {
+            let saved = year.change.newMoney
+            let market = year.change.market
+            let savedText = saved >= 0 ? "You saved \(amount(saved))" : "You took out \(amount(saved))"
+            let marketText = market >= 0 ? "markets added \(amount(market))" : "markets took \(amount(market))"
+            sentences.append("\(savedText) and \(marketText).")
+        }
+        if let from = year.answerFrom?.earliestAge, let to = year.answerTo?.earliestAge {
+            if from == to {
+                sentences.append("Your answer stayed at \(to).")
+            } else {
+                let years = abs(to - from)
+                let move = "\(years == 1 ? "a year" : "\(years) years") \(to < from ? "sooner" : "later")"
+                sentences.append("Your answer moved from \(from) to \(to), \(move).")
+            }
+        }
+        return sentences.joined(separator: " ")
+    }
+
+    /// "January expected 298.000 € by now. You're 18.400 € ahead, more than
+    /// in 68 of its 100 futures."
+    static func january(_ year: PlanProgressYear, hidesAmounts: Bool, locale: Locale = .current) -> String? {
+        guard let position = year.position else { return nil }
+        let currency = year.positionCurrency ?? .eur
+        func amount(_ value: Decimal) -> String {
+            hidesAmounts ? AmountFormat.hidden : AmountFormat.amount(abs(value), currency: currency, locale: locale)
+        }
+        let when = year.isLatest ? "by now" : "by \(AmountFormat.shortDate(year.to, locale: locale))"
+        var text = "January expected \(amount(position.median)) \(when). "
+        let side = position.gap >= 0 ? "ahead" : "behind"
+        text += year.isLatest ? "You're \(amount(position.gap)) \(side)" : "You ended \(amount(position.gap)) \(side)"
+        if let percentile = position.percentile {
+            text += ", more than in \(Int(wholeNumber: percentile)) of its 100 futures."
+        } else if position.isAboveNinetieth {
+            text += ", above 9 in 10 of its futures."
+        } else if position.isBelowTenth {
+            text += ", below 9 in 10 of its futures."
+        } else {
+            text += "."
+        }
+        return text
+    }
+
+    /// "Ahead of plan.", "Behind plan.", "On plan." for the latest year.
+    static func headline(_ position: PlanBaselineComparison.Position?) -> String {
+        guard let position else { return "Not measured yet." }
+        let median = abs(position.median)
+        if median > 0, abs(position.gap) < median / 100 { return "On plan." }
+        return position.gap >= 0 ? "Ahead of plan." : "Behind plan."
+    }
+
+    /// "You have 18.400 € more than January expected, more than in 68 of its 100 futures."
+    static func headlineDetail(_ position: PlanBaselineComparison.Position?, currency: CurrencyCode,
+                               hidesAmounts: Bool, locale: Locale = .current) -> String {
+        guard let position else {
+            return "A baseline is saved at the first check-in of each year. Save one now to measure against it."
+        }
+        let amount = hidesAmounts ? AmountFormat.hidden
+            : AmountFormat.amount(abs(position.gap), currency: currency, locale: locale)
+        var text = position.gap >= 0 ? "You have \(amount) more than January expected"
+            : "You have \(amount) less than January expected"
+        if let percentile = position.percentile {
+            text += ", more than in \(Int(wholeNumber: percentile)) of its 100 futures."
+        } else {
+            text += "."
+        }
+        return text
+    }
+}

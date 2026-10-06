@@ -21,10 +21,6 @@ import Tracker
 ///   axis fits every band.
 /// - While amounts are hidden the axis reads in multiples of the start
 ///   value (today's plan assets).
-/// - `bands` shade stretches of time behind the fan (a plan's chapters,
-///   UI.md "Chapters"); with `selectedBand`, a strip of buttons under the
-///   chart, each under its band, selects one, and the selected band is
-///   tinted.
 /// - Drag across it to read the percentiles at any date.
 struct FanChart: View {
     var fan: [FanPoint]
@@ -34,13 +30,9 @@ struct FanChart: View {
     var currency: CurrencyCode?
     var height: CGFloat = 240
     var showsLegend = false
-    var bands: [ChartBand] = []
-    var selectedBand: Binding<Int?>?
 
     @State private var selectedDate: Date?
     @State private var width: CGFloat = ChartStyle.defaultWidth
-    /// Where the plot is, once drawn: the band strip lines up with it.
-    @State private var plotArea: ChartPlotArea?
     @Environment(\.hidesAmounts) private var hidesAmounts
     @Environment(\.baseCurrency) private var baseCurrency
 
@@ -51,8 +43,6 @@ struct FanChart: View {
         var scale: AmountScale
         var clipsBand: Bool
         var fan: [FanPoint]
-        /// The bands inside the domain, cut to it.
-        var bands: [ChartBand] = []
     }
 
     var body: some View {
@@ -68,13 +58,6 @@ struct FanChart: View {
                     .frame(height: height)
                     .measuringWidth($width)
                     .accessibilityChartDescriptor(summary)
-                if let selectedBand, !layout.bands.isEmpty {
-                    let plot = plotArea ?? ChartPlotArea.estimated(chartWidth: Double(width))
-                    ChartBandStrip(bands: layout.bands,
-                                   layout: ChartBandLayout(bands: layout.bands, domain: layout.domain,
-                                                           plotWidth: plot.width),
-                                   plotX: plot.x, selection: selectedBand)
-                }
             }
         }
     }
@@ -93,23 +76,15 @@ struct FanChart: View {
             let scale = ProjectionScale(history: history, fan: fan, markerHeadroom: markerLayout.headroom,
                                         plotHeight: plotHeight)
             return Layout(domain: domain, ticks: ticks, markers: markerLayout, scale: scale.scale,
-                          clipsBand: scale.clipsBand, fan: fan.map(scale.clamped), bands: bands.clipped(to: domain))
+                          clipsBand: scale.clipsBand, fan: fan.map(scale.clamped))
         }
         let scale = AmountScale(values: history + fan.flatMap { [$0.p10, $0.p90] })
             .reservingTop(points: markerLayout.headroom, plotHeight: plotHeight)
-        return Layout(domain: domain, ticks: ticks, markers: markerLayout, scale: scale, clipsBand: false, fan: fan,
-                      bands: bands.clipped(to: domain))
+        return Layout(domain: domain, ticks: ticks, markers: markerLayout, scale: scale, clipsBand: false, fan: fan)
     }
 
     private func chart(_ layout: Layout) -> some View {
         Chart {
-            ForEach(layout.bands) { band in
-                RectangleMark(xStart: .value("Start", band.start), xEnd: .value("End", band.end),
-                              yStart: .value("Bottom", layout.scale.domain.lowerBound),
-                              yEnd: .value("Top", layout.scale.dataTop))
-                    .foregroundStyle(band.tint(selected: selectedBand?.wrappedValue))
-            }
-
             ForEach(layout.fan) { point in
                 AreaMark(x: .value("Date", point.date), yStart: .value("10th percentile", point.p10),
                          yEnd: .value("90th percentile", point.p90), series: .value("Series", "10–90%"))
@@ -166,7 +141,6 @@ struct FanChart: View {
         .chartYAxis { amountAxis(hidesAmounts: hidesAmounts, scale: layout.scale, relativeTo: fan.first?.p50) }
         .chartXAxis { dateAxis(layout.ticks) }
         .chartLegend(.hidden)
-        .measuringPlot($plotArea)
     }
 
     private func markerAlignment(_ placement: MarkerLabelLayout.Placement) -> Alignment {

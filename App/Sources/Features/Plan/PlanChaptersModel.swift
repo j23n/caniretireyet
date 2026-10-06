@@ -142,50 +142,76 @@ struct PlanChaptersModel {
 
     // MARK: Chapters in words
 
-    /// "Employee", "Not working", "Retired, before pensions", "Retired,
-    /// with pensions · spending 90%".
-    func title(of chapter: PlanChapter) -> String {
-        title(of: chapter.kind) + spendingSuffix(chapter, separator: " · spending ")
+    /// What a chapter is, for its name and colour on the strip.
+    enum Style: Hashable, Sendable {
+        /// A work phase pays.
+        case working
+        /// Before retirement, without work.
+        case notWorking
+        /// Retired, before a pension is paid (from the year work stops).
+        case bridge
+        /// Retired, from the year a pension starts.
+        case pensions
+        /// Retired, spending a share of what the plan spends.
+        case later
     }
 
-    private func title(of kind: PlanChapter.Kind) -> String {
-        switch kind {
-        case .working(let phase):
-            if plan.work.indices.contains(phase), let name = plan.work[phase].name { return name }
-            return plan.work.count > 1 ? "Working, phase \(phase + 1)" : "Working"
+    func style(of chapter: PlanChapter) -> Style {
+        switch chapter.kind {
+        case .working:
+            return .working
         case .betweenWork:
+            return .notWorking
+        case .bridge:
+            return chapter.items.contains(.retirement) || (chapter.spendingFactor ?? 1) == 1 ? .bridge : .later
+        case .pensions:
+            let startsPension = chapter.items.contains { item in
+                if case .pension = item { return true }
+                return false
+            }
+            return startsPension || (chapter.spendingFactor ?? 1) == 1 ? .pensions : .later
+        }
+    }
+
+    /// "Employee", "Working", "Not working", "Bridge", "Pensions", "Slowing down".
+    func title(of chapter: PlanChapter) -> String {
+        switch style(of: chapter) {
+        case .working:
+            guard case .working(let phase) = chapter.kind, plan.work.indices.contains(phase) else { return "Working" }
+            if let name = plan.work[phase].name { return name }
+            return plan.work.count > 1 ? "Working, phase \(phase + 1)" : "Working"
+        case .notWorking:
             return "Not working"
         case .bridge:
-            return hasPensions ? "Retired, before pensions" : "Retired"
+            return hasPensions ? "Bridge" : "Retired"
         case .pensions:
-            return plan.pensions.count == 1 ? "Retired, with a pension" : "Retired, with pensions"
+            return plan.pensions.count == 1 ? "Pension" : "Pensions"
+        case .later:
+            return (chapter.spendingFactor ?? 1) > 1 ? "Spending more" : "Slowing down"
         }
     }
 
-    /// The strip's words when the title doesn't fit: "Work", "No work",
-    /// "Retired", "Pensions 90%".
-    func shortTitle(of chapter: PlanChapter) -> String {
-        shortTitle(of: chapter.kind) + spendingSuffix(chapter, separator: " ")
+    /// "Now to 55 · 2026 to 2043": the ages and the years it runs between.
+    func span(ofChapterAt index: Int) -> String {
+        let all = chapters.chapters
+        guard all.indices.contains(index) else { return "" }
+        let chapter = all[index]
+        let next = all.indices.contains(index + 1) ? all[index + 1] : nil
+        let fromAge = index == 0 ? "Now" : "\(chapter.ages.lowerBound)"
+        let toAge = next.map { "\($0.ages.lowerBound)" } ?? "\(chapter.ages.upperBound)"
+        let toYear = next?.years.lowerBound ?? chapter.years.upperBound
+        return "\(fromAge) to \(toAge) · \(chapter.years.lowerBound) to \(toYear)"
     }
 
-    private func shortTitle(of kind: PlanChapter.Kind) -> String {
-        switch kind {
-        case .working(let phase):
-            if plan.work.indices.contains(phase), let name = plan.work[phase].name, name.count <= 12 { return name }
-            return "Work"
-        case .betweenWork:
-            return "No work"
-        case .bridge:
-            return "Retired"
-        case .pensions:
-            return "Pensions"
-        }
-    }
-
-    /// " · spending 90%" while retirement spending is a share of the plan's.
-    private func spendingSuffix(_ chapter: PlanChapter, separator: String) -> String {
-        guard let factor = chapter.spendingFactor, factor != 1 else { return "" }
-        return separator + AmountFormat.percent(factor, digits: 0)
+    /// "16½ years", to the nearest half year.
+    func length(ofChapterAt index: Int) -> String {
+        let dates = self.dates(ofChapterAt: index)
+        let years = dates.upperBound.timeIntervalSince(dates.lowerBound) / (365.25 * 86_400)
+        let halves = Int((years * 2).rounded())
+        let whole = halves / 2
+        let half = halves % 2 == 1 ? "½" : ""
+        if whole == 0 { return half.isEmpty ? "Under half a year" : "½ year" }
+        return "\(whole)\(half) " + (whole == 1 && half.isEmpty ? "year" : "years")
     }
 
     /// Whether any pension is ever paid.
@@ -211,36 +237,15 @@ struct PlanChaptersModel {
         return "\(years), \(ages)"
     }
 
-    /// What pays for your life in the chapter, under its title.
-    func subtitle(of chapter: PlanChapter) -> String {
-        switch chapter.kind {
-        case .working:
-            return "Your work pays; what's left over is saved."
-        case .betweenWork:
-            return "No work: you spend what you do while working, from your savings."
-        case .bridge:
-            return hasPensions ? "You live on your savings until a pension starts." : "You live on your savings."
-        case .pensions:
-            return "Your pensions pay part; your savings the rest."
-        }
-    }
-
-    /// The chapters as bands on the map: from the end of the year before
-    /// each starts (the plan's start for the first) to the end of its last.
-    var bands: [ChartBand] {
-        chapters.chapters.enumerated().map { index, chapter in
-            let from = index == 0 ? start : Self.lastDay(of: chapter.years.lowerBound - 1)
-            let to = Self.lastDay(of: chapter.years.upperBound)
-            return ChartBand(id: index, start: from.dateValue, end: to.dateValue, title: title(of: chapter),
-                             shortTitle: shortTitle(of: chapter),
-                             detail: "Chapter \(index + 1), " + Self.spokenSpan(of: chapter))
-        }
-    }
-
-    /// The plan's years on the map: from its start to the end of its last chapter.
-    var domain: ClosedRange<Date> {
-        let end = chapters.chapters.last.map { Self.lastDay(of: $0.years.upperBound) } ?? start
-        return start.dateValue...max(start.dateValue, end.dateValue)
+    /// When a chapter runs on a time axis: from the end of the year before
+    /// it (the plan's start, for the first) to the end of its last year.
+    func dates(ofChapterAt index: Int) -> ClosedRange<Date> {
+        let all = chapters.chapters
+        guard all.indices.contains(index) else { return start.dateValue...start.dateValue }
+        let chapter = all[index]
+        let from = index == 0 ? start : Self.lastDay(of: chapter.years.lowerBound - 1)
+        let to = Self.lastDay(of: chapter.years.upperBound)
+        return from.dateValue...max(from.dateValue, to.dateValue)
     }
 
     /// 31 December of `year`.
@@ -315,7 +320,7 @@ struct PlanChaptersModel {
             : "Work stops at \(retirementAge), in \(retirementYear)."
         switch ageSource {
         case .chosen:
-            return "The chapters and charts are for retiring at \(retirementAge), chosen in Results."
+            return "The chapters and charts are for retiring at \(retirementAge), chosen on the chance-by-age chart."
         case .whatIf:
             return "The chapters follow the what-if: retiring at \(retirementAge)."
         case .plan:
