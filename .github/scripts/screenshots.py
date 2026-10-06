@@ -64,9 +64,13 @@ def collect(results: pathlib.Path, out: pathlib.Path) -> None:
             manifest = json.loads((pathlib.Path(exported) / "manifest.json").read_text())
             for entry in attachments(manifest):
                 source = pathlib.Path(exported) / entry["exportedFileName"]
+                # Only the screenshots, not the debug descriptions a failure adds.
+                if source.suffix.lower() not in {".png", ".jpg", ".jpeg", ".heic"}:
+                    continue
                 suggested = entry.get("suggestedHumanReadableName") or source.name
-                # "plan_0_1F2E….png" → "plan".
+                # "plan_0_1F2E….png" → "plan"; and nothing an artifact's file name can't hold.
                 name = re.sub(r"_\d+_[0-9A-Fa-f-]+$", "", pathlib.Path(suggested).stem)
+                name = re.sub(r"[^A-Za-z0-9._-]+", "-", name)
                 target = out / f"{bundle.stem}-{name}{source.suffix}"
                 shutil.copyfile(source, target)
                 print(target.name)

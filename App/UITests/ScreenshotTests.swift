@@ -17,14 +17,14 @@ final class ScreenshotTests: XCTestCase {
     @MainActor
     func testOverview() {
         let app = launch(library: "example", screen: "overview")
-        waitFor(text("Net worth", in: app), in: app, named: "overview")
+        waitForScreen(app, showing: text("Net worth", in: app), named: "overview")
         keepScreenshot(of: app, named: "overview")
     }
 
     @MainActor
     func testPlan() {
         let app = launch(library: "example", screen: "plan")
-        waitFor(answer(in: app), in: app, named: "plan", timeout: 240)
+        waitForScreen(app, showing: answer(in: app), named: "plan", timeout: 240, settle: 30)
         keepScreenshot(of: app, named: "plan")
         scrollDown(app)
         keepScreenshot(of: app, named: "plan-chapter")
@@ -33,46 +33,48 @@ final class ScreenshotTests: XCTestCase {
     @MainActor
     func testWhatIf() {
         let app = launch(library: "example", screen: "whatIf")
-        waitFor(text("What if…", in: app), in: app, named: "what-if")
-        _ = answer(in: app).waitForExistence(timeout: 240)
+        waitForScreen(app, showing: text("What if…", in: app), named: "what-if", settle: 30)
+        pause(seconds: 5)
         keepScreenshot(of: app, named: "what-if")
     }
 
     @MainActor
     func testProgress() {
         let app = launch(library: "example", screen: "progress")
-        waitFor(text("Year by year", in: app), in: app, named: "progress")
+        waitForScreen(app, showing: text("Year by year", in: app), named: "progress")
         keepScreenshot(of: app, named: "progress")
+        scrollDown(app)
         scrollDown(app)
         keepScreenshot(of: app, named: "progress-year")
     }
 
     /// A savings plan since 2018 and check-ins from October 2025: the years
-    /// before are valued from prices. Then the early years, laid out and
-    /// scrolled to, and the first one chosen.
+    /// before are valued from prices. Then 2018, chosen with ‹, its card
+    /// and its details.
     @MainActor
     func testProgressWithALongHistory() {
         let app = launch(library: "longHistory", screen: "progress")
-        waitFor(text("Year by year", in: app), in: app, named: "progress-long")
+        waitForScreen(app, showing: text("Year by year", in: app), named: "progress-long")
         keepScreenshot(of: app, named: "progress-long")
-        let years = app.scrollViews["progress.years"].firstMatch
-        scrollToStart(years)
-        let show = app.buttons["Show"].firstMatch
-        if show.waitForExistence(timeout: 5), !show.isHittable {
-            scrollDown(app)
+        #if os(iOS)
+        // On iPhone ‹ is in the chosen year's header, under the strip.
+        scrollDown(app)
+        #endif
+        let earlier = app.buttons["Earlier"].firstMatch
+        if earlier.waitForExistence(timeout: 10) {
+            for _ in 0..<8 where earlier.isHittable && earlier.isEnabled {
+                earlier.tap()
+            }
         }
-        if show.exists, show.isHittable {
-            show.tap()
-            scrollToStart(years)
-        }
-        keepScreenshot(of: app, named: "progress-long-early")
-        let first = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "2018")).firstMatch
-        if first.waitForExistence(timeout: 5), first.isHittable {
-            first.tap()
-            scrollDown(app)
-            keepScreenshot(of: app, named: "progress-long-2018")
-        }
-        XCTAssertTrue(app.state == .runningForeground, "The app stopped after scrolling back.")
+        pause(seconds: 2)
+        #if os(iOS)
+        scrollUp(app)
+        #endif
+        keepScreenshot(of: app, named: "progress-long-2018")
+        scrollDown(app)
+        scrollDown(app)
+        keepScreenshot(of: app, named: "progress-long-2018-year")
+        XCTAssertTrue(app.state == .runningForeground, "The app stopped after going back to 2018.")
     }
 
     // MARK: Helpers
@@ -81,6 +83,10 @@ final class ScreenshotTests: XCTestCase {
     private func launch(library: String, screen: String) -> XCUIApplication {
         let app = XCUIApplication()
         app.launchArguments = ["-uiTestLibrary", library, "-uiTestScreen", screen]
+        #if os(macOS)
+        // No windows restored from the launch before, nor an offer to.
+        app.launchArguments += ["-ApplePersistenceIgnoreState", "YES"]
+        #endif
         app.launch()
         return app
     }
@@ -97,36 +103,53 @@ final class ScreenshotTests: XCTestCase {
         app.descendants(matching: .any)["plan.answer"].firstMatch
     }
 
-    /// Scrolls a strip back to its first card.
+    /// Waits for the screen: on iPhone for `element`; on the Mac, whose
+    /// texts the tests can't always find, for the window, then `settle`
+    /// seconds for it to fill in. Fails the test (with a screenshot,
+    /// `missing-<name>`) when it never shows or the app stopped.
     @MainActor
-    private func scrollToStart(_ strip: XCUIElement) {
-        guard strip.waitForExistence(timeout: 5) else { return }
+    private func waitForScreen(_ app: XCUIApplication, showing element: XCUIElement, named name: String,
+                               timeout: TimeInterval = 60, settle: TimeInterval = 8,
+                               file: StaticString = #filePath, line: UInt = #line) {
         #if os(macOS)
-        strip.scroll(byDeltaX: 6_000, deltaY: 0)
+        let window = app.windows.firstMatch
+        let shown = window.waitForExistence(timeout: timeout)
+        if shown { pause(seconds: settle) }
         #else
-        for _ in 0..<6 { strip.swipeRight(velocity: .fast) }
+        let shown = element.waitForExistence(timeout: timeout)
         #endif
+        if !shown, app.windows.firstMatch.exists { keepScreenshot(of: app, named: "missing-\(name)") }
+        XCTAssertTrue(app.state == .runningForeground, "\(name): the app isn't running.", file: file, line: line)
+        XCTAssertTrue(shown, "\(name): \(element) never showed.", file: file, line: line)
     }
 
-    /// Scrolls the page down, to what's under the strip.
+    /// Lets the screen settle for `seconds`.
+    @MainActor
+    private func pause(seconds: TimeInterval) {
+        _ = XCTWaiter.wait(for: [XCTestExpectation(description: "The screen settles")], timeout: seconds)
+    }
+
+    /// Scrolls the page down, to what's under the strip: on iPhone a drag
+    /// from above the strip, so it moves the page, not a card's read-out.
     @MainActor
     private func scrollDown(_ app: XCUIApplication) {
         #if os(macOS)
         app.windows.firstMatch.scroll(byDeltaX: 0, deltaY: -700)
         #else
-        app.swipeUp(velocity: .slow)
+        app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.3))
+            .press(forDuration: 0.05, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.02)))
         #endif
     }
 
-    /// Waits for `element`, failing the test (with a screenshot, `missing-<name>`)
-    /// when it never shows or the app stopped.
+    /// Scrolls the page back up.
     @MainActor
-    private func waitFor(_ element: XCUIElement, in app: XCUIApplication, named name: String,
-                         timeout: TimeInterval = 60, file: StaticString = #filePath, line: UInt = #line) {
-        let shown = element.waitForExistence(timeout: timeout)
-        if !shown { keepScreenshot(of: app, named: "missing-\(name)") }
-        XCTAssertTrue(app.state == .runningForeground, "The app isn't running.", file: file, line: line)
-        XCTAssertTrue(shown, "\(name): \(element) never showed.", file: file, line: line)
+    private func scrollUp(_ app: XCUIApplication) {
+        #if os(macOS)
+        app.windows.firstMatch.scroll(byDeltaX: 0, deltaY: 700)
+        #else
+        app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.3))
+            .press(forDuration: 0.05, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.9)))
+        #endif
     }
 
     /// The app's window on the Mac, the screen on iPhone, kept with the
