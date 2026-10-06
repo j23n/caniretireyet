@@ -738,8 +738,13 @@ struct PlanYearStrip: View {
         if !expected.isEmpty {
             series.append(ChartSummary.Series(name: "What you expected", points: expected))
         }
-        let describe: @Sendable (Double) -> String = hidesAmounts ? { _ in AmountFormat.hidden }
-            : ChartStyle.spokenAmount(currency: card.currency)
+        let describe: @Sendable (Double) -> String
+        if hidesAmounts {
+            let hidden = AmountFormat.hidden
+            describe = { _ in hidden }
+        } else {
+            describe = ChartStyle.spokenAmount(currency: card.currency)
+        }
         return ChartSummary(
             title: card.year.title,
             summary: PlanProgressText.story(card.year, currency: card.currency, hidesAmounts: hidesAmounts,
