@@ -3,9 +3,9 @@ import Planner
 import SwiftUI
 
 /// The plan (UI.md, "Plan"): the answer; your life as a strip of chapters
-/// with one graph running through them; the chosen chapter in words below,
-/// with its values to change where they read; what every chapter assumes;
-/// and, folded away, the charts behind the answer.
+/// with one graph running through them; the chosen chapter below, in words
+/// and with its settings, where the plan changes; what every chapter
+/// assumes; and, folded away, the charts behind the answer.
 ///
 /// Nothing runs on its own (UI.md, "Calculating"): before the first
 /// calculation the answer recorded at the last check-in shows with

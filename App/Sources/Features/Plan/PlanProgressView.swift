@@ -722,7 +722,7 @@ struct PlanYearCardView: View {
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(aheadColor)
             } else {
-                Text("No January baseline")
+                Text(card.year.checkIns == 0 ? "No check-ins · from prices" : "No January baseline")
                     .font(.caption)
                     .foregroundStyle(Palette.mutedInk)
             }

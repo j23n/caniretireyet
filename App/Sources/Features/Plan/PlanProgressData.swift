@@ -138,7 +138,12 @@ struct PlanBaselineComparison: Sendable {
         fan = Self.fan(for: baseline)
         let accounts = Set(baseline.accounts)
         currency = PlanMoney.currency(of: baseline, settings: library.settings)
-        let values = valuator.checkInDates(in: .planAssets, through: asOf).filter { $0 > baseline.start.date }
+        // Each check-in after the start, and the month ends between them without
+        // one, through the latest check-in: where you stand is as of it.
+        let checkIns = valuator.checkInDates(in: .planAssets, through: asOf)
+        let end = max(checkIns.last ?? baseline.start.date, baseline.start.date)
+        let values = PlanProgressYear.lineDates(from: baseline.start.date, to: end, checkIns: checkIns)
+            .filter { $0 > baseline.start.date }
             .map { date in
                 let total = valuator.total(on: date, including: { accounts.contains($0.id) })
                 return SeriesPoint(date: date, value: total.total, isComplete: total.isComplete)
@@ -321,20 +326,24 @@ struct PlanProgressYear: Hashable, Sendable, Identifiable {
         return to - from
     }
 
-    /// The plan's progress in each calendar year with a check-in of plan
-    /// assets, on or before `asOf`, newest first.
+    /// The plan's progress in each calendar year from the first record of
+    /// a plan asset (a value, or a trade) through the latest check-in of
+    /// plan assets on or before `asOf`, newest first. A year without a
+    /// check-in is measured from what you held and its prices, from the end
+    /// of the year before to its own (PROGRESS.md, "Year by year").
     static func years(for plan: PlanID, library: Library, valuator: Valuator,
                       asOf: CalendarDate) -> [PlanProgressYear] {
         let dates = valuator.checkInDates(in: .planAssets, through: asOf)
         guard let latest = dates.last else { return [] }
+        let start = min(valuator.firstValuationDate(in: .planAssets) ?? latest, latest)
         let history = PlanAnswerHistory(library.headlines(for: plan))
         let baselines = PlanBaselineComparison.baselines(for: plan, in: library)
         let byYear = Dictionary(grouping: dates, by: \.year)
-        return byYear.keys.sorted(by: >).compactMap { year -> PlanProgressYear? in
-            guard let checkIns = byYear[year], let first = checkIns.first, let last = checkIns.last else {
-                return nil
-            }
-            let from = dates.last { $0 < first } ?? first
+        return (start.year...latest.year).reversed().compactMap { year -> PlanProgressYear? in
+            let checkIns = byYear[year] ?? []
+            guard let measured = span(of: year, checkIns: checkIns, all: dates, start: start) else { return nil }
+            let from = measured.from
+            let last = measured.to
             let report = valuator.change(from: from, to: last, in: .planAssets)
             let inYear = history.points.filter { $0.date.year == year && $0.date <= last }
             let before = history.points.last { $0.date.year < year }
@@ -355,6 +364,43 @@ struct PlanProgressYear: Hashable, Sendable, Identifiable {
 }
 
 extension PlanProgressYear {
+    /// Where a year is measured from and to: from the check-in before it
+    /// when that's in the year before, else that year's last day (or, in
+    /// the first year, the first record); to its last check-in, else its
+    /// last day. `nil` for a year with nothing to measure.
+    static func span(of year: Int, checkIns: [CalendarDate], all dates: [CalendarDate],
+                     start: CalendarDate) -> (from: CalendarDate, to: CalendarDate)? {
+        guard let yearEnd = CalendarDate(year: year, month: 12, day: 31),
+              let previousEnd = CalendarDate(year: year - 1, month: 12, day: 31) else { return nil }
+        let before = dates.last { $0 <= previousEnd }
+        let from: CalendarDate
+        if let before, before.year == year - 1 {
+            from = before
+        } else if previousEnd >= start {
+            from = previousEnd
+        } else {
+            from = start
+        }
+        let to = checkIns.last ?? yearEnd
+        guard from < to || (!checkIns.isEmpty && from == to) else { return nil }
+        return (from, to)
+    }
+
+    /// The days a line of plan assets is drawn at from `from` through `to`:
+    /// each check-in, and the end of every month without one, valued from
+    /// what you held and its prices; and both ends.
+    static func lineDates(from: CalendarDate, to: CalendarDate, checkIns: [CalendarDate]) -> [CalendarDate] {
+        let inside = checkIns.filter { $0 >= from && $0 <= to }
+        let months = Set(inside.map(\.yearMonth))
+        var days = Set(inside)
+        days.insert(from)
+        days.insert(to)
+        for monthEnd in DateGrid.monthEnds(from: from, through: to) where !months.contains(monthEnd.yearMonth) {
+            days.insert(monthEnd)
+        }
+        return days.sorted()
+    }
+
     /// Where the latest check-in stands against its year's automatic
     /// baseline, in the baseline's currency; `nil` without one.
     static func latestPosition(for plan: PlanID, library: Library, valuator: Valuator, asOf: CalendarDate)
@@ -552,7 +598,11 @@ struct PlanProgressTimeline {
                     }
                 }
             } else {
-                actual = dates.filter { $0 >= year.from && $0 <= year.to }.map { day in
+                // From the last day before the year (drawn at its left edge) through its end.
+                let days = PlanProgressYear.lineDates(from: year.from, to: year.to, checkIns: dates)
+                let firstOfYear = CalendarDate(year: year.year, month: 1, day: 1) ?? year.from
+                let lead = days.last { $0 < firstOfYear } ?? firstOfYear
+                actual = days.filter { $0 >= lead }.map { day in
                     let total = valuator.total(on: day, in: .planAssets)
                     return ChartPoint(date: day.dateValue, value: total.total.doubleValue, isComplete: total.isComplete)
                 }
@@ -690,6 +740,9 @@ enum PlanProgressText {
             hidesAmounts ? AmountFormat.hidden : AmountFormat.amount(abs(value), currency: currency, locale: locale)
         }
         var sentences: [String] = []
+        if year.checkIns == 0 {
+            sentences.append("No check-ins this year: what you held is valued at its prices.")
+        }
         if year.from != year.to {
             let saved = year.change.newMoney
             let market = year.change.market
