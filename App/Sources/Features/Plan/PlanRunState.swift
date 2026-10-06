@@ -174,6 +174,8 @@ enum PlanRunText {
             return "Sustainable spending: step \(done) / \(total)"
         case .assetsNeeded:
             return "Needed to retire today: step \(done) / \(total)"
+        case .agesWithout:
+            return "Coast age and windfalls: step \(done) / \(total)"
         case .summarising:
             return "Summarising"
         }

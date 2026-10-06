@@ -96,9 +96,11 @@ public enum Planner {
 
         // The headline grid may be refined by up to 3 ages between two of its own.
         let refinement = options.ageScan == .headline ? min(3, max(0, maxAge - current + 1 - ages.count)) : 0
+        let changes: [AgeWithout.Change] = (options.solveCoastAge ? [.saving] : [])
+            + (options.solveWithoutWindfalls ? uncertainWindfalls(plan).map { .windfall(index: $0) } : [])
         progress?.plan(runs: model.runs, ages: ages.count + refinement,
                        solvesSpending: options.solveSustainableSpending,
-                       solvesAssetsNeeded: options.solveAssetsNeeded)
+                       solvesAssetsNeeded: options.solveAssetsNeeded, agesWithout: changes.count)
         progress?.begin(.earliestAge, total: ages.count, per: model.runs, expected: ages.count + refinement,
                         ages: ages[0]...ages[ages.count - 1])
         var engine = try await Engine.make(model: model, ages: ages, maxAge: maxAge)
@@ -154,6 +156,22 @@ public enum Planner {
             assetsNeeded = search.answer
             scaleSteps = search.steps
         }
+        var agesWithout: [AgeWithout] = []
+        if !changes.isEmpty {
+            // Less to live on never makes an earlier age work, so each search
+            // starts at the plan's own earliest age; without one, none works.
+            let lowest = earliest ?? maxAge
+            progress?.begin(.agesWithout, total: changes.count * bisectionSteps(from: lowest, to: maxAge))
+            for change in changes {
+                try Task.checkCancellation()
+                var age: Int?
+                if earliest != nil {
+                    age = try await earliestAge(of: Self.plan(plan, without: change), library: library,
+                                                options: options, from: lowest, maxAge: maxAge, progress: progress)
+                }
+                agesWithout.append(AgeWithout(change: change, earliestAge: age))
+            }
+        }
         progress?.begin(.summarising, total: 1)
 
         var fan: [FanYear] = []
@@ -177,7 +195,7 @@ public enum Planner {
             successIfRetiringNow: successNow, earliestAge: earliest,
             earliestDate: earliest.map { model.retirementDate(forAge: $0) }, targetAge: target,
             successAtTarget: target.flatMap { rates[$0] }, sustainableSpending: sustainable,
-            assetsNeeded: assetsNeeded)
+            assetsNeeded: assetsNeeded, agesWithout: agesWithout)
 
         let pensionAges = Dictionary(model.pensions.map { ($0.id, $0.fromAge) }, uniquingKeysWith: { first, _ in first })
         let curve = sortedAges.map { age in
@@ -205,6 +223,74 @@ public enum Planner {
         progress?.finish()
         return ComputedRun(result: result, engine: engine, outcomes: outcomes, spendingSteps: spendingSteps,
                            scaleSteps: scaleSteps)
+    }
+
+    // MARK: Ages without
+
+    /// The earliest age from `lowest` to `maxAge` at which `plan` reaches its
+    /// confidence level, by bisection over ages (retiring later rarely does
+    /// worse): `nil` when `maxAge` doesn't, or when the plan can't run. With
+    /// the same options, it simulates the same futures as the plan's own run.
+    static func earliestAge(of plan: PlanDocument, library: Library, options: PlannerOptions, from lowest: Int,
+                            maxAge: Int, progress: ProgressReporter?) async throws -> Int? {
+        let (interpreted, _) = PlanInterpreter.interpret(plan: plan, library: library, options: options)
+        guard let model = interpreted else { return nil }
+        let lowest = min(max(lowest, model.currentAge), maxAge)
+        var engine = try await Engine.make(model: model, ages: [lowest], maxAge: maxAge)
+        guard try await engine.reaches(maxAge, progress: progress) else { return nil }
+        guard lowest < maxAge else { return maxAge }
+        if try await engine.reaches(lowest, progress: progress) { return lowest }
+        var low = lowest
+        var high = maxAge
+        while high - low > 1 {
+            let middle = (low + high) / 2
+            try await engine.prepare(ages: [middle])
+            if try await engine.reaches(middle, progress: progress) { high = middle } else { low = middle }
+        }
+        return high
+    }
+
+    /// The ages a bisection from `lowest` to `highest` tries at most: both
+    /// ends, then halving the gap.
+    static func bisectionSteps(from lowest: Int, to highest: Int) -> Int {
+        var steps = 2
+        var span = highest - lowest
+        while span > 1 {
+            span = (span + 1) / 2
+            steps += 1
+        }
+        return steps
+    }
+
+    /// `plan` with one thing different (``AgeWithout/Change``): saving
+    /// nothing more, each work phase paying at most the spending while
+    /// working, without growth, and no contributions; or an uncertain
+    /// windfall that never comes (its probability 0, so the other events'
+    /// draws stay the same).
+    public static func plan(_ plan: PlanDocument, without change: AgeWithout.Change) -> PlanDocument {
+        var plan = plan
+        switch change {
+        case .saving:
+            for index in plan.work.indices {
+                if let income = plan.work[index].netIncome {
+                    plan.work[index].netIncome = min(income, plan.spending.working)
+                }
+                plan.work[index].realGrowth = nil
+            }
+            plan.contributions = []
+        case .windfall(let index):
+            if plan.events.indices.contains(index) { plan.events[index].probability = 0 }
+        }
+        return plan
+    }
+
+    /// The indices of `plan`'s uncertain windfalls: events that bring money,
+    /// likely but not certain.
+    public static func uncertainWindfalls(_ plan: PlanDocument) -> [Int] {
+        plan.events.indices.filter { index in
+            let event = plan.events[index]
+            return event.amount > 0 && event.effectiveProbability > 0 && event.effectiveProbability < 1
+        }
     }
 
     /// Issues without repeats, in their first order.

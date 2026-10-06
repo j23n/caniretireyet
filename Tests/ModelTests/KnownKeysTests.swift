@@ -108,8 +108,9 @@ struct KnownKeysTests {
         (BaselineYear(year: 2026, expected: 1, p10: 1, p25: 1, p50: 1, p75: 1, p90: 1, savings: 1), BaselineYear.knownKeys),
         (summary, HeadlineSummary.knownKeys),
         (HeadlineFile(headlines: []), HeadlineFile.knownKeys),
-        (Headline(date: "2026-09-30", confidence: d("0.9"), earliestAge: 54, engine: "1", fiProgress: d("0.4"),
-                  planHash: "h", readiness: d("0.58"), successAtTarget: d("0.8"), taxParameters: ["it": 2026]),
+        (Headline(date: "2026-09-30", coastAge: 61, confidence: d("0.9"), earliestAge: 54, engine: "1",
+                  fiProgress: d("0.4"), planHash: "h", readiness: d("0.58"), successAtTarget: d("0.8"),
+                  taxParameters: ["it": 2026]),
          Headline.knownKeys),
     ] }
 

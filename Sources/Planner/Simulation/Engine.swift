@@ -62,6 +62,26 @@ struct Engine: Sendable {
         return Dictionary(uniqueKeysWithValues: zip(ages, rates))
     }
 
+    /// Whether `age` (prepared) reaches the confidence level, its runs split
+    /// across workers: what the scan works out, for one age. `progress`
+    /// counts it as one step.
+    func reaches(_ age: Int, progress: ProgressReporter? = nil) async throws -> Bool {
+        let engine = self
+        let spending = model.spending.retired
+        let chunks = Self.chunks(scenarios.runs).map { Array($0) }
+        let successes = try await parallelMap(chunks) { chunk -> Int in
+            var simulator = engine.simulator(age: age)
+            var count = 0
+            for (offset, run) in chunk.enumerated() {
+                if offset > 0, offset % Self.runsPerChunk == 0 { try await Self.pause() }
+                if simulator.run(run, spending: spending).failure == nil { count += 1 }
+            }
+            return count
+        }
+        progress?.advance()
+        return Double(successes.reduce(0, +)) / Double(scenarios.runs) >= model.confidence
+    }
+
     /// Every run at one age, with year-end values (and, with flexible
     /// spending, the spending paid each year, run by run like the values;
     /// empty without it): split across workers. `progress` counts the runs

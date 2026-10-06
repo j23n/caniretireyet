@@ -83,13 +83,43 @@ struct MilestoneTests {
         let ladder = MilestoneLadder(plan: plan, library: library, on: "2026-09-30")
         let reached = ladder.reached(plan: plan.id, library: library, valuator: valuator, through: "2026-09-30")
         let dates = valuator.checkInDates(in: .planAssets, through: "2026-09-30")
-        for milestone in reached where milestone.milestone.share == nil {
+        for milestone in reached {
+            switch milestone.milestone.kind {
+            case .shareOfNeeded, .coastPoint: continue
+            case .roundAmount, .yearsOfSpending, .crossover: break
+            }
             let value = valuator.total(on: milestone.date, in: .planAssets).total
             #expect(value >= milestone.milestone.amount)
             for day in dates where day < milestone.date {
                 #expect(valuator.total(on: day, in: .planAssets).total < milestone.milestone.amount)
             }
         }
+    }
+
+    @Test func theCoastPointIsReachedWhenTheCoastAgeComesDownToThePension() {
+        let ladder = MilestoneLadder(coastTarget: 67)
+        let values = points([("2026-06-30", 280_000), ("2026-07-31", 281_000), ("2026-08-31", 283_000),
+                             ("2026-09-30", 279_000)])
+        let coastAges = points([("2026-06-30", 69), ("2026-07-31", 68), ("2026-08-31", 67), ("2026-09-30", 66)])
+        let reached = ladder.reached(values: values, coastAges: coastAges)
+        #expect(reached.map(\.id) == ["coast"])
+        #expect(reached.map(\.date) == ["2026-08-31"])
+        #expect(reached.first?.milestone.kind == .coastPoint(age: 67))
+
+        // Already at or below it at the first record: behind you.
+        #expect(ladder.reached(values: values, coastAges: points([("2026-06-30", 66), ("2026-07-31", 65)])).isEmpty)
+        // Without a pension there's no coast point.
+        #expect(MilestoneLadder().reached(values: values, coastAges: coastAges).isEmpty)
+    }
+
+    @Test func theExampleLibraryPassesItsCoastPointInAugust() throws {
+        let library = try Fixtures.exampleLibrary()
+        let plan = try #require(library.plans["base"])
+        let ladder = MilestoneLadder(plan: plan, library: library, on: "2026-09-30")
+        #expect(ladder.coastTarget == 67)
+        let reached = ladder.reached(plan: plan.id, library: library, valuator: Valuator(library: library),
+                                     through: "2026-09-30")
+        #expect(reached.first { $0.id == "coast" }?.date == "2026-08-31")
     }
 
     // MARK: Ahead and next

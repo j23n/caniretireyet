@@ -41,6 +41,17 @@ struct HeadlineTests {
         #expect(number.readiness == Self.d("1.07"))
     }
 
+    @Test func theCoastAgeIsWrittenWhenThereIsOne() throws {
+        let headline = Headline(date: "2026-09-30", coastAge: 61, earliestAge: 54, engine: "2.0.0", planHash: "h")
+        #expect(try json(headline).objectValue?["coastAge"] == .number(61))
+        #expect(try JSONDecoder().decode(Headline.self, from: JSONEncoder().encode(headline)) == headline)
+
+        // Older records have none, and write none.
+        let older = Headline(date: "2026-08-31", earliestAge: 54, engine: "0.1.0", planHash: "h")
+        #expect(older.coastAge == nil)
+        #expect(try json(older).objectValue?["coastAge"] == nil)
+    }
+
     @Test func aBaselineHeadlineCarriesReadiness() throws {
         let summary = HeadlineSummary(confidence: Self.d("0.9"), earliestAge: 55, successAtTarget: Self.d("0.81"),
                                       fiProgress: Self.d("0.37"), readiness: Self.d("0.07"))

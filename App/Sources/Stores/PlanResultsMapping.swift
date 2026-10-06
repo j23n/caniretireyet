@@ -39,6 +39,19 @@ struct PlanResultDetails: Hashable, Sendable {
     /// How the plan read your library: the accounts grouped by when they
     /// can be drawn.
     var reading: PlanLibraryReading? = nil
+    /// The earliest age saving nothing more (the coast age) and without
+    /// each uncertain windfall (PLANNER.md, "Ages without"); empty from runs
+    /// that don't look for them.
+    var agesWithout: [AgeWithout] = []
+
+    /// The coast age, when the run looked for it.
+    var coast: AgeWithout? { agesWithout.first { $0.change == .saving } }
+
+    /// The earliest age without the uncertain windfall at `index` of the
+    /// plan's events, when the run looked for it.
+    func withoutWindfall(_ index: Int) -> AgeWithout? {
+        agesWithout.first { $0.change == .windfall(index: index) }
+    }
 }
 
 /// How a plan read your library (PLANNER.md, "The portfolio"): the accounts it
@@ -187,7 +200,8 @@ extension PlanResults {
                 },
                 flexible: result.flexibleSpending, failuresByAge: result.failures.byAge),
             headline: result.headline(),
-            reading: PlanLibraryReading(result.start))
+            reading: PlanLibraryReading(result.start),
+            agesWithout: answer.agesWithout)
         currency = result.currency
     }
 

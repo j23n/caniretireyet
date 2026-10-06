@@ -35,6 +35,9 @@ struct PlanRunProgress: Hashable, Sendable {
         /// The plan assets retiring today would need, by bisection over
         /// scales of today's portfolio. Counted in steps.
         case assetsNeeded
+        /// The coast age and the earliest age without each uncertain
+        /// windfall, by bisection over ages. Counted in steps.
+        case agesWithout
         /// Percentiles, the median path, the key numbers. One step.
         case summarising
     }

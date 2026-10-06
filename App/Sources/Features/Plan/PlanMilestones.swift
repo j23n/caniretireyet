@@ -79,6 +79,8 @@ struct PlanMilestoneText {
             return Self.shareName(numerator, denominator) + " of what retiring today needs"
         case .crossover:
             return "The crossover"
+        case .coastPoint:
+            return "The coast point"
         }
     }
 
@@ -95,6 +97,8 @@ struct PlanMilestoneText {
             return "Your plan assets against what retiring today would need."
         case .crossover:
             return "From about \(amount(milestone.amount)), a typical year's growth adds as much as you save."
+        case .coastPoint(let age):
+            return "Saving nothing more, you could still retire at \(age), when your first pension starts."
         }
     }
 
@@ -113,6 +117,8 @@ struct PlanMilestoneText {
             return Self.shareName(numerator, denominator) + " of what retiring today needs."
         case .crossover:
             return "A typical year now adds more than you save."
+        case .coastPoint(let age):
+            return "Passed the coast point: saving nothing more, you could still retire at \(age)."
         }
     }
 

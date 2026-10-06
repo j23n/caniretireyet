@@ -35,8 +35,8 @@ extension PlanResult {
     public func headline(date: CalendarDate? = nil) -> Headline {
         let summary = headlineSummary
         return Headline(
-            date: date ?? start.date, confidence: summary.confidence, earliestAge: summary.earliestAge,
-            engine: engine, planHash: planHash, readiness: summary.readiness,
+            date: date ?? start.date, coastAge: answer.coast?.earliestAge, confidence: summary.confidence,
+            earliestAge: summary.earliestAge, engine: engine, planHash: planHash, readiness: summary.readiness,
             successAtTarget: summary.successAtTarget)
     }
 

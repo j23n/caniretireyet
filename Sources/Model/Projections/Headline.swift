@@ -89,6 +89,11 @@ extension HeadlineFile: Codable {
 public struct Headline: Hashable, Sendable, KeyedRecord, KnownKeysProviding {
     /// The check-in date. The record's key.
     public var date: CalendarDate
+    /// The earliest retirement age reaching the confidence level if nothing
+    /// more were saved from the check-in on: the coast age (PLANNER.md,
+    /// "Ages without"). `nil` when none does, and in records made before it
+    /// existed.
+    public var coastAge: Int?
     /// The confidence level used, if recorded.
     public var confidence: Decimal?
     /// The earliest retirement age reaching the confidence level; `nil` if none does.
@@ -112,11 +117,12 @@ public struct Headline: Hashable, Sendable, KeyedRecord, KnownKeysProviding {
     public var taxParameters: [String: Int]
 
     public init(
-        date: CalendarDate, confidence: Decimal? = nil, earliestAge: Int? = nil, engine: String,
+        date: CalendarDate, coastAge: Int? = nil, confidence: Decimal? = nil, earliestAge: Int? = nil, engine: String,
         fiProgress: Decimal? = nil, planHash: String, readiness: Decimal? = nil, successAtTarget: Decimal? = nil,
         taxParameters: [String: Int] = [:]
     ) {
         self.date = date
+        self.coastAge = coastAge
         self.confidence = confidence
         self.earliestAge = earliestAge
         self.engine = engine
@@ -138,7 +144,8 @@ public struct Headline: Hashable, Sendable, KeyedRecord, KnownKeysProviding {
 
 extension Headline: Codable {
     enum CodingKeys: String, CodingKey, CaseIterable {
-        case date, confidence, earliestAge, engine, fiProgress, planHash, readiness, successAtTarget, taxParameters
+        case date, coastAge, confidence, earliestAge, engine, fiProgress, planHash, readiness, successAtTarget,
+             taxParameters
     }
 
     public static var knownKeys: Set<String> { Set(CodingKeys.allCases.map(\.stringValue)) }
@@ -146,6 +153,7 @@ extension Headline: Codable {
     public init(from decoder: any Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         date = try c.decode(CalendarDate.self, forKey: .date)
+        coastAge = try c.decodeIfPresent(Int.self, forKey: .coastAge)
         confidence = try c.decodeDecimalIfPresent(forKey: .confidence)
         earliestAge = try c.decodeIfPresent(Int.self, forKey: .earliestAge)
         engine = try c.decode(String.self, forKey: .engine)
@@ -159,6 +167,7 @@ extension Headline: Codable {
     public func encode(to encoder: any Encoder) throws {
         var c = encoder.container(keyedBy: CodingKeys.self)
         try c.encode(date, forKey: .date)
+        try c.encodeIfPresent(coastAge, forKey: .coastAge)
         try c.encodeDecimalIfPresent(confidence, forKey: .confidence)
         try c.encodeIfPresent(earliestAge, forKey: .earliestAge)
         try c.encode(engine, forKey: .engine)

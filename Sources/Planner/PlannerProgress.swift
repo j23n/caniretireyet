@@ -26,6 +26,10 @@ public struct PlannerProgress: Hashable, Sendable {
         /// bisection. Counted in steps (amounts tried); the total is an
         /// estimate that can grow.
         case assetsNeeded
+        /// The earliest age saving nothing more (the coast age) and without
+        /// each uncertain windfall, each by bisection over ages. Counted in
+        /// steps (ages tried); the total is an estimate that can grow.
+        case agesWithout
         /// Percentiles, the median path, the FI number and the markers.
         /// One step.
         case summarising
@@ -106,19 +110,21 @@ final class ProgressReporter: @unchecked Sendable {
 
     /// Sets the phases' shares of the bar from the work each is expected to
     /// take, in runs simulated. Call before the first phase.
-    func plan(runs: Int, ages: Int, solvesSpending: Bool, solvesAssetsNeeded: Bool = false) {
+    func plan(runs: Int, ages: Int, solvesSpending: Bool, solvesAssetsNeeded: Bool = false, agesWithout: Int = 0) {
         lock.withLock {
             self.runs = max(1, runs)
             let perAge = Double(self.runs)
             // Measured on the example plan with the Italian system: the
             // runs of one age in detail take about as long as one age of
             // the scan, the spending bisection about five, the search for
-            // the assets needed today about four, the summary a tenth.
+            // the assets needed today about four, the summary a tenth; each
+            // age without something, about six ages of the scan.
             weights = [
                 .earliestAge: Double(max(1, ages)) * perAge,
                 .simulating: perAge,
                 .sustainableSpending: solvesSpending ? 5 * perAge : 0,
                 .assetsNeeded: solvesAssetsNeeded ? 4 * perAge : 0,
+                .agesWithout: Double(max(0, agesWithout)) * 6 * perAge,
                 .summarising: 0.1 * perAge,
             ]
         }

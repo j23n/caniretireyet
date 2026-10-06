@@ -168,11 +168,16 @@ public struct PlanAnswer: Hashable, Sendable {
     /// level. `nil` when the run didn't look for it
     /// (``PlannerOptions/solveAssetsNeeded``).
     public var assetsNeeded: AssetsNeeded?
+    /// The earliest age with one thing different: saving nothing more (the
+    /// coast age), or without an uncertain windfall (PLANNER.md, "Ages
+    /// without"). Empty unless the run looked for them
+    /// (``PlannerOptions/solveCoastAge``, ``PlannerOptions/solveWithoutWindfalls``).
+    public var agesWithout: [AgeWithout]
 
     public init(canRetireNow: Bool, confidence: Double, currentAge: Int, successIfRetiringNow: Double,
                 earliestAge: Int? = nil, earliestDate: CalendarDate? = nil, targetAge: Int? = nil,
                 successAtTarget: Double? = nil, sustainableSpending: SustainableSpending? = nil,
-                assetsNeeded: AssetsNeeded? = nil) {
+                assetsNeeded: AssetsNeeded? = nil, agesWithout: [AgeWithout] = []) {
         self.canRetireNow = canRetireNow
         self.confidence = confidence
         self.currentAge = currentAge
@@ -183,6 +188,19 @@ public struct PlanAnswer: Hashable, Sendable {
         self.successAtTarget = successAtTarget
         self.sustainableSpending = sustainableSpending
         self.assetsNeeded = assetsNeeded
+        self.agesWithout = agesWithout
+    }
+
+    /// The coast age: the earliest age reaching the confidence level when
+    /// nothing more is saved; `nil` when the run didn't look for it.
+    public var coast: AgeWithout? {
+        agesWithout.first { $0.change == .saving }
+    }
+
+    /// The earliest age without the uncertain windfall at `index` of the
+    /// plan's events; `nil` when the run didn't look for it.
+    public func withoutWindfall(_ index: Int) -> AgeWithout? {
+        agesWithout.first { $0.change == .windfall(index: index) }
     }
 
     /// The plan assets that would make retiring today reach the confidence
@@ -287,6 +305,30 @@ public struct AssetsNeeded: Hashable, Sendable {
     public var leavesOnlyLockedMoney: Bool {
         guard outcome == .atMost, let extra, let accessible else { return false }
         return accessible <= 0 || extra <= -accessible * (1 - 1e-9)
+    }
+}
+
+/// The earliest retirement age reaching the confidence level with one
+/// thing different from the plan (PLANNER.md, "Ages without").
+public struct AgeWithout: Hashable, Sendable {
+    /// What's different.
+    public enum Change: Hashable, Sendable {
+        /// Nothing more saved from the start date: each work phase pays at
+        /// most the spending while working, without growth, and
+        /// contributions stop. The age is the coast age.
+        case saving
+        /// The uncertain windfall at this index of the plan's events never comes.
+        case windfall(index: Int)
+    }
+
+    public var change: Change
+    /// The earliest age reaching the confidence level, from the plan's own
+    /// earliest age up to the oldest scanned; `nil` when none does.
+    public var earliestAge: Int?
+
+    public init(change: Change, earliestAge: Int?) {
+        self.change = change
+        self.earliestAge = earliestAge
     }
 }
 

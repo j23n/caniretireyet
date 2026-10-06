@@ -15,12 +15,17 @@ public struct Milestone: Hashable, Sendable, Identifiable {
         case shareOfNeeded(numerator: Int, denominator: Int)
         /// Where a typical year's growth matches a year's saving.
         case crossover
+        /// Saving nothing more, retiring when the first pension starts
+        /// reaches the confidence level: the recorded coast age is at most
+        /// that age (PLANNER.md, "Ages without").
+        case coastPoint(age: Int)
     }
 
     public var kind: Kind
     /// The plan assets that reach it. For a share of what retiring today
     /// needs: that share of what it needs now, or, once a check-in reached
-    /// it, the plan assets at that check-in.
+    /// it, the plan assets at that check-in; for the coast point, the plan
+    /// assets at the check-in that reached it.
     public var amount: Decimal
 
     public init(kind: Kind, amount: Decimal) {
@@ -35,6 +40,7 @@ public struct Milestone: Hashable, Sendable, Identifiable {
         case .yearsOfSpending(let years): "years-\(years)"
         case .shareOfNeeded(let numerator, let denominator): "share-\(numerator)-\(denominator)"
         case .crossover: "crossover"
+        case .coastPoint: "coast"
         }
     }
 
@@ -51,6 +57,7 @@ public struct Milestone: Hashable, Sendable, Identifiable {
         case .yearsOfSpending: 1
         case .shareOfNeeded: 2
         case .crossover: 3
+        case .coastPoint: 4
         }
     }
 }
@@ -109,11 +116,16 @@ public struct MilestoneLadder: Hashable, Sendable {
     /// Where a typical year's growth matches a year's saving; `nil` without
     /// saving or growth.
     public var crossover: Decimal?
+    /// The age the coast point is for: when the first pension starts; `nil`
+    /// without a pension.
+    public var coastTarget: Int?
 
-    public init(spending: Decimal? = nil, neededToday: Decimal? = nil, crossover: Decimal? = nil) {
+    public init(spending: Decimal? = nil, neededToday: Decimal? = nil, crossover: Decimal? = nil,
+                coastTarget: Int? = nil) {
         self.spending = spending
         self.neededToday = neededToday
         self.crossover = crossover
+        self.coastTarget = coastTarget
     }
 
     /// The round amounts' first digits, times ten: 1, 1.5, 2, 2.5, 3, 4, 5, 6 and 7.5.
@@ -172,11 +184,16 @@ public struct MilestoneLadder: Hashable, Sendable {
     /// needs where the recorded readiness first reaches them, with the plan
     /// assets of that check-in as their amount.
     ///
+    /// The coast point is reached at the first check-in whose recorded coast
+    /// age is at most ``coastTarget``, after one above it.
+    ///
     /// - Parameters:
     ///   - values: plan assets at each check-in, oldest first.
     ///   - readiness: the readiness recorded at check-ins, oldest first
     ///     (1 is all that retiring today needs).
-    public func reached(values: [SeriesPoint], readiness: [SeriesPoint] = []) -> [ReachedMilestone] {
+    ///   - coastAges: the coast age recorded at check-ins, oldest first.
+    public func reached(values: [SeriesPoint], readiness: [SeriesPoint] = [],
+                        coastAges: [SeriesPoint] = []) -> [ReachedMilestone] {
         var reached: [ReachedMilestone] = []
         let amounts = MilestoneLadder(spending: spending, crossover: crossover)
         if var high = values.first?.value {
@@ -199,6 +216,17 @@ public struct MilestoneLadder: Hashable, Sendable {
                 high = point.value
             }
         }
+        if let target = coastTarget, var low = coastAges.first?.value {
+            let age = Decimal(target)
+            for point in coastAges.dropFirst() where point.value < low {
+                if point.value <= age, low > age {
+                    let assets = values.last { $0.date <= point.date }?.value ?? 0
+                    reached.append(ReachedMilestone(milestone: Milestone(kind: .coastPoint(age: target), amount: assets),
+                                                    date: point.date))
+                }
+                low = point.value
+            }
+        }
         return reached.sorted {
             ($0.date, $0.milestone.amount, $0.milestone.kindOrder) < ($1.date, $1.milestone.amount, $1.milestone.kindOrder)
         }
@@ -211,11 +239,16 @@ public struct MilestoneLadder: Hashable, Sendable {
         let values = valuator.checkInDates(in: .planAssets, through: date).map { day in
             SeriesPoint(date: day, value: valuator.total(on: day, in: .planAssets).total)
         }
-        let readiness = library.headlines(for: plan)
+        let headlines = library.headlines(for: plan)
             .filter { $0.date <= date }
             .sorted { $0.date < $1.date }
-            .compactMap { headline in headline.readiness.map { SeriesPoint(date: headline.date, value: $0) } }
-        return reached(values: values, readiness: readiness)
+        let readiness = headlines.compactMap { headline in
+            headline.readiness.map { SeriesPoint(date: headline.date, value: $0) }
+        }
+        let coastAges = headlines.compactMap { headline in
+            headline.coastAge.map { SeriesPoint(date: headline.date, value: Decimal($0)) }
+        }
+        return reached(values: values, readiness: readiness, coastAges: coastAges)
     }
 
     // MARK: Ahead
@@ -296,7 +329,8 @@ extension MilestoneLadder {
     /// (``crossover(plan:library:on:)``).
     public init(plan: PlanDocument, library: Library, on date: CalendarDate, neededToday: Decimal? = nil) {
         self.init(spending: plan.spending.retired > 0 ? plan.spending.retired : nil, neededToday: neededToday,
-                  crossover: Self.crossover(plan: plan, library: library, on: date))
+                  crossover: Self.crossover(plan: plan, library: library, on: date),
+                  coastTarget: plan.pensions.compactMap(\.fromAge).min())
     }
 
     /// Where a typical year's growth matches a year's saving, in whole

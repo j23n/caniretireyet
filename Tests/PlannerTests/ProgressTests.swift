@@ -81,7 +81,7 @@ struct ProgressTests {
     }
 
     @Test func thePhasesComeInOrderWithTheirOwnCounts() async throws {
-        let options = PlannerOptions(maxRetirementAge: 70, solveSustainableSpending: true)
+        let options = PlannerOptions(maxRetirementAge: 70, solveSustainableSpending: true, solveCoastAge: true)
         let (result, updates) = try await everyUpdate(plan(), options: options)
         let phases = PlannerProgress.Phase.allCases
 
@@ -121,6 +121,13 @@ struct ProgressTests {
         #expect(lastScale.completed >= 3 && lastScale.completed <= lastScale.total)
         #expect(scales.map(\.completed) == scales.map(\.completed).sorted())
         #expect(result.answer.assetsNeeded != nil)
+
+        // The coast age's bisection: a few ages, never more than the total says.
+        let without = updates.filter { $0.phase == .agesWithout }
+        let lastWithout = try #require(without.last)
+        #expect(lastWithout.completed <= lastWithout.total)
+        #expect(without.map(\.completed) == without.map(\.completed).sorted())
+        #expect(result.answer.coast != nil)
     }
 
     @Test func theHeadlineScanCountsTheAgesItRefines() async throws {

@@ -34,6 +34,10 @@
       "required": ["date", "engine", "planHash"],
       "properties": {
         "date": { "description": "The check-in's date.", "$ref": "common.schema.json#/$defs/date" },
+        "coastAge": {
+          "description": "The earliest retirement age reaching the confidence level if nothing more were saved from the check-in on (PLANNER.md, Ages without): the coast age. Left out when none does, and in records made before it existed.",
+          "type": "integer"
+        },
         "confidence": { "$ref": "#/$defs/summary/properties/confidence" },
         "earliestAge": { "$ref": "#/$defs/summary/properties/earliestAge" },
         "successAtTarget": { "$ref": "#/$defs/summary/properties/successAtTarget" },
