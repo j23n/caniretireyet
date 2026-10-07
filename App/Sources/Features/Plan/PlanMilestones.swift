@@ -78,6 +78,11 @@ struct PlanMilestones {
         }
     }
 
+    /// The coast point, when a check-in reached it; `nil` if none did.
+    var coastPointReached: ReachedMilestone? {
+        reached.last { if case .coastPoint = $0.milestone.kind { true } else { false } }
+    }
+
     /// A share as the headline records it: rounded down to whole percent.
     static func share(_ value: Double) -> Decimal {
         Decimal(Int(wholeNumber: value * 100, rounding: .down)) / 100
@@ -109,6 +114,40 @@ struct PlanMilestoneText {
         case .coastPoint:
             return "The coast point"
         }
+    }
+
+    /// Its name on a graph, short: "300.000 €", "10 years of spending", "A
+    /// quarter of what you need", "Crossover", "Coast point".
+    func label(_ milestone: Milestone) -> String {
+        switch milestone.kind {
+        case .roundAmount:
+            return hidesAmounts ? "A round amount" : amount(milestone.amount)
+        case .yearsOfSpending(let years):
+            return years == 1 ? "A year of spending" : "\(years) years of spending"
+        case .shareOfNeeded(let numerator, let denominator):
+            return Self.shareName(numerator, denominator) + " of what you need"
+        case .crossover:
+            return "Crossover"
+        case .coastPoint:
+            return "Coast point"
+        }
+    }
+
+    /// Under the next milestone: the amount its name doesn't say, and when
+    /// the median future typically reaches it: "180.000 € · typically by
+    /// late 2028", "Typically by mid 2027"; `nil` with neither.
+    func caption(_ next: NextMilestone, date: CalendarDate?) -> String? {
+        var parts: [String] = []
+        switch next.milestone.kind {
+        case .roundAmount, .coastPoint:
+            break
+        case .yearsOfSpending, .shareOfNeeded, .crossover:
+            parts.append(amount(next.milestone.amount))
+        }
+        if let date { parts.append("typically by \(Self.when(date))") }
+        guard !parts.isEmpty else { return nil }
+        let text = parts.joined(separator: " · ")
+        return text.prefix(1).uppercased() + text.dropFirst()
     }
 
     /// What it means, under its name: "Enough to pay for 10 years of the
@@ -179,6 +218,24 @@ struct PlanMilestoneText {
             return could + ", by your first pension at \(target): you're past the coast point."
         }
         return could + "; the coast point is \(target), when your first pension starts."
+    }
+
+    /// Under the coast age (UI.md, "Milestones"): where it stands against
+    /// the coast point, and when you reached it if you're no longer past it:
+    /// "You're past the coast point: your first pension starts at 67.", "In
+    /// August it was 67, when your first pension starts: the coast point.",
+    /// "The coast point is 67, when your first pension starts."
+    static func coastCaption(_ age: Int?, target: Int?, reached: ReachedMilestone?,
+                             asOf: CalendarDate, locale: Locale = .current) -> String {
+        guard let age else { return "If you stopped saving today, no age would reach your bar yet." }
+        guard let target else { return "If you stopped saving today, you could still retire at \(age)." }
+        if age <= target { return "You're past the coast point: your first pension starts at \(target)." }
+        if let reached, case .coastPoint(let then) = reached.milestone.kind {
+            let month = reached.date.year == asOf.year ? AmountFormat.monthName(reached.date, locale: locale)
+                : PlanResultsText.monthYear(reached.date, locale: locale)
+            return "In \(month) it was \(then), when your first pension starts: the coast point."
+        }
+        return "The coast point is \(target), when your first pension starts."
     }
 
     /// "88% there".

@@ -207,6 +207,132 @@ struct PlanMilestonesCard: View {
     }
 }
 
+/// Progress's milestones (UI.md, "Milestones"): the next, with how far
+/// there and when it typically comes; when you could retire saving nothing
+/// more, against the coast point; and *All Milestones*, the full list, on a
+/// tap.
+struct PlanProgressMilestones: View {
+    let milestones: PlanMilestones
+    let text: PlanMilestoneText
+    let asOf: CalendarDate
+    /// Whether the plan has results: without them nothing is ahead yet.
+    var hasResults = true
+
+    @Environment(\.locale) private var locale
+    @State private var showsAll = false
+
+    var body: some View {
+        Card {
+            if let next = milestones.next {
+                nextMilestone(next)
+                Divider()
+            }
+            if milestones.knowsCoastAge {
+                coast
+                Divider()
+            }
+            Button {
+                showsAll = true
+            } label: {
+                HStack(spacing: Metrics.s) {
+                    Text("All Milestones")
+                    Spacer(minLength: Metrics.s)
+                    Image(systemName: "chevron.right")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(Palette.mutedInk)
+                        .accessibilityHidden(true)
+                }
+                .font(PlanProgressFont.text)
+                .foregroundStyle(Palette.accent)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+        }
+        .sheet(isPresented: $showsAll) {
+            allMilestones
+        }
+    }
+
+    private func nextMilestone(_ next: NextMilestone) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Label("Next milestone", systemImage: "flag")
+                .font(PlanProgressFont.caption)
+                .foregroundStyle(Palette.secondaryInk)
+            HStack(alignment: .firstTextBaseline, spacing: Metrics.m) {
+                Text(text.name(next.milestone))
+                    .fontWeight(.semibold)
+                    .foregroundStyle(Palette.ink)
+                    .fixedSize(horizontal: false, vertical: true)
+                Spacer(minLength: Metrics.s)
+                Text(text.progress(next))
+                    .fontWeight(.semibold)
+                    .monospacedDigit()
+                    .foregroundStyle(Palette.accent)
+            }
+            .font(PlanProgressFont.text)
+            PlanMilestoneBar(progress: next.progress)
+            if let caption = text.caption(next, date: milestones.nextDate) {
+                Text(caption)
+                    .font(PlanProgressFont.caption)
+                    .foregroundStyle(Palette.secondaryInk)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .accessibilityElement(children: .combine)
+    }
+
+    /// "Saving nothing more · retire at 71", and what it was at the coast point.
+    private var coast: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            HStack(alignment: .firstTextBaseline, spacing: Metrics.m) {
+                Text("Saving nothing more")
+                    .foregroundStyle(Palette.ink)
+                Spacer(minLength: Metrics.s)
+                Text(milestones.coastAge.map { "retire at \($0)" } ?? "no age yet")
+                    .fontWeight(.semibold)
+                    .monospacedDigit()
+                    .foregroundStyle(isPastCoastPoint ? Palette.positive : Palette.ink)
+            }
+            .font(PlanProgressFont.text)
+            Text(PlanMilestoneText.coastCaption(milestones.coastAge, target: milestones.ladder.coastTarget,
+                                                reached: milestones.coastPointReached, asOf: asOf,
+                                                locale: locale))
+                .font(PlanProgressFont.caption)
+                .foregroundStyle(Palette.secondaryInk)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .accessibilityElement(children: .combine)
+    }
+
+    private var isPastCoastPoint: Bool {
+        guard let age = milestones.coastAge, let target = milestones.ladder.coastTarget else { return false }
+        return age <= target
+    }
+
+    /// Every milestone: reached, newest first, and ahead, soonest first.
+    private var allMilestones: some View {
+        NavigationStack {
+            ScrollView {
+                PlanMilestonesCard(milestones: milestones, text: text, hasResults: hasResults)
+                    .padding(Metrics.l)
+            }
+            .background(Palette.page)
+            .navigationTitle("Milestones")
+            #if os(iOS)
+            .navigationBarTitleDisplayMode(.inline)
+            #endif
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") { showsAll = false }
+                }
+            }
+        }
+        #if os(macOS)
+        .frame(minWidth: 460, minHeight: 520)
+        #endif
+    }
+}
+
 /// A milestone in a list: a flag (filled once reached), its name, and when.
 struct PlanMilestoneRow: View {
     let title: String

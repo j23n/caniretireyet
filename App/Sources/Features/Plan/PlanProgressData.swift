@@ -558,6 +558,31 @@ struct PlanProgressTimeline {
         var id: String { "\(date) \(text)" }
     }
 
+    /// A month's notes, as the year's words list them: one row a month.
+    struct NoteRow: Hashable, Sendable, Identifiable {
+        var date: CalendarDate
+        /// "Mar".
+        var month: String
+        var notes: [Note]
+
+        var id: String { "\(date.year)-\(date.month)" }
+
+        /// Whether a milestone was reached in the month.
+        var hasMilestone: Bool { notes.contains { $0.kind == .milestone } }
+
+        /// The month's notes one after another, its milestones in bold.
+        var text: AttributedString {
+            var text = AttributedString()
+            for (offset, note) in notes.enumerated() {
+                if offset > 0 { text += AttributedString(" ") }
+                var part = AttributedString(note.text)
+                if note.kind == .milestone { part.inlinePresentationIntent = .stronglyEmphasized }
+                text += part
+            }
+            return text
+        }
+    }
+
     /// One year's card.
     struct Card: Identifiable {
         let year: PlanProgressYear
@@ -589,6 +614,19 @@ struct PlanProgressTimeline {
         let end: Date
 
         var id: Int { year.year }
+
+        /// The notes a month at a time, in order.
+        var noteRows: [NoteRow] {
+            var rows: [NoteRow] = []
+            for note in notes {
+                if let last = rows.last, last.date.year == note.date.year, last.date.month == note.date.month {
+                    rows[rows.count - 1].notes.append(note)
+                } else {
+                    rows.append(NoteRow(date: note.date, month: note.month, notes: [note]))
+                }
+            }
+            return rows
+        }
 
         /// A stretch where your money is above (ahead) or below what January
         /// expected: the two values at each date along it.
@@ -865,11 +903,8 @@ enum PlanProgressText {
             hidesAmounts ? AmountFormat.hidden : AmountFormat.amount(abs(value), currency: currency, locale: locale)
         }
         var sentences: [String] = []
-        if year.checkIns == 0 {
-            sentences.append("No check-ins this year: what you held is valued at its prices.")
-        } else if !year.isLatest, let last = year.lastCheckIn, last.month < 12 {
-            sentences.append("No check-ins after \(AmountFormat.monthName(last, locale: locale)): what you held "
-                + "is valued at its prices.")
+        if let note = pricesNote(year, locale: locale) {
+            sentences.append(note)
         }
         if year.from != year.to {
             let saved = year.change.newMoney
@@ -888,6 +923,15 @@ enum PlanProgressText {
             }
         }
         return sentences.joined(separator: " ")
+    }
+
+    /// "No check-ins this year: what you held is valued at its prices.", "No
+    /// check-ins after June: …"; `nil` for a year with check-ins to its end.
+    static func pricesNote(_ year: PlanProgressYear, locale: Locale = .current) -> String? {
+        if year.checkIns == 0 { return "No check-ins this year: what you held is valued at its prices." }
+        guard !year.isLatest, let last = year.lastCheckIn, last.month < 12 else { return nil }
+        return "No check-ins after \(AmountFormat.monthName(last, locale: locale)): what you held is valued at its "
+            + "prices."
     }
 
     /// "January expected 298.000 € by now. You're 18.400 € ahead, more than
@@ -992,6 +1036,10 @@ enum PlanProgressText {
             : "You have \(amount) less than \(expectation) expected"
         if let percentile = position.percentile {
             text += ", more than in \(Int(wholeNumber: percentile)) of its 100 futures."
+        } else if position.isAboveNinetieth {
+            text += ", more than in 9 of its 10 futures."
+        } else if position.isBelowTenth {
+            text += ", less than in 9 of its 10 futures."
         } else {
             text += "."
         }
