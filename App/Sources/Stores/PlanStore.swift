@@ -73,6 +73,9 @@ final class PlanStore {
     @ObservationIgnored private var caughtUpAnswers: [PlanID: CalendarDate] = [:]
     /// The library whose kept results were restored, so it's done once per library opened.
     @ObservationIgnored private var restoredLibrary: URL?
+    /// What names a library kept in memory, which has no folder, for the
+    /// ``archive``: the UI tests' (`UITestLaunch`). `nil` keeps nothing for it.
+    @ObservationIgnored var inMemoryLibrary: URL?
     /// The latest write to the ``archive``: writes wait for the one before,
     /// so an older result never replaces a newer one.
     @ObservationIgnored private var archiving: Task<Void, Never>?
@@ -142,7 +145,7 @@ final class PlanStore {
         tasks[key]?.cancel()
         let request = PlanRunRequest(plan: document, library: library.library, mode: mode, whatIf: whatIf,
                                      asOf: library.asOfDate, focusAge: focusAge)
-        let libraryURL = library.location?.url
+        let libraryURL = keptLibrary
         let engine = engine
         let token = UUID()
         let report: PlanProgressHandler = { [weak self] value in
@@ -235,7 +238,7 @@ final class PlanStore {
     /// Once per library opened; the root view calls it when the library is
     /// loaded.
     func restoreKeptResults() async {
-        guard let archive, let url = library.location?.url, restoredLibrary != url else { return }
+        guard let archive, let url = keptLibrary, restoredLibrary != url else { return }
         restoredLibrary = url
         let snapshot = library.library
         let restored = await archive.restore(forLibraryAt: url, library: snapshot, engine: engine.version)
@@ -246,11 +249,21 @@ final class PlanStore {
             let basis = PlanRunBasis(plan: entry.plan, inputs: item.inputsMatch ? PlanRunInputs(snapshot) : nil,
                                      mode: entry.mode, whatIf: nil, focusAge: nil, asOf: entry.asOf)
             keep(entry.results, in: PlanRunKey(plan: plan, kind: .base), basis: basis)
+            let reasons = staleReasons(of: plan)
+            PlanResultsLog.notice("Restored \(plan)'s results calculated \(entry.results.computedAt): "
+                                  + (reasons.isEmpty ? "up to date."
+                                     : "out of date (\(reasons.map(\.rawValue).joined(separator: ", ")))."))
             if item.inputsMatch {
                 await engine.remember(entry.results, for: PlanRunRequest(
                     plan: entry.plan, library: snapshot, mode: entry.mode, whatIf: nil, asOf: entry.asOf))
             }
         }
+    }
+
+    /// The library the ``archive`` keeps results for: the open library's
+    /// folder, or ``inMemoryLibrary``.
+    private var keptLibrary: URL? {
+        library.location?.url ?? inMemoryLibrary
     }
 
     /// Waits for the results being written to the ``archive``.
@@ -266,7 +279,11 @@ final class PlanStore {
         let previous = archiving
         archiving = Task {
             await previous?.value
-            try? await archive.save(results, basis: basis, engine: engine, library: url)
+            do {
+                try await archive.save(results, basis: basis, engine: engine, library: url)
+            } catch {
+                PlanResultsLog.notice("Couldn't keep \(results.plan)'s results: \(error)")
+            }
         }
     }
 

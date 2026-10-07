@@ -1,5 +1,8 @@
 import Foundation
 import Model
+#if canImport(os)
+import os
+#endif
 
 /// Each plan's latest results, kept on this device between launches (UI.md,
 /// "Calculating"), so reopening the app shows them without calculating
@@ -61,10 +64,22 @@ actor PlanResultsArchive {
             .appendingPathComponent("PlanResults", isDirectory: true))
     }
 
-    /// The folder for the library at `library`: named by a hash of its path.
+    /// The folder for the library at `library`: named by a hash of its path
+    /// (``libraryKey(_:home:)``).
     nonisolated func folder(forLibraryAt library: URL) -> URL {
-        root.appendingPathComponent(PlanRunInputs.hash(Data(library.standardizedFileURL.path.utf8)),
-                                    isDirectory: true)
+        root.appendingPathComponent(PlanRunInputs.hash(Data(Self.libraryKey(library).utf8)), isDirectory: true)
+    }
+
+    /// What names the library at `library` from one launch to the next: its
+    /// path in the app's home (`~/Library/Application Support/…`) when it's
+    /// there, else its full path (iCloud Drive's). A library on this device
+    /// is in the app's container, whose full path changes when the app is
+    /// installed again (each run from Xcode) or updated, so it can't name it.
+    static func libraryKey(_ library: URL, home: String = NSHomeDirectory()) -> String {
+        let path = library.standardizedFileURL.resolvingSymlinksInPath().path
+        let home = URL(fileURLWithPath: home, isDirectory: true).standardizedFileURL.resolvingSymlinksInPath().path
+        guard !home.isEmpty, home != "/", path == home || path.hasPrefix(home + "/") else { return path }
+        return "~" + path.dropFirst(home.count)
     }
 
     /// Keeps `results`, calculated from `basis`, as their plan's in the
@@ -76,7 +91,10 @@ actor PlanResultsArchive {
                           asOf: basis.asOf, mode: basis.mode, results: results)
         let folder = folder(forLibraryAt: library)
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
-        try Self.encoder().encode(entry).write(to: file(for: results.plan, in: folder), options: .atomic)
+        let data = try Self.encoder().encode(entry)
+        try data.write(to: file(for: results.plan, in: folder), options: .atomic)
+        PlanResultsLog.notice("Kept \(results.plan)'s results (\(data.count / 1_024) KB) for the library at "
+                              + "\(Self.libraryKey(library)).")
     }
 
     /// The results kept for the plans of `library`, found at `url`, each
@@ -86,24 +104,42 @@ actor PlanResultsArchive {
     func restore(forLibraryAt url: URL, library: Library, engine: String) -> [Restored] {
         let folder = folder(forLibraryAt: url)
         guard let files = try? FileManager.default.contentsOfDirectory(at: folder, includingPropertiesForKeys: nil)
-        else { return [] }
+        else {
+            PlanResultsLog.notice("No results kept for the library at \(Self.libraryKey(url)).")
+            return []
+        }
         let decoder = Self.decoder()
         var entries: [Entry] = []
         for file in files where file.pathExtension == "json" {
-            guard let data = try? Data(contentsOf: file), let entry = try? decoder.decode(Entry.self, from: data),
-                  entry.format == Entry.currentFormat, entry.engine == engine,
-                  library.plans[entry.results.plan] != nil,
-                  file.lastPathComponent == self.file(for: entry.results.plan, in: folder).lastPathComponent
-            else {
-                try? FileManager.default.removeItem(at: file)
+            let entry: Entry
+            do {
+                entry = try decoder.decode(Entry.self, from: Data(contentsOf: file))
+            } catch {
+                drop(file, because: "it can't be read: \(error)")
                 continue
             }
-            entries.append(entry)
+            if entry.format != Entry.currentFormat {
+                drop(file, because: "it's in format \(entry.format), not \(Entry.currentFormat)")
+            } else if entry.engine != engine {
+                drop(file, because: "engine \(entry.engine) calculated it, not \(engine)")
+            } else if library.plans[entry.results.plan] == nil {
+                drop(file, because: "the library has no plan \(entry.results.plan)")
+            } else if file.lastPathComponent != self.file(for: entry.results.plan, in: folder).lastPathComponent {
+                drop(file, because: "it holds the results of \(entry.results.plan)")
+            } else {
+                entries.append(entry)
+            }
         }
         guard !entries.isEmpty else { return [] }
         let current = PlanRunInputs(library).fingerprint
         return entries.sorted { $0.results.plan < $1.results.plan }
             .map { Restored(entry: $0, inputsMatch: $0.inputs == current) }
+    }
+
+    /// Deletes a kept file that can't be shown, saying why.
+    private func drop(_ file: URL, because reason: String) {
+        PlanResultsLog.notice("Dropped the kept results \(file.lastPathComponent): \(reason).")
+        try? FileManager.default.removeItem(at: file)
     }
 
     /// Deletes what's kept for `plan` in the library at `library`.
@@ -176,5 +212,21 @@ extension PlanRunInputs {
             instruments = inputs.instruments.values.sorted { $0.id < $1.id }
             months = inputs.months.values.sorted { $0.month < $1.month }
         }
+    }
+}
+
+/// What happens to the results kept on the device, in the app's log
+/// (category `plans`; Xcode's console shows it): kept, restored and
+/// whether they're up to date, or dropped and why.
+enum PlanResultsLog {
+    #if canImport(os)
+    private static let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "CanIRetireYet", category: "plans")
+    #endif
+
+    static func notice(_ message: @autoclosure () -> String) {
+        #if canImport(os)
+        let text = message()
+        logger.notice("\(text, privacy: .public)")
+        #endif
     }
 }

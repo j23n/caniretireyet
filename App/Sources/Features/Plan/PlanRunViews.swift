@@ -116,6 +116,7 @@ struct PlanOutOfDateBanner: View {
                 Label(action.title, systemImage: "arrow.clockwise")
             }
             .buttonStyle(.borderedProminent)
+            .accessibilityIdentifier("plan.outOfDate")
         }
     }
 }
@@ -170,6 +171,7 @@ struct PlanCalculatePrompt: View {
                 }
                 .buttonStyle(.borderedProminent)
                 .controlSize(.large)
+                .accessibilityIdentifier("plan.calculate")
             }
         }
     }
