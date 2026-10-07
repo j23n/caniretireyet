@@ -154,9 +154,9 @@ final class ScreenshotTests: XCTestCase {
     @MainActor
     private func calculated(_ app: XCUIApplication) -> XCUIElement {
         #if os(macOS)
-        app.buttons["Recalculate"].firstMatch
+        return app.buttons["Recalculate"].firstMatch
         #else
-        answer(in: app)
+        return answer(in: app)
         #endif
     }
 
