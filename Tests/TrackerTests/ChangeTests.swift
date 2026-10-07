@@ -49,14 +49,18 @@ struct ExampleLibraryChangeTests {
         #expect(report.change(of: "mutuo-casa")?.change.newMoney == 650)
     }
 
-    @Test func aBalanceWithoutAFlowIsOther() throws {
+    /// The home's value went up 7.000 € without a flow, and the plan pays
+    /// nothing into it: its change is market (PlannedContributionsTests).
+    @Test func aBalanceTheCheckInAsksAboutWithoutAFlow() throws {
         let report = valuator.change(from: "2026-05-31", to: "2026-06-30")
-        #expect(report.unknownFlowAccounts == ["casa"])
+        #expect(report.unknownFlowAccounts.isEmpty)
+        #expect(report.plannedFlowAccounts == ["casa"])
         let home = try #require(report.change(of: "casa"))
         #expect(home.flow == nil)
-        #expect(home.change.other == 7000)
-        #expect(home.change.market == 0)
-        #expect(report.total.other == 7000)
+        #expect(home.isFlowFromPlan)
+        #expect(home.change.market == 7000)
+        #expect(home.change.other == 0)
+        #expect(report.total.other == 0)
         // Plan assets don't include the home.
         #expect(valuator.change(from: "2026-05-31", to: "2026-06-30", in: .planAssets).total.other == 0)
     }

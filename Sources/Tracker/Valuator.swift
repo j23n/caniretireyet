@@ -31,6 +31,9 @@ public struct Valuator: Sendable {
     let ledgers: [AccountID: TradeLedger]
     /// Trades of accounts that don't record trades (or don't exist): left out.
     let ignoredTrades: [Trade]
+    /// What the main plan pays into each account: the new money of a balance
+    /// the check-in asks about, when it was left empty (``change(from:to:in:)``).
+    public let contributions: PlannedContributions
 
     /// A valuator over a library snapshot.
     public init(library: Library) {
@@ -41,14 +44,17 @@ public struct Valuator: Sendable {
             prices: PriceTable(library: library),
             fx: FXTable(library: library),
             instruments: Array(library.instruments.values),
-            trades: library.months.values.flatMap(\.trades))
+            trades: library.months.values.flatMap(\.trades),
+            contributions: PlannedContributions(library: library))
     }
 
     /// A valuator over explicit data. For duplicate valuation or trade keys
     /// the last one wins. Trades count only for accounts that record trades.
     public init(baseCurrency: CurrencyCode, accounts: [Account], valuations: [Valuation], prices: PriceTable,
-                fx: FXTable, instruments: [Instrument] = [], trades: [Trade] = []) {
+                fx: FXTable, instruments: [Instrument] = [], trades: [Trade] = [],
+                contributions: PlannedContributions = PlannedContributions()) {
         self.baseCurrency = baseCurrency
+        self.contributions = contributions
         self.accounts = Dictionary(accounts.map { ($0.id, $0) }, uniquingKeysWith: { _, last in last })
         self.instruments = Dictionary(instruments.map { ($0.id, $0) }, uniquingKeysWith: { _, last in last })
         var byKey: [ValuationKey: Valuation] = [:]

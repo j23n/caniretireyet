@@ -11,7 +11,8 @@ public struct ValueChange: Hashable, Sendable {
     /// without one, the changes in quantity and cash.
     public var newMoney: Decimal
     /// What can't be explained: the change of a balance account without a
-    /// recorded flow, apart from FX movement.
+    /// recorded flow, apart from FX movement (an account's first value, or
+    /// one whose kind the check-in doesn't ask about).
     public var other: Decimal
     public var end: Decimal
 
@@ -53,6 +54,18 @@ public struct AccountChange: Hashable, Sendable, Identifiable {
     public let flow: Decimal?
     /// Missing prices and FX rates. Parts that couldn't be valued count as zero.
     public let problems: [ValuationProblem]
+    /// Whether the new money of values without a flow is what the main plan
+    /// pays into the account: a balance the check-in asks about, left empty.
+    public let isFlowFromPlan: Bool
+
+    public init(account: AccountID, change: ValueChange, flow: Decimal?, problems: [ValuationProblem],
+                isFlowFromPlan: Bool = false) {
+        self.account = account
+        self.change = change
+        self.flow = flow
+        self.problems = problems
+        self.isFlowFromPlan = isFlowFromPlan
+    }
 
     public var id: AccountID { account }
 
@@ -72,9 +85,17 @@ public struct ChangeReport: Hashable, Sendable {
     /// Every account that counted on some day of the period, sorted by ID.
     public let accounts: [AccountChange]
 
-    /// Accounts with a valuation in the period that has no flow.
+    /// Accounts with a valuation in the period that has no flow, whose
+    /// change counts as other.
     public var unknownFlowAccounts: [AccountID] {
-        accounts.filter { !$0.isFlowKnown }.map(\.account)
+        accounts.filter { !$0.isFlowKnown && !$0.isFlowFromPlan }.map(\.account)
+    }
+
+    /// Balances the check-in asks about with a valuation in the period that
+    /// has no flow: what the main plan pays into them counts as new money,
+    /// and the rest as market.
+    public var plannedFlowAccounts: [AccountID] {
+        accounts.filter { !$0.isFlowKnown && $0.isFlowFromPlan }.map(\.account)
     }
 
     /// Everything missing, across accounts.
@@ -112,8 +133,14 @@ extension Valuator {
     /// - **Holdings, flow unknown:** market is the old quantities (and cash)
     ///   at the new prices and rates, minus the start value; new money is the
     ///   rest, i.e. the changes in quantity and cash.
-    /// - **Balance, flow unknown:** market is only the FX effect on the old
-    ///   balance, and the rest is other.
+    /// - **Balance the check-in asks about, flow unknown** (pension fund,
+    ///   TFR, property, other; ``FlowDefault/ask``): each value's flow where
+    ///   one was entered, else what the main plan pays into the account since
+    ///   the value before (``PlannedContributions``) is new money, and
+    ///   market is the rest. The account's first value without a flow is
+    ///   other: what it held when its records start.
+    /// - **Other balances, flow unknown:** market is only the FX effect on
+    ///   the old balance, and the rest is other.
     /// - **Trades accounts:** values are snapshots (``snapshot(of:on:)``),
     ///   and new money is the account's ``TradeFlow``s in the period
     ///   (deposits, withdrawals, transfers and residuals), each converted at
@@ -170,9 +197,16 @@ extension Valuator {
         let flow = recordedFlows(of: account, after: from, through: endDate, in: target, problems: &problems)
 
         var parts = ValueChange(start: start, market: 0, newMoney: 0, other: 0, end: end)
+        var isFlowFromPlan = false
         if let flow {
             parts.newMoney = flow
             parts.market = end - start - flow
+        } else if endValuation?.isBalance ?? false, account.kind.defaultFlow == .ask,
+                  let asked = askedFlows(of: account, after: from, through: endDate, in: target, problems: &problems) {
+            isFlowFromPlan = true
+            parts.newMoney = asked.newMoney
+            parts.other = asked.firstValue
+            parts.market = end - start - asked.newMoney - asked.firstValue
         } else if endValuation?.isBalance ?? false {
             parts.market = heldMarket
             parts.other = end - start - heldMarket
@@ -184,7 +218,47 @@ extension Valuator {
             parts.newMoney -= end
             parts.end = 0
         }
-        return AccountChange(account: account.id, change: parts, flow: flow, problems: problems)
+        return AccountChange(account: account.id, change: parts, flow: flow, problems: problems,
+                             isFlowFromPlan: isFlowFromPlan)
+    }
+
+    /// The new money of a balance the check-in asks about, from its values
+    /// dated after `from` through `through`: each one's flow where one was
+    /// entered, else what the main plan pays into the account since the
+    /// value before (``contributions``), converted to `currency` at the
+    /// value's date. The account's first value, without a flow, is
+    /// `firstValue` instead: what it held when its records start, not money
+    /// paid in. `nil` without an exchange rate.
+    func askedFlows(of account: Account, after from: CalendarDate, through: CalendarDate,
+                    in currency: CurrencyCode, problems: inout [ValuationProblem])
+        -> (newMoney: Decimal, firstValue: Decimal)? {
+        func converted(_ amount: Decimal, from source: CurrencyCode, on date: CalendarDate) -> Decimal? {
+            if amount == 0 || source == currency { return amount }
+            if let value = fx.convert(amount, from: source, to: currency, on: date) { return value }
+            let problem = ValuationProblem.missingFX(account: account.id, from: source, to: currency)
+            if !problems.contains(problem) { problems.append(problem) }
+            return nil
+        }
+        var newMoney: Decimal = 0
+        var firstValue: Decimal = 0
+        var previous: Valuation?
+        for valuation in valuations(for: account.id) {
+            defer { previous = valuation }
+            guard valuation.date > from, valuation.date <= through else { continue }
+            if let flow = valuation.flow {
+                guard let amount = converted(flow, from: account.currency, on: valuation.date) else { return nil }
+                newMoney += amount
+            } else if let previous {
+                let planned = contributions.amount(into: account.id, after: previous.date, through: valuation.date)
+                guard let amount = converted(planned, from: baseCurrency, on: valuation.date) else { return nil }
+                newMoney += amount
+            } else {
+                let value = value(of: account, valuation: valuation, on: valuation.date, in: currency)
+                for problem in value.problems where !problems.contains(problem) { problems.append(problem) }
+                firstValue += value.knownValue
+            }
+        }
+        return (newMoney, firstValue)
     }
 
     /// The flows of the account's valuations dated after `from` through

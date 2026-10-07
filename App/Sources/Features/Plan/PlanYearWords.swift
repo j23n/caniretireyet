@@ -287,7 +287,7 @@ struct PlanGapExplanationView: View {
         }
         if abs(explanation.other) >= 1 {
             rows.append(Row(title: "Other", value: explanation.other,
-                            detail: "Balances that changed without a recorded flow, and exchange rates."))
+                            detail: "Values without new money entered (an account's first, say), and exchange rates."))
         }
         return rows
     }

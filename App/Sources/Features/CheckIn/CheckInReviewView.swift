@@ -136,6 +136,12 @@ private struct CheckInReviewContent: View {
                     WaterfallChart(steps: WaterfallStep.steps(
                         for: change.total, startLabel: AmountFormat.shortDate(change.from, locale: locale),
                         endLabel: AmountFormat.shortDate(change.to, locale: locale)))
+                    if !change.plannedFlowAccounts.isEmpty {
+                        Text("Where new money is left empty for a pension fund, TFR or property, what your main "
+                             + "plan pays into it counts as new money, and the rest as markets.")
+                            .font(.footnote)
+                            .foregroundStyle(Palette.secondaryInk)
+                    }
                     if !change.unknownFlowAccounts.isEmpty {
                         Text("Accounts with unknown new money count their whole change as \u{201C}other\u{201D}.")
                             .font(.footnote)

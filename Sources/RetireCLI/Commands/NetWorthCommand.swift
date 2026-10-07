@@ -231,6 +231,11 @@ struct NetWorthCommand: RetireSubcommand {
                 }
                 lines += accounts.lines()
             }
+            let planned = change.plannedFlowAccounts
+            if !planned.isEmpty {
+                lines.append("  Money in or out not entered for \(Format.list(planned.map(name))): what the main plan "
+                    + "pays in counts as new money, the rest as market.")
+            }
             let unknown = change.unknownFlowAccounts
             if !unknown.isEmpty {
                 lines.append("  Money in or out unknown for \(Format.list(unknown.map(name))): a balance's change "
@@ -336,7 +341,8 @@ struct NetWorthCommand: RetireSubcommand {
                     JSON.Change(from: report.from.description, to: report.to.description,
                                 total: JSON.Parts(report.total, account: nil),
                                 accounts: report.accounts.map { JSON.Parts($0.change, account: $0) },
-                                unknownFlowAccounts: report.unknownFlowAccounts.map(\.rawValue))
+                                unknownFlowAccounts: report.unknownFlowAccounts.map(\.rawValue),
+                                plannedFlowAccounts: report.plannedFlowAccounts.map(\.rawValue))
                 },
                 problems: total.problems.map(\.description))
         }
@@ -398,6 +404,8 @@ struct NetWorthCommand: RetireSubcommand {
                 var total: Parts
                 var accounts: [Parts]
                 var unknownFlowAccounts: [String]
+                /// Balances whose new money is what the main plan pays in.
+                var plannedFlowAccounts: [String]
             }
 
             var date: String
