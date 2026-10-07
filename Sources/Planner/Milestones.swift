@@ -277,7 +277,8 @@ public struct MilestoneLadder: Hashable, Sendable {
         guard let top = median.map(\.value).max(), top > current else { return [] }
         let ladder = matching(current: current, readiness: readiness)
         var projected: [ProjectedMilestone] = []
-        for milestone in ladder.milestones(in: current...top) where milestone.amount > current {
+        for milestone in ladder.milestones(in: current...top)
+        where Self.isAhead(milestone, of: current, readiness: readiness) {
             for (before, after) in zip(median, median.dropFirst())
             where before.value < milestone.amount && after.value >= milestone.amount {
                 let share = ((milestone.amount - before.value) / (after.value - before.value)).double
@@ -303,7 +304,8 @@ public struct MilestoneLadder: Hashable, Sendable {
     public func next(after current: Decimal, readiness: Decimal? = nil) -> NextMilestone? {
         let ladder = matching(current: current, readiness: readiness)
         let upper = max(current, 0) * 2 + 1_000
-        guard let milestone = ladder.milestones(in: current...upper).first(where: { $0.amount > current }) else {
+        guard let milestone = ladder.milestones(in: current...upper)
+            .first(where: { Self.isAhead($0, of: current, readiness: readiness) }) else {
             return nil
         }
         let progress: Double
@@ -313,6 +315,18 @@ public struct MilestoneLadder: Hashable, Sendable {
             progress = milestone.amount > 0 ? (max(current, 0) / milestone.amount).double : 0
         }
         return NextMilestone(milestone: milestone, progress: min(1, max(0, progress)))
+    }
+
+    /// Whether `milestone` is ahead of today: a share of what retiring today
+    /// needs while today's readiness is below it, as ``reached(values:readiness:coastAges:)``
+    /// counts them (its amount, worked out from a readiness that meets it
+    /// exactly, can round to above `current`); any other while its amount is
+    /// above `current`.
+    private static func isAhead(_ milestone: Milestone, of current: Decimal, readiness: Decimal?) -> Bool {
+        if let share = milestone.share, let readiness, readiness > 0, current > 0 {
+            return share > readiness
+        }
+        return milestone.amount > current
     }
 
     /// The ladder with what retiring today needs worked out from today's

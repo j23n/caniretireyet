@@ -194,6 +194,20 @@ struct MilestoneTests {
         #expect(abs(share.progress - 0.93) < 1e-9)
     }
 
+    @Test func aShareTodaysReadinessMeetsIsBehindNotNext() throws {
+        // At exactly 25%, retiring today needs 646.022 and a quarter of it
+        // rounds to 161.506, above today's 161.505,60: it's reached all the
+        // same, as the readiness recorded at the check-in says.
+        let ladder = MilestoneLadder(spending: 30_000)
+        let today = d("161505.6")
+        let next = try #require(ladder.next(after: today, readiness: d("0.25")))
+        #expect(next.milestone.id == "round-200000")
+        let median = points([("2026-09-30", today), ("2027-12-31", 210_000), ("2028-12-31", 330_000)])
+        let ahead = ladder.ahead(of: today, readiness: d("0.25"), median: median)
+        #expect(ahead.first?.id == "round-200000")
+        #expect(!ahead.contains { $0.id == "share-1-4" })
+    }
+
     // MARK: The crossover
 
     @Test func theCrossoverIsAYearsSavingOverTheMixsTypicalGrowth() throws {
