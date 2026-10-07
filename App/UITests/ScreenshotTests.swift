@@ -68,13 +68,16 @@ final class ScreenshotTests: XCTestCase {
         let last = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Chapter 6,")).firstMatch
         XCTAssertTrue(strip.waitForExistence(timeout: 10), "The chapters never showed.")
         XCTAssertTrue(last.exists, "There's no sixth chapter.")
-        XCTAssertFalse(last.isHittable, "The last chapter is on screen before scrolling.")
-        for _ in 0..<6 where !last.isHittable {
+        // Where the card is, not whether it can be hit: XCTest can't tell
+        // that of a card off screen.
+        let edge = strip.frame.maxX
+        XCTAssertGreaterThan(last.frame.minX, edge, "The last chapter is on screen before scrolling.")
+        for _ in 0..<6 where last.frame.minX >= edge {
             strip.swipeLeft()
             pause(seconds: 1)
         }
         keepScreenshot(of: app, named: "plan-swiped")
-        XCTAssertTrue(last.isHittable, "Swiping the chapters didn't scroll them.")
+        XCTAssertLessThan(last.frame.minX, edge, "Swiping the chapters didn't scroll them.")
     }
     #endif
 
