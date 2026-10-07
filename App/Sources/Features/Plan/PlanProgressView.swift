@@ -299,8 +299,11 @@ struct PlanProgressView: View {
             yearsHeader(count: cards.count, selection: selection)
                 .padding(.leading, gutter)
                 .padding(.trailing, isWide ? 0 : gutter)
+            // An inset at both ends, beside the milestones too: on the Mac
+            // the strip opened with today's card a scroller's width (16
+            // points) past its trailing edge without one.
             PlanYearStrip(timeline: timeline, selection: selection, pointsPerMonth: isWide ? 26 : 21,
-                          leadingInset: gutter, trailingInset: isWide ? 0 : gutter, showsWords: isWide,
+                          leadingInset: gutter, trailingInset: gutter, showsWords: isWide,
                           today: library.asOfDate, onAddPastBaseline: addPastBaseline)
             if !isWide {
                 PlanYearDetails(card: cards[selected], index: selected, count: cards.count,
