@@ -30,28 +30,32 @@ final class ScreenshotTests: XCTestCase {
         keepScreenshot(of: app, named: "plan-chapter")
     }
 
+    #if os(iOS)
     /// The plan's results are kept on the device and come back when the app
     /// opens again, up to date, without calculating (UI.md, "Calculating"):
     /// calculated in one launch, quit, then shown in the next, which
-    /// calculates nothing (`-uiTestNoRun`).
+    /// calculates nothing (`-uiTestNoRun`). On iPhone: on CI's Mac, the app
+    /// opened again inside one test ran without a window. The code it checks
+    /// is the same on the Mac.
     @MainActor
     func testKeptResultsComeBack() {
         let folder = UUID().uuidString
         let first = launch(library: "example", screen: "plan", arguments: ["-uiTestKeepResults", folder])
-        XCTAssertTrue(calculated(first).waitForExistence(timeout: 240), "The plan was never calculated.")
+        XCTAssertTrue(answer(in: first).waitForExistence(timeout: 240), "The plan was never calculated.")
         // The results are written to the device just after the run.
         pause(seconds: 5)
         first.terminate()
 
         let app = launch(library: "example", screen: "plan",
                          arguments: ["-uiTestKeepResults", folder, "-uiTestNoRun"])
-        let shown = calculated(app).waitForExistence(timeout: 60)
+        let shown = answer(in: app).waitForExistence(timeout: 60)
         pause(seconds: 5)
         keepScreenshot(of: app, named: "plan-kept")
         XCTAssertTrue(shown, "The kept results didn't come back: the plan asks to be calculated.")
         XCTAssertFalse(app.buttons["plan.outOfDate"].exists, "The kept results came back out of date.")
         XCTAssertFalse(app.buttons["plan.calculate"].exists, "The plan asks to be calculated.")
     }
+    #endif
 
     #if os(iOS)
     /// On iPhone a swipe scrolls the plan's chapters sideways, also when it
@@ -168,17 +172,6 @@ final class ScreenshotTests: XCTestCase {
     @MainActor
     private func answer(in app: XCUIApplication) -> XCUIElement {
         app.descendants(matching: .any)["plan.answer"].firstMatch
-    }
-
-    /// Shows once the plan has results: on the Mac the toolbar's
-    /// Recalculate (Calculate before), on iPhone the answer.
-    @MainActor
-    private func calculated(_ app: XCUIApplication) -> XCUIElement {
-        #if os(macOS)
-        return app.buttons["Recalculate"].firstMatch
-        #else
-        return answer(in: app)
-        #endif
     }
 
     /// Waits for the screen: on iPhone for `element`; on the Mac, whose
