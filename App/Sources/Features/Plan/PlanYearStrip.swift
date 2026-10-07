@@ -131,6 +131,12 @@ struct PlanYearStrip: View {
                 if phase == .idle { fitScale() }
             }
             .accessibilityIdentifier("progress.years")
+            .task {
+                // Today's card whole at the trailing edge: on the Mac the
+                // default anchor alone left its last points under the edge.
+                await Task.yield()
+                proxy.scrollTo(selection, anchor: .trailing)
+            }
             .onChange(of: selection) { _, index in
                 // Once an early year is chosen, the early years stay laid out.
                 if index < early { showsEarlyYears = true }
