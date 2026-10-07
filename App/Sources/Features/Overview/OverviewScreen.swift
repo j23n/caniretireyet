@@ -103,8 +103,13 @@ private struct OverviewHeroView: View {
         if let change = hero.sinceLastCheckIn, let from = hero.lastCheckIn {
             HStack(spacing: Metrics.xs) {
                 DeltaText(change)
-                Text("since \(AmountFormat.shortDate(from, relativeTo: .today()))")
-                    .foregroundStyle(Palette.secondaryInk)
+                if let month = hero.changeMonth {
+                    Text("in \(OverviewAttention.monthName(month, today: .today()))")
+                        .foregroundStyle(Palette.secondaryInk)
+                } else {
+                    Text("since \(AmountFormat.shortDate(from, relativeTo: .today()))")
+                        .foregroundStyle(Palette.secondaryInk)
+                }
             }
         }
         if let year = hero.thisYear {

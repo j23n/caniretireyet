@@ -87,6 +87,9 @@ struct OverviewHero: Hashable, Sendable {
     var sinceLastCheckIn: Decimal?
     /// The previous check-in's date.
     var lastCheckIn: CalendarDate?
+    /// The month the change covers, when the check-in before was the end
+    /// of the month before ("in September"); `nil` otherwise ("since 31 Aug").
+    var changeMonth: CalendarDate?
     /// The change since 31 December of last year, as a fraction of the value then.
     var thisYear: Double?
 
@@ -98,6 +101,7 @@ struct OverviewHero: Hashable, Sendable {
         if let report = valuator.changeSinceLastCheckIn(asOf: date, in: .netWorth) {
             sinceLastCheckIn = report.total.change
             lastCheckIn = report.from
+            changeMonth = Self.month(from: report.from, to: report.to)
         }
         if let yearEnd = YearMonth(year: date.year - 1, month: 12)?.lastDay, yearEnd < date,
            let first = valuator.firstValuationDate(in: .netWorth), first <= yearEnd {
@@ -106,6 +110,14 @@ struct OverviewHero: Hashable, Sendable {
                 thisYear = ((now.total - start) / abs(start)).doubleValue
             }
         }
+    }
+}
+
+extension OverviewHero {
+    /// The month a change from `from` to `to` covers: `to`'s, when `from`
+    /// is the last day of the month before; `nil` otherwise.
+    static func month(from: CalendarDate, to: CalendarDate) -> CalendarDate? {
+        from == to.yearMonth.previous.lastDay ? to : nil
     }
 }
 

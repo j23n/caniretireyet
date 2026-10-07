@@ -329,6 +329,9 @@ extension View {
     func overviewToolbar() -> some View {
         toolbar {
             ToolbarItemGroup(placement: .primaryAction) {
+                #if os(iOS)
+                CheckInToolbarButton()
+                #endif
                 HideAmountsButton()
                 #if os(iOS)
                 SettingsButton()
@@ -350,6 +353,25 @@ struct HideAmountsButton: View {
                   systemImage: privacy.hidesAmounts ? AppSymbol.hideAmounts : AppSymbol.showAmounts)
         }
         .help(privacy.hidesAmounts ? "Show amounts" : "Hide amounts")
+    }
+}
+
+/// *Check In* in the Overview's toolbar on iPhone while no check-in is due:
+/// the tab bar's accessory, the way in otherwise, shows only when one is
+/// due or under way (UI.md, "Navigation").
+struct CheckInToolbarButton: View {
+    @Environment(AppNavigation.self) private var navigation
+    @Environment(CheckInStore.self) private var checkIn
+
+    var body: some View {
+        let status = checkIn.status
+        if navigation.layout == .tabs, !status.isDue, !status.hasDraft {
+            Button {
+                navigation.startCheckIn()
+            } label: {
+                Label("Check In", systemImage: AppSymbol.checkIn)
+            }
+        }
     }
 }
 

@@ -9,21 +9,28 @@ import Tracker
 
 // MARK: - Since last check-in
 
-/// The change since the previous check-in (UI.md, "Since last check-in"):
-/// a headline ("▲ +5.730 € since 31 Aug"), the totals before and after,
-/// and a bar each for markets, new money and other, from a shared zero
-/// line (``WaterfallChart``).
+/// The change since the previous check-in (UI.md, "Since last check-in"),
+/// which the hero number above says ("▲ +5.730 € in September"): the
+/// totals before and after, and a bar each for markets, new money and
+/// other, from a shared zero line (``WaterfallChart``). Titled by the month
+/// it covers when the check-in before was the end of the month before.
 struct OverviewChangeCard: View {
     let report: ChangeReport
     @Environment(\.locale) private var locale
 
+    private var title: String {
+        guard let month = OverviewHero.month(from: report.from, to: report.to) else { return "Since last check-in" }
+        return "What moved in \(OverviewAttention.monthName(month, today: .today(), locale: locale))"
+    }
+
     var body: some View {
-        Card("Since last check-in") {
+        Card(title) {
             VStack(alignment: .leading, spacing: Metrics.m) {
                 WaterfallChart(steps: WaterfallStep.steps(
                     for: report.total,
                     startLabel: AmountFormat.shortDate(report.from, relativeTo: .today(), locale: locale),
-                    endLabel: AmountFormat.shortDate(report.to, relativeTo: .today(), locale: locale)))
+                    endLabel: AmountFormat.shortDate(report.to, relativeTo: .today(), locale: locale)),
+                    showsChange: false)
                 Text(explanation)
                     .font(.footnote)
                     .foregroundStyle(Palette.mutedInk)

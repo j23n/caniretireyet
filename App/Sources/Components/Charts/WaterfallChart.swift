@@ -24,6 +24,9 @@ struct WaterfallChart: View {
     var currency: CurrencyCode?
     /// Unused: the bars take the height they need.
     var height: CGFloat = 180
+    /// Whether the change leads, "▲ +5.730 € since 31 Aug", over the totals
+    /// before and after; off where the screen says it already (the Overview).
+    var showsChange = true
 
     @Environment(\.hidesAmounts) private var hidesAmounts
     @Environment(\.baseCurrency) private var baseCurrency
@@ -70,18 +73,9 @@ struct WaterfallChart: View {
     @ViewBuilder
     private func headline(_ bars: ChangeBars) -> some View {
         VStack(alignment: .leading, spacing: 2) {
-            HStack(alignment: .firstTextBaseline, spacing: Metrics.xs) {
-                if hidesAmounts, let relative = bars.relativeChange {
-                    DeltaText(percent: relative)
-                } else {
-                    DeltaText(Decimal(wholeNumber: bars.change), currency: currency)
-                }
-                if let since = steps.first?.label {
-                    Text("since \(since)")
-                        .foregroundStyle(Palette.secondaryInk)
-                }
+            if showsChange {
+                change(bars)
             }
-            .font(.title3.weight(.semibold))
             HStack(spacing: Metrics.xs) {
                 AmountText(Decimal(wholeNumber: bars.start), currency: currency)
                 Text(verbatim: "→")
@@ -91,6 +85,22 @@ struct WaterfallChart: View {
             .font(.subheadline)
             .foregroundStyle(Palette.secondaryInk)
         }
+    }
+
+    /// "▲ +5.730 € since 31 Aug".
+    private func change(_ bars: ChangeBars) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: Metrics.xs) {
+            if hidesAmounts, let relative = bars.relativeChange {
+                DeltaText(percent: relative)
+            } else {
+                DeltaText(Decimal(wholeNumber: bars.change), currency: currency)
+            }
+            if let since = steps.first?.label {
+                Text("since \(since)")
+                    .foregroundStyle(Palette.secondaryInk)
+            }
+        }
+        .font(.title3.weight(.semibold))
     }
 
     private func amountText(_ value: Double) -> String {
