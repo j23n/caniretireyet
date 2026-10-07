@@ -245,21 +245,21 @@ struct PlanContentView: View {
 
     /// Mac and iPad: Plan | Progress, with What if in a column beside it.
     ///
-    /// The page has a fixed minimum (``FixedMinimumSize``), as the window's
-    /// root has: measured through the page, its minimum moved as the page
-    /// laid out for the width it got (a strip, a row that wraps), and
-    /// switching to Progress never settled ("needing another Update
-    /// Constraints in Window pass"). What if is a column of its own width
-    /// beside it, not an inspector: the window's split view wouldn't narrow
-    /// the page for the inspector, which then ran past the window's edge.
+    /// On the Mac the page has a fixed minimum (``FixedMinimumSize``), as
+    /// the window's root has: measured through the page, its minimum moved
+    /// as the page laid out for the width it got (a strip, a row that
+    /// wraps), and switching to Progress while the plan calculated never
+    /// settled ("needing another Update Constraints in Window pass"). What
+    /// if is a column of its own width beside it, not an inspector: the
+    /// window's split view wouldn't narrow the page for the inspector,
+    /// which then ran past the window's edge. The column scrolls, so its
+    /// content doesn't move the minimum either.
     private var wideLayout: some View {
         HStack(spacing: 0) {
-            FixedMinimumSize(minWidth: 320, minHeight: 300) {
-                widePart
-            }
-            // Flexible, so the page takes what the column leaves: the
-            // minimum alone reports one width whatever it's offered.
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            widePart
+                .fixedMinimumSize(width: 320, height: 300)
+                // Flexible, so the page takes what the column leaves.
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             if showsWhatIfColumn {
                 Divider()
                 PlanInspector(session: session)

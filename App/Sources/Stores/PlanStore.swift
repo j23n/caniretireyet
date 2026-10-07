@@ -28,6 +28,10 @@ import Storage
 ///   picks up results the engine kept for exactly the current inputs.
 /// - **Progress.** ``progress`` holds where each run in progress is
 ///   (`PlanRunProgress`), updated at most about ten times a second.
+/// - **Kept on the device.** Each plan's own results are written to the
+///   ``archive`` after every run, and shown again when the library next
+///   opens (``restoreKeptResults()``): up to date when the plan and the
+///   library data it reads are as they were, else out of date.
 @Observable @MainActor
 final class PlanStore {
     /// The latest full results per plan (without what-if changes).
@@ -57,6 +61,9 @@ final class PlanStore {
     var focusAges: [PlanID: Int] = [:]
 
     let engine: any PlanEngine
+    /// Where each plan's latest results are kept between launches; `nil`
+    /// keeps nothing (previews, tests).
+    let archive: PlanResultsArchive?
     private let library: LibraryStore
     @ObservationIgnored private var tasks: [PlanRunKey: Task<PlanResults, any Error>] = [:]
     @ObservationIgnored private var tokens: [PlanRunKey: UUID] = [:]
@@ -64,10 +71,16 @@ final class PlanStore {
     /// The check-in each plan's missing answer was last caught up for
     /// (``recordMissingCheckInAnswer(today:)``), so it's tried once.
     @ObservationIgnored private var caughtUpAnswers: [PlanID: CalendarDate] = [:]
+    /// The library whose kept results were restored, so it's done once per library opened.
+    @ObservationIgnored private var restoredLibrary: URL?
+    /// The latest write to the ``archive``: writes wait for the one before,
+    /// so an older result never replaces a newer one.
+    @ObservationIgnored private var archiving: Task<Void, Never>?
 
-    init(library: LibraryStore, engine: any PlanEngine = UnavailablePlanEngine()) {
+    init(library: LibraryStore, engine: any PlanEngine = UnavailablePlanEngine(), archive: PlanResultsArchive? = nil) {
         self.library = library
         self.engine = engine
+        self.archive = archive
     }
 
     /// Whether plans can be run (`false` until the Planner is in).
@@ -129,6 +142,7 @@ final class PlanStore {
         tasks[key]?.cancel()
         let request = PlanRunRequest(plan: document, library: library.library, mode: mode, whatIf: whatIf,
                                      asOf: library.asOfDate, focusAge: focusAge)
+        let libraryURL = library.location?.url
         let engine = engine
         let token = UUID()
         let report: PlanProgressHandler = { [weak self] value in
@@ -153,6 +167,7 @@ final class PlanStore {
             let value = try await task.value
             guard tokens[key] == token else { return nil }
             keep(value, in: PlanRunKey(plan: plan, kind: slot), basis: signature)
+            if slot == .base { keepOnDevice(value, basis: signature, library: libraryURL) }
             errors[plan] = nil
             return value
         } catch is CancellationError {
@@ -206,6 +221,53 @@ final class PlanStore {
             return true
         }
         return false
+    }
+
+    // MARK: Kept on the device
+
+    /// Shows each plan's results kept on this device (``archive``) once its
+    /// library is open, as if they'd just been calculated: up to date when
+    /// the plan and the library data it reads are as they were, else out of
+    /// date for that reason (``staleReasons(of:_:plan:whatIf:focusAge:)``).
+    /// Results this session already has win. Results whose library data
+    /// is the same are also handed to the engine, so going back to exactly
+    /// them later finds them (``adoptCached(_:modes:whatIf:focusAge:)``).
+    /// Once per library opened; the root view calls it when the library is
+    /// loaded.
+    func restoreKeptResults() async {
+        guard let archive, let url = library.location?.url, restoredLibrary != url else { return }
+        restoredLibrary = url
+        let snapshot = library.library
+        let restored = await archive.restore(forLibraryAt: url, library: snapshot, engine: engine.version)
+        for item in restored {
+            let entry = item.entry
+            let plan = entry.results.plan
+            guard results[plan] == nil, library.library.plans[plan] != nil else { continue }
+            let basis = PlanRunBasis(plan: entry.plan, inputs: item.inputsMatch ? PlanRunInputs(snapshot) : nil,
+                                     mode: entry.mode, whatIf: nil, focusAge: nil, asOf: entry.asOf)
+            keep(entry.results, in: PlanRunKey(plan: plan, kind: .base), basis: basis)
+            if item.inputsMatch {
+                await engine.remember(entry.results, for: PlanRunRequest(
+                    plan: entry.plan, library: snapshot, mode: entry.mode, whatIf: nil, asOf: entry.asOf))
+            }
+        }
+    }
+
+    /// Waits for the results being written to the ``archive``.
+    func finishKeeping() async {
+        await archiving?.value
+    }
+
+    /// Writes a plan's own results, calculated from the library at `url`,
+    /// to the ``archive``, off the main thread, after the write before.
+    private func keepOnDevice(_ results: PlanResults, basis: PlanRunBasis, library url: URL?) {
+        guard let archive, let url else { return }
+        let engine = engine.version
+        let previous = archiving
+        archiving = Task {
+            await previous?.value
+            try? await archive.save(results, basis: basis, engine: engine, library: url)
+        }
     }
 
     /// Cancels the runs of `plan` of `kinds` in progress. By default every
@@ -262,13 +324,24 @@ final class PlanStore {
 
     // MARK: Headlines
 
-    /// The answer for the Overview's "Can I retire yet?" card: the main
-    /// plan's latest results, or else its last recorded headline. Never
-    /// starts a run.
+    /// The answer for the Overview's "Can I retire yet?" card (and the
+    /// widgets): the main plan's latest results (``latestResults(of:)``), or
+    /// else its last recorded headline. Never starts a run.
     var mainHeadline: PlanHeadline? {
         guard let main = library.settings.mainPlan else { return nil }
-        if let results = results[main] { return results.headline }
+        if let results = latestResults(of: main) { return results.headline }
         return library.library.headlines(for: main).last.map { PlanHeadline(recorded: $0) }
+    }
+
+    /// The plan's latest results, unless a check-in recorded a newer answer
+    /// since the date they start from (on the other device, say, while
+    /// these were kept on this one): then that answer is the latest.
+    func latestResults(of plan: PlanID) -> PlanResults? {
+        guard let results = results[plan] else { return nil }
+        if let recorded = library.library.headlines(for: plan).last, recorded.date > results.start.date {
+            return nil
+        }
+        return results
     }
 
     /// The headlines recorded at check-ins for `plan`, oldest first.
@@ -465,7 +538,9 @@ struct PlanRunKey: Hashable, Sendable {
 /// joins the run in progress instead of cancelling it.
 struct PlanRunBasis: Equatable, Sendable {
     var plan: PlanDocument
-    var inputs: PlanRunInputs
+    /// `nil` for results kept on the device whose library data changed
+    /// since: they're out of date (`.library`).
+    var inputs: PlanRunInputs?
     var mode: PlanRunMode
     var whatIf: PlanWhatIf?
     var focusAge: Int?

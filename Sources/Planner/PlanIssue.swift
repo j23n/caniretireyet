@@ -3,7 +3,7 @@ import Model
 /// The part of a plan an issue concerns, so the editor can show it on the
 /// right card. Mirrors the plan file's sections, plus `person` for the
 /// library's birth date.
-public struct PlanSection: RawRepresentable, Hashable, Sendable, ExpressibleByStringLiteral {
+public struct PlanSection: RawRepresentable, Hashable, Sendable, Codable, ExpressibleByStringLiteral {
     public let rawValue: String
     public init(rawValue: String) { self.rawValue = rawValue }
     public init(stringLiteral value: String) { self.rawValue = value }
@@ -24,9 +24,9 @@ public struct PlanSection: RawRepresentable, Hashable, Sendable, ExpressibleBySt
 
 /// A problem with a plan, found while interpreting it. Errors stop a run;
 /// warnings are shown with the results.
-public struct PlanIssue: Hashable, Sendable {
+public struct PlanIssue: Hashable, Sendable, Codable {
     /// How serious an issue is.
-    public enum Severity: String, Hashable, Sendable {
+    public enum Severity: String, Hashable, Sendable, Codable {
         /// The plan can't run until it's fixed.
         case error
         /// The plan runs; the result may not be what you meant.

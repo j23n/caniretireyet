@@ -52,7 +52,7 @@ final class WidgetStore {
         let checkIn = CheckInGlance(last: last, next: last.map(CheckInSchedule.nextCheckIn(after:)) ?? today,
                                     dueWindow: CheckInSchedule.dueWindow)
         let birthDate = library.settings.person?.birthDate
-        let answer = library.settings.mainPlan.flatMap { plans.results[$0] }
+        let answer = library.settings.mainPlan.flatMap { plans.latestResults(of: $0) }
             .map { RetirementAnswer($0.headline, birthDate: birthDate) }
         var snapshot = GlanceSnapshot(library: library.library, valuator: library.valuator, asOf: library.asOfDate,
                                       answer: answer, checkIn: checkIn)
@@ -61,11 +61,12 @@ final class WidgetStore {
     }
 
     /// The main plan's next milestone, as Progress shows it (UI.md,
-    /// "Milestones"); `nil` without a main plan or a milestone ahead.
+    /// "Milestones"), from the same results as the answer; `nil` without a
+    /// main plan or a milestone ahead.
     private func nextMilestone() -> MilestoneGlance? {
         guard let main = library.settings.mainPlan, let plan = library.library.plans[main] else { return nil }
         let milestones = PlanMilestones(plan: plan, library: library.library, valuator: library.valuator,
-                                        asOf: library.asOfDate, results: plans.results[main], reached: [])
+                                        asOf: library.asOfDate, results: plans.latestResults(of: main), reached: [])
         guard let next = milestones.next else { return nil }
         return MilestoneGlance(next.milestone, progress: next.progress, typically: milestones.nextDate)
     }

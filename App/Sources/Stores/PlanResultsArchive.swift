@@ -1,0 +1,180 @@
+import Foundation
+import Model
+
+/// Each plan's latest results, kept on this device between launches (UI.md,
+/// "Calculating"), so reopening the app shows them without calculating
+/// again.
+///
+/// They're kept outside the library, in the app's caches: results are
+/// worked out from the library, never part of it, so they don't sync and
+/// each device keeps its own. Each library has a folder of its own, so a
+/// plan of the same ID in another library never shows them.
+///
+/// A file holds a plan's own results (not a what-if's or another age's)
+/// and what they were calculated from: the plan, a fingerprint of the
+/// library data the run read (``PlanRunInputs/fingerprint``), the start
+/// date, the mode and the engine. `PlanStore` writes one after every run of
+/// a plan, and reads them when a library opens: files of another format or
+/// engine, and of plans the library no longer has, are deleted then.
+actor PlanResultsArchive {
+    /// A plan's results and what they were calculated from.
+    struct Entry: Codable, Sendable {
+        /// The format this version writes; files of another are dropped.
+        static let currentFormat = 1
+
+        var format: Int
+        /// The engine that calculated them (`PlanEngine.version`); results
+        /// of another engine are dropped.
+        var engine: String
+        /// The plan as it was calculated.
+        var plan: PlanDocument
+        /// The library data the run read, as ``PlanRunInputs/fingerprint``.
+        var inputs: String
+        /// The date the plan started from.
+        var asOf: CalendarDate
+        var mode: PlanRunMode
+        var results: PlanResults
+    }
+
+    /// Results found when a library opens, and whether the library data the
+    /// run read is still the same.
+    struct Restored: Sendable {
+        var entry: Entry
+        var inputsMatch: Bool
+    }
+
+    /// Where the libraries' folders are.
+    let root: URL
+
+    init(root: URL) {
+        self.root = root
+    }
+
+    /// The app's: `Caches/<bundle id>/PlanResults`. The system may clear
+    /// it when space runs low; the plans are then calculated again on request.
+    static func standard() -> PlanResultsArchive? {
+        guard let caches = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first else {
+            return nil
+        }
+        return PlanResultsArchive(root: caches
+            .appendingPathComponent(Bundle.main.bundleIdentifier ?? "CanIRetireYet", isDirectory: true)
+            .appendingPathComponent("PlanResults", isDirectory: true))
+    }
+
+    /// The folder for the library at `library`: named by a hash of its path.
+    nonisolated func folder(forLibraryAt library: URL) -> URL {
+        root.appendingPathComponent(PlanRunInputs.hash(Data(library.standardizedFileURL.path.utf8)),
+                                    isDirectory: true)
+    }
+
+    /// Keeps `results`, calculated from `basis`, as their plan's in the
+    /// library at `library`, replacing what was kept. Nothing is kept for a
+    /// basis without its inputs (results restored from a changed library).
+    func save(_ results: PlanResults, basis: PlanRunBasis, engine: String, library: URL) throws {
+        guard let inputs = basis.inputs else { return }
+        let entry = Entry(format: Entry.currentFormat, engine: engine, plan: basis.plan, inputs: inputs.fingerprint,
+                          asOf: basis.asOf, mode: basis.mode, results: results)
+        let folder = folder(forLibraryAt: library)
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        try Self.encoder().encode(entry).write(to: file(for: results.plan, in: folder), options: .atomic)
+    }
+
+    /// The results kept for the plans of `library`, found at `url`, each
+    /// with whether the library data its run read is the same now. Files of
+    /// another format or engine, that can't be read, or of a plan the
+    /// library doesn't have are deleted.
+    func restore(forLibraryAt url: URL, library: Library, engine: String) -> [Restored] {
+        let folder = folder(forLibraryAt: url)
+        guard let files = try? FileManager.default.contentsOfDirectory(at: folder, includingPropertiesForKeys: nil)
+        else { return [] }
+        let decoder = Self.decoder()
+        var entries: [Entry] = []
+        for file in files where file.pathExtension == "json" {
+            guard let data = try? Data(contentsOf: file), let entry = try? decoder.decode(Entry.self, from: data),
+                  entry.format == Entry.currentFormat, entry.engine == engine,
+                  library.plans[entry.results.plan] != nil,
+                  file.lastPathComponent == self.file(for: entry.results.plan, in: folder).lastPathComponent
+            else {
+                try? FileManager.default.removeItem(at: file)
+                continue
+            }
+            entries.append(entry)
+        }
+        guard !entries.isEmpty else { return [] }
+        let current = PlanRunInputs(library).fingerprint
+        return entries.sorted { $0.results.plan < $1.results.plan }
+            .map { Restored(entry: $0, inputsMatch: $0.inputs == current) }
+    }
+
+    /// Deletes what's kept for `plan` in the library at `library`.
+    func remove(_ plan: PlanID, library: URL) {
+        try? FileManager.default.removeItem(at: file(for: plan, in: folder(forLibraryAt: library)))
+    }
+
+    private func file(for plan: PlanID, in folder: URL) -> URL {
+        folder.appendingPathComponent("\(plan.rawValue).json")
+    }
+
+    // MARK: JSON
+
+    /// Doubles that aren't numbers (a NaN from the planner) are written as strings.
+    private static let nonConforming = (positiveInfinity: "inf", negativeInfinity: "-inf", nan: "nan")
+
+    static func encoder() -> JSONEncoder {
+        let encoder = JSONEncoder()
+        encoder.nonConformingFloatEncodingStrategy = .convertToString(
+            positiveInfinity: nonConforming.positiveInfinity, negativeInfinity: nonConforming.negativeInfinity,
+            nan: nonConforming.nan)
+        return encoder
+    }
+
+    static func decoder() -> JSONDecoder {
+        let decoder = JSONDecoder()
+        decoder.nonConformingFloatDecodingStrategy = .convertFromString(
+            positiveInfinity: nonConforming.positiveInfinity, negativeInfinity: nonConforming.negativeInfinity,
+            nan: nonConforming.nan)
+        return decoder
+    }
+}
+
+extension PlanRunInputs {
+    /// A fingerprint of the library data a run reads, the same on every
+    /// launch for the same data: FNV-1a (64-bit) of its JSON with sorted
+    /// keys (decimals in their exact file form), as the Planner's plan hash
+    /// is, with accounts, instruments and months in order. Data that can't
+    /// be encoded gets a fingerprint nothing else has.
+    var fingerprint: String {
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
+        encoder.nonConformingFloatEncodingStrategy = .convertToString(positiveInfinity: "inf",
+                                                                      negativeInfinity: "-inf", nan: "nan")
+        guard let data = try? encoder.encode(Fingerprinted(self)) else { return UUID().uuidString }
+        return Self.hash(data)
+    }
+
+    /// FNV-1a (64-bit) of `data`, as 16 hex digits.
+    static func hash(_ data: Data) -> String {
+        var hash: UInt64 = 0xCBF2_9CE4_8422_2325
+        for byte in data {
+            hash ^= UInt64(byte)
+            hash = hash &* 0x0000_0100_0000_01B3
+        }
+        let digits = String(hash, radix: 16)
+        return String(repeating: "0", count: 16 - digits.count) + digits
+    }
+
+    /// The inputs with their dictionaries as lists in a fixed order.
+    private struct Fingerprinted: Encodable {
+        var settings: LibrarySettings
+        var accounts: [Account]
+        var instruments: [Instrument]
+        var months: [MonthFile]
+
+        init(_ inputs: PlanRunInputs) {
+            settings = inputs.settings
+            accounts = inputs.accounts.values.sorted { $0.id < $1.id }
+            instruments = inputs.instruments.values.sorted { $0.id < $1.id }
+            months = inputs.months.values.sorted { $0.month < $1.month }
+        }
+    }
+}

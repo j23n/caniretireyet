@@ -145,17 +145,32 @@ enum PlanRunText {
     }
 
     /// In the plan menu, about the answer shown: "Calculated at 09:41 with
-    /// 2.000 runs", "Calculated on 30 Sep at 09:41 with 400 runs, a quick
-    /// estimate".
-    static func calculated(_ results: PlanResults, now: Date = Date(), locale: Locale = .current) -> String {
-        var calendar = Calendar.current
-        calendar.locale = locale
-        let time = results.computedAt.formatted(.dateTime.hour().minute().locale(locale))
-        let when = calendar.isDate(results.computedAt, inSameDayAs: now) ? "at \(time)"
-            : "on \(results.computedAt.formatted(.dateTime.day().month(.abbreviated).locale(locale))) at \(time)"
+    /// 2.000 runs"; for results kept on the device from an earlier day
+    /// "Calculated on 30 Sep at 09:41 with 400 runs, a quick estimate", with
+    /// the year when it isn't this one.
+    static func calculated(_ results: PlanResults, now: Date = Date(), calendar: Calendar = .current,
+                           locale: Locale = .current) -> String {
+        let date = results.computedAt
+        let time = formatted(date, .dateTime.hour().minute(), calendar: calendar, locale: locale)
+        let when: String
+        if calendar.isDate(date, inSameDayAs: now) {
+            when = "at \(time)"
+        } else {
+            var day = Date.FormatStyle.dateTime.day().month(.abbreviated)
+            if !calendar.isDate(date, equalTo: now, toGranularity: .year) { day = day.year() }
+            when = "on \(formatted(date, day, calendar: calendar, locale: locale)) at \(time)"
+        }
         let runs = AmountFormat.number(Decimal(results.runs), locale: locale)
         let quick = results.mode == .fast ? ", a quick estimate" : ""
         return "Calculated \(when) with \(runs) runs\(quick)"
+    }
+
+    private static func formatted(_ date: Date, _ style: Date.FormatStyle, calendar: Calendar,
+                                  locale: Locale) -> String {
+        var styled = style.locale(locale)
+        styled.calendar = calendar
+        styled.timeZone = calendar.timeZone
+        return date.formatted(styled)
     }
 
     /// Under a recorded answer: the charts need a calculation.
