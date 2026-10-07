@@ -34,6 +34,12 @@ public struct GapExplanation: Hashable, Sendable {
     /// exchange rates.
     public var other: Decimal
 
+    /// Your money at the stretch's start, and what the baseline expected
+    /// then (at its own start, the value it started from): the two the
+    /// ``start`` gap is between.
+    public var actualStart: Decimal
+    public var expectedStart: Decimal
+
     /// The baseline's planned saving over the stretch.
     public var plannedSaving: Decimal
     /// Your new money over the stretch.
@@ -64,6 +70,8 @@ public struct GapExplanation: Hashable, Sendable {
                 plannedSaving: Decimal, change: ValueChange, asItWas: (start: Decimal, end: Decimal)?) {
         let expectedChange = expected.end - expected.start
         start = actual.start - expected.start
+        actualStart = actual.start
+        expectedStart = expected.start
         self.plannedSaving = plannedSaving
         newMoney = change.newMoney
         market = change.market

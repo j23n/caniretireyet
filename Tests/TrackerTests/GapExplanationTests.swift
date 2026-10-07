@@ -32,6 +32,8 @@ struct GapExplanationTests {
         let gap = GapExplanation(actual: (start: 200_000, end: 214_100), expected: (start: 190_000, end: 205_000),
                                  plannedSaving: 6_000, change: change, asItWas: nil)
         #expect(gap.start == 10_000)
+        #expect(gap.actualStart == 200_000)
+        #expect(gap.expectedStart == 190_000)
         #expect(gap.saving == 0)
         #expect(gap.markets == -1_000)
         #expect(gap.inflation == nil)
