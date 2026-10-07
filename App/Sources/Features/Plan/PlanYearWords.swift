@@ -233,6 +233,15 @@ struct PlanGapExplanationView: View {
     @Environment(\.hidesAmounts) private var hidesAmounts
     @Environment(\.locale) private var locale
 
+    /// - Parameter explanation: shown in whole units
+    ///   (``GapExplanation/inWholeUnits``), so each row is the difference
+    ///   its sentence names and the rows add up to the total.
+    init(explanation: GapExplanation, year: PlanProgressYear, currency: CurrencyCode) {
+        self.explanation = explanation.inWholeUnits
+        self.year = year
+        self.currency = currency
+    }
+
     private struct Row: Identifiable {
         var title: String
         var value: Decimal

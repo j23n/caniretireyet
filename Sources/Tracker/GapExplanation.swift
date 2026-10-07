@@ -84,3 +84,34 @@ public struct GapExplanation: Hashable, Sendable {
         other = nominal.end - nominal.start - change.newMoney - change.market
     }
 }
+
+extension GapExplanation {
+    /// The explanation in whole units, as its parts read in a list with the
+    /// gap under them: the amounts its sentences name are rounded first,
+    /// and ``start``, ``saving`` and ``markets`` are each the difference of
+    /// the two they're between ("You saved 20.486 €; January planned
+    /// 13.463 €": 7.023 €); ``other`` is rounded; and ``inflation``, or
+    /// without it ``other``, takes what rounding leaves, so the parts still
+    /// add up to ``end`` rounded. Rounded one by one, they could miss it by
+    /// a unit or two.
+    public var inWholeUnits: GapExplanation {
+        var whole = self
+        whole.actualStart = actualStart.rounded(places: 0)
+        whole.expectedStart = expectedStart.rounded(places: 0)
+        whole.plannedSaving = plannedSaving.rounded(places: 0)
+        whole.newMoney = newMoney.rounded(places: 0)
+        whole.market = market.rounded(places: 0)
+        whole.expectedMarket = expectedMarket.rounded(places: 0)
+        whole.start = whole.actualStart - whole.expectedStart
+        whole.saving = whole.newMoney - whole.plannedSaving
+        whole.markets = whole.market - whole.expectedMarket
+        let left = end.rounded(places: 0) - whole.start - whole.saving - whole.markets
+        if inflation != nil {
+            whole.other = other.rounded(places: 0)
+            whole.inflation = left - whole.other
+        } else {
+            whole.other = left
+        }
+        return whole
+    }
+}
