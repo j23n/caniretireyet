@@ -53,6 +53,27 @@ final class ScreenshotTests: XCTestCase {
         XCTAssertFalse(app.buttons["plan.calculate"].exists, "The plan asks to be calculated.")
     }
 
+    #if os(iOS)
+    /// On iPhone a swipe scrolls the plan's chapters sideways, also when it
+    /// starts on a card's graph, which a touch and hold reads instead.
+    @MainActor
+    func testChaptersScrollSideways() {
+        let app = launch(library: "example", screen: "plan")
+        waitForScreen(app, showing: answer(in: app), named: "plan-swipe", timeout: 240, settle: 5)
+        let strip = app.descendants(matching: .any)["plan.chapters"].firstMatch
+        let last = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Chapter 6,")).firstMatch
+        XCTAssertTrue(strip.waitForExistence(timeout: 10), "The chapters never showed.")
+        XCTAssertTrue(last.exists, "There's no sixth chapter.")
+        XCTAssertFalse(last.isHittable, "The last chapter is on screen before scrolling.")
+        for _ in 0..<6 where !last.isHittable {
+            strip.swipeLeft()
+            pause(seconds: 1)
+        }
+        keepScreenshot(of: app, named: "plan-swiped")
+        XCTAssertTrue(last.isHittable, "Swiping the chapters didn't scroll them.")
+    }
+    #endif
+
     @MainActor
     func testWhatIf() {
         #if os(macOS)

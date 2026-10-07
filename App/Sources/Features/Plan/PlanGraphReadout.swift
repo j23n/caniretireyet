@@ -1,10 +1,13 @@
 import SwiftUI
+#if os(iOS)
+import UIKit
+#endif
 
 // Reading the strips' graphs at a point (UI.md, "Plan" and "Progress"): on
 // the Mac and an iPad with a pointer, wherever the pointer is over a card;
 // on iPhone, touch and hold a card, then drag, until the finger lifts. A
 // rule marks the point, and a small label says what the graph shows there.
-// A click or a tap still chooses the card.
+// A click or a tap still chooses the card, and a swipe scrolls the strip.
 
 /// Where the pointer is over one of a strip's cards, or the finger on one:
 /// the card's index and the point along it, in its coordinates.
@@ -24,16 +27,15 @@ extension View {
 }
 
 /// The pointer over a card (`onContinuousHover`), and on iOS a touch and
-/// hold, then a drag: a long press sequenced before a drag, alongside the
-/// card's own tap. The finger's place is gesture state, so it's gone when
-/// the finger lifts or the touch is cancelled, and the read-out with it.
+/// hold, then a drag (``PlanTouchAndHold``), alongside the card's own tap.
+/// The read-out goes when the finger lifts or the touch is cancelled.
 struct PlanGraphPointerModifier: ViewModifier {
     @Binding var pointer: PlanGraphPointer?
     let index: Int
 
     #if os(iOS)
-    /// Where the finger is along the card while it's touched and held.
-    @GestureState private var finger: CGFloat?
+    /// Whether a finger is held on the card, for the tap felt when it starts.
+    @State private var isHeld = false
     #endif
 
     func body(content: Content) -> some View {
@@ -48,24 +50,50 @@ struct PlanGraphPointerModifier: ViewModifier {
                 }
             }
             #if os(iOS)
-            .simultaneousGesture(
-                LongPressGesture(minimumDuration: 0.3)
-                    .sequenced(before: DragGesture(minimumDistance: 0, coordinateSpace: .local))
-                    .updating($finger) { value, state, _ in
-                        if case .second(true, let drag?) = value { state = drag.location.x }
-                    }
-            )
-            .onChange(of: finger) { _, x in
+            .gesture(PlanTouchAndHold { x in
+                isHeld = x != nil
                 if let x {
-                    pointer = PlanGraphPointer(index: index, x: x, byTouch: true)
+                    let moved = PlanGraphPointer(index: index, x: x.rounded(), byTouch: true)
+                    if pointer != moved { pointer = moved }
                 } else if pointer?.index == index, pointer?.byTouch == true {
                     pointer = nil
                 }
-            }
-            .sensoryFeedback(.impact(weight: .light), trigger: finger != nil) { old, new in !old && new }
+            })
+            .sensoryFeedback(.impact(weight: .light), trigger: isHeld) { old, new in !old && new }
             #endif
     }
 }
+
+#if os(iOS)
+/// Touch and hold, then drag: UIKit's long press, whose place along the view
+/// `onChange` follows while the finger is held, then `nil` once it lifts or
+/// the touch is cancelled.
+///
+/// Not SwiftUI's `LongPressGesture` sequenced before a `DragGesture`: inside
+/// a scroll view, that drag kept the strip from scrolling at all. A swipe
+/// moves the finger before the press is long enough, so the long press fails
+/// and the strip's own pan scrolls it; once the long press begins, the pan
+/// can't, and the strip stays put while the finger reads the graph.
+struct PlanTouchAndHold: UIGestureRecognizerRepresentable {
+    var minimumDuration: TimeInterval = 0.3
+    let onChange: @MainActor (CGFloat?) -> Void
+
+    func makeUIGestureRecognizer(context: Context) -> UILongPressGestureRecognizer {
+        let recognizer = UILongPressGestureRecognizer()
+        recognizer.minimumPressDuration = minimumDuration
+        return recognizer
+    }
+
+    func handleUIGestureRecognizerAction(_ recognizer: UILongPressGestureRecognizer, context: Context) {
+        switch recognizer.state {
+        case .began, .changed:
+            onChange(context.converter.localLocation.x)
+        default:
+            onChange(nil)
+        }
+    }
+}
+#endif
 
 extension DynamicTypeSize {
     /// The largest text size a strip's cards show (``stripCardScale``):

@@ -58,6 +58,7 @@ struct PlanChapterStrip: View {
             .scrollIndicators(.hidden)
             // A finger reading the graph moves the read-out, not the strip.
             .scrollDisabled(pointer?.byTouch == true)
+            .accessibilityIdentifier("plan.chapters")
             .onChange(of: selection) { _, index in
                 withAnimation(.snappy) { proxy.scrollTo(index, anchor: .center) }
             }
