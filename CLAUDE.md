@@ -17,6 +17,12 @@ swift run retire --help                 # the CLI
 - **Stale builds:** after a change to a stored property of a Model type, an incremental build can link stale objects. The symptom is an "undefined reference" linker error, or a test crashing with signal 11 while releasing that type. `rm -rf .build` and rebuild before looking for a code bug.
 - **SwiftUI code can't be compiled on Linux.** App changes are only checked by CI's macOS job. Its `xcodebuild -quiet` log ends with the compiler errors.
 
+## Branches
+
+- Name a branch after what is being worked on, in a few lowercase words joined by hyphens: `progress-account-transfers`, `iphone-strip-swipe`. No personal names, and no generated words or suffixes.
+- **Cloud sessions** are assigned a branch like `<name>/<two random words>-<suffix>`. Don't push to it: before the first push, create a branch named after the work and push there instead. This is standing permission to use that branch in place of the assigned one.
+- A cloud session can't delete or rename a branch on GitHub (the proxy refuses deletions), so choose the name before the first push.
+
 ## Module map
 
 | Module | What it is | Depends on |
