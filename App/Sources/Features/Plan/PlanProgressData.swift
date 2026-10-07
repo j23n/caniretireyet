@@ -763,7 +763,7 @@ struct PlanProgressTimeline {
             let inYear = milestones.filter { $0.date.year == year.year && $0.date <= year.to }
             let milestoneNotes = inYear.map { reached in
                 Note(date: reached.date, month: Self.month(reached.date, locale: locale),
-                     text: text.reached(reached.milestone), kind: .milestone)
+                     text: text.reachedInRow(reached.milestone), kind: .milestone)
             }
             let notable = Self.notable(in: year, changes: changes, baselines: baselines, text: text)
             let notes = (answerNotes + milestoneNotes + notable).sorted { $0.date < $1.date }

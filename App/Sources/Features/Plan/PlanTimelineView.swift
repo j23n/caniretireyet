@@ -18,6 +18,10 @@ struct PlanTimelineView: View {
     var isWide = false
     /// Opens the What-if sheet (iPhone); on the Mac and iPad What if is in the toolbar.
     var onWhatIf: (() -> Void)?
+    /// Whether What if takes a column beside the page (the Mac and iPad):
+    /// the page is narrower, so the chosen chapter's settings go under its
+    /// words, and the answer's pill under its words.
+    var besideWhatIf = false
     /// Shows Progress.
     var onShowProgress: (() -> Void)?
     /// Export Calculations…
@@ -33,6 +37,10 @@ struct PlanTimelineView: View {
     @State private var showsMoreCharts = false
 
     private var gutter: CGFloat { isWide ? Metrics.xl : Metrics.l }
+
+    /// Whether the page has the width for things side by side: the Mac and
+    /// iPad, unless What if takes a column beside it.
+    private var isRoomy: Bool { isWide && !besideWhatIf }
 
     private var milestoneText: PlanMilestoneText {
         PlanMilestoneText(currency: session.currency, hidesAmounts: hidesAmounts, locale: locale)
@@ -61,7 +69,7 @@ struct PlanTimelineView: View {
                 .padding(.horizontal, gutter)
                 if let plan = session.plan {
                     chapters(plan, binding: $session.editablePlan, state: state, milestones: milestones)
-                    PlanAssumptionsFooter(plan: plan, words: words, isWide: isWide, canEdit: session.canEdit,
+                    PlanAssumptionsFooter(plan: plan, words: words, isWide: isRoomy, canEdit: session.canEdit,
                                           onOpen: show, onShowAll: { showsAssumptions = true }, onExport: onExport,
                                           binding: $session.editablePlan)
                         .padding(.horizontal, gutter)
@@ -93,8 +101,8 @@ struct PlanTimelineView: View {
     @ViewBuilder
     private func headline(_ state: PlanResultsState) -> some View {
         if let results = state.results {
-            PlanTimelineHeadline(session: session, results: results, isWide: isWide, progress: progress,
-                                 onShowProgress: onShowProgress, onWhatIf: onWhatIf)
+            PlanTimelineHeadline(session: session, results: results, isWide: isWide, stacksPill: besideWhatIf,
+                                 progress: progress, onShowProgress: onShowProgress, onWhatIf: onWhatIf)
                 .opacity(state.isRunning ? 0.5 : 1)
                 // The UI tests wait for the answer before their screenshot.
                 .accessibilityElement(children: .contain)
@@ -141,7 +149,8 @@ struct PlanTimelineView: View {
                     model: model, index: selected,
                     story: PlanChapterStory(chapterAt: selected, in: model, results: state.results, words: words),
                     barMaximum: barMaximum(model, results: state.results), plan: binding, words: words,
-                    issues: issues, isWide: isWide, canEdit: session.canEdit, editing: $editing,
+                    issues: issues, isWide: isRoomy, showsSteps: !isWide, canEdit: session.canEdit,
+                    editing: $editing,
                     milestones: timeline.cards.indices.contains(selected) ? timeline.cards[selected].milestones : [],
                     milestoneText: milestoneText,
                     onOpen: show, onSelect: { selection.wrappedValue = $0 },
@@ -212,7 +221,7 @@ struct PlanTimelineView: View {
             DisclosureGroup(isExpanded: $showsMoreCharts) {
                 VStack(alignment: .leading, spacing: Metrics.l) {
                     PlanFanCard(session: session, results: results)
-                    if isWide {
+                    if isRoomy {
                         EqualColumns(spacing: Metrics.l) {
                             PlanSuccessCard(session: session, results: results)
                             PlanIncomeCard(results: results)
@@ -255,6 +264,9 @@ struct PlanTimelineHeadline: View {
     let session: PlanSession
     let results: PlanResults
     var isWide = false
+    /// Whether the pill goes under the words rather than beside them (a
+    /// narrower page, beside What if).
+    var stacksPill = false
     var progress: (position: PlanBaselineComparison.Position, currency: CurrencyCode)?
     var onShowProgress: (() -> Void)?
     var onWhatIf: (() -> Void)?
@@ -273,7 +285,19 @@ struct PlanTimelineHeadline: View {
 
     var body: some View {
         let title = PlanTimelineText.headline(results.headline, locale: locale)
-        if isWide {
+        if isWide && stacksPill {
+            VStack(alignment: .leading, spacing: 6) {
+                Text(title)
+                    .font(Self.wideTitleFont)
+                    .foregroundStyle(Palette.ink)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .accessibilityAddTraits(.isHeader)
+                reason
+                    .foregroundStyle(Palette.secondaryInk)
+                progressPill
+                    .padding(.top, Metrics.xs)
+            }
+        } else if isWide {
             HStack(alignment: .top, spacing: Metrics.l) {
                 VStack(alignment: .leading, spacing: 6) {
                     Text(title)
@@ -427,6 +451,8 @@ struct PlanChapterDetails: View {
     let words: PlanWords
     let issues: PlanInputIssues
     var isWide = false
+    /// Whether ‹ › are in its header (iPhone; on the Mac and iPad they're above the strip).
+    var showsSteps = true
     var canEdit = true
     @Binding var editing: PlanEditTarget?
     /// The milestones the median future reaches in the chapter.
@@ -488,7 +514,7 @@ struct PlanChapterDetails: View {
                     .foregroundStyle(Palette.secondaryInk)
             }
             Spacer(minLength: Metrics.s)
-            if !isWide {
+            if showsSteps {
                 PlanStepButtons(index: index, count: model.chapters.chapters.count, select: onSelect)
             }
         }

@@ -134,6 +134,12 @@ struct PlanYearStrip: View {
             .onChange(of: selection) { _, index in
                 // Once an early year is chosen, the early years stay laid out.
                 if index < early { showsEarlyYears = true }
+                // The strip centres the chosen year: its scale is fitted to
+                // it and those beside it at once, whatever cards had been
+                // reported on screen before (a card laid out anew, or
+                // scrolled past, needn't report leaving).
+                onScreen.replace(with: Set([index - 1, index, index + 1].filter(timeline.cards.indices.contains)))
+                fitScale()
                 withAnimation(.snappy) { proxy.scrollTo(index, anchor: .center) }
             }
         }
@@ -235,6 +241,11 @@ final class PlanCardsOnScreen {
 
     func set(_ index: Int, _ isVisible: Bool) {
         if isVisible { cards.insert(index) } else { cards.remove(index) }
+    }
+
+    /// Starts over from `cards`: those a scroll to a chosen card brings on screen.
+    func replace(with cards: Set<Int>) {
+        self.cards = cards
     }
 }
 
@@ -627,7 +638,7 @@ struct PlanYearCardView: View {
                                            style: .context)]
         let text = PlanMilestoneText(currency: card.currency, hidesAmounts: hidesAmounts, locale: locale)
         for reached in found.milestones {
-            lines.append(PlanGraphCallout.Line(text: text.reached(reached.milestone), style: .milestone))
+            lines.append(PlanGraphCallout.Line(text: text.reachedInRow(reached.milestone), style: .milestone))
         }
         lines.append(PlanGraphCallout.Line(text: amount(found.point.value), style: .value))
         if let expected = found.expected {

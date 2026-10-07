@@ -121,7 +121,11 @@ struct PlanContentView: View {
 
     private var name: String { session.plan?.name ?? "Plan" }
 
-    private var inspectorTitle: String { showsInspector ? "Hide What If" : "Show What If" }
+    private var inspectorTitle: String { showsWhatIfColumn ? "Hide What If" : "Show What If" }
+
+    /// What if beside the plan (the Mac and iPad): only with the plan, whose
+    /// answer it changes.
+    private var showsWhatIfColumn: Bool { showsInspector && part == .plan }
 
     var body: some View {
         planLayout
@@ -256,7 +260,7 @@ struct PlanContentView: View {
             // Flexible, so the page takes what the column leaves: the
             // minimum alone reports one width whatever it's offered.
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-            if showsInspector {
+            if showsWhatIfColumn {
                 Divider()
                 PlanInspector(session: session)
                     .frame(width: PlanInspector.width)
@@ -272,8 +276,8 @@ struct PlanContentView: View {
                              onShowPlan: { part = .plan })
         } else {
             // What if is in the toolbar.
-            PlanTimelineView(session: session, isWide: true, onShowProgress: { part = .progress },
-                             onExport: { exportCalculations() })
+            PlanTimelineView(session: session, isWide: true, besideWhatIf: showsWhatIfColumn,
+                             onShowProgress: { part = .progress }, onExport: { exportCalculations() })
         }
     }
 
@@ -310,7 +314,15 @@ struct PlanContentView: View {
                 }
                 .disabled(!library.canEdit)
                 Button {
-                    withAnimation(.snappy) { showsInspector.toggle() }
+                    withAnimation(.snappy) {
+                        // From Progress, What if opens with the plan.
+                        if part == .progress {
+                            part = .plan
+                            showsInspector = true
+                        } else {
+                            showsInspector.toggle()
+                        }
+                    }
                 } label: {
                     Label(inspectorTitle, systemImage: "slider.horizontal.3")
                 }

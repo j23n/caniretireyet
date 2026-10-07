@@ -119,29 +119,20 @@ struct PlanProgressView: View {
         let tiles = self.tiles
         let month = monthReport
         if isWide {
-            HStack(alignment: .top, spacing: Metrics.l) {
-                VStack(alignment: .leading, spacing: Metrics.xs) {
-                    Text(title)
-                        .font(Self.wideTitleFont)
-                        .foregroundStyle(Palette.ink)
-                        .accessibilityAddTraits(.isHeader)
-                    Text(detail)
-                        .font(PlanProgressFont.text)
-                        .foregroundStyle(Palette.secondaryInk)
-                        .fixedSize(horizontal: false, vertical: true)
+            // The tiles beside the words when there's room for both, else under them.
+            ViewThatFits(in: .horizontal) {
+                HStack(alignment: .top, spacing: Metrics.l) {
+                    wideWords(title: title, detail: detail)
+                        .frame(width: 380, alignment: .leading)
+                    Spacer(minLength: 0)
+                    tileRow(tiles, month: month)
+                        .fixedSize()
                 }
-                .frame(maxWidth: 460, alignment: .leading)
-                Spacer(minLength: Metrics.l)
-                HStack(alignment: .top, spacing: Metrics.s) {
-                    ForEach(tiles) { tile in
-                        PlanStatTile(title: tile.title, value: tile.value)
-                    }
-                    if let month {
-                        PlanStatTile(title: month.title, value: month.figures)
-                    }
+                VStack(alignment: .leading, spacing: Metrics.m) {
+                    wideWords(title: title, detail: detail)
+                        .frame(maxWidth: 560, alignment: .leading)
+                    tileRow(tiles, month: month)
                 }
-                // The words beside them give way first.
-                .layoutPriority(1)
             }
         } else {
             Card {
@@ -176,6 +167,32 @@ struct PlanProgressView: View {
         }
     }
 
+    /// The answer in words on the Mac and iPad.
+    private func wideWords(title: String, detail: String) -> some View {
+        VStack(alignment: .leading, spacing: Metrics.xs) {
+            Text(title)
+                .font(Self.wideTitleFont)
+                .foregroundStyle(Palette.ink)
+                .accessibilityAddTraits(.isHeader)
+            Text(detail)
+                .font(PlanProgressFont.text)
+                .foregroundStyle(Palette.secondaryInk)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    /// The figures as tiles on the Mac and iPad: to go, since January, and the month.
+    private func tileRow(_ tiles: [Tile], month: MonthReport?) -> some View {
+        HStack(alignment: .top, spacing: Metrics.s) {
+            ForEach(tiles) { tile in
+                PlanStatTile(title: tile.title, value: tile.value)
+            }
+            if let month {
+                PlanStatTile(title: month.title, value: month.figures)
+            }
+        }
+    }
+
     /// The answer's title beside its figures: 22 points on the Mac.
     private static var wideTitleFont: Font {
         #if os(macOS)
@@ -192,7 +209,9 @@ struct PlanProgressView: View {
         var id: String { title }
     }
 
-    /// "To go · 15½ years", "Since Jan 2024 · 3 years sooner".
+    /// "To go · 15½ years", "Since Jan 2024 · 3 years sooner". To go is
+    /// from the plan's results, else the answer recorded at the latest
+    /// check-in (its age, on your birthday).
     private var tiles: [Tile] {
         var tiles: [Tile] = []
         if let headline = session.shownResults?.headline {
@@ -200,6 +219,13 @@ struct PlanProgressView: View {
                 tiles.append(Tile(title: "To go", value: "None: you could stop"))
             } else if let date = headline.earliestDate {
                 let months = library.asOfDate.yearMonth.months(to: date.yearMonth)
+                if months > 0 { tiles.append(Tile(title: "To go", value: Self.duration(months: months))) }
+            }
+        } else if let recorded = answerHistory.points.last {
+            if let readiness = recorded.readiness, readiness >= 1 {
+                tiles.append(Tile(title: "To go", value: "None: you could stop"))
+            } else if let age = recorded.earliestAge, let birth = library.settings.person?.birthDate {
+                let months = library.asOfDate.yearMonth.months(to: birth.adding(years: age).yearMonth)
                 if months > 0 { tiles.append(Tile(title: "To go", value: Self.duration(months: months))) }
             }
         }
@@ -540,7 +566,7 @@ struct PlanStatTile: View {
         }
         .padding(.horizontal, Metrics.m)
         .padding(.vertical, Metrics.s)
-        .frame(minWidth: 110, maxWidth: 300, alignment: .leading)
+        .frame(minWidth: 110, alignment: .leading)
         .background(Palette.card, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
         .overlay {
             RoundedRectangle(cornerRadius: 10, style: .continuous)

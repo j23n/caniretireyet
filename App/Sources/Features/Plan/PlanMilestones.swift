@@ -188,6 +188,14 @@ struct PlanMilestoneText {
         }
     }
 
+    /// The milestone in a year's row of words, where the Milestones card
+    /// beside it explains the coast point: as ``reached(_:)``, but "Passed
+    /// the coast point: 67."
+    func reachedInRow(_ milestone: Milestone) -> String {
+        if case .coastPoint(let age) = milestone.kind { return "Passed the coast point: \(age)." }
+        return reached(milestone)
+    }
+
     /// "A quarter", "A third", "Half", "Two thirds", "Three quarters",
     /// "9 in 10", "All".
     static func shareName(_ numerator: Int, _ denominator: Int) -> String {
