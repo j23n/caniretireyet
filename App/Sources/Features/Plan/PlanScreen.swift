@@ -98,6 +98,7 @@ struct PlanContentView: View {
     @Environment(LibraryStore.self) private var library
     @Environment(PlanStore.self) private var plans
     @Environment(AppNavigation.self) private var navigation
+    @Environment(\.locale) private var locale
     @State private var session: PlanSession
     @State private var part: PlanPart = .plan
     @State private var showsInspector = false
@@ -217,7 +218,7 @@ struct PlanContentView: View {
             }
             .sheet(isPresented: $showsWhatIf) {
                 ScrollView {
-                    PlanWhatIfPanel(session: session, showsAnswer: true)
+                    PlanWhatIfPanel(session: session)
                         .padding(Metrics.l)
                 }
                 .presentationDetents([.medium, .large])
@@ -238,20 +239,29 @@ struct PlanContentView: View {
         }
     }
 
-    /// Mac and iPad: Plan | Progress, with What-if in the inspector.
+    /// Mac and iPad: Plan | Progress, with What if in a column beside it.
     ///
-    /// The page beside the inspector has a fixed minimum (``FixedMinimumSize``),
-    /// as the window's root has: measured through the page, its minimum
-    /// moved as the page laid out for the width it got (a strip, a row that
-    /// wraps), and opening the inspector or switching to Progress never
-    /// settled ("needing another Update Constraints in Window pass").
+    /// The page has a fixed minimum (``FixedMinimumSize``), as the window's
+    /// root has: measured through the page, its minimum moved as the page
+    /// laid out for the width it got (a strip, a row that wraps), and
+    /// switching to Progress never settled ("needing another Update
+    /// Constraints in Window pass"). What if is a column of its own width
+    /// beside it, not an inspector: the window's split view wouldn't narrow
+    /// the page for the inspector, which then ran past the window's edge.
     private var wideLayout: some View {
-        FixedMinimumSize(minWidth: 320, minHeight: 300) {
-            widePart
-        }
-        .inspector(isPresented: $showsInspector) {
-            PlanInspector(session: session)
-                .inspectorColumnWidth(min: 300, ideal: 340, max: 460)
+        HStack(spacing: 0) {
+            FixedMinimumSize(minWidth: 320, minHeight: 300) {
+                widePart
+            }
+            // Flexible, so the page takes what the column leaves: the
+            // minimum alone reports one width whatever it's offered.
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            if showsInspector {
+                Divider()
+                PlanInspector(session: session)
+                    .frame(width: PlanInspector.width)
+                    .transition(.move(edge: .trailing))
+            }
         }
     }
 
@@ -261,8 +271,9 @@ struct PlanContentView: View {
             PlanProgressView(session: session, isWide: true, onSaveBaseline: { startSavingBaseline() },
                              onShowPlan: { part = .plan })
         } else {
-            PlanTimelineView(session: session, isWide: true, onWhatIf: { showsInspector = true },
-                             onShowProgress: { part = .progress }, onExport: { exportCalculations() })
+            // What if is in the toolbar.
+            PlanTimelineView(session: session, isWide: true, onShowProgress: { part = .progress },
+                             onExport: { exportCalculations() })
         }
     }
 
@@ -299,10 +310,11 @@ struct PlanContentView: View {
                 }
                 .disabled(!library.canEdit)
                 Button {
-                    showsInspector.toggle()
+                    withAnimation(.snappy) { showsInspector.toggle() }
                 } label: {
                     Label(inspectorTitle, systemImage: "slider.horizontal.3")
                 }
+                .help("What if: try a change before you make it in the plan")
             }
         }
     }
@@ -353,7 +365,8 @@ struct PlanContentView: View {
                 }
             }
             .disabled(!library.canEdit)
-            Section {
+            // How the answer shown was calculated, above what's behind it.
+            Section(session.shownResults.map { PlanRunText.calculated($0, locale: locale) } ?? "Not calculated yet") {
                 Button {
                     exportCalculations()
                 } label: {
@@ -472,15 +485,19 @@ struct PlanContentView: View {
     }
 }
 
-/// The Mac's inspector: What-if, its sliders and the answer they give.
+/// What if beside the plan on the Mac and iPad: its sliders and the answer they give.
 struct PlanInspector: View {
     let session: PlanSession
 
+    /// The column's width.
+    static let width: CGFloat = 340
+
     var body: some View {
         ScrollView {
-            PlanWhatIfPanel(session: session, showsAnswer: true)
-                .padding(Metrics.m)
+            PlanWhatIfPanel(session: session)
+                .padding(Metrics.l)
         }
+        .background(Palette.card)
     }
 }
 

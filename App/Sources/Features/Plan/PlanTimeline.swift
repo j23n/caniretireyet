@@ -256,15 +256,34 @@ enum PlanTimelineText {
         return "Not yet. Stop at \(age), in \(PlanResultsText.monthYear(date, locale: locale))."
     }
 
-    /// How many futures in 10 last, at a chance of `success`.
+    /// How many futures in 10 last, at a chance of `success`: rounded down,
+    /// so a plan short of a bar in tenths never reads as reaching it.
     static func tenths(_ success: Double) -> Int {
-        min(10, max(0, Int((success * 10).rounded())))
+        min(10, max(0, Int((success * 10 + 1e-9).rounded(.down))))
     }
 
-    /// "9 in 10 futures last to 95 if you stop at 54."
-    static func lasting(_ success: Double, endAge: Int, stoppingAt age: Int?) -> String {
-        let futures = "\(tenths(success)) in 10 futures last to \(endAge)"
-        return age.map { "\(futures) if you stop at \($0)." } ?? "\(futures)."
+    /// Why the answer is what it is, at the age the plan is shown for
+    /// (UI.md, "Plan"): "At 55, as planned, 4 in 10 futures last to 95.
+    /// Your bar is 9 in 10.", "If you stop at 58, 9 in 10 futures last to
+    /// 95. That meets your bar." In hundredths when the bar isn't a whole
+    /// number of tenths (95 in 100).
+    ///
+    /// - Parameters:
+    ///   - age: the age it's for; `nil` leaves it out.
+    ///   - isPlanned: whether that's the plan's own retirement age.
+    ///   - bar: the plan's confidence level.
+    static func reason(_ success: Double, endAge: Int, age: Int?, isPlanned: Bool, bar: Double) -> String {
+        let inTenths = abs(bar * 10 - (bar * 10).rounded()) < 1e-6
+        func share(_ value: Double) -> String {
+            inTenths ? "\(Self.tenths(value)) in 10" : "\(Int((value * 100 + 1e-9).rounded(.down))) in 100"
+        }
+        let futures = "\(share(success)) futures last to \(endAge)"
+        let sentence: String = if let age {
+            (isPlanned ? "At \(age), as planned, " : "If you stop at \(age), ") + futures
+        } else {
+            futures.prefix(1).uppercased() + futures.dropFirst()
+        }
+        return success >= bar ? "\(sentence). That meets your bar." : "\(sentence). Your bar is \(share(bar))."
     }
 
     /// "No futures run out here", "4 in 100 futures run out here", "Fewer

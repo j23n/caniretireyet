@@ -33,13 +33,13 @@ final class ScreenshotTests: XCTestCase {
     @MainActor
     func testWhatIf() {
         #if os(macOS)
-        // As you would: the plan's What if…, which opens the inspector.
+        // As you would: the toolbar's What If, which opens it beside the plan.
         let app = launch(library: "example", screen: "plan")
-        waitForScreen(app, showing: text("What if…", in: app), named: "what-if", settle: 30)
-        click(app.buttons["What if…"].firstMatch)
+        waitForScreen(app, showing: text("What if", in: app), named: "what-if", settle: 30)
+        click(app.buttons["Show What If"].firstMatch)
         #else
         let app = launch(library: "example", screen: "whatIf")
-        waitForScreen(app, showing: text("What if…", in: app), named: "what-if", settle: 30)
+        waitForScreen(app, showing: text("What if", in: app), named: "what-if", settle: 30)
         #endif
         pause(seconds: 5)
         keepScreenshot(of: app, named: "what-if")

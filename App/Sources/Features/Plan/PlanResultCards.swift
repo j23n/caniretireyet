@@ -9,11 +9,10 @@ import SwiftUI
 // the Plan view shows above them.
 
 
-/// The run's problems as banners: an error that stops the plan, and the
-/// warnings of the results shown.
+/// What stops the plan from answering, above the answer: the planner
+/// isn't available, the plan can't run, a change wasn't saved.
 struct PlanResultsBanners: View {
     let session: PlanSession
-    var limit = 2
 
     @Environment(PlanStore.self) private var plans
 
@@ -29,17 +28,68 @@ struct PlanResultsBanners: View {
             if let error = session.saveError {
                 StatusBanner(.error, "Your change wasn't saved", message: error)
             }
-            let warnings = session.resultWarnings
-            ForEach(Array(warnings.prefix(limit)), id: \.self) { warning in
-                StatusBanner(.warning, warning)
-            }
-            if warnings.count > limit {
-                Text("\(warnings.count - limit) more below, with the inputs they concern.")
-                    .font(.footnote)
-                    .foregroundStyle(Palette.secondaryInk)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-            }
         }
+    }
+}
+
+/// What the answer assumed that you may want to change, under it, quietly
+/// (UI.md, "Plan"): "TFR counts as cash: it has no mix of investments set.
+/// Set one…", which opens the account. The first two; the rest show with
+/// the inputs they concern.
+struct PlanResultWarnings: View {
+    let session: PlanSession
+    var limit = 2
+
+    @Environment(AppNavigation.self) private var navigation
+
+    var body: some View {
+        let warnings = session.resultWarnings
+        // What "Set one…" needs, without the view.
+        let navigation = self.navigation
+        let scheme = Self.accountScheme
+        if !warnings.isEmpty {
+            VStack(alignment: .leading, spacing: Metrics.xs) {
+                ForEach(Array(warnings.prefix(limit)), id: \.message) { issue in
+                    HStack(alignment: .firstTextBaseline, spacing: 6) {
+                        Image(systemName: "info.circle")
+                            .foregroundStyle(Palette.secondaryInk)
+                            .accessibilityHidden(true)
+                        Text(text(for: issue))
+                            .foregroundStyle(Palette.secondaryInk)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+                if warnings.count > limit {
+                    Text("\(warnings.count - limit) more below, with the inputs they concern.")
+                        .foregroundStyle(Palette.secondaryInk)
+                }
+            }
+            .font(.footnote)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, Metrics.xs)
+            // "Set one…" opens the account the warning is about.
+            .environment(\.openURL, OpenURLAction { url in
+                guard url.scheme == scheme, let id = url.host() else { return .systemAction }
+                MainActor.assumeIsolated { navigation.showAccount(AccountID(rawValue: id)) }
+                return .handled
+            })
+        }
+    }
+
+    /// The links' scheme: "Set one…" leads to an account, inside the app.
+    private static let accountScheme = "plan-warning-account"
+
+    /// The warning in words, with a link where it can be fixed.
+    private func text(for issue: PlanIssue) -> AttributedString {
+        var text = AttributedString(issue.message)
+        if issue.code == "planner.noAssetMix", let account = issue.account,
+           let url = URL(string: "\(Self.accountScheme)://\(account.rawValue)") {
+            var link = AttributedString("Set one…")
+            link.link = url
+            link.foregroundColor = Palette.accent
+            text += AttributedString(" ") + link
+        }
+        return text
     }
 }
 
@@ -132,39 +182,6 @@ struct PlanRunProgressCard: View {
                                     onCancel: session.stateWithoutProgress.canCancel ? { session.cancel() } : nil)
             }
         }
-    }
-}
-
-/// "2.000 runs · 09:41", "Out of date", or "Calculating 34%" while a run
-/// is going.
-struct PlanRunStatus: View {
-    let session: PlanSession
-    let results: PlanResults?
-
-    @Environment(\.locale) private var locale
-
-    var body: some View {
-        let state = session.state
-        HStack(spacing: Metrics.xs) {
-            if let progress = state.progress {
-                Text(PlanRunText.status(progress, isCheckIn: session.isCheckInRun, locale: locale))
-                    .monospacedDigit()
-            } else if let results {
-                if state.isOutOfDate {
-                    Label(PlanRunText.outOfDateTitle, systemImage: "clock.arrow.circlepath")
-                        .foregroundStyle(Palette.warning)
-                    Text("·")
-                }
-                Text(runs(results) + " · " + results.computedAt.formatted(.dateTime.hour().minute().locale(locale)))
-            }
-        }
-        .font(.caption)
-        .foregroundStyle(Palette.secondaryInk)
-    }
-
-    private func runs(_ results: PlanResults) -> String {
-        let count = AmountFormat.number(Decimal(results.runs), locale: locale)
-        return results.mode == .fast ? "\(count) runs (quick)" : "\(count) runs"
     }
 }
 

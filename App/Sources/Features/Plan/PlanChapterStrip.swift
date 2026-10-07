@@ -141,6 +141,9 @@ struct PlanChapterCardView: View {
             amountLabels
             ageLabels
             eventLabels
+            if let scale {
+                milestoneLabels(scale)
+            }
             summary
                 .frame(width: width, height: height, alignment: .bottomTrailing)
             if let pointerX {
@@ -252,6 +255,68 @@ struct PlanChapterCardView: View {
             end = start + labelWidth + 8
         }
         return placed
+    }
+
+    /// A milestone ahead on the median, and its name and when, if it's one
+    /// of the two named.
+    private struct Mark: Identifiable {
+        var milestone: ProjectedMilestone
+        var point: CGPoint
+        var isNamed = false
+        /// Whether its name runs right from its flag (else it ends there).
+        var runsRight = true
+        var id: ProjectedMilestone.ID { milestone.id }
+    }
+
+    /// The milestones ahead in the chapter: the first and the last named,
+    /// when their names don't run into each other; the rest small dots.
+    private func marks(_ scale: AmountScale) -> [Mark] {
+        let text = PlanMilestoneText(currency: currency, hidesAmounts: hidesAmounts, locale: locale)
+        var marks: [Mark] = card.milestones.compactMap { milestone in
+            let day = milestone.date.dateValue
+            return card.median(on: day).map { Mark(milestone: milestone, point: point(day, $0, scale)) }
+        }
+        guard !marks.isEmpty else { return [] }
+        /// Where a name and its flag reach, about: 6 points a letter.
+        func reach(_ mark: Mark) -> ClosedRange<CGFloat> {
+            let width = CGFloat(max(text.label(mark.milestone.milestone).count, 10)) * 6
+            let x = mark.point.x
+            return mark.runsRight ? (x - 2)...(x + width) : (x - width)...(x + 10)
+        }
+        for index in [0, marks.count - 1] {
+            marks[index].isNamed = true
+            marks[index].runsRight = marks[index].point.x <= width * 0.6
+        }
+        if marks.count > 1, reach(marks[0]).overlaps(reach(marks[marks.count - 1])),
+           abs(marks[0].point.y - marks[marks.count - 1].point.y) < 36 {
+            marks[marks.count - 1].isNamed = false
+        }
+        return marks
+    }
+
+    /// The named milestones' names and when, above their flags (below
+    /// when there's no room above), on the card's colour.
+    private func milestoneLabels(_ scale: AmountScale) -> some View {
+        let text = PlanMilestoneText(currency: currency, hidesAmounts: hidesAmounts, locale: locale)
+        return ForEach(marks(scale).filter(\.isNamed)) { mark in
+            let above = mark.point.y - 44 >= graphTop - 6
+            VStack(alignment: mark.runsRight ? .leading : .trailing, spacing: 0) {
+                Text(text.label(mark.milestone.milestone))
+                    .font(.caption2.weight(.semibold))
+                    .foregroundStyle(Palette.ink)
+                Text(PlanMilestoneText.when(mark.milestone.date))
+                    .font(.caption2)
+                    .foregroundStyle(Palette.secondaryInk)
+            }
+            .lineLimit(1)
+            .padding(.horizontal, 2)
+            .background(Palette.card.opacity(0.85), in: RoundedRectangle(cornerRadius: 3, style: .continuous))
+            .fixedSize()
+            .frame(width: mark.runsRight ? nil : max(0, mark.point.x + 10), alignment: .trailing)
+            .offset(x: mark.runsRight ? max(4, mark.point.x - 2) : 0,
+                    y: above ? mark.point.y - 44 : mark.point.y + 6)
+            .accessibilityHidden(true)
+        }
     }
 
     /// "At 67, typically 1,1M €", the range 8 in 10 futures fall in, and how
@@ -435,13 +500,18 @@ struct PlanChapterCardView: View {
             context.fill(dot, with: .color(Self.color(of: event.kind)))
             context.stroke(dot, with: .color(Palette.card), lineWidth: 1.5)
         }
-        // Milestones ahead, outlined: the median reaches them.
-        for milestone in card.milestones {
-            let day = milestone.date.dateValue
-            guard let value = card.median(on: day) else { continue }
-            let flag = PlanMilestoneFlag.path(at: point(day, value, scale))
-            context.fill(flag, with: .color(Palette.card))
-            context.stroke(flag, with: .color(Palette.accent), lineWidth: 1.2)
+        // Milestones ahead, outlined: the median reaches them. The two named
+        // are flagged, the rest small dots.
+        for mark in marks(scale) {
+            if mark.isNamed {
+                let flag = PlanMilestoneFlag.path(at: mark.point)
+                context.fill(flag, with: .color(Palette.card))
+                context.stroke(flag, with: .color(Palette.accent), lineWidth: 1.2)
+            } else {
+                let dot = Path(ellipseIn: CGRect(x: mark.point.x - 3, y: mark.point.y - 3, width: 6, height: 6))
+                context.fill(dot, with: .color(Palette.accent))
+                context.stroke(dot, with: .color(Palette.card), lineWidth: 1)
+            }
         }
     }
 

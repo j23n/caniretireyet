@@ -16,7 +16,7 @@ struct PlanTimelineView: View {
     /// The sidebar layout (Mac, iPad): wider cards, and a chapter's inputs
     /// beside its words.
     var isWide = false
-    /// Opens the What-if sheet (iPhone).
+    /// Opens the What-if sheet (iPhone); on the Mac and iPad What if is in the toolbar.
     var onWhatIf: (() -> Void)?
     /// Shows Progress.
     var onShowProgress: (() -> Void)?
@@ -55,7 +55,8 @@ struct PlanTimelineView: View {
                     } else {
                         PlanOutOfDateBanner(state: state) { session.perform($0) }
                     }
-                    headline(state, milestones: milestones)
+                    headline(state)
+                    PlanResultWarnings(session: session)
                 }
                 .padding(.horizontal, gutter)
                 if let plan = session.plan {
@@ -90,10 +91,9 @@ struct PlanTimelineView: View {
     // MARK: The answer
 
     @ViewBuilder
-    private func headline(_ state: PlanResultsState, milestones: PlanMilestones?) -> some View {
+    private func headline(_ state: PlanResultsState) -> some View {
         if let results = state.results {
             PlanTimelineHeadline(session: session, results: results, isWide: isWide, progress: progress,
-                                 milestones: milestones, milestoneText: milestoneText,
                                  onShowProgress: onShowProgress, onWhatIf: onWhatIf)
                 .opacity(state.isRunning ? 0.5 : 1)
                 // The UI tests wait for the answer before their screenshot.
@@ -166,8 +166,7 @@ struct PlanTimelineView: View {
                     .font(.title3.weight(.bold))
                     .foregroundStyle(Palette.ink)
                     .accessibilityAddTraits(.isHeader)
-                Text(isWide ? "Scroll sideways, or use the arrows."
-                            : "Scroll sideways; tap a chapter, or touch and hold the graph to read it.")
+                Text(isWide ? "Scroll sideways, or use the arrows." : "Scroll sideways; tap a chapter.")
                     .font(.subheadline)
                     .foregroundStyle(Palette.secondaryInk)
             }
@@ -247,16 +246,16 @@ struct PlanTimelineView: View {
 
 // MARK: - The answer
 
-/// "Not yet. Stop at 54, in March 2042.", the futures that last as ten
-/// dots, and where you stand against this year's baseline, which opens
-/// Progress. On iPhone a card, with What if… under it.
+/// "Not yet. Stop at 63, in April 2051.", why, as ten dots and in words
+/// ("At 55, as planned, 4 in 10 futures last to 95. Your bar is 9 in
+/// 10."), and where you stand against this year's baseline, which opens
+/// Progress. On iPhone a card, with *What if…* beside it; on the Mac and
+/// iPad What if is in the toolbar.
 struct PlanTimelineHeadline: View {
     let session: PlanSession
     let results: PlanResults
     var isWide = false
     var progress: (position: PlanBaselineComparison.Position, currency: CurrencyCode)?
-    var milestones: PlanMilestones?
-    var milestoneText: PlanMilestoneText?
     var onShowProgress: (() -> Void)?
     var onWhatIf: (() -> Void)?
 
@@ -278,20 +277,14 @@ struct PlanTimelineHeadline: View {
             HStack(alignment: .top, spacing: Metrics.l) {
                 VStack(alignment: .leading, spacing: 6) {
                     Text(title)
-                        .font(.title2.weight(.bold))
+                        .font(Self.wideTitleFont)
                         .foregroundStyle(Palette.ink)
                         .accessibilityAddTraits(.isHeader)
-                    lasting
-                    nextMilestone
-                    PlanRunStatus(session: session, results: results)
+                    reason
+                        .foregroundStyle(Palette.secondaryInk)
                 }
                 Spacer(minLength: Metrics.l)
-                VStack(alignment: .trailing, spacing: Metrics.s) {
-                    progressPill
-                    if let onWhatIf {
-                        whatIfButton(onWhatIf)
-                    }
-                }
+                progressPill
             }
         } else {
             Card {
@@ -305,62 +298,41 @@ struct PlanTimelineHeadline: View {
                         .fixedSize(horizontal: false, vertical: true)
                         .accessibilityAddTraits(.isHeader)
                 }
-                lasting
-                nextMilestone
+                reason
+                    .foregroundStyle(Palette.ink)
                 HStack(spacing: Metrics.s) {
                     if let onWhatIf {
                         whatIfButton(onWhatIf)
                     }
-                    Spacer(minLength: 0)
                     progressPill
+                    Spacer(minLength: 0)
                 }
-                PlanRunStatus(session: session, results: results)
             }
         }
     }
 
+    /// The answer's title on the Mac and iPad: 22 points on the Mac.
+    private static var wideTitleFont: Font {
+        #if os(macOS)
+        Font.title.weight(.bold)
+        #else
+        Font.title2.weight(.bold)
+        #endif
+    }
+
+    /// Why: the futures that last at the age shown, as dots and in words, against your bar.
     @ViewBuilder
-    private var lasting: some View {
+    private var reason: some View {
         if let success {
-            HStack(alignment: .center, spacing: Metrics.s) {
-                PlanTenthsView(filled: PlanTimelineText.tenths(success))
-                Text(PlanTimelineText.lasting(success, endAge: endAge, stoppingAt: focusAge))
+            let isPlanned = !session.hasWhatIf && focusAge != nil && focusAge == results.headline.targetAge
+            HStack(alignment: .firstTextBaseline, spacing: Metrics.s) {
+                PlanTenthsView(filled: PlanTimelineText.tenths(success), size: 8)
+                    .alignmentGuide(.firstTextBaseline) { $0[VerticalAlignment.center] + 4 }
+                Text(PlanTimelineText.reason(success, endAge: endAge, age: focusAge, isPlanned: isPlanned,
+                                             bar: results.headline.confidence))
                     .font(.subheadline)
-                    .foregroundStyle(Palette.secondaryInk)
                     .fixedSize(horizontal: false, vertical: true)
             }
-        }
-    }
-
-    /// "Next milestone: 400.000 € · 88% there", with its bar; it opens Progress.
-    @ViewBuilder
-    private var nextMilestone: some View {
-        if let milestones, let next = milestones.next, let milestoneText {
-            Button {
-                onShowProgress?()
-            } label: {
-                VStack(alignment: .leading, spacing: 4) {
-                    HStack(spacing: Metrics.xs) {
-                        Image(systemName: "flag")
-                            .accessibilityHidden(true)
-                        Text("Next milestone: \(milestoneText.name(next.milestone)) · \(milestoneText.progress(next))")
-                            .fixedSize(horizontal: false, vertical: true)
-                        if onShowProgress != nil {
-                            Image(systemName: "chevron.right")
-                                .font(.caption2.weight(.semibold))
-                                .accessibilityHidden(true)
-                        }
-                    }
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(Palette.secondaryInk)
-                    PlanMilestoneBar(progress: next.progress)
-                        .frame(maxWidth: 280)
-                }
-                .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .disabled(onShowProgress == nil)
-            .accessibilityHint(Text("Shows your milestones in Progress"))
         }
     }
 
@@ -369,17 +341,19 @@ struct PlanTimelineHeadline: View {
             Label(session.hasWhatIf ? "What if… (changed)" : "What if…", systemImage: "slider.horizontal.3")
         }
         .buttonStyle(.bordered)
+        .buttonBorderShape(.capsule)
     }
 
-    /// "Ahead of plan by 18.400 € ›".
+    /// "18.400 € ahead ›" on iPhone, "18.400 € ahead of plan ›" on the Mac and iPad.
     @ViewBuilder
     private var progressPill: some View {
         if let progress, let onShowProgress {
             let ahead = progress.position.gap >= 0
+            let side = isWide ? (ahead ? "ahead of plan" : "behind plan") : (ahead ? "ahead" : "behind")
             Button(action: onShowProgress) {
                 HStack(spacing: 4) {
-                    Text(ahead ? "Ahead of plan by" : "Behind plan by")
                     AmountText(abs(progress.position.gap), currency: progress.currency, tabular: false)
+                    Text(side)
                     Image(systemName: "chevron.right")
                         .font(.caption.weight(.semibold))
                         .accessibilityHidden(true)
@@ -391,6 +365,7 @@ struct PlanTimelineHeadline: View {
                 .background((ahead ? Palette.positive : Palette.orange).opacity(0.14), in: Capsule())
             }
             .buttonStyle(.plain)
+            .fixedSize()
             .accessibilityHint(Text("Shows your progress"))
         }
     }

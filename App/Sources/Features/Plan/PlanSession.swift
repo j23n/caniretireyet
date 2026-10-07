@@ -138,7 +138,7 @@ final class PlanSession {
     }
 
     /// The warnings of the results shown, in words for the screen, each once.
-    var resultWarnings: [String] {
+    var resultWarnings: [PlanIssue] {
         PlanResultsText.warnings(PlanIssueText.humanized(shownResults?.details?.issues ?? [], plan: plan,
                                                          library: library.library))
     }

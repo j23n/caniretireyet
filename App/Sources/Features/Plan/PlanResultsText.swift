@@ -218,17 +218,11 @@ enum PlanResultsText {
         Decimal(wholeNumber: value)
     }
 
-    /// The warnings to show as banners on Results: the run's, without
-    /// repeats. Errors stop a run and show as its error instead.
-    static func warnings(_ results: PlanResults?) -> [String] {
-        warnings(results?.details?.issues ?? [])
-    }
-
     /// The warnings among `issues`, each message once.
-    static func warnings(_ issues: [PlanIssue]) -> [String] {
-        var seen: [String] = []
-        for issue in issues where !issue.isError && !seen.contains(issue.message) {
-            seen.append(issue.message)
+    static func warnings(_ issues: [PlanIssue]) -> [PlanIssue] {
+        var seen: [PlanIssue] = []
+        for issue in issues where !issue.isError && !seen.contains(where: { $0.message == issue.message }) {
+            seen.append(issue)
         }
         return seen
     }

@@ -144,6 +144,20 @@ enum PlanRunText {
         return planChanged ? base + ", before the plan's latest changes" : base
     }
 
+    /// In the plan menu, about the answer shown: "Calculated at 09:41 with
+    /// 2.000 runs", "Calculated on 30 Sep at 09:41 with 400 runs, a quick
+    /// estimate".
+    static func calculated(_ results: PlanResults, now: Date = Date(), locale: Locale = .current) -> String {
+        var calendar = Calendar.current
+        calendar.locale = locale
+        let time = results.computedAt.formatted(.dateTime.hour().minute().locale(locale))
+        let when = calendar.isDate(results.computedAt, inSameDayAs: now) ? "at \(time)"
+            : "on \(results.computedAt.formatted(.dateTime.day().month(.abbreviated).locale(locale))) at \(time)"
+        let runs = AmountFormat.number(Decimal(results.runs), locale: locale)
+        let quick = results.mode == .fast ? ", a quick estimate" : ""
+        return "Calculated \(when) with \(runs) runs\(quick)"
+    }
+
     /// Under a recorded answer: the charts need a calculation.
     static let chartsNeedCalculation = "Calculate the plan to see its charts."
 

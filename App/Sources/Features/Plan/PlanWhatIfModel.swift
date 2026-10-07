@@ -15,18 +15,19 @@ enum PlanWhatIfSlider: String, CaseIterable, Hashable, Sendable, Identifiable {
 
     var title: String {
         switch self {
-        case .retirementAge: "Retire at"
+        case .retirementAge: "Stop working at"
         case .spending: "Spending"
-        case .saving: "Saving/month"
-        case .equityReturn: "Equity, typical year"
+        case .saving: "Saving"
+        case .equityReturn: "Shares, above inflation"
         }
     }
 
-    /// The step a drag moves in.
+    /// The step a drag moves in: a year of age, 50 a month of spending or
+    /// saving, a quarter of a percent of return.
     var step: Double {
         switch self {
         case .retirementAge: 1
-        case .spending: 500
+        case .spending: 50
         case .saving: 50
         case .equityReturn: 0.0025
         }
@@ -77,8 +78,8 @@ struct PlanWhatIfModel: Hashable, Sendable {
             let end = Double(min(75, plan.effectiveEndAge - 1))
             return current...max(current + 1, end)
         case .spending:
-            let own = planSpending.doubleValue
-            return 0...max(60_000, (own * 2 / 1_000).rounded(.up) * 1_000)
+            let own = planSpending.doubleValue / 12
+            return 0...max(5_000, (own * 2 / 100).rounded(.up) * 100)
         case .saving:
             let own = planSaving?.doubleValue ?? 0
             let most = own + plan.spending.working.doubleValue / 12
@@ -88,11 +89,12 @@ struct PlanWhatIfModel: Hashable, Sendable {
         }
     }
 
-    /// The value the slider shows: the what-if's, else the plan's.
+    /// The value the slider shows: the what-if's, else the plan's; spending
+    /// a month, as the plan's words say it (the plan keeps it a year).
     func value(_ slider: PlanWhatIfSlider) -> Double {
         switch slider {
         case .retirementAge: Double(whatIf.retirementAge ?? planRetirementAge ?? 55)
-        case .spending: (whatIf.retiredSpending ?? planSpending).doubleValue
+        case .spending: (whatIf.retiredSpending ?? planSpending).doubleValue / 12
         case .saving: (whatIf.monthlySaving ?? planSaving ?? 0).doubleValue
         case .equityReturn: (whatIf.equityReturn ?? planEquityReturn).doubleValue
         }
@@ -118,8 +120,10 @@ struct PlanWhatIfModel: Hashable, Sendable {
             let age = Int(snapped.rounded())
             whatIf.retirementAge = age == planRetirementAge ? nil : age
         case .spending:
-            let amount = Decimal(Int(snapped.rounded()))
-            whatIf.retiredSpending = amount == planSpending ? nil : amount
+            // A month on the slider, a year in the plan; back within half a
+            // step of the plan's own is the plan's own.
+            let own = planSpending.doubleValue / 12
+            whatIf.retiredSpending = abs(snapped - own) < slider.step / 2 ? nil : Decimal(Int((snapped * 12).rounded()))
         case .saving:
             let amount = Decimal(Int(snapped.rounded()))
             whatIf.monthlySaving = amount == planSaving ? nil : amount
