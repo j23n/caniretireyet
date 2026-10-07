@@ -1,5 +1,6 @@
 import Foundation
 import Model
+import Planner
 import Tracker
 
 // The Overview's numbers, computed from the library without SwiftUI so they
@@ -209,7 +210,8 @@ struct OverviewBaselineGap: Hashable, Sendable {
     var label: String?
     /// The baseline's currency, which `actual` and `expected` are in.
     var currency: CurrencyCode
-    /// The baseline's accounts on the date.
+    /// The baseline's accounts on the date, with those that replaced them
+    /// and those opened since (``Baseline/comparedAccounts(among:)``).
     var actual: Decimal
     /// The baseline's median on the date.
     var expected: Decimal
@@ -233,7 +235,7 @@ struct OverviewBaselineGap: Hashable, Sendable {
         guard length > 0 else { return nil }
         let fraction = Decimal(from.date.days(to: date)) / Decimal(length)
         expected = from.value + (to.value - from.value) * fraction
-        let base = baseline.accounts.reduce(Decimal(0)) { total, account in
+        let base = baseline.comparedAccounts(among: valuator.accounts).reduce(Decimal(0)) { total, account in
             total + (valuator.value(of: account, on: date)?.knownValue ?? 0)
         }
         let currency = currency ?? valuator.baseCurrency

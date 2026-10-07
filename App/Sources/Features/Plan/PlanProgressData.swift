@@ -117,6 +117,9 @@ struct PlanBaselineComparison: Sendable {
     var baseline: Baseline
     var fan: [FanPoint]
     var actual: [ChartPoint]
+    /// The accounts `actual` counts (``Baseline/comparedAccounts(among:)``):
+    /// the baseline's, those that replaced them and those opened since.
+    var accounts: Set<AccountID>
     /// The baseline's currency: its copy of the plan's, else the library's.
     var currency: CurrencyCode
     /// Whether the actual line is in money of the start date (an inflation
@@ -144,7 +147,8 @@ struct PlanBaselineComparison: Sendable {
          through end: CalendarDate? = nil) {
         self.baseline = baseline
         fan = Self.fan(for: baseline)
-        let accounts = Set(baseline.accounts)
+        let accounts = baseline.comparedAccounts(among: library.accounts)
+        self.accounts = accounts
         let start = baseline.start.date
         currency = PlanMoney.currency(of: baseline, settings: library.settings)
         // Each check-in, and the month ends between them without one, from
@@ -182,16 +186,18 @@ struct PlanBaselineComparison: Sendable {
         let code = currency.rawValue
         var note: String
         if isInflationAdjusted {
-            note = "The same accounts as the baseline, in \(code) of "
+            note = "The baseline's accounts and those opened since, in \(code) of "
                 + "\(AmountFormat.mediumDate(baseline.start.date, locale: locale))."
             if !actual.dropFirst().isEmpty,
                let standIn = PlanMoney.standInNote(inflation, currency: currency, locale: locale) {
                 note += " " + standIn
             }
         } else if inflation == nil {
-            note = "The same accounts as the baseline, in \(code) of each date: the library has no inflation index."
+            note = "The baseline's accounts and those opened since, in \(code) of each date: the library has no "
+                + "inflation index."
         } else {
-            note = "The same accounts as the baseline. Without inflation values for every date, some are in the "
+            note = "The baseline's accounts and those opened since. Without inflation values for every date, some "
+                + "are in the "
                 + "\(code) of their time."
         }
         if let missing = PlanMoney.missingRatesNote(missingRates, base: baseCurrency, currency: currency,
@@ -434,7 +440,8 @@ extension PlanProgressYear {
     /// Why a year ends where it does against its baseline
     /// (``GapExplanation``), from the baseline's start, or the year's when
     /// it started before, to the year's end: in the baseline's money, the
-    /// same accounts as its line. `nil` without the values for it.
+    /// same accounts as its line (money moved between them is neither saved
+    /// nor taken out). `nil` without the values for it.
     static func explanation(of baseline: Baseline, comparison: PlanBaselineComparison, from: CalendarDate,
                             to end: CalendarDate, valuator: Valuator) -> GapExplanation? {
         let start = max(from, baseline.start.date)
@@ -443,10 +450,10 @@ extension PlanProgressYear {
               let expectedStart = PlanBaselineComparison.percentiles(on: start, in: baseline)?[2],
               let planned = plannedSaving(in: baseline, from: start, to: end)
         else { return nil }
-        let accounts = Set(baseline.accounts)
+        let accounts = comparison.accounts
         let currency = comparison.currency
         // As it happened, in the base currency, then in the baseline's.
-        let change = baseline.accounts
+        let change = accounts
             .compactMap { valuator.change(of: $0, from: start, to: end)?.change }
             .reduce(ValueChange.zero, +)
         func asItWas(on day: CalendarDate) -> Decimal? {

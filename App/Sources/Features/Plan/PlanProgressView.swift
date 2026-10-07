@@ -480,7 +480,7 @@ struct PlanProgressView: View {
         gap >= 0 ? "ahead of the median" : "behind the median"
     }
 
-    /// "The same accounts as the baseline, in EUR of 31 Dec 2025."
+    /// "The baseline's accounts and those opened since, in EUR of 31 Dec 2025."
     private func unitsNote(_ comparison: PlanBaselineComparison) -> String {
         comparison.unitsNote(baseCurrency: library.baseCurrency, locale: locale)
     }
