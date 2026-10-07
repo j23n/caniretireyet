@@ -143,7 +143,7 @@ struct PlanTimelineView: View {
                 stripHeader(count: model.chapters.chapters.count, selection: selection)
                     .padding(.horizontal, gutter)
                 PlanChapterStrip(timeline: timeline, selection: selection, pointsPerYear: isWide ? 26 : 22,
-                                 cardHeight: 340, inset: gutter)
+                                 cardHeight: 340, inset: gutter, fillsWidth: !isWide)
                     .opacity(state.dimsResults ? 0.7 : 1)
                 PlanChapterDetails(
                     model: model, index: selected,

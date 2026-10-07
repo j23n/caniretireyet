@@ -72,7 +72,7 @@ final class ScreenshotTests: XCTestCase {
         // that of a card off screen.
         let edge = strip.frame.maxX
         XCTAssertGreaterThan(last.frame.minX, edge, "The last chapter is on screen before scrolling.")
-        for _ in 0..<6 where last.frame.minX >= edge {
+        for _ in 0..<10 where last.frame.minX >= edge {
             strip.swipeLeft()
             pause(seconds: 1)
         }

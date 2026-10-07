@@ -4,10 +4,11 @@ import SwiftUI
 
 /// "Your life in 6 chapters" (UI.md, "Plan"): the chapters side by side on a
 /// strip that scrolls sideways, each card as wide as its years (never too
-/// narrow to read), on one money scale, so the graph runs on from card to
-/// card. Choosing a card selects its chapter, whose details show below the
-/// strip; selecting one elsewhere scrolls it into view. The pointer over a
-/// card, or a finger touched and held on it, reads the graph there.
+/// narrow to read, and on iPhone never narrower than the screen), on one
+/// money scale, so the graph runs on from card to card. Choosing a card
+/// selects its chapter, whose details show below the strip; selecting one
+/// elsewhere scrolls it into view. The pointer over a card, or a finger
+/// touched and held on it, reads the graph there.
 struct PlanChapterStrip: View {
     let timeline: PlanTimeline
     @Binding var selection: Int
@@ -16,12 +17,15 @@ struct PlanChapterStrip: View {
     var cardHeight: CGFloat = 340
     /// The strip's inset at both ends, so its first card lines up with the page.
     var inset: CGFloat = Metrics.l
+    /// No card narrower than the strip between its insets (iPhone).
+    var fillsWidth = false
 
     @Environment(\.baseCurrency) private var currency
     @Environment(\.hidesAmounts) private var hidesAmounts
     @Environment(\.dynamicTypeSize) private var typeSize
     /// Where the pointer is over a card, or where one was tapped.
     @State private var pointer: PlanGraphPointer?
+    @State private var stripWidth: CGFloat = 0
 
     /// No card narrower: room for its name and where the money stands.
     static let minimumWidth: CGFloat = 164
@@ -56,6 +60,7 @@ struct PlanChapterStrip: View {
                 .dynamicTypeSize(...DynamicTypeSize.stripCardLimit)
             }
             .scrollIndicators(.hidden)
+            .measuringWidth($stripWidth)
             // A finger reading the graph moves the read-out, not the strip.
             .scrollDisabled(pointer?.byTouch == true)
             .accessibilityIdentifier("plan.chapters")
@@ -66,7 +71,8 @@ struct PlanChapterStrip: View {
     }
 
     private func width(of card: PlanTimeline.Card) -> CGFloat {
-        max(Self.minimumWidth, CGFloat(card.years) * pointsPerYear)
+        let filled = fillsWidth ? stripWidth - 2 * inset : 0
+        return max(Self.minimumWidth, filled, CGFloat(card.years) * pointsPerYear)
     }
 
     /// The chapter for VoiceOver's audio graph and chart details: your
