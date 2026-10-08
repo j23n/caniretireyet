@@ -106,8 +106,7 @@ extension Valuator {
                   let entry = ledger.entries.first(where: { $0.trade.key == key })
             else { continue }
             let from = entry.trade.priceCurrency(instruments: instruments, accountCurrency: account.currency)
-            let problem = ValuationProblem.missingFX(account: account.id, from: from, to: account.currency)
-            if !problems.contains(problem) { problems.append(problem) }
+            problems.appendIfNew(.missingFX(account: account.id, from: from, to: account.currency))
         }
         return problems
     }

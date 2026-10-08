@@ -190,7 +190,7 @@ extension Valuator {
         func valued(_ valuation: Valuation?, on date: CalendarDate) -> Decimal {
             guard let valuation else { return 0 }
             let value = value(of: account, valuation: valuation, on: date, in: target)
-            for problem in value.problems where !problems.contains(problem) { problems.append(problem) }
+            for problem in value.problems { problems.appendIfNew(problem) }
             return value.knownValue
         }
 
@@ -246,12 +246,8 @@ extension Valuator {
     func filledFlows(of account: Account, after from: CalendarDate, through: CalendarDate,
                      in currency: CurrencyCode, problems: inout [ValuationProblem])
         -> (newMoney: Decimal, firstValue: Decimal)? {
-        func converted(_ amount: Decimal, from source: CurrencyCode, on date: CalendarDate) -> Decimal? {
-            if amount == 0 || source == currency { return amount }
-            if let value = fx.convert(amount, from: source, to: currency, on: date) { return value }
-            let problem = ValuationProblem.missingFX(account: account.id, from: source, to: currency)
-            if !problems.contains(problem) { problems.append(problem) }
-            return nil
+        func convert(_ amount: Decimal, from source: CurrencyCode, on date: CalendarDate) -> Decimal? {
+            converted(amount, from: source, to: currency, on: date, for: account.id, problems: &problems)
         }
         var newMoney: Decimal = 0
         var firstValue: Decimal = 0
@@ -260,19 +256,19 @@ extension Valuator {
             defer { previous = valuation }
             guard valuation.date > from, valuation.date <= through else { continue }
             if let flow = valuation.flow {
-                guard let amount = converted(flow, from: account.currency, on: valuation.date) else { return nil }
+                guard let amount = convert(flow, from: account.currency, on: valuation.date) else { return nil }
                 newMoney += amount
             } else if let previous, account.kind.defaultFlow == .ask {
                 let planned = contributions.amount(into: account.id, after: previous.date, through: valuation.date)
-                guard let amount = converted(planned, from: baseCurrency, on: valuation.date) else { return nil }
+                guard let amount = convert(planned, from: baseCurrency, on: valuation.date) else { return nil }
                 newMoney += amount
             } else if let previous {
                 guard let automatic = defaultFlow(for: valuation, previous: previous),
-                      let amount = converted(automatic, from: account.currency, on: valuation.date) else { return nil }
+                      let amount = convert(automatic, from: account.currency, on: valuation.date) else { return nil }
                 newMoney += amount
             } else {
                 let value = value(of: account, valuation: valuation, on: valuation.date, in: currency)
-                for problem in value.problems where !problems.contains(problem) { problems.append(problem) }
+                for problem in value.problems { problems.appendIfNew(problem) }
                 firstValue += value.knownValue
             }
         }
@@ -294,19 +290,14 @@ extension Valuator {
         var total: Decimal = 0
         var known = true
         for valuation in valuations(for: account.id) where valuation.date > from && valuation.date <= through {
-            guard let flow = valuation.flow else {
+            guard let flow = valuation.flow,
+                  let amount = converted(flow, from: account.currency, to: target, on: valuation.date,
+                                         for: account.id, problems: &problems)
+            else {
                 known = false
                 continue
             }
-            if flow == 0 || account.currency == target {
-                total += flow
-            } else if let converted = fx.convert(flow, from: account.currency, to: target, on: valuation.date) {
-                total += converted
-            } else {
-                let problem = ValuationProblem.missingFX(account: account.id, from: account.currency, to: target)
-                if !problems.contains(problem) { problems.append(problem) }
-                known = false
-            }
+            total += amount
         }
         return known ? total : nil
     }

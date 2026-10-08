@@ -151,14 +151,7 @@ public struct Valuator: Sendable {
                  price: PriceRecord? = nil) {
             var value: Decimal?
             if let amount, let currency {
-                if amount == 0 || currency == target {
-                    value = amount
-                } else if let converted = fx.convert(amount, from: currency, to: target, on: date) {
-                    value = converted
-                } else {
-                    let problem = ValuationProblem.missingFX(account: account.id, from: currency, to: target)
-                    if !problems.contains(problem) { problems.append(problem) }
-                }
+                value = converted(amount, from: currency, to: target, on: date, for: account.id, problems: &problems)
             }
             components.append(ValueComponent(kind: kind, quantity: quantity, price: price, currency: currency,
                                              value: value))
@@ -185,5 +178,17 @@ public struct Valuator: Sendable {
         }
         return AccountValue(account: account.id, date: date, currency: target, status: .valued,
                             valuation: valuation, components: components, problems: problems)
+    }
+
+    /// `amount` in `source` converted into `target` at the latest FX rate on
+    /// or before `date`, or as it is when it's zero or already in `target`.
+    /// `nil` without a rate; the missing rate is then added to `problems`
+    /// (once) for `account`.
+    func converted(_ amount: Decimal, from source: CurrencyCode, to target: CurrencyCode, on date: CalendarDate,
+                   for account: AccountID, problems: inout [ValuationProblem]) -> Decimal? {
+        if amount == 0 || source == target { return amount }
+        if let value = fx.convert(amount, from: source, to: target, on: date) { return value }
+        problems.appendIfNew(.missingFX(account: account, from: source, to: target))
+        return nil
     }
 }

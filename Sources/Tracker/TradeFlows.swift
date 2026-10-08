@@ -164,22 +164,17 @@ extension Valuator {
                 if let trade = flow.trade, trade.isSettledExternally {
                     // Its amount needs a rate to convert its price.
                     let from = trade.priceCurrency(instruments: instruments, accountCurrency: account.currency)
-                    let problem = ValuationProblem.missingFX(account: account.id, from: from, to: account.currency)
-                    if !problems.contains(problem) { problems.append(problem) }
+                    problems.appendIfNew(.missingFX(account: account.id, from: from, to: account.currency))
                 } else if let instrument = flow.trade?.instrument {
-                    let problem = ValuationProblem.missingPrice(account: account.id, instrument: instrument)
-                    if !problems.contains(problem) { problems.append(problem) }
+                    problems.appendIfNew(.missingPrice(account: account.id, instrument: instrument))
                 }
                 known = false
                 continue
             }
-            if amount == 0 || account.currency == target {
-                result.append((flow.date, amount, flow))
-            } else if let converted = fx.convert(amount, from: account.currency, to: target, on: flow.date) {
-                result.append((flow.date, converted, flow))
+            if let value = converted(amount, from: account.currency, to: target, on: flow.date, for: account.id,
+                                     problems: &problems) {
+                result.append((flow.date, value, flow))
             } else {
-                let problem = ValuationProblem.missingFX(account: account.id, from: account.currency, to: target)
-                if !problems.contains(problem) { problems.append(problem) }
                 known = false
             }
         }

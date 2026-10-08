@@ -135,3 +135,10 @@ extension ValuationProblem {
         if case .noValuation = self { true } else { false }
     }
 }
+
+extension Array where Element == ValuationProblem {
+    /// Adds `problem` unless it's listed already.
+    mutating func appendIfNew(_ problem: ValuationProblem) {
+        if !contains(problem) { append(problem) }
+    }
+}
