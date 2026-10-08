@@ -109,7 +109,7 @@ final class ScreenshotTests: XCTestCase {
 
     /// A savings plan since 2018 and check-ins from October 2025: the years
     /// before are valued from prices. Then 2018, chosen with ‹, its card
-    /// and its details.
+    /// and its details; each year ‹ chooses is scrolled into view.
     @MainActor
     func testProgressWithALongHistory() {
         let app = launch(library: "longHistory", screen: "progress")
@@ -120,10 +120,20 @@ final class ScreenshotTests: XCTestCase {
         // On iPhone ‹ is in the chosen year's header, under the strip.
         scrollDown(app)
         #endif
+        let strip = app.descendants(matching: .any)["progress.years"].firstMatch
         let earlier = app.buttons["Earlier"].firstMatch
+        var offStrip: [String] = []
         if earlier.waitForExistence(timeout: 10) {
             for _ in 0..<8 where earlier.isHittable && earlier.isEnabled {
                 earlier.tap()
+                pause(seconds: 1.5)
+                if let chosen = chosenYear(in: strip) {
+                    if !strip.frame.insetBy(dx: -2, dy: -2).contains(chosen.frame) {
+                        offStrip.append("\(chosen.label.prefix(9)) at \(chosen.frame)")
+                    }
+                } else {
+                    offStrip.append("No year reads as chosen.")
+                }
             }
         }
         pause(seconds: 2)
@@ -134,6 +144,8 @@ final class ScreenshotTests: XCTestCase {
         scrollDown(app, from: belowTheStrip)
         keepScreenshot(of: app, named: "progress-long-2018-year")
         XCTAssertTrue(app.state == .runningForeground, "The app stopped after going back to 2018.")
+        XCTAssertTrue(offStrip.isEmpty,
+                      "‹ chose years off the strip (at \(strip.frame)):\n" + offStrip.joined(separator: "\n"))
     }
 
     /// Progress on a device set to German in Germany. The app is in English
@@ -169,6 +181,12 @@ final class ScreenshotTests: XCTestCase {
     @MainActor
     private func text(_ words: String, in app: XCUIApplication) -> XCUIElement {
         app.staticTexts.matching(NSPredicate(format: "label == %@ OR value == %@", words, words)).firstMatch
+    }
+
+    /// The year chosen on Progress's strip of years.
+    @MainActor
+    private func chosenYear(in strip: XCUIElement) -> XCUIElement? {
+        strip.buttons.allElementsBoundByIndex.first { $0.isSelected }
     }
 
     /// The plan's answer, once it's calculated.
