@@ -58,7 +58,7 @@ enum PlanEditing {
     /// `amount` to two significant figures: 35.123 → 35.000, 4.812.345 →
     /// 4.800.000. A default to edit, not a figure to trust.
     static func roundedForDefault(_ amount: Decimal) -> Decimal {
-        let value = NSDecimalNumber(decimal: amount).doubleValue
+        let value = amount.doubleValue
         guard value >= 10, value < 1e17 else { return amount }
         let step = Int(pow(10, log10(value).rounded(.down) - 1).rounded())
         return Decimal(Int((value / Double(step)).rounded()) * step)
@@ -166,7 +166,7 @@ enum PlanEditing {
     /// for one given by its median, to one decimal.
     private static func returnInWords(_ assumption: ReturnAssumption, locale: Locale) -> String {
         let value = assumption.isGivenByMedian ? assumption.impliedMedianReal : assumption.real
-        let text = AmountFormat.typographicMinus(NSDecimalNumber(decimal: value).doubleValue
+        let text = AmountFormat.typographicMinus(value.doubleValue
             .formatted(.percent.precision(.fractionLength(1)).locale(locale)))
         return assumption.isGivenByMedian ? "\(text) typical year" : "\(text) average"
     }

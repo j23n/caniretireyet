@@ -185,7 +185,7 @@ public enum CSVExport {
     }
 
     private static func cents(_ value: Decimal) -> String {
-        value.roundedToCents.fileString
+        value.rounded(scale: 2).fileString
     }
 
     private static func yesNo(_ value: Bool) -> String {

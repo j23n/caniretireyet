@@ -249,7 +249,7 @@ extension CheckInDraft {
             for position in row.positions {
                 let estimate = position.isIncrease
                     ? valuator.marketValue(of: position.quantityChange, of: position.instrument, in: currency,
-                                           on: date)?.roundedToCents
+                                           on: date)?.rounded(scale: 2)
                     : nil
                 let cost = position.enteredCostBasis ?? CostBasis.updated(
                     previousQuantity: position.previousQuantity, previousCost: position.previousCostBasis,

@@ -2,12 +2,6 @@ import Foundation
 import Model
 
 extension Decimal {
-    /// The nearest `Double`, parsed from the exact decimal string so the
-    /// conversion is the same on every platform.
-    var double: Double {
-        Double(description) ?? NSDecimalNumber(decimal: self).doubleValue
-    }
-
     /// `value` rounded to `scale` fractional digits, as an exact decimal.
     static func rounded(_ value: Double, scale: Int) -> Decimal {
         guard value.isFinite else { return 0 }

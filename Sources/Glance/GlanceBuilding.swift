@@ -58,7 +58,7 @@ extension GlanceSnapshot {
         else { return nil }
         let start = valuator.total(on: yearEnd, in: .netWorth).total
         guard start != 0 else { return nil }
-        return ((now.total - start) / abs(start)).glanceDouble
+        return ((now.total - start) / abs(start)).doubleValue
     }
 }
 
@@ -81,6 +81,6 @@ extension AllocationSlice {
         default: return nil
         }
         self.init(key: key, name: slice.key.description, value: slice.value,
-                  share: slice.shareOfAssets?.glanceDouble)
+                  share: slice.shareOfAssets?.doubleValue)
     }
 }

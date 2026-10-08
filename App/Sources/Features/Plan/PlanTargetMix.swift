@@ -134,8 +134,7 @@ struct PlanTargetMixModel {
 
     /// A mix rebalanced every year under the plan's assumptions.
     func growth(of mix: AssetMix) -> MixGrowth {
-        Planner.growth(of: mix.shares.mapValues { NSDecimalNumber(decimal: $0).doubleValue },
-                       assumptions: plan.assumptions)
+        Planner.growth(of: mix.shares.mapValues(\.doubleValue), assumptions: plan.assumptions)
     }
 
     /// The money you can draw's mix today rebalanced every year; `nil` without any.

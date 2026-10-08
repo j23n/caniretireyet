@@ -162,7 +162,7 @@ public struct MilestoneLadder: Hashable, Sendable {
         }
         if let neededToday, neededToday > 0 {
             for share in Self.shares {
-                let amount = Self.whole(neededToday * Decimal(share.numerator) / Decimal(share.denominator))
+                let amount = (neededToday * Decimal(share.numerator) / Decimal(share.denominator)).rounded(scale: 0)
                 if range.contains(amount) {
                     milestones.append(Milestone(kind: .shareOfNeeded(numerator: share.numerator,
                                                                      denominator: share.denominator),
@@ -281,7 +281,7 @@ public struct MilestoneLadder: Hashable, Sendable {
         where Self.isAhead(milestone, of: current, readiness: readiness) {
             for (before, after) in zip(median, median.dropFirst())
             where before.value < milestone.amount && after.value >= milestone.amount {
-                let share = ((milestone.amount - before.value) / (after.value - before.value)).double
+                let share = ((milestone.amount - before.value) / (after.value - before.value)).doubleValue
                 let days = Int((Double(before.date.days(to: after.date)) * share).rounded())
                 projected.append(ProjectedMilestone(milestone: milestone, date: before.date.adding(days: days)))
                 break
@@ -310,9 +310,9 @@ public struct MilestoneLadder: Hashable, Sendable {
         }
         let progress: Double
         if let share = milestone.share, let readiness, share > 0 {
-            progress = (readiness / share).double
+            progress = (readiness / share).doubleValue
         } else {
-            progress = milestone.amount > 0 ? (max(current, 0) / milestone.amount).double : 0
+            progress = milestone.amount > 0 ? (max(current, 0) / milestone.amount).doubleValue : 0
         }
         return NextMilestone(milestone: milestone, progress: min(1, max(0, progress)))
     }
@@ -334,16 +334,8 @@ public struct MilestoneLadder: Hashable, Sendable {
     private func matching(current: Decimal, readiness: Decimal?) -> MilestoneLadder {
         guard let readiness, readiness > 0, current > 0 else { return self }
         var ladder = self
-        ladder.neededToday = Self.whole(current / readiness)
+        ladder.neededToday = (current / readiness).rounded(scale: 0)
         return ladder
-    }
-
-    /// `value` rounded to whole units.
-    static func whole(_ value: Decimal) -> Decimal {
-        var input = value
-        var result = Decimal()
-        NSDecimalRound(&result, &input, 0, .plain)
-        return result
     }
 }
 
@@ -371,12 +363,12 @@ extension MilestoneLadder {
         guard saving > 0 else { return nil }
         let mix: [AssetClass: Double]
         if let target = plan.portfolio.targetMix, !target.shares.isEmpty {
-            mix = target.shares.mapValues(\.double)
+            mix = target.shares.mapValues(\.doubleValue)
         } else {
             mix = Planner.startingMix(plan: plan, library: library, today: date).accessibleShares
         }
         let growth = Planner.growth(of: mix, assumptions: plan.assumptions).medianReturn
         guard growth >= 0.001 else { return nil }
-        return .rounded(saving.double / growth, scale: 0)
+        return .rounded(saving.doubleValue / growth, scale: 0)
     }
 }

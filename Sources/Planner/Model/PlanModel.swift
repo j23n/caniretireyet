@@ -146,8 +146,8 @@ struct FlexibleSpendingSpec: Sendable, Hashable {
     }
 
     init(_ rule: FlexibleSpending) {
-        self.init(cut: rule.effectiveCut.double, floor: rule.effectiveFloor.double,
-                  upper: rule.effectiveUpperGuardrail.double, lower: rule.effectiveLowerGuardrail.double)
+        self.init(cut: rule.effectiveCut.doubleValue, floor: rule.effectiveFloor.doubleValue,
+                  upper: rule.effectiveUpperGuardrail.doubleValue, lower: rule.effectiveLowerGuardrail.doubleValue)
     }
 }
 

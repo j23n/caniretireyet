@@ -49,7 +49,7 @@ struct ReturnModel: Sendable {
             issues.append(.warning(
                 "planner.meanAndMedian",
                 "\(Self.name(assetClass))'s return assumption sets both real (the mean, "
-                    + "\(Self.percent(assumption.realAsWritten?.double ?? 0))) and medianReal; the plan uses real "
+                    + "\(Self.percent(assumption.realAsWritten?.doubleValue ?? 0))) and medianReal; the plan uses real "
                     + "and ignores medianReal.",
                 section: .assumptions, option: assetClass.rawValue))
         }
@@ -58,8 +58,8 @@ struct ReturnModel: Sendable {
         var volatility: [Double] = []
         for assetClass in heldClasses {
             if let assumption = assumptions.returnAssumption(for: assetClass) {
-                let sd = max(0, assumption.volatility.double)
-                expected.append(Self.mean(of: assumption, volatility: sd))
+                let sd = max(0, assumption.volatility.doubleValue)
+                expected.append(assumption.meanReturn)
                 volatility.append(sd)
             } else {
                 issues.append(.warning(
@@ -90,7 +90,7 @@ struct ReturnModel: Sendable {
         }
 
         var matrix = drawClasses.map { a in
-            drawClasses.map { b in min(1, max(-1, assumptions.correlation(a, b).double)) }
+            drawClasses.map { b in min(1, max(-1, assumptions.correlation(a, b).doubleValue)) }
         }
         if let factor = Self.choleskyFactor(matrix) {
             cholesky = factor
@@ -113,16 +113,6 @@ struct ReturnModel: Sendable {
     /// The median yearly real return below which a held class gets a
     /// warning (`planner.lowMedianReturn`): −2%.
     static let lowMedian = -0.02
-
-    /// The arithmetic mean the simulation uses for `assumption`: `real` as
-    /// written, else derived from `medianReal` and `volatility` under the
-    /// same log-normal the draws use (``logMean``, ``logSD``), so the draws'
-    /// median is the median written.
-    static func mean(of assumption: ReturnAssumption, volatility: Double) -> Double {
-        if let real = assumption.realAsWritten { return real.double }
-        guard let median = assumption.medianReal else { return 0 }
-        return ReturnAssumption.arithmeticMean(median: median.double, volatility: volatility)
-    }
 
     /// "Crypto", "Real estate": an asset class in words, for messages.
     static func name(_ assetClass: AssetClass) -> String {

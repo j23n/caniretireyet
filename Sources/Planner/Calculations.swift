@@ -76,7 +76,7 @@ struct CalculationsReport {
             lines.append("- Retiring at \(target) succeeds in \(percent(success)).")
         }
         if let needed = answer.assetsNeeded?.amount {
-            lines.append("- Retiring today needs \(money(needed)) in plan assets; there are \(money(result.start.planAssets.double)).")
+            lines.append("- Retiring today needs \(money(needed)) in plan assets; there are \(money(result.start.planAssets.doubleValue)).")
         }
         if let spending = answer.sustainableSpending {
             lines.append("- What you could spend from \(spending.age): \(money(spending.perYear)) a year "

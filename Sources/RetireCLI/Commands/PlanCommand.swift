@@ -451,7 +451,7 @@ struct PlanReport {
             },
             sustainableSpending: answer.sustainableSpending?.perYear,
             issues: result.issues.map { Issue(isError: $0.isError, message: $0.message) })
-        needed = answer.assetsNeeded.map { Needed($0, planAssets: Double(result.start.planAssets.description) ?? 0) }
+        needed = answer.assetsNeeded.map { Needed($0, planAssets: result.start.planAssets.doubleValue) }
         run = Run(runs: result.settings.runs, fast: fast, engine: result.engine, startDate: result.start.date)
         flexible = result.flexibleSpending.map { PlanFlexibleSpending.Report($0, fan: result.fan) }
     }

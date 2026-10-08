@@ -44,7 +44,7 @@ struct ExampleLibraryTests {
         #expect(result.start.planAssets.rounded(2) == d("161505.49"))
         #expect(result.start.accounts
             == ["conto-deposito", "conto-fineco", "directa", "fondo-pensione", "gold-coins", "ledger-wallet", "tfr"])
-        #expect(close(result.start.buckets.reduce(0) { $0 + $1.value }, result.start.planAssets.double, 1e-12))
+        #expect(close(result.start.buckets.reduce(0) { $0 + $1.value }, result.start.planAssets.doubleValue, 1e-12))
 
         // The pension fund is available from 67; everything else can be drawn now.
         #expect(result.start.buckets.map(\.availableFromAge) == [nil, 67])

@@ -245,10 +245,8 @@ struct PlanWords: Hashable, Sendable {
 
     /// "90%", "4.5%": whole percentages without decimals, else up to `maxDigits`.
     func percent(_ share: Decimal, maxDigits: Int = 1) -> String {
-        var scaled = share * 100
-        var rounded = Decimal()
-        NSDecimalRound(&rounded, &scaled, 0, .plain)
-        return AmountFormat.percent(share, digits: rounded == scaled ? 0 : maxDigits, locale: locale)
+        let scaled = share * 100
+        return AmountFormat.percent(share, digits: scaled.rounded(scale: 0) == scaled ? 0 : maxDigits, locale: locale)
     }
 }
 

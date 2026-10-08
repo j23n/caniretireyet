@@ -158,7 +158,7 @@ public struct NetWorthChange: Hashable, Sendable {
     /// The change as a fraction of ``start``, what a locked widget shows
     /// instead of the amount; `nil` when it started from zero.
     public var fraction: Double? {
-        start == 0 ? nil : (change / abs(start)).glanceDouble
+        start == 0 ? nil : (change / abs(start)).doubleValue
     }
 }
 
@@ -283,12 +283,12 @@ public struct RetirementAnswer: Hashable, Sendable {
     /// before the check-in, as the planner has it), and no spending. Retiring
     /// today works when the recorded readiness, rounded down, is 1.
     public init(recorded headline: Headline, birthDate: CalendarDate?, defaultConfidence: Double = 0.9) {
-        confidence = headline.confidence?.glanceDouble ?? defaultConfidence
+        confidence = headline.confidence?.doubleValue ?? defaultConfidence
         earliestAge = headline.earliestAge
         if let age = headline.earliestAge, let birthDate {
             earliestDate = max(headline.date, birthDate.adding(years: age))
         }
-        readiness = headline.readiness?.glanceDouble
+        readiness = headline.readiness?.doubleValue
         readinessIsLowerBound = false
         needsMoreThanSearched = false
         canRetireNow = (readiness ?? 0) >= 1
@@ -367,14 +367,5 @@ public struct CheckInGlance: Hashable, Sendable {
         let length = last.days(to: next)
         guard length > 0 else { return 1 }
         return min(max(Double(last.days(to: today)) / Double(length), 0), 1)
-    }
-}
-
-// MARK: - Decimals
-
-extension Decimal {
-    /// The value as a `Double`, for shares and drawing only.
-    var glanceDouble: Double {
-        NSDecimalNumber(decimal: self).doubleValue
     }
 }

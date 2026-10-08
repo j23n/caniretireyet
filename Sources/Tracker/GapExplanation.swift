@@ -96,18 +96,18 @@ extension GapExplanation {
     /// a unit or two.
     public var inWholeUnits: GapExplanation {
         var whole = self
-        whole.actualStart = actualStart.rounded(places: 0)
-        whole.expectedStart = expectedStart.rounded(places: 0)
-        whole.plannedSaving = plannedSaving.rounded(places: 0)
-        whole.newMoney = newMoney.rounded(places: 0)
-        whole.market = market.rounded(places: 0)
-        whole.expectedMarket = expectedMarket.rounded(places: 0)
+        whole.actualStart = actualStart.rounded(scale: 0)
+        whole.expectedStart = expectedStart.rounded(scale: 0)
+        whole.plannedSaving = plannedSaving.rounded(scale: 0)
+        whole.newMoney = newMoney.rounded(scale: 0)
+        whole.market = market.rounded(scale: 0)
+        whole.expectedMarket = expectedMarket.rounded(scale: 0)
         whole.start = whole.actualStart - whole.expectedStart
         whole.saving = whole.newMoney - whole.plannedSaving
         whole.markets = whole.market - whole.expectedMarket
-        let left = end.rounded(places: 0) - whole.start - whole.saving - whole.markets
+        let left = end.rounded(scale: 0) - whole.start - whole.saving - whole.markets
         if inflation != nil {
-            whole.other = other.rounded(places: 0)
+            whole.other = other.rounded(scale: 0)
             whole.inflation = left - whole.other
         } else {
             whole.other = left

@@ -245,11 +245,11 @@ struct PlanInputsReport {
              },
              returns: Dictionary(uniqueKeysWithValues: returns().map { assetClass, assumption in
                  (assetClass.rawValue, JSON.Return(
-                     real: (assumption.realAsWritten ?? Format.rounded(assumption.real, places: 6)).fileString,
+                     real: (assumption.realAsWritten ?? assumption.real.rounded(scale: 6)).fileString,
                      volatility: assumption.volatility.fileString,
                      incomeYield: assumption.incomeYield?.fileString,
                      median: (assumption.isGivenByMedian ? assumption.impliedMedianReal
-                         : Format.rounded(assumption.impliedMedianReal, places: 6)).fileString,
+                         : assumption.impliedMedianReal.rounded(scale: 6)).fileString,
                      givenAs: assumption.isGivenByMedian ? "median" : "mean",
                      isDefault: plan.assumptions.returns[assetClass] == nil))
              }))

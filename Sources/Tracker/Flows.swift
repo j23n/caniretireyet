@@ -54,23 +54,23 @@ extension Valuator {
     public func defaultFlow(for valuation: Valuation, previous: Valuation?,
                             paid: [InstrumentID: Decimal] = [:]) -> Decimal? {
         guard let account = accounts[valuation.account] else { return nil }
-        if account.recordsTrades { return tradeFlow(for: valuation, previous: previous)?.roundedToCents }
+        if account.recordsTrades { return tradeFlow(for: valuation, previous: previous)?.rounded(scale: 2) }
         let date = valuation.date
         switch account.kind.defaultFlow {
         case .ask:
             return nil
         case .wholeChange, .wholeChangeEditable:
             guard let now = amountInAccountCurrency(of: valuation, on: date) else { return nil }
-            guard let previous else { return now.roundedToCents }
+            guard let previous else { return now.rounded(scale: 2) }
             guard let before = amountInAccountCurrency(of: previous, on: previous.date) else { return nil }
-            return (now - before).roundedToCents
+            return (now - before).rounded(scale: 2)
         case .newMoney:
             if valuation.isBalance || previous?.isBalance == true {
                 // Switching between a balance and holdings: no price split is possible.
                 guard let now = amountInAccountCurrency(of: valuation, on: date) else { return nil }
-                guard let previous else { return now.roundedToCents }
+                guard let previous else { return now.rounded(scale: 2) }
                 guard let before = amountInAccountCurrency(of: previous, on: date) else { return nil }
-                return (now - before).roundedToCents
+                return (now - before).rounded(scale: 2)
             }
             var flow = (valuation.cash ?? 0) - (previous?.cash ?? 0)
             var instruments = valuation.positions.map(\.instrument)
@@ -89,7 +89,7 @@ extension Valuator {
                     return nil
                 }
             }
-            return flow.roundedToCents
+            return flow.rounded(scale: 2)
         }
     }
 
@@ -119,6 +119,6 @@ public enum CostBasis {
         if quantity == previousQuantity { return previousCost }
         guard let previousCost else { return nil }
         if quantity > previousQuantity { return paid.map { previousCost + $0 } }
-        return (previousCost * quantity / previousQuantity).roundedToCents
+        return (previousCost * quantity / previousQuantity).rounded(scale: 2)
     }
 }

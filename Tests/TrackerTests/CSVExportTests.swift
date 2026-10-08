@@ -43,8 +43,8 @@ import TestSupport
         let valuator = Valuator(library: library)
         #expect(last[0] == "2026-09-30")
         #expect(last[1] == "EUR")
-        #expect(last[2] == valuator.netWorth(on: date).total.roundedToCents.fileString)
-        #expect(last[3] == valuator.total(on: date, in: .planAssets).total.roundedToCents.fileString)
+        #expect(last[2] == valuator.netWorth(on: date).total.rounded(scale: 2).fileString)
+        #expect(last[3] == valuator.total(on: date, in: .planAssets).total.rounded(scale: 2).fileString)
         // Month ends from the first value on.
         #expect(table.dropFirst().allSatisfy { CalendarDate($0[0]).map { $0.isEndOfMonth } ?? false })
     }
@@ -56,8 +56,8 @@ import TestSupport
         let valuator = Valuator(library: library)
         let fineco = try #require(table.first { $0[0] == "2026-09-30" && $0[1] == "conto-fineco" })
         let value = try #require(valuator.value(of: "conto-fineco", on: date)?.value)
-        #expect(fineco[4] == value.roundedToCents.fileString)
-        #expect(fineco[6] == value.roundedToCents.fileString)  // a euro account in a euro library
+        #expect(fineco[4] == value.rounded(scale: 2).fileString)
+        #expect(fineco[6] == value.rounded(scale: 2).fileString)  // a euro account in a euro library
         // A closed account has no rows after it closed.
         let closed = try #require(library.accounts.values.first { $0.closed != nil })
         #expect(table.dropFirst().filter { $0[1] == closed.id.rawValue }

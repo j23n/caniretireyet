@@ -246,17 +246,17 @@ public struct ReturnAssumption: Hashable, Sendable, KnownKeysProviding {
     /// from what's written, without rounding through ``real``: what the
     /// planner simulates with.
     public var meanReturn: Double {
-        if let writtenReal { return writtenReal.doubleForReturns }
+        if let writtenReal { return writtenReal.doubleValue }
         guard let writtenMedian else { return 0 }
-        return Self.arithmeticMean(median: writtenMedian.doubleForReturns, volatility: volatility.doubleForReturns)
+        return Self.arithmeticMean(median: writtenMedian.doubleValue, volatility: volatility.doubleValue)
     }
 
     /// The median yearly real return the assumption implies, as a `Double`:
     /// the median as written when it's what counts, else derived from the
     /// mean (``median(arithmeticMean:volatility:)``).
     public var medianReturn: Double {
-        if isGivenByMedian, let writtenMedian { return writtenMedian.doubleForReturns }
-        return Self.median(arithmeticMean: meanReturn, volatility: volatility.doubleForReturns)
+        if isGivenByMedian, let writtenMedian { return writtenMedian.doubleValue }
+        return Self.median(arithmeticMean: meanReturn, volatility: volatility.doubleValue)
     }
 
     /// The median yearly real return the assumption implies
@@ -331,20 +331,13 @@ extension ReturnAssumption: Codable {
     /// The mean a median implies, to 6 decimals: the `real` written next to
     /// `medianReal` for older versions.
     static func compatibleMean(median: Decimal, volatility: Decimal) -> Decimal {
-        let mean = arithmeticMean(median: median.doubleForReturns, volatility: volatility.doubleForReturns)
+        let mean = arithmeticMean(median: median.doubleValue, volatility: volatility.doubleValue)
         return Decimal(mean).rounded(scale: 6)
     }
 
     /// How far `real` may be from ``compatibleMean(median:volatility:)`` and
     /// still be the copy written for older versions: half the last digit.
     static let compatibilityTolerance = Decimal(string: "0.0000005")!
-}
-
-private extension Decimal {
-    /// The nearest `Double`, for the log-normal arithmetic of returns only:
-    /// parsed from the exact decimal string, as the planner converts, so
-    /// it's the same on every platform.
-    var doubleForReturns: Double { Double(description) ?? NSDecimalNumber(decimal: self).doubleValue }
 }
 
 /// Correlations between asset classes, written as nested objects:

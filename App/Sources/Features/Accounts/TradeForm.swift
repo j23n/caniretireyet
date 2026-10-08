@@ -337,7 +337,8 @@ struct TradeForm: Hashable, Sendable {
                 guard let quote = fxQuote(in: library, valuator: valuator) else { return nil }
                 gross = quote.convert(gross)
             }
-            gross = Self.cents(gross)
+            // To cents, as the ledger rounds.
+            gross = gross.rounded(scale: 2)
             return type == .buy ? -(gross + fees + tax) : gross - fees - tax
         default:
             return nil
@@ -564,14 +565,6 @@ struct TradeForm: Hashable, Sendable {
     /// The form field of a ``Model/TradeProblem``'s field name.
     static func field(named name: String) -> TradeFormField? {
         TradeFormField(rawValue: name)
-    }
-
-    /// Rounded half away from zero to cents, as the ledger rounds.
-    static func cents(_ value: Decimal) -> Decimal {
-        var input = value
-        var result = Decimal()
-        NSDecimalRound(&result, &input, 2, .plain)
-        return result
     }
 }
 

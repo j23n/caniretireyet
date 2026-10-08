@@ -131,10 +131,10 @@ public struct TradeLedger: Sendable {
                 ?? account.currency
             if let quantity = trade.quantity, let price = trade.price {
                 if priceCurrency == account.currency {
-                    gross = (quantity * price).roundedToCents
+                    gross = (quantity * price).rounded(scale: 2)
                 } else if let found = fx.quote(from: priceCurrency, to: account.currency, on: trade.date) {
                     quote = found
-                    gross = found.convert(quantity * price).roundedToCents
+                    gross = found.convert(quantity * price).rounded(scale: 2)
                 } else if trade.amount == nil, Self.cashEffectNeedsGross.contains(trade.type) {
                     missingRate = true
                     issue(.missingFX, .error, "There's no \(priceCurrency)→\(account.currency) rate on or before "
@@ -187,7 +187,7 @@ public struct TradeLedger: Sendable {
                     if taken == held {
                         cost = held > 0 ? state.cost : 0
                     } else {
-                        cost = state.cost.map { ($0 * taken / held).roundedToCents }
+                        cost = state.cost.map { ($0 * taken / held).rounded(scale: 2) }
                     }
                     state.cost = state.cost.flatMap { total in cost.map { total - $0 } }
                     if before - quantity <= 0 { state.cost = 0 }

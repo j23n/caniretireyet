@@ -5,18 +5,10 @@ import Model
 /// and `.` for decimals whatever the locale, so output is the same everywhere
 /// and easy to parse.
 enum Format {
-    /// `value` rounded half away from zero to `places` fractional digits.
-    static func rounded(_ value: Decimal, places: Int) -> Decimal {
-        var input = value
-        var result = Decimal()
-        NSDecimalRound(&result, &input, places, .plain)
-        return result
-    }
-
     /// An amount with thousands separators and exactly `places` decimals:
     /// `1,234,567.89`, `-310.20`.
     static func amount(_ value: Decimal, places: Int = 2) -> String {
-        let rounded = rounded(value, places: places)
+        let rounded = value.rounded(scale: places)
         let negative = rounded < 0
         let parts = (negative ? -rounded : rounded).fileString.split(separator: ".", omittingEmptySubsequences: false)
         let integer = String(parts[0])
@@ -32,7 +24,7 @@ enum Format {
 
     /// An amount with its sign: `+1,234.56`, `-310.20`, `0.00`.
     static func signed(_ value: Decimal, places: Int = 2) -> String {
-        rounded(value, places: places) > 0 ? "+" + amount(value, places: places) : amount(value, places: places)
+        value.rounded(scale: places) > 0 ? "+" + amount(value, places: places) : amount(value, places: places)
     }
 
     /// A number exactly as written in library files, with thousands
@@ -56,7 +48,7 @@ enum Format {
 
     /// An amount for JSON output: a string in the file format, rounded to cents.
     static func json(_ value: Decimal, places: Int = 2) -> String {
-        rounded(value, places: places).fileString
+        value.rounded(scale: places).fileString
     }
 
     /// `1 account`, `2 accounts`.

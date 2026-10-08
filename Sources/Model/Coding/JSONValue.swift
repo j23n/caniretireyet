@@ -58,16 +58,6 @@ extension JSONValue {
     }
 }
 
-extension Decimal {
-    /// Rounds to `scale` fractional digits, half away from zero.
-    func rounded(scale: Int) -> Decimal {
-        var input = self
-        var result = Decimal()
-        NSDecimalRound(&result, &input, scale, .plain)
-        return result
-    }
-}
-
 // MARK: - Converting to and from Codable types
 
 extension JSONValue {

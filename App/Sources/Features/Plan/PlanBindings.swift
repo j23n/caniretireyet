@@ -171,10 +171,7 @@ extension PlanAssumptions {
     /// A return to show and edit, to a hundredth of a percent: a mean
     /// derived from a median (or the other way round) has many decimals.
     static func rounded(_ value: Decimal) -> Decimal {
-        var input = value
-        var result = Decimal()
-        NSDecimalRound(&result, &input, 4, .plain)
-        return result
+        value.rounded(scale: 4)
     }
 }
 

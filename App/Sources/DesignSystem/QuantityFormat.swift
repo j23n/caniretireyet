@@ -73,7 +73,7 @@ enum QuantityFormat {
     /// Trailing zeros past the second decimal are trimmed.
     static func unitPrice(_ price: Decimal, currency: CurrencyCode, locale: Locale = .current) -> String {
         let digits = priceDigits(price)
-        let shown = rounded(price, digits: digits)
+        let shown = AmountFormat.rounded(price, digits: digits)
         let text = shown.formatted(
             .currency(code: currency.rawValue).locale(locale).precision(.fractionLength(2...digits)))
         return AmountFormat.typographicMinus(text)
@@ -83,7 +83,7 @@ enum QuantityFormat {
     /// sentence names it: `73.785,11`, `0,004312`.
     static func unitPriceNumber(_ price: Decimal, locale: Locale = .current) -> String {
         let digits = priceDigits(price)
-        let shown = rounded(price, digits: digits)
+        let shown = AmountFormat.rounded(price, digits: digits)
         return AmountFormat.typographicMinus(
             shown.formatted(.number.precision(.fractionLength(2...digits)).locale(locale)))
     }
@@ -107,17 +107,6 @@ enum QuantityFormat {
     /// so a line too narrow for both breaks between the label and the value.
     static func labelled(_ label: String, _ value: String) -> String {
         label.replacingOccurrences(of: " ", with: "\u{00A0}") + " " + value
-    }
-
-    // MARK: Internals
-
-    /// `value` rounded to `digits` decimals (halves away from zero); zero
-    /// comes out as plain zero, so it never reads with a sign.
-    private static func rounded(_ value: Decimal, digits: Int) -> Decimal {
-        var value = value
-        var result = Decimal()
-        NSDecimalRound(&result, &value, digits, .plain)
-        return result == 0 ? 0 : result
     }
 }
 

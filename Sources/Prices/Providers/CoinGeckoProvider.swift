@@ -194,7 +194,7 @@ public struct CoinGeckoProvider: BatchQuoteProvider {
     static func quotes(in chart: MarketChart, currency: CurrencyCode, today: CalendarDate) -> [Quote] {
         (chart.prices ?? []).compactMap { point in
             guard point.count >= 2, let milliseconds = point[0], let price = point[1], price > 0 else { return nil }
-            let instant = Date(timeIntervalSince1970: (milliseconds as NSDecimalNumber).doubleValue / 1000)
+            let instant = Date(timeIntervalSince1970: milliseconds.doubleValue / 1000)
             guard ProviderInstants.isPlausible(instant, today: today) else { return nil }
             let day = CalendarDate(instant.addingTimeInterval(-1), in: TimeZone(identifier: "UTC")!)
             return Quote(price: price.rounded(significantDigits: 8), currency: currency, observedOn: day,

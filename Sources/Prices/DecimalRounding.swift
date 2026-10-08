@@ -1,15 +1,7 @@
 import Foundation
+import Model
 
 extension Decimal {
-    /// Rounded half away from zero to `scale` fractional digits (a negative
-    /// scale rounds to tens, hundreds, …).
-    func rounded(scale: Int) -> Decimal {
-        var input = self
-        var result = Decimal()
-        NSDecimalRound(&result, &input, scale, .plain)
-        return result
-    }
-
     /// Rounded half away from zero to `digits` significant digits.
     func rounded(significantDigits digits: Int) -> Decimal {
         guard !isZero, isFinite else { return self }

@@ -70,7 +70,7 @@ extension Portfolio {
                       extraClasses: Set<AssetClass>, issues: inout [PlanIssue]) -> Portfolio {
         let valuator = Valuator(library: library)
         let excluded = Set(plan.portfolio.exclude)
-        let gainShare = plan.portfolio.unrealizedGainShare.map { min(1, max(0, $0.double)) }
+        let gainShare = plan.portfolio.unrealizedGainShare.map { min(1, max(0, $0.doubleValue)) }
         for id in plan.portfolio.exclude where library.accounts[id] == nil {
             issues.append(.warning("planner.unknownAccount", "Excluded account \(id) doesn't exist.",
                                    section: .portfolio, account: id))
@@ -116,7 +116,7 @@ extension Portfolio {
             }
 
             for component in value.components {
-                guard let amount = component.value?.double else { continue }
+                guard let amount = component.value?.doubleValue else { continue }
                 if amount < 0 {
                     debt -= amount
                     continue
@@ -143,10 +143,10 @@ extension Portfolio {
                         basis = amount
                     } else if let recorded = value.valuation?.position(for: instrumentID)?.costBasis {
                         if account.currency == valuator.baseCurrency {
-                            basis = recorded.double
+                            basis = recorded.doubleValue
                         } else if let quote = valuator.fx.quote(from: account.currency, to: valuator.baseCurrency,
                                                                  on: date) {
-                            basis = quote.convert(recorded).double
+                            basis = quote.convert(recorded).doubleValue
                         }
                     }
                     for (assetClass, share) in mix.sorted(by: { $0.key < $1.key }) {
@@ -215,7 +215,7 @@ extension Portfolio {
 
     /// A mix as `Double` shares summing to 1, or `nil` if it's empty.
     static func shares(_ mix: AssetMix) -> [AssetClass: Double]? {
-        let positive = mix.shares.mapValues(\.double).filter { $0.value > 0 }
+        let positive = mix.shares.mapValues(\.doubleValue).filter { $0.value > 0 }
         let total = positive.values.reduce(0, +)
         guard total > 0 else { return nil }
         return positive.mapValues { $0 / total }

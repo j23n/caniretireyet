@@ -55,7 +55,7 @@ enum PlanInterpreter {
         }
 
         // The years.
-        let inflation = plan.assumptions.effectiveInflation.double
+        let inflation = plan.assumptions.effectiveInflation.doubleValue
         if !(inflation >= -0.5 && inflation <= 0.5) {
             error("planner.inflation", "Inflation is \(percent(inflation)) a year; it has to be between −50% and 50%.",
                   .assumptions, option: "inflation")
@@ -76,7 +76,7 @@ enum PlanInterpreter {
 
         // Taxes.
         var investmentRate = 0.0
-        if let rate = plan.tax.investmentRate?.double {
+        if let rate = plan.tax.investmentRate?.doubleValue {
             if rate >= 0, rate <= 0.9 {
                 investmentRate = rate
             } else {
@@ -89,11 +89,11 @@ enum PlanInterpreter {
                       + "investments with it (26% in Italy, for example; 0% if they aren't taxed).",
                   .tax, option: "investmentRate")
         }
-        let wealthRate = plan.tax.effectiveWealthRate.double
+        let wealthRate = plan.tax.effectiveWealthRate.doubleValue
         if !(wealthRate >= 0 && wealthRate <= 0.1) {
             error("planner.wealthRate", "The wealth tax rate has to be between 0% and 10%.", .tax, option: "wealthRate")
         }
-        let wealthAllowance = plan.tax.effectiveWealthAllowance.double
+        let wealthAllowance = plan.tax.effectiveWealthAllowance.doubleValue
         if wealthAllowance < 0 {
             error("planner.wealthAllowance", "The wealth left untaxed can't be negative.", .tax,
                   option: "wealthAllowance")
@@ -103,7 +103,7 @@ enum PlanInterpreter {
         var work: [WorkSpec] = []
         for (index, phase) in plan.work.enumerated() {
             let label = phase.name ?? (plan.work.count == 1 ? "Work" : "Work \(index + 1)")
-            guard let net = phase.netIncome?.double else {
+            guard let net = phase.netIncome?.doubleValue else {
                 error("planner.noNetIncome",
                       "\(label): enter the income after tax for this phase (netIncome).", .work, index: index,
                       option: "netIncome")
@@ -118,19 +118,19 @@ enum PlanInterpreter {
                 error("planner.workDates", "\(label) ends before it starts.", .work, index: index, option: "until")
             }
             work.append(WorkSpec(index: index, id: "work-\(index)", label: label, from: phase.from, until: until,
-                                 net: net, realGrowth: phase.realGrowth?.double ?? 0,
+                                 net: net, realGrowth: phase.realGrowth?.doubleValue ?? 0,
                                  baseYear: max(phase.from.year, startDate.year)))
         }
 
         // Spending.
-        let working = plan.spending.working.double
-        let retired = plan.spending.retired.double
+        let working = plan.spending.working.doubleValue
+        let retired = plan.spending.retired.doubleValue
         if working < 0 || retired < 0 {
             error("planner.negativeSpending", "Spending can't be negative.", .spending)
         }
         var spending = SpendingSpec(working: working, retired: retired,
                                     phases: plan.spending.phases.sorted { $0.fromAge < $1.fromAge }
-                                        .map { SpendingPhaseSpec(fromAge: $0.fromAge, factor: max(0, $0.factor.double)) })
+                                        .map { SpendingPhaseSpec(fromAge: $0.fromAge, factor: max(0, $0.factor.doubleValue)) })
         if let rule = plan.spending.flexibleRule {
             let flexible = FlexibleSpendingSpec(rule)
             if flexible.cut > 0, flexible.cut <= 1, flexible.floor >= 0, flexible.floor <= 1, flexible.upper > 0,
@@ -147,7 +147,7 @@ enum PlanInterpreter {
         var pensions: [PensionSpec] = []
         for (index, pension) in plan.pensions.enumerated() {
             let name = pension.name ?? (plan.pensions.count == 1 ? "Pension" : "Pension \(index + 1)")
-            guard let perYear = pension.perYear?.double, let fromAge = pension.fromAge else {
+            guard let perYear = pension.perYear?.doubleValue, let fromAge = pension.fromAge else {
                 error("planner.pensionAmount",
                       "\(name): enter the yearly amount after tax and the age it starts at.", .pensions, index: index)
                 continue
@@ -172,7 +172,7 @@ enum PlanInterpreter {
         var income: [IncomeSpec] = []
         for (index, item) in plan.income.enumerated() {
             let name = item.name ?? (plan.income.count == 1 ? "Other income" : "Other income \(index + 1)")
-            guard let perYear = item.perYear?.double, let from = item.from else {
+            guard let perYear = item.perYear?.doubleValue, let from = item.from else {
                 error("planner.otherIncomeAmount", "\(name): enter the yearly amount after tax and when it starts.",
                       .income, index: index)
                 continue
@@ -203,7 +203,7 @@ enum PlanInterpreter {
         if requestedRuns < 1 || requestedRuns > 10_000 {
             error("planner.runs", "The number of runs has to be from 1 to 10,000.", .simulation, option: "runs")
         }
-        let confidence = plan.simulation.effectiveConfidence.double
+        let confidence = plan.simulation.effectiveConfidence.doubleValue
         if !(confidence > 0 && confidence < 1) {
             error("planner.confidence", "The confidence level has to be above 0% and below 100%.", .simulation,
                   option: "confidence")
@@ -217,7 +217,7 @@ enum PlanInterpreter {
             case .year(let year): year
             case .age(let age): birthDate.year + age
             }
-            let probability = event.effectiveProbability.double
+            let probability = event.effectiveProbability.doubleValue
             guard probability >= 0, probability <= 1 else {
                 error("planner.eventProbability", "\(event.name): the probability has to be from 0% to 100%.",
                       .events, index: index)
@@ -238,7 +238,7 @@ enum PlanInterpreter {
                 bit = probabilities.count
                 probabilities.append(probability)
             }
-            events.append(EventSpec(index: index, name: event.name, year: year, amount: event.amount.double,
+            events.append(EventSpec(index: index, name: event.name, year: year, amount: event.amount.doubleValue,
                                     probability: probability, bit: bit))
         }
 
@@ -248,9 +248,9 @@ enum PlanInterpreter {
             if Portfolio.shares(mix) == nil {
                 warning("planner.targetMixEmpty", "The target mix has no asset class with a share; the money you "
                             + "can draw keeps its own mix.", .portfolio, option: "targetMix")
-            } else if abs(mix.total.double - 1) > 0.001 {
+            } else if abs(mix.total.doubleValue - 1) > 0.001 {
                 warning("planner.targetMixTotal",
-                        "The target mix adds up to \(percent(mix.total.double)), not 100%; the plan scales it.",
+                        "The target mix adds up to \(percent(mix.total.doubleValue)), not 100%; the plan scales it.",
                         .portfolio, option: "targetMix")
             }
         }
@@ -285,9 +285,9 @@ enum PlanInterpreter {
             if Portfolio.shares(step.mix) == nil {
                 error("planner.targetMixEmpty", "The target mix from \(start) has no asset class with a share.",
                       .portfolio, index: index, option: "targetMixByAge")
-            } else if abs(step.mix.total.double - 1) > 0.001 {
+            } else if abs(step.mix.total.doubleValue - 1) > 0.001 {
                 warning("planner.targetMixTotal",
-                        "The target mix from \(start) adds up to \(percent(step.mix.total.double)), not 100%; the "
+                        "The target mix from \(start) adds up to \(percent(step.mix.total.doubleValue)), not 100%; the "
                             + "plan scales it.", .portfolio, index: index, option: "targetMixByAge")
             }
             mixClasses.formUnion(step.mix.shares.filter { $0.value > 0 }.keys)
@@ -296,7 +296,7 @@ enum PlanInterpreter {
                                         extraClasses: mixClasses, issues: &issues)
         let returns = ReturnModel(assumptions: plan.assumptions, heldClasses: portfolio.classes, issues: &issues)
         let incomeYields = portfolio.classes.map { assetClass in
-            min(1, max(0, plan.assumptions.returnAssumption(for: assetClass)?.incomeYield?.double ?? 0))
+            min(1, max(0, plan.assumptions.returnAssumption(for: assetClass)?.incomeYield?.doubleValue ?? 0))
         }
 
         // Contributions, into an account's bucket.
@@ -314,14 +314,14 @@ enum PlanInterpreter {
                             + "left out.", .contributions, index: index)
                 continue
             }
-            let amount = contribution.amount?.double
-            if contribution.perYear.double < 0 || (amount ?? 0) < 0 {
+            let amount = contribution.amount?.doubleValue
+            if contribution.perYear.doubleValue < 0 || (amount ?? 0) < 0 {
                 error("planner.negativeContribution", "A contribution can't be negative.", .contributions,
                       index: index)
             }
             let oneOff: (year: Int, amount: Double)? = amount.map { (contribution.year ?? startDate.year, $0) }
             contributions.append(ContributionSpec(index: index, account: contribution.account, bucket: bucket,
-                                                  perYear: contribution.perYear.double,
+                                                  perYear: contribution.perYear.doubleValue,
                                                   until: contribution.effectiveUntil.date, oneOff: oneOff))
         }
 

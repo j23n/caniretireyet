@@ -120,7 +120,7 @@ extension Library {
             guard let price = prices.latest(for: instrument, onOrBefore: date),
                   let value = fx.convert(quantity * price.price, from: price.currency, to: details.currency, on: date)
             else { return nil }
-            return (value.roundedToCents, price)
+            return (value.rounded(scale: 2), price)
         }
 
         var notes: [ConversionNote] = []

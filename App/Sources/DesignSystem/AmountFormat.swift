@@ -59,7 +59,7 @@ enum AmountFormat {
             return (rounded(value, digits: 2), 2)
         case .automatic:
             let cents = rounded(value, digits: 2)
-            return (cents, cents.hasCents ? 2 : 0)
+            return (cents, cents.rounded(scale: 0) != cents ? 2 : 0)
         }
     }
 
@@ -160,11 +160,9 @@ enum AmountFormat {
     // MARK: Internals
 
     /// `value` rounded to `digits` decimals (halves away from zero); zero
-    /// comes out as plain zero.
-    private static func rounded(_ value: Decimal, digits: Int) -> Decimal {
-        var value = value
-        var result = Decimal()
-        NSDecimalRound(&result, &value, digits, .plain)
+    /// comes out as plain zero, so it never reads with a sign.
+    static func rounded(_ value: Decimal, digits: Int) -> Decimal {
+        let result = value.rounded(scale: digits)
         return result == 0 ? 0 : result
     }
 
@@ -195,22 +193,6 @@ enum DeltaFormat {
     static func text(_ number: String, direction: Int, showsArrow: Bool) -> String {
         guard showsArrow, direction != 0 else { return number }
         return "\(direction > 0 ? "▲" : "▼") \(number)"
-    }
-}
-
-extension Decimal {
-    /// The value as a `Double`, for charts and display only (never for
-    /// arithmetic on recorded amounts).
-    var doubleValue: Double {
-        NSDecimalNumber(decimal: self).doubleValue
-    }
-
-    /// Whether the value has a non-zero fractional part.
-    var hasCents: Bool {
-        var value = self
-        var rounded = Decimal()
-        NSDecimalRound(&rounded, &value, 0, .plain)
-        return rounded != self
     }
 }
 

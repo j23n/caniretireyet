@@ -145,7 +145,7 @@ public enum Planner {
             try await engine.prepare(ages: [age])
             (sustainable, spendingSteps) = try await engine.sustainableSpendingSearch(age: age, progress: progress)
         }
-        let startValue = model.portfolio.startAssets.double
+        let startValue = model.portfolio.startAssets.doubleValue
         let successNow = rates[current] ?? 0
         try Task.checkCancellation()
         var assetsNeeded: AssetsNeeded?
