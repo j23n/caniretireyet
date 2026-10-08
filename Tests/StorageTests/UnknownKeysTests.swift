@@ -177,6 +177,25 @@ struct UnknownKeysTests {
             """)
     }
 
+    /// A file that couldn't be read isn't merged into the one the app writes
+    /// in its place; the copy in backups/ keeps what it held.
+    @Test func aFileThatCouldNotBeReadKeepsNothingWhenReplaced() throws {
+        let folder = try TemporaryFolder.exampleLibrary()
+        let broken = """
+            { "currency": "EUR", "id": "ibkr", "kind": "brokerage", "myNote": "A bonus.", "name": "IBKR", "opened": "someday" }
+            """
+        try folder.write("accounts/ibkr.json", broken)
+        let loaded = try folder.library.load()
+        var library = loaded.library
+        library.accounts["ibkr"] = Account(id: "ibkr", name: "IBKR", kind: .brokerage, currency: .eur, opened: "2026-01-01")
+
+        let report = try folder.library.save(library, previous: loaded.library)
+        #expect(try folder.json("accounts/ibkr.json")["myNote"] == nil)
+        let backup = try #require(report.backups.first)
+        #expect(backup.label == "unreadable")
+        #expect(try folder.text("\(backup.path)/accounts/ibkr.json") == broken)
+    }
+
     @Test func headlinesKeepUnknownKeysByDate() throws {
         let folder = try TemporaryFolder.exampleLibrary()
         let file = try Fixtures.decode(HeadlineFile.self, from: "projections/base/headlines/2026.json")

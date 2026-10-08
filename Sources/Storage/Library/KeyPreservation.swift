@@ -7,18 +7,15 @@ import Model
 /// unknown keys at any depth (``preserving(_:known:in:for:)``): a key is
 /// unknown when reading the old file and writing it back would drop it.
 ///
-/// History and headline files, and files the model can't read, follow the
-/// rules here: keys of the old file's top-level object that aren't in
-/// ``knownKeys`` are copied into the new one. The same happens for nested
-/// objects with fixed keys (``objects``) and for records in lists
-/// (``records``), which are matched by their key (account + date, …) rather
-/// than their position. In history and headline files, records in the old
-/// file that the model can't read at all are kept as they are (the loader
-/// skips them with an issue), so a rewrite never destroys data that failed
-/// to load.
+/// History and headline files follow the rules here: keys of the old
+/// file's top-level object that aren't in ``knownKeys`` are copied into the
+/// new one, and so are those of records in lists (``records``), which are
+/// matched by their key (account + date, …) rather than their position.
+/// Records in the old file that the model can't read at all are kept as
+/// they are (the loader skips them with an issue), so a rewrite never
+/// destroys data that failed to load.
 struct KeyPreservation: Sendable {
     var knownKeys: Set<String>
-    var objects: [String: KeyPreservation] = [:]
     var records: [String: RecordList] = [:]
 
     /// A list of keyed records inside an object.
@@ -36,11 +33,6 @@ struct KeyPreservation: Sendable {
         guard case .object(var result) = new, case .object(let previous) = old else { return new }
         for (key, value) in previous where !knownKeys.contains(key) && result[key] == nil {
             result[key] = value
-        }
-        for (key, rule) in objects {
-            if let newValue = result[key], let oldValue = previous[key] {
-                result[key] = rule.preserving(oldValue, in: newValue)
-            }
         }
         for (key, list) in records {
             guard case .array(let oldRecords)? = previous[key] else { continue }
@@ -95,16 +87,17 @@ extension KeyPreservation {
     /// `old`: what loading it and writing it back gives, or `nil` if it
     /// can't be loaded.
     ///
-    /// History and headline files, and files the model can't load, follow
-    /// the file's rule (``rule(for:)``). Other files keep every key of `old`
-    /// that `known` doesn't have, at any depth: in nested objects, and in
-    /// list items matched to the new list's items by a natural key (an
-    /// `id`, `name`, `header`, `from`, … that every item has, different in
-    /// each), else by their other values or position (``ListMatching``).
-    /// Unknown keys holding nothing (`null`, `[]`, `{}`) aren't kept.
+    /// History and headline files follow the file's rule (``rule(for:)``).
+    /// Other files keep every key of `old` that `known` doesn't have, at any
+    /// depth: in nested objects, and in list items matched to the new list's
+    /// items by a natural key (an `id`, `name`, `header`, `from`, … that
+    /// every item has, different in each), else by their other values or
+    /// position (``ListMatching``). Unknown keys holding nothing (`null`,
+    /// `[]`, `{}`) aren't kept. Such a file that can't be loaded keeps
+    /// nothing: the save copies it to `backups/` before replacing it.
     static func preserving(_ old: JSONValue, known: JSONValue?, in new: JSONValue, for file: LibraryFile) -> JSONValue {
-        guard let known, !file.mergesRecords else { return rule(for: file).preserving(old, in: new) }
-        return keepingUnknown(old, known: known, in: new)
+        if file.mergesRecords { return rule(for: file).preserving(old, in: new) }
+        return known.map { keepingUnknown(old, known: $0, in: new) } ?? new
     }
 
     /// `new` with the members of `old` that `known` lacks, recursively.
@@ -137,7 +130,7 @@ extension KeyPreservation {
 enum ListMatching {
     /// The fields that can identify a list item, tried in order.
     static let naturalKeys = [
-        "id", "date", "year", "name", "header", "index", "account", "instrument", "scheme", "regime", "from", "fromAge",
+        "id", "date", "year", "name", "header", "index", "account", "instrument", "from", "fromAge",
     ]
 
     /// Pairs of positions in `old` and `new`: first by the first natural key
@@ -227,61 +220,20 @@ struct RecordKey: Hashable, Comparable, Sendable, CustomStringConvertible {
     var description: String { parts.joined(separator: " ") }
 }
 
-// MARK: - Rules for each file
+// MARK: - Rules for history and headline files
 
 extension KeyPreservation {
-    init<T: KnownKeysProviding>(_ type: T.Type, objects: [String: KeyPreservation] = [:],
-                                records: [String: RecordList] = [:]) {
-        self.init(knownKeys: T.knownKeys, objects: objects, records: records)
+    init<T: KnownKeysProviding>(_ type: T.Type, records: [String: RecordList] = [:]) {
+        self.init(knownKeys: T.knownKeys, records: records)
     }
-
-    static let settings = KeyPreservation(LibrarySettings.self, objects: ["person": .init(Person.self)])
-
-    static let account = KeyPreservation(Account.self, objects: ["includeIn": .init(IncludeIn.self)])
-
-    static let instrument = KeyPreservation(Instrument.self, objects: ["priceSource": .init(PriceSource.self)])
 
     static let month = KeyPreservation(MonthFile.self, records: RecordList.monthLists)
 
-    static let plan = KeyPreservation(PlanDocument.self, objects: [
-        "retirement": .init(PlanRetirement.self),
-        "tax": .init(PlanTax.self),
-        "spending": .init(PlanSpending.self, objects: ["flexible": .init(FlexibleSpending.self)]),
-        "portfolio": .init(PlanPortfolio.self),
-        "assumptions": .init(PlanAssumptions.self),
-        "simulation": .init(PlanSimulation.self),
-    ])
-
-    static let importProfile = KeyPreservation(ImportProfile.self, objects: [
-        "file": .init(ImportFileSettings.self),
-        "defaults": .init(ImportFormat.self, objects: [
-            "date": .init(ImportDateFormat.self), "number": .init(ImportNumberFormat.self),
-        ]),
-        "constants": .init(ImportConstants.self),
-        "matches": .init(ImportMatches.self),
-    ])
-
-    static let baseline = KeyPreservation(Baseline.self, objects: [
-        "headline": .init(HeadlineSummary.self),
-        "start": .init(BaselineStart.self),
-    ], records: [
-        "years": RecordList(keyFields: ["year"], rule: .init(BaselineYear.self), isReadable: nil),
-    ])
-
     static let headlines = KeyPreservation(HeadlineFile.self, records: RecordList.headlineLists)
 
-    /// The rule for a library file.
+    /// The rule for a history or headline file.
     static func rule(for file: LibraryFile) -> KeyPreservation {
-        switch file {
-        case .settings: settings
-        case .account: account
-        case .instrument: instrument
-        case .month: month
-        case .plan: plan
-        case .importProfile: importProfile
-        case .baseline: baseline
-        case .headlines: headlines
-        }
+        if case .month = file { month } else { headlines }
     }
 }
 
