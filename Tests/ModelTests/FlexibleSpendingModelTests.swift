@@ -7,16 +7,6 @@ import TestSupport
 /// absent, on when present unless `enabled` is false, with each setting
 /// defaulting when left out. Made-up amounts.
 struct FlexibleSpendingModelTests {
-    private func decode<T: Decodable>(_ type: T.Type, _ json: String) throws -> T {
-        try JSONDecoder().decode(T.self, from: Data(json.utf8))
-    }
-
-    private func json<T: Encodable>(_ value: T) throws -> String {
-        let encoder = JSONEncoder()
-        encoder.outputFormatting = .sortedKeys
-        return String(decoding: try encoder.encode(value), as: UTF8.self)
-    }
-
     @Test func absentMeansFixedSpending() throws {
         let spending = try decode(PlanSpending.self, #"{ "working": "30000", "retired": "28000" }"#)
         #expect(spending.flexible == nil && spending.flexibleRule == nil)

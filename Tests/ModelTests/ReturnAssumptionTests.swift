@@ -6,16 +6,6 @@ import TestSupport
 /// Return assumptions given by their mean (`real`) or their median
 /// (`medianReal`, PLANNER.md, "Returns"), and the defaults. All made up.
 struct ReturnAssumptionTests {
-    private func decode<T: Decodable>(_ type: T.Type, _ json: String) throws -> T {
-        try JSONDecoder().decode(T.self, from: Data(json.utf8))
-    }
-
-    private func json<T: Encodable>(_ value: T) throws -> String {
-        let encoder = JSONEncoder()
-        encoder.outputFormatting = .sortedKeys
-        return String(decoding: try encoder.encode(value), as: UTF8.self)
-    }
-
     // MARK: The file
 
     @Test func aReturnIsWrittenAsItsMeanOrItsMedian() throws {

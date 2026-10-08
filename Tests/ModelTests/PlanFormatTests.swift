@@ -7,17 +7,6 @@ import TestSupport
 /// phases, pensions, contributions into accounts, income yields, and an
 /// account's `availableFromAge`. All made up.
 struct PlanFormatTests {
-    private func decode<T: Decodable>(_ type: T.Type, _ json: String) throws -> T {
-        try JSONDecoder().decode(T.self, from: Data(json.utf8))
-    }
-
-    /// The value written back as JSON, with sorted keys.
-    private func json<T: Encodable>(_ value: T) throws -> String {
-        let encoder = JSONEncoder()
-        encoder.outputFormatting = .sortedKeys
-        return String(decoding: try encoder.encode(value), as: UTF8.self)
-    }
-
     private func roundTrips<T: Codable & Hashable>(_ type: T.Type, _ text: String) throws {
         let value = try decode(T.self, text)
         #expect(try decode(T.self, try json(value)) == value)

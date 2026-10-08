@@ -7,16 +7,6 @@ import TestSupport
 /// how it's written and read, which step is in force at an age, and
 /// folding the steps already passed into `targetMix`. All made up.
 struct TargetMixStepTests {
-    private func decode<T: Decodable>(_ type: T.Type, _ json: String) throws -> T {
-        try JSONDecoder().decode(T.self, from: Data(json.utf8))
-    }
-
-    private func json<T: Encodable>(_ value: T) throws -> String {
-        let encoder = JSONEncoder()
-        encoder.outputFormatting = .sortedKeys
-        return String(decoding: try encoder.encode(value), as: UTF8.self)
-    }
-
     private static let glidePath = PlanPortfolio(
         targetMix: [.equity: d("0.8"), .bonds: d("0.2")],
         targetMixByAge: [
