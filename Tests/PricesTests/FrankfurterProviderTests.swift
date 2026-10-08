@@ -2,8 +2,7 @@ import Foundation
 import Model
 @testable import Prices
 import Testing
-
-private func d(_ string: String) -> Decimal { Decimal(fileString: string)! }
+import TestSupport
 
 struct FrankfurterProviderTests {
     private func provider(_ routes: [String: String]) -> (FrankfurterProvider, MockHTTPClient) {

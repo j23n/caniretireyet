@@ -2,6 +2,7 @@ import Foundation
 import Model
 @testable import Planner
 import Testing
+import TestSupport
 
 /// Flexible spending (PLANNER.md, "Flexible spending"): the guardrails rule
 /// cuts retirement spending when the withdrawal rate rises 20% above the

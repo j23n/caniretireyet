@@ -2,8 +2,7 @@ import Foundation
 import Model
 @testable import Prices
 import Testing
-
-private func d(_ string: String) -> Decimal { Decimal(fileString: string)! }
+import TestSupport
 
 struct YahooChartProviderTests {
     private func quote(_ fixture: String, _ symbol: String, on date: CalendarDate) async throws -> Quote {

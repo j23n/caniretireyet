@@ -4,8 +4,6 @@ import Model
 import Testing
 import TestSupport
 
-private func d(_ string: String) -> Decimal { Decimal(fileString: string)! }
-
 /// Free price APIs allow only a few calls a minute: CoinGecko's coins are
 /// asked for in one call, and at most a few instruments are fetched at once.
 struct PriceRateLimitTests {

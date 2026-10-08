@@ -94,13 +94,3 @@ struct ExampleLibraryTests {
         #expect(!result.issues.contains { $0.code == "planner.unknownCostBasis" })
     }
 }
-
-extension Decimal {
-    /// Rounded half away from zero to `scale` fractional digits.
-    func rounded(_ scale: Int) -> Decimal {
-        var input = self
-        var result = Decimal()
-        NSDecimalRound(&result, &input, scale, .plain)
-        return result
-    }
-}

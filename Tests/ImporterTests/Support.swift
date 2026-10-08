@@ -1,6 +1,7 @@
 import Foundation
 @testable import Importer
 import Model
+import TestSupport
 
 /// The made-up sample files in `Samples/`:
 ///
@@ -33,11 +34,6 @@ enum Samples {
     }
 }
 
-/// A decimal from a string, exactly.
-func dec(_ string: String) -> Decimal {
-    Decimal(fileString: string)!
-}
-
 /// A date from a string variable (not a literal).
 func date(_ string: String) -> CalendarDate {
     CalendarDate(string)!
@@ -56,8 +52,8 @@ func smallLibrary() -> Library {
             Instrument(id: "vwce", name: "Vanguard FTSE All-World", kind: .etf, currency: .eur, unit: .share,
                        assetClasses: .single(.equity), ticker: "VWCE"),
         ])
-    library.upsert(Valuation(account: "conto-fineco", date: "2026-01-31", balance: dec("5210.85")))
-    library.upsert(Valuation(account: "fondo-pensione", date: "2026-01-31", balance: dec("17000")))
+    library.upsert(Valuation(account: "conto-fineco", date: "2026-01-31", balance: d("5210.85")))
+    library.upsert(Valuation(account: "fondo-pensione", date: "2026-01-31", balance: d("17000")))
     return library
 }
 

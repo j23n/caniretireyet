@@ -1,9 +1,8 @@
 import Foundation
 import Model
 import Testing
+import TestSupport
 import Tracker
-
-private func d(_ string: String) -> Decimal { Decimal(fileString: string)! }
 
 /// A made-up broker account in EUR, and trades for it.
 enum TradeSamples {

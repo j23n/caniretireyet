@@ -1,13 +1,12 @@
 import Foundation
 import Model
 import Testing
+import TestSupport
 
 /// Every key a type writes must be in its `knownKeys`, or Storage would
 /// treat the app's own data as unknown and duplicate it. And every known key
 /// must be written by a fully populated value, so the list stays accurate.
 struct KnownKeysTests {
-    private static func d(_ string: String) -> Decimal { Decimal(fileString: string)! }
-
     private static let position = Position(instrument: "vwce", quantity: d("412.5"), costBasis: d("48200"))
     private static let valuation = Valuation(
         account: "directa", date: "2026-09-30", balance: d("1"), cash: d("312.1"), positions: [position],

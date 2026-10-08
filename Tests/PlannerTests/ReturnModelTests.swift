@@ -2,6 +2,7 @@ import Foundation
 import Model
 @testable import Planner
 import Testing
+import TestSupport
 
 /// The seeded generator and the correlated log-normal return model.
 struct ReturnModelTests {

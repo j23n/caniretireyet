@@ -4,8 +4,6 @@ import Model
 import Testing
 import TestSupport
 
-private func d(_ string: String) -> Decimal { Decimal(fileString: string)! }
-
 /// The price service over the made-up example library, with every provider
 /// answering from recorded responses.
 struct PriceServiceTests {

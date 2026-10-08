@@ -1,9 +1,8 @@
 import Foundation
 import Model
 import Testing
+import TestSupport
 import Tracker
-
-private func d(_ string: String) -> Decimal { Decimal(fileString: string)! }
 
 /// Adding, changing and removing trades keeps the flows of later
 /// valuations and the opening date in step, and says what went wrong.

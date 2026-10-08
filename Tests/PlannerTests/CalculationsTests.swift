@@ -2,6 +2,7 @@ import Foundation
 import Model
 @testable import Planner
 import Testing
+import TestSupport
 
 /// The calculations report (PLANNER.md, "Calculations"): every input and
 /// result behind the answer, as Markdown, and its anonymized form.

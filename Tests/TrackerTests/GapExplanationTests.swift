@@ -1,14 +1,13 @@
 import Foundation
 import Model
 import Testing
+import TestSupport
 import Tracker
 
 /// Why you're ahead of or behind a baseline (PROGRESS.md, "Actual vs. a
 /// baseline", *Why*): the parts add up to the gap, saving and markets are
 /// measured against what was planned and expected, and inflation apart.
 struct GapExplanationTests {
-    private func d(_ string: String) -> Decimal { Decimal(fileString: string)! }
-
     /// A year that started on plan (100,000 both), planning to save 12,000
     /// and expecting 5,000 from markets: you saved 10,000, markets added
     /// 3,000, a balance moved 500 without a flow, and prices rose, so the

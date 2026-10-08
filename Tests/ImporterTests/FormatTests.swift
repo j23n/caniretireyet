@@ -2,6 +2,7 @@ import Foundation
 @testable import Importer
 import Model
 import Testing
+import TestSupport
 
 struct NumberParserTests {
     private func read(_ text: String, _ decimal: String = ".", _ thousands: String? = nil,
@@ -16,7 +17,7 @@ struct NumberParserTests {
         ("1234.56", ".", ""), ("1.234,56", ",", nil), ("1,234.56", ".", nil),
     ])
     func readsSeparators(text: String, decimal: String, thousands: String?) {
-        #expect(read(text, decimal, thousands) == dec("1234.56"))
+        #expect(read(text, decimal, thousands) == d("1234.56"))
     }
 
     @Test func rejectsWrongGrouping() {
@@ -31,23 +32,23 @@ struct NumberParserTests {
     }
 
     @Test func readsNegatives() {
-        #expect(read("-1.234,56", ",", ".") == dec("-1234.56"))
-        #expect(read("(1,234.56)", ".", ",") == dec("-1234.56"))
-        #expect(read("1234.56-", ".") == dec("-1234.56"))
-        #expect(read("\u{2212}5", ".") == dec("-5"))
-        #expect(read("+5", ".") == dec("5"))
+        #expect(read("-1.234,56", ",", ".") == d("-1234.56"))
+        #expect(read("(1,234.56)", ".", ",") == d("-1234.56"))
+        #expect(read("1234.56-", ".") == d("-1234.56"))
+        #expect(read("\u{2212}5", ".") == d("-5"))
+        #expect(read("+5", ".") == d("5"))
         #expect(read("-(5)", ".") == nil)
     }
 
     @Test func stripsAndCapturesCurrencies() throws {
         let euro = NumberParser(format: ImportNumberFormat(decimal: ",", thousands: "."))
-        #expect(try euro.parse("€ 1.234,56").get() == ParsedNumber(value: dec("1234.56"), currency: .eur))
-        #expect(try euro.parse("1.234,56 €").get() == ParsedNumber(value: dec("1234.56"), currency: .eur))
-        #expect(try euro.parse("-€1.234,56").get() == ParsedNumber(value: dec("-1234.56"), currency: .eur))
+        #expect(try euro.parse("€ 1.234,56").get() == ParsedNumber(value: d("1234.56"), currency: .eur))
+        #expect(try euro.parse("1.234,56 €").get() == ParsedNumber(value: d("1234.56"), currency: .eur))
+        #expect(try euro.parse("-€1.234,56").get() == ParsedNumber(value: d("-1234.56"), currency: .eur))
         let dollar = NumberParser(format: ImportNumberFormat(decimal: ".", thousands: ","))
-        #expect(try dollar.parse("EUR 1234.56").get() == ParsedNumber(value: dec("1234.56"), currency: .eur))
-        #expect(try dollar.parse("1,234.56 $").get() == ParsedNumber(value: dec("1234.56"), currency: .usd))
-        #expect(try dollar.parse("($1,245.10)").get() == ParsedNumber(value: dec("-1245.1"), currency: .usd))
+        #expect(try dollar.parse("EUR 1234.56").get() == ParsedNumber(value: d("1234.56"), currency: .eur))
+        #expect(try dollar.parse("1,234.56 $").get() == ParsedNumber(value: d("1234.56"), currency: .usd))
+        #expect(try dollar.parse("($1,245.10)").get() == ParsedNumber(value: d("-1245.1"), currency: .usd))
         #expect(try dollar.parse("usd 10").get().currency == .usd)
         #expect(try dollar.parse("CHF 10").get().currency == .chf)
         #expect(dollar.parse("€ 5 $") == .failure(.conflictingMarkers))
@@ -55,13 +56,13 @@ struct NumberParserTests {
     }
 
     @Test func readsPercentages() {
-        #expect(read("12%", ".") == dec("0.12"))
-        #expect(read("2,5 %", ",") == dec("0.025"))
-        #expect(read("12", ".", percent: true) == dec("0.12"))
+        #expect(read("12%", ".") == d("0.12"))
+        #expect(read("2,5 %", ",") == d("0.025"))
+        #expect(read("12", ".", percent: true) == d("0.12"))
     }
 
     @Test func unwrapsExcelTextFormulas() {
-        #expect(read("=\"0012\"", ".") == dec("12"))
+        #expect(read("=\"0012\"", ".") == d("12"))
     }
 
     @Test func describesItsFormat() {

@@ -1,9 +1,8 @@
 import Foundation
 import Model
 import Testing
+import TestSupport
 import Tracker
-
-private func d(_ string: String) -> Decimal { Decimal(fileString: string)! }
 
 /// A made-up library with a broker account that records trades, in two
 /// styles: every deposit recorded (A), or cash typed at month-end check-ins

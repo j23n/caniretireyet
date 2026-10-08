@@ -4,8 +4,6 @@ import Testing
 import TestSupport
 import Tracker
 
-private func d(_ string: String) -> Decimal { Decimal(fileString: string)! }
-
 /// The example library with Directa recorded as positions at each check-in,
 /// converted back from its trades: for tests of accounts that hold positions.
 func exampleLibraryWithHoldings() throws -> Library {

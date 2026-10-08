@@ -4,8 +4,6 @@ import Prices
 import Testing
 import TestSupport
 
-private func d(_ string: String) -> Decimal { Decimal(fileString: string)! }
-
 struct CheckInPriceNeedsTests {
     @Test func theExampleLibrarysLatestCheckIn() throws {
         let needs = CheckInPriceNeeds(library: try Fixtures.exampleLibrary(), date: "2026-09-30")

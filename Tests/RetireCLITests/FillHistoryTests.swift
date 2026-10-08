@@ -23,10 +23,10 @@ struct FillHistoryTests {
     /// the close that gives the example library's EUR per gram at its rate.
     static let goldChart: String = {
         let closes: [CalendarDate: Decimal] = [
-            "2025-10-31": dec("3108.7"), "2025-11-28": dec("3169.72"), "2025-12-31": dec("3253.31"),
-            "2026-01-30": dec("3322.13"), "2026-02-27": dec("3271.56"), "2026-03-31": dec("3359.87"),
-            "2026-04-30": dec("3427.15"), "2026-05-29": dec("3415.77"), "2026-06-30": dec("3483.37"),
-            "2026-07-31": dec("3515.01"), "2026-08-31": dec("3516.55"), "2026-09-30": dec("3488.45"),
+            "2025-10-31": d("3108.7"), "2025-11-28": d("3169.72"), "2025-12-31": d("3253.31"),
+            "2026-01-30": d("3322.13"), "2026-02-27": d("3271.56"), "2026-03-31": d("3359.87"),
+            "2026-04-30": d("3427.15"), "2026-05-29": d("3415.77"), "2026-06-30": d("3483.37"),
+            "2026-07-31": d("3515.01"), "2026-08-31": d("3516.55"), "2026-09-30": d("3488.45"),
         ]
         return PriceResponses.yahooChart(
             symbol: "GC=F", currency: "USD",
@@ -77,9 +77,9 @@ struct FillHistoryTests {
         let gold = try library.load().prices(for: "gold")
         #expect(gold.count == 12)
         #expect(gold.allSatisfy { $0.source == .yahoo && $0.currency == .eur })
-        #expect(gold.last == PriceRecord(instrument: "gold", date: "2026-09-30", price: dec("98.4"), currency: .eur,
+        #expect(gold.last == PriceRecord(instrument: "gold", date: "2026-09-30", price: d("98.4"), currency: .eur,
                                          source: .yahoo))
-        #expect(gold.first?.price == dec("92.1001"))
+        #expect(gold.first?.price == d("92.1001"))
 
         // Nothing is left to fill but inflation that isn't out yet.
         let again = await retire(["prices", "--library", library.path, "--fill-history"], client: Self.client())

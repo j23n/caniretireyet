@@ -4,8 +4,6 @@ import Testing
 import TestSupport
 import Tracker
 
-private func d(_ string: String) -> Decimal { Decimal(fileString: string)! }
-
 /// Made-up gold coins bought from a dealer and paid from the bank: a metals
 /// account recording trades, with no cash of its own (docs/TRADES.md, "Paid
 /// from outside the account").

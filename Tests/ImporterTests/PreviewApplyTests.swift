@@ -139,7 +139,7 @@ struct PreviewApplyTests {
     @Test func pricesAndFXRates() throws {
         var base = library()
         base.upsert(PriceRecord(instrument: "etf", date: "2026-01-31", price: 100, currency: .eur, source: .yahoo))
-        base.upsert(FXRecord(base: .eur, quote: .usd, date: "2026-01-31", rate: dec("1.1"), source: .ecb))
+        base.upsert(FXRecord(base: .eur, quote: .usd, date: "2026-01-31", rate: d("1.1"), source: .ecb))
         var session = try makeSession("Date;Prezzo ETF;EURUSD\n2026-01-31;100,00;1,1\n2026-02-28;101,5;1,12\n")
         #expect(session.mapping(forColumn: 2)?.target == .price)
         #expect(session.mapping(forColumn: 3)?.target == .fx)
@@ -150,7 +150,7 @@ struct PreviewApplyTests {
         ])
         let result = preview.apply(to: base)
         #expect(result.library.prices(for: "etf").map(\.source) == [.yahoo, .import])
-        #expect(result.library.fxRates(base: .eur, quote: .usd).last?.rate == dec("1.12"))
+        #expect(result.library.fxRates(base: .eur, quote: .usd).last?.rate == d("1.12"))
 
         session.setMapping(ImportColumn(target: .price, instrument: "etf", currency: .usd), forColumn: 2)
         preview = session.preview(against: base)
@@ -269,7 +269,7 @@ struct PreviewApplyTests {
         var preview = session.preview(against: library())
         #expect(preview.issues.isEmpty)
         #expect(preview.record(.valuation("broker", "2026-01-31"))?.imported.positions == [
-            ImportedPosition(instrument: "btc", quantity: dec("0.5")), ImportedPosition(instrument: "etf", quantity: 11),
+            ImportedPosition(instrument: "btc", quantity: d("0.5")), ImportedPosition(instrument: "etf", quantity: 11),
         ])
         #expect(preview.newInstruments.map(\.instrument.kind) == [.crypto])
         #expect(preview.newInstruments.first?.instrument.unit == "BTC")
@@ -292,7 +292,7 @@ struct PreviewApplyTests {
         #expect(session.profile.target == .fx)
         let preview = session.preview(against: Library())
         #expect(preview.records.map(\.imported.key.description) == ["EUR/CHF on 2026-01-31", "EUR/USD on 2026-01-31"])
-        #expect(preview.records.map(\.imported.rate) == [dec("0.9412"), dec("1.1034")])
+        #expect(preview.records.map(\.imported.rate) == [d("0.9412"), d("1.1034")])
     }
 
     @Test func emptyCellsCanBeZero() throws {

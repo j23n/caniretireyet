@@ -1,14 +1,12 @@
 import Foundation
 import Model
 import Testing
+import TestSupport
 
 /// A plan's target mix that changes with age (`portfolio.targetMixByAge`):
 /// how it's written and read, which step is in force at an age, and
 /// folding the steps already passed into `targetMix`. All made up.
 struct TargetMixStepTests {
-    private static func d(_ string: String) -> Decimal { Decimal(fileString: string)! }
-    private func d(_ string: String) -> Decimal { Self.d(string) }
-
     private func decode<T: Decodable>(_ type: T.Type, _ json: String) throws -> T {
         try JSONDecoder().decode(T.self, from: Data(json.utf8))
     }

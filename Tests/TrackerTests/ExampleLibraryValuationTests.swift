@@ -4,8 +4,6 @@ import Testing
 import TestSupport
 import Tracker
 
-private func d(_ string: String) -> Decimal { Decimal(fileString: string)! }
-
 /// Net worth of the made-up example library, checked against values worked
 /// out independently.
 struct ExampleLibraryValuationTests {
@@ -46,15 +44,5 @@ struct ExampleLibraryValuationTests {
         #expect(!plan.accounts.map(\.account).contains("casa"))
         #expect(!plan.accounts.map(\.account).contains("mutuo-casa"))
         #expect(plan.total.rounded(2) == d("161505.49"))
-    }
-}
-
-extension Decimal {
-    /// Rounded half away from zero to `scale` fractional digits.
-    func rounded(_ scale: Int) -> Decimal {
-        var input = self
-        var result = Decimal()
-        NSDecimalRound(&result, &input, scale, .plain)
-        return result
     }
 }

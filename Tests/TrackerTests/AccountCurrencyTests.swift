@@ -1,9 +1,8 @@
 import Foundation
 import Model
 import Testing
+import TestSupport
 import Tracker
-
-private func d(_ string: String) -> Decimal { Decimal(fileString: string)! }
 
 /// A made-up euro library with dollar accounts and no exchange rates before
 /// October 2025, like history imported without filling in past prices:

@@ -2,6 +2,7 @@ import Foundation
 import Model
 @testable import Planner
 import Testing
+import TestSupport
 
 /// Properties that hold for any plan (PLANNER.md, "Testing the engine").
 struct InvariantTests {

@@ -23,7 +23,7 @@ struct SampleFileTests {
             "gold-coins on 2026-01-31": .new, "gold-coins on 2026-02-28": .new, "gold-coins on 2026-03-31": .conflict,
         ])
         let wallet = try #require(preview.record(.valuation("ledger-wallet", "2026-03-31")))
-        #expect(wallet.imported.positions == [ImportedPosition(instrument: "btc", quantity: dec("0.2201"))])
+        #expect(wallet.imported.positions == [ImportedPosition(instrument: "btc", quantity: d("0.2201"))])
         #expect(wallet.cells == [ImportCellRef(row: 4, column: 4)])
         #expect(wallet.resolution == .ask)
         #expect(preview.summary.undecidedConflicts == 5)
@@ -51,7 +51,7 @@ struct SampleFileTests {
         #expect(preview.issues.isEmpty)
         #expect(preview.newAccounts.isEmpty)
         #expect(preview.record(.valuation("ledger-wallet", "2026-01-31"))?.imported.positions
-            == [ImportedPosition(instrument: "btc", quantity: dec("0.215"))])
+            == [ImportedPosition(instrument: "btc", quantity: d("0.215"))])
         #expect(preview.nameMatches.contains(NameMatch(name: "Oro", account: "gold-coins", method: .remembered)))
         #expect(preview.nameMatches.contains(NameMatch(name: "BTC (qtà)", instrument: "btc", method: .existing)))
     }
@@ -73,8 +73,8 @@ struct SampleFileTests {
         #expect(accounts["brokerage"]?.kind == .brokerage)
         #expect(accounts["credit-card"]?.kind == .creditCard)
         #expect(accounts.values.allSatisfy { $0.currency == .usd && $0.opened == date("2026-01-31") })
-        #expect(preview.record(.valuation("credit-card", "2026-03-31"))?.imported.balance == dec("-410.35"))
-        #expect(preview.record(.fx(FXKey(base: .eur, quote: .usd, date: "2026-02-28")))?.imported.rate == dec("1.0968"))
+        #expect(preview.record(.valuation("credit-card", "2026-03-31"))?.imported.balance == d("-410.35"))
+        #expect(preview.record(.fx(FXKey(base: .eur, quote: .usd, date: "2026-02-28")))?.imported.rate == d("1.0968"))
         #expect(preview.summary.newRecords == 12)
     }
 
@@ -88,7 +88,7 @@ struct SampleFileTests {
         #expect(session.mapping(forColumn: 4)?.target == .ignore)
 
         let preview = session.preview(against: smallLibrary())
-        #expect(preview.record(.valuation("fondo-pensione", "2026-02-28"))?.imported.balance == dec("17402.11"))
+        #expect(preview.record(.valuation("fondo-pensione", "2026-02-28"))?.imported.balance == d("17402.11"))
         #expect(preview.record(.valuation("fondo-pensione", "2026-01-31"))?.status == .conflict)
         #expect(preview.newAccounts.map(\.account.id) == ["conto-deposito"])
         #expect(preview.newAccounts.first?.account.kind == .savings)
@@ -121,7 +121,7 @@ struct SampleFileTests {
         #expect(session.detection.column(1)?.date?.pattern == ImportDateFormat.excelSerialPattern)
         let preview = session.preview(against: Library())
         #expect(preview.lastDate == date("2026-03-31"))
-        #expect(preview.record(.valuation("mortgage", "2026-02-28"))?.imported.balance == dec("-146250"))
+        #expect(preview.record(.valuation("mortgage", "2026-02-28"))?.imported.balance == d("-146250"))
         let kinds = Dictionary(uniqueKeysWithValues: preview.newAccounts.map { ($0.account.id, $0.account.kind) })
         #expect(kinds == ["savings-account": .savings, "old-savings": .savings, "mortgage": .mortgage])
         #expect(preview.accountChanges == [AccountChangeProposal(account: "old-savings", change: .close(on: "2026-03-01"),
@@ -159,9 +159,9 @@ struct SampleFileTests {
         #expect(session.profile.columns.map(\.target) == [nil, nil, nil, .quantity, .price, nil, .costBasis, .ignore])
 
         var library = smallLibrary()
-        library.upsert(Valuation(account: "directa", date: "2026-01-31", cash: dec("256.8"),
+        library.upsert(Valuation(account: "directa", date: "2026-01-31", cash: d("256.8"),
                                  positions: [Position(instrument: "vwce", quantity: 368)]))
-        library.upsert(PriceRecord(instrument: "vwce", date: "2026-01-31", price: dec("132.6"), currency: .eur))
+        library.upsert(PriceRecord(instrument: "vwce", date: "2026-01-31", price: d("132.6"), currency: .eur))
         let preview = session.preview(against: library)
         #expect(preview.statuses == [
             "directa on 2026-01-31": .updated, "vwce price on 2026-01-31": .identical,
@@ -173,12 +173,12 @@ struct SampleFileTests {
 
         let result = preview.apply(to: library)
         let january = try #require(result.library.months["2026-01"]?.valuations.first { $0.account == "directa" })
-        #expect(january.cash == dec("256.8"))
+        #expect(january.cash == d("256.8"))
         #expect(january.positions == [
             Position(instrument: "swda", quantity: 50, costBasis: 4500),
             Position(instrument: "vwce", quantity: 368, costBasis: 40200),
         ])
-        #expect(result.library.prices(for: "swda").map(\.price) == [dec("98.4"), dec("99.1")])
+        #expect(result.library.prices(for: "swda").map(\.price) == [d("98.4"), d("99.1")])
         #expect(result.createdInstruments == ["swda"])
     }
 

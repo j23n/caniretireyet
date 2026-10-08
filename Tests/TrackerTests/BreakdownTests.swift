@@ -4,8 +4,6 @@ import Testing
 import TestSupport
 import Tracker
 
-private func d(_ string: String) -> Decimal { Decimal(fileString: string)! }
-
 /// Breakdowns of the example library on 2026-09-30, worked out by hand.
 struct ExampleLibraryBreakdownTests {
     let valuator: Valuator

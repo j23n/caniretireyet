@@ -1,9 +1,8 @@
 import Foundation
 import Model
 import Testing
+import TestSupport
 import Tracker
-
-private func d(_ string: String) -> Decimal { Decimal(fileString: string)! }
 
 /// Converting an account between snapshots and trades keeps its values and
 /// flows, and says what it had to estimate.

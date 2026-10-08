@@ -4,8 +4,6 @@ import Testing
 import TestSupport
 import Tracker
 
-private func d(_ string: String) -> Decimal { Decimal(fileString: string)! }
-
 /// Default flows (PROGRESS.md, "Data this needs from day one").
 struct DefaultFlowTests {
     @Test func theExampleLibrarysFlowsAreTheDefaults() throws {

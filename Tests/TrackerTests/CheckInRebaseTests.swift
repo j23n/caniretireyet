@@ -4,8 +4,6 @@ import Testing
 import TestSupport
 import Tracker
 
-private func d(_ string: String) -> Decimal { Decimal(fileString: string)! }
-
 /// A draft kept on one device while the library changes under it, e.g. the
 /// other device saves a check-in on the same date (CheckInDraft.rebase).
 struct CheckInRebaseTests {

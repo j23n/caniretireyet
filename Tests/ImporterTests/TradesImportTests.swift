@@ -165,7 +165,7 @@ struct TradeSignTests {
             Dividendo;20/01/2026;VWCE;;;4,50
             """)
         #expect(trades.map(\.type) == [.deposit, .buy, .sell, .fee, .tax, .withdrawal, .dividend])
-        #expect(trades.map(\.amount) == [1000, -505, 215, -3, -2, -100, dec("4.5")])
+        #expect(trades.map(\.amount) == [1000, -505, 215, -3, -2, -100, d("4.5")])
         #expect(preview.issues.map(\.kind) == [.tradeAmountSigns(signed: false)])
         #expect(preview.issues[0].isNote)
     }
@@ -181,7 +181,7 @@ struct TradeSignTests {
             """)
         #expect(trades.map(\.type) == [.buy, .sell, .interest, .withdrawal, .deposit])
         // Negative interest is charged; quantities are positive whatever the file writes.
-        #expect(trades.map(\.amount) == [-505, 215, dec("-1.2"), -300, 400])
+        #expect(trades.map(\.amount) == [-505, 215, d("-1.2"), -300, 400])
         #expect(trades.compactMap(\.quantity) == [5, 2])
         #expect(preview.issues.map(\.kind) == [
             .tradeAmountSigns(signed: true), .negativeQuantities(count: 1, byType: true),
@@ -254,9 +254,9 @@ struct TradeSignTests {
             Vendita;07/01/2026;VWCE;2;110,00;220,00;2,95;1,20
             Dividendo;20/01/2026;VWCE;;;10,00;;2,60
             """)
-        #expect(trades.map(\.amount) == [dec("-502.95"), dec("215.85"), dec("7.4")])
-        #expect(trades.map(\.fees) == [dec("2.95"), dec("2.95"), nil])
-        #expect(trades.map(\.tax) == [nil, dec("1.2"), dec("2.6")])
+        #expect(trades.map(\.amount) == [d("-502.95"), d("215.85"), d("7.4")])
+        #expect(trades.map(\.fees) == [d("2.95"), d("2.95"), nil])
+        #expect(trades.map(\.tax) == [nil, d("1.2"), d("2.6")])
     }
 
     @Test func withoutATypeTheQuantitysSignSaysBuyOrSell() throws {
@@ -365,11 +365,11 @@ struct BrokerSampleTests {
         let trades = preview.records.compactMap(\.imported.trade)
         let buy = try #require(trades.first { $0.date == "2026-01-12" })
         #expect(buy == Trade(account: "directa", date: "2026-01-12", id: buy.id, type: .buy, instrument: "vwce",
-                             quantity: 15, price: dec("102.3"), amount: dec("-1539.5"), fees: 5,
+                             quantity: 15, price: d("102.3"), amount: d("-1539.5"), fees: 5,
                              note: "Eseguito su ETFplus", source: .import))
         let sell = try #require(trades.first { $0.type == .sell })
         #expect(sell.quantity == 4)
-        #expect(sell.amount == dec("395.2"))
+        #expect(sell.amount == d("395.2"))
         // The two identical buys of 12 May are two trades.
         let split = trades.filter { $0.date == "2026-05-12" }
         #expect(split.count == 2)
@@ -407,12 +407,12 @@ struct BrokerSampleTests {
         #expect(preview.newInstruments.map(\.instrument.kind) == [.bond, .etf])
         let trades = Self.trades(preview)
         #expect(trades.map(\.type) == [.deposit, .buy, .buy, .buy, .dividend, .sell, .tax, .withdrawal])
-        #expect(trades.map(\.amount) == [6000, dec("-4502.15"), dec("-1555.45"), dec("-948.55"), dec("15.8"),
-                                         dec("1704.97"), dec("-8.37"), -500])
+        #expect(trades.map(\.amount) == [6000, d("-4502.15"), d("-1555.45"), d("-948.55"), d("15.8"),
+                                         d("1704.97"), d("-8.37"), -500])
         let dividend = try #require(trades.first { $0.type == .dividend })
         #expect(dividend.quantity == 25)
-        #expect(dividend.price == dec("0.854"))
-        #expect(dividend.tax == dec("5.55"))
+        #expect(dividend.price == d("0.854"))
+        #expect(dividend.tax == d("5.55"))
         #expect(preview.issues.map(\.description) == [
             "“Controvalore”: amounts are written without signs, so each one's sign comes from its type (negative "
                 + "for buys, fees, taxes and withdrawals).",
@@ -461,9 +461,9 @@ struct BrokerSampleTests {
         // The price is in dollars, the amount in the account's euros, at Degiro's rate.
         let buy = trades[1]
         #expect(buy.instrument == apple.id)
-        #expect(buy.price == dec("230.5"))
+        #expect(buy.price == d("230.5"))
         #expect(buy.currency == nil)
-        #expect(buy.amount == dec("-1064.41"))
+        #expect(buy.amount == d("-1064.41"))
         #expect(buy.fees == 2)
         #expect(preview.issues.map(\.kind) == [.tradeAmountSigns(signed: true),
                                                .negativeQuantities(count: 2, byType: false)])
@@ -485,9 +485,9 @@ struct BrokerSampleTests {
         let trades = Self.trades(preview)
         #expect(trades.map(\.type) == [.deposit, .buy, .buy, .buy, .tax, .dividend, .interest, .fee, .sell,
                                        .withdrawal])
-        #expect(trades.map(\.amount) == [5000, dec("-2055.8"), dec("-2408"), dec("-619.25"), dec("-1.11"),
-                                         dec("7.41"), dec("2.37"), -10, 1012, -1500])
-        #expect(trades.map(\.fees) == [nil, 3, 3, dec("1.25"), nil, nil, nil, nil, 3, nil])
+        #expect(trades.map(\.amount) == [5000, d("-2055.8"), d("-2408"), d("-619.25"), d("-1.11"),
+                                         d("7.41"), d("2.37"), -10, 1012, -1500])
+        #expect(trades.map(\.fees) == [nil, 3, 3, d("1.25"), nil, nil, nil, nil, 3, nil])
         #expect(trades.filter { $0.type == .dividend }.map(\.instrument) == ["vhyl"])
         // Cash rows don't name instruments.
         #expect(trades.filter { $0.type == .tax }.map(\.instrument) == [nil])

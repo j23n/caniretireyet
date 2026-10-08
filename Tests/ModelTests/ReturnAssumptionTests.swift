@@ -1,12 +1,11 @@
 import Foundation
 import Model
 import Testing
+import TestSupport
 
 /// Return assumptions given by their mean (`real`) or their median
 /// (`medianReal`, PLANNER.md, "Returns"), and the defaults. All made up.
 struct ReturnAssumptionTests {
-    private static func d(_ string: String) -> Decimal { Decimal(fileString: string)! }
-
     private func decode<T: Decodable>(_ type: T.Type, _ json: String) throws -> T {
         try JSONDecoder().decode(T.self, from: Data(json.utf8))
     }
@@ -22,7 +21,7 @@ struct ReturnAssumptionTests {
     @Test func aReturnIsWrittenAsItsMeanOrItsMedian() throws {
         let median = #"{"medianReal":"0","volatility":"0.7"}"#
         let decoded = try decode(ReturnAssumption.self, median)
-        #expect(decoded == ReturnAssumption(medianReal: 0, volatility: Self.d("0.7")))
+        #expect(decoded == ReturnAssumption(medianReal: 0, volatility: d("0.7")))
         #expect(decoded.isGivenByMedian && decoded.medianReal == 0 && decoded.realAsWritten == nil)
         // Written with the mean it implies too, for older versions that read only `real`…
         let withMean = #"{"medianReal":"0","real":"0.16629","volatility":"0.7"}"#
@@ -32,11 +31,11 @@ struct ReturnAssumptionTests {
         #expect(reread == decoded && reread.isGivenByMedian && !reread.setsMeanAndMedian)
         // A mean that doesn't match (an older version changed it): the mean wins.
         let changed = try decode(ReturnAssumption.self, #"{"medianReal":"0","real":"0.05","volatility":"0.7"}"#)
-        #expect(changed.setsMeanAndMedian && !changed.isGivenByMedian && changed.real == Self.d("0.05"))
+        #expect(changed.setsMeanAndMedian && !changed.isGivenByMedian && changed.real == d("0.05"))
 
         let mean = #"{"incomeYield":"0.02","real":"0.045","volatility":"0.17"}"#
         let byMean = try decode(ReturnAssumption.self, mean)
-        #expect(!byMean.isGivenByMedian && byMean.medianReal == nil && byMean.realAsWritten == Self.d("0.045"))
+        #expect(!byMean.isGivenByMedian && byMean.medianReal == nil && byMean.realAsWritten == d("0.045"))
         #expect(try json(byMean) == mean)
 
         // Neither is an error; both are read and written back as they are, and the mean wins.
@@ -44,7 +43,7 @@ struct ReturnAssumptionTests {
         let both = #"{"medianReal":"0","real":"0.05","volatility":"0.7"}"#
         let conflicting = try decode(ReturnAssumption.self, both)
         #expect(conflicting.setsMeanAndMedian && !conflicting.isGivenByMedian)
-        #expect(conflicting.real == Self.d("0.05"))
+        #expect(conflicting.real == d("0.05"))
         #expect(abs(conflicting.meanReturn - 0.05) < 1e-15)
         #expect(try json(conflicting) == both)
         #expect(ReturnAssumption.knownKeys == ["real", "medianReal", "volatility", "incomeYield"])
@@ -70,20 +69,20 @@ struct ReturnAssumptionTests {
     }
 
     @Test func settingTheMeanOrTheMedianReplacesTheOther() {
-        var assumption = ReturnAssumption(medianReal: 0, volatility: Self.d("0.7"))
+        var assumption = ReturnAssumption(medianReal: 0, volatility: d("0.7"))
         #expect(abs(assumption.meanReturn - 0.16629) < 1e-4)
         #expect(abs(NSDecimalNumber(decimal: assumption.real).doubleValue - assumption.meanReturn) < 1e-12)
         #expect(assumption.impliedMedianReal == 0 && assumption.medianReturn == 0)
 
         // The median keeps its value as the volatility changes, so the mean follows.
-        assumption.volatility = Self.d("0.3")
+        assumption.volatility = d("0.3")
         #expect(assumption.medianReal == 0 && abs(assumption.meanReturn - 0.0407) < 1e-4)
 
-        assumption.real = Self.d("0.05")
-        #expect(assumption.medianReal == nil && assumption.realAsWritten == Self.d("0.05"))
+        assumption.real = d("0.05")
+        #expect(assumption.medianReal == nil && assumption.realAsWritten == d("0.05"))
         #expect(abs(assumption.medianReturn - ReturnAssumption.median(arithmeticMean: 0.05, volatility: 0.3)) < 1e-15)
 
-        assumption.medianReal = Self.d("0.01")
+        assumption.medianReal = d("0.01")
         #expect(assumption.isGivenByMedian && assumption.realAsWritten == nil)
 
         // Removing the median keeps the mean it gave.
@@ -96,7 +95,7 @@ struct ReturnAssumptionTests {
 
     @Test func cryptoDefaultsToAZeroMedian() throws {
         let crypto = try #require(PlanAssumptions.defaultReturns[.crypto])
-        #expect(crypto.isGivenByMedian && crypto.medianReal == 0 && crypto.volatility == Self.d("0.7"))
+        #expect(crypto.isGivenByMedian && crypto.medianReal == 0 && crypto.volatility == d("0.7"))
         #expect(abs(crypto.meanReturn - 0.16629) < 1e-4)
     }
 
@@ -110,8 +109,8 @@ struct ReturnAssumptionTests {
         #expect(Set(PlanAssumptions.defaultReturns.keys) == Set(expected.map { $0.0 }))
         for (assetClass, median, volatility, mean) in expected {
             let assumption = try #require(PlanAssumptions.defaultReturns[assetClass])
-            #expect(assumption.isGivenByMedian && assumption.medianReal == Self.d(median), "\(assetClass)")
-            #expect(assumption.volatility == Self.d(volatility) && assumption.incomeYield == nil, "\(assetClass)")
+            #expect(assumption.isGivenByMedian && assumption.medianReal == d(median), "\(assetClass)")
+            #expect(assumption.volatility == d(volatility) && assumption.incomeYield == nil, "\(assetClass)")
             #expect(abs(assumption.meanReturn - mean) < 0.0001, "\(assetClass): \(assumption.meanReturn)")
         }
     }
@@ -136,7 +135,7 @@ struct ReturnAssumptionTests {
             + #""gold":{"medianReal":"0.01","volatility":"0.15"}}}"#
         let assumptions = try decode(PlanAssumptions.self, written)
         #expect(assumptions.previousDefaultReturn(for: .equity)
-            == ReturnAssumption(real: Self.d("0.045"), volatility: Self.d("0.17")))
+            == ReturnAssumption(real: d("0.045"), volatility: d("0.17")))
         #expect(assumptions.previousDefaultReturn(for: .bonds) != nil)  // 0.010 is 0.01
         #expect(assumptions.previousDefaultReturn(for: .crypto) != nil)
         // Not the same: another volatility, a median instead of a mean, nothing set (the current default).
@@ -148,9 +147,9 @@ struct ReturnAssumptionTests {
 
     @Test func usingTheDefaultRemovesThePlansEntryButKeepsItsIncomeYield() throws {
         var assumptions = PlanAssumptions(returns: [
-            .equity: ReturnAssumption(real: Self.d("0.045"), volatility: Self.d("0.17"), incomeYield: Self.d("0.02")),
-            .bonds: ReturnAssumption(real: Self.d("0.01"), volatility: Self.d("0.06")),
-            .realEstate: ReturnAssumption(real: Self.d("0.03"), volatility: Self.d("0.1")),
+            .equity: ReturnAssumption(real: d("0.045"), volatility: d("0.17"), incomeYield: d("0.02")),
+            .bonds: ReturnAssumption(real: d("0.01"), volatility: d("0.06")),
+            .realEstate: ReturnAssumption(real: d("0.03"), volatility: d("0.1")),
         ])
         assumptions.useDefaultReturn(for: .bonds)
         #expect(assumptions.returns[.bonds] == nil)
@@ -159,7 +158,7 @@ struct ReturnAssumptionTests {
         // The income yield is the plan's own: kept, with the default's return.
         assumptions.useDefaultReturn(for: .equity)
         var equity = try #require(PlanAssumptions.defaultReturns[.equity])
-        equity.incomeYield = Self.d("0.02")
+        equity.incomeYield = d("0.02")
         #expect(assumptions.returns[.equity] == equity && assumptions.previousDefaultReturn(for: .equity) == nil)
 
         // A class without a default loses its entry.
@@ -173,12 +172,12 @@ struct ReturnAssumptionTests {
         #expect(assumptions.returns.isEmpty && assumptions.isEmpty)
 
         var crypto = try #require(assumptions.returnAssumption(for: .crypto))
-        crypto.volatility = Self.d("0.5")
+        crypto.volatility = d("0.5")
         assumptions.setReturnAssumption(crypto, for: .crypto)
         #expect(try json(assumptions) == #"{"returns":{"crypto":{"medianReal":"0","real":"0.098684","volatility":"0.5"}}}"#)
 
         // Back to the default: the entry goes.
-        crypto.volatility = Self.d("0.70")
+        crypto.volatility = d("0.70")
         assumptions.setReturnAssumption(crypto, for: .crypto)
         #expect(assumptions.isEmpty)
         assumptions.setReturnAssumption(ReturnAssumption(real: 0, volatility: 0), for: .realEstate)

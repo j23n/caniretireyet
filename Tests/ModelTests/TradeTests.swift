@@ -1,8 +1,7 @@
 import Foundation
 import Model
 import Testing
-
-private func d(_ string: String) -> Decimal { Decimal(fileString: string)! }
+import TestSupport
 
 struct TradeRecordTests {
     @Test func decimalsAreWrittenAsStringsAndReadBack() throws {

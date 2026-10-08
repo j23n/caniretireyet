@@ -2,6 +2,7 @@ import Foundation
 import Model
 @testable import Planner
 import Testing
+import TestSupport
 
 /// What retiring today would need when part of the money is locked away
 /// (PLANNER.md, "Assets needed to retire today"): the search adds extra money

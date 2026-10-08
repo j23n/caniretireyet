@@ -2,6 +2,7 @@ import Foundation
 import Model
 @testable import Planner
 import Testing
+import TestSupport
 
 /// Cases worked out by hand: zero volatility and known returns. The start
 /// date is a year-end unless a test says otherwise, so every simulated

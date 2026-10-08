@@ -2,6 +2,7 @@ import Foundation
 import Model
 @testable import Planner
 import Testing
+import TestSupport
 
 /// Errors stop a run; warnings come back with the results.
 struct ValidationTests {

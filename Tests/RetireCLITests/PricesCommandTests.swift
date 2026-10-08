@@ -2,6 +2,7 @@ import Foundation
 import Model
 import Prices
 import Testing
+import TestSupport
 
 /// `retire prices` with the price APIs answered by recorded responses.
 struct PricesCommandTests {
@@ -58,10 +59,10 @@ struct PricesCommandTests {
         let october = try #require(try library.load().months["2026-10"])
         #expect(october.prices == [
             PriceRecord(instrument: "btc", date: "2026-10-02", price: 111_400, currency: .usd, source: .coingecko),
-            PriceRecord(instrument: "gold", date: "2026-10-02", price: dec("98.4"), currency: .eur, source: .goldAPI),
-            PriceRecord(instrument: "vwce", date: "2026-10-02", price: dec("139.06"), currency: .eur, source: .yahoo),
+            PriceRecord(instrument: "gold", date: "2026-10-02", price: d("98.4"), currency: .eur, source: .goldAPI),
+            PriceRecord(instrument: "vwce", date: "2026-10-02", price: d("139.06"), currency: .eur, source: .yahoo),
         ])
-        #expect(october.fx == [FXRecord(base: .eur, quote: .usd, date: "2026-10-02", rate: dec("1.1398"), source: .ecb)])
+        #expect(october.fx == [FXRecord(base: .eur, quote: .usd, date: "2026-10-02", rate: d("1.1398"), source: .ecb)])
         #expect(try library.backups().map(\.label) == ["prices"])
         #expect(try library.backups().first?.absentFiles == ["history/2026/2026-10.json"])
     }
@@ -81,7 +82,7 @@ struct PricesCommandTests {
         let replaced = await retire(["prices", "--library", library.path, "--apply", "--overwrite"],
                                     client: Responses.client())
         #expect(replaced.output.contains("Recorded 0 new records, replaced 1 in history/2026/2026-09.json.\n"))
-        #expect(try library.load().prices(for: "vwce").last?.price == dec("138.42"))
+        #expect(try library.load().prices(for: "vwce").last?.price == d("138.42"))
     }
 
     @Test func failuresAreListedAndExitNonZero() async throws {

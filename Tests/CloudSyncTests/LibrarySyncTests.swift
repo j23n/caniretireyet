@@ -3,6 +3,7 @@ import Foundation
 import Model
 import Storage
 import Testing
+import TestSupport
 
 /// The actor the app talks to: create, load, save, reload and resolve.
 struct LibrarySyncTests {
@@ -74,7 +75,7 @@ struct LibrarySyncTests {
         #expect(report.changedPaths == [path])
         #expect(report.resolved.first?.conflictingRecords == ["valuations: 2026-08-31 conto-fineco"])
         let loaded = try await library.load().library
-        #expect(loaded.months["2026-08"]?.valuations.first { $0.account == "conto-fineco" }?.balance == .d("4600"))
+        #expect(loaded.months["2026-08"]?.valuations.first { $0.account == "conto-fineco" }?.balance == d("4600"))
     }
 
     @Test func replacingProjectionsDropsEmptyPlans() throws {

@@ -4,8 +4,6 @@ import Testing
 import TestSupport
 import Tracker
 
-private func d(_ string: String) -> Decimal { Decimal(fileString: string)! }
-
 /// Filling in history for accounts added in the app: they open on the day
 /// they were added, so a check-in dated last year lists them as opening
 /// later, and saving a value for one moves its opening date back.

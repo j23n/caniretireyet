@@ -5,18 +5,6 @@ import Testing
 import TestSupport
 import Tracker
 
-private func d(_ string: String) -> Decimal { Decimal(fileString: string)! }
-
-extension Decimal {
-    /// Rounded half away from zero to `scale` fractional digits.
-    func rounded(_ scale: Int) -> Decimal {
-        var input = self
-        var result = Decimal()
-        NSDecimalRound(&result, &input, scale, .plain)
-        return result
-    }
-}
-
 private let checkIn = CheckInGlance(last: "2026-09-30", next: "2026-10-31", dueWindow: 3)
 
 /// The snapshot of the example library, as of its latest check-in.

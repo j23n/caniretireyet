@@ -2,6 +2,7 @@ import Foundation
 import Model
 @testable import Planner
 import Testing
+import TestSupport
 
 /// Headlines and baselines made from a result, and the plan hash.
 struct RecordsTests {

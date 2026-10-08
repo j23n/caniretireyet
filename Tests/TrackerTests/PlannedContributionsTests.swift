@@ -1,14 +1,13 @@
 import Foundation
 import Model
 import Testing
+import TestSupport
 import Tracker
 
 /// A pension fund, TFR or property whose new money the check-in left empty
 /// (PROGRESS.md, "Data this needs from day one"): what the main plan pays
 /// into it is new money, and the rest market.
 struct PlannedContributionsTests {
-    private func d(_ string: String) -> Decimal { Decimal(fileString: string)! }
-
     /// 5,000 a year into the pension fund until retirement at 55 (born on
     /// 12 Apr 1988: 12 Apr 2043), and 20,000 once in 2030.
     private func plan() -> PlanDocument {

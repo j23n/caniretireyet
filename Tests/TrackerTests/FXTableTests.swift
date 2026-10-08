@@ -1,9 +1,8 @@
 import Foundation
 import Model
 import Testing
+import TestSupport
 @testable import Tracker
-
-private func d(_ string: String) -> Decimal { Decimal(fileString: string)! }
 
 struct FXTableTests {
     let table = FXTable([

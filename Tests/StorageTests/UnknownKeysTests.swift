@@ -127,7 +127,7 @@ struct UnknownKeysTests {
         // Entering the record again in the app replaces the unreadable one.
         let reloaded = try folder.library.load().library
         var fixed = reloaded
-        fixed.upsert(Valuation(account: "tfr", date: "2026-10-31", balance: .d("9000.5")))
+        fixed.upsert(Valuation(account: "tfr", date: "2026-10-31", balance: d("9000.5")))
         try folder.library.save(fixed, previous: reloaded)
         let final = try folder.library.load()
         #expect(final.report.issues.isEmpty)

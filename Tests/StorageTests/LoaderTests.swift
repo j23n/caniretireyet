@@ -165,7 +165,7 @@ struct LoaderTests {
         #expect(result.library.accounts["numbered"]?.name == "2026")
         #expect(result.library.accounts["numbered"]?.tags == ["1", "2.5"])
         let valuation = try #require(result.library.months["2026-10"]?.valuations.first)
-        #expect(valuation.balance == .d("1234.56"))
+        #expect(valuation.balance == d("1234.56"))
         #expect(valuation.note == "7")
         #expect(result.library.plans["numbers"]?.endAge == 90)
     }
@@ -198,7 +198,7 @@ struct LoaderTests {
             }
             """#)
         let result = try load(folder)
-        #expect(result.library.months["2026-10"]?.valuations.map(\.balance) == [.d("2")])
+        #expect(result.library.months["2026-10"]?.valuations.map(\.balance) == [d("2")])
         #expect(result.report.issues(for: "history/2026/2026-10.json").first?.message.contains("two valuations") == true)
     }
 

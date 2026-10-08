@@ -4,8 +4,6 @@ import Testing
 import TestSupport
 import Tracker
 
-private func d(_ string: String) -> Decimal { Decimal(fileString: string)! }
-
 struct DateGridTests {
     @Test func monthEndsFromTheStartMonthThroughTheEnd() {
         #expect(DateGrid.monthEnds(from: "2025-10-15", through: "2026-01-10")

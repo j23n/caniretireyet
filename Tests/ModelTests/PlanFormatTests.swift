@@ -1,13 +1,12 @@
 import Foundation
 import Model
 import Testing
+import TestSupport
 
 /// The plan's pieces in the file format (PLANNER.md): tax rates, net work
 /// phases, pensions, contributions into accounts, income yields, and an
 /// account's `availableFromAge`. All made up.
 struct PlanFormatTests {
-    private static func d(_ string: String) -> Decimal { Decimal(fileString: string)! }
-
     private func decode<T: Decodable>(_ type: T.Type, _ json: String) throws -> T {
         try JSONDecoder().decode(T.self, from: Data(json.utf8))
     }
@@ -28,7 +27,7 @@ struct PlanFormatTests {
     @Test func taxesAreTwoRatesAndAnAllowance() throws {
         try roundTrips(PlanTax.self, #"{ "investmentRate": "0.26", "wealthRate": "0.002", "wealthAllowance": "50000" }"#)
         let tax = try decode(PlanTax.self, #"{ "investmentRate": "0.26" }"#)
-        #expect(tax.investmentRate == Self.d("0.26") && tax.wealthRate == nil)
+        #expect(tax.investmentRate == d("0.26") && tax.wealthRate == nil)
         #expect(tax.effectiveWealthRate == 0 && tax.effectiveWealthAllowance == 0)
         #expect(PlanTax().isEmpty && !tax.isEmpty)
         let plan = PlanDocument(id: "p", name: "P", retirement: PlanRetirement(age: .age(60)),
@@ -41,7 +40,7 @@ struct PlanFormatTests {
         try roundTrips(WorkPhase.self, text)
         let phase = try decode(WorkPhase.self, text)
         #expect(phase == WorkPhase(name: "Employee", from: "2026-01-01", until: .retirement, netIncome: 40_000,
-                                   realGrowth: Self.d("0.01")))
+                                   realGrowth: d("0.01")))
         #expect(try decode(WorkPhase.self, #"{ "from": "2026-01-01", "until": "2030-06-30" }"#).netIncome == nil)
     }
 

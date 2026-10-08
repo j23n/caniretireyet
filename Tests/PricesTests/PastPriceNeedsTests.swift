@@ -4,8 +4,6 @@ import Model
 import Testing
 import TestSupport
 
-private func d(_ string: String) -> Decimal { Decimal(fileString: string)! }
-
 /// What filling in past prices needs, worked out from a library.
 struct PastPriceNeedsTests {
     private let today: CalendarDate = "2026-09-30"

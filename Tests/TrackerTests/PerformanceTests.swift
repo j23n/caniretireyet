@@ -4,8 +4,6 @@ import Testing
 import TestSupport
 import Tracker
 
-private func d(_ string: String) -> Decimal { Decimal(fileString: string)! }
-
 struct XIRRTests {
     @Test func oneYearAtTenPercent() throws {
         let rate = try #require(XIRR.rate(of: [

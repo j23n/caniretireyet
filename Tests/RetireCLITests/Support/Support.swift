@@ -152,11 +152,6 @@ final class TemporaryFolder {
     }
 }
 
-/// A decimal from a string, exactly.
-func dec(_ string: String) -> Decimal {
-    Decimal(fileString: string)!
-}
-
 /// Parses JSON output into dictionaries and arrays.
 func parseJSON(_ text: String) throws -> [String: Any] {
     let object = try JSONSerialization.jsonObject(with: Data(text.utf8))

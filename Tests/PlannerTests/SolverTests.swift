@@ -2,6 +2,7 @@ import Foundation
 import Model
 @testable import Planner
 import Testing
+import TestSupport
 
 /// The earliest retirement age and the spending solver, on
 /// plans whose answers can be worked out by hand.

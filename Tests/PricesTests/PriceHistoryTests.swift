@@ -4,8 +4,6 @@ import Model
 import Testing
 import TestSupport
 
-private func d(_ string: String) -> Decimal { Decimal(fileString: string)! }
-
 /// Ranged histories: picking a date's value, and each provider's range
 /// request and parsing, against recorded responses.
 struct PriceHistoryTests {

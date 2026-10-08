@@ -1,9 +1,8 @@
 import Foundation
 import Model
 import Testing
+import TestSupport
 import Tracker
-
-private func d(_ string: String) -> Decimal { Decimal(fileString: string)! }
 
 /// A check-in for an account that records trades: it records the account's
 /// cash, starts from what the trades give, and its flow counts the recorded

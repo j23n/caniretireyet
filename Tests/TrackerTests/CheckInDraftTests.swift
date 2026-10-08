@@ -4,8 +4,6 @@ import Testing
 import TestSupport
 import Tracker
 
-private func d(_ string: String) -> Decimal { Decimal(fileString: string)! }
-
 /// An October check-in on the example library, with Directa recorded as
 /// positions (see TradeCheckInTests for an account that records trades).
 struct CheckInDraftTests {

@@ -69,8 +69,3 @@ final class TemporaryFolder {
         try LocalFileAccess().modificationDate(of: url.appendingPathComponent(path))
     }
 }
-
-extension Decimal {
-    /// A decimal from a literal string in tests.
-    static func d(_ string: String) -> Decimal { Decimal(fileString: string)! }
-}

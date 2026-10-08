@@ -2,8 +2,7 @@ import Foundation
 import Model
 @testable import Prices
 import Testing
-
-private func d(_ string: String) -> Decimal { Decimal(fileString: string)! }
+import TestSupport
 
 struct CoinGeckoProviderTests {
     private let today: CalendarDate = "2026-09-30"

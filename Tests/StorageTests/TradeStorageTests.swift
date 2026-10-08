@@ -26,7 +26,7 @@ struct TradeStorageTests {
 
     private let deposit = Trade(account: "broker", date: "2026-10-02", id: "dep1abcd", type: .deposit, amount: 2000)
     private let buy = Trade(account: "broker", date: "2026-10-12", id: "buy1abcd", type: .buy, instrument: "vwce",
-                            quantity: 10, price: .d("139.1"), fees: 5)
+                            quantity: 10, price: d("139.1"), fees: 5)
 
     @Test func tradesAreWrittenOnePerLineAndReadBack() throws {
         let folder = try TemporaryFolder.exampleLibrary()
@@ -35,7 +35,7 @@ struct TradeStorageTests {
         var library = previous
         library.upsert(buy)
         library.upsert(deposit)
-        library.upsert(Valuation(account: "broker", date: "2026-10-31", cash: .d("604.0"), flow: 2000))
+        library.upsert(Valuation(account: "broker", date: "2026-10-31", cash: d("604.0"), flow: 2000))
         try folder.library.save(library, previous: previous)
 
         #expect(try folder.text(october) == """
@@ -105,7 +105,7 @@ struct TradeStorageTests {
         let previous = try folder.library.load().library
         var library = previous
         let external = Trade(account: "broker", date: "2026-10-12", id: "gold1abc", type: .buy, instrument: "gold",
-                             quantity: .d("31.1"), amount: .d("-3026.03"), settlement: .external)
+                             quantity: d("31.1"), amount: d("-3026.03"), settlement: .external)
         library.upsert(external)
         try folder.library.save(library, previous: previous)
 
@@ -194,7 +194,7 @@ struct TradeStorageTests {
 
         var remote = previous
         var theirs = buy
-        theirs.price = .d("139.2")
+        theirs.price = d("139.2")
         remote.upsert(theirs)
         try folder.write(october, CanonicalJSON.data(encoding: remote.months["2026-10"]!))
 

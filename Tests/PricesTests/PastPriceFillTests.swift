@@ -4,8 +4,6 @@ import Model
 import Testing
 import TestSupport
 
-private func d(_ string: String) -> Decimal { Decimal(fileString: string)! }
-
 /// Filling in past prices with every service answering from recorded (or
 /// built) responses in their formats.
 struct PastPriceFillTests {

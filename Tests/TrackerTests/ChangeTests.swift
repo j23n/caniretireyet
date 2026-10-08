@@ -4,8 +4,6 @@ import Testing
 import TestSupport
 import Tracker
 
-private func d(_ string: String) -> Decimal { Decimal(fileString: string)! }
-
 /// The waterfall of the example library, worked out by hand.
 struct ExampleLibraryChangeTests {
     let valuator: Valuator

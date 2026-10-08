@@ -87,8 +87,3 @@ final class FakeFileVersions: FileVersionProviding, @unchecked Sendable {
         }
     }
 }
-
-extension Decimal {
-    /// A decimal from a literal string in tests.
-    static func d(_ string: String) -> Decimal { Decimal(fileString: string)! }
-}

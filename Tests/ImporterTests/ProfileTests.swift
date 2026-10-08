@@ -156,7 +156,7 @@ struct ProfileTests {
         #expect(session.preview(against: Library()).records.first?.imported.balance == 1500)
         try session.choose(1, for: numbers)
         #expect(session.ambiguities.isEmpty)
-        #expect(session.preview(against: Library()).records.first?.imported.balance == dec("1.5"))
+        #expect(session.preview(against: Library()).records.first?.imported.balance == d("1.5"))
 
         session = try ImportSession(data: Data("a;b|c\n1;2|3\n".utf8))
         let delimiter = try #require(session.ambiguities.first)

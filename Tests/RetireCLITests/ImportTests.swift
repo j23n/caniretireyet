@@ -2,6 +2,7 @@ import Foundation
 import Model
 import Storage
 import Testing
+import TestSupport
 
 /// `retire import` with `Samples/sheet.csv` against the example library. The
 /// sheet has August to October 2026 for Conto Fineco and Conto deposito (one
@@ -78,7 +79,7 @@ struct ImportTests {
         var loaded = try library.load()
         #expect(loaded.valuations(for: "mutuo-casa").last?.balance == -140_400)
         #expect(loaded.valuations(for: "conto-deposito").first { $0.date == "2026-09-30" }?.balance
-            == dec("17365.55"))
+            == d("17365.55"))
         #expect(loaded.accounts["conto-arancio"] == nil)
         var backups = try library.backups()
         #expect(backups.map(\.label) == ["import"])
@@ -218,7 +219,7 @@ struct ImportTests {
         gap.removeValuation(ValuationKey(account: "conto-fineco", date: "2026-02-28"))
         gap.removeValuation(ValuationKey(account: "conto-deposito", date: "2026-02-28"))
         var march = try #require(gap.valuations(for: "conto-fineco").first { $0.date == "2026-03-31" })
-        march.flow = dec("319.25")
+        march.flow = d("319.25")
         gap.upsert(march)
         try library.library.save(gap, previous: before)
         let original = try library.snapshot()
@@ -233,9 +234,9 @@ struct ImportTests {
 
         var loaded = try library.load()
         let fineco = loaded.valuations(for: "conto-fineco").filter { $0.date.yearMonth.year == 2026 }.prefix(3)
-        #expect(fineco.map(\.balance) == [dec("5210.85"), dec("4780.2"), dec("5530.1")])
+        #expect(fineco.map(\.balance) == [d("5210.85"), d("4780.2"), d("5530.1")])
         // March's flow is now the change since February: 5530.10 − 4780.20.
-        #expect(fineco.map(\.flow) == [dec("1260.45"), nil, dec("749.9")])
+        #expect(fineco.map(\.flow) == [d("1260.45"), nil, d("749.9")])
         #expect(loaded.valuations(for: "conto-deposito").first { $0.date == "2026-03-31" }?.flow == 500)
         let backup = try #require(try library.backups().last)
         #expect(backup.files == ["history/2026/2026-02.json", "history/2026/2026-03.json"])
@@ -245,7 +246,7 @@ struct ImportTests {
         #expect(undo.output.contains("  restored history/2026/2026-03.json\n"))
         #expect(try library.snapshot() == original)
         loaded = try library.load()
-        #expect(loaded.valuations(for: "conto-fineco").first { $0.date == "2026-03-31" }?.flow == dec("319.25"))
+        #expect(loaded.valuations(for: "conto-fineco").first { $0.date == "2026-03-31" }?.flow == d("319.25"))
         #expect(loaded.valuations(for: "conto-deposito").first { $0.date == "2026-03-31" }?.flow == 500)
     }
 

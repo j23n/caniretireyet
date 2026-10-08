@@ -1,9 +1,7 @@
 import Foundation
 import Model
 @testable import Planner
-
-/// A decimal from a literal string.
-func d(_ string: String) -> Decimal { Decimal(fileString: string)! }
+import TestSupport
 
 /// A made-up account recorded as a balance.
 struct SampleAccount {
