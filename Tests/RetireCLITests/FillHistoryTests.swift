@@ -34,7 +34,7 @@ struct FillHistoryTests {
     }()
 
     static func client() -> MockHTTPClient {
-        MockHTTPClient(["chart/GC=F": goldChart, "prc_hicp_minr": Responses.eurostatHICP])
+        MockHTTPClient(["chart/GC=F": goldChart, "prc_hicp_minr": PriceResponses.eurostatHICPItaly])
     }
 
     /// The table line of `item`.

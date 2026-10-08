@@ -4,29 +4,10 @@
 // the documented JSON-stat 2.0 format of `prc_hicp_minr`, the HICP dataset
 // that replaced `prc_hicp_midx` in 2026 (dimensions freq, unit, coicop18,
 // geo, time). Index values are made up, consistent with the example library.
+// Italy's July and August 2026, which the CLI's tests use too, are
+// TestSupport's `PriceResponses`.
 
 enum EurostatResponses {
-    /// `GET prc_hicp_minr?format=JSON&lang=EN&coicop18=TOTAL&freq=M&geo=IT&unit=I15
-    /// &sinceTimePeriod=2026-07&untilTimePeriod=2026-09`: September isn't published yet.
-    static let hicpITJulyToSeptember = """
-    {"version":"2.0","class":"dataset",\
-    "label":"Harmonised index of consumer prices (HICP) - monthly data (index)","source":"ESTAT",\
-    "updated":"2026-09-17T11:00:00+0200","value":{"0":128.1,"1":128.41},"status":{"1":"p"},\
-    "id":["freq","unit","coicop18","geo","time"],"size":[1,1,1,1,2],\
-    "dimension":{"freq":{"label":"Time frequency","category":{"index":{"M":0},"label":{"M":"Monthly"}}},\
-    "unit":{"label":"Unit of measure","category":{"index":{"I15":0},"label":{"I15":"Index, 2015=100"}}},\
-    "coicop18":{"label":"Classification of individual consumption by purpose (COICOP 2018)",\
-    "category":{"index":{"TOTAL":0},"label":{"TOTAL":"All-items HICP"}}},\
-    "geo":{"label":"Geopolitical entity (reporting)","category":{"index":{"IT":0},"label":{"IT":"Italy"}}},\
-    "time":{"label":"Time","category":{"index":{"2026-07":0,"2026-08":1},\
-    "label":{"2026-07":"2026-07","2026-08":"2026-08"}}}},\
-    "extension":{"lang":"EN","agencyId":"ESTAT","id":"PRC_HICP_MINR","version":"1.0",\
-    "datastructure":{"agencyId":"ESTAT","id":"PRC_HICP_MINR","version":"1.0"},\
-    "annotation":[{"type":"OBS_COUNT","title":"2"},{"type":"OBS_PERIOD_OVERALL_OLDEST","title":"1996-01"},\
-    {"type":"OBS_PERIOD_OVERALL_LATEST","title":"2026-08"}],\
-    "positions-with-no-data":{"freq":[],"unit":[],"coicop18":[],"geo":[],"time":[]}}}
-    """
-
     /// A sparse series in the older style: values as an array with a null,
     /// time codes as an array, `2025M10` labels, and no index for
     /// single-category dimensions.

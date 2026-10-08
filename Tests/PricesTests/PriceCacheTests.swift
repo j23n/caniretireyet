@@ -52,7 +52,7 @@ struct PriceCacheTests {
     @Test func aFailedItemIsFetchedAgainNextTime() async throws {
         let client = PriceServiceTests.client()
         await client.on("chart/RETRY", HTTPResponse(statusCode: 502, text: "Bad Gateway"),
-                        HTTPResponse(statusCode: 200, text: YahooResponses.vwceSeptember))
+                        HTTPResponse(statusCode: 200, text: PriceResponses.yahooVWCESeptember))
         var library = try Fixtures.exampleLibrary()
         library.instruments["vwce"]?.priceSource = PriceSource(provider: .yahoo, symbol: "RETRY")
         let service = PriceServiceTests.service(client)

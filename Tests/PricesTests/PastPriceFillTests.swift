@@ -39,7 +39,8 @@ struct PastPriceFillTests {
     // MARK: Metals
 
     @Test func metalsComeFromGoldFuturesInEURPerGramAndPerOunce() async throws {
-        let client = MockHTTPClient(["chart/GC=F": Self.goldSeptember, "symbols=USD": FrankfurterResponses.september])
+        let client = MockHTTPClient(["chart/GC=F": Self.goldSeptember,
+                                     "symbols=USD": PriceResponses.frankfurterUSDSeptember])
         let grams = Self.instrument("coins", .goldAPI, "XAU", unit: .gram, kind: .metal)
         let ounces = Self.instrument("bars", .goldAPI, "XAU", unit: .troyOunce, kind: .metal)
         let dates: [CalendarDate] = ["2026-09-18", "2026-09-27"]
@@ -81,7 +82,7 @@ struct PastPriceFillTests {
             {"amount":1.0,"base":"EUR","start_date":"2026-06-16","end_date":"2026-06-30","rates":{\
             "2026-06-26":{"USD":1.1288},"2026-06-29":{"USD":1.1294},"2026-06-30":{"USD":1.1301}}}
             """,
-            "prc_hicp_minr": EurostatResponses.hicpITJulyToSeptember,
+            "prc_hicp_minr": PriceResponses.eurostatHICPItaly,
         ])
         var library = Library(
             accounts: [Account(id: "safe", name: "Safe", kind: .metals, currency: .eur, opened: "2020-01-01")],
@@ -325,7 +326,7 @@ struct PastPriceFillTests {
         var library = original
         for month in library.months.keys { library.months[month]?.prices.removeAll { $0.instrument == "gold" } }
         let client = MockHTTPClient([
-            "chart/GC=F": Self.exampleGoldChart, "prc_hicp_minr": EurostatResponses.hicpITJulyToSeptember,
+            "chart/GC=F": Self.exampleGoldChart, "prc_hicp_minr": PriceResponses.eurostatHICPItaly,
         ])
         let service = Self.service(client)
         let needs = service.pastPriceNeeds(for: library)

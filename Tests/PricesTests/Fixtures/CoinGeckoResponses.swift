@@ -4,7 +4,8 @@
 // follow CoinGecko's documented formats for `simple/price`,
 // `coins/{id}/history` and `search`, and its documented error bodies. Prices
 // are made up, consistent with the example library. The coins in the search
-// results (Moonstone and friends) are made up too.
+// results (Moonstone and friends) are made up too. Bitcoin's price in dollars,
+// which the CLI's tests use too, is TestSupport's `PriceResponses`.
 
 enum CoinGeckoResponses {
     /// `GET simple/price?ids=ethereum&vs_currencies=eur&…`, for the ticker `ETH`.
@@ -62,9 +63,6 @@ enum CoinGeckoResponses {
     "market_data":{"current_price":{"eur":0.3561,"usd":0.3952},"market_cap":{"eur":35610000.0,"usd":39520000.0}}}
     """
 
-    /// `GET simple/price?ids=bitcoin&vs_currencies=usd&include_last_updated_at=true&precision=full`.
-    static let spotUSD = #"{"bitcoin":{"usd":111400,"last_updated_at":1790758680}}"#
-
     /// `GET simple/price?ids=bitcoin&vs_currencies=eur&…`.
     static let spotEUR = #"{"bitcoin":{"eur":97736.4568,"last_updated_at":1790758680}}"#
 
@@ -118,14 +116,9 @@ enum CoinGeckoResponses {
 }
 
 // Recorded responses for gold-api.com, from its documented `price/{symbol}`
-// format (the host is blocked here too). Spot prices are made up.
+// format (the host is blocked here too). Spot prices are made up. Gold's,
+// which the CLI's tests use too, is TestSupport's `PriceResponses`.
 enum GoldAPIResponses {
-    /// `GET price/XAU`: USD per troy ounce.
-    static let gold = """
-    {"currency":"USD","currencySymbol":"$","exchangeRate":1,"name":"Gold","price":3488.449951,"symbol":"XAU",\
-    "updatedAt":"2026-09-30T08:59:47Z","updatedAtReadable":"a few seconds ago"}
-    """
-
     /// `GET price/XAG`, without the optional currency fields.
     static let silver = """
     {"name":"Silver","price":41.279999,"symbol":"XAG","updatedAt":"2026-09-30T08:59:47Z",\

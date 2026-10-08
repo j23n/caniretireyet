@@ -12,12 +12,12 @@ struct PriceServiceTests {
     /// A client that answers every request a check-in on 2026-09-30 makes.
     static func client() -> MockHTTPClient {
         MockHTTPClient([
-            "symbols=USD": FrankfurterResponses.september,
+            "symbols=USD": PriceResponses.frankfurterUSDSeptember,
             "symbols=CHF": FrankfurterResponses.septemberCHF,
-            "simple/price": CoinGeckoResponses.spotUSD,
-            "price/XAU": GoldAPIResponses.gold,
-            "chart/VWCE.DE": YahooResponses.vwceSeptember,
-            "prc_hicp_minr": EurostatResponses.hicpITJulyToSeptember,
+            "simple/price": PriceResponses.coinGeckoBitcoinUSD,
+            "price/XAU": PriceResponses.goldAPIGold,
+            "chart/VWCE.DE": PriceResponses.yahooVWCESeptember,
+            "prc_hicp_minr": PriceResponses.eurostatHICPItaly,
         ])
     }
 
@@ -133,9 +133,9 @@ struct PriceServiceTests {
         await client.on("chart/VWCE.DE", HTTPResponse(statusCode: 500, text: "Internal Server Error"))
         await client.on("simple/price", HTTPResponse(statusCode: 429, headers: ["Retry-After": "120"],
                                                      text: CoinGeckoResponses.rateLimited))
-        await client.on("symbols=USD", json: FrankfurterResponses.september)
-        await client.on("price/XAU", json: GoldAPIResponses.gold)
-        await client.on("prc_hicp_minr", json: EurostatResponses.hicpITJulyToSeptember)
+        await client.on("symbols=USD", json: PriceResponses.frankfurterUSDSeptember)
+        await client.on("price/XAU", json: PriceResponses.goldAPIGold)
+        await client.on("prc_hicp_minr", json: PriceResponses.eurostatHICPItaly)
 
         let result = await Self.service(client).fetch(for: try Fixtures.exampleLibrary(), on: Self.checkIn)
         #expect(!result.isComplete)
@@ -154,7 +154,7 @@ struct PriceServiceTests {
     @Test(.timeLimit(.minutes(1)))
     func aSlowProviderTimesOutAlone() async throws {
         let client = Self.client()
-        await client.on("chart/SLOW", HTTPResponse(statusCode: 200, text: YahooResponses.vwceSeptember),
+        await client.on("chart/SLOW", HTTPResponse(statusCode: 200, text: PriceResponses.yahooVWCESeptember),
                         delay: MockHTTPClient.never)
         var library = try Fixtures.exampleLibrary()
         library.instruments["vwce"]?.priceSource = PriceSource(provider: .yahoo, symbol: "SLOW")
@@ -180,10 +180,10 @@ struct PriceServiceTests {
     @Test func withoutAnFXRateTheGoldPriceCantBeConverted() async throws {
         let client = MockHTTPClient()
         await client.on("frankfurter", HTTPResponse(statusCode: 503, text: "Service Unavailable"))
-        await client.on("simple/price", json: CoinGeckoResponses.spotUSD)
-        await client.on("price/XAU", json: GoldAPIResponses.gold)
-        await client.on("chart/VWCE.DE", json: YahooResponses.vwceSeptember)
-        await client.on("prc_hicp_minr", json: EurostatResponses.hicpITJulyToSeptember)
+        await client.on("simple/price", json: PriceResponses.coinGeckoBitcoinUSD)
+        await client.on("price/XAU", json: PriceResponses.goldAPIGold)
+        await client.on("chart/VWCE.DE", json: PriceResponses.yahooVWCESeptember)
+        await client.on("prc_hicp_minr", json: PriceResponses.eurostatHICPItaly)
 
         let result = await Self.service(client).fetch(for: try Fixtures.exampleLibrary(), on: Self.checkIn)
         #expect(result.fx.isEmpty)
@@ -196,7 +196,7 @@ struct PriceServiceTests {
 
     @Test func quotesInAnotherCurrencyConvertThroughTheBase() async throws {
         let client = Self.client()
-        let usdChart = YahooResponses.vwceSeptember
+        let usdChart = PriceResponses.yahooVWCESeptember
             .replacingOccurrences(of: #""currency":"EUR""#, with: #""currency":"USD""#)
         await client.on("chart/SPY", json: usdChart)
         var library = Library(

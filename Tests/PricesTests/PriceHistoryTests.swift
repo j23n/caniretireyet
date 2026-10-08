@@ -72,7 +72,7 @@ struct PriceHistoryTests {
     // MARK: Yahoo Finance
 
     @Test func aYahooRangeIsOneDailyRequest() async throws {
-        let client = MockHTTPClient(["chart/": YahooResponses.vwceSeptember])
+        let client = MockHTTPClient(["chart/": PriceResponses.yahooVWCESeptember])
         let history = try await YahooChartProvider(client: client).history(
             symbol: "VWCE.DE", range: HistoryRange(from: "2026-09-14", through: "2026-09-30", monthEndsOnly: true,
                                                    today: today))
@@ -140,7 +140,8 @@ struct PriceHistoryTests {
         #expect(history.isWeekly)
         #expect(history.rate(onOrBefore: "2025-08-31") == FXObservation(rate: d("1.1638"), observedOn: "2025-08-25"))
 
-        let daily = try await FrankfurterProvider(client: MockHTTPClient(["frankfurter": FrankfurterResponses.september]))
+        let daily = try await FrankfurterProvider(
+            client: MockHTTPClient(["frankfurter": PriceResponses.frankfurterUSDSeptember]))
             .rates(base: .eur, quote: .usd, from: "2026-09-16", through: "2026-09-30")
         #expect(!daily.isWeekly)
         #expect(daily.rate(onOrBefore: "2026-09-27")?.rate == d("1.1371"))

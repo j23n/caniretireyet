@@ -6,7 +6,7 @@ import TestSupport
 
 struct EurostatIndexProviderTests {
     @Test func monthlyValuesAreDatedTheLastDayOfTheirMonth() async throws {
-        let client = MockHTTPClient(["prc_hicp_minr": EurostatResponses.hicpITJulyToSeptember])
+        let client = MockHTTPClient(["prc_hicp_minr": PriceResponses.eurostatHICPItaly])
         let values = try await EurostatIndexProvider(series: .hicpIT, client: client)
             .values(from: "2026-07", through: "2026-09")
         #expect(values == [
@@ -16,7 +16,7 @@ struct EurostatIndexProviderTests {
     }
 
     @Test func asksForItalysAllItemsIndexWith2015As100() async throws {
-        let client = MockHTTPClient(["prc_hicp_minr": EurostatResponses.hicpITJulyToSeptember])
+        let client = MockHTTPClient(["prc_hicp_minr": PriceResponses.eurostatHICPItaly])
         _ = try await EurostatIndexProvider(series: .hicpIT, client: client)
             .values(from: "2026-07", through: "2026-09")
         let sent = try #require(await client.requests.first)
@@ -27,7 +27,7 @@ struct EurostatIndexProviderTests {
     }
 
     @Test func onlyTheRequestedMonthsAreReturned() async throws {
-        let client = MockHTTPClient(["prc_hicp_minr": EurostatResponses.hicpITJulyToSeptember])
+        let client = MockHTTPClient(["prc_hicp_minr": PriceResponses.eurostatHICPItaly])
         let values = try await EurostatIndexProvider(series: .hicpIT, client: client)
             .values(from: "2026-08", through: "2026-08")
         #expect(values.map(\.date) == ["2026-08-31"])
@@ -77,7 +77,7 @@ struct EurostatIndexProviderTests {
             #expect(EurostatIndexProvider.Series.hicp(IndexID.hicp(country)!) != nil, "\(country)")
         }
 
-        let client = MockHTTPClient(["prc_hicp_minr": EurostatResponses.hicpITJulyToSeptember])
+        let client = MockHTTPClient(["prc_hicp_minr": PriceResponses.eurostatHICPItaly])
         let values = try await EurostatIndexProvider(series: germany, client: client)
             .values(from: "2026-07", through: "2026-09")
         #expect(values.map(\.index) == ["hicp-de", "hicp-de"])
@@ -89,7 +89,7 @@ struct EurostatIndexProviderTests {
         let series = EurostatIndexProvider.Series(
             index: "hicp-ea", dataset: "prc_hicp_minr",
             dimensions: ["freq": "M", "unit": "I25", "coicop18": "TOTAL", "geo": "EA"])
-        let client = MockHTTPClient(["prc_hicp_minr": EurostatResponses.hicpITJulyToSeptember])
+        let client = MockHTTPClient(["prc_hicp_minr": PriceResponses.eurostatHICPItaly])
         let provider = EurostatIndexProvider(series: series, client: client)
         #expect(provider.index == "hicp-ea")
         let values = try await provider.values(from: "2026-07", through: "2026-07")

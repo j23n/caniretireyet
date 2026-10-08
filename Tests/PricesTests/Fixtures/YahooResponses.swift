@@ -4,35 +4,10 @@
 // these follow the endpoint's known format: bar timestamps at the exchange's
 // opening time in UTC, closes as float32-precision doubles, and null closes on
 // days without trading. Prices are made up, consistent with the example
-// library (VWCE.DE closed at 138.42 on 2026-09-30).
+// library (VWCE.DE closed at 138.42 on 2026-09-30). VWCE.DE's September bars,
+// which the CLI's tests use too, are TestSupport's `PriceResponses`.
 
 enum YahooResponses {
-    /// VWCE.DE on XETRA, 14 September to 1 October 2026: bars at 09:00 CEST
-    /// (07:00 UTC), no bars at weekends, a null close on 29 September.
-    static let vwceSeptember = """
-    {"chart":{"result":[{"meta":{"currency":"EUR","symbol":"VWCE.DE","exchangeName":"GER","fullExchangeName":"XETRA",\
-    "instrumentType":"ETF","firstTradeDate":1564383600,"regularMarketTime":1790839800,"hasPrePostMarketData":false,\
-    "gmtoffset":7200,"timezone":"CEST","exchangeTimezoneName":"Europe/Berlin","regularMarketPrice":139.06,\
-    "fiftyTwoWeekHigh":139.4,"fiftyTwoWeekLow":118.62,"longName":"Vanguard FTSE All-World UCITS ETF USD Accumulation",\
-    "shortName":"Vanguard FTSE All-World U.ETF R","chartPreviousClose":134.52,"priceHint":2,\
-    "currentTradingPeriod":{"pre":{"timezone":"CEST","start":1790838000,"end":1790838000,"gmtoffset":7200},\
-    "regular":{"timezone":"CEST","start":1790838000,"end":1790868600,"gmtoffset":7200},\
-    "post":{"timezone":"CEST","start":1790868600,"end":1790868600,"gmtoffset":7200}},\
-    "dataGranularity":"1d","range":"","validRanges":["1d","5d","1mo","3mo","6mo","1y","2y","5y","ytd","max"]},\
-    "timestamp":[1789369200,1789455600,1789542000,1789628400,1789714800,1789974000,1790060400,1790146800,\
-    1790233200,1790319600,1790578800,1790665200,1790751600,1790838000],\
-    "indicators":{"quote":[{"close":[134.9600067138672,135.39999389648438,135.1199951171875,136.02000427246094,\
-    136.3000030517578,135.8800048828125,136.44000244140625,137.10000610351562,136.52000427246094,\
-    136.8800048828125,137.63999938964844,null,138.4199981689453,139.05999755859375],\
-    "volume":[61234,58210,49876,70311,66120,52019,48833,59120,61477,55890,63021,null,71254,40512],\
-    "open":[134.5,135.0,135.44,135.2,136.1,136.2,135.9,136.5,137.0,136.6,136.9,null,137.7,138.5],\
-    "high":[135.1,135.52,135.6,136.1,136.4,136.3,136.5,137.2,137.1,137.0,137.7,null,138.5,139.2],\
-    "low":[134.3,134.9,135.0,135.1,135.9,135.7,135.8,136.4,136.4,136.4,136.8,null,137.6,138.4]}],\
-    "adjclose":[{"adjclose":[134.9600067138672,135.39999389648438,135.1199951171875,136.02000427246094,\
-    136.3000030517578,135.8800048828125,136.44000244140625,137.10000610351562,136.52000427246094,\
-    136.8800048828125,137.63999938964844,null,138.4199981689453,139.05999755859375]}]}}],"error":null}}
-    """
-
     /// VWCE.DE around Christmas 2026: XETRA closed on 24 and 25 December
     /// (a null bar on the 24th), bars at 09:00 CET (08:00 UTC).
     static let vwceChristmas = """

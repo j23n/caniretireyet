@@ -105,7 +105,7 @@ struct PriceRateLimitTests {
             Instrument(id: InstrumentID("etf-\(index)"), name: "ETF \(index)", kind: .etf, currency: .eur, unit: .share,
                        assetClasses: ["equity": 1], priceSource: PriceSource(provider: .yahoo, symbol: "SYM\(index).DE"))
         }
-        let many = CountingClient(answer: YahooResponses.vwceSeptember)
+        let many = CountingClient(answer: PriceResponses.yahooVWCESeptember)
         let fetched = await Self.service(many).fetch(CheckInPriceNeeds(date: Self.today, baseCurrency: .eur,
                                                                        instruments: symbols))
         #expect(fetched.prices.count == 12)
@@ -117,7 +117,7 @@ struct PriceRateLimitTests {
     /// *Update Prices* fetches one instrument per call, all at once: the
     /// limit is shared by every fetch of the service.
     @Test func theLimitHoldsAcrossFetches() async throws {
-        let client = CountingClient(answer: YahooResponses.vwceSeptember)
+        let client = CountingClient(answer: PriceResponses.yahooVWCESeptember)
         let service = Self.service(client, maxConcurrentFetches: 3)
         await withTaskGroup(of: Void.self) { group in
             for index in 1...10 {

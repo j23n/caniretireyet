@@ -14,7 +14,7 @@ struct YahooChartProviderTests {
     }
 
     @Test func theCloseOnTheDateRoundedToThePriceHint() async throws {
-        let quote = try await quote(YahooResponses.vwceSeptember, "VWCE.DE", on: "2026-09-30")
+        let quote = try await quote(PriceResponses.yahooVWCESeptember, "VWCE.DE", on: "2026-09-30")
         #expect(quote.price == d("138.42"))
         #expect(quote.currency == .eur)
         #expect(quote.unit == nil)
@@ -23,7 +23,7 @@ struct YahooChartProviderTests {
     }
 
     @Test func requestsTheDaysAroundTheDateWithABrowserUserAgent() async throws {
-        let client = MockHTTPClient(["chart/": YahooResponses.vwceSeptember])
+        let client = MockHTTPClient(["chart/": PriceResponses.yahooVWCESeptember])
         _ = try await YahooChartProvider(client: client)
             .quote(for: QuoteRequest(symbol: "VWCE.DE", date: "2026-09-30", currency: .eur, today: "2026-09-30"))
         let sent = try #require(await client.requests.first)
@@ -33,20 +33,20 @@ struct YahooChartProviderTests {
     }
 
     @Test func aWeekendGetsFridaysClose() async throws {
-        let quote = try await quote(YahooResponses.vwceSeptember, "VWCE.DE", on: "2026-09-27")
+        let quote = try await quote(PriceResponses.yahooVWCESeptember, "VWCE.DE", on: "2026-09-27")
         #expect(quote.price == d("136.88"))
         #expect(quote.observedOn == "2026-09-25")
     }
 
     @Test func nullClosesAreSkipped() async throws {
-        let quote = try await quote(YahooResponses.vwceSeptember, "VWCE.DE", on: "2026-09-29")
+        let quote = try await quote(PriceResponses.yahooVWCESeptember, "VWCE.DE", on: "2026-09-29")
         #expect(quote.price == d("137.64"))
         #expect(quote.observedOn == "2026-09-28")
     }
 
     @Test func closesAfterTheDateAreIgnored() async throws {
         // The response also has 1 October, e.g. when fetched later.
-        let quote = try await quote(YahooResponses.vwceSeptember, "VWCE.DE", on: "2026-09-30")
+        let quote = try await quote(PriceResponses.yahooVWCESeptember, "VWCE.DE", on: "2026-09-30")
         #expect(quote.observedOn == "2026-09-30")
     }
 
@@ -113,7 +113,7 @@ struct YahooChartProviderTests {
         }
         await #expect(throws: PriceFetchError.noData(service: "Yahoo Finance",
                                                      detail: "no close for VWCE.DE on or before 2026-09-10")) {
-            _ = try await quote(YahooResponses.vwceSeptember, "VWCE.DE", on: "2026-09-10")
+            _ = try await quote(PriceResponses.yahooVWCESeptember, "VWCE.DE", on: "2026-09-10")
         }
     }
 

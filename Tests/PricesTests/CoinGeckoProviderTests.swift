@@ -12,7 +12,7 @@ struct CoinGeckoProviderTests {
     }
 
     @Test func todayUsesTheSpotPriceInTheInstrumentsCurrency() async throws {
-        let client = MockHTTPClient(["simple/price": CoinGeckoResponses.spotUSD])
+        let client = MockHTTPClient(["simple/price": PriceResponses.coinGeckoBitcoinUSD])
         let quote = try await CoinGeckoProvider(client: client).quote(for: request(today))
         #expect(quote.price == 111_400)
         #expect(quote.currency == .usd)
@@ -54,7 +54,7 @@ struct CoinGeckoProviderTests {
     }
 
     @Test func blankKeysAreNotSent() async throws {
-        let client = MockHTTPClient(["simple/price": CoinGeckoResponses.spotUSD])
+        let client = MockHTTPClient(["simple/price": PriceResponses.coinGeckoBitcoinUSD])
         let credentials = StaticCredentials([.coingecko: "  "])
         _ = try await CoinGeckoProvider(client: client, credentials: credentials).quote(for: request(today))
         #expect(try #require(await client.requests.first).headers.isEmpty)
@@ -65,7 +65,7 @@ struct CoinGeckoProviderTests {
         await client.on(
             "simple/price",
             HTTPResponse(statusCode: 429, headers: ["Retry-After": "0"], text: CoinGeckoResponses.rateLimited),
-            HTTPResponse(statusCode: 200, text: CoinGeckoResponses.spotUSD))
+            HTTPResponse(statusCode: 200, text: PriceResponses.coinGeckoBitcoinUSD))
         let quote = try await CoinGeckoProvider(client: client).quote(for: request(today))
         #expect(quote.price == 111_400)
         #expect(await client.requestCount == 2)
@@ -286,7 +286,7 @@ struct CoinGeckoProviderTests {
 
     @Test func yesterdayFallsBackToSpotWhenTodaysSnapshotIsMissing() async throws {
         let client = MockHTTPClient([
-            "history": CoinGeckoResponses.historyWithoutMarketData, "simple/price": CoinGeckoResponses.spotUSD,
+            "history": CoinGeckoResponses.historyWithoutMarketData, "simple/price": PriceResponses.coinGeckoBitcoinUSD,
         ])
         let quote = try await CoinGeckoProvider(client: client).quote(for: request("2026-09-29"))
         #expect(quote.price == 111_400)

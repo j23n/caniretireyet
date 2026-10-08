@@ -11,7 +11,7 @@ struct FrankfurterProviderTests {
     }
 
     @Test func asksForTheDaysBeforeTheDate() async throws {
-        let (provider, client) = provider(["frankfurter": FrankfurterResponses.september])
+        let (provider, client) = provider(["frankfurter": PriceResponses.frankfurterUSDSeptember])
         let rate = try await provider.rate(base: .eur, quote: .usd, onOrBefore: "2026-09-30")
         #expect(rate == FXObservation(rate: d("1.1398"), observedOn: "2026-09-30"))
 
@@ -22,7 +22,7 @@ struct FrankfurterProviderTests {
     }
 
     @Test func aWeekendGetsFridaysRate() async throws {
-        let (provider, _) = provider(["frankfurter": FrankfurterResponses.september])
+        let (provider, _) = provider(["frankfurter": PriceResponses.frankfurterUSDSeptember])
         let sunday = try await provider.rate(base: .eur, quote: .usd, onOrBefore: "2026-09-27")
         #expect(sunday == FXObservation(rate: d("1.1371"), observedOn: "2026-09-25"))
         let saturday = try await provider.rate(base: .eur, quote: .usd, onOrBefore: "2026-09-26")
@@ -64,7 +64,8 @@ struct FrankfurterProviderTests {
     }
 
     @Test func ratesForAnotherBaseAreRejected() async throws {
-        let usdBase = FrankfurterResponses.september.replacingOccurrences(of: #""base":"EUR""#, with: #""base":"USD""#)
+        let usdBase = PriceResponses.frankfurterUSDSeptember
+            .replacingOccurrences(of: #""base":"EUR""#, with: #""base":"USD""#)
         let (provider, _) = provider(["frankfurter": usdBase])
         await #expect(throws: PriceFetchError.malformedResponse(service: "Frankfurter (ECB)",
                                                                 detail: "rates are for USD, not EUR")) {

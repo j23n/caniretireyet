@@ -8,7 +8,7 @@ struct GoldAPIProviderTests {
     private let today: CalendarDate = "2026-09-30"
 
     @Test func goldIsQuotedInUSDPerTroyOunce() async throws {
-        let client = MockHTTPClient(["price/XAU": GoldAPIResponses.gold])
+        let client = MockHTTPClient(["price/XAU": PriceResponses.goldAPIGold])
         let quote = try await GoldAPIProvider(client: client)
             .quote(for: QuoteRequest(symbol: "XAU", date: today, currency: .eur, today: today))
         #expect(quote.price == d("3488.45"))
@@ -28,14 +28,14 @@ struct GoldAPIProviderTests {
     }
 
     @Test func aRecentCheckInUsesTodaysSpotPrice() async throws {
-        let client = MockHTTPClient(["price/XAU": GoldAPIResponses.gold])
+        let client = MockHTTPClient(["price/XAU": PriceResponses.goldAPIGold])
         let quote = try await GoldAPIProvider(client: client)
             .quote(for: QuoteRequest(symbol: "XAU", date: "2026-09-27", currency: .eur, today: today))
         #expect(quote.observedOn == today)
     }
 
     @Test func anOlderCheckInCantUseTheSpotPrice() async throws {
-        let client = MockHTTPClient(["price/XAU": GoldAPIResponses.gold])
+        let client = MockHTTPClient(["price/XAU": PriceResponses.goldAPIGold])
         let provider = GoldAPIProvider(client: client)
         do {
             _ = try await provider.quote(for: QuoteRequest(symbol: "XAU", date: "2026-06-30", currency: .eur,
