@@ -2,7 +2,9 @@ import Foundation
 import Model
 
 /// Monthly consumer-price-index values from Eurostat's dissemination API,
-/// which answers in JSON-stat 2.0.
+/// which answers in JSON-stat 2.0: the all-items HICP of any area the
+/// library may use, a country's (`hicp-de`, `hicp-ch`, …) or the euro
+/// area's (`hicp-ea`).
 ///
 ///     GET prc_hicp_minr?format=JSON&lang=EN&coicop18=TOTAL&freq=M&geo=IT&unit=I15
 ///         &sinceTimePeriod=2026-07&untilTimePeriod=2026-09
@@ -11,61 +13,31 @@ import Model
 ///       "value": { "0": 128.1, "1": 128.41 }, … }
 ///
 /// Each value is dated the last day of the month it measures (docs/schema,
-/// history-month.schema.json, `index`), however late it's published or fetched. ``Series/hicp(_:)``
-/// gives the series of any HICP the library may use: a country's
-/// (`hicp-de`, `hicp-ch`, …) or the euro area's (`hicp-ea`).
+/// history-month.schema.json, `index`), however late it's published or fetched.
 public struct EurostatIndexProvider: Sendable {
-    /// A monthly Eurostat series: a dataset, and one code for each of its
-    /// dimensions other than time.
-    public struct Series: Hashable, Sendable {
-        public var index: IndexID
-        public var dataset: String
-        /// Dimension codes, e.g. `["geo": "IT", "unit": "I15"]`.
-        public var dimensions: [String: String]
-
-        public init(index: IndexID, dataset: String, dimensions: [String: String]) {
-            self.index = index
-            self.dataset = dataset
-            self.dimensions = dimensions
-        }
-
-        /// The all-items HICP an index ID names (`IndexID.hicpArea`), with
-        /// 2015 = 100, from `prc_hicp_minr` (ECOICOP 2, which replaced
-        /// `prc_hicp_midx` from January 2026); `nil` for an ID that isn't an
-        /// HICP. 2015 = 100 keeps each series continuous with values recorded
-        /// before Eurostat moved its reference year to 2025.
-        public static func hicp(_ index: IndexID) -> Series? {
-            guard let area = index.hicpArea else { return nil }
-            return Series(index: index, dataset: "prc_hicp_minr",
-                          dimensions: ["freq": "M", "unit": "I15", "coicop18": "TOTAL", "geo": geo(area)])
-        }
-
-        /// `hicp-it`: Italy's all-items HICP.
-        public static let hicpIT = hicp(.hicpIT)!
-
-        /// `hicp-ea`: the euro area's all-items HICP (its changing
-        /// composition, `EA`).
-        public static let hicpEA = hicp(.hicpEA)!
-
-        /// Eurostat's code for an area: the ISO code, except Greece's (`EL`).
-        static func geo(_ area: String) -> String {
-            area == "GR" ? "EL" : area
-        }
-    }
-
     static let baseURL = URL(string: "https://ec.europa.eu/eurostat/api/dissemination/statistics/1.0/data/")!
+    /// The HICP's dataset, ECOICOP 2, which replaced `prc_hicp_midx` from
+    /// January 2026. Its values are asked for with 2015 = 100 (`unit=I15`),
+    /// which keeps each series continuous with values recorded before
+    /// Eurostat moved its reference year to 2025.
+    static let hicpDataset = "prc_hicp_minr"
 
-    public let series: Series
     /// The index this provides, e.g. `hicp-it`.
-    public var index: IndexID { series.index }
+    public let index: IndexID
+    /// Eurostat's code for the index's area: the ISO code, except Greece's (`EL`).
+    let geo: String
     /// The source written on fetched index records.
     public var source: DataSource { .eurostat }
     public var name: String { "Eurostat" }
 
     private let fetcher: HTTPFetcher
 
-    public init(series: Series, client: any HTTPClient = URLSessionHTTPClient(), policy: RequestPolicy = .standard) {
-        self.series = series
+    /// The provider of the all-items HICP `index` names (`IndexID.hicpArea`);
+    /// `nil` for an index that isn't an HICP.
+    public init?(index: IndexID, client: any HTTPClient = URLSessionHTTPClient(), policy: RequestPolicy = .standard) {
+        guard let area = index.hicpArea else { return nil }
+        self.index = index
+        self.geo = area == "GR" ? "EL" : area
         self.fetcher = HTTPFetcher(client: client, policy: policy, service: "Eurostat")
     }
 
@@ -74,15 +46,16 @@ public struct EurostatIndexProvider: Sendable {
     /// left out.
     public func values(from start: YearMonth, through end: YearMonth) async throws -> [IndexRecord] {
         guard start <= end else { return [] }
-        let query = [("format", "JSON"), ("lang", "EN")]
-            + series.dimensions.sorted { $0.key < $1.key }.map { ($0.key, $0.value) }
-            + [("sinceTimePeriod", start.description), ("untilTimePeriod", end.description)]
-        let response = try await fetcher.get(Self.baseURL.appending(segments: [series.dataset], query: query))
-        try response.requireSuccess(service: name, symbol: series.dataset)
+        let url = Self.baseURL.appending(segments: [Self.hicpDataset], query: [
+            ("format", "JSON"), ("lang", "EN"), ("coicop18", "TOTAL"), ("freq", "M"), ("geo", geo), ("unit", "I15"),
+            ("sinceTimePeriod", start.description), ("untilTimePeriod", end.description),
+        ])
+        let response = try await fetcher.get(url)
+        try response.requireSuccess(service: name, symbol: Self.hicpDataset)
         let dataset = try response.decodeJSON(Dataset.self, service: name)
         return try Self.monthlyValues(in: dataset, service: name)
             .filter { $0.month >= start && $0.month <= end }
-            .map { IndexRecord(index: series.index, date: $0.month.lastDay, value: $0.value, source: source) }
+            .map { IndexRecord(index: index, date: $0.month.lastDay, value: $0.value, source: source) }
     }
 
     /// The monthly values of a single-series JSON-stat dataset, sorted by month.
@@ -96,9 +69,9 @@ public struct EurostatIndexProvider: Sendable {
         guard let times = dataset.dimension["time"]?.category.index else {
             throw .malformedResponse(service: service, detail: "missing dimension.time.category.index")
         }
-        let stride = dataset.size[(timePosition + 1)...].reduce(1, *)
+        // Every other dimension has one category, so a month's position is its value's.
         return times.compactMap { label, position -> (month: YearMonth, value: Decimal)? in
-            guard let month = parseMonth(label), let value = dataset.value.values[position * stride] else { return nil }
+            guard let month = parseMonth(label), let value = dataset.value.values[position] else { return nil }
             return (month, value)
         }.sorted { $0.month < $1.month }
     }

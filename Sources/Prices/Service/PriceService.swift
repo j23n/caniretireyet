@@ -41,7 +41,7 @@ public struct PriceService: Sendable {
     public let instrumentProviders: [PriceProvider: any InstrumentPriceProvider]
     public let fxProvider: FrankfurterProvider
     /// Makes the provider of an index, or `nil` for none: the standard
-    /// service's builds Eurostat's series for any HICP.
+    /// service's is Eurostat's for any HICP.
     let makeIndexProvider: @Sendable (IndexID) -> EurostatIndexProvider?
     public let cache: PriceCache
     let today: @Sendable () -> CalendarDate
@@ -107,11 +107,7 @@ public struct PriceService: Sendable {
                 GoldAPIProvider(client: client, policy: policy),
             ],
             fxProvider: FrankfurterProvider(client: client, policy: policy),
-            makeIndexProvider: { index in
-                EurostatIndexProvider.Series.hicp(index).map {
-                    EurostatIndexProvider(series: $0, client: client, policy: policy)
-                }
-            },
+            makeIndexProvider: { EurostatIndexProvider(index: $0, client: client, policy: policy) },
             today: today, maxConcurrentFetches: maxConcurrentFetches)
     }
 

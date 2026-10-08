@@ -165,11 +165,7 @@ struct PriceServiceTests {
                 GoldAPIProvider(client: client, policy: Self.generous),
             ],
             fxProvider: FrankfurterProvider(client: client, policy: Self.generous),
-            makeIndexProvider: { index in
-                EurostatIndexProvider.Series.hicp(index).map {
-                    EurostatIndexProvider(series: $0, client: client, policy: Self.generous)
-                }
-            },
+            makeIndexProvider: { EurostatIndexProvider(index: $0, client: client, policy: Self.generous) },
             today: { Self.checkIn })
 
         let result = await service.fetch(for: library, on: Self.checkIn)

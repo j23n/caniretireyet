@@ -39,11 +39,11 @@ struct LivePriceTests {
         #expect(vwce.currency == .eur && vwce.price > 10)
 
         // Italy's HICP, the euro area's and Switzerland's, all with 2015 = 100.
-        for series in [EurostatIndexProvider.Series.hicpIT, .hicpEA, .hicp("hicp-ch")!] {
-            let hicp = try await EurostatIndexProvider(series: series)
-                .values(from: today.yearMonth.adding(months: -6), through: today.yearMonth)
-            #expect(!hicp.isEmpty, "\(series.index)")
-            #expect(hicp.allSatisfy { $0.date.isEndOfMonth && $0.value > 90 }, "\(series.index)")
+        for index: IndexID in [.hicpIT, .hicpEA, "hicp-ch"] {
+            let provider = try #require(EurostatIndexProvider(index: index))
+            let hicp = try await provider.values(from: today.yearMonth.adding(months: -6), through: today.yearMonth)
+            #expect(!hicp.isEmpty, "\(index)")
+            #expect(hicp.allSatisfy { $0.date.isEndOfMonth && $0.value > 90 }, "\(index)")
         }
     }
 
