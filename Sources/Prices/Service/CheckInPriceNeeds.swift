@@ -4,11 +4,13 @@ import Model
 /// date. It holds no amounts: only instruments, currencies and months.
 ///
 /// - **Instruments:** those held (quantity not zero) in the latest valuation,
-///   on or before the date, of each account open on the date. The ones with a
-///   `priceSource` are fetched; the rest are priced by hand.
-/// - **Currencies:** every held instrument's currency and every open
-///   account's currency other than the base currency, each fetched against
-///   the base.
+///   on or before the date, of each account open on the date, and any others
+///   asked for, such as positions added in a check-in. The ones with a
+///   `priceSource` are fetched (``isFetched(_:)``); the rest are priced by
+///   hand.
+/// - **Currencies:** every held instrument's currency, every other fetched
+///   one's, and every open account's currency other than the base currency,
+///   each fetched against the base.
 /// - **Index months:** for each index the library uses (by default
 ///   `Library.inflationIndices`), the months that have ended by the date and have no value yet, from the
 ///   month of the library's first valuation, at most ``defaultIndexWindow``
@@ -58,9 +60,11 @@ public struct CheckInPriceNeeds: Hashable, Sendable {
 
     /// Works out what a check-in on `date` needs from `library`, with the
     /// months missing of `indices` (`nil`: the library's own,
-    /// `Library.inflationIndices`).
+    /// `Library.inflationIndices`), and also `extra` instruments the
+    /// library doesn't hold on `date`, e.g. positions added in a check-in.
     public init(
-        library: Library, date: CalendarDate, indices: [IndexID]? = nil, indexWindow: Int = defaultIndexWindow
+        library: Library, date: CalendarDate, indices: [IndexID]? = nil, indexWindow: Int = defaultIndexWindow,
+        including extra: [InstrumentID] = []
     ) {
         let base = library.settings.baseCurrency
         let openAccounts = library.accounts(openOn: date)
@@ -96,19 +100,32 @@ public struct CheckInPriceNeeds: Hashable, Sendable {
                 manual.append(id)
             }
         }
+        // Instruments it doesn't hold: their currency only when their price is fetched.
+        for id in Set(extra).subtracting(held) {
+            guard let instrument = library.instruments[id] else {
+                unknown.append(id)
+                continue
+            }
+            if Self.isFetched(instrument.priceSource) {
+                fetched.append(instrument)
+                currencies.insert(instrument.currency)
+            } else {
+                manual.append(id)
+            }
+        }
         currencies.remove(base)
 
         self.init(
-            date: date, baseCurrency: base, instruments: fetched, manualInstruments: manual,
-            unknownInstruments: unknown, currencies: currencies.sorted(),
+            date: date, baseCurrency: base, instruments: fetched.sorted { $0.id < $1.id },
+            manualInstruments: manual.sorted(), unknownInstruments: unknown.sorted(), currencies: currencies.sorted(),
             indices: (indices ?? library.inflationIndices).map {
                 IndexMonths.missing(of: $0, in: library, upTo: date, window: indexWindow)
             })
     }
 
-    /// Whether prices from `source` are fetched: there is one, and its
-    /// provider isn't `manual`.
-    static func isFetched(_ source: PriceSource?) -> Bool {
+    /// Whether prices from `source` are fetched: there is one, its provider
+    /// isn't `manual`, and it names a symbol. Otherwise they're typed in.
+    public static func isFetched(_ source: PriceSource?) -> Bool {
         guard let source else { return false }
         return source.provider.rawValue != "manual" && !source.symbol.isEmpty
     }

@@ -51,8 +51,9 @@ struct InstrumentPriceUpdatePlan: Hashable, Sendable {
         let held = Set(needs.instruments.map(\.id))
         let all = library.instruments.values
         self.init(date: date, baseCurrency: library.settings.baseCurrency, instruments: needs.instruments,
-                  typedInstruments: all.filter { !Self.isFetched($0) }.map(\.id),
-                  unheldInstruments: all.filter { Self.isFetched($0) && !held.contains($0.id) }.map(\.id),
+                  typedInstruments: all.filter { !CheckInPriceNeeds.isFetched($0.priceSource) }.map(\.id),
+                  unheldInstruments: all.filter { CheckInPriceNeeds.isFetched($0.priceSource) && !held.contains($0.id) }
+                      .map(\.id),
                   indices: needs.indices)
     }
 
@@ -61,15 +62,8 @@ struct InstrumentPriceUpdatePlan: Hashable, Sendable {
     init(instruments ids: [InstrumentID], library: Library, on date: CalendarDate) {
         let found = ids.compactMap { library.instruments[$0] }
         self.init(date: date, baseCurrency: library.settings.baseCurrency,
-                  instruments: found.filter(Self.isFetched),
-                  typedInstruments: found.filter { !Self.isFetched($0) }.map(\.id))
-    }
-
-    /// Whether an instrument's prices are fetched: it has a price source
-    /// with a symbol, and its provider isn't `manual` (as in the check-in).
-    static func isFetched(_ instrument: Instrument) -> Bool {
-        guard let source = instrument.priceSource else { return false }
-        return source.provider.rawValue != "manual" && !source.symbol.trimmingCharacters(in: .whitespaces).isEmpty
+                  instruments: found.filter { CheckInPriceNeeds.isFetched($0.priceSource) },
+                  typedInstruments: found.filter { !CheckInPriceNeeds.isFetched($0.priceSource) }.map(\.id))
     }
 
     var isEmpty: Bool { instruments.isEmpty }
@@ -606,7 +600,7 @@ final class InstrumentPriceUpdater {
                               replacingTyped: Set<InstrumentID>) async {
         isRunning = true
         defer { isRunning = false }
-        await prices.fetchEach(plan.allNeeds, refresh: true) { fetched in
+        await prices.fetchEach(plan.allNeeds) { fetched in
             run?.receive(fetched)
         }
         save(library: library, replacingTyped: replacingTyped)

@@ -92,6 +92,25 @@ struct CheckInPriceNeedsTests {
         // the private fund. Not GBP: that account opens later.
         #expect(needs.currencies == [.chf, .usd])
     }
+
+    /// Instruments the library doesn't hold on the date (a check-in's new
+    /// positions) are sorted in with the others; only a fetched one brings
+    /// its currency.
+    @Test func instrumentsNotHeldCanBeIncluded() {
+        var library = NeedsLibrary.make()
+        library.instruments["toyota"] = Instrument(
+            id: "toyota", name: "Toyota", kind: .stock, currency: CurrencyCode("JPY"), unit: .share,
+            assetClasses: .single(.equity), priceSource: PriceSource(provider: .yahoo, symbol: "7203.T"))
+        library.instruments["art"] = Instrument(id: "art", name: "Art", kind: .other, currency: .gbp, unit: .share,
+                                                assetClasses: .single(.equity))
+        let needs = CheckInPriceNeeds(library: library, date: "2026-09-30",
+                                      including: ["toyota", "art", "vwce", "aapl", "nowhere"])
+        #expect(needs.instruments.map(\.id) == ["aapl", "toyota", "vwce"])
+        #expect(needs.manualInstruments == ["art", "private-fund", "typed-in"])
+        #expect(needs.unknownInstruments == ["mystery", "nowhere"])
+        // The yen for Toyota; not the pound: the art's price is typed in.
+        #expect(needs.currencies == [.chf, CurrencyCode("JPY"), .usd])
+    }
 }
 
 /// A made-up library that exercises every rule of the work-out.

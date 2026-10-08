@@ -218,7 +218,7 @@ struct InstrumentsScreen: View {
     /// *Update Price* (for an instrument with a price source) and *Set Price…*.
     @ViewBuilder
     private func priceActions(for instrument: Instrument) -> some View {
-        if InstrumentPriceUpdatePlan.isFetched(instrument) {
+        if CheckInPriceNeeds.isFetched(instrument.priceSource) {
             Button {
                 update(instrument.id)
             } label: {
@@ -236,7 +236,7 @@ struct InstrumentsScreen: View {
 
     @ViewBuilder
     private func swipeActions(for instrument: Instrument) -> some View {
-        if InstrumentPriceUpdatePlan.isFetched(instrument) {
+        if CheckInPriceNeeds.isFetched(instrument.priceSource) {
             Button {
                 update(instrument.id)
             } label: {

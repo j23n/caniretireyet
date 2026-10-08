@@ -115,9 +115,11 @@ public struct PriceService: Sendable {
     }
 
     /// What a check-in on `date` needs, with the library's indices this
-    /// service provides (``indices(for:)``).
-    public func needs(for library: Library, on date: CalendarDate) -> CheckInPriceNeeds {
-        CheckInPriceNeeds(library: library, date: date, indices: indices(for: library))
+    /// service provides (``indices(for:)``), and also `instruments` the
+    /// library doesn't hold on `date`, e.g. positions added in a check-in.
+    public func needs(for library: Library, on date: CalendarDate,
+                      including instruments: [InstrumentID] = []) -> CheckInPriceNeeds {
+        CheckInPriceNeeds(library: library, date: date, indices: indices(for: library), including: instruments)
     }
 
     /// Fetches what a check-in on `date` needs. With `refresh`, the cache is
