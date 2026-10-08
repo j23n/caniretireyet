@@ -128,8 +128,8 @@ public struct PastPriceNeeds: Hashable, Sendable {
             }
             // A trade priced in another currency, without an amount, is converted at its date's rate.
             for trade in library.trades(for: account.id) where trade.amount == nil && trade.price != nil {
-                if let currency = trade.currency ?? trade.instrument.flatMap({ library.instruments[$0]?.currency }),
-                   currency != account.currency, trade.date <= end {
+                let currency = trade.priceCurrency(instruments: library.instruments, accountCurrency: account.currency)
+                if currency != account.currency, trade.date <= end {
                     needRate(currency, on: trade.date)
                 }
             }

@@ -97,7 +97,7 @@ public struct CoinGeckoProvider: BatchQuoteProvider {
             return try await body(coin(known, symbol: symbol))
         }
         var unknownID: PriceFetchError?
-        if CoinGeckoCoinIDs.looksLikeCoinID(symbol) {
+        if Slug.isValid(symbol) {
             do {
                 return try await body(symbol)
             } catch let error as PriceFetchError {
@@ -350,7 +350,7 @@ public struct CoinGeckoProvider: BatchQuoteProvider {
                 } catch {
                     results[index] = .failure(error)
                 }
-            } else if CoinGeckoCoinIDs.looksLikeCoinID(symbol) {
+            } else if Slug.isValid(symbol) {
                 spot.append((index, symbol, true))
             }
         }

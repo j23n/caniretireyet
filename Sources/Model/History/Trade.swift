@@ -112,6 +112,12 @@ public struct Trade: Hashable, Sendable, KeyedRecord, KnownKeysProviding {
     /// opening (``TradeType/isFlow``), or a trade settled outside it
     /// (``isSettledExternally``).
     public var isFlow: Bool { type.isFlow || isSettledExternally }
+
+    /// The currency of ``price``: ``currency`` as written, else the
+    /// instrument's (in `instruments`), else `accountCurrency`.
+    public func priceCurrency(instruments: [InstrumentID: Instrument], accountCurrency: CurrencyCode) -> CurrencyCode {
+        currency ?? instrument.flatMap { instruments[$0]?.currency } ?? accountCurrency
+    }
 }
 
 extension Trade: Codable {
@@ -322,11 +328,7 @@ extension TradeID {
             trade.quantity?.fileString ?? "", trade.amount?.fileString ?? "", trade.price?.fileString ?? "",
             String(ordinal),
         ]
-        var hash: UInt64 = 0xCBF2_9CE4_8422_2325
-        for byte in fields.joined(separator: "\u{1F}").utf8 {
-            hash ^= UInt64(byte)
-            hash = hash &* 0x0000_0100_0000_01B3
-        }
+        var hash = FNV1a.hash(Data(fields.joined(separator: "\u{1F}").utf8))
         // MurmurHash3's finalizer, so a change in the last field (the
         // ordinal) changes every character, then the top 40 bits, 5 per character.
         hash ^= hash >> 33

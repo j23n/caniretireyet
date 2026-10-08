@@ -170,7 +170,7 @@ extension Valuator {
     ///   closing day leaves as new money. One that opens starts at zero.
     public func change(from: CalendarDate, to: CalendarDate, in scope: NetWorthScope = .netWorth) -> ChangeReport {
         let changes = accounts.values
-            .filter { scope.includes($0) && $0.opened <= to && ($0.closed.map { $0 >= from } ?? true) }
+            .filter { scope.includes($0) && $0.isOpen(onAnyDayFrom: from, through: to) }
             .sorted { $0.id < $1.id }
             .map { change(of: $0, from: from, to: to) }
         let total = changes.reduce(ValueChange.zero) { $0 + $1.change }

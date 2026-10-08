@@ -67,7 +67,7 @@ actor PlanResultsArchive {
     /// The folder for the library at `library`: named by a hash of its path
     /// (``libraryKey(_:home:)``).
     nonisolated func folder(forLibraryAt library: URL) -> URL {
-        root.appendingPathComponent(PlanRunInputs.hash(Data(Self.libraryKey(library).utf8)), isDirectory: true)
+        root.appendingPathComponent(FNV1a.hexHash(Data(Self.libraryKey(library).utf8)), isDirectory: true)
     }
 
     /// What names the library at `library` from one launch to the next: its
@@ -185,18 +185,7 @@ extension PlanRunInputs {
         encoder.nonConformingFloatEncodingStrategy = .convertToString(positiveInfinity: "inf",
                                                                       negativeInfinity: "-inf", nan: "nan")
         guard let data = try? encoder.encode(Fingerprinted(self)) else { return UUID().uuidString }
-        return Self.hash(data)
-    }
-
-    /// FNV-1a (64-bit) of `data`, as 16 hex digits.
-    static func hash(_ data: Data) -> String {
-        var hash: UInt64 = 0xCBF2_9CE4_8422_2325
-        for byte in data {
-            hash ^= UInt64(byte)
-            hash = hash &* 0x0000_0100_0000_01B3
-        }
-        let digits = String(hash, radix: 16)
-        return String(repeating: "0", count: 16 - digits.count) + digits
+        return FNV1a.hexHash(data)
     }
 
     /// The inputs with their dictionaries as lists in a fixed order.

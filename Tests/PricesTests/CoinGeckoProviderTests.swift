@@ -260,9 +260,9 @@ struct CoinGeckoProviderTests {
     }
 
     @Test func onlyLowercaseSymbolsLookLikeIDs() {
-        for symbol in ["bitcoin", "avalanche-2", "usd-coin"] { #expect(CoinGeckoCoinIDs.looksLikeCoinID(symbol)) }
+        for symbol in ["bitcoin", "avalanche-2", "usd-coin"] { #expect(Slug.isValid(symbol)) }
         for symbol in ["", "BTC", "Bitcoin", "wrapped bitcoin", "$moon"] {
-            #expect(!CoinGeckoCoinIDs.looksLikeCoinID(symbol))
+            #expect(!Slug.isValid(symbol))
         }
     }
 
@@ -270,7 +270,7 @@ struct CoinGeckoProviderTests {
         #expect(CoinGeckoCoinIDs.tickers.count >= 17)
         for (ticker, id) in CoinGeckoCoinIDs.tickers {
             #expect(ticker == ticker.uppercased())
-            #expect(CoinGeckoCoinIDs.looksLikeCoinID(id), "\(ticker) → \(id)")
+            #expect(Slug.isValid(id), "\(ticker) → \(id)")
         }
         #expect(CoinGeckoCoinIDs.coinID(forTicker: "avax") == "avalanche-2")
         #expect(CoinGeckoCoinIDs.coinID(forTicker: "bitcoin") == nil)

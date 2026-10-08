@@ -127,8 +127,7 @@ public struct TradeLedger: Sendable {
             var gross: Decimal?
             var quote: FXQuote?
             var missingRate = false
-            let priceCurrency = trade.currency ?? trade.instrument.flatMap { instruments[$0]?.currency }
-                ?? account.currency
+            let priceCurrency = trade.priceCurrency(instruments: instruments, accountCurrency: account.currency)
             if let quantity = trade.quantity, let price = trade.price {
                 if priceCurrency == account.currency {
                     gross = (quantity * price).rounded(scale: 2)

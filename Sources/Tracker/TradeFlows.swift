@@ -182,8 +182,7 @@ extension Valuator {
             guard let amount = flow.amount else {
                 if let trade = flow.trade, trade.isSettledExternally {
                     // Its amount needs a rate to convert its price.
-                    let from = trade.currency ?? trade.instrument.flatMap { instruments[$0]?.currency }
-                        ?? account.currency
+                    let from = trade.priceCurrency(instruments: instruments, accountCurrency: account.currency)
                     let problem = ValuationProblem.missingFX(account: account.id, from: from, to: account.currency)
                     if !problems.contains(problem) { problems.append(problem) }
                 } else if let instrument = flow.trade?.instrument {

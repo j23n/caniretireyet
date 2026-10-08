@@ -128,8 +128,8 @@ enum TradeWording {
 
     /// The currency of a trade's price: as written, else the instrument's, else the account's.
     static func priceCurrency(of trade: Trade, in library: Library) -> CurrencyCode {
-        trade.currency ?? trade.instrument.flatMap { library.instruments[$0]?.currency }
-            ?? library.accounts[trade.account]?.currency ?? library.settings.baseCurrency
+        trade.priceCurrency(instruments: library.instruments,
+                            accountCurrency: library.accounts[trade.account]?.currency ?? library.settings.baseCurrency)
     }
 
     /// "paid from outside" for a buy, fee or tax paid from another account,

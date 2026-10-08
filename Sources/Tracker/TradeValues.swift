@@ -111,8 +111,7 @@ extension Valuator {
             guard let key = issue.trade, anchor.map({ key.date > $0.date }) ?? true, key.date <= valuation.date,
                   let entry = ledger.entries.first(where: { $0.trade.key == key })
             else { continue }
-            let from = entry.trade.currency ?? entry.trade.instrument.flatMap { instruments[$0]?.currency }
-                ?? account.currency
+            let from = entry.trade.priceCurrency(instruments: instruments, accountCurrency: account.currency)
             let problem = ValuationProblem.missingFX(account: account.id, from: from, to: account.currency)
             if !problems.contains(problem) { problems.append(problem) }
         }

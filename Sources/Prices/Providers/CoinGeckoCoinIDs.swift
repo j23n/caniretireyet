@@ -1,4 +1,5 @@
 import Foundation
+import Model
 
 /// How a `coingecko` symbol becomes the coin ID CoinGecko's API wants.
 ///
@@ -69,15 +70,7 @@ enum CoinGeckoCoinIDs {
         let symbol = symbol.trimmingCharacters(in: .whitespacesAndNewlines)
         if coinID(forTicker: symbol) != nil { return symbol.uppercased() }
         if let ticker = tickersByCoinID[symbol.lowercased()] { return ticker }
-        return looksLikeCoinID(symbol) || symbol.isEmpty ? nil : symbol.uppercased()
-    }
-
-    /// Whether `symbol` could be a CoinGecko ID as it is: lowercase ASCII
-    /// letters and digits, possibly with `-` (`bitcoin`, `avalanche-2`).
-    static func looksLikeCoinID(_ symbol: String) -> Bool {
-        !symbol.isEmpty && symbol.unicodeScalars.allSatisfy { scalar in
-            ("a"..."z").contains(scalar) || ("0"..."9").contains(scalar) || scalar == "-"
-        }
+        return Slug.isValid(symbol) || symbol.isEmpty ? nil : symbol.uppercased()
     }
 
     /// The coin a search for `symbol` means, or `nil` if none matches: the

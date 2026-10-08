@@ -93,6 +93,12 @@ extension Account {
         closed != nil
     }
 
+    /// Whether the account is open on at least one day from `start`
+    /// through `end`: opened by `end` and not closed before `start`.
+    public func isOpen(onAnyDayFrom start: CalendarDate, through end: CalendarDate) -> Bool {
+        opened <= end && (closed.map { $0 >= start } ?? true)
+    }
+
     /// Whether the account counts on `date`: between `opened` and `closed`,
     /// both inclusive.
     public func isOpen(on date: CalendarDate) -> Bool {

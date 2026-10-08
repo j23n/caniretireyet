@@ -8,14 +8,7 @@ extension Planner {
     public static func planHash(_ plan: PlanDocument) -> String {
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
-        let data = (try? encoder.encode(plan)) ?? Data()
-        var hash: UInt64 = 0xCBF2_9CE4_8422_2325
-        for byte in data {
-            hash ^= UInt64(byte)
-            hash = hash &* 0x0000_0100_0000_01B3
-        }
-        let digits = String(hash, radix: 16)
-        return String(repeating: "0", count: 16 - digits.count) + digits
+        return FNV1a.hexHash((try? encoder.encode(plan)) ?? Data())
     }
 }
 

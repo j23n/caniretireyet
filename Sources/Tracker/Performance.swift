@@ -145,7 +145,7 @@ extension Valuator {
         guard start < end else { return nil }
         let assetClass: AssetClass? = if case .assetClass(let assetClass, _) = subject { assetClass } else { nil }
         let candidates = performanceCandidates(for: subject)
-            .filter { $0.opened <= end && ($0.closed.map { $0 >= start } ?? true) }
+            .filter { $0.isOpen(onAnyDayFrom: start, through: end) }
             .filter { account in assetClass.map { holds($0, in: account, from: start, to: end) } ?? true }
 
         var cuts: Set<CalendarDate> = [start, end]
