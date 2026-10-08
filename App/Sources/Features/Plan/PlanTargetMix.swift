@@ -199,7 +199,7 @@ struct PlanTargetMixModel {
     }
 
     /// "From 55", "From retirement".
-    static func title(of start: MixStepStart) -> String {
+    static func title(of start: AgeOrRetirement) -> String {
         switch start {
         case .age(let age): "From \(age)"
         case .retirement: "From retirement"

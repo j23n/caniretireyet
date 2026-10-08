@@ -204,7 +204,7 @@ struct PlanInputsReport {
     }
 
     /// When other income starts: an age, or "retirement"; "?" when not given.
-    static func start(_ from: IncomeStart?) -> String {
+    static func start(_ from: AgeOrRetirement?) -> String {
         switch from {
         case .age(let age): "\(age)"
         case .retirement: "retirement"

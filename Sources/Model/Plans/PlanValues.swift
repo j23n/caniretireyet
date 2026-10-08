@@ -39,6 +39,57 @@ extension AgeChoice: Codable {
     }
 }
 
+/// When something starts: an age, or `"retirement"` (whatever the
+/// retirement age turns out to be). A whole number or `"retirement"` in
+/// JSON (a number written as a string reads too).
+///
+/// Used by other income's `from` and a target mix step's `fromAge`.
+public enum AgeOrRetirement: Hashable, Sendable {
+    case age(Int)
+    case retirement
+
+    /// The age, when a fixed one was given.
+    public var age: Int? {
+        if case .age(let age) = self { age } else { nil }
+    }
+
+    /// The age it starts at when retiring at `retirementAge`; `nil` for
+    /// `retirement` when the retirement age isn't known.
+    public func startAge(retiringAt retirementAge: Int?) -> Int? {
+        switch self {
+        case .age(let age): age
+        case .retirement: retirementAge
+        }
+    }
+}
+
+extension AgeOrRetirement: Codable {
+    public init(from decoder: any Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        if let age = try? container.decode(Int.self) {
+            self = .age(age)
+            return
+        }
+        let string = try container.decode(String.self)
+        if string == "retirement" {
+            self = .retirement
+        } else if let age = Int(string) {
+            self = .age(age)
+        } else {
+            throw DecodingError.dataCorruptedError(
+                in: container, debugDescription: "Expected an age or \"retirement\", found \"\(string)\".")
+        }
+    }
+
+    public func encode(to encoder: any Encoder) throws {
+        var container = encoder.singleValueContainer()
+        switch self {
+        case .age(let age): try container.encode(age)
+        case .retirement: try container.encode("retirement")
+        }
+    }
+}
+
 /// When something ends: a date, or `"retirement"` (whatever the retirement
 /// age turns out to be).
 public enum PhaseEnd: Hashable, Sendable {

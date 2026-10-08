@@ -357,7 +357,7 @@ struct PlanChaptersModel {
     /// Other income from when work stops in the chapter it stops in, else
     /// from the chapter's first age; its amount still to fill in.
     func newIncome(in chapter: PlanChapter) -> PlanIncome {
-        let from: IncomeStart = chapter.items.contains(.retirement) ? .retirement : .age(chapter.ages.lowerBound)
+        let from: AgeOrRetirement = chapter.items.contains(.retirement) ? .retirement : .age(chapter.ages.lowerBound)
         return PlanIncome(name: "Other income", from: from, perYear: nil)
     }
 

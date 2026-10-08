@@ -67,9 +67,9 @@ struct TargetMixStepTests {
         // Retiring at 76, the step from 75 has started already, and stays.
         #expect(portfolio.targetMixStep(atAge: 75, retiringAt: 76) == 1)
         #expect(portfolio.targetMixStep(atAge: 80, retiringAt: 76) == 1)
-        #expect(MixStepStart.retirement.startAge(retiringAt: 58) == 58)
-        #expect(MixStepStart.age(70).startAge(retiringAt: 58) == 70)
-        #expect(MixStepStart.retirement.age == nil && MixStepStart.age(70).age == 70)
+        #expect(AgeOrRetirement.retirement.startAge(retiringAt: 58) == 58)
+        #expect(AgeOrRetirement.age(70).startAge(retiringAt: 58) == 70)
+        #expect(AgeOrRetirement.retirement.age == nil && AgeOrRetirement.age(70).age == 70)
     }
 
     /// Steps already passed (by age) become the target mix, so versions that
