@@ -56,6 +56,17 @@ struct ExampleLibraryGlanceTests {
         #expect(netWorth.sinceLastCheckIn == snapshot.netWorth?.sinceLastCheckIn)
     }
 
+    /// The Overview's hero: the snapshot's net worth, without its line.
+    @Test func theOverviewsHeroIsTheSnapshotsNetWorth() throws {
+        let later = GlanceSnapshot(library: library, valuator: valuator, asOf: "2026-10-08", answer: nil,
+                                   checkIn: checkIn)
+        var expected = try #require(later.netWorth)
+        #expect(!expected.history.isEmpty)
+        expected.history = []
+        #expect(NetWorthGlance(valuator: valuator, asOf: "2026-10-08") == expected)
+        #expect(expected.thisYear != nil)
+    }
+
     @Test func theHistoryIsTheYearsMonthEnds() throws {
         let history = try #require(snapshot.netWorth?.history)
         #expect(history.last?.date == "2026-09-30")

@@ -1,8 +1,8 @@
 import Foundation
 import Model
 
-/// What the widgets show: net worth on the latest check-in and how it
-/// changed, the asset mix, the main plan's answer and when the next
+/// What the widgets show: net worth today and how it changed at the latest
+/// check-in, the asset mix, the main plan's answer and when the next
 /// check-in is due (UI.md, "Widgets").
 ///
 /// The app writes it whenever the library or the answer changes; the widget
@@ -13,11 +13,12 @@ import Model
 public struct GlanceSnapshot: Hashable, Sendable, Codable {
     /// The currency of every amount: the library's base currency.
     public var currency: CurrencyCode
-    /// Net worth on the latest check-in; `nil` before the first one.
+    /// Net worth today, as the Overview has it; `nil` before the first
+    /// check-in.
     public var netWorth: NetWorthGlance?
-    /// Net worth on the latest check-in by asset class, in stacking order
-    /// (cash, bonds, equity, gold, crypto, real estate, other), then debts.
-    /// Empty before the first check-in.
+    /// Net worth today by asset class, in stacking order (cash, bonds,
+    /// equity, gold, crypto, real estate, other), then debts. Empty before
+    /// the first check-in.
     public var allocation: [AllocationSlice]
     /// The main plan's answer; `nil` without a main plan, or before it has one.
     public var retirement: RetirementGlance?
@@ -101,7 +102,8 @@ public struct NetWorthGlance: Hashable, Sendable {
     /// then; `nil` without a value then, or when it was zero.
     public var thisYear: Double?
     /// Net worth at each month end of the year up to ``date``, and on
-    /// ``date`` itself, oldest first.
+    /// ``date`` itself, oldest first. Empty for the Overview's hero, which
+    /// draws no line.
     public var history: [GlancePoint]
 
     public init(date: CalendarDate, total: Decimal, isComplete: Bool, sinceLastCheckIn: NetWorthChange?,

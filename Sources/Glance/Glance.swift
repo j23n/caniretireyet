@@ -4,10 +4,11 @@
 // and the widget extension reads. The extension never opens the library: the
 // app keeps a small snapshot in the App Group container, and widgets draw it.
 //
-// - `GlanceSnapshot` holds net worth on the latest check-in with its change
-//   and a year of month ends, the asset mix, the main plan's answer with the
-//   answers recorded at the year's check-ins, and when the next check-in is
-//   due. `GlanceSnapshot(library:valuator:asOf:answer:checkIn:)` builds it.
+// - `GlanceSnapshot` holds net worth today with the change at the latest
+//   check-in and a year of month ends, the asset mix, the main plan's answer
+//   with the answers recorded at the year's check-ins, and when the next
+//   check-in is due. `GlanceSnapshot(library:valuator:asOf:answer:checkIn:)`
+//   builds it; the Overview's hero is `NetWorthGlance(valuator:asOf:)`.
 // - `GlanceFile` reads and writes it as JSON. The app and its widgets are
 //   updated together, so the file has no format version: a field added
 //   later is optional, and a snapshot that can't be read (one an earlier

@@ -74,49 +74,16 @@ enum OverviewAllocation: String, CaseIterable, Hashable, Sendable {
     }
 }
 
-// MARK: - Hero
+// MARK: - Hero and change
 
-/// The hero number: net worth today, with the change between the last two
-/// check-ins and since the end of last year.
-struct OverviewHero: Hashable, Sendable {
-    /// The date reported on: today.
-    var date: CalendarDate
-    var total: Decimal
-    /// Whether every account was valued completely.
-    var isComplete: Bool
-    /// The change between the last two check-ins on or before ``date``.
-    var sinceLastCheckIn: Decimal?
-    /// The check-in before the latest one: where the change starts.
-    var lastCheckIn: CalendarDate?
-    /// The latest check-in on or before ``date``: where the change ends.
-    var latestCheckIn: CalendarDate?
-    /// The change since 31 December of last year, as a fraction of the value then.
-    var thisYear: Double?
+// The hero number, net worth today with the change between the last two
+// check-ins and since the end of last year, is Glance's `NetWorthGlance`,
+// as the widgets have it.
 
-    init(valuator: Valuator, asOf date: CalendarDate) {
-        self.date = date
-        let now = valuator.total(on: date, in: .netWorth)
-        total = now.total
-        isComplete = now.isComplete
-        if let report = valuator.changeSinceLastCheckIn(asOf: date, in: .netWorth) {
-            sinceLastCheckIn = report.total.change
-            lastCheckIn = report.from
-            latestCheckIn = report.to
-        }
-        if let yearEnd = YearMonth(year: date.year - 1, month: 12)?.lastDay, yearEnd < date,
-           let first = valuator.firstValuationDate(in: .netWorth), first <= yearEnd {
-            let start = valuator.total(on: yearEnd, in: .netWorth).total
-            if start != 0 {
-                thisYear = ((now.total - start) / abs(start)).doubleValue
-            }
-        }
-    }
-}
-
-extension OverviewHero {
-    /// The month a change from `from` to `to` covers: `to`'s, when `from`
-    /// is the last day of the month before; `nil` otherwise.
-    static func month(from: CalendarDate, to: CalendarDate) -> CalendarDate? {
+extension ChangeReport {
+    /// The month the change covers, which titles the change's card: `to`'s,
+    /// when `from` is the last day of the month before; `nil` otherwise.
+    var coveredMonth: CalendarDate? {
         from == to.yearMonth.previous.lastDay ? to : nil
     }
 }

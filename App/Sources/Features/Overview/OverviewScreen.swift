@@ -46,7 +46,7 @@ struct OverviewScreen: View {
         let results = mainPlan.flatMap { plans.results[$0.id] }
         return ScrollView {
             VStack(alignment: .leading, spacing: Metrics.xl) {
-                OverviewHeroView(hero: OverviewHero(valuator: valuator, asOf: today))
+                OverviewHeroView(hero: NetWorthGlance(valuator: valuator, asOf: today))
                 if library.latestCheckIn == nil {
                     FirstCheckInCard()
                 }
@@ -76,7 +76,7 @@ struct OverviewScreen: View {
 
 /// Net worth today, with its changes.
 private struct OverviewHeroView: View {
-    let hero: OverviewHero
+    let hero: NetWorthGlance
 
     var body: some View {
         VStack(alignment: .leading, spacing: Metrics.xs) {
@@ -106,11 +106,11 @@ private struct OverviewHeroView: View {
 
     @ViewBuilder
     private var changes: some View {
-        if let change = hero.sinceLastCheckIn, let from = hero.lastCheckIn, let to = hero.latestCheckIn {
+        if let change = hero.sinceLastCheckIn {
             HStack(spacing: Metrics.xs) {
-                DeltaText(change)
+                DeltaText(change.change)
                 // "in September", "31 Jul – 15 Sep": the check-in's change, not one up to today.
-                Text(GlanceText.period(from: from, to: to, relativeTo: hero.date))
+                Text(GlanceText.period(from: change.from, to: change.to, relativeTo: hero.date))
                     .foregroundStyle(Palette.secondaryInk)
             }
         }

@@ -19,7 +19,7 @@ struct OverviewChangeCard: View {
     @Environment(\.locale) private var locale
 
     private var title: String {
-        guard let month = OverviewHero.month(from: report.from, to: report.to) else { return "Since last check-in" }
+        guard let month = report.coveredMonth else { return "Since last check-in" }
         return "What moved in \(OverviewAttention.monthName(month, today: .today(), locale: locale))"
     }
 

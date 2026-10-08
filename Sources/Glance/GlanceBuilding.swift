@@ -19,13 +19,7 @@ extension GlanceSnapshot {
         var allocation: [AllocationSlice] = []
         if valuator.firstValuationDate(in: .netWorth) != nil {
             let now = valuator.total(on: asOf, in: .netWorth)
-            let history = valuator.dates(.monthEnds, in: .netWorth, through: asOf)
-                .filter { $0 >= yearAgo }
-                .map { GlancePoint(date: $0, value: valuator.total(on: $0, in: .netWorth).total) }
-            netWorth = NetWorthGlance(
-                date: asOf, total: now.total, isComplete: now.isComplete,
-                sinceLastCheckIn: valuator.changeSinceLastCheckIn(asOf: asOf, in: .netWorth).map(NetWorthChange.init),
-                thisYear: Self.changeThisYear(valuator: valuator, now: now), history: history)
+            netWorth = NetWorthGlance(valuator: valuator, now: now, historyFrom: yearAgo)
             allocation = valuator.breakdown(of: now, by: .assetClass).slices
                 .sorted { $0.key < $1.key }
                 .compactMap(AllocationSlice.init)
@@ -46,10 +40,33 @@ extension GlanceSnapshot {
         self.init(currency: library.settings.baseCurrency, netWorth: netWorth, allocation: allocation,
                   retirement: retirement, checkIn: checkIn)
     }
+}
 
-    /// The change since 31 December of last year, as the Overview's hero
-    /// has it: `nil` without a value by then, or when it was zero.
-    static func changeThisYear(valuator: Valuator, now: NetWorth) -> Double? {
+extension NetWorthGlance {
+    /// Net worth on `date` as the Overview's hero has it, and the widgets:
+    /// the total, the change at the last check-in on or before `date`, and
+    /// the change since 31 December of last year. With `start`, the history
+    /// has each month end from `start` through `date`, and `date` itself.
+    public init(valuator: Valuator, asOf date: CalendarDate, historyFrom start: CalendarDate? = nil) {
+        self.init(valuator: valuator, now: valuator.total(on: date, in: .netWorth), historyFrom: start)
+    }
+
+    /// The same from `now`, net worth on the date, once it's worked out.
+    init(valuator: Valuator, now: NetWorth, historyFrom start: CalendarDate?) {
+        let history = start.map { start in
+            valuator.dates(.monthEnds, in: .netWorth, through: now.date)
+                .filter { $0 >= start }
+                .map { GlancePoint(date: $0, value: valuator.total(on: $0, in: .netWorth).total) }
+        }
+        self.init(
+            date: now.date, total: now.total, isComplete: now.isComplete,
+            sinceLastCheckIn: valuator.changeSinceLastCheckIn(asOf: now.date, in: .netWorth).map(NetWorthChange.init),
+            thisYear: Self.changeThisYear(valuator: valuator, now: now), history: history ?? [])
+    }
+
+    /// The change since 31 December of last year: `nil` without a value by
+    /// then, or when it was zero.
+    private static func changeThisYear(valuator: Valuator, now: NetWorth) -> Double? {
         guard let yearEnd = YearMonth(year: now.date.year - 1, month: 12)?.lastDay, yearEnd < now.date,
               let first = valuator.firstValuationDate(in: .netWorth), first <= yearEnd
         else { return nil }
