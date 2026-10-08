@@ -59,9 +59,6 @@ public enum Slug {
 public protocol SlugID: StringValue {}
 
 extension SlugID {
-    /// Whether the raw value is a valid slug.
-    public var isValidSlug: Bool { Slug.isValid(rawValue) }
-
     /// A new ID made from a display name, unique among `existing`.
     public static func make(from name: String, existing: some Sequence<Self>) -> Self {
         Self(rawValue: Slug.unique(Slug.make(from: name), among: existing.lazy.map(\.rawValue)))

@@ -31,7 +31,7 @@ struct SlugTests {
         #expect(!Slug.isValid(""))
         #expect(!Slug.isValid("Conto"))
         #expect(!Slug.isValid("conto fineco"))
-        #expect(AccountID("old-bank").isValidSlug)
+        #expect(Slug.isValid("old-bank"))
     }
 }
 

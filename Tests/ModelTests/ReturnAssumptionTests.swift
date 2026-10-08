@@ -123,7 +123,7 @@ struct ReturnAssumptionTests {
         let medians: [AssetClass: Double] = [.equity: 0.0314, .bonds: 0.0082, .cash: -0.00005, .gold: -0.001,
                                              .crypto: -0.1808]
         for (assetClass, median) in medians {
-            let previous = try #require(PlanAssumptions.previousDefaultReturns[assetClass]?.first)
+            let previous = try #require(PlanAssumptions.previousDefaultReturns[assetClass])
             #expect(!previous.isGivenByMedian)
             #expect(abs(previous.medianReturn - median) < 0.0002, "\(assetClass): \(previous.medianReturn)")
             #expect(previous != PlanAssumptions.defaultReturns[assetClass])

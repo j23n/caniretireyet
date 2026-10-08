@@ -65,8 +65,8 @@ struct JournalLeftoversTests {
         #expect(!profile.layout.isKnown)
         #expect(profile.matches.accounts["Assets:Bank:Fineco"] == "conto-fineco")
         #expect(profile.onConflict == .keep)
-        #expect(loaded.library.prices(for: "vwce").first?.source == .ledger)
-        #expect(loaded.library.valuations(for: "conto-fineco").first?.source == .ledger)
+        #expect(loaded.library.prices(for: "vwce").first?.source == "ledger")
+        #expect(loaded.library.valuations(for: "conto-fineco").first?.source == "ledger")
     }
 
     @Test func savingRewritesNothing() throws {

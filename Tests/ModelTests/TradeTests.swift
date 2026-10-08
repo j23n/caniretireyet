@@ -43,7 +43,7 @@ struct TradeRecordTests {
         var generator = SeededGenerator(seed: 7)
         let first = TradeID.random(using: &generator)
         #expect(first.rawValue.count == 8)
-        #expect(first.isValidSlug)
+        #expect(Slug.isValid(first.rawValue))
         #expect(first.rawValue.unicodeScalars.allSatisfy { ("a"..."z").contains($0) || ("2"..."7").contains($0) })
         var again = SeededGenerator(seed: 7)
         #expect(TradeID.random(using: &again) == first)
@@ -253,15 +253,13 @@ struct StableTradeIDTests {
     @Test func stableIDsLookLikeRandomOnes() {
         let id = TradeID.stable(for: Self.buy)
         #expect(id.rawValue.count == TradeID.randomLength)
-        #expect(id.isValidSlug)
+        #expect(Slug.isValid(id.rawValue))
         #expect(id.rawValue.unicodeScalars.allSatisfy { ("a"..."z").contains($0) || ("2"..."7").contains($0) })
     }
 
     @Test func theSameFieldsGiveTheSameID() {
         let id = TradeID.stable(for: Self.buy)
         #expect(TradeID.stable(for: Self.buy) == id)
-        #expect(TradeID.stable(account: "directa", date: "2026-03-12", type: .buy, instrument: "vwce", quantity: 10,
-                               amount: d("-1278.5"), price: d("127.35")) == id)
         // Decimals count by value: 10 and 10.0 are the same quantity.
         var written = Self.buy
         written.quantity = d("10.0")

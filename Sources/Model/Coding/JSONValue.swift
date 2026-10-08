@@ -18,10 +18,6 @@ public enum JSONValue: Hashable, Sendable {
 extension JSONValue {
     public var isNull: Bool { self == .null }
 
-    public var boolValue: Bool? {
-        if case .bool(let value) = self { value } else { nil }
-    }
-
     public var stringValue: String? {
         if case .string(let value) = self { value } else { nil }
     }

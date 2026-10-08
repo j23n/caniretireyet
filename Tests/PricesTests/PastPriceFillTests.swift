@@ -272,7 +272,7 @@ struct PastPriceFillTests {
             library.upsert(Valuation(account: "broker", date: date, positions: [Position(instrument: "vwce", quantity: 10)]))
         }
         library.upsert(PriceRecord(instrument: "vwce", date: "2026-07-31", price: 120, currency: .eur, source: .manual))
-        library.upsert(PriceRecord(instrument: "vwce", date: "2026-08-31", price: 121, currency: .eur, source: .ledger))
+        library.upsert(PriceRecord(instrument: "vwce", date: "2026-08-31", price: 121, currency: .eur, source: "ledger"))
         let closes = PriceResponses.yahooChart(
             symbol: "VWCE.DE", currency: "EUR", exchangeName: "GER", instrumentType: "ETF", timeZone: "Europe/Berlin",
             hour: 9, bars: PriceResponses.weekdays(from: "2026-09-01", through: "2026-09-30").map { ($0, d("138.42")) })
@@ -290,17 +290,17 @@ struct PastPriceFillTests {
         let kept = fill.insertMissing(into: &changed)
         #expect(kept.added == 0 && kept.kept == 1)
         #expect(changed.prices(for: "vwce").map(\.price) == [120, 121, 140])
-        #expect(changed.prices(for: "vwce").map(\.source) == [.manual, .ledger, .manual])
+        #expect(changed.prices(for: "vwce").map(\.source) == [.manual, "ledger", .manual])
 
         let added = fill.insertMissing(into: &library)
         #expect(added.prices == 1 && added.kept == 0)
-        #expect(library.prices(for: "vwce").map(\.source) == [.manual, .ledger, .yahoo])
+        #expect(library.prices(for: "vwce").map(\.source) == [.manual, "ledger", .yahoo])
         // An FX rate recorded the other way round counts as there.
         var rates = Library()
         rates.upsert(FXRecord(base: .usd, quote: .eur, date: "2026-09-30", rate: d("0.88")))
         let fx = PastPriceFill(fx: [FXRecord(base: .eur, quote: .usd, date: "2026-09-30", rate: d("1.1398"))])
             .insertMissing(into: &rates)
-        #expect(fx.kept == 1 && rates.allFXRates.count == 1)
+        #expect(fx.kept == 1 && rates.months.values.flatMap(\.fx).count == 1)
     }
 
     // MARK: End to end

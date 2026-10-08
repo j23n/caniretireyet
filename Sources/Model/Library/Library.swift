@@ -70,21 +70,6 @@ extension Library {
         months.values.flatMap(\.valuations).sortedByKey()
     }
 
-    /// Every price, sorted by date, then instrument.
-    public var allPrices: [PriceRecord] {
-        months.values.flatMap(\.prices).sortedByKey()
-    }
-
-    /// Every FX rate, sorted by date, then currency pair.
-    public var allFXRates: [FXRecord] {
-        months.values.flatMap(\.fx).sortedByKey()
-    }
-
-    /// Every index value, sorted by date, then index.
-    public var allIndexValues: [IndexRecord] {
-        months.values.flatMap(\.indices).sortedByKey()
-    }
-
     /// Every trade, sorted by key: date, account, ID.
     public var allTrades: [Trade] {
         months.values.flatMap(\.trades).sortedByKey()

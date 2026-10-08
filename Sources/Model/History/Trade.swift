@@ -301,9 +301,6 @@ public struct TradeID: StringValue {
         while taken.contains(id) { id = random() }
         return id
     }
-
-    /// Whether the ID is a valid slug: one or more of `a-z`, `0-9` and `-`.
-    public var isValidSlug: Bool { Slug.isValid(rawValue) }
 }
 
 extension TradeID {
@@ -312,18 +309,18 @@ extension TradeID {
     /// importing the same file again gives the same IDs and changes nothing.
     ///
     /// The hash is FNV-1a (64-bit, mixed with MurmurHash3's finalizer) of the
-    /// account, date, type, instrument, quantity, amount and price (decimals
-    /// in their exact file form), and
+    /// trade's account, date, type, instrument, quantity, amount and price
+    /// (decimals in their exact file form), and
     /// `ordinal`: the trade's position among the rows of the file with all
     /// of these equal, from 0, so two identical trades on one day stay
-    /// distinct. Fees, tax, the currency and the note aren't part of it: a
-    /// file that corrects them gives the same ID, and the import compares
-    /// the values (a conflict, or values filled in).
-    public static func stable(account: AccountID, date: CalendarDate, type: TradeType, instrument: InstrumentID?,
-                              quantity: Decimal?, amount: Decimal?, price: Decimal?, ordinal: Int = 0) -> TradeID {
+    /// distinct. Its ID, fees, tax, the currency and the note aren't part of
+    /// it: a file that corrects them gives the same ID, and the import
+    /// compares the values (a conflict, or values filled in).
+    public static func stable(for trade: Trade, ordinal: Int = 0) -> TradeID {
         let fields = [
-            account.rawValue, date.description, type.rawValue, instrument?.rawValue ?? "",
-            quantity?.fileString ?? "", amount?.fileString ?? "", price?.fileString ?? "", String(ordinal),
+            trade.account.rawValue, trade.date.description, trade.type.rawValue, trade.instrument?.rawValue ?? "",
+            trade.quantity?.fileString ?? "", trade.amount?.fileString ?? "", trade.price?.fileString ?? "",
+            String(ordinal),
         ]
         var hash: UInt64 = 0xCBF2_9CE4_8422_2325
         for byte in fields.joined(separator: "\u{1F}").utf8 {
@@ -343,12 +340,5 @@ extension TradeID {
             text.append(alphabet[Int((bits >> UInt64(5 * (randomLength - 1 - index))) & 31)])
         }
         return TradeID(rawValue: String(text))
-    }
-
-    /// ``stable(account:date:type:instrument:quantity:amount:price:ordinal:)``
-    /// of a trade's own fields (its ID is ignored).
-    public static func stable(for trade: Trade, ordinal: Int = 0) -> TradeID {
-        stable(account: trade.account, date: trade.date, type: trade.type, instrument: trade.instrument,
-               quantity: trade.quantity, amount: trade.amount, price: trade.price, ordinal: ordinal)
     }
 }

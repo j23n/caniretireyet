@@ -41,18 +41,17 @@ public struct PlanAssumptions: Hashable, Sendable, KnownKeysProviding {
         .crypto: ReturnAssumption(medianReal: 0, volatility: .exactly("0.70")),
     ]
 
-    /// The defaults of earlier versions, newest first: equity a mean of 4.5%
-    /// at 17%, bonds 1% at 6%, cash 0% at 1%, gold 1% at 15%, crypto a mean
-    /// of 0% at 70%. Earlier versions of the app and the CLI wrote a class's
-    /// default into the plan when one of its numbers was edited, so a plan
-    /// that repeats one exactly most likely never chose it
-    /// (``previousDefaultReturn(for:)``).
-    public static let previousDefaultReturns: [AssetClass: [ReturnAssumption]] = [
-        .equity: [ReturnAssumption(real: .exactly("0.045"), volatility: .exactly("0.17"))],
-        .bonds: [ReturnAssumption(real: .exactly("0.01"), volatility: .exactly("0.06"))],
-        .cash: [ReturnAssumption(real: 0, volatility: .exactly("0.01"))],
-        .gold: [ReturnAssumption(real: .exactly("0.01"), volatility: .exactly("0.15"))],
-        .crypto: [ReturnAssumption(real: 0, volatility: .exactly("0.70"))],
+    /// The defaults of earlier versions: equity a mean of 4.5% at 17%, bonds
+    /// 1% at 6%, cash 0% at 1%, gold 1% at 15%, crypto a mean of 0% at 70%.
+    /// Earlier versions of the app and the CLI wrote a class's default into
+    /// the plan when one of its numbers was edited, so a plan that repeats
+    /// one exactly most likely never chose it (``previousDefaultReturn(for:)``).
+    public static let previousDefaultReturns: [AssetClass: ReturnAssumption] = [
+        .equity: ReturnAssumption(real: .exactly("0.045"), volatility: .exactly("0.17")),
+        .bonds: ReturnAssumption(real: .exactly("0.01"), volatility: .exactly("0.06")),
+        .cash: ReturnAssumption(real: 0, volatility: .exactly("0.01")),
+        .gold: ReturnAssumption(real: .exactly("0.01"), volatility: .exactly("0.15")),
+        .crypto: ReturnAssumption(real: 0, volatility: .exactly("0.70")),
     ]
 
     /// Equity–bonds 0.1 and equity–crypto 0.4; other pairs 0.
@@ -131,9 +130,9 @@ extension PlanAssumptions {
     /// sets nothing for the class or sets anything else. Such a plan most
     /// likely didn't choose it: an earlier version wrote it.
     public func previousDefaultReturn(for assetClass: AssetClass) -> ReturnAssumption? {
-        guard var own = returns[assetClass] else { return nil }
+        guard var own = returns[assetClass], let previous = Self.previousDefaultReturns[assetClass] else { return nil }
         own.incomeYield = nil
-        return Self.previousDefaultReturns[assetClass]?.first { $0 == own }
+        return own == previous ? previous : nil
     }
 
     /// Goes back to the default return and volatility for `assetClass`,

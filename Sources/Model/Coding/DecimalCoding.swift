@@ -100,28 +100,3 @@ extension KeyedEncodingContainer {
         if let value { try encodeDecimal(value, forKey: key) }
     }
 }
-
-extension SingleValueDecodingContainer {
-    /// Decodes a decimal written as a string or as a JSON number, exactly.
-    public func decodeDecimal() throws -> Decimal {
-        if let string = try? decode(String.self) {
-            guard let value = Decimal(fileString: string) else {
-                throw DecodingError.dataCorruptedError(
-                    in: self, debugDescription: "Expected a decimal such as \"1234.56\", found \"\(string)\".")
-            }
-            return value
-        }
-        return try decode(Decimal.self)
-    }
-}
-
-extension SingleValueEncodingContainer {
-    /// Encodes a decimal as a string in its shortest exact form.
-    public mutating func encodeDecimal(_ value: Decimal) throws {
-        guard value.isFinite else {
-            throw EncodingError.invalidValue(value, EncodingError.Context(
-                codingPath: codingPath, debugDescription: "Cannot write a non-finite decimal."))
-        }
-        try encode(value.fileString)
-    }
-}

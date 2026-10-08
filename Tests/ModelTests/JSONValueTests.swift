@@ -24,9 +24,8 @@ struct JSONValueTests {
     }
 
     @Test func accessors() {
-        let options: JSONValue = ["movedIn": 2025, "minorChild": false, "rate": "0.0173", "list": ["a"]]
+        let options: JSONValue = ["movedIn": 2025, "rate": "0.0173", "list": ["a"]]
         #expect(options["movedIn"]?.intValue == 2025)
-        #expect(options["minorChild"]?.boolValue == false)
         #expect(options["rate"]?.decimalValue == Decimal(fileString: "0.0173"))
         #expect(options["rate"]?.intValue == nil)
         #expect(options["list"]?[0]?.stringValue == "a")

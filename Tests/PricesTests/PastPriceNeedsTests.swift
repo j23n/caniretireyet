@@ -75,7 +75,7 @@ struct PastPriceNeedsTests {
             library.upsert(Valuation(account: "broker", date: date, positions: [Position(instrument: "vwce", quantity: 10)]))
         }
         library.upsert(PriceRecord(instrument: "vwce", date: "2026-06-30", price: 120, currency: .eur, source: .manual))
-        library.upsert(PriceRecord(instrument: "vwce", date: "2026-07-31", price: 121, currency: .eur, source: .ledger))
+        library.upsert(PriceRecord(instrument: "vwce", date: "2026-07-31", price: 121, currency: .eur, source: "ledger"))
         library.upsert(PriceRecord(instrument: "vwce", date: "2026-08-31", price: 122, currency: .eur, source: .yahoo))
         let needs = PastPriceNeeds(library: library, today: today, indices: [])
         #expect(needs.dates(for: "vwce") == ["2026-09-30"])

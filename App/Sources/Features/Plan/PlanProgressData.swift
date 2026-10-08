@@ -420,7 +420,7 @@ struct PlanProgressYear: Hashable, Sendable, Identifiable {
                 year: year, from: from, to: last, checkIns: checkIns.count, lastCheckIn: checkIns.last,
                 isLatest: year == latest.year,
                 change: report.total, isComplete: report.isPriced,
-                expectedSavings: baseline?.baseline.years.first { $0.year == year }?.savings,
+                expectedSavings: baseline?.baseline.year(year)?.savings,
                 answerFrom: before ?? inYear.first, answerTo: inYear.last,
                 answerChanges: PlanAnswerHistory.Change.allCases.filter { changes.contains($0) },
                 baseline: baseline, position: comparison?.position, positionCurrency: comparison?.currency,
@@ -487,7 +487,7 @@ extension PlanProgressYear {
             let overlapStart = max(stretch, start)
             let overlapEnd = min(yearEnd, end)
             guard overlapEnd > overlapStart else { continue }
-            guard let saving = baseline.years.first(where: { $0.year == year })?.savings else { return nil }
+            guard let saving = baseline.year(year)?.savings else { return nil }
             total += saving * Decimal(overlapStart.days(to: overlapEnd)) / Decimal(max(1, stretch.days(to: yearEnd)))
         }
         return total

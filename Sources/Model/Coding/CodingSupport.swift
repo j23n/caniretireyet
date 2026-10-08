@@ -36,11 +36,6 @@ extension KeyedDecodingContainer {
     func decodeArray<T: Decodable>(_ type: [T].Type, forKey key: Key) throws -> [T] {
         try decodeIfPresent(type, forKey: key) ?? []
     }
-
-    /// Decodes a free-form object that may be absent, returning an empty one then.
-    func decodeObject(forKey key: Key) throws -> [String: JSONValue] {
-        try decodeIfPresent([String: JSONValue].self, forKey: key) ?? [:]
-    }
 }
 
 extension KeyedEncodingContainer {
