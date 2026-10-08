@@ -6,8 +6,7 @@ import SwiftUI
 // settings are where the plan changes. Every input that starts in a
 // chapter is one row there, with its value (amounts a month, as the words
 // say them); a row opens the value's small editor in a popover, or the
-// item's sheet. The values every chapter shares are tiles under the
-// chapters, opening their editors the same way.
+// item's sheet.
 
 /// One setting: what it is, its value, and what a tap opens.
 struct PlanSettingRow: Hashable, Identifiable {
@@ -252,87 +251,6 @@ struct PlanSettingRowView: View {
             if case .editor(let token) = row.opens {
                 PlanTokenEditor(token: token, plan: $plan, model: model, onOpen: onSheet, onUsePlanAge: onUsePlanAge)
             }
-        }
-    }
-}
-
-// MARK: - What every chapter shares
-
-/// A value every chapter shares, as a tile: returns, inflation, taxes and
-/// when a plan works.
-struct PlanAssumptionTile: Hashable, Identifiable {
-    var title: String
-    /// "A typical year, above inflation".
-    var detail: String
-    var value: String
-    var token: PlanToken
-
-    var id: String { token.id }
-
-    static func tiles(plan: PlanDocument, words: PlanWords) -> [PlanAssumptionTile] {
-        let equity = plan.assumptions.returnAssumption(for: .equity)?.impliedMedianReal ?? 0
-        let bonds = plan.assumptions.returnAssumption(for: .bonds)?.impliedMedianReal ?? 0
-        let wealth = plan.tax.effectiveWealthRate
-        let (numerator, denominator) = PlanResultsText.fraction(plan.simulation.effectiveConfidence.doubleValue)
-        return [
-            PlanAssumptionTile(title: "Shares", detail: "A typical year, above inflation",
-                               value: words.percent(equity), token: .equityReturn),
-            PlanAssumptionTile(title: "Bonds", detail: "A typical year, above inflation",
-                               value: words.percent(bonds), token: .bondsReturn),
-            PlanAssumptionTile(title: "Inflation", detail: "A year",
-                               value: words.percent(plan.assumptions.effectiveInflation), token: .inflation),
-            PlanAssumptionTile(title: "Tax on gains", detail: "On what you sell and earn",
-                               value: plan.tax.investmentRate.map { words.percent($0) } ?? "Not set",
-                               token: .investmentTax),
-            PlanAssumptionTile(title: "Wealth tax", detail: "A year",
-                               value: wealth > 0 ? words.percent(wealth, maxDigits: 2) : "None", token: .wealthTax),
-            PlanAssumptionTile(title: "Your bar", detail: "Futures where the money lasts",
-                               value: "\(numerator) in \(denominator)", token: .confidence),
-        ]
-    }
-}
-
-/// A shared value's tile: its name, value and what it means; it opens the
-/// value's small editor.
-struct PlanAssumptionTileView: View {
-    let tile: PlanAssumptionTile
-    @Binding var plan: PlanDocument
-    var canEdit = true
-    var onOpen: (PlanToken) -> Void = { _ in }
-
-    @State private var showsEditor = false
-
-    var body: some View {
-        let shape = RoundedRectangle(cornerRadius: 12, style: .continuous)
-        Button {
-            showsEditor = true
-        } label: {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(tile.title)
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(Palette.secondaryInk)
-                Text(tile.value)
-                    .font(.title3.weight(.semibold))
-                    .monospacedDigit()
-                    .foregroundStyle(canEdit ? Palette.accent : Palette.ink)
-                Text(tile.detail)
-                    .font(.caption2)
-                    .foregroundStyle(Palette.mutedInk)
-                    .lineLimit(2)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-            .padding(.horizontal, Metrics.m)
-            .padding(.vertical, Metrics.s)
-            .frame(maxWidth: .infinity, minHeight: 64, alignment: .topLeading)
-            .background(Palette.card, in: shape)
-            .overlay { shape.strokeBorder(Palette.border, lineWidth: 1) }
-            .contentShape(shape)
-        }
-        .buttonStyle(.plain)
-        .disabled(!canEdit)
-        .accessibilityElement(children: .combine)
-        .popover(isPresented: $showsEditor) {
-            PlanTokenEditor(token: tile.token, plan: $plan, onOpen: onOpen)
         }
     }
 }

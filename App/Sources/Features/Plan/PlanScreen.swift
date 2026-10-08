@@ -6,7 +6,7 @@ import SwiftUI
 ///
 /// - **Plan**: the answer, your life as a strip of chapters with one graph
 ///   running through them, the chosen chapter in words with its settings,
-///   and the assumptions every chapter shares.
+///   and *Assumptions…*, what every chapter shares.
 /// - **Progress**: whether you're on track, and each year as a card on a
 ///   strip that opens at today, with its story below.
 ///

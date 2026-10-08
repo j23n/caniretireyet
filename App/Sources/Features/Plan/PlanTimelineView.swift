@@ -69,9 +69,7 @@ struct PlanTimelineView: View {
                 .padding(.horizontal, gutter)
                 if let plan = session.plan {
                     chapters(plan, binding: $session.editablePlan, state: state, milestones: milestones)
-                    PlanAssumptionsFooter(plan: plan, words: words, isWide: isRoomy, canEdit: session.canEdit,
-                                          onOpen: show, onShowAll: { showsAssumptions = true }, onExport: onExport,
-                                          binding: $session.editablePlan)
+                    PlanAssumptionsFooter(onShowAll: { showsAssumptions = true }, onExport: onExport)
                         .padding(.horizontal, gutter)
                     moreCharts(state.results)
                         .padding(.horizontal, gutter)
@@ -615,66 +613,28 @@ struct PlanChapterDetails: View {
     }
 }
 
-// MARK: - What every chapter assumes
+// MARK: - Assumptions
 
-/// What every chapter shares (UI.md, "Plan"): returns, inflation, taxes
-/// and when a plan works, as tiles that open their editors, in rows of
-/// equal columns; then *All assumptions…*, *Export Calculations…* and the
-/// disclaimer.
+/// Under the chapters (UI.md, "Plan"): *Assumptions…*, the sheet with what
+/// every chapter shares, *Export Calculations…* and the disclaimer.
 struct PlanAssumptionsFooter: View {
-    let plan: PlanDocument
-    let words: PlanWords
-    var isWide = false
-    var canEdit = true
-    var onOpen: (PlanToken) -> Void = { _ in }
     var onShowAll: () -> Void = {}
     var onExport: (() -> Void)?
-    @Binding var binding: PlanDocument
 
     var body: some View {
         VStack(alignment: .leading, spacing: Metrics.s) {
-            HStack(alignment: .firstTextBaseline, spacing: Metrics.m) {
-                Text("Every chapter assumes")
-                    .font(.headline)
-                    .foregroundStyle(Palette.ink)
-                    .accessibilityAddTraits(.isHeader)
-                Spacer(minLength: Metrics.s)
-                if isWide {
-                    buttons
-                }
-            }
-            // Rows of equal columns, three to a row on the Mac and iPad and two on
-            // iPhone: never fitted to a measured width (see ``EqualColumns``).
-            let tiles = PlanAssumptionTile.tiles(plan: plan, words: words)
-            let perRow = isWide ? 3 : 2
-            VStack(alignment: .leading, spacing: Metrics.s) {
-                ForEach(Array(stride(from: 0, to: tiles.count, by: perRow)), id: \.self) { start in
-                    EqualColumns(spacing: Metrics.s) {
-                        ForEach(tiles[start..<min(start + perRow, tiles.count)]) { tile in
-                            PlanAssumptionTileView(tile: tile, plan: $binding, canEdit: canEdit, onOpen: onOpen)
-                        }
-                    }
-                }
-            }
-            if !isWide {
-                HStack(spacing: Metrics.l) {
-                    buttons
+            HStack(spacing: Metrics.l) {
+                Button("Assumptions…", action: onShowAll)
+                    .buttonStyle(.borderless)
+                if let onExport {
+                    Button("Export Calculations…", action: onExport)
+                        .buttonStyle(.borderless)
                 }
             }
             Text(AboutText.disclaimer)
                 .font(.footnote)
                 .foregroundStyle(Palette.mutedInk)
                 .fixedSize(horizontal: false, vertical: true)
-        }
-    }
-
-    @ViewBuilder
-    private var buttons: some View {
-        Button("All assumptions…", action: onShowAll)
-            .buttonStyle(.borderless)
-        if let onExport {
-            Button("Export Calculations…", action: onExport)
-                .buttonStyle(.borderless)
         }
     }
 }

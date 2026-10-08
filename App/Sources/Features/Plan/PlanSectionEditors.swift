@@ -2,7 +2,7 @@ import Model
 import Planner
 import SwiftUI
 
-// The editors of the plan's inputs: those of *All assumptions…*'s cards
+// The editors of the plan's inputs: those of *Assumptions…*'s cards
 // (UI.md, "The editors"), and the pieces the chapters edit in place.
 
 /// Which item a sheet edits: its position (the list's count for a new
