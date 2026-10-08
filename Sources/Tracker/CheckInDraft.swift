@@ -139,6 +139,12 @@ public struct CheckInRow: Hashable, Sendable, Identifiable {
         let derived = isTrades ? valuator.valuator.derivedSnapshot(of: account, on: date, previous: previous) : nil
         self.derived = derived
         holdsCash = isTrades ? valuator.valuator.holdsCash(account.id) : true
+        isFlowEdited = existing?.flow != nil
+        enteredFlow = existing?.flow
+        note = existing?.note
+        source = existing?.source
+        isEdited = false
+        resetsFlowOnEdit = false
         if isTrades {
             // The cash typed on the date, else what the trades give; positions only as entered.
             mode = .trades
@@ -153,42 +159,28 @@ public struct CheckInRow: Hashable, Sendable, Identifiable {
                 CheckInPosition(instrument: position.instrument, previous: derived?.position(for: position.instrument),
                                 quantity: position.quantity, enteredCostBasis: position.costBasis)
             }
-            isFlowEdited = existing?.flow != nil
-            enteredFlow = existing?.flow
-            note = existing?.note
-            source = existing?.source
-            isEdited = false
-            resetsFlowOnEdit = false
-            if let existing, let flow = existing.flow {
-                resetsFlowOnEdit = valuator.valuator.defaultFlow(for: existing, previous: previous) == flow
-            }
-            return
-        }
-        let filled = existing ?? previous
-        let mode = Self.mode(of: filled) ?? account.valuationMode
-        self.mode = mode
-        state = existing == nil ? .notReviewed : .updated
-        balance = mode == .balance ? filled?.balance : nil
-        cash = mode == .holdings ? filled?.cash : nil
-        positions = []
-        isFlowEdited = existing?.flow != nil
-        enteredFlow = existing?.flow
-        note = existing?.note
-        source = existing?.source
-        isEdited = false
-        resetsFlowOnEdit = false
-        if mode == .holdings {
-            for position in filled?.positions ?? [] {
-                let before = previous?.position(for: position.instrument)
-                positions.append(CheckInPosition(
-                    instrument: position.instrument, previous: before, quantity: position.quantity,
-                    paid: existing == nil ? nil : Self.paid(for: position, previous: before),
-                    enteredCostBasis: existing == nil ? nil : position.costBasis))
-            }
-            for position in previous?.positions ?? [] where self.position(for: position.instrument) == nil {
-                positions.append(CheckInPosition(instrument: position.instrument, previous: position, quantity: 0))
+        } else {
+            let filled = existing ?? previous
+            let mode = Self.mode(of: filled) ?? account.valuationMode
+            self.mode = mode
+            state = existing == nil ? .notReviewed : .updated
+            balance = mode == .balance ? filled?.balance : nil
+            cash = mode == .holdings ? filled?.cash : nil
+            positions = []
+            if mode == .holdings {
+                for position in filled?.positions ?? [] {
+                    let before = previous?.position(for: position.instrument)
+                    positions.append(CheckInPosition(
+                        instrument: position.instrument, previous: before, quantity: position.quantity,
+                        paid: existing == nil ? nil : Self.paid(for: position, previous: before),
+                        enteredCostBasis: existing == nil ? nil : position.costBasis))
+                }
+                for position in previous?.positions ?? [] where self.position(for: position.instrument) == nil {
+                    positions.append(CheckInPosition(instrument: position.instrument, previous: position, quantity: 0))
+                }
             }
         }
+        // A trades row's positions have nothing paid, and its default flow doesn't use it.
         if let existing, let flow = existing.flow {
             resetsFlowOnEdit = valuator.valuator.defaultFlow(for: existing, previous: previous, paid: paid) == flow
         }
@@ -409,20 +401,15 @@ public struct CheckInRow: Hashable, Sendable, Identifiable {
             balance = nil
             cash = derived.cash
             positions = []
-            isFlowEdited = false
-            enteredFlow = nil
-            resetsFlowOnEdit = false
-            source = nil
-            state = .unchanged
-            return true
+        } else {
+            guard let previous, let mode = Self.mode(of: previous) else { return false }
+            self.mode = mode
+            balance = mode == .balance ? previous.balance : nil
+            cash = mode == .holdings ? previous.cash : nil
+            positions = mode == .holdings
+                ? previous.positions.map { CheckInPosition(instrument: $0.instrument, previous: $0, quantity: $0.quantity) }
+                : []
         }
-        guard let previous, let mode = Self.mode(of: previous) else { return false }
-        self.mode = mode
-        balance = mode == .balance ? previous.balance : nil
-        cash = mode == .holdings ? previous.cash : nil
-        positions = mode == .holdings
-            ? previous.positions.map { CheckInPosition(instrument: $0.instrument, previous: $0, quantity: $0.quantity) }
-            : []
         isFlowEdited = false
         enteredFlow = nil
         resetsFlowOnEdit = false
