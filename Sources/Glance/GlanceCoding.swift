@@ -224,20 +224,18 @@ extension AnswerPoint: Codable {
 
 extension CheckInGlance: Codable {
     enum CodingKeys: String, CodingKey {
-        case last, next, dueWindow
+        case last, next
     }
 
     public init(from decoder: any Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         last = try c.decodeIfPresent(CalendarDate.self, forKey: .last)
         next = try c.decode(CalendarDate.self, forKey: .next)
-        dueWindow = try c.decodeIfPresent(Int.self, forKey: .dueWindow) ?? 3
     }
 
     public func encode(to encoder: any Encoder) throws {
         var c = encoder.container(keyedBy: CodingKeys.self)
         try c.encodeIfPresent(last, forKey: .last)
         try c.encode(next, forKey: .next)
-        try c.encode(dueWindow, forKey: .dueWindow)
     }
 }

@@ -320,19 +320,32 @@ public struct AnswerMove: Hashable, Sendable {
 // MARK: - Check-in
 
 /// When the next check-in is due (UI.md, "Navigation": once a month, at the
-/// month's end).
+/// month's end), for the app's check-in accessory and the widgets alike.
 public struct CheckInGlance: Hashable, Sendable {
+    /// How many days before ``next`` a check-in counts as due.
+    public static let dueWindow = 3
+    /// A check-in this many days or more before its month's end still
+    /// leaves that month end due.
+    public static let earlyCheckInDays = 7
+
     /// The latest check-in; `nil` before the first.
     public var last: CalendarDate?
     /// The month end the next check-in is for.
     public var next: CalendarDate
-    /// How many days before ``next`` it counts as due.
-    public var dueWindow: Int
 
-    public init(last: CalendarDate?, next: CalendarDate, dueWindow: Int) {
+    public init(last: CalendarDate?, next: CalendarDate) {
         self.last = last
         self.next = next
-        self.dueWindow = dueWindow
+    }
+
+    /// The next check-in after one on `last`: the following month's end, or
+    /// that month's own if the check-in was early in the month
+    /// (``earlyCheckInDays``). Before the first check-in, `today`.
+    public init(last: CalendarDate?, today: CalendarDate) {
+        let next = last.map { last in
+            last.days(to: last.endOfMonth) >= Self.earlyCheckInDays ? last.endOfMonth : last.yearMonth.next.lastDay
+        }
+        self.init(last: last, next: next ?? today)
     }
 
     /// Days from `today` to ``next``; negative once it has passed.
@@ -343,7 +356,7 @@ public struct CheckInGlance: Hashable, Sendable {
     /// Whether it's time to check in on `today`: within ``dueWindow`` days of
     /// ``next``, or after it, or there hasn't been one.
     public func isDue(on today: CalendarDate) -> Bool {
-        last == nil || daysUntilDue(on: today) <= dueWindow
+        last == nil || daysUntilDue(on: today) <= Self.dueWindow
     }
 
     /// How much of the time from the last check-in to the next has passed

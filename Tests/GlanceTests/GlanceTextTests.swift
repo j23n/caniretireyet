@@ -34,7 +34,7 @@ struct RetirementCountdownTests {
 }
 
 struct CheckInGlanceTests {
-    let checkIn = CheckInGlance(last: "2026-09-30", next: "2026-10-31", dueWindow: 3)
+    let checkIn = CheckInGlance(last: "2026-09-30", next: "2026-10-31")
 
     @Test func countsTheDaysToTheNextCheckIn() {
         #expect(checkIn.daysUntilDue(on: "2026-10-05") == 26)
@@ -48,11 +48,23 @@ struct CheckInGlanceTests {
         #expect(abs(checkIn.elapsed(on: "2026-10-05") - 5.0 / 31) < 1e-12)
         #expect(checkIn.elapsed(on: "2026-09-01") == 0)
         #expect(checkIn.elapsed(on: "2026-12-01") == 1)
-        #expect(CheckInGlance(last: nil, next: "2026-10-05", dueWindow: 3).elapsed(on: "2026-10-05") == 1)
+        #expect(CheckInGlance(last: nil, next: "2026-10-05").elapsed(on: "2026-10-05") == 1)
     }
 
     @Test func theFirstCheckInIsAlwaysDue() {
-        #expect(CheckInGlance(last: nil, next: "2026-10-05", dueWindow: 3).isDue(on: "2026-09-01"))
+        #expect(CheckInGlance(last: nil, next: "2026-10-05").isDue(on: "2026-09-01"))
+        #expect(CheckInGlance(last: nil, today: "2026-10-05").next == "2026-10-05")
+    }
+
+    @Test func theNextCheckInIsAMonthEndAfterTheLast() {
+        // At a month's end: the next month's end.
+        #expect(CheckInGlance(last: "2026-09-30", today: "2026-10-05").next == "2026-10-31")
+        // A week or more before its month's end: that month's end.
+        #expect(CheckInGlance(last: "2026-10-03", today: "2026-10-05").next == "2026-10-31")
+        #expect(CheckInGlance(last: "2026-10-24", today: "2026-10-25").next == "2026-10-31")
+        // Later in the month: the next month's end.
+        #expect(CheckInGlance(last: "2026-10-25", today: "2026-10-26").next == "2026-11-30")
+        #expect(CheckInGlance(last: "2026-10-25", today: "2026-10-26").last == "2026-10-25")
     }
 }
 

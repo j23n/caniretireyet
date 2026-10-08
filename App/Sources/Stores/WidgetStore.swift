@@ -48,9 +48,7 @@ final class WidgetStore {
     /// recorded at a check-in, as on the Overview.
     func snapshot(today: CalendarDate = .today()) -> GlanceSnapshot? {
         guard library.phase == .ready else { return nil }
-        let last = library.latestCheckIn
-        let checkIn = CheckInGlance(last: last, next: last.map(CheckInSchedule.nextCheckIn(after:)) ?? today,
-                                    dueWindow: CheckInSchedule.dueWindow)
+        let checkIn = CheckInGlance(last: library.latestCheckIn, today: today)
         let answer = library.settings.mainPlan.flatMap { plans.latestResults(of: $0) }
             .map { RetirementAnswer($0.headline) }
         // Net worth today, as the Overview has it.

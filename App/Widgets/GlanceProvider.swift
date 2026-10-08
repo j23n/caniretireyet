@@ -84,7 +84,7 @@ extension GlanceSnapshot {
                                      thisYear: 0.142, history: history),
             allocation: allocation,
             retirement: RetirementGlance(answer: answer, history: answers),
-            checkIn: CheckInGlance(last: last, next: today.endOfMonth, dueWindow: 3),
+            checkIn: CheckInGlance(last: last, next: today.endOfMonth),
             milestone: MilestoneGlance(kind: .roundAmount, amount: 400_000, progress: 0.78,
                                        typically: today.adding(months: 20)))
     }

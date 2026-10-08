@@ -5,7 +5,7 @@ import Testing
 import TestSupport
 import Tracker
 
-private let checkIn = CheckInGlance(last: "2026-09-30", next: "2026-10-31", dueWindow: 3)
+private let checkIn = CheckInGlance(last: "2026-09-30", next: "2026-10-31")
 
 /// The snapshot of the example library, as of its latest check-in.
 struct ExampleLibraryGlanceTests {
@@ -183,7 +183,7 @@ struct GlanceSnapshotTests {
     @Test func aNewLibraryHasOnlyItsCheckIn() {
         let library = Library(settings: LibrarySettings(baseCurrency: .usd))
         let today: CalendarDate = "2026-10-05"
-        let checkIn = CheckInGlance(last: nil, next: today, dueWindow: 3)
+        let checkIn = CheckInGlance(last: nil, today: today)
         let snapshot = GlanceSnapshot(library: library, valuator: Valuator(library: library), asOf: today,
                                       answer: nil, checkIn: checkIn)
         #expect(snapshot.currency == .usd)
@@ -195,7 +195,7 @@ struct GlanceSnapshotTests {
 
     @Test func aNewerFormatIsSkipped() throws {
         var snapshot = GlanceSnapshot(currency: .eur, netWorth: nil, allocation: [], retirement: nil,
-                                      checkIn: CheckInGlance(last: nil, next: "2026-10-31", dueWindow: 3))
+                                      checkIn: CheckInGlance(last: nil, next: "2026-10-31"))
         snapshot.version = GlanceSnapshot.currentVersion + 1
         #expect(GlanceFile.snapshot(from: try GlanceFile.data(for: snapshot)) == nil)
         #expect(GlanceFile.snapshot(from: Data("not json".utf8)) == nil)
@@ -206,14 +206,13 @@ struct GlanceSnapshotTests {
         let snapshot = try #require(GlanceFile.snapshot(from: Data(json.utf8)))
         #expect(snapshot.allocation.isEmpty)
         #expect(snapshot.netWorth == nil)
-        #expect(snapshot.checkIn.dueWindow == 3)
     }
 
     @Test func theNextMilestoneRoundTripsAndOlderSnapshotsHaveNone() throws {
         let milestone = MilestoneGlance(kind: .shareOfNeeded, amount: 333_333, share: d("0.3333"), progress: 0.88,
                                         typically: "2028-02-29")
         let snapshot = GlanceSnapshot(currency: .eur, netWorth: nil, allocation: [], retirement: nil,
-                                      checkIn: CheckInGlance(last: nil, next: "2026-10-31", dueWindow: 3),
+                                      checkIn: CheckInGlance(last: nil, next: "2026-10-31"),
                                       milestone: milestone)
         let data = try GlanceFile.data(for: snapshot)
         #expect(GlanceFile.snapshot(from: data)?.milestone == milestone)

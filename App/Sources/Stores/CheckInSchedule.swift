@@ -1,4 +1,5 @@
 import Foundation
+import Glance
 import Model
 import Tracker
 
@@ -43,31 +44,15 @@ struct CheckInStatus: Hashable, Sendable {
     }
 }
 
-/// When check-ins are due: once a month, at the month's end.
+/// When check-ins are due: once a month, at the month's end, as the widgets
+/// have it (Glance's `CheckInGlance`).
 enum CheckInSchedule {
-    /// How many days before the next check-in's date it counts as due.
-    static let dueWindow = 3
-
-    /// A check-in this many days or more before its month's end still
-    /// leaves that month end due.
-    static let earlyCheckInDays = 7
-
-    /// The month end the next check-in is for, after one on `lastCheckIn`:
-    /// the following month's end, or this month's if the check-in was early
-    /// in the month.
-    static func nextCheckIn(after lastCheckIn: CalendarDate) -> CalendarDate {
-        lastCheckIn.days(to: lastCheckIn.endOfMonth) >= earlyCheckInDays
-            ? lastCheckIn.endOfMonth
-            : lastCheckIn.yearMonth.next.lastDay
-    }
-
     /// The status on `today`, given the latest check-in and a draft.
     static func status(today: CalendarDate, lastCheckIn: CalendarDate?, draft: CheckInDraft? = nil) -> CheckInStatus {
-        let next = lastCheckIn.map(nextCheckIn(after:)) ?? today
-        let days = today.days(to: next)
+        let schedule = CheckInGlance(last: lastCheckIn, today: today)
         return CheckInStatus(
-            lastCheckIn: lastCheckIn, nextCheckIn: next, daysUntilDue: days,
-            isDue: lastCheckIn == nil || days <= dueWindow, draftDate: draft?.date,
+            lastCheckIn: lastCheckIn, nextCheckIn: schedule.next, daysUntilDue: schedule.daysUntilDue(on: today),
+            isDue: schedule.isDue(on: today), draftDate: draft?.date,
             draftReviewed: draft?.reviewedCount ?? 0, draftTotal: draft?.progressTotal ?? 0)
     }
 }
