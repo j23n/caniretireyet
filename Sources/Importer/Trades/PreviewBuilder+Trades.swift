@@ -123,7 +123,7 @@ extension PreviewBuilder {
             var currency = numbers[.price]?.currency
             if let column = columns[.currency], !row[column].isEmpty {
                 let text = row[column]
-                if let code = CurrencyMarkers.currency(in: text) ?? Self.currencyCode(text) {
+                if let code = CurrencyMarkers.code(inCell: text) {
                     currency = code
                 } else {
                     fail(row.number, column, text, .unknownCurrency(text))
@@ -152,12 +152,6 @@ extension PreviewBuilder {
                 cells: cells.sorted()))
         }
         readTradeTypes(columns)
-    }
-
-    /// An ISO code written in a currency column, e.g. `usd`.
-    private static func currencyCode(_ text: String) -> CurrencyCode? {
-        let code = CurrencyCode(text.uppercased())
-        return code.isWellFormed ? code : nil
     }
 
     /// Whether an amount column writes signed amounts: as its format says,
@@ -298,10 +292,6 @@ extension PreviewBuilder {
         let columns = tradeColumns
         let signedAmounts = tradeSigns.amount
         let signedGross = tradeSigns.gross
-        var accounts = library.accounts
-        for proposal in accountProposals { accounts[proposal.account.id] = proposal.account }
-        var instruments = library.instruments
-        for proposal in instrumentProposals { instruments[proposal.instrument.id] = proposal.instrument }
         let amountCurrency = columns[.amount].flatMap(columnCurrency)
         let grossCurrency = columns[.gross].flatMap(columnCurrency)
 

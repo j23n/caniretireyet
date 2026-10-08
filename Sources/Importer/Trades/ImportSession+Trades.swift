@@ -34,7 +34,7 @@ extension ImportSession {
     /// The trade type a value of the type column is read as, and why: the
     /// profile's `tradeTypes`, else the default words, else nothing.
     public func tradeType(for value: String) -> (type: TradeType?, source: TradeTypeValue.Source) {
-        if let type = TradeTypeWords.lookup(value, in: profile.tradeTypes) { return (type, .profile) }
+        if let type = TextTools.lookup(value, in: profile.tradeTypes) { return (type, .profile) }
         if let type = TradeTypeWords.suggestion(for: value) { return (type, .suggested) }
         return (nil, .unmapped)
     }
@@ -78,25 +78,20 @@ extension ImportSession {
     /// or a quantity column with negative values (sells), next to a
     /// quantity or price column.
     public var looksLikeTransactions: Bool {
-        Self.transactionsEvidence(detection.columns, table: table) != nil
-    }
-
-    /// The type column (or `0` when the quantities' signs are the only
-    /// evidence), if the file looks like transactions.
-    static func transactionsEvidence(_ columns: [ColumnAnalysis], table: ImportTable) -> Int? {
+        let columns = detection.columns
         let numbers = columns.filter { $0.kind == .number }
-        let hasQuantity = numbers.contains { Keywords.header(tradeHeader($0.header), has: Keywords.quantity) }
-        let hasPrice = numbers.contains { Keywords.header(tradeHeader($0.header), has: Keywords.price) }
-        guard hasQuantity || hasPrice else { return nil }
-        if let column = typeColumn(columns, table: table) { return column }
+        let hasQuantity = numbers.contains { Keywords.header(Self.tradeHeader($0.header), has: Keywords.quantity) }
+        let hasPrice = numbers.contains { Keywords.header(Self.tradeHeader($0.header), has: Keywords.price) }
+        guard hasQuantity || hasPrice else { return false }
+        if Self.typeColumn(columns, table: table) != nil { return true }
         // No type column: sells written as negative quantities (Degiro), next to prices.
-        guard hasQuantity, hasPrice else { return nil }
-        for analysis in numbers where Keywords.header(tradeHeader(analysis.header), has: Keywords.quantity) {
+        guard hasQuantity, hasPrice else { return false }
+        for analysis in numbers where Keywords.header(Self.tradeHeader(analysis.header), has: Keywords.quantity) {
             let parser = NumberParser(format: analysis.number ?? ImportNumberFormat())
             let values = table.values(inColumn: analysis.column).compactMap { try? parser.parse($0.text).get().value }
-            if values.contains(where: { $0 < 0 }), values.contains(where: { $0 > 0 }) { return 0 }
+            if values.contains(where: { $0 < 0 }), values.contains(where: { $0 > 0 }) { return true }
         }
-        return nil
+        return false
     }
 
     /// The text column most of whose values are trade types (at least half,

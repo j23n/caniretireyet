@@ -168,7 +168,7 @@ struct NameMatcher {
     /// A remembered or existing account for `name`, without drafting one.
     func existingAccount(named name: String) -> (AccountID, NameMatch.Method)? {
         for candidate in Self.candidates(name) {
-            if let id = Self.lookup(candidate, in: matches.accounts) { return (id, .remembered) }
+            if let id = TextTools.lookup(candidate, in: matches.accounts) { return (id, .remembered) }
         }
         for candidate in Self.candidates(name) {
             let folded = TextTools.fold(candidate), slug = Slug.make(from: candidate)
@@ -184,7 +184,7 @@ struct NameMatcher {
     /// A remembered or existing instrument for `name`, without drafting one.
     func existingInstrument(named name: String) -> (InstrumentID, NameMatch.Method)? {
         for candidate in Self.candidates(name) {
-            if let id = Self.lookup(candidate, in: matches.instruments) { return (id, .remembered) }
+            if let id = TextTools.lookup(candidate, in: matches.instruments) { return (id, .remembered) }
         }
         let instruments = library.instruments.values.sorted { $0.id < $1.id }
         for candidate in Self.candidates(name) {
@@ -271,13 +271,6 @@ struct NameMatcher {
         let cleaned = Keywords.name(fromHeader: trimmed)
         return cleaned == trimmed ? [trimmed] : [trimmed, cleaned]
     }
-
-    /// A remembered match: the exact name first, then ignoring case and accents.
-    static func lookup<ID>(_ name: String, in remembered: [String: ID]) -> ID? {
-        if let id = remembered[name] { return id }
-        let folded = TextTools.fold(name)
-        return remembered.keys.sorted().first { TextTools.fold($0) == folded }.flatMap { remembered[$0] }
-    }
 }
 
 /// What the file says about an account the library doesn't have yet.
@@ -299,14 +292,10 @@ struct AccountDraft: Hashable {
         self.name = name
     }
 
-    /// The most common currency of its amounts.
-    func currency(baseCurrency: CurrencyCode) -> CurrencyCode {
-        currencies.max { ($0.value, $1.key) < ($1.value, $0.key) }?.key ?? baseCurrency
-    }
-
+    /// The account to propose, in the most common currency of its amounts.
     func account(baseCurrency: CurrencyCode, opened: CalendarDate, instrumentKinds: [InstrumentKind]) -> Account {
         Account(id: id, name: name, kind: suggestedKind(instrumentKinds: instrumentKinds),
-                currency: currency(baseCurrency: baseCurrency), opened: opened,
+                currency: currencies.mostCommon(or: baseCurrency), opened: opened,
                 valuation: recordsTrades ? .trades : nil)
     }
 
@@ -343,7 +332,7 @@ struct InstrumentDraft: Hashable {
     func instrument(baseCurrency: CurrencyCode) -> Instrument {
         let words = TextTools.words(name)
         let kind = Keywords.instrumentKinds.first { TextTools.contains(words, anyOf: $0.1) }?.0 ?? .other
-        let currency = currencies.max { ($0.value, $1.key) < ($1.value, $0.key) }?.key ?? baseCurrency
+        let currency = currencies.mostCommon(or: baseCurrency)
         let compact = name.filter { !$0.isWhitespace }
         let isISIN = compact.count == 12 && compact.prefix(2).allSatisfy { $0.isUppercase && $0.isLetter }
             && compact.allSatisfy { $0.isASCII && ($0.isLetter || $0.isNumber) }
@@ -365,5 +354,12 @@ struct InstrumentDraft: Hashable {
         return Instrument(id: id, name: name, kind: kind, currency: currency, unit: unit,
                           assetClasses: .single(assetClass), isin: isin ?? (isISIN ? compact : nil),
                           ticker: ticker ?? (isTicker ? name : nil))
+    }
+}
+
+private extension Dictionary where Key == CurrencyCode, Value == Int {
+    /// The currency counted most often (of as many, the first in order), else `fallback`.
+    func mostCommon(or fallback: CurrencyCode) -> CurrencyCode {
+        self.max { ($0.value, $1.key) < ($1.value, $0.key) }?.key ?? fallback
     }
 }

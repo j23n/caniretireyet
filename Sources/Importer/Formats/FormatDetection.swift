@@ -112,12 +112,17 @@ public struct FormatDetection: Hashable, Sendable {
         self.columns = columns
         self.ambiguities = ambiguities
 
-        let numberFormats = columns.compactMap { $0.kind == .number ? $0.number : nil }
-            .map { ImportNumberFormat(decimal: $0.decimal, thousands: $0.thousands) }
-        let counts = Dictionary(numberFormats.map { ($0, 1) }, uniquingKeysWith: +)
-        let commonNumber = numberFormats.first { counts[$0] == counts.values.max() }
+        let commonNumber = Self.commonSeparators(columns.compactMap { $0.kind == .number ? $0.number : nil })
         let dateFormat = columns.first { $0.kind == .date }?.date
         defaults = ImportFormat(date: dateFormat, number: commonNumber)
+    }
+
+    /// The decimal and thousands separators most of `formats` have (of as
+    /// many, the first's); `nil` when there are none.
+    static func commonSeparators(_ formats: [ImportNumberFormat]) -> ImportNumberFormat? {
+        let separators = formats.map { ImportNumberFormat(decimal: $0.decimal, thousands: $0.thousands) }
+        let counts = Dictionary(separators.map { ($0, 1) }, uniquingKeysWith: +)
+        return separators.first { counts[$0] == counts.values.max() }
     }
 
     /// The analysis of a 1-based column.

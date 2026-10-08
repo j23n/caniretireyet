@@ -56,6 +56,10 @@ struct PreviewBuilder {
     var issues: [ImportIssue] = []
     var instrumentProposals: [InstrumentProposal] = []
     var accountProposals: [AccountProposal] = []
+    /// The library's accounts and instruments with the proposed ones, once
+    /// they're proposed (``aggregate()``).
+    var accounts: [AccountID: Account] = [:]
+    var instruments: [InstrumentID: Instrument] = [:]
     /// Accounts and dates of value cells that couldn't be read: a broken
     /// cell still means the account had a value then.
     var unreadValues: [(NameRef, CalendarDate)] = []
@@ -239,37 +243,35 @@ struct PreviewBuilder {
                 let needs: [(ImportField, Bool)] = [
                     (.account, [.balance, .cash, .quantity, .costBasis].contains(target) && account == nil),
                     (.instrument, [.quantity, .costBasis, .price].contains(target) && instrument == nil),
-                    (.base, target == .fx && base.value == nil),
-                    (.quote, target == .fx && quote.value == nil),
+                    (.base, target == .fx && base == nil),
+                    (.quote, target == .fx && quote == nil),
                 ]
                 if let missing = needs.first(where: \.1)?.0 {
                     let column = fieldColumns[missing] ?? spec.column
                     fail(row.number, column, row[column], .missingName(missing))
                     continue
                 }
-                if let own = rowCurrency.value, let marked = number.currency, own != marked {
+                if let own = rowCurrency, let marked = number.currency, own != marked {
                     fail(row.number, spec.column, text, .currencyMismatch(expected: own, found: marked))
                     continue
                 }
-                let currency = target == .quantity || target == .fx ? nil : rowCurrency.value ?? number.currency
+                let currency = target == .quantity || target == .fx ? nil : rowCurrency ?? number.currency
                 values.append(ExtractedValue(
                     target: target, date: date, value: number.value, account: account, instrument: instrument,
-                    currency: currency, base: base.value, quote: quote.value,
+                    currency: currency, base: base, quote: quote,
                     cell: ImportCellRef(row: row.number, column: spec.column), raw: text,
                     liabilitySign: spec.liabilitySign))
             }
         }
     }
 
-    /// A currency from a field column's cell, else the constant. `nil` (and
-    /// an error) when the cell isn't a currency.
+    /// A currency from a field column's cell, else the constant (which may
+    /// be `nil`). `nil` (and an error) when the cell isn't a currency.
     private mutating func currencyCell(_ field: ImportField, in row: ImportRow, _ columns: [ImportField: Int],
-                                       constant: CurrencyCode?) -> Box<CurrencyCode?>? {
-        guard let column = columns[field], !row[column].isEmpty else { return Box(constant) }
+                                       constant: CurrencyCode?) -> CurrencyCode?? {
+        guard let column = columns[field], !row[column].isEmpty else { return constant }
         let text = row[column]
-        if let code = CurrencyMarkers.currency(in: text) { return Box(code) }
-        let upper = CurrencyCode(text.uppercased())
-        if upper.isWellFormed { return Box(upper) }
+        if let code = CurrencyMarkers.code(inCell: text) { return code }
         fail(row.number, column, text, .unknownCurrency(text))
         return nil
     }
@@ -340,10 +342,10 @@ struct PreviewBuilder {
         }
         let base = library.settings.baseCurrency
         instrumentProposals = matcher.instrumentProposals(baseCurrency: base)
-        var instruments = library.instruments
+        instruments = library.instruments
         for proposal in instrumentProposals { instruments[proposal.instrument.id] = proposal.instrument }
         accountProposals = matcher.accountProposals(baseCurrency: base, instruments: instruments)
-        var accounts = library.accounts
+        accounts = library.accounts
         for proposal in accountProposals { accounts[proposal.account.id] = proposal.account }
 
         var records: [ImportRecordKey: Accumulator] = [:]
@@ -570,12 +572,6 @@ struct PreviewBuilder {
     private static func isZero(_ valuation: Valuation) -> Bool {
         (valuation.balance ?? 0) == 0 && (valuation.cash ?? 0) == 0 && valuation.positions.allSatisfy { $0.quantity == 0 }
     }
-}
-
-/// A value that may itself be `nil`, for results where `nil` means failure.
-private struct Box<Value> {
-    var value: Value
-    init(_ value: Value) { self.value = value }
 }
 
 /// Which value of a record a cell sets.

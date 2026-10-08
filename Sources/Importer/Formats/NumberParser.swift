@@ -216,6 +216,14 @@ enum CurrencyMarkers {
         return nil
     }
 
+    /// The currency a cell of a currency column names: as ``currency(in:)``
+    /// reads it, else any well-formed ISO code (`sek`); `nil` for neither.
+    static func code(inCell text: String) -> CurrencyCode? {
+        if let code = currency(in: text) { return code }
+        let code = CurrencyCode(text.uppercased())
+        return code.isWellFormed ? code : nil
+    }
+
     /// A currency named in a header, e.g. `Saldo (€)` or `Balance USD`.
     static func currency(inHeader header: String) -> CurrencyCode? {
         for (symbol, code) in symbols where header.contains(symbol) && symbol != "CHF" { return code }

@@ -34,9 +34,7 @@ extension ImportSession {
             return Self.isUsed(mapping) && (mapping.field?.holdsNumbers ?? true)
         }
         let numberFormats = valueColumns.compactMap { effectiveFormat(forColumn: $0).number }
-            .map { ImportNumberFormat(decimal: $0.decimal, thousands: $0.thousands) }
-        let counts = Dictionary(numberFormats.map { ($0, 1) }, uniquingKeysWith: +)
-        if let common = numberFormats.first(where: { counts[$0] == counts.values.max() }) {
+        if let common = FormatDetection.commonSeparators(numberFormats) {
             var number = defaults.number ?? ImportNumberFormat()
             number.decimal = common.decimal
             number.thousands = common.thousands
@@ -94,7 +92,7 @@ extension ImportSession {
         if profile.layout == .trades {
             // The types as read now, so the next file maps them the same way.
             for value in tradeTypeValues {
-                if let type = value.type, TradeTypeWords.lookup(value.value, in: profile.tradeTypes) == nil {
+                if let type = value.type, TextTools.lookup(value.value, in: profile.tradeTypes) == nil {
                     profile.tradeTypes[value.value] = type
                 }
             }

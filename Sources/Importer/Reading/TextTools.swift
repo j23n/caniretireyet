@@ -51,6 +51,14 @@ enum TextTools {
         fold(string).split { !($0.isLetter || $0.isNumber) }.map(String.init)
     }
 
+    /// A text's entry in a map of remembered names or words (a profile's
+    /// matches or trade types): exactly, then ignoring case and accents.
+    static func lookup<Value>(_ text: String, in map: [String: Value]) -> Value? {
+        if let value = map[text] { return value }
+        let folded = fold(text)
+        return map.keys.sorted().first { fold($0) == folded }.flatMap { map[$0] }
+    }
+
     /// Whether `words` contains one of `phrases` (each one or more folded
     /// words separated by spaces) as consecutive whole words.
     static func contains(_ words: [String], anyOf phrases: [String]) -> Bool {

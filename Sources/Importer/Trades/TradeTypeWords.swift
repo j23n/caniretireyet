@@ -64,13 +64,6 @@ public enum TradeTypeWords {
         return charges.count == 1 ? charges.first : nil
     }
 
-    /// A value's entry in a profile's map: exactly, then ignoring case and accents.
-    static func lookup(_ value: String, in map: [String: TradeType]) -> TradeType? {
-        if let type = map[value] { return type }
-        let folded = TextTools.fold(value)
-        return map.keys.sorted().first { TextTools.fold($0) == folded }.flatMap { map[$0] }
-    }
-
     /// The types a type column can be mapped to, in menu order.
     public static let choices: [TradeType] = [
         .buy, .sell, .dividend, .interest, .fee, .tax, .deposit, .withdrawal, .split, .transferIn, .transferOut,
