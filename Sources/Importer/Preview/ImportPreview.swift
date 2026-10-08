@@ -8,51 +8,32 @@ import Model
 /// ``apply(to:)`` then returns the new library.
 public struct ImportPreview: Hashable, Sendable {
     /// Every record the file holds, sorted by key.
-    public var records: [ImportRecordPreview]
+    public var records: [ImportRecordPreview] = []
     /// Cells that couldn't be read, in file order.
-    public var cellErrors: [ImportCellError]
+    public var cellErrors: [ImportCellError] = []
     /// Problems with the mapping or the file as a whole, and notes on how
     /// it was read (``ImportIssue/isNote``).
-    public var issues: [ImportIssue]
+    public var issues: [ImportIssue] = []
     /// Format guesses still to confirm.
-    public var ambiguities: [ImportAmbiguity]
+    public var ambiguities: [ImportAmbiguity] = []
     /// How each name in the file was matched.
-    public var nameMatches: [NameMatch]
+    public var nameMatches: [NameMatch] = []
     /// Accounts to create for names the library doesn't know.
-    public var newAccounts: [AccountProposal]
+    public var newAccounts: [AccountProposal] = []
     /// Instruments to create for names the library doesn't know.
-    public var newInstruments: [InstrumentProposal]
+    public var newInstruments: [InstrumentProposal] = []
     /// Accounts to close, or to open earlier.
-    public var accountChanges: [AccountChangeProposal]
+    public var accountChanges: [AccountChangeProposal] = []
     /// Rows left out: empty, above the header, or footers.
-    public var skippedRows: [SkippedRow]
+    public var skippedRows: [SkippedRow] = []
     /// The policy conflicts started from.
-    public var conflictPolicy: ConflictPolicy
+    public var conflictPolicy: ConflictPolicy = .ask
     /// The first and last dates in the file.
     public var firstDate: CalendarDate?
     public var lastDate: CalendarDate?
     /// Trades layout: the values of the file's type column and the trade
     /// types they're read as.
     public var tradeTypes: [TradeTypeValue] = []
-
-    public init(records: [ImportRecordPreview] = [], cellErrors: [ImportCellError] = [], issues: [ImportIssue] = [],
-                ambiguities: [ImportAmbiguity] = [], nameMatches: [NameMatch] = [],
-                newAccounts: [AccountProposal] = [], newInstruments: [InstrumentProposal] = [],
-                accountChanges: [AccountChangeProposal] = [], skippedRows: [SkippedRow] = [],
-                conflictPolicy: ConflictPolicy = .ask, firstDate: CalendarDate? = nil, lastDate: CalendarDate? = nil) {
-        self.records = records
-        self.cellErrors = cellErrors
-        self.issues = issues
-        self.ambiguities = ambiguities
-        self.nameMatches = nameMatches
-        self.newAccounts = newAccounts
-        self.newInstruments = newInstruments
-        self.accountChanges = accountChanges
-        self.skippedRows = skippedRows
-        self.conflictPolicy = conflictPolicy
-        self.firstDate = firstDate
-        self.lastDate = lastDate
-    }
 
     /// Counts for the summary.
     public var summary: ImportSummary {
@@ -86,13 +67,6 @@ public struct ImportPreview: Hashable, Sendable {
     public var conflicts: [ImportRecordPreview] {
         records.filter { $0.status == .conflict }
     }
-
-    /// Decides every conflict the same way: `overwrite`, `keep`, or `ask` to undecide.
-    public mutating func resolveConflicts(_ resolution: ConflictPolicy) {
-        for index in records.indices where records[index].status == .conflict {
-            records[index].resolution = resolution
-        }
-    }
 }
 
 /// One record of the file compared with the library.
@@ -111,16 +85,6 @@ public struct ImportRecordPreview: Hashable, Sendable, Identifiable {
     /// `overwrite`, `keep`, or `ask` while undecided (then it's kept).
     /// Starts from the profile's policy.
     public var resolution: ConflictPolicy
-
-    public init(imported: ImportedRecord, status: ImportRecordStatus, existing: LibraryRecord?,
-                incoming: LibraryRecord, cells: [ImportCellRef], resolution: ConflictPolicy) {
-        self.imported = imported
-        self.status = status
-        self.existing = existing
-        self.incoming = incoming
-        self.cells = cells
-        self.resolution = resolution
-    }
 
     public var id: ImportRecordKey { imported.key }
 }

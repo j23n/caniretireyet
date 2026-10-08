@@ -95,13 +95,6 @@ public struct ImportCellError: Hashable, Sendable, CustomStringConvertible {
     public var raw: String
     public var problem: ImportProblem
 
-    public init(cell: ImportCellRef, header: String?, raw: String, problem: ImportProblem) {
-        self.cell = cell
-        self.header = header
-        self.raw = raw
-        self.problem = problem
-    }
-
     public var row: Int { cell.row }
     public var column: Int { cell.column }
 

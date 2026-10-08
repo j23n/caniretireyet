@@ -1,21 +1,11 @@
 import Foundation
 import Model
 
-/// A file's text and the encoding it was read with.
-public struct DecodedText: Hashable, Sendable {
-    public var text: String
-    public var encoding: TextEncodingName
-
-    public init(text: String, encoding: TextEncodingName) {
-        self.text = text
-        self.encoding = encoding
-    }
-}
-
 /// Turns a file's bytes into text: UTF-8 with or without a byte-order mark,
 /// UTF-16 (little or big endian), Windows-1252 and ISO-8859-1.
 public enum TextDecoding {
-    /// Decodes `data`, detecting the encoding when `encoding` is `nil`.
+    /// Decodes `data`, detecting the encoding when `encoding` is `nil`:
+    /// the file's text and the encoding it was read with.
     ///
     /// Detection: a byte-order mark decides; otherwise text that looks like
     /// UTF-16 is read as UTF-16, valid UTF-8 as UTF-8, and anything else as
@@ -30,7 +20,8 @@ public enum TextDecoding {
     /// A file that isn't text (an `.xlsx` or `.numbers` spreadsheet, which
     /// is a ZIP archive, a PDF, or NUL bytes outside UTF-16) throws
     /// ``ImportError/binaryFile(_:)`` instead of being read as Windows-1252.
-    public static func decode(_ data: Data, encoding: TextEncodingName? = nil) throws(ImportError) -> DecodedText {
+    public static func decode(_ data: Data, encoding: TextEncodingName? = nil) throws(ImportError)
+        -> (text: String, encoding: TextEncodingName) {
         let bytes = [UInt8](data)
         let name: TextEncodingName
         if let encoding, !hasByteOrderMark(bytes) {
@@ -48,7 +39,7 @@ public enum TextDecoding {
             guard let text = String(validating: bytes[start...], as: UTF8.self) else {
                 throw .invalidText(encoding: name)
             }
-            return DecodedText(text: text, encoding: name)
+            return (text, name)
         case "utf16", "utf16le", "utf16be", "unicode":
             let bigEndian = bytes.starts(with: [0xFE, 0xFF])
                 || (!bytes.starts(with: [0xFF, 0xFE])
@@ -65,23 +56,19 @@ public enum TextDecoding {
             guard let text = String(validating: units, as: UTF16.self) else {
                 throw .invalidText(encoding: name)
             }
-            return DecodedText(text: text, encoding: name)
+            return (text, name)
         case "windows1252", "cp1252":
-            return DecodedText(text: decodeWindows1252(bytes), encoding: name)
+            return (decodeWindows1252(bytes), name)
         case "iso88591", "latin1":
             var scalars = String.UnicodeScalarView()
             scalars.append(contentsOf: bytes.map { Unicode.Scalar($0) })
-            return DecodedText(text: String(scalars), encoding: name)
+            return (String(scalars), name)
         default:
             throw .unsupportedEncoding(name.rawValue)
         }
     }
 
     /// The encoding `decode` would pick for these bytes.
-    public static func detectEncoding(_ data: Data) -> TextEncodingName {
-        detectEncoding([UInt8](data))
-    }
-
     static func detectEncoding(_ bytes: [UInt8]) -> TextEncodingName {
         if bytes.starts(with: utf8BOM) { return .utf8 }
         if bytes.starts(with: [0xFF, 0xFE]) || bytes.starts(with: [0xFE, 0xFF]) { return .utf16 }

@@ -36,13 +36,7 @@ public struct AccountProposal: Hashable, Sendable {
     /// The names in the file it stands for.
     public var names: [String]
     /// Whether applying creates it (default `true`).
-    public var isAccepted: Bool
-
-    public init(account: Account, names: [String], isAccepted: Bool = true) {
-        self.account = account
-        self.names = names
-        self.isAccepted = isAccepted
-    }
+    public var isAccepted = true
 }
 
 /// A new instrument for names the library doesn't know. Edit it before
@@ -50,13 +44,7 @@ public struct AccountProposal: Hashable, Sendable {
 public struct InstrumentProposal: Hashable, Sendable {
     public var instrument: Instrument
     public var names: [String]
-    public var isAccepted: Bool
-
-    public init(instrument: Instrument, names: [String], isAccepted: Bool = true) {
-        self.instrument = instrument
-        self.names = names
-        self.isAccepted = isAccepted
-    }
+    public var isAccepted = true
 }
 
 /// A change to an account's lifecycle that the file suggests.

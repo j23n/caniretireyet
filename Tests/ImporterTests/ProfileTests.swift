@@ -36,8 +36,8 @@ struct ProfileTests {
         let decoded = try JSONDecoder().decode(ImportProfile.self, from: json)
         #expect(decoded == profile)
 
-        let again = try Importer.preview(Samples.data("italian-excel-1252.csv"), profile: decoded,
-                                         library: result.library)
+        let again = try ImportSession(data: Samples.data("italian-excel-1252.csv"), profile: decoded)
+            .preview(against: result.library)
         #expect(again.records.map(\.imported) == preview.records.map(\.imported))
         #expect(again.records.allSatisfy { $0.status == .identical })
         #expect(again.issues.isEmpty)
@@ -136,7 +136,7 @@ struct ProfileTests {
         // Renaming an account doesn't break the next import.
         var renamed = result.library
         renamed.accounts["credit-agricole"]?.name = "CA risparmio"
-        let again = try Importer.preview(Samples.data("long-format.csv"), profile: profile, library: renamed)
+        let again = try ImportSession(data: Samples.data("long-format.csv"), profile: profile).preview(against: renamed)
         #expect(again.newAccounts.isEmpty)
         #expect(again.records.allSatisfy { $0.status == .identical })
     }

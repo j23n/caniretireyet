@@ -244,7 +244,7 @@ extension ImportResult {
     /// The library files the import writes, relative to the library folder.
     var changedPaths: [String] {
         changedMonths.map { LibraryFile.month($0).path } + changedAccounts.map { LibraryFile.account($0).path }
-            + changedInstruments.map { LibraryFile.instrument($0).path }
+            + createdInstruments.map { LibraryFile.instrument($0).path }
     }
 }
 

@@ -21,30 +21,8 @@ public struct ColumnAnalysis: Hashable, Sendable {
     public var date: ImportDateFormat?
     /// The number format that reads the column (number columns).
     public var number: ImportNumberFormat?
-    /// The currency marked in the header or in every marked cell, if one.
-    public var currency: CurrencyCode?
     /// The first few non-empty values.
     public var samples: [String]
-    /// The number of non-empty cells.
-    public var valueCount: Int
-
-    public init(column: Int, header: String?, kind: ColumnKind, date: ImportDateFormat? = nil,
-                number: ImportNumberFormat? = nil, currency: CurrencyCode? = nil, samples: [String] = [],
-                valueCount: Int = 0) {
-        self.column = column
-        self.header = header
-        self.kind = kind
-        self.date = date
-        self.number = number
-        self.currency = currency
-        self.samples = samples
-        self.valueCount = valueCount
-    }
-
-    /// The detected formats as a column `format`.
-    public var format: ImportFormat {
-        ImportFormat(date: date, number: number)
-    }
 }
 
 /// A guess the importer couldn't settle from the file. The UI asks; until
@@ -67,21 +45,11 @@ public struct ImportAmbiguity: Hashable, Sendable, CustomStringConvertible {
     public var header: String?
     /// The readings that fit the values, the one in use first. For a column,
     /// each is a column `format`.
-    public var options: [ImportFormat]
+    public var options: [ImportFormat] = []
     /// For ``Kind/delimiter``: the delimiters, the one in use first.
-    public var delimiters: [String]
+    public var delimiters: [String] = []
     /// Values that read differently depending on the choice.
-    public var examples: [String]
-
-    public init(kind: Kind, column: Int? = nil, header: String? = nil, options: [ImportFormat] = [],
-                delimiters: [String] = [], examples: [String] = []) {
-        self.kind = kind
-        self.column = column
-        self.header = header
-        self.options = options
-        self.delimiters = delimiters
-        self.examples = examples
-    }
+    public var examples: [String] = []
 
     public var description: String {
         let place = header.map { "“\($0)”" } ?? column.map { "column \($0)" } ?? "the file"
@@ -206,7 +174,6 @@ private struct ColumnScan {
     var isExcelSerial = false
     var excelNeedsConfirmation = false
     var percent = false
-    var currency: CurrencyCode?
     var spaceSeparator = " "
     var observedSeparators = Set<Character>()
 
@@ -255,10 +222,7 @@ private struct ColumnScan {
             kind = .text
         }
 
-        if kind == .number, let format = numberGroups.first?.first {
-            let parser = NumberParser(format: format)
-            let found = Set(values.compactMap { try? parser.parse($0).get().currency })
-            currency = found.count == 1 ? found.first : nil
+        if kind == .number {
             for value in values {
                 guard case .success(let parts) = NumberText.split(value) else { continue }
                 for character in parts.core {
@@ -266,7 +230,6 @@ private struct ColumnScan {
                 }
             }
         }
-        if let header, let marked = CurrencyMarkers.currency(inHeader: header) { currency = marked }
     }
 
     /// The candidates that read the most values, grouped by identical
@@ -289,8 +252,7 @@ private struct ColumnScan {
     }
 
     func analysis(decimalHint: String) -> (ColumnAnalysis, ImportAmbiguity?) {
-        var analysis = ColumnAnalysis(column: column, header: header, kind: kind, currency: currency,
-                                      samples: Array(values.prefix(5)), valueCount: values.count)
+        var analysis = ColumnAnalysis(column: column, header: header, kind: kind, samples: Array(values.prefix(5)))
         switch kind {
         case .empty, .text:
             return (analysis, nil)

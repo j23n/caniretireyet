@@ -68,15 +68,15 @@ public struct ImportTable: Hashable, Sendable {
             let number = offset + 1
             if number == header { continue }
             guard let first = cells.first(where: { !$0.isEmpty }) else {
-                skipped.append(SkippedRow(number: number, reason: .empty, cells: cells))
+                skipped.append(SkippedRow(number: number, reason: .empty))
                 continue
             }
             if number < header {
-                skipped.append(SkippedRow(number: number, reason: .aboveHeader, cells: cells))
+                skipped.append(SkippedRow(number: number, reason: .aboveHeader))
             } else {
                 let folded = TextTools.fold(first)
                 if let rule = zip(rules, excludeRows).first(where: { folded.hasPrefix($0.0) })?.1 {
-                    skipped.append(SkippedRow(number: number, reason: .excluded(rule: rule), cells: cells))
+                    skipped.append(SkippedRow(number: number, reason: .excluded(rule: rule)))
                 } else {
                     rows.append(ImportRow(number: number, cells: cells))
                 }
@@ -177,18 +177,10 @@ public struct ImportRow: Hashable, Sendable {
     /// The row's cells, trimmed, one per column.
     public var cells: [String]
 
-    public init(number: Int, cells: [String]) {
-        self.number = number
-        self.cells = cells
-    }
-
     /// The cell in a 1-based column, or `""` past the end of the row.
     public subscript(column: Int) -> String {
         column >= 1 && column <= cells.count ? cells[column - 1] : ""
     }
-
-    /// Whether every cell is empty.
-    public var isEmpty: Bool { cells.allSatisfy(\.isEmpty) }
 }
 
 /// A row the import leaves out, and why.
@@ -205,14 +197,6 @@ public struct SkippedRow: Hashable, Sendable {
     /// The 1-based row number in the file.
     public var number: Int
     public var reason: Reason
-    /// The row's cells, trimmed.
-    public var cells: [String]
-
-    public init(number: Int, reason: Reason, cells: [String]) {
-        self.number = number
-        self.reason = reason
-        self.cells = cells
-    }
 }
 
 /// Quick tests of what a cell holds, used to find the header and the delimiter.

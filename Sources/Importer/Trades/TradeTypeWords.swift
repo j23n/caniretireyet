@@ -103,14 +103,6 @@ public struct TradeTypeValue: Hashable, Sendable, Identifiable {
     /// What the default words suggest, if anything.
     public var suggestion: TradeType?
 
-    public init(value: String, count: Int, type: TradeType?, source: Source, suggestion: TradeType?) {
-        self.value = value
-        self.count = count
-        self.type = type
-        self.source = source
-        self.suggestion = suggestion
-    }
-
     /// Whether its rows are left out on purpose (`ignore`).
     public var isIgnored: Bool { type == TradeTypeWords.ignore }
 

@@ -9,7 +9,8 @@ struct SampleFileTests {
     @Test func italianExcelExportWithTheSavedProfile() throws {
         let library = try Fixtures.exampleLibrary()
         let profile = try #require(library.importProfiles["net-worth-sheet"])
-        let preview = try Importer.preview(Samples.data("italian-excel-1252.csv"), profile: profile, library: library)
+        let preview = try ImportSession(data: Samples.data("italian-excel-1252.csv"), profile: profile)
+            .preview(against: library)
 
         #expect(preview.issues.isEmpty)
         #expect(preview.cellErrors.isEmpty)
@@ -61,7 +62,6 @@ struct SampleFileTests {
         #expect(session.table.encoding == .utf8)
         #expect(session.detection.column(1)?.date?.pattern == "MM/dd/yyyy")
         #expect(session.detection.column(2)?.number == ImportNumberFormat(decimal: ".", thousands: ","))
-        #expect(session.detection.column(2)?.currency == .usd)
         let fx = try #require(session.mapping(forColumn: 5))
         #expect(fx.target == .fx)
         #expect(fx.base == .eur)
@@ -83,7 +83,6 @@ struct SampleFileTests {
         #expect(session.table.headerRow == 2)
         #expect(session.detection.column(1)?.date?.pattern == "d MMM yyyy")
         #expect(session.detection.column(2)?.number == ImportNumberFormat(decimal: ",", thousands: "\u{00A0}"))
-        #expect(session.detection.column(2)?.currency == .eur)
         #expect(session.detection.column(4)?.number?.percent == true)
         #expect(session.mapping(forColumn: 4)?.target == .ignore)
 

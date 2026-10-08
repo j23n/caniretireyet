@@ -73,15 +73,6 @@ public enum LibraryRecord: Hashable, Sendable {
     case price(PriceRecord)
     case fx(FXRecord)
     case trade(Trade)
-
-    public var key: ImportRecordKey {
-        switch self {
-        case .valuation(let record): .valuation(record.key)
-        case .price(let record): .price(record.key)
-        case .fx(let record): .fx(record.key)
-        case .trade(let record): .trade(record.key)
-        }
-    }
 }
 
 /// A position's values from the file. Either can be missing: a file can
@@ -129,16 +120,10 @@ public struct ImportedRecord: Hashable, Sendable {
     /// How the balance's column signs debts.
     var liabilitySign: LiabilitySign = .auto
 
-    public init(key: ImportRecordKey, balance: Decimal? = nil, cash: Decimal? = nil,
-                positions: [ImportedPosition] = [], price: Decimal? = nil, currency: CurrencyCode? = nil,
-                rate: Decimal? = nil) {
+    /// A record with no values yet.
+    public init(key: ImportRecordKey) {
         self.key = key
-        self.balance = balance
-        self.cash = cash
-        self.positions = positions
-        self.price = price
-        self.currency = currency
-        self.rate = rate
+        positions = []
     }
 
     /// A trade from the file, keyed by its account, date and ID.

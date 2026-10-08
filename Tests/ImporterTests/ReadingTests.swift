@@ -23,7 +23,7 @@ struct TextDecodingTests {
 
     @Test func detectsUTF16WithoutBOM() throws {
         let data = Data(Array("Data;Saldo".utf16).flatMap { [UInt8($0 & 0xFF), UInt8($0 >> 8)] })
-        #expect(TextDecoding.detectEncoding(data) == .utf16)
+        #expect(TextDecoding.detectEncoding([UInt8](data)) == .utf16)
         #expect(try TextDecoding.decode(data).text == "Data;Saldo")
     }
 

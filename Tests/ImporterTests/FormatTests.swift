@@ -208,10 +208,4 @@ struct FormatDetectionTests {
         #expect(unnamed.column(1)?.kind == .date)
         #expect(unnamed.ambiguities.first?.kind == .dateOrNumber)
     }
-
-    @Test func capturesCurrencies() throws {
-        let detection = try detect("Date,Checking,Saldo (€)\n2026-01-31,$10.00,5\n")
-        #expect(detection.column(2)?.currency == .usd)
-        #expect(detection.column(3)?.currency == .eur)
-    }
 }

@@ -67,6 +67,13 @@ extension ImportPreview {
     var statuses: [String: ImportRecordStatus] {
         Dictionary(uniqueKeysWithValues: records.map { ($0.imported.key.description, $0.status) })
     }
+
+    /// Decides every conflict the same way: `overwrite`, `keep`, or `ask` to undecide.
+    mutating func resolveConflicts(_ resolution: ConflictPolicy) {
+        for index in records.indices where records[index].status == .conflict {
+            records[index].resolution = resolution
+        }
+    }
 }
 
 extension ImportRecordKey {

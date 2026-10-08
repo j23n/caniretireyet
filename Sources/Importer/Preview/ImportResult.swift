@@ -1,20 +1,18 @@
 import Model
 
-/// The outcome of applying an import: the new library, and what changed so
-/// the caller can back up and write exactly those files.
+/// The outcome of applying an import: the new library, and what changed.
 public struct ImportResult: Hashable, Sendable {
     /// The library with the import applied.
     public var library: Library
     /// Month files with added or changed records (`history/YYYY/YYYY-MM.json`).
-    public var changedMonths: [YearMonth]
+    public var changedMonths: [YearMonth] = []
     /// Account files created or changed (`accounts/<id>.json`).
-    public var changedAccounts: [AccountID]
-    /// Instrument files created (`instruments/<id>.json`).
-    public var changedInstruments: [InstrumentID]
-    /// Accounts the import created, closed, and instruments it created.
-    public var createdAccounts: [AccountID]
-    public var closedAccounts: [AccountID]
-    public var createdInstruments: [InstrumentID]
+    public var changedAccounts: [AccountID] = []
+    /// Accounts the import created, closed, and instruments it created (the
+    /// instrument files it writes, `instruments/<id>.json`).
+    public var createdAccounts: [AccountID] = []
+    public var closedAccounts: [AccountID] = []
+    public var createdInstruments: [InstrumentID] = []
     /// Accounts the import made record trades (``AccountChangeProposal/Change/recordTrades``).
     public var tradesAccounts: [AccountID] = []
     /// Records added.
@@ -38,21 +36,9 @@ public struct ImportResult: Hashable, Sendable {
     /// sorted by date, then account.
     public var recomputedFlows: [ValuationKey] = []
 
-    public init(library: Library, changedMonths: [YearMonth] = [], changedAccounts: [AccountID] = [],
-                changedInstruments: [InstrumentID] = [], createdAccounts: [AccountID] = [],
-                closedAccounts: [AccountID] = [], createdInstruments: [InstrumentID] = []) {
-        self.library = library
-        self.changedMonths = changedMonths
-        self.changedAccounts = changedAccounts
-        self.changedInstruments = changedInstruments
-        self.createdAccounts = createdAccounts
-        self.closedAccounts = closedAccounts
-        self.createdInstruments = createdInstruments
-    }
-
     /// Whether the import changed anything.
     public var hasChanges: Bool {
-        !changedMonths.isEmpty || !changedAccounts.isEmpty || !changedInstruments.isEmpty
+        !changedMonths.isEmpty || !changedAccounts.isEmpty || !createdInstruments.isEmpty
     }
 
     /// Records the valuations after inserted or changed ones whose flows
@@ -185,7 +171,6 @@ extension ImportPreview {
         result.library = library
         result.changedMonths = changedMonths.sorted()
         result.changedAccounts = changedAccounts.sorted()
-        result.changedInstruments = result.createdInstruments.sorted()
         result.createdAccounts.sort()
         result.createdInstruments.sort()
         result.closedAccounts.sort()

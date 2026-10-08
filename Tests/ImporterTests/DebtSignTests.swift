@@ -209,7 +209,7 @@ struct DebtSignTests {
         #expect(json.contains(#""liabilitySign":"asWritten""#))
         let decoded = try JSONDecoder().decode(ImportProfile.self, from: encoder.encode(profile))
         #expect(decoded == profile)
-        let again = try Importer.preview(Data(positive.utf8), profile: decoded, library: library())
+        let again = try ImportSession(data: Data(positive.utf8), profile: decoded).preview(against: library())
         #expect(again.record(.valuation("mutuo-casa", "2026-02-28"))?.imported.balance == -146_250)
     }
 }
