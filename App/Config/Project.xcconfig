@@ -1,0 +1,14 @@
+// The project's build settings under App/project.yml's own. Your Apple
+// Developer team and bundle identifier go in Local.xcconfig next to this
+// file, which git ignores and XcodeGen never rewrites, so every newly
+// generated project keeps them:
+//
+//   DEVELOPMENT_TEAM = ABCDE12345
+//   APP_BUNDLE_IDENTIFIER = com.yourdomain.caniretireyet
+//
+// Without it the project has no team and the example identifier, as in CI.
+
+DEVELOPMENT_TEAM =
+APP_BUNDLE_IDENTIFIER = com.example.caniretireyet
+
+#include? "Local.xcconfig"

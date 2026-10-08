@@ -21,7 +21,14 @@ You need a Mac with Xcode 26 and an Apple Developer account (for iCloud).
    ```
 
    Run `xcodegen generate` again after pulling changes that add or remove files or change `App/project.yml`: Xcode only sees them in a newly generated project.
-2. **Make it yours.** In `App/project.yml`, set `PRODUCT_BUNDLE_IDENTIFIER` (e.g. `com.<yourdomain>.caniretireyet`) and `DEVELOPMENT_TEAM` (your team ID), then generate again. In Xcode's *Signing & Capabilities*, check that *iCloud → iCloud Documents* lists the container `iCloud.<bundle id>`; the first build with automatic signing registers it.
+2. **Make it yours.** Create `App/Config/Local.xcconfig` with your bundle identifier and Apple Developer team ID (Xcode → Settings → Accounts, or developer.apple.com → Account → Membership), then generate again:
+
+   ```
+   APP_BUNDLE_IDENTIFIER = com.<yourdomain>.caniretireyet
+   DEVELOPMENT_TEAM = ABCDE12345
+   ```
+
+   Git ignores the file and every generated project reads it (`App/Config/Project.xcconfig`), so Xcode doesn't ask for your team after each `xcodegen generate`. In Xcode's *Signing & Capabilities*, check that *iCloud → iCloud Documents* lists the container `iCloud.<bundle id>`; the first build with automatic signing registers it.
 3. **Run it** on the Mac, your iPhone and your iPad: one app covers all three (in Xcode, pick the device as the run destination). Sign in to the same iCloud account with iCloud Drive on. The first launch creates the library (or finds the one the other device created) in iCloud Drive → *Can I Retire Yet*.
 4. **Check the price sources once.** The providers are tested against recorded responses; this checks the live services from your network:
 

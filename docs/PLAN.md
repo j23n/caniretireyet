@@ -252,8 +252,9 @@ The importer works with any spreadsheet or export instead of a fixed layout. Det
   1. Join the **Apple Developer Program**, which is paid. iCloud requires it, and without it apps you install on your iPhone stop working after 7 days.
   2. Install Xcode and XcodeGen (`brew install xcodegen`).
   3. Choose a bundle identifier such as `com.<yourdomain>.caniretireyet`.
-  4. Run `cd App && xcodegen generate`, then open the project.
-  5. In *Signing & Capabilities*, pick your team and enable iCloud → iCloud Documents with the container `iCloud.<bundle id>`.
+  4. Put it and your team ID in `App/Config/Local.xcconfig` (`APP_BUNDLE_IDENTIFIER = …`, `DEVELOPMENT_TEAM = …`), which git ignores and every generated project reads.
+  5. Run `cd App && xcodegen generate`, then open the project.
+  6. In *Signing & Capabilities*, check iCloud → iCloud Documents lists the container `iCloud.<bundle id>`.
 
 ## 6. Milestones
 

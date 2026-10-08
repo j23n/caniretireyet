@@ -10,6 +10,8 @@
 *.xcworkspace/
 xcuserdata/
 DerivedData/
+# Your team and bundle identifier for the app (App/Config/Project.xcconfig)
+App/Config/Local.xcconfig
 
 # Claude Code agent worktrees
 .claude/worktrees/

@@ -8,11 +8,14 @@
 #
 # ┌──────────────────────────────────────────────────────────────────────────┐
 # │ BEFORE YOU RUN IT ON YOUR OWN DEVICES:                                     │
-# │ 1. Change APP_BUNDLE_IDENTIFIER below from com.example.caniretireyet to    │
-# │    your own, e.g. com.<yourdomain>.caniretireyet. The iCloud container     │
-# │    (iCloud.<bundle id>), the widgets' bundle id (<bundle id>.widgets) and  │
-# │    the App Group they share with the app (group.<bundle id>) follow it.    │
-# │ 2. Set DEVELOPMENT_TEAM to your Apple Developer team ID.                   │
+# │ 1. Create Config/Local.xcconfig (git ignores it) with your bundle id and   │
+# │    Apple Developer team ID; every generated project picks them up:         │
+# │      APP_BUNDLE_IDENTIFIER = com.<yourdomain>.caniretireyet                │
+# │      DEVELOPMENT_TEAM = ABCDE12345                                         │
+# │    The iCloud container (iCloud.<bundle id>), the widgets' bundle id       │
+# │    (<bundle id>.widgets) and the App Group they share with the app         │
+# │    (group.<bundle id>) follow the bundle id.                               │
+# │ 2. Generate the project again.                                             │
 # │ 3. In Xcode, Signing & Capabilities: check that iCloud → iCloud Documents  │
 # │    lists the container iCloud.<bundle id>, and that App Groups lists       │
 # │    group.<bundle id> for both the app and CanIRetireYetWidgets.            │
@@ -27,12 +30,16 @@ options:
     iOS: "26.0"
     macOS: "26.0"
 
+# DEVELOPMENT_TEAM and APP_BUNDLE_IDENTIFIER: Config/Project.xcconfig, which
+# reads yours from Config/Local.xcconfig.
+configFiles:
+  Debug: Config/Project.xcconfig
+  Release: Config/Project.xcconfig
+
 settings:
   base:
     SWIFT_VERSION: "6.0"
     SWIFT_STRICT_CONCURRENCY: complete
-    DEVELOPMENT_TEAM: "" # ← your Apple Developer team ID
-    APP_BUNDLE_IDENTIFIER: com.example.caniretireyet # ← change to your own
     # Shared by the app and its widgets: the app writes the widgets' snapshot
     # into the group's container (App/Shared/AppGroup.swift).
     APP_GROUP_IDENTIFIER: group.$(APP_BUNDLE_IDENTIFIER)
