@@ -36,25 +36,17 @@ public struct PlanResult: Hashable, Sendable {
     public var markers: [TimelineMarker]
     /// Warnings found in the plan.
     public var issues: [PlanIssue]
-    /// The currency of every amount: the library's base currency. `nil` only
-    /// in results made without it (previews).
-    public var currency: CurrencyCode?
+    /// The currency of every amount: the library's base currency.
+    public var currency: CurrencyCode
     /// What flexible spending did at `focusAge`; `nil` when the plan
     /// doesn't use it (PLANNER.md, "Flexible spending").
     public var flexibleSpending: FlexibleSpendingSummary?
-
-    /// The success rate at `age`, if it was simulated.
-    public func success(atAge age: Int) -> Double? {
-        successCurve.first { $0.age == age }?.success
-    }
 }
 
 /// The starting point of a plan: the portfolio on the start date.
 public struct PlanStart: Hashable, Sendable {
     /// The check-in the plan starts from.
     public var date: CalendarDate
-    /// Age on `date`.
-    public var age: Int
     /// The value of the accounts the plan includes, exactly as the tracker
     /// computes it, in the base currency.
     public var planAssets: Decimal
@@ -85,16 +77,11 @@ public struct BucketSummary: Hashable, Sendable {
 /// The simulation settings a result was computed with.
 public struct SimulationSettings: Hashable, Sendable {
     public var runs: Int
-    public var seed: UInt64
-    public var confidence: Double
-    public var inflation: Double
     public var endAge: Int
 }
 
 /// The answer to "can I retire yet?".
 public struct PlanAnswer: Hashable, Sendable {
-    /// "Yes" when retiring today reaches the confidence level.
-    public var canRetireNow: Bool
     public var confidence: Double
     /// Age on the start date.
     public var currentAge: Int
@@ -122,6 +109,9 @@ public struct PlanAnswer: Hashable, Sendable {
     /// (``PlannerOptions/solveCoastAge``, ``PlannerOptions/solveWithoutWindfalls``).
     public var agesWithout: [AgeWithout]
 
+    /// "Yes" when retiring today reaches the confidence level.
+    public var canRetireNow: Bool { successIfRetiringNow >= confidence }
+
     /// The coast age: the earliest age reaching the confidence level when
     /// nothing more is saved; `nil` when the run didn't look for it.
     public var coast: AgeWithout? {
@@ -133,10 +123,6 @@ public struct PlanAnswer: Hashable, Sendable {
     public func withoutWindfall(_ index: Int) -> AgeWithout? {
         agesWithout.first { $0.change == .windfall(index: index) }
     }
-
-    /// The plan assets that would make retiring today reach the confidence
-    /// level, in the plan's currency (``AssetsNeeded/amount``).
-    public var assetsNeededToday: Double? { assetsNeeded?.amount }
 
     /// Today's plan assets as a fraction of what retiring today with the
     /// plan's confidence needs (``AssetsNeeded/readiness``): at least 1
@@ -280,11 +266,6 @@ public struct AgeSuccess: Hashable, Sendable {
     public var retirementDate: CalendarDate
     /// The share of runs that never fail.
     public var success: Double
-    /// The number of runs behind `success`.
-    public var runs: Int
-    /// The age each pension starts at with this retirement age, by pension
-    /// ID (`pension-0`, …). Changes between neighbouring ages explain steps.
-    public var pensionStartAges: [String: Int]
 }
 
 /// Plan assets at one year-end: percentiles across runs, and the
@@ -318,7 +299,7 @@ public struct SpendingPercentiles: Hashable, Sendable {
 /// for how long. Levels are shares of the plan's spending (1 is 100%);
 /// a run that fails had its spending forced below the floor, so it counts
 /// as cut, at the lowest level, and below 100% from then on.
-public struct FlexibleSpendingSummary: Hashable, Sendable, Codable {
+public struct FlexibleSpendingSummary: Hashable, Sendable {
     /// The rule as the run read it: the step of a cut or a raise, the
     /// lowest level, and the guardrails (shares of the first retirement
     /// year's withdrawal rate).
@@ -349,27 +330,6 @@ public struct FlexibleSpendingSummary: Hashable, Sendable, Codable {
     public var medianYearsBelow: Int
     public var p90YearsBelow: Int
 
-    public init(cut: Double, floor: Double, upperGuardrail: Double, lowerGuardrail: Double, planSpending: Double,
-                age: Int, runs: Int, retirementYears: Int, shareWithCut: Double, failureRate: Double,
-                medianLowestLevel: Double?, p10LowestLevel: Double?, medianShareBelow: Double, medianYearsBelow: Int,
-                p90YearsBelow: Int) {
-        self.cut = cut
-        self.floor = floor
-        self.upperGuardrail = upperGuardrail
-        self.lowerGuardrail = lowerGuardrail
-        self.planSpending = planSpending
-        self.age = age
-        self.runs = runs
-        self.retirementYears = retirementYears
-        self.shareWithCut = shareWithCut
-        self.failureRate = failureRate
-        self.medianLowestLevel = medianLowestLevel
-        self.p10LowestLevel = p10LowestLevel
-        self.medianShareBelow = medianShareBelow
-        self.medianYearsBelow = medianYearsBelow
-        self.p90YearsBelow = p90YearsBelow
-    }
-
     /// The lowest yearly spending in the median run and a 10th-percentile
     /// run, in the plan's currency: the level times ``planSpending``.
     public var medianLowestSpending: Double? { medianLowestLevel.map { $0 * planSpending } }
@@ -378,9 +338,8 @@ public struct FlexibleSpendingSummary: Hashable, Sendable, Codable {
     public var floorSpending: Double { floor * planSpending }
 }
 
-/// One simulated path, year by year.
+/// One simulated path at ``PlanResult/focusAge``, year by year.
 public struct PathDetail: Hashable, Sendable {
-    public var retirementAge: Int
     /// Where the run failed, if it did.
     public var failure: RunFailure?
     /// The simulated years, up to the plan's end or the year the run failed.
@@ -397,8 +356,7 @@ public struct YearDetail: Hashable, Sendable {
     public var fraction: Double
     /// The share of the simulated part spent working, 0...1.
     public var workingShare: Double
-    /// Plan assets at the start and end of the simulated part.
-    public var startAssets: Double
+    /// Plan assets at the end of the simulated part.
     public var endAssets: Double
     /// Spending (while working and in retirement, with phase factors): the
     /// plan's, or with flexible spending what the run paid (see
@@ -421,7 +379,7 @@ public struct YearDetail: Hashable, Sendable {
     /// year a run fails the level it set out to pay. `nil` otherwise.
     public var spendingLevel: Double?
 
-    public init(year: Int, age: Int, fraction: Double = 1, workingShare: Double = 0, startAssets: Double,
+    public init(year: Int, age: Int, fraction: Double = 1, workingShare: Double = 0,
                 endAssets: Double, spending: Double, expenses: Double = 0, income: [IncomeItem] = [],
                 taxes: [AmountItem] = [], savings: Double = 0,
                 plannedSpending: Double? = nil, spendingLevel: Double? = nil) {
@@ -429,7 +387,6 @@ public struct YearDetail: Hashable, Sendable {
         self.age = age
         self.fraction = fraction
         self.workingShare = workingShare
-        self.startAssets = startAssets
         self.endAssets = endAssets
         self.spending = spending
         self.expenses = expenses
@@ -512,11 +469,8 @@ public enum FailureReason: Hashable, Sendable {
 public struct LockedMoney: Hashable, Sendable {
     /// The accounts' names.
     public var name: String
-    /// What they held.
-    public var value: Double
     /// The age they become available, if it's within the plan.
     public var accessibleFromAge: Int?
-    public var accounts: [AccountID]
 }
 
 /// Why failing runs fail, for "When it fails".
@@ -529,9 +483,8 @@ public struct FailureSummary: Hashable, Sendable {
     public var medianFailureAge: Int?
     /// Failures by age, ascending.
     public var byAge: [AgeCount]
-    /// Failures that happened while money was still locked away.
-    public var bridgeFailures: Int
-    /// Bridge failures by the accounts still locked, most frequent first.
+    /// Failures that happened while money was still locked away, by the
+    /// accounts still locked, most frequent first.
     public var bridges: [BridgeFailure]
 }
 
@@ -576,17 +529,11 @@ public struct TimelineMarker: Hashable, Sendable {
     public var year: Int
     public var age: Int
     public var label: String
-    /// The yearly pension, or the event's amount.
-    public var amount: Double?
-    /// The event's probability, when it's uncertain.
-    public var probability: Double?
 
-    public init(kind: Kind, year: Int, age: Int, label: String, amount: Double? = nil, probability: Double? = nil) {
+    public init(kind: Kind, year: Int, age: Int, label: String) {
         self.kind = kind
         self.year = year
         self.age = age
         self.label = label
-        self.amount = amount
-        self.probability = probability
     }
 }

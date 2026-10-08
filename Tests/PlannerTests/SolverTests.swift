@@ -31,7 +31,7 @@ struct SolverTests {
         #expect(result.answer.earliestDate == "2037-01-01")
         #expect(result.answer.targetAge == 51 && result.answer.successAtTarget == 1)
         #expect(!result.answer.canRetireNow && result.answer.successIfRetiringNow == 0)
-        #expect(result.focusAge == 51 && result.expectedPath.retirementAge == 51)
+        #expect(result.focusAge == 51)
         #expect(result.successCurve.first { $0.age == 51 }?.retirementDate == "2037-01-01")
     }
 
@@ -57,7 +57,7 @@ struct SolverTests {
         var chosen = options
         chosen.focusAge = 55
         let result = try await Sample.run(plan(retire: .earliest), library, options: chosen)
-        #expect(result.focusAge == 55 && result.expectedPath.retirementAge == 55)
+        #expect(result.focusAge == 55)
         #expect(result.answer.earliestAge == 51)
     }
 

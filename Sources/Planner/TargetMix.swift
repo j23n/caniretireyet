@@ -17,11 +17,6 @@ public struct StartingMix: Hashable, Sendable {
     /// from a later age (which keep their own mix) included.
     public var all: [AssetClass: Double]
 
-    /// The value of the money you can draw now.
-    public var accessibleTotal: Double { Self.total(accessible) }
-    /// Every counted account's value.
-    public var allTotal: Double { Self.total(all) }
-
     /// The mix of the money you can draw now, as shares summing to 1; empty without any.
     public var accessibleShares: [AssetClass: Double] { Self.shares(accessible) }
     /// Every counted account's mix, as shares summing to 1; empty without money.
@@ -43,16 +38,6 @@ public struct StartingMix: Hashable, Sendable {
         guard total > 0 else { return [:] }
         return values.filter { $0.value > 0 }.mapValues { $0 / total }
     }
-}
-
-/// A mix rebalanced every year: its expected (mean) yearly real return,
-/// its volatility, and its median (typical) yearly real return, as a
-/// log-normal approximation from the classes' assumptions and correlations
-/// (``Planner/growth(of:assumptions:)``).
-public struct MixGrowth: Hashable, Sendable {
-    public var expectedReturn: Double
-    public var volatility: Double
-    public var medianReturn: Double
 }
 
 extension Planner {
@@ -82,12 +67,13 @@ extension Planner {
 
     /// How `mix` (shares by class; they're scaled to sum to 1) grows when
     /// it's rebalanced every year, under the plan's return assumptions and
-    /// correlations. A class without an assumption counts as 0% with no
-    /// volatility.
-    public static func growth(of mix: [AssetClass: Double], assumptions: PlanAssumptions) -> MixGrowth {
+    /// correlations: its median (typical) yearly real return, a log-normal
+    /// approximation from the mix's expected return and variance. A class
+    /// without an assumption counts as 0% with no volatility.
+    public static func growth(of mix: [AssetClass: Double], assumptions: PlanAssumptions) -> Double {
         let classes = mix.filter { $0.value > 0 }.keys.sorted()
         let total = classes.reduce(0) { $0 + mix[$1]! }
-        guard total > 0 else { return MixGrowth(expectedReturn: 0, volatility: 0, medianReturn: 0) }
+        guard total > 0 else { return 0 }
         var issues: [PlanIssue] = []
         let model = ReturnModel(assumptions: assumptions, heldClasses: classes, issues: &issues)
         let correlations = model.drawIndex.map { i in
@@ -103,8 +89,7 @@ extension Planner {
             }
         }
         variance = max(0, variance)
-        return MixGrowth(expectedReturn: mean, volatility: variance.squareRoot(),
-                         medianReturn: median(expected: mean, variance: variance))
+        return median(expected: mean, variance: variance)
     }
 
     /// The median of a log-normal yearly return with this expected (mean)

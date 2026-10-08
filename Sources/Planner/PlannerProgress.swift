@@ -58,16 +58,6 @@ public struct PlannerProgress: Hashable, Sendable {
         self.ages = ages
         self.runs = runs
     }
-
-    /// The share of the phase that's done, from 0 to 1.
-    public var phaseFraction: Double {
-        total > 0 ? min(1, max(0, Double(completed) / Double(total))) : 0
-    }
-
-    /// Whether this is the run's last update: the result follows.
-    public var isFinished: Bool {
-        phase == .summarising && completed >= total && fraction >= 1
-    }
 }
 
 /// Counts a run's work and hands its progress to a handler: at most once

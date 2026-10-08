@@ -206,7 +206,7 @@ struct FlexibleSpendingTests {
         let spending = try #require(flexible.answer.sustainableSpending)
         let fixedSpending = try #require(fixed.answer.sustainableSpending)
         #expect(spending.age == fixedSpending.age && spending.perYear > fixedSpending.perYear)
-        #expect(spending.success >= flexible.settings.confidence)
+        #expect(spending.success >= flexible.answer.confidence)
         let needed = try #require(flexible.answer.assetsNeeded?.amount)
         let fixedNeeded = try #require(fixed.answer.assetsNeeded?.amount)
         #expect(needed < fixedNeeded)

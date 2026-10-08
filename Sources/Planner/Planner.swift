@@ -169,27 +169,24 @@ public enum Planner {
         }
 
         let answer = PlanAnswer(
-            canRetireNow: successNow >= model.confidence, confidence: model.confidence, currentAge: current,
+            confidence: model.confidence, currentAge: current,
             successIfRetiringNow: successNow, earliestAge: earliest,
             earliestDate: earliest.map { model.retirementDate(forAge: $0) }, targetAge: target,
             successAtTarget: target.flatMap { rates[$0] }, sustainableSpending: sustainable,
             assetsNeeded: assetsNeeded, agesWithout: agesWithout)
 
-        let pensionAges = Dictionary(model.pensions.map { ($0.id, $0.fromAge) }, uniquingKeysWith: { first, _ in first })
         let curve = sortedAges.map { age in
-            AgeSuccess(age: age, retirementDate: model.retirementDate(forAge: age), success: rates[age]!,
-                       runs: model.runs, pensionStartAges: pensionAges)
+            AgeSuccess(age: age, retirementDate: model.retirementDate(forAge: age), success: rates[age]!)
         }
 
         let result = PlanResult(
             plan: plan, engine: engineVersion, planHash: planHash(plan),
-            start: PlanStart(date: model.startDate, age: current, planAssets: model.portfolio.startAssets,
+            start: PlanStart(date: model.startDate, planAssets: model.portfolio.startAssets,
                              accounts: model.portfolio.accounts, buckets: bucketSummaries(model.portfolio)),
-            settings: SimulationSettings(runs: model.runs, seed: model.seed, confidence: model.confidence,
-                                         inflation: model.inflation, endAge: model.endAge),
+            settings: SimulationSettings(runs: model.runs, endAge: model.endAge),
             answer: answer, successCurve: curve, focusAge: focus, fan: fan,
-            expectedPath: PathDetail(retirementAge: focus, failure: expectedOutcome.failure, years: expectedYears),
-            medianPath: PathDetail(retirementAge: focus, failure: medianOutcome.failure, years: medianYears),
+            expectedPath: PathDetail(failure: expectedOutcome.failure, years: expectedYears),
+            medianPath: PathDetail(failure: medianOutcome.failure, years: medianYears),
             failures: failureSummary(outcomes),
             markers: markers(schedule: focusSchedule, model: model),
             issues: unique(issues),
@@ -342,7 +339,6 @@ public enum Planner {
             runs: outcomes.count, failed: failures.count, failureRate: Double(failures.count) / Double(runs),
             medianFailureAge: ages.isEmpty ? nil : ages[(ages.count - 1) / 2],
             byAge: byAge.keys.sorted().map { AgeCount(age: $0, count: byAge[$0]!) },
-            bridgeFailures: bridges.values.reduce(0) { $0 + $1.count },
             bridges: bridges.values.map { bridge in
                 var bridge = bridge
                 bridge.share = Double(bridge.count) / Double(runs)
@@ -376,8 +372,7 @@ public enum Planner {
             guard year > model.startDate.year || pension.fromAge > model.currentAge, year <= model.lastYear else {
                 continue
             }
-            markers.append(TimelineMarker(kind: .pensionStart, year: year, age: pension.fromAge, label: pension.name,
-                                          amount: pension.perYear))
+            markers.append(TimelineMarker(kind: .pensionStart, year: year, age: pension.fromAge, label: pension.name))
         }
         for bucket in model.portfolio.buckets {
             guard let age = bucket.opensAtAge, bucket.value > 0 else { continue }
@@ -387,8 +382,7 @@ public enum Planner {
         }
         for event in model.events {
             markers.append(TimelineMarker(kind: event.isWindfall ? .windfall : .expense, year: event.year,
-                                          age: event.year - model.birthYear, label: event.name, amount: event.amount,
-                                          probability: event.probability < 1 ? event.probability : nil))
+                                          age: event.year - model.birthYear, label: event.name))
         }
         return markers.sorted { ($0.year, $0.kind.rawValue, $0.label) < ($1.year, $1.kind.rawValue, $1.label) }
     }

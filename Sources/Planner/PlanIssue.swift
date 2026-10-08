@@ -42,21 +42,18 @@ public struct PlanIssue: Hashable, Sendable, Codable {
     public var section: PlanSection
     /// The index of the item in a list section (a work phase, a pension, …).
     public var index: Int?
-    /// The calendar year it concerns, if any.
-    public var year: Int?
     /// The field it concerns, e.g. `investmentRate`.
     public var option: String?
     /// The account it concerns, if any.
     public var account: AccountID?
 
     public init(_ severity: Severity, code: String, message: String, section: PlanSection, index: Int? = nil,
-                year: Int? = nil, option: String? = nil, account: AccountID? = nil) {
+                option: String? = nil, account: AccountID? = nil) {
         self.severity = severity
         self.code = code
         self.message = message
         self.section = section
         self.index = index
-        self.year = year
         self.option = option
         self.account = account
     }
@@ -64,15 +61,15 @@ public struct PlanIssue: Hashable, Sendable, Codable {
     public var isError: Bool { severity == .error }
 
     static func error(_ code: String, _ message: String, section: PlanSection, index: Int? = nil,
-                      year: Int? = nil, option: String? = nil, account: AccountID? = nil) -> PlanIssue {
-        PlanIssue(.error, code: code, message: message, section: section, index: index, year: year, option: option,
+                      option: String? = nil, account: AccountID? = nil) -> PlanIssue {
+        PlanIssue(.error, code: code, message: message, section: section, index: index, option: option,
                   account: account)
     }
 
     static func warning(_ code: String, _ message: String, section: PlanSection, index: Int? = nil,
-                        year: Int? = nil, option: String? = nil, account: AccountID? = nil) -> PlanIssue {
-        PlanIssue(.warning, code: code, message: message, section: section, index: index, year: year,
-                  option: option, account: account)
+                        option: String? = nil, account: AccountID? = nil) -> PlanIssue {
+        PlanIssue(.warning, code: code, message: message, section: section, index: index, option: option,
+                  account: account)
     }
 }
 

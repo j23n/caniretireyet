@@ -132,13 +132,14 @@ struct PlanTargetMixModel {
         "Total " + AmountFormat.number(total(mix) * 100, maxDigits: 2, locale: locale) + "%"
     }
 
-    /// A mix rebalanced every year under the plan's assumptions.
-    func growth(of mix: AssetMix) -> MixGrowth {
+    /// The median yearly growth of a mix rebalanced every year under the plan's assumptions.
+    func growth(of mix: AssetMix) -> Double {
         Planner.growth(of: mix.shares.mapValues(\.doubleValue), assumptions: plan.assumptions)
     }
 
-    /// The money you can draw's mix today rebalanced every year; `nil` without any.
-    var todaysGrowth: MixGrowth? {
+    /// The median yearly growth of the money you can draw's mix today, rebalanced every year;
+    /// `nil` without any.
+    var todaysGrowth: Double? {
         let shares = start.accessibleShares
         return shares.isEmpty ? nil : Planner.growth(of: shares, assumptions: plan.assumptions)
     }
@@ -146,10 +147,10 @@ struct PlanTargetMixModel {
     /// "Grows at a median of 2.9% a year, rebalanced every year (today's mix: 1.9%)."
     func growthText(of mix: AssetMix?, comparedWithToday: Bool = false, locale: Locale = .current) -> String? {
         guard let mix, Self.total(mix) > 0 else { return nil }
-        var text = "Grows at a median of " + AmountFormat.percent(growth(of: mix).medianReturn, locale: locale)
+        var text = "Grows at a median of " + AmountFormat.percent(growth(of: mix), locale: locale)
             + " a year, rebalanced every year"
         if comparedWithToday, let today = todaysGrowth {
-            text += " (today's mix: \(AmountFormat.percent(today.medianReturn, locale: locale)))"
+            text += " (today's mix: \(AmountFormat.percent(today, locale: locale)))"
         }
         return text + "."
     }

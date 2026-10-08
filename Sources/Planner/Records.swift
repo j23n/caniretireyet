@@ -18,7 +18,7 @@ extension PlanResult {
     /// reaches the confidence level).
     public var headlineSummary: HeadlineSummary {
         HeadlineSummary(
-            confidence: .rounded(settings.confidence, scale: 3), earliestAge: answer.earliestAge,
+            confidence: .rounded(answer.confidence, scale: 3), earliestAge: answer.earliestAge,
             successAtTarget: answer.successAtTarget.map { .rounded($0, scale: 3) },
             readiness: answer.readiness.map { .roundedDown($0, scale: 2) })
     }

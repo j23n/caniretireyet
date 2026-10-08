@@ -41,7 +41,7 @@ struct AssetsNeededTests {
 
         #expect(needed.outcome == .found)
         #expect(needed.age == 39)
-        let amount = try #require(result.answer.assetsNeededToday)
+        let amount = try #require(needed.amount)
         #expect(amount >= 630_000 - 1 && amount <= 630_000 * (1 + AssetsNeeded.tolerance), "\(amount)")
         #expect(close(needed.scale, amount / 150_000))
         #expect(close(result.answer.readiness, 150_000 / amount))
@@ -112,7 +112,7 @@ struct AssetsNeededTests {
         #expect(needed.outcome == .found)
         #expect(try #require(needed.scale) <= 1)
         #expect(try #require(result.answer.readiness) >= 1)
-        #expect(try #require(result.answer.assetsNeededToday) <= 3_000_000)
+        #expect(try #require(needed.amount) <= 3_000_000)
         #expect(try #require(needed.success) >= 0.9)
         // A recorded 1 or more means retiring today works.
         #expect(try #require(result.headline().readiness) >= 1)
@@ -165,7 +165,7 @@ struct AssetsNeededTests {
         off.solveAssetsNeeded = false
         let result = try await run(plan(), library(400_000), options: off)
         #expect(result.answer.assetsNeeded == nil)
-        #expect(result.answer.readiness == nil && result.answer.assetsNeededToday == nil)
+        #expect(result.answer.readiness == nil)
         #expect(result.headline().readiness == nil)
     }
 

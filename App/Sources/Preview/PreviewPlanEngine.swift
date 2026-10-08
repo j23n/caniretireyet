@@ -86,7 +86,6 @@ struct PreviewPlanEngine: PlanEngine {
             // from outside the plan's accounts less spending, expenses and
             // taxes (negative while drawing down); windfalls are saved too.
             let savings = retired ? pension + received - need - expenses - taxes : saving + received - expenses
-            let startAssets = median
             median = max(0, median * (1 + 0.6 * equity + 0.01) + savings)
             let spread = 0.11 * Double(year - today.year + 1).squareRoot()
             let point = FanPoint(
@@ -105,7 +104,7 @@ struct PreviewPlanEngine: PlanEngine {
             }
             income += windfall.map { IncomeItem(kind: .windfall, id: $0.name, label: $0.name, amount: $0.amount) }
             retiredYears.append(YearDetail(
-                year: year, age: yearAge, startAssets: startAssets, endAssets: median, spending: need,
+                year: year, age: yearAge, endAssets: median, spending: need,
                 expenses: expenses, income: income.filter { $0.amount > 0 },
                 taxes: [
                     AmountItem(id: TaxLine.investment, label: "Tax on investments", amount: withdrawal * 0.05),
@@ -124,13 +123,12 @@ struct PreviewPlanEngine: PlanEngine {
             TimelineMarker(kind: .accessible, year: birth.year + 67, age: 67, label: "Fondo pensione"),
         ]
         timeline += pensions.map {
-            TimelineMarker(kind: .pensionStart, year: birth.year + $0.age, age: $0.age, label: $0.name,
-                           amount: $0.perYear)
+            TimelineMarker(kind: .pensionStart, year: birth.year + $0.age, age: $0.age, label: $0.name)
         }
         timeline += events.flatMap { year, happening in
             happening.map {
                 TimelineMarker(kind: $0.amount > 0 ? .windfall : .expense, year: year, age: year - birth.year,
-                               label: $0.name, amount: $0.amount)
+                               label: $0.name)
             }
         }
         timeline.sort { ($0.year, $0.label) < ($1.year, $1.label) }

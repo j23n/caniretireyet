@@ -39,7 +39,7 @@ struct ExampleLibraryTests {
                                           options: PlannerOptions(mode: .fast(runs: 100), maxRetirementAge: 60,
                                                                   solveSustainableSpending: false))
         #expect(result.issues.filter(\.isError).isEmpty)
-        #expect(result.start.date == "2026-09-30" && result.start.age == 38)
+        #expect(result.start.date == "2026-09-30" && result.answer.currentAge == 38)
         // The plan leaves out the home and the mortgage (PROGRESS.md: 161,505.49).
         #expect(result.start.planAssets.rounded(2) == d("161505.49"))
         #expect(result.start.accounts
@@ -65,7 +65,7 @@ struct ExampleLibraryTests {
         #expect(close(result.expectedPath.years.first?.fraction, 92.0 / 365))
         #expect(result.fan.last?.year == 1988 + 95)
         #expect(result.focusAge == 55)
-        #expect(result.markers.contains { $0.kind == .windfall && $0.label == "Inheritance" && $0.probability == 0.8 })
+        #expect(result.markers.contains { $0.kind == .windfall && $0.label == "Inheritance" })
         #expect(result.markers.contains { $0.kind == .accessible && $0.age == 67 && $0.label == "Fondo pensione" })
         #expect(result.markers.filter { $0.kind == .pensionStart }.map(\.age) == [67, 67])
     }

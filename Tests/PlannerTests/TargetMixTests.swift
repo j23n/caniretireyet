@@ -212,7 +212,6 @@ struct TargetMixTests {
         #expect(mix.date == "2025-12-31" && mix.currency == .eur)
         #expect(mix.accessible == [.equity: 60_000, .cash: 20_000])
         #expect(mix.all == [.equity: 60_000, .cash: 20_000, .bonds: 20_000])
-        #expect(mix.accessibleTotal == 80_000 && mix.allTotal == 100_000)
         #expect(mix.accessibleShares == [.equity: 0.75, .cash: 0.25])
         #expect(mix.allShares == [.equity: 0.6, .cash: 0.2, .bonds: 0.2])
         #expect(mix.classes == [.equity, .bonds, .cash])
@@ -223,12 +222,11 @@ struct TargetMixTests {
             .equity: ReturnAssumption(real: d("0.05"), volatility: d("0.2")),
             .bonds: ReturnAssumption(real: d("0.01"), volatility: 0),
         ])
+        // Half each: a mean of 3% (of 5% and 1%) and a volatility of 10% (half of 20%).
         let growth = Planner.growth(of: [.equity: 0.5, .bonds: 0.5], assumptions: assumptions)
-        #expect(abs(growth.expectedReturn - 0.03) < 1e-12)
-        #expect(abs(growth.volatility - 0.1) < 1e-12)
-        #expect(abs(growth.medianReturn - (1.03 / (1 + 0.01 / (1.03 * 1.03)).squareRoot() - 1)) < 1e-12)
+        #expect(abs(growth - (1.03 / (1 + 0.01 / (1.03 * 1.03)).squareRoot() - 1)) < 1e-12)
         // Scaled to sum to 1; nothing grows nothing.
         #expect(Planner.growth(of: [.equity: 2, .bonds: 2], assumptions: assumptions) == growth)
-        #expect(Planner.growth(of: [:], assumptions: assumptions).medianReturn == 0)
+        #expect(Planner.growth(of: [:], assumptions: assumptions) == 0)
     }
 }

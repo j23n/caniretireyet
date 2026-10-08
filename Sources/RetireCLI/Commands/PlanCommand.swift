@@ -84,8 +84,7 @@ struct PlanCommand: RetireSubcommand {
             throw CLIError(Self.message(for: error, plan: document))
         }
 
-        var report = PlanReport(result: result, currency: result.currency ?? loaded.library.settings.baseCurrency,
-                                fast: fast)
+        var report = PlanReport(result: result, currency: result.currency, fast: fast)
         report.reading = PlanReport.Reading(result.start)
         if years { report.years = PlanReport.YearRow.rows(result.medianPath.years) }
         if let label = saveBaseline?.trimmingCharacters(in: .whitespacesAndNewlines) {

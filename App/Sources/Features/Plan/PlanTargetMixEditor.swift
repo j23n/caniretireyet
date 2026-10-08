@@ -40,7 +40,7 @@ struct PlanTargetMixEditor: View {
                 PlanTargetMixNote(text: PlanTargetMixModel.todaysMixExplanation)
                 if let growth = model.todaysGrowth {
                     PlanTargetMixNote(text: "Today's mix grows at a median of "
-                        + AmountFormat.percent(growth.medianReturn, locale: locale) + " a year, rebalanced every year.")
+                        + AmountFormat.percent(growth, locale: locale) + " a year, rebalanced every year.")
                 }
             }
             PlanTargetMixNote(text: PlanTargetMixModel.wrappersNote)

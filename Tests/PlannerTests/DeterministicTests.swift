@@ -53,7 +53,7 @@ struct DeterministicTests {
         #expect(zip(result.fan.map(\.p50), [20_000.0, 10_000, 0, 0, 0]).allSatisfy { close($0, $1, 1e-9) })
         #expect(result.failures.failed == result.failures.runs)
         #expect(result.failures.medianFailureAge == 63)
-        #expect(result.failures.bridgeFailures == 0)
+        #expect(result.failures.bridges.isEmpty)
     }
 
     @Test func savingThenDrawingDown() async throws {
@@ -202,7 +202,7 @@ struct DeterministicTests {
         #expect(close(first.spending, 9_200))
         #expect(close(result.expectedValue(in: 2026), 90_800))
         #expect(close(result.expectedValue(in: 2027), 54_300))
-        #expect(result.start.date == "2026-09-30" && result.start.age == 60)
+        #expect(result.start.date == "2026-09-30" && result.answer.currentAge == 60)
     }
 
     /// Prices move by the time simulated: a first year of 92 days has 92/365
@@ -234,9 +234,8 @@ struct DeterministicTests {
 
         let failure = try #require(result.expectedPath.failure)
         #expect(failure.year == 2027 && failure.age == 51)
-        #expect(failure.reason == .locked(LockedMoney(name: "fund", value: 500_000, accessibleFromAge: 60,
-                                                      accounts: ["fund"])))
-        #expect(result.failures.bridgeFailures == result.failures.runs)
+        #expect(failure.reason == .locked(LockedMoney(name: "fund", accessibleFromAge: 60)))
+        #expect(result.failures.bridges.map(\.count) == [result.failures.runs])
         #expect(result.failures.bridges.first?.accessibleFromAge == 60)
         #expect(result.markers.contains { $0.kind == .accessible && $0.age == 60 && $0.label == "fund" })
         let bucket = try #require(result.start.buckets.first { $0.availableFromAge == 60 })
@@ -263,8 +262,7 @@ struct DeterministicTests {
         }
         #expect(try await failure(fund: 240_000) == RunFailure(year: 2027, age: 51, reason: .depleted))
         let bridged = try #require(try await failure(fund: 250_000))
-        #expect(bridged.reason == .locked(LockedMoney(name: "fund", value: 250_000, accessibleFromAge: 60,
-                                                      accounts: ["fund"])))
+        #expect(bridged.reason == .locked(LockedMoney(name: "fund", accessibleFromAge: 60)))
     }
 
     @Test func lockedMoneyOpensInTheFirstYearAtThatAge() async throws {
@@ -294,7 +292,7 @@ struct DeterministicTests {
         #expect(year2028.income.contains(IncomeItem(kind: .pension, id: "pension-0", label: "Old job", amount: 12_000)))
         let starts = result.markers.filter { $0.kind == .pensionStart }
         #expect(starts.map(\.label) == ["Old job", "State pension"])
-        #expect(starts.map(\.age) == [62, 67] && starts.map(\.amount) == [12_000, 15_400])
+        #expect(starts.map(\.age) == [62, 67])
         // From 67 the pensions (27,400) exceed spending, and the surplus is invested.
         #expect(close(result.expectedYear(2033)?.savings, 7_400))
     }
@@ -357,7 +355,6 @@ struct DeterministicTests {
         #expect(close(result.expectedYear(2029)?.expenses, 20_000))
         #expect(result.markers.filter { $0.kind == .windfall }.map(\.label) == ["Gift", "Maybe", "Unlikely"])
         #expect(result.markers.filter { $0.kind == .expense }.map(\.label) == ["Roof"])
-        #expect(result.markers.first { $0.label == "Maybe" }?.probability == 0.8)
 
         // Each run draws the uncertain events: about 80% and 20% of runs get them.
         let ends = try #require(result.fan.last)

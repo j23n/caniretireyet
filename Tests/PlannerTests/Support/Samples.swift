@@ -74,6 +74,11 @@ enum Sample {
 }
 
 extension PlanResult {
+    /// The success rate at `age`, if it was simulated.
+    func success(atAge age: Int) -> Double? {
+        successCurve.first { $0.age == age }?.success
+    }
+
     /// The deterministic path's year-end value for a calendar year.
     func expectedValue(in year: Int) -> Double? {
         expectedPath.years.first { $0.year == year }?.endAssets

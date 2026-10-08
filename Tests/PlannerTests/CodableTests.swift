@@ -12,7 +12,7 @@ struct CodableTests {
 
     @Test func issuesReadBackAsTheyWere() throws {
         let issue = PlanIssue(.warning, code: "contributionAfterRetirement", message: "Ends after retirement.",
-                              section: .contributions, index: 1, year: 2040, option: "end", account: "etf-world")
+                              section: .contributions, index: 1, option: "end", account: "etf-world")
         #expect(try roundTrip(issue) == issue)
         let text = try #require(String(data: try JSONEncoder().encode(issue), encoding: .utf8))
         // A section is its name; a severity its word.
@@ -38,13 +38,5 @@ struct CodableTests {
         #expect(try roundTrip(ages) == ages)
         let failures = [AgeCount(age: 81, count: 12), AgeCount(age: 90, count: 40)]
         #expect(try roundTrip(failures) == failures)
-    }
-
-    @Test func flexibleSpendingReadsBackAsItWas() throws {
-        let summary = FlexibleSpendingSummary(
-            cut: 0.1, floor: 0.8, upperGuardrail: 0.8, lowerGuardrail: 1.2, planSpending: 36_000, age: 55,
-            runs: 2_000, retirementYears: 35, shareWithCut: 0.42, failureRate: 0.05, medianLowestLevel: 0.9,
-            p10LowestLevel: nil, medianShareBelow: 0.1, medianYearsBelow: 3, p90YearsBelow: 12)
-        #expect(try roundTrip(summary) == summary)
     }
 }

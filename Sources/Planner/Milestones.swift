@@ -339,7 +339,7 @@ extension MilestoneLadder {
         } else {
             mix = Planner.startingMix(plan: plan, library: library, today: date).accessibleShares
         }
-        let growth = Planner.growth(of: mix, assumptions: plan.assumptions).medianReturn
+        let growth = Planner.growth(of: mix, assumptions: plan.assumptions)
         guard growth >= 0.001 else { return nil }
         return .rounded(saving.doubleValue / growth, scale: 0)
     }

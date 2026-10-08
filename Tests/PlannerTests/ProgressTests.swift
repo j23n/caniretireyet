@@ -208,3 +208,10 @@ struct ProgressTests {
         #expect(!updates.all.contains { $0.isFinished })
     }
 }
+
+extension PlannerProgress {
+    /// Whether this is the run's last update: the result follows.
+    var isFinished: Bool {
+        phase == .summarising && completed >= total && fraction >= 1
+    }
+}

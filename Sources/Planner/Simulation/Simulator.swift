@@ -157,7 +157,7 @@ struct PathSimulator: Sendable {
             let cash = schedule.regularIncome[t] + windfalls.reduce(0) { $0 + $1.amount } - expenses - spending
                 - contributed - wealthTax - incomeTax
             guard cash.isFinite else {
-                return fail(t, reason: .depleted, startAssets: startAssets, spending: spending, paid: 0,
+                return fail(t, reason: .depleted, spending: spending, paid: 0,
                             level: level, retiredSpending: retiredSpending, yearsBelowPlan: yearsBelowPlan,
                             recordValues: recordValues, details: &details)
             }
@@ -189,7 +189,7 @@ struct PathSimulator: Sendable {
             if shortfall > Self.tolerance || !shortfall.isFinite {
                 let reason = shortfall.isFinite
                     ? failureReason(year: t, shortfall: shortfall, spending: planSpending, level: level) : .depleted
-                return fail(t, reason: reason, startAssets: startAssets, spending: spending,
+                return fail(t, reason: reason, spending: spending,
                             paid: spending - shortfall, level: level, retiredSpending: retiredSpending,
                             yearsBelowPlan: yearsBelowPlan, recordValues: recordValues, details: &details)
             }
@@ -214,7 +214,7 @@ struct PathSimulator: Sendable {
 
             let endAssets = total()
             guard endAssets.isFinite else {
-                return fail(t, reason: .depleted, startAssets: startAssets, spending: spending, paid: paid,
+                return fail(t, reason: .depleted, spending: spending, paid: paid,
                             level: level, retiredSpending: retiredSpending, yearsBelowPlan: yearsBelowPlan,
                             recordValues: recordValues, details: &details)
             }
@@ -231,7 +231,7 @@ struct PathSimulator: Sendable {
                 }
                 details!.append(YearDetail(
                     year: frame.year, age: frame.age, fraction: frame.fraction,
-                    workingShare: schedule.workingShare[t], startAssets: startAssets, endAssets: endAssets,
+                    workingShare: schedule.workingShare[t], endAssets: endAssets,
                     spending: paid, expenses: expenses, income: income,
                     taxes: Self.taxLines(investment: gainTax + incomeTax, wealth: wealthTax),
                     savings: contributed + max(0, cash) - sold,
@@ -244,7 +244,7 @@ struct PathSimulator: Sendable {
     }
 
     /// Ends the run as failed in year `t`.
-    private mutating func fail(_ t: Int, reason: FailureReason, startAssets: Double, spending: Double, paid: Double,
+    private mutating func fail(_ t: Int, reason: FailureReason, spending: Double, paid: Double,
                                level: Double, retiredSpending: Double, yearsBelowPlan: Int, recordValues: Bool,
                                details: inout [YearDetail]?) -> RunOutcome {
         let frame = model.frames[t]
@@ -262,7 +262,7 @@ struct PathSimulator: Sendable {
         if details != nil {
             details!.append(YearDetail(
                 year: frame.year, age: frame.age, fraction: frame.fraction, workingShare: schedule.workingShare[t],
-                startAssets: startAssets.isFinite ? startAssets : 0, endAssets: remaining, spending: spending,
+                endAssets: remaining, spending: spending,
                 income: schedule.income[t],
                 plannedSpending: flexible == nil ? nil : schedule.workingSpending[t] + retiredSpending,
                 spendingLevel: flexible != nil && retiredSpending > 0 ? level : nil))
@@ -295,8 +295,7 @@ struct PathSimulator: Sendable {
         }
         guard let bridge else { return .depleted }
         let bucket = start.buckets[bridge.bucket]
-        return .locked(LockedMoney(name: bucket.name, value: value(bridge.bucket), accessibleFromAge: bucket.opensAtAge,
-                                   accounts: bucket.accounts))
+        return .locked(LockedMoney(name: bucket.name, accessibleFromAge: bucket.opensAtAge))
     }
 
     // MARK: - Moving money
