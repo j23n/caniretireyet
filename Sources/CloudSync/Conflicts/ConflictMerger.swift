@@ -6,30 +6,17 @@ import Storage
 public struct ConflictResolution: Hashable, Sendable, Identifiable {
     /// The file's path relative to the library folder.
     public var path: String
-    /// What was merged, in plain words (from `ConflictResolver`).
+    /// What was merged, in plain words (from `ConflictResolver`), and where
+    /// the copies of the versions that differ from the result are (one
+    /// backup each, labelled `conflict`).
     public var summary: String
-    /// How many versions were merged, the current one included.
-    public var versionCount: Int
-    /// Records taken from a version other than the newest.
-    public var recordsAdded: Int
-    /// Records that differed between versions; the newest version's was kept.
-    public var conflictingRecords: [String]
     /// When it was resolved.
     public var resolvedAt: Date
-    /// Copies of the versions that differ from the result (the current file
-    /// it replaced, and the other versions removed), one backup each,
-    /// labelled `conflict`.
-    public var backups: [Backup]
 
-    public init(path: String, summary: String, versionCount: Int, recordsAdded: Int = 0,
-                conflictingRecords: [String] = [], resolvedAt: Date, backups: [Backup] = []) {
+    public init(path: String, summary: String, resolvedAt: Date) {
         self.path = path
         self.summary = summary
-        self.versionCount = versionCount
-        self.recordsAdded = recordsAdded
-        self.conflictingRecords = conflictingRecords
         self.resolvedAt = resolvedAt
-        self.backups = backups
     }
 
     public var id: String { "\(path)@\(resolvedAt.timeIntervalSinceReferenceDate)" }
@@ -120,9 +107,7 @@ public struct ConflictMerger: Sendable {
                 ? " A copy of the version that differs from the result is in \(folders)."
                 : " Copies of the \(backups.count) versions that differ from the result are in \(folders)."
         }
-        return ConflictResolution(
-            path: path, summary: summary, versionCount: candidates.count, recordsAdded: merged.recordsAdded,
-            conflictingRecords: merged.conflictingRecords, resolvedAt: date, backups: backups)
+        return ConflictResolution(path: path, summary: summary, resolvedAt: date)
     }
 
     /// The label of the backups of versions a resolution replaced.

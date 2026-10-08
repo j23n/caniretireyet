@@ -8,16 +8,15 @@ import TestSupport
 /// The actor the app talks to: create, load, save, reload and resolve.
 struct LibrarySyncTests {
     private func sync(_ url: URL, versions: any FileVersionProviding = NoFileVersions()) -> LibrarySync {
-        LibrarySync(location: LibraryLocation(kind: .local, url: url), files: CoordinatedFileAccess(),
-                    versions: versions)
+        LibrarySync(location: LibraryLocation(kind: .local, url: url), versions: versions)
     }
 
     @Test func createsAndLoadsANewLibrary() async throws {
         let folder = try TemporaryFolder()
         let library = sync(folder.url("Library"))
-        #expect(await !library.containsLibrary())
+        #expect(!library.folder.containsLibrary)
         try await library.createLibrary(settings: LibrarySettings(baseCurrency: .chf, taxResidence: .ch))
-        #expect(await library.containsLibrary())
+        #expect(library.folder.containsLibrary)
         let loaded = try await library.load()
         #expect(loaded.library.settings.baseCurrency == .chf)
         #expect(loaded.library.accounts.isEmpty)
@@ -71,9 +70,10 @@ struct LibrarySyncTests {
         versions.add(other, modified: Date(timeIntervalSinceNow: 3600), source: "iPhone", to: folder.url(path))
 
         let library = sync(folder.url, versions: versions)
-        let report = await library.resolveAllConflicts()
+        let report = await library.resolveConflicts(at: [path])
         #expect(report.changedPaths == [path])
-        #expect(report.resolved.first?.conflictingRecords == ["valuations: 2026-08-31 conto-fineco"])
+        #expect(report.resolved.first?.summary.contains("kept the newest version of 1 record changed on both sides")
+            == true)
         let loaded = try await library.load().library
         #expect(loaded.months["2026-08"]?.valuations.first { $0.account == "conto-fineco" }?.balance == d("4600"))
     }

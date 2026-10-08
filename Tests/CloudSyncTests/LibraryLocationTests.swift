@@ -78,7 +78,7 @@ struct LibraryLocationTests {
     @Test func pollingReportsChangedFiles() async throws {
         let folder = try TemporaryFolder.exampleLibrary()
         let watcher = PollingLibraryWatcher(root: folder.url, interval: .milliseconds(50))
-        let changes = watcher.start()
+        let changes = watcher.start(since: nil)
         defer { watcher.stop() }
 
         try await Task.sleep(for: .milliseconds(120))
@@ -94,8 +94,7 @@ struct LibraryLocationTests {
     @MainActor
     @Test func theFirstLookReportsWhatChangedSinceTheLibraryWasLoaded() async throws {
         let folder = try TemporaryFolder.exampleLibrary()
-        let sync = LibrarySync(location: LibraryLocation(kind: .local, url: folder.url), files: CoordinatedFileAccess(),
-                               versions: NoFileVersions())
+        let sync = LibrarySync(location: LibraryLocation(kind: .local, url: folder.url), versions: NoFileVersions())
         let (_, snapshot) = try await sync.loadWithSnapshot()
         #expect(snapshot.files["accounts/casa.json"] != nil)
 

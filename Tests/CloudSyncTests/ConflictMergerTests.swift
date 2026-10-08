@@ -35,9 +35,7 @@ struct ConflictMergerTests {
         let merger = ConflictMerger(folder: LibraryFolder(root: folder.url), versions: versions)
         let resolution = try #require(try merger.resolve(path: monthPath, date: past))
         #expect(resolution.path == monthPath)
-        #expect(resolution.versionCount == 2)
-        #expect(resolution.recordsAdded == 1)
-        #expect(resolution.summary.contains("added 1 record"))
+        #expect(resolution.summary.hasPrefix("Merged 2 versions of \(monthPath): added 1 record"))
         #expect(try versions.unresolvedVersions(of: url).isEmpty)
         #expect(versions.resolved[url.path]?.count == 1)
 
@@ -84,12 +82,11 @@ struct ConflictMergerTests {
         let resolution = try #require(try ConflictMerger(folder: library, versions: versions)
             .resolve(path: path, date: past))
         #expect(try folder.text(path).contains("\"Our home\""))
-        #expect(resolution.backups.count == 2)
-        #expect(resolution.backups.allSatisfy { $0.label == "conflict" && $0.files == [path] })
         #expect(resolution.summary.contains("Copies of the 2 versions that differ from the result are in backups/"))
 
         let backups = try library.backups()
-        #expect(backups.map(\.name) == resolution.backups.map(\.name))
+        #expect(backups.count == 2)
+        #expect(backups.allSatisfy { $0.label == "conflict" && $0.files == [path] })
         let copies = try backups.map { try folder.text("\($0.path)/\(path)") }
         #expect(copies == [original, older])
         #expect(try versions.unresolvedVersions(of: folder.url(path)).isEmpty)
@@ -105,13 +102,15 @@ struct ConflictMergerTests {
         let original = try folder.text(monthPath)
         versions.add(otherSeptember, modified: past, source: "iPhone", to: folder.url(monthPath))
 
-        let resolution = try #require(try ConflictMerger(folder: LibraryFolder(root: folder.url), versions: versions)
+        let library = LibraryFolder(root: folder.url)
+        let resolution = try #require(try ConflictMerger(folder: library, versions: versions)
             .resolve(path: monthPath, date: past))
         // The merge holds the records of both, so it differs from each.
-        #expect(resolution.backups.count == 2)
-        let copies = try resolution.backups.map { try folder.text("\($0.path)/\(monthPath)") }
+        let backups = try library.backups()
+        #expect(backups.count == 2)
+        let copies = try backups.map { try folder.text("\($0.path)/\(monthPath)") }
         #expect(copies == [original, otherSeptember])
-        let folders = resolution.backups.map { $0.path + "/" }.joined(separator: ", ")
+        let folders = backups.map { $0.path + "/" }.joined(separator: ", ")
         #expect(resolution.summary.hasSuffix("are in \(folders)."))
     }
 
@@ -124,7 +123,6 @@ struct ConflictMergerTests {
 
         let library = LibraryFolder(root: folder.url)
         let resolution = try #require(try ConflictMerger(folder: library, versions: versions).resolve(path: path))
-        #expect(resolution.backups.isEmpty)
         #expect(try library.backups().isEmpty)
         #expect(!resolution.summary.contains("backups/"))
     }

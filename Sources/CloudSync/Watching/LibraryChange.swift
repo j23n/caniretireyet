@@ -107,11 +107,6 @@ public struct FolderSnapshot: Hashable, Sendable {
     public var initialChange: LibraryChange {
         LibraryChange(conflictedPaths: files.filter(\.value.hasConflicts).keys.sorted())
     }
-
-    /// The paths of files that aren't downloaded yet, sorted.
-    public var notDownloaded: [String] {
-        files.filter { !$0.value.isDownloaded }.keys.sorted()
-    }
 }
 
 /// Collects changes between flushes, so a burst of file events becomes one

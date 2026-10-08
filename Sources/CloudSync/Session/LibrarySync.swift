@@ -37,11 +37,11 @@ public actor LibrarySync {
     public nonisolated let folder: LibraryFolder
     private let versions: any FileVersionProviding
 
-    /// A library folder at `location` with the given file access and
-    /// version store.
-    public init(location: LibraryLocation, files: any FileAccessing, versions: any FileVersionProviding) {
+    /// A library folder at `location`, read and written with
+    /// `CoordinatedFileAccess`, with the given version store.
+    public init(location: LibraryLocation, versions: any FileVersionProviding) {
         self.location = location
-        self.folder = LibraryFolder(root: location.url, files: files)
+        self.folder = LibraryFolder(root: location.url, files: CoordinatedFileAccess())
         self.versions = versions
     }
 
@@ -49,15 +49,10 @@ public actor LibrarySync {
     /// `CoordinatedFileAccess`, with iCloud's version store when it's in
     /// iCloud Drive.
     public init(location: LibraryLocation) {
-        self.init(location: location, files: CoordinatedFileAccess(), versions: location.makeFileVersions())
+        self.init(location: location, versions: location.makeFileVersions())
     }
 
     // MARK: Library
-
-    /// Whether the folder holds a library (it has a `library.json`).
-    public func containsLibrary() -> Bool {
-        folder.containsLibrary
-    }
 
     /// Creates a new library in the folder (see `LibraryFolder.createLibrary`).
     public func createLibrary(settings: LibrarySettings) throws {
@@ -160,15 +155,5 @@ public actor LibrarySync {
     /// ``ConflictReport/changedPaths`` afterwards.
     public func resolveConflicts(at paths: [String], date: Date = Date()) -> ConflictReport {
         ConflictMerger(folder: folder, versions: versions).resolve(paths: paths, date: date)
-    }
-
-    /// Looks through every watched file for unresolved conflicts and
-    /// resolves them. For launch, before a watcher has reported anything.
-    public func resolveAllConflicts(date: Date = Date()) -> ConflictReport {
-        let paths = ((try? folder.files.listFiles(in: folder.root)) ?? []).filter(LibraryChange.isWatched)
-        let conflicted = paths.filter { path in
-            !((try? versions.unresolvedVersions(of: folder.url(for: path))) ?? []).isEmpty
-        }
-        return resolveConflicts(at: conflicted, date: date)
     }
 }

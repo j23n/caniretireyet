@@ -20,13 +20,6 @@ public protocol LibraryWatching: AnyObject {
     func stop()
 }
 
-extension LibraryWatching {
-    /// Starts watching without a baseline: the first look reports only conflicts.
-    public func start() -> AsyncStream<LibraryChange> {
-        start(since: nil)
-    }
-}
-
 extension LibraryLocation {
     /// A watcher for this location: an `NSMetadataQuery` for iCloud Drive on
     /// Apple platforms, polling otherwise.

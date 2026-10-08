@@ -7,15 +7,11 @@ import Foundation
 /// set the container up), so ``iCloudLibraryURL()`` does it off the calling
 /// thread. Nothing here creates a library; see `LibraryFolder.createLibrary`.
 public struct LibraryLocator: Sendable {
-    /// The iCloud container, e.g. `iCloud.com.example.caniretireyet`; `nil`
-    /// for the first container in the app's entitlements.
-    public var containerIdentifier: String?
     /// The folder a local library lives in. `nil` for
     /// `Application Support/<bundle id>/Library`.
     public var localFolder: URL?
 
-    public init(containerIdentifier: String? = nil, localFolder: URL? = nil) {
-        self.containerIdentifier = containerIdentifier
+    public init(localFolder: URL? = nil) {
         self.localFolder = localFolder
     }
 
@@ -34,19 +30,19 @@ public struct LibraryLocator: Sendable {
         #endif
     }
 
-    /// The library folder in the iCloud container (`…/Documents`), or `nil`
-    /// when iCloud isn't available. Runs off the calling thread, as Apple
-    /// requires. The folder may not exist yet.
+    /// The library folder in the iCloud container (`…/Documents`; the first
+    /// container in the app's entitlements), or `nil` when iCloud isn't
+    /// available. Runs off the calling thread, as Apple requires. The folder
+    /// may not exist yet.
     public func iCloudLibraryURL() async -> URL? {
         #if canImport(Darwin)
         guard isICloudAvailable else {
             LibraryLog.notice("iCloud Drive: not signed in, or iCloud Drive is off")
             return nil
         }
-        let identifier = containerIdentifier
         let started = ContinuousClock.now
         let url = await Task.detached(priority: .userInitiated) {
-            FileManager.default.url(forUbiquityContainerIdentifier: identifier)?
+            FileManager.default.url(forUbiquityContainerIdentifier: nil)?
                 .appendingPathComponent(Self.iCloudFolderName, isDirectory: true)
         }.value
         LibraryLog.notice("iCloud Drive: container \(url == nil ? "not available" : "found") after \(LibraryLog.seconds(.now - started))")

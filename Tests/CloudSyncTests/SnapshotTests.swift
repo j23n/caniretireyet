@@ -49,7 +49,7 @@ struct SnapshotTests {
             "history/2026/2026-09.json": WatchedFileState(modified: t1, isDownloaded: false),
         ])
         #expect(downloading.changes(since: before).isEmpty)
-        #expect(downloading.notDownloaded == ["history/2026/2026-09.json"])
+        #expect(downloading.files["history/2026/2026-09.json"]?.isDownloaded == false)
 
         let downloaded = FolderSnapshot(files: ["history/2026/2026-09.json": WatchedFileState(modified: t1)])
         #expect(downloaded.changes(since: downloading).paths == ["history/2026/2026-09.json"])
@@ -72,8 +72,7 @@ struct SnapshotTests {
         try folder.write("accounts/.directa.json.icloud", "placeholder")
         try folder.write("README.md", "hello")
         let snapshot = FolderSnapshot.scan(folder.url)
-        #expect(Set(snapshot.files.keys) == ["accounts/casa.json", "accounts/directa.json"])
-        #expect(snapshot.notDownloaded == ["accounts/directa.json"])
+        #expect(snapshot.files.mapValues(\.isDownloaded) == ["accounts/casa.json": true, "accounts/directa.json": false])
     }
 
     @Test func batchesChanges() {

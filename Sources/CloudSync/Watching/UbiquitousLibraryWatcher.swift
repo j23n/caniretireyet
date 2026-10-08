@@ -19,7 +19,7 @@ import Storage
 public final class UbiquitousLibraryWatcher: LibraryWatching {
     public let root: URL
     /// How long to wait for more events before reporting a change.
-    public let debounce: Duration
+    static let debounce: Duration = .milliseconds(500)
 
     private let folder: LibraryFolder
     private var query: NSMetadataQuery?
@@ -32,9 +32,8 @@ public final class UbiquitousLibraryWatcher: LibraryWatching {
     private var continuation: AsyncStream<LibraryChange>.Continuation?
     private var requestedDownloads: Set<String> = []
 
-    public init(root: URL, debounce: Duration = .milliseconds(500)) {
+    public init(root: URL) {
         self.root = root
-        self.debounce = debounce
         folder = LibraryFolder(root: root)
     }
 
@@ -151,7 +150,7 @@ public final class UbiquitousLibraryWatcher: LibraryWatching {
 
     private func scheduleFlush() {
         flushTask?.cancel()
-        let debounce = debounce
+        let debounce = Self.debounce
         flushTask = Task { [weak self] in
             try? await Task.sleep(for: debounce)
             guard !Task.isCancelled else { return }
