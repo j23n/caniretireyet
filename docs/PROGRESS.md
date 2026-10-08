@@ -86,7 +86,7 @@ A **baseline** is a projection saved at a point in time (see below). Choosing on
   | Savings | The new money you added, minus what the plan expected you to save (the baseline's `savings` for each year, spread evenly over it) |
   | Markets | What markets did to your money, minus what the baseline expected them to do (its expected change, less its planned saving) |
   | Inflation | What rising prices took from your money's worth in the baseline's money: its change in money of the start date, less its change as it happened. Without an inflation index, part of Other |
-  | Other | Everything else: balance accounts whose changes have no recorded flow, and exchange rates |
+  | Other | Everything else: what an account held when its records start, a balance's change when a missing price or rate keeps its new money from being worked out, and exchange rates |
 
   The split is an approximation, since the four parts affect each other. It answers the useful question, though: am I behind because I saved less, or because markets were bad?
 
@@ -178,6 +178,7 @@ Two kinds of data are needed for the comparisons above.
   | Pension fund, TFR, property, other balance accounts | Asked for: e.g. contributions from the pension fund's statement. If left empty, the flow is unknown: what the main plan pays into the account since the value before (its `contributions`, a yearly amount for the days it covers) counts as new money instead, and the rest as market, so nothing paid in (a home) leaves all of the change to market. An account's first value without a flow, what it held when its records start, counts as "other". |
   | Any account that records trades ([TRADES.md](TRADES.md)) | Worked out, whatever its kind: the deposits and withdrawals recorded since the previous check-in, securities moved in or out at their market value, buys and sales paid from or into another account ([TRADES.md](TRADES.md#paid-from-outside-the-account)), and the **residual**, the cash typed now minus the cash the trades give, as money nobody recorded. Buys, sells, dividends, interest and fees paid from the account's cash aren't new money. |
 
+- A value without a flow, an imported one typically, counts as the check-in would have filled it in: for the kinds it fills in, the whole change of a balance since the value before (for holdings, the changes in quantity and cash); for those it asks about, what the main plan pays in, as above. An account's first value without a flow, what it held when its records start, counts as "other", whatever its kind.
 - Moving money between two tracked accounts cancels out at the portfolio level (−1,000 from the current account, +1,000 into the broker). So the sum of all flows is your actual savings for the period, which is what the plan's savings are compared against.
 
 **Inflation.** Needed to put the actual line in today's money and to compute real returns. The app fetches the library's consumer price index (by default the Eurostat HICP of the tax residence, else of the base currency, and one for each plan's currency) along with FX rates, and stores it in the monthly history files. Past values are public, so this can be filled in later if needed.
