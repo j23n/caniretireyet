@@ -3,6 +3,7 @@ import Foundation
 import Model
 import Storage
 import Testing
+import TestSupport
 
 /// Resolving sync conflicts: every version is read, merged and written, and
 /// the versions are marked resolved.

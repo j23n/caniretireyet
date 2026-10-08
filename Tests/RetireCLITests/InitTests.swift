@@ -2,6 +2,7 @@ import Foundation
 import Model
 import Storage
 import Testing
+import TestSupport
 
 struct InitTests {
     @Test func createsALibraryWithTheSettings() async throws {

@@ -79,55 +79,9 @@ final class TestClock: @unchecked Sendable {
     }
 }
 
-/// A temporary folder for one test, deleted when the value goes away.
-final class TemporaryFolder {
-    let url: URL
-
-    init() throws {
-        url = FileManager.default.temporaryDirectory
-            .appendingPathComponent("RetireCLITests-\(UUID().uuidString)", isDirectory: true)
-        try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
-    }
-
-    /// A temporary copy of the example library.
-    static func exampleLibrary() throws -> TemporaryFolder {
-        let folder = try TemporaryFolder()
-        for path in Fixtures.allJSONFiles {
-            try folder.write(path, Fixtures.data(for: path))
-        }
-        return folder
-    }
-
-    deinit {
-        try? FileManager.default.removeItem(at: url)
-    }
-
-    var path: String { url.path }
-
+/// A temporary folder as a library, read with Storage.
+extension TemporaryFolder {
     var library: LibraryFolder { LibraryFolder(root: url) }
-
-    func url(_ path: String) -> URL {
-        url.appendingPathComponent(path)
-    }
-
-    func write(_ path: String, _ data: Data) throws {
-        let fileURL = url(path)
-        try FileManager.default.createDirectory(at: fileURL.deletingLastPathComponent(),
-                                                withIntermediateDirectories: true)
-        try data.write(to: fileURL)
-    }
-
-    func write(_ path: String, _ text: String) throws {
-        try write(path, Data(text.utf8))
-    }
-
-    func text(_ path: String) throws -> String {
-        String(decoding: try Data(contentsOf: url(path)), as: UTF8.self)
-    }
-
-    func exists(_ path: String) -> Bool {
-        FileManager.default.fileExists(atPath: url(path).path)
-    }
 
     /// Every file, relative and sorted, except those in `backups/`.
     func dataFiles() throws -> [String] {

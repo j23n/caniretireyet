@@ -1,5 +1,6 @@
 import Foundation
 import Testing
+import TestSupport
 
 /// A library written by an earlier version, which imported ledger journals,
 /// with a journal's profile (`"layout": "ledger"`). This version doesn't

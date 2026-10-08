@@ -2,6 +2,7 @@ import CloudSync
 import Foundation
 import Storage
 import Testing
+import TestSupport
 
 /// Coordinated file access, and files iCloud hasn't downloaded yet.
 struct FileAccessTests {

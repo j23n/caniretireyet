@@ -1,5 +1,6 @@
 import Foundation
 import Testing
+import TestSupport
 
 struct NetWorthTests {
     @Test func aVersion1LibraryIsUpgradedFirst() async throws {

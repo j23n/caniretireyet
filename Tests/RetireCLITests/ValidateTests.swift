@@ -1,5 +1,6 @@
 import Foundation
 import Testing
+import TestSupport
 
 struct ValidateTests {
     @Test func theExampleLibraryIsClean() async throws {

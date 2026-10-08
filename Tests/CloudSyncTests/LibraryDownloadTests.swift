@@ -2,6 +2,7 @@ import CloudSync
 import Foundation
 import Storage
 import Testing
+import TestSupport
 
 /// Downloading a library from iCloud Drive before it's read: what's asked
 /// for, the progress, and noticing when nothing moves.

@@ -1,6 +1,7 @@
 import CloudSync
 import Foundation
 import Testing
+import TestSupport
 
 /// What a watcher reports: changes between two looks at the folder.
 struct SnapshotTests {

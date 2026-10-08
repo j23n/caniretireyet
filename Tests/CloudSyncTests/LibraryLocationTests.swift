@@ -2,6 +2,7 @@ import CloudSync
 import Foundation
 import Storage
 import Testing
+import TestSupport
 
 /// Finding and moving the library folder, and watching it.
 struct LibraryLocationTests {
