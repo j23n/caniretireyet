@@ -6,8 +6,6 @@ import Model
 // rates and index months it's missing, fetched a range at a time.
 
 extension PriceService {
-    /// How many history requests run at once.
-    static let pastPriceConcurrency = 4
     /// How many days before the first date wanted a range of FX rates starts:
     /// a long range may come back with a rate a week.
     static let rateLookbackDays = 14
@@ -35,7 +33,9 @@ extension PriceService {
     ///    as it is and isn't fetched.
     /// 3. **Indices.** One request per index, alongside the instruments.
     ///
-    /// Prices are converted into each instrument's currency and unit as in a
+    /// Each history, index and currency waits its turn with the service's
+    /// other fetches (``maxConcurrentFetches`` at once). Prices are
+    /// converted into each instrument's currency and unit as in a
     /// check-in. It never throws: what couldn't be fetched is in the
     /// results, with why, and so are the instruments whose prices are typed
     /// in. `library` supplies the rates for conversions; save the records
@@ -65,28 +65,34 @@ extension PriceService {
         }
 
         // 1 and 3: histories and indices.
-        let steps: [PastPriceStep] = groupOrder.compactMap { groups[$0] }.map { .history($0) }
-            + needs.indices.map { .index($0) }
-        var total = steps.count + needs.rates.count
+        let limit = self.limit
+        let steps = groupOrder.count + needs.indices.count
+        var total = steps + needs.rates.count
         var done = 0
         var histories: [String: FetchedHistory] = [:]
         var indexResults: [PastPriceResult] = []
         var indexRecords: [IndexRecord] = []
-        await Self.run(steps, maxConcurrent: Self.pastPriceConcurrency) { (step: PastPriceStep) -> PastPriceStepOutput in
-            switch step {
-            case .history(let group): .history(await self.fetchHistory(group, today: today))
-            case .index(let need): .index(await self.fetchIndex(need))
+        await withTaskGroup(of: PastPriceStepOutput.self) { tasks in
+            for key in groupOrder {
+                guard let group = groups[key] else { continue }
+                tasks.addTask {
+                    await limit.run { PastPriceStepOutput.history(await self.fetchHistory(group, today: today)) }
+                }
             }
-        } received: { (output: PastPriceStepOutput) in
-            switch output {
-            case .history(let history):
-                histories[history.key] = history
-            case .index(let (result, records)):
-                indexResults.append(result)
-                indexRecords += records
+            for need in needs.indices {
+                tasks.addTask { await limit.run { PastPriceStepOutput.index(await self.fetchIndex(need)) } }
             }
-            done += 1
-            await progress?(PastPriceProgress(done: done, total: total))
+            for await output in tasks {
+                switch output {
+                case .history(let history):
+                    histories[history.key] = history
+                case .index(let (result, records)):
+                    indexResults.append(result)
+                    indexRecords += records
+                }
+                done += 1
+                await progress?(PastPriceProgress(done: done, total: total))
+            }
         }
 
         // The library's own rates for a day, either way round.
@@ -117,15 +123,18 @@ extension PriceService {
             }
         }
         let currencies = rateDates.keys.sorted()
-        let wanted = currencies.map { (currency: $0, dates: rateDates[$0, default: []].sorted()) }
-        total = steps.count + currencies.count
+        total = steps + currencies.count
         var fetchedRates: [CurrencyCode: FetchedRates] = [:]
-        await Self.run(wanted, maxConcurrent: Self.pastPriceConcurrency) { want in
-            await self.fetchRates(base: base, quote: want.currency, dates: want.dates)
-        } received: { rates in
-            fetchedRates[rates.quote] = rates
-            done += 1
-            await progress?(PastPriceProgress(done: done, total: total))
+        await withTaskGroup(of: FetchedRates.self) { tasks in
+            for currency in currencies {
+                let dates = rateDates[currency, default: []].sorted()
+                tasks.addTask { await limit.run { await self.fetchRates(base: base, quote: currency, dates: dates) } }
+            }
+            for await rates in tasks {
+                fetchedRates[rates.quote] = rates
+                done += 1
+                await progress?(PastPriceProgress(done: done, total: total))
+            }
         }
         func rate(_ currency: CurrencyCode, on date: CalendarDate) -> Decimal? {
             if currency == base { return 1 }
@@ -154,7 +163,7 @@ extension PriceService {
             for date in need.dates {
                 guard let quote = history.quotes[date] else { continue }
                 do {
-                    let price = try Self.convert(quote, to: instrument, base: base) { rate($0, on: date) }
+                    let price = try PriceConversion.price(of: quote, for: instrument, base: base) { rate($0, on: date) }
                     let origin = quote.origin ?? ownOrigin
                     prices.append(PriceRecord(instrument: instrument.id, date: date, price: price,
                                               currency: instrument.currency, source: origin.source))
@@ -293,29 +302,6 @@ extension PriceService {
         return result
     }
 
-    /// A quote as a price in the instrument's currency and per its unit,
-    /// converted with `rate` (1 base = rate × currency) and kept to six
-    /// significant digits when converted.
-    static func convert(
-        _ quote: Quote, to instrument: Instrument, base: CurrencyCode, rate: (CurrencyCode) -> Decimal?
-    ) throws(PriceFetchError) -> Decimal {
-        let unit = quote.unit ?? instrument.unit
-        var price = try PriceConversion.price(quote.price, per: unit, to: instrument.unit)
-        if quote.currency != instrument.currency {
-            var rates: [CurrencyCode: Decimal] = [:]
-            for currency in [quote.currency, instrument.currency] where currency != base {
-                guard let value = rate(currency) else {
-                    throw .missingFX(from: quote.currency, to: instrument.currency, reason: nil)
-                }
-                rates[currency] = value
-            }
-            price = try PriceConversion.amount(price, from: quote.currency, to: instrument.currency, base: base,
-                                               rates: rates)
-        }
-        let converted = quote.currency != instrument.currency || unit != instrument.unit
-        return converted ? price.rounded(significantDigits: PriceConversion.significantDigits) : price
-    }
-
     // MARK: - Rates and indices
 
     /// The rates one currency got, by the date they're for.
@@ -356,9 +342,7 @@ extension PriceService {
                     [])
         }
         do {
-            let missing = Set(need.months)
-            let records = try await provider.values(from: first, through: last)
-                .filter { missing.contains($0.date.yearMonth) }
+            let records = try await need.values(among: provider.values(from: first, through: last))
             let origin = QuoteOrigin(source: provider.source, service: provider.name, symbol: need.index.rawValue)
             let reason = records.count < needed.count
                 ? "\(provider.name) has no value for \(needed.count - records.count == 1 ? "1 month" : "\(needed.count - records.count) months") "
@@ -374,39 +358,10 @@ extension PriceService {
                                     reason: Self.fetchError(error, service: provider.name).description), [])
         }
     }
-
-    // MARK: - Running
-
-    /// Runs `work` on each input, at most `maxConcurrent` at a time, and
-    /// hands each output to `received` as it arrives.
-    static func run<Input: Sendable, Output: Sendable>(
-        _ inputs: [Input], maxConcurrent: Int, _ work: @escaping @Sendable (Input) async -> Output,
-        received: (Output) async -> Void
-    ) async {
-        await withTaskGroup(of: Output.self) { group in
-            var next = 0
-            func startNext() {
-                guard next < inputs.count else { return }
-                let input = inputs[next]
-                next += 1
-                group.addTask { await work(input) }
-            }
-            for _ in 0..<max(1, maxConcurrent) { startNext() }
-            for await output in group {
-                await received(output)
-                startNext()
-            }
-        }
-    }
 }
 
-/// One fetch of filling in past prices.
-enum PastPriceStep: Sendable {
-    case history(PriceService.HistoryGroup)
-    case index(CheckInPriceNeeds.IndexMonths)
-}
-
-/// What one ``PastPriceStep`` got.
+/// What one step of filling in past prices got: an instrument's history,
+/// or an index's months.
 enum PastPriceStepOutput: Sendable {
     case history(PriceService.FetchedHistory)
     case index((PastPriceResult, [IndexRecord]))

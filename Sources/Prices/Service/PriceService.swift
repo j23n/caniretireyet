@@ -24,8 +24,9 @@ import Model
 ///
 /// Free APIs allow only a few calls a minute, so at most
 /// ``maxConcurrentFetches`` instruments are fetched at once, across every
-/// fetch of the service and its copies, and CoinGecko, which prices several
-/// coins per call, is asked once for all of a fetch's coins.
+/// fetch of the service and its copies, filling in past prices included,
+/// and CoinGecko, which prices several coins per call, is asked once for all
+/// of a fetch's coins.
 ///
 /// For a date its provider has no price for (gold-api.com only has today's;
 /// CoinGecko's free API only the last year), an instrument's price comes
@@ -45,13 +46,15 @@ public struct PriceService: Sendable {
     let makeIndexProvider: @Sendable (IndexID) -> EurostatIndexProvider?
     public let cache: PriceCache
     let today: @Sendable () -> CalendarDate
-    /// Shared by every instrument fetch (see ``maxConcurrentFetches``).
+    /// Shared by every instrument fetch and every step of filling in past
+    /// prices (see ``maxConcurrentFetches``).
     let limit: FetchLimit
 
     /// The default for ``maxConcurrentFetches``.
     public static let defaultMaxConcurrentFetches = 4
 
-    /// The most instruments whose prices are fetched at once.
+    /// The most instruments whose prices are fetched at once; when filling
+    /// in past prices, the most histories, indices and currencies.
     public var maxConcurrentFetches: Int { limit.limit }
 
     /// A service with the given providers; `makeIndexProvider` makes the
@@ -305,16 +308,17 @@ public struct PriceService: Sendable {
         }
     }
 
-    /// The quote as a price in the instrument's currency and per its unit,
-    /// and the FX rates used to convert it.
+    /// The quote as a price in the instrument's currency and per its unit
+    /// (``PriceConversion/price(of:for:base:rate:)``), and the FX rates
+    /// used to convert it, fetched for the check-in's date.
     private func convert(
         _ quote: Quote, for instrument: Instrument, needs: CheckInPriceNeeds
     ) async throws -> (Decimal, [FXRecord]) {
-        let quoteUnit = quote.unit ?? instrument.unit
-        var price = try PriceConversion.price(quote.price, per: quoteUnit, to: instrument.unit)
+        // The unit first: a price that can't be converted fetches no rates.
+        _ = try PriceConversion.price(quote.price, per: quote.unit ?? instrument.unit, to: instrument.unit)
+        var rates: [CurrencyCode: Decimal] = [:]
         var used: [FXRecord] = []
         if quote.currency != instrument.currency {
-            var rates: [CurrencyCode: Decimal] = [:]
             for currency in [quote.currency, instrument.currency] where currency != needs.baseCurrency {
                 do {
                     let cached = try await rate(base: needs.baseCurrency, quote: currency, date: needs.date)
@@ -326,11 +330,9 @@ public struct PriceService: Sendable {
                     throw PriceFetchError.missingFX(from: quote.currency, to: instrument.currency, reason: reason)
                 }
             }
-            price = try PriceConversion.amount(price, from: quote.currency, to: instrument.currency,
-                                               base: needs.baseCurrency, rates: rates)
         }
-        let converted = quote.currency != instrument.currency || quoteUnit != instrument.unit
-        return (converted ? price.rounded(significantDigits: PriceConversion.significantDigits) : price, used)
+        let price = try PriceConversion.price(of: quote, for: instrument, base: needs.baseCurrency) { rates[$0] }
+        return (price, used)
     }
 
     private func fxPart(quote: CurrencyCode, needs: CheckInPriceNeeds) async -> Part {
@@ -376,8 +378,7 @@ public struct PriceService: Sendable {
             let cached = try await cache.value(for: key) {
                 CachedIndex(records: try await provider.values(from: start, through: last), fetchedAt: Date())
             }
-            let missing = Set(need.months)
-            let records = cached.records.filter { missing.contains($0.date.yearMonth) }
+            let records = need.values(among: cached.records)
             let details = FetchDetails(observedOn: cached.records.map(\.date).max(), fetchedAt: cached.fetchedAt)
             return .index(PriceListEntry(item: item, source: provider.source, outcome: .fetched(details)), records)
         } catch {

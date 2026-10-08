@@ -1,8 +1,8 @@
 /// Lets at most a number of fetches run at once; the others wait their
 /// turn, first come, first served. A ``PriceService`` shares one between
 /// all its fetches (and its copies), so prices fetched for many instruments
-/// at once, in one check-in or one call per instrument, don't hit a free
-/// API's rate limit.
+/// at once, in one check-in, one call per instrument or while past prices
+/// are filled in, don't hit a free API's rate limit.
 actor FetchLimit {
     /// The most fetches that run at once.
     let limit: Int

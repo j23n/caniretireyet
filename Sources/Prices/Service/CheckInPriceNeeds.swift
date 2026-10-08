@@ -102,7 +102,7 @@ public struct CheckInPriceNeeds: Hashable, Sendable {
             date: date, baseCurrency: base, instruments: fetched, manualInstruments: manual,
             unknownInstruments: unknown, currencies: currencies.sorted(),
             indices: (indices ?? library.inflationIndices).map {
-                Self.missingMonths(of: $0, in: library, upTo: date, window: indexWindow)
+                IndexMonths.missing(of: $0, in: library, upTo: date, window: indexWindow)
             })
     }
 
@@ -112,15 +112,21 @@ public struct CheckInPriceNeeds: Hashable, Sendable {
         guard let source else { return false }
         return source.provider.rawValue != "manual" && !source.symbol.isEmpty
     }
+}
 
+extension CheckInPriceNeeds.IndexMonths {
     /// The months without a value for `index`, from the month of the first
-    /// valuation (or of `date`, in a library without any), at most `window`
-    /// months back, to the last month that has ended by `date`.
-    static func missingMonths(of index: IndexID, in library: Library, upTo date: CalendarDate, window: Int) -> IndexMonths {
+    /// valuation through the last month that has ended by `date`. With a
+    /// `window` (a check-in's), at most that many months back, and from
+    /// `date`'s month in a library without any valuation; without one (a
+    /// fill), none in such a library.
+    static func missing(of index: IndexID, in library: Library, upTo date: CalendarDate, window: Int?) -> Self {
         let last = date.isEndOfMonth ? date.yearMonth : date.yearMonth.previous
-        let historyStart = library.checkInDates.first?.yearMonth ?? date.yearMonth
-        let first = max(last.adding(months: -(max(1, window) - 1)), historyStart)
-        guard first <= last else { return IndexMonths(index: index, months: []) }
+        var start = library.checkInDates.first?.yearMonth
+        if let window {
+            start = max(last.adding(months: -(max(1, window) - 1)), start ?? date.yearMonth)
+        }
+        guard let first = start, first <= last else { return Self(index: index, months: []) }
         let recorded = Set(library.indexValues(for: index).map(\.date.yearMonth))
         var months: [YearMonth] = []
         var month = first
@@ -128,6 +134,12 @@ public struct CheckInPriceNeeds: Hashable, Sendable {
             if !recorded.contains(month) { months.append(month) }
             month = month.next
         }
-        return IndexMonths(index: index, months: months)
+        return Self(index: index, months: months)
+    }
+
+    /// Of `records`, the index's values, those of the missing months.
+    func values(among records: [IndexRecord]) -> [IndexRecord] {
+        let missing = Set(months)
+        return records.filter { missing.contains($0.date.yearMonth) }
     }
 }

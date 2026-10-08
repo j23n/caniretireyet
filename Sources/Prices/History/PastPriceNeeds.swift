@@ -170,12 +170,11 @@ public struct PastPriceNeeds: Hashable, Sendable {
             today: today, baseCurrency: base, instruments: fetched, manualInstruments: manual,
             unknownInstruments: unknown,
             rates: rateDates.sorted { $0.key < $1.key }.map { RateDates(quote: $0.key, dates: Array($0.value)) },
-            indices: (indices ?? library.inflationIndices).map { Self.missingMonths(of: $0, in: library, today: today) })
+            indices: (indices ?? library.inflationIndices).map {
+                CheckInPriceNeeds.IndexMonths.missing(of: $0, in: library, upTo: today, window: nil)
+            })
     }
 
-    /// The dates `valuation` is valued on: its own, and the month ends after
-    /// it (from the next month on) before the account's next valuation, up
-    /// to `end`.
     /// The dates a trades account is valued on through `end`, with what it
     /// holds then (quantities not zero): each valuation's date, each date a
     /// transfer or opening is valued at market for its flow, and each month
@@ -204,6 +203,9 @@ public struct PastPriceNeeds: Hashable, Sendable {
         return result
     }
 
+    /// The dates `valuation` is valued on: its own, and the month ends after
+    /// it (from the next month on) before the account's next valuation, up
+    /// to `end`.
     static func dates(of valuation: Valuation, next: CalendarDate?, through end: CalendarDate) -> [CalendarDate] {
         var dates = [valuation.date]
         var month = valuation.date.yearMonth.next
@@ -212,23 +214,6 @@ public struct PastPriceNeeds: Hashable, Sendable {
             month = month.next
         }
         return dates
-    }
-
-    /// The months without a value for `index`, from the month of the first
-    /// valuation through the last month that has ended by `today`.
-    static func missingMonths(of index: IndexID, in library: Library, today: CalendarDate) -> CheckInPriceNeeds.IndexMonths {
-        let last = today.isEndOfMonth ? today.yearMonth : today.yearMonth.previous
-        guard let first = library.checkInDates.first?.yearMonth, first <= last else {
-            return CheckInPriceNeeds.IndexMonths(index: index, months: [])
-        }
-        let recorded = Set(library.indexValues(for: index).map(\.date.yearMonth))
-        var months: [YearMonth] = []
-        var month = first
-        while month <= last {
-            if !recorded.contains(month) { months.append(month) }
-            month = month.next
-        }
-        return CheckInPriceNeeds.IndexMonths(index: index, months: months)
     }
 
     // MARK: - Counts

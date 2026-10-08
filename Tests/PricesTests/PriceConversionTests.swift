@@ -27,24 +27,30 @@ struct PriceConversionTests {
     @Test func currenciesConvertThroughTheBaseCurrency() throws {
         let rates: [CurrencyCode: Decimal] = [.usd: d("1.1398"), .chf: d("0.9312")]
         // USD → EUR: divide by EUR/USD.
-        let eur = try PriceConversion.amount(d("3060.580803"), from: .usd, to: .eur, base: .eur, rates: [.usd: d("1.1398")])
+        let eur = try PriceConversion.amount(d("3060.580803"), from: .usd, to: .eur, base: .eur) { rates[$0] }
         #expect(eur.rounded(scale: 2) == d("2685.19"))
         // EUR → USD: multiply.
-        #expect(try PriceConversion.amount(100, from: .eur, to: .usd, base: .eur, rates: rates) == d("113.98"))
+        #expect(try PriceConversion.amount(100, from: .eur, to: .usd, base: .eur, rate: { rates[$0] }) == d("113.98"))
         // USD → CHF: crossed via EUR.
-        let chf = try PriceConversion.amount(d("113.98"), from: .usd, to: .chf, base: .eur, rates: rates)
+        let chf = try PriceConversion.amount(d("113.98"), from: .usd, to: .chf, base: .eur) { rates[$0] }
         #expect(chf.rounded(scale: 6) == d("93.12"))
         #expect(throws: PriceFetchError.missingFX(from: .gbp, to: .eur, reason: nil)) {
-            try PriceConversion.amount(1, from: .gbp, to: .eur, base: .eur, rates: rates)
+            try PriceConversion.amount(1, from: .gbp, to: .eur, base: .eur) { rates[$0] }
         }
     }
 
     @Test func goldInUSDPerOunceBecomesEURPerGram() throws {
         // 3,488.45 USD/ozt at 1 EUR = 1.1398 USD.
+        let usd: [CurrencyCode: Decimal] = [.usd: d("1.1398")]
         let perGram = try PriceConversion.price(d("3488.45"), per: .troyOunce, to: .gram)
-        let eur = try PriceConversion.amount(perGram, from: .usd, to: .eur, base: .eur, rates: [.usd: d("1.1398")])
+        let eur = try PriceConversion.amount(perGram, from: .usd, to: .eur, base: .eur) { usd[$0] }
         #expect(eur.rounded(significantDigits: 6) == d("98.4"))
         #expect(eur.rounded(scale: 8) == d("98.39995777"))
+        // The same from the quote, kept to six significant digits.
+        let quote = Quote(price: d("3488.45"), currency: .usd, unit: .troyOunce, observedOn: "2026-09-30")
+        let gold = Instrument(id: "gold", name: "Gold", kind: .metal, currency: .eur, unit: .gram,
+                              assetClasses: .single(.gold))
+        #expect(try PriceConversion.price(of: quote, for: gold, base: .eur, rate: { usd[$0] }) == d("98.4"))
     }
 
     @Test func roundingToSignificantDigits() {
