@@ -6,13 +6,15 @@ import Tracker
 // The chosen year in words (UI.md, "Progress"), said once, under the strip:
 // its figures, why it's ahead or behind, and what happened. Everything but
 // what happened keeps its size from year to year, so stepping through the
-// years moves nothing above it; on the Mac and iPad they're columns.
+// years moves nothing above it; on the Mac and iPad they're columns when
+// there's room.
 
 /// The chosen year under the strip (UI.md, "Progress"): its title, change
 /// and where it stands against January, the year in a line, then its
 /// figures, why it's ahead or behind, and what happened. On iPhone one
 /// after the other with *‹ ›* in the title; on the Mac and iPad in
-/// columns, three when there's room, the arrows being above the strip.
+/// columns, three when there's room, or one after the other in a narrow
+/// window, the arrows being above the strip.
 struct PlanYearDetails: View {
     let card: PlanProgressTimeline.Card
     let index: Int
@@ -31,20 +33,26 @@ struct PlanYearDetails: View {
 
     private var year: PlanProgressYear { card.year }
 
+    /// Below this width the parts are one after the other, as on iPhone.
+    private static let twoColumnWidth: CGFloat = 640
     /// Below this width the figures and why share the first of two columns.
     private static let threeColumnWidth: CGFloat = 860
+
+    /// One part after the other: on iPhone, and on the Mac and iPad when
+    /// the page is too narrow for columns.
+    private var stacks: Bool { !isWide || (width > 0 && width < Self.twoColumnWidth) }
 
     var body: some View {
         let shape = RoundedRectangle(cornerRadius: Metrics.cardRadius, style: .continuous)
         VStack(alignment: .leading, spacing: Metrics.l) {
             header
-            if isWide {
-                columns
-            } else {
+            if stacks {
                 summary
-                PlanYearFigures(card: card)
+                PlanYearFigures(card: card, showsBar: isWide)
                 PlanYearWhy(card: card, onAddPastBaseline: onAddPastBaseline)
                 PlanYearHappenings(card: card)
+            } else {
+                columns
             }
             notes
         }
@@ -57,7 +65,7 @@ struct PlanYearDetails: View {
     }
 
     /// The year, its change and where it stands; the year in a line beside
-    /// them on the Mac and iPad, *‹ ›* on iPhone.
+    /// them in columns, *‹ ›* on iPhone.
     private var header: some View {
         HStack(alignment: .center, spacing: Metrics.m) {
             VStack(alignment: .leading, spacing: 2) {
@@ -77,10 +85,10 @@ struct PlanYearDetails: View {
                 standing
             }
             Spacer(minLength: Metrics.s)
-            if isWide {
+            if !stacks {
                 summary
                     .multilineTextAlignment(.trailing)
-            } else if count > 1 {
+            } else if !isWide && count > 1 {
                 PlanStepButtons(index: index, count: count, select: onSelect)
             }
         }
@@ -105,8 +113,8 @@ struct PlanYearDetails: View {
     /// 150.000 €.", or for a quiet year "A quiet year."
     private var summary: some View {
         Text(card.summary ?? (year.isLatest ? "A quiet year so far." : "A quiet year."))
-            .font(isWide ? PlanProgressFont.text : PlanProgressFont.summary)
-            .foregroundStyle(isWide ? Palette.secondaryInk : Palette.ink)
+            .font(stacks ? PlanProgressFont.summary : PlanProgressFont.text)
+            .foregroundStyle(stacks ? Palette.ink : Palette.secondaryInk)
             .lineLimit(1)
             .minimumScaleFactor(0.8)
     }
