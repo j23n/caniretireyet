@@ -82,7 +82,6 @@ struct UnreadableSettingsTests {
         #expect(result.report.isReadOnly)
         #expect(!result.report.isNewerSchema)
         #expect(!result.report.needsMigration)
-        #expect(result.report.readOnlyReason == LoadReport.unreadableSettingsReason)
         // One error, on library.json, saying what's wrong and that the library is read-only.
         let issues = result.report.errors
         #expect(issues.map(\.path) == ["library.json"])
@@ -125,7 +124,6 @@ struct UnreadableSettingsTests {
         try folder.write("library.json", original)
         let fixed = try folder.library.load()
         #expect(!fixed.report.isReadOnly)
-        #expect(fixed.report.readOnlyReason == nil)
         try folder.library.checkWritable()
     }
 
@@ -163,7 +161,7 @@ struct UnreadableSettingsTests {
         try folder.write("library.json", #"{ "baseCurrency": { "code": "CHF" }, "schemaVersion": 4 }"#)
         let report = try folder.library.load().report
         #expect(report.isReadOnly && report.isNewerSchema && !report.settingsUnreadable)
-        #expect(report.readOnlyReason?.contains("newer version of the app") == true)
+        #expect(report.warnings.contains { $0.message.contains("newer version of the app") })
     }
 }
 

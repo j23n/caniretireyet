@@ -56,17 +56,12 @@ extension LibraryFolder {
 struct LibraryLoader {
     let folder: LibraryFolder
     /// Today's date, for records dated implausibly far ahead.
-    let today: CalendarDate
+    let today = CalendarDate.today()
     var issues: [LoadIssue] = []
     var filesRead = 0
     var schemaVersion: Int?
     /// Whether `library.json` exists but couldn't be used (``LoadReport/settingsUnreadable``).
     var settingsUnreadable = false
-
-    init(folder: LibraryFolder, today: CalendarDate = .today()) {
-        self.folder = folder
-        self.today = today
-    }
 
     /// Records dated before this are reported as probably mistyped.
     static let earliestPlausibleDate: CalendarDate = "1900-01-01"
@@ -75,29 +70,29 @@ struct LibraryLoader {
 
     /// Loads one file into `library`, replacing (or removing) what it held.
     mutating func load(_ file: LibraryFile, into library: inout Library) {
-        library.replaceEntities(of: [file], from: Library())
         let path = file.path
         guard folder.files.fileExists(at: folder.url(for: path)) else {
+            library.replaceEntities(of: [file], from: Library())
             if file == .settings {
                 error(path, "The file is missing, so this folder may not be a library. Using default settings.")
             }
             return
         }
-        guard let (data, json) = read(path) else {
-            if file == .settings {
-                schemaVersion = nil
-                markSettingsUnreadable()
-            }
-            return
+        let data: Data?
+        do {
+            data = try folder.files.readData(at: folder.url(for: path))
+        } catch {
+            self.error(path, "The file can't be read: \(error.localizedDescription)")
+            data = nil
         }
-        load(file, data: data, json: json, into: &library)
+        load(file, data: data, into: &library)
     }
 
-    /// Loads `data`, the contents of `file`, into `library`, replacing (or
-    /// removing) what it held.
-    mutating func load(_ file: LibraryFile, data: Data, into library: inout Library) {
+    /// Loads `data`, the contents of `file` (`nil` if they couldn't be
+    /// read), into `library`, replacing (or removing) what it held.
+    mutating func load(_ file: LibraryFile, data: Data?, into library: inout Library) {
         library.replaceEntities(of: [file], from: Library())
-        guard let json = parse(data, path: file.path) else {
+        guard let data, let json = parse(data, path: file.path) else {
             if file == .settings {
                 schemaVersion = nil
                 markSettingsUnreadable()
@@ -308,18 +303,6 @@ struct LibraryLoader {
     }
 
     // MARK: Reading and decoding
-
-    /// The file's bytes and JSON, if it can be read and is a JSON object.
-    private mutating func read(_ path: String) -> (Data, JSONValue)? {
-        let data: Data
-        do {
-            data = try folder.files.readData(at: folder.url(for: path))
-        } catch {
-            self.error(path, "The file can't be read: \(error.localizedDescription)")
-            return nil
-        }
-        return parse(data, path: path).map { (data, $0) }
-    }
 
     /// The file's JSON, if it is a JSON object.
     private mutating func parse(_ data: Data, path: String) -> JSONValue? {
