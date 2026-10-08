@@ -15,7 +15,7 @@ struct NetWorthWords {
     var money: WidgetMoney
     var hidesAmounts: Bool
     /// The widget's day, which ``date`` names "today".
-    var today: CalendarDate?
+    var today: CalendarDate
 
     var total: String { hidesAmounts ? AmountFormat.hidden : money.amount(netWorth.total) }
 
@@ -36,7 +36,7 @@ struct NetWorthWords {
     /// When the change happened: "in September", "31 Jul – 15 Sep".
     var since: String? {
         netWorth.sinceLastCheckIn.map { change in
-            GlanceText.period(from: change.from, to: change.to ?? netWorth.date, relativeTo: today ?? netWorth.date,
+            GlanceText.period(from: change.from, to: change.to ?? netWorth.date, relativeTo: today,
                               locale: money.locale)
         }
     }

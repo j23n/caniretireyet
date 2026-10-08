@@ -83,7 +83,7 @@ extension GlanceSnapshot {
             netWorth: NetWorthGlance(date: last, total: 312_480, isComplete: true, sinceLastCheckIn: change,
                                      thisYear: 0.142, history: history),
             allocation: allocation,
-            retirement: RetirementGlance(plan: "base", planName: "Base case", answer: answer, history: answers),
+            retirement: RetirementGlance(answer: answer, history: answers),
             checkIn: CheckInGlance(last: last, next: today.endOfMonth, dueWindow: 3),
             milestone: MilestoneGlance(kind: .roundAmount, amount: 400_000, progress: 0.78,
                                        typically: today.adding(months: 20)))

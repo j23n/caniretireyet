@@ -167,13 +167,10 @@ public struct GlancePoint: Hashable, Sendable {
     public var date: CalendarDate
     /// The sum of what could be valued.
     public var value: Decimal
-    /// Whether everything was valued.
-    public var isComplete: Bool
 
-    public init(date: CalendarDate, value: Decimal, isComplete: Bool = true) {
+    public init(date: CalendarDate, value: Decimal) {
         self.date = date
         self.value = value
-        self.isComplete = isComplete
     }
 }
 
@@ -198,17 +195,12 @@ public struct AllocationSlice: Hashable, Sendable {
         self.value = value
         self.share = share
     }
-
-    /// Whether it's the debts' slice.
-    public var isDebts: Bool { key == Self.debts }
 }
 
 // MARK: - Retirement
 
 /// The main plan's answer to "can I retire yet?", and how it moved.
 public struct RetirementGlance: Hashable, Sendable {
-    public var plan: PlanID
-    public var planName: String
     /// The latest answer: the plan's latest results, or the last answer
     /// recorded at a check-in.
     public var answer: RetirementAnswer
@@ -216,9 +208,7 @@ public struct RetirementGlance: Hashable, Sendable {
     /// latest one, oldest first.
     public var history: [AnswerPoint]
 
-    public init(plan: PlanID, planName: String, answer: RetirementAnswer, history: [AnswerPoint]) {
-        self.plan = plan
-        self.planName = planName
+    public init(answer: RetirementAnswer, history: [AnswerPoint]) {
         self.answer = answer
         self.history = history
     }
@@ -260,12 +250,10 @@ public struct RetirementAnswer: Hashable, Sendable {
     public var needsMoreThanSearched: Bool
     /// Whether retiring today reaches the confidence level ("Yes.").
     public var canRetireNow: Bool
-    /// For an answer recorded at a check-in: that check-in's date.
-    public var recordedOn: CalendarDate?
 
     public init(confidence: Double, earliestAge: Int? = nil, earliestDate: CalendarDate? = nil, targetAge: Int? = nil,
                 sustainableSpending: Decimal? = nil, readiness: Double? = nil, readinessIsLowerBound: Bool = false,
-                needsMoreThanSearched: Bool = false, canRetireNow: Bool = false, recordedOn: CalendarDate? = nil) {
+                needsMoreThanSearched: Bool = false, canRetireNow: Bool = false) {
         self.confidence = confidence
         self.earliestAge = earliestAge
         self.earliestDate = earliestDate
@@ -275,7 +263,6 @@ public struct RetirementAnswer: Hashable, Sendable {
         self.readinessIsLowerBound = readinessIsLowerBound
         self.needsMoreThanSearched = needsMoreThanSearched
         self.canRetireNow = canRetireNow
-        self.recordedOn = recordedOn
     }
 
     /// The answer recorded at a check-in. A record has no date for the
@@ -292,7 +279,6 @@ public struct RetirementAnswer: Hashable, Sendable {
         readinessIsLowerBound = false
         needsMoreThanSearched = false
         canRetireNow = (readiness ?? 0) >= 1
-        recordedOn = headline.date
     }
 }
 

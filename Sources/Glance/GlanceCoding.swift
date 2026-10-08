@@ -115,21 +115,19 @@ extension NetWorthChange: Codable {
 
 extension GlancePoint: Codable {
     enum CodingKeys: String, CodingKey {
-        case date, value, isComplete
+        case date, value
     }
 
     public init(from decoder: any Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         date = try c.decode(CalendarDate.self, forKey: .date)
         value = try c.decodeDecimal(forKey: .value)
-        isComplete = try c.decodeIfPresent(Bool.self, forKey: .isComplete) ?? true
     }
 
     public func encode(to encoder: any Encoder) throws {
         var c = encoder.container(keyedBy: CodingKeys.self)
         try c.encode(date, forKey: .date)
         try c.encodeDecimal(value, forKey: .value)
-        try c.encode(isComplete, forKey: .isComplete)
     }
 }
 
@@ -157,21 +155,17 @@ extension AllocationSlice: Codable {
 
 extension RetirementGlance: Codable {
     enum CodingKeys: String, CodingKey {
-        case plan, planName, answer, history
+        case answer, history
     }
 
     public init(from decoder: any Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
-        plan = try c.decode(PlanID.self, forKey: .plan)
-        planName = try c.decode(String.self, forKey: .planName)
         answer = try c.decode(RetirementAnswer.self, forKey: .answer)
         history = try c.decodeIfPresent([AnswerPoint].self, forKey: .history) ?? []
     }
 
     public func encode(to encoder: any Encoder) throws {
         var c = encoder.container(keyedBy: CodingKeys.self)
-        try c.encode(plan, forKey: .plan)
-        try c.encode(planName, forKey: .planName)
         try c.encode(answer, forKey: .answer)
         try c.encode(history, forKey: .history)
     }
@@ -180,7 +174,7 @@ extension RetirementGlance: Codable {
 extension RetirementAnswer: Codable {
     enum CodingKeys: String, CodingKey {
         case confidence, earliestAge, earliestDate, targetAge, sustainableSpending, readiness
-        case readinessIsLowerBound, needsMoreThanSearched, canRetireNow, recordedOn
+        case readinessIsLowerBound, needsMoreThanSearched, canRetireNow
     }
 
     public init(from decoder: any Decoder) throws {
@@ -194,7 +188,6 @@ extension RetirementAnswer: Codable {
         readinessIsLowerBound = try c.decodeIfPresent(Bool.self, forKey: .readinessIsLowerBound) ?? false
         needsMoreThanSearched = try c.decodeIfPresent(Bool.self, forKey: .needsMoreThanSearched) ?? false
         canRetireNow = try c.decodeIfPresent(Bool.self, forKey: .canRetireNow) ?? false
-        recordedOn = try c.decodeIfPresent(CalendarDate.self, forKey: .recordedOn)
     }
 
     public func encode(to encoder: any Encoder) throws {
@@ -208,7 +201,6 @@ extension RetirementAnswer: Codable {
         try c.encode(readinessIsLowerBound, forKey: .readinessIsLowerBound)
         try c.encode(needsMoreThanSearched, forKey: .needsMoreThanSearched)
         try c.encode(canRetireNow, forKey: .canRetireNow)
-        try c.encodeIfPresent(recordedOn, forKey: .recordedOn)
     }
 }
 

@@ -51,9 +51,8 @@ final class WidgetStore {
         let last = library.latestCheckIn
         let checkIn = CheckInGlance(last: last, next: last.map(CheckInSchedule.nextCheckIn(after:)) ?? today,
                                     dueWindow: CheckInSchedule.dueWindow)
-        let birthDate = library.settings.person?.birthDate
         let answer = library.settings.mainPlan.flatMap { plans.latestResults(of: $0) }
-            .map { RetirementAnswer($0.headline, birthDate: birthDate) }
+            .map { RetirementAnswer($0.headline) }
         // Net worth today, as the Overview has it.
         var snapshot = GlanceSnapshot(library: library.library, valuator: library.valuator, asOf: today,
                                       answer: answer, checkIn: checkIn)
@@ -92,19 +91,14 @@ final class WidgetStore {
 }
 
 extension RetirementAnswer {
-    /// The answer of a plan's results, or of a recorded headline (which has
-    /// no date for the earliest age: then it's the birthday that age is
-    /// reached on).
-    init(_ headline: PlanHeadline, birthDate: CalendarDate?) {
-        var earliestDate = headline.earliestDate
-        if earliestDate == nil, let age = headline.earliestAge, let birthDate {
-            earliestDate = max(headline.recordedOn ?? .today(), birthDate.adding(years: age))
-        }
-        self.init(confidence: headline.confidence, earliestAge: headline.earliestAge, earliestDate: earliestDate,
-                  targetAge: headline.targetAge, sustainableSpending: headline.sustainableSpending,
-                  readiness: headline.readiness, readinessIsLowerBound: headline.readinessIsLowerBound,
-                  needsMoreThanSearched: headline.needsMoreThanSearched, canRetireNow: headline.canRetireNow,
-                  recordedOn: headline.recordedOn)
+    /// The answer of a plan's results. Their headline has the date of the
+    /// earliest age (the Planner's `PlanAnswer.earliestDate`).
+    init(_ headline: PlanHeadline) {
+        self.init(confidence: headline.confidence, earliestAge: headline.earliestAge,
+                  earliestDate: headline.earliestDate, targetAge: headline.targetAge,
+                  sustainableSpending: headline.sustainableSpending, readiness: headline.readiness,
+                  readinessIsLowerBound: headline.readinessIsLowerBound,
+                  needsMoreThanSearched: headline.needsMoreThanSearched, canRetireNow: headline.canRetireNow)
     }
 }
 

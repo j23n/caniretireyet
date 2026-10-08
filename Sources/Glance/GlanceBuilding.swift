@@ -21,10 +21,7 @@ extension GlanceSnapshot {
             let now = valuator.total(on: asOf, in: .netWorth)
             let history = valuator.dates(.monthEnds, in: .netWorth, through: asOf)
                 .filter { $0 >= yearAgo }
-                .map { date in
-                    let total = valuator.total(on: date, in: .netWorth)
-                    return GlancePoint(date: date, value: total.total, isComplete: total.isComplete)
-                }
+                .map { GlancePoint(date: $0, value: valuator.total(on: $0, in: .netWorth).total) }
             netWorth = NetWorthGlance(
                 date: asOf, total: now.total, isComplete: now.isComplete,
                 sinceLastCheckIn: valuator.changeSinceLastCheckIn(asOf: asOf, in: .netWorth).map(NetWorthChange.init),
@@ -35,12 +32,12 @@ extension GlanceSnapshot {
         }
 
         var retirement: RetirementGlance?
-        if let main = library.settings.mainPlan, let plan = library.plans[main] {
+        if let main = library.settings.mainPlan, library.plans[main] != nil {
             let recorded = library.headlines(for: main)
             let birthDate = library.settings.person?.birthDate
             if let answer = answer ?? recorded.last.map({ RetirementAnswer(recorded: $0, birthDate: birthDate) }) {
                 retirement = RetirementGlance(
-                    plan: main, planName: plan.name, answer: answer,
+                    answer: answer,
                     history: recorded.filter { $0.date >= yearAgo && $0.date <= asOf }
                         .map { AnswerPoint(date: $0.date, earliestAge: $0.earliestAge) })
             }

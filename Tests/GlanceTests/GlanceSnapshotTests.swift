@@ -100,17 +100,13 @@ struct ExampleLibraryGlanceTests {
     }
 
     @Test func withoutResultsTheAnswerIsTheLastOneRecorded() throws {
-        let retirement = try #require(snapshot.retirement)
-        #expect(retirement.plan == "base")
-        #expect(retirement.planName == "Base case")
-        let answer = retirement.answer
+        let answer = try #require(snapshot.retirement).answer
         #expect(answer.earliestAge == 54)
         // Born 12 April 1988.
         #expect(answer.earliestDate == "2042-04-12")
         #expect(answer.confidence == 0.9)
         #expect(answer.readiness == 0.25)
         #expect(!answer.canRetireNow)
-        #expect(answer.recordedOn == "2026-09-30")
         #expect(answer.sustainableSpending == nil)
     }
 
