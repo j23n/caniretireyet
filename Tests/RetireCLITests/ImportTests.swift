@@ -256,9 +256,9 @@ struct ImportTests {
         #expect(save.status == 0, "\(save.all)")
         var profile = try #require(try library.load().importProfiles["bank-sheet"])
         profile.file = ImportFileSettings(encoding: profile.file.encoding, delimiter: profile.file.delimiter,
-                                          headerRow: profile.file.headerRow, excludesNoRows: true)
+                                          headerRow: profile.file.headerRow, excludeRows: [])
         try library.library.save(profile)
-        #expect(try library.load().importProfiles["bank-sheet"]?.file.writtenExcludeRows == [])
+        #expect(try library.load().importProfiles["bank-sheet"]?.file.excludeRows == [])
 
         let run = await runCLI(["import", try sheet(), "--library", library.path, "--profile", "bank-sheet"])
         #expect(run.status == 0, "\(run.all)")

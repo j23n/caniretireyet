@@ -136,17 +136,16 @@ struct ImportTableTests {
     @Test func footerRuleCanExcludeNothing() throws {
         let text = "Data;Saldo\n31/01/2026;10\nTotale;10\n"
         #expect(try ImportTable(text: text).rows.map(\.number) == [2])
-        let none = try ImportTable(text: text, settings: ImportFileSettings(excludesNoRows: true))
+        let none = try ImportTable(text: text, settings: ImportFileSettings(excludeRows: []))
         #expect(none.rows.map(\.number) == [2, 3])
         #expect(none.excludeRows.isEmpty)
-        #expect(none.settings.excludesNoRows)
-        #expect(none.settings.writtenExcludeRows == [])
+        #expect(none.settings.excludeRows == [])
 
         // A profile made from such a file says so, and reads it the same way again.
         var session = try ImportSession(data: Data(text.utf8))
-        try session.reread(with: ImportFileSettings(delimiter: ";", headerRow: 1, excludesNoRows: true))
+        try session.reread(with: ImportFileSettings(delimiter: ";", headerRow: 1, excludeRows: []))
         let profile = session.makeProfile(id: "p", name: "P", library: Library())
-        #expect(profile.file.writtenExcludeRows == [])
+        #expect(profile.file.excludeRows == [])
         let json = String(decoding: try JSONEncoder().encode(profile.file), as: UTF8.self)
         #expect(json.contains(#""excludeRows":[]"#))
         let again = try ImportSession(data: Data(text.utf8), profile: JSONDecoder().decode(

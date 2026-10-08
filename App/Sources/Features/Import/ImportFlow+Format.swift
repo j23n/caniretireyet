@@ -82,8 +82,7 @@ extension ImportFlow {
     mutating func setExcludedRows(_ text: String) {
         let rules = text.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
         reread { settings in
-            settings.excludeRows = rules == ImportTable.defaultExcludedRows ? [] : rules
-            settings.excludesNoRows = rules.isEmpty
+            settings.excludeRows = rules == ImportTable.defaultExcludedRows ? nil : rules
         }
     }
 

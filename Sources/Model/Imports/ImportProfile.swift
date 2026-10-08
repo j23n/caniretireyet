@@ -105,26 +105,16 @@ public struct ImportFileSettings: Hashable, Sendable, KnownKeysProviding {
     public var headerRow: Int?
     /// Rows to leave out, such as totals: a row is skipped when its first
     /// non-empty cell starts with one of these (ignoring case and accents).
-    /// Empty means the importer's default rule, unless ``excludesNoRows``.
-    public var excludeRows: [String]
-    /// Whether the profile excludes no rows at all, written as an empty list
-    /// (`"excludeRows": []`). Only meaningful while ``excludeRows`` is empty;
-    /// when it's `false` too, the key is left out and the default rule applies.
-    public var excludesNoRows: Bool
+    /// `nil` means the importer's default rule; empty, that no row is left
+    /// out (written as `"excludeRows": []`).
+    public var excludeRows: [String]?
 
     public init(encoding: TextEncodingName? = nil, delimiter: String? = nil, headerRow: Int? = nil,
-                excludeRows: [String] = [], excludesNoRows: Bool = false) {
+                excludeRows: [String]? = nil) {
         self.encoding = encoding
         self.delimiter = delimiter
         self.headerRow = headerRow
         self.excludeRows = excludeRows
-        self.excludesNoRows = excludesNoRows && excludeRows.isEmpty
-    }
-
-    /// The footer rule as written: `nil` when left out (the importer's
-    /// default applies), `[]` when no row is excluded.
-    public var writtenExcludeRows: [String]? {
-        excludeRows.isEmpty && !excludesNoRows ? nil : excludeRows
     }
 }
 
@@ -134,24 +124,6 @@ extension ImportFileSettings: Codable {
     }
 
     public static var knownKeys: Set<String> { Set(CodingKeys.allCases.map(\.stringValue)) }
-
-    public init(from decoder: any Decoder) throws {
-        let c = try decoder.container(keyedBy: CodingKeys.self)
-        encoding = try c.decodeIfPresent(TextEncodingName.self, forKey: .encoding)
-        delimiter = try c.decodeIfPresent(String.self, forKey: .delimiter)
-        headerRow = try c.decodeIfPresent(Int.self, forKey: .headerRow)
-        let written = try c.decodeIfPresent([String].self, forKey: .excludeRows)
-        excludeRows = written ?? []
-        excludesNoRows = written?.isEmpty ?? false
-    }
-
-    public func encode(to encoder: any Encoder) throws {
-        var c = encoder.container(keyedBy: CodingKeys.self)
-        try c.encodeIfPresent(encoding, forKey: .encoding)
-        try c.encodeIfPresent(delimiter, forKey: .delimiter)
-        try c.encodeIfPresent(headerRow, forKey: .headerRow)
-        try c.encodeIfPresent(writtenExcludeRows, forKey: .excludeRows)
-    }
 }
 
 /// One column of the file and what it holds.

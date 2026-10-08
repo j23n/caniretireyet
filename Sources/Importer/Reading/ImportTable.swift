@@ -59,7 +59,7 @@ public struct ImportTable: Hashable, Sendable {
         let header = settings.headerRow ?? Self.detectHeaderRow(records)
         guard (0...records.count).contains(header) else { throw .headerRowOutOfRange(header) }
         headerRow = header
-        excludeRows = settings.writtenExcludeRows ?? Self.defaultExcludedRows
+        excludeRows = settings.excludeRows ?? Self.defaultExcludedRows
 
         let rules = excludeRows.map(TextTools.fold).filter { !$0.isEmpty }
         var rows: [ImportRow] = []
@@ -101,8 +101,7 @@ public struct ImportTable: Hashable, Sendable {
 
     /// The settings the file was read with, as a profile stores them.
     public var settings: ImportFileSettings {
-        ImportFileSettings(encoding: encoding, delimiter: delimiter, headerRow: headerRow, excludeRows: excludeRows,
-                           excludesNoRows: excludeRows.isEmpty)
+        ImportFileSettings(encoding: encoding, delimiter: delimiter, headerRow: headerRow, excludeRows: excludeRows)
     }
 
     /// The header of a 1-based column, or `nil` when it has none.
