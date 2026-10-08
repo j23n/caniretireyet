@@ -10,8 +10,20 @@ struct ConflictResolverTests {
     private let earlier = Date(timeIntervalSince1970: 1_790_000_000)
     private let later = Date(timeIntervalSince1970: 1_790_000_600)
 
+    private let october = "history/2026/2026-10.json"
+
     private func month(_ valuations: [Valuation], prices: [PriceRecord] = []) -> MonthFile {
         MonthFile(month: "2026-10", valuations: valuations, prices: prices)
+    }
+
+    /// A version of a file holding `value`, written as the app writes it.
+    private func version(_ value: some Encodable, modified: Date, source: String? = nil) throws -> ConflictVersion {
+        ConflictVersion(try CanonicalJSON.data(encoding: value), modified: modified, source: source)
+    }
+
+    /// The month file a merge gives.
+    private func merged(_ result: MergeResult) throws -> MonthFile {
+        try JSONDecoder().decode(MonthFile.self, from: result.value)
     }
 
     @Test func monthFilesKeepEveryRecordFromBothVersions() throws {
@@ -21,26 +33,26 @@ struct ConflictResolverTests {
         let mac = month([base, Valuation(account: "tfr", date: "2026-10-31", balance: 9500)],
                         prices: [PriceRecord(instrument: "vwce", date: "2026-10-31", price: 140, currency: .eur)])
 
-        let result = try ConflictResolver.merge([
-            ConflictVersion(phone, modified: later, source: "iPhone"), ConflictVersion(mac, modified: earlier, source: "Mac"),
+        let result = try ConflictResolver.merge(path: october, [
+            version(phone, modified: later, source: "iPhone"), version(mac, modified: earlier, source: "Mac"),
         ])
-        #expect(result.value.valuations.map(\.account) == ["casa", "conto-fineco", "tfr"])
-        #expect(result.value.prices.count == 1)
+        #expect(try merged(result).valuations.map(\.account) == ["casa", "conto-fineco", "tfr"])
+        #expect(try merged(result).prices.count == 1)
         #expect(result.recordsAdded == 2)
         #expect(result.conflictingRecords.isEmpty)
-        #expect(result.summary == "Merged 2 versions of history for 2026-10: added 2 records that only an older version had.")
+        #expect(result.summary
+            == "Merged 2 versions of history/2026/2026-10.json: added 2 records that only an older version had.")
     }
 
     @Test func whenBothChangedARecordTheNewerFileWins() throws {
         let older = month([Valuation(account: "tfr", date: "2026-10-31", balance: 9500)])
         let newer = month([Valuation(account: "tfr", date: "2026-10-31", balance: 9600, note: "corrected")])
 
-        for versions in [
-            [ConflictVersion(older, modified: earlier), ConflictVersion(newer, modified: later)],
-            [ConflictVersion(newer, modified: later), ConflictVersion(older, modified: earlier)],
-        ] {
-            let result = try ConflictResolver.merge(versions)
-            #expect(result.value == newer)
+        let olderVersion = try version(older, modified: earlier)
+        let newerVersion = try version(newer, modified: later)
+        for versions in [[olderVersion, newerVersion], [newerVersion, olderVersion]] {
+            let result = ConflictResolver.merge(path: october, versions)
+            #expect(try merged(result) == newer)
             #expect(result.recordsAdded == 0)
             #expect(result.conflictingRecords == ["valuations: 2026-10-31 tfr"])
             #expect(result.summary.contains("kept the newest version of 1 record changed on both sides"))
@@ -48,10 +60,10 @@ struct ConflictResolverTests {
     }
 
     @Test func tiesAreBrokenTheSameWayOnEveryDevice() throws {
-        let a = month([Valuation(account: "tfr", date: "2026-10-31", balance: 1)])
-        let b = month([Valuation(account: "tfr", date: "2026-10-31", balance: 2)])
-        let first = try ConflictResolver.merge([ConflictVersion(a, modified: later), ConflictVersion(b, modified: later)])
-        let second = try ConflictResolver.merge([ConflictVersion(b, modified: later), ConflictVersion(a, modified: later)])
+        let a = try version(month([Valuation(account: "tfr", date: "2026-10-31", balance: 1)]), modified: later)
+        let b = try version(month([Valuation(account: "tfr", date: "2026-10-31", balance: 2)]), modified: later)
+        let first = ConflictResolver.merge(path: october, [a, b])
+        let second = ConflictResolver.merge(path: october, [b, a])
         #expect(first.value == second.value)
     }
 
@@ -60,20 +72,22 @@ struct ConflictResolverTests {
                             Valuation(account: "tfr", date: "2026-10-31", balance: 1)])
         let middle = month([Valuation(account: "tfr", date: "2026-10-31", balance: 2)])
         let newest = month([Valuation(account: "conto-fineco", date: "2026-10-31", balance: 3)])
-        let result = try ConflictResolver.merge([
-            ConflictVersion(oldest, modified: earlier),
-            ConflictVersion(newest, modified: later.addingTimeInterval(60)),
-            ConflictVersion(middle, modified: later),
+        let result = try ConflictResolver.merge(path: october, [
+            version(oldest, modified: earlier),
+            version(newest, modified: later.addingTimeInterval(60)),
+            version(middle, modified: later),
         ])
-        #expect(result.value.valuations.map(\.balance) == [1, 3, 2])
+        #expect(try merged(result).valuations.map(\.balance) == [1, 3, 2])
         #expect(result.recordsAdded == 2)
     }
 
     @Test func headlineFilesMergeByDate() throws {
         let a = HeadlineFile(headlines: [Headline(date: "2026-01-31", engine: "0.1.0", planHash: "a")])
         let b = HeadlineFile(headlines: [Headline(date: "2026-02-28", engine: "0.1.0", planHash: "b")])
-        let result = try ConflictResolver.merge([ConflictVersion(a, modified: earlier), ConflictVersion(b, modified: later)])
-        #expect(result.value.headlines.map(\.planHash) == ["a", "b"])
+        let result = try ConflictResolver.merge(path: "projections/base/headlines/2026.json", [
+            version(a, modified: earlier), version(b, modified: later),
+        ])
+        #expect(try JSONDecoder().decode(HeadlineFile.self, from: result.value).headlines.map(\.planHash) == ["a", "b"])
     }
 
     @Test func otherFilesKeepTheNewestVersion() {
@@ -84,10 +98,6 @@ struct ConflictResolverTests {
         ])
         #expect(result.value == theirs)
         #expect(result.summary == "Kept the newest version of accounts/tfr.json from Mac; the other version was discarded.")
-
-        let plans = ConflictResolver.newest([ConflictVersion(1, modified: later), ConflictVersion(2, modified: earlier)],
-                                            name: "plans/base.json")
-        #expect(plans.value == 1)
     }
 
     @Test func mergingFilesKeepsUnknownKeysAndWritesCanonicalJSON() throws {

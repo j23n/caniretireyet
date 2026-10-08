@@ -1,16 +1,16 @@
 import Foundation
 import Model
 
-/// One version of a file in a sync conflict: its contents (or a model
-/// value) and when it was last modified.
-public struct ConflictVersion<Value: Sendable>: Sendable {
-    public var value: Value
+/// One version of a file in a sync conflict: its contents and when it was
+/// last modified.
+public struct ConflictVersion: Sendable {
+    public var value: Data
     public var modified: Date
     /// Where the version comes from, for the description, e.g. the name of
     /// the device that saved it.
     public var source: String?
 
-    public init(_ value: Value, modified: Date, source: String? = nil) {
+    public init(_ value: Data, modified: Date, source: String? = nil) {
         self.value = value
         self.modified = modified
         self.source = source
@@ -18,9 +18,9 @@ public struct ConflictVersion<Value: Sendable>: Sendable {
 }
 
 /// The result of resolving a sync conflict.
-public struct MergeResult<Value: Sendable>: Sendable {
-    /// The merged value.
-    public var value: Value
+public struct MergeResult: Sendable {
+    /// The merged file's contents.
+    public var value: Data
     /// A short description of what was merged, for the Sync screen.
     public var summary: String
     /// Records taken from a version other than the newest.
@@ -28,7 +28,7 @@ public struct MergeResult<Value: Sendable>: Sendable {
     /// Records that differed between versions; the newest version's was kept.
     public var conflictingRecords: [String]
 
-    public init(value: Value, summary: String, recordsAdded: Int = 0, conflictingRecords: [String] = []) {
+    public init(value: Data, summary: String, recordsAdded: Int = 0, conflictingRecords: [String] = []) {
         self.value = value
         self.summary = summary
         self.recordsAdded = recordsAdded
@@ -55,81 +55,54 @@ public enum ConflictResolver {
     /// written in canonical form; other files keep the newest version's
     /// bytes. Versions that aren't valid JSON can't be merged: they're left
     /// out, unless none is valid, in which case the newest one wins.
-    public static func merge(path: String, _ versions: [ConflictVersion<Data>]) -> MergeResult<Data> {
+    public static func merge(path: String, _ versions: [ConflictVersion]) -> MergeResult {
         precondition(!versions.isEmpty, "A conflict needs at least one version")
-        guard let file = LibraryFile(path: path), file.mergesRecords else {
-            return newest(versions, identity: { $0 }, name: path)
-        }
-        let parsed = versions.compactMap { version -> (json: ConflictVersion<JSONValue>, data: Data)? in
+        guard let file = LibraryFile(path: path), file.mergesRecords else { return newest(versions, name: path) }
+        let parsed = versions.compactMap { version -> ParsedVersion? in
             guard let json = try? CanonicalJSON.parse(version.value), json.objectValue != nil else { return nil }
-            return (ConflictVersion(json, modified: version.modified, source: version.source), version.value)
+            return ParsedVersion(json: json, modified: version.modified, data: version.value)
         }
-        guard !parsed.isEmpty else { return newest(versions, identity: { $0 }, name: path) }
-        var result = mergeRecords(parsed.map(\.json), lists: LibraryFolder.recordLists(of: file), name: path)
+        guard !parsed.isEmpty else { return newest(versions, name: path) }
+        var result = mergeRecords(parsed, lists: LibraryFolder.recordLists(of: file), name: path)
         let unreadable = versions.count - parsed.count
         if unreadable > 0 {
             result.summary += " \(unreadable == 1 ? "1 version wasn't" : "\(unreadable) versions weren't") valid JSON "
                 + "and \(unreadable == 1 ? "was" : "were") left out."
         }
         // When the newest version already holds the result, keep its bytes.
-        let newestVersion = rank(parsed.map(\.json))[0]
-        if result.value == newestVersion.value,
+        let newestVersion = rank(parsed)[0]
+        if result.json == newestVersion.json,
            let original = parsed.first(where: {
-               $0.json.value == newestVersion.value && $0.json.modified == newestVersion.modified
+               $0.json == newestVersion.json && $0.modified == newestVersion.modified
            }) {
             return MergeResult(value: original.data, summary: result.summary, recordsAdded: result.recordsAdded,
                                conflictingRecords: result.conflictingRecords)
         }
-        return MergeResult(value: CanonicalJSON.data(for: result.value), summary: result.summary,
+        return MergeResult(value: CanonicalJSON.data(for: result.json), summary: result.summary,
                            recordsAdded: result.recordsAdded, conflictingRecords: result.conflictingRecords)
-    }
-
-    /// Merges versions of a month's history file record by record.
-    public static func merge(_ versions: [ConflictVersion<MonthFile>]) throws -> MergeResult<MonthFile> {
-        try mergeModel(versions, lists: KeyPreservation.RecordList.monthLists) { "history for \($0.month)" }
-    }
-
-    /// Merges versions of a headline file record by record.
-    public static func merge(_ versions: [ConflictVersion<HeadlineFile>]) throws -> MergeResult<HeadlineFile> {
-        try mergeModel(versions, lists: KeyPreservation.RecordList.headlineLists) { _ in "headlines" }
-    }
-
-    /// Keeps the most recently modified version.
-    public static func newest<Value: Encodable & Sendable>(_ versions: [ConflictVersion<Value>], name: String)
-        -> MergeResult<Value> {
-        newest(versions, identity: { (try? CanonicalJSON.data(encoding: $0)) ?? Data() }, name: name)
     }
 
     // MARK: Internals
 
-    private static func mergeModel<Value: Codable & Sendable>(
-        _ versions: [ConflictVersion<Value>], lists: [String: KeyPreservation.RecordList],
-        name: (Value) -> String
-    ) throws -> MergeResult<Value> {
-        precondition(!versions.isEmpty, "A conflict needs at least one version")
-        let parsed = try versions.map {
-            ConflictVersion(try CanonicalJSON.json(encoding: $0.value), modified: $0.modified, source: $0.source)
-        }
-        let merged = mergeRecords(parsed, lists: lists, name: name(versions[0].value))
-        let value = try LenientDecoding.decode(Value.self, from: merged.value)
-        return MergeResult(value: value, summary: merged.summary, recordsAdded: merged.recordsAdded,
-                           conflictingRecords: merged.conflictingRecords)
+    /// A version that is a JSON object, with its bytes.
+    private struct ParsedVersion {
+        var json: JSONValue
+        var modified: Date
+        var data: Data
     }
 
     /// The versions, newest first; ties broken by canonical bytes, descending.
-    private static func rank(_ versions: [ConflictVersion<JSONValue>]) -> [ConflictVersion<JSONValue>] {
-        let keyed = versions.map { ($0, Array(CanonicalJSON.data(for: $0.value))) }
+    private static func rank(_ versions: [ParsedVersion]) -> [ParsedVersion] {
+        let keyed = versions.map { ($0, Array(CanonicalJSON.data(for: $0.json))) }
         return keyed.sorted { lhs, rhs in
             if lhs.0.modified != rhs.0.modified { return lhs.0.modified > rhs.0.modified }
             return rhs.1.lexicographicallyPrecedes(lhs.1)
         }.map(\.0)
     }
 
-    private static func newest<Value: Sendable>(
-        _ versions: [ConflictVersion<Value>], identity: (Value) -> Data, name: String
-    ) -> MergeResult<Value> {
-        precondition(!versions.isEmpty, "A conflict needs at least one version")
-        let winner = versions.map { ($0, Array(identity($0.value))) }.max { lhs, rhs in
+    /// Keeps the most recently modified version; ties broken by its bytes.
+    private static func newest(_ versions: [ConflictVersion], name: String) -> MergeResult {
+        let winner = versions.map { ($0, Array($0.value)) }.max { lhs, rhs in
             if lhs.0.modified != rhs.0.modified { return lhs.0.modified < rhs.0.modified }
             return lhs.1.lexicographicallyPrecedes(rhs.1)
         }!.0
@@ -145,10 +118,10 @@ public enum ConflictResolver {
     /// versions, the newest version's record. Everything else in the file
     /// comes from the newest version.
     private static func mergeRecords(
-        _ versions: [ConflictVersion<JSONValue>], lists: [String: KeyPreservation.RecordList], name: String
-    ) -> MergeResult<JSONValue> {
+        _ versions: [ParsedVersion], lists: [String: KeyPreservation.RecordList], name: String
+    ) -> (json: JSONValue, summary: String, recordsAdded: Int, conflictingRecords: [String]) {
         let ranked = rank(versions)
-        guard case .object(var merged) = ranked[0].value else { return MergeResult(value: ranked[0].value, summary: "") }
+        guard case .object(var merged) = ranked[0].json else { return (ranked[0].json, "", 0, []) }
         var added = 0
         var conflicts: [String] = []
         for (listName, list) in lists.sorted(by: { $0.key < $1.key }) {
@@ -156,7 +129,7 @@ public enum ConflictResolver {
             var unkeyed: [JSONValue] = []
             var present = false
             for (rank, version) in ranked.enumerated() {
-                guard case .array(let records)? = version.value[listName] else { continue }
+                guard case .array(let records)? = version.json[listName] else { continue }
                 present = true
                 // Within one version, the last record with a key counts, as when loading.
                 var latest: [RecordKey: JSONValue] = [:]
@@ -187,10 +160,8 @@ public enum ConflictResolver {
             guard present else { continue }
             merged[listName] = .array(chosen.sorted { $0.key < $1.key }.map(\.value) + unkeyed)
         }
-        let result = JSONValue.object(merged)
-        return MergeResult(value: result, summary: summary(name: name, versions: versions.count, added: added,
-                                                           conflicts: conflicts.count),
-                           recordsAdded: added, conflictingRecords: conflicts)
+        return (.object(merged), summary(name: name, versions: versions.count, added: added, conflicts: conflicts.count),
+                added, conflicts)
     }
 
     private static func summary(name: String, versions: Int, added: Int, conflicts: Int) -> String {

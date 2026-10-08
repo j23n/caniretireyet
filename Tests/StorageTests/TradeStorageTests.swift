@@ -219,10 +219,12 @@ struct TradeStorageTests {
         let phone = MonthFile(month: "2026-10", trades: [phoneDeposit, buy])
         let mac = MonthFile(month: "2026-10", trades: [macDeposit, macBuy])
 
-        let result = try ConflictResolver.merge([
-            ConflictVersion(phone, modified: later, source: "iPhone"), ConflictVersion(mac, modified: earlier, source: "Mac"),
+        let result = try ConflictResolver.merge(path: october, [
+            ConflictVersion(CanonicalJSON.data(encoding: phone), modified: later, source: "iPhone"),
+            ConflictVersion(CanonicalJSON.data(encoding: mac), modified: earlier, source: "Mac"),
         ])
-        #expect(result.value.trades == [buy, macDeposit, phoneDeposit].sortedByKey())
+        #expect(try JSONDecoder().decode(MonthFile.self, from: result.value).trades
+            == [buy, macDeposit, phoneDeposit].sortedByKey())
         #expect(result.recordsAdded == 1)
         #expect(result.conflictingRecords == ["trades: 2026-10-12 broker buy1abcd"])
     }
