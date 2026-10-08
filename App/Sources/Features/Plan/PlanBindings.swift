@@ -340,6 +340,38 @@ extension PlanPension {
     }
 }
 
+extension PlanIncome {
+    /// The display name, "" for none.
+    var planName: String {
+        get { name ?? "" }
+        set { name = newValue.isEmpty ? nil : newValue }
+    }
+
+    /// It starts when work stops, or at an age.
+    var planFromRetirement: Bool {
+        get { from == .retirement }
+        set { from = newValue ? .retirement : .age(from?.age ?? 60) }
+    }
+
+    /// The age it starts at (60 until set).
+    var planFromAge: Int {
+        get { from?.age ?? 60 }
+        set { from = .age(newValue) }
+    }
+
+    /// It stops at an age, or runs to the plan's end.
+    var planHasEnd: Bool {
+        get { untilAge != nil }
+        set { untilAge = newValue ? planUntilAge : nil }
+    }
+
+    /// The age it stops at (five years after its start until set).
+    var planUntilAge: Int {
+        get { untilAge ?? (from?.age ?? 60) + 5 }
+        set { untilAge = newValue }
+    }
+}
+
 extension PlanAssumptions {
     /// An asset class's income yield (the part of its return paid as
     /// income each year), `nil` for none.

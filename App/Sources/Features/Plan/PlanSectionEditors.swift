@@ -10,6 +10,7 @@ import SwiftUI
 enum PlanEditTarget: Hashable, Identifiable {
     case work(index: Int, phase: WorkPhase)
     case pension(index: Int, pension: PlanPension)
+    case income(index: Int, income: PlanIncome)
     case contribution(index: Int, contribution: PlanContribution)
     case event(index: Int, event: PlanEvent)
 
@@ -17,6 +18,7 @@ enum PlanEditTarget: Hashable, Identifiable {
         switch self {
         case .work(let index, _): "work-\(index)"
         case .pension(let index, _): "pension-\(index)"
+        case .income(let index, _): "income-\(index)"
         case .contribution(let index, _): "contribution-\(index)"
         case .event(let index, _): "event-\(index)"
         }
@@ -41,7 +43,7 @@ struct PlanSectionEditor: View {
             PlanTargetMixEditor(plan: $plan)
         case .simulation:
             PlanSimulationEditor(plan: $plan)
-        case .work, .spending, .pensions, .contributions, .events:
+        case .work, .spending, .pensions, .income, .contributions, .events:
             EmptyView()
         }
     }

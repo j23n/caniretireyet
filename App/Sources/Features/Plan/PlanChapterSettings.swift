@@ -105,6 +105,16 @@ enum PlanChapterSettings {
                                        value: pension.perYear.map(words.monthly) ?? "Not set",
                                        opens: .sheet(.pension(index)),
                                        issues: issues.issues(for: .pensions, index: index))]
+            case .income(let index):
+                guard plan.income.indices.contains(index) else { return [] }
+                let income = plan.income[index]
+                return [PlanSettingRow(id: "income-\(index)", symbol: "banknote", kind: .pension,
+                                       title: PlanResultsMapping.incomeName(income, index: index,
+                                                                           of: plan.income.count),
+                                       subtitle: PlanIncomeText.span(of: income) + ", after tax",
+                                       value: income.perYear.map(words.monthly) ?? "Not set",
+                                       opens: .sheet(.income(index)),
+                                       issues: issues.issues(for: .income, index: index))]
             case .contribution(let index):
                 guard plan.contributions.indices.contains(index) else { return [] }
                 let contribution = plan.contributions[index]

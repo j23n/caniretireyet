@@ -246,6 +246,12 @@ struct PlanTokenEditor: View {
             title(pensionName(index))
             Stepper("Paid from \(pensionAge(index))",
                     value: $plan.pensions[planSafe: index, default: pensionFallback(index)].planFromAge, in: 40...90)
+        case .incomeAmount(let index):
+            title(incomeName(index))
+            PlanNumberRow("A month, after tax",
+                          value: monthly($plan.income[planSafe: index, default: incomeFallback(index)].perYear),
+                          unit: "/month")
+            note("In \(PlanMoney.todaysMoney(currency)), after the tax you expect to pay on it.")
         case .contributionAmount(let index):
             title("Contribution")
             if contributionIsOneOff(index) {
@@ -295,7 +301,7 @@ struct PlanTokenEditor: View {
         case .confidence:
             title("When a plan works")
             PlanSimulationEditor(plan: $plan)
-        case .targetMix, .work, .pension, .contribution, .event:
+        case .targetMix, .work, .pension, .income, .contribution, .event:
             EmptyView()
         }
     }
@@ -333,6 +339,7 @@ struct PlanTokenEditor: View {
         switch token {
         case .workIncome(let index), .workGrowth(let index): .work(index)
         case .pensionAmount(let index), .pensionAge(let index): .pension(index)
+        case .incomeAmount(let index): .income(index)
         case .contributionAmount(let index): .contribution(index)
         case .eventAmount(let index), .eventWhen(let index), .eventProbability(let index): .event(index)
         default: nil
@@ -344,6 +351,7 @@ struct PlanTokenEditor: View {
         switch more {
         case .work: return "Edit the work phase…"
         case .pension: return "Edit the pension…"
+        case .income: return "Edit the income…"
         case .contribution: return "Edit the contribution…"
         case .event: return "Edit the event…"
         default: return ""
@@ -370,6 +378,16 @@ struct PlanTokenEditor: View {
 
     private func pensionFallback(_ index: Int) -> PlanPension {
         plan.pensions.indices.contains(index) ? plan.pensions[index] : PlanEditing.newPension()
+    }
+
+    private func incomeFallback(_ index: Int) -> PlanIncome {
+        plan.income.indices.contains(index) ? plan.income[index]
+            : PlanIncome(name: "Other income", from: .retirement, perYear: nil)
+    }
+
+    private func incomeName(_ index: Int) -> String {
+        guard plan.income.indices.contains(index) else { return "Other income" }
+        return PlanResultsMapping.incomeName(plan.income[index], index: index, of: plan.income.count)
     }
 
     private func contributionFallback(_ index: Int) -> PlanContribution {

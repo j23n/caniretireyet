@@ -346,8 +346,8 @@ struct PlanIncomeCard: View {
                 ChartCaption(
                     text: "Median run · \(money).",
                     detail: "The taxes of each year of retirement in the median run: on investments (the gain in "
-                        + "what's sold, and the income your investments pay) and on wealth. Income from work and "
-                        + "pensions is entered after tax. In \(money).")
+                        + "what's sold, and the income your investments pay) and on wealth. Income from work, "
+                        + "pensions and other income is entered after tax. In \(money).")
             } else {
                 IncomeStackChart(segments: results.income, spending: results.spending)
                 ChartCaption(

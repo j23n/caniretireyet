@@ -13,7 +13,7 @@ Alongside the headline, it shows:
 - **What you could spend.** The highest yearly spending in retirement that still reaches your confidence level at your target retirement age.
 - **Chance of success against retirement age.** A curve showing what each extra year of work buys you.
 - **Portfolio over time.** The median, with a band from the 10th to the 90th percentile.
-- **Income by source for each retirement year**: withdrawals, work, pensions and windfalls, with the taxes on investments and on wealth.
+- **Income by source for each retirement year**: withdrawals, work, pensions, other income and windfalls, with the taxes on investments and on wealth.
 - **Why failing runs fail**, for example: "runs out at 55, while the pension fund can't be drawn until 60".
 - **With flexible spending**, how often and how far spending is cut ([Flexible spending](#flexible-spending)).
 
@@ -21,7 +21,7 @@ Alongside the headline, it shows:
 
 ## The model in brief
 
-The planner is deliberately simple: every number it uses is one you can see and check, and every year can be worked out by hand ([Calculations](#calculations)). It doesn't model tax law. You enter income from work and pensions **after tax**, and two tax rates for your investments; the research behind the earlier, detailed tax systems is kept in [research/tax](research/tax/).
+The planner is deliberately simple: every number it uses is one you can see and check, and every year can be worked out by hand ([Calculations](#calculations)). It doesn't model tax law. You enter income from work, pensions and other income **after tax**, and two tax rates for your investments; the research behind the earlier, detailed tax systems is kept in [research/tax](research/tax/).
 
 - **Today's money.** Amounts are in today's money (real terms), in the library's base currency. Returns are real. Inflation matters only for one thing: what you paid for your investments stays in the money of the day you paid it, so the part of a value that's only inflation counts as gain when sold.
 - **Yearly steps**, from the day after the check-in the plan starts from to its end age (95 by default). The first year is the part of the year after the check-in: its income, spending, contributions, wealth tax and returns are scaled to the days left.
@@ -37,7 +37,7 @@ for each year from the start to the end age:
   taxes due: wealth tax = wealthRate × max(0, money you can draw − allowance) × share of the year simulated
              income tax = last year's investment income × investmentRate
   with flexible spending: level ← the guardrails rule (this year's withdrawal rate against the first year's)
-  cash = income from work and pensions (after tax) + windfalls
+  cash = income from work, pensions and other income (after tax) + windfalls
        − spending (while working, or in retirement × phase factor × level) − one-off expenses
        − contributions into accounts − wealth tax − income tax
   contributions go into their account: the money you can draw at its target mix, a locked account at its own mix
@@ -83,6 +83,9 @@ for each year from the start to the end age:
     { "name": "State pension", "fromAge": 67, "perYear": "14000" },
     { "name": "State pension from previous country", "fromAge": 67, "perYear": "4800" }
   ],
+  "income": [
+    { "name": "Part-time", "from": "retirement", "untilAge": 60, "perYear": "18000" }
+  ],
   "contributions": [
     { "account": "fondo-pensione", "perYear": "5000", "until": "retirement" }
   ],
@@ -109,7 +112,13 @@ for each year from the start to the end age:
 }
 ```
 
-Every field, its default and allowed range, and the error or warning a value out of range gives: [plan.schema.json](schema/plan.schema.json). The sections below say how the plan uses them.
+Every field, its default and allowed range, and the error or warning a value out of range gives: [plan.schema.json](schema/plan.schema.json). The sections below say how the plan uses them. (The `income` above isn't in the example library's `base` plan.)
+
+### Work, pensions and other income
+
+- **Work** (`work`) is what the plan's search moves: every phase stops the day work stops, whatever its `until`, and retirement spending starts then.
+- **Pensions** (`pensions`) pay from the birthday at their age to the plan's end, retired or not. The first one paid ends the bridge.
+- **Other income** (`income`) is everything else that pays after tax: rent, a side business, an annuity, or part-time work once the main job stops (coast or barista FIRE). It pays from the birthday at `from`, or from the day work stops when `from` is `"retirement"`, to the day before the birthday at `untilAge` (the plan's end without one), retired or not, and keeps its value in real terms. Unlike work, retiring doesn't stop it, and "from retirement" moves with each retirement age the search tries: part-time work from retirement until 60 starts whenever the main job stops. Unlike a pension, it ends no bridge and starts no chapter, and the coast point doesn't wait for it. Results show it as `IncomeKind.other`.
 
 ### The portfolio
 
@@ -216,7 +225,7 @@ The settings, `enabled`, `cut`, `floor`, `upperGuardrail` and `lowerGuardrail`, 
 
 So a chapter starts in the year the work phase changes, work stops, the first pension is paid or a spending phase begins in retirement; a change during a year starts the chapter in that year. How long a chapter is says nothing about how much it holds.
 
-- **Items.** Every other input belongs to the chapter it starts or happens in: a later pension, a contribution, an event, a change of the target mix. Each chapter lists its items (`items`), then those still in force from earlier chapters (`continuing`). Inputs that apply in none of the plan's years are listed apart (`outside`): an event after the end, a work phase over before the start, spending while working when you retire today.
+- **Items.** Every other input belongs to the chapter it starts or happens in: a later pension, other income (from retirement: the chapter work stops in), a contribution, an event, a change of the target mix. Each chapter lists its items (`items`), then those still in force from earlier chapters (`continuing`). Inputs that apply in none of the plan's years are listed apart (`outside`): an event after the end, a work phase over before the start, spending while working when you retire today.
 - **Outcome.** Chapters made from a result (`PlanChapters(result:)`, at its focus age) also say how the money stands at each one's end: the fan's values at the end of its last year, and the runs that fail during it.
 - **Without a result.** `Planner.chapters(plan:library:retirementAge:)` reads the start and the birth date as a run does. A plan that asks for the earliest age needs the age passed in: a result's, or the one recorded at the last check-in.
 
@@ -235,13 +244,13 @@ Each is a bisection over ages, from the plan's own earliest age (having less nev
 
 ## Calculations
 
-`Planner.calculations(plan:library:options:)` runs a plan in full and writes, as Markdown, every input and result behind its answer: the plan as read (taxes, spending, work, pensions, contributions, events, the target mix, each class's mean, median, volatility and income yield), the starting portfolio by group with what was paid, the chance of success by retirement age, the deterministic run and the median run year by year (income, windfalls, spending, expenses, each tax, what was sold and saved, and the value at the end), flexible spending's summary, why runs fail and the warnings. Anonymized (`CalculationsOptions.anonymize`), names become generic ("Work 1", "Accounts available later 1"), dates become years and amounts are rounded (to 100, or `rounding`), so the file can be given to someone else. The app's *Export Calculations…* and `retire plan debug` write it.
+`Planner.calculations(plan:library:options:)` runs a plan in full and writes, as Markdown, every input and result behind its answer: the plan as read (taxes, spending, work, pensions, other income, contributions, events, the target mix, each class's mean, median, volatility and income yield), the starting portfolio by group with what was paid, the chance of success by retirement age, the deterministic run and the median run year by year (income, windfalls, spending, expenses, each tax, what was sold and saved, and the value at the end), flexible spending's summary, why runs fail and the warnings. Anonymized (`CalculationsOptions.anonymize`), names become generic ("Work 1", "Accounts available later 1"), dates become years and amounts are rounded (to 100, or `rounding`), so the file can be given to someone else. The app's *Export Calculations…* and `retire plan debug` write it.
 
 ## Engine details
 
 `Planner.run(plan:library:options:progress:)` is the entry point; `PlanResult` holds what the Plan screen shows; `Planner.validate(plan:library:options:)` lists a plan's problems without running it.
 
-- **Ages** are ages reached during the year. An account available from an age opens on 1 January of the first year you're that age on that day. A pension starts on the birthday at its age.
+- **Ages** are ages reached during the year. An account available from an age opens on 1 January of the first year you're that age on that day. A pension starts on the birthday at its age; other income on the birthday at its age, or the day work stops, and stops the day before the birthday at its `untilAge`.
 - **Random numbers.** xoshiro256** seeded through SplitMix64, with one stream per run for markets and another for events. Run *r* always gets the same draws, so every retirement age, what-if and fast run shares them.
 - **Speed.** Everything that doesn't depend on markets (income, spending, contributions, the target mix in force) is laid out once per retirement age (`AgeSchedule`), and every run at that age reads it. A what-if runs a quick estimate with fewer runs first (`PlannerOptions.fast`), then the full run, with the same draws.
 - **Threads.** A run computes on the planner's own threads (`PlannerExecutor`, one per core), never on Swift's cooperative thread pool. Loops over runs check for cancellation every 64 runs.
@@ -250,11 +259,11 @@ Each is a bisection over ages, from the plan's own earliest age (having less nev
 
 ## Testing the engine
 
-- **Checked by hand** (`DeterministicTests`): with zero volatility and known returns, paths match closed forms: drawdown, saving, income from work growing in real terms, the gain share of sales, inflation counting as gain, a sale with no recorded cost taxed on its whole value, investment income taxed the following year, the wealth tax above its allowance and only on the money you can draw, a part year, accounts opening in the first year at their age, bridge failures and when locked money is too small to bridge, pensions, events and contributions.
+- **Checked by hand** (`DeterministicTests`): with zero volatility and known returns, paths match closed forms: drawdown, saving, income from work growing in real terms, the gain share of sales, inflation counting as gain, a sale with no recorded cost taxed on its whole value, investment income taxed the following year, the wealth tax above its allowance and only on the money you can draw, a part year, accounts opening in the first year at their age, bridge failures and when locked money is too small to bridge, pensions, other income (from an age and from retirement, until an age), events and contributions.
 - **Rebalancing** (`RebalancingTests`): yearly rebalancing to the target or the starting mix, holding cash doesn't lower the tax on sales, locked accounts keep their own mix.
 - **Invariants** (`InvariantTests`): Monte Carlo with zero volatility equals the deterministic run; more savings and working longer never lower the chance of success; the same seed gives the same results; fast runs are the first runs of the full set; percentiles are ordered.
 - **The searches** (`SolverTests`, `AssetsNeededTests`, `AssetsNeededAccessTests`): the earliest age and the sustainable spending on plans worked out by hand; the assets needed against a closed form, reaching the confidence while 2% less doesn't, the extra going only into the money you can draw, and the search's limits.
-- **Chapters** (`ChapterTests`): the example library's plans by hand, a second pension, a gap between work phases, spending phases before retirement, retiring at an age already passed, inputs outside the plan's years, and the outcome taken from a result.
+- **Chapters** (`ChapterTests`): the example library's plans by hand, a second pension, other income, a gap between work phases, spending phases before retirement, retiring at an age already passed, inputs outside the plan's years, and the outcome taken from a result.
 - **Ages without** (`AgesWithoutTests`): saving nothing more caps pay and stops contributions, the coast age and the age without a windfall each match a full scan of the changed plan, nothing without an earliest age, and the bisection's steps.
 - **Milestones** (`MilestoneTests`): the round amounts, every kind on one ladder, a milestone reached once (not below the first value, not again after a fall), at a month end without a check-in too, the shares from recorded readiness, the example library's check-ins, dates between year-ends worked out by hand, the next one and how far there, and the crossover.
 - **Flexible spending** (`FlexibleSpendingTests`), **target mix** (`TargetMixTests`), **returns** (`ReturnModelTests`), **validation** (`ValidationTests`), **progress** (`ProgressTests`), **calculations** (`CalculationsTests`) and **the example library** (`ExampleLibraryTests`).

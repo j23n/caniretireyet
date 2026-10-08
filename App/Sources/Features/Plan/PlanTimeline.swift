@@ -147,9 +147,9 @@ struct PlanTimeline {
         }
     }
 
-    /// What happens on a date in `chapter`: events, a pension starting after
-    /// its first year, a later phase of spending, a one-off saving. Dates
-    /// fall inside the chapter's.
+    /// What happens on a date in `chapter`: events, a pension or other income
+    /// starting after its first year, a later phase of spending, a one-off
+    /// saving. Dates fall inside the chapter's.
     static func events(in chapter: PlanChapter, plan: PlanDocument, birthDate: CalendarDate,
                        dates: ClosedRange<Date>, words: PlanWords, model: PlanChaptersModel) -> [Event] {
         let birthYear = birthDate.year
@@ -177,6 +177,12 @@ struct PlanTimeline {
                 guard let age = pension.fromAge, birthYear + age > chapter.years.lowerBound else { continue }
                 let name = PlanResultsMapping.pensionName(pension, index: index, of: plan.pensions.count)
                 events.append(Event(id: "pension-\(index)", date: inside(birthday(birthDate, age: age)), kind: .pension,
+                                    title: name, detail: "from \(age)"))
+            case .income(let index) where plan.income.indices.contains(index):
+                let income = plan.income[index]
+                guard let age = income.from?.age, birthYear + age > chapter.years.lowerBound else { continue }
+                let name = PlanResultsMapping.incomeName(income, index: index, of: plan.income.count)
+                events.append(Event(id: "income-\(index)", date: inside(birthday(birthDate, age: age)), kind: .pension,
                                     title: name, detail: "from \(age)"))
             case .spendingPhase(let index) where plan.spending.phases.indices.contains(index):
                 let phase = plan.spending.phases[index]

@@ -86,7 +86,7 @@ struct PlanUnplacedIssues: View {
     let plan: PlanDocument
 
     private var unplaced: [PlanIssue] {
-        let lists: [PlanInputSection] = [.work, .pensions, .contributions, .events]
+        let lists: [PlanInputSection] = [.work, .pensions, .income, .contributions, .events]
         return issues.issues(for: .spending) + lists.flatMap { issues.cardIssues(for: $0, in: plan) }
     }
 
@@ -108,8 +108,8 @@ struct PlanUnplacedIssues: View {
 // MARK: - Adding
 
 /// *Add to this chapter*: a work phase or a contribution before retirement,
-/// a pension or a later phase of spending in it, an event in any; each
-/// starting in the chapter.
+/// a pension or a later phase of spending in it, other income and an event
+/// in any; each starting in the chapter.
 struct PlanChapterAddMenu: View {
     let chapter: PlanChapter
     let model: PlanChaptersModel
@@ -137,6 +137,9 @@ struct PlanChapterAddMenu: View {
                     }
                 }
                 .disabled(PlanEditing.contributionAccounts(in: library.library).isEmpty)
+            }
+            Button("Other income") {
+                editing = .income(index: plan.income.count, income: model.newIncome(in: chapter))
             }
             Button("Event") {
                 editing = .event(index: plan.events.count, event: model.newEvent(in: chapter))

@@ -10,6 +10,7 @@ enum PlanInputSection: String, CaseIterable, Hashable, Sendable, Identifiable {
     case work
     case spending
     case pensions
+    case income
     case contributions
     case events
     case taxes
@@ -25,6 +26,7 @@ enum PlanInputSection: String, CaseIterable, Hashable, Sendable, Identifiable {
         case .work: "Work"
         case .spending: "Spending"
         case .pensions: "Pensions"
+        case .income: "Other income"
         case .contributions: "Contributions"
         case .events: "Events"
         case .taxes: "Taxes"
@@ -40,6 +42,7 @@ enum PlanInputSection: String, CaseIterable, Hashable, Sendable, Identifiable {
         case .work: "briefcase"
         case .spending: "cart"
         case .pensions: "building.columns"
+        case .income: "banknote"
         case .contributions: "arrow.down.to.line"
         case .events: "calendar"
         case .taxes: "percent"
@@ -68,6 +71,7 @@ enum PlanInputSection: String, CaseIterable, Hashable, Sendable, Identifiable {
         case .work: self = .work
         case .spending: self = .spending
         case .pensions: self = .pensions
+        case .income: self = .income
         case .contributions: self = .contributions
         case .events: self = .events
         case .tax: self = .taxes
@@ -104,7 +108,7 @@ struct PlanInputIssues: Hashable, Sendable {
     func cardIssues(for section: PlanInputSection, in plan: PlanDocument) -> [PlanIssue] {
         let all = issues(for: section)
         switch section {
-        case .work, .pensions, .contributions, .events:
+        case .work, .pensions, .income, .contributions, .events:
             return all.filter { $0.index == nil }
         default:
             return all
@@ -131,6 +135,7 @@ struct PlanInputSummaries {
         case .work: work
         case .spending: spending
         case .pensions: pensions
+        case .income: income
         case .contributions: contributions
         case .events: events
         case .taxes: taxes
@@ -205,6 +210,13 @@ struct PlanInputSummaries {
             let name = PlanResultsMapping.shortName(
                 PlanResultsMapping.pensionName(pension, index: index, of: plan.pensions.count))
             return pension.fromAge.map { "\(name) \($0)" } ?? name
+        }.joined(separator: " · ")
+    }
+
+    var income: String {
+        guard !plan.income.isEmpty else { return "None" }
+        return plan.income.enumerated().map { index, income in
+            PlanResultsMapping.shortName(PlanResultsMapping.incomeName(income, index: index, of: plan.income.count))
         }.joined(separator: " · ")
     }
 
@@ -345,5 +357,18 @@ enum PlanWorkText {
     /// "2026–28", "2029–retirement".
     static func years(of phase: WorkPhase) -> String {
         PlanInputSummaries.years(from: phase.from.year, until: phase.until.date?.year)
+    }
+}
+
+/// How other income reads in rows.
+enum PlanIncomeText {
+    /// "From 57 until 65", "From when you stop working until 60", "From 45".
+    static func span(of income: PlanIncome) -> String {
+        let from: String = switch income.from {
+        case .age(let age): "From \(age)"
+        case .retirement: "From when you stop working"
+        case nil: "No start yet"
+        }
+        return from + (income.untilAge.map { " until \($0)" } ?? "")
     }
 }

@@ -274,6 +274,9 @@ struct PlanChaptersModel {
         case .pension(let index):
             guard plan.pensions.indices.contains(index) else { return "Pension" }
             return PlanResultsMapping.pensionName(plan.pensions[index], index: index, of: plan.pensions.count)
+        case .income(let index):
+            guard plan.income.indices.contains(index) else { return "Other income" }
+            return PlanResultsMapping.incomeName(plan.income[index], index: index, of: plan.income.count)
         case .contribution(let index):
             guard plan.contributions.indices.contains(index) else { return "Contribution" }
             return "Saving into \(accountName(plan.contributions[index].account))"
@@ -349,6 +352,13 @@ struct PlanChaptersModel {
         var pension = PlanEditing.newPension()
         pension.fromAge = chapter.ages.lowerBound
         return pension
+    }
+
+    /// Other income from when work stops in the chapter it stops in, else
+    /// from the chapter's first age; its amount still to fill in.
+    func newIncome(in chapter: PlanChapter) -> PlanIncome {
+        let from: IncomeStart = chapter.items.contains(.retirement) ? .retirement : .age(chapter.ages.lowerBound)
+        return PlanIncome(name: "Other income", from: from, perYear: nil)
     }
 
     /// In the first chapter, a yearly contribution until retirement; in a

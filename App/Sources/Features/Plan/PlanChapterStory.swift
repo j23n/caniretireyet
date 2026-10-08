@@ -12,6 +12,7 @@ enum PlanToken: Hashable, Sendable, Identifiable {
     case retirementAge
     case pensionAmount(Int)
     case pensionAge(Int)
+    case incomeAmount(Int)
     case contributionAmount(Int)
     case eventAmount(Int)
     case eventWhen(Int)
@@ -27,9 +28,11 @@ enum PlanToken: Hashable, Sendable, Identifiable {
     case confidence
     /// The target mix and its changes with age, in a sheet of their own.
     case targetMix
-    /// An item in its sheet: a work phase, a pension, a contribution, an event.
+    /// An item in its sheet: a work phase, a pension, other income, a
+    /// contribution, an event.
     case work(Int)
     case pension(Int)
+    case income(Int)
     case contribution(Int)
     case event(Int)
 
@@ -43,6 +46,7 @@ enum PlanToken: Hashable, Sendable, Identifiable {
         case .retirementAge: "retirement-age"
         case .pensionAmount(let index): "pension-amount-\(index)"
         case .pensionAge(let index): "pension-age-\(index)"
+        case .incomeAmount(let index): "income-amount-\(index)"
         case .contributionAmount(let index): "contribution-amount-\(index)"
         case .eventAmount(let index): "event-amount-\(index)"
         case .eventWhen(let index): "event-when-\(index)"
@@ -59,6 +63,7 @@ enum PlanToken: Hashable, Sendable, Identifiable {
         case .targetMix: "target-mix"
         case .work(let index): "work-\(index)"
         case .pension(let index): "pension-\(index)"
+        case .income(let index): "income-\(index)"
         case .contribution(let index): "contribution-\(index)"
         case .event(let index): "event-\(index)"
         }
@@ -67,7 +72,7 @@ enum PlanToken: Hashable, Sendable, Identifiable {
     /// Whether it opens the item's sheet (or the target mix's) rather than a small editor.
     var opensSheet: Bool {
         switch self {
-        case .work, .pension, .contribution, .event, .targetMix: true
+        case .work, .pension, .income, .contribution, .event, .targetMix: true
         default: false
         }
     }
@@ -179,8 +184,11 @@ extension PlanChapterStory {
                     sentence += [.token("at \(model.retirementAge)", .retirementAge),
                                  .text(", in \(model.retirementYear),")]
                 }
+                let otherIncome = otherIncomePaid(at: chapter.years.lowerBound, retirementYear: model.retirementYear,
+                                                  plan: plan, birthYear: model.chapters.birthYear)
+                let allFromSavings = chapter.kind == .bridge && otherIncome == 0
                 sentence += [.text(" and spend "), .token(words.monthly(plan.spending.retired), .retiredSpending),
-                             .text(chapter.kind == .bridge ? " a month, all from your savings." : " a month.")]
+                             .text(allFromSavings ? " a month, all from your savings." : " a month.")]
                 sentences.append(sentence)
             }
             for case .spendingPhase(let index) in chapter.items where plan.spending.phases.indices.contains(index) {
@@ -197,6 +205,9 @@ extension PlanChapterStory {
                 sentences.append([.token(name, .pension(index)), .text(" pays "), .token(amount, .pensionAmount(index)),
                                   .text(" a month from "), .token(age, .pensionAge(index)), .text(".")])
             }
+        }
+        for case .income(let index) in chapter.items where plan.income.indices.contains(index) {
+            sentences.append(incomeSentence(plan.income[index], index: index, of: plan.income.count, words: words))
         }
         if !chapter.isRetired {
             for case .contribution(let index) in chapter.items + chapter.continuing
@@ -228,6 +239,21 @@ extension PlanChapterStory {
                                                       : "Your work keeps paying.")])
         }
         return sentences
+    }
+
+    /// "[Rent] pays [800 €] a month from 57 until 65.", "[Part-time] pays
+    /// [1.500 €] a month from when you stop working until 60."
+    static func incomeSentence(_ income: PlanIncome, index: Int, of count: Int, words: PlanWords) -> [Run] {
+        let name = PlanResultsMapping.incomeName(income, index: index, of: count)
+        let amount = income.perYear.map { words.monthly($0) } ?? "an amount to enter"
+        let from: String = switch income.from {
+        case .age(let age): " a month from \(age)"
+        case .retirement: " a month from when you stop working"
+        case nil: " a month"
+        }
+        let until = income.untilAge.map { " until \($0)" } ?? ""
+        return [.token(name, .income(index)), .text(" pays "), .token(amount, .incomeAmount(index)),
+                .text(from + until + ".")]
     }
 
     /// "In [2031] you spend [25.000 €] on [New car].", "At [62] you may
@@ -341,7 +367,14 @@ extension PlanChapterStory {
                        label: "\(words.monthly(spend)) a month, all from your savings")
         case .bridge, .pensions:
             let spend = plan.spending.retired * (chapter.spendingFactor ?? 1)
-            let pensions = pensionsPaid(at: chapter.years.lowerBound, plan: plan, birthYear: model.chapters.birthYear)
+            let paidPensions = pensionsPaid(at: chapter.years.lowerBound, plan: plan,
+                                            birthYear: model.chapters.birthYear)
+            let other = otherIncomePaid(at: chapter.years.lowerBound, retirementYear: model.retirementYear,
+                                        plan: plan, birthYear: model.chapters.birthYear)
+            // What pensions and other income pay, named by what's in it.
+            let pensions = paidPensions + other
+            let source = other == 0 ? "Pensions" : paidPensions == 0 ? "Other income" : "Income"
+            let pays = other == 0 ? "pay" : "pays"
             if pensions == 0 {
                 let fromSavings = words.monthlyValue(spend)
                 let tax = monthlyTax(in: chapter, results: results)
@@ -362,17 +395,17 @@ extension PlanChapterStory {
             if pensions >= spend {
                 return Bar(segments: [Bar.Segment(value: spent, role: .pensions),
                                       Bar.Segment(value: paid - spent, role: .spare)],
-                           leading: "Pensions \(words.monthly(pensions))",
+                           leading: "\(source) \(words.monthly(pensions))",
                            trailing: "\(words.monthly(pensions - spend)) to spare", trailingRole: .spare,
-                           label: "Pensions pay \(words.monthly(pensions)) a month, \(words.monthly(pensions - spend)) "
-                               + "more than you spend")
+                           label: "\(source) \(pays) \(words.monthly(pensions)) a month, "
+                               + "\(words.monthly(pensions - spend)) more than you spend")
             }
             return Bar(segments: [Bar.Segment(value: paid, role: .pensions),
                                   Bar.Segment(value: spent - paid, role: .fromSavings)],
-                       leading: "Pensions \(words.monthly(pensions))",
+                       leading: "\(source) \(words.monthly(pensions))",
                        trailing: "\(words.monthly(spend - pensions)) from savings", trailingRole: .fromSavings,
-                       label: "Of the \(words.monthly(spend)) you spend a month, pensions pay \(words.monthly(pensions)) "
-                           + "and your savings \(words.monthly(spend - pensions))")
+                       label: "Of the \(words.monthly(spend)) you spend a month, \(source.lowercased()) \(pays) "
+                           + "\(words.monthly(pensions)) and your savings \(words.monthly(spend - pensions))")
         }
     }
 
@@ -382,6 +415,18 @@ extension PlanChapterStory {
         plan.pensions.reduce(Decimal(0)) { total, pension in
             guard let age = pension.fromAge, let perYear = pension.perYear, birthYear + age <= year else { return total }
             return total + perYear
+        }
+    }
+
+    /// What other income pays a year, after tax, at the end of `year`:
+    /// what has started by then (from retirement, in the year work stops)
+    /// and not stopped.
+    static func otherIncomePaid(at year: Int, retirementYear: Int, plan: PlanDocument, birthYear: Int) -> Decimal {
+        plan.income.reduce(Decimal(0)) { total, income in
+            guard let from = income.from, let perYear = income.perYear else { return total }
+            let first = from.age.map { birthYear + $0 } ?? retirementYear
+            let stopped = income.untilAge.map { birthYear + $0 <= year } ?? false
+            return first <= year && !stopped ? total + perYear : total
         }
     }
 

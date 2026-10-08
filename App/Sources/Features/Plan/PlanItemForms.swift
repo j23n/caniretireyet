@@ -2,8 +2,8 @@ import Model
 import Planner
 import SwiftUI
 
-// The Taxes card, and the sheets that edit one work phase, pension,
-// contribution or event (the chapters list them, UI.md "The editors").
+// The Taxes card, and the sheets that edit one work phase, pension, other
+// income, contribution or event (the chapters list them, UI.md "The editors").
 
 // MARK: - Taxes
 
@@ -70,6 +70,14 @@ struct PlanItemSheet: View {
                 session.edit { $0.pensions = PlanEditing.removing(at: index, from: $0.pensions) }
             }) { binding in
                 PlanPensionForm(pension: binding, issues: issues.issues(for: .pensions, index: index))
+            }
+        case .income(let index, let income):
+            PlanItemEditor(index < plan.income.count ? "Other income" : "New income", item: income, onSave: { edited in
+                session.edit { $0.income = PlanEditing.replacing(at: index, with: edited, in: $0.income) }
+            }, onDelete: deletion(index < plan.income.count) {
+                session.edit { $0.income = PlanEditing.removing(at: index, from: $0.income) }
+            }) { binding in
+                PlanIncomeForm(income: binding, issues: issues.issues(for: .income, index: index))
             }
         case .contribution(let index, let contribution):
             PlanItemEditor(index < plan.contributions.count ? "Contribution" : "New contribution", item: contribution,
@@ -154,6 +162,35 @@ struct PlanPensionForm: View {
         } footer: {
             Text("From your pension statement, after the tax you expect to pay on it, in "
                 + "\(PlanMoney.todaysMoney(currency)).")
+        }
+        PlanIssuesSection(issues: issues)
+    }
+}
+
+/// Other income: its name, when it starts (an age, or when you stop
+/// working) and stops, and what it pays after tax.
+struct PlanIncomeForm: View {
+    @Binding var income: PlanIncome
+    let issues: [PlanIssue]
+    @Environment(\.baseCurrency) private var currency
+
+    var body: some View {
+        Section {
+            TextField("Name", text: $income.planName, prompt: Text("Other income"))
+            Toggle("From when you stop working", isOn: $income.planFromRetirement)
+            if !income.planFromRetirement {
+                Stepper("From \(income.planFromAge)", value: $income.planFromAge, in: 18...100)
+            }
+            Toggle("Stops at an age", isOn: $income.planHasEnd)
+            if income.planHasEnd {
+                Stepper("Until \(income.planUntilAge)", value: $income.planUntilAge, in: 19...110)
+            }
+            PlanNumberRow("After tax, a month", value: $income.perYear.perMonth, unit: "/month")
+        } header: {
+            Text("Other income")
+        } footer: {
+            Text("Rent, a side business, an annuity, or part-time work once you stop your main job, after tax, in "
+                + "\(PlanMoney.todaysMoney(currency)). Unlike work, it doesn't stop when you retire.")
         }
         PlanIssuesSection(issues: issues)
     }

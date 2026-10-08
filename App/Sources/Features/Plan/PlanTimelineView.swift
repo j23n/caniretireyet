@@ -200,6 +200,8 @@ struct PlanTimelineView: View {
             editing = .work(index: index, phase: plan.work[index])
         case .pension(let index) where plan.pensions.indices.contains(index):
             editing = .pension(index: index, pension: plan.pensions[index])
+        case .income(let index) where plan.income.indices.contains(index):
+            editing = .income(index: index, income: plan.income[index])
         case .contribution(let index) where plan.contributions.indices.contains(index):
             editing = .contribution(index: index, contribution: plan.contributions[index])
         case .event(let index) where plan.events.indices.contains(index):

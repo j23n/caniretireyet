@@ -307,6 +307,12 @@ enum PlanResultsMapping {
         pension.name ?? (count == 1 ? "Pension" : "Pension \(index + 1)")
     }
 
+    /// The name the planner gives other income at `index` (PlanInterpreter):
+    /// its own, else "Other income", or "Other income 2" when there are several.
+    static func incomeName(_ income: PlanIncome, index: Int, of count: Int) -> String {
+        income.name ?? (count == 1 ? "Other income" : "Other income \(index + 1)")
+    }
+
     static func category(of item: IncomeItem) -> IncomeCategory {
         switch item.kind {
         case .withdrawal: .withdrawals
@@ -325,7 +331,7 @@ enum PlanResultsMapping {
         case .pensions: sources.count == 1 ? sources.first! : "Pensions"
         case .windfalls: "Windfalls"
         case .work: "Work"
-        case .other: "Other"
+        case .other: "Other income"
         }
     }
 
@@ -385,11 +391,10 @@ enum PlanResultsMapping {
     /// What a year's income pays in taxes: the tax on the gain part of
     /// what's sold, the wealth tax, and last year's tax on investment
     /// income. Worked out from the year's flows: the income from outside the
-    /// plan's accounts (work, pensions, windfalls), less spending, expenses
-    /// and what was saved.
+    /// plan's accounts (work, pensions, other income, windfalls), less
+    /// spending, expenses and what was saved.
     static func paidFromIncome(_ year: YearDetail) -> Double {
-        let outside = year.income.filter { $0.kind == .work || $0.kind == .pension || $0.kind == .windfall }
-            .reduce(0) { $0 + $1.amount }
+        let outside = year.income.filter { $0.kind != .withdrawal }.reduce(0) { $0 + $1.amount }
         return max(0, outside - year.spending - year.expenses - year.savings)
     }
 
@@ -429,10 +434,12 @@ enum PlanResultsMapping {
                                   bridgeName: bridge?.name)
     }
 
-    /// Income per year from work and pensions, after tax as the plan gives it.
+    /// Income per year from work, pensions and other income, after tax as
+    /// the plan gives it.
     static func netIncome(_ years: [YearDetail]) -> [YearValue] {
-        years.map { year in
-            let net = year.income.filter { $0.kind == .work || $0.kind == .pension }.reduce(0) { $0 + $1.amount }
+        let kinds: Set<IncomeKind> = [.work, .pension, .other]
+        return years.map { year in
+            let net = year.income.filter { kinds.contains($0.kind) }.reduce(0) { $0 + $1.amount }
             return YearValue(year: year.year, value: whole(net, year))
         }
     }
