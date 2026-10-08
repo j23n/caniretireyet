@@ -66,20 +66,28 @@ struct Engine: Sendable {
     /// across workers: what the scan works out, for one age. `progress`
     /// counts it as one step.
     func reaches(_ age: Int, progress: ProgressReporter? = nil) async throws -> Bool {
+        let settled = try await successes(age: age, runs: Array(0..<scenarios.runs), spending: model.spending.retired)
+        progress?.advance()
+        return Double(settled.filter { $0 }.count) / Double(scenarios.runs) >= model.confidence
+    }
+
+    /// Whether each of `runs` succeeds at `age` (prepared) with `spending` a
+    /// year, from `start` (by default the plan's own starting portfolio):
+    /// the runs split across workers, which pause every ``runsPerChunk``.
+    func successes(age: Int, runs: [Int], spending: Double, start: Portfolio? = nil) async throws -> [Bool] {
         let engine = self
-        let spending = model.spending.retired
-        let chunks = Self.chunks(scenarios.runs).map { Array($0) }
-        let successes = try await parallelMap(chunks) { chunk -> Int in
-            var simulator = engine.simulator(age: age)
-            var count = 0
+        let chunks = Self.chunks(runs.count).map { Array(runs[$0]) }
+        let settled = try await parallelMap(chunks) { chunk -> [Bool] in
+            var simulator = engine.simulator(age: age, start: start)
+            var succeeded: [Bool] = []
+            succeeded.reserveCapacity(chunk.count)
             for (offset, run) in chunk.enumerated() {
                 if offset > 0, offset % Self.runsPerChunk == 0 { try await Self.pause() }
-                if simulator.run(run, spending: spending).failure == nil { count += 1 }
+                succeeded.append(simulator.run(run, spending: spending).failure == nil)
             }
-            return count
+            return succeeded
         }
-        progress?.advance()
-        return Double(successes.reduce(0, +)) / Double(scenarios.runs) >= model.confidence
+        return Array(settled.joined())
     }
 
     /// Every run at one age, with year-end values (and, with flexible
@@ -132,49 +140,28 @@ struct Engine: Sendable {
     /// level aren't simulated again. `progress` counts the levels tried
     /// (steps), against an estimate that grows when the search needs more.
     func sustainableSpending(age: Int, progress: ProgressReporter? = nil) async throws -> SustainableSpending? {
-        try await sustainableSpendingSearch(age: age, progress: progress).answer
-    }
-
-    /// ``sustainableSpending(age:progress:)`` with every level it tried and
-    /// the success there, in the order tried, for the plan debugger.
-    func sustainableSpendingSearch(age: Int, progress: ProgressReporter? = nil) async throws
-        -> (answer: SustainableSpending?, steps: [SearchStep]) {
         let runs = scenarios.runs
         let confidence = model.confidence
         var succeedsUpTo = [Double](repeating: -.infinity, count: runs)
         var failsFrom = [Double](repeating: .infinity, count: runs)
-        let engine = self
         // Levels tried so far, for `progress`: each is a step.
         var steps = 0
-        var tried: [SearchStep] = []
 
         func success(at level: Double) async throws -> Double {
             let open = (0..<runs).filter { succeedsUpTo[$0] < level && level < failsFrom[$0] }
-            let chunks = Self.chunks(open.count).map { Array(open[$0]) }
-            let results = try await parallelMap(chunks) { chunk -> [(Int, Bool)] in
-                var simulator = engine.simulator(age: age)
-                var settled: [(Int, Bool)] = []
-                settled.reserveCapacity(chunk.count)
-                for (offset, run) in chunk.enumerated() {
-                    if offset > 0, offset % Self.runsPerChunk == 0 { try await Self.pause() }
-                    settled.append((run, simulator.run(run, spending: level).failure == nil))
-                }
-                return settled
-            }
-            for (run, succeeded) in results.joined() {
+            let settled = try await successes(age: age, runs: open, spending: level)
+            for (run, succeeded) in zip(open, settled) {
                 if succeeded { succeedsUpTo[run] = level } else { failsFrom[run] = level }
             }
             steps += 1
             progress?.advance()
-            let rate = Double((0..<runs).filter { succeedsUpTo[$0] >= level }.count) / Double(runs)
-            tried.append(SearchStep(value: level, success: rate))
-            return rate
+            return Double((0..<runs).filter { succeedsUpTo[$0] >= level }.count) / Double(runs)
         }
 
         var high = max(1000, model.spending.retired * 1.5)
         // Zero, the first upper bound, the bisection and the final check.
         progress?.begin(.sustainableSpending, total: 3 + Self.bisectionSteps(low: 0, high: high))
-        guard try await success(at: 0) >= confidence else { return (nil, tried) }
+        guard try await success(at: 0) >= confidence else { return nil }
         var low = 0.0
         while try await success(at: high) >= confidence {
             low = high
@@ -188,8 +175,7 @@ struct Engine: Sendable {
             if try await success(at: mid) >= confidence { low = mid } else { high = mid }
         }
         let perYear = (low / 10).rounded(.down) * 10
-        let answer = SustainableSpending(age: age, perYear: perYear, success: try await success(at: perYear))
-        return (answer, tried)
+        return SustainableSpending(age: age, perYear: perYear, success: try await success(at: perYear))
     }
 
     // MARK: Assets needed to retire today
@@ -219,24 +205,14 @@ struct Engine: Sendable {
     ///     there are no plan assets.
     func assetsNeeded(age: Int, startAssets: Double, successToday: Double,
                       progress: ProgressReporter? = nil) async throws -> AssetsNeeded {
-        try await assetsNeededSearch(age: age, startAssets: startAssets, successToday: successToday,
-                                     progress: progress).answer
-    }
-
-    /// ``assetsNeeded(age:startAssets:successToday:progress:)`` with every
-    /// amount it tried, as the extra money in the accessible buckets, and
-    /// the success there, in the order tried, for the plan debugger.
-    func assetsNeededSearch(age: Int, startAssets: Double, successToday: Double,
-                            progress: ProgressReporter? = nil) async throws
-        -> (answer: AssetsNeeded, steps: [SearchStep]) {
         let runs = scenarios.runs
         let confidence = model.confidence
         let spending = model.spending.retired
         let maximum = AssetsNeeded.maximumScale
         guard startAssets > 0, portfolio.totalValue > 1e-6 else {
             let enough = successToday >= confidence
-            return (AssetsNeeded(age: age, outcome: .noPlanAssets, amount: enough ? 0 : nil,
-                                 success: enough ? successToday : nil, readiness: enough ? nil : 0), [])
+            return AssetsNeeded(age: age, outcome: .noPlanAssets, amount: enough ? 0 : nil,
+                                success: enough ? successToday : nil, readiness: enough ? nil : 0)
         }
         // What can be taken out: the accessible money, down to 1 / maximum of today's plan assets.
         let accessible = portfolio.accessibleValue
@@ -251,30 +227,17 @@ struct Engine: Sendable {
         // Per run, the smallest multiple it succeeded at and the largest it failed at.
         var succeedsFrom = [Double](repeating: .infinity, count: runs)
         var failsUpTo = [Double](repeating: -.infinity, count: runs)
-        let engine = self
         var steps = 0
-        var tried: [SearchStep] = []
 
         func success(at scale: Double) async throws -> Double {
             let open = (0..<runs).filter { failsUpTo[$0] < scale && scale < succeedsFrom[$0] }
-            let start = engine.startPortfolio(extra: extra(at: scale))
-            let chunks = Self.chunks(open.count).map { Array(open[$0]) }
-            let results = try await parallelMap(chunks) { chunk -> [(Int, Bool)] in
-                var simulator = engine.simulator(age: age, start: start)
-                var settled: [(Int, Bool)] = []
-                settled.reserveCapacity(chunk.count)
-                for (offset, run) in chunk.enumerated() {
-                    if offset > 0, offset % Self.runsPerChunk == 0 { try await Self.pause() }
-                    settled.append((run, simulator.run(run, spending: spending).failure == nil))
-                }
-                return settled
-            }
-            for (run, succeeded) in results.joined() {
+            let settled = try await successes(age: age, runs: open, spending: spending,
+                                              start: startPortfolio(extra: extra(at: scale)))
+            for (run, succeeded) in zip(open, settled) {
                 if succeeded { succeedsFrom[run] = scale } else { failsUpTo[run] = scale }
             }
             steps += 1
             progress?.advance()
-            tried.append(SearchStep(value: extra(at: scale), success: rate(at: scale)))
             return rate(at: scale)
         }
 
@@ -289,9 +252,9 @@ struct Engine: Sendable {
         if try await success(at: 1) >= confidence {
             while true {
                 guard high > floor else {
-                    return (AssetsNeeded(age: age, outcome: .atMost, scale: floor, amount: startAssets + fewest,
-                                         success: rate(at: floor), readiness: 1 / floor, extra: fewest,
-                                         accessible: accessible), tried)
+                    return AssetsNeeded(age: age, outcome: .atMost, scale: floor, amount: startAssets + fewest,
+                                        success: rate(at: floor), readiness: 1 / floor, extra: fewest,
+                                        accessible: accessible)
                 }
                 low = max(floor, high / 2)
                 guard try await success(at: low) >= confidence else { break }
@@ -303,8 +266,8 @@ struct Engine: Sendable {
             while try await success(at: high) < confidence {
                 low = high
                 if high >= maximum {
-                    return (AssetsNeeded(age: age, outcome: .moreThanMaximum, scale: maximum,
-                                         extra: extra(at: maximum), accessible: accessible), tried)
+                    return AssetsNeeded(age: age, outcome: .moreThanMaximum, scale: maximum,
+                                        extra: extra(at: maximum), accessible: accessible)
                 }
                 high = min(maximum, high * 2)
                 progress?.extend(to: steps + 1 + Self.logBisectionSteps(low: low, high: high))
@@ -316,9 +279,9 @@ struct Engine: Sendable {
             if try await success(at: middle) >= confidence { high = middle } else { low = middle }
         }
         let needed = extra(at: high)
-        return (AssetsNeeded(age: age, outcome: .found, scale: high, amount: startAssets + needed,
-                             success: rate(at: high), readiness: startAssets / (startAssets + needed), extra: needed,
-                             accessible: accessible), tried)
+        return AssetsNeeded(age: age, outcome: .found, scale: high, amount: startAssets + needed,
+                            success: rate(at: high), readiness: startAssets / (startAssets + needed), extra: needed,
+                            accessible: accessible)
     }
 
     /// The starting portfolio with `extra` more money you can draw (less,
@@ -382,13 +345,6 @@ struct Engine: Sendable {
         let size = (count + workers - 1) / workers
         return stride(from: 0, to: count, by: size).map { $0..<min(count, $0 + size) }
     }
-}
-
-/// One value a search tried, and the share of runs that succeed with it:
-/// a yearly spending, or the extra money in the accessible buckets.
-struct SearchStep: Sendable {
-    let value: Double
-    let success: Double
 }
 
 /// Maps `items` concurrently, keeping their order. Each item is a child

@@ -32,17 +32,16 @@ extension Planner {
             try await computeRun(plan: plan, library: library, options: PlannerOptions(today: options.today),
                                  progress: nil)
         }
-        return CalculationsReport(run: run, options: options).markdown
+        return CalculationsReport(result: run.result, model: run.model, options: options).markdown
     }
 }
 
 /// The Markdown of the calculations report.
 struct CalculationsReport {
-    let run: Planner.ComputedRun
+    let result: PlanResult
+    /// The plan as the run read it.
+    let model: PlanModel
     let options: CalculationsOptions
-
-    private var model: PlanModel { run.engine.model }
-    private var result: PlanResult { run.result }
 
     var markdown: String {
         var lines: [String] = []

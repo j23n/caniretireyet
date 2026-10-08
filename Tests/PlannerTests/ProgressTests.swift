@@ -75,8 +75,8 @@ struct ProgressTests {
     func everyUpdate(_ plan: PlanDocument, options: PlannerOptions) async throws -> (PlanResult, [PlannerProgress]) {
         let updates = Updates()
         let reporter = ProgressReporter(interval: .zero) { updates.append($0) }
-        let result = try await Planner.compute(plan: plan, library: library,
-                                               options: options, progress: reporter)
+        let result = try await Planner.computeRun(plan: plan, library: library,
+                                                  options: options, progress: reporter).result
         return (result, updates.all)
     }
 

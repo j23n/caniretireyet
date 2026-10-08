@@ -50,33 +50,15 @@ public enum Planner {
                            progress: (@Sendable (PlannerProgress) -> Void)? = nil) async throws -> PlanResult {
         let reporter = progress.map { ProgressReporter(handler: $0) }
         return try await withTaskExecutorPreference(PlannerExecutor.shared) {
-            try await compute(plan: plan, library: library, options: options, progress: reporter)
+            try await computeRun(plan: plan, library: library, options: options, progress: reporter).result
         }
     }
 
-    static func compute(plan: PlanDocument, library: Library, options: PlannerOptions,
-                        progress: ProgressReporter?) async throws -> PlanResult {
-        try await computeRun(plan: plan, library: library, options: options, progress: progress).result
-    }
-
-    /// A run as ``compute(plan:library:options:progress:)`` makes it, with
-    /// what the calculations report needs besides the result: the engine
-    /// (its model, portfolio, scenarios and schedules), each run's outcome
-    /// at the focus age, and the values the two searches tried.
-    struct ComputedRun: Sendable {
-        let result: PlanResult
-        let engine: Engine
-        /// Every run at ``PlanResult/focusAge``, by run index.
-        let outcomes: [RunOutcome]
-        /// The sustainable-spending search, in the order tried (empty when not solved).
-        let spendingSteps: [SearchStep]
-        /// The assets-needed search's steps, each the extra money in the
-        /// accessible buckets, in the order tried (empty when not solved).
-        let scaleSteps: [SearchStep]
-    }
-
+    /// A run as ``run(plan:library:options:progress:)`` makes it, on the
+    /// caller's executor: the result, and the model it ran, which the
+    /// calculations report reads too.
     static func computeRun(plan: PlanDocument, library: Library, options: PlannerOptions,
-                           progress: ProgressReporter?) async throws -> ComputedRun {
+                           progress: ProgressReporter?) async throws -> (result: PlanResult, model: PlanModel) {
         let (interpreted, issues) = PlanInterpreter.interpret(plan: plan, library: library, options: options)
         guard let model = interpreted else { throw PlannerError.invalidPlan(issues) }
         try Task.checkCancellation()
@@ -139,22 +121,18 @@ public enum Planner {
 
         try Task.checkCancellation()
         var sustainable: SustainableSpending?
-        var spendingSteps: [SearchStep] = []
         if options.solveSustainableSpending {
             let age = target ?? focus
             try await engine.prepare(ages: [age])
-            (sustainable, spendingSteps) = try await engine.sustainableSpendingSearch(age: age, progress: progress)
+            sustainable = try await engine.sustainableSpending(age: age, progress: progress)
         }
         let startValue = model.portfolio.startAssets.doubleValue
         let successNow = rates[current] ?? 0
         try Task.checkCancellation()
         var assetsNeeded: AssetsNeeded?
-        var scaleSteps: [SearchStep] = []
         if options.solveAssetsNeeded {
-            let search = try await engine.assetsNeededSearch(age: current, startAssets: startValue,
-                                                             successToday: successNow, progress: progress)
-            assetsNeeded = search.answer
-            scaleSteps = search.steps
+            assetsNeeded = try await engine.assetsNeeded(age: current, startAssets: startValue,
+                                                         successToday: successNow, progress: progress)
         }
         var agesWithout: [AgeWithout] = []
         if !changes.isEmpty {
@@ -221,8 +199,7 @@ public enum Planner {
                                 retirementYears: simulator.retirementYears)
             })
         progress?.finish()
-        return ComputedRun(result: result, engine: engine, outcomes: outcomes, spendingSteps: spendingSteps,
-                           scaleSteps: scaleSteps)
+        return (result, model)
     }
 
     // MARK: Ages without

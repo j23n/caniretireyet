@@ -1,6 +1,6 @@
 import Foundation
 
-/// Where a run of ``Planner/run(plan:library:registry:options:progress:)``
+/// Where a run of ``Planner/run(plan:library:options:progress:)``
 /// is, for a progress bar: "Earliest age · ages 41–75: 12 / 35",
 /// "Simulating 1,234 / 2,000 runs", "Sustainable spending: step 4 / 12",
 /// "Needed to retire today: step 3 / 9".
@@ -146,11 +146,10 @@ final class ProgressReporter: @unchecked Sendable {
 
     /// The phase has more items than it said, e.g. ages between two of the
     /// headline grid, or another bisection step. `expected` follows.
-    func extend(to total: Int, expected: Int? = nil, ages: ClosedRange<Int>? = nil) {
+    func extend(to total: Int, expected: Int? = nil) {
         lock.withLock {
             self.total = max(self.total, total)
             self.expected = max(self.total, expected ?? self.expected)
-            if let ages { self.ages = ages }
         }
     }
 

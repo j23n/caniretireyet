@@ -5,7 +5,7 @@ import Foundation
 /// A run keeps every core busy for seconds. On Swift's cooperative thread
 /// pool, which has one thread per core, that would stall every other async
 /// task in the process until the run finished: price fetches, their
-/// timeouts, timers, anything the app awaits. So ``Planner/run(plan:library:registry:options:)``
+/// timeouts, timers, anything the app awaits. So ``Planner/run(plan:library:options:progress:)``
 /// prefers this executor (`withTaskExecutorPreference`): the run and all its
 /// child tasks execute on these threads, one per core, and the operating
 /// system time-slices them with the cooperative pool, which stays free.
