@@ -366,8 +366,11 @@ public struct YearDetail: Hashable, Sendable {
     public var expenses: Double
     /// Gross income by source: work, pensions, windfalls, withdrawals.
     public var income: [IncomeItem]
-    /// Taxes by line (``TaxLine``): on investments and on wealth.
-    public var taxes: [AmountItem]
+    /// The tax on investments: on the gain part of what's sold, and on last
+    /// year's income from investments.
+    public var investmentTax: Double
+    /// The wealth tax.
+    public var wealthTax: Double
     /// Net new money into the plan's accounts: positive when saving,
     /// negative when drawing down.
     public var savings: Double
@@ -381,7 +384,7 @@ public struct YearDetail: Hashable, Sendable {
 
     public init(year: Int, age: Int, fraction: Double = 1, workingShare: Double = 0,
                 endAssets: Double, spending: Double, expenses: Double = 0, income: [IncomeItem] = [],
-                taxes: [AmountItem] = [], savings: Double = 0,
+                investmentTax: Double = 0, wealthTax: Double = 0, savings: Double = 0,
                 plannedSpending: Double? = nil, spendingLevel: Double? = nil) {
         self.year = year
         self.age = age
@@ -391,14 +394,15 @@ public struct YearDetail: Hashable, Sendable {
         self.spending = spending
         self.expenses = expenses
         self.income = income
-        self.taxes = taxes
+        self.investmentTax = investmentTax
+        self.wealthTax = wealthTax
         self.savings = savings
         self.plannedSpending = plannedSpending
         self.spendingLevel = spendingLevel
     }
 
     /// All taxes in the year.
-    public var totalTax: Double { taxes.reduce(0) { $0 + $1.amount } }
+    public var totalTax: Double { investmentTax + wealthTax }
 }
 
 /// Where income came from.
@@ -430,19 +434,6 @@ public struct IncomeItem: Hashable, Sendable {
 
     public init(kind: IncomeKind, id: String, label: String, amount: Double) {
         self.kind = kind
-        self.id = id
-        self.label = label
-        self.amount = amount
-    }
-}
-
-/// An amount by ID, e.g. a tax line.
-public struct AmountItem: Hashable, Sendable {
-    public var id: String
-    public var label: String
-    public var amount: Double
-
-    public init(id: String, label: String, amount: Double) {
         self.id = id
         self.label = label
         self.amount = amount

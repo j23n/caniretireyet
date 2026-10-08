@@ -262,7 +262,7 @@ struct PlanResults: Hashable, Sendable, Codable {
     var markers: [ChartMarker]
     /// Retirement income per year by source (median run).
     var income: [IncomeSegment]
-    /// Taxes per year by tax line (median run).
+    /// Taxes per year, on investments and on wealth (median run).
     var taxes: [IncomeSegment]
     /// The spending target per year, drawn over the income chart.
     var spending: [YearValue]

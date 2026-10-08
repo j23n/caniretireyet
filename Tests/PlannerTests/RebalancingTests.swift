@@ -24,7 +24,7 @@ struct RebalancingTests {
         // 2027: 52,500 × 1.1 + 52,500, not 60,500 + 50,000 as without rebalancing.
         #expect(close(result.expectedValue(in: 2027), 110_250))
         // Rebalancing isn't taxed, and isn't a sale.
-        #expect(result.expectedPath.years.allSatisfy { $0.taxes.isEmpty })
+        #expect(result.expectedPath.years.allSatisfy { $0.totalTax == 0 })
         #expect(result.expectedPath.years.allSatisfy { !$0.income.contains { $0.kind == .withdrawal } })
     }
 

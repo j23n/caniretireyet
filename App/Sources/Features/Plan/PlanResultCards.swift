@@ -332,7 +332,7 @@ struct PlanFanLegend: View {
     }
 }
 
-/// Retirement income by source, or taxes by line (Income | Taxes).
+/// Retirement income by source, or the taxes on investments and on wealth (Income | Taxes).
 struct PlanIncomeCard: View {
     let results: PlanResults
     @State private var showsTaxes = false

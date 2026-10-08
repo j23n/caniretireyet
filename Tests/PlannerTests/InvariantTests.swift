@@ -40,7 +40,7 @@ struct InvariantTests {
         }
         #expect(result.medianPath == result.expectedPath)
         #expect(result.successCurve.allSatisfy { $0.success == 0 || $0.success == 1 })
-        #expect(result.expectedPath.years.contains { !$0.taxes.isEmpty })
+        #expect(result.expectedPath.years.contains { $0.totalTax > 0 })
     }
 
     @Test func moreSavingsNeverLowersTheChanceOfSuccess() async throws {

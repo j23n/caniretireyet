@@ -90,7 +90,7 @@ struct TargetMixTests {
         plan.tax.investmentRate = d("0.25")
         let result = try await Sample.run(plan, Self.library(),
                                           options: PlannerOptions(maxRetirementAge: 56, solveSustainableSpending: false))
-        #expect(result.expectedPath.years.allSatisfy { $0.taxes.isEmpty })
+        #expect(result.expectedPath.years.allSatisfy { $0.totalTax == 0 })
         #expect(close(result.expectedValue(in: 2032), 100_000))
     }
 

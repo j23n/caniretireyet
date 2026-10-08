@@ -200,11 +200,10 @@ struct CalculationsReport {
             func sum(_ kinds: Set<IncomeKind>) -> Double {
                 year.income.filter { kinds.contains($0.kind) }.reduce(0) { $0 + $1.amount }
             }
-            func tax(_ id: String) -> Double { year.taxes.filter { $0.id == id }.reduce(0) { $0 + $1.amount } }
             lines.append("| \(year.year) | \(year.age) | \(money(sum([.work, .pension, .other]))) | "
                 + "\(money(sum([.windfall]))) | "
-                + "\(money(year.spending)) | \(money(year.expenses)) | \(money(tax(TaxLine.investment))) | "
-                + "\(money(tax(TaxLine.wealth))) | \(money(sum([.withdrawal]))) | \(money(max(0, year.savings))) | "
+                + "\(money(year.spending)) | \(money(year.expenses)) | \(money(year.investmentTax)) | "
+                + "\(money(year.wealthTax)) | \(money(sum([.withdrawal]))) | \(money(max(0, year.savings))) | "
                 + "\(money(year.endAssets)) |")
         }
         if let failure = path.failure {

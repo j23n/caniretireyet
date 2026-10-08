@@ -233,7 +233,7 @@ struct PathSimulator: Sendable {
                     year: frame.year, age: frame.age, fraction: frame.fraction,
                     workingShare: schedule.workingShare[t], endAssets: endAssets,
                     spending: paid, expenses: expenses, income: income,
-                    taxes: Self.taxLines(investment: gainTax + incomeTax, wealth: wealthTax),
+                    investmentTax: gainTax + incomeTax, wealthTax: wealthTax,
                     savings: contributed + max(0, cash) - sold,
                     plannedSpending: flexible == nil ? nil : schedule.workingSpending[t] + retiredSpending,
                     spendingLevel: flexible != nil && retiredSpending > 0 ? paidLevel : nil))
@@ -359,27 +359,10 @@ struct PathSimulator: Sendable {
 
     // MARK: - Helpers
 
-    /// The year's tax lines, without the ones that are 0.
-    static func taxLines(investment: Double, wealth: Double) -> [AmountItem] {
-        var lines: [AmountItem] = []
-        if investment > 0 { lines.append(AmountItem(id: TaxLine.investment, label: "Tax on investments",
-                                                    amount: investment)) }
-        if wealth > 0 { lines.append(AmountItem(id: TaxLine.wealth, label: "Wealth tax", amount: wealth)) }
-        return lines
-    }
-
     /// A level a hair from a whole step, snapped to it, so repeated cuts and
     /// raises land on 90%, 80%, … exactly.
     static func snapped(_ level: Double) -> Double {
         let rounded = (level * 1000).rounded() / 1000
         return abs(rounded - level) < 1e-9 ? rounded : level
     }
-}
-
-/// The IDs of the tax lines in ``YearDetail/taxes``.
-public enum TaxLine {
-    /// The tax on the gain part of sales and on investment income.
-    public static let investment = "tax.investment"
-    /// The wealth tax.
-    public static let wealth = "tax.wealth"
 }

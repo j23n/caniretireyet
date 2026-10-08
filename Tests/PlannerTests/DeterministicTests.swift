@@ -36,7 +36,7 @@ struct DeterministicTests {
         #expect(firstYear.fraction == 1 && firstYear.workingShare == 0)
         #expect(close(firstYear.spending, 10_000))
         #expect(firstYear.income.map(\.kind) == [.withdrawal])
-        #expect(firstYear.taxes.isEmpty)
+        #expect(firstYear.totalTax == 0)
         #expect(close(firstYear.savings, -10_000))
     }
 
@@ -73,7 +73,7 @@ struct DeterministicTests {
         #expect(first.workingShare == 1)
         #expect(close(first.savings, 20_000))
         #expect(first.income == [IncomeItem(kind: .work, id: "work-0", label: "Work", amount: 60_000)])
-        #expect(first.taxes.isEmpty)
+        #expect(first.totalTax == 0)
         #expect(result.expectedPath.years.first { $0.year == 2031 }?.workingShare == 0)
         #expect(result.markers.contains(TimelineMarker(kind: .retirement, year: 2031, age: 45, label: "Retirement")))
     }
@@ -100,9 +100,8 @@ struct DeterministicTests {
         // leaving 88,571.43, which grows to 93,000. The tax is paid out of the sale.
         #expect(close(result.expectedValue(in: 2026), 93_000))
         let first = try #require(result.expectedPath.years.first)
-        #expect(first.taxes.map(\.id) == [TaxLine.investment])
-        #expect(first.taxes.first?.label == "Tax on investments")
-        #expect(close(first.totalTax, 10_000 / 0.875 * 0.5 * 0.25))
+        #expect(first.wealthTax == 0)
+        #expect(close(first.investmentTax, 10_000 / 0.875 * 0.5 * 0.25))
         #expect(close(first.income.first { $0.kind == .withdrawal }?.amount, 10_000 / 0.875))
         #expect(close(first.savings, -10_000 / 0.875))
     }
@@ -117,7 +116,7 @@ struct DeterministicTests {
         // 2026 sells at cost: no tax, 90,000 left, its cost now 90,000 / 1.02 in
         // today's money. 2027's sale is 1/51 gain: 10,000 / (1 − 0.5 / 51).
         #expect(close(result.expectedValue(in: 2026), 90_000))
-        #expect(result.expectedYear(2026)?.taxes.isEmpty == true)
+        #expect(result.expectedYear(2026)?.totalTax == 0)
         let sold = 10_000 / (1 - 0.5 / 51)
         #expect(close(result.expectedYear(2027)?.income.first { $0.kind == .withdrawal }?.amount, sold))
         #expect(close(result.expectedValue(in: 2027), 90_000 - sold))
@@ -142,10 +141,10 @@ struct DeterministicTests {
         // 2026 pays out 2,000 of income, reinvested; its 500 of tax is paid in
         // 2027 by selling at cost (the reinvested income raised the cost).
         #expect(close(result.expectedValue(in: 2026), 100_000))
-        #expect(result.expectedYear(2026)?.taxes.isEmpty == true)
+        #expect(result.expectedYear(2026)?.totalTax == 0)
         #expect(close(result.expectedValue(in: 2027), 99_500))
-        #expect(result.expectedYear(2027)?.taxes.map(\.id) == [TaxLine.investment])
-        #expect(close(result.expectedYear(2027)?.totalTax, 500))
+        #expect(result.expectedYear(2027)?.wealthTax == 0)
+        #expect(close(result.expectedYear(2027)?.investmentTax, 500))
         #expect(close(result.expectedValue(in: 2028), 99_500 - 0.25 * 0.02 * 99_500))
     }
 
@@ -157,9 +156,8 @@ struct DeterministicTests {
         for (k, year) in (2026...2030).enumerated() {
             #expect(close(result.expectedValue(in: year), 100_000 * pow(0.99, Double(k + 1))))
         }
-        #expect(result.expectedYear(2027)?.taxes.map(\.id) == [TaxLine.wealth])
-        #expect(result.expectedYear(2027)?.taxes.first?.label == "Wealth tax")
-        #expect(close(result.expectedYear(2027)?.totalTax, 990))
+        #expect(result.expectedYear(2027)?.investmentTax == 0)
+        #expect(close(result.expectedYear(2027)?.wealthTax, 990))
 
         // With 50,000 untaxed: 500, then 1% of 49,500.
         let allowance = try await Sample.run(
@@ -351,7 +349,7 @@ struct DeterministicTests {
         #expect(close(result.expectedValue(in: 2030), 81_000))
         let year2027 = try #require(result.expectedYear(2027))
         #expect(year2027.income.contains { $0.kind == .windfall && $0.label == "Gift" && $0.amount == 50_000 })
-        #expect(year2027.taxes.isEmpty)
+        #expect(year2027.totalTax == 0)
         #expect(close(result.expectedYear(2029)?.expenses, 20_000))
         #expect(result.markers.filter { $0.kind == .windfall }.map(\.label) == ["Gift", "Maybe", "Unlikely"])
         #expect(result.markers.filter { $0.kind == .expense }.map(\.label) == ["Roof"])

@@ -10,7 +10,7 @@ import Tracker
 /// It reacts to the what-if sliders (retirement age, spending, saving,
 /// equity return) the way a real engine would, roughly. Its retirement
 /// years are the Planner's kind of `YearDetail` (gross income by source,
-/// taxes by line, spending, savings) with made-up amounts: the plan's
+/// the two taxes, spending, savings) with made-up amounts: the plan's
 /// pensions, withdrawals, its windfalls. They go
 /// through the same mapping as a Planner run (``PlanResultsMapping``), so
 /// income is shown after tax with the taxes on top, in the same colours,
@@ -106,11 +106,7 @@ struct PreviewPlanEngine: PlanEngine {
             retiredYears.append(YearDetail(
                 year: year, age: yearAge, endAssets: median, spending: need,
                 expenses: expenses, income: income.filter { $0.amount > 0 },
-                taxes: [
-                    AmountItem(id: TaxLine.investment, label: "Tax on investments", amount: withdrawal * 0.05),
-                    AmountItem(id: TaxLine.wealth, label: "Wealth tax", amount: wealthTax),
-                ],
-                savings: savings))
+                investmentTax: withdrawal * 0.05, wealthTax: wealthTax, savings: savings))
         }
         let income = PlanResultsMapping.income(retiredYears)
         let taxes = PlanResultsMapping.taxes(retiredYears)
