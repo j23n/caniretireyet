@@ -15,7 +15,6 @@ struct GoldAPIProviderTests {
         #expect(quote.currency == .usd)
         #expect(quote.unit == .troyOunce)
         #expect(quote.observedOn == today)
-        #expect(quote.observedAt == Date(timeIntervalSince1970: 1_790_758_787))
         #expect(try #require(await client.requests.first).url.absoluteString == "https://api.gold-api.com/price/XAU")
     }
 
@@ -23,8 +22,7 @@ struct GoldAPIProviderTests {
         let client = MockHTTPClient(["price/XAG": GoldAPIResponses.silver])
         let quote = try await GoldAPIProvider(client: client)
             .quote(for: QuoteRequest(symbol: "xag", date: today, currency: .eur, today: today))
-        #expect(quote == Quote(price: d("41.28"), currency: .usd, unit: .troyOunce, observedOn: today,
-                               observedAt: Date(timeIntervalSince1970: 1_790_758_787)))
+        #expect(quote == Quote(price: d("41.28"), currency: .usd, unit: .troyOunce, observedOn: today))
     }
 
     @Test func aRecentCheckInUsesTodaysSpotPrice() async throws {

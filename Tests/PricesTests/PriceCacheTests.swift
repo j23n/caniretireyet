@@ -33,7 +33,7 @@ struct PriceCacheTests {
         }
         #expect(values == Array(repeating: 1, count: 10))
         #expect(await counter.value == 1)
-        #expect(await cache.count == 1)
+        #expect(await cache.contains(key))
     }
 
     @Test func failuresArentKept() async throws {
@@ -46,7 +46,7 @@ struct PriceCacheTests {
         #expect(try await cache.value(for: key) { 43 } == 42)
 
         await cache.removeAll()
-        #expect(await cache.count == 0)
+        #expect(await !cache.contains(key))
     }
 
     @Test func aFailedItemIsFetchedAgainNextTime() async throws {

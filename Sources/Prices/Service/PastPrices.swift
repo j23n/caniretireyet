@@ -28,7 +28,7 @@ extension PriceService {
     ///    unfilled: one Yahoo Finance request for twelve years of an ETF, or
     ///    CoinGecko for the last year of a coin and Yahoo's `BTC-EUR` for
     ///    the years before. Each date takes the latest value on or before it
-    ///    (``PriceHistory/quote(onOrBefore:maxAge:)``).
+    ///    (``PriceHistory/quote(onOrBefore:)``).
     /// 2. **FX rates.** Then one request per currency, for the rates the
     ///    library is missing and those that convert a price into its
     ///    instrument's currency. A rate the library has for the day converts
@@ -78,18 +78,15 @@ extension PriceService {
             case .index(let need): .index(await self.fetchIndex(need))
             }
         } received: { (output: PastPriceStepOutput) in
-            let finished: String
             switch output {
             case .history(let history):
                 histories[history.key] = history
-                finished = history.symbol
             case .index(let (result, records)):
                 indexResults.append(result)
                 indexRecords += records
-                finished = result.item.description
             }
             done += 1
-            await progress?(PastPriceProgress(done: done, total: total, finished: finished))
+            await progress?(PastPriceProgress(done: done, total: total))
         }
 
         // The library's own rates for a day, either way round.
@@ -128,7 +125,7 @@ extension PriceService {
         } received: { rates in
             fetchedRates[rates.quote] = rates
             done += 1
-            await progress?(PastPriceProgress(done: done, total: total, finished: "\(base)/\(rates.quote)"))
+            await progress?(PastPriceProgress(done: done, total: total))
         }
         func rate(_ currency: CurrencyCode, on date: CalendarDate) -> Decimal? {
             if currency == base { return 1 }
@@ -237,7 +234,6 @@ extension PriceService {
     /// The values a history group got, by the date they're for.
     struct FetchedHistory: Sendable {
         var key: String
-        var symbol: String
         var quotes: [CalendarDate: Quote]
         /// Why some dates have no value, as sentences.
         var reason: String?
@@ -248,7 +244,7 @@ extension PriceService {
     /// all of them.
     private func fetchHistory(_ group: HistoryGroup, today: CalendarDate) async -> FetchedHistory {
         let symbol = group.source.symbol
-        var result = FetchedHistory(key: group.key, symbol: symbol, quotes: [:])
+        var result = FetchedHistory(key: group.key, quotes: [:])
         guard let provider = group.provider else {
             result.reason = PriceFetchError.unsupportedProvider(group.source.provider).description
             return result

@@ -11,7 +11,7 @@ import Model
 /// 2. **A symbol that looks like an ID** (lowercase letters, digits and `-`)
 ///    is tried as it is.
 /// 3. **Otherwise**, or if CoinGecko doesn't know that ID, CoinGecko's search
-///    (``bestMatch(for:in:)``) picks the coin.
+///    (``bestCoin(for:in:)``) picks the coin.
 enum CoinGeckoCoinIDs {
     /// CoinGecko IDs of well-known coins, by uppercased ticker.
     static let tickers: [String: String] = [
@@ -73,15 +73,11 @@ enum CoinGeckoCoinIDs {
         return Slug.isValid(symbol) || symbol.isEmpty ? nil : symbol.uppercased()
     }
 
-    /// The coin a search for `symbol` means, or `nil` if none matches: the
-    /// coin whose ID is `symbol`, otherwise the best-ranked coin whose ticker
-    /// is `symbol` (lowest market-cap rank; unranked coins last; ties go to
-    /// the first listed). Both comparisons ignore case.
-    static func bestMatch(for symbol: String, in coins: [SearchCoin]) -> String? {
-        bestCoin(for: symbol, in: coins)?.id
-    }
-
-    /// The coin ``bestMatch(for:in:)`` picks, with its ticker.
+    /// The coin a search for `symbol` means, with its ticker, or `nil` if
+    /// none matches: the coin whose ID is `symbol`, otherwise the
+    /// best-ranked coin whose ticker is `symbol` (lowest market-cap rank;
+    /// unranked coins last; ties go to the first listed). Both comparisons
+    /// ignore case.
     static func bestCoin(for symbol: String, in coins: [SearchCoin]) -> SearchCoin? {
         let wanted = symbol.lowercased()
         if let exact = coins.first(where: { $0.id.lowercased() == wanted }) {

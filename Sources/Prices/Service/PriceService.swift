@@ -232,8 +232,8 @@ public struct PriceService: Sendable {
             let (price, rates) = try await convert(cached.quote, for: instrument, needs: needs)
             let record = PriceRecord(instrument: instrument.id, date: needs.date, price: price,
                                      currency: instrument.currency, source: cached.quote.origin?.source ?? provider.source)
-            let details = FetchDetails(observedOn: cached.quote.observedOn, observedAt: cached.quote.observedAt,
-                                       fetchedAt: cached.fetchedAt, quote: cached.quote)
+            let details = FetchDetails(observedOn: cached.quote.observedOn, fetchedAt: cached.fetchedAt,
+                                       quote: cached.quote)
             return .instrument(entry(.fetched(details), origin: cached.quote.origin), record, rates)
         } catch {
             return .instrument(entry(.failed(Self.fetchError(error, service: provider.name))), nil, [])

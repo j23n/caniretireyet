@@ -79,19 +79,16 @@ public struct GoldAPIProvider: InstrumentPriceProvider {
         guard body.price > 0 else {
             throw PriceFetchError.noData(service: name, detail: "no price for \(symbol)")
         }
-        let updated = body.updatedAt.flatMap { try? Date($0, strategy: .iso8601) }
         return Quote(
             price: body.price.rounded(scale: 2),
             currency: CurrencyCode(body.currency ?? "USD"),
             unit: Self.metals.contains(symbol) ? .troyOunce : nil,
-            observedOn: request.today,
-            observedAt: updated)
+            observedOn: request.today)
     }
 
     private struct Spot: Decodable {
         let price: Decimal
         let currency: String?
         let symbol: String?
-        let updatedAt: String?
     }
 }

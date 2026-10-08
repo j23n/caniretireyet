@@ -27,9 +27,6 @@ public actor PriceCache {
 
     public init() {}
 
-    /// The number of cached (or in-flight) values.
-    public var count: Int { entries.count }
-
     /// Whether a value for `key` is cached or being fetched.
     public func contains(_ key: Key) -> Bool {
         entries[key] != nil

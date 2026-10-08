@@ -197,8 +197,7 @@ public struct CoinGeckoProvider: BatchQuoteProvider {
             let instant = Date(timeIntervalSince1970: milliseconds.doubleValue / 1000)
             guard ProviderInstants.isPlausible(instant, today: today) else { return nil }
             let day = CalendarDate(instant.addingTimeInterval(-1), in: TimeZone(identifier: "UTC")!)
-            return Quote(price: price.rounded(significantDigits: 8), currency: currency, observedOn: day,
-                         observedAt: instant)
+            return Quote(price: price.rounded(significantDigits: 8), currency: currency, observedOn: day)
         }
     }
 
@@ -305,8 +304,7 @@ public struct CoinGeckoProvider: BatchQuoteProvider {
         guard let price = spot.prices[request.currency.rawValue.lowercased()] else {
             throw .noData(service: name, detail: "no \(request.currency) price for \(coin)")
         }
-        let updated = spot.lastUpdatedAt.map { Date(timeIntervalSince1970: TimeInterval($0)) }
-        var quote = Quote(price: price, currency: request.currency, observedOn: request.today, observedAt: updated)
+        var quote = Quote(price: price, currency: request.currency, observedOn: request.today)
         if coin != request.symbol { quote.resolvedSymbol = coin }
         return quote
     }
@@ -323,8 +321,7 @@ public struct CoinGeckoProvider: BatchQuoteProvider {
             throw PriceFetchError.noData(
                 service: name, detail: "no \(request.currency) price for \(coin) on \(request.date)")
         }
-        let midnight = Date(timeIntervalSince1970: TimeInterval(snapshotDay.daysSinceEpoch) * 86_400)
-        return Quote(price: price, currency: request.currency, observedOn: request.date, observedAt: midnight)
+        return Quote(price: price, currency: request.currency, observedOn: request.date)
     }
 
     /// Quotes for several requests: the spot prices (a date today or later)
@@ -388,17 +385,14 @@ public struct CoinGeckoProvider: BatchQuoteProvider {
     }
 
     /// `{ "eur": 97736.45, "last_updated_at": 1790758802 }`: prices keyed by
-    /// lowercased currency, plus the update time.
+    /// lowercased currency; the update time isn't read.
     private struct SpotPrice: Decodable {
         var prices: [String: Decimal] = [:]
-        var lastUpdatedAt: Int64?
 
         init(from decoder: any Decoder) throws {
             let container = try decoder.container(keyedBy: AnyCodingKey.self)
-            for key in container.allKeys {
-                if key.stringValue == "last_updated_at" {
-                    lastUpdatedAt = try? container.decode(Int64.self, forKey: key)
-                } else if let value = try? container.decode(Decimal.self, forKey: key) {
+            for key in container.allKeys where key.stringValue != "last_updated_at" {
+                if let value = try? container.decode(Decimal.self, forKey: key) {
                     prices[key.stringValue] = value
                 }
             }

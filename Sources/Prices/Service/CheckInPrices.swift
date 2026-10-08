@@ -45,13 +45,6 @@ public struct CheckInPrices: Hashable, Sendable {
     public func entry(for item: PriceListEntry.Item) -> PriceListEntry? {
         entries.first { $0.item == item }
     }
-
-    /// Adds every record to `library`, replacing records with the same key.
-    public func apply(to library: inout Library) {
-        prices.forEach { library.upsert($0) }
-        fx.forEach { library.upsert($0) }
-        indices.forEach { library.upsert($0) }
-    }
 }
 
 /// One line of a check-in's price list: an instrument, an FX rate or an
@@ -145,17 +138,14 @@ public struct FetchDetails: Hashable, Sendable {
     /// The day the value is from, e.g. Friday's close for a Sunday check-in.
     /// For an index, the last day of the latest month published.
     public var observedOn: CalendarDate?
-    /// When the provider last updated the value, if it says.
-    public var observedAt: Date?
     /// When it was fetched. A value from the cache keeps its original time.
     public var fetchedAt: Date
     /// For instruments: the provider's quote before conversion into the
     /// instrument's currency and unit, e.g. USD per troy ounce.
     public var quote: Quote?
 
-    public init(observedOn: CalendarDate? = nil, observedAt: Date? = nil, fetchedAt: Date, quote: Quote? = nil) {
+    public init(observedOn: CalendarDate? = nil, fetchedAt: Date, quote: Quote? = nil) {
         self.observedOn = observedOn
-        self.observedAt = observedAt
         self.fetchedAt = fetchedAt
         self.quote = quote
     }

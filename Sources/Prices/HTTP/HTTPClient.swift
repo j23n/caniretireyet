@@ -42,11 +42,6 @@ public struct HTTPResponse: Hashable, Sendable {
     public func header(_ name: String) -> String? {
         headers[name.lowercased()]
     }
-
-    /// Whether the status is 2xx.
-    public var isSuccess: Bool {
-        (200..<300).contains(statusCode)
-    }
 }
 
 /// Sends HTTP requests for the price providers.

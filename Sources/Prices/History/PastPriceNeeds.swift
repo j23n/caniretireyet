@@ -28,7 +28,7 @@ import Model
 ///   has ended by today without a value.
 public struct PastPriceNeeds: Hashable, Sendable {
     /// An instrument and the dates it needs a price on.
-    public struct InstrumentDates: Hashable, Sendable, Identifiable {
+    public struct InstrumentDates: Hashable, Sendable {
         public var instrument: InstrumentID
         /// The instrument as the library has it; `nil` when it's missing.
         public var details: Instrument?
@@ -40,12 +40,10 @@ public struct PastPriceNeeds: Hashable, Sendable {
             self.details = details
             self.dates = dates.sorted()
         }
-
-        public var id: InstrumentID { instrument }
     }
 
     /// A currency and the dates it needs a rate against the base currency on.
-    public struct RateDates: Hashable, Sendable, Identifiable {
+    public struct RateDates: Hashable, Sendable {
         public var quote: CurrencyCode
         /// Sorted.
         public var dates: [CalendarDate]
@@ -54,8 +52,6 @@ public struct PastPriceNeeds: Hashable, Sendable {
             self.quote = quote
             self.dates = dates.sorted()
         }
-
-        public var id: CurrencyCode { quote }
     }
 
     /// The day the needs were worked out for; nothing after it is needed.
@@ -259,9 +255,4 @@ public struct PastPriceNeeds: Hashable, Sendable {
     public var rateCount: Int { rates.reduce(0) { $0 + $1.dates.count } }
     /// How many index months would be fetched.
     public var indexMonthCount: Int { indices.reduce(0) { $0 + $1.months.count } }
-
-    /// The dates `instrument` needs a price on, whichever list it's in.
-    public func dates(for instrument: InstrumentID) -> [CalendarDate] {
-        (instruments + manualInstruments + unknownInstruments).first { $0.instrument == instrument }?.dates ?? []
-    }
 }

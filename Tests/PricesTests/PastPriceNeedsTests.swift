@@ -145,3 +145,10 @@ struct PastPriceNeedsTests {
             ])
     }
 }
+
+extension PastPriceNeeds {
+    /// The dates `instrument` needs a price on, whichever list it's in.
+    func dates(for instrument: InstrumentID) -> [CalendarDate] {
+        (instruments + manualInstruments + unknownInstruments).first { $0.instrument == instrument }?.dates ?? []
+    }
+}

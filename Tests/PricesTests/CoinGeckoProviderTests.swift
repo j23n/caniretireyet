@@ -18,7 +18,6 @@ struct CoinGeckoProviderTests {
         #expect(quote.currency == .usd)
         #expect(quote.unit == nil)
         #expect(quote.observedOn == today)
-        #expect(quote.observedAt == Date(timeIntervalSince1970: 1_790_758_680))
 
         let sent = try #require(await client.requests.first)
         #expect(sent.url.absoluteString == "https://api.coingecko.com/api/v3/simple/price?ids=bitcoin"
@@ -34,8 +33,7 @@ struct CoinGeckoProviderTests {
         #expect(usd.price == d("88900.12"))
         #expect(usd.observedOn == "2026-03-31")
         let eur = try await provider.quote(for: request("2026-03-31", .eur))
-        #expect(eur == Quote(price: d("80076.47"), currency: .eur, observedOn: "2026-03-31",
-                             observedAt: Date(timeIntervalSince1970: 1_775_001_600)))
+        #expect(eur == Quote(price: d("80076.47"), currency: .eur, observedOn: "2026-03-31"))
 
         let sent = try #require(await client.requests.first)
         #expect(sent.url.absoluteString
@@ -119,7 +117,7 @@ struct CoinGeckoProviderTests {
         let client = MockHTTPClient(["coins/ethereum/history": CoinGeckoResponses.historyEthereumEndOfMarch])
         let quote = try await CoinGeckoProvider(client: client).quote(for: request("2026-03-31", .eur, symbol: "ETH"))
         #expect(quote == Quote(price: d("1612.34"), currency: .eur, observedOn: "2026-03-31",
-                               observedAt: Date(timeIntervalSince1970: 1_775_001_600), resolvedSymbol: "ethereum"))
+                               resolvedSymbol: "ethereum"))
         #expect(await client.requests.map(\.url.absoluteString) == [
             "https://api.coingecko.com/api/v3/coins/ethereum/history?date=01-04-2026&localization=false",
         ])
@@ -250,13 +248,13 @@ struct CoinGeckoProviderTests {
             Coin(id: "moon", symbol: "LUNAR", marketCapRank: 5000),
         ]
         // An exact ID wins over any ticker, whatever its rank.
-        #expect(CoinGeckoCoinIDs.bestMatch(for: "Moon", in: coins) == "moon")
+        #expect(CoinGeckoCoinIDs.bestCoin(for: "Moon", in: coins)?.id == "moon")
         // Among tickers, the lowest rank; ties go to the first listed.
-        #expect(CoinGeckoCoinIDs.bestMatch(for: "MOON", in: Array(coins.dropLast())) == "moonstone")
+        #expect(CoinGeckoCoinIDs.bestCoin(for: "MOON", in: Array(coins.dropLast()))?.id == "moonstone")
         // Unranked coins come last, but still match.
-        #expect(CoinGeckoCoinIDs.bestMatch(for: "MOON", in: [coins[0]]) == "moon-token")
-        #expect(CoinGeckoCoinIDs.bestMatch(for: "LUNA", in: coins) == nil)
-        #expect(CoinGeckoCoinIDs.bestMatch(for: "MOON", in: []) == nil)
+        #expect(CoinGeckoCoinIDs.bestCoin(for: "MOON", in: [coins[0]])?.id == "moon-token")
+        #expect(CoinGeckoCoinIDs.bestCoin(for: "LUNA", in: coins) == nil)
+        #expect(CoinGeckoCoinIDs.bestCoin(for: "MOON", in: []) == nil)
     }
 
     @Test func onlyLowercaseSymbolsLookLikeIDs() {

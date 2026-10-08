@@ -40,8 +40,6 @@ struct PriceRateLimitTests {
         #expect(result.prices.map(\.price) == [d("97736.4568"), d("111400"), d("3812.0625"), d("181.25")])
         #expect(result.entry(for: .instrument("eth"))?.details?.quote?.resolvedSymbol == "ethereum")
         #expect(result.entry(for: .instrument("btc"))?.details?.quote?.resolvedSymbol == nil)
-        #expect(result.entry(for: .instrument("btc"))?.details?.observedAt
-            == Date(timeIntervalSince1970: 1_790_758_680))
         // Each coin keeps its own result: Solana has no USD price.
         let failure = try #require(result.entry(for: .instrument("sol-usd"))?.failure)
         #expect(failure == .noData(service: "CoinGecko", detail: "no USD price for solana"))

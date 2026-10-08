@@ -69,18 +69,17 @@ public struct YahooChartProvider: InstrumentPriceProvider {
         guard !bars.isEmpty else {
             throw .noData(service: service, detail: "no trading days for \(symbol) up to \(date)")
         }
-        var best: (day: CalendarDate, instant: Date, close: Decimal)?
+        var best: (day: CalendarDate, close: Decimal)?
         for (instant, close) in bars.closes {
             let day = CalendarDate(instant, in: bars.timeZone)
             // The latest day wins; on the same day, the later bar (Yahoo
             // sometimes repeats today's bar with the live price).
-            if day <= date, best.map({ day >= $0.day }) ?? true { best = (day, instant, close) }
+            if day <= date, best.map({ day >= $0.day }) ?? true { best = (day, close) }
         }
         guard let best else {
             throw .noData(service: service, detail: "no close for \(symbol) on or before \(date)")
         }
-        return Quote(price: bars.price(best.close), currency: bars.currency, observedOn: best.day,
-                     observedAt: best.instant)
+        return Quote(price: bars.price(best.close), currency: bars.currency, observedOn: best.day)
     }
 
     // MARK: - History
@@ -123,9 +122,8 @@ public struct YahooChartProvider: InstrumentPriceProvider {
         let bars = try Bars(envelope, symbol: symbol, today: today, service: service)
         let quotes = bars.closes.map { instant, close in
             let day = CalendarDate(instant, in: bars.timeZone)
-            return monthly
-                ? Quote(price: bars.price(close), currency: bars.currency, observedOn: min(day.endOfMonth, today))
-                : Quote(price: bars.price(close), currency: bars.currency, observedOn: day, observedAt: instant)
+            return Quote(price: bars.price(close), currency: bars.currency,
+                         observedOn: monthly ? min(day.endOfMonth, today) : day)
         }
         return PriceHistory(quotes: quotes, spacing: monthly ? .monthly : .daily)
     }

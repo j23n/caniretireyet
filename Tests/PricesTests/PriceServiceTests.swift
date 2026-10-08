@@ -50,8 +50,7 @@ struct PriceServiceTests {
         #expect(gold.source == .goldAPI)
         #expect(gold.symbol == "XAU")
         #expect(gold.details?.quote == Quote(price: d("3488.45"), currency: .usd, unit: .troyOunce,
-                                             observedOn: Self.checkIn,
-                                             observedAt: Date(timeIntervalSince1970: 1_790_758_787)))
+                                             observedOn: Self.checkIn))
         // Italy's HICP for September isn't out yet; August is the latest.
         #expect(result.entry(for: .index(.hicpIT))?.details?.observedOn == "2026-08-31")
 
@@ -112,7 +111,8 @@ struct PriceServiceTests {
             IndexRecord(index: .hicpIT, date: "2026-08-31", value: d("128.41"), source: .eurostat),
         ])
 
-        result.apply(to: &library)
+        result.prices.forEach { library.upsert($0) }
+        result.indices.forEach { library.upsert($0) }
         #expect(library.months["2026-08"]?.indices.first?.value == d("128.41"))
         #expect(library.months["2026-09"]?.prices.count == 3)
     }

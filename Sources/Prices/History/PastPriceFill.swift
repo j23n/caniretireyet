@@ -35,11 +35,6 @@ public struct PastPriceFill: Hashable, Sendable {
         results.first { $0.item == item }
     }
 
-    /// The results for instruments.
-    public var instrumentResults: [PastPriceResult] {
-        results.filter { if case .instrument = $0.item { true } else { false } }
-    }
-
     /// Adds the records `library` doesn't have yet, each into its month's
     /// file. A record is never replaced: not one typed in, not one read from
     /// a file (an import, a journal), not one fetched before, even if it
@@ -94,7 +89,7 @@ public struct PastPriceInsertion: Hashable, Sendable {
 }
 
 /// How filling in one instrument, rate or index went.
-public struct PastPriceResult: Hashable, Sendable, Identifiable {
+public struct PastPriceResult: Hashable, Sendable {
     /// Where the item stands.
     public enum Status: Hashable, Sendable {
         /// Every date was filled.
@@ -140,8 +135,6 @@ public struct PastPriceResult: Hashable, Sendable, Identifiable {
         self.isUnknown = isUnknown
     }
 
-    public var id: PriceListEntry.Item { item }
-
     /// The dates still without a value, sorted.
     public var missing: [CalendarDate] {
         let filled = Set(self.filled)
@@ -153,11 +146,6 @@ public struct PastPriceResult: Hashable, Sendable, Identifiable {
         if isManual { return .manual }
         if filled.isEmpty { return needed.isEmpty ? .filled : .notFilled }
         return filled.count < needed.count ? .partlyFilled : .filled
-    }
-
-    /// The instrument, for an instrument's result.
-    public var instrument: InstrumentID? {
-        if case .instrument(let id) = item { id } else { nil }
     }
 }
 
@@ -198,13 +186,10 @@ public struct PastPriceSource: Hashable, Sendable {
 public struct PastPriceProgress: Hashable, Sendable {
     public var done: Int
     public var total: Int
-    /// What just finished: an instrument's symbol, a currency pair, an index.
-    public var finished: String?
 
-    public init(done: Int, total: Int, finished: String? = nil) {
+    public init(done: Int, total: Int) {
         self.done = done
         self.total = total
-        self.finished = finished
     }
 
     /// Done as a fraction, 0 to 1.

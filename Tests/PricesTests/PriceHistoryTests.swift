@@ -34,7 +34,6 @@ struct PriceHistoryTests {
         let history = PriceHistory(quotes: [quote("2026-08-31", "100"), quote("2026-09-21", "110")])
         #expect(history.quote(onOrBefore: "2026-09-07")?.observedOn == "2026-08-31") // 7 days
         #expect(history.quote(onOrBefore: "2026-09-08") == nil) // 8 days: a gap in the data
-        #expect(history.quote(onOrBefore: "2026-09-10", maxAge: 10)?.price == 100)
     }
 
     @Test func aMonthlyValueCountsForItsOwnMonth() {
@@ -82,9 +81,8 @@ struct PriceHistoryTests {
         #expect(history.spacing == .daily)
         #expect(history.quotes.count == 13) // 14 bars, one without a close
         #expect(history.origin == QuoteOrigin(source: .yahoo, service: "Yahoo Finance", symbol: "VWCE.DE"))
-        #expect(history.quote(onOrBefore: "2026-09-27") == Quote(
-            price: d("136.88"), currency: .eur, observedOn: "2026-09-25",
-            observedAt: Date(timeIntervalSince1970: 1_790_319_600)))
+        #expect(history.quote(onOrBefore: "2026-09-27") == Quote(price: d("136.88"), currency: .eur,
+                                                                 observedOn: "2026-09-25"))
         #expect(history.quote(onOrBefore: "2026-10-01")?.price == d("139.06"))
     }
 
@@ -168,7 +166,7 @@ struct PriceHistoryTests {
         let provider = CoinGeckoProvider(client: client)
         let old = try await provider.history(
             symbol: "bitcoin", currency: .eur, range: HistoryRange(from: "2024-01-01", through: "2025-06-30", today: today))
-        #expect(old.isEmpty)
+        #expect(old.quotes.isEmpty)
         #expect(await client.requestCount == 0)
 
         _ = try await provider.history(

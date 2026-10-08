@@ -67,8 +67,6 @@ public struct PriceHistory: Hashable, Sendable {
         self.origin = origin
     }
 
-    public var isEmpty: Bool { quotes.isEmpty }
-
     /// This history standing in for another source's: its origin noted as
     /// ``QuoteOrigin/historyNote``, and each quote per `unit` when given
     /// (troy ounces for metal futures).
@@ -86,14 +84,14 @@ public struct PriceHistory: Hashable, Sendable {
     }
 
     /// The latest quote on or before `date` that counts for it: at most
-    /// `maxAge` days older in a daily series (Friday's close for a Sunday),
-    /// or the one of the same month in a monthly series. `nil` if there's
-    /// none, e.g. before the symbol was listed or in a gap in the data.
-    public func quote(onOrBefore date: CalendarDate, maxAge: Int = dailyTolerance) -> Quote? {
+    /// ``dailyTolerance`` days older in a daily series (Friday's close for a
+    /// Sunday), or the one of the same month in a monthly series. `nil` if
+    /// there's none, e.g. before the symbol was listed or in a gap in the data.
+    public func quote(onOrBefore date: CalendarDate) -> Quote? {
         guard let index = quotes.lastIndex(onOrBefore: date, date: \.observedOn) else { return nil }
         let quote = quotes[index]
         switch spacing {
-        case .daily: return quote.observedOn.days(to: date) <= maxAge ? quote : nil
+        case .daily: return quote.observedOn.days(to: date) <= Self.dailyTolerance ? quote : nil
         case .monthly: return quote.observedOn.yearMonth == date.yearMonth ? quote : nil
         }
     }
@@ -110,8 +108,6 @@ public struct FXHistory: Hashable, Sendable {
         for rate in rates { byDay[rate.observedOn] = rate }
         self.rates = byDay.values.sorted { $0.observedOn < $1.observedOn }
     }
-
-    public var isEmpty: Bool { rates.isEmpty }
 
     /// Whether the rates are about a week apart rather than a working day:
     /// the typical gap between them is four days or more.

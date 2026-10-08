@@ -19,7 +19,6 @@ struct YahooChartProviderTests {
         #expect(quote.currency == .eur)
         #expect(quote.unit == nil)
         #expect(quote.observedOn == "2026-09-30")
-        #expect(quote.observedAt == Date(timeIntervalSince1970: 1_790_751_600))
     }
 
     @Test func requestsTheDaysAroundTheDateWithABrowserUserAgent() async throws {
