@@ -28,11 +28,6 @@ public struct Milestone: Hashable, Sendable, Identifiable {
     /// assets at the check-in that reached it.
     public var amount: Decimal
 
-    public init(kind: Kind, amount: Decimal) {
-        self.kind = kind
-        self.amount = amount
-    }
-
     /// The same at every check-in: "round-300000", "years-10", "share-1-2", "crossover".
     public var id: String {
         switch kind {
@@ -69,11 +64,6 @@ public struct ReachedMilestone: Hashable, Sendable, Identifiable {
     /// one, valued from what you held and its prices.
     public var date: CalendarDate
 
-    public init(milestone: Milestone, date: CalendarDate) {
-        self.milestone = milestone
-        self.date = date
-    }
-
     public var id: String { milestone.id }
 }
 
@@ -84,11 +74,6 @@ public struct ProjectedMilestone: Hashable, Sendable, Identifiable {
     /// year-ends around it.
     public var date: CalendarDate
 
-    public init(milestone: Milestone, date: CalendarDate) {
-        self.milestone = milestone
-        self.date = date
-    }
-
     public var id: String { milestone.id }
 }
 
@@ -98,11 +83,6 @@ public struct NextMilestone: Hashable, Sendable {
     /// From 0 to 1: today's plan assets as a share of its amount, or, for a
     /// share of what retiring today needs, today's readiness as a share of it.
     public var progress: Double
-
-    public init(milestone: Milestone, progress: Double) {
-        self.milestone = milestone
-        self.progress = progress
-    }
 }
 
 /// The milestones of a plan (PROGRESS.md, "Milestones"): round amounts,
@@ -120,14 +100,6 @@ public struct MilestoneLadder: Hashable, Sendable {
     /// The age the coast point is for: when the first pension starts; `nil`
     /// without a pension.
     public var coastTarget: Int?
-
-    public init(spending: Decimal? = nil, neededToday: Decimal? = nil, crossover: Decimal? = nil,
-                coastTarget: Int? = nil) {
-        self.spending = spending
-        self.neededToday = neededToday
-        self.crossover = crossover
-        self.coastTarget = coastTarget
-    }
 
     /// The round amounts' first digits, times ten: 1, 1.5, 2, 2.5, 3, 4, 5, 6 and 7.5.
     static let roundSteps: [Decimal] = [10, 15, 20, 25, 30, 40, 50, 60, 75]

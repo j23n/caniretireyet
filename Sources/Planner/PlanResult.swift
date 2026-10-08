@@ -43,31 +43,6 @@ public struct PlanResult: Hashable, Sendable {
     /// doesn't use it (PLANNER.md, "Flexible spending").
     public var flexibleSpending: FlexibleSpendingSummary?
 
-    /// A result from its parts, e.g. a sample for SwiftUI previews.
-    public init(plan: PlanDocument, engine: String = Planner.engineVersion, planHash: String,
-                start: PlanStart, settings: SimulationSettings, answer: PlanAnswer,
-                successCurve: [AgeSuccess], focusAge: Int, fan: [FanYear], expectedPath: PathDetail,
-                medianPath: PathDetail, failures: FailureSummary, markers: [TimelineMarker] = [],
-                issues: [PlanIssue] = [], currency: CurrencyCode? = nil,
-                flexibleSpending: FlexibleSpendingSummary? = nil) {
-        self.plan = plan
-        self.engine = engine
-        self.planHash = planHash
-        self.start = start
-        self.settings = settings
-        self.answer = answer
-        self.successCurve = successCurve
-        self.focusAge = focusAge
-        self.fan = fan
-        self.expectedPath = expectedPath
-        self.medianPath = medianPath
-        self.failures = failures
-        self.markers = markers
-        self.issues = issues
-        self.currency = currency
-        self.flexibleSpending = flexibleSpending
-    }
-
     /// The success rate at `age`, if it was simulated.
     public func success(atAge age: Int) -> Double? {
         successCurve.first { $0.age == age }?.success
@@ -88,15 +63,6 @@ public struct PlanStart: Hashable, Sendable {
     /// The accounts grouped by when they can be drawn: the money you can
     /// draw now first, then each later age.
     public var buckets: [BucketSummary]
-
-    public init(date: CalendarDate, age: Int, planAssets: Decimal, accounts: [AccountID] = [],
-                buckets: [BucketSummary] = []) {
-        self.date = date
-        self.age = age
-        self.planAssets = planAssets
-        self.accounts = accounts
-        self.buckets = buckets
-    }
 }
 
 /// The accounts the plan can draw from one age: the money you can draw now
@@ -114,16 +80,6 @@ public struct BucketSummary: Hashable, Sendable {
     /// The mix it starts with, as shares by class.
     public var mix: [AssetClass: Double]
     public var accounts: [AccountID]
-
-    public init(name: String, availableFromAge: Int? = nil, value: Double, costBasis: Double,
-                mix: [AssetClass: Double] = [:], accounts: [AccountID] = []) {
-        self.name = name
-        self.availableFromAge = availableFromAge
-        self.value = value
-        self.costBasis = costBasis
-        self.mix = mix
-        self.accounts = accounts
-    }
 }
 
 /// The simulation settings a result was computed with.
@@ -133,14 +89,6 @@ public struct SimulationSettings: Hashable, Sendable {
     public var confidence: Double
     public var inflation: Double
     public var endAge: Int
-
-    public init(runs: Int, seed: UInt64, confidence: Double, inflation: Double, endAge: Int) {
-        self.runs = runs
-        self.seed = seed
-        self.confidence = confidence
-        self.inflation = inflation
-        self.endAge = endAge
-    }
 }
 
 /// The answer to "can I retire yet?".
@@ -173,23 +121,6 @@ public struct PlanAnswer: Hashable, Sendable {
     /// without"). Empty unless the run looked for them
     /// (``PlannerOptions/solveCoastAge``, ``PlannerOptions/solveWithoutWindfalls``).
     public var agesWithout: [AgeWithout]
-
-    public init(canRetireNow: Bool, confidence: Double, currentAge: Int, successIfRetiringNow: Double,
-                earliestAge: Int? = nil, earliestDate: CalendarDate? = nil, targetAge: Int? = nil,
-                successAtTarget: Double? = nil, sustainableSpending: SustainableSpending? = nil,
-                assetsNeeded: AssetsNeeded? = nil, agesWithout: [AgeWithout] = []) {
-        self.canRetireNow = canRetireNow
-        self.confidence = confidence
-        self.currentAge = currentAge
-        self.successIfRetiringNow = successIfRetiringNow
-        self.earliestAge = earliestAge
-        self.earliestDate = earliestDate
-        self.targetAge = targetAge
-        self.successAtTarget = successAtTarget
-        self.sustainableSpending = sustainableSpending
-        self.assetsNeeded = assetsNeeded
-        self.agesWithout = agesWithout
-    }
 
     /// The coast age: the earliest age reaching the confidence level when
     /// nothing more is saved; `nil` when the run didn't look for it.
@@ -340,12 +271,6 @@ public struct SustainableSpending: Hashable, Sendable {
     public var perYear: Double
     /// The success rate at that spending.
     public var success: Double
-
-    public init(age: Int, perYear: Double, success: Double) {
-        self.age = age
-        self.perYear = perYear
-        self.success = success
-    }
 }
 
 /// The chance of success for one retirement age.
@@ -360,15 +285,6 @@ public struct AgeSuccess: Hashable, Sendable {
     /// The age each pension starts at with this retirement age, by pension
     /// ID (`pension-0`, …). Changes between neighbouring ages explain steps.
     public var pensionStartAges: [String: Int]
-
-    public init(age: Int, retirementDate: CalendarDate, success: Double, runs: Int,
-                pensionStartAges: [String: Int] = [:]) {
-        self.age = age
-        self.retirementDate = retirementDate
-        self.success = success
-        self.runs = runs
-        self.pensionStartAges = pensionStartAges
-    }
 }
 
 /// Plan assets at one year-end: percentiles across runs, and the
@@ -388,19 +304,6 @@ public struct FanYear: Hashable, Sendable {
     /// run, a run counting 0 from the year after it fails (and what it could
     /// pay in that year). `nil` without flexible spending.
     public var spending: SpendingPercentiles?
-
-    public init(year: Int, age: Int, p10: Double, p25: Double, p50: Double, p75: Double, p90: Double,
-                expected: Double, spending: SpendingPercentiles? = nil) {
-        self.year = year
-        self.age = age
-        self.p10 = p10
-        self.p25 = p25
-        self.p50 = p50
-        self.p75 = p75
-        self.p90 = p90
-        self.expected = expected
-        self.spending = spending
-    }
 }
 
 /// The spending paid in one year across runs, with flexible spending.
@@ -408,12 +311,6 @@ public struct SpendingPercentiles: Hashable, Sendable {
     public var p10: Double
     public var p50: Double
     public var p90: Double
-
-    public init(p10: Double, p50: Double, p90: Double) {
-        self.p10 = p10
-        self.p50 = p50
-        self.p90 = p90
-    }
 }
 
 /// What flexible spending did when retiring at one age (PLANNER.md,
@@ -488,12 +385,6 @@ public struct PathDetail: Hashable, Sendable {
     public var failure: RunFailure?
     /// The simulated years, up to the plan's end or the year the run failed.
     public var years: [YearDetail]
-
-    public init(retirementAge: Int, failure: RunFailure? = nil, years: [YearDetail]) {
-        self.retirementAge = retirementAge
-        self.failure = failure
-        self.years = years
-    }
 }
 
 /// One year of a path.
@@ -606,12 +497,6 @@ public struct RunFailure: Hashable, Sendable {
     public var year: Int
     public var age: Int
     public var reason: FailureReason
-
-    public init(year: Int, age: Int, reason: FailureReason) {
-        self.year = year
-        self.age = age
-        self.reason = reason
-    }
 }
 
 /// Why a run failed.
@@ -632,13 +517,6 @@ public struct LockedMoney: Hashable, Sendable {
     /// The age they become available, if it's within the plan.
     public var accessibleFromAge: Int?
     public var accounts: [AccountID]
-
-    public init(name: String, value: Double, accessibleFromAge: Int? = nil, accounts: [AccountID] = []) {
-        self.name = name
-        self.value = value
-        self.accessibleFromAge = accessibleFromAge
-        self.accounts = accounts
-    }
 }
 
 /// Why failing runs fail, for "When it fails".
@@ -655,17 +533,6 @@ public struct FailureSummary: Hashable, Sendable {
     public var bridgeFailures: Int
     /// Bridge failures by the accounts still locked, most frequent first.
     public var bridges: [BridgeFailure]
-
-    public init(runs: Int, failed: Int, failureRate: Double, medianFailureAge: Int? = nil, byAge: [AgeCount] = [],
-                bridgeFailures: Int = 0, bridges: [BridgeFailure] = []) {
-        self.runs = runs
-        self.failed = failed
-        self.failureRate = failureRate
-        self.medianFailureAge = medianFailureAge
-        self.byAge = byAge
-        self.bridgeFailures = bridgeFailures
-        self.bridges = bridges
-    }
 }
 
 /// A count at an age.
@@ -687,13 +554,6 @@ public struct BridgeFailure: Hashable, Sendable {
     public var count: Int
     /// `count / runs`.
     public var share: Double
-
-    public init(name: String, accessibleFromAge: Int? = nil, count: Int, share: Double) {
-        self.name = name
-        self.accessibleFromAge = accessibleFromAge
-        self.count = count
-        self.share = share
-    }
 }
 
 /// Something to mark on the time axis.

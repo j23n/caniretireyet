@@ -22,21 +22,16 @@ public struct PlanChapters: Hashable, Sendable {
     /// The retirement age the chapters are for.
     public var retirementAge: Int
 
-    public init(chapters: [PlanChapter], outside: [PlanChapter.Item] = [], birthYear: Int, retirementAge: Int) {
-        self.chapters = chapters
-        self.outside = outside
-        self.birthYear = birthYear
-        self.retirementAge = retirementAge
-    }
-
     /// The chapters of `plan` when work stops at `retirementAge`, for a
     /// person born in `birthYear`, with the plan starting from the check-in
     /// on `start`. An age already passed stops work at the start.
     public init(plan: PlanDocument, birthYear: Int, start: CalendarDate, retirementAge: Int) {
         let builder = ChapterBuilder(plan: plan, birthYear: birthYear, start: start, retirementAge: retirementAge)
         let built = builder.build()
-        self.init(chapters: built.chapters, outside: built.outside, birthYear: birthYear,
-                  retirementAge: retirementAge)
+        chapters = built.chapters
+        outside = built.outside
+        self.birthYear = birthYear
+        self.retirementAge = retirementAge
     }
 
     /// The index of the chapter covering `year`.
@@ -104,19 +99,9 @@ public struct PlanChapter: Hashable, Sendable {
     /// any phase); `nil` before retirement.
     public var spendingFactor: Decimal?
     /// The inputs that start or happen in the chapter, by the year they do.
-    public var items: [Item]
+    public var items: [Item] = []
     /// The inputs still in force from an earlier chapter.
-    public var continuing: [Item]
-
-    public init(kind: Kind, years: ClosedRange<Int>, ages: ClosedRange<Int>, spendingFactor: Decimal? = nil,
-                items: [Item] = [], continuing: [Item] = []) {
-        self.kind = kind
-        self.years = years
-        self.ages = ages
-        self.spendingFactor = spendingFactor
-        self.items = items
-        self.continuing = continuing
-    }
+    public var continuing: [Item] = []
 
     /// Whether work has stopped.
     public var isRetired: Bool {

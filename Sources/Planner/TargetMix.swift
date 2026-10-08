@@ -17,14 +17,6 @@ public struct StartingMix: Hashable, Sendable {
     /// from a later age (which keep their own mix) included.
     public var all: [AssetClass: Double]
 
-    public init(date: CalendarDate, currency: CurrencyCode, accessible: [AssetClass: Double],
-                all: [AssetClass: Double]) {
-        self.date = date
-        self.currency = currency
-        self.accessible = accessible
-        self.all = all
-    }
-
     /// The value of the money you can draw now.
     public var accessibleTotal: Double { Self.total(accessible) }
     /// Every counted account's value.
@@ -61,12 +53,6 @@ public struct MixGrowth: Hashable, Sendable {
     public var expectedReturn: Double
     public var volatility: Double
     public var medianReturn: Double
-
-    public init(expectedReturn: Double, volatility: Double, medianReturn: Double) {
-        self.expectedReturn = expectedReturn
-        self.volatility = volatility
-        self.medianReturn = medianReturn
-    }
 }
 
 extension Planner {
