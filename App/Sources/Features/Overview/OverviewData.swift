@@ -76,15 +76,15 @@ enum OverviewAllocation: String, CaseIterable, Hashable, Sendable {
 
 // MARK: - Hero
 
-/// The hero number: net worth on the latest check-in, with its change since
-/// the check-in before and since the end of last year.
+/// The hero number: net worth today, with the change between the last two
+/// check-ins and since the end of last year.
 struct OverviewHero: Hashable, Sendable {
-    /// The date reported on: the latest check-in.
+    /// The date reported on: today.
     var date: CalendarDate
     var total: Decimal
     /// Whether every account was valued completely.
     var isComplete: Bool
-    /// The change since the previous check-in.
+    /// The change between the last two check-ins on or before ``date``.
     var sinceLastCheckIn: Decimal?
     /// The previous check-in's date.
     var lastCheckIn: CalendarDate?

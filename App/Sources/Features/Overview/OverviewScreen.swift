@@ -35,26 +35,31 @@ struct OverviewScreen: View {
     private var content: some View {
         @Bindable var navigation = navigation
         let valuator = library.valuator
-        let asOf = library.asOfDate
+        // Your accounts as they are today, as the accounts list has them:
+        // values since the latest check-in (a trade, an import) and prices
+        // fetched since count. The plan's projection starts at the latest
+        // check-in instead.
+        let today = CalendarDate.today()
+        let planStart = library.asOfDate
         let mainPlan = library.mainPlan
         let results = mainPlan.flatMap { plans.results[$0.id] }
         return ScrollView {
             VStack(alignment: .leading, spacing: Metrics.xl) {
-                OverviewHeroView(hero: OverviewHero(valuator: valuator, asOf: asOf))
+                OverviewHeroView(hero: OverviewHero(valuator: valuator, asOf: today))
                 if library.latestCheckIn == nil {
                     FirstCheckInCard()
                 }
                 OverviewHistorySection(
-                    valuator: valuator, asOf: asOf, results: results, planID: mainPlan?.id, planName: mainPlan?.name,
-                    range: $range, showsFuture: $navigation.showsFuture)
+                    valuator: valuator, today: today, planStart: planStart, results: results, planID: mainPlan?.id,
+                    planName: mainPlan?.name, range: $range, showsFuture: $navigation.showsFuture)
                 VStack(alignment: .leading, spacing: Metrics.l) {
-                    if let report = valuator.changeSinceLastCheckIn(asOf: asOf) {
+                    if let report = valuator.changeSinceLastCheckIn(asOf: today) {
                         OverviewChangeCard(report: report)
                     }
-                    OverviewAnswerCard(valuator: valuator, asOf: asOf)
-                    OverviewAttentionCard(valuator: valuator, asOf: asOf)
+                    OverviewAnswerCard(valuator: valuator, asOf: today)
+                    OverviewAttentionCard(valuator: valuator, asOf: today)
                     OverviewAllocationCard(
-                        breakdown: valuator.breakdown(by: allocation.dimension, on: asOf),
+                        breakdown: valuator.breakdown(by: allocation.dimension, on: today),
                         dimension: $allocation)
                 }
             }
@@ -68,7 +73,7 @@ struct OverviewScreen: View {
 
 // MARK: - Hero
 
-/// Net worth at the latest check-in, with its changes.
+/// Net worth today, with its changes.
 private struct OverviewHeroView: View {
     let hero: OverviewHero
 
@@ -165,10 +170,11 @@ private struct OverviewEmptyState: View {
 /// its legend, with *Future* on a short caption with an ⓘ for the full
 /// explanation, and the notes on missing or old prices.
 ///
-/// The past is net worth. With *Future* on it's plan assets, still by asset
-/// class (``OverviewHistory``): the projection is of what the plan counts,
-/// so the past's total meets it at today. The projection reaches as far as
-/// the chosen horizon (``FutureHorizon``, remembered on the device).
+/// The past is net worth, through today. With *Future* on it's plan assets,
+/// still by asset class (``OverviewHistory``), through the latest check-in,
+/// where the projection starts: the projection is of what the plan counts,
+/// so the past's total meets it there. The projection reaches as far as the
+/// chosen horizon (``FutureHorizon``, remembered on the device).
 ///
 /// *Future* shows whenever there's a main plan. Plans only run when asked,
 /// so the main plan may have no results yet: turning *Future* on is that
@@ -176,7 +182,9 @@ private struct OverviewEmptyState: View {
 /// under the controls until the projection is there.
 private struct OverviewHistorySection: View {
     let valuator: Valuator
-    let asOf: CalendarDate
+    let today: CalendarDate
+    /// Where the plan's projection starts: the latest check-in.
+    let planStart: CalendarDate
     let results: PlanResults?
     let planID: PlanID?
     let planName: String?
@@ -194,12 +202,12 @@ private struct OverviewHistorySection: View {
         let projection = results?.portfolio(in: valuator.baseCurrency, valuator: valuator) ?? []
         let canShowFuture = planID != nil
         let future = showsFuture && !projection.isEmpty
-        let now = asOf.dateValue
+        let now = planStart.dateValue
         let retirement = results?.retirementDate
         let planEnd = projection.last?.date ?? now
         let horizon = preferences.futureHorizon.effective(start: now, retirement: retirement)
         let history = OverviewHistory(
-            valuator: valuator, through: asOf, range: range,
+            valuator: valuator, through: future ? planStart : today, range: range,
             projection: future ? projection : [], markers: future ? (results?.markers ?? []) : [],
             horizon: future ? horizon.end(start: now, retirement: retirement, planEnd: planEnd) : nil)
         VStack(alignment: .leading, spacing: Metrics.m) {

@@ -3,7 +3,8 @@ import Model
 import Tracker
 
 extension GlanceSnapshot {
-    /// The snapshot of `library` as the Overview shows it.
+    /// The snapshot of `library` as the Overview shows it, but with net
+    /// worth at `asOf`, the latest check-in, where the Overview has today's.
     ///
     /// - Parameters:
     ///   - asOf: the date net worth is reported on: the latest check-in, or
