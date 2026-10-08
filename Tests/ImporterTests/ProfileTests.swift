@@ -141,6 +141,21 @@ struct ProfileTests {
         #expect(again.records.allSatisfy { $0.status == .identical })
     }
 
+    @Test func rememberedMatchesAreFoundAndForgottenAsThePreviewFindsThem() throws {
+        var session = try Samples.session("long-format.csv")
+        session.match(account: "Fineco", to: "conto-fineco")
+        #expect(session.rememberedAccount(for: " FINECO ") == "conto-fineco")
+        session.forget(account: "fineco")
+        #expect(session.profile.matches.accounts.isEmpty)
+        #expect(session.preview(against: smallLibrary()).newAccounts.map(\.account.id) == ["credit-agricole", "fineco"])
+
+        // A header is also found, and forgotten, by its name without decorations.
+        session.match(instrument: "BTC", to: "btc")
+        #expect(session.rememberedInstrument(for: "BTC (qtà)") == "btc")
+        session.forget(instrument: "BTC (qtà)")
+        #expect(session.rememberedInstrument(for: "BTC") == nil)
+    }
+
     @Test func choosingAnOptionSettlesAnAmbiguity() throws {
         var session = try ImportSession(data: Data("Data;Saldo\n01/02/2026;1\n01/03/2026;2\n".utf8))
         let dates = try #require(session.ambiguities.first)

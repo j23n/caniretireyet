@@ -131,6 +131,29 @@ public struct ImportSession: Sendable {
         profile.matches.instruments[name] = id
     }
 
+    /// The account a name in the file is remembered as, found as the
+    /// preview finds it: also ignoring case and accents, and for a header
+    /// without its decorations.
+    public func rememberedAccount(for name: String) -> AccountID? {
+        NameMatcher.remembered(name, in: profile.matches.accounts)
+    }
+
+    /// The instrument a name in the file is remembered as (see ``rememberedAccount(for:)``).
+    public func rememberedInstrument(for name: String) -> InstrumentID? {
+        NameMatcher.remembered(name, in: profile.matches.instruments)
+    }
+
+    /// Forgets the account a name is remembered as, under every spelling
+    /// the preview would find it by, so the name is matched on its own again.
+    public mutating func forget(account name: String) {
+        NameMatcher.forget(name, in: &profile.matches.accounts)
+    }
+
+    /// Forgets the instrument a name is remembered as (see ``forget(account:)``).
+    public mutating func forget(instrument name: String) {
+        NameMatcher.forget(name, in: &profile.matches.instruments)
+    }
+
     // MARK: - Formats
 
     /// The formats a column is read with: the column's own `format`, then

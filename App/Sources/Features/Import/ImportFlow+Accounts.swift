@@ -65,8 +65,8 @@ extension ImportFlow {
             let kind: ImportNameRow.Kind = match.account != nil ? .account : .instrument
             guard seen.insert("\(kind.rawValue):\(match.name)").inserted else { continue }
             let remembered = kind == .account
-                ? Self.remembered(match.name, in: session.profile.matches.accounts).map(\.rawValue)
-                : Self.remembered(match.name, in: session.profile.matches.instruments).map(\.rawValue)
+                ? session.rememberedAccount(for: match.name)?.rawValue
+                : session.rememberedInstrument(for: match.name)?.rawValue
             let matchedID = match.account?.rawValue ?? match.instrument?.rawValue ?? ""
             let target: NameTarget
             if let remembered {
@@ -133,13 +133,9 @@ extension ImportFlow {
             case (.instrument, .instrument(let id)):
                 session.match(instrument: name, to: id)
             case (.account, .new):
-                for key in session.profile.matches.accounts.keys where Self.fold(key) == Self.fold(name) {
-                    session.profile.matches.accounts[key] = nil
-                }
+                session.forget(account: name)
             case (.instrument, .new):
-                for key in session.profile.matches.instruments.keys where Self.fold(key) == Self.fold(name) {
-                    session.profile.matches.instruments[key] = nil
-                }
+                session.forget(instrument: name)
             default:
                 break
             }
@@ -150,19 +146,6 @@ extension ImportFlow {
     private func columns(headed name: String) -> [Int] {
         guard !layout.rowIsRecord else { return [] }
         return columnRows.filter { $0.header == name && $0.isValue }.map(\.column)
-    }
-
-    /// The remembered match for a name: exactly, then ignoring case and accents.
-    private static func remembered<ID>(_ name: String, in matches: [String: ID]) -> ID? {
-        if let id = matches[name] { return id }
-        let folded = fold(name)
-        return matches.keys.sorted().first { fold($0) == folded }.flatMap { matches[$0] }
-    }
-
-    /// A name without case, accents or surrounding spaces.
-    static func fold(_ name: String) -> String {
-        name.trimmingCharacters(in: .whitespaces)
-            .folding(options: [.caseInsensitive, .diacriticInsensitive], locale: nil)
     }
 
     // MARK: New accounts and instruments

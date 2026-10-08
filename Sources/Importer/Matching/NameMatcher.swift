@@ -167,9 +167,7 @@ struct NameMatcher {
 
     /// A remembered or existing account for `name`, without drafting one.
     func existingAccount(named name: String) -> (AccountID, NameMatch.Method)? {
-        for candidate in Self.candidates(name) {
-            if let id = TextTools.lookup(candidate, in: matches.accounts) { return (id, .remembered) }
-        }
+        if let id = Self.remembered(name, in: matches.accounts) { return (id, .remembered) }
         for candidate in Self.candidates(name) {
             let folded = TextTools.fold(candidate), slug = Slug.make(from: candidate)
             let accounts = library.sortedAccounts
@@ -183,9 +181,7 @@ struct NameMatcher {
 
     /// A remembered or existing instrument for `name`, without drafting one.
     func existingInstrument(named name: String) -> (InstrumentID, NameMatch.Method)? {
-        for candidate in Self.candidates(name) {
-            if let id = TextTools.lookup(candidate, in: matches.instruments) { return (id, .remembered) }
-        }
+        if let id = Self.remembered(name, in: matches.instruments) { return (id, .remembered) }
         let instruments = library.instruments.values.sorted { $0.id < $1.id }
         for candidate in Self.candidates(name) {
             let folded = TextTools.fold(candidate), slug = Slug.make(from: candidate)
@@ -270,6 +266,23 @@ struct NameMatcher {
         let trimmed = TextTools.trim(name)
         let cleaned = Keywords.name(fromHeader: trimmed)
         return cleaned == trimmed ? [trimmed] : [trimmed, cleaned]
+    }
+
+    /// The ID a name is remembered as in `matches`: for each of its
+    /// ``candidates(_:)``, exactly, then ignoring case and accents.
+    static func remembered<ID>(_ name: String, in matches: [String: ID]) -> ID? {
+        for candidate in candidates(name) {
+            if let id = TextTools.lookup(candidate, in: matches) { return id }
+        }
+        return nil
+    }
+
+    /// Forgets every spelling ``remembered(_:in:)`` would find a name by.
+    static func forget<ID>(_ name: String, in matches: inout [String: ID]) {
+        let folded = Set(candidates(name).map(TextTools.fold))
+        for key in matches.keys where folded.contains(TextTools.fold(key)) {
+            matches[key] = nil
+        }
     }
 }
 
