@@ -563,6 +563,9 @@ public struct IncomeKind: RawRepresentable, Hashable, Sendable, ExpressibleByStr
     public static let work: IncomeKind = "work"
     /// A pension being paid, after tax.
     public static let pension: IncomeKind = "pension"
+    /// Other income after tax (``PlanDocument/income``): rent, a side
+    /// business, part-time work once retired.
+    public static let other: IncomeKind = "other"
     /// A one-off amount received.
     public static let windfall: IncomeKind = "windfall"
     /// Investments sold, before the tax on their gains.
@@ -572,7 +575,7 @@ public struct IncomeKind: RawRepresentable, Hashable, Sendable, ExpressibleByStr
 /// One source of income in a year.
 public struct IncomeItem: Hashable, Sendable {
     public var kind: IncomeKind
-    /// Stable within a plan: a work phase ID, pension ID, event ID or `withdrawal`.
+    /// Stable within a plan: a work phase ID, pension ID, other income's ID, event ID or `withdrawal`.
     public var id: String
     public var label: String
     public var amount: Double

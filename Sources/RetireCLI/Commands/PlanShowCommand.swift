@@ -88,6 +88,17 @@ struct PlanInputsReport {
                 + "\(pension.fromAge.map(String.init) ?? "?")")
         }
 
+        if !plan.income.isEmpty {
+            lines.append("")
+            lines.append("Other income")
+            for (index, income) in plan.income.enumerated() {
+                let amount = income.perYear.map { Format.amount($0, places: 0) } ?? "?"
+                let until = income.untilAge.map { " until \($0)" } ?? ""
+                lines.append("  \(index + 1). \(income.name ?? "Other income") · \(amount) from "
+                    + "\(Self.start(income.from))\(until)")
+            }
+        }
+
         lines.append("")
         lines.append("Contributions")
         if plan.contributions.isEmpty { lines.append("  None.") }
@@ -192,6 +203,15 @@ struct PlanInputsReport {
         }
     }
 
+    /// When other income starts: an age, or "retirement"; "?" when not given.
+    static func start(_ from: IncomeStart?) -> String {
+        switch from {
+        case .age(let age): "\(age)"
+        case .retirement: "retirement"
+        case nil: "?"
+        }
+    }
+
     var json: JSON {
         JSON(plan: plan.id.rawValue, name: plan.name, currency: currency.rawValue,
              tax: JSON.Tax(investmentRate: plan.tax.investmentRate?.fileString,
@@ -208,6 +228,10 @@ struct PlanInputsReport {
              pensions: plan.pensions.enumerated().map { index, pension in
                  JSON.Pension(number: index + 1, name: pension.name, fromAge: pension.fromAge,
                               perYear: pension.perYear?.fileString)
+             },
+             income: plan.income.isEmpty ? nil : plan.income.enumerated().map { index, income in
+                 JSON.Income(number: index + 1, name: income.name, from: income.from.map { Self.start($0) },
+                             untilAge: income.untilAge, perYear: income.perYear?.fileString)
              },
              contributions: plan.contributions.enumerated().map { index, contribution in
                  JSON.Contribution(number: index + 1, account: contribution.account.rawValue,
@@ -265,6 +289,15 @@ struct PlanInputsReport {
             var perYear: String?
         }
 
+        /// Other income: `from` is an age or "retirement".
+        struct Income: Encodable {
+            var number: Int
+            var name: String?
+            var from: String?
+            var untilAge: Int?
+            var perYear: String?
+        }
+
         struct Contribution: Encodable {
             var number: Int
             var account: String
@@ -300,6 +333,8 @@ struct PlanInputsReport {
         var spending: Spending
         var work: [Work]
         var pensions: [Pension]
+        /// Absent without other income.
+        var income: [Income]?
         var contributions: [Contribution]
         var targetMix: [String: String]?
         var targetMixByAge: [Step]

@@ -168,6 +168,36 @@ enum PlanInterpreter {
                                         perYear: perYear))
         }
 
+        // Other income.
+        var income: [IncomeSpec] = []
+        for (index, item) in plan.income.enumerated() {
+            let name = item.name ?? (plan.income.count == 1 ? "Other income" : "Other income \(index + 1)")
+            guard let perYear = item.perYear?.double, let from = item.from else {
+                error("planner.otherIncomeAmount", "\(name): enter the yearly amount after tax and when it starts.",
+                      .income, index: index)
+                continue
+            }
+            if perYear < 0 {
+                error("planner.negativeOtherIncome", "\(name): the amount can't be negative.", .income, index: index)
+            }
+            let outOfRange = { (age: Int?) in age.map { $0 < 0 || $0 > 120 } ?? false }
+            if outOfRange(from.age) || outOfRange(item.untilAge) {
+                error("planner.otherIncomeAge", "\(name): its ages have to be from 0 to 120.", .income, index: index)
+                continue
+            }
+            if let fromAge = from.age, let untilAge = item.untilAge, untilAge <= fromAge {
+                error("planner.otherIncomeAges", "\(name): the age it stops at has to be after the one it starts at.",
+                      .income, index: index)
+                continue
+            }
+            if let fromAge = from.age, fromAge > endAge {
+                warning("planner.otherIncomeAfterEnd",
+                        "\(name) starts after the plan's end age, so the plan never pays it.", .income, index: index)
+            }
+            income.append(IncomeSpec(index: index, id: "income-\(index)", name: name, fromAge: from.age,
+                                     untilAge: item.untilAge, perYear: perYear))
+        }
+
         // Simulation settings.
         let requestedRuns = plan.simulation.effectiveRuns
         if requestedRuns < 1 || requestedRuns > 10_000 {
@@ -299,7 +329,8 @@ enum PlanInterpreter {
         let model = PlanModel(
             plan: plan, currency: library.settings.baseCurrency, birthDate: birthDate, startDate: startDate,
             currentAge: currentAge, endAge: endAge, planAge: planAge, frames: frames, inflation: inflation,
-            work: work, spending: spending, pensions: pensions, contributions: contributions, events: events,
+            work: work, spending: spending, pensions: pensions, income: income, contributions: contributions,
+            events: events,
             uncertainEventProbabilities: probabilities,
             taxes: TaxSpec(investmentRate: investmentRate, wealthRate: wealthRate, wealthAllowance: wealthAllowance),
             incomeYields: incomeYields, portfolio: portfolio, returns: returns,

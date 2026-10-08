@@ -4,8 +4,9 @@ import Model
 /// How ``Planner/calculations(plan:library:options:)`` writes its report.
 public struct CalculationsOptions: Hashable, Sendable {
     /// Leaves out names and dates and rounds amounts, so the report can be
-    /// shared: accounts, phases, pensions and events get generic names, the
-    /// start is only a year, and amounts are rounded to ``rounding``.
+    /// shared: accounts, phases, pensions, other income and events get
+    /// generic names, the start is only a year, and amounts are rounded to
+    /// ``rounding``.
     public var anonymize: Bool
     /// What amounts are rounded to when anonymized (default 100).
     public var rounding: Double
@@ -119,6 +120,15 @@ struct CalculationsReport {
                     + "\(money(pension.perYear)) |")
             }
         }
+        if !model.income.isEmpty {
+            lines += ["", "| Other income | From | Until age | After tax a year |", "|---|---|---:|---:|"]
+            for (n, other) in model.income.enumerated() {
+                let from = other.fromAge.map(String.init) ?? "retirement"
+                let until = other.untilAge.map(String.init) ?? "end"
+                lines.append("| \(name(other.name, generic: "Other income \(n + 1)")) | \(from) | \(until) | "
+                    + "\(money(other.perYear)) |")
+            }
+        }
         if !model.contributions.isEmpty {
             lines += ["", "| Contribution into | Amount | When |", "|---|---:|---|"]
             for contribution in model.contributions {
@@ -192,7 +202,8 @@ struct CalculationsReport {
                 year.income.filter { kinds.contains($0.kind) }.reduce(0) { $0 + $1.amount }
             }
             func tax(_ id: String) -> Double { year.taxes.filter { $0.id == id }.reduce(0) { $0 + $1.amount } }
-            lines.append("| \(year.year) | \(year.age) | \(money(sum([.work, .pension]))) | \(money(sum([.windfall]))) | "
+            lines.append("| \(year.year) | \(year.age) | \(money(sum([.work, .pension, .other]))) | "
+                + "\(money(sum([.windfall]))) | "
                 + "\(money(year.spending)) | \(money(year.expenses)) | \(money(tax(TaxLine.investment))) | "
                 + "\(money(tax(TaxLine.wealth))) | \(money(sum([.withdrawal]))) | \(money(max(0, year.savings))) | "
                 + "\(money(year.endAssets)) |")

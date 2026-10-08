@@ -1,8 +1,9 @@
 /// `plans/<id>.json`: one retirement scenario. See PLANNER.md, "Plan file".
 ///
 /// Amounts are yearly and in today's money, in the library's base currency,
-/// after income tax: work income and pensions are entered net, and the
-/// planner computes only the investment and wealth taxes of ``tax``.
+/// after income tax: work income, pensions and other income are entered
+/// net, and the planner computes only the investment and wealth taxes of
+/// ``tax``.
 /// Optional sections decode as empty values when absent and are left out of
 /// the file when empty, so a plan only records what differs from the defaults.
 public struct PlanDocument: Hashable, Sendable, Identifiable, KnownKeysProviding {
@@ -18,6 +19,9 @@ public struct PlanDocument: Hashable, Sendable, Identifiable, KnownKeysProviding
     public var work: [WorkPhase]
     public var spending: PlanSpending
     public var pensions: [PlanPension]
+    /// Other income, such as rent or part-time work once retired: unlike
+    /// work, it doesn't stop at retirement.
+    public var income: [PlanIncome]
     public var contributions: [PlanContribution]
     /// One-off windfalls and expenses.
     public var events: [PlanEvent]
@@ -30,7 +34,7 @@ public struct PlanDocument: Hashable, Sendable, Identifiable, KnownKeysProviding
 
     public init(
         id: PlanID, name: String, retirement: PlanRetirement, endAge: Int? = nil, tax: PlanTax = PlanTax(),
-        work: [WorkPhase] = [], spending: PlanSpending, pensions: [PlanPension] = [],
+        work: [WorkPhase] = [], spending: PlanSpending, pensions: [PlanPension] = [], income: [PlanIncome] = [],
         contributions: [PlanContribution] = [], events: [PlanEvent] = [], portfolio: PlanPortfolio = PlanPortfolio(),
         assumptions: PlanAssumptions = PlanAssumptions(), simulation: PlanSimulation = PlanSimulation()
     ) {
@@ -42,6 +46,7 @@ public struct PlanDocument: Hashable, Sendable, Identifiable, KnownKeysProviding
         self.work = work
         self.spending = spending
         self.pensions = pensions
+        self.income = income
         self.contributions = contributions
         self.events = events
         self.portfolio = portfolio
@@ -57,7 +62,7 @@ public struct PlanDocument: Hashable, Sendable, Identifiable, KnownKeysProviding
 
 extension PlanDocument: Codable {
     enum CodingKeys: String, CodingKey, CaseIterable {
-        case id, name, retirement, endAge, tax, work, spending, pensions, contributions, events, portfolio,
+        case id, name, retirement, endAge, tax, work, spending, pensions, income, contributions, events, portfolio,
              assumptions, simulation
     }
 
@@ -73,6 +78,7 @@ extension PlanDocument: Codable {
         work = try c.decodeArray([WorkPhase].self, forKey: .work)
         spending = try c.decode(PlanSpending.self, forKey: .spending)
         pensions = try c.decodeArray([PlanPension].self, forKey: .pensions)
+        income = try c.decodeArray([PlanIncome].self, forKey: .income)
         contributions = try c.decodeArray([PlanContribution].self, forKey: .contributions)
         events = try c.decodeArray([PlanEvent].self, forKey: .events)
         portfolio = try c.decodeIfPresent(PlanPortfolio.self, forKey: .portfolio) ?? PlanPortfolio()
@@ -90,6 +96,7 @@ extension PlanDocument: Codable {
         try c.encodeIfNotEmpty(work, forKey: .work)
         try c.encode(spending, forKey: .spending)
         try c.encodeIfNotEmpty(pensions, forKey: .pensions)
+        try c.encodeIfNotEmpty(income, forKey: .income)
         try c.encodeIfNotEmpty(contributions, forKey: .contributions)
         try c.encodeIfNotEmpty(events, forKey: .events)
         if !portfolio.isEmpty { try c.encode(portfolio, forKey: .portfolio) }

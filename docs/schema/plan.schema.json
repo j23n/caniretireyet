@@ -50,6 +50,11 @@
     },
     "spending": { "$ref": "#/$defs/spending" },
     "pensions": { "type": "array", "items": { "$ref": "#/$defs/pension" } },
+    "income": {
+      "description": "Other income, such as rent, a side business or part-time work once retired. Unlike work, it doesn't stop at retirement.",
+      "type": "array",
+      "items": { "$ref": "#/$defs/income" }
+    },
     "contributions": {
       "description": "Payments into specific accounts, such as a pension fund. They come out of the year's savings; the rest goes to the money you can draw.",
       "type": "array",
@@ -170,6 +175,25 @@
         },
         "perYear": {
           "description": "The yearly amount after tax. Required for the plan to run (error planner.pensionAmount).",
+          "$ref": "common.schema.json#/$defs/decimal"
+        }
+      }
+    },
+    "income": {
+      "description": "Income besides work and pensions, after tax, kept in real terms. Paid from the birthday at from, or from retirement, to the day before the birthday at untilAge (part of a year where it starts and stops); one starting after endAge is never paid (warning planner.otherIncomeAfterEnd).",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "from": {
+          "description": "The age it starts at, or retirement: the day work stops, whatever the retirement age turns out to be. Required for the plan to run (error planner.otherIncomeAmount).",
+          "anyOf": [{ "$ref": "common.schema.json#/$defs/age" }, { "const": "retirement" }]
+        },
+        "untilAge": {
+          "description": "The age it stops at. Absent: to the plan's end. After a from age (error planner.otherIncomeAges).",
+          "$ref": "common.schema.json#/$defs/age"
+        },
+        "perYear": {
+          "description": "The yearly amount after tax. Required for the plan to run (error planner.otherIncomeAmount).",
           "$ref": "common.schema.json#/$defs/decimal"
         }
       }

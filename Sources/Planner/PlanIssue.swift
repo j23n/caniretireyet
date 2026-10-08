@@ -15,6 +15,7 @@ public struct PlanSection: RawRepresentable, Hashable, Sendable, Codable, Expres
     public static let work: PlanSection = "work"
     public static let spending: PlanSection = "spending"
     public static let pensions: PlanSection = "pensions"
+    public static let income: PlanSection = "income"
     public static let contributions: PlanSection = "contributions"
     public static let events: PlanSection = "events"
     public static let portfolio: PlanSection = "portfolio"

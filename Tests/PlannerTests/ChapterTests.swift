@@ -22,6 +22,23 @@ struct ChapterTests {
         return plan
     }
 
+    /// Other income is an item of the chapter it starts in, and starts none:
+    /// from retirement, it moves with the retirement age.
+    @Test func otherIncomeIsAnItemOfTheChapterItStartsIn() {
+        var plan = Self.plan()
+        plan.income = [PlanIncome(name: "Rent", from: .age(57), untilAge: 65, perYear: d("6000")),
+                       PlanIncome(name: "Part-time", from: .retirement, untilAge: 63, perYear: d("10000")),
+                       PlanIncome(name: "Later", from: .age(80), perYear: d("1000"))]
+        let chapters = Self.chapters(plan)
+        #expect(chapters.chapters.map(\.kind) == [.betweenWork, .bridge])
+        #expect(chapters.chapterIndex(of: .income(0)) == 0)
+        #expect(chapters.chapterIndex(of: .income(1)) == 1)
+        #expect(chapters.chapters[1].continuing.contains(.income(0)))
+        #expect(chapters.outside == [.income(2)])
+        #expect(Self.chapters(plan, retiringAt: 62).chapters[1].years.lowerBound == 2032)
+        #expect(Self.chapters(plan, retiringAt: 62).chapterIndex(of: .income(1)) == 1)
+    }
+
     @Test func theExampleBasePlanHasSixChapters() throws {
         let library = try Fixtures.exampleLibrary()
         let plan = try #require(library.plans["base"])

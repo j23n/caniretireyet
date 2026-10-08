@@ -39,7 +39,8 @@ enum Sample {
     /// unless a test says so).
     static func plan(retire: AgeChoice, endAge: Int, working: String = "0", retired: String,
                      equityReturn: String = "0.05", volatility: String = "0", equityYield: String? = nil,
-                     work: [WorkPhase] = [], pensions: [PlanPension] = [], contributions: [PlanContribution] = [],
+                     work: [WorkPhase] = [], pensions: [PlanPension] = [], income: [PlanIncome] = [],
+                     contributions: [PlanContribution] = [],
                      events: [PlanEvent] = [], inflation: String = "0.02", investmentRate: String = "0",
                      wealthRate: String? = nil, wealthAllowance: String? = nil, unrealizedGainShare: String? = nil,
                      runs: Int = 200, seed: UInt64 = 7, confidence: String = "0.9") -> PlanDocument {
@@ -51,7 +52,7 @@ enum Sample {
             tax: PlanTax(investmentRate: d(investmentRate), wealthRate: wealthRate.map(d),
                          wealthAllowance: wealthAllowance.map(d)),
             work: work, spending: PlanSpending(working: d(working), retired: d(retired)), pensions: pensions,
-            contributions: contributions, events: events,
+            income: income, contributions: contributions, events: events,
             portfolio: PlanPortfolio(unrealizedGainShare: unrealizedGainShare.map(d)),
             assumptions: PlanAssumptions(
                 inflation: d(inflation),

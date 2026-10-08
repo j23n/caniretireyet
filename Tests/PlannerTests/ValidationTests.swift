@@ -65,6 +65,22 @@ struct ValidationTests {
         #expect(message == "Work 1: enter the income after tax for this phase (netIncome).")
     }
 
+    @Test func otherIncomeNeedsItsAmountAndAges() async {
+        var plan = plan
+        plan.income = [
+            PlanIncome(name: "Rent", from: nil, perYear: d("6000")),
+            PlanIncome(from: .age(60), perYear: d("-1")),
+            PlanIncome(from: .age(130), perYear: d("1")),
+            PlanIncome(from: .age(60), untilAge: 60, perYear: d("1")),
+            PlanIncome(from: .retirement, untilAge: 70, perYear: d("1")),
+        ]
+        #expect(await errors(plan) == ["planner.otherIncomeAmount", "planner.negativeOtherIncome",
+                                       "planner.otherIncomeAge", "planner.otherIncomeAges"])
+        let issue = Planner.validate(plan: plan, library: library).first { $0.code == "planner.otherIncomeAmount" }
+        #expect(issue?.message == "Rent: enter the yearly amount after tax and when it starts.")
+        #expect(issue?.section == .income && issue?.index == 0)
+    }
+
     @Test func settingsOutOfRangeAreErrors() async {
         var plan = plan
         plan.endAge = 45

@@ -23,6 +23,7 @@ struct PlanModel: Sendable {
     let work: [WorkSpec]
     let spending: SpendingSpec
     let pensions: [PensionSpec]
+    let income: [IncomeSpec]
     let contributions: [ContributionSpec]
     let events: [EventSpec]
     /// The probabilities of the uncertain events, by bit.
@@ -163,6 +164,30 @@ struct PensionSpec: Sendable {
     let name: String
     let fromAge: Int
     let perYear: Double
+}
+
+/// Other income, resolved: a yearly amount after tax from a birthday, or
+/// from retirement, to the day before a birthday or the plan's end.
+struct IncomeSpec: Sendable {
+    let index: Int
+    /// `income-<index>`.
+    let id: String
+    let name: String
+    /// The age it starts at; `nil` for retirement.
+    let fromAge: Int?
+    /// The age it stops at; `nil` for the plan's end.
+    let untilAge: Int?
+    let perYear: Double
+
+    /// Its first day, given the day work stops.
+    func firstDay(birthDate: CalendarDate, retiring: CalendarDate) -> CalendarDate {
+        fromAge.map { birthDate.adding(years: $0) } ?? retiring
+    }
+
+    /// Its last day, or `nil` for the plan's end.
+    func lastDay(birthDate: CalendarDate) -> CalendarDate? {
+        untilAge.map { birthDate.adding(years: $0).adding(days: -1) }
+    }
 }
 
 /// A planned contribution into an account's bucket, yearly or once.

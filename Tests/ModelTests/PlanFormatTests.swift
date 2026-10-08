@@ -53,6 +53,17 @@ struct PlanFormatTests {
                                                                                          fromAge: nil, perYear: nil))
     }
 
+    @Test func otherIncomeStartsAtAnAgeOrAtRetirement() throws {
+        let rent = #"{ "name": "Rent", "from": 45, "untilAge": 85, "perYear": "9600" }"#
+        let partTime = #"{ "name": "Part-time", "from": "retirement", "untilAge": 60, "perYear": "18000" }"#
+        for text in [rent, partTime] { try roundTrips(PlanIncome.self, text) }
+        #expect(try decode(PlanIncome.self, rent) == PlanIncome(name: "Rent", from: .age(45), untilAge: 85,
+                                                                perYear: 9_600))
+        #expect(try decode(PlanIncome.self, partTime).from == .retirement)
+        #expect(try decode(PlanIncome.self, #"{ "from": 50, "perYear": "1" }"#).untilAge == nil)
+        #expect(throws: DecodingError.self) { try decode(PlanIncome.self, #"{ "from": "soon" }"#) }
+    }
+
     @Test func contributionsGoIntoAccountsYearlyOrOnce() throws {
         let yearly = #"{ "account": "pension-fund", "perYear": "5000", "until": "retirement" }"#
         let oneOff = #"{ "account": "pillar-3a", "amount": "7000", "year": 2027 }"#

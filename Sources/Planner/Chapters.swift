@@ -5,8 +5,9 @@ import Model
 /// calendar years in which the same things pay for your life. A chapter
 /// starts in the year the work phase you're in changes, work stops, the
 /// first pension is paid or retirement spending moves to another phase.
-/// Everything else the plan says (another pension, a contribution, an event,
-/// a change of target mix) is an item of the chapter it starts or happens in.
+/// Everything else the plan says (another pension, other income, a
+/// contribution, an event, a change of target mix) is an item of the chapter
+/// it starts or happens in.
 public struct PlanChapters: Hashable, Sendable {
     /// The chapters in order. Together they cover every calendar year the
     /// plan simulates, from the check-in's to the one it reaches its end age in.
@@ -98,6 +99,8 @@ public struct PlanChapter: Hashable, Sendable {
         case work(Int)
         /// An index into ``PlanDocument/pensions``.
         case pension(Int)
+        /// An index into ``PlanDocument/income``.
+        case income(Int)
         /// An index into ``PlanDocument/contributions``.
         case contribution(Int)
         /// An index into ``PlanDocument/events``.
@@ -202,11 +205,12 @@ extension PlanChapter.Item {
         case .spendingPhase(let index): (2, index)
         case .work(let index): (3, index)
         case .pension(let index): (4, index)
-        case .contribution(let index): (5, index)
-        case .event(let index): (6, index)
-        case .targetMix: (7, -1)
-        case .targetMixStep(let index): (7, index)
-        case .end: (8, 0)
+        case .income(let index): (5, index)
+        case .contribution(let index): (6, index)
+        case .event(let index): (7, index)
+        case .targetMix: (8, -1)
+        case .targetMixStep(let index): (8, index)
+        case .end: (9, 0)
         }
     }
 }
@@ -347,6 +351,9 @@ private struct ChapterBuilder {
             let years = pension.fromAge.flatMap { age in span(birthYear + age, last) }
             placed.append((item: Item.pension(index), years: years))
         }
+        for (index, income) in plan.income.enumerated() {
+            placed.append((item: Item.income(index), years: incomeYears(income, retired: retired)))
+        }
         for (index, contribution) in plan.contributions.enumerated() {
             placed.append((item: Item.contribution(index), years: contributionYears(contribution)))
         }
@@ -380,6 +387,13 @@ private struct ChapterBuilder {
         }
         let year = max(phase.from.year, first)
         return span(year, year)
+    }
+
+    /// Other income's years: from the year it starts (work stopping's, for
+    /// one from retirement) to the one it stops in, or the plan's end.
+    func incomeYears(_ income: PlanIncome, retired: Int) -> ClosedRange<Int>? {
+        guard let from = income.from else { return nil }
+        return span(from.age.map { birthYear + $0 } ?? retired, income.untilAge.map { birthYear + $0 } ?? last)
     }
 
     /// A contribution's years: a one-off's year, or every year from the

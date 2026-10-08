@@ -311,6 +311,28 @@ struct DeterministicTests {
         #expect(paid.label == "Pension")
     }
 
+    /// Other income pays from its age, or from retirement, to the day before
+    /// the age it stops at, retired or not.
+    @Test func otherIncomePaysOverItsAges() async throws {
+        let plan = Sample.plan(
+            retire: .age(59), endAge: 70, retired: "20000", equityReturn: "0",
+            income: [PlanIncome(name: "Rent", from: .age(61), untilAge: 63, perYear: d("6000")),
+                     PlanIncome(name: "Part-time", from: .retirement, untilAge: 61, perYear: d("10000"))])
+        // 59 on 1 January 2025: retired from the start, 31 December 2025.
+        let library = Sample.library(birth: "1966-01-01", on: "2025-12-31",
+                                     [SampleAccount(id: "broker", balance: 1_000_000)])
+        let result = try await Sample.run(plan, library)
+
+        // 2026 (60): part-time only. 2027–2028 (61, 62): rent only. 2029: neither.
+        let other = { (year: Int) in result.expectedYear(year)?.income.filter { $0.kind == .other } ?? [] }
+        #expect(other(2026) == [IncomeItem(kind: .other, id: "income-1", label: "Part-time", amount: 10_000)])
+        #expect(other(2027) == [IncomeItem(kind: .other, id: "income-0", label: "Rent", amount: 6_000)])
+        #expect(other(2028).map(\.label) == ["Rent"])
+        #expect(other(2029).isEmpty)
+        #expect(close(result.expectedValue(in: 2026), 990_000))
+        #expect(close(result.expectedValue(in: 2027), 976_000))
+    }
+
     @Test func eventsHappenInTheirYear() async throws {
         let plan = Sample.plan(
             retire: .age(59), endAge: 64, retired: "10000", equityReturn: "0",

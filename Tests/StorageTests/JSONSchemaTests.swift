@@ -87,6 +87,7 @@ import TestSupport
         ("SpendingPhase", SpendingPhase.knownKeys, "plan.schema.json", "/$defs/spending/properties/phases/items"),
         ("FlexibleSpending", FlexibleSpending.knownKeys, "plan.schema.json", "/$defs/flexibleSpending"),
         ("PlanPension", PlanPension.knownKeys, "plan.schema.json", "/$defs/pension"),
+        ("PlanIncome", PlanIncome.knownKeys, "plan.schema.json", "/$defs/income"),
         ("PlanContribution", PlanContribution.knownKeys, "plan.schema.json", "/$defs/contribution"),
         ("PlanEvent", PlanEvent.knownKeys, "plan.schema.json", "/$defs/event"),
         ("PlanPortfolio", PlanPortfolio.knownKeys, "plan.schema.json", "/$defs/portfolio"),

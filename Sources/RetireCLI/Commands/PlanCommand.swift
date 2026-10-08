@@ -377,6 +377,8 @@ struct PlanReport {
         var age: Int
         var work: Double = 0
         var pensions: Double = 0
+        /// Other income: rent, part-time work once retired.
+        var other: Double = 0
         var windfalls: Double = 0
         var sold: Double = 0
         var taxes: Double = 0
@@ -391,6 +393,7 @@ struct PlanReport {
                     switch item.kind {
                     case .work: row.work += item.amount
                     case .pension: row.pensions += item.amount
+                    case .other: row.other += item.amount
                     case .windfall: row.windfalls += item.amount
                     default: row.sold += item.amount
                     }
@@ -514,16 +517,22 @@ struct PlanReport {
         if let years, !years.isEmpty {
             lines.append("")
             lines.append("The median run, year by year (\(currency), today's money)")
-            var table = TextTable([.right("Year"), .right("Age"), .right("Work"), .right("Pensions"),
-                                   .right("Windfalls"), .right("Sold"), .right("Taxes"), .right("Spending"),
-                                   .right("At the end")])
+            // Other income only has a column when the plan has some.
+            let hasOther = years.contains { $0.other != 0 }
+            var columns: [TextTable.Column] = [.right("Year"), .right("Age"), .right("Work"), .right("Pensions")]
+            if hasOther { columns.append(.right("Other")) }
+            columns += [.right("Windfalls"), .right("Sold"), .right("Taxes"), .right("Spending"), .right("At the end")]
+            var table = TextTable(columns)
             for row in years {
-                table.add(["\(row.year)", "\(row.age)"] + [row.work, row.pensions, row.windfalls, row.sold, row.taxes,
-                                                         row.spending, row.endAssets].map(Self.whole))
+                var amounts: [Double] = [row.work, row.pensions]
+                if hasOther { amounts.append(row.other) }
+                amounts += [row.windfalls, row.sold, row.taxes, row.spending, row.endAssets]
+                table.add(["\(row.year)", "\(row.age)"] + amounts.map(Self.whole))
             }
             lines += table.lines()
-            lines.append("Work and pensions after tax. Sold: investments sold to cover the year. Taxes: on "
-                + "investments and on wealth. The first year is the part after the check-in.")
+            lines.append((hasOther ? "Work, pensions and other income after tax." : "Work and pensions after tax.")
+                + " Sold: investments sold to cover the year. Taxes: on investments and on wealth. The first year "
+                + "is the part after the check-in.")
         }
         if let reading {
             lines.append("")
@@ -559,7 +568,8 @@ struct PlanReport {
              flexibleSpending: flexible?.json,
              years: years?.map { row in
                  JSON.Year(year: row.year, age: row.age, work: Self.rounded(row.work),
-                           pensions: Self.rounded(row.pensions), windfalls: Self.rounded(row.windfalls),
+                           pensions: Self.rounded(row.pensions), other: row.other != 0 ? Self.rounded(row.other) : nil,
+                           windfalls: Self.rounded(row.windfalls),
                            sold: Self.rounded(row.sold), taxes: Self.rounded(row.taxes),
                            spending: Self.rounded(row.spending), endAssets: Self.rounded(row.endAssets))
              })
@@ -597,6 +607,8 @@ struct PlanReport {
             var age: Int
             var work: String
             var pensions: String
+            /// Other income; absent without any.
+            var other: String?
             var windfalls: String
             var sold: String
             var taxes: String
