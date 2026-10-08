@@ -593,15 +593,16 @@ struct PlanProgressTimeline {
     /// One year's card.
     struct Card: Identifiable {
         let year: PlanProgressYear
-        /// The money from the last point before the year through its end, at
-        /// each check-in and the end of each month without one: with the
-        /// year's baseline, the same accounts in its money (also before a
-        /// baseline saved during the year); else plan assets in the base
-        /// currency.
+        /// Your money from the last point before the year through its end,
+        /// at each check-in and the end of each month without one: plan
+        /// assets in the base currency, as they were, as the milestones and
+        /// the year's change count them.
         let actual: [ChartPoint]
         /// What the year's baseline expected: its median from its start (or
-        /// the line's, when it started before) to the year's end; empty
-        /// without one.
+        /// the line's, when it started before) to the year's end, in the
+        /// line's money, with the accounts it doesn't compare at their value
+        /// (``PlanProgressTimeline/expected(by:days:totals:through:library:valuator:)``);
+        /// empty without one.
         let expected: [ChartPoint]
         let chips: [Chip]
         /// By date.
@@ -614,7 +615,7 @@ struct PlanProgressTimeline {
         let checkIns: Set<Date>
         /// The year in a line ("Two years sooner, and past 300.000 €."); `nil` for a quiet one.
         let summary: String?
-        /// The money's currency.
+        /// The money's currency: the base currency.
         let currency: CurrencyCode
         /// 1 January and 31 December of the year, at noon.
         let start: Date
@@ -735,37 +736,27 @@ struct PlanProgressTimeline {
         cards = years.sorted { $0.year < $1.year }.map { year in
             let start = CalendarDate(year: year.year, month: 1, day: 1)?.dateValue ?? Date()
             let end = CalendarDate(year: year.year, month: 12, day: 31)?.dateValue ?? start
-            let actual: [ChartPoint]
-            var expected: [ChartPoint] = []
-            var currency = library.settings.baseCurrency
-            if let entry = year.baseline {
-                // The whole year in the baseline's money, also before a
-                // baseline saved during it (at the year's first check-in).
-                let comparison = PlanBaselineComparison(baseline: entry.baseline, library: library, valuator: valuator,
-                                                        asOf: year.to, from: year.from, through: year.to)
-                // From the last point before the year, drawn at its left edge.
-                let firstOfYear = (CalendarDate(year: year.year, month: 1, day: 1) ?? year.from).dateValue
-                let lead = comparison.actual.last { $0.date < firstOfYear }?.date ?? firstOfYear
-                actual = comparison.actual.filter { $0.date >= lead }
-                currency = comparison.currency
-                // What it expected, from its start (or the line's) through December.
-                let knots = Set(actual.map { CalendarDate($0.date, in: .current) }
-                    + [CalendarDate(year: year.year, month: 12, day: 31) ?? year.to])
-                for day in knots.sorted() {
-                    if let bands = PlanBaselineComparison.percentiles(on: day, in: entry.baseline) {
-                        expected.append(ChartPoint(date: day.dateValue, value: bands[2]))
-                    }
-                }
-            } else {
-                // From the last day before the year (drawn at its left edge) through its end.
-                let days = DateGrid.checkInsAndMonthEnds(from: year.from, through: year.to, checkIns: dates)
-                let firstOfYear = CalendarDate(year: year.year, month: 1, day: 1) ?? year.from
-                let lead = days.last { $0 < firstOfYear } ?? firstOfYear
-                actual = days.filter { $0 >= lead }.map { day in
-                    let total = valuator.total(on: day, in: .planAssets)
-                    return ChartPoint(date: day.dateValue, value: total.total.doubleValue, isComplete: total.isPriced)
-                }
+            // From the last day before the year (drawn at its left edge) through its end.
+            let grid = DateGrid.checkInsAndMonthEnds(from: year.from, through: year.to, checkIns: dates)
+            let firstOfYear = CalendarDate(year: year.year, month: 1, day: 1) ?? year.from
+            let lead = grid.last { $0 < firstOfYear } ?? firstOfYear
+            var days = grid.filter { $0 >= lead }
+            // Also on a baseline's own start during the year, where its expectation starts.
+            if let baselineStart = year.baseline?.baseline.start.date, lead <= baselineStart,
+               baselineStart <= year.to, !days.contains(baselineStart) {
+                days.insert(baselineStart, at: days.firstIndex { $0 > baselineStart } ?? days.endIndex)
             }
+            // Your money as it was: plan assets in the base currency, as the
+            // milestones flagged on the line and the year's change count it.
+            let totals = days.map { valuator.total(on: $0, in: .planAssets) }
+            let actual = zip(days, totals).map { day, total in
+                ChartPoint(date: day.dateValue, value: total.total.doubleValue, isComplete: total.isPriced)
+            }
+            let expected = year.baseline.map { entry in
+                Self.expected(by: entry.baseline, days: days, totals: totals,
+                              through: CalendarDate(year: year.year, month: 12, day: 31) ?? year.to,
+                              library: library, valuator: valuator)
+            } ?? []
             let (chips, answerNotes) = Self.answers(in: year, history: history, locale: locale)
             let inYear = milestones.filter { $0.date.year == year.year && $0.date <= year.to }
             let milestoneNotes = inYear.map { reached in
@@ -777,7 +768,7 @@ struct PlanProgressTimeline {
             return Card(year: year, actual: actual, expected: expected, chips: chips, notes: notes,
                         milestones: inYear, checkIns: checkInDays.intersection(actual.map(\.date)),
                         summary: PlanProgressText.summary(year, milestones: inYear, text: text),
-                        currency: currency, start: start, end: end)
+                        currency: library.settings.baseCurrency, start: start, end: end)
         }
         scale = Scale(values: cards.flatMap { card in card.actual.map(\.value) + card.expected.map(\.value) })
     }
@@ -789,6 +780,36 @@ struct PlanProgressTimeline {
         let shown = indices.filter(cards.indices.contains)
         guard !shown.isEmpty else { return scale }
         return Scale(values: shown.flatMap { cards[$0].actual.map(\.value) + cards[$0].expected.map(\.value) })
+    }
+
+    /// What `baseline` expected on each of `days` and on `end`, in the money
+    /// of a card's line (plan assets in the base currency, as they were):
+    /// its median turned from its own money (its currency, in money of its
+    /// start) into the base currency on the day, plus the plan assets it
+    /// doesn't compare (``Baseline/comparedAccounts(among:)``: an account
+    /// added since with an older history, one its plan left out) at their
+    /// value, so the space between the two lines is the gap it measures. A
+    /// day without an exchange rate, or after the last of `days`, takes the
+    /// day before's; `totals` are plan assets on `days`.
+    static func expected(by baseline: Baseline, days: [CalendarDate], totals: [NetWorth], through end: CalendarDate,
+                         library: Library, valuator: Valuator) -> [ChartPoint] {
+        let accounts = baseline.comparedAccounts(among: library.accounts)
+        let currency = PlanMoney.currency(of: baseline, settings: library.settings)
+        // One unit of the base currency in the baseline's money, on each day.
+        let units = PlanActualSeries(values: days.map { SeriesPoint(date: $0, value: 1) }, library: library,
+                                     valuator: valuator, currency: currency, inMoneyOf: baseline.start.date).points
+        var shifts: [(day: CalendarDate, factor: Double, others: Double)] = []
+        for (day, total) in zip(days, totals) {
+            guard let unit = units.first(where: { $0.date == day.dateValue })?.value, unit != 0 else { continue }
+            let compared = valuator.total(on: day, including: { accounts.contains($0.id) }).total
+            shifts.append((day: day, factor: 1 / unit, others: (total.total - compared).doubleValue))
+        }
+        return Set(days + [end]).sorted().compactMap { day in
+            guard let bands = PlanBaselineComparison.percentiles(on: day, in: baseline),
+                  let shift = shifts.last(where: { $0.day <= day }) ?? shifts.first
+            else { return nil }
+            return ChartPoint(date: day.dateValue, value: bands[2] * shift.factor + shift.others)
+        }
     }
 
     /// The answer's moves in `year`: a chip at its first answer and at each
