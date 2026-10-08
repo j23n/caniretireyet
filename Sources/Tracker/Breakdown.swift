@@ -40,26 +40,16 @@ public enum BreakdownKey: Hashable, Sendable, Comparable, CustomStringConvertibl
         lhs.sortKey < rhs.sortKey
     }
 
-    private var sortKey: SortKey {
+    /// The kind of key, the rank within its kind, then the name.
+    private var sortKey: (Int, Int, String) {
         switch self {
         case .assetClass(let assetClass):
-            SortKey(kind: 0, rank: Self.assetClassOrder.firstIndex(of: assetClass) ?? Self.assetClassOrder.count,
-                    name: assetClass.rawValue)
-        case .debts: SortKey(kind: 1, rank: 0, name: "")
-        case .accountGroup(let group): SortKey(kind: 2, rank: AccountGroup.allCases.firstIndex(of: group)!, name: "")
-        case .currency(let code): SortKey(kind: 3, rank: 0, name: code.rawValue)
-        case .institution(let name): SortKey(kind: 4, rank: name == nil ? 1 : 0, name: name ?? "")
-        case .liquidity(let liquidity): SortKey(kind: 5, rank: Liquidity.allCases.firstIndex(of: liquidity)!, name: "")
-        }
-    }
-
-    private struct SortKey: Comparable {
-        var kind: Int
-        var rank: Int
-        var name: String
-
-        static func < (lhs: SortKey, rhs: SortKey) -> Bool {
-            (lhs.kind, lhs.rank, lhs.name) < (rhs.kind, rhs.rank, rhs.name)
+            (0, Self.assetClassOrder.firstIndex(of: assetClass) ?? Self.assetClassOrder.count, assetClass.rawValue)
+        case .debts: (1, 0, "")
+        case .accountGroup(let group): (2, AccountGroup.allCases.firstIndex(of: group)!, "")
+        case .currency(let code): (3, 0, code.rawValue)
+        case .institution(let name): (4, name == nil ? 1 : 0, name ?? "")
+        case .liquidity(let liquidity): (5, Liquidity.allCases.firstIndex(of: liquidity)!, "")
         }
     }
 

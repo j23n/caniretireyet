@@ -195,14 +195,14 @@ extension Valuator {
 
     // MARK: - Years
 
-    /// The trades of the accounts selected by `include` (every trades
-    /// account by default) in `year`, summed in the base currency, each
-    /// amount converted at the latest FX rate on or before its trade date.
-    /// Amounts that can't be converted are left out and listed.
-    public func tradeSummary(for year: Int, including include: (Account) -> Bool = { _ in true }) -> TradeYearSummary {
+    /// The trades of every trades account in `year`, summed in the base
+    /// currency, each amount converted at the latest FX rate on or before
+    /// its trade date. Amounts that can't be converted are left out and
+    /// listed.
+    public func tradeSummary(for year: Int) -> TradeYearSummary {
         var summary = TradeYearSummary(year: year, currency: baseCurrency)
         for (id, ledger) in ledgers.sorted(by: { $0.key < $1.key }) {
-            guard let account = accounts[id], include(account) else { continue }
+            guard let account = accounts[id] else { continue }
             for entry in ledger.entries where entry.date.year == year {
                 summary.add(entry) { amount in
                     account.currency == baseCurrency

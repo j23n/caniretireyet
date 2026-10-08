@@ -1,7 +1,7 @@
 import Model
 
 /// Which accounts a total, series or breakdown covers.
-public enum NetWorthScope: String, Hashable, Sendable, CaseIterable, Codable {
+public enum NetWorthScope: String, Hashable, Sendable, CaseIterable {
     /// Every account included in net worth (`includeIn.netWorth`, default true).
     case netWorth
     /// The accounts the planner counts (`includeIn.plan`, default true). A

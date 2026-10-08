@@ -5,8 +5,8 @@ import Model
 public enum CheckInWarning: Hashable, Sendable {
     /// A position's quantity went down: did you sell?
     case quantityDecreased(account: AccountID, instrument: InstrumentID, from: Decimal, to: Decimal)
-    /// The account's value changed by more than the threshold (30% by
-    /// default) since its previous valuation; values in the base currency.
+    /// The account's value changed by more than 30% since its previous
+    /// valuation; values in the base currency.
     case largeChange(account: AccountID, from: Decimal, to: Decimal)
     /// An updated account's flow is unknown, e.g. a pension fund whose
     /// contributions weren't entered. Its change will count as "other".
@@ -111,13 +111,13 @@ public struct CheckInRecords: Hashable, Sendable {
 }
 
 extension CheckInDraft {
-    /// The default threshold for the "large change" warning: 30%.
-    public static let defaultLargeChangeThreshold: Decimal = 0.3
+    /// How much an account's value may change before the review warns
+    /// about it (``CheckInWarning/largeChange(account:from:to:)``): 30%.
+    static let largeChangeThreshold: Decimal = 0.3
 
     /// Values every row and the new total as they stand, with warnings for
-    /// changes larger than `largeChangeThreshold` (a fraction).
-    public func review(in library: Library,
-                       largeChangeThreshold: Decimal = defaultLargeChangeThreshold) -> CheckInReview {
+    /// anything unusual (``CheckInWarning``).
+    public func review(in library: Library) -> CheckInReview {
         let priced = Valuator(library: libraryWithRates(library))
         let proposals = rows.map { proposal(for: $0, using: priced) }
         let records = records(writing: proposals.compactMap(\.written), in: library)
@@ -136,7 +136,7 @@ extension CheckInDraft {
                                                        from: position.previousQuantity, to: position.quantity))
                 }
                 if let previousValue, previousValue != 0, let now = value?.knownValue,
-                   abs(now - previousValue) > largeChangeThreshold * abs(previousValue) {
+                   abs(now - previousValue) > Self.largeChangeThreshold * abs(previousValue) {
                     warnings.append(.largeChange(account: row.account, from: previousValue, to: now))
                 }
                 if proposal.written?.flow == nil { warnings.append(.unknownFlow(account: row.account)) }
@@ -195,7 +195,7 @@ extension CheckInDraft {
     }
 
     /// The library with this check-in's prices and FX rates added.
-    func libraryWithRates(_ library: Library) -> Library {
+    public func libraryWithRates(_ library: Library) -> Library {
         var library = library
         for price in prices { library.upsert(price) }
         for rate in fxRates { library.upsert(rate) }

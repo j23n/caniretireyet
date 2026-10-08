@@ -97,8 +97,7 @@ public struct TradeLedger: Sendable {
     /// Applies `trades` of `account` (other accounts' trades are ignored).
     /// `instruments` give a price's default currency; `fx` converts prices
     /// into the account's currency at each trade date.
-    public init(account: Account, trades: some Sequence<Trade>, instruments: [InstrumentID: Instrument] = [:],
-                fx: FXTable) {
+    public init(account: Account, trades: some Sequence<Trade>, instruments: [InstrumentID: Instrument], fx: FXTable) {
         self.account = account.id
         currency = account.currency
         var entries: [TradeEntry] = []

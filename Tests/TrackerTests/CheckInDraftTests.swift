@@ -150,7 +150,6 @@ struct CheckInDraftTests {
         #expect(warnings.contains(.largeChange(account: "conto-fineco", from: d("4210.55"), to: 6000)))
         #expect(warnings.contains(.unknownFlow(account: "fondo-pensione")))
         #expect(warnings.count == 3)
-        #expect(draft.review(in: library, largeChangeThreshold: d("0.5")).warnings.count == 2)
 
         var unpriced = october()
         unpriced["directa"]?.setQuantity(1, of: "unlisted")

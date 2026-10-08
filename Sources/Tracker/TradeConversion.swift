@@ -128,7 +128,7 @@ extension Library {
         var written: [Valuation] = []
         var held: [InstrumentID: Position] = [:]
         // One trade per instrument and date, so a readable ID is unique: `buy-vwce`.
-        func id(_ type: TradeType, _ instrument: InstrumentID, _ date: CalendarDate) -> TradeID {
+        func id(_ type: TradeType, _ instrument: InstrumentID) -> TradeID {
             TradeID(Slug.make(from: "\(type.rawValue) \(instrument)"))
         }
         func note(_ kind: ConversionNote.Kind, _ date: CalendarDate, _ instrument: InstrumentID?, _ message: String) {
@@ -202,7 +202,7 @@ extension Library {
                             + "\(instrument) has no recorded cost and no price, so its cost is unknown.")
                     }
                     trades.append(Trade(account: account, date: valuation.date,
-                                        id: id(.opening, instrument, valuation.date), type: .opening,
+                                        id: id(.opening, instrument), type: .opening,
                                         instrument: instrument, quantity: now, cost: cost, source: valuation.source))
                 } else if change > 0 {
                     noteSettlement(valuation.date)
@@ -217,7 +217,7 @@ extension Library {
                         }
                     }
                     trades.append(Trade(account: account, date: valuation.date,
-                                        id: id(.buy, instrument, valuation.date), type: .buy, instrument: instrument,
+                                        id: id(.buy, instrument), type: .buy, instrument: instrument,
                                         quantity: change, price: market?.price.price,
                                         currency: market.map { $0.price.currency },
                                         amount: paid.map { -$0 }, source: valuation.source, settlement: settlement))
@@ -232,7 +232,7 @@ extension Library {
                             + "\(instrument) is priced at the valuation's price\(priceNote).")
                     }
                     trades.append(Trade(account: account, date: valuation.date,
-                                        id: id(.sell, instrument, valuation.date), type: .sell, instrument: instrument,
+                                        id: id(.sell, instrument), type: .sell, instrument: instrument,
                                         quantity: sold, price: market?.price.price,
                                         currency: market.map { $0.price.currency }, source: valuation.source,
                                         settlement: settlement))

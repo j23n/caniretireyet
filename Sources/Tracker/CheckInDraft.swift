@@ -2,7 +2,7 @@ import Foundation
 import Model
 
 /// Where an account stands in a check-in (UI.md, "Check-in").
-public enum CheckInRowState: String, Hashable, Sendable, CaseIterable, Codable {
+public enum CheckInRowState: String, Hashable, Sendable, Codable {
     /// Not looked at yet. Writes nothing unless marked unchanged.
     case notReviewed
     /// A new value was entered.
@@ -534,12 +534,11 @@ public struct CheckInDraft: Hashable, Sendable, Codable {
     }
 
     /// The date to suggest for a new check-in on `today`: the end of the
-    /// previous month during the first `firstDays` days of a month, unless
-    /// that month end already has a check-in; otherwise today.
-    public static func suggestedDate(today: CalendarDate, lastCheckIn: CalendarDate? = nil,
-                                     firstDays: Int = 7) -> CalendarDate {
+    /// previous month during the first 7 days of a month, unless that month
+    /// end already has a check-in; otherwise today.
+    public static func suggestedDate(today: CalendarDate, lastCheckIn: CalendarDate? = nil) -> CalendarDate {
         let monthEnd = today.startOfMonth.adding(days: -1)
-        guard today.day <= firstDays, lastCheckIn.map({ $0 < monthEnd }) ?? true else { return today }
+        guard today.day <= 7, lastCheckIn.map({ $0 < monthEnd }) ?? true else { return today }
         return monthEnd
     }
 

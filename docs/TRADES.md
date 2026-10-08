@@ -121,7 +121,7 @@ Trades have no time of day, and IDs are random, so the file order says nothing a
 - **Realised gain** per sell: proceeds before tax (`amount + tax`, i.e. gross − fees) minus the average cost of the units sold. Unknown when the cost is, or when the sale takes away more than was held.
 - **Income**: dividends and interest (before tax withheld), fees and taxes.
 
-`TradeLedger.summary(for:)` gives a year for one account, and `Valuator.tradeSummary(for:including:)` for all trades accounts in the base currency (each amount converted at its trade date): realised gains (total and by instrument, and the sales whose gain is unknown), dividends (by instrument), interest, fees, taxes (and the part withheld on income), deposits and withdrawals.
+`TradeLedger.summary(for:)` gives a year for one account, and `Valuator.tradeSummary(for:)` for all trades accounts in the base currency (each amount converted at its trade date): realised gains (total and by instrument, and the sales whose gain is unknown), dividends (by instrument), interest, fees, taxes (and the part withheld on income), deposits and withdrawals.
 
 ## Cash
 

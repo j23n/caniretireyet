@@ -47,23 +47,21 @@ extension Valuator {
     public static let oldPriceDays = 31
 
     /// The positions of `account` valued on `dates` with a price more than
-    /// `maxAge` days older than the date.
-    public func oldPrices(of account: AccountID, on dates: [CalendarDate],
-                          maxAge: Int = oldPriceDays) -> [OldPrice] {
-        dates.flatMap { date in value(of: account, on: date).map { oldPrices(in: $0, maxAge: maxAge) } ?? [] }
+    /// ``oldPriceDays`` days older than the date.
+    public func oldPrices(of account: AccountID, on dates: [CalendarDate]) -> [OldPrice] {
+        dates.flatMap { date in value(of: account, on: date).map { oldPrices(in: $0) } ?? [] }
     }
 
     /// The positions of the accounts in `scope` valued on `dates` with a
-    /// price more than `maxAge` days older than the date.
-    public func oldPrices(in scope: NetWorthScope, on dates: [CalendarDate],
-                          maxAge: Int = oldPriceDays) -> [OldPrice] {
-        dates.flatMap { date in total(on: date, in: scope).accounts.flatMap { oldPrices(in: $0, maxAge: maxAge) } }
+    /// price more than ``oldPriceDays`` days older than the date.
+    public func oldPrices(in scope: NetWorthScope, on dates: [CalendarDate]) -> [OldPrice] {
+        dates.flatMap { date in total(on: date, in: scope).accounts.flatMap { oldPrices(in: $0) } }
     }
 
-    private func oldPrices(in value: AccountValue, maxAge: Int) -> [OldPrice] {
+    private func oldPrices(in value: AccountValue) -> [OldPrice] {
         value.components.compactMap { component in
             guard case .position(let instrument) = component.kind, let quantity = component.quantity, quantity != 0,
-                  let price = component.price, price.date.days(to: value.date) > maxAge
+                  let price = component.price, price.date.days(to: value.date) > Self.oldPriceDays
             else { return nil }
             return OldPrice(date: value.date, account: value.account, instrument: instrument, priceDate: price.date)
         }
