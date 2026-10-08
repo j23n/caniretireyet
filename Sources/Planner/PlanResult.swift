@@ -112,18 +112,6 @@ public struct PlanAnswer: Hashable, Sendable {
     /// "Yes" when retiring today reaches the confidence level.
     public var canRetireNow: Bool { successIfRetiringNow >= confidence }
 
-    /// The coast age: the earliest age reaching the confidence level when
-    /// nothing more is saved; `nil` when the run didn't look for it.
-    public var coast: AgeWithout? {
-        agesWithout.first { $0.change == .saving }
-    }
-
-    /// The earliest age without the uncertain windfall at `index` of the
-    /// plan's events; `nil` when the run didn't look for it.
-    public func withoutWindfall(_ index: Int) -> AgeWithout? {
-        agesWithout.first { $0.change == .windfall(index: index) }
-    }
-
     /// Today's plan assets as a fraction of what retiring today with the
     /// plan's confidence needs (``AssetsNeeded/readiness``): at least 1
     /// exactly when ``canRetireNow``.
@@ -246,6 +234,20 @@ public struct AgeWithout: Hashable, Sendable, Codable {
     public init(change: Change, earliestAge: Int?) {
         self.change = change
         self.earliestAge = earliestAge
+    }
+}
+
+extension Array where Element == AgeWithout {
+    /// The coast age: the earliest age reaching the confidence level when
+    /// nothing more is saved; `nil` when the run didn't look for it.
+    public var coast: AgeWithout? {
+        first { $0.change == .saving }
+    }
+
+    /// The earliest age without the uncertain windfall at `index` of the
+    /// plan's events; `nil` when the run didn't look for it.
+    public func withoutWindfall(_ index: Int) -> AgeWithout? {
+        first { $0.change == .windfall(index: index) }
     }
 }
 

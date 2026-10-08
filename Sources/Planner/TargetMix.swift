@@ -46,10 +46,7 @@ extension Planner {
     /// plan's date), valued in the base currency and grouped as a run groups
     /// them. Without a check-in it starts `today` with nothing.
     public static func startingMix(plan: PlanDocument, library: Library, today: CalendarDate? = nil) -> StartingMix {
-        let date: CalendarDate = switch plan.portfolio.effectiveStart {
-        case .date(let date): date
-        case .latestCheckIn: library.latestCheckInDate ?? today ?? .today()
-        }
+        let date = plan.startDate(in: library, today: today)
         let currentAge = library.settings.person?.birthDate.map { $0.wholeYears(to: date) } ?? 0
         var issues: [PlanIssue] = []
         let portfolio = Portfolio.build(library: library, date: date, plan: plan, currentAge: currentAge,

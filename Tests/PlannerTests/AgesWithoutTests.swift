@@ -37,7 +37,7 @@ struct AgesWithoutTests {
         var withCoast = options
         withCoast.solveCoastAge = true
         let result = try await Planner.run(plan: plan(), library: library, options: withCoast)
-        let coast = try #require(result.answer.coast)
+        let coast = try #require(result.answer.agesWithout.coast)
         let scanned = try await Planner.run(plan: Planner.plan(plan(), without: .saving), library: library,
                                             options: options)
         #expect(coast.earliestAge == scanned.answer.earliestAge)
@@ -48,7 +48,7 @@ struct AgesWithoutTests {
         let without = try await Planner.run(plan: plan(), library: library, options: options)
         #expect(result.answer.earliestAge == without.answer.earliestAge)
         #expect(result.successCurve == without.successCurve)
-        #expect(without.answer.agesWithout.isEmpty && without.answer.coast == nil)
+        #expect(without.answer.agesWithout.isEmpty && without.answer.agesWithout.coast == nil)
         // A check-in records it.
         #expect(result.headline().coastAge == coastAge)
         #expect(without.headline().coastAge == nil)
@@ -64,7 +64,7 @@ struct AgesWithoutTests {
         var withWindfalls = options
         withWindfalls.solveWithoutWindfalls = true
         let result = try await Planner.run(plan: plan(events: events), library: library, options: withWindfalls)
-        let without = try #require(result.answer.withoutWindfall(2))
+        let without = try #require(result.answer.agesWithout.withoutWindfall(2))
         #expect(result.answer.agesWithout.map(\.change) == [.windfall(index: 2)])
         let scanned = try await Planner.run(plan: Planner.plan(plan(events: events), without: .windfall(index: 2)),
                                             library: library, options: options)
@@ -82,7 +82,7 @@ struct AgesWithoutTests {
         withCoast.solveCoastAge = true
         let result = try await Planner.run(plan: poor, library: library, options: withCoast)
         #expect(result.answer.earliestAge == nil)
-        #expect(result.answer.coast == AgeWithout(change: .saving, earliestAge: nil))
+        #expect(result.answer.agesWithout.coast == AgeWithout(change: .saving, earliestAge: nil))
     }
 
     @Test func theBisectionCountsItsSteps() {

@@ -21,6 +21,9 @@ public struct PlanChapters: Hashable, Sendable {
     public var birthYear: Int
     /// The retirement age the chapters are for.
     public var retirementAge: Int
+    /// The year work stops: the year that age is reached, or the check-in's
+    /// when it has passed.
+    public var retirementYear: Int
 
     /// The chapters of `plan` when work stops at `retirementAge`, for a
     /// person born in `birthYear`, with the plan starting from the check-in
@@ -32,6 +35,7 @@ public struct PlanChapters: Hashable, Sendable {
         outside = built.outside
         self.birthYear = birthYear
         self.retirementAge = retirementAge
+        retirementYear = builder.retirementYear
     }
 
     /// The index of the chapter covering `year`.
@@ -125,11 +129,8 @@ extension Planner {
                                 today: CalendarDate? = nil) -> PlanChapters? {
         guard let birthDate = library.settings.person?.birthDate,
               let age = retirementAge ?? plan.retirement.age.age else { return nil }
-        let start: CalendarDate = switch plan.portfolio.effectiveStart {
-        case .date(let date): date
-        case .latestCheckIn: library.latestCheckInDate ?? today ?? .today()
-        }
-        return PlanChapters(plan: plan, birthYear: birthDate.year, start: start, retirementAge: age)
+        return PlanChapters(plan: plan, birthYear: birthDate.year, start: plan.startDate(in: library, today: today),
+                            retirementAge: age)
     }
 }
 

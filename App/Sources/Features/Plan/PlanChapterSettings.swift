@@ -91,7 +91,7 @@ enum PlanChapterSettings {
                     subtitle += " · grows \(words.percent(growth)) a year"
                 }
                 return [PlanSettingRow(id: "work-\(index)", symbol: "briefcase", kind: .work,
-                                       title: PlanWorkText.title(of: phase, index: index, of: plan.work.count),
+                                       title: plan.workName(index),
                                        subtitle: subtitle, value: phase.netIncome.map(words.monthly) ?? "Not set",
                                        opens: .sheet(.work(index)),
                                        issues: issues.issues(for: .work, index: index))]
@@ -99,8 +99,7 @@ enum PlanChapterSettings {
                 guard plan.pensions.indices.contains(index) else { return [] }
                 let pension = plan.pensions[index]
                 return [PlanSettingRow(id: "pension-\(index)", symbol: "building.columns", kind: .pension,
-                                       title: PlanResultsMapping.pensionName(pension, index: index,
-                                                                            of: plan.pensions.count),
+                                       title: plan.pensionName(index),
                                        subtitle: pension.fromAge.map { "From \($0), after tax" } ?? "No age yet",
                                        value: pension.perYear.map(words.monthly) ?? "Not set",
                                        opens: .sheet(.pension(index)),
@@ -109,8 +108,7 @@ enum PlanChapterSettings {
                 guard plan.income.indices.contains(index) else { return [] }
                 let income = plan.income[index]
                 return [PlanSettingRow(id: "income-\(index)", symbol: "banknote", kind: .pension,
-                                       title: PlanResultsMapping.incomeName(income, index: index,
-                                                                           of: plan.income.count),
+                                       title: plan.incomeName(index),
                                        subtitle: PlanIncomeText.span(of: income) + ", after tax",
                                        value: income.perYear.map(words.monthly) ?? "Not set",
                                        opens: .sheet(.income(index)),

@@ -157,7 +157,7 @@ struct PreviewPlanEngine: PlanEngine {
     /// The plan's pensions as the preview pays them: each its amount from its age.
     static func pensions(of plan: PlanDocument) -> [(index: Int, name: String, age: Int, perYear: Double)] {
         plan.pensions.enumerated().map { index, pension in
-            let name = PlanResultsMapping.pensionName(pension, index: index, of: plan.pensions.count)
+            let name = plan.pensionName(index)
             return (index, name, pension.fromAge ?? 67, pension.perYear?.doubleValue ?? 0)
         }
     }

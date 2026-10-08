@@ -40,15 +40,6 @@ struct PlanResultDetails: Hashable, Sendable, Codable {
     /// each uncertain windfall (PLANNER.md, "Ages without"); empty from runs
     /// that don't look for them.
     var agesWithout: [AgeWithout] = []
-
-    /// The coast age, when the run looked for it.
-    var coast: AgeWithout? { agesWithout.first { $0.change == .saving } }
-
-    /// The earliest age without the uncertain windfall at `index` of the
-    /// plan's events, when the run looked for it.
-    func withoutWindfall(_ index: Int) -> AgeWithout? {
-        agesWithout.first { $0.change == .windfall(index: index) }
-    }
 }
 
 /// The numbers that belong to one retirement age: the fan, paths and
@@ -301,18 +292,6 @@ enum PlanResultsMapping {
         year.fraction > 0.01 ? amount / year.fraction : amount
     }
 
-    /// The name the planner gives the pension at `index` (PlanInterpreter):
-    /// its own, else "Pension", or "Pension 2" when there are several.
-    static func pensionName(_ pension: PlanPension, index: Int, of count: Int) -> String {
-        pension.name ?? (count == 1 ? "Pension" : "Pension \(index + 1)")
-    }
-
-    /// The name the planner gives other income at `index` (PlanInterpreter):
-    /// its own, else "Other income", or "Other income 2" when there are several.
-    static func incomeName(_ income: PlanIncome, index: Int, of count: Int) -> String {
-        income.name ?? (count == 1 ? "Other income" : "Other income \(index + 1)")
-    }
-
     static func category(of item: IncomeItem) -> IncomeCategory {
         switch item.kind {
         case .withdrawal: .withdrawals
@@ -443,7 +422,7 @@ enum PlanResultsMapping {
     /// Each pension of the plan: when it starts and what it pays a year.
     static func pensions(_ plan: PlanDocument) -> [PlanPensionStart] {
         plan.pensions.enumerated().map { index, pension in
-            PlanPensionStart(index: index, name: pensionName(pension, index: index, of: plan.pensions.count),
+            PlanPensionStart(index: index, name: plan.pensionName(index),
                              age: pension.fromAge, perYear: pension.perYear?.doubleValue)
         }
     }

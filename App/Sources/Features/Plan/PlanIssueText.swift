@@ -20,8 +20,8 @@ enum PlanIssueText {
     static func message(for issue: PlanIssue, plan: PlanDocument?, library: Library) -> String {
         switch issue.code {
         case "planner.noNetIncome":
-            if let index = issue.index, let plan, let phase = plan.work[planIndex: index] {
-                return "\(PlanWorkText.title(of: phase, index: index, of: plan.work.count)): enter the income after tax."
+            if let index = issue.index, let plan, plan.work.indices.contains(index) {
+                return "\(plan.workName(index)): enter the income after tax."
             }
         case "planner.unknownCostBasis":
             return issue.message.replacingOccurrences(
@@ -112,12 +112,5 @@ enum PlanIssueText {
     /// Letters, digits and the characters IDs use (`-`, `_`, `.`).
     private static func isIDCharacter(_ character: Character) -> Bool {
         character.isLetter || character.isNumber || character == "-" || character == "_" || character == "."
-    }
-}
-
-extension Array {
-    /// The element at `index`, or `nil` past the end.
-    subscript(planIndex index: Int) -> Element? {
-        indices.contains(index) ? self[index] : nil
     }
 }

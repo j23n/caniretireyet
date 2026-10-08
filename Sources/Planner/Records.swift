@@ -10,17 +10,23 @@ extension Planner {
         encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
         return FNV1a.hexHash((try? encoder.encode(plan)) ?? Data())
     }
+
+    /// A readiness (1 is 100%) as headlines record it: rounded down to whole
+    /// percent, allowing for the binary representation (0.58 stays 0.58), so
+    /// a recorded 1 means retiring today reaches the confidence level.
+    public static func recordedReadiness(_ readiness: Double) -> Decimal {
+        .roundedDown(readiness, scale: 2)
+    }
 }
 
 extension PlanResult {
     /// The answer as a headline's summary: success rates to 3 decimals,
-    /// readiness rounded down to 2 (so a recorded 1 means retiring today
-    /// reaches the confidence level).
+    /// readiness as headlines record it (``Planner/recordedReadiness(_:)``).
     public var headlineSummary: HeadlineSummary {
         HeadlineSummary(
             confidence: .rounded(answer.confidence, scale: 3), earliestAge: answer.earliestAge,
             successAtTarget: answer.successAtTarget.map { .rounded($0, scale: 3) },
-            readiness: answer.readiness.map { .roundedDown($0, scale: 2) })
+            readiness: answer.readiness.map(Planner.recordedReadiness))
     }
 
     /// The headline to record for the check-in on `date` (default: the
@@ -28,9 +34,9 @@ extension PlanResult {
     public func headline(date: CalendarDate? = nil) -> Headline {
         let summary = headlineSummary
         return Headline(
-            date: date ?? start.date, coastAge: answer.coast?.earliestAge, confidence: summary.confidence,
-            earliestAge: summary.earliestAge, engine: engine, planHash: planHash, readiness: summary.readiness,
-            successAtTarget: summary.successAtTarget)
+            date: date ?? start.date, coastAge: answer.agesWithout.coast?.earliestAge,
+            confidence: summary.confidence, earliestAge: summary.earliestAge, engine: engine, planHash: planHash,
+            readiness: summary.readiness, successAtTarget: summary.successAtTarget)
     }
 
     /// A baseline of this result: the fan and the deterministic path at the

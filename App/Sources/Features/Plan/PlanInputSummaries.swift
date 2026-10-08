@@ -183,7 +183,7 @@ struct PlanInputSummaries {
     var work: String {
         guard !plan.work.isEmpty else { return "No work phases" }
         return plan.work.enumerated().map { index, phase in
-            "\(PlanWorkText.title(of: phase, index: index, of: plan.work.count)) \(PlanWorkText.years(of: phase))"
+            "\(plan.workName(index)) \(PlanWorkText.years(of: phase))"
         }.joined(separator: " · ")
     }
 
@@ -207,17 +207,15 @@ struct PlanInputSummaries {
     var pensions: String {
         guard !plan.pensions.isEmpty else { return "No pensions" }
         return plan.pensions.enumerated().map { index, pension in
-            let name = PlanResultsMapping.shortName(
-                PlanResultsMapping.pensionName(pension, index: index, of: plan.pensions.count))
+            let name = PlanResultsMapping.shortName(plan.pensionName(index))
             return pension.fromAge.map { "\(name) \($0)" } ?? name
         }.joined(separator: " · ")
     }
 
     var income: String {
         guard !plan.income.isEmpty else { return "None" }
-        return plan.income.enumerated().map { index, income in
-            PlanResultsMapping.shortName(PlanResultsMapping.incomeName(income, index: index, of: plan.income.count))
-        }.joined(separator: " · ")
+        return plan.income.indices.map { PlanResultsMapping.shortName(plan.incomeName($0)) }
+            .joined(separator: " · ")
     }
 
     var contributions: String {
@@ -348,12 +346,6 @@ struct PlanInputSummaries {
 
 /// How work phases read in rows and summaries.
 enum PlanWorkText {
-    /// The phase's name, else "Work", or "Work 2" when there are several
-    /// (as the planner names it).
-    static func title(of phase: WorkPhase, index: Int, of count: Int) -> String {
-        phase.name ?? (count == 1 ? "Work" : "Work \(index + 1)")
-    }
-
     /// "2026–28", "2029–retirement".
     static func years(of phase: WorkPhase) -> String {
         PlanInputSummaries.years(from: phase.from.year, until: phase.until.date?.year)

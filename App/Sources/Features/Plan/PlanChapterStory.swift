@@ -165,7 +165,7 @@ extension PlanChapterStory {
                 }
                 sentences.append(sentence)
             } else {
-                let name = PlanWorkText.title(of: phase, index: index, of: plan.work.count)
+                let name = plan.workName(index)
                 sentences.append([.text("Your pay after tax as "), .token(name, .work(index)), .text(" isn't set yet.")])
             }
         case .working:
@@ -199,7 +199,7 @@ extension PlanChapterStory {
             }
             for case .pension(let index) in chapter.items where plan.pensions.indices.contains(index) {
                 let pension = plan.pensions[index]
-                let name = PlanResultsMapping.pensionName(pension, index: index, of: plan.pensions.count)
+                let name = plan.pensionName(index)
                 let amount = pension.perYear.map { words.monthly($0) } ?? "an amount to enter"
                 let age = pension.fromAge.map { "\($0)" } ?? "an age to enter"
                 sentences.append([.token(name, .pension(index)), .text(" pays "), .token(amount, .pensionAmount(index)),
@@ -207,7 +207,8 @@ extension PlanChapterStory {
             }
         }
         for case .income(let index) in chapter.items where plan.income.indices.contains(index) {
-            sentences.append(incomeSentence(plan.income[index], index: index, of: plan.income.count, words: words))
+            sentences.append(incomeSentence(plan.income[index], index: index, name: plan.incomeName(index),
+                                            words: words))
         }
         if !chapter.isRetired {
             for case .contribution(let index) in chapter.items + chapter.continuing
@@ -228,7 +229,7 @@ extension PlanChapterStory {
         }
         for case .event(let index) in chapter.items where plan.events.indices.contains(index) {
             sentences.append(eventSentence(plan.events[index], index: index, words: words,
-                                           without: results?.details?.withoutWindfall(index),
+                                           without: results?.details?.agesWithout.withoutWindfall(index),
                                            earliest: results?.headline.earliestAge))
         }
         if chapter.items.contains(.end) {
@@ -243,8 +244,7 @@ extension PlanChapterStory {
 
     /// "[Rent] pays [800 €] a month from 57 until 65.", "[Part-time] pays
     /// [1.500 €] a month from when you stop working until 60."
-    static func incomeSentence(_ income: PlanIncome, index: Int, of count: Int, words: PlanWords) -> [Run] {
-        let name = PlanResultsMapping.incomeName(income, index: index, of: count)
+    static func incomeSentence(_ income: PlanIncome, index: Int, name: String, words: PlanWords) -> [Run] {
         let amount = income.perYear.map { words.monthly($0) } ?? "an amount to enter"
         let from: String = switch income.from {
         case .age(let age): " a month from \(age)"

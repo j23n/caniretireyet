@@ -175,13 +175,13 @@ struct PlanTimeline {
             case .pension(let index) where plan.pensions.indices.contains(index):
                 let pension = plan.pensions[index]
                 guard let age = pension.fromAge, birthYear + age > chapter.years.lowerBound else { continue }
-                let name = PlanResultsMapping.pensionName(pension, index: index, of: plan.pensions.count)
+                let name = plan.pensionName(index)
                 events.append(Event(id: "pension-\(index)", date: inside(birthday(birthDate, age: age)), kind: .pension,
                                     title: name, detail: "from \(age)"))
             case .income(let index) where plan.income.indices.contains(index):
                 let income = plan.income[index]
                 guard let age = income.from?.age, birthYear + age > chapter.years.lowerBound else { continue }
-                let name = PlanResultsMapping.incomeName(income, index: index, of: plan.income.count)
+                let name = plan.incomeName(index)
                 events.append(Event(id: "income-\(index)", date: inside(birthday(birthDate, age: age)), kind: .pension,
                                     title: name, detail: "from \(age)"))
             case .spendingPhase(let index) where plan.spending.phases.indices.contains(index):

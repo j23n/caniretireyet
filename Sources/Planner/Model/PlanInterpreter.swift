@@ -22,19 +22,10 @@ enum PlanInterpreter {
             error("planner.noBirthDate", "Add your birth date (Settings): the plan needs your age.", .person)
             return (nil, issues)
         }
-        let today = options.today ?? .today()
-        let startDate: CalendarDate
-        switch plan.portfolio.effectiveStart {
-        case .date(let date):
-            startDate = date
-        case .latestCheckIn:
-            if let latest = library.latestCheckInDate {
-                startDate = latest
-            } else {
-                startDate = today
-                warning("planner.noCheckIn", "There is no check-in yet, so the plan starts today with nothing saved.",
-                        .portfolio)
-            }
+        let startDate = plan.startDate(in: library, today: options.today)
+        if plan.portfolio.effectiveStart == .latestCheckIn, library.latestCheckInDate == nil {
+            warning("planner.noCheckIn", "There is no check-in yet, so the plan starts today with nothing saved.",
+                    .portfolio)
         }
         let currentAge = birthDate.wholeYears(to: startDate)
         let endAge = plan.effectiveEndAge
@@ -103,7 +94,7 @@ enum PlanInterpreter {
         // Work.
         var work: [WorkSpec] = []
         for (index, phase) in plan.work.enumerated() {
-            let label = phase.name ?? (plan.work.count == 1 ? "Work" : "Work \(index + 1)")
+            let label = plan.workName(index)
             guard let net = phase.netIncome?.doubleValue else {
                 error("planner.noNetIncome",
                       "\(label): enter the income after tax for this phase (netIncome).", .work, index: index,
@@ -147,7 +138,7 @@ enum PlanInterpreter {
         // Pensions.
         var pensions: [PensionSpec] = []
         for (index, pension) in plan.pensions.enumerated() {
-            let name = pension.name ?? (plan.pensions.count == 1 ? "Pension" : "Pension \(index + 1)")
+            let name = plan.pensionName(index)
             guard let perYear = pension.perYear?.doubleValue, let fromAge = pension.fromAge else {
                 error("planner.pensionAmount",
                       "\(name): enter the yearly amount after tax and the age it starts at.", .pensions, index: index)
@@ -171,7 +162,7 @@ enum PlanInterpreter {
         // Other income.
         var income: [IncomeSpec] = []
         for (index, item) in plan.income.enumerated() {
-            let name = item.name ?? (plan.income.count == 1 ? "Other income" : "Other income \(index + 1)")
+            let name = plan.incomeName(index)
             guard let perYear = item.perYear?.doubleValue, let from = item.from else {
                 error("planner.otherIncomeAmount", "\(name): enter the yearly amount after tax and when it starts.",
                       .income, index: index)

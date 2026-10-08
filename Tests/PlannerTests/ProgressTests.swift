@@ -127,7 +127,7 @@ struct ProgressTests {
         let lastWithout = try #require(without.last)
         #expect(lastWithout.completed <= lastWithout.total)
         #expect(without.map(\.completed) == without.map(\.completed).sorted())
-        #expect(result.answer.coast != nil)
+        #expect(result.answer.agesWithout.coast != nil)
     }
 
     @Test func theHeadlineScanCountsTheAgesItRefines() async throws {

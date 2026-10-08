@@ -39,7 +39,7 @@ public struct PlannerOptions: Hashable, Sendable {
     /// with about ten amounts of extra money in the accessible buckets.
     public var solveAssetsNeeded: Bool
     /// Whether to search for the coast age, the earliest age without saving
-    /// any more (``PlanAnswer/coast``, default off).
+    /// any more (``PlanAnswer/agesWithout``, default off).
     public var solveCoastAge: Bool
     /// Whether to search for the earliest age without each uncertain
     /// windfall (``PlanAnswer/agesWithout``, default off).

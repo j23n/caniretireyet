@@ -387,7 +387,7 @@ struct PlanTokenEditor: View {
 
     private func incomeName(_ index: Int) -> String {
         guard plan.income.indices.contains(index) else { return "Other income" }
-        return PlanResultsMapping.incomeName(plan.income[index], index: index, of: plan.income.count)
+        return plan.incomeName(index)
     }
 
     private func contributionFallback(_ index: Int) -> PlanContribution {
@@ -401,7 +401,7 @@ struct PlanTokenEditor: View {
 
     private func pensionName(_ index: Int) -> String {
         guard plan.pensions.indices.contains(index) else { return "Pension" }
-        return PlanResultsMapping.pensionName(plan.pensions[index], index: index, of: plan.pensions.count)
+        return plan.pensionName(index)
     }
 
     private func pensionAge(_ index: Int) -> Int {

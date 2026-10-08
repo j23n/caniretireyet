@@ -503,7 +503,7 @@ final class PlanStore {
         return Headline(
             date: date, confidence: decimal(results.headline.confidence), earliestAge: results.headline.earliestAge,
             engine: results.engine, planHash: results.planHash ?? hash(of: plan),
-            readiness: results.headline.readiness.map { readinessDecimal($0) },
+            readiness: results.headline.readiness.map(Planner.recordedReadiness),
             successAtTarget: results.headline.successAtTarget.map { decimal($0) })
     }
 
@@ -511,12 +511,6 @@ final class PlanStore {
     /// Planner's headline.
     static func decimal(_ value: Double) -> Decimal {
         Decimal(wholeNumber: value * 10_000) / 10_000
-    }
-
-    /// A readiness as a decimal with two places, rounded down as the
-    /// Planner records it, so a recorded 1 means retiring today works.
-    static func readinessDecimal(_ value: Double) -> Decimal {
-        Decimal(wholeNumber: value * 100 + 1e-9, rounding: .down) / 100
     }
 
     static func describe(_ error: any Error) -> String {

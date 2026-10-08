@@ -75,10 +75,7 @@ struct PlanChaptersModel {
     init?(plan: PlanDocument, library: Library, results: PlanResults?, chosenAge: Int? = nil,
           whatIfAge: Int? = nil, recordedAge: Int? = nil, today: CalendarDate = .today()) {
         guard let birthDate = library.settings.person?.birthDate else { return nil }
-        let start: CalendarDate = switch plan.portfolio.effectiveStart {
-        case .date(let date): date
-        case .latestCheckIn: library.latestCheckInDate ?? today
-        }
+        let start = plan.startDate(in: library, today: today)
         let resultsAge = results?.details?.focus.age ?? results?.headline.earliestAge
         let (age, source) = Self.retirementAge(
             plan: plan, chosenAge: chosenAge, whatIfAge: whatIfAge, resultsAge: resultsAge, recordedAge: recordedAge,
@@ -129,9 +126,7 @@ struct PlanChaptersModel {
     var retirementAge: Int { chapters.retirementAge }
 
     /// The year work stops (the plan's first, when the age has passed).
-    var retirementYear: Int {
-        max(chapters.birthYear + chapters.retirementAge, start.year)
-    }
+    var retirementYear: Int { chapters.retirementYear }
 
     /// The index of the chapter `year` is in, or the nearest one.
     func chapterIndex(nearest year: Int) -> Int? {
@@ -270,13 +265,13 @@ struct PlanChaptersModel {
             return "Spending from \(plan.spending.phases[index].fromAge)"
         case .work(let index):
             guard plan.work.indices.contains(index) else { return "Work" }
-            return PlanWorkText.title(of: plan.work[index], index: index, of: plan.work.count)
+            return plan.workName(index)
         case .pension(let index):
             guard plan.pensions.indices.contains(index) else { return "Pension" }
-            return PlanResultsMapping.pensionName(plan.pensions[index], index: index, of: plan.pensions.count)
+            return plan.pensionName(index)
         case .income(let index):
             guard plan.income.indices.contains(index) else { return "Other income" }
-            return PlanResultsMapping.incomeName(plan.income[index], index: index, of: plan.income.count)
+            return plan.incomeName(index)
         case .contribution(let index):
             guard plan.contributions.indices.contains(index) else { return "Contribution" }
             return "Saving into \(accountName(plan.contributions[index].account))"

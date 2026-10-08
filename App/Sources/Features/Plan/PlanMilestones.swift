@@ -30,7 +30,7 @@ struct PlanMilestones {
     init(plan: PlanDocument, library: Library, valuator: Valuator, asOf: CalendarDate, results: PlanResults?,
          reached known: [ReachedMilestone]? = nil) {
         let recorded = library.headlines(for: plan.id).filter { $0.date <= asOf }.max { $0.date < $1.date }
-        let readiness = results?.headline.readiness.map(Self.share) ?? recorded?.readiness
+        let readiness = results?.headline.readiness.map(Planner.recordedReadiness) ?? recorded?.readiness
         let needed = results?.details?.assetsNeeded?.amount.map { Decimal(wholeNumber: $0) }
         let ladder = MilestoneLadder(plan: plan, library: library, on: asOf, neededToday: needed)
         self.ladder = ladder
@@ -48,7 +48,7 @@ struct PlanMilestones {
         }
         ahead = ladder.ahead(of: current, readiness: readiness, median: median)
         next = ladder.next(after: current, readiness: readiness)
-        if let coast = results?.details?.coast {
+        if let coast = results?.details?.agesWithout.coast {
             coastAge = coast.earliestAge
             knowsCoastAge = true
         } else if let age = recorded?.coastAge {
@@ -81,11 +81,6 @@ struct PlanMilestones {
     /// The coast point, when a check-in reached it; `nil` if none did.
     var coastPointReached: ReachedMilestone? {
         reached.last { if case .coastPoint = $0.milestone.kind { true } else { false } }
-    }
-
-    /// A share as the headline records it: rounded down to whole percent.
-    static func share(_ value: Double) -> Decimal {
-        Decimal(Int(wholeNumber: value * 100, rounding: .down)) / 100
     }
 }
 

@@ -75,7 +75,7 @@ struct PlanInputsReport {
         for (index, phase) in plan.work.enumerated() {
             let amount = phase.netIncome.map { Format.amount($0, places: 0) } ?? "? (enter the income after tax)"
             let growth = phase.realGrowth.map { ", growing \(Format.percent($0)) a year" } ?? ""
-            lines.append("  \(index + 1). \(phase.name ?? "Work") · \(amount) from \(phase.from) until "
+            lines.append("  \(index + 1). \(plan.workName(index)) · \(amount) from \(phase.from) until "
                 + "\(Self.until(phase.until))\(growth)")
         }
 
@@ -84,7 +84,7 @@ struct PlanInputsReport {
         if plan.pensions.isEmpty { lines.append("  None.") }
         for (index, pension) in plan.pensions.enumerated() {
             let amount = pension.perYear.map { Format.amount($0, places: 0) } ?? "?"
-            lines.append("  \(index + 1). \(pension.name ?? "Pension") · \(amount) from "
+            lines.append("  \(index + 1). \(plan.pensionName(index)) · \(amount) from "
                 + "\(pension.fromAge.map(String.init) ?? "?")")
         }
 
@@ -94,7 +94,7 @@ struct PlanInputsReport {
             for (index, income) in plan.income.enumerated() {
                 let amount = income.perYear.map { Format.amount($0, places: 0) } ?? "?"
                 let until = income.untilAge.map { " until \($0)" } ?? ""
-                lines.append("  \(index + 1). \(income.name ?? "Other income") · \(amount) from "
+                lines.append("  \(index + 1). \(plan.incomeName(index)) · \(amount) from "
                     + "\(Self.start(income.from))\(until)")
             }
         }
