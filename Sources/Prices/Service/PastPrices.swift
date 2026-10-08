@@ -325,36 +325,23 @@ extension PriceService {
         var reason: String?
     }
 
-    /// Rates for `dates` in one request of the FX provider's history, or,
-    /// for a provider without one, a request per date.
+    /// Rates for `dates` in one request of the FX provider's history.
     private func fetchRates(base: CurrencyCode, quote: CurrencyCode, dates: [CalendarDate]) async -> FetchedRates {
         var result = FetchedRates(quote: quote, rates: [:])
         guard let first = dates.first, let last = dates.last else { return result }
-        let pair = "\(base)/\(quote)"
-        if let provider = fxProvider as? any FXHistoryProvider {
-            do {
-                let history = try await provider.rates(base: base, quote: quote,
-                                                       from: first.adding(days: -Self.rateLookbackDays), through: last)
-                for date in dates {
-                    if let rate = history.rate(onOrBefore: date) { result.rates[date] = rate }
-                }
-                let unfilled = dates.filter { result.rates[$0] == nil }
-                if let first = unfilled.first, let last = unfilled.last {
-                    let range = unfilled.count == 1 ? "\(first)" : "\(unfilled.count) dates from \(first) to \(last)"
-                    result.reason = "\(fxProvider.name) has no \(pair) rate for \(range)."
-                }
-            } catch {
-                result.reason = Self.fetchError(error, service: fxProvider.name).description
-            }
-        } else {
-            // No ranged history: a request per date, as a check-in would.
+        do {
+            let history = try await fxProvider.rates(base: base, quote: quote,
+                                                     from: first.adding(days: -Self.rateLookbackDays), through: last)
             for date in dates {
-                do {
-                    result.rates[date] = try await fxProvider.rate(base: base, quote: quote, onOrBefore: date)
-                } catch {
-                    result.reason = Self.fetchError(error, service: fxProvider.name).description
-                }
+                if let rate = history.rate(onOrBefore: date) { result.rates[date] = rate }
             }
+            let unfilled = dates.filter { result.rates[$0] == nil }
+            if let first = unfilled.first, let last = unfilled.last {
+                let range = unfilled.count == 1 ? "\(first)" : "\(unfilled.count) dates from \(first) to \(last)"
+                result.reason = "\(fxProvider.name) has no \(base)/\(quote) rate for \(range)."
+            }
+        } catch {
+            result.reason = Self.fetchError(error, service: fxProvider.name).description
         }
         return result
     }

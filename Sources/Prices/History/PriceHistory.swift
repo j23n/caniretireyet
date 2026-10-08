@@ -179,11 +179,3 @@ public struct HistoryRoute: Sendable {
         earliest.map { date >= $0 } ?? true
     }
 }
-
-/// Fetches a series of FX rates in one request.
-public protocol FXHistoryProvider: FXRateProvider {
-    /// The rates published from `start` through `end`: 1 `base` = rate ×
-    /// `quote`. A long range may come back as weekly rates.
-    func rates(base: CurrencyCode, quote: CurrencyCode, from start: CalendarDate,
-               through end: CalendarDate) async throws -> FXHistory
-}

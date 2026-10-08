@@ -30,7 +30,7 @@ import Model
 /// 365 days. Older dates come from Yahoo Finance's crypto pairs (`ETH-EUR`,
 /// or `ETH-USD` converted with ECB rates), named by the coin's ticker
 /// (``historyRoutes(symbol:currency:today:)``).
-public struct CoinGeckoProvider: BatchQuoteProvider {
+public struct CoinGeckoProvider: InstrumentPriceProvider {
     public static let defaultBaseURL = URL(string: "https://api.coingecko.com/api/v3/")!
     /// The header a demo API key is sent in.
     public static let apiKeyHeader = "x-cg-demo-api-key"
@@ -324,14 +324,15 @@ public struct CoinGeckoProvider: BatchQuoteProvider {
         return Quote(price: price, currency: request.currency, observedOn: request.date)
     }
 
-    /// Quotes for several requests: the spot prices (a date today or later)
-    /// of every coin known without searching (a well-known ticker, one found
-    /// before, or a symbol that looks like an ID) in one `simple/price`
-    /// call, in all the currencies asked for, since CoinGecko's free tier
-    /// allows only a few calls a minute. Everything else (past dates, symbols
-    /// that need a search, an ID the answer leaves out, which may be a ticker
-    /// after all) goes through ``quote(for:)`` one by one, as before. A
-    /// failed call fails each of its requests.
+    /// Quotes for several requests, in their order (the ``PriceService``
+    /// asks once for all of a check-in's coins): the spot prices (a date
+    /// today or later) of every coin known without searching (a well-known
+    /// ticker, one found before, or a symbol that looks like an ID) in one
+    /// `simple/price` call, in all the currencies asked for, since
+    /// CoinGecko's free tier allows only a few calls a minute. Everything
+    /// else (past dates, symbols that need a search, an ID the answer leaves
+    /// out, which may be a ticker after all) goes through ``quote(for:)`` one
+    /// by one, as before. A failed call fails each of its requests.
     public func quotes(for requests: [QuoteRequest]) async -> [Result<Quote, any Error>] {
         var results = [Result<Quote, any Error>?](repeating: nil, count: requests.count)
         // Spot requests by position, with the coin each is priced as, and

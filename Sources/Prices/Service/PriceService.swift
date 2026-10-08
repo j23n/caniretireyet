@@ -24,9 +24,8 @@ import Model
 ///
 /// Free APIs allow only a few calls a minute, so at most
 /// ``maxConcurrentFetches`` instruments are fetched at once, across every
-/// fetch of the service and its copies, and a provider that prices several
-/// symbols per call (``BatchQuoteProvider``: CoinGecko's spot prices) is
-/// asked once for all of a fetch's instruments.
+/// fetch of the service and its copies, and CoinGecko, which prices several
+/// coins per call, is asked once for all of a fetch's coins.
 ///
 /// For a date its provider has no price for (gold-api.com only has today's;
 /// CoinGecko's free API only the last year), an instrument's price comes
@@ -40,13 +39,10 @@ import Model
 public struct PriceService: Sendable {
     /// Instrument providers by the `priceSource.provider` they handle.
     public let instrumentProviders: [PriceProvider: any InstrumentPriceProvider]
-    public let fxProvider: any FXRateProvider
-    /// Index providers by index.
-    public let indexProviders: [IndexID: any PriceIndexProvider]
-    /// Makes the provider of an index that isn't in ``indexProviders``, or
-    /// `nil` for none: the standard service's builds Eurostat's series for
-    /// any HICP.
-    let makeIndexProvider: @Sendable (IndexID) -> (any PriceIndexProvider)?
+    public let fxProvider: FrankfurterProvider
+    /// Makes the provider of an index, or `nil` for none: the standard
+    /// service's builds Eurostat's series for any HICP.
+    let makeIndexProvider: @Sendable (IndexID) -> EurostatIndexProvider?
     public let cache: PriceCache
     let today: @Sendable () -> CalendarDate
     /// Shared by every instrument fetch (see ``maxConcurrentFetches``).
@@ -58,14 +54,13 @@ public struct PriceService: Sendable {
     /// The most instruments whose prices are fetched at once.
     public var maxConcurrentFetches: Int { limit.limit }
 
-    /// A service with the given providers. `makeIndexProvider` provides the
-    /// indices `indexProviders` doesn't. `today` decides whether a check-in
-    /// is in the past (by default the device's current date).
-    /// `maxConcurrentFetches` caps the instruments fetched at once.
+    /// A service with the given providers; `makeIndexProvider` makes the
+    /// provider of an index. `today` decides whether a check-in is in the
+    /// past (by default the device's current date). `maxConcurrentFetches`
+    /// caps the instruments fetched at once.
     public init(
-        instrumentProviders: [any InstrumentPriceProvider], fxProvider: any FXRateProvider,
-        indexProviders: [any PriceIndexProvider] = [],
-        makeIndexProvider: @escaping @Sendable (IndexID) -> (any PriceIndexProvider)? = { _ in nil },
+        instrumentProviders: [any InstrumentPriceProvider], fxProvider: FrankfurterProvider,
+        makeIndexProvider: @escaping @Sendable (IndexID) -> EurostatIndexProvider?,
         cache: PriceCache = PriceCache(),
         today: @escaping @Sendable () -> CalendarDate = { CalendarDate.today() },
         maxConcurrentFetches: Int = PriceService.defaultMaxConcurrentFetches
@@ -73,17 +68,15 @@ public struct PriceService: Sendable {
         self.instrumentProviders = Dictionary(
             instrumentProviders.map { ($0.provider, $0) }, uniquingKeysWith: { _, last in last })
         self.fxProvider = fxProvider
-        self.indexProviders = Dictionary(indexProviders.map { ($0.index, $0) }, uniquingKeysWith: { _, last in last })
         self.makeIndexProvider = makeIndexProvider
         self.cache = cache
         self.today = today
         self.limit = FetchLimit(maxConcurrentFetches)
     }
 
-    /// The provider of `index`: the one given for it, else the one
-    /// `makeIndexProvider` makes; `nil` when there's none.
-    public func indexProvider(for index: IndexID) -> (any PriceIndexProvider)? {
-        indexProviders[index] ?? makeIndexProvider(index)
+    /// The provider of `index`; `nil` when there's none.
+    public func indexProvider(for index: IndexID) -> EurostatIndexProvider? {
+        makeIndexProvider(index)
     }
 
     /// The indices `library` uses (`Library.inflationIndices`: its own, and
@@ -139,7 +132,7 @@ public struct PriceService: Sendable {
     public func fetch(_ needs: CheckInPriceNeeds, refresh: Bool = false) async -> CheckInPrices {
         if refresh { await cache.removeAll() }
         let today = self.today()
-        await startBatches(needs, today: today)
+        await startBatch(needs, today: today)
 
         var entries: [PriceListEntry] = []
         var prices: [PriceRecord] = []
@@ -282,46 +275,37 @@ public struct PriceService: Sendable {
         throw transient ?? error
     }
 
-    /// For each provider that prices several symbols per call
-    /// (``BatchQuoteProvider``), asks once for all of `needs`' instruments
-    /// it prices that aren't cached yet, and caches each one's quote from
-    /// that answer, so their parts find them there instead of asking one
-    /// by one. A quote the answer fails with tries the history routes, as
-    /// in ``quoteOrHistory(_:_:)``. A single instrument is left to its part.
-    private func startBatches(_ needs: CheckInPriceNeeds, today: CalendarDate) async {
-        var groups: [PriceProvider: [(key: PriceCache.Key, request: QuoteRequest)]] = [:]
+    /// CoinGecko prices several coins per call: asks it once for all of
+    /// `needs`' coins that aren't cached yet, and caches each one's quote
+    /// from that answer, so their parts find them there instead of asking
+    /// one by one. A quote the answer fails with tries the history routes,
+    /// as in ``quoteOrHistory(_:_:)``. A single coin is left to its part.
+    private func startBatch(_ needs: CheckInPriceNeeds, today: CalendarDate) async {
+        guard let provider = instrumentProviders[.coingecko] as? CoinGeckoProvider else { return }
+        var keys: Set<PriceCache.Key> = []
+        var fresh: [(key: PriceCache.Key, request: QuoteRequest)] = []
         for instrument in needs.instruments {
-            guard let priceSource = instrument.priceSource,
-                  let provider = instrumentProviders[priceSource.provider], provider is any BatchQuoteProvider
-            else { continue }
+            guard let priceSource = instrument.priceSource, priceSource.provider == .coingecko else { continue }
             let request = QuoteRequest(symbol: priceSource.symbol, date: needs.date, currency: instrument.currency,
                                        today: today)
             let key = PriceCache.Key(provider: provider.provider.rawValue, symbol: provider.cacheSymbol(for: request),
                                      date: needs.date)
-            groups[priceSource.provider, default: []].append((key, request))
+            if keys.insert(key).inserted, await !cache.contains(key) { fresh.append((key, request)) }
         }
-        for (id, items) in groups.sorted(by: { $0.key.rawValue < $1.key.rawValue }) {
-            guard let provider = instrumentProviders[id] as? any BatchQuoteProvider else { continue }
-            var keys: Set<PriceCache.Key> = []
-            var fresh: [(key: PriceCache.Key, request: QuoteRequest)] = []
-            for item in items where keys.insert(item.key).inserted {
-                if await !cache.contains(item.key) { fresh.append(item) }
-            }
-            guard fresh.count > 1 else { continue }
-            let requests = fresh.map { $0.request }
-            let limit = self.limit
-            let batch = Task { await limit.run { await provider.quotes(for: requests) } }
-            for (index, item) in fresh.enumerated() {
-                await cache.start(item.key) {
-                    let quote: Quote
-                    switch await batch.value[index] {
-                    case .success(let answered):
-                        quote = answered
-                    case .failure(let error):
-                        quote = try await limit.run { try await Self.history(after: error, provider, item.request) }
-                    }
-                    return CachedQuote(quote: quote, fetchedAt: Date())
+        guard fresh.count > 1 else { return }
+        let requests = fresh.map { $0.request }
+        let limit = self.limit
+        let batch = Task { await limit.run { await provider.quotes(for: requests) } }
+        for (index, item) in fresh.enumerated() {
+            await cache.start(item.key) {
+                let quote: Quote
+                switch await batch.value[index] {
+                case .success(let answered):
+                    quote = answered
+                case .failure(let error):
+                    quote = try await limit.run { try await Self.history(after: error, provider, item.request) }
                 }
+                return CachedQuote(quote: quote, fetchedAt: Date())
             }
         }
     }

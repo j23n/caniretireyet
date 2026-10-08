@@ -110,37 +110,3 @@ extension InstrumentPriceProvider {
         if case .unsupportedDate = error { true } else { false }
     }
 }
-
-/// An instrument provider whose API prices several symbols in one call,
-/// such as CoinGecko's spot prices. The ``PriceService`` asks it for all
-/// of a check-in's instruments at once.
-public protocol BatchQuoteProvider: InstrumentPriceProvider {
-    /// Quotes for `requests`, in their order, in as few calls as the API
-    /// allows; each result is what ``InstrumentPriceProvider/quote(for:)``
-    /// would give for its request.
-    func quotes(for requests: [QuoteRequest]) async -> [Result<Quote, any Error>]
-}
-
-/// Fetches FX rates.
-public protocol FXRateProvider: Sendable {
-    /// The source written on fetched FX records.
-    var source: DataSource { get }
-    /// The provider's display name.
-    var name: String { get }
-    /// The latest rate on or before `date`: 1 `base` = rate × `quote`.
-    func rate(base: CurrencyCode, quote: CurrencyCode, onOrBefore date: CalendarDate) async throws -> FXObservation
-}
-
-/// Fetches the monthly values of one price index.
-public protocol PriceIndexProvider: Sendable {
-    /// The index this provides, e.g. `hicp-it`.
-    var index: IndexID { get }
-    /// The source written on fetched index records.
-    var source: DataSource { get }
-    /// The provider's display name.
-    var name: String { get }
-    /// The published values for the months `start` through `end`, each dated
-    /// the last day of its month and sorted. Months not yet published are
-    /// left out.
-    func values(from start: YearMonth, through end: YearMonth) async throws -> [IndexRecord]
-}

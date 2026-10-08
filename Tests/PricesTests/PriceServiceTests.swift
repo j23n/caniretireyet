@@ -165,7 +165,11 @@ struct PriceServiceTests {
                 GoldAPIProvider(client: client, policy: Self.generous),
             ],
             fxProvider: FrankfurterProvider(client: client, policy: Self.generous),
-            indexProviders: [EurostatIndexProvider(series: .hicpIT, client: client, policy: Self.generous)],
+            makeIndexProvider: { index in
+                EurostatIndexProvider.Series.hicp(index).map {
+                    EurostatIndexProvider(series: $0, client: client, policy: Self.generous)
+                }
+            },
             today: { Self.checkIn })
 
         let result = await service.fetch(for: library, on: Self.checkIn)
@@ -280,11 +284,5 @@ struct PriceServiceTests {
         #expect(Set(result.indices.map(\.index)) == ["hicp-ch"])
         let eurostat = await client.requests.map(\.url.absoluteString).filter { $0.contains("prc_hicp_minr") }
         #expect(eurostat.count == 1 && eurostat[0].contains("geo=CH"))
-
-        // A service with only the providers it's given knows no others.
-        let fixed = PriceService(instrumentProviders: [], fxProvider: FrankfurterProvider(client: client),
-                                 indexProviders: [EurostatIndexProvider(series: .hicpIT, client: client)])
-        #expect(fixed.indexProvider(for: .hicpIT) != nil && fixed.indexProvider(for: "hicp-ch") == nil)
-        #expect(fixed.indices(for: library).isEmpty)
     }
 }

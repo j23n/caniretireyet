@@ -14,7 +14,7 @@ import Model
 /// history-month.schema.json, `index`), however late it's published or fetched. ``Series/hicp(_:)``
 /// gives the series of any HICP the library may use: a country's
 /// (`hicp-de`, `hicp-ch`, …) or the euro area's (`hicp-ea`).
-public struct EurostatIndexProvider: PriceIndexProvider {
+public struct EurostatIndexProvider: Sendable {
     /// A monthly Eurostat series: a dataset, and one code for each of its
     /// dimensions other than time.
     public struct Series: Hashable, Sendable {
@@ -57,7 +57,9 @@ public struct EurostatIndexProvider: PriceIndexProvider {
         URL(string: "https://ec.europa.eu/eurostat/api/dissemination/statistics/1.0/data/")!
 
     public let series: Series
+    /// The index this provides, e.g. `hicp-it`.
     public var index: IndexID { series.index }
+    /// The source written on fetched index records.
     public var source: DataSource { .eurostat }
     public var name: String { "Eurostat" }
 
@@ -73,6 +75,9 @@ public struct EurostatIndexProvider: PriceIndexProvider {
         self.baseURL = baseURL
     }
 
+    /// The published values for the months `start` through `end`, each dated
+    /// the last day of its month and sorted. Months not yet published are
+    /// left out.
     public func values(from start: YearMonth, through end: YearMonth) async throws -> [IndexRecord] {
         guard start <= end else { return [] }
         let query = [("format", "JSON"), ("lang", "EN")]
