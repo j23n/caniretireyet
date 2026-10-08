@@ -104,7 +104,8 @@ public struct ConflictMerger: Sendable {
         // other versions removed from the version store for good.
         var losing: [Data] = []
         for data in (current.map { [$0] } ?? []) + others.map(\.data)
-        where !Self.sameContents(data, merged.value) && !losing.contains(where: { Self.sameContents($0, data) }) {
+        where !CanonicalJSON.sameContents(data, merged.value)
+            && !losing.contains(where: { CanonicalJSON.sameContents($0, data) }) {
             losing.append(data)
         }
         let backups = try losing.map { try folder.backup(contents: [path: $0], label: Self.backupLabel, date: date) }
@@ -126,14 +127,6 @@ public struct ConflictMerger: Sendable {
 
     /// The label of the backups of versions a resolution replaced.
     public static let backupLabel = "conflict"
-
-    /// Whether two versions of a file hold the same: the same bytes, or the
-    /// same JSON.
-    static func sameContents(_ a: Data, _ b: Data) -> Bool {
-        if a == b { return true }
-        guard let left = try? CanonicalJSON.parse(a), let right = try? CanonicalJSON.parse(b) else { return false }
-        return left == right
-    }
 
     /// Resolves the conflicts in each of `paths`, collecting what happened.
     public func resolve(paths: [String], date: Date = Date()) -> ConflictReport {

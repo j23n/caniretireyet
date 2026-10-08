@@ -75,7 +75,7 @@ struct LibraryLoader {
 
     /// Loads one file into `library`, replacing (or removing) what it held.
     mutating func load(_ file: LibraryFile, into library: inout Library) {
-        remove(file, from: &library)
+        library.replaceEntities(of: [file], from: Library())
         let path = file.path
         guard folder.files.fileExists(at: folder.url(for: path)) else {
             if file == .settings {
@@ -96,7 +96,7 @@ struct LibraryLoader {
     /// Loads `data`, the contents of `file`, into `library`, replacing (or
     /// removing) what it held.
     mutating func load(_ file: LibraryFile, data: Data, into library: inout Library) {
-        remove(file, from: &library)
+        library.replaceEntities(of: [file], from: Library())
         guard let json = parse(data, path: file.path) else {
             if file == .settings {
                 schemaVersion = nil
@@ -156,23 +156,6 @@ struct LibraryLoader {
         case .headlines(let plan, let year):
             library.projections[plan, default: PlanProjections()].headlines[year] =
                 loadHeadlines(year: year, json, data: data, path: path)
-        }
-    }
-
-    private func remove(_ file: LibraryFile, from library: inout Library) {
-        switch file {
-        case .settings: library.settings = LibrarySettings()
-        case .account(let id): library.accounts[id] = nil
-        case .instrument(let id): library.instruments[id] = nil
-        case .month(let month): library.months[month] = nil
-        case .plan(let id): library.plans[id] = nil
-        case .importProfile(let id): library.importProfiles[id] = nil
-        case .baseline(let plan, let id):
-            library.projections[plan]?.baselines[id] = nil
-            if library.projections[plan]?.hasNoFiles == true { library.projections[plan] = nil }
-        case .headlines(let plan, let year):
-            library.projections[plan]?.headlines[year] = nil
-            if library.projections[plan]?.hasNoFiles == true { library.projections[plan] = nil }
         }
     }
 
@@ -487,10 +470,6 @@ struct LibraryLoader {
             "Ignored: file names must be an ID made of lowercase letters, digits and hyphens, e.g. conto-fineco.json."
         }
     }
-}
-
-extension PlanProjections {
-    var hasNoFiles: Bool { baselines.isEmpty && headlines.isEmpty }
 }
 
 extension JSONValue {

@@ -159,9 +159,9 @@ extension LibraryFolder {
                 return
             }
             if let label = plan.backupLabel, let disk {
-                let backup = try makeBackup(contents: [path: disk], label: label)
-                report.backups.append(backup)
-                plan.issue?.backup = backup
+                let copy = try backup(contents: [path: disk], label: label)
+                report.backups.append(copy)
+                plan.issue?.backup = copy
             }
             let done: Bool
             switch plan.output {
@@ -274,46 +274,52 @@ extension LibraryFolder {
     /// its records.
     private func planRecords(_ file: LibraryFile, disk: DiskFile, library: Library, previous: Library) throws
         -> FilePlan {
-        let merged: JSONValue?
-        let conflicts: [String]
-        let changedOnDisk: Bool
-        switch file {
-        case .month(let month):
-            let base = previous.months[month]
-            // A file that can't be read can't tell what changed: take it as unchanged.
-            let theirs = !disk.exists ? nil : disk.isUnreadable ? base : disk.loaded?.months[month]
-            let merge = RecordMerger.merge(base: base, ours: library.months[month], theirs: theirs, month: month,
-                                           rule: .oursUnlessDeleted)
-            merged = try Self.json(forMonth: merge.value)
-            conflicts = merge.conflicts
-            changedOnDisk = try Self.json(forMonth: theirs) != Self.json(forMonth: base)
-        case .headlines(let plan, let year):
-            let base = previous.projections[plan]?.headlines[year]
-            let ours = library.projections[plan]?.headlines[year]
-            let theirs = !disk.exists ? nil : disk.isUnreadable ? base : disk.loaded?.projections[plan]?.headlines[year]
-            let merge = RecordMerger.merge(base: base, ours: ours, theirs: theirs, rule: .oursUnlessDeleted)
-            merged = ours == nil && merge.value.headlines.isEmpty ? Optional.none : try Self.json(for: merge.value)
-            conflicts = merge.conflicts
-            changedOnDisk = try theirs.map(Self.json(for:)) != base.map(Self.json(for:))
-        default:
-            preconditionFailure("\(file) isn't merged record by record")
-        }
-        let output: FilePlan.Output
-        if let merged {
-            let kept = disk.raw.map { KeyPreservation.preserving($0, known: nil, in: merged, for: file) } ?? merged
-            output = .write(CanonicalJSON.data(for: kept))
-        } else {
-            output = try removal(of: file, raw: disk.raw)
-        }
-        var plan = FilePlan(output: output, reload: changedOnDisk)
+        // A file that can't be read can't tell what changed: take it as unchanged.
+        let theirs = !disk.exists ? Library() : disk.isUnreadable ? previous : disk.loaded ?? Library()
+        let merge = try mergeRecords(of: file, base: previous, ours: library, theirs: theirs,
+                                     rule: .oursUnlessDeleted, raw: disk.raw, keepsOurEmptyHeadlines: true)
+        let changedOnDisk = try Self.json(for: file, in: theirs) != Self.json(for: file, in: previous)
+        var plan = FilePlan(output: merge.output, reload: changedOnDisk)
         if disk.isUnreadable {
             plan.markUnreadable(file)
-        } else if !conflicts.isEmpty {
+        } else if !merge.conflicts.isEmpty {
             plan.backupLabel = "conflict"
-            plan.issue = SaveIssue(path: file.path, kind: .recordsReplaced, records: conflicts)
+            plan.issue = SaveIssue(path: file.path, kind: .recordsReplaced, records: merge.conflicts)
             plan.reload = true
         }
         return plan
+    }
+
+    /// Merges the records of `file`, a history or headline file, as `base`,
+    /// `ours` and `theirs` hold it (``RecordMerger``), and writes the result
+    /// over `raw`, the file's JSON on disk, keeping what the model doesn't
+    /// know. A file the merge leaves without records is removed
+    /// (``removal(of:raw:)``); with `keepsOurEmptyHeadlines`, a headline
+    /// file `ours` has is written even without headlines.
+    func mergeRecords(of file: LibraryFile, base: Library, ours: Library, theirs: Library, rule: RecordConflictRule,
+                      raw: JSONValue?, keepsOurEmptyHeadlines: Bool) throws
+        -> (output: FilePlan.Output, conflicts: [String]) {
+        let merged: JSONValue?
+        let conflicts: [String]
+        switch file {
+        case .month(let month):
+            let merge = RecordMerger.merge(base: base.months[month], ours: ours.months[month],
+                                           theirs: theirs.months[month], month: month, rule: rule)
+            merged = try Self.json(forMonth: merge.value)
+            conflicts = merge.conflicts
+        case .headlines(let plan, let year):
+            let mine = ours.projections[plan]?.headlines[year]
+            let merge = RecordMerger.merge(base: base.projections[plan]?.headlines[year], ours: mine,
+                                           theirs: theirs.projections[plan]?.headlines[year], rule: rule)
+            let removed = merge.value.headlines.isEmpty && !(keepsOurEmptyHeadlines && mine != nil)
+            merged = removed ? Optional.none : try Self.json(for: merge.value)
+            conflicts = merge.conflicts
+        default:
+            preconditionFailure("\(file) isn't merged record by record")
+        }
+        guard let merged else { return (try removal(of: file, raw: raw), conflicts) }
+        let kept = raw.map { KeyPreservation.preserving($0, known: nil, in: merged, for: file) } ?? merged
+        return (.write(CanonicalJSON.data(for: kept)), conflicts)
     }
 
     /// Deleting `file`, whose JSON on disk is `raw`: a history or headline

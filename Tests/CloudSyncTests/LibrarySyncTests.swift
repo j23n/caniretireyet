@@ -77,14 +77,4 @@ struct LibrarySyncTests {
         let loaded = try await library.load().library
         #expect(loaded.months["2026-08"]?.valuations.first { $0.account == "conto-fineco" }?.balance == d("4600"))
     }
-
-    @Test func replacingProjectionsDropsEmptyPlans() throws {
-        var library = Library()
-        var source = Library()
-        source.projections["base"] = PlanProjections(headlines: [2026: HeadlineFile()])
-        library.replaceEntities(of: [.headlines(plan: "base", year: 2026)], from: source)
-        #expect(library.projections["base"]?.headlines[2026] == HeadlineFile())
-        library.replaceEntities(of: [.headlines(plan: "base", year: 2026)], from: Library())
-        #expect(library.projections["base"] == nil)
-    }
 }

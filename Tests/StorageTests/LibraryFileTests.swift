@@ -39,4 +39,14 @@ struct LibraryFileTests {
         #expect(library.relativePath(of: folder.url) == nil)
         #expect(library.relativePath(of: folder.url.deletingLastPathComponent().appendingPathComponent("other.json")) == nil)
     }
+
+    @Test func replacingProjectionsDropsEmptyPlans() {
+        var library = Library()
+        var source = Library()
+        source.projections["base"] = PlanProjections(headlines: [2026: HeadlineFile()])
+        library.replaceEntities(of: [.headlines(plan: "base", year: 2026)], from: source)
+        #expect(library.projections["base"]?.headlines[2026] == HeadlineFile())
+        library.replaceEntities(of: [.headlines(plan: "base", year: 2026)], from: Library())
+        #expect(library.projections["base"] == nil)
+    }
 }

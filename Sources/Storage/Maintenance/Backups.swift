@@ -131,12 +131,15 @@ extension LibraryFolder {
 
     /// Copies file contents into a new folder `backups/<timestamp>-<label>/`:
     /// versions of files that aren't on disk, such as the versions of a file
-    /// a sync conflict's resolution is about to replace or remove. `contents`
-    /// maps paths relative to the library folder to their bytes; restoring
-    /// the backup writes them back there.
+    /// a sync conflict's resolution is about to replace or remove, or the
+    /// version on disk of a file a save is about to replace. `contents` maps
+    /// paths relative to the library folder to their bytes; restoring the
+    /// backup writes them back there.
     @discardableResult
     public func backup(contents: [String: Data], label: String, date: Date = Date()) throws -> Backup {
-        try makeBackup(contents: contents, label: Slug.make(from: label), date: date)
+        let label = Slug.make(from: label)
+        return try makeBackup(paths: Array(contents.keys), name: "\(Self.timestamp(date))-\(label)", label: label,
+                              date: date, contents: contents)
     }
 
     /// Records the backup's files as they are now, after the change it was
@@ -229,10 +232,10 @@ extension LibraryFolder {
             var change: KeptChange?
             try apply(path: path, report: &report, dryRun: dryRun) { current in
                 change = nil
-                if Self.sameContents(current, after) {
+                if CanonicalJSON.sameContents(current, after) {
                     return FilePlan(output: before.map { FilePlan.Output.write($0) } ?? .delete)
                 }
-                if Self.sameContents(current, before) { return FilePlan(output: .keep) }
+                if CanonicalJSON.sameContents(current, before) { return FilePlan(output: .keep) }
                 guard let file = LibraryFile(path: path), file.mergesRecords,
                       let undone = try self.undoRecords(of: file, before: before, after: after, current: current)
                 else {
@@ -306,14 +309,6 @@ extension LibraryFolder {
         return backup
     }
 
-    /// Copies file contents read earlier into a new backup
-    /// `backups/<timestamp>-<label>/`: the version on disk of a file a save
-    /// is about to replace.
-    func makeBackup(contents: [String: Data], label: String, date: Date = Date()) throws -> Backup {
-        try makeBackup(paths: Array(contents.keys), name: "\(Self.timestamp(date))-\(label)", label: label, date: date,
-                       contents: contents)
-    }
-
     private func writeManifest(of backup: Backup) throws {
         let manifest = BackupManifest(
             label: backup.label, created: backup.created.formatted(.iso8601), files: backup.files,
@@ -352,15 +347,6 @@ extension LibraryFolder {
         return folder
     }
 
-    /// Whether two versions of a file hold the same: the same bytes, or the
-    /// same JSON.
-    static func sameContents(_ a: Data?, _ b: Data?) -> Bool {
-        guard let a, let b else { return a == nil && b == nil }
-        if a == b { return true }
-        guard let left = try? CanonicalJSON.parse(a), let right = try? CanonicalJSON.parse(b) else { return false }
-        return left == right
-    }
-
     /// Undoes a change to a history or headline file record by record: base
     /// = after the change, ours = now, theirs = before it. `nil` if the file
     /// can't be read now.
@@ -374,26 +360,8 @@ extension LibraryFolder {
         guard let current, let raw = try? CanonicalJSON.parse(current), raw.objectValue != nil,
               let now = load(current), let base = load(after), let theirs = load(before)
         else { return nil }
-        let merged: JSONValue?
-        let conflicts: [String]
-        switch file {
-        case .month(let month):
-            let merge = RecordMerger.merge(base: base.months[month], ours: now.months[month],
-                                           theirs: theirs.months[month], month: month, rule: .ours)
-            merged = try Self.json(forMonth: merge.value)
-            conflicts = merge.conflicts
-        case .headlines(let plan, let year):
-            let merge = RecordMerger.merge(base: base.projections[plan]?.headlines[year],
-                                           ours: now.projections[plan]?.headlines[year],
-                                           theirs: theirs.projections[plan]?.headlines[year], rule: .ours)
-            merged = merge.value.headlines.isEmpty ? Optional.none : try Self.json(for: merge.value)
-            conflicts = merge.conflicts
-        default:
-            return nil
-        }
-        guard let merged else { return (try removal(of: file, raw: raw), conflicts) }
-        let kept = KeyPreservation.preserving(raw, known: nil, in: merged, for: file)
-        return (.write(CanonicalJSON.data(for: kept)), conflicts)
+        return try mergeRecords(of: file, base: base, ours: now, theirs: theirs, rule: .ours, raw: raw,
+                                keepsOurEmptyHeadlines: false)
     }
 
     /// `2026-09-30-142501`, in the device's time zone.

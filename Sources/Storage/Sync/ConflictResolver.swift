@@ -65,8 +65,7 @@ public enum ConflictResolver {
             return (ConflictVersion(json, modified: version.modified, source: version.source), version.value)
         }
         guard !parsed.isEmpty else { return newest(versions, identity: { $0 }, name: path) }
-        let lists = isMonth(file) ? KeyPreservation.RecordList.monthLists : KeyPreservation.RecordList.headlineLists
-        var result = mergeRecords(parsed.map(\.json), lists: lists, name: path)
+        var result = mergeRecords(parsed.map(\.json), lists: LibraryFolder.recordLists(of: file), name: path)
         let unreadable = versions.count - parsed.count
         if unreadable > 0 {
             result.summary += " \(unreadable == 1 ? "1 version wasn't" : "\(unreadable) versions weren't") valid JSON "
@@ -102,10 +101,6 @@ public enum ConflictResolver {
     }
 
     // MARK: Internals
-
-    private static func isMonth(_ file: LibraryFile) -> Bool {
-        if case .month = file { true } else { false }
-    }
 
     private static func mergeModel<Value: Codable & Sendable>(
         _ versions: [ConflictVersion<Value>], lists: [String: KeyPreservation.RecordList],
