@@ -16,7 +16,7 @@ public struct TradeEdit: Hashable, Sendable {
     /// before it: the opening date moved back to the trade's date.
     public var movedOpeningFrom: CalendarDate?
     /// The flows of the account's valuations worked out again, or kept
-    /// because they were typed by hand (see ``Model/Library/followFlows(from:keeping:)``).
+    /// because they were typed by hand (see ``Model/Library/followFlows(from:)``).
     public var flows: FlowFollowUp
     /// The account's trade issues after the edit (``Valuator/tradeIssues(for:)``).
     public var issues: [TradeIssue]

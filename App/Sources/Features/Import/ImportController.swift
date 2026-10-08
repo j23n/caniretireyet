@@ -252,12 +252,12 @@ extension ImportPreview {
     /// Applies the preview to `library`, then works out again the automatic
     /// new money (flows) of the library's values that now follow an inserted
     /// or changed one, as editing history does (UI.md, "New money after an
-    /// inserted value"). Typed flows and the file's own flows stay. The
-    /// values touched are in the result, so they're backed up, written and
-    /// undone with the import. `retire import` does the same.
+    /// inserted value"). Typed flows stay. The values touched are in the
+    /// result, so they're backed up, written and undone with the import.
+    /// `retire import` does the same.
     func applyFollowingFlows(to library: Library) -> ImportResult {
         var result = apply(to: library)
-        let flows = result.library.followFlows(from: library, keeping: result.fixedFlows)
+        let flows = result.library.followFlows(from: library)
         result.followedFlows(flows.recomputed)
         return result
     }

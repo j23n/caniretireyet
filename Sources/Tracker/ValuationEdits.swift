@@ -99,8 +99,7 @@ extension Library {
     /// after a change made to a copy of the library (an import), comparing
     /// each account's history with `before`, the library as it was: the
     /// rule of ``editValuations(_:)``. Valuations the change wrote keep what
-    /// it gave them, and so do the ones in `fixed`, whatever changed before
-    /// them (a journal's valuations, whose flows the journal gives exactly).
+    /// it gave them.
     ///
     /// For an account that records trades, a change to its trades (see
     /// ``addTrade(_:)``) counts too: the flow of each of its valuations is
@@ -108,7 +107,7 @@ extension Library {
     /// before (``Valuator/defaultFlow(for:previous:paid:)``), and is then
     /// worked out again from the trades as they are now.
     @discardableResult
-    public mutating func followFlows(from before: Library, keeping fixed: Set<ValuationKey> = []) -> FlowFollowUp {
+    public mutating func followFlows(from before: Library) -> FlowFollowUp {
         let old = Dictionary(grouping: before.allValuations, by: \.account)
         let new = Dictionary(grouping: allValuations, by: \.account)
         let oldTrades = Dictionary(grouping: before.allTrades, by: \.account)
@@ -123,7 +122,7 @@ extension Library {
                 && oldTrades[account] ?? [] != newTrades[account] ?? []
             guard newList != oldList || tradesChanged else { continue }
             let oldIndices = Dictionary(oldList.enumerated().map { ($1.key, $0) }, uniquingKeysWith: { first, _ in first })
-            for (index, valuation) in newList.enumerated() where !fixed.contains(valuation.key) {
+            for (index, valuation) in newList.enumerated() {
                 // A valuation the edit wrote keeps what the edit gave it.
                 guard let oldIndex = oldIndices[valuation.key], oldList[oldIndex] == valuation else { continue }
                 let oldPrevious = oldIndex > 0 ? oldList[oldIndex - 1] : nil

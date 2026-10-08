@@ -250,14 +250,6 @@ struct ValuationEditTests {
         #expect(imported.valuations(for: "broker").map(\.flow) == [1000, nil, 550])
         #expect(flows.recomputed.map(\.key) == [ValuationKey(account: "broker", date: "2026-03-31"),
                                                 ValuationKey(account: "cash", date: "2026-03-31")])
-
-        // Valuations whose flows the change gives (a journal's) are kept as they are.
-        var journal = self.library
-        journal.upsert(Valuation(account: "cash", date: "2026-02-28", balance: 1200, flow: 150))
-        let kept = journal.followFlows(from: self.library,
-                                       keeping: [ValuationKey(account: "cash", date: "2026-03-31")])
-        #expect(journal.valuations(for: "cash").map(\.flow) == [1000, 150, 500])
-        #expect(kept.isEmpty)
     }
 
     @Test func otherEditsLeaveFlowsAlone() throws {

@@ -33,10 +33,6 @@ public struct ImportResult: Hashable, Sendable {
     public var identical = 0
     /// Records left out because their new account or instrument was rejected.
     public var skipped = 0
-    /// Valuations whose flow the import gives, so keeping the flows after
-    /// inserted values in step (see ``followedFlows(_:)``) leaves them alone:
-    /// records with a flow from the file.
-    public var fixedFlows: Set<ValuationKey> = []
     /// The library's valuations after the ones the import added or changed
     /// whose automatic flow was worked out again (``followedFlows(_:)``),
     /// sorted by date, then account.
@@ -61,9 +57,9 @@ public struct ImportResult: Hashable, Sendable {
 
     /// Records the valuations after inserted or changed ones whose flows
     /// the caller worked out again in ``library``, with Tracker's rule
-    /// (`Library.followFlows(from:keeping:)`, keeping ``fixedFlows``), as
-    /// saving a value in the app does (UI.md, "New money after an inserted
-    /// value"). Their months are written, backed up and undone with the import.
+    /// (`Library.followFlows(from:)`), as saving a value in the app does
+    /// (UI.md, "New money after an inserted value"). Their months are
+    /// written, backed up and undone with the import.
     public mutating func followedFlows(_ recomputed: [Valuation]) {
         recomputedFlows = recomputed.map(\.key).sorted()
         changedMonths = Set(changedMonths + recomputed.map(\.date.yearMonth)).sorted()
@@ -119,9 +115,6 @@ extension ImportPreview {
             accounts[$0]?.kind.isLiability ?? false
         }
         for record in records {
-            if case .valuation(let key) = record.imported.key, record.imported.flow != nil {
-                result.fixedFlows.insert(key)
-            }
             if let account = record.imported.key.account, rejectedAccounts.contains(account)
                 || library.accounts[account] == nil {
                 result.skipped += 1
