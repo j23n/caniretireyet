@@ -35,40 +35,26 @@ public struct Valuator: Sendable {
     /// the check-in asks about, when it was left empty (``change(from:to:in:)``).
     public let contributions: PlannedContributions
 
-    /// A valuator over a library snapshot.
+    /// A valuator over a library snapshot. For duplicate valuation or trade
+    /// keys the last one wins. Trades count only for accounts that record trades.
     public init(library: Library) {
-        self.init(
-            baseCurrency: library.settings.baseCurrency,
-            accounts: Array(library.accounts.values),
-            valuations: library.months.values.flatMap(\.valuations),
-            prices: PriceTable(library: library),
-            fx: FXTable(library: library),
-            instruments: Array(library.instruments.values),
-            trades: library.months.values.flatMap(\.trades),
-            contributions: PlannedContributions(library: library))
-    }
-
-    /// A valuator over explicit data. For duplicate valuation or trade keys
-    /// the last one wins. Trades count only for accounts that record trades.
-    public init(baseCurrency: CurrencyCode, accounts: [Account], valuations: [Valuation], prices: PriceTable,
-                fx: FXTable, instruments: [Instrument] = [], trades: [Trade] = [],
-                contributions: PlannedContributions = PlannedContributions()) {
-        self.baseCurrency = baseCurrency
-        self.contributions = contributions
-        self.accounts = Dictionary(accounts.map { ($0.id, $0) }, uniquingKeysWith: { _, last in last })
-        self.instruments = Dictionary(instruments.map { ($0.id, $0) }, uniquingKeysWith: { _, last in last })
+        baseCurrency = library.settings.baseCurrency
+        contributions = PlannedContributions(library: library)
+        accounts = library.accounts
+        instruments = library.instruments
         var byKey: [ValuationKey: Valuation] = [:]
-        for valuation in valuations { byKey[valuation.key] = valuation }
-        self.valuationsByAccount = Dictionary(grouping: byKey.values, by: \.account).mapValues { $0.sortedByKey() }
-        self.prices = prices
+        for valuation in library.months.values.flatMap(\.valuations) { byKey[valuation.key] = valuation }
+        valuationsByAccount = Dictionary(grouping: byKey.values, by: \.account).mapValues { $0.sortedByKey() }
+        prices = PriceTable(library: library)
+        let fx = FXTable(library: library)
         self.fx = fx
         var tradesByKey: [TradeKey: Trade] = [:]
-        for trade in trades { tradesByKey[trade.key] = trade }
+        for trade in library.months.values.flatMap(\.trades) { tradesByKey[trade.key] = trade }
         let tradesByAccount = Dictionary(grouping: tradesByKey.values, by: \.account)
         var ledgers: [AccountID: TradeLedger] = [:]
-        for account in self.accounts.values where account.recordsTrades {
+        for account in library.accounts.values where account.recordsTrades {
             ledgers[account.id] = TradeLedger(account: account, trades: tradesByAccount[account.id] ?? [],
-                                              instruments: self.instruments, fx: fx)
+                                              instruments: library.instruments, fx: fx)
         }
         self.ledgers = ledgers
         ignoredTrades = tradesByKey.values.filter { ledgers[$0.account] == nil }.sortedByKey()

@@ -14,7 +14,7 @@ public struct PlannedContributions: Hashable, Sendable {
     private var retirement: CalendarDate?
 
     /// None: nothing is paid into any account.
-    public init() {
+    private init() {
         byAccount = [:]
         retirement = nil
     }
