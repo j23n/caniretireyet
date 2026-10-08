@@ -13,14 +13,10 @@ public enum GlanceFile {
         return try encoder.encode(snapshot)
     }
 
-    /// The snapshot in `data`; `nil` when it can't be read or is of a newer
-    /// format than this version knows.
+    /// The snapshot in `data`; `nil` when it can't be read, such as one an
+    /// earlier version wrote in a different shape.
     public static func snapshot(from data: Data) -> GlanceSnapshot? {
-        let decoder = JSONDecoder()
-        guard let format = try? decoder.decode(Format.self, from: data),
-              format.version <= GlanceSnapshot.currentVersion
-        else { return nil }
-        return try? decoder.decode(GlanceSnapshot.self, from: data)
+        try? JSONDecoder().decode(GlanceSnapshot.self, from: data)
     }
 
     /// The snapshot in the file at `url`; `nil` when there's none, or it
@@ -35,10 +31,5 @@ public enum GlanceFile {
         try FileManager.default.createDirectory(at: url.deletingLastPathComponent(),
                                                 withIntermediateDirectories: true)
         try data(for: snapshot).write(to: url, options: .atomic)
-    }
-
-    /// Just the format, read before the rest.
-    private struct Format: Decodable {
-        var version: Int
     }
 }

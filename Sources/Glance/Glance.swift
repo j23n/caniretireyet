@@ -8,8 +8,11 @@
 //   and a year of month ends, the asset mix, the main plan's answer with the
 //   answers recorded at the year's check-ins, and when the next check-in is
 //   due. `GlanceSnapshot(library:valuator:asOf:answer:checkIn:)` builds it.
-// - `GlanceFile` reads and writes it as JSON; a reader skips a snapshot of a
-//   newer format, so an older widget shows its placeholder instead of garbage.
+// - `GlanceFile` reads and writes it as JSON. The app and its widgets are
+//   updated together, so the file has no format version: a field added
+//   later is optional, and a snapshot that can't be read (one an earlier
+//   version wrote in another shape) leaves the widgets saying to open the
+//   app, until the app writes the next one, as it does when it opens.
 // - What depends on the day a widget is drawn is worked out then, from the
 //   snapshot's dates: `RetirementCountdown` ("15 y 6 m") and
 //   `CheckInGlance.daysUntilDue(on:)`.

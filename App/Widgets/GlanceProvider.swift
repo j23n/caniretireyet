@@ -62,7 +62,7 @@ extension GlanceSnapshot {
         let history = values.enumerated().map { index, value in
             GlancePoint(date: last.adding(months: index - (values.count - 1)).endOfMonth, value: value)
         }
-        let change = NetWorthChange(from: history[history.count - 2].date, start: 308_270, markets: 2_950,
+        let change = NetWorthChange(from: history[history.count - 2].date, to: last, start: 308_270, markets: 2_950,
                                     newMoney: 1_500, other: -240, end: 312_480)
         let owned: [(String, String, Decimal)] = [
             ("cash", "Cash", 53_100), ("equity", "Equity", 182_400), ("gold", "Gold", 6_100),

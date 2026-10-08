@@ -36,8 +36,7 @@ struct NetWorthWords {
     /// When the change happened: "in September", "31 Jul – 15 Sep".
     var since: String? {
         netWorth.sinceLastCheckIn.map { change in
-            GlanceText.period(from: change.from, to: change.to ?? netWorth.date, relativeTo: today,
-                              locale: money.locale)
+            GlanceText.period(from: change.from, to: change.to, relativeTo: today, locale: money.locale)
         }
     }
 
@@ -549,7 +548,7 @@ struct SinceCheckInView: View {
     var body: some View {
         Group {
             if let snapshot = entry.snapshot, let netWorth = snapshot.netWorth, let change = netWorth.sinceLastCheckIn {
-                content(change, netWorth: netWorth, money: WidgetMoney(currency: snapshot.currency, locale: locale))
+                content(change, money: WidgetMoney(currency: snapshot.currency, locale: locale))
             } else {
                 WidgetMessage(title: "Since last check-in", systemImage: "calendar",
                               message: entry.snapshot == nil
@@ -560,21 +559,19 @@ struct SinceCheckInView: View {
         .cardBackground()
     }
 
-    private func content(_ change: NetWorthChange, netWorth: NetWorthGlance, money: WidgetMoney) -> some View {
+    private func content(_ change: NetWorthChange, money: WidgetMoney) -> some View {
         let hides = redactionReasons.hidesAmounts
         let rows = [ChangeRow(name: "Markets", value: change.markets), ChangeRow(name: "New money", value: change.newMoney),
                     ChangeRow(name: "Other", value: change.other)]
         let scale = ChangeBarScale(rows.map { $0.value.doubleValue })
         let headline: WidgetDelta? = hides ? change.fraction.map(money.percentChange) : money.change(change.change)
-        // The latest check-in; the snapshot's day in one from an older version.
-        let to = change.to ?? netWorth.date
-        let since = GlanceText.period(from: change.from, to: to, relativeTo: entry.today, locale: locale)
+        let since = GlanceText.period(from: change.from, to: change.to, relativeTo: entry.today, locale: locale)
         return VStack(alignment: .leading, spacing: 0) {
             HStack {
                 WidgetLabel(title: "Since last check-in", systemImage: "calendar")
                 Spacer(minLength: 0)
-                Text(verbatim: "\(AmountFormat.shortDate(change.from, relativeTo: to, locale: locale)) → "
-                    + AmountFormat.shortDate(to, locale: locale))
+                Text(verbatim: "\(AmountFormat.shortDate(change.from, relativeTo: change.to, locale: locale)) → "
+                    + AmountFormat.shortDate(change.to, locale: locale))
                     .font(.caption)
                     .foregroundStyle(WidgetPalette.mutedInk)
                     .lineLimit(1)

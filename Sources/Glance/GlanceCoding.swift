@@ -1,37 +1,9 @@
 import Foundation
 import Model
 
-// JSON for the snapshot file. Decimals are strings in their shortest exact
-// form, as in the library's files, never through `Double`; lists that are
-// absent decode as empty, so a field added later doesn't break an older file.
-
-extension GlanceSnapshot: Codable {
-    enum CodingKeys: String, CodingKey {
-        case version, currency, netWorth, allocation, retirement, checkIn, milestone
-    }
-
-    public init(from decoder: any Decoder) throws {
-        let c = try decoder.container(keyedBy: CodingKeys.self)
-        version = try c.decode(Int.self, forKey: .version)
-        currency = try c.decode(CurrencyCode.self, forKey: .currency)
-        netWorth = try c.decodeIfPresent(NetWorthGlance.self, forKey: .netWorth)
-        allocation = try c.decodeIfPresent([AllocationSlice].self, forKey: .allocation) ?? []
-        retirement = try c.decodeIfPresent(RetirementGlance.self, forKey: .retirement)
-        checkIn = try c.decode(CheckInGlance.self, forKey: .checkIn)
-        milestone = try c.decodeIfPresent(MilestoneGlance.self, forKey: .milestone)
-    }
-
-    public func encode(to encoder: any Encoder) throws {
-        var c = encoder.container(keyedBy: CodingKeys.self)
-        try c.encode(version, forKey: .version)
-        try c.encode(currency, forKey: .currency)
-        try c.encodeIfPresent(netWorth, forKey: .netWorth)
-        try c.encode(allocation, forKey: .allocation)
-        try c.encodeIfPresent(retirement, forKey: .retirement)
-        try c.encode(checkIn, forKey: .checkIn)
-        try c.encodeIfPresent(milestone, forKey: .milestone)
-    }
-}
+// JSON for the snapshot types that carry amounts: decimals are strings in
+// their shortest exact form, as in the library's files, never through
+// `Double`. The other snapshot types use the synthesized coding.
 
 extension MilestoneGlance: Codable {
     enum CodingKeys: String, CodingKey {
@@ -68,10 +40,10 @@ extension NetWorthGlance: Codable {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         date = try c.decode(CalendarDate.self, forKey: .date)
         total = try c.decodeDecimal(forKey: .total)
-        isComplete = try c.decodeIfPresent(Bool.self, forKey: .isComplete) ?? true
+        isComplete = try c.decode(Bool.self, forKey: .isComplete)
         sinceLastCheckIn = try c.decodeIfPresent(NetWorthChange.self, forKey: .sinceLastCheckIn)
         thisYear = try c.decodeIfPresent(Double.self, forKey: .thisYear)
-        history = try c.decodeIfPresent([GlancePoint].self, forKey: .history) ?? []
+        history = try c.decode([GlancePoint].self, forKey: .history)
     }
 
     public func encode(to encoder: any Encoder) throws {
@@ -93,7 +65,7 @@ extension NetWorthChange: Codable {
     public init(from decoder: any Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         from = try c.decode(CalendarDate.self, forKey: .from)
-        to = try c.decodeIfPresent(CalendarDate.self, forKey: .to)
+        to = try c.decode(CalendarDate.self, forKey: .to)
         start = try c.decodeDecimal(forKey: .start)
         markets = try c.decodeDecimal(forKey: .markets)
         newMoney = try c.decodeDecimal(forKey: .newMoney)
@@ -104,7 +76,7 @@ extension NetWorthChange: Codable {
     public func encode(to encoder: any Encoder) throws {
         var c = encoder.container(keyedBy: CodingKeys.self)
         try c.encode(from, forKey: .from)
-        try c.encodeIfPresent(to, forKey: .to)
+        try c.encode(to, forKey: .to)
         try c.encodeDecimal(start, forKey: .start)
         try c.encodeDecimal(markets, forKey: .markets)
         try c.encodeDecimal(newMoney, forKey: .newMoney)
@@ -153,24 +125,6 @@ extension AllocationSlice: Codable {
     }
 }
 
-extension RetirementGlance: Codable {
-    enum CodingKeys: String, CodingKey {
-        case answer, history
-    }
-
-    public init(from decoder: any Decoder) throws {
-        let c = try decoder.container(keyedBy: CodingKeys.self)
-        answer = try c.decode(RetirementAnswer.self, forKey: .answer)
-        history = try c.decodeIfPresent([AnswerPoint].self, forKey: .history) ?? []
-    }
-
-    public func encode(to encoder: any Encoder) throws {
-        var c = encoder.container(keyedBy: CodingKeys.self)
-        try c.encode(answer, forKey: .answer)
-        try c.encode(history, forKey: .history)
-    }
-}
-
 extension RetirementAnswer: Codable {
     enum CodingKeys: String, CodingKey {
         case confidence, earliestAge, earliestDate, targetAge, sustainableSpending, readiness
@@ -185,9 +139,9 @@ extension RetirementAnswer: Codable {
         targetAge = try c.decodeIfPresent(Int.self, forKey: .targetAge)
         sustainableSpending = try c.decodeDecimalIfPresent(forKey: .sustainableSpending)
         readiness = try c.decodeIfPresent(Double.self, forKey: .readiness)
-        readinessIsLowerBound = try c.decodeIfPresent(Bool.self, forKey: .readinessIsLowerBound) ?? false
-        needsMoreThanSearched = try c.decodeIfPresent(Bool.self, forKey: .needsMoreThanSearched) ?? false
-        canRetireNow = try c.decodeIfPresent(Bool.self, forKey: .canRetireNow) ?? false
+        readinessIsLowerBound = try c.decode(Bool.self, forKey: .readinessIsLowerBound)
+        needsMoreThanSearched = try c.decode(Bool.self, forKey: .needsMoreThanSearched)
+        canRetireNow = try c.decode(Bool.self, forKey: .canRetireNow)
     }
 
     public func encode(to encoder: any Encoder) throws {
@@ -201,41 +155,5 @@ extension RetirementAnswer: Codable {
         try c.encode(readinessIsLowerBound, forKey: .readinessIsLowerBound)
         try c.encode(needsMoreThanSearched, forKey: .needsMoreThanSearched)
         try c.encode(canRetireNow, forKey: .canRetireNow)
-    }
-}
-
-extension AnswerPoint: Codable {
-    enum CodingKeys: String, CodingKey {
-        case date, earliestAge
-    }
-
-    public init(from decoder: any Decoder) throws {
-        let c = try decoder.container(keyedBy: CodingKeys.self)
-        date = try c.decode(CalendarDate.self, forKey: .date)
-        earliestAge = try c.decodeIfPresent(Int.self, forKey: .earliestAge)
-    }
-
-    public func encode(to encoder: any Encoder) throws {
-        var c = encoder.container(keyedBy: CodingKeys.self)
-        try c.encode(date, forKey: .date)
-        try c.encodeIfPresent(earliestAge, forKey: .earliestAge)
-    }
-}
-
-extension CheckInGlance: Codable {
-    enum CodingKeys: String, CodingKey {
-        case last, next
-    }
-
-    public init(from decoder: any Decoder) throws {
-        let c = try decoder.container(keyedBy: CodingKeys.self)
-        last = try c.decodeIfPresent(CalendarDate.self, forKey: .last)
-        next = try c.decode(CalendarDate.self, forKey: .next)
-    }
-
-    public func encode(to encoder: any Encoder) throws {
-        var c = encoder.container(keyedBy: CodingKeys.self)
-        try c.encodeIfPresent(last, forKey: .last)
-        try c.encode(next, forKey: .next)
     }
 }

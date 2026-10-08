@@ -21,7 +21,6 @@ struct ExampleLibraryGlanceTests {
     }
 
     @Test func netWorthIsTheOverviews() throws {
-        #expect(snapshot.version == GlanceSnapshot.currentVersion)
         #expect(snapshot.currency == .eur)
         let netWorth = try #require(snapshot.netWorth)
         #expect(netWorth.date == "2026-09-30")
@@ -55,13 +54,6 @@ struct ExampleLibraryGlanceTests {
         #expect(netWorth.sinceLastCheckIn?.from == "2026-08-31")
         #expect(netWorth.sinceLastCheckIn?.to == "2026-09-30")
         #expect(netWorth.sinceLastCheckIn == snapshot.netWorth?.sinceLastCheckIn)
-    }
-
-    @Test func aChangeWithoutItsEndStillReads() throws {
-        let json = #"{"from":"2026-08-31","start":"100","markets":"1","newMoney":"2","other":"0","end":"103"}"#
-        let change = try JSONDecoder().decode(NetWorthChange.self, from: Data(json.utf8))
-        #expect(change.to == nil)
-        #expect(change.change == 3)
     }
 
     @Test func theHistoryIsTheYearsMonthEnds() throws {
@@ -193,22 +185,32 @@ struct GlanceSnapshotTests {
         #expect(snapshot.checkIn.isDue(on: today))
     }
 
-    @Test func aNewerFormatIsSkipped() throws {
-        var snapshot = GlanceSnapshot(currency: .eur, netWorth: nil, allocation: [], retirement: nil,
-                                      checkIn: CheckInGlance(last: nil, next: "2026-10-31"))
-        snapshot.version = GlanceSnapshot.currentVersion + 1
-        #expect(GlanceFile.snapshot(from: try GlanceFile.data(for: snapshot)) == nil)
+    /// A snapshot the previous version wrote, with its format version and
+    /// the fields since dropped, still reads. One from before the change
+    /// kept its end doesn't: the widgets say to open the app until it writes
+    /// a new one.
+    @Test func aSnapshotOfThePreviousVersionStillReads() throws {
+        let previous = """
+            {"allocation":[],"checkIn":{"dueWindow":3,"next":"2026-10-31"},"currency":"EUR",\
+            "netWorth":{"date":"2026-10-08","history":[{"date":"2026-09-30","isComplete":true,"value":"100"}],\
+            "isComplete":true,"sinceLastCheckIn":{"end":"103","from":"2026-08-31","markets":"1","newMoney":"2",\
+            "other":"0","start":"100","to":"2026-09-30"},"total":"103"},\
+            "retirement":{"answer":{"canRetireNow":false,"confidence":0.9,"needsMoreThanSearched":false,\
+            "readinessIsLowerBound":false,"recordedOn":"2026-09-30"},"history":[],"plan":"base",\
+            "planName":"Base case"},"version":1}
+            """
+        let snapshot = try #require(GlanceFile.snapshot(from: Data(previous.utf8)))
+        #expect(snapshot.netWorth?.sinceLastCheckIn?.to == "2026-09-30")
+        #expect(snapshot.netWorth?.history.map(\.value) == [100])
+        #expect(snapshot.retirement?.answer.confidence == 0.9)
+        #expect(snapshot.checkIn.next == "2026-10-31")
+
+        let older = previous.replacingOccurrences(of: #","to":"2026-09-30""#, with: "")
+        #expect(GlanceFile.snapshot(from: Data(older.utf8)) == nil)
         #expect(GlanceFile.snapshot(from: Data("not json".utf8)) == nil)
     }
 
-    @Test func missingListsReadAsEmpty() throws {
-        let json = #"{"version":1,"currency":"EUR","checkIn":{"next":"2026-10-31"}}"#
-        let snapshot = try #require(GlanceFile.snapshot(from: Data(json.utf8)))
-        #expect(snapshot.allocation.isEmpty)
-        #expect(snapshot.netWorth == nil)
-    }
-
-    @Test func theNextMilestoneRoundTripsAndOlderSnapshotsHaveNone() throws {
+    @Test func theNextMilestoneRoundTrips() throws {
         let milestone = MilestoneGlance(kind: .shareOfNeeded, amount: 333_333, share: d("0.3333"), progress: 0.88,
                                         typically: "2028-02-29")
         let snapshot = GlanceSnapshot(currency: .eur, netWorth: nil, allocation: [], retirement: nil,
@@ -218,9 +220,6 @@ struct GlanceSnapshotTests {
         #expect(GlanceFile.snapshot(from: data)?.milestone == milestone)
         let text = try #require(String(data: data, encoding: .utf8))
         #expect(text.contains("\"amount\":\"333333\""))
-
-        let older = #"{"version":1,"currency":"EUR","checkIn":{"next":"2026-10-31"}}"#
-        #expect(try #require(GlanceFile.snapshot(from: Data(older.utf8))).milestone == nil)
     }
 
     @Test func theNextMilestoneInWords() {

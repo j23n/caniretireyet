@@ -10,12 +10,7 @@ import Model
 /// ``currency``, the library's base currency. Whatever depends on the day a
 /// widget is drawn (the countdown to retirement, the days to the check-in)
 /// is worked out then, from the dates here.
-public struct GlanceSnapshot: Hashable, Sendable {
-    /// The format this version writes. A reader skips a snapshot of a newer format.
-    public static let currentVersion = 1
-
-    /// The snapshot's format.
-    public var version: Int
+public struct GlanceSnapshot: Hashable, Sendable, Codable {
     /// The currency of every amount: the library's base currency.
     public var currency: CurrencyCode
     /// Net worth on the latest check-in; `nil` before the first one.
@@ -29,13 +24,11 @@ public struct GlanceSnapshot: Hashable, Sendable {
     /// When the next check-in is due.
     public var checkIn: CheckInGlance
     /// The main plan's next milestone (PROGRESS.md, "Milestones"); `nil`
-    /// without one, and in snapshots written before it existed.
+    /// without one.
     public var milestone: MilestoneGlance?
 
-    public init(version: Int = GlanceSnapshot.currentVersion, currency: CurrencyCode, netWorth: NetWorthGlance?,
-                allocation: [AllocationSlice], retirement: RetirementGlance?, checkIn: CheckInGlance,
-                milestone: MilestoneGlance? = nil) {
-        self.version = version
+    public init(currency: CurrencyCode, netWorth: NetWorthGlance?, allocation: [AllocationSlice],
+                retirement: RetirementGlance?, checkIn: CheckInGlance, milestone: MilestoneGlance? = nil) {
         self.currency = currency
         self.netWorth = netWorth
         self.allocation = allocation
@@ -127,9 +120,8 @@ public struct NetWorthGlance: Hashable, Sendable {
 public struct NetWorthChange: Hashable, Sendable {
     /// The check-in before the latest one.
     public var from: CalendarDate
-    /// The latest check-in; `nil` in a snapshot from a version that didn't
-    /// keep it, whose ``NetWorthGlance/date`` was the latest check-in.
-    public var to: CalendarDate?
+    /// The latest check-in.
+    public var to: CalendarDate
     /// Net worth then.
     public var start: Decimal
     /// Price and exchange-rate movements, interest, reinvested dividends.
@@ -141,7 +133,7 @@ public struct NetWorthChange: Hashable, Sendable {
     /// Net worth on the latest check-in.
     public var end: Decimal
 
-    public init(from: CalendarDate, to: CalendarDate? = nil, start: Decimal, markets: Decimal, newMoney: Decimal,
+    public init(from: CalendarDate, to: CalendarDate, start: Decimal, markets: Decimal, newMoney: Decimal,
                 other: Decimal, end: Decimal) {
         self.from = from
         self.to = to
@@ -200,7 +192,7 @@ public struct AllocationSlice: Hashable, Sendable {
 // MARK: - Retirement
 
 /// The main plan's answer to "can I retire yet?", and how it moved.
-public struct RetirementGlance: Hashable, Sendable {
+public struct RetirementGlance: Hashable, Sendable, Codable {
     /// The latest answer: the plan's latest results, or the last answer
     /// recorded at a check-in.
     public var answer: RetirementAnswer
@@ -283,7 +275,7 @@ public struct RetirementAnswer: Hashable, Sendable {
 }
 
 /// The earliest age recorded at one check-in.
-public struct AnswerPoint: Hashable, Sendable {
+public struct AnswerPoint: Hashable, Sendable, Codable {
     public var date: CalendarDate
     /// `nil` when no age worked out.
     public var earliestAge: Int?
@@ -321,7 +313,7 @@ public struct AnswerMove: Hashable, Sendable {
 
 /// When the next check-in is due (UI.md, "Navigation": once a month, at the
 /// month's end), for the app's check-in accessory and the widgets alike.
-public struct CheckInGlance: Hashable, Sendable {
+public struct CheckInGlance: Hashable, Sendable, Codable {
     /// How many days before ``next`` a check-in counts as due.
     public static let dueWindow = 3
     /// A check-in this many days or more before its month's end still
