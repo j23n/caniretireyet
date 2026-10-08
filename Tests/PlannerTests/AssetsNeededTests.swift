@@ -60,7 +60,7 @@ struct AssetsNeededTests {
         let engine = try await Engine.make(model: model, ages: [age], maxAge: age)
         var rates: [Double] = []
         for scale in [0.25, 0.5, 0.8, 1, 1.25, 1.6, 2, 3, 5] {
-            var start = engine.portfolio
+            var start = engine.model.portfolio
             for b in start.buckets.indices {
                 start.buckets[b].values = start.buckets[b].values.map { $0 * scale }
                 start.buckets[b].basis *= scale

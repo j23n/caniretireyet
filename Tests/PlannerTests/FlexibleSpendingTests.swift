@@ -40,7 +40,7 @@ struct FlexibleSpendingTests {
     static func trace(_ plan: PlanDocument, equity: [Double], library: Library = library()) async throws
         -> (outcome: RunOutcome, years: [YearDetail]) {
         let (engine, model) = try await engine(plan, library)
-        let portfolio = engine.portfolio
+        let portfolio = model.portfolio
         let classes = portfolio.classes.count
         let column = try #require(portfolio.classes.firstIndex(of: .equity))
         var factors = [Double](repeating: 1, count: equity.count * classes)
@@ -48,7 +48,7 @@ struct FlexibleSpendingTests {
         let scenarios = MarketScenarios(factors: factors, expectedFactors: factors, runs: 1, years: equity.count,
                                         classes: classes)
         var simulator = PathSimulator(model: model, schedule: engine.schedules[model.currentAge]!,
-                                      scenarios: scenarios, start: portfolio, flexible: engine.flexibleSpending)
+                                      scenarios: scenarios, start: portfolio)
         let (outcome, years) = simulator.detailedRun(0, spending: model.spending.retired)
         // The detailed run ends as the same run without details.
         let plain = simulator.run(0, spending: model.spending.retired)

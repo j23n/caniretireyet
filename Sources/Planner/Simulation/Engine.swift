@@ -6,28 +6,15 @@ import Model
 struct Engine: Sendable {
     let model: PlanModel
     let scenarios: MarketScenarios
-    let portfolio: Portfolio
     private(set) var schedules: [Int: AgeSchedule] = [:]
-    let issues: [PlanIssue]
-    var flexibleSpending: FlexibleSpendingSpec?
 
     /// The scenarios and the schedules of `ages` (and `maxAge`).
     static func make(model: PlanModel, ages: [Int], maxAge: Int) async throws -> Engine {
         let scenarios = MarketScenarios(model: model.returns, fractions: model.frames.map(\.fraction), runs: model.runs,
                                         seed: model.seed, eventProbabilities: model.uncertainEventProbabilities)
-        var engine = Engine(model: model, scenarios: scenarios, portfolio: model.portfolio, issues: model.issues,
-                            flexibleSpending: model.spending.flexible)
+        var engine = Engine(model: model, scenarios: scenarios)
         try await engine.prepare(ages: Array(Set(ages + [maxAge])).sorted())
         return engine
-    }
-
-    private init(model: PlanModel, scenarios: MarketScenarios, portfolio: Portfolio, issues: [PlanIssue],
-                 flexibleSpending: FlexibleSpendingSpec?) {
-        self.model = model
-        self.scenarios = scenarios
-        self.portfolio = portfolio
-        self.issues = issues
-        self.flexibleSpending = flexibleSpending
     }
 
     /// Builds the schedules of the ages that don't have one yet.
@@ -100,7 +87,7 @@ struct Engine: Sendable {
         let years = model.frames.count
         let engine = self
         let chunks = Self.chunks(runs)
-        let recordsSpending = flexibleSpending != nil
+        let recordsSpending = model.spending.flexible != nil
         let parts = try await parallelMap(chunks) { range -> ([RunOutcome], [Double], [Double]) in
             var simulator = engine.simulator(age: age)
             var outcomes: [RunOutcome] = []
@@ -125,11 +112,9 @@ struct Engine: Sendable {
     }
 
     /// A simulator for one age's schedule, starting from `start` (by
-    /// default the plan's own starting portfolio), with the engine's
-    /// flexible-spending rule.
+    /// default the plan's own starting portfolio).
     func simulator(age: Int, start: Portfolio? = nil) -> PathSimulator {
-        PathSimulator(model: model, schedule: schedules[age]!, scenarios: scenarios, start: start ?? portfolio,
-                      flexible: flexibleSpending)
+        PathSimulator(model: model, schedule: schedules[age]!, scenarios: scenarios, start: start ?? model.portfolio)
     }
 
     // MARK: - Sustainable spending
@@ -209,13 +194,13 @@ struct Engine: Sendable {
         let confidence = model.confidence
         let spending = model.spending.retired
         let maximum = AssetsNeeded.maximumScale
-        guard startAssets > 0, portfolio.totalValue > 1e-6 else {
+        guard startAssets > 0, model.portfolio.totalValue > 1e-6 else {
             let enough = successToday >= confidence
             return AssetsNeeded(age: age, outcome: .noPlanAssets, amount: enough ? 0 : nil,
                                 success: enough ? successToday : nil, readiness: enough ? nil : 0)
         }
         // What can be taken out: the accessible money, down to 1 / maximum of today's plan assets.
-        let accessible = portfolio.accessibleValue
+        let accessible = model.portfolio.accessibleValue
         let lowest = max(startAssets / maximum, startAssets - accessible)
         let floor = min(1, lowest / startAssets)
         let fewest = min(0, lowest - startAssets)
@@ -290,9 +275,7 @@ struct Engine: Sendable {
     /// mix in force in the first year of retiring today, so a `retirement`
     /// step of the plan's target mix applies.
     func startPortfolio(extra: Double) -> Portfolio {
-        let mix = schedules[model.currentAge]?.accessibleMix.first
-            ?? model.portfolio.classes.map { $0 == .cash ? 1 : 0 }
-        return portfolio.withExtra(extra, mix: mix)
+        model.portfolio.withExtra(extra, mix: schedules[model.currentAge]!.accessibleMix[0])
     }
 
     /// How many halvings of the log of `high / low` the search for the

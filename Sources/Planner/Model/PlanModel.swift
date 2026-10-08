@@ -37,8 +37,6 @@ struct PlanModel: Sendable {
     let runs: Int
     let seed: UInt64
     let confidence: Double
-    /// Warnings found while interpreting (errors stop interpretation).
-    let issues: [PlanIssue]
 
     var birthYear: Int { birthDate.year }
     var lastYear: Int { birthDate.year + endAge }
@@ -86,7 +84,6 @@ struct YearFrame: Sendable {
 
 /// A work phase, resolved.
 struct WorkSpec: Sendable {
-    let index: Int
     /// `work-<index>`.
     let id: String
     let label: String
@@ -158,7 +155,6 @@ struct SpendingPhaseSpec: Sendable {
 
 /// A pension, resolved: a yearly amount after tax from a birthday on.
 struct PensionSpec: Sendable {
-    let index: Int
     /// `pension-<index>`.
     let id: String
     let name: String
@@ -169,7 +165,6 @@ struct PensionSpec: Sendable {
 /// Other income, resolved: a yearly amount after tax from a birthday, or
 /// from retirement, to the day before a birthday or the plan's end.
 struct IncomeSpec: Sendable {
-    let index: Int
     /// `income-<index>`.
     let id: String
     let name: String
@@ -192,8 +187,6 @@ struct IncomeSpec: Sendable {
 
 /// A planned contribution into an account's bucket, yearly or once.
 struct ContributionSpec: Sendable {
-    let index: Int
-    let account: AccountID
     /// The bucket the account is in.
     let bucket: Int
     let perYear: Double

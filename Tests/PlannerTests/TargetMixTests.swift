@@ -37,7 +37,7 @@ struct TargetMixTests {
     /// The target mix of the money you can draw in each year when retiring
     /// at `age`, by class.
     static func mixes(_ engine: Engine, age: Int) -> [[AssetClass: Double]] {
-        let classes = engine.portfolio.classes
+        let classes = engine.model.portfolio.classes
         return engine.schedules[age]!.accessibleMix.map { shares in
             var mix: [AssetClass: Double] = [:]
             for (c, share) in shares.enumerated() where share > 1e-12 { mix[classes[c]] = share }
@@ -128,8 +128,8 @@ struct TargetMixTests {
             let start = engine.startPortfolio(extra: 50_000)
             var added: [AssetClass: Double] = [:]
             for (c, value) in start.buckets[0].values.enumerated()
-            where value - engine.portfolio.buckets[0].values[c] > 1e-9 {
-                added[start.classes[c]] = value - engine.portfolio.buckets[0].values[c]
+            where value - engine.model.portfolio.buckets[0].values[c] > 1e-9 {
+                added[start.classes[c]] = value - engine.model.portfolio.buckets[0].values[c]
             }
             return added
         }

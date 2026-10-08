@@ -44,7 +44,7 @@ struct AssetsNeededAccessTests {
 
     @Test func extraMoneyGoesOnlyIntoTheAccessibleBucketsAtTheirTargetMix() async throws {
         let (engine, _) = try await Self.engine(Self.plan(), Self.library(broker: 100_000, fund: 300_000))
-        let portfolio = engine.portfolio
+        let portfolio = engine.model.portfolio
         #expect(portfolio.buckets.map(\.opensAtAge) == [nil, 60])
         #expect(abs(portfolio.accessibleValue - 100_000) < 1e-6)
         let equity = try #require(portfolio.classes.firstIndex(of: .equity))
@@ -86,7 +86,7 @@ struct AssetsNeededAccessTests {
         // With the same total in every holding alike, as the search used to
         // add it, most of the money would be locked until 60: far short.
         let (engine, model) = try await Self.engine(Self.plan(), library)
-        var scaledPortfolio = engine.portfolio
+        var scaledPortfolio = engine.model.portfolio
         for b in scaledPortfolio.buckets.indices {
             scaledPortfolio.buckets[b].values = scaledPortfolio.buckets[b].values.map { $0 * amount / 400_000 }
             scaledPortfolio.buckets[b].basis *= amount / 400_000

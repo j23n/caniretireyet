@@ -184,17 +184,17 @@ public enum Planner {
         let result = PlanResult(
             plan: plan, engine: engineVersion, planHash: planHash(plan),
             start: PlanStart(date: model.startDate, age: current, planAssets: model.portfolio.startAssets,
-                             accounts: model.portfolio.accounts, buckets: bucketSummaries(engine.portfolio)),
+                             accounts: model.portfolio.accounts, buckets: bucketSummaries(model.portfolio)),
             settings: SimulationSettings(runs: model.runs, seed: model.seed, confidence: model.confidence,
                                          inflation: model.inflation, endAge: model.endAge),
             answer: answer, successCurve: curve, focusAge: focus, fan: fan,
             expectedPath: PathDetail(retirementAge: focus, failure: expectedOutcome.failure, years: expectedYears),
             medianPath: PathDetail(retirementAge: focus, failure: medianOutcome.failure, years: medianYears),
             failures: failureSummary(outcomes),
-            markers: markers(schedule: focusSchedule, engine: engine),
-            issues: unique(engine.issues),
+            markers: markers(schedule: focusSchedule, model: model),
+            issues: unique(issues),
             currency: model.currency,
-            flexibleSpending: engine.flexibleSpending.flatMap { rule in
+            flexibleSpending: model.spending.flexible.flatMap { rule in
                 flexibleSummary(outcomes, rule: rule, age: focus, planSpending: spending,
                                 retirementYears: simulator.retirementYears)
             })
@@ -364,8 +364,7 @@ public enum Planner {
         }
     }
 
-    private static func markers(schedule: AgeSchedule, engine: Engine) -> [TimelineMarker] {
-        let model = engine.model
+    private static func markers(schedule: AgeSchedule, model: PlanModel) -> [TimelineMarker] {
         var markers: [TimelineMarker] = []
         let retirement = schedule.retirementDate
         if retirement > model.startDate, retirement.year <= model.lastYear {
@@ -380,7 +379,7 @@ public enum Planner {
             markers.append(TimelineMarker(kind: .pensionStart, year: year, age: pension.fromAge, label: pension.name,
                                           amount: pension.perYear))
         }
-        for bucket in engine.portfolio.buckets {
+        for bucket in model.portfolio.buckets {
             guard let age = bucket.opensAtAge, bucket.value > 0 else { continue }
             let year = model.firstYear(atAge: age)
             guard year <= model.lastYear else { continue }

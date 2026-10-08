@@ -40,6 +40,7 @@ struct PathSimulator: Sendable {
     let schedule: AgeSchedule
     let scenarios: MarketScenarios
     let start: Portfolio
+    /// The plan's flexible-spending rule, if it has one.
     let flexible: FlexibleSpendingSpec?
 
     /// Plan assets at each year-end of the last run with `recordValues`
@@ -57,13 +58,12 @@ struct PathSimulator: Sendable {
     static let tolerance = 1.0
     static let levelEpsilon = 1e-9
 
-    init(model: PlanModel, schedule: AgeSchedule, scenarios: MarketScenarios, start: Portfolio,
-         flexible: FlexibleSpendingSpec?) {
+    init(model: PlanModel, schedule: AgeSchedule, scenarios: MarketScenarios, start: Portfolio) {
         self.model = model
         self.schedule = schedule
         self.scenarios = scenarios
         self.start = start
-        self.flexible = flexible
+        flexible = model.spending.flexible
         classCount = start.classes.count
         values = start.buckets.map(\.values)
         basis = start.buckets.map(\.basis)
@@ -223,8 +223,7 @@ struct PathSimulator: Sendable {
                 yearSpending[t] = paid
             }
             if details != nil {
-                var income = schedule.income[t].map { IncomeItem(kind: $0.kind, id: $0.id, label: $0.label,
-                                                                 amount: $0.amount) }
+                var income = schedule.income[t]
                 income += windfalls
                 if sold > 0 {
                     income.append(IncomeItem(kind: .withdrawal, id: "withdrawal", label: "Investments sold",
@@ -264,8 +263,7 @@ struct PathSimulator: Sendable {
             details!.append(YearDetail(
                 year: frame.year, age: frame.age, fraction: frame.fraction, workingShare: schedule.workingShare[t],
                 startAssets: startAssets.isFinite ? startAssets : 0, endAssets: remaining, spending: spending,
-                income: schedule.income[t].map { IncomeItem(kind: $0.kind, id: $0.id, label: $0.label,
-                                                             amount: $0.amount) },
+                income: schedule.income[t],
                 plannedSpending: flexible == nil ? nil : schedule.workingSpending[t] + retiredSpending,
                 spendingLevel: flexible != nil && retiredSpending > 0 ? level : nil))
         }

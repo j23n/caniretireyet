@@ -12,19 +12,11 @@ struct AgeSchedule: Sendable {
         let amount: Double
     }
 
-    /// One item of income in a year: a work phase, a pension or other income.
-    struct Income: Sendable {
-        let kind: IncomeKind
-        let id: String
-        let label: String
-        let amount: Double
-    }
-
     let retirementAge: Int
     /// The day work stops.
     let retirementDate: CalendarDate
     /// Per year: income from work, pensions and other income, by item.
-    let income: [[Income]]
+    let income: [[IncomeItem]]
     /// Per year: their total.
     let regularIncome: [Double]
     /// Per year: spending while working (the plan's, for the working days).
@@ -55,7 +47,7 @@ struct AgeSchedule: Sendable {
             })
             ?? classes.map { $0 == .cash ? 1 : 0 }
 
-        var income: [[Income]] = []
+        var income: [[IncomeItem]] = []
         var regular: [Double] = []
         var working: [Double] = []
         var retired: [Double] = []
@@ -68,24 +60,24 @@ struct AgeSchedule: Sendable {
         let dayBefore = retiring.adding(days: -1)
 
         for frame in model.frames {
-            var items: [Income] = []
+            var items: [IncomeItem] = []
             for phase in model.work {
                 let share = frame.share(from: phase.from, until: phase.lastDay(retiring: retiring))
                 guard share > 0 else { continue }
-                items.append(Income(kind: .work, id: phase.id, label: phase.label,
-                                    amount: phase.net * phase.growth(in: frame.year) * share))
+                items.append(IncomeItem(kind: .work, id: phase.id, label: phase.label,
+                                        amount: phase.net * phase.growth(in: frame.year) * share))
             }
             for pension in model.pensions {
                 let share = frame.share(from: model.birthDate.adding(years: pension.fromAge), until: frame.lastDay)
                 guard share > 0, pension.perYear > 0 else { continue }
-                items.append(Income(kind: .pension, id: pension.id, label: pension.name,
-                                    amount: pension.perYear * share))
+                items.append(IncomeItem(kind: .pension, id: pension.id, label: pension.name,
+                                        amount: pension.perYear * share))
             }
             for other in model.income {
                 let share = frame.share(from: other.firstDay(birthDate: model.birthDate, retiring: retiring),
                                         until: other.lastDay(birthDate: model.birthDate) ?? frame.lastDay)
                 guard share > 0, other.perYear > 0 else { continue }
-                items.append(Income(kind: .other, id: other.id, label: other.name, amount: other.perYear * share))
+                items.append(IncomeItem(kind: .other, id: other.id, label: other.name, amount: other.perYear * share))
             }
             income.append(items)
             regular.append(items.reduce(0) { $0 + $1.amount })

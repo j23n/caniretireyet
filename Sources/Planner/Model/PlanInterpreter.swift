@@ -57,7 +57,8 @@ enum PlanInterpreter {
         // The years.
         let inflation = plan.assumptions.effectiveInflation.doubleValue
         if !(inflation >= -0.5 && inflation <= 0.5) {
-            error("planner.inflation", "Inflation is \(percent(inflation)) a year; it has to be between −50% and 50%.",
+            error("planner.inflation",
+                  "Inflation is \(ReturnModel.percent(inflation)) a year; it has to be between −50% and 50%.",
                   .assumptions, option: "inflation")
         }
         var frames: [YearFrame] = []
@@ -117,7 +118,7 @@ enum PlanInterpreter {
             if let until, until < phase.from {
                 error("planner.workDates", "\(label) ends before it starts.", .work, index: index, option: "until")
             }
-            work.append(WorkSpec(index: index, id: "work-\(index)", label: label, from: phase.from, until: until,
+            work.append(WorkSpec(id: "work-\(index)", label: label, from: phase.from, until: until,
                                  net: net, realGrowth: phase.realGrowth?.doubleValue ?? 0,
                                  baseYear: max(phase.from.year, startDate.year)))
         }
@@ -164,8 +165,7 @@ enum PlanInterpreter {
                 warning("planner.pensionAfterEnd", "\(name) starts after the plan's end age, so the plan never pays it.",
                         .pensions, index: index)
             }
-            pensions.append(PensionSpec(index: index, id: "pension-\(index)", name: name, fromAge: fromAge,
-                                        perYear: perYear))
+            pensions.append(PensionSpec(id: "pension-\(index)", name: name, fromAge: fromAge, perYear: perYear))
         }
 
         // Other income.
@@ -194,7 +194,7 @@ enum PlanInterpreter {
                 warning("planner.otherIncomeAfterEnd",
                         "\(name) starts after the plan's end age, so the plan never pays it.", .income, index: index)
             }
-            income.append(IncomeSpec(index: index, id: "income-\(index)", name: name, fromAge: from.age,
+            income.append(IncomeSpec(id: "income-\(index)", name: name, fromAge: from.age,
                                      untilAge: item.untilAge, perYear: perYear))
         }
 
@@ -250,8 +250,8 @@ enum PlanInterpreter {
                             + "can draw keeps its own mix.", .portfolio, option: "targetMix")
             } else if abs(mix.total.doubleValue - 1) > 0.001 {
                 warning("planner.targetMixTotal",
-                        "The target mix adds up to \(percent(mix.total.doubleValue)), not 100%; the plan scales it.",
-                        .portfolio, option: "targetMix")
+                        "The target mix adds up to \(ReturnModel.percent(mix.total.doubleValue)), not 100%; the plan "
+                            + "scales it.", .portfolio, option: "targetMix")
             }
         }
         // Steps by age: ages go up, a step after the end never applies, of two
@@ -287,8 +287,8 @@ enum PlanInterpreter {
                       .portfolio, index: index, option: "targetMixByAge")
             } else if abs(step.mix.total.doubleValue - 1) > 0.001 {
                 warning("planner.targetMixTotal",
-                        "The target mix from \(start) adds up to \(percent(step.mix.total.doubleValue)), not 100%; the "
-                            + "plan scales it.", .portfolio, index: index, option: "targetMixByAge")
+                        "The target mix from \(start) adds up to \(ReturnModel.percent(step.mix.total.doubleValue)), "
+                            + "not 100%; the plan scales it.", .portfolio, index: index, option: "targetMixByAge")
             }
             mixClasses.formUnion(step.mix.shares.filter { $0.value > 0 }.keys)
         }
@@ -320,8 +320,7 @@ enum PlanInterpreter {
                       index: index)
             }
             let oneOff: (year: Int, amount: Double)? = amount.map { (contribution.year ?? startDate.year, $0) }
-            contributions.append(ContributionSpec(index: index, account: contribution.account, bucket: bucket,
-                                                  perYear: contribution.perYear.doubleValue,
+            contributions.append(ContributionSpec(bucket: bucket, perYear: contribution.perYear.doubleValue,
                                                   until: contribution.effectiveUntil.date, oneOff: oneOff))
         }
 
@@ -335,11 +334,7 @@ enum PlanInterpreter {
             taxes: TaxSpec(investmentRate: investmentRate, wealthRate: wealthRate, wealthAllowance: wealthAllowance),
             incomeYields: incomeYields, portfolio: portfolio, returns: returns,
             runs: options.runs(planRuns: requestedRuns), seed: plan.simulation.effectiveSeed,
-            confidence: confidence, issues: issues)
+            confidence: confidence)
         return (model, issues)
-    }
-
-    static func percent(_ value: Double) -> String {
-        ReturnModel.percent(value)
     }
 }
