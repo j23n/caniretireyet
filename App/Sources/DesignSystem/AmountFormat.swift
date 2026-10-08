@@ -195,16 +195,3 @@ enum DeltaFormat {
         return "\(direction > 0 ? "▲" : "▼") \(number)"
     }
 }
-
-extension CalendarDate {
-    /// Noon on this date in the device's time zone, for charts and date
-    /// formatting. Noon keeps the day stable across daylight-saving changes.
-    var dateValue: Date {
-        var components = DateComponents()
-        components.year = year
-        components.month = month
-        components.day = day
-        components.hour = 12
-        return Calendar(identifier: .gregorian).date(from: components) ?? Date(timeIntervalSince1970: 0)
-    }
-}

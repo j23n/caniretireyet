@@ -70,7 +70,7 @@ struct YearFrame: Sendable {
     /// Inflation over the simulated part of the year: (1 + i)^fraction.
     let inflationStep: Double
 
-    var lastDay: CalendarDate { .lastDay(of: year) }
+    var lastDay: CalendarDate { .lastDay(ofYear: year) }
 
     /// Days of `[from, until]` within the simulated part of the year.
     func simulatedDays(from: CalendarDate, until: CalendarDate) -> Int {

@@ -34,7 +34,7 @@ public enum GlanceText {
             ? Date.FormatStyle.dateTime.month(.wide).locale(locale)
             : Date.FormatStyle.dateTime.month(.wide).year().locale(locale)
         func age(_ age: Int?) -> String { age.map(String.init) ?? "none" }
-        return "\(age(move.from)) → \(age(move.to)) in \(noon(move.date).formatted(style))"
+        return "\(age(move.from)) → \(age(move.to)) in \(move.date.dateValue.formatted(style))"
     }
 
     /// When a change between two check-ins happened: "in September" when
@@ -46,41 +46,30 @@ public enum GlanceText {
             let style = to.year == today.year
                 ? Date.FormatStyle.dateTime.month(.wide).locale(locale)
                 : Date.FormatStyle.dateTime.month(.wide).year().locale(locale)
-            return "in \(noon(to).formatted(style))"
+            return "in \(to.dateValue.formatted(style))"
         }
         func day(_ date: CalendarDate) -> String {
             let style = date.year == today.year
                 ? Date.FormatStyle.dateTime.day().month(.abbreviated).locale(locale)
                 : Date.FormatStyle.dateTime.day().month(.abbreviated).year().locale(locale)
-            return noon(date).formatted(style)
+            return date.dateValue.formatted(style)
         }
         return "\(day(from)) – \(day(to))"
     }
 
     /// "April 2042".
     public static func monthAndYear(_ date: CalendarDate, locale: Locale = .current) -> String {
-        noon(date).formatted(Date.FormatStyle.dateTime.month(.wide).year().locale(locale))
+        date.dateValue.formatted(Date.FormatStyle.dateTime.month(.wide).year().locale(locale))
     }
 
     /// "Apr" (the short month's name), for a chart's ends.
     public static func shortMonth(_ date: CalendarDate, locale: Locale = .current) -> String {
-        noon(date).formatted(Date.FormatStyle.dateTime.month(.abbreviated).locale(locale))
+        date.dateValue.formatted(Date.FormatStyle.dateTime.month(.abbreviated).locale(locale))
     }
 
     /// "Saturday 31 October".
     public static func weekdayAndDate(_ date: CalendarDate, locale: Locale = .current) -> String {
-        noon(date).formatted(Date.FormatStyle.dateTime.weekday(.wide).day().month(.wide).locale(locale))
-    }
-
-    /// Noon on `date` in the device's time zone, which keeps the day stable
-    /// for formatting.
-    static func noon(_ date: CalendarDate) -> Date {
-        var components = DateComponents()
-        components.year = date.year
-        components.month = date.month
-        components.day = date.day
-        components.hour = 12
-        return Calendar(identifier: .gregorian).date(from: components) ?? Date(timeIntervalSince1970: 0)
+        date.dateValue.formatted(Date.FormatStyle.dateTime.weekday(.wide).day().month(.wide).locale(locale))
     }
 
     // MARK: Milestones

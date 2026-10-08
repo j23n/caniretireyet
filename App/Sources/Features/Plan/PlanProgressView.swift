@@ -317,7 +317,7 @@ struct PlanProgressView: View {
     private var addPastBaseline: ((Int) -> Void)? {
         guard library.canEdit, session.plan != nil else { return nil }
         return { year in
-            pastBaselineDay = CalendarDate(year: year, month: 1, day: 1)
+            pastBaselineDay = CalendarDate.firstDay(ofYear: year)
             showsPastBaseline = true
         }
     }

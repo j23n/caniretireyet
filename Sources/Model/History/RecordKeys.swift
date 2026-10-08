@@ -95,3 +95,17 @@ extension Sequence where Element: KeyedRecord {
         sorted { $0.key < $1.key }
     }
 }
+
+extension Array {
+    /// For an array sorted by date: the index of the last element dated on
+    /// or before `limit`, found by binary search.
+    public func lastIndex(onOrBefore limit: CalendarDate, date: (Element) -> CalendarDate) -> Int? {
+        var low = 0
+        var high = count
+        while low < high {
+            let mid = (low + high) / 2
+            if date(self[mid]) <= limit { low = mid + 1 } else { high = mid }
+        }
+        return low == 0 ? nil : low - 1
+    }
+}

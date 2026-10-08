@@ -320,7 +320,7 @@ private struct ChapterBuilder {
     /// The work phase in force on 31 December of `year`, a year before work
     /// stops; of several, the one that started last.
     func workPhase(atEndOf year: Int) -> Int? {
-        let day = CalendarDate.lastDay(of: year)
+        let day = CalendarDate.lastDay(ofYear: year)
         let work = plan.work
         return work.indices
             .filter { index in

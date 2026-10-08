@@ -63,10 +63,10 @@ enum PlanInterpreter {
         var frames: [YearFrame] = []
         if endAge > currentAge, endAge <= 120 {
             for year in startDate.year...(birthDate.year + endAge) {
-                let first = year == startDate.year ? startDate.adding(days: 1) : .firstDay(of: year)
-                let last = CalendarDate.lastDay(of: year)
+                let first = year == startDate.year ? startDate.adding(days: 1) : .firstDay(ofYear: year)
+                let last = CalendarDate.lastDay(ofYear: year)
                 guard first <= last else { continue }
-                let days = CalendarDate.inclusiveDays(from: .firstDay(of: year), to: last)
+                let days = CalendarDate.inclusiveDays(from: .firstDay(ofYear: year), to: last)
                 let fraction = Double(CalendarDate.inclusiveDays(from: first, to: last)) / Double(days)
                 frames.append(YearFrame(index: frames.count, year: year, age: year - birthDate.year,
                                         daysInYear: days, simulatedFrom: first, fraction: fraction,

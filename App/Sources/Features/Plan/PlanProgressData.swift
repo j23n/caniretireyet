@@ -734,11 +734,11 @@ struct PlanProgressTimeline {
         let baselines = PlanBaselineComparison.baselines(for: plan, in: library)
         let checkInDays = Set(dates.map(\.dateValue))
         cards = years.sorted { $0.year < $1.year }.map { year in
-            let start = CalendarDate(year: year.year, month: 1, day: 1)?.dateValue ?? Date()
-            let end = CalendarDate(year: year.year, month: 12, day: 31)?.dateValue ?? start
+            let start = CalendarDate.firstDay(ofYear: year.year).dateValue
+            let end = CalendarDate.lastDay(ofYear: year.year).dateValue
             // From the last day before the year (drawn at its left edge) through its end.
             let grid = DateGrid.checkInsAndMonthEnds(from: year.from, through: year.to, checkIns: dates)
-            let firstOfYear = CalendarDate(year: year.year, month: 1, day: 1) ?? year.from
+            let firstOfYear = CalendarDate.firstDay(ofYear: year.year)
             let lead = grid.last { $0 < firstOfYear } ?? firstOfYear
             var days = grid.filter { $0 >= lead }
             // Also on a baseline's own start during the year, where its expectation starts.
@@ -754,7 +754,7 @@ struct PlanProgressTimeline {
             }
             let expected = year.baseline.map { entry in
                 Self.expected(by: entry.baseline, days: days, totals: totals,
-                              through: CalendarDate(year: year.year, month: 12, day: 31) ?? year.to,
+                              through: CalendarDate.lastDay(ofYear: year.year),
                               library: library, valuator: valuator)
             } ?? []
             let (chips, answerNotes) = Self.answers(in: year, history: history, locale: locale)
@@ -972,8 +972,8 @@ enum PlanProgressText {
         }
         let when = year.isLatest ? "by now" : "by \(AmountFormat.shortDate(year.to, locale: locale))"
         var expected = "\(year.expectationTitle(locale: locale)) expected \(amount(position.median)) \(when)"
-        if year.isLatest, let entry = year.baseline,
-           let december = CalendarDate(year: year.year, month: 12, day: 31), december > year.to,
+        let december = CalendarDate.lastDay(ofYear: year.year)
+        if year.isLatest, let entry = year.baseline, december > year.to,
            let bands = PlanBaselineComparison.percentiles(on: december, in: entry.baseline) {
             expected += " and \(amount(Decimal(wholeNumber: bands[2]))) by December"
         }

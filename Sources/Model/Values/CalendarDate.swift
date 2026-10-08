@@ -87,6 +87,16 @@ extension CalendarDate {
     /// Whether this is the last day of its month.
     public var isEndOfMonth: Bool { self == endOfMonth }
 
+    /// 1 January of `year`. Traps if `year` isn't between 1 and 9999.
+    public static func firstDay(ofYear year: Int) -> CalendarDate {
+        CalendarDate(checkedYear: year, month: 1, day: 1)
+    }
+
+    /// 31 December of `year`. Traps if `year` isn't between 1 and 9999.
+    public static func lastDay(ofYear year: Int) -> CalendarDate {
+        CalendarDate(checkedYear: year, month: 12, day: 31)
+    }
+
     /// The date `days` days later (earlier when negative).
     public func adding(days: Int) -> CalendarDate {
         CalendarDate(daysSinceEpoch: daysSinceEpoch + days)
@@ -139,6 +149,17 @@ extension CalendarDate {
     /// Today's date in the given time zone (by default the device's).
     public static func today(in timeZone: TimeZone = .current) -> CalendarDate {
         CalendarDate(Date(), in: timeZone)
+    }
+
+    /// Noon on this date in the device's time zone, for charts and date
+    /// formatting: noon keeps the day stable across daylight-saving changes.
+    public var dateValue: Date {
+        var components = DateComponents()
+        components.year = year
+        components.month = month
+        components.day = day
+        components.hour = 12
+        return Calendar(identifier: .gregorian).date(from: components) ?? Date(timeIntervalSince1970: 0)
     }
 }
 
