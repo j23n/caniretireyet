@@ -84,6 +84,13 @@ struct PlanYearStrip: View {
     @State private var fitted: Set<Int> = []
     @State private var onScreen = PlanCardsOnScreen()
 
+    /// A card's id, which the strip scrolls to: a type of its own, as a
+    /// plain number would also be the id of a month's initial (1 to 12)
+    /// inside every card, and the strip scrolled to that instead.
+    private struct CardID: Hashable {
+        let index: Int
+    }
+
     /// The oldest years, before the first with a recorded answer: folded
     /// into one card until shown.
     private var earlyCount: Int {
@@ -109,7 +116,7 @@ struct PlanYearStrip: View {
                     ForEach(Array(timeline.cards.enumerated()), id: \.element.id) { index, card in
                         if !folds || index >= early {
                             yearCard(card, index: index, scale: scale, height: height, textScale: textScale)
-                                .id(index)
+                                .id(CardID(index: index))
                                 .onScrollVisibilityChange(threshold: 0.1) { isVisible in
                                     onScreen.set(index, isVisible)
                                     if !onScreen.isScrolling { fitScale() }
@@ -140,7 +147,7 @@ struct PlanYearStrip: View {
                 // scrolled past, needn't report leaving).
                 onScreen.replace(with: Set([index - 1, index, index + 1].filter(timeline.cards.indices.contains)))
                 fitScale()
-                withAnimation(.snappy) { proxy.scrollTo(index, anchor: .center) }
+                withAnimation(.snappy) { proxy.scrollTo(CardID(index: index), anchor: .center) }
             }
         }
     }

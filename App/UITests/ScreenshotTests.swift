@@ -128,8 +128,15 @@ final class ScreenshotTests: XCTestCase {
                 earlier.tap()
                 pause(seconds: 1.5)
                 if let chosen = chosenYear(in: strip) {
-                    if !strip.frame.insetBy(dx: -2, dy: -2).contains(chosen.frame) {
-                        offStrip.append("\(chosen.label.prefix(9)) at \(chosen.frame)")
+                    // Across: on the Mac the strip's identifier finds an
+                    // element narrower than the strip, so the window it is.
+                    #if os(macOS)
+                    let visible = app.windows.firstMatch.frame
+                    #else
+                    let visible = strip.frame
+                    #endif
+                    if chosen.frame.minX < visible.minX - 2 || chosen.frame.maxX > visible.maxX + 2 {
+                        offStrip.append("\(chosen.label.prefix(9)) at \(chosen.frame), on screen \(visible)")
                     }
                 } else {
                     offStrip.append("No year reads as chosen.")
@@ -144,8 +151,7 @@ final class ScreenshotTests: XCTestCase {
         scrollDown(app, from: belowTheStrip)
         keepScreenshot(of: app, named: "progress-long-2018-year")
         XCTAssertTrue(app.state == .runningForeground, "The app stopped after going back to 2018.")
-        XCTAssertTrue(offStrip.isEmpty,
-                      "‹ chose years off the strip (at \(strip.frame)):\n" + offStrip.joined(separator: "\n"))
+        XCTAssertTrue(offStrip.isEmpty, "‹ chose years off the strip:\n" + offStrip.joined(separator: "\n"))
     }
 
     /// Progress on a device set to German in Germany. The app is in English
