@@ -299,7 +299,7 @@ struct AccountForm: Hashable, Sendable {
         account.name = trimmedName
         account.kind = kind
         account.currency = locksCurrency ? account.currency : currency
-        account.moveOpening(to: opened)
+        account.opened = opened
         let trimmedInstitution = institution.trimmingCharacters(in: .whitespacesAndNewlines)
         account.institution = trimmedInstitution.isEmpty ? nil : trimmedInstitution
         account.country = country

@@ -77,16 +77,4 @@ public struct Person: Codable, Hashable, Sendable, KnownKeysProviding {
     }
 
     public static var knownKeys: Set<String> { Set(CodingKeys.allCases.map(\.stringValue)) }
-
-    public init(from decoder: any Decoder) throws {
-        let c = try decoder.container(keyedBy: CodingKeys.self)
-        name = try c.decodeIfPresent(String.self, forKey: .name)
-        birthDate = try c.decodeIfPresent(CalendarDate.self, forKey: .birthDate)
-    }
-
-    public func encode(to encoder: any Encoder) throws {
-        var c = encoder.container(keyedBy: CodingKeys.self)
-        try c.encodeIfPresent(name, forKey: .name)
-        try c.encodeIfPresent(birthDate, forKey: .birthDate)
-    }
 }

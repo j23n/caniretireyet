@@ -98,11 +98,6 @@ extension Account {
     public func isOpen(on date: CalendarDate) -> Bool {
         date >= opened && (closed.map { date <= $0 } ?? true)
     }
-
-    /// Moves the opening date to `date`.
-    public mutating func moveOpening(to date: CalendarDate) {
-        opened = date
-    }
 }
 
 // MARK: - Codable

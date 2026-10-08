@@ -61,13 +61,6 @@ struct AccountDefaultsTests {
         #expect(String(decoding: data, as: UTF8.self)
             == #"{"currency":"EUR","id":"a","kind":"cash","name":"A","opened":"2024-01-01"}"#)
     }
-
-    @Test func movingTheOpeningMovesTheOpeningDate() {
-        var fund = account(.pensionFund)
-        fund.availableFromAge = 67
-        fund.moveOpening(to: "2019-03-31")
-        #expect(fund.opened == "2019-03-31" && fund.availableFromAge == 67)
-    }
 }
 
 struct PlanDefaultsTests {

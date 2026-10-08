@@ -97,7 +97,7 @@ extension Library {
             guard let trade else { return }
             library.upsert(trade)
             if let opened = library.accounts[trade.account]?.opened, trade.date < opened {
-                library.accounts[trade.account]?.moveOpening(to: trade.date)
+                library.accounts[trade.account]?.opened = trade.date
                 movedFrom = opened
             }
         }

@@ -80,8 +80,8 @@ extension ImportPreview {
     /// overwritten or kept by their ``ImportRecordPreview/resolution``
     /// (undecided ones are kept). A trade of an account that doesn't record
     /// trades (a switch that was rejected) is left out. The other accepted
-    /// account changes come last (opening earlier: `Account.moveOpening(to:)`). Applying the
-    /// same file twice changes nothing.
+    /// account changes come last (opening earlier moves `Account.opened`).
+    /// Applying the same file twice changes nothing.
     ///
     /// The flows of the library's valuations after the ones the import adds
     /// or changes are left as they are: working them out again takes
@@ -181,7 +181,7 @@ extension ImportPreview {
                 result.closedAccounts.append(account.id)
             case .openEarlier(let date):
                 guard date < account.opened else { continue }
-                account.moveOpening(to: date)
+                account.opened = date
             case .recordTrades:
                 continue
             }
