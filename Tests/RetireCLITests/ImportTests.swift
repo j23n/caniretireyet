@@ -255,10 +255,13 @@ struct ImportTests {
         let library = try TemporaryFolder.exampleLibrary()
         let save = await runCLI(["import", try sheet(), "--library", library.path, "--save-profile", "bank-sheet"])
         #expect(save.status == 0, "\(save.all)")
-        var profile = try #require(try library.load().importProfiles["bank-sheet"])
+        let before = try library.load()
+        var edited = before
+        var profile = try #require(before.importProfiles["bank-sheet"])
         profile.file = ImportFileSettings(encoding: profile.file.encoding, delimiter: profile.file.delimiter,
                                           headerRow: profile.file.headerRow, excludeRows: [])
-        try library.library.save(profile)
+        edited.importProfiles["bank-sheet"] = profile
+        try library.library.save(edited, previous: before)
         #expect(try library.load().importProfiles["bank-sheet"]?.file.excludeRows == [])
 
         let run = await runCLI(["import", try sheet(), "--library", library.path, "--profile", "bank-sheet"])

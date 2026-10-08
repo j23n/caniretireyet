@@ -72,7 +72,7 @@ struct JournalLeftoversTests {
     @Test func savingRewritesNothing() throws {
         let folder = try library()
         let library = try folder.library.load().library
-        #expect(try folder.library.save(library).isEmpty)
+        #expect(try folder.library.save(library, previous: Library()).isEmpty)
         #expect(try folder.text("imports/journal.json") == Self.profile)
         #expect(try folder.text("history/2025/2025-09.json") == Self.month)
     }

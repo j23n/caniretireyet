@@ -33,8 +33,7 @@ struct SchemaGuardTests {
         library.accounts["tfr"]?.name = "Changed"
         let error = StorageError.libraryIsNewer(version: 4, supported: 3)
         #expect(throws: error) { try folder.library.save(library, previous: loaded) }
-        #expect(throws: error) { try folder.library.save(library.accounts["tfr"]!) }
-        #expect(throws: error) { try folder.library.delete(.account("tfr")) }
+        #expect(throws: error) { try folder.library.checkWritable() }
         #expect(error.description.contains("read-only"))
         #expect(try folder.library.load().library == loaded)
     }
@@ -42,7 +41,9 @@ struct SchemaGuardTests {
     @Test func aLibraryInMemoryFromANewerAppCannotBeSavedElsewhere() throws {
         let folder = try TemporaryFolder()
         let library = Library(settings: LibrarySettings(schemaVersion: 4))
-        #expect(throws: StorageError.libraryIsNewer(version: 4, supported: 3)) { try folder.library.save(library) }
+        #expect(throws: StorageError.libraryIsNewer(version: 4, supported: 3)) {
+            try folder.library.save(library, previous: Library())
+        }
         #expect(!folder.exists("library.json"))
     }
 
@@ -116,9 +117,7 @@ struct UnreadableSettingsTests {
             message: "The file can't be read. The library is open read-only: saving would replace your settings "
                 + "with defaults. Fix the file, or restore it from a backup in backups/, then open the library again.")
         #expect(throws: error) { try folder.library.save(library, previous: loaded) }
-        #expect(throws: error) { try folder.library.save(library.settings) }
-        #expect(throws: error) { try folder.library.save(library.accounts["tfr"]!) }
-        #expect(throws: error) { try folder.library.delete(.account("tfr")) }
+        #expect(throws: error) { try folder.library.checkWritable() }
         #expect(try folder.text("library.json") == Self.notJSON)
         #expect(try folder.library.load().library == loaded)
 
@@ -127,7 +126,7 @@ struct UnreadableSettingsTests {
         let fixed = try folder.library.load()
         #expect(!fixed.report.isReadOnly)
         #expect(fixed.report.readOnlyReason == nil)
-        try folder.library.save(fixed.library.accounts["tfr"]!)
+        try folder.library.checkWritable()
     }
 
     @Test func restoringACopyOfTheSettingsFixesThem() throws {
@@ -147,7 +146,7 @@ struct UnreadableSettingsTests {
         let result = try folder.library.load()
         #expect(!result.report.settingsUnreadable)
         #expect(!result.report.isReadOnly)
-        try folder.library.save(result.library.accounts["tfr"]!)
+        try folder.library.checkWritable()
 
         // Creating a new library is unaffected.
         let empty = try TemporaryFolder()
@@ -188,7 +187,7 @@ struct TradesMigrationTests {
         let loaded = try folder.library.load()
         #expect(loaded.report.needsMigration)
         #expect(throws: StorageError.libraryNeedsMigration(version: 1, current: 3)) {
-            try folder.library.save(loaded.library.accounts["tfr"]!)
+            try folder.library.checkWritable()
         }
 
         let report = try #require(try folder.library.migrate(date: date))
@@ -277,7 +276,7 @@ struct MigrationTests {
         let result = try folder.library.load()
         #expect(result.report.needsMigration)
         #expect(throws: StorageError.libraryNeedsMigration(version: 0, current: 3)) {
-            try folder.library.save(result.library.accounts["tfr"]!)
+            try folder.library.checkWritable()
         }
 
         let step = Migration(from: 0, summary: "Nothing to change") { _ in }
@@ -285,7 +284,7 @@ struct MigrationTests {
         #expect(report.steps == ["Nothing to change", Migration.tradesAccounts.summary, Migration.simplePlans.summary])
         #expect(report.written == ["library.json"])
         #expect(try folder.library.load().report.issues.isEmpty)
-        #expect(try folder.library.save(result.library.accounts["tfr"]!).isEmpty)
+        try folder.library.checkWritable()
     }
 }
 

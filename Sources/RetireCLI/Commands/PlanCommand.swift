@@ -121,7 +121,9 @@ struct PlanCommand: RetireSubcommand {
         let plan = result.plan.id
         let existing = loaded.library.projections[plan]?.baselines.keys.map { $0 } ?? []
         let id = BaselineID.make(from: date.description, existing: existing)
-        try loaded.folder.save(baseline, id: id, plan: plan)
+        var library = loaded.library
+        library.projections[plan, default: PlanProjections()].baselines[id] = baseline
+        try loaded.folder.save(library, previous: loaded.library)
         return LibraryFile.baseline(plan: plan, id: id).path
     }
 

@@ -153,7 +153,7 @@ struct SaveMergeTests {
         let other = Headline(date: "2026-08-15", earliestAge: 57, engine: "0.1.0", planHash: "other")
         var onDisk = try #require(previous.projections["base"]?.headlines[2026])
         onDisk.headlines.append(other)
-        try folder.library.save(onDisk, year: 2026, plan: "base")
+        try folder.write(path, CanonicalJSON.data(encoding: onDisk))
 
         var library = previous
         library.projections["base"]?.headlines[2026]?.headlines.append(
@@ -191,7 +191,7 @@ struct SaveMergeTests {
         let previous = try folder.library.load().library
         var library = previous
         library.accounts["casa"]?.name = "Our home"
-        try folder.library.save(try #require(library.accounts["casa"]))
+        try folder.library.save(library, previous: previous)
 
         let report = try folder.library.save(library, previous: previous)
         #expect(report.issues.isEmpty)

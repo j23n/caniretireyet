@@ -388,7 +388,9 @@ struct ImportCommand: RetireSubcommand {
             throw CLIError("\(path) already exists. Choose another ID, or update it with "
                 + "--profile \(profile.id) --save-profile \(profile.id).")
         }
-        try loaded.folder.save(profile)
+        var library = loaded.library
+        library.importProfiles[profile.id] = profile
+        try loaded.folder.save(library, previous: loaded.library)
         return path
     }
 

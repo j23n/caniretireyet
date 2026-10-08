@@ -123,147 +123,27 @@ extension LibraryFolder {
     /// When a rewrite happens, keys the model doesn't know are kept from the
     /// file on disk. Reload the report's ``SaveReport/reloadPaths``.
     ///
-    /// Without `previous`, every file is written whose bytes differ from the
-    /// file on disk, and nothing is deleted.
-    ///
     /// Throws ``StorageError/libraryIsNewer(version:supported:)`` if the
     /// library (in memory or on disk) was written by a newer app version.
     @discardableResult
-    public func save(_ library: Library, previous: Library? = nil) throws -> SaveReport {
+    public func save(_ library: Library, previous: Library) throws -> SaveReport {
         try checkWritable(schemaVersion: library.settings.schemaVersion)
         var report = SaveReport()
-        guard let previous else {
-            for file in library.libraryFiles.sorted() {
-                guard let json = try Self.json(for: file, in: library) else { continue }
-                try write(json, to: file, report: &report)
-            }
-            return report
-        }
         for file in library.files(changedFrom: previous).sorted() {
-            try apply(file, report: &report) { disk in
+            try apply(path: file.path, report: &report) { disk in
                 try plan(file, disk: disk, library: library, previous: previous)
             }
         }
         return report
     }
 
-    // MARK: One file
-
-    /// Writes `library.json`.
-    @discardableResult
-    public func save(_ settings: LibrarySettings) throws -> SaveReport {
-        try checkWritable(schemaVersion: settings.schemaVersion)
-        return try saveFile(.settings, CanonicalJSON.json(encoding: settings))
-    }
-
-    /// Writes `accounts/<id>.json`.
-    @discardableResult
-    public func save(_ account: Account) throws -> SaveReport {
-        try checkWritable()
-        return try saveFile(.account(account.id), CanonicalJSON.json(encoding: account))
-    }
-
-    /// Writes `instruments/<id>.json`.
-    @discardableResult
-    public func save(_ instrument: Instrument) throws -> SaveReport {
-        try checkWritable()
-        return try saveFile(.instrument(instrument.id), CanonicalJSON.json(encoding: instrument))
-    }
-
-    /// Writes a month's history file, with its records sorted, or deletes it
-    /// when the month has no records.
-    @discardableResult
-    public func save(_ month: MonthFile) throws -> SaveReport {
-        try checkWritable()
-        var report = SaveReport()
-        if month.isEmpty {
-            try remove(.month(month.month), report: &report)
-        } else {
-            try write(Self.json(for: month), to: .month(month.month), report: &report)
-        }
-        return report
-    }
-
-    /// Writes `plans/<id>.json`.
-    @discardableResult
-    public func save(_ plan: PlanDocument) throws -> SaveReport {
-        try checkWritable()
-        return try saveFile(.plan(plan.id), CanonicalJSON.json(encoding: plan))
-    }
-
-    /// Writes `imports/<id>.json`.
-    @discardableResult
-    public func save(_ profile: ImportProfile) throws -> SaveReport {
-        try checkWritable()
-        return try saveFile(.importProfile(profile.id), CanonicalJSON.json(encoding: profile))
-    }
-
-    /// Writes `projections/<plan>/baselines/<id>.json`.
-    @discardableResult
-    public func save(_ baseline: Baseline, id: BaselineID, plan: PlanID) throws -> SaveReport {
-        try checkWritable()
-        return try saveFile(.baseline(plan: plan, id: id), CanonicalJSON.json(encoding: baseline))
-    }
-
-    /// Writes `projections/<plan>/headlines/<year>.json`, sorted by date.
-    @discardableResult
-    public func save(_ headlines: HeadlineFile, year: Int, plan: PlanID) throws -> SaveReport {
-        try checkWritable()
-        return try saveFile(.headlines(plan: plan, year: year), Self.json(for: headlines))
-    }
-
-    /// Deletes a library file, if it exists.
-    @discardableResult
-    public func delete(_ file: LibraryFile) throws -> SaveReport {
-        try checkWritable()
-        var report = SaveReport()
-        try remove(file, report: &report)
-        return report
-    }
-
     // MARK: Internals
 
-    private func saveFile(_ file: LibraryFile, _ json: JSONValue) throws -> SaveReport {
-        var report = SaveReport()
-        try write(json, to: file, report: &report)
-        return report
-    }
-
-    /// Writes `json` to `file` in canonical form, keeping unknown keys from
-    /// the file on disk. Skips the write when the bytes are already there.
-    /// A file on disk that can't be read is backed up first.
-    func write(_ json: JSONValue, to file: LibraryFile, report: inout SaveReport) throws {
-        try apply(file, report: &report) { disk in
-            let found = self.read(disk, as: file)
-            let output = found.raw.map { KeyPreservation.preserving($0, known: found.known, in: json, for: file) } ?? json
-            var plan = FilePlan(output: .write(CanonicalJSON.data(for: output)))
-            if found.isUnreadable { plan.markUnreadable(file) }
-            return plan
-        }
-    }
-
-    /// Deletes `file`. A history or headline file that still holds data the
-    /// model doesn't know (unknown keys, records it can't read) is rewritten
-    /// without its records instead, so that data survives. A file that
-    /// can't be read is backed up first.
-    func remove(_ file: LibraryFile, report: inout SaveReport) throws {
-        try apply(file, report: &report) { disk in
-            let found = self.read(disk, as: file)
-            var plan = FilePlan(output: try self.removal(of: file, raw: found.raw))
-            if found.isUnreadable { plan.markUnreadable(file) }
-            return plan
-        }
-    }
-
-    /// Reads the file on disk, asks `decide` what to do with it, backs it up
-    /// if the plan says so, and writes or deletes it only if it's still what
-    /// was read. When it changed meanwhile, the whole thing starts over.
-    private func apply(_ file: LibraryFile, report: inout SaveReport, decide: (Data?) throws -> FilePlan) throws {
-        try apply(path: file.path, report: &report, decide: decide)
-    }
-
-    /// ``apply(_:report:decide:)`` for any path in the library folder. With
-    /// `dryRun`, nothing is written, and the report says what would be.
+    /// Reads the file at `path` (relative to the library folder), asks
+    /// `decide` what to do with it, backs it up if the plan says so, and
+    /// writes or deletes it only if it's still what was read. When it
+    /// changed meanwhile, the whole thing starts over. With `dryRun`,
+    /// nothing is written, and the report says what would be.
     func apply(path: String, report: inout SaveReport, dryRun: Bool = false,
                decide: (Data?) throws -> FilePlan) throws {
         let url = url(for: path)

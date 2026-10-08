@@ -51,10 +51,11 @@ struct UnknownKeysTests {
 
     @Test func removingAKnownFieldDoesNotBringItBack() throws {
         let folder = try TemporaryFolder.exampleLibrary()
-        var account = try folder.library.load().library.accounts["casa"]!
-        account.notes = nil
-        account.includeIn = nil
-        try folder.library.save(account)
+        let previous = try folder.library.load().library
+        var library = previous
+        library.accounts["casa"]?.notes = nil
+        library.accounts["casa"]?.includeIn = nil
+        try folder.library.save(library, previous: previous)
         let json = try folder.json("accounts/casa.json")
         #expect(json["notes"] == nil)
         #expect(json["includeIn"] == nil)
@@ -160,10 +161,11 @@ struct UnknownKeysTests {
               "theme": "dark"
             }
             """)
-        var settings = try folder.library.load().library.settings
-        settings.person?.name = "Alex"
-        settings.person?.birthDate = nil
-        try folder.library.save(settings)
+        let previous = try folder.library.load().library
+        var library = previous
+        library.settings.person?.name = "Alex"
+        library.settings.person?.birthDate = nil
+        try folder.library.save(library, previous: previous)
         #expect(try folder.text("library.json") == """
             {
               "baseCurrency": "EUR",
@@ -177,15 +179,18 @@ struct UnknownKeysTests {
 
     @Test func headlinesKeepUnknownKeysByDate() throws {
         let folder = try TemporaryFolder.exampleLibrary()
-        var file = try Fixtures.decode(HeadlineFile.self, from: "projections/base/headlines/2026.json")
+        let file = try Fixtures.decode(HeadlineFile.self, from: "projections/base/headlines/2026.json")
         var json = try CanonicalJSON.json(encoding: file)
         var headlines = json["headlines"]!.arrayValue!
         headlines[0] = headlines[0].objectValue.map { var o = $0; o["comment"] = "first"; return .object(o) }!
         json = ["headlines": .array(headlines)]
         try folder.write("projections/base/headlines/2026.json", CanonicalJSON.data(for: json))
 
-        file.headlines.insert(Headline(date: "2026-01-15", engine: "0.1.0", planHash: "x"), at: 0)
-        try folder.library.save(file, year: 2026, plan: "base")
+        let previous = try folder.library.load().library
+        var library = previous
+        library.projections["base"]?.headlines[2026]?.headlines.insert(
+            Headline(date: "2026-01-15", engine: "0.1.0", planHash: "x"), at: 0)
+        try folder.library.save(library, previous: previous)
         let saved = try #require(folder.json("projections/base/headlines/2026.json")["headlines"]?.arrayValue)
         #expect(saved[0]["comment"] == nil)
         #expect(saved[1]["comment"] == "first")

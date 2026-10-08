@@ -19,7 +19,7 @@ struct GoldenRoundTripTests {
     @Test func savingTheExampleLibraryReproducesEveryFile() throws {
         let library = try LibraryFolder(root: Fixtures.exampleLibraryURL).load().library
         let output = try TemporaryFolder()
-        let report = try output.library.save(library)
+        let report = try output.library.save(library, previous: Library())
 
         #expect(report.written == Fixtures.allJSONFiles.sorted())
         #expect(report.deleted.isEmpty)
@@ -34,7 +34,7 @@ struct GoldenRoundTripTests {
     @Test func savingAgainChangesNothing() throws {
         let folder = try TemporaryFolder.exampleLibrary()
         let library = try folder.library.load().library
-        #expect(try folder.library.save(library).isEmpty)
+        #expect(try folder.library.save(library, previous: Library()).isEmpty)
         #expect(try folder.library.save(library, previous: library).isEmpty)
     }
 }

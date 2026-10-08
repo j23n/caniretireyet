@@ -100,7 +100,7 @@ public actor LibrarySync {
     /// Writes what changed between `previous` and `library`, merged with
     /// changes made on disk meanwhile (see `LibraryFolder.save(_:previous:)`).
     /// Reload the report's `reloadPaths`.
-    public func save(_ library: Library, previous: Library?) throws -> SaveReport {
+    public func save(_ library: Library, previous: Library) throws -> SaveReport {
         try folder.save(library, previous: previous)
     }
 

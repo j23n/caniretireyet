@@ -105,49 +105,6 @@ struct SaverTests {
             """)
     }
 
-    @Test func granularSavesWriteOneFile() throws {
-        let (folder, library) = try exampleFolder()
-        var account = try #require(library.accounts["conto-fineco"])
-        #expect(try folder.library.save(account).isEmpty)
-
-        account.notes = "Main current account."
-        #expect(try folder.library.save(account).written == ["accounts/conto-fineco.json"])
-
-        var plan = try #require(library.plans["base"])
-        plan.endAge = 100
-        #expect(try folder.library.save(plan).written == ["plans/base.json"])
-
-        var month = try #require(library.months["2026-08"])
-        month.prices.reverse()
-        #expect(try folder.library.save(month).isEmpty, "records are sorted before writing")
-
-        #expect(try folder.library.save(MonthFile(month: "2026-08")).deleted == ["history/2026/2026-08.json"])
-        #expect(try folder.library.delete(.instrument("gold")).deleted == ["instruments/gold.json"])
-        #expect(try folder.library.delete(.instrument("gold")).isEmpty)
-
-        var settings = library.settings
-        settings.mainPlan = "part-time-from-50"
-        #expect(try folder.library.save(settings).written == ["library.json"])
-
-        let baseline = try #require(library.projections["base"]?.baselines["2026-01-05"])
-        #expect(try folder.library.save(baseline, id: "2026-01-05", plan: "base").isEmpty)
-        #expect(try folder.library.save(baseline, id: "2026-06-30", plan: "base").written == [
-            "projections/base/baselines/2026-06-30.json",
-        ])
-
-        let profile = try #require(library.importProfiles["net-worth-sheet"])
-        #expect(try folder.library.save(profile).isEmpty)
-        let instrument = try #require(library.instruments["vwce"])
-        #expect(try folder.library.save(instrument).isEmpty)
-        let headlines = try #require(library.projections["base"]?.headlines[2026])
-        #expect(try folder.library.save(headlines, year: 2026, plan: "base").isEmpty)
-
-        #expect(try touchedFiles(folder) == [
-            "accounts/conto-fineco.json", "library.json", "plans/base.json",
-            "projections/base/baselines/2026-06-30.json",
-        ])
-    }
-
     @Test func aFileThatIsNotJSONIsBackedUpBeforeItIsOverwritten() throws {
         let (folder, previous) = try exampleFolder()
         try folder.write("history/2026/2026-10.json", "{ \"month\": \"2026-10\", \"valuations\": [ oops ] }\n")
@@ -168,7 +125,7 @@ struct SaverTests {
         let library = Library(settings: LibrarySettings(baseCurrency: .chf), accounts: [
             Account(id: "cash", name: "Cash", kind: .cash, currency: .chf, opened: "2026-01-01"),
         ])
-        let report = try folder.library.save(library)
+        let report = try folder.library.save(library, previous: Library())
         #expect(report.written == ["accounts/cash.json", "library.json"])
         #expect(try folder.library.load().library == library)
     }
