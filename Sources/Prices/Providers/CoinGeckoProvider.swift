@@ -31,7 +31,7 @@ import Model
 /// or `ETH-USD` converted with ECB rates), named by the coin's ticker
 /// (``historyRoutes(symbol:currency:today:)``).
 public struct CoinGeckoProvider: InstrumentPriceProvider {
-    public static let defaultBaseURL = URL(string: "https://api.coingecko.com/api/v3/")!
+    static let baseURL = URL(string: "https://api.coingecko.com/api/v3/")!
     /// The header a demo API key is sent in.
     public static let apiKeyHeader = "x-cg-demo-api-key"
 
@@ -45,22 +45,20 @@ public struct CoinGeckoProvider: InstrumentPriceProvider {
 
     private let fetcher: HTTPFetcher
     private let credentials: any CredentialsProvider
-    private let baseURL: URL
     private let resolutions = CoinGeckoResolutions()
+    /// Fetches the history older than CoinGecko's free year: Yahoo
+    /// Finance's crypto pairs.
     private let pairs: YahooChartProvider
 
-    /// A provider sending its requests through `client`. `pairs` fetches
-    /// the history older than CoinGecko's free year; by default Yahoo
-    /// Finance through the same client.
+    /// A provider sending its requests, and those for Yahoo Finance's pairs,
+    /// through `client`.
     public init(
         client: any HTTPClient = URLSessionHTTPClient(), credentials: any CredentialsProvider = StaticCredentials(),
-        policy: RequestPolicy = .standard, baseURL: URL = CoinGeckoProvider.defaultBaseURL,
-        pairs: YahooChartProvider? = nil
+        policy: RequestPolicy = .standard
     ) {
         self.fetcher = HTTPFetcher(client: client, policy: policy, service: "CoinGecko")
         self.credentials = credentials
-        self.baseURL = baseURL
-        self.pairs = pairs ?? YahooChartProvider(client: client, policy: policy)
+        self.pairs = YahooChartProvider(client: client, policy: policy)
     }
 
     /// CoinGecko quotes in the requested currency, so the currency is part of
@@ -139,7 +137,7 @@ public struct CoinGeckoProvider: InstrumentPriceProvider {
     private func searchCoins(
         _ query: String, headers: [String: String]
     ) async throws -> [CoinGeckoCoinIDs.SearchCoin] {
-        let url = baseURL.appending(segments: ["search"], query: [("query", query)])
+        let url = Self.baseURL.appending(segments: ["search"], query: [("query", query)])
         let response = try await fetcher.get(url, headers: headers)
         try response.requireSuccess(service: name, symbol: query)
         return try response.decodeJSON(CoinGeckoCoinIDs.SearchResults.self, service: name).coins
@@ -176,7 +174,7 @@ public struct CoinGeckoProvider: InstrumentPriceProvider {
         return try await withCoin(symbol, headers: headers) { coin in
             let origin = QuoteOrigin(source: source, service: name, symbol: coin)
             guard from <= range.through else { return PriceHistory(quotes: [], origin: origin) }
-            let url = baseURL.appending(segments: ["coins", coin, "market_chart", "range"], query: [
+            let url = Self.baseURL.appending(segments: ["coins", coin, "market_chart", "range"], query: [
                 ("vs_currency", currency.rawValue.lowercased()), ("from", String(from.daysSinceEpoch * 86_400)),
                 ("to", String(range.through.adding(days: 1).daysSinceEpoch * 86_400 + 3_600)),
             ])
@@ -285,7 +283,7 @@ public struct CoinGeckoProvider: InstrumentPriceProvider {
         coins: [String], currencies: [CurrencyCode], headers: [String: String]
     ) async throws -> [String: SpotPrice] {
         let ids = coins.joined(separator: ",")
-        let url = baseURL.appending(segments: ["simple", "price"], query: [
+        let url = Self.baseURL.appending(segments: ["simple", "price"], query: [
             ("ids", ids), ("vs_currencies", currencies.map { $0.rawValue.lowercased() }.joined(separator: ",")),
             ("include_last_updated_at", "true"), ("precision", "full"),
         ])
@@ -311,7 +309,7 @@ public struct CoinGeckoProvider: InstrumentPriceProvider {
 
     private func history(_ request: QuoteRequest, coin: String, headers: [String: String]) async throws -> Quote {
         let snapshotDay = request.date.adding(days: 1)
-        let url = baseURL.appending(segments: ["coins", coin, "history"], query: [
+        let url = Self.baseURL.appending(segments: ["coins", coin, "history"], query: [
             ("date", Self.historyDate(snapshotDay)), ("localization", "false"),
         ])
         let response = try await fetcher.get(url, headers: headers)

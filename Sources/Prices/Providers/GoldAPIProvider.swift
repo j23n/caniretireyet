@@ -21,7 +21,10 @@ import Model
 /// 1% of spot, so these prices are an approximation of spot, and the price
 /// list says where they came from ("Yahoo Finance · GC=F (history)").
 public struct GoldAPIProvider: InstrumentPriceProvider {
-    public static let defaultBaseURL = URL(string: "https://api.gold-api.com/")!
+    static let baseURL = URL(string: "https://api.gold-api.com/")!
+    /// How many days a check-in may lie in the past and still use today's
+    /// spot price.
+    static let spotToleranceDays = 3
     /// Symbols quoted per troy ounce.
     public static let metals: Set<String> = ["XAU", "XAG", "XPT", "XPD"]
     /// The Yahoo Finance futures that stand in for each metal's past spot
@@ -33,25 +36,15 @@ public struct GoldAPIProvider: InstrumentPriceProvider {
     public var source: DataSource { .goldAPI }
     public var name: String { "gold-api.com" }
 
-    /// How many days a check-in may lie in the past and still use today's
-    /// spot price.
-    public var spotToleranceDays: Int
-
     private let fetcher: HTTPFetcher
-    private let baseURL: URL
+    /// Fetches the past prices: Yahoo Finance's futures.
     private let futures: YahooChartProvider
 
-    /// A provider sending its requests through `client`. `futures` fetches
-    /// the past prices; by default Yahoo Finance through the same client.
-    public init(
-        client: any HTTPClient = URLSessionHTTPClient(), policy: RequestPolicy = .standard,
-        baseURL: URL = GoldAPIProvider.defaultBaseURL, spotToleranceDays: Int = 3,
-        futures: YahooChartProvider? = nil
-    ) {
+    /// A provider sending its requests, and those for the futures, through
+    /// `client`.
+    public init(client: any HTTPClient = URLSessionHTTPClient(), policy: RequestPolicy = .standard) {
         self.fetcher = HTTPFetcher(client: client, policy: policy, service: "gold-api.com")
-        self.baseURL = baseURL
-        self.spotToleranceDays = max(0, spotToleranceDays)
-        self.futures = futures ?? YahooChartProvider(client: client, policy: policy)
+        self.futures = YahooChartProvider(client: client, policy: policy)
     }
 
     /// A metal's past prices: its futures on Yahoo Finance in USD per troy
@@ -65,12 +58,12 @@ public struct GoldAPIProvider: InstrumentPriceProvider {
     }
 
     public func quote(for request: QuoteRequest) async throws -> Quote {
-        guard request.date >= request.today.adding(days: -spotToleranceDays) else {
+        guard request.date >= request.today.adding(days: -Self.spotToleranceDays) else {
             throw PriceFetchError.unsupportedDate(
                 service: name, detail: "only has today's spot price, not one for \(request.date)")
         }
         let symbol = request.symbol.uppercased()
-        let response = try await fetcher.get(baseURL.appending(segments: ["price", symbol]))
+        let response = try await fetcher.get(Self.baseURL.appending(segments: ["price", symbol]))
         try response.requireSuccess(service: name, symbol: symbol)
         let body = try response.decodeJSON(Spot.self, service: name)
         if let answered = body.symbol, answered.uppercased() != symbol {

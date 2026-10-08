@@ -20,41 +20,33 @@ import Model
 /// currency's minor unit (`GBp`, `ZAc`, `ILA`) are converted to the major
 /// unit, and closes are rounded to the exchange's `priceHint` decimals.
 public struct YahooChartProvider: InstrumentPriceProvider {
-    public static let defaultBaseURL = URL(string: "https://query1.finance.yahoo.com/v8/finance/chart/")!
+    static let baseURL = URL(string: "https://query1.finance.yahoo.com/v8/finance/chart/")!
+    /// How many days before the date to look for a close.
+    static let lookbackDays = 14
+    /// The `User-Agent` header. Yahoo rejects requests without a browser-like one.
+    static let userAgent = "Mozilla/5.0"
 
     public var provider: PriceProvider { .yahoo }
     public var source: DataSource { .yahoo }
     public var name: String { "Yahoo Finance" }
 
-    /// How many days before the date to look for a close.
-    public var lookbackDays: Int
-    /// The `User-Agent` header. Yahoo rejects requests without a browser-like one.
-    public var userAgent: String
-
     private let fetcher: HTTPFetcher
-    private let baseURL: URL
 
-    public init(
-        client: any HTTPClient = URLSessionHTTPClient(), policy: RequestPolicy = .standard,
-        baseURL: URL = YahooChartProvider.defaultBaseURL, lookbackDays: Int = 14, userAgent: String = "Mozilla/5.0"
-    ) {
+    public init(client: any HTTPClient = URLSessionHTTPClient(), policy: RequestPolicy = .standard) {
         self.fetcher = HTTPFetcher(client: client, policy: policy, service: "Yahoo Finance")
-        self.baseURL = baseURL
-        self.lookbackDays = max(1, lookbackDays)
-        self.userAgent = userAgent
     }
 
     public func quote(for request: QuoteRequest) async throws -> Quote {
         // From the start of the lookback window to two days after the date
         // (UTC), wide enough for exchanges in any time zone; closes after the
         // date in the exchange's time zone are skipped.
-        let period1 = Self.epochSeconds(request.date.adding(days: -lookbackDays))
+        let period1 = Self.epochSeconds(request.date.adding(days: -Self.lookbackDays))
         let period2 = Self.epochSeconds(request.date.adding(days: 2))
-        let url = baseURL.appending(segments: [request.symbol], query: [
+        let url = Self.baseURL.appending(segments: [request.symbol], query: [
             ("period1", String(period1)), ("period2", String(period2)),
             ("interval", "1d"), ("includePrePost", "false"),
         ])
-        let response = try await fetcher.get(url, headers: ["User-Agent": userAgent])
+        let response = try await fetcher.get(url, headers: ["User-Agent": Self.userAgent])
         try response.requireSuccess(service: name, symbol: request.symbol)
         let envelope = try response.decodeJSON(Envelope.self, service: name)
         return try Self.close(in: envelope, symbol: request.symbol, onOrBefore: request.date, today: request.today,
@@ -100,12 +92,12 @@ public struct YahooChartProvider: InstrumentPriceProvider {
         // A day earlier than asked: the bars of exchanges east of UTC start
         // on the previous UTC day.
         let start = (monthly ? range.from.startOfMonth : range.from).adding(days: -1)
-        let url = baseURL.appending(segments: [symbol], query: [
+        let url = Self.baseURL.appending(segments: [symbol], query: [
             ("period1", String(Self.epochSeconds(start))),
             ("period2", String(Self.epochSeconds(range.through.adding(days: 2)))),
             ("interval", monthly ? "1mo" : "1d"), ("includePrePost", "false"),
         ])
-        let response = try await fetcher.get(url, headers: ["User-Agent": userAgent])
+        let response = try await fetcher.get(url, headers: ["User-Agent": Self.userAgent])
         try response.requireSuccess(service: name, symbol: symbol)
         let envelope = try response.decodeJSON(Envelope.self, service: name)
         var history = try Self.history(in: envelope, symbol: symbol, monthly: monthly, today: range.today,

@@ -61,7 +61,6 @@ public struct PriceService: Sendable {
     public init(
         instrumentProviders: [any InstrumentPriceProvider], fxProvider: FrankfurterProvider,
         makeIndexProvider: @escaping @Sendable (IndexID) -> EurostatIndexProvider?,
-        cache: PriceCache = PriceCache(),
         today: @escaping @Sendable () -> CalendarDate = { CalendarDate.today() },
         maxConcurrentFetches: Int = PriceService.defaultMaxConcurrentFetches
     ) {
@@ -69,7 +68,7 @@ public struct PriceService: Sendable {
             instrumentProviders.map { ($0.provider, $0) }, uniquingKeysWith: { _, last in last })
         self.fxProvider = fxProvider
         self.makeIndexProvider = makeIndexProvider
-        self.cache = cache
+        self.cache = PriceCache()
         self.today = today
         self.limit = FetchLimit(maxConcurrentFetches)
     }
@@ -85,7 +84,7 @@ public struct PriceService: Sendable {
         library.inflationIndices.filter { indexProvider(for: $0) != nil }
     }
 
-    /// The instrument price sources ``standard(client:credentials:policy:cache:today:)``
+    /// The instrument price sources ``standard(client:credentials:policy:today:maxConcurrentFetches:)``
     /// can fetch from, in the order a picker offers them: Yahoo Finance,
     /// CoinGecko and gold-api.com. Other `PriceProvider` values a file may
     /// name (EODHD, Twelve Data) have no provider here, so their fetches fail.
@@ -97,7 +96,7 @@ public struct PriceService: Sendable {
     /// the euro area (`hicp-de`, `hicp-ea`, …).
     public static func standard(
         client: any HTTPClient = URLSessionHTTPClient(), credentials: any CredentialsProvider = StaticCredentials(),
-        policy: RequestPolicy = .standard, cache: PriceCache = PriceCache(),
+        policy: RequestPolicy = .standard,
         today: @escaping @Sendable () -> CalendarDate = { CalendarDate.today() },
         maxConcurrentFetches: Int = PriceService.defaultMaxConcurrentFetches
     ) -> PriceService {
@@ -113,7 +112,7 @@ public struct PriceService: Sendable {
                     EurostatIndexProvider(series: $0, client: client, policy: policy)
                 }
             },
-            cache: cache, today: today, maxConcurrentFetches: maxConcurrentFetches)
+            today: today, maxConcurrentFetches: maxConcurrentFetches)
     }
 
     /// What a check-in on `date` needs, with the library's indices this

@@ -12,33 +12,28 @@ import Model
 ///     { "amount": 1.0, "base": "EUR", "start_date": "2026-09-16", "end_date": "2026-09-30",
 ///       "rates": { "2026-09-16": { "USD": 1.1352 }, …, "2026-09-30": { "USD": 1.1398 } } }
 public struct FrankfurterProvider: Sendable {
-    public static let defaultBaseURL = URL(string: "https://api.frankfurter.dev/v1/")!
+    static let baseURL = URL(string: "https://api.frankfurter.dev/v1/")!
+    /// How many days before the date to look for a rate. Covers weekends
+    /// and the longest run of holidays.
+    static let lookbackDays = 14
 
+    /// The source written on fetched FX records.
     public var source: DataSource { .ecb }
     public var name: String { "Frankfurter (ECB)" }
 
-    /// How many days before the date to look for a rate. Covers weekends
-    /// and the longest run of holidays.
-    public var lookbackDays: Int
-
     private let fetcher: HTTPFetcher
-    private let baseURL: URL
 
-    public init(
-        client: any HTTPClient = URLSessionHTTPClient(), policy: RequestPolicy = .standard,
-        baseURL: URL = FrankfurterProvider.defaultBaseURL, lookbackDays: Int = 14
-    ) {
+    public init(client: any HTTPClient = URLSessionHTTPClient(), policy: RequestPolicy = .standard) {
         self.fetcher = HTTPFetcher(client: client, policy: policy, service: "Frankfurter (ECB)")
-        self.baseURL = baseURL
-        self.lookbackDays = max(1, lookbackDays)
     }
 
     /// The latest rate on or before `date`: 1 `base` = rate × `quote`.
     public func rate(base: CurrencyCode, quote: CurrencyCode, onOrBefore date: CalendarDate) async throws -> FXObservation {
         if base == quote { return FXObservation(rate: 1, observedOn: date) }
         let pair = "\(base)/\(quote)"
-        let range = "\(date.adding(days: -lookbackDays))..\(date)"
-        let url = baseURL.appending(segments: [range], query: [("base", base.rawValue), ("symbols", quote.rawValue)])
+        let range = "\(date.adding(days: -Self.lookbackDays))..\(date)"
+        let url = Self.baseURL.appending(segments: [range],
+                                         query: [("base", base.rawValue), ("symbols", quote.rawValue)])
         let response = try await fetcher.get(url)
         try response.requireSuccess(service: name, symbol: pair)
         let body = try response.decodeJSON(TimeSeries.self, service: name)
@@ -59,8 +54,8 @@ public struct FrankfurterProvider: Sendable {
             return FXHistory(rates: [FXObservation(rate: 1, observedOn: start), FXObservation(rate: 1, observedOn: end)])
         }
         let pair = "\(base)/\(quote)"
-        let url = baseURL.appending(segments: ["\(start)..\(end)"],
-                                    query: [("base", base.rawValue), ("symbols", quote.rawValue)])
+        let url = Self.baseURL.appending(segments: ["\(start)..\(end)"],
+                                         query: [("base", base.rawValue), ("symbols", quote.rawValue)])
         let response = try await fetcher.get(url)
         try response.requireSuccess(service: name, symbol: pair)
         let body = try response.decodeJSON(TimeSeries.self, service: name)

@@ -53,8 +53,7 @@ public struct EurostatIndexProvider: Sendable {
         }
     }
 
-    public static let defaultBaseURL =
-        URL(string: "https://ec.europa.eu/eurostat/api/dissemination/statistics/1.0/data/")!
+    static let baseURL = URL(string: "https://ec.europa.eu/eurostat/api/dissemination/statistics/1.0/data/")!
 
     public let series: Series
     /// The index this provides, e.g. `hicp-it`.
@@ -64,15 +63,10 @@ public struct EurostatIndexProvider: Sendable {
     public var name: String { "Eurostat" }
 
     private let fetcher: HTTPFetcher
-    private let baseURL: URL
 
-    public init(
-        series: Series, client: any HTTPClient = URLSessionHTTPClient(), policy: RequestPolicy = .standard,
-        baseURL: URL = EurostatIndexProvider.defaultBaseURL
-    ) {
+    public init(series: Series, client: any HTTPClient = URLSessionHTTPClient(), policy: RequestPolicy = .standard) {
         self.series = series
         self.fetcher = HTTPFetcher(client: client, policy: policy, service: "Eurostat")
-        self.baseURL = baseURL
     }
 
     /// The published values for the months `start` through `end`, each dated
@@ -83,7 +77,7 @@ public struct EurostatIndexProvider: Sendable {
         let query = [("format", "JSON"), ("lang", "EN")]
             + series.dimensions.sorted { $0.key < $1.key }.map { ($0.key, $0.value) }
             + [("sinceTimePeriod", start.description), ("untilTimePeriod", end.description)]
-        let response = try await fetcher.get(baseURL.appending(segments: [series.dataset], query: query))
+        let response = try await fetcher.get(Self.baseURL.appending(segments: [series.dataset], query: query))
         try response.requireSuccess(service: name, symbol: series.dataset)
         let dataset = try response.decodeJSON(Dataset.self, service: name)
         return try Self.monthlyValues(in: dataset, service: name)
