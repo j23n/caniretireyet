@@ -86,39 +86,17 @@ public struct FXQuote: Hashable, Sendable {
         /// Whether the conversion goes from the record's quote to its base.
         public let inverted: Bool
 
-        public var from: CurrencyCode { inverted ? record.quote : record.base }
-        public var to: CurrencyCode { inverted ? record.base : record.quote }
-
         /// Converts along this leg: × rate, or ÷ rate when inverted.
         public func convert(_ amount: Decimal) -> Decimal {
             inverted ? amount / record.rate : amount * record.rate
         }
     }
 
-    /// How a quote was obtained.
-    public enum Method: Hashable, Sendable {
-        /// Same currency.
-        case identity
-        /// A rate recorded as from → to.
-        case direct
-        /// A rate recorded as to → from, inverted.
-        case inverse
-        /// Two legs via a pivot currency.
-        case crossed(via: CurrencyCode)
-    }
-
     public let from: CurrencyCode
     public let to: CurrencyCode
-    /// The rates used, in order. Empty for the identity.
+    /// The rates used, in order: none for the identity, one direct or
+    /// inverted rate, or two crossed via a pivot currency.
     public let legs: [Leg]
-
-    public var method: Method {
-        switch legs.count {
-        case 0: .identity
-        case 1: legs[0].inverted ? .inverse : .direct
-        default: .crossed(via: legs[0].to)
-        }
-    }
 
     /// The rate such that 1 `from` = `rate` × `to`.
     public var rate: Decimal {

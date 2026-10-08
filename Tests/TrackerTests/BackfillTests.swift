@@ -116,8 +116,7 @@ struct PastCheckInTests {
         draft["fineco"]?.setBalance(3000)
         var changed = library
         changed.accounts["fineco"]?.opened = "2024-01-01"
-        let result = draft.rebase(onto: changed)
-        #expect(result.refreshed == ["fineco"])
+        draft.rebase(onto: changed)
         #expect(draft["fineco"]?.opensLater == false)
         #expect(draft["fineco"]?.balance == 3000)
         #expect(draft.records(in: changed).openingMoves.isEmpty)
@@ -125,7 +124,8 @@ struct PastCheckInTests {
         // Closed before the date on the other device: the row leaves.
         changed.accounts["fondo"]?.opened = "2019-01-01"
         changed.accounts["fondo"]?.closed = "2023-01-31"
-        #expect(draft.rebase(onto: changed).removed == ["fondo"])
+        draft.rebase(onto: changed)
+        #expect(draft["fondo"] == nil)
     }
 
     @Test func changingTheDateMovesRowsInAndOut() throws {

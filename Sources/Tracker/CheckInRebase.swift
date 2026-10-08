@@ -1,26 +1,11 @@
 import Foundation
 import Model
 
-/// What ``CheckInDraft/rebase(onto:)`` changed.
+/// What ``CheckInDraft/rebase(onto:)`` found.
 public struct CheckInRebase: Hashable, Sendable {
-    /// Rows added for accounts that were added (or reopened) since the draft
-    /// started, e.g. on another device.
-    public var added: [AccountID] = []
-    /// Rows dropped because their account was deleted, or closed before the date.
-    public var removed: [AccountID] = []
-    /// Rows filled in again because the account's previous valuation, or the
-    /// one saved on the date, changed.
-    public var refreshed: [AccountID] = []
     /// Rows that came into conflict with a valuation saved on the date (see
     /// ``CheckInRow/conflict``), or whose conflict is with a newer one.
     public var newConflicts: [AccountID] = []
-
-    public init() {}
-
-    /// Whether no row was added, dropped or filled in again.
-    public var isEmpty: Bool {
-        added.isEmpty && removed.isEmpty && refreshed.isEmpty
-    }
 }
 
 extension CheckInDraft {
@@ -54,8 +39,6 @@ extension CheckInDraft {
         var result = CheckInRebase()
         var valuator = LazyValuator(library: libraryWithRates(library))
         let accounts = Self.accounts(for: date, in: library)
-        let open = Set(accounts.map(\.id))
-        result.removed = rows.map(\.account).filter { !open.contains($0) }
         var rebased: [CheckInRow] = []
         for account in accounts {
             let valuations = library.valuations(for: account.id)
@@ -64,7 +47,6 @@ extension CheckInDraft {
             guard let old = self[account.id] else {
                 rebased.append(CheckInRow(account: account, date: date, previous: previous, existing: saved,
                                           valuator: &valuator))
-                result.added.append(account.id)
                 continue
             }
             // A trades account's starting point also moves when its trades change.
@@ -79,7 +61,6 @@ extension CheckInDraft {
             }
             let row = refreshed(old, account: account, previous: previous, saved: saved, valuator: &valuator)
             if let conflict = row.conflict, conflict != old.conflict { result.newConflicts.append(account.id) }
-            if row != old { result.refreshed.append(account.id) }
             rebased.append(row)
         }
         rows = rebased
@@ -109,13 +90,6 @@ extension CheckInDraft {
                              valuator: &valuator)
         if rows[index].hasTypedNote, row.note == nil { row.note = rows[index].note }
         rows[index] = row
-    }
-
-    /// Settles every conflict the same way (see ``resolveConflict(of:keepingSaved:in:)``).
-    public mutating func resolveConflicts(keepingSaved: Bool, in library: Library) {
-        for row in conflicts {
-            resolveConflict(of: row.account, keepingSaved: keepingSaved, in: library)
-        }
     }
 
     // MARK: - Internals

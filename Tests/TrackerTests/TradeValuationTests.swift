@@ -127,23 +127,24 @@ struct TradeValuationTests {
         #expect(flows.map(\.date) == ["2024-01-02", "2024-03-10", "2024-03-25"])
         // The transfer in counts at its market value on its date (February's 105), not its cost.
         #expect(flows.map(\.amount) == [10000, 1050, -500])
-        #expect(recorded.tradeFlowTotal(of: "broker", after: "2024-01-31", through: "2024-03-31") == 550)
+        #expect(recorded.tradeFlows(of: "broker", after: "2024-01-31", through: "2024-03-31").map(\.amount)
+            == [1050, -500])
 
         let typed = Valuator(library: TradeLibrary.typedCash())
         let residuals = typed.tradeFlows(of: "broker", after: nil, through: "2024-03-31")
         #expect(residuals.map(\.date) == ["2024-01-31", "2024-03-10", "2024-03-25"])
         // The cash typed on 31 January is 10,005 more than the trades give: an unrecorded deposit.
-        #expect(residuals[0].isResidual)
+        #expect(residuals[0].trade == nil)
         #expect(residuals[0].amount == 10005)
         #expect(residuals[0].since == "2024-01-01")
-        #expect(typed.tradeFlowTotal(of: "bank", after: nil, through: "2024-03-31") == nil)
+        #expect(typed.tradeFlows(of: "bank", after: nil, through: "2024-03-31").isEmpty)
 
         // The check-in's default flow is the same thing, since the previous valuation.
         let library = TradeLibrary.typedCash()
         let valuations = library.valuations(for: "broker")
-        #expect(typed.defaultFlow(for: valuations[0]) == 10005)
-        #expect(typed.defaultFlow(for: valuations[1]) == 0)
-        #expect(typed.defaultFlow(for: valuations[2]) == 550)
+        #expect(typed.defaultFlow(for: valuations[0], previous: nil) == 10005)
+        #expect(typed.defaultFlow(for: valuations[1], previous: valuations[0]) == 0)
+        #expect(typed.defaultFlow(for: valuations[2], previous: valuations[1]) == 550)
         // Typed cash that's 12.5 more than the trades give adds a residual.
         var more = valuations[2]
         more.cash = d("5312.86")
@@ -219,7 +220,7 @@ struct TradeValuationTests {
         #expect(valuator.value(of: "broker", on: "2024-03-31")?.value?.rounded(20) == (4400 + TradeLibrary.apple + d("5300.36")).rounded(20))
         let mismatches = valuator.reconciliation(of: "broker")
         #expect(mismatches == [PositionMismatch(account: "broker", date: "2024-03-31", instrument: "aapl", listed: 9,
-                                                derived: 10, listedCost: nil, derivedCost: d("1364.64"))])
+                                                derived: 10)])
         #expect(mismatches[0].difference == -1)
         #expect(mismatches[0].description
             == "The valuation on 2024-03-31 lists 9 aapl, but the trades give 10. Is a trade missing or wrong?")

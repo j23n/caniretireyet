@@ -325,15 +325,6 @@ extension Library {
         return conversion
     }
 
-    /// Converts `account` back to snapshots (``conversionToSnapshots(of:)``)
-    /// and returns what was done; `nil`, changing nothing, when it can't be.
-    @discardableResult
-    public mutating func convertToSnapshots(_ account: AccountID) -> AccountConversion? {
-        let conversion = conversionToSnapshots(of: account)
-        conversion?.apply(to: &self)
-        return conversion
-    }
-
     // MARK: - Internals
 
     private static func sorted(_ notes: [ConversionNote]) -> [ConversionNote] {

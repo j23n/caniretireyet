@@ -25,7 +25,6 @@ struct CheckInRebaseTests {
         let changed = savedElsewhere()
 
         let result = draft.rebase(onto: changed)
-        #expect(result.refreshed == ["conto-fineco"])
         #expect(result.newConflicts.isEmpty)
         let row = try #require(draft["conto-fineco"])
         #expect(row.state == .updated)
@@ -66,7 +65,7 @@ struct CheckInRebaseTests {
 
         // A second rebase with nothing new changes nothing.
         let settled = draft
-        #expect(draft.rebase(onto: changed).isEmpty)
+        #expect(draft.rebase(onto: changed).newConflicts.isEmpty)
         #expect(draft == settled)
 
         // Keep the saved value for one, use mine for the other.
@@ -104,20 +103,11 @@ struct CheckInRebaseTests {
         #expect(draft.conflicts.map(\.account) == ["conto-fineco"])
     }
 
-    @Test func settlingEveryConflictAtOnce() throws {
+    @Test func skippingARowInConflictKeepsTheSavedValue() throws {
         var draft = CheckInDraft(date: "2026-10-31", library: library)
         draft["conto-fineco"]?.setBalance(4600)
         let changed = savedElsewhere()
         draft.rebase(onto: changed)
-        var keep = draft
-        keep.resolveConflicts(keepingSaved: true, in: changed)
-        #expect(keep.conflicts.isEmpty)
-        #expect(keep["conto-fineco"]?.balance == 5000)
-        var mine = draft
-        mine.resolveConflicts(keepingSaved: false, in: changed)
-        #expect(mine["conto-fineco"]?.balance == 4600)
-        #expect(mine.records(in: changed).valuations.contains { $0.account == "conto-fineco" })
-        // Skipping a row in conflict also keeps the saved value.
         draft["conto-fineco"]?.skip()
         #expect(draft.conflicts.isEmpty)
         #expect(!draft.records(in: changed).valuations.contains { $0.account == "conto-fineco" })
@@ -133,8 +123,7 @@ struct CheckInRebaseTests {
         changed.upsert(Valuation(account: "conto-deposito", date: "2026-10-15", balance: 17500, flow: 0))
         changed.upsert(Valuation(account: "mutuo-casa", date: "2026-10-15", balance: -140_700, flow: 350))
 
-        let result = draft.rebase(onto: changed)
-        #expect(result.refreshed == ["conto-deposito", "conto-fineco", "mutuo-casa"])
+        draft.rebase(onto: changed)
         // Not reviewed: pre-filled from the new previous value.
         #expect(draft["conto-fineco"]?.previous?.date == "2026-10-15")
         #expect(draft["conto-fineco"]?.balance == 4000)
@@ -159,9 +148,7 @@ struct CheckInRebaseTests {
         changed.accounts["tfr"] = nil
         changed.accounts["casa"]?.closed = "2026-10-20"
 
-        let result = draft.rebase(onto: changed)
-        #expect(result.added == ["carta"])
-        #expect(result.removed == ["tfr", "casa"])
+        draft.rebase(onto: changed)
         #expect(draft["carta"]?.state == .notReviewed)
         #expect(draft["tfr"] == nil)
         #expect(draft["casa"] == nil)
@@ -173,7 +160,7 @@ struct CheckInRebaseTests {
         var draft = CheckInDraft(date: "2026-10-31", library: library)
         draft["conto-fineco"]?.setBalance(4600)
         let before = draft
-        #expect(draft.rebase(onto: library).isEmpty)
+        #expect(draft.rebase(onto: library).newConflicts.isEmpty)
         #expect(draft == before)
     }
 

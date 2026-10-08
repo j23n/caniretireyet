@@ -92,13 +92,6 @@ extension Valuator {
             return flow.rounded(scale: 2)
         }
     }
-
-    /// The default `flow` for a valuation already in the valuator, measured
-    /// from the account's previous valuation.
-    public func defaultFlow(for valuation: Valuation, paid: [InstrumentID: Decimal] = [:]) -> Decimal? {
-        defaultFlow(for: valuation, previous: previousValuation(for: valuation.account, before: valuation.date),
-                    paid: paid)
-    }
 }
 
 /// Keeps a position's cost basis (its total purchase cost, *valore di

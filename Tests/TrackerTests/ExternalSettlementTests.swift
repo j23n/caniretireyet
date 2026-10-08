@@ -79,7 +79,6 @@ struct ExternalSettlementTests {
         #expect(flows.map(\.date) == ["2024-01-15"])
         #expect(flows.map(\.amount) == [1876])
         #expect(flows.first?.trade?.id == "buy1")
-        #expect(flows.first?.isResidual == false)
 
         // Without the settlement, the same buy takes the cash below zero.
         var plain = GoldLibrary.withPrices(GoldLibrary.base)
@@ -100,7 +99,7 @@ struct ExternalSettlementTests {
         let flows = valuator.tradeFlows(of: "coins", after: "2024-01-31", through: "2024-03-31")
         #expect(flows.map(\.date) == ["2024-03-15"])
         #expect(flows.map(\.amount) == [-680])
-        #expect(valuator.tradeFlowTotal(of: "coins", after: nil, through: "2024-03-31") == 1196)
+        #expect(valuator.tradeFlows(of: "coins", after: nil, through: "2024-03-31").map(\.amount) == [1876, -680])
         #expect(valuator.ledger(for: "coins")?.positions(on: "2024-03-31").map(\.quantity) == [d("21.1")])
     }
 
@@ -195,7 +194,7 @@ struct ExternalSettlementTests {
         let valuator = Valuator(library: library)
         #expect(valuator.tradeCash(of: "coins", on: "2024-02-29") == 0)
         #expect(valuator.value(of: "coins", on: "2024-02-29")?.problems.isEmpty == true)
-        #expect(valuator.tradeFlowTotal(of: "coins", after: "2024-01-31", through: "2024-02-29") == nil)
+        #expect(valuator.tradeFlows(of: "coins", after: "2024-01-31", through: "2024-02-29").contains { $0.amount == nil })
         #expect(valuator.ledger(for: "coins")?.issues.map(\.kind) == [.missingFX])
         let change = try #require(valuator.change(of: "coins", from: "2024-01-31", to: "2024-02-29"))
         #expect(change.problems == [.missingFX(account: "coins", from: .usd, to: .eur)])
@@ -231,7 +230,7 @@ struct ExternalSettlementTests {
         #expect(draft["broker"]?.markUnchanged() == true)
         #expect(draft.review(in: library).row(for: "broker")?.defaultFlow == 1500)
         let january = Valuation(account: "broker", date: "2024-01-31", cash: 200)
-        #expect(valuator.defaultFlow(for: january) == 1500)
+        #expect(valuator.defaultFlow(for: january, previous: nil) == 1500)
     }
 
     @Test func theDefaultIsOutsideForMetalsAndAccountsThatNeverHeldCash() throws {
@@ -319,11 +318,12 @@ struct ExternalConversionTests {
             #expect(valuator.tradeCash(of: "coins", on: date) == 0, "\(date)")
         }
         let flows = valuator.tradeFlows(of: "coins", after: nil, through: "2024-03-31")
-        #expect(flows.filter(\.isResidual).isEmpty)
+        #expect(flows.allSatisfy { $0.trade != nil })
         #expect(valuator.tradeFlows(of: "coins", after: "2024-01-31", through: "2024-03-31").map(\.amount)
             == [2030, -700])
-        for valuation in converted.valuations(for: "coins").dropFirst() {
-            #expect(valuator.defaultFlow(for: valuation) == valuation.flow, "\(valuation.date)")
+        let valuations = converted.valuations(for: "coins")
+        for (previous, valuation) in zip(valuations, valuations.dropFirst()) {
+            #expect(valuator.defaultFlow(for: valuation, previous: previous) == valuation.flow, "\(valuation.date)")
         }
         let before = Valuator(library: library)
         for date in dates {
@@ -338,7 +338,8 @@ struct ExternalConversionTests {
         #expect(Valuator(library: unanchored).tradeCash(of: "coins", on: "2024-03-31") == 0)
 
         // Back to snapshots gives the same positions.
-        #expect(converted.convertToSnapshots("coins") != nil)
+        let back = try #require(converted.conversionToSnapshots(of: "coins"))
+        back.apply(to: &converted)
         #expect(converted.valuations(for: "coins").map(\.positions) == library.valuations(for: "coins").map(\.positions))
     }
 

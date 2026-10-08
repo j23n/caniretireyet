@@ -119,8 +119,7 @@ extension LibraryStore {
     /// waits for the write: a date before the account opened moves its
     /// opening date back, and the automatic new money of its later values
     /// is worked out again (a typed one is kept). A trade whose key is taken
-    /// gets a new ID. Tracker's `Library.addTrade(_:)`; its preview is
-    /// `Library.previewAddingTrade(_:)`.
+    /// gets a new ID. Tracker's `Library.addTrade(_:)`.
     @discardableResult
     func addTrade(_ trade: Trade) async throws -> TradeEdit {
         var edit = TradeEdit()

@@ -23,9 +23,4 @@ public struct PriceTable: Sendable {
         else { return nil }
         return records[index]
     }
-
-    /// All prices of `instrument`, sorted by date.
-    public func history(for instrument: InstrumentID) -> [PriceRecord] {
-        byInstrument[instrument] ?? []
-    }
 }

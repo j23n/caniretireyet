@@ -85,8 +85,9 @@ struct TradeConversionTests {
         // The same values, and flows that are what the trades give.
         #expect(values(converted, on: monthEnds) == values(library, on: monthEnds))
         let valuator = Valuator(library: converted)
-        for valuation in converted.valuations(for: "broker").dropFirst() {
-            #expect(valuator.defaultFlow(for: valuation) == valuation.flow, "\(valuation.date)")
+        let valuations = converted.valuations(for: "broker")
+        for (previous, valuation) in zip(valuations, valuations.dropFirst()) {
+            #expect(valuator.defaultFlow(for: valuation, previous: previous) == valuation.flow, "\(valuation.date)")
         }
         #expect(valuator.tradeIssues(for: "broker").isEmpty)
         #expect(converted.conversionToTrades(of: "broker") == nil)
@@ -99,7 +100,7 @@ struct TradeConversionTests {
         let back = try #require(converted.conversionToSnapshots(of: "broker"))
         #expect(back.notes.map(\.kind) == [.tradesRemoved])
         #expect(back.removedTrades.count == 4)
-        converted.convertToSnapshots("broker")
+        back.apply(to: &converted)
         #expect(converted == library)
     }
 
@@ -119,7 +120,7 @@ struct TradeConversionTests {
             ], flow: 550),
         ])
         var converted = library
-        converted.convertToSnapshots("broker")
+        conversion.apply(to: &converted)
         #expect(converted.trades(for: "broker").isEmpty)
         // Month ends keep their values; in between, snapshots carry the last one.
         let dates = monthEnds.filter(\.isEndOfMonth)

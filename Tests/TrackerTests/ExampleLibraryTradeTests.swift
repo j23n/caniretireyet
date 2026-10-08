@@ -8,7 +8,8 @@ import Tracker
 /// converted back from its trades: for tests of accounts that hold positions.
 func exampleLibraryWithHoldings() throws -> Library {
     var library = try Fixtures.exampleLibrary()
-    library.convertToSnapshots("directa")
+    let conversion = try #require(library.conversionToSnapshots(of: "directa"))
+    conversion.apply(to: &library)
     return library
 }
 

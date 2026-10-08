@@ -11,12 +11,6 @@ extension Valuator {
         ledgers[account]
     }
 
-    /// The account's trades that apply, in processing order; empty for an
-    /// account that doesn't record trades.
-    public func trades(for account: AccountID) -> [Trade] {
-        ledgers[account]?.entries.map(\.trade) ?? []
-    }
-
     // MARK: - Cash
 
     /// The cash of a trades account at the end of `date` (docs/TRADES.md,
@@ -186,18 +180,15 @@ extension Valuator {
     public func reconcile(_ valuation: Valuation) -> [PositionMismatch] {
         guard let ledger = ledgers[valuation.account], !valuation.positions.isEmpty else { return [] }
         let derived = ledger.positions(on: valuation.date)
-        var listed: [InstrumentID: Position] = [:]
-        for position in valuation.positions { listed[position.instrument] = position }
+        var listed: [InstrumentID: Decimal] = [:]
+        for position in valuation.positions { listed[position.instrument] = position.quantity }
         let instruments = Set(listed.keys).union(derived.map(\.instrument)).sorted()
         return instruments.compactMap { instrument in
-            let mine = derived.first { $0.instrument == instrument }
-            let theirs = listed[instrument]
-            let expected = mine?.quantity ?? 0
-            let written = theirs?.quantity ?? 0
+            let expected = derived.first { $0.instrument == instrument }?.quantity ?? 0
+            let written = listed[instrument] ?? 0
             guard expected != written else { return nil }
             return PositionMismatch(account: valuation.account, date: valuation.date, instrument: instrument,
-                                    listed: written, derived: expected, listedCost: theirs?.costBasis,
-                                    derivedCost: mine?.costBasis)
+                                    listed: written, derived: expected)
         }
     }
 
@@ -233,20 +224,13 @@ public struct PositionMismatch: Hashable, Sendable, CustomStringConvertible {
     public let listed: Decimal
     /// The quantity the trades give.
     public let derived: Decimal
-    /// The purchase cost the valuation lists, if any.
-    public let listedCost: Decimal?
-    /// The purchase cost the trades give, if known.
-    public let derivedCost: Decimal?
 
-    public init(account: AccountID, date: CalendarDate, instrument: InstrumentID, listed: Decimal, derived: Decimal,
-                listedCost: Decimal? = nil, derivedCost: Decimal? = nil) {
+    public init(account: AccountID, date: CalendarDate, instrument: InstrumentID, listed: Decimal, derived: Decimal) {
         self.account = account
         self.date = date
         self.instrument = instrument
         self.listed = listed
         self.derived = derived
-        self.listedCost = listedCost
-        self.derivedCost = derivedCost
     }
 
     /// `listed − derived`: positive when the statement shows more.

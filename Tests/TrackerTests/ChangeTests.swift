@@ -4,6 +4,13 @@ import Testing
 import TestSupport
 import Tracker
 
+private extension ChangeReport {
+    /// The change of one account, if it's in the report.
+    func change(of account: AccountID) -> AccountChange? {
+        accounts.first { $0.account == account }
+    }
+}
+
 /// The waterfall of the example library, worked out by hand.
 struct ExampleLibraryChangeTests {
     let valuator: Valuator

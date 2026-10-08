@@ -79,7 +79,7 @@ struct ValuatorTests {
         let components = try value("broker", "2025-02-28").components
         #expect(components.map(\.kind) == [.cash, .position("etf"), .position("sold")])
         #expect(components[1].price?.date == "2025-02-28")
-        #expect(components[1].amount == 1100)
+        #expect(components[1].value == 1100)
         #expect(components[2].value == 0)
     }
 
@@ -91,8 +91,6 @@ struct ValuatorTests {
         #expect(broker.knownValue == 17105)
         let coin = try #require(broker.components.first { $0.kind == .position("coin") })
         #expect(coin.currency == .usd)
-        #expect(coin.amount == 20000)
-        #expect(coin.fx?.method == .inverse)
         #expect(coin.value == 16000)
     }
 
@@ -116,7 +114,6 @@ struct ValuatorTests {
         let closed = try value("old", "2025-02-16")
         #expect(closed.status == .closed)
         #expect(closed.value == 0)
-        #expect(!closed.isOpen)
         #expect(try value("later", "2025-05-31").status == .notOpenYet)
         #expect(valuator.value(of: "nope", on: "2025-05-31") == nil)
     }
@@ -156,7 +153,6 @@ struct ValuatorTests {
         let dollars = try #require(valuator.value(of: "dollars", on: "2025-02-01"))
         // 1000 USD = 800 EUR = 760 CHF.
         #expect(dollars.value == 760)
-        #expect(dollars.components.first?.fx?.method == .crossed(via: .eur))
         #expect(valuator.value(of: "current", on: "2025-02-01")?.value == 95)
     }
 }

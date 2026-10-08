@@ -6,16 +6,12 @@ import Model
 /// account's currency.
 public struct TradeEntry: Hashable, Sendable {
     public let trade: Trade
-    /// The trade's value before fees and tax: quantity × price, converted
-    /// into the account's currency at the latest FX rate on or before the
-    /// trade date. `nil` without a quantity and a price, or without a rate.
-    public let gross: Decimal?
-    /// The conversion used for ``gross``; `nil` when none was needed.
-    public let fx: FXQuote?
     /// What the trade paid (negative) or brought in (positive), net of fees
-    /// and tax: `amount` as written, or worked out from ``gross``, fees and
-    /// tax (see docs/TRADES.md), rounded to cents. For a trade settled in
-    /// the account it's its ``cashEffect``; for one settled outside it
+    /// and tax: `amount` as written, or worked out from quantity × price
+    /// (converted into the account's currency at the latest FX rate on or
+    /// before the trade date), fees and tax (see docs/TRADES.md), rounded
+    /// to cents. For a trade settled in the account it's its
+    /// ``cashEffect``; for one settled outside it
     /// (``Model/Trade/isSettledExternally``) it was paid or received
     /// elsewhere, and is a flow (``externalFlow``). `nil` when it can't be
     /// worked out.
@@ -125,15 +121,14 @@ public struct TradeLedger: Sendable {
 
             // The value before fees and tax, in the account's currency.
             var gross: Decimal?
-            var quote: FXQuote?
             var missingRate = false
             let priceCurrency = trade.priceCurrency(instruments: instruments, accountCurrency: account.currency)
             if let quantity = trade.quantity, let price = trade.price {
                 if priceCurrency == account.currency {
                     gross = (quantity * price).rounded(scale: 2)
-                } else if let found = fx.quote(from: priceCurrency, to: account.currency, on: trade.date) {
-                    quote = found
-                    gross = found.convert(quantity * price).rounded(scale: 2)
+                } else if let converted = fx.convert(quantity * price, from: priceCurrency, to: account.currency,
+                                                     on: trade.date) {
+                    gross = converted.rounded(scale: 2)
                 } else if trade.amount == nil, Self.cashEffectNeedsGross.contains(trade.type) {
                     missingRate = true
                     issue(.missingFX, .error, "There's no \(priceCurrency)→\(account.currency) rate on or before "
@@ -209,9 +204,8 @@ public struct TradeLedger: Sendable {
             if cashEffect == nil && trade.type.isKnown { runningUnknown += 1 }
             cashTotals.append(runningCash)
             unknownCounts.append(runningUnknown)
-            entries.append(TradeEntry(trade: trade, gross: gross, fx: quote, amount: amount, cashEffect: cashEffect,
-                                      cost: cost, realizedGain: gain, quantityAfter: quantityAfter,
-                                      costAfter: costAfter))
+            entries.append(TradeEntry(trade: trade, amount: amount, cashEffect: cashEffect, cost: cost,
+                                      realizedGain: gain, quantityAfter: quantityAfter, costAfter: costAfter))
             if days.last?.date == trade.date {
                 days[days.count - 1].positions = positions
             } else {
@@ -229,9 +223,6 @@ public struct TradeLedger: Sendable {
 
     /// The date of the first trade, if any.
     public var firstDate: CalendarDate? { entries.first?.date }
-
-    /// The date of the latest trade, if any.
-    public var lastDate: CalendarDate? { entries.last?.date }
 
     /// The positions held at the end of `date` (its trades included), with
     /// their purchase cost (`nil` when unknown), sorted by instrument.

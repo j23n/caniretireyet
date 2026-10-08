@@ -193,12 +193,6 @@ final class CheckInStore {
         update { $0.resolveConflict(of: account, keepingSaved: keepingSaved, in: snapshot) }
     }
 
-    /// Settles every conflict the same way.
-    func resolveConflicts(keepingSaved: Bool) {
-        let snapshot = library.library
-        update { $0.resolveConflicts(keepingSaved: keepingSaved, in: snapshot) }
-    }
-
     /// Enters a price by hand (in the instrument's currency, per its unit).
     /// Fetching again won't replace it.
     func setManualPrice(_ price: Decimal, for instrument: InstrumentID) {

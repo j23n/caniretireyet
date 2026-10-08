@@ -127,8 +127,7 @@ struct TradeCheckInTests {
         paidFromCash.upsert(Trade(account: "coins", date: "2024-04-20", id: "fee", type: .fee, amount: -5))
         #expect(Valuator(library: paidFromCash).holdsCash("coins"))
         var rebased = draft
-        let result = rebased.rebase(onto: paidFromCash)
-        #expect(result.refreshed == ["coins"])
+        rebased.rebase(onto: paidFromCash)
         #expect(rebased["coins"]?.showsCash == true)
         #expect(rebased["coins"]?.cash == -5)
         #expect(rebased["coins"]?.followsTrades == true)
@@ -160,8 +159,7 @@ struct TradeCheckInTests {
         var draft = CheckInDraft(date: "2024-04-30", library: library())
         var changed = library()
         changed.upsert(TradeLibrary.trade(.deposit, "2024-04-29", id: "dep3", amount: "250"))
-        let result = draft.rebase(onto: changed)
-        #expect(result.refreshed == ["broker"])
+        draft.rebase(onto: changed)
         #expect(draft["broker"]?.followsTrades == true)
         #expect(draft["broker"]?.cash == d("6550.36"))
         #expect(draft.records(in: changed).valuations.first?.flow == 1250)
@@ -266,8 +264,7 @@ struct TradeCheckInTests {
         var changed = library()
         changed.upsert(TradeLibrary.trade(.dividend, "2024-04-20", id: "div2", instrument: "vwce", amount: "50"))
 
-        let result = draft.rebase(onto: changed)
-        #expect(result.refreshed == ["broker"])
+        draft.rebase(onto: changed)
         #expect(draft["broker"]?.cash == d("6350.36"))
         // What was typed stays, and the flow follows the new trades.
         edited.rebase(onto: changed)

@@ -26,14 +26,9 @@ public struct TradeFlow: Hashable, Sendable {
     /// The deposit, withdrawal, transfer, opening, or trade settled outside
     /// the account; `nil` for a residual.
     public let trade: Trade?
-    /// For a residual: the valuation whose cash differs from the trades'.
-    public let valuation: Valuation?
     /// For a residual: since when it could have arisen, the date of the
     /// account's previous valuation with cash (or its opening).
     public let since: CalendarDate?
-
-    /// Whether this is a residual rather than a recorded trade.
-    public var isResidual: Bool { valuation != nil }
 }
 
 /// The recorded part of a trades account's flow for one valuation, split as
@@ -66,30 +61,16 @@ extension Valuator {
         var flows: [TradeFlow] = []
         for entry in ledger.entries(after: start, through: end) where entry.trade.isFlow {
             flows.append(TradeFlow(date: entry.date, amount: flowAmount(of: entry, in: details), trade: entry.trade,
-                                   valuation: nil, since: nil))
+                                   since: nil))
         }
         for valuation in valuations(for: account) where valuation.cash != nil && valuation.date <= end {
             if let start, valuation.date <= start { continue }
             let anchor = cashAnchor(for: account, onOrBefore: valuation.date.adding(days: -1))
             guard let residual = residual(of: valuation, from: anchor), residual != 0 else { continue }
             let since = anchor?.date ?? min(ledger.firstDate ?? details.opened, details.opened)
-            flows.append(TradeFlow(date: valuation.date, amount: residual, trade: nil, valuation: valuation,
-                                   since: since))
+            flows.append(TradeFlow(date: valuation.date, amount: residual, trade: nil, since: since))
         }
         return flows.enumerated().sorted { ($0.element.date, $0.offset) < ($1.element.date, $1.offset) }.map(\.element)
-    }
-
-    /// The sum of ``tradeFlows(of:after:through:)``, in the account's
-    /// currency; `nil` when one of them is unknown, or for other accounts.
-    public func tradeFlowTotal(of account: AccountID, after start: CalendarDate?,
-                               through end: CalendarDate) -> Decimal? {
-        guard ledgers[account] != nil else { return nil }
-        var total: Decimal = 0
-        for flow in tradeFlows(of: account, after: start, through: end) {
-            guard let amount = flow.amount else { return nil }
-            total += amount
-        }
-        return total
     }
 
     /// The flow of `valuation` of a trades account since `previous`, the

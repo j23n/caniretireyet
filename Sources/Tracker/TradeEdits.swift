@@ -10,27 +10,22 @@ import Model
 public struct TradeEdit: Hashable, Sendable {
     /// The trade as written; `nil` when one was removed.
     public var saved: Trade?
-    /// The trade replaced or removed, if any.
-    public var removed: Trade?
     /// The account's opening date before the edit, when the trade was dated
     /// before it: the opening date moved back to the trade's date.
     public var movedOpeningFrom: CalendarDate?
     /// The flows of the account's valuations worked out again, or kept
     /// because they were typed by hand (see ``Model/Library/followFlows(from:)``).
     public var flows: FlowFollowUp
-    /// The account's trade issues after the edit (``Valuator/tradeIssues(for:)``).
-    public var issues: [TradeIssue]
-    /// The issues that weren't there before the edit, e.g. a later sale
-    /// now taking away more than is held.
+    /// The account's trade issues (``Valuator/tradeIssues(for:)``) that
+    /// weren't there before the edit, e.g. a later sale now taking away
+    /// more than is held.
     public var newIssues: [TradeIssue]
 
-    public init(saved: Trade? = nil, removed: Trade? = nil, movedOpeningFrom: CalendarDate? = nil,
-                flows: FlowFollowUp = FlowFollowUp(), issues: [TradeIssue] = [], newIssues: [TradeIssue] = []) {
+    public init(saved: Trade? = nil, movedOpeningFrom: CalendarDate? = nil, flows: FlowFollowUp = FlowFollowUp(),
+                newIssues: [TradeIssue] = []) {
         self.saved = saved
-        self.removed = removed
         self.movedOpeningFrom = movedOpeningFrom
         self.flows = flows
-        self.issues = issues
         self.newIssues = newIssues
     }
 }
@@ -67,33 +62,14 @@ extension Library {
         editTrade(saving: nil, replacing: key)
     }
 
-    /// What ``addTrade(_:)`` would do, without doing it.
-    public func previewAddingTrade(_ trade: Trade) -> TradeEdit {
-        var copy = self
-        return copy.addTrade(trade)
-    }
-
-    /// What ``updateTrade(_:replacing:)`` would do, without doing it.
-    public func previewUpdatingTrade(_ trade: Trade, replacing old: TradeKey? = nil) -> TradeEdit {
-        var copy = self
-        return copy.updateTrade(trade, replacing: old)
-    }
-
-    /// What ``removeTrade(_:)`` would do, without doing it.
-    public func previewRemovingTrade(_ key: TradeKey) -> TradeEdit {
-        var copy = self
-        return copy.removeTrade(key)
-    }
-
     /// Writes `trade` (when given) in place of the trade at `old` (when
     /// given), with the follow-on effects.
     private mutating func editTrade(saving trade: Trade?, replacing old: TradeKey?) -> TradeEdit {
         guard let account = trade?.account ?? old?.account else { return TradeEdit() }
         let issuesBefore = Set(Valuator(library: self).tradeIssues(for: account))
-        var removed: Trade?
         var movedFrom: CalendarDate?
         let flows = editValuations { library in
-            if let old { removed = library.removeTradeRecord(old) }
+            if let old { library.removeTradeRecord(old) }
             guard let trade else { return }
             library.upsert(trade)
             if let opened = library.accounts[trade.account]?.opened, trade.date < opened {
@@ -102,7 +78,7 @@ extension Library {
             }
         }
         let issues = Valuator(library: self).tradeIssues(for: account)
-        return TradeEdit(saved: trade, removed: removed, movedOpeningFrom: movedFrom, flows: flows, issues: issues,
+        return TradeEdit(saved: trade, movedOpeningFrom: movedFrom, flows: flows,
                          newIssues: issues.filter { !issuesBefore.contains($0) })
     }
 }

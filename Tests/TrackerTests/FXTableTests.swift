@@ -14,20 +14,20 @@ struct FXTableTests {
 
     @Test func identity() throws {
         let quote = try #require(table.quote(from: .jpy, to: .jpy, on: "2026-01-31"))
-        #expect(quote.method == .identity)
+        #expect(quote.legs.isEmpty)
         #expect(quote.convert(42) == 42)
         #expect(quote.date == nil)
     }
 
     @Test func directRate() throws {
         let quote = try #require(table.quote(from: .gbp, to: .eur, on: "2026-02-15"))
-        #expect(quote.method == .direct)
+        #expect(quote.legs.map(\.inverted) == [false])
         #expect(quote.convert(100) == 120)
     }
 
     @Test func inverseRate() throws {
         let quote = try #require(table.quote(from: .usd, to: .eur, on: "2026-02-01"))
-        #expect(quote.method == .inverse)
+        #expect(quote.legs.map(\.inverted) == [true])
         #expect(quote.convert(1000) == 800)
         #expect(quote.date == "2026-01-31")
     }
@@ -42,11 +42,11 @@ struct FXTableTests {
     @Test func crossedViaThePivot() throws {
         // 1 USD = 0.8 EUR = 0.76 CHF.
         let quote = try #require(table.quote(from: .usd, to: .chf, on: "2026-01-31"))
-        #expect(quote.method == .crossed(via: .eur))
         #expect(quote.convert(1000) == 760)
         #expect(quote.rate == d("0.76"))
-        #expect(quote.legs.map(\.from) == [.usd, .eur])
-        #expect(quote.legs.map(\.to) == [.eur, .chf])
+        // USD → EUR with the EUR/USD rate inverted, then EUR → CHF.
+        #expect(quote.legs.map(\.record.quote) == [.usd, .chf])
+        #expect(quote.legs.map(\.inverted) == [true, false])
         // 1 GBP = 1.2 EUR = 1.5 USD.
         #expect(table.convert(100, from: .gbp, to: .usd, on: "2026-01-31") == 150)
     }
@@ -78,7 +78,7 @@ struct FXTableTests {
             FXRecord(base: .usd, quote: .eur, date: "2026-02-28", rate: d("0.9")),
         ])
         let quote = try #require(table.quote(from: .usd, to: .eur, on: "2026-03-01"))
-        #expect(quote.method == .direct)
+        #expect(quote.legs.map(\.inverted) == [false])
         #expect(quote.convert(10) == 9)
     }
 }
@@ -97,6 +97,5 @@ struct PriceTableTests {
         #expect(table.latest(for: "a", onOrBefore: "2030-01-01")?.price == 3)
         #expect(table.latest(for: "b", onOrBefore: "2026-03-01")?.currency == .usd)
         #expect(table.latest(for: "c", onOrBefore: "2026-03-01") == nil)
-        #expect(table.history(for: "a").map(\.price) == [1, 2, 3])
     }
 }

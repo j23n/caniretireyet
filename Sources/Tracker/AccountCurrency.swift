@@ -16,12 +16,6 @@ public enum ValueCurrency: Hashable, Sendable {
 }
 
 extension Valuator {
-    /// The currency code `currency` stands for with `account`: the base
-    /// currency, or the account's own. `nil` for an unknown account.
-    public func currencyCode(_ currency: ValueCurrency, of account: AccountID) -> CurrencyCode? {
-        accounts[account].map { code(currency, for: $0) }
-    }
-
     /// The account's value on `date` in `currency`; `nil` if there's no
     /// such account. In ``ValueCurrency/base`` it's ``value(of:on:)``. In
     /// ``ValueCurrency/account``, balances and cash count as they are, and

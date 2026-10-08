@@ -121,7 +121,7 @@ struct CheckInDraftTests {
         #expect(change.total.other == 0)
         #expect(change.total.market.rounded(2) == d("-5014.53"))
         // The 10.5 VWCE were bought 20 below the month-end price: that's market.
-        #expect(change.change(of: "directa")?.change.market == d("671.75"))
+        #expect(change.accounts.first { $0.account == "directa" }?.change.market == d("671.75"))
 
         let directa = try #require(review.row(for: "directa"))
         #expect(directa.flow == 1500)

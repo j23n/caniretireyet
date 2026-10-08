@@ -154,21 +154,19 @@ public struct Valuator: Sendable {
 
         func add(_ kind: ValueComponent.Kind, amount: Decimal?, currency: CurrencyCode?, quantity: Decimal? = nil,
                  price: PriceRecord? = nil) {
-            var quote: FXQuote?
             var value: Decimal?
             if let amount, let currency {
                 if amount == 0 || currency == target {
                     value = amount
-                } else if let found = fx.quote(from: currency, to: target, on: date) {
-                    quote = found
-                    value = found.convert(amount)
+                } else if let converted = fx.convert(amount, from: currency, to: target, on: date) {
+                    value = converted
                 } else {
                     let problem = ValuationProblem.missingFX(account: account.id, from: currency, to: target)
                     if !problems.contains(problem) { problems.append(problem) }
                 }
             }
-            components.append(ValueComponent(kind: kind, quantity: quantity, price: price, amount: amount,
-                                             currency: currency, fx: quote, value: value))
+            components.append(ValueComponent(kind: kind, quantity: quantity, price: price, currency: currency,
+                                             value: value))
         }
 
         if let balance = valuation.balance {

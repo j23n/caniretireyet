@@ -160,7 +160,7 @@ Dividends, interest, fees, taxes, buys and sells paid from or into the account's
 
 ## Reconciliation
 
-A valuation of a trades account that lists `positions` is a check: `Valuator.reconciliation(of:)` compares each quantity with what the trades give on the valuation's date and returns the mismatches (`PositionMismatch`); an instrument the trades hold but the valuation doesn't list counts as listed at zero, since a statement lists every position. `reconcile(_:)` checks a valuation before it's saved, and the check-in review lists them (`CheckInRowReview.mismatches`). Listed costs are carried along for display but not compared.
+A valuation of a trades account that lists `positions` is a check: `Valuator.reconciliation(of:)` compares each quantity with what the trades give on the valuation's date and returns the mismatches (`PositionMismatch`); an instrument the trades hold but the valuation doesn't list counts as listed at zero, since a statement lists every position. `reconcile(_:)` checks a valuation before it's saved, and the check-in review lists them (`CheckInRowReview.mismatches`). Listed costs aren't compared.
 
 ## Check-ins
 
@@ -180,13 +180,13 @@ Tracker's `Library.addTrade(_:)`, `updateTrade(_:replacing:)` and `removeTrade(_
 
 - the flows of the account's later valuations worked out again when they were the automatic ones, or kept when typed by hand (`flows`);
 - the account's opening date moved back to an earlier trade (`movedOpeningFrom`);
-- the account's trade issues after the edit, and the ones it brought in, e.g. a later sale now taking away more than is held (`issues`, `newIssues`).
+- the trade issues the edit brought in, e.g. a later sale now taking away more than is held (`newIssues`).
 
-Each has a preview (`previewAddingTrade(_:)`, …) that changes nothing. `addTrade` never replaces another trade: a key that's taken gets a new random ID. `Library.upsert(_:)` and `removeTradeRecord(_:)` (Model) write the record alone.
+To preview an edit, make it on a copy of the library. `addTrade` never replaces another trade: a key that's taken gets a new random ID. `Library.upsert(_:)` and `removeTradeRecord(_:)` (Model) write the record alone.
 
 ## Converting an account
 
-Pure functions return the records a conversion writes (`AccountConversion`: the account, its valuations, the trades to add and remove, the months it touches, and notes on what was estimated), so the app can preview it, back up those files and apply it (`apply(to:)`, or `convertToTrades(_:)` / `convertToSnapshots(_:)`).
+Pure functions return the records a conversion writes (`AccountConversion`: the account, its valuations, the trades to add and remove, the months it touches, and notes on what was estimated), so the app can preview it, back up those files and apply it (`apply(to:)`, or `convertToTrades(_:)`).
 
 **Snapshots → trades** (`Library.conversionToTrades(of:)`):
 

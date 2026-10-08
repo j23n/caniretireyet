@@ -43,15 +43,9 @@ public struct ValueComponent: Hashable, Sendable {
     public let quantity: Decimal?
     /// Positions: the price used (the latest on or before the date).
     public let price: PriceRecord?
-    /// The amount in `currency`: the balance, the cash, or quantity × price.
-    /// `nil` when the price is missing.
-    public let amount: Decimal?
-    /// The currency of `amount`: the account's for balances and cash, the
-    /// price's for positions. `nil` when the price is missing.
+    /// The currency the part is held in: the account's for balances and
+    /// cash, the price's for positions. `nil` when the price is missing.
     public let currency: CurrencyCode?
-    /// The conversion to the value's currency (``AccountValue/currency``,
-    /// normally the base currency); `nil` when none was needed or none was found.
-    public let fx: FXQuote?
     /// The value in the value's currency (normally the base currency), or
     /// `nil` if it couldn't be computed.
     public let value: Decimal?
@@ -81,11 +75,6 @@ public struct AccountValue: Hashable, Sendable {
     public let valuation: Valuation?
     public let components: [ValueComponent]
     public let problems: [ValuationProblem]
-
-    /// Whether the account counts on the date (it's between opened and closed).
-    public var isOpen: Bool {
-        status == .valued || status == .noValuation
-    }
 
     /// Whether the value is fully known.
     public var isComplete: Bool {

@@ -92,9 +92,6 @@ struct AccountCurrencyTests {
         #expect(base.knownValue == 0)
         #expect(base.problems == [.missingFX(account: "brokerage", from: .usd, to: .eur)])
 
-        #expect(valuator.currencyCode(.account, of: "brokerage") == .usd)
-        #expect(valuator.currencyCode(.base, of: "brokerage") == .eur)
-        #expect(valuator.currencyCode(.account, of: "nope") == nil)
         #expect(valuator.value(of: "nope", on: "2021-11-30", in: .account) == nil)
     }
 
@@ -128,8 +125,8 @@ struct AccountCurrencyTests {
         let october = try #require(valuator.value(of: "us-broker", on: "2025-10-31", in: .account))
         #expect(october.value == d("2490.1412"))
         let etf = try #require(october.components.first(where: { $0.kind == .position("vwce") }))
-        #expect(etf.fx?.from == .eur)
-        #expect(etf.fx?.to == .usd)
+        #expect(etf.currency == .eur)
+        #expect(etf.value == d("1390.1412"))
 
         // No rate yet in September: the euro ETF is missing, and so is the unpriced position.
         let september = try #require(valuator.value(of: "us-broker", on: "2025-09-30", in: .account))
