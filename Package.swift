@@ -17,9 +17,6 @@ let libraries: [(name: String, dependencies: [Target.Dependency])] = [
     ("Glance", ["Model", "Tracker"]),
 ]
 
-/// Targets that ship resources.
-let resources: [String: [Resource]] = [:]
-
 /// Test targets that ship resources, e.g. sample files.
 let testResources: [String: [Resource]] = [
     "ImporterTests": [.copy("Samples")],
@@ -42,11 +39,7 @@ let package = Package(
         .package(url: "https://github.com/apple/swift-argument-parser", from: "1.5.0"),
     ],
     targets: libraries.map { library in
-        .target(
-            name: library.name,
-            dependencies: library.dependencies,
-            resources: resources[library.name]
-        )
+        .target(name: library.name, dependencies: library.dependencies)
     } + libraries.map { library in
         .testTarget(
             name: "\(library.name)Tests",
@@ -77,10 +70,7 @@ let package = Package(
         ),
         .testTarget(
             name: "RetireCLITests",
-            dependencies: [
-                "RetireCLI", "TestSupport", "Model", "Storage", "Importer", "Prices",
-                .product(name: "ArgumentParser", package: "swift-argument-parser"),
-            ],
+            dependencies: ["RetireCLI", "TestSupport", "Model", "Storage", "Prices", "Planner", "Tracker"],
             resources: [.copy("Samples")]
         ),
     ],
