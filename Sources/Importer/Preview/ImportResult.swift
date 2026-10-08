@@ -53,6 +53,20 @@ public struct ImportResult: Hashable, Sendable {
 }
 
 extension ImportPreview {
+    /// The records that applying leaves out as things stand: those of new
+    /// accounts and instruments that are rejected, and the trades of
+    /// accounts whose switch to recording trades is rejected.
+    public var leftOutRecords: Int {
+        let accounts = Set(newAccounts.filter { !$0.isAccepted }.map(\.account.id))
+        let instruments = Set(newInstruments.filter { !$0.isAccepted }.map(\.instrument.id))
+        let notTrades = Set(accountChanges.filter { $0.recordsTrades && !$0.isAccepted }.map(\.account))
+        return records.filter { record in
+            if let account = record.imported.key.account, accounts.contains(account) { return true }
+            if case .trade(let key) = record.imported.key, notTrades.contains(key.account) { return true }
+            return record.imported.instruments.contains { instruments.contains($0) }
+        }.count
+    }
+
     /// Applies the preview to `library` (normally the one it was made
     /// against) and returns the new library and what changed.
     ///

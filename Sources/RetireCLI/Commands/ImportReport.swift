@@ -41,19 +41,8 @@ struct ImportReport {
 
     // MARK: - Derived facts
 
-    /// The column holding the dates.
-    var dateColumn: Int? {
-        session.columnRoles.enumerated().first { offset, role in
-            switch role {
-            case .date: true
-            case .mapped(let index): profile.columns[index].field == .date
-            default: false
-            }
-        }.map { $0.offset + 1 }
-    }
-
     var datePattern: String? {
-        dateColumn.flatMap { session.effectiveFormat(forColumn: $0).date?.pattern }
+        session.dateColumn.flatMap { session.effectiveFormat(forColumn: $0).date?.pattern }
     }
 
     /// The file's number format: the profile's defaults, else what was detected.
@@ -63,19 +52,6 @@ struct ImportReport {
         let thousands = layers.lazy.filter { $0.decimal == nil || $0.decimal == decimal }.compactMap(\.thousands)
             .first { $0 != decimal }
         return ImportNumberFormat(decimal: decimal, thousands: thousands)
-    }
-
-    /// Records whose account or instrument won't be created, or trades of an
-    /// account that won't record trades, so they're left out.
-    var leftOutRecords: Int {
-        let accounts = Set(preview.newAccounts.filter { !$0.isAccepted }.map(\.account.id))
-        let instruments = Set(preview.newInstruments.filter { !$0.isAccepted }.map(\.instrument.id))
-        let notTrades = Set(preview.accountChanges.filter { $0.recordsTrades && !$0.isAccepted }.map(\.account))
-        return preview.records.filter { record in
-            if let account = record.imported.key.account, accounts.contains(account) { return true }
-            if case .trade(let key) = record.imported.key, notTrades.contains(key.account) { return true }
-            return record.imported.instruments.contains { instruments.contains($0) }
-        }.count
     }
 
     var problems: [ImportIssue] { preview.issues.filter { !$0.isNote } }
@@ -122,7 +98,7 @@ struct ImportReport {
         if aboveHeader > 0 { rowText += ", \(Format.count(aboveHeader, "title row")) above the header" }
         if footers > 0 { rowText += ", \(Format.count(footers, "footer row")) left out" }
         settings.add(["Rows", rowText])
-        let dates = dateColumn.map { "dates in \(table.header(of: $0).map { "“\($0)”" } ?? "column \($0)")" }
+        let dates = session.dateColumn.map { "dates in \(table.header(of: $0).map { "“\($0)”" } ?? "column \($0)")" }
             ?? "no date column"
         settings.add(["Layout", "\(profile.layout.rawValue), \(dates)"])
         if let datePattern { settings.add(["Dates", datePattern]) }
@@ -305,7 +281,7 @@ struct ImportReport {
 
     var newAccountsTitle: String {
         guard !preview.newAccounts.isEmpty else { return "New accounts" }
-        let leftOut = leftOutRecords
+        let leftOut = preview.leftOutRecords
         let accepted = preview.newAccounts.allSatisfy(\.isAccepted)
         return "New accounts (\(acceptance(accepted, flag: "--accept-new-accounts"))"
             + (leftOut > 0 && !accepted ? "; \(Format.count(leftOut, "record")) left out" : "") + ")"
@@ -540,7 +516,7 @@ struct ImportReport {
             settings: JSON.Settings(
                 encoding: table.encoding.rawValue, delimiter: table.delimiter, headerRow: table.headerRow,
                 excludeRows: table.excludeRows, dataRows: table.rows.count, layout: profile.layout.rawValue,
-                dateColumn: dateColumn, datePattern: datePattern, decimal: numberFormat.decimal ?? ".",
+                dateColumn: session.dateColumn, datePattern: datePattern, decimal: numberFormat.decimal ?? ".",
                 thousands: numberFormat.thousands ?? "",
                 liabilitySign: (profile.defaults.liabilitySign ?? .auto).rawValue),
             columns: session.columnRoles.enumerated().map { offset, role in
@@ -594,7 +570,8 @@ struct ImportReport {
                 conflicts: summary.conflicts, undecided: summary.undecidedConflicts, trades: summary.trades,
                 cellErrors: summary.cellErrors,
                 skippedRows: summary.skippedRows, issues: summary.issues, notes: summary.notes,
-                ambiguities: summary.ambiguities, leftOut: leftOutRecords, firstDate: preview.firstDate?.description,
+                ambiguities: summary.ambiguities, leftOut: preview.leftOutRecords,
+                firstDate: preview.firstDate?.description,
                 lastDate: preview.lastDate?.description),
             records: preview.records.map { record in
                 JSON.Record(date: record.imported.key.date.description, record: record.imported.key.description,

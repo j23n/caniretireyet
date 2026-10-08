@@ -235,21 +235,8 @@ extension ImportFlow {
         session?.table.rows.first?.cells ?? []
     }
 
-    /// The file column holding the dates, in either layout.
-    var dateColumn: Int? {
-        guard let session else { return nil }
-        for (offset, role) in session.columnRoles.enumerated() {
-            switch role {
-            case .date:
-                return offset + 1
-            case .mapped(let index) where session.profile.columns[index].field == .date:
-                return offset + 1
-            default:
-                continue
-            }
-        }
-        return nil
-    }
+    /// The file column holding the dates, in any layout (the one the preview reads).
+    var dateColumn: Int? { session?.dateColumn }
 
     /// The file columns whose values are imported as amounts, prices or quantities.
     var valueColumns: [Int] {

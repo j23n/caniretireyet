@@ -64,6 +64,10 @@ public struct ImportSession: Sendable {
         }
     }
 
+    /// The 1-based file column holding the dates, in any layout: the one
+    /// the preview reads them from.
+    public var dateColumn: Int? { bindings.dateColumn }
+
     /// The profile's column that a 1-based file column is bound to.
     public func mapping(forColumn column: Int) -> ImportColumn? {
         bindings.columns[column].map { profile.columns[$0] }

@@ -116,17 +116,7 @@ extension ImportFlow {
     // MARK: Counts
 
     /// Records left out because their new account or instrument was rejected.
-    var leftOutRecords: Int {
-        guard let preview else { return 0 }
-        let accounts = Set(preview.newAccounts.filter { !$0.isAccepted }.map(\.account.id))
-        let instruments = Set(preview.newInstruments.filter { !$0.isAccepted }.map(\.instrument.id))
-        let tradesSkipped = Set(preview.accountChanges.filter { $0.recordsTrades && !$0.isAccepted }.map(\.account))
-        return preview.records.filter { record in
-            if let account = record.imported.key.account, accounts.contains(account) { return true }
-            if case .trade(let key) = record.imported.key, tradesSkipped.contains(key.account) { return true }
-            return record.imported.instruments.contains { instruments.contains($0) }
-        }.count
-    }
+    var leftOutRecords: Int { preview?.leftOutRecords ?? 0 }
 
     /// What importing would do now, e.g. "Importing adds 12 records, fills
     /// in 3 and overwrites 1. 2 conflicts keep the library's values. It

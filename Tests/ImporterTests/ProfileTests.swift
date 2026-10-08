@@ -170,8 +170,10 @@ struct ProfileTests {
         var session = try ImportSession(data: Data(
             "Inserito;Data;Conto\n01/03/2026;31/01/2026;100\n01/04/2026;28/02/2026;200\n".utf8))
         #expect(session.profile.dateColumn == "Inserito")
+        #expect(session.dateColumn == 1)
         session.setDateColumn(2)
         #expect(session.profile.dateColumn == "Data")
+        #expect(session.dateColumn == 2)
         #expect(session.issues.isEmpty)
         #expect(session.columnRoles == [.mapped(profileColumn: 1), .date, .mapped(profileColumn: 0)])
         #expect(session.preview(against: Library()).records.map(\.imported.key.date) == [date("2026-01-31"),

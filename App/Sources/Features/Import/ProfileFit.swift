@@ -62,17 +62,8 @@ struct ProfileFit: Hashable, Sendable, Identifiable {
                               problem: ImportFlow.describe(error))
         }
         var imported = 0
-        var hasDates = false
         for role in session.columnRoles {
-            switch role {
-            case .date:
-                hasDates = true
-            case .mapped(let index):
-                let column = session.profile.columns[index]
-                if column.field == .date { hasDates = true } else if column.isImported { imported += 1 }
-            case .unknown, .unused:
-                break
-            }
+            if case .mapped(let index) = role, session.profile.columns[index].isImported { imported += 1 }
         }
         var missing = 0
         var unknown = 0
@@ -84,7 +75,7 @@ struct ProfileFit: Hashable, Sendable, Identifiable {
             }
         }
         return ProfileFit(profile: profile, imported: imported, missing: missing, unknown: unknown,
-                          hasDates: hasDates, problem: nil)
+                          hasDates: session.dateColumn != nil, problem: nil)
     }
 }
 

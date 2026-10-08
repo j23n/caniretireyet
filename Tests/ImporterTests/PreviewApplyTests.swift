@@ -167,6 +167,7 @@ struct PreviewApplyTests {
         preview.newAccounts[1].account.kind = .other
         preview.newAccounts[1].account.currency = .chf
         preview.newAccounts[0].isAccepted = false
+        #expect(preview.leftOutRecords == 1)
 
         let result = preview.apply(to: base)
         #expect(result.createdAccounts == ["savings"])

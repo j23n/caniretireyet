@@ -435,10 +435,12 @@ struct BrokerSampleTests {
         #expect(kept.library.accounts["conto-fineco"] == library.accounts["conto-fineco"])
         #expect(kept.library.trades(for: "conto-fineco").isEmpty)
         #expect(kept.skipped == 8)
+        #expect(preview.leftOutRecords == 8)
         #expect(kept.added == 0)
         // Accepted: the account records trades, and its trades are written.
         preview.accountChanges[0].isAccepted = true
         #expect(preview.summary.tradesAccounts == 1)
+        #expect(preview.leftOutRecords == 0)
         let switched = preview.apply(to: library)
         #expect(switched.tradesAccounts == ["conto-fineco"])
         #expect(switched.changedAccounts.contains("conto-fineco"))
