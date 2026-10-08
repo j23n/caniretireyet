@@ -662,43 +662,41 @@ See [PROGRESS.md](PROGRESS.md).
 │ │2025  ││ 2026 so far                  │ │
 │ │132k →││ 21.572 € ahead of January    │ │
 │ │134k  ││                      160k €  │ │
-│ │      ││       Coast point ⚑ ┃Today ░ │ │
-│ │      ││  150.000 € ⚑   ▅▆▇● ┃░░░░░░░ │ │
+│ │      ││                ⚑    ┃Today ░ │ │
+│ │      ││         ⚑      ▅▆▇● ┃░░░░░░░ │ │
 │ │      ││ ▁▂▃▄▅▆▇▇            ┃░░░░░░░ │ │
 │ │      ││ ┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┃┅┅┅┅┅┅┅ │ │
 │ │      ││ January expected    ┃ 120k € │ │
-│ │      ││ J F M A M J J A S O N D      │ │
-│ │Show  ││ (55)      (54)               │ │
+│ │Show  ││ J F M A M J J A S O N D      │ │
 │ ╰──────╯╰──────────────────────────────╯ │
 │ ╭──────────────────────────────────────╮ │
 │ │ 2026 so far                   ‹  ›   │ │
+│ │ 21.572 € ahead of January            │ │
 │ │ A year sooner, and past 150.000 €.   │ │
-│ │ ▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇┃▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇  │ │
-│ │           planned by now             │ │
-│ │ You saved 20.486 € · markets added   │ │
-│ │ 6.628 €                              │ │
+│ │ ╭─────────────────┬────────────────╮ │ │
+│ │ │ You saved       │ Markets added  │ │ │
+│ │ │ 20.486 €        │ 6.628 €        │ │ │
+│ │ │ planned 13.463 €│ expected 1.982 │ │ │
+│ │ ├─────────────────┼────────────────┤ │ │
+│ │ │ Earliest age    │ Its futures    │ │ │
+│ │ │ 55 → 54         │ 92 in 100      │ │ │
+│ │ │ a year sooner   │ are below you  │ │ │
+│ │ ╰─────────────────┴────────────────╯ │ │
+│ │ Why you're ahead                     │ │
+│ │ Going in   ▇▇▇▇▇▇▇▇▇▇▇▇    +12.557 € │ │
+│ │ Saving     ▇▇▇▇▇▇▇          +7.023 € │ │
+│ │ Markets    ▇▇▇▇             +4.646 € │ │
+│ │ Other      ▇▇               −2.654 € │ │
+│ │ ──────────────────────────────────── │ │
+│ │ Ahead                      +21.572 € │ │
+│ │ January expected 137.280 € by now.   │ │
+│ │ What happened                        │ │
 │ │ Mar    You saved 9.121 €, more than  │ │
 │ │        usual.                        │ │
 │ │ May  ⚑ Plan changed. Passed          │ │
 │ │        150.000 €.                    │ │
 │ │ Jun    54, a year sooner.            │ │
 │ │ Aug  ⚑ Passed the coast point: 67.   │ │
-│ │ ──────────────────────────────────── │ │
-│ │ Why you're ahead                     │ │
-│ │ Going into 2026           +12.557 €  │ │
-│ │ On 31 Dec you had 134.392 €; January │ │
-│ │ started from 121.835 €.              │ │
-│ │ Saving                     +7.023 €  │ │
-│ │ You saved 20.486 €; January planned  │ │
-│ │ 13.463 € by now.                     │ │
-│ │ Markets                    +4.645 €  │ │
-│ │ They added 6.628 €; January expected │ │
-│ │ 1.982 €.                             │ │
-│ │ Inflation                  −2.654 €  │ │
-│ │ ──────────────────────────────────── │ │
-│ │ Ahead of January          +21.572 €  │ │
-│ │ January expected 137.280 € by now,   │ │
-│ │ in January's money.                  │ │
 │ ╰──────────────────────────────────────╯ │
 │ ╭──────────────────────────────────────╮ │
 │ │ ⚑ Next milestone                     │ │
@@ -728,19 +726,20 @@ See [PROGRESS.md](PROGRESS.md).
 - **Year by year.** "Scroll back through the years; tap one." ("Scroll back, or use the arrows." on the Mac and iPad, with ‹ › and *Today* beside it). A card per calendar year from your first record of a plan asset (a value, or a trade) through the latest check-in, oldest on the left. A year without a check-in is valued from what you held and its prices ("No check-ins · from prices"), and the line runs through each check-in and the end of every month without one, to 31 December (this year's to the latest check-in), so what only a check-in can tell, like a bank balance, shows as a step at the next one; the strip opens at today, on the right. Each card is a year wide (26 points a month on the Mac and iPad, 21 on iPhone), and the cards on screen share one money scale fitted to their values rather than from zero, so a year's movement shows however far its money is from other years', and December of one year meets January of the next; when the strip comes to rest after scrolling, the scale refits to the cards then on screen, the lines fading to their new places. The cards name their own lines, so there's no key:
   - its year and change ("2025 +41.200 €", "2026 so far"), and where it ended against January, in green ahead ("21.572 € ahead of January") and orange behind ("3.000 € behind January"), against the month its baseline was saved in when the year's first check-in came after January ("2.100 € ahead of October"), or "Measured from your next check-in" while its baseline starts at the latest check-in, or "No January baseline";
   - your money through it, an ink line from January: solid into each check-in, with a small dot there, lighter where it's valued from what you held and its prices, dotted where a price or a rate is missing (those holdings count as zero), with a larger dot at the last; against what January expected: the year's automatic baseline's median, dashed, from its start to the year's end, labelled where it starts ("January expected"), on the side away from your line; between the two, green where you're ahead and orange where behind. With a baseline the line is the baseline's accounts, in money of its start where an inflation index allows, also before a baseline saved later in the year, where nothing is shaded; without one, plan assets in the base currency. On this year's card *Today* is a line down the graph, the rest of the year shaded after it;
-  - the milestones reached, on the line: the year's first and last named beside a filled flag ("150.000 €", "Coast point"), the last alone when their names would run into each other, the rest small dots;
+  - a flag on the line where a milestone was reached; their names are in the year's words;
   - the gridlines' amounts at the card's edge where nothing is drawn: the right, where the rest of this year is still to come, unless your line ends there;
-  - the months' initials along its bottom, and under them the answer: where the year started (outlined), and each check-in where it moved, in the accent when it came sooner, grey when later, violet when the plan changed. A chip without room is left out.
+  - the months' initials along its bottom. How the answer moved is in the year's words.
+  - On the Mac and iPad, under the graph, its figures in a line: "Saved 20.486 € · Markets +20.714 € · Age 55". The cards are all the same height.
   - **Reading the line.** The pointer over a card (the Mac, an iPad with a pointer), or a finger touched and held on it, then dragged (iPhone; the strip stays put until it lifts), reads the line at the nearest check-in or month end: a rule, a dot and a label with the date and where the value comes from ("31 Mar 2026 · check-in", "30 Apr 2026 · from prices"), the money ("312.480 €"), what January expected and the gap, from the baseline's start ("January expected 305.000 €", "7.480 € ahead"), a milestone reached there ("Passed 300.000 €."), what changed that day ("55, a year sooner.") and, when a price or a rate was missing, "Not every price is known". Amounts hide with the eye.
   - Choosing a card selects it, outlined in the accent; ‹ › (⌘[ and ⌘] with a keyboard) step through the years, and on the Mac and iPad *Today* goes back to this year's.
   - **VoiceOver and text size.** Each card is read as its year, change, where it stands and the year in a line, and as a chart: its audio graph and chart details give your money at each point and what was expected. The cards' graphs and labels grow with the text size up to the third-largest standard size, with room above and below the graph; past it they stop growing, and the year's words carry them at any size. The same goes for the plan's chapter cards.
   - The years before your first recorded answer are folded into one card at the strip's start ("2021–2023", "148.000 € → 205.000 €", "Before your first answer.", "⚑ 3 milestones") with *Show*, which lays them out as the others; choosing one of them with the arrows shows them too, and they stay laid out. On iPhone it's narrow, beside this year's card: the years, the amounts in short and *Show*.
-- **The year's words**, said once: on iPhone below the strip for the chosen year, headed by its title and change with ‹ ›; on the Mac and iPad in each year's card, under its graph.
-  - The year in a line: how the answer moved, the milestone it passed and what markets did, at most two of them ("A year sooner, and past 150.000 €.", "A strong year for markets, and a year sooner."); for a year whose check-ins stop early, "No check-ins after June: what you held is valued at its prices."
-  - What you saved and what markets added as one bar, with a mark where January planned your saving to be ("planned by now"; "planned" for a past year), and the two in words in the bar's colours ("You saved 20.486 € · markets added 6.628 €").
-  - What happened, a row a month, a month with a milestone flagged and the milestone in bold ("Mar · You saved 9.121 €, more than usual.", "May · ⚑ Plan changed. **Passed 150.000 €.**", "Jun · 55 again.", "Aug · ⚑ **Passed the coast point: 67.**", "Calculations updated.").
-  - Why ([PROGRESS.md](PROGRESS.md#actual-vs-a-baseline)): "Why you're ahead" ("Why you ended behind" for a past year), a row each, signed, in green or orange: the gap going into the year ("Going into 2026", "On 31 Dec you had 134.392 €; January started from 121.835 €."; against a baseline from before the year, what it expected then; where past values changed after the baseline was saved, the library's value on its start), saving ("You saved 20.486 €; January planned 13.463 € by now."), markets ("They added 6.628 €; January expected 1.982 €."), inflation and the rest ("Balances that changed without a recorded flow, and exchange rates."). Then the total, "Ahead of January +21.572 €", "January expected 137.280 € by now, in January's money." (for a past year by 31 Dec, and how that compares with its futures: "That's more than in 68 of its 100 futures."). In whole units, each row is the difference of the two amounts its sentence names, and inflation (without it, the rest) takes what rounding leaves, so the rows add up to the total. Without the split, January's note instead.
-  - A year with missing prices or rates says that those holdings count as zero and the line is dotted there, with *Fill In Past Prices…*. A year without a baseline offers *Add What You Planned in 2021…*, which opens *Add Past Baseline…* on its first day.
+- **The year's words**, said once, for the chosen year, under the strip: on iPhone one part after the other, its title with ‹ ›; on the Mac and iPad in columns beside each other (three when there's room, else the figures over why, beside what happened), the arrows being above the strip. Everything but what happened keeps its size from year to year, so stepping through the years moves nothing above it, and what happened comes last.
+  - Its title, change and where it stands against January ("2025 +41.200 €", "21.572 € ahead of January"), and the year in a line, always one line: how the answer moved, the milestone it passed and what markets did, at most two of them ("A year sooner, and past 150.000 €.", "A strong year for markets, and a year sooner."), else "A quiet year." ("A quiet year so far.").
+  - Its figures, two by two, each a title, the figure and a line under it: **You saved** "20.486 €", "planned 13.463 €" ("by now" this year); **Markets added** "20.714 €", "expected 5.982 €"; **Earliest age** "56 → 55", "a year sooner"; **Its futures** "92 in 100", "ended below you" ("are below you now" this year). On the Mac and iPad, above them, saving and markets as one bar with a mark where January planned your saving to be ("planned by now"; "planned" for a past year).
+  - Why ([PROGRESS.md](PROGRESS.md#actual-vs-a-baseline)): "Why you're ahead" ("Why you ended behind" for a past year), the same four rows every year, each with a bar on the largest's scale and its amount, signed, in green or orange, "0 €" in grey: **Going in** (the gap going into the year, or on a baseline's own start later in it), **Saving** (what you saved less what January planned), **Markets** (what they did less what January expected) and **Other** (inflation, values without new money entered, exchange rates). Then the total ("Ahead +21.572 €") and what January expected, in one line ("January expected 141.463 € by 31 Dec.", "… by now."). In whole units, so the rows add up to the total. Without the split, January's note instead, and for a year without a baseline *Add What You Planned in 2021…*, which opens *Add Past Baseline…* on its first day.
+  - What happened, a row a month, a month with a milestone flagged and the milestone in bold ("Mar · You saved 9.121 €, more than usual.", "May · ⚑ Plan changed. **Passed 150.000 €.**", "Jun · 55 again.", "Aug · ⚑ **Passed the coast point: 67.**", "Calculations updated."); "Nothing to note." without any.
+  - A year whose check-ins stop early says so ("No check-ins after June: what you held is valued at its prices."), and one with missing prices or rates that those holdings count as zero and the line is dotted there, with *Fill In Past Prices…*.
 - **Milestones**, after the year's words on iPhone, beside the strip on the Mac and iPad ([Milestones](#milestones)): the next, how far there and when it typically comes; saving nothing more, when you could still retire, and when you reached the coast point; *All Milestones*, every milestone reached and ahead, in a sheet.
 - **Next in your plan.** The chapter after the current one ("② Bridge, from 54 in 2042") with *Open*; then the one button, *Save Baseline…*, which takes a label ("Freeze what you expect now, to measure against it later."); and quietly under it *Add a Past Baseline…*. On the Mac and iPad under the milestones, beside the strip.
 - **Add Past Baseline…** ([PROGRESS.md](PROGRESS.md#past-baselines)): a sheet for what you planned before you used the app. *Planned on* (a day from your first record of a plan asset to your latest check-in, starting at the end of the first month) with your plan assets that day; **What you planned then**: take-home pay, spending while working, when to stop working and spending in retirement, a month each, starting from today's plan ("Returns, taxes, pensions, events and the rest are as in today's plan."); a name ("What I planned in 2021" when left empty). *Calculate and Save* runs the plan from that day and saves it; the baseline picker lists it as "What I planned in 2021 (added 6 Oct 2026)", and the years without their own baseline are measured against it ("12.400 € ahead of your 2021 plan", "Your 2021 plan expected …").

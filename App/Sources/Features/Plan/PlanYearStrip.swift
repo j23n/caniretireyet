@@ -6,57 +6,13 @@ import Tracker
 // Progress year by year (UI.md, "Progress"): the strip of years, each a
 // card with your money through the year against what January expected.
 
-/// The answer at a check-in, on a year's card: outlined where the year
-/// starts, in the accent when it came sooner, grey when later, violet when
-/// the plan changed.
-struct PlanAnswerChip: View {
-    let age: Int
-    let kind: PlanProgressTimeline.Chip.Kind
-    /// How much it has grown with the text size, on a card.
-    var scale: CGFloat = 1
-
-    static let width: CGFloat = 28
-
-    var body: some View {
-        Text(verbatim: "\(age)")
-            .font(.caption2.weight(.semibold))
-            .monospacedDigit()
-            .foregroundStyle(foreground)
-            .frame(width: Self.width * scale, height: 18 * scale)
-            .background(background, in: Capsule())
-            .overlay {
-                if kind == .start {
-                    Capsule().strokeBorder(Palette.border, lineWidth: 1)
-                }
-            }
-    }
-
-    private var foreground: Color {
-        switch kind {
-        case .start: Palette.ink
-        case .sooner: Palette.accent
-        case .later: Palette.secondaryInk
-        case .planChanged: Palette.violet
-        }
-    }
-
-    private var background: Color {
-        switch kind {
-        case .start: Palette.card
-        case .sooner: Palette.accent.opacity(0.12)
-        case .later: Palette.gridline.opacity(0.6)
-        case .planChanged: Palette.violet.opacity(0.15)
-        }
-    }
-}
-
 // MARK: - The strip of years
 
 /// The years side by side on a strip that opens at today, on the right, on
 /// one money scale, so December of one year meets January of the next.
-/// Choosing a card selects its year; on iPhone its words show below the
-/// strip, on the Mac and iPad each card shows its own. Selecting one
-/// elsewhere scrolls it into view.
+/// Choosing a card selects its year, whose words show below the strip; on
+/// the Mac and iPad each card also has its figures in a line under its
+/// graph. Selecting one elsewhere scrolls it into view.
 struct PlanYearStrip: View {
     let timeline: PlanProgressTimeline
     /// The index of the selected card.
@@ -66,12 +22,11 @@ struct PlanYearStrip: View {
     /// The strip's insets at its ends, so its cards line up with the page.
     var leadingInset: CGFloat = Metrics.l
     var trailingInset: CGFloat = Metrics.l
-    /// Whether each card shows its year's words under its graph (the Mac and iPad).
-    var showsWords = false
+    /// Whether each card shows its year's figures in a line under its graph
+    /// (the Mac and iPad).
+    var showsFooter = false
     /// Today, marked on the latest year's card.
     var today: CalendarDate?
-    /// *Add What You Planned in 2021…*, for a year without a baseline.
-    var onAddPastBaseline: ((Int) -> Void)?
 
     @Environment(\.hidesAmounts) private var hidesAmounts
     @Environment(\.locale) private var locale
@@ -109,7 +64,7 @@ struct PlanYearStrip: View {
                 HStack(alignment: .top, spacing: Metrics.s) {
                     if folds {
                         PlanEarlyYearsCard(cards: Array(timeline.cards.prefix(early)), height: height,
-                                           isCompact: !showsWords) {
+                                           isCompact: !showsFooter) {
                             withAnimation(.snappy) { showsEarlyYears = true }
                         }
                     }
@@ -153,7 +108,7 @@ struct PlanYearStrip: View {
     }
 
     /// A year's card: its graph, which chooses it, and on the Mac and iPad
-    /// its words under it.
+    /// its figures in a line under it.
     private func yearCard(_ card: PlanProgressTimeline.Card, index: Int, scale: PlanProgressTimeline.Scale?,
                           height: CGFloat, textScale: CGFloat) -> some View {
         let shape = RoundedRectangle(cornerRadius: 14, style: .continuous)
@@ -171,11 +126,10 @@ struct PlanYearStrip: View {
             .accessibilityLabel(Text(accessibilityLabel(card)))
             .accessibilityAddTraits(isSelected ? .isSelected : [])
             .accessibilityChartDescriptor(chartSummary(card))
-            if showsWords {
-                PlanYearWords(card: card, onAddPastBaseline: onAddPastBaseline)
+            if showsFooter {
+                PlanYearCardFooter(card: card)
                     .padding(.horizontal, 14)
-                    .padding(.top, Metrics.xs)
-                    .padding(.bottom, 14)
+                    .padding(.bottom, 12)
                     .frame(width: PlanYearCardView.width(pointsPerMonth: pointsPerMonth), alignment: .leading)
             }
         }
@@ -337,10 +291,11 @@ struct PlanEarlyYearsCard: View {
 
 /// One year on the strip: its change, where it ended against January, your
 /// money through it (the line) against what January expected (dashed),
-/// green where you're ahead and orange where behind, the months along its
-/// bottom and the answer where it moved; the rest of the year still to
-/// come shaded. The card names its own lines (*Today*, *January
-/// expected*) and up to two of the milestones on them, so it needs no key.
+/// green where you're ahead and orange where behind, a flag where you
+/// passed a milestone, and the months along its bottom; the rest of the
+/// year still to come shaded. The card names its own lines (*Today*,
+/// *January expected*), so it needs no key; the milestones' names and how
+/// the answer moved are in the year's words.
 struct PlanYearCardView: View {
     let card: PlanProgressTimeline.Card
     let scale: PlanProgressTimeline.Scale?
@@ -370,10 +325,10 @@ struct PlanYearCardView: View {
         12 * pointsPerMonth + 2 * pad
     }
 
-    /// A card's height: its header, the graph, and the months and answers
-    /// under it, growing with the text size.
+    /// A card's height: its header, the graph, and the months under it,
+    /// growing with the text size.
     static func height(textScale: CGFloat) -> CGFloat {
-        186 + 98 * textScale
+        187 + 67 * textScale
     }
 
     var body: some View {
@@ -390,11 +345,9 @@ struct PlanYearCardView: View {
             if let scale {
                 amountLabels(scale)
                 expectedLabel(scale)
-                milestoneLabels(scale)
             }
             todayLabel
             months
-            chips
             if let pointerX {
                 readout(at: pointerX)
             }
@@ -507,53 +460,10 @@ struct PlanYearCardView: View {
         }
     }
 
-    /// A milestone on the line, and its name when it's one of the two named.
-    private struct Mark: Identifiable {
-        var reached: ReachedMilestone
-        var point: CGPoint
-        var label: String?
-        /// Whether its name goes left of its flag (else right).
-        var labelOnLeft = true
-        var id: ReachedMilestone.ID { reached.id }
-    }
-
-    /// The milestones on the line: the first and the last named, with a
-    /// flag, when there's room for both; the rest small dots.
-    private func marks(_ scale: PlanProgressTimeline.Scale) -> [Mark] {
-        let text = PlanMilestoneText(currency: card.currency, hidesAmounts: hidesAmounts, locale: locale)
-        var marks: [Mark] = card.milestones.compactMap { reached in
-            flagPoint(for: reached).map { Mark(reached: reached, point: position(of: $0, scale)) }
-        }
-        guard !marks.isEmpty else { return [] }
-        /// The span a name and its flag take, about: 6 points a letter.
-        func span(of mark: Mark) -> ClosedRange<CGFloat> {
-            let x = mark.point.x
-            let label = CGFloat(mark.label?.count ?? 0) * 6 + 4
-            return mark.labelOnLeft ? (x - 3 - label)...(x + 10) : (x - 1)...(x + 11 + label)
-        }
-        func name(_ index: Int) {
-            let label = text.label(marks[index].reached.milestone)
-            marks[index].label = label
-            marks[index].labelOnLeft = marks[index].point.x - 3 - CGFloat(label.count) * 6 - 4 >= 2
-        }
-        let last = marks.count - 1
-        name(last)
-        if last > 0 {
-            name(0)
-            let first = span(of: marks[0])
-            let latest = span(of: marks[last])
-            let apart = abs(marks[0].point.y - marks[last].point.y) > 18
-            if first.overlaps(latest) && !apart { marks[0].label = nil }
-        }
-        return marks
-    }
-
-    private func milestoneLabels(_ scale: PlanProgressTimeline.Scale) -> some View {
-        ForEach(marks(scale).filter { $0.label != nil }) { mark in
-            graphLabel(mark.label ?? "", weight: .semibold, color: Palette.ink)
-                .frame(width: mark.labelOnLeft ? max(0, mark.point.x - 3) : nil, alignment: .trailing)
-                .offset(x: mark.labelOnLeft ? 0 : mark.point.x + 11, y: max(graphTop - 14, mark.point.y - 19))
-        }
+    /// Where the milestones reached in the year stand on the line, each
+    /// flagged at the value nearest the day it was reached.
+    private func flagPoints(_ scale: PlanProgressTimeline.Scale) -> [CGPoint] {
+        card.milestones.compactMap { reached in flagPoint(for: reached).map { position(of: $0, scale) } }
     }
 
     /// The months' initials along the bottom.
@@ -565,28 +475,6 @@ struct PlanYearCardView: View {
                 .frame(width: pointsPerMonth)
                 .offset(x: Self.pad + CGFloat(month - 1) * pointsPerMonth, y: plotBottom + 5)
         }
-    }
-
-    /// The answer where the year starts and where it moved, under the months.
-    private var chips: some View {
-        ForEach(placedChips, id: \.chip.id) { placed in
-            PlanAnswerChip(age: placed.chip.age, kind: placed.chip.kind, scale: textScale)
-                .offset(x: placed.x, y: plotBottom + 26 * textScale)
-        }
-    }
-
-    /// The chips that fit without overlapping, each centred on its date.
-    private var placedChips: [(chip: PlanProgressTimeline.Chip, x: CGFloat)] {
-        let chipWidth = PlanAnswerChip.width * textScale
-        var placed: [(chip: PlanProgressTimeline.Chip, x: CGFloat)] = []
-        var end: CGFloat = 0
-        for chip in card.chips {
-            let start = min(max(4, x(chip.date) - chipWidth / 2), width - chipWidth - 4)
-            guard start >= end else { continue }
-            placed.append((chip: chip, x: start))
-            end = start + chipWidth + 2
-        }
-        return placed
     }
 
     // MARK: At the pointer
@@ -795,16 +683,10 @@ struct PlanYearCardView: View {
             context.stroke(today, with: .color(Palette.accent), lineWidth: 1)
         }
         drawMoney(in: &context, scale)
-        for mark in marks(scale) {
-            if mark.label != nil {
-                let flag = PlanMilestoneFlag.path(at: mark.point)
-                context.fill(flag, with: .color(Palette.accent))
-                context.stroke(flag, with: .color(Palette.card), lineWidth: 1)
-            } else {
-                let dot = Path(ellipseIn: CGRect(x: mark.point.x - 3.5, y: mark.point.y - 3.5, width: 7, height: 7))
-                context.fill(dot, with: .color(Palette.accent))
-                context.stroke(dot, with: .color(Palette.card), lineWidth: 1.5)
-            }
+        for point in flagPoints(scale) {
+            let flag = PlanMilestoneFlag.path(at: point)
+            context.fill(flag, with: .color(Palette.accent))
+            context.stroke(flag, with: .color(Palette.card), lineWidth: 1)
         }
     }
 }
