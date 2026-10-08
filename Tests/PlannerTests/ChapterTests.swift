@@ -73,7 +73,6 @@ struct ChapterTests {
             [.retiredSpending, .pension(0), .pension(1), .targetMix],
         ])
         #expect(chapters.outside.isEmpty)
-        #expect(chapters.chapters.allSatisfy { $0.outcome == nil })
         #expect(chapters.chapterIndex(of: .event(1)) == 1)
         #expect(chapters.chapterIndex(containing: 2050) == 2)
         #expect(chapters.chapterIndex(containing: 2084) == nil)
@@ -104,29 +103,6 @@ struct ChapterTests {
         #expect(chapters.chapters.map(\.continuing) == [
             [], [.workingSpending, .targetMix], [], [.retiredSpending, .targetMixStep(0)],
         ])
-    }
-
-    @Test func chaptersFromAResultSayWhereTheMoneyStands() async throws {
-        let library = try Fixtures.exampleLibrary()
-        let plan = try #require(library.plans["base"])
-        let result = try await Sample.run(plan, library,
-                                          options: PlannerOptions(mode: .fast(runs: 100), maxRetirementAge: 60,
-                                                                  solveSustainableSpending: false))
-        let chapters = PlanChapters(result: result)
-
-        var withoutOutcomes = chapters
-        for index in withoutOutcomes.chapters.indices { withoutOutcomes.chapters[index].outcome = nil }
-        #expect(withoutOutcomes == PlanChapters(plan: plan, birthYear: 1988, start: "2026-09-30", retirementAge: 55))
-
-        for chapter in chapters.chapters {
-            let outcome = try #require(chapter.outcome)
-            let yearEnd = result.fan.first(where: { $0.year == chapter.years.upperBound })
-            #expect(outcome.end == yearEnd)
-            #expect(outcome.runs == result.failures.runs)
-        }
-        // Every failing run fails in one chapter.
-        let failures = chapters.chapters.map { $0.outcome?.failures ?? 0 }.reduce(0, +)
-        #expect(failures == result.failures.failed)
     }
 
     @Test func aSecondPensionStartsInsideThePensionsChapter() {
@@ -194,5 +170,13 @@ struct ChapterTests {
         #expect(chapters.chapterIndex(of: .contribution(0)) == 0)
         #expect(chapters.chapterIndex(of: .event(1)) == 1)
         #expect(chapters.outside == [.pension(0), .event(0), .event(2)])
+    }
+}
+
+extension PlanChapters {
+    /// The index of the chapter `item` starts or happens in; `nil` when it's
+    /// ``outside``.
+    func chapterIndex(of item: PlanChapter.Item) -> Int? {
+        chapters.firstIndex { $0.items.contains(item) }
     }
 }

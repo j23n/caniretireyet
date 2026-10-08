@@ -39,30 +39,9 @@ public struct PlanChapters: Hashable, Sendable {
                   retirementAge: retirementAge)
     }
 
-    /// The chapters of a result's plan at its focus age, each with how its
-    /// money stands at its end (``PlanChapter/outcome``).
-    public init(result: PlanResult) {
-        let birthYear = result.fan.first.map { $0.year - $0.age } ?? result.start.date.year - result.start.age
-        self.init(plan: result.plan, birthYear: birthYear, start: result.start.date, retirementAge: result.focusAge)
-        for index in chapters.indices {
-            let chapter = chapters[index]
-            guard let end = result.fan.first(where: { $0.year == chapter.years.upperBound }) else { continue }
-            let failures = result.failures.byAge
-                .filter { chapter.ages.contains($0.age) }
-                .reduce(0) { $0 + $1.count }
-            chapters[index].outcome = PlanChapter.Outcome(end: end, failures: failures, runs: result.failures.runs)
-        }
-    }
-
     /// The index of the chapter covering `year`.
     public func chapterIndex(containing year: Int) -> Int? {
         chapters.firstIndex { $0.years.contains(year) }
-    }
-
-    /// The index of the chapter `item` starts or happens in; `nil` when it's
-    /// ``outside``.
-    public func chapterIndex(of item: PlanChapter.Item) -> Int? {
-        chapters.firstIndex { $0.items.contains(item) }
     }
 }
 
@@ -115,27 +94,6 @@ public struct PlanChapter: Hashable, Sendable {
         case end
     }
 
-    /// How a chapter's money stands at its end, across a result's runs.
-    public struct Outcome: Hashable, Sendable {
-        /// Plan assets at the end of the chapter's last year.
-        public var end: FanYear
-        /// The runs whose money runs out during the chapter.
-        public var failures: Int
-        /// Every run.
-        public var runs: Int
-
-        public init(end: FanYear, failures: Int, runs: Int) {
-            self.end = end
-            self.failures = failures
-            self.runs = runs
-        }
-
-        /// `failures / runs`.
-        public var failureRate: Double {
-            runs > 0 ? Double(failures) / Double(runs) : 0
-        }
-    }
-
     public var kind: Kind
     /// The calendar years the chapter covers. The plan's first year is
     /// simulated from the day after the check-in.
@@ -149,19 +107,15 @@ public struct PlanChapter: Hashable, Sendable {
     public var items: [Item]
     /// The inputs still in force from an earlier chapter.
     public var continuing: [Item]
-    /// How the money stands at the end; `nil` unless the chapters come from
-    /// a result.
-    public var outcome: Outcome?
 
     public init(kind: Kind, years: ClosedRange<Int>, ages: ClosedRange<Int>, spendingFactor: Decimal? = nil,
-                items: [Item] = [], continuing: [Item] = [], outcome: Outcome? = nil) {
+                items: [Item] = [], continuing: [Item] = []) {
         self.kind = kind
         self.years = years
         self.ages = ages
         self.spendingFactor = spendingFactor
         self.items = items
         self.continuing = continuing
-        self.outcome = outcome
     }
 
     /// Whether work has stopped.
