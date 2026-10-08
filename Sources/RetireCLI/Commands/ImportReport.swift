@@ -146,8 +146,7 @@ struct ImportReport {
             if profile.layout.rowIsRecord, let field = mapping.field, field != .value {
                 return Self.fieldName(field, trades: profile.layout == .trades)
             }
-            guard let target = mapping.target ?? (mapping.field == .value ? profile.target : nil), target != .ignore
-            else { return "ignored" }
+            guard let target = profile.target(of: mapping), target != .ignore else { return "ignored" }
             if profile.layout == .long { return "values: \(target.rawValue)" }
             let header = table.header(of: column)
             let account = (mapping.account ?? profile.constants.account).map(\.rawValue)

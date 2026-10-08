@@ -106,8 +106,7 @@ extension ImportSession {
     /// into the column, as an ID.
     private static func resolveHeader(_ header: String, target: ImportTarget, in mapping: inout ImportColumn,
                                       constants: ImportConstants, matcher: NameMatcher) {
-        let needsAccount = [.balance, .cash, .quantity, .costBasis].contains(target)
-        let needsInstrument = [.quantity, .costBasis, .price].contains(target)
+        let needsAccount = target.needsAccount, needsInstrument = target.needsInstrument
         let account = mapping.account ?? constants.account
         let instrument = mapping.instrument ?? constants.instrument
         if needsAccount, account == nil, !needsInstrument || instrument != nil {

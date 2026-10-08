@@ -71,13 +71,6 @@ enum ColumnUse: Hashable, Sendable {
     }
 }
 
-extension ImportTarget {
-    /// Whether values of this target belong to an account.
-    var needsAccount: Bool { [.balance, .cash, .quantity, .costBasis].contains(self) }
-    /// Whether values of this target belong to an instrument.
-    var needsInstrument: Bool { [.quantity, .costBasis, .price].contains(self) }
-}
-
 /// One row of the Columns table: a file column, what it holds and how it's imported.
 struct ImportColumnRow: Identifiable, Hashable, Sendable {
     /// The 1-based file column.
@@ -174,8 +167,7 @@ extension ImportFlow {
                 if field == .ignore { return .ignore }
                 return .field(field)
             }
-            guard let target = mapping.target ?? (mapping.field == .value ? session.profile.target : nil),
-                  target != .ignore else { return .ignore }
+            guard let target = session.profile.target(of: mapping), target != .ignore else { return .ignore }
             return .value(target)
         }
     }

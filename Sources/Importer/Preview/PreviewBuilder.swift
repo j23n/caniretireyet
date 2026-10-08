@@ -148,14 +148,11 @@ struct PreviewBuilder {
     /// column, the profile's constants, or the header.
     private mutating func wideColumn(_ column: Int, mapping index: Int) -> WideColumn? {
         let mapping = profile.columns[index]
-        guard let target = mapping.target ?? (mapping.field == .value ? profile.target : nil),
-              target != .ignore, target.isKnown
-        else { return nil }
+        guard let target = profile.target(of: mapping), target != .ignore, target.isKnown else { return nil }
         let header = table.header(of: column)
         var account = (mapping.account ?? profile.constants.account).map { NameRef.id($0.rawValue) }
         var instrument = (mapping.instrument ?? profile.constants.instrument).map { NameRef.id($0.rawValue) }
-        let needsAccount = [.balance, .cash, .quantity, .costBasis].contains(target)
-        let needsInstrument = [.quantity, .costBasis, .price].contains(target)
+        let needsAccount = target.needsAccount, needsInstrument = target.needsInstrument
         if let header {
             if needsAccount, account == nil, !needsInstrument || instrument != nil {
                 account = .name(header)
@@ -200,7 +197,7 @@ struct PreviewBuilder {
             let mapping = profile.columns[index]
             let isValue = mapping.field == .value || (mapping.field == nil && mapping.target != nil)
             if isValue {
-                guard let target = mapping.target ?? profile.target, target != .ignore, target.isKnown else { continue }
+                guard let target = profile.target(of: mapping), target != .ignore, target.isKnown else { continue }
                 let format = session.effectiveFormat(forColumn: column)
                 valueColumns.append((column, target, NumberParser(format: format.number ?? ImportNumberFormat()),
                                      format.empty ?? .skip, format.liabilitySign ?? .auto))
@@ -241,8 +238,8 @@ struct PreviewBuilder {
                 }
                 let target = spec.target
                 let needs: [(ImportField, Bool)] = [
-                    (.account, [.balance, .cash, .quantity, .costBasis].contains(target) && account == nil),
-                    (.instrument, [.quantity, .costBasis, .price].contains(target) && instrument == nil),
+                    (.account, target.needsAccount && account == nil),
+                    (.instrument, target.needsInstrument && instrument == nil),
                     (.base, target == .fx && base == nil),
                     (.quote, target == .fx && quote == nil),
                 ]

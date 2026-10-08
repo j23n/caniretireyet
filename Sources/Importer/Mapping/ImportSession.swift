@@ -315,3 +315,18 @@ public enum ColumnRole: Hashable, Sendable {
     /// It's empty.
     case unused
 }
+
+extension ImportProfile {
+    /// What a column's values become: its own target, or for a value field
+    /// of the long layout, the profile's.
+    public func target(of column: ImportColumn) -> ImportTarget? {
+        column.target ?? (column.field == .value ? self.target : nil)
+    }
+}
+
+extension ImportTarget {
+    /// Whether values of this target belong to an account.
+    public var needsAccount: Bool { [.balance, .cash, .quantity, .costBasis].contains(self) }
+    /// Whether values of this target belong to an instrument.
+    public var needsInstrument: Bool { [.quantity, .costBasis, .price].contains(self) }
+}
