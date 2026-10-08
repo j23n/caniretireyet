@@ -82,11 +82,6 @@ public struct Valuator: Sendable {
         return valuations[index]
     }
 
-    /// The account's value on `date`, or `nil` if there's no such account.
-    public func value(of account: AccountID, on date: CalendarDate) -> AccountValue? {
-        accounts[account].map { value(of: $0, on: date) }
-    }
-
     /// `valuation` valued on `date` as if it were its account's latest one,
     /// at the prices and FX rates of that date and whatever the account's
     /// opened and closed dates: for example, last month's quantities at

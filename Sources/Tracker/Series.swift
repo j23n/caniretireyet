@@ -149,14 +149,6 @@ extension Valuator {
         }
     }
 
-    /// One account's value over time, from `start` (default: its first
-    /// valuation, or first trade) through `end`. Zero before it opens and
-    /// after it closes.
-    public func series(of account: AccountID, grid: SeriesGrid = .monthEnds, from start: CalendarDate? = nil,
-                       through end: CalendarDate) -> [SeriesPoint] {
-        series(of: account, in: .base, grid: grid, from: start, through: end)
-    }
-
     /// The dates of one account's series from `start` (default: its first
     /// valuation, or first trade) through `end`.
     func dates(of account: AccountID, grid: SeriesGrid, from start: CalendarDate?,

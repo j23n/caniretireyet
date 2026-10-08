@@ -16,21 +16,23 @@ public enum ValueCurrency: Hashable, Sendable {
 }
 
 extension Valuator {
-    /// The account's value on `date` in `currency`; `nil` if there's no
-    /// such account. In ``ValueCurrency/base`` it's ``value(of:on:)``. In
+    /// The account's value on `date` in `currency` (the base currency by
+    /// default); `nil` if there's no such account. In
     /// ``ValueCurrency/account``, balances and cash count as they are, and
     /// only positions priced in another currency are converted; a missing
     /// rate is a ``ValuationProblem/missingFX(account:from:to:)`` into the
     /// account's currency.
-    public func value(of account: AccountID, on date: CalendarDate, in currency: ValueCurrency) -> AccountValue? {
+    public func value(of account: AccountID, on date: CalendarDate,
+                      in currency: ValueCurrency = .base) -> AccountValue? {
         accounts[account].map { value(of: $0, on: date, in: code(currency, for: $0)) }
     }
 
-    /// One account's value over time in `currency`, from `start` (default:
-    /// its first valuation, or first trade) through `end`. Zero before it
-    /// opens and after it closes; a point that couldn't be valued completely
-    /// has `isComplete == false` and the sum of what could be.
-    public func series(of account: AccountID, in currency: ValueCurrency, grid: SeriesGrid = .monthEnds,
+    /// One account's value over time in `currency` (the base currency by
+    /// default), from `start` (default: its first valuation, or first
+    /// trade) through `end`. Zero before it opens and after it closes; a
+    /// point that couldn't be valued completely has `isComplete == false`
+    /// and the sum of what could be.
+    public func series(of account: AccountID, in currency: ValueCurrency = .base, grid: SeriesGrid = .monthEnds,
                        from start: CalendarDate? = nil, through end: CalendarDate) -> [SeriesPoint] {
         guard let found = accounts[account] else { return [] }
         let target = code(currency, for: found)
@@ -40,12 +42,13 @@ extension Valuator {
         }
     }
 
-    /// How one account changed from `from` to `to`, in `currency`; `nil` if
-    /// it's unknown. In ``ValueCurrency/account`` its recorded flows count
-    /// as they are, and only positions priced in another currency are
-    /// converted, at each date's rate.
+    /// How one account changed from `from` to `to`, in `currency` (the
+    /// base currency by default); `nil` if it's unknown. In
+    /// ``ValueCurrency/account`` its recorded flows count as they are, and
+    /// only positions priced in another currency are converted, at each
+    /// date's rate.
     public func change(of account: AccountID, from: CalendarDate, to: CalendarDate,
-                       in currency: ValueCurrency) -> AccountChange? {
+                       in currency: ValueCurrency = .base) -> AccountChange? {
         accounts[account].map { change(of: $0, from: from, to: to, in: code(currency, for: $0)) }
     }
 

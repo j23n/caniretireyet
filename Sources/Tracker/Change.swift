@@ -182,11 +182,6 @@ extension Valuator {
         return change(from: previous, to: latest, in: scope)
     }
 
-    /// How one account changed from `from` to `to`; `nil` if it's unknown.
-    public func change(of account: AccountID, from: CalendarDate, to: CalendarDate) -> AccountChange? {
-        accounts[account].map { change(of: $0, from: from, to: to) }
-    }
-
     /// How `account` changed, in `currency` (the base currency when `nil`).
     func change(of account: Account, from: CalendarDate, to: CalendarDate,
                 in currency: CurrencyCode? = nil) -> AccountChange {
