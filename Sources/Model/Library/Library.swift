@@ -140,43 +140,28 @@ extension Library {
     /// Adds a valuation, or replaces the one with the same account and date.
     /// It goes into its date's month file, which stays sorted.
     public mutating func upsert(_ valuation: Valuation) {
-        let month = valuation.date.yearMonth
-        var file = months[month] ?? MonthFile(month: month)
-        Self.upsert(valuation, into: &file.valuations)
-        months[month] = file
+        upsert(valuation, on: valuation.date, in: \.valuations)
     }
 
     /// Adds a price, or replaces the one with the same instrument and date.
     public mutating func upsert(_ price: PriceRecord) {
-        let month = price.date.yearMonth
-        var file = months[month] ?? MonthFile(month: month)
-        Self.upsert(price, into: &file.prices)
-        months[month] = file
+        upsert(price, on: price.date, in: \.prices)
     }
 
     /// Adds an FX rate, or replaces the one with the same pair and date.
     public mutating func upsert(_ rate: FXRecord) {
-        let month = rate.date.yearMonth
-        var file = months[month] ?? MonthFile(month: month)
-        Self.upsert(rate, into: &file.fx)
-        months[month] = file
+        upsert(rate, on: rate.date, in: \.fx)
     }
 
     /// Adds an index value, or replaces the one with the same index and date.
     public mutating func upsert(_ value: IndexRecord) {
-        let month = value.date.yearMonth
-        var file = months[month] ?? MonthFile(month: month)
-        Self.upsert(value, into: &file.indices)
-        months[month] = file
+        upsert(value, on: value.date, in: \.indices)
     }
 
     /// Adds a trade, or replaces the one with the same key (account, date
     /// and ID). It goes into its date's month file, which stays sorted.
     public mutating func upsert(_ trade: Trade) {
-        let month = trade.date.yearMonth
-        var file = months[month] ?? MonthFile(month: month)
-        Self.upsert(trade, into: &file.trades)
-        months[month] = file
+        upsert(trade, on: trade.date, in: \.trades)
     }
 
     /// Removes the trade record with this key, returning it if there was
@@ -184,26 +169,37 @@ extension Library {
     /// `removeTrade(_:)` also keeps the flows of later valuations in step.)
     @discardableResult
     public mutating func removeTradeRecord(_ key: TradeKey) -> Trade? {
-        let month = key.date.yearMonth
-        guard let index = months[month]?.trades.firstIndex(where: { $0.key == key }) else { return nil }
-        return months[month]?.trades.remove(at: index)
+        remove(key, on: key.date, from: \.trades)
     }
 
     /// Removes the valuation with this key, returning it if there was one.
     /// An emptied month file stays in `months` (Storage decides whether to delete the file).
     @discardableResult
     public mutating func removeValuation(_ key: ValuationKey) -> Valuation? {
-        let month = key.date.yearMonth
-        guard let index = months[month]?.valuations.firstIndex(where: { $0.key == key }) else { return nil }
-        return months[month]?.valuations.remove(at: index)
+        remove(key, on: key.date, from: \.valuations)
     }
 
-    private static func upsert<Record: KeyedRecord>(_ record: Record, into records: inout [Record]) {
+    /// Adds `record` to `list` in the month file of `date`, or replaces the
+    /// record with the same key; the list stays sorted by key.
+    private mutating func upsert<Record: KeyedRecord>(_ record: Record, on date: CalendarDate,
+                                                      in list: WritableKeyPath<MonthFile, [Record]>) {
+        let month = date.yearMonth
+        var records = months[month]?[keyPath: list] ?? []
         if let index = records.firstIndex(where: { $0.key == record.key }) {
             records[index] = record
         } else {
             let index = records.firstIndex { record.key < $0.key } ?? records.endIndex
             records.insert(record, at: index)
         }
+        months[month, default: MonthFile(month: month)][keyPath: list] = records
+    }
+
+    /// Removes the record with `key` from `list` in the month file of
+    /// `date`, returning it if there was one.
+    private mutating func remove<Record: KeyedRecord>(_ key: Record.Key, on date: CalendarDate,
+                                                      from list: WritableKeyPath<MonthFile, [Record]>) -> Record? {
+        let month = date.yearMonth
+        guard let index = months[month]?[keyPath: list].firstIndex(where: { $0.key == key }) else { return nil }
+        return months[month]?[keyPath: list].remove(at: index)
     }
 }
