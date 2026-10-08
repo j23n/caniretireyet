@@ -249,7 +249,7 @@ extension Library {
 
         details.valuation = .trades
         return AccountConversion(account: details, valuations: written, trades: trades.sortedByKey(),
-                                 removedTrades: [], notes: Self.sorted(notes))
+                                 removedTrades: [], notes: notes.sorted { $0.date < $1.date })
     }
 
     // MARK: - Trades → snapshots
@@ -313,7 +313,7 @@ extension Library {
 
         details.valuation = details.kind.defaultValuationMode == .holdings ? nil : .holdings
         return AccountConversion(account: details, valuations: valuations, trades: [], removedTrades: trades,
-                                 notes: Self.sorted(notes))
+                                 notes: notes.sorted { $0.date < $1.date })
     }
 
     /// Converts `account` to trades (``conversionToTrades(of:)``) and
@@ -323,11 +323,5 @@ extension Library {
         let conversion = conversionToTrades(of: account)
         conversion?.apply(to: &self)
         return conversion
-    }
-
-    // MARK: - Internals
-
-    private static func sorted(_ notes: [ConversionNote]) -> [ConversionNote] {
-        notes.enumerated().sorted { ($0.element.date, $0.offset) < ($1.element.date, $1.offset) }.map(\.element)
     }
 }

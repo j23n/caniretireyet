@@ -70,7 +70,7 @@ extension Valuator {
             let since = anchor?.date ?? min(ledger.firstDate ?? details.opened, details.opened)
             flows.append(TradeFlow(date: valuation.date, amount: residual, trade: nil, since: since))
         }
-        return flows.enumerated().sorted { ($0.element.date, $0.offset) < ($1.element.date, $1.offset) }.map(\.element)
+        return flows.sorted { $0.date < $1.date }
     }
 
     /// The flow of `valuation` of a trades account since `previous`, the
@@ -90,9 +90,7 @@ extension Valuator {
               var total = tradeFlowParts(of: valuation.account, on: valuation.date, previous: previous).recorded
         else { return nil }
         if valuation.cash != nil {
-            let anchor = previous?.cash != nil
-                ? previous : previous.flatMap { cashAnchor(for: valuation.account, onOrBefore: $0.date) }
-            total += residual(of: valuation, from: anchor) ?? 0
+            total += residual(of: valuation, from: cashAnchor(for: valuation.account, after: previous)) ?? 0
         }
         return total
     }

@@ -82,8 +82,9 @@ public struct TradeLedger: Sendable {
 
     /// One per date with trades: the positions after that day's trades.
     private let days: [(date: CalendarDate, positions: [InstrumentID: PositionState])]
-    /// Running sums over ``entries``: cash effects (unknown ones as zero),
-    /// and how many were unknown.
+    /// Running sums over ``entries``, from zero: `cashTotals[i]` is the sum
+    /// of the cash effects of the first `i` entries (unknown ones as zero),
+    /// and `unknownCashCounts[i]` how many of them were unknown.
     private let cashTotals: [Decimal]
     private let unknownCashCounts: [Int]
 
@@ -104,8 +105,8 @@ public struct TradeLedger: Sendable {
         var issues: [TradeIssue] = []
         var positions: [InstrumentID: PositionState] = [:]
         var days: [(date: CalendarDate, positions: [InstrumentID: PositionState])] = []
-        var cashTotals: [Decimal] = []
-        var unknownCounts: [Int] = []
+        var cashTotals: [Decimal] = [0]
+        var unknownCounts: [Int] = [0]
         var runningCash: Decimal = 0
         var runningUnknown = 0
 
@@ -247,26 +248,28 @@ public struct TradeLedger: Sendable {
     /// the first trade when `nil`) through `end`. Unknown effects count as
     /// zero; see ``unknownCashEffects(after:through:)``.
     public func cashEffect(after start: CalendarDate?, through end: CalendarDate) -> Decimal {
-        guard let last = entries.lastIndex(onOrBefore: end, date: \.date) else { return 0 }
-        let first = start.flatMap { entries.lastIndex(onOrBefore: $0, date: \.date) }
-        if let first, first >= last { return 0 }
-        return cashTotals[last] - (first.map { cashTotals[$0] } ?? 0)
+        let range = indices(after: start, through: end)
+        return cashTotals[range.upperBound] - cashTotals[range.lowerBound]
     }
 
     /// How many trades dated after `start` through `end` have a cash effect
     /// that couldn't be worked out.
     public func unknownCashEffects(after start: CalendarDate?, through end: CalendarDate) -> Int {
-        guard let last = entries.lastIndex(onOrBefore: end, date: \.date) else { return 0 }
-        let first = start.flatMap { entries.lastIndex(onOrBefore: $0, date: \.date) }
-        if let first, first >= last { return 0 }
-        return unknownCashCounts[last] - (first.map { unknownCashCounts[$0] } ?? 0)
+        let range = indices(after: start, through: end)
+        return unknownCashCounts[range.upperBound] - unknownCashCounts[range.lowerBound]
     }
 
     /// The entries dated after `start` (from the first when `nil`) through `end`.
     public func entries(after start: CalendarDate?, through end: CalendarDate) -> ArraySlice<TradeEntry> {
-        let last = entries.lastIndex(onOrBefore: end, date: \.date).map { $0 + 1 } ?? 0
-        let first = start.flatMap { entries.lastIndex(onOrBefore: $0, date: \.date) }.map { $0 + 1 } ?? 0
-        return first < last ? entries[first..<last] : []
+        entries[indices(after: start, through: end)]
+    }
+
+    /// The indices of the entries dated after `start` (from the first when
+    /// `nil`) through `end`; empty, at the start, when there are none.
+    private func indices(after start: CalendarDate?, through end: CalendarDate) -> Range<Int> {
+        let upper = entries.lastIndex(onOrBefore: end, date: \.date).map { $0 + 1 } ?? 0
+        let lower = start.flatMap { entries.lastIndex(onOrBefore: $0, date: \.date) }.map { $0 + 1 } ?? 0
+        return lower < upper ? lower..<upper : 0..<0
     }
 
     // MARK: - Years

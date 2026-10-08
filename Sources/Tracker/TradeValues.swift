@@ -19,9 +19,8 @@ extension Valuator {
     /// valuation through the date. Without such a valuation it starts from
     /// zero. `nil` for an account that doesn't record trades.
     public func tradeCash(of account: AccountID, on date: CalendarDate) -> Decimal? {
-        guard let ledger = ledgers[account] else { return nil }
-        let anchor = cashAnchor(for: account, onOrBefore: date)
-        return (anchor?.cash ?? 0) + ledger.cashEffect(after: anchor?.date, through: date)
+        guard ledgers[account] != nil else { return nil }
+        return derivedCash(of: account, on: date, from: cashAnchor(for: account, onOrBefore: date))
     }
 
     /// The cash a trades account's trades give at the end of `date`
@@ -42,6 +41,13 @@ extension Valuator {
         return valuations[index]
     }
 
+    /// What the cash of `account`'s valuation after `previous` counts from:
+    /// `previous` when it records cash, else the latest valuation on or
+    /// before its date that does.
+    func cashAnchor(for account: AccountID, after previous: Valuation?) -> Valuation? {
+        previous?.cash != nil ? previous : previous.flatMap { cashAnchor(for: account, onOrBefore: $0.date) }
+    }
+
     // MARK: - Snapshots
 
     /// What `account` holds at the end of `date`, as a valuation.
@@ -60,12 +66,9 @@ extension Valuator {
     /// A trades account's snapshot at the end of `date`; `nil` before its
     /// first valuation and first trade.
     func tradeSnapshot(of account: Account, on date: CalendarDate) -> Valuation? {
-        let ledger = ledgers[account.id]
-        let lastValuation = latestValuation(for: account.id, onOrBefore: date)?.date
-        let lastTrade = ledger?.entries.lastIndex(onOrBefore: date, date: \.date).map { ledger!.entries[$0].date }
-        guard let last = [lastValuation, lastTrade].compactMap({ $0 }).max() else { return nil }
+        guard let last = latestRecordDate(of: account.id, onOrBefore: date) else { return nil }
         return Valuation(account: account.id, date: last, cash: tradeCash(of: account.id, on: date),
-                         positions: ledger?.positions(on: date) ?? [])
+                         positions: ledgers[account.id]?.positions(on: date) ?? [])
     }
 
     /// What a trades account's trades give at the end of `date`, counting
@@ -75,8 +78,7 @@ extension Valuator {
     func derivedSnapshot(of account: Account, on date: CalendarDate, previous: Valuation?) -> Valuation? {
         guard let ledger = ledgers[account.id] else { return nil }
         guard previous != nil || (ledger.firstDate.map { $0 <= date } ?? false) else { return nil }
-        let anchor = previous?.cash != nil
-            ? previous : previous.flatMap { cashAnchor(for: account.id, onOrBefore: $0.date) }
+        let anchor = cashAnchor(for: account.id, after: previous)
         return Valuation(account: account.id, date: date, cash: derivedCash(of: account.id, on: date, from: anchor),
                          positions: ledger.positions(on: date))
     }
@@ -158,7 +160,7 @@ extension Valuator {
                                          message: "\(TradeLedger.describe(trade)) is left out: \(reason)."))
             }
         }
-        return issues.enumerated().sorted { ($0.element.date, $0.offset) < ($1.element.date, $1.offset) }.map(\.element)
+        return issues.sorted { $0.date < $1.date }
     }
 
     // MARK: - Reconciliation
