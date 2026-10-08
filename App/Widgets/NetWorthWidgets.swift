@@ -3,8 +3,8 @@ import Model
 import SwiftUI
 import WidgetKit
 
-// Net worth on the latest check-in (UI.md, "Widgets"): the total and its
-// change with a year's line, the change split into markets, new money and
+// Net worth today, as the Overview has it (UI.md, "Widgets"): the total and
+// the change at the latest check-in with a year's line, the change split into markets, new money and
 // the rest, and the asset mix. Each opens the Overview. While the device is
 // locked, amounts read `•••••` and changes show in per cent; lock screen
 // widgets never show amounts.
@@ -14,6 +14,8 @@ struct NetWorthWords {
     var netWorth: NetWorthGlance
     var money: WidgetMoney
     var hidesAmounts: Bool
+    /// The widget's day, which ``date`` names "today".
+    var today: CalendarDate?
 
     var total: String { hidesAmounts ? AmountFormat.hidden : money.amount(netWorth.total) }
 
@@ -31,10 +33,11 @@ struct NetWorthWords {
         netWorth.sinceLastCheckIn?.fraction.map(money.percentChange)
     }
 
-    /// "since 31 Aug".
+    /// When the change happened: "in September", "31 Jul – 15 Sep".
     var since: String? {
         netWorth.sinceLastCheckIn.map { change in
-            "since \(AmountFormat.shortDate(change.from, relativeTo: netWorth.date, locale: money.locale))"
+            GlanceText.period(from: change.from, to: change.to ?? netWorth.date, relativeTo: today ?? netWorth.date,
+                              locale: money.locale)
         }
     }
 
@@ -43,9 +46,14 @@ struct NetWorthWords {
         netWorth.thisYear.map(money.percentChange)
     }
 
-    /// "30 Sep".
+    /// "Today", or "8 Oct" for a snapshot the app wrote on an earlier day.
     var date: String {
-        AmountFormat.shortDate(netWorth.date, locale: money.locale)
+        netWorth.date == today ? "Today" : AmountFormat.shortDate(netWorth.date, locale: money.locale)
+    }
+
+    /// "today", or "on 8 Oct" for a snapshot the app wrote on an earlier day.
+    var asOf: String {
+        netWorth.date == today ? "today" : "on \(AmountFormat.shortDate(netWorth.date, locale: money.locale))"
     }
 }
 
@@ -138,7 +146,7 @@ struct NetWorthSmall: View {
         Group {
             if let snapshot = entry.snapshot, let netWorth = snapshot.netWorth {
                 content(NetWorthWords(netWorth: netWorth, money: WidgetMoney(currency: snapshot.currency, locale: locale),
-                                      hidesAmounts: redactionReasons.hidesAmounts))
+                                      hidesAmounts: redactionReasons.hidesAmounts, today: entry.today))
             } else {
                 NetWorthMissing(entry: entry)
             }
@@ -167,7 +175,7 @@ struct NetWorthSmall: View {
                     .font(.caption)
                     .foregroundStyle(WidgetPalette.secondaryInk)
             } else {
-                Text(verbatim: "on \(words.date)")
+                Text(verbatim: words.asOf)
                     .font(.caption)
                     .foregroundStyle(WidgetPalette.secondaryInk)
                     .padding(.top, 3)
@@ -193,7 +201,7 @@ struct NetWorthMedium: View {
         Group {
             if let snapshot = entry.snapshot, let netWorth = snapshot.netWorth {
                 content(NetWorthWords(netWorth: netWorth, money: WidgetMoney(currency: snapshot.currency, locale: locale),
-                                      hidesAmounts: redactionReasons.hidesAmounts),
+                                      hidesAmounts: redactionReasons.hidesAmounts, today: entry.today),
                         retirement: snapshot.retirement)
             } else {
                 NetWorthMissing(entry: entry)
@@ -313,7 +321,8 @@ struct NetWorthLarge: View {
         Group {
             if let snapshot = entry.snapshot, let netWorth = snapshot.netWorth {
                 let money = WidgetMoney(currency: snapshot.currency, locale: locale)
-                content(NetWorthWords(netWorth: netWorth, money: money, hidesAmounts: redactionReasons.hidesAmounts),
+                content(NetWorthWords(netWorth: netWorth, money: money, hidesAmounts: redactionReasons.hidesAmounts,
+                                      today: entry.today),
                         retirement: snapshot.retirement, money: money)
             } else {
                 NetWorthMissing(entry: entry)
@@ -464,7 +473,7 @@ struct NetWorthRectangular: View {
             }
             if let snapshot = entry.snapshot, let netWorth = snapshot.netWorth {
                 let money = WidgetMoney(currency: snapshot.currency, locale: locale)
-                let words = NetWorthWords(netWorth: netWorth, money: money, hidesAmounts: true)
+                let words = NetWorthWords(netWorth: netWorth, money: money, hidesAmounts: true, today: entry.today)
                 if let change = words.percentChange, let since = words.since {
                     Text(verbatim: "\(change.text) \(since)")
                 }
@@ -557,13 +566,15 @@ struct SinceCheckInView: View {
                     ChangeRow(name: "Other", value: change.other)]
         let scale = ChangeBarScale(rows.map { $0.value.doubleValue })
         let headline: WidgetDelta? = hides ? change.fraction.map(money.percentChange) : money.change(change.change)
-        let since = "since \(AmountFormat.shortDate(change.from, relativeTo: netWorth.date, locale: locale))"
+        // The latest check-in; the snapshot's day in one from an older version.
+        let to = change.to ?? netWorth.date
+        let since = GlanceText.period(from: change.from, to: to, relativeTo: entry.today, locale: locale)
         return VStack(alignment: .leading, spacing: 0) {
             HStack {
                 WidgetLabel(title: "Since last check-in", systemImage: "calendar")
                 Spacer(minLength: 0)
-                Text(verbatim: "\(AmountFormat.shortDate(change.from, relativeTo: netWorth.date, locale: locale)) → "
-                    + AmountFormat.shortDate(netWorth.date, locale: locale))
+                Text(verbatim: "\(AmountFormat.shortDate(change.from, relativeTo: to, locale: locale)) → "
+                    + AmountFormat.shortDate(to, locale: locale))
                     .font(.caption)
                     .foregroundStyle(WidgetPalette.mutedInk)
                     .lineLimit(1)

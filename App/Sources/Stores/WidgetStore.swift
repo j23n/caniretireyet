@@ -54,7 +54,8 @@ final class WidgetStore {
         let birthDate = library.settings.person?.birthDate
         let answer = library.settings.mainPlan.flatMap { plans.latestResults(of: $0) }
             .map { RetirementAnswer($0.headline, birthDate: birthDate) }
-        var snapshot = GlanceSnapshot(library: library.library, valuator: library.valuator, asOf: library.asOfDate,
+        // Net worth today, as the Overview has it.
+        var snapshot = GlanceSnapshot(library: library.library, valuator: library.valuator, asOf: today,
                                       answer: answer, checkIn: checkIn)
         snapshot.milestone = nextMilestone()
         return snapshot

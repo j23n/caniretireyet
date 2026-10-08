@@ -45,6 +45,7 @@ struct ExampleLibraryGlanceTests {
         // As in ExampleLibraryChangeTests.
         let change = try #require(snapshot.netWorth?.sinceLastCheckIn)
         #expect(change.from == "2026-08-31")
+        #expect(change.to == "2026-09-30")
         #expect(change.start.rounded(2) == d("327037.83"))
         #expect(change.end.rounded(2) == d("332455.49"))
         #expect(change.newMoney == d("2181.65"))
@@ -53,6 +54,26 @@ struct ExampleLibraryGlanceTests {
         #expect(change.end == snapshot.netWorth?.total)
         let fraction = try #require(change.fraction)
         #expect(abs(fraction - (332455.49 - 327037.83) / 327037.83) < 1e-7)
+    }
+
+    @Test func netWorthIsTodaysAfterTheLatestCheckIn() throws {
+        let later = GlanceSnapshot(library: library, valuator: valuator, asOf: "2026-10-08", answer: nil,
+                                   checkIn: checkIn)
+        let netWorth = try #require(later.netWorth)
+        #expect(netWorth.date == "2026-10-08")
+        #expect(netWorth.total == valuator.netWorth(on: "2026-10-08").total)
+        #expect(netWorth.history.last?.date == "2026-10-08")
+        // The change is still the last check-in's.
+        #expect(netWorth.sinceLastCheckIn?.from == "2026-08-31")
+        #expect(netWorth.sinceLastCheckIn?.to == "2026-09-30")
+        #expect(netWorth.sinceLastCheckIn == snapshot.netWorth?.sinceLastCheckIn)
+    }
+
+    @Test func aChangeWithoutItsEndStillReads() throws {
+        let json = #"{"from":"2026-08-31","start":"100","markets":"1","newMoney":"2","other":"0","end":"103"}"#
+        let change = try JSONDecoder().decode(NetWorthChange.self, from: Data(json.utf8))
+        #expect(change.to == nil)
+        #expect(change.change == 3)
     }
 
     @Test func theHistoryIsTheYearsMonthEnds() throws {

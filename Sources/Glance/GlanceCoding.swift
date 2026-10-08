@@ -87,12 +87,13 @@ extension NetWorthGlance: Codable {
 
 extension NetWorthChange: Codable {
     enum CodingKeys: String, CodingKey {
-        case from, start, markets, newMoney, other, end
+        case from, to, start, markets, newMoney, other, end
     }
 
     public init(from decoder: any Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         from = try c.decode(CalendarDate.self, forKey: .from)
+        to = try c.decodeIfPresent(CalendarDate.self, forKey: .to)
         start = try c.decodeDecimal(forKey: .start)
         markets = try c.decodeDecimal(forKey: .markets)
         newMoney = try c.decodeDecimal(forKey: .newMoney)
@@ -103,6 +104,7 @@ extension NetWorthChange: Codable {
     public func encode(to encoder: any Encoder) throws {
         var c = encoder.container(keyedBy: CodingKeys.self)
         try c.encode(from, forKey: .from)
+        try c.encodeIfPresent(to, forKey: .to)
         try c.encodeDecimal(start, forKey: .start)
         try c.encodeDecimal(markets, forKey: .markets)
         try c.encodeDecimal(newMoney, forKey: .newMoney)

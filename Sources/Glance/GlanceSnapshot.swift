@@ -92,15 +92,17 @@ public struct MilestoneGlance: Hashable, Sendable {
 
 // MARK: - Net worth
 
-/// Net worth on the latest check-in, its changes, and a year of history.
+/// Net worth today, as the Overview has it, the change at the latest
+/// check-in, and a year of history.
 public struct NetWorthGlance: Hashable, Sendable {
-    /// The latest check-in: the date net worth is reported on.
+    /// The date net worth is reported on: the day the app wrote the snapshot.
     public var date: CalendarDate
     /// The sum of what could be valued.
     public var total: Decimal
     /// Whether every account could be valued; when not, ``total`` misses some.
     public var isComplete: Bool
-    /// The change since the check-in before; `nil` before the second check-in.
+    /// The change between the last two check-ins on or before ``date``;
+    /// `nil` before the second check-in.
     public var sinceLastCheckIn: NetWorthChange?
     /// The change since 31 December of last year, as a fraction of the value
     /// then; `nil` without a value then, or when it was zero.
@@ -125,6 +127,9 @@ public struct NetWorthGlance: Hashable, Sendable {
 public struct NetWorthChange: Hashable, Sendable {
     /// The check-in before the latest one.
     public var from: CalendarDate
+    /// The latest check-in; `nil` in a snapshot from a version that didn't
+    /// keep it, whose ``NetWorthGlance/date`` was the latest check-in.
+    public var to: CalendarDate?
     /// Net worth then.
     public var start: Decimal
     /// Price and exchange-rate movements, interest, reinvested dividends.
@@ -136,9 +141,10 @@ public struct NetWorthChange: Hashable, Sendable {
     /// Net worth on the latest check-in.
     public var end: Decimal
 
-    public init(from: CalendarDate, start: Decimal, markets: Decimal, newMoney: Decimal, other: Decimal,
-                end: Decimal) {
+    public init(from: CalendarDate, to: CalendarDate? = nil, start: Decimal, markets: Decimal, newMoney: Decimal,
+                other: Decimal, end: Decimal) {
         self.from = from
+        self.to = to
         self.start = start
         self.markets = markets
         self.newMoney = newMoney

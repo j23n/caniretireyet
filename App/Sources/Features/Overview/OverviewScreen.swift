@@ -1,3 +1,4 @@
+import Glance
 import Model
 import SwiftUI
 import Tracker
@@ -105,16 +106,12 @@ private struct OverviewHeroView: View {
 
     @ViewBuilder
     private var changes: some View {
-        if let change = hero.sinceLastCheckIn, let from = hero.lastCheckIn {
+        if let change = hero.sinceLastCheckIn, let from = hero.lastCheckIn, let to = hero.latestCheckIn {
             HStack(spacing: Metrics.xs) {
                 DeltaText(change)
-                if let month = hero.changeMonth {
-                    Text("in \(OverviewAttention.monthName(month, today: .today()))")
-                        .foregroundStyle(Palette.secondaryInk)
-                } else {
-                    Text("since \(AmountFormat.shortDate(from, relativeTo: .today()))")
-                        .foregroundStyle(Palette.secondaryInk)
-                }
+                // "in September", "31 Jul – 15 Sep": the check-in's change, not one up to today.
+                Text(GlanceText.period(from: from, to: to, relativeTo: hero.date))
+                    .foregroundStyle(Palette.secondaryInk)
             }
         }
         if let year = hero.thisYear {

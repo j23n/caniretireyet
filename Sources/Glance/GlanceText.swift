@@ -37,6 +37,26 @@ public enum GlanceText {
         return "\(age(move.from)) → \(age(move.to)) in \(noon(move.date).formatted(style))"
     }
 
+    /// When a change between two check-ins happened: "in September" when
+    /// `from` is the last day of the month before `to`'s, else "31 Jul –
+    /// 15 Sep"; with the year for a date not in `today`'s.
+    public static func period(from: CalendarDate, to: CalendarDate, relativeTo today: CalendarDate,
+                              locale: Locale = .current) -> String {
+        if from == to.yearMonth.previous.lastDay {
+            let style = to.year == today.year
+                ? Date.FormatStyle.dateTime.month(.wide).locale(locale)
+                : Date.FormatStyle.dateTime.month(.wide).year().locale(locale)
+            return "in \(noon(to).formatted(style))"
+        }
+        func day(_ date: CalendarDate) -> String {
+            let style = date.year == today.year
+                ? Date.FormatStyle.dateTime.day().month(.abbreviated).locale(locale)
+                : Date.FormatStyle.dateTime.day().month(.abbreviated).year().locale(locale)
+            return noon(date).formatted(style)
+        }
+        return "\(day(from)) – \(day(to))"
+    }
+
     /// "April 2042".
     public static func monthAndYear(_ date: CalendarDate, locale: Locale = .current) -> String {
         noon(date).formatted(Date.FormatStyle.dateTime.month(.wide).year().locale(locale))

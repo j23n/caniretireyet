@@ -3,12 +3,11 @@ import Model
 import Tracker
 
 extension GlanceSnapshot {
-    /// The snapshot of `library` as the Overview shows it, but with net
-    /// worth at `asOf`, the latest check-in, where the Overview has today's.
+    /// The snapshot of `library` as the Overview shows it.
     ///
     /// - Parameters:
-    ///   - asOf: the date net worth is reported on: the latest check-in, or
-    ///     today before the first one (the app's `LibraryStore.asOfDate`).
+    ///   - asOf: the date net worth is reported on: today, as on the
+    ///     Overview. The change is the last check-in's on or before it.
     ///   - answer: the main plan's latest answer, from its latest results;
     ///     `nil` takes the last answer recorded at a check-in, as the
     ///     Overview does.
@@ -66,7 +65,7 @@ extension GlanceSnapshot {
 extension NetWorthChange {
     /// The change between two check-ins, from Tracker's report.
     public init(_ report: ChangeReport) {
-        self.init(from: report.from, start: report.total.start, markets: report.total.market,
+        self.init(from: report.from, to: report.to, start: report.total.start, markets: report.total.market,
                   newMoney: report.total.newMoney, other: report.total.other, end: report.total.end)
     }
 }

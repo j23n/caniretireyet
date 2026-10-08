@@ -98,4 +98,15 @@ struct GlanceTextTests {
         #expect(GlanceText.shortMonth("2026-09-30", locale: english) == "Sep")
         #expect(GlanceText.weekdayAndDate("2026-10-31", locale: english) == "Saturday 31 October")
     }
+
+    @Test func whenAChangeHappened() {
+        #expect(GlanceText.period(from: "2026-08-31", to: "2026-09-30", relativeTo: "2026-10-08", locale: english)
+            == "in September")
+        #expect(GlanceText.period(from: "2025-11-30", to: "2025-12-31", relativeTo: "2026-01-05", locale: english)
+            == "in December 2025")
+        #expect(GlanceText.period(from: "2026-07-31", to: "2026-09-15", relativeTo: "2026-10-08", locale: english)
+            == "31 Jul – 15 Sep")
+        #expect(GlanceText.period(from: "2025-12-15", to: "2026-01-20", relativeTo: "2026-10-08", locale: english)
+            == "15 Dec 2025 – 20 Jan")
+    }
 }
