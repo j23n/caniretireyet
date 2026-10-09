@@ -22,7 +22,7 @@ struct PlanStoryText: View {
             switch run {
             case .text(let words):
                 text += AttributedString(words)
-            case .token(let words, _):
+            case .value(let words):
                 var value = AttributedString(words)
                 value.inlinePresentationIntent = .stronglyEmphasized
                 text += value
@@ -167,15 +167,12 @@ struct PlanChapterBadge: View {
 // MARK: - Changing a value
 
 /// The small editor a setting opens: the field, stepper or switch for that
-/// one value, and for an item a way to its whole sheet. Edits apply at
-/// once, as everywhere in the plan.
-struct PlanTokenEditor: View {
-    let token: PlanToken
+/// one value. Edits apply at once, as everywhere in the plan.
+struct PlanValueEditor: View {
+    let value: PlanValue
     @Binding var plan: PlanDocument
     /// When work stops, for the retirement age.
-    var model: PlanChaptersModel?
-    /// Opens an item's sheet (or the target mix's).
-    var onOpen: (PlanToken) -> Void = { _ in }
+    let model: PlanChaptersModel
     /// Goes back to the plan's own retirement age, when the charts are for another.
     var onUsePlanAge: (() -> Void)?
 
@@ -185,13 +182,6 @@ struct PlanTokenEditor: View {
     var body: some View {
         VStack(alignment: .leading, spacing: Metrics.m) {
             editor
-            if let more = moreToken {
-                Button(moreTitle) {
-                    dismiss()
-                    onOpen(more)
-                }
-                .buttonStyle(.borderless)
-            }
         }
         .font(.subheadline)
         .padding(Metrics.l)
@@ -199,26 +189,15 @@ struct PlanTokenEditor: View {
         .presentationDetents([.medium])
     }
 
-    // MARK: The editors
-
     @ViewBuilder
     private var editor: some View {
-        switch token {
-        case .workIncome(let index):
-            title("Take-home pay")
-            PlanNumberRow("A month", value: monthly($plan.work[planSafe: index, default: workFallback(index)].netIncome),
-                          unit: "/month")
-            note("After income tax and social contributions, in \(PlanMoney.todaysMoney(currency)).")
-        case .workGrowth(let index):
-            title("Pay growth")
-            PlanNumberRow("Above inflation", value: $plan.work[planSafe: index, default: workFallback(index)].realGrowth,
-                          kind: .percent, unit: "%/yr", prompt: "0")
+        switch value {
         case .workingSpending:
             title("Spending while working")
-            PlanNumberRow("A month", value: monthly($plan.spending.working), unit: "/month")
+            PlanNumberRow("A month", value: $plan.spending.working.perMonth, unit: "/month")
         case .retiredSpending:
             title("Spending in retirement")
-            PlanNumberRow("A month", value: monthly($plan.spending.retired), unit: "/month")
+            PlanNumberRow("A month", value: $plan.spending.retired.perMonth, unit: "/month")
             note("In \(PlanMoney.todaysMoney(currency)). Later phases spend a share of it.")
         case .retirementAge:
             title("When work stops")
@@ -226,53 +205,14 @@ struct PlanTokenEditor: View {
             if !plan.planRetiresEarliest {
                 Stepper("At \(plan.planRetirementAge)", value: $plan.planRetirementAge, in: 30...85)
             }
-            if let model {
-                note(model.retirementNote)
-                if let onUsePlanAge, model.ageSource == .chosen {
-                    Button("Plan's age") {
-                        dismiss()
-                        onUsePlanAge()
-                    }
-                    .buttonStyle(.borderless)
+            note(model.retirementNote)
+            if let onUsePlanAge, model.ageSource == .chosen {
+                Button("Plan's age") {
+                    dismiss()
+                    onUsePlanAge()
                 }
+                .buttonStyle(.borderless)
             }
-        case .pensionAmount(let index):
-            title(pensionName(index))
-            PlanNumberRow("A month, after tax",
-                          value: monthly($plan.pensions[planSafe: index, default: pensionFallback(index)].perYear),
-                          unit: "/month")
-            note("From your pension statement, after the tax you expect to pay on it.")
-        case .pensionAge(let index):
-            title(pensionName(index))
-            Stepper("Paid from \(pensionAge(index))",
-                    value: $plan.pensions[planSafe: index, default: pensionFallback(index)].planFromAge, in: 40...90)
-        case .incomeAmount(let index):
-            title(incomeName(index))
-            PlanNumberRow("A month, after tax",
-                          value: monthly($plan.income[planSafe: index, default: incomeFallback(index)].perYear),
-                          unit: "/month")
-            note("In \(PlanMoney.todaysMoney(currency)), after the tax you expect to pay on it.")
-        case .contributionAmount(let index):
-            title("Contribution")
-            if contributionIsOneOff(index) {
-                PlanNumberRow("Once", value: $plan.contributions[planSafe: index,
-                                                                   default: contributionFallback(index)].planAmount)
-            } else {
-                PlanNumberRow("A month", value: monthly($plan.contributions[planSafe: index,
-                                                                            default: contributionFallback(index)].perYear),
-                              unit: "/month")
-            }
-        case .eventAmount(let index):
-            title(eventName(index))
-            PlanNumberRow("Amount", value: $plan.events[planSafe: index, default: eventFallback(index)].planSize)
-        case .eventWhen(let index):
-            title(eventName(index))
-            eventWhen(index)
-        case .eventProbability(let index):
-            title(eventName(index))
-            PlanNumberRow("Chance it happens",
-                          value: $plan.events[planSafe: index, default: eventFallback(index)].planProbability,
-                          kind: .percent, unit: "%")
         case .spendingPhase(let index):
             title("Later spending")
             PlanSpendingPhaseRow(phases: $plan.spending.phases, index: index)
@@ -282,27 +222,6 @@ struct PlanTokenEditor: View {
             Stepper("Plan to age \(plan.planEndAge)", value: $plan.planEndAge, in: 70...110)
         case .flexibleSpending:
             PlanFlexibleSpendingEditor(spending: $plan.spending)
-        case .inflation:
-            title("Inflation")
-            PlanNumberRow("A year", value: $plan.assumptions.inflation, kind: .percent, unit: "%", prompt: "2")
-        case .equityReturn:
-            title("Shares")
-            PlanNumberRow("Typical year, above inflation", value: $plan.assumptions[planMedianReal: .equity],
-                          kind: .percent, unit: "%")
-            note(PlanEditing.returnsExplanation)
-        case .bondsReturn:
-            title("Bonds")
-            PlanNumberRow("Typical year, above inflation", value: $plan.assumptions[planMedianReal: .bonds],
-                          kind: .percent, unit: "%")
-            note(PlanEditing.returnsExplanation)
-        case .investmentTax, .wealthTax:
-            title("Taxes")
-            PlanTaxesEditor(plan: $plan)
-        case .confidence:
-            title("When a plan works")
-            PlanSimulationEditor(plan: $plan)
-        case .targetMix, .work, .pension, .income, .contribution, .event:
-            EmptyView()
         }
     }
 
@@ -317,102 +236,5 @@ struct PlanTokenEditor: View {
             .font(.footnote)
             .foregroundStyle(Palette.secondaryInk)
             .fixedSize(horizontal: false, vertical: true)
-    }
-
-    @ViewBuilder
-    private func eventWhen(_ index: Int) -> some View {
-        let event = $plan.events[planSafe: index, default: eventFallback(index)]
-        Picker("Set by", selection: event.planByAge) {
-            Text("Age").tag(true)
-            Text("Year").tag(false)
-        }
-        .pickerStyle(.segmented)
-        let byAge = event.wrappedValue.planByAge
-        let label: String = byAge ? "At \(event.wrappedValue.planWhen)" : "In \(String(event.wrappedValue.planWhen))"
-        Stepper(label, value: event.planWhen, in: byAge ? 18...110 : 2_000...2_150)
-    }
-
-    // MARK: An item's sheet
-
-    /// The item whose whole sheet the editor offers.
-    private var moreToken: PlanToken? {
-        switch token {
-        case .workIncome(let index), .workGrowth(let index): .work(index)
-        case .pensionAmount(let index), .pensionAge(let index): .pension(index)
-        case .incomeAmount(let index): .income(index)
-        case .contributionAmount(let index): .contribution(index)
-        case .eventAmount(let index), .eventWhen(let index), .eventProbability(let index): .event(index)
-        default: nil
-        }
-    }
-
-    private var moreTitle: String {
-        guard let more = moreToken else { return "" }
-        switch more {
-        case .work: return "Edit the work phase…"
-        case .pension: return "Edit the pension…"
-        case .income: return "Edit the income…"
-        case .contribution: return "Edit the contribution…"
-        case .event: return "Edit the event…"
-        default: return ""
-        }
-    }
-
-    // MARK: Values
-
-    /// A yearly amount as a month's, in whole units; writing sets the year's.
-    private func monthly(_ yearly: Binding<Decimal?>) -> Binding<Decimal?> {
-        Binding(get: { yearly.wrappedValue.map { Decimal(wholeNumber: ($0 / 12).doubleValue) } },
-                set: { yearly.wrappedValue = $0.map { $0 * 12 } })
-    }
-
-    private func monthly(_ yearly: Binding<Decimal>) -> Binding<Decimal> {
-        Binding(get: { Decimal(wholeNumber: (yearly.wrappedValue / 12).doubleValue) },
-                set: { yearly.wrappedValue = $0 * 12 })
-    }
-
-    private func workFallback(_ index: Int) -> WorkPhase {
-        plan.work.indices.contains(index) ? plan.work[index]
-            : WorkPhase(from: .today(), until: .retirement, netIncome: nil)
-    }
-
-    private func pensionFallback(_ index: Int) -> PlanPension {
-        plan.pensions.indices.contains(index) ? plan.pensions[index] : PlanEditing.newPension()
-    }
-
-    private func incomeFallback(_ index: Int) -> PlanIncome {
-        plan.income.indices.contains(index) ? plan.income[index]
-            : PlanIncome(name: "Other income", from: .retirement, perYear: nil)
-    }
-
-    private func incomeName(_ index: Int) -> String {
-        guard plan.income.indices.contains(index) else { return "Other income" }
-        return plan.incomeName(index)
-    }
-
-    private func contributionFallback(_ index: Int) -> PlanContribution {
-        plan.contributions.indices.contains(index) ? plan.contributions[index]
-            : PlanContribution(account: "account", perYear: 0)
-    }
-
-    private func eventFallback(_ index: Int) -> PlanEvent {
-        plan.events.indices.contains(index) ? plan.events[index] : PlanEvent(name: "", timing: .year(2030), amount: 0)
-    }
-
-    private func pensionName(_ index: Int) -> String {
-        guard plan.pensions.indices.contains(index) else { return "Pension" }
-        return plan.pensionName(index)
-    }
-
-    private func pensionAge(_ index: Int) -> Int {
-        plan.pensions.indices.contains(index) ? plan.pensions[index].planFromAge : 67
-    }
-
-    private func contributionIsOneOff(_ index: Int) -> Bool {
-        plan.contributions.indices.contains(index) && plan.contributions[index].isOneOff
-    }
-
-    private func eventName(_ index: Int) -> String {
-        plan.events.indices.contains(index) ? plan.events[index].name : "Event"
     }
 }

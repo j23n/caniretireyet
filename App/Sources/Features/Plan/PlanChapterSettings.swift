@@ -8,12 +8,24 @@ import SwiftUI
 // say them); a row opens the value's small editor in a popover, or the
 // item's sheet.
 
+/// A value a setting changes in its small editor (``PlanValueEditor``)
+/// rather than in an item's sheet.
+enum PlanValue: Hashable {
+    case retirementAge
+    case workingSpending
+    case retiredSpending
+    case flexibleSpending
+    case spendingPhase(Int)
+    case endAge
+}
+
 /// One setting: what it is, its value, and what a tap opens.
 struct PlanSettingRow: Hashable, Identifiable {
-    /// What a tap opens: the value's small editor, or the item's sheet (or the target mix's).
+    /// What a tap opens: the value's small editor, or the item's sheet (the
+    /// target mix's, for the mix and its changes).
     enum Opens: Hashable {
-        case editor(PlanToken)
-        case sheet(PlanToken)
+        case editor(PlanValue)
+        case sheet(PlanChapter.Item)
     }
 
     /// The colour of a row's icon, by what it is.
@@ -49,9 +61,10 @@ enum PlanChapterSettings {
     /// A row for each of `items`, in their order: what starts in a chapter,
     /// or the inputs outside the plan's years. Amounts are a month's, in
     /// today's money; one-offs are their amount.
-    static func rows(for items: [PlanChapter.Item], plan: PlanDocument, model: PlanChaptersModel,
-                     issues: PlanInputIssues, words: PlanWords) -> [PlanSettingRow] {
-        items.flatMap { item -> [PlanSettingRow] in
+    static func rows(for items: [PlanChapter.Item], model: PlanChaptersModel, issues: PlanInputIssues,
+                     words: PlanWords) -> [PlanSettingRow] {
+        let plan = model.plan
+        return items.flatMap { item -> [PlanSettingRow] in
             switch item {
             case .retirement:
                 let earliest = plan.retirement.age == .earliest
@@ -93,7 +106,7 @@ enum PlanChapterSettings {
                 return [PlanSettingRow(id: "work-\(index)", symbol: "briefcase", kind: .work,
                                        title: plan.workName(index),
                                        subtitle: subtitle, value: phase.netIncome.map(words.monthly) ?? "Not set",
-                                       opens: .sheet(.work(index)),
+                                       opens: .sheet(item),
                                        issues: issues.issues(for: .work, index: index))]
             case .pension(let index):
                 guard plan.pensions.indices.contains(index) else { return [] }
@@ -102,7 +115,7 @@ enum PlanChapterSettings {
                                        title: plan.pensionName(index),
                                        subtitle: pension.fromAge.map { "From \($0), after tax" } ?? "No age yet",
                                        value: pension.perYear.map(words.monthly) ?? "Not set",
-                                       opens: .sheet(.pension(index)),
+                                       opens: .sheet(item),
                                        issues: issues.issues(for: .pensions, index: index))]
             case .income(let index):
                 guard plan.income.indices.contains(index) else { return [] }
@@ -111,7 +124,7 @@ enum PlanChapterSettings {
                                        title: plan.incomeName(index),
                                        subtitle: PlanIncomeText.span(of: income) + ", after tax",
                                        value: income.perYear.map(words.monthly) ?? "Not set",
-                                       opens: .sheet(.income(index)),
+                                       opens: .sheet(item),
                                        issues: issues.issues(for: .income, index: index))]
             case .contribution(let index):
                 guard plan.contributions.indices.contains(index) else { return [] }
@@ -130,7 +143,7 @@ enum PlanChapterSettings {
                 }
                 return [PlanSettingRow(id: "contribution-\(index)", symbol: "arrow.down.to.line", kind: .saving,
                                        title: "Into \(model.accountName(contribution.account))", subtitle: subtitle,
-                                       value: value, opens: .sheet(.contribution(index)),
+                                       value: value, opens: .sheet(item),
                                        issues: issues.issues(for: .contributions, index: index))]
             case .event(let index):
                 guard plan.events.indices.contains(index) else { return [] }
@@ -146,7 +159,7 @@ enum PlanChapterSettings {
                 let sign = event.amount > 0 && !words.hidesAmounts ? "+" : ""
                 return [PlanSettingRow(id: "event-\(index)", symbol: "calendar", kind: .event, title: event.name,
                                        subtitle: subtitle, value: sign + words.amount(event.amount),
-                                       opens: .sheet(.event(index)),
+                                       opens: .sheet(item),
                                        issues: issues.issues(for: .events, index: index))]
             case .targetMix, .targetMixStep:
                 var title = "Your savings"
@@ -158,7 +171,7 @@ enum PlanChapterSettings {
                 return [PlanSettingRow(id: "mix-\(item)", symbol: "chart.pie", kind: .mix, title: title,
                                        subtitle: "The target mix",
                                        value: phrase.prefix(1).uppercased() + phrase.dropFirst(),
-                                       opens: .sheet(.targetMix))]
+                                       opens: .sheet(item))]
             case .end:
                 return [PlanSettingRow(id: "end", symbol: "flag.checkered", kind: .end, title: "The plan ends at",
                                        value: "\(plan.effectiveEndAge)", opens: .editor(.endAge))]
@@ -171,10 +184,10 @@ enum PlanChapterSettings {
 struct PlanSettingsList: View {
     let rows: [PlanSettingRow]
     @Binding var plan: PlanDocument
-    var model: PlanChaptersModel?
+    let model: PlanChaptersModel
     var canEdit = true
     /// Opens an item's sheet, or the target mix's.
-    var onSheet: (PlanToken) -> Void = { _ in }
+    var onSheet: (PlanChapter.Item) -> Void = { _ in }
     /// Goes back to the plan's own retirement age, when the charts are for another.
     var onUsePlanAge: (() -> Void)?
 
@@ -201,9 +214,9 @@ struct PlanSettingsList: View {
 struct PlanSettingRowView: View {
     let row: PlanSettingRow
     @Binding var plan: PlanDocument
-    var model: PlanChaptersModel?
+    let model: PlanChaptersModel
     var canEdit = true
-    var onSheet: (PlanToken) -> Void = { _ in }
+    var onSheet: (PlanChapter.Item) -> Void = { _ in }
     var onUsePlanAge: (() -> Void)?
 
     @State private var showsEditor = false
@@ -212,7 +225,7 @@ struct PlanSettingRowView: View {
         Button {
             switch row.opens {
             case .editor: showsEditor = true
-            case .sheet(let token): onSheet(token)
+            case .sheet(let item): onSheet(item)
             }
         } label: {
             HStack(alignment: .center, spacing: Metrics.m) {
@@ -257,8 +270,8 @@ struct PlanSettingRowView: View {
         .disabled(!canEdit)
         .accessibilityElement(children: .combine)
         .popover(isPresented: $showsEditor) {
-            if case .editor(let token) = row.opens {
-                PlanTokenEditor(token: token, plan: $plan, model: model, onOpen: onSheet, onUsePlanAge: onUsePlanAge)
+            if case .editor(let value) = row.opens {
+                PlanValueEditor(value: value, plan: $plan, model: model, onUsePlanAge: onUsePlanAge)
             }
         }
     }

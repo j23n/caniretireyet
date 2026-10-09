@@ -17,7 +17,7 @@ struct PlanOutsideCard: View {
     let issues: PlanInputIssues
     let words: PlanWords
     /// Opens an item's sheet, or the target mix's.
-    var onOpen: (PlanToken) -> Void = { _ in }
+    var onOpen: (PlanChapter.Item) -> Void = { _ in }
 
     @Environment(LibraryStore.self) private var library
 
@@ -33,8 +33,8 @@ struct PlanOutsideCard: View {
                     .foregroundStyle(Palette.mutedInk)
                     .fixedSize(horizontal: false, vertical: true)
             }
-            PlanSettingsList(rows: PlanChapterSettings.rows(for: model.chapters.outside, plan: plan, model: model,
-                                                            issues: issues, words: words),
+            PlanSettingsList(rows: PlanChapterSettings.rows(for: model.chapters.outside, model: model, issues: issues,
+                                                            words: words),
                              plan: $plan, model: model, canEdit: library.canEdit, onSheet: onOpen)
         }
         .frame(maxWidth: .infinity, alignment: .leading)

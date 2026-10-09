@@ -192,10 +192,10 @@ struct PlanTimelineView: View {
             .max() ?? 0
     }
 
-    /// Opens what a value names: an item's sheet, or the target mix's.
-    private func show(_ token: PlanToken) {
+    /// Opens an item's sheet, or the target mix's.
+    private func show(_ item: PlanChapter.Item) {
         guard let plan = session.plan else { return }
-        switch token {
+        switch item {
         case .work(let index) where plan.work.indices.contains(index):
             editing = .work(index: index, phase: plan.work[index])
         case .pension(let index) where plan.pensions.indices.contains(index):
@@ -206,7 +206,7 @@ struct PlanTimelineView: View {
             editing = .contribution(index: index, contribution: plan.contributions[index])
         case .event(let index) where plan.events.indices.contains(index):
             editing = .event(index: index, event: plan.events[index])
-        case .targetMix:
+        case .targetMix, .targetMixStep:
             showsTargetMix = true
         default:
             break
@@ -459,7 +459,7 @@ struct PlanChapterDetails: View {
     var milestones: [ProjectedMilestone] = []
     var milestoneText: PlanMilestoneText?
     /// Opens an item's sheet, or the target mix's.
-    var onOpen: (PlanToken) -> Void = { _ in }
+    var onOpen: (PlanChapter.Item) -> Void = { _ in }
     var onSelect: (Int) -> Void = { _ in }
     var onUsePlanAge: () -> Void = {}
 
@@ -593,8 +593,7 @@ struct PlanChapterDetails: View {
                     .font(.caption)
                     .foregroundStyle(Palette.secondaryInk)
             }
-            let rows = PlanChapterSettings.rows(for: chapter.items, plan: plan, model: model, issues: issues,
-                                                words: words)
+            let rows = PlanChapterSettings.rows(for: chapter.items, model: model, issues: issues, words: words)
             if rows.isEmpty {
                 Text("Nothing starts in this chapter.")
                     .font(.subheadline)

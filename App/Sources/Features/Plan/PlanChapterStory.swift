@@ -2,90 +2,14 @@ import Foundation
 import Model
 import Planner
 
-/// A value in the plan's words that can be changed where it reads (UI.md,
-/// "Plan"): tapping it opens a small editor, or the item's own sheet.
-enum PlanToken: Hashable, Sendable, Identifiable {
-    case workIncome(Int)
-    case workGrowth(Int)
-    case workingSpending
-    case retiredSpending
-    case retirementAge
-    case pensionAmount(Int)
-    case pensionAge(Int)
-    case incomeAmount(Int)
-    case contributionAmount(Int)
-    case eventAmount(Int)
-    case eventWhen(Int)
-    case eventProbability(Int)
-    case spendingPhase(Int)
-    case endAge
-    case flexibleSpending
-    case inflation
-    case equityReturn
-    case bondsReturn
-    case investmentTax
-    case wealthTax
-    case confidence
-    /// The target mix and its changes with age, in a sheet of their own.
-    case targetMix
-    /// An item in its sheet: a work phase, a pension, other income, a
-    /// contribution, an event.
-    case work(Int)
-    case pension(Int)
-    case income(Int)
-    case contribution(Int)
-    case event(Int)
-
-    /// Letters, digits and hyphens, so it can be a link's address.
-    var id: String {
-        switch self {
-        case .workIncome(let index): "work-income-\(index)"
-        case .workGrowth(let index): "work-growth-\(index)"
-        case .workingSpending: "working-spending"
-        case .retiredSpending: "retired-spending"
-        case .retirementAge: "retirement-age"
-        case .pensionAmount(let index): "pension-amount-\(index)"
-        case .pensionAge(let index): "pension-age-\(index)"
-        case .incomeAmount(let index): "income-amount-\(index)"
-        case .contributionAmount(let index): "contribution-amount-\(index)"
-        case .eventAmount(let index): "event-amount-\(index)"
-        case .eventWhen(let index): "event-when-\(index)"
-        case .eventProbability(let index): "event-probability-\(index)"
-        case .spendingPhase(let index): "spending-phase-\(index)"
-        case .endAge: "end-age"
-        case .flexibleSpending: "flexible-spending"
-        case .inflation: "inflation"
-        case .equityReturn: "equity-return"
-        case .bondsReturn: "bonds-return"
-        case .investmentTax: "investment-tax"
-        case .wealthTax: "wealth-tax"
-        case .confidence: "confidence"
-        case .targetMix: "target-mix"
-        case .work(let index): "work-\(index)"
-        case .pension(let index): "pension-\(index)"
-        case .income(let index): "income-\(index)"
-        case .contribution(let index): "contribution-\(index)"
-        case .event(let index): "event-\(index)"
-        }
-    }
-
-    /// Whether it opens the item's sheet (or the target mix's) rather than a small editor.
-    var opensSheet: Bool {
-        switch self {
-        case .work, .pension, .income, .contribution, .event, .targetMix: true
-        default: false
-        }
-    }
-}
-
 /// A chapter in words (UI.md, "Plan"): what happens in it, its values
 /// marked; what a month looks like; and, once calculated, what can go
 /// wrong. Amounts are a month's, in today's money, from the plan's yearly ones.
 struct PlanChapterStory: Hashable, Sendable {
-    /// A piece of a sentence: words, or a value to change.
+    /// A piece of a sentence: words, or a value, which reads in bold.
     enum Run: Hashable, Sendable {
         case text(String)
-        case token(String, PlanToken)
+        case value(String)
     }
 
     /// A month's money in a chapter, as one bar of parts.
@@ -145,7 +69,7 @@ extension PlanChapterStory {
     // MARK: What happens
 
     static func sentences(_ chapter: PlanChapter, model: PlanChaptersModel, words: PlanWords,
-                          results: PlanResults? = nil) -> [[Run]] {
+                          results: PlanResults?) -> [[Run]] {
         let plan = model.plan
         var sentences: [[Run]] = []
         switch chapter.kind {
@@ -153,8 +77,8 @@ extension PlanChapterStory {
             let phase = plan.work[index]
             if let net = phase.netIncome {
                 let spend = plan.spending.working
-                var sentence: [Run] = [.text("You take home "), .token(words.monthly(net), .workIncome(index)),
-                                       .text(" a month and spend "), .token(words.monthly(spend), .workingSpending)]
+                var sentence: [Run] = [.text("You take home "), .value(words.monthly(net)),
+                                       .text(" a month and spend "), .value(words.monthly(spend))]
                 let saving = net - spend
                 if saving > 0 {
                     sentence.append(.text(", so you save about \(words.monthly(saving))."))
@@ -166,35 +90,35 @@ extension PlanChapterStory {
                 sentences.append(sentence)
             } else {
                 let name = plan.workName(index)
-                sentences.append([.text("Your pay after tax as "), .token(name, .work(index)), .text(" isn't set yet.")])
+                sentences.append([.text("Your pay after tax as "), .value(name), .text(" isn't set yet.")])
             }
         case .working:
             break
         case .betweenWork:
             sentences.append([.text("You don't work in these years, and spend "),
-                              .token(words.monthly(plan.spending.working), .workingSpending),
+                              .value(words.monthly(plan.spending.working)),
                               .text(" a month from your savings.")])
         case .bridge, .pensions:
             if chapter.items.contains(.retirement) {
                 var sentence: [Run] = [.text("You stop working ")]
                 if plan.retirement.age == .earliest {
-                    sentence += [.token("as early as you can", .retirementAge),
+                    sentence += [.value("as early as you can"),
                                  .text(", at \(model.retirementAge) in \(model.retirementYear),")]
                 } else {
-                    sentence += [.token("at \(model.retirementAge)", .retirementAge),
+                    sentence += [.value("at \(model.retirementAge)"),
                                  .text(", in \(model.retirementYear),")]
                 }
                 let otherIncome = otherIncomePaid(at: chapter.years.lowerBound, retirementYear: model.retirementYear,
                                                   plan: plan, birthYear: model.chapters.birthYear)
                 let allFromSavings = chapter.kind == .bridge && otherIncome == 0
-                sentence += [.text(" and spend "), .token(words.monthly(plan.spending.retired), .retiredSpending),
+                sentence += [.text(" and spend "), .value(words.monthly(plan.spending.retired)),
                              .text(allFromSavings ? " a month, all from your savings." : " a month.")]
                 sentences.append(sentence)
             }
             for case .spendingPhase(let index) in chapter.items where plan.spending.phases.indices.contains(index) {
                 let phase = plan.spending.phases[index]
                 sentences.append([.text("From \(phase.fromAge) you spend "),
-                                  .token(words.percent(phase.factor), .spendingPhase(index)),
+                                  .value(words.percent(phase.factor)),
                                   .text(" of that: \(words.monthly(plan.spending.retired * phase.factor)) a month.")])
             }
             for case .pension(let index) in chapter.items where plan.pensions.indices.contains(index) {
@@ -202,38 +126,35 @@ extension PlanChapterStory {
                 let name = plan.pensionName(index)
                 let amount = pension.perYear.map { words.monthly($0) } ?? "an amount to enter"
                 let age = pension.fromAge.map { "\($0)" } ?? "an age to enter"
-                sentences.append([.token(name, .pension(index)), .text(" pays "), .token(amount, .pensionAmount(index)),
-                                  .text(" a month from "), .token(age, .pensionAge(index)), .text(".")])
+                sentences.append([.value(name), .text(" pays "), .value(amount), .text(" a month from "), .value(age),
+                                  .text(".")])
             }
         }
         for case .income(let index) in chapter.items where plan.income.indices.contains(index) {
-            sentences.append(incomeSentence(plan.income[index], index: index, name: plan.incomeName(index),
-                                            words: words))
+            sentences.append(incomeSentence(plan.income[index], name: plan.incomeName(index), words: words))
         }
         if !chapter.isRetired {
             for case .contribution(let index) in chapter.items + chapter.continuing
                 where plan.contributions.indices.contains(index) && !plan.contributions[index].isOneOff {
                 let contribution = plan.contributions[index]
-                sentences.append([.token(words.monthly(contribution.perYear), .contributionAmount(index)),
-                                  .text(" a month goes into "),
-                                  .token(model.accountName(contribution.account), .contribution(index)), .text(".")])
+                sentences.append([.value(words.monthly(contribution.perYear)), .text(" a month goes into "),
+                                  .value(model.accountName(contribution.account)), .text(".")])
             }
         }
         for case .contribution(let index) in chapter.items
             where plan.contributions.indices.contains(index) && plan.contributions[index].isOneOff {
             let contribution = plan.contributions[index]
             sentences.append([.text("In \(contribution.year ?? chapter.years.lowerBound) you put "),
-                              .token(words.amount(contribution.amount ?? 0), .contributionAmount(index)),
-                              .text(" into "), .token(model.accountName(contribution.account), .contribution(index)),
-                              .text(".")])
+                              .value(words.amount(contribution.amount ?? 0)),
+                              .text(" into "), .value(model.accountName(contribution.account)), .text(".")])
         }
         for case .event(let index) in chapter.items where plan.events.indices.contains(index) {
-            sentences.append(eventSentence(plan.events[index], index: index, words: words,
+            sentences.append(eventSentence(plan.events[index], words: words,
                                            without: results?.details?.agesWithout.withoutWindfall(index),
                                            earliest: results?.headline.earliestAge))
         }
         if chapter.items.contains(.end) {
-            sentences.append([.text("The plan ends at "), .token("\(plan.effectiveEndAge)", .endAge), .text(".")])
+            sentences.append([.text("The plan ends at "), .value("\(plan.effectiveEndAge)"), .text(".")])
         }
         if sentences.isEmpty {
             sentences.append([.text(chapter.isRetired ? "Your pensions keep paying, and your savings cover the rest."
@@ -244,7 +165,7 @@ extension PlanChapterStory {
 
     /// "[Rent] pays [800 €] a month from 57 until 65.", "[Part-time] pays
     /// [1.500 €] a month from when you stop working until 60."
-    static func incomeSentence(_ income: PlanIncome, index: Int, name: String, words: PlanWords) -> [Run] {
+    static func incomeSentence(_ income: PlanIncome, name: String, words: PlanWords) -> [Run] {
         let amount = income.perYear.map { words.monthly($0) } ?? "an amount to enter"
         let from: String = switch income.from {
         case .age(let age): " a month from \(age)"
@@ -252,8 +173,7 @@ extension PlanChapterStory {
         case nil: " a month"
         }
         let until = income.untilAge.map { " until \($0)" } ?? ""
-        return [.token(name, .income(index)), .text(" pays "), .token(amount, .incomeAmount(index)),
-                .text(from + until + ".")]
+        return [.value(name), .text(" pays "), .value(amount), .text(from + until + ".")]
     }
 
     /// "In [2031] you spend [25.000 €] on [New car].", "At [62] you may
@@ -263,25 +183,21 @@ extension PlanChapterStory {
     /// - Parameters:
     ///   - without: the earliest age if an uncertain windfall never came.
     ///   - earliest: the plan's own earliest age.
-    static func eventSentence(_ event: PlanEvent, index: Int, words: PlanWords, without: AgeWithout? = nil,
-                              earliest: Int? = nil) -> [Run] {
+    static func eventSentence(_ event: PlanEvent, words: PlanWords, without: AgeWithout?, earliest: Int?) -> [Run] {
         var sentence: [Run]
         switch event.timing {
-        case .year(let year): sentence = [.text("In "), .token("\(year)", .eventWhen(index))]
-        case .age(let age): sentence = [.text("At "), .token("\(age)", .eventWhen(index))]
+        case .year(let year): sentence = [.text("In "), .value("\(year)")]
+        case .age(let age): sentence = [.text("At "), .value("\(age)")]
         }
         let likely = event.effectiveProbability < 1
         if event.amount < 0 {
-            sentence += [.text(" you spend "), .token(words.amount(-event.amount), .eventAmount(index)), .text(" on "),
-                         .token(event.name, .event(index))]
+            sentence += [.text(" you spend "), .value(words.amount(-event.amount)), .text(" on "), .value(event.name)]
         } else {
-            sentence += [.text(likely ? " you may receive " : " you receive "),
-                         .token(words.amount(event.amount), .eventAmount(index)), .text(" from "),
-                         .token(event.name, .event(index))]
+            sentence += [.text(likely ? " you may receive " : " you receive "), .value(words.amount(event.amount)),
+                         .text(" from "), .value(event.name)]
         }
         if likely {
-            sentence += [.text(", "), .token(words.percent(event.effectiveProbability), .eventProbability(index)),
-                         .text(" likely")]
+            sentence += [.text(", "), .value(words.percent(event.effectiveProbability)), .text(" likely")]
             if event.amount > 0, let without, earliest != nil {
                 sentence.append(.text("; " + withoutSentence(without, earliest: earliest)))
             }
