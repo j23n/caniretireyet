@@ -134,10 +134,15 @@ struct PlanTimelineView: View {
                 PlanNoChapters(plan: plan)
                     .padding(.horizontal, gutter)
             } else {
-                let selected = min(session.selectedChapter(in: model) ?? 0, model.chapters.chapters.count - 1)
+                let count = model.chapters.chapters.count
+                let selected = min(session.selectedChapter(in: model) ?? 0, count - 1)
                 let selection = Binding<Int>(get: { selected },
                                              set: { session.selectChapter($0, in: model) })
-                stripHeader(count: model.chapters.chapters.count, selection: selection)
+                PlanStripHeader(
+                    title: PlanTimelineText.chapters(count),
+                    hint: isWide ? "Scroll sideways, or use the arrows." : "Scroll sideways; tap a chapter.",
+                    steps: isWide ? PlanStepButtons(index: selected, count: count, today: 0,
+                                                    select: { selection.wrappedValue = $0 }) : nil)
                     .padding(.horizontal, gutter)
                 PlanChapterStrip(timeline: timeline, selection: selection, pointsPerYear: isWide ? 26 : 22,
                                  inset: gutter, fillsWidth: !isWide)
@@ -161,25 +166,6 @@ struct PlanTimelineView: View {
         } else {
             PlanChaptersNeedBirthDate()
                 .padding(.horizontal, gutter)
-        }
-    }
-
-    /// "Your life in 6 chapters", with the arrows on the Mac.
-    private func stripHeader(count: Int, selection: Binding<Int>) -> some View {
-        HStack(alignment: .firstTextBaseline, spacing: Metrics.m) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(PlanTimelineText.chapters(count))
-                    .font(.title3.weight(.bold))
-                    .foregroundStyle(Palette.ink)
-                    .accessibilityAddTraits(.isHeader)
-                Text(isWide ? "Scroll sideways, or use the arrows." : "Scroll sideways; tap a chapter.")
-                    .font(.subheadline)
-                    .foregroundStyle(Palette.secondaryInk)
-            }
-            Spacer(minLength: Metrics.s)
-            if isWide {
-                PlanStepButtons(index: selection.wrappedValue, count: count, today: 0) { selection.wrappedValue = $0 }
-            }
         }
     }
 
@@ -390,6 +376,34 @@ struct PlanTimelineHeadline: View {
             .buttonStyle(.plain)
             .fixedSize()
             .accessibilityHint(Text("Shows your progress"))
+        }
+    }
+}
+
+/// A strip's title ("Your life in 6 chapters", "Year by year"), how to move
+/// along it, and on the Mac and iPad ‹ › beside them.
+struct PlanStripHeader: View {
+    let title: String
+    let hint: String?
+    let steps: PlanStepButtons?
+
+    var body: some View {
+        HStack(alignment: .firstTextBaseline, spacing: Metrics.m) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(.title3.weight(.bold))
+                    .foregroundStyle(Palette.ink)
+                    .accessibilityAddTraits(.isHeader)
+                if let hint {
+                    Text(hint)
+                        .font(.subheadline)
+                        .foregroundStyle(Palette.secondaryInk)
+                }
+            }
+            Spacer(minLength: Metrics.s)
+            if let steps {
+                steps
+            }
         }
     }
 }

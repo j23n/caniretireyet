@@ -761,8 +761,7 @@ struct PlanProgressTimeline {
             let marker = markers[point.date]
             if let age = point.earliestAge {
                 if let before = previous, before != age {
-                    let years = abs(age - before)
-                    let move = "\(years == 1 ? "a year" : "\(years) years") \(age < before ? "sooner" : "later")"
+                    let move = PlanProgressText.move(years: age - before)
                     let cause = marker?.changes.contains(.plan) == true ? "Plan changed: " : ""
                     let text = seen.contains(age) ? "\(cause)\(age) again." : "\(cause)\(age), \(move)."
                     notes.append(Note(date: point.date, month: month, text: text))
@@ -872,9 +871,7 @@ enum PlanProgressText {
             if from == to {
                 sentences.append("Your answer stayed at \(to).")
             } else {
-                let years = abs(to - from)
-                let move = "\(years == 1 ? "a year" : "\(years) years") \(to < from ? "sooner" : "later")"
-                sentences.append("Your answer moved from \(from) to \(to), \(move).")
+                sentences.append("Your answer moved from \(from) to \(to), \(move(years: to - from)).")
             }
         }
         return sentences.joined(separator: " ")
@@ -889,22 +886,29 @@ enum PlanProgressText {
             + "prices."
     }
 
+    /// "January expected 298.000 € by now", "… by 31 Dec", with `amount`'s
+    /// words; `nil` without a position.
+    static func expected(_ year: PlanProgressYear, amount: (Decimal) -> String, locale: Locale = .current) -> String? {
+        guard let position = year.position else { return nil }
+        let when = year.isLatest ? "by now" : "by \(AmountFormat.shortDate(year.to, locale: locale))"
+        return "\(year.expectationTitle(locale: locale)) expected \(amount(position.median)) \(when)"
+    }
+
     /// "January expected 298.000 € by now. You're 18.400 € ahead, more than
     /// in 68 of its 100 futures."
     static func january(_ year: PlanProgressYear, currency: CurrencyCode, hidesAmounts: Bool,
                         locale: Locale = .current) -> String? {
-        guard let position = year.position else { return nil }
         func amount(_ value: Decimal) -> String {
             hidesAmounts ? AmountFormat.hidden : AmountFormat.amount(abs(value), currency: currency, locale: locale)
         }
-        let when = year.isLatest ? "by now" : "by \(AmountFormat.shortDate(year.to, locale: locale))"
-        var expected = "\(year.expectationTitle(locale: locale)) expected \(amount(position.median)) \(when)"
+        guard let position = year.position, var text = expected(year, amount: amount, locale: locale)
+        else { return nil }
         let december = CalendarDate.lastDay(ofYear: year.year)
         if year.isLatest, let entry = year.baseline, december > year.to,
            let bands = PlanBaselineComparison.percentiles(on: december, in: entry.baseline) {
-            expected += " and \(amount(Decimal(wholeNumber: bands[2]))) by December"
+            text += " and \(amount(Decimal(wholeNumber: bands[2]))) by December"
         }
-        var text = expected + ". "
+        text += ". "
         let side = position.gap >= 0 ? "ahead" : "behind"
         text += year.isLatest ? "You're \(amount(position.gap)) \(side)" : "You ended \(amount(position.gap)) \(side)"
         if let percentile = position.percentile {
@@ -925,9 +929,7 @@ enum PlanProgressText {
     static func summary(_ year: PlanProgressYear, milestones: [ReachedMilestone], text: PlanMilestoneText) -> String? {
         var parts: [String] = []
         if let change = year.ageChange, change != 0 {
-            let count = abs(change)
-            let span = count == 1 ? "a year" : Self.number(count) + " years"
-            parts.append("\(span) \(change < 0 ? "sooner" : "later")")
+            parts.append(move(years: change, spelled: true))
         }
         let rounds = milestones.filter { $0.milestone.kind == .roundAmount }
         if let top = rounds.max(by: { $0.milestone.amount < $1.milestone.amount }) {
@@ -948,6 +950,14 @@ enum PlanProgressText {
         guard let first = parts.first else { return nil }
         let sentence = parts.count > 1 ? first + ", and " + parts[1] : first
         return sentence.prefix(1).uppercased() + sentence.dropFirst() + "."
+    }
+
+    /// How the earliest age moved by `change` years (negative is sooner):
+    /// "a year sooner", "2 years later", `spelled` "two years later".
+    static func move(years change: Int, spelled: Bool = false) -> String {
+        let count = abs(change)
+        let span = count == 1 ? "a year" : (spelled ? number(count) : "\(count)") + " years"
+        return "\(span) \(change < 0 ? "sooner" : "later")"
     }
 
     /// "Two", "three", … up to ten, then digits.

@@ -290,7 +290,13 @@ struct PlanProgressView: View {
             let selection = Binding<Int>(
                 get: { selected },
                 set: { index in if cards.indices.contains(index) { selectedYear = cards[index].year.year } })
-            yearsHeader(count: cards.count, selection: selection)
+            let hint = isWide ? "Scroll back, or use the arrows." : "Scroll back through the years; tap one."
+            PlanStripHeader(
+                title: "Year by year", hint: cards.count > 1 ? hint : nil,
+                steps: isWide && cards.count > 1
+                    ? PlanStepButtons(index: selected, count: cards.count, today: cards.count - 1,
+                                      select: { selection.wrappedValue = $0 })
+                    : nil)
                 .padding(.leading, gutter)
                 .padding(.trailing, isWide ? 0 : gutter)
             // An inset at both ends, beside the milestones too: on the Mac
@@ -313,28 +319,6 @@ struct PlanProgressView: View {
         return { year in
             pastBaselineDay = CalendarDate.firstDay(ofYear: year)
             showsPastBaseline = true
-        }
-    }
-
-    private func yearsHeader(count: Int, selection: Binding<Int>) -> some View {
-        HStack(alignment: .firstTextBaseline, spacing: Metrics.m) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text("Year by year")
-                    .font(.title3.weight(.bold))
-                    .foregroundStyle(Palette.ink)
-                    .accessibilityAddTraits(.isHeader)
-                if count > 1 {
-                    Text(isWide ? "Scroll back, or use the arrows." : "Scroll back through the years; tap one.")
-                        .font(.subheadline)
-                        .foregroundStyle(Palette.secondaryInk)
-                }
-            }
-            Spacer(minLength: Metrics.s)
-            if isWide && count > 1 {
-                PlanStepButtons(index: selection.wrappedValue, count: count, today: count - 1) {
-                    selection.wrappedValue = $0
-                }
-            }
         }
     }
 

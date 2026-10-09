@@ -253,8 +253,7 @@ struct PlanYearFigures: View {
     private var ageMove: String? {
         guard let change = year.ageChange else { return nil }
         guard change != 0 else { return "no change" }
-        let count = abs(change)
-        return "\(count == 1 ? "a year" : "\(count) years") \(change < 0 ? "sooner" : "later")"
+        return PlanProgressText.move(years: change)
     }
 
     /// How many of the baseline's 100 futures are below your money: "92 in 100".
@@ -399,9 +398,7 @@ struct PlanYearWhy: View {
 
     /// "January expected 141.463 € by 31 Dec.", "… by now."
     private var expected: String? {
-        guard let position = year.position else { return nil }
-        let when = year.isLatest ? "by now" : "by \(AmountFormat.shortDate(year.to, locale: locale))"
-        return "\(year.expectationTitle(locale: locale)) expected \(amount(position.median)) \(when)."
+        PlanProgressText.expected(year, amount: { amount($0) }, locale: locale).map { $0 + "." }
     }
 
     var body: some View {
