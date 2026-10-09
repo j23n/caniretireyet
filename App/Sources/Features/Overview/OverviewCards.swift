@@ -1,3 +1,4 @@
+import Glance
 import Model
 import Prices
 import Storage
@@ -59,8 +60,8 @@ struct OverviewChangeCard: View {
 /// so the ⓘ inside it gets its own taps; the chevron is the button
 /// VoiceOver and keyboards use.
 struct OverviewAnswerCard: View {
-    let valuator: Valuator
-    let asOf: CalendarDate
+    /// The day the Overview reports on.
+    let today: CalendarDate
 
     @Environment(LibraryStore.self) private var library
     @Environment(PlanStore.self) private var plans
@@ -196,7 +197,7 @@ struct OverviewAnswerCard: View {
 
     private func baselineGap(for plan: PlanDocument?) -> OverviewBaselineGap? {
         guard let plan, let baseline = library.library.baselines(for: plan.id).last else { return nil }
-        return OverviewBaselineGap(baseline: baseline, valuator: valuator, on: asOf)
+        return OverviewBaselineGap(baseline: baseline, valuator: library.valuator, on: today)
     }
 
     private func earliestText(_ headline: PlanHeadline) -> String {
@@ -208,14 +209,13 @@ struct OverviewAnswerCard: View {
     }
 
     private func confidenceText(_ headline: PlanHeadline) -> String {
-        let tenths = Int(wholeNumber: headline.confidence * 10)
-        return headline.canRetireNow
-            ? "It works in at least \(tenths) of 10 simulated futures"
-            : "The first age that works in \(tenths) of 10 simulated futures"
+        headline.canRetireNow
+            ? "It works in at least \(GlanceText.futures(headline.confidence)) simulated futures"
+            : "The first age that works \(GlanceText.inSimulatedFutures(headline.confidence))"
     }
 
     private func gapText(_ gap: OverviewBaselineGap) -> String {
-        let name = gap.name(relativeTo: asOf, locale: locale)
+        let name = gap.name(relativeTo: today, locale: locale)
         return gap.gap >= 0 ? "ahead of your \(name) baseline" : "behind your \(name) baseline"
     }
 }
@@ -228,8 +228,8 @@ struct OverviewAnswerCard: View {
 /// missing (opening *Fill In Past Prices*), the library's own state (merged
 /// sync conflicts, save errors, unreadable files) and plan warnings.
 struct OverviewAttentionCard: View {
-    let valuator: Valuator
-    let asOf: CalendarDate
+    /// The day the Overview reports on.
+    let today: CalendarDate
 
     @Environment(LibraryStore.self) private var library
     @Environment(PlanStore.self) private var plans
@@ -259,7 +259,7 @@ struct OverviewAttentionCard: View {
 
     private var items: [OverviewAttentionItem] {
         var items = OverviewAttention.items(
-            library: library.library, valuator: valuator, asOf: asOf, today: .today(),
+            library: library.library, valuator: library.valuator, on: today,
             stalenessThreshold: preferences.stalenessThreshold, locale: locale)
         if checkIn.hasDraft, let failures = checkIn.priceList?.failures, !failures.isEmpty {
             items.append(OverviewAttentionItem(
@@ -286,9 +286,11 @@ struct OverviewAttentionCard: View {
         return items
     }
 
+    /// Whether ``LibraryStatusBanners`` shows one: its conditions.
     private var hasLibraryBanners: Bool {
         library.isReadOnly || library.lastError != nil || !library.mergedConflicts.isEmpty
-            || !library.conflictFailures.isEmpty || library.loadIssues.contains(where: { $0.severity == .error })
+            || !library.conflictFailures.isEmpty || !library.saveNotices.isEmpty
+            || library.loadIssues.contains(where: { $0.severity == .error })
     }
 
     @ViewBuilder
@@ -367,7 +369,7 @@ private struct OverviewAttentionRow: View {
 /// Horizontal bars with values and shares, grouped by the chosen dimension.
 struct OverviewAllocationCard: View {
     let breakdown: Breakdown
-    @Binding var dimension: OverviewAllocation
+    @Binding var dimension: BreakdownDimension
 
     var body: some View {
         Card {
@@ -382,7 +384,7 @@ struct OverviewAllocationCard: View {
         } header: {
             SectionHeader("Allocation") {
                 Picker("Group by", selection: $dimension) {
-                    ForEach(OverviewAllocation.allCases, id: \.self) { option in
+                    ForEach(BreakdownDimension.allCases, id: \.self) { option in
                         Text(option.title).tag(option)
                     }
                 }
@@ -403,8 +405,8 @@ struct OverviewAllocationCard: View {
                 if let report = valuator.changeSinceLastCheckIn(asOf: date) {
                     OverviewChangeCard(report: report)
                 }
-                OverviewAnswerCard(valuator: valuator, asOf: date)
-                OverviewAttentionCard(valuator: valuator, asOf: date)
+                OverviewAnswerCard(today: date)
+                OverviewAttentionCard(today: date)
                 OverviewAllocationCard(breakdown: valuator.breakdown(by: .assetClass, on: date),
                                        dimension: .constant(.assetClass))
             }

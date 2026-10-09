@@ -126,6 +126,13 @@ public struct StackedSeries: Hashable, Sendable {
     /// One breakdown per date.
     public let points: [Breakdown]
 
+    /// Breakdowns along `dimension`, one per date, with their groups in stacking order.
+    public init(dimension: BreakdownDimension, breakdowns: [Breakdown]) {
+        self.dimension = dimension
+        keys = Set(breakdowns.flatMap { $0.slices.map(\.key) }).sorted()
+        points = breakdowns
+    }
+
     /// The values of one group over time; zero on dates where it has none.
     public func series(for key: BreakdownKey) -> [SeriesPoint] {
         points.map { SeriesPoint(date: $0.date, value: $0.value(of: key), isComplete: $0.isComplete) }
@@ -167,8 +174,7 @@ extension Valuator {
     public func breakdownSeries(by dimension: BreakdownDimension = .assetClass, in scope: NetWorthScope = .netWorth,
                                 grid: SeriesGrid = .monthEnds, through end: CalendarDate) -> StackedSeries {
         let points = dates(grid, in: scope, through: end).map { breakdown(by: dimension, on: $0, in: scope) }
-        let keys = Set(points.flatMap { $0.slices.map(\.key) }).sorted()
-        return StackedSeries(dimension: dimension, keys: keys, points: points)
+        return StackedSeries(dimension: dimension, breakdowns: points)
     }
 
     /// One account's value split along `dimension`. Parts that couldn't be valued are left out.

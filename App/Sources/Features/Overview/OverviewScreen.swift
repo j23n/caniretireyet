@@ -18,7 +18,7 @@ struct OverviewScreen: View {
 
     // `overview.scope` and `overview.stacked`, stored by earlier versions, are no longer read.
     @AppStorage("overview.range") private var range: OverviewRange = .threeYears
-    @AppStorage("overview.allocation") private var allocation: OverviewAllocation = .assetClass
+    @AppStorage("overview.allocation") private var allocation: BreakdownDimension = .assetClass
 
     init() {}
 
@@ -57,11 +57,10 @@ struct OverviewScreen: View {
                     if let report = valuator.changeSinceLastCheckIn(asOf: today) {
                         OverviewChangeCard(report: report)
                     }
-                    OverviewAnswerCard(valuator: valuator, asOf: today)
-                    OverviewAttentionCard(valuator: valuator, asOf: today)
-                    OverviewAllocationCard(
-                        breakdown: valuator.breakdown(by: allocation.dimension, on: today),
-                        dimension: $allocation)
+                    OverviewAnswerCard(today: today)
+                    OverviewAttentionCard(today: today)
+                    OverviewAllocationCard(breakdown: valuator.breakdown(by: allocation, on: today),
+                                           dimension: $allocation)
                 }
             }
             .padding(Metrics.l)

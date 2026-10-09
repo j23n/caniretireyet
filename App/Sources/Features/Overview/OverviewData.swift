@@ -37,14 +37,9 @@ enum OverviewRange: String, CaseIterable, Hashable, Sendable {
     }
 }
 
-/// What the Overview's allocation bars group by (UI.md, "Allocation").
-enum OverviewAllocation: String, CaseIterable, Hashable, Sendable {
-    case assetClass
-    case accountGroup
-    case currency
-    case institution
-    case liquidity
-
+/// What the Overview's allocation bars group by (UI.md, "Allocation"),
+/// remembered by its raw value.
+extension BreakdownDimension {
     var title: String {
         switch self {
         case .assetClass: "Asset class"
@@ -52,16 +47,6 @@ enum OverviewAllocation: String, CaseIterable, Hashable, Sendable {
         case .currency: "Currency"
         case .institution: "Institution"
         case .liquidity: "Liquid vs locked"
-        }
-    }
-
-    var dimension: BreakdownDimension {
-        switch self {
-        case .assetClass: .assetClass
-        case .accountGroup: .accountGroup
-        case .currency: .currency
-        case .institution: .institution
-        case .liquidity: .liquidity
         }
     }
 
@@ -136,28 +121,20 @@ struct OverviewHistory: Hashable, Sendable {
         points = totals.map { total in
             ChartPoint(date: total.date.dateValue, value: total.total.doubleValue, isComplete: total.isComplete)
         }
-        stacked = Self.byAssetClass(totals.map { valuator.breakdown(of: $0, by: .assetClass) })
+        let byAssetClass = StackedSeries(dimension: .assetClass,
+                                         breakdowns: totals.map { valuator.breakdown(of: $0, by: .assetClass) })
+        // A group that's zero on every date is left out.
+        stacked = byAssetClass.keys.compactMap { key in
+            let values = byAssetClass.series(for: key).chartPoints
+            guard values.contains(where: { $0.value != 0 }) else { return nil }
+            return ChartSeries(id: key.chartID, name: key.description, color: key.chartColor, points: values)
+        }
         oldPrices = OldPriceSummary(valuator.oldPrices(in: scope, on: dates))
         missing = points.hasIncompletePoints ? MissingValues(totals.flatMap(\.accounts)) : nil
         self.projection = horizon.map { ProjectionWindow.clip(projection, at: $0) } ?? projection
         let first = points.first?.date ?? end.dateValue
         let last = self.projection.last?.date ?? end.dateValue
         self.markers = markers.filter { $0.date >= first && $0.date <= last }
-    }
-
-    /// One series per asset class, and one for debts, in stacking order
-    /// (bottom first), from a breakdown per date. A point is as complete as
-    /// its date's total; a group that's zero on every date is left out.
-    static func byAssetClass(_ breakdowns: [Breakdown]) -> [ChartSeries] {
-        let keys = Set(breakdowns.flatMap { $0.slices.map(\.key) }).sorted()
-        return keys.compactMap { key in
-            let points = breakdowns.map { breakdown in
-                ChartPoint(date: breakdown.date.dateValue, value: breakdown.value(of: key).doubleValue,
-                           isComplete: breakdown.isComplete)
-            }
-            guard points.contains(where: { $0.value != 0 }) else { return nil }
-            return ChartSeries(id: key.chartID, name: key.description, color: key.chartColor, points: points)
-        }
     }
 }
 
@@ -227,8 +204,8 @@ struct OverviewAttentionItem: Hashable, Sendable, Identifiable {
 /// is missing (with *Fill In Past Prices*). The screen adds the library's
 /// own state (sync conflicts, save errors) and plan warnings.
 enum OverviewAttention {
-    static func items(library: Library, valuator: Valuator, asOf: CalendarDate, today: CalendarDate,
-                      stalenessThreshold: Int, locale: Locale = .current) -> [OverviewAttentionItem] {
+    static func items(library: Library, valuator: Valuator, on today: CalendarDate, stalenessThreshold: Int,
+                      locale: Locale = .current) -> [OverviewAttentionItem] {
         func accountName(_ id: AccountID) -> String { library.accounts[id]?.name ?? id.rawValue }
         func instrumentName(_ id: InstrumentID) -> String { library.instruments[id]?.name ?? id.rawValue }
 
@@ -252,47 +229,38 @@ enum OverviewAttention {
         }
         items += tradeProblems(library: library, valuator: valuator, locale: locale)
 
-        var missingPrices: [InstrumentID: [AccountID]] = [:]
-        var missingRates: [String: (from: CurrencyCode, to: CurrencyCode, accounts: [AccountID])] = [:]
-        for problem in valuator.netWorth(on: asOf).problems {
-            switch problem {
-            case .missingPrice(let account, let instrument):
-                missingPrices[instrument, default: []].append(account)
-            case .missingFX(let account, let from, let to):
-                let key = "\(from)-\(to)"
-                var entry = missingRates[key] ?? (from, to, [])
-                entry.accounts.append(account)
-                missingRates[key] = entry
-            case .noValuation:
-                break // Stale accounts cover it.
-            }
-        }
-        for (instrument, accounts) in missingPrices.sorted(by: { $0.key < $1.key }) {
+        // Today's missing prices, then rates; an account without a value is stale above.
+        let gaps = MissingValues(valuator.netWorth(on: today).accounts)?.gaps ?? []
+        var missingPrices: Set<InstrumentID> = []
+        for gap in gaps {
+            guard case .price(let instrument) = gap.item else { continue }
+            missingPrices.insert(instrument)
             items.append(OverviewAttentionItem(
                 id: "price.\(instrument)", systemImage: "tag.slash",
                 title: "No price for \(instrumentName(instrument))",
-                detail: "\(list(accounts.map(accountName))) \(accounts.count == 1 ? "leaves" : "leave") it out of "
-                    + "your net worth. Type in a price at your next check-in.",
+                detail: "\(list(gap.accounts.map(accountName))) \(gap.accounts.count == 1 ? "leaves" : "leave") "
+                    + "it out of your net worth. Type in a price at your next check-in.",
                 target: .instrument(instrument)))
         }
-        for (key, entry) in missingRates.sorted(by: { $0.key < $1.key }) {
+        for gap in gaps {
+            guard case .rate(let from, let to) = gap.item else { continue }
             items.append(OverviewAttentionItem(
-                id: "fx.\(key)", systemImage: "arrow.left.arrow.right",
-                title: "No \(entry.from) to \(entry.to) exchange rate",
-                detail: "\(list(entry.accounts.map(accountName))) \(entry.accounts.count == 1 ? "isn't" : "aren't") "
+                id: "fx.\(from)-\(to)", systemImage: "arrow.left.arrow.right",
+                title: "No \(from) to \(to) exchange rate",
+                detail: "\(list(gap.accounts.map(accountName))) \(gap.accounts.count == 1 ? "isn't" : "aren't") "
                     + "fully counted. Type in a rate at your next check-in.",
                 target: .checkIn))
         }
 
-        for (instrument, date) in outdatedPrices(library: library, valuator: valuator, asOf: asOf)
-        where missingPrices[instrument] == nil {
+        for (instrument, date) in outdatedPrices(library: library, valuator: valuator, asOf: today)
+        where !missingPrices.contains(instrument) {
             items.append(OverviewAttentionItem(
                 id: "outdated.\(instrument)", systemImage: "tag",
                 title: "\(instrumentName(instrument)): last price \(AmountFormat.shortDate(date, locale: locale))",
                 detail: "Older than the account's latest value. Fetch or type in a price at your next check-in.",
                 target: .instrument(instrument)))
         }
-        items += pastGaps(library: library, valuator: valuator, asOf: asOf, locale: locale)
+        items += pastGaps(library: library, valuator: valuator, asOf: today, locale: locale)
         return items
     }
 
