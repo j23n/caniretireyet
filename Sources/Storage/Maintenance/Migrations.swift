@@ -24,15 +24,10 @@ public struct Migration: Sendable {
         self.apply = apply
     }
 
-    /// The steps this app knows, in order.
-    public static let all: [Migration] = [tradesAccounts, simplePlans]
-
-    /// 1 → 2: accounts can record trades (docs/TRADES.md). A version 1
-    /// library has no trades, so no file changes but `library.json`. The
-    /// version goes up so that an older app, which would value a trades
-    /// account without its holdings, opens the library read-only.
-    public static let tradesAccounts = Migration(
-        from: 1, summary: "Accounts can record trades; no file changes but the format version") { _ in }
+    /// The steps this app knows, in order: none yet. Format version 3 is the
+    /// first any library kept; versions 1 and 2 were test versions' and
+    /// can't be upgraded (``StorageError/missingMigration(from:)``).
+    public static let all: [Migration] = []
 }
 
 /// What a migration did.

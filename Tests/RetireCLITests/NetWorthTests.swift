@@ -3,16 +3,17 @@ import Testing
 import TestSupport
 
 struct NetWorthTests {
-    @Test func aVersion1LibraryIsUpgradedFirst() async throws {
+    /// Versions 1 and 2 were test versions' formats, which this version can't upgrade.
+    @Test func aTestVersionsLibraryIsntOpened() async throws {
         let library = try TemporaryFolder.exampleLibrary()
         try library.write("library.json", try library.text("library.json")
             .replacingOccurrences(of: #""schemaVersion": 3"#, with: #""schemaVersion": 1"#))
+        let before = try library.snapshot()
         let run = await retire(["networth", "--library", library.path, "--date", "2026-09-30"])
-        #expect(run.status == 0, "\(run.all)")
-        #expect(run.errors.hasPrefix("Upgraded the library from format version 1 to 3; the files as they were are in "
-            + "backups/"))
-        #expect(run.output.hasPrefix("Net worth on 2026-09-30: 332,455.49 EUR\n"))
-        #expect(try library.text("library.json").contains(#""schemaVersion": 3"#))
+        #expect(run.status == 1, "\(run.all)")
+        #expect(run.errors.contains("This library uses format version 1, from a test version of the app, which this "
+            + "version can't upgrade."), "\(run.all)")
+        #expect(try library.snapshot() == before)
     }
 
     @Test func netWorthOnTheLastCheckIn() async throws {

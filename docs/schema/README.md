@@ -94,9 +94,8 @@ The app writes every file the same way, so the same data always gives the same b
 
 ## Versioning
 
-- `schemaVersion` in `library.json` starts at 1. Adding optional fields doesn't change it; anything else is a new version, with a migration in the app.
-- **Version 2** lets accounts record trades (`"valuation": "trades"`, `trades` in the history files). An app that knows only version 1 would value such an account without its holdings, so it opens the library read-only. The migration from 1 changes nothing but `schemaVersion`.
-- **Version 3** drops the tax systems from plans ([PLANNER.md](../PLANNER.md#the-model-in-brief)): plans take income and pensions after tax and two tax rates (`tax.investmentRate`, `tax.wealthRate`), and accounts say from what age plans can draw on them (`availableFromAge`). The migration from 2 carries over what it can: the residence in force becomes rates (Italy 26% and 0.2%, Germany 26.375%, the generic system's as written; Swiss rates depend on the canton and aren't guessed, so such a plan asks for them); work phases entered net and fixed pensions stay; a phase entered gross or a pension a tax system projected keeps its dates, and its name says what it was, for the amount after tax to be entered. A pension wrapper sets the account's `availableFromAge` (Italy's pension fund 67, Switzerland's pillar 3a and vested benefits 60, …). Account and instrument `tax` sections, the person's citizenships, pension-scheme contributions, event kinds, plan `withdrawals` and plan `currency` go.
+- `schemaVersion` in `library.json` is 3. Adding optional fields doesn't change it; anything else is a new version, with a migration in the app.
+- Versions 1 and 2 were the formats of test versions, before any library was kept (version 2 added trades, version 3 dropped the tax systems from plans, [PLANNER.md](../PLANNER.md#the-model-in-brief)). This app has no migration from them: such a library doesn't open, and the error says why.
 - Before migrating, the app copies the library into `backups/<yyyy-MM-dd>-v<old>/`. A migration works on the raw JSON of every file, and nothing is written unless every step succeeds.
 - An app older than the library opens it read-only: it loads, and every save is refused. A library older than the app is migrated before the app saves anything to it.
 

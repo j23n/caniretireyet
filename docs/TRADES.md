@@ -218,7 +218,7 @@ In Tracker (`Valuator.tradeIssues(for:)`, `TradeIssue`), and in `retire validate
 
 ## Schema
 
-Trades need schema version 2 (`LibrarySettings.currentSchemaVersion`). An app that doesn't know trades would value a trades account without its holdings, so it must open such a library read-only. The migration from 1 to 2 changes nothing but the version ([schema/README.md](schema/README.md#versioning)).
+Trades came with schema version 2, a test version's format, and are part of version 3, the first that libraries kept ([schema/README.md](schema/README.md#versioning)). An app that doesn't know trades would value a trades account without its holdings, so it opens such a library read-only.
 
 ## Not supported
 

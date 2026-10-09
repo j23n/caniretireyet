@@ -200,57 +200,6 @@ struct UnreadableSettingsTests {
     }
 }
 
-/// The step from version 1 to 2: accounts can record trades, and nothing
-/// but the version changes.
-struct TradesMigrationTests {
-    private let date = Date(timeIntervalSince1970: 1_790_000_000)  // 2026-09-21
-
-    private func version1Library() throws -> TemporaryFolder {
-        let folder = try TemporaryFolder.exampleLibrary()
-        let settings = try folder.text("library.json").replacingOccurrences(of: "\"schemaVersion\": 3",
-                                                                           with: "\"schemaVersion\": 1")
-        try folder.write("library.json", settings)
-        return folder
-    }
-
-    /// The example library's files are already in the newest form, so the
-    /// step to 3 changes nothing either.
-    @Test func aVersion1LibraryIsUpgradedWithOnlyItsVersionChanged() throws {
-        let folder = try version1Library()
-        let loaded = try folder.library.load()
-        #expect(loaded.report.needsMigration)
-        #expect(throws: StorageError.libraryNeedsMigration(version: 1, current: 3)) {
-            try folder.library.checkWritable()
-        }
-
-        let report = try #require(try folder.library.migrate(date: date))
-        #expect(report.fromVersion == 1)
-        #expect(report.toVersion == 3)
-        #expect(report.steps == [Migration.tradesAccounts.summary, Migration.simplePlans.summary])
-        #expect(report.written == ["library.json"])
-        #expect(report.deleted.isEmpty)
-        #expect(report.backup.name == "\(CalendarDate(date, in: .current))-v1")
-        // Every other file is byte for byte what it was.
-        for path in Fixtures.allJSONFiles {
-            #expect(try folder.data(path) == Fixtures.data(for: path), "\(path)")
-        }
-        let after = try folder.library.load()
-        #expect(after.report.issues.isEmpty)
-        #expect(after.library == (try Fixtures.exampleLibrary()))
-    }
-
-    /// Opening a library to work on it upgrades an older one first.
-    @Test func loadingMigratesAnOlderLibraryFirst() throws {
-        let folder = try version1Library()
-        let (result, migration) = try folder.library.loadMigrating()
-        #expect(migration?.fromVersion == 1)
-        #expect(migration?.toVersion == 3)
-        #expect(result.report.schemaVersion == 3)
-        #expect(result.report.issues.isEmpty)
-        #expect(try folder.library.loadMigrating().migration == nil)
-    }
-}
-
 struct MigrationTests {
     private let date = Date(timeIntervalSince1970: 1_790_000_000)  // 2026-09-21
 
@@ -316,134 +265,30 @@ struct MigrationTests {
 
     @Test func anOlderLibraryMustBeMigratedBeforeSaving() throws {
         let folder = try TemporaryFolder.exampleLibrary()
-        try folder.write("library.json", #"{ "baseCurrency": "EUR", "schemaVersion": 0 }"#)
+        try folder.write("library.json", #"{ "baseCurrency": "EUR", "schemaVersion": 2 }"#)
         let result = try folder.library.load()
         #expect(result.report.needsMigration)
-        #expect(throws: StorageError.libraryNeedsMigration(version: 0, current: 3)) {
+        #expect(throws: StorageError.libraryNeedsMigration(version: 2, current: 3)) {
             try folder.library.checkWritable()
         }
 
-        let step = Migration(from: 0, summary: "Nothing to change") { _ in }
-        let report = try #require(try folder.library.migrate(steps: [step] + Migration.all, date: date))
-        #expect(report.steps == ["Nothing to change", Migration.tradesAccounts.summary, Migration.simplePlans.summary])
+        let step = Migration(from: 2, summary: "Nothing to change") { _ in }
+        let report = try #require(try folder.library.migrate(steps: [step], date: date))
+        #expect(report.steps == ["Nothing to change"])
         #expect(report.written == ["library.json"])
         #expect(try folder.library.load().report.issues.isEmpty)
         try folder.library.checkWritable()
     }
-}
 
-/// The step from version 2 to 3: plans lose their tax systems (PLANNER.md),
-/// accounts their tax wrappers, instruments their tax overrides.
-struct SimplePlansMigrationTests {
-    private let date = Date(timeIntervalSince1970: 1_790_000_000)  // 2026-09-21
-
-    /// The example library as version 2 wrote it, in part: a plan on the
-    /// Italian system then the generic one, accounts with wrappers.
-    private func version2Library() throws -> TemporaryFolder {
+    /// Versions 1 and 2 were test versions' formats: this app has no steps
+    /// from them, so such a library doesn't open, and nothing is written.
+    @Test func aTestVersionsLibraryDoesntOpen() throws {
         let folder = try TemporaryFolder.exampleLibrary()
-        try folder.write("library.json", """
-            {
-              "baseCurrency": "EUR",
-              "mainPlan": "base",
-              "person": { "birthDate": "1988-04-12", "citizenships": ["IT"], "name": "Alex Example" },
-              "schemaVersion": 2,
-              "taxResidence": "IT"
-            }
-            """)
-        try folder.write("plans/base.json", """
-            {
-              "contributions": [
-                { "account": "fondo-pensione", "perYear": "5000", "until": "retirement" },
-                { "amount": "20000", "pension": "ch.bvg", "year": 2030 }
-              ],
-              "currency": "CHF",
-              "events": [{ "age": 62, "amount": "150000", "kind": "inheritance", "name": "Inheritance" }],
-              "id": "base",
-              "name": "Base case",
-              "pensions": [
-                { "claim": 67, "options": { "montante": "92000" }, "scheme": "it.inps" },
-                { "fromAge": 67, "name": "Abroad", "perYear": "4800", "scheme": "fixed", "taxedIn": "source" }
-              ],
-              "retirement": { "age": 55 },
-              "spending": { "retired": "36000", "working": "36000" },
-              "tax": {
-                "indexThresholds": true,
-                "residence": [
-                  { "from": 2020, "system": "it" },
-                  { "from": 2048, "options": { "capitalGainsRate": "0.28" }, "system": "generic" }
-                ]
-              },
-              "withdrawals": { "cashBuffer": "10000", "strategy": "fixed-real" },
-              "work": [
-                { "from": "2026-01-01", "grossSalary": "65000", "kind": "employee", "regime": "it.employee", "until": "2028-12-31" },
-                { "from": "2029-01-01", "kind": "net", "netIncome": "18000", "until": "retirement" }
-              ]
-            }
-            """)
-        try folder.write("accounts/fondo-pensione.json", """
-            {
-              "currency": "EUR",
-              "id": "fondo-pensione",
-              "kind": "pensionFund",
-              "name": "Fondo pensione",
-              "opened": "2022-01-01",
-              "tax": { "joined": "2022-01-01", "wrapper": "it.pensionFund" }
-            }
-            """)
-        try folder.write("instruments/vwce.json", """
-            {
-              "assetClasses": { "equity": "1" },
-              "currency": "EUR",
-              "id": "vwce",
-              "kind": "etf",
-              "name": "Vanguard FTSE All-World UCITS ETF (Acc)",
-              "tax": { "fundType": "equity" },
-              "unit": "share"
-            }
-            """)
-        return folder
-    }
-
-    @Test func plansAccountsAndInstrumentsLoseTheirTaxSystems() throws {
-        let folder = try version2Library()
-        let report = try #require(try folder.library.migrate(date: date))
-        #expect(report.steps == [Migration.simplePlans.summary])
-        #expect(report.written == ["accounts/fondo-pensione.json", "instruments/vwce.json", "library.json",
-                                   "plans/base.json"])
-
-        let plan = try folder.json("plans/base.json")
-        // Italy, in force this year: 26% on investments, the 0.2% stamp duty as a wealth tax.
-        #expect(plan["tax"] == ["investmentRate": "0.26", "wealthRate": "0.002"])
-        #expect(plan["withdrawals"] == nil && plan["currency"] == nil)
-        #expect(plan["name"] == "Base case (amounts in CHF)")
-        // A gross phase keeps its dates and says what it was; a net one stays.
-        #expect(plan["work"] == [
-            ["from": "2026-01-01", "name": "Employee, gross 65000 a year", "until": "2028-12-31"],
-            ["from": "2029-01-01", "netIncome": "18000", "until": "retirement"],
-        ])
-        #expect(plan["pensions"] == [["fromAge": 67, "name": "Pension (it.inps)"],
-                                     ["fromAge": 67, "name": "Abroad", "perYear": "4800"]])
-        #expect(plan["contributions"] == [["account": "fondo-pensione", "perYear": "5000", "until": "retirement"]])
-        #expect(plan["events"]?[0]?["kind"] == nil)
-
-        let fund = try folder.json("accounts/fondo-pensione.json")
-        #expect(fund["tax"] == nil && fund["availableFromAge"] == 67)
-        #expect(try folder.json("instruments/vwce.json")["tax"] == nil)
-        #expect(try folder.json("library.json")["person"] == ["birthDate": "1988-04-12", "name": "Alex Example"])
-
-        // It opens cleanly, and the plan says what's missing.
-        let loaded = try folder.library.load()
-        #expect(loaded.report.issues.isEmpty)
-        #expect(loaded.library.plans["base"]?.work[0].netIncome == nil)
-    }
-
-    @Test func genericRatesAreKeptAsWritten() throws {
-        var tax: [String: JSONValue] = [:]
-        (tax["investmentRate"], tax["wealthRate"]) = Migration.rates(
-            system: "generic", options: ["capitalGainsRate": "0.28", "wealthTaxRate": "0.001"])
-        #expect(tax == ["investmentRate": "0.28", "wealthRate": "0.001"])
-        #expect(Migration.rates(system: "ch", options: [:]) == (nil, nil))
-        #expect(Migration.availableFromAge(wrapper: "ch.pillar3a") == 60)
-        #expect(Migration.availableFromAge(wrapper: "it.tfr") == nil)
+        let settings = try folder.text("library.json").replacingOccurrences(of: #""schemaVersion": 3"#,
+                                                                           with: #""schemaVersion": 2"#)
+        try folder.write("library.json", settings)
+        #expect(throws: StorageError.missingMigration(from: 2)) { try folder.library.loadMigrating() }
+        #expect(try folder.text("library.json") == settings)
+        #expect(!folder.exists("backups"))
     }
 }

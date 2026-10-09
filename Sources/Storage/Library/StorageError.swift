@@ -33,7 +33,8 @@ public enum StorageError: Error, Hashable, Sendable, CustomStringConvertible {
         case .libraryNeedsMigration(let version, let current):
             "This library uses format version \(version) and must be upgraded to version \(current) before saving."
         case .missingMigration(let version):
-            "There is no upgrade from format version \(version)."
+            "This library uses format version \(version), from a test version of the app, which this version can't "
+                + "upgrade."
         case .libraryAlreadyExists(let path):
             "There is already a library at \(path)."
         case .folderNotFound(let path):
