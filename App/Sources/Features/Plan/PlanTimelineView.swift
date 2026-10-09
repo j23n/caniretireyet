@@ -150,7 +150,8 @@ struct PlanTimelineView: View {
                     .opacity(state.dimsResults ? 0.7 : 1)
                 PlanChapterDetails(
                     model: model, index: selected,
-                    story: PlanChapterStory(chapterAt: selected, in: model, results: state.results, words: words),
+                    story: PlanChapterStory(chapterAt: selected, in: model, results: state.results,
+                                            valuator: library.valuator, words: words),
                     barMaximum: barMaximum(model, results: state.results), plan: plan, words: words,
                     issues: issues, isWide: isRoomy, showsSteps: !isWide, canEdit: session.canEdit,
                     editing: $editing,
@@ -174,7 +175,7 @@ struct PlanTimelineView: View {
     private func barMaximum(_ model: PlanChaptersModel, results: PlanResults?) -> Double {
         model.chapters.chapters.indices
             .compactMap { PlanChapterStory.bar(model.chapters.chapters[$0], model: model, results: results,
-                                               words: words)?.total }
+                                               valuator: library.valuator, words: words)?.total }
             .max() ?? 0
     }
 

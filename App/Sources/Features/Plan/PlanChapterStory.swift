@@ -1,6 +1,7 @@
 import Foundation
 import Model
 import Planner
+import Tracker
 
 /// A chapter in words (UI.md, "Plan"): what happens in it, its values
 /// marked; what a month looks like; and, once calculated, what can go
@@ -57,12 +58,15 @@ struct PlanChapterStory: Hashable, Sendable {
 extension PlanChapterStory {
     /// The words for the chapter at `index` of `model`. `results` add the
     /// tax on what's sold to retirement's bar, what an uncertain windfall
-    /// is worth to the answer, and where and when futures run out.
-    init(chapterAt index: Int, in model: PlanChaptersModel, results: PlanResults?, words: PlanWords) {
+    /// is worth to the answer, and where and when futures run out; the
+    /// library's `valuator` puts that tax in the base currency
+    /// (``monthlyTax(in:results:valuator:)``).
+    init(chapterAt index: Int, in model: PlanChaptersModel, results: PlanResults?, valuator: Valuator,
+         words: PlanWords) {
         let chapter = model.chapters.chapters[index]
         story = Self.sentences(chapter, model: model, words: words, results: results).enumerated()
             .flatMap { offset, sentence in offset == 0 ? sentence : [Run.text(" ")] + sentence }
-        bar = Self.bar(chapter, model: model, results: results, words: words)
+        bar = Self.bar(chapter, model: model, results: results, valuator: valuator, words: words)
         risks = results.map { Self.risks(chapter, details: $0.details) } ?? []
     }
 
@@ -255,7 +259,7 @@ extension PlanChapterStory {
     /// A month's money at the chapter's start: pay spent and saved while
     /// working; what comes from savings (and its tax) and what pensions pay
     /// once retired. `nil` without pay to show.
-    static func bar(_ chapter: PlanChapter, model: PlanChaptersModel, results: PlanResults?,
+    static func bar(_ chapter: PlanChapter, model: PlanChaptersModel, results: PlanResults?, valuator: Valuator,
                     words: PlanWords) -> Bar? {
         let plan = model.plan
         switch chapter.kind {
@@ -293,7 +297,7 @@ extension PlanChapterStory {
             let pays = other == 0 ? "pay" : "pays"
             if pensions == 0 {
                 let fromSavings = words.monthlyValue(spend)
-                let tax = monthlyTax(in: chapter, results: results)
+                let tax = monthlyTax(in: chapter, results: results, valuator: valuator)
                 guard let tax, tax >= 1 else {
                     return Bar(segments: [Bar.Segment(value: fromSavings, role: .fromSavings)],
                                leading: "\(words.monthly(spend)) from savings", trailing: "", trailingRole: nil,
@@ -347,14 +351,19 @@ extension PlanChapterStory {
     }
 
     /// The tax a month in the median run, in the chapter's first whole
-    /// year of retirement; `nil` without results for it.
-    static func monthlyTax(in chapter: PlanChapter, results: PlanResults?) -> Double? {
-        guard let results else { return nil }
+    /// year of retirement, in the base currency as the bar's other amounts
+    /// are (``PlanResults/exchangeRate(into:valuator:)``, as the chapters'
+    /// money); `nil` without results for it, or without the rate for
+    /// results calculated before the base currency changed.
+    static func monthlyTax(in chapter: PlanChapter, results: PlanResults?, valuator: Valuator) -> Double? {
+        guard let results, let rate = results.exchangeRate(into: valuator.baseCurrency, valuator: valuator) else {
+            return nil
+        }
         let year = chapter.items.contains(.retirement) ? chapter.years.lowerBound + 1 : chapter.years.lowerBound
         guard chapter.years.contains(year) else { return nil }
         let taxes = results.taxes.filter { $0.year == year }
         guard !taxes.isEmpty else { return nil }
-        return taxes.reduce(0) { $0 + $1.amount } / 12
+        return taxes.reduce(0) { $0 + $1.amount } / 12 * rate
     }
 
     // MARK: The target mix
