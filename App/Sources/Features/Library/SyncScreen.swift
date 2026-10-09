@@ -1,14 +1,22 @@
 import CloudSync
+import Model
 import Storage
 import SwiftUI
 
 /// Library → Sync & backups (PLAN.md, "Resolving conflicts": merges are
 /// listed so you can check them). Where the library is, whether it's
 /// saving or syncing, the conflicts merged since launch, files that
-/// couldn't be read, and the backups in `backups/`.
+/// couldn't be read, and the backups in `backups/`, each of which can be
+/// restored.
 struct SyncScreen: View {
     @Environment(LibraryStore.self) private var library
     @State private var backups: [Backup] = []
+    /// The backup *Restore…* asks about.
+    @State private var restoring: Backup?
+    @State private var isRestoring = false
+    /// What the last restore did, or why it failed.
+    @State private var restoreNote: String?
+    @State private var restoreFailed = false
 
     init() {}
 
@@ -107,14 +115,27 @@ struct SyncScreen: View {
                         .foregroundStyle(Palette.secondaryInk)
                 }
                 ForEach(backups.reversed(), id: \.name) { backup in
-                    LabeledContent(backup.label) {
-                        Text(backup.created, format: .dateTime.day().month().year().hour().minute())
+                    LabeledContent {
+                        HStack(spacing: Metrics.s) {
+                            Text(backup.created, format: .dateTime.day().month().year().hour().minute())
+                            Button("Restore…") { restoring = backup }
+                                .buttonStyle(.borderless)
+                                .disabled(isRestoring)
+                        }
+                    } label: {
+                        Text(backup.label)
                     }
+                }
+                if let restoreNote {
+                    Text(restoreNote)
+                        .font(.footnote)
+                        .foregroundStyle(restoreFailed ? Palette.critical : Palette.secondaryInk)
                 }
             } header: {
                 Text("Backups")
             } footer: {
-                Text("Copies in the library's backups folder. Safe to delete.")
+                Text("Copies in the library's backups folder. Restoring one puts its files back as they were, after "
+                    + "copying them as they are now to a new backup. Safe to delete.")
             }
         }
         .formStyle(.grouped)
@@ -125,6 +146,57 @@ struct SyncScreen: View {
         .refreshable {
             await library.reloadAll()
         }
+        .confirmationDialog("Restore this backup?", isPresented: isConfirmingRestore, titleVisibility: .visible,
+                            presenting: restoring) { backup in
+            Button("Restore", role: .destructive) {
+                Task { await restore(backup) }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: { backup in
+            Text(Self.restoreQuestion(for: backup))
+        }
+    }
+
+    private var isConfirmingRestore: Binding<Bool> {
+        Binding(get: { restoring != nil }, set: { if !$0 { restoring = nil } })
+    }
+
+    /// Restores `backup` (``LibraryStore/restore(_:)``) and says how it went.
+    private func restore(_ backup: Backup) async {
+        isRestoring = true
+        defer { isRestoring = false }
+        do {
+            try await library.restore(backup)
+            restoreFailed = false
+            restoreNote = "Restored the \(backup.label) backup of \(Self.dateText(backup.created)): "
+                + "\(Wording.count(backup.files.count, "file")) put back."
+        } catch {
+            restoreFailed = true
+            restoreNote = "The backup couldn't be restored. \(LibraryStore.describe(error))"
+        }
+        backups = await library.backups()
+    }
+
+    /// What restoring `backup` does, in the confirmation.
+    static func restoreQuestion(for backup: Backup) -> String {
+        let date = dateText(backup.created)
+        var sentences: [String] = []
+        switch backup.files.count {
+        case 0: break
+        case 1: sentences.append("Its file goes back to how it was on \(date), over any changes made to it since.")
+        default:
+            sentences.append("Its \(backup.files.count) files go back to how they were on \(date), over any changes "
+                + "made to them since.")
+        }
+        if !backup.absentFiles.isEmpty {
+            sentences.append("\(Wording.count(backup.absentFiles.count, "file")) it didn't have will be deleted.")
+        }
+        sentences.append("The files as they are now are copied to a new backup first.")
+        return sentences.joined(separator: " ")
+    }
+
+    private static func dateText(_ date: Date) -> String {
+        date.formatted(.dateTime.day().month().year().hour().minute())
     }
 
     private var statusText: String {

@@ -403,7 +403,7 @@ A brokerage, crypto or metals account can record its **trades** instead of month
 - what it writes, in a sentence, and the months it changes ("12 months, Oct 2025 – Sep 2026");
 - to trades: the opening positions, the buys and the sales inferred from the changes in quantity, each with its date; the estimates, counted and expandable ("11 buys and sales are estimates, priced at their value's price.", "1 opening position has no recorded cost: its cost is its value on that day."); for an account that has never held cash (coins, a wallet), a note that its buys and sales are paid from outside it, so its cash stays at zero;
 - to snapshots: a warning that each trade's detail is lost (its date, price, fees, and the income and realised gains worked out from it), and the values it adds on a month's last trade;
-- the months' files are backed up first, as for an import, so the switch can be undone from *Sync & backups*. Values and new money stay the same either way.
+- the months' files are backed up first, as for an import, so the switch can be undone by restoring that backup from *Sync & backups*. Values and new money stay the same either way.
 
 ## Plan
 
@@ -826,7 +826,7 @@ On iPhone, a CSV opened from Files goes straight to "Import with profile…": ch
 
 | Section | Contents |
 | --- | --- |
-| Library | Location (iCloud Drive or this device), Show in Files/Finder, for a library on this device *Move to iCloud Drive* (refused when iCloud Drive already has one) and *Use the iCloud Drive Library* (opens that one; this one stays on the device), sync status, merged conflicts, backups, the file format docs, and *Export as CSV…*: a sheet that writes the library as CSV files ([schema/README.md](schema/README.md#csv-export)), zipped as *Can I Retire Yet CSV 2026-09-30.zip*, with *Share…* and on the Mac *Save…* |
+| Library | Location (iCloud Drive or this device), Show in Files/Finder, for a library on this device *Move to iCloud Drive* (refused when iCloud Drive already has one) and *Use the iCloud Drive Library* (opens that one; this one stays on the device), sync status, merged conflicts, backups (each with *Restore…*: after a confirmation that says how many files go back and to which day, the files as they are now are copied to a `restore` backup, then the backup's files are put back as they were, over any later changes, and the files it didn't have are deleted; a backup with a copy of an unreadable `library.json` can be restored while the library is read-only, which fixes it), the file format docs, and *Export as CSV…*: a sheet that writes the library as CSV files ([schema/README.md](schema/README.md#csv-export)), zipped as *Can I Retire Yet CSV 2026-09-30.zip*, with *Share…* and on the Mac *Save…* |
 | You | Name, birth date, base currency, country (it picks the default inflation index), and **Inflation**: *Automatic: Italy* (the tax residence's HICP, else the base currency's; `inflationIndex` left out) or a choice of the euro area and every country with an HICP |
 | Prices | Price source per instrument kind: *Yahoo Finance (unofficial)* (so named wherever a price source is chosen or shown with an instrument; the footer says it has no official interface for apps and may stop working), CoinGecko with *Powered by CoinGecko* linking to coingecko.com (its attribution), gold-api.com, ECB via Frankfurter, and Eurostat HICP for inflation; API keys (stored in the Keychain), fetch on check-in |
 | Check-in reminder | Day of the month and time. This device only, so you aren't reminded twice. |

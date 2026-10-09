@@ -6,7 +6,7 @@
   "required": ["label", "created", "files"],
   "properties": {
     "label": {
-      "description": "What the backup was taken for, as in the folder name: e.g. import, undo-import, prices, conflict, unreadable, or v2 for a migration from version 2.",
+      "description": "What the backup was taken for, as in the folder name: e.g. import, undo-import, prices, restore, conflict, unreadable, or v3 for a migration from version 3.",
       "type": "string"
     },
     "created": { "description": "When it was taken, ISO 8601 to the second, e.g. 2026-09-30T14:25:01Z.", "type": "string" },

@@ -422,15 +422,28 @@ final class LibraryStore {
     }
 
     /// Puts a backup's files back as they were, over any later edits,
-    /// deletes the files it didn't have, and reloads them. Runs after the
-    /// saves already queued. Refused for a backup of another format version.
-    /// To undo an import, use ``undo(_:safetyLabel:)``. Does nothing for a
-    /// library without files.
+    /// deletes the files it didn't have, and reloads them (*Restore…* in
+    /// *Sync & backups*). The files as they are now are copied first to
+    /// `backups/<timestamp>-restore/`, so a restore can be restored away.
+    /// Runs after the saves already queued. Refused for a backup of another
+    /// format version, and while the library is read-only, except for a
+    /// backup with a copy of an unreadable `library.json`, which restoring
+    /// fixes. To undo an import, use ``undo(_:safetyLabel:)``. Does nothing
+    /// for a library without files.
     func restore(_ backup: Backup) async throws {
         guard phase == .ready else { throw LibraryStoreError.notLoaded }
-        if let readOnlyReason { throw LibraryStoreError.readOnly(readOnlyReason) }
+        if let readOnlyReason,
+           readOnlyReason != .unreadableSettings || !backup.files.contains(LibraryFile.settings.path) {
+            throw LibraryStoreError.readOnly(readOnlyReason)
+        }
+        // Refused before the copy of the files as they are, which it would leave behind.
+        let current = LibrarySettings.currentSchemaVersion
+        if let version = backup.schemaVersion, version != current {
+            throw StorageError.backupFromOtherVersion(name: backup.name, version: version, current: current)
+        }
         guard let sync else { return }
         try await enqueueThrowing { [weak self] in
+            _ = try await sync.backup(paths: backup.paths, label: Backup.restoreLabel)
             let report = try await sync.restore(backup)
             await self?.reload(report.written + report.deleted, using: sync)
         }

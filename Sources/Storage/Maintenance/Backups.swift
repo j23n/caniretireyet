@@ -54,6 +54,9 @@ extension Backup {
     /// The label of the backup *Fill In Past Prices* takes, in the app and
     /// with `retire prices --fill-history`.
     public static let fillHistoryLabel = "fill-history"
+    /// The label of the copy of the files taken before a backup is restored
+    /// over them, in the app's *Sync & backups*.
+    public static let restoreLabel = "restore"
 }
 
 /// The files of a backup as the change wrote them, in
