@@ -2,6 +2,7 @@ import Foundation
 import Glance
 import Model
 import Planner
+import Tracker
 
 /// The plan as a strip of chapters (UI.md, "Plan"): a card per chapter, as
 /// wide as its years, with the money through it on one scale every card
@@ -94,14 +95,20 @@ struct PlanTimeline {
     let cards: [Card]
     /// The money scale every card shares. It fits the medians and the
     /// middle half of futures, so the outer band may run off the top.
-    /// `nil` before the plan has results.
+    /// `nil` before the plan has results, or without the rate to show them in.
     let scale: AmountScale?
 
-    /// - Parameter milestones: the milestones ahead, each marked on the card it falls in.
-    init(model: PlanChaptersModel, results: PlanResults?, birthDate: CalendarDate, currency: CurrencyCode,
-         milestones: [ProjectedMilestone] = [], hidesAmounts: Bool = false, locale: Locale = .current) {
+    /// - Parameters:
+    ///   - valuator: converts results calculated before the base currency
+    ///     changed into `currency` (``PlanResults/portfolio(in:valuator:)``).
+    ///   - milestones: the milestones ahead, each marked on the card it falls in.
+    init(model: PlanChaptersModel, results: PlanResults?, valuator: Valuator, birthDate: CalendarDate,
+         currency: CurrencyCode, milestones: [ProjectedMilestone] = [], hidesAmounts: Bool = false,
+         locale: Locale = .current) {
         let words = PlanWords(currency: currency, hidesAmounts: hidesAmounts, locale: locale)
-        let points = results?.portfolio ?? []
+        // In the currency the strip is labelled in, as the milestones on it are;
+        // without the rate the cards have no money, as before the first results.
+        let points = results?.portfolio(in: currency, valuator: valuator) ?? []
         let slack: TimeInterval = 2 * 86_400
         let all = model.chapters.chapters
         cards = all.indices.map { index in

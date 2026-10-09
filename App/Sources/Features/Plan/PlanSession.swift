@@ -344,8 +344,8 @@ final class PlanSession {
     /// `nil` without a plan or a birth date.
     var chapters: PlanChaptersModel? {
         guard let plan else { return nil }
-        return PlanChaptersModel(plan: plan, library: library.library, results: shownResults, chosenAge: focusAge,
-                                 whatIfAge: whatIf.retirementAge,
+        return PlanChaptersModel(plan: plan, library: library.library, valuator: library.valuator,
+                                 results: shownResults, chosenAge: focusAge, whatIfAge: whatIf.retirementAge,
                                  recordedAge: plans.recordedHeadlines(for: planID).last?.earliestAge,
                                  today: library.asOfDate)
     }

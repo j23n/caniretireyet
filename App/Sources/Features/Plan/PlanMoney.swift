@@ -137,11 +137,13 @@ struct PlanActualSeries: Hashable, Sendable {
 }
 
 extension PlanResults {
-    /// The fan in `currency` (the Overview's, in the base currency): as it
-    /// is when the results are in it, else (results calculated before the
-    /// base currency changed) converted at the exchange rate on the plan's
-    /// start date, as the planner valued the starting portfolio (both are
-    /// today's money). Empty without a rate.
+    /// The fan in `currency`: what the Overview's projection, the plan's
+    /// chapters and the milestones ahead read, in the base currency (*More
+    /// charts* shows the results in their own). As it is when the results
+    /// are in it, else (results calculated before the base currency changed)
+    /// converted at the exchange rate on the plan's start date, as the
+    /// planner valued the starting portfolio (both are today's money). Empty
+    /// without a rate.
     func portfolio(in currency: CurrencyCode, valuator: Valuator) -> [FanPoint] {
         guard self.currency != currency else { return portfolio }
         guard let quote = valuator.fx.quote(from: self.currency, to: currency, on: start.date) else { return [] }

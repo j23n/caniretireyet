@@ -127,9 +127,10 @@ struct PlanTimelineView: View {
         PlanUnplacedIssues(issues: issues)
             .padding(.horizontal, gutter)
         if let model = session.chapters, let birthDate = library.settings.person?.birthDate {
-            let timeline = PlanTimeline(model: model, results: state.results, birthDate: birthDate,
-                                        currency: session.currency, milestones: milestones?.ahead ?? [],
-                                        hidesAmounts: hidesAmounts, locale: locale)
+            let timeline = PlanTimeline(model: model, results: state.results, valuator: library.valuator,
+                                        birthDate: birthDate, currency: session.currency,
+                                        milestones: milestones?.ahead ?? [], hidesAmounts: hidesAmounts,
+                                        locale: locale)
             if model.chapters.chapters.isEmpty {
                 PlanNoChapters(plan: plan)
                     .padding(.horizontal, gutter)
