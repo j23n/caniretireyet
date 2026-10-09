@@ -106,7 +106,8 @@ struct PlanTimelineView: View {
                 .accessibilityElement(children: .contain)
                 .accessibilityIdentifier("plan.answer")
         } else if !state.isRunning {
-            PlanCalculatePrompt(state: state, runs: session.plan?.simulation.effectiveRuns ?? 2_000,
+            PlanCalculatePrompt(state: state,
+                                runs: session.plan?.simulation.effectiveRuns ?? PlanSimulation.defaultRuns,
                                 isAvailable: plans.isAvailable) {
                 session.calculate()
             }
@@ -141,7 +142,7 @@ struct PlanTimelineView: View {
                 stripHeader(count: model.chapters.chapters.count, selection: selection)
                     .padding(.horizontal, gutter)
                 PlanChapterStrip(timeline: timeline, selection: selection, pointsPerYear: isWide ? 26 : 22,
-                                 cardHeight: 340, inset: gutter, fillsWidth: !isWide)
+                                 inset: gutter, fillsWidth: !isWide)
                     .opacity(state.dimsResults ? 0.7 : 1)
                 PlanChapterDetails(
                     model: model, index: selected,
@@ -281,7 +282,7 @@ struct PlanTimelineHeadline: View {
         return results.successByAge.first { $0.age == focusAge }?.success ?? results.headline.successAtTarget
     }
 
-    private var endAge: Int { results.details?.endAge ?? session.plan?.effectiveEndAge ?? 95 }
+    private var endAge: Int { results.details?.endAge ?? session.plan?.effectiveEndAge ?? PlanDocument.defaultEndAge }
 
     var body: some View {
         let title = PlanTimelineText.headline(results.headline, locale: locale)
@@ -350,7 +351,7 @@ struct PlanTimelineHeadline: View {
         if let success {
             let isPlanned = !session.hasWhatIf && focusAge != nil && focusAge == results.headline.targetAge
             HStack(alignment: .firstTextBaseline, spacing: Metrics.s) {
-                PlanTenthsView(filled: PlanTimelineText.tenths(success), size: 8)
+                PlanTenthsView(filled: PlanTimelineText.tenths(success))
                     .alignmentGuide(.firstTextBaseline) { $0[VerticalAlignment.center] + 4 }
                 Text(PlanTimelineText.reason(success, endAge: endAge, age: focusAge, isPlanned: isPlanned,
                                              bar: results.headline.confidence))
@@ -457,7 +458,7 @@ struct PlanChapterDetails: View {
     @Binding var editing: PlanEditTarget?
     /// The milestones the median future reaches in the chapter.
     var milestones: [ProjectedMilestone] = []
-    var milestoneText: PlanMilestoneText?
+    let milestoneText: PlanMilestoneText
     /// Opens an item's sheet, or the target mix's.
     var onOpen: (PlanChapter.Item) -> Void = { _ in }
     var onSelect: (Int) -> Void = { _ in }
@@ -534,7 +535,7 @@ struct PlanChapterDetails: View {
                 PlanMonthBarView(bar: bar, maximum: barMaximum)
                     .frame(maxWidth: 440, alignment: .leading)
             }
-            if let milestoneText, !milestones.isEmpty {
+            if !milestones.isEmpty {
                 VStack(alignment: .leading, spacing: Metrics.xs) {
                     PlanPartLabel("Along the way, typically")
                     ForEach(Array(milestones.prefix(Self.shownMilestones))) { item in

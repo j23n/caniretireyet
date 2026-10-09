@@ -14,7 +14,6 @@ struct PlanChapterStrip: View {
     @Binding var selection: Int
     /// Points a year along the time axis.
     var pointsPerYear: CGFloat = 24
-    var cardHeight: CGFloat = 340
     /// The strip's inset at both ends, so its first card lines up with the page.
     var inset: CGFloat = Metrics.l
     /// No card narrower than the strip between its insets (iPhone).
@@ -29,11 +28,13 @@ struct PlanChapterStrip: View {
 
     /// No card narrower: room for its name and where the money stands.
     static let minimumWidth: CGFloat = 164
+    /// A card's height at the standard text size.
+    private static let cardHeight: CGFloat = 340
 
     var body: some View {
         // The words above and below the graph grow with the text size, up to a point.
         let textScale = typeSize.stripCardScale
-        let height = cardHeight + 190 * (textScale - 1)
+        let height = Self.cardHeight + 190 * (textScale - 1)
         ScrollViewReader { proxy in
             ScrollView(.horizontal) {
                 HStack(alignment: .top, spacing: Metrics.s) {

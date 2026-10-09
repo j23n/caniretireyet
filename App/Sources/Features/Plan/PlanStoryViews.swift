@@ -116,7 +116,6 @@ struct PlanMonthBarView: View {
 /// Ten dots, `filled` of them in the hue: how many futures in 10 last.
 struct PlanTenthsView: View {
     let filled: Int
-    var size: CGFloat = 9
 
     var body: some View {
         HStack(spacing: 3) {
@@ -126,7 +125,7 @@ struct PlanTenthsView: View {
                     .overlay {
                         Circle().strokeBorder(index < filled ? Palette.accent : Palette.border, lineWidth: 1.5)
                     }
-                    .frame(width: size, height: size)
+                    .frame(width: 8, height: 8)
             }
         }
         .accessibilityElement(children: .ignore)

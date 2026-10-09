@@ -229,10 +229,10 @@ struct PlanWords: Hashable, Sendable {
         amount(Decimal(wholeNumber: value))
     }
 
-    /// "90%", "4.5%": whole percentages without decimals, else up to `maxDigits`.
-    func percent(_ share: Decimal, maxDigits: Int = 1) -> String {
+    /// "90%", "4.5%": whole percentages without decimals, else to one decimal.
+    func percent(_ share: Decimal) -> String {
         let scaled = share * 100
-        return AmountFormat.percent(share, digits: scaled.rounded(scale: 0) == scaled ? 0 : maxDigits, locale: locale)
+        return AmountFormat.percent(share, digits: scaled.rounded(scale: 0) == scaled ? 0 : 1, locale: locale)
     }
 }
 
