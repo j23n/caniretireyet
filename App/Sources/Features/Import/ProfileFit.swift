@@ -63,7 +63,9 @@ struct ProfileFit: Hashable, Sendable, Identifiable {
         }
         var imported = 0
         for role in session.columnRoles {
-            if case .mapped(let index) = role, session.profile.columns[index].isImported { imported += 1 }
+            if case .mapped(let index) = role, session.profile.columns[index].isImported(in: session.profile.layout) {
+                imported += 1
+            }
         }
         var missing = 0
         var unknown = 0
@@ -87,7 +89,7 @@ extension ImportProfile {
             return ["A \(layout.rawValue) layout, which this version doesn't import",
                     LibraryFile.importProfile(id).path].joined(separator: " · ")
         }
-        let imported = columns.filter(\.isImported).count
+        let imported = columns.filter { $0.isImported(in: layout) }.count
         var parts = [ImportChoices.layoutName(layout),
                      imported == 1 ? "1 column imported" : "\(imported) columns imported"]
         if let pattern = defaults.date?.pattern { parts.append(pattern) }
@@ -97,11 +99,11 @@ extension ImportProfile {
 }
 
 extension ImportColumn {
-    /// Whether the column's values are imported: it isn't ignored, and in
-    /// the long layout it isn't just a name or currency field (in the trades
-    /// layout, every field is part of the trade).
-    var isImported: Bool {
-        if let field { return field == .value || ImportField.tradeFields.contains(field) }
+    /// Whether the column's values are imported in a file of `layout`: it
+    /// isn't ignored, and in the long layout it isn't just a name or currency
+    /// field (in the trades layout, every field is part of the trade).
+    func isImported(in layout: ImportLayout) -> Bool {
+        if let field { return field == .value || (layout == .trades && ImportField.tradeFields.contains(field)) }
         if let target { return target != .ignore }
         return false
     }
