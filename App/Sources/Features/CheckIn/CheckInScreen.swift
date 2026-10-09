@@ -80,7 +80,7 @@ struct CheckInScreen: View {
         } else if let draft = checkIn.draft {
             editor(draft)
         } else {
-            CheckInStartView(session: session) { close() }
+            CheckInStartView(session: session)
         }
     }
 
@@ -151,7 +151,7 @@ struct CheckInScreen: View {
         .labelStyle(.titleAndIcon)
         .help("Change the check-in's date")
         .popover(isPresented: $session.showsDatePicker) {
-            CheckInDatePanel(date: draft.date, suggested: suggestedDate) { date in
+            CheckInDatePanel(date: draft.date, suggested: checkIn.suggestedDate) { date in
                 checkIn.changeDate(to: date)
             }
         }
@@ -182,10 +182,6 @@ struct CheckInScreen: View {
     }
     #endif
 
-    private var suggestedDate: CalendarDate {
-        CheckInDraft.suggestedDate(today: .today(), lastCheckIn: library.latestCheckIn)
-    }
-
     // MARK: Actions
 
     /// Cancel: closes at once when nothing was entered (throwing the empty
@@ -213,16 +209,14 @@ struct CheckInScreen: View {
 /// step each time.
 struct CheckInStartView: View {
     let session: CheckInSession
-    let close: () -> Void
 
     @Environment(CheckInStore.self) private var checkIn
     @Environment(LibraryStore.self) private var library
     @Environment(AppNavigation.self) private var navigation
     @Environment(\.locale) private var locale
 
-    init(session: CheckInSession, close: @escaping () -> Void) {
+    init(session: CheckInSession) {
         self.session = session
-        self.close = close
     }
 
     var body: some View {
@@ -232,10 +226,10 @@ struct CheckInStartView: View {
             } description: {
                 Text("A check-in updates your accounts' values. Add an account or import a spreadsheet first.")
             } actions: {
-                Button("Add an account") { addAccount() }
+                Button("Add an account") { navigation.finishCheckIn { $0.newAccount() } }
                     .buttonStyle(.borderedProminent)
                     .disabled(!library.canEdit)
-                Button("Import…") { importSpreadsheet() }
+                Button("Import…") { navigation.finishCheckIn { $0.startImport() } }
                     .disabled(!library.canEdit)
             }
             .background(Palette.page)
@@ -298,27 +292,6 @@ struct CheckInStartView: View {
         if status.isDue { return "It's time for this month's check-in: a few minutes, mostly confirming values." }
         return "The next one is on \(AmountFormat.longDate(status.nextCheckIn, locale: locale)). "
             + "Start one now if something changed, or update the last one."
-    }
-
-    /// Closes the check-in, then opens the add-account sheet.
-    private func addAccount() {
-        let navigation = self.navigation
-        close()
-        Task { @MainActor in
-            // On iPhone the check-in is a full-screen cover: let it close first.
-            try? await Task.sleep(for: .milliseconds(350))
-            navigation.newAccount()
-        }
-    }
-
-    /// Closes the check-in, then starts an import.
-    private func importSpreadsheet() {
-        let navigation = self.navigation
-        close()
-        Task { @MainActor in
-            try? await Task.sleep(for: .milliseconds(350))
-            navigation.startImport()
-        }
     }
 }
 

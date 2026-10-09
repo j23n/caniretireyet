@@ -217,7 +217,6 @@ private struct CheckInListHeader: View {
     @Bindable var session: CheckInSession
 
     @Environment(CheckInStore.self) private var checkIn
-    @Environment(LibraryStore.self) private var library
     @Environment(\.locale) private var locale
 
     var body: some View {
@@ -240,7 +239,7 @@ private struct CheckInListHeader: View {
                 .accessibilityLabel(Text(verbatim: "Check-in date: \(dateText)"))
                 .accessibilityHint("Changes the date")
                 .popover(isPresented: $session.showsDatePicker) {
-                    CheckInDatePanel(date: draft.date, suggested: suggested) { date in
+                    CheckInDatePanel(date: draft.date, suggested: checkIn.suggestedDate) { date in
                         checkIn.changeDate(to: date)
                     }
                     .presentationDetents([.medium, .large])
@@ -252,10 +251,6 @@ private struct CheckInListHeader: View {
             }
             CheckInBanners(draft: draft, session: session)
         }
-    }
-
-    private var suggested: CalendarDate {
-        CheckInDraft.suggestedDate(today: .today(), lastCheckIn: library.latestCheckIn)
     }
 }
 

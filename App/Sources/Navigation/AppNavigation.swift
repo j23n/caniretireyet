@@ -97,6 +97,16 @@ final class AppNavigation {
         if sidebarSelection == .checkIn { sidebarSelection = .overview }
     }
 
+    /// Closes the check-in, then goes on with `next`, e.g. to open the plan.
+    /// On iPhone the check-in is a full-screen cover: it closes first.
+    func finishCheckIn(then next: @escaping @MainActor @Sendable (AppNavigation) -> Void) {
+        finishCheckIn()
+        Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(350))
+            next(self)
+        }
+    }
+
     func showOverview() {
         tab = .overview
         sidebarSelection = .overview

@@ -61,8 +61,7 @@ extension CheckInField {
         case .quantity(_, let instrument): return name + " · " + label(instrument)
         case .paid(_, let instrument): return name + " · paid for " + label(instrument)
         case .flow:
-            let isPension = account?.kind == .pensionFund || account?.kind == .tfr
-            return name + (isPension ? " · contributions" : " · new money")
+            return name + (CheckInWording.isPension(account?.kind) ? " · contributions" : " · new money")
         case .note: return name + " · note"
         }
     }
@@ -345,8 +344,7 @@ enum CheckInReviewDisplay {
     /// account's currency.
     static func flowLine(_ reviewed: CheckInRowReview, kind: AccountKind?, currency: CurrencyCode,
                          followsTrades: Bool, hidesAmounts: Bool = false, locale: Locale = .current) -> String {
-        let isPension = kind == .pensionFund || kind == .tfr
-        let title = isPension ? "Contributions" : "New money"
+        let title = CheckInWording.isPension(kind) ? "Contributions" : "New money"
         let amount = reviewed.flow.map { flow in
             hidesAmounts ? AmountFormat.hidden
                 : AmountFormat.signedAmount(flow, currency: currency, precision: .automatic, locale: locale)
@@ -449,6 +447,11 @@ enum CheckInWording {
         draft.rows.count { !$0.opensLater }
     }
 
+    /// "1 account not reviewed", "2 accounts not reviewed".
+    static func notReviewedTitle(count: Int) -> String {
+        count == 1 ? "1 account not reviewed" : "\(count) accounts not reviewed"
+    }
+
     /// "Not reviewed: Fondo pensione, Mutuo" (at most three names, then "and 2 more").
     static func notReviewed(_ names: [String]) -> String? {
         guard !names.isEmpty else { return nil }
@@ -481,13 +484,19 @@ enum CheckInWording {
     /// the date since the check-in started; `nil` otherwise.
     static func conflictNote(_ draft: CheckInDraft, in library: Library, locale: Locale = .current) -> String? {
         let names = draft.conflicts.map { library.accounts[$0.account]?.name ?? $0.account.rawValue }
-        guard let last = names.last else { return nil }
-        let list = names.count == 1 ? last : names.dropLast().joined(separator: ", ") + " and " + last
+        guard !names.isEmpty else { return nil }
         let day = draft.date.dateValue.formatted(.dateTime.day().month(.wide).locale(locale))
         let one = names.count == 1
-        return "\(list) got \(one ? "a value" : "values") for \(day) on another device while this check-in was open. "
+        return "\(CheckInStoreError.list(names)) got \(one ? "a value" : "values") for \(day) on another device "
+            + "while this check-in was open. "
             + "Until you choose, \(one ? "the saved value is" : "the saved values are") kept and yours "
             + "\(one ? "isn't" : "aren't") written."
+    }
+
+    /// Whether an account's new money is called its contributions: a
+    /// pension fund's and TFR's.
+    static func isPension(_ kind: AccountKind?) -> Bool {
+        kind == .pensionFund || kind == .tfr
     }
 
     /// What the new-money field is called: "Contributions since June" for
@@ -496,9 +505,9 @@ enum CheckInWording {
     static func flowTitle(kind: AccountKind?, rule: FlowDefault, previous: Valuation?,
                           locale: Locale = .current) -> String {
         guard rule == .ask else { return "New money" }
-        let isPension = kind == .pensionFund || kind == .tfr
-        guard let previous else { return isPension ? "Contributions" : "New money" }
-        if isPension {
+        let pension = isPension(kind)
+        guard let previous else { return pension ? "Contributions" : "New money" }
+        if pension {
             return "Contributions since " + AmountFormat.monthName(previous.date.adding(days: 1), locale: locale)
         }
         return "New money since " + AmountFormat.shortDate(previous.date, locale: locale)
@@ -855,13 +864,12 @@ struct CheckInWarningText: Hashable, Sendable {
                 message: "That's more than usual. Worth a second look in case of a typo.",
                 action: .showRow(account), actionTitle: "Check")
         case .unknownFlow(let account):
-            let kind = library.accounts[account]?.kind
-            let isPension = kind == .pensionFund || kind == .tfr
+            let pension = CheckInWording.isPension(library.accounts[account]?.kind)
             return CheckInWarningText(
-                title: "\(name(account)): \(isPension ? "contributions" : "new money") unknown",
+                title: "\(name(account)): \(pension ? "contributions" : "new money") unknown",
                 message: "Its change counts as \u{201C}other\u{201D} until you enter it, so the waterfall can't "
                     + "separate saving from growth.",
-                action: .enterFlow(account), actionTitle: isPension ? "Enter contributions" : "Enter new money")
+                action: .enterFlow(account), actionTitle: pension ? "Enter contributions" : "Enter new money")
         case .valuation(let problem):
             switch problem {
             case .missingPrice(let account, let instrument):

@@ -89,6 +89,12 @@ final class CheckInStore {
         CheckInSchedule.status(today: .today(), lastCheckIn: library.latestCheckIn, draft: draft)
     }
 
+    /// The date a new check-in starts on: today, or the end of last month
+    /// in a month's first days (`CheckInDraft.suggestedDate`).
+    var suggestedDate: CalendarDate {
+        CheckInDraft.suggestedDate(today: .today(), lastCheckIn: library.latestCheckIn)
+    }
+
     // MARK: Starting
 
     /// Reads an unfinished check-in saved on this device (at launch). It's
@@ -109,8 +115,7 @@ final class CheckInStore {
     func begin(on date: CalendarDate? = nil) {
         let snapshot = library.library
         if draft == nil {
-            let start = date ?? CheckInDraft.suggestedDate(today: .today(), lastCheckIn: snapshot.latestCheckInDate)
-            draft = CheckInDraft(date: start, library: snapshot)
+            draft = CheckInDraft(date: date ?? suggestedDate, library: snapshot)
             indices = []
             priceList = nil
             schedulePersist()

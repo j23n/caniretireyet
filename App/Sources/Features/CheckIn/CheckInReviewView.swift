@@ -82,8 +82,7 @@ struct CheckInReviewView: View {
 
     /// "2 accounts not reviewed".
     private var restTitle: String {
-        let count = checkIn.draft?.notReviewed.count ?? 0
-        return count == 1 ? "1 account not reviewed" : "\(count) accounts not reviewed"
+        CheckInWording.notReviewedTitle(count: checkIn.draft?.notReviewed.count ?? 0)
     }
 
     /// Saves, first asking about accounts not reviewed yet.
@@ -206,7 +205,7 @@ private struct CheckInReviewContent: View {
         return Card {
             VStack(alignment: .leading, spacing: Metrics.s) {
                 Label {
-                    Text(verbatim: names.count == 1 ? "1 account not reviewed" : "\(names.count) accounts not reviewed")
+                    Text(verbatim: CheckInWording.notReviewedTitle(count: names.count))
                         .font(.headline)
                 } icon: {
                     CheckInStateIndicator(state: .notReviewed, size: 18)

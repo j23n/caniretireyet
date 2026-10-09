@@ -239,13 +239,7 @@ struct CheckInConfirmationView: View {
 
     /// Closes the check-in, then shows the main plan.
     private func openPlan() {
-        let navigation = self.navigation
-        done()
-        Task { @MainActor in
-            // On iPhone the check-in is a full-screen cover: let it close first.
-            try? await Task.sleep(for: .milliseconds(350))
-            navigation.showPlan()
-        }
+        navigation.finishCheckIn { $0.showPlan() }
     }
 }
 
