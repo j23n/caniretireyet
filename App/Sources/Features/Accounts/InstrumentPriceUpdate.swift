@@ -34,7 +34,7 @@ struct InstrumentPriceUpdatePlan: Hashable, Sendable {
          indices: [CheckInPriceNeeds.IndexMonths] = []) {
         self.date = date
         self.baseCurrency = baseCurrency
-        self.instruments = instruments.sorted { ($0.name.lowercased(), $0.id) < ($1.name.lowercased(), $1.id) }
+        self.instruments = instruments.sortedForDisplay()
         currencies = Set(instruments.map(\.currency)).subtracting([baseCurrency]).sorted()
         self.typedInstruments = typedInstruments.sorted()
         self.unheldInstruments = unheldInstruments.sorted()

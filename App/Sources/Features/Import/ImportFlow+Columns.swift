@@ -309,7 +309,7 @@ extension ImportFlow {
 
     /// The library's instruments for pickers, by name.
     var instrumentChoices: [Instrument] {
-        library.instruments.values.sorted { ($0.name.lowercased(), $0.id) < ($1.name.lowercased(), $1.id) }
+        library.instruments.values.sortedForDisplay()
     }
 }
 

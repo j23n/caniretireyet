@@ -93,7 +93,7 @@ struct InstrumentsScreen: View {
     }
 
     private var instruments: [Instrument] {
-        library.library.instruments.values.sorted { ($0.name.lowercased(), $0.id) < ($1.name.lowercased(), $1.id) }
+        library.library.instruments.values.sortedForDisplay()
     }
 
     @ViewBuilder

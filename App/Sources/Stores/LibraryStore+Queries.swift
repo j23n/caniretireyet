@@ -95,3 +95,10 @@ extension Sequence where Element == Account {
         sorted { ($0.group, $0.name.lowercased(), $0.id) < ($1.group, $1.name.lowercased(), $1.id) }
     }
 }
+
+extension Sequence where Element == Instrument {
+    /// In the order lists and pickers use: by name, then ID.
+    func sortedForDisplay() -> [Instrument] {
+        sorted { ($0.name.lowercased(), $0.id) < ($1.name.lowercased(), $1.id) }
+    }
+}
