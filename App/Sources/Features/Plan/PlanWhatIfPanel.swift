@@ -15,7 +15,6 @@ struct PlanWhatIfPanel: View {
     @Environment(\.locale) private var locale
 
     var body: some View {
-        @Bindable var session = session
         VStack(alignment: .leading, spacing: Metrics.l) {
             VStack(alignment: .leading, spacing: 2) {
                 Text("What if")
@@ -30,7 +29,7 @@ struct PlanWhatIfPanel: View {
             answer
             if let model = session.whatIfModel {
                 ForEach(PlanWhatIfSlider.allCases) { slider in
-                    sliderRow(slider, model: model, value: binding(slider, $session))
+                    sliderRow(slider, model: model, value: binding(slider))
                 }
             }
             actions
@@ -121,14 +120,10 @@ struct PlanWhatIfPanel: View {
         return PlanResultsText.change(from: base.headline.earliestAge, to: results.headline.earliestAge)
     }
 
-    /// The slider's value in the session.
-    private func binding(_ slider: PlanWhatIfSlider, _ session: Bindable<PlanSession>) -> Binding<Double> {
-        switch slider {
-        case .retirementAge: session.whatIfRetirementAge
-        case .spending: session.whatIfSpending
-        case .saving: session.whatIfSaving
-        case .equityReturn: session.whatIfEquityReturn
-        }
+    /// The slider's value in the session: the value shown, and moving it
+    /// moves the what-if (``PlanSession/set(_:to:)``).
+    private func binding(_ slider: PlanWhatIfSlider) -> Binding<Double> {
+        Binding(get: { session.whatIfModel?.value(slider) ?? 0 }, set: { session.set(slider, to: $0) })
     }
 
     private func sliderRow(_ slider: PlanWhatIfSlider, model: PlanWhatIfModel, value binding: Binding<Double>)
@@ -174,7 +169,7 @@ struct PlanWhatIfPanel: View {
 }
 
 #Preview("What if") {
-    PlanPreviewHost(model: AppModel.preview(planEngine: PlanPreviewEngine())) { session in
+    PlanPreviewHost(model: AppModel.preview()) { session in
         ScrollView {
             PlanWhatIfPanel(session: session)
                 .padding()

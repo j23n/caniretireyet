@@ -68,7 +68,7 @@ struct PlanChaptersModel {
           whatIfAge: Int? = nil, recordedAge: Int? = nil, today: CalendarDate = .today()) {
         guard let birthDate = library.settings.person?.birthDate else { return nil }
         let start = plan.startDate(in: library, today: today)
-        let resultsAge = results?.details?.focus.age ?? results?.headline.earliestAge
+        let resultsAge = results?.details.focus.age ?? results?.headline.earliestAge
         let (age, source) = Self.retirementAge(
             plan: plan, chosenAge: chosenAge, whatIfAge: whatIfAge, resultsAge: resultsAge, recordedAge: recordedAge,
             currentAge: start.year - birthDate.year)
@@ -102,7 +102,7 @@ struct PlanChaptersModel {
             let date = CalendarDate(point.date, in: .current)
             if date.month == 12, date.day == 31 { yearEnds[date.year] = point }
         }
-        let failures = results.details?.focus.failuresByAge
+        let failures: [AgeCount]? = results.details.focus.failuresByAge
         let runs = Double(results.runs)
         var outcomes: [Int: Outcome] = [:]
         for (index, chapter) in chapters.chapters.enumerated() {

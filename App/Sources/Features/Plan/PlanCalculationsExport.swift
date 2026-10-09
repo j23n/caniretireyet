@@ -49,7 +49,7 @@ final class PlanCalculationsExport: Identifiable {
     /// The plan on screen, with the what-if in use applied.
     static func source(session: PlanSession, library: LibraryStore) -> Source? {
         guard let plan = session.plan else { return nil }
-        let saving = session.baseResults?.details?.focus.monthlySaving
+        let saving = session.baseResults?.details.focus.monthlySaving
         let shown = session.whatIf.isEmpty ? plan : session.whatIf.applied(to: plan, baseMonthlySaving: saving)
         return Source(plan: shown, library: library.library, asOf: library.asOfDate)
     }

@@ -182,7 +182,7 @@ struct OverviewAnswerCard: View {
                         .foregroundStyle(Palette.secondaryInk)
                 }
             }
-        } else if plans.isAvailable, let error = plans.errors[plan.id] {
+        } else if let error = plans.errors[plan.id] {
             Text(error)
                 .font(.callout)
                 .foregroundStyle(Palette.secondaryInk)
@@ -197,8 +197,7 @@ struct OverviewAnswerCard: View {
 
     private func baselineGap(for plan: PlanDocument?) -> OverviewBaselineGap? {
         guard let plan, let baseline = library.library.baselines(for: plan.id).last else { return nil }
-        return OverviewBaselineGap(baseline: baseline, valuator: valuator, on: asOf,
-                                   currency: PlanMoney.currency(of: baseline, settings: library.settings))
+        return OverviewBaselineGap(baseline: baseline, valuator: valuator, on: asOf, currency: library.baseCurrency)
     }
 
     private func earliestText(_ headline: PlanHeadline) -> String {
@@ -269,15 +268,15 @@ struct OverviewAttentionCard: View {
                 title: failures.count == 1 ? "A price couldn't be fetched" : "\(failures.count) prices couldn't be fetched",
                 detail: "Type them in on the check-in's price list.", target: .checkIn))
         }
-        if plans.isAvailable, let main = library.settings.mainPlan, let error = plans.errors[main] {
+        if let main = library.settings.mainPlan, let error = plans.errors[main] {
             items.append(OverviewAttentionItem(
                 id: "plan.error", systemImage: "exclamationmark.triangle",
                 title: "\(library.mainPlan?.name ?? "Your plan") couldn't run", detail: error, target: .plan))
         }
-        if let main = library.settings.mainPlan, let failure = plans.results[main]?.failure,
-           let share = failure.bridgeShare, share >= 0.05 {
-            let futures = Int(wholeNumber: share * 100)
-            let age = failure.bridgeAge.map { " at \($0)" } ?? ""
+        if let main = library.settings.mainPlan, let bridge = plans.results[main]?.details.focus.bridges.first,
+           bridge.share >= 0.05 {
+            let futures = Int(wholeNumber: bridge.share * 100)
+            let age = bridge.accessibleFromAge.map { " at \($0)" } ?? ""
             items.append(OverviewAttentionItem(
                 id: "plan.bridge", systemImage: "lock",
                 title: "Money could run short before locked money opens",

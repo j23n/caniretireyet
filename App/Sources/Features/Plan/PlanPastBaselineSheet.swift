@@ -104,7 +104,7 @@ struct PlanPastBaselineSheet: View {
                         ProgressView()
                     } else {
                         Button("Calculate and Save") { save() }
-                            .disabled(range == nil || !plans.isAvailable)
+                            .disabled(range == nil)
                     }
                 }
             }

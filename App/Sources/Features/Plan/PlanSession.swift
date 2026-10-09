@@ -10,9 +10,9 @@ import Planner
 /// - **Runs only on request.** Nothing runs on appear, after an edit, a
 ///   slider move or another focus age. The results shown stay until the
 ///   user asks for new ones (``calculate()``, ⌘R; ``runWhatIf()``), and
-///   ``state`` says when they're out of date and why. Results the engine
-///   kept for exactly the current inputs are picked up without a run
-///   (``refresh()``), e.g. after changing an input back.
+///   ``stateWithoutProgress`` says when they're out of date and why.
+///   Results the engine kept for exactly the current inputs are picked up
+///   without a run (``refresh()``), e.g. after changing an input back.
 /// - **Editing.** Edits change a draft at once and are saved to the library
 ///   after a short pause (and when the screen goes away). Validation
 ///   (`Planner.validate`, a tenth of a second) still follows every edit.
@@ -54,7 +54,7 @@ final class PlanSession {
     @ObservationIgnored private var lookupTask: Task<Void, Never>?
 
     /// How long edits wait before they're saved.
-    var saveDelay: Duration = .milliseconds(700)
+    private let saveDelay: Duration = .milliseconds(700)
 
     init(planID: PlanID, library: LibraryStore, plans: PlanStore) {
         self.planID = planID
@@ -131,28 +131,20 @@ final class PlanSession {
     /// (``PlanIssueText``).
     var inputIssues: PlanInputIssues {
         var issues = validationIssues
-        if let results = plans.results[planID], results.planHash == plan.map({ Planner.planHash($0) }) {
-            issues += results.details?.issues ?? []
+        if let results = plans.results[planID], results.details.planHash == plan.map({ Planner.planHash($0) }) {
+            issues += results.details.issues
         }
         return PlanInputIssues(PlanIssueText.humanized(issues, plan: plan, library: library.library))
     }
 
     /// The warnings of the results shown, in words for the screen, each once.
     var resultWarnings: [PlanIssue] {
-        PlanResultsText.warnings(PlanIssueText.humanized(shownResults?.details?.issues ?? [], plan: plan,
+        PlanResultsText.warnings(PlanIssueText.humanized(shownResults?.details.issues ?? [], plan: plan,
                                                          library: library.library))
     }
 
-    /// The currency of the plan's amounts: its own, else the library's.
-    var currency: CurrencyCode {
-        plan.map { PlanMoney.currency(of: $0, settings: library.settings) } ?? library.settings.baseCurrency
-    }
-
-    /// The currency of `results`' amounts: the one they were calculated in,
-    /// else the plan's.
-    func currency(of results: PlanResults) -> CurrencyCode {
-        results.currency ?? currency
-    }
+    /// The currency of the plan's amounts: the library's base currency.
+    var currency: CurrencyCode { library.settings.baseCurrency }
 
     // MARK: What's shown
 
@@ -179,31 +171,25 @@ final class PlanSession {
             return base.map { ($0.0, $0.1 + [.whatIf]) }
         }
         if let focusAge {
-            if let results = plans.focusResults[planID], results.details?.focus.age == focusAge {
+            if let results = plans.focusResults[planID], results.details.focus.age == focusAge {
                 return (results, plans.staleReasons(of: planID, .focus, plan: plan, focusAge: focusAge))
             }
-            return base.map { ($0.0, $0.0.details?.focus.age == focusAge ? $0.1 : $0.1 + [.focusAge]) }
+            return base.map { ($0.0, $0.0.details.focus.age == focusAge ? $0.1 : $0.1 + [.focusAge]) }
         }
         return base
     }
 
-    /// The results the charts show (see ``state`` for whether they're out of date).
+    /// The results the charts show (see ``stateWithoutProgress`` for whether
+    /// they're out of date).
     var shownResults: PlanResults? { shown?.results }
 
     /// What the results area shows: results (maybe out of date), else the
-    /// answer recorded at the last check-in, else nothing; the run in
-    /// progress; and the button that brings it up to date.
-    var state: PlanResultsState {
-        var state = stateWithoutProgress
-        state.progress = runProgress
-        return state
-    }
-
-    /// ``state`` without the run's progress: whether a run is going, but not
-    /// how far along it is. Views that don't show the progress read this, so
-    /// they don't redraw with every progress update (on the Mac, the toolbar
-    /// and the results redrawing ten times a second while the window laid
-    /// itself out could loop).
+    /// answer recorded at the last check-in, else nothing; whether a run is
+    /// going; and the button that brings it up to date. Not how far along
+    /// the run is (``runProgress``, which only the progress card reads), so
+    /// the views don't redraw with every progress update (on the Mac, the
+    /// toolbar and the results redrawing ten times a second while the
+    /// window laid itself out could loop).
     var stateWithoutProgress: PlanResultsState {
         let content: PlanResultsState.Content
         var reasons: [PlanStaleReason] = []
@@ -217,7 +203,7 @@ final class PlanSession {
             content = .nothing
         }
         return PlanResultsState(content: content, staleReasons: reasons, canCancel: canCancelRun,
-                                focusAge: focusAge, running: isRunning)
+                                focusAge: focusAge, isRunning: isRunning)
     }
 
     /// Whether a run of this plan is in progress (also a check-in's).
@@ -284,8 +270,8 @@ final class PlanSession {
     /// Whether the charts for retiring at `age` need a run: neither the
     /// plan's own results nor ones for that age fit.
     private func focusNeedsRun(_ age: Int) -> Bool {
-        if baseResults?.details?.focus.age == age, baseIsUpToDate { return false }
-        guard plans.focusResults[planID]?.details?.focus.age == age else { return true }
+        if baseResults?.details.focus.age == age, baseIsUpToDate { return false }
+        guard plans.focusResults[planID]?.details.focus.age == age else { return true }
         return !plans.staleReasons(of: planID, .focus, plan: plan, focusAge: age).isEmpty
     }
 
@@ -383,7 +369,7 @@ final class PlanSession {
     /// The retirement age the charts are for: the one chosen, else the
     /// results'.
     var shownFocusAge: Int? {
-        focusAge ?? shownResults?.details?.focus.age
+        focusAge ?? shownResults?.details.focus.age
     }
 
     /// Shows the charts for retiring at `age`; `nil` or the plan's own age
@@ -392,7 +378,7 @@ final class PlanSession {
     /// *Calculate*.
     func selectFocus(_ age: Int?) {
         guard age != shownFocusAge || (age == nil && focusAge != nil) else { return }
-        let own = whatIf.retirementAge ?? baseResults?.details?.focus.age
+        let own = whatIf.retirementAge ?? baseResults?.details.focus.age
         if let age, age != own {
             focusAge = age
         } else {
@@ -478,34 +464,6 @@ final class PlanSession {
                                  spending: PlanSpending(working: 0, retired: 0))
         }
         set { update(newValue) }
-    }
-
-    /// The focus age for a stepper: reading the one shown, writing selects it.
-    var editableFocusAge: Int {
-        get { shownFocusAge ?? 55 }
-        set { selectFocus(newValue) }
-    }
-
-    /// The what-if sliders' values, for `Slider`s: reading the value shown,
-    /// writing moves it (see ``set(_:to:)``).
-    var whatIfRetirementAge: Double {
-        get { whatIfModel?.value(.retirementAge) ?? 0 }
-        set { set(.retirementAge, to: newValue) }
-    }
-
-    var whatIfSpending: Double {
-        get { whatIfModel?.value(.spending) ?? 0 }
-        set { set(.spending, to: newValue) }
-    }
-
-    var whatIfSaving: Double {
-        get { whatIfModel?.value(.saving) ?? 0 }
-        set { set(.saving, to: newValue) }
-    }
-
-    var whatIfEquityReturn: Double {
-        get { whatIfModel?.value(.equityReturn) ?? 0 }
-        set { set(.equityReturn, to: newValue) }
     }
 
     // MARK: Baselines

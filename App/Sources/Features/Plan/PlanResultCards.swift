@@ -9,19 +9,13 @@ import SwiftUI
 // the Plan view shows above them.
 
 
-/// What stops the plan from answering, above the answer: the planner
-/// isn't available, the plan can't run, a change wasn't saved.
+/// What stops the plan from answering, above the answer: the plan can't
+/// run, a change wasn't saved.
 struct PlanResultsBanners: View {
     let session: PlanSession
 
-    @Environment(PlanStore.self) private var plans
-
     var body: some View {
         VStack(spacing: Metrics.s) {
-            if !plans.isAvailable {
-                StatusBanner(.info, "The planner isn't available",
-                             message: "Plans can't run in this version. Answers recorded at past check-ins are shown.")
-            }
             if let error = session.runError {
                 StatusBanner(.error, "The plan can't run", message: error)
             }
@@ -94,17 +88,14 @@ struct PlanResultWarnings: View {
 }
 
 /// How close today's plan assets are to what retiring today needs (UI.md,
-/// "Can I retire yet?"; the plan's key numbers say it too): a bar, "58% of
-/// what you'd need to retire today" with an ⓘ that says what it compares,
-/// and, when a run's details have it, "Needed to retire today: 1.240.000 €".
-/// It comes from the same simulation as the chance of retiring today, so it
-/// reaches 100% exactly when that chance reaches the plan's confidence. An
-/// answer recorded before it existed shows `fallback`, if any, instead of
-/// its old FI progress.
+/// "Can I retire yet?"; the plan's key numbers say it too): a bar, and "58%
+/// of what you'd need to retire today" with an ⓘ that says what it
+/// compares. It comes from the same simulation as the chance of retiring
+/// today, so it reaches 100% exactly when that chance reaches the plan's
+/// confidence. An answer recorded before it existed shows `fallback`, if
+/// any, instead of its old FI progress.
 struct PlanReadinessView: View {
     let headline: PlanHeadline
-    /// The search's result, from a run (a recorded answer has none).
-    var assetsNeeded: AssetsNeeded?
     /// Shown when there's no readiness, e.g. ``PlanResultsText/readinessNotRecorded``.
     var fallback: String?
 
@@ -125,14 +116,6 @@ struct PlanReadinessView: View {
                         .fixedSize(horizontal: false, vertical: true)
                     explanationButton
                 }
-                if let amount = neededAmount {
-                    HStack(spacing: Metrics.xs) {
-                        Text("Needed to retire today:")
-                        AmountText(PlanResultsText.whole(amount), tabular: false)
-                    }
-                    .foregroundStyle(Palette.secondaryInk)
-                    .accessibilityElement(children: .combine)
-                }
             }
             .font(.footnote)
         } else if let fallback {
@@ -141,12 +124,6 @@ struct PlanReadinessView: View {
                 .foregroundStyle(Palette.mutedInk)
                 .fixedSize(horizontal: false, vertical: true)
         }
-    }
-
-    /// The amount, when the search found one.
-    private var neededAmount: Double? {
-        guard let assetsNeeded, assetsNeeded.outcome == .found else { return nil }
-        return assetsNeeded.amount
     }
 
     private var explanationButton: some View {
@@ -212,7 +189,6 @@ struct PlanSuccessCard: View {
     }
 
     var body: some View {
-        @Bindable var session = session
         Card {
             SuccessCurveChart(points: results.successByAge, threshold: results.headline.confidence,
                               highlightedAge: results.headline.earliestAge, selectedAge: $chartSelection)
@@ -226,7 +202,8 @@ struct PlanSuccessCard: View {
             .contentShape(Rectangle())
             .simultaneousGesture(TapGesture().onEnded { chooseTappedAge() })
             if let focus, let ages {
-                Stepper(value: $session.editableFocusAge, in: ages) {
+                Stepper(value: Binding(get: { session.shownFocusAge ?? 55 }, set: { session.selectFocus($0) }),
+                        in: ages) {
                     HStack(spacing: Metrics.xs) {
                         Text("Charts for retiring at \(focus)")
                             .font(.subheadline)
@@ -263,7 +240,6 @@ struct PlanSuccessCard: View {
 /// far ahead (shared with the Overview's chart and remembered on the
 /// device), so the years that matter aren't a sliver of a chart running to 95.
 struct PlanFanCard: View {
-    let session: PlanSession
     let results: PlanResults
 
     @Environment(LibraryStore.self) private var library
@@ -316,19 +292,8 @@ struct PlanFanCard: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
         } header: {
-            SectionHeader((results.details?.focus.age ?? session.shownFocusAge)
-                .map { "Your money over time · retiring at \($0)" } ?? "Your money over time")
+            SectionHeader("Your money over time · retiring at \(results.details.focus.age)")
         }
-    }
-}
-
-/// The fan chart's key: actual, median and the two bands, for a fan chart
-/// that doesn't show its own (`FanChart(showsLegend: false)`).
-struct PlanFanLegend: View {
-    var showsActual = true
-
-    var body: some View {
-        ProjectionLegend(showsActual: showsActual)
     }
 }
 
@@ -407,20 +372,12 @@ struct PlanFigureText: View {
                 AmountText(amount)
                 if let unit { Text(unit) }
             }
-        case .amountIn(let amount, let currency, let unit):
-            HStack(spacing: 2) {
-                AmountText(amount, currency: currency)
-                if let unit { Text(unit) }
-            }
         case .percent(let share):
             Text(AmountFormat.percent(share, digits: 0, locale: locale))
                 .monospacedDigit()
         case .text(let text):
             Text(text)
                 .monospacedDigit()
-        case .missing:
-            Text("–")
-                .foregroundStyle(Palette.mutedInk)
         }
     }
 }

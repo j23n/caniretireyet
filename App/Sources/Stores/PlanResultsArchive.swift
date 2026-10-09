@@ -20,22 +20,20 @@ import os
 /// a plan, and reads them when a library opens: files of another format or
 /// engine, and of plans the library no longer has, are deleted then.
 actor PlanResultsArchive {
-    /// A plan's results and what they were calculated from.
+    /// A plan's results and what they were calculated from. The results
+    /// say the engine that calculated them (`PlanEngine.version`; results
+    /// of another engine are dropped) and the mode.
     struct Entry: Codable, Sendable {
         /// The format this version writes; files of another are dropped.
         static let currentFormat = 1
 
         var format: Int
-        /// The engine that calculated them (`PlanEngine.version`); results
-        /// of another engine are dropped.
-        var engine: String
         /// The plan as it was calculated.
         var plan: PlanDocument
         /// The library data the run read, as ``PlanRunInputs/fingerprint``.
         var inputs: String
         /// The date the plan started from.
         var asOf: CalendarDate
-        var mode: PlanRunMode
         var results: PlanResults
     }
 
@@ -85,10 +83,10 @@ actor PlanResultsArchive {
     /// Keeps `results`, calculated from `basis`, as their plan's in the
     /// library at `library`, replacing what was kept. Nothing is kept for a
     /// basis without its inputs (results restored from a changed library).
-    func save(_ results: PlanResults, basis: PlanRunBasis, engine: String, library: URL) throws {
+    func save(_ results: PlanResults, basis: PlanRunBasis, library: URL) throws {
         guard let inputs = basis.inputs else { return }
-        let entry = Entry(format: Entry.currentFormat, engine: engine, plan: basis.plan, inputs: inputs.fingerprint,
-                          asOf: basis.asOf, mode: basis.mode, results: results)
+        let entry = Entry(format: Entry.currentFormat, plan: basis.plan, inputs: inputs.fingerprint,
+                          asOf: basis.asOf, results: results)
         let folder = folder(forLibraryAt: library)
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
         let data = try Self.encoder().encode(entry)
@@ -120,8 +118,8 @@ actor PlanResultsArchive {
             }
             if entry.format != Entry.currentFormat {
                 drop(file, because: "it's in format \(entry.format), not \(Entry.currentFormat)")
-            } else if entry.engine != engine {
-                drop(file, because: "engine \(entry.engine) calculated it, not \(engine)")
+            } else if entry.results.engine != engine {
+                drop(file, because: "engine \(entry.results.engine) calculated it, not \(engine)")
             } else if library.plans[entry.results.plan] == nil {
                 drop(file, because: "the library has no plan \(entry.results.plan)")
             } else if file.lastPathComponent != self.file(for: entry.results.plan, in: folder).lastPathComponent {
@@ -182,8 +180,6 @@ extension PlanRunInputs {
     var fingerprint: String {
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
-        encoder.nonConformingFloatEncodingStrategy = .convertToString(positiveInfinity: "inf",
-                                                                      negativeInfinity: "-inf", nan: "nan")
         guard let data = try? encoder.encode(Fingerprinted(self)) else { return UUID().uuidString }
         return FNV1a.hexHash(data)
     }

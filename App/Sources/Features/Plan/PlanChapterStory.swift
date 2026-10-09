@@ -150,7 +150,7 @@ extension PlanChapterStory {
         }
         for case .event(let index) in chapter.items where plan.events.indices.contains(index) {
             sentences.append(eventSentence(plan.events[index], words: words,
-                                           without: results?.details?.agesWithout.withoutWindfall(index),
+                                           without: results?.details.agesWithout.withoutWindfall(index),
                                            earliest: results?.headline.earliestAge))
         }
         if chapter.items.contains(.end) {

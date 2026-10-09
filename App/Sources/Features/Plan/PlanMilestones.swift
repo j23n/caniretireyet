@@ -31,7 +31,7 @@ struct PlanMilestones {
          reached known: [ReachedMilestone]? = nil) {
         let recorded = library.headlines(for: plan.id).filter { $0.date <= asOf }.max { $0.date < $1.date }
         let readiness = results?.headline.readiness.map(Planner.recordedReadiness) ?? recorded?.readiness
-        let needed = results?.details?.assetsNeeded?.amount.map { Decimal(wholeNumber: $0) }
+        let needed = results?.details.assetsNeeded?.amount.map { Decimal(wholeNumber: $0) }
         let ladder = MilestoneLadder(plan: plan, library: library, on: asOf, neededToday: needed)
         self.ladder = ladder
         reached = known ?? ladder.reached(plan: plan.id, library: library, valuator: valuator, through: asOf)
@@ -48,7 +48,7 @@ struct PlanMilestones {
         }
         ahead = ladder.ahead(of: current, readiness: readiness, median: median)
         next = ladder.next(after: current, readiness: readiness)
-        if let coast = results?.details?.agesWithout.coast {
+        if let coast = results?.details.agesWithout.coast {
             coastAge = coast.earliestAge
             knowsCoastAge = true
         } else if let age = recorded?.coastAge {

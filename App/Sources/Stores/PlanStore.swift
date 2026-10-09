@@ -10,9 +10,7 @@ import Storage
 /// The numbers come from a ``PlanEngine``; this store runs it off the main
 /// thread, cancels a run when a newer one of the same kind starts, keeps
 /// the latest results per plan with what they were computed from, and saves
-/// headlines and baselines into the library. With the stub engine
-/// (``UnavailablePlanEngine``) runs fail quietly and the Overview shows the
-/// last recorded headline.
+/// headlines and baselines into the library.
 ///
 /// - **Nothing runs on its own.** A run starts only when asked: the Plan
 ///   screens' *Calculate*, *Recalculate* (⌘R) and *Run What-If* buttons,
@@ -65,9 +63,8 @@ final class PlanStore {
     /// keeps nothing (previews, tests).
     let archive: PlanResultsArchive?
     private let library: LibraryStore
-    @ObservationIgnored private var tasks: [PlanRunKey: Task<PlanResults, any Error>] = [:]
-    @ObservationIgnored private var tokens: [PlanRunKey: UUID] = [:]
-    @ObservationIgnored private var signatures: [PlanRunKey: PlanRunBasis] = [:]
+    /// The runs in progress, by plan and kind.
+    @ObservationIgnored private var inFlight: [PlanRunKey: InFlight] = [:]
     /// The check-in each plan's missing answer was last caught up for
     /// (``recordMissingCheckInAnswer(today:)``), so it's tried once.
     @ObservationIgnored private var caughtUpAnswers: [PlanID: CalendarDate] = [:]
@@ -80,21 +77,27 @@ final class PlanStore {
     /// so an older result never replaces a newer one.
     @ObservationIgnored private var archiving: Task<Void, Never>?
 
-    init(library: LibraryStore, engine: any PlanEngine = UnavailablePlanEngine(), archive: PlanResultsArchive? = nil) {
+    init(library: LibraryStore, engine: any PlanEngine, archive: PlanResultsArchive? = nil) {
         self.library = library
         self.engine = engine
         self.archive = archive
     }
 
-    /// Whether plans can be run (`false` until the Planner is in).
-    var isAvailable: Bool { engine.isAvailable }
+    /// A run in progress: its task, a token that tells it from a newer run
+    /// of the same plan and kind, and what it runs, so the very same request
+    /// joins it.
+    private struct InFlight {
+        var task: Task<PlanResults, any Error>
+        var token: UUID
+        var basis: PlanRunBasis
+    }
 
     /// Whether any run of `plan` is in progress.
     func isRunning(_ plan: PlanID) -> Bool { running.contains(plan) }
 
     /// Whether a run of `plan` of `kind` is in progress.
     func isRunning(_ plan: PlanID, _ kind: PlanRunKey.Kind) -> Bool {
-        tasks[PlanRunKey(plan: plan, kind: kind)] != nil
+        inFlight[PlanRunKey(plan: plan, kind: kind)] != nil
     }
 
     /// Where the run of `plan` of `kind` is, while it's in progress.
@@ -133,16 +136,17 @@ final class PlanStore {
         // the main plan while a check-in's run of it is still going: join it.
         // A check-in joins only its own kind, which nothing else cancels.
         let candidates = checkIn ? [key] : [key, PlanRunKey(plan: plan, kind: .checkIn)]
-        for candidate in candidates where signatures[candidate] == signature {
-            guard let existing = tasks[candidate], let token = tokens[candidate] else { continue }
+        for candidate in candidates {
+            guard let existing = inFlight[candidate], existing.basis == signature else { continue }
             do {
-                let value = try await existing.value
-                return tokens[candidate] == nil || tokens[candidate] == token ? value : nil
+                let value = try await existing.task.value
+                let current = inFlight[candidate]?.token
+                return current == nil || current == existing.token ? value : nil
             } catch {
                 return nil
             }
         }
-        tasks[key]?.cancel()
+        inFlight[key]?.task.cancel()
         let request = PlanRunRequest(plan: document, library: library.library, mode: mode, whatIf: whatIf,
                                      asOf: library.asOfDate, focusAge: focusAge)
         let libraryURL = keptLibrary
@@ -152,23 +156,19 @@ final class PlanStore {
             Task { @MainActor in self?.receive(value, for: key, token: token) }
         }
         let task = Task { try await engine.run(request, progress: report) }
-        tasks[key] = task
-        tokens[key] = token
-        signatures[key] = signature
+        inFlight[key] = InFlight(task: task, token: token, basis: signature)
         progress[key] = .starting(mode)
         running.insert(plan)
         defer {
-            if tokens[key] == token {
-                tasks[key] = nil
-                tokens[key] = nil
-                signatures[key] = nil
+            if inFlight[key]?.token == token {
+                inFlight[key] = nil
                 progress[key] = nil
-                if !tasks.keys.contains(where: { $0.plan == plan }) { running.remove(plan) }
+                if !inFlight.keys.contains(where: { $0.plan == plan }) { running.remove(plan) }
             }
         }
         do {
             let value = try await task.value
-            guard tokens[key] == token else { return nil }
+            guard inFlight[key]?.token == token else { return nil }
             keep(value, in: PlanRunKey(plan: plan, kind: slot), basis: signature)
             if slot == .base { keepOnDevice(value, basis: signature, library: libraryURL) }
             errors[plan] = nil
@@ -176,7 +176,7 @@ final class PlanStore {
         } catch is CancellationError {
             return nil
         } catch {
-            if tokens[key] == token { errors[plan] = PlanStore.describe(error) }
+            if inFlight[key]?.token == token { errors[plan] = PlanStore.describe(error) }
             return nil
         }
     }
@@ -184,8 +184,8 @@ final class PlanStore {
     /// A run's progress, if it's still the run in progress for `key`. Updates
     /// arrive in order; one that would move the bar back is dropped.
     private func receive(_ value: PlanRunProgress, for key: PlanRunKey, token: UUID) {
-        guard tokens[key] == token else { return }
-        if let current = progress[key], current.phase != .starting, value.fraction < current.fraction { return }
+        guard inFlight[key]?.token == token else { return }
+        if let current = progress[key], current.planner != nil, value.fraction < current.fraction { return }
         progress[key] = value
     }
 
@@ -247,7 +247,7 @@ final class PlanStore {
             let plan = entry.results.plan
             guard results[plan] == nil, library.library.plans[plan] != nil else { continue }
             let basis = PlanRunBasis(plan: entry.plan, inputs: item.inputsMatch ? PlanRunInputs(snapshot) : nil,
-                                     mode: entry.mode, whatIf: nil, focusAge: nil, asOf: entry.asOf)
+                                     mode: entry.results.mode, whatIf: nil, focusAge: nil, asOf: entry.asOf)
             keep(entry.results, in: PlanRunKey(plan: plan, kind: .base), basis: basis)
             let reasons = staleReasons(of: plan)
             PlanResultsLog.notice("Restored \(plan)'s results calculated \(entry.results.computedAt): "
@@ -255,7 +255,7 @@ final class PlanStore {
                                      : "out of date (\(reasons.map(\.rawValue).joined(separator: ", ")))."))
             if item.inputsMatch {
                 await engine.remember(entry.results, for: PlanRunRequest(
-                    plan: entry.plan, library: snapshot, mode: entry.mode, whatIf: nil, asOf: entry.asOf))
+                    plan: entry.plan, library: snapshot, mode: entry.results.mode, whatIf: nil, asOf: entry.asOf))
             }
         }
     }
@@ -266,21 +266,15 @@ final class PlanStore {
         library.location?.url ?? inMemoryLibrary
     }
 
-    /// Waits for the results being written to the ``archive``.
-    func finishKeeping() async {
-        await archiving?.value
-    }
-
     /// Writes a plan's own results, calculated from the library at `url`,
     /// to the ``archive``, off the main thread, after the write before.
     private func keepOnDevice(_ results: PlanResults, basis: PlanRunBasis, library url: URL?) {
         guard let archive, let url else { return }
-        let engine = engine.version
         let previous = archiving
         archiving = Task {
             await previous?.value
             do {
-                try await archive.save(results, basis: basis, engine: engine, library: url)
+                try await archive.save(results, basis: basis, library: url)
             } catch {
                 PlanResultsLog.notice("Couldn't keep \(results.plan)'s results: \(error)")
             }
@@ -291,8 +285,8 @@ final class PlanStore {
     /// run the Plan screens start, not a check-in's (it records the month's
     /// answer).
     func cancel(_ plan: PlanID, kinds: Set<PlanRunKey.Kind> = [.base, .whatIf, .focus]) {
-        for (key, task) in tasks where key.plan == plan && kinds.contains(key.kind) {
-            task.cancel()
+        for (key, run) in inFlight where key.plan == plan && kinds.contains(key.kind) {
+            run.task.cancel()
         }
     }
 
@@ -369,7 +363,7 @@ final class PlanStore {
     /// After a check-in: starts the main plan's run that records this
     /// month's answer, and returns at once. ``checkInAnswer`` follows it: its
     /// progress is ``progress(of:_:)`` with `.checkIn`, then the headline.
-    /// Nothing happens without a main plan or a planner.
+    /// Nothing happens without a main plan.
     ///
     /// This is the one run that starts without a button: recording the
     /// month's answer is what a check-in is for. The confirmation says the
@@ -378,7 +372,7 @@ final class PlanStore {
     /// get recorded is caught up at the next launch
     /// (``recordMissingCheckInAnswer(today:)``).
     func recordCheckInAnswer(on date: CalendarDate) {
-        guard isAvailable, let main = library.settings.mainPlan, library.library.plans[main] != nil else {
+        guard let main = library.settings.mainPlan, library.library.plans[main] != nil else {
             checkInAnswer = nil
             return
         }
@@ -402,12 +396,12 @@ final class PlanStore {
     ///
     /// It runs as ``recordCheckInAnswer(on:)`` does, at most once per plan
     /// and date while the app runs, so a plan that fails isn't run again
-    /// and again. Nothing happens without a planner or a main plan, for a
-    /// read-only library, when a headline on or after the latest check-in
-    /// is recorded (also from the other device), or when the latest
-    /// check-in is in the future (a typo).
+    /// and again. Nothing happens without a main plan, for a read-only
+    /// library, when a headline on or after the latest check-in is recorded
+    /// (also from the other device), or when the latest check-in is in the
+    /// future (a typo).
     func recordMissingCheckInAnswer(today: CalendarDate = .today()) {
-        guard isAvailable, library.canEdit, let main = library.settings.mainPlan, library.library.plans[main] != nil,
+        guard library.canEdit, let main = library.settings.mainPlan, library.library.plans[main] != nil,
               let latest = library.latestCheckIn, latest <= today, checkInAnswer?.isRunning != true,
               !library.library.headlines(for: main).contains(where: { $0.date >= latest }),
               caughtUpAnswers[main] != latest
@@ -418,16 +412,15 @@ final class PlanStore {
 
     /// After a check-in: re-runs the main plan, records its headline, saves
     /// the yearly baseline at the year's first check-in, waits for the
-    /// writes, and returns the answer. `nil` without a main plan or a
-    /// planner. The Plan screens can't cancel this run. A headline or
-    /// baseline that can't be saved shows in the library's error
-    /// (`LibraryStore.lastError`).
+    /// writes, and returns the answer. `nil` without a main plan. The Plan
+    /// screens can't cancel this run. A headline or baseline that can't be
+    /// saved shows in the library's error (`LibraryStore.lastError`).
     func checkInSaved(on date: CalendarDate) async -> PlanHeadline? {
-        guard let main = library.settings.mainPlan, let plan = library.library.plans[main],
+        guard let main = library.settings.mainPlan,
               let results = await run(main, mode: .full, whatIf: nil, focusAge: nil, checkIn: true)
         else { return nil }
         do {
-            try library.record(Self.headline(of: results, plan: plan, on: date), for: main)
+            try library.record(Self.headline(of: results, on: date), for: main)
         } catch {
             library.reportError("This month's answer couldn't be recorded. \(LibraryStore.describe(error))")
         }
@@ -454,13 +447,13 @@ final class PlanStore {
     func saveBaseline(for plan: PlanID, label: String?, kind: BaselineKind = .manual,
                       on date: CalendarDate = .today()) throws -> BaselineID {
         guard let results = results[plan], results.mode == .full, let document = library.library.plans[plan],
-              results.planHash == nil || results.planHash == Self.hash(of: document)
+              results.details.planHash == Planner.planHash(document)
         else {
             throw PlanStoreError.noResults
         }
         let baseline = Baseline(
             created: date, kind: kind, label: label, engine: results.engine, accounts: results.accounts,
-            headline: Self.headline(of: results, plan: document, on: date).summary,
+            headline: Self.headline(of: results, on: date).summary,
             plan: try CanonicalJSON.json(encoding: document), start: results.start, years: results.years)
         return try library.saveBaseline(baseline, for: plan)
     }
@@ -475,42 +468,23 @@ final class PlanStore {
         var past = document
         past.portfolio.start = .date(start)
         let request = PlanRunRequest(plan: past, library: library.library, mode: .full, whatIf: nil, asOf: start)
-        let results = try await engine.run(request)
+        let results = try await engine.run(request, progress: nil)
         let baseline = Baseline(
             created: .today(), kind: .past, label: label, engine: results.engine, accounts: results.accounts,
-            headline: Self.headline(of: results, plan: past, on: start).summary,
+            headline: Self.headline(of: results, on: start).summary,
             plan: try CanonicalJSON.json(encoding: past), start: results.start, years: results.years)
         return try library.saveBaseline(baseline, for: plan)
     }
 
     // MARK: Helpers
 
-    /// A hash of a plan's inputs (`planHash` in headlines): the Planner's
-    /// (FNV-1a, 64-bit, of its canonical JSON, as 16 hex digits), so
-    /// headlines recorded here match the results' and PLANNER.md.
-    static func hash(of plan: PlanDocument) -> String {
-        Planner.planHash(plan)
-    }
-
     /// The headline to record for `results` on `date`: the Planner's own
     /// (`PlanResult.headline`), so the app and the CLI write identical
-    /// records. Results without one (the preview engine) are rounded here.
-    static func headline(of results: PlanResults, plan: PlanDocument, on date: CalendarDate) -> Headline {
-        if var headline = results.details?.headline {
-            headline.date = date
-            return headline
-        }
-        return Headline(
-            date: date, confidence: decimal(results.headline.confidence), earliestAge: results.headline.earliestAge,
-            engine: results.engine, planHash: results.planHash ?? hash(of: plan),
-            readiness: results.headline.readiness.map(Planner.recordedReadiness),
-            successAtTarget: results.headline.successAtTarget.map { decimal($0) })
-    }
-
-    /// A share as a decimal with four places, for results without the
-    /// Planner's headline.
-    static func decimal(_ value: Double) -> Decimal {
-        Decimal(wholeNumber: value * 10_000) / 10_000
+    /// records.
+    static func headline(of results: PlanResults, on date: CalendarDate) -> Headline {
+        var headline = results.details.headline
+        headline.date = date
+        return headline
     }
 
     static func describe(_ error: any Error) -> String {

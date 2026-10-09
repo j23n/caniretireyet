@@ -150,7 +150,7 @@ struct PlanBaselineComparison: Sendable {
         let accounts = baseline.comparedAccounts(among: library.accounts)
         self.accounts = accounts
         let start = baseline.start.date
-        currency = PlanMoney.currency(of: baseline, settings: library.settings)
+        currency = library.settings.baseCurrency
         // Each check-in, and the month ends between them without one, from
         // the start through the latest check-in (where you stand is as of
         // it), or from and through the days asked for.
@@ -794,7 +794,7 @@ struct PlanProgressTimeline {
     static func expected(by baseline: Baseline, days: [CalendarDate], totals: [NetWorth], through end: CalendarDate,
                          library: Library, valuator: Valuator) -> [ChartPoint] {
         let accounts = baseline.comparedAccounts(among: library.accounts)
-        let currency = PlanMoney.currency(of: baseline, settings: library.settings)
+        let currency = library.settings.baseCurrency
         // One unit of the base currency in the baseline's money, on each day.
         let units = PlanActualSeries(values: days.map { SeriesPoint(date: $0, value: 1) }, library: library,
                                      valuator: valuator, currency: currency, inMoneyOf: baseline.start.date).points

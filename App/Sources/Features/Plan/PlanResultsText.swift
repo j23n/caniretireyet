@@ -6,21 +6,16 @@ import Planner
 // `PlanResults`. Plain Swift, so it's tested without SwiftUI; views add
 // privacy (amounts go through `AmountText`) and colour.
 
-/// A value in the key numbers, the headline or the comparison table.
-/// Amounts stay numbers so views can hide them (`AmountText`).
+/// A value in the key numbers. Amounts stay numbers so views can hide them
+/// (`AmountText`).
 enum PlanFigure: Hashable, Sendable {
     /// An amount in the currency of the screen (the plan's), e.g.
     /// `38.400 €`, with an optional unit after it, e.g. `/yr`.
     case amount(Decimal, unit: String?)
-    /// An amount in a currency of its own, e.g. one of two plans compared
-    /// that are in different currencies.
-    case amountIn(Decimal, currency: CurrencyCode, unit: String?)
     /// A share, e.g. 0.92 → "92%".
     case percent(Double)
     /// Words or an age, e.g. "54 · Mar 2042".
     case text(String)
-    /// Nothing to show.
-    case missing
 }
 
 /// One row of a table of figures: "Needed to retire today · 1.240.000 €".
@@ -82,12 +77,6 @@ enum PlanResultsText {
         return "\(old.map(String.init) ?? "none") → \(new.map(String.init) ?? "none")"
     }
 
-    /// "Pension fund" → "pension fund"; "TFR" stays.
-    static func lowercasedFirst(_ text: String) -> String {
-        guard let first = text.first, text.dropFirst().first?.isLowercase ?? true else { return text }
-        return first.lowercased() + text.dropFirst()
-    }
-
     /// "64 and 67", "64, 65 and 67".
     static func list(_ items: [String]) -> String {
         switch items.count {
@@ -103,10 +92,11 @@ enum PlanResultsText {
     static var searchedScale: String { String(Int(AssetsNeeded.maximumScale)) }
 
     /// The readiness as a share to show: below 100% rounded down to a whole
-    /// percent, so it never reads 100% while retiring today falls short.
+    /// percent, as headlines record it, so it never reads 100% while
+    /// retiring today falls short.
     static func readinessShare(_ readiness: Double) -> Double {
         guard readiness < 1 else { return readiness }
-        return min(0.99, max(0, (readiness * 100 + 1e-9).rounded(.down) / 100))
+        return min(0.99, max(0, Planner.recordedReadiness(readiness).doubleValue))
     }
 
     /// The readiness bar's value: the share, at most 100%.
@@ -180,11 +170,11 @@ enum PlanResultsText {
             rows.append(PlanFigureRow(label: "Success at \(target) (target)", value: .percent(success)))
         }
         if let spending = headline.sustainableSpending {
-            let age = results.details?.sustainableSpendingAge ?? headline.targetAge
+            let age = results.details.sustainableSpendingAge ?? headline.targetAge
             rows.append(PlanFigureRow(label: age.map { "Spend at \($0)" } ?? "Sustainable spending",
                                       value: .amount(spending, unit: "/yr")))
         }
-        guard let details = results.details else { return rows }
+        let details = results.details
         if let needed = details.assetsNeeded, let figure = neededToday(needed) {
             rows.append(PlanFigureRow(label: "Needed to retire today", value: figure))
             if needed.outcome == .found, let extra = needed.extra, extra >= 0.5 {

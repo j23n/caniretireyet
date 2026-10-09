@@ -1,4 +1,5 @@
 import Model
+import Planner
 import SwiftUI
 
 // The pieces of the results area that say where a calculation is and
@@ -11,8 +12,6 @@ struct PlanRunProgressView: View {
     let progress: PlanRunProgress
     /// A check-in's run, recording the month's answer.
     var isCheckIn = false
-    /// A title in place of "Calculating…", e.g. for one of two plans.
-    var title: String?
     /// Stops the run; `nil` hides the button (a check-in's run goes on).
     var onCancel: (() -> Void)?
 
@@ -21,7 +20,7 @@ struct PlanRunProgressView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: Metrics.s) {
             HStack(alignment: .firstTextBaseline, spacing: Metrics.s) {
-                Text(title ?? PlanRunText.title(progress, isCheckIn: isCheckIn))
+                Text(PlanRunText.title(progress, isCheckIn: isCheckIn))
                     .font(.headline)
                     .foregroundStyle(Palette.ink)
                 Spacer(minLength: Metrics.s)
@@ -127,7 +126,6 @@ struct PlanCalculatePrompt: View {
     let state: PlanResultsState
     /// The plan's number of runs, for the explanation.
     let runs: Int
-    var isAvailable = true
     let calculate: () -> Void
 
     @Environment(\.locale) private var locale
@@ -163,16 +161,14 @@ struct PlanCalculatePrompt: View {
                     .foregroundStyle(Palette.secondaryInk)
                     .fixedSize(horizontal: false, vertical: true)
             }
-            if isAvailable {
-                Button {
-                    calculate()
-                } label: {
-                    Label("Calculate", systemImage: "play.fill")
-                }
-                .buttonStyle(.borderedProminent)
-                .controlSize(.large)
-                .accessibilityIdentifier("plan.calculate")
+            Button {
+                calculate()
+            } label: {
+                Label("Calculate", systemImage: "play.fill")
             }
+            .buttonStyle(.borderedProminent)
+            .controlSize(.large)
+            .accessibilityIdentifier("plan.calculate")
         }
     }
 }
@@ -181,12 +177,14 @@ struct PlanCalculatePrompt: View {
     VStack(spacing: Metrics.l) {
         Card {
             PlanRunProgressView(
-                progress: PlanRunProgress(phase: .simulating, completed: 1_234, total: 2_000, fraction: 0.91),
+                progress: PlanRunProgress(mode: .full, planner: PlannerProgress(
+                    phase: .simulating, completed: 1_234, total: 2_000, fraction: 0.91, runs: 2_000)),
                 onCancel: {})
         }
         Card {
             PlanRunProgressView(
-                progress: PlanRunProgress(phase: .earliestAge, completed: 12, total: 35, fraction: 0.3, ages: 41...75),
+                progress: PlanRunProgress(mode: .full, planner: PlannerProgress(
+                    phase: .earliestAge, completed: 12, total: 35, fraction: 0.3, ages: 41...75, runs: 2_000)),
                 isCheckIn: true)
         }
     }

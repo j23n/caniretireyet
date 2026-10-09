@@ -1,12 +1,11 @@
 import Foundation
 import Model
+import Planner
 
 // The seam to the Planner module. `PlanStore` does cancellation, fast mode,
 // progress, headlines and baselines; it asks a `PlanEngine` for the numbers.
 // The app uses `PlannerPlanEngine` (the Planner, PlannerPlanEngine.swift),
-// previews use `PreviewPlanEngine`
-// (Preview/) and `PlanPreviewEngine` (Features/Plan, with made-up progress),
-// and `UnavailablePlanEngine` (below) remains for builds without a planner.
+// previews use `PreviewPlanEngine` (Preview/, made-up numbers and progress).
 // `PlanResultsMapping.swift` maps the Planner's `PlanResult` to
 // `PlanResults`, which stays plain values.
 
@@ -19,49 +18,29 @@ enum PlanRunMode: String, Hashable, Sendable, Codable {
     case fast
 }
 
-/// Where a run is (UI.md, "Calculating"): the phase, what's done of it in
-/// its own unit, and the whole run's share done. From the Planner's
-/// `PlannerProgress`; engines report it at most about ten times a second.
+/// Where a run is (UI.md, "Calculating"): the Planner's `PlannerProgress`,
+/// whose `fraction` is the whole request's share done (a request that
+/// needs two runs shares the bar between them). Engines report it at most
+/// about ten times a second.
 struct PlanRunProgress: Hashable, Sendable {
-    enum Phase: String, CaseIterable, Hashable, Sendable {
-        /// Before the engine's first report.
-        case starting
-        /// The chance of success at every retirement age. Counted in ages.
-        case earliestAge
-        /// Every run at the retirement age the charts are for. Counted in runs.
-        case simulating
-        /// The highest sustainable spending, by bisection. Counted in steps.
-        case sustainableSpending
-        /// The plan assets retiring today would need, by bisection over
-        /// scales of today's portfolio. Counted in steps.
-        case assetsNeeded
-        /// The coast age and the earliest age without each uncertain
-        /// windfall, by bisection over ages. Counted in steps.
-        case agesWithout
-        /// Percentiles, the median path, the key numbers. One step.
-        case summarising
-    }
-
-    var phase: Phase
-    /// What's done of the phase: ages, runs or steps.
-    var completed: Int
-    /// The phase's size, in the same unit.
-    var total: Int
-    /// The whole run's share done, 0 to 1.
-    var fraction: Double
-    /// The retirement ages scanned, while finding the earliest age.
-    var ages: ClosedRange<Int>? = nil
     /// A what-if's quick estimate (fewer runs), or the full run.
-    var mode: PlanRunMode = .full
+    var mode: PlanRunMode
+    /// The phase, what's done of it and the whole request's share done;
+    /// `nil` before the engine's first report.
+    var planner: PlannerProgress?
 
     /// A run that hasn't reported yet.
     static func starting(_ mode: PlanRunMode) -> PlanRunProgress {
-        PlanRunProgress(phase: .starting, completed: 0, total: 0, fraction: 0, mode: mode)
+        PlanRunProgress(mode: mode, planner: nil)
     }
+
+    /// The whole request's share done, 0 to 1.
+    var fraction: Double { planner?.fraction ?? 0 }
 
     /// The phase's share done, 0 to 1.
     var phaseFraction: Double {
-        total > 0 ? min(1, max(0, Double(completed) / Double(total))) : 0
+        guard let planner, planner.total > 0 else { return 0 }
+        return min(1, max(0, Double(planner.completed) / Double(planner.total)))
     }
 }
 
@@ -102,15 +81,10 @@ struct PlanRunRequest: Sendable {
 /// Computes plan results. Runs off the main thread; must stop promptly
 /// (throwing `CancellationError`) when its task is cancelled.
 protocol PlanEngine: Sendable {
-    /// Whether this engine can run plans. `false` for the stub, so the UI
-    /// can say the planner isn't there yet.
-    var isAvailable: Bool { get }
     /// The engine version recorded in baselines and headlines.
     var version: String { get }
-    func run(_ request: PlanRunRequest) async throws -> PlanResults
-    /// Runs `request`, telling `progress` where it is. The default runs
-    /// without reporting anything.
-    func run(_ request: PlanRunRequest, progress: @escaping PlanProgressHandler) async throws -> PlanResults
+    /// Runs `request`, telling `progress`, if any, where it is.
+    func run(_ request: PlanRunRequest, progress: PlanProgressHandler?) async throws -> PlanResults
     /// The results of `request` if they were computed already and kept,
     /// without running anything; `nil` otherwise (the default).
     func cachedResults(for request: PlanRunRequest) async -> PlanResults?
@@ -121,12 +95,6 @@ protocol PlanEngine: Sendable {
 }
 
 extension PlanEngine {
-    var isAvailable: Bool { true }
-
-    func run(_ request: PlanRunRequest, progress: @escaping PlanProgressHandler) async throws -> PlanResults {
-        try await run(request)
-    }
-
     func cachedResults(for request: PlanRunRequest) async -> PlanResults? {
         nil
     }
@@ -135,27 +103,13 @@ extension PlanEngine {
 }
 
 enum PlanEngineError: Error, Equatable, Sendable, LocalizedError {
-    /// There's no planner in this build yet.
-    case unavailable
     /// The plan can't run, e.g. no birth date or no check-in.
     case invalidPlan(String)
 
     var errorDescription: String? {
         switch self {
-        case .unavailable: "The planner isn't available in this version yet."
         case .invalidPlan(let reason): reason
         }
-    }
-}
-
-/// STUB: the engine used until the Planner module is merged. Every run
-/// throws ``PlanEngineError/unavailable``; recorded headlines still show.
-struct UnavailablePlanEngine: PlanEngine {
-    var isAvailable: Bool { false }
-    var version: String { "0" }
-
-    func run(_ request: PlanRunRequest) async throws -> PlanResults {
-        throw PlanEngineError.unavailable
     }
 }
 
@@ -203,8 +157,8 @@ struct PlanHeadline: Hashable, Sendable, Codable {
     }
 
     /// A headline recorded at a check-in.
-    init(recorded headline: Headline, defaultConfidence: Double = 0.9) {
-        confidence = headline.confidence?.doubleValue ?? defaultConfidence
+    init(recorded headline: Headline) {
+        confidence = headline.confidence?.doubleValue ?? 0.9
         earliestAge = headline.earliestAge
         successAtTarget = headline.successAtTarget?.doubleValue
         readiness = headline.readiness?.doubleValue
@@ -226,21 +180,6 @@ struct PlanHeadline: Hashable, Sendable, Codable {
         self.needsMoreThanSearched = needsMoreThanSearched
         self.readinessIsLowerBound = readinessIsLowerBound
     }
-}
-
-/// Why failing runs fail (UI.md, "When it fails").
-struct PlanFailureSummary: Hashable, Sendable, Codable {
-    /// The share of runs that fail.
-    var share: Double
-    /// The typical age money runs out in failing runs.
-    var typicalAge: Int?
-    /// The share of runs that run out while money is still locked away (an
-    /// account available from a later age) that would have bridged the gap.
-    var bridgeShare: Double?
-    /// The age locked money becomes accessible, for the sentence.
-    var bridgeAge: Int?
-    /// What the locked money is, e.g. "Pension fund", for the sentence.
-    var bridgeName: String? = nil
 }
 
 /// The results of one run of a plan: what the Plan screens and the
@@ -266,7 +205,6 @@ struct PlanResults: Hashable, Sendable, Codable {
     var taxes: [IncomeSegment]
     /// The spending target per year, drawn over the income chart.
     var spending: [YearValue]
-    var failure: PlanFailureSummary?
 
     // For saving a baseline (PROGRESS.md, "Baselines").
     /// Where the projection starts: the date and value of the included accounts.
@@ -277,10 +215,9 @@ struct PlanResults: Hashable, Sendable, Codable {
     var years: [BaselineYear]
 
     /// What the Planner adds: key numbers, the what-if's starting values,
-    /// the run's warnings (see `PlanResultsMapping.swift`). `nil` from the
-    /// preview engine.
-    var details: PlanResultDetails? = nil
-    /// The currency of every amount: the library's base currency
-    /// (`PlanResult.currency`). `nil` from the preview engine.
-    var currency: CurrencyCode? = nil
+    /// the run's warnings (see `PlanResultsMapping.swift`).
+    var details: PlanResultDetails
+    /// The currency of every amount: the library's base currency when they
+    /// were calculated (`PlanResult.currency`).
+    var currency: CurrencyCode
 }

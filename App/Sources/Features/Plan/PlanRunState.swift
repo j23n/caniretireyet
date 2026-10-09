@@ -1,5 +1,6 @@
 import Foundation
 import Model
+import Planner
 
 // What a plan's results area shows and says (UI.md, "Calculating" and
 // "Out of date"): the results it has, why they're out of date, the run in
@@ -43,38 +44,19 @@ struct PlanResultsState: Hashable, Sendable {
     /// Why the results shown no longer fit, most important first; empty
     /// when they do.
     var staleReasons: [PlanStaleReason] = []
-    /// The run in progress that the screen waits for.
-    var progress: PlanRunProgress?
-    /// Whether that run can be cancelled: a check-in's can't, it records
-    /// the month's answer.
+    /// Whether the run in progress can be cancelled: a check-in's can't, it
+    /// records the month's answer.
     var canCancel = true
     /// The retirement age chosen for the charts, when it isn't the plan's own.
     var focusAge: Int?
-    /// Whether a run is going, for a state built without its ``progress``
-    /// (``PlanSession/stateWithoutProgress``).
-    var running = false
-
-    init(content: Content, staleReasons: [PlanStaleReason] = [], progress: PlanRunProgress? = nil,
-         canCancel: Bool = true, focusAge: Int? = nil, running: Bool = false) {
-        self.content = content
-        self.staleReasons = staleReasons
-        self.progress = progress
-        self.canCancel = canCancel
-        self.focusAge = focusAge
-        self.running = running
-    }
+    /// Whether a run is going (also a check-in's).
+    var isRunning = false
 
     /// The results on screen, if any.
     var results: PlanResults? {
         if case .results(let results) = content { return results }
         return nil
     }
-
-    var isRunning: Bool { running || progress != nil }
-
-    /// Whether results are shown and fit the plan, library and what-if as
-    /// they are now.
-    var isUpToDate: Bool { results != nil && staleReasons.isEmpty }
 
     /// Whether the results shown are out of date.
     var isOutOfDate: Bool { results != nil && !staleReasons.isEmpty }
@@ -189,13 +171,12 @@ enum PlanRunText {
     /// "Sustainable spending: step 4 / 12", "Needed to retire today: step 3 /
     /// 9", in the locale's numbers.
     static func phase(_ progress: PlanRunProgress, locale: Locale = .current) -> String {
-        let done = AmountFormat.number(Decimal(progress.completed), locale: locale)
-        let total = AmountFormat.number(Decimal(progress.total), locale: locale)
-        switch progress.phase {
-        case .starting:
-            return "Starting…"
+        guard let planner = progress.planner else { return "Starting…" }
+        let done = AmountFormat.number(Decimal(planner.completed), locale: locale)
+        let total = AmountFormat.number(Decimal(planner.total), locale: locale)
+        switch planner.phase {
         case .earliestAge:
-            let ages = progress.ages.map { " · ages \($0.lowerBound)–\($0.upperBound)" } ?? ""
+            let ages = planner.ages.map { " · ages \($0.lowerBound)–\($0.upperBound)" } ?? ""
             return "Earliest age\(ages): \(done) / \(total)"
         case .simulating:
             return "Simulating \(done) / \(total) runs"
@@ -225,10 +206,5 @@ enum PlanRunText {
     /// "Calculating 34%", for a status line.
     static func status(_ progress: PlanRunProgress, isCheckIn: Bool = false, locale: Locale = .current) -> String {
         "\(title(progress, isCheckIn: isCheckIn).dropLast()) \(overall(progress, locale: locale))"
-    }
-
-    /// A short form for small places (the answer pill): "34%".
-    static func short(_ progress: PlanRunProgress, locale: Locale = .current) -> String {
-        progress.phase == .starting ? "…" : overall(progress, locale: locale)
     }
 }

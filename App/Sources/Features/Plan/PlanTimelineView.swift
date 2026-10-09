@@ -28,7 +28,6 @@ struct PlanTimelineView: View {
     var onExport: (() -> Void)?
 
     @Environment(LibraryStore.self) private var library
-    @Environment(PlanStore.self) private var plans
     @Environment(\.hidesAmounts) private var hidesAmounts
     @Environment(\.locale) private var locale
     @State private var editing: PlanEditTarget?
@@ -107,8 +106,7 @@ struct PlanTimelineView: View {
                 .accessibilityIdentifier("plan.answer")
         } else if !state.isRunning {
             PlanCalculatePrompt(state: state,
-                                runs: session.plan?.simulation.effectiveRuns ?? PlanSimulation.defaultRuns,
-                                isAvailable: plans.isAvailable) {
+                                runs: session.plan?.simulation.effectiveRuns ?? PlanSimulation.defaultRuns) {
                 session.calculate()
             }
         }
@@ -221,7 +219,7 @@ struct PlanTimelineView: View {
         if let results {
             DisclosureGroup(isExpanded: $showsMoreCharts) {
                 VStack(alignment: .leading, spacing: Metrics.l) {
-                    PlanFanCard(session: session, results: results)
+                    PlanFanCard(results: results)
                     if isRoomy {
                         EqualColumns(spacing: Metrics.l) {
                             PlanSuccessCard(session: session, results: results)
@@ -239,7 +237,7 @@ struct PlanTimelineView: View {
                     }
                 }
                 .padding(.top, Metrics.s)
-                .environment(\.baseCurrency, session.currency(of: results))
+                .environment(\.baseCurrency, results.currency)
             } label: {
                 VStack(alignment: .leading, spacing: 2) {
                     Text("More charts")
@@ -274,15 +272,15 @@ struct PlanTimelineHeadline: View {
 
     @Environment(\.locale) private var locale
 
-    private var focusAge: Int? { results.details?.focus.age ?? session.shownFocusAge }
+    private var focusAge: Int? { results.details.focus.age }
 
     private var success: Double? {
-        if let success = results.details?.focus.success { return success }
+        if let success = results.details.focus.success { return success }
         guard let focusAge else { return results.headline.successAtTarget }
         return results.successByAge.first { $0.age == focusAge }?.success ?? results.headline.successAtTarget
     }
 
-    private var endAge: Int { results.details?.endAge ?? session.plan?.effectiveEndAge ?? PlanDocument.defaultEndAge }
+    private var endAge: Int { results.details.endAge }
 
     var body: some View {
         let title = PlanTimelineText.headline(results.headline, locale: locale)
@@ -637,13 +635,13 @@ struct PlanAssumptionsFooter: View {
 }
 
 #Preview("Plan · iPhone") {
-    PlanPreviewHost(model: AppModel.preview(planEngine: PlanPreviewEngine())) { session in
+    PlanPreviewHost(model: AppModel.preview()) { session in
         PlanTimelineView(session: session, onWhatIf: {}, onShowProgress: {}, onExport: {})
     }
 }
 
 #Preview("Plan · Mac") {
-    PlanPreviewHost(model: AppModel.preview(planEngine: PlanPreviewEngine())) { session in
+    PlanPreviewHost(model: AppModel.preview()) { session in
         PlanTimelineView(session: session, isWide: true, onShowProgress: {}, onExport: {})
             .frame(width: 1_100, height: 1_000)
     }

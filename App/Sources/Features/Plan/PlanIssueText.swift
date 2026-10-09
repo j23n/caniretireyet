@@ -63,15 +63,6 @@ enum PlanIssueText {
         return text
     }
 
-    /// The names of the library's accounts whose IDs `message` mentions,
-    /// "A, B and C"; "the accounts" when it mentions none.
-    static func accountNames(in message: String, library: Library) -> String {
-        let names = library.accounts.values.sorted { $0.id < $1.id }
-            .filter { containsWord($0.id.rawValue, in: message) }
-            .map(\.name)
-        return names.isEmpty ? "the accounts" : PlanResultsText.list(names)
-    }
-
     /// An asset class as the assumptions editor names it: "Crypto", "Real estate".
     static func assetClassName(_ rawValue: String) -> String {
         if rawValue == AssetClass.realEstate.rawValue { return "Real estate" }
@@ -102,11 +93,6 @@ enum PlanIssueText {
             index = range.upperBound
         }
         return result + text[index...]
-    }
-
-    /// Whether `text` mentions `word` as a whole (see ``replacing(_:with:in:)``).
-    static func containsWord(_ word: String, in text: String) -> Bool {
-        replacing(word, with: "\u{1}", in: text) != text
     }
 
     /// Letters, digits and the characters IDs use (`-`, `_`, `.`).

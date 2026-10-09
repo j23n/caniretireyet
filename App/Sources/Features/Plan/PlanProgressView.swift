@@ -501,7 +501,7 @@ struct PlanProgressView: View {
             if let shown = shownBaseline {
                 let comparison = PlanBaselineComparison(baseline: shown.baseline, library: library.library,
                                                         valuator: library.valuator, asOf: library.asOfDate)
-                PlanFanLegend(showsActual: true)
+                ProjectionLegend()
                 FanChart(fan: comparison.fan, actual: comparison.actual, currency: comparison.currency)
                 if let position = comparison.position {
                     VStack(alignment: .leading, spacing: 2) {
@@ -632,13 +632,13 @@ enum PlanProgressFont {
 }
 
 #Preview("Progress") {
-    PlanPreviewHost(model: AppModel.preview(planEngine: PlanPreviewEngine())) { session in
+    PlanPreviewHost(model: AppModel.preview()) { session in
         PlanProgressView(session: session, onSaveBaseline: {}, onShowPlan: {})
     }
 }
 
 #Preview("Progress · Mac") {
-    PlanPreviewHost(model: AppModel.preview(planEngine: PlanPreviewEngine())) { session in
+    PlanPreviewHost(model: AppModel.preview()) { session in
         PlanProgressView(session: session, isWide: true, onSaveBaseline: {}, onShowPlan: {})
             .frame(width: 1_100, height: 1_000)
     }

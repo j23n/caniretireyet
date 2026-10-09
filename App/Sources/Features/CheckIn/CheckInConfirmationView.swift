@@ -212,9 +212,6 @@ struct CheckInConfirmationView: View {
 
     /// Why there's no answer this month, without alarm.
     private var unavailableReason: String {
-        if !plans.isAvailable {
-            return "This month's answer comes once plans can run in this version of the app."
-        }
         if let error = answerRun?.error ?? library.settings.mainPlan.flatMap({ plans.errors[$0] }) {
             return "The plan couldn't run this time: \(error)"
         }
@@ -258,13 +255,13 @@ struct CheckInConfirmationView: View {
 }
 
 #Preview("Saved, working out the answer") {
-    let model = AppModel.preview(planEngine: PlanPreviewEngine(delay: .milliseconds(400)))
+    let model = AppModel.preview(planEngine: PreviewPlanEngine(delay: .milliseconds(400)))
     CheckInConfirmationView(result: CheckInPreviewData.savedWithoutAnswer) {}
         .appEnvironment(model)
         .task { model.plans.recordCheckInAnswer(on: CheckInPreviewData.savedWithoutAnswer.date) }
 }
 
-#Preview("Saved, no planner") {
+#Preview("Saved, no answer yet") {
     CheckInConfirmationView(result: CheckInPreviewData.savedWithoutAnswer) {}
         .previewEnvironment()
 }

@@ -5,7 +5,8 @@ import Tracker
 
 /// A made-up plan engine for previews: plausible, smooth numbers from a few
 /// formulas, so the Plan and Overview screens can be designed without
-/// running the Planner. Not a simulation; never used in the app itself.
+/// running the Planner (a full run takes about a minute in a Debug build).
+/// Not a simulation; never used in the app itself.
 ///
 /// It reacts to the what-if sliders (retirement age, spending, saving,
 /// equity return) the way a real engine would, roughly. Its retirement
@@ -14,15 +15,25 @@ import Tracker
 /// pensions, withdrawals, its windfalls. They go
 /// through the same mapping as a Planner run (``PlanResultsMapping``), so
 /// income is shown after tax with the taxes on top, in the same colours,
-/// and the markers read the same. Fast and deterministic: the same request
-/// gives the same results.
+/// and the markers read the same. The details the Planner adds are made up
+/// too (key numbers, the what-if's saving, a warning, the headline to
+/// record), so every card has something to show, and a run asked for its
+/// progress reports made-up progress through the Planner's phases, so the
+/// progress view does too. Deterministic: the same request gives the same
+/// results.
 struct PreviewPlanEngine: PlanEngine {
     var version: String { "preview" }
-    /// A pause that makes runs feel like work; `.zero` in tests.
-    var delay: Duration = .milliseconds(120)
+    /// How long a run takes (a quick estimate a tenth of it). A run
+    /// reporting its progress pretends to take about 20 times this (a quick
+    /// estimate 5 times); `.zero` reports every step at once.
+    var delay: Duration = .milliseconds(60)
 
-    func run(_ request: PlanRunRequest) async throws -> PlanResults {
-        if delay > .zero { try await Task.sleep(for: request.mode == .fast ? delay / 10 : delay) }
+    func run(_ request: PlanRunRequest, progress: PlanProgressHandler? = nil) async throws -> PlanResults {
+        if let progress {
+            try await Self.pretendToRun(request, delay: delay, report: progress)
+        } else if delay > .zero {
+            try await Task.sleep(for: request.mode == .fast ? delay / 10 : delay)
+        }
         try Task.checkCancellation()
         let plan = request.plan
         let library = request.library
@@ -141,17 +152,47 @@ struct PreviewPlanEngine: PlanEngine {
             successAtTarget: atTarget, successToday: successNow, sustainableSpending: Self.rounded(spending * 1.07 - 900),
             readiness: readiness)
         let accounts = library.accounts.values.filter { $0.includedInPlan && $0.isOpen(on: today) }.map(\.id).sorted()
+
+        // What the Planner adds, for the age the charts are for (the fan
+        // above stays the target age's).
+        let focusAge = request.focusAge ?? whatIf.retirementAge ?? plan.retirement.age.age ?? earliest ?? 55
+        let planHash = Planner.planHash(plan)
+        let details = PlanResultDetails(
+            planHash: planHash, currentAge: age, endAge: endAge,
+            assetsNeeded: AssetsNeeded(age: age, outcome: .found, scale: 1 / readiness,
+                                       amount: start.total.doubleValue / readiness, success: confidence,
+                                       readiness: readiness),
+            sustainableSpendingAge: target,
+            issues: [PlanIssue(.warning, code: "planner.noAssetMix",
+                               message: "TFR has no asset mix (assetClasses); the plan treats it as cash.",
+                               section: .portfolio, account: "tfr")],
+            focus: PlanFocusDetails(
+                age: focusAge, retirementDate: birth.adding(years: focusAge),
+                success: curve.first { $0.age == focusAge }?.success,
+                medianAtRetirement: years.first { $0.year == birth.year + focusAge }?.p50.doubleValue,
+                medianAtEnd: years.last?.p50.doubleValue,
+                lifetimeTaxes: taxes.reduce(0) { $0 + $1.amount } + 180_000,
+                monthlySaving: Decimal((whatIf.monthlySaving ?? 1_500).doubleValue.rounded()),
+                bridges: [PlanBridgeFailure(name: "Fondo pensione", accessibleFromAge: 67, share: 0.03)]),
+            headline: Headline(
+                date: today, confidence: Self.recorded(confidence), earliestAge: earliest, engine: version,
+                planHash: planHash, readiness: Planner.recordedReadiness(readiness),
+                successAtTarget: Self.recorded(atTarget)))
         return PlanResults(
             plan: plan.id, computedAt: Date(), mode: request.mode,
             runs: request.mode == .fast ? 200 : plan.simulation.effectiveRuns, engine: version, headline: headline,
             successByAge: curve, portfolio: fan, markers: markers, income: income, taxes: taxes, spending: spendingLine,
-            failure: PlanFailureSummary(share: 1 - atTarget, typicalAge: 84, bridgeShare: 0.03, bridgeAge: 67,
-                                        bridgeName: "Fondo pensione"),
-            start: BaselineStart(date: today, value: start.total), accounts: accounts, years: years)
+            start: BaselineStart(date: today, value: start.total), accounts: accounts, years: years,
+            details: details, currency: library.settings.baseCurrency)
     }
 
     private static func rounded(_ value: Double) -> Decimal {
         Decimal(wholeNumber: value)
+    }
+
+    /// A chance as headlines record it, to 3 decimals.
+    private static func recorded(_ value: Double) -> Decimal {
+        Decimal(wholeNumber: value * 1_000) / 1_000
     }
 
     /// The plan's pensions as the preview pays them: each its amount from its age.
@@ -174,5 +215,45 @@ struct PreviewPlanEngine: PlanEngine {
             byYear[year, default: []].append((event.name, event.amount.doubleValue))
         }
         return byYear
+    }
+
+    /// Reports made-up progress through the Planner's phases, as a real run
+    /// would: the age scan most of the time, then the focus age's runs, the
+    /// spending bisection, the search for what retiring today needs and the
+    /// summary. Stops when cancelled.
+    static func pretendToRun(_ request: PlanRunRequest, delay: Duration, report: PlanProgressHandler) async throws {
+        let runs = request.mode == .fast ? 250 : request.plan.simulation.effectiveRuns
+        let birth = request.library.settings.person?.birthDate ?? "1988-04-12"
+        let current = birth.wholeYears(to: request.asOf)
+        let ages = current...max(current, 75)
+        let ticks = request.mode == .fast ? 6 : 24
+        let pause = delay * (request.mode == .fast ? 5 : 20) / ticks
+        for tick in 0...ticks {
+            try Task.checkCancellation()
+            report(progress(at: Double(tick) / Double(ticks), runs: runs, ages: ages, mode: request.mode))
+            if pause > .zero, tick < ticks { try await Task.sleep(for: pause) }
+        }
+    }
+
+    /// Where a made-up run is when `fraction` of it is done.
+    static func progress(at fraction: Double, runs: Int, ages: ClosedRange<Int>, mode: PlanRunMode)
+        -> PlanRunProgress {
+        // The phases' shares of a run, as measured on the example plan.
+        let phases: [(PlannerProgress.Phase, share: Double, total: Int)] = [
+            (.earliestAge, 0.76, ages.count), (.simulating, 0.05, runs), (.sustainableSpending, 0.14, 14),
+            (.assetsNeeded, 0.04, 9), (.summarising, 0.01, 1),
+        ]
+        var start = 0.0
+        for (index, phase) in phases.enumerated() {
+            let end = index == phases.count - 1 ? 1 : start + phase.share
+            if fraction < end || index == phases.count - 1 {
+                let within = min(1, max(0, (fraction - start) / phase.share))
+                return PlanRunProgress(mode: mode, planner: PlannerProgress(
+                    phase: phase.0, completed: Int(within * Double(phase.total)), total: phase.total,
+                    fraction: fraction, ages: phase.0 == .earliestAge ? ages : nil, runs: runs))
+            }
+            start = end
+        }
+        return .starting(mode)
     }
 }

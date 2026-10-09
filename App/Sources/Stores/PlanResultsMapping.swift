@@ -8,8 +8,7 @@ import Planner
 
 /// What the Planner adds to ``PlanResults`` beyond the charts: the numbers
 /// the Plan screens show next to them (key numbers, "When it fails", the
-/// what-if's starting values, comparing plans) and the run's warnings.
-/// `nil` in results from ``PreviewPlanEngine``.
+/// what-if's starting values) and the run's warnings.
 struct PlanResultDetails: Hashable, Sendable, Codable {
     /// `Planner.planHash` of the plan as it ran (with any what-if applied).
     var planHash: String
@@ -17,17 +16,13 @@ struct PlanResultDetails: Hashable, Sendable, Codable {
     var currentAge: Int
     /// The last age the plan funds.
     var endAge: Int
-    var birthDate: CalendarDate
     /// What retiring today would need, from the same simulation (PLANNER.md,
     /// "Assets needed to retire today"): the plan assets that make retiring
-    /// at today's age reach the plan's confidence. `nil` from the preview
-    /// engine's older samples and runs that don't look for it (a focus age).
+    /// at today's age reach the plan's confidence. `nil` from runs that
+    /// don't look for it (a focus age).
     var assetsNeeded: AssetsNeeded? = nil
     /// The retirement age `sustainableSpending` in the headline is for.
     var sustainableSpendingAge: Int?
-    /// Whether the success curve has every age (a full run) or a coarse
-    /// grid refined around the answer (a fast run).
-    var scansEveryAge: Bool
     /// Warnings from the plan and the library.
     var issues: [PlanIssue]
     /// The details that depend on the retirement age the charts are for.
@@ -35,7 +30,7 @@ struct PlanResultDetails: Hashable, Sendable, Codable {
     /// The headline to record for this run (`PlanResult.headline()`, dated
     /// the check-in the plan started from): success rates to 3 decimals,
     /// readiness to 2, exactly as the CLI records it.
-    var headline: Headline? = nil
+    var headline: Headline
     /// The earliest age saving nothing more (the coast age) and without
     /// each uncertain windfall (PLANNER.md, "Ages without"); empty from runs
     /// that don't look for them.
@@ -56,11 +51,6 @@ struct PlanFocusDetails: Hashable, Sendable, Codable {
     var medianAtEnd: Double?
     /// All taxes in the median run, in today's money.
     var lifetimeTaxes: Double
-    /// Income per year in the deterministic run: work and pensions, after
-    /// tax as the plan gives them (whole-year amounts).
-    var netIncome: [YearValue]
-    /// Each pension: when it starts and how much it pays a year.
-    var pensions: [PlanPensionStart]
     /// Saving per month while working in the deterministic run: the
     /// what-if's starting value. `nil` when the plan has no working years.
     var monthlySaving: Decimal?
@@ -69,18 +59,6 @@ struct PlanFocusDetails: Hashable, Sendable, Codable {
     /// How many runs run out of money at each age, ascending: where each
     /// chapter's failures are (UI.md, "The plan").
     var failuresByAge: [AgeCount] = []
-}
-
-/// A pension in the results.
-struct PlanPensionStart: Hashable, Sendable, Codable {
-    /// The pension's position in the plan's `pensions`.
-    var index: Int
-    var name: String
-    /// The age it starts at.
-    var age: Int?
-    /// What it pays in a whole year after tax, in today's money (a pension
-    /// starting mid-year pays less in its first calendar year).
-    var perYear: Double?
 }
 
 /// Runs that ran out while some accounts were still locked away.
@@ -92,14 +70,9 @@ struct PlanBridgeFailure: Hashable, Sendable, Codable {
 }
 
 extension PlanResults {
-    /// The details, when the engine is the Planner.
-    var planHash: String? { details?.planHash }
-
-    /// When the charts' retirement happens: the focus age's retirement day,
-    /// or the retirement marker's date (the preview engine has no details).
+    /// When the charts' retirement happens: the focus age's retirement day.
     var retirementDate: Date? {
-        details?.focus.retirementDate?.dateValue
-            ?? markers.first { $0.kind == .retirement || $0.systemImage == "figure.walk" }?.date
+        details.focus.retirementDate?.dateValue
     }
 
     /// Results from a Planner run.
@@ -108,16 +81,30 @@ extension PlanResults {
     /// - Markers sit on the birthday in their year, so "retire at 55" is drawn where you turn 55.
     /// - Income, taxes and spending are the median run's retirement years (the year you
     ///   retire included), as whole-year amounts.
-    init(result: PlanResult, mode: PlanRunMode, birthDate: CalendarDate, scansEveryAge: Bool,
-         computedAt: Date = Date()) {
+    init(result: PlanResult, mode: PlanRunMode, birthDate: CalendarDate, computedAt: Date = Date()) {
         let answer = result.answer
-        let plan = result.plan
         let focus = result.successCurve.first { $0.age == result.focusAge }
         let baseline = result.baseline(created: result.start.date, kind: .manual)
         let medianRetired = result.medianPath.years.filter { $0.workingShare < 1 }
+        let details = PlanResultDetails(
+            planHash: result.planHash, currentAge: answer.currentAge, endAge: result.settings.endAge,
+            assetsNeeded: answer.assetsNeeded, sustainableSpendingAge: answer.sustainableSpending?.age,
+            issues: result.issues,
+            focus: PlanFocusDetails(
+                age: result.focusAge, retirementDate: focus?.retirementDate, success: focus?.success,
+                medianAtRetirement: result.fan.first { $0.age == result.focusAge }?.p50,
+                medianAtEnd: result.fan.last?.p50,
+                lifetimeTaxes: result.medianPath.years.reduce(0) { $0 + $1.totalTax },
+                monthlySaving: PlanResultsMapping.monthlySaving(result.expectedPath.years),
+                bridges: result.failures.bridges.map {
+                    PlanBridgeFailure(name: $0.name, accessibleFromAge: $0.accessibleFromAge, share: $0.share)
+                },
+                failuresByAge: result.failures.byAge),
+            headline: result.headline(),
+            agesWithout: answer.agesWithout)
 
         self.init(
-            plan: plan.id, computedAt: computedAt, mode: mode, runs: result.settings.runs, engine: result.engine,
+            plan: result.plan.id, computedAt: computedAt, mode: mode, runs: result.settings.runs, engine: result.engine,
             headline: PlanHeadline(
                 confidence: answer.confidence, earliestAge: answer.earliestAge, earliestDate: answer.earliestDate,
                 targetAge: answer.targetAge, successAtTarget: answer.successAtTarget,
@@ -128,34 +115,16 @@ extension PlanResults {
                 readinessIsLowerBound: answer.assetsNeeded?.outcome == .atMost),
             successByAge: result.successCurve.map { SuccessPoint(age: $0.age, success: $0.success) },
             portfolio: PlanResultsMapping.fan(result),
-            markers: PlanResultsMapping.markers(result, birthDate: birthDate, retirementDate: focus?.retirementDate),
+            markers: PlanResultsMapping.markers(result.markers, birthDate: birthDate,
+                                                retirementDate: focus?.retirementDate),
             income: PlanResultsMapping.income(medianRetired),
             taxes: PlanResultsMapping.taxes(medianRetired),
             spending: medianRetired.map { YearValue(year: $0.year, value: PlanResultsMapping.whole($0.spending, $0)) },
-            failure: PlanResultsMapping.failure(result.failures),
             start: BaselineStart(date: result.start.date, value: result.start.planAssets),
             accounts: result.start.accounts,
-            years: baseline.years)
-        details = PlanResultDetails(
-            planHash: result.planHash, currentAge: answer.currentAge, endAge: result.settings.endAge,
-            birthDate: birthDate, assetsNeeded: answer.assetsNeeded,
-            sustainableSpendingAge: answer.sustainableSpending?.age, scansEveryAge: scansEveryAge,
-            issues: result.issues,
-            focus: PlanFocusDetails(
-                age: result.focusAge, retirementDate: focus?.retirementDate, success: focus?.success,
-                medianAtRetirement: result.fan.first { $0.age == result.focusAge }?.p50,
-                medianAtEnd: result.fan.last?.p50,
-                lifetimeTaxes: result.medianPath.years.reduce(0) { $0 + $1.totalTax },
-                netIncome: PlanResultsMapping.netIncome(result.expectedPath.years),
-                pensions: PlanResultsMapping.pensions(plan),
-                monthlySaving: PlanResultsMapping.monthlySaving(result.expectedPath.years),
-                bridges: result.failures.bridges.map {
-                    PlanBridgeFailure(name: $0.name, accessibleFromAge: $0.accessibleFromAge, share: $0.share)
-                },
-                failuresByAge: result.failures.byAge),
-            headline: result.headline(),
-            agesWithout: answer.agesWithout)
-        currency = result.currency
+            years: baseline.years,
+            details: details,
+            currency: result.currency)
     }
 
     /// These results with the charts and details of `focused`, a run of the
@@ -168,19 +137,15 @@ extension PlanResults {
         merged.income = focused.income
         merged.taxes = focused.taxes
         merged.spending = focused.spending
-        merged.failure = focused.failure
-        if let focus = focused.details?.focus {
-            merged.details?.focus = focus
-            merged.details?.focus.success = successByAge.first { $0.age == focus.age }?.success ?? focus.success
-            if let issues = focused.details?.issues, let own = merged.details?.issues {
-                merged.details?.issues = own + issues.filter { !own.contains($0) }
-            }
-        }
+        let focus = focused.details.focus
+        merged.details.focus = focus
+        merged.details.focus.success = successByAge.first { $0.age == focus.age }?.success ?? focus.success
+        merged.details.issues = details.issues + focused.details.issues.filter { !details.issues.contains($0) }
         return merged
     }
 }
 
-/// The pieces of ``PlanResults/init(result:mode:birthDate:scansEveryAge:computedAt:)``.
+/// The pieces of ``PlanResults/init(result:mode:birthDate:computedAt:)``.
 enum PlanResultsMapping {
     /// The categories retirement income is stacked by, bottom first (UI.md,
     /// "Retirement income"). Each has its own colour slot, in the same order,
@@ -239,10 +204,6 @@ enum PlanResultsMapping {
         guard let bracket = name.range(of: " (") else { return name }
         let short = name[..<bracket.lowerBound].trimmingCharacters(in: .whitespaces)
         return short.isEmpty ? name : short
-    }
-
-    static func markers(_ result: PlanResult, birthDate: CalendarDate, retirementDate: CalendarDate?) -> [ChartMarker] {
-        markers(result.markers, birthDate: birthDate, retirementDate: retirementDate)
     }
 
     /// The planner's markers on the time axis: "Retire at 55", "State pension 67",
@@ -392,23 +353,6 @@ enum PlanResultsMapping {
         return segments
     }
 
-    static func failure(_ failures: FailureSummary) -> PlanFailureSummary {
-        let bridge = failures.bridges.first
-        return PlanFailureSummary(share: failures.failureRate, typicalAge: failures.medianFailureAge,
-                                  bridgeShare: bridge?.share, bridgeAge: bridge?.accessibleFromAge,
-                                  bridgeName: bridge?.name)
-    }
-
-    /// Income per year from work, pensions and other income, after tax as
-    /// the plan gives it.
-    static func netIncome(_ years: [YearDetail]) -> [YearValue] {
-        let kinds: Set<IncomeKind> = [.work, .pension, .other]
-        return years.map { year in
-            let net = year.income.filter { kinds.contains($0.kind) }.reduce(0) { $0 + $1.amount }
-            return YearValue(year: year.year, value: whole(net, year))
-        }
-    }
-
     /// Saving per month in the first working year (a whole one if there is one).
     static func monthlySaving(_ years: [YearDetail]) -> Decimal? {
         let working = years.filter { $0.workingShare > 0 }
@@ -417,13 +361,5 @@ enum PlanResultsMapping {
         let share = year.fraction * year.workingShare
         guard share > 0.01 else { return nil }
         return Decimal(wholeNumber: year.savings / share / 12)
-    }
-
-    /// Each pension of the plan: when it starts and what it pays a year.
-    static func pensions(_ plan: PlanDocument) -> [PlanPensionStart] {
-        plan.pensions.enumerated().map { index, pension in
-            PlanPensionStart(index: index, name: plan.pensionName(index),
-                             age: pension.fromAge, perYear: pension.perYear?.doubleValue)
-        }
     }
 }

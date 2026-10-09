@@ -96,7 +96,6 @@ struct PlanContentView: View {
     let planID: PlanID
 
     @Environment(LibraryStore.self) private var library
-    @Environment(PlanStore.self) private var plans
     @Environment(AppNavigation.self) private var navigation
     @Environment(\.locale) private var locale
     @State private var session: PlanSession
@@ -129,7 +128,6 @@ struct PlanContentView: View {
 
     var body: some View {
         planLayout
-            .environment(\.baseCurrency, session.currency)
             .navigationTitle(name)
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
@@ -302,11 +300,11 @@ struct PlanContentView: View {
                 Button {
                     session.calculate()
                 } label: {
-                    // Not `session.state`: the toolbar mustn't redraw with every progress update.
+                    // Not the run's progress: the toolbar mustn't redraw with every progress update.
                     Label(session.shownResults == nil ? "Calculate" : "Recalculate", systemImage: "arrow.clockwise")
                 }
                 .help("Calculate the plan with its inputs and your latest data (⌘R)")
-                .disabled(!plans.isAvailable || session.isRunning)
+                .disabled(session.isRunning)
                 Button {
                     startSavingBaseline()
                 } label: {
@@ -384,7 +382,6 @@ struct PlanContentView: View {
                 } label: {
                     Label("Export Calculations…", systemImage: "function")
                 }
-                .disabled(!plans.isAvailable)
             }
             Section {
                 Button(role: .destructive) {
@@ -477,7 +474,6 @@ struct PlanContentView: View {
     /// Export Calculations…: every calculation behind this plan's answer,
     /// with its what-if, as a Markdown file. Pending edits are saved first.
     private func exportCalculations() {
-        guard plans.isAvailable else { return }
         session.saveNow()
         calculations = PlanCalculationsExport.source(session: session, library: library)
             .map(PlanCalculationsExport.init(source:))
@@ -517,7 +513,7 @@ struct PlanInspector: View {
     NavigationStack {
         PlanScreen()
     }
-    .appEnvironment(AppModel.preview(planEngine: PlanPreviewEngine()))
+    .previewEnvironment()
 }
 
 #Preview("No plans") {

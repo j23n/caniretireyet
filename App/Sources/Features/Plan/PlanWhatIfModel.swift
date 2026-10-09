@@ -51,7 +51,7 @@ struct PlanWhatIfModel: Hashable, Sendable {
     var planSpending: Decimal { plan.spending.retired }
 
     /// Saving per month while working, from the plan's own run.
-    var planSaving: Decimal? { results?.details?.focus.monthlySaving }
+    var planSaving: Decimal? { results?.details.focus.monthlySaving }
 
     /// Equity's median real return in the plan (the typical year), to a
     /// hundredth of a percent: as written, or derived from the mean.
@@ -74,7 +74,7 @@ struct PlanWhatIfModel: Hashable, Sendable {
     func range(_ slider: PlanWhatIfSlider) -> ClosedRange<Double> {
         switch slider {
         case .retirementAge:
-            let current = Double(results?.details?.currentAge ?? max(18, (planRetirementAge ?? 55) - 20))
+            let current = Double(results?.details.currentAge ?? max(18, (planRetirementAge ?? 55) - 20))
             let end = Double(min(75, plan.effectiveEndAge - 1))
             return current...max(current + 1, end)
         case .spending:

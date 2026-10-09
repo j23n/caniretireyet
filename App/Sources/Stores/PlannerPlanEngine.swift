@@ -42,29 +42,17 @@ struct PlanRunInputs: Hashable, Sendable {
 ///   it was, doesn't run again; ``cachedResults(for:)`` looks without running.
 ///   Results kept on the device from an earlier launch come back in through
 ///   ``remember(_:for:)``.
-/// - **Progress.** The Planner's `PlannerProgress`, as `PlanRunProgress`.
+/// - **Progress.** The Planner's `PlannerProgress`, in a `PlanRunProgress`.
 ///   A request that needs two runs (a what-if's saving needs the plan's own
 ///   run first; a focus age needs the full run) shares the bar between them.
 /// - **Cancellation.** Runs stop promptly when their task is cancelled
 ///   (`PlanStore` cancels a superseded run); cancelled runs aren't cached.
 struct PlannerPlanEngine: PlanEngine {
-    private let cache: PlanRunCache
-
-    init(cacheCapacity: Int = 32) {
-        cache = PlanRunCache(capacity: cacheCapacity)
-    }
+    private let cache = PlanRunCache(capacity: 32)
 
     var version: String { Planner.engineVersion }
 
-    func run(_ request: PlanRunRequest) async throws -> PlanResults {
-        try await run(request, reporting: nil)
-    }
-
-    func run(_ request: PlanRunRequest, progress: @escaping PlanProgressHandler) async throws -> PlanResults {
-        try await run(request, reporting: progress)
-    }
-
-    private func run(_ request: PlanRunRequest, reporting progress: PlanProgressHandler?) async throws -> PlanResults {
+    func run(_ request: PlanRunRequest, progress: PlanProgressHandler?) async throws -> PlanResults {
         // Running never comes back empty.
         guard let results = try await resolve(request, running: true, progress: progress) else {
             throw CancellationError()
@@ -108,7 +96,7 @@ struct PlannerPlanEngine: PlanEngine {
             if whatIf.monthlySaving != nil {
                 let cached = await isCached(request.plan, .base(request.mode), inputs: inputs, asOf: request.asOf)
                 guard let base = try await step(request.plan, .base(request.mode), share: 0...0.5) else { return nil }
-                baseSaving = base.details?.focus.monthlySaving
+                baseSaving = base.details.focus.monthlySaving
                 if !cached { share = 0.5...1 }
             }
             let plan = whatIf.applied(to: request.plan, baseMonthlySaving: baseSaving)
@@ -118,7 +106,7 @@ struct PlannerPlanEngine: PlanEngine {
             let cached = await isCached(request.plan, .base(.full), inputs: inputs, asOf: request.asOf)
             // The full run scans every age; the focus age alone is a few.
             guard let base = try await step(request.plan, .base(.full), share: 0...0.9) else { return nil }
-            if base.details?.focus.age == focusAge { return base }
+            if base.details.focus.age == focusAge { return base }
             guard let focused = try await step(request.plan, .focus, focusAge: focusAge,
                                                share: cached ? 0...1 : 0.9...1) else { return nil }
             return base.withFocus(of: focused)
@@ -137,10 +125,9 @@ struct PlannerPlanEngine: PlanEngine {
     static func share(_ handler: @escaping PlanProgressHandler, _ share: ClosedRange<Double>, mode: PlanRunMode)
         -> @Sendable (PlannerProgress) -> Void {
         { progress in
-            handler(PlanRunProgress(
-                phase: PlanRunProgress.Phase(progress.phase), completed: progress.completed, total: progress.total,
-                fraction: share.lowerBound + (share.upperBound - share.lowerBound) * progress.fraction,
-                ages: progress.ages, mode: mode))
+            var progress = progress
+            progress.fraction = share.lowerBound + (share.upperBound - share.lowerBound) * progress.fraction
+            handler(PlanRunProgress(mode: mode, planner: progress))
         }
     }
 
@@ -187,9 +174,8 @@ struct PlannerPlanEngine: PlanEngine {
         }
         try Task.checkCancellation()
         let mode: PlanRunMode = if case .base(let runMode) = key.kind { runMode } else { .full }
-        let results = PlanResults(
-            result: result, mode: mode, birthDate: library.settings.person?.birthDate ?? result.start.date,
-            scansEveryAge: key.kind == .base(.full))
+        let results = PlanResults(result: result, mode: mode,
+                                  birthDate: library.settings.person?.birthDate ?? result.start.date)
         await cache.insert(results, for: key)
         return results
     }
@@ -205,28 +191,9 @@ struct PlannerPlanEngine: PlanEngine {
     /// The plan's problems without running it (`Planner.validate`), off the
     /// main actor: it takes about a tenth of a second.
     static func validate(_ plan: PlanDocument, library: Library, asOf: CalendarDate) async -> [PlanIssue] {
-        let task = Task.detached(priority: .userInitiated) {
+        await Task.detached(priority: .userInitiated) {
             Planner.validate(plan: plan, library: library, options: PlannerOptions(today: asOf))
-        }
-        return await withTaskCancellationHandler {
-            await task.value
-        } onCancel: {
-            task.cancel()
-        }
-    }
-}
-
-extension PlanRunProgress.Phase {
-    /// The Planner's phase.
-    init(_ phase: PlannerProgress.Phase) {
-        switch phase {
-        case .earliestAge: self = .earliestAge
-        case .simulating: self = .simulating
-        case .sustainableSpending: self = .sustainableSpending
-        case .assetsNeeded: self = .assetsNeeded
-        case .agesWithout: self = .agesWithout
-        case .summarising: self = .summarising
-        }
+        }.value
     }
 }
 
@@ -261,8 +228,6 @@ actor PlanRunCache {
             entries[order.removeFirst()] = nil
         }
     }
-
-    var count: Int { entries.count }
 }
 
 extension PlanWhatIf {

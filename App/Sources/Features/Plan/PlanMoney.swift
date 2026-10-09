@@ -3,22 +3,13 @@ import Model
 import Prices
 import Tracker
 
-// The currency a plan's amounts are in (the library's base currency), the
-// words the captions use, and your actual numbers in it, adjusted for
-// inflation, for the Results' fan, Progress and the Overview. Plain Swift,
+// The words the captions use for a plan's currency, and your actual
+// numbers in it, adjusted for inflation, for the Results' fan, Progress and
+// the Overview. Plans are in the library's base currency; results calculated
+// before it changed stay in theirs (`PlanResults.currency`). Plain Swift,
 // tested on Linux.
 
 enum PlanMoney {
-    /// The currency of a plan's amounts: the library's base currency.
-    static func currency(of plan: PlanDocument, settings: LibrarySettings) -> CurrencyCode {
-        settings.baseCurrency
-    }
-
-    /// The currency a baseline's values are in: the library's base currency.
-    static func currency(of baseline: Baseline, settings: LibrarySettings) -> CurrencyCode {
-        settings.baseCurrency
-    }
-
     /// "today's CHF", for captions: the plan's amounts are in today's money.
     static func todaysMoney(_ currency: CurrencyCode) -> String {
         "today's \(currency.rawValue)"
@@ -149,12 +140,13 @@ struct PlanActualSeries: Hashable, Sendable {
 
 extension PlanResults {
     /// The fan in `currency` (the Overview's, in the base currency): as it
-    /// is when the results are in it, else converted at the exchange rate on
-    /// the plan's start date, as the planner valued the starting portfolio
-    /// (both are today's money). Empty without a rate.
+    /// is when the results are in it, else (results calculated before the
+    /// base currency changed) converted at the exchange rate on the plan's
+    /// start date, as the planner valued the starting portfolio (both are
+    /// today's money). Empty without a rate.
     func portfolio(in currency: CurrencyCode, valuator: Valuator) -> [FanPoint] {
-        guard let own = self.currency, own != currency else { return portfolio }
-        guard let quote = valuator.fx.quote(from: own, to: currency, on: start.date) else { return [] }
+        guard self.currency != currency else { return portfolio }
+        guard let quote = valuator.fx.quote(from: self.currency, to: currency, on: start.date) else { return [] }
         let rate = quote.convert(1).doubleValue
         return portfolio.map {
             FanPoint(date: $0.date, p10: $0.p10 * rate, p25: $0.p25 * rate, p50: $0.p50 * rate, p75: $0.p75 * rate,

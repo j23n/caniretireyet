@@ -185,8 +185,8 @@ struct OverviewBaselineGap: Hashable, Sendable {
     /// Positive when ahead.
     var gap: Decimal { actual - expected }
 
-    /// `currency` is the baseline's (``PlanMoney/currency(of:settings:)``);
-    /// `nil` takes the valuator's base currency.
+    /// `currency` is the baseline's (the base currency); `nil` takes the
+    /// valuator's base currency.
     init?(baseline: Baseline, valuator: Valuator, on date: CalendarDate, currency: CurrencyCode? = nil) {
         guard date > baseline.start.date, !baseline.accounts.isEmpty else { return nil }
         var knots: [(date: CalendarDate, value: Decimal)] = [(baseline.start.date, baseline.start.value)]
