@@ -45,6 +45,17 @@ public struct Backup: Hashable, Sendable {
     public var paths: [String] { (files + absentFiles).sorted() }
 }
 
+extension Backup {
+    /// The label of the backup an import takes, in the app and with
+    /// `retire import --apply`.
+    public static let importLabel = "import"
+    /// The label of the copy of the files taken before an import is undone.
+    public static let undoImportLabel = "undo-import"
+    /// The label of the backup *Fill In Past Prices* takes, in the app and
+    /// with `retire prices --fill-history`.
+    public static let fillHistoryLabel = "fill-history"
+}
+
 /// The files of a backup as the change wrote them, in
 /// `backups/<name>/result/`.
 public struct BackupResult: Hashable, Sendable {

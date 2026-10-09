@@ -191,11 +191,6 @@ struct ImportCommand: RetireSubcommand {
     @Flag(help: "Print JSON.")
     var json = false
 
-    /// The backup label of imports.
-    static let backupLabel = "import"
-    /// The backup label of the copy taken before an undo.
-    static let undoLabel = "undo-import"
-
     func validate() throws {
         if apply, dryRun { throw ValidationError("Choose --dry-run or --apply, not both.") }
         if undo {
@@ -400,7 +395,7 @@ struct ImportCommand: RetireSubcommand {
         outcome.savedProfile = try addProfile(from: session, to: &library, loaded: loaded)
         if result.hasChanges {
             // The profile is backed up even when it doesn't change.
-            let saved = try loaded.save(library, backupLabel: Self.backupLabel,
+            let saved = try loaded.save(library, backupLabel: Backup.importLabel,
                                         alsoBackingUp: outcome.savedProfile.map { [$0] } ?? [], in: context)
             outcome.written = saved.written
             outcome.deleted = saved.deleted
@@ -420,9 +415,9 @@ struct ImportCommand: RetireSubcommand {
     static func latestImport(in backups: [Backup]) -> Backup? {
         var stack: [Backup] = []
         for backup in backups {
-            if backup.label == backupLabel {
+            if backup.label == Backup.importLabel {
                 stack.append(backup)
-            } else if backup.label == undoLabel, !stack.isEmpty {
+            } else if backup.label == Backup.undoImportLabel, !stack.isEmpty {
                 stack.removeLast()
             }
         }
@@ -448,7 +443,7 @@ struct ImportCommand: RetireSubcommand {
             console.print("Dry run: nothing was written.")
             return
         }
-        let safety = try folder.backup(paths: backup.paths, label: undoLabel, date: context.now())
+        let safety = try folder.backup(paths: backup.paths, label: Backup.undoImportLabel, date: context.now())
         let undone = try folder.undo(backup)
         console.print("Undid the import of \(created) from \(backup.path).")
         console.print(lines: undone.written.map { "  restored \($0)" } + undone.deleted.map { "  deleted  \($0)" })

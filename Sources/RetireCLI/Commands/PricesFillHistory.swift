@@ -2,15 +2,13 @@ import ArgumentParser
 import Foundation
 import Model
 import Prices
+import Storage
 
 // `retire prices --fill-history [--dry-run]`: fills in the prices, FX rates
 // and inflation months the library is missing on past dates, a range per
 // instrument at a time, and writes them without replacing any record.
 
 extension PricesCommand {
-    /// The backup label of a fill.
-    static let fillBackupLabel = "fill-history"
-
     func runFillHistory(in context: CLIContext) async throws {
         let loaded = try options.load(in: context)
         let today = context.today
@@ -35,7 +33,7 @@ extension PricesCommand {
                            context: CLIContext) throws -> FillReport.Written {
         var library = loaded.library
         let inserted = fill.insertMissing(into: &library)
-        let saved = try loaded.save(library, backupLabel: Self.fillBackupLabel, dryRun: dryRun, in: context)
+        let saved = try loaded.save(library, backupLabel: Backup.fillHistoryLabel, dryRun: dryRun, in: context)
         let isWritten = saved.backup != nil
         return FillReport.Written(inserted: inserted, files: isWritten ? saved.written : saved.changed,
                                   backup: saved.backup, isWritten: isWritten)

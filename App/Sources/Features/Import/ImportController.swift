@@ -14,11 +14,6 @@ import Tracker
 /// `LibraryStore`, which saves only the files that change.
 @Observable @MainActor
 final class ImportController {
-    /// The backup label of imports, as `retire import --apply` writes it.
-    static let backupLabel = "import"
-    /// The backup label of the copy taken before an undo, as `retire import --undo` writes it.
-    static let undoLabel = "undo-import"
-
     /// The import in progress. Views read it and change it through its methods.
     var flow: ImportFlow
     /// What the import did, once it's done.
@@ -80,7 +75,7 @@ final class ImportController {
         errorMessage = nil
         do {
             var result: ImportResult?
-            let backup = try await store.commit(backingUpAs: Self.backupLabel) { library in
+            let backup = try await store.commit(backingUpAs: Backup.importLabel) { library in
                 let applied = preview.applyFollowingFlows(to: library)
                 result = applied
                 library = applied.library
@@ -108,7 +103,7 @@ final class ImportController {
         defer { isWorking = false }
         errorMessage = nil
         do {
-            receipt.undoReport = try await store.undo(backup, safetyLabel: Self.undoLabel)
+            receipt.undoReport = try await store.undo(backup, safetyLabel: Backup.undoImportLabel)
             receipt.isUndone = true
             self.receipt = receipt
         } catch {

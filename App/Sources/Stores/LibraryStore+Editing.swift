@@ -111,7 +111,7 @@ extension LibraryStore {
         try await commit { $0.removeTrade(key) }
     }
 
-    /// The backup labels of converting an account, as the CLI writes them.
+    /// The backup labels of converting an account.
     static let convertToTradesBackupLabel = "convert-to-trades"
     static let convertToSnapshotsBackupLabel = "convert-to-snapshots"
 
@@ -146,9 +146,6 @@ extension LibraryStore {
         }
     }
 
-    /// The backup label of *Fill In Past Prices*, as `retire prices --fill-history` writes it.
-    static let fillHistoryBackupLabel = "fill-history"
-
     /// Saves what *Fill In Past Prices* fetched, in one edit, into each
     /// record's month file, and waits for the write: only records the
     /// library doesn't have by then (`PastPriceFill.insertMissing(into:)`),
@@ -157,7 +154,7 @@ extension LibraryStore {
     @discardableResult
     func insertMissing(_ fill: PastPriceFill) async throws -> PastPriceInsertion {
         var inserted = PastPriceInsertion()
-        _ = try await commit(backingUpAs: Self.fillHistoryBackupLabel) { library in
+        _ = try await commit(backingUpAs: Backup.fillHistoryLabel) { library in
             inserted = fill.insertMissing(into: &library)
         }
         return inserted
