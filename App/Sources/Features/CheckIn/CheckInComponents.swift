@@ -584,7 +584,7 @@ struct CheckInBanners: View {
     let session: CheckInSession
 
     @Environment(LibraryStore.self) private var library
-    @Environment(AppPreferences.self) private var privacy
+    @Environment(AppPreferences.self) private var preferences
     @Environment(\.locale) private var locale
 
     init(draft: CheckInDraft, session: CheckInSession) {
@@ -619,10 +619,10 @@ struct CheckInBanners: View {
             if let note = CheckInWording.pastCheckInNote(on: draft.date, in: library.library, locale: locale) {
                 StatusBanner(.info, "A past check-in", message: note)
             }
-            if privacy.hidesAmounts {
+            if preferences.hidesAmounts {
                 StatusBanner(.info, "Amounts are hidden", message: "The fields still show what you type.",
                              actionTitle: "Show amounts") {
-                    privacy.toggleHidesAmounts()
+                    preferences.toggleHidesAmounts()
                 }
             }
         }
