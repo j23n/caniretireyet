@@ -2,13 +2,17 @@ import Foundation
 import Model
 import Tracker
 
-// The Accounts section of the Mac and iPad sidebar (UI.md, "Navigation"),
+// The Accounts section of the Mac and iPad sidebar (UI.md, "Navigation"):
+// its folders, their expanded state and the selection kept in view,
 // computed without SwiftUI so it can be checked on Linux. The view is
-// `SidebarAccountsSection` in SidebarRoot.swift.
+// `SidebarAccountsSection` in SidebarRoot.swift; its rows, values,
+// subtotals and staleness are the Accounts list's (``AccountList``), so the
+// two always agree: an account that holds nothing gets no clock
+// (``AccountStaleness``).
 
 /// A collapsible group of accounts, or *Closed*: a row in the sidebar's
-/// Accounts section, and a section of the Accounts list
-/// (``AccountListExpansion``). Both share its expanded state.
+/// Accounts section, and a section of the Accounts list (`AccountsScreen`).
+/// Both share its expanded state.
 enum SidebarAccountFolder: Hashable, Sendable {
     case group(AccountGroup)
     case closed
@@ -26,36 +30,6 @@ enum SidebarAccountFolder: Hashable, Sendable {
     /// otherwise its group (as in the Accounts list).
     init(_ account: Account, today: CalendarDate) {
         self = AccountList.listsAsClosed(account, today: today) ? .closed : .group(account.group)
-    }
-}
-
-/// What the sidebar's Accounts section lists: the total of the open
-/// accounts on its header, a folder per group that has open accounts, in
-/// display order, with its subtotal, then *Closed (n)*. The rows, values, subtotals and staleness are the
-/// Accounts list's (``AccountList``), so the two always agree: an account
-/// that holds nothing gets no clock (``AccountStaleness``).
-struct SidebarAccounts: Hashable, Sendable {
-    /// Open accounts by group, in display order; only groups that have some.
-    var groups: [AccountListSection]
-    /// Closed accounts, most recently closed first.
-    var closed: [AccountListItem]
-
-    init(library: Library, valuator: Valuator, today: CalendarDate, stalenessThreshold: Int) {
-        let list = AccountList(library: library, valuator: valuator, filter: .all, today: today,
-                               stalenessThreshold: stalenessThreshold, includesSparklines: false)
-        groups = list.sections
-        closed = list.closed
-    }
-
-    /// The open accounts' values added up, in the base currency: the sum of
-    /// the groups' subtotals (accounts left out of net worth too, as listed).
-    var total: Decimal {
-        groups.reduce(Decimal(0)) { $0 + $1.subtotal }
-    }
-
-    /// *Closed (3)*.
-    var closedTitle: String {
-        "Closed (\(closed.count))"
     }
 }
 

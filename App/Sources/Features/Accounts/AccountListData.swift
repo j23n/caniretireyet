@@ -2,20 +2,8 @@ import Foundation
 import Model
 import Tracker
 
-// The account list's rows, groups and subtotals, and which groups show their
-// rows, computed without SwiftUI so they can be checked on Linux.
-
-/// Which accounts the list shows. The app shows `.all` on the Accounts tab;
-/// the sidebar lists each group's accounts itself (``SidebarAccounts``).
-enum AccountsFilter: Hashable, Sendable {
-    /// Every open account, grouped, then the closed ones under *Closed*.
-    /// Each group, and *Closed*, collapses (``AccountListExpansion``).
-    case all
-    /// Open accounts in one group.
-    case group(AccountGroup)
-    /// Closed accounts only.
-    case closed
-}
+// The account list's rows, groups and subtotals, for the Accounts tab and
+// the sidebar, computed without SwiftUI so they can be checked on Linux.
 
 /// One account in the list, valued.
 struct AccountListItem: Hashable, Sendable, Identifiable {
@@ -24,8 +12,6 @@ struct AccountListItem: Hashable, Sendable, Identifiable {
     var date: CalendarDate
     /// The value in the base currency on ``date``.
     var value: Decimal
-    /// Whether the value is fully known (no missing price or rate).
-    var isComplete: Bool
     /// Set when the latest value is too old (open accounts that hold
     /// something only: ``AccountStaleness``).
     var stale: StaleAccount?
@@ -42,9 +28,7 @@ struct AccountListItem: Hashable, Sendable, Identifiable {
          includesSparkline: Bool = true) {
         self.account = account
         self.date = date
-        let value = valuator.value(of: account.id, on: date)
-        self.value = value?.knownValue ?? 0
-        isComplete = value?.isComplete ?? true
+        value = valuator.value(of: account.id, on: date)?.knownValue ?? 0
         stale = stalenessThreshold.flatMap { AccountStaleness.stale(account.id, valuator: valuator, on: date,
                                                                     threshold: $0) }
         let yearAgo = date.adding(months: -12)
@@ -99,14 +83,13 @@ struct AccountListSection: Hashable, Sendable, Identifiable {
     }
 }
 
-/// The account list for one filter and search (UI.md, "Accounts").
+/// The account list for a search (UI.md, "Accounts"): the Accounts tab's,
+/// and without sparklines the sidebar's, so the two always agree.
 struct AccountList: Hashable, Sendable {
-    /// Open accounts by group, in display order.
+    /// Open accounts by group, in display order; only groups that have some.
     var sections: [AccountListSection]
     /// Closed accounts, most recently closed first.
     var closed: [AccountListItem]
-    /// Net worth today (every open account included in it).
-    var netWorth: Decimal
 
     /// The value whose text is widest among the rows (open and closed), in
     /// the base currency. Each row reserves this width for its amount, so the
@@ -128,9 +111,20 @@ struct AccountList: Hashable, Sendable {
         sections.isEmpty && closed.isEmpty
     }
 
+    /// The open accounts' values added up, in the base currency: the sum of
+    /// the sections' subtotals (accounts left out of net worth too, as listed).
+    var openTotal: Decimal {
+        sections.reduce(Decimal(0)) { $0 + $1.subtotal }
+    }
+
+    /// *Closed (3)*.
+    var closedTitle: String {
+        "Closed (\(closed.count))"
+    }
+
     /// `includesSparklines: false` leaves every row's sparkline empty.
-    init(library: Library, valuator: Valuator, filter: AccountsFilter, query: String = "", today: CalendarDate,
-         stalenessThreshold: Int, includesSparklines: Bool = true) {
+    init(library: Library, valuator: Valuator, query: String = "", today: CalendarDate, stalenessThreshold: Int,
+         includesSparklines: Bool = true) {
         let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
         let accounts = library.accounts.values.filter { Self.matches($0, query: trimmed) }
         let open = accounts.filter { !Self.listsAsClosed($0, today: today) }.sortedForDisplay()
@@ -138,27 +132,20 @@ struct AccountList: Hashable, Sendable {
             .sorted { ($0.closed ?? $0.opened, $1.name) > ($1.closed ?? $1.opened, $0.name) }
 
         var sections: [AccountListSection] = []
-        if filter != .closed {
-            for account in open {
-                if case .group(let group) = filter, account.group != group { continue }
-                let item = AccountListItem(account: account, valuator: valuator, date: today,
-                                           stalenessThreshold: stalenessThreshold,
-                                           includesSparkline: includesSparklines)
-                if let index = sections.firstIndex(where: { $0.group == account.group }) {
-                    sections[index].items.append(item)
-                } else {
-                    sections.append(AccountListSection(group: account.group, items: [item]))
-                }
+        for account in open {
+            let item = AccountListItem(account: account, valuator: valuator, date: today,
+                                       stalenessThreshold: stalenessThreshold, includesSparkline: includesSparklines)
+            if let index = sections.firstIndex(where: { $0.group == account.group }) {
+                sections[index].items.append(item)
+            } else {
+                sections.append(AccountListSection(group: account.group, items: [item]))
             }
         }
         self.sections = sections
-        closed = filter == .all || filter == .closed
-            ? closedAccounts.map { account in
-                AccountListItem(account: account, valuator: valuator, date: account.closed ?? today,
-                                stalenessThreshold: nil, includesSparkline: includesSparklines)
-            }
-            : []
-        netWorth = valuator.netWorth(on: today).total
+        closed = closedAccounts.map { account in
+            AccountListItem(account: account, valuator: valuator, date: account.closed ?? today,
+                            stalenessThreshold: nil, includesSparkline: includesSparklines)
+        }
     }
 
     /// Whether `query` searches: it has more than spaces. A blank query
@@ -185,31 +172,5 @@ struct AccountList: Hashable, Sendable {
         return words.allSatisfy { word in
             haystack.range(of: word, options: [.caseInsensitive, .diacriticInsensitive]) != nil
         }
-    }
-}
-
-/// Which of the list's sections show their rows (UI.md, "Accounts").
-///
-/// On the full list (``AccountsFilter/all``), a group's header, or
-/// *Closed*'s, expands or collapses it. Which ones are collapsed is the
-/// sidebar's state (``AppPreferences/collapsedAccountFolders``, keyed by
-/// ``SidebarAccountFolder/key``), so a group collapsed in one place is
-/// collapsed in the other, and the device remembers it. While searching,
-/// every section is expanded and none collapses, so no result is hidden. A
-/// list of one group, or of the closed accounts, doesn't collapse.
-struct AccountListExpansion: Hashable, Sendable {
-    /// Whether the headers expand and collapse their sections.
-    var isCollapsible: Bool
-    /// The folders collapsed on this device.
-    var collapsed: Set<String>
-
-    init(filter: AccountsFilter, query: String, collapsed: Set<String>) {
-        isCollapsible = filter == .all && !AccountList.isSearching(query)
-        self.collapsed = collapsed
-    }
-
-    /// Whether the list shows `folder`'s rows.
-    func isExpanded(_ folder: SidebarAccountFolder) -> Bool {
-        !isCollapsible || !collapsed.contains(folder.key)
     }
 }

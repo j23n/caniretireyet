@@ -42,8 +42,8 @@ final class AppPreferences {
     /// (``SidebarAccountFolder/key``: a group's raw value, or `"closed"`).
     /// Until one is toggled, only *Closed* is collapsed
     /// (``defaultCollapsedAccountFolders``). Read and change it with
-    /// `isExpanded(_:)` and `setExpanded(_:_:)`; the list reads it through
-    /// ``AccountListExpansion``, which expands everything while searching.
+    /// `isExpanded(_:)` and `setExpanded(_:_:)`; the list expands everything
+    /// while searching.
     var collapsedAccountFolders: Set<String> {
         didSet { defaults.set(collapsedAccountFolders.sorted(), forKey: Keys.collapsedAccountFolders) }
     }

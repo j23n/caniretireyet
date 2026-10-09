@@ -11,10 +11,10 @@ import Tracker
 ///   account that holds nothing: ``AccountStaleness``).
 /// - Swipe (or right-click): *Update value* (a one-account valuation) and
 ///   *Close*. Closed accounts sit in a "Closed (n)" section at the bottom.
-/// - Tapping a section's header collapses or expands it, chevron turning
-///   (the full list only). The groups start expanded and *Closed* collapsed;
-///   the device remembers which are collapsed, shared with the sidebar's
-///   groups (`AccountListExpansion`, `AppPreferences.collapsedAccountFolders`).
+/// - Tapping a section's header collapses or expands it, chevron turning.
+///   The groups start expanded and *Closed* collapsed; the device remembers
+///   which are collapsed, shared with the sidebar's groups
+///   (`AppPreferences.collapsedAccountFolders`).
 /// - Search by name, institution, kind, tags or notes. While searching every
 ///   section is expanded, so no result is hidden.
 ///
@@ -24,8 +24,6 @@ import Tracker
 /// make it a second sidebar), while the button works the same in any list
 /// style, keeps the subtotal header, and lets a search show everything.
 struct AccountsScreen: View {
-    let filter: AccountsFilter
-
     @Environment(LibraryStore.self) private var library
     @Environment(AppNavigation.self) private var navigation
     @Environment(AppPreferences.self) private var preferences
@@ -36,25 +34,23 @@ struct AccountsScreen: View {
     @State private var errorMessage = ""
     @State private var showsError = false
 
-    init(filter: AccountsFilter = .all) {
-        self.filter = filter
-    }
+    init() {}
 
     var body: some View {
-        let list = AccountList(library: library.library, valuator: library.valuator, filter: filter, query: query,
-                               today: .today(), stalenessThreshold: preferences.stalenessThreshold)
+        let list = AccountList(library: library.library, valuator: library.valuator, query: query, today: .today(),
+                               stalenessThreshold: preferences.stalenessThreshold)
         let widest = list.widestValue(currency: library.baseCurrency, locale: locale)
-        let expansion = AccountListExpansion(filter: filter, query: query,
-                                             collapsed: preferences.collapsedAccountFolders)
+        // While searching, every section is expanded and none collapses, so no result is hidden.
+        let isCollapsible = !AccountList.isSearching(query)
         List {
-            if filter == .all && query.isEmpty && list.openCount > 0 {
+            if query.isEmpty && list.openCount > 0 {
                 Section {
                     summary(list)
                 }
             }
             ForEach(list.sections) { section in
                 let folder = SidebarAccountFolder.group(section.group)
-                let isExpanded = expansion.isExpanded(folder)
+                let isExpanded = !isCollapsible || preferences.isExpanded(folder)
                 Section {
                     if isExpanded {
                         ForEach(section.items) { item in
@@ -63,17 +59,16 @@ struct AccountsScreen: View {
                     }
                 } header: {
                     AccountSectionHeader(title: section.group.description, subtotal: section.subtotal,
-                                         isExpanded: isExpanded,
-                                         toggle: expansion.isCollapsible ? { toggle(folder) } : nil)
+                                         isExpanded: isExpanded, toggle: isCollapsible ? { toggle(folder) } : nil)
                 }
             }
-            closedSection(list, expansion: expansion, widestValue: widest)
+            closedSection(list, isCollapsible: isCollapsible, widestValue: widest)
         }
         .searchable(text: $query, prompt: "Search accounts")
         .overlay {
             emptyState(list)
         }
-        .navigationTitle(title)
+        .navigationTitle("Accounts")
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
                 Button {
@@ -95,14 +90,6 @@ struct AccountsScreen: View {
         }
     }
 
-    private var title: String {
-        switch filter {
-        case .all: "Accounts"
-        case .group(let group): group.description
-        case .closed: "Closed accounts"
-        }
-    }
-
     // MARK: Rows
 
     private func summary(_ list: AccountList) -> some View {
@@ -110,7 +97,7 @@ struct AccountsScreen: View {
             Text(Self.count(list.openCount))
             Text(verbatim: "·")
             Text("Net worth")
-            AmountText(list.netWorth)
+            AmountText(library.valuator.netWorth(on: .today()).total)
         }
         .font(.subheadline)
         .foregroundStyle(Palette.secondaryInk)
@@ -193,30 +180,20 @@ struct AccountsScreen: View {
         }
     }
 
-    /// The closed accounts: under a collapsible *Closed (n)* header on the
-    /// full list, or on their own.
+    /// The closed accounts, under a collapsible *Closed (n)* header.
     @ViewBuilder
-    private func closedSection(_ list: AccountList, expansion: AccountListExpansion,
-                               widestValue: Decimal?) -> some View {
+    private func closedSection(_ list: AccountList, isCollapsible: Bool, widestValue: Decimal?) -> some View {
         if !list.closed.isEmpty {
-            if filter == .closed {
-                Section {
+            let isExpanded = !isCollapsible || preferences.isExpanded(.closed)
+            Section {
+                if isExpanded {
                     ForEach(list.closed) { item in
                         closedRow(item, widestValue: widestValue)
                     }
                 }
-            } else {
-                let isExpanded = expansion.isExpanded(.closed)
-                Section {
-                    if isExpanded {
-                        ForEach(list.closed) { item in
-                            closedRow(item, widestValue: widestValue)
-                        }
-                    }
-                } header: {
-                    AccountSectionHeader(title: "Closed (\(list.closed.count))", isExpanded: isExpanded,
-                                         toggle: expansion.isCollapsible ? { toggle(.closed) } : nil)
-                }
+            } header: {
+                AccountSectionHeader(title: list.closedTitle, isExpanded: isExpanded,
+                                     toggle: isCollapsible ? { toggle(.closed) } : nil)
             }
         }
     }
@@ -240,22 +217,8 @@ struct AccountsScreen: View {
                 Button("Add account") { navigation.newAccount() }
                     .buttonStyle(.borderedProminent)
             }
-        } else if list.isEmpty {
-            if !query.isEmpty {
-                ContentUnavailableView.search(text: query)
-            } else if filter == .closed {
-                ContentUnavailableView("No closed accounts", systemImage: AppSymbol.closed,
-                                       description: Text("Accounts you close keep their history and appear here."))
-            } else {
-                ContentUnavailableView {
-                    Label("No accounts here", systemImage: AppSymbol.accounts)
-                } description: {
-                    Text("Add an account of this kind to see it here.")
-                } actions: {
-                    Button("Add account") { navigation.newAccount() }
-                        .buttonStyle(.borderedProminent)
-                }
-            }
+        } else if list.isEmpty && !query.isEmpty {
+            ContentUnavailableView.search(text: query)
         }
     }
 
@@ -285,7 +248,7 @@ private struct AccountSectionHeader: View {
     var subtotal: Decimal?
     let isExpanded: Bool
     /// Expands or collapses the section; `nil` when it doesn't collapse
-    /// (while searching, or on a list of one group).
+    /// (while searching).
     var toggle: (() -> Void)?
 
     var body: some View {
@@ -395,18 +358,6 @@ struct AccountStaleBadge: View {
     }
 }
 
-/// One account in a list, valued on `date` (kept for callers that have a
-/// valuator at hand; the Accounts list uses ``AccountListRow``).
-struct AccountRow: View {
-    let account: Account
-    let valuator: Valuator
-    let date: CalendarDate
-
-    var body: some View {
-        AccountListRow(item: AccountListItem(account: account, valuator: valuator, date: date, stalenessThreshold: nil))
-    }
-}
-
 // MARK: - Sheets
 
 /// What a row's swipe action or context menu asked for.
@@ -465,20 +416,6 @@ struct AccountActionSheet: View {
     NavigationStack {
         AccountsScreen()
             .appDestinations()
-    }
-    .previewEnvironment()
-}
-
-#Preview("Investments") {
-    NavigationStack {
-        AccountsScreen(filter: .group(.investments))
-    }
-    .previewEnvironment()
-}
-
-#Preview("Closed") {
-    NavigationStack {
-        AccountsScreen(filter: .closed)
     }
     .previewEnvironment()
 }

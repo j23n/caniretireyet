@@ -125,17 +125,17 @@ struct SidebarRoot: View {
 /// The sidebar's Accounts section: the total of the open accounts on its
 /// header, a collapsible row per group that has open accounts, with its
 /// subtotal and its accounts, then *Closed (n)*. The values and staleness
-/// are the Accounts list's (`SidebarAccounts`); amounts are left out while
-/// they're hidden.
+/// are the Accounts list's (`AccountList`, without sparklines); amounts are
+/// left out while they're hidden.
 private struct SidebarAccountsSection: View {
     @Environment(LibraryStore.self) private var library
     @Environment(AppPreferences.self) private var preferences
 
     var body: some View {
-        let accounts = SidebarAccounts(library: library.library, valuator: library.valuator, today: .today(),
-                                       stalenessThreshold: preferences.stalenessThreshold)
+        let accounts = AccountList(library: library.library, valuator: library.valuator, today: .today(),
+                                   stalenessThreshold: preferences.stalenessThreshold, includesSparklines: false)
         Section {
-            ForEach(accounts.groups) { section in
+            ForEach(accounts.sections) { section in
                 let isExpanded = expansion(of: .group(section.group))
                 DisclosureGroup(isExpanded: isExpanded) {
                     ForEach(section.items) { item in
@@ -160,7 +160,7 @@ private struct SidebarAccountsSection: View {
                 }
             }
         } header: {
-            SidebarAccountsHeader(total: accounts.groups.isEmpty ? nil : accounts.total)
+            SidebarAccountsHeader(total: accounts.sections.isEmpty ? nil : accounts.openTotal)
         }
     }
 
