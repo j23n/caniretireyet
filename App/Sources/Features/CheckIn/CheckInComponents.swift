@@ -421,7 +421,8 @@ struct CheckInPlainAmount: View {
 }
 
 /// A change without its currency, with an arrow and colour as well as the
-/// sign (UI.md, "Changes"): `▲ +3.652,35`, `▼ −310,20`.
+/// sign (UI.md, "Changes"): `▲ +3.652,35`, `▼ −310,20`. A change that shows
+/// as zero has neither, as in ``DeltaText`` (``DeltaFormat``).
 struct CheckInPlainDelta: View {
     let amount: Decimal?
 
@@ -433,11 +434,16 @@ struct CheckInPlainDelta: View {
     }
 
     var body: some View {
-        Text(verbatim: text)
+        Text(verbatim: DeltaFormat.text(number, direction: direction, showsArrow: true))
             .monospacedDigit()
-            .foregroundStyle(color)
+            .foregroundStyle(changeColor(direction))
             .privacySensitive()
             .accessibilityLabel(Text(verbatim: spoken))
+    }
+
+    /// 1 up, −1 down, 0 without a change or for one that shows as zero.
+    private var direction: Int {
+        amount.map { DeltaFormat.direction(of: $0, precision: .cents) } ?? 0
     }
 
     private var number: String {
@@ -445,20 +451,10 @@ struct CheckInPlainDelta: View {
         return hidesAmounts ? AmountFormat.hidden : CheckInFieldFormat.plain(amount, signed: true, locale: locale)
     }
 
-    private var text: String {
-        guard let amount, amount != 0 else { return number }
-        return (amount > 0 ? "▲ " : "▼ ") + number
-    }
-
     private var spoken: String {
-        guard let amount else { return "No change" }
-        let direction = amount > 0 ? "up" : amount < 0 ? "down" : "unchanged"
-        return hidesAmounts ? "\(direction), amount hidden" : "\(direction) \(number)"
-    }
-
-    private var color: Color {
-        guard let amount, amount != 0 else { return Palette.secondaryInk }
-        return amount > 0 ? Palette.positive : Palette.negative
+        guard amount != nil else { return "No change" }
+        let word = direction > 0 ? "up" : direction < 0 ? "down" : "unchanged"
+        return hidesAmounts ? "\(word), amount hidden" : "\(word) \(number)"
     }
 }
 
@@ -473,18 +469,18 @@ struct CheckInQuantityChange: View {
     }
 
     var body: some View {
-        Text(verbatim: text)
+        let direction = change > 0 ? 1 : change < 0 ? -1 : 0
+        Text(verbatim: DeltaFormat.text(QuantityFormat.quantityChange(change, locale: locale), direction: direction,
+                                        showsArrow: true))
             .monospacedDigit()
             .fontWeight(.medium)
-            .foregroundStyle(change > 0 ? Palette.positive : change < 0 ? Palette.negative : Palette.secondaryInk)
+            .foregroundStyle(changeColor(direction))
     }
+}
 
-    private var text: String {
-        let number = QuantityFormat.quantityChange(change, locale: locale)
-        if change > 0 { return "▲ " + number }
-        if change < 0 { return "▼ " + number }
-        return number
-    }
+/// The colour of a change going up (1), down (−1) or neither (0).
+private func changeColor(_ direction: Int) -> Color {
+    direction > 0 ? Palette.positive : direction < 0 ? Palette.negative : Palette.secondaryInk
 }
 
 // MARK: - Prices
