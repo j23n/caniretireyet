@@ -27,7 +27,7 @@ struct PlanChapterStrip: View {
     /// No card narrower: room for its name and where the money stands.
     static let minimumWidth: CGFloat = 164
     /// A card's height at the standard text size.
-    private static let cardHeight: CGFloat = 340
+    private static let cardHeight: CGFloat = 352
 
     var body: some View {
         // The words above and below the graph grow with the text size, up to a point.
@@ -105,9 +105,10 @@ struct PlanChapterCardView: View {
     private static let labelWidth: CGFloat = 132
 
     /// The chapter across the card, edge to edge, so the graph runs on from
-    /// one card into the next, under the header, which grows with the text size.
+    /// one card into the next, under the header, which grows with the text
+    /// size, and room above the graph for the top amount.
     private var plot: PlanStripPlot {
-        PlanStripPlot(start: card.start, end: card.end, left: 0, right: width, top: 64 * textScale)
+        PlanStripPlot(start: card.start, end: card.end, left: 0, right: width, top: 64 * textScale + 12)
     }
 
     var body: some View {

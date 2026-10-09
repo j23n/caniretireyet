@@ -11,7 +11,8 @@ import SwiftUI
 /// Cards side by side on a strip that scrolls sideways. The cards on screen
 /// share one money scale fitted to their money (``PlanStripScale``): at once
 /// the first time, then whenever the strip comes to rest after scrolling,
-/// the graphs fading to their new places. Choosing a card selects it,
+/// the graphs fading to their new places, and when a card is chosen, to
+/// those on screen once it's scrolled to the middle. Choosing a card selects it,
 /// outlined in the accent; selecting one elsewhere scrolls it to the middle.
 /// The pointer over a card's graph, or a finger touched and held on it,
 /// reads the graph there (``PlanGraphPointer``), and the strip stays put
@@ -45,7 +46,9 @@ struct PlanCardStrip<Leading: View, Graph: View, Footer: View>: View {
     /// Where the pointer is over a card, or where one was tapped.
     @State private var pointer: PlanGraphPointer?
     /// The cards the money scale is fitted to: those on screen when the
-    /// strip last came to rest; the chosen one and those beside it before.
+    /// strip last came to rest, or once the chosen card is in the middle;
+    /// the chosen one and those beside it before the strip has said where
+    /// its cards are.
     @State private var fitted: Set<Int> = []
     @State private var onScreen = PlanCardsOnScreen()
 
@@ -83,8 +86,10 @@ struct PlanCardStrip<Leading: View, Graph: View, Footer: View>: View {
                     ForEach(indices, id: \.self) { index in
                         card(index, scale: shared)
                             .id(CardID(index: index))
-                            .onScrollVisibilityChange(threshold: 0.1) { isVisible in
-                                onScreen.set(index, isVisible)
+                            .onGeometryChange(for: CGRect.self) { geometry in
+                                geometry.frame(in: .named(stripContent))
+                            } action: { frame in
+                                onScreen.frames[index] = frame
                                 if !onScreen.isScrolling { fitScale() }
                             }
                     }
@@ -92,24 +97,27 @@ struct PlanCardStrip<Leading: View, Graph: View, Footer: View>: View {
                 .padding(.horizontal, inset)
                 .padding(.vertical, 2)
                 .dynamicTypeSize(...DynamicTypeSize.stripCardLimit)
+                .coordinateSpace(.named(stripContent))
             }
             .scrollIndicators(.hidden)
             .defaultScrollAnchor(opensAtEnd ? .trailing : nil)
             // A finger reading a graph moves the read-out, not the strip.
             .scrollDisabled(pointer?.byTouch == true)
+            .onScrollGeometryChange(for: PlanStripViewport.self) { geometry in
+                PlanStripViewport(geometry)
+            } action: { _, viewport in
+                onScreen.viewport = viewport
+                if !onScreen.isScrolling { fitScale() }
+            }
             .onScrollPhaseChange { _, phase in
                 onScreen.isScrolling = phase != .idle
                 if phase == .idle { fitScale() }
             }
             .accessibilityIdentifier(identifier)
             .onChange(of: selection) { _, index in
-                // The strip centres the chosen card: its scale is fitted to
-                // it and those beside it at once (the scale leaves out any
-                // past either end), whatever cards had been reported on
-                // screen before (a card laid out anew, or scrolled past,
-                // needn't report leaving).
-                onScreen.replace(with: [index - 1, index, index + 1])
-                fitScale()
+                // The strip centres the chosen card: the scale is fitted at
+                // once to the cards on screen once it's there.
+                fitScale(to: onScreen.cards(among: indices, centring: index))
                 withAnimation(.snappy) { proxy.scrollTo(CardID(index: index), anchor: .center) }
             }
         }
@@ -139,11 +147,10 @@ struct PlanCardStrip<Leading: View, Graph: View, Footer: View>: View {
         }
     }
 
-    /// Fits the money scale to the cards on screen: at once the first time,
-    /// then, once the strip comes to rest, with the graphs fading to their
-    /// new places.
-    private func fitScale() {
-        let shown = onScreen.cards
+    /// Fits the money scale to `shown`, by default the cards on screen: at
+    /// once the first time, then with the graphs fading to their new places.
+    private func fitScale(to shown: Set<Int>? = nil) {
+        let shown = shown ?? onScreen.cards(among: indices)
         guard !shown.isEmpty, shown != fitted else { return }
         if fitted.isEmpty {
             fitted = shown
@@ -165,21 +172,58 @@ extension PlanCardStrip where Leading == EmptyView, Footer == EmptyView {
     }
 }
 
-/// The cards of a strip on screen, as it reports them while it scrolls,
-/// and whether it's scrolling. Nothing observes it: following them doesn't
-/// draw the strip again.
+/// The coordinate space of a strip's content, where its cards' frames are.
+private let stripContent = "PlanCardStrip.content"
+
+/// Where a strip's cards are along its content and what part of it is on
+/// screen, as the strip reports them while it lays out and scrolls, and
+/// whether it's scrolling. Nothing observes it: following them doesn't draw
+/// the strip again.
 @MainActor
 final class PlanCardsOnScreen {
-    private(set) var cards: Set<Int> = []
+    /// Each card's frame in the strip's content, by index.
+    var frames: [Int: CGRect] = [:]
+    /// `nil` until the strip reports it.
+    var viewport: PlanStripViewport?
     var isScrolling = false
 
-    func set(_ index: Int, _ isVisible: Bool) {
-        if isVisible { cards.insert(index) } else { cards.remove(index) }
+    /// The cards, among those laid out, at least a tenth on screen.
+    func cards(among laidOut: [Int]) -> Set<Int> {
+        guard let viewport else { return [] }
+        return cards(among: laidOut, from: viewport.start, width: viewport.width)
     }
 
-    /// Starts over from `cards`: those a scroll to a chosen card brings on screen.
-    func replace(with cards: Set<Int>) {
-        self.cards = cards
+    /// The cards, among those laid out, on screen once the strip has
+    /// scrolled the card at `index` to its middle, or as far as it can.
+    func cards(among laidOut: [Int], centring index: Int) -> Set<Int> {
+        guard let viewport, let frame = frames[index] else { return [index] }
+        let start = min(max(frame.midX - viewport.width / 2, viewport.starts.lowerBound), viewport.starts.upperBound)
+        return cards(among: laidOut, from: start, width: viewport.width)
+    }
+
+    private func cards(among laidOut: [Int], from start: CGFloat, width: CGFloat) -> Set<Int> {
+        Set(laidOut.filter { index in
+            guard let frame = frames[index], frame.width > 0 else { return false }
+            let shown = min(frame.maxX, start + width) - max(frame.minX, start)
+            return shown >= frame.width * 0.1
+        })
+    }
+}
+
+/// The part of a strip's content on screen, and how far it can scroll.
+struct PlanStripViewport: Equatable, Sendable {
+    /// Where the part on screen starts along the content, and its width.
+    var start: CGFloat
+    var width: CGFloat
+    /// Where it can start, scrolled to either end.
+    var starts: ClosedRange<CGFloat>
+
+    init(_ geometry: ScrollGeometry) {
+        start = geometry.contentOffset.x
+        width = geometry.containerSize.width
+        let first = -geometry.contentInsets.leading
+        let last = geometry.contentSize.width - geometry.containerSize.width + geometry.contentInsets.trailing
+        starts = first...max(first, last)
     }
 }
 
