@@ -62,11 +62,7 @@ public actor LibrarySync {
     /// Loads the whole library. A library with an older schema is migrated
     /// first (after a backup); one with a newer schema loads read-only.
     public func load() throws -> LoadResult {
-        let result = try folder.load()
-        if result.report.needsMigration, try folder.migrate() != nil {
-            return try folder.load()
-        }
-        return result
+        try folder.loadMigrating().result
     }
 
     /// Loads the whole library (see ``load()``), with the modification dates
