@@ -20,7 +20,7 @@ struct PastPricesSheet: View {
     @Environment(\.locale) private var locale
 
     @State private var filler = PastPriceFiller()
-    @State private var settingPrice: PastPriceDateTarget?
+    @State private var settingPrice: SetPriceTarget?
     @State private var editingInstrument: InstrumentEditTarget?
 
     init() {}
@@ -48,22 +48,8 @@ struct PastPricesSheet: View {
             .onChange(of: library.revision) { _, _ in
                 filler.prepare(library: library, prices: prices)
             }
-            .sheet(item: $settingPrice) { target in
-                NavigationStack {
-                    setPriceSheet(target)
-                }
-                #if os(macOS)
-                .frame(minWidth: 380, idealWidth: 440, minHeight: 320, idealHeight: 380)
-                #endif
-            }
-            .sheet(item: $editingInstrument) { target in
-                NavigationStack {
-                    InstrumentEditor(instrumentID: target.instrument, isSheet: true)
-                }
-                #if os(macOS)
-                .frame(minWidth: 460, idealWidth: 520, minHeight: 480, idealHeight: 640)
-                #endif
-            }
+            .setPriceSheet(item: $settingPrice)
+            .instrumentEditorSheet(item: $editingInstrument)
     }
 
     private var closeTitle: String {
@@ -183,7 +169,7 @@ struct PastPricesSheet: View {
                     Menu("Set Price…") {
                         ForEach(Array(missing.reversed().prefix(60)), id: \.self) { date in
                             Button(AmountFormat.mediumDate(date, locale: locale)) {
-                                settingPrice = PastPriceDateTarget(instrument: id, date: date)
+                                settingPrice = SetPriceTarget(instrument: id, date: date)
                             }
                         }
                     }
@@ -207,27 +193,9 @@ struct PastPricesSheet: View {
         return line.missing.filter { library.library.savedPrice(of: id, on: $0) == nil }
     }
 
-    @ViewBuilder
-    private func setPriceSheet(_ target: PastPriceDateTarget) -> some View {
-        if let instrument = library.library.instruments[target.instrument] {
-            InstrumentSetPriceSheet(instrumentID: instrument.id, name: instrument.name, currency: instrument.currency,
-                                    unit: instrument.unit, date: target.date)
-        } else {
-            ContentUnavailableView("This instrument no longer exists", systemImage: "questionmark.folder")
-        }
-    }
-
     private func run() {
         Task { await filler.run(library: library, prices: prices) }
     }
-}
-
-/// An instrument and a date to set a price for.
-struct PastPriceDateTarget: Identifiable, Hashable {
-    var instrument: InstrumentID
-    var date: CalendarDate
-
-    var id: String { "\(instrument) \(date)" }
 }
 
 /// One line of *Fill In Past Prices*: what it is, its dates, where the

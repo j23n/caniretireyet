@@ -344,12 +344,7 @@ struct InstrumentSetPriceSheet: View {
             if showsProblems {
                 AccountsProblemsSection(problems: problems)
             }
-            if let errorMessage {
-                Section {
-                    Label(errorMessage, systemImage: "xmark.octagon")
-                        .foregroundStyle(Palette.critical)
-                }
-            }
+            AccountsErrorSection(message: errorMessage)
         }
         .formStyle(.grouped)
         .navigationTitle("Set Price")
@@ -402,6 +397,46 @@ struct InstrumentSetPriceSheet: View {
             dismiss()
         } catch {
             errorMessage = LibraryStore.describe(error)
+        }
+    }
+}
+
+/// A saved instrument to set a price for, and the day *Set Price…* starts
+/// on (`nil`: today).
+struct SetPriceTarget: Identifiable, Hashable {
+    var instrument: InstrumentID
+    var date: CalendarDate?
+
+    var id: Self { self }
+}
+
+extension View {
+    /// Presents *Set Price…* for the target's instrument as a sheet.
+    func setPriceSheet(item: Binding<SetPriceTarget?>) -> some View {
+        sheet(item: item) { target in
+            NavigationStack {
+                SetPriceTargetSheet(target: target)
+            }
+            #if os(macOS)
+            .frame(minWidth: 380, idealWidth: 440, minHeight: 320, idealHeight: 380)
+            #endif
+        }
+    }
+}
+
+/// *Set Price…* for the target's instrument as the library has it, or that
+/// it no longer exists.
+private struct SetPriceTargetSheet: View {
+    let target: SetPriceTarget
+
+    @Environment(LibraryStore.self) private var library
+
+    var body: some View {
+        if let instrument = library.library.instruments[target.instrument] {
+            InstrumentSetPriceSheet(instrumentID: instrument.id, name: instrument.name, currency: instrument.currency,
+                                    unit: instrument.unit, date: target.date)
+        } else {
+            ContentUnavailableView("This instrument no longer exists", systemImage: "questionmark.folder")
         }
     }
 }

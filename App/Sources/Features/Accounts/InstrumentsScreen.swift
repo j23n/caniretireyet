@@ -22,7 +22,7 @@ struct InstrumentsScreen: View {
     @Environment(PriceStore.self) private var prices
     @Environment(AppPreferences.self) private var preferences
     @State private var editing: InstrumentEditTarget?
-    @State private var settingPrice: InstrumentEditTarget?
+    @State private var settingPrice: SetPriceTarget?
     @State private var selection: InstrumentID?
     @State private var updater = InstrumentPriceUpdater()
     @State private var showsUpdateDetails = false
@@ -67,22 +67,8 @@ struct InstrumentsScreen: View {
                 }
             }
             .pastPricesSheet(isPresented: $fillsPastPrices)
-            .sheet(item: $editing) { target in
-                NavigationStack {
-                    InstrumentEditor(instrumentID: target.instrument, currency: library.baseCurrency, isSheet: true)
-                }
-                #if os(macOS)
-                .frame(minWidth: 460, idealWidth: 520, minHeight: 480, idealHeight: 640)
-                #endif
-            }
-            .sheet(item: $settingPrice) { target in
-                NavigationStack {
-                    setPriceSheet(target.instrument)
-                }
-                #if os(macOS)
-                .frame(minWidth: 380, idealWidth: 440, minHeight: 320, idealHeight: 380)
-                #endif
-            }
+            .instrumentEditorSheet(item: $editing)
+            .setPriceSheet(item: $settingPrice)
             .sheet(isPresented: $showsUpdateDetails) {
                 NavigationStack {
                     InstrumentPriceUpdateSheet(updater: updater)
@@ -189,7 +175,7 @@ struct InstrumentsScreen: View {
                                           update: updateLine(of: instrument))
                     }
                     .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                        swipeActions(for: instrument)
+                        priceActions(for: instrument, swipe: true)
                     }
                     .contextMenu {
                         priceActions(for: instrument)
@@ -215,53 +201,26 @@ struct InstrumentsScreen: View {
 
     // MARK: Row actions
 
-    /// *Update Price* (for an instrument with a price source) and *Set Price…*.
+    /// *Update Price* (for an instrument with a price source) and *Set
+    /// Price…*; as swipe actions, with shorter titles and tinted.
     @ViewBuilder
-    private func priceActions(for instrument: Instrument) -> some View {
+    private func priceActions(for instrument: Instrument, swipe: Bool = false) -> some View {
         if CheckInPriceNeeds.isFetched(instrument.priceSource) {
             Button {
                 update(instrument.id)
             } label: {
-                Label("Update Price", systemImage: "arrow.clockwise")
+                Label(swipe ? "Update" : "Update Price", systemImage: "arrow.clockwise")
             }
+            .tint(swipe ? Palette.accent : nil)
             .disabled(!updater.canUpdate(library: library, prices: prices))
         }
         Button {
-            settingPrice = InstrumentEditTarget(instrument: instrument.id)
+            settingPrice = SetPriceTarget(instrument: instrument.id)
         } label: {
-            Label("Set Price…", systemImage: "square.and.pencil")
+            Label(swipe ? "Set Price" : "Set Price…", systemImage: "square.and.pencil")
         }
+        .tint(swipe ? Palette.mutedInk : nil)
         .disabled(!library.canEdit)
-    }
-
-    @ViewBuilder
-    private func swipeActions(for instrument: Instrument) -> some View {
-        if CheckInPriceNeeds.isFetched(instrument.priceSource) {
-            Button {
-                update(instrument.id)
-            } label: {
-                Label("Update", systemImage: "arrow.clockwise")
-            }
-            .tint(Palette.accent)
-            .disabled(!updater.canUpdate(library: library, prices: prices))
-        }
-        Button {
-            settingPrice = InstrumentEditTarget(instrument: instrument.id)
-        } label: {
-            Label("Set Price", systemImage: "square.and.pencil")
-        }
-        .tint(Palette.mutedInk)
-        .disabled(!library.canEdit)
-    }
-
-    @ViewBuilder
-    private func setPriceSheet(_ id: InstrumentID?) -> some View {
-        if let id, let instrument = library.library.instruments[id] {
-            InstrumentSetPriceSheet(instrumentID: id, name: instrument.name, currency: instrument.currency,
-                                    unit: instrument.unit)
-        } else {
-            ContentUnavailableView("This instrument no longer exists", systemImage: "questionmark.folder")
-        }
     }
 
     // MARK: Actions and values
@@ -290,6 +249,21 @@ struct InstrumentEditTarget: Identifiable, Hashable {
     var instrument: InstrumentID?
 
     var id: String { instrument?.rawValue ?? "new instrument" }
+}
+
+extension View {
+    /// Presents ``InstrumentEditor`` for the target's instrument, or a new
+    /// one, as a sheet.
+    func instrumentEditorSheet(item: Binding<InstrumentEditTarget?>) -> some View {
+        sheet(item: item) { target in
+            NavigationStack {
+                InstrumentEditor(instrumentID: target.instrument, isSheet: true)
+            }
+            #if os(macOS)
+            .frame(minWidth: 460, idealWidth: 520, minHeight: 480, idealHeight: 640)
+            #endif
+        }
+    }
 }
 
 /// One instrument in the iPhone list.
@@ -504,12 +478,7 @@ struct InstrumentEditor: View {
             if showsProblems {
                 AccountsProblemsSection(problems: problems)
             }
-            if let errorMessage {
-                Section {
-                    Label(errorMessage, systemImage: "xmark.octagon")
-                        .foregroundStyle(Palette.critical)
-                }
-            }
+            AccountsErrorSection(message: errorMessage)
             if instrumentID != nil {
                 Section {
                     Button("Delete Instrument…", role: .destructive) { confirmsDelete = true }
@@ -536,7 +505,7 @@ struct InstrumentEditor: View {
         }
         .sheet(isPresented: $showsSetPrice) {
             NavigationStack {
-                setPriceSheet(form.wrappedValue)
+                setPrice(form.wrappedValue)
             }
             #if os(macOS)
             .frame(minWidth: 380, idealWidth: 440, minHeight: 320, idealHeight: 380)
@@ -658,8 +627,10 @@ struct InstrumentEditor: View {
         }
     }
 
+    /// *Set Price…* for the instrument, or for the new one as typed so far,
+    /// whose price is saved with it.
     @ViewBuilder
-    private func setPriceSheet(_ form: InstrumentForm) -> some View {
+    private func setPrice(_ form: InstrumentForm) -> some View {
         if let existing {
             InstrumentSetPriceSheet(instrumentID: existing.id, name: existing.name, currency: existing.currency,
                                     unit: existing.unit)
