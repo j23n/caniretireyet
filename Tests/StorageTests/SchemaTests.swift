@@ -141,6 +141,36 @@ struct UnreadableSettingsTests {
         #expect(!(try folder.library.load().report.isReadOnly))
     }
 
+    /// A library.json that breaks while the library is open says so when
+    /// it's reloaded, as loading it would: the library turns read-only with
+    /// default settings in memory, and writable again once the file is fixed.
+    @Test func reloadingTheSettingsSaysWhetherTheLibraryIsReadOnly() throws {
+        let folder = try TemporaryFolder.exampleLibrary()
+        let original = try folder.text("library.json")
+        let loaded = try folder.library.load().library
+        var library = loaded
+
+        try folder.write("library.json", Self.notJSON)
+        let broken = folder.library.reload(.settings, into: &library)
+        #expect(broken.settingsUnreadable)
+        #expect(broken.readOnlyReason == .unreadableSettings)
+        #expect(broken.errors.map(\.path) == ["library.json"])
+        #expect(broken.errors.first?.message.contains("open read-only") == true)
+        #expect(library.settings == LibrarySettings())
+        #expect(library.accounts == loaded.accounts)
+
+        try folder.write("library.json", original)
+        let fixed = folder.library.reload(.settings, into: &library)
+        #expect(fixed.readOnlyReason == nil)
+        #expect(fixed.issues.isEmpty)
+        #expect(library == loaded)
+
+        try folder.write("library.json", original.replacingOccurrences(of: "\"schemaVersion\": 3",
+                                                                       with: "\"schemaVersion\": 4"))
+        let newer = folder.library.reload(.settings, into: &library)
+        #expect(newer.readOnlyReason == .newerSchema)
+    }
+
     @Test func aFolderWithoutSettingsIsNotReadOnly() throws {
         let folder = try TemporaryFolder.exampleLibrary()
         try FileManager.default.removeItem(at: folder.url.appendingPathComponent("library.json"))

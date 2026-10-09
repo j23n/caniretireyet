@@ -247,15 +247,15 @@ struct LoaderTests {
         var account = try #require(library.accounts["tfr"])
         account.name = "TFR (employer)"
         try folder.write("accounts/tfr.json", JSONEncoder().encode(account))
-        #expect(folder.library.reload(.account("tfr"), into: &library).isEmpty)
+        #expect(folder.library.reload(.account("tfr"), into: &library).issues.isEmpty)
         #expect(library.accounts["tfr"]?.name == "TFR (employer)")
 
         try FileManager.default.removeItem(at: folder.url.appendingPathComponent("history/2026/2026-09.json"))
-        #expect(folder.library.reload(.month("2026-09"), into: &library).isEmpty)
+        #expect(folder.library.reload(.month("2026-09"), into: &library).issues.isEmpty)
         #expect(library.months["2026-09"] == nil)
 
         try folder.write("plans/base.json", "{")
-        let issues = folder.library.reload(.plan("base"), into: &library)
+        let issues = folder.library.reload(.plan("base"), into: &library).issues
         #expect(issues.map(\.severity) == [.error])
         #expect(library.plans["base"] == nil)
     }

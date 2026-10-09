@@ -62,6 +62,25 @@ struct LibrarySyncTests {
         #expect(inMemory.accounts["directa"]?.name == "Directa SIM")
     }
 
+    @Test func aReloadedLibraryJSONSaysWhetherTheLibraryIsReadOnly() async throws {
+        let folder = try TemporaryFolder.exampleLibrary()
+        let library = sync(folder.url)
+        let inMemory = try await library.load().library
+        let original = try folder.text("library.json")
+
+        try folder.write("library.json", "{ not json")
+        let broken = await library.reload(paths: ["library.json", "accounts/casa.json"], in: inMemory)
+        #expect(broken.readOnlyReason == .unreadableSettings)
+        #expect(broken.issues.map(\.path) == ["library.json"])
+        let other = await library.reload(paths: ["accounts/casa.json"], in: inMemory)
+        #expect(other.readOnlyReason == nil)
+
+        try folder.write("library.json", original)
+        let fixed = await library.reload(paths: ["library.json"], in: inMemory)
+        #expect(fixed.readOnlyReason == nil)
+        #expect(fixed.issues.isEmpty)
+    }
+
     @Test func resolvesConflictsAndReportsThem() async throws {
         let folder = try TemporaryFolder.exampleLibrary()
         let versions = FakeFileVersions()

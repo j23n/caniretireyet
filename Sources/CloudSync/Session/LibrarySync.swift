@@ -13,11 +13,18 @@ public struct ReloadResult: Sendable {
     /// The issues found in the reloaded files, which replace any earlier
     /// issues for the same paths.
     public var issues: [LoadIssue]
+    /// When ``files`` holds `library.json`: why the library is open
+    /// read-only now, as loading it would say (`LoadReport.readOnlyReason`:
+    /// a newer app version wrote it, or it can't be used), or `nil` when it
+    /// can be edited. Always `nil` when `library.json` wasn't reloaded.
+    public var readOnlyReason: LoadReport.ReadOnlyReason?
 
-    public init(library: Library, files: [LibraryFile], issues: [LoadIssue]) {
+    public init(library: Library, files: [LibraryFile], issues: [LoadIssue],
+                readOnlyReason: LoadReport.ReadOnlyReason?) {
         self.library = library
         self.files = files
         self.issues = issues
+        self.readOnlyReason = readOnlyReason
     }
 
     /// The paths of the reloaded files.
@@ -120,16 +127,21 @@ public actor LibrarySync {
 
     /// Reloads the files at `paths` (relative to the library folder) into a
     /// copy of `library`. Paths that aren't library data files are skipped.
+    /// A reloaded `library.json` says whether the library is read-only now
+    /// (``ReloadResult/readOnlyReason``).
     public func reload(paths: [String], in library: Library) -> ReloadResult {
         var copy = library
         var files: [LibraryFile] = []
         var issues: [LoadIssue] = []
+        var readOnlyReason: LoadReport.ReadOnlyReason?
         for path in Set(paths).sorted() {
             guard let file = LibraryFile(path: path) else { continue }
             files.append(file)
-            issues += folder.reload(file, into: &copy)
+            let report = folder.reload(file, into: &copy)
+            issues += report.issues
+            if file == .settings { readOnlyReason = report.readOnlyReason }
         }
-        return ReloadResult(library: copy, files: files, issues: issues)
+        return ReloadResult(library: copy, files: files, issues: issues, readOnlyReason: readOnlyReason)
     }
 
     /// Updates the folder's README to this app version's text, if needed.

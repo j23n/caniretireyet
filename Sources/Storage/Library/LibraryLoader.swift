@@ -42,12 +42,16 @@ extension LibraryFolder {
 
     /// Reloads one file into `library` after it changed on disk (for
     /// example, synced from another device): the file's entity is replaced,
-    /// or removed if the file is gone or can't be read. Returns the file's
-    /// issues.
-    public func reload(_ file: LibraryFile, into library: inout Library) -> [LoadIssue] {
+    /// or removed if the file is gone or can't be read. Returns what
+    /// reloading found, as ``load()`` reports it: the file's issues and, for
+    /// `library.json`, its schema version and whether it can be used, so a
+    /// `library.json` that broke, or was fixed, makes the library read-only
+    /// or writable again as loading it would (``LoadReport/readOnlyReason``).
+    public func reload(_ file: LibraryFile, into library: inout Library) -> LoadReport {
         var loader = LibraryLoader(folder: self)
         loader.load(file, into: &library)
-        return loader.issues
+        return LoadReport(issues: loader.issues, schemaVersion: loader.schemaVersion, filesRead: loader.filesRead,
+                          settingsUnreadable: loader.settingsUnreadable)
     }
 }
 

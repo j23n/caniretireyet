@@ -801,6 +801,8 @@ final class LibraryStore {
     /// entities. A file with an edit waiting to be saved is skipped, also
     /// when the edit happens while the file is read: that save merges the
     /// file with the disk and reloads it, so a reload never undoes an edit.
+    /// A reloaded `library.json` makes the library read-only, or editable
+    /// again, as loading it would (``readOnlyReason``).
     private func reload(_ paths: [String], using sync: LibrarySync) async {
         guard sync === self.sync else { return }
         let wanted = Set(paths.compactMap(LibraryFile.init(path:))).filter { pendingSaves[$0] == nil }
@@ -815,7 +817,7 @@ final class LibraryStore {
         loadIssues = (loadIssues.filter { !reloaded.contains($0.path) }
             + result.issues.filter { reloaded.contains($0.path) }).sorted { $0.path < $1.path }
         if files.contains(.settings) {
-            readOnlyReason = updated.settings.schemaVersion > LibrarySettings.currentSchemaVersion ? .newerSchema : nil
+            readOnlyReason = result.readOnlyReason
         }
         if updated != library {
             setLibrary(updated)
