@@ -274,6 +274,16 @@ public struct RetirementAnswer: Hashable, Sendable {
         needsMoreThanSearched = false
         canRetireNow = (readiness ?? 0) >= 1
     }
+
+    /// ``readiness`` as the app shows it: below 1 rounded down to a whole
+    /// percent, as headlines record it (allowing for the binary
+    /// representation: 0.58 stays 0.58), so it never reads 100% while
+    /// retiring today falls short; from 1 on, as it is.
+    public var shownReadiness: Double? {
+        guard let readiness else { return nil }
+        guard readiness < 1 else { return readiness }
+        return min(0.99, max(0, (readiness * 100 + 1e-9).rounded(.down) / 100))
+    }
 }
 
 /// The earliest age recorded at one check-in.

@@ -259,4 +259,22 @@ struct GlanceSnapshotTests {
         #expect(answer.canRetireNow)
         #expect(RetirementAnswer(recorded: headline, birthDate: nil).earliestDate == nil)
     }
+
+    /// As the app shows it, and headlines record it: 99.6% reads 99%, never
+    /// 100% while retiring today falls short.
+    @Test func theReadinessIsShownRoundedDownBelowAHundredPercent() {
+        func shown(_ readiness: Double?) -> Double? {
+            RetirementAnswer(confidence: 0.9, readiness: readiness).shownReadiness
+        }
+        #expect(shown(0.996) == 0.99)
+        #expect(shown(0.5849) == 0.58)
+        // 0.58 is a little under that in binary, and stays 0.58.
+        #expect(shown(0.58) == 0.58)
+        #expect(shown(1 - 1e-13) == 0.99)
+        #expect(shown(0) == 0)
+        // From 100% on, as it is: retiring today works.
+        #expect(shown(1) == 1)
+        #expect(shown(1.296) == 1.296)
+        #expect(shown(nil) == nil)
+    }
 }

@@ -522,19 +522,21 @@ struct ReadinessWidget: Widget {
 }
 
 /// The readiness in words: "58%", "130%", "58% or more", "under 5%".
+/// Below 100% it's rounded down, as the app shows it
+/// (``RetirementAnswer/shownReadiness``): 99.6% reads 99%.
 struct ReadinessWords {
     var answer: RetirementAnswer
     var money: WidgetMoney
 
     /// The ring's fill, 0 to 1.
     var fraction: Double {
-        answer.needsMoreThanSearched ? 0 : min(max(answer.readiness ?? 0, 0), 1)
+        answer.needsMoreThanSearched ? 0 : min(max(answer.shownReadiness ?? 0, 0), 1)
     }
 
     /// The number in the ring; `nil` when there's none to show.
     var percent: String? {
         if answer.needsMoreThanSearched { return "<5%" }
-        guard let readiness = answer.readiness else { return nil }
+        guard let readiness = answer.shownReadiness else { return nil }
         return money.percent(readiness) + (answer.readinessIsLowerBound ? "+" : "")
     }
 
