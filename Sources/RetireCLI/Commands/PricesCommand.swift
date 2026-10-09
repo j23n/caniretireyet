@@ -276,18 +276,7 @@ struct PricesCommand: RetireSubcommand {
                                       observedOn: entry.details?.observedOn?.description,
                                       reason: entry.failureReason)
                 },
-                prices: fetched.prices.map {
-                    JSON.Price(instrument: $0.instrument.rawValue, date: $0.date.description, price: $0.price.fileString,
-                               currency: $0.currency.rawValue, source: $0.source?.rawValue)
-                },
-                fx: fetched.fx.map {
-                    JSON.Rate(base: $0.base.rawValue, quote: $0.quote.rawValue, date: $0.date.description,
-                              rate: $0.rate.fileString, source: $0.source?.rawValue)
-                },
-                indices: fetched.indices.map {
-                    JSON.IndexValue(index: $0.index.rawValue, date: $0.date.description, value: $0.value.fileString,
-                                    source: $0.source?.rawValue)
-                },
+                prices: fetched.prices, fx: fetched.fx, indices: fetched.indices,
                 applied: applied.map {
                     JSON.Applied(added: $0.added, replaced: $0.replaced, kept: $0.kept, identical: $0.identical,
                                  written: $0.written, backup: $0.backup)
@@ -319,29 +308,6 @@ struct PricesCommand: RetireSubcommand {
                 var reason: String?
             }
 
-            struct Price: Encodable {
-                var instrument: String
-                var date: String
-                var price: String
-                var currency: String
-                var source: String?
-            }
-
-            struct Rate: Encodable {
-                var base: String
-                var quote: String
-                var date: String
-                var rate: String
-                var source: String?
-            }
-
-            struct IndexValue: Encodable {
-                var index: String
-                var date: String
-                var value: String
-                var source: String?
-            }
-
             struct Applied: Encodable {
                 var added: Int
                 var replaced: Int
@@ -355,9 +321,10 @@ struct PricesCommand: RetireSubcommand {
             var baseCurrency: String
             var needs: Needs
             var entries: [Entry]
-            var prices: [Price]
-            var fx: [Rate]
-            var indices: [IndexValue]
+            /// The fetched records, as in the library's month files.
+            var prices: [PriceRecord]
+            var fx: [FXRecord]
+            var indices: [IndexRecord]
             var applied: Applied?
         }
     }

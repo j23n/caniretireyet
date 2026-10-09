@@ -204,19 +204,7 @@ extension PricesCommand {
                             uniquingKeysWith: { first, _ in first }),
                         reason: result.reason)
                 },
-                prices: (fill?.prices ?? []).map {
-                    Report.JSON.Price(instrument: $0.instrument.rawValue, date: $0.date.description,
-                                      price: $0.price.fileString, currency: $0.currency.rawValue,
-                                      source: $0.source?.rawValue)
-                },
-                fx: (fill?.fx ?? []).map {
-                    Report.JSON.Rate(base: $0.base.rawValue, quote: $0.quote.rawValue, date: $0.date.description,
-                                     rate: $0.rate.fileString, source: $0.source?.rawValue)
-                },
-                indices: (fill?.indices ?? []).map {
-                    Report.JSON.IndexValue(index: $0.index.rawValue, date: $0.date.description,
-                                           value: $0.value.fileString, source: $0.source?.rawValue)
-                },
+                prices: fill?.prices ?? [], fx: fill?.fx ?? [], indices: fill?.indices ?? [],
                 written: written.map {
                     JSON.Written(added: $0.inserted.added, kept: $0.inserted.kept, files: $0.files, backup: $0.backup,
                                  isWritten: $0.isWritten)
@@ -267,9 +255,10 @@ extension PricesCommand {
             var dryRun: Bool
             var needs: Needs
             var results: [Result]
-            var prices: [Report.JSON.Price]
-            var fx: [Report.JSON.Rate]
-            var indices: [Report.JSON.IndexValue]
+            /// The fetched records, as in the library's month files.
+            var prices: [PriceRecord]
+            var fx: [FXRecord]
+            var indices: [IndexRecord]
             var written: Written?
         }
     }
