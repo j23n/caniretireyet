@@ -12,18 +12,6 @@ import Tracker
 /// changed, so a move caused by markets and savings can be told from one
 /// caused by editing the plan.
 struct PlanAnswerHistory: Hashable, Sendable {
-    struct Point: Hashable, Sendable, Identifiable {
-        var date: CalendarDate
-        /// `nil` when no age reached the confidence level.
-        var earliestAge: Int?
-        var successAtTarget: Double?
-        /// Plan assets as a share of what retiring today needed, when the
-        /// check-in recorded it (never the old FI progress).
-        var readiness: Double? = nil
-
-        var id: CalendarDate { date }
-    }
-
     /// Why the answer may have moved for reasons other than your money.
     enum Change: String, Hashable, Sendable, CaseIterable {
         /// The plan's inputs changed (`planHash`).
@@ -54,17 +42,15 @@ struct PlanAnswerHistory: Hashable, Sendable {
         var label: String { changes.map(\.label).joined(separator: " · ") }
     }
 
-    var points: [Point]
+    /// The answers recorded at check-ins, oldest first.
+    var points: [Headline]
     var markers: [Marker]
 
+    /// - Parameter headlines: a plan's, by date (``Library/headlines(for:)``).
     init(_ headlines: [Headline]) {
-        let sorted = headlines.sorted { $0.date < $1.date }
-        points = sorted.map {
-            Point(date: $0.date, earliestAge: $0.earliestAge, successAtTarget: $0.successAtTarget?.doubleValue,
-                  readiness: $0.readiness?.doubleValue)
-        }
+        points = headlines
         var markers: [Marker] = []
-        for (previous, next) in zip(sorted, sorted.dropFirst()) {
+        for (previous, next) in zip(headlines, headlines.dropFirst()) {
             var changes: [Change] = []
             if previous.planHash != next.planHash { changes.append(.plan) }
             if previous.engine != next.engine { changes.append(.engine) }
@@ -72,8 +58,6 @@ struct PlanAnswerHistory: Hashable, Sendable {
         }
         self.markers = markers
     }
-
-    var isEmpty: Bool { points.isEmpty }
 
     /// The latest recorded earliest age.
     var latestAge: Int? { points.last?.earliestAge }
@@ -130,10 +114,6 @@ struct PlanBaselineComparison: Sendable {
     /// Check-ins left out of `actual`: no exchange rate into `currency` on their date.
     var missingRates: [CalendarDate]
     var position: Position?
-
-    init(baseline: Baseline, library: Library, asOf: CalendarDate) {
-        self.init(baseline: baseline, library: library, valuator: Valuator(library: library), asOf: asOf)
-    }
 
     /// With the library's valuator, so several comparisons share it.
     ///
@@ -311,8 +291,8 @@ struct PlanBaselineEntry: Hashable, Sendable, Identifiable {
 /// One calendar year of progress (UI.md, "Progress"): how your plan assets
 /// moved from the end of the year before to its own end (this year's to the
 /// latest check-in), split into what you saved and what markets did; how
-/// the answer moved, and what changed besides your money; and where its end
-/// stands against the year's automatic baseline.
+/// the answer moved; and where its end stands against the year's automatic
+/// baseline.
 struct PlanProgressYear: Hashable, Sendable, Identifiable {
     var year: Int
     /// The day the year is measured from: the last day of the year before,
@@ -332,14 +312,10 @@ struct PlanProgressYear: Hashable, Sendable, Identifiable {
     /// Whether every price and rate was known (an account without a value
     /// yet isn't missing one: ``NetWorth/isPriced``).
     var isComplete: Bool
-    /// What the year's baseline expected you to save in it.
-    var expectedSavings: Decimal?
     /// The answer going into the year (the last recorded before it, else
     /// its first) and at its last check-in with one.
-    var answerFrom: PlanAnswerHistory.Point?
-    var answerTo: PlanAnswerHistory.Point?
-    /// Why the answer may have moved besides your money, during the year.
-    var answerChanges: [PlanAnswerHistory.Change]
+    var answerFrom: Headline?
+    var answerTo: Headline?
     /// The year's automatic baseline ("Start of 2026"), else the latest past
     /// baseline that starts before the year ends (PROGRESS.md, "Past baselines").
     var baseline: PlanBaselineEntry?
@@ -384,18 +360,19 @@ struct PlanProgressYear: Hashable, Sendable, Identifiable {
 
     /// The plan's progress in each calendar year from the first record of
     /// a plan asset (a value, or a trade) through the latest check-in of
-    /// plan assets on or before `asOf`, newest first. Between check-ins,
+    /// plan assets on or before `asOf`, oldest first. Between check-ins,
     /// and in a year without one, what you held is valued at its prices
     /// (PROGRESS.md, "Year by year").
-    static func years(for plan: PlanID, library: Library, valuator: Valuator,
+    ///
+    /// - Parameter history: the plan's answers (``PlanAnswerHistory``).
+    static func years(for plan: PlanID, library: Library, valuator: Valuator, history: PlanAnswerHistory,
                       asOf: CalendarDate) -> [PlanProgressYear] {
         let dates = valuator.checkInDates(in: .planAssets, through: asOf)
         guard let latest = dates.last else { return [] }
         let start = min(valuator.firstValuationDate(in: .planAssets) ?? latest, latest)
-        let history = PlanAnswerHistory(library.headlines(for: plan))
         let baselines = PlanBaselineComparison.baselines(for: plan, in: library)
         let byYear = Dictionary(grouping: dates, by: \.year)
-        return (start.year...latest.year).reversed().compactMap { year -> PlanProgressYear? in
+        return (start.year...latest.year).compactMap { year -> PlanProgressYear? in
             let checkIns = byYear[year] ?? []
             guard let measured = span(of: year, checkIns: checkIns, start: start, isLatest: year == latest.year)
             else { return nil }
@@ -404,7 +381,6 @@ struct PlanProgressYear: Hashable, Sendable, Identifiable {
             let report = valuator.change(from: from, to: last, in: .planAssets)
             let inYear = history.points.filter { $0.date.year == year && $0.date <= last }
             let before = history.points.last { $0.date.year < year }
-            let changes = Set(history.markers.filter { $0.date.year == year }.flatMap(\.changes))
             let baseline = baselines.first { $0.baseline.kind == .yearly && $0.baseline.created.year == year }
                 ?? pastBaseline(for: year, in: baselines)
             let comparison = baseline.map {
@@ -420,9 +396,7 @@ struct PlanProgressYear: Hashable, Sendable, Identifiable {
                 year: year, from: from, to: last, checkIns: checkIns.count, lastCheckIn: checkIns.last,
                 isLatest: year == latest.year,
                 change: report.total, isComplete: report.isPriced,
-                expectedSavings: baseline?.baseline.year(year)?.savings,
                 answerFrom: before ?? inYear.first, answerTo: inYear.last,
-                answerChanges: PlanAnswerHistory.Change.allCases.filter { changes.contains($0) },
                 baseline: baseline, position: comparison?.position, positionCurrency: comparison?.currency,
                 explanation: explanation)
         }
@@ -529,39 +503,16 @@ extension PlanProgressYear {
 /// the answer moved; and the year's story. Oldest first: the strip opens at
 /// today, on the right.
 struct PlanProgressTimeline {
-    /// The answer at a check-in, on a card: where the year started, and each move.
-    struct Chip: Hashable, Sendable, Identifiable {
-        enum Kind: Hashable, Sendable {
-            /// The year's first answer.
-            case start
-            case sooner
-            case later
-            /// It moved with a change of the plan.
-            case planChanged
-        }
-
-        var date: Date
-        var age: Int
-        var kind: Kind
-        var id: Date { date }
-    }
-
-    /// Something that happened at a check-in of the year.
+    /// Something that happened at a check-in of the year: the answer moved,
+    /// or the plan or the calculations changed; a milestone was reached; you
+    /// saved well above usual, markets moved a lot, a baseline was saved.
     struct Note: Hashable, Sendable, Identifiable {
-        enum Kind: Hashable, Sendable {
-            /// The answer moved, or the plan or the calculations changed.
-            case answer
-            /// A milestone reached (PROGRESS.md, "Milestones").
-            case milestone
-            /// Saving well above usual, a big move of markets, a baseline saved.
-            case notable
-        }
-
         var date: CalendarDate
         /// "Mar".
         var month: String
         var text: String
-        var kind: Kind = .answer
+        /// A milestone reached (PROGRESS.md, "Milestones"), in bold in the year's words.
+        var isMilestone = false
         var id: String { "\(date) \(text)" }
     }
 
@@ -575,7 +526,7 @@ struct PlanProgressTimeline {
         var id: String { "\(date.year)-\(date.month)" }
 
         /// Whether a milestone was reached in the month.
-        var hasMilestone: Bool { notes.contains { $0.kind == .milestone } }
+        var hasMilestone: Bool { notes.contains { $0.isMilestone } }
 
         /// The month's notes one after another, its milestones in bold.
         var text: AttributedString {
@@ -583,7 +534,7 @@ struct PlanProgressTimeline {
             for (offset, note) in notes.enumerated() {
                 if offset > 0 { text += AttributedString(" ") }
                 var part = AttributedString(note.text)
-                if note.kind == .milestone { part.inlinePresentationIntent = .stronglyEmphasized }
+                if note.isMilestone { part.inlinePresentationIntent = .stronglyEmphasized }
                 text += part
             }
             return text
@@ -604,7 +555,6 @@ struct PlanProgressTimeline {
         /// (``PlanProgressTimeline/expected(by:days:totals:through:library:valuator:)``);
         /// empty without one.
         let expected: [ChartPoint]
-        let chips: [Chip]
         /// By date.
         let notes: [Note]
         /// The milestones reached in it, at a check-in or a month end,
@@ -721,19 +671,20 @@ struct PlanProgressTimeline {
     let scale: Scale?
 
     /// - Parameters:
+    ///   - years: the years, oldest first (``PlanProgressYear/years(for:library:valuator:history:asOf:)``).
+    ///   - history: the plan's answers.
     ///   - milestones: the milestones the plan's assets reached.
     ///   - text: the milestones' and the notes' words, with their currency.
-    init(years: [PlanProgressYear], plan: PlanID, library: Library, valuator: Valuator,
+    init(years: [PlanProgressYear], plan: PlanID, library: Library, valuator: Valuator, history: PlanAnswerHistory,
          milestones: [ReachedMilestone] = [], text: PlanMilestoneText) {
         let locale = text.locale
-        let history = PlanAnswerHistory(library.headlines(for: plan))
         let dates = valuator.checkInDates(in: .planAssets)
         let changes = zip(dates, dates.dropFirst()).map { before, after in
             (from: before, to: after, change: valuator.change(from: before, to: after, in: .planAssets).total)
         }
         let baselines = PlanBaselineComparison.baselines(for: plan, in: library)
         let checkInDays = Set(dates.map(\.dateValue))
-        cards = years.sorted { $0.year < $1.year }.map { year in
+        cards = years.map { year in
             let start = CalendarDate.firstDay(ofYear: year.year).dateValue
             let end = CalendarDate.lastDay(ofYear: year.year).dateValue
             // From the last day before the year (drawn at its left edge) through its end.
@@ -757,15 +708,15 @@ struct PlanProgressTimeline {
                               through: CalendarDate.lastDay(ofYear: year.year),
                               library: library, valuator: valuator)
             } ?? []
-            let (chips, answerNotes) = Self.answers(in: year, history: history, locale: locale)
+            let answerNotes = Self.answers(in: year, history: history, locale: locale)
             let inYear = milestones.filter { $0.date.year == year.year && $0.date <= year.to }
             let milestoneNotes = inYear.map { reached in
                 Note(date: reached.date, month: Self.month(reached.date, locale: locale),
-                     text: text.reachedInRow(reached.milestone), kind: .milestone)
+                     text: text.reachedInRow(reached.milestone), isMilestone: true)
             }
             let notable = Self.notable(in: year, changes: changes, baselines: baselines, text: text)
             let notes = (answerNotes + milestoneNotes + notable).sorted { $0.date < $1.date }
-            return Card(year: year, actual: actual, expected: expected, chips: chips, notes: notes,
+            return Card(year: year, actual: actual, expected: expected, notes: notes,
                         milestones: inYear, checkIns: checkInDays.intersection(actual.map(\.date)),
                         summary: PlanProgressText.summary(year, milestones: inYear, text: text),
                         currency: library.settings.baseCurrency, start: start, end: end)
@@ -812,29 +763,20 @@ struct PlanProgressTimeline {
         }
     }
 
-    /// The answer's moves in `year`: a chip at its first answer and at each
-    /// change, and a note for each move and each change of the plan or the
-    /// calculations.
-    static func answers(in year: PlanProgressYear, history: PlanAnswerHistory,
-                        locale: Locale) -> (chips: [Chip], notes: [Note]) {
+    /// The answer's moves in `year`: a note for each move and each change
+    /// of the plan or the calculations.
+    static func answers(in year: PlanProgressYear, history: PlanAnswerHistory, locale: Locale) -> [Note] {
         let points = history.points.filter { $0.date.year == year.year && $0.date <= year.to }
         let markers = Dictionary(history.markers.map { ($0.date, $0) }, uniquingKeysWith: { first, _ in first })
-        var chips: [Chip] = []
         var notes: [Note] = []
         var previous = history.points.last { $0.date.year < year.year }?.earliestAge
         // The answers the year has had, so one coming back reads "55 again.".
         var seen = Set(previous.map { [$0] } ?? [])
-        for (offset, point) in points.enumerated() {
+        for point in points {
             let month = Self.month(point.date, locale: locale)
             let marker = markers[point.date]
             if let age = point.earliestAge {
-                if offset == 0 {
-                    chips.append(Chip(date: point.date.dateValue, age: age, kind: .start))
-                }
                 if let before = previous, before != age {
-                    let kind: Chip.Kind = marker?.changes.contains(.plan) == true ? .planChanged
-                        : age < before ? .sooner : .later
-                    if offset > 0 { chips.append(Chip(date: point.date.dateValue, age: age, kind: kind)) }
                     let years = abs(age - before)
                     let move = "\(years == 1 ? "a year" : "\(years) years") \(age < before ? "sooner" : "later")"
                     let cause = marker?.changes.contains(.plan) == true ? "Plan changed: " : ""
@@ -850,7 +792,7 @@ struct PlanProgressTimeline {
                 previous = nil
             }
         }
-        return (chips, notes)
+        return notes
     }
 
     /// "Mar".
@@ -876,19 +818,19 @@ struct PlanProgressTimeline {
             let usual = median(changes[max(0, index - 12)..<index].map(\.change.newMoney))
             if let usual, usual > 0, change.newMoney >= 2 * usual, change.newMoney >= change.start / 100 {
                 notes.append(Note(date: step.to, month: month,
-                                  text: "You saved \(amount(change.newMoney)), more than usual.", kind: .notable))
+                                  text: "You saved \(amount(change.newMoney)), more than usual."))
             }
             if change.start > 0, abs(change.market) >= change.start / 20 {
                 let percent = AmountFormat.percent((abs(change.market) / change.start).doubleValue, digits: 0,
                                                    locale: text.locale)
                 let moved = change.market < 0 ? "Markets fell \(amount(change.market)), \(percent)."
                     : "Markets added \(amount(change.market)), \(percent)."
-                notes.append(Note(date: step.to, month: month, text: moved, kind: .notable))
+                notes.append(Note(date: step.to, month: month, text: moved))
             }
             for entry in baselines where entry.baseline.created > step.from && entry.baseline.created <= step.to {
                 let saved = entry.baseline.kind == .yearly ? "Saved the year's baseline."
                     : entry.baseline.label.map { "Saved a baseline: \($0)." } ?? "Saved a baseline."
-                notes.append(Note(date: step.to, month: month, text: saved, kind: .notable))
+                notes.append(Note(date: step.to, month: month, text: saved))
             }
         }
         return notes

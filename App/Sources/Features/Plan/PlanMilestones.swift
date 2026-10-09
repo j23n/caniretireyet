@@ -23,18 +23,17 @@ struct PlanMilestones {
     /// - Parameters:
     ///   - results: the plan's results shown, for what retiring today needs
     ///     and the median future; without them, nothing is ahead.
-    ///   - known: those reached, when already worked out (Progress keeps
-    ///     them, ``PlanProgressModel``), or `[]` where only what's ahead
-    ///     shows (the Plan screen, the widget). `nil` works them out, which
-    ///     values plan assets at every month since the first record.
+    ///   - reached: those reached, as Progress works them out once
+    ///     (``PlanProgressModel``); none where only what's ahead shows (the
+    ///     Plan screen, the widget).
     init(plan: PlanDocument, library: Library, valuator: Valuator, asOf: CalendarDate, results: PlanResults?,
-         reached known: [ReachedMilestone]? = nil) {
+         reached: [ReachedMilestone] = []) {
         let recorded = library.headlines(for: plan.id).filter { $0.date <= asOf }.max { $0.date < $1.date }
         let readiness = results?.headline.readiness.map(Planner.recordedReadiness) ?? recorded?.readiness
         let needed = results?.details.assetsNeeded?.amount.map { Decimal(wholeNumber: $0) }
         let ladder = MilestoneLadder(plan: plan, library: library, on: asOf, neededToday: needed)
         self.ladder = ladder
-        reached = known ?? ladder.reached(plan: plan.id, library: library, valuator: valuator, through: asOf)
+        self.reached = reached
         let current: Decimal
         let median: [SeriesPoint]
         if let results, let start = results.portfolio.first {
@@ -67,15 +66,18 @@ struct PlanMilestones {
         return ahead.first { $0.id == next.milestone.id }?.date
     }
 
-    /// The milestones reached by a check-in on `date`: on its day, and at
-    /// the ends of the months since the check-in before (`previous`), which
-    /// are valued from what you held and its prices.
-    func reached(since previous: CalendarDate?, through date: CalendarDate) -> [ReachedMilestone] {
-        reached.filter { milestone in
-            guard milestone.date <= date else { return false }
-            guard let previous else { return milestone.date == date }
-            return milestone.date > previous
-        }
+    /// The milestones `plan`'s assets reached by a check-in on `date`: on
+    /// its day, and at the ends of the months since the check-in before
+    /// (`previous`), which are valued from what you held and its prices.
+    static func reached(by plan: PlanDocument, library: Library, valuator: Valuator, since previous: CalendarDate?,
+                        through date: CalendarDate) -> [ReachedMilestone] {
+        MilestoneLadder(plan: plan, library: library, on: date)
+            .reached(plan: plan.id, library: library, valuator: valuator, through: date)
+            .filter { milestone in
+                guard milestone.date <= date else { return false }
+                guard let previous else { return milestone.date == date }
+                return milestone.date > previous
+            }
     }
 
     /// The coast point, when a check-in reached it; `nil` if none did.
@@ -244,12 +246,5 @@ struct PlanMilestoneText {
     /// "88% there".
     func progress(_ next: NextMilestone) -> String {
         "\(AmountFormat.percent(next.progress, digits: 0, locale: locale)) there"
-    }
-
-    /// "Next milestone: 400.000 €, 88% there, typically by mid 2027."
-    func nextSentence(_ next: NextMilestone, date: CalendarDate?) -> String {
-        var text = "Next milestone: \(name(next.milestone)), \(progress(next))"
-        if let date { text += ", typically by \(Self.when(date))" }
-        return text + "."
     }
 }

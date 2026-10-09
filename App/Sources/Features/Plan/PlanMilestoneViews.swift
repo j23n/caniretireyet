@@ -110,12 +110,10 @@ struct PlanMilestoneBar: View {
 }
 
 /// The milestones (UI.md, "Milestones"): the next with how far there, then
-/// those reached, newest first, and those ahead, soonest first; side by
-/// side on the Mac.
+/// those reached, newest first, and those ahead, soonest first.
 struct PlanMilestonesCard: View {
     let milestones: PlanMilestones
     let text: PlanMilestoneText
-    var isWide = false
     /// Whether the plan has results: without them nothing is ahead yet.
     var hasResults = true
 
@@ -135,17 +133,8 @@ struct PlanMilestonesCard: View {
                 PlanCoastAgeView(age: milestones.coastAge, target: milestones.ladder.coastTarget)
                 Divider()
             }
-            if isWide {
-                HStack(alignment: .top, spacing: Metrics.xl) {
-                    reachedList
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                    aheadList
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                }
-            } else {
-                reachedList
-                aheadList
-            }
+            reachedList
+            aheadList
         } header: {
             SectionHeader("Milestones")
         }

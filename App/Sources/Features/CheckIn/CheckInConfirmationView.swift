@@ -112,8 +112,8 @@ struct CheckInConfirmationView: View {
     private var reachedMilestones: [ReachedMilestone] {
         guard let plan = library.mainPlan else { return [] }
         let previous = library.valuator.previousCheckIn(before: result.date, in: .planAssets)
-        return PlanMilestones(plan: plan, library: library.library, valuator: library.valuator, asOf: result.date,
-                              results: nil).reached(since: previous, through: result.date)
+        return PlanMilestones.reached(by: plan, library: library.library, valuator: library.valuator,
+                                      since: previous, through: result.date)
     }
 
     /// "Passed 300.000 €."

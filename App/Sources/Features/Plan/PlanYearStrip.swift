@@ -487,7 +487,7 @@ struct PlanYearCardView: View {
         let day = CalendarDate(point.date, in: .current)
         return Reading(point: point, expected: card.expected(on: point.date),
                        milestones: card.milestones.filter { flagPoint(for: $0)?.date == point.date },
-                       notes: card.notes.filter { $0.date == day && $0.kind != .milestone })
+                       notes: card.notes.filter { $0.date == day && !$0.isMilestone })
     }
 
     /// The point on the line a milestone's flag stands on: the one nearest the day it was reached.

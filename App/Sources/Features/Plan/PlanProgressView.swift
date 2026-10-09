@@ -16,7 +16,7 @@ struct PlanProgressView: View {
     /// Asks for a label and saves a baseline (the screen owns the alert).
     let onSaveBaseline: () -> Void
     /// Shows the plan.
-    var onShowPlan: (() -> Void)?
+    let onShowPlan: () -> Void
 
     @Environment(LibraryStore.self) private var library
     @Environment(\.hidesAmounts) private var hidesAmounts
@@ -35,10 +35,6 @@ struct PlanProgressView: View {
     /// The column beside the strip on the Mac and iPad: the milestones and what's next.
     private static let sideWidth: CGFloat = 300
 
-    private var answerHistory: PlanAnswerHistory {
-        PlanAnswerHistory(library.library.headlines(for: session.planID))
-    }
-
     private var baselines: [PlanBaselineEntry] {
         PlanBaselineComparison.baselines(for: session.planID, in: library.library)
     }
@@ -49,7 +45,6 @@ struct PlanProgressView: View {
 
     var body: some View {
         let progress = progressModel
-        let years = progress.years
         let timeline = progress.timeline
         let milestones = session.plan.map {
             PlanMilestones(plan: $0, library: library.library, valuator: library.valuator, asOf: library.asOfDate,
@@ -57,7 +52,7 @@ struct PlanProgressView: View {
         }
         ScrollView {
             VStack(alignment: .leading, spacing: Metrics.l) {
-                headline(years.first)
+                headline(timeline.cards.last?.year, history: progress.history)
                     .padding(.horizontal, gutter)
                 if isWide {
                     HStack(alignment: .top, spacing: Metrics.l) {
@@ -79,7 +74,7 @@ struct PlanProgressView: View {
                     footer
                         .padding(.horizontal, gutter)
                 }
-                moreCharts
+                moreCharts(progress.history)
                     .padding(.horizontal, gutter)
             }
             .padding(.vertical, gutter)
@@ -95,13 +90,12 @@ struct PlanProgressView: View {
         }
     }
 
-    /// The years, the milestones reached and the strip, worked out once for
-    /// each state of the library and the plan (``PlanProgressModel``).
+    /// The answers, the milestones reached and the strip of years, worked out
+    /// once for each state of the library and the plan (``PlanProgressModel``).
     private var progressModel: PlanProgressModel {
         let asOf = library.asOfDate
-        let key = PlanProgressModel.Key(revision: library.revision, plan: session.planID,
-                                        document: session.plan?.hashValue ?? 0, asOf: asOf,
-                                        hidesAmounts: hidesAmounts, locale: locale.identifier)
+        let key = PlanProgressModel.Key(revision: library.revision, plan: session.planID, document: session.plan,
+                                        asOf: asOf, hidesAmounts: hidesAmounts, locale: locale.identifier)
         return cache.model(for: key) {
             PlanProgressModel(plan: session.planID, document: session.plan, library: library.library,
                               valuator: library.valuator, asOf: asOf, text: milestoneText)
@@ -111,12 +105,12 @@ struct PlanProgressView: View {
     // MARK: Are you on track?
 
     @ViewBuilder
-    private func headline(_ latest: PlanProgressYear?) -> some View {
+    private func headline(_ latest: PlanProgressYear?, history: PlanAnswerHistory) -> some View {
         let position = latest?.position
         let title = PlanProgressText.headline(position)
         let detail = PlanProgressText.headlineDetail(latest, currency: latest?.positionCurrency ?? library.baseCurrency,
                                                      hidesAmounts: hidesAmounts, locale: locale)
-        let tiles = self.tiles
+        let tiles = self.tiles(history)
         let month = monthReport
         if isWide {
             // The tiles beside the words when there's room for both, else under them.
@@ -212,7 +206,7 @@ struct PlanProgressView: View {
     /// "To go · 15½ years", "Since Jan 2024 · 3 years sooner". To go is
     /// from the plan's results, else the answer recorded at the latest
     /// check-in (its age, on your birthday).
-    private var tiles: [Tile] {
+    private func tiles(_ answerHistory: PlanAnswerHistory) -> [Tile] {
         var tiles: [Tile] = []
         if let headline = session.shownResults?.headline {
             if headline.canRetireNow {
@@ -371,10 +365,8 @@ struct PlanProgressView: View {
                         .foregroundStyle(Palette.ink)
                         .fixedSize(horizontal: false, vertical: true)
                     Spacer(minLength: Metrics.s)
-                    if let onShowPlan {
-                        Button("Open", action: onShowPlan)
-                            .buttonStyle(.borderless)
-                    }
+                    Button("Open", action: onShowPlan)
+                        .buttonStyle(.borderless)
                 }
                 .font(PlanProgressFont.text)
             }
@@ -407,17 +399,17 @@ struct PlanProgressView: View {
 
     // MARK: More charts
 
-    private var moreCharts: some View {
+    private func moreCharts(_ history: PlanAnswerHistory) -> some View {
         DisclosureGroup(isExpanded: $showsMoreCharts) {
             Group {
                 if isWide {
                     EqualColumns(spacing: Metrics.l) {
-                        answerCard
+                        answerCard(history)
                         baselineCard
                     }
                 } else {
                     VStack(alignment: .leading, spacing: Metrics.l) {
-                        answerCard
+                        answerCard(history)
                         baselineCard
                     }
                 }
@@ -435,9 +427,8 @@ struct PlanProgressView: View {
         }
     }
 
-    private var answerCard: some View {
-        let history = answerHistory
-        return Card {
+    private func answerCard(_ history: PlanAnswerHistory) -> some View {
+        Card {
             Text("Earliest retirement age at each check-in")
                 .font(.caption)
                 .foregroundStyle(Palette.secondaryInk)
@@ -479,11 +470,6 @@ struct PlanProgressView: View {
         gap >= 0 ? "ahead of the median" : "behind the median"
     }
 
-    /// "The baseline's accounts and those opened since, in EUR of 31 Dec 2025."
-    private func unitsNote(_ comparison: PlanBaselineComparison) -> String {
-        comparison.unitsNote(baseCurrency: library.baseCurrency, locale: locale)
-    }
-
     /// "▼ −3 years".
     private func changeText(_ years: Int) -> String {
         let arrow = years < 0 ? "▼" : "▲"
@@ -520,7 +506,7 @@ struct PlanProgressView: View {
                         .font(.footnote)
                         .foregroundStyle(Palette.secondaryInk)
                 }
-                Text(unitsNote(comparison))
+                Text(comparison.unitsNote(baseCurrency: library.baseCurrency, locale: locale))
                     .font(.caption)
                     .foregroundStyle(Palette.mutedInk)
                     .fixedSize(horizontal: false, vertical: true)

@@ -4,13 +4,13 @@ import Planner
 import Tracker
 
 /// What Progress works out from the library (UI.md, "Progress"): the
-/// years, the milestones reached and the strip of years. It values plan
-/// assets at every check-in and month end since the first record, so the
-/// page works it out once for each state of the library and the plan
-/// (``PlanProgressCache``), not each time it draws, as choosing a year does.
+/// answers recorded, the milestones reached and the strip of years. It
+/// values plan assets at every check-in and month end since the first
+/// record, so the page works it out once for each state of the library and
+/// the plan (``PlanProgressCache``), not each time it draws, as choosing a
+/// year does.
 struct PlanProgressModel {
-    /// Newest first.
-    let years: [PlanProgressYear]
+    let history: PlanAnswerHistory
     /// Oldest first.
     let reached: [ReachedMilestone]
     let timeline: PlanProgressTimeline
@@ -21,7 +21,7 @@ struct PlanProgressModel {
         var revision: Int
         var plan: PlanID
         /// The plan as shown, which may hold an edit not saved yet.
-        var document: Int
+        var document: PlanDocument?
         var asOf: CalendarDate
         var hidesAmounts: Bool
         var locale: String
@@ -29,14 +29,17 @@ struct PlanProgressModel {
 
     init(plan: PlanID, document: PlanDocument?, library: Library, valuator: Valuator, asOf: CalendarDate,
          text: PlanMilestoneText) {
-        years = PlanProgressYear.years(for: plan, library: library, valuator: valuator, asOf: asOf)
+        let history = PlanAnswerHistory(library.headlines(for: plan))
+        self.history = history
+        let years = PlanProgressYear.years(for: plan, library: library, valuator: valuator, history: history,
+                                           asOf: asOf)
         // What's reached doesn't depend on the results: only what's ahead does.
         reached = document.map {
             MilestoneLadder(plan: $0, library: library, on: asOf)
                 .reached(plan: plan, library: library, valuator: valuator, through: asOf)
         } ?? []
         timeline = PlanProgressTimeline(years: years, plan: plan, library: library, valuator: valuator,
-                                        milestones: reached, text: text)
+                                        history: history, milestones: reached, text: text)
     }
 }
 

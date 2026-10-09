@@ -11,7 +11,7 @@ struct PlanAnswerHistoryChart: View {
 
     @State private var selectedDate: Date?
 
-    private var points: [PlanAnswerHistory.Point] {
+    private var points: [Headline] {
         history.points.filter { $0.earliestAge != nil }
     }
 
@@ -30,7 +30,7 @@ struct PlanAnswerHistoryChart: View {
 
     private var chart: some View {
         Chart {
-            ForEach(points) { point in
+            ForEach(points, id: \.date) { point in
                 LineMark(x: .value("Check-in", point.date.dateValue),
                          y: .value("Earliest age", point.earliestAge ?? 0))
                     .interpolationMethod(.stepEnd)
@@ -92,21 +92,21 @@ struct PlanAnswerHistoryChart: View {
         .chartLegend(.hidden)
     }
 
-    private var selectedPoint: PlanAnswerHistory.Point? {
+    private var selectedPoint: Headline? {
         guard let selectedDate else { return nil }
         return points.min {
             abs($0.date.dateValue.timeIntervalSince(selectedDate)) < abs($1.date.dateValue.timeIntervalSince(selectedDate))
         }
     }
 
-    private func callout(for point: PlanAnswerHistory.Point, age: Int) -> some View {
+    private func callout(for point: Headline, age: Int) -> some View {
         VStack(alignment: .leading, spacing: 2) {
             Text(AmountFormat.mediumDate(point.date))
                 .font(.caption2)
                 .foregroundStyle(Palette.secondaryInk)
             Text("Earliest \(age)")
                 .font(.caption.weight(.semibold))
-            if let readiness = point.readiness {
+            if let readiness = point.readiness?.doubleValue {
                 Text(AmountFormat.percent(PlanResultsText.readinessShare(readiness), digits: 0) + " of what retiring today needed")
                     .font(.caption2)
                     .foregroundStyle(Palette.secondaryInk)
