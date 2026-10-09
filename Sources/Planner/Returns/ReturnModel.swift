@@ -119,8 +119,7 @@ struct ReturnModel: Sendable {
         switch assetClass {
         case .realEstate: return "Real estate"
         default:
-            let raw = assetClass.rawValue
-            return raw.prefix(1).uppercased() + raw.dropFirst()
+            return assetClass.rawValue.capitalizedFirst
         }
     }
 

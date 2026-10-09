@@ -66,7 +66,7 @@ enum PlanIssueText {
     /// An asset class as the assumptions editor names it: "Crypto", "Real estate".
     static func assetClassName(_ rawValue: String) -> String {
         if rawValue == AssetClass.realEstate.rawValue { return "Real estate" }
-        return rawValue.prefix(1).uppercased() + rawValue.dropFirst()
+        return rawValue.capitalizedFirst
     }
 
     /// `text` with each whole `word` replaced: not part of a longer ID

@@ -145,7 +145,7 @@ struct PlanMilestoneText {
         if let date { parts.append("typically by \(Self.when(date))") }
         guard !parts.isEmpty else { return nil }
         let text = parts.joined(separator: " · ")
-        return text.prefix(1).uppercased() + text.dropFirst()
+        return text.capitalizedFirst
     }
 
     /// What it means, under its name: "Enough to pay for 10 years of the

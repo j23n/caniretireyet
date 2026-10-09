@@ -155,7 +155,7 @@ struct CalculationsReport {
         for step in plan.portfolio.targetMixByAge {
             guard let mix = Portfolio.shares(step.mix) else { continue }
             let from = step.fromAge.age.map { "from \($0)" } ?? "from retirement"
-            lines.append("- \(from.prefix(1).uppercased() + from.dropFirst()): \(describe(mix)).")
+            lines.append("- \(from.capitalizedFirst): \(describe(mix)).")
         }
         let returns = model.returns
         lines += ["", "| Class | Mean | Median | Volatility | Income yield |", "|---|---:|---:|---:|---:|"]

@@ -338,7 +338,7 @@ struct PlanProgressYear: Hashable, Sendable, Identifiable {
     /// ``expectation(locale:)`` starting a sentence: "January", "Your 2021 plan".
     func expectationTitle(locale: Locale = .current) -> String {
         let words = expectation(locale: locale)
-        return words.prefix(1).uppercased() + words.dropFirst()
+        return words.capitalizedFirst
     }
 
     /// How the earliest age moved in the year: negative is earlier (good);
@@ -945,7 +945,7 @@ enum PlanProgressText {
         }
         guard let first = parts.first else { return nil }
         let sentence = parts.count > 1 ? first + ", and " + parts[1] : first
-        return sentence.prefix(1).uppercased() + sentence.dropFirst() + "."
+        return sentence.capitalizedFirst + "."
     }
 
     /// How the earliest age moved by `change` years (negative is sooner):

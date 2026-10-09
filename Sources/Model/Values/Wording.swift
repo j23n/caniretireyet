@@ -14,3 +14,11 @@ public enum Wording {
         return items.dropLast().joined(separator: ", ") + (or ? " or " : " and ") + last
     }
 }
+
+extension String {
+    /// The string with its first letter capitalised, for the start of a
+    /// sentence: "in 9 of 10 futures" → "In 9 of 10 futures".
+    public var capitalizedFirst: String {
+        self.prefix(1).uppercased() + self.dropFirst()
+    }
+}

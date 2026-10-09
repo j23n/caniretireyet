@@ -365,10 +365,3 @@ extension ImportFlow {
         columnRows.filter(\.isUnknown).count
     }
 }
-
-private extension String {
-    /// The string with its first letter uppercased: "column 3" → "Column 3".
-    var capitalizedFirst: String {
-        prefix(1).uppercased() + dropFirst()
-    }
-}

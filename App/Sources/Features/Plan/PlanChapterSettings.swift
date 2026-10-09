@@ -170,7 +170,7 @@ enum PlanChapterSettings {
                 let phrase = PlanChapterStory.mixPhrase(item, plan: plan, words: words)
                 return [PlanSettingRow(id: "mix-\(item)", symbol: "chart.pie", kind: .mix, title: title,
                                        subtitle: "The target mix",
-                                       value: phrase.prefix(1).uppercased() + phrase.dropFirst(),
+                                       value: phrase.capitalizedFirst,
                                        opens: .sheet(item))]
             case .end:
                 return [PlanSettingRow(id: "end", symbol: "flag.checkered", kind: .end, title: "The plan ends at",

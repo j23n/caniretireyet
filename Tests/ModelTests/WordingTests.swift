@@ -18,4 +18,10 @@ struct WordingTests {
         #expect(Wording.list(["a", "b", "c"], or: true) == "a, b or c")
         #expect(Wording.list(["Fineco", "Fineco"]) == "Fineco and Fineco")
     }
+
+    @Test func capitalizedFirst() {
+        #expect("in 9 of 10 futures".capitalizedFirst == "In 9 of 10 futures")
+        #expect("2 years later".capitalizedFirst == "2 years later")
+        #expect("".capitalizedFirst == "")
+    }
 }

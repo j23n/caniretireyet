@@ -431,13 +431,6 @@ struct RetirementSection: View {
     }
 }
 
-extension String {
-    /// The string with its first letter capitalised: "In 9 of 10…".
-    var capitalizedFirst: String {
-        prefix(1).uppercased() + dropFirst()
-    }
-}
-
 #if os(iOS)
 /// Net worth's changes on the lock screen, in per cent only: the lock
 /// screen shows while the device is locked.

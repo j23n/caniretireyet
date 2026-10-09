@@ -272,7 +272,7 @@ enum PlanTimelineText {
         let sentence: String = if let age {
             (isPlanned ? "At \(age), as planned, " : "If you stop at \(age), ") + futures
         } else {
-            futures.prefix(1).uppercased() + futures.dropFirst()
+            futures.capitalizedFirst
         }
         return success >= bar ? "\(sentence). That meets your bar." : "\(sentence). Your bar is \(share(bar))."
     }

@@ -46,7 +46,7 @@ struct DecodingProblem: Error, CustomStringConvertible {
     init(error: DecodingError, json: JSONValue, location: String = "") {
         func located(_ path: [any CodingKey], _ message: String) -> String {
             let place = Self.pathText(path, after: location)
-            guard !place.isEmpty else { return message.prefix(1).uppercased() + message.dropFirst() }
+            guard !place.isEmpty else { return message.capitalizedFirst }
             return "\(place): \(message)"
         }
         switch error {

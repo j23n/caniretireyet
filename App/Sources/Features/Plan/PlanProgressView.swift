@@ -225,9 +225,7 @@ struct PlanProgressView: View {
             }
         }
         if let change = answerHistory.change {
-            let count = abs(change.years)
-            let value = change.years == 0 ? "No change"
-                : "\(count == 1 ? "A year" : "\(count) years") \(change.years < 0 ? "sooner" : "later")"
+            let value = change.years == 0 ? "No change" : PlanProgressText.move(years: change.years).capitalizedFirst
             tiles.append(Tile(title: "Since \(GlanceText.shortMonthAndYear(change.since, locale: locale))",
                               value: value))
         }

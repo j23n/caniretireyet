@@ -147,11 +147,6 @@ enum TradeWording {
         return "the \(TradeTypeDisplay.name(trade.type).lowercased())\(what) on "
             + AmountFormat.mediumDate(trade.date, locale: locale)
     }
-
-    /// `text` with its first letter capitalised.
-    static func capitalized(_ text: String) -> String {
-        text.prefix(1).uppercased() + text.dropFirst()
-    }
 }
 
 // MARK: - The list of trades
@@ -454,18 +449,18 @@ struct TradeIssueNote: Hashable, Sendable, Identifiable {
             let problems = trade.problems.map(\.message)
             let message = problems.isEmpty ? "Its amount can't be worked out." : problems.joined(separator: " ")
             return TradeIssueNote(id: "invalidTrade.\(trade.key)", isError: isError,
-                                  title: TradeWording.capitalized(what) + " needs a look", message: message,
+                                  title: what.capitalizedFirst + " needs a look", message: message,
                                   actionTitle: "Edit Trade…", action: edit)
         case .oversold:
             return TradeIssueNote(
                 id: id, isError: isError, title: "More sold than held",
-                message: TradeWording.capitalized(what) + " takes away more than the account held then. Is a buy or "
+                message: what.capitalizedFirst + " takes away more than the account held then. Is a buy or "
                     + "an opening missing, or is the date wrong?",
                 actionTitle: "Edit Trade…", action: edit)
         case .unknownCost:
             return TradeIssueNote(
                 id: id, isError: isError, title: "Purchase cost unknown",
-                message: TradeWording.capitalized(what) + " has no cost, so the purchase cost and gains of "
+                message: what.capitalizedFirst + " has no cost, so the purchase cost and gains of "
                     + (trade?.instrument.map { TradeWording.instrumentLabel($0, in: library) } ?? "the instrument")
                     + " aren't known. Add its cost (valore di carico) from the statement.",
                 actionTitle: "Edit Trade…", action: edit)
@@ -480,13 +475,13 @@ struct TradeIssueNote: Hashable, Sendable, Identifiable {
         case .splitNotHeld:
             return TradeIssueNote(
                 id: id, isError: isError, title: "A split of what isn't held",
-                message: TradeWording.capitalized(what) + " changes nothing: the account doesn't hold it then. Is "
+                message: what.capitalizedFirst + " changes nothing: the account doesn't hold it then. Is "
                     + "the date right?",
                 actionTitle: "Edit Trade…", action: edit)
         case .outsideAccountDates:
             return TradeIssueNote(
                 id: id, isError: isError, title: "Outside the account's dates",
-                message: TradeWording.capitalized(what) + " is dated outside the days the account is open, so it "
+                message: what.capitalizedFirst + " is dated outside the days the account is open, so it "
                     + "counts only from its opening date. Change the trade's date, or the account's dates.",
                 actionTitle: "Edit Trade…", action: edit)
         case .balanceIgnored:

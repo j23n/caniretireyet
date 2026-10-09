@@ -64,7 +64,7 @@ public struct ImportAmbiguity: Hashable, Sendable, CustomStringConvertible {
             let formats = options.compactMap { $0.number.map { NumberParser(format: $0).example } }
             return "Numbers in \(place) could be written \(formats.joined(separator: " or "))\(sample)."
         case .dateOrNumber:
-            return "\(place.prefix(1).uppercased() + place.dropFirst()) could hold Excel dates or numbers\(sample)."
+            return "\(place.capitalizedFirst) could hold Excel dates or numbers\(sample)."
         }
     }
 
