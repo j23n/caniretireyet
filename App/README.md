@@ -234,7 +234,7 @@ Dropping a CSV file anywhere on the window calls `navigation.startImport(file)`.
 
 ## Charts
 
-`Components/Charts/`: Swift Charts views that take plain values (`ChartData.swift`), never stores, so they preview with made-up numbers. Thin 2 pt lines (in `Palette.stroke(for:)`), washes rather than solid areas, faint gridlines, compact axis labels (a relative axis while amounts are hidden), legends in a row of their own above the chart, drag to read any value (`chartXSelection`) with the callout kept inside the chart, and a VoiceOver summary (`accessibilityChartDescriptor`) on every chart.
+`Components/Charts/`: Swift Charts views that take plain values (`ChartData.swift`), never stores, so they preview with made-up numbers. Thin 2 pt lines (in `Palette.stroke(for:)`), washes rather than solid areas, faint gridlines, compact axis labels (a relative axis while amounts are hidden), legends in a row of their own above the chart, drag to read any value (`chartXSelection`) with the callout kept inside the chart, and a VoiceOver summary (`accessibilityChartDescriptor`) on every chart, whose audio graph reads amounts with `ChartStyle.spokenAmount(currency:hidden:)`, so they hide with the eye.
 
 | View | Input | Notes |
 | --- | --- | --- |

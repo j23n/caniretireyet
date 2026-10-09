@@ -124,7 +124,7 @@ struct WaterfallChart: View {
         return ChartSummary(
             title: "Change", summary: words.joined(separator: ", ") + ".", xTitle: "Part", yTitle: "Amount",
             series: [ChartSummary.Series(name: "Change", points: bars.bars.map { ($0.label, $0.value) })],
-            describeValue: ChartStyle.spokenAmount(currency: currency))
+            describeValue: ChartStyle.spokenAmount(currency: currency, hidden: hidesAmounts))
     }
 }
 

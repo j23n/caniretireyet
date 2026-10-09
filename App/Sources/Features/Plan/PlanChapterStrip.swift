@@ -94,9 +94,12 @@ struct PlanChapterStrip: View {
             describeValue: ChartStyle.spokenAmount(currency: currency, hidden: hidesAmounts))
     }
 
+    /// What VoiceOver reads for a chapter's card, and its chart's summary:
+    /// the chapter, and where the money typically stands at its end, left
+    /// out while amounts are hidden.
     private func accessibilityLabel(_ card: PlanTimeline.Card) -> String {
         var label = "Chapter \(card.index + 1), \(card.title), \(card.span)"
-        if let outcome = card.outcome {
+        if let outcome = card.outcome, !hidesAmounts {
             label += ". At \(outcome.age), typically \(AmountFormat.compactAmount(outcome.median, currency: currency))"
         }
         return label

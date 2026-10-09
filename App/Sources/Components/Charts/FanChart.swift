@@ -159,7 +159,7 @@ struct FanChart: View {
         return ChartSummary(
             title: "Your money over time", summary: text, xTitle: "Year", yTitle: "Portfolio",
             series: [ChartSummary.Series(name: "Median", points: points)],
-            describeValue: ChartStyle.spokenAmount(currency: resolved))
+            describeValue: ChartStyle.spokenAmount(currency: resolved, hidden: hidesAmounts))
     }
 }
 

@@ -44,17 +44,13 @@ struct ChartSummary: AXChartDescriptorRepresentable {
 
 /// Shared chart styling: faint grid, muted axis labels, compact numbers.
 enum ChartStyle {
-    /// How VoiceOver reads a chart value: the full amount in the currency.
-    static func spokenAmount(currency: CurrencyCode) -> @Sendable (Double) -> String {
-        { value in
-            AmountFormat.amount(Decimal(wholeNumber: value), currency: currency)
-        }
-    }
-
-    /// How VoiceOver reads an amount on a strip's card (the chapters', the
-    /// years'): in full, or hidden with the eye.
+    /// How VoiceOver reads an amount in a chart's audio graph and chart
+    /// details: the full amount in the currency, or hidden with the eye
+    /// (`hidden`: the chart's `\.hidesAmounts`), as its labels are.
     static func spokenAmount(currency: CurrencyCode, hidden: Bool) -> @Sendable (Double) -> String {
-        guard hidden else { return spokenAmount(currency: currency) }
+        guard hidden else {
+            return { value in AmountFormat.amount(Decimal(wholeNumber: value), currency: currency) }
+        }
         let text = AmountFormat.hidden
         return { _ in text }
     }

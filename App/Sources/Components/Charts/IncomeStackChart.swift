@@ -193,7 +193,7 @@ struct IncomeStackChart: View {
         }
         return ChartSummary(
             title: "Income by year", summary: "Stacked by source: \(names).", xTitle: "Year", yTitle: "Amount",
-            series: series, describeValue: ChartStyle.spokenAmount(currency: baseCurrency))
+            series: series, describeValue: ChartStyle.spokenAmount(currency: baseCurrency, hidden: hidesAmounts))
     }
 }
 

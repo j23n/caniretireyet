@@ -204,7 +204,7 @@ struct AccountHistoryChart: View {
         return ChartSummary(
             title: "Account value", summary: text, xTitle: "Date", yTitle: "Value",
             series: [ChartSummary.Series(name: "Value", points: described)],
-            describeValue: ChartStyle.spokenAmount(currency: currency))
+            describeValue: ChartStyle.spokenAmount(currency: currency, hidden: hidesAmounts))
     }
 }
 

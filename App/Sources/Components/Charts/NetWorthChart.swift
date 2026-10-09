@@ -328,7 +328,7 @@ struct NetWorthChart: View {
         return ChartSummary(
             title: title, summary: text, xTitle: "Date", yTitle: title,
             series: [ChartSummary.Series(name: title, points: spoken(history))] + groups,
-            describeValue: ChartStyle.spokenAmount(currency: currency))
+            describeValue: ChartStyle.spokenAmount(currency: currency, hidden: hidesAmounts))
     }
 }
 
