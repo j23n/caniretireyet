@@ -2,21 +2,6 @@ import Foundation
 import Importer
 import Model
 
-/// A setting that is either detected from the file or chosen.
-enum Detectable<Value: Hashable & Sendable>: Hashable, Sendable {
-    case detected
-    case chosen(Value)
-
-    init(_ value: Value?) {
-        if let value { self = .chosen(value) } else { self = .detected }
-    }
-
-    /// The chosen value; `nil` when detected.
-    var value: Value? {
-        if case .chosen(let value) = self { value } else { nil }
-    }
-}
-
 /// A value from the file and how it reads with the current settings: the
 /// Format step's live samples.
 struct ImportSample: Hashable, Sendable, Identifiable {
@@ -30,41 +15,36 @@ struct ImportSample: Hashable, Sendable, Identifiable {
 
 /// The Format step: how the file is read (encoding, delimiter, header row,
 /// footer rule) and how its values are written (separators, dates, empty
-/// cells, debts), with samples, and the guesses to confirm.
+/// cells, debts), with samples, and the guesses to confirm. A setting
+/// that is `nil` is detected from the file.
 extension ImportFlow {
     // MARK: Reading the file
 
-    /// The encoding chosen, or detected.
-    var encoding: Detectable<TextEncodingName> {
-        Detectable(session?.profile.file.encoding)
-    }
+    /// The encoding chosen.
+    var encoding: TextEncodingName? { session?.profile.file.encoding }
 
     /// The encoding the file was read with.
     var encodingInUse: TextEncodingName? { session?.table.encoding }
 
-    mutating func setEncoding(_ encoding: Detectable<TextEncodingName>) {
-        reread { $0.encoding = encoding.value }
+    mutating func setEncoding(_ encoding: TextEncodingName?) {
+        reread { $0.encoding = encoding }
     }
 
-    var delimiter: Detectable<String> {
-        Detectable(session?.profile.file.delimiter)
-    }
+    var delimiter: String? { session?.profile.file.delimiter }
 
     var delimiterInUse: String? { session?.table.delimiter }
 
-    mutating func setDelimiter(_ delimiter: Detectable<String>) {
-        reread { $0.delimiter = delimiter.value }
+    mutating func setDelimiter(_ delimiter: String?) {
+        reread { $0.delimiter = delimiter }
     }
 
-    /// The 1-based header row chosen (0 for none), or detected.
-    var headerRow: Detectable<Int> {
-        Detectable(session?.profile.file.headerRow)
-    }
+    /// The 1-based header row chosen (0 for none).
+    var headerRow: Int? { session?.profile.file.headerRow }
 
     var headerRowInUse: Int? { session?.table.headerRow }
 
-    mutating func setHeaderRow(_ row: Detectable<Int>) {
-        reread { $0.headerRow = row.value }
+    mutating func setHeaderRow(_ row: Int?) {
+        reread { $0.headerRow = row }
     }
 
     /// The rows that can be the header: the first 30 rows of the file.
@@ -96,47 +76,35 @@ extension ImportFlow {
 
     // MARK: Values
 
-    /// The file's decimal separator, chosen or detected per column.
-    var decimal: Detectable<String> {
-        Detectable(session?.profile.defaults.number?.decimal)
-    }
+    /// The file's decimal separator; `nil`: detected per column.
+    var decimal: String? { session?.profile.defaults.number?.decimal }
 
     /// The decimal separator most number columns were detected with.
     var detectedDecimal: String {
         session?.detection.defaults.number?.decimal ?? "."
     }
 
-    mutating func setDecimal(_ decimal: Detectable<String>) {
+    mutating func setDecimal(_ decimal: String?) {
+        editNumberDefaults { $0.setDecimal(decimal) }
+    }
+
+    /// The thousands separator: `""` for none; `nil`: detected per column.
+    var thousands: String? { session?.profile.defaults.number?.thousands }
+
+    mutating func setThousands(_ thousands: String?) {
+        editNumberDefaults { $0.setThousands(thousands) }
+    }
+
+    private mutating func editNumberDefaults(_ change: (inout ImportNumberFormat) -> Void) {
         editSession { session in
             var number = session.profile.defaults.number ?? ImportNumberFormat()
-            number.decimal = decimal.value
-            if let separator = decimal.value, number.thousands == separator {
-                number.thousands = separator == "," ? "." : ","
-            }
+            change(&number)
             session.profile.defaults.number = number == ImportNumberFormat() ? nil : number
         }
     }
 
-    /// The thousands separator: `""` for none; detected per column when not chosen.
-    var thousands: Detectable<String> {
-        Detectable(session?.profile.defaults.number?.thousands)
-    }
-
-    mutating func setThousands(_ thousands: Detectable<String>) {
-        editSession { session in
-            var number = session.profile.defaults.number ?? ImportNumberFormat()
-            number.thousands = thousands.value
-            if let separator = thousands.value, number.decimal == separator {
-                number.decimal = separator == "," ? "." : ","
-            }
-            session.profile.defaults.number = number == ImportNumberFormat() ? nil : number
-        }
-    }
-
-    /// The date pattern, chosen or detected.
-    var datePattern: Detectable<String> {
-        Detectable(session?.profile.defaults.date?.pattern)
-    }
+    /// The date pattern chosen.
+    var datePattern: String? { session?.profile.defaults.date?.pattern }
 
     /// The pattern detected in the date column.
     var detectedDatePattern: String? {
@@ -145,8 +113,8 @@ extension ImportFlow {
             ?? session.detection.defaults.date?.pattern
     }
 
-    mutating func setDatePattern(_ pattern: Detectable<String>) {
-        editDateDefaults { $0.pattern = pattern.value }
+    mutating func setDatePattern(_ pattern: String?) {
+        editDateDefaults { $0.pattern = pattern }
     }
 
     /// Where month-only dates land (default: the month's last day).
@@ -285,6 +253,22 @@ extension ImportFlow {
         return session.table.rows.filter { !$0[dateColumn].isEmpty }.reduce(0) { count, row in
             count + columns.filter { row[$0].isEmpty }.count
         }
+    }
+}
+
+extension ImportNumberFormat {
+    /// Sets the decimal separator; a thousands separator that's the same
+    /// gives way: it becomes `.` when they're `,`, and `,` otherwise.
+    mutating func setDecimal(_ separator: String?) {
+        decimal = separator
+        if let separator, thousands == separator { thousands = separator == "," ? "." : "," }
+    }
+
+    /// Sets the thousands separator; a decimal separator that's the same
+    /// gives way, as in ``setDecimal(_:)``.
+    mutating func setThousands(_ separator: String?) {
+        thousands = separator
+        if let separator, decimal == separator { decimal = separator == "," ? "." : "," }
     }
 }
 

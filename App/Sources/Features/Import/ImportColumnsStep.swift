@@ -431,8 +431,7 @@ struct ImportFormatMenu: View {
         Binding(get: { row.format.number?.decimal }, set: { value in
             model.flow.setFormat(ofColumn: row.column) { format in
                 var number = format.number ?? ImportNumberFormat()
-                number.decimal = value
-                if let value, number.thousands == value { number.thousands = value == "," ? "." : "," }
+                number.setDecimal(value)
                 format.number = number
             }
         })

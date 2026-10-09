@@ -48,25 +48,25 @@ struct ImportFormatStep: View {
             Picker("Encoding", selection: Binding(get: { model.flow.encoding },
                                                   set: { model.flow.setEncoding($0) })) {
                 Text("Detected: \(flow.encodingInUse.map(ImportChoices.encodingName) ?? "—")")
-                    .tag(Detectable<TextEncodingName>.detected)
+                    .tag(TextEncodingName?.none)
                 ForEach(ImportChoices.encodings, id: \.self) { encoding in
-                    Text(ImportChoices.encodingName(encoding)).tag(Detectable<TextEncodingName>.chosen(encoding))
+                    Text(ImportChoices.encodingName(encoding)).tag(TextEncodingName?.some(encoding))
                 }
             }
             Picker("Delimiter", selection: Binding(get: { model.flow.delimiter },
                                                    set: { model.flow.setDelimiter($0) })) {
                 Text("Detected: \(flow.delimiterInUse.map(ImportChoices.delimiterName) ?? "—")")
-                    .tag(Detectable<String>.detected)
+                    .tag(String?.none)
                 ForEach(ImportChoices.delimiters, id: \.self) { delimiter in
-                    Text(ImportChoices.delimiterName(delimiter)).tag(Detectable<String>.chosen(delimiter))
+                    Text(ImportChoices.delimiterName(delimiter)).tag(String?.some(delimiter))
                 }
             }
             Picker("Header row", selection: Binding(get: { model.flow.headerRow },
                                                     set: { model.flow.setHeaderRow($0) })) {
-                Text("Detected: \(Self.headerRowName(flow.headerRowInUse))").tag(Detectable<Int>.detected)
-                Text("None").tag(Detectable<Int>.chosen(0))
+                Text("Detected: \(Self.headerRowName(flow.headerRowInUse))").tag(Int?.none)
+                Text("None").tag(Int?.some(0))
                 ForEach(flow.headerRowChoices, id: \.self) { row in
-                    Text("Row \(row)").tag(Detectable<Int>.chosen(row))
+                    Text("Row \(row)").tag(Int?.some(row))
                 }
             }
             ImportSampleCells(title: flow.headerRowInUse == 0 ? "First row" : "Headers", cells: flow.headerSample)
@@ -97,16 +97,16 @@ struct ImportFormatStep: View {
         Section {
             Picker("Decimal separator", selection: Binding(get: { model.flow.decimal },
                                                            set: { model.flow.setDecimal($0) })) {
-                Text("Detected per column (mostly \(flow.detectedDecimal))").tag(Detectable<String>.detected)
+                Text("Detected per column (mostly \(flow.detectedDecimal))").tag(String?.none)
                 ForEach(ImportChoices.decimals, id: \.self) { separator in
-                    Text(ImportChoices.decimalName(separator)).tag(Detectable<String>.chosen(separator))
+                    Text(ImportChoices.decimalName(separator)).tag(String?.some(separator))
                 }
             }
             Picker("Thousands separator", selection: Binding(get: { model.flow.thousands },
                                                              set: { model.flow.setThousands($0) })) {
-                Text("Detected per column").tag(Detectable<String>.detected)
+                Text("Detected per column").tag(String?.none)
                 ForEach(ImportChoices.thousands, id: \.self) { separator in
-                    Text(ImportChoices.thousandsName(separator)).tag(Detectable<String>.chosen(separator))
+                    Text(ImportChoices.thousandsName(separator)).tag(String?.some(separator))
                 }
             }
             ImportSampleList(samples: flow.numberSamples(), emptyText: "No column is imported as amounts yet.")
@@ -124,9 +124,9 @@ struct ImportFormatStep: View {
         Section {
             Picker("Date format", selection: Binding(get: { model.flow.datePattern },
                                                      set: { model.flow.setDatePattern($0) })) {
-                Text("Detected: \(flow.detectedDatePattern ?? "none")").tag(Detectable<String>.detected)
+                Text("Detected: \(flow.detectedDatePattern ?? "none")").tag(String?.none)
                 ForEach(Self.patternChoices(flow), id: \.self) { pattern in
-                    Text(ImportChoices.datePatternTitle(pattern)).tag(Detectable<String>.chosen(pattern))
+                    Text(ImportChoices.datePatternTitle(pattern)).tag(String?.some(pattern))
                 }
             }
             HStack {
@@ -154,14 +154,14 @@ struct ImportFormatStep: View {
     /// The patterns offered: the detected ones, and the one in use if it's another.
     private static func patternChoices(_ flow: ImportFlow) -> [String] {
         let patterns = ImportChoices.datePatterns
-        guard let chosen = flow.datePattern.value, !patterns.contains(chosen) else { return patterns }
+        guard let chosen = flow.datePattern, !patterns.contains(chosen) else { return patterns }
         return [chosen] + patterns
     }
 
     private func useCustomPattern() {
         let pattern = customPattern.trimmingCharacters(in: .whitespaces)
         guard !pattern.isEmpty else { return }
-        model.flow.setDatePattern(.chosen(pattern))
+        model.flow.setDatePattern(pattern)
         customPattern = ""
     }
 
