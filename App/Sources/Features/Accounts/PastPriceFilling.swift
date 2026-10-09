@@ -71,7 +71,7 @@ struct PastPricePlan: Hashable, Sendable {
                           source: "ECB", dates: need.dates)
         }
         lines += needs.indices.map { need in
-            PastPriceLine(item: .index(need.index), kind: .index, title: PastPriceText.title(of: need.index),
+            PastPriceLine(item: .index(need.index), kind: .index, title: InflationIndexText.title(of: need.index),
                           source: "Eurostat", dates: need.months.map(\.lastDay))
         }
         lines += needs.manualInstruments.sorted(by: byName).map { need in
@@ -110,10 +110,10 @@ struct PastPricePlan: Hashable, Sendable {
     }
 
     /// The Import Done step's lines: "12 past values have no price for
-    /// XAU", for the instruments in `among` (all when `nil`) missing prices.
-    func offers(among instruments: Set<InstrumentID>?, library: Library) -> [String] {
+    /// XAU", for the instruments in `among` missing prices.
+    func offers(among instruments: Set<InstrumentID>, library: Library) -> [String] {
         lines.compactMap { line in
-            guard let id = line.instrument, instruments.map({ $0.contains(id) }) ?? true else { return nil }
+            guard let id = line.instrument, instruments.contains(id) else { return nil }
             let count = line.dates.count
             let values = count == 1 ? "1 past value has" : "\(count) past values have"
             return "\(values) no price for \(PastPriceText.shortName(of: id, in: library))"
@@ -126,11 +126,6 @@ enum PastPriceText {
     /// "1 price", "12 prices".
     static func count(_ count: Int, _ noun: String) -> String {
         count == 1 ? "1 \(noun)" : "\(count) \(noun)s"
-    }
-
-    /// "Inflation (Germany)" for `hicp-de`, "Inflation (euro area)" for `hicp-ea`.
-    static func title(of index: IndexID, locale: Locale = .current) -> String {
-        InflationIndexText.title(of: index, locale: locale)
     }
 
     /// An instrument as the Import Done step names it: its ticker, the
@@ -212,8 +207,6 @@ final class PastPriceFiller {
     /// What's missing, with each line's result once the fill has run.
     private(set) var plan: PastPricePlan?
     private(set) var phase: Phase = .ready
-    /// What the fill fetched.
-    private(set) var fill: PastPriceFill?
     /// What saving added, and kept.
     private(set) var inserted: PastPriceInsertion?
 
@@ -238,7 +231,6 @@ final class PastPriceFiller {
     func reset(library: LibraryStore, prices: PriceStore) {
         guard !isRunning else { return }
         phase = .ready
-        fill = nil
         inserted = nil
         prepare(library: library, prices: prices)
     }
@@ -260,7 +252,6 @@ final class PastPriceFiller {
             phase = .failed("Prices can't be fetched here.")
             return
         }
-        fill = fetched
         plan.lines = Self.merge(plan.lines, with: fetched)
         self.plan = plan
         phase = .saving
@@ -316,11 +307,6 @@ final class PastPriceFiller {
         case .failed(let reason):
             return reason
         }
-    }
-
-    /// How many dates are still without a value, after a fill.
-    var stillMissing: Int {
-        (plan?.lines ?? []).reduce(0) { $0 + $1.missing.count }
     }
 }
 

@@ -58,6 +58,13 @@ public struct CheckInPriceNeeds: Hashable, Sendable {
         self.indices = indices
     }
 
+    /// What one instrument's price on `date` needs: the instrument, and the
+    /// rate of its currency when that isn't `baseCurrency`.
+    public init(instrument: Instrument, date: CalendarDate, baseCurrency: CurrencyCode) {
+        self.init(date: date, baseCurrency: baseCurrency, instruments: [instrument],
+                  currencies: instrument.currency == baseCurrency ? [] : [instrument.currency])
+    }
+
     /// Works out what a check-in on `date` needs from `library`, with the
     /// months missing of `indices` (`nil`: the library's own,
     /// `Library.inflationIndices`), and also `extra` instruments the

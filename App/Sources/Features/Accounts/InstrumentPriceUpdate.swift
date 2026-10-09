@@ -68,23 +68,17 @@ struct InstrumentPriceUpdatePlan: Hashable, Sendable {
 
     var isEmpty: Bool { instruments.isEmpty }
 
-    /// What to ask the price service for one instrument: its price, and the
-    /// rate of its currency when that isn't the base currency.
-    func needs(for instrument: Instrument) -> CheckInPriceNeeds {
-        CheckInPriceNeeds(date: date, baseCurrency: baseCurrency, instruments: [instrument],
-                          currencies: instrument.currency == baseCurrency ? [] : [instrument.currency])
-    }
-
     /// What to ask the price service for the indices' missing months; `nil`
     /// when none is missing.
     var indexNeeds: CheckInPriceNeeds? {
         indices.isEmpty ? nil : CheckInPriceNeeds(date: date, baseCurrency: baseCurrency, indices: indices)
     }
 
-    /// Everything to ask the price service for: each instrument on its own,
-    /// then the indices.
+    /// Everything to ask the price service for: each instrument on its own
+    /// (its price, and the rate of its currency), then the indices.
     var allNeeds: [CheckInPriceNeeds] {
-        instruments.map(needs(for:)) + [indexNeeds].compactMap { $0 }
+        instruments.map { CheckInPriceNeeds(instrument: $0, date: date, baseCurrency: baseCurrency) }
+            + [indexNeeds].compactMap { $0 }
     }
 }
 
@@ -136,9 +130,6 @@ struct InstrumentPriceUpdate: Hashable, Sendable {
         var observedOn: CalendarDate?
 
         var id: PriceListEntry.Item { item }
-
-        /// The fetched value: a price, a rate, or an index's latest value.
-        var value: Decimal? { price?.price ?? rate?.rate ?? indexValues.last?.value }
 
         var isInstrument: Bool {
             if case .instrument = item { true } else { false }
@@ -240,8 +231,8 @@ struct InstrumentPriceUpdate: Hashable, Sendable {
             case .instrument(let id):
                 guard let index = instruments.firstIndex(where: { $0.item == entry.item }) else { continue }
                 var line = instruments[index]
-                line.source = InstrumentText.sourceText(source: entry.source, symbol: entry.symbol) ?? line.source
-                line.resolvedSymbol = entry.shownResolvedSymbol
+                line.source = CheckInPriceList.sourceText(entry.source, symbol: entry.symbol) ?? line.source
+                line.resolvedSymbol = entry.resolvedSymbol
                 switch entry.outcome {
                 case .fetched(let details):
                     if let price = fetched.prices.first(where: { $0.instrument == id }) {
@@ -259,14 +250,14 @@ struct InstrumentPriceUpdate: Hashable, Sendable {
                 instruments[index] = line
             case .fx(let base, let quote):
                 guard let index = rates.firstIndex(where: { $0.item == entry.item }) else { continue }
-                rates[index].source = InstrumentText.sourceText(source: entry.source, symbol: entry.symbol)
+                rates[index].source = CheckInPriceList.sourceText(entry.source, symbol: entry.symbol)
                 if let failure = entry.failure, rates[index].status == .fetching,
                    !fetched.fx.contains(where: { ($0.base, $0.quote) == (base, quote) }) {
                     rates[index].status = .failed(failure.description)
                 }
             case .index(let id):
                 guard let index = indices.firstIndex(where: { $0.item == entry.item }) else { continue }
-                indices[index].source = InstrumentText.sourceText(source: entry.source, symbol: nil)
+                indices[index].source = CheckInPriceList.sourceText(entry.source, symbol: nil)
                 if let failure = entry.failure {
                     indices[index].status = .failed(failure.description)
                 } else {
@@ -283,7 +274,7 @@ struct InstrumentPriceUpdate: Hashable, Sendable {
                 rates[index].rate = rate
             } else {
                 rates.append(Line(item: item, title: rate.quote.rawValue, status: .fetched, rate: rate,
-                                  source: InstrumentText.sourceText(source: rate.source, symbol: nil)))
+                                  source: CheckInPriceList.sourceText(rate.source, symbol: nil)))
                 rates.sort { $0.item < $1.item }
             }
         }
@@ -622,15 +613,6 @@ final class InstrumentPriceUpdater {
         run.finishedAt = Date()
         self.run = run
     }
-}
-
-extension PriceListEntry {
-    /// The provider's ID for the symbol when it differs from the one typed
-    /// ("ETH" → "ethereum"), shown next to fetch results.
-    ///
-    /// The coin ID a typed ticker resolved to ("ETH" → "ethereum"), shown
-    /// next to the symbol; `nil` when the symbol was used as typed.
-    var shownResolvedSymbol: String? { resolvedSymbol }
 }
 
 extension Library {

@@ -111,6 +111,22 @@ struct CheckInPriceNeedsTests {
         // The yen for Toyota; not the pound: the art's price is typed in.
         #expect(needs.currencies == [.chf, CurrencyCode("JPY"), .usd])
     }
+
+    /// One instrument's price, as *Update Prices* fetches it: with its
+    /// currency's rate, unless that's the base currency.
+    @Test func oneInstrumentBringsItsCurrencyUnlessItsTheBase() {
+        var instrument = Instrument(id: "aapl", name: "Apple", kind: .stock, currency: .usd, unit: .share,
+                                    assetClasses: .single(.equity),
+                                    priceSource: PriceSource(provider: .yahoo, symbol: "AAPL"))
+        let needs = CheckInPriceNeeds(instrument: instrument, date: "2026-09-30", baseCurrency: .eur)
+        #expect(needs.date == "2026-09-30")
+        #expect(needs.baseCurrency == .eur)
+        #expect(needs.instruments == [instrument])
+        #expect(needs.currencies == [.usd])
+        #expect(needs.indices.isEmpty)
+        instrument.currency = .eur
+        #expect(CheckInPriceNeeds(instrument: instrument, date: "2026-09-30", baseCurrency: .eur).currencies.isEmpty)
+    }
 }
 
 /// A made-up library that exercises every rule of the work-out.

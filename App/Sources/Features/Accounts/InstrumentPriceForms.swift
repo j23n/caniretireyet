@@ -32,18 +32,6 @@ enum InstrumentText {
         return "\(InstrumentForm.name(of: source.provider)) · \(source.symbol)"
     }
 
-    /// Where a fetched value came from: "Yahoo Finance · VWCE.DE", "ECB".
-    static func sourceText(source: DataSource?, symbol: String?) -> String? {
-        CheckInPriceList.sourceText(source, symbol: symbol)
-    }
-
-    /// "ETH → ethereum" when the provider knows the symbol by another ID,
-    /// else the symbol.
-    static func symbolText(_ symbol: String, resolved: String?) -> String {
-        guard let resolved, !resolved.isEmpty, resolved != symbol else { return symbol }
-        return "\(symbol) → \(resolved)"
-    }
-
     /// "138,42 €", "0,004312 €" (``QuantityFormat/unitPrice(_:currency:locale:)``);
     /// the number alone without a currency.
     static func price(_ value: Decimal, currency: CurrencyCode?, locale: Locale = .current) -> String {
@@ -57,8 +45,6 @@ enum InstrumentText {
 /// threshold (the one accounts use).
 struct InstrumentLatestPrice: Hashable, Sendable {
     var record: PriceRecord
-    /// Days from the price's date to the day it's shown.
-    var age: Int
     /// Whether it's older than the staleness threshold.
     var isStale: Bool
     /// Whether it was typed in by hand (or imported) although the instrument
@@ -69,8 +55,7 @@ struct InstrumentLatestPrice: Hashable, Sendable {
     init?(of instrument: Instrument, prices: PriceTable, today: CalendarDate, stalenessThreshold: Int) {
         guard let record = prices.latest(for: instrument.id, onOrBefore: today) else { return nil }
         self.record = record
-        age = record.date.days(to: today)
-        isStale = age > stalenessThreshold
+        isStale = record.date.days(to: today) > stalenessThreshold
         isNotFetched = instrument.priceSource != nil && (record.source == .manual || record.source == .import)
     }
 
@@ -100,12 +85,11 @@ struct InstrumentLatestPrice: Hashable, Sendable {
 struct InstrumentPriceForm: Hashable, Sendable {
     var date: CalendarDate
     /// As typed; read with `AmountInput`.
-    var amount: String
+    var amount = ""
     var currency: CurrencyCode
 
-    init(currency: CurrencyCode, date: CalendarDate = .today(), amount: String = "") {
+    init(currency: CurrencyCode, date: CalendarDate = .today()) {
         self.date = date
-        self.amount = amount
         self.currency = currency
     }
 
@@ -217,9 +201,9 @@ struct InstrumentTestQuote: Hashable, Sendable {
     /// provider knows the symbol by another ID.
     func describe(canFetch: Bool, locale: Locale = .current) -> String {
         let text = InstrumentForm.describe(entry, canFetch: canFetch, locale: locale)
-        guard let symbol = entry.symbol, let resolved = entry.shownResolvedSymbol, entry.details != nil else {
+        guard let symbol = entry.symbol, let resolved = entry.resolvedSymbol, entry.details != nil else {
             return text
         }
-        return InstrumentText.symbolText(symbol, resolved: resolved) + " · " + text
+        return "\(symbol) → \(resolved) · " + text
     }
 }

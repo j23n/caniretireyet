@@ -48,9 +48,7 @@ final class PriceStore {
         guard let service, instrument.priceSource != nil else {
             return CheckInPrices(date: date, entries: [PriceListEntry(item: item, outcome: .manual)])
         }
-        let needs = CheckInPriceNeeds(date: date, baseCurrency: baseCurrency, instruments: [instrument],
-                                      currencies: instrument.currency == baseCurrency ? [] : [instrument.currency])
-        return await service.fetch(needs)
+        return await service.fetch(CheckInPriceNeeds(instrument: instrument, date: date, baseCurrency: baseCurrency))
     }
 
     /// What *Fill In Past Prices* would fetch for `library`: every past date
