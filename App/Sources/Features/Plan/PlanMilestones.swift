@@ -31,7 +31,13 @@ struct PlanMilestones {
          reached: [ReachedMilestone] = []) {
         let recorded = library.headlines(for: plan.id).filter { $0.date <= asOf }.max { $0.date < $1.date }
         let readiness = results?.headline.readiness.map(Planner.recordedReadiness) ?? recorded?.readiness
-        let needed = results?.details.assetsNeeded?.amount.map { Decimal(wholeNumber: $0) }
+        // What retiring today needs, in the base currency as the ladder's
+        // amounts are, converted as the median future is below (none without
+        // the rate); with a readiness, the ladder works it out from today's
+        // plan assets instead.
+        let needed = results?.exchangeRate(into: valuator.baseCurrency, valuator: valuator).flatMap { rate in
+            results?.details.assetsNeeded?.amount.map { Decimal(wholeNumber: $0 * rate) }
+        }
         let ladder = MilestoneLadder(plan: plan, library: library, on: asOf, neededToday: needed)
         self.ladder = ladder
         self.reached = reached
