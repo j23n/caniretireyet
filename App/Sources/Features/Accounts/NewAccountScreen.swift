@@ -23,7 +23,6 @@ struct NewAccountScreen: View {
 
     @State private var form = AccountForm(residence: nil, currency: .eur, today: .today())
     @State private var opening = AccountOpeningForm()
-    @State private var loaded = false
     /// The fields as the sheet opened with them, to tell whether anything was typed.
     @State private var initialForm: AccountForm?
     @State private var showsProblems = false
@@ -175,8 +174,7 @@ struct NewAccountScreen: View {
     // MARK: Actions
 
     private func load() {
-        guard !loaded else { return }
-        loaded = true
+        guard initialForm == nil else { return }
         form = AccountForm(residence: library.settings.taxResidence, currency: library.baseCurrency, today: .today())
         initialForm = form
     }

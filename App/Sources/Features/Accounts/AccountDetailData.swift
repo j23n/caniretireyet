@@ -15,36 +15,32 @@ struct AccountFlowTick: Hashable, Sendable, Identifiable {
     var id: CalendarDate { date }
 }
 
-/// One position of a holdings account, as the detail shows it.
+/// One position of a holdings account, as the detail shows it: Tracker's
+/// ``Tracker/Holding``, with the instrument's name and unit, and its share.
 struct AccountHoldingRow: Hashable, Sendable, Identifiable {
-    var instrument: InstrumentID
+    var holding: Holding
     var name: String
     var unit: InstrumentUnit?
-    var quantity: Decimal
-    /// The latest price on or before the date, in the price's currency.
-    var price: PriceRecord?
-    /// The value in the account's currency; `nil` without a price or rate.
-    var amount: Decimal?
-    /// The value in the base currency; `nil` without a price or rate.
-    var value: Decimal?
-    /// The purchase cost in the account's currency, if recorded.
-    var costBasis: Decimal?
     /// The position's share of the account's value (positions and cash),
     /// when known; set for trades accounts' holdings (``TradeHoldings``).
     var share: Double? = nil
 
-    var id: InstrumentID { instrument }
+    var id: InstrumentID { holding.instrument }
+    var instrument: InstrumentID { holding.instrument }
+    var quantity: Decimal { holding.quantity }
+    /// The latest price on or before the date, in the price's currency.
+    var price: PriceRecord? { holding.price }
+    /// The value in the account's currency; `nil` without a price or rate.
+    var amount: Decimal? { holding.amount }
+    /// The purchase cost in the account's currency, if recorded.
+    var costBasis: Decimal? { holding.costBasis }
+    /// `amount − costBasis`, in the account's currency.
+    var gain: Decimal? { holding.unrealizedGain }
 
     /// The average cost per unit (*costo medio*), in the account's currency.
     var averageCost: Decimal? {
         guard let costBasis, quantity > 0 else { return nil }
         return costBasis / quantity
-    }
-
-    /// `amount − costBasis`, in the account's currency.
-    var gain: Decimal? {
-        guard let amount, let costBasis else { return nil }
-        return amount - costBasis
     }
 
     /// The gain as a fraction of the cost.
@@ -90,14 +86,12 @@ struct AccountDetailData: Hashable, Sendable {
     /// Whether ``amount`` is fully known: no price missing, nor a rate for a
     /// position priced in another currency.
     var amountIsComplete: Bool
-    /// The value in the base currency on ``date`` (what could be valued).
-    var value: Decimal
-    var isComplete: Bool
     /// For an account in another currency than the base one: its value in
     /// the base currency, or that the rate is missing. `nil` for an account
     /// in the base currency, or when a price is missing too.
     var baseValue: AccountBaseValue?
-    /// The latest valuation on or before ``date``.
+    /// The latest valuation on or before ``date``; for a trades account, its
+    /// snapshot (``Tracker/Valuator/snapshot(of:on:)``).
     var latest: Valuation?
     /// The change from the valuation before the latest one to the latest
     /// one, in the account's currency.
@@ -141,17 +135,12 @@ struct AccountDetailData: Hashable, Sendable {
     /// What's wrong with the account's trades, in words: for a trades
     /// account, and for another one with trades that are left out.
     var tradeIssues: [TradeIssueNote] = []
-    /// How many trades the account has (a trades account's list shows them).
-    var tradeCount = 0
 
     /// Whether the account records trades (``Model/Account/recordsTrades``).
     var recordsTrades: Bool { account.recordsTrades }
 
     /// The currency the page shows amounts in: the account's own.
     var currency: CurrencyCode { account.currency }
-
-    /// Whether the account's currency isn't the base currency.
-    var isForeign: Bool { account.currency != baseCurrency }
 
     /// Whether the account holds positions (now, or by its kind's default).
     var showsPositions: Bool {
@@ -191,8 +180,6 @@ struct AccountDetailData: Hashable, Sendable {
         amount = own?.knownValue ?? 0
         amountIsComplete = own?.isComplete ?? true
         let current = valuator.value(of: account.id, on: date)
-        value = current?.knownValue ?? 0
-        isComplete = current?.isComplete ?? true
         if account.currency != valuator.baseCurrency, let current, current.status == .valued {
             if current.isComplete {
                 baseValue = .known(current.knownValue)
@@ -202,8 +189,7 @@ struct AccountDetailData: Hashable, Sendable {
             }
         }
         // A trades account's latest state is its snapshot: dated its latest valuation or trade.
-        latest = account.recordsTrades
-            ? valuator.snapshot(of: account.id, on: date) : valuator.latestValuation(for: account.id, onOrBefore: date)
+        latest = valuator.snapshot(of: account.id, on: date)
         if let latest, let previous = valuator.previousValuation(for: account.id, before: latest.date) {
             change = valuator.change(of: account.id, from: previous.date, to: latest.date, in: .account)?.change
             changeFrom = previous.date
@@ -236,10 +222,8 @@ struct AccountDetailData: Hashable, Sendable {
         }
         holdings = valuator.holdings(of: account.id, on: date).map { holding in
             let instrument = library.instruments[holding.instrument]
-            return AccountHoldingRow(
-                instrument: holding.instrument, name: instrument?.name ?? holding.instrument.rawValue,
-                unit: instrument?.unit, quantity: holding.quantity, price: holding.price, amount: holding.amount,
-                value: holding.value, costBasis: holding.costBasis)
+            return AccountHoldingRow(holding: holding, name: instrument?.name ?? holding.instrument.rawValue,
+                                     unit: instrument?.unit)
         }
         if account.recordsTrades {
             cash = valuator.tradeCash(of: account.id, on: date)
@@ -247,7 +231,6 @@ struct AccountDetailData: Hashable, Sendable {
             tradeHoldings = trades
             holdings = trades.rows
             incomeYears = TradeIncomeYear.years(of: account.id, valuator: valuator)
-            tradeCount = valuator.ledger(for: account.id)?.entries.count ?? 0
         } else {
             cash = latest.flatMap { $0.isBalance ? nil : $0.cash }
         }

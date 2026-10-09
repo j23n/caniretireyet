@@ -249,7 +249,7 @@ struct UpdateValueSheet: View {
         let prompt: String = review?.defaultFlow.map { AmountInput.text(for: $0, maxDigits: 2, locale: locale) }
             ?? "Unknown"
         Section {
-            AccountsNumberField(title: title, text: $input[flow: ""], prompt: prompt,
+            AccountsNumberField(title: title, text: $input.flowText, prompt: prompt,
                                 suffix: AmountFormat.symbol(for: account.currency, locale: locale))
         } footer: {
             Text(account.recordsTrades ? CheckInWording.tradeFlowExplanation : flowExplanation(rule))
@@ -456,9 +456,8 @@ struct EditAccountSheet: View {
             if form == nil, let account = library.account(accountID) {
                 let valuations = library.valuator.valuations(for: account.id)
                 let hasHistory = !valuations.isEmpty || !library.library.trades(for: account.id).isEmpty
-                form = AccountForm(editing: account, residence: library.settings.taxResidence,
-                                   balanceValueCount: valuations.filter(\.isBalance).count, hasHistory: hasHistory,
-                                   locale: locale)
+                form = AccountForm(editing: account, balanceValueCount: valuations.filter(\.isBalance).count,
+                                   hasHistory: hasHistory, locale: locale)
                 initialForm = form
             }
         }

@@ -110,8 +110,6 @@ struct AccountForm: Hashable, Sendable {
     /// holds: its trade history (the default) or monthly snapshots of its
     /// positions (UI.md, "Add account"). See ``offersTracking``.
     var tracking: ValuationMode = .trades
-    /// The country you live in, a new account's default country.
-    let residence: CountryCode?
     /// The account being edited, whose other fields are kept.
     private(set) var original: Account?
     /// How many of the account's values are recorded as a single balance
@@ -122,8 +120,8 @@ struct AccountForm: Hashable, Sendable {
     /// currency: the currency can't change then (``locksCurrency``).
     private(set) var hasHistory = false
 
-    /// A new account: today, in the base currency, with the defaults for a
-    /// current account.
+    /// A new account: today, in the base currency, in the country you live
+    /// in (`residence`), with the defaults for a current account.
     init(residence: CountryCode?, currency: CurrencyCode, today: CalendarDate) {
         kind = .cash
         name = ""
@@ -138,14 +136,13 @@ struct AccountForm: Hashable, Sendable {
         isPlanInclusionChosen = false
         assetMix = AccountsAssetMixForm()
         notes = ""
-        self.residence = residence
         original = nil
     }
 
     /// The fields of an existing account; `hasHistory`: it has values or
     /// trades.
-    init(editing account: Account, residence: CountryCode? = nil, balanceValueCount: Int = 0,
-         hasHistory: Bool = false, locale: Locale = .current) {
+    init(editing account: Account, balanceValueCount: Int = 0, hasHistory: Bool = false,
+         locale: Locale = .current) {
         self.balanceValueCount = balanceValueCount
         self.hasHistory = hasHistory
         kind = account.kind
@@ -161,7 +158,6 @@ struct AccountForm: Hashable, Sendable {
         isPlanInclusionChosen = true
         assetMix = AccountsAssetMixForm(account.assetClasses, locale: locale)
         notes = account.notes ?? ""
-        self.residence = residence
         original = account
     }
 

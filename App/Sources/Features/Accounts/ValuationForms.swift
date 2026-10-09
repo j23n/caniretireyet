@@ -34,11 +34,6 @@ struct AccountValuationDraft: Hashable, Sendable {
         draft[account] = row
     }
 
-    /// Moves the valuation to another date, keeping what was entered.
-    mutating func changeDate(to date: CalendarDate, library: Library) {
-        draft.changeDate(to: date, library: library)
-    }
-
     /// The row valued, with its default flow and positions.
     func review(in library: Library) -> CheckInRowReview? {
         draft.review(in: library).row(for: account)
@@ -116,7 +111,7 @@ enum AccountValueNotes {
 /// edited are kept, so the others keep following the account's previous
 /// values (also after the date changes). The labelled subscripts give a
 /// field's text with its pre-filled value, for `$input[balance: …]`
-/// bindings.
+/// bindings; ``flowText`` is the new money's, which has none.
 struct AccountValuationInput: Hashable, Sendable {
     var balance: String?
     var cash: String?
@@ -150,20 +145,14 @@ struct AccountValuationInput: Hashable, Sendable {
         set { paid[instrument] = newValue }
     }
 
-    subscript(flow prefilled: String) -> String {
-        get { flow ?? prefilled }
+    var flowText: String {
+        get { flow ?? "" }
         set { flow = newValue }
     }
 
     subscript(note prefilled: String) -> String {
         get { note ?? prefilled }
         set { note = newValue }
-    }
-
-    /// Whether anything was typed.
-    var isEdited: Bool {
-        balance != nil || cash != nil || !quantities.isEmpty || !paid.isEmpty || flow != nil || note != nil
-            || !added.isEmpty
     }
 
     /// What stops Save: typed amounts that can't be read, and a balance or
@@ -288,11 +277,6 @@ struct AccountValuationForm: Hashable, Sendable {
     mutating func addPosition(_ instrument: InstrumentID) {
         guard !positions.contains(where: { $0.instrument == instrument }) else { return }
         positions.append(PositionField(instrument: instrument, quantity: "", cost: ""))
-    }
-
-    /// Removes the position in `instrument`.
-    mutating func removePosition(_ instrument: InstrumentID) {
-        positions.removeAll { $0.instrument == instrument }
     }
 
     /// The position in `instrument`, for bindings that stay valid while rows
