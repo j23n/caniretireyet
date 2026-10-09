@@ -17,6 +17,17 @@ enum ColumnUse: Hashable, Sendable {
     /// The targets a value column can have, in menu order.
     static let targets: [ImportTarget] = [.balance, .quantity, .costBasis, .cash, .price, .fx]
 
+    /// Whether a column with this use holds amounts, prices or quantities:
+    /// a value target, or a field that holds numbers (a trade's quantity,
+    /// price, amounts, fees, tax or ratio).
+    var isValue: Bool {
+        switch self {
+        case .value: true
+        case .field(let field): field.holdsNumbers
+        default: false
+        }
+    }
+
     /// The uses offered for a layout, in menu order.
     static func options(for layout: ImportLayout) -> [ColumnUse] {
         let values = targets.map(ColumnUse.value)
@@ -100,13 +111,7 @@ struct ImportColumnRow: Identifiable, Hashable, Sendable {
     var problems: [String]
 
     /// Whether the column's values are amounts, prices or quantities.
-    var isValue: Bool {
-        switch use {
-        case .value: true
-        case .field(let field): field.holdsNumbers
-        default: false
-        }
-    }
+    var isValue: Bool { use.isValue }
 
     /// The value target, if the column has one.
     var target: ImportTarget? {

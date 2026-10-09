@@ -195,16 +195,17 @@ extension ImportFlow {
     /// The file column holding the dates, in any layout (the one the preview reads).
     var dateColumn: Int? { session?.dateColumn }
 
-    /// The file columns whose values are imported as amounts, prices or quantities.
+    /// The file columns whose values are imported as amounts, prices or
+    /// quantities (``ColumnUse/isValue``).
     var valueColumns: [Int] {
         guard let session else { return [] }
         return (1...max(session.table.columnCount, 1)).filter { column in
-            column <= session.table.columnCount && session.mapping(forColumn: column)?.isImported == true
+            column <= session.table.columnCount && use(ofColumn: column).isValue
         }
     }
 
-    /// Values from the imported columns (preferring ones with separators),
-    /// as each column reads them now.
+    /// Values from the value columns (preferring ones with separators), as
+    /// each column reads them now.
     func numberSamples(limit: Int = 4, locale: Locale = .current) -> [ImportSample] {
         guard let session else { return [] }
         var samples: [ImportSample] = []
@@ -246,7 +247,7 @@ extension ImportFlow {
         }
     }
 
-    /// Empty cells in the imported columns, on rows that have a date.
+    /// Empty cells in the value columns, on rows that have a date.
     var emptyValueCells: Int {
         guard let session, let dateColumn else { return 0 }
         let columns = valueColumns
