@@ -135,28 +135,8 @@ enum PlanProgressLine {
         let filled = Int((fraction * 20).rounded(.down))
         let bar = "[" + String(repeating: "#", count: filled) + String(repeating: "-", count: 20 - filled) + "]"
         let percent = String(Int((fraction * 100).rounded(.down)))
-        return bar + " " + String(repeating: " ", count: max(0, 3 - percent.count)) + percent + "% " + phase(progress)
-    }
-
-    /// "Simulating 1,234 / 2,000 runs".
-    static func phase(_ progress: PlannerProgress) -> String {
-        let done = Format.amount(Decimal(progress.completed), places: 0)
-        let total = Format.amount(Decimal(progress.total), places: 0)
-        switch progress.phase {
-        case .earliestAge:
-            let ages = progress.ages.map { " · ages \($0.lowerBound)–\($0.upperBound)" } ?? ""
-            return "Earliest age\(ages): \(done) / \(total)"
-        case .simulating:
-            return "Simulating \(done) / \(total) runs"
-        case .sustainableSpending:
-            return "Sustainable spending: step \(done) / \(total)"
-        case .assetsNeeded:
-            return "Needed to retire today: step \(done) / \(total)"
-        case .agesWithout:
-            return "Coast age and windfalls: step \(done) / \(total)"
-        case .summarising:
-            return "Summarising"
-        }
+        let phase = progress.phaseText { Format.amount(Decimal($0), places: 0) }
+        return bar + " " + String(repeating: " ", count: max(0, 3 - percent.count)) + percent + "% " + phase
     }
 }
 

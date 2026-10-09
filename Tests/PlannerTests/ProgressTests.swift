@@ -188,6 +188,22 @@ struct ProgressTests {
         #expect(scan.map(\.fraction) == scan.map(\.fraction).sorted())
     }
 
+    // MARK: Words
+
+    @Test func thePhaseInWordsWithTheCallersNumbers() {
+        func words(_ phase: PlannerProgress.Phase, ages: ClosedRange<Int>? = nil) -> String {
+            PlannerProgress(phase: phase, completed: 1_234, total: 2_000, fraction: 0.5, ages: ages, runs: 2_000)
+                .phaseText { "<\($0)>" }
+        }
+        #expect(words(.earliestAge, ages: 41...75) == "Earliest age · ages 41–75: <1234> / <2000>")
+        #expect(words(.earliestAge) == "Earliest age: <1234> / <2000>")
+        #expect(words(.simulating) == "Simulating <1234> / <2000> runs")
+        #expect(words(.sustainableSpending) == "Sustainable spending: step <1234> / <2000>")
+        #expect(words(.assetsNeeded) == "Needed to retire today: step <1234> / <2000>")
+        #expect(words(.agesWithout) == "Coast age and windfalls: step <1234> / <2000>")
+        #expect(words(.summarising) == "Summarising")
+    }
+
     // MARK: Cancellation
 
     @Test func cancellingStillStopsTheRunAndSendsNoLastUpdate() async throws {

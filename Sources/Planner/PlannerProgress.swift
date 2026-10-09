@@ -58,6 +58,28 @@ public struct PlannerProgress: Hashable, Sendable {
         self.ages = ages
         self.runs = runs
     }
+
+    /// Where the run is, in words, with `number` writing the counts:
+    /// "Earliest age · ages 41–75: 12 / 35", "Simulating 1,234 / 2,000 runs",
+    /// "Sustainable spending: step 4 / 12", "Summarising".
+    public func phaseText(number: (Int) -> String) -> String {
+        let counted = "\(number(completed)) / \(number(total))"
+        switch phase {
+        case .earliestAge:
+            let scanned = ages.map { " · ages \($0.lowerBound)–\($0.upperBound)" } ?? ""
+            return "Earliest age\(scanned): \(counted)"
+        case .simulating:
+            return "Simulating \(counted) runs"
+        case .sustainableSpending:
+            return "Sustainable spending: step \(counted)"
+        case .assetsNeeded:
+            return "Needed to retire today: step \(counted)"
+        case .agesWithout:
+            return "Coast age and windfalls: step \(counted)"
+        case .summarising:
+            return "Summarising"
+        }
+    }
 }
 
 /// Counts a run's work and hands its progress to a handler: at most once

@@ -172,23 +172,7 @@ enum PlanRunText {
     /// 9", in the locale's numbers.
     static func phase(_ progress: PlanRunProgress, locale: Locale = .current) -> String {
         guard let planner = progress.planner else { return "Starting…" }
-        let done = AmountFormat.number(Decimal(planner.completed), locale: locale)
-        let total = AmountFormat.number(Decimal(planner.total), locale: locale)
-        switch planner.phase {
-        case .earliestAge:
-            let ages = planner.ages.map { " · ages \($0.lowerBound)–\($0.upperBound)" } ?? ""
-            return "Earliest age\(ages): \(done) / \(total)"
-        case .simulating:
-            return "Simulating \(done) / \(total) runs"
-        case .sustainableSpending:
-            return "Sustainable spending: step \(done) / \(total)"
-        case .assetsNeeded:
-            return "Needed to retire today: step \(done) / \(total)"
-        case .agesWithout:
-            return "Coast age and windfalls: step \(done) / \(total)"
-        case .summarising:
-            return "Summarising"
-        }
+        return planner.phaseText { AmountFormat.number(Decimal($0), locale: locale) }
     }
 
     /// The whole run's share: "34%".
