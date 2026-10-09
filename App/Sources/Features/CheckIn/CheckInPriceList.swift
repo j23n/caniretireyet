@@ -44,6 +44,9 @@ struct CheckInPriceLine: Identifiable, Hashable, Sendable {
     var observed: String?
     /// Why fetching failed.
     var failure: String?
+    /// Whether it failed because its provider has no history for the
+    /// check-in's past date: its price is typed in, not fetched again.
+    var hasNoHistory = false
     /// Whether it can be typed in here (instruments and rates; not indices).
     var canEnter: Bool
 
@@ -78,9 +81,7 @@ struct CheckInPriceList: Hashable, Sendable {
         let fetched = fetched?.date == draft.date ? fetched : nil
         let base = library.settings.baseCurrency
         let priceTable = PriceTable(library: library)
-        var fxLibrary = library
-        for rate in draft.fxRates { fxLibrary.upsert(rate) }
-        let fxTable = FXTable(library: fxLibrary)
+        let fxTable = FXTable(library: draft.libraryWithRates(library))
 
         // Instruments.
         var instrumentIDs = Set(draft.rows.filter { $0.mode == .holdings }
@@ -126,22 +127,9 @@ struct CheckInPriceList: Hashable, Sendable {
         let instrument = library.instruments[id]
         let own = draft.prices.first { $0.instrument == id }
         let known = own ?? prices.latest(for: id, onOrBefore: draft.date)
-        let status: CheckInPriceLine.Status
-        if own?.source == .manual {
-            status = .typed
-        } else if let entry {
-            switch entry.outcome {
-            case .fetched: status = own == nil ? .notFetched : .fetched
-            case .manual: status = .manual
-            case .failed: status = .failed
-            }
-        } else if own != nil {
-            status = .fetched
-        } else if instrument?.priceSource == nil {
-            status = .manual
-        } else {
-            status = .notFetched
-        }
+        let status = lineStatus(typed: own?.source == .manual, hasOwn: own != nil, entry: entry,
+                                otherwise: instrument?.priceSource == nil ? .manual : .notFetched)
+        let failure = status == .typed ? nil : failureReason(of: entry, date: draft.date, today: today)
         let unit = CheckInWording.unit(of: instrument)
         var symbol = entry?.symbol ?? instrument?.priceSource?.symbol
         if let typed = symbol, let resolved = entry?.resolvedSymbol { symbol = "\(typed) → \(resolved)" }
@@ -156,8 +144,7 @@ struct CheckInPriceList: Hashable, Sendable {
             status: status,
             source: sourceText(status == .typed ? .manual : (entry?.source ?? own?.source), symbol: status == .typed ? nil : symbol),
             observed: status == .fetched ? observedText(entry?.details, locale: locale) : nil,
-            failure: status == .typed ? nil : failureText(entry, date: draft.date, today: today),
-            canEnter: true)
+            failure: failure?.text, hasNoHistory: failure?.isNoHistory ?? false, canEnter: true)
     }
 
     private static func rateLine(_ quote: CurrencyCode, base: CurrencyCode, draft: CheckInDraft,
@@ -165,18 +152,8 @@ struct CheckInPriceList: Hashable, Sendable {
                                  locale: Locale) -> CheckInPriceLine {
         let own = draft.fxRates.first { $0.base == base && $0.quote == quote }
         let known = fx.quote(from: base, to: quote, on: draft.date)
-        let status: CheckInPriceLine.Status
-        if own?.source == .manual {
-            status = .typed
-        } else if let entry {
-            switch entry.outcome {
-            case .fetched: status = own == nil ? .notFetched : .fetched
-            case .manual: status = .manual
-            case .failed: status = .failed
-            }
-        } else {
-            status = own == nil ? .notFetched : .fetched
-        }
+        let status = lineStatus(typed: own?.source == .manual, hasOwn: own != nil, entry: entry, otherwise: .notFetched)
+        let failure = status == .typed ? nil : failureReason(of: entry, date: draft.date, today: today)
         let name = locale.localizedString(forCurrencyCode: quote.rawValue)
         let knownDate = own?.date ?? known?.date
         return CheckInPriceLine(
@@ -188,16 +165,12 @@ struct CheckInPriceList: Hashable, Sendable {
             source: sourceText(status == .typed ? .manual : (entry?.source ?? own?.source),
                                symbol: status == .typed ? nil : entry?.symbol),
             observed: status == .fetched ? observedText(entry?.details, locale: locale) : nil,
-            failure: status == .typed ? nil : failureText(entry, date: draft.date, today: today),
-            canEnter: true)
+            failure: failure?.text, hasNoHistory: failure?.isNoHistory ?? false, canEnter: true)
     }
 
     private static func indexLine(_ index: IndexID, entry: PriceListEntry, locale: Locale) -> CheckInPriceLine {
-        let status: CheckInPriceLine.Status = switch entry.outcome {
-        case .fetched: .fetched
-        case .manual: .manual
-        case .failed: .failed
-        }
+        // The values fetched are the check-in's own: they're saved with it.
+        let status = lineStatus(typed: false, hasOwn: true, entry: entry, otherwise: .notFetched)
         return CheckInPriceLine(
             item: .index(index), title: InflationIndexText.title(of: index, locale: locale),
             subtitle: "Consumer prices, for plans in today's money", value: nil, currency: nil, per: nil,
@@ -205,31 +178,42 @@ struct CheckInPriceList: Hashable, Sendable {
             observed: observedText(entry.details, locale: locale), failure: entry.failureReason, canEnter: false)
     }
 
-    // MARK: Words
-
-    /// How long CoinGecko's free API keeps daily prices: about a year.
-    static let coinGeckoHistoryDays = 365
-
-    /// Why an entry failed, for a check-in on `date`. A provider without
-    /// history for the date (gold-api.com only has today's price; CoinGecko's
-    /// free API about the last year), when its stand-ins had none either
-    /// (the metal's futures, the coin's Yahoo Finance pairs), says so first:
-    /// "No history for this date: type the price." `nil` unless the entry
-    /// failed.
-    static func failureText(_ entry: PriceListEntry?, date: CalendarDate, today: CalendarDate = .today()) -> String? {
-        guard let entry, let error = entry.failure else { return nil }
-        switch error {
-        case .unsupportedDate:
-            return noHistory + " " + error.description
-        case .unauthorized where entry.source == .coingecko && date < today.adding(days: -coinGeckoHistoryDays):
-            return noHistory + " CoinGecko's free prices only go back about a year."
-        default:
-            return error.description
+    /// Where a line stands: typed in for this check-in; else as the fetch
+    /// left it, fetched only once the check-in has the value (`hasOwn`);
+    /// without an entry, fetched when it has one, else `otherwise`.
+    private static func lineStatus(typed: Bool, hasOwn: Bool, entry: PriceListEntry?,
+                                   otherwise: CheckInPriceLine.Status) -> CheckInPriceLine.Status {
+        if typed { return .typed }
+        guard let entry else { return hasOwn ? .fetched : otherwise }
+        switch entry.outcome {
+        case .fetched: return hasOwn ? .fetched : .notFetched
+        case .manual: return .manual
+        case .failed: return .failed
         }
     }
 
-    /// The start of the reason for a price that has no history for a past date.
-    static let noHistory = "No history for this date: type the price."
+    // MARK: Words
+
+    /// Why an entry failed, for a check-in on `date`, and whether it's for
+    /// want of history. A provider without history for the date
+    /// (gold-api.com only has today's price; CoinGecko's free API about the
+    /// last year), when its stand-ins had none either (the metal's futures,
+    /// the coin's Yahoo Finance pairs), says so first: "No history for this
+    /// date: type the price." `nil` unless the entry failed.
+    private static func failureReason(of entry: PriceListEntry?, date: CalendarDate,
+                                      today: CalendarDate) -> (text: String, isNoHistory: Bool)? {
+        guard let entry, let error = entry.failure else { return nil }
+        let noHistory = "No history for this date: type the price."
+        switch error {
+        case .unsupportedDate:
+            return (noHistory + " " + error.description, true)
+        case .unauthorized where entry.source == .coingecko
+            && date < today.adding(days: -CoinGeckoProvider.historyDays):
+            return (noHistory + " CoinGecko's free prices only go back about a year.", true)
+        default:
+            return (error.description, false)
+        }
+    }
 
     /// A source's name: "Yahoo Finance", "ECB", "Typed in".
     static func sourceName(_ source: DataSource) -> String {
@@ -297,7 +281,7 @@ struct CheckInPriceStatus: Hashable, Sendable {
                                       subtitle: names.isEmpty ? nil : names)
         }
         // A provider without history for a past date isn't a failure to retry: the price is typed in.
-        let noHistory = lines.count { $0.status == .failed && $0.failure?.hasPrefix(CheckInPriceList.noHistory) == true }
+        let noHistory = lines.count { $0.status == .failed && $0.hasNoHistory }
         let failed = lines.count { $0.status == .failed } - noHistory
         let noSource = lines.count { $0.status == .manual && $0.needsAttention }
         if failed > 0 {
