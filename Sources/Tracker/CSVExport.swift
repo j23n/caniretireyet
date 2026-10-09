@@ -175,7 +175,9 @@ public enum CSVExport {
         return File(name: name, text: lines.map { $0 + "\r\n" }.joined())
     }
 
-    static func field(_ text: String) -> String {
+    /// One CSV field: quoted when it holds a comma, a quote or a line
+    /// break, with quotes doubled.
+    public static func field(_ text: String) -> String {
         guard text.contains(where: { $0 == "," || $0 == "\"" || $0 == "\n" || $0 == "\r" }) else { return text }
         return "\"" + text.replacingOccurrences(of: "\"", with: "\"\"") + "\""
     }

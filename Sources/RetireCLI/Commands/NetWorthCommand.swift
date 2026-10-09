@@ -292,9 +292,10 @@ struct NetWorthCommand: RetireSubcommand {
 
         func seriesCSV(_ series: Series, by: Dimension?) -> [String] {
             let (keys, rows) = seriesRows(series, by: by)
-            var lines = [CSV.line(["date"] + keys.map(\.jsonKey) + ["total", "complete"])]
+            func line(_ fields: [String]) -> String { fields.map(CSVExport.field).joined(separator: ",") }
+            var lines = [line(["date"] + keys.map(\.jsonKey) + ["total", "complete"])]
             for row in rows {
-                lines.append(CSV.line([row.date.description] + row.values.map { Format.json($0) }
+                lines.append(line([row.date.description] + row.values.map { Format.json($0) }
                     + [Format.json(row.total), row.isComplete ? "true" : "false"]))
             }
             return lines

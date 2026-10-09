@@ -120,16 +120,6 @@ struct TextTable {
     }
 }
 
-/// Comma-separated values, quoted where needed (RFC 4180).
-enum CSV {
-    static func line(_ fields: [String]) -> String {
-        fields.map { field in
-            guard field.contains(where: { $0 == "," || $0 == "\"" || $0 == "\n" || $0 == "\r" }) else { return field }
-            return "\"" + field.replacingOccurrences(of: "\"", with: "\"\"") + "\""
-        }.joined(separator: ",")
-    }
-}
-
 /// JSON output: pretty-printed with sorted keys, amounts as strings.
 enum JSONOutput {
     static func string(_ value: some Encodable) throws -> String {
