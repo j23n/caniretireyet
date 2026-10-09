@@ -70,10 +70,11 @@ final class AppNavigation {
     /// The plan the Plan tab shows; `nil` for the main (or first) plan.
     var selectedPlan: PlanID?
     var sheet: AppSheet?
-    /// Whether the Settings sheet opens on *Sync & backups*, pushed as from
-    /// its row: that's where it is on iPhone, so ``show(_:)`` opens it there
-    /// with tabs. Going back to Settings clears it.
-    var showsSyncInSettings = false
+    /// Whether the sheet shows *Sync & backups*, pushed on its stack: with
+    /// tabs ``show(_:)`` opens it in Settings, as from its row, which is
+    /// where it is on iPhone, or over an import, which stays as it was under
+    /// it. Going back clears it.
+    var showsSyncInSheet = false
     /// The check-in as a full-screen sheet (tab layout); in the sidebar
     /// layout it's the Check-in page.
     var isCheckInPresented = false
@@ -150,7 +151,7 @@ final class AppNavigation {
     }
 
     func showSettings() {
-        showsSyncInSettings = false
+        showsSyncInSheet = false
         sheet = .settings
     }
 
@@ -161,7 +162,9 @@ final class AppNavigation {
     /// Starts an import, of `file` if one was dropped or opened.
     func startImport(_ file: URL? = nil) {
         switch layout {
-        case .tabs: sheet = .importFile(file)
+        case .tabs:
+            showsSyncInSheet = false
+            sheet = .importFile(file)
         case .sidebar:
             pendingImport = file
             sidebarSelection = .importData
@@ -179,14 +182,15 @@ final class AppNavigation {
     }
 
     /// Shows a sidebar place, or the nearest tab. *Sync & backups* has no
-    /// tab: with tabs it opens in Settings, where it is on iPhone.
+    /// tab: with tabs it opens in Settings, where it is on iPhone, or over
+    /// the import that shows it.
     func show(_ item: SidebarItem) {
         sidebarSelection = item
         switch item {
         case .overview, .instruments: tab = .overview
         case .sync:
             tab = .overview
-            if layout == .tabs { showSyncInSettings() }
+            if layout == .tabs { showSyncInSheet() }
         case .checkIn: startCheckIn()
         case .account(let id): showAccount(id)
         case .plan(let id): showPlan(id)
@@ -195,15 +199,21 @@ final class AppNavigation {
         }
     }
 
-    /// Opens Settings on *Sync & backups* (tab layout). The full-screen
-    /// check-in closes first, as the sidebar leaves the Check-in page; its
-    /// draft stays.
-    private func showSyncInSettings() {
+    /// Opens *Sync & backups* (tab layout): pushed over an import, whose
+    /// file, mapping and preview live only in its sheet, so it's as it was
+    /// when you go back; else in Settings. The full-screen check-in closes
+    /// first, as the sidebar leaves the Check-in page; its draft stays.
+    private func showSyncInSheet() {
         guard !isCheckInPresented else {
-            finishCheckIn { $0.showSyncInSettings() }
+            finishCheckIn { $0.showSyncInSheet() }
             return
         }
-        showSettings()
-        showsSyncInSettings = true
+        if !isImporting { showSettings() }
+        showsSyncInSheet = true
+    }
+
+    /// Whether the sheet is an import (tab layout).
+    private var isImporting: Bool {
+        if case .importFile? = sheet { true } else { false }
     }
 }

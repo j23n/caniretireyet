@@ -173,7 +173,7 @@ private struct AppSheetView: View {
                         }
                     }
                     // Sync & backups, pushed when a banner shows it (AppNavigation.show(_:)).
-                    .navigationDestination(isPresented: $navigation.showsSyncInSettings) {
+                    .navigationDestination(isPresented: $navigation.showsSyncInSheet) {
                         SyncScreen()
                     }
             }
@@ -184,6 +184,11 @@ private struct AppSheetView: View {
         case .importFile(let file):
             NavigationStack {
                 ImportScreen(file: file)
+                    // Sync & backups, pushed over the import when one of its
+                    // banners shows it: the import stays as it was under it.
+                    .navigationDestination(isPresented: $navigation.showsSyncInSheet) {
+                        SyncScreen()
+                    }
             }
         case .welcome:
             NavigationStack {

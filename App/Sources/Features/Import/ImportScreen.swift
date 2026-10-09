@@ -31,6 +31,10 @@ struct ImportScreen: View {
     @State private var sheetModel = ImportController()
     @State private var isChoosingFile = false
     @State private var didStart = false
+    /// The file ``take(_:)`` read last. Its task runs again whenever the
+    /// screen reappears, e.g. from *Sync & backups* pushed over it, and
+    /// mustn't read the file again: that would start the import over.
+    @State private var takenFile: URL?
 
     init(file: URL? = nil) {
         self.file = file
@@ -120,8 +124,10 @@ struct ImportScreen: View {
         }
     }
 
-    /// Reads the file the screen was created with, then takes it from the navigation.
+    /// Reads the file the screen was created with, once, then takes it from the navigation.
     private func take(_ file: URL?) async {
+        guard file != takenFile else { return }
+        takenFile = file
         guard let file else { return }
         await open(file)
         navigation.clearPendingImport(file)
