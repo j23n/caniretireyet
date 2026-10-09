@@ -18,12 +18,12 @@ import SwiftUI
 /// The plan commands act on the plan on screen, which publishes them with
 /// `.focusedSceneValue(\.planActions, …)`; they're disabled otherwise.
 struct AppCommands: Commands {
-    @Bindable var privacy: PrivacySettings
+    @Bindable var preferences: AppPreferences
     @Bindable var navigation: AppNavigation
     @FocusedValue(\.planActions) var planActions
 
-    init(privacy: PrivacySettings, navigation: AppNavigation) {
-        _privacy = Bindable(privacy)
+    init(preferences: AppPreferences, navigation: AppNavigation) {
+        _preferences = Bindable(preferences)
         _navigation = Bindable(navigation)
     }
 
@@ -39,7 +39,7 @@ struct AppCommands: Commands {
         }
 
         CommandGroup(after: .toolbar) {
-            Toggle("Hide Amounts", isOn: $privacy.hidesAmounts)
+            Toggle("Hide Amounts", isOn: $preferences.hidesAmounts)
                 .keyboardShortcut("h", modifiers: [.command, .shift])
             Toggle("Show Future", isOn: $navigation.showsFuture)
                 .keyboardShortcut("f", modifiers: [.command, .shift])

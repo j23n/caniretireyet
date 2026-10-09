@@ -19,7 +19,7 @@ Stores (@Observable, @MainActor)
  CheckInStore ─ CheckInDraft (Tracker), kept in Application Support
  PlanStore    ─ PlanEngine (PlannerPlanEngine: the Planner)
  WidgetStore  ─ GlanceSnapshot (Glance) → App Group ← CanIRetireYetWidgets (WidgetKit extension)
- PrivacySettings · AppPreferences · AppNavigation
+ AppPreferences · AppNavigation
 ```
 
 ## Folders
@@ -76,7 +76,6 @@ All stores are `@Observable @MainActor` classes created once in `AppModel` and i
 @Environment(PlanStore.self) private var plans
 @Environment(PriceStore.self) private var prices
 @Environment(AppNavigation.self) private var navigation
-@Environment(PrivacySettings.self) private var privacy
 @Environment(AppPreferences.self) private var preferences
 ```
 
@@ -183,8 +182,7 @@ The widgets (UI.md, "Widgets") never open the library: they draw a `Glance.Glanc
 
 ### Small stores
 
-- `PrivacySettings`: `hidesAmounts` (the eye button and ⌘⇧H), `hideAmountsOnLaunch`, `hideInAppSwitcher` (the root view covers the app while it isn't active), `toggleHidesAmounts()`.
-- `AppPreferences` (this device, `UserDefaults`): `libraryLocation`, `stalenessThreshold` (45 days), `fetchPricesOnCheckIn`, `reminder: CheckInReminder?` (scheduled by `ReminderScheduler`), `collapsedAccountFolders` (the groups collapsed in the sidebar and the Accounts list; see [Sidebar](#sidebar)), `futureHorizon` (how far ahead charts show a projection; see [Charts](#charts)).
+- `AppPreferences` (this device, `UserDefaults`): `libraryLocation`, `stalenessThreshold` (45 days), `fetchPricesOnCheckIn`, `reminder: CheckInReminder?` (scheduled by `ReminderScheduler`), `collapsedAccountFolders` (the groups collapsed in the sidebar and the Accounts list; see [Sidebar](#sidebar)), `futureHorizon` (how far ahead charts show a projection; see [Charts](#charts)), and hiding amounts: `hidesAmounts` (the eye button and ⌘⇧H; not kept), `hideAmountsOnLaunch`, `hideInAppSwitcher` (the root view covers the app while it isn't active), `toggleHidesAmounts()`.
 - `AppNavigation`: `layout` (`.tabs` / `.sidebar`, set by the root view), `tab`, `sidebarSelection` (a `SidebarItem`), `selectedAccount`, `accountsPath`, `selectedPlan`, `sheet` (`.settings`, `.newAccount`, `.importFile(url)`, `.welcome`), `isCheckInPresented`, `showsFuture` (the Overview's *Future* switch and ⌘⇧F), `pendingImport`. Navigate with `startCheckIn()`, `finishCheckIn()`, `showOverview()`, `showAccounts()`, `showAccount(_:)` (pushes the detail on the Accounts tab; selects the account in the sidebar), `showPlan(_:)`, `showSettings()`, `newAccount()`, `startImport(_:)`, `show(_ sidebarItem:)`: they work in both layouts. `libraryChanged(_:)` keeps the sidebar off a deleted account.
 
 ## Sidebar

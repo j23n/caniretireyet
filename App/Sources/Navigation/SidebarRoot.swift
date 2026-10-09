@@ -343,16 +343,16 @@ extension View {
 
 /// The eye button: hides or shows every amount (⌘⇧H).
 struct HideAmountsButton: View {
-    @Environment(PrivacySettings.self) private var privacy
+    @Environment(AppPreferences.self) private var preferences
 
     var body: some View {
         Button {
-            privacy.toggleHidesAmounts()
+            preferences.toggleHidesAmounts()
         } label: {
-            Label(privacy.hidesAmounts ? "Show Amounts" : "Hide Amounts",
-                  systemImage: privacy.hidesAmounts ? AppSymbol.hideAmounts : AppSymbol.showAmounts)
+            Label(preferences.hidesAmounts ? "Show Amounts" : "Hide Amounts",
+                  systemImage: preferences.hidesAmounts ? AppSymbol.hideAmounts : AppSymbol.showAmounts)
         }
-        .help(privacy.hidesAmounts ? "Show amounts" : "Hide amounts")
+        .help(preferences.hidesAmounts ? "Show amounts" : "Hide amounts")
     }
 }
 

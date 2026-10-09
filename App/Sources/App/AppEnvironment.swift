@@ -8,8 +8,8 @@ extension EnvironmentValues {
     /// shows amounts before.
     @Entry var baseCurrency: CurrencyCode = .noCurrency
 
-    /// Whether amounts are hidden (the eye button, ⌘⇧H). Set by the root
-    /// view from `PrivacySettings`; `AmountText` reads it.
+    /// Whether amounts are hidden (the eye button, ⌘⇧H). Set by
+    /// `appEnvironment` from `AppPreferences`; `AmountText` reads it.
     @Entry var hidesAmounts: Bool = false
 
     /// The surface a chart sits on, in which it draws the gaps between its
@@ -32,7 +32,6 @@ private struct AppEnvironmentModifier: ViewModifier {
     func body(content: Content) -> some View {
         content
             .environment(model.preferences)
-            .environment(model.privacy)
             .environment(model.navigation)
             .environment(model.library)
             .environment(model.prices)
@@ -40,6 +39,6 @@ private struct AppEnvironmentModifier: ViewModifier {
             .environment(model.checkIn)
             .environment(model.widgets)
             .environment(\.baseCurrency, model.library.shownCurrency)
-            .environment(\.hidesAmounts, model.privacy.hidesAmounts)
+            .environment(\.hidesAmounts, model.preferences.hidesAmounts)
     }
 }

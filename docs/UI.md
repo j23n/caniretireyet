@@ -971,7 +971,7 @@ The glance: how am I doing, without opening the app. On the home screen of the i
   | `PlanStore` | runs on request, their progress, results and what they were calculated from (out of date or not), headlines and baselines |
   | `CheckInStore` | the check-in draft, kept on the device until it's saved |
   | `PriceStore` | price fetching (wraps `PriceService`) |
-  | `PrivacySettings`, `AppPreferences`, `AppNavigation` | hidden amounts, this device's settings, where you are in the app |
+  | `AppPreferences`, `AppNavigation` | this device's settings and hidden amounts, where you are in the app |
 
   An import in progress belongs to the Import screen.
 - **Navigation.** One root view chooses between `TabView` (compact width) and `NavigationSplitView` (regular width and Mac). The screens themselves don't know which one they're in.

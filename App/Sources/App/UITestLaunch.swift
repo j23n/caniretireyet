@@ -56,9 +56,9 @@ struct UITestLaunch {
         UserDefaults().removePersistentDomain(forName: suite)
         let defaults = UserDefaults(suiteName: suite) ?? .standard
         let model = AppModel(
-            preferences: AppPreferences(defaults: defaults), privacy: PrivacySettings(defaults: defaults),
-            library: .inMemory(library), prices: PriceStore(service: nil), planEngine: PlannerPlanEngine(),
-            planResults: keptResultsArchive(), draftURL: nil)
+            preferences: AppPreferences(defaults: defaults), library: .inMemory(library),
+            prices: PriceStore(service: nil), planEngine: PlannerPlanEngine(), planResults: keptResultsArchive(),
+            draftURL: nil)
         if keptResults != nil {
             model.plans.inMemoryLibrary = URL(fileURLWithPath: "/ui-tests/\(name)", isDirectory: true)
         }

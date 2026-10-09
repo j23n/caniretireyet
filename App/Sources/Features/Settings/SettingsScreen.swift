@@ -337,15 +337,15 @@ private struct ReminderSection: View {
 
 /// Hiding amounts.
 private struct PrivacySection: View {
-    @Environment(PrivacySettings.self) private var privacy
+    @Environment(AppPreferences.self) private var preferences
 
     var body: some View {
-        @Bindable var privacy = privacy
+        @Bindable var preferences = preferences
         Section {
-            Toggle("Hide amounts", isOn: $privacy.hidesAmounts)
-            Toggle("Hide amounts when the app opens", isOn: $privacy.hideAmountsOnLaunch)
+            Toggle("Hide amounts", isOn: $preferences.hidesAmounts)
+            Toggle("Hide amounts when the app opens", isOn: $preferences.hideAmountsOnLaunch)
             #if os(iOS)
-            Toggle("Cover the app in the app switcher", isOn: $privacy.hideInAppSwitcher)
+            Toggle("Cover the app in the app switcher", isOn: $preferences.hideInAppSwitcher)
             #endif
         } header: {
             Text("Privacy")

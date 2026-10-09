@@ -10,7 +10,7 @@ struct RootView: View {
     @Environment(AppNavigation.self) private var navigation
     @Environment(CheckInStore.self) private var checkIn
     @Environment(PlanStore.self) private var plans
-    @Environment(PrivacySettings.self) private var privacy
+    @Environment(AppPreferences.self) private var preferences
     @Environment(WidgetStore.self) private var widgets
     @Environment(\.scenePhase) private var scenePhase
     #if os(iOS)
@@ -20,7 +20,7 @@ struct RootView: View {
     var body: some View {
         content
             .overlay {
-                if privacy.hideInAppSwitcher && scenePhase != .active {
+                if preferences.hideInAppSwitcher && scenePhase != .active {
                     PrivacyCover()
                 }
             }

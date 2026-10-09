@@ -462,7 +462,7 @@ struct CheckInBanners: View {
     let session: CheckInSession
 
     @Environment(LibraryStore.self) private var library
-    @Environment(PrivacySettings.self) private var privacy
+    @Environment(AppPreferences.self) private var privacy
     @Environment(\.locale) private var locale
 
     init(draft: CheckInDraft, session: CheckInSession) {

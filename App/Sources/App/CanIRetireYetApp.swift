@@ -30,7 +30,7 @@ struct CanIRetireYetApp: App {
         .windowResizability(.contentMinSize)
         #endif
         .commands {
-            AppCommands(privacy: model.privacy, navigation: model.navigation)
+            AppCommands(preferences: model.preferences, navigation: model.navigation)
         }
 
         #if os(macOS)

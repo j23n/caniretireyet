@@ -6,7 +6,7 @@ import Tracker
 
 /// Settings that belong to this device, not to the library (docs/schema,
 /// library.schema.json: "Settings that belong to one device … are stored on that device"). Kept
-/// in `UserDefaults`.
+/// in `UserDefaults`, except whether amounts are hidden right now.
 @Observable @MainActor
 final class AppPreferences {
     /// Where this device keeps the library; `nil` until it's been chosen or found.
@@ -58,6 +58,25 @@ final class AppPreferences {
         didSet { defaults.set(futureHorizon.rawValue, forKey: Keys.futureHorizon) }
     }
 
+    // MARK: Hiding amounts (UI.md, "Privacy")
+
+    /// Whether amounts are hidden right now: what the eye button and ⌘⇧H
+    /// toggle. `appEnvironment` passes it to every `AmountText` through the
+    /// environment, so amounts show as `•••••` while charts keep their
+    /// shape. Not kept: each launch starts from ``hideAmountsOnLaunch``.
+    var hidesAmounts: Bool
+
+    /// Whether amounts start hidden when the app launches.
+    var hideAmountsOnLaunch: Bool {
+        didSet { defaults.set(hideAmountsOnLaunch, forKey: Keys.hideAmountsOnLaunch) }
+    }
+
+    /// Whether the app covers its content while it isn't active (the app
+    /// switcher, a notification pulled down).
+    var hideInAppSwitcher: Bool {
+        didSet { defaults.set(hideInAppSwitcher, forKey: Keys.hideInAppSwitcher) }
+    }
+
     @ObservationIgnored private let defaults: UserDefaults
 
     init(defaults: UserDefaults = .standard) {
@@ -78,6 +97,13 @@ final class AppPreferences {
         } else {
             reminder = nil
         }
+        hideAmountsOnLaunch = defaults.bool(forKey: Keys.hideAmountsOnLaunch)
+        hideInAppSwitcher = defaults.bool(forKey: Keys.hideInAppSwitcher)
+        hidesAmounts = defaults.bool(forKey: Keys.hideAmountsOnLaunch)
+    }
+
+    func toggleHidesAmounts() {
+        hidesAmounts.toggle()
     }
 
     private enum Keys {
@@ -90,6 +116,8 @@ final class AppPreferences {
         static let reminderMinute = "checkInReminder.minute"
         static let collapsedAccountFolders = "sidebar.collapsedAccountFolders"
         static let futureHorizon = "charts.futureHorizon"
+        static let hideAmountsOnLaunch = "privacy.hideAmountsOnLaunch"
+        static let hideInAppSwitcher = "privacy.hideInAppSwitcher"
     }
 }
 

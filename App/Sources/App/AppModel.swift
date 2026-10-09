@@ -9,7 +9,6 @@ import Prices
 @MainActor
 final class AppModel {
     let preferences: AppPreferences
-    let privacy: PrivacySettings
     let navigation: AppNavigation
     let library: LibraryStore
     let prices: PriceStore
@@ -17,11 +16,9 @@ final class AppModel {
     let checkIn: CheckInStore
     let widgets: WidgetStore
 
-    init(preferences: AppPreferences, privacy: PrivacySettings, library: LibraryStore, prices: PriceStore,
-         planEngine: any PlanEngine, planResults: PlanResultsArchive? = nil, draftURL: URL?,
-         widgetSnapshotURL: URL? = nil) {
+    init(preferences: AppPreferences, library: LibraryStore, prices: PriceStore, planEngine: any PlanEngine,
+         planResults: PlanResultsArchive? = nil, draftURL: URL?, widgetSnapshotURL: URL? = nil) {
         self.preferences = preferences
-        self.privacy = privacy
         navigation = AppNavigation()
         self.library = library
         self.prices = prices
@@ -54,7 +51,7 @@ final class AppModel {
         let credentials: any CredentialsProvider = StaticCredentials()
         #endif
         return AppModel(
-            preferences: preferences, privacy: PrivacySettings(),
+            preferences: preferences,
             library: LibraryStore(locator: LibraryLocator(), preferences: preferences),
             prices: PriceStore(service: .standard(credentials: credentials)),
             planEngine: PlannerPlanEngine(),
@@ -70,8 +67,8 @@ final class AppModel {
         -> AppModel {
         let defaults = UserDefaults(suiteName: "preview") ?? .standard
         return AppModel(
-            preferences: AppPreferences(defaults: defaults), privacy: PrivacySettings(defaults: defaults),
-            library: .inMemory(library), prices: PriceStore(service: nil), planEngine: planEngine, draftURL: nil)
+            preferences: AppPreferences(defaults: defaults), library: .inMemory(library),
+            prices: PriceStore(service: nil), planEngine: planEngine, draftURL: nil)
     }
 
     /// Launch work: find and load the library, restore an unfinished
