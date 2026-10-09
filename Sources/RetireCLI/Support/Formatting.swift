@@ -52,8 +52,14 @@ enum Format {
     }
 
     /// `1 account`, `2 accounts`.
-    static func count(_ count: Int, _ singular: String, _ plural: String? = nil) -> String {
-        "\(count) \(count == 1 ? singular : plural ?? singular + "s")"
+    static func count(_ count: Int, _ singular: String) -> String {
+        "\(count) \(count == 1 ? singular : singular + "s")"
+    }
+
+    /// Dates or months from `first` to `last`: `2025-10 to 2026-09`, or
+    /// `2026-09` when they're the same.
+    static func range<Value: Equatable & CustomStringConvertible>(_ first: Value, _ last: Value) -> String {
+        first == last ? "\(first)" : "\(first) to \(last)"
     }
 
     /// A list for a sentence: `a`, `a and b`, `a, b and c` (or `a or b`).

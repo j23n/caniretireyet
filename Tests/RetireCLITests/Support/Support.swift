@@ -27,7 +27,7 @@ func retire(_ arguments: [String], environment: [String: String] = [:], currentD
     let context = CLIContext(
         console: console, environment: environment,
         currentDirectory: currentDirectory ?? FileManager.default.temporaryDirectory, today: today,
-        now: { clock.next() }, httpClient: client ?? MockHTTPClient(), credentials: StaticCredentials())
+        now: { clock.next() }, httpClient: client ?? MockHTTPClient())
     await oneAtATime.acquire()
     let status = await RetireCLI.run(arguments, context: context, columns: 100)
     await oneAtATime.release()

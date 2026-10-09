@@ -82,9 +82,9 @@ extension PricesCommand {
                 let runs = result.sources
                 table.add([result.item.description, "\(result.needed.count)", "\(result.filled.count)",
                            runs.first.map { $0.origin.description } ?? "",
-                           runs.first.map { Self.range($0.first, $0.last) } ?? "", Self.status(result)])
+                           runs.first.map { Format.range($0.first, $0.last) } ?? "", Self.status(result)])
                 for run in runs.dropFirst() {
-                    table.add(["", "", "", run.origin.description, Self.range(run.first, run.last), ""])
+                    table.add(["", "", "", run.origin.description, Format.range(run.first, run.last), ""])
                 }
             }
             lines += table.lines()
@@ -96,7 +96,7 @@ extension PricesCommand {
                 for result in unfilled {
                     let missing = result.missing
                     let dates = missing.count == 1 ? "\(missing[0])"
-                        : "\(missing.count) dates, \(Self.range(missing[0], missing[missing.count - 1]))"
+                        : "\(missing.count) dates, \(Format.range(missing[0], missing[missing.count - 1]))"
                     lines.append("  \(result.item) (\(dates)): \(result.reason ?? "no value")")
                 }
             }
@@ -119,8 +119,7 @@ extension PricesCommand {
             }
             for index in needs.indices {
                 let months = index.months
-                let range = months.count == 1 ? "\(months[0])" : "\(months[0]) to \(months[months.count - 1])"
-                parts.append("\(index.index) for \(range)")
+                parts.append("\(index.index) for \(Format.range(months[0], months[months.count - 1]))")
             }
             let manual = needs.manualInstruments + needs.unknownInstruments
             guard !parts.isEmpty || !manual.isEmpty else {
@@ -163,10 +162,6 @@ extension PricesCommand {
         static func files(_ files: [String]) -> String {
             guard files.count > 3 else { return Format.list(files) }
             return files.prefix(3).joined(separator: ", ") + " and \(files.count - 3) more files"
-        }
-
-        static func range(_ first: CalendarDate, _ last: CalendarDate) -> String {
-            first == last ? "\(first)" : "\(first) to \(last)"
         }
 
         static func status(_ result: PastPriceResult) -> String {

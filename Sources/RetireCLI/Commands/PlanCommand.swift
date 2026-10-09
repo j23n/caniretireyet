@@ -64,7 +64,9 @@ struct PlanCommand: RetireSubcommand {
         let loaded = try options.load(in: context)
         if saveBaseline != nil { try loaded.checkWritable() }
         let document = try Self.plan(plan.map { PlanID($0) }, in: loaded.library)
-        let plannerOptions = fast ? PlannerOptions.fast() : PlannerOptions()
+        var plannerOptions = fast ? PlannerOptions.fast() : PlannerOptions()
+        // The start date when the library has no check-in yet.
+        plannerOptions.today = context.today
         let console = context.console
         var progress: (@Sendable (PlannerProgress) -> Void)?
         if console.showsStatus, !json {
@@ -73,9 +75,8 @@ struct PlanCommand: RetireSubcommand {
         let result: PlanResult
         do {
             defer { if progress != nil { console.clearStatus() } }
-            result = try await Planner.run(
-                plan: document, library: loaded.library,
-                options: Self.options(plannerOptions, today: context.today), progress: progress)
+            result = try await Planner.run(plan: document, library: loaded.library, options: plannerOptions,
+                                           progress: progress)
         } catch let error as PlannerError {
             throw CLIError(Self.message(for: error, plan: document))
         }
@@ -88,17 +89,10 @@ struct PlanCommand: RetireSubcommand {
         try context.console.print(report, json: json)
     }
 
-    /// The options for a run started on `today` (used when the library has no check-in yet).
-    static func options(_ options: PlannerOptions, today: CalendarDate) -> PlannerOptions {
-        var options = options
-        options.today = today
-        return options
-    }
-
     /// Why the plan can't run: its errors, one per line after the first.
     static func message(for error: PlannerError, plan: PlanDocument) -> String {
         let errors = error.issues.filter(\.isError).map(\.message)
-        let path = LibraryFile.planPath(plan.id)
+        let path = LibraryFile.plan(plan.id).path
         guard !errors.isEmpty else { return "\(path) (\(plan.name)) can't run." }
         if errors.count == 1 { return "\(path) (\(plan.name)) can't run: \(errors[0])" }
         return "\(path) (\(plan.name)) can't run:\n" + errors.map { "  \($0)" }.joined(separator: "\n")
@@ -164,11 +158,6 @@ enum PlanProgressLine {
             return "Summarising"
         }
     }
-}
-
-extension LibraryFile {
-    /// `plans/<id>.json`.
-    static func planPath(_ id: PlanID) -> String { LibraryFile.plan(id).path }
 }
 
 /// What `retire plan` prints: the Planner's result, as text or JSON, in the

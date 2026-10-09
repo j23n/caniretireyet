@@ -156,8 +156,7 @@ struct PricesCommand: RetireSubcommand {
             }
             for index in needs.indices where !index.months.isEmpty {
                 let months = index.months
-                let range = months.count == 1 ? "\(months[0])" : "\(months[0]) to \(months[months.count - 1])"
-                parts.append("\(index.index) for \(range)")
+                parts.append("\(index.index) for \(Format.range(months[0], months[months.count - 1]))")
             }
             guard !parts.isEmpty else { return ["A check-in on \(date) needs nothing fetched."] }
             return ["A check-in on \(date) needs " + Format.list(parts) + "."]

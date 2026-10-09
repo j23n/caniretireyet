@@ -128,14 +128,12 @@ public struct CLIContext: Sendable {
     public var now: @Sendable () -> Date
     /// How `prices` reaches the price APIs.
     public var httpClient: any HTTPClient
-    /// API keys for the price providers.
-    public var credentials: any CredentialsProvider
 
     public init(
         console: Console, environment: [String: String] = [:],
         currentDirectory: URL = URL(fileURLWithPath: FileManager.default.currentDirectoryPath, isDirectory: true),
         today: CalendarDate = .today(), now: @escaping @Sendable () -> Date = { Date() },
-        httpClient: any HTTPClient = URLSessionHTTPClient(), credentials: (any CredentialsProvider)? = nil
+        httpClient: any HTTPClient = URLSessionHTTPClient()
     ) {
         self.console = console
         self.environment = environment
@@ -143,7 +141,6 @@ public struct CLIContext: Sendable {
         self.today = today
         self.now = now
         self.httpClient = httpClient
-        self.credentials = credentials ?? Self.credentials(from: environment)
     }
 
     /// The running process: standard output and error, its environment and
@@ -157,9 +154,9 @@ public struct CLIContext: Sendable {
     /// The environment variable holding an optional CoinGecko demo API key.
     public static let coinGeckoKeyVariable = "COINGECKO_API_KEY"
 
-    /// API keys read from environment variables.
-    static func credentials(from environment: [String: String]) -> StaticCredentials {
-        StaticCredentials([.coingecko: environment[coinGeckoKeyVariable] ?? ""])
+    /// API keys for the price providers, read from environment variables.
+    var credentials: StaticCredentials {
+        StaticCredentials([.coingecko: environment[Self.coinGeckoKeyVariable] ?? ""])
     }
 
     /// `path` as a file URL, relative to the current directory unless absolute.

@@ -17,6 +17,9 @@ struct TradesGroupCommand: AsyncParsableCommand {
             `retire import`.
             """,
         subcommands: [TradesListCommand.self, TradesSummaryCommand.self])
+
+    /// What to do about an account that doesn't record trades.
+    static let switchHint = "Switch it to recording trades in the app (Switch to Trade History on the account)."
 }
 
 // MARK: - list
@@ -88,8 +91,8 @@ struct TradesListCommand: RetireSubcommand {
             let currency = account.currency.rawValue
             var lines = ["Trades of \(account.name) (\(account.id), \(currency))"]
             if !account.recordsTrades {
-                lines.append("  \(account.id) doesn't record trades, so its trades don't count. Switch it to "
-                    + "recording trades in the app (Switch to Trade History on the account).")
+                lines.append("  \(account.id) doesn't record trades, so its trades don't count. "
+                    + TradesGroupCommand.switchHint)
             }
             guard !rows.isEmpty else {
                 lines.append(filtered ? "  No trades match." : "  No trades yet: add one in the app, or "

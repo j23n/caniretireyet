@@ -47,8 +47,8 @@ struct TradesSummaryCommand: RetireSubcommand {
         if let id = account {
             let account = try loaded.account(id)
             guard let ledger = valuator.ledger(for: account.id) else {
-                throw CLIError("\(account.id) doesn't record trades, so there's nothing to sum up. Switch it to "
-                    + "recording trades in the app (Switch to Trade History on the account).")
+                throw CLIError("\(account.id) doesn't record trades, so there's nothing to sum up. "
+                    + TradesGroupCommand.switchHint)
             }
             summary = ledger.summary(for: year)
             title = "\(account.name) (\(account.id))"
@@ -57,14 +57,13 @@ struct TradesSummaryCommand: RetireSubcommand {
             let accounts = loaded.library.sortedAccounts.filter(\.recordsTrades).map(\.id.rawValue)
             title = accounts.isEmpty ? "no account records trades" : accounts.joined(separator: ", ")
         }
-        let report = Report(title: title, summary: summary, library: loaded.library, account: account)
+        let report = Report(title: title, summary: summary, account: account)
         try context.console.print(report, json: json)
     }
 
     struct Report: CommandReport {
         let title: String
         let summary: TradeYearSummary
-        let library: Library
         let account: String?
 
         func lines() -> [String] {
