@@ -139,8 +139,11 @@ struct OverviewHistory: Hashable, Sendable {
 /// day. Basic: amounts are compared as they are, in the base currency,
 /// without adjusting the baseline's money for inflation.
 struct OverviewBaselineGap: Hashable, Sendable {
-    /// When the baseline was saved.
-    var created: CalendarDate
+    /// The day the baseline starts, which names it ("your Jan baseline").
+    var start: CalendarDate
+    /// Whether it's a past baseline (PROGRESS.md, "Past baselines"), named
+    /// by its year ("your 2021 plan").
+    var isPast: Bool
     /// The baseline's accounts on the date, with those that replaced them
     /// and those opened since (``Baseline/comparedAccounts(among:)``), less
     /// its median then: positive when ahead.
@@ -158,7 +161,8 @@ struct OverviewBaselineGap: Hashable, Sendable {
         let median = from.bands[2] + (to.bands[2] - from.bands[2]) * fraction
         let accounts = baseline.comparedAccounts(among: valuator.accounts)
         gap = valuator.total(on: date, including: { accounts.contains($0.id) }).total - median
-        created = baseline.created
+        start = baseline.start.date
+        isPast = baseline.kind == .past
     }
 }
 
