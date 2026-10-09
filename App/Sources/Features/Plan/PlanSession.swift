@@ -10,7 +10,7 @@ import Planner
 /// - **Runs only on request.** Nothing runs on appear, after an edit, a
 ///   slider move or another focus age. The results shown stay until the
 ///   user asks for new ones (``calculate()``, ⌘R; ``runWhatIf()``), and
-///   ``stateWithoutProgress`` says when they're out of date and why.
+///   ``state`` says when they're out of date and why.
 ///   Results the engine kept for exactly the current inputs are picked up
 ///   without a run (``refresh()``), e.g. after changing an input back.
 /// - **Editing.** Edits change a draft at once and are saved to the library
@@ -179,7 +179,7 @@ final class PlanSession {
         return base
     }
 
-    /// The results the charts show (see ``stateWithoutProgress`` for whether
+    /// The results the charts show (see ``state`` for whether
     /// they're out of date).
     var shownResults: PlanResults? { shown?.results }
 
@@ -190,7 +190,7 @@ final class PlanSession {
     /// the views don't redraw with every progress update (on the Mac, the
     /// toolbar and the results redrawing ten times a second while the
     /// window laid itself out could loop).
-    var stateWithoutProgress: PlanResultsState {
+    var state: PlanResultsState {
         let content: PlanResultsState.Content
         var reasons: [PlanStaleReason] = []
         if let shown {

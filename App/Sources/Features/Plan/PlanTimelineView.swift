@@ -48,7 +48,7 @@ struct PlanTimelineView: View {
     var body: some View {
         @Bindable var session = session
         // Without the progress: only the progress card follows every update.
-        let state = session.stateWithoutProgress
+        let state = session.state
         let milestones = session.plan.map {
             PlanMilestones(plan: $0, library: library.library, valuator: library.valuator, asOf: library.asOfDate,
                            results: state.results, reached: [])
@@ -258,13 +258,9 @@ struct PlanTimelineHeadline: View {
 
     @Environment(\.locale) private var locale
 
-    private var focusAge: Int? { results.details.focus.age }
+    private var focusAge: Int { results.details.focus.age }
 
-    private var success: Double? {
-        if let success = results.details.focus.success { return success }
-        guard let focusAge else { return results.headline.successAtTarget }
-        return results.successByAge.first { $0.age == focusAge }?.success ?? results.headline.successAtTarget
-    }
+    private var success: Double? { results.details.focus.success ?? results.headline.successAtTarget }
 
     private var endAge: Int { results.details.endAge }
 
@@ -333,7 +329,7 @@ struct PlanTimelineHeadline: View {
     @ViewBuilder
     private var reason: some View {
         if let success {
-            let isPlanned = !session.hasWhatIf && focusAge != nil && focusAge == results.headline.targetAge
+            let isPlanned = !session.hasWhatIf && focusAge == results.headline.targetAge
             HStack(alignment: .firstTextBaseline, spacing: Metrics.s) {
                 PlanTenthsView(filled: PlanTimelineText.tenths(success))
                     .alignmentGuide(.firstTextBaseline) { $0[VerticalAlignment.center] + 4 }

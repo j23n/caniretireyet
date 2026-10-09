@@ -337,11 +337,9 @@ struct PlanChapterCardView: View {
                 Text(verbatim: "Bad \(compact(outcome.low)), good \(compact(outcome.high))")
                     .font(.caption2)
                     .foregroundStyle(Palette.secondaryInk)
-                if let share = outcome.failureShare {
-                    Text(PlanTimelineText.runsOut(share))
-                        .font(.caption2.weight(share > 0 ? .semibold : .regular))
-                        .foregroundStyle(share > 0 ? Palette.orangeStroke : Palette.secondaryInk)
-                }
+                Text(PlanTimelineText.runsOut(outcome.failureShare))
+                    .font(.caption2.weight(outcome.failureShare > 0 ? .semibold : .regular))
+                    .foregroundStyle(outcome.failureShare > 0 ? Palette.orangeStroke : Palette.secondaryInk)
             }
             .lineLimit(1)
             .minimumScaleFactor(0.8)

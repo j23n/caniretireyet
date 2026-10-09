@@ -38,9 +38,8 @@ struct PlanChaptersModel {
         var low: Double
         var median: Double
         var high: Double
-        /// The share of futures whose money runs out during the chapter;
-        /// `nil` when the results don't say (the preview engine).
-        var failureShare: Double?
+        /// The share of futures whose money runs out during the chapter.
+        var failureShare: Double
     }
 
     let plan: PlanDocument
@@ -102,16 +101,14 @@ struct PlanChaptersModel {
             let date = CalendarDate(point.date, in: .current)
             if date.month == 12, date.day == 31 { yearEnds[date.year] = point }
         }
-        let failures: [AgeCount]? = results.details.focus.failuresByAge
+        let failures = results.details.focus.failuresByAge
         let runs = Double(results.runs)
         var outcomes: [Int: Outcome] = [:]
         for (index, chapter) in chapters.chapters.enumerated() {
             guard let end = yearEnds[chapter.years.upperBound] else { continue }
-            let failing = failures.map { counts in
-                counts.filter { chapter.ages.contains($0.age) }.reduce(0) { $0 + $1.count }
-            }
+            let failing = failures.filter { chapter.ages.contains($0.age) }.reduce(0) { $0 + $1.count }
             outcomes[index] = Outcome(age: chapter.ages.upperBound, low: end.p10, median: end.p50, high: end.p90,
-                                      failureShare: failing.map { runs > 0 ? Double($0) / runs : 0 })
+                                      failureShare: runs > 0 ? Double(failing) / runs : 0)
         }
         return outcomes
     }

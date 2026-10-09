@@ -63,7 +63,7 @@ extension PlanChapterStory {
         story = Self.sentences(chapter, model: model, words: words, results: results).enumerated()
             .flatMap { offset, sentence in offset == 0 ? sentence : [Run.text(" ")] + sentence }
         bar = Self.bar(chapter, model: model, results: results, words: words)
-        risks = Self.risks(chapter, details: results?.details)
+        risks = results.map { Self.risks(chapter, details: $0.details) } ?? []
     }
 
     // MARK: What happens
@@ -219,8 +219,8 @@ extension PlanChapterStory {
     /// Where and when futures run out in the chapter, from the results: the
     /// money you can draw running out before a locked account opens (in the
     /// bridge), and the age by which most of the chapter's failures happen.
-    static func risks(_ chapter: PlanChapter, details: PlanResultDetails?) -> [String] {
-        guard let details, chapter.isRetired else { return [] }
+    static func risks(_ chapter: PlanChapter, details: PlanResultDetails) -> [String] {
+        guard chapter.isRetired else { return [] }
         var sentences: [String] = []
         if chapter.kind == .bridge {
             let locked = details.focus.bridges.filter { bridge in

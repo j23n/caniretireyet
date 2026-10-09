@@ -260,20 +260,16 @@ enum PlanTimelineText {
     /// number of tenths (95 in 100).
     ///
     /// - Parameters:
-    ///   - age: the age it's for; `nil` leaves it out.
+    ///   - age: the age it's for.
     ///   - isPlanned: whether that's the plan's own retirement age.
     ///   - bar: the plan's confidence level.
-    static func reason(_ success: Double, endAge: Int, age: Int?, isPlanned: Bool, bar: Double) -> String {
+    static func reason(_ success: Double, endAge: Int, age: Int, isPlanned: Bool, bar: Double) -> String {
         let inTenths = abs(bar * 10 - (bar * 10).rounded()) < 1e-6
         func share(_ value: Double) -> String {
             inTenths ? "\(Self.tenths(value)) in 10" : "\(Int((value * 100 + 1e-9).rounded(.down))) in 100"
         }
-        let futures = "\(share(success)) futures last to \(endAge)"
-        let sentence: String = if let age {
-            (isPlanned ? "At \(age), as planned, " : "If you stop at \(age), ") + futures
-        } else {
-            futures.capitalizedFirst
-        }
+        let sentence = (isPlanned ? "At \(age), as planned, " : "If you stop at \(age), ")
+            + "\(share(success)) futures last to \(endAge)"
         return success >= bar ? "\(sentence). That meets your bar." : "\(sentence). Your bar is \(share(bar))."
     }
 

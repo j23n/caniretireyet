@@ -156,7 +156,7 @@ struct PlanRunProgressCard: View {
         if let progress = session.runProgress {
             Card {
                 PlanRunProgressView(progress: progress, isCheckIn: session.isCheckInRun,
-                                    onCancel: session.stateWithoutProgress.canCancel ? { session.cancel() } : nil)
+                                    onCancel: session.state.canCancel ? { session.cancel() } : nil)
             }
         }
     }
