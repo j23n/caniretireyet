@@ -158,9 +158,11 @@ private struct AppPresentation: ViewModifier {
 /// The content of an app-wide sheet.
 private struct AppSheetView: View {
     let sheet: AppSheet
+    @Environment(AppNavigation.self) private var navigation
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
+        @Bindable var navigation = navigation
         switch sheet {
         case .settings:
             NavigationStack {
@@ -169,6 +171,10 @@ private struct AppSheetView: View {
                         ToolbarItem(placement: .confirmationAction) {
                             Button("Done") { dismiss() }
                         }
+                    }
+                    // Sync & backups, pushed when a banner shows it (AppNavigation.show(_:)).
+                    .navigationDestination(isPresented: $navigation.showsSyncInSettings) {
+                        SyncScreen()
                     }
             }
         case .newAccount:

@@ -34,7 +34,7 @@ Plus the glance: "how am I doing?" in a widget or on the Overview.
 - **Overview:** net worth, history, how you're doing.
 - **Accounts:** the list, account details, adding and closing.
 - **Plan:** the plan, chapter by chapter, and its progress, for each plan.
-- **Settings** opens from a gear button in the Overview toolbar. It's rarely needed, so it doesn't take a tab.
+- **Settings** opens from a gear button in the Overview toolbar. It's rarely needed, so it doesn't take a tab. *Sync & backups* is in it, under Library: the library's banners (a sync conflict, a file that couldn't be read) open it there with *Review* or *Show details*, also from the check-in, which closes first and keeps its draft.
 - The accessory shows the check-in's state, "October check-in · due in 3 days", "Continue check-in · 7 of 9 reviewed", and opens it. It shows only while a check-in is due (within a few days of the month's end, or past it) or a draft is waiting, so it doesn't sit over every screen the rest of the month; then *Check In* in the Overview's toolbar starts one early. (Before iOS 26.1, which can hide it, it always shows: "Last check-in 30 Sep · next 31 Oct".)
 
 **Mac and iPad:** a sidebar with a content area, plus an inspector where it helps.
