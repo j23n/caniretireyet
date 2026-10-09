@@ -132,15 +132,7 @@ struct InstrumentPriceUpdateSheet: View {
                 ContentUnavailableView("No price update", systemImage: "arrow.clockwise")
             }
         }
-        .navigationTitle("Price Update")
-        #if os(iOS)
-        .navigationBarTitleDisplayMode(.inline)
-        #endif
-        .toolbar {
-            ToolbarItem(placement: .confirmationAction) {
-                Button("Done") { dismiss() }
-            }
-        }
+        .sheetTitle("Price Update") { dismiss() }
     }
 
     private func content(_ run: InstrumentPriceUpdate) -> some View {

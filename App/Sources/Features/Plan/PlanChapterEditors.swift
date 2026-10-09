@@ -189,15 +189,7 @@ struct PlanAlwaysSheet: View {
                 .padding(Metrics.l)
             }
             .background(Palette.page)
-            .navigationTitle("Assumptions")
-            #if os(iOS)
-            .navigationBarTitleDisplayMode(.inline)
-            #endif
-            .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") { dismiss() }
-                }
-            }
+            .sheetTitle("Assumptions") { dismiss() }
         }
         #if os(macOS)
         .frame(minWidth: 520, minHeight: 600)
@@ -218,15 +210,7 @@ struct PlanTargetMixSheet: View {
                     .padding(Metrics.l)
             }
             .background(Palette.page)
-            .navigationTitle("Target mix")
-            #if os(iOS)
-            .navigationBarTitleDisplayMode(.inline)
-            #endif
-            .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") { dismiss() }
-                }
-            }
+            .sheetTitle("Target mix") { dismiss() }
         }
         #if os(macOS)
         .frame(minWidth: 520, minHeight: 560)

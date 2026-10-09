@@ -42,15 +42,7 @@ struct PlanCalculationsSheet: View {
                 }
             }
             .formStyle(.grouped)
-            .navigationTitle("Export Calculations")
-            #if os(iOS)
-            .navigationBarTitleDisplayMode(.inline)
-            #endif
-            .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") { dismiss() }
-                }
-            }
+            .sheetTitle("Export Calculations") { dismiss() }
             .task(id: export.options) {
                 message = nil
                 await export.prepare()

@@ -307,15 +307,7 @@ struct PlanProgressMilestones: View {
                     .padding(Metrics.l)
             }
             .background(Palette.page)
-            .navigationTitle("Milestones")
-            #if os(iOS)
-            .navigationBarTitleDisplayMode(.inline)
-            #endif
-            .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") { showsAll = false }
-                }
-            }
+            .sheetTitle("Milestones") { showsAll = false }
         }
         #if os(macOS)
         .frame(minWidth: 460, minHeight: 520)

@@ -27,15 +27,7 @@ struct LibraryCSVExportSheet: View {
                 }
             }
             .formStyle(.grouped)
-            .navigationTitle("Export as CSV")
-            #if os(iOS)
-            .navigationBarTitleDisplayMode(.inline)
-            #endif
-            .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") { dismiss() }
-                }
-            }
+            .sheetTitle("Export as CSV") { dismiss() }
             .task { await export.prepare() }
         }
         #if os(macOS)
