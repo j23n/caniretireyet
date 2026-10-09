@@ -3,55 +3,6 @@ import Model
 import SwiftUI
 import WidgetKit
 
-/// The app's colours (UI.md, "Design system"), from the colour sets in the
-/// asset catalog the extension shares with the app
-/// (App/Resources/Assets.xcassets), light and dark.
-enum WidgetPalette {
-    static let card = Color("SurfaceCard")
-    static let ink = Color("InkPrimary")
-    static let secondaryInk = Color("InkSecondary")
-    static let mutedInk = Color("InkMuted")
-    static let gridline = Color("ChartGridline")
-    static let axis = Color("ChartAxis")
-    /// The one hue for single-series marks: rings, bars, the answer's line.
-    static let accent = Color("SeriesBlue")
-    static let positive = Color("DeltaUp")
-    static let negative = Color("DeltaDown")
-    /// The sun's gold, for the retirement icons on the card.
-    static let gold = Color("SeriesYellowStroke")
-    /// Under a ring or a bar.
-    static let track = Color("ChartGridline")
-
-    /// An asset class's colour for a small mark or a thin bar (the line step,
-    /// as `Palette.stroke(for:)`); debts are red.
-    static func assetClass(_ key: String) -> Color {
-        switch key {
-        case "cash": Color("SeriesBlue")
-        case "bonds": Color("SeriesOrangeStroke")
-        case "equity": Color("SeriesAquaStroke")
-        case "gold": Color("SeriesYellowStroke")
-        case "crypto": Color("SeriesMagentaStroke")
-        case "realEstate": Color("SeriesGreen")
-        case AllocationSlice.debts: Color("SeriesRed")
-        default: Color("SeriesViolet")
-        }
-    }
-
-    /// A change's colour by its direction: up, down, or grey for none.
-    static func change(_ direction: Int) -> Color {
-        direction > 0 ? positive : direction < 0 ? negative : secondaryInk
-    }
-
-    // The app icon's dusk (App/Design/AppIcon): the same in light and dark.
-    static let duskSky = Color(red: 15 / 255, green: 42 / 255, blue: 85 / 255)
-    static let duskBlue = Color(red: 42 / 255, green: 99 / 255, blue: 184 / 255)
-    static let duskGlow = Color(red: 241 / 255, green: 183 / 255, blue: 92 / 255)
-    static let sunLight = Color(red: 1, green: 224 / 255, blue: 138 / 255)
-    static let sunDeep = Color(red: 237 / 255, green: 161 / 255, blue: 0)
-    static let horizon = Color(red: 11 / 255, green: 29 / 255, blue: 58 / 255)
-    static let horizonLine = Color(red: 158 / 255, green: 197 / 255, blue: 244 / 255)
-}
-
 /// Amounts and changes worded as the app words them (`AmountFormat`,
 /// `DeltaFormat`): `312.480 €`, `▲ +4.210 €`, `▲ +1,4%`.
 struct WidgetMoney {
@@ -93,15 +44,15 @@ struct WidgetDelta: Hashable {
     var text: String
     var direction: Int
 
-    var color: Color { WidgetPalette.change(direction) }
+    var color: Color { Palette.change(direction) }
 }
 
 /// The small label at a widget's top: an icon and a few words.
 struct WidgetLabel: View {
     var title: String
     var systemImage: String
-    var iconColor: Color = WidgetPalette.secondaryInk
-    var textColor: Color = WidgetPalette.secondaryInk
+    var iconColor: Color = Palette.secondaryInk
+    var textColor: Color = Palette.secondaryInk
 
     var body: some View {
         HStack(spacing: 4) {
@@ -129,7 +80,7 @@ struct WidgetMessage: View {
             Spacer(minLength: 0)
             Text(message)
                 .font(.footnote)
-                .foregroundStyle(WidgetPalette.secondaryInk)
+                .foregroundStyle(Palette.secondaryInk)
                 .fixedSize(horizontal: false, vertical: true)
                 .minimumScaleFactor(0.8)
         }
@@ -149,7 +100,7 @@ extension View {
     /// The widget's background: the card's surface, as content sits on in the app.
     func cardBackground() -> some View {
         containerBackground(for: .widget) {
-            WidgetPalette.card
+            Palette.card
         }
     }
 

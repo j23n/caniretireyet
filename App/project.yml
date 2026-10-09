@@ -130,8 +130,9 @@ targets:
     sources:
       - path: Widgets
       - path: Shared
-      # Amounts and dates read as in the app.
+      # Amounts and dates read as in the app, in its colours.
       - path: Sources/DesignSystem/AmountFormat.swift
+      - path: Sources/DesignSystem/Palette.swift
       # The design system's colour sets (light and dark), looked up by name.
       - path: Resources/Assets.xcassets
     settings:

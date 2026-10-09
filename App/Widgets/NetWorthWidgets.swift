@@ -66,7 +66,7 @@ struct NetWorthLabel: View {
             if netWorth?.isComplete == false {
                 Image(systemName: "exclamationmark.circle")
                     .font(.caption2)
-                    .foregroundStyle(WidgetPalette.mutedInk)
+                    .foregroundStyle(Palette.mutedInk)
                     .accessibilityLabel("Partial: some values are missing")
             }
         }
@@ -125,19 +125,12 @@ struct NetWorthView: View {
     }
 }
 
-/// What a net worth widget shows before there's a total.
-struct NetWorthMissing: View {
+/// A net worth widget on the card: its content from net worth's words and
+/// the snapshot, or before there's a total, a message.
+struct NetWorthCard<Content: View>: View {
     var entry: GlanceEntry
+    @ViewBuilder let content: (NetWorthWords, GlanceSnapshot) -> Content
 
-    var body: some View {
-        WidgetMessage(title: "Net worth", systemImage: "chart.line.uptrend.xyaxis",
-                      message: entry.snapshot == nil ? WidgetEmpty.noSnapshot : WidgetEmpty.noCheckIn)
-    }
-}
-
-/// The total, its change since the last check-in, and the year's line.
-struct NetWorthSmall: View {
-    var entry: GlanceEntry
     @Environment(\.locale) private var locale
     @Environment(\.redactionReasons) private var redactionReasons
 
@@ -145,12 +138,24 @@ struct NetWorthSmall: View {
         Group {
             if let snapshot = entry.snapshot, let netWorth = snapshot.netWorth {
                 content(NetWorthWords(netWorth: netWorth, money: WidgetMoney(currency: snapshot.currency, locale: locale),
-                                      hidesAmounts: redactionReasons.hidesAmounts, today: entry.today))
+                                      hidesAmounts: redactionReasons.hidesAmounts, today: entry.today), snapshot)
             } else {
-                NetWorthMissing(entry: entry)
+                WidgetMessage(title: "Net worth", systemImage: "chart.line.uptrend.xyaxis",
+                              message: entry.snapshot == nil ? WidgetEmpty.noSnapshot : WidgetEmpty.noCheckIn)
             }
         }
         .cardBackground()
+    }
+}
+
+/// The total, its change since the last check-in, and the year's line.
+struct NetWorthSmall: View {
+    var entry: GlanceEntry
+
+    var body: some View {
+        NetWorthCard(entry: entry) { words, _ in
+            content(words)
+        }
     }
 
     private func content(_ words: NetWorthWords) -> some View {
@@ -158,7 +163,7 @@ struct NetWorthSmall: View {
             NetWorthLabel(netWorth: words.netWorth)
             Text(verbatim: words.total)
                 .font(.system(size: 26, weight: .semibold))
-                .foregroundStyle(WidgetPalette.ink)
+                .foregroundStyle(Palette.ink)
                 .lineLimit(1)
                 .minimumScaleFactor(0.6)
                 .privacySensitive(!words.hidesAmounts)
@@ -172,11 +177,11 @@ struct NetWorthSmall: View {
                     .padding(.top, 3)
                 Text(verbatim: since)
                     .font(.caption)
-                    .foregroundStyle(WidgetPalette.secondaryInk)
+                    .foregroundStyle(Palette.secondaryInk)
             } else {
                 Text(verbatim: words.asOf)
                     .font(.caption)
-                    .foregroundStyle(WidgetPalette.secondaryInk)
+                    .foregroundStyle(Palette.secondaryInk)
                     .padding(.top, 3)
             }
             Spacer(minLength: 6)
@@ -193,20 +198,11 @@ struct NetWorthSmall: View {
 /// answer underneath.
 struct NetWorthMedium: View {
     var entry: GlanceEntry
-    @Environment(\.locale) private var locale
-    @Environment(\.redactionReasons) private var redactionReasons
 
     var body: some View {
-        Group {
-            if let snapshot = entry.snapshot, let netWorth = snapshot.netWorth {
-                content(NetWorthWords(netWorth: netWorth, money: WidgetMoney(currency: snapshot.currency, locale: locale),
-                                      hidesAmounts: redactionReasons.hidesAmounts, today: entry.today),
-                        retirement: snapshot.retirement)
-            } else {
-                NetWorthMissing(entry: entry)
-            }
+        NetWorthCard(entry: entry) { words, snapshot in
+            content(words, retirement: snapshot.retirement)
         }
-        .cardBackground()
     }
 
     private func content(_ words: NetWorthWords, retirement: RetirementGlance?) -> some View {
@@ -216,7 +212,7 @@ struct NetWorthMedium: View {
                     NetWorthLabel(netWorth: words.netWorth)
                     Text(verbatim: words.total)
                         .font(.system(size: 26, weight: .semibold))
-                        .foregroundStyle(WidgetPalette.ink)
+                        .foregroundStyle(Palette.ink)
                         .lineLimit(1)
                         .minimumScaleFactor(0.6)
                         .privacySensitive(!words.hidesAmounts)
@@ -234,7 +230,7 @@ struct NetWorthMedium: View {
                 VStack(alignment: .trailing, spacing: 6) {
                     Text("12 months")
                         .font(.caption2)
-                        .foregroundStyle(WidgetPalette.mutedInk)
+                        .foregroundStyle(Palette.mutedInk)
                     if words.netWorth.history.count > 1 {
                         WidgetSparkline(points: words.netWorth.history)
                     }
@@ -242,7 +238,7 @@ struct NetWorthMedium: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
             Divider()
-                .overlay(WidgetPalette.gridline)
+                .overlay(Palette.gridline)
                 .padding(.vertical, 8)
             RetirementLine(retirement: retirement, today: entry.today)
         }
@@ -261,7 +257,7 @@ struct DeltaLine: View {
                 .fontWeight(.semibold)
                 .foregroundStyle(delta.color)
             Text(verbatim: words)
-                .foregroundStyle(WidgetPalette.secondaryInk)
+                .foregroundStyle(Palette.secondaryInk)
         }
         .font(.caption)
         .lineLimit(1)
@@ -277,30 +273,30 @@ struct RetirementLine: View {
     var body: some View {
         HStack(spacing: 4) {
             Image(systemName: "sun.horizon")
-                .foregroundStyle(WidgetPalette.gold)
+                .foregroundStyle(Palette.yellowStroke)
                 .padding(.trailing, 1)
             if let answer = retirement?.answer {
                 if answer.canRetireNow {
                     Text("You could retire today")
                         .fontWeight(.semibold)
-                        .foregroundStyle(WidgetPalette.ink)
+                        .foregroundStyle(Palette.ink)
                 } else if let age = answer.earliestAge {
                     Text("Earliest retirement")
-                        .foregroundStyle(WidgetPalette.secondaryInk)
+                        .foregroundStyle(Palette.secondaryInk)
                     Text(verbatim: "\(age)")
                         .fontWeight(.semibold)
-                        .foregroundStyle(WidgetPalette.ink)
+                        .foregroundStyle(Palette.ink)
                     if let countdown = answer.earliestDate.flatMap({ RetirementCountdown(from: today, to: $0) }) {
                         Text(verbatim: "· in \(countdown.text)")
-                            .foregroundStyle(WidgetPalette.secondaryInk)
+                            .foregroundStyle(Palette.secondaryInk)
                     }
                 } else {
                     Text("No retirement age works out yet")
-                        .foregroundStyle(WidgetPalette.secondaryInk)
+                        .foregroundStyle(Palette.secondaryInk)
                 }
             } else {
                 Text("Can I retire yet? Your plan's answer appears here.")
-                    .foregroundStyle(WidgetPalette.secondaryInk)
+                    .foregroundStyle(Palette.secondaryInk)
             }
         }
         .font(.caption)
@@ -314,34 +310,25 @@ struct RetirementLine: View {
 struct NetWorthLarge: View {
     var entry: GlanceEntry
     @Environment(\.locale) private var locale
-    @Environment(\.redactionReasons) private var redactionReasons
 
     var body: some View {
-        Group {
-            if let snapshot = entry.snapshot, let netWorth = snapshot.netWorth {
-                let money = WidgetMoney(currency: snapshot.currency, locale: locale)
-                content(NetWorthWords(netWorth: netWorth, money: money, hidesAmounts: redactionReasons.hidesAmounts,
-                                      today: entry.today),
-                        retirement: snapshot.retirement, money: money)
-            } else {
-                NetWorthMissing(entry: entry)
-            }
+        NetWorthCard(entry: entry) { words, snapshot in
+            content(words, retirement: snapshot.retirement)
         }
-        .cardBackground()
     }
 
-    private func content(_ words: NetWorthWords, retirement: RetirementGlance?, money: WidgetMoney) -> some View {
+    private func content(_ words: NetWorthWords, retirement: RetirementGlance?) -> some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack {
                 NetWorthLabel(netWorth: words.netWorth)
                 Spacer(minLength: 0)
                 Text(verbatim: words.date)
                     .font(.caption)
-                    .foregroundStyle(WidgetPalette.mutedInk)
+                    .foregroundStyle(Palette.mutedInk)
             }
             Text(verbatim: words.total)
                 .font(.system(size: 32, weight: .semibold))
-                .foregroundStyle(WidgetPalette.ink)
+                .foregroundStyle(Palette.ink)
                 .lineLimit(1)
                 .minimumScaleFactor(0.6)
                 .privacySensitive(!words.hidesAmounts)
@@ -367,15 +354,15 @@ struct NetWorthLarge: View {
                     Text(verbatim: GlanceText.shortMonth(words.netWorth.date, locale: locale))
                 }
                 .font(.caption2)
-                .foregroundStyle(WidgetPalette.mutedInk)
+                .foregroundStyle(Palette.mutedInk)
                 .padding(.top, 4)
             } else {
                 Spacer(minLength: 12)
             }
             Divider()
-                .overlay(WidgetPalette.gridline)
+                .overlay(Palette.gridline)
                 .padding(.vertical, 12)
-            RetirementSection(retirement: retirement, today: entry.today, money: money)
+            RetirementSection(retirement: retirement, today: entry.today, money: words.money)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
@@ -390,22 +377,22 @@ struct RetirementSection: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack {
-                WidgetLabel(title: "Can I retire yet?", systemImage: "sun.horizon", iconColor: WidgetPalette.gold)
+                WidgetLabel(title: "Can I retire yet?", systemImage: "sun.horizon", iconColor: Palette.yellowStroke)
                 Spacer(minLength: 0)
                 Image(systemName: "chevron.right")
                     .font(.caption2.weight(.semibold))
-                    .foregroundStyle(WidgetPalette.mutedInk)
+                    .foregroundStyle(Palette.mutedInk)
             }
             if let answer = retirement?.answer {
                 Text(verbatim: headline(answer))
                     .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(WidgetPalette.ink)
+                    .foregroundStyle(Palette.ink)
                     .lineLimit(1)
                     .minimumScaleFactor(0.8)
                     .padding(.top, 4)
                 Text(verbatim: detail(answer))
                     .font(.caption)
-                    .foregroundStyle(WidgetPalette.secondaryInk)
+                    .foregroundStyle(Palette.secondaryInk)
                     .lineLimit(1)
                     .minimumScaleFactor(0.8)
                     .padding(.top, 2)
@@ -415,7 +402,7 @@ struct RetirementSection: View {
                         .padding(.top, 10)
                     Text(verbatim: "\(percent) \(readiness.caption)")
                         .font(.caption)
-                        .foregroundStyle(WidgetPalette.secondaryInk)
+                        .foregroundStyle(Palette.secondaryInk)
                         .lineLimit(1)
                         .minimumScaleFactor(0.8)
                         .padding(.top, 6)
@@ -423,7 +410,7 @@ struct RetirementSection: View {
             } else {
                 Text(verbatim: WidgetEmpty.noAnswer)
                     .font(.caption)
-                    .foregroundStyle(WidgetPalette.secondaryInk)
+                    .foregroundStyle(Palette.secondaryInk)
                     .padding(.top, 4)
             }
         }
@@ -573,7 +560,7 @@ struct SinceCheckInView: View {
                 Text(verbatim: "\(AmountFormat.shortDate(change.from, relativeTo: change.to, locale: locale)) → "
                     + AmountFormat.shortDate(change.to, locale: locale))
                     .font(.caption)
-                    .foregroundStyle(WidgetPalette.mutedInk)
+                    .foregroundStyle(Palette.mutedInk)
                     .lineLimit(1)
             }
             HStack(alignment: .firstTextBaseline, spacing: 8) {
@@ -586,7 +573,7 @@ struct SinceCheckInView: View {
                 }
                 Text(verbatim: hides ? since : "\(money.amount(change.start)) → \(money.amount(change.end))")
                     .font(.caption)
-                    .foregroundStyle(WidgetPalette.secondaryInk)
+                    .foregroundStyle(Palette.secondaryInk)
                     .lineLimit(1)
                     .minimumScaleFactor(0.7)
                     .privacySensitive(!hides)
@@ -597,13 +584,13 @@ struct SinceCheckInView: View {
                 ForEach(rows) { row in
                     HStack(spacing: 8) {
                         Text(verbatim: row.name)
-                            .foregroundStyle(WidgetPalette.secondaryInk)
+                            .foregroundStyle(Palette.secondaryInk)
                             .frame(width: 78, alignment: .leading)
                         ChangeBar(value: row.value.doubleValue,
                                   direction: DeltaFormat.direction(of: row.value, precision: .whole), scale: scale)
                         Text(verbatim: hides ? AmountFormat.hidden : money.signed(row.value))
                             .monospacedDigit()
-                            .foregroundStyle(hides ? WidgetPalette.mutedInk : WidgetPalette.ink)
+                            .foregroundStyle(hides ? Palette.mutedInk : Palette.ink)
                             .lineLimit(1)
                             .minimumScaleFactor(0.7)
                             .privacySensitive(!hides)
@@ -669,7 +656,7 @@ struct AllocationView: View {
                 Spacer(minLength: 0)
                 Text("By asset class")
                     .font(.caption)
-                    .foregroundStyle(WidgetPalette.mutedInk)
+                    .foregroundStyle(Palette.mutedInk)
             }
             AllocationBar(slices: slices)
                 .frame(height: 14)
@@ -698,15 +685,15 @@ struct AllocationLegendItem: View {
     var body: some View {
         HStack(spacing: 7) {
             RoundedRectangle(cornerRadius: 2.5)
-                .fill(WidgetPalette.assetClass(slice.key))
+                .fill(slice.color)
                 .frame(width: 9, height: 9)
             Text(verbatim: slice.name)
-                .foregroundStyle(WidgetPalette.ink)
+                .foregroundStyle(Palette.ink)
                 .lineLimit(1)
             Spacer(minLength: 4)
             Text(verbatim: slice.share.map(money.percent) ?? "")
                 .monospacedDigit()
-                .foregroundStyle(WidgetPalette.secondaryInk)
+                .foregroundStyle(Palette.secondaryInk)
         }
         .frame(maxWidth: .infinity)
     }

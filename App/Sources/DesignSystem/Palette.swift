@@ -3,7 +3,8 @@ import SwiftUI
 
 /// The app's colours (UI.md, "Design system"), from the dataviz reference
 /// palette. Each has a light and a dark variant, defined as colour sets in
-/// `App/Resources/Assets.xcassets`.
+/// `App/Resources/Assets.xcassets`. The widgets compile this file too, so
+/// they draw in the same colours.
 ///
 /// - **Asset classes** have fixed colours everywhere; their order (cash,
 ///   bonds, equity, gold, crypto, real estate, other, debt) is also the

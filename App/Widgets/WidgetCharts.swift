@@ -11,7 +11,7 @@ import SwiftUI
 /// series colour), a faint wash under it and a dot on the latest value.
 struct WidgetSparkline: View {
     var points: [GlancePoint]
-    var color: Color = WidgetPalette.ink
+    var color: Color = Palette.ink
     var lineWidth: CGFloat = 1.75
     var showsWash = true
 
@@ -111,14 +111,14 @@ struct AnswerStepChart: View {
                 }
                 .font(.caption2)
                 .monospacedDigit()
-                .foregroundStyle(WidgetPalette.mutedInk)
+                .foregroundStyle(Palette.mutedInk)
                 ZStack {
                     AnswerGridlines(twoLines: high != low, inset: Self.labelInset)
-                        .stroke(WidgetPalette.gridline, lineWidth: 1)
+                        .stroke(Palette.gridline, lineWidth: 1)
                     AnswerStepShape(ages: ages, low: low, high: high, inset: Self.labelInset, dotsOnly: false)
-                        .stroke(WidgetPalette.accent, style: StrokeStyle(lineWidth: 2, lineCap: .round, lineJoin: .round))
+                        .stroke(Palette.accent, style: StrokeStyle(lineWidth: 2, lineCap: .round, lineJoin: .round))
                     AnswerStepShape(ages: ages, low: low, high: high, inset: Self.labelInset, dotsOnly: true)
-                        .fill(WidgetPalette.accent)
+                        .fill(Palette.accent)
                 }
             }
             if let first = recorded.first?.date, let last = recorded.last?.date {
@@ -128,7 +128,7 @@ struct AnswerStepChart: View {
                     Text(verbatim: GlanceText.shortMonth(last, locale: locale))
                 }
                 .font(.caption2)
-                .foregroundStyle(WidgetPalette.mutedInk)
+                .foregroundStyle(Palette.mutedInk)
                 .padding(.leading, 20)
             }
         }
@@ -206,10 +206,10 @@ struct ReadinessRing: View {
     var body: some View {
         ZStack {
             Circle()
-                .stroke(WidgetPalette.track, lineWidth: lineWidth)
+                .stroke(Palette.gridline, lineWidth: lineWidth)
             Circle()
                 .trim(from: 0, to: min(max(fraction, 0), 1))
-                .stroke(WidgetPalette.accent, style: StrokeStyle(lineWidth: lineWidth, lineCap: .round))
+                .stroke(Palette.accent, style: StrokeStyle(lineWidth: lineWidth, lineCap: .round))
                 .rotationEffect(.degrees(-90))
         }
         .padding(lineWidth / 2)
@@ -224,8 +224,8 @@ struct ReadinessBar: View {
     var body: some View {
         GeometryReader { geometry in
             ZStack(alignment: .leading) {
-                Capsule().fill(WidgetPalette.track)
-                Capsule().fill(WidgetPalette.accent)
+                Capsule().fill(Palette.gridline)
+                Capsule().fill(Palette.accent)
                     .frame(width: geometry.size.width * min(max(fraction, 0), 1))
             }
         }
@@ -269,11 +269,11 @@ struct ChangeBar: View {
             let length = direction == 0 ? 0 : max((width - 2) * scale.length(of: value), 3)
             ZStack(alignment: .leading) {
                 Rectangle()
-                    .fill(WidgetPalette.axis)
+                    .fill(Palette.axis)
                     .frame(width: 1)
                     .offset(x: zero)
                 Capsule()
-                    .fill(direction >= 0 ? WidgetPalette.positive : WidgetPalette.negative)
+                    .fill(direction >= 0 ? Palette.positive : Palette.negative)
                     .frame(width: length, height: 9)
                     .offset(x: direction >= 0 ? zero + 1 : zero - length)
             }
@@ -284,6 +284,14 @@ struct ChangeBar: View {
 }
 
 // MARK: - Allocation
+
+extension AllocationSlice {
+    /// The slice's colour for a small mark or a thin bar: its asset class's
+    /// line step (`Palette.stroke(for:)`), debts red.
+    var color: Color {
+        key == Self.debts ? Palette.debt : Palette.stroke(for: AssetClass(rawValue: key))
+    }
+}
 
 /// What you own by asset class as one bar, in stacking order.
 struct AllocationBar: View {
@@ -297,7 +305,7 @@ struct AllocationBar: View {
             HStack(spacing: 2) {
                 ForEach(slices, id: \.key) { slice in
                     Rectangle()
-                        .fill(WidgetPalette.assetClass(slice.key))
+                        .fill(slice.color)
                         .frame(width: total > 0
                             ? max((geometry.size.width - gaps) * CGFloat(slice.value.doubleValue / total), 2)
                             : 0)
@@ -314,25 +322,34 @@ struct AllocationBar: View {
 /// The app icon's sky behind the countdown: a dusk gradient, the sun setting
 /// behind a rising chart drawn as the horizon.
 struct DuskBackground: View {
+    // The app icon's dusk (App/Design/AppIcon): the same in light and dark.
+    private static let duskSky = Color(red: 15 / 255, green: 42 / 255, blue: 85 / 255)
+    private static let duskBlue = Color(red: 42 / 255, green: 99 / 255, blue: 184 / 255)
+    private static let duskGlow = Color(red: 241 / 255, green: 183 / 255, blue: 92 / 255)
+    private static let sunLight = Color(red: 1, green: 224 / 255, blue: 138 / 255)
+    private static let sunDeep = Color(red: 237 / 255, green: 161 / 255, blue: 0)
+    private static let horizon = Color(red: 11 / 255, green: 29 / 255, blue: 58 / 255)
+    private static let horizonLine = Color(red: 158 / 255, green: 197 / 255, blue: 244 / 255)
+
     var body: some View {
         GeometryReader { geometry in
             let size = geometry.size
             let sun = size.height * 0.33
             ZStack {
                 LinearGradient(stops: [
-                    .init(color: WidgetPalette.duskSky, location: 0),
-                    .init(color: WidgetPalette.duskBlue, location: 0.62),
-                    .init(color: WidgetPalette.duskGlow, location: 0.92),
+                    .init(color: Self.duskSky, location: 0),
+                    .init(color: Self.duskBlue, location: 0.62),
+                    .init(color: Self.duskGlow, location: 0.92),
                 ], startPoint: .top, endPoint: .bottom)
                 Circle()
-                    .fill(RadialGradient(colors: [WidgetPalette.sunLight, WidgetPalette.sunDeep],
+                    .fill(RadialGradient(colors: [Self.sunLight, Self.sunDeep],
                                          center: UnitPoint(x: 0.5, y: 0.45), startRadius: 0, endRadius: sun * 0.6))
                     .frame(width: sun, height: sun)
                     .position(x: size.width * 0.456, y: size.height * 0.892)
                 HorizonShape(closesArea: true)
-                    .fill(WidgetPalette.horizon)
+                    .fill(Self.horizon)
                 HorizonShape(closesArea: false)
-                    .stroke(WidgetPalette.horizonLine, style: StrokeStyle(lineWidth: 2.5, lineCap: .round, lineJoin: .round))
+                    .stroke(Self.horizonLine, style: StrokeStyle(lineWidth: 2.5, lineCap: .round, lineJoin: .round))
             }
         }
     }

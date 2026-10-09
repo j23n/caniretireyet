@@ -102,7 +102,7 @@ struct AnswerMoveText: View {
         if let move = retirement.lastMove {
             Text(verbatim: GlanceText.move(move, relativeTo: today, locale: locale))
                 .font(.caption.weight(.semibold))
-                .foregroundStyle(move.isSooner ? WidgetPalette.positive : WidgetPalette.secondaryInk)
+                .foregroundStyle(move.isSooner ? Palette.positive : Palette.secondaryInk)
                 .lineLimit(1)
                 .minimumScaleFactor(0.8)
         }
@@ -242,29 +242,29 @@ struct RetireInMedium: View {
     private func content(_ retirement: RetirementGlance, words: AnswerWords) -> some View {
         HStack(alignment: .top, spacing: 16) {
             VStack(alignment: .leading, spacing: 0) {
-                WidgetLabel(title: "Retire in", systemImage: "sun.horizon", iconColor: WidgetPalette.gold)
+                WidgetLabel(title: "Retire in", systemImage: "sun.horizon", iconColor: Palette.yellowStroke)
                 if let countdown = words.countdown {
-                    CountdownText(countdown: countdown, size: 38, unitColor: WidgetPalette.secondaryInk)
-                        .foregroundStyle(WidgetPalette.ink)
+                    CountdownText(countdown: countdown, size: 38, unitColor: Palette.secondaryInk)
+                        .foregroundStyle(Palette.ink)
                         .padding(.top, 6)
                 } else if let headline = words.headline {
                     Text(verbatim: headline)
                         .font(.title3.weight(.semibold))
-                        .foregroundStyle(WidgetPalette.ink)
+                        .foregroundStyle(Palette.ink)
                         .minimumScaleFactor(0.7)
                         .padding(.top, 6)
                 }
                 if let when = words.when, words.headline == nil {
                     Text(verbatim: when)
                         .font(.caption.weight(.semibold))
-                        .foregroundStyle(WidgetPalette.ink)
+                        .foregroundStyle(Palette.ink)
                         .lineLimit(1)
                         .minimumScaleFactor(0.8)
                         .padding(.top, 8)
                 }
                 Text(verbatim: words.futures)
                     .font(.caption)
-                    .foregroundStyle(WidgetPalette.secondaryInk)
+                    .foregroundStyle(Palette.secondaryInk)
                     .lineLimit(1)
                 Spacer(minLength: 0)
                 AnswerMoveText(retirement: retirement, today: entry.today)
@@ -273,14 +273,14 @@ struct RetireInMedium: View {
             VStack(alignment: .trailing, spacing: 4) {
                 Text("Earliest age")
                     .font(.caption2)
-                    .foregroundStyle(WidgetPalette.mutedInk)
+                    .foregroundStyle(Palette.mutedInk)
                 if retirement.history.contains(where: { $0.earliestAge != nil }) {
                     AnswerStepChart(history: retirement.history, locale: locale)
                 } else {
                     Spacer(minLength: 0)
                     Text("Recorded at each check-in")
                         .font(.caption2)
-                        .foregroundStyle(WidgetPalette.mutedInk)
+                        .foregroundStyle(Palette.mutedInk)
                     Spacer(minLength: 0)
                 }
             }
@@ -415,36 +415,36 @@ struct EarliestAgeSmall: View {
         let answer = retirement.answer
         return VStack(alignment: .leading, spacing: 0) {
             WidgetLabel(title: answer.canRetireNow ? "Can I retire yet?" : "Earliest age", systemImage: "sun.horizon",
-                        iconColor: WidgetPalette.gold)
+                        iconColor: Palette.yellowStroke)
             if answer.canRetireNow {
                 Text("Yes.")
                     .font(.system(size: 40, weight: .semibold))
-                    .foregroundStyle(WidgetPalette.ink)
+                    .foregroundStyle(Palette.ink)
                     .padding(.top, 6)
                 Text("You could retire today")
                     .font(.footnote.weight(.semibold))
-                    .foregroundStyle(WidgetPalette.ink)
+                    .foregroundStyle(Palette.ink)
                     .padding(.top, 6)
             } else if let age = answer.earliestAge {
                 Text(verbatim: "\(age)")
                     .font(.system(size: 50, weight: .semibold))
-                    .foregroundStyle(WidgetPalette.ink)
+                    .foregroundStyle(Palette.ink)
                     .padding(.top, 4)
                 if let date = answer.earliestDate {
                     Text(verbatim: GlanceText.monthAndYear(date, locale: locale))
                         .font(.footnote.weight(.semibold))
-                        .foregroundStyle(WidgetPalette.ink)
+                        .foregroundStyle(Palette.ink)
                         .padding(.top, 4)
                 }
             } else {
                 Text("No retirement age works out yet")
                     .font(.footnote.weight(.semibold))
-                    .foregroundStyle(WidgetPalette.ink)
+                    .foregroundStyle(Palette.ink)
                     .padding(.top, 6)
             }
             Text(verbatim: GlanceText.inFutures(answer.confidence))
                 .font(.caption)
-                .foregroundStyle(WidgetPalette.secondaryInk)
+                .foregroundStyle(Palette.secondaryInk)
                 .lineLimit(1)
             Spacer(minLength: 0)
             AnswerMoveText(retirement: retirement, today: entry.today)
@@ -588,14 +588,14 @@ struct ReadinessSmall: View {
 
     private func content(_ words: ReadinessWords) -> some View {
         VStack(spacing: 0) {
-            WidgetLabel(title: "Can I retire yet?", systemImage: "sun.horizon", iconColor: WidgetPalette.gold)
+            WidgetLabel(title: "Can I retire yet?", systemImage: "sun.horizon", iconColor: Palette.yellowStroke)
                 .frame(maxWidth: .infinity, alignment: .leading)
             Spacer(minLength: 4)
             ZStack {
                 ReadinessRing(fraction: words.fraction, lineWidth: 7)
                 Text(verbatim: words.percent ?? "–")
                     .font(.system(size: 19, weight: .semibold))
-                    .foregroundStyle(WidgetPalette.ink)
+                    .foregroundStyle(Palette.ink)
                     .minimumScaleFactor(0.6)
                     .padding(.horizontal, 10)
             }
@@ -603,7 +603,7 @@ struct ReadinessSmall: View {
             Spacer(minLength: 4)
             Text(verbatim: words.caption)
                 .font(.caption2)
-                .foregroundStyle(WidgetPalette.secondaryInk)
+                .foregroundStyle(Palette.secondaryInk)
                 .multilineTextAlignment(.center)
                 .lineLimit(2)
                 .minimumScaleFactor(0.8)
@@ -688,17 +688,17 @@ struct SpendingView: View {
                         systemImage: "wallet.bifold")
             Text(verbatim: hides ? AmountFormat.hidden : money.amount(spending))
                 .font(.system(size: 26, weight: .semibold))
-                .foregroundStyle(WidgetPalette.ink)
+                .foregroundStyle(Palette.ink)
                 .lineLimit(1)
                 .minimumScaleFactor(0.6)
                 .privacySensitive(!hides)
                 .padding(.top, 6)
             Text("a year to spend")
                 .font(.caption)
-                .foregroundStyle(WidgetPalette.secondaryInk)
+                .foregroundStyle(Palette.secondaryInk)
             Text(verbatim: hides ? AmountFormat.hidden : "\(money.amount(spending / 12)) a month")
                 .font(.footnote.weight(.semibold))
-                .foregroundStyle(WidgetPalette.ink)
+                .foregroundStyle(Palette.ink)
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
                 .privacySensitive(!hides)
@@ -706,7 +706,7 @@ struct SpendingView: View {
             Spacer(minLength: 0)
             Text(verbatim: "Today's money, \(GlanceText.inFutures(answer.confidence))")
                 .font(.caption2)
-                .foregroundStyle(WidgetPalette.mutedInk)
+                .foregroundStyle(Palette.mutedInk)
                 .lineLimit(2)
                 .minimumScaleFactor(0.8)
         }

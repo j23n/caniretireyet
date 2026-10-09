@@ -89,32 +89,23 @@ struct MilestoneSmall: View {
 
     private func content(_ words: MilestoneWords) -> some View {
         VStack(alignment: .leading, spacing: 6) {
-            WidgetLabel(title: "Next milestone", systemImage: "flag", iconColor: WidgetPalette.accent)
+            WidgetLabel(title: "Next milestone", systemImage: "flag", iconColor: Palette.accent)
             Spacer(minLength: 0)
             Text(words.name)
                 .font(.system(size: 17, weight: .semibold))
-                .foregroundStyle(WidgetPalette.ink)
+                .foregroundStyle(Palette.ink)
                 .lineLimit(3)
                 .minimumScaleFactor(0.7)
                 .privacySensitive(!words.hidesAmounts)
-            GeometryReader { proxy in
-                ZStack(alignment: .leading) {
-                    Capsule()
-                        .fill(WidgetPalette.track)
-                    Capsule()
-                        .fill(WidgetPalette.accent)
-                        .frame(width: proxy.size.width * words.progress)
-                }
-            }
-            .frame(height: 6)
-            .accessibilityHidden(true)
+            ReadinessBar(fraction: words.progress, height: 6)
+                .accessibilityHidden(true)
             Text(words.there)
                 .font(.caption.weight(.semibold))
-                .foregroundStyle(WidgetPalette.accent)
+                .foregroundStyle(Palette.accent)
             if let typically = words.typically {
                 Text(typically)
                     .font(.caption2)
-                    .foregroundStyle(WidgetPalette.secondaryInk)
+                    .foregroundStyle(Palette.secondaryInk)
                     .lineLimit(1)
                     .minimumScaleFactor(0.8)
             }
