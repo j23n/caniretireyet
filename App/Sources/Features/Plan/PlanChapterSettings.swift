@@ -151,7 +151,8 @@ enum PlanChapterSettings {
             case .targetMix, .targetMixStep:
                 var title = "Your savings"
                 if case .targetMixStep(let index) = item, plan.portfolio.targetMixByAge.indices.contains(index) {
-                    title += " from \(plan.portfolio.targetMixByAge[index].fromAge)"
+                    let step = plan.portfolio.targetMixByAge[index]
+                    title += " " + PlanTargetMixModel.title(of: step.fromAge).lowercased()
                 }
                 let phrase = PlanChapterStory.mixPhrase(item, plan: plan, words: words)
                 return [PlanSettingRow(id: "mix-\(item)", symbol: "chart.pie", kind: .mix, title: title,
