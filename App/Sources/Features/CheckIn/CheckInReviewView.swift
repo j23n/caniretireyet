@@ -456,12 +456,12 @@ private struct CheckInWarningRow: View {
     NavigationStack {
         CheckInReviewView(session: CheckInSession())
     }
-    .previewEnvironment(model: CheckInPreviewData.model())
+    .appEnvironment(CheckInPreviewData.model())
 }
 
 #Preview("Review with a statement that differs") {
     NavigationStack {
         CheckInReviewView(session: CheckInSession())
     }
-    .previewEnvironment(model: CheckInPreviewData.modelComparingStatement())
+    .appEnvironment(CheckInPreviewData.modelComparingStatement())
 }

@@ -4,18 +4,14 @@ import SwiftUI
 extension View {
     /// Injects preview stores holding `library` (by default the made-up
     /// ``PreviewLibrary``) in memory: nothing is read or written, nothing
-    /// is fetched, and plans run on ``PreviewPlanEngine``.
+    /// is fetched, and plans run on ``PreviewPlanEngine``. For a preview
+    /// model set up first (e.g. with a check-in in progress), use
+    /// `.appEnvironment(model)`.
     ///
     ///     #Preview { OverviewScreen().previewEnvironment() }
     ///     #Preview("Empty") { OverviewScreen().previewEnvironment(PreviewLibrary.empty) }
     func previewEnvironment(_ library: Library = PreviewLibrary.library) -> some View {
         appEnvironment(AppModel.preview(library))
-    }
-
-    /// Injects the stores of an existing preview model, e.g. one set up with
-    /// a check-in in progress.
-    func previewEnvironment(model: AppModel) -> some View {
-        appEnvironment(model)
     }
 }
 

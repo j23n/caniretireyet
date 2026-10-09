@@ -55,12 +55,9 @@ struct RootView: View {
     }
 
     /// A widget was tapped: its net worth opens the Overview, its answer the
-    /// main plan, its check-in the check-in. At launch the layout isn't set
-    /// yet, so on iPhone it's set here, as the main navigation would.
+    /// main plan, its check-in the check-in.
     private func open(_ link: GlanceLink) {
-        #if os(iOS)
-        if horizontalSizeClass == .compact { navigation.layout = .tabs }
-        #endif
+        adoptLaunchLayout()
         switch link {
         case .overview: navigation.showOverview()
         case .plan: navigation.showPlan()
@@ -69,17 +66,19 @@ struct RootView: View {
     }
 
     /// A CSV or TSV file opened from Files or Finder starts an import (on
-    /// iPhone, "Import with profile…"). At launch the layout isn't set yet,
-    /// so on iPhone the import sheet is chosen here.
+    /// iPhone, "Import with profile…").
     private func openFile(_ url: URL) {
         guard ["csv", "tsv", "txt"].contains(url.pathExtension.lowercased()) else { return }
-        #if os(iOS)
-        if horizontalSizeClass == .compact {
-            navigation.sheet = .importFile(url)
-            return
-        }
-        #endif
+        adoptLaunchLayout()
         navigation.startImport(url)
+    }
+
+    /// At launch the layout isn't set yet, so on iPhone it's set here, as
+    /// the main navigation would, before a link or a file is opened.
+    private func adoptLaunchLayout() {
+        #if os(iOS)
+        if horizontalSizeClass == .compact { navigation.layout = .tabs }
+        #endif
     }
 
     @ViewBuilder

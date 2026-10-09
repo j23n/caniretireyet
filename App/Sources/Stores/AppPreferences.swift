@@ -90,10 +90,11 @@ final class AppPreferences {
         futureHorizon = defaults.string(forKey: Keys.futureHorizon).flatMap(FutureHorizon.init(rawValue:))
             ?? .standard
         if defaults.bool(forKey: Keys.reminderEnabled) {
+            let standard = CheckInReminder.standard
             reminder = CheckInReminder(
-                day: defaults.object(forKey: Keys.reminderDay) as? Int ?? CheckInReminder.lastDay,
-                hour: defaults.object(forKey: Keys.reminderHour) as? Int ?? 19,
-                minute: defaults.object(forKey: Keys.reminderMinute) as? Int ?? 0)
+                day: defaults.object(forKey: Keys.reminderDay) as? Int ?? standard.day,
+                hour: defaults.object(forKey: Keys.reminderHour) as? Int ?? standard.hour,
+                minute: defaults.object(forKey: Keys.reminderMinute) as? Int ?? standard.minute)
         } else {
             reminder = nil
         }
@@ -125,6 +126,9 @@ final class AppPreferences {
 struct CheckInReminder: Hashable, Sendable {
     /// Stands for the last day of the month.
     static let lastDay = 0
+
+    /// The reminder as it's turned on: the last day of the month at 19:00.
+    static let standard = CheckInReminder(day: lastDay, hour: 19, minute: 0)
 
     /// Day of the month, 1...28, or ``lastDay``.
     var day: Int

@@ -154,12 +154,13 @@ final class AppNavigation {
     }
 
     /// A file waiting for the Import page (sidebar layout). The Import
-    /// screen takes it with ``takePendingImport()``.
+    /// screen clears it with ``clearPendingImport(_:)`` once it has read it.
     private(set) var pendingImport: URL?
 
-    func takePendingImport() -> URL? {
-        defer { pendingImport = nil }
-        return pendingImport
+    /// Forgets the waiting file once the Import screen has read `file`,
+    /// unless another file is waiting by then.
+    func clearPendingImport(_ file: URL) {
+        if pendingImport == file { pendingImport = nil }
     }
 
     /// Shows a sidebar place, or the nearest tab.

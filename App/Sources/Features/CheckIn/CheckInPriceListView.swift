@@ -356,5 +356,5 @@ private struct PriceListRow: View {
                 .navigationTitle("Prices and FX")
         }
     }
-    .previewEnvironment(model: model)
+    .appEnvironment(model)
 }

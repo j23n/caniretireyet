@@ -1129,7 +1129,7 @@ private struct CheckInBottomBar: View {
                 .navigationBarTitleDisplayMode(.inline)
         }
     }
-    .previewEnvironment(model: model)
+    .appEnvironment(model)
 }
 
 #Preview("iPhone list, trades accounts from trades") {
@@ -1141,7 +1141,7 @@ private struct CheckInBottomBar: View {
                 .navigationBarTitleDisplayMode(.inline)
         }
     }
-    .previewEnvironment(model: model)
+    .appEnvironment(model)
 }
 
 #Preview("iPhone list, trades account compared with a statement") {
@@ -1153,7 +1153,7 @@ private struct CheckInBottomBar: View {
                 .navigationBarTitleDisplayMode(.inline)
         }
     }
-    .previewEnvironment(model: model)
+    .appEnvironment(model)
 }
 
 #Preview("iPhone list, large text") {
@@ -1166,6 +1166,6 @@ private struct CheckInBottomBar: View {
         }
     }
     .dynamicTypeSize(.accessibility2)
-    .previewEnvironment(model: model)
+    .appEnvironment(model)
 }
 #endif

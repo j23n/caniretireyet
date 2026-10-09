@@ -60,15 +60,17 @@ final class AppModel {
             widgetSnapshotURL: AppGroup.snapshotURL)
     }
 
-    /// Previews: `library` in memory (by default the made-up example
-    /// library), no network, no files (not even the widgets' snapshot or
-    /// the plans' results), and made-up plan results.
-    static func preview(_ library: Library = PreviewLibrary.library, planEngine: any PlanEngine = PreviewPlanEngine())
-        -> AppModel {
-        let defaults = UserDefaults(suiteName: "preview") ?? .standard
+    /// Previews, and the UI tests' launch: `library` in memory (by default
+    /// the made-up example library), no network, no files (not even the
+    /// widgets' snapshot, nor the plans' results without `planResults`),
+    /// plans run on `planEngine` (made-up results by default), and this
+    /// device's settings in the `UserDefaults` suite named `defaults`.
+    static func preview(_ library: Library = PreviewLibrary.library, planEngine: any PlanEngine = PreviewPlanEngine(),
+                        planResults: PlanResultsArchive? = nil, defaults suite: String = "preview") -> AppModel {
+        let defaults = UserDefaults(suiteName: suite) ?? .standard
         return AppModel(
             preferences: AppPreferences(defaults: defaults), library: .inMemory(library),
-            prices: PriceStore(service: nil), planEngine: planEngine, draftURL: nil)
+            prices: PriceStore(service: nil), planEngine: planEngine, planResults: planResults, draftURL: nil)
     }
 
     /// Launch work: find and load the library, restore an unfinished

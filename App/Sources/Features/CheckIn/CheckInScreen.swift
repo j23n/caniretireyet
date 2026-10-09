@@ -335,14 +335,14 @@ struct CheckInStartView: View {
     NavigationStack {
         CheckInScreen()
     }
-    .previewEnvironment(model: CheckInPreviewData.model())
+    .appEnvironment(CheckInPreviewData.model())
 }
 
 #Preview("All reviewed") {
     NavigationStack {
         CheckInScreen()
     }
-    .previewEnvironment(model: CheckInPreviewData.model(reviewedAll: true))
+    .appEnvironment(CheckInPreviewData.model(reviewedAll: true))
 }
 
 #Preview("Not due") {

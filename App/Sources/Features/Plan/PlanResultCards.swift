@@ -442,7 +442,7 @@ struct PlanPreviewHost<Content: View>: View {
         NavigationStack {
             content(session)
         }
-        .previewEnvironment(model: model)
+        .appEnvironment(model)
         .task { session.calculate() }
     }
 }

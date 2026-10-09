@@ -266,9 +266,6 @@ private struct ReminderSection: View {
     @Environment(AppPreferences.self) private var preferences
     @State private var notAllowed = false
 
-    /// Without a reminder: the last day of the month at 19:00.
-    private static let standard = CheckInReminder(day: CheckInReminder.lastDay, hour: 19, minute: 0)
-
     var body: some View {
         Section {
             Toggle("Remind me each month", isOn: isOnBinding)
@@ -294,14 +291,14 @@ private struct ReminderSection: View {
     }
 
     private var isOnBinding: Binding<Bool> {
-        Binding(get: { preferences.reminder != nil }, set: { apply($0 ? Self.standard : nil) })
+        Binding(get: { preferences.reminder != nil }, set: { apply($0 ? CheckInReminder.standard : nil) })
     }
 
     private var dayBinding: Binding<Int> {
         Binding(
             get: { preferences.reminder?.day ?? CheckInReminder.lastDay },
             set: { day in
-                var reminder = preferences.reminder ?? Self.standard
+                var reminder = preferences.reminder ?? CheckInReminder.standard
                 reminder.day = day
                 apply(reminder)
             })
@@ -310,15 +307,15 @@ private struct ReminderSection: View {
     private var timeBinding: Binding<Date> {
         Binding(
             get: {
-                let reminder = preferences.reminder ?? Self.standard
+                let reminder = preferences.reminder ?? CheckInReminder.standard
                 return Calendar.current.date(bySettingHour: reminder.hour, minute: reminder.minute, second: 0, of: Date())
                     ?? Date()
             },
             set: { time in
                 let components = Calendar.current.dateComponents([.hour, .minute], from: time)
-                var reminder = preferences.reminder ?? Self.standard
-                reminder.hour = components.hour ?? 19
-                reminder.minute = components.minute ?? 0
+                var reminder = preferences.reminder ?? CheckInReminder.standard
+                reminder.hour = components.hour ?? CheckInReminder.standard.hour
+                reminder.minute = components.minute ?? CheckInReminder.standard.minute
                 apply(reminder)
             })
     }

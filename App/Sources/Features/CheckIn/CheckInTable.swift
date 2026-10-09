@@ -820,7 +820,7 @@ private struct CheckInTableFooter: View {
         }
     }
     .frame(width: 1100, height: 720)
-    .previewEnvironment(model: model)
+    .appEnvironment(model)
 }
 
 #Preview("Mac table, comparing a statement") {
@@ -832,6 +832,6 @@ private struct CheckInTableFooter: View {
         }
     }
     .frame(width: 1100, height: 720)
-    .previewEnvironment(model: model)
+    .appEnvironment(model)
 }
 #endif

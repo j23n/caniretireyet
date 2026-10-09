@@ -124,9 +124,7 @@ struct ImportScreen: View {
     private func take(_ file: URL?) async {
         guard let file else { return }
         await open(file)
-        if navigation.pendingImport == file {
-            _ = navigation.takePendingImport()
-        }
+        navigation.clearPendingImport(file)
     }
 
     private func open(_ url: URL) async {

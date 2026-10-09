@@ -517,7 +517,7 @@ struct PlanInspector: View {
     NavigationStack {
         PlanScreen()
     }
-    .previewEnvironment(model: AppModel.preview(planEngine: PlanPreviewEngine()))
+    .appEnvironment(AppModel.preview(planEngine: PlanPreviewEngine()))
 }
 
 #Preview("No plans") {

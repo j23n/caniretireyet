@@ -260,7 +260,7 @@ struct CheckInConfirmationView: View {
 #Preview("Saved, working out the answer") {
     let model = AppModel.preview(planEngine: PlanPreviewEngine(delay: .milliseconds(400)))
     CheckInConfirmationView(result: CheckInPreviewData.savedWithoutAnswer) {}
-        .previewEnvironment(model: model)
+        .appEnvironment(model)
         .task { model.plans.recordCheckInAnswer(on: CheckInPreviewData.savedWithoutAnswer.date) }
 }
 
