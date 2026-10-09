@@ -371,7 +371,7 @@ struct PlanProgressYear: Hashable, Sendable, Identifiable {
             let report = valuator.change(from: from, to: last, in: .planAssets)
             let inYear = history.points.filter { $0.date.year == year && $0.date <= last }
             let before = history.points.last { $0.date.year < year }
-            let baseline = yearlyBaseline(for: year, in: baselines) ?? pastBaseline(for: year, in: baselines)
+            let baseline = Self.baseline(for: year, in: baselines)
             let comparison = baseline.map {
                 PlanBaselineComparison(baseline: $0.baseline, library: library, valuator: valuator, asOf: last,
                                        from: from, through: last)
@@ -392,6 +392,13 @@ struct PlanProgressYear: Hashable, Sendable, Identifiable {
 }
 
 extension PlanProgressYear {
+    /// The baseline a year is measured against: its automatic baseline,
+    /// else the past baseline starting latest before it ends (PROGRESS.md,
+    /// "Past baselines").
+    static func baseline(for year: Int, in baselines: [PlanBaselineEntry]) -> PlanBaselineEntry? {
+        yearlyBaseline(for: year, in: baselines) ?? pastBaseline(for: year, in: baselines)
+    }
+
     /// The year's automatic baseline ("Start of 2026"), saved at its first check-in.
     static func yearlyBaseline(for year: Int, in baselines: [PlanBaselineEntry]) -> PlanBaselineEntry? {
         baselines.first { $0.baseline.isYearly(of: year) }
@@ -468,15 +475,17 @@ extension PlanProgressYear {
         return (from, to)
     }
 
-    /// Where the latest check-in stands against its year's automatic
-    /// baseline; `nil` without one.
+    /// Where the latest check-in stands against its year's baseline
+    /// (``baseline(for:in:)``), as Progress's latest year has it; `nil`
+    /// without one.
     static func latestPosition(for plan: PlanID, library: Library, valuator: Valuator,
                                asOf: CalendarDate) -> PlanBaselineComparison.Position? {
         guard let last = valuator.checkInDates(in: .planAssets, through: asOf).last,
-              let entry = yearlyBaseline(for: last.year, in: PlanBaselineComparison.baselines(for: plan, in: library))
+              let entry = Self.baseline(for: last.year, in: PlanBaselineComparison.baselines(for: plan, in: library))
         else { return nil }
-        return PlanBaselineComparison(baseline: entry.baseline, library: library, valuator: valuator, asOf: last)
-            .position
+        // Where it stands needs only its own value, however long ago a past baseline starts.
+        return PlanBaselineComparison(baseline: entry.baseline, library: library, valuator: valuator, asOf: last,
+                                      from: last).position
     }
 }
 
