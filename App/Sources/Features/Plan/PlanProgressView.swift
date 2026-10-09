@@ -108,8 +108,8 @@ struct PlanProgressView: View {
     private func headline(_ latest: PlanProgressYear?, history: PlanAnswerHistory) -> some View {
         let position = latest?.position
         let title = PlanProgressText.headline(position)
-        let detail = PlanProgressText.headlineDetail(latest, currency: latest?.positionCurrency ?? library.baseCurrency,
-                                                     hidesAmounts: hidesAmounts, locale: locale)
+        let detail = PlanProgressText.headlineDetail(latest, currency: library.baseCurrency, hidesAmounts: hidesAmounts,
+                                                     locale: locale)
         let tiles = self.tiles(history)
         let month = monthReport
         if isWide {
@@ -488,11 +488,11 @@ struct PlanProgressView: View {
                 let comparison = PlanBaselineComparison(baseline: shown.baseline, library: library.library,
                                                         valuator: library.valuator, asOf: library.asOfDate)
                 ProjectionLegend()
-                FanChart(fan: comparison.fan, actual: comparison.actual, currency: comparison.currency)
+                FanChart(fan: comparison.fan, actual: comparison.actual, currency: library.baseCurrency)
                 if let position = comparison.position {
                     VStack(alignment: .leading, spacing: 2) {
                         HStack(spacing: Metrics.xs) {
-                            DeltaText(position.gap, currency: comparison.currency)
+                            DeltaText(position.gap, currency: library.baseCurrency)
                                 .font(.subheadline.weight(.semibold))
                             Text(Self.side(of: position.gap))
                                 .font(.subheadline)

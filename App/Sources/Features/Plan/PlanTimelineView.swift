@@ -113,7 +113,7 @@ struct PlanTimelineView: View {
     }
 
     /// Where the latest check-in stands against its year's baseline.
-    private var progress: (position: PlanBaselineComparison.Position, currency: CurrencyCode)? {
+    private var progress: PlanBaselineComparison.Position? {
         PlanProgressYear.latestPosition(for: session.planID, library: library.library, valuator: library.valuator,
                                         asOf: library.asOfDate)
     }
@@ -266,7 +266,7 @@ struct PlanTimelineHeadline: View {
     /// Whether the pill goes under the words rather than beside them (a
     /// narrower page, beside What if).
     var stacksPill = false
-    var progress: (position: PlanBaselineComparison.Position, currency: CurrencyCode)?
+    var progress: PlanBaselineComparison.Position?
     var onShowProgress: (() -> Void)?
     var onWhatIf: (() -> Void)?
 
@@ -371,11 +371,11 @@ struct PlanTimelineHeadline: View {
     @ViewBuilder
     private var progressPill: some View {
         if let progress, let onShowProgress {
-            let ahead = progress.position.gap >= 0
+            let ahead = progress.gap >= 0
             let side = isWide ? (ahead ? "ahead of plan" : "behind plan") : (ahead ? "ahead" : "behind")
             Button(action: onShowProgress) {
                 HStack(spacing: 4) {
-                    AmountText(abs(progress.position.gap), currency: progress.currency, tabular: false)
+                    AmountText(abs(progress.gap), currency: session.currency, tabular: false)
                     Text(side)
                     Image(systemName: "chevron.right")
                         .font(.caption.weight(.semibold))

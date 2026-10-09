@@ -81,9 +81,9 @@ struct PlanAnswerHistory: Hashable, Sendable {
 }
 
 /// "Actual vs baseline": a baseline's fan from its start date, your actual
-/// plan assets over it (the same accounts, in the baseline's currency at
-/// each date's exchange rate, and in money of the start date when an
-/// inflation index allows), and where you are within it.
+/// plan assets over it (the same accounts, in the base currency as the
+/// baseline is, and in money of the start date when an inflation index
+/// allows), and where you are within it.
 struct PlanBaselineComparison: Sendable {
     /// Where the latest actual value falls in the baseline's projection.
     struct Position: Hashable, Sendable {
@@ -104,15 +104,11 @@ struct PlanBaselineComparison: Sendable {
     /// The accounts `actual` counts (``Baseline/comparedAccounts(among:)``):
     /// the baseline's, those that replaced them and those opened since.
     var accounts: Set<AccountID>
-    /// The baseline's currency: its copy of the plan's, else the library's.
-    var currency: CurrencyCode
     /// Whether the actual line is in money of the start date (an inflation
     /// index has values for its dates) or of each date.
     var isInflationAdjusted: Bool
     /// The index the actual line is adjusted with; `nil` when the library has none.
     var inflation: PlanInflationIndex?
-    /// Check-ins left out of `actual`: no exchange rate into `currency` on their date.
-    var missingRates: [CalendarDate]
     var position: Position?
 
     /// With the library's valuator, so several comparisons share it.
@@ -130,7 +126,6 @@ struct PlanBaselineComparison: Sendable {
         let accounts = baseline.comparedAccounts(among: library.accounts)
         self.accounts = accounts
         let start = baseline.start.date
-        currency = library.settings.baseCurrency
         // Each check-in, and the month ends between them without one, from
         // the start through the latest check-in (where you stand is as of
         // it), or from and through the days asked for.
@@ -148,67 +143,62 @@ struct PlanBaselineComparison: Sendable {
             let total = valuator.total(on: date, including: { accounts.contains($0.id) })
             return SeriesPoint(date: date, value: total.total, isComplete: total.isPriced)
         }
-        let series = PlanActualSeries(values: values, library: library, valuator: valuator, currency: currency,
-                                      inMoneyOf: start)
+        let series = PlanActualSeries(values: values, library: library, valuator: valuator,
+                                      currency: library.settings.baseCurrency, inMoneyOf: start)
         actual = series.points
         isInflationAdjusted = series.isInflationAdjusted || series.points.isEmpty
         inflation = series.inflation
-        missingRates = series.missingRates
         // Where you stand: the latest value after the start (none before it).
         position = series.latest.flatMap { latest in
             latest.date > start ? Self.position(of: latest.value, on: latest.date, in: baseline) : nil
         }
     }
 
-    /// The line under the chart: which accounts, in what money, and the
-    /// check-ins left out for want of an exchange rate.
+    /// The line under the chart: which accounts, and in what money.
     func unitsNote(baseCurrency: CurrencyCode, locale: Locale = .current) -> String {
-        let code = currency.rawValue
-        var note: String
+        let code = baseCurrency.rawValue
         if isInflationAdjusted {
-            note = "The baseline's accounts and those opened since, in \(code) of "
+            var note = "The baseline's accounts and those opened since, in \(code) of "
                 + "\(AmountFormat.mediumDate(baseline.start.date, locale: locale))."
             if !actual.dropFirst().isEmpty,
-               let standIn = PlanMoney.standInNote(inflation, currency: currency, locale: locale) {
+               let standIn = PlanMoney.standInNote(inflation, currency: baseCurrency, locale: locale) {
                 note += " " + standIn
             }
+            return note
         } else if inflation == nil {
-            note = "The baseline's accounts and those opened since, in \(code) of each date: the library has no "
+            return "The baseline's accounts and those opened since, in \(code) of each date: the library has no "
                 + "inflation index."
         } else {
-            note = "The baseline's accounts and those opened since. Without inflation values for every date, some "
+            return "The baseline's accounts and those opened since. Without inflation values for every date, some "
                 + "are in the "
                 + "\(code) of their time."
         }
-        if let missing = PlanMoney.missingRatesNote(missingRates, base: baseCurrency, currency: currency,
-                                                    locale: locale) {
-            note += " " + missing
+    }
+
+    /// The baseline's start value (as each percentile), then each year-end
+    /// after it with p10, p25, p50, p75 and p90, in the order of its years.
+    static func knots(of baseline: Baseline) -> [(date: CalendarDate, bands: [Decimal])] {
+        var knots = [(date: baseline.start.date, bands: Array(repeating: baseline.start.value, count: 5))]
+        for year in baseline.years {
+            guard let end = YearMonth(year: year.year, month: 12)?.lastDay, end > baseline.start.date else { continue }
+            knots.append((date: end, bands: [year.p10, year.p25, year.p50, year.p75, year.p90]))
         }
-        return note
+        return knots
     }
 
     /// The baseline's fan: its start value, then each year-end.
     static func fan(for baseline: Baseline) -> [FanPoint] {
-        let start = baseline.start.value.doubleValue
-        var points = [FanPoint(date: baseline.start.date.dateValue, p10: start, p25: start, p50: start, p75: start,
-                               p90: start)]
-        for year in baseline.years {
-            guard let end = YearMonth(year: year.year, month: 12)?.lastDay, end > baseline.start.date else { continue }
-            points.append(FanPoint(date: end.dateValue, p10: year.p10.doubleValue, p25: year.p25.doubleValue,
-                                   p50: year.p50.doubleValue, p75: year.p75.doubleValue, p90: year.p90.doubleValue))
+        knots(of: baseline).map { knot in
+            let bands = knot.bands.map(\.doubleValue)
+            return FanPoint(date: knot.date.dateValue, p10: bands[0], p25: bands[1], p50: bands[2], p75: bands[3],
+                            p90: bands[4])
         }
-        return points
     }
 
     /// The percentiles on `date`, interpolated by days between the start and
     /// the year-ends (months between year-ends are interpolated, PROGRESS.md).
     static func percentiles(on date: CalendarDate, in baseline: Baseline) -> [Double]? {
-        var knots: [(CalendarDate, [Double])] = [(baseline.start.date, Array(repeating: baseline.start.value.doubleValue,
-                                                                              count: 5))]
-        for year in baseline.years {
-            guard let end = YearMonth(year: year.year, month: 12)?.lastDay, end > baseline.start.date else { continue }
-            knots.append((end, [year.p10, year.p25, year.p50, year.p75, year.p90].map(\.doubleValue)))
-        }
+        let knots = Self.knots(of: baseline).map { ($0.date, $0.bands.map(\.doubleValue)) }
         guard date >= baseline.start.date, let after = knots.firstIndex(where: { $0.0 >= date }) else { return nil }
         if after == 0 || knots[after].0 == date { return knots[after].1 }
         let (fromDate, fromValues) = knots[after - 1]
@@ -320,9 +310,8 @@ struct PlanProgressYear: Hashable, Sendable, Identifiable {
     /// baseline that starts before the year ends (PROGRESS.md, "Past baselines").
     var baseline: PlanBaselineEntry?
     /// Where the year's end (its last check-in, else its last day) stands
-    /// against it, in its currency; `nil` when the baseline starts there.
+    /// against it; `nil` when the baseline starts there.
     var position: PlanBaselineComparison.Position?
-    var positionCurrency: CurrencyCode?
     /// Why it stands there (PROGRESS.md, *Why*): what you saved against the
     /// plan, markets against what was expected, inflation and the rest,
     /// from the baseline's start, or the year's when it started before.
@@ -381,8 +370,7 @@ struct PlanProgressYear: Hashable, Sendable, Identifiable {
             let report = valuator.change(from: from, to: last, in: .planAssets)
             let inYear = history.points.filter { $0.date.year == year && $0.date <= last }
             let before = history.points.last { $0.date.year < year }
-            let baseline = baselines.first { $0.baseline.kind == .yearly && $0.baseline.created.year == year }
-                ?? pastBaseline(for: year, in: baselines)
+            let baseline = yearlyBaseline(for: year, in: baselines) ?? pastBaseline(for: year, in: baselines)
             let comparison = baseline.map {
                 PlanBaselineComparison(baseline: $0.baseline, library: library, valuator: valuator, asOf: last,
                                        from: from, through: last)
@@ -397,13 +385,17 @@ struct PlanProgressYear: Hashable, Sendable, Identifiable {
                 isLatest: year == latest.year,
                 change: report.total, isComplete: report.isPriced,
                 answerFrom: before ?? inYear.first, answerTo: inYear.last,
-                baseline: baseline, position: comparison?.position, positionCurrency: comparison?.currency,
-                explanation: explanation)
+                baseline: baseline, position: comparison?.position, explanation: explanation)
         }
     }
 }
 
 extension PlanProgressYear {
+    /// The year's automatic baseline ("Start of 2026"), saved at its first check-in.
+    static func yearlyBaseline(for year: Int, in baselines: [PlanBaselineEntry]) -> PlanBaselineEntry? {
+        baselines.first { $0.baseline.kind == .yearly && $0.baseline.created.year == year }
+    }
+
     /// The past baseline a year without its own is measured against: the
     /// one starting latest before the year ends.
     static func pastBaseline(for year: Int, in baselines: [PlanBaselineEntry]) -> PlanBaselineEntry? {
@@ -425,27 +417,21 @@ extension PlanProgressYear {
               let planned = plannedSaving(in: baseline, from: start, to: end)
         else { return nil }
         let accounts = comparison.accounts
-        let currency = comparison.currency
-        // As it happened, in the base currency, then in the baseline's.
+        // As it happened.
         let change = accounts
             .compactMap { valuator.change(of: $0, from: start, to: end)?.change }
             .reduce(ValueChange.zero, +)
-        func asItWas(on day: CalendarDate) -> Decimal? {
-            PlanMoney.convert(valuator.total(on: day, including: { accounts.contains($0.id) }).total,
-                              to: currency, on: day, valuator: valuator)
-        }
-        guard let newMoney = PlanMoney.convert(change.newMoney, to: currency, on: end, valuator: valuator),
-              let market = PlanMoney.convert(change.market, to: currency, on: end, valuator: valuator),
-              let startAsItWas = asItWas(on: start), let endAsItWas = asItWas(on: end)
-        else { return nil }
+        let startAsItWas = valuator.total(on: start, including: { accounts.contains($0.id) }).total
+        let endAsItWas = valuator.total(on: end, including: { accounts.contains($0.id) }).total
         // At its own start the baseline expected what it started from.
         let expectedFirst = start == baseline.start.date ? baseline.start.value : Decimal(wholeNumber: expectedStart)
         return GapExplanation(
             actual: (start: Decimal(wholeNumber: first.value), end: position.actual),
             expected: (start: expectedFirst, end: position.median),
             plannedSaving: planned,
-            change: ValueChange(start: startAsItWas, market: market, newMoney: newMoney,
-                                other: endAsItWas - startAsItWas - newMoney - market, end: endAsItWas),
+            change: ValueChange(start: startAsItWas, market: change.market, newMoney: change.newMoney,
+                                other: endAsItWas - startAsItWas - change.newMoney - change.market,
+                                end: endAsItWas),
             asItWas: comparison.isInflationAdjusted ? (start: startAsItWas, end: endAsItWas) : nil)
     }
 
@@ -482,16 +468,14 @@ extension PlanProgressYear {
     }
 
     /// Where the latest check-in stands against its year's automatic
-    /// baseline, in the baseline's currency; `nil` without one.
-    static func latestPosition(for plan: PlanID, library: Library, valuator: Valuator, asOf: CalendarDate)
-        -> (position: PlanBaselineComparison.Position, currency: CurrencyCode)? {
+    /// baseline; `nil` without one.
+    static func latestPosition(for plan: PlanID, library: Library, valuator: Valuator,
+                               asOf: CalendarDate) -> PlanBaselineComparison.Position? {
         guard let last = valuator.checkInDates(in: .planAssets, through: asOf).last,
-              let entry = PlanBaselineComparison.baselines(for: plan, in: library)
-                  .first(where: { $0.baseline.kind == .yearly && $0.baseline.created.year == last.year })
+              let entry = yearlyBaseline(for: last.year, in: PlanBaselineComparison.baselines(for: plan, in: library))
         else { return nil }
-        let comparison = PlanBaselineComparison(baseline: entry.baseline, library: library, valuator: valuator,
-                                                asOf: last)
-        return comparison.position.map { (position: $0, currency: comparison.currency) }
+        return PlanBaselineComparison(baseline: entry.baseline, library: library, valuator: valuator, asOf: last)
+            .position
     }
 }
 
@@ -735,23 +719,23 @@ struct PlanProgressTimeline {
 
     /// What `baseline` expected on each of `days` and on `end`, in the money
     /// of a card's line (plan assets in the base currency, as they were):
-    /// its median turned from its own money (its currency, in money of its
-    /// start) into the base currency on the day, plus the plan assets it
+    /// its median turned from money of its start into money of the day
+    /// (where the inflation index has both), plus the plan assets it
     /// doesn't compare (``Baseline/comparedAccounts(among:)``: an account
     /// added since with an older history, one its plan left out) at their
     /// value, so the space between the two lines is the gap it measures. A
-    /// day without an exchange rate, or after the last of `days`, takes the
-    /// day before's; `totals` are plan assets on `days`.
+    /// day after the last of `days` takes the day before's; `totals` are
+    /// plan assets on `days`.
     static func expected(by baseline: Baseline, days: [CalendarDate], totals: [NetWorth], through end: CalendarDate,
                          library: Library, valuator: Valuator) -> [ChartPoint] {
         let accounts = baseline.comparedAccounts(among: library.accounts)
-        let currency = library.settings.baseCurrency
-        // One unit of the base currency in the baseline's money, on each day.
-        let units = PlanActualSeries(values: days.map { SeriesPoint(date: $0, value: 1) }, library: library,
-                                     valuator: valuator, currency: currency, inMoneyOf: baseline.start.date).points
+        let index = PlanMoney.inflationIndex(for: library.settings.baseCurrency, library: library)
+            .map { InflationIndex(library: library, index: $0.index) }
         var shifts: [(day: CalendarDate, factor: Double, others: Double)] = []
         for (day, total) in zip(days, totals) {
-            guard let unit = units.first(where: { $0.date == day.dateValue })?.value, unit != 0 else { continue }
+            // One unit of money of the day in money of the baseline's start.
+            let unit = (index?.convert(1, from: day, to: baseline.start.date) ?? 1).doubleValue
+            guard unit != 0 else { continue }
             let compared = valuator.total(on: day, including: { accounts.contains($0.id) }).total
             shifts.append((day: day, factor: 1 / unit, others: (total.total - compared).doubleValue))
         }
@@ -857,10 +841,11 @@ enum PlanProgressText {
     }
 
     /// "18.400 € ahead of January", "3.000 € behind your 2021 plan"; `nil` without a baseline.
-    static func againstJanuary(_ year: PlanProgressYear, hidesAmounts: Bool, locale: Locale = .current) -> String? {
+    static func againstJanuary(_ year: PlanProgressYear, currency: CurrencyCode, hidesAmounts: Bool,
+                               locale: Locale = .current) -> String? {
         guard let position = year.position else { return nil }
         let amount = hidesAmounts ? AmountFormat.hidden
-            : AmountFormat.amount(abs(position.gap), currency: year.positionCurrency ?? .eur, locale: locale)
+            : AmountFormat.amount(abs(position.gap), currency: currency, locale: locale)
         let expectation = year.expectation(locale: locale)
         return position.gap >= 0 ? "\(amount) ahead of \(expectation)" : "\(amount) behind \(expectation)"
     }
@@ -906,9 +891,9 @@ enum PlanProgressText {
 
     /// "January expected 298.000 € by now. You're 18.400 € ahead, more than
     /// in 68 of its 100 futures."
-    static func january(_ year: PlanProgressYear, hidesAmounts: Bool, locale: Locale = .current) -> String? {
+    static func january(_ year: PlanProgressYear, currency: CurrencyCode, hidesAmounts: Bool,
+                        locale: Locale = .current) -> String? {
         guard let position = year.position else { return nil }
-        let currency = year.positionCurrency ?? .eur
         func amount(_ value: Decimal) -> String {
             hidesAmounts ? AmountFormat.hidden : AmountFormat.amount(abs(value), currency: currency, locale: locale)
         }

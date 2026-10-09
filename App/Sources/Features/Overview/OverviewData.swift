@@ -166,50 +166,29 @@ struct OverviewHistory: Hashable, Sendable {
 /// How the accounts a baseline covers compare today with its median
 /// ("12.400 € ahead of your Jan baseline"; PROGRESS.md, "Actual vs. a
 /// baseline"). The median between year ends is interpolated linearly by
-/// day. Basic: amounts are compared as they are, without adjusting the
-/// baseline's money for inflation, in the baseline's currency (its plan's):
-/// your accounts are converted at the date's exchange rate, and without one
-/// there's no gap to show.
+/// day. Basic: amounts are compared as they are, in the base currency,
+/// without adjusting the baseline's money for inflation.
 struct OverviewBaselineGap: Hashable, Sendable {
     /// When the baseline was saved.
     var created: CalendarDate
-    var label: String?
-    /// The baseline's currency, which `actual` and `expected` are in.
-    var currency: CurrencyCode
     /// The baseline's accounts on the date, with those that replaced them
-    /// and those opened since (``Baseline/comparedAccounts(among:)``).
-    var actual: Decimal
-    /// The baseline's median on the date.
-    var expected: Decimal
+    /// and those opened since (``Baseline/comparedAccounts(among:)``), less
+    /// its median then: positive when ahead.
+    var gap: Decimal
 
-    /// Positive when ahead.
-    var gap: Decimal { actual - expected }
-
-    /// `currency` is the baseline's (the base currency); `nil` takes the
-    /// valuator's base currency.
-    init?(baseline: Baseline, valuator: Valuator, on date: CalendarDate, currency: CurrencyCode? = nil) {
+    init?(baseline: Baseline, valuator: Valuator, on date: CalendarDate) {
         guard date > baseline.start.date, !baseline.accounts.isEmpty else { return nil }
-        var knots: [(date: CalendarDate, value: Decimal)] = [(baseline.start.date, baseline.start.value)]
-        for year in baseline.years.sorted(by: { $0.year < $1.year }) {
-            guard let end = YearMonth(year: year.year, month: 12)?.lastDay, end > baseline.start.date else { continue }
-            knots.append((end, year.p50))
-        }
+        let knots = PlanBaselineComparison.knots(of: baseline).sorted { $0.date < $1.date }
         guard let upper = knots.firstIndex(where: { $0.date >= date }), upper > 0 else { return nil }
         let from = knots[upper - 1]
         let to = knots[upper]
         let length = from.date.days(to: to.date)
         guard length > 0 else { return nil }
         let fraction = Decimal(from.date.days(to: date)) / Decimal(length)
-        expected = from.value + (to.value - from.value) * fraction
-        let base = baseline.comparedAccounts(among: valuator.accounts).reduce(Decimal(0)) { total, account in
-            total + (valuator.value(of: account, on: date)?.knownValue ?? 0)
-        }
-        let currency = currency ?? valuator.baseCurrency
-        guard let converted = PlanMoney.convert(base, to: currency, on: date, valuator: valuator) else { return nil }
-        actual = converted
-        self.currency = currency
+        let median = from.bands[2] + (to.bands[2] - from.bands[2]) * fraction
+        let accounts = baseline.comparedAccounts(among: valuator.accounts)
+        gap = valuator.total(on: date, including: { accounts.contains($0.id) }).total - median
         created = baseline.created
-        label = baseline.label
     }
 
     /// "Jan", or "Jan 2025" for a baseline from another year than `date`.

@@ -134,7 +134,7 @@ struct OverviewAnswerCard: View {
                               fallback: headline.recordedOn != nil ? PlanResultsText.readinessNotRecorded : nil)
             if let gap {
                 HStack(spacing: Metrics.xs) {
-                    DeltaText(gap.gap, currency: gap.currency)
+                    DeltaText(gap.gap, currency: library.baseCurrency)
                     Text(gapText(gap))
                         .foregroundStyle(Palette.secondaryInk)
                 }
@@ -196,7 +196,7 @@ struct OverviewAnswerCard: View {
 
     private func baselineGap(for plan: PlanDocument?) -> OverviewBaselineGap? {
         guard let plan, let baseline = library.library.baselines(for: plan.id).last else { return nil }
-        return OverviewBaselineGap(baseline: baseline, valuator: valuator, on: asOf, currency: library.baseCurrency)
+        return OverviewBaselineGap(baseline: baseline, valuator: valuator, on: asOf)
     }
 
     private func earliestText(_ headline: PlanHeadline) -> String {

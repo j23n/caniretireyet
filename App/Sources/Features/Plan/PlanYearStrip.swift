@@ -174,7 +174,8 @@ struct PlanYearStrip: View {
             label += ", " + PlanProgressText.change(card.year, currency: card.currency, hidesAmounts: hidesAmounts,
                                                     locale: locale)
         }
-        if let against = PlanProgressText.againstJanuary(card.year, hidesAmounts: hidesAmounts, locale: locale) {
+        if let against = PlanProgressText.againstJanuary(card.year, currency: card.currency, hidesAmounts: hidesAmounts,
+                                                         locale: locale) {
             label += ", \(against)"
         }
         if let summary = card.summary {
@@ -364,7 +365,8 @@ struct PlanYearCardView: View {
                     .monospacedDigit()
                     .foregroundStyle(card.year.isLatest ? Palette.accent : Palette.ink)
             }
-            if let against = PlanProgressText.againstJanuary(card.year, hidesAmounts: hidesAmounts, locale: locale) {
+            if let against = PlanProgressText.againstJanuary(card.year, currency: card.currency,
+                                                             hidesAmounts: hidesAmounts, locale: locale) {
                 Text(against)
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(aheadColor)

@@ -95,7 +95,8 @@ struct PlanYearDetails: View {
     /// why it isn't measured.
     @ViewBuilder
     private var standing: some View {
-        if let against = PlanProgressText.againstJanuary(year, hidesAmounts: hidesAmounts, locale: locale) {
+        if let against = PlanProgressText.againstJanuary(year, currency: card.currency, hidesAmounts: hidesAmounts,
+                                                         locale: locale) {
             Text(against)
                 .font(PlanProgressFont.caption.weight(.semibold))
                 .foregroundStyle((year.position?.gap ?? 0) >= 0 ? Palette.positive : Palette.orangeStroke)
@@ -202,14 +203,12 @@ struct PlanYearFigures: View {
 
     private var year: PlanProgressYear { card.year }
 
-    private func amount(_ value: Decimal, in currency: CurrencyCode? = nil) -> String {
-        hidesAmounts ? AmountFormat.hidden
-            : AmountFormat.amount(abs(value), currency: currency ?? card.currency, locale: locale)
+    private func amount(_ value: Decimal) -> String {
+        hidesAmounts ? AmountFormat.hidden : AmountFormat.amount(abs(value), currency: card.currency, locale: locale)
     }
 
     var body: some View {
         let explanation = year.explanation?.inWholeUnits
-        let currency = year.positionCurrency ?? card.currency
         let byNow = year.isLatest ? " by now" : ""
         let saved = year.change.newMoney
         let market = year.change.market
@@ -221,10 +220,10 @@ struct PlanYearFigures: View {
             Grid(horizontalSpacing: 1, verticalSpacing: 1) {
                 GridRow {
                     figure(saved >= 0 ? "You saved" : "You took out", amount(saved),
-                           detail: explanation.map { "planned \(amount($0.plannedSaving, in: currency))\(byNow)" },
+                           detail: explanation.map { "planned \(amount($0.plannedSaving))\(byNow)" },
                            titleColor: Palette.ink.opacity(0.8))
                     figure(market >= 0 ? "Markets added" : "Markets took", amount(market),
-                           detail: explanation.map { "expected \(amount($0.expectedMarket, in: currency))" },
+                           detail: explanation.map { "expected \(amount($0.expectedMarket))" },
                            titleColor: market >= 0 ? Palette.accent : Palette.orangeStroke)
                 }
                 GridRow {
@@ -364,7 +363,6 @@ struct PlanYearWhy: View {
     @Environment(\.locale) private var locale
 
     private var year: PlanProgressYear { card.year }
-    private var currency: CurrencyCode { year.positionCurrency ?? card.currency }
 
     private struct Row: Identifiable {
         var title: String
@@ -373,11 +371,11 @@ struct PlanYearWhy: View {
     }
 
     private func amount(_ value: Decimal) -> String {
-        hidesAmounts ? AmountFormat.hidden : AmountFormat.amount(abs(value), currency: currency, locale: locale)
+        hidesAmounts ? AmountFormat.hidden : AmountFormat.amount(abs(value), currency: card.currency, locale: locale)
     }
 
     private func signed(_ value: Decimal) -> String {
-        hidesAmounts ? AmountFormat.hidden : AmountFormat.signedAmount(value, currency: currency, locale: locale)
+        hidesAmounts ? AmountFormat.hidden : AmountFormat.signedAmount(value, currency: card.currency, locale: locale)
     }
 
     /// "Why you're ahead", "Why you ended behind"; "Against January" unmeasured.
@@ -446,7 +444,7 @@ struct PlanYearWhy: View {
                         .minimumScaleFactor(0.85)
                 }
             } else {
-                Text(PlanProgressText.january(year, hidesAmounts: hidesAmounts, locale: locale)
+                Text(PlanProgressText.january(year, currency: card.currency, hidesAmounts: hidesAmounts, locale: locale)
                     ?? PlanProgressText.unmeasured(year))
                     .font(PlanProgressFont.caption)
                     .foregroundStyle(Palette.secondaryInk)
