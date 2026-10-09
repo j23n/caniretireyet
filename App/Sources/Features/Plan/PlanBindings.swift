@@ -305,12 +305,6 @@ extension PlanContribution {
 }
 
 extension WorkPhase {
-    /// The display name, "" for none.
-    var planName: String {
-        get { name ?? "" }
-        set { name = newValue.isEmpty ? nil : newValue }
-    }
-
     /// The phase lasts until retirement, or to a date.
     var planUntilRetirement: Bool {
         get { until == .retirement }
@@ -324,12 +318,6 @@ extension WorkPhase {
 }
 
 extension PlanPension {
-    /// The display name, "" for none.
-    var planName: String {
-        get { name ?? "" }
-        set { name = newValue.isEmpty ? nil : newValue }
-    }
-
     /// The age it starts at (67 until set).
     var planFromAge: Int {
         get { fromAge ?? 67 }
@@ -338,12 +326,6 @@ extension PlanPension {
 }
 
 extension PlanIncome {
-    /// The display name, "" for none.
-    var planName: String {
-        get { name ?? "" }
-        set { name = newValue.isEmpty ? nil : newValue }
-    }
-
     /// It starts when work stops, or at an age.
     var planFromRetirement: Bool {
         get { from == .retirement }

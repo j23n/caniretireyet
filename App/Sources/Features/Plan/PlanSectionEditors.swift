@@ -180,65 +180,56 @@ struct PlanAssumptionsEditor: View {
     @Environment(LibraryStore.self) private var library
     @Environment(\.locale) private var locale
 
-    private struct AssetRow: Identifiable {
-        var assetClass: AssetClass
-        var name: String
-        var id: String { assetClass.rawValue }
-    }
-
-    private static let rows: [AssetRow] = [
-        AssetRow(assetClass: .equity, name: "Equity"), AssetRow(assetClass: .bonds, name: "Bonds"),
-        AssetRow(assetClass: .cash, name: "Cash"), AssetRow(assetClass: .gold, name: "Gold"),
-        AssetRow(assetClass: .crypto, name: "Crypto"),
-    ]
+    /// The classes with a return to set, in the assumptions' order.
+    private static let classes: [AssetClass] = [.equity, .bonds, .cash, .gold, .crypto]
 
     /// The classes whose income yield can be set: those that pay income
     /// (equity, bonds), and any other the plan gives one.
-    private var incomeRows: [AssetRow] {
-        Self.rows.filter { row in
-            PlanEditing.incomeYieldClasses.contains(row.assetClass)
-                || plan.assumptions.returnAssumption(for: row.assetClass)?.incomeYield != nil
+    private var incomeClasses: [AssetClass] {
+        Self.classes.filter { assetClass in
+            PlanEditing.incomeYieldClasses.contains(assetClass)
+                || plan.assumptions.returnAssumption(for: assetClass)?.incomeYield != nil
         }
     }
 
     var body: some View {
-        let accounts = PlanEditing.excludableAccounts(in: library.library)
+        let accounts = PlanEditing.contributionAccounts(in: library.library)
         VStack(alignment: .leading, spacing: Metrics.s) {
             PlanNumberRow("Inflation", value: $plan.assumptions.inflation, kind: .percent, unit: "%", prompt: "2")
             Text("Real return: mean · median · volatility")
                 .font(.caption)
                 .foregroundStyle(Palette.secondaryInk)
-            ForEach(Self.rows) { row in
+            ForEach(Self.classes, id: \.self) { assetClass in
+                let name = PlanIssueText.assetClassName(assetClass.rawValue)
                 HStack(spacing: Metrics.xs) {
-                    Text(row.name)
+                    Text(name)
                     Spacer(minLength: Metrics.s)
-                    PlanNumberField("\(row.name) mean real return",
-                                    value: $plan.assumptions[planReal: row.assetClass], kind: .percent)
+                    PlanNumberField("\(name) mean real return",
+                                    value: $plan.assumptions[planReal: assetClass], kind: .percent)
                         .frame(maxWidth: 52)
                     Text("% ·")
                         .foregroundStyle(Palette.secondaryInk)
-                    PlanNumberField("\(row.name) median real return",
-                                    value: $plan.assumptions[planMedianReal: row.assetClass], kind: .percent)
+                    PlanNumberField("\(name) median real return",
+                                    value: $plan.assumptions[planMedianReal: assetClass], kind: .percent)
                         .frame(maxWidth: 52)
                     Text("% ·")
                         .foregroundStyle(Palette.secondaryInk)
-                    PlanNumberField("\(row.name) volatility",
-                                    value: $plan.assumptions[planVolatility: row.assetClass], kind: .percent)
+                    PlanNumberField("\(name) volatility",
+                                    value: $plan.assumptions[planVolatility: assetClass], kind: .percent)
                         .frame(maxWidth: 52)
                     Text("%")
                         .foregroundStyle(Palette.secondaryInk)
                 }
-                if let note = PlanEditing.previousDefaultNote(for: row.assetClass, in: plan.assumptions,
-                                                              locale: locale) {
+                if let note = PlanEditing.previousDefaultNote(for: assetClass, in: plan.assumptions, locale: locale) {
                     HStack(alignment: .firstTextBaseline, spacing: Metrics.s) {
                         Text(note)
                             .foregroundStyle(Palette.secondaryInk)
                             .fixedSize(horizontal: false, vertical: true)
                         Spacer(minLength: Metrics.xs)
-                        Button("Use Default") { plan.assumptions.useDefaultReturn(for: row.assetClass) }
+                        Button("Use Default") { plan.assumptions.useDefaultReturn(for: assetClass) }
                             .buttonStyle(.borderless)
                             .disabled(!library.canEdit)
-                            .accessibilityLabel("Use the default return for \(row.name)")
+                            .accessibilityLabel("Use the default return for \(name)")
                     }
                     .font(.caption)
                 }
@@ -250,11 +241,12 @@ struct PlanAssumptionsEditor: View {
             Text("Income yield")
                 .font(.caption)
                 .foregroundStyle(Palette.secondaryInk)
-            ForEach(incomeRows) { row in
+            ForEach(incomeClasses, id: \.self) { assetClass in
+                let name = PlanIssueText.assetClassName(assetClass.rawValue)
                 HStack(spacing: Metrics.xs) {
-                    Text(row.name)
+                    Text(name)
                     Spacer(minLength: Metrics.s)
-                    PlanNumberField("\(row.name) income yield", value: $plan.assumptions[planIncomeYield: row.assetClass],
+                    PlanNumberField("\(name) income yield", value: $plan.assumptions[planIncomeYield: assetClass],
                                     kind: .percent, prompt: "–", isOptional: true)
                         .frame(maxWidth: 56)
                     Text("%")

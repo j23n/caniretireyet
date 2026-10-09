@@ -366,8 +366,8 @@ extension PlanChapterStory {
         if case .targetMixStep(let index) = item, plan.portfolio.targetMixByAge.indices.contains(index) {
             mix = plan.portfolio.targetMixByAge[index].mix
         }
-        guard let mix, PlanTargetMixModel.total(mix) > 0 else { return "as they are today" }
-        let equity = (mix.shares[.equity] ?? 0) / PlanTargetMixModel.total(mix)
+        guard let mix, mix.total > 0 else { return "as they are today" }
+        let equity = (mix.shares[.equity] ?? 0) / mix.total
         guard equity > 0 else { return PlanTargetMixModel.mixSummary(mix, locale: words.locale).lowercased() }
         return "\(words.percent(equity)) in shares"
     }

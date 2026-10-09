@@ -187,15 +187,11 @@ enum PlanEditing {
         return list
     }
 
-    // MARK: Values
+    // MARK: Accounts
 
-    /// Accounts a contribution can go to: open ones the plan counts.
+    /// Accounts a contribution can go to, and the plan can leave out: open
+    /// ones the plan counts.
     static func contributionAccounts(in library: Library) -> [Account] {
         library.accounts.values.filter { $0.includedInPlan && !$0.isClosed }.sorted { $0.name < $1.name }
-    }
-
-    /// Accounts the plan could leave out: open ones the plan counts.
-    static func excludableAccounts(in library: Library) -> [Account] {
-        contributionAccounts(in: library)
     }
 }

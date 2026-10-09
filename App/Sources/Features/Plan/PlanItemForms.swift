@@ -46,57 +46,44 @@ struct PlanItemSheet: View {
     let target: PlanEditTarget
     let issues: PlanInputIssues
 
-    private var plan: PlanDocument { session.editablePlan }
-
-    /// A delete action for an item that exists (not a new one).
-    private func deletion(_ exists: Bool, _ action: @escaping () -> Void) -> (() -> Void)? {
-        exists ? action : nil
-    }
-
     var body: some View {
         switch target {
         case .work(let index, let phase):
-            PlanItemEditor(index < plan.work.count ? "Work phase" : "New work phase", item: phase, onSave: { edited in
-                session.edit { $0.work = PlanEditing.replacing(at: index, with: edited, in: $0.work) }
-            }, onDelete: deletion(index < plan.work.count) {
-                session.edit { $0.work = PlanEditing.removing(at: index, from: $0.work) }
-            }) { binding in
-                PlanWorkPhaseForm(phase: binding, issues: issues.issues(for: .work, index: index))
+            editor(\.work, at: index, item: phase, title: "Work phase", new: "New work phase") {
+                PlanWorkPhaseForm(phase: $0, issues: issues.issues(for: .work, index: index))
             }
         case .pension(let index, let pension):
-            PlanItemEditor(index < plan.pensions.count ? "Pension" : "New pension", item: pension, onSave: { edited in
-                session.edit { $0.pensions = PlanEditing.replacing(at: index, with: edited, in: $0.pensions) }
-            }, onDelete: deletion(index < plan.pensions.count) {
-                session.edit { $0.pensions = PlanEditing.removing(at: index, from: $0.pensions) }
-            }) { binding in
-                PlanPensionForm(pension: binding, issues: issues.issues(for: .pensions, index: index))
+            editor(\.pensions, at: index, item: pension, title: "Pension", new: "New pension") {
+                PlanPensionForm(pension: $0, issues: issues.issues(for: .pensions, index: index))
             }
         case .income(let index, let income):
-            PlanItemEditor(index < plan.income.count ? "Other income" : "New income", item: income, onSave: { edited in
-                session.edit { $0.income = PlanEditing.replacing(at: index, with: edited, in: $0.income) }
-            }, onDelete: deletion(index < plan.income.count) {
-                session.edit { $0.income = PlanEditing.removing(at: index, from: $0.income) }
-            }) { binding in
-                PlanIncomeForm(income: binding, issues: issues.issues(for: .income, index: index))
+            editor(\.income, at: index, item: income, title: "Other income", new: "New income") {
+                PlanIncomeForm(income: $0, issues: issues.issues(for: .income, index: index))
             }
         case .contribution(let index, let contribution):
-            PlanItemEditor(index < plan.contributions.count ? "Contribution" : "New contribution", item: contribution,
-                           onSave: { edited in
-                session.edit { $0.contributions = PlanEditing.replacing(at: index, with: edited, in: $0.contributions) }
-            }, onDelete: deletion(index < plan.contributions.count) {
-                session.edit { $0.contributions = PlanEditing.removing(at: index, from: $0.contributions) }
-            }) { binding in
-                PlanContributionForm(contribution: binding, issues: issues.issues(for: .contributions, index: index))
+            editor(\.contributions, at: index, item: contribution, title: "Contribution", new: "New contribution") {
+                PlanContributionForm(contribution: $0, issues: issues.issues(for: .contributions, index: index))
             }
         case .event(let index, let event):
-            PlanItemEditor(index < plan.events.count ? "Event" : "New event", item: event, onSave: { edited in
-                session.edit { $0.events = PlanEditing.replacing(at: index, with: edited, in: $0.events) }
-            }, onDelete: deletion(index < plan.events.count) {
-                session.edit { $0.events = PlanEditing.removing(at: index, from: $0.events) }
-            }) { binding in
-                PlanEventForm(event: binding, issues: issues.issues(for: .events, index: index))
+            editor(\.events, at: index, item: event, title: "Event", new: "New event") {
+                PlanEventForm(event: $0, issues: issues.issues(for: .events, index: index))
             }
         }
+    }
+
+    /// The editor of the item at `index` of the plan's `list`: titled
+    /// `title`, or `new` for an item not in the list yet, which has no
+    /// *Delete*. *Done* puts the item at its index.
+    private func editor<Item: Equatable, Fields: View>(
+        _ list: WritableKeyPath<PlanDocument, [Item]>, at index: Int, item: Item, title: String, new: String,
+        @ViewBuilder fields: @escaping (Binding<Item>) -> Fields
+    ) -> some View {
+        let exists = index < session.editablePlan[keyPath: list].count
+        return PlanItemEditor(exists ? title : new, item: item, onSave: { edited in
+            session.edit { $0[keyPath: list] = PlanEditing.replacing(at: index, with: edited, in: $0[keyPath: list]) }
+        }, onDelete: exists ? {
+            session.edit { $0[keyPath: list] = PlanEditing.removing(at: index, from: $0[keyPath: list]) }
+        } : nil, content: fields)
     }
 }
 
@@ -125,7 +112,7 @@ struct PlanWorkPhaseForm: View {
 
     var body: some View {
         Section("Work") {
-            TextField("Name", text: $phase.planName, prompt: Text("Work"))
+            TextField("Name", text: $phase.name.orEmpty, prompt: Text("Work"))
             DatePicker("From", selection: $phase.from.planDate, displayedComponents: .date)
             Toggle("Until retirement", isOn: $phase.planUntilRetirement)
             if !phase.planUntilRetirement {
@@ -154,7 +141,7 @@ struct PlanPensionForm: View {
 
     var body: some View {
         Section {
-            TextField("Name", text: $pension.planName, prompt: Text("Pension"))
+            TextField("Name", text: $pension.name.orEmpty, prompt: Text("Pension"))
             Stepper("Paid from \(pension.planFromAge)", value: $pension.planFromAge, in: 40...90)
             PlanNumberRow("After tax, a month", value: $pension.perYear.perMonth, unit: "/month")
         } header: {
@@ -176,7 +163,7 @@ struct PlanIncomeForm: View {
 
     var body: some View {
         Section {
-            TextField("Name", text: $income.planName, prompt: Text("Other income"))
+            TextField("Name", text: $income.name.orEmpty, prompt: Text("Other income"))
             Toggle("From when you stop working", isOn: $income.planFromRetirement)
             if !income.planFromRetirement {
                 Stepper("From \(income.planFromAge)", value: $income.planFromAge, in: 18...100)

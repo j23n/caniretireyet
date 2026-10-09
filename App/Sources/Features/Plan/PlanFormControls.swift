@@ -83,6 +83,14 @@ extension Binding where Value == Decimal {
     }
 }
 
+extension Binding where Value == String? {
+    /// An optional name as a text field's text: "" for none, and emptying
+    /// the field removes the name.
+    var orEmpty: Binding<String> {
+        Binding<String>(get: { wrappedValue ?? "" }, set: { wrappedValue = $0.isEmpty ? nil : $0 })
+    }
+}
+
 /// A labelled number field in a form row, with a unit after it.
 struct PlanNumberRow: View {
     let title: String

@@ -107,15 +107,10 @@ struct PlanTargetMixModel {
         return AssetMix(percents.filter { $0.value > 0 }.mapValues { Decimal($0) / 100 })
     }
 
-    /// A mix's total: 1 is 100%.
-    static func total(_ mix: AssetMix?) -> Decimal {
-        mix?.total ?? 0
-    }
-
     /// What a mix's total needs, or `nil` when it's 100%: "Adds up to 95%:
     /// add 5%.", "Adds up to 110%: take off 10%."
     static func problem(_ mix: AssetMix?, locale: Locale = .current) -> String? {
-        let total = total(mix)
+        let total = mix?.total ?? 0
         guard total != 1 else { return nil }
         let percent = { (share: Decimal) in AmountFormat.number(share * 100, maxDigits: 2, locale: locale) + "%" }
         return total < 1 ? "Adds up to \(percent(total)): add \(percent(1 - total)) to reach 100%."
@@ -124,7 +119,7 @@ struct PlanTargetMixModel {
 
     /// "Total 100%", "Total 95%".
     static func totalText(_ mix: AssetMix?, locale: Locale = .current) -> String {
-        "Total " + AmountFormat.number(total(mix) * 100, maxDigits: 2, locale: locale) + "%"
+        "Total " + AmountFormat.number((mix?.total ?? 0) * 100, maxDigits: 2, locale: locale) + "%"
     }
 
     /// The median yearly growth of a mix rebalanced every year under the plan's assumptions.
@@ -141,7 +136,7 @@ struct PlanTargetMixModel {
 
     /// "Grows at a median of 2.9% a year, rebalanced every year (today's mix: 1.9%)."
     func growthText(of mix: AssetMix?, comparedWithToday: Bool = false, locale: Locale = .current) -> String? {
-        guard let mix, Self.total(mix) > 0 else { return nil }
+        guard let mix, mix.total > 0 else { return nil }
         var text = "Grows at a median of " + AmountFormat.percent(growth(of: mix), locale: locale)
             + " a year, rebalanced every year"
         if comparedWithToday, let today = todaysGrowth {
@@ -226,7 +221,7 @@ struct PlanTargetMixModel {
     /// One mix in words, largest share first: "Equity 80% · bonds 20%";
     /// "Today's mix" without one (the plan keeps what you hold).
     static func mixSummary(_ mix: AssetMix?, locale: Locale = .current) -> String {
-        guard let mix, total(mix) > 0 else { return "Today's mix" }
+        guard let mix, mix.total > 0 else { return "Today's mix" }
         let classes = mix.shares.filter { $0.value != 0 }.sorted { ($1.value, $0.key) < ($0.value, $1.key) }
         return classes.enumerated().map { index, entry in
             let name = PlanIssueText.assetClassName(entry.key.rawValue)
