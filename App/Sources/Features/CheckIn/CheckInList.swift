@@ -627,17 +627,7 @@ private struct CheckInListRow: View {
     /// on the check-in's date. Once it's saved, the row follows it. The
     /// button goes under the question when both don't fit on a line.
     private var addTradeLine: some View {
-        ViewThatFits(in: .horizontal) {
-            HStack(spacing: Metrics.s) {
-                addTradePrompt
-                Spacer(minLength: Metrics.s)
-                addTradeButton
-            }
-            VStack(alignment: .leading, spacing: Metrics.xs) {
-                addTradePrompt
-                addTradeButton
-            }
-        }
+        textThenButton(addTradePrompt, addTradeButton)
     }
 
     private var addTradePrompt: some View {
@@ -668,48 +658,40 @@ private struct CheckInListRow: View {
         if CheckInRowDisplay.showsCashField(row, isEditing: isEditing) {
             cashLine
             if let note = CheckInWording.statementCashNote(row, hidesAmounts: hidesAmounts, locale: locale) {
-                ViewThatFits(in: .horizontal) {
-                    HStack(alignment: .firstTextBaseline, spacing: Metrics.s) {
-                        statementCashNote(note)
-                        Spacer(minLength: Metrics.s)
-                        useTradesCashButton
-                    }
-                    VStack(alignment: .leading, spacing: Metrics.xs) {
-                        statementCashNote(note)
-                        useTradesCashButton
-                    }
-                }
-                .font(.footnote)
-                .foregroundStyle(Palette.secondaryInk)
+                textThenButton(figures(note), useTradesCashButton, alignment: .firstTextBaseline)
+                    .font(.footnote)
+                    .foregroundStyle(Palette.secondaryInk)
             }
         } else if CheckInRowDisplay.showsTradeCash(row, isEditing: isEditing),
                   let text = CheckInWording.tradeCash(row, hidesAmounts: hidesAmounts, locale: locale) {
-            ViewThatFits(in: .horizontal) {
-                HStack(alignment: .firstTextBaseline, spacing: Metrics.s) {
-                    tradeCashText(text)
-                    Spacer(minLength: Metrics.s)
-                    enterStatementCashButton
-                }
-                VStack(alignment: .leading, spacing: Metrics.xs) {
-                    tradeCashText(text)
-                    enterStatementCashButton
-                }
-            }
-            .font(.footnote)
-            .foregroundStyle(Palette.secondaryInk)
+            textThenButton(figures(text), enterStatementCashButton, alignment: .firstTextBaseline)
+                .font(.footnote)
+                .foregroundStyle(Palette.secondaryInk)
         }
     }
 
-    private func tradeCashText(_ text: String) -> some View {
+    /// A line with amounts in it, which hide with them.
+    private func figures(_ text: String) -> some View {
         Text(verbatim: text)
             .monospacedDigit()
             .privacySensitive()
     }
 
-    private func statementCashNote(_ text: String) -> some View {
-        Text(verbatim: text)
-            .monospacedDigit()
-            .privacySensitive()
+    /// `text`, then `button` after it on the same line when both fit, else
+    /// under it.
+    private func textThenButton(_ text: some View, _ button: some View,
+                                alignment: VerticalAlignment = .center) -> some View {
+        ViewThatFits(in: .horizontal) {
+            HStack(alignment: alignment, spacing: Metrics.s) {
+                text
+                Spacer(minLength: Metrics.s)
+                button
+            }
+            VStack(alignment: .leading, spacing: Metrics.xs) {
+                text
+                button
+            }
+        }
     }
 
     private var enterStatementCashButton: some View {
