@@ -8,13 +8,13 @@ import Tracker
 // so they can be checked on Linux.
 
 /// Which way an account is converted.
-enum AccountConversionDirection: String, Hashable, Sendable, Identifiable {
+enum AccountConversionDirection: Hashable, Sendable, Identifiable {
     /// Snapshots → trades (*Switch to Trade History…*).
     case toTrades
     /// Trades → snapshots (*Switch to Snapshots…*).
     case toSnapshots
 
-    var id: String { rawValue }
+    var id: Self { self }
 
     /// The sheet's title and button.
     var title: String {
@@ -35,10 +35,12 @@ struct AccountConversionSummary: Hashable, Sendable {
     /// One kind of estimate, counted: "12 buys and sells are priced at the value's price".
     struct NoteGroup: Hashable, Sendable, Identifiable {
         var kind: ConversionNote.Kind
-        var summary: String
         /// Each note, dated: "30 Jun 2026: The buy of 10 vwce is priced at …".
         var details: [String]
         var id: String { kind.rawValue }
+
+        /// The kind in words, counted (``AccountConversionSummary/summary(of:count:)``).
+        var summary: String { AccountConversionSummary.summary(of: kind, count: details.count) }
     }
 
     let direction: AccountConversionDirection
@@ -62,11 +64,10 @@ struct AccountConversionSummary: Hashable, Sendable {
         guard let conversion else { return nil }
         self.direction = direction
         self.conversion = conversion
-        var after = library
-        conversion.apply(to: &after)
+        // Worded from the library as it is: a conversion changes no instrument, nor the account's currency.
         func lines(_ type: TradeType) -> [Line] {
             conversion.trades.filter { $0.type == type }
-                .map { Line(trade: $0, title: TradeWording.summary(of: $0, in: after, locale: locale)) }
+                .map { Line(trade: $0, title: TradeWording.summary(of: $0, in: library, locale: locale)) }
         }
         openings = lines(.opening)
         buys = lines(.buy)
@@ -81,14 +82,10 @@ struct AccountConversionSummary: Hashable, Sendable {
             if let index = groups.firstIndex(where: { $0.kind == note.kind }) {
                 groups[index].details.append(detail)
             } else {
-                groups.append(NoteGroup(kind: note.kind, summary: "", details: [detail]))
+                groups.append(NoteGroup(kind: note.kind, details: [detail]))
             }
         }
-        notes = groups.map { group in
-            var group = group
-            group.summary = Self.summary(of: group.kind, count: group.details.count)
-            return group
-        }
+        notes = groups
     }
 
     /// The months whose history files the conversion changes, and backs up.

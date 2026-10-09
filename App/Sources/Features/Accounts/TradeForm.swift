@@ -35,10 +35,7 @@ struct TradeEditorTarget: Hashable, Sendable, Identifiable {
         TradeEditorTarget(account: key.account, trade: key)
     }
 
-    var id: String {
-        if let trade { return "edit \(trade)" }
-        return "new \(account) \(date?.description ?? "") \(type?.rawValue ?? "") \(instrument?.rawValue ?? "")"
-    }
+    var id: Self { self }
 }
 
 /// A field of the trade editor.

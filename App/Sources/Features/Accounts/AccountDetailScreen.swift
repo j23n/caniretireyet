@@ -41,6 +41,13 @@ struct AccountDetailScreen: View {
         self.accountID = accountID
     }
 
+    // The words the iPhone and Mac layouts share.
+    private static let incomeNote =
+        "Realised gains use the average cost. Dividends and interest are before tax withheld."
+    private static let noValues = "No values yet. Update the value, or record one in a check-in."
+    private static let noTrades =
+        "No trades yet. Add the account's buys, sells and dividends, or its opening positions."
+
     var body: some View {
         if let account = library.account(accountID) {
             let data = AccountDetailData(account: account, library: library.library, valuator: library.valuator,
@@ -120,12 +127,7 @@ struct AccountDetailScreen: View {
                 AccountDetailHeader(data: data)
                 AccountHistoryChart(points: data.history, flows: data.flows, currency: currency)
                     .padding(.vertical, Metrics.xs)
-                if let note = missingValueNote(data) {
-                    OldPriceNoteView(text: note, systemImage: "exclamationmark.triangle") { fillsPastPrices = true }
-                }
-                if let note = oldPriceNote(data) {
-                    OldPriceNoteView(text: note) { fillsPastPrices = true }
-                }
+                chartNotes(data)
             }
             if let since = data.emptySince {
                 Section {
@@ -167,7 +169,7 @@ struct AccountDetailScreen: View {
                     } header: {
                         Text("Income & gains")
                     } footer: {
-                        Text("Realised gains use the average cost. Dividends and interest are before tax withheld.")
+                        Text(Self.incomeNote)
                     }
                 }
             }
@@ -198,7 +200,7 @@ struct AccountDetailScreen: View {
             }
             Section {
                 if data.valuations.isEmpty {
-                    Text("No values yet. Update the value, or record one in a check-in.")
+                    Text(Self.noValues)
                         .foregroundStyle(Palette.secondaryInk)
                 }
                 Button {
@@ -272,12 +274,7 @@ struct AccountDetailScreen: View {
                 }
                 Card {
                     AccountHistoryChart(points: data.history, flows: data.flows, currency: currency, height: 240)
-                    if let note = missingValueNote(data) {
-                        OldPriceNoteView(text: note, systemImage: "exclamationmark.triangle") { fillsPastPrices = true }
-                    }
-                    if let note = oldPriceNote(data) {
-                        OldPriceNoteView(text: note) { fillsPastPrices = true }
-                    }
+                    chartNotes(data)
                 }
                 if !data.tradeIssues.isEmpty {
                     TradeIssueBanners(notes: data.tradeIssues) { perform($0) }
@@ -297,7 +294,7 @@ struct AccountDetailScreen: View {
                     if !data.incomeYears.isEmpty {
                         Card("Income & gains") {
                             TradeIncomeColumns(years: data.incomeYears, currency: currency)
-                            Text("Realised gains use the average cost. Dividends and interest are before tax withheld.")
+                            Text(Self.incomeNote)
                                 .font(.caption)
                                 .foregroundStyle(Palette.mutedInk)
                         }
@@ -310,7 +307,7 @@ struct AccountDetailScreen: View {
                 }
                 Card {
                     if data.valuations.isEmpty {
-                        Text("No values yet. Update the value, or record one in a check-in.")
+                        Text(Self.noValues)
                             .foregroundStyle(Palette.secondaryInk)
                     } else {
                         AccountValuationsTable(
@@ -361,7 +358,7 @@ struct AccountDetailScreen: View {
     private func macTradesCard(_ trades: TradeList, currency: CurrencyCode) -> some View {
         Card {
             if trades.isEmpty {
-                Text("No trades yet. Add the account's buys, sells and dividends, or its opening positions.")
+                Text(Self.noTrades)
                     .foregroundStyle(Palette.secondaryInk)
             } else if trades.shownCount == 0 {
                 Text("No trades match the filter.")
@@ -416,7 +413,7 @@ struct AccountDetailScreen: View {
                         .font(.footnote)
                 }
             } else {
-                Text("No trades yet. Add the account's buys, sells and dividends, or its opening positions.")
+                Text(Self.noTrades)
                     .foregroundStyle(Palette.secondaryInk)
             }
         } header: {
@@ -564,7 +561,7 @@ struct AccountDetailScreen: View {
 
     /// Opens *Update Value* on the month end before the first value.
     private func addPastValue(_ data: AccountDetailData) {
-        action = AccountAction(.addPastValue, accountID, date: data.pastValueDate)
+        action = AccountAction(.updateValue, accountID, date: data.pastValueDate)
     }
 
     /// Does what a trade issue's banner offers.
@@ -590,6 +587,18 @@ struct AccountDetailScreen: View {
             } catch {
                 show(error)
             }
+        }
+    }
+
+    /// The notes under the chart: values that can't be worked out, and old
+    /// prices, each offering *Fill In Past Prices…*.
+    @ViewBuilder
+    private func chartNotes(_ data: AccountDetailData) -> some View {
+        if let note = missingValueNote(data) {
+            OldPriceNoteView(text: note, systemImage: "exclamationmark.triangle") { fillsPastPrices = true }
+        }
+        if let note = oldPriceNote(data) {
+            OldPriceNoteView(text: note) { fillsPastPrices = true }
         }
     }
 
@@ -830,6 +839,15 @@ struct AccountPositionQuantityLine<Trailing: View>: View {
     }
 }
 
+extension AccountPositionText {
+    /// A position's unit price in its currency, "73.785,11 €", or "–"
+    /// without one (the Mac grids' Price column).
+    static func unitPrice(_ row: AccountHoldingRow, locale: Locale = .current) -> String {
+        guard let price = row.price else { return "–" }
+        return QuantityFormat.unitPrice(price.price, currency: price.currency, locale: locale)
+    }
+}
+
 /// A position's unrealised gain: "▼ −2.871 € −27,3 %", the amount and its
 /// fraction of the cost kept together.
 struct AccountPositionGain: View {
@@ -883,7 +901,7 @@ private struct AccountPositionsGrid: View {
                         Text(hidesAmounts ? AmountFormat.hidden : QuantityFormat.quantity(row.quantity, locale: locale))
                             .monospacedDigit()
                             .privacySensitive()
-                        Text(price(of: row))
+                        Text(AccountPositionText.unitPrice(row, locale: locale))
                             .monospacedDigit()
                         if let amount = row.amount {
                             AmountText(amount, currency: currency, precision: .cents)
@@ -915,15 +933,25 @@ private struct AccountPositionsGrid: View {
             }
         }
     }
-
-    private func price(of row: AccountHoldingRow) -> String {
-        guard let price = row.price else { return "–" }
-        return QuantityFormat.unitPrice(price.price, currency: price.currency, locale: locale)
-    }
 }
 #endif
 
 // MARK: - Valuations
+
+/// A valuation's value in the account's currency, else (a price or rate
+/// missing) what could be valued, in the base currency.
+private struct AccountValuationValue: View {
+    let row: AccountValuationRow
+    let currency: CurrencyCode
+
+    var body: some View {
+        if let amount = row.amount {
+            AmountText(amount, currency: currency, precision: .cents)
+        } else {
+            AmountText(row.value, precision: .cents)
+        }
+    }
+}
 
 /// One valuation in the iPhone list: date and note, value and new money.
 private struct AccountValuationListRow: View {
@@ -944,13 +972,8 @@ private struct AccountValuationListRow: View {
             }
             Spacer(minLength: Metrics.s)
             VStack(alignment: .trailing, spacing: 2) {
-                if let amount = row.amount {
-                    AmountText(amount, currency: currency, precision: .cents)
-                        .foregroundStyle(Palette.ink)
-                } else {
-                    AmountText(row.value, precision: .cents)
-                        .foregroundStyle(Palette.ink)
-                }
+                AccountValuationValue(row: row, currency: currency)
+                    .foregroundStyle(Palette.ink)
                 flow
             }
         }
@@ -1004,7 +1027,8 @@ private struct AccountValuationsTable: View {
             Text(AmountFormat.mediumDate(row.valuation.date))
                 .monospacedDigit()
                 .pageTableColumn(Columns.date)
-            AccountValuationValueCell(row: row, currency: currency)
+            AccountValuationValue(row: row, currency: currency)
+                .frame(maxWidth: .infinity, alignment: .trailing)
                 .pageTableColumn(Columns.value)
             AccountValuationFlowCell(row: row, currency: currency)
                 .pageTableColumn(Columns.flow)
@@ -1054,22 +1078,6 @@ private struct TradeIncomeColumns: View {
                 }
             }
         }
-    }
-}
-
-private struct AccountValuationValueCell: View {
-    let row: AccountValuationRow
-    let currency: CurrencyCode
-
-    var body: some View {
-        Group {
-            if let amount = row.amount {
-                AmountText(amount, currency: currency, precision: .cents)
-            } else {
-                AmountText(row.value, precision: .cents)
-            }
-        }
-        .frame(maxWidth: .infinity, alignment: .trailing)
     }
 }
 

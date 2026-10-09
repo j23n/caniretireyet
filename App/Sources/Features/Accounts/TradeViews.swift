@@ -9,27 +9,26 @@ import Tracker
 
 // MARK: - Amounts
 
-/// A signed amount without colour: "−1.025,95 €", "+200,60 €". A trade's
-/// cash going down isn't bad news, so it isn't red. Hidden with the eye button.
+/// A signed amount in cents, without colour: "−1.025,95 €", "+200,60 €". A
+/// trade's cash going down isn't bad news, so it isn't red. Hidden with the
+/// eye button.
 struct TradeAmountText: View {
     let amount: Decimal
     var currency: CurrencyCode?
-    var precision: AmountPrecision = .cents
 
     @Environment(\.baseCurrency) private var baseCurrency
     @Environment(\.hidesAmounts) private var hidesAmounts
     @Environment(\.locale) private var locale
 
-    init(_ amount: Decimal, currency: CurrencyCode? = nil, precision: AmountPrecision = .cents) {
+    init(_ amount: Decimal, currency: CurrencyCode? = nil) {
         self.amount = amount
         self.currency = currency
-        self.precision = precision
     }
 
     var body: some View {
         let text = hidesAmounts
             ? AmountFormat.hidden
-            : AmountFormat.signedAmount(amount, currency: currency ?? baseCurrency, precision: precision, locale: locale)
+            : AmountFormat.signedAmount(amount, currency: currency ?? baseCurrency, precision: .cents, locale: locale)
         Text(verbatim: text)
             .monospacedDigit()
             .privacySensitive()
@@ -193,7 +192,7 @@ struct TradeHoldingsGrid: View {
                     } else {
                         Text("–").foregroundStyle(Palette.mutedInk)
                     }
-                    Text(price(of: row))
+                    Text(AccountPositionText.unitPrice(row, locale: locale))
                         .monospacedDigit()
                     if let amount = row.amount {
                         AmountText(amount, currency: currency, precision: .cents)
@@ -251,11 +250,6 @@ struct TradeHoldingsGrid: View {
         } else {
             Text("–").foregroundStyle(Palette.mutedInk)
         }
-    }
-
-    private func price(of row: AccountHoldingRow) -> String {
-        guard let price = row.price else { return "–" }
-        return QuantityFormat.unitPrice(price.price, currency: price.currency, locale: locale)
     }
 }
 #endif
@@ -537,12 +531,8 @@ struct TradeIssueBanners: View {
     var body: some View {
         VStack(spacing: Metrics.s) {
             ForEach(notes) { note in
-                if let action = note.action, let title = note.actionTitle {
-                    StatusBanner(note.isError ? .warning : .info, note.title, message: note.message,
-                                 actionTitle: title) { perform(action) }
-                } else {
-                    StatusBanner(note.isError ? .warning : .info, note.title, message: note.message)
-                }
+                StatusBanner(note.isError ? .warning : .info, note.title, message: note.message,
+                             actionTitle: note.actionTitle, action: note.action.map { action in { perform(action) } })
             }
         }
     }

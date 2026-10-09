@@ -362,19 +362,18 @@ struct AccountStaleBadge: View {
 
 /// What a row's swipe action or context menu asked for.
 struct AccountAction: Identifiable, Hashable {
-    enum Kind: String, Hashable {
-        /// A one-account valuation.
+    enum Kind: Hashable {
+        /// A one-account valuation; on an earlier ``AccountAction/date``, to
+        /// fill in history (*Add Past Value…*).
         case updateValue
-        /// A one-account valuation on an earlier date, to fill in history.
-        case addPastValue
         case close
         case edit
     }
 
     var kind: Kind
     var account: AccountID
-    /// The date the sheet starts on, for ``Kind/addPastValue`` and
-    /// ``Kind/close`` (an empty account closes on the day it emptied).
+    /// The date the sheet starts on: a past value's, or for ``Kind/close``
+    /// the day an empty account emptied.
     var date: CalendarDate?
 
     init(_ kind: Kind, _ account: AccountID, date: CalendarDate? = nil) {
@@ -383,7 +382,7 @@ struct AccountAction: Identifiable, Hashable {
         self.date = date
     }
 
-    var id: String { "\(kind.rawValue)/\(account.rawValue)" }
+    var id: Self { self }
 }
 
 /// The sheet for an ``AccountAction``, in its own navigation stack.
@@ -394,8 +393,6 @@ struct AccountActionSheet: View {
         NavigationStack {
             switch action.kind {
             case .updateValue:
-                UpdateValueSheet(accountID: action.account)
-            case .addPastValue:
                 UpdateValueSheet(accountID: action.account, date: action.date)
             case .close:
                 CloseAccountSheet(accountID: action.account, date: action.date)
@@ -404,7 +401,7 @@ struct AccountActionSheet: View {
             }
         }
         #if os(iOS)
-        .presentationDetents(action.kind == .updateValue || action.kind == .addPastValue ? [.medium, .large] : [.large])
+        .presentationDetents(action.kind == .updateValue ? [.medium, .large] : [.large])
         #endif
         #if os(macOS)
         .frame(minWidth: 460, idealWidth: 520, minHeight: 420, idealHeight: 560)
