@@ -58,14 +58,10 @@ struct TradesSummaryCommand: RetireSubcommand {
             title = accounts.isEmpty ? "no account records trades" : accounts.joined(separator: ", ")
         }
         let report = Report(title: title, summary: summary, library: loaded.library, account: account)
-        if json {
-            context.console.print(try JSONOutput.string(report.json))
-        } else {
-            context.console.print(lines: report.lines())
-        }
+        try context.console.print(report, json: json)
     }
 
-    struct Report {
+    struct Report: CommandReport {
         let title: String
         let summary: TradeYearSummary
         let library: Library

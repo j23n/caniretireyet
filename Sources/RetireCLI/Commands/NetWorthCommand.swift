@@ -98,15 +98,13 @@ struct NetWorthCommand: RetireSubcommand {
             } else {
                 console.print(lines: report.seriesLines(series, by: by))
             }
-        } else if json {
-            console.print(try JSONOutput.string(report.json))
         } else {
-            console.print(lines: report.lines())
+            try console.print(report, json: json)
         }
     }
 
     /// Net worth on one date, and what goes with it.
-    struct Report {
+    struct Report: CommandReport {
         let library: Library
         let date: CalendarDate
         let scope: NetWorthScope

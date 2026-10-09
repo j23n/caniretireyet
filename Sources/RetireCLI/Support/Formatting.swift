@@ -138,3 +138,21 @@ enum JSONOutput {
         return String(decoding: try encoder.encode(value), as: UTF8.self)
     }
 }
+
+/// What a command prints: lines of text, or with `--json` its JSON.
+protocol CommandReport {
+    associatedtype JSON: Encodable
+    func lines() -> [String]
+    var json: JSON { get }
+}
+
+extension Console {
+    /// Prints `report` as text, or with `json` as JSON.
+    func print(_ report: some CommandReport, json: Bool) throws {
+        if json {
+            print(try JSONOutput.string(report.json))
+        } else {
+            print(lines: report.lines())
+        }
+    }
+}

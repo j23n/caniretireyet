@@ -23,11 +23,7 @@ extension PricesCommand {
             report.fill = fill
             report.written = try writeFill(fill, loaded: loaded, context: context)
         }
-        if json {
-            context.console.print(try JSONOutput.string(report.json))
-        } else {
-            context.console.print(lines: report.lines())
-        }
+        try context.console.print(report, json: json)
         if report.hasFailures { throw ExitCode.failure }
     }
 
@@ -46,7 +42,7 @@ extension PricesCommand {
     }
 
     /// What was missing, what was fetched from where, and what was written.
-    struct FillReport {
+    struct FillReport: CommandReport {
         /// What was written, or with `--dry-run`, what would be.
         struct Written {
             var inserted: PastPriceInsertion

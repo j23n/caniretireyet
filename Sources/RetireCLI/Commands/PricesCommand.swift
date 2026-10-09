@@ -78,11 +78,7 @@ struct PricesCommand: RetireSubcommand {
         if apply {
             report.applied = try write(fetched, loaded: loaded, context: context)
         }
-        if json {
-            context.console.print(try JSONOutput.string(report.json))
-        } else {
-            context.console.print(lines: report.lines())
-        }
+        try context.console.print(report, json: json)
         if !fetched.failures.isEmpty { throw ExitCode.failure }
     }
 
@@ -140,7 +136,7 @@ struct PricesCommand: RetireSubcommand {
     }
 
     /// The price list and what was written.
-    struct Report {
+    struct Report: CommandReport {
         let library: Library
         let needs: CheckInPriceNeeds
         let fetched: CheckInPrices

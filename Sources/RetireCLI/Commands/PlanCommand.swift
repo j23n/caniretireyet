@@ -85,11 +85,7 @@ struct PlanCommand: RetireSubcommand {
         if let label = saveBaseline?.trimmingCharacters(in: .whitespacesAndNewlines) {
             report.savedBaseline = try Self.save(result, label: label, loaded: loaded, on: context.today)
         }
-        if json {
-            context.console.print(try JSONOutput.string(report.json))
-        } else {
-            context.console.print(lines: report.lines())
-        }
+        try context.console.print(report, json: json)
     }
 
     /// The options for a run started on `today` (used when the library has no check-in yet).
@@ -177,7 +173,7 @@ extension LibraryFile {
 
 /// What `retire plan` prints: the Planner's result, as text or JSON, in the
 /// library's base currency.
-struct PlanReport {
+struct PlanReport: CommandReport {
     let result: PlanResult
     /// Whether the plan ran with `--fast`.
     let fast: Bool

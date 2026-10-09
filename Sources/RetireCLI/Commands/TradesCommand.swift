@@ -67,11 +67,7 @@ struct TradesListCommand: RetireSubcommand {
         }
         let report = ListReport(account: account, rows: rows, ledger: ledger, valuator: valuator,
                                 today: context.today, filtered: year != nil || instrument != nil)
-        if json {
-            context.console.print(try JSONOutput.string(report.json))
-        } else {
-            context.console.print(lines: report.lines())
-        }
+        try context.console.print(report, json: json)
     }
 
     /// A trade, with what the ledger made of it (for a trades account).
@@ -80,7 +76,7 @@ struct TradesListCommand: RetireSubcommand {
         var entry: TradeEntry?
     }
 
-    struct ListReport {
+    struct ListReport: CommandReport {
         let account: Account
         let rows: [Row]
         let ledger: TradeLedger?

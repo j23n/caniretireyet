@@ -41,16 +41,12 @@ struct PlanShowCommand: RetireSubcommand {
         let loaded = try options.load(in: context)
         let document = try PlanCommand.plan(plan.map { PlanID($0) }, in: loaded.library)
         let report = PlanInputsReport(plan: document, library: loaded.library, today: context.today)
-        if json {
-            context.console.print(try JSONOutput.string(report.json))
-        } else {
-            context.console.print(lines: report.lines())
-        }
+        try context.console.print(report, json: json)
     }
 }
 
 /// A plan's inputs in words (`retire plan show`).
-struct PlanInputsReport {
+struct PlanInputsReport: CommandReport {
     let plan: PlanDocument
     let library: Library
     let today: CalendarDate

@@ -42,16 +42,12 @@ struct ValidateCommand: RetireSubcommand {
         }.map(\.element)
         let report = Report(folder: folder, library: loaded.library, load: loaded.report, issues: issues)
 
-        if json {
-            context.console.print(try JSONOutput.string(report.json))
-        } else {
-            context.console.print(lines: report.lines())
-        }
+        try context.console.print(report, json: json)
         if report.errors > 0 || (strict && report.warnings > 0) { throw ExitCode.failure }
     }
 
     /// What `validate` found.
-    struct Report {
+    struct Report: CommandReport {
         var folder: LibraryFolder
         var library: Library
         var load: LoadReport

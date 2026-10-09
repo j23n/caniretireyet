@@ -289,11 +289,7 @@ struct ImportCommand: RetireSubcommand {
             try loaded.folder.save(library, previous: loaded.library)
         }
 
-        if json {
-            context.console.print(try JSONOutput.string(report.json))
-        } else {
-            context.console.print(lines: report.lines())
-        }
+        try context.console.print(report, json: json)
         if blocked {
             throw CLIError("Nothing was imported: some formats are guesses (see “Formats to confirm”). Settle them "
                 + "with --date-format, --decimal or --delimiter, or pass --accept-guesses.")

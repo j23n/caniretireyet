@@ -4,7 +4,7 @@ import Model
 
 /// What `retire import` prints: how the file was read, what each column
 /// becomes, what's uncertain, the preview, and what was written.
-struct ImportReport {
+struct ImportReport: CommandReport {
     /// The accept flags given, to say what happens to proposals.
     struct Flags {
         var newAccounts: Bool
