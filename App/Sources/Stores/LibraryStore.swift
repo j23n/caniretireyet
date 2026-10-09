@@ -478,10 +478,11 @@ final class LibraryStore {
     /// ``library`` at once; the files that changed are written in the
     /// background. Nothing happens if `edit` changes nothing.
     ///
-    /// Throws ``LibraryStoreError/readOnly`` for a library written by a newer
-    /// app, ``LibraryStoreError/notLoaded`` before one is open, and
-    /// ``LibraryStoreError/busy`` while it's being opened or moved. A failed
-    /// write shows in ``lastError`` and reloads what's on disk.
+    /// Throws ``LibraryStoreError/readOnly(_:)`` while the library is open
+    /// read-only (``readOnlyReason``: a newer app wrote it, or its
+    /// `library.json` can't be read), ``LibraryStoreError/notLoaded`` before
+    /// one is open, and ``LibraryStoreError/busy`` while it's being opened or
+    /// moved. A failed write shows in ``lastError`` and reloads what's on disk.
     func update(_ edit: (inout Library) throws -> Void) throws {
         guard let staged = try stage(edit), let sync else { return }
         enqueue { [weak self] in _ = await self?.save(staged, using: sync) }
@@ -858,8 +859,8 @@ enum LibraryStoreError: Error, Equatable, Sendable, LocalizedError {
         case .readOnly(.newerSchema):
             "This library was written by a newer version of the app, so it's read-only here. Update the app to make changes."
         case .readOnly(.unreadableSettings):
-            "This library's settings file, library.json, can't be read, so it's read-only until you fix the file or "
-                + "restore it from a backup in backups/. Then open the library again."
+            "This library's settings file, library.json, can't be read, so the library is read-only. Fix the file or "
+                + "restore it from a backup in backups/: you can make changes again as soon as the file can be read."
         case .iCloudUnavailable:
             "iCloud Drive isn't available. Sign in to iCloud and turn on iCloud Drive for this app."
         case .noICloudLibrary:
