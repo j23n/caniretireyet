@@ -37,9 +37,12 @@ struct PlanMilestones {
         self.reached = reached
         let current: Decimal
         let median: [SeriesPoint]
-        if let results, let start = results.portfolio.first {
+        // In the base currency, as the ladder's amounts are: results calculated
+        // before it changed are converted, as the Overview's projection is.
+        let portfolio = results?.portfolio(in: valuator.baseCurrency, valuator: valuator) ?? []
+        if let start = portfolio.first {
             current = Decimal(wholeNumber: start.p50)
-            median = results.portfolio.map {
+            median = portfolio.map {
                 SeriesPoint(date: CalendarDate($0.date, in: .current), value: Decimal(wholeNumber: $0.p50))
             }
         } else {
