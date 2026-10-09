@@ -60,32 +60,32 @@ struct ImportTypesStep: View {
 /// A type word of the file and the trade type its rows become.
 private struct ImportTypeRowView: View {
     let model: ImportController
-    let row: ImportTypeRow
+    let row: TradeTypeValue
 
     var body: some View {
         LabeledContent {
-            Picker(row.value, selection: Binding(get: { row.choice }, set: { choice in
-                model.flow.setTradeType(choice, for: row.value)
+            Picker(row.value, selection: Binding(get: { row.type }, set: { type in
+                model.flow.setTradeType(type, for: row.value)
             })) {
-                if row.choice == .unmapped {
-                    Text(ImportFlow.typeChoiceName(.unmapped)).tag(ImportTypeChoice.unmapped)
+                if row.type == nil {
+                    Text(ImportFlow.typeChoiceName(nil)).tag(TradeType?.none)
                 }
-                ForEach(ImportFlow.typeChoices, id: \.self) { choice in
-                    Text(ImportFlow.typeChoiceName(choice)).tag(choice)
+                ForEach(ImportFlow.typeChoices, id: \.self) { type in
+                    Text(ImportFlow.typeChoiceName(type)).tag(TradeType?.some(type))
                 }
             }
             .labelsHidden()
             .pickerStyle(.menu)
         } label: {
             VStack(alignment: .leading, spacing: 2) {
-                Label("“\(row.value)”", systemImage: row.choice == .unmapped ? "exclamationmark.triangle.fill"
+                Label("“\(row.value)”", systemImage: row.type == nil ? "exclamationmark.triangle.fill"
                     : "arrow.right.circle")
                 Text(detail)
                     .font(.caption)
-                    .foregroundStyle(row.choice == .unmapped ? Palette.warning : Palette.secondaryInk)
+                    .foregroundStyle(row.type == nil ? Palette.warning : Palette.secondaryInk)
                 if row.canReset, let suggestion = row.suggestion {
                     Button("Use \(TradeTypeDisplay.name(suggestion)), the usual meaning") {
-                        model.flow.resetTradeType(for: row.value)
+                        model.flow.setTradeType(nil, for: row.value)
                     }
                     .font(.caption)
                     .buttonStyle(.borderless)
