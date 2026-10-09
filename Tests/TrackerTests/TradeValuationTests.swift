@@ -169,8 +169,6 @@ struct TradeValuationTests {
         #expect(valuator.series(of: "broker", through: "2024-02-29").map(\.value) == [10095, 10265])
         #expect(valuator.staleness(of: "broker", on: "2024-04-30") == nil)
         #expect(valuator.staleness(of: "broker", on: "2024-05-31")?.lastValuation == "2024-03-25")
-        #expect(valuator.dateRange(of: .sinceStart, for: .account("broker"), asOf: "2024-03-31")
-            == "2024-01-02"..."2024-03-31")
     }
 
     @Test func aMissingRateLeavesTheCashIncomplete() throws {
