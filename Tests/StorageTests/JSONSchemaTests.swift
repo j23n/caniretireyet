@@ -257,8 +257,8 @@ import TestSupport
             {
               "headlines": [
                 {
-                  "confidence": "0.9", "date": "2026-09-30", "earliestAge": 54, "engine": "1.2.0", "fiProgress": "0.41",
-                  "planHash": "5c1f", "readiness": "0.07", "successAtTarget": "0.86", "taxParameters": { "it": 2026 }
+                  "confidence": "0.9", "date": "2026-09-30", "earliestAge": 54, "engine": "1.2.0",
+                  "planHash": "5c1f", "readiness": "0.07", "successAtTarget": "0.86"
                 }
               ]
             }
@@ -266,9 +266,8 @@ import TestSupport
         try checkRoundTrip(Baseline.self, """
             {
               "accounts": ["conto-fineco"], "created": "2026-01-05", "engine": "2.0.0",
-              "headline": { "confidence": "0.9", "earliestAge": 54, "fiProgress": "0.4", "readiness": "0.5", "successAtTarget": "0.83" },
+              "headline": { "confidence": "0.9", "earliestAge": 54, "readiness": "0.5", "successAtTarget": "0.83" },
               "kind": "manual", "label": "Before part-time", "plan": { "id": "base" }, "start": { "date": "2025-12-31", "value": "212400" },
-              "taxParameters": { "it": 2026 },
               "years": [{ "expected": "231500", "p10": "214800", "p25": "223900", "p50": "230900", "p75": "238200", "p90": "249700", "savings": "18000", "year": 2026 }]
             }
             """, against: "baseline.schema.json")

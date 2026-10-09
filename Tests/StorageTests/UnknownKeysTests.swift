@@ -216,6 +216,41 @@ struct UnknownKeysTests {
         #expect(saved[1]["date"] == "2026-01-31")
     }
 
+    /// Records made by test versions hold `fiProgress` and `taxParameters`,
+    /// which the model no longer reads: rewriting their files keeps them.
+    @Test func oldRecordsKeepFIProgressAndTaxParameters() throws {
+        let folder = try TemporaryFolder.exampleLibrary()
+        let headlinesPath = "projections/base/headlines/2026.json"
+        var headlines = try #require(folder.json(headlinesPath)["headlines"]?.arrayValue)
+        headlines[0] = headlines[0].objectValue.map {
+            var o = $0; o["fiProgress"] = "0.37"; o["taxParameters"] = ["it": 2026]; return .object(o)
+        }!
+        try folder.write(headlinesPath, CanonicalJSON.data(for: ["headlines": .array(headlines)]))
+        let baselinePath = "projections/base/baselines/2026-01-05.json"
+        var baseline = try #require(folder.json(baselinePath).objectValue)
+        baseline["taxParameters"] = ["it": 2026]
+        baseline["headline"] = baseline["headline"]?.objectValue.map {
+            var o = $0; o["fiProgress"] = "0.37"; return .object(o)
+        }
+        try folder.write(baselinePath, CanonicalJSON.data(for: .object(baseline)))
+
+        let previous = try folder.library.load().library
+        var library = previous
+        library.projections["base"]?.headlines[2026]?.headlines.append(
+            Headline(date: "2026-10-31", engine: "2.0.0", planHash: "x"))
+        library.projections["base"]?.baselines["2026-01-05"]?.label = "Renamed"
+        try folder.library.save(library, previous: previous)
+
+        let saved = try #require(folder.json(headlinesPath)["headlines"]?.arrayValue)
+        #expect(saved[0]["fiProgress"] == "0.37")
+        #expect(saved[0]["taxParameters"] == ["it": 2026])
+        #expect(saved.last?["date"] == "2026-10-31" && saved.last?["fiProgress"] == nil)
+        let savedBaseline = try folder.json(baselinePath)
+        #expect(savedBaseline["label"] == "Renamed")
+        #expect(savedBaseline["taxParameters"] == ["it": 2026])
+        #expect(savedBaseline["headline"]?["fiProgress"] == "0.37")
+    }
+
     // MARK: At any depth
 
     /// `plans/base.json` with a probe note at every level: the top, nested

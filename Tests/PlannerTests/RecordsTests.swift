@@ -37,7 +37,6 @@ struct RecordsTests {
         #expect(headline.earliestAge == result.answer.earliestAge)
         let success = try #require(result.answer.successAtTarget)
         #expect(headline.successAtTarget == Decimal.rounded(success, scale: 3))
-        #expect(headline.taxParameters.isEmpty && headline.fiProgress == nil)
         // Readiness is rounded down, so a recorded 1 means retiring today works.
         let readiness = try #require(result.answer.readiness)
         #expect(headline.readiness == Planner.recordedReadiness(readiness))
@@ -64,7 +63,6 @@ struct RecordsTests {
         #expect(baseline.years[0].expected == Decimal.rounded(result.fan[0].expected, scale: 0))
         #expect(baseline.years.allSatisfy { $0.p10 <= $0.p50 && $0.p50 <= $0.p90 })
         #expect(baseline.headline == result.headlineSummary)
-        #expect(baseline.taxParameters.isEmpty)
         #expect(try baseline.planDocument() == plan)
         // Working years record what the plan expected to save; retired years what it drew.
         #expect(baseline.years.first { $0.year == 2030 }?.savings == nil)

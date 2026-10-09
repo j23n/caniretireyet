@@ -39,16 +39,12 @@ public struct Baseline: Hashable, Sendable, KnownKeysProviding {
     public var plan: JSONValue
     /// Where the projection started.
     public var start: BaselineStart
-    /// The tax parameter year used per tax system, e.g. `{ "it": 2026 }`, in
-    /// records made before plans took their tax rates by hand; empty since.
-    public var taxParameters: [String: Int]
     /// One row per year up to the plan's end age.
     public var years: [BaselineYear]
 
     public init(
         created: CalendarDate, kind: BaselineKind, label: String? = nil, engine: String, accounts: [AccountID],
-        headline: HeadlineSummary, plan: JSONValue, start: BaselineStart, taxParameters: [String: Int] = [:],
-        years: [BaselineYear]
+        headline: HeadlineSummary, plan: JSONValue, start: BaselineStart, years: [BaselineYear]
     ) {
         self.created = created
         self.kind = kind
@@ -58,7 +54,6 @@ public struct Baseline: Hashable, Sendable, KnownKeysProviding {
         self.headline = headline
         self.plan = plan
         self.start = start
-        self.taxParameters = taxParameters
         self.years = years
     }
 
@@ -75,7 +70,7 @@ public struct Baseline: Hashable, Sendable, KnownKeysProviding {
 
 extension Baseline: Codable {
     enum CodingKeys: String, CodingKey, CaseIterable {
-        case created, kind, label, engine, accounts, headline, plan, start, taxParameters, years
+        case created, kind, label, engine, accounts, headline, plan, start, years
     }
 
     public static var knownKeys: Set<String> { Set(CodingKeys.allCases.map(\.stringValue)) }
@@ -90,7 +85,6 @@ extension Baseline: Codable {
         headline = try c.decode(HeadlineSummary.self, forKey: .headline)
         plan = try c.decode(JSONValue.self, forKey: .plan)
         start = try c.decode(BaselineStart.self, forKey: .start)
-        taxParameters = try c.decodeIfPresent([String: Int].self, forKey: .taxParameters) ?? [:]
         years = try c.decode([BaselineYear].self, forKey: .years)
     }
 
@@ -104,7 +98,6 @@ extension Baseline: Codable {
         try c.encode(headline, forKey: .headline)
         try c.encode(plan, forKey: .plan)
         try c.encode(start, forKey: .start)
-        try c.encodeIfNotEmpty(taxParameters, forKey: .taxParameters)
         try c.encode(years, forKey: .years)
     }
 }

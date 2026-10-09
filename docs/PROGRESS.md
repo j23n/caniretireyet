@@ -40,7 +40,7 @@ Records made by earlier versions may also hold the old `fiProgress` (plan assets
 
 The chart then shows how "you can retire at 54" moves from month to month.
 
-Markers show when the plan's inputs, the app's calculation code or the tax parameters changed. So you can tell a move caused by markets and savings from one caused by changing the plan or by a new budget law.
+Markers show when the plan's inputs (its tax rates among them) or the app's calculation code changed. So you can tell a move caused by markets and savings from one caused by changing the plan or by a new budget law.
 
 ### Year by year
 

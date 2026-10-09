@@ -78,7 +78,6 @@
     ]
   },
   "start": { "date": "2025-12-31", "value": "121834.6" },
-  "taxParameters": { "it": 2026 },
   "years": [
     {
       "expected": "143490",

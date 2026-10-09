@@ -16,7 +16,7 @@ struct KnownKeysTests {
         price: d("127.35"), currency: .eur, amount: d("-1278.5"), fees: 5, tax: 0, cost: 1, ratio: 1, note: "n",
         source: .manual, settlement: .external)
     private static let summary = HeadlineSummary(confidence: d("0.9"), earliestAge: 54, successAtTarget: d("0.86"),
-                                                 fiProgress: d("0.41"), readiness: d("0.58"))
+                                                 readiness: d("0.58"))
     private static let format = ImportFormat(
         date: ImportDateFormat(pattern: "dd/MM/yyyy", monthOnly: .start, timeZone: "Europe/Rome"),
         number: ImportNumberFormat(decimal: ",", thousands: ".", percent: false), empty: .zero,
@@ -103,15 +103,14 @@ struct KnownKeysTests {
         (format.date!, ImportDateFormat.knownKeys),
         (format.number!, ImportNumberFormat.knownKeys),
         (Baseline(created: "2026-01-05", kind: .yearly, label: "L", engine: "1", accounts: ["a"], headline: summary,
-                  plan: ["id": "base"], start: BaselineStart(date: "2025-12-31", value: 1), taxParameters: ["it": 2026],
-                  years: []), Baseline.knownKeys),
+                  plan: ["id": "base"], start: BaselineStart(date: "2025-12-31", value: 1), years: []),
+         Baseline.knownKeys),
         (BaselineStart(date: "2025-12-31", value: 1), BaselineStart.knownKeys),
         (BaselineYear(year: 2026, expected: 1, p10: 1, p25: 1, p50: 1, p75: 1, p90: 1, savings: 1), BaselineYear.knownKeys),
         (summary, HeadlineSummary.knownKeys),
         (HeadlineFile(headlines: []), HeadlineFile.knownKeys),
         (Headline(date: "2026-09-30", coastAge: 61, confidence: d("0.9"), earliestAge: 54, engine: "1",
-                  fiProgress: d("0.4"), planHash: "h", readiness: d("0.58"), successAtTarget: d("0.8"),
-                  taxParameters: ["it": 2026]),
+                  planHash: "h", readiness: d("0.58"), successAtTarget: d("0.8")),
          Headline.knownKeys),
     ] }
 

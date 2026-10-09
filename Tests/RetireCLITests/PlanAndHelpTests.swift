@@ -74,7 +74,6 @@ struct PlanAndHelpTests {
         #expect(baseline.created == "2026-09-30")
         #expect(baseline.start.date == "2026-09-30")
         #expect(baseline.engine == Planner.engineVersion)
-        #expect(baseline.taxParameters.isEmpty)
         #expect(baseline.years.first?.year == 2026)
         #expect(baseline.years.last?.year == 1988 + 95)
         #expect(try baseline.planDocument().id == "base")

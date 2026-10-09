@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "projections/<plan-id>/headlines/<year>.json",
-  "description": "The answer recorded at each check-in of a year (PROGRESS.md, The answer over time), one small record per check-in, keyed by date. Only the library's latest check-in records one. These files aren't deleted when a plan changes or is deleted: they're a record of the past.",
+  "description": "The answer recorded at each check-in of a year (PROGRESS.md, The answer over time), one small record per check-in, keyed by date. Only the library's latest check-in records one. These files aren't deleted when a plan changes or is deleted: they're a record of the past. Records made by test versions may also hold fiProgress and taxParameters, which are kept as they are.",
   "type": "object",
   "required": ["headlines"],
   "properties": { "headlines": { "type": "array", "items": { "$ref": "#/$defs/headline" } } },
@@ -22,10 +22,6 @@
         "readiness": {
           "description": "Plan assets as a share of what retiring today would need, rounded down to two decimals: 1 means retiring today reached the confidence level. Left out when retiring today would need more than 20 times the plan assets.",
           "$ref": "common.schema.json#/$defs/decimal"
-        },
-        "fiProgress": {
-          "description": "Only in records made by earlier versions: plan assets over the spending pensions don't cover, divided by 4%. Kept as it is, not shown.",
-          "$ref": "common.schema.json#/$defs/decimal"
         }
       }
     },
@@ -42,7 +38,6 @@
         "earliestAge": { "$ref": "#/$defs/summary/properties/earliestAge" },
         "successAtTarget": { "$ref": "#/$defs/summary/properties/successAtTarget" },
         "readiness": { "$ref": "#/$defs/summary/properties/readiness" },
-        "fiProgress": { "$ref": "#/$defs/summary/properties/fiProgress" },
         "engine": {
           "description": "The planner's version, so a chart can mark where the calculations changed.",
           "type": "string"
@@ -50,11 +45,6 @@
         "planHash": {
           "description": "FNV-1a (64-bit) of the plan's canonical JSON, so a chart can mark where you changed the plan.",
           "type": "string"
-        },
-        "taxParameters": {
-          "description": "Only in records made by earlier versions: the tax parameter year each tax system used.",
-          "type": "object",
-          "additionalProperties": { "type": "integer" }
         }
       }
     }

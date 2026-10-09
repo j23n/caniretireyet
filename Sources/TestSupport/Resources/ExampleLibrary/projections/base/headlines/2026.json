@@ -5,50 +5,40 @@
       "date": "2026-01-31",
       "earliestAge": 55,
       "engine": "0.1.0",
-      "fiProgress": "0.37",
       "planHash": "5c1f0a9e",
-      "successAtTarget": "0.81",
-      "taxParameters": { "it": 2026 }
+      "successAtTarget": "0.81"
     },
     {
       "confidence": "0.9",
       "date": "2026-02-28",
       "earliestAge": 55,
       "engine": "0.1.0",
-      "fiProgress": "0.38",
       "planHash": "5c1f0a9e",
-      "successAtTarget": "0.8",
-      "taxParameters": { "it": 2026 }
+      "successAtTarget": "0.8"
     },
     {
       "confidence": "0.9",
       "date": "2026-03-31",
       "earliestAge": 55,
       "engine": "0.1.0",
-      "fiProgress": "0.37",
       "planHash": "5c1f0a9e",
-      "successAtTarget": "0.78",
-      "taxParameters": { "it": 2026 }
+      "successAtTarget": "0.78"
     },
     {
       "confidence": "0.9",
       "date": "2026-04-30",
       "earliestAge": 55,
       "engine": "0.1.0",
-      "fiProgress": "0.37",
       "planHash": "5c1f0a9e",
-      "successAtTarget": "0.79",
-      "taxParameters": { "it": 2026 }
+      "successAtTarget": "0.79"
     },
     {
       "confidence": "0.9",
       "date": "2026-05-31",
       "earliestAge": 55,
       "engine": "0.1.0",
-      "fiProgress": "0.38",
       "planHash": "7d24b6c1",
-      "successAtTarget": "0.82",
-      "taxParameters": { "it": 2026 }
+      "successAtTarget": "0.82"
     },
     {
       "coastAge": 69,
@@ -56,10 +46,8 @@
       "date": "2026-06-30",
       "earliestAge": 54,
       "engine": "0.1.0",
-      "fiProgress": "0.39",
       "planHash": "7d24b6c1",
-      "successAtTarget": "0.83",
-      "taxParameters": { "it": 2026 }
+      "successAtTarget": "0.83"
     },
     {
       "coastAge": 68,
@@ -67,10 +55,8 @@
       "date": "2026-07-31",
       "earliestAge": 54,
       "engine": "0.1.0",
-      "fiProgress": "0.4",
       "planHash": "7d24b6c1",
-      "successAtTarget": "0.85",
-      "taxParameters": { "it": 2026 }
+      "successAtTarget": "0.85"
     },
     {
       "coastAge": 67,
@@ -78,11 +64,9 @@
       "date": "2026-08-31",
       "earliestAge": 54,
       "engine": "0.1.0",
-      "fiProgress": "0.4",
       "planHash": "7d24b6c1",
       "readiness": "0.24",
-      "successAtTarget": "0.84",
-      "taxParameters": { "it": 2026 }
+      "successAtTarget": "0.84"
     },
     {
       "coastAge": 67,
@@ -90,11 +74,9 @@
       "date": "2026-09-30",
       "earliestAge": 54,
       "engine": "0.1.0",
-      "fiProgress": "0.41",
       "planHash": "7d24b6c1",
       "readiness": "0.25",
-      "successAtTarget": "0.86",
-      "taxParameters": { "it": 2026 }
+      "successAtTarget": "0.86"
     }
   ]
 }

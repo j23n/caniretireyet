@@ -77,7 +77,6 @@ struct FixtureRoundTripTests {
         let plan = try baseline.planDocument()
         #expect(plan.id == "base")
         #expect(baseline.kind == .yearly)
-        #expect(baseline.taxParameters["it"] == 2026)
         #expect(baseline.years.first?.year == 2026)
         #expect(baseline.years.last?.year == 2083)
         #expect(baseline.year(2030)?.savings != nil)
