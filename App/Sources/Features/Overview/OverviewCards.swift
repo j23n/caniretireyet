@@ -55,8 +55,9 @@ struct OverviewChangeCard: View {
 /// The main plan's answer (its latest results, or the headline recorded at
 /// the last check-in), how close your plan assets are to what retiring
 /// today needs (``PlanReadinessView``, with an ⓘ), and how you compare with
-/// this year's baseline. Tapping it opens the plan. It never starts a run:
-/// plans run from the Plan screen and at check-ins.
+/// the baseline Progress measures its latest year against. Tapping it opens
+/// the plan. It never starts a run: plans run from the Plan screen and at
+/// check-ins.
 ///
 /// The card opens the plan with a tap gesture rather than being a button,
 /// so the ⓘ inside it gets its own taps; the chevron is the button
@@ -197,14 +198,16 @@ struct OverviewAnswerCard: View {
         }
     }
 
-    /// Today against this year's baseline, the one Progress and the plan's
-    /// pill measure the year against (``PlanProgressYear/baseline(for:in:)``);
-    /// `nil` while the year has none.
+    /// Today against the baseline "Are you on track?" and the plan's pill
+    /// measure the latest check-in against: its year's
+    /// (``PlanProgressYear/latestBaseline(for:library:valuator:asOf:)``);
+    /// `nil` without one.
     private func baselineGap(for plan: PlanDocument?) -> OverviewBaselineGap? {
-        guard let plan else { return nil }
-        let baselines = PlanBaselineComparison.baselines(for: plan.id, in: library.library)
-        guard let entry = PlanProgressYear.baseline(for: today.year, in: baselines) else { return nil }
-        return OverviewBaselineGap(baseline: entry.baseline, valuator: library.valuator, on: today)
+        guard let plan,
+              let latest = PlanProgressYear.latestBaseline(for: plan.id, library: library.library,
+                                                           valuator: library.valuator, asOf: library.asOfDate)
+        else { return nil }
+        return OverviewBaselineGap(baseline: latest.entry.baseline, valuator: library.valuator, on: today)
     }
 
     private func earliestText(_ headline: PlanHeadline) -> String {
@@ -220,16 +223,18 @@ struct OverviewAnswerCard: View {
             : "The first age that works \(GlanceText.inSimulatedFutures(headline.confidence))"
     }
 
-    /// "ahead of your Jan baseline", named as Progress names what the year is
-    /// measured against: by the month it starts in the year, January when it
-    /// starts before it; a past baseline by its year ("ahead of your 2021 plan").
+    /// "ahead of your Jan baseline", named as Progress names what a year is
+    /// measured against: by the month it starts in the year it was saved for,
+    /// January when it starts before it, with that year when it isn't this one
+    /// ("Jan 2025"); a past baseline by the year it starts ("ahead of your
+    /// 2021 plan").
     private func gapText(_ gap: OverviewBaselineGap) -> String {
         let name: String
         if gap.isPast {
             name = "\(gap.start.year) plan"
         } else {
-            let start = max(gap.start, CalendarDate.firstDay(ofYear: today.year))
-            name = "\(GlanceText.shortMonth(start, locale: locale)) baseline"
+            let start = max(gap.start, CalendarDate.firstDay(ofYear: gap.created.year))
+            name = "\(GlanceText.shortMonth(start, relativeTo: today, locale: locale)) baseline"
         }
         return gap.gap >= 0 ? "ahead of your \(name)" : "behind your \(name)"
     }

@@ -475,17 +475,28 @@ extension PlanProgressYear {
         return (from, to)
     }
 
-    /// Where the latest check-in stands against its year's baseline
-    /// (``baseline(for:in:)``), as Progress's latest year has it; `nil`
-    /// without one.
-    static func latestPosition(for plan: PlanID, library: Library, valuator: Valuator,
-                               asOf: CalendarDate) -> PlanBaselineComparison.Position? {
+    /// The latest check-in of plan assets on or before `asOf`, and the
+    /// baseline its year is measured against (``baseline(for:in:)``), as
+    /// Progress's latest year has them: what "Are you on track?", the plan's
+    /// pill and the Overview compare with. `nil` without either.
+    static func latestBaseline(for plan: PlanID, library: Library, valuator: Valuator,
+                               asOf: CalendarDate) -> (checkIn: CalendarDate, entry: PlanBaselineEntry)? {
         guard let last = valuator.checkInDates(in: .planAssets, through: asOf).last,
               let entry = Self.baseline(for: last.year, in: PlanBaselineComparison.baselines(for: plan, in: library))
         else { return nil }
+        return (checkIn: last, entry: entry)
+    }
+
+    /// Where the latest check-in stands against its year's baseline
+    /// (``latestBaseline(for:library:valuator:asOf:)``); `nil` without one.
+    static func latestPosition(for plan: PlanID, library: Library, valuator: Valuator,
+                               asOf: CalendarDate) -> PlanBaselineComparison.Position? {
+        guard let latest = latestBaseline(for: plan, library: library, valuator: valuator, asOf: asOf) else {
+            return nil
+        }
         // Where it stands needs only its own value, however long ago a past baseline starts.
-        return PlanBaselineComparison(baseline: entry.baseline, library: library, valuator: valuator, asOf: last,
-                                      from: last).position
+        return PlanBaselineComparison(baseline: latest.entry.baseline, library: library, valuator: valuator,
+                                      asOf: latest.checkIn, from: latest.checkIn).position
     }
 }
 
