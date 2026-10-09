@@ -26,11 +26,10 @@ struct OverviewChangeCard: View {
     var body: some View {
         Card(title) {
             VStack(alignment: .leading, spacing: Metrics.m) {
-                WaterfallChart(steps: WaterfallStep.steps(
-                    for: report.total,
-                    startLabel: AmountFormat.shortDate(report.from, relativeTo: .today(), locale: locale),
-                    endLabel: AmountFormat.shortDate(report.to, relativeTo: .today(), locale: locale)),
-                    showsChange: false)
+                WaterfallChart(change: report.total,
+                               from: AmountFormat.shortDate(report.from, relativeTo: .today(), locale: locale),
+                               to: AmountFormat.shortDate(report.to, relativeTo: .today(), locale: locale),
+                               showsChange: false)
                 Text(explanation)
                     .font(.footnote)
                     .foregroundStyle(Palette.mutedInk)

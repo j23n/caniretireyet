@@ -126,9 +126,8 @@ private struct CheckInReviewContent: View {
             totalCard
             if let change = review.change {
                 Card(sinceTitle(change.from)) {
-                    WaterfallChart(steps: WaterfallStep.steps(
-                        for: change.total, startLabel: AmountFormat.shortDate(change.from, locale: locale),
-                        endLabel: AmountFormat.shortDate(change.to, locale: locale)))
+                    WaterfallChart(change: change.total, from: AmountFormat.shortDate(change.from, locale: locale),
+                                   to: AmountFormat.shortDate(change.to, locale: locale))
                     if !change.plannedFlowAccounts.isEmpty {
                         Text("Where new money is left empty for a pension fund, TFR or property, what your main "
                              + "plan pays into it counts as new money, and the rest as markets.")

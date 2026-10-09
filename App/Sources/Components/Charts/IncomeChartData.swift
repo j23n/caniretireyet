@@ -98,7 +98,7 @@ struct IncomeChartData: Hashable, Sendable {
 
     /// - Parameters:
     ///   - endLabel: the spending line's label, drawn after its last point.
-    init(segments: [IncomeSegment], spending: [YearValue] = [], plotWidth: Double = 300, endLabel: String? = nil) {
+    init(segments: [IncomeSegment], spending: [YearValue] = [], plotWidth: Double, endLabel: String?) {
         // Sources in their slots' order; first seen breaks ties.
         var seen: [Source] = []
         for segment in segments where !seen.contains(where: { $0.name == segment.source }) {
@@ -213,10 +213,5 @@ struct IncomeChartData: Hashable, Sendable {
         guard let years else { return nil }
         let year = Int(x.rounded())
         return years.contains(year) ? year : nil
-    }
-
-    /// A year's total, every source included.
-    func total(in year: Int) -> Double {
-        amounts[year]?.values.reduce(0, +) ?? 0
     }
 }

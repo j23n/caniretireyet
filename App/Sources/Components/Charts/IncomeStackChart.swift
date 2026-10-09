@@ -3,8 +3,8 @@ import Model
 import SwiftUI
 
 /// Retirement income per year, stacked by source, with the spending target
-/// as a line (UI.md, "Retirement income"). The same chart shows taxes per
-/// year stacked by tax line: pass tax segments and no spending.
+/// as a line (UI.md, "Retirement income"). The same chart shows the taxes
+/// per year, on investments and on wealth: pass tax segments and no spending.
 ///
 /// - Stacked areas with a flat step per year (``IncomeChartData``): fifty
 ///   years read as one shape instead of fifty thin bars, each year still
@@ -28,9 +28,6 @@ struct IncomeStackChart: View {
     var segments: [IncomeSegment]
     /// The spending target per year, drawn as a dashed line in ink.
     var spending: [YearValue] = []
-    /// `nil` for the base currency.
-    var currency: CurrencyCode?
-    var height: CGFloat = 220
 
     @State private var selectedX: Double?
     @State private var width: CGFloat = ChartStyle.defaultWidth
@@ -42,9 +39,11 @@ struct IncomeStackChart: View {
     /// The spending line's label at its end.
     static let spendingLabel = "Spending"
 
+    private static let height: CGFloat = 220
+
     var body: some View {
         if segments.isEmpty {
-            ChartPlaceholder(text: "Income by year appears here once the plan has run.", height: height)
+            ChartPlaceholder(text: "Income by year appears here once the plan has run.", height: Self.height)
         } else {
             let data = IncomeChartData(segments: segments, spending: spending,
                                        plotWidth: ChartText.plotWidth(chartWidth: Double(width)),
@@ -52,7 +51,7 @@ struct IncomeStackChart: View {
             VStack(alignment: .leading, spacing: Metrics.s) {
                 ChartLegendRow(items: legendItems(data))
                 chart(data)
-                    .frame(height: height)
+                    .frame(height: Self.height)
                     .measuringWidth($width)
                     .accessibilityChartDescriptor(summary(data))
                 if let note = overflowNote(data) {
@@ -136,7 +135,8 @@ struct IncomeStackChart: View {
         .chartXScale(domain: data.xDomain)
         .chartYScale(domain: data.scale.domain)
         .chartYAxis { amountAxis(hidesAmounts: hidesAmounts, scale: data.scale, relativeTo: spending.first?.value) }
-        .chartXAxis { yearAxis(data.ticks) }
+        // A year's step spans its number ± 0.5, so the axis is in years as numbers.
+        .chartXAxis { tickAxis(data.ticks.map(Double.init)) { (year: Double) in String(Int(year.rounded())) } }
         .chartLegend(.hidden)
     }
 
@@ -155,7 +155,7 @@ struct IncomeStackChart: View {
                             .frame(width: 8, height: 8)
                         Text(source.name).font(.caption2)
                         Spacer(minLength: 4)
-                        AmountText(Decimal(wholeNumber: amount), currency: currency).font(.caption2)
+                        AmountText(Decimal(wholeNumber: amount)).font(.caption2)
                     }
                 }
             }
@@ -163,21 +163,20 @@ struct IncomeStackChart: View {
                 HStack(spacing: 4) {
                     Text(Self.spendingLabel).font(.caption2).foregroundStyle(Palette.secondaryInk)
                     Spacer(minLength: 4)
-                    AmountText(Decimal(wholeNumber: spending), currency: currency).font(.caption2)
+                    AmountText(Decimal(wholeNumber: spending)).font(.caption2)
                 }
             }
         }
         .padding(Metrics.s)
         .frame(width: 200, alignment: .leading)
-        .background(Palette.card, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-        .overlay { RoundedRectangle(cornerRadius: 8, style: .continuous).strokeBorder(Palette.border) }
+        .calloutBackground()
     }
 
     /// "Inheritance in 2050 (150k) runs off the top."
     private func overflowNote(_ data: IncomeChartData) -> String? {
         guard !data.overflows.isEmpty else { return nil }
         let parts = data.overflows.map { overflow in
-            let amount = AmountFormat.compactAmount(overflow.amount, currency: currency ?? baseCurrency, locale: locale)
+            let amount = AmountFormat.compactAmount(overflow.amount, currency: baseCurrency, locale: locale)
             return hidesAmounts ? "\(overflow.source) in \(overflow.year)"
                 : "\(overflow.source) in \(overflow.year) (\(amount))"
         }
@@ -187,7 +186,6 @@ struct IncomeStackChart: View {
     }
 
     private func summary(_ data: IncomeChartData) -> ChartSummary {
-        let resolved = currency ?? baseCurrency
         let names = data.sources.map(\.name).joined(separator: ", ")
         let years = data.years.map { Array($0) } ?? []
         let series = data.sources.map { source in
@@ -197,7 +195,7 @@ struct IncomeStackChart: View {
         }
         return ChartSummary(
             title: "Income by year", summary: "Stacked by source: \(names).", xTitle: "Year", yTitle: "Amount",
-            series: series, describeValue: ChartStyle.spokenAmount(currency: resolved))
+            series: series, describeValue: ChartStyle.spokenAmount(currency: baseCurrency))
     }
 }
 

@@ -16,7 +16,7 @@ enum ChartColor: Hashable, Sendable, Codable {
     /// Debts, in the asset-class breakdown.
     case debt
     /// A categorical slot, 0-based, in the palette's fixed order. Use for
-    /// series that aren't asset classes (income sources, two plans).
+    /// series that aren't asset classes (income sources, the two taxes).
     case series(Int)
     /// The one hue (blue) for single-series charts: fan charts, success
     /// curves, account groups.
@@ -28,10 +28,6 @@ enum ChartColor: Hashable, Sendable, Codable {
     /// Taxes paid, on top of retirement income: a neutral that isn't a
     /// source, and stays apart from every series hue in light and dark.
     case taxes
-    /// A good change (▲), with a sign and arrow as well.
-    case positive
-    /// A bad change (▼), with a sign and arrow as well.
-    case negative
 }
 
 /// One point of a value over time.
@@ -122,7 +118,10 @@ struct AmountScale: Hashable, Sendable {
     /// (``reservingTop(points:plotHeight:)``); `nil` without it.
     var headroom: ClosedRange<Double>?
 
-    init(values: [Double], reservesLane: Bool = false, desiredTicks: Int = 4) {
+    /// About how many steps the axis is divided into.
+    static let desiredTicks = 4.0
+
+    init(values: [Double], reservesLane: Bool = false) {
         let finite = values.filter(\.isFinite)
         var low = Swift.min(finite.min() ?? 0, 0)
         var high = Swift.max(finite.max() ?? 0, 0)
@@ -130,7 +129,7 @@ struct AmountScale: Hashable, Sendable {
             if -low > high { low = high - 1 } else { high = low + 1 }
         }
         let span = high - low
-        step = Self.niceStep(span / Double(Swift.max(desiredTicks, 1)))
+        step = Self.niceStep(span / Self.desiredTicks)
         let top = high + span * 0.05
         let bottom = low < 0 ? low - span * 0.05 : low
         var ticks: [Double] = []
@@ -236,6 +235,8 @@ struct ChartMarker: Hashable, Sendable, Identifiable, Codable {
     var kind: Kind? = nil
 
     var id: String { "\(date.timeIntervalSinceReferenceDate) \(label)" }
+    /// Its icon: its own, or a small triangle.
+    var symbol: String { systemImage ?? "arrowtriangle.up.fill" }
 }
 
 /// The chance of success when retiring at one age.
@@ -247,14 +248,6 @@ struct SuccessPoint: Hashable, Sendable, Identifiable, Codable {
     var id: Int { age }
 }
 
-/// A success curve, for overlaying two plans.
-struct SuccessSeries: Hashable, Sendable, Identifiable {
-    var id: String
-    var name: String
-    var color: ChartColor
-    var points: [SuccessPoint]
-}
-
 /// One source's amount in one year of a stacked income (or tax) chart.
 struct IncomeSegment: Hashable, Sendable, Identifiable, Codable {
     var year: Int
@@ -264,9 +257,6 @@ struct IncomeSegment: Hashable, Sendable, Identifiable, Codable {
     /// A one-off amount (a windfall, severance pay): when it would dwarf the
     /// rest, it runs off the top of the chart instead of setting its scale.
     var isOneOff = false
-    /// The amount before its share of the year's taxes, when `amount` is
-    /// after them (retirement income); `nil` when they're the same.
-    var gross: Double? = nil
 
     var id: String { "\(year) \(source)" }
 }
@@ -277,33 +267,6 @@ struct YearValue: Hashable, Sendable, Identifiable, Codable {
     var value: Double
 
     var id: Int { year }
-}
-
-/// One step of a waterfall: a total, or a change between totals.
-struct WaterfallStep: Hashable, Sendable, Identifiable {
-    enum Kind: Hashable, Sendable {
-        /// A bar from zero: the start or end total.
-        case total
-        /// A floating bar from the running total.
-        case change
-    }
-
-    var label: String
-    var value: Double
-    var kind: Kind
-
-    var id: String { label }
-
-    /// Steps for "since last check-in": start, markets, new money, other, end.
-    static func steps(for change: ValueChange, startLabel: String = "Before", endLabel: String = "Now") -> [WaterfallStep] {
-        [
-            WaterfallStep(label: startLabel, value: change.start.doubleValue, kind: .total),
-            WaterfallStep(label: "Markets", value: change.market.doubleValue, kind: .change),
-            WaterfallStep(label: "New money", value: change.newMoney.doubleValue, kind: .change),
-            WaterfallStep(label: "Other", value: change.other.doubleValue, kind: .change),
-            WaterfallStep(label: endLabel, value: change.end.doubleValue, kind: .total),
-        ]
-    }
 }
 
 /// One row of a horizontal breakdown: a label, its value and its share.
@@ -360,16 +323,6 @@ extension Breakdown {
         slices.map { slice in
             BreakdownRow(id: slice.key.chartID, label: slice.key.description, value: slice.value,
                          share: slice.shareOfAssets?.doubleValue, color: slice.key.chartColor)
-        }
-    }
-}
-
-extension StackedSeries {
-    /// One chart series per group, in stacking order (bottom first).
-    var chartSeries: [ChartSeries] {
-        keys.map { key in
-            ChartSeries(id: key.chartID, name: key.description, color: key.chartColor,
-                        points: series(for: key).chartPoints)
         }
     }
 }

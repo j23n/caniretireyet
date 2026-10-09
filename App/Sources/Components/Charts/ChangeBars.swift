@@ -1,4 +1,5 @@
 import Foundation
+import Model
 import Tracker
 
 /// The change between two totals as a headline and bars (UI.md, "Since
@@ -51,15 +52,10 @@ struct ChangeBars: Hashable, Sendable {
         }
     }
 
-    /// From a ``WaterfallStep`` list: the first and last totals, and the changes between them.
-    init(steps: [WaterfallStep]) {
-        let totals = steps.filter { $0.kind == .total }
-        self.init(start: totals.first?.value ?? 0, end: totals.last?.value ?? 0,
-                  parts: steps.filter { $0.kind == .change }.map { ($0.label, $0.value) })
-    }
-
     /// Markets, new money and other, from Tracker's split of a change.
     init(_ change: ValueChange) {
-        self.init(steps: WaterfallStep.steps(for: change))
+        self.init(start: change.start.doubleValue, end: change.end.doubleValue,
+                  parts: [("Markets", change.market.doubleValue), ("New money", change.newMoney.doubleValue),
+                          ("Other", change.other.doubleValue)])
     }
 }

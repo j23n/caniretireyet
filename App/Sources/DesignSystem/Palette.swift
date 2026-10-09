@@ -112,34 +112,11 @@ enum Palette {
         series[slot(for: assetClass)]
     }
 
-    /// The colour for a chart colour role: for washes and larger fills.
-    static func color(for role: ChartColor) -> Color {
-        switch role {
-        case .assetClass(let assetClass): color(for: assetClass)
-        case .debt: debt
-        case .series(let index): series[min(max(index, 0), series.count - 1)]
-        case .accent: accent
-        case .ink: ink
-        case .neutral: mutedInk
-        // Validated against all eight series hues and their line steps in
-        // both modes (CVD ΔE ≥ 10, normal vision ≥ 17, contrast ≥ 3:1); muted
-        // ink isn't (ΔE 1–5 to aqua and magenta).
-        case .taxes: secondaryInk
-        case .positive: positive
-        case .negative: negative
-        }
-    }
-
-    /// The colour for a line, the edge along a stacked area, or a small mark
-    /// (a legend swatch, a dot, a thin bar) in a chart colour role: the
-    /// categorical slots' line steps (``seriesStroke``), so it reaches 3:1
-    /// on the chart surface in light mode too; other roles as ``color(for:)``.
-    static func stroke(for role: ChartColor) -> Color {
-        switch role {
-        case .assetClass(let assetClass): seriesStroke[slot(for: assetClass)]
-        case .series(let index): seriesStroke[min(max(index, 0), seriesStroke.count - 1)]
-        default: color(for: role)
-        }
+    /// An asset class's line step (``seriesStroke``): for a line, the edge
+    /// along a stacked area, or a small mark. Chart colour roles
+    /// (`ChartColor`) resolve in the app's `ChartSupport.swift`.
+    static func stroke(for assetClass: AssetClass) -> Color {
+        seriesStroke[slot(for: assetClass)]
     }
 
     /// A change's colour by its direction (1 up, −1 down): ``positive``,

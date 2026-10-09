@@ -106,11 +106,6 @@ struct ProjectionWindow: Hashable, Sendable {
         end = horizon.end(start: now, retirement: retirement, planEnd: planEnd, calendar: calendar)
     }
 
-    init(start: Date?, end: Date) {
-        self.start = start
-        self.end = end
-    }
-
     func history(_ points: [ChartPoint]) -> [ChartPoint] {
         points.filter { point in start.map { point.date >= $0 } ?? true }
     }

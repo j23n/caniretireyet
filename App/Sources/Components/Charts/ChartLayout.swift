@@ -46,8 +46,6 @@ struct TimeTicks: Hashable, Sendable {
     /// The tick dates: the first day of a year or month, inside the domain.
     var dates: [Date]
     var unit: Unit
-    /// Years or months between ticks.
-    var step: Int
 
     static let yearSteps = [1, 2, 5, 10, 20, 25, 50, 100]
     static let monthSteps = [1, 2, 3, 6]
@@ -63,7 +61,7 @@ struct TimeTicks: Hashable, Sendable {
             for step in Self.monthSteps {
                 let dates = Self.monthStarts(in: domain, every: step, calendar: calendar)
                 if dates.count <= fit || step == Self.monthSteps.last {
-                    self.init(dates: dates.isEmpty ? [domain.lowerBound] : dates, unit: .months, step: step)
+                    self.init(dates: dates.isEmpty ? [domain.lowerBound] : dates, unit: .months)
                     return
                 }
             }
@@ -72,17 +70,16 @@ struct TimeTicks: Hashable, Sendable {
         for step in Self.yearSteps {
             let dates = Self.yearStarts(in: domain, every: step, calendar: calendar)
             if dates.count <= fit || step == Self.yearSteps.last {
-                self.init(dates: dates.isEmpty ? [domain.lowerBound] : dates, unit: .years, step: step)
+                self.init(dates: dates.isEmpty ? [domain.lowerBound] : dates, unit: .years)
                 return
             }
         }
-        self.init(dates: [domain.lowerBound], unit: .years, step: 1)
+        self.init(dates: [domain.lowerBound], unit: .years)
     }
 
-    init(dates: [Date], unit: Unit, step: Int) {
+    init(dates: [Date], unit: Unit) {
         self.dates = dates
         self.unit = unit
-        self.step = step
     }
 
     /// A tick's label: the year ("2045"), or the month ("Sep"), with the
@@ -173,7 +170,7 @@ func endLabelPadding(span: Double, labelWidth: Double, plotWidth: Double) -> Dou
 
 /// Where each marker's label goes along a time axis (UI.md, "Charts"):
 /// labels never collide. Each sits right of its rule (or left, at the
-/// chart's right edge), in the lowest of `rows` rows where it fits; a
+/// chart's right edge), in the lowest of ``maxRows`` rows where it fits; a
 /// marker whose label fits in no row shows only its icon, and its label
 /// moves to the callout. A rule never runs through another row's label:
 /// rules stop below the rows, and labels in an upper row are raised by
@@ -197,13 +194,15 @@ struct MarkerLabelLayout: Hashable, Sendable {
 
     /// The gap kept between two labels in a row.
     static let gap = 8.0
+    /// The most rows of labels above the data.
+    static let maxRows = 2
 
     /// The width of a marker's label: its icon and text.
     static func labelWidth(_ marker: ChartMarker) -> Double {
         ChartText.iconWidth + ChartText.width(of: marker.label)
     }
 
-    init(markers: [ChartMarker], domain: ClosedRange<Date>, plotWidth: Double, maxRows: Int = 2) {
+    init(markers: [ChartMarker], domain: ClosedRange<Date>, plotWidth: Double) {
         let span = domain.upperBound.timeIntervalSince(domain.lowerBound)
         let shown = markers.filter { domain.contains($0.date) }.sorted { $0.date < $1.date }
         guard !shown.isEmpty, span > 0 else {
@@ -212,7 +211,7 @@ struct MarkerLabelLayout: Hashable, Sendable {
             return
         }
         func x(_ date: Date) -> Double { date.timeIntervalSince(domain.lowerBound) / span * plotWidth }
-        var rowEnds = [Double](repeating: -.infinity, count: max(1, maxRows))
+        var rowEnds = [Double](repeating: -.infinity, count: Self.maxRows)
         var placed: [Placement] = []
         for marker in shown {
             let position = x(marker.date)
@@ -234,19 +233,16 @@ struct MarkerLabelLayout: Hashable, Sendable {
         rows = (placed.map(\.row).max() ?? -1) + 1
     }
 
-    /// The markers that show only their icon, whose labels go in the callout.
-    var iconOnly: [ChartMarker] {
-        placements.filter { !$0.showsLabel }.map(\.marker)
+    /// The markers within 200 days of `date` that show only their icon,
+    /// for a callout: what happens around the date being read, whose labels
+    /// aren't on the chart.
+    func iconOnly(near date: Date) -> [ChartMarker] {
+        placements.filter { !$0.showsLabel && abs($0.marker.date.timeIntervalSince(date)) <= 200 * 86_400 }
+            .map(\.marker)
     }
 
     /// The points of headroom the rows need above the data.
     var headroom: Double {
         Double(rows) * ChartText.rowHeight + (rows > 0 ? 4 : 0)
     }
-}
-
-/// The markers within `days` of `date`, for a callout: what happens around
-/// the date being read.
-func chartMarkers(_ markers: [ChartMarker], near date: Date, withinDays days: Double = 200) -> [ChartMarker] {
-    markers.filter { abs($0.date.timeIntervalSince(date)) <= days * 86_400 }
 }

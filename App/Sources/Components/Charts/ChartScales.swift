@@ -2,7 +2,8 @@ import Foundation
 
 // Value axes beyond ``AmountScale``'s basics, without SwiftUI so they can be
 // tested on Linux: headroom for marker labels, a projection's axis that the
-// 10–90% band doesn't set, and a relative axis for when amounts are hidden.
+// 10–90% band doesn't set, the layout the projection charts share, and a
+// relative axis for when amounts are hidden.
 
 extension AmountScale {
     /// The scale with `points` of room above its top, in a plot `plotHeight`
@@ -65,18 +66,16 @@ struct RelativeTick: Hashable, Sendable {
 /// (UI.md, "Charts"): it fits the history, the median and the 25–75% band,
 /// so they fill the chart. The 10–90% band may run off the top, where it's
 /// cut at the chart's edge (``clamped(_:)``) and the legend says so
-/// (``clipsBand``). Room for `markerRows` rows of labels is kept above the data.
+/// (``clipsBand``). `markerHeadroom` points are kept above the data for the
+/// markers' labels.
 struct ProjectionScale: Hashable, Sendable {
     var scale: AmountScale
     /// Whether the 10–90% band runs off the top somewhere.
     var clipsBand: Bool
 
-    init(history: [Double], fan: [FanPoint], markerHeadroom: Double = 0, plotHeight: Double = 200) {
+    init(history: [Double], fan: [FanPoint], markerHeadroom: Double, plotHeight: Double) {
         let values = history + fan.flatMap { [$0.p25, $0.p50, $0.p75] }
-        var scale = AmountScale(values: values)
-        if markerHeadroom > 0 {
-            scale = scale.reservingTop(points: markerHeadroom, plotHeight: plotHeight)
-        }
+        let scale = AmountScale(values: values).reservingTop(points: markerHeadroom, plotHeight: plotHeight)
         self.scale = scale
         clipsBand = fan.contains { $0.p90 > scale.domain.upperBound || $0.p10 < scale.domain.lowerBound }
     }
@@ -88,5 +87,51 @@ struct ProjectionScale: Hashable, Sendable {
         func clamp(_ value: Double) -> Double { Swift.min(Swift.max(value, range.lowerBound), range.upperBound) }
         return FanPoint(date: point.date, p10: clamp(point.p10), p25: clamp(point.p25), p50: clamp(point.p50),
                         p75: clamp(point.p75), p90: clamp(point.p90))
+    }
+}
+
+/// What a projection chart (net worth with the future, your money over
+/// time) places for its size: the time axis from the first date to the
+/// last, at least a month; its ticks; the markers' labels; and the value
+/// axis, with the fan cut at its edges.
+struct ProjectionLayout: Hashable, Sendable {
+    var domain: ClosedRange<Date>
+    var ticks: TimeTicks
+    var markers: MarkerLabelLayout
+    var scale: AmountScale
+    /// Whether the 10–90% band runs off the top somewhere.
+    var clipsBand: Bool
+    /// The fan with its bands cut at the chart's edges.
+    var fan: [FanPoint]
+
+    /// - Parameters:
+    ///   - dates: every date the chart shows.
+    ///   - values: what the value axis fits besides the fan: the history.
+    ///   - fitsBands: the value axis fits every band, the 10–90% too, where
+    ///     the chart has no legend to say that it runs off the top
+    ///     (otherwise ``ProjectionScale``).
+    ///   - width, height: the chart's size.
+    init(dates: [Date], values: [Double], fan: [FanPoint], fitsBands: Bool = false, markers: [ChartMarker],
+         width: Double, height: Double) {
+        let first = dates.min() ?? Date()
+        let last = max(dates.max() ?? first, first.addingTimeInterval(86_400 * 31))
+        domain = first...last
+        let plotWidth = ChartText.plotWidth(chartWidth: width)
+        let plotHeight = height - ChartText.timeAxisHeight
+        let markerLayout = MarkerLabelLayout(markers: markers, domain: domain, plotWidth: plotWidth)
+        self.markers = markerLayout
+        ticks = TimeTicks(domain: domain, plotWidth: plotWidth)
+        if fitsBands {
+            scale = AmountScale(values: values + fan.flatMap { [$0.p10, $0.p90] })
+                .reservingTop(points: markerLayout.headroom, plotHeight: plotHeight)
+            clipsBand = false
+            self.fan = fan
+        } else {
+            let projection = ProjectionScale(history: values, fan: fan, markerHeadroom: markerLayout.headroom,
+                                             plotHeight: plotHeight)
+            scale = projection.scale
+            clipsBand = projection.clipsBand
+            self.fan = fan.map(projection.clamped)
+        }
     }
 }

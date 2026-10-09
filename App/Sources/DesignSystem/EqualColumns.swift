@@ -14,7 +14,7 @@ import SwiftUI
 struct EqualColumns: Layout {
     var spacing: CGFloat = Metrics.l
     /// The width of a column when the parent offers no width.
-    var fallbackColumnWidth: CGFloat = 360
+    private static let fallbackColumnWidth: CGFloat = 360
 
     func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
         guard !subviews.isEmpty else { return .zero }
@@ -35,7 +35,7 @@ struct EqualColumns: Layout {
 
     private func totalWidth(_ offered: CGFloat?, count: Int) -> CGFloat {
         if let offered, offered.isFinite { return max(0, offered) }
-        return fallbackColumnWidth * CGFloat(count) + spacing * CGFloat(count - 1)
+        return Self.fallbackColumnWidth * CGFloat(count) + spacing * CGFloat(count - 1)
     }
 
     private func columnWidth(_ width: CGFloat, count: Int) -> CGFloat {

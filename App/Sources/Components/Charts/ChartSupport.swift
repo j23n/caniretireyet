@@ -51,6 +51,14 @@ enum ChartStyle {
         }
     }
 
+    /// How VoiceOver reads an amount on a strip's card (the chapters', the
+    /// years'): in full, or hidden with the eye.
+    static func spokenAmount(currency: CurrencyCode, hidden: Bool) -> @Sendable (Double) -> String {
+        guard hidden else { return spokenAmount(currency: currency) }
+        let text = AmountFormat.hidden
+        return { _ in text }
+    }
+
     /// A share read as a percentage.
     static let spokenShare: @Sendable (Double) -> String = { value in
         AmountFormat.percent(value, digits: 0)
@@ -58,6 +66,38 @@ enum ChartStyle {
 
     /// The width a chart assumes until it has measured itself.
     static let defaultWidth: CGFloat = 320
+}
+
+// MARK: - Colours
+
+extension Palette {
+    /// The colour for a chart colour role: for washes and larger fills.
+    static func color(for role: ChartColor) -> Color {
+        switch role {
+        case .assetClass(let assetClass): color(for: assetClass)
+        case .debt: debt
+        case .series(let index): series[min(max(index, 0), series.count - 1)]
+        case .accent: accent
+        case .ink: ink
+        case .neutral: mutedInk
+        // Validated against all eight series hues and their line steps in
+        // both modes (CVD ΔE ≥ 10, normal vision ≥ 17, contrast ≥ 3:1); muted
+        // ink isn't (ΔE 1–5 to aqua and magenta).
+        case .taxes: secondaryInk
+        }
+    }
+
+    /// The colour for a line, the edge along a stacked area, or a small mark
+    /// (a legend swatch, a dot, a thin bar) in a chart colour role: the
+    /// categorical slots' line steps (``seriesStroke``), so it reaches 3:1
+    /// on the chart surface in light mode too; other roles as ``color(for:)``.
+    static func stroke(for role: ChartColor) -> Color {
+        switch role {
+        case .assetClass(let assetClass): stroke(for: assetClass)
+        case .series(let index): seriesStroke[min(max(index, 0), seriesStroke.count - 1)]
+        default: color(for: role)
+        }
+    }
 }
 
 // MARK: - Axes
@@ -96,64 +136,33 @@ private func amountLabel(_ amount: Double, hidesAmounts: Bool, scale: AmountScal
     return relative.first { abs($0.value - amount) <= tolerance }?.label ?? ""
 }
 
+/// An axis with a tick at each of `values`, its label from `label` in
+/// caption 2 with tabular figures: the dates ``TimeTicks`` chose
+/// (``dateAxis(_:)``), or the ages and years ``IntegerTicks`` chose, never
+/// one per bar.
+func tickAxis<Value: Plottable & Sendable>(_ values: [Value],
+                                           label: @escaping @Sendable (Value) -> String) -> some AxisContent {
+    AxisMarks(values: values) { value in
+        AxisTick(stroke: StrokeStyle(lineWidth: 0.5))
+            .foregroundStyle(Palette.axis)
+        AxisValueLabel {
+            if let typed = value.as(Value.self) {
+                Text(verbatim: label(typed))
+                    .font(.caption2)
+                    .monospacedDigit()
+                    .foregroundStyle(Palette.mutedInk)
+            }
+        }
+    }
+}
+
 /// A time axis with the ticks ``TimeTicks`` chose for the chart's width:
 /// years every 1, 2, 5 or 10…, or months, never more than fit.
 func dateAxis(_ ticks: TimeTicks) -> some AxisContent {
-    AxisMarks(values: ticks.dates) { value in
-        AxisTick(stroke: StrokeStyle(lineWidth: 0.5))
-            .foregroundStyle(Palette.axis)
-        AxisValueLabel {
-            if let date = value.as(Date.self) {
-                Text(verbatim: ticks.label(for: date))
-                    .font(.caption2)
-                    .monospacedDigit()
-                    .foregroundStyle(Palette.mutedInk)
-            }
-        }
-    }
-}
-
-/// A year axis for charts whose x is a year number (`Double`), with the
-/// years ``IntegerTicks`` chose: every 5 or 10 years, never one per bar.
-func yearAxis(_ years: [Int]) -> some AxisContent {
-    AxisMarks(values: years.map(Double.init)) { value in
-        AxisTick(stroke: StrokeStyle(lineWidth: 0.5))
-            .foregroundStyle(Palette.axis)
-        AxisValueLabel {
-            if let year = value.as(Double.self) {
-                Text(verbatim: String(Int(year.rounded())))
-                    .font(.caption2)
-                    .monospacedDigit()
-                    .foregroundStyle(Palette.mutedInk)
-            }
-        }
-    }
-}
-
-/// An age axis (`Int`), with the ages ``IntegerTicks`` chose: every 5
-/// (or 2, or 10) as the width allows.
-func ageAxis(_ ages: [Int]) -> some AxisContent {
-    AxisMarks(values: ages) { value in
-        AxisTick(stroke: StrokeStyle(lineWidth: 0.5))
-            .foregroundStyle(Palette.axis)
-        AxisValueLabel {
-            if let age = value.as(Int.self) {
-                Text(verbatim: String(age))
-                    .font(.caption2)
-                    .monospacedDigit()
-                    .foregroundStyle(Palette.mutedInk)
-            }
-        }
-    }
+    tickAxis(ticks.dates) { ticks.label(for: $0) }
 }
 
 extension Array where Element == ChartPoint {
-    /// Whether the points span more than about 18 months.
-    var spansYears: Bool {
-        guard let first = first?.date, let last = last?.date else { return false }
-        return last.timeIntervalSince(first) > 86_400 * 540
-    }
-
     /// The point nearest to `date`.
     func nearest(to date: Date) -> ChartPoint? {
         self.min { abs($0.date.timeIntervalSince(date)) < abs($1.date.timeIntervalSince(date)) }
@@ -172,9 +181,43 @@ extension View {
             if newWidth > 0, newWidth != width.wrappedValue { width.wrappedValue = newWidth }
         }
     }
+
+    /// A chart callout's surface: the card's colour in a hairline border,
+    /// with 8-point corners. After the callout's own padding and frame.
+    func calloutBackground() -> some View {
+        background(Palette.card, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+            .overlay { RoundedRectangle(cornerRadius: 8, style: .continuous).strokeBorder(Palette.border) }
+    }
 }
 
 // MARK: - Markers
+
+/// Each marker's rule, from the bottom of the chart to the top of the data,
+/// with its label above in the row ``MarkerLabelLayout`` chose, or only its
+/// icon: a time chart's markers (retirement, pension starts, …).
+@MainActor @ChartContentBuilder
+func markerRules(_ markers: MarkerLabelLayout, scale: AmountScale) -> some ChartContent {
+    ForEach(markers.placements) { placement in
+        RuleMark(x: .value("Date", placement.marker.date),
+                 yStart: .value("Bottom", scale.domain.lowerBound),
+                 yEnd: .value("Top", scale.dataTop))
+            .foregroundStyle(Palette.axis)
+            .lineStyle(StrokeStyle(lineWidth: 1))
+            .annotation(position: .top, alignment: placement.alignment,
+                        spacing: 2 + CGFloat(placement.row) * CGFloat(ChartText.rowHeight),
+                        overflowResolution: .init(x: .fit(to: .chart), y: .fit(to: .chart))) {
+                ChartMarkerLabel(placement: placement)
+            }
+    }
+}
+
+extension MarkerLabelLayout.Placement {
+    /// The label against its rule: after it, or ending at it at the chart's
+    /// right edge; only the icon, centred on it.
+    var alignment: Alignment {
+        showsLabel ? (endsAtRule ? .trailing : .leading) : .center
+    }
+}
 
 /// A marker's label above the data: its icon and words, or only the icon
 /// when there's no room (the words are then in the callout).
@@ -184,12 +227,12 @@ struct ChartMarkerLabel: View {
     var body: some View {
         Group {
             if placement.showsLabel {
-                Label(placement.marker.label, systemImage: placement.marker.systemImage ?? "arrowtriangle.up.fill")
+                Label(placement.marker.label, systemImage: placement.marker.symbol)
                     .labelStyle(.titleAndIcon)
                     .lineLimit(1)
                     .fixedSize()
             } else {
-                Image(systemName: placement.marker.systemImage ?? "arrowtriangle.up.fill")
+                Image(systemName: placement.marker.symbol)
                     .accessibilityLabel(placement.marker.label)
             }
         }
@@ -204,8 +247,6 @@ struct ChartMarkerLabel: View {
 enum ChartSwatch: Hashable {
     /// A line, solid or dashed.
     case line(ChartColor, dashed: Bool)
-    /// A filled area or bar.
-    case area(ChartColor)
     /// A wash of the colour with a line along its top: a stacked area
     /// drawn as a wash with its edge.
     case wash(ChartColor)
@@ -283,9 +324,6 @@ struct ChartLegendLabel: View {
             }
             .stroke(Palette.stroke(for: color),
                     style: StrokeStyle(lineWidth: 2, lineCap: .round, dash: dashed ? [3, 2] : []))
-        case .area(let color):
-            RoundedRectangle(cornerRadius: 2, style: .continuous)
-                .fill(Palette.stroke(for: color))
         case .wash(let color):
             ZStack(alignment: .top) {
                 Rectangle()
@@ -374,7 +412,7 @@ struct TimeSpanMenu: View {
     /// ``AppPreferences/horizonBinding(start:retirement:)``).
     var horizon: Binding<FutureHorizon>?
     /// The horizons that make sense for the plan.
-    var choices: [FutureHorizon] = FutureHorizon.allCases
+    var choices: [FutureHorizon]
     /// A shorter label, for an iPhone.
     var compact = false
 

@@ -291,10 +291,9 @@ enum PlanResultsMapping {
     /// investment income. So a year's income reaches spending plus taxes.
     /// To read right against the spending line, each source is
     /// shown after its share of the year's taxes (`totalTax`, shared in
-    /// proportion to the amounts), keeping its gross amount in
-    /// `gross`, and the taxes are a segment of their own on top: the
-    /// sources add up to spending, expenses and what's saved, and the stack
-    /// to that plus taxes.
+    /// proportion to the amounts), and the taxes are a segment of their own
+    /// on top: the sources add up to spending, expenses and what's saved,
+    /// and the stack to that plus taxes.
     static func income(_ years: [YearDetail]) -> [IncomeSegment] {
         func category(_ item: IncomeItem) -> IncomeCategory { self.category(of: item) }
         // The names behind each category over all the years, so a category
@@ -319,7 +318,7 @@ enum PlanResultsMapping {
                 guard let amount = gross[category], amount * share > 0.5 else { continue }
                 segments.append(IncomeSegment(
                     year: year.year, source: label(of: category, sources: sources[category] ?? []),
-                    amount: amount * share, color: color(of: category), isOneOff: category.isOneOff, gross: amount))
+                    amount: amount * share, color: color(of: category), isOneOff: category.isOneOff))
             }
             if taxes > 0.5 {
                 segments.append(IncomeSegment(year: year.year, source: taxesLabel, amount: taxes, color: .taxes))

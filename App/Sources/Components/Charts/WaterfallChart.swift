@@ -17,13 +17,13 @@ import Tracker
 /// - While amounts are hidden the headline shows the change in per cent,
 ///   the bars keep their proportions and the amounts hide.
 ///
-///     WaterfallChart(steps: WaterfallStep.steps(for: report.total, startLabel: "31 Aug"))
+///     WaterfallChart(change: report.total, from: "31 Aug", to: "30 Sep")
 struct WaterfallChart: View {
-    var steps: [WaterfallStep]
-    /// `nil` for the base currency.
-    var currency: CurrencyCode?
-    /// Unused: the bars take the height they need.
-    var height: CGFloat = 180
+    /// Tracker's split of the change: markets, new money and other.
+    var change: ValueChange
+    /// The dates of the totals before and after: "31 Aug", "30 Sep".
+    var from: String
+    var to: String
     /// Whether the change leads, "▲ +5.730 € since 31 Aug", over the totals
     /// before and after; off where the screen says it already (the Overview).
     var showsChange = true
@@ -36,51 +36,47 @@ struct WaterfallChart: View {
     private static let barHeight: CGFloat = 14
 
     var body: some View {
-        if steps.isEmpty {
-            ChartPlaceholder(text: "The change since the last check-in appears after the second one.", height: 120)
-        } else {
-            let bars = ChangeBars(steps: steps)
-            VStack(alignment: .leading, spacing: Metrics.m) {
-                headline(bars)
-                Grid(alignment: .leading, horizontalSpacing: Metrics.m, verticalSpacing: Metrics.s) {
-                    ForEach(bars.bars) { bar in
-                        // No modifiers on the row itself: they'd turn it into one cell.
-                        GridRow {
-                            Text(bar.label)
-                                .font(.subheadline)
-                                .foregroundStyle(Palette.secondaryInk)
-                                .lineLimit(1)
-                                .fixedSize()
-                                .accessibilityLabel(Text(verbatim: "\(bar.label), \(spokenAmount(bar.value))"))
-                            ChangeBarTrack(bar: bar, zero: bars.zero)
-                                .frame(height: Self.barHeight)
-                                .frame(maxWidth: .infinity)
-                            Text(verbatim: amountText(bar.value))
-                                .font(.subheadline)
-                                .monospacedDigit()
-                                .foregroundStyle(Palette.ink)
-                                .privacySensitive()
-                                .gridColumnAlignment(.trailing)
-                                .accessibilityHidden(true)
-                        }
+        let bars = ChangeBars(change)
+        VStack(alignment: .leading, spacing: Metrics.m) {
+            headline(bars)
+            Grid(alignment: .leading, horizontalSpacing: Metrics.m, verticalSpacing: Metrics.s) {
+                ForEach(bars.bars) { bar in
+                    // No modifiers on the row itself: they'd turn it into one cell.
+                    GridRow {
+                        Text(bar.label)
+                            .font(.subheadline)
+                            .foregroundStyle(Palette.secondaryInk)
+                            .lineLimit(1)
+                            .fixedSize()
+                            .accessibilityLabel(Text(verbatim: "\(bar.label), \(spokenAmount(bar.value))"))
+                        ChangeBarTrack(bar: bar, zero: bars.zero)
+                            .frame(height: Self.barHeight)
+                            .frame(maxWidth: .infinity)
+                        Text(verbatim: amountText(bar.value))
+                            .font(.subheadline)
+                            .monospacedDigit()
+                            .foregroundStyle(Palette.ink)
+                            .privacySensitive()
+                            .gridColumnAlignment(.trailing)
+                            .accessibilityHidden(true)
                     }
                 }
             }
-            .accessibilityChartDescriptor(summary(bars))
         }
+        .accessibilityChartDescriptor(summary(bars))
     }
 
     @ViewBuilder
     private func headline(_ bars: ChangeBars) -> some View {
         VStack(alignment: .leading, spacing: 2) {
             if showsChange {
-                change(bars)
+                changeLine(bars)
             }
             HStack(spacing: Metrics.xs) {
-                AmountText(Decimal(wholeNumber: bars.start), currency: currency)
+                AmountText(Decimal(wholeNumber: bars.start))
                 Text(verbatim: "→")
                     .accessibilityLabel("to")
-                AmountText(Decimal(wholeNumber: bars.end), currency: currency)
+                AmountText(Decimal(wholeNumber: bars.end))
             }
             .font(.subheadline)
             .foregroundStyle(Palette.secondaryInk)
@@ -88,17 +84,15 @@ struct WaterfallChart: View {
     }
 
     /// "▲ +5.730 € since 31 Aug".
-    private func change(_ bars: ChangeBars) -> some View {
+    private func changeLine(_ bars: ChangeBars) -> some View {
         HStack(alignment: .firstTextBaseline, spacing: Metrics.xs) {
             if hidesAmounts, let relative = bars.relativeChange {
                 DeltaText(percent: relative)
             } else {
-                DeltaText(Decimal(wholeNumber: bars.change), currency: currency)
+                DeltaText(Decimal(wholeNumber: bars.change))
             }
-            if let since = steps.first?.label {
-                Text("since \(since)")
-                    .foregroundStyle(Palette.secondaryInk)
-            }
+            Text("since \(from)")
+                .foregroundStyle(Palette.secondaryInk)
         }
         .font(.title3.weight(.semibold))
     }
@@ -112,19 +106,25 @@ struct WaterfallChart: View {
     }
 
     private func signed(_ value: Double) -> String {
-        AmountFormat.signedAmount(Decimal(wholeNumber: value), currency: currency ?? baseCurrency, locale: locale)
+        AmountFormat.signedAmount(Decimal(wholeNumber: value), currency: baseCurrency, locale: locale)
     }
 
+    /// "31 Aug 312.480 €, Markets −8.950 €, …, 30 Sep 304.790 €.", the
+    /// names alone while amounts are hidden.
     private func summary(_ bars: ChangeBars) -> ChartSummary {
-        let resolved = currency ?? baseCurrency
-        let parts = steps.map { step in
-            hidesAmounts ? step.label
-                : "\(step.label) \(step.kind == .total ? AmountFormat.amount(Decimal(wholeNumber: step.value), currency: resolved) : AmountFormat.signedAmount(Decimal(wholeNumber: step.value), currency: resolved))"
+        let currency = baseCurrency
+        func total(_ name: String, _ value: Double) -> String {
+            hidesAmounts ? name : "\(name) \(AmountFormat.amount(Decimal(wholeNumber: value), currency: currency))"
         }
+        let parts = bars.bars.map { bar in
+            hidesAmounts ? bar.label
+                : "\(bar.label) \(AmountFormat.signedAmount(Decimal(wholeNumber: bar.value), currency: currency))"
+        }
+        let words = [total(from, bars.start)] + parts + [total(to, bars.end)]
         return ChartSummary(
-            title: "Change", summary: parts.joined(separator: ", ") + ".", xTitle: "Part", yTitle: "Amount",
+            title: "Change", summary: words.joined(separator: ", ") + ".", xTitle: "Part", yTitle: "Amount",
             series: [ChartSummary.Series(name: "Change", points: bars.bars.map { ($0.label, $0.value) })],
-            describeValue: ChartStyle.spokenAmount(currency: resolved))
+            describeValue: ChartStyle.spokenAmount(currency: currency))
     }
 }
 
@@ -164,24 +164,19 @@ private struct ChangeBarTrack: View {
 }
 
 #Preview("Since last check-in") {
-    let change = PreviewLibrary.valuator.changeSinceLastCheckIn(asOf: PreviewLibrary.latestCheckIn)
-    let steps = change.map { WaterfallStep.steps(for: $0.total, startLabel: "31 Aug", endLabel: "30 Sep") } ?? []
+    let change = PreviewLibrary.valuator.changeSinceLastCheckIn(asOf: PreviewLibrary.latestCheckIn)?.total ?? .zero
     ScrollView {
         VStack(spacing: Metrics.l) {
             Card("Since last check-in") {
-                WaterfallChart(steps: steps)
+                WaterfallChart(change: change, from: "31 Aug", to: "30 Sep")
             }
             Card("A loss, made up") {
-                WaterfallChart(steps: [
-                    WaterfallStep(label: "31 Aug", value: 312_480, kind: .total),
-                    WaterfallStep(label: "Markets", value: -8_950, kind: .change),
-                    WaterfallStep(label: "New money", value: 1_500, kind: .change),
-                    WaterfallStep(label: "Other", value: -240, kind: .change),
-                    WaterfallStep(label: "30 Sep", value: 304_790, kind: .total),
-                ])
+                WaterfallChart(change: ValueChange(start: 312_480, market: -8_950, newMoney: 1_500, other: -240,
+                                                   end: 304_790),
+                               from: "31 Aug", to: "30 Sep")
             }
             Card("Amounts hidden") {
-                WaterfallChart(steps: steps)
+                WaterfallChart(change: change, from: "31 Aug", to: "30 Sep")
                     .environment(\.hidesAmounts, true)
             }
         }

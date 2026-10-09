@@ -28,7 +28,6 @@ struct FanChart: View {
     var markers: [ChartMarker] = []
     /// `nil` for the base currency.
     var currency: CurrencyCode?
-    var height: CGFloat = 240
     var showsLegend = false
 
     @State private var selectedDate: Date?
@@ -36,18 +35,11 @@ struct FanChart: View {
     @Environment(\.hidesAmounts) private var hidesAmounts
     @Environment(\.baseCurrency) private var baseCurrency
 
-    private struct Layout {
-        var domain: ClosedRange<Date>
-        var ticks: TimeTicks
-        var markers: MarkerLabelLayout
-        var scale: AmountScale
-        var clipsBand: Bool
-        var fan: [FanPoint]
-    }
+    private static let height: CGFloat = 240
 
     var body: some View {
         if fan.isEmpty {
-            ChartPlaceholder(text: "The projection appears here once the plan has run.", height: height)
+            ChartPlaceholder(text: "The projection appears here once the plan has run.", height: Self.height)
         } else {
             let layout = self.layout
             VStack(alignment: .leading, spacing: Metrics.s) {
@@ -55,35 +47,23 @@ struct FanChart: View {
                     ProjectionLegend(showsActual: !actual.isEmpty, clipsBand: layout.clipsBand)
                 }
                 chart(layout)
-                    .frame(height: height)
+                    .frame(height: Self.height)
                     .measuringWidth($width)
                     .accessibilityChartDescriptor(summary)
             }
         }
     }
 
-    private var layout: Layout {
-        let dates = fan.map(\.date) + actual.map(\.date)
-        let first = dates.min() ?? Date()
-        let last = max(dates.max() ?? first, first.addingTimeInterval(86_400 * 31))
-        let domain = first...last
-        let plotWidth = ChartText.plotWidth(chartWidth: Double(width))
-        let plotHeight = Double(height) - ChartText.timeAxisHeight
-        let markerLayout = MarkerLabelLayout(markers: markers, domain: domain, plotWidth: plotWidth)
-        let ticks = TimeTicks(domain: domain, plotWidth: plotWidth)
-        let history = actual.filter(\.isComplete).map(\.value)
-        if showsLegend {
-            let scale = ProjectionScale(history: history, fan: fan, markerHeadroom: markerLayout.headroom,
-                                        plotHeight: plotHeight)
-            return Layout(domain: domain, ticks: ticks, markers: markerLayout, scale: scale.scale,
-                          clipsBand: scale.clipsBand, fan: fan.map(scale.clamped))
-        }
-        let scale = AmountScale(values: history + fan.flatMap { [$0.p10, $0.p90] })
-            .reservingTop(points: markerLayout.headroom, plotHeight: plotHeight)
-        return Layout(domain: domain, ticks: ticks, markers: markerLayout, scale: scale, clipsBand: false, fan: fan)
+    /// Everything placed for the chart's width and height: the value axis
+    /// fits the complete actual values, and the median and 25–75% band, or
+    /// without a legend every band.
+    private var layout: ProjectionLayout {
+        ProjectionLayout(dates: fan.map(\.date) + actual.map(\.date),
+                         values: actual.filter(\.isComplete).map(\.value), fan: fan, fitsBands: !showsLegend,
+                         markers: markers, width: Double(width), height: Double(Self.height))
     }
 
-    private func chart(_ layout: Layout) -> some View {
+    private func chart(_ layout: ProjectionLayout) -> some View {
         Chart {
             ForEach(layout.fan) { point in
                 AreaMark(x: .value("Date", point.date), yStart: .value("10th percentile", point.p10),
@@ -112,18 +92,7 @@ struct FanChart: View {
                 }
             }
 
-            ForEach(layout.markers.placements) { placement in
-                RuleMark(x: .value("Date", placement.marker.date),
-                         yStart: .value("Bottom", layout.scale.domain.lowerBound),
-                         yEnd: .value("Top", layout.scale.dataTop))
-                    .foregroundStyle(Palette.axis)
-                    .lineStyle(StrokeStyle(lineWidth: 1))
-                    .annotation(position: .top, alignment: markerAlignment(placement),
-                                spacing: 2 + CGFloat(placement.row) * CGFloat(ChartText.rowHeight),
-                                overflowResolution: .init(x: .fit(to: .chart), y: .fit(to: .chart))) {
-                        ChartMarkerLabel(placement: placement)
-                    }
-            }
+            markerRules(layout.markers, scale: layout.scale)
 
             if let selected = selectedPoint {
                 RuleMark(x: .value("Date", selected.date))
@@ -143,16 +112,12 @@ struct FanChart: View {
         .chartLegend(.hidden)
     }
 
-    private func markerAlignment(_ placement: MarkerLabelLayout.Placement) -> Alignment {
-        placement.showsLabel ? (placement.endsAtRule ? .trailing : .leading) : .center
-    }
-
     private var selectedPoint: FanPoint? {
         guard let selectedDate else { return nil }
         return fan.min { abs($0.date.timeIntervalSince(selectedDate)) < abs($1.date.timeIntervalSince(selectedDate)) }
     }
 
-    private func callout(for point: FanPoint, layout: Layout) -> some View {
+    private func callout(for point: FanPoint, layout: ProjectionLayout) -> some View {
         VStack(alignment: .leading, spacing: 2) {
             Text(point.date, format: .dateTime.year())
                 .font(.caption2)
@@ -160,15 +125,14 @@ struct FanChart: View {
             row("9 in 10 above", point.p10)
             row("Median", point.p50)
             row("1 in 10 above", point.p90)
-            ForEach(ChartsCallout.nearbyMarkers(layout.markers, at: point.date)) { marker in
-                Label(marker.label, systemImage: marker.systemImage ?? "arrowtriangle.up.fill")
+            ForEach(layout.markers.iconOnly(near: point.date)) { marker in
+                Label(marker.label, systemImage: marker.symbol)
                     .font(.caption2)
                     .foregroundStyle(Palette.secondaryInk)
             }
         }
         .padding(Metrics.s)
-        .background(Palette.card, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-        .overlay { RoundedRectangle(cornerRadius: 8, style: .continuous).strokeBorder(Palette.border) }
+        .calloutBackground()
     }
 
     private func row(_ label: String, _ value: Double) -> some View {

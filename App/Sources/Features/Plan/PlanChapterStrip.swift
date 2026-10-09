@@ -526,13 +526,3 @@ struct PlanChapterCardView: View {
         }
     }
 }
-
-extension ChartStyle {
-    /// How VoiceOver reads an amount on a strip's card (the chapters', the
-    /// years'): in full, or hidden with the eye.
-    static func spokenAmount(currency: CurrencyCode, hidden: Bool) -> @Sendable (Double) -> String {
-        guard hidden else { return spokenAmount(currency: currency) }
-        let text = AmountFormat.hidden
-        return { _ in text }
-    }
-}

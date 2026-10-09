@@ -36,15 +36,13 @@ import Tracker
 ///   the projection, its median and bands. The callout stays inside the chart.
 ///
 ///     NetWorthChart(history: valuator.series(through: date).chartPoints)
-///     NetWorthChart(history: points, stacked: stacked.chartSeries, projection: fan, markers: markers)
+///     NetWorthChart(history: history.points, stacked: history.stacked, projection: history.projection,
+///                   markers: history.markers)   // an OverviewHistory
 struct NetWorthChart: View {
     var history: [ChartPoint]
     var stacked: [ChartSeries] = []
     var projection: [FanPoint] = []
     var markers: [ChartMarker] = []
-    /// The currency of the values; `nil` for the base currency.
-    var currency: CurrencyCode?
-    var height: CGFloat = 220
     /// What the history is, for VoiceOver: "Net worth", or "Plan assets".
     var title = "Net worth"
 
@@ -54,28 +52,17 @@ struct NetWorthChart: View {
     @Environment(\.baseCurrency) private var baseCurrency
     @Environment(\.chartSurface) private var surface
 
-    /// Everything placed for the chart's width and height.
-    private struct Layout {
-        var domain: ClosedRange<Date>
-        var ticks: TimeTicks
-        var markers: MarkerLabelLayout
-        var scale: AmountScale
-        var clipsBand: Bool
-        /// The projection with its bands cut at the chart's edges.
-        var projection: [FanPoint]
-        /// The stacked areas; `nil` without `stacked` series.
-        var stack: StackedAreaData?
-    }
+    private static let height: CGFloat = 220
 
     var body: some View {
         if history.isEmpty && projection.isEmpty {
-            ChartPlaceholder(text: "Your net worth appears here after the first check-in.", height: height)
+            ChartPlaceholder(text: "Your net worth appears here after the first check-in.", height: Self.height)
         } else {
             let layout = self.layout
             VStack(alignment: .leading, spacing: Metrics.s) {
                 legend(layout)
-                chart(layout)
-                    .frame(height: height)
+                chart(layout, stack: stacked.isEmpty ? nil : StackedAreaData(series: stacked))
+                    .frame(height: Self.height)
                     .measuringWidth($width)
                     .accessibilityChartDescriptor(summary)
             }
@@ -85,16 +72,16 @@ struct NetWorthChart: View {
     /// The groups' washes, and the projection's key under them: stacked,
     /// the groups stand for the past, so there's no "Actual" line.
     @ViewBuilder
-    private func legend(_ layout: Layout) -> some View {
+    private func legend(_ layout: ProjectionLayout) -> some View {
         if !projection.isEmpty {
             VStack(alignment: .leading, spacing: Metrics.xs) {
-                if layout.stack != nil {
+                if !stacked.isEmpty {
                     groupLegend
                 }
-                ProjectionLegend(showsActual: !history.isEmpty && layout.stack == nil, dashedMedian: true,
+                ProjectionLegend(showsActual: !history.isEmpty && stacked.isEmpty, dashedMedian: true,
                                  clipsBand: layout.clipsBand)
             }
-        } else if layout.stack != nil {
+        } else if !stacked.isEmpty {
             groupLegend
         }
     }
@@ -103,27 +90,13 @@ struct NetWorthChart: View {
         ChartLegendRow(items: stacked.map { ChartLegendItem(name: $0.name, swatch: .wash($0.color)) })
     }
 
-    private var layout: Layout {
+    /// Everything placed for the chart's width and height: the value axis
+    /// fits the history and the stacked areas, and the projection's median
+    /// and 25–75% band.
+    private var layout: ProjectionLayout {
         let dates = history.map(\.date) + projection.map(\.date) + stacked.flatMap { $0.points.map(\.date) }
-        let first = dates.min() ?? Date()
-        let last = max(dates.max() ?? first, first.addingTimeInterval(86_400 * 31))
-        let domain = first...last
-        let plotWidth = ChartText.plotWidth(chartWidth: Double(width))
-        let plotHeight = Double(height) - ChartText.timeAxisHeight
-        let markerLayout = MarkerLabelLayout(markers: markers, domain: domain, plotWidth: plotWidth)
-        let values = history.map(\.value) + stacked.stackedExtents
-        let ticks = TimeTicks(domain: domain, plotWidth: plotWidth)
-        let stack = stacked.isEmpty ? nil : StackedAreaData(series: stacked)
-        if projection.isEmpty {
-            let scale = AmountScale(values: values).reservingTop(points: markerLayout.headroom, plotHeight: plotHeight)
-            return Layout(domain: domain, ticks: ticks, markers: markerLayout, scale: scale, clipsBand: false,
-                          projection: [], stack: stack)
-        }
-        let projectionScale = ProjectionScale(history: values, fan: projection, markerHeadroom: markerLayout.headroom,
-                                              plotHeight: plotHeight)
-        return Layout(domain: domain, ticks: ticks, markers: markerLayout, scale: projectionScale.scale,
-                      clipsBand: projectionScale.clipsBand, projection: projection.map(projectionScale.clamped),
-                      stack: stack)
+        return ProjectionLayout(dates: dates, values: history.map(\.value) + stacked.stackedExtents, fan: projection,
+                                markers: markers, width: Double(width), height: Double(Self.height))
     }
 
     /// Today's value, the 1× of the axis while amounts are hidden.
@@ -139,9 +112,10 @@ struct NetWorthChart: View {
             : StrokeStyle(lineWidth: Metrics.lineWidth, lineCap: .round, lineJoin: .round, dash: [3, 4])
     }
 
-    private func chart(_ layout: Layout) -> some View {
+    /// - Parameter stack: the stacked areas; `nil` without `stacked` series.
+    private func chart(_ layout: ProjectionLayout, stack: StackedAreaData?) -> some View {
         Chart {
-            if let stack = layout.stack {
+            if let stack {
                 stackedAreas(stack)
             } else {
                 ForEach(history) { point in
@@ -161,7 +135,7 @@ struct NetWorthChart: View {
                 }
             }
 
-            ForEach(layout.projection) { point in
+            ForEach(layout.fan) { point in
                 AreaMark(x: .value("Date", point.date), yStart: .value("10th percentile", point.p10),
                          yEnd: .value("90th percentile", point.p90), series: .value("Series", "Projection 10–90"))
                     .foregroundStyle(Palette.accent.opacity(ProjectionLegend.outerBand))
@@ -177,18 +151,7 @@ struct NetWorthChart: View {
                     .interpolationMethod(.monotone)
             }
 
-            ForEach(layout.markers.placements) { placement in
-                RuleMark(x: .value("Date", placement.marker.date),
-                         yStart: .value("Bottom", layout.scale.domain.lowerBound),
-                         yEnd: .value("Top", layout.scale.dataTop))
-                    .foregroundStyle(Palette.axis)
-                    .lineStyle(StrokeStyle(lineWidth: 1))
-                    .annotation(position: .top, alignment: markerAlignment(placement),
-                                spacing: markerSpacing(placement),
-                                overflowResolution: .init(x: .fit(to: .chart), y: .fit(to: .chart))) {
-                        ChartMarkerLabel(placement: placement)
-                    }
-            }
+            markerRules(layout.markers, scale: layout.scale)
 
             if let selected = selection(layout) {
                 // The callout stays inside the chart, never over what's above it.
@@ -250,14 +213,6 @@ struct NetWorthChart: View {
         }
     }
 
-    private func markerAlignment(_ placement: MarkerLabelLayout.Placement) -> Alignment {
-        placement.showsLabel ? (placement.endsAtRule ? .trailing : .leading) : .center
-    }
-
-    private func markerSpacing(_ placement: MarkerLabelLayout.Placement) -> CGFloat {
-        2 + CGFloat(placement.row) * CGFloat(ChartText.rowHeight)
-    }
-
     // MARK: Reading a date
 
     /// What the finger is on: a history point, or the projection beyond it.
@@ -270,11 +225,11 @@ struct NetWorthChart: View {
         var isProjection: Bool { fan != nil }
     }
 
-    private func selection(_ layout: Layout) -> Selection? {
+    private func selection(_ layout: ProjectionLayout) -> Selection? {
         guard let selectedDate else { return nil }
         let lastHistory = history.last?.date ?? .distantPast
         if selectedDate > lastHistory || history.isEmpty,
-           let fan = layout.projection.min(by: {
+           let fan = layout.fan.min(by: {
                abs($0.date.timeIntervalSince(selectedDate)) < abs($1.date.timeIntervalSince(selectedDate))
            }),
            let original = projection.first(where: { $0.date == fan.date }) {
@@ -284,14 +239,14 @@ struct NetWorthChart: View {
         return Selection(date: point.date, value: point.value, point: point, fan: nil)
     }
 
-    private func callout(for selection: Selection, layout: Layout) -> some View {
+    private func callout(for selection: Selection, layout: ProjectionLayout) -> some View {
         VStack(alignment: .leading, spacing: 2) {
             if let fan = selection.fan {
                 Text(fan.date, format: .dateTime.month(.abbreviated).year())
                     .font(.caption2)
                     .foregroundStyle(Palette.secondaryInk)
                 calloutRow("Median") {
-                    AmountText(Decimal(wholeNumber: fan.p50), currency: currency)
+                    AmountText(Decimal(wholeNumber: fan.p50))
                 }
                 calloutRow("25–75%") { range(fan.p25, fan.p75) }
                 calloutRow("10–90%") { range(fan.p10, fan.p90) }
@@ -299,7 +254,7 @@ struct NetWorthChart: View {
                 Text(point.date, format: .dateTime.day().month(.abbreviated).year())
                     .font(.caption2)
                     .foregroundStyle(Palette.secondaryInk)
-                AmountText(Decimal(wholeNumber: point.value), currency: currency)
+                AmountText(Decimal(wholeNumber: point.value))
                     .font(.caption.weight(.semibold))
                 if !point.isComplete {
                     Text("Partial: some values are missing")
@@ -312,21 +267,20 @@ struct NetWorthChart: View {
                             Circle().fill(Palette.stroke(for: series.color)).frame(width: 6, height: 6)
                             Text(series.name).font(.caption2).foregroundStyle(Palette.secondaryInk)
                             Spacer(minLength: 4)
-                            AmountText(Decimal(wholeNumber: value), currency: currency).font(.caption2)
+                            AmountText(Decimal(wholeNumber: value)).font(.caption2)
                         }
                     }
                 }
             }
-            ForEach(ChartsCallout.nearbyMarkers(layout.markers, at: selection.date)) { marker in
-                Label(marker.label, systemImage: marker.systemImage ?? "arrowtriangle.up.fill")
+            ForEach(layout.markers.iconOnly(near: selection.date)) { marker in
+                Label(marker.label, systemImage: marker.symbol)
                     .font(.caption2)
                     .foregroundStyle(Palette.secondaryInk)
             }
         }
         .padding(Metrics.s)
         .frame(maxWidth: 210, alignment: .leading)
-        .background(Palette.card, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-        .overlay { RoundedRectangle(cornerRadius: 8, style: .continuous).strokeBorder(Palette.border) }
+        .calloutBackground()
     }
 
     private func calloutRow<Value: View>(_ title: String, @ViewBuilder value: () -> Value) -> some View {
@@ -340,21 +294,21 @@ struct NetWorthChart: View {
 
     private func range(_ low: Double, _ high: Double) -> some View {
         HStack(spacing: 2) {
-            AmountText(Decimal(wholeNumber: low), currency: currency)
+            AmountText(Decimal(wholeNumber: low))
             Text(verbatim: "–")
-            AmountText(Decimal(wholeNumber: high), currency: currency)
+            AmountText(Decimal(wholeNumber: high))
         }
     }
 
     private var summary: ChartSummary {
-        let resolved = currency ?? baseCurrency
+        let currency = baseCurrency
         func spoken(_ points: [ChartPoint]) -> [(String, Double)] {
             points.map { (AmountFormat.mediumDate(CalendarDate($0.date, in: .current)), $0.value) }
         }
         var text = "\(title) over \(history.count) dates"
         if let first = history.first, let last = history.last {
-            text += hidesAmounts ? "." : ", from \(AmountFormat.amount(Decimal(wholeNumber: first.value), currency: resolved)) "
-                + "to \(AmountFormat.amount(Decimal(wholeNumber: last.value), currency: resolved))."
+            text += hidesAmounts ? "." : ", from \(AmountFormat.amount(Decimal(wholeNumber: first.value), currency: currency)) "
+                + "to \(AmountFormat.amount(Decimal(wholeNumber: last.value), currency: currency))."
         }
         if !stacked.isEmpty {
             text += " Stacked: \(stacked.map(\.name).formatted(.list(type: .and)))."
@@ -365,7 +319,7 @@ struct NetWorthChart: View {
         }
         if let end = projection.last {
             text += hidesAmounts ? " Projected ahead." : " Projected median at the end: "
-                + "\(AmountFormat.amount(Decimal(wholeNumber: end.p50), currency: resolved))."
+                + "\(AmountFormat.amount(Decimal(wholeNumber: end.p50), currency: currency))."
         }
         if !markers.isEmpty {
             text += " Marked: \(markers.map(\.label).joined(separator: ", "))."
@@ -374,15 +328,7 @@ struct NetWorthChart: View {
         return ChartSummary(
             title: title, summary: text, xTitle: "Date", yTitle: title,
             series: [ChartSummary.Series(name: title, points: spoken(history))] + groups,
-            describeValue: ChartStyle.spokenAmount(currency: resolved))
-    }
-}
-
-/// Shared pieces of the charts' callouts.
-enum ChartsCallout {
-    /// The markers near `date` that show only their icon: their labels go in the callout.
-    static func nearbyMarkers(_ layout: MarkerLabelLayout, at date: Date) -> [ChartMarker] {
-        chartMarkers(layout.iconOnly, near: date)
+            describeValue: ChartStyle.spokenAmount(currency: currency))
     }
 }
 
@@ -420,8 +366,9 @@ struct ChartPlaceholder: View {
         ChartMarker(date: end.adding(years: 21).dateValue, label: "State pension 67", systemImage: "building.columns"),
         ChartMarker(date: end.adding(years: 22).dateValue, label: "BMW 60", systemImage: "building.columns"),
     ]
-    let planHistory = valuator.series(.planAssets, through: end).chartPoints
-    let planStacked = valuator.breakdownSeries(in: .planAssets, through: end).chartSeries
+    // As the Overview has them: net worth, and plan assets with the future.
+    let netWorth = OverviewHistory(valuator: valuator, through: end, range: .all)
+    let planAssets = OverviewHistory(valuator: valuator, through: end, range: .all, projection: fan, markers: markers)
     // Made-up: a dollar account's rate is missing for the first five months, so equity is partly left out.
     let months = (0..<12).map { end.adding(months: $0 - 11).dateValue }
     let partialCash = months.enumerated().map { month, date in
@@ -436,15 +383,15 @@ struct ChartPlaceholder: View {
                 NetWorthChart(history: history)
             }
             Card("By asset class") {
-                NetWorthChart(history: history, stacked: valuator.breakdownSeries(through: end).chartSeries)
+                NetWorthChart(history: netWorth.points, stacked: netWorth.stacked)
             }
             Card("Plan assets by asset class, with the future") {
-                NetWorthChart(history: planHistory, stacked: planStacked, projection: fan, markers: markers,
-                              title: "Plan assets")
+                NetWorthChart(history: planAssets.points, stacked: planAssets.stacked,
+                              projection: planAssets.projection, markers: planAssets.markers, title: "Plan assets")
             }
             Card("With the future, amounts hidden") {
-                NetWorthChart(history: planHistory, stacked: planStacked, projection: fan, markers: markers,
-                              title: "Plan assets")
+                NetWorthChart(history: planAssets.points, stacked: planAssets.stacked,
+                              projection: planAssets.projection, markers: planAssets.markers, title: "Plan assets")
                     .environment(\.hidesAmounts, true)
             }
             Card("By asset class, some values missing") {

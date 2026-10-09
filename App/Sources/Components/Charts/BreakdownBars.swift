@@ -10,16 +10,8 @@ import Tracker
 ///     BreakdownBars(rows: valuator.breakdown(by: .assetClass, on: date).rows)
 struct BreakdownBars: View {
     var rows: [BreakdownRow]
-    /// `nil` for the base currency.
-    var currency: CurrencyCode?
     /// Show at most this many rows; the rest fold into "Other".
     var limit: Int?
-
-    init(rows: [BreakdownRow], currency: CurrencyCode? = nil, limit: Int? = nil) {
-        self.rows = rows
-        self.currency = currency
-        self.limit = limit
-    }
 
     private var shownRows: [BreakdownRow] {
         guard let limit, rows.count > limit, limit > 1 else { return rows }
@@ -49,7 +41,7 @@ struct BreakdownBars: View {
                             .foregroundStyle(Palette.ink)
                             .lineLimit(1)
                         bar(for: row)
-                        AmountText(row.value, currency: currency)
+                        AmountText(row.value)
                             .font(.subheadline)
                             .gridColumnAlignment(.trailing)
                         Text(row.share.map { AmountFormat.percent($0, digits: 0) } ?? "")
