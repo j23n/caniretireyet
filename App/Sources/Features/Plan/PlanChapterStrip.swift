@@ -4,11 +4,11 @@ import SwiftUI
 
 /// "Your life in 6 chapters" (UI.md, "Plan"): the chapters side by side on a
 /// strip that scrolls sideways, each card as wide as its years (never too
-/// narrow to read, and on iPhone never narrower than the screen), on one
-/// money scale, so the graph runs on from card to card. Choosing a card
-/// selects its chapter, whose details show below the strip; selecting one
-/// elsewhere scrolls it into view. The pointer over a card, or a finger
-/// touched and held on it, reads the graph there.
+/// narrow to read, and on iPhone never narrower than the screen), on the
+/// money scale the cards on screen share, so the graph runs on from card to
+/// card. Choosing a card selects its chapter, whose details show below the
+/// strip; selecting one elsewhere scrolls it into view. The pointer over a
+/// card, or a finger touched and held on it, reads the graph there.
 struct PlanChapterStrip: View {
     let timeline: PlanTimeline
     @Binding var selection: Int
@@ -22,8 +22,6 @@ struct PlanChapterStrip: View {
     @Environment(\.baseCurrency) private var currency
     @Environment(\.hidesAmounts) private var hidesAmounts
     @Environment(\.dynamicTypeSize) private var typeSize
-    /// Where the pointer is over a card, or where one was tapped.
-    @State private var pointer: PlanGraphPointer?
     @State private var stripWidth: CGFloat = 0
 
     /// No card narrower: room for its name and where the money stands.
@@ -35,40 +33,17 @@ struct PlanChapterStrip: View {
         // The words above and below the graph grow with the text size, up to a point.
         let textScale = typeSize.stripCardScale
         let height = Self.cardHeight + 190 * (textScale - 1)
-        ScrollViewReader { proxy in
-            ScrollView(.horizontal) {
-                HStack(alignment: .top, spacing: Metrics.s) {
-                    ForEach(timeline.cards) { card in
-                        Button {
-                            selection = card.index
-                        } label: {
-                            PlanChapterCardView(card: card, scale: timeline.scale, width: width(of: card),
-                                                height: height, isSelected: selection == card.index,
-                                                currency: currency,
-                                                pointerX: pointer?.index == card.index ? pointer?.x : nil,
-                                                textScale: textScale)
-                                .planGraphPointer($pointer, index: card.index)
-                        }
-                        .buttonStyle(.plain)
-                        .id(card.index)
-                        .accessibilityLabel(Text(accessibilityLabel(card)))
-                        .accessibilityAddTraits(selection == card.index ? .isSelected : [])
-                        .accessibilityChartDescriptor(chartSummary(card))
-                    }
-                }
-                .padding(.horizontal, inset)
-                .padding(.vertical, 2)
-                .dynamicTypeSize(...DynamicTypeSize.stripCardLimit)
-            }
-            .scrollIndicators(.hidden)
-            .measuringWidth($stripWidth)
-            // A finger reading the graph moves the read-out, not the strip.
-            .scrollDisabled(pointer?.byTouch == true)
-            .accessibilityIdentifier("plan.chapters")
-            .onChange(of: selection) { _, index in
-                withAnimation(.snappy) { proxy.scrollTo(index, anchor: .center) }
-            }
+        PlanCardStrip(
+            indices: Array(timeline.cards.indices), selection: $selection, inset: inset,
+            identifier: "plan.chapters", scale: timeline.scale(fitting:),
+            spokenLabel: { accessibilityLabel(timeline.cards[$0]) }, chart: { chartSummary(timeline.cards[$0]) }
+        ) { index, scale, pointerX in
+            let card = timeline.cards[index]
+            PlanChapterCardView(card: card, scale: scale, width: width(of: card), height: height,
+                                isSelected: selection == index, currency: currency, pointerX: pointerX,
+                                textScale: textScale)
         }
+        .measuringWidth($stripWidth)
     }
 
     private func width(of card: PlanTimeline.Card) -> CGFloat {
@@ -113,7 +88,7 @@ struct PlanChapterStrip: View {
 /// stands at its end; at the pointer, what the graph shows there.
 struct PlanChapterCardView: View {
     let card: PlanTimeline.Card
-    let scale: AmountScale?
+    let scale: PlanStripScale?
     let width: CGFloat
     let height: CGFloat
     var isSelected = false
@@ -127,22 +102,29 @@ struct PlanChapterCardView: View {
     @Environment(\.hidesAmounts) private var hidesAmounts
     @Environment(\.locale) private var locale
 
-    private static let graphHeight: CGFloat = 150
     private static let labelWidth: CGFloat = 132
-    /// The header's height, which grows with the text size.
-    private var graphTop: CGFloat { 64 * textScale }
-    private var plotBottom: CGFloat { graphTop + Self.graphHeight }
+
+    /// The chapter across the card, edge to edge, so the graph runs on from
+    /// one card into the next, under the header, which grows with the text size.
+    private var plot: PlanStripPlot {
+        PlanStripPlot(start: card.start, end: card.end, left: 0, right: width, top: 64 * textScale)
+    }
 
     var body: some View {
-        let shape = RoundedRectangle(cornerRadius: 14, style: .continuous)
         ZStack(alignment: .topLeading) {
             Canvas { context, size in
                 draw(in: &context, size: size)
             }
             .frame(width: width, height: height)
+            // A new fit of the scale fades the graph to its new place.
+            .id(scale)
+            .transition(.opacity)
             .accessibilityHidden(true)
             header
-            amountLabels
+            if let scale, !card.fan.isEmpty {
+                PlanStripAmountLabels(scale: scale, plot: plot, width: width,
+                                      line: card.fan.map { plot.point($0.date, $0.p50, scale) }, currency: currency)
+            }
             ageLabels
             eventLabels
             if let scale {
@@ -155,12 +137,7 @@ struct PlanChapterCardView: View {
             }
         }
         .frame(width: width, height: height, alignment: .topLeading)
-        .background(Palette.card, in: shape)
-        .clipShape(shape)
-        .overlay {
-            shape.strokeBorder(isSelected ? Palette.accent : Palette.border, lineWidth: isSelected ? 2 : 1)
-        }
-        .contentShape(shape)
+        .contentShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
     }
 
     // MARK: Words
@@ -186,19 +163,6 @@ struct PlanChapterCardView: View {
         .offset(x: 12, y: 12)
     }
 
-    /// The money scale's gridlines, labelled inside the plot (not while amounts are hidden).
-    @ViewBuilder
-    private var amountLabels: some View {
-        if let scale, !hidesAmounts, !card.fan.isEmpty {
-            ForEach(scale.ticks.filter { $0 > scale.domain.lowerBound }, id: \.self) { tick in
-                Text(verbatim: AmountFormat.compactAmount(tick, currency: currency, locale: locale))
-                    .font(.caption2)
-                    .foregroundStyle(Palette.mutedInk)
-                    .offset(x: 6, y: y(tick, scale) - 15)
-            }
-        }
-    }
-
     /// "Now" or the starting age at the left, ages on round numbers, and the
     /// plan's end age under the last card.
     private var ageLabels: some View {
@@ -206,21 +170,21 @@ struct PlanChapterCardView: View {
             Text(card.startLabel)
                 .font(.caption2.weight(.semibold))
                 .foregroundStyle(card.index == 0 ? Palette.accent : Palette.ink)
-                .offset(x: 6, y: plotBottom + 6)
+                .offset(x: 6, y: plot.bottom + 6)
             ForEach(card.ticks) { tick in
                 Text(verbatim: "\(tick.age)")
                     .font(.caption2)
                     .monospacedDigit()
                     .foregroundStyle(Palette.mutedInk)
                     .frame(width: 28)
-                    .offset(x: x(tick.date) - 14, y: plotBottom + 6)
+                    .offset(x: plot.x(tick.date) - 14, y: plot.bottom + 6)
             }
             if let end = card.endLabel {
                 Text(end)
                     .font(.caption2.weight(.semibold))
                     .foregroundStyle(Palette.ink)
                     .frame(width: 28, alignment: .trailing)
-                    .offset(x: width - 34, y: plotBottom + 6)
+                    .offset(x: width - 34, y: plot.bottom + 6)
             }
         }
     }
@@ -241,7 +205,7 @@ struct PlanChapterCardView: View {
                 .lineLimit(1)
                 .privacySensitive()
                 .frame(width: labelWidth, alignment: .leading)
-                .offset(x: placed.x, y: plotBottom + 26 * textScale)
+                .offset(x: placed.x, y: plot.bottom + 26 * textScale)
             }
         }
     }
@@ -253,7 +217,7 @@ struct PlanChapterCardView: View {
         var placed: [(event: PlanTimeline.Event, x: CGFloat)] = []
         var end: CGFloat = 0
         for event in card.events {
-            let start = min(max(8, x(event.date) - 6), width - labelWidth - 8)
+            let start = min(max(8, plot.x(event.date) - 6), width - labelWidth - 8)
             guard start >= end else { continue }
             placed.append((event: event, x: start))
             end = start + labelWidth + 8
@@ -274,11 +238,11 @@ struct PlanChapterCardView: View {
 
     /// The milestones ahead in the chapter: the first and the last named,
     /// when their names don't run into each other; the rest small dots.
-    private func marks(_ scale: AmountScale) -> [Mark] {
+    private func marks(_ scale: PlanStripScale) -> [Mark] {
         let text = PlanMilestoneText(currency: currency, hidesAmounts: hidesAmounts, locale: locale)
         var marks: [Mark] = card.milestones.compactMap { milestone in
             let day = milestone.date.dateValue
-            return card.fan(on: day).map { Mark(milestone: milestone, point: point(day, $0.p50, scale)) }
+            return card.fan(on: day).map { Mark(milestone: milestone, point: plot.point(day, $0.p50, scale)) }
         }
         guard !marks.isEmpty else { return [] }
         /// Where a name and its flag reach, about: 6 points a letter.
@@ -300,10 +264,10 @@ struct PlanChapterCardView: View {
 
     /// The named milestones' names and when, above their flags (below
     /// when there's no room above), on the card's colour.
-    private func milestoneLabels(_ scale: AmountScale) -> some View {
+    private func milestoneLabels(_ scale: PlanStripScale) -> some View {
         let text = PlanMilestoneText(currency: currency, hidesAmounts: hidesAmounts, locale: locale)
         return ForEach(marks(scale).filter(\.isNamed)) { mark in
-            let above = mark.point.y - 44 >= graphTop - 6
+            let above = mark.point.y - 44 >= plot.top - 6
             VStack(alignment: mark.runsRight ? .leading : .trailing, spacing: 0) {
                 Text(text.label(mark.milestone.milestone))
                     .font(.caption2.weight(.semibold))
@@ -312,10 +276,7 @@ struct PlanChapterCardView: View {
                     .font(.caption2)
                     .foregroundStyle(Palette.secondaryInk)
             }
-            .lineLimit(1)
-            .padding(.horizontal, 2)
-            .background(Palette.card.opacity(0.85), in: RoundedRectangle(cornerRadius: 3, style: .continuous))
-            .fixedSize()
+            .planGraphLabel()
             .frame(width: mark.runsRight ? nil : max(0, mark.point.x + 10), alignment: .trailing)
             .offset(x: mark.runsRight ? max(4, mark.point.x - 2) : 0,
                     y: above ? mark.point.y - 44 : mark.point.y + 6)
@@ -379,18 +340,17 @@ struct PlanChapterCardView: View {
 
     private func reading(at pointerX: CGFloat) -> Reading {
         let at = min(max(0, pointerX), width)
-        func distance(_ date: Date) -> CGFloat { abs(x(date) - at) }
+        func distance(_ date: Date) -> CGFloat { abs(plot.x(date) - at) }
         if let milestone = card.milestones.min(by: { distance($0.date.dateValue) < distance($1.date.dateValue) }),
            distance(milestone.date.dateValue) <= Self.reach {
             let day = milestone.date.dateValue
-            return Reading(x: x(day), date: day, fan: card.fan(on: day), milestone: milestone)
+            return Reading(x: plot.x(day), date: day, fan: card.fan(on: day), milestone: milestone)
         }
         if let event = card.events.min(by: { distance($0.date) < distance($1.date) }),
            distance(event.date) <= Self.reach {
-            return Reading(x: x(event.date), date: event.date, fan: card.fan(on: event.date), event: event)
+            return Reading(x: plot.x(event.date), date: event.date, fan: card.fan(on: event.date), event: event)
         }
-        let share = width > 0 ? Double(at / width) : 0
-        let date = card.start.addingTimeInterval(card.end.timeIntervalSince(card.start) * share)
+        let date = plot.date(at: at)
         return Reading(x: at, date: date, fan: card.fan(on: date))
     }
 
@@ -400,14 +360,14 @@ struct PlanChapterCardView: View {
     private func readout(at pointerX: CGFloat) -> some View {
         let found = reading(at: pointerX)
         return ZStack(alignment: .topLeading) {
-            PlanGraphRule(height: Self.graphHeight)
-                .offset(x: found.x - 0.5, y: graphTop)
+            PlanGraphRule(height: PlanStripPlot.height)
+                .offset(x: found.x - 0.5, y: plot.top)
             if let scale, let fan = found.fan {
                 PlanGraphDot()
-                    .offset(x: found.x - 4.5, y: y(fan.p50, scale) - 4.5)
+                    .offset(x: found.x - 4.5, y: plot.y(fan.p50, scale) - 4.5)
             }
             PlanGraphCallout(lines: lines(for: found))
-                .offset(x: PlanGraphCallout.leading(at: found.x, in: width), y: graphTop + 4)
+                .offset(x: PlanGraphCallout.leading(at: found.x, in: width), y: plot.top + 4)
         }
         .allowsHitTesting(false)
         .accessibilityHidden(true)
@@ -442,33 +402,16 @@ struct PlanChapterCardView: View {
 
     // MARK: Drawing
 
-    private func x(_ date: Date) -> CGFloat {
-        let span = card.end.timeIntervalSince(card.start)
-        guard span > 0 else { return 0 }
-        return CGFloat(date.timeIntervalSince(card.start) / span) * width
-    }
-
-    private func y(_ value: Double, _ scale: AmountScale) -> CGFloat {
-        let low = scale.domain.lowerBound
-        let high = scale.domain.upperBound
-        let share = high > low ? (value - low) / (high - low) : 0
-        return plotBottom - CGFloat(min(1, max(0, share))) * Self.graphHeight
-    }
-
-    private func point(_ date: Date, _ value: Double, _ scale: AmountScale) -> CGPoint {
-        CGPoint(x: x(date), y: y(value, scale))
-    }
-
     private func band(_ low: KeyPath<FanPoint, Double>, _ high: KeyPath<FanPoint, Double>,
-                      _ scale: AmountScale) -> Path {
+                      _ scale: PlanStripScale) -> Path {
         var path = Path()
         guard let first = card.fan.first else { return path }
-        path.move(to: point(first.date, first[keyPath: high], scale))
+        path.move(to: plot.point(first.date, first[keyPath: high], scale))
         for fanPoint in card.fan.dropFirst() {
-            path.addLine(to: point(fanPoint.date, fanPoint[keyPath: high], scale))
+            path.addLine(to: plot.point(fanPoint.date, fanPoint[keyPath: high], scale))
         }
         for fanPoint in card.fan.reversed() {
-            path.addLine(to: point(fanPoint.date, fanPoint[keyPath: low], scale))
+            path.addLine(to: plot.point(fanPoint.date, fanPoint[keyPath: low], scale))
         }
         path.closeSubpath()
         return path
@@ -476,28 +419,23 @@ struct PlanChapterCardView: View {
 
     private func draw(in context: inout GraphicsContext, size: CGSize) {
         var base = Path()
-        base.move(to: CGPoint(x: 0, y: plotBottom + 1))
-        base.addLine(to: CGPoint(x: size.width, y: plotBottom + 1))
+        base.move(to: CGPoint(x: 0, y: plot.bottom + 1))
+        base.addLine(to: CGPoint(x: size.width, y: plot.bottom + 1))
         context.stroke(base, with: .color(PlanChapterColors.color(card.style)), lineWidth: 2)
         guard let scale, card.fan.count >= 2 else { return }
-        for tick in scale.ticks where tick > scale.domain.lowerBound {
-            var line = Path()
-            line.move(to: CGPoint(x: 0, y: y(tick, scale)))
-            line.addLine(to: CGPoint(x: size.width, y: y(tick, scale)))
-            context.stroke(line, with: .color(Palette.gridline), lineWidth: 0.5)
-        }
+        plot.drawGridlines(scale, width: size.width, in: &context)
         context.fill(band(\.p10, \.p90, scale), with: .color(Palette.accent.opacity(ProjectionLegend.outerBand)))
         context.fill(band(\.p25, \.p75, scale), with: .color(Palette.accent.opacity(ProjectionLegend.innerBand)))
         var median = Path()
         for (offset, fanPoint) in card.fan.enumerated() {
-            let position = point(fanPoint.date, fanPoint.p50, scale)
+            let position = plot.point(fanPoint.date, fanPoint.p50, scale)
             if offset == 0 { median.move(to: position) } else { median.addLine(to: position) }
         }
         context.stroke(median, with: .color(Palette.accent),
                        style: StrokeStyle(lineWidth: Metrics.lineWidth, lineCap: .round, lineJoin: .round))
         for event in card.events {
             guard let value = card.fan(on: event.date)?.p50 else { continue }
-            let center = point(event.date, value, scale)
+            let center = plot.point(event.date, value, scale)
             let dot = Path(ellipseIn: CGRect(x: center.x - 4, y: center.y - 4, width: 8, height: 8))
             context.fill(dot, with: .color(Self.color(of: event.kind)))
             context.stroke(dot, with: .color(Palette.card), lineWidth: 1.5)

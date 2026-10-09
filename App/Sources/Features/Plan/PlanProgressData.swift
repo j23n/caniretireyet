@@ -503,9 +503,9 @@ extension PlanProgressYear {
 // MARK: - The years on a strip
 
 /// Progress as a strip of years (UI.md, "Progress"): a card per year with
-/// your money through it against what January expected, on one scale every
-/// card shares, so December of one year meets January of the next; where
-/// the answer moved; and the year's story. Oldest first: the strip opens at
+/// your money through it against what January expected, on a scale the
+/// cards on screen share, so December of one year meets January of the
+/// next; where the answer moved; and the year's story. Oldest first: the strip opens at
 /// today, on the right.
 struct PlanProgressTimeline {
     /// Something that happened at a check-in of the year: the answer moved,
@@ -650,30 +650,8 @@ struct PlanProgressTimeline {
         }
     }
 
-    /// A money scale fitted to the years' values rather than from zero, so a
-    /// year's movement and its gap to January show; ticks on round steps.
-    struct Scale: Hashable, Sendable {
-        var domain: ClosedRange<Double>
-        /// Lowest first.
-        var ticks: [Double]
-
-        init?(values: [Double], desiredTicks: Int = 3) {
-            let finite = values.filter(\.isFinite)
-            guard let low = finite.min(), let high = finite.max() else { return nil }
-            let room = Swift.max((high - low) * 0.08, abs(high) * 0.01, 1)
-            let step = AmountScale.niceStep((high - low + 2 * room) / Double(Swift.max(desiredTicks, 1)))
-            var bottom = ((low - room) / step).rounded(.down) * step
-            if low >= 0 { bottom = Swift.max(0, bottom) }
-            let top = Swift.max(((high + room) / step).rounded(.up) * step, bottom + step)
-            domain = bottom...top
-            ticks = stride(from: bottom, through: top + step * 1e-9, by: step).map { $0 == 0 ? 0 : $0 }
-        }
-    }
-
     /// Oldest first.
     let cards: [Card]
-    /// The money scale every card shares; `nil` without values.
-    let scale: Scale?
 
     /// - Parameters:
     ///   - years: the years, oldest first (``PlanProgressYear/years(for:library:valuator:history:asOf:)``).
@@ -726,16 +704,16 @@ struct PlanProgressTimeline {
                         summary: PlanProgressText.summary(year, milestones: inYear, text: text),
                         currency: library.settings.baseCurrency, start: start, end: end)
         }
-        scale = Scale(values: cards.flatMap { card in card.actual.map(\.value) + card.expected.map(\.value) })
     }
 
-    /// A scale fitted to the cards at `indices`, the ones on screen, so a
-    /// year's moves show however far its money is from other years'
-    /// (UI.md, "Progress"); ``scale``, fitted to every card, without them.
-    func scale(fitting indices: Set<Int>) -> Scale? {
+    /// The money scale fitted to the cards at `indices`, the ones on screen
+    /// (UI.md, "Progress"): your money and what was expected; to every card
+    /// without one of them. `nil` without values.
+    func scale(fitting indices: Set<Int>) -> PlanStripScale? {
         let shown = indices.filter(cards.indices.contains)
-        guard !shown.isEmpty else { return scale }
-        return Scale(values: shown.flatMap { cards[$0].actual.map(\.value) + cards[$0].expected.map(\.value) })
+        return PlanStripScale(values: (shown.isEmpty ? Set(cards.indices) : shown).flatMap { index in
+            cards[index].actual.map(\.value) + cards[index].expected.map(\.value)
+        })
     }
 
     /// What `baseline` expected on each of `days` and on `end`, in the money

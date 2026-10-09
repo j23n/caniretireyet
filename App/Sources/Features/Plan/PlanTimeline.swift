@@ -5,9 +5,10 @@ import Planner
 import Tracker
 
 /// The plan as a strip of chapters (UI.md, "Plan"): a card per chapter, as
-/// wide as its years, with the money through it on one scale every card
-/// shares, so the graph runs on from card to card; the ages along each
-/// card's bottom, what happens in it, and where the money stands at its end.
+/// wide as its years, with the money through it on a scale the cards on
+/// screen share, so the graph runs on from card to card; the ages along
+/// each card's bottom, what happens in it, and where the money stands at its
+/// end.
 struct PlanTimeline {
     /// Something that happens on a date within a chapter, marked on its card.
     struct Event: Hashable, Sendable, Identifiable {
@@ -93,10 +94,6 @@ struct PlanTimeline {
     static let secondsPerYear = 365.25 * 86_400
 
     let cards: [Card]
-    /// The money scale every card shares. It fits the medians and the
-    /// middle half of futures, so the outer band may run off the top.
-    /// `nil` before the plan has results, or without the rate to show them in.
-    let scale: AmountScale?
 
     /// - Parameters:
     ///   - valuator: converts results calculated before the base currency
@@ -133,12 +130,18 @@ struct PlanTimeline {
                 },
                 outcome: model.outcomes[index], birthDate: birthDate)
         }
-        if cards.contains(where: { !$0.fan.isEmpty }) {
-            let values = cards.flatMap { card in card.fan.flatMap { point in [point.p25, point.p50, point.p75] } }
-            scale = AmountScale(values: values + [0])
-        } else {
-            scale = nil
-        }
+    }
+
+    /// The money scale fitted to the cards at `indices`, the ones on screen
+    /// (UI.md, "Plan"): the medians and the middle half of futures, so the
+    /// outer band may run off the top or the bottom; to every card without
+    /// one of them. `nil` before the plan has results, or without the rate
+    /// to show them in.
+    func scale(fitting indices: Set<Int>) -> PlanStripScale? {
+        let shown = indices.filter(cards.indices.contains)
+        return PlanStripScale(values: (shown.isEmpty ? Set(cards.indices) : shown).flatMap { index in
+            cards[index].fan.flatMap { point in [point.p25, point.p50, point.p75] }
+        })
     }
 
     /// What happens on a date in `chapter`: events, a pension or other income
