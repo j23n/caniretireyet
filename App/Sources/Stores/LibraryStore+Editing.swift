@@ -52,11 +52,6 @@ extension LibraryStore {
 
     // MARK: Instruments
 
-    /// Adds or replaces an instrument.
-    func save(_ instrument: Instrument) throws {
-        try update { $0.instruments[instrument.id] = instrument }
-    }
-
     /// Adds or replaces an instrument together with prices and FX rates, in
     /// one edit (e.g. a new instrument with the price its test fetch found).
     func save(_ instrument: Instrument, prices: [PriceRecord], fxRates: [FXRecord] = []) throws {
@@ -77,34 +72,13 @@ extension LibraryStore {
 
     // MARK: History
 
-    /// Adds a valuation, or replaces the one with the same account and date.
-    func upsert(_ valuation: Valuation) throws {
-        try update { $0.upsert(valuation) }
-    }
-
-    /// Replaces a valuation whose key (account or date) may have changed.
-    func replace(_ old: ValuationKey, with valuation: Valuation) throws {
-        try update { library in
-            library.removeValuation(old)
-            library.upsert(valuation)
-        }
-    }
-
-    /// Removes a valuation.
-    func removeValuation(_ key: ValuationKey) throws {
-        try update { $0.removeValuation(key) }
-    }
-
     /// Saves one account's value outside a check-in (*Update Value*, the
     /// valuation editor), in place of the one at `old` when given, and
     /// waits for the write. A value dated before the account's opening date
     /// moves it back, and the automatic new money of the value after it is
     /// worked out again (a typed one is kept): `Library.saveValue(_:replacing:)`.
-    @discardableResult
-    func saveValue(_ valuation: Valuation, replacing old: ValuationKey? = nil) async throws -> ValueEdit {
-        var edit = ValueEdit()
-        try await commit { edit = $0.saveValue(valuation, replacing: old) }
-        return edit
+    func saveValue(_ valuation: Valuation, replacing old: ValuationKey? = nil) async throws {
+        try await commit { $0.saveValue(valuation, replacing: old) }
     }
 
     /// Removes one value; the automatic new money of the value after it is
@@ -120,30 +94,21 @@ extension LibraryStore {
     /// opening date back, and the automatic new money of its later values
     /// is worked out again (a typed one is kept). A trade whose key is taken
     /// gets a new ID. Tracker's `Library.addTrade(_:)`.
-    @discardableResult
-    func addTrade(_ trade: Trade) async throws -> TradeEdit {
-        var edit = TradeEdit()
-        try await commit { edit = $0.addTrade(trade) }
-        return edit
+    func addTrade(_ trade: Trade) async throws {
+        try await commit { $0.addTrade(trade) }
     }
 
     /// Replaces the trade at `old` (its key before the edit, when its date
     /// changed) with `trade`, with the same follow-on effects as
     /// ``addTrade(_:)``, and waits for the write (`Library.updateTrade(_:replacing:)`).
-    @discardableResult
-    func updateTrade(_ trade: Trade, replacing old: TradeKey? = nil) async throws -> TradeEdit {
-        var edit = TradeEdit()
-        try await commit { edit = $0.updateTrade(trade, replacing: old) }
-        return edit
+    func updateTrade(_ trade: Trade, replacing old: TradeKey? = nil) async throws {
+        try await commit { $0.updateTrade(trade, replacing: old) }
     }
 
     /// Removes a trade and keeps the automatic new money of the account's
     /// later values in step, and waits for the write (`Library.removeTrade(_:)`).
-    @discardableResult
-    func removeTrade(_ key: TradeKey) async throws -> TradeEdit {
-        var edit = TradeEdit()
-        try await commit { edit = $0.removeTrade(key) }
-        return edit
+    func removeTrade(_ key: TradeKey) async throws {
+        try await commit { $0.removeTrade(key) }
     }
 
     /// The backup labels of converting an account, as the CLI writes them.
@@ -154,26 +119,22 @@ extension LibraryStore {
     /// account"): openings, then the buys and sells its values imply, and
     /// its valuations keep only their cash. The months it changes are
     /// backed up first (`convert-to-trades`), as an import is, and it waits
-    /// for the write. Returns what was done; `nil`, changing nothing, when
-    /// the account doesn't exist or already records trades.
-    @discardableResult
-    func convertToTrades(_ account: AccountID) async throws -> AccountConversion? {
-        guard let conversion = library.conversionToTrades(of: account) else { return nil }
+    /// for the write. Changes nothing when the account doesn't exist or
+    /// already records trades.
+    func convertToTrades(_ account: AccountID) async throws {
+        guard let conversion = library.conversionToTrades(of: account) else { return }
         _ = try await commit(backingUpAs: Self.convertToTradesBackupLabel) { conversion.apply(to: &$0) }
-        return conversion
     }
 
     /// Makes a trades account record positions again: each valuation gets
     /// the positions, average cost and cash the trades give, and the trades
     /// are removed. The months it changes are backed up first
     /// (`convert-to-snapshots`), so the trades can be restored from
-    /// *Sync & backups*. Returns what was done; `nil` when the account
-    /// doesn't record trades.
-    @discardableResult
-    func convertToSnapshots(_ account: AccountID) async throws -> AccountConversion? {
-        guard let conversion = library.conversionToSnapshots(of: account) else { return nil }
+    /// *Sync & backups*. Changes nothing when the account doesn't record
+    /// trades.
+    func convertToSnapshots(_ account: AccountID) async throws {
+        guard let conversion = library.conversionToSnapshots(of: account) else { return }
         _ = try await commit(backingUpAs: Self.convertToSnapshotsBackupLabel) { conversion.apply(to: &$0) }
-        return conversion
     }
 
     /// Adds prices, FX rates and index values, replacing those with the same keys.
@@ -217,11 +178,11 @@ extension LibraryStore {
         }
     }
 
-    /// Copies a plan under a new name and returns the copy's ID.
+    /// Copies a plan as "<name> copy" and returns the copy's ID.
     @discardableResult
-    func duplicatePlan(_ id: PlanID, name: String? = nil) throws -> PlanID {
+    func duplicatePlan(_ id: PlanID) throws -> PlanID {
         guard var copy = library.plans[id] else { throw LibraryEditError.unknownPlan(id) }
-        copy.name = name ?? "\(copy.name) copy"
+        copy.name = "\(copy.name) copy"
         copy.id = newPlanID(for: copy.name)
         let plan = copy
         try update { $0.plans[plan.id] = plan }

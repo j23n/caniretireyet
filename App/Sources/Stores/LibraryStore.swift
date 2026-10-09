@@ -416,18 +416,6 @@ final class LibraryStore {
         return (try? await sync.backups()) ?? []
     }
 
-    /// Copies the files at `paths` (relative to the library folder, e.g.
-    /// `history/2026/2026-09.json`) into `backups/<timestamp>-<label>/`, after
-    /// the saves already queued, so the copy holds the files as they are
-    /// before the next edit. Paths that don't exist yet are recorded.
-    /// Returns `nil` for a library without files (previews).
-    func backup(paths: [String], label: String) async throws -> Backup? {
-        guard phase == .ready else { throw LibraryStoreError.notLoaded }
-        guard !isReadOnly else { throw LibraryStoreError.readOnly }
-        guard let sync else { return nil }
-        return try await enqueueThrowing { try await sync.backup(paths: paths, label: label) }
-    }
-
     /// Puts a backup's files back as they were, over any later edits,
     /// deletes the files it didn't have, and reloads them. Runs after the
     /// saves already queued. Refused for a backup of another format version.

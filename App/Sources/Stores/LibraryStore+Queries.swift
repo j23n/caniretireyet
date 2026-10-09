@@ -4,8 +4,8 @@ import Storage
 import Tracker
 
 /// Read-only shortcuts that many screens need. Everything here is computed
-/// from ``LibraryStore/library`` and ``LibraryStore/valuator``, so views that
-/// use them update when the library changes.
+/// from ``LibraryStore/library``, so views that use them update when the
+/// library changes.
 extension LibraryStore {
     var settings: LibrarySettings { library.settings }
 
@@ -32,59 +32,19 @@ extension LibraryStore {
     /// The date of the most recent check-in (any valuation), if any.
     var latestCheckIn: CalendarDate? { library.latestCheckInDate }
 
-    /// The date the Overview reports on: the latest check-in, or today
-    /// before the first one. Never after today: a value dated in the future
-    /// by mistake (`9999-12-31`) would have the Overview walk every month up
-    /// to it.
+    /// The date plans start from and Progress reports on: the latest
+    /// check-in, or today before the first one. Never after today, so a
+    /// value dated in the future by mistake (`9999-12-31`) doesn't move
+    /// them there.
     var asOfDate: CalendarDate {
         let today = CalendarDate.today()
         guard let latest = library.latestCheckInDate else { return today }
         return min(latest, today)
     }
 
-    /// Net worth at ``asOfDate``.
-    var netWorth: NetWorth { valuator.netWorth(on: asOfDate) }
-
-    /// Plan assets (what the planner counts) at ``asOfDate``.
-    var planAssets: NetWorth { valuator.total(on: asOfDate, in: .planAssets) }
-
-    /// The change between the last two check-ins, for the waterfall; `nil`
-    /// before the second check-in.
-    var changeSinceLastCheckIn: ChangeReport? { valuator.changeSinceLastCheckIn(asOf: asOfDate) }
-
-    /// The accounts whose latest value is older than `threshold` days, as of
-    /// today. An account that holds nothing has nothing to check in, so it's
-    /// never stale (``AccountStaleness``).
-    func staleAccounts(threshold: Int = Valuator.defaultStalenessThreshold) -> [StaleAccount] {
-        let today = CalendarDate.today()
-        return valuator.staleAccounts(on: today, threshold: threshold, in: .netWorth)
-            .filter { valuator.emptySince(of: $0.account, on: today) == nil }
-    }
-
     // MARK: Accounts
 
     func account(_ id: AccountID) -> Account? { library.accounts[id] }
-
-    /// Accounts open today, in display order (group, then name).
-    var openAccounts: [Account] {
-        let today = CalendarDate.today()
-        return library.accounts.values.filter { !$0.isClosed || $0.isOpen(on: today) }.sortedForDisplay()
-    }
-
-    /// Closed accounts, most recently closed first.
-    var closedAccounts: [Account] {
-        library.accounts.values.filter(\.isClosed).sorted { ($0.closed!, $1.name) > ($1.closed!, $0.name) }
-    }
-
-    /// Open accounts in `group`, sorted by name.
-    func openAccounts(in group: AccountGroup) -> [Account] {
-        openAccounts.filter { $0.group == group }
-    }
-
-    /// The groups that have open accounts, in display order.
-    var accountGroups: [AccountGroup] {
-        Set(openAccounts.map(\.group)).sorted()
-    }
 
     /// A new account ID made from a display name, unique in the library and
     /// among account files that couldn't be loaded.
