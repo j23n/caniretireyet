@@ -412,16 +412,9 @@ enum CheckInStoreError: Error, Equatable, Sendable, LocalizedError {
         case .noDraft:
             "There's no check-in in progress."
         case .changedElsewhere(let names):
-            "\(Self.list(names)) just got \(names.count == 1 ? "a value" : "values") saved on another device "
+            "\(Wording.list(names)) just got \(names.count == 1 ? "a value" : "values") saved on another device "
                 + "for this date. Nothing was saved yet: choose which values to keep, then save again."
         }
-    }
-
-    /// "Conto Fineco", "Conto Fineco and Directa", "Conto Fineco, Directa and TFR".
-    static func list(_ names: [String]) -> String {
-        guard let last = names.last else { return "" }
-        guard names.count > 1 else { return last }
-        return names.dropLast().joined(separator: ", ") + " and " + last
     }
 }
 

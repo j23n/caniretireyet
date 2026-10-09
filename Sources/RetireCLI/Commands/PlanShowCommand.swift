@@ -148,7 +148,7 @@ struct PlanInputsReport: CommandReport {
         }
         return "\(Format.amount(spending.working, places: 0)) a year while working, "
             + "\(Format.amount(spending.retired, places: 0)) in retirement"
-            + (phases.isEmpty ? "" : ", " + Format.list(phases))
+            + (phases.isEmpty ? "" : ", " + Wording.list(phases))
     }
 
     /// The target mix, its changes with age, and what the money you can draw holds today.

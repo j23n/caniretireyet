@@ -167,7 +167,7 @@ extension Portfolio {
         }
 
         if !undocumented.isEmpty {
-            let names = Self.list(undocumented)
+            let names = Wording.list(undocumented)
             issues.append(.warning(
                 "planner.unknownCostBasis",
                 "\(names) \(undocumented.count == 1 ? "has" : "have") holdings without a recorded purchase cost, "
@@ -219,14 +219,5 @@ extension Portfolio {
         let total = positive.values.reduce(0, +)
         guard total > 0 else { return nil }
         return positive.mapValues { $0 / total }
-    }
-
-    /// "A", "A and B", "A, B and C".
-    static func list(_ names: [String]) -> String {
-        switch names.count {
-        case 0: ""
-        case 1: names[0]
-        default: names.dropLast().joined(separator: ", ") + " and " + names.last!
-        }
     }
 }

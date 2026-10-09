@@ -227,17 +227,17 @@ struct NetWorthCommand: RetireSubcommand {
             }
             let planned = change.plannedFlowAccounts
             if !planned.isEmpty {
-                lines.append("  Money in or out not entered for \(Format.list(planned.map(name))): what the main plan "
+                lines.append("  Money in or out not entered for \(Wording.list(planned.map(name))): what the main plan "
                     + "pays in counts as new money, the rest as market.")
             }
             let automatic = change.automaticFlowAccounts
             if !automatic.isEmpty {
-                lines.append("  Money in or out not recorded for \(Format.list(automatic.map(name))): a balance's "
+                lines.append("  Money in or out not recorded for \(Wording.list(automatic.map(name))): a balance's "
                     + "whole change since the value before counts as new money, as a check-in fills it in.")
             }
             let unknown = change.unknownFlowAccounts
             if !unknown.isEmpty {
-                lines.append("  Money in or out unknown for \(Format.list(unknown.map(name))): a balance's change "
+                lines.append("  Money in or out unknown for \(Wording.list(unknown.map(name))): a balance's change "
                     + "without a flow counts as other.")
             }
             return lines

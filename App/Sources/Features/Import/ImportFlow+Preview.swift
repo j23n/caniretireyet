@@ -121,28 +121,28 @@ extension ImportFlow {
     var plannedSummary: String {
         guard let planned else { return "" }
         var changes: [String] = []
-        if planned.added > 0 { changes.append("adds \(PastPriceText.count(planned.added, "record"))") }
-        if planned.updated > 0 { changes.append("fills in \(PastPriceText.count(planned.updated, "record"))") }
+        if planned.added > 0 { changes.append("adds \(Wording.count(planned.added, "record"))") }
+        if planned.updated > 0 { changes.append("fills in \(Wording.count(planned.updated, "record"))") }
         if planned.overwritten > 0 {
-            changes.append("overwrites \(PastPriceText.count(planned.overwritten, "record"))")
+            changes.append("overwrites \(Wording.count(planned.overwritten, "record"))")
         }
         var sentences = [changes.isEmpty ? "Importing changes no records."
-            : "Importing \(OverviewAttention.list(changes))."]
+            : "Importing \(Wording.list(changes))."]
         if planned.kept > 0 {
             sentences.append(planned.kept == 1 ? "1 conflict keeps the library's value."
                 : "\(planned.kept) conflicts keep the library's values.")
         }
         var entities: [String] = []
         if !planned.createdAccounts.isEmpty {
-            entities.append("creates \(PastPriceText.count(planned.createdAccounts.count, "account"))")
+            entities.append("creates \(Wording.count(planned.createdAccounts.count, "account"))")
         }
         if !planned.createdInstruments.isEmpty {
-            entities.append("creates \(PastPriceText.count(planned.createdInstruments.count, "instrument"))")
+            entities.append("creates \(Wording.count(planned.createdInstruments.count, "instrument"))")
         }
         if !planned.closedAccounts.isEmpty {
-            entities.append("closes \(PastPriceText.count(planned.closedAccounts.count, "account"))")
+            entities.append("closes \(Wording.count(planned.closedAccounts.count, "account"))")
         }
-        if !entities.isEmpty { sentences.append("It \(OverviewAttention.list(entities)).") }
+        if !entities.isEmpty { sentences.append("It \(Wording.list(entities)).") }
         if !planned.recomputedFlows.isEmpty {
             let count = planned.recomputedFlows.count
             sentences.append(count == 1 ? "The new money of 1 later value is worked out again from the one before it."
@@ -150,7 +150,7 @@ extension ImportFlow {
         }
         if planned.skipped > 0 {
             sentences.append(
-                "\(PastPriceText.count(planned.skipped, "record")) left out with rejected accounts or instruments.")
+                "\(Wording.count(planned.skipped, "record")) left out with rejected accounts or instruments.")
         }
         return sentences.joined(separator: " ")
     }

@@ -81,8 +81,8 @@ struct LibraryChecks {
                 let kind = library.accounts[id]?.kind.rawValue ?? ""
                 let dates = valuations.map(\.date).sorted()
                 issues.append(warning(LibraryFile.month(month).path,
-                    "\(id) is a debt (\(kind)) but has a positive balance on \(Format.list(dates.map(\.description))). "
-                    + "Debts are recorded as negative amounts."))
+                    "\(id) is a debt (\(kind)) but has a positive balance on "
+                    + "\(Wording.list(dates.map(\.description))). Debts are recorded as negative amounts."))
             }
         }
         return issues

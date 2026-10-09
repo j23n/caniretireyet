@@ -214,7 +214,7 @@ struct PlanTargetMixModel {
             case .retirement: "retirement"
             }
         }
-        if !steps.isEmpty { parts.append("changes at " + PlanResultsText.list(steps)) }
+        if !steps.isEmpty { parts.append("changes at " + Wording.list(steps)) }
         return parts.joined(separator: " · ")
     }
 

@@ -80,12 +80,12 @@ struct ImportReport: CommandReport {
         settings.add(["Delimiter", Format.delimiter(table.delimiter)])
         settings.add(["Header row", table.hasHeader ? "\(table.headerRow)" : "none"])
         settings.add(["Footer rule", table.excludeRows.isEmpty ? "none"
-            : "rows starting with " + Format.list(table.excludeRows.map { "“\($0)”" }, or: true)])
+            : "rows starting with " + Wording.list(table.excludeRows.map { "“\($0)”" }, or: true)])
         let aboveHeader = table.skippedRows.filter { $0.reason == .aboveHeader }.count
         let footers = table.skippedRows.filter { if case .excluded = $0.reason { true } else { false } }.count
-        var rowText = Format.count(table.rows.count, "data row")
-        if aboveHeader > 0 { rowText += ", \(Format.count(aboveHeader, "title row")) above the header" }
-        if footers > 0 { rowText += ", \(Format.count(footers, "footer row")) left out" }
+        var rowText = Wording.count(table.rows.count, "data row")
+        if aboveHeader > 0 { rowText += ", \(Wording.count(aboveHeader, "title row")) above the header" }
+        if footers > 0 { rowText += ", \(Wording.count(footers, "footer row")) left out" }
         settings.add(["Rows", rowText])
         let dates = session.dateColumn.map { "dates in \(table.header(of: $0).map { "“\($0)”" } ?? "column \($0)")" }
             ?? "no date column"
@@ -220,7 +220,8 @@ struct ImportReport: CommandReport {
             let hint: String = switch ambiguity.kind {
             case .delimiter: "settle it with --delimiter"
             case .dateFormat:
-                "settle it with --date-format " + Format.list(ambiguity.options.compactMap { $0.date?.pattern }, or: true)
+                "settle it with --date-format "
+                    + Wording.list(ambiguity.options.compactMap { $0.date?.pattern }, or: true)
             case .dateOrNumber: "read them as dates with --date-format excel-serial"
             case .numberFormat: "settle it with --decimal . or --decimal ,"
             }
@@ -272,7 +273,7 @@ struct ImportReport: CommandReport {
         let leftOut = preview.leftOutRecords
         let accepted = preview.newAccounts.allSatisfy(\.isAccepted)
         return "New accounts (\(acceptance(accepted, flag: "--accept-new-accounts"))"
-            + (leftOut > 0 && !accepted ? "; \(Format.count(leftOut, "record")) left out" : "") + ")"
+            + (leftOut > 0 && !accepted ? "; \(Wording.count(leftOut, "record")) left out" : "") + ")"
     }
 
     func newAccountLines() -> [String] {
@@ -342,7 +343,7 @@ struct ImportReport: CommandReport {
         }
         if rows > 0 { lines += records.lines() }
         if preview.records.count > rows {
-            lines.append("  … and \(Format.count(preview.records.count - rows, "more record")) (--rows to list more).")
+            lines.append("  … and \(Wording.count(preview.records.count - rows, "more record")) (--rows to list more).")
         }
         return lines
     }
@@ -365,7 +366,7 @@ struct ImportReport: CommandReport {
                        record.existing.map(Self.values) ?? "", Self.values(record.imported)])
         }
         var lines = rows > 0 ? table.lines() : []
-        if conflicts.count > rows { lines.append("  … and \(Format.count(conflicts.count - rows, "more conflict")).") }
+        if conflicts.count > rows { lines.append("  … and \(Wording.count(conflicts.count - rows, "more conflict")).") }
         return lines
     }
 
@@ -406,7 +407,7 @@ struct ImportReport: CommandReport {
                     + "\(result.tradesAccounts.map(\.rawValue).joined(separator: ", ")).")
             }
             if !outcome.written.isEmpty {
-                lines.append("Wrote \(Format.count(outcome.written.count, "file")):")
+                lines.append("Wrote \(Wording.count(outcome.written.count, "file")):")
                 lines += outcome.written.map { "  \($0)" }
             }
             if let backup = outcome.backup {

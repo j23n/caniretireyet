@@ -97,7 +97,7 @@ struct AccountConversionSummary: Hashable, Sendable {
         func name(_ month: YearMonth) -> String {
             month.lastDay.dateValue.formatted(.dateTime.month(.abbreviated).year().locale(locale))
         }
-        let count = months.count == 1 ? "1 month" : "\(months.count) months"
+        let count = Wording.count(months.count, "month")
         return first == last ? "\(count), \(name(first))" : "\(count), \(name(first)) – \(name(last))"
     }
 
@@ -106,16 +106,17 @@ struct AccountConversionSummary: Hashable, Sendable {
         switch direction {
         case .toTrades:
             var parts: [String] = []
-            if !openings.isEmpty { parts.append(Self.count(openings.count, "opening position", "opening positions")) }
-            if !buys.isEmpty { parts.append(Self.count(buys.count, "buy", "buys")) }
-            if !sells.isEmpty { parts.append(Self.count(sells.count, "sale", "sales")) }
-            let trades = parts.isEmpty ? "no trades" : CheckInStoreError.list(parts)
+            if !openings.isEmpty { parts.append(Wording.count(openings.count, "opening position")) }
+            if !buys.isEmpty { parts.append(Wording.count(buys.count, "buy")) }
+            if !sells.isEmpty { parts.append(Wording.count(sells.count, "sale")) }
+            let trades = parts.isEmpty ? "no trades" : Wording.list(parts)
             return "The account's values become \(trades), and its values keep only their cash and new money."
         case .toSnapshots:
-            let values = Self.count(valuationCount, "value", "values")
-            return "Its \(Self.count(removedCount, "trade", "trades")) become the positions, average cost and cash "
+            let values = Wording.count(valuationCount, "value")
+            return "Its \(Wording.count(removedCount, "trade")) become the positions, average cost and cash "
                 + "of \(values)" + (addedValuationCount > 0
-                    ? ", \(Self.count(addedValuationCount, "of them", "of them")) added on a month's last trade."
+                    ? ", \(Wording.count(addedValuationCount, "of them", plural: "of them")) added on a month's "
+                        + "last trade."
                     : ".")
         }
     }
@@ -159,9 +160,5 @@ struct AccountConversionSummary: Hashable, Sendable {
         default:
             return count == 1 ? "1 note." : "\(count) notes."
         }
-    }
-
-    private static func count(_ count: Int, _ one: String, _ many: String) -> String {
-        count == 1 ? "1 \(one)" : "\(count) \(many)"
     }
 }

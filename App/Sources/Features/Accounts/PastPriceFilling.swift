@@ -98,13 +98,13 @@ struct PastPricePlan: Hashable, Sendable {
     /// "3 prices to type in." after it when some have no price source.
     var summary: String {
         var parts: [String] = []
-        if needs.priceCount > 0 { parts.append(PastPriceText.count(needs.priceCount, "price")) }
-        if needs.rateCount > 0 { parts.append(PastPriceText.count(needs.rateCount, "exchange rate")) }
-        if needs.indexMonthCount > 0 { parts.append(PastPriceText.count(needs.indexMonthCount, "inflation month")) }
+        if needs.priceCount > 0 { parts.append(Wording.count(needs.priceCount, "price")) }
+        if needs.rateCount > 0 { parts.append(Wording.count(needs.rateCount, "exchange rate")) }
+        if needs.indexMonthCount > 0 { parts.append(Wording.count(needs.indexMonthCount, "inflation month")) }
         var sentences: [String] = []
-        if !parts.isEmpty { sentences.append(OverviewAttention.list(parts) + " to fetch.") }
+        if !parts.isEmpty { sentences.append(Wording.list(parts) + " to fetch.") }
         if needs.manualPriceCount > 0 {
-            sentences.append(PastPriceText.count(needs.manualPriceCount, "price") + " to type in.")
+            sentences.append(Wording.count(needs.manualPriceCount, "price") + " to type in.")
         }
         return sentences.isEmpty ? "Nothing is missing." : sentences.joined(separator: " ")
     }
@@ -123,11 +123,6 @@ struct PastPricePlan: Hashable, Sendable {
 
 /// How *Fill In Past Prices* words things.
 enum PastPriceText {
-    /// "1 price", "12 prices".
-    static func count(_ count: Int, _ noun: String) -> String {
-        count == 1 ? "1 \(noun)" : "\(count) \(noun)s"
-    }
-
     /// An instrument as the Import Done step names it: its ticker, the
     /// symbol it's fetched by, or its name (`XAU`).
     static func shortName(of id: InstrumentID, in library: Library) -> String {
@@ -155,7 +150,7 @@ enum PastPriceText {
     static func dates(_ dates: [CalendarDate], locale: Locale = .current) -> String {
         guard let first = dates.first, let last = dates.last else { return "" }
         let range = range(first, last, locale: locale)
-        return dates.count == 1 ? range : range + " · \(count(dates.count, "date"))"
+        return dates.count == 1 ? range : range + " · \(Wording.count(dates.count, "date"))"
     }
 
     /// Where the values came from: "Yahoo Finance · GC=F (history)"; for
@@ -296,12 +291,12 @@ final class PastPriceFiller {
         case .done:
             guard let inserted else { return nil }
             var parts: [String] = []
-            if inserted.prices > 0 { parts.append(PastPriceText.count(inserted.prices, "price")) }
-            if inserted.fx > 0 { parts.append(PastPriceText.count(inserted.fx, "exchange rate")) }
-            if inserted.indices > 0 { parts.append(PastPriceText.count(inserted.indices, "inflation month")) }
-            var text = parts.isEmpty ? "Nothing new to add." : "Added " + OverviewAttention.list(parts) + "."
+            if inserted.prices > 0 { parts.append(Wording.count(inserted.prices, "price")) }
+            if inserted.fx > 0 { parts.append(Wording.count(inserted.fx, "exchange rate")) }
+            if inserted.indices > 0 { parts.append(Wording.count(inserted.indices, "inflation month")) }
+            var text = parts.isEmpty ? "Nothing new to add." : "Added " + Wording.list(parts) + "."
             if inserted.kept > 0 {
-                text += " Kept \(PastPriceText.count(inserted.kept, "value")) the library had by then."
+                text += " Kept \(Wording.count(inserted.kept, "value")) the library had by then."
             }
             return text
         case .failed(let reason):
@@ -325,12 +320,12 @@ enum MissingValueNote {
         var sentences: [String] = []
         if let chart = chart?.filter({ $0.item.isPriceOrRate }) {
             sentences.append("Some values can't be shown: "
-                + OverviewAttention.list(clauses(chart, name: name, locale: locale)) + ".")
+                + Wording.names(clauses(chart, name: name, locale: locale)) + ".")
         }
         if let netWorth {
             let subjects = netWorth.gaps.map { subject($0.item, name: name, locale: locale) }
             sentences.append("Net worth leaves out this account's values \(when(netWorth.dates, locale: locale)): "
-                + OverviewAttention.list(subjects) + " are missing.")
+                + Wording.names(subjects) + " are missing.")
         }
         return sentences.isEmpty ? nil : sentences.joined(separator: " ")
     }
@@ -344,7 +339,7 @@ enum MissingValueNote {
                          instrumentName: (InstrumentID) -> String, locale: Locale = .current) -> String {
         var parts = missing.gaps.filter(\.item.isPriceOrRate).map { gap in
             clause(gap, name: instrumentName, locale: locale)
-                + " (\(OverviewAttention.list(gap.accounts.map(accountName))))"
+                + " (\(Wording.names(gap.accounts.map(accountName))))"
         }
         let unvalued = missing.gaps.filter { !$0.item.isPriceOrRate }
         let names = unvalued.flatMap(\.accounts).map(accountName)
@@ -354,12 +349,12 @@ enum MissingValueNote {
                 ? "\(first) has no value yet \(when(dates, locale: locale))"
                 : "\(names.count) accounts have no value yet \(when(dates, locale: locale)) (\(shortList(names)))")
         }
-        return "Where lines are dashed, the total is partial: " + OverviewAttention.list(parts) + "."
+        return "Where lines are dashed, the total is partial: " + Wording.names(parts) + "."
     }
 
     /// "A, B and C", or "A, B, C and 4 more".
     static func shortList(_ names: [String], limit: Int = 3) -> String {
-        guard names.count > limit + 1 else { return OverviewAttention.list(names) }
+        guard names.count > limit + 1 else { return Wording.names(names) }
         return names.prefix(limit).joined(separator: ", ") + " and \(names.count - limit) more"
     }
 
@@ -401,7 +396,7 @@ enum OldPriceNote {
     static func text(_ summary: OldPriceSummary, name: (InstrumentID) -> String) -> String {
         let count = summary.dates.count
         let values = count == 1 ? "1 value in the chart uses" : "\(count) values in the chart use"
-        let names = OverviewAttention.list(summary.instruments.map(name))
+        let names = Wording.names(summary.instruments.map(name))
         return "\(values) a price more than \(Valuator.oldPriceDays) days older than "
             + (count == 1 ? "its" : "their") + " date (\(names))."
     }

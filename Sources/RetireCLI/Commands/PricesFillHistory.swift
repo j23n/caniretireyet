@@ -110,11 +110,11 @@ extension PricesCommand {
         private func needsLines() -> [String] {
             var parts: [String] = []
             if needs.priceCount > 0 {
-                parts.append(Format.count(needs.priceCount, "price") + " ("
+                parts.append(Wording.count(needs.priceCount, "price") + " ("
                     + needs.instruments.map(\.instrument.rawValue).joined(separator: ", ") + ")")
             }
             if needs.rateCount > 0 {
-                parts.append(Format.count(needs.rateCount, "FX rate") + " ("
+                parts.append(Wording.count(needs.rateCount, "FX rate") + " ("
                     + needs.rates.map { "\(base)/\($0.quote)" }.joined(separator: ", ") + ")")
             }
             for index in needs.indices {
@@ -127,10 +127,10 @@ extension PricesCommand {
             }
             var lines: [String] = []
             if !parts.isEmpty {
-                lines.append("Up to \(needs.today), the library is missing " + Format.list(parts) + ".")
+                lines.append("Up to \(needs.today), the library is missing " + Wording.list(parts) + ".")
             }
             if !manual.isEmpty {
-                lines.append("Without a price source: " + Format.count(needs.manualPriceCount, "price") + " ("
+                lines.append("Without a price source: " + Wording.count(needs.manualPriceCount, "price") + " ("
                     + manual.map(\.instrument.rawValue).joined(separator: ", ") + ").")
             }
             return lines
@@ -142,7 +142,7 @@ extension PricesCommand {
                 return [fill?.recordCount == 0 ? "Nothing was fetched, so nothing was written."
                     : "The library has these records by now; nothing was written."]
             }
-            let records = Format.count(count, "record")
+            let records = Wording.count(count, "record")
             let files = Self.files(written.files)
             var lines: [String] = []
             if written.isWritten {
@@ -152,7 +152,7 @@ extension PricesCommand {
                     + "To write them, run again without --dry-run.")
             }
             if written.inserted.kept > 0 {
-                lines.append("Kept \(Format.count(written.inserted.kept, "record")) the library had by then.")
+                lines.append("Kept \(Wording.count(written.inserted.kept, "record")) the library had by then.")
             }
             if let backup = written.backup { lines.append("Backed up the files it changed to \(backup).") }
             return lines
@@ -160,7 +160,7 @@ extension PricesCommand {
 
         /// "history/2025/2025-10.json", or the first three and how many more.
         static func files(_ files: [String]) -> String {
-            guard files.count > 3 else { return Format.list(files) }
+            guard files.count > 3 else { return Wording.list(files) }
             return files.prefix(3).joined(separator: ", ") + " and \(files.count - 3) more files"
         }
 

@@ -61,9 +61,9 @@ struct SettingsCommand: RetireSubcommand {
             let saved = try loaded.save(library, backupLabel: "settings", dryRun: dryRun, in: context)
             if dryRun {
                 lines.append("Dry run: nothing was written" + (saved.changed.isEmpty ? "."
-                    : " (\(Format.count(saved.changed.count, "file")) would change)."))
+                    : " (\(Wording.count(saved.changed.count, "file")) would change)."))
             } else if let backup = saved.backup {
-                lines.append("Wrote \(Format.count(saved.written.count, "file")): "
+                lines.append("Wrote \(Wording.count(saved.written.count, "file")): "
                     + saved.written.joined(separator: ", ") + ".")
                 lines.append("Backed up the files it changed to \(backup).")
             } else {

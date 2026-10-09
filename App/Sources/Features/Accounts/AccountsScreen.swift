@@ -94,7 +94,7 @@ struct AccountsScreen: View {
 
     private func summary(_ list: AccountList) -> some View {
         HStack(spacing: Metrics.xs) {
-            Text(Self.count(list.openCount))
+            Text(Wording.count(list.openCount, "account"))
             Text(verbatim: "·")
             Text("Net worth")
             AmountText(library.valuator.netWorth(on: .today()).total)
@@ -229,10 +229,6 @@ struct AccountsScreen: View {
             errorMessage = LibraryStore.describe(error)
             showsError = true
         }
-    }
-
-    private static func count(_ count: Int) -> String {
-        count == 1 ? "1 account" : "\(count) accounts"
     }
 }
 

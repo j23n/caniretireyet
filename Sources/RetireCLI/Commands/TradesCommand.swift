@@ -126,7 +126,7 @@ struct TradesListCommand: RetireSubcommand {
             }
             lines += table.lines()
             lines.append("")
-            lines.append(Format.count(rows.count, "trade") + (filtered ? " shown." : "."))
+            lines.append(Wording.count(rows.count, "trade") + (filtered ? " shown." : "."))
             if let ledger, !filtered {
                 let positions = ledger.positions(on: today).map { position in
                     "\(position.instrument) \(Format.exact(position.quantity))"
@@ -136,7 +136,7 @@ struct TradesListCommand: RetireSubcommand {
                 lines.append("Holds on \(today): " + (positions + [cash].compactMap { $0 }).joined(separator: ", ") + ".")
                 let issues = ledger.issues.count
                 if issues > 0 {
-                    lines.append("\(Format.count(issues, "problem")) with these trades: run `retire validate`.")
+                    lines.append("\(Wording.count(issues, "problem")) with these trades: run `retire validate`.")
                 }
             }
             return lines

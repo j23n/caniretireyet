@@ -51,24 +51,10 @@ enum Format {
         value.rounded(scale: places).fileString
     }
 
-    /// `1 account`, `2 accounts`.
-    static func count(_ count: Int, _ singular: String) -> String {
-        "\(count) \(count == 1 ? singular : singular + "s")"
-    }
-
     /// Dates or months from `first` to `last`: `2025-10 to 2026-09`, or
     /// `2026-09` when they're the same.
     static func range<Value: Equatable & CustomStringConvertible>(_ first: Value, _ last: Value) -> String {
         first == last ? "\(first)" : "\(first) to \(last)"
-    }
-
-    /// A list for a sentence: `a`, `a and b`, `a, b and c` (or `a or b`).
-    static func list(_ items: [String], or: Bool = false) -> String {
-        switch items.count {
-        case 0: ""
-        case 1: items[0]
-        default: items.dropLast().joined(separator: ", ") + (or ? " or " : " and ") + items[items.count - 1]
-        }
     }
 
     /// A delimiter as a reader sees it: `";"`, `tab`.

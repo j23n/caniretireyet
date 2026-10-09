@@ -92,7 +92,7 @@ enum PlanRunText {
         if reasons.contains(.whatIf) { subjects.append("What-if values") }
         if !subjects.isEmpty {
             let lowered = subjects.enumerated().map { $0.offset == 0 ? $0.element : lowercasedFirst($0.element) }
-            return "\(PlanResultsText.list(lowered)) changed since this was calculated."
+            return "\(Wording.list(lowered)) changed since this was calculated."
         }
         if reasons.contains(.focusAge) {
             guard let focusAge else { return "These charts are for another retirement age." }

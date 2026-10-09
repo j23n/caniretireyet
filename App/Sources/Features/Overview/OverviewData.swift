@@ -238,8 +238,9 @@ enum OverviewAttention {
             items.append(OverviewAttentionItem(
                 id: "price.\(instrument)", systemImage: "tag.slash",
                 title: "No price for \(instrumentName(instrument))",
-                detail: "\(list(gap.accounts.map(accountName))) \(gap.accounts.count == 1 ? "leaves" : "leave") "
-                    + "it out of your net worth. Type in a price at your next check-in.",
+                detail: "\(Wording.names(gap.accounts.map(accountName))) "
+                    + "\(gap.accounts.count == 1 ? "leaves" : "leave") it out of your net worth. Type in a price at "
+                    + "your next check-in.",
                 target: .instrument(instrument)))
         }
         for gap in gaps {
@@ -247,8 +248,9 @@ enum OverviewAttention {
             items.append(OverviewAttentionItem(
                 id: "fx.\(from)-\(to)", systemImage: "arrow.left.arrow.right",
                 title: "No \(from) to \(to) exchange rate",
-                detail: "\(list(gap.accounts.map(accountName))) \(gap.accounts.count == 1 ? "isn't" : "aren't") "
-                    + "fully counted. Type in a rate at your next check-in.",
+                detail: "\(Wording.names(gap.accounts.map(accountName))) "
+                    + "\(gap.accounts.count == 1 ? "isn't" : "aren't") fully counted. Type in a rate at your next "
+                    + "check-in.",
                 target: .checkIn))
         }
 
@@ -285,7 +287,7 @@ enum OverviewAttention {
             let more = kinds.count > 2 ? " · \(kinds.count - 2) more" : ""
             return OverviewAttentionItem(
                 id: "trades.\(account.id)", systemImage: "exclamationmark.triangle",
-                title: "\(account.name): \(notes.count == 1 ? "1 problem" : "\(notes.count) problems") with trades",
+                title: "\(account.name): \(Wording.count(notes.count, "problem")) with trades",
                 detail: "\(shown)\(more). Open the account to fix \(notes.count == 1 ? "it" : "them").",
                 target: .account(account.id))
         }
@@ -369,13 +371,5 @@ enum OverviewAttention {
             ? Date.FormatStyle.dateTime.month(.wide).locale(locale)
             : Date.FormatStyle.dateTime.month(.wide).year().locale(locale)
         return date.dateValue.formatted(style)
-    }
-
-    /// "A", "A and B", "A, B and C".
-    static func list(_ names: [String]) -> String {
-        let unique = names.reduce(into: [String]()) { if !$0.contains($1) { $0.append($1) } }
-        guard let last = unique.last else { return "" }
-        guard unique.count > 1 else { return last }
-        return unique.dropLast().joined(separator: ", ") + " and " + last
     }
 }

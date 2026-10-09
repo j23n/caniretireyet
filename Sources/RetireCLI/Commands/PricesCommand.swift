@@ -148,10 +148,11 @@ struct PricesCommand: RetireSubcommand {
             var parts: [String] = []
             let instruments = needs.instruments.map(\.id.rawValue) + needs.manualInstruments.map(\.rawValue)
             if !instruments.isEmpty {
-                parts.append(Format.count(instruments.count, "price") + " (\(instruments.sorted().joined(separator: ", ")))")
+                parts.append(Wording.count(instruments.count, "price")
+                    + " (\(instruments.sorted().joined(separator: ", ")))")
             }
             if !needs.currencies.isEmpty {
-                parts.append(Format.count(needs.currencies.count, "FX rate") + " ("
+                parts.append(Wording.count(needs.currencies.count, "FX rate") + " ("
                     + needs.currencies.map { "\(needs.baseCurrency)/\($0)" }.joined(separator: ", ") + ")")
             }
             for index in needs.indices where !index.months.isEmpty {
@@ -159,7 +160,7 @@ struct PricesCommand: RetireSubcommand {
                 parts.append("\(index.index) for \(Format.range(months[0], months[months.count - 1]))")
             }
             guard !parts.isEmpty else { return ["A check-in on \(date) needs nothing fetched."] }
-            return ["A check-in on \(date) needs " + Format.list(parts) + "."]
+            return ["A check-in on \(date) needs " + Wording.list(parts) + "."]
         }
 
         func lines() -> [String] {
@@ -202,12 +203,12 @@ struct PricesCommand: RetireSubcommand {
                 lines.append(applied.kept > 0 ? "Nothing was written."
                     : "The library already has these records; nothing was written.")
             } else {
-                lines.append("Recorded \(Format.count(applied.added, "new record"))"
+                lines.append("Recorded \(Wording.count(applied.added, "new record"))"
                     + (applied.replaced > 0 ? ", replaced \(applied.replaced)" : "") + " in "
-                    + Format.list(applied.written) + ".")
+                    + Wording.list(applied.written) + ".")
             }
             if applied.kept > 0 {
-                lines.append("Kept \(Format.count(applied.kept, "record")) the library already has with other values; "
+                lines.append("Kept \(Wording.count(applied.kept, "record")) the library already has with other values; "
                     + "pass --overwrite to replace them.")
             }
             if let backup = applied.backup { lines.append("Backed up the files it changed to \(backup).") }

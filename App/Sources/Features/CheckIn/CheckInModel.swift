@@ -449,7 +449,7 @@ enum CheckInWording {
 
     /// "1 account not reviewed", "2 accounts not reviewed".
     static func notReviewedTitle(count: Int) -> String {
-        count == 1 ? "1 account not reviewed" : "\(count) accounts not reviewed"
+        Wording.count(count, "account") + " not reviewed"
     }
 
     /// "Not reviewed: Fondo pensione, Mutuo" (at most three names, then "and 2 more").
@@ -463,7 +463,7 @@ enum CheckInWording {
     /// "Last check-in 31 August · 9 accounts" under the date; "First
     /// check-in · 9 accounts" before there's one.
     static func dateLine(previousCheckIn: CalendarDate?, accounts: Int, locale: Locale = .current) -> String {
-        let count = "\(accounts) account\(accounts == 1 ? "" : "s")"
+        let count = Wording.count(accounts, "account")
         guard let previousCheckIn else { return "First check-in · " + count }
         let day = previousCheckIn.dateValue.formatted(.dateTime.day().month(.wide).locale(locale))
         return "Last check-in \(day) · " + count
@@ -487,7 +487,7 @@ enum CheckInWording {
         guard !names.isEmpty else { return nil }
         let day = draft.date.dateValue.formatted(.dateTime.day().month(.wide).locale(locale))
         let one = names.count == 1
-        return "\(CheckInStoreError.list(names)) got \(one ? "a value" : "values") for \(day) on another device "
+        return "\(Wording.list(names)) got \(one ? "a value" : "values") for \(day) on another device "
             + "while this check-in was open. "
             + "Until you choose, \(one ? "the saved value is" : "the saved values are") kept and yours "
             + "\(one ? "isn't" : "aren't") written."
@@ -568,7 +568,7 @@ enum CheckInWording {
     static func openingMovesNote(_ accounts: [AccountID], date: CalendarDate, in library: Library,
                                  locale: Locale = .current) -> String? {
         guard !accounts.isEmpty else { return nil }
-        let names = CheckInStoreError.list(accounts.map { library.accounts[$0]?.name ?? $0.rawValue })
+        let names = Wording.list(accounts.map { library.accounts[$0]?.name ?? $0.rawValue })
         return "Saving moves the opening date of \(names) to \(AmountFormat.mediumDate(date, locale: locale)), "
             + "so \(accounts.count == 1 ? "its history starts" : "their histories start") there."
     }
@@ -930,7 +930,7 @@ struct CheckInAnswer: Hashable, Sendable {
         let month = AmountFormat.monthName(previous.date, locale: locale)
         if before == age { return ", unchanged since \(month)." }
         let years = abs(age - before)
-        let span = "\(years) year\(years == 1 ? "" : "s")"
+        let span = Wording.count(years, "year")
         return age < before ? ", \(span) earlier than in \(month)." : ", \(span) later than in \(month)."
     }
 

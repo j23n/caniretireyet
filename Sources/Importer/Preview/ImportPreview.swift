@@ -118,25 +118,26 @@ public struct ImportSummary: Hashable, Sendable, CustomStringConvertible {
     /// E.g. `12 new, 3 updated, 40 identical, 2 conflicts (1 undecided); 1 error; 1 new account`.
     public var description: String {
         var parts = ["\(newRecords) new, \(updatedRecords) updated, \(identicalRecords) identical, "
-            + "\(Self.count(conflicts, "conflict"))"
+            + "\(Wording.count(conflicts, "conflict"))"
             + (undecidedConflicts > 0 ? " (\(undecidedConflicts) undecided)" : "")]
-        if trades > 0 { parts.append("\(Self.count(trades, "trade")) among them") }
-        if cellErrors > 0 { parts.append(Self.count(cellErrors, "error")) }
-        if issues > 0 { parts.append(Self.count(issues, "issue")) }
-        if ambiguities > 0 { parts.append(Self.count(ambiguities, "format to confirm", plural: "formats to confirm")) }
-        if skippedRows > 0 { parts.append(Self.count(skippedRows, "row skipped", plural: "rows skipped")) }
+        if trades > 0 { parts.append("\(Wording.count(trades, "trade")) among them") }
+        if cellErrors > 0 { parts.append(Wording.count(cellErrors, "error")) }
+        if issues > 0 { parts.append(Wording.count(issues, "issue")) }
+        if ambiguities > 0 {
+            parts.append(Wording.count(ambiguities, "format to confirm", plural: "formats to confirm"))
+        }
+        if skippedRows > 0 { parts.append(Wording.count(skippedRows, "row skipped", plural: "rows skipped")) }
         var entities: [String] = []
-        if newAccounts > 0 { entities.append(Self.count(newAccounts, "new account")) }
-        if newInstruments > 0 { entities.append(Self.count(newInstruments, "new instrument")) }
-        if closedAccounts > 0 { entities.append(Self.count(closedAccounts, "account closed", plural: "accounts closed")) }
+        if newAccounts > 0 { entities.append(Wording.count(newAccounts, "new account")) }
+        if newInstruments > 0 { entities.append(Wording.count(newInstruments, "new instrument")) }
+        if closedAccounts > 0 {
+            entities.append(Wording.count(closedAccounts, "account closed", plural: "accounts closed"))
+        }
         if tradesAccounts > 0 {
-            entities.append(Self.count(tradesAccounts, "account switched to trades", plural: "accounts switched to trades"))
+            entities.append(Wording.count(tradesAccounts, "account switched to trades",
+                                          plural: "accounts switched to trades"))
         }
         if !entities.isEmpty { parts.append(entities.joined(separator: ", ")) }
         return parts.joined(separator: "; ")
-    }
-
-    private static func count(_ count: Int, _ singular: String, plural: String? = nil) -> String {
-        "\(count) \(count == 1 ? singular : plural ?? singular + "s")"
     }
 }

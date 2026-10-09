@@ -46,7 +46,7 @@ struct LibraryOptions: ParsableArguments {
         }
         let errors = result.report.errors.count
         if errors > 0 {
-            context.console.error("Warning: \(Format.count(errors, "file problem")) while loading the library; "
+            context.console.error("Warning: \(Wording.count(errors, "file problem")) while loading the library; "
                 + "run `retire validate` for details.")
         }
         return LoadedLibrary(folder: folder, library: result.library)

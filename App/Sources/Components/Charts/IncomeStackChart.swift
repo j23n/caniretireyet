@@ -180,9 +180,7 @@ struct IncomeStackChart: View {
             return hidesAmounts ? "\(overflow.source) in \(overflow.year)"
                 : "\(overflow.source) in \(overflow.year) (\(amount))"
         }
-        let list = parts.count > 1 ? parts.dropLast().joined(separator: ", ") + " and " + parts[parts.count - 1]
-            : parts[0]
-        return "\(list) \(parts.count == 1 ? "runs" : "run") off the top."
+        return "\(Wording.list(parts)) \(parts.count == 1 ? "runs" : "run") off the top."
     }
 
     private func summary(_ data: IncomeChartData) -> ChartSummary {

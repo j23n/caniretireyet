@@ -74,16 +74,16 @@ struct ValidateCommand: RetireSubcommand {
 
         var contentsText: String {
             let closed = library.accounts.values.filter(\.isClosed).count
-            var parts = [Format.count(library.accounts.count, "account") + (closed > 0 ? " (\(closed) closed)" : ""),
-                         Format.count(library.instruments.count, "instrument")]
+            var parts = [Wording.count(library.accounts.count, "account") + (closed > 0 ? " (\(closed) closed)" : ""),
+                         Wording.count(library.instruments.count, "instrument")]
             let months = library.months.filter { !$0.value.isEmpty }.keys.sorted()
             if let first = months.first, let last = months.last {
-                parts.append(Format.count(months.count, "month") + " of history (\(first) to \(last))")
+                parts.append(Wording.count(months.count, "month") + " of history (\(first) to \(last))")
             } else {
                 parts.append("no history")
             }
-            parts.append(Format.count(library.plans.count, "plan"))
-            parts.append(Format.count(library.importProfiles.count, "import profile"))
+            parts.append(Wording.count(library.plans.count, "plan"))
+            parts.append(Wording.count(library.importProfiles.count, "import profile"))
             return parts.joined(separator: ", ")
         }
 
@@ -110,7 +110,7 @@ struct ValidateCommand: RetireSubcommand {
                 lines.append("  \(issue.severity == .error ? "error  " : "warning") \(issue.message)")
             }
             lines.append("")
-            lines.append("\(Format.count(errors, "error")), \(Format.count(warnings, "warning")).")
+            lines.append("\(Wording.count(errors, "error")), \(Wording.count(warnings, "warning")).")
             return lines
         }
 

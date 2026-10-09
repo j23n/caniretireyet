@@ -77,15 +77,6 @@ enum PlanResultsText {
         return "\(old.map(String.init) ?? "none") → \(new.map(String.init) ?? "none")"
     }
 
-    /// "64 and 67", "64, 65 and 67".
-    static func list(_ items: [String]) -> String {
-        switch items.count {
-        case 0: ""
-        case 1: items[0]
-        default: items.dropLast().joined(separator: ", ") + " and " + items[items.count - 1]
-        }
-    }
-
     // MARK: What retiring today needs
 
     /// The most times today's plan assets the planner looks for, as words: "20".

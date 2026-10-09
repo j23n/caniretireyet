@@ -89,7 +89,7 @@ enum AccountValueNotes {
     /// trade's (`TradeEdit.flows`).
     static func flowFollowUp(_ flows: FlowFollowUp, locale: Locale = .current) -> String? {
         func dates(_ valuations: [Valuation]) -> String {
-            CheckInStoreError.list(valuations.map { AmountFormat.mediumDate($0.date, locale: locale) })
+            Wording.list(valuations.map { AmountFormat.mediumDate($0.date, locale: locale) })
         }
         func values(_ count: Int) -> String { count == 1 ? "value" : "values" }
         var sentences: [String] = []
