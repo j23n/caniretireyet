@@ -187,7 +187,7 @@ struct ImportNewInstrumentRow: View {
                     model.flow.editNewInstrument(id) { $0.kind = kind }
                 })) {
                     ForEach(Self.kinds(including: proposal.instrument.kind), id: \.self) { kind in
-                        Text(ImportChoices.instrumentKindName(kind)).tag(kind)
+                        Text(InstrumentForm.name(of: kind)).tag(kind)
                     }
                 }
                 .pickerStyle(.menu)

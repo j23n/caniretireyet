@@ -81,8 +81,6 @@ struct ImportColumnRow: Identifiable, Hashable, Sendable {
     var header: String?
     /// The first few values.
     var samples: [String]
-    /// What the importer found in it.
-    var kind: ColumnKind
     var use: ColumnUse
     /// A column with values that a saved profile doesn't know: flagged, not imported.
     var isUnknown: Bool
@@ -142,7 +140,7 @@ extension ImportFlow {
                 .map(\.description)
             return ImportColumnRow(
                 column: column, title: table.name(of: column).capitalizedFirst, header: table.header(of: column),
-                samples: analysis?.samples ?? [], kind: analysis?.kind ?? .empty, use: use,
+                samples: analysis?.samples ?? [], use: use,
                 isUnknown: roles.indices.contains(column - 1) && roles[column - 1] == .unknown,
                 account: mapping?.account, instrument: mapping?.instrument, base: mapping?.base, quote: mapping?.quote,
                 format: mapping?.format ?? ImportFormat(), effectiveFormat: session.effectiveFormat(forColumn: column),

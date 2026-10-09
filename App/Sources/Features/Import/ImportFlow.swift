@@ -4,7 +4,7 @@ import Model
 
 /// A step of the import, shown along the top (UI.md, "Import"; IMPORT.md, "Steps").
 /// A broker's transactions (the trades layout) have Types after Columns.
-enum ImportStep: Int, Hashable, Sendable, CaseIterable, Comparable, Identifiable {
+enum ImportStep: Int, Hashable, Sendable, Comparable {
     case file
     case format
     case columns
@@ -12,8 +12,6 @@ enum ImportStep: Int, Hashable, Sendable, CaseIterable, Comparable, Identifiable
     case accounts
     case preview
     case done
-
-    var id: Int { rawValue }
 
     var title: String {
         switch self {

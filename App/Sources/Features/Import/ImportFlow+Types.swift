@@ -41,9 +41,6 @@ struct ImportTypeRow: Identifiable, Hashable, Sendable {
 /// The Types step of a broker's transactions (the trades layout): each type
 /// word of the file mapped to a trade type, and how amounts are signed.
 extension ImportFlow {
-    /// Whether the file is read as a broker's transactions: a row per trade.
-    var isTrades: Bool { session?.profile.layout == .trades }
-
     /// Every value of the type column, in the order the file has them.
     var typeRows: [ImportTypeRow] {
         (session?.tradeTypeValues ?? []).map { value in
@@ -76,11 +73,6 @@ extension ImportFlow {
         editSession { $0.setTradeType(nil, for: value) }
     }
 
-    /// Rows left out because their type isn't mapped.
-    var unmappedTypeRows: Int {
-        typeRows.filter { $0.choice == .unmapped }.reduce(0) { $0 + $1.count }
-    }
-
     /// How the file's amounts are signed: the profile's setting (default: auto).
     var amountSign: TradeAmountSign {
         session?.profile.defaults.amountSign ?? .auto
@@ -101,28 +93,9 @@ extension ImportFlow {
         }.map(\.description)
     }
 
-    /// E.g. "Buy", "Transfer in".
-    static func tradeTypeName(_ type: TradeType) -> String {
-        switch type {
-        case .buy: "Buy"
-        case .sell: "Sell"
-        case .dividend: "Dividend"
-        case .interest: "Interest"
-        case .fee: "Fee"
-        case .tax: "Tax"
-        case .deposit: "Deposit"
-        case .withdrawal: "Withdrawal"
-        case .split: "Split"
-        case .transferIn: "Transfer in"
-        case .transferOut: "Transfer out"
-        case .opening: "Opening"
-        default: type.rawValue
-        }
-    }
-
     static func typeChoiceName(_ choice: ImportTypeChoice) -> String {
         switch choice {
-        case .type(let type): tradeTypeName(type)
+        case .type(let type): TradeTypeDisplay.name(type)
         case .ignore: "Leave out"
         case .unmapped: "Choose…"
         }

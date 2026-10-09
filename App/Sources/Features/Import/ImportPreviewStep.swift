@@ -68,7 +68,7 @@ private struct ImportSummaryCard: View {
                 ImportCountTile(count: summary.updatedRecords, title: "Updated")
                 ImportCountTile(count: summary.identicalRecords, title: "Identical")
                 ImportCountTile(count: summary.conflicts, title: "Conflicting")
-                ImportCountTile(count: summary.skippedRows + flow.leftOutRecords, title: "Skipped")
+                ImportCountTile(count: summary.skippedRows + (flow.preview?.leftOutRecords ?? 0), title: "Skipped")
                 ImportCountTile(count: summary.cellErrors, title: "Can't be read", isProblem: summary.cellErrors > 0)
                 if summary.trades > 0 {
                     ImportCountTile(count: summary.trades, title: "Of them, trades")
@@ -143,7 +143,7 @@ private struct ImportGuidedProposals: View {
                     })) {
                         ImportProposalLabel(
                             title: "Create “\(proposal.instrument.name)”",
-                            detail: "\(ImportChoices.instrumentKindName(proposal.instrument.kind)), "
+                            detail: "\(InstrumentForm.name(of: proposal.instrument.kind)), "
                                 + proposal.instrument.currency.rawValue)
                     }
                 }

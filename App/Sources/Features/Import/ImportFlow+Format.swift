@@ -122,11 +122,6 @@ extension ImportFlow {
         Detectable(session?.profile.defaults.number?.thousands)
     }
 
-    /// The thousands separator most number columns were detected with (`nil`: any).
-    var detectedThousands: String? {
-        session?.detection.defaults.number?.thousands
-    }
-
     mutating func setThousands(_ thousands: Detectable<String>) {
         editSession { session in
             var number = session.profile.defaults.number ?? ImportNumberFormat()
@@ -148,12 +143,6 @@ extension ImportFlow {
         guard let session else { return nil }
         return dateColumn.flatMap { session.detection.column($0)?.date?.pattern }
             ?? session.detection.defaults.date?.pattern
-    }
-
-    /// The pattern the dates are read with now.
-    var datePatternInUse: String? {
-        guard let session, let column = dateColumn else { return datePattern.value ?? detectedDatePattern }
-        return session.effectiveFormat(forColumn: column).date?.pattern
     }
 
     mutating func setDatePattern(_ pattern: Detectable<String>) {
@@ -377,20 +366,6 @@ enum ImportChoices {
 
     static func liabilitySignName(_ sign: LiabilitySign) -> String {
         sign == .asWritten ? "Keep the file's signs" : "Positive amounts are debts"
-    }
-
-    static func instrumentKindName(_ kind: InstrumentKind) -> String {
-        switch kind {
-        case .etf: "ETF"
-        case .fund: "Fund"
-        case .stock: "Stock"
-        case .bond: "Bond"
-        case .etc: "ETC"
-        case .crypto: "Crypto"
-        case .metal: "Precious metal"
-        case .other: "Other"
-        default: kind.rawValue
-        }
     }
 
     static func layoutName(_ layout: ImportLayout) -> String {

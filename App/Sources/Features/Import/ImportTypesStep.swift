@@ -84,7 +84,7 @@ private struct ImportTypeRowView: View {
                     .font(.caption)
                     .foregroundStyle(row.choice == .unmapped ? Palette.warning : Palette.secondaryInk)
                 if row.canReset, let suggestion = row.suggestion {
-                    Button("Use \(ImportFlow.tradeTypeName(suggestion)), the usual meaning") {
+                    Button("Use \(TradeTypeDisplay.name(suggestion)), the usual meaning") {
                         model.flow.resetTradeType(for: row.value)
                     }
                     .font(.caption)

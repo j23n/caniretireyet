@@ -168,16 +168,6 @@ extension ImportFlow {
         }
     }
 
-    /// Accepts or rejects every proposed account and instrument.
-    mutating func acceptAllNew(_ accepted: Bool) {
-        let accounts = preview?.newAccounts.map(\.account.id) ?? []
-        let instruments = preview?.newInstruments.map(\.instrument.id) ?? []
-        editDecisions { decisions in
-            for id in accounts { decisions.accounts[id, default: ProposalEdit()].isAccepted = accepted }
-            for id in instruments { decisions.instruments[id, default: ProposalEdit()].isAccepted = accepted }
-        }
-    }
-
     // MARK: Account changes
 
     /// Accepts or rejects a proposed closing or earlier opening.

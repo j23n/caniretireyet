@@ -20,7 +20,6 @@ struct ImportGrid: Hashable, Sendable {
         var number: Int
         var id: Int { number }
         var cells: [Cell]
-        var hasProblem: Bool
     }
 
     /// Per column: the header (or "Column N").
@@ -69,7 +68,7 @@ extension ImportFlow {
                                 problem: problems[ImportCellRef(row: row.number, column: column.column)],
                                 isImported: column.use != .ignore)
             }
-            return ImportGrid.Row(number: row.number, cells: cells, hasProblem: problemRows.contains(row.number))
+            return ImportGrid.Row(number: row.number, cells: cells)
         }
         return ImportGrid(headers: columns.map(\.title), uses: columns.map { useSummary($0) }, imported: imported,
                           rows: rows, totalRows: shown.count)
@@ -115,9 +114,6 @@ extension ImportFlow {
 
     // MARK: Counts
 
-    /// Records left out because their new account or instrument was rejected.
-    var leftOutRecords: Int { preview?.leftOutRecords ?? 0 }
-
     /// What importing would do now, e.g. "Importing adds 12 records, fills
     /// in 3 and overwrites 1. 2 conflicts keep the library's values. It
     /// creates 2 accounts and closes 1. The new money of 1 later value is
@@ -125,25 +121,28 @@ extension ImportFlow {
     var plannedSummary: String {
         guard let planned else { return "" }
         var changes: [String] = []
-        if planned.added > 0 { changes.append("adds \(Self.counted(planned.added, "record"))") }
-        if planned.updated > 0 { changes.append("fills in \(Self.counted(planned.updated, "record"))") }
-        if planned.overwritten > 0 { changes.append("overwrites \(Self.counted(planned.overwritten, "record"))") }
-        var sentences = [changes.isEmpty ? "Importing changes no records." : "Importing \(Self.list(changes))."]
+        if planned.added > 0 { changes.append("adds \(PastPriceText.count(planned.added, "record"))") }
+        if planned.updated > 0 { changes.append("fills in \(PastPriceText.count(planned.updated, "record"))") }
+        if planned.overwritten > 0 {
+            changes.append("overwrites \(PastPriceText.count(planned.overwritten, "record"))")
+        }
+        var sentences = [changes.isEmpty ? "Importing changes no records."
+            : "Importing \(OverviewAttention.list(changes))."]
         if planned.kept > 0 {
             sentences.append(planned.kept == 1 ? "1 conflict keeps the library's value."
                 : "\(planned.kept) conflicts keep the library's values.")
         }
         var entities: [String] = []
         if !planned.createdAccounts.isEmpty {
-            entities.append("creates \(Self.counted(planned.createdAccounts.count, "account"))")
+            entities.append("creates \(PastPriceText.count(planned.createdAccounts.count, "account"))")
         }
         if !planned.createdInstruments.isEmpty {
-            entities.append("creates \(Self.counted(planned.createdInstruments.count, "instrument"))")
+            entities.append("creates \(PastPriceText.count(planned.createdInstruments.count, "instrument"))")
         }
         if !planned.closedAccounts.isEmpty {
-            entities.append("closes \(Self.counted(planned.closedAccounts.count, "account"))")
+            entities.append("closes \(PastPriceText.count(planned.closedAccounts.count, "account"))")
         }
-        if !entities.isEmpty { sentences.append("It \(Self.list(entities)).") }
+        if !entities.isEmpty { sentences.append("It \(OverviewAttention.list(entities)).") }
         if !planned.recomputedFlows.isEmpty {
             let count = planned.recomputedFlows.count
             sentences.append(count == 1 ? "The new money of 1 later value is worked out again from the one before it."
@@ -151,19 +150,9 @@ extension ImportFlow {
         }
         if planned.skipped > 0 {
             sentences.append(
-                "\(Self.counted(planned.skipped, "record")) left out with rejected accounts or instruments.")
+                "\(PastPriceText.count(planned.skipped, "record")) left out with rejected accounts or instruments.")
         }
         return sentences.joined(separator: " ")
-    }
-
-    private static func counted(_ count: Int, _ noun: String) -> String {
-        "\(count) \(noun)\(count == 1 ? "" : "s")"
-    }
-
-    /// "a", "a and b", "a, b and c".
-    private static func list(_ items: [String]) -> String {
-        guard items.count > 1 else { return items.first ?? "" }
-        return items.dropLast().joined(separator: ", ") + " and " + items[items.count - 1]
     }
 
     // MARK: Conflicts
@@ -222,7 +211,7 @@ extension ImportFlow {
         case .fx(let key): return "\(key.base.rawValue)/\(key.quote.rawValue), \(date)"
         case .trade(let key):
             let type = preview?.records.first { $0.imported.key == .trade(key) }?.imported.trade?.type
-            return "\(accountName(key.account)), \(type.map { ImportFlow.tradeTypeName($0).lowercased() } ?? "trade"), "
+            return "\(accountName(key.account)), \(type.map { TradeTypeDisplay.name($0).lowercased() } ?? "trade"), "
                 + date
         }
     }
@@ -268,7 +257,7 @@ extension ImportFlow {
         func amount(_ value: Decimal) -> String {
             AmountFormat.amount(value, currency: currency, precision: .automatic, locale: locale)
         }
-        var what = ImportFlow.tradeTypeName(trade.type)
+        var what = TradeTypeDisplay.name(trade.type)
         if let quantity = trade.quantity {
             what += " \(AmountFormat.number(quantity, maxDigits: 8, locale: locale))"
         }
