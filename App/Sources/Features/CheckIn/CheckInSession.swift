@@ -111,6 +111,14 @@ final class CheckInSession {
         tradeRequest = TradeEditorTarget(account: account, date: date)
     }
 
+    /// Adds a position in `instrument` to a holdings row, shows the row's
+    /// positions (iPhone) and asks for the focus on its quantity.
+    func addPosition(_ instrument: InstrumentID, to account: AccountID, checkIn: CheckInStore) {
+        checkIn.updateRow(account) { $0.setQuantity(0, of: instrument) }
+        expanded.insert(account)
+        focusRequest = .quantity(account, instrument)
+    }
+
     /// Shows a row's new-money field and asks for the focus there.
     func editFlow(_ account: AccountID) {
         editingFlows.insert(account)

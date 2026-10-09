@@ -370,6 +370,19 @@ enum CheckInEditing {
         }
     }
 
+    /// Records the new money typed in a row's field. Emptied, it's unknown
+    /// when the account's kind asks for it (`rule`), else the automatic
+    /// amount again.
+    static func enterFlow(_ amount: Decimal?, rule: FlowDefault, in row: inout CheckInRow) {
+        if let amount {
+            row.setFlow(amount)
+        } else if rule == .ask {
+            row.setFlow(nil)
+        } else {
+            row.resetFlow()
+        }
+    }
+
     /// `text` with its minus sign added or removed (the ± key above the
     /// iPhone's decimal keypad, which has no minus).
     static func toggledSign(_ text: String) -> String {
@@ -697,12 +710,13 @@ enum CheckInWording {
             return TradeFlowPart(name: name, amount: amount, text: QuantityFormat.labelled(name, shown))
         }
         var parts: [TradeFlowPart] = []
-        if let recorded = flow.recorded.map({ $0 - flow.paidOutside }), recorded != 0 {
+        let paidOutside = flow.trades.paidOutside
+        if let recorded = flow.trades.recorded.map({ $0 - paidOutside }), recorded != 0 {
             parts.append(part("deposits", recorded))
-        } else if flow.recorded == nil {
+        } else if flow.trades.recorded == nil {
             parts.append(TradeFlowPart(name: "transfers not valued", amount: nil, text: "transfers not valued"))
         }
-        if flow.paidOutside != 0 { parts.append(part("paid from outside", flow.paidOutside)) }
+        if paidOutside != 0 { parts.append(part("paid from outside", paidOutside)) }
         if let residual = flow.residual, residual != 0 { parts.append(part("cash difference", residual)) }
         return parts
     }
@@ -764,25 +778,23 @@ enum CheckInWording {
 /// since the previous value, plus the residual, the cash typed minus the
 /// cash the trades give.
 struct CheckInTradeFlow: Hashable, Sendable {
-    /// What the trades record; `nil` when a transfer can't be valued.
-    var recorded: Decimal?
-    /// The part of ``recorded`` from trades paid from or into another
-    /// account: buys' costs in, sales' proceeds out.
-    var paidOutside: Decimal = 0
+    /// What the trades record, and the part of it paid from or into
+    /// another account.
+    var trades: TradeFlowParts
     /// The cash typed minus the cash the trades give on the date; `nil`
     /// when the row records no cash.
     var residual: Decimal?
 
     /// The split of `row`'s new money on `date`, with the library's trades
-    /// (`valuator`); `nil` for a row that isn't a trades account's. The
+    /// (`valuator`), for a trades account's row that writes a value
+    /// (updated, or as its trades say); `nil` for any other row. The
     /// trades count from where the saved new money counts them
     /// (`Valuator.tradeFlowParts(of:on:previous:)`): the row's previous
     /// value, or at the account's first check-in the library's previous one.
     static func make(for row: CheckInRow, date: CalendarDate, valuator: Valuator) -> CheckInTradeFlow? {
-        guard row.isTrades else { return nil }
-        let parts = valuator.tradeFlowParts(of: row.account, on: date, previous: row.previous)
-        let residual = row.cash.map { $0 - (row.derived?.cash ?? 0) }
-        return CheckInTradeFlow(recorded: parts.recorded, paidOutside: parts.paidOutside, residual: residual)
+        guard row.isTrades, row.state == .updated || row.state == .unchanged else { return nil }
+        return CheckInTradeFlow(trades: valuator.tradeFlowParts(of: row.account, on: date, previous: row.previous),
+                                residual: row.cash.map { $0 - (row.derived?.cash ?? 0) })
     }
 }
 

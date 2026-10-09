@@ -345,7 +345,8 @@ private struct CheckInListRow: View {
             }
         }
         .contextMenu {
-            rowMenu
+            CheckInRowMenu(row: row, rule: rule, date: date, session: session, checkIn: checkIn,
+                           instruments: library.library.instruments)
         }
     }
 
@@ -374,11 +375,6 @@ private struct CheckInListRow: View {
     /// The new money the field shows: what was entered, else the automatic amount.
     private var flowValue: Decimal? {
         row.isFlowEdited ? row.enteredFlow : review?.defaultFlow
-    }
-    private var otherInstruments: [Instrument] {
-        library.library.instruments.values
-            .filter { row.position(for: $0.id) == nil }
-            .sorted { $0.name.lowercased() < $1.name.lowercased() }
     }
 
     // MARK: Balance
@@ -624,8 +620,7 @@ private struct CheckInListRow: View {
 
     /// The parts of the new money, for the lines under the row.
     private var tradeFlow: CheckInTradeFlow? {
-        guard row.state == .updated || row.state == .unchanged else { return nil }
-        return CheckInTradeFlow.make(for: row, date: date, valuator: library.valuator)
+        CheckInTradeFlow.make(for: row, date: date, valuator: library.valuator)
     }
 
     /// "deposits +200,60 · cash difference +11,30", when there's something to split.
@@ -954,15 +949,7 @@ private struct CheckInListRow: View {
                     prompt: rule == .ask ? "unknown" : "0", label: field.name(in: library.library), allowsEmpty: true,
                     signToggle: signToggle, onSubmit: { next(field) }
                 ) { amount in
-                    checkIn.updateRow(row.account) { row in
-                        if let amount {
-                            row.setFlow(amount)
-                        } else if rule == .ask {
-                            row.setFlow(nil)
-                        } else {
-                            row.resetFlow()
-                        }
-                    }
+                    checkIn.updateRow(row.account) { CheckInEditing.enterFlow(amount, rule: rule, in: &$0) }
                 }
                 Text(verbatim: symbol)
                     .foregroundStyle(Palette.secondaryInk)
@@ -976,97 +963,12 @@ private struct CheckInListRow: View {
 
     // MARK: Actions
 
-    @ViewBuilder
-    private var rowMenu: some View {
-        if row.canMarkUnchanged && !row.followsTrades {
-            Button {
-                markUnchanged()
-            } label: {
-                Label(CheckInWording.markUnchangedTitle(for: row), systemImage: "checkmark")
-            }
-        }
-        Button {
-            skip()
-        } label: {
-            Label("Skip This Time", systemImage: "arrow.uturn.forward")
-        }
-        if row.isFlowEdited {
-            Button {
-                checkIn.updateRow(row.account) { $0.resetFlow() }
-                session.editingFlows.remove(row.account)
-            } label: {
-                Label("Use Automatic New Money", systemImage: "arrow.counterclockwise")
-            }
-        } else if rule != .ask && row.state == .updated && !showsFlowField
-                    && (!row.isTrades || CheckInRowDisplay.canEditTradeFlow(row)) {
-            Button {
-                session.editFlow(row.account)
-            } label: {
-                Label("Edit New Money", systemImage: "pencil")
-            }
-        }
-        if row.isTrades {
-            Button {
-                session.addTrade(to: row.account, on: date)
-            } label: {
-                Label("Add Trade…", systemImage: "plus.circle")
-            }
-            if row.showsCash && row.state != .skipped {
-                if CheckInRowDisplay.showsCashField(row, isEditing: session.editingCash.contains(row.account))
-                    && row.derived != nil {
-                    Button {
-                        session.useTradesCash(row.account, checkIn: checkIn)
-                    } label: {
-                        Label("Use Trades' Cash", systemImage: "arrow.counterclockwise")
-                    }
-                } else if row.derived != nil {
-                    Button {
-                        session.enterStatementCash(row.account)
-                    } label: {
-                        Label("Enter Cash From a Statement", systemImage: "banknote")
-                    }
-                }
-            }
-            if row.positions.isEmpty {
-                Button {
-                    checkIn.updateRow(row.account) { $0.enterStatementQuantities() }
-                    session.expanded.insert(row.account)
-                } label: {
-                    Label("Compare With a Statement", systemImage: "doc.text.magnifyingglass")
-                }
-            } else {
-                Button {
-                    session.stopComparing(row.account, checkIn: checkIn)
-                } label: {
-                    Label("Stop Comparing With a Statement", systemImage: "xmark.circle")
-                }
-            }
-        } else if row.mode == .holdings {
-            let others = otherInstruments
-            if !others.isEmpty {
-                Menu {
-                    ForEach(others) { instrument in
-                        Button(instrument.name) { addPosition(instrument.id) }
-                    }
-                } label: {
-                    Label("Add a Position", systemImage: "plus")
-                }
-            }
-        }
-    }
-
     private func markUnchanged() {
         session.markUnchanged(row.account, checkIn: checkIn)
     }
 
     private func skip() {
         checkIn.updateRow(row.account) { $0.skip() }
-    }
-
-    private func addPosition(_ instrument: InstrumentID) {
-        checkIn.updateRow(row.account) { $0.setQuantity(0, of: instrument) }
-        session.expanded.insert(row.account)
-        session.focusRequest = .quantity(row.account, instrument)
     }
 
     // MARK: Words

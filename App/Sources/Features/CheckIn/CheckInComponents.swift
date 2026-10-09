@@ -3,8 +3,9 @@ import SwiftUI
 import Tracker
 
 // Views the check-in's iPhone list and Mac table share: the number field,
-// the state indicator, amounts without a currency, the progress bar, the
-// legend, the date panel, the banners at the top and the page while saving.
+// the state indicator, a row's menu, amounts without a currency, the
+// progress bar, the legend, the date panel, the banners at the top and the
+// page while saving.
 
 // MARK: - Number field
 
@@ -258,6 +259,131 @@ struct CheckInProgressBar: View {
 
     private var fraction: CGFloat {
         total > 0 ? CGFloat(reviewed) / CGFloat(total) : 0
+    }
+}
+
+// MARK: - Row menu
+
+/// A row's menu (long-press on iPhone, right-click on the Mac): mark it
+/// unchanged or skip it, its new money; for a trades account its trades,
+/// its cash and a statement to compare with; for holdings, *Add a
+/// Position*. The iPhone's commands have icons, the Mac's are words alone.
+/// The row hands it what it works with, so it reads nothing from the
+/// environment.
+struct CheckInRowMenu: View {
+    let row: CheckInRow
+    /// How the account's kind fills in new money.
+    let rule: FlowDefault
+    /// The check-in's date.
+    let date: CalendarDate
+    let session: CheckInSession
+    let checkIn: CheckInStore
+    /// The library's instruments, for *Add a Position*.
+    let instruments: [InstrumentID: Instrument]
+
+    var body: some View {
+        if row.canMarkUnchanged && !row.followsTrades {
+            command(CheckInWording.markUnchangedTitle(for: row), "checkmark") {
+                session.markUnchanged(row.account, checkIn: checkIn)
+            }
+        }
+        command("Skip This Time", "arrow.uturn.forward") {
+            checkIn.updateRow(row.account) { $0.skip() }
+        }
+        if row.isFlowEdited {
+            command("Use Automatic New Money", "arrow.counterclockwise") {
+                checkIn.updateRow(row.account) { $0.resetFlow() }
+                session.editingFlows.remove(row.account)
+            }
+        } else if offersEditNewMoney {
+            command("Edit New Money", "pencil") {
+                session.editFlow(row.account)
+            }
+        }
+        if row.isTrades {
+            command("Add Trade…", "plus.circle") {
+                session.addTrade(to: row.account, on: date)
+            }
+            if row.showsCash && row.state != .skipped && row.derived != nil {
+                if CheckInRowDisplay.showsCashField(row, isEditing: session.editingCash.contains(row.account)) {
+                    command("Use Trades' Cash", "arrow.counterclockwise") {
+                        session.useTradesCash(row.account, checkIn: checkIn)
+                    }
+                } else {
+                    command("Enter Cash From a Statement", "banknote") {
+                        session.enterStatementCash(row.account)
+                    }
+                }
+            }
+            if row.positions.isEmpty {
+                command("Compare With a Statement", "doc.text.magnifyingglass") {
+                    compareWithStatement()
+                }
+            } else {
+                command("Stop Comparing With a Statement", "xmark.circle") {
+                    session.stopComparing(row.account, checkIn: checkIn)
+                }
+            }
+        } else if row.mode == .holdings {
+            let others = instruments.values
+                .filter { row.position(for: $0.id) == nil }
+                .sorted { $0.name.lowercased() < $1.name.lowercased() }
+            if !others.isEmpty {
+                Menu {
+                    ForEach(others) { instrument in
+                        Button(instrument.name) {
+                            session.addPosition(instrument.id, to: row.account, checkIn: checkIn)
+                        }
+                    }
+                } label: {
+                    commandLabel("Add a Position", "plus")
+                }
+            }
+        }
+    }
+
+    /// Whether to offer *Edit New Money*: on iPhone (the Mac's table always
+    /// has the New money column), for an updated row whose new money is
+    /// automatic and has no field showing; a trades account's only once
+    /// it can be edited (``CheckInRowDisplay/canEditTradeFlow(_:)``).
+    private var offersEditNewMoney: Bool {
+        #if os(iOS)
+        let isEditing = session.editingFlows.contains(row.account)
+        return rule != .ask && row.state == .updated
+            && !CheckInRowDisplay.showsFlowField(row, rule: rule, isEditing: isEditing)
+            && (!row.isTrades || CheckInRowDisplay.canEditTradeFlow(row))
+        #else
+        return false
+        #endif
+    }
+
+    /// Enters what the trades hold as a statement's quantities, to correct
+    /// where the statement differs. The iPhone shows them under the row; the
+    /// Mac focuses the first.
+    private func compareWithStatement() {
+        checkIn.updateRow(row.account) { $0.enterStatementQuantities() }
+        #if os(iOS)
+        session.expanded.insert(row.account)
+        #else
+        if let first = row.derived?.positions.first(where: { $0.quantity != 0 }) {
+            session.focusRequest = .quantity(row.account, first.instrument)
+        }
+        #endif
+    }
+
+    private func command(_ title: String, _ systemImage: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            commandLabel(title, systemImage)
+        }
+    }
+
+    @ViewBuilder
+    private func commandLabel(_ title: String, _ systemImage: String) -> some View {
+        #if os(iOS)
+        Label(title, systemImage: systemImage)
+        #else
+        Text(title)
+        #endif
     }
 }
 

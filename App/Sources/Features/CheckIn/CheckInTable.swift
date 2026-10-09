@@ -25,14 +25,14 @@ import Tracker
 /// cash). Right-click it to compare with a statement's quantities.
 struct CheckInTable: View {
     let draft: CheckInDraft
-    let session: CheckInSession
+    @Bindable var session: CheckInSession
 
     @Environment(LibraryStore.self) private var library
     @FocusState private var focus: CheckInField?
 
     init(draft: CheckInDraft, session: CheckInSession) {
         self.draft = draft
-        self.session = session
+        _session = Bindable(session)
     }
 
     var body: some View {
@@ -62,16 +62,7 @@ struct CheckInTable: View {
         .frame(minWidth: 860)
         .background(Palette.card)
         .defaultFocus($focus, order.fields.first)
-        .tradeEditorSheet(tradeRequest)
-    }
-
-    /// The trade being added from a trades account's row.
-    private var tradeRequest: Binding<TradeEditorTarget?> {
-        Binding {
-            session.tradeRequest
-        } set: { target in
-            session.tradeRequest = target
-        }
+        .tradeEditorSheet($session.tradeRequest)
     }
 
     private func table(review: CheckInReview, sections: [CheckInSection], order: CheckInFieldOrder) -> some View {
@@ -267,7 +258,8 @@ private struct CheckInTableRow: View {
                 .padding(.leading, CheckInColumns.inset)
         }
         .contextMenu {
-            rowMenu
+            CheckInRowMenu(row: row, rule: rule, date: date, session: session, checkIn: checkIn,
+                           instruments: library.library.instruments)
         }
     }
 
@@ -395,15 +387,7 @@ private struct CheckInTableRow: View {
                 prompt: row.state == .notReviewed ? "—" : (rule == .ask ? "unknown" : "0,00"),
                 label: field.name(in: library.library), allowsEmpty: true, onSubmit: { onReturn(field) }
             ) { amount in
-                checkIn.updateRow(row.account) { row in
-                    if let amount {
-                        row.setFlow(amount)
-                    } else if rule == .ask {
-                        row.setFlow(nil)
-                    } else {
-                        row.resetFlow()
-                    }
-                }
+                checkIn.updateRow(row.account) { CheckInEditing.enterFlow(amount, rule: rule, in: &$0) }
             }
             .checkInFieldBox(isFocused: focused == field, height: 26)
         }
@@ -611,10 +595,8 @@ private struct CheckInTableRow: View {
 
     /// "deposits +200,60 · cash difference +11,30", when there's something to split.
     private var tradeFlowDetail: String? {
-        guard row.state == .updated || row.state == .unchanged,
-              let flow = CheckInTradeFlow.make(for: row, date: date, valuator: library.valuator)
-        else { return nil }
-        return CheckInWording.tradeFlowDetail(flow, hidesAmounts: hidesAmounts, locale: locale)
+        CheckInTradeFlow.make(for: row, date: date, valuator: library.valuator)
+            .flatMap { CheckInWording.tradeFlowDetail($0, hidesAmounts: hidesAmounts, locale: locale) }
     }
 
     /// The cash. A trades account's comes from its trades, read-only, with
@@ -695,57 +677,6 @@ private struct CheckInTableRow: View {
     }
 
     // MARK: Actions
-
-    @ViewBuilder
-    private var rowMenu: some View {
-        if row.canMarkUnchanged && !row.followsTrades {
-            Button(CheckInWording.markUnchangedTitle(for: row)) { markUnchanged() }
-        }
-        Button("Skip This Time") {
-            checkIn.updateRow(row.account) { $0.skip() }
-        }
-        if row.isFlowEdited {
-            Button("Use Automatic New Money") {
-                checkIn.updateRow(row.account) { $0.resetFlow() }
-            }
-        }
-        if row.isTrades {
-            Button("Add Trade…") { session.addTrade(to: row.account, on: date) }
-            if row.showsCash && row.state != .skipped && row.derived != nil {
-                if CheckInRowDisplay.showsCashField(row, isEditing: session.editingCash.contains(row.account)) {
-                    Button("Use Trades' Cash") { session.useTradesCash(row.account, checkIn: checkIn) }
-                } else {
-                    Button("Enter Cash From a Statement") { session.enterStatementCash(row.account) }
-                }
-            }
-            if row.positions.isEmpty {
-                Button("Compare With a Statement") {
-                    checkIn.updateRow(row.account) { $0.enterStatementQuantities() }
-                    if let first = row.derived?.positions.first(where: { $0.quantity != 0 }) {
-                        session.focusRequest = .quantity(row.account, first.instrument)
-                    }
-                }
-            } else {
-                Button("Stop Comparing With a Statement") {
-                    session.stopComparing(row.account, checkIn: checkIn)
-                }
-            }
-        } else if row.mode == .holdings {
-            let others = library.library.instruments.values
-                .filter { row.position(for: $0.id) == nil }
-                .sorted { $0.name.lowercased() < $1.name.lowercased() }
-            if !others.isEmpty {
-                Menu("Add a Position") {
-                    ForEach(others) { instrument in
-                        Button(instrument.name) {
-                            checkIn.updateRow(row.account) { $0.setQuantity(0, of: instrument.id) }
-                            session.focusRequest = .quantity(row.account, instrument.id)
-                        }
-                    }
-                }
-            }
-        }
-    }
 
     private func markUnchanged() {
         session.markUnchanged(row.account, checkIn: checkIn)
