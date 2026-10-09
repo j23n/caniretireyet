@@ -319,6 +319,32 @@ struct TradeSignTests {
         let unmapped = try Self.trades(csv).trades
         #expect(unmapped.map(\.amount) == [1000, -505, -100])
     }
+
+    /// A split keeps only its instrument and ratio, so two splits of one
+    /// instrument on one day are told apart by their order in the file,
+    /// whatever their rows' amount cells say: neither overwrites the other.
+    @Test func sameDaySplitsKeepTheirOwnIDs() throws {
+        var session = try ImportSession(data: Data("""
+            Type,Date,Symbol,Amount,Ratio
+            Split,2026-03-02,VWCE,0,2
+            Split,2026-03-02,VWCE,,5
+            """.utf8))
+        if session.profile.layout != .trades { session.proposeMapping(layout: .trades) }
+        session.profile.constants.account = "broker"
+        let preview = session.preview(against: Self.library)
+        let splits = preview.records.compactMap(\.imported.trade)
+        #expect(splits.map(\.type) == [.split, .split])
+        #expect(splits.allSatisfy { $0.amount == nil })
+        let first = try #require(splits.first { $0.ratio == 2 })
+        let second = try #require(splits.first { $0.ratio == 5 })
+        #expect(first.id == TradeID.stable(for: first, ordinal: 0))
+        #expect(second.id == TradeID.stable(for: second, ordinal: 1))
+
+        // Both are written, and importing the file again changes nothing.
+        let result = preview.apply(to: Self.library)
+        #expect(Set(result.library.trades(for: "broker").compactMap(\.ratio)) == [2, 5])
+        #expect(session.preview(against: result.library).records.allSatisfy { $0.status == .identical })
+    }
 }
 
 /// Every sample export, end to end into the made-up example library.

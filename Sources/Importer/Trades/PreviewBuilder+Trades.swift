@@ -295,7 +295,7 @@ extension PreviewBuilder {
         let amountCurrency = columns[.amount].flatMap(columnCurrency)
         let grossCurrency = columns[.gross].flatMap(columnCurrency)
 
-        var ordinals: [String: Int] = [:]
+        var ordinals: [TradeID: Int] = [:]
         for row in tradeRows {
             guard let type = row.type, let accountID = row.accountID, let account = accounts[accountID] else { continue }
             func signed(_ value: Decimal, asWritten: Bool) -> Decimal {
@@ -346,9 +346,10 @@ extension PreviewBuilder {
                 fail(row.number, column, row.typeText, .invalidTrade(problem.message))
                 continue
             }
-            let identity = [accountID.rawValue, row.date.description, type.rawValue, instrument?.rawValue ?? "",
-                            trade.quantity?.fileString ?? "", amount?.fileString ?? "", trade.price?.fileString ?? ""]
-                .joined(separator: "|")
+            // Rows that would get the same ID are numbered: counted by the ID
+            // itself, so over exactly the fields it's made from (a split's
+            // amount cell, which its trade doesn't keep, tells nothing apart).
+            let identity = TradeID.stable(for: trade)
             let ordinal = ordinals[identity, default: 0]
             ordinals[identity] = ordinal + 1
             trade.id = TradeID.stable(for: trade, ordinal: ordinal)
