@@ -78,7 +78,7 @@ Every column has a format. The file sets the defaults, a column can override the
 - **Currency markers** are stripped: `€ 1.234,56`, `EUR 1234.56` and `1,234.56 $` all work. A currency code found in the cell can also be used as the value's currency.
 - **Negatives** can be written `-1`, `(1)` or `1-`.
 - **Percentages** are supported.
-- **Empty cells** are skipped by default (not read as zero). You can choose to read them as zero.
+- **Empty cells** are skipped by default (not read as zero). You can choose to read them as zero. In a transactions file a row is one trade, which an empty cell never leaves out: the trade is recorded without that value, and read as zero only an amount (net or gross) is 0, since zero is no quantity, price, fee, tax or ratio ([Signs](#signs)).
 - **Ambiguous values** such as `1,234`: when a column could be read either way, the importer asks.
 
 **Dates**
@@ -219,7 +219,7 @@ The library stores quantities, prices, fees and tax as positive numbers, and a t
   The preview notes which, for each amount column.
 - In a file with signed amounts, a deposit or withdrawal goes by its sign: IBKR writes both as `Deposits/Withdrawals`, a negative one is a withdrawal. The preview notes how many.
 - Without a type column, a negative quantity is a sell and a positive one a buy; without quantities, a negative signed amount is a buy.
-- Zero is no value: a quantity or price of 0 is left out. Deposits, withdrawals, fees and taxes don't keep a row's quantity and price, and a split keeps only its ratio.
+- Zero is no value: a quantity, price, fee, tax or ratio of 0 is left out. Deposits, withdrawals, fees and taxes don't keep a row's quantity and price, and a split keeps only its ratio.
 
 A row whose trade can't be applied (a buy without a price or an amount, a split without a ratio) is left out with the reason; smaller problems (a buy with a positive amount) are imported and pointed out by `retire validate`.
 

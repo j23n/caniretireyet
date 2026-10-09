@@ -178,13 +178,24 @@ struct ImportFormatStep: View {
         } header: {
             Text("Empty cells")
         } footer: {
-            Text(Self.emptyCellsText(count: flow.emptyValueCells, policy: flow.emptyCells))
+            Text(Self.emptyCellsText(count: flow.emptyValueCells, policy: flow.emptyCells, layout: flow.layout))
         }
     }
 
-    private static func emptyCellsText(count: Int, policy: EmptyCellPolicy) -> String {
+    /// What the empty cells in the columns of numbers become. In a trades
+    /// file a row is one trade, which an empty cell never leaves out: the
+    /// trade has no such value, and read as zero only an amount is 0, since
+    /// zero is no quantity, price, fee, tax or ratio (IMPORT.md, "Empty cells").
+    private static func emptyCellsText(count: Int, policy: EmptyCellPolicy, layout: ImportLayout) -> String {
         let cells = count == 1 ? "1 empty cell" : "\(count) empty cells"
         if count == 0 { return "The columns of numbers have no empty cells." }
+        if layout == .trades {
+            return policy == .zero
+                ? "\(cells) in the columns of numbers will be read as 0 in Amount (net) and Gross amount, and "
+                    + "skipped in the others, as 0 is no quantity, price, fee, tax or ratio. Each row is still a trade."
+                : "\(cells) in the columns of numbers will be skipped: each row is still a trade, recorded without "
+                    + "that value."
+        }
         return policy == .zero
             ? "\(cells) in the columns of numbers will be recorded as 0."
             : "\(cells) in the columns of numbers will be skipped: nothing is recorded for that date."

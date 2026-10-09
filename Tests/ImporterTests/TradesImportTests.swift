@@ -259,6 +259,30 @@ struct TradeSignTests {
         #expect(trades.map(\.tax) == [nil, d("1.2"), d("2.6")])
     }
 
+    /// An empty cell never leaves its row out, one row being one trade: the
+    /// trade has no such value. Read as zero, an empty amount is 0, and an
+    /// empty quantity or price is still none, since zero is no value for
+    /// them (the Format step's note on empty cells says so).
+    @Test func emptyCellsLeaveTheirValueOutOfTheTrade() throws {
+        let csv = """
+            Tipo;Data;Titolo;Quantità;Prezzo;Importo
+            Versamento;02/01/2026;;;;1.000,00
+            Acquisto;05/01/2026;VWCE;5;100,00;
+            Dividendo;20/01/2026;VWCE;;;4,50
+            """
+        let (skipped, preview) = try Self.trades(csv)
+        #expect(skipped.map(\.type) == [.deposit, .buy, .dividend])
+        #expect(skipped.map(\.amount) == [1000, nil, d("4.5")])
+        #expect(skipped.map(\.quantity) == [nil, 5, nil])
+        #expect(preview.cellErrors.isEmpty)
+
+        let zero = try Self.trades(csv) { $0.profile.defaults.empty = .zero }.trades
+        #expect(zero.map(\.type) == [.deposit, .buy, .dividend])
+        #expect(zero.map(\.amount) == [1000, 0, d("4.5")])
+        #expect(zero.map(\.quantity) == [nil, 5, nil])
+        #expect(zero.map(\.price) == [nil, 100, nil])
+    }
+
     @Test func withoutATypeTheQuantitysSignSaysBuyOrSell() throws {
         let (trades, preview) = try Self.trades("""
             Date,Product,Quantity,Price,Total
