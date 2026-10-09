@@ -123,6 +123,7 @@ struct NetWorthChart: View {
                              series: .value("Series", "History fill"))
                         .foregroundStyle(Palette.ink.opacity(0.08))
                         .interpolationMethod(.monotone)
+                        .spokenValueHidden(hidesAmounts)
                 }
                 ForEach(history.segments) { segment in
                     ForEach(segment.points) { point in
@@ -131,6 +132,7 @@ struct NetWorthChart: View {
                             .foregroundStyle(segment.isComplete ? Palette.ink : Palette.secondaryInk)
                             .lineStyle(lineStyle(complete: segment.isComplete))
                             .interpolationMethod(.monotone)
+                            .spokenValueHidden(hidesAmounts)
                     }
                 }
             }
@@ -140,18 +142,21 @@ struct NetWorthChart: View {
                          yEnd: .value("90th percentile", point.p90), series: .value("Series", "Projection 10–90"))
                     .foregroundStyle(Palette.accent.opacity(ProjectionLegend.outerBand))
                     .interpolationMethod(.monotone)
+                    .spokenValueHidden(hidesAmounts)
                 AreaMark(x: .value("Date", point.date), yStart: .value("25th percentile", point.p25),
                          yEnd: .value("75th percentile", point.p75), series: .value("Series", "Projection 25–75"))
                     .foregroundStyle(Palette.accent.opacity(ProjectionLegend.innerBand))
                     .interpolationMethod(.monotone)
+                    .spokenValueHidden(hidesAmounts)
                 LineMark(x: .value("Date", point.date), y: .value("Median", point.p50),
                          series: .value("Series", "Projection median"))
                     .foregroundStyle(Palette.accent)
                     .lineStyle(StrokeStyle(lineWidth: Metrics.lineWidth, lineCap: .round, dash: [5, 4]))
                     .interpolationMethod(.monotone)
+                    .spokenValueHidden(hidesAmounts)
             }
 
-            markerRules(layout.markers, scale: layout.scale)
+            markerRules(layout.markers, scale: layout.scale, hidesAmounts: hidesAmounts)
 
             if let selected = selection(layout) {
                 // The callout stays inside the chart, never over what's above it.
@@ -165,6 +170,7 @@ struct NetWorthChart: View {
                 PointMark(x: .value("Date", selected.date), y: .value("Net worth", selected.value))
                     .foregroundStyle(selected.isProjection ? Palette.accent : Palette.ink)
                     .symbolSize(60)
+                    .spokenValueHidden(hidesAmounts)
             }
         }
         .chartLegend(.hidden)
@@ -187,6 +193,7 @@ struct NetWorthChart: View {
                          yEnd: .value("To", point.high), series: .value("Group", series.id))
                     .foregroundStyle(Palette.color(for: series.color).opacity(StackedAreaData.fillOpacity))
                     .interpolationMethod(.linear)
+                    .spokenValueHidden(hidesAmounts)
             }
         }
         ForEach(stack.edges) { point in
@@ -196,6 +203,7 @@ struct NetWorthChart: View {
                 .lineStyle(StrokeStyle(lineWidth: StackedAreaData.gapWidth, lineJoin: .round))
                 .offset(x: 0, y: point.isBelowZero ? StackedAreaData.gapOffset : -StackedAreaData.gapOffset)
                 .interpolationMethod(.linear)
+                .spokenValueHidden(hidesAmounts)
         }
         ForEach(stack.zeroGap) { point in
             LineMark(x: .value("Date", point.date), y: .value("Zero", 0.0), series: .value("Gap", point.line))
@@ -209,6 +217,7 @@ struct NetWorthChart: View {
                     .foregroundStyle(Palette.stroke(for: series.color))
                     .lineStyle(lineStyle(complete: point.isComplete))
                     .interpolationMethod(.linear)
+                    .spokenValueHidden(hidesAmounts)
             }
         }
     }

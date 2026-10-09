@@ -879,7 +879,7 @@ On iPhone, a CSV opened from Files goes straight to "Import with profile…": ch
 - **A projection's value axis** fits the history, the median and the 25–75% band. The 10–90% band may run off the top, cut at the chart's edge, and the legend says "↑ 10–90% continues above". No log scale.
 - A value that couldn't be worked out (a price or exchange rate missing) is never drawn as zero: an account's line has a gap there, and a total that adds up what it could is drawn dashed and grey. A note under the chart says what's missing.
 - Direct labels on the last point as well as the legend, where they don't collide.
-- Every chart can be read by dragging across it (`chartXSelection`) and has a VoiceOver summary (`accessibilityChartDescriptor`); while amounts are hidden, neither it nor its audio graph reads them. The callout stays inside the chart, never over what's above it.
+- Every chart can be read by dragging across it (`chartXSelection`) and has a VoiceOver summary (`accessibilityChartDescriptor`); while amounts are hidden, neither it, its audio graph nor its marks read them. The callout stays inside the chart, never over what's above it.
 - No dual axes. When two measures need comparing, they get two charts.
 
 **Uncertainty** is always a band, never just the median. The words are "in 9 of 10 simulated futures", not "90% probability".

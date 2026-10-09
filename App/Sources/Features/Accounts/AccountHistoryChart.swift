@@ -89,23 +89,27 @@ struct AccountHistoryChart: View {
                              series: .value("Series", "Fill \(run.id)"))
                         .foregroundStyle(Palette.ink.opacity(0.08))
                         .interpolationMethod(.monotone)
+                        .spokenValueHidden(hidesAmounts)
                     LineMark(x: .value("Date", point.date), y: .value("Value", point.value),
                              series: .value("Series", "Value \(run.id)"))
                         .foregroundStyle(Palette.ink)
                         .lineStyle(StrokeStyle(lineWidth: Metrics.lineWidth, lineCap: .round, lineJoin: .round))
                         .interpolationMethod(.monotone)
+                        .spokenValueHidden(hidesAmounts)
                 }
             }
             ForEach(isolated) { point in
                 PointMark(x: .value("Date", point.date), y: .value("Value", point.value))
                     .foregroundStyle(Palette.ink)
                     .symbolSize(16)
+                    .spokenValueHidden(hidesAmounts)
             }
             ForEach(ticks) { tick in
                 RuleMark(x: .value("Date", tick.date), yStart: .value("Tick", tick.low),
                          yEnd: .value("Tick top", tick.high))
                     .foregroundStyle(tick.isUp ? Palette.positive : Palette.negative)
                     .lineStyle(StrokeStyle(lineWidth: 2, lineCap: .round))
+                    .spokenValueHidden(hidesAmounts)
             }
             if let selected = selectedPoint {
                 // The callout stays inside the chart, never over the header above it.
@@ -121,6 +125,7 @@ struct AccountHistoryChart: View {
                 PointMark(x: .value("Date", selected.date), y: .value("Value", selected.value))
                     .foregroundStyle(Palette.ink)
                     .symbolSize(60)
+                    .spokenValueHidden(hidesAmounts)
             }
         }
         .chartXScale(domain: dateRange)

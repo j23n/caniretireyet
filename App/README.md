@@ -246,7 +246,7 @@ Dropping a CSV file anywhere on the window calls `navigation.startImport(file)`.
 | `BreakdownBars(rows:limit:)` | `[BreakdownRow]` | horizontal bars with amount and share; `limit` folds the rest into "Other" |
 | `Sparkline(points:)` | `[ChartPoint]` | a line in ink, no axes; for list rows |
 
-Pieces they share (`ChartSupport.swift`): `amountAxis(hidesAmounts:scale:relativeTo:)`, `tickAxis(_:label:)` (dates with `dateAxis(_ ticks:)`, ages, years), `markerRules(_:scale:)`, `.measuringWidth($width)`, `.calloutBackground()`, `ChartLegendRow`, `ProjectionLegend`, `ChartMarkerLabel`, `ChartCaption` (a short caption with an ⓘ popover), and `TimeSpanMenu` (history range and future horizon in one menu; `AppPreferences.horizonBinding(start:retirement:)`).
+Pieces they share (`ChartSupport.swift`): `amountAxis(hidesAmounts:scale:relativeTo:)`, `tickAxis(_:label:)` (dates with `dateAxis(_ ticks:)`, ages, years), `markerRules(_:scale:hidesAmounts:)`, `.spokenValueHidden(_:)` (a mark's value hidden from VoiceOver while amounts are), `.measuringWidth($width)`, `.calloutBackground()`, `ChartLegendRow`, `ProjectionLegend`, `ChartMarkerLabel`, `ChartCaption` (a short caption with an ⓘ popover), and `TimeSpanMenu` (history range and future horizon in one menu; `AppPreferences.horizonBinding(start:retirement:)`).
 
 The layout is worked out without SwiftUI, so it's tested on Linux:
 

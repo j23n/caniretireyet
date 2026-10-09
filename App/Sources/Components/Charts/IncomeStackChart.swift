@@ -82,6 +82,7 @@ struct IncomeStackChart: View {
                              yEnd: .value("To", point.high), series: .value("Source", source.name))
                         .foregroundStyle(Palette.color(for: source.color).opacity(IncomeChartData.fillOpacity))
                         .interpolationMethod(.linear)
+                        .spokenValueHidden(hidesAmounts)
                 }
             }
             ForEach(data.edges) { point in
@@ -91,6 +92,7 @@ struct IncomeStackChart: View {
                     .lineStyle(StrokeStyle(lineWidth: StackedAreaData.gapWidth, lineJoin: .round))
                     .offset(x: 0, y: -StackedAreaData.gapOffset)
                     .interpolationMethod(.linear)
+                    .spokenValueHidden(hidesAmounts)
             }
             ForEach(data.sources) { source in
                 ForEach(data.edges.filter { $0.source == source.name }) { point in
@@ -99,6 +101,7 @@ struct IncomeStackChart: View {
                         .foregroundStyle(Palette.stroke(for: source.color))
                         .lineStyle(StrokeStyle(lineWidth: Metrics.lineWidth, lineJoin: .round))
                         .interpolationMethod(.linear)
+                        .spokenValueHidden(hidesAmounts)
                 }
             }
 
@@ -108,6 +111,7 @@ struct IncomeStackChart: View {
                     .foregroundStyle(Palette.ink)
                     .lineStyle(StrokeStyle(lineWidth: Metrics.lineWidth, lineCap: .round, dash: [4, 3]))
                     .interpolationMethod(.linear)
+                    .spokenValueHidden(hidesAmounts)
             }
             if let last = data.spending.last {
                 PointMark(x: .value("Year", last.x), y: .value("Spending", last.y))
@@ -119,6 +123,7 @@ struct IncomeStackChart: View {
                             .foregroundStyle(Palette.secondaryInk)
                             .fixedSize()
                     }
+                    .spokenValueHidden(hidesAmounts)
             }
 
             if let year = selectedYear(data) {

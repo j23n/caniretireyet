@@ -64,6 +64,21 @@ enum ChartStyle {
     static let defaultWidth: CGFloat = 320
 }
 
+extension ChartContent {
+    /// A mark that plots amounts, as VoiceOver reads it: Swift Charts reads
+    /// each mark's plotted values, so while amounts are hidden (`hidden`: the
+    /// chart's `\.hidesAmounts`) its value is hidden, as the axis labels and
+    /// the audio graph's values are (``ChartStyle/spokenAmount(currency:hidden:)``).
+    @MainActor @ChartContentBuilder
+    func spokenValueHidden(_ hidden: Bool) -> some ChartContent {
+        if hidden {
+            accessibilityValue(Text(verbatim: AmountFormat.hidden))
+        } else {
+            self
+        }
+    }
+}
+
 // MARK: - Colours
 
 extension Palette {
@@ -190,9 +205,10 @@ extension View {
 
 /// Each marker's rule, from the bottom of the chart to the top of the data,
 /// with its label above in the row ``MarkerLabelLayout`` chose, or only its
-/// icon: a time chart's markers (retirement, pension starts, …).
+/// icon: a time chart's markers (retirement, pension starts, …). The top of
+/// the data is an amount, hidden from VoiceOver with `hidesAmounts`.
 @MainActor @ChartContentBuilder
-func markerRules(_ markers: MarkerLabelLayout, scale: AmountScale) -> some ChartContent {
+func markerRules(_ markers: MarkerLabelLayout, scale: AmountScale, hidesAmounts: Bool) -> some ChartContent {
     ForEach(markers.placements) { placement in
         RuleMark(x: .value("Date", placement.marker.date),
                  yStart: .value("Bottom", scale.domain.lowerBound),
@@ -204,6 +220,7 @@ func markerRules(_ markers: MarkerLabelLayout, scale: AmountScale) -> some Chart
                         overflowResolution: .init(x: .fit(to: .chart), y: .fit(to: .chart))) {
                 ChartMarkerLabel(placement: placement)
             }
+            .spokenValueHidden(hidesAmounts)
     }
 }
 

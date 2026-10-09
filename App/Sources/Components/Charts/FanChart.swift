@@ -70,14 +70,17 @@ struct FanChart: View {
                          yEnd: .value("90th percentile", point.p90), series: .value("Series", "10–90%"))
                     .foregroundStyle(Palette.accent.opacity(ProjectionLegend.outerBand))
                     .interpolationMethod(.monotone)
+                    .spokenValueHidden(hidesAmounts)
                 AreaMark(x: .value("Date", point.date), yStart: .value("25th percentile", point.p25),
                          yEnd: .value("75th percentile", point.p75), series: .value("Series", "25–75%"))
                     .foregroundStyle(Palette.accent.opacity(ProjectionLegend.innerBand))
                     .interpolationMethod(.monotone)
+                    .spokenValueHidden(hidesAmounts)
                 LineMark(x: .value("Date", point.date), y: .value("Median", point.p50), series: .value("Series", "Median"))
                     .foregroundStyle(Palette.accent)
                     .lineStyle(StrokeStyle(lineWidth: Metrics.lineWidth, lineCap: .round, lineJoin: .round))
                     .interpolationMethod(.monotone)
+                    .spokenValueHidden(hidesAmounts)
             }
 
             // Dashed and grey where a past total is partial (a price or rate missing).
@@ -89,10 +92,11 @@ struct FanChart: View {
                         .lineStyle(segment.isComplete
                             ? StrokeStyle(lineWidth: Metrics.lineWidth, lineCap: .round, lineJoin: .round)
                             : StrokeStyle(lineWidth: Metrics.lineWidth, lineCap: .round, lineJoin: .round, dash: [3, 4]))
+                        .spokenValueHidden(hidesAmounts)
                 }
             }
 
-            markerRules(layout.markers, scale: layout.scale)
+            markerRules(layout.markers, scale: layout.scale, hidesAmounts: hidesAmounts)
 
             if let selected = selectedPoint {
                 RuleMark(x: .value("Date", selected.date))
