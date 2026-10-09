@@ -144,7 +144,7 @@ The Valuator values a trades account on date *d* as Σ quantity × price(*d*) + 
 
 ## Flows
 
-A trades account's flows (the money in and out that [PROGRESS.md](PROGRESS.md) compares returns against) come from its trades and cash (`Valuator.tradeFlows(of:after:through:)`, `TradeFlow`):
+A trades account's flows (the money in and out, which [PROGRESS.md](PROGRESS.md) counts as new money) come from its trades and cash (`Valuator.tradeFlows(of:after:through:)`, `TradeFlow`):
 
 - recorded **deposits** − **withdrawals**;
 - \+ securities **transferred in** − **transferred out**, and **openings**, at their market value on the transfer date (not their cost);
@@ -154,9 +154,7 @@ A trades account's flows (the money in and out that [PROGRESS.md](PROGRESS.md) c
 Dividends, interest, fees, taxes, buys and sells paid from or into the account's cash are not flows: they're the account's return, or move money within it.
 
 - The **check-in's default flow** for a trades account (`Valuator.defaultFlow(for:previous:)`) is this, since the previous valuation, or, for an account with none yet, since the library's previous check-in (so its first check-in doesn't count every purchase since its first trade as new money). It's written into the valuation's `flow`, for the record, and kept in step when trades change (`followFlows`).
-- The **change split** and **performance** use the flows themselves, not the stored `flow`: a deposit counts at its own date, and a trade after the latest check-in counts too. Returns weight each deposit, withdrawal and transfer from its date (Modified Dietz within each piece), and a residual from halfway between the valuation and the one with cash before it.
-- For an asset class, units bought or sold move money between cash and the position at the end price, as for holdings accounts. Units bought or sold outside the account are a flow of their position at their amount, like a transfer at its value; a fee or tax without an instrument is a flow of its cash.
-- **Per position**, `Valuator.instrumentReturn(of:in:from:to:)` gives an instrument's gain and money-weighted return including its dividends.
+- The **change split** uses the flows themselves, not the stored `flow`: a deposit counts at its own date, and a trade after the latest check-in counts too.
 
 ## Reconciliation
 

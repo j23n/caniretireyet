@@ -121,8 +121,6 @@ struct ExternalSettlementTests {
         #expect(sale.cost == same.cost)
         #expect(outside.summary(for: 2024).realizedGain == inside.summary(for: 2024).realizedGain)
         #expect(outside.summary(for: 2024).fees == 10)
-        #expect(external.instrumentReturn(of: "gold", in: "coins", from: "2024-01-01", to: "2024-03-31")?.gain
-            == throughCash.instrumentReturn(of: "gold", in: "coins", from: "2024-01-01", to: "2024-03-31")?.gain)
     }
 
     @Test func theGoldAccountIsWorthTheGold() throws {
@@ -143,22 +141,6 @@ struct ExternalSettlementTests {
         let spring = try #require(valuator.change(of: "coins", from: "2024-01-31", to: "2024-03-31"))
         #expect(spring.change.newMoney == -680)
         #expect(spring.change.market == d("21.1") * 70 - d("31.1") * 62 + 680)
-
-        // Performance counts the purchase as money in, not as a gain.
-        let performance = try #require(valuator.performance(of: .account("coins"), from: "2024-01-01",
-                                                            to: "2024-03-31"))
-        #expect(performance.accounts == ["coins"])
-        #expect(performance.netFlows == 1196)
-        #expect(performance.endValue == d("21.1") * 70)
-        let gold = try #require(valuator.performance(of: .assetClass(.gold, .netWorth), from: "2024-01-01",
-                                                     to: "2024-03-31"))
-        #expect(gold.netFlows == 1196)
-        #expect(gold.timeWeighted?.cumulative.rounded(6) == performance.timeWeighted?.cumulative.rounded(6))
-        // The same as recording a deposit and a withdrawal around each trade.
-        let workaround = try #require(Valuator(library: GoldLibrary.throughCash())
-            .performance(of: .account("coins"), from: "2024-01-01", to: "2024-03-31"))
-        #expect(performance.timeWeighted?.cumulative.rounded(6) == workaround.timeWeighted?.cumulative.rounded(6))
-        #expect(performance.moneyWeighted?.cumulative.rounded(6) == workaround.moneyWeighted?.cumulative.rounded(6))
     }
 
     @Test func theCheckInStartsFromNoCashAndCountsTheCostAsNewMoney() throws {

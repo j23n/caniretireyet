@@ -6,7 +6,7 @@ A personal net-worth tracker and retirement planner for iPhone, iPad and Mac.
 - **Plan.** Start from your real numbers and project forward: savings, spending, pensions and windfalls, with thousands of simulated markets. The model is deliberately simple, so every year can be checked by hand: you enter income from work and pensions after tax, a tax rate on investment gains and income, and optionally a wealth tax; accounts such as a pension fund can be locked until an age. It answers the question in its name: *can I retire yet, and if not, when?* Results are estimates from a simplified model, not financial or tax advice. *Export Calculations…* writes every calculation behind an answer, anonymized if you like, to check it or give it to someone else.
 - **Your data is files.** Everything is stored as plain JSON files in a folder in iCloud Drive. The app on each device (iPhone, iPad, Mac) reads and writes that folder, and iCloud keeps it in sync. There is no server, no account to create, and no lock-in.
 
-**Status: MVP.** Tracking (accounts, check-ins, history, trades, performance data), import from spreadsheets, prices, the planner, and the iPhone, iPad and Mac app with iCloud sync. The `retire` command-line tool does the same from a terminal. Start with [docs/PLAN.md](docs/PLAN.md); to build and contribute, see [CLAUDE.md](CLAUDE.md).
+**Status: MVP.** Tracking (accounts, check-ins, history, trades), import from spreadsheets, prices, the planner, and the iPhone, iPad and Mac app with iCloud sync. The `retire` command-line tool does the same from a terminal. Start with [docs/PLAN.md](docs/PLAN.md); to build and contribute, see [CLAUDE.md](CLAUDE.md).
 
 ## Getting started
 
@@ -66,7 +66,7 @@ Plans, accounts and trades are edited in the app, or in their JSON files by hand
 | [docs/PLANNER.md](docs/PLANNER.md) | The retirement simulation |
 | [docs/research/tax](docs/research/tax/) | Research notes on the Italian, Swiss and German tax systems, kept from an earlier version that modelled them; not used by the app |
 | [docs/IMPORT.md](docs/IMPORT.md) | Importing any spreadsheet or export by mapping its columns |
-| [docs/PROGRESS.md](docs/PROGRESS.md) | Net worth, history and projection together, baselines, actual vs. projected, performance |
+| [docs/PROGRESS.md](docs/PROGRESS.md) | Net worth, history and projection together, baselines, actual vs. projected |
 | [docs/UI.md](docs/UI.md) | What the app looks like: screens, navigation, charts, iPhone, iPad and Mac |
 
 ## License

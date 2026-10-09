@@ -140,15 +140,6 @@ extension Valuator {
     }
 
     /// The flows of a trades account after `from` through `through`, each
-    /// converted into the base currency at its date; `nil` when one is
-    /// unknown or can't be converted (reported in `problems`).
-    func tradeFlowsInBaseCurrency(of account: Account, after from: CalendarDate, through: CalendarDate,
-                                  problems: inout [ValuationProblem]) -> [(date: CalendarDate, amount: Decimal,
-                                                                           flow: TradeFlow)]? {
-        convertedTradeFlows(of: account, after: from, through: through, to: baseCurrency, problems: &problems)
-    }
-
-    /// The flows of a trades account after `from` through `through`, each
     /// converted into `target` at its date (no conversion for the account's
     /// own currency); `nil` when one is unknown or can't be converted
     /// (reported in `problems`).

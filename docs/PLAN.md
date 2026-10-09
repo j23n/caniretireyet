@@ -74,7 +74,7 @@ All data lives in a folder of plain JSON files in iCloud Drive. The apps on your
 
 ### Later
 
-These are listed as M3 and M4 in §6: investment performance, explaining the gap to a baseline, the RW/IVAFE helper, historical return sequences, and partner planning. Transaction-based cost basis is done: accounts can record trades ([TRADES.md](TRADES.md)). So are the widgets ([UI.md](UI.md#widgets)).
+These are listed as M3 and M4 in §6: explaining the gap to a baseline, the RW/IVAFE helper, historical return sequences, and partner planning. Transaction-based cost basis is done: accounts can record trades ([TRADES.md](TRADES.md)). So are the widgets ([UI.md](UI.md#widgets)).
 
 ### Non-goals
 
@@ -108,7 +108,7 @@ caniretireyet/
 ├── Package.swift
 ├── Sources/
 │   ├── Model/        the library's data model: every file type, decimals, dates, IDs
-│   ├── Tracker/      net-worth math: values, series, breakdowns, flows, performance
+│   ├── Tracker/      net-worth math: values, series, breakdowns, flows
 │   ├── Storage/      library folder ⇄ model: JSON codec, validation, migrations, merging
 │   ├── Importer/     CSV reading, format detection, column mapping, import profiles
 │   ├── Planner/      simulation engine and return model
@@ -297,7 +297,7 @@ The importer works with any spreadsheet or export instead of a fixed layout. Det
 
 - Conflict merging, with the Sync screen. The schema guard. Clear errors for hand-edited files that don't parse.
 - A monthly reminder notification, Face ID lock, and CSV export.
-- Performance (time-weighted and money-weighted returns, nominal and real), the explanation of the gap to a baseline (done: on each year of Progress, [PROGRESS.md](PROGRESS.md#actual-vs-a-baseline)), and fetching an inflation index (any country's HICP, or the euro area's).
+- The explanation of the gap to a baseline (done: on each year of Progress, [PROGRESS.md](PROGRESS.md#actual-vs-a-baseline)), and fetching an inflation index (any country's HICP, or the euro area's).
 - Widgets for net worth and years to go: done, on the home screen, the lock screen and the Mac's desktop ([UI.md](UI.md#widgets)).
 - An RW/IVAFE helper that produces year-end values and holding periods for foreign accounts, for an Italian tax return.
 

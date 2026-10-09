@@ -28,7 +28,7 @@ swift run retire --help                 # the CLI
 | Module | What it is | Depends on |
 | --- | --- | --- |
 | `Model` | The library's data model: every file type, decimals, dates, IDs, `Library`; the counts and lists every module writes in sentences (`Wording`). **Shared contract.** | — |
-| `Tracker` | Net-worth math: `Valuator` (values on a date), series, breakdowns, flows, performance; trades (`TradeLedger`: holdings, average cost, gains; converting and editing); the CSV export (`CSVExport`) | Model |
+| `Tracker` | Net-worth math: `Valuator` (values on a date), series, breakdowns, flows; trades (`TradeLedger`: holdings, average cost, gains; converting and editing); the CSV export (`CSVExport`) | Model |
 | `Storage` | Library folder ⇄ `Library`: JSON writer, validation, migrations, merging | Model |
 | `Importer` | CSV reading, format detection, column mapping, import profiles | Model |
 | `Prices` | Price, FX and inflation-index providers | Model |

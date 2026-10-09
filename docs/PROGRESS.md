@@ -90,26 +90,6 @@ A **baseline** is a projection saved at a point in time (see below). Choosing on
 
   The split is an approximation, since the four parts affect each other. It answers the useful question, though: am I behind because I saved less, or because markets were bad?
 
-### Performance (M3)
-
-The returns on your investments over a period:
-
-- **Two measures:**
-  - **Time-weighted return:** how the investments did, independent of when you added money. It is comparable to the return your plan assumes.
-  - **Money-weighted return** (an internal rate of return): what you actually experienced, including the effect of when you added and withdrew money.
-- **Units:** nominal and real (adjusted with actual inflation).
-- **Breakdowns:** for the whole portfolio, by asset class and by account.
-- **Periods:** since the last check-in, year to date, 1, 3 and 5 years, and since the start. Periods longer than a year are annualised.
-- **What it needs:** knowing how much money went in or out of each account (see below). Accounts without that information show their change in value, but no return.
-- **How it's computed** (Tracker):
-  - The period is cut at every valuation date. On each piece the time-weighted return is Modified Dietz: a flow is assumed to happen halfway between the account's previous valuation and the one that records it. The pieces are chained.
-  - The money-weighted return is the XIRR of the start value, the flows and the end value.
-  - Real returns use the change in the library's inflation index over the period (by default the tax residence's HICP, e.g. `hicp-de`). The real money-weighted return first converts every flow into money of the start date.
-  - Debts are left out of the portfolio and the asset classes. For an asset class, buying a position with the account's cash moves money between classes, so it doesn't count as a return.
-  - An account is left out, and listed as such, when a valuation in the period has no flow, or when it carries into the period a balance that had none (a home that never gets flows, for example). It is also left out when a price or FX rate is missing.
-  - An account that records trades ([TRADES.md](TRADES.md#flows)) has its flows worked out: deposits, withdrawals, transfers at market value, and buys and sales paid from outside the account at their amount, each weighted from its own date, and residuals (cash typed at a check-in that the trades don't explain) from halfway between that check-in and the one before. Dividends, interest and fees are part of its return. Its flows are known without asking, so it's never left out for an unknown flow.
-  - For one position of such an account, the return including its dividends is available too (`instrumentReturn`).
-
 ## Baselines
 
 A baseline stores the **outputs** of a projection, not just its inputs. If the app recalculated an old plan with today's code and today's tax parameters, it would give a different answer from the one you saw then. The point of a baseline is to remember what you expected at the time.
@@ -181,7 +161,7 @@ Two kinds of data are needed for the comparisons above.
 - A value without a flow, an imported one typically, counts as the check-in would have filled it in: for the kinds it fills in, the whole change of a balance since the value before (for holdings, the changes in quantity and cash); for those it asks about, what the main plan pays in, as above. An account's first value without a flow, what it held when its records start, counts as "other", whatever its kind.
 - Moving money between two tracked accounts cancels out at the portfolio level (−1,000 from the current account, +1,000 into the broker). So the sum of all flows is your actual savings for the period, which is what the plan's savings are compared against.
 
-**Inflation.** Needed to put the actual line in today's money and to compute real returns. The app fetches the library's consumer price index (by default the Eurostat HICP of the tax residence, else of the base currency, and one for each plan's currency) along with FX rates, and stores it in the monthly history files. Past values are public, so this can be filled in later if needed.
+**Inflation.** Needed to put the actual line in today's money. The app fetches the library's consumer price index (by default the Eurostat HICP of the tax residence, else of the base currency, and one for each plan's currency) along with FX rates, and stores it in the monthly history files. Past values are public, so this can be filled in later if needed.
 
 ## What changes in the files
 

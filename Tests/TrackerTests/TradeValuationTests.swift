@@ -162,32 +162,6 @@ struct TradeValuationTests {
         #expect(change.change.other == 0)
     }
 
-    @Test func returnsWeightEachFlowFromItsDate() throws {
-        let valuator = Valuator(library: TradeLibrary.recordedDeposits())
-        let result = try #require(valuator.performance(of: .account("broker"), from: "2024-01-31", to: "2024-03-31"))
-        #expect(result.accounts == ["broker"])
-        #expect(result.startValue == 10095)
-        #expect(result.endValue.rounded(20) == (4400 + TradeLibrary.apple + d("5295.36")).rounded(20))
-        #expect(result.netFlows == 550)
-        // One piece of 60 days: the transfer in weighs 21/60, the withdrawal 6/60.
-        let gain = result.endValue - 10095 - 550
-        let invested = 10095 + 1050 * d("21") / 60 - 500 * d("6") / 60
-        let twr = try #require(result.timeWeighted)
-        #expect(twr.cumulative.rounded(12) == (gain / invested).rounded(12))
-        #expect(result.moneyWeighted != nil)
-
-        // By asset class, buying and selling move money between cash and equity at the end prices:
-        // equity gets the transfer in and the units bought (10 AAPL) less those sold (20 VWCE).
-        let equity = try #require(valuator.performance(of: .assetClass(.equity, .netWorth), from: "2024-01-31",
-                                                       to: "2024-03-31"))
-        #expect(equity.netFlows.rounded(20) == (1050 + TradeLibrary.apple - 20 * 110).rounded(20))
-        let cash = try #require(valuator.performance(of: .assetClass(.cash, .netWorth), from: "2024-01-31",
-                                                     to: "2024-03-31"))
-        #expect((equity.netFlows + cash.netFlows).rounded(20) == 550)
-        #expect(equity.startValue + cash.startValue == result.startValue)
-        #expect((equity.endValue + cash.endValue).rounded(10) == result.endValue.rounded(10))
-    }
-
     @Test func aTradesAccountStartsAtItsFirstTradeAndIsStaleByItsLatestRecord() {
         let valuator = Valuator(library: TradeLibrary.recordedDeposits())
         #expect(valuator.firstValuationDate() == "2024-01-02")
@@ -257,24 +231,6 @@ struct TradeValuationTests {
         #expect(summary.deposits == 10000)
         #expect(summary.withdrawals == 500)
         #expect(summary.unconverted.isEmpty)
-    }
-
-    @Test func aPositionsReturnIncludesItsDividends() throws {
-        let valuator = Valuator(library: TradeLibrary.recordedDeposits())
-        let vwce = try #require(valuator.instrumentReturn(of: "vwce", in: "broker", from: "2024-01-31",
-                                                          to: "2024-03-31"))
-        #expect(vwce.startValue == 5100)
-        #expect(vwce.endValue == 4400)
-        // 10 moved in at 105, 20 sold for 2,155 before tax.
-        #expect(vwce.netInvested == -1105)
-        #expect(vwce.dividends == 25)
-        #expect(vwce.realizedGain == d("186.67"))
-        // 20 sold 6 up less 5 of fees, 30 kept 8 up, 10 moved in 5 up, and the dividend.
-        #expect(vwce.gain == 430)
-        let mwr = try #require(vwce.moneyWeighted)
-        #expect(mwr.cumulative > d("0.05") && mwr.cumulative < d("0.12"))
-        #expect(valuator.instrumentReturn(of: "vwce", in: "bank", from: "2024-01-31", to: "2024-03-31") == nil)
-        #expect(valuator.instrumentReturn(of: "vwce", in: "broker", from: "2024-03-31", to: "2024-03-31") == nil)
     }
 
     @Test func editingTradesKeepsAutomaticFlowsInStep() throws {
