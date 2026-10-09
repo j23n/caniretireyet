@@ -314,7 +314,7 @@ struct TradeForm: Hashable, Sendable {
     /// it can't be.
     func computedAmount(in library: Library, valuator: Valuator, locale: Locale = .current) -> Decimal? {
         guard amountIsComputed, let account = library.accounts[self.account] else { return nil }
-        func number(_ text: String) -> Decimal? { Self.parse(text, locale: locale).value }
+        func number(_ text: String) -> Decimal? { AmountInput.parse(text, locale: locale).value }
         let trade = Trade(account: account.id, date: date, type: type, instrument: instrument,
                           quantity: number(quantity), price: number(price), currency: currency, fees: number(fees),
                           tax: number(tax))
@@ -324,7 +324,7 @@ struct TradeForm: Hashable, Sendable {
 
     /// The amount typed, signed for the type; `nil` when empty or unreadable.
     func typedAmount(locale: Locale = .current) -> Decimal? {
-        guard let value = Self.parse(amount, locale: locale).value else { return nil }
+        guard let value = AmountInput.parse(amount, locale: locale).value else { return nil }
         switch Self.amountSign(for: type) {
         case .negative: return -abs(value)
         case .positive: return abs(value)
@@ -399,7 +399,7 @@ struct TradeForm: Hashable, Sendable {
             (.ratio, ratio),
         ]
         return texts.compactMap { field, text in
-            guard shows(field), Self.parse(text, locale: locale) == .unreadable else { return nil }
+            guard shows(field), AmountInput.parse(text, locale: locale) == .unreadable else { return nil }
             return TradeFormProblem(field: field, message: "The \(field.title(for: type).lowercased()) can't be read.",
                                     isError: true)
         }
@@ -430,7 +430,7 @@ struct TradeForm: Hashable, Sendable {
     func trade(in library: Library, locale: Locale = .current) -> Trade? {
         guard inputProblems(locale: locale).isEmpty else { return nil }
         func value(_ field: TradeFormField, _ text: String) -> Decimal? {
-            shows(field) ? Self.parse(text, locale: locale).value : nil
+            shows(field) ? AmountInput.parse(text, locale: locale).value : nil
         }
         var trade = Trade(account: account, date: date, id: original?.id ?? .random(), type: type)
         if shows(.instrument) { trade.instrument = instrument }
@@ -492,25 +492,6 @@ struct TradeForm: Hashable, Sendable {
             mismatches.first { $0.date == issue.date && $0.instrument == issue.instrument }
                 .map { TradeIssueNote.note(for: $0, library: library, locale: locale) }
         }
-    }
-
-    // MARK: Internals
-
-    /// A number typed in a field.
-    enum Parsed: Hashable, Sendable {
-        case empty
-        case value(Decimal)
-        case unreadable
-
-        var value: Decimal? {
-            if case .value(let value) = self { value } else { nil }
-        }
-    }
-
-    static func parse(_ text: String, locale: Locale = .current) -> Parsed {
-        let trimmed = text.trimmingCharacters(in: .whitespaces)
-        if trimmed.isEmpty { return .empty }
-        return AmountInput.decimal(from: trimmed, locale: locale).map(Parsed.value) ?? .unreadable
     }
 }
 

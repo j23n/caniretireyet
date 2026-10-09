@@ -161,11 +161,10 @@ struct AccountValuationInput: Hashable, Sendable {
         var problems: [String] = []
         func check(_ text: String?, _ what: String, required: String? = nil) {
             guard let text else { return }
-            let trimmed = text.trimmingCharacters(in: .whitespaces)
-            if trimmed.isEmpty {
-                if let required, !problems.contains(required) { problems.append(required) }
-            } else if AmountInput.decimal(from: trimmed, locale: locale) == nil {
-                problems.append("The \(what) can't be read.")
+            switch AmountInput.parse(text, locale: locale) {
+            case .empty: if let required, !problems.contains(required) { problems.append(required) }
+            case .unreadable: problems.append("The \(what) can't be read.")
+            case .value: break
             }
         }
         check(balance, "balance", required: "Enter the balance. To record nothing owed or held, type 0.")
@@ -184,10 +183,6 @@ struct AccountValuationInput: Hashable, Sendable {
     /// entered: ``problems(locale:)`` asks for it.
     func applied(to base: AccountValuationDraft, isLiability: Bool,
                  locale: Locale = .current) -> AccountValuationDraft {
-        func number(_ text: String) -> Decimal? {
-            let trimmed = text.trimmingCharacters(in: .whitespaces)
-            return trimmed.isEmpty ? nil : AmountInput.decimal(from: trimmed, locale: locale)
-        }
         var draft = base
         draft.edit { row in
             for instrument in added where row.position(for: instrument) == nil {
@@ -196,18 +191,20 @@ struct AccountValuationInput: Hashable, Sendable {
             if let balance, let amount = AmountInput.balance(from: balance, isLiability: isLiability, locale: locale) {
                 row.setBalance(amount)
             }
-            if let cash { row.setCash(number(cash)) }
+            if let cash { row.setCash(AmountInput.decimal(from: cash, locale: locale)) }
             for (instrument, text) in quantities.sorted(by: { $0.key < $1.key }) {
-                if let quantity = number(text) { row.setQuantity(quantity, of: instrument) }
+                if let quantity = AmountInput.decimal(from: text, locale: locale) {
+                    row.setQuantity(quantity, of: instrument)
+                }
             }
             for (instrument, text) in paid.sorted(by: { $0.key < $1.key }) {
-                row.setPaid(number(text), for: instrument)
+                row.setPaid(AmountInput.decimal(from: text, locale: locale), for: instrument)
             }
             if let flow {
-                if flow.trimmingCharacters(in: .whitespaces).isEmpty {
-                    row.resetFlow()
-                } else if let amount = number(flow) {
-                    row.setFlow(amount)
+                switch AmountInput.parse(flow, locale: locale) {
+                case .empty: row.resetFlow()
+                case .value(let amount): row.setFlow(amount)
+                case .unreadable: break
                 }
             }
             if let note {
@@ -296,11 +293,10 @@ struct AccountValuationForm: Hashable, Sendable {
     func problems(locale: Locale = .current) -> [String] {
         var problems: [String] = []
         func check(_ text: String, _ what: String, required: Bool = false) {
-            let trimmed = text.trimmingCharacters(in: .whitespaces)
-            if trimmed.isEmpty {
-                if required { problems.append("Enter the \(what).") }
-            } else if AmountInput.decimal(from: trimmed, locale: locale) == nil {
-                problems.append("The \(what) can't be read.")
+            switch AmountInput.parse(text, locale: locale) {
+            case .empty: if required { problems.append("Enter the \(what).") }
+            case .unreadable: problems.append("The \(what) can't be read.")
+            case .value: break
             }
         }
         if isBalance {
@@ -320,10 +316,7 @@ struct AccountValuationForm: Hashable, Sendable {
     /// source becomes `manual` when a value or the date changed.
     func valuation(locale: Locale = .current) -> Valuation? {
         guard problems(locale: locale).isEmpty else { return nil }
-        func number(_ text: String) -> Decimal? {
-            let trimmed = text.trimmingCharacters(in: .whitespaces)
-            return trimmed.isEmpty ? nil : AmountInput.decimal(from: trimmed, locale: locale)
-        }
+        func number(_ text: String) -> Decimal? { AmountInput.decimal(from: text, locale: locale) }
         var valuation = Valuation(account: original.account, date: date)
         if isBalance {
             valuation.balance = AmountInput.balance(from: balance, isLiability: isLiability, locale: locale)

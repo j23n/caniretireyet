@@ -398,10 +398,7 @@ struct AccountOpeningForm: Hashable, Sendable {
     func problems(holdsPositions: Bool, locale: Locale = .current) -> [String] {
         var problems: [String] = []
         func check(_ text: String, _ what: String) {
-            let trimmed = text.trimmingCharacters(in: .whitespaces)
-            if !trimmed.isEmpty, AmountInput.decimal(from: trimmed, locale: locale) == nil {
-                problems.append("The \(what) can't be read.")
-            }
+            if AmountInput.parse(text, locale: locale) == .unreadable { problems.append("The \(what) can't be read.") }
         }
         if holdsPositions {
             check(cash, "cash")
