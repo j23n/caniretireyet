@@ -102,8 +102,8 @@ struct LibraryStatusBanners: View {
 
     var body: some View {
         VStack(spacing: Metrics.s) {
-            if library.isReadOnly {
-                StatusBanner(.info, "Read-only", message: LibraryStoreError.readOnly.message)
+            if let reason = library.readOnlyReason {
+                StatusBanner(.info, "Read-only", message: LibraryStoreError.readOnly(reason).message)
             }
             if let error = library.lastError {
                 StatusBanner(.error, "Something went wrong with the library", message: error,

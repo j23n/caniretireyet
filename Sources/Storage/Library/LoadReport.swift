@@ -22,8 +22,8 @@ public struct LoadReport: Hashable, Sendable {
     /// Whether `library.json` exists but couldn't be used: it can't be read,
     /// isn't valid JSON, or doesn't hold the settings. The library then has
     /// default settings in memory and is open read-only, so a save can't
-    /// replace your settings with those defaults. `false` when there's no
-    /// `library.json` at all.
+    /// replace your settings with those defaults (see ``readOnlyReason``).
+    /// `false` when there's no `library.json` at all.
     public var settingsUnreadable: Bool
 
     public init(issues: [LoadIssue] = [], schemaVersion: Int? = nil, filesRead: Int = 0,
@@ -45,6 +45,22 @@ public struct LoadReport: Hashable, Sendable {
     /// (``settingsUnreadable``). Every save then throws.
     public var isReadOnly: Bool {
         isNewerSchema || settingsUnreadable
+    }
+
+    /// Why the library is open read-only, or `nil` when it isn't.
+    public var readOnlyReason: ReadOnlyReason? {
+        if isNewerSchema { return .newerSchema }
+        return settingsUnreadable ? .unreadableSettings : nil
+    }
+
+    /// Why a library is open read-only, for the words that tell you what to do.
+    public enum ReadOnlyReason: Hashable, Sendable {
+        /// A newer app version wrote it (``LoadReport/isNewerSchema``): update the app.
+        case newerSchema
+        /// Its `library.json` exists but can't be used
+        /// (``LoadReport/settingsUnreadable``): fix the file or restore it
+        /// from a backup, then open the library again.
+        case unreadableSettings
     }
 
     /// What a library whose `library.json` can't be used means, and what to do.

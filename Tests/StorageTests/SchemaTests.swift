@@ -19,6 +19,7 @@ struct SchemaGuardTests {
         let folder = try newerLibrary()
         let result = try folder.library.load()
         #expect(result.report.isReadOnly)
+        #expect(result.report.readOnlyReason == .newerSchema)
         #expect(result.report.schemaVersion == 4)
         #expect(result.report.errors.isEmpty)
         #expect(result.report.warnings.first?.message.contains("read-only") == true)
@@ -80,6 +81,7 @@ struct UnreadableSettingsTests {
         let result = try folder.library.load()
         #expect(result.report.settingsUnreadable)
         #expect(result.report.isReadOnly)
+        #expect(result.report.readOnlyReason == .unreadableSettings)
         #expect(!result.report.isNewerSchema)
         #expect(!result.report.needsMigration)
         // One error, on library.json, saying what's wrong and that the library is read-only.
@@ -124,6 +126,7 @@ struct UnreadableSettingsTests {
         try folder.write("library.json", original)
         let fixed = try folder.library.load()
         #expect(!fixed.report.isReadOnly)
+        #expect(fixed.report.readOnlyReason == nil)
         try folder.library.checkWritable()
     }
 
@@ -144,6 +147,7 @@ struct UnreadableSettingsTests {
         let result = try folder.library.load()
         #expect(!result.report.settingsUnreadable)
         #expect(!result.report.isReadOnly)
+        #expect(result.report.readOnlyReason == nil)
         try folder.library.checkWritable()
 
         // Creating a new library is unaffected.
@@ -161,6 +165,7 @@ struct UnreadableSettingsTests {
         try folder.write("library.json", #"{ "baseCurrency": { "code": "CHF" }, "schemaVersion": 4 }"#)
         let report = try folder.library.load().report
         #expect(report.isReadOnly && report.isNewerSchema && !report.settingsUnreadable)
+        #expect(report.readOnlyReason == .newerSchema)
         #expect(report.warnings.contains { $0.message.contains("newer version of the app") })
     }
 }

@@ -92,9 +92,13 @@ final class LibraryStore {
     /// Files a save replaced after copying them to `backups/`, or kept,
     /// since the library was opened, newest first.
     private(set) var saveNotices: [SaveNotice] = []
-    /// Whether the library was written by a newer app version: it's shown,
-    /// and every edit is refused.
-    private(set) var isReadOnly = false
+    /// Why the library is open read-only (`LoadReport.readOnlyReason`): a
+    /// newer app version wrote it, or its `library.json` can't be read. It's
+    /// shown, and every edit is refused with ``LibraryStoreError/readOnly(_:)``.
+    /// `nil` when it can be edited.
+    private(set) var readOnlyReason: LoadReport.ReadOnlyReason?
+    /// Whether the library is open read-only (``readOnlyReason``).
+    var isReadOnly: Bool { readOnlyReason != nil }
     /// Whether iCloud Drive is available on this device.
     private(set) var isICloudAvailable = false
     /// Whether opening failed because iCloud Drive isn't available (signed
@@ -285,8 +289,9 @@ final class LibraryStore {
         do {
             let (result, snapshot) = try await sync.loadWithSnapshot()
             guard attempt == openingAttempt else { return }
+            let readOnly = result.report.readOnlyReason.map { ", read-only (\($0))" } ?? ""
             LibraryLog.notice("Opening: read \(result.report.filesRead) files in \(LibraryLog.seconds(.now - started)), "
-                + "\(result.report.issues.count) issues\(result.report.isReadOnly ? ", read-only (a newer schema)" : "")")
+                + "\(result.report.issues.count) issues\(readOnly)")
             apply(result)
             diskSnapshot = snapshot
             activity = .idle
@@ -423,7 +428,7 @@ final class LibraryStore {
     /// library without files.
     func restore(_ backup: Backup) async throws {
         guard phase == .ready else { throw LibraryStoreError.notLoaded }
-        guard !isReadOnly else { throw LibraryStoreError.readOnly }
+        if let readOnlyReason { throw LibraryStoreError.readOnly(readOnlyReason) }
         guard let sync else { return }
         try await enqueueThrowing { [weak self] in
             let report = try await sync.restore(backup)
@@ -438,7 +443,7 @@ final class LibraryStore {
     /// Returns what was left in place; `nil` for a library without files.
     func undo(_ backup: Backup, safetyLabel: String) async throws -> UndoReport? {
         guard phase == .ready else { throw LibraryStoreError.notLoaded }
-        guard !isReadOnly else { throw LibraryStoreError.readOnly }
+        if let readOnlyReason { throw LibraryStoreError.readOnly(readOnlyReason) }
         guard let sync else { return nil }
         return try await enqueueThrowing { [weak self] in
             _ = try await sync.backup(paths: backup.paths, label: safetyLabel)
@@ -631,7 +636,7 @@ final class LibraryStore {
     /// pending save until ``finishSaving(_:)``.
     private func stage(_ edit: (inout Library) throws -> Void) throws -> Staged? {
         guard phase == .ready else { throw LibraryStoreError.notLoaded }
-        guard !isReadOnly else { throw LibraryStoreError.readOnly }
+        if let readOnlyReason { throw LibraryStoreError.readOnly(readOnlyReason) }
         guard !isRelocating else { throw LibraryStoreError.busy }
         let previous = library
         var next = previous
@@ -659,7 +664,7 @@ final class LibraryStore {
     private func apply(_ result: LoadResult) {
         setLibrary(result.library)
         loadIssues = result.report.issues
-        isReadOnly = result.report.isReadOnly
+        readOnlyReason = result.report.readOnlyReason
     }
 
     /// Queues a file operation after the ones already queued.
@@ -741,7 +746,7 @@ final class LibraryStore {
             let pendingPaths = Set(pending.map(\.path))
             loadIssues = (loadIssues.filter { pendingPaths.contains($0.path) }
                 + result.report.issues.filter { !pendingPaths.contains($0.path) }).sorted { $0.path < $1.path }
-            isReadOnly = result.report.isReadOnly
+            readOnlyReason = result.report.readOnlyReason
             if updated != library { setLibrary(updated) }
         } catch {
             lastError = Self.describe(error)
@@ -810,7 +815,7 @@ final class LibraryStore {
         loadIssues = (loadIssues.filter { !reloaded.contains($0.path) }
             + result.issues.filter { reloaded.contains($0.path) }).sorted { $0.path < $1.path }
         if files.contains(.settings) {
-            isReadOnly = updated.settings.schemaVersion > LibrarySettings.currentSchemaVersion
+            readOnlyReason = updated.settings.schemaVersion > LibrarySettings.currentSchemaVersion ? .newerSchema : nil
         }
         if updated != library {
             setLibrary(updated)
@@ -830,8 +835,9 @@ final class LibraryStore {
 enum LibraryStoreError: Error, Equatable, Sendable, LocalizedError {
     /// No library is open yet.
     case notLoaded
-    /// The library was written by a newer app version.
-    case readOnly
+    /// The library is open read-only: a newer app version wrote it, or its
+    /// `library.json` can't be read.
+    case readOnly(LoadReport.ReadOnlyReason)
     /// iCloud Drive is off, or the user isn't signed in.
     case iCloudUnavailable
     /// iCloud Drive has no library to switch to.
@@ -847,8 +853,11 @@ enum LibraryStoreError: Error, Equatable, Sendable, LocalizedError {
         switch self {
         case .notLoaded:
             "The library isn't open yet."
-        case .readOnly:
+        case .readOnly(.newerSchema):
             "This library was written by a newer version of the app, so it's read-only here. Update the app to make changes."
+        case .readOnly(.unreadableSettings):
+            "This library's settings file, library.json, can't be read, so it's read-only until you fix the file or "
+                + "restore it from a backup in backups/. Then open the library again."
         case .iCloudUnavailable:
             "iCloud Drive isn't available. Sign in to iCloud and turn on iCloud Drive for this app."
         case .noICloudLibrary:

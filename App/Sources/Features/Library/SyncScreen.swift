@@ -27,8 +27,8 @@ struct SyncScreen: View {
                         Text(synced, format: .dateTime.day().month().hour().minute())
                     }
                 }
-                if library.isReadOnly {
-                    Text(LibraryStoreError.readOnly.message)
+                if let reason = library.readOnlyReason {
+                    Text(LibraryStoreError.readOnly(reason).message)
                         .font(.footnote)
                         .foregroundStyle(Palette.secondaryInk)
                 }
