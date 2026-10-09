@@ -52,35 +52,23 @@ struct InstrumentForm: Hashable, Sendable {
     var isNew: Bool { original == nil }
 
     /// Changes the kind of a new instrument, and with it the unit, asset
-    /// mix and price source that usually go with it.
+    /// mix (``InstrumentKind/usualAssetClass(name:)``, as the importer
+    /// proposes) and price source that usually go with it.
     mutating func setKind(_ kind: InstrumentKind) {
         self.kind = kind
         guard isNew else { return }
+        let assetClass = kind.usualAssetClass(name: name)
+        unit = kind.usualUnit?.rawValue ?? (ticker.isEmpty ? "BTC" : ticker.uppercased())
+        assetMix = AccountsAssetMixForm(.single(assetClass))
         switch kind {
         case .crypto:
-            unit = ticker.isEmpty ? "BTC" : ticker.uppercased()
-            assetMix = AccountsAssetMixForm(.single(.crypto))
             provider = .coingecko
         case .metal:
-            unit = InstrumentUnit.gram.rawValue
-            assetMix = AccountsAssetMixForm(.single(.gold))
             provider = .goldAPI
-            if symbol.isEmpty { symbol = "XAU" }
-        case .bond:
-            unit = InstrumentUnit.share.rawValue
-            assetMix = AccountsAssetMixForm(.single(.bonds))
+            if symbol.isEmpty, assetClass == .gold { symbol = "XAU" }
+        case .bond, .etf, .stock:
             provider = .yahoo
-        case .etf, .stock:
-            unit = InstrumentUnit.share.rawValue
-            assetMix = AccountsAssetMixForm(.single(.equity))
-            provider = .yahoo
-        case .fund:
-            unit = InstrumentUnit.share.rawValue
-            assetMix = AccountsAssetMixForm()
-            provider = nil
         default:
-            unit = InstrumentUnit.share.rawValue
-            assetMix = AccountsAssetMixForm(.single(.other))
             provider = nil
         }
     }

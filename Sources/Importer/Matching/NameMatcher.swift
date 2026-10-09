@@ -351,22 +351,10 @@ struct InstrumentDraft: Hashable {
             && compact.allSatisfy { $0.isASCII && ($0.isLetter || $0.isNumber) }
         let isTicker = !isISIN && !name.contains(" ") && name.count <= 12
             && name.allSatisfy { $0.isASCII && ($0.isUppercase || $0.isNumber || $0 == ".") }
-        let unit: InstrumentUnit = switch kind {
-        case .crypto: InstrumentUnit(Keywords.cryptoSymbols[TextTools.fold(name)] ?? name.uppercased())
-        case .metal: .gram
-        default: .share
-        }
-        let assetClass: AssetClass = switch kind {
-        case .crypto: .crypto
-        case .metal: words.contains(where: { ["oro", "gold", "xau"].contains($0) }) ? .gold : .other
-        case .etf, .stock, .fund: .equity
-        case .bond: .bonds
-        case .etc: words.contains(where: { ["oro", "gold", "xau"].contains($0) }) ? .gold : .other
-        default: .other
-        }
+        let unit = kind.usualUnit ?? InstrumentUnit(Keywords.cryptoSymbols[TextTools.fold(name)] ?? name.uppercased())
         return Instrument(id: id, name: name, kind: kind, currency: currency, unit: unit,
-                          assetClasses: .single(assetClass), isin: isin ?? (isISIN ? compact : nil),
-                          ticker: ticker ?? (isTicker ? name : nil))
+                          assetClasses: .single(kind.usualAssetClass(name: name)),
+                          isin: isin ?? (isISIN ? compact : nil), ticker: ticker ?? (isTicker ? name : nil))
     }
 }
 

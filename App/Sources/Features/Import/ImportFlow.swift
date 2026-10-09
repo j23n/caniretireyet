@@ -347,20 +347,14 @@ struct AccountChangeKey: Hashable, Sendable {
 
 private extension Instrument {
     /// The instrument with another kind, and the asset class and unit that
-    /// usually go with it (e.g. a metal is gold, weighed in grams).
+    /// usually go with it (``InstrumentKind/usualAssetClass(name:)``: a metal
+    /// is gold, weighed in grams, unless its name says another metal). A
+    /// crypto instrument keeps its unit.
     func changingKind(to kind: InstrumentKind) -> Instrument {
         var instrument = self
         instrument.kind = kind
-        switch kind {
-        case .etf, .fund, .stock: instrument.assetClasses = .single(.equity)
-        case .bond: instrument.assetClasses = .single(.bonds)
-        case .crypto: instrument.assetClasses = .single(.crypto)
-        case .metal:
-            instrument.assetClasses = .single(.gold)
-            instrument.unit = .gram
-        default: break
-        }
-        if kind != .metal, kind != .crypto, instrument.unit == .gram { instrument.unit = .share }
+        instrument.assetClasses = .single(kind.usualAssetClass(name: name))
+        if let unit = kind.usualUnit { instrument.unit = unit }
         return instrument
     }
 }

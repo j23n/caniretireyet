@@ -63,6 +63,41 @@ struct AccountDefaultsTests {
     }
 }
 
+/// What an instrument of each kind usually is: what the importer proposes
+/// and the instrument form starts with.
+struct InstrumentKindDefaultsTests {
+    @Test func assetClassByKind() {
+        for kind in [InstrumentKind.etf, .fund, .stock] {
+            #expect(kind.usualAssetClass(name: "Global Fund") == .equity)
+        }
+        #expect(InstrumentKind.bond.usualAssetClass(name: "BTP 2030") == .bonds)
+        #expect(InstrumentKind.crypto.usualAssetClass(name: "Bitcoin") == .crypto)
+        #expect(InstrumentKind.other.usualAssetClass(name: "Gold") == .other)
+        #expect(InstrumentKind("art").usualAssetClass(name: "Painting") == .other)
+    }
+
+    /// A precious metal is gold unless its name says another metal; an
+    /// exchange-traded commodity only when its name says gold.
+    @Test func metalsAndCommoditiesByName() {
+        #expect(InstrumentKind.metal.usualAssetClass(name: "") == .gold)
+        #expect(InstrumentKind.metal.usualAssetClass(name: "Lingotto 100g") == .gold)
+        #expect(InstrumentKind.metal.usualAssetClass(name: "Krugerrand (gold)") == .gold)
+        #expect(InstrumentKind.metal.usualAssetClass(name: "Argento 1kg") == .other)
+        #expect(InstrumentKind.metal.usualAssetClass(name: "Silver-Philharmoniker") == .other)
+        #expect(InstrumentKind.etc.usualAssetClass(name: "Xetra-Gold") == .gold)
+        #expect(InstrumentKind.etc.usualAssetClass(name: "WisdomTree Brent Crude Oil") == .other)
+        #expect(InstrumentKind.etc.usualAssetClass(name: "") == .other)
+    }
+
+    @Test func unitByKind() {
+        #expect(InstrumentKind.metal.usualUnit == .gram)
+        #expect(InstrumentKind.crypto.usualUnit == nil)
+        for kind in [InstrumentKind.etf, .fund, .stock, .bond, .etc, .other] {
+            #expect(kind.usualUnit == .share)
+        }
+    }
+}
+
 struct PlanDefaultsTests {
     private let minimal = #"{"id":"p","name":"P","retirement":{"age":"earliest"},"spending":{"retired":"30000","working":"35000"}}"#
 

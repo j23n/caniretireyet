@@ -61,6 +61,41 @@ public struct InstrumentKind: OpenEnum {
     public static let knownValues: [InstrumentKind] = [.etf, .fund, .stock, .bond, .etc, .crypto, .metal, .other]
 }
 
+extension InstrumentKind {
+    /// The asset class an instrument of this kind usually is, from its
+    /// `name` where that tells: funds, ETFs and stocks are equity; a precious
+    /// metal is gold unless its name says silver, platinum or palladium; an
+    /// exchange-traded commodity is gold only when its name says so. What
+    /// the importer proposes, and what the instrument form starts with.
+    public func usualAssetClass(name: String) -> AssetClass {
+        let words = Set(name.lowercased().split { !($0.isLetter || $0.isNumber) }.map(String.init))
+        switch self {
+        case .etf, .fund, .stock: return .equity
+        case .bond: return .bonds
+        case .crypto: return .crypto
+        case .metal: return words.isDisjoint(with: Self.otherMetalWords) ? .gold : .other
+        case .etc: return words.isDisjoint(with: Self.goldWords) ? .other : .gold
+        default: return .other
+        }
+    }
+
+    /// The unit an instrument of this kind is usually priced per: grams for
+    /// a precious metal, shares for the rest; `nil` for crypto, priced per
+    /// its coin (`BTC`).
+    public var usualUnit: InstrumentUnit? {
+        switch self {
+        case .crypto: nil
+        case .metal: .gram
+        default: .share
+        }
+    }
+
+    private static let goldWords: Set<String> = ["gold", "oro", "xau"]
+    private static let otherMetalWords: Set<String> = [
+        "silver", "argento", "xag", "platinum", "platino", "xpt", "palladium", "palladio", "xpd",
+    ]
+}
+
 /// The unit an instrument's price is quoted per. Free-form: crypto uses the
 /// coin's symbol (`BTC`).
 public struct InstrumentUnit: StringValue {

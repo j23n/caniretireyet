@@ -106,7 +106,7 @@ Every column has a format. The file sets the defaults, a column can override the
 ## Matching accounts and instruments
 
 - Names are matched ignoring case and accents, and every match you confirm is remembered in the profile.
-- An unmatched name can create a new account or instrument. You confirm its kind and currency; the importer suggests them, e.g. from a currency code in the values.
+- An unmatched name can create a new account or instrument. You confirm its kind and currency; the importer suggests them, e.g. from a currency code in the values. A new instrument's kind comes with the asset class and unit that usually go with it, as in the instrument form: funds, ETFs and stocks are equity; a precious metal is gold, in grams, unless its name says silver, platinum or palladium; an exchange-traded commodity is gold only when its name says so; and changing the kind changes them.
 - An account whose values stop before the file's last date is proposed as closed, on the day after its last value. Trailing zeros don't count as values; a cell that couldn't be read does. It isn't proposed when the library has later values for it. A closing is made only when you turn it on (on the command line, with `--accept-closings`): an account updated less often than the file, such as a quarterly pension in a monthly sheet, stops early without having closed.
 - An account with values from before its `opened` date is proposed to open on the first of them.
 - New accounts, new instruments and these changes are applied unless you reject them. A rejected account's or instrument's records are left out.
