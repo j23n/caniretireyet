@@ -185,7 +185,7 @@ The iPhone uses a tab bar and the Mac uses a sidebar. The iPad gets the sidebar 
   4. Review the new total and the changes.
   5. Save.
 - **Plan.** Two parts:
-  - *Plan*: the answer, then your life as a strip of chapters (working, retired before the pensions, with them), each with the money running through it and where it stands at its end, and the chosen chapter in words, with its inputs to change where they read; the charts behind the answer fold away;
+  - *Plan*: the answer, then your life as a strip of chapters (working, retired before the pensions, with them), each with the money running through it and where it stands at its end, and the chosen chapter in words, with its settings, where the plan changes; the charts behind the answer fold away;
   - *Progress*: whether you're on track, then year by year your money against what January expected and how the answer moved, and your actual numbers against baselines.
 
   What-ifs are a sheet on iPhone and the inspector on the Mac. Plans can be duplicated as what-if scenarios. The screens are designed in [UI.md](UI.md).
