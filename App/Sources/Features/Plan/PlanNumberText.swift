@@ -11,12 +11,6 @@ enum PlanNumberText {
         case integer
     }
 
-    enum Parsed: Hashable, Sendable {
-        case empty
-        case value(Decimal)
-        case invalid
-    }
-
     /// The text a field shows for `value`.
     static func text(_ value: Decimal?, kind: Kind, locale: Locale = .current) -> String {
         guard let value else { return "" }
@@ -27,17 +21,15 @@ enum PlanNumberText {
         }
     }
 
-    /// The value typed as `text`.
-    static func parse(_ text: String, kind: Kind, locale: Locale = .current) -> Parsed {
-        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return .empty }
-        guard let number = AmountInput.decimal(from: trimmed, locale: locale) else { return .invalid }
+    /// The value typed as `text` (``AmountInput/parse(_:locale:)``): a
+    /// percentage divided by 100, and a whole number or nothing.
+    static func parse(_ text: String, kind: Kind, locale: Locale = .current) -> AmountInput.Parsed {
+        let parsed = AmountInput.parse(text, locale: locale)
+        guard let number = parsed.value else { return parsed }
         switch kind {
-        case .amount: return .value(number)
+        case .amount: return parsed
         case .percent: return .value(number / 100)
-        case .integer:
-            guard Int(number.fileString) != nil else { return .invalid }
-            return .value(number)
+        case .integer: return Int(number.fileString) != nil ? parsed : .unreadable
         }
     }
 }

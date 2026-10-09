@@ -1,9 +1,6 @@
 import Foundation
 import Model
 
-// Reading the account and trade forms' number fields: empty, a number, or
-// something that can't be read (`AmountInput.parse`).
-//
 // Typing the balance of a debt (a loan, mortgage or credit card), in the
 // check-in, *Update value* and a new account's opening balance. Debts are
 // stored as negative balances, but people type what they owe: "1.200" for
@@ -12,26 +9,6 @@ import Model
 // "+" says so, and "+20" is recorded as 20.
 
 extension AmountInput {
-    /// A number typed in a field.
-    enum Parsed: Hashable, Sendable {
-        case empty
-        case value(Decimal)
-        case unreadable
-
-        var value: Decimal? {
-            if case .value(let value) = self { value } else { nil }
-        }
-    }
-
-    /// `text` read as a number: ``Parsed/empty`` when there's nothing but
-    /// spaces, else its value (``decimal(from:locale:)``), or
-    /// ``Parsed/unreadable``.
-    static func parse(_ text: String, locale: Locale = .current) -> Parsed {
-        let trimmed = text.trimmingCharacters(in: .whitespaces)
-        if trimmed.isEmpty { return .empty }
-        return decimal(from: trimmed, locale: locale).map(Parsed.value) ?? .unreadable
-    }
-
     /// The footer under a debt's balance field.
     static let debtBalanceFooter = "Type what you owe, e.g. 1200: debts are recorded as negative amounts. "
         + "If the account is in credit, type + first, e.g. +20."

@@ -4,6 +4,26 @@ import Model
 /// Reading amounts and quantities typed by hand (UI.md, "Keyboard": amounts
 /// accept `1.234,56` and `1234.56`).
 enum AmountInput {
+    /// A number typed in a field.
+    enum Parsed: Hashable, Sendable {
+        case empty
+        case value(Decimal)
+        case unreadable
+
+        var value: Decimal? {
+            if case .value(let value) = self { value } else { nil }
+        }
+    }
+
+    /// `text` read as a number: ``Parsed/empty`` when there's nothing but
+    /// spaces and line breaks, else its value (``decimal(from:locale:)``),
+    /// or ``Parsed/unreadable``.
+    static func parse(_ text: String, locale: Locale = .current) -> Parsed {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.isEmpty { return .empty }
+        return decimal(from: trimmed, locale: locale).map(Parsed.value) ?? .unreadable
+    }
+
     /// The decimal in `text`, or `nil` if there isn't one. Spaces, currency
     /// symbols and letters are ignored; `−` counts as a minus sign.
     ///

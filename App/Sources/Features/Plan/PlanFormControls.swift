@@ -56,7 +56,7 @@ struct PlanNumberField: View {
                     if number != value { value = number }
                 case .empty:
                     if isOptional, value != nil { value = nil }
-                case .invalid:
+                case .unreadable:
                     break
                 }
             }
