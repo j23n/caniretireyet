@@ -6,9 +6,9 @@ import Storage
 
 /// `retire plan run`, also just `retire plan`: runs a plan and prints the answer.
 ///
-/// Runs the main plan (`mainPlan` in library.json) or `--plan <id>`, maps the
-/// Planner's `PlanResult` into a ``PlanReport`` and prints it, as text or
-/// JSON, in the library's base currency. `--fast` uses fewer runs (the app's quick
+/// Runs the main plan (`mainPlan` in library.json) or `--plan <id>` and
+/// prints the Planner's `PlanResult` (``PlanReport``), as text or JSON, in
+/// the library's base currency. `--fast` uses fewer runs (the app's quick
 /// what-if mode); `--years` adds the median run's years; `--save-baseline`
 /// writes the result as a manual baseline (PROGRESS.md, "Baselines").
 ///
@@ -80,8 +80,7 @@ struct PlanCommand: RetireSubcommand {
             throw CLIError(Self.message(for: error, plan: document))
         }
 
-        var report = PlanReport(result: result, currency: result.currency, fast: fast)
-        report.reading = PlanReport.Reading(result.start)
+        var report = PlanReport(result: result, fast: fast)
         if years { report.years = PlanReport.YearRow.rows(result.medianPath.years) }
         if let label = saveBaseline?.trimmingCharacters(in: .whitespacesAndNewlines) {
             report.savedBaseline = try Self.save(result, label: label, loaded: loaded, on: context.today)
@@ -176,196 +175,18 @@ extension LibraryFile {
     static func planPath(_ id: PlanID) -> String { LibraryFile.plan(id).path }
 }
 
-/// What `retire plan` prints, in the CLI's own terms: the Planner's result
-/// is mapped into it by ``init(result:currency:fast:)``.
+/// What `retire plan` prints: the Planner's result, as text or JSON, in the
+/// library's base currency.
 struct PlanReport {
-    /// The answer to "can I retire yet?".
-    struct Headline {
-        /// The share of simulated futures that must succeed, e.g. 0.9.
-        var confidence: Double
-        /// The chance of success if you retired today.
-        var successToday: Double
-        /// The earliest age reaching the confidence, and its year; `nil` if none does before the plan ends.
-        var earliestAge: Int?
-        var earliestYear: Int?
-        /// The plan's target retirement age and its chance of success.
-        var targetAge: Int?
-        var successAtTarget: Double?
-
-        var canRetireToday: Bool { successToday >= confidence }
-    }
-
-    /// The chance of success when retiring at one age.
-    struct AgeSuccess {
-        var age: Int
-        var year: Int?
-        var success: Double
-    }
-
-    /// A problem with the plan.
-    struct Issue {
-        var isError: Bool
-        var message: String
-    }
-
-    var planID: PlanID
-    var planName: String
-    var currency: CurrencyCode
-    var headline: Headline
-    var successByAge: [AgeSuccess]
-    /// The highest yearly spending in retirement, in today's money, that
-    /// reaches the confidence at the target age.
-    var sustainableSpending: Double?
-    /// What retiring today would need, from the simulation. `nil` for a
-    /// report made by hand.
-    var needed: Needed?
-    var issues: [Issue]
-
-    /// What retiring today would need (PLANNER.md, "Assets needed to retire
-    /// today"): the plan assets that make retiring at today's age reach the
-    /// confidence level, and today's as a share of them. It replaces the
-    /// old FI number, which the report never shows.
-    struct Needed {
-        /// How the search ended, as in `AssetsNeeded.Outcome`.
-        enum Outcome: String {
-            case found, atMost, moreThanMaximum, noPlanAssets
-        }
-
-        var outcome: Outcome
-        /// Today's plan assets.
-        var planAssets: Double
-        /// The plan assets needed: within 1% when found, the bound for `atMost`.
-        var amount: Double?
-        /// `planAssets / amount`: 1 or more exactly when retiring today works.
-        var readiness: Double?
-        /// The most times today's plan assets the search tries.
-        var maximumScale: Double = AssetsNeeded.maximumScale
-        /// The money added to the accounts that can be drawn now (`amount −
-        /// planAssets`; negative when it could be taken out). `nil` for a
-        /// report made by hand.
-        var extra: Double?
-        /// For `atMost`: whether the bound is what's locked away, with
-        /// nothing left in the accounts that can be drawn now.
-        var onlyLockedMoney = false
-
-        init(outcome: Outcome, planAssets: Double, amount: Double? = nil, readiness: Double? = nil,
-             extra: Double? = nil, onlyLockedMoney: Bool = false) {
-            self.outcome = outcome
-            self.planAssets = planAssets
-            self.amount = amount
-            self.readiness = readiness
-            self.extra = extra
-            self.onlyLockedMoney = onlyLockedMoney
-        }
-
-        init(_ needed: AssetsNeeded, planAssets: Double) {
-            let outcome: Outcome = switch needed.outcome {
-            case .found: .found
-            case .atMost: .atMost
-            case .moreThanMaximum: .moreThanMaximum
-            case .noPlanAssets: .noPlanAssets
-            }
-            self.init(outcome: outcome, planAssets: planAssets, amount: needed.amount, readiness: needed.readiness,
-                      extra: needed.outcome == .found ? needed.extra : nil,
-                      onlyLockedMoney: needed.leavesOnlyLockedMoney)
-        }
-
-        /// A readiness as a percentage, rounded down below 100% so it never
-        /// reads 100% while retiring today falls short: "7%".
-        static func percent(_ readiness: Double) -> String {
-            guard readiness < 1 else { return PlanReport.percent(readiness) }
-            return "\(min(99, Int((readiness * 100 + 1e-9).rounded(.down))))%"
-        }
-
-        /// "Needed to retire today: 2,002,118 EUR in plan assets, at 90%
-        /// confidence, with the extra 1,853,310 EUR in accounts you can draw
-        /// now. You have 148,808 EUR (7%)."
-        func text(currency: CurrencyCode, confidence: Double) -> String {
-            let at = "at \(PlanReport.percent(confidence)) confidence"
-            let have = "\(PlanReport.whole(planAssets)) \(currency)"
-            let times = String(Int(maximumScale))
-            switch outcome {
-            case .found:
-                let share = readiness.map(Self.percent).map { " (\($0))" } ?? ""
-                var how = ""
-                if let extra, PlanReport.whole(extra) != "0" {
-                    how = extra > 0
-                        ? ", with the extra \(PlanReport.whole(extra)) \(currency) in accounts you can draw now"
-                        : ": \(PlanReport.whole(-extra)) \(currency) less in accounts you can draw now"
-                }
-                return "Needed to retire today: \(PlanReport.whole(amount ?? 0)) \(currency) in plan assets, \(at)"
-                    + "\(how). You have \(have)\(share)."
-            case .atMost:
-                if onlyLockedMoney {
-                    return "Needed to retire today: at most the \(PlanReport.whole(amount ?? 0)) \(currency) locked "
-                        + "away, \(at): it works with nothing in accounts you can draw now. You have \(have)."
-                }
-                return "Needed to retire today: at most \(PlanReport.whole(amount ?? 0)) \(currency) in plan assets, "
-                    + "\(at). You have \(have), \(times) times that or more."
-            case .moreThanMaximum:
-                return "Needed to retire today: more than \(times) times your plan assets (\(have)), \(at)."
-            case .noPlanAssets:
-                return amount == 0 ? "Retiring today needs no plan assets, \(at)."
-                    : "The plan counts no assets, and retiring today needs some, \(at)."
-            }
-        }
-    }
-    /// How the plan ran: the number of runs, fast or full, and the engine.
-    /// `nil` for a report made by hand.
-    var run: Run?
-    /// The path of the baseline saved with `--save-baseline`.
-    var savedBaseline: String?
-    /// How the plan read the library: the money you can draw now and the
-    /// accounts available from a later age. `nil` for a report made by hand.
-    var reading: Reading?
+    let result: PlanResult
+    /// Whether the plan ran with `--fast`.
+    let fast: Bool
     /// The median run's years, with `--years`.
     var years: [YearRow]?
-    /// What flexible spending did at the focus age; `nil` without it.
-    var flexible: PlanFlexibleSpending.Report?
+    /// The path of the baseline saved with `--save-baseline`.
+    var savedBaseline: String?
 
-    /// How a plan read the library (PLANNER.md, "The portfolio"): the money you
-    /// can draw now, and the accounts available from a later age.
-    struct Reading {
-        struct Bucket {
-            var name: String
-            var availableFromAge: Int?
-            var value: Double
-            var accounts: [AccountID]
-        }
-
-        var date: CalendarDate
-        var buckets: [Bucket]
-
-        init(date: CalendarDate, buckets: [Bucket]) {
-            self.date = date
-            self.buckets = buckets
-        }
-
-        init(_ start: PlanStart) {
-            self.init(date: start.date, buckets: start.buckets.map {
-                Bucket(name: $0.name, availableFromAge: $0.availableFromAge, value: $0.value, accounts: $0.accounts)
-            })
-        }
-
-        func lines(currency: CurrencyCode) -> [String] {
-            var lines = ["How the plan reads your library, on \(date) (\(currency))"]
-            var table = TextTable([.left("Money"), .right("Value"), .left("Drawn"), .left("Accounts")])
-            for bucket in buckets {
-                table.add([bucket.name, PlanReport.whole(bucket.value),
-                           bucket.availableFromAge.map { "from \($0)" } ?? "now",
-                           bucket.accounts.map(\.rawValue).joined(separator: ", ")])
-            }
-            lines += table.lines()
-            return lines
-        }
-
-        var json: JSON.Start {
-            JSON.Start(date: date.description, buckets: buckets.map {
-                JSON.Bucket(name: $0.name, availableFromAge: $0.availableFromAge, value: PlanReport.rounded($0.value),
-                            accounts: $0.accounts.map(\.rawValue))
-            })
-        }
-    }
+    var currency: CurrencyCode { result.currency }
 
     /// One year of the median run: income after tax, investments sold,
     /// taxes on investments and wealth, spending and what's left.
@@ -415,99 +236,113 @@ struct PlanReport {
         return Decimal(Int(value.rounded())).fileString
     }
 
-    /// How a plan ran.
-    struct Run {
-        var runs: Int
-        var fast: Bool
-        var engine: String
-        var startDate: CalendarDate
-    }
-
-    init(plan: PlanDocument, currency: CurrencyCode, headline: Headline, successByAge: [AgeSuccess],
-         sustainableSpending: Double?, issues: [Issue]) {
-        planID = plan.id
-        planName = plan.name
-        self.currency = currency
-        self.headline = headline
-        self.successByAge = successByAge
-        self.sustainableSpending = sustainableSpending
-        self.issues = issues
-    }
-
-    /// The report for a Planner result.
-    init(result: PlanResult, currency: CurrencyCode, fast: Bool) {
-        let answer = result.answer
-        self.init(
-            plan: result.plan, currency: currency,
-            headline: Headline(
-                confidence: answer.confidence, successToday: answer.successIfRetiringNow,
-                earliestAge: answer.earliestAge, earliestYear: answer.earliestDate?.year,
-                targetAge: answer.targetAge, successAtTarget: answer.successAtTarget),
-            successByAge: result.successCurve.map {
-                AgeSuccess(age: $0.age, year: $0.retirementDate.year, success: $0.success)
-            },
-            sustainableSpending: answer.sustainableSpending?.perYear,
-            issues: result.issues.map { Issue(isError: $0.isError, message: $0.message) })
-        needed = answer.assetsNeeded.map { Needed($0, planAssets: result.start.planAssets.doubleValue) }
-        run = Run(runs: result.settings.runs, fast: fast, engine: result.engine, startDate: result.start.date)
-        flexible = result.flexibleSpending.map { PlanFlexibleSpending.Report($0, fan: result.fan) }
-    }
-
     static func percent(_ share: Double) -> String {
         "\(Int((share * 100).rounded()))%"
     }
 
+    /// A readiness as a percentage, rounded down below 100% so it never
+    /// reads 100% while retiring today falls short: "7%".
+    static func readinessPercent(_ readiness: Double) -> String {
+        guard readiness < 1 else { return percent(readiness) }
+        return "\(min(99, Int((readiness * 100 + 1e-9).rounded(.down))))%"
+    }
+
+    /// What retiring today would need (PLANNER.md, "Assets needed to retire
+    /// today"), with today's `planAssets`: "Needed to retire today:
+    /// 2,002,118 EUR in plan assets, at 90% confidence, with the extra
+    /// 1,853,310 EUR in accounts you can draw now. You have 148,808 EUR (7%)."
+    static func neededText(_ needed: AssetsNeeded, planAssets: Double, currency: CurrencyCode,
+                           confidence: Double) -> String {
+        let at = "at \(percent(confidence)) confidence"
+        let have = "\(whole(planAssets)) \(currency)"
+        let times = String(Int(AssetsNeeded.maximumScale))
+        switch needed.outcome {
+        case .found:
+            let share = needed.readiness.map(readinessPercent).map { " (\($0))" } ?? ""
+            var how = ""
+            if let extra = needed.extra, whole(extra) != "0" {
+                how = extra > 0
+                    ? ", with the extra \(whole(extra)) \(currency) in accounts you can draw now"
+                    : ": \(whole(-extra)) \(currency) less in accounts you can draw now"
+            }
+            return "Needed to retire today: \(whole(needed.amount ?? 0)) \(currency) in plan assets, \(at)"
+                + "\(how). You have \(have)\(share)."
+        case .atMost:
+            if needed.leavesOnlyLockedMoney {
+                return "Needed to retire today: at most the \(whole(needed.amount ?? 0)) \(currency) locked "
+                    + "away, \(at): it works with nothing in accounts you can draw now. You have \(have)."
+            }
+            return "Needed to retire today: at most \(whole(needed.amount ?? 0)) \(currency) in plan assets, "
+                + "\(at). You have \(have), \(times) times that or more."
+        case .moreThanMaximum:
+            return "Needed to retire today: more than \(times) times your plan assets (\(have)), \(at)."
+        case .noPlanAssets:
+            return needed.amount == 0 ? "Retiring today needs no plan assets, \(at)."
+                : "The plan counts no assets, and retiring today needs some, \(at)."
+        }
+    }
+
+    /// How the search for what retiring today needs ended, for JSON.
+    static func outcomeName(_ outcome: AssetsNeeded.Outcome) -> String {
+        switch outcome {
+        case .found: "found"
+        case .atMost: "atMost"
+        case .moreThanMaximum: "moreThanMaximum"
+        case .noPlanAssets: "noPlanAssets"
+        }
+    }
+
     /// The headline sentence, as on the app's Plan screen.
     var headlineText: String {
-        let confidence = Self.percent(headline.confidence)
-        if headline.canRetireToday {
-            return "Yes: retiring today succeeds in \(Self.percent(headline.successToday)) of simulated futures "
+        let answer = result.answer
+        let confidence = Self.percent(answer.confidence)
+        if answer.canRetireNow {
+            return "Yes: retiring today succeeds in \(Self.percent(answer.successIfRetiringNow)) of simulated futures "
                 + "(you asked for \(confidence))."
         }
-        let today = "Retiring today succeeds in \(Self.percent(headline.successToday)) of simulated futures."
-        guard let age = headline.earliestAge else {
+        let today = "Retiring today succeeds in \(Self.percent(answer.successIfRetiringNow)) of simulated futures."
+        guard let age = answer.earliestAge else {
             return "Not yet: no retirement age reaches \(confidence) before the plan ends. \(today)"
         }
         return "Not yet: the earliest age with \(confidence) confidence is \(age)"
-            + (headline.earliestYear.map { " (\($0))" } ?? "") + ". \(today)"
+            + (answer.earliestDate.map { " (\($0.year))" } ?? "") + ". \(today)"
     }
 
     /// "2,000 runs from 2026-09-30 · engine 2.0.0".
-    var runText: String? {
-        guard let run else { return nil }
-        var parts = ["\(Format.amount(Decimal(run.runs), places: 0)) \(run.runs == 1 ? "run" : "runs")"
-            + (run.fast ? " (fast)" : "") + " from \(run.startDate)"]
-        parts.append("engine \(run.engine)")
-        return parts.joined(separator: " · ")
+    var runText: String {
+        let runs = result.settings.runs
+        return "\(Format.amount(Decimal(runs), places: 0)) \(runs == 1 ? "run" : "runs")" + (fast ? " (fast)" : "")
+            + " from \(result.start.date) · engine \(result.engine)"
     }
 
     func lines() -> [String] {
-        var lines = ["Plan \(planID): \(planName)"]
-        if let runText { lines.append(runText) }
-        lines += ["", headlineText]
-        if let target = headline.targetAge, let success = headline.successAtTarget {
+        let answer = result.answer
+        var lines = ["Plan \(result.plan.id): \(result.plan.name)", runText, "", headlineText]
+        if let target = answer.targetAge, let success = answer.successAtTarget {
             lines.append("At your target age, \(target), the chance of success is \(Self.percent(success)).")
         }
-        if let needed {
-            lines.append(needed.text(currency: currency, confidence: headline.confidence))
+        if let needed = answer.assetsNeeded {
+            lines.append(Self.neededText(needed, planAssets: result.start.planAssets.doubleValue, currency: currency,
+                                         confidence: answer.confidence))
         }
-        if let spending = sustainableSpending, spending.isFinite {
+        if let spending = answer.sustainableSpending?.perYear, spending.isFinite {
             let amount = Format.amount(Decimal(Int(spending.rounded())), places: 0)
             lines.append("What you could spend: \(amount) \(currency) a year in today's "
-                + "money\(headline.targetAge.map { " from age \($0)" } ?? ""), "
-                + "at \(Self.percent(headline.confidence)) confidence.")
+                + "money\(answer.targetAge.map { " from age \($0)" } ?? ""), "
+                + "at \(Self.percent(answer.confidence)) confidence.")
         }
-        if let flexible {
+        if let flexible = result.flexibleSpending {
             lines.append("")
-            lines += flexible.lines(currency: currency, startYear: run?.startDate.year ?? 0)
+            lines += PlanFlexibleSpending.Report(flexible, fan: result.fan)
+                .lines(currency: currency, startYear: result.start.date.year)
         }
-        if !successByAge.isEmpty {
+        if !result.successCurve.isEmpty {
             lines.append("")
             lines.append("Chance of success by retirement age")
             var table = TextTable([.right("Age"), .right("Year"), .right("Success"), .left("")])
-            for row in successByAge {
+            for row in result.successCurve {
                 let bar = String(repeating: "#", count: Int((max(0, min(1, row.success)) * 20).rounded()))
-                table.add(["\(row.age)", row.year.map(String.init) ?? "", Self.percent(row.success), bar])
+                table.add(["\(row.age)", "\(row.retirementDate.year)", Self.percent(row.success), bar])
             }
             lines += table.lines()
         }
@@ -531,14 +366,12 @@ struct PlanReport {
                 + " Sold: investments sold to cover the year. Taxes: on investments and on wealth. The first year "
                 + "is the part after the check-in.")
         }
-        if let reading {
-            lines.append("")
-            lines += reading.lines(currency: currency)
-        }
-        if !issues.isEmpty {
+        lines.append("")
+        lines += readingLines()
+        if !result.issues.isEmpty {
             lines.append("")
             lines.append("Issues")
-            lines += issues.map { "  \($0.isError ? "error  " : "warning") \($0.message)" }
+            lines += result.issues.map { "  \($0.isError ? "error  " : "warning") \($0.message)" }
         }
         if let savedBaseline {
             lines.append("")
@@ -547,35 +380,57 @@ struct PlanReport {
         return lines
     }
 
+    /// How the plan read the library (PLANNER.md, "The portfolio"): the
+    /// money you can draw now, and the accounts available from a later age.
+    func readingLines() -> [String] {
+        var table = TextTable([.left("Money"), .right("Value"), .left("Drawn"), .left("Accounts")])
+        for bucket in result.start.buckets {
+            table.add([bucket.name, Self.whole(bucket.value), bucket.availableFromAge.map { "from \($0)" } ?? "now",
+                       bucket.accounts.map(\.rawValue).joined(separator: ", ")])
+        }
+        return ["How the plan reads your library, on \(result.start.date) (\(currency))"] + table.lines()
+    }
+
     var json: JSON {
-        JSON(plan: planID.rawValue, name: planName, currency: currency.rawValue, headline: headlineText,
-             canRetireToday: headline.canRetireToday, confidence: headline.confidence,
-             successToday: headline.successToday, earliestAge: headline.earliestAge,
-             earliestYear: headline.earliestYear, targetAge: headline.targetAge,
-             successAtTarget: headline.successAtTarget,
-             successByAge: successByAge.map { JSON.Age(age: $0.age, year: $0.year, success: $0.success) },
-             sustainableSpending: sustainableSpending,
-             assetsNeededToday: needed?.amount.flatMap { $0.isFinite ? $0.rounded() : nil },
-             assetsNeededOutcome: needed?.outcome.rawValue,
-             assetsNeededExtra: needed?.extra.flatMap { $0.isFinite ? $0.rounded() : nil },
-             readiness: needed?.readiness.flatMap { $0.isFinite ? ($0 * 10_000 + 1e-9).rounded(.down) / 10_000 : nil },
-             issues: issues.map { JSON.Issue(severity: $0.isError ? "error" : "warning", message: $0.message) },
-             runs: run?.runs, fast: run?.fast, engine: run?.engine, startDate: run?.startDate.description,
-             savedBaseline: savedBaseline, start: reading?.json,
-             flexibleSpending: flexible?.json,
-             years: years?.map { row in
-                 JSON.Year(year: row.year, age: row.age, work: Self.rounded(row.work),
-                           pensions: Self.rounded(row.pensions), other: row.other != 0 ? Self.rounded(row.other) : nil,
-                           windfalls: Self.rounded(row.windfalls),
-                           sold: Self.rounded(row.sold), taxes: Self.rounded(row.taxes),
-                           spending: Self.rounded(row.spending), endAssets: Self.rounded(row.endAssets))
-             })
+        let answer = result.answer
+        let needed = answer.assetsNeeded
+        // For an amount found: the money added to the accounts that can be drawn now.
+        let extra = needed?.outcome == .found ? needed?.extra : nil
+        let start = JSON.Start(date: result.start.date.description, buckets: result.start.buckets.map {
+            JSON.Bucket(name: $0.name, availableFromAge: $0.availableFromAge, value: Self.rounded($0.value),
+                        accounts: $0.accounts.map(\.rawValue))
+        })
+        return JSON(
+            plan: result.plan.id.rawValue, name: result.plan.name, currency: currency.rawValue, headline: headlineText,
+            canRetireToday: answer.canRetireNow, confidence: answer.confidence,
+            successToday: answer.successIfRetiringNow, earliestAge: answer.earliestAge,
+            earliestYear: answer.earliestDate?.year, targetAge: answer.targetAge,
+            successAtTarget: answer.successAtTarget,
+            successByAge: result.successCurve.map {
+                JSON.Age(age: $0.age, year: $0.retirementDate.year, success: $0.success)
+            },
+            sustainableSpending: answer.sustainableSpending?.perYear,
+            assetsNeededToday: needed?.amount.flatMap { $0.isFinite ? $0.rounded() : nil },
+            assetsNeededOutcome: needed.map { Self.outcomeName($0.outcome) },
+            assetsNeededExtra: extra.flatMap { $0.isFinite ? $0.rounded() : nil },
+            readiness: needed?.readiness.flatMap { $0.isFinite ? ($0 * 10_000 + 1e-9).rounded(.down) / 10_000 : nil },
+            issues: result.issues.map { JSON.Issue(severity: $0.severity.rawValue, message: $0.message) },
+            runs: result.settings.runs, fast: fast, engine: result.engine, startDate: result.start.date.description,
+            savedBaseline: savedBaseline, start: start,
+            flexibleSpending: result.flexibleSpending.map { PlanFlexibleSpending.Report($0, fan: result.fan).json },
+            years: years?.map { row in
+                JSON.Year(year: row.year, age: row.age, work: Self.rounded(row.work),
+                          pensions: Self.rounded(row.pensions), other: row.other != 0 ? Self.rounded(row.other) : nil,
+                          windfalls: Self.rounded(row.windfalls),
+                          sold: Self.rounded(row.sold), taxes: Self.rounded(row.taxes),
+                          spending: Self.rounded(row.spending), endAssets: Self.rounded(row.endAssets))
+            })
     }
 
     struct JSON: Encodable {
         struct Age: Encodable {
             var age: Int
-            var year: Int?
+            var year: Int
             var success: Double
         }
 
@@ -638,12 +493,12 @@ struct PlanReport {
         /// to 4 decimals: 1 or more exactly when retiring today works.
         var readiness: Double?
         var issues: [Issue]
-        var runs: Int?
-        var fast: Bool?
-        var engine: String?
-        var startDate: String?
+        var runs: Int
+        var fast: Bool
+        var engine: String
+        var startDate: String
         var savedBaseline: String?
-        var start: Start?
+        var start: Start
         /// What flexible spending did at the focus age; absent without it.
         var flexibleSpending: PlanFlexibleSpending.JSONReport?
         var years: [Year]?
