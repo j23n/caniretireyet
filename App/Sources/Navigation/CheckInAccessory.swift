@@ -19,7 +19,7 @@ struct CheckInAccessory: View {
         } label: {
             HStack(spacing: Metrics.s) {
                 Image(systemName: status.hasDraft ? "pencil.circle" : status.isDue ? "calendar.badge.clock" : "calendar")
-                    .foregroundStyle(status.isDue || status.hasDraft ? Palette.accent : Palette.secondaryInk)
+                    .foregroundStyle(status.isActive ? Palette.accent : Palette.secondaryInk)
                     .accessibilityHidden(true)
                 Text(status.summary(locale: locale))
                     .font(.subheadline)

@@ -13,7 +13,7 @@ struct TabRoot: View {
         let status = checkIn.status
         if #available(iOS 26.1, *) {
             tabs
-                .tabViewBottomAccessory(isEnabled: status.isDue || status.hasDraft) {
+                .tabViewBottomAccessory(isEnabled: status.isActive) {
                     CheckInAccessory()
                 }
         } else {

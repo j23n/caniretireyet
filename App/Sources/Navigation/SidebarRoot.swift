@@ -112,7 +112,7 @@ struct SidebarRoot: View {
         return HStack {
             Label("Check-in", systemImage: AppSymbol.checkIn)
             Spacer()
-            if status.isDue || status.hasDraft {
+            if status.isActive {
                 Circle()
                     .fill(Palette.accent)
                     .frame(width: 8, height: 8)
@@ -365,7 +365,7 @@ struct CheckInToolbarButton: View {
 
     var body: some View {
         let status = checkIn.status
-        if navigation.layout == .tabs, !status.isDue, !status.hasDraft {
+        if navigation.layout == .tabs, !status.isActive {
             Button {
                 navigation.startCheckIn()
             } label: {

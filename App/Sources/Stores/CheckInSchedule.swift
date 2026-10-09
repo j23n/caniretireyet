@@ -24,6 +24,10 @@ struct CheckInStatus: Hashable, Sendable {
 
     var hasDraft: Bool { draftDate != nil }
 
+    /// Whether a check-in is due or under way: the tab bar's accessory and
+    /// the sidebar's dot show, and *Check In* leaves the Overview's toolbar.
+    var isActive: Bool { isDue || hasDraft }
+
     /// One line for the accessory: "Continue check-in · 7 of 9 reviewed",
     /// "October check-in · due in 3 days", "Last check-in 30 Sep · next 31 Oct".
     func summary(locale: Locale = .current) -> String {
@@ -34,7 +38,7 @@ struct CheckInStatus: Hashable, Sendable {
         guard let lastCheckIn else { return "First check-in · ready when you are" }
         if isDue {
             switch daysUntilDue {
-            case 1...: return "\(month) check-in · due in \(daysUntilDue) day\(daysUntilDue == 1 ? "" : "s")"
+            case 1...: return "\(month) check-in · due in \(Wording.count(daysUntilDue, "day"))"
             case 0: return "\(month) check-in · due today"
             default: return "\(month) check-in · ready to start"
             }
