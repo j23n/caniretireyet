@@ -38,19 +38,18 @@ struct LibraryOptions: ParsableArguments {
         guard folder.containsLibrary else {
             throw CLIError("\(folder.root.path) isn't a library: it has no library.json. Create one with `retire init`.")
         }
-        var result = try folder.load()
-        if result.report.needsMigration, let migration = try folder.migrate() {
-            // As the app does: an older library is upgraded, after a backup, before anything is written.
+        // An older library is upgraded, after a backup, before anything is written.
+        let (result, migration) = try folder.loadMigrating()
+        if let migration {
             context.console.error("Upgraded the library from format version \(migration.fromVersion) to "
                 + "\(migration.toVersion); the files as they were are in \(migration.backup.path)/.")
-            result = try folder.load()
         }
         let errors = result.report.errors.count
         if errors > 0 {
             context.console.error("Warning: \(Format.count(errors, "file problem")) while loading the library; "
                 + "run `retire validate` for details.")
         }
-        return LoadedLibrary(folder: folder, library: result.library, report: result.report)
+        return LoadedLibrary(folder: folder, library: result.library)
     }
 }
 
@@ -58,17 +57,45 @@ struct LibraryOptions: ParsableArguments {
 struct LoadedLibrary {
     var folder: LibraryFolder
     var library: Library
-    var report: LoadReport
 
-    /// Throws unless this version may write to the library.
+    /// Throws unless this version may write to the library: one written by
+    /// a newer version, or whose `library.json` can't be read (its settings
+    /// are only defaults), is read-only.
     func checkWritable() throws {
-        if report.isNewerSchema, let version = report.schemaVersion {
-            throw StorageError.libraryIsNewer(version: version, supported: LibrarySettings.currentSchemaVersion)
-        }
-        // Its settings are only defaults: never write them over the file.
-        if report.settingsUnreadable { throw StorageError.unreadableSettings }
         try folder.checkWritable(schemaVersion: library.settings.schemaVersion)
     }
+
+    /// Writes `library` over the loaded one, as the commands that change it
+    /// do: backs up the files it changes, and `alsoBackingUp`, into
+    /// `backups/<timestamp>-<label>/`, saves them, and records in the backup
+    /// what was written, so undoing leaves later edits alone. With `dryRun`,
+    /// or when no file changes, nothing is written.
+    func save(_ library: Library, backupLabel label: String, alsoBackingUp extra: [String] = [],
+              dryRun: Bool = false, in context: CLIContext) throws -> SavedChanges {
+        var saved = SavedChanges(changed: library.files(changedFrom: self.library).map(\.path).sorted())
+        guard !dryRun, !saved.changed.isEmpty else { return saved }
+        try checkWritable()
+        let backup = try folder.backup(paths: saved.changed + extra, label: label, date: context.now())
+        let report = try folder.save(library, previous: self.library)
+        try folder.recordResult(of: backup)
+        saved.written = report.written
+        saved.deleted = report.deleted
+        saved.backup = backup.path
+        return saved
+    }
+}
+
+/// What ``LoadedLibrary/save(_:backupLabel:alsoBackingUp:dryRun:in:)`` did,
+/// or with a dry run would do.
+struct SavedChanges {
+    /// The files that differ from the loaded library, sorted: the ones
+    /// written or deleted, or with a dry run the ones that would be.
+    var changed: [String]
+    var written: [String] = []
+    var deleted: [String] = []
+    /// The backup taken first, relative to the library folder; `nil` when
+    /// nothing was written.
+    var backup: String?
 }
 
 /// A date option, parsed as `YYYY-MM-DD`.

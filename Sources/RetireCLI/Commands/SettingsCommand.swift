@@ -1,7 +1,6 @@
 import ArgumentParser
 import Foundation
 import Model
-import Storage
 
 /// `retire settings`: the library's settings (`library.json`) and the
 /// inflation index.
@@ -59,8 +58,17 @@ struct SettingsCommand: RetireSubcommand {
         if let inflationIndex {
             library.settings.inflationIndex = try Self.index(inflationIndex)
             lines.append("Inflation index: \(Self.inflationText(library)).")
-            try LibraryEdit.write(library, over: loaded, label: "settings", dryRun: dryRun, context: context,
-                                  lines: &lines)
+            let saved = try loaded.save(library, backupLabel: "settings", dryRun: dryRun, in: context)
+            if dryRun {
+                lines.append("Dry run: nothing was written" + (saved.changed.isEmpty ? "."
+                    : " (\(Format.count(saved.changed.count, "file")) would change)."))
+            } else if let backup = saved.backup {
+                lines.append("Wrote \(Format.count(saved.written.count, "file")): "
+                    + saved.written.joined(separator: ", ") + ".")
+                lines.append("Backed up the files it changed to \(backup).")
+            } else {
+                lines.append("Nothing changed.")
+            }
             lines.append("")
         }
         let settings = library.settings

@@ -203,6 +203,17 @@ struct TradesMigrationTests {
         #expect(after.report.issues.isEmpty)
         #expect(after.library == (try Fixtures.exampleLibrary()))
     }
+
+    /// Opening a library to work on it upgrades an older one first.
+    @Test func loadingMigratesAnOlderLibraryFirst() throws {
+        let folder = try version1Library()
+        let (result, migration) = try folder.library.loadMigrating()
+        #expect(migration?.fromVersion == 1)
+        #expect(migration?.toVersion == 3)
+        #expect(result.report.schemaVersion == 3)
+        #expect(result.report.issues.isEmpty)
+        #expect(try folder.library.loadMigrating().migration == nil)
+    }
 }
 
 struct MigrationTests {

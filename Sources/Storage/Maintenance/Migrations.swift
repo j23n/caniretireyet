@@ -112,4 +112,14 @@ extension LibraryFolder {
         return MigrationReport(fromVersion: version, toVersion: target, backup: backup, steps: chain.map(\.summary),
                                written: written, deleted: deleted, skipped: skipped)
     }
+
+    /// Loads the library (``load()``), upgrading it first when it uses an
+    /// older schema version (``migrate(to:steps:date:)``, after a backup), so
+    /// it can be saved; a library with a newer one loads read-only. Returns
+    /// the migration, if one ran.
+    public func loadMigrating() throws -> (result: LoadResult, migration: MigrationReport?) {
+        let result = try load()
+        guard result.report.needsMigration, let migration = try migrate() else { return (result, nil) }
+        return (try load(), migration)
+    }
 }

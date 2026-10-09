@@ -65,6 +65,8 @@ struct PricesCommandTests {
         #expect(october.fx == [FXRecord(base: .eur, quote: .usd, date: "2026-10-02", rate: d("1.1398"), source: .ecb)])
         #expect(try library.backups().map(\.label) == ["prices"])
         #expect(try library.backups().first?.absentFiles == ["history/2026/2026-10.json"])
+        // What was written is recorded in the backup, as for an import.
+        #expect(try library.backups().first?.result?.files == ["history/2026/2026-10.json"])
     }
 
     @Test func differentRecordsAreReplacedOnlyWithOverwrite() async throws {

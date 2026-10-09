@@ -73,6 +73,7 @@ struct FillHistoryTests {
             + "history/2025/2025-12.json and 9 more files.\n"))
         #expect(run.output.contains("Backed up the files it changed to backups/"))
         #expect(try library.backups().map(\.label) == ["fill-history"])
+        #expect(try library.backups().first?.result?.files.count == 12)
 
         let gold = try library.load().prices(for: "gold")
         #expect(gold.count == 12)

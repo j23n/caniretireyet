@@ -2,7 +2,6 @@ import ArgumentParser
 import Foundation
 import Model
 import Prices
-import Storage
 
 // `retire prices --fill-history [--dry-run]`: fills in the prices, FX rates
 // and inflation months the library is missing on past dates, a range per
@@ -34,20 +33,16 @@ extension PricesCommand {
 
     /// Adds the fetched records the library doesn't have (all of them, unless
     /// something arrived meanwhile), after backing up the month files they
-    /// change. With `--dry-run`, only says which files would change.
+    /// change, and records the result in the backup. With `--dry-run`, only
+    /// says which files would change.
     private func writeFill(_ fill: PastPriceFill, loaded: LoadedLibrary,
                            context: CLIContext) throws -> FillReport.Written {
         var library = loaded.library
         let inserted = fill.insertMissing(into: &library)
-        let changed = Set(library.months.keys).filter { library.months[$0] != loaded.library.months[$0] }.sorted()
-        var written = FillReport.Written(inserted: inserted, files: changed.map { LibraryFile.month($0).path })
-        guard !changed.isEmpty, !dryRun else { return written }
-        try loaded.checkWritable()
-        let backup = try loaded.folder.backup(paths: written.files, label: Self.fillBackupLabel, date: context.now())
-        written.backup = backup.path
-        written.files = try loaded.folder.save(library, previous: loaded.library).written
-        written.isWritten = true
-        return written
+        let saved = try loaded.save(library, backupLabel: Self.fillBackupLabel, dryRun: dryRun, in: context)
+        let isWritten = saved.backup != nil
+        return FillReport.Written(inserted: inserted, files: isWritten ? saved.written : saved.changed,
+                                  backup: saved.backup, isWritten: isWritten)
     }
 
     /// What was missing, what was fetched from where, and what was written.

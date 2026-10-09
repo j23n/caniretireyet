@@ -2,7 +2,6 @@ import ArgumentParser
 import Foundation
 import Model
 import Prices
-import Storage
 
 /// `retire prices`: fetches what a check-in needs and optionally records it.
 struct PricesCommand: RetireSubcommand {
@@ -88,7 +87,8 @@ struct PricesCommand: RetireSubcommand {
     }
 
     /// Adds the fetched records to the library: new ones, and different ones
-    /// only with `--overwrite`. Backs up the month files first.
+    /// only with `--overwrite`. Backs up the month files first, and records
+    /// the result in the backup.
     private func write(_ fetched: CheckInPrices, loaded: LoadedLibrary, context: CLIContext) throws -> Applied {
         var library = loaded.library
         var applied = Applied()
@@ -122,13 +122,9 @@ struct PricesCommand: RetireSubcommand {
                 library.upsert($0)
             }
         }
-        let changed = Set(library.months.keys).filter { library.months[$0] != loaded.library.months[$0] }.sorted()
-        guard !changed.isEmpty else { return applied }
-        try loaded.checkWritable()
-        let backup = try loaded.folder.backup(paths: changed.map { LibraryFile.month($0).path }, label: "prices",
-                                              date: context.now())
-        applied.backup = backup.path
-        applied.written = try loaded.folder.save(library, previous: loaded.library).written
+        let saved = try loaded.save(library, backupLabel: "prices", in: context)
+        applied.written = saved.written
+        applied.backup = saved.backup
         return applied
     }
 

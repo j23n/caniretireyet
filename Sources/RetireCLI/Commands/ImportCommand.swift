@@ -280,13 +280,13 @@ struct ImportCommand: RetireSubcommand {
         let blocked = apply && !preview.ambiguities.isEmpty && !acceptGuesses
 
         if apply, !blocked {
-            let result = preview.applyFollowingFlows(to: loaded.library)
-            report.outcome = try write(result, session: session, loaded: loaded, context: context)
-        } else if let saveProfile {
+            report.outcome = try write(preview.applyFollowingFlows(to: loaded.library), session: session,
+                                       loaded: loaded, context: context)
+        } else if saveProfile != nil {
             try loaded.checkWritable()
-            report.savedProfile = try save(session.makeProfile(id: ImportProfileID(saveProfile),
-                                                               name: profileName(loaded.library),
-                                                               library: loaded.library), in: loaded)
+            var library = loaded.library
+            report.savedProfile = try addProfile(from: session, to: &library, loaded: loaded)
+            try loaded.folder.save(library, previous: loaded.library)
         }
 
         if json {
@@ -377,50 +377,46 @@ struct ImportCommand: RetireSubcommand {
 
     // MARK: - Writing
 
-    /// Saves a profile, refusing to replace one other than `--profile`'s.
-    private func save(_ profile: ImportProfile, in loaded: LoadedLibrary) throws -> String {
+    /// Adds the profile `--save-profile` names to `library`, made from
+    /// `session` for it, and returns its path; `nil` without the option.
+    /// Refuses to replace a profile other than `--profile`'s.
+    private func addProfile(from session: ImportSession, to library: inout Library,
+                            loaded: LoadedLibrary) throws -> String? {
+        guard let saveProfile else { return nil }
+        let profile = session.makeProfile(id: ImportProfileID(saveProfile), name: profileName(loaded.library),
+                                          library: library)
         let path = LibraryFile.importProfile(profile.id).path
-        if loaded.library.importProfiles[profile.id] != nil, profile.id.rawValue != self.profile {
+        if loaded.library.importProfiles[profile.id] != nil, saveProfile != self.profile {
             throw CLIError("\(path) already exists. Choose another ID, or update it with "
                 + "--profile \(profile.id) --save-profile \(profile.id).")
         }
-        var library = loaded.library
         library.importProfiles[profile.id] = profile
-        try loaded.folder.save(library, previous: loaded.library)
         return path
     }
 
-    /// Backs up the files the import changes, then writes them (and the
-    /// profile, if asked), and records in the backup what was written, so
-    /// `--undo` can leave later edits alone.
+    /// Writes the import, and the profile `--save-profile` names: backs up
+    /// the files they change, and records in the backup what was written,
+    /// so `--undo` can leave later edits alone. A profile alone is saved
+    /// without a backup.
     private func write(_ result: ImportResult, session: ImportSession, loaded: LoadedLibrary,
                        context: CLIContext) throws -> ImportReport.Outcome {
         var outcome = ImportReport.Outcome(result: result)
-        let newProfile = saveProfile.map {
-            session.makeProfile(id: ImportProfileID($0), name: profileName(loaded.library), library: result.library)
-        }
-        guard result.hasChanges || newProfile != nil else { return outcome }
+        guard result.hasChanges || saveProfile != nil else { return outcome }
         try loaded.checkWritable()
-        if let newProfile, loaded.library.importProfiles[newProfile.id] != nil, newProfile.id.rawValue != profile {
-            throw CLIError("\(LibraryFile.importProfile(newProfile.id).path) already exists. Choose another ID, or "
-                + "update it with --profile \(newProfile.id) --save-profile \(newProfile.id).")
-        }
-        var backup: Backup?
+        var library = result.library
+        outcome.savedProfile = try addProfile(from: session, to: &library, loaded: loaded)
         if result.hasChanges {
-            // Exactly the files the save writes, and the profile.
-            var paths = result.library.files(changedFrom: loaded.library).map(\.path)
-            if let newProfile { paths.append(LibraryFile.importProfile(newProfile.id).path) }
-            backup = try loaded.folder.backup(paths: paths, label: Self.backupLabel, date: context.now())
-            outcome.backup = backup?.path
-            let saved = try loaded.folder.save(result.library, previous: loaded.library)
+            // The profile is backed up even when it doesn't change.
+            let saved = try loaded.save(library, backupLabel: Self.backupLabel,
+                                        alsoBackingUp: outcome.savedProfile.map { [$0] } ?? [], in: context)
             outcome.written = saved.written
             outcome.deleted = saved.deleted
+            outcome.backup = saved.backup
+        } else {
+            try loaded.folder.save(library, previous: loaded.library)
         }
-        if let newProfile {
-            outcome.savedProfile = try save(newProfile, in: loaded)
-            if !outcome.written.contains(outcome.savedProfile!) { outcome.written.append(outcome.savedProfile!) }
-        }
-        if let backup { try loaded.folder.recordResult(of: backup) }
+        // The profile is listed last, changed or not.
+        if let path = outcome.savedProfile { outcome.written = outcome.written.filter { $0 != path } + [path] }
         return outcome
     }
 
