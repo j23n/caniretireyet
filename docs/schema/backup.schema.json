@@ -25,7 +25,7 @@
       "type": "integer"
     },
     "result": {
-      "description": "After an import: the same files as the import wrote them, copied to result/, so undoing it leaves later edits in place. A backup without it is restored as it is.",
+      "description": "After an edit that backed up the files it changed (an import, filling in past prices, a CLI prices or settings change, …): the same files as the edit wrote them, copied to result/, so undoing it leaves later edits in place. A backup without it is restored as it is.",
       "type": "object",
       "required": ["files"],
       "properties": {
