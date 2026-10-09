@@ -51,7 +51,7 @@ struct PlanTimelineView: View {
         let state = session.state
         let milestones = session.plan.map {
             PlanMilestones(plan: $0, library: library.library, valuator: library.valuator, asOf: library.asOfDate,
-                           results: state.results, reached: [])
+                           results: state.results)
         }
         ScrollView {
             VStack(alignment: .leading, spacing: Metrics.l) {

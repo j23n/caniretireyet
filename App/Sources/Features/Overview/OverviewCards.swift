@@ -242,7 +242,7 @@ struct OverviewAttentionCard: View {
 
     var body: some View {
         let items = self.items
-        let showsBanners = hasLibraryBanners
+        let showsBanners = LibraryStatusBanners.showsAny(for: library)
         if !items.isEmpty || showsBanners {
             Card("Needs attention") {
                 VStack(alignment: .leading, spacing: Metrics.s) {
@@ -285,13 +285,6 @@ struct OverviewAttentionCard: View {
                 target: .plan))
         }
         return items
-    }
-
-    /// Whether ``LibraryStatusBanners`` shows one: its conditions.
-    private var hasLibraryBanners: Bool {
-        library.isReadOnly || library.lastError != nil || !library.mergedConflicts.isEmpty
-            || !library.conflictFailures.isEmpty || !library.saveNotices.isEmpty
-            || library.loadIssues.contains(where: { $0.severity == .error })
     }
 
     @ViewBuilder

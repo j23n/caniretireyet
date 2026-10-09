@@ -424,8 +424,7 @@ final class PlanStore {
         } catch {
             library.reportError("This month's answer couldn't be recorded. \(LibraryStore.describe(error))")
         }
-        let hasYearly = library.library.baselines(for: main).contains { $0.kind == .yearly && $0.created.year == date.year }
-        if !hasYearly {
+        if !library.library.baselines(for: main).contains(where: { $0.isYearly(of: date.year) }) {
             do {
                 _ = try saveBaseline(for: main, label: "Start of \(date.year)", kind: .yearly, on: date)
             } catch PlanStoreError.noResults {
@@ -579,5 +578,13 @@ enum PlanStoreError: Error, Equatable, Sendable, LocalizedError {
         switch self {
         case .noResults: "Calculate the plan first: there are no results to save."
         }
+    }
+}
+
+extension Baseline {
+    /// Whether it's the automatic baseline of `year` ("Start of 2026"),
+    /// which the year's first check-in saves.
+    func isYearly(of year: Int) -> Bool {
+        kind == .yearly && created.year == year
     }
 }

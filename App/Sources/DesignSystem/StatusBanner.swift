@@ -92,6 +92,14 @@ struct LibraryStatusBanners: View {
     @Environment(LibraryStore.self) private var library
     @Environment(AppNavigation.self) private var navigation
 
+    /// Whether there's a banner to show: the body's conditions, for a
+    /// screen that shows the banners in a card of its own (the Overview's
+    /// "Needs attention").
+    static func showsAny(for library: LibraryStore) -> Bool {
+        library.isReadOnly || library.lastError != nil || library.loadIssues.contains { $0.severity == .error }
+            || !library.mergedConflicts.isEmpty || !library.conflictFailures.isEmpty || !library.saveNotices.isEmpty
+    }
+
     var body: some View {
         VStack(spacing: Metrics.s) {
             if library.isReadOnly {

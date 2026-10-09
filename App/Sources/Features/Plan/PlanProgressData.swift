@@ -394,7 +394,7 @@ struct PlanProgressYear: Hashable, Sendable, Identifiable {
 extension PlanProgressYear {
     /// The year's automatic baseline ("Start of 2026"), saved at its first check-in.
     static func yearlyBaseline(for year: Int, in baselines: [PlanBaselineEntry]) -> PlanBaselineEntry? {
-        baselines.first { $0.baseline.kind == .yearly && $0.baseline.created.year == year }
+        baselines.first { $0.baseline.isYearly(of: year) }
     }
 
     /// The past baseline a year without its own is measured against: the
