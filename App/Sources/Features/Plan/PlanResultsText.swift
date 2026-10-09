@@ -45,23 +45,6 @@ enum PlanResultsText {
         return "Earliest at \(age) · \(GlanceText.monthAndYear(date, locale: locale))"
     }
 
-    /// A share as the simplest "k of n": 0.9 → (9, 10), 0.95 → (19, 20), 0.75 → (3, 4).
-    static func fraction(_ share: Double) -> (Int, Int) {
-        for denominator in [2, 3, 4, 5, 10, 20, 25, 50, 100] {
-            let numerator = share * Double(denominator)
-            if abs(numerator - numerator.rounded()) < 0.001 {
-                return (Int(wholeNumber: numerator), denominator)
-            }
-        }
-        return (Int(wholeNumber: share * 100), 100)
-    }
-
-    /// The confidence in plain words: "in 9 of 10 simulated futures".
-    static func confidence(_ share: Double) -> String {
-        let (numerator, denominator) = fraction(share)
-        return "in \(numerator) of \(denominator) simulated futures"
-    }
-
     /// "54 → 53" when a what-if moves the earliest age, else `nil`.
     static func change(from old: Int?, to new: Int?) -> String? {
         guard old != new else { return nil }

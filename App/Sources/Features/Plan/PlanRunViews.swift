@@ -1,3 +1,4 @@
+import Glance
 import Model
 import Planner
 import SwiftUI
@@ -140,7 +141,7 @@ struct PlanCalculatePrompt: View {
                     Text(PlanResultsText.earliest(headline, locale: locale))
                         .font(.title3.weight(.semibold))
                         .foregroundStyle(Palette.ink)
-                    Text(PlanResultsText.confidence(headline.confidence))
+                    Text(GlanceText.inSimulatedFutures(headline.confidence))
                         .font(.subheadline)
                         .foregroundStyle(Palette.secondaryInk)
                     if let recorded = PlanRunText.recorded(headline, planChanged: planChanged, locale: locale) {

@@ -1,3 +1,4 @@
+import Glance
 import Model
 import Planner
 import SwiftUI
@@ -305,7 +306,7 @@ struct PlanSimulationEditor: View {
                     Text(AmountFormat.percent(share, digits: 0, locale: locale)).tag(share)
                 }
             }
-            Text("A “yes” needs success \(PlanResultsText.confidence(plan.simulation.effectiveConfidence.doubleValue)).")
+            Text("A “yes” needs success \(GlanceText.inSimulatedFutures(plan.simulation.effectiveConfidence.doubleValue)).")
                 .font(.caption)
                 .foregroundStyle(Palette.mutedInk)
             PlanNumberRow("Random seed", value: $plan.simulation.planSeed, kind: .integer)

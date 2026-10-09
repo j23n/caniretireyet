@@ -1,4 +1,5 @@
 import Foundation
+import Glance
 import Model
 import Tracker
 
@@ -912,12 +913,12 @@ struct CheckInAnswer: Hashable, Sendable {
     static func make(_ headline: PlanHeadline, previous: Headline?, locale: Locale = .current) -> CheckInAnswer {
         if headline.canRetireNow {
             return CheckInAnswer(
-                lead: "Yes: retiring now works in ", emphasis: confidenceWords(headline.confidence),
+                lead: "Yes: retiring now works in ", emphasis: GlanceText.futures(headline.confidence),
                 trail: " simulated futures.")
         }
         guard let age = headline.earliestAge else {
             return CheckInAnswer(
-                lead: "Not yet: no retirement age in the plan works in \(confidenceWords(headline.confidence)) "
+                lead: "Not yet: no retirement age in the plan works in \(GlanceText.futures(headline.confidence)) "
                     + "simulated futures yet.", emphasis: nil, trail: "")
         }
         return CheckInAnswer(lead: "Not yet: earliest at ", emphasis: "\(age)",
@@ -932,15 +933,6 @@ struct CheckInAnswer: Hashable, Sendable {
         let years = abs(age - before)
         let span = Wording.count(years, "year")
         return age < before ? ", \(span) earlier than in \(month)." : ", \(span) later than in \(month)."
-    }
-
-    /// A confidence level in words: 0.9 is "9 of 10", 0.95 "19 of 20".
-    static func confidenceWords(_ confidence: Double) -> String {
-        for scale in [10, 20, 100] {
-            let count = confidence * Double(scale)
-            if abs(count - count.rounded()) < 0.001 { return "\(Int(count.rounded())) of \(scale)" }
-        }
-        return "\(Int((confidence * 100).rounded())) of 100"
     }
 
     /// The answer recorded at the check-in before `date` for the main plan.
