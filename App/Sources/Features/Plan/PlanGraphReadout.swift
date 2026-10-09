@@ -149,7 +149,6 @@ struct PlanGraphCallout: View {
     }
 
     var body: some View {
-        let shape = RoundedRectangle(cornerRadius: 8, style: .continuous)
         VStack(alignment: .leading, spacing: 1) {
             ForEach(Array(lines.enumerated()), id: \.offset) { _, line in
                 text(line)
@@ -161,8 +160,7 @@ struct PlanGraphCallout: View {
         .padding(.horizontal, 8)
         .padding(.vertical, 6)
         .frame(width: Self.width, alignment: .leading)
-        .background(Palette.card, in: shape)
-        .overlay { shape.strokeBorder(Palette.border, lineWidth: 1) }
+        .calloutBackground()
         .shadow(color: .black.opacity(0.12), radius: 6, y: 2)
     }
 

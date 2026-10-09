@@ -436,7 +436,7 @@ struct CheckInPlainDelta: View {
     var body: some View {
         Text(verbatim: DeltaFormat.text(number, direction: direction, showsArrow: true))
             .monospacedDigit()
-            .foregroundStyle(changeColor(direction))
+            .foregroundStyle(Palette.change(direction))
             .privacySensitive()
             .accessibilityLabel(Text(verbatim: spoken))
     }
@@ -474,13 +474,8 @@ struct CheckInQuantityChange: View {
                                         showsArrow: true))
             .monospacedDigit()
             .fontWeight(.medium)
-            .foregroundStyle(changeColor(direction))
+            .foregroundStyle(Palette.change(direction))
     }
-}
-
-/// The colour of a change going up (1), down (−1) or neither (0).
-private func changeColor(_ direction: Int) -> Color {
-    direction > 0 ? Palette.positive : direction < 0 ? Palette.negative : Palette.secondaryInk
 }
 
 // MARK: - Prices

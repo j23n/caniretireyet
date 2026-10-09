@@ -244,11 +244,6 @@ struct InstrumentForm: Hashable, Sendable {
         }
     }
 
-    /// A short unit for amounts: "sh", "g", "BTC".
-    static func shortName(of unit: InstrumentUnit) -> String {
-        unit == .share ? "sh" : unit.rawValue
-    }
-
     /// The outcome of a *Test price fetch*, as a sentence.
     static func describe(_ entry: PriceListEntry, canFetch: Bool, locale: Locale = .current) -> String {
         switch entry.outcome {

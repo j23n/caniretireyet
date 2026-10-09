@@ -118,8 +118,7 @@ struct PlanAnswerHistoryChart: View {
             }
         }
         .padding(Metrics.s)
-        .background(Palette.card, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-        .overlay { RoundedRectangle(cornerRadius: 8, style: .continuous).strokeBorder(Palette.border) }
+        .calloutBackground()
     }
 
     private var summary: ChartSummary {

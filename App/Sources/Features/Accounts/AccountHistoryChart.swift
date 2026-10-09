@@ -176,8 +176,7 @@ struct AccountHistoryChart: View {
         }
         .padding(Metrics.s)
         .frame(maxWidth: 200, alignment: .leading)
-        .background(Palette.card, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-        .overlay { RoundedRectangle(cornerRadius: 8, style: .continuous).strokeBorder(Palette.border) }
+        .calloutBackground()
     }
 
     private var summary: ChartSummary {
