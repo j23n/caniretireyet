@@ -61,6 +61,11 @@ targets:
       # Assets.xcassets: the design system's colours (light and dark), see
       # Sources/DesignSystem/Palette.swift.
       - path: Resources
+      # The tests' made-up example library, a folder in the app's bundle:
+      # the previews' and UI tests' library (Sources/Preview/PreviewLibrary.swift).
+      - path: ../Sources/TestSupport/Resources/ExampleLibrary
+        type: folder
+        buildPhase: resources
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: $(APP_BUNDLE_IDENTIFIER)

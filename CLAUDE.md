@@ -35,7 +35,7 @@ swift run retire --help                 # the CLI
 | `Planner` | Simulation engine (docs/PLANNER.md): income after tax, two tax rates set by hand, no tax law | Model, Tracker |
 | `CloudSync` | iCloud container, file coordination, change watching; Apple-only code inside `#if canImport(Darwin)` | Model, Storage |
 | `Glance` | What the widgets show: a snapshot of net worth, the plan's answer and the next check-in, which the app writes into the App Group and the widget extension reads (`GlanceFile`); the countdown, deep links | Model, Tracker |
-| `TestSupport` | Test helpers and the made-up example library (`Fixtures`) — tests only, not a product | Model |
+| `TestSupport` | Test helpers and the made-up example library (`Fixtures`) — tests only, not a product; the app bundles the example library's folder for its previews and UI tests (`PreviewLibrary`) | Model |
 | `RetireCLI` | The `retire` commands (Swift Argument Parser), a library so `RetireCLITests` can run them | Model, Tracker, Storage, Importer, Planner, Prices |
 | `retire` | Command-line tool: the executable that starts `RetireCLI` | RetireCLI |
 | `App/` | SwiftUI app for iPhone, iPad and Mac, and its widgets (`App/Widgets`, a WidgetKit extension) (XcodeGen) | all library products; the widgets Model and Glance |
@@ -67,4 +67,4 @@ Every other module builds on `Model`, and the app and the CLI read and write the
 - **Trades accounts.** An account with `"valuation": "trades"` gets its holdings from its trades (docs/TRADES.md). Read what an account holds with `Valuator.snapshot(of:on:)` or `holdings(of:on:)`, not from its latest valuation's `positions`, which for such an account are only a reconciliation check.
 - **Files.** One type family per file; public API has short doc comments.
 - **Tests.** Swift Testing (`import Testing`, `@Test`, `#expect`), not XCTest. One test target per module (`<Module>Tests`), each depending on `TestSupport`. Use `Fixtures.exampleLibrary()` for a ready `Library` without depending on Storage.
-- **Made-up data only.** Never commit real financial data, real account numbers or personal details. The example library (`Sources/TestSupport/Resources/ExampleLibrary/`) is fake; keep it valid against the schemas (the tests check), and when you change it, keep the tests that check its totals in step.
+- **Made-up data only.** Never commit real financial data, real account numbers or personal details. The example library (`Sources/TestSupport/Resources/ExampleLibrary/`) is fake; keep it valid against the schemas (the tests check), and when you change it, keep the tests that check its totals in step. The app's previews and UI tests show it too.
