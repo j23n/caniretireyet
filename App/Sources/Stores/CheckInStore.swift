@@ -295,13 +295,13 @@ final class CheckInStore {
         guard var draft else { throw CheckInStoreError.noDraft }
         guard library.phase == .ready else { throw LibraryStoreError.notLoaded }
         let snapshot = library.library
-        let rebase = draft.rebase(onto: snapshot)
+        let newConflicts = draft.rebase(onto: snapshot)
         if draft != self.draft {
             self.draft = draft
             schedulePersist()
         }
-        guard rebase.newConflicts.isEmpty else {
-            throw CheckInStoreError.changedElsewhere(rebase.newConflicts.map { snapshot.accounts[$0]?.name ?? $0.rawValue })
+        guard newConflicts.isEmpty else {
+            throw CheckInStoreError.changedElsewhere(newConflicts.map { snapshot.accounts[$0]?.name ?? $0.rawValue })
         }
         let review = draft.review(in: snapshot)
         let indices = self.indices

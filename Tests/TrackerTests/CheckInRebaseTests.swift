@@ -24,8 +24,7 @@ struct CheckInRebaseTests {
         var draft = CheckInDraft(date: "2026-10-31", library: library)
         let changed = savedElsewhere()
 
-        let result = draft.rebase(onto: changed)
-        #expect(result.newConflicts.isEmpty)
+        #expect(draft.rebase(onto: changed).isEmpty)
         let row = try #require(draft["conto-fineco"])
         #expect(row.state == .updated)
         #expect(row.balance == 5000)
@@ -48,8 +47,8 @@ struct CheckInRebaseTests {
         var changed = savedElsewhere()
         changed.upsert(Valuation(account: "conto-deposito", date: "2026-10-31", balance: 18000, flow: 0))
 
-        let result = draft.rebase(onto: changed)
-        #expect(result.newConflicts == ["conto-deposito", "conto-fineco"])
+        let newConflicts = draft.rebase(onto: changed)
+        #expect(newConflicts == ["conto-deposito", "conto-fineco"])
         #expect(draft.conflicts.map(\.account) == ["conto-deposito", "conto-fineco"])
         let fineco = try #require(draft["conto-fineco"])
         #expect(fineco.balance == 4600)
@@ -65,7 +64,7 @@ struct CheckInRebaseTests {
 
         // A second rebase with nothing new changes nothing.
         let settled = draft
-        #expect(draft.rebase(onto: changed).newConflicts.isEmpty)
+        #expect(draft.rebase(onto: changed).isEmpty)
         #expect(draft == settled)
 
         // Keep the saved value for one, use mine for the other.
@@ -81,7 +80,7 @@ struct CheckInRebaseTests {
         #expect(saved.valuations(for: "conto-deposito").last
             == Valuation(account: "conto-deposito", date: "2026-10-31", balance: 18000, flow: 0))
         // Once settled, a rebase onto the same library keeps the choice.
-        #expect(draft.rebase(onto: changed).newConflicts.isEmpty)
+        #expect(draft.rebase(onto: changed).isEmpty)
     }
 
     @Test func theSameValuesSavedElsewhereAreNoConflict() throws {
@@ -160,7 +159,7 @@ struct CheckInRebaseTests {
         var draft = CheckInDraft(date: "2026-10-31", library: library)
         draft["conto-fineco"]?.setBalance(4600)
         let before = draft
-        #expect(draft.rebase(onto: library).newConflicts.isEmpty)
+        #expect(draft.rebase(onto: library).isEmpty)
         #expect(draft == before)
     }
 

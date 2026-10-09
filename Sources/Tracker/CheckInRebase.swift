@@ -1,13 +1,6 @@
 import Foundation
 import Model
 
-/// What ``CheckInDraft/rebase(onto:)`` found.
-public struct CheckInRebase: Hashable, Sendable {
-    /// Rows that came into conflict with a valuation saved on the date (see
-    /// ``CheckInRow/conflict``), or whose conflict is with a newer one.
-    public var newConflicts: [AccountID] = []
-}
-
 extension CheckInDraft {
     /// Brings the draft up to date with `library`: when an unfinished
     /// check-in is resumed, when the library changes while it's open (the
@@ -33,10 +26,12 @@ extension CheckInDraft {
     ///   ``resolveConflict(of:keepingSaved:in:)``, so the saved valuation is
     ///   never overwritten without asking.
     ///
-    /// Prices and FX rates are kept.
+    /// Prices and FX rates are kept. Returns the accounts whose rows came
+    /// into conflict with a valuation saved on the date, or whose conflict
+    /// is now with a newer one, in row order.
     @discardableResult
-    public mutating func rebase(onto library: Library) -> CheckInRebase {
-        var result = CheckInRebase()
+    public mutating func rebase(onto library: Library) -> [AccountID] {
+        var newConflicts: [AccountID] = []
         var valuator = LazyValuator(library: libraryWithRates(library))
         let accounts = Self.accounts(for: date, in: library)
         var rebased: [CheckInRow] = []
@@ -60,11 +55,11 @@ extension CheckInDraft {
                 continue
             }
             let row = refreshed(old, account: account, previous: previous, saved: saved, valuator: &valuator)
-            if let conflict = row.conflict, conflict != old.conflict { result.newConflicts.append(account.id) }
+            if let conflict = row.conflict, conflict != old.conflict { newConflicts.append(account.id) }
             rebased.append(row)
         }
         rows = rebased
-        return result
+        return newConflicts
     }
 
     /// Settles the conflict of `account`'s row (see ``CheckInRow/conflict``).
