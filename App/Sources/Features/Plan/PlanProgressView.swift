@@ -303,7 +303,7 @@ struct PlanProgressView: View {
             // the strip opened with today's card a scroller's width (16
             // points) past its trailing edge without one.
             PlanYearStrip(timeline: timeline, selection: selection, pointsPerMonth: isWide ? 26 : 21,
-                          leadingInset: gutter, trailingInset: gutter, showsFooter: isWide,
+                          inset: gutter, showsFooter: isWide,
                           today: library.asOfDate)
             PlanYearDetails(card: cards[selected], index: selected, count: cards.count, isWide: isWide,
                             onSelect: { selection.wrappedValue = $0 }, onAddPastBaseline: addPastBaseline)

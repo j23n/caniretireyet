@@ -43,24 +43,21 @@ struct PlanYearDetails: View {
     private var stacks: Bool { !isWide || (width > 0 && width < Self.twoColumnWidth) }
 
     var body: some View {
-        let shape = RoundedRectangle(cornerRadius: Metrics.cardRadius, style: .continuous)
-        VStack(alignment: .leading, spacing: Metrics.l) {
-            header
-            if stacks {
-                summary
-                PlanYearFigures(card: card, showsBar: isWide)
-                PlanYearWhy(card: card, onAddPastBaseline: onAddPastBaseline)
-                PlanYearHappenings(card: card)
-            } else {
-                columns
+        Card {
+            VStack(alignment: .leading, spacing: Metrics.l) {
+                header
+                if stacks {
+                    summary
+                    PlanYearFigures(card: card, showsBar: isWide)
+                    PlanYearWhy(card: card, onAddPastBaseline: onAddPastBaseline)
+                    PlanYearHappenings(card: card)
+                } else {
+                    columns
+                }
+                notes
             }
-            notes
         }
-        .padding(Metrics.l)
-        .frame(maxWidth: .infinity, alignment: .leading)
         .measuringWidth($width)
-        .background(Palette.card, in: shape)
-        .overlay { shape.strokeBorder(Palette.border, lineWidth: 1) }
         .pastPricesSheet(isPresented: $fillsPastPrices)
     }
 

@@ -470,32 +470,27 @@ struct PlanChapterDetails: View {
     private var chapter: PlanChapter { model.chapters.chapters[index] }
 
     var body: some View {
-        let shape = RoundedRectangle(cornerRadius: Metrics.cardRadius, style: .continuous)
         if isWide {
-            VStack(alignment: .leading, spacing: Metrics.l) {
-                header
-                HStack(alignment: .top, spacing: Metrics.xl) {
-                    reading
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                    Divider()
-                    settings
-                        .frame(width: 380, alignment: .leading)
-                }
-            }
-            .padding(Metrics.l)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Palette.card, in: shape)
-            .overlay { shape.strokeBorder(Palette.border, lineWidth: 1) }
-        } else {
-            VStack(alignment: .leading, spacing: Metrics.l) {
+            Card {
                 VStack(alignment: .leading, spacing: Metrics.l) {
                     header
-                    reading
+                    HStack(alignment: .top, spacing: Metrics.xl) {
+                        reading
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                        Divider()
+                        settings
+                            .frame(width: 380, alignment: .leading)
+                    }
                 }
-                .padding(Metrics.l)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background(Palette.card, in: shape)
-                .overlay { shape.strokeBorder(Palette.border, lineWidth: 1) }
+            }
+        } else {
+            VStack(alignment: .leading, spacing: Metrics.l) {
+                Card {
+                    VStack(alignment: .leading, spacing: Metrics.l) {
+                        header
+                        reading
+                    }
+                }
                 settings
             }
         }

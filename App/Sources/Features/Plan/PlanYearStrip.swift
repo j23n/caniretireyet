@@ -19,9 +19,8 @@ struct PlanYearStrip: View {
     @Binding var selection: Int
     /// Points a month along the time axis.
     var pointsPerMonth: CGFloat = 21
-    /// The strip's insets at its ends, so its cards line up with the page.
-    var leadingInset: CGFloat = Metrics.l
-    var trailingInset: CGFloat = Metrics.l
+    /// The strip's inset at both ends, so its cards line up with the page.
+    var inset: CGFloat = Metrics.l
     /// Whether each card shows its year's figures in a line under its graph
     /// (the Mac and iPad).
     var showsFooter = false
@@ -79,8 +78,7 @@ struct PlanYearStrip: View {
                         }
                     }
                 }
-                .padding(.leading, leadingInset)
-                .padding(.trailing, trailingInset)
+                .padding(.horizontal, inset)
                 .padding(.vertical, 2)
                 .dynamicTypeSize(...DynamicTypeSize.stripCardLimit)
             }
@@ -162,18 +160,12 @@ struct PlanYearStrip: View {
         if !expected.isEmpty {
             series.append(ChartSummary.Series(name: "What you expected", points: expected))
         }
-        let describe: @Sendable (Double) -> String
-        if hidesAmounts {
-            let hidden = AmountFormat.hidden
-            describe = { _ in hidden }
-        } else {
-            describe = ChartStyle.spokenAmount(currency: card.currency)
-        }
         return ChartSummary(
             title: card.year.title,
             summary: PlanProgressText.story(card.year, currency: card.currency, hidesAmounts: hidesAmounts,
                                             locale: locale),
-            xTitle: "Date", yTitle: "Your money", series: series, describeValue: describe)
+            xTitle: "Date", yTitle: "Your money", series: series,
+            describeValue: ChartStyle.spokenAmount(currency: card.currency, hidden: hidesAmounts))
     }
 
     private func accessibilityLabel(_ card: PlanProgressTimeline.Card) -> String {

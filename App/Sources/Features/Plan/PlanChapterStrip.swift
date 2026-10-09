@@ -87,18 +87,11 @@ struct PlanChapterStrip: View {
         func series(_ name: String, _ value: (FanPoint) -> Double) -> ChartSummary.Series {
             ChartSummary.Series(name: name, points: zip(labels, card.fan).map { ($0, value($1)) })
         }
-        let describe: @Sendable (Double) -> String
-        if hidesAmounts {
-            let hidden = AmountFormat.hidden
-            describe = { _ in hidden }
-        } else {
-            describe = ChartStyle.spokenAmount(currency: currency)
-        }
         return ChartSummary(
             title: "Chapter \(card.index + 1), \(card.title)", summary: accessibilityLabel(card),
             xTitle: "Age and year", yTitle: "Your money",
             series: [series("Typically", \.p50), series("Bad, 1 in 10", \.p10), series("Good, 1 in 10", \.p90)],
-            describeValue: describe)
+            describeValue: ChartStyle.spokenAmount(currency: currency, hidden: hidesAmounts))
     }
 
     private func accessibilityLabel(_ card: PlanTimeline.Card) -> String {
@@ -531,5 +524,15 @@ struct PlanChapterCardView: View {
         case .spending: Palette.violet.opacity(0.6)
         case .saving: Palette.accent
         }
+    }
+}
+
+extension ChartStyle {
+    /// How VoiceOver reads an amount on a strip's card (the chapters', the
+    /// years'): in full, or hidden with the eye.
+    static func spokenAmount(currency: CurrencyCode, hidden: Bool) -> @Sendable (Double) -> String {
+        guard hidden else { return spokenAmount(currency: currency) }
+        let text = AmountFormat.hidden
+        return { _ in text }
     }
 }
