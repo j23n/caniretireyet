@@ -69,31 +69,25 @@ final class ImportController {
     /// (only the files that changed), with exactly those files backed up
     /// into `backups/<timestamp>-import/` first, in the same queued
     /// operation, and the files as written recorded in the backup after, so
-    /// undoing leaves later edits alone. Then shows Done. The later values
-    /// whose new money follows an inserted one are part of the same change
-    /// and backup (``ImportPreview/applyFollowingFlows(to:)``).
+    /// undoing leaves later edits alone. Then shows Done, which says when
+    /// there was nothing to import. The later values whose new money follows
+    /// an inserted one are part of the same change and backup
+    /// (``ImportPreview/applyFollowingFlows(to:)``).
     func runImport(in store: LibraryStore) async {
         guard let preview = flow.preview, !isWorking else { return }
         isWorking = true
         defer { isWorking = false }
         errorMessage = nil
-        let fileName = flow.fileName ?? "the file"
-        let planned = preview.applyFollowingFlows(to: store.library)
-        guard planned.hasChanges else {
-            receipt = ImportReceipt(fileName: fileName, result: planned, names: flow)
-            flow.finish()
-            return
-        }
         do {
-            let before = store.library
-            var result = planned
+            var result: ImportResult?
             let backup = try await store.commit(backingUpAs: Self.backupLabel) { library in
-                result = preview.applyFollowingFlows(to: library)
-                library = result.library
+                let applied = preview.applyFollowingFlows(to: library)
+                result = applied
+                library = applied.library
             }
-            var receipt = ImportReceipt(fileName: fileName, result: result, names: flow)
+            guard let result else { return }
+            var receipt = ImportReceipt(fileName: flow.fileName ?? "the file", result: result)
             receipt.backup = backup
-            if backup == nil { receipt.libraryBefore = before }
             self.receipt = receipt
             flow.finish()
         } catch LibraryStoreError.saveFailed(let message) {
@@ -109,16 +103,12 @@ final class ImportController {
     /// it created, unless they changed since. What was left in place is in
     /// the receipt (``ImportReceipt/undoNotes``).
     func undoImport(in store: LibraryStore) async {
-        guard var receipt, receipt.canUndo, !isWorking else { return }
+        guard var receipt, receipt.canUndo, let backup = receipt.backup, !isWorking else { return }
         isWorking = true
         defer { isWorking = false }
         errorMessage = nil
         do {
-            if let backup = receipt.backup {
-                receipt.undoReport = try await store.undo(backup, safetyLabel: Self.undoLabel)
-            } else if let before = receipt.libraryBefore {
-                try store.update { $0 = before }
-            }
+            receipt.undoReport = try await store.undo(backup, safetyLabel: Self.undoLabel)
             receipt.isUndone = true
             self.receipt = receipt
         } catch {
@@ -180,23 +170,23 @@ struct ImportReceipt: Hashable, Sendable {
     /// Names of the accounts that now record trades, and how many trades were written.
     var tradesAccounts: [String]
     var trades: Int
-    /// The files written, relative to the library folder.
-    var changedFiles: [String]
+    /// How many library files the import wrote: month, account and instrument files.
+    var changedFileCount: Int
     /// The instruments held in the valuations of the months the import
     /// changed, for the Done step's offer to fill in their past prices.
     var importedInstruments: Set<InstrumentID>
     /// The copy of those files taken before writing; `nil` for a library
-    /// without files (previews).
+    /// without files (previews), which can't be undone.
     var backup: Backup?
-    /// The library before the import, to undo it where there's no backup (previews).
-    var libraryBefore: Library?
     var isUndone = false
-    /// What undoing did, once it's undone (not for previews).
+    /// What undoing did, once it's undone.
     var undoReport: UndoReport?
     /// The profile saved from this import.
     var savedProfile: ImportProfileID?
 
-    init(fileName: String, result: ImportResult, names flow: ImportFlow) {
+    /// What `result` did. The accounts and instruments it names are in its
+    /// library: it created them or found them there.
+    init(fileName: String, result: ImportResult) {
         self.fileName = fileName
         added = result.added
         updated = result.updated
@@ -206,14 +196,14 @@ struct ImportReceipt: Hashable, Sendable {
         identical = result.identical
         skipped = result.skipped
         recomputedFlows = result.recomputedFlows.count
-        createdAccounts = result.createdAccounts.map { result.library.accounts[$0]?.name ?? flow.accountName($0) }
-        closedAccounts = result.closedAccounts.map { result.library.accounts[$0]?.name ?? flow.accountName($0) }
-        createdInstruments = result.createdInstruments.map {
-            result.library.instruments[$0]?.name ?? flow.instrumentName($0)
-        }
-        tradesAccounts = result.tradesAccounts.map { result.library.accounts[$0]?.name ?? flow.accountName($0) }
+        let accounts = result.library.accounts
+        createdAccounts = result.createdAccounts.map { accounts[$0]?.name ?? $0.rawValue }
+        closedAccounts = result.closedAccounts.map { accounts[$0]?.name ?? $0.rawValue }
+        createdInstruments = result.createdInstruments.map { result.library.instruments[$0]?.name ?? $0.rawValue }
+        tradesAccounts = result.tradesAccounts.map { accounts[$0]?.name ?? $0.rawValue }
         trades = result.tradesWritten
-        changedFiles = result.changedPaths
+        changedFileCount = result.changedMonths.count + result.changedAccounts.count
+            + result.createdInstruments.count
         importedInstruments = Set(result.changedMonths.flatMap { month in
             (result.library.months[month]?.valuations ?? []).flatMap { $0.positions.map(\.instrument) }
                 + (result.library.months[month]?.trades ?? []).compactMap(\.instrument)
@@ -221,11 +211,11 @@ struct ImportReceipt: Hashable, Sendable {
     }
 
     /// Whether the import wrote anything.
-    var hasChanges: Bool { !changedFiles.isEmpty }
+    var hasChanges: Bool { changedFileCount > 0 }
 
     /// Whether Undo import can run.
     var canUndo: Bool {
-        hasChanges && !isUndone && (backup != nil || libraryBefore != nil)
+        hasChanges && !isUndone && backup != nil
     }
 
     /// What undoing couldn't undo because it changed after the import, in
@@ -237,14 +227,6 @@ struct ImportReceipt: Hashable, Sendable {
                 + "over any later edits."]
         }
         return undoReport.keptChanges.map(\.summary)
-    }
-}
-
-extension ImportResult {
-    /// The library files the import writes, relative to the library folder.
-    var changedPaths: [String] {
-        changedMonths.map { LibraryFile.month($0).path } + changedAccounts.map { LibraryFile.account($0).path }
-            + createdInstruments.map { LibraryFile.instrument($0).path }
     }
 }
 

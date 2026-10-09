@@ -23,6 +23,7 @@ struct ImportDoneStep: View {
 
     var body: some View {
         Form {
+            // Done comes only after an import, which leaves its receipt.
             if let receipt = model.receipt {
                 summarySection(receipt)
                 if !pastPriceOffers.isEmpty {
@@ -32,11 +33,6 @@ struct ImportDoneStep: View {
                     undoSection(receipt)
                 }
                 profileSection(receipt)
-            } else {
-                Section {
-                    Text("Nothing was imported.")
-                        .foregroundStyle(Palette.secondaryInk)
-                }
             }
         }
         .formStyle(.grouped)
@@ -155,7 +151,7 @@ struct ImportDoneStep: View {
     }
 
     private static func undoFooter(_ receipt: ImportReceipt) -> String {
-        let files = receipt.changedFiles.count == 1 ? "1 file" : "\(receipt.changedFiles.count) files"
+        let files = receipt.changedFileCount == 1 ? "1 file" : "\(receipt.changedFileCount) files"
         if receipt.isUndone, !receipt.undoNotes.isEmpty {
             return "Undone, except for what changed after the import, which was left in place."
         }
