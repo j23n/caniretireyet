@@ -83,11 +83,10 @@ struct PlanChaptersNeedBirthDate: View {
 /// chapters.
 struct PlanUnplacedIssues: View {
     let issues: PlanInputIssues
-    let plan: PlanDocument
 
     private var unplaced: [PlanIssue] {
         let lists: [PlanInputSection] = [.work, .pensions, .income, .contributions, .events]
-        return issues.issues(for: .spending) + lists.flatMap { issues.cardIssues(for: $0, in: plan) }
+        return issues.issues(for: .spending) + lists.flatMap { issues.issues(for: $0).filter { $0.index == nil } }
     }
 
     var body: some View {
@@ -166,7 +165,7 @@ struct PlanAlwaysSheet: View {
     @Environment(\.dismiss) private var dismiss
     @State private var expanded: [PlanInputSection: Bool] = [.assumptions: true]
 
-    private static let sections: [PlanInputSection] = [.taxes, .assumptions, .targetMix, .simulation]
+    private static let sections: [PlanInputSection] = [.you, .taxes, .assumptions, .targetMix, .simulation]
 
     var body: some View {
         @Bindable var session = session
@@ -177,15 +176,9 @@ struct PlanAlwaysSheet: View {
                     if let plan = session.plan {
                         let summaries = PlanInputSummaries(plan: plan, library: library.library, currency: baseCurrency,
                                                            hidesAmounts: hidesAmounts, locale: locale)
-                        PlanSectionCard(section: .you, summary: Self.bornSummary(library.settings.person?.birthDate),
-                                        issues: issues.issues(for: .you), isExpanded: $expanded[planFlag: .you]) {
-                            PlanBirthDateEditor()
-                                .disabled(!session.canEdit)
-                        }
                         ForEach(Self.sections) { section in
                             PlanSectionCard(section: section, summary: summaries.summary(for: section),
                                             issues: issues.issues(for: section),
-                                            listedIssues: issues.cardIssues(for: section, in: plan),
                                             isExpanded: $expanded[planFlag: section]) {
                                 PlanSectionEditor(section: section, plan: $session.editablePlan)
                                     .disabled(!session.canEdit)
@@ -209,11 +202,6 @@ struct PlanAlwaysSheet: View {
         #if os(macOS)
         .frame(minWidth: 520, minHeight: 600)
         #endif
-    }
-
-    /// "Born 1988", "No birth date".
-    static func bornSummary(_ birthDate: CalendarDate?) -> String {
-        birthDate.map { "Born \($0.year)" } ?? "No birth date"
     }
 }
 

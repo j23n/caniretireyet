@@ -189,11 +189,6 @@ enum PlanEditing {
 
     // MARK: Values
 
-    /// A decimal as a whole number, for sliders and steppers.
-    static func whole(_ value: Double) -> Decimal {
-        Decimal(wholeNumber: value)
-    }
-
     /// Accounts a contribution can go to: open ones the plan counts.
     static func contributionAccounts(in library: Library) -> [Account] {
         library.accounts.values.filter { $0.includedInPlan && !$0.isClosed }.sorted { $0.name < $1.name }

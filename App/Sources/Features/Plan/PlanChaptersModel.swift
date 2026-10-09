@@ -214,24 +214,6 @@ struct PlanChaptersModel {
         plan.pensions.contains { $0.fromAge != nil && ($0.perYear ?? 0) > 0 }
     }
 
-    /// "2026–2028 · ages 38–40", "2031 · age 43".
-    static func span(of chapter: PlanChapter) -> String {
-        let years = chapter.years.count == 1 ? "\(chapter.years.lowerBound)"
-            : "\(chapter.years.lowerBound)–\(chapter.years.upperBound)"
-        let ages = chapter.ages.count == 1 ? "age \(chapter.ages.lowerBound)"
-            : "ages \(chapter.ages.lowerBound)–\(chapter.ages.upperBound)"
-        return "\(years) · \(ages)"
-    }
-
-    /// The span for VoiceOver: "2026 to 2028, ages 38 to 40".
-    static func spokenSpan(of chapter: PlanChapter) -> String {
-        let years = chapter.years.count == 1 ? "\(chapter.years.lowerBound)"
-            : "\(chapter.years.lowerBound) to \(chapter.years.upperBound)"
-        let ages = chapter.ages.count == 1 ? "age \(chapter.ages.lowerBound)"
-            : "ages \(chapter.ages.lowerBound) to \(chapter.ages.upperBound)"
-        return "\(years), \(ages)"
-    }
-
     /// When a chapter runs on a time axis: from the end of the year before
     /// it (the plan's start, for the first) to the end of its last year.
     func dates(ofChapterAt index: Int) -> ClosedRange<Date> {
@@ -299,14 +281,6 @@ struct PlanChaptersModel {
     /// The account a contribution goes into, by name.
     func accountName(_ id: AccountID) -> String {
         accountNames[id] ?? id.rawValue
-    }
-
-    /// A target mix in words: "Equity 80% · bonds 20%", "Today's mix".
-    func mixText(of item: PlanChapter.Item, locale: Locale = .current) -> String {
-        if case .targetMixStep(let index) = item, plan.portfolio.targetMixByAge.indices.contains(index) {
-            return PlanTargetMixModel.mixSummary(plan.portfolio.targetMixByAge[index].mix, locale: locale)
-        }
-        return PlanTargetMixModel.mixSummary(plan.portfolio.targetMix, locale: locale)
     }
 
     /// When work stops, in words, by where the age comes from: "Work stops

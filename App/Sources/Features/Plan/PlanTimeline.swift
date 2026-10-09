@@ -36,7 +36,6 @@ struct PlanTimeline {
     /// One chapter's card.
     struct Card: Identifiable {
         let index: Int
-        let chapter: PlanChapter
         let style: PlanChaptersModel.Style
         /// "Bridge".
         let title: String
@@ -128,7 +127,7 @@ struct PlanTimeline {
                 return date > dates.lowerBound + edge && date < dates.upperBound - edge ? Tick(age: age, date: date) : nil
             }
             return Card(
-                index: index, chapter: chapter, style: model.style(of: chapter), title: model.title(of: chapter),
+                index: index, style: model.style(of: chapter), title: model.title(of: chapter),
                 span: model.span(ofChapterAt: index), start: dates.lowerBound, end: dates.upperBound, fan: fan,
                 startLabel: index == 0 ? "Now" : "\(chapter.ages.lowerBound)",
                 endLabel: index == all.count - 1 ? "\(chapter.ages.upperBound)" : nil, ticks: ticks,

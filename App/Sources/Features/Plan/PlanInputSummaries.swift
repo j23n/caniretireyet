@@ -103,25 +103,10 @@ struct PlanInputIssues: Hashable, Sendable {
     func issues(for section: PlanInputSection, index: Int) -> [PlanIssue] {
         issues(for: section).filter { $0.index == index }
     }
-
-    /// The issues a card lists itself: those not shown on one of its rows.
-    func cardIssues(for section: PlanInputSection, in plan: PlanDocument) -> [PlanIssue] {
-        let all = issues(for: section)
-        switch section {
-        case .work, .pensions, .income, .contributions, .events:
-            return all.filter { $0.index == nil }
-        default:
-            return all
-        }
-    }
-
-    var errorCount: Int { bySection.values.reduce(0) { $0 + $1.filter(\.isError).count } }
-    var warningCount: Int { bySection.values.reduce(0) { $0 + $1.filter { !$0.isError }.count } }
-    var all: [PlanIssue] { PlanInputSection.allCases.flatMap { issues(for: $0) } }
 }
 
-/// The one-line summaries on the collapsed cards, e.g. "Born 1988 · retire
-/// at 55 · plan to 95". Amounts read `•••••` while hidden.
+/// The one-line summaries on *Assumptions…*'s collapsed cards, e.g. "26% on
+/// investments · no wealth tax". Amounts read `•••••` while hidden.
 struct PlanInputSummaries {
     var plan: PlanDocument
     var library: Library
@@ -131,17 +116,13 @@ struct PlanInputSummaries {
 
     func summary(for section: PlanInputSection) -> String {
         switch section {
-        case .you: you
-        case .work: work
-        case .spending: spending
-        case .pensions: pensions
-        case .income: income
-        case .contributions: contributions
-        case .events: events
+        case .you: library.settings.person?.birthDate.map { "Born \($0.year)" } ?? "No birth date"
         case .taxes: taxes
         case .assumptions: assumptions
         case .targetMix: PlanTargetMixModel.summary(plan.portfolio, locale: locale)
         case .simulation: simulation
+        // The chapters show these: no card sums them up.
+        case .work, .spending, .pensions, .income, .contributions, .events: ""
         }
     }
 
@@ -155,116 +136,7 @@ struct PlanInputSummaries {
         AmountFormat.percent(value, digits: digits, locale: locale)
     }
 
-    /// "2026–28", "2029–retirement", "2026".
-    static func years(from: Int, until: Int?) -> String {
-        guard let until else { return "\(from)–retirement" }
-        if until == from { return "\(from)" }
-        if until / 100 == from / 100 { return "\(from)–\(String(format: "%02d", until % 100))" }
-        return "\(from)–\(until)"
-    }
-
     // MARK: Sections
-
-    var you: String {
-        var parts: [String] = []
-        if let birth = library.settings.person?.birthDate {
-            parts.append("Born \(birth.year)")
-        } else {
-            parts.append("No birth date")
-        }
-        switch plan.retirement.age {
-        case .earliest: parts.append("retire as early as possible")
-        case .age(let age): parts.append("retire at \(age)")
-        }
-        parts.append("plan to \(plan.effectiveEndAge)")
-        return parts.joined(separator: " · ")
-    }
-
-    var work: String {
-        guard !plan.work.isEmpty else { return "No work phases" }
-        return plan.work.enumerated().map { index, phase in
-            "\(plan.workName(index)) \(PlanWorkText.years(of: phase))"
-        }.joined(separator: " · ")
-    }
-
-    var spending: String {
-        var parts: [String] = []
-        if plan.spending.working == plan.spending.retired {
-            parts.append("\(amount(plan.spending.retired))/yr")
-        } else {
-            parts.append("\(amount(plan.spending.working)) working")
-            parts.append("\(amount(plan.spending.retired)) retired")
-        }
-        for phase in plan.spending.phases.sorted(by: { $0.fromAge < $1.fromAge }) {
-            parts.append("\(percent(phase.factor, digits: 0)) from \(phase.fromAge)")
-        }
-        if let rule = plan.spending.flexibleRule {
-            parts.append("flexible, down to \(percent(rule.effectiveFloor, digits: 0))")
-        }
-        return parts.joined(separator: " · ")
-    }
-
-    var pensions: String {
-        guard !plan.pensions.isEmpty else { return "No pensions" }
-        return plan.pensions.enumerated().map { index, pension in
-            let name = PlanResultsMapping.shortName(plan.pensionName(index))
-            return pension.fromAge.map { "\(name) \($0)" } ?? name
-        }.joined(separator: " · ")
-    }
-
-    var income: String {
-        guard !plan.income.isEmpty else { return "None" }
-        return plan.income.indices.map { PlanResultsMapping.shortName(plan.incomeName($0)) }
-            .joined(separator: " · ")
-    }
-
-    var contributions: String {
-        guard !plan.contributions.isEmpty else { return "None" }
-        return plan.contributions.map { contribution in
-            let name = title(of: contribution)
-            if let oneOff = contribution.amount {
-                return "\(name) \(amount(oneOff))" + (contribution.year.map { " in \($0)" } ?? "")
-            }
-            return "\(name) \(amount(contribution.perYear))/yr"
-        }.joined(separator: " · ")
-    }
-
-    /// What a contribution pays into: the account's name.
-    func title(of contribution: PlanContribution) -> String {
-        library.accounts[contribution.account]?.name ?? contribution.account.rawValue
-    }
-
-    /// A contribution's second line: "Every year until retirement ·
-    /// 5.000 €/yr", "Once in 2030 · 20.000 €".
-    func detail(of contribution: PlanContribution) -> String {
-        var parts: [String] = []
-        if let oneOff = contribution.amount {
-            parts.append(contribution.year.map { "Once in \($0)" } ?? "Once")
-            parts.append(amount(oneOff))
-        } else {
-            switch contribution.effectiveUntil {
-            case .retirement: parts.append("Every year until retirement")
-            case .date(let date): parts.append("Every year until \(date.year)")
-            }
-            parts.append("\(amount(contribution.perYear))/yr")
-        }
-        return parts.joined(separator: " · ")
-    }
-
-    var events: String {
-        guard !plan.events.isEmpty else { return "None" }
-        return plan.events.map { event in
-            var text = event.name
-            switch event.timing {
-            case .age(let age): text += " at \(age)"
-            case .year(let year): text += " \(year)"
-            }
-            if event.effectiveProbability < 1 {
-                text += " (\(percent(event.effectiveProbability, digits: 0)))"
-            }
-            return text
-        }.joined(separator: " · ")
-    }
 
     /// "26% on investments · wealth tax 0.2% above 50.000 €", or what's missing.
     var taxes: String {
@@ -306,49 +178,17 @@ struct PlanInputSummaries {
         let runs = AmountFormat.number(Decimal(plan.simulation.effectiveRuns), locale: locale)
         return "\(runs) runs · \(percent(plan.simulation.effectiveConfidence, digits: 0)) confidence"
     }
-
-    // MARK: List rows
-
-    /// A work phase's second line: "40.000 €/yr after tax · +1%/yr".
-    func detail(of phase: WorkPhase) -> String {
-        var parts: [String] = []
-        if let net = phase.netIncome {
-            parts.append("\(amount(net))/yr after tax")
-        } else {
-            parts.append("Income after tax not set")
-        }
-        if let growth = phase.realGrowth, growth != 0 {
-            parts.append("\(growth > 0 ? "+" : "")\(percent(growth))/yr")
-        }
-        return parts.joined(separator: " · ")
-    }
-
-    /// A pension's second line: "From 67 · 14.000 €/yr after tax".
-    func detail(of pension: PlanPension) -> String {
-        var parts: [String] = []
-        if let age = pension.fromAge { parts.append("From \(age)") }
-        if let amount = pension.perYear {
-            parts.append("\(self.amount(amount))/yr after tax")
-        } else {
-            parts.append("Amount not set")
-        }
-        return parts.joined(separator: " · ")
-    }
-
-    /// An event's second line: "+150.000 € · 80% likely", "−25.000 €".
-    func detail(of event: PlanEvent) -> String {
-        let sign = event.amount > 0 ? "+" : ""
-        var text = hidesAmounts ? AmountFormat.hidden : sign + AmountFormat.amount(event.amount, currency: currency, locale: locale)
-        if event.effectiveProbability < 1 { text += " · \(percent(event.effectiveProbability, digits: 0)) likely" }
-        return text
-    }
 }
 
-/// How work phases read in rows and summaries.
+/// How work phases read in rows.
 enum PlanWorkText {
-    /// "2026–28", "2029–retirement".
+    /// "2026–28", "2029–retirement", "2026".
     static func years(of phase: WorkPhase) -> String {
-        PlanInputSummaries.years(from: phase.from.year, until: phase.until.date?.year)
+        let from = phase.from.year
+        guard let until = phase.until.date?.year else { return "\(from)–retirement" }
+        if until == from { return "\(from)" }
+        if until / 100 == from / 100 { return "\(from)–\(String(format: "%02d", until % 100))" }
+        return "\(from)–\(until)"
     }
 }
 

@@ -112,11 +112,6 @@ struct PlanTargetMixModel {
         mix?.total ?? 0
     }
 
-    /// Whether a mix adds up to 100%.
-    static func addsUp(_ mix: AssetMix?) -> Bool {
-        total(mix) == 1
-    }
-
     /// What a mix's total needs, or `nil` when it's 100%: "Adds up to 95%:
     /// add 5%.", "Adds up to 110%: take off 10%."
     static func problem(_ mix: AssetMix?, locale: Locale = .current) -> String? {

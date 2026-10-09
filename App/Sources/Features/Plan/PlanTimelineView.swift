@@ -67,8 +67,8 @@ struct PlanTimelineView: View {
                     PlanResultWarnings(session: session)
                 }
                 .padding(.horizontal, gutter)
-                if let plan = session.plan {
-                    chapters(plan, binding: $session.editablePlan, state: state, milestones: milestones)
+                if session.plan != nil {
+                    chapters($session.editablePlan, state: state, milestones: milestones)
                     PlanAssumptionsFooter(onShowAll: { showsAssumptions = true }, onExport: onExport)
                         .padding(.horizontal, gutter)
                     moreCharts(state.results)
@@ -122,17 +122,17 @@ struct PlanTimelineView: View {
     // MARK: The chapters
 
     @ViewBuilder
-    private func chapters(_ plan: PlanDocument, binding: Binding<PlanDocument>, state: PlanResultsState,
+    private func chapters(_ plan: Binding<PlanDocument>, state: PlanResultsState,
                           milestones: PlanMilestones?) -> some View {
         let issues = session.inputIssues
-        PlanUnplacedIssues(issues: issues, plan: plan)
+        PlanUnplacedIssues(issues: issues)
             .padding(.horizontal, gutter)
         if let model = session.chapters, let birthDate = library.settings.person?.birthDate {
             let timeline = PlanTimeline(model: model, results: state.results, birthDate: birthDate,
                                         currency: session.currency, milestones: milestones?.ahead ?? [],
                                         hidesAmounts: hidesAmounts, locale: locale)
             if model.chapters.chapters.isEmpty {
-                PlanNoChapters(plan: binding)
+                PlanNoChapters(plan: plan)
                     .padding(.horizontal, gutter)
             } else {
                 let selected = min(session.selectedChapter(in: model) ?? 0, model.chapters.chapters.count - 1)
@@ -146,7 +146,7 @@ struct PlanTimelineView: View {
                 PlanChapterDetails(
                     model: model, index: selected,
                     story: PlanChapterStory(chapterAt: selected, in: model, results: state.results, words: words),
-                    barMaximum: barMaximum(model, results: state.results), plan: binding, words: words,
+                    barMaximum: barMaximum(model, results: state.results), plan: plan, words: words,
                     issues: issues, isWide: isRoomy, showsSteps: !isWide, canEdit: session.canEdit,
                     editing: $editing,
                     milestones: timeline.cards.indices.contains(selected) ? timeline.cards[selected].milestones : [],
@@ -156,7 +156,7 @@ struct PlanTimelineView: View {
                     .padding(.horizontal, gutter)
             }
             if !model.chapters.outside.isEmpty {
-                PlanOutsideCard(model: model, plan: binding, issues: issues, words: words, onOpen: show)
+                PlanOutsideCard(model: model, plan: plan, issues: issues, words: words, onOpen: show)
                     .padding(.horizontal, gutter)
             }
         } else {

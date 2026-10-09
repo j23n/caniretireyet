@@ -175,19 +175,16 @@ struct PlanIssueBadge: View {
 struct PlanSectionCard<Content: View>: View {
     let section: PlanInputSection
     let summary: String
-    /// Every issue on the section, counted in the header.
+    /// The section's issues: counted in the header, listed under the editor.
     let issues: [PlanIssue]
-    /// The issues listed under the editor: those its rows don't show.
-    let listedIssues: [PlanIssue]
     @Binding var isExpanded: Bool
     private let content: Content
 
-    init(section: PlanInputSection, summary: String, issues: [PlanIssue], listedIssues: [PlanIssue]? = nil,
-         isExpanded: Binding<Bool>, @ViewBuilder content: () -> Content) {
+    init(section: PlanInputSection, summary: String, issues: [PlanIssue], isExpanded: Binding<Bool>,
+         @ViewBuilder content: () -> Content) {
         self.section = section
         self.summary = summary
         self.issues = issues
-        self.listedIssues = listedIssues ?? issues
         _isExpanded = isExpanded
         self.content = content()
     }
@@ -204,7 +201,7 @@ struct PlanSectionCard<Content: View>: View {
             if isExpanded {
                 VStack(alignment: .leading, spacing: Metrics.m) {
                     content
-                    ForEach(listedIssues, id: \.self) { issue in
+                    ForEach(issues, id: \.self) { issue in
                         PlanIssueLine(issue)
                     }
                 }
@@ -250,44 +247,6 @@ struct PlanSectionCard<Content: View>: View {
                 .accessibilityHidden(true)
         }
         .contentShape(Rectangle())
-    }
-}
-
-/// A row of a list inside a card (a work phase, a pension, an event):
-/// a title, a detail line and any problems, opening its editor on tap.
-struct PlanListRow: View {
-    let title: String
-    let detail: String
-    var issues: [PlanIssue] = []
-    let action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            HStack(alignment: .firstTextBaseline, spacing: Metrics.s) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(title)
-                        .font(.subheadline)
-                        .foregroundStyle(Palette.ink)
-                    if !detail.isEmpty {
-                        Text(detail)
-                            .font(.footnote)
-                            .foregroundStyle(Palette.secondaryInk)
-                            .privacySensitive()
-                    }
-                    ForEach(issues, id: \.self) { issue in
-                        PlanIssueLine(issue)
-                    }
-                }
-                Spacer(minLength: Metrics.s)
-                Image(systemName: "chevron.right")
-                    .font(.caption)
-                    .foregroundStyle(Palette.mutedInk)
-                    .accessibilityHidden(true)
-            }
-            .padding(.vertical, Metrics.xs)
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
     }
 }
 
