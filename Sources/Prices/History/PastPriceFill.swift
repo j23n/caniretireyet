@@ -44,7 +44,7 @@ public struct PastPriceFill: Hashable, Sendable {
     public func insertMissing(into library: inout Library) -> PastPriceInsertion {
         var inserted = PastPriceInsertion()
         for price in prices {
-            if library.months[price.date.yearMonth]?.prices.contains(where: { $0.key == price.key }) == true {
+            if library.price(price.key) != nil {
                 inserted.kept += 1
             } else {
                 library.upsert(price)
@@ -53,8 +53,7 @@ public struct PastPriceFill: Hashable, Sendable {
         }
         for rate in fx {
             let inverse = FXKey(base: rate.quote, quote: rate.base, date: rate.date)
-            if library.months[rate.date.yearMonth]?.fx.contains(where: { $0.key == rate.key || $0.key == inverse })
-                == true {
+            if library.fxRate(rate.key) != nil || library.fxRate(inverse) != nil {
                 inserted.kept += 1
             } else {
                 library.upsert(rate)
@@ -62,7 +61,7 @@ public struct PastPriceFill: Hashable, Sendable {
             }
         }
         for value in indices {
-            if library.months[value.date.yearMonth]?.indices.contains(where: { $0.key == value.key }) == true {
+            if library.indexValue(value.key) != nil {
                 inserted.kept += 1
             } else {
                 library.upsert(value)

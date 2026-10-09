@@ -364,8 +364,8 @@ struct InstrumentSetPriceSheet: View {
 
     private var replacementNote: String? {
         guard let instrumentID else { return nil }
-        return InstrumentPriceForm.replacementNote(library.library.savedPrice(of: instrumentID, on: form.date),
-                                                   locale: locale)
+        let saved = library.library.price(PriceKey(instrument: instrumentID, date: form.date))
+        return InstrumentPriceForm.replacementNote(saved, locale: locale)
     }
 
     private var currencies: [CurrencyCode] {

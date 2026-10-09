@@ -190,7 +190,7 @@ struct PastPricesSheet: View {
     /// have been typed in since).
     private func stillMissing(_ line: PastPriceLine) -> [CalendarDate] {
         guard let id = line.instrument else { return line.missing }
-        return line.missing.filter { library.library.savedPrice(of: id, on: $0) == nil }
+        return line.missing.filter { library.library.price(PriceKey(instrument: id, date: $0)) == nil }
     }
 
     private func run() {

@@ -614,17 +614,3 @@ final class InstrumentPriceUpdater {
         self.run = run
     }
 }
-
-extension Library {
-    /// The price saved for `instrument` on exactly `date`, if any.
-    func savedPrice(of instrument: InstrumentID, on date: CalendarDate) -> PriceRecord? {
-        let key = PriceKey(instrument: instrument, date: date)
-        return months[date.yearMonth]?.prices.first { $0.key == key }
-    }
-
-    /// The rate saved for `base`/`quote` on exactly `date`, if any.
-    func savedRate(base: CurrencyCode, quote: CurrencyCode, on date: CalendarDate) -> FXRecord? {
-        let key = FXKey(base: base, quote: quote, date: date)
-        return months[date.yearMonth]?.fx.first { $0.key == key }
-    }
-}

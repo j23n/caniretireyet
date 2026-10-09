@@ -91,6 +91,21 @@ extension Library {
         months[key.date.yearMonth]?.trades.first { $0.key == key }
     }
 
+    /// The price with this key (instrument and date), if there is one.
+    public func price(_ key: PriceKey) -> PriceRecord? {
+        months[key.date.yearMonth]?.prices.first { $0.key == key }
+    }
+
+    /// The FX rate with this key (pair and date), if there is one.
+    public func fxRate(_ key: FXKey) -> FXRecord? {
+        months[key.date.yearMonth]?.fx.first { $0.key == key }
+    }
+
+    /// The index value with this key (index and date), if there is one.
+    public func indexValue(_ key: IndexKey) -> IndexRecord? {
+        months[key.date.yearMonth]?.indices.first { $0.key == key }
+    }
+
     /// The quantity of each instrument an account's trades leave it holding
     /// at the end of `date` (trades on the date included), leaving out
     /// instruments back at zero. Empty for an account without trades.

@@ -104,17 +104,17 @@ struct PricesCommand: RetireSubcommand {
             }
         }
         for price in fetched.prices {
-            consider(price, existing: library.months[price.date.yearMonth]?.prices.first { $0.key == price.key }) {
+            consider(price, existing: library.price(price.key)) {
                 library.upsert($0)
             }
         }
         for rate in fetched.fx {
-            consider(rate, existing: library.months[rate.date.yearMonth]?.fx.first { $0.key == rate.key }) {
+            consider(rate, existing: library.fxRate(rate.key)) {
                 library.upsert($0)
             }
         }
         for value in fetched.indices {
-            consider(value, existing: library.months[value.date.yearMonth]?.indices.first { $0.key == value.key }) {
+            consider(value, existing: library.indexValue(value.key)) {
                 library.upsert($0)
             }
         }

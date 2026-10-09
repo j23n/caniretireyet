@@ -249,10 +249,9 @@ final class CheckInStore {
         guard var draft, draft.date == fetched.date else { return }
         // A price typed in the draft, or typed on the Instruments screen for
         // this date (Set Price), wins over a fetched one.
-        let saved = library.library.months[draft.date.yearMonth]
         let manualPrices = Set(draft.prices.filter { $0.source == .manual }.map(\.instrument))
         for price in fetched.prices where !manualPrices.contains(price.instrument) {
-            if let typed = saved?.prices.first(where: { $0.key == price.key && $0.source == .manual }) {
+            if let typed = library.library.price(price.key), typed.source == .manual {
                 draft.setPrice(typed)
             } else {
                 draft.setPrice(price)
@@ -260,7 +259,7 @@ final class CheckInStore {
         }
         let manualRates = Set(draft.fxRates.filter { $0.source == .manual }.map(\.quote))
         for rate in fetched.fx where !manualRates.contains(rate.quote) {
-            if let typed = saved?.fx.first(where: { $0.key == rate.key && $0.source == .manual }) {
+            if let typed = library.library.fxRate(rate.key), typed.source == .manual {
                 draft.setFXRate(typed)
             } else {
                 draft.setFXRate(rate)

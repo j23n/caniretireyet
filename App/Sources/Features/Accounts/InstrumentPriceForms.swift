@@ -175,7 +175,8 @@ struct InstrumentTestQuote: Hashable, Sendable {
     /// The price typed in by hand for the price's date that saving would
     /// replace, if any.
     func typedPrice(for id: InstrumentID, in library: Library) -> PriceRecord? {
-        guard let price, let saved = library.savedPrice(of: id, on: price.date), saved.source == .manual else {
+        guard let price, let saved = library.price(PriceKey(instrument: id, date: price.date)),
+              saved.source == .manual else {
             return nil
         }
         return saved
@@ -192,7 +193,7 @@ struct InstrumentTestQuote: Hashable, Sendable {
             records.prices = [price]
         }
         records.fxRates = fetched.fx.filter {
-            library.savedRate(base: $0.base, quote: $0.quote, on: $0.date)?.source != .manual
+            library.fxRate($0.key)?.source != .manual
         }
         return records
     }

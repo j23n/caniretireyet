@@ -75,6 +75,13 @@ struct LibraryTests {
         #expect(library.prices(for: "x").map(\.price) == [2])
         #expect(library.months["2026-09"]?.fx.count == 1)
         #expect(library.months["2026-09"]?.indices.count == 1)
+
+        #expect(library.price(PriceKey(instrument: "x", date: "2026-09-30"))?.price == 2)
+        #expect(library.price(PriceKey(instrument: "x", date: "2026-09-29")) == nil)
+        #expect(library.fxRate(FXKey(base: .eur, quote: .usd, date: "2026-09-30"))?.rate == 1)
+        #expect(library.fxRate(FXKey(base: .usd, quote: .eur, date: "2026-09-30")) == nil)
+        #expect(library.indexValue(IndexKey(index: .hicpIT, date: "2026-09-30"))?.value == 1)
+        #expect(library.indexValue(IndexKey(index: .hicpIT, date: "2026-10-31")) == nil)
     }
 
     @Test func recordKeysSortByDateThenID() {
