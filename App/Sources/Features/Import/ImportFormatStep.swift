@@ -184,10 +184,10 @@ struct ImportFormatStep: View {
 
     private static func emptyCellsText(count: Int, policy: EmptyCellPolicy) -> String {
         let cells = count == 1 ? "1 empty cell" : "\(count) empty cells"
-        if count == 0 { return "The imported columns have no empty cells." }
+        if count == 0 { return "The columns of numbers have no empty cells." }
         return policy == .zero
-            ? "\(cells) in the imported columns will be recorded as 0."
-            : "\(cells) in the imported columns will be skipped: nothing is recorded for that date."
+            ? "\(cells) in the columns of numbers will be recorded as 0."
+            : "\(cells) in the columns of numbers will be skipped: nothing is recorded for that date."
     }
 }
 
