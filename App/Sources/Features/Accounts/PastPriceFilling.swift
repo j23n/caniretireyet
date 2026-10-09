@@ -1,4 +1,5 @@
 import Foundation
+import Glance
 import Model
 import Observation
 import Prices
@@ -132,18 +133,14 @@ enum PastPriceText {
         return instrument.name
     }
 
-    /// "Oct 2025", as a month and year.
-    static func month(_ date: CalendarDate, locale: Locale = .current) -> String {
-        date.dateValue.formatted(.dateTime.month(.abbreviated).year().locale(locale))
-    }
-
     /// "Oct 2025 – Sep 2026", or "30 Sep 2026" for one date.
     static func range(_ first: CalendarDate, _ last: CalendarDate, locale: Locale = .current) -> String {
         if first == last { return AmountFormat.mediumDate(first, locale: locale) }
         if first.yearMonth == last.yearMonth {
             return AmountFormat.shortDate(first, locale: locale) + " – " + AmountFormat.mediumDate(last, locale: locale)
         }
-        return month(first, locale: locale) + " – " + month(last, locale: locale)
+        return GlanceText.shortMonthAndYear(first, locale: locale) + " – "
+            + GlanceText.shortMonthAndYear(last, locale: locale)
     }
 
     /// "Oct 2025 – Sep 2026 · 12 dates", or "30 Sep 2026".
@@ -164,7 +161,8 @@ enum PastPriceText {
             return runs[0].origin.description
         case 2 where runs[0].origin != runs[1].origin:
             let (older, newer) = (runs[0], runs[1])
-            return "\(newer.origin) back to \(month(newer.first, locale: locale)), \(older.origin) before"
+            let month = GlanceText.shortMonthAndYear(newer.first, locale: locale)
+            return "\(newer.origin) back to \(month), \(older.origin) before"
         default:
             return runs.reversed().map { "\($0.origin) \(range($0.first, $0.last, locale: locale))" }
                 .joined(separator: ", ")

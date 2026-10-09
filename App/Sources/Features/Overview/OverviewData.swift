@@ -1,4 +1,5 @@
 import Foundation
+import Glance
 import Model
 import Planner
 import Tracker
@@ -64,14 +65,6 @@ extension BreakdownDimension {
 // The hero number, net worth today with the change between the last two
 // check-ins and since the end of last year, is Glance's `NetWorthGlance`,
 // as the widgets have it.
-
-extension ChangeReport {
-    /// The month the change covers, which titles the change's card: `to`'s,
-    /// when `from` is the last day of the month before; `nil` otherwise.
-    var coveredMonth: CalendarDate? {
-        from == to.yearMonth.previous.lastDay ? to : nil
-    }
-}
 
 // MARK: - History
 
@@ -167,14 +160,6 @@ struct OverviewBaselineGap: Hashable, Sendable {
         gap = valuator.total(on: date, including: { accounts.contains($0.id) }).total - median
         created = baseline.created
     }
-
-    /// "Jan", or "Jan 2025" for a baseline from another year than `date`.
-    func name(relativeTo date: CalendarDate, locale: Locale = .current) -> String {
-        let style = created.year == date.year
-            ? Date.FormatStyle.dateTime.month(.abbreviated).locale(locale)
-            : Date.FormatStyle.dateTime.month(.abbreviated).year().locale(locale)
-        return created.dateValue.formatted(style)
-    }
 }
 
 // MARK: - Needs attention
@@ -218,7 +203,7 @@ enum OverviewAttention {
             if let last = stale.lastValuation {
                 items.append(OverviewAttentionItem(
                     id: "stale.\(stale.account)", systemImage: "clock.badge.exclamationmark",
-                    title: "\(name): last value \(monthName(last, today: today, locale: locale))",
+                    title: "\(name): last value \(GlanceText.month(last, relativeTo: today, locale: locale))",
                     detail: "Update it in your next check-in", target: .account(stale.account)))
             } else {
                 items.append(OverviewAttentionItem(
@@ -363,13 +348,5 @@ enum OverviewAttention {
             }
         }
         return oldest.sorted { $0.key < $1.key }.map { ($0.key, $0.value) }
-    }
-
-    /// "May", or "May 2025" when it isn't this year.
-    static func monthName(_ date: CalendarDate, today: CalendarDate, locale: Locale = .current) -> String {
-        let style = date.year == today.year
-            ? Date.FormatStyle.dateTime.month(.wide).locale(locale)
-            : Date.FormatStyle.dateTime.month(.wide).year().locale(locale)
-        return date.dateValue.formatted(style)
     }
 }

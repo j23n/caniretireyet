@@ -1,3 +1,4 @@
+import Glance
 import Model
 import Planner
 import SwiftUI
@@ -227,7 +228,7 @@ struct PlanProgressView: View {
             let count = abs(change.years)
             let value = change.years == 0 ? "No change"
                 : "\(count == 1 ? "A year" : "\(count) years") \(change.years < 0 ? "sooner" : "later")"
-            tiles.append(Tile(title: "Since \(PlanResultsText.shortMonthYear(change.since, locale: locale))",
+            tiles.append(Tile(title: "Since \(GlanceText.shortMonthAndYear(change.since, locale: locale))",
                               value: value))
         }
         return tiles
@@ -427,7 +428,7 @@ struct PlanProgressView: View {
                             .monospacedDigit()
                             // An earlier age is good news.
                             .foregroundStyle(change.years < 0 ? Palette.positive : Palette.negative)
-                        Text("since \(PlanResultsText.monthYear(change.since, locale: locale))")
+                        Text("since \(GlanceText.monthAndYear(change.since, locale: locale))")
                             .font(.subheadline)
                             .foregroundStyle(Palette.secondaryInk)
                     }

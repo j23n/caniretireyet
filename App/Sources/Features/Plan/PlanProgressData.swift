@@ -1,4 +1,5 @@
 import Foundation
+import Glance
 import Model
 import Planner
 import Tracker
@@ -695,7 +696,7 @@ struct PlanProgressTimeline {
             let answerNotes = Self.answers(in: year, history: history, locale: locale)
             let inYear = milestones.filter { $0.date.year == year.year && $0.date <= year.to }
             let milestoneNotes = inYear.map { reached in
-                Note(date: reached.date, month: Self.month(reached.date, locale: locale),
+                Note(date: reached.date, month: GlanceText.shortMonth(reached.date, locale: locale),
                      text: text.reachedInRow(reached.milestone), isMilestone: true)
             }
             let notable = Self.notable(in: year, changes: changes, baselines: baselines, text: text)
@@ -757,7 +758,7 @@ struct PlanProgressTimeline {
         // The answers the year has had, so one coming back reads "55 again.".
         var seen = Set(previous.map { [$0] } ?? [])
         for point in points {
-            let month = Self.month(point.date, locale: locale)
+            let month = GlanceText.shortMonth(point.date, locale: locale)
             let marker = markers[point.date]
             if let age = point.earliestAge {
                 if let before = previous, before != age {
@@ -778,11 +779,6 @@ struct PlanProgressTimeline {
         return notes
     }
 
-    /// "Mar".
-    static func month(_ date: CalendarDate, locale: Locale) -> String {
-        date.dateValue.formatted(.dateTime.month(.abbreviated).locale(locale))
-    }
-
     /// The year's notable check-ins (PROGRESS.md, "Milestones"): saving at
     /// least twice the usual (the median of the 12 check-ins before) and at
     /// least 1% of plan assets, markets moving plan assets by 5% or more, and
@@ -796,7 +792,7 @@ struct PlanProgressTimeline {
                 : AmountFormat.amount(abs(value), currency: text.currency, locale: text.locale)
         }
         for (index, step) in changes.enumerated() where step.to.year == year.year && step.to <= year.to {
-            let month = Self.month(step.to, locale: text.locale)
+            let month = GlanceText.shortMonth(step.to, locale: text.locale)
             let change = step.change
             let usual = median(changes[max(0, index - 12)..<index].map(\.change.newMoney))
             if let usual, usual > 0, change.newMoney >= 2 * usual, change.newMoney >= change.start / 100 {

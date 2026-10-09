@@ -1,4 +1,5 @@
 import Foundation
+import Glance
 import Model
 import Tracker
 
@@ -194,7 +195,7 @@ struct TradeMonthSection: Hashable, Sendable, Identifiable {
 
     /// "September 2026".
     func title(locale: Locale = .current) -> String {
-        month.lastDay.dateValue.formatted(.dateTime.month(.wide).year().locale(locale))
+        GlanceText.monthAndYear(month.lastDay, locale: locale)
     }
 }
 

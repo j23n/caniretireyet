@@ -20,8 +20,10 @@ struct OverviewChangeCard: View {
     @Environment(\.locale) private var locale
 
     private var title: String {
-        guard let month = report.coveredMonth else { return "Since last check-in" }
-        return "What moved in \(OverviewAttention.monthName(month, today: .today(), locale: locale))"
+        guard let month = GlanceText.coveredMonth(from: report.from, to: report.to) else {
+            return "Since last check-in"
+        }
+        return "What moved in \(GlanceText.month(month, relativeTo: .today(), locale: locale))"
     }
 
     var body: some View {
@@ -204,8 +206,7 @@ struct OverviewAnswerCard: View {
         if headline.canRetireNow { return "You could retire today" }
         guard let age = headline.earliestAge else { return "No retirement age works out yet" }
         guard let date = headline.earliestDate else { return "Earliest at \(age)" }
-        let when = date.dateValue.formatted(Date.FormatStyle.dateTime.month(.wide).year().locale(locale))
-        return "Earliest at \(age) · \(when)"
+        return "Earliest at \(age) · \(GlanceText.monthAndYear(date, locale: locale))"
     }
 
     private func confidenceText(_ headline: PlanHeadline) -> String {
@@ -215,7 +216,7 @@ struct OverviewAnswerCard: View {
     }
 
     private func gapText(_ gap: OverviewBaselineGap) -> String {
-        let name = gap.name(relativeTo: today, locale: locale)
+        let name = GlanceText.shortMonth(gap.created, relativeTo: today, locale: locale)
         return gap.gap >= 0 ? "ahead of your \(name) baseline" : "behind your \(name) baseline"
     }
 }

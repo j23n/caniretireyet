@@ -1,4 +1,5 @@
 import Foundation
+import Glance
 import Model
 import Planner
 import Tracker
@@ -236,8 +237,7 @@ struct PlanMilestoneText {
         guard let target else { return "If you stopped saving today, you could still retire at \(age)." }
         if age <= target { return "You're past the coast point: your first pension starts at \(target)." }
         if let reached, case .coastPoint(let then) = reached.milestone.kind {
-            let month = reached.date.year == asOf.year ? AmountFormat.monthName(reached.date, locale: locale)
-                : PlanResultsText.monthYear(reached.date, locale: locale)
+            let month = GlanceText.month(reached.date, relativeTo: asOf, locale: locale)
             return "In \(month) it was \(then), when your first pension starts: the coast point."
         }
         return "The coast point is \(target), when your first pension starts."

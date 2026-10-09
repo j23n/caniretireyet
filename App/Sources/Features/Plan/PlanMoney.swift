@@ -1,4 +1,5 @@
 import Foundation
+import Glance
 import Model
 import Prices
 import Tracker
@@ -49,12 +50,9 @@ enum PlanMoney {
     static func span(_ dates: [CalendarDate], locale: Locale = .current) -> String {
         let sorted = dates.sorted()
         guard let first = sorted.first, let last = sorted.last else { return "" }
-        let monthYear = Date.FormatStyle.dateTime.month(.abbreviated).year().locale(locale)
-        if first.year == last.year && first.month == last.month { return first.dateValue.formatted(monthYear) }
-        let start = first.year == last.year
-            ? first.dateValue.formatted(.dateTime.month(.abbreviated).locale(locale))
-            : first.dateValue.formatted(monthYear)
-        return "\(start) – \(last.dateValue.formatted(monthYear))"
+        let end = GlanceText.shortMonthAndYear(last, locale: locale)
+        if first.year == last.year && first.month == last.month { return end }
+        return "\(GlanceText.shortMonth(first, relativeTo: last, locale: locale)) – \(end)"
     }
 
     /// The note under a chart whose actual values leave out check-ins

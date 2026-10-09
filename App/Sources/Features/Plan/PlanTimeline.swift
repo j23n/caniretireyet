@@ -1,4 +1,5 @@
 import Foundation
+import Glance
 import Model
 import Planner
 
@@ -243,7 +244,7 @@ enum PlanTimelineText {
         if headline.canRetireNow { return "Yes. You could stop working today." }
         guard let age = headline.earliestAge else { return "Not yet. No age reaches your bar yet." }
         guard let date = headline.earliestDate else { return "Not yet. Stop at \(age)." }
-        return "Not yet. Stop at \(age), in \(PlanResultsText.monthYear(date, locale: locale))."
+        return "Not yet. Stop at \(age), in \(GlanceText.monthAndYear(date, locale: locale))."
     }
 
     /// How many futures in 10 last, at a chance of `success`: rounded down,

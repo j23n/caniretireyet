@@ -1,4 +1,5 @@
 import Foundation
+import Glance
 import Model
 import Planner
 
@@ -41,17 +42,7 @@ enum PlanResultsText {
         guard let age = headline.earliestAge else { return "No retirement age reaches it yet" }
         if headline.canRetireNow { return "You could stop working today" }
         guard let date = headline.earliestDate else { return "Earliest at \(age)" }
-        return "Earliest at \(age) · \(monthYear(date, locale: locale))"
-    }
-
-    /// "March 2042".
-    static func monthYear(_ date: CalendarDate, locale: Locale = .current) -> String {
-        date.dateValue.formatted(.dateTime.month(.wide).year().locale(locale))
-    }
-
-    /// "Mar 2042".
-    static func shortMonthYear(_ date: CalendarDate, locale: Locale = .current) -> String {
-        date.dateValue.formatted(.dateTime.month(.abbreviated).year().locale(locale))
+        return "Earliest at \(age) · \(GlanceText.monthAndYear(date, locale: locale))"
     }
 
     /// A share as the simplest "k of n": 0.9 → (9, 10), 0.95 → (19, 20), 0.75 → (3, 4).
@@ -152,7 +143,7 @@ enum PlanResultsText {
         let headline = results.headline
         var rows: [PlanFigureRow] = []
         if let age = headline.earliestAge {
-            let date = headline.earliestDate.map { " · " + shortMonthYear($0, locale: locale) } ?? ""
+            let date = headline.earliestDate.map { " · " + GlanceText.shortMonthAndYear($0, locale: locale) } ?? ""
             rows.append(PlanFigureRow(label: "Earliest retirement", value: .text("\(age)\(date)"), isEmphasized: true))
         } else {
             rows.append(PlanFigureRow(label: "Earliest retirement", value: .text("None yet"), isEmphasized: true))

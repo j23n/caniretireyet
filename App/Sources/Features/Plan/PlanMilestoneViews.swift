@@ -1,3 +1,4 @@
+import Glance
 import Model
 import Planner
 import SwiftUI
@@ -157,7 +158,7 @@ struct PlanMilestonesCard: View {
             }
             ForEach(shown) { item in
                 PlanMilestoneRow(title: text.name(item.milestone),
-                                 when: PlanResultsText.shortMonthYear(item.date, locale: locale), isReached: true)
+                                 when: GlanceText.shortMonthAndYear(item.date, locale: locale), isReached: true)
             }
             if reached.count > Self.shown {
                 Button(more) { showsAllReached.toggle() }

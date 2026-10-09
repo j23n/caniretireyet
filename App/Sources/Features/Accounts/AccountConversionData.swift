@@ -1,4 +1,5 @@
 import Foundation
+import Glance
 import Model
 import Tracker
 
@@ -94,9 +95,7 @@ struct AccountConversionSummary: Hashable, Sendable {
     /// "12 months, Oct 2025 – Sep 2026", or "1 month, Sep 2026".
     func monthsText(locale: Locale = .current) -> String {
         guard let first = months.first, let last = months.last else { return "No months" }
-        func name(_ month: YearMonth) -> String {
-            month.lastDay.dateValue.formatted(.dateTime.month(.abbreviated).year().locale(locale))
-        }
+        func name(_ month: YearMonth) -> String { GlanceText.shortMonthAndYear(month.lastDay, locale: locale) }
         let count = Wording.count(months.count, "month")
         return first == last ? "\(count), \(name(first))" : "\(count), \(name(first)) – \(name(last))"
     }

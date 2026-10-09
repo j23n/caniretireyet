@@ -1,8 +1,9 @@
 import Foundation
 import Model
 
-/// The widgets' words that don't involve amounts. Amounts are formatted
-/// where they're shown, in the locale's way.
+/// The widgets' words that don't involve amounts, which the app's screens
+/// use too: the confidence as "k of n", months and dates. Amounts are
+/// formatted where they're shown, in the locale's way.
 public enum GlanceText {
     /// A share as the simplest "k of n", as the Plan screen words the
     /// confidence: 0.9 → "9 of 10", 0.95 → "19 of 20", 0.75 → "3 of 4".
@@ -30,11 +31,8 @@ public enum GlanceText {
     /// "55 → 54 in June", or "55 → 54 in June 2025" when the move isn't in
     /// `today`'s year; "none" stands for no age.
     public static func move(_ move: AnswerMove, relativeTo today: CalendarDate, locale: Locale = .current) -> String {
-        let style = move.date.year == today.year
-            ? Date.FormatStyle.dateTime.month(.wide).locale(locale)
-            : Date.FormatStyle.dateTime.month(.wide).year().locale(locale)
         func age(_ age: Int?) -> String { age.map(String.init) ?? "none" }
-        return "\(age(move.from)) → \(age(move.to)) in \(move.date.dateValue.formatted(style))"
+        return "\(age(move.from)) → \(age(move.to)) in \(month(move.date, relativeTo: today, locale: locale))"
     }
 
     /// When a change between two check-ins happened: "in September" when
@@ -42,11 +40,8 @@ public enum GlanceText {
     /// 15 Sep"; with the year for a date not in `today`'s.
     public static func period(from: CalendarDate, to: CalendarDate, relativeTo today: CalendarDate,
                               locale: Locale = .current) -> String {
-        if from == to.yearMonth.previous.lastDay {
-            let style = to.year == today.year
-                ? Date.FormatStyle.dateTime.month(.wide).locale(locale)
-                : Date.FormatStyle.dateTime.month(.wide).year().locale(locale)
-            return "in \(to.dateValue.formatted(style))"
+        if let covered = coveredMonth(from: from, to: to) {
+            return "in \(month(covered, relativeTo: today, locale: locale))"
         }
         func day(_ date: CalendarDate) -> String {
             let style = date.year == today.year
@@ -57,6 +52,20 @@ public enum GlanceText {
         return "\(day(from)) – \(day(to))"
     }
 
+    /// The month a change between two check-ins covers: `to`'s, when `from`
+    /// is the last day of the month before; `nil` otherwise.
+    public static func coveredMonth(from: CalendarDate, to: CalendarDate) -> CalendarDate? {
+        from == to.yearMonth.previous.lastDay ? to : nil
+    }
+
+    /// "June", or "June 2025" when it isn't in `today`'s year.
+    public static func month(_ date: CalendarDate, relativeTo today: CalendarDate,
+                             locale: Locale = .current) -> String {
+        date.year == today.year
+            ? date.dateValue.formatted(Date.FormatStyle.dateTime.month(.wide).locale(locale))
+            : monthAndYear(date, locale: locale)
+    }
+
     /// "April 2042".
     public static func monthAndYear(_ date: CalendarDate, locale: Locale = .current) -> String {
         date.dateValue.formatted(Date.FormatStyle.dateTime.month(.wide).year().locale(locale))
@@ -65,6 +74,17 @@ public enum GlanceText {
     /// "Apr" (the short month's name), for a chart's ends.
     public static func shortMonth(_ date: CalendarDate, locale: Locale = .current) -> String {
         date.dateValue.formatted(Date.FormatStyle.dateTime.month(.abbreviated).locale(locale))
+    }
+
+    /// "Apr", or "Apr 2041" when it isn't in `today`'s year.
+    public static func shortMonth(_ date: CalendarDate, relativeTo today: CalendarDate,
+                                  locale: Locale = .current) -> String {
+        date.year == today.year ? shortMonth(date, locale: locale) : shortMonthAndYear(date, locale: locale)
+    }
+
+    /// "Apr 2042".
+    public static func shortMonthAndYear(_ date: CalendarDate, locale: Locale = .current) -> String {
+        date.dateValue.formatted(Date.FormatStyle.dateTime.month(.abbreviated).year().locale(locale))
     }
 
     /// "Saturday 31 October".
