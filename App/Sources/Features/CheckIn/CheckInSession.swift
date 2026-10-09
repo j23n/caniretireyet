@@ -209,17 +209,12 @@ final class CheckInSession {
             saved = try await checkIn.save()
             page = nil
         } catch {
-            saveError = Self.describe(error)
+            saveError = LibraryStore.describe(error)
             if case CheckInStoreError.changedElsewhere? = error as? CheckInStoreError {
                 return
             }
             saveError = (saveError ?? "") + " The check-in is kept as a draft on this device, so nothing is lost: "
                 + "try saving again."
         }
-    }
-
-    static func describe(_ error: any Error) -> String {
-        if let error = error as? LibraryStoreError { return error.message }
-        return (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
     }
 }
