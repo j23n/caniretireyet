@@ -104,10 +104,7 @@ struct IncomeChartData: Hashable, Sendable {
         for segment in segments where !seen.contains(where: { $0.name == segment.source }) {
             seen.append(Source(name: segment.source, color: segment.color, isOneOff: segment.isOneOff))
         }
-        sources = seen.enumerated().sorted { a, b in
-            let (x, y) = (Self.stackRank(a.element.color), Self.stackRank(b.element.color))
-            return x != y ? x < y : a.offset < b.offset
-        }.map(\.element)
+        sources = seen.sorted { Self.stackRank($0.color) < Self.stackRank($1.color) }
 
         var amounts: [Int: [String: Double]] = [:]
         for segment in segments where segment.amount.isFinite {

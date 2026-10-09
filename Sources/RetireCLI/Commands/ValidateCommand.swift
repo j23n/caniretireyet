@@ -35,11 +35,8 @@ struct ValidateCommand: RetireSubcommand {
         if folder.containsLibrary {
             issues += LibraryChecks(library: loaded.library).issues()
         }
-        // By path, then errors before warnings, keeping the order found.
-        issues = issues.enumerated().sorted {
-            ($0.element.path, $0.element.severity == .error ? 0 : 1, $0.offset)
-                < ($1.element.path, $1.element.severity == .error ? 0 : 1, $1.offset)
-        }.map(\.element)
+        // By path, then errors before warnings, keeping the order found (the sort is stable).
+        issues.sort { ($0.path, $0.severity == .error ? 0 : 1) < ($1.path, $1.severity == .error ? 0 : 1) }
         let report = Report(folder: folder, library: loaded.library, load: loaded.report, issues: issues)
 
         try context.console.print(report, json: json)

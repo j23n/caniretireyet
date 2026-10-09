@@ -31,11 +31,10 @@ extension LibraryFolder {
             }
         }
         loader.checkReferences(in: library)
-        // By path, then errors before warnings, then in the order found.
-        let issues = loader.issues.enumerated().sorted {
-            ($0.element.path, $0.element.severity == .error ? 0 : 1, $0.offset)
-                < ($1.element.path, $1.element.severity == .error ? 0 : 1, $1.offset)
-        }.map(\.element)
+        // By path, then errors before warnings, then in the order found (the sort is stable).
+        let issues = loader.issues.sorted {
+            ($0.path, $0.severity == .error ? 0 : 1) < ($1.path, $1.severity == .error ? 0 : 1)
+        }
         let report = LoadReport(issues: issues, schemaVersion: loader.schemaVersion, filesRead: loader.filesRead,
                                 settingsUnreadable: loader.settingsUnreadable)
         return LoadResult(library: library, report: report)
