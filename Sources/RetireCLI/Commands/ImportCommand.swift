@@ -273,10 +273,7 @@ struct ImportCommand: RetireSubcommand {
         decide(&preview)
 
         var report = ImportReport(fileName: fileURL.lastPathComponent, profileID: profile, session: session,
-                                  preview: preview, library: loaded.library, apply: apply, rows: rows,
-                                  flags: .init(newAccounts: acceptNewAccounts, newInstruments: acceptNewInstruments,
-                                               closings: acceptClosings, conflictsGiven: onConflict != nil,
-                                               tradesMode: acceptTradesMode))
+                                  preview: preview, library: loaded.library, apply: apply, rows: rows)
         let blocked = apply && !preview.ambiguities.isEmpty && !acceptGuesses
 
         if apply, !blocked {

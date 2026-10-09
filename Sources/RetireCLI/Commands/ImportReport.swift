@@ -5,16 +5,6 @@ import Model
 /// What `retire import` prints: how the file was read, what each column
 /// becomes, what's uncertain, the preview, and what was written.
 struct ImportReport: CommandReport {
-    /// The accept flags given, to say what happens to proposals.
-    struct Flags {
-        var newAccounts: Bool
-        var newInstruments: Bool
-        var closings: Bool
-        var conflictsGiven: Bool
-        /// `--accept-trades-mode`.
-        var tradesMode: Bool
-    }
-
     /// What `--apply` did.
     struct Outcome {
         var result: ImportResult
@@ -31,7 +21,6 @@ struct ImportReport: CommandReport {
     let library: Library
     let apply: Bool
     let rows: Int
-    let flags: Flags
     var outcome: Outcome?
     /// The profile saved in a dry run.
     var savedProfile: String?
