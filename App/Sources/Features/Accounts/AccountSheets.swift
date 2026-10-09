@@ -64,7 +64,7 @@ struct UpdateValueSheet: View {
         let problems = input.problems(locale: locale) + [draft.missingValue(in: snapshot)].compactMap { $0 }
         return Form {
             Section {
-                DatePicker("Date", selection: $date, in: ...latestDate(for: account), displayedComponents: .date)
+                DatePicker("Date", selection: $date, in: ...Account.latestDate(of: account), displayedComponents: .date)
                 if let note = AccountValueNotes.openingMove(date: day, account: account, locale: locale) {
                     AccountsFootnote(note, systemImage: "calendar.badge.clock")
                 }
@@ -113,12 +113,7 @@ struct UpdateValueSheet: View {
                 }
             }
             AccountsProblemsSection(problems: problems)
-            if let errorMessage {
-                Section {
-                    Label(errorMessage, systemImage: "xmark.octagon")
-                        .foregroundStyle(Palette.critical)
-                }
-            }
+            AccountsErrorSection(message: errorMessage)
         }
         .formStyle(.grouped)
         .toolbar {
@@ -147,8 +142,7 @@ struct UpdateValueSheet: View {
                                     text: $input[balance: prefilledBalance], prompt: "0", suffix: symbol)
             } footer: {
                 if account.kind.isLiability {
-                    Text("Type what you owe, e.g. 1200: debts are recorded as negative amounts. "
-                        + "If the account is in credit, type + first, e.g. +20.")
+                    Text(verbatim: AmountInput.debtBalanceFooter)
                 }
             }
         } else if row.isTrades {
@@ -174,7 +168,7 @@ struct UpdateValueSheet: View {
                 }
                 AccountsNumberField(title: "Cash", text: $input[cash: text(prefilled?.cash)], prompt: "0",
                                     suffix: symbol)
-                addPositionMenu(row: row)
+                AccountsAddPositionMenu(listed: Set(row.positions.map(\.instrument))) { input.added.append($0) }
             } header: {
                 Text("Positions")
             }
@@ -187,7 +181,7 @@ struct UpdateValueSheet: View {
         let instrument = library.library.instruments[position.instrument]
         AccountsNumberField(title: instrument?.name ?? position.instrument.rawValue,
                             text: $input[quantity: position.instrument, prefilled: text(prefilled)], prompt: "0",
-                            suffix: instrument.map { InstrumentForm.shortName(of: $0.unit) }, allowsNegative: false)
+                            suffix: QuantityFormat.unit(of: instrument), allowsNegative: false)
         if let review, let price = review.price {
             HStack {
                 Text(verbatim: QuantityFormat.atPrice(price.price, currency: price.currency, locale: locale))
@@ -219,25 +213,6 @@ struct UpdateValueSheet: View {
                 .privacySensitive()
             if let value = position.value {
                 AmountText(value)
-            }
-        }
-    }
-
-    @ViewBuilder
-    private func addPositionMenu(row: CheckInRow) -> some View {
-        let held = Set(row.positions.map(\.instrument))
-        let others = library.library.instruments.values
-            .filter { !held.contains($0.id) }
-            .sorted { $0.name < $1.name }
-        if !others.isEmpty {
-            Menu {
-                ForEach(others) { instrument in
-                    Button(instrument.name) {
-                        input.added.append(instrument.id)
-                    }
-                }
-            } label: {
-                Label("Add Position", systemImage: "plus.circle")
             }
         }
     }
@@ -277,12 +252,6 @@ struct UpdateValueSheet: View {
 
     private func text(_ value: Decimal?) -> String {
         value.map { AmountInput.text(for: $0, locale: locale) } ?? ""
-    }
-
-    /// The latest date offered: the closing date, or a year from today.
-    /// Any earlier date works: before the opening date, saving moves it.
-    private func latestDate(for account: Account) -> Date {
-        (account.closed ?? CalendarDate.today().adding(years: 1)).dateValue
     }
 
     /// What saving does to the new money of the account's later values, when
@@ -385,12 +354,7 @@ struct CloseAccountSheet: View {
                         .foregroundStyle(Palette.accent)
                 }
             }
-            if let errorMessage {
-                Section {
-                    Label(errorMessage, systemImage: "xmark.octagon")
-                        .foregroundStyle(Palette.critical)
-                }
-            }
+            AccountsErrorSection(message: errorMessage)
         }
         .formStyle(.grouped)
         .toolbar {
@@ -477,12 +441,7 @@ struct EditAccountSheet: View {
             if showsProblems {
                 AccountsProblemsSection(problems: problems)
             }
-            if let errorMessage {
-                Section {
-                    Label(errorMessage, systemImage: "xmark.octagon")
-                        .foregroundStyle(Palette.critical)
-                }
-            }
+            AccountsErrorSection(message: errorMessage)
         }
         .formStyle(.grouped)
         .toolbar {

@@ -94,7 +94,7 @@ struct TradeEditorSheet: View {
         return Form {
             typeSection(form)
             Section {
-                DatePicker("Date", selection: form.dateValue, in: ...latestDate(for: account),
+                DatePicker("Date", selection: form.dateValue, in: ...Account.latestDate(of: account),
                            displayedComponents: .date)
                 if current.shows(.instrument) {
                     instrumentRows(form, problems: shown)
@@ -127,12 +127,7 @@ struct TradeEditorSheet: View {
                     }
                 }
             }
-            if let errorMessage {
-                Section {
-                    Label(errorMessage, systemImage: "xmark.octagon")
-                        .foregroundStyle(Palette.critical)
-                }
-            }
+            AccountsErrorSection(message: errorMessage)
             if current.original != nil {
                 Section {
                     Button("Delete Trade…", role: .destructive) { confirmsDelete = true }
@@ -145,7 +140,7 @@ struct TradeEditorSheet: View {
                             presenting: current.original) { original in
             Button("Delete Trade", role: .destructive) { delete(original.key) }
         } message: { original in
-            Text(verbatim: deleteMessage(original.key))
+            Text(verbatim: TradeEditNotes.removal(of: original.key, in: library.library, locale: locale))
         }
         .toolbar {
             ToolbarItem(placement: .cancellationAction) {
@@ -320,7 +315,7 @@ struct TradeEditorSheet: View {
     }
 
     private func unit(of instrument: InstrumentID?) -> String? {
-        instrument.flatMap { library.library.instruments[$0] }.map { InstrumentForm.shortName(of: $0.unit) }
+        QuantityFormat.unit(of: instrument.flatMap { library.library.instruments[$0] })
     }
 
     // MARK: Amount
@@ -444,11 +439,6 @@ struct TradeEditorSheet: View {
 
     // MARK: Actions
 
-    /// The latest date offered: the closing date, or a year from today.
-    private func latestDate(for account: Account?) -> Date {
-        (account?.closed ?? CalendarDate.today().adding(years: 1)).dateValue
-    }
-
     private func fetchPrice(_ instrument: Instrument, on date: CalendarDate) {
         isFetchingPrice = true
         fetchNote = nil
@@ -485,12 +475,6 @@ struct TradeEditorSheet: View {
             }
             isSaving = false
         }
-    }
-
-    private func deleteMessage(_ key: TradeKey) -> String {
-        let notes = TradeEditNotes.removal(of: key, in: library.library, locale: locale)
-        return (["The account's holdings, cash and gains are worked out again without it."] + notes)
-            .joined(separator: " ")
     }
 
     private func delete(_ key: TradeKey) {

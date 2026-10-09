@@ -110,12 +110,7 @@ struct AccountConversionSheet: View {
                 .font(.footnote)
                 .foregroundStyle(Palette.secondaryInk)
             }
-            if let errorMessage {
-                Section {
-                    Label(errorMessage, systemImage: "xmark.octagon")
-                        .foregroundStyle(Palette.critical)
-                }
-            }
+            AccountsErrorSection(message: errorMessage)
         }
         .formStyle(.grouped)
         .toolbar {

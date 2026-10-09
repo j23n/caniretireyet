@@ -32,6 +32,10 @@ extension AmountInput {
         return decimal(from: trimmed, locale: locale).map(Parsed.value) ?? .unreadable
     }
 
+    /// The footer under a debt's balance field.
+    static let debtBalanceFooter = "Type what you owe, e.g. 1200: debts are recorded as negative amounts. "
+        + "If the account is in credit, type + first, e.g. +20."
+
     /// The balance recorded for `text` typed into a balance field. For a
     /// debt (`isLiability`) an amount is what's owed, stored negative,
     /// whether or not it's typed with a minus; a leading `+` means the

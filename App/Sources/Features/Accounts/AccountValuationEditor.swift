@@ -88,8 +88,7 @@ struct AccountValuationEditor: View {
                                         prompt: "0", suffix: symbol)
                 } footer: {
                     if account.kind.isLiability {
-                        Text("Type what you owe, e.g. 1200: debts are recorded as negative amounts. "
-                            + "If the account is in credit, type + first, e.g. +20.")
+                        Text(verbatim: AmountInput.debtBalanceFooter)
                     }
                 }
             } else {
@@ -98,13 +97,14 @@ struct AccountValuationEditor: View {
                         let instrument = library.library.instruments[position.instrument]
                         AccountsNumberField(title: instrument?.name ?? position.instrument.rawValue,
                                             text: form[position: position.instrument].quantity, prompt: "0",
-                                            suffix: instrument.map { InstrumentForm.shortName(of: $0.unit) },
-                                            allowsNegative: false)
+                                            suffix: QuantityFormat.unit(of: instrument), allowsNegative: false)
                         AccountsNumberField(title: "Purchase cost", text: form[position: position.instrument].cost,
                                             prompt: "Unknown", suffix: symbol, allowsNegative: false)
                     }
                     AccountsNumberField(title: "Cash", text: form.cash, prompt: "0", suffix: symbol)
-                    addPositionMenu(form)
+                    AccountsAddPositionMenu(listed: Set(form.wrappedValue.positions.map(\.instrument))) {
+                        form.wrappedValue.addPosition($0)
+                    }
                     if account.recordsTrades, let balance = form.wrappedValue.original.balance {
                         AccountsFootnote("It records a balance of \(AmountFormat.number(balance, locale: locale)), "
                             + "which isn't used: the holdings come from the trades. Enter the cash; saving drops "
@@ -131,12 +131,7 @@ struct AccountValuationEditor: View {
                 Text("Note")
             }
             AccountsProblemsSection(problems: problems)
-            if let errorMessage {
-                Section {
-                    Label(errorMessage, systemImage: "xmark.octagon")
-                        .foregroundStyle(Palette.critical)
-                }
-            }
+            AccountsErrorSection(message: errorMessage)
             Section {
                 Button("Delete This Value", role: .destructive) {
                     confirmsDelete = true
@@ -170,25 +165,6 @@ struct AccountValuationEditor: View {
         guard snapshot.valuations(for: key.account).contains(where: { $0.date > min(key.date, valuation.date) })
         else { return nil }
         return AccountValueNotes.flowFollowUp(snapshot.previewSavingValue(valuation, replacing: key), locale: locale)
-    }
-
-    @ViewBuilder
-    private func addPositionMenu(_ form: Binding<AccountValuationForm>) -> some View {
-        let held = Set(form.wrappedValue.positions.map(\.instrument))
-        let others = library.library.instruments.values
-            .filter { !held.contains($0.id) }
-            .sorted { $0.name < $1.name }
-        if !others.isEmpty {
-            Menu {
-                ForEach(others) { instrument in
-                    Button(instrument.name) {
-                        form.wrappedValue.addPosition(instrument.id)
-                    }
-                }
-            } label: {
-                Label("Add Position", systemImage: "plus.circle")
-            }
-        }
     }
 
     private func load() {

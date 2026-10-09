@@ -44,12 +44,7 @@ struct NewAccountScreen: View {
             if showsProblems {
                 AccountsProblemsSection(problems: problems)
             }
-            if let errorMessage {
-                Section {
-                    Label(errorMessage, systemImage: "xmark.octagon")
-                        .foregroundStyle(Palette.critical)
-                }
-            }
+            AccountsErrorSection(message: errorMessage)
         }
         .formStyle(.grouped)
         .navigationTitle("New Account")
@@ -157,7 +152,7 @@ struct NewAccountScreen: View {
     }
 
     private func unit(of instrument: InstrumentID?) -> String? {
-        instrument.flatMap { library.library.instruments[$0] }.map { InstrumentForm.shortName(of: $0.unit) }
+        QuantityFormat.unit(of: instrument.flatMap { library.library.instruments[$0] })
     }
 
     private var problems: [String] {

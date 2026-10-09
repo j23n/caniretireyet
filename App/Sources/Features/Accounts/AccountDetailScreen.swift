@@ -68,7 +68,7 @@ struct AccountDetailScreen: View {
                                     titleVisibility: .visible, presenting: deletingTrade) { key in
                     Button("Delete Trade", role: .destructive) { removeTrade(key) }
                 } message: { key in
-                    Text(verbatim: deleteTradeMessage(key))
+                    Text(verbatim: TradeEditNotes.removal(of: key, in: library.library, locale: locale))
                 }
                 .pastPricesSheet(isPresented: $fillsPastPrices)
                 .sheet(item: $editing) { target in
@@ -581,13 +581,6 @@ struct AccountDetailScreen: View {
     private func confirmDeleting(_ key: TradeKey) {
         deletingTrade = key
         confirmsTradeDelete = true
-    }
-
-    /// What deleting a trade does, before it's confirmed.
-    private func deleteTradeMessage(_ key: TradeKey) -> String {
-        let notes = TradeEditNotes.removal(of: key, in: library.library, locale: locale)
-        return (["The account's holdings, cash and gains are worked out again without it."] + notes)
-            .joined(separator: " ")
     }
 
     private func removeTrade(_ key: TradeKey) {

@@ -78,6 +78,31 @@ struct AccountsAssetMixFields: View {
     }
 }
 
+/// *Add Position*: a menu of the library's instruments not listed yet, by
+/// name; nothing when every one is listed.
+struct AccountsAddPositionMenu: View {
+    /// The instruments already listed.
+    let listed: Set<InstrumentID>
+    let add: (InstrumentID) -> Void
+
+    @Environment(LibraryStore.self) private var library
+
+    var body: some View {
+        let others = library.library.instruments.values
+            .filter { !listed.contains($0.id) }
+            .sorted { $0.name < $1.name }
+        if !others.isEmpty {
+            Menu {
+                ForEach(others) { instrument in
+                    Button(instrument.name) { add(instrument.id) }
+                }
+            } label: {
+                Label("Add Position", systemImage: "plus.circle")
+            }
+        }
+    }
+}
+
 /// A list of what must be fixed before saving, under a form.
 struct AccountsProblemsSection: View {
     let problems: [String]
@@ -92,6 +117,29 @@ struct AccountsProblemsSection: View {
                 }
             }
         }
+    }
+}
+
+/// What stopped a save, under a form; nothing without a message.
+struct AccountsErrorSection: View {
+    let message: String?
+
+    var body: some View {
+        if let message {
+            Section {
+                Label(message, systemImage: "xmark.octagon")
+                    .foregroundStyle(Palette.critical)
+            }
+        }
+    }
+}
+
+extension Account {
+    /// The latest date a value or a trade of `account` can be on, for a
+    /// date picker: its closing date, or a year from today. Any earlier
+    /// date works: before the opening date, saving moves it.
+    static func latestDate(of account: Account?) -> Date {
+        (account?.closed ?? CalendarDate.today().adding(years: 1)).dateValue
     }
 }
 

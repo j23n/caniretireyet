@@ -535,13 +535,14 @@ enum TradeEditNotes {
         return sentences
     }
 
-    /// What deleting `key` does: the new money of later values, and the
+    /// What deleting `key` does, for its confirmation: the holdings, cash
+    /// and gains worked out again, the new money of later values, and the
     /// problems it brings in (e.g. a later sale now taking away more than
-    /// is held). Empty when nothing else changes.
-    static func removal(of key: TradeKey, in library: Library, locale: Locale = .current) -> [String] {
+    /// is held).
+    static func removal(of key: TradeKey, in library: Library, locale: Locale = .current) -> String {
         var after = library
         let edit = after.removeTrade(key)
-        var sentences: [String] = []
+        var sentences = ["The account's holdings, cash and gains are worked out again without it."]
         if let flows = AccountValueNotes.flowFollowUp(edit.flows, locale: locale) {
             sentences.append(flows.replacingOccurrences(of: "Saving also", with: "Deleting it also"))
         }
@@ -550,6 +551,6 @@ enum TradeEditNotes {
                 sentences.append(note.message)
             }
         }
-        return sentences
+        return sentences.joined(separator: " ")
     }
 }
