@@ -52,10 +52,6 @@ struct SettingsCommand: RetireSubcommand {
         return library.settings.inflationIndex == nil ? "\(index) (automatic)" : index.rawValue
     }
 
-    mutating func run() async throws {
-        try await run(in: .live())
-    }
-
     func run(in context: CLIContext) async throws {
         let loaded = try options.load(in: context)
         var lines: [String] = []

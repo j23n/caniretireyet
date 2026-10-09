@@ -54,10 +54,6 @@ struct InitCommand: RetireSubcommand {
                                taxResidence: country)
     }
 
-    mutating func run() async throws {
-        try await run(in: .live())
-    }
-
     func run(in context: CLIContext) async throws {
         guard let target = path ?? options.givenPath(in: context) else {
             throw CLIError("Say where to create the library: retire init <path>.")

@@ -1,3 +1,8 @@
+#if canImport(Glibc)
+import Glibc
+#elseif canImport(Darwin)
+import Darwin
+#endif
 import RetireCLI
 
 /// The `retire` executable. The commands live in `RetireCLI`, where they're
@@ -5,6 +10,6 @@ import RetireCLI
 @main
 struct RetireMain {
     static func main() async {
-        await Retire.main()
+        exit(await RetireCLI.run(context: .live()))
     }
 }

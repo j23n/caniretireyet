@@ -29,10 +29,6 @@ struct ExportCommand: RetireSubcommand {
         _ = try parseDate(date, option: "--date")
     }
 
-    mutating func run() async throws {
-        try await run(in: .live())
-    }
-
     func run(in context: CLIContext) async throws {
         let loaded = try options.load(in: context)
         let date = try parseDate(date, option: "--date") ?? context.today

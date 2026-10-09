@@ -60,10 +60,6 @@ struct PlanCommand: RetireSubcommand {
         }
     }
 
-    mutating func run() async throws {
-        try await run(in: .live())
-    }
-
     func run(in context: CLIContext) async throws {
         let loaded = try options.load(in: context)
         if saveBaseline != nil { try loaded.checkWritable() }

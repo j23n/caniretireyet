@@ -25,10 +25,6 @@ struct ValidateCommand: RetireSubcommand {
     @Flag(help: "Print the report as JSON.")
     var json = false
 
-    mutating func run() async throws {
-        try await run(in: .live())
-    }
-
     func run(in context: CLIContext) async throws {
         let folder = try options.folder(in: context)
         guard folder.files.fileExists(at: folder.root) else {

@@ -37,10 +37,6 @@ struct PlanShowCommand: RetireSubcommand {
     @Flag(help: "Print JSON.")
     var json = false
 
-    mutating func run() async throws {
-        try await run(in: .live())
-    }
-
     func run(in context: CLIContext) async throws {
         let loaded = try options.load(in: context)
         let document = try PlanCommand.plan(plan.map { PlanID($0) }, in: loaded.library)

@@ -50,10 +50,6 @@ struct TradesListCommand: RetireSubcommand {
     @Flag(help: "Print JSON.")
     var json = false
 
-    mutating func run() async throws {
-        try await run(in: .live())
-    }
-
     func run(in context: CLIContext) async throws {
         let loaded = try options.load(in: context)
         let account = try loaded.account(self.account)

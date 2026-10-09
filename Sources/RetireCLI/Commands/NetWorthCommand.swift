@@ -84,10 +84,6 @@ struct NetWorthCommand: RetireSubcommand {
         if staleAfter < 0 { throw ValidationError("--stale-after can't be negative.") }
     }
 
-    mutating func run() async throws {
-        try await run(in: .live())
-    }
-
     func run(in context: CLIContext) async throws {
         let loaded = try options.load(in: context)
         let date = try parseDate(date, option: "--date") ?? context.today

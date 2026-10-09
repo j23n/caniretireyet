@@ -23,10 +23,6 @@ struct InstrumentsListCommand: RetireSubcommand {
     @Flag(help: "Print JSON.")
     var json = false
 
-    mutating func run() async throws {
-        try await run(in: .live())
-    }
-
     func run(in context: CLIContext) async throws {
         let loaded = try options.load(in: context)
         let instruments = loaded.library.instruments.values.sorted { $0.id < $1.id }

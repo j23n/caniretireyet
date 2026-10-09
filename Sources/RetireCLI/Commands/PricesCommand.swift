@@ -63,10 +63,6 @@ struct PricesCommand: RetireSubcommand {
         }
     }
 
-    mutating func run() async throws {
-        try await run(in: .live())
-    }
-
     func run(in context: CLIContext) async throws {
         if fillHistory {
             try await runFillHistory(in: context)

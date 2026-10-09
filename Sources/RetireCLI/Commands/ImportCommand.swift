@@ -255,10 +255,6 @@ struct ImportCommand: RetireSubcommand {
         }
     }
 
-    mutating func run() async throws {
-        try await run(in: .live())
-    }
-
     func run(in context: CLIContext) async throws {
         if undo {
             try Self.runUndo(options: options, dryRun: dryRun, in: context)

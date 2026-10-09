@@ -3,14 +3,14 @@ import Foundation
 
 /// `retire`: Can I Retire Yet? on the command line. Creates and checks a
 /// library folder, shows and sets its settings, prints net worth, imports
-/// spreadsheets and broker exports, lists and edits trades and
-/// instruments' tax kinds, fetches prices, and runs and edits plans.
+/// spreadsheets and broker exports, lists trades and instruments, fetches
+/// prices, runs plans and exports CSV files.
 ///
-/// The commands live in this library so they can be tested; the `retire`
-/// executable only calls ``Retire/main()``. Tests call ``RetireCLI/run(_:context:)``
-/// with a ``CLIContext`` of their own.
-public struct Retire: AsyncParsableCommand {
-    public static let configuration = CommandConfiguration(
+/// The commands live in this library so they can be tested: the `retire`
+/// executable runs ``RetireCLI/run(_:context:columns:)`` with
+/// ``CLIContext/live()``, and tests with a ``CLIContext`` of their own.
+struct Retire: AsyncParsableCommand {
+    static let configuration = CommandConfiguration(
         commandName: "retire",
         abstract: "Can I Retire Yet? on the command line.",
         discussion: """
@@ -24,22 +24,21 @@ public struct Retire: AsyncParsableCommand {
             PlanGroupCommand.self, ExportCommand.self,
         ]
     )
-
-    public init() {}
 }
 
 /// A `retire` subcommand. Its work is in ``run(in:)``, so tests can give it
-/// their own console, environment and HTTP client; `run()` uses the real ones.
+/// their own console, environment and HTTP client.
 protocol RetireSubcommand: AsyncParsableCommand {
     func run(in context: CLIContext) async throws
 }
 
-/// Runs `retire` in a given context, for tests and embedding.
+/// Runs `retire`, for the executable and for tests.
 public enum RetireCLI {
-    /// Parses `arguments` (without the program name), runs the command and
-    /// returns its exit status. Help, errors and usage are written to the
-    /// context's console as the `retire` executable would print them.
-    public static func run(_ arguments: [String], context: CLIContext) async -> Int32 {
+    /// Parses `arguments` (without the program name; `nil` for the
+    /// process's), runs the command in `context` and returns its exit
+    /// status. Help, errors and usage are written to the context's console,
+    /// help wrapped at `columns` (`nil`: the terminal's width).
+    public static func run(_ arguments: [String]? = nil, context: CLIContext, columns: Int? = nil) async -> Int32 {
         do {
             var command = try await Retire.asyncParseAsRoot(arguments)
             if let subcommand = command as? any RetireSubcommand {
@@ -52,7 +51,7 @@ public enum RetireCLI {
             return ExitCode.success.rawValue
         } catch {
             let code = Retire.exitCode(for: error)
-            let message = Retire.fullMessage(for: error, columns: 100)
+            let message = Retire.fullMessage(for: error, columns: columns)
             if !message.isEmpty {
                 if code == .success { context.console.print(message) } else { context.console.error(message) }
             }

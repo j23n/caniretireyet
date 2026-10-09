@@ -38,10 +38,6 @@ struct TradesSummaryCommand: RetireSubcommand {
         if !all, account == nil { throw ValidationError("Give the account to sum up, or --all.") }
     }
 
-    mutating func run() async throws {
-        try await run(in: .live())
-    }
-
     func run(in context: CLIContext) async throws {
         let loaded = try options.load(in: context)
         let year = year ?? context.today.year
