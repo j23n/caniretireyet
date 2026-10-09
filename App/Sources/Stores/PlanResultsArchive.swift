@@ -140,11 +140,6 @@ actor PlanResultsArchive {
         try? FileManager.default.removeItem(at: file)
     }
 
-    /// Deletes what's kept for `plan` in the library at `library`.
-    func remove(_ plan: PlanID, library: URL) {
-        try? FileManager.default.removeItem(at: file(for: plan, in: folder(forLibraryAt: library)))
-    }
-
     private func file(for plan: PlanID, in folder: URL) -> URL {
         folder.appendingPathComponent("\(plan.rawValue).json")
     }

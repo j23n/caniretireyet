@@ -14,7 +14,6 @@ struct PlanPastBaselineSheet: View {
     @Environment(LibraryStore.self) private var library
     @Environment(PlanStore.self) private var plans
     @Environment(\.dismiss) private var dismiss
-    @Environment(\.locale) private var locale
 
     /// The plan as you had it then: a copy of today's.
     @State private var draft: PlanDocument
