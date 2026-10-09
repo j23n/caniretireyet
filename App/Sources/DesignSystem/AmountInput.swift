@@ -73,3 +73,13 @@ enum CountryChoices {
         locale.localizedString(forRegionCode: code.rawValue) ?? code.rawValue
     }
 }
+
+extension Array where Element: Equatable {
+    /// A picker's choices: these, with `current` first when it isn't one of
+    /// them (a currency, country or kind outside the common ones), so the
+    /// picker shows what's chosen.
+    func including(_ current: Element?) -> [Element] {
+        guard let current, !contains(current) else { return self }
+        return [current] + self
+    }
+}

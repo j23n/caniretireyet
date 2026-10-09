@@ -432,7 +432,7 @@ struct InstrumentEditor: View {
             Section {
                 AccountsTextField(title: "Name", text: form.name, prompt: "e.g. Vanguard FTSE All-World")
                 Picker("Kind", selection: form.chosenKind) {
-                    ForEach(kinds(form.wrappedValue), id: \.self) { kind in
+                    ForEach(InstrumentKind.knownValues.including(form.wrappedValue.kind), id: \.self) { kind in
                         Text(InstrumentForm.name(of: kind)).tag(kind)
                     }
                 }
@@ -443,7 +443,7 @@ struct InstrumentEditor: View {
             }
             Section {
                 Picker("Currency", selection: form.currency) {
-                    ForEach(currencies(form.wrappedValue), id: \.self) { code in
+                    ForEach(CurrencyChoices.common.including(form.wrappedValue.currency), id: \.self) { code in
                         Text(CurrencyChoices.name(of: code, locale: locale)).tag(code)
                     }
                 }
@@ -643,14 +643,6 @@ struct InstrumentEditor: View {
                 typedPrice = record
             }
         }
-    }
-
-    private func kinds(_ form: InstrumentForm) -> [InstrumentKind] {
-        InstrumentKind.knownValues.contains(form.kind) ? InstrumentKind.knownValues : [form.kind] + InstrumentKind.knownValues
-    }
-
-    private func currencies(_ form: InstrumentForm) -> [CurrencyCode] {
-        CurrencyChoices.common.contains(form.currency) ? CurrencyChoices.common : [form.currency] + CurrencyChoices.common
     }
 
     /// The price sources the app fetches from (`PriceService.standardInstrumentProviders`),

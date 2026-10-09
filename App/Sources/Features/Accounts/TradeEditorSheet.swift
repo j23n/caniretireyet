@@ -261,7 +261,7 @@ struct TradeEditorSheet: View {
                             suffix: currency.rawValue, allowsNegative: false)
         if current.shows(.currency) {
             Picker("Price currency", selection: currencyBinding(form)) {
-                ForEach(currencyChoices(currency), id: \.self) { code in
+                ForEach(CurrencyChoices.common.including(currency), id: \.self) { code in
                     Text(CurrencyChoices.name(of: code, locale: locale)).tag(code)
                 }
             }
@@ -308,10 +308,6 @@ struct TradeEditorSheet: View {
             let fallback = form.wrappedValue.defaultPriceCurrency(in: library.library)
             form.wrappedValue.currency = code == fallback ? nil : code
         }
-    }
-
-    private func currencyChoices(_ current: CurrencyCode) -> [CurrencyCode] {
-        CurrencyChoices.common.contains(current) ? CurrencyChoices.common : [current] + CurrencyChoices.common
     }
 
     private func unit(of instrument: InstrumentID?) -> String? {

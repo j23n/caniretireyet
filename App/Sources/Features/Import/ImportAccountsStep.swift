@@ -133,7 +133,7 @@ struct ImportNewAccountRow: View {
                 Picker("Kind", selection: Binding(get: { proposal.account.kind }, set: { kind in
                     model.flow.editNewAccount(id) { $0.kind = kind }
                 })) {
-                    ForEach(Self.kinds(including: proposal.account.kind), id: \.self) { kind in
+                    ForEach(AccountKind.knownValues.including(proposal.account.kind), id: \.self) { kind in
                         Text(kind.displayName).tag(kind)
                     }
                 }
@@ -141,7 +141,7 @@ struct ImportNewAccountRow: View {
                 Picker("Currency", selection: Binding(get: { proposal.account.currency }, set: { currency in
                     model.flow.editNewAccount(id) { $0.currency = currency }
                 })) {
-                    ForEach(ImportCurrencies.choices(including: proposal.account.currency), id: \.self) { code in
+                    ForEach(CurrencyChoices.common.including(proposal.account.currency), id: \.self) { code in
                         Text(code.rawValue).tag(code)
                     }
                 }
@@ -154,10 +154,6 @@ struct ImportNewAccountRow: View {
             }
         }
         .padding(.vertical, Metrics.xs)
-    }
-
-    private static func kinds(including kind: AccountKind) -> [AccountKind] {
-        AccountKind.knownValues.contains(kind) ? AccountKind.knownValues : [kind] + AccountKind.knownValues
     }
 }
 
@@ -186,7 +182,7 @@ struct ImportNewInstrumentRow: View {
                 Picker("Kind", selection: Binding(get: { proposal.instrument.kind }, set: { kind in
                     model.flow.editNewInstrument(id) { $0.kind = kind }
                 })) {
-                    ForEach(Self.kinds(including: proposal.instrument.kind), id: \.self) { kind in
+                    ForEach(InstrumentKind.knownValues.including(proposal.instrument.kind), id: \.self) { kind in
                         Text(InstrumentForm.name(of: kind)).tag(kind)
                     }
                 }
@@ -194,7 +190,7 @@ struct ImportNewInstrumentRow: View {
                 Picker("Currency", selection: Binding(get: { proposal.instrument.currency }, set: { currency in
                     model.flow.editNewInstrument(id) { $0.currency = currency }
                 })) {
-                    ForEach(ImportCurrencies.choices(including: proposal.instrument.currency), id: \.self) { code in
+                    ForEach(CurrencyChoices.common.including(proposal.instrument.currency), id: \.self) { code in
                         Text(code.rawValue).tag(code)
                     }
                 }
@@ -202,10 +198,6 @@ struct ImportNewInstrumentRow: View {
             }
         }
         .padding(.vertical, Metrics.xs)
-    }
-
-    private static func kinds(including kind: InstrumentKind) -> [InstrumentKind] {
-        InstrumentKind.knownValues.contains(kind) ? InstrumentKind.knownValues : [kind] + InstrumentKind.knownValues
     }
 }
 
@@ -254,13 +246,6 @@ private struct ImportDebtSection: View {
             Text("The library keeps loans, mortgages and credit cards as negative balances. Spreadsheets often write "
                 + "them as positive amounts, which are read as debts; negative amounts stay as they are.")
         }
-    }
-}
-
-/// The currencies offered for new accounts and instruments.
-enum ImportCurrencies {
-    static func choices(including code: CurrencyCode) -> [CurrencyCode] {
-        CurrencyChoices.common.contains(code) ? CurrencyChoices.common : [code] + CurrencyChoices.common
     }
 }
 

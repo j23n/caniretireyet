@@ -110,7 +110,7 @@ struct OnboardingScreen: View {
                 DatePicker("Birth date", selection: $birthDate, in: ...Date(), displayedComponents: .date)
                 LabeledContent("Base currency") {
                     Picker("Base currency", selection: $currency) {
-                        ForEach(currencyOptions, id: \.self) { code in
+                        ForEach(CurrencyChoices.common.including(currency), id: \.self) { code in
                             Text(CurrencyChoices.name(of: code, locale: locale)).tag(code)
                         }
                     }
@@ -119,7 +119,7 @@ struct OnboardingScreen: View {
                 LabeledContent("Country") {
                     Picker("Country", selection: $residence) {
                         Text("Not set").tag(CountryCode?.none)
-                        ForEach(countryOptions(including: residence), id: \.self) { code in
+                        ForEach(CountryChoices.common.including(residence), id: \.self) { code in
                             Text(CountryChoices.name(of: code, locale: locale)).tag(Optional(code))
                         }
                     }
@@ -165,17 +165,6 @@ struct OnboardingScreen: View {
         }
         .padding(Metrics.l)
         .background(.bar)
-    }
-
-    // MARK: Choices
-
-    private var currencyOptions: [CurrencyCode] {
-        CurrencyChoices.common.contains(currency) ? CurrencyChoices.common : [currency] + CurrencyChoices.common
-    }
-
-    private func countryOptions(including code: CountryCode?) -> [CountryCode] {
-        guard let code, !CountryChoices.common.contains(code) else { return CountryChoices.common }
-        return [code] + CountryChoices.common
     }
 
     private func create() {

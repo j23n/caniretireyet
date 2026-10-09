@@ -377,9 +377,7 @@ struct InstrumentSetPriceSheet: View {
     }
 
     private var currencies: [CurrencyCode] {
-        var codes = CurrencyChoices.common
-        for code in [form.currency, currency] where !codes.contains(code) { codes.insert(code, at: 0) }
-        return codes
+        CurrencyChoices.common.including(form.currency).including(currency)
     }
 
     private func save() {

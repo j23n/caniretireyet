@@ -96,13 +96,13 @@ private struct YouSection: View {
                 }
             }
             Picker("Base currency", selection: currencyBinding) {
-                ForEach(options(CurrencyChoices.common, current: settings.baseCurrency), id: \.self) { code in
+                ForEach(CurrencyChoices.common.including(settings.baseCurrency), id: \.self) { code in
                     Text(CurrencyChoices.name(of: code, locale: locale)).tag(code)
                 }
             }
             Picker("Country", selection: residenceBinding) {
                 Text("Not set").tag(CountryCode?.none)
-                ForEach(options(CountryChoices.common, current: settings.taxResidence), id: \.self) { code in
+                ForEach(CountryChoices.common.including(settings.taxResidence), id: \.self) { code in
                     Text(CountryChoices.name(of: code, locale: locale)).tag(Optional(code))
                 }
             }
@@ -125,11 +125,6 @@ private struct YouSection: View {
         }
         .disabled(!library.canEdit)
         .onDisappear(perform: saveName)
-    }
-
-    private func options<Code: Hashable>(_ common: [Code], current: Code?) -> [Code] {
-        guard let current, !common.contains(current) else { return common }
-        return [current] + common
     }
 
     // MARK: Bindings that write what you change

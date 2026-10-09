@@ -251,7 +251,7 @@ struct AccountDetailsFields: View {
         Section {
             if showsKindPicker {
                 Picker("Kind", selection: $form.chosenKind) {
-                    ForEach(kinds, id: \.self) { kind in
+                    ForEach(AccountKind.knownValues.including(form.kind), id: \.self) { kind in
                         Label(kind.displayName, systemImage: kind.systemImage).tag(kind)
                     }
                 }
@@ -259,14 +259,14 @@ struct AccountDetailsFields: View {
             AccountsTextField(title: "Name", text: $form.name, prompt: "e.g. Conto Fineco")
             AccountsTextField(title: "Institution", text: $form.institution, prompt: "Bank or broker")
             Picker("Currency", selection: $form.currency) {
-                ForEach(currencies, id: \.self) { code in
+                ForEach(CurrencyChoices.common.including(form.currency), id: \.self) { code in
                     Text(CurrencyChoices.name(of: code, locale: locale)).tag(code)
                 }
             }
             .disabled(form.locksCurrency)
             Picker("Country", selection: $form.country) {
                 Text("None").tag(CountryCode?.none)
-                ForEach(countries, id: \.self) { code in
+                ForEach(CountryChoices.common.including(form.country), id: \.self) { code in
                     Text(CountryChoices.name(of: code, locale: locale)).tag(Optional(code))
                 }
             }
@@ -285,19 +285,6 @@ struct AccountDetailsFields: View {
         let currency = form.locksCurrency
             ? " The currency can't change: the account's values and trades are in \(form.currency.rawValue)." : ""
         return "The account counts from the day it opens. The country is the institution's." + currency
-    }
-
-    private var kinds: [AccountKind] {
-        AccountKind.knownValues.contains(form.kind) ? AccountKind.knownValues : [form.kind] + AccountKind.knownValues
-    }
-
-    private var currencies: [CurrencyCode] {
-        CurrencyChoices.common.contains(form.currency) ? CurrencyChoices.common : [form.currency] + CurrencyChoices.common
-    }
-
-    private var countries: [CountryCode] {
-        guard let country = form.country, !CountryChoices.common.contains(country) else { return CountryChoices.common }
-        return [country] + CountryChoices.common
     }
 }
 
