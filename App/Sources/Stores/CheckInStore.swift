@@ -30,13 +30,11 @@ final class CheckInStore {
     /// with its source and time, or why it failed.
     private(set) var priceList: CheckInPrices?
     private(set) var isFetchingPrices = false
-    /// What the last save produced, for the confirmation.
-    private(set) var lastSaved: CheckInSaveResult?
 
     private let library: LibraryStore
     private let prices: PriceStore
-    private let plans: PlanStore?
-    private let preferences: AppPreferences?
+    private let plans: PlanStore
+    private let preferences: AppPreferences
     /// Where the draft is kept; `nil` keeps it in memory only.
     private let draftURL: URL?
     @ObservationIgnored private var persistTask: Task<Void, Never>?
@@ -45,8 +43,7 @@ final class CheckInStore {
     /// draft because of the save itself: it isn't rebased then.
     @ObservationIgnored private var isWriting = false
 
-    init(library: LibraryStore, prices: PriceStore, plans: PlanStore? = nil, preferences: AppPreferences? = nil,
-         draftURL: URL? = CheckInStore.defaultDraftURL()) {
+    init(library: LibraryStore, prices: PriceStore, plans: PlanStore, preferences: AppPreferences, draftURL: URL?) {
         self.library = library
         self.prices = prices
         self.plans = plans
@@ -92,11 +89,6 @@ final class CheckInStore {
         CheckInSchedule.status(today: .today(), lastCheckIn: library.latestCheckIn, draft: draft)
     }
 
-    /// The review of the draft as it stands: new total, waterfall, warnings.
-    var review: CheckInReview? {
-        draft?.review(in: library.library)
-    }
-
     // MARK: Starting
 
     /// Reads an unfinished check-in saved on this device (at launch). It's
@@ -128,22 +120,20 @@ final class CheckInStore {
         } else {
             refresh()
         }
-        if preferences?.fetchPricesOnCheckIn ?? true { fetchPrices() }
+        if preferences.fetchPricesOnCheckIn { fetchPrices() }
     }
 
     /// Brings the draft up to date with the library (see
     /// `CheckInDraft.rebase(onto:)`). Does nothing until the library is
     /// loaded, so a draft restored at launch isn't rebased onto nothing.
-    @discardableResult
-    func refresh() -> CheckInRebase? {
-        guard var draft, library.phase == .ready else { return nil }
+    func refresh() {
+        guard var draft, library.phase == .ready else { return }
         let before = Set(draft.instruments)
-        let result = draft.rebase(onto: library.library)
-        guard draft != self.draft else { return result }
+        draft.rebase(onto: library.library)
+        guard draft != self.draft else { return }
         self.draft = draft
         schedulePersist()
         if !Set(draft.instruments).isSubset(of: before) { fetchNewPrices() }
-        return result
     }
 
     /// Moves the check-in to another date, keeping what was entered. Prices
@@ -155,7 +145,7 @@ final class CheckInStore {
         indices = []
         priceList = nil
         schedulePersist()
-        if preferences?.fetchPricesOnCheckIn ?? true { fetchPrices() }
+        if preferences.fetchPricesOnCheckIn { fetchPrices() }
     }
 
     // MARK: Editing
@@ -246,7 +236,7 @@ final class CheckInStore {
     /// Fetches again after the draft gained an instrument (a position was
     /// added), unless fetching is turned off in Settings.
     private func fetchNewPrices() {
-        guard preferences?.fetchPricesOnCheckIn ?? true else { return }
+        guard preferences.fetchPricesOnCheckIn else { return }
         fetchPrices()
     }
 
@@ -289,7 +279,7 @@ final class CheckInStore {
     /// The plan runs on today's data, so its answer (and the year's first
     /// baseline) is recorded only when this is the library's latest
     /// check-in: no valuation is dated after it. A past check-in, e.g. one
-    /// filling in last year, returns no headline and ``CheckInSaveResult/laterCheckIn``.
+    /// filling in last year, records none and returns ``CheckInSaveResult/laterCheckIn``.
     ///
     /// Accounts that open after the date and got a value move their opening
     /// date back to it, and the automatic flows of the values after a past
@@ -335,12 +325,9 @@ final class CheckInStore {
         // baseline): the plan runs on today's data, so for a past date it
         // would record made-up history.
         let later = Self.laterCheckIn(than: draft.date, in: library.library)
-        if later == nil { plans?.recordCheckInAnswer(on: draft.date) }
-        let result = CheckInSaveResult(
-            date: draft.date, netWorth: review.netWorth.total, change: review.change?.total, headline: nil,
-            laterCheckIn: later)
-        lastSaved = result
-        return result
+        if later == nil { plans.recordCheckInAnswer(on: draft.date) }
+        return CheckInSaveResult(date: draft.date, netWorth: review.netWorth.total, change: review.change?.total,
+                                 laterCheckIn: later)
     }
 
     /// The library's latest check-in when it's after `date`, i.e. when a
@@ -348,19 +335,6 @@ final class CheckInStore {
     /// and no baseline. `nil` when `date` is the latest check-in (or later).
     nonisolated static func laterCheckIn(than date: CalendarDate, in library: Library) -> CalendarDate? {
         library.latestCheckInDate.flatMap { $0 > date ? $0 : nil }
-    }
-
-    /// Puts a check-in back as the draft, with its index values, e.g. when
-    /// saving it didn't reach the library's files (a failed write reloads
-    /// what's on disk). It's kept on the device again.
-    func restore(_ draft: CheckInDraft, indices: [IndexRecord] = []) {
-        fetchTask?.cancel()
-        fetchTask = nil
-        isFetchingPrices = false
-        self.draft = draft
-        self.indices = indices
-        priceList = nil
-        schedulePersist()
     }
 
     /// Throws the draft away.
@@ -413,10 +387,6 @@ struct CheckInSaveResult: Hashable, Sendable {
     var netWorth: Decimal
     /// The change since the previous check-in; `nil` for the first one.
     var change: ValueChange?
-    /// This month's answer from the main plan, when it's known already;
-    /// `nil` without a planner or plan, for a past check-in, and while the
-    /// plan runs: the confirmation then follows `PlanStore.checkInAnswer`.
-    var headline: PlanHeadline?
     /// The library's latest check-in, when it's after this one: this was a
     /// past check-in, so no answer was recorded for it.
     var laterCheckIn: CalendarDate?

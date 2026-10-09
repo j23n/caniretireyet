@@ -151,7 +151,7 @@ struct CheckInConfirmationView: View {
 
     @ViewBuilder
     private var answer: some View {
-        if let headline = result.headline ?? answerRun?.headline {
+        if let headline = answerRun?.headline {
             let parts = CheckInAnswer.make(headline, previous: previousHeadline, locale: locale)
             VStack(alignment: .leading, spacing: Metrics.s) {
                 answerText(parts)
@@ -250,19 +250,21 @@ struct CheckInConfirmationView: View {
 }
 
 #Preview("Saved") {
+    let model = AppModel.preview()
     CheckInConfirmationView(result: CheckInPreviewData.saved) {}
-        .previewEnvironment()
+        .appEnvironment(model)
+        .task { model.plans.recordCheckInAnswer(on: CheckInPreviewData.saved.date) }
 }
 
 #Preview("Saved, working out the answer") {
     let model = AppModel.preview(planEngine: PreviewPlanEngine(delay: .milliseconds(400)))
-    CheckInConfirmationView(result: CheckInPreviewData.savedWithoutAnswer) {}
+    CheckInConfirmationView(result: CheckInPreviewData.saved) {}
         .appEnvironment(model)
-        .task { model.plans.recordCheckInAnswer(on: CheckInPreviewData.savedWithoutAnswer.date) }
+        .task { model.plans.recordCheckInAnswer(on: CheckInPreviewData.saved.date) }
 }
 
 #Preview("Saved, no answer yet") {
-    CheckInConfirmationView(result: CheckInPreviewData.savedWithoutAnswer) {}
+    CheckInConfirmationView(result: CheckInPreviewData.saved) {}
         .previewEnvironment()
 }
 

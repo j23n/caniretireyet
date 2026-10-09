@@ -107,22 +107,12 @@ enum CheckInPreviewData {
             date: date, netWorth: PreviewLibrary.d("312480"),
             change: ValueChange(start: PreviewLibrary.d("308270"), market: PreviewLibrary.d("2950"),
                                 newMoney: PreviewLibrary.d("1500"), other: PreviewLibrary.d("-240"),
-                                end: PreviewLibrary.d("312480")),
-            headline: PlanHeadline(confidence: 0.9, earliestAge: 54, earliestDate: "2042-03-31", targetAge: 55,
-                                   successAtTarget: 0.86, successToday: 0.12,
-                                   readiness: 0.58))
-    }
-
-    /// The same, when plans can't run (no answer this month).
-    static var savedWithoutAnswer: CheckInSaveResult {
-        var result = saved
-        result.headline = nil
-        return result
+                                end: PreviewLibrary.d("312480")))
     }
 
     /// A past check-in filled in after the latest one: no answer is recorded.
     static var savedInThePast: CheckInSaveResult {
-        CheckInSaveResult(date: "2024-03-31", netWorth: PreviewLibrary.d("164200"), change: nil, headline: nil,
+        CheckInSaveResult(date: "2024-03-31", netWorth: PreviewLibrary.d("164200"), change: nil,
                           laterCheckIn: "2026-09-30")
     }
 }
