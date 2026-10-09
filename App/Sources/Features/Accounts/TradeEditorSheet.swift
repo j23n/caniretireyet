@@ -168,7 +168,7 @@ struct TradeEditorSheet: View {
             ? TradeTypeDisplay.primary : TradeTypeDisplay.primary + [type]
         return Section {
             HStack(spacing: Metrics.s) {
-                Picker("Type", selection: form.chosenType) {
+                Picker("Type", selection: form.type) {
                     ForEach(segments, id: \.self) { choice in
                         Text(verbatim: TradeTypeDisplay.name(choice)).tag(choice)
                     }
@@ -178,7 +178,7 @@ struct TradeEditorSheet: View {
                 Menu {
                     ForEach(TradeTypeDisplay.more, id: \.self) { choice in
                         Button {
-                            form.wrappedValue.chosenType = choice
+                            form.wrappedValue.type = choice
                         } label: {
                             Label(TradeTypeDisplay.name(choice), systemImage: TradeTypeDisplay.systemImage(choice))
                         }
@@ -199,7 +199,7 @@ struct TradeEditorSheet: View {
     private func instrumentRows(_ form: Binding<TradeForm>, problems: [TradeFormProblem]) -> some View {
         Picker("Instrument", selection: form.instrument) {
             Text("Choose…").tag(InstrumentID?.none)
-            ForEach(instruments(including: form.wrappedValue.instrument)) { instrument in
+            ForEach(instruments) { instrument in
                 Text(instrument.name).tag(Optional(instrument.id))
             }
         }
@@ -214,7 +214,7 @@ struct TradeEditorSheet: View {
         }
     }
 
-    private func instruments(including current: InstrumentID?) -> [Instrument] {
+    private var instruments: [Instrument] {
         library.library.instruments.values.sorted { ($0.name.lowercased(), $0.id) < ($1.name.lowercased(), $1.id) }
     }
 
@@ -386,7 +386,7 @@ struct TradeEditorSheet: View {
     /// gain, the follow-on effects and problems it brings in.
     private func previewSection(_ preview: TradeFormPreview, account: Account?) -> some View {
         let currency = account?.currency ?? library.baseCurrency
-        let notes = preview.notes(account: account, locale: locale)
+        let notes = TradeEditNotes.sentences(preview.edit, locale: locale)
         return Section {
             if preview.isSettledOutside {
                 LabeledContent("Cash", value: "Unchanged")

@@ -78,7 +78,7 @@ struct TradeForm: Hashable, Sendable {
     let accountCurrency: CurrencyCode
     /// The trade being edited; `nil` for a new one.
     let original: Trade?
-    private(set) var type: TradeType
+    var type: TradeType
     var date: CalendarDate
     var instrument: InstrumentID?
     var quantity = ""
@@ -150,14 +150,6 @@ struct TradeForm: Hashable, Sendable {
         ratio = text(trade.ratio)
         note = trade.note ?? ""
         paidOutside = trade.settlement == .external
-    }
-
-    var isNew: Bool { original == nil }
-
-    /// The type; setting it keeps the fields the new type shares.
-    var chosenType: TradeType {
-        get { type }
-        set { type = newValue }
     }
 
     /// The date as a `Date` (noon, this device's time zone), for a date picker.
@@ -315,34 +307,19 @@ struct TradeForm: Hashable, Sendable {
         return valuator.fx.quote(from: from, to: accountCurrency, on: date)
     }
 
-    /// Whether the price needs a rate that isn't known on or before the date.
-    func isMissingRate(in library: Library, valuator: Valuator) -> Bool {
-        priceCurrency(in: library) != accountCurrency && fxQuote(in: library, valuator: valuator) == nil
-    }
-
     /// The cash effect worked out from quantity × price (converted at the
-    /// date's rate), fees and tax, as the ledger does (docs/TRADES.md,
-    /// "Types"): −(gross + fees + tax) for a buy, gross − fees − tax for a
-    /// sale or income. `nil` when it can't be.
+    /// date's rate), fees and tax: what the ledger makes of the trade as
+    /// typed, without its amount (docs/TRADES.md, "Types"): −(gross + fees +
+    /// tax) for a buy, gross − fees − tax for a sale or income. `nil` when
+    /// it can't be.
     func computedAmount(in library: Library, valuator: Valuator, locale: Locale = .current) -> Decimal? {
-        let fees = Self.parse(fees, locale: locale).value ?? 0
-        let tax = Self.parse(tax, locale: locale).value ?? 0
-        switch type {
-        case .buy, .sell, .dividend, .interest:
-            guard shows(.quantity), let quantity = Self.parse(quantity, locale: locale).value,
-                  let price = Self.parse(price, locale: locale).value
-            else { return nil }
-            var gross = quantity * price
-            if priceCurrency(in: library) != accountCurrency {
-                guard let quote = fxQuote(in: library, valuator: valuator) else { return nil }
-                gross = quote.convert(gross)
-            }
-            // To cents, as the ledger rounds.
-            gross = gross.rounded(scale: 2)
-            return type == .buy ? -(gross + fees + tax) : gross - fees - tax
-        default:
-            return nil
-        }
+        guard amountIsComputed, let account = library.accounts[self.account] else { return nil }
+        func number(_ text: String) -> Decimal? { Self.parse(text, locale: locale).value }
+        let trade = Trade(account: account.id, date: date, type: type, instrument: instrument,
+                          quantity: number(quantity), price: number(price), currency: currency, fees: number(fees),
+                          tax: number(tax))
+        return TradeLedger(account: account, trades: [trade], instruments: library.instruments, fx: valuator.fx)
+            .entries.first?.amount
     }
 
     /// The amount typed, signed for the type; `nil` when empty or unreadable.
@@ -352,28 +329,6 @@ struct TradeForm: Hashable, Sendable {
         case .negative: return -abs(value)
         case .positive: return abs(value)
         case .asTyped: return value
-        }
-    }
-
-    /// The cash effect the trade will have: the amount typed, else the one worked out.
-    func effectiveAmount(in library: Library, valuator: Valuator, locale: Locale = .current) -> Decimal? {
-        typedAmount(locale: locale) ?? computedAmount(in: library, valuator: valuator, locale: locale)
-            ?? cashOnlyAmount(locale: locale)
-    }
-
-    /// The cash effect of a type without an amount that's worked out from
-    /// its fees or tax alone (a fee, a tax, a transfer's fees).
-    private func cashOnlyAmount(locale: Locale) -> Decimal? {
-        let fees = Self.parse(fees, locale: locale).value
-        let tax = Self.parse(tax, locale: locale).value
-        switch type {
-        case .fee, .tax, .transferIn, .transferOut, .opening:
-            guard fees != nil || tax != nil else { return type == .fee || type == .tax ? nil : 0 }
-            return -((fees ?? 0) + (tax ?? 0))
-        case .split:
-            return 0
-        default:
-            return nil
         }
     }
 
@@ -456,7 +411,7 @@ struct TradeForm: Hashable, Sendable {
         let input = inputProblems(locale: locale)
         guard input.isEmpty, let trade = trade(in: library, locale: locale) else { return input }
         return trade.problems.map { problem in
-            TradeFormProblem(field: problem.field.flatMap(Self.field(named:)), message: problem.message,
+            TradeFormProblem(field: problem.field.flatMap(TradeFormField.init(rawValue:)), message: problem.message,
                              isError: problem.severity == .error)
         }
     }
@@ -465,11 +420,6 @@ struct TradeForm: Hashable, Sendable {
     /// needs is missing.
     func canSave(in library: Library, locale: Locale = .current) -> Bool {
         trade(in: library, locale: locale) != nil && !problems(in: library, locale: locale).contains(where: \.isError)
-    }
-
-    /// The problems concerning `field`.
-    func problems(for field: TradeFormField, in library: Library, locale: Locale = .current) -> [TradeFormProblem] {
-        problems(in: library, locale: locale).filter { $0.field == field }
     }
 
     // MARK: The trade
@@ -522,21 +472,22 @@ struct TradeForm: Hashable, Sendable {
         let saved = edit.saved ?? trade
         let entry = valuator.ledger(for: account)?.entries.first { $0.trade.key == saved.key }
         return TradeFormPreview(
-            edit: edit, instrument: saved.instrument,
-            quantityAfter: saved.type.changesHoldings ? entry?.quantityAfter : nil,
+            edit: edit, instrument: saved.instrument, quantityAfter: entry?.quantityAfter,
             cashEffect: entry?.cashEffect, isSettledOutside: saved.isSettledExternally,
             newMoney: entry?.externalFlow, realizedGain: entry?.realizedGain,
             cashAfter: valuator.tradeCash(of: account, on: saved.date),
             newIssues: edit.newIssues.filter { $0.kind != .reconciliation }
                 .compactMap { TradeIssueNote.note(for: $0, library: after, locale: locale) }
-                + Self.newMismatches(edit, library: after, locale: locale))
+                + Self.newMismatches(edit, library: after, valuator: valuator, locale: locale))
     }
 
-    /// Statements that differ from the trades since the edit, and didn't before.
-    private static func newMismatches(_ edit: TradeEdit, library: Library, locale: Locale) -> [TradeIssueNote] {
+    /// Statements that differ from the trades since the edit, and didn't
+    /// before; `valuator` values `library`, the library after the edit.
+    private static func newMismatches(_ edit: TradeEdit, library: Library, valuator: Valuator,
+                                      locale: Locale) -> [TradeIssueNote] {
         let issues = edit.newIssues.filter { $0.kind == .reconciliation }
         guard let account = issues.first?.account else { return [] }
-        let mismatches = Valuator(library: library).reconciliation(of: account)
+        let mismatches = valuator.reconciliation(of: account)
         return issues.compactMap { issue in
             mismatches.first { $0.date == issue.date && $0.instrument == issue.instrument }
                 .map { TradeIssueNote.note(for: $0, library: library, locale: locale) }
@@ -561,11 +512,6 @@ struct TradeForm: Hashable, Sendable {
         if trimmed.isEmpty { return .empty }
         return AmountInput.decimal(from: trimmed, locale: locale).map(Parsed.value) ?? .unreadable
     }
-
-    /// The form field of a ``Model/TradeProblem``'s field name.
-    static func field(named name: String) -> TradeFormField? {
-        TradeFormField(rawValue: name)
-    }
 }
 
 /// What saving a trade will do, for the editor to show before saving.
@@ -589,19 +535,14 @@ struct TradeFormPreview: Hashable, Sendable {
     var cashAfter: Decimal?
     /// Problems the edit brings in, e.g. a later sale now taking away more than is held.
     var newIssues: [TradeIssueNote]
-
-    /// The follow-on effects in words: the opening date moving, and the new
-    /// money of later values worked out again or kept.
-    func notes(account: Account?, locale: Locale = .current) -> [String] {
-        TradeEditNotes.sentences(edit, account: account, locale: locale)
-    }
 }
 
 /// What a trade edit does besides writing the trade, in words.
 enum TradeEditNotes {
-    /// "Saving moves the account's opening date from 1 Mar 2021 to 15 Feb
-    /// 2021.", then what happens to the new money of later values.
-    static func sentences(_ edit: TradeEdit, account: Account?, locale: Locale = .current) -> [String] {
+    /// The follow-on effects of saving, in words: "Saving moves the
+    /// account's opening date from 1 Mar 2021 to 15 Feb 2021.", then what
+    /// happens to the new money of later values.
+    static func sentences(_ edit: TradeEdit, locale: Locale = .current) -> [String] {
         var sentences: [String] = []
         if let from = edit.movedOpeningFrom, let to = edit.saved?.date {
             sentences.append("Saving moves the account's opening date from \(AmountFormat.mediumDate(from, locale: locale)) "
