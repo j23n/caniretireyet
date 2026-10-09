@@ -839,15 +839,6 @@ struct AccountPositionQuantityLine<Trailing: View>: View {
     }
 }
 
-extension AccountPositionText {
-    /// A position's unit price in its currency, "73.785,11 €", or "–"
-    /// without one (the Mac grids' Price column).
-    static func unitPrice(_ row: AccountHoldingRow, locale: Locale = .current) -> String {
-        guard let price = row.price else { return "–" }
-        return QuantityFormat.unitPrice(price.price, currency: price.currency, locale: locale)
-    }
-}
-
 /// A position's unrealised gain: "▼ −2.871 € −27,3 %", the amount and its
 /// fraction of the cost kept together.
 struct AccountPositionGain: View {

@@ -45,11 +45,16 @@ enum QuantityFormat {
         return number
     }
 
-    /// The short unit quantities of `instrument` are counted in: "sh" for
-    /// shares, else the unit itself ("g", "ozt", "BTC"); `nil` without one.
+    /// The short unit quantities are counted in: "sh" for shares, else the
+    /// unit itself ("g", "ozt", "BTC").
+    static func unit(_ unit: InstrumentUnit) -> String {
+        unit == .share ? "sh" : unit.rawValue
+    }
+
+    /// The short unit quantities of `instrument` are counted in
+    /// (``unit(_:)``); `nil` without an instrument.
     static func unit(of instrument: Instrument?) -> String? {
-        guard let unit = instrument?.unit else { return nil }
-        return unit == .share ? "sh" : unit.rawValue
+        instrument.map { unit($0.unit) }
     }
 
     // MARK: Unit prices
@@ -107,54 +112,5 @@ enum QuantityFormat {
     /// so a line too narrow for both breaks between the label and the value.
     static func labelled(_ label: String, _ value: String) -> String {
         label.replacingOccurrences(of: " ", with: "\u{00A0}") + " " + value
-    }
-}
-
-/// How a position reads in an account's holdings (UI.md, "Account detail").
-enum AccountPositionText {
-    /// "0,10383916 BTC × 73.785,11 €", or "412,5 sh" without a price. The
-    /// quantity is hidden with the eye button; the price isn't an amount.
-    static func quantityAndPrice(_ row: AccountHoldingRow, hidesAmounts: Bool, locale: Locale = .current) -> String {
-        QuantityFormat.quantityTimesPrice(quantity(row, hidesAmounts: hidesAmounts, locale: locale),
-                                          price: row.price?.price, currency: row.price?.currency, locale: locale)
-    }
-
-    /// "0,10383916 BTC", "412,5 sh"; `•••••` while amounts are hidden.
-    static func quantity(_ row: AccountHoldingRow, hidesAmounts: Bool, locale: Locale = .current) -> String {
-        let unit = row.unit.map { InstrumentForm.shortName(of: $0) }
-        guard !hidesAmounts else { return [AmountFormat.hidden, unit].compactMap { $0 }.joined(separator: " ") }
-        return QuantityFormat.quantity(row.quantity, unit: unit, locale: locale)
-    }
-
-    /// "at 73.785,11 €", for the line under the quantity when both don't
-    /// fit on one; `nil` without a price.
-    static func price(_ row: AccountHoldingRow, locale: Locale = .current) -> String? {
-        guard let price = row.price else { return nil }
-        return QuantityFormat.atPrice(price.price, currency: price.currency, locale: locale)
-    }
-
-    /// "Average cost 101.437,74 €" (the average cost per unit, in the
-    /// account's currency), "Average cost •••••" while amounts are hidden,
-    /// or "Average cost unknown".
-    static func averageCost(_ row: AccountHoldingRow, currency: CurrencyCode, hidesAmounts: Bool,
-                            locale: Locale = .current) -> String {
-        guard let average = row.averageCost else { return "Average cost unknown" }
-        let value = hidesAmounts ? AmountFormat.hidden : QuantityFormat.unitPrice(average, currency: currency, locale: locale)
-        return QuantityFormat.labelled("Average cost", value)
-    }
-
-    /// "Purchase cost 48.200 €" (the whole position's), "Purchase cost
-    /// •••••" while amounts are hidden; `nil` when unknown.
-    static func purchaseCost(_ row: AccountHoldingRow, currency: CurrencyCode, hidesAmounts: Bool,
-                             locale: Locale = .current) -> String? {
-        guard let cost = row.costBasis else { return nil }
-        let value = hidesAmounts ? AmountFormat.hidden : AmountFormat.amount(cost, currency: currency, locale: locale)
-        return QuantityFormat.labelled("Purchase cost", value)
-    }
-
-    /// "95 % of the account" (as the locale writes a percentage); `nil`
-    /// when the share isn't known.
-    static func share(_ row: AccountHoldingRow, locale: Locale = .current) -> String? {
-        row.share.map { AmountFormat.percent($0, digits: 0, locale: locale) + " of the account" }
     }
 }

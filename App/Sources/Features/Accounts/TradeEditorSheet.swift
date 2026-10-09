@@ -387,12 +387,12 @@ struct TradeEditorSheet: View {
                 LabeledContent("Cash", value: "Unchanged")
             } else if let effect = preview.cashEffect, effect != 0 {
                 LabeledContent("Cash") {
-                    TradeAmountText(effect, currency: currency)
+                    AmountText(effect, currency: currency, precision: .cents, signed: true)
                 }
             }
             if let newMoney = preview.newMoney, newMoney != 0 {
                 LabeledContent("New money") {
-                    TradeAmountText(newMoney, currency: currency)
+                    AmountText(newMoney, currency: currency, precision: .cents, signed: true)
                 }
             }
             if let cash = preview.cashAfter {

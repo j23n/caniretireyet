@@ -15,9 +15,9 @@ import SwiftUI
 ///   the card and on the page. Washes keep the lighter step (``color(for:)``).
 /// - **Everything else** is one hue, ``accent`` (blue), with labels.
 /// - **Actual history** is drawn in ``ink``, never a series colour.
-/// - **Changes** use ``positive`` and ``negative`` text, always with a sign
-///   and an arrow (see `DeltaText`); **status** colours always come with an
-///   icon and a label (see `StatusBanner`).
+/// - **Changes** use ``positive`` and ``negative`` text (``change(_:)``),
+///   always with a sign and an arrow (see `DeltaText`); **status** colours
+///   always come with an icon and a label (see `StatusBanner`).
 enum Palette {
     // MARK: Categorical slots, in fixed order
 
@@ -79,7 +79,6 @@ enum Palette {
 
     static let good = Color("StatusGood")
     static let warning = Color("StatusWarning")
-    static let serious = Color("StatusSerious")
     static let critical = Color("StatusCritical")
 
     // MARK: Surfaces
@@ -141,6 +140,12 @@ enum Palette {
         case .series(let index): seriesStroke[min(max(index, 0), seriesStroke.count - 1)]
         default: color(for: role)
         }
+    }
+
+    /// A change's colour by its direction (1 up, −1 down): ``positive``,
+    /// ``negative``, or ``secondaryInk`` for none.
+    static func change(_ direction: Int) -> Color {
+        direction > 0 ? positive : direction < 0 ? negative : secondaryInk
     }
 }
 

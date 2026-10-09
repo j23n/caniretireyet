@@ -143,7 +143,8 @@ struct AccountConversionSheet: View {
                             AmountText(cost, currency: library.account(accountID)?.currency, precision: .cents)
                                 .foregroundStyle(Palette.secondaryInk)
                         } else if let amount = line.trade.amount {
-                            TradeAmountText(amount, currency: library.account(accountID)?.currency)
+                            AmountText(amount, currency: library.account(accountID)?.currency, precision: .cents,
+                                       signed: true)
                                 .foregroundStyle(Palette.secondaryInk)
                         }
                     }

@@ -7,34 +7,7 @@ import Tracker
 // Mac), the income and gains by year, and the issue banners. The data is
 // in `TradeListData.swift`.
 
-// MARK: - Amounts
-
-/// A signed amount in cents, without colour: "−1.025,95 €", "+200,60 €". A
-/// trade's cash going down isn't bad news, so it isn't red. Hidden with the
-/// eye button.
-struct TradeAmountText: View {
-    let amount: Decimal
-    var currency: CurrencyCode?
-
-    @Environment(\.baseCurrency) private var baseCurrency
-    @Environment(\.hidesAmounts) private var hidesAmounts
-    @Environment(\.locale) private var locale
-
-    init(_ amount: Decimal, currency: CurrencyCode? = nil) {
-        self.amount = amount
-        self.currency = currency
-    }
-
-    var body: some View {
-        let text = hidesAmounts
-            ? AmountFormat.hidden
-            : AmountFormat.signedAmount(amount, currency: currency ?? baseCurrency, precision: .cents, locale: locale)
-        Text(verbatim: text)
-            .monospacedDigit()
-            .privacySensitive()
-            .accessibilityLabel(hidesAmounts ? Text("Amount hidden") : Text(verbatim: text))
-    }
-}
+// MARK: - Icons
 
 /// A trade type's icon, in the accent colour.
 struct TradeTypeIcon: View {
@@ -302,7 +275,7 @@ struct TradeListRowView: View {
     private func amounts(alignment: HorizontalAlignment) -> some View {
         VStack(alignment: alignment, spacing: 2) {
             if let amount = item.amount {
-                TradeAmountText(amount, currency: currency)
+                AmountText(amount, currency: currency, precision: .cents, signed: true)
                     .foregroundStyle(Palette.ink)
             } else {
                 Text("Amount unknown")
@@ -465,7 +438,7 @@ private struct TradeTableAmountCell: View {
     var body: some View {
         Group {
             if let amount = item.amount {
-                TradeAmountText(amount, currency: currency)
+                AmountText(amount, currency: currency, precision: .cents, signed: true)
             } else {
                 Text("Unknown")
                     .foregroundStyle(Palette.mutedInk)
@@ -495,7 +468,7 @@ struct TradeIncomeYearView: View {
                         .foregroundStyle(Palette.secondaryInk)
                     Spacer(minLength: Metrics.s)
                     if line.isCharge {
-                        TradeAmountText(line.amount, currency: currency)
+                        AmountText(line.amount, currency: currency, precision: .cents, signed: true)
                     } else {
                         DeltaText(line.amount, currency: currency, precision: .cents, showsArrow: false)
                     }
