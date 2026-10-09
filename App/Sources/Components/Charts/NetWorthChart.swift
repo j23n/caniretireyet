@@ -311,7 +311,7 @@ struct NetWorthChart: View {
                 + "to \(AmountFormat.amount(Decimal(wholeNumber: last.value), currency: currency))."
         }
         if !stacked.isEmpty {
-            text += " Stacked: \(stacked.map(\.name).formatted(.list(type: .and)))."
+            text += " Stacked: \(Wording.list(stacked.map(\.name)))."
         }
         let partial = history.filter { !$0.isComplete }.count
         if partial > 0 {
