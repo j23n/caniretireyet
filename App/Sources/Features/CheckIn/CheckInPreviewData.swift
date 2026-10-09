@@ -38,7 +38,7 @@ enum CheckInPreviewData {
             for price in prices.prices { draft.setPrice(price) }
             for rate in prices.fx { draft.setFXRate(rate) }
         }
-        if reviewedAll { checkIn.update { CheckInEditing.markRestUnchanged(&$0) } }
+        if reviewedAll { checkIn.markRestUnchanged() }
         return model
     }
 
@@ -58,13 +58,11 @@ enum CheckInPreviewData {
     }
 
     /// A check-in session with `accounts` expanded, e.g. to show a trades
-    /// account's positions in the iPhone list, and with the fields for a
-    /// cash from a statement of `enteringCash` shown.
+    /// account's positions in the iPhone list.
     @MainActor
-    static func session(expanding accounts: [AccountID], enteringCash: [AccountID] = []) -> CheckInSession {
+    static func session(expanding accounts: [AccountID]) -> CheckInSession {
         let session = CheckInSession()
         session.expanded = Set(accounts)
-        session.editingCash = Set(enteringCash)
         return session
     }
 

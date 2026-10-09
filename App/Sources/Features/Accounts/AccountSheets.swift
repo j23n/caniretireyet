@@ -206,8 +206,7 @@ struct UpdateValueSheet: View {
         return HStack {
             Text(instrument?.name ?? position.instrument.rawValue)
             Spacer(minLength: Metrics.s)
-            Text(verbatim: CheckInWording.quantity(position.quantity, of: position.instrument, instrument: instrument,
-                                                   locale: locale))
+            Text(verbatim: CheckInWording.quantity(position.quantity, instrument: instrument, locale: locale))
                 .monospacedDigit()
                 .foregroundStyle(Palette.secondaryInk)
                 .privacySensitive()

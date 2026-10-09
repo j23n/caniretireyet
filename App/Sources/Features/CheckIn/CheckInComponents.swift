@@ -4,7 +4,7 @@ import Tracker
 
 // Views the check-in's iPhone list and Mac table share: the number field,
 // the state indicator, amounts without a currency, the progress bar, the
-// legend, the date panel and the banners at the top.
+// legend, the date panel, the banners at the top and the page while saving.
 
 // MARK: - Number field
 
@@ -354,7 +354,7 @@ struct CheckInQuantityChange: View {
     }
 
     private var text: String {
-        let number = CheckInWording.quantityChange(change, locale: locale)
+        let number = QuantityFormat.quantityChange(change, locale: locale)
         if change > 0 { return "▲ " + number }
         if change < 0 { return "▼ " + number }
         return number
@@ -504,6 +504,22 @@ struct CheckInBanners: View {
                 }
             }
         }
+    }
+}
+
+// MARK: - Saving
+
+/// What shows while the check-in saves: "Saving…". The plan's answer is
+/// worked out afterwards, with its progress on the confirmation.
+struct CheckInSavingView: View {
+    var body: some View {
+        VStack(spacing: Metrics.m) {
+            ProgressView()
+            Text("Saving…")
+                .foregroundStyle(Palette.secondaryInk)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Palette.page)
     }
 }
 

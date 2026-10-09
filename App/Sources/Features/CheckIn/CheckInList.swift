@@ -43,7 +43,7 @@ struct CheckInList: View {
         let review = draft.review(in: snapshot)
         let sections = CheckInSection.sections(of: draft, in: snapshot)
         let visible = CheckInSection.visibleRows(of: sections, showsOpenedLater: session.showsOpenedLater)
-        let order = CheckInFieldOrder.list(rows: visible, library: snapshot, expanded: session.expanded,
+        let order = CheckInFieldOrder.list(rows: visible, review: review, expanded: session.expanded,
                                            editingFlows: session.editingFlows, editingCash: session.editingCash)
         ScrollViewReader { proxy in
             list(review: review, sections: sections, order: order, proxy: proxy)
@@ -325,7 +325,7 @@ private struct CheckInListRow: View {
         }
         .padding(.vertical, Metrics.xs)
         .swipeActions(edge: .leading, allowsFullSwipe: true) {
-            if CheckInRowDisplay.canMarkUnchanged(row) && row.state != .unchanged {
+            if row.canMarkUnchanged && row.state != .unchanged {
                 Button {
                     markUnchanged()
                 } label: {
@@ -355,7 +355,7 @@ private struct CheckInListRow: View {
     private var name: String { account?.name ?? row.account.rawValue }
     private var currency: CurrencyCode { account?.currency ?? library.baseCurrency }
     private var symbol: String { AmountFormat.symbol(for: currency, locale: locale) }
-    private var rule: FlowDefault { CheckInRowDisplay.flowRule(of: row.account, in: library.library) }
+    private var rule: FlowDefault { review?.flowRule ?? .ask }
     private var showsFlowField: Bool {
         CheckInRowDisplay.showsFlowField(row, rule: rule, isEditing: session.editingFlows.contains(row.account))
     }
@@ -490,7 +490,8 @@ private struct CheckInListRow: View {
             }
             .frame(width: 72)
             .checkInFieldBox(isFocused: focused == field)
-            Text(verbatim: priceText(unit: CheckInWording.unit(of: instrument), price: valued?.price))
+            Text(verbatim: CheckInWording.priceText(unit: CheckInWording.unit(of: instrument), price: valued?.price,
+                                                    locale: locale))
                 .font(.footnote)
                 .foregroundStyle(Palette.secondaryInk)
                 .lineLimit(1)
@@ -787,8 +788,7 @@ private struct CheckInListRow: View {
                     .lineLimit(1)
                     .frame(width: 60, alignment: .leading)
                 VStack(alignment: .leading, spacing: 0) {
-                    Text(verbatim: CheckInWording.quantity(position.quantity, of: position.instrument,
-                                                           instrument: instrument, locale: locale))
+                    Text(verbatim: CheckInWording.quantity(position.quantity, instrument: instrument, locale: locale))
                         .font(.subheadline)
                         .monospacedDigit()
                         .privacySensitive()
@@ -978,7 +978,7 @@ private struct CheckInListRow: View {
 
     @ViewBuilder
     private var rowMenu: some View {
-        if CheckInRowDisplay.canMarkUnchanged(row) && !row.followsTrades {
+        if row.canMarkUnchanged && !row.followsTrades {
             Button {
                 markUnchanged()
             } label: {
@@ -1071,11 +1071,6 @@ private struct CheckInListRow: View {
 
     // MARK: Words
 
-    /// "sh × 138,42 €", "BTC × 111.400,00 $": in the price's own currency.
-    private func priceText(unit: String, price: PriceRecord?) -> String {
-        CheckInWording.priceText(unit: unit, price: price, locale: locale)
-    }
-
     /// "since 31 Aug", or "new" for a position that wasn't held.
     private func sinceText(_ position: CheckInPosition) -> String {
         guard position.previousQuantity != 0, let date = row.previous?.date else { return "new" }
@@ -1107,7 +1102,7 @@ private struct CheckInBottomBar: View {
                 Button("Review") { session.page = .review }
                     .buttonStyle(.borderedProminent)
             } else {
-                Button("Mark rest unchanged") { session.markRestUnchanged(checkIn: checkIn) }
+                Button("Mark rest unchanged") { checkIn.markRestUnchanged() }
                     .buttonStyle(.bordered)
             }
         }

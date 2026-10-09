@@ -43,7 +43,7 @@ struct CheckInScreen: View {
             .confirmationDialog("Keep this check-in for later?", isPresented: $session.showsCancelDialog,
                                 titleVisibility: .visible) {
                 Button("Keep for later") {
-                    session.keepForLater(checkIn: checkIn)
+                    checkIn.persistNow()
                     close()
                 }
                 Button("Discard", role: .destructive) {
@@ -76,13 +76,7 @@ struct CheckInScreen: View {
         if let saved = session.saved {
             CheckInConfirmationView(result: saved) { close() }
         } else if session.isSaving {
-            VStack(spacing: Metrics.m) {
-                ProgressView()
-                Text(verbatim: CheckInWording.savingMessage(date: checkIn.draft?.date, in: library.library))
-                    .foregroundStyle(Palette.secondaryInk)
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(Palette.page)
+            CheckInSavingView()
         } else if let draft = checkIn.draft {
             editor(draft)
         } else {
@@ -197,17 +191,14 @@ struct CheckInScreen: View {
     /// Cancel: closes at once when nothing was entered (throwing the empty
     /// draft away), otherwise asks whether to keep the draft for later.
     private func cancel() {
-        if session.saved != nil {
-            close()
-            return
+        if session.saved == nil, let draft = checkIn.draft {
+            guard !CheckInEditing.hasEdits(draft) else {
+                session.showsCancelDialog = true
+                return
+            }
+            session.discard(checkIn: checkIn)
         }
-        switch session.cancelOutcome(for: checkIn.draft) {
-        case .close:
-            if checkIn.draft != nil { session.discard(checkIn: checkIn) }
-            close()
-        case .ask:
-            session.showsCancelDialog = true
-        }
+        close()
     }
 
     private func close() {

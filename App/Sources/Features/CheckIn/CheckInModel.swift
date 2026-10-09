@@ -151,7 +151,7 @@ struct CheckInFieldOrder: Hashable, Sendable {
     /// to compare (expanded) and its cash when it has a field
     /// (``CheckInRowDisplay/showsCashField(_:isEditing:)``, `editingCash`);
     /// and each new-money field that's shown.
-    static func list(rows: [CheckInRow], library: Library, expanded: Set<AccountID>,
+    static func list(rows: [CheckInRow], review: CheckInReview, expanded: Set<AccountID>,
                      editingFlows: Set<AccountID>, editingCash: Set<AccountID> = []) -> CheckInFieldOrder {
         var fields: [CheckInField] = []
         for row in rows {
@@ -173,7 +173,7 @@ struct CheckInFieldOrder: Hashable, Sendable {
             } else {
                 fields.append(.balance(row.account))
             }
-            let rule = CheckInRowDisplay.flowRule(of: row.account, in: library)
+            let rule = review.row(for: row.account)?.flowRule ?? .ask
             if CheckInRowDisplay.showsFlowField(row, rule: rule, isEditing: editingFlows.contains(row.account)) {
                 fields.append(.flow(row.account))
             }
@@ -278,12 +278,6 @@ struct CheckInSection: Identifiable, Hashable, Sendable {
 
 /// What a row shows, beyond its values.
 enum CheckInRowDisplay {
-    /// How the account's kind fills in new money; `.ask` for an account no
-    /// longer in the library.
-    static func flowRule(of account: AccountID, in library: Library) -> FlowDefault {
-        library.accounts[account]?.kind.defaultFlow ?? .ask
-    }
-
     /// Whether the row shows a field for new money: when the account's kind
     /// asks for it (a pension fund's "contributions since …") and the row
     /// isn't unchanged or skipped, or when the automatic amount is being
@@ -295,23 +289,9 @@ enum CheckInRowDisplay {
         return row.state == .notReviewed || row.state == .updated
     }
 
-    /// Whether "unchanged" means something for the row: there's a previous
-    /// value to keep. A new account has none, so it can only be entered or
-    /// skipped.
-    static func canMarkUnchanged(_ row: CheckInRow) -> Bool {
-        row.canMarkUnchanged
-    }
-
     /// The style of a row's balance field: a debt's reads amounts as owed.
     static func balanceStyle(of account: AccountID, in library: Library) -> CheckInFieldFormat.Style {
         library.accounts[account]?.kind.isLiability == true ? .debt : .amount
-    }
-
-    /// Whether the row's previous value is older than the previous
-    /// check-in, so the row says when it's from ("Last value 31 May").
-    static func isPreviousOld(_ row: CheckInRow, previousCheckIn: CalendarDate?) -> Bool {
-        guard let date = row.previous?.date, let previousCheckIn else { return false }
-        return date < previousCheckIn
     }
 
     // MARK: Trades accounts
@@ -380,13 +360,6 @@ enum CheckInReviewDisplay {
 
 /// Rules the screen applies on top of `CheckInDraft`'s own editing.
 enum CheckInEditing {
-    /// Marks every row not reviewed yet as unchanged. Accounts without a
-    /// previous value (new ones) have nothing to keep, so they're skipped
-    /// instead of getting an empty valuation.
-    static func markRestUnchanged(_ draft: inout CheckInDraft) {
-        draft.markRestUnchanged()
-    }
-
     /// Skips every row not reviewed yet: nothing is written for them, and
     /// they'll show as stale.
     static func skipRest(_ draft: inout CheckInDraft) {
@@ -590,12 +563,6 @@ enum CheckInWording {
             + (hasLaterAccounts ? " Accounts opened after this date are listed at the end, under Opened later." : "")
     }
 
-    /// What shows while a check-in on `date` saves: "Saving…". The plan's
-    /// answer is worked out afterwards, with its progress on the confirmation.
-    static func savingMessage(date: CalendarDate?, in library: Library) -> String {
-        "Saving…"
-    }
-
     /// The confirmation of a past check-in, in place of the answer: "Saved a
     /// past check-in (31 Mar 2024). The answer isn't recorded for past dates."
     static func pastCheckInSaved(on date: CalendarDate, latest: CalendarDate?, locale: Locale = .current) -> String {
@@ -611,9 +578,7 @@ enum CheckInWording {
     /// previous check-in.
     static func lastValueNote(for row: CheckInRow, previousCheckIn: CalendarDate?,
                               locale: Locale = .current) -> String? {
-        guard CheckInRowDisplay.isPreviousOld(row, previousCheckIn: previousCheckIn),
-              let date = row.previous?.date
-        else { return nil }
+        guard let date = row.previous?.date, let previousCheckIn, date < previousCheckIn else { return nil }
         return "Last value " + AmountFormat.shortDate(date, locale: locale)
     }
 
@@ -626,8 +591,8 @@ enum CheckInWording {
             return row.cash.map { _ in "Cash only" } ?? "No positions"
         }
         if held.count == 1, let position = held.first {
-            let quantity = self.quantity(position.quantity, of: position.instrument,
-                                         instrument: instruments[position.instrument], locale: locale)
+            let quantity = self.quantity(position.quantity, instrument: instruments[position.instrument],
+                                         locale: locale)
             return position.quantityChange == 0 ? quantity : quantity + " · changed"
         }
         let changed = held.count { $0.quantityChange != 0 }
@@ -765,14 +730,8 @@ enum CheckInWording {
 
     /// A quantity with its unit: "412,5 sh", "0,4215 BTC", "62,2 g"
     /// (``QuantityFormat``).
-    static func quantity(_ quantity: Decimal, of id: InstrumentID, instrument: Instrument?,
-                         locale: Locale = .current) -> String {
+    static func quantity(_ quantity: Decimal, instrument: Instrument?, locale: Locale = .current) -> String {
         QuantityFormat.quantity(quantity, unit: QuantityFormat.unit(of: instrument), locale: locale)
-    }
-
-    /// A change in quantity with its sign: "+10,5", "−5".
-    static func quantityChange(_ change: Decimal, locale: Locale = .current) -> String {
-        QuantityFormat.quantityChange(change, locale: locale)
     }
 
     /// A position's price in the check-in: "× 138,42 €", in the price's own
@@ -824,11 +783,6 @@ struct CheckInTradeFlow: Hashable, Sendable {
         let parts = valuator.tradeFlowParts(of: row.account, on: date, previous: row.previous)
         let residual = row.cash.map { $0 - (row.derived?.cash ?? 0) }
         return CheckInTradeFlow(recorded: parts.recorded, paidOutside: parts.paidOutside, residual: residual)
-    }
-
-    /// `recorded + residual`: the check-in's default new money.
-    var total: Decimal? {
-        recorded.map { $0 + (residual ?? 0) }
     }
 }
 

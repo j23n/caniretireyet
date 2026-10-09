@@ -26,14 +26,6 @@ final class CheckInSession {
         case skip
     }
 
-    /// What Cancel does.
-    enum CancelOutcome: Hashable, Sendable {
-        /// Close at once: nothing was entered.
-        case close
-        /// Ask whether to keep the draft for later or discard it.
-        case ask
-    }
-
     var page: Page?
     /// Holdings rows showing their positions (iPhone).
     var expanded: Set<AccountID> = []
@@ -75,7 +67,7 @@ final class CheckInSession {
     func appear(checkIn: CheckInStore, library: LibraryStore) {
         guard !hasAppeared else { return }
         hasAppeared = true
-        guard saved == nil, !isSaving, library.canEdit, !library.hasNoAccounts else { return }
+        guard library.canEdit, !library.hasNoAccounts else { return }
         if let draft = checkIn.draft {
             if CheckInEditing.hasEdits(draft) { resumedDate = draft.date }
             checkIn.begin()
@@ -114,10 +106,9 @@ final class CheckInSession {
     }
 
     /// Opens the trade editor on a new trade of a trades account, on the
-    /// check-in's `date`, optionally for `instrument` (e.g. one a statement
-    /// shows more of than the trades).
-    func addTrade(to account: AccountID, on date: CalendarDate, instrument: InstrumentID? = nil) {
-        tradeRequest = TradeEditorTarget(account: account, date: date, instrument: instrument)
+    /// check-in's `date`.
+    func addTrade(to account: AccountID, on date: CalendarDate) {
+        tradeRequest = TradeEditorTarget(account: account, date: date)
     }
 
     /// Shows a row's new-money field and asks for the focus there.
@@ -168,11 +159,6 @@ final class CheckInSession {
         }
     }
 
-    /// Marks the rows not reviewed yet as unchanged (new accounts are skipped).
-    func markRestUnchanged(checkIn: CheckInStore) {
-        checkIn.markRestUnchanged()
-    }
-
     /// Goes back from the review to a row, focusing `field` if given (a
     /// new-money field is shown first). A row of an account that opens later
     /// (`opensLater`) opens its section first.
@@ -185,17 +171,6 @@ final class CheckInSession {
     }
 
     // MARK: Cancelling
-
-    /// Whether Cancel closes at once or asks first.
-    func cancelOutcome(for draft: CheckInDraft?) -> CancelOutcome {
-        guard let draft, CheckInEditing.hasEdits(draft) else { return .close }
-        return .ask
-    }
-
-    /// Keeps the draft on this device for later.
-    func keepForLater(checkIn: CheckInStore) {
-        checkIn.persistNow()
-    }
 
     /// Throws the draft away.
     func discard(checkIn: CheckInStore) {
@@ -212,16 +187,12 @@ final class CheckInSession {
     /// typed is lost. Values saved on the same date on another device are
     /// never overwritten without a choice: rows still in conflict keep the
     /// saved values, and conflicts found just before writing stop the save.
-    func save(checkIn: CheckInStore, library: LibraryStore, rest: Rest? = nil) async {
+    func save(checkIn: CheckInStore, rest: Rest? = nil) async {
         guard !isSaving else { return }
         switch rest {
-        case .markUnchanged?: markRestUnchanged(checkIn: checkIn)
+        case .markUnchanged?: checkIn.markRestUnchanged()
         case .skip?: checkIn.update { CheckInEditing.skipRest(&$0) }
         case nil: break
-        }
-        guard checkIn.draft != nil else {
-            saveError = CheckInStoreError.noDraft.errorDescription
-            return
         }
         isSaving = true
         saveError = nil
@@ -237,12 +208,6 @@ final class CheckInSession {
             saveError = (saveError ?? "") + " The check-in is kept as a draft on this device, so nothing is lost: "
                 + "try saving again."
         }
-    }
-
-    /// Settles a conflict with a value saved on another device (see
-    /// `CheckInRow.conflict`): keep the saved value, or use the one entered.
-    func resolveConflict(of account: AccountID, keepingSaved: Bool, checkIn: CheckInStore) {
-        checkIn.resolveConflict(of: account, keepingSaved: keepingSaved)
     }
 
     static func describe(_ error: any Error) -> String {

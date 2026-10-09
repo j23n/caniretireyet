@@ -276,7 +276,7 @@ private struct CheckInTableRow: View {
     private var account: Account? { library.account(row.account) }
     private var name: String { account?.name ?? row.account.rawValue }
     private var currency: CurrencyCode { account?.currency ?? library.baseCurrency }
-    private var rule: FlowDefault { CheckInRowDisplay.flowRule(of: row.account, in: library.library) }
+    private var rule: FlowDefault { review?.flowRule ?? .ask }
 
     /// "FinecoBank", "3 positions · 1 changed", "last value 31 May", plus
     /// the currency when it isn't the base one. For an account that opens
@@ -316,7 +316,7 @@ private struct CheckInTableRow: View {
     /// What the state cell says on hover.
     private var stateHelp: String {
         if row.followsTrades { return "From trades: its value and new money come from its trades" }
-        guard CheckInRowDisplay.canMarkUnchanged(row) else { return CheckInWording.stateName(for: row) }
+        guard row.canMarkUnchanged else { return CheckInWording.stateName(for: row) }
         return row.isTrades ? "Use the trades' values" : "Mark unchanged"
     }
 
@@ -330,7 +330,7 @@ private struct CheckInTableRow: View {
                 CheckInStateIndicator(row: row, size: 20)
             }
             .buttonStyle(.plain)
-            .disabled(!CheckInRowDisplay.canMarkUnchanged(row) || row.state == .unchanged)
+            .disabled(!row.canMarkUnchanged || row.state == .unchanged)
             .help(stateHelp)
         } account: {
             HStack(spacing: 0) {
@@ -434,7 +434,7 @@ private struct CheckInTableRow: View {
             HStack(spacing: 0) {
                 Text(verbatim: CheckInWording.instrumentLabel(position.instrument, instrument: instrument))
                     .fontWeight(.medium)
-                Text(verbatim: " · " + priceText(valued?.price) + " = ")
+                Text(verbatim: " · " + CheckInWording.priceText(unit: "", price: valued?.price, locale: locale) + " = ")
                     .foregroundStyle(Palette.secondaryInk)
                 CheckInPlainAmount(valued?.value)
                     .foregroundStyle(Palette.secondaryInk)
@@ -442,8 +442,7 @@ private struct CheckInTableRow: View {
             .lineLimit(1)
             .padding(.leading, Metrics.l)
         } last: {
-            Text(verbatim: CheckInWording.quantity(position.previousQuantity, of: position.instrument,
-                                                   instrument: instrument, locale: locale))
+            Text(verbatim: CheckInWording.quantity(position.previousQuantity, instrument: instrument, locale: locale))
                 .monospacedDigit()
                 .foregroundStyle(Palette.secondaryInk)
         } now: {
@@ -492,7 +491,7 @@ private struct CheckInTableRow: View {
             HStack(spacing: 0) {
                 Text(verbatim: CheckInWording.instrumentLabel(position.instrument, instrument: instrument))
                     .fontWeight(.medium)
-                Text(verbatim: " · " + priceText(position.price) + " = ")
+                Text(verbatim: " · " + CheckInWording.priceText(unit: "", price: position.price, locale: locale) + " = ")
                     .foregroundStyle(Palette.secondaryInk)
                 CheckInPlainAmount(position.value)
                     .foregroundStyle(Palette.secondaryInk)
@@ -500,13 +499,11 @@ private struct CheckInTableRow: View {
             .lineLimit(1)
             .padding(.leading, Metrics.l)
         } last: {
-            Text(verbatim: CheckInWording.quantity(position.previousQuantity, of: position.instrument,
-                                                   instrument: instrument, locale: locale))
+            Text(verbatim: CheckInWording.quantity(position.previousQuantity, instrument: instrument, locale: locale))
                 .monospacedDigit()
                 .foregroundStyle(Palette.secondaryInk)
         } now: {
-            Text(verbatim: CheckInWording.quantity(position.quantity, of: position.instrument, instrument: instrument,
-                                                   locale: locale))
+            Text(verbatim: CheckInWording.quantity(position.quantity, instrument: instrument, locale: locale))
                 .monospacedDigit()
                 .privacySensitive()
                 .help("From the account's trades. Add a trade to change it.")
@@ -538,8 +535,7 @@ private struct CheckInTableRow: View {
             .lineLimit(1)
             .padding(.leading, Metrics.l)
         } last: {
-            Text(verbatim: CheckInWording.quantity(position.previousQuantity, of: position.instrument,
-                                                   instrument: instrument, locale: locale))
+            Text(verbatim: CheckInWording.quantity(position.previousQuantity, instrument: instrument, locale: locale))
                 .monospacedDigit()
                 .foregroundStyle(Palette.secondaryInk)
                 .help("What the trades give")
@@ -702,7 +698,7 @@ private struct CheckInTableRow: View {
 
     @ViewBuilder
     private var rowMenu: some View {
-        if CheckInRowDisplay.canMarkUnchanged(row) && !row.followsTrades {
+        if row.canMarkUnchanged && !row.followsTrades {
             Button(CheckInWording.markUnchangedTitle(for: row)) { markUnchanged() }
         }
         Button("Skip This Time") {
@@ -754,11 +750,6 @@ private struct CheckInTableRow: View {
     private func markUnchanged() {
         session.markUnchanged(row.account, checkIn: checkIn)
     }
-
-    /// "× 138,42 €", "× 111.400,00 $": in the price's own currency.
-    private func priceText(_ price: PriceRecord?) -> String {
-        CheckInWording.priceText(unit: "", price: price, locale: locale)
-    }
 }
 
 // MARK: - Footer
@@ -792,7 +783,7 @@ private struct CheckInTableFooter: View {
                 .font(.caption)
                 .foregroundStyle(Palette.mutedInk)
                 .lineLimit(1)
-            Button("Mark rest unchanged") { session.markRestUnchanged(checkIn: checkIn) }
+            Button("Mark rest unchanged") { checkIn.markRestUnchanged() }
                 .disabled(draft.isReadyToSave)
                 .keyboardShortcut("u", modifiers: [.command, .shift])
                 .help("Keeps the last value of every account not reviewed yet (⇧⌘U)")

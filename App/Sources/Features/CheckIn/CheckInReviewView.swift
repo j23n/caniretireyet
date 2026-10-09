@@ -58,13 +58,7 @@ struct CheckInReviewView: View {
     @ViewBuilder
     private var content: some View {
         if session.isSaving {
-            VStack(spacing: Metrics.m) {
-                ProgressView()
-                Text(verbatim: CheckInWording.savingMessage(date: checkIn.draft?.date, in: library.library))
-                    .foregroundStyle(Palette.secondaryInk)
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(Palette.page)
+            CheckInSavingView()
         } else if let draft = checkIn.draft {
             ScrollView {
                 CheckInReviewContent(draft: draft, review: draft.review(in: library.library), session: session,
@@ -100,7 +94,7 @@ struct CheckInReviewView: View {
             return
         }
         Task {
-            await session.save(checkIn: checkIn, library: library, rest: rest)
+            await session.save(checkIn: checkIn, rest: rest)
         }
     }
 }
@@ -201,8 +195,7 @@ private struct CheckInReviewContent: View {
                     .foregroundStyle(Palette.secondaryInk)
                     .fixedSize(horizontal: false, vertical: true)
                 ForEach(draft.conflicts) { row in
-                    CheckInConflictRow(row: row, mine: review.row(for: row.account)?.value?.knownValue,
-                                       session: session)
+                    CheckInConflictRow(row: row, mine: review.row(for: row.account)?.value?.knownValue)
                 }
             }
         }
@@ -225,7 +218,7 @@ private struct CheckInReviewContent: View {
                     .foregroundStyle(Palette.secondaryInk)
                     .fixedSize(horizontal: false, vertical: true)
                 HStack(spacing: Metrics.s) {
-                    Button("Mark unchanged") { session.markRestUnchanged(checkIn: checkIn) }
+                    Button("Mark unchanged") { checkIn.markRestUnchanged() }
                         .buttonStyle(.borderedProminent)
                     Button("Skip them") { checkIn.update { CheckInEditing.skipRest(&$0) } }
                         .buttonStyle(.bordered)
@@ -317,7 +310,6 @@ private struct CheckInConflictRow: View {
     let row: CheckInRow
     /// The value entered here, in the base currency.
     let mine: Decimal?
-    let session: CheckInSession
 
     @Environment(CheckInStore.self) private var checkIn
     @Environment(LibraryStore.self) private var library
@@ -345,11 +337,11 @@ private struct CheckInConflictRow: View {
             .font(.footnote)
             HStack(spacing: Metrics.s) {
                 Button("Keep saved") {
-                    session.resolveConflict(of: row.account, keepingSaved: true, checkIn: checkIn)
+                    checkIn.resolveConflict(of: row.account, keepingSaved: true)
                 }
                 .buttonStyle(.borderedProminent)
                 Button("Use mine") {
-                    session.resolveConflict(of: row.account, keepingSaved: false, checkIn: checkIn)
+                    checkIn.resolveConflict(of: row.account, keepingSaved: false)
                 }
                 .buttonStyle(.bordered)
             }
