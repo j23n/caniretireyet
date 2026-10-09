@@ -66,33 +66,20 @@ struct PlanTimeline {
             max(0, end.timeIntervalSince(start)) / PlanTimeline.secondsPerYear
         }
 
-        /// The median on `date`, between the fan's points.
-        func median(on date: Date) -> Double? {
-            guard let first = fan.first else { return nil }
-            if date <= first.date { return first.p50 }
-            for (from, to) in zip(fan, fan.dropFirst()) where date <= to.date {
-                let span = to.date.timeIntervalSince(from.date)
-                let t = span > 0 ? date.timeIntervalSince(from.date) / span : 1
-                return from.p50 + (to.p50 - from.p50) * t
-            }
-            return fan.last?.p50
-        }
-
         /// The fan on `date`, each percentile between the fan's points.
         func fan(on date: Date) -> FanPoint? {
             guard let first = fan.first, let last = fan.last else { return nil }
-            if date <= first.date { return FanPoint(date: date, p10: first.p10, p25: first.p25, p50: first.p50,
-                                                    p75: first.p75, p90: first.p90) }
+            func point(_ value: (KeyPath<FanPoint, Double>) -> Double) -> FanPoint {
+                FanPoint(date: date, p10: value(\.p10), p25: value(\.p25), p50: value(\.p50), p75: value(\.p75),
+                         p90: value(\.p90))
+            }
+            if date <= first.date { return point { first[keyPath: $0] } }
             for (from, to) in zip(fan, fan.dropFirst()) where date <= to.date {
                 let span = to.date.timeIntervalSince(from.date)
                 let t = span > 0 ? date.timeIntervalSince(from.date) / span : 1
-                func between(_ path: KeyPath<FanPoint, Double>) -> Double {
-                    from[keyPath: path] + (to[keyPath: path] - from[keyPath: path]) * t
-                }
-                return FanPoint(date: date, p10: between(\.p10), p25: between(\.p25), p50: between(\.p50),
-                                p75: between(\.p75), p90: between(\.p90))
+                return point { from[keyPath: $0] + (to[keyPath: $0] - from[keyPath: $0]) * t }
             }
-            return FanPoint(date: date, p10: last.p10, p25: last.p25, p50: last.p50, p75: last.p75, p90: last.p90)
+            return point { last[keyPath: $0] }
         }
 
         /// Your age on `date`.

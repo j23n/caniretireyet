@@ -281,7 +281,7 @@ struct PlanChapterCardView: View {
         let text = PlanMilestoneText(currency: currency, hidesAmounts: hidesAmounts, locale: locale)
         var marks: [Mark] = card.milestones.compactMap { milestone in
             let day = milestone.date.dateValue
-            return card.median(on: day).map { Mark(milestone: milestone, point: point(day, $0, scale)) }
+            return card.fan(on: day).map { Mark(milestone: milestone, point: point(day, $0.p50, scale)) }
         }
         guard !marks.isEmpty else { return [] }
         /// Where a name and its flag reach, about: 6 points a letter.
@@ -501,7 +501,7 @@ struct PlanChapterCardView: View {
         context.stroke(median, with: .color(Palette.accent),
                        style: StrokeStyle(lineWidth: Metrics.lineWidth, lineCap: .round, lineJoin: .round))
         for event in card.events {
-            guard let value = card.median(on: event.date) else { continue }
+            guard let value = card.fan(on: event.date)?.p50 else { continue }
             let center = point(event.date, value, scale)
             let dot = Path(ellipseIn: CGRect(x: center.x - 4, y: center.y - 4, width: 8, height: 8))
             context.fill(dot, with: .color(Self.color(of: event.kind)))

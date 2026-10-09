@@ -31,24 +31,16 @@ struct PlanChaptersModel {
 
     /// Where the money stands at the end of a chapter.
     struct Outcome: Hashable, Sendable {
-        /// The chapter's last year, and the age reached in it.
-        var year: Int
+        /// The age reached in the chapter's last year.
         var age: Int
         /// Plan assets at that year's end, in today's money: 1 in 10
         /// futures below `low`, half below `median`, 1 in 10 above `high`.
         var low: Double
         var median: Double
         var high: Double
-        /// The futures whose money runs out during the chapter; `nil` when
-        /// the results don't say (the preview engine).
-        var failures: Int?
-        /// Every future simulated.
-        var runs: Int
-
-        /// `failures / runs`.
-        var failureShare: Double? {
-            failures.map { runs > 0 ? Double($0) / Double(runs) : 0 }
-        }
+        /// The share of futures whose money runs out during the chapter;
+        /// `nil` when the results don't say (the preview engine).
+        var failureShare: Double?
     }
 
     let plan: PlanDocument
@@ -111,14 +103,15 @@ struct PlanChaptersModel {
             if date.month == 12, date.day == 31 { yearEnds[date.year] = point }
         }
         let failures = results.details?.focus.failuresByAge
+        let runs = Double(results.runs)
         var outcomes: [Int: Outcome] = [:]
         for (index, chapter) in chapters.chapters.enumerated() {
             guard let end = yearEnds[chapter.years.upperBound] else { continue }
             let failing = failures.map { counts in
                 counts.filter { chapter.ages.contains($0.age) }.reduce(0) { $0 + $1.count }
             }
-            outcomes[index] = Outcome(year: chapter.years.upperBound, age: chapter.ages.upperBound, low: end.p10,
-                                      median: end.p50, high: end.p90, failures: failing, runs: results.runs)
+            outcomes[index] = Outcome(age: chapter.ages.upperBound, low: end.p10, median: end.p50, high: end.p90,
+                                      failureShare: failing.map { runs > 0 ? Double($0) / runs : 0 })
         }
         return outcomes
     }
@@ -227,7 +220,7 @@ struct PlanChaptersModel {
 
     /// 31 December of `year`.
     static func lastDay(of year: Int) -> CalendarDate {
-        YearMonth(year: year, month: 12)?.lastDay ?? CalendarDate(year: year, month: 12, day: 31) ?? .today()
+        CalendarDate(year: year, month: 12, day: 31) ?? .today()
     }
 
     // MARK: Inputs in words
