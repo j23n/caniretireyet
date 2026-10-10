@@ -3,11 +3,14 @@
 # screenshots"), kept as the `screenshots` artifact.
 name: CI
 
-# apple-ci's workflows run each job once per commit: Linux on every push, macOS on pull requests,
-# pushes to main and runs by hand (Actions › CI › Run workflow), as its README's "When CI runs" says.
+# apple-ci's workflows decide when each job runs (its README's "When CI runs"): Linux on every push;
+# macOS on pushes to main, runs by hand (Actions › CI › Run workflow), and a pull request once it's
+# labeled ci:mac, which Claude's review adds when the change needs the Mac's build.
 on:
   push:
   pull_request:
+    # labeled: the ci:mac label runs the Mac's jobs on a pull request (apple-ci's README, "When CI runs").
+    types: [opened, synchronize, reopened, labeled]
   workflow_dispatch:
 
 permissions:
@@ -15,7 +18,9 @@ permissions:
 
 # A newer push to the same branch or pull request cancels the run in progress.
 concurrency:
-  group: ci-${{ github.ref }}
+  # A label's run has a group of its own, so labeling a pull request for another reason doesn't cancel
+  # the Mac's run.
+  group: ci-${{ github.ref }}-${{ github.event.label.name }}
   cancel-in-progress: true
 
 jobs:
