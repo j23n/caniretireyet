@@ -9,10 +9,14 @@ swift build
 swift test
 swift test --filter ModelTests          # one test target
 swift run retire --help                 # the CLI
+make test                               # the same through make, as on every j23n app
+make build                              # the app for the iOS Simulator and the Mac (a Mac only)
 ```
 
+- **`make` is the shared interface** (j23n/apple-ci's build contract): `make project`, `make build`, `make screenshots` (the UI tests), and `make ci-linux` and `make ci-macos`, which CI runs through apple-ci's shared workflows. `.apple-ci/apple.mk` is a copy of apple-ci's rules: don't edit it; `make update-apple-ci` refreshes it.
+
 - **Cloud sessions (Linux):** the Swift toolchain is in `/opt/swift/usr/bin`, not on the PATH. Prefix every shell command that uses Swift with `export PATH=/opt/swift/usr/bin:$PATH;`. Keep the default build directory (`.build`).
-- **The app** can only be built on a Mac: `brew install xcodegen && xcodegen generate --spec App/project.yml`, then open `App/CanIRetireYet.xcodeproj`. The project is generated, never committed. CI (`.github/workflows/ci.yml`) builds the package on Linux and macOS, and the app with its widgets for the iOS Simulator and the Mac; its screenshots job runs the UI tests (`App/UITests`), which open each screen on the Mac and an iPhone simulator, and uploads their screenshots (App/README.md, "UI tests and screenshots").
+- **The app** can only be built on a Mac: `make bootstrap` (XcodeGen, then `xcodegen generate --spec App/project.yml`), then open `App/CanIRetireYet.xcodeproj`. The project is generated, never committed. CI (`.github/workflows/ci.yml`) builds the package on Linux and macOS, and the app with its widgets for the iOS Simulator and the Mac (`make ci-macos`, which also checks the icons); its screenshots job runs the UI tests (`App/UITests`, `make screenshots`), which open each screen on the Mac and an iPhone simulator, and uploads their screenshots (App/README.md, "UI tests and screenshots").
 - `swift build` and `swift test` must pass with no warnings in our code before every commit.
 - **Stale builds:** after a change to a stored property of a Model type, an incremental build can link stale objects. The symptom is an "undefined reference" linker error, or a test crashing with signal 11 while releasing that type. `rm -rf .build` and rebuild before looking for a code bug.
 - **SwiftUI code can't be compiled on Linux.** App changes are only checked by CI's macOS job. Its `xcodebuild -quiet` log ends with the compiler errors.

@@ -1,3 +1,6 @@
+# The shared Linux and macOS jobs (j23n/apple-ci), which run `make ci-linux` and `make ci-macos`,
+# and the UI tests with their screenshots (`make screenshots`, App/README.md "UI tests and
+# screenshots"), kept as the `screenshots` artifact.
 name: CI
 
 on:
@@ -14,126 +17,20 @@ concurrency:
 
 jobs:
   linux:
-    name: Linux · swift build and test
-    runs-on: ubuntu-latest
-    container: swift:6.3-noble
-    steps:
-      - uses: actions/checkout@v5
-      - name: Build
-        run: swift build
-      - name: Test
-        run: swift test
+    uses: j23n/apple-ci/.github/workflows/linux.yml@main
+    with:
+      name: Linux · swift build and test
 
-  apple:
-    name: macOS · package and app (iOS Simulator and Mac)
-    runs-on: macos-26
-    steps:
-      - uses: actions/checkout@v5
-      - name: Toolchain
-        run: |
-          xcodebuild -version
-          swift --version
-      - name: Build the package
-        run: swift build
-      - name: Install XcodeGen
-        run: brew install xcodegen
-      - name: Generate the Xcode project
-        run: xcodegen generate --spec App/project.yml
-      - name: Build the app for iOS Simulator
-        run: >
-          xcodebuild build -quiet
-          -project App/CanIRetireYet.xcodeproj
-          -scheme CanIRetireYet
-          -destination 'generic/platform=iOS Simulator'
-          -derivedDataPath "${{ runner.temp }}/DerivedData"
-          CODE_SIGNING_ALLOWED=NO
-      - name: Build the app for macOS
-        # Runs even when the iOS build failed, so one run reports both platforms' errors.
-        if: success() || failure()
-        run: >
-          xcodebuild build -quiet
-          -project App/CanIRetireYet.xcodeproj
-          -scheme CanIRetireYet
-          -destination 'platform=macOS'
-          -derivedDataPath "${{ runner.temp }}/DerivedData"
-          CODE_SIGNING_ALLOWED=NO
-      - name: Check the apps' icons
-        # An app without its icon still builds (an empty or missing
-        # ASSETCATALOG_COMPILER_APPICON_NAME, an icon set the platform can't
-        # use), so look in the built bundles: the icon's name in Info.plist,
-        # and its images in the compiled asset catalog (and the Mac's .icns).
-        if: success() || failure()
-        run: |
-          products="${{ runner.temp }}/DerivedData/Build/Products"
-          mac="$products/Debug/CanIRetireYet.app/Contents"
-          ios="$products/Debug-iphonesimulator/CanIRetireYet.app"
-          echo "Mac Info.plist:"; plutil -p "$mac/Info.plist" | grep -i icon || true
-          echo "Mac Resources:"; ls -l "$mac/Resources"
-          echo "Mac Assets.car, AppIcon renditions:"
-          xcrun assetutil --info "$mac/Resources/Assets.car" | grep -c '"Name" : "AppIcon"' || true
-          echo "iOS Info.plist:"; plutil -p "$ios/Info.plist" | grep -i -A4 icon || true
-          test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIconName' "$mac/Info.plist")" = AppIcon
-          test -s "$mac/Resources/AppIcon.icns"
-          xcrun assetutil --info "$mac/Resources/Assets.car" | grep -q '"Name" : "AppIcon"'
-          test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIcons:CFBundlePrimaryIcon:CFBundleIconName' "$ios/Info.plist")" = AppIcon
-      - name: Test the package
-        # Also runs the code inside `#if canImport(Darwin)` (CloudSync's
-        # iCloud file versions, watcher and downloader), which Linux skips.
-        # Runs even when an app build failed, like the macOS app build.
-        if: success() || failure()
-        run: swift test
+  macos:
+    uses: j23n/apple-ci/.github/workflows/macos.yml@main
+    with:
+      name: macOS · package and app (iOS Simulator and Mac)
 
   screenshots:
-    name: macOS · UI tests and screenshots (Mac and iPhone Simulator)
-    runs-on: macos-26
-    timeout-minutes: 60
-    steps:
-      - uses: actions/checkout@v5
-      - name: Install XcodeGen
-        run: brew install xcodegen
-      - name: Generate the Xcode project
-        run: xcodegen generate --spec App/project.yml
-      - name: Let the UI tests drive the Mac
-        run: sudo automationmodetool enable-automationmode-without-authentication || true
-      - name: UI tests on the Mac
-        # Signed to run locally, without the entitlements (iCloud, the App
-        # Group) that an app without a provisioning profile can't launch
-        # with: the tests' library is in memory (App/UITests).
-        run: >
-          mkdir -p "${{ runner.temp }}/results" &&
-          xcodebuild test
-          -project App/CanIRetireYet.xcodeproj
-          -scheme CanIRetireYet
-          -destination 'platform=macOS'
-          -derivedDataPath "${{ runner.temp }}/DerivedData"
-          -resultBundlePath "${{ runner.temp }}/results/mac.xcresult"
-          CODE_SIGN_IDENTITY=- CODE_SIGN_STYLE=Manual DEVELOPMENT_TEAM= PROVISIONING_PROFILE_SPECIFIER=
-          CODE_SIGN_ENTITLEMENTS= ENABLE_HARDENED_RUNTIME=NO
-      - name: UI tests on iPhone
-        if: success() || failure()
-        run: |
-          mkdir -p "${{ runner.temp }}/results"
-          device=$(python3 .github/scripts/screenshots.py pick-iphone)
-          xcodebuild test \
-            -project App/CanIRetireYet.xcodeproj \
-            -scheme CanIRetireYet \
-            -destination "platform=iOS Simulator,id=$device" \
-            -derivedDataPath "${{ runner.temp }}/DerivedData" \
-            -resultBundlePath "${{ runner.temp }}/results/iphone.xcresult" \
-            CODE_SIGNING_ALLOWED=NO
-      - name: Collect the screenshots
-        if: success() || failure()
-        run: python3 .github/scripts/screenshots.py collect "${{ runner.temp }}/results" "${{ runner.temp }}/screenshots"
-      - name: Upload the screenshots
-        if: success() || failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: screenshots
-          path: ${{ runner.temp }}/screenshots
-          if-no-files-found: warn
-      - name: Print the screenshots (small JPEGs in base64, to read them from the log)
-        if: success() || failure()
-        run: python3 .github/scripts/screenshots.py print "${{ runner.temp }}/screenshots"
-      - name: Failed UI tests
-        if: success() || failure()
-        run: python3 .github/scripts/screenshots.py failures "${{ runner.temp }}/results"
+    uses: j23n/apple-ci/.github/workflows/macos.yml@main
+    with:
+      name: macOS · UI tests and screenshots (Mac and iPhone Simulator)
+      run: make screenshots
+      ui-automation: true
+      artifact-name: screenshots
+      artifact-path: .build/screenshots
