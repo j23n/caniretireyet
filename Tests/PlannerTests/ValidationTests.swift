@@ -50,6 +50,11 @@ struct ValidationTests {
         #expect(!zero.issues.contains { $0.code == "planner.noInvestmentRate" })
         #expect(unset.successCurve == zero.successCurve)
         #expect(unset.answer.earliestAge == zero.answer.earliestAge)
+        #expect(unset.medianPath == zero.medianPath)
+        // The control: this plan's results do depend on the rate.
+        plan.tax.investmentRate = d("0.26")
+        let taxed = try await Sample.run(plan, library)
+        #expect(taxed.medianPath != zero.medianPath)
     }
 
     @Test func taxRatesOutOfRangeAreErrors() {
