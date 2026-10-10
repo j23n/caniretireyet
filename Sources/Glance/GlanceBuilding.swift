@@ -61,18 +61,35 @@ extension NetWorthGlance {
         self.init(
             date: now.date, total: now.total, isComplete: now.isComplete,
             sinceLastCheckIn: valuator.changeSinceLastCheckIn(asOf: now.date, in: .netWorth).map(NetWorthChange.init),
-            thisYear: Self.changeThisYear(valuator: valuator, now: now), history: history ?? [])
+            thisYear: Self.relativeChangeThisYear(valuator: valuator, now: now), history: history ?? [])
     }
 
     /// The change since 31 December of last year: `nil` without a value by
     /// then, or when it was zero.
-    private static func changeThisYear(valuator: Valuator, now: NetWorth) -> Double? {
-        guard let yearEnd = YearMonth(year: now.date.year - 1, month: 12)?.lastDay, yearEnd < now.date,
-              let first = valuator.firstValuationDate(in: .netWorth), first <= yearEnd
-        else { return nil }
+    private static func relativeChangeThisYear(valuator: Valuator, now: NetWorth) -> Double? {
+        guard let yearEnd = valuator.endOfLastYear(before: now.date) else { return nil }
         let start = valuator.total(on: yearEnd, in: .netWorth).total
         guard start != 0 else { return nil }
         return ((now.total - start) / abs(start)).doubleValue
+    }
+}
+
+extension Valuator {
+    /// 31 December of the year before `date`, where "this year" starts for
+    /// the Overview's hero and its *This year*: `nil` when net worth has no
+    /// value by then, so a library started this year has no change this year.
+    public func endOfLastYear(before date: CalendarDate) -> CalendarDate? {
+        guard let yearEnd = YearMonth(year: date.year - 1, month: 12)?.lastDay, yearEnd < date,
+              let first = firstValuationDate(in: .netWorth), first <= yearEnd
+        else { return nil }
+        return yearEnd
+    }
+
+    /// How net worth changed from 31 December of last year to `date`, split
+    /// into markets, new money and other (``change(from:to:in:)``), for the
+    /// Overview's *This year*; `nil` without a value by 31 December.
+    public func changeThisYear(asOf date: CalendarDate) -> ChangeReport? {
+        endOfLastYear(before: date).map { change(from: $0, to: date, in: .netWorth) }
     }
 }
 

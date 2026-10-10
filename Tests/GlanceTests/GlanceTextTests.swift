@@ -31,6 +31,15 @@ struct RetirementCountdownTests {
         #expect(RetirementCountdown(years: 0, months: 6).text == "6 m")
         #expect(RetirementCountdown(years: 0, months: 0).text == "under a month")
     }
+
+    @Test func readsAsTimeToGo() {
+        #expect(RetirementCountdown(years: 15, months: 5).toGoText == "about 15 years to go")
+        #expect(RetirementCountdown(years: 15, months: 6).toGoText == "about 16 years to go")
+        #expect(RetirementCountdown(years: 2, months: 0).toGoText == "about 2 years to go")
+        #expect(RetirementCountdown(years: 1, months: 11).toGoText == "23 months to go")
+        #expect(RetirementCountdown(years: 0, months: 1).toGoText == "1 month to go")
+        #expect(RetirementCountdown(years: 0, months: 0).toGoText == "under a month to go")
+    }
 }
 
 struct CheckInGlanceTests {
