@@ -26,7 +26,7 @@
   ],
   "valuations": [
     { "account": "conto-deposito", "balance": "16830.5", "date": "2026-08-31", "flow": "0" },
-    { "account": "conto-fineco", "balance": "4515.2", "date": "2026-08-31", "flow": "534.8" },
+    { "account": "conto-fineco", "balance": "4515.2", "date": "2026-08-31", "flow": "534.8", "moneyIn": "3400", "moneyOut": "2865.2" },
     { "account": "directa", "cash": "300.8", "date": "2026-08-31", "flow": "200.6" },
     { "account": "mutuo-casa", "balance": "-141700", "date": "2026-08-31", "flow": "650" }
   ]

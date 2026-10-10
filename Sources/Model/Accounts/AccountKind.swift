@@ -51,6 +51,12 @@ extension AccountKind {
         self == .loan || self == .mortgage || self == .creditCard
     }
 
+    /// Whether valuations of this kind can record money in and out
+    /// (`moneyIn`, `moneyOut`): cash and savings accounts.
+    public var recordsMoneyInOut: Bool {
+        self == .cash || self == .savings
+    }
+
     /// How the check-in pre-fills a valuation's `flow` for this kind
     /// (PROGRESS.md, "Data this needs from day one").
     public var defaultFlow: FlowDefault {

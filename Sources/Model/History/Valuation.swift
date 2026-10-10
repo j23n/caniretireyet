@@ -16,13 +16,23 @@ public struct Valuation: Hashable, Sendable, KeyedRecord, KnownKeysProviding {
     /// Net money added (+) or taken out (−) since the account's previous
     /// valuation, in the account's currency. `nil` means unknown.
     public var flow: Decimal?
+    /// Money that arrived from outside the tracked accounts since the
+    /// account's previous valuation (salary, refunds), in the account's
+    /// currency. Transfers between tracked accounts aren't counted. `nil`
+    /// means not tracked. Only cash and savings accounts record it.
+    public var moneyIn: Decimal?
+    /// Money that left the tracked accounts since the account's previous
+    /// valuation (spending), in the account's currency. Transfers between
+    /// tracked accounts aren't counted. `nil` means not tracked.
+    public var moneyOut: Decimal?
     public var note: String?
     /// Where the values came from, e.g. `import`.
     public var source: DataSource?
 
     public init(
         account: AccountID, date: CalendarDate, balance: Decimal? = nil, cash: Decimal? = nil,
-        positions: [Position] = [], flow: Decimal? = nil, note: String? = nil, source: DataSource? = nil
+        positions: [Position] = [], flow: Decimal? = nil, moneyIn: Decimal? = nil, moneyOut: Decimal? = nil,
+        note: String? = nil, source: DataSource? = nil
     ) {
         self.account = account
         self.date = date
@@ -30,11 +40,16 @@ public struct Valuation: Hashable, Sendable, KeyedRecord, KnownKeysProviding {
         self.cash = cash
         self.positions = positions
         self.flow = flow
+        self.moneyIn = moneyIn
+        self.moneyOut = moneyOut
         self.note = note
         self.source = source
     }
 
     public var key: ValuationKey { ValuationKey(account: account, date: date) }
+
+    /// Whether this valuation records money in or out.
+    public var recordsMoneyInOut: Bool { moneyIn != nil || moneyOut != nil }
 
     /// Whether this valuation records a balance. If it also lists positions,
     /// the balance wins.
@@ -51,7 +66,7 @@ public struct Valuation: Hashable, Sendable, KeyedRecord, KnownKeysProviding {
 
 extension Valuation: Codable {
     enum CodingKeys: String, CodingKey, CaseIterable {
-        case account, date, balance, cash, positions, flow, note, source
+        case account, date, balance, cash, positions, flow, moneyIn, moneyOut, note, source
     }
 
     public static var knownKeys: Set<String> { Set(CodingKeys.allCases.map(\.stringValue)) }
@@ -64,6 +79,8 @@ extension Valuation: Codable {
         cash = try c.decodeDecimalIfPresent(forKey: .cash)
         positions = try c.decodeArray([Position].self, forKey: .positions)
         flow = try c.decodeDecimalIfPresent(forKey: .flow)
+        moneyIn = try c.decodeDecimalIfPresent(forKey: .moneyIn)
+        moneyOut = try c.decodeDecimalIfPresent(forKey: .moneyOut)
         note = try c.decodeIfPresent(String.self, forKey: .note)
         source = try c.decodeIfPresent(DataSource.self, forKey: .source)
     }
@@ -76,6 +93,8 @@ extension Valuation: Codable {
         try c.encodeDecimalIfPresent(cash, forKey: .cash)
         try c.encodeIfNotEmpty(positions, forKey: .positions)
         try c.encodeDecimalIfPresent(flow, forKey: .flow)
+        try c.encodeDecimalIfPresent(moneyIn, forKey: .moneyIn)
+        try c.encodeDecimalIfPresent(moneyOut, forKey: .moneyOut)
         try c.encodeIfPresent(note, forKey: .note)
         try c.encodeIfPresent(source, forKey: .source)
     }
