@@ -14,7 +14,7 @@ import Model
 ///
 /// Each value is dated the last day of the month it measures (docs/schema,
 /// history-month.schema.json, `index`), however late it's published or fetched.
-public struct EurostatIndexProvider: Sendable {
+public struct EurostatIndexProvider: InflationIndexProvider {
     static let baseURL = URL(string: "https://ec.europa.eu/eurostat/api/dissemination/statistics/1.0/data/")!
     /// The HICP's dataset, ECOICOP 2, which replaced `prc_hicp_midx` from
     /// January 2026. Its values are asked for with 2015 = 100 (`unit=I15`),
