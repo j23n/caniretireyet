@@ -323,7 +323,7 @@ struct PlanItemEditor<Item: Equatable, Content: View>: View {
     @Previewable @State var amount: Decimal = 36_000
     Form {
         PlanNumberRow("Spending", value: $amount, unit: "/yr")
-        PlanIssueLine(message: "Set the tax rate on investment income and gains.", isError: true)
+        PlanIssueLine(message: "Spending can't be negative.", isError: true)
     }
     .formStyle(.grouped)
     .previewEnvironment()
