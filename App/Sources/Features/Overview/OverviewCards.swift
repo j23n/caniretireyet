@@ -137,8 +137,14 @@ struct OverviewAnswerCard: View {
             PlanReadinessView(headline: headline,
                               fallback: headline.recordedOn != nil ? PlanResultsText.readinessNotRecorded : nil)
             if let gap {
+                // Ahead, on or behind plan by where you are among the baseline's
+                // futures; only behind is a warning. Then the amount against its median.
                 HStack(spacing: Metrics.xs) {
-                    DeltaText(gap.gap, currency: library.baseCurrency)
+                    Text(verbatim: "\(gap.standing.label) ·")
+                        .fontWeight(.semibold)
+                        .foregroundStyle(gap.standing.color)
+                    AmountText(abs(gap.gap), currency: library.baseCurrency)
+                        .foregroundStyle(Palette.ink)
                     Text(gapText(gap))
                         .foregroundStyle(Palette.secondaryInk)
                 }
@@ -223,8 +229,9 @@ struct OverviewAnswerCard: View {
             : "The first age that works \(GlanceText.inSimulatedFutures(headline.confidence))"
     }
 
-    /// "ahead of your Jan baseline", named as Progress names what a year is
-    /// measured against: by the month it starts in the year it was saved for,
+    /// "ahead of your Jan baseline", after the amount against its median,
+    /// named as Progress names what a year is measured against: by the
+    /// month it starts in the year it was saved for,
     /// January when it starts before it, with that year when it isn't this one
     /// ("Jan 2025"); a past baseline by the year it starts ("ahead of your
     /// 2021 plan").

@@ -256,8 +256,9 @@ struct PlanYearCardView: View {
         .contentShape(Rectangle())
     }
 
-    private var aheadColor: Color {
-        (card.year.position?.gap ?? 0) >= 0 ? Palette.positive : Palette.orangeStroke
+    /// Orange behind plan, else green (``PlanBaselineComparison/Standing``).
+    private var standingColor: Color {
+        PlanBaselineComparison.Standing.color(of: card.year.position)
     }
 
     private var header: some View {
@@ -276,7 +277,7 @@ struct PlanYearCardView: View {
                                                              hidesAmounts: hidesAmounts, locale: locale) {
                 Text(against)
                     .font(.caption.weight(.semibold))
-                    .foregroundStyle(aheadColor)
+                    .foregroundStyle(standingColor)
             } else {
                 Text(PlanProgressText.unmeasured(card.year))
                     .font(.caption)

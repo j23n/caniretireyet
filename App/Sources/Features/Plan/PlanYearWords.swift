@@ -91,15 +91,16 @@ struct PlanYearDetails: View {
         }
     }
 
-    /// "21.572 € ahead of January", in green ahead and orange behind; else
-    /// why it isn't measured.
+    /// "21.572 € ahead of January", in orange when behind plan
+    /// (``PlanBaselineComparison/Standing``), else green; else why it isn't
+    /// measured.
     @ViewBuilder
     private var standing: some View {
         if let against = PlanProgressText.againstJanuary(year, currency: card.currency, hidesAmounts: hidesAmounts,
                                                          locale: locale) {
             Text(against)
                 .font(PlanProgressFont.caption.weight(.semibold))
-                .foregroundStyle((year.position?.gap ?? 0) >= 0 ? Palette.positive : Palette.orangeStroke)
+                .foregroundStyle(PlanBaselineComparison.Standing.color(of: year.position))
         } else {
             Text(PlanProgressText.unmeasured(year))
                 .font(PlanProgressFont.caption)
@@ -534,5 +535,19 @@ struct PlanYearHappenings: View {
         #else
         36
         #endif
+    }
+}
+
+
+extension PlanBaselineComparison.Standing {
+    /// Orange behind plan, the only warning; green ahead and on plan.
+    var color: Color { isWarning ? Palette.orangeStroke : Palette.positive }
+
+    /// The tint behind ``color``, as on the plan's progress pill.
+    var tint: Color { isWarning ? Palette.orange : Palette.positive }
+
+    /// ``color`` for a position; green without one.
+    static func color(of position: PlanBaselineComparison.Position?) -> Color {
+        position?.standing.color ?? Palette.positive
     }
 }

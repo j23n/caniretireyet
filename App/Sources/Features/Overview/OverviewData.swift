@@ -150,6 +150,9 @@ struct OverviewBaselineGap: Hashable, Sendable {
     /// and those opened since (``Baseline/comparedAccounts(among:)``), less
     /// its median then: positive when ahead.
     var gap: Decimal
+    /// Where that total is among the baseline's futures on the date: ahead
+    /// above its 75th percentile, behind below its 25th, else on plan.
+    var standing: PlanBaselineComparison.Standing
 
     init?(baseline: Baseline, valuator: Valuator, on date: CalendarDate) {
         guard date > baseline.start.date, !baseline.accounts.isEmpty else { return nil }
@@ -162,7 +165,10 @@ struct OverviewBaselineGap: Hashable, Sendable {
         let fraction = Decimal(from.date.days(to: date)) / Decimal(length)
         let median = from.bands[2] + (to.bands[2] - from.bands[2]) * fraction
         let accounts = baseline.comparedAccounts(among: valuator.accounts)
-        gap = valuator.total(on: date, including: { accounts.contains($0.id) }).total - median
+        let total = valuator.total(on: date, including: { accounts.contains($0.id) }).total
+        gap = total - median
+        let bands = (0..<5).map { (from.bands[$0] + (to.bands[$0] - from.bands[$0]) * fraction).doubleValue }
+        standing = PlanBaselineComparison.Standing(of: total.doubleValue, in: bands)
         created = baseline.created
         start = baseline.start.date
         isPast = baseline.kind == .past

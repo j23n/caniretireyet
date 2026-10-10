@@ -97,6 +97,65 @@ struct PlanBaselineComparison: Sendable {
         var percentile: Double?
         var isBelowTenth: Bool
         var isAboveNinetieth: Bool
+
+        /// Where you are among the baseline's futures: ahead above its 75th
+        /// percentile, behind below its 25th, else on plan.
+        var standing: Standing {
+            Standing(percentile: percentile, isBelowTenth: isBelowTenth, isAboveNinetieth: isAboveNinetieth)
+        }
+    }
+
+    /// Whether you're ahead of, on or behind plan: where you are among the
+    /// baseline's futures (PROGRESS.md, "Actual vs. a baseline"), not
+    /// against its median, which you're below in half of them.
+    enum Standing: Hashable, Sendable {
+        case ahead
+        case onPlan
+        case behind
+
+        /// Above this percentile is ahead.
+        static let upper = 75.0
+        /// Below this percentile is behind.
+        static let lower = 25.0
+
+        /// From the percentile (0...100 within the 10–90 band; `nil`
+        /// outside it), and whether you're below or above the band.
+        init(percentile: Double?, isBelowTenth: Bool, isAboveNinetieth: Bool) {
+            if isAboveNinetieth {
+                self = .ahead
+            } else if isBelowTenth {
+                self = .behind
+            } else if let percentile, percentile > Self.upper {
+                self = .ahead
+            } else if let percentile, percentile < Self.lower {
+                self = .behind
+            } else {
+                self = .onPlan
+            }
+        }
+
+        /// The value's standing among the percentiles p10, p25, p50, p75
+        /// and p90.
+        init(of value: Double, in bands: [Double]) {
+            self.init(percentile: PlanBaselineComparison.percentile(of: value, in: bands),
+                      isBelowTenth: bands.first.map { value < $0 } ?? false,
+                      isAboveNinetieth: bands.last.map { value > $0 } ?? false)
+        }
+
+        /// "Ahead of plan", "On plan", "Behind plan".
+        var label: String {
+            switch self {
+            case .ahead: "Ahead of plan"
+            case .onPlan: "On plan"
+            case .behind: "Behind plan"
+            }
+        }
+
+        /// "Ahead of plan.", "On plan.", "Behind plan."
+        var title: String { label + "." }
+
+        /// Only behind is a warning.
+        var isWarning: Bool { self == .behind }
     }
 
     var baseline: Baseline
@@ -969,12 +1028,11 @@ enum PlanProgressText {
         return year.isLatest ? "Measured from your next check-in" : "Baseline saved at its last check-in"
     }
 
-    /// "Ahead of plan.", "Behind plan.", "On plan." for the latest year.
+    /// "Ahead of plan.", "On plan.", "Behind plan." for the latest year:
+    /// where you are among its baseline's futures
+    /// (``PlanBaselineComparison/Standing``).
     static func headline(_ position: PlanBaselineComparison.Position?) -> String {
-        guard let position else { return "Not measured yet." }
-        let median = abs(position.median)
-        if median > 0, abs(position.gap) < median / 100 { return "On plan." }
-        return position.gap >= 0 ? "Ahead of plan." : "Behind plan."
+        position?.standing.title ?? "Not measured yet."
     }
 
     /// "You have 18.400 € more than January expected, more than in 68 of its
