@@ -20,6 +20,25 @@ enum PlanEditing {
                      tax: defaultTax(in: library), spending: defaultSpending(in: library, asOf: asOf))
     }
 
+    /// The plan onboarding creates (UI.md, "Empty states and first
+    /// launch"): a ``newPlan(id:name:library:asOf:)`` that spends
+    /// `spendingPerMonth` while working and in retirement, when it's given,
+    /// and, when `payPerMonth` is given, has one work phase from `asOf`
+    /// until retirement paying it after tax. Amounts are in the base
+    /// currency; a plan stores them a year.
+    static func starterPlan(id: PlanID, name: String, library: Library, asOf: CalendarDate,
+                            payPerMonth: Decimal?, spendingPerMonth: Decimal?) -> PlanDocument {
+        var plan = newPlan(id: id, name: name, library: library, asOf: asOf)
+        if let spendingPerMonth, spendingPerMonth > 0 {
+            plan.spending.working = spendingPerMonth * 12
+            plan.spending.retired = spendingPerMonth * 12
+        }
+        if let payPerMonth, payPerMonth > 0 {
+            plan.work = [WorkPhase(from: asOf, until: .retirement, netIncome: payPerMonth * 12)]
+        }
+        return plan
+    }
+
     /// The plan the library's defaults come from: the main plan, else the
     /// first plan by ID.
     static func sourcePlan(in library: Library) -> PlanDocument? {
