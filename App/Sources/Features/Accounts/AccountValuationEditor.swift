@@ -183,7 +183,7 @@ struct AccountValuationEditor: View {
         guard form == nil, let original, let account = library.account(key.account) else { return }
         form = AccountValuationForm(original, holdsPositions: account.valuationMode != .balance,
                                     recordsTrades: account.recordsTrades, isLiability: account.kind.isLiability,
-                                    locale: locale)
+                                    recordsMoneyInOut: account.kind.recordsMoneyInOut, locale: locale)
         initialForm = form
     }
 
