@@ -6,10 +6,11 @@ import Model
 /// one (PLANNER.md, "Continue as you have").
 ///
 /// Each account's new money at a check-in (``Valuator/change(from:to:in:)``)
-/// is spread evenly over the days since its own record before, and the
-/// days are grouped into months that end on the same day of the month as
-/// the latest check-in (on the last day of each month when it's a month
-/// end). Money moved between two plan assets cancels out.
+/// is spread evenly over the days since its own record before, or since it
+/// last got new money when it gets some again and again, and the days are
+/// grouped into months that end on the same day of the month as the
+/// latest check-in (on the last day of each month when it's a month end).
+/// Money moved between two plan assets cancels out.
 public struct SavingPace: Hashable, Sendable {
     /// The new money of one month.
     public struct Month: Hashable, Sendable {
@@ -40,7 +41,9 @@ public struct SavingPace: Hashable, Sendable {
     /// usual one, scaled to a year when there are fewer than 12.
     public let perYear: Decimal
     /// The lowest and highest pace of the 12 months ending at each of the
-    /// last 12 month ends; `nil` without 13 months.
+    /// last month ends, up to 12; `nil` without 13 months. The months
+    /// before `months` aren't checked for missing values (`isComplete`) or
+    /// left-out accounts (`leftOut`).
     public let range: ClosedRange<Decimal>?
     /// Each account's new money in `months` from outside plan assets,
     /// scaled to a year, unusual months included; an account with none is
@@ -53,6 +56,9 @@ public struct SavingPace: Hashable, Sendable {
     /// each check-in where it came from the plan, since a pace that repeats
     /// the plan says nothing about it.
     public let leftOut: [AccountID]
+    /// Accounts not valued since before `asOf`, whose saving at the rate of
+    /// their latest record goes on to `asOf`, for at most as long again.
+    public let carriedForward: [AccountID]
     /// Whether the amounts are in money of `asOf`. Without an inflation
     /// index with values from the start of the first month, they're all in
     /// money of each check-in.
@@ -67,7 +73,7 @@ public struct SavingPace: Hashable, Sendable {
 
     public init(asOf: CalendarDate, currency: CurrencyCode, months: [Month], usualMonth: Decimal, perYear: Decimal,
                 range: ClosedRange<Decimal>?, byAccount: [AccountID: Decimal], leftOut: [AccountID],
-                isInTodaysMoney: Bool, isComplete: Bool) {
+                carriedForward: [AccountID], isInTodaysMoney: Bool, isComplete: Bool) {
         self.asOf = asOf
         self.currency = currency
         self.months = months
@@ -76,6 +82,7 @@ public struct SavingPace: Hashable, Sendable {
         self.range = range
         self.byAccount = byAccount
         self.leftOut = leftOut
+        self.carriedForward = carriedForward
         self.isInTodaysMoney = isInTodaysMoney
         self.isComplete = isComplete
     }
@@ -147,14 +154,15 @@ extension Valuator {
         let leftOut = Set(reports.filter { $0.to > ends[window] }
             .flatMap { $0.accounts.filter { $0.isFlowFromPlan && $0.change.newMoney != 0 }.map(\.account) })
 
-        var months = [Decimal](repeating: 0, count: available)
-        var byAccount: [AccountID: Decimal] = [:]
         // In today's money only when the index covers every month, so the
         // months never mix money of today and of each check-in.
         let index = inflation.flatMap {
             $0.value(on: ends[available]) != nil && $0.value(on: asOf) != nil ? $0 : nil
         }
         var isComplete = true
+        // Each account's new money at each check-in where it had some,
+        // after money moved between plan assets cancels out.
+        var paid: [(account: AccountID, from: CalendarDate, to: CalendarDate, amount: Decimal)] = []
         for report in reports {
             // What holdings held when their records start, without a
             // flow, isn't money saved (a balance's counts as other).
@@ -180,7 +188,6 @@ extension Valuator {
                 var amount = account.change.newMoney
                 if amount == 0 { continue }
                 if moved > 0 { amount -= amount > 0 ? amount * moved / paidIn : amount * moved / takenOut }
-                if amount == 0 { continue }
                 // Spread from the account's own record before, not the
                 // check-in before: an account valued quarterly saved over
                 // the quarter, not in its last month. A trades account's
@@ -188,19 +195,58 @@ extension Valuator {
                 // check-in before, so it's spread from there.
                 let from = accounts[account.account]?.recordsTrades == true ? report.from
                     : latestRecordDate(of: account.account, onOrBefore: report.from) ?? report.from
-                let days = from.days(to: report.to)
-                guard days > 0 else { continue }
+                guard from < report.to else { continue }
                 if let index { amount = index.convert(amount, from: report.to, to: asOf) ?? amount }
-                for month in 0..<available {
-                    let start = max(from, ends[month + 1])
-                    let end = min(report.to, ends[month])
-                    let overlap = start.days(to: end)
-                    guard overlap > 0 else { continue }
-                    let part = amount * Decimal(overlap) / Decimal(days)
-                    months[month] += part
-                    if month < window { byAccount[account.account, default: 0] += part }
-                }
+                paid.append((account.account, from, report.to, amount))
             }
+        }
+
+        var months = [Decimal](repeating: 0, count: available)
+        var byAccount: [AccountID: Decimal] = [:]
+        func spread(_ amount: Decimal, of account: AccountID, from: CalendarDate, to: CalendarDate) {
+            let days = from.days(to: to)
+            guard amount != 0, days > 0 else { return }
+            for month in 0..<available {
+                let overlap = max(from, ends[month + 1]).days(to: min(to, ends[month]))
+                guard overlap > 0 else { continue }
+                let part = amount * Decimal(overlap) / Decimal(days)
+                months[month] += part
+                if month < window { byAccount[account, default: 0] += part }
+            }
+        }
+        var carriedForward: [AccountID] = []
+        for (account, payments) in Dictionary(grouping: paid, by: { $0.account }).sorted(by: { $0.key < $1.key }) {
+            // An account that gets new money again and again, with check-ins
+            // in between that record none (a pension fund marked unchanged
+            // between its quarterly statements), saved over the time since
+            // it last got some: each payment is spread from the one before,
+            // and the first over as long as the time to the next.
+            let firstRecord = firstRecordDate(of: account)
+            var spans: [(from: CalendarDate, to: CalendarDate, amount: Decimal)] = []
+            for (number, payment) in payments.enumerated() {
+                guard payments.count > 1 else {
+                    spans.append((payment.from, payment.to, payment.amount))
+                    continue
+                }
+                let before = number > 0 ? payments[number - 1].to
+                    : payment.to.adding(days: -payments[0].to.days(to: payments[1].to))
+                let from = min(payment.from, max(before, firstRecord ?? before))
+                spans.append((from, payment.to, payment.amount))
+            }
+            for span in spans { spread(span.amount, of: account, from: span.from, to: span.to) }
+            // An account not valued since before the latest check-in goes on
+            // saving as it did up to its latest record, for at most as long
+            // again: an account valued once a year saved in the months since
+            // its statement too.
+            guard let last = spans.last, last.amount != 0, last.to < asOf, accounts[account]?.recordsTrades != true,
+                  accounts[account]?.closed.map({ $0 > asOf }) ?? true,
+                  latestRecordDate(of: account, onOrBefore: asOf) == last.to
+            else { continue }
+            let length = last.from.days(to: last.to)
+            let until = min(asOf, last.to.adding(days: length))
+            spread(last.amount * Decimal(last.to.days(to: until)) / Decimal(length), of: account,
+                   from: last.to, to: until)
+            carriedForward.append(account)
         }
 
         let planAssets = total(on: asOf, in: .planAssets).total
@@ -222,6 +268,7 @@ extension Valuator {
             },
             usualMonth: pace.usual, perYear: pace.perYear, range: range,
             byAccount: byAccount.filter { $0.value != 0 }.mapValues { $0 * scale },
-            leftOut: leftOut.sorted(), isInTodaysMoney: index != nil, isComplete: isComplete)
+            leftOut: leftOut.sorted(), carriedForward: carriedForward.sorted(), isInTodaysMoney: index != nil,
+            isComplete: isComplete)
     }
 }

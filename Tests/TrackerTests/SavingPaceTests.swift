@@ -100,14 +100,60 @@ struct SavingPaceTests {
         #expect(pace.perYear.rounded(scale: 2) == 3_000)
     }
 
-    /// Saving 3,000 every third month, with a check-in every month: the
-    /// usual month is 0, and no month is unusual.
+    /// Saving 3,000 every third month, with a check-in every month that
+    /// records nothing in between: each 3,000 is saved over the three
+    /// months since the one before, so the usual month is about 1,000 and
+    /// no month is unusual.
     @Test func savingEveryThirdMonth() throws {
         let flows = (0..<12).map { $0.isMultiple(of: 3) ? Decimal(3_000) : 0 }
         let pace = try #require(Valuator(library: library(flows: flows)).savingPace(asOf: "2026-09-30"))
-        #expect(pace.usualMonth == 0)
+        // From 30 Jun to 30 Sep: 31, 31 and 30 of 92 days.
+        let months = pace.months.suffix(3).map { $0.newMoney.rounded(scale: 2) }
+        #expect(months == [d("1010.87"), d("1010.87"), d("978.26")])
+        #expect(pace.usualMonth.rounded(scale: 2) == d("1005.43"))
         #expect(pace.unusualMonths.isEmpty)
-        #expect(pace.perYear == 12_000)
+        #expect(pace.perYear.rounded(scale: 2) == 12_000)
+        #expect(pace.carriedForward.isEmpty)
+    }
+
+    /// A pension fund paid 3,000 a quarter and marked unchanged in the
+    /// months between, with 130,000 in it: the quarter's 3,000 isn't an
+    /// unusual month, so the pace is 24,000, not 12,000.
+    @Test func aQuarterlyPaymentMarkedUnchangedBetweenIsntUnusual() throws {
+        var library = self.library(flows: [Decimal](repeating: 1_000, count: 12))
+        library.accounts["pension"] = Account(id: "pension", name: "Pension", kind: .pensionFund, currency: .eur,
+                                              opened: "2020-01-01")
+        var balance: Decimal = 130_000
+        library.upsert(Valuation(account: "pension", date: "2025-09-30", balance: balance, flow: 0))
+        for back in (0..<12).reversed() {
+            let flow: Decimal = back.isMultiple(of: 3) ? 3_000 : 0
+            balance += flow
+            library.upsert(Valuation(account: "pension", date: SavingPace.monthEnd(back, before: "2026-09-30"),
+                                     balance: balance, flow: flow))
+        }
+        let pace = try #require(Valuator(library: library).savingPace(asOf: "2026-09-30"))
+        #expect(pace.unusualMonths.isEmpty)
+        #expect(pace.perYear.rounded(scale: 2) == 24_000)
+        #expect(pace.byAccount["pension"]?.rounded(scale: 2) == 12_000)
+        #expect(pace.carriedForward.isEmpty)
+    }
+
+    /// A pension fund valued once a year, on 31 Mar, with 6,000 paid in:
+    /// it goes on saving at that rate from its statement to 30 Sep, so the
+    /// year's 6,000 isn't cut to the 182 days before its statement.
+    @Test func anAccountValuedOnceAYearIsCarriedForward() throws {
+        var library = self.library(flows: [Decimal](repeating: 1_000, count: 12))
+        library.accounts["pension"] = Account(id: "pension", name: "Pension", kind: .pensionFund, currency: .eur,
+                                              opened: "2020-01-01")
+        library.upsert(Valuation(account: "pension", date: "2025-03-31", balance: 20_000, flow: 0))
+        library.upsert(Valuation(account: "pension", date: "2026-03-31", balance: 26_000, flow: 6_000))
+        let pace = try #require(Valuator(library: library).savingPace(asOf: "2026-09-30"))
+        #expect(pace.carriedForward == ["pension"])
+        #expect(pace.byAccount["pension"]?.rounded(scale: 2) == 6_000)
+        #expect(pace.byAccount["current"] == 12_000)
+        // April to September: 6,000 × 30/365 in April.
+        #expect(pace.months[6].newMoney.rounded(scale: 2) == d("1493.15"))
+        #expect(pace.perYear.rounded(scale: 2) == 18_000)
     }
 
     /// A month that saves more than twice the usual one is unusual only

@@ -12,13 +12,14 @@ struct PlanPaceCommand: RetireSubcommand {
         discussion: """
             Prints the new money into plan assets in each of the last 12 months through the latest \
             check-in on or before --date: each account's new money spread evenly over the days since \
-            its record before, in today's money with the library's inflation index. Money moved between \
-            plan assets cancels out. When the usual month (the median) saves something, a month that \
-            saves at least twice as much and at least 1% of plan assets, or takes out at least 1% of \
-            plan assets, is unusual and counts as the usual month: the pace is the year's total with \
-            those. With fewer than 12 months it's scaled to a year; with fewer than 3 there's none. \
-            Accounts whose new money wasn't recorded, so that it's taken from the main plan's \
-            contributions, are left out.
+            its record before (or since it last got some, when it gets some again and again), and an \
+            account not valued since goes on at that rate, in today's money with the library's \
+            inflation index. Money moved between plan assets cancels out. When the usual month (the \
+            median) saves something, a month that saves at least twice as much and at least 1% of \
+            plan assets, or takes out at least 1% of plan assets, is unusual and counts as the usual \
+            month: the pace is the year's total with those. With fewer than 12 months it's scaled to \
+            a year; with fewer than 3 there's none. Accounts whose new money wasn't recorded, so \
+            that it's taken from the main plan's contributions, are left out.
             """)
 
     @OptionGroup var options: LibraryOptions
@@ -89,6 +90,11 @@ struct PlanPaceCommand: RetireSubcommand {
                 lines.append("")
                 lines.append("Left out, without recorded new money: " + pace.leftOut.map(name).joined(separator: ", "))
             }
+            if !pace.carriedForward.isEmpty {
+                lines.append("")
+                lines.append("Carried forward from their latest value: "
+                    + pace.carriedForward.map(name).joined(separator: ", "))
+            }
             return lines
         }
 
@@ -105,7 +111,7 @@ struct PlanPaceCommand: RetireSubcommand {
                     byAccount: Dictionary(uniqueKeysWithValues: pace.byAccount.map {
                         ($0.key.rawValue, Format.json($0.value))
                     }),
-                    leftOut: pace.leftOut.map(\.rawValue))
+                    leftOut: pace.leftOut.map(\.rawValue), carriedForward: pace.carriedForward.map(\.rawValue))
             })
         }
 
@@ -127,6 +133,7 @@ struct PlanPaceCommand: RetireSubcommand {
                 var range: [String]?
                 var byAccount: [String: String]
                 var leftOut: [String]
+                var carriedForward: [String]
             }
 
             var pace: Pace?
