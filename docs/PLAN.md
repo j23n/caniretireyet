@@ -169,9 +169,11 @@ How the app treats the files when two copies differ. History and headline files 
 The iPhone uses a tab bar and the Mac uses a sidebar. The iPad gets the sidebar layout for free.
 
 - **Overview.** Shows:
+  - the main plan's answer to *Can I retire yet?*, first when there is one, with the time to go;
   - net worth today;
   - a chart over time, stacked by category;
   - the change since the last check-in, split into market and new money;
+  - the change this year, split the same way;
   - breakdowns;
   - accounts that haven't been updated recently;
   - a *past and future* switch that continues the chart into the plan's projection;
