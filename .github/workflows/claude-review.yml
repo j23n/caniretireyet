@@ -1,0 +1,44 @@
+# Claude reviews every pull request that isn't a draft and posts its findings as
+# comments; its allowed tools can't edit files or push. It runs on Linux minutes.
+# Needs the Claude GitHub App on the repository and the CLAUDE_CODE_OAUTH_TOKEN
+# secret (from `claude setup-token`), the same one the claude workflow uses.
+name: Claude review
+on:
+  pull_request:
+    types: [opened, synchronize, ready_for_review]
+
+permissions:
+  contents: read
+  pull-requests: write
+  id-token: write
+
+jobs:
+  review:
+    if: github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
+      - uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          prompt: |
+            REPO: ${{ github.repository }}
+            PR NUMBER: ${{ github.event.pull_request.number }}
+            PR TITLE: ${{ github.event.pull_request.title }}
+
+            Review this pull request for the Can I Retire Yet repo. Read CLAUDE.md and docs/PLAN.md first, then the diff
+            (gh pr diff ${{ github.event.pull_request.number }}) and the docs it touches or relies on.
+            Check: correctness bugs, with the inputs that trigger them; CLAUDE.md's rules (module dependencies only as its table
+            says, Apple-only frameworks only in CloudSync and App/, no third-party dependencies in the library modules, Decimal
+            money never passed through Double outside Planner, open enums instead of Swift enums for stored values, Model's
+            public API changes as its contract allows); a file-format change updates its JSON Schema in docs/schema,
+            the example library and the round-trip tests; tests would fail if the behaviour broke; made-up data only.
+
+            Post inline comments for specific lines, then one summary comment with gh pr comment: a verdict (pass/fail)
+            and numbered findings marked [blocking] or [minor], each with file:line, the problem and a concrete fix.
+            Do not modify files.
+          claude_args: >-
+            --max-turns 30
+            --allowedTools "mcp__github_inline_comment__create_inline_comment,Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*),Read,Grep,Glob"
