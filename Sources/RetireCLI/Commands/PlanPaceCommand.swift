@@ -14,9 +14,10 @@ struct PlanPaceCommand: RetireSubcommand {
             check-in on or before --date: each account's new money spread evenly over the days since \
             its record before, in today's money with the library's inflation index. Money moved between \
             plan assets cancels out. When the usual month (the median) saves something, a month that \
-            saves at least twice as much and at least 1% of plan assets, or takes out at least 1% of plan \
-            assets, is unusual and counts as the usual month: the pace is the year's total with those. With fewer than 12 months it's scaled to a year; with fewer than 3 there's \
-            none. Accounts whose new money wasn't recorded, so that it's taken from the main plan's \
+            saves at least twice as much and at least 1% of plan assets, or takes out at least 1% of \
+            plan assets, is unusual and counts as the usual month: the pace is the year's total with \
+            those. With fewer than 12 months it's scaled to a year; with fewer than 3 there's none. \
+            Accounts whose new money wasn't recorded, so that it's taken from the main plan's \
             contributions, are left out.
             """)
 

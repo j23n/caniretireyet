@@ -195,6 +195,33 @@ struct SavingPaceTests {
         #expect(pace.perYear == 13_100)
     }
 
+    /// An index whose first value falls inside the months can't put them
+    /// all in today's money: none is converted.
+    @Test func anIndexStartingLateLeavesEveryMonthAsItWas() throws {
+        let index = InflationIndex([IndexRecord(index: .hicpIT, date: "2026-03-31", value: 100),
+                                    IndexRecord(index: .hicpIT, date: "2026-09-30", value: 110)],
+                                   index: .hicpIT)
+        let pace = try #require(Valuator(library: library(flows: [Decimal](repeating: 1_000, count: 12)))
+            .savingPace(asOf: "2026-09-30", inflation: index))
+        #expect(!pace.isInTodaysMoney)
+        #expect(pace.months.allSatisfy { $0.newMoney == 1_000 })
+        #expect(pace.perYear == 12_000)
+    }
+
+    /// A holding without a price in the months makes the pace incomplete.
+    @Test func aMissingPriceMakesItIncomplete() throws {
+        var library = self.library(flows: [Decimal](repeating: 1_000, count: 12))
+        library.accounts["broker"] = Account(id: "broker", name: "Broker", kind: .brokerage, currency: .eur,
+                                             opened: "2020-01-01")
+        library.upsert(Valuation(account: "broker", date: "2026-08-31", cash: 0,
+                                 positions: [Position(instrument: "unpriced", quantity: 1)], flow: 0))
+        library.upsert(Valuation(account: "broker", date: "2026-09-30", cash: 0,
+                                 positions: [Position(instrument: "unpriced", quantity: 1)], flow: 0))
+        let pace = try #require(Valuator(library: library).savingPace(asOf: "2026-09-30"))
+        #expect(!pace.isComplete)
+        #expect(pace.perYear == 12_000)
+    }
+
     /// The range of the 12 months ending at each of the last month ends:
     /// with 1,500 in the oldest of 13 months, 12,000 to 12,500.
     @Test func theRangeOverThePastYear() throws {

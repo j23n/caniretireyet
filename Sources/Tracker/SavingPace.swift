@@ -57,7 +57,7 @@ public struct SavingPace: Hashable, Sendable {
     /// index with values from the start of the first month, they're all in
     /// money of each check-in.
     public let isInTodaysMoney: Bool
-    /// Whether every value and new money was known.
+    /// Whether every value and new money in `months` was known.
     public let isComplete: Bool
 
     /// The number of months a pace covers.
@@ -157,7 +157,7 @@ extension Valuator {
         var isComplete = true
         for report in reports {
             let included = report.accounts.filter { !$0.isFlowFromPlan }
-            if included.contains(where: { !$0.problems.isEmpty }) { isComplete = false }
+            if report.to > ends[window], included.contains(where: { !$0.problems.isEmpty }) { isComplete = false }
             // Money moved between plan assets at this check-in cancels out
             // before it's spread: what went in and came out up to the
             // smaller of the two comes off each side pro rata, so two legs
