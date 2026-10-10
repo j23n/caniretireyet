@@ -124,6 +124,18 @@ struct AccountValuationEditor: View {
             } footer: {
                 Text("Money added (+) or taken out (−) since the previous value. Leave it empty if you don't know.")
             }
+            if account.kind.recordsMoneyInOut
+                && (account.tracksMoneyInOut || form.wrappedValue.original.recordsMoneyInOut) {
+                Section {
+                    AccountsNumberField(title: "Money in", text: form.moneyIn, prompt: "Not recorded", suffix: symbol,
+                                        allowsNegative: false)
+                    AccountsNumberField(title: "Money out", text: form.moneyOut, prompt: "Not recorded",
+                                        suffix: symbol, allowsNegative: false)
+                } footer: {
+                    Text("What came in from outside your accounts and what went out since the previous value. Money "
+                        + "moved between your own accounts is in neither.")
+                }
+            }
             Section {
                 TextField("Note", text: form.note, prompt: Text("Optional"), axis: .vertical)
                     .lineLimit(1...4)

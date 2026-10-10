@@ -1,6 +1,7 @@
 import Model
 import Planner
 import SwiftUI
+import Tracker
 
 // The pieces the plan's words are made of (UI.md, "Plan"): sentences with
 // their values in bold, a month's money as a bar, the futures as ten dots,
@@ -177,6 +178,9 @@ struct PlanValueEditor: View {
 
     @Environment(\.dismiss) private var dismiss
     @Environment(\.baseCurrency) private var currency
+    @Environment(LibraryStore.self) private var library
+    @Environment(\.hidesAmounts) private var hidesAmounts
+    @Environment(\.locale) private var locale
 
     var body: some View {
         VStack(alignment: .leading, spacing: Metrics.m) {
@@ -194,6 +198,9 @@ struct PlanValueEditor: View {
         case .workingSpending:
             title("Spending while working")
             PlanNumberRow("A month", value: $plan.spending.working.perMonth, unit: "/month")
+            if let spent = spentNote {
+                note(spent)
+            }
         case .retiredSpending:
             title("Spending in retirement")
             PlanNumberRow("A month", value: $plan.spending.retired.perMonth, unit: "/month")
@@ -222,6 +229,20 @@ struct PlanValueEditor: View {
         case .flexibleSpending:
             PlanFlexibleSpendingEditor(spending: $plan.spending)
         }
+    }
+
+    /// What the cash and savings accounts that record money in and out
+    /// spent over the last twelve months, a month on average, to set the
+    /// plan's spending against (PROGRESS.md, "Money in and out"); `nil`
+    /// when nothing was recorded.
+    private var spentNote: String? {
+        let summary = library.valuator.moneyInOut(overYearEndingOn: .today())
+        guard let perYear = summary.moneyOutPerYear else { return nil }
+        let amount = hidesAmounts
+            ? AmountFormat.hidden : AmountFormat.amount(perYear / 12, currency: summary.currency, locale: locale)
+        let months = summary.months.count
+        return "Your accounts recorded \(amount) a month going out over the last "
+            + "\(months == 1 ? "month" : "\(months) months"), money moved between them left out."
     }
 
     private func title(_ text: String) -> some View {

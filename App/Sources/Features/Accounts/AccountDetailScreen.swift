@@ -1121,6 +1121,32 @@ extension AccountInfoRow where Value == Text {
     }
 }
 
+/// Whether check-ins ask for the money in and out of a cash or savings
+/// account, and what came in and went out over the last twelve months
+/// (PROGRESS.md, "Money in and out").
+private struct AccountMoneyInOutRows: View {
+    let account: Account
+    @Environment(LibraryStore.self) private var library
+
+    var body: some View {
+        let summary = library.valuator.moneyInOut(overYearEndingOn: .today(), accounts: [account.id])
+        AccountInfoRow(title: "Money in and out", text: account.tracksMoneyInOut ? "Asked at check-ins" : "Not tracked")
+        if !summary.isEmpty {
+            AccountInfoRow(title: "In, last 12 months") {
+                AmountText(summary.moneyIn)
+            }
+            AccountInfoRow(title: "Out, last 12 months") {
+                AmountText(summary.moneyOut)
+            }
+            let months = summary.months.count
+            Text(verbatim: "\(months) \(months == 1 ? "month" : "months") recorded, in "
+                + "\(summary.currency.rawValue).")
+                .font(.footnote)
+                .foregroundStyle(Palette.secondaryInk)
+        }
+    }
+}
+
 /// Kind, institution, country, currency, when plans can draw on it, what it counts in,
 /// dates, where the money went, tags and notes.
 private struct AccountInfoRows: View {
@@ -1147,6 +1173,9 @@ private struct AccountInfoRows: View {
         Group {
             AccountInfoRow(title: "In net worth", text: account.includedInNetWorth ? "Yes" : "No")
             AccountInfoRow(title: "In plans", text: account.includedInPlan ? "Yes" : "No")
+            if account.kind.recordsMoneyInOut {
+                AccountMoneyInOutRows(account: account)
+            }
             AccountInfoRow(title: "Opened", text: AmountFormat.mediumDate(account.opened, locale: locale))
             if let closed = account.closed {
                 AccountInfoRow(title: "Closed", text: AmountFormat.mediumDate(closed, locale: locale))

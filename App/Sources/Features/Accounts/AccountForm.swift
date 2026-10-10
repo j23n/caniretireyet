@@ -105,6 +105,9 @@ struct AccountForm: Hashable, Sendable {
     var isPlanInclusionChosen: Bool
     /// The mix of a balance account; empty for the kind's default.
     var assetMix: AccountsAssetMixForm
+    /// Whether check-ins ask for the money in and out of a cash or savings
+    /// account (``Model/Account/moneyInOut``).
+    var tracksMoneyInOut = false
     var notes: String
     /// How a new brokerage, crypto or metals account records what it
     /// holds: its trade history (the default) or monthly snapshots of its
@@ -157,6 +160,7 @@ struct AccountForm: Hashable, Sendable {
         includedInPlan = account.includedInPlan
         isPlanInclusionChosen = true
         assetMix = AccountsAssetMixForm(account.assetClasses, locale: locale)
+        tracksMoneyInOut = account.moneyInOut == true
         notes = account.notes ?? ""
         original = account
     }
@@ -303,6 +307,9 @@ struct AccountForm: Hashable, Sendable {
         account.notes = trimmedNotes.isEmpty ? nil : trimmedNotes
 
         account.availableFromAge = availableFromAge
+        if kind.recordsMoneyInOut, tracksMoneyInOut != (original?.moneyInOut == true) {
+            account.moneyInOut = tracksMoneyInOut ? true : nil
+        }
 
         if let original, original.includedInNetWorth == includedInNetWorth, original.includedInPlan == includedInPlan {
             account.includeIn = original.includeIn
