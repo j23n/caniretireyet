@@ -304,7 +304,7 @@ The importer works with any spreadsheet or export instead of a fixed layout. Det
 ### M4: Depth (pick by interest)
 
 - Historical and bootstrapped return sequences. Variable withdrawal strategies (a guardrails rule is done: flexible spending, [PLANNER.md](PLANNER.md#flexible-spending)).
-- Tracking actual income and spending, to measure your real savings rate.
+- Tracking actual income and spending, to measure your real savings rate: started, as money in and out of cash and savings accounts ([PROGRESS.md](PROGRESS.md#money-in-and-out)).
 - Cost basis from transactions: done, as trades ([TRADES.md](TRADES.md)), with the app's screens and broker transaction CSVs importing into them ([IMPORT.md](IMPORT.md)). Still to do: lots (FIFO).
 - Reading `.xlsx` and `.numbers` files directly.
 - Planning for a partner or household.
