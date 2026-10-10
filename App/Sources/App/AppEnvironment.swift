@@ -43,9 +43,10 @@ private struct AppEnvironmentModifier: ViewModifier {
             .environment(model.widgets)
             .environment(\.baseCurrency, model.library.shownCurrency)
             #if FEEDBACK
-            // A feedback screenshot hides amounts, and redacts what else is privacy-sensitive.
+            // A feedback screenshot hides everything the person entered or owns (Feedback.swift);
+            // amounts are hidden as the eye button hides them too, in case a view is unredacted.
             .environment(\.hidesAmounts, model.preferences.hidesAmounts || model.feedback.isCapturing)
-            .redacted(reason: model.feedback.isCapturing ? .privacy : [])
+            .feedbackRedaction(model.feedback)
             .environment(model.feedback)
             #else
             .environment(\.hidesAmounts, model.preferences.hidesAmounts)

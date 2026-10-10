@@ -6,14 +6,16 @@ import Foundation
 /// screenshot, Help › Send Feedback… or Settings › Feedback opens FeedbackKit's form, and the
 /// report goes to the owner's private inbox, j23n/feedback (App/README.md, "Feedback").
 ///
-/// Amounts are hidden for the capture as the eye button hides them, and anything else marked
-/// `privacySensitive()` is redacted (`AppEnvironment`).
+/// The screenshot carries nothing of the person's: for the capture, FeedbackKit's `.allContent`
+/// redaction draws placeholders for every text and image in the app's views and paints over the
+/// titles and text fields UIKit and AppKit draw (`AppEnvironment`), so account, plan and
+/// institution names, amounts and dates are all hidden; the screen's layout stays.
 extension FeedbackCenter {
     static func caniretireyet(navigation: AppNavigation) -> FeedbackCenter {
         let center = FeedbackCenter(configuration: FeedbackConfiguration(
             inbox: GitHubRepository(owner: "j23n", name: "feedback"),
             app: "caniretireyet",
-            redaction: .custom
+            redaction: .allContent
         ))
         center.currentScreen = { navigation.feedbackScreen }
         return center
