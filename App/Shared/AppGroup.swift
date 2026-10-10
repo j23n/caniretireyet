@@ -6,7 +6,7 @@ import Glance
 /// the widget extension reads it there. Compiled into both targets.
 ///
 /// The identifier is the Info.plist's `AppGroupIdentifier`, set from the
-/// build setting `APP_GROUP_IDENTIFIER` (App/project.yml), which the
+/// build setting `APP_GROUP_IDENTIFIER` (project.yml), which the
 /// entitlements use too.
 enum AppGroup {
     /// The group's identifier, e.g. `group.com.example.caniretireyet`.

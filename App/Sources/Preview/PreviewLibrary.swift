@@ -5,7 +5,7 @@ import Tracker
 
 /// A made-up library for SwiftUI previews and the UI tests: the tests'
 /// example library (Sources/TestSupport/Resources/ExampleLibrary, which
-/// App/project.yml bundles with the app), read as the app reads a library.
+/// project.yml bundles with the app), read as the app reads a library.
 /// Ten accounts (current, savings, a broker that records trades of an ETF,
 /// a bitcoin wallet, gold coins, a pension fund, TFR, a home and its
 /// mortgage, and a closed bank account), month-end check-ins from October
@@ -20,7 +20,7 @@ enum PreviewLibrary {
     static let library: Library = {
         guard let folder = Bundle.main.url(forResource: "ExampleLibrary", withExtension: nil),
               let loaded = try? LibraryFolder(root: folder).load() else {
-            preconditionFailure("The app's ExampleLibrary resource is missing (App/project.yml)")
+            preconditionFailure("The app's ExampleLibrary resource is missing (project.yml)")
         }
         return loaded.library
     }()

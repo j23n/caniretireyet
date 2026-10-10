@@ -96,7 +96,7 @@ These are listed as M3 and M4 in §6: explaining the gap to a baseline, the RW/I
 | Planner | Yearly steps in today's money, in the base currency, deterministic plus Monte Carlo, with a seeded random-number generator. | This approach is standard and easy to explain. It is also fast enough to recompute live while you drag a slider. |
 | Taxes | No tax law. Income from work and pensions is entered after tax; investments pay one rate on gains and income, and an optional wealth tax, both set by hand. | An earlier version modelled the Italian, Swiss and German systems in detail. They were hard to get right, harder to check, and still estimates; a few rates you can see beat rules you can't. The research is kept in [research/tax](research/tax/). |
 | Code layout | A Swift package of platform-independent modules, plus a thin app target. | Most of the logic can be built and tested on Linux, in CI and in cloud sessions. Only the UI needs Xcode. |
-| Xcode project | Generated from `App/project.yml` with XcodeGen. | The project definition is readable text, there are no `.pbxproj` merge conflicts, and it can be edited without Xcode. |
+| Xcode project | Generated from `project.yml` at the root with XcodeGen. | The project definition is readable text, there are no `.pbxproj` merge conflicts, and it can be edited without Xcode. |
 | Dependencies | None in the core modules (Foundation only). The CLI uses Swift Argument Parser. | Fewer moving parts, and the core builds on Linux. |
 
 ## 4. Architecture
@@ -117,8 +117,8 @@ caniretireyet/
 │   ├── RetireCLI/    the `retire` commands, a library so they can be tested
 │   └── retire/       command-line tool: validate, import, net worth, prices, run a plan
 ├── Tests/            one test target per module; fixtures are a fake example library
+├── project.yml       XcodeGen spec → CanIRetireYet.xcodeproj (generated, not committed)
 ├── App/
-│   ├── project.yml   XcodeGen spec → CanIRetireYet.xcodeproj (generated, not committed)
 │   ├── Sources/      SwiftUI app shared by iPhone and Mac
 │   └── Resources/
 ├── docs/
@@ -252,7 +252,7 @@ The importer works with any spreadsheet or export instead of a fixed layout. Det
   1. Join the **Apple Developer Program**, which is paid. iCloud requires it, and without it apps you install on your iPhone stop working after 7 days.
   2. Install Xcode and XcodeGen (`brew install xcodegen`).
   3. Choose a bundle identifier such as `com.<yourdomain>.caniretireyet`.
-  4. Put it and your team ID in `App/Config/Local.xcconfig` (`APP_BUNDLE_IDENTIFIER = …`, `DEVELOPMENT_TEAM = …`), which git ignores and every generated project reads.
+  4. Put it and your team ID in `Signing.xcconfig` at the root (`APP_BUNDLE_IDENTIFIER = …`, `DEVELOPMENT_TEAM = …`; `make signing TEAM=…` writes the team), which git ignores and every generated project reads.
   5. Run `cd App && xcodegen generate`, then open the project.
   6. In *Signing & Capabilities*, check iCloud → iCloud Documents lists the container `iCloud.<bundle id>`.
 

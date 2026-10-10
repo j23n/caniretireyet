@@ -12,23 +12,23 @@ A personal net-worth tracker and retirement planner for iPhone, iPad and Mac.
 
 You need a Mac with Xcode 26 and an Apple Developer account (for iCloud).
 
-1. **Generate the Xcode project.** It's generated from `App/project.yml` and never committed:
+1. **Generate the Xcode project.** It's generated from `project.yml` at the root and never committed:
 
    ```sh
    brew install xcodegen
-   xcodegen generate --spec App/project.yml
-   open App/CanIRetireYet.xcodeproj
+   xcodegen
+   open CanIRetireYet.xcodeproj
    ```
 
-   Run `xcodegen generate` again after pulling changes that add or remove files or change `App/project.yml`: Xcode only sees them in a newly generated project.
-2. **Make it yours.** Create `App/Config/Local.xcconfig` with your bundle identifier and Apple Developer team ID (Xcode → Settings → Accounts, or developer.apple.com → Account → Membership), then generate again:
+   Run `xcodegen` (or `make project`) again after pulling changes that add or remove files or change `project.yml`: Xcode only sees them in a newly generated project.
+2. **Make it yours.** Create `Signing.xcconfig` at the root with your bundle identifier and Apple Developer team ID (Xcode → Settings → Accounts, or developer.apple.com → Account → Membership; `make signing TEAM=ABCDE12345` writes the team line), then generate again:
 
    ```
    APP_BUNDLE_IDENTIFIER = com.<yourdomain>.caniretireyet
    DEVELOPMENT_TEAM = ABCDE12345
    ```
 
-   Git ignores the file and every generated project reads it (`App/Config/Project.xcconfig`), so Xcode doesn't ask for your team after each `xcodegen generate`. In Xcode's *Signing & Capabilities*, check that *iCloud → iCloud Documents* lists the container `iCloud.<bundle id>`; the first build with automatic signing registers it.
+   Git ignores the file and every generated project reads it (`App/Config/Project.xcconfig`), so Xcode doesn't ask for your team after each `xcodegen`, and a pull never touches it. Each build's build number is the number of commits (`make build-number`; j23n/apple-ci's README, "Build numbers"). In Xcode's *Signing & Capabilities*, check that *iCloud → iCloud Documents* lists the container `iCloud.<bundle id>`; the first build with automatic signing registers it.
 3. **Run it** on the Mac, your iPhone and your iPad: one app covers all three (in Xcode, pick the device as the run destination). Sign in to the same iCloud account with iCloud Drive on. The first launch creates the library (or finds the one the other device created) in iCloud Drive → *Can I Retire Yet*.
 4. **Check the price sources once.** The providers are tested against recorded responses; this checks the live services from your network:
 

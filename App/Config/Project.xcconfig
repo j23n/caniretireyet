@@ -1,14 +1,14 @@
-// The project's build settings under App/project.yml's own. Your Apple
-// Developer team and bundle identifier go in Local.xcconfig next to this
-// file, which git ignores and XcodeGen never rewrites, so every newly
-// generated project keeps them:
+// The project's build settings under project.yml's own. Your Apple Developer team and bundle
+// identifier go in Signing.xcconfig at the repository's root, which git ignores and XcodeGen never
+// rewrites, so every newly generated project keeps them (j23n/apple-ci README.md, "Signing"):
 //
 //   DEVELOPMENT_TEAM = ABCDE12345
 //   APP_BUNDLE_IDENTIFIER = com.yourdomain.caniretireyet
 //
-// Without it the project has no team and the example identifier, as in CI.
+// make signing TEAM=ABCDE12345 writes the team line. Without the file the project has no team and
+// the example identifier, as in CI.
 
 DEVELOPMENT_TEAM =
 APP_BUNDLE_IDENTIFIER = com.example.caniretireyet
 
-#include? "Local.xcconfig"
+#include? "../../Signing.xcconfig"

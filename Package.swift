@@ -2,7 +2,7 @@
 import PackageDescription
 
 /// Library modules, in dependency order. Each one is exported as a product so
-/// the app (App/project.yml) can link it, and gets a test target named
+/// the app (project.yml) can link it, and gets a test target named
 /// `<Module>Tests` that also depends on `TestSupport`.
 let libraries: [(name: String, dependencies: [Target.Dependency])] = [
     ("Model", []),

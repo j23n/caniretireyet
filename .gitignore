@@ -5,12 +5,14 @@
 .build/
 .swiftpm/
 
-# Xcode (the project is generated from App/project.yml by XcodeGen)
+# Xcode (the project is generated from project.yml by XcodeGen)
 *.xcodeproj/
 *.xcworkspace/
 xcuserdata/
 DerivedData/
-# Your team and bundle identifier for the app (App/Config/Project.xcconfig)
+# Your team and bundle identifier for the app (App/Config/Project.xcconfig includes it)
+Signing.xcconfig
+# Where they were before
 App/Config/Local.xcconfig
 
 # Claude Code agent worktrees

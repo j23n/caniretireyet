@@ -2,7 +2,7 @@
 
 The SwiftUI app for iPhone, iPad and Mac (iOS 26 / macOS 26), on top of the Swift package in the repository root. Read [docs/UI.md](../docs/UI.md) for what it looks like, and this file for how it's built and where your code goes.
 
-Build it on a Mac: `brew install xcodegen && xcodegen generate --spec App/project.yml`, then open `App/CanIRetireYet.xcodeproj`. The project is generated from [project.yml](project.yml) and never committed.
+Build it on a Mac: `brew install xcodegen && xcodegen` in the repository's root, then open `CanIRetireYet.xcodeproj`. The project is generated from [project.yml](../project.yml) at the root and never committed.
 
 ## At a glance
 

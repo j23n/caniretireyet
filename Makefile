@@ -6,8 +6,10 @@
 SHELL := /bin/bash
 PYTHON ?= python3
 
-PROJECT_SPEC := App/project.yml
-XCODEPROJ := App/CanIRetireYet.xcodeproj
+PROJECT_SPEC := project.yml
+XCODEPROJ := CanIRetireYet.xcodeproj
+# Where your team and bundle identifier were before Signing.xcconfig: make project warns while it exists.
+SIGNING_OLD := App/Config/Local.xcconfig
 SCHEME := CanIRetireYet
 PLATFORMS := ios mac
 SWIFT_PACKAGES := .
@@ -24,6 +26,7 @@ SCREENSHOT_SCRIPT := .github/scripts/screenshots.py
 
 help:
 	@echo "make bootstrap    XcodeGen and the Xcode project"
+	@echo "make signing TEAM=…   your team, in Signing.xcconfig (git ignores it)"
 	@echo "make test         the package's tests (macOS and Linux)"
 	@echo "make build        the app and its widgets for the iOS Simulator and the Mac, unsigned"
 	@echo "make screenshots  the UI tests on the Mac and an iPhone simulator, and their screenshots"
