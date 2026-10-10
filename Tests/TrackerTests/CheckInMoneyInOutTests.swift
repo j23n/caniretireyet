@@ -76,6 +76,18 @@ struct CheckInMoneyInOutTests {
         #expect(row?.moneyOut == nil)
     }
 
+    @Test func aClearedAmountStaysClearedWhenTheLibraryChanges() {
+        var draft = CheckInDraft(date: "2026-09-30", library: library)
+        draft["conto-fineco"]?.setBalance(4300)
+        draft["conto-fineco"]?.setMoneyIn(nil)
+        // The other device records a value earlier in the month.
+        var changed = library
+        changed.upsert(Valuation(account: "conto-fineco", date: "2026-09-15", balance: 4400))
+        draft.rebase(onto: changed)
+        #expect(draft["conto-fineco"]?.moneyIn == nil)
+        #expect(draft.review(in: changed).row(for: "conto-fineco")?.valuation?.moneyIn == nil)
+    }
+
     @Test func aFirstValueSuggestsNoMoneyOut() {
         var library = self.library
         library.accounts["nuovo-conto"] = Account(id: "nuovo-conto", name: "Nuovo conto", kind: .cash,

@@ -481,8 +481,8 @@ public struct CheckInRow: Hashable, Sendable, Identifiable {
                 }
             }
             if other.isFlowEdited { setFlow(other.enteredFlow) }
-            if other.moneyIn != nil { setMoneyIn(other.moneyIn) }
-            if other.enteredMoneyOut != nil { setMoneyOut(other.enteredMoneyOut) }
+            moneyIn = other.moneyIn
+            enteredMoneyOut = other.enteredMoneyOut
         }
         note = other.note
     }
