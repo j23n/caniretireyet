@@ -61,7 +61,7 @@ Keep logic that doesn't need SwiftUI in files that import only Foundation and th
 | `SettingsScreen` | `SettingsScreen()` inside a NavigationStack | Mac: Settings window (⌘,); iPhone/iPad: gear → sheet |
 | `LibraryOpeningView` | `LibraryOpeningView()` (its content, `LibraryOpeningContent(opening:tryAgain:keepWaiting:)`, for previews) | the root view while `LibraryStore.phase` is `.starting`: the opening step, the download's progress, and once stalled, the reasons with Try Again, Keep Waiting and (iOS) Open Settings |
 | `OnboardingScreen` | `OnboardingScreen()` | first launch, when there's no library |
-| `WelcomeNextStepsView` | sheet `.welcome` | after onboarding: import or add accounts |
+| `WelcomeNextStepsView` | sheet `.welcome` | after onboarding: import or add accounts, see the plan onboarding created |
 | `SyncScreen` | `SyncScreen()` | sidebar *Sync & backups*, Settings; on iPhone a library banner's *Review* (in Settings, or over the import it's in) |
 
 Each feature folder keeps its logic in files that import only Foundation and the package (`OverviewData`, `AccountDetailData`, `TradeListData`, `TradeForm`, `AccountConversionData`, `InstrumentPriceUpdate`, `CheckInModel`, `ImportFlow*`, `PlanSession`, `PlanRunState`, `PlanProgressData`, …) and its views in the rest.
