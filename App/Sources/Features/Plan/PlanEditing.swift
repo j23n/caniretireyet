@@ -1,5 +1,6 @@
 import Foundation
 import Model
+import Planner
 import Tracker
 
 /// Edits the Plan screens make to a `PlanDocument`, as plain functions:
@@ -21,24 +22,12 @@ enum PlanEditing {
     }
 
     /// The plan onboarding creates (UI.md, "Empty states and first
-    /// launch"): a ``newPlan(id:name:library:asOf:)`` that spends
-    /// `spendingPerMonth` while working and in retirement, when it's given
-    /// (0 included), and, when `payPerMonth` is given and above 0, has one
-    /// work phase from the start of `asOf`'s year until retirement paying
-    /// it after tax, so it also covers the days after an imported history's
-    /// last check-in. A negative amount is left out. Amounts are in the
-    /// base currency; a plan stores them a year.
+    /// launch"): a ``newPlan(id:name:library:asOf:)`` with the pay and
+    /// spending entered a month (Planner's `PlanDocument.setMonthly`).
     static func starterPlan(id: PlanID, name: String, library: Library, asOf: CalendarDate,
                             payPerMonth: Decimal?, spendingPerMonth: Decimal?) -> PlanDocument {
         var plan = newPlan(id: id, name: name, library: library, asOf: asOf)
-        if let spendingPerMonth, spendingPerMonth >= 0 {
-            plan.spending.working = spendingPerMonth * 12
-            plan.spending.retired = spendingPerMonth * 12
-        }
-        if let payPerMonth, payPerMonth > 0 {
-            let start = CalendarDate(year: asOf.year, month: 1, day: 1) ?? asOf
-            plan.work = [WorkPhase(from: start, until: .retirement, netIncome: payPerMonth * 12)]
-        }
+        plan.setMonthly(payPerMonth: payPerMonth, spendingPerMonth: spendingPerMonth, asOf: asOf)
         return plan
     }
 

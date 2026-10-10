@@ -377,7 +377,7 @@ struct WelcomeNextStepsView: View {
         VStack(alignment: .leading, spacing: Metrics.l) {
             Text("Your library is ready")
                 .font(.title2.bold())
-            Text(Self.intro(hasPlan: plan != nil))
+            Text(Self.intro(hasPlan: plan != nil, hasBirthDate: library.settings.person?.birthDate != nil))
                 .foregroundStyle(Palette.secondaryInk)
             Button {
                 dismiss()
@@ -416,10 +416,15 @@ struct WelcomeNextStepsView: View {
     }
 
     /// The line under the title: what to do next, and the plan when
-    /// onboarding created one.
-    static func intro(hasPlan: Bool) -> String {
+    /// onboarding created one, which answers only once the birth date is
+    /// set.
+    static func intro(hasPlan: Bool, hasBirthDate: Bool) -> String {
         let accounts = "Bring in your history from a spreadsheet, or add your accounts one by one."
         guard hasPlan else { return accounts + " Then do your first check-in, and create your first plan." }
+        guard hasBirthDate else {
+            return accounts + " Then add your birth date on the plan's You card and do your first check-in: "
+                + "your first plan answers from what your accounts are worth."
+        }
         return accounts + " Then do your first check-in: your first plan answers from what your accounts are worth."
     }
 }

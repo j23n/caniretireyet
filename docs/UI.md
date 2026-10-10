@@ -936,7 +936,7 @@ If nothing moves for 20 seconds, the screen says why it may be stuck and what to
 3. Birth date, base currency and country, starting from the device's currency and region (nothing else is assumed: without a region the country is *Not set*). The birth date starts unset, with an *Add Birth Date* button: none is made up (the picker's suggestion is saved only once a date is picked or *Use This Date* is tapped, and *Remove Birth Date* unsets it), and without one the library is still created and the plan asks for it on its *You* card.
 4. Your money, optional: take-home pay and spending a month, in the base currency, and "Remind me to check in each month", on by default (the reminder in Settings, on this device). *Create library* also creates the main plan, "Base case": it retires as early as possible, spends what was entered, 0 included (else the default of a new plan), and with pay above 0 entered has one work phase from the start of this year until retirement paying it; a negative amount is left out. A library that already has plans (synced from another device, also one whose plan file didn't load) keeps them, and one opened from iCloud Drive in another currency gets no starter plan.
 5. "Your library is ready": "Import a spreadsheet", "Add accounts", and "See your plan, Base case".
-6. The first check-in, after which the plan answers. Without a tax rate on investments it assumes none, and the Plan screen says so.
+6. The first check-in, after which the plan answers, once the birth date is set (without one, the welcome sheet asks for it on the plan's *You* card). Without a tax rate on investments it assumes none, and the Plan screen says so.
 
 **Haptics.** A light tap on save, and when a what-if slider moves the earliest retirement age.
 
