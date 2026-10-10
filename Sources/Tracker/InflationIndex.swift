@@ -2,8 +2,8 @@ import Foundation
 import Model
 
 /// A consumer price index, such as the library's own
-/// (`Library.effectiveInflationIndex`: by default the HICP of the tax
-/// residence), for expressing amounts in the money of another date, such as
+/// (`Library.effectiveInflationIndex`: by default the index of the tax
+/// residence, its HICP or national CPI), for expressing amounts in the money of another date, such as
 /// today's money.
 ///
 /// The index on a date is the latest value dated on or before it. Monthly
