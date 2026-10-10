@@ -21,7 +21,7 @@ struct Retire: AsyncParsableCommand {
         subcommands: [
             InitCommand.self, ValidateCommand.self, SettingsCommand.self, NetWorthCommand.self,
             ImportGroupCommand.self, TradesGroupCommand.self, InstrumentsGroupCommand.self, PricesCommand.self,
-            PlanGroupCommand.self, ExportCommand.self,
+            SpendingCommand.self, PlanGroupCommand.self, ExportCommand.self,
         ]
     )
 }
