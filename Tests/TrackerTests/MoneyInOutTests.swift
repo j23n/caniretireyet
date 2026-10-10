@@ -59,6 +59,32 @@ struct MoneyInOutTests {
         #expect(summary.moneyOutPerYear == d("41656.82"))
     }
 
+    @Test func convertsToTheBaseCurrencyOrSaysWhatItCouldNot() throws {
+        var library = try Fixtures.exampleLibrary()
+        library.accounts["usd-savings"] = Account(id: "usd-savings", name: "USD savings", kind: .savings,
+                                                  currency: .usd, opened: "2026-07-01")
+        library.upsert(Valuation(account: "usd-savings", date: "2026-07-31", balance: 2000))
+        var august = Valuation(account: "usd-savings", date: "2026-08-31", balance: 2567)
+        august.moneyIn = 1134
+        august.moneyOut = 567
+        library.upsert(august)
+
+        // At 2026-08-31's 1.134 dollars to the euro.
+        let summary = Valuator(library: library).moneyInOut(from: "2026-08-01", through: "2026-08-31",
+                                                            accounts: ["usd-savings"])
+        #expect(summary.currency == "EUR")
+        #expect(summary.moneyIn.rounded(scale: 2) == 1000)
+        #expect(summary.moneyOut.rounded(scale: 2) == 500)
+        #expect(summary.isComplete)
+
+        for month in Array(library.months.keys) { library.months[month]?.fx = [] }
+        let unconverted = Valuator(library: library).moneyInOut(from: "2026-08-01", through: "2026-08-31")
+        #expect(unconverted.unconverted == ["usd-savings"])
+        #expect(!unconverted.isComplete)
+        #expect(unconverted.moneyIn == 3400)
+        #expect(unconverted.moneyOut == d("2014.6"))
+    }
+
     @Test func leavesOutAnAccountsFirstValue() throws {
         var library = try Fixtures.exampleLibrary()
         let first = try #require(library.months["2025-10"]?.valuations.firstIndex { $0.account == "conto-deposito" })
