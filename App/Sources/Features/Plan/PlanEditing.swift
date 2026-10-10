@@ -22,14 +22,15 @@ enum PlanEditing {
 
     /// The plan onboarding creates (UI.md, "Empty states and first
     /// launch"): a ``newPlan(id:name:library:asOf:)`` that spends
-    /// `spendingPerMonth` while working and in retirement, when it's given,
-    /// and, when `payPerMonth` is given, has one work phase from `asOf`
-    /// until retirement paying it after tax. Amounts are in the base
-    /// currency; a plan stores them a year.
+    /// `spendingPerMonth` while working and in retirement, when it's given
+    /// (0 included), and, when `payPerMonth` is given and above 0, has one
+    /// work phase from `asOf` until retirement paying it after tax. A
+    /// negative amount is left out. Amounts are in the base currency; a
+    /// plan stores them a year.
     static func starterPlan(id: PlanID, name: String, library: Library, asOf: CalendarDate,
                             payPerMonth: Decimal?, spendingPerMonth: Decimal?) -> PlanDocument {
         var plan = newPlan(id: id, name: name, library: library, asOf: asOf)
-        if let spendingPerMonth, spendingPerMonth > 0 {
+        if let spendingPerMonth, spendingPerMonth >= 0 {
             plan.spending.working = spendingPerMonth * 12
             plan.spending.retired = spendingPerMonth * 12
         }
