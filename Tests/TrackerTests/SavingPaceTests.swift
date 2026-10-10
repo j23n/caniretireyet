@@ -106,11 +106,34 @@ struct SavingPaceTests {
         library.accounts["savings"] = Account(id: "savings", name: "Savings", kind: .savings, currency: .eur,
                                               opened: "2020-01-01")
         library.upsert(Valuation(account: "savings", date: "2025-09-30", balance: 0, flow: 0))
+        library.upsert(Valuation(account: "savings", date: "2026-08-31", balance: 0, flow: 0))
         library.upsert(Valuation(account: "savings", date: "2026-09-30", balance: 5_000, flow: 5_000))
         library.upsert(Valuation(account: "current", date: "2026-09-30", balance: 17_000, flow: -4_000))
         let pace = try #require(Valuator(library: library).savingPace(asOf: "2026-09-30"))
         #expect(pace.months.last?.newMoney == 1_000)
         #expect(pace.byAccount == ["current": 7_000, "savings": 5_000])
+    }
+
+    /// A pension fund valued each quarter, with 3,000 recorded each time,
+    /// saved over the quarter, not all in its last month, while the
+    /// current account is valued every month.
+    @Test func anAccountValuedLessOftenIsSpreadOverItsOwnInterval() throws {
+        var library = self.library(flows: [Decimal](repeating: 1_000, count: 12))
+        library.accounts["pension"] = Account(id: "pension", name: "Pension", kind: .pensionFund, currency: .eur,
+                                              opened: "2020-01-01")
+        library.upsert(Valuation(account: "pension", date: "2025-09-30", balance: 10_000, flow: 0))
+        for (date, balance) in [("2025-12-31", 13_000), ("2026-03-31", 16_000), ("2026-06-30", 19_000),
+                                ("2026-09-30", 22_000)] as [(CalendarDate, Decimal)] {
+            library.upsert(Valuation(account: "pension", date: date, balance: balance, flow: 3_000))
+        }
+        let pace = try #require(Valuator(library: library).savingPace(asOf: "2026-09-30"))
+        // Each quarter's 3,000 by its months' days: 31, 30 and 31 of 92 from October.
+        let pension = ["1010.87", "978.26", "1010.87", "1033.33", "933.33", "1033.33",
+                       "989.01", "1021.98", "989.01", "1010.87", "1010.87", "978.26"].map { 1_000 + d($0) }
+        #expect(pace.months.map { $0.newMoney.rounded(scale: 2) } == pension)
+        #expect(pace.unusualMonths.isEmpty)
+        #expect(pace.byAccount["pension"]?.rounded(scale: 2) == 12_000)
+        #expect(pace.leftOut.isEmpty)
     }
 
     /// In today's money: prices rose 10% by the last check-in.

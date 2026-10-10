@@ -11,8 +11,8 @@ struct PlanPaceCommand: RetireSubcommand {
         abstract: "Show how much you've been saving into plan assets over the last 12 months.",
         discussion: """
             Prints the new money into plan assets in each of the last 12 months through the latest \
-            check-in on or before --date: each check-in's new money spread evenly over the days since \
-            the check-in before, in today's money with the library's inflation index. Money moved between \
+            check-in on or before --date: each account's new money spread evenly over the days since \
+            its record before, in today's money with the library's inflation index. Money moved between \
             plan assets cancels out. A month at least twice the usual one (the median) and at least 1% of \
             plan assets away from it is unusual, and counts as the usual month: the pace is the year's \
             total with those. With fewer than 12 months it's scaled to a year; with fewer than 3 there's \

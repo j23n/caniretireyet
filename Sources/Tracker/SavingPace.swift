@@ -5,11 +5,11 @@ import Model
 /// last 12 months, in today's money, with unusual months counted as a usual
 /// one (PLANNER.md, "Continue as you have").
 ///
-/// Each check-in's new money (``Valuator/change(from:to:in:)``) is spread
-/// evenly over the days since the check-in before, and the days are
-/// grouped into months that end on the same day of the month as the latest
-/// check-in (on the last day of each month when it's a month end). Money
-/// moved between two plan assets cancels out.
+/// Each account's new money at a check-in (``Valuator/change(from:to:in:)``)
+/// is spread evenly over the days since its own record before, and the
+/// days are grouped into months that end on the same day of the month as
+/// the latest check-in (on the last day of each month when it's a month
+/// end). Money moved between two plan assets cancels out.
 public struct SavingPace: Hashable, Sendable {
     /// The new money of one month.
     public struct Month: Hashable, Sendable {
@@ -143,12 +143,16 @@ extension Valuator {
         var isInTodaysMoney = inflation != nil
         var isComplete = true
         for report in reports {
-            let days = report.from.days(to: report.to)
-            guard days > 0 else { continue }
             for account in report.accounts where !leftOut.contains(account.account) {
                 if !account.problems.isEmpty { isComplete = false }
                 var amount = account.change.newMoney
                 if amount == 0 { continue }
+                // Spread from the account's own record before, not the
+                // check-in before: an account valued quarterly saved over
+                // the quarter, not in its last month.
+                let from = latestRecordDate(of: account.account, onOrBefore: report.from) ?? report.from
+                let days = from.days(to: report.to)
+                guard days > 0 else { continue }
                 if let inflation {
                     if let real = inflation.convert(amount, from: report.to, to: asOf) {
                         amount = real
@@ -157,7 +161,7 @@ extension Valuator {
                     }
                 }
                 for month in 0..<available {
-                    let start = max(report.from, ends[month + 1])
+                    let start = max(from, ends[month + 1])
                     let end = min(report.to, ends[month])
                     let overlap = start.days(to: end)
                     guard overlap > 0 else { continue }
