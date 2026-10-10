@@ -160,7 +160,9 @@ struct OverviewAnswerView: View {
     /// or open the plans to choose one.
     private var noPlan: some View {
         VStack(alignment: .leading, spacing: Metrics.m) {
-            Text(error ?? "Make a plan to see when you could retire.")
+            Text(error ?? (library.sortedPlans.isEmpty
+                ? "Make a plan to see when you could retire."
+                : "Choose a main plan to see when you could retire."))
                 .font(.callout)
                 .foregroundStyle(error == nil ? Palette.ink : Palette.secondaryInk)
                 .fixedSize(horizontal: false, vertical: true)

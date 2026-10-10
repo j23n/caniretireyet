@@ -212,7 +212,8 @@ struct ChangeRuleTests {
         #expect(report.from == "2025-12-31")
         #expect(report.to == "2026-01-31")
         #expect(report.total == ValueChange(start: 1000, market: 0, newMoney: 200, other: 0, end: 1200))
-        // On 31 December itself, the year is last year's, which has no start.
+        // On 31 December 2025 the year still started on 31 December 2024,
+        // before the first value.
         #expect(valuator.endOfLastYear(before: "2025-12-31") == nil)
 
         var later = Library(accounts: [
