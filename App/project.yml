@@ -52,7 +52,7 @@ packages:
   # condition (Debug builds, below). Pinned to a commit of j23n/feedbackkit.
   FeedbackKit:
     url: https://github.com/j23n/feedbackkit
-    revision: 237b5422f692551542381f177bea38b55c371aa7
+    revision: dd4df0adebaa834e04679388e88ca791d17b1515
 
 targets:
   CanIRetireYet:
