@@ -272,11 +272,12 @@ extension CheckInDraft {
             ? 0 : valuator.defaultFlow(for: valuation, previous: row.previous, paid: row.paid)
         var written: Valuation?
         if row.state == .updated || row.state == .unchanged, ignoringConflict || row.conflict == nil {
-            written = valuation
-            written?.flow = row.isFlowEdited ? row.enteredFlow : defaultFlow
-            written?.moneyIn = row.moneyIn
-            written?.moneyOut = row.enteredMoneyOut
-                ?? CheckInDraft.defaultMoneyOut(moneyIn: row.moneyIn, flow: written?.flow)
+            var record = valuation
+            record.flow = row.isFlowEdited ? row.enteredFlow : defaultFlow
+            record.moneyIn = row.moneyIn
+            record.moneyOut = row.enteredMoneyOut
+                ?? CheckInDraft.defaultMoneyOut(moneyIn: row.moneyIn, flow: record.flow)
+            written = record
         }
         return Proposal(valuation: valuation, written: written, defaultFlow: defaultFlow, positions: reviews)
     }
