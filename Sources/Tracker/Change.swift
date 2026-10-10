@@ -186,7 +186,7 @@ extension Valuator {
     /// the Overview's hero and its *This year*; `nil` when net worth has no
     /// value by then, so a library started this year has no change this year.
     public func endOfLastYear(before date: CalendarDate) -> CalendarDate? {
-        guard let yearEnd = YearMonth(year: date.year - 1, month: 12)?.lastDay, yearEnd < date,
+        guard let yearEnd = YearMonth(year: date.year - 1, month: 12)?.lastDay,
               let first = firstValuationDate(in: .netWorth), first <= yearEnd
         else { return nil }
         return yearEnd
