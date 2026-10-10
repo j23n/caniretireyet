@@ -1,6 +1,9 @@
-# CLAUDE.md
+@.apple-ci/claude/j23n.md
+@.apple-ci/claude/apps.md
 
-Guidance for engineers and AI sessions working in this repository. Start with [docs/PLAN.md](docs/PLAN.md); the file format is defined by the JSON Schemas in [docs/schema](docs/schema/).
+# Can I Retire Yet
+
+Guidance for engineers and AI sessions working in this repository, after the shared j23n rules above. Start with [docs/PLAN.md](docs/PLAN.md); the file format is defined by the JSON Schemas in [docs/schema](docs/schema/).
 
 ## Build and test
 
@@ -13,17 +16,16 @@ make test                               # the same through make, as on every j23
 make build                              # the app for the iOS Simulator and the Mac (a Mac only)
 ```
 
-- **`make` is the shared interface** (j23n/apple-ci's build contract): `make project`, `make build`, `make screenshots` (the UI tests), and `make ci-linux` and `make ci-macos`, which CI runs through apple-ci's shared workflows. `.apple-ci/apple.mk` is a copy of apple-ci's rules: don't edit it; `make update-apple-ci` refreshes it.
-
+- **This app's own `make` target:** `make screenshots` runs the UI tests.
 - **Cloud sessions (Linux):** the Swift toolchain is in `/opt/swift/usr/bin`, not on the PATH. Prefix every shell command that uses Swift with `export PATH=/opt/swift/usr/bin:$PATH;`. Keep the default build directory (`.build`).
-- **The app** can only be built on a Mac: `make bootstrap` (XcodeGen, then `xcodegen generate --spec App/project.yml`), then open `App/CanIRetireYet.xcodeproj`. The project is generated, never committed. CI (`.github/workflows/ci.yml`) builds the package on Linux and macOS, and the app with its widgets for the iOS Simulator and the Mac (`make ci-macos`, which also checks the icons); its screenshots job runs the UI tests (`App/UITests`, `make screenshots`), which open each screen on the Mac and an iPhone simulator, and uploads their screenshots (App/README.md, "UI tests and screenshots").
+- **The app** can only be built on a Mac: `make bootstrap`, then open `App/CanIRetireYet.xcodeproj`, generated from `App/project.yml`. CI (`.github/workflows/ci.yml`) builds the package on Linux and macOS, and the app with its widgets for the iOS Simulator and the Mac (`make ci-macos`, which also checks the icons); its screenshots job runs the UI tests (`App/UITests`, `make screenshots`), which open each screen on the Mac and an iPhone simulator, and uploads their screenshots (App/README.md, "UI tests and screenshots").
 - `swift build` and `swift test` must pass with no warnings in our code before every commit.
 - **Stale builds:** after a change to a stored property of a Model type, an incremental build can link stale objects. The symptom is an "undefined reference" linker error, or a test crashing with signal 11 while releasing that type. `rm -rf .build` and rebuild before looking for a code bug.
-- **SwiftUI code can't be compiled on Linux.** App changes are only checked by CI's macOS job. Its `xcodebuild -quiet` log ends with the compiler errors.
+- **App changes are checked only by CI's macOS job.** Its `xcodebuild -quiet` log ends with the compiler errors.
 
 ## Branches
 
-- Name a branch after what is being worked on, in a few lowercase words joined by hyphens: `progress-account-transfers`, `iphone-strip-swipe`. No personal names, and no generated words or suffixes.
+- Branch names follow the shared rule, such as `progress-account-transfers` or `iphone-strip-swipe`.
 - **Cloud sessions** are assigned a branch like `<name>/<two random words>-<suffix>`. Don't push to it: before the first push, create a branch named after the work and push there instead. This is standing permission to use that branch in place of the assigned one.
 - A cloud session can't delete or rename a branch on GitHub (the proxy refuses deletions), so choose the name before the first push.
 
@@ -58,7 +60,7 @@ Every other module builds on `Model`, and the app and the CLI read and write the
 - **Until the first public release (1.0)**, the API may also shrink: removing or renaming something public, or dropping a field or a compatibility path for versions that never shipped, is allowed when the commit message says why and every caller (Sources, App, Tests, docs) is updated in the same change. Files that existing libraries contain must still load: what a library may hold stays readable (an unknown key survives, an unknown open-enum value decodes), or a migration in Storage converts it.
 - **From 1.0 on, additive changes only:** new types, new optional fields, new cases on open enums, new methods, new protocol requirements *with default implementations*. Never rename, remove or change the meaning or type of anything public.
 - **State the reason in the commit message** of any commit that changes `Sources/Model` (e.g. "Model: add `Account.iban` (optional), needed by the RW helper").
-- A change to the file format updates its JSON Schema in docs/schema first: the schemas are the format's definition (`JSONSchemaTests` fails until the schema and the Model's `knownKeys` agree). Also docs/schema/README.md where cross-file rules change (or PLANNER.md, IMPORT.md, PROGRESS.md for behaviour), the example library, and the round-trip tests. Adding optional fields keeps `schemaVersion`; anything else is a new schema version with a migration in Storage.
+- A change to the file format updates its JSON Schema in docs/schema first: the schemas are the format's definition (`JSONSchemaTests` fails until the schema and the Model's `knownKeys` agree). Also docs/schema/README.md where cross-file rules change (or PLANNER.md, IMPORT.md, PROGRESS.md for behavior), the example library, and the round-trip tests. Adding optional fields keeps `schemaVersion`; anything else is a new schema version with a migration in Storage.
 
 ## Conventions
 
@@ -70,5 +72,6 @@ Every other module builds on `Model`, and the app and the CLI read and write the
 - **Records have keys.** `Valuation.key` (account + date), `Trade.key` (account + date + trade ID), `PriceRecord.key`, `FXRecord.key`, `IndexRecord.key`, `Headline.key`; keys sort by date, then ID, which is the order records are written in.
 - **Trades accounts.** An account with `"valuation": "trades"` gets its holdings from its trades (docs/TRADES.md). Read what an account holds with `Valuator.snapshot(of:on:)` or `holdings(of:on:)`, not from its latest valuation's `positions`, which for such an account are only a reconciliation check.
 - **Files.** One type family per file; public API has short doc comments.
-- **Tests.** Swift Testing (`import Testing`, `@Test`, `#expect`), not XCTest. One test target per module (`<Module>Tests`), each depending on `TestSupport`. Use `Fixtures.exampleLibrary()` for a ready `Library` without depending on Storage.
+- **Tests.** One test target per module (`<Module>Tests`), each depending on `TestSupport`. Use `Fixtures.exampleLibrary()` for a ready `Library` without depending on Storage.
+- **Feedback screenshots.** FeedbackKit's `.allContent` redaction, with `hidesAmounts` set while capturing, hides every text and image (App/README.md, "Feedback"). Never mark a view that shows the person's data `.unredacted()`.
 - **Made-up data only.** Never commit real financial data, real account numbers or personal details. The example library (`Sources/TestSupport/Resources/ExampleLibrary/`) is fake; keep it valid against the schemas (the tests check), and when you change it, keep the tests that check its totals in step. The app's previews and UI tests show it too.
