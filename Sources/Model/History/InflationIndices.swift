@@ -2,8 +2,9 @@ import Foundation
 
 // Which consumer price index measures prices where: the harmonised index of
 // consumer prices (HICP) of each country that has one and of the euro area,
-// and the one a library adjusts its amounts with (docs/schema,
-// library.schema.json: `inflationIndex`).
+// the national CPI of the United States and the United Kingdom, and the one
+// a library adjusts its amounts with (docs/schema, library.schema.json:
+// `inflationIndex`).
 
 extension IndexID {
     /// The euro area's harmonised index of consumer prices, from Eurostat:
@@ -70,46 +71,114 @@ extension IndexID {
     }()
 }
 
+extension IndexID {
+    /// The United States' consumer price index for all urban consumers
+    /// (CPI-U), all items, not seasonally adjusted, from the Bureau of Labor
+    /// Statistics (series `CUUR0000SA0`, 1982–84 = 100).
+    public static let cpiUS: IndexID = "cpi-us"
+
+    /// The United Kingdom's consumer prices index (CPI), all items, from the
+    /// Office for National Statistics (series `D7BT`, 2015 = 100).
+    public static let cpiGB: IndexID = "cpi-gb"
+
+    /// The countries with a national consumer price index and no HICP: the
+    /// United Kingdom and the United States. Sorted.
+    public static let cpiCountries: [CountryCode] = cpiIndices.keys.sorted()
+
+    /// `cpi-us`: the national CPI of `country` (any case), or `nil` for a
+    /// country without one (``cpiCountries``).
+    public static func cpi(_ country: CountryCode) -> IndexID? {
+        cpiIndices[CountryCode(country.rawValue.uppercased())]?.index
+    }
+
+    /// The country a national CPI measures, in capitals (`US`); `nil` for
+    /// any other index.
+    public var cpiArea: String? {
+        Self.cpiIndices.first { $0.value.index == self }?.key.rawValue
+    }
+
+    /// Every country with a consumer price index the app fetches: an HICP
+    /// (``hicpCountries``) or a national CPI (``cpiCountries``). Sorted.
+    public static let consumerPriceCountries: [CountryCode] = (hicpCountries + cpiCountries).sorted()
+
+    /// The consumer price index of `country` (any case): its HICP, else its
+    /// national CPI (`cpi-us`). `nil` for a country without one.
+    public static func consumerPrices(_ country: CountryCode) -> IndexID? {
+        hicp(country) ?? cpi(country)
+    }
+
+    /// The consumer price index that measures prices in `currency`: its
+    /// HICP (``hicp(currency:)``), else the national CPI of the country
+    /// whose currency it is (`cpi-us` for dollars, `cpi-gb` for pounds).
+    /// `nil` when no index is in that currency.
+    public static func consumerPrices(currency: CurrencyCode) -> IndexID? {
+        if let index = hicp(currency: currency) { return index }
+        let code = CurrencyCode(currency.rawValue.uppercased())
+        return cpiIndices.values.first { $0.currency == code }?.index
+    }
+
+    /// The area an index measures: an HICP's (``hicpArea``) or a national
+    /// CPI's country (``cpiArea``), in capitals. `nil` for any other index.
+    public var priceArea: String? {
+        hicpArea ?? cpiArea
+    }
+
+    /// The currency an index's prices are in: an HICP's (``hicpCurrency``),
+    /// or its country's for a national CPI. `nil` for any other index.
+    public var priceCurrency: CurrencyCode? {
+        if let currency = hicpCurrency { return currency }
+        return Self.cpiIndices.values.first { $0.index == self }?.currency
+    }
+
+    /// Each country with a national CPI: its index, and the currency its
+    /// prices are in.
+    private static let cpiIndices: [CountryCode: (index: IndexID, currency: CurrencyCode)] = [
+        .us: (index: .cpiUS, currency: .usd),
+        .gb: (index: .cpiGB, currency: .gbp),
+    ]
+}
+
 extension Library {
     /// The consumer price index the library expresses amounts in today's
     /// money with, and computes real returns with (docs/schema,
     /// library.schema.json, `inflationIndex`):
     ///
     /// 1. `settings.inflationIndex`, when it's set;
-    /// 2. else the HICP of the tax residence (`hicp-de` for `DE`), when the
-    ///    country has one;
+    /// 2. else the index of the tax residence (`hicp-de` for `DE`, `cpi-us`
+    ///    for `US`), when the country has one;
     /// 3. else, among the indices in the base currency that the library has
     ///    values of, the one with the most (so a library in euros that
     ///    recorded `hicp-it` keeps using it);
-    /// 4. else the HICP of the base currency: the euro area's for euros
-    ///    (`hicp-ea`), Switzerland's for francs (`hicp-ch`).
+    /// 4. else the index of the base currency: the euro area's for euros
+    ///    (`hicp-ea`), Switzerland's for francs (`hicp-ch`), `cpi-us` for
+    ///    dollars, `cpi-gb` for pounds.
     ///
-    /// `nil` when none applies, e.g. a library in dollars whose tax
-    /// residence has no HICP.
+    /// `nil` when none applies, e.g. a library in yen whose tax residence
+    /// has no index.
     public var effectiveInflationIndex: IndexID? {
         if let chosen = settings.inflationIndex { return chosen }
-        if let residence = settings.taxResidence, let index = IndexID.hicp(residence) { return index }
+        if let residence = settings.taxResidence, let index = IndexID.consumerPrices(residence) { return index }
         let base = settings.baseCurrency
         var counts: [IndexID: Int] = [:]
         for month in months.values {
-            for record in month.indices where record.index.hicpCurrency == base {
+            for record in month.indices where record.index.priceCurrency == base {
                 counts[record.index, default: 0] += 1
             }
         }
         if let recorded = counts.max(by: { ($0.value, $1.key) < ($1.value, $0.key) })?.key { return recorded }
-        return IndexID.hicp(currency: base)
+        return IndexID.consumerPrices(currency: base)
     }
 
     /// The index for amounts in `currency`, such as a plan's: the library's
     /// own (``effectiveInflationIndex``) for its base currency or when its
-    /// prices are in `currency` (`hicp-it` for euros); else the HICP of that
-    /// currency (`hicp-ch` for francs, `hicp-ea` for euros). `nil` when no
-    /// index is known for it.
+    /// prices are in `currency` (`hicp-it` for euros); else the index of
+    /// that currency (`hicp-ch` for francs, `hicp-ea` for euros, `cpi-us`
+    /// for dollars). `nil` when no index is known for it.
     public func inflationIndex(for currency: CurrencyCode) -> IndexID? {
         let own = effectiveInflationIndex
         if currency == settings.baseCurrency { return own }
-        if let own, own.hicpCurrency == currency { return own }
-        return IndexID.hicp(currency: currency)
+        if let own, own.priceCurrency == currency { return own }
+        return IndexID.consumerPrices(currency: currency)
     }
 
     /// Every index the library needs values of: its own. Plans are in the
