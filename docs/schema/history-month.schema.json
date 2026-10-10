@@ -44,7 +44,7 @@
         }
       ],
       "valuations": [
-        { "account": "conto-fineco", "balance": "4210.55", "date": "2026-09-30", "flow": "-310.2", "moneyIn": "3400", "moneyOut": "3710.2" },
+        { "account": "conto-fineco", "balance": "4210.55", "date": "2026-09-30", "flow": "-310.2", "moneyIn": "3400", "moneyOut": "2560.2" },
         { "account": "directa", "cash": "312.1", "date": "2026-09-30", "flow": "11.3" },
         { "account": "fondo-pensione", "balance": "18450.12", "date": "2026-09-30", "flow": "1325", "note": "from Q3 statement" },
         { "account": "gold-coins", "date": "2026-09-30", "positions": [{ "instrument": "gold", "quantity": "62.2" }] },
