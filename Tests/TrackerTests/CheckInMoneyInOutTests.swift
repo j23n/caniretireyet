@@ -57,6 +57,30 @@ struct CheckInMoneyInOutTests {
         #expect(written(draft)?.moneyOut == nil)
     }
 
+    @Test func aSuggestedMoneyOutFollowsLaterEdits() {
+        var draft = CheckInDraft(date: "2026-10-31", library: library)
+        draft["conto-fineco"]?.setBalance(d("4600.25"))
+        draft["conto-fineco"]?.setMoneyIn(3400)
+        var saved = library
+        draft.apply(to: &saved)
+
+        // Reopened, the saved suggestion follows a corrected balance.
+        var reopened = CheckInDraft(date: "2026-10-31", library: saved)
+        #expect(reopened["conto-fineco"]?.enteredMoneyOut == d("3010.3"))
+        reopened["conto-fineco"]?.setBalance(d("4500.25"))
+        let corrected = reopened.review(in: saved).row(for: "conto-fineco")?.valuation
+        #expect(corrected?.flow == d("289.7"))
+        #expect(corrected?.moneyOut == d("3110.3"))
+
+        // A typed amount stays.
+        draft["conto-fineco"]?.setMoneyOut(3100)
+        var typed = library
+        draft.apply(to: &typed)
+        var again = CheckInDraft(date: "2026-10-31", library: typed)
+        again["conto-fineco"]?.setBalance(d("4500.25"))
+        #expect(again.review(in: typed).row(for: "conto-fineco")?.valuation?.moneyOut == 3100)
+    }
+
     @Test func neverWritesNegativeAmounts() throws {
         var draft = CheckInDraft(date: "2026-10-31", library: library)
         draft["conto-fineco"]?.setBalance(d("4600.25"))
