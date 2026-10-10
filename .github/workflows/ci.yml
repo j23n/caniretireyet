@@ -3,9 +3,12 @@
 # screenshots"), kept as the `screenshots` artifact.
 name: CI
 
+# apple-ci's workflows run each job once per commit: Linux on every push, macOS on pull requests,
+# pushes to main and runs by hand (Actions › CI › Run workflow), as its README's "When CI runs" says.
 on:
   push:
   pull_request:
+  workflow_dispatch:
 
 permissions:
   contents: read
