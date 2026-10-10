@@ -200,7 +200,7 @@ On the Mac there are also tables for editing many valuations at once, keyboard n
 - **Crypto:** CoinGecko, or an exchange's public ticker. The symbol is the coin's CoinGecko ID or its ticker (`ETH`), which is resolved to an ID through a built-in table of well-known coins or CoinGecko's search. An optional demo API key, kept in the Keychain, raises its rate limit. CoinGecko's free API only has the last 365 days; older prices come from Yahoo Finance's crypto pairs (below).
 - **Gold and silver:** a free spot-price API (gold-api.com, USD per troy ounce, converted to the instrument's currency and unit), or the market price of a physical-gold ETC as a proxy. gold-api.com only has today's spot price, so past prices come from the metal's front-month futures on Yahoo Finance: `GC=F` for gold (`XAU`), `SI=F` for silver, `PL=F` for platinum and `PA=F` for palladium, all in USD per troy ounce and converted the same way. Futures trade within about 1% of spot, so these are an approximation; the price list says so ("Yahoo Finance · GC=F (history)"), and the instrument keeps `gold-api` as its price source.
 - **ETFs on European exchanges:** there's no reliable free official API. We'll start with Yahoo Finance's public chart endpoint. It's unofficial and can break, so providers are pluggable, and a paid one with your own key (EODHD, Twelve Data) can be added.
-- **Inflation:** a consumer-price index, fetched with the FX rates for the months the library is missing: the library's (`inflationIndex` in `library.json`, by default the HICP of the tax residence, else of the base currency; [library.schema.json](schema/library.schema.json)). Eurostat's HICP (`prc_hicp_minr`, all items, 2015 = 100) covers every EU country, Iceland, Norway, Switzerland, the candidate countries and the euro area (`hicp-de`, `hicp-ch`, `hicp-ea`, …), through one provider; other indices are added as providers.
+- **Inflation:** a consumer-price index, fetched with the FX rates for the months the library is missing: the library's (`inflationIndex` in `library.json`, by default the index of the tax residence, else of the base currency; [library.schema.json](schema/library.schema.json)). Each index has a provider (`InflationIndexProvider`): Eurostat's HICP (`prc_hicp_minr`, all items, 2015 = 100) covers every EU country, Iceland, Norway, Switzerland, the candidate countries and the euro area (`hicp-de`, `hicp-ch`, `hicp-ea`, …); the BLS public API (version 1, no key, at most ten years a request) has the United States' CPI-U (`cpi-us`: series `CUUR0000SA0`, all items, not seasonally adjusted, 1982–84 = 100); the ONS time-series download has the United Kingdom's CPI (`cpi-gb`: series D7BT of MM23, all items, 2015 = 100), the whole series as CSV, of which the monthly rows are read. Other indices are added as providers.
 - **Dates:** each value is the latest on or before the check-in date and is recorded on that date. The price list shows the day it's from, e.g. Friday's close for a Sunday check-in.
 - Fetched prices are cached on the device. Only the prices used in a check-in are written to the library.
 - **Rate limits.** Free APIs allow only a few calls a minute, so at most four instruments are fetched at once (`PriceService.maxConcurrentFetches`), and a check-in's CoinGecko coins are priced in one `simple/price?ids=bitcoin,ethereum,…` call, in every currency asked for.
@@ -215,6 +215,8 @@ On the Mac there are also tables for editing many valuations at once, keyboard n
     | gold-api.com | Yahoo Finance futures: `GC=F`, `SI=F`, `PL=F`, `PA=F` | about 2000 |
     | Frankfurter (ECB) | the time series `/v1/<from>..<to>`, which may thin a long range out to weekly rates | 1999 |
     | Eurostat | the series for the missing months | 1996 |
+    | BLS | the series for the missing months' years, ten years a request | 1913 |
+    | ONS | the whole series | 1988 |
 
     A provider without a history (a price source the app doesn't fetch, or a metal without futures) is listed with its dates, not skipped.
   - **Values on or before each date.** Each date takes the latest value on or before it: up to 7 days back in a daily series (weekends and holidays; two weeks for weekly rates), or the month's close in a monthly one. The price list and results show the day it's from.
@@ -297,7 +299,7 @@ The importer works with any spreadsheet or export instead of a fixed layout. Det
 
 - Conflict merging, with the Sync screen. The schema guard. Clear errors for hand-edited files that don't parse.
 - A monthly reminder notification, Face ID lock, and CSV export.
-- The explanation of the gap to a baseline (done: on each year of Progress, [PROGRESS.md](PROGRESS.md#actual-vs-a-baseline)), and fetching an inflation index (any country's HICP, or the euro area's).
+- The explanation of the gap to a baseline (done: on each year of Progress, [PROGRESS.md](PROGRESS.md#actual-vs-a-baseline)), and fetching an inflation index (any country's HICP, the euro area's, or the US or UK CPI).
 - Widgets for net worth and years to go: done, on the home screen, the lock screen and the Mac's desktop ([UI.md](UI.md#widgets)).
 - An RW/IVAFE helper that produces year-end values and holding periods for foreign accounts, for an Italian tax return.
 
