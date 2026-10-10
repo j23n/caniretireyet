@@ -48,7 +48,7 @@ struct InstrumentsFindCommand: RetireSubcommand {
         guard let found = loaded.library.instruments[InstrumentID(instrument)] else {
             let known = loaded.library.instruments.keys.map(\.rawValue).sorted()
             throw CLIError("There's no instrument \"\(instrument)\"."
-                + (known.isEmpty ? "" : " Instruments: \(known.joined(separator: ", ")).")))
+                + (known.isEmpty ? "" : " Instruments: \(known.joined(separator: ", "))."))
         }
         guard let query = query?.trimmingCharacters(in: .whitespaces) ?? YahooSymbolSearch.query(for: found) else {
             throw CLIError("\(found.id) has no ISIN, ticker or name to search for: pass --query <text>.")
