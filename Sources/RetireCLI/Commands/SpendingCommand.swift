@@ -73,7 +73,7 @@ struct SpendingCommand: RetireSubcommand {
             table.add(["Out a year", Format.amount(perYear)])
             lines += table.lines()
             let months = summary.months.count
-            lines.append("\(months) \(months == 1 ? "month" : "months") recorded "
+            lines.append("\(Wording.count(months, "month")) recorded "
                 + "(\(Format.range(summary.months[0], summary.months[months - 1]))); out a year scales each account's "
                 + "money out to 365 days by the days its values cover.")
             if !summary.unconverted.isEmpty {

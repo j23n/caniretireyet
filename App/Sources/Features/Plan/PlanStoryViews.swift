@@ -240,9 +240,9 @@ struct PlanValueEditor: View {
         guard let perYear = summary.moneyOutPerYear else { return nil }
         let amount = hidesAmounts
             ? AmountFormat.hidden : AmountFormat.amount(perYear / 12, currency: summary.currency, locale: locale)
-        let months = summary.months.count
-        return "Your accounts recorded \(amount) a month going out over the last "
-            + "\(months == 1 ? "month" : "\(months) months"), money moved between them left out."
+        return "Your accounts recorded \(amount) a month on average going out, over "
+            + "\(Wording.count(summary.months.count, "recorded month")) in the last year, money moved between them "
+            + "left out."
     }
 
     private func title(_ text: String) -> some View {
