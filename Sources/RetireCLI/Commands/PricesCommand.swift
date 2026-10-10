@@ -12,8 +12,8 @@ struct PricesCommand: RetireSubcommand {
             Works out what a check-in on the date needs: a price for every instrument held, \
             an FX rate for every other currency (those of accounts and instruments), and the \
             months missing of the library's inflation index (by default the tax residence's \
-            HICP: see retire settings). It fetches them (Yahoo Finance, CoinGecko, gold-api.com, the ECB through \
-            Frankfurter, Eurostat) and prints the price list with sources and failures. Only \
+            HICP or CPI: see retire settings). It fetches them (Yahoo Finance, CoinGecko, gold-api.com, the ECB \
+            through Frankfurter, and Eurostat, the BLS or the ONS) and prints the price list with sources and failures. Only \
             symbols, currencies and dates are sent. With --apply, the fetched records are \
             written to the library, after a backup. Set \(CLIContext.coinGeckoKeyVariable) to \
             use a CoinGecko demo API key. Exits with status 1 when something couldn't be fetched.

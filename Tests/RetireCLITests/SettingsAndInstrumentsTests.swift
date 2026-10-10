@@ -41,9 +41,14 @@ struct SettingsAndInstrumentsTests {
         #expect(automatic.output.hasPrefix("Inflation index: hicp-it (automatic).\n"))
         #expect(try !library.text("library.json").contains("inflationIndex"))
 
-        let bad = await retire(["settings", "--library", library.path, "--inflation-index", "cpi-us"])
+        let us = await retire(["settings", "--library", library.path, "--inflation-index", "cpi-us"])
+        #expect(us.status == 0, "\(us.all)")
+        #expect(us.output.hasPrefix("Inflation index: cpi-us.\n"))
+        #expect(try library.load().settings.inflationIndex == .cpiUS)
+
+        let bad = await retire(["settings", "--library", library.path, "--inflation-index", "cpi-jp"])
         #expect(bad.status == 64)
-        #expect(bad.errors.contains("--inflation-index must be an HICP such as hicp-de or hicp-ea"))
+        #expect(bad.errors.contains("--inflation-index must be an HICP such as hicp-de or hicp-ea, cpi-us"))
     }
 
     @Test func instrumentsListTheirMixAndPriceSource() async throws {

@@ -11,9 +11,10 @@ struct SettingsCommand: RetireSubcommand {
         discussion: """
             Prints the base currency, the country you live in, the inflation index, the birth \
             date and the main plan. --inflation-index hicp-ea picks the consumer price index \
-            amounts are adjusted with (a country's HICP, hicp-<country>, or the euro area's, \
-            hicp-ea); automatic goes back to the default: your country's HICP, else the base \
-            currency's. Changes are written after a backup of library.json (--dry-run shows them).
+            amounts are adjusted with (a country's HICP, hicp-<country>; the euro area's, \
+            hicp-ea; the US CPI-U, cpi-us; or the UK CPI, cpi-gb); automatic goes back to the \
+            default: your country's index, else the base currency's. Changes are written after a \
+            backup of library.json (--dry-run shows them).
             """)
 
     @OptionGroup var options: LibraryOptions
@@ -31,14 +32,15 @@ struct SettingsCommand: RetireSubcommand {
         if let inflationIndex { _ = try Self.index(inflationIndex) }
     }
 
-    /// The index `--inflation-index` names: an HICP, or `nil` for automatic.
+    /// The index `--inflation-index` names: an HICP or a national CPI, or
+    /// `nil` for automatic.
     static func index(_ text: String) throws -> IndexID? {
         let trimmed = text.trimmingCharacters(in: .whitespaces).lowercased()
         if trimmed == "automatic" { return nil }
         let index = IndexID(trimmed)
-        guard index.hicpArea != nil else {
-            throw ValidationError("--inflation-index must be an HICP such as hicp-de or hicp-ea, or automatic, "
-                + "not “\(text)”.")
+        guard index.priceArea != nil else {
+            throw ValidationError("--inflation-index must be an HICP such as hicp-de or hicp-ea, cpi-us, cpi-gb "
+                + "or automatic, not “\(text)”.")
         }
         return index
     }
