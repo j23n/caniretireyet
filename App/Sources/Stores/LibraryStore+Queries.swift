@@ -81,6 +81,14 @@ extension LibraryStore {
         library.settings.mainPlan.flatMap { library.plans[$0] }
     }
 
+    /// Whether a new plan should become the main plan: none is set, or the
+    /// one set is gone (its file deleted by hand or through sync). A main
+    /// plan whose file couldn't be loaded is kept: it may load once fixed.
+    var needsMainPlan: Bool {
+        guard let main = library.settings.mainPlan else { return true }
+        return library.plans[main] == nil && !unloadedFiles.contains(.plan(main))
+    }
+
     /// A new plan ID made from a display name, unique in the library and
     /// among plan files that couldn't be loaded.
     func newPlanID(for name: String) -> PlanID {

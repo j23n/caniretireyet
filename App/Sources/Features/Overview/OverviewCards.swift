@@ -61,7 +61,7 @@ struct OverviewChangeCard: View {
 /// in money ("▲ +18.240 € since 31 Dec 2025"), and in per cent while
 /// amounts are hidden.
 struct OverviewYearCard: View {
-    /// Glance's `Valuator.changeThisYear(asOf:)`.
+    /// Tracker's `Valuator.changeThisYear(asOf:)`.
     let report: ChangeReport
     @Environment(\.locale) private var locale
 
@@ -242,7 +242,7 @@ struct OverviewAnswerView: View {
                 Button("Calculate") { Task { await plans.run(plan.id) } }
                     .buttonStyle(.bordered)
                     .controlSize(.small)
-                    .disabled(plans.isRunning(plan.id))
+                    .disabled(plans.isRunning(plan.id, .base) || plans.isRunning(plan.id, .checkIn))
             }
         }
     }
@@ -296,7 +296,7 @@ struct OverviewAnswerView: View {
                                        library: library.library, asOf: library.asOfDate)
         do {
             try library.save(plan)
-            if library.settings.mainPlan == nil { try library.setMainPlan(plan.id) }
+            if library.needsMainPlan { try library.setMainPlan(plan.id) }
             error = nil
             navigation.showPlan(plan.id)
         } catch {
@@ -323,16 +323,19 @@ struct OverviewAnswerView: View {
         return "Not yet · earliest at \(age)"
     }
 
-    /// "About 15 years to go · March 2042" (``RetirementCountdown``, as the
-    /// widgets count it), "You could retire today", "No retirement age works
-    /// out yet"; `nil` for an answer recorded at a check-in, which has no date.
+    /// "About 15 years to go · March 2042" (the widgets' ``RetirementCountdown``
+    /// in words, ``RetirementCountdown/toGoText``: whole years from two years
+    /// on, rounded to the nearest, else months), "You could retire today",
+    /// "No retirement age works out yet". `nil` for an answer recorded at a
+    /// check-in, which has no date, and for results kept from an earlier
+    /// session whose earliest month has passed.
     private func whenText(_ headline: PlanHeadline) -> String? {
         if headline.canRetireNow { return "You could retire today" }
         guard headline.earliestAge != nil else { return "No retirement age works out yet" }
-        guard let date = headline.earliestDate else { return nil }
-        let month = GlanceText.monthAndYear(date, locale: locale)
-        guard let countdown = RetirementCountdown(from: today, to: date) else { return "In \(month)" }
-        return "\(countdown.toGoText.capitalizedFirst) · \(month)"
+        guard let date = headline.earliestDate,
+              let countdown = RetirementCountdown(from: today, to: date)
+        else { return nil }
+        return "\(countdown.toGoText.capitalizedFirst) · \(GlanceText.monthAndYear(date, locale: locale))"
     }
 
     private func confidenceText(_ headline: PlanHeadline) -> String {

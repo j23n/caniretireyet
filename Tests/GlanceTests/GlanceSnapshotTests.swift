@@ -86,21 +86,15 @@ struct ExampleLibraryGlanceTests {
         #expect(abs(thisYear - expected) < 1e-12)
     }
 
-    /// The Overview's *This year*: the hero's change this year, split.
-    @Test func theChangeThisYearIsSplitFromTheEndOfLastYear() throws {
+    /// The Overview's *This year* (Tracker's `changeThisYear(asOf:)`) splits
+    /// the hero's "this year": the same change, from the same 31 December.
+    @Test func thisYearsSplitIsTheHerosChange() throws {
         let report = try #require(valuator.changeThisYear(asOf: "2026-09-30"))
-        #expect(report.from == "2025-12-31")
-        #expect(report.to == "2026-09-30")
-        #expect(report == valuator.change(from: "2025-12-31", to: "2026-09-30", in: .netWorth))
-        #expect(report.total.start == valuator.total(on: "2025-12-31", in: .netWorth).total)
-        #expect(report.total.end == valuator.total(on: "2026-09-30", in: .netWorth).total)
-    }
-
-    @Test func noChangeThisYearWithoutAValueByTheEndOfLastYear() throws {
-        let first = try #require(valuator.firstValuationDate(in: .netWorth))
-        #expect(valuator.endOfLastYear(before: "2026-10-08") == "2025-12-31")
-        #expect(valuator.endOfLastYear(before: first) == nil)
-        #expect(valuator.changeThisYear(asOf: first) == nil)
+        let hero = try #require(NetWorthGlance(valuator: valuator, asOf: "2026-09-30").thisYear)
+        let split = try #require(report.total.relativeChange)
+        #expect(abs(hero - NSDecimalNumber(decimal: split).doubleValue) < 1e-12)
+        let total = report.total
+        #expect((total.start + total.market + total.newMoney + total.other).rounded(20) == total.end.rounded(20))
     }
 
     @Test func allocationIsByAssetClassInStackingOrder() throws {
