@@ -87,7 +87,8 @@ public struct CheckInRow: Hashable, Sendable, Identifiable {
     public private(set) var moneyIn: Decimal?
     /// The money that went out, typed by hand (or kept as saved on the
     /// date); `nil` works it out from ``moneyIn`` and the flow
-    /// (``CheckInDraft/defaultMoneyOut(moneyIn:flow:)``).
+    /// (``CheckInDraft/defaultMoneyOut(moneyIn:flow:)``) when there's a
+    /// ``previous`` valuation.
     public private(set) var enteredMoneyOut: Decimal?
     /// The valuation's note. Editing it doesn't change the row's state.
     public var note: String?

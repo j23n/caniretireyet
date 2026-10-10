@@ -23,7 +23,7 @@ public struct MoneyInOutSummary: Hashable, Sendable {
     public var unconverted: [AccountID]
     /// Money out scaled to a year, rounded to cents: each account's money out
     /// × 365 / the days its counted values cover (each from the account's
-    /// value before it), added up over the accounts. So a skipped check-in,
+    /// valuation before it), added up over the accounts. So a skipped check-in,
     /// whose next value covers two months, or accounts recorded over
     /// different months still give a year's worth. `nil` when nothing was
     /// counted.
@@ -58,12 +58,12 @@ extension Valuator {
     /// latest FX rate on or before each valuation's date.
     ///
     /// A valuation counts when its account is known, its kind records money
-    /// in and out (``Model/AccountKind/recordsMoneyInOut``), and it has both
-    /// amounts, neither negative. `accounts` limits the sum to those accounts.
-    ///
-    /// Each value covers the days since the account's value before it (its
-    /// first value, the days since the account opened), which is what
-    /// ``MoneyInOutSummary/moneyOutPerYear`` scales by.
+    /// in and out (``Model/AccountKind/recordsMoneyInOut``), it has both
+    /// amounts, neither negative, and the account has a valuation before it.
+    /// Each value covers the days since that valuation, which is what
+    /// ``MoneyInOutSummary/moneyOutPerYear`` scales by; an account's first
+    /// value covers no known period. `accounts` limits the sum to those
+    /// accounts.
     public func moneyInOut(from: CalendarDate, through: CalendarDate,
                            accounts only: Set<AccountID>? = nil) -> MoneyInOutSummary {
         var summary = MoneyInOutSummary(from: from, through: through, currency: baseCurrency)
@@ -76,7 +76,7 @@ extension Valuator {
             var days = 0
             let values = valuations(for: account.id)
             for (index, valuation) in values.enumerated() where valuation.date >= from && valuation.date <= through {
-                guard let moneyIn = valuation.moneyIn, let moneyOut = valuation.moneyOut,
+                guard index > 0, let moneyIn = valuation.moneyIn, let moneyOut = valuation.moneyOut,
                       moneyIn >= 0, moneyOut >= 0
                 else { continue }
                 guard let inBase = fx.convert(moneyIn, from: account.currency, to: baseCurrency, on: valuation.date),
@@ -88,8 +88,7 @@ extension Valuator {
                 summary.moneyIn += inBase
                 summary.moneyOut += outBase
                 accountOut += outBase
-                let since = index > 0 ? values[index - 1].date : account.opened.adding(days: -1)
-                days += max(1, since.days(to: valuation.date))
+                days += max(1, values[index - 1].date.days(to: valuation.date))
                 months.insert(valuation.date.yearMonth)
             }
             if days > 0 { perYear = (perYear ?? 0) + accountOut * 365 / Decimal(days) }
