@@ -32,9 +32,9 @@
       "additionalProperties": { "$ref": "#/$defs/decimal" }
     },
     "dataSource": {
-      "description": "Where a record's values came from: manual (typed in), import (a spreadsheet), ledger (a journal, imported by an earlier version), or the service that answered: yahoo, coingecko, gold-api, ecb, eurostat. A price fetched for a past date has the source of the service that answered, which can differ from its instrument's priceSource (gold priced from Yahoo Finance's GC=F futures has \"yahoo\").",
+      "description": "Where a record's values came from: manual (typed in), import (a spreadsheet), ledger (a journal, imported by an earlier version), or the service that answered: yahoo, coingecko, gold-api, ecb, eurostat, bls (the US Bureau of Labor Statistics), ons (the UK Office for National Statistics). A price fetched for a past date has the source of the service that answered, which can differ from its instrument's priceSource (gold priced from Yahoo Finance's GC=F futures has \"yahoo\").",
       "$comment": "Open enum.",
-      "enum": ["manual", "import", "ledger", "yahoo", "coingecko", "gold-api", "ecb", "eurostat"]
+      "enum": ["manual", "import", "ledger", "yahoo", "coingecko", "gold-api", "ecb", "eurostat", "bls", "ons"]
     },
     "age": { "description": "An age in whole years.", "type": "integer", "minimum": 0, "maximum": 150 }
   }
