@@ -32,6 +32,8 @@ struct OnboardingScreen: View {
     /// The birth-date picker is showing; `birthDate` is set only once a
     /// date is picked in it.
     @State private var addsBirthDate = false
+    /// The date the picker shows before one is saved.
+    @State private var pickedBirthDate = YouSettings.suggestedBirthDate().dateValue
     /// The device's currency and region to start with; nothing else is assumed.
     @State private var currency = CurrencyCode(Locale.current.currency?.identifier ?? "EUR")
     @State private var residence: CountryCode? = Locale.current.region.map { CountryCode($0.identifier) }
@@ -148,16 +150,28 @@ struct OnboardingScreen: View {
 
     /// "Birth date: Add" until it's tapped, then the picker, which shows
     /// `YouSettings.suggestedBirthDate()` but saves nothing until a date is
-    /// picked. Without one the library is still created; the plan asks for
-    /// it on its *You* card.
+    /// picked or *Use This Date* is tapped; *Remove* unsets it again.
+    /// Without one the library is still created; the plan asks for it on
+    /// its *You* card.
     @ViewBuilder private var birthDateRow: some View {
         if birthDate != nil || addsBirthDate {
             VStack(alignment: .leading, spacing: Metrics.xs) {
                 DatePicker("Birth date", selection: birthDateBinding, in: ...Date(), displayedComponents: .date)
                 if birthDate == nil {
-                    Text("Not set yet: pick the date to save it.")
-                        .font(.footnote)
-                        .foregroundStyle(Palette.secondaryInk)
+                    HStack {
+                        Text("Not set yet: pick a date, or use the one shown.")
+                            .font(.footnote)
+                            .foregroundStyle(Palette.secondaryInk)
+                        Spacer()
+                        Button("Use This Date") { birthDate = pickedBirthDate }
+                            .buttonStyle(.bordered)
+                    }
+                } else {
+                    Button("Remove Birth Date") {
+                        birthDate = nil
+                        addsBirthDate = false
+                    }
+                    .font(.footnote)
                 }
             }
         } else {
@@ -174,7 +188,10 @@ struct OnboardingScreen: View {
     }
 
     private var birthDateBinding: Binding<Date> {
-        Binding(get: { birthDate ?? YouSettings.suggestedBirthDate().dateValue }, set: { birthDate = $0 })
+        Binding(get: { birthDate ?? pickedBirthDate }, set: { date in
+            pickedBirthDate = date
+            birthDate = date
+        })
     }
 
     private var moneyStep: some View {
@@ -244,7 +261,7 @@ struct OnboardingScreen: View {
             defer { isCreating = false }
             do {
                 try await library.createLibrary(in: kind, settings: settings)
-                createStarterPlan()
+                createStarterPlan(currency: settings.baseCurrency)
                 if remindsMonthly { turnOnReminder() }
                 navigation.sheet = .welcome
             } catch {
@@ -255,11 +272,14 @@ struct OnboardingScreen: View {
 
     /// The first plan, as the main plan, in a library without plans (one
     /// synced from another device keeps its own, also a plan file that
-    /// didn't load). If it can't be saved, the Plan screen still offers to
-    /// create one.
-    private func createStarterPlan() {
+    /// didn't load), and only in the `currency` the amounts were entered
+    /// in: a library that appeared in iCloud Drive meanwhile is opened
+    /// instead, with its own. If it can't be saved, the Plan screen still
+    /// offers to create one.
+    private func createStarterPlan(currency: CurrencyCode) {
         let hasUnloadedPlan = library.unloadedFiles.contains { if case .plan = $0 { true } else { false } }
-        guard library.canEdit, library.library.plans.isEmpty, !hasUnloadedPlan else { return }
+        guard library.canEdit, library.library.plans.isEmpty, !hasUnloadedPlan,
+              library.settings.baseCurrency == currency else { return }
         let plan = PlanEditing.starterPlan(
             id: library.newPlanID(for: Self.starterPlanName), name: Self.starterPlanName, library: library.library,
             asOf: library.asOfDate, payPerMonth: payPerMonth, spendingPerMonth: spendingPerMonth)
@@ -273,13 +293,17 @@ struct OnboardingScreen: View {
     }
 
     /// The monthly check-in reminder on this device, as Settings turns it
-    /// on, unless one is set already.
+    /// on, unless one is set already. When notifications aren't allowed,
+    /// it's turned off again, so Settings doesn't show one that never comes.
     private func turnOnReminder() {
         guard preferences.reminder == nil else { return }
         let reminder = CheckInReminder.standard
         preferences.reminder = reminder
         #if canImport(UserNotifications)
-        Task { await ReminderScheduler.apply(reminder) }
+        Task {
+            let scheduled = await ReminderScheduler.apply(reminder)
+            if !scheduled { preferences.reminder = nil }
+        }
         #endif
     }
 }
