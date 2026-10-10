@@ -62,6 +62,17 @@ extension LibraryStore {
         }
     }
 
+    /// Sets the price source of each instrument in `sources`, in one edit,
+    /// e.g. those *Find Price Sources…* found after an import. Instruments
+    /// no longer in the library are skipped.
+    func setPriceSources(_ sources: [InstrumentID: PriceSource]) throws {
+        try update { library in
+            for (id, source) in sources where library.instruments[id] != nil {
+                library.instruments[id]?.priceSource = source
+            }
+        }
+    }
+
     /// Deletes an instrument no position or trade refers to.
     func deleteInstrument(_ id: InstrumentID) throws {
         try update { library in

@@ -362,6 +362,7 @@ struct InstrumentEditor: View {
     /// A price set by hand on a new instrument, saved with it.
     @State private var typedPrice: PriceRecord?
     @State private var showsSetPrice = false
+    @State private var findsSymbol = false
     @State private var confirmsReplacingTyped = false
     @State private var confirmsDelete = false
     @State private var errorMessage: String?
@@ -511,6 +512,17 @@ struct InstrumentEditor: View {
             .frame(minWidth: 380, idealWidth: 440, minHeight: 320, idealHeight: 380)
             #endif
         }
+        .sheet(isPresented: $findsSymbol) {
+            NavigationStack {
+                SymbolSearchSheet(search: symbolSearch(form.wrappedValue)) { candidate in
+                    form.wrappedValue.provider = candidate.provider
+                    form.wrappedValue.symbol = candidate.symbol
+                }
+            }
+            #if os(macOS)
+            .frame(minWidth: 420, idealWidth: 480, minHeight: 420, idealHeight: 560)
+            #endif
+        }
         .confirmationDialog("Delete this instrument?", isPresented: $confirmsDelete, titleVisibility: .visible) {
             Button("Delete Instrument", role: .destructive) { delete() }
         } message: {
@@ -534,7 +546,17 @@ struct InstrumentEditor: View {
                 }
             }
             if form.wrappedValue.provider != nil {
-                AccountsTextField(title: "Symbol", text: form.symbol, prompt: form.wrappedValue.symbolPrompt)
+                HStack(spacing: Metrics.s) {
+                    AccountsTextField(title: "Symbol", text: form.symbol, prompt: form.wrappedValue.symbolPrompt)
+                    Button("Find…") { findsSymbol = true }
+                        .buttonStyle(.borderless)
+                }
+            } else {
+                Button {
+                    findsSymbol = true
+                } label: {
+                    Label("Find on Yahoo Finance…", systemImage: "magnifyingglass")
+                }
             }
             Button {
                 test(form.wrappedValue)
@@ -560,6 +582,12 @@ struct InstrumentEditor: View {
         } footer: {
             Text(sourceFooter(form.wrappedValue))
         }
+    }
+
+    /// *Find…*'s search: by the ISIN, else the ticker, else the name typed.
+    private func symbolSearch(_ form: InstrumentForm) -> PriceSourceSearch {
+        PriceSourceSearch(instrument: instrumentID ?? "new", name: form.trimmedName, currency: form.currency,
+                          query: YahooSymbolSearch.query(isin: form.isin, ticker: form.ticker, name: form.name) ?? "")
     }
 
     private func sourceFooter(_ form: InstrumentForm) -> String {

@@ -162,6 +162,9 @@ struct ImportReceipt: Hashable, Sendable {
     var createdAccounts: [String]
     var closedAccounts: [String]
     var createdInstruments: [String]
+    /// The IDs of the instruments created, for the Done step's offer to find
+    /// their price sources.
+    var createdInstrumentIDs: [InstrumentID]
     /// Names of the accounts that now record trades, and how many trades were written.
     var tradesAccounts: [String]
     var trades: Int
@@ -195,6 +198,7 @@ struct ImportReceipt: Hashable, Sendable {
         createdAccounts = result.createdAccounts.map { accounts[$0]?.name ?? $0.rawValue }
         closedAccounts = result.closedAccounts.map { accounts[$0]?.name ?? $0.rawValue }
         createdInstruments = result.createdInstruments.map { result.library.instruments[$0]?.name ?? $0.rawValue }
+        createdInstrumentIDs = result.createdInstruments
         tradesAccounts = result.tradesAccounts.map { accounts[$0]?.name ?? $0.rawValue }
         trades = result.tradesWritten
         changedFileCount = result.changedMonths.count + result.changedAccounts.count
