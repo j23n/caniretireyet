@@ -57,6 +57,25 @@ struct CheckInMoneyInOutTests {
         #expect(written(draft)?.moneyOut == nil)
     }
 
+    @Test func neverWritesNegativeAmounts() throws {
+        var draft = CheckInDraft(date: "2026-10-31", library: library)
+        draft["conto-fineco"]?.setBalance(d("4600.25"))
+        // Both are amounts without a sign: a minus typed by mistake is dropped.
+        draft["conto-fineco"]?.setMoneyIn(3400)
+        draft["conto-fineco"]?.setMoneyOut(-2000)
+        #expect(written(draft)?.moneyOut == 2000)
+
+        // A negative amount saved by hand is written as neither.
+        var edited = library
+        let september = try #require(edited.months["2026-09"]?.valuations.firstIndex { $0.account == "conto-fineco" })
+        edited.months["2026-09"]?.valuations[september].moneyOut = -1
+        var saved = CheckInDraft(date: "2026-09-30", library: edited)
+        saved["conto-fineco"]?.setBalance(4300)
+        let row = saved.review(in: edited).row(for: "conto-fineco")?.valuation
+        #expect(row?.moneyIn == nil)
+        #expect(row?.moneyOut == nil)
+    }
+
     @Test func aFirstValueSuggestsNoMoneyOut() {
         var library = self.library
         library.accounts["nuovo-conto"] = Account(id: "nuovo-conto", name: "Nuovo conto", kind: .cash,

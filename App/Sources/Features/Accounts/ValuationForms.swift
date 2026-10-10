@@ -316,9 +316,12 @@ struct AccountValuationForm: Hashable, Sendable {
         check(flow, "new money")
         check(moneyIn, "money in")
         check(moneyOut, "money out")
-        let hasMoneyIn = AmountInput.parse(moneyIn, locale: locale) != .empty
-        if hasMoneyIn != (AmountInput.parse(moneyOut, locale: locale) != .empty) {
+        let moneyAmounts = [moneyIn, moneyOut].map { AmountInput.parse($0, locale: locale) }
+        if (moneyAmounts[0] == .empty) != (moneyAmounts[1] == .empty) {
             problems.append("Enter both money in and out, or neither.")
+        }
+        if moneyAmounts.contains(where: { ($0.value ?? 0) < 0 }) {
+            problems.append("Money in and out can't be negative.")
         }
         return problems
     }
