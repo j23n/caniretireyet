@@ -240,6 +240,9 @@ struct AccountValuationForm: Hashable, Sendable {
     var positions: [PositionField]
     /// Empty means unknown.
     var flow: String
+    /// Money in and out of a cash or savings account; empty means not recorded.
+    var moneyIn: String
+    var moneyOut: String
     var note: String
 
     /// The fields of `valuation`. A trades account's (`recordsTrades`) is
@@ -261,6 +264,8 @@ struct AccountValuationForm: Hashable, Sendable {
                           cost: position.costBasis.map { AmountInput.text(for: $0, locale: locale) } ?? "")
         }
         flow = valuation.flow.map { AmountInput.text(for: $0, locale: locale) } ?? ""
+        moneyIn = valuation.moneyIn.map { AmountInput.text(for: $0, locale: locale) } ?? ""
+        moneyOut = valuation.moneyOut.map { AmountInput.text(for: $0, locale: locale) } ?? ""
         note = valuation.note ?? ""
     }
 
@@ -309,6 +314,8 @@ struct AccountValuationForm: Hashable, Sendable {
             }
         }
         check(flow, "new money")
+        check(moneyIn, "money in")
+        check(moneyOut, "money out")
         return problems
     }
 
@@ -328,6 +335,8 @@ struct AccountValuationForm: Hashable, Sendable {
             }
         }
         valuation.flow = number(flow)
+        valuation.moneyIn = number(moneyIn)
+        valuation.moneyOut = number(moneyOut)
         let trimmedNote = note.trimmingCharacters(in: .whitespacesAndNewlines)
         valuation.note = trimmedNote.isEmpty ? nil : trimmedNote
         var unchanged = original

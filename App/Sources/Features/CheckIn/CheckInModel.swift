@@ -23,13 +23,18 @@ enum CheckInField: Hashable, Sendable {
     case paid(AccountID, InstrumentID)
     /// The account's new money (the valuation's flow).
     case flow(AccountID)
+    /// The money that came into a cash or savings account.
+    case moneyIn(AccountID)
+    /// The money that went out of it.
+    case moneyOut(AccountID)
     /// The valuation's note (the Mac table's Note column).
     case note(AccountID)
 
     /// The account the field belongs to.
     var account: AccountID {
         switch self {
-        case .balance(let account), .cash(let account), .flow(let account), .note(let account):
+        case .balance(let account), .cash(let account), .flow(let account), .moneyIn(let account),
+             .moneyOut(let account), .note(let account):
             account
         case .quantity(let account, _), .paid(let account, _):
             account
@@ -63,6 +68,8 @@ extension CheckInField {
         case .paid(_, let instrument): return name + " · paid for " + label(instrument)
         case .flow:
             return name + (CheckInWording.isPension(account?.kind) ? " · contributions" : " · new money")
+        case .moneyIn: return name + " · money in"
+        case .moneyOut: return name + " · money out"
         case .note: return name + " · note"
         }
     }
@@ -150,9 +157,11 @@ struct CheckInFieldOrder: Hashable, Sendable {
     /// that are expanded; a trades account's statement quantities entered
     /// to compare (expanded) and its cash when it has a field
     /// (``CheckInRowDisplay/showsCashField(_:isEditing:)``, `editingCash`);
-    /// and each new-money field that's shown.
+    /// and each new-money field that's shown; money in and out after the
+    /// balance of the accounts in `moneyInOut`.
     static func list(rows: [CheckInRow], review: CheckInReview, expanded: Set<AccountID>,
-                     editingFlows: Set<AccountID>, editingCash: Set<AccountID> = []) -> CheckInFieldOrder {
+                     editingFlows: Set<AccountID>, editingCash: Set<AccountID> = [],
+                     moneyInOut: Set<AccountID> = []) -> CheckInFieldOrder {
         var fields: [CheckInField] = []
         for row in rows {
             let isOpen = row.mode == .balance || expanded.contains(row.account)
@@ -172,6 +181,9 @@ struct CheckInFieldOrder: Hashable, Sendable {
                 fields.append(.cash(row.account))
             } else {
                 fields.append(.balance(row.account))
+                if moneyInOut.contains(row.account) {
+                    fields += [.moneyIn(row.account), .moneyOut(row.account)]
+                }
             }
             let rule = review.row(for: row.account)?.flowRule ?? .ask
             if CheckInRowDisplay.showsFlowField(row, rule: rule, isEditing: editingFlows.contains(row.account)) {
@@ -287,6 +299,17 @@ enum CheckInRowDisplay {
         if isEditing { return true }
         guard rule == .ask, !row.isTrades else { return false }
         return row.state == .notReviewed || row.state == .updated
+    }
+
+    /// Whether a balance row shows money in and out: its account asks for
+    /// them (``Model/Account/tracksMoneyInOut``), or they were recorded on
+    /// the date already; never for a row marked unchanged or skipped.
+    static func showsMoneyInOut(_ row: CheckInRow, in library: Library) -> Bool {
+        guard row.mode == .balance, !row.isTrades, row.state != .unchanged, row.state != .skipped else {
+            return false
+        }
+        return library.accounts[row.account]?.tracksMoneyInOut == true || row.moneyIn != nil
+            || row.enteredMoneyOut != nil
     }
 
     /// The style of a row's balance field: a debt's reads amounts as owed.

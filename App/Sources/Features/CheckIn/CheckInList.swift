@@ -43,8 +43,10 @@ struct CheckInList: View {
         let review = draft.review(in: snapshot)
         let sections = CheckInSection.sections(of: draft, in: snapshot)
         let visible = CheckInSection.visibleRows(of: sections, showsOpenedLater: session.showsOpenedLater)
+        let moneyInOut = Set(visible.filter { CheckInRowDisplay.showsMoneyInOut($0, in: snapshot) }.map(\.account))
         let order = CheckInFieldOrder.list(rows: visible, review: review, expanded: session.expanded,
-                                           editingFlows: session.editingFlows, editingCash: session.editingCash)
+                                           editingFlows: session.editingFlows, editingCash: session.editingCash,
+                                           moneyInOut: moneyInOut)
         ScrollViewReader { proxy in
             list(review: review, sections: sections, order: order, proxy: proxy)
                 .listStyle(.insetGrouped)
@@ -404,8 +406,43 @@ private struct CheckInListRow: View {
             CheckInStateIndicator(row: row)
         }
         caption
+        if CheckInRowDisplay.showsMoneyInOut(row, in: library.library) {
+            moneyInOutFields
+        }
         if showsFlowField {
             flowField
+        }
+    }
+
+    /// "In [ 3.400,00 ] Out [ 3.010,30 ]": money out follows money in and the
+    /// change until it's typed (PROGRESS.md, "Money in and out").
+    private var moneyInOutFields: some View {
+        let inField = CheckInField.moneyIn(row.account)
+        let outField = CheckInField.moneyOut(row.account)
+        return HStack(spacing: Metrics.s) {
+            Text("In")
+                .font(.subheadline)
+                .foregroundStyle(Palette.secondaryInk)
+            CheckInNumberField(
+                inField, focus: focus, isFocused: focused == inField, value: row.moneyIn, prompt: "0",
+                label: inField.name(in: library.library), allowsEmpty: true, onSubmit: { next(inField) }
+            ) { amount in
+                checkIn.updateRow(row.account) { $0.setMoneyIn(amount) }
+            }
+            .checkInFieldBox(isFocused: focused == inField)
+            Text("Out")
+                .font(.subheadline)
+                .foregroundStyle(Palette.secondaryInk)
+            CheckInNumberField(
+                outField, focus: focus, isFocused: focused == outField,
+                value: row.enteredMoneyOut ?? review?.valuation?.moneyOut, prompt: "0",
+                label: outField.name(in: library.library), allowsEmpty: true, onSubmit: { next(outField) }
+            ) { amount in
+                checkIn.updateRow(row.account) { $0.setMoneyOut(amount) }
+            }
+            .checkInFieldBox(isFocused: focused == outField)
+            Color.clear
+                .frame(width: 22, height: 1)
         }
     }
 

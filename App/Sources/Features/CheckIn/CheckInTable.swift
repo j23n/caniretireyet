@@ -253,6 +253,10 @@ private struct CheckInTableRow: View {
                     positionLine(position)
                 }
                 cashLine
+            } else if CheckInRowDisplay.showsMoneyInOut(row, in: library.library) {
+                moneyLine(.moneyIn(row.account), title: "Money in", value: row.moneyIn) { $0.setMoneyIn($1) }
+                moneyLine(.moneyOut(row.account), title: "Money out",
+                          value: row.enteredMoneyOut ?? review?.valuation?.moneyOut) { $0.setMoneyOut($1) }
             }
             Divider()
                 .padding(.leading, CheckInColumns.inset)
@@ -641,6 +645,39 @@ private struct CheckInTableRow: View {
             CheckInPlainDelta(change)
         } newMoney: {
             cashAction(hasField: hasField)
+        } note: {
+            Color.clear
+        }
+        .font(.callout)
+        .frame(height: 30)
+    }
+
+    /// Money in or out of a cash or savings account, under its balance
+    /// (PROGRESS.md, "Money in and out"). Money out follows money in and the
+    /// change until it's typed.
+    private func moneyLine(_ field: CheckInField, title: LocalizedStringKey, value: Decimal?,
+                           set: @escaping (inout CheckInRow, Decimal?) -> Void) -> some View {
+        CheckInTableLine {
+            Color.clear
+        } account: {
+            Text(title)
+                .fontWeight(.medium)
+                .lineLimit(1)
+                .padding(.leading, Metrics.l)
+        } last: {
+            Color.clear
+        } now: {
+            CheckInNumberField(
+                field, focus: focus, isFocused: focused == field, value: value, prompt: "0,00",
+                label: field.name(in: library.library), allowsEmpty: true, onSubmit: { onReturn(field) }
+            ) { amount in
+                checkIn.updateRow(row.account) { set(&$0, amount) }
+            }
+            .checkInFieldBox(isFocused: focused == field, height: 24)
+        } change: {
+            Color.clear
+        } newMoney: {
+            Color.clear
         } note: {
             Color.clear
         }
