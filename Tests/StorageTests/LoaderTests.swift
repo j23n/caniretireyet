@@ -216,6 +216,36 @@ struct LoaderTests {
         #expect(keys == ["2026-10-15 tfr", "2026-10-31 casa", "2026-10-31 tfr"])
     }
 
+    @Test func moneyInOutThatIsNotCountedIsAWarning() throws {
+        let folder = try TemporaryFolder.exampleLibrary()
+        var month = try Fixtures.decode(MonthFile.self, from: "history/2026/2026-09.json")
+        for index in month.valuations.indices {
+            switch month.valuations[index].account {
+            case "fondo-pensione":
+                month.valuations[index].moneyIn = 100
+                month.valuations[index].moneyOut = 0
+            case "conto-deposito":
+                month.valuations[index].moneyIn = 500
+            case "conto-fineco":
+                month.valuations[index].moneyOut = -1
+            default:
+                break
+            }
+        }
+        try folder.write("history/2026/2026-09.json", JSONEncoder().encode(month))
+
+        let result = try load(folder)
+        let issues = result.report.issues(for: "history/2026/2026-09.json").filter { $0.message.contains("money") }
+        #expect(issues.count == 3)
+        #expect(issues.allSatisfy { $0.severity == .warning })
+        let messages = issues.map(\.message)
+        #expect(messages.contains { $0.contains("fondo-pensione on 2026-09-30 records money in or out, but only") })
+        #expect(messages.contains { $0.contains("conto-deposito on 2026-09-30 records only money in; record both") })
+        #expect(messages.contains { $0.contains("conto-fineco on 2026-09-30 has negative money in or out") })
+        let fineco = result.library.months["2026-09"]?.valuations.first { $0.account == "conto-fineco" }
+        #expect(fineco?.moneyOut == -1)
+    }
+
     @Test func brokenReferencesAreWarnings() throws {
         let folder = try TemporaryFolder.exampleLibrary()
         try FileManager.default.removeItem(at: folder.url.appendingPathComponent("instruments/btc.json"))

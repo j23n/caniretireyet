@@ -42,6 +42,21 @@ struct CheckInMoneyInOutTests {
         #expect(written(draft)?.moneyOut == nil)
     }
 
+    @Test func writesBothOrNeither() {
+        var draft = CheckInDraft(date: "2026-10-31", library: library)
+        draft["conto-fineco"]?.setBalance(d("4600.25"))
+        draft["conto-fineco"]?.setMoneyOut(3100)
+        #expect(written(draft)?.moneyIn == nil)
+        #expect(written(draft)?.moneyOut == nil)
+
+        // With the flow unknown, money out can't be worked out.
+        draft["conto-fineco"]?.setMoneyOut(nil)
+        draft["conto-fineco"]?.setMoneyIn(3400)
+        draft["conto-fineco"]?.setFlow(nil)
+        #expect(written(draft)?.moneyIn == nil)
+        #expect(written(draft)?.moneyOut == nil)
+    }
+
     @Test func moneyOutIsNeverNegative() {
         #expect(CheckInDraft.defaultMoneyOut(moneyIn: 1000, flow: 1500) == 0)
         #expect(CheckInDraft.defaultMoneyOut(moneyIn: 1000, flow: -200) == 1200)
