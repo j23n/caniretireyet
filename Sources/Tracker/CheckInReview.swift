@@ -274,6 +274,9 @@ extension CheckInDraft {
         if row.state == .updated || row.state == .unchanged, ignoringConflict || row.conflict == nil {
             written = valuation
             written?.flow = row.isFlowEdited ? row.enteredFlow : defaultFlow
+            written?.moneyIn = row.moneyIn
+            written?.moneyOut = row.enteredMoneyOut
+                ?? CheckInDraft.defaultMoneyOut(moneyIn: row.moneyIn, flow: written?.flow)
         }
         return Proposal(valuation: valuation, written: written, defaultFlow: defaultFlow, positions: reviews)
     }
