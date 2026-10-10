@@ -29,6 +29,9 @@ struct OnboardingScreen: View {
     @State private var name = ""
     /// The birth date picked; `nil` until one is, so none is made up.
     @State private var birthDate: Date?
+    /// The birth-date picker is showing; `birthDate` is set only once a
+    /// date is picked in it.
+    @State private var addsBirthDate = false
     /// The device's currency and region to start with; nothing else is assumed.
     @State private var currency = CurrencyCode(Locale.current.currency?.identifier ?? "EUR")
     @State private var residence: CountryCode? = Locale.current.region.map { CountryCode($0.identifier) }
@@ -143,16 +146,24 @@ struct OnboardingScreen: View {
         }
     }
 
-    /// "Birth date: Add" until one is picked, then the picker, which starts
-    /// from `YouSettings.suggestedBirthDate()`. Without one the library is
-    /// still created; the plan asks for it on its *You* card.
+    /// "Birth date: Add" until it's tapped, then the picker, which shows
+    /// `YouSettings.suggestedBirthDate()` but saves nothing until a date is
+    /// picked. Without one the library is still created; the plan asks for
+    /// it on its *You* card.
     @ViewBuilder private var birthDateRow: some View {
-        if birthDate != nil {
-            DatePicker("Birth date", selection: birthDateBinding, in: ...Date(), displayedComponents: .date)
+        if birthDate != nil || addsBirthDate {
+            VStack(alignment: .leading, spacing: Metrics.xs) {
+                DatePicker("Birth date", selection: birthDateBinding, in: ...Date(), displayedComponents: .date)
+                if birthDate == nil {
+                    Text("Not set yet: pick the date to save it.")
+                        .font(.footnote)
+                        .foregroundStyle(Palette.secondaryInk)
+                }
+            }
         } else {
             VStack(alignment: .leading, spacing: Metrics.xs) {
                 LabeledContent("Birth date") {
-                    Button("Add Birth Date") { birthDate = YouSettings.suggestedBirthDate().dateValue }
+                    Button("Add Birth Date") { addsBirthDate = true }
                         .buttonStyle(.bordered)
                 }
                 Text("Plans need it for your age. You can add it later too.")
@@ -243,10 +254,12 @@ struct OnboardingScreen: View {
     }
 
     /// The first plan, as the main plan, in a library without plans (one
-    /// synced from another device keeps its own). If it can't be saved,
-    /// the Plan screen still offers to create one.
+    /// synced from another device keeps its own, also a plan file that
+    /// didn't load). If it can't be saved, the Plan screen still offers to
+    /// create one.
     private func createStarterPlan() {
-        guard library.canEdit, library.library.plans.isEmpty else { return }
+        let hasUnloadedPlan = library.unloadedFiles.contains { if case .plan = $0 { true } else { false } }
+        guard library.canEdit, library.library.plans.isEmpty, !hasUnloadedPlan else { return }
         let plan = PlanEditing.starterPlan(
             id: library.newPlanID(for: Self.starterPlanName), name: Self.starterPlanName, library: library.library,
             asOf: library.asOfDate, payPerMonth: payPerMonth, spendingPerMonth: spendingPerMonth)
