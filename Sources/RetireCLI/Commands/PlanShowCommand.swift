@@ -15,11 +15,12 @@ struct PlanGroupCommand: AsyncParsableCommand {
             retire plan show                          its taxes, income, pensions, mix and returns
             retire plan debug [--anonymize] [--output file]
                                                       every calculation behind the answer
+            retire plan pace [--date YYYY-MM-DD]      how much you've saved a month, the last 12 months
 
-            Every command takes --plan <id>; without it, the main plan. Plans are edited in \\
+            Every command but pace takes --plan <id>; without it, the main plan. Plans are edited in \\
             the app, or by hand in plans/<id>.json.
             """,
-        subcommands: [PlanCommand.self, PlanShowCommand.self, PlanDebugCommand.self],
+        subcommands: [PlanCommand.self, PlanShowCommand.self, PlanDebugCommand.self, PlanPaceCommand.self],
         defaultSubcommand: PlanCommand.self)
 }
 

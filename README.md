@@ -52,6 +52,7 @@ swift run retire prices --library <folder> --fill-history --dry-run  # past pric
 swift run retire plan --library <folder> --years                 # the answer, and the median run by year
 swift run retire plan show --library <folder>                    # the plan's inputs
 swift run retire plan debug --library <folder> --anonymize --output report.md   # every calculation, to share
+swift run retire plan pace --library <folder>                    # how much you've saved, the last 12 months
 swift run retire export <folder> --library <library>     # the library as CSV files
 ```
 
