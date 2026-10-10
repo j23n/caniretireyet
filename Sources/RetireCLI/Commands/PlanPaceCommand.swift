@@ -54,7 +54,7 @@ struct PlanPaceCommand: RetireSubcommand {
                     + "\(SavingPace.minimumMonths) months apart."]
             }
             let money = pace.isInTodaysMoney ? "in money of \(pace.asOf)"
-                : "in money of each check-in (no inflation index)"
+                : "in money of each check-in (the inflation index doesn't cover these months)"
             var lines = ["Saving pace through \(pace.asOf), \(money), \(pace.currency)"
                 + (pace.isComplete ? "" : " (incomplete: a value or its new money is missing)")]
 

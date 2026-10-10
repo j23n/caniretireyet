@@ -145,7 +145,7 @@ extension Valuator {
         let reports = intervals.map { change(from: $0.0, to: $0.1, in: .planAssets) }
         let window = min(available, SavingPace.window)
         let leftOut = Set(reports.filter { $0.to > ends[window] }
-            .flatMap { $0.accounts.filter(\.isFlowFromPlan).map(\.account) })
+            .flatMap { $0.accounts.filter { $0.isFlowFromPlan && $0.change.newMoney != 0 }.map(\.account) })
 
         var months = [Decimal](repeating: 0, count: available)
         var byAccount: [AccountID: Decimal] = [:]
@@ -156,8 +156,18 @@ extension Valuator {
         }
         var isComplete = true
         for report in reports {
-            let included = report.accounts.filter { !$0.isFlowFromPlan }
-            if report.to > ends[window], included.contains(where: { !$0.problems.isEmpty }) { isComplete = false }
+            // What holdings held when their records start, without a
+            // flow, isn't money saved (a balance's counts as other).
+            let included = report.accounts.filter { change in
+                guard !change.isFlowFromPlan else { return false }
+                guard change.flow == nil, change.change.start == 0, accounts[change.account]?.recordsTrades != true,
+                      let first = firstRecordDate(of: change.account)
+                else { return true }
+                return !(first > report.from && first <= report.to)
+            }
+            if report.to > ends[window], included.contains(where: { !$0.problems.allSatisfy(\.isNotTrackedYet) }) {
+                isComplete = false
+            }
             // Money moved between plan assets at this check-in cancels out
             // before it's spread: what went in and came out up to the
             // smaller of the two comes off each side pro rata, so two legs

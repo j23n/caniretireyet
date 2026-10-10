@@ -226,7 +226,7 @@ struct SavingPaceTests {
     @Test func aMissingPriceMakesItIncomplete() throws {
         var library = self.library(flows: [Decimal](repeating: 1_000, count: 12))
         library.accounts["broker"] = Account(id: "broker", name: "Broker", kind: .brokerage, currency: .eur,
-                                             opened: "2020-01-01")
+                                             opened: "2026-08-31")
         library.upsert(Valuation(account: "broker", date: "2026-08-31", cash: 0,
                                  positions: [Position(instrument: "unpriced", quantity: 1)], flow: 0))
         library.upsert(Valuation(account: "broker", date: "2026-09-30", cash: 0,
@@ -234,6 +234,32 @@ struct SavingPaceTests {
         let pace = try #require(Valuator(library: library).savingPace(asOf: "2026-09-30"))
         #expect(!pace.isComplete)
         #expect(pace.perYear == 12_000)
+    }
+
+    /// An account added with its history starting inside the months: what
+    /// it held then isn't new money, the months before it aren't missing
+    /// anything, and a pension fund's first value isn't taken from the plan.
+    @Test func anAccountWhoseRecordsStartInsideTheMonths() throws {
+        var library = self.library(flows: [Decimal](repeating: 1_000, count: 12))
+        library.accounts["wallet"] = Account(id: "wallet", name: "Wallet", kind: .crypto, currency: .eur,
+                                             opened: "2018-01-01")
+        library.upsert(PriceRecord(instrument: "btc", date: "2026-03-31", price: 90_000, currency: .eur))
+        library.upsert(Valuation(account: "wallet", date: "2026-03-31", cash: 0,
+                                 positions: [Position(instrument: "btc", quantity: d("0.4"))]))
+        library.settings = LibrarySettings(person: Person(birthDate: "1988-04-12"), mainPlan: "base")
+        library.plans["base"] = PlanDocument(
+            id: "base", name: "Base", retirement: PlanRetirement(age: .age(55)),
+            spending: PlanSpending(working: 30_000, retired: 30_000),
+            contributions: [PlanContribution(account: "pension", perYear: 5_000)])
+        library.accounts["pension"] = Account(id: "pension", name: "Pension", kind: .pensionFund, currency: .eur,
+                                              opened: "2018-01-01")
+        library.upsert(Valuation(account: "pension", date: "2026-03-31", balance: 10_000))
+        let pace = try #require(Valuator(library: library).savingPace(asOf: "2026-09-30"))
+        #expect(pace.months.allSatisfy { $0.newMoney == 1_000 })
+        #expect(pace.perYear == 12_000)
+        #expect(pace.byAccount == ["current": 12_000])
+        #expect(pace.leftOut.isEmpty)
+        #expect(pace.isComplete)
     }
 
     /// The range of the 12 months ending at each of the last month ends:
