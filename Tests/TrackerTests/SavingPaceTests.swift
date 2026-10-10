@@ -182,6 +182,20 @@ struct SavingPaceTests {
         #expect(pace.leftOut.isEmpty)
     }
 
+    /// A trades account's deposit after a long quiet stretch counts at the
+    /// check-in it was made before, not spread back to its last trade.
+    @Test func aTradesAccountsDepositStaysInItsMonth() throws {
+        var library = self.library(flows: [Decimal](repeating: 1_000, count: 12))
+        library.accounts["broker"] = Account(id: "broker", name: "Broker", kind: .brokerage, currency: .eur,
+                                             opened: "2024-01-01", valuation: .trades)
+        library.upsert(Trade(account: "broker", date: "2024-09-01", id: "first", type: .deposit, amount: 1_000))
+        library.upsert(Trade(account: "broker", date: "2026-09-15", id: "second", type: .deposit, amount: 12_000))
+        let pace = try #require(Valuator(library: library).savingPace(asOf: "2026-09-30"))
+        #expect(pace.months.last?.newMoney == 13_000)
+        #expect(pace.months.dropLast().allSatisfy { $0.newMoney == 1_000 })
+        #expect(pace.byAccount["broker"] == 12_000)
+    }
+
     /// In today's money: prices rose 10% by the last check-in.
     @Test func inTodaysMoney() throws {
         let index = InflationIndex([IndexRecord(index: .hicpIT, date: "2025-09-30", value: 100),

@@ -173,8 +173,11 @@ extension Valuator {
                 if amount == 0 { continue }
                 // Spread from the account's own record before, not the
                 // check-in before: an account valued quarterly saved over
-                // the quarter, not in its last month.
-                let from = latestRecordDate(of: account.account, onOrBefore: report.from) ?? report.from
+                // the quarter, not in its last month. A trades account's
+                // new money is its deposits and withdrawals since the
+                // check-in before, so it's spread from there.
+                let from = accounts[account.account]?.recordsTrades == true ? report.from
+                    : latestRecordDate(of: account.account, onOrBefore: report.from) ?? report.from
                 let days = from.days(to: report.to)
                 guard days > 0 else { continue }
                 if let index { amount = index.convert(amount, from: report.to, to: asOf) ?? amount }
