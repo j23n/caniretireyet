@@ -46,10 +46,10 @@ enum YouSettings {
     }
 
     /// The indices the picker offers besides automatic: the euro area's,
-    /// then every country's HICP by its name, and the chosen one first when
-    /// it's none of those.
+    /// then every country's by its name (its HICP, or the US and UK CPI),
+    /// and the chosen one first when it's none of those.
     static func inflationChoices(in settings: LibrarySettings, locale: Locale = .current) -> [IndexID] {
-        let countries = IndexID.hicpCountries.compactMap(IndexID.hicp)
+        let countries = IndexID.consumerPriceCountries.compactMap(IndexID.consumerPrices)
             .sorted { InflationIndexText.choice($0, locale: locale) < InflationIndexText.choice($1, locale: locale) }
         let choices = [IndexID.hicpEA] + countries
         guard let chosen = settings.inflationIndex, !choices.contains(chosen) else { return choices }

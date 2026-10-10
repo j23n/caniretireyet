@@ -224,6 +224,8 @@ struct CheckInPriceList: Hashable, Sendable {
         case .goldAPI: "gold-api.com"
         case .ecb: "ECB"
         case .eurostat: "Eurostat"
+        case .bls: "BLS"
+        case .ons: "ONS"
         case .import: "Imported"
         default: source.rawValue
         }
