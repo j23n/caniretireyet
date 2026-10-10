@@ -14,8 +14,9 @@ struct SpendingCommandTests {
         #expect(run.output.contains("10,200.00"))
         #expect(run.output.contains("9,730.40"))
         #expect(run.output.contains("+469.60"))
-        #expect(run.output.contains("38,921.60"))
-        #expect(run.output.contains("3 months recorded (2026-07 to 2026-09); out a year is out × 12 / 3."))
+        #expect(run.output.contains("38,604.30"))
+        #expect(run.output.contains("3 months recorded (2026-07 to 2026-09); out a year scales each account's "
+            + "money out to 365 days by the days its values cover."))
 
         let json = await retire(["spending", "--year", "2026", "--account", "conto-fineco", "--library", library.path,
                                  "--json"])
@@ -25,6 +26,7 @@ struct SpendingCommandTests {
         #expect(object["account"] as? String == "conto-fineco")
         #expect(object["moneyIn"] as? String == "10200")
         #expect(object["moneyOut"] as? String == "9730.4")
+        #expect(object["moneyOutPerYear"] as? String == "38604.3")
         #expect(object["months"] as? [String] == ["2026-07", "2026-08", "2026-09"])
     }
 

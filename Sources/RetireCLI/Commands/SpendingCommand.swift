@@ -70,7 +70,8 @@ struct SpendingCommand: RetireSubcommand {
             lines += table.lines()
             let months = summary.months.count
             lines.append("\(months) \(months == 1 ? "month" : "months") recorded "
-                + "(\(Format.range(summary.months[0], summary.months[months - 1]))); out a year is out × 12 / \(months).")
+                + "(\(Format.range(summary.months[0], summary.months[months - 1]))); out a year scales each account's "
+                + "money out to 365 days by the days its values cover.")
             if !summary.unconverted.isEmpty {
                 lines.append("Values without an exchange rate into \(summary.currency.rawValue), left out: "
                     + summary.unconverted.map(\.rawValue).joined(separator: ", ") + ".")
@@ -95,7 +96,8 @@ struct SpendingCommand: RetireSubcommand {
             var moneyIn: String
             var moneyOut: String
             var net: String
-            /// Money out × 12 / the months recorded; absent when none were.
+            /// Each account's money out × 365 / the days its values cover, added
+            /// up; absent when nothing was recorded.
             var moneyOutPerYear: String?
             /// The months with a value counted.
             var months: [String]

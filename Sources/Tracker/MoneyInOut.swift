@@ -21,9 +21,17 @@ public struct MoneyInOutSummary: Hashable, Sendable {
     /// Accounts with a value that couldn't be converted to the base currency
     /// (an FX rate is missing), left out of the sums. Sorted.
     public var unconverted: [AccountID]
+    /// Money out scaled to a year, rounded to cents: each account's money out
+    /// × 365 / the days its counted values cover (each from the account's
+    /// value before it), added up over the accounts. So a skipped check-in,
+    /// whose next value covers two months, or accounts recorded over
+    /// different months still give a year's worth. `nil` when nothing was
+    /// counted.
+    public var moneyOutPerYear: Decimal?
 
     public init(from: CalendarDate, through: CalendarDate, currency: CurrencyCode, moneyIn: Decimal = 0,
-                moneyOut: Decimal = 0, months: [YearMonth] = [], unconverted: [AccountID] = []) {
+                moneyOut: Decimal = 0, months: [YearMonth] = [], unconverted: [AccountID] = [],
+                moneyOutPerYear: Decimal? = nil) {
         self.from = from
         self.through = through
         self.currency = currency
@@ -31,6 +39,7 @@ public struct MoneyInOutSummary: Hashable, Sendable {
         self.moneyOut = moneyOut
         self.months = months
         self.unconverted = unconverted
+        self.moneyOutPerYear = moneyOutPerYear
     }
 
     /// Money in minus money out.
@@ -41,13 +50,6 @@ public struct MoneyInOutSummary: Hashable, Sendable {
 
     /// Whether every value in the period could be converted.
     public var isComplete: Bool { unconverted.isEmpty }
-
-    /// Money out scaled to a year from the months counted (out × 12 / months),
-    /// rounded to cents. `nil` when nothing was counted.
-    public var moneyOutPerYear: Decimal? {
-        guard !months.isEmpty else { return nil }
-        return (moneyOut * 12 / Decimal(months.count)).rounded(scale: 2)
-    }
 }
 
 extension Valuator {
@@ -58,14 +60,22 @@ extension Valuator {
     /// A valuation counts when its account is known, its kind records money
     /// in and out (``Model/AccountKind/recordsMoneyInOut``), and it has both
     /// amounts, neither negative. `accounts` limits the sum to those accounts.
+    ///
+    /// Each value covers the days since the account's value before it (its
+    /// first value, the days since the account opened), which is what
+    /// ``MoneyInOutSummary/moneyOutPerYear`` scales by.
     public func moneyInOut(from: CalendarDate, through: CalendarDate,
                            accounts only: Set<AccountID>? = nil) -> MoneyInOutSummary {
         var summary = MoneyInOutSummary(from: from, through: through, currency: baseCurrency)
         var months: Set<YearMonth> = []
         var unconverted: Set<AccountID> = []
+        var perYear: Decimal?
         for account in accounts.values where account.kind.recordsMoneyInOut {
             if let only, !only.contains(account.id) { continue }
-            for valuation in valuations(for: account.id) where valuation.date >= from && valuation.date <= through {
+            var accountOut: Decimal = 0
+            var days = 0
+            let values = valuations(for: account.id)
+            for (index, valuation) in values.enumerated() where valuation.date >= from && valuation.date <= through {
                 guard let moneyIn = valuation.moneyIn, let moneyOut = valuation.moneyOut,
                       moneyIn >= 0, moneyOut >= 0
                 else { continue }
@@ -77,11 +87,16 @@ extension Valuator {
                 }
                 summary.moneyIn += inBase
                 summary.moneyOut += outBase
+                accountOut += outBase
+                let since = index > 0 ? values[index - 1].date : account.opened.adding(days: -1)
+                days += max(1, since.days(to: valuation.date))
                 months.insert(valuation.date.yearMonth)
             }
+            if days > 0 { perYear = (perYear ?? 0) + accountOut * 365 / Decimal(days) }
         }
         summary.months = months.sorted()
         summary.unconverted = unconverted.sorted()
+        summary.moneyOutPerYear = perYear?.rounded(scale: 2)
         return summary
     }
 
