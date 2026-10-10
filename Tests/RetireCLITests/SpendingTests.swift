@@ -38,5 +38,8 @@ struct SpendingCommandTests {
         let pension = await retire(["spending", "--account", "fondo-pensione", "--library", library.path])
         #expect(pension.status == 1)
         #expect(pension.errors.contains("only cash and savings accounts record money in and out"))
+        let year = await retire(["spending", "--year", "20260", "--library", library.path])
+        #expect(year.status == 64)
+        #expect(year.errors.contains("--year must be between 1 and 9999."))
     }
 }

@@ -29,6 +29,10 @@ struct SpendingCommand: RetireSubcommand {
     @Flag(help: "Print JSON.")
     var json = false
 
+    func validate() throws {
+        if let year, !(1...9999).contains(year) { throw ValidationError("--year must be between 1 and 9999.") }
+    }
+
     func run(in context: CLIContext) async throws {
         let loaded = try options.load(in: context)
         var only: Set<AccountID>?
