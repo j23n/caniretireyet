@@ -45,12 +45,15 @@ public struct SavingPace: Hashable, Sendable {
     /// Each account's new money in `months`, scaled to a year, unusual
     /// months included; an account with none is left out.
     public let byAccount: [AccountID: Decimal]
-    /// Accounts whose new money wasn't recorded, so that the tracker counts
-    /// what the main plan pays into them (``AccountChange/isFlowFromPlan``):
-    /// left out, since a pace that repeats the plan says nothing about it.
+    /// Accounts whose new money in `months` wasn't recorded, so that the
+    /// tracker counts what the main plan pays into them
+    /// (``AccountChange/isFlowFromPlan``). That new money is left out, at
+    /// each check-in where it came from the plan, since a pace that repeats
+    /// the plan says nothing about it.
     public let leftOut: [AccountID]
     /// Whether the amounts are in money of `asOf`. Without an inflation
-    /// index, or a value of it, they're in money of each check-in.
+    /// index with values from the start of the first month, they're all in
+    /// money of each check-in.
     public let isInTodaysMoney: Bool
     /// Whether every value and new money was known.
     public let isComplete: Bool
@@ -85,17 +88,20 @@ public struct SavingPace: Hashable, Sendable {
     /// total, each unusual month counted as the usual one (their median),
     /// scaled to a year.
     ///
-    /// A month is unusual when it's further from the usual month than both
-    /// the usual month itself and 1% of `planAssets`: at least twice the
-    /// usual saving and at least 1% of plan assets more than it, as Progress
-    /// marks a check-in where you saved more than usual (PROGRESS.md,
-    /// "Milestones"), or as far below.
+    /// When you usually save (the usual month is above zero), a month is
+    /// unusual when it's at least twice the usual saving and at least 1% of
+    /// `planAssets`, as Progress marks a check-in where you saved more than
+    /// usual (PROGRESS.md, "Milestones"), or when it takes out at least 1%
+    /// of `planAssets`. When you usually save nothing, no month is: saving
+    /// every quarter, or every other month, is how you save.
     public static func pace(of amounts: [Decimal], planAssets: Decimal)
         -> (perYear: Decimal, usual: Decimal, unusual: [Bool]) {
         guard !amounts.isEmpty else { return (0, 0, []) }
         let usual = median(amounts)
-        let threshold = max(abs(usual), abs(planAssets) / 100)
-        let unusual = amounts.map { threshold > 0 && abs($0 - usual) >= threshold }
+        let large = abs(planAssets) / 100
+        let unusual = amounts.map { amount in
+            usual > 0 && (amount >= 2 * usual && amount >= large || amount <= 0 && -amount >= large)
+        }
         let counted = zip(amounts, unusual).reduce(Decimal(0)) { $0 + ($1.1 ? usual : $1.0) }
         return (counted * Decimal(window) / Decimal(amounts.count), usual, unusual)
     }
@@ -136,14 +142,19 @@ extension Valuator {
         let intervals = zip(checkIns, checkIns.dropFirst()).filter { $0.1 > ends[available] }
         let reports = intervals.map { change(from: $0.0, to: $0.1, in: .planAssets) }
         let window = min(available, SavingPace.window)
-        let leftOut = Set(reports.flatMap { $0.accounts.filter(\.isFlowFromPlan).map(\.account) })
+        let leftOut = Set(reports.filter { $0.to > ends[window] }
+            .flatMap { $0.accounts.filter(\.isFlowFromPlan).map(\.account) })
 
         var months = [Decimal](repeating: 0, count: available)
         var byAccount: [AccountID: Decimal] = [:]
-        var isInTodaysMoney = inflation != nil
+        // In today's money only when the index covers every month, so the
+        // months never mix money of today and of each check-in.
+        let index = inflation.flatMap {
+            $0.value(on: ends[available]) != nil && $0.value(on: asOf) != nil ? $0 : nil
+        }
         var isComplete = true
         for report in reports {
-            for account in report.accounts where !leftOut.contains(account.account) {
+            for account in report.accounts where !account.isFlowFromPlan {
                 if !account.problems.isEmpty { isComplete = false }
                 var amount = account.change.newMoney
                 if amount == 0 { continue }
@@ -153,13 +164,7 @@ extension Valuator {
                 let from = latestRecordDate(of: account.account, onOrBefore: report.from) ?? report.from
                 let days = from.days(to: report.to)
                 guard days > 0 else { continue }
-                if let inflation {
-                    if let real = inflation.convert(amount, from: report.to, to: asOf) {
-                        amount = real
-                    } else {
-                        isInTodaysMoney = false
-                    }
-                }
+                if let index { amount = index.convert(amount, from: report.to, to: asOf) ?? amount }
                 for month in 0..<available {
                     let start = max(from, ends[month + 1])
                     let end = min(report.to, ends[month])
@@ -191,6 +196,6 @@ extension Valuator {
             },
             usualMonth: pace.usual, perYear: pace.perYear, range: range,
             byAccount: byAccount.filter { $0.value != 0 }.mapValues { $0 * scale },
-            leftOut: leftOut.sorted(), isInTodaysMoney: isInTodaysMoney, isComplete: isComplete)
+            leftOut: leftOut.sorted(), isInTodaysMoney: index != nil, isComplete: isComplete)
     }
 }

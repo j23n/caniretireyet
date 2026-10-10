@@ -23,10 +23,26 @@ struct PlanPaceTests {
         let json = try parseJSON(run.output)
         let pace = try #require(json["pace"] as? [String: Any])
         #expect(pace["asOf"] as? String == "2026-09-30" && pace["currency"] as? String == "EUR")
+        // The first check-in of plan assets is 31 Oct 2025: 11 whole months.
         let months = try #require(pace["months"] as? [[String: Any]])
-        #expect((3...12).contains(months.count))
+        #expect(months.count == 11)
+        #expect(months.first?["end"] as? String == "2025-11-30")
         #expect(months.last?["end"] as? String == "2026-09-30")
-        #expect(pace["perYear"] is String && pace["usualMonth"] is String)
+        // The pace is the months' total, an unusual one as the usual, scaled to a year.
+        func amount(_ value: Any?) throws -> Decimal {
+            try #require((value as? String).flatMap { Decimal(string: $0) })
+        }
+        let usual = try amount(pace["usualMonth"])
+        var total: Decimal = 0
+        for month in months {
+            if month["unusual"] as? Bool == true {
+                total += usual
+            } else {
+                total += try amount(month["newMoney"])
+            }
+        }
+        let perYear = try amount(pace["perYear"])
+        #expect(abs(perYear - total * 12 / 11) < d("0.1"), "\(perYear) against \(total)")
     }
 
     @Test func tooLittleHistory() async throws {

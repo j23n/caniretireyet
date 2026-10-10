@@ -94,10 +94,35 @@ struct SavingPaceTests {
         let months = pace.months.suffix(3).map { $0.newMoney.rounded(scale: 2) }
         #expect(months == [d("1010.87"), d("1010.87"), d("978.26")])
         #expect(pace.months.prefix(9).allSatisfy { $0.newMoney == 0 })
-        // The usual month is 0, so the three are unusual against 1% of
-        // 13,000 (130), and the pace is nothing.
-        #expect(pace.unusualMonths.count == 3)
-        #expect(pace.perYear == 0)
+        // The usual month is 0: saving once a quarter is how you save.
+        #expect(pace.usualMonth == 0)
+        #expect(pace.unusualMonths.isEmpty)
+        #expect(pace.perYear.rounded(scale: 2) == 3_000)
+    }
+
+    /// Saving 3,000 every third month, with a check-in every month: the
+    /// usual month is 0, and no month is unusual.
+    @Test func savingEveryThirdMonth() throws {
+        let flows = (0..<12).map { $0.isMultiple(of: 3) ? Decimal(3_000) : 0 }
+        let pace = try #require(Valuator(library: library(flows: flows)).savingPace(asOf: "2026-09-30"))
+        #expect(pace.usualMonth == 0)
+        #expect(pace.unusualMonths.isEmpty)
+        #expect(pace.perYear == 12_000)
+    }
+
+    /// A month that saves more than twice the usual one is unusual only
+    /// when it's at least 1% of plan assets too.
+    @Test func unusualOnlyFromOnePercentOfPlanAssets() throws {
+        var flows = [Decimal](repeating: 10, count: 12)
+        flows[4] = 50
+        // Plan assets: 10,000 + 11 × 10 + 50 = 10,160; 1% is 101.60.
+        let small = try #require(Valuator(library: library(flows: flows)).savingPace(asOf: "2026-09-30"))
+        #expect(small.unusualMonths.isEmpty)
+        #expect(small.perYear == 160)
+        flows[4] = 500
+        let large = try #require(Valuator(library: library(flows: flows)).savingPace(asOf: "2026-09-30"))
+        #expect(large.unusualMonths.map(\.end) == ["2026-05-31"])
+        #expect(large.perYear == 120)
     }
 
     /// Money moved from the current account to a broker cancels out.
