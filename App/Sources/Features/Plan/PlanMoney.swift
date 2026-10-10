@@ -19,17 +19,17 @@ enum PlanMoney {
     /// The inflation index for amounts in `currency`: the one for its
     /// prices (`Library.inflationIndex(for:)`: the library's own for the
     /// base currency or a currency its prices are in, `hicp-it` for euros
-    /// in Italy; else that currency's HICP, `hicp-ch` for francs), which
-    /// check-ins fetch; else the library's own as a stand-in, which the
-    /// note under the chart names. `nil` when the library has no index at
-    /// all.
+    /// in Italy; else that currency's index, `hicp-ch` for francs, `cpi-us`
+    /// for dollars), which check-ins fetch; else the library's own as a
+    /// stand-in, which the note under the chart names. `nil` when the
+    /// library has no index at all.
     static func inflationIndex(for currency: CurrencyCode, library: Library) -> PlanInflationIndex? {
         if let own = library.inflationIndex(for: currency) { return PlanInflationIndex(index: own, isStandIn: false) }
         return library.effectiveInflationIndex.map { PlanInflationIndex(index: $0, isStandIn: true) }
     }
 
     /// The note under a chart whose actual values are adjusted with another
-    /// currency's index: "There's no inflation index for USD: your actual
+    /// currency's index: "There's no inflation index for JPY: your actual
     /// values are adjusted with Italy's prices."; `nil` otherwise.
     static func standInNote(_ inflation: PlanInflationIndex?, currency: CurrencyCode,
                             locale: Locale = .current) -> String? {

@@ -184,7 +184,7 @@ struct InstrumentPriceUpdateSheet: View {
                 } header: {
                     Text("Inflation")
                 } footer: {
-                    Text("Consumer prices for the months the library is missing, from Eurostat.")
+                    Text("Consumer prices for the months the library is missing, from Eurostat, the BLS or the ONS.")
                 }
             }
         }

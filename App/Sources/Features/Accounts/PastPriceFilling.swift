@@ -73,7 +73,8 @@ struct PastPricePlan: Hashable, Sendable {
         }
         lines += needs.indices.map { need in
             PastPriceLine(item: .index(need.index), kind: .index, title: InflationIndexText.title(of: need.index),
-                          source: "Eurostat", dates: need.months.map(\.lastDay))
+                          source: InflationIndexText.source(of: need.index).map(CheckInPriceList.sourceName),
+                          dates: need.months.map(\.lastDay))
         }
         lines += needs.manualInstruments.sorted(by: byName).map { need in
             PastPriceLine(item: .instrument(need.instrument), kind: .manual, title: name(need.instrument),

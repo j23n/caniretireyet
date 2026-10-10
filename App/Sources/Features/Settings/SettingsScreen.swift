@@ -230,7 +230,7 @@ private struct PricesSection: View {
             Link("Powered by CoinGecko", destination: Self.coinGecko)
             LabeledContent("Gold and silver", value: InstrumentForm.name(of: PriceProvider.goldAPI))
             LabeledContent("Exchange rates", value: "ECB, via Frankfurter")
-            LabeledContent("Inflation", value: "Eurostat HICP")
+            LabeledContent("Inflation", value: "Eurostat HICP, BLS (US), ONS (UK)")
             #if canImport(Security)
             SecureField("CoinGecko API key (optional)", text: $coinGeckoKey)
                 .onSubmit(saveKey)
