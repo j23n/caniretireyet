@@ -25,6 +25,9 @@ public struct Account: Hashable, Sendable, Identifiable, KnownKeysProviding {
     public var availableFromAge: Int?
     /// `includeIn` as written. See ``includedInNetWorth`` and ``includedInPlan``.
     public var includeIn: IncludeIn?
+    /// `moneyInOut` as written: whether check-ins ask for the money that came
+    /// in and went out. See ``tracksMoneyInOut``.
+    public var moneyInOut: Bool?
     /// The account that replaced this one, so charts stay continuous.
     public var successor: AccountID?
     /// Free-form tags. Omitted from the file when empty.
@@ -36,7 +39,8 @@ public struct Account: Hashable, Sendable, Identifiable, KnownKeysProviding {
         id: AccountID, name: String, kind: AccountKind, currency: CurrencyCode, opened: CalendarDate,
         closed: CalendarDate? = nil, institution: String? = nil, country: CountryCode? = nil,
         valuation: ValuationMode? = nil, assetClasses: AssetMix? = nil, availableFromAge: Int? = nil,
-        includeIn: IncludeIn? = nil, successor: AccountID? = nil, tags: [String] = [], notes: String? = nil
+        includeIn: IncludeIn? = nil, moneyInOut: Bool? = nil, successor: AccountID? = nil, tags: [String] = [],
+        notes: String? = nil
     ) {
         self.id = id
         self.name = name
@@ -50,6 +54,7 @@ public struct Account: Hashable, Sendable, Identifiable, KnownKeysProviding {
         self.assetClasses = assetClasses
         self.availableFromAge = availableFromAge
         self.includeIn = includeIn
+        self.moneyInOut = moneyInOut
         self.successor = successor
         self.tags = tags
         self.notes = notes
@@ -88,6 +93,13 @@ extension Account {
         includeIn?.plan ?? true
     }
 
+    /// Whether check-ins ask for the money that came in and went out: an
+    /// account whose kind can record it (``AccountKind/recordsMoneyInOut``)
+    /// with `moneyInOut` set (default false).
+    public var tracksMoneyInOut: Bool {
+        kind.recordsMoneyInOut && moneyInOut == true
+    }
+
     /// Whether the account has been closed.
     public var isClosed: Bool {
         closed != nil
@@ -111,7 +123,7 @@ extension Account {
 extension Account: Codable {
     enum CodingKeys: String, CodingKey, CaseIterable {
         case id, name, kind, currency, opened, closed, institution, country, valuation, assetClasses,
-             availableFromAge, includeIn, successor, tags, notes
+             availableFromAge, includeIn, moneyInOut, successor, tags, notes
     }
 
     public static var knownKeys: Set<String> { Set(CodingKeys.allCases.map(\.stringValue)) }
@@ -130,6 +142,7 @@ extension Account: Codable {
         assetClasses = try c.decodeIfPresent(AssetMix.self, forKey: .assetClasses)
         availableFromAge = try c.decodeIfPresent(Int.self, forKey: .availableFromAge)
         includeIn = try c.decodeIfPresent(IncludeIn.self, forKey: .includeIn)
+        moneyInOut = try c.decodeIfPresent(Bool.self, forKey: .moneyInOut)
         successor = try c.decodeIfPresent(AccountID.self, forKey: .successor)
         tags = try c.decodeArray([String].self, forKey: .tags)
         notes = try c.decodeIfPresent(String.self, forKey: .notes)
@@ -149,6 +162,7 @@ extension Account: Codable {
         try c.encodeIfPresent(assetClasses, forKey: .assetClasses)
         try c.encodeIfPresent(availableFromAge, forKey: .availableFromAge)
         try c.encodeIfPresent(includeIn, forKey: .includeIn)
+        try c.encodeIfPresent(moneyInOut, forKey: .moneyInOut)
         try c.encodeIfPresent(successor, forKey: .successor)
         try c.encodeIfNotEmpty(tags, forKey: .tags)
         try c.encodeIfPresent(notes, forKey: .notes)
