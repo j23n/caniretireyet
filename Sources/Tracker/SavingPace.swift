@@ -220,11 +220,13 @@ extension Valuator {
             // in between that record none (a pension fund marked unchanged
             // between its quarterly statements), saved over the time since
             // it last got some: each payment is spread from the one before,
-            // and the first over as long as the time to the next.
+            // and the first over as long as the time to the next. A trades
+            // account's deposits are dated, so they stay where they are.
             let firstRecord = firstRecordDate(of: account)
+            let recurs = payments.count > 1 && accounts[account]?.recordsTrades != true
             var spans: [(from: CalendarDate, to: CalendarDate, amount: Decimal)] = []
             for (number, payment) in payments.enumerated() {
-                guard payments.count > 1 else {
+                guard recurs else {
                     spans.append((payment.from, payment.to, payment.amount))
                     continue
                 }
