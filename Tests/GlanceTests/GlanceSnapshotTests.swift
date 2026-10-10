@@ -86,6 +86,23 @@ struct ExampleLibraryGlanceTests {
         #expect(abs(thisYear - expected) < 1e-12)
     }
 
+    /// The Overview's *This year*: the hero's change this year, split.
+    @Test func theChangeThisYearIsSplitFromTheEndOfLastYear() throws {
+        let report = try #require(valuator.changeThisYear(asOf: "2026-09-30"))
+        #expect(report.from == "2025-12-31")
+        #expect(report.to == "2026-09-30")
+        #expect(report == valuator.change(from: "2025-12-31", to: "2026-09-30", in: .netWorth))
+        #expect(report.total.start == valuator.total(on: "2025-12-31", in: .netWorth).total)
+        #expect(report.total.end == valuator.total(on: "2026-09-30", in: .netWorth).total)
+    }
+
+    @Test func noChangeThisYearWithoutAValueByTheEndOfLastYear() throws {
+        let first = try #require(valuator.firstValuationDate(in: .netWorth))
+        #expect(valuator.endOfLastYear(before: "2026-10-08") == "2025-12-31")
+        #expect(valuator.endOfLastYear(before: first) == nil)
+        #expect(valuator.changeThisYear(asOf: first) == nil)
+    }
+
     @Test func allocationIsByAssetClassInStackingOrder() throws {
         let keys = snapshot.allocation.map(\.key)
         #expect(!keys.isEmpty)
