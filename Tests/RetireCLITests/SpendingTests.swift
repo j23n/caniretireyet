@@ -12,9 +12,9 @@ struct SpendingCommandTests {
         #expect(run.status == 0, "\(run.all)")
         #expect(run.output.hasPrefix("Money in and out, 2025-10-01 to 2026-09-30, in EUR\n"))
         #expect(run.output.contains("10,200.00"))
-        #expect(run.output.contains("9,730.40"))
-        #expect(run.output.contains("+469.60"))
-        #expect(run.output.contains("38,604.30"))
+        #expect(run.output.contains("9,579.80"))
+        #expect(run.output.contains("+620.20"))
+        #expect(run.output.contains("38,006.82"))
         #expect(run.output.contains("3 months recorded (2026-07 to 2026-09); out a year scales each account's "
             + "money out to 365 days by the days its values cover."))
 
@@ -25,8 +25,8 @@ struct SpendingCommandTests {
         #expect(object["from"] as? String == "2026-01-01")
         #expect(object["account"] as? String == "conto-fineco")
         #expect(object["moneyIn"] as? String == "10200")
-        #expect(object["moneyOut"] as? String == "9730.4")
-        #expect(object["moneyOutPerYear"] as? String == "38604.3")
+        #expect(object["moneyOut"] as? String == "9579.8")
+        #expect(object["moneyOutPerYear"] as? String == "38006.82")
         #expect(object["months"] as? [String] == ["2026-07", "2026-08", "2026-09"])
     }
 

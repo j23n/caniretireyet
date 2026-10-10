@@ -53,7 +53,7 @@ struct CheckInMoneyInOutTests {
         let draft = CheckInDraft(date: "2026-09-30", library: library)
         let row = try #require(draft["conto-fineco"])
         #expect(row.moneyIn == 3400)
-        #expect(row.enteredMoneyOut == d("3704.65"))
-        #expect(written(draft)?.moneyOut == d("3704.65"))
+        #expect(row.enteredMoneyOut == d("2554.65"))
+        #expect(written(draft)?.moneyOut == d("2554.65"))
     }
 }

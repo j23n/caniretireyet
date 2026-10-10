@@ -32,7 +32,7 @@
       "date": "2026-08-31",
       "flow": "534.8",
       "moneyIn": "3400",
-      "moneyOut": "2865.2"
+      "moneyOut": "2014.6"
     },
     { "account": "directa", "cash": "300.8", "date": "2026-08-31", "flow": "200.6" },
     { "account": "mutuo-casa", "balance": "-141700", "date": "2026-08-31", "flow": "650" }
