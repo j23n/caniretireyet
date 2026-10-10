@@ -3,14 +3,17 @@ import Model
 import SwiftUI
 import Tracker
 
-/// The home screen: net worth, history, how you're doing (UI.md, "Overview").
+/// The home screen: can I retire yet, net worth, history, how you're doing
+/// (UI.md, "Overview").
 ///
-/// Top to bottom: the hero number (net worth), the history chart by asset
-/// class with its time span and *Future* switch, the change since the last
-/// check-in, the answer to "can I retire yet?", what needs attention, and
-/// the allocation bars. Everything is net worth; only the chart with
-/// *Future* on shows plan assets, so its past meets the projection. The
-/// navigation wraps it in a NavigationStack and adds the eye and gear.
+/// Top to bottom: the main plan's answer to "can I retire yet?" when it has
+/// one, net worth (the hero number when there's no answer), the history
+/// chart by asset class with its time span and *Future* switch, the change
+/// since the last check-in, the change this year, the answer's card with
+/// the next step when there's no answer yet, what needs attention, and the
+/// allocation bars. Everything but the answer is net worth; only the chart
+/// with *Future* on shows plan assets, so its past meets the projection.
+/// The navigation wraps it in a NavigationStack and adds the eye and gear.
 struct OverviewScreen: View {
     @Environment(LibraryStore.self) private var library
     @Environment(PlanStore.self) private var plans
@@ -44,9 +47,15 @@ struct OverviewScreen: View {
         let planStart = library.asOfDate
         let mainPlan = library.mainPlan
         let results = mainPlan.flatMap { plans.results[$0.id] }
+        // With an answer, it leads and net worth follows; without one, net
+        // worth leads and the answer's card below says what to do.
+        let headline = mainPlan == nil ? nil : plans.mainHeadline
         return ScrollView {
             VStack(alignment: .leading, spacing: Metrics.xl) {
-                OverviewHeroView(hero: NetWorthGlance(valuator: valuator, asOf: today))
+                if headline != nil {
+                    OverviewAnswerView(headline: headline, today: today)
+                }
+                OverviewHeroView(hero: NetWorthGlance(valuator: valuator, asOf: today), leads: headline == nil)
                 if library.latestCheckIn == nil {
                     FirstCheckInCard()
                 }
@@ -57,7 +66,12 @@ struct OverviewScreen: View {
                     if let report = valuator.changeSinceLastCheckIn(asOf: today) {
                         OverviewChangeCard(report: report)
                     }
-                    OverviewAnswerCard(today: today)
+                    if let report = valuator.changeThisYear(asOf: today) {
+                        OverviewYearCard(report: report)
+                    }
+                    if headline == nil {
+                        OverviewAnswerView(headline: nil, today: today)
+                    }
                     OverviewAttentionCard(today: today)
                     OverviewAllocationCard(breakdown: valuator.breakdown(by: allocation, on: today),
                                            dimension: $allocation)
@@ -73,9 +87,12 @@ struct OverviewScreen: View {
 
 // MARK: - Hero
 
-/// Net worth today, with its changes.
+/// Net worth today, with its changes: the hero number, or under the
+/// answer when there is one, a size smaller.
 private struct OverviewHeroView: View {
     let hero: NetWorthGlance
+    /// Whether it leads the screen: without an answer to lead it.
+    var leads = true
 
     var body: some View {
         VStack(alignment: .leading, spacing: Metrics.xs) {
@@ -83,7 +100,7 @@ private struct OverviewHeroView: View {
                 .font(.subheadline)
                 .foregroundStyle(Palette.secondaryInk)
             AmountText(hero.total, tabular: false, animatesChanges: true)
-                .font(.largeTitle.bold())
+                .font(leads ? Font.largeTitle.bold() : Font.title.bold())
                 .foregroundStyle(Palette.ink)
                 .dynamicTypeSize(...DynamicTypeSize.accessibility2)
                 .lineLimit(1)

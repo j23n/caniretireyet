@@ -93,9 +93,17 @@ The home screen. Top to bottom:
 ┌──────────────────────────────────────────┐
 │ Overview                        👁   ⚙︎   │
 │                                          │
+│ Can I retire yet?                      › │
+│ Not yet · earliest at 54                 │
+│ About 15 years to go · March 2042        │
+│ The first age that works in 9 of 10 …    │
+│ ▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇░░░░░░░░░░░░░░░░░░ │
+│ 58% of what you'd need to retire today ⓘ │
+│ 12.400 € ahead of your Jan baseline      │
+│                                          │
 │ Net worth                                │
 │ 312.480 €                                │
-│ ▲ 4.210 € in September   ▲ 14,2% this yr │
+│ ▲ 4.210 € in September    ▲ 6,2% this yr │
 │                                          │
 │ 3Y ▾                            Future ◯ │
 │ ▬ Cash  ▬ Equity  ▬ Real estate  ▬ Debts │
@@ -114,11 +122,12 @@ The home screen. Top to bottom:
 │ │ New money  │▇▇▇▇▇          +1.500 €  │ │
 │ │ Other     ▇│                 −240 €  │ │
 │ └──────────────────────────────────────┘ │
-│ ┌ Can I retire yet? ───────────────────┐ │
-│ │ Not yet · earliest at 54 (2042)      │ │
-│ │ ▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇░░░░░░░░░░░░░░░ │ │
-│ │ 58% of what retiring today needs ⓘ   │ │
-│ │ 12.400 € ahead of your Jan baseline  │ │
+│ ┌ This year ───────────────────────────┐ │
+│ │ ▲ +18.240 € since 31 Dec 2025        │ │
+│ │ 294.240 € → 312.480 €                │ │
+│ │ Markets    │▇▇▇▇▇▇▇▇▇     +11.900 €  │ │
+│ │ New money  │▇▇▇▇▇          +6.580 €  │ │
+│ │ Other     ▇│                 −240 €  │ │
 │ └──────────────────────────────────────┘ │
 │ ┌ Needs attention ─────────────────────┐ │
 │ │ ⚠︎ Fondo pensione: last value May     │ │
@@ -133,10 +142,12 @@ The home screen. Top to bottom:
 └──────────────────────────────────────────┘
 ```
 
-The whole screen is net worth: the hero number, the history chart (except with *Future* on, below), the change since the last check-in and the allocation.
+The screen leads with the app's question, *Can I retire yet?*, when the main plan has an answer; the rest is net worth: the number under the answer, the history chart (except with *Future* on, below), the change since the last check-in and this year, and the allocation. Without an answer, net worth is the hero number and the answer's card below the chart says what to do.
+
+- **The answer.** When the main plan has one (its latest results, or else the answer recorded at the last check-in), it leads the screen, above net worth: "Can I retire yet?" with a chevron, then the answer in large type, "Not yet · earliest at 54" ("Yes" when you could retire today, "Not yet" when no age works out), how long to go and when, "About 15 years to go · March 2042" (counted as the widgets count it: in whole years from two years on, rounded to the nearest, else in months), the confidence ("The first age that works in 9 of 10 simulated futures"), the readiness, and how you compare with the baseline, as described under *Can I retire yet?* below. Net worth follows, a size smaller, with the same change lines. An answer recorded at a check-in has no date, so no time to go.
 
 - **Hero number.**
-  - Net worth today, as the accounts list has it: each account's latest value, what it holds at the latest prices, so a value imported or a trade added since the last check-in, or prices fetched since, count. Under it the change at the last check-in, "▲ 4.210 € in September" when the check-in before was the end of August, else between the two check-ins, "31 Jul – 15 Sep" (not "since 31 Jul", which would read as up to today), and the change this year, to today. The rest of the screen is today's too (the chart's last point, what needs attention, the allocation, how you compare with the baseline); only *What moved* is the last check-in's.
+  - Net worth today (under the answer when there is one), as the accounts list has it: each account's latest value, what it holds at the latest prices, so a value imported or a trade added since the last check-in, or prices fetched since, count. Under it the change at the last check-in, "▲ 4.210 € in September" when the check-in before was the end of August, else between the two check-ins, "31 Jul – 15 Sep" (not "since 31 Jul", which would read as up to today), and the change this year, to today. The rest of the screen is today's too (the chart's last point, what needs attention, the allocation, how you compare with the baseline); only *What moved* is the last check-in's.
   - It animates when it changes (`.contentTransition(.numericText())`).
   - It's only a number, not a control. (It used to switch to *plan assets* when tapped; plan assets now show only where they matter, in the chart with *Future* on and on the Plan screen.)
 - **History chart.**
@@ -153,11 +164,13 @@ The whole screen is net worth: the hero number, the history chart (except with *
   - **Old prices.** When a value in the chart uses a price more than 31 days older than its date, a note under it says so: "10 values in the chart use a price more than 31 days older than their date (Gold coins)." with *Fill In Past Prices…* (see [Instruments](#accounts)).
   - **Partial totals.** Net worth adds up what can be valued. Where a total misses something (a price or an exchange rate, or an account with no value yet), every class's line is dashed (as a partial total's line is elsewhere, so it doesn't look like a fall), the callout says "Partial: some values are missing", and a note under the chart says what and when: "Where lines are dashed, the total is partial: exchange rates for US$ are missing for Jun 2018 – Dec 2021 (US brokerage) and 3 accounts have no value yet for Jun 2018 – Sep 2025 (Directa, Fondo pensione and Old bank)." with *Fill In Past Prices…* when some of it is prices or rates.
 - **Since last check-in.** "What moved in September" (or "Since last check-in" when the check-in before wasn't the end of the month before): the totals before and after in words, and a bar each for markets, new money and other, from a shared zero line and to the same scale: gains go right in the positive colour, losses left in the negative one, with their signed amounts in a column of their own. The change itself is the hero number's, said once; the check-in's review leads with it ("▲ +4.210 € since 31 Aug", in per cent while amounts are hidden). It's the most useful split after the total, because it separates "I saved" from "markets moved". (It used to be a waterfall, whose bars from zero made the totals huge grey blocks and the changes slivers on top.) While amounts are hidden, the bars keep their proportions.
+- **This year.** The same split for the year so far: how net worth changed from 31 December of last year to today, the hero's "this year", in markets, new money and other (`Valuator.changeThisYear(asOf:)`, in Glance), so what you saved stands apart from what markets did. It leads with the change in money, "▲ +18.240 € since 31 Dec 2025", where the hero says it in per cent; while amounts are hidden, in per cent, and the bars keep their proportions. The words under the bars are *What moved*'s. Not shown when net worth has no value by 31 December (a library started this year).
 - **Can I retire yet?** The plan's headline, how close your plan assets are to what retiring today needs, and how you compare today with the baseline *Are you on track?* and the plan's answer measure the latest check-in against (its year's), named as Progress names it: "12.400 € ahead of your Jan baseline" ("… of your Oct baseline" when the year's first check-in came in October, "… of your Jan 2025 baseline" until this year's first check-in, "… of your 2021 plan" for a past baseline); nothing without one. Tapping it opens the Plan tab.
   - **Readiness**: a bar and "58% of what you'd need to retire today" ([PLANNER.md](PLANNER.md#assets-needed-to-retire-today)). Its ⓘ explains it: "Your plan assets compared with what retiring now would need for a 90% chance (the plan's confidence), including the years before your pensions start and taxes. The plan finds it by simulating retiring today with extra money added to accounts you can draw now, or with money taken out of them; money locked in pension funds stays as it is. At 100% you could retire today." It comes from the same simulation as the chance of retiring today, so it reaches 100% exactly when the answer turns to "Yes" (above 100% it keeps counting: "130% of what you'd need…"). When retiring today would need more than 20 times your plan assets, it says so instead of a percentage.
   - An answer recorded before readiness existed has only the old "of the way to financial independence", a rule of thumb that ignored the years before the pensions and taxes and so disagreed with the chance of retiring today: the card shows "Calculate the plan to see how close you are to retiring today." instead.
   - A caption under the answer says what it is: "Estimates, not financial or tax advice."
-  - The card opens the plan on a tap anywhere but the ⓘ; the chevron is its button for VoiceOver and the keyboard. It shows the main plan's latest results, or else the answer recorded at the last check-in, dated; it never starts a calculation. While one is going (a check-in's, or one started on the Plan screen) it says how far along it is, and results that no longer fit the plan or your data say "Calculated before your latest changes".
+  - The answer opens the plan on a tap anywhere but the ⓘ and *Calculate*; the chevron is its button for VoiceOver and the keyboard. It shows the main plan's latest results, or else the answer recorded at the last check-in, dated, with *Calculate*. While a calculation is going (a check-in's, or one started on the Plan screen or here) it says how far along it is, and results that no longer fit the plan or your data say "Calculated before your latest changes", with *Calculate*. *Calculate* runs the main plan as turning *Future* on does; the Overview never starts one on its own.
+  - **Before there's an answer** the answer is a card below the chart, with one next step. Without a main plan: "Make a plan to see when you could retire." with *Create a plan*, which creates "Base case" from the latest check-in, makes it the main plan and opens it, as the Plan screen's *Create your first plan* does (*Open Plan* instead when there are plans but none is the main one). With a main plan not yet calculated: "Calculate Base case to see when you could retire. Each check-in then records its answer." with *Calculate*; while it runs, "Working out Base case… 34%"; a plan that can't run says why, with *Try Again* and *Open Plan*.
 - **Needs attention.** Only shown when something needs you: stale accounts (not one that holds nothing: see [Accounts](#accounts)), accounts with problems in their trades, prices that couldn't be fetched, sync conflicts that were merged, and plan warnings. An account whose trades have problems (more sold than held, an opening without a cost, a statement that differs from the trades: the notes its page shows) gets one item that opens it: "Directa: 2 problems with trades · More sold than held · VWCE differs from the statement. Open the account to fix them." Prices and exchange rates missing on past month ends get an item each, which opens *Fill In Past Prices*: "Past exchange rates for US$ are missing · US brokerage isn't fully counted in your net worth for Jun 2018 – Dec 2021. Fill in past prices to fetch them."
 - **Allocation.** Horizontal bars with values and percentages; a donut would be harder to read. The dimension can be switched between asset class, account group, currency, institution, and liquid vs locked.
   - *Asset class* splits holdings by their instrument's mix and balances by the account's mix, and shows debts as their own bar.
@@ -411,7 +424,7 @@ A plan picker sits at the top (Base case ▾, with New Plan, Duplicate, Rename�
 
 ### Calculating
 
-A plan is calculated only when you ask: *Calculate*, *Recalculate* (⌘R, and a toolbar button on the Mac), *Run What If*, a check-in recording its answer, or turning on the Overview's *Future* when the main plan has no results yet. Opening a plan, editing an input, moving a what-if slider or choosing another age for the charts runs nothing; the screen says what's out of date instead. Each plan keeps its own results, what-if and chosen age while you switch between plans.
+A plan is calculated only when you ask: *Calculate*, *Recalculate* (⌘R, and a toolbar button on the Mac), *Run What If*, a check-in recording its answer, the Overview's *Calculate* (under its answer, or on its card before there is one), or turning on the Overview's *Future* when the main plan has no results yet. Opening a plan, editing an input, moving a what-if slider or choosing another age for the charts runs nothing; the screen says what's out of date instead. Each plan keeps its own results, what-if and chosen age while you switch between plans.
 
 **Results are kept on the device.** Each plan's latest results (not a what-if's, nor another age's) are kept on this device, outside the library, so they show again the next time the app opens, without calculating: up to date when the plan and your accounts and prices are as they were, else out of date for that reason, as below. They don't sync: each device keeps the results it calculated, and the library holds only what a check-in records (its answer, and the year's baseline). When the other device recorded a newer check-in's answer since, the Overview and the widgets show that answer instead. The plan menu says when they were calculated: "Calculated at 14:05 with 2.000 runs", with the day when it isn't today ("Calculated on 3 Oct at 14:05 …") and the year when it isn't this one. Results of an older version of the app's calculations aren't shown, and the system may clear the kept results when space runs low; the plan is then calculated again on request.
 

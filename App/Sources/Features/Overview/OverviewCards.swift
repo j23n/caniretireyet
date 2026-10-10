@@ -5,8 +5,9 @@ import Storage
 import SwiftUI
 import Tracker
 
-// The Overview's cards below the chart (UI.md, "Overview"): since the last
-// check-in, the answer, what needs attention, and the allocation.
+// The Overview's answer and its cards below the chart (UI.md, "Overview"):
+// since the last check-in, this year, the answer before there is one, what
+// needs attention, and the allocation.
 
 // MARK: - Since last check-in
 
@@ -33,7 +34,7 @@ struct OverviewChangeCard: View {
                                from: AmountFormat.shortDate(report.from, relativeTo: .today(), locale: locale),
                                to: AmountFormat.shortDate(report.to, relativeTo: .today(), locale: locale),
                                showsChange: false)
-                Text(explanation)
+                Text(Self.explanation(report.total))
                     .font(.footnote)
                     .foregroundStyle(Palette.mutedInk)
                     .fixedSize(horizontal: false, vertical: true)
@@ -41,28 +42,63 @@ struct OverviewChangeCard: View {
         }
     }
 
-    private var explanation: String {
+    /// What the bars mean, under them; *Other* only when there is some.
+    static func explanation(_ change: ValueChange) -> String {
         var text = "Markets: prices, exchange rates and interest. New money: what you added or took out."
-        if report.total.other != 0 {
+        if change.other != 0 {
             text += " Other: changes in accounts without new money recorded."
         }
         return text
     }
 }
 
+// MARK: - This year
+
+/// How net worth changed since 31 December of last year (UI.md, "This
+/// year"), split as *What moved* splits a check-in's change: markets, new
+/// money and other, so what you saved stands apart from what markets did.
+/// The hero says this year's change in per cent; this card leads with it
+/// in money ("▲ +18.240 € since 31 Dec 2025"), and in per cent while
+/// amounts are hidden.
+struct OverviewYearCard: View {
+    /// Glance's `Valuator.changeThisYear(asOf:)`.
+    let report: ChangeReport
+    @Environment(\.locale) private var locale
+
+    var body: some View {
+        Card("This year") {
+            VStack(alignment: .leading, spacing: Metrics.m) {
+                WaterfallChart(change: report.total,
+                               from: AmountFormat.shortDate(report.from, relativeTo: .today(), locale: locale),
+                               to: AmountFormat.shortDate(report.to, relativeTo: .today(), locale: locale))
+                Text(OverviewChangeCard.explanation(report.total))
+                    .font(.footnote)
+                    .foregroundStyle(Palette.mutedInk)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+    }
+}
+
 // MARK: - Can I retire yet?
 
-/// The main plan's answer (its latest results, or the headline recorded at
-/// the last check-in), how close your plan assets are to what retiring
-/// today needs (``PlanReadinessView``, with an ⓘ), and how you compare with
-/// the baseline Progress measures its latest year against. Tapping it opens
-/// the plan. It never starts a run: plans run from the Plan screen and at
-/// check-ins.
+/// "Can I retire yet?" (UI.md, "Overview"). With the main plan's answer
+/// (its latest results, or the headline recorded at the last check-in) it
+/// leads the screen, above net worth: "Not yet · earliest at 54", how long
+/// to go, how close your plan assets are to what retiring today needs
+/// (``PlanReadinessView``, with an ⓘ), and how you compare with the
+/// baseline Progress measures its latest year against; tapping it opens
+/// the plan, and *Calculate* runs the plan when the answer isn't current.
+/// Without an answer it's a card below the chart with the next step:
+/// *Create a plan*, or *Calculate* the main plan.
 ///
-/// The card opens the plan with a tap gesture rather than being a button,
-/// so the ⓘ inside it gets its own taps; the chevron is the button
-/// VoiceOver and keyboards use.
-struct OverviewAnswerCard: View {
+/// The answer opens the plan with a tap gesture rather than being a
+/// button, so the ⓘ and *Calculate* inside it get their own taps; the
+/// chevron is the button VoiceOver and keyboards use.
+struct OverviewAnswerView: View {
+    /// The main plan's answer (``PlanStore/mainHeadline``); `nil` without
+    /// a main plan or before its first calculation.
+    let headline: PlanHeadline?
     /// The day the Overview reports on.
     let today: CalendarDate
 
@@ -70,13 +106,33 @@ struct OverviewAnswerCard: View {
     @Environment(PlanStore.self) private var plans
     @Environment(AppNavigation.self) private var navigation
     @Environment(\.locale) private var locale
+    @State private var error: String?
 
     var body: some View {
-        Card {
-            content
+        if let headline, let plan = library.mainPlan {
+            hero(headline, plan: plan)
+        } else {
+            Card("Can I retire yet?") {
+                Group {
+                    if let plan = library.mainPlan {
+                        waiting(for: plan)
+                    } else {
+                        noPlan
+                    }
+                }
                 .frame(maxWidth: .infinity, alignment: .leading)
-        } header: {
-            SectionHeader("Can I retire yet?") {
+            }
+        }
+    }
+
+    /// The answer, leading the screen.
+    private func hero(_ headline: PlanHeadline, plan: PlanDocument) -> some View {
+        VStack(alignment: .leading, spacing: Metrics.xs) {
+            HStack {
+                Text("Can I retire yet?")
+                    .font(.subheadline)
+                    .foregroundStyle(Palette.secondaryInk)
+                Spacer(minLength: Metrics.s)
                 Button {
                     navigation.showPlan()
                 } label: {
@@ -87,7 +143,9 @@ struct OverviewAnswerCard: View {
                 .buttonStyle(.borderless)
                 .accessibilityLabel("Open the plan")
             }
+            answer(headline, plan: plan, gap: baselineGap(for: plan))
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
         .contentShape(Rectangle())
         .onTapGesture {
             navigation.showPlan()
@@ -98,35 +156,39 @@ struct OverviewAnswerCard: View {
         }
     }
 
-    @ViewBuilder
-    private var content: some View {
-        let plan = library.mainPlan
-        if let headline = plans.mainHeadline {
-            answer(headline, gap: baselineGap(for: plan))
-        } else if let plan {
-            waiting(for: plan)
-        } else {
-            VStack(alignment: .leading, spacing: Metrics.s) {
-                Text("Make a plan to see when you could retire.")
-                    .font(.body)
-                    .foregroundStyle(Palette.ink)
-                Text("Create a plan")
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(Palette.accent)
+    /// Without a main plan: create the first plan, as the Plan screen does,
+    /// or open the plans to choose one.
+    private var noPlan: some View {
+        VStack(alignment: .leading, spacing: Metrics.m) {
+            Text(error ?? "Make a plan to see when you could retire.")
+                .font(.callout)
+                .foregroundStyle(error == nil ? Palette.ink : Palette.secondaryInk)
+                .fixedSize(horizontal: false, vertical: true)
+            if library.sortedPlans.isEmpty {
+                Button("Create a plan") { createPlan() }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(!library.canEdit)
+            } else {
+                Button("Open Plan") { navigation.showPlan() }
+                    .buttonStyle(.borderedProminent)
             }
         }
     }
 
     @ViewBuilder
-    private func answer(_ headline: PlanHeadline, gap: OverviewBaselineGap?) -> some View {
+    private func answer(_ headline: PlanHeadline, plan: PlanDocument, gap: OverviewBaselineGap?) -> some View {
         VStack(alignment: .leading, spacing: Metrics.s) {
-            Text(headline.canRetireNow ? "Yes" : "Not yet")
-                .font(.title2.weight(.bold))
+            Text(answerText(headline))
+                .font(.largeTitle.bold())
                 .foregroundStyle(Palette.ink)
+                .dynamicTypeSize(...DynamicTypeSize.accessibility2)
+                .fixedSize(horizontal: false, vertical: true)
             VStack(alignment: .leading, spacing: 2) {
-                Text(earliestText(headline))
-                    .font(.body)
-                    .foregroundStyle(Palette.ink)
+                if let when = whenText(headline) {
+                    Text(when)
+                        .font(.body)
+                        .foregroundStyle(Palette.ink)
+                }
                 Text(confidenceText(headline))
                     .font(.footnote)
                     .foregroundStyle(Palette.secondaryInk)
@@ -144,33 +206,49 @@ struct OverviewAnswerCard: View {
                 }
                 .font(.subheadline)
             }
-            if let recorded = headline.recordedOn {
-                Text("As recorded at the check-in on \(AmountFormat.shortDate(recorded, locale: locale))")
-                    .font(.caption)
-                    .foregroundStyle(Palette.mutedInk)
-            } else if let status = runStatus {
-                Text(status)
-                    .font(.caption)
-                    .monospacedDigit()
-                    .foregroundStyle(Palette.mutedInk)
-            }
+            runStatus(headline, plan: plan)
             Text(AboutText.disclaimer)
                 .font(.caption)
                 .foregroundStyle(Palette.mutedInk)
         }
     }
 
-    /// Under an answer from this session's results: a calculation going on,
-    /// or that they're out of date.
-    private var runStatus: String? {
-        guard let main = library.settings.mainPlan else { return nil }
-        if let progress = plans.progress(of: main, .checkIn) ?? plans.progress(of: main, .base) {
-            return PlanRunText.status(progress, isCheckIn: plans.isRunning(main, .checkIn), locale: locale)
+    /// Under the answer: when it was recorded at a check-in, a calculation
+    /// going on, or that the results are out of date; with *Calculate*
+    /// (``PlanStore/run(_:mode:whatIf:focusAge:)``, as *Future* starts it)
+    /// when the answer isn't current.
+    @ViewBuilder
+    private func runStatus(_ headline: PlanHeadline, plan: PlanDocument) -> some View {
+        let progress = plans.progress(of: plan.id, .checkIn) ?? plans.progress(of: plan.id, .base)
+        let isStale = headline.recordedOn == nil && !plans.staleReasons(of: plan.id).isEmpty
+        if let recorded = headline.recordedOn {
+            Text("As recorded at the check-in on \(AmountFormat.shortDate(recorded, locale: locale))")
+                .font(.caption)
+                .foregroundStyle(Palette.mutedInk)
         }
-        guard !plans.staleReasons(of: main).isEmpty else { return nil }
-        return "Calculated before your latest changes · open the plan to recalculate"
+        if let progress {
+            Text(PlanRunText.status(progress, isCheckIn: plans.isRunning(plan.id, .checkIn), locale: locale))
+                .font(.caption)
+                .monospacedDigit()
+                .foregroundStyle(Palette.mutedInk)
+        } else if headline.recordedOn != nil || isStale {
+            HStack(alignment: .firstTextBaseline, spacing: Metrics.s) {
+                if isStale {
+                    Text("Calculated before your latest changes")
+                        .font(.caption)
+                        .foregroundStyle(Palette.mutedInk)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                Button("Calculate") { Task { await plans.run(plan.id) } }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+                    .disabled(plans.isRunning(plan.id))
+            }
+        }
     }
 
+    /// The main plan without an answer: its calculation going on, why it
+    /// can't run (with *Try Again* and *Open Plan*), or *Calculate*.
     @ViewBuilder
     private func waiting(for plan: PlanDocument) -> some View {
         if plans.isRunning(plan.id) {
@@ -186,15 +264,43 @@ struct OverviewAnswerCard: View {
                 }
             }
         } else if let error = plans.errors[plan.id] {
-            Text(error)
-                .font(.callout)
-                .foregroundStyle(Palette.secondaryInk)
-                .fixedSize(horizontal: false, vertical: true)
+            VStack(alignment: .leading, spacing: Metrics.s) {
+                Label("\(plan.name) can't be calculated: \(error)", systemImage: "exclamationmark.triangle")
+                    .font(.callout)
+                    .foregroundStyle(Palette.secondaryInk)
+                    .fixedSize(horizontal: false, vertical: true)
+                HStack(spacing: Metrics.s) {
+                    Button("Try Again") { Task { await plans.run(plan.id) } }
+                    Button("Open Plan") { navigation.showPlan(plan.id) }
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+            }
         } else {
-            Text("\(plan.name)'s answer appears here after your next check-in, or once you calculate the plan.")
-                .font(.callout)
-                .foregroundStyle(Palette.secondaryInk)
-                .fixedSize(horizontal: false, vertical: true)
+            VStack(alignment: .leading, spacing: Metrics.m) {
+                Text("Calculate \(plan.name) to see when you could retire. Each check-in then records its answer.")
+                    .font(.callout)
+                    .foregroundStyle(Palette.secondaryInk)
+                    .fixedSize(horizontal: false, vertical: true)
+                Button("Calculate") { Task { await plans.run(plan.id) } }
+                    .buttonStyle(.borderedProminent)
+            }
+        }
+    }
+
+    /// Creates the first plan, "Base case", from the latest check-in, makes
+    /// it the main plan and opens it, as the Plan screen's *Create your
+    /// first plan* does.
+    private func createPlan() {
+        let plan = PlanEditing.newPlan(id: library.newPlanID(for: "Base case"), name: "Base case",
+                                       library: library.library, asOf: library.asOfDate)
+        do {
+            try library.save(plan)
+            if library.settings.mainPlan == nil { try library.setMainPlan(plan.id) }
+            error = nil
+            navigation.showPlan(plan.id)
+        } catch {
+            self.error = LibraryStore.describe(error)
         }
     }
 
@@ -210,11 +316,23 @@ struct OverviewAnswerCard: View {
         return OverviewBaselineGap(baseline: latest.entry.baseline, valuator: library.valuator, on: today)
     }
 
-    private func earliestText(_ headline: PlanHeadline) -> String {
+    /// "Yes", "Not yet · earliest at 54", or "Not yet" when no age works out.
+    private func answerText(_ headline: PlanHeadline) -> String {
+        if headline.canRetireNow { return "Yes" }
+        guard let age = headline.earliestAge else { return "Not yet" }
+        return "Not yet · earliest at \(age)"
+    }
+
+    /// "About 15 years to go · March 2042" (``RetirementCountdown``, as the
+    /// widgets count it), "You could retire today", "No retirement age works
+    /// out yet"; `nil` for an answer recorded at a check-in, which has no date.
+    private func whenText(_ headline: PlanHeadline) -> String? {
         if headline.canRetireNow { return "You could retire today" }
-        guard let age = headline.earliestAge else { return "No retirement age works out yet" }
-        guard let date = headline.earliestDate else { return "Earliest at \(age)" }
-        return "Earliest at \(age) · \(GlanceText.monthAndYear(date, locale: locale))"
+        guard headline.earliestAge != nil else { return "No retirement age works out yet" }
+        guard let date = headline.earliestDate else { return nil }
+        let month = GlanceText.monthAndYear(date, locale: locale)
+        guard let countdown = RetirementCountdown(from: today, to: date) else { return "In \(month)" }
+        return "\(countdown.toGoText.capitalizedFirst) · \(month)"
     }
 
     private func confidenceText(_ headline: PlanHeadline) -> String {
@@ -418,7 +536,11 @@ struct OverviewAllocationCard: View {
                 if let report = valuator.changeSinceLastCheckIn(asOf: date) {
                     OverviewChangeCard(report: report)
                 }
-                OverviewAnswerCard(today: date)
+                if let report = valuator.changeThisYear(asOf: date) {
+                    OverviewYearCard(report: report)
+                }
+                // Before the main plan's first calculation.
+                OverviewAnswerView(headline: nil, today: date)
                 OverviewAttentionCard(today: date)
                 OverviewAllocationCard(breakdown: valuator.breakdown(by: .assetClass, on: date),
                                        dimension: .constant(.assetClass))
