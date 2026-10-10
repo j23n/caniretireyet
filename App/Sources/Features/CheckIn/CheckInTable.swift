@@ -39,7 +39,9 @@ struct CheckInTable: View {
         let snapshot = library.library
         let review = draft.review(in: snapshot)
         let sections = CheckInSection.sections(of: draft, in: snapshot)
-        let order = CheckInFieldOrder.nowColumn(rows: sections.flatMap(\.rows), editingCash: session.editingCash)
+        let rows = sections.flatMap(\.rows)
+        let moneyInOut = Set(rows.filter { CheckInRowDisplay.showsMoneyInOut($0, in: snapshot) }.map(\.account))
+        let order = CheckInFieldOrder.nowColumn(rows: rows, editingCash: session.editingCash, moneyInOut: moneyInOut)
         VStack(spacing: 0) {
             ScrollViewReader { proxy in
                 ScrollView {

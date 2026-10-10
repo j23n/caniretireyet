@@ -196,8 +196,11 @@ struct CheckInFieldOrder: Hashable, Sendable {
     /// The Mac table's "Now" column, top to bottom: each balance, and each
     /// position's quantity and the cash of holdings rows; a trades
     /// account's statement quantities (if any were entered) and its cash
-    /// when it has a field (`editingCash`). Return moves down this column.
-    static func nowColumn(rows: [CheckInRow], editingCash: Set<AccountID> = []) -> CheckInFieldOrder {
+    /// when it has a field (`editingCash`); money in and out after the
+    /// balance of the accounts in `moneyInOut`. Return moves down this
+    /// column.
+    static func nowColumn(rows: [CheckInRow], editingCash: Set<AccountID> = [],
+                          moneyInOut: Set<AccountID> = []) -> CheckInFieldOrder {
         var fields: [CheckInField] = []
         for row in rows {
             if row.isTrades {
@@ -212,6 +215,9 @@ struct CheckInFieldOrder: Hashable, Sendable {
                 fields.append(.cash(row.account))
             } else {
                 fields.append(.balance(row.account))
+                if moneyInOut.contains(row.account) {
+                    fields += [.moneyIn(row.account), .moneyOut(row.account)]
+                }
             }
         }
         return CheckInFieldOrder(fields: fields)
