@@ -103,6 +103,11 @@ public struct CheckInRow: Hashable, Sendable, Identifiable {
     /// value is edited: it was the default for the saved values, so it was
     /// worked out rather than typed.
     var resetsFlowOnEdit: Bool
+    /// Whether the money out kept from `existing` goes back to following
+    /// the money in and the flow once a value is edited: it was the
+    /// suggestion for the saved values, so it was worked out rather than
+    /// typed.
+    var resetsMoneyOutOnEdit: Bool
     /// Whether the account opens after the check-in's date, e.g. one added
     /// in the app today while last year is filled in. Such a row is
     /// optional: it's never counted as missing, *mark rest unchanged* leaves
@@ -156,6 +161,8 @@ public struct CheckInRow: Hashable, Sendable, Identifiable {
         source = existing?.source
         isEdited = false
         resetsFlowOnEdit = false
+        resetsMoneyOutOnEdit = previous != nil && existing?.moneyOut != nil
+            && existing?.moneyOut == CheckInDraft.defaultMoneyOut(moneyIn: existing?.moneyIn, flow: existing?.flow)
         if isTrades {
             // The cash typed on the date, else what the trades give; positions only as entered.
             mode = .trades
@@ -440,6 +447,7 @@ public struct CheckInRow: Hashable, Sendable, Identifiable {
         isFlowEdited = false
         enteredFlow = nil
         resetsFlowOnEdit = false
+        resetsMoneyOutOnEdit = false
         moneyIn = nil
         enteredMoneyOut = nil
         source = nil
@@ -495,8 +503,8 @@ public struct CheckInRow: Hashable, Sendable, Identifiable {
         balance = nil
     }
 
-    /// A value was entered: the row is updated, and a flow that was only the
-    /// saved default follows the new values.
+    /// A value was entered: the row is updated, and a flow or money out that
+    /// was only the saved default follows the new values.
     private mutating func touch() {
         state = .updated
         source = nil
@@ -505,6 +513,10 @@ public struct CheckInRow: Hashable, Sendable, Identifiable {
             resetsFlowOnEdit = false
             isFlowEdited = false
             enteredFlow = nil
+        }
+        if resetsMoneyOutOnEdit {
+            resetsMoneyOutOnEdit = false
+            enteredMoneyOut = nil
         }
     }
 
@@ -740,7 +752,8 @@ extension CheckInPosition: Codable {
 extension CheckInRow: Codable {
     enum CodingKeys: String, CodingKey {
         case account, state, mode, previous, existing, conflict, balance, cash, positions, isFlowEdited, enteredFlow,
-             moneyIn, enteredMoneyOut, note, source, isEdited, resetsFlowOnEdit, opensLater, isTrades, derived, holdsCash
+             moneyIn, enteredMoneyOut, note, source, isEdited, resetsFlowOnEdit, resetsMoneyOutOnEdit, opensLater,
+             isTrades, derived, holdsCash
     }
 
     public init(from decoder: any Decoder) throws {
@@ -763,6 +776,7 @@ extension CheckInRow: Codable {
         // A draft kept before rows recorded this: an updated row counts as edited.
         isEdited = try c.decodeIfPresent(Bool.self, forKey: .isEdited) ?? (state == .updated)
         resetsFlowOnEdit = try c.decodeIfPresent(Bool.self, forKey: .resetsFlowOnEdit) ?? false
+        resetsMoneyOutOnEdit = try c.decodeIfPresent(Bool.self, forKey: .resetsMoneyOutOnEdit) ?? false
         opensLater = try c.decodeIfPresent(Bool.self, forKey: .opensLater) ?? false
         isTrades = try c.decodeIfPresent(Bool.self, forKey: .isTrades) ?? false
         derived = try c.decodeIfPresent(Valuation.self, forKey: .derived)
@@ -794,6 +808,7 @@ extension CheckInRow: Codable {
         try c.encodeIfPresent(source, forKey: .source)
         try c.encode(isEdited, forKey: .isEdited)
         try c.encode(resetsFlowOnEdit, forKey: .resetsFlowOnEdit)
+        if resetsMoneyOutOnEdit { try c.encode(resetsMoneyOutOnEdit, forKey: .resetsMoneyOutOnEdit) }
         if opensLater { try c.encode(opensLater, forKey: .opensLater) }
         if isTrades { try c.encode(isTrades, forKey: .isTrades) }
         try c.encodeIfPresent(derived, forKey: .derived)
