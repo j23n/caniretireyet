@@ -1139,7 +1139,7 @@ private struct AccountMoneyInOutRows: View {
                 AmountText(summary.moneyOut)
             }
             let months = summary.months.count
-            Text(verbatim: "\(months) \(months == 1 ? "month" : "months") recorded, in "
+            Text(verbatim: "\(Wording.count(months, "month")) recorded, in "
                 + "\(summary.currency.rawValue).")
                 .font(.footnote)
                 .foregroundStyle(Palette.secondaryInk)
