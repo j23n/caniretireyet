@@ -65,10 +65,10 @@ extension BreakdownDimension {
 // The hero number, net worth today with the change between the last two
 // check-ins and since the end of last year, is Glance's `NetWorthGlance`,
 // as the widgets have it. *This year* splits that change since the end of
-// last year into markets, new money and other with Glance's
-// `Valuator.changeThisYear(asOf:)`, from the same 31 December, and the
-// answer counts the time to go with its `RetirementCountdown`; both are
-// tested in GlanceTests.
+// last year into markets, new money and other with Tracker's
+// `Valuator.changeThisYear(asOf:)`, from the same 31 December (tested in
+// TrackerTests, and against the hero in GlanceTests), and the answer counts
+// the time to go with Glance's `RetirementCountdown` (GlanceTests).
 
 // MARK: - History
 

@@ -54,6 +54,15 @@ struct ExampleLibraryChangeTests {
         #expect(report.change(of: "mutuo-casa")?.change.newMoney == 650)
     }
 
+    /// The Overview's *This year*: from 31 December of last year to the day.
+    @Test func thisYear() throws {
+        let report = try #require(valuator.changeThisYear(asOf: "2026-10-10"))
+        #expect(report.from == "2025-12-31")
+        #expect(report.to == "2026-10-10")
+        let total = report.total
+        #expect((total.start + total.market + total.newMoney + total.other).rounded(20) == total.end.rounded(20))
+    }
+
     /// The home's value went up 7.000 € without a flow, and the plan pays
     /// nothing into it: its change is market (PlannedContributionsTests).
     @Test func aBalanceTheCheckInAsksAboutWithoutAFlow() throws {
@@ -187,5 +196,29 @@ struct ChangeRuleTests {
                                                                  end: 5000))
         #expect(report.total.start + report.total.market + report.total.newMoney + report.total.other
             == report.total.end)
+    }
+
+    /// A library whose first value is on 31 December has a change this year
+    /// from the next day; one whose first value is in January has none.
+    @Test func thisYearStartsAtTheEndOfLastYear() throws {
+        var library = Library(accounts: [
+            Account(id: "savings", name: "Savings", kind: .savings, currency: .eur, opened: "2025-01-01"),
+        ])
+        library.upsert(Valuation(account: "savings", date: "2025-12-31", balance: 1000))
+        library.upsert(Valuation(account: "savings", date: "2026-01-31", balance: 1200, flow: 200))
+        let valuator = Valuator(library: library)
+        #expect(valuator.endOfLastYear(before: "2026-01-01") == "2025-12-31")
+        let report = try #require(valuator.changeThisYear(asOf: "2026-01-31"))
+        #expect(report.from == "2025-12-31")
+        #expect(report.to == "2026-01-31")
+        #expect(report.total == ValueChange(start: 1000, market: 0, newMoney: 200, other: 0, end: 1200))
+        // On 31 December itself, the year is last year's, which has no start.
+        #expect(valuator.endOfLastYear(before: "2025-12-31") == nil)
+
+        var later = Library(accounts: [
+            Account(id: "savings", name: "Savings", kind: .savings, currency: .eur, opened: "2026-01-01"),
+        ])
+        later.upsert(Valuation(account: "savings", date: "2026-01-01", balance: 1000))
+        #expect(Valuator(library: later).changeThisYear(asOf: "2026-01-31") == nil)
     }
 }
