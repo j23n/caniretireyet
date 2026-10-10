@@ -138,6 +138,29 @@ struct SavingPaceTests {
         #expect(pace.carriedForward.isEmpty)
     }
 
+    /// 500 into a savings account in October and November, then 30,000
+    /// in September: the 30,000 isn't spread back to November, only over
+    /// half as long again as the usual month between payments (from 16
+    /// Aug), so August and September stay unusual.
+    @Test func aOneOffLongAfterRegularPaymentsStaysAOneOff() throws {
+        var library = self.library(flows: [Decimal](repeating: 1_000, count: 12))
+        library.accounts["savings"] = Account(id: "savings", name: "Savings", kind: .savings, currency: .eur,
+                                              opened: "2020-01-01")
+        var balance: Decimal = 0
+        library.upsert(Valuation(account: "savings", date: "2025-09-30", balance: balance, flow: 0))
+        for back in (0..<12).reversed() {
+            let flow: Decimal = back == 0 ? 30_000 : back >= 10 ? 500 : 0
+            balance += flow
+            library.upsert(Valuation(account: "savings", date: SavingPace.monthEnd(back, before: "2026-09-30"),
+                                     balance: balance, flow: flow))
+        }
+        let pace = try #require(Valuator(library: library).savingPace(asOf: "2026-09-30"))
+        #expect(pace.months.suffix(2).map(\.newMoney) == [11_000, 21_000])
+        #expect(pace.unusualMonths.map(\.end) == ["2026-08-31", "2026-09-30"])
+        #expect(pace.usualMonth == 1_000)
+        #expect(pace.perYear == 13_000)
+    }
+
     /// A pension fund valued once a year, on 31 Mar, with 6,000 paid in:
     /// it goes on saving at that rate from its statement to 30 Sep, so the
     /// year's 6,000 isn't cut to the 182 days before its statement.
@@ -321,6 +344,28 @@ struct SavingPaceTests {
         let pace = try #require(Valuator(library: library(flows: flows)).savingPace(asOf: "2026-09-30"))
         #expect(pace.perYear == 12_000)
         #expect(pace.range == 12_000...12_500)
+    }
+
+    /// A pension fund with new money recorded at one check-in and taken
+    /// from the plan at the next: the recorded 3,000 counts, the plan's
+    /// doesn't, and the account is listed as left out.
+    @Test func recordedNewMoneyCountsNextToTheLeftOut() throws {
+        var library = self.library(flows: [Decimal](repeating: 1_000, count: 12))
+        library.settings = LibrarySettings(person: Person(birthDate: "1988-04-12"), mainPlan: "base")
+        library.plans["base"] = PlanDocument(
+            id: "base", name: "Base", retirement: PlanRetirement(age: .age(55)),
+            spending: PlanSpending(working: 30_000, retired: 30_000),
+            contributions: [PlanContribution(account: "pension", perYear: 5_000)])
+        library.accounts["pension"] = Account(id: "pension", name: "Pension", kind: .pensionFund, currency: .eur,
+                                              opened: "2020-01-01")
+        library.upsert(Valuation(account: "pension", date: "2025-09-30", balance: 10_000, flow: 0))
+        library.upsert(Valuation(account: "pension", date: "2026-03-31", balance: 13_000, flow: 3_000))
+        library.upsert(Valuation(account: "pension", date: "2026-09-30", balance: 16_000))
+        let pace = try #require(Valuator(library: library).savingPace(asOf: "2026-09-30"))
+        #expect(pace.leftOut == ["pension"])
+        #expect(pace.byAccount.mapValues { $0.rounded(scale: 2) } == ["current": 12_000, "pension": 3_000])
+        #expect(pace.perYear.rounded(scale: 2) == 15_000)
+        #expect(pace.carriedForward.isEmpty)
     }
 
     /// A pension fund without recorded new money counts what the main plan

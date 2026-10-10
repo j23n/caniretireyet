@@ -7,7 +7,7 @@ import Model
 ///
 /// Each account's new money at a check-in (``Valuator/change(from:to:in:)``)
 /// is spread evenly over the days since its own record before, or since it
-/// last got new money when it gets some again and again, and the days are
+/// was last paid when it's paid regularly, and the days are
 /// grouped into months that end on the same day of the month as the
 /// latest check-in (on the last day of each month when it's a month end).
 /// Money moved between two plan assets cancels out.
@@ -216,24 +216,29 @@ extension Valuator {
         }
         var carriedForward: [AccountID] = []
         for (account, payments) in Dictionary(grouping: paid, by: { $0.account }).sorted(by: { $0.key < $1.key }) {
-            // An account that gets new money again and again, with check-ins
-            // in between that record none (a pension fund marked unchanged
-            // between its quarterly statements), saved over the time since
-            // it last got some: each payment is spread from the one before,
-            // and the first over as long as the time to the next. A trades
-            // account's deposits are dated, so they stay where they are.
+            // An account paid regularly, at least three times, with
+            // check-ins in between that record nothing (a pension fund marked
+            // unchanged between its quarterly statements), saved over the
+            // time since it was last paid: each payment is spread from the
+            // one before, and the first over as long as the time to the next,
+            // but never over more than half as long again as the usual time
+            // between payments, so a one-off long after the others stays a
+            // one-off. A trades account's deposits are dated, so they stay
+            // where they are.
             let firstRecord = firstRecordDate(of: account)
-            let recurs = payments.count > 1 && accounts[account]?.recordsTrades != true
+            let gaps = zip(payments, payments.dropFirst()).map { $0.0.to.days(to: $0.1.to) }.sorted()
+            let regular = payments.count >= 3 && accounts[account]?.recordsTrades != true
+            let longest = regular ? gaps[(gaps.count - 1) / 2] * 3 / 2 : 0
             var spans: [(from: CalendarDate, to: CalendarDate, amount: Decimal)] = []
             for (number, payment) in payments.enumerated() {
-                guard recurs else {
+                guard regular else {
                     spans.append((payment.from, payment.to, payment.amount))
                     continue
                 }
                 let before = number > 0 ? payments[number - 1].to
                     : payment.to.adding(days: -payments[0].to.days(to: payments[1].to))
-                let from = min(payment.from, max(before, firstRecord ?? before))
-                spans.append((from, payment.to, payment.amount))
+                let earliest = [before, payment.to.adding(days: -longest), firstRecord ?? before].max() ?? before
+                spans.append((min(payment.from, earliest), payment.to, payment.amount))
             }
             for span in spans { spread(span.amount, of: account, from: span.from, to: span.to) }
             // An account not valued since before the latest check-in goes on

@@ -12,7 +12,7 @@ struct PlanPaceCommand: RetireSubcommand {
         discussion: """
             Prints the new money into plan assets in each of the last 12 months through the latest \
             check-in on or before --date: each account's new money spread evenly over the days since \
-            its record before (or since it last got some, when it gets some again and again), and an \
+            its record before (or since it was last paid, when it's paid regularly), and an \
             account not valued since goes on at that rate, in today's money with the library's \
             inflation index. Money moved between plan assets cancels out. When the usual month (the \
             median) saves something, a month that saves at least twice as much and at least 1% of \
