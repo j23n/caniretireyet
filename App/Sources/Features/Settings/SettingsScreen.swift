@@ -1,4 +1,7 @@
 import CloudSync
+#if FEEDBACK
+import FeedbackKit
+#endif
 import Model
 import Prices
 import Storage
@@ -35,6 +38,9 @@ struct SettingsScreen: View {
             PricesSection()
             ReminderSection()
             PrivacySection()
+            #if FEEDBACK
+            FeedbackSection()
+            #endif
             Section {
                 LabeledContent("Version", value: Self.version)
                 LabeledContent("Library format", value: "\(library.settings.schemaVersion)")
@@ -356,6 +362,20 @@ private struct PrivacySection: View {
         #endif
     }
 }
+
+#if FEEDBACK
+/// Sending feedback from the app, in Debug builds (`Feedback.swift`): on or off, the gestures,
+/// the token and what's waiting to be sent. Previews have no feedback center.
+private struct FeedbackSection: View {
+    @Environment(FeedbackCenter.self) private var feedback: FeedbackCenter?
+
+    var body: some View {
+        if let feedback {
+            FeedbackSettingsSection(center: feedback)
+        }
+    }
+}
+#endif
 
 /// What the library folder is and how its files are organised: the README
 /// the app writes into it.

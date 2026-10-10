@@ -38,7 +38,7 @@ swift run retire --help                 # the CLI
 | `TestSupport` | Test helpers and the made-up example library (`Fixtures`) — tests only, not a product; the app bundles the example library's folder for its previews and UI tests (`PreviewLibrary`) | Model |
 | `RetireCLI` | The `retire` commands (Swift Argument Parser), a library so `RetireCLITests` can run them | Model, Tracker, Storage, Importer, Planner, Prices |
 | `retire` | Command-line tool: the executable that starts `RetireCLI` | RetireCLI |
-| `App/` | SwiftUI app for iPhone, iPad and Mac, and its widgets (`App/Widgets`, a WidgetKit extension) (XcodeGen) | all library products; the widgets Model and Glance |
+| `App/` | SwiftUI app for iPhone, iPad and Mac, and its widgets (`App/Widgets`, a WidgetKit extension) (XcodeGen) | all library products; the widgets Model and Glance; FeedbackKit (j23n/feedbackkit), in Debug builds only (App/README.md, "Feedback") |
 
 Rules:
 

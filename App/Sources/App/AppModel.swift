@@ -1,4 +1,7 @@
 import CloudSync
+#if FEEDBACK
+import FeedbackKit
+#endif
 import Foundation
 import Model
 import Prices
@@ -15,6 +18,10 @@ final class AppModel {
     let plans: PlanStore
     let checkIn: CheckInStore
     let widgets: WidgetStore
+    #if FEEDBACK
+    /// In-app feedback, in Debug builds (`Feedback.swift`).
+    let feedback: FeedbackCenter
+    #endif
 
     init(preferences: AppPreferences, library: LibraryStore, prices: PriceStore, planEngine: any PlanEngine,
          planResults: PlanResultsArchive? = nil, draftURL: URL?, widgetSnapshotURL: URL? = nil) {
@@ -26,6 +33,9 @@ final class AppModel {
         checkIn = CheckInStore(library: library, prices: prices, plans: plans, preferences: preferences,
                                draftURL: draftURL)
         widgets = WidgetStore(library: library, plans: plans, snapshotURL: widgetSnapshotURL)
+        #if FEEDBACK
+        feedback = .caniretireyet(navigation: navigation)
+        #endif
     }
 
     /// The app's model at launch: ``live()``, or in a Debug build launched by

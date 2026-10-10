@@ -1,3 +1,6 @@
+#if FEEDBACK
+import FeedbackKit
+#endif
 import SwiftUI
 
 /// The app, shared by iPhone, iPad and Mac.
@@ -31,6 +34,9 @@ struct CanIRetireYetApp: App {
         #endif
         .commands {
             AppCommands(preferences: model.preferences, navigation: model.navigation)
+            #if FEEDBACK
+            FeedbackCommands(center: model.feedback)
+            #endif
         }
 
         #if os(macOS)

@@ -21,7 +21,7 @@ All data lives in a folder of plain JSON files in iCloud Drive. The apps on your
 ### Principles
 
 - **Files are the source of truth.** The data outlives the app. You can read it, back it up, put it in git, or edit it by hand.
-- **Offline-first and private.** There is no server, no analytics and no third-party SDKs. Only instrument symbols ever leave the device, when prices are fetched.
+- **Offline-first and private.** There is no server, no analytics and no third-party SDKs. Only instrument symbols ever leave the device, when prices are fetched. (Debug builds can also send feedback you write, with a screenshot whose amounts are hidden, to the developer's private GitHub inbox; release builds can't: [App/README.md](../App/README.md#feedback).)
 - **The monthly check-in should take under five minutes.** Values are pre-filled, prices are fetched for you, and you only change what moved.
 - **History is never lost.** Closing an account removes it from today's totals and from check-ins, but not from the charts.
 - **Plans start from real data.** The planner's starting portfolio is your latest check-in, not a number you type in.

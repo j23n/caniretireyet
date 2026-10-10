@@ -1,3 +1,6 @@
+#if FEEDBACK
+import FeedbackKit
+#endif
 import Model
 import SwiftUI
 
@@ -39,6 +42,13 @@ private struct AppEnvironmentModifier: ViewModifier {
             .environment(model.checkIn)
             .environment(model.widgets)
             .environment(\.baseCurrency, model.library.shownCurrency)
+            #if FEEDBACK
+            // A feedback screenshot hides amounts, and redacts what else is privacy-sensitive.
+            .environment(\.hidesAmounts, model.preferences.hidesAmounts || model.feedback.isCapturing)
+            .redacted(reason: model.feedback.isCapturing ? .privacy : [])
+            .environment(model.feedback)
+            #else
             .environment(\.hidesAmounts, model.preferences.hidesAmounts)
+            #endif
     }
 }

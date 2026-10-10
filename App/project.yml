@@ -48,6 +48,11 @@ settings:
 packages:
   CanIRetireYetKit:
     path: ..
+  # In-app feedback (App/README.md, "Feedback"), compiled in only with the FEEDBACK
+  # condition (Debug builds, below). Pinned to a commit of j23n/feedbackkit.
+  FeedbackKit:
+    url: https://github.com/j23n/feedbackkit
+    revision: 237b5422f692551542381f177bea38b55c371aa7
 
 targets:
   CanIRetireYet:
@@ -101,6 +106,10 @@ targets:
         CODE_SIGN_ENTITLEMENTS: Config/CanIRetireYet.entitlements
         "CODE_SIGN_ENTITLEMENTS[sdk=macosx*]": Config/CanIRetireYet-macOS.entitlements
         "ENABLE_HARDENED_RUNTIME[sdk=macosx*]": YES
+      configs:
+        # In-app feedback in the builds you run from Xcode, never in an archive.
+        Debug:
+          SWIFT_ACTIVE_COMPILATION_CONDITIONS: $(inherited) FEEDBACK
     dependencies:
       - package: CanIRetireYetKit
         product: Model
@@ -118,6 +127,8 @@ targets:
         product: CloudSync
       - package: CanIRetireYetKit
         product: Glance
+      - package: FeedbackKit
+        product: FeedbackKit
       # The widgets, embedded in the app.
       - target: CanIRetireYetWidgets
 

@@ -279,6 +279,15 @@ Every view has a `#Preview`. `.previewEnvironment()` injects in-memory stores ho
 - **Tapping** opens a `GlanceLink` (`caniretireyet://overview`, `plan`, `check-in`; the URL scheme is in `Config/Info.plist`), which `RootView` turns into navigation.
 - **App Group:** `APP_GROUP_IDENTIFIER` (`group.<bundle id>`, project.yml) in both targets' entitlements and Info.plist (`AppGroupIdentifier`). Without it (CI builds unsigned) the app writes nothing and the widgets say to open the app.
 
+## Feedback
+
+Debug builds (the `FEEDBACK` compilation condition, set for the Debug configuration in `project.yml`) include in-app feedback with [FeedbackKit](https://github.com/j23n/feedbackkit): shaking the iPhone or iPad, taking a screenshot (a banner offers it), Help › Send Feedback… or Settings › Feedback opens a form with a screenshot of the window, which Quick Look's Markup can annotate on iPhone and iPad. The report goes to the owner's private inbox, [j23n/feedback](https://github.com/j23n/feedback), where it's triaged before an issue is filed here; the screenshot never leaves the inbox.
+
+- **Amounts are hidden for the screenshot.** While `FeedbackCenter.isCapturing`, `AppEnvironment` sets `hidesAmounts` (as the eye button does, so amounts show as •••••) and redacts every view marked `.privacySensitive()`. A new view that shows an amount another way must honour `hidesAmounts` or be `.privacySensitive()`.
+- **Where the app is:** `AppNavigation.feedbackScreen` (the tab or sidebar item, a sheet, the check-in, without account or plan IDs) goes with each report (`Sources/App/Feedback.swift`).
+- **Settings › Feedback** turns it off, turns the gestures off, holds the GitHub token (a fine-grained token for j23n/feedback with Issues and Contents read and write, kept in the Keychain) and sends what's waiting.
+- Release builds link the package but never create a `FeedbackCenter`: no gesture, no menu item, nothing sent.
+
 ## Library location and sync
 
 At launch `LibraryStore.start()` asks `CloudSync.LibraryLocator` for the iCloud container's `Documents/` (off the main thread) or `Application Support/<bundle id>/Library`, remembers the choice on the device, downloads a library in iCloud Drive that isn't all on the device (`CloudSync.UbiquitousLibraryDownloader`: the folder on disk, then an `NSMetadataQuery`, every missing file asked for at once, `LibraryDownloadProgress` until all are here), and loads through `CloudSync.LibrarySync`: coordinated reads and atomic writes (`CoordinatedFileAccess`), an `NSMetadataQuery` watcher that also downloads files eagerly (polling for a local library), and conflict merging with `Storage.ConflictResolver` (`NSFileVersion`). Nothing on that path touches the files on the main thread. A library on this device can be moved to iCloud Drive from Settings. A library written by a newer app, or whose `library.json` can't be read, opens read-only, and the banners say which.
