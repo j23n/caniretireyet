@@ -59,6 +59,17 @@ struct MoneyInOutTests {
         #expect(summary.moneyOutPerYear == d("41656.82"))
     }
 
+    @Test func leavesOutAnAccountsFirstValue() throws {
+        var library = try Fixtures.exampleLibrary()
+        let first = try #require(library.months["2025-10"]?.valuations.firstIndex { $0.account == "conto-deposito" })
+        library.months["2025-10"]?.valuations[first].moneyIn = 0
+        library.months["2025-10"]?.valuations[first].moneyOut = 500
+        let summary = Valuator(library: library).moneyInOut(overYearEndingOn: "2026-09-30")
+        #expect(summary.moneyOut == d("9579.8"))
+        #expect(summary.months == ["2026-07", "2026-08", "2026-09"])
+        #expect(summary.moneyOutPerYear == d("38006.82"))
+    }
+
     @Test func leavesOutOtherKindsHalfRecordedAndNegativeValues() throws {
         var library = try Fixtures.exampleLibrary()
         var valuations = try #require(library.months["2026-09"]?.valuations)

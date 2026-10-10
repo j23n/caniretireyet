@@ -57,6 +57,22 @@ struct CheckInMoneyInOutTests {
         #expect(written(draft)?.moneyOut == nil)
     }
 
+    @Test func aFirstValueSuggestsNoMoneyOut() {
+        var library = self.library
+        library.accounts["nuovo-conto"] = Account(id: "nuovo-conto", name: "Nuovo conto", kind: .cash,
+                                                  currency: .eur, opened: "2026-10-01", moneyInOut: true)
+        var draft = CheckInDraft(date: "2026-10-31", library: library)
+        draft["nuovo-conto"]?.setBalance(1000)
+        draft["nuovo-conto"]?.setMoneyIn(3000)
+        let suggested = draft.review(in: library).row(for: "nuovo-conto")?.valuation
+        #expect(suggested?.moneyIn == nil)
+        #expect(suggested?.moneyOut == nil)
+        draft["nuovo-conto"]?.setMoneyOut(2000)
+        let typed = draft.review(in: library).row(for: "nuovo-conto")?.valuation
+        #expect(typed?.moneyIn == 3000)
+        #expect(typed?.moneyOut == 2000)
+    }
+
     @Test func moneyOutIsNeverNegative() {
         #expect(CheckInDraft.defaultMoneyOut(moneyIn: 1000, flow: 1500) == 0)
         #expect(CheckInDraft.defaultMoneyOut(moneyIn: 1000, flow: -200) == 1200)
