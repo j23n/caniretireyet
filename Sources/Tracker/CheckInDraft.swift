@@ -387,18 +387,20 @@ public struct CheckInRow: Hashable, Sendable, Identifiable {
         enteredFlow = amount
     }
 
-    /// Records the money that came in, in the account's currency; `nil`
-    /// stops recording money in and out for this valuation.
+    /// Records the money that came in, in the account's currency, without
+    /// a sign (a minus is dropped); `nil` stops recording money in and out
+    /// for this valuation.
     public mutating func setMoneyIn(_ amount: Decimal?) {
         touch()
-        moneyIn = amount
+        moneyIn = amount.map { abs($0) }
     }
 
-    /// Records the money that went out, in the account's currency; `nil`
-    /// goes back to working it out from the money in and the flow.
+    /// Records the money that went out, in the account's currency, without
+    /// a sign (a minus is dropped); `nil` goes back to working it out from
+    /// the money in and the flow.
     public mutating func setMoneyOut(_ amount: Decimal?) {
         touch()
-        enteredMoneyOut = amount
+        enteredMoneyOut = amount.map { abs($0) }
     }
 
     /// Goes back to the default flow for the account's kind.
