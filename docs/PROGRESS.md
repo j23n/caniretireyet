@@ -163,9 +163,20 @@ Two kinds of data are needed for the comparisons above.
 
 **Inflation.** Needed to put the actual line in today's money. The app fetches the library's consumer price index (by default the index of the tax residence, else of the base currency: Eurostat's HICP, the BLS's CPI-U for the US or the ONS's CPI for the UK; and one for each plan's currency) along with FX rates, and stores it in the monthly history files. Past values are public, so this can be filled in later if needed.
 
+## Money in and out
+
+A rough view of what you earn and spend, for cash and savings accounts only: no categories and no budgets ([PLAN.md](PLAN.md#non-goals)).
+
+- **Turning it on.** An account of kind `cash` or `savings` with `"moneyInOut": true` in its file asks for money in and out at each check-in. Other kinds never record them.
+- **What they mean.** Each valuation can carry `moneyIn`, the money that arrived from outside your tracked accounts since the account's previous valuation (salary, refunds, gifts), and `moneyOut`, the money that left them (spending, bills, rent). Both are in the account's currency and never negative. Money moved between two tracked accounts (to the broker, to the savings account) is in neither, so money out is roughly what you spent. Absent means not recorded for that period.
+- **At the check-in** you type money in; money out is filled in as money in minus the flow (for a current account, the change in balance), never below zero, as if nothing moved between your accounts. Type over it when something did. *Unchanged* records neither.
+- **The flow stays as it is.** It's still the new money Progress measures your savings with. For an account where nothing moved between your accounts, the flow is about money in minus money out; the rest is transfers and interest.
+- **Summed up** (Tracker's `Valuator.moneyInOut(from:through:accounts:)`, `retire spending`): money in and out over a period, in the base currency at each value's date, counting only values with both amounts. Money out a year is money out × 12 / the months recorded, to set against the plan's spending while working (`spending.working`).
+- **Nothing to migrate.** The fields are optional, so `schemaVersion` stays; a library without them has nothing recorded, and summaries start from the first check-in that records them. A net flow can't be split into in and out, so past months aren't filled in.
+
 ## What changes in the files
 
-- **Valuations:** an optional `flow` field.
+- **Valuations:** an optional `flow` field, and optional `moneyIn` and `moneyOut` for cash and savings accounts ([Money in and out](#money-in-and-out)).
 - **Monthly history files:** a list of `indices` (consumer price index values).
 - **A new `projections/` folder:** baselines and headlines. They are the one deliberate exception to "only inputs are stored", because they record what you expected at the time.
 
