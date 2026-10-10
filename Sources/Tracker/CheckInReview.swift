@@ -274,9 +274,11 @@ extension CheckInDraft {
         if row.state == .updated || row.state == .unchanged, ignoringConflict || row.conflict == nil {
             var record = valuation
             record.flow = row.isFlowEdited ? row.enteredFlow : defaultFlow
-            record.moneyIn = row.moneyIn
-            record.moneyOut = row.enteredMoneyOut
-                ?? CheckInDraft.defaultMoneyOut(moneyIn: row.moneyIn, flow: record.flow)
+            let moneyOut = row.enteredMoneyOut ?? CheckInDraft.defaultMoneyOut(moneyIn: row.moneyIn, flow: record.flow)
+            // Both or neither: a value with only one of them isn't counted.
+            let recordsBoth = row.moneyIn != nil && moneyOut != nil
+            record.moneyIn = recordsBoth ? row.moneyIn : nil
+            record.moneyOut = recordsBoth ? moneyOut : nil
             written = record
         }
         return Proposal(valuation: valuation, written: written, defaultFlow: defaultFlow, positions: reviews)
