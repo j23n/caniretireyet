@@ -40,5 +40,7 @@ jobs:
             and numbered findings marked [blocking] or [minor], each with file:line, the problem and a concrete fix.
             Do not modify files.
           claude_args: >-
+            --model claude-opus-5-5
+            --effort high
             --max-turns 30
             --allowedTools "mcp__github_inline_comment__create_inline_comment,Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*),Read,Grep,Glob"

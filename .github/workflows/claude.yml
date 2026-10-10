@@ -40,10 +40,11 @@ jobs:
       - uses: anthropics/claude-code-action@v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          # --model and --effort (low, medium, high, xhigh or max) are set to their defaults here,
-          # to change in one place. `gh pr create` lets Claude open the pull request itself; the
-          # action's own tools (reading, editing, committing, pushing) stay as they are.
+          # The model, and how hard it thinks (--effort: low, medium, high, xhigh or max; the
+          # owner's choice is high, above the model's default of medium). `gh pr create` lets Claude
+          # open the pull request itself; the action's own tools (reading, editing, committing,
+          # pushing) stay as they are.
           claude_args: >-
             --model claude-opus-5-5
-            --effort medium
+            --effort high
             --allowedTools "Bash(gh pr create:*)"
