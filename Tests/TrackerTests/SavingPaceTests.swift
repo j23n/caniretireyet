@@ -136,7 +136,28 @@ struct SavingPaceTests {
         library.upsert(Valuation(account: "current", date: "2026-09-30", balance: 17_000, flow: -4_000))
         let pace = try #require(Valuator(library: library).savingPace(asOf: "2026-09-30"))
         #expect(pace.months.last?.newMoney == 1_000)
-        #expect(pace.byAccount == ["current": 7_000, "savings": 5_000])
+        // September's 4,000 moved comes off both: the current account's
+        // −4,000 entirely, and 4,000 of the savings account's 5,000.
+        #expect(pace.byAccount == ["current": 11_000, "savings": 1_000])
+    }
+
+    /// Money moved into an account valued once a year cancels out too: the
+    /// current account's −3,000 in September isn't left against 4,000
+    /// spread over the year.
+    @Test func moneyMovedIntoAnAccountValuedLessOftenCancelsOut() throws {
+        var flows = [Decimal](repeating: 1_000, count: 12)
+        flows[0] = -3_000
+        var library = self.library(flows: flows)
+        library.accounts["savings"] = Account(id: "savings", name: "Savings", kind: .savings, currency: .eur,
+                                              opened: "2020-01-01")
+        library.upsert(Valuation(account: "savings", date: "2025-09-30", balance: 0, flow: 0))
+        library.upsert(Valuation(account: "savings", date: "2026-09-30", balance: 4_000, flow: 4_000))
+        let pace = try #require(Valuator(library: library).savingPace(asOf: "2026-09-30"))
+        // The 1,000 left of the savings account's 4,000, by days of the year.
+        #expect(pace.months.last?.newMoney.rounded(scale: 2) == d("82.19"))
+        #expect(pace.unusualMonths.isEmpty)
+        #expect(pace.perYear.rounded(scale: 2) == 12_000)
+        #expect(pace.byAccount.mapValues { $0.rounded(scale: 2) } == ["current": 11_000, "savings": 1_000])
     }
 
     /// A pension fund valued each quarter, with 3,000 recorded each time,

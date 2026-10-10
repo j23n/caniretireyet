@@ -42,8 +42,10 @@ public struct SavingPace: Hashable, Sendable {
     /// The lowest and highest pace of the 12 months ending at each of the
     /// last 12 month ends; `nil` without 13 months.
     public let range: ClosedRange<Decimal>?
-    /// Each account's new money in `months`, scaled to a year, unusual
-    /// months included; an account with none is left out.
+    /// Each account's new money in `months` from outside plan assets,
+    /// scaled to a year, unusual months included; an account with none is
+    /// left out. Money moved between plan assets at a check-in comes off
+    /// each side pro rata.
     public let byAccount: [AccountID: Decimal]
     /// Accounts whose new money in `months` wasn't recorded, so that the
     /// tracker counts what the main plan pays into them
@@ -154,9 +156,20 @@ extension Valuator {
         }
         var isComplete = true
         for report in reports {
-            for account in report.accounts where !account.isFlowFromPlan {
-                if !account.problems.isEmpty { isComplete = false }
+            let included = report.accounts.filter { !$0.isFlowFromPlan }
+            if included.contains(where: { !$0.problems.isEmpty }) { isComplete = false }
+            // Money moved between plan assets at this check-in cancels out
+            // before it's spread: what went in and came out up to the
+            // smaller of the two comes off each side pro rata, so two legs
+            // spread over different days don't leave a month too high and
+            // another too low.
+            let paidIn = included.reduce(Decimal(0)) { $0 + max($1.change.newMoney, 0) }
+            let takenOut = included.reduce(Decimal(0)) { $0 - min($1.change.newMoney, 0) }
+            let moved = min(paidIn, takenOut)
+            for account in included {
                 var amount = account.change.newMoney
+                if amount == 0 { continue }
+                if moved > 0 { amount -= amount > 0 ? amount * moved / paidIn : amount * moved / takenOut }
                 if amount == 0 { continue }
                 // Spread from the account's own record before, not the
                 // check-in before: an account valued quarterly saved over
