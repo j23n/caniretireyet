@@ -47,8 +47,8 @@ enum PlanEditing {
     }
 
     /// A new plan's tax rates: those of the main plan (else the first plan
-    /// by ID), since you've set them already; else none, which the plan
-    /// asks for before it runs.
+    /// by ID), since you've set them already; else none, which runs as 0%
+    /// on investments with a warning until it's set.
     static func defaultTax(in library: Library) -> PlanTax {
         sourcePlan(in: library)?.tax ?? PlanTax()
     }
