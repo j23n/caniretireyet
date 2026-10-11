@@ -307,7 +307,9 @@ struct AccountForm: Hashable, Sendable {
         account.notes = trimmedNotes.isEmpty ? nil : trimmedNotes
 
         account.availableFromAge = availableFromAge
-        if kind.recordsMoneyInOut, tracksMoneyInOut != (original?.moneyInOut == true) {
+        if !kind.recordsMoneyInOut {
+            account.moneyInOut = nil
+        } else if tracksMoneyInOut != (original?.moneyInOut == true) {
             account.moneyInOut = tracksMoneyInOut ? true : nil
         }
 
