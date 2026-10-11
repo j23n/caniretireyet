@@ -372,6 +372,21 @@ struct SavingPaceTests {
         #expect(pace.perYear == 12_000)
     }
 
+    /// A savings account valued monthly, paid 200 in August and skipped
+    /// in September: the 200 isn't repeated in September.
+    @Test func anAccountSkippedAtTheLatestCheckInIsntCarriedForward() throws {
+        var library = self.library(flows: [Decimal](repeating: 1_000, count: 12))
+        library.accounts["savings"] = Account(id: "savings", name: "Savings", kind: .savings, currency: .eur,
+                                              opened: "2020-01-01")
+        library.upsert(Valuation(account: "savings", date: "2025-09-30", balance: 0, flow: 0))
+        library.upsert(Valuation(account: "savings", date: "2026-07-31", balance: 0, flow: 0))
+        library.upsert(Valuation(account: "savings", date: "2026-08-31", balance: 200, flow: 200))
+        let pace = try #require(Valuator(library: library).savingPace(asOf: "2026-09-30"))
+        #expect(pace.carriedForward.isEmpty)
+        #expect(pace.byAccount["savings"] == 200)
+        #expect(pace.perYear == 12_200)
+    }
+
     /// A pension fund with new money recorded at one check-in and taken
     /// from the plan at the next: the recorded 3,000 counts, the plan's
     /// doesn't, and the account is listed as left out.

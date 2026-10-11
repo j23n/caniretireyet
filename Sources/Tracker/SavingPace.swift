@@ -58,8 +58,9 @@ public struct SavingPace: Hashable, Sendable {
     /// each check-in where it came from the plan, since a pace that repeats
     /// the plan says nothing about it.
     public let leftOut: [AccountID]
-    /// Accounts not valued since before `asOf`, whose saving at the rate of
-    /// their latest record goes on to `asOf`, for at most as long again;
+    /// Accounts valued less often than plan assets and not since before
+    /// `asOf`, whose saving at the rate of their latest record goes on to
+    /// `asOf`, for at most as long again;
     /// money taken out isn't carried forward.
     public let carriedForward: [AccountID]
     /// Whether the amounts are in money of `asOf`. Without an inflation
@@ -220,6 +221,9 @@ extension Valuator {
                 if month < window { byAccount[account, default: 0] += part }
             }
         }
+        // The usual time between check-ins of plan assets.
+        let checkInGaps = intervals.map { $0.0.days(to: $0.1) }.sorted()
+        let usualCheckIn = checkInGaps.isEmpty ? 0 : checkInGaps[(checkInGaps.count - 1) / 2]
         var carriedForward: [AccountID] = []
         for (account, payments) in Dictionary(grouping: paid, by: { $0.account }).sorted(by: { $0.key < $1.key }) {
             // An account paid regularly, at least three times, with
@@ -250,11 +254,14 @@ extension Valuator {
                 spans.append((min(payment.from, earliest), payment.to, payment.amount))
             }
             for span in spans { spread(span.amount, of: account, from: span.from, to: span.to) }
-            // An account not valued since before the latest check-in goes on
-            // saving as it did up to its latest record, for at most as long
-            // again: an account valued once a year saved in the months since
-            // its statement too.
-            guard let last = spans.last, last.amount > 0, last.to < asOf, accounts[account]?.recordsTrades != true,
+            // An account valued less often than plan assets (its latest
+            // interval over half as long again as the usual time between
+            // check-ins) and not since before the latest one goes on saving
+            // as it did up to its latest record, for at most as long again:
+            // an account valued once a year saved in the months since its
+            // statement too. One only skipped at a check-in doesn't.
+            guard let last = spans.last, last.amount > 0, last.to < asOf,
+                  last.from.days(to: last.to) * 2 > usualCheckIn * 3, accounts[account]?.recordsTrades != true,
                   accounts[account]?.closed.map({ $0 > asOf }) ?? true,
                   latestRecordDate(of: account, onOrBefore: asOf) == last.to
             else { continue }
