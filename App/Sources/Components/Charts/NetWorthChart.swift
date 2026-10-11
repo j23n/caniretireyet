@@ -34,10 +34,10 @@ import Tracker
 /// - Drag across it to read any date: a vertical rule with a callout
 ///   showing the date, the total and, when stacked, the breakdown. Over
 ///   the projection it reads the same way: the median as its headline,
-///   then a row each for the top 10% (the 90th percentile) and the bottom
-///   10% (the 10th), with the 10–90% band's swatch. Its amounts show at
-///   most 6 digits (`3.000k €`, Glance's `ShortAmount`). The callout stays
-///   inside the chart.
+///   labeled "Median", then a row each for the top 10% (the 90th
+///   percentile) and the bottom 10% (the 10th), with the 10–90% band's
+///   swatch. Its amounts are short (`300.000 €`, `12,3M €`, Glance's
+///   `ShortAmount`). The callout stays inside the chart.
 ///
 ///     NetWorthChart(history: valuator.series(through: date).chartPoints)
 ///     NetWorthChart(history: history.points, stacked: history.stacked, projection: history.projection,
@@ -258,7 +258,11 @@ struct NetWorthChart: View {
                 Text(fan.date, format: .dateTime.month(.abbreviated).year())
                     .font(.caption2)
                     .foregroundStyle(Palette.secondaryInk)
-                calloutTotal(fan.p50)
+                // Labeled, so it doesn't read as an actual total.
+                HStack(alignment: .firstTextBaseline, spacing: 4) {
+                    Text("Median").font(.caption2).foregroundStyle(Palette.secondaryInk)
+                    calloutTotal(fan.p50)
+                }
                 let band = Palette.accent.opacity(ProjectionLegend.outerBand)
                 calloutRow("Top 10%", color: band, value: fan.p90)
                 calloutRow("Bottom 10%", color: band, value: fan.p10)
