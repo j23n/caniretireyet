@@ -388,8 +388,10 @@ extension PlanProgressYear {
     /// an automatic baseline comes back; where its copy is kept.
     ///
     /// - Parameter savingYear: the year a check-in would save an automatic
-    ///   baseline for when it has none: this year for the main plan, `nil`
-    ///   for another plan (``PlanStore/checkInSaved(on:)``).
+    ///   baseline for when it has none: for the main plan, the year of the
+    ///   date a new check-in is suggested for (last year's in January's
+    ///   first days, ``CheckInDraft/suggestedDate(today:lastCheckIn:)``);
+    ///   `nil` for another plan (``PlanStore/checkInSaved(on:)``).
     static func deletionNote(of entry: PlanBaselineEntry, years: [Int], baselines: [PlanBaselineEntry],
                              savingYear: Int?, locale: Locale = .current) -> String {
         let rest = baselines.filter { $0.id != entry.id }
@@ -420,7 +422,7 @@ extension PlanProgressYear {
         }
         if entry.baseline.kind == .yearly {
             sentences.append(entry.baseline.created.year == savingYear
-                ? "Your next check-in this year saves a new automatic baseline, starting then."
+                ? "Your next check-in saves a new automatic baseline, starting then."
                 : "An automatic baseline is only saved in its own year, for the main plan, so this one won't come "
                     + "back.")
         }

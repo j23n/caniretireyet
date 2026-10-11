@@ -98,7 +98,8 @@ struct PlanProgressView: View {
         } message: { entry in
             Text(verbatim: PlanProgressYear.deletionNote(
                 of: entry, years: timeline.cards.map(\.year.year), baselines: baselines,
-                savingYear: library.settings.mainPlan == session.planID ? CalendarDate.today().year : nil,
+                savingYear: library.settings.mainPlan == session.planID
+                    ? CheckInDraft.suggestedDate(today: .today(), lastCheckIn: library.latestCheckIn).year : nil,
                 locale: locale))
         }
     }

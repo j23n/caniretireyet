@@ -112,7 +112,7 @@ On Progress, a year without its own automatic baseline is measured against the l
 
 Any baseline can be deleted, with *Delete Baseline…* under *Actual vs baseline* on Progress ([UI.md](UI.md#progress)): one saved by mistake, a trial past baseline, or one that shouldn't measure a year any more. Deleting removes its file and nothing else: the plan's other baselines and its headlines stay. Its file is backed up first (`delete-baseline`), so it can be restored from *Sync & backups*.
 
-The years measured against it are then measured as above among the baselines left: against another past baseline that covers them, or against none ("No January baseline"). The confirmation says which. An automatic baseline is saved at a check-in of the main plan whose year has none, so deleting this year's means the next check-in saves a new one, starting then; an earlier year's won't come back.
+The years measured against it are then measured as above among the baselines left: against another past baseline that covers them, or against none ("No January baseline"). The confirmation says which. An automatic baseline is saved at a check-in of the main plan whose year has none, so deleting the year's that the next check-in is dated in (this year's, or last year's in January's first days, when the check-in is suggested for 31 December) means that check-in saves a new one, starting then; an earlier year's won't come back.
 
 `projections/<plan-id>/baselines/<date>.json`, about 10 KB each ([baseline.schema.json](schema/baseline.schema.json)). The file name is the baseline's ID; a second baseline saved on the same day gets `-2`.
 
