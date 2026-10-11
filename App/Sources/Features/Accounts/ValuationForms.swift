@@ -339,10 +339,9 @@ struct AccountValuationForm: Hashable, Sendable {
     var positions: [PositionField]
     /// Empty means unknown. Typed only where ``AccountValuationFields/flow``.
     var flow: String
-    /// Money in and out of a cash or savings account. Empty, for a value
-    /// that records them (``recordsMoneyInOut``), money in is 0 and money
-    /// out is suggested, as in *Update Value*; for an older value without
-    /// them, empty means not recorded.
+    /// Money in and out of a cash or savings account. Empty, money in is 0
+    /// and money out is suggested, as in *Update Value*; saving records
+    /// both, on an older value without them too.
     var moneyIn: String
     var moneyOut: String
     /// A savings account's interest; empty means none.
@@ -376,13 +375,9 @@ struct AccountValuationForm: Hashable, Sendable {
         note = valuation.note ?? ""
     }
 
-    /// Whether the value being edited records money in and out. A value
-    /// from before they were asked for may have neither, and may keep it.
-    var recordsMoneyInOut: Bool { original.moneyIn != nil || original.moneyOut != nil }
-
-    /// The money out suggested when its field is empty, for a value that
-    /// records money in and out: 0 for savings; for cash, what money in
-    /// and the new money suggest (``Tracker/CheckInDraft/defaultMoneyOut(moneyIn:flow:)``).
+    /// The money out suggested when its field is empty: 0 for savings;
+    /// for cash, what money in and the new money suggest
+    /// (``Tracker/CheckInDraft/defaultMoneyOut(moneyIn:flow:)``).
     /// `nil` while the value can't be read.
     func suggestedMoneyOut(in library: Library, locale: Locale = .current) -> Decimal? {
         guard let valuation = valuation(in: library, locale: locale, suggestingMoneyOut: false) else { return nil }
@@ -461,9 +456,6 @@ struct AccountValuationForm: Hashable, Sendable {
             check(moneyIn, "money in")
             check(moneyOut, "money out")
             let moneyAmounts = [moneyIn, moneyOut].map { AmountInput.parse($0, locale: locale) }
-            if !recordsMoneyInOut, (moneyAmounts[0] == .empty) != (moneyAmounts[1] == .empty) {
-                problems.append("Enter both money in and out, or neither.")
-            }
             if moneyAmounts.contains(where: { ($0.value ?? 0) < 0 }) {
                 problems.append("Money in and out can't be negative.")
             }
@@ -497,8 +489,7 @@ struct AccountValuationForm: Hashable, Sendable {
                 return Position(instrument: field.instrument, quantity: quantity, costBasis: number(field.cost))
             }
         }
-        let fillsMoneyInOut = fields.moneyInOut && recordsMoneyInOut
-        valuation.moneyIn = fields.moneyInOut ? number(moneyIn) ?? (fillsMoneyInOut ? 0 : nil) : original.moneyIn
+        valuation.moneyIn = fields.moneyInOut ? number(moneyIn) ?? 0 : original.moneyIn
         valuation.moneyOut = fields.moneyInOut ? number(moneyOut) : original.moneyOut
         valuation.interest = fields.interest ? number(interest) : original.interest
         if fields.flow {
@@ -513,7 +504,7 @@ struct AccountValuationForm: Hashable, Sendable {
             let previous = others.valuations(for: original.account).last { $0.date < date }
             valuation.flow = Valuator(library: others).defaultFlow(for: valuation, previous: previous)
         }
-        if fillsMoneyInOut, suggestingMoneyOut, valuation.moneyOut == nil {
+        if fields.moneyInOut, suggestingMoneyOut, valuation.moneyOut == nil {
             valuation.moneyOut = Self.suggestedMoneyOut(for: valuation, kind: kind)
         }
         let trimmedNote = note.trimmingCharacters(in: .whitespacesAndNewlines)

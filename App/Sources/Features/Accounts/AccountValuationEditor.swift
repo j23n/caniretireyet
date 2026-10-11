@@ -132,15 +132,12 @@ struct AccountValuationEditor: View {
             }
             if shown.moneyInOut {
                 Section {
-                    // A value that records money in and out reads empty fields as Update Value does.
-                    let records = form.wrappedValue.recordsMoneyInOut
+                    // Empty fields read as in Update Value: money in 0, money out suggested.
                     let suggestedOut = form.wrappedValue.suggestedMoneyOut(in: snapshot, locale: locale)
-                    AccountsNumberField(title: "Money in", text: form.moneyIn, prompt: records ? "0" : "Not recorded",
-                                        suffix: symbol, allowsNegative: false)
+                    AccountsNumberField(title: "Money in", text: form.moneyIn, prompt: "0", suffix: symbol,
+                                        allowsNegative: false)
                     AccountsNumberField(title: "Money out", text: form.moneyOut,
-                                        prompt: records
-                                            ? suggestedOut.map { AmountInput.text(for: $0, locale: locale) } ?? "0"
-                                            : "Not recorded",
+                                        prompt: suggestedOut.map { AmountInput.text(for: $0, locale: locale) } ?? "0",
                                         suffix: symbol, allowsNegative: false)
                     if shown.interest {
                         AccountsNumberField(title: "Interest", text: form.interest, prompt: "None", suffix: symbol)

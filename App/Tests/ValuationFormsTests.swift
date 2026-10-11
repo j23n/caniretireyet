@@ -167,22 +167,20 @@ struct ValuationFormsTests {
         #expect(try #require(form.valuation(in: library, locale: locale)).flow != 900)
     }
 
-    /// A value from before money in and out were asked for has neither,
-    /// and may keep it: both or neither.
-    @Test func editValueOfAnOlderValueAsksForBothMoneyInAndOutOrNeither() throws {
-        var form = try form("conto-fineco", on: "2026-06-30")
-        #expect(!form.recordsMoneyInOut)
-        #expect(try #require(form.valuation(in: library, locale: locale)).moneyIn == nil)
-        form.moneyOut = "100"
-        #expect(form.problems(in: library, locale: locale) == ["Enter both money in and out, or neither."])
+    /// A value from before money in and out were asked for has neither;
+    /// saving it records them as *Update Value* would.
+    @Test func editValueOfAnOlderValueRecordsMoneyInAndOut() throws {
+        let form = try form("conto-fineco", on: "2026-06-30")
+        #expect(form.moneyIn.isEmpty && form.moneyOut.isEmpty)
+        let valuation = try #require(form.valuation(in: library, locale: locale))
+        #expect(valuation.moneyIn == 0)
+        #expect(valuation.moneyOut == max(0, -(valuation.flow ?? 0)))
     }
 
-    /// A value that records money in and out reads empty fields as *Update
-    /// Value* does: money in 0, money out what money in and the new money
-    /// suggest.
-    @Test func editValueFillsEmptyMoneyInAndOutOfAValueThatRecordsThem() throws {
+    /// Emptied, money in and out read as *Update Value* reads them: money
+    /// in 0, money out what money in and the new money suggest.
+    @Test func editValueFillsEmptyMoneyInAndOut() throws {
         var form = try form("conto-fineco", on: "2026-09-30")
-        #expect(form.recordsMoneyInOut)
         form.moneyIn = ""
         form.moneyOut = ""
         #expect(form.problems(in: library, locale: locale).isEmpty)
