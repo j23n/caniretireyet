@@ -1,6 +1,6 @@
-# The shared Linux and macOS jobs (j23n/apple-ci), which run `make ci-linux` and `make ci-macos`,
-# and the UI tests with their screenshots (`make screenshots`, App/README.md "UI tests and
-# screenshots"), kept as the `screenshots` artifact.
+# The shared Linux and macOS jobs (j23n/apple-ci), which run `make ci-linux` and `make ci-macos`.
+# The UI tests aren't run here: `make screenshots` runs them on a Mac (App/README.md, "UI tests and
+# screenshots").
 name: CI
 
 # apple-ci's workflows decide when each job runs (its README's "When CI runs"): Linux on every push;
@@ -34,12 +34,3 @@ jobs:
     uses: j23n/apple-ci/.github/workflows/macos.yml@main
     with:
       name: macOS · package and app (iOS Simulator and Mac)
-
-  screenshots:
-    uses: j23n/apple-ci/.github/workflows/macos.yml@main
-    with:
-      name: macOS · UI tests and screenshots (Mac and iPhone Simulator)
-      run: make screenshots
-      ui-automation: true
-      artifact-name: screenshots
-      artifact-path: .build/screenshots

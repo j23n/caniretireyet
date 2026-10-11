@@ -202,7 +202,7 @@ targets:
         product: Glance
 
   # Opens each screen with a made-up library and keeps a screenshot of it
-  # (App/UITests; CI's "UI tests and screenshots" job).
+  # (App/UITests; `make screenshots`).
   CanIRetireYetUITests:
     type: bundle.ui-testing
     platform: auto

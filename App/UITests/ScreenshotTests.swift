@@ -1,8 +1,8 @@
 import XCTest
 
 /// Opens each screen of the app with a made-up library and keeps a
-/// screenshot of it, which CI uploads (.github/workflows/ci.yml, "UI tests
-/// and screenshots"). Each screen is one launch: `-uiTestLibrary` and
+/// screenshot of it, which `make screenshots` collects in
+/// .build/screenshots. Each screen is one launch: `-uiTestLibrary` and
 /// `-uiTestScreen`, read by the app's `UITestLaunch` (Debug builds), pick
 /// the library, kept in memory, and the screen to start on; the main plan
 /// is calculated with the real planner. A screen that crashes, or never

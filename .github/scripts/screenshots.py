@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""The UI tests' screenshots in CI (App/UITests, ci.yml "UI tests and screenshots").
+"""The UI tests' screenshots (App/UITests, `make screenshots`).
 
   screenshots.py pick-iphone                 the UDID of an iPhone simulator to test on:
                                              the newest iOS, an "iPhone NN Pro" if there is one
