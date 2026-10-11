@@ -27,7 +27,6 @@ struct CheckInConfirmationView: View {
     @Environment(LibraryStore.self) private var library
     @Environment(PlanStore.self) private var plans
     @Environment(AppNavigation.self) private var navigation
-    @Environment(\.hidesAmounts) private var hidesAmounts
     @Environment(\.locale) private var locale
 
     init(result: CheckInSaveResult, done: @escaping () -> Void) {
@@ -118,11 +117,11 @@ struct CheckInConfirmationView: View {
 
     /// "Passed 300.000 €."
     private func milestones(_ reached: [ReachedMilestone]) -> some View {
-        let text = PlanMilestoneText(currency: library.baseCurrency, hidesAmounts: hidesAmounts, locale: locale)
+        let text = PlanMilestoneText(currency: library.baseCurrency, locale: locale)
         return Card {
             ForEach(reached) { milestone in
                 Label {
-                    Text(text.reached(milestone.milestone))
+                    AmountSentenceText(text.reached(milestone.milestone))
                         .font(.headline)
                         .fixedSize(horizontal: false, vertical: true)
                 } icon: {

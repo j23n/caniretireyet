@@ -45,15 +45,18 @@ struct ChartSummary: AXChartDescriptorRepresentable {
 /// Shared chart styling: faint grid, muted axis labels, compact numbers.
 enum ChartStyle {
     /// How VoiceOver reads an amount in a chart's audio graph and chart
-    /// details: the full amount in the currency, or hidden with the eye
-    /// (`hidden`: the chart's `\.hidesAmounts`), as its labels are.
+    /// details: the full amount in the currency, or "Amount hidden" while
+    /// amounts are hidden (`hidden`: the chart's
+    /// `redactionReasons.hidesAmounts`), as its labels are.
     static func spokenAmount(currency: CurrencyCode, hidden: Bool) -> @Sendable (Double) -> String {
         guard hidden else {
             return { value in AmountFormat.amount(Decimal(wholeNumber: value), currency: currency) }
         }
-        let text = AmountFormat.hidden
-        return { _ in text }
+        return { _ in spokenHiddenAmount }
     }
+
+    /// What VoiceOver reads for an amount while amounts are hidden.
+    static let spokenHiddenAmount = "Amount hidden"
 
     /// A share read as a percentage.
     static let spokenShare: @Sendable (Double) -> String = { value in
@@ -70,12 +73,13 @@ enum ChartStyle {
 extension ChartContent {
     /// A mark that plots amounts, as VoiceOver reads it: Swift Charts reads
     /// each mark's plotted values, so while amounts are hidden (`hidden`: the
-    /// chart's `\.hidesAmounts`) its value is hidden, as the axis labels and
-    /// the audio graph's values are (``ChartStyle/spokenAmount(currency:hidden:)``).
+    /// chart's `redactionReasons.hidesAmounts`) its value is hidden, as the
+    /// axis labels and the audio graph's values are
+    /// (``ChartStyle/spokenAmount(currency:hidden:)``).
     @MainActor @ChartContentBuilder
     func spokenValueHidden(_ hidden: Bool) -> some ChartContent {
         if hidden {
-            accessibilityValue(Text(verbatim: AmountFormat.hidden))
+            accessibilityValue(Text(verbatim: ChartStyle.spokenHiddenAmount))
         } else {
             self
         }
@@ -121,33 +125,51 @@ extension Palette {
 
 /// The y axis of a chart with an ``AmountScale``: faint gridlines at the
 /// scale's ticks, labelled compactly so no two read alike (never "−0"), on
-/// the leading edge. While amounts are hidden the labels would reveal them,
-/// so the axis shows multiples of `base` instead (`0`, `1×`, `2×`: e.g. of
-/// today's value), or no labels without a base. The chart sets
+/// the leading edge. While amounts are hidden (`hidesAmounts`: the chart's
+/// `redactionReasons.hidesAmounts`) the labels would reveal them, so the
+/// axis shows multiples of `base` instead (`0`, `1×`, `2×`: e.g. of today's
+/// value), the one label left unredacted; without a base, the amounts draw
+/// as placeholders (``AmountAxisTicks``). The chart sets
 /// `.chartYScale(domain: scale.domain)` to match.
 func amountAxis(hidesAmounts: Bool, scale: AmountScale, relativeTo base: Double? = nil) -> some AxisContent {
-    let relative = hidesAmounts ? scale.relativeTicks(base: base ?? 0) : []
-    let values = hidesAmounts && !relative.isEmpty ? relative.map(\.value) : scale.ticks
-    return AxisMarks(position: .leading, values: values) { value in
+    let axis = AmountAxisTicks(scale: scale, hidesAmounts: hidesAmounts, relativeTo: base)
+    return AxisMarks(position: .leading, values: axis.values) { value in
         AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5))
             .foregroundStyle(Palette.gridline)
         AxisValueLabel {
             if let amount = value.as(Double.self) {
-                Text(verbatim: amountLabel(amount, hidesAmounts: hidesAmounts, scale: scale, relative: relative))
-                    .font(.caption2)
-                    .monospacedDigit()
-                    .foregroundStyle(Palette.mutedInk)
+                AmountAxisLabel(text: axis.label(for: amount), isRelative: axis.isRelative)
             }
         }
     }
 }
 
-/// A value axis label: the compact amount, or while amounts are hidden the
-/// relative tick's label (nothing without one).
-private func amountLabel(_ amount: Double, hidesAmounts: Bool, scale: AmountScale, relative: [RelativeTick]) -> String {
-    guard hidesAmounts else { return scale.label(amount) }
-    let tolerance = max(abs(amount), 1) * 1e-6
-    return relative.first { abs($0.value - amount) <= tolerance }?.label ?? ""
+/// A value axis label (``amountAxis(hidesAmounts:scale:relativeTo:)``): an
+/// amount draws as a placeholder while amounts are hidden. A multiple of a
+/// base (`1×`) reveals no amount, so it's marked `.unredacted()` and reads
+/// with the eye on and in a feedback screenshot: the one view of the
+/// person's data that is (UI.md, "Privacy").
+struct AmountAxisLabel: View {
+    let text: String
+    let isRelative: Bool
+
+    /// Nonisolated: `amountAxis` makes it in its axis's content.
+    nonisolated init(text: String, isRelative: Bool) {
+        self.text = text
+        self.isRelative = isRelative
+    }
+
+    var body: some View {
+        let label = Text(verbatim: text)
+            .font(.caption2)
+            .monospacedDigit()
+            .foregroundStyle(Palette.mutedInk)
+        if isRelative {
+            label.unredacted()
+        } else {
+            label.privacySensitive()
+        }
+    }
 }
 
 /// An axis with a tick at each of `values`, its label from `label` in
@@ -209,7 +231,8 @@ extension View {
 /// Each marker's rule, from the bottom of the chart to the top of the data,
 /// with its label above in the row ``MarkerLabelLayout`` chose, or only its
 /// icon: a time chart's markers (retirement, pension starts, …). The top of
-/// the data is an amount, hidden from VoiceOver with `hidesAmounts`.
+/// the data is an amount, hidden from VoiceOver with `hidesAmounts` (the
+/// chart's `redactionReasons.hidesAmounts`).
 @MainActor @ChartContentBuilder
 func markerRules(_ markers: MarkerLabelLayout, scale: AmountScale, hidesAmounts: Bool) -> some ChartContent {
     ForEach(markers.placements) { placement in

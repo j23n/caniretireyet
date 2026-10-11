@@ -24,7 +24,7 @@ struct PlanTimeline {
         var date: Date
         var kind: Kind
         /// "New car, 25.000 €".
-        var title: String
+        var title: AmountSentence
         /// "in 2031", "80% likely".
         var detail: String
     }
@@ -107,9 +107,8 @@ struct PlanTimeline {
     ///     changed into `currency` (``PlanResults/portfolio(in:valuator:)``).
     ///   - milestones: the milestones ahead, each marked on the card it falls in.
     init(model: PlanChaptersModel, results: PlanResults?, valuator: Valuator, birthDate: CalendarDate,
-         currency: CurrencyCode, milestones: [ProjectedMilestone] = [], hidesAmounts: Bool = false,
-         locale: Locale = .current) {
-        let words = PlanWords(currency: currency, hidesAmounts: hidesAmounts, locale: locale)
+         currency: CurrencyCode, milestones: [ProjectedMilestone] = [], locale: Locale = .current) {
+        let words = PlanWords(currency: currency, locale: locale)
         // In the currency the strip is labelled in, as the milestones on it are;
         // without the rate the cards have no money, as before the first results.
         let points = results?.portfolio(in: currency, valuator: valuator) ?? []
@@ -182,13 +181,13 @@ struct PlanTimeline {
                 guard let age = pension.fromAge, birthYear + age > chapter.years.lowerBound else { continue }
                 let name = plan.pensionName(index)
                 events.append(Event(id: "pension-\(index)", date: inside(birthday(birthDate, age: age)), kind: .pension,
-                                    title: name, detail: "from \(age)"))
+                                    title: AmountSentence(name), detail: "from \(age)"))
             case .income(let index) where plan.income.indices.contains(index):
                 let income = plan.income[index]
                 guard let age = income.from?.age, birthYear + age > chapter.years.lowerBound else { continue }
                 let name = plan.incomeName(index)
                 events.append(Event(id: "income-\(index)", date: inside(birthday(birthDate, age: age)), kind: .pension,
-                                    title: name, detail: "from \(age)"))
+                                    title: AmountSentence(name), detail: "from \(age)"))
             case .spendingPhase(let index) where plan.spending.phases.indices.contains(index):
                 let phase = plan.spending.phases[index]
                 guard birthYear + phase.fromAge > chapter.years.lowerBound else { continue }
@@ -221,20 +220,24 @@ struct PlanTimeline {
     }
 }
 
-/// Amounts and shares as the plan's sentences write them, hidden with the
-/// eye (`•••••`).
+/// Amounts and shares as the plan's sentences write them. Amounts are
+/// ``AmountSentence``s, so they hide with the eye.
 struct PlanWords: Hashable, Sendable {
     var currency: CurrencyCode
-    var hidesAmounts = false
     var locale: Locale = .current
 
     /// "3.000 €".
-    func amount(_ value: Decimal) -> String {
-        hidesAmounts ? AmountFormat.hidden : AmountFormat.amount(value, currency: currency, locale: locale)
+    func amount(_ value: Decimal) -> AmountSentence {
+        .amount(AmountFormat.amount(value, currency: currency, locale: locale))
+    }
+
+    /// With its sign: "+150.000 €" for a windfall, "−25.000 €" for an expense.
+    func signedAmount(_ value: Decimal) -> AmountSentence {
+        .amount(AmountFormat.signedAmount(value, currency: currency, locale: locale))
     }
 
     /// A yearly amount a month: "3.000 €" for 36.000 a year.
-    func monthly(_ yearly: Decimal) -> String {
+    func monthly(_ yearly: Decimal) -> AmountSentence {
         amount(yearly / 12)
     }
 
@@ -244,7 +247,7 @@ struct PlanWords: Hashable, Sendable {
     }
 
     /// A monthly amount, as words: "240 €".
-    func amount(monthly value: Double) -> String {
+    func amount(monthly value: Double) -> AmountSentence {
         amount(Decimal(wholeNumber: value))
     }
 

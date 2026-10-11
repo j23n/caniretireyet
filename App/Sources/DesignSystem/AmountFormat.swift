@@ -18,9 +18,6 @@ enum AmountPrecision: Hashable, Sendable {
 ///
 /// Views use ``AmountText`` and ``DeltaText``, which add privacy and colour.
 enum AmountFormat {
-    /// What an amount reads as while amounts are hidden.
-    static let hidden = "•••••"
-
     /// The minus sign used in display: U+2212, which lines up with `+`.
     static let minus = "\u{2212}"
 

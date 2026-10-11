@@ -91,17 +91,19 @@ enum TradeWording {
     /// What a trade was, without its price: "Buy 0,10383916 BTC", "Sell 8,5
     /// VWCE", "Dividend VWCE", "Deposit", "Split VWCE × 2", "Opening 338
     /// VWCE". Quantities read as everywhere (``QuantityFormat``).
-    static func title(of trade: Trade, in library: Library, locale: Locale = .current) -> String {
-        var parts = [TradeTypeDisplay.name(trade.type)]
+    /// The quantity is an amount, which hides with the eye.
+    static func title(of trade: Trade, in library: Library, locale: Locale = .current) -> AmountSentence {
+        var parts = [AmountSentence(TradeTypeDisplay.name(trade.type))]
         let label = trade.instrument.map { instrumentLabel($0, in: library) }
         if trade.type == .split {
             if let label {
-                parts.append(label + (trade.ratio.map { " × " + AmountFormat.number($0, maxDigits: 6, locale: locale) } ?? ""))
+                parts.append(AmountSentence(
+                    label + (trade.ratio.map { " × " + AmountFormat.number($0, maxDigits: 6, locale: locale) } ?? "")))
             }
             return parts.joined(separator: " ")
         }
-        if let quantity = trade.quantity { parts.append(QuantityFormat.quantity(quantity, locale: locale)) }
-        if let label { parts.append(label) }
+        if let quantity = trade.quantity { parts.append(.amount(QuantityFormat.quantity(quantity, locale: locale))) }
+        if let label { parts.append(AmountSentence(label)) }
         return parts.joined(separator: " ")
     }
 
@@ -114,9 +116,11 @@ enum TradeWording {
     }
 
     /// The whole trade on one line: "Buy 10 VWCE at 134,75 €", "Deposit".
-    static func summary(of trade: Trade, in library: Library, locale: Locale = .current) -> String {
+    /// The quantity hides with the eye.
+    static func summary(of trade: Trade, in library: Library, locale: Locale = .current) -> AmountSentence {
         let title = title(of: trade, in: library, locale: locale)
-        return price(of: trade, in: library, locale: locale).map { title + " at " + $0 } ?? title
+        guard let price = price(of: trade, in: library, locale: locale) else { return title }
+        return "\(title) at \(price)"
     }
 
     /// The line under a trade's title in the list: "at 101.437,76 € · 1 Oct
@@ -154,8 +158,9 @@ enum TradeWording {
 /// One trade in the account's list.
 struct TradeListItem: Hashable, Sendable, Identifiable {
     var trade: Trade
-    /// "Buy 10 VWCE" (``TradeWording/title(of:in:locale:)``).
-    var title: String
+    /// "Buy 10 VWCE" (``TradeWording/title(of:in:locale:)``): the quantity
+    /// hides with the eye.
+    var title: AmountSentence
     /// "at 102,30 € · 12 Mar 2026 · note" (``TradeWording/subtitle(of:in:locale:)``).
     var subtitle: String
     /// The unit price in its currency, "102,30 €"; `nil` without one (the

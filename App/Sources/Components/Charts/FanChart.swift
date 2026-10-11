@@ -32,10 +32,13 @@ struct FanChart: View {
 
     @State private var selectedDate: Date?
     @State private var width: CGFloat = ChartStyle.defaultWidth
-    @Environment(\.hidesAmounts) private var hidesAmounts
+    @Environment(\.redactionReasons) private var redactionReasons
     @Environment(\.baseCurrency) private var baseCurrency
 
     private static let height: CGFloat = 240
+
+    /// Whether amounts are hidden: the axis is relative, and VoiceOver doesn't read them.
+    private var hidesAmounts: Bool { redactionReasons.hidesAmounts }
 
     var body: some View {
         if fan.isEmpty {
@@ -182,7 +185,7 @@ struct FanChart: View {
         }
         Card("Amounts hidden") {
             FanChart(fan: results.portfolio, actual: actual, markers: results.markers, showsLegend: true)
-                .environment(\.hidesAmounts, true)
+                .redacted(reason: .privacy)
         }
     }
 }

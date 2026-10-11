@@ -2,19 +2,21 @@ import Foundation
 import Model
 
 /// How a position reads in an account's holdings (UI.md, "Account detail").
+/// Quantities and costs hide with the eye (``AmountSentence``).
 enum AccountPositionText {
     /// "0,10383916 BTC × 73.785,11 €", or "412,5 sh" without a price. The
     /// quantity is hidden with the eye button; the price isn't an amount.
-    static func quantityAndPrice(_ row: AccountHoldingRow, hidesAmounts: Bool, locale: Locale = .current) -> String {
-        QuantityFormat.quantityTimesPrice(quantity(row, hidesAmounts: hidesAmounts, locale: locale),
-                                          price: row.price?.price, currency: row.price?.currency, locale: locale)
+    static func quantityAndPrice(_ row: AccountHoldingRow, locale: Locale = .current) -> AmountSentence {
+        var text = quantity(row, locale: locale)
+        if let price = row.price {
+            text += " × \(QuantityFormat.unitPrice(price.price, currency: price.currency, locale: locale))"
+        }
+        return text
     }
 
-    /// "0,10383916 BTC", "412,5 sh"; `•••••` while amounts are hidden.
-    static func quantity(_ row: AccountHoldingRow, hidesAmounts: Bool, locale: Locale = .current) -> String {
-        let unit = row.unit.map { QuantityFormat.unit($0) }
-        guard !hidesAmounts else { return [AmountFormat.hidden, unit].compactMap { $0 }.joined(separator: " ") }
-        return QuantityFormat.quantity(row.quantity, unit: unit, locale: locale)
+    /// "0,10383916 BTC", "412,5 sh": the number hides with the eye, the unit stays.
+    static func quantity(_ row: AccountHoldingRow, locale: Locale = .current) -> AmountSentence {
+        QuantityFormat.quantitySentence(row.quantity, unit: row.unit.map { QuantityFormat.unit($0) }, locale: locale)
     }
 
     /// "at 73.785,11 €", for the line under the quantity when both don't
@@ -25,22 +27,20 @@ enum AccountPositionText {
     }
 
     /// "Average cost 101.437,74 €" (the average cost per unit, in the
-    /// account's currency), "Average cost •••••" while amounts are hidden,
-    /// or "Average cost unknown".
-    static func averageCost(_ row: AccountHoldingRow, currency: CurrencyCode, hidesAmounts: Bool,
-                            locale: Locale = .current) -> String {
+    /// account's currency), or "Average cost unknown".
+    static func averageCost(_ row: AccountHoldingRow, currency: CurrencyCode,
+                            locale: Locale = .current) -> AmountSentence {
         guard let average = row.averageCost else { return "Average cost unknown" }
-        let value = hidesAmounts ? AmountFormat.hidden : QuantityFormat.unitPrice(average, currency: currency, locale: locale)
-        return QuantityFormat.labelled("Average cost", value)
+        return QuantityFormat.labelled("Average cost",
+                                       amount: QuantityFormat.unitPrice(average, currency: currency, locale: locale))
     }
 
-    /// "Purchase cost 48.200 €" (the whole position's), "Purchase cost
-    /// •••••" while amounts are hidden; `nil` when unknown.
-    static func purchaseCost(_ row: AccountHoldingRow, currency: CurrencyCode, hidesAmounts: Bool,
-                             locale: Locale = .current) -> String? {
+    /// "Purchase cost 48.200 €" (the whole position's); `nil` when unknown.
+    static func purchaseCost(_ row: AccountHoldingRow, currency: CurrencyCode,
+                             locale: Locale = .current) -> AmountSentence? {
         guard let cost = row.costBasis else { return nil }
-        let value = hidesAmounts ? AmountFormat.hidden : AmountFormat.amount(cost, currency: currency, locale: locale)
-        return QuantityFormat.labelled("Purchase cost", value)
+        return QuantityFormat.labelled("Purchase cost",
+                                       amount: AmountFormat.amount(cost, currency: currency, locale: locale))
     }
 
     /// "95 % of the account" (as the locale writes a percentage); `nil`

@@ -27,10 +27,13 @@ struct PlanYearStrip: View {
     /// Today, marked on the latest year's card.
     var today: CalendarDate?
 
-    @Environment(\.hidesAmounts) private var hidesAmounts
+    @Environment(\.redactionReasons) private var redactionReasons
     @Environment(\.locale) private var locale
     @Environment(\.dynamicTypeSize) private var typeSize
     @State private var showsEarlyYears = false
+
+    /// Whether amounts are hidden: VoiceOver doesn't read them.
+    private var hidesAmounts: Bool { redactionReasons.hidesAmounts }
 
     /// The oldest years, before the first with a recorded answer: folded
     /// into one card until shown.
@@ -85,8 +88,8 @@ struct PlanYearStrip: View {
         }
         return ChartSummary(
             title: card.year.title,
-            summary: PlanProgressText.story(card.year, currency: card.currency, hidesAmounts: hidesAmounts,
-                                            locale: locale),
+            summary: PlanProgressText.story(card.year, currency: card.currency, locale: locale)
+                .spoken(hidesAmounts: hidesAmounts),
             xTitle: "Date", yTitle: "Your money", series: series,
             describeValue: ChartStyle.spokenAmount(currency: card.currency, hidden: hidesAmounts))
     }
@@ -94,15 +97,14 @@ struct PlanYearStrip: View {
     private func accessibilityLabel(_ card: PlanProgressTimeline.Card) -> String {
         var label = card.year.title
         if !card.year.isLatest {
-            label += ", " + PlanProgressText.change(card.year, currency: card.currency, hidesAmounts: hidesAmounts,
-                                                    locale: locale)
+            label += ", " + PlanProgressText.change(card.year, currency: card.currency, locale: locale)
+                .spoken(hidesAmounts: hidesAmounts)
         }
-        if let against = PlanProgressText.againstJanuary(card.year, currency: card.currency, hidesAmounts: hidesAmounts,
-                                                         locale: locale) {
-            label += ", \(against)"
+        if let against = PlanProgressText.againstJanuary(card.year, currency: card.currency, locale: locale) {
+            label += ", " + against.spoken(hidesAmounts: hidesAmounts)
         }
         if let summary = card.summary {
-            label += ". \(summary)"
+            label += ". " + summary.spoken(hidesAmounts: hidesAmounts)
         }
         return label
     }
@@ -118,7 +120,6 @@ struct PlanEarlyYearsCard: View {
     var isCompact = false
     let onShow: () -> Void
 
-    @Environment(\.hidesAmounts) private var hidesAmounts
     @Environment(\.locale) private var locale
 
     private var span: String {
@@ -126,16 +127,16 @@ struct PlanEarlyYearsCard: View {
         return first == last ? String(first) : "\(first)–\(last)"
     }
 
-    private var moved: String? {
+    /// "120.000 € → 210.000 €": its amounts hide with the eye.
+    private var moved: AmountSentence? {
         guard let start = cards.first?.year.change.start, let end = cards.last?.year.change.end,
               let currency = cards.last?.currency else { return nil }
-        guard !hidesAmounts else { return AmountFormat.hidden }
         if isCompact {
-            return AmountFormat.compactAmount(start.doubleValue, currency: currency, locale: locale) + " → "
-                + AmountFormat.compactAmount(end.doubleValue, currency: currency, locale: locale)
+            return "\(amount: AmountFormat.compactAmount(start.doubleValue, currency: currency, locale: locale)) → "
+                + "\(amount: AmountFormat.compactAmount(end.doubleValue, currency: currency, locale: locale))"
         }
-        return AmountFormat.amount(start, currency: currency, locale: locale) + " → "
-            + AmountFormat.amount(end, currency: currency, locale: locale)
+        return "\(amount: AmountFormat.amount(start, currency: currency, locale: locale)) → "
+            + "\(amount: AmountFormat.amount(end, currency: currency, locale: locale))"
     }
 
     /// "3 milestones" passed in them; `nil` without one.
@@ -153,7 +154,7 @@ struct PlanEarlyYearsCard: View {
                 .foregroundStyle(Palette.ink)
                 .minimumScaleFactor(0.7)
             if let moved {
-                Text(moved)
+                AmountSentenceText(moved)
                     .font(isCompact ? .caption : .subheadline)
                     .monospacedDigit()
                     .foregroundStyle(isCompact ? Palette.secondaryInk : Palette.ink)
@@ -207,7 +208,6 @@ struct PlanYearCardView: View {
     /// Today, marked when it falls in the year (on the latest year's card).
     var today: CalendarDate?
 
-    @Environment(\.hidesAmounts) private var hidesAmounts
     @Environment(\.locale) private var locale
 
     /// The card's padding, where its plot starts and ends across it.
@@ -269,15 +269,13 @@ struct PlanYearCardView: View {
                 Text(verbatim: String(card.year.year))
                     .font(.headline)
                     .foregroundStyle(Palette.ink)
-                Text(PlanProgressText.change(card.year, currency: card.currency, hidesAmounts: hidesAmounts,
-                                             locale: locale))
+                AmountSentenceText(PlanProgressText.change(card.year, currency: card.currency, locale: locale))
                     .font(.subheadline.weight(.semibold))
                     .monospacedDigit()
                     .foregroundStyle(card.year.isLatest ? Palette.accent : Palette.ink)
             }
-            if let against = PlanProgressText.againstJanuary(card.year, currency: card.currency,
-                                                             hidesAmounts: hidesAmounts, locale: locale) {
-                Text(against)
+            if let against = PlanProgressText.againstJanuary(card.year, currency: card.currency, locale: locale) {
+                AmountSentenceText(against)
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(standingColor)
             } else {
@@ -416,14 +414,14 @@ struct PlanYearCardView: View {
                             currency: card.currency)
             ChartCalloutRow(gap >= 0 ? "Ahead" : "Behind", amount: abs(gap), currency: card.currency)
         }
-        let text = PlanMilestoneText(currency: card.currency, hidesAmounts: hidesAmounts, locale: locale)
+        let text = PlanMilestoneText(currency: card.currency, locale: locale)
         ForEach(found.milestones) { reached in
             ChartCalloutMarker(text.reachedInRow(reached.milestone)) {
                 PlanGraphFlag()
             }
         }
         ForEach(Array(found.notes.prefix(2))) { note in
-            Text(note.text)
+            AmountSentenceText(note.text)
                 .font(.caption2)
                 .foregroundStyle(Palette.secondaryInk)
                 .lineLimit(2)
@@ -582,7 +580,7 @@ struct PlanYearCardView: View {
                 if let latest = cards.last {
                     PlanYearCardView(card: latest, scale: scale, height: height, pointerX: width - 4)
                         .background(Palette.card, in: shape)
-                        .environment(\.hidesAmounts, true)
+                        .redacted(reason: .privacy)
                 }
             }
         }

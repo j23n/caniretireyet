@@ -39,7 +39,7 @@ struct PlanNumberField: View {
             .focused($isFocused)
             .multilineTextAlignment(.trailing)
             .monospacedDigit()
-            .privacySensitive(kind == .amount)
+            // Not `.privacySensitive()`: what you type shows while amounts are hidden.
             #if os(iOS)
             .keyboardType(kind == .integer ? .numberPad : .decimalPad)
             #endif
@@ -182,13 +182,13 @@ struct PlanIssueBadge: View {
 /// title and a one-line summary when collapsed, the editor when expanded.
 struct PlanSectionCard<Content: View>: View {
     let section: PlanInputSection
-    let summary: String
+    let summary: AmountSentence
     /// The section's issues: counted in the header, listed under the editor.
     let issues: [PlanIssue]
     @Binding var isExpanded: Bool
     private let content: Content
 
-    init(section: PlanInputSection, summary: String, issues: [PlanIssue], isExpanded: Binding<Bool>,
+    init(section: PlanInputSection, summary: AmountSentence, issues: [PlanIssue], isExpanded: Binding<Bool>,
          @ViewBuilder content: () -> Content) {
         self.section = section
         self.summary = summary
@@ -239,11 +239,10 @@ struct PlanSectionCard<Content: View>: View {
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(Palette.ink)
                 if !isExpanded {
-                    Text(summary)
+                    AmountSentenceText(summary)
                         .font(.footnote)
                         .foregroundStyle(Palette.secondaryInk)
                         .lineLimit(2)
-                        .privacySensitive()
                 }
             }
             Spacer(minLength: Metrics.s)

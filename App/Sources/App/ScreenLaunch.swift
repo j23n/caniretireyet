@@ -12,7 +12,8 @@ import Model
 /// says, so the plan's screens fill in quickly; not with `-screenNoRun`.
 /// `-screenLibrary empty` opens first launch instead, on the step `-screen`
 /// names (``OnboardingStep``: `welcome`, `location`, `you`, `money`,
-/// `accounts` or `disclaimer`). Debug builds only.
+/// `accounts` or `disclaimer`). With `-screenHidesAmounts`, amounts are
+/// hidden, as with the eye button. Debug builds only.
 struct ScreenLaunch {
     /// The made-up libraries: ``PreviewLibrary/library`` and
     /// ``PreviewLibrary/withLongHistory``; or none, for first launch.
@@ -43,15 +44,18 @@ struct ScreenLaunch {
     var screen: Screen
     /// Whether the main plan is calculated at launch.
     var calculates: Bool
+    /// Whether amounts are hidden, as with the eye button.
+    var hidesAmounts: Bool
     /// The step of first launch to open on, with ``Sample/empty``; `nil`
     /// with a library.
     var onboardingStep: OnboardingStep?
 
     /// `sample` on `screen`; ``Sample/empty`` opens first launch's welcome.
-    init(_ sample: Sample, screen: Screen, calculates: Bool = true) {
+    init(_ sample: Sample, screen: Screen, calculates: Bool = true, hidesAmounts: Bool = false) {
         library = sample.library
         self.screen = screen
         self.calculates = calculates
+        self.hidesAmounts = hidesAmounts
         onboardingStep = sample == .empty ? .welcome : nil
         for id in library.plans.keys {
             library.plans[id]?.simulation.runs = 400
@@ -65,6 +69,7 @@ struct ScreenLaunch {
         library = step.comesAfterCreating ? Self.createdLibrary : Library()
         screen = .overview
         calculates = false
+        hidesAmounts = false
         onboardingStep = step
     }
 
@@ -82,7 +87,8 @@ struct ScreenLaunch {
             return
         }
         self.init(sample, screen: value(of: "-screen").flatMap(Screen.init(rawValue:)) ?? .overview,
-                  calculates: !arguments.contains("-screenNoRun"))
+                  calculates: !arguments.contains("-screenNoRun"),
+                  hidesAmounts: arguments.contains("-screenHidesAmounts"))
     }
 
     /// What *Create library* leaves, for first launch's last steps: the
@@ -109,6 +115,7 @@ struct ScreenLaunch {
             return firstLaunchModel(on: onboardingStep, defaults: suite)
         }
         let model = AppModel.preview(library, planEngine: PlannerPlanEngine(), defaults: suite)
+        model.preferences.hidesAmounts = hidesAmounts
         let navigation = model.navigation
         // The main plan by its ID: the sidebar turns "the main plan" into its
         // row, a new Plan screen, after the first one took the requests.

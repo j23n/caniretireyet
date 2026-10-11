@@ -306,7 +306,7 @@ private struct CheckInListRow: View {
 
     @Environment(CheckInStore.self) private var checkIn
     @Environment(LibraryStore.self) private var library
-    @Environment(\.hidesAmounts) private var hidesAmounts
+    @Environment(\.redactionReasons) private var redactionReasons
     @Environment(\.baseCurrency) private var baseCurrency
     @Environment(\.locale) private var locale
 
@@ -493,7 +493,8 @@ private struct CheckInListRow: View {
                 flowField
             }
         } else {
-            Text(verbatim: CheckInWording.holdingsSummary(row, instruments: library.library.instruments, locale: locale))
+            AmountSentenceText(CheckInWording.holdingsSummary(row, instruments: library.library.instruments,
+                                                              locale: locale))
                 .font(.footnote)
                 .foregroundStyle(Palette.secondaryInk)
         }
@@ -615,10 +616,9 @@ private struct CheckInListRow: View {
                         Text(verbatim: name)
                             .fontWeight(.semibold)
                             .foregroundStyle(Palette.ink)
-                        Text(verbatim: summary)
+                        AmountSentenceText(summary)
                             .font(.footnote)
                             .foregroundStyle(Palette.secondaryInk)
-                            .privacySensitive()
                     }
                     Spacer(minLength: Metrics.s)
                     if let value {
@@ -631,7 +631,7 @@ private struct CheckInListRow: View {
             }
             .buttonStyle(.borderless)
             // "Directa, 423 VWCE · from trades", its value, and what tapping does.
-            .accessibilityLabel(Text(verbatim: hidesAmounts ? name : "\(name), \(summary)"))
+            .accessibilityLabel(Text(verbatim: "\(name), \(summary.spoken(hidesAmounts: hidesAmounts))"))
             .accessibilityValue(Text(verbatim: value.map { amount in
                 hidesAmounts ? "Amount hidden"
                     : AmountFormat.amount(amount, currency: baseCurrency, precision: .cents, locale: locale)
@@ -656,9 +656,12 @@ private struct CheckInListRow: View {
     }
 
     /// "deposits +200,60 · cash difference +11,30", when there's something to split.
-    private var tradeFlowDetail: String? {
-        tradeFlow.flatMap { CheckInWording.tradeFlowDetail($0, hidesAmounts: hidesAmounts, locale: locale) }
+    private var tradeFlowDetail: AmountSentence? {
+        tradeFlow.flatMap { CheckInWording.tradeFlowDetail($0, locale: locale) }
     }
+
+    /// Whether amounts are hidden: VoiceOver doesn't read them.
+    private var hidesAmounts: Bool { redactionReasons.hidesAmounts }
 
     /// "Bought or sold since 30 Sep?  [⊕ Add Trade…]": a new trade, dated
     /// on the check-in's date. Once it's saved, the row follows it. The
@@ -694,24 +697,23 @@ private struct CheckInListRow: View {
         let isEditing = session.editingCash.contains(row.account)
         if CheckInRowDisplay.showsCashField(row, isEditing: isEditing) {
             cashLine
-            if let note = CheckInWording.statementCashNote(row, hidesAmounts: hidesAmounts, locale: locale) {
+            if let note = CheckInWording.statementCashNote(row, locale: locale) {
                 textThenButton(figures(note), useTradesCashButton, alignment: .firstTextBaseline)
                     .font(.footnote)
                     .foregroundStyle(Palette.secondaryInk)
             }
         } else if CheckInRowDisplay.showsTradeCash(row, isEditing: isEditing),
-                  let text = CheckInWording.tradeCash(row, hidesAmounts: hidesAmounts, locale: locale) {
+                  let text = CheckInWording.tradeCash(row, locale: locale) {
             textThenButton(figures(text), enterStatementCashButton, alignment: .firstTextBaseline)
                 .font(.footnote)
                 .foregroundStyle(Palette.secondaryInk)
         }
     }
 
-    /// A line with amounts in it, which hide with them.
-    private func figures(_ text: String) -> some View {
-        Text(verbatim: text)
+    /// A line with amounts in it, which hide with the eye.
+    private func figures(_ text: AmountSentence) -> some View {
+        AmountSentenceText(text)
             .monospacedDigit()
-            .privacySensitive()
     }
 
     /// `text`, then `button` after it on the same line when both fit, else
@@ -758,24 +760,20 @@ private struct CheckInListRow: View {
         if row.state == .updated && CheckInRowDisplay.canEditTradeFlow(row) {
             caption
             if let detail = tradeFlowDetail {
-                Text(verbatim: detail)
+                AmountSentenceText(detail)
                     .font(.footnote)
                     .foregroundStyle(Palette.secondaryInk)
-                    .privacySensitive()
                     .accessibilityHint(Text(verbatim: CheckInWording.tradeFlowExplanation))
             }
             if showsFlowField {
                 flowField
             }
         } else {
-            if let flow = tradeFlow,
-               let text = CheckInWording.tradeNewMoney(flow, total: review?.flow, hidesAmounts: hidesAmounts,
-                                                       locale: locale) {
-                Text(verbatim: text)
+            if let flow = tradeFlow, let text = CheckInWording.tradeNewMoney(flow, total: review?.flow, locale: locale) {
+                AmountSentenceText(text)
                     .font(.footnote)
                     .foregroundStyle(Palette.secondaryInk)
                     .monospacedDigit()
-                    .privacySensitive()
                     .accessibilityHint(Text(verbatim: CheckInWording.tradeFlowExplanation))
             }
             if row.state == .notReviewed || row.state == .skipped {
@@ -800,7 +798,7 @@ private struct CheckInListRow: View {
                     Text(verbatim: CheckInWording.quantity(position.quantity, instrument: instrument, locale: locale))
                         .font(.subheadline)
                         .monospacedDigit()
-                        .privacySensitive()
+                        .privacySensitiveAmount()
                     Text(verbatim: CheckInWording.priceText(unit: "", price: position.price, locale: locale))
                         .font(.footnote)
                         .foregroundStyle(Palette.secondaryInk)

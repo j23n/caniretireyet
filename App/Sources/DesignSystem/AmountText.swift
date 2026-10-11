@@ -13,9 +13,9 @@ import SwiftUI
 ///   `300.000 €`, `12,3M €`, `1,00B €` (Glance's `ShortAmount`). It takes
 ///   the place of `precision` and `signed`; VoiceOver still reads the full
 ///   amount.
-/// - Shows `•••••` while amounts are hidden (`\.hidesAmounts`), and is
-///   marked `.privacySensitive()`, so widgets and the app switcher redact it
-///   when the device is locked.
+/// - Marked `.privacySensitive()`: while amounts are hidden (the eye, a
+///   feedback screenshot) it draws as a placeholder, and VoiceOver reads
+///   "Amount hidden" (`redactionReasons.hidesAmounts`).
 /// - With `animatesChanges`, a new value rolls in
 ///   (`.contentTransition(.numericText())`), unless Reduce Motion is on.
 ///
@@ -35,7 +35,7 @@ struct AmountText: View {
     var animatesChanges = false
 
     @Environment(\.baseCurrency) private var baseCurrency
-    @Environment(\.hidesAmounts) private var hidesAmounts
+    @Environment(\.redactionReasons) private var redactionReasons
     @Environment(\.locale) private var locale
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -51,10 +51,10 @@ struct AmountText: View {
     }
 
     var body: some View {
-        let text = hidesAmounts ? AmountFormat.hidden : formatted
+        let hidesAmounts = redactionReasons.hidesAmounts
         // Tabular figures (`.monospacedDigit()`) line up in columns; large
         // standalone numbers keep proportional figures.
-        let label = Text(verbatim: text)
+        let label = Text(verbatim: formatted)
         (tabular ? label.monospacedDigit() : label)
             .privacySensitive()
             .contentTransition(animatesChanges && !reduceMotion && !hidesAmounts
@@ -104,7 +104,7 @@ struct DeltaText: View {
     var showsArrow = true
 
     @Environment(\.baseCurrency) private var baseCurrency
-    @Environment(\.hidesAmounts) private var hidesAmounts
+    @Environment(\.redactionReasons) private var redactionReasons
     @Environment(\.locale) private var locale
 
     /// A change in money; `currency` defaults to the base currency.
@@ -132,26 +132,26 @@ struct DeltaText: View {
     private var number: String {
         switch value {
         case .amount(let amount, let currency):
-            hidesAmounts
-                ? AmountFormat.hidden
-                : AmountFormat.signedAmount(amount, currency: currency ?? baseCurrency, precision: precision,
-                                            locale: locale)
+            AmountFormat.signedAmount(amount, currency: currency ?? baseCurrency, precision: precision,
+                                      locale: locale)
         case .percent(let fraction):
             AmountFormat.percent(fraction, signed: true, locale: locale)
         }
     }
 
+    /// A change in money is marked `.privacySensitive()`, so it draws as a
+    /// placeholder while amounts are hidden; one in per cent stays.
     var body: some View {
         Text(verbatim: DeltaFormat.text(number, direction: sign, showsArrow: showsArrow))
             .monospacedDigit()
             .foregroundStyle(Palette.change(sign))
-            .privacySensitive()
+            .privacySensitive(!isPercent)
             .accessibilityLabel(Text(verbatim: accessibilityText))
     }
 
     private var accessibilityText: String {
         let direction = sign > 0 ? "up" : sign < 0 ? "down" : "unchanged"
-        return hidesAmounts && !isPercent ? "\(direction), amount hidden" : "\(direction) \(number)"
+        return redactionReasons.hidesAmounts && !isPercent ? "\(direction), amount hidden" : "\(direction) \(number)"
     }
 
     private var isPercent: Bool {
@@ -169,7 +169,17 @@ struct DeltaText: View {
         DeltaText(Decimal(-240))
         DeltaText(Decimal(string: "-0.001")!, precision: .cents)
         DeltaText(percent: 0.142)
-        AmountText(Decimal(312_480)).environment(\.hidesAmounts, true)
     }
     .padding()
+}
+
+#Preview("Amounts hidden") {
+    VStack(alignment: .leading, spacing: 8) {
+        AmountText(Decimal(312_480), tabular: false).font(.largeTitle.bold())
+        DeltaText(Decimal(4210))
+        DeltaText(percent: 0.142)
+        AmountSentenceText("You saved \(amount: "4.210 €") and markets added \(amount: "1.200 €").")
+    }
+    .padding()
+    .redacted(reason: .privacy)
 }

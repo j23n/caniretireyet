@@ -23,7 +23,7 @@ struct AccountsNumberField: View {
                     .labelsHidden()
                     .multilineTextAlignment(.trailing)
                     .monospacedDigit()
-                    .privacySensitive()
+                    // Not `.privacySensitive()`: what you type shows while amounts are hidden.
                     #if os(iOS)
                     .keyboardType(allowsNegative ? .numbersAndPunctuation : .decimalPad)
                     #endif

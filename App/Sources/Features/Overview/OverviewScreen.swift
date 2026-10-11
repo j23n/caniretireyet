@@ -428,7 +428,7 @@ private struct OverviewHistorySection: View {
 #Preview("Hidden amounts") {
     NavigationStack {
         OverviewScreen()
-            .environment(\.hidesAmounts, true)
+            .redacted(reason: .privacy)
     }
     .previewEnvironment()
 }

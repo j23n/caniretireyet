@@ -61,7 +61,7 @@ struct CheckInNumberField: View {
             .textFieldStyle(.plain)
             .multilineTextAlignment(.trailing)
             .monospacedDigit()
-            .privacySensitive()
+            // Not `.privacySensitive()`: what you type shows while amounts are hidden.
             .autocorrectionDisabled()
             #if os(iOS)
             .keyboardType(.decimalPad)
@@ -390,15 +390,15 @@ struct CheckInRowMenu: View {
 // MARK: - Amounts
 
 /// An amount without its currency, for table cells and captions:
-/// `4.210,55`, or `+1.450,00` when signed. Tabular figures; `•••••` while
-/// amounts are hidden.
+/// `4.210,55`, or `+1.450,00` when signed. Tabular figures; a placeholder
+/// while amounts are hidden (`.privacySensitive()`).
 struct CheckInPlainAmount: View {
     let amount: Decimal?
     var signed = false
     /// Shown when there's no amount.
     var placeholder = "—"
 
-    @Environment(\.hidesAmounts) private var hidesAmounts
+    @Environment(\.redactionReasons) private var redactionReasons
     @Environment(\.locale) private var locale
 
     init(_ amount: Decimal?, signed: Bool = false, placeholder: String = "—") {
@@ -410,13 +410,14 @@ struct CheckInPlainAmount: View {
     var body: some View {
         Text(verbatim: text)
             .monospacedDigit()
-            .privacySensitive()
-            .accessibilityLabel(hidesAmounts && amount != nil ? Text("Amount hidden") : Text(verbatim: text))
+            .privacySensitive(amount != nil)
+            .accessibilityLabel(redactionReasons.hidesAmounts && amount != nil
+                ? Text("Amount hidden") : Text(verbatim: text))
     }
 
     private var text: String {
         guard let amount else { return placeholder }
-        return hidesAmounts ? AmountFormat.hidden : CheckInFieldFormat.plain(amount, signed: signed, locale: locale)
+        return CheckInFieldFormat.plain(amount, signed: signed, locale: locale)
     }
 }
 
@@ -426,7 +427,7 @@ struct CheckInPlainAmount: View {
 struct CheckInPlainDelta: View {
     let amount: Decimal?
 
-    @Environment(\.hidesAmounts) private var hidesAmounts
+    @Environment(\.redactionReasons) private var redactionReasons
     @Environment(\.locale) private var locale
 
     init(_ amount: Decimal?) {
@@ -437,7 +438,7 @@ struct CheckInPlainDelta: View {
         Text(verbatim: DeltaFormat.text(number, direction: direction, showsArrow: true))
             .monospacedDigit()
             .foregroundStyle(Palette.change(direction))
-            .privacySensitive()
+            .privacySensitive(amount != nil)
             .accessibilityLabel(Text(verbatim: spoken))
     }
 
@@ -448,17 +449,18 @@ struct CheckInPlainDelta: View {
 
     private var number: String {
         guard let amount else { return "—" }
-        return hidesAmounts ? AmountFormat.hidden : CheckInFieldFormat.plain(amount, signed: true, locale: locale)
+        return CheckInFieldFormat.plain(amount, signed: true, locale: locale)
     }
 
     private var spoken: String {
         guard amount != nil else { return "No change" }
         let word = direction > 0 ? "up" : direction < 0 ? "down" : "unchanged"
-        return hidesAmounts ? "\(word), amount hidden" : "\(word) \(number)"
+        return redactionReasons.hidesAmounts ? "\(word), amount hidden" : "\(word) \(number)"
     }
 }
 
-/// A change in quantity: `▲ +10,5` or `▼ −5`, with colour.
+/// A change in quantity: `▲ +10,5` or `▼ −5`, with colour; a placeholder
+/// while amounts are hidden, as quantities are.
 struct CheckInQuantityChange: View {
     let change: Decimal
 
@@ -475,6 +477,7 @@ struct CheckInQuantityChange: View {
             .monospacedDigit()
             .fontWeight(.medium)
             .foregroundStyle(Palette.change(direction))
+            .privacySensitiveAmount()
     }
 }
 

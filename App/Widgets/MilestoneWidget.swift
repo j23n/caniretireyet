@@ -31,10 +31,21 @@ struct MilestoneWidget: Widget {
 struct MilestoneWords {
     var milestone: MilestoneGlance
     var money: WidgetMoney
-    var hidesAmounts: Bool
 
-    var name: String {
-        GlanceText.milestoneName(milestone, amount: { hidesAmounts ? nil : money.amount($0) })
+    /// "300.000 €", an amount that hides while the device is locked, or
+    /// "10 years of spending".
+    var name: AmountSentence {
+        var amount: String?
+        let name = GlanceText.milestoneName(milestone, amount: { value in
+            amount = money.amount(value)
+            return amount
+        })
+        return amount.map { AmountSentence.amount($0) } ?? AmountSentence(name)
+    }
+
+    /// The name without an amount, for the lock screen: "A round amount".
+    var nameWithoutAmount: String {
+        GlanceText.milestoneName(milestone, amount: { _ in nil })
     }
 
     var progress: Double { min(max(milestone.progress, 0), 1) }
@@ -70,14 +81,12 @@ struct MilestoneView: View {
 struct MilestoneSmall: View {
     var entry: GlanceEntry
     @Environment(\.locale) private var locale
-    @Environment(\.redactionReasons) private var redactionReasons
 
     var body: some View {
         Group {
             if let snapshot = entry.snapshot, let milestone = snapshot.milestone {
                 content(MilestoneWords(milestone: milestone,
-                                       money: WidgetMoney(currency: snapshot.currency, locale: locale),
-                                       hidesAmounts: redactionReasons.hidesAmounts))
+                                       money: WidgetMoney(currency: snapshot.currency, locale: locale)))
             } else {
                 WidgetMessage(title: "Next milestone", systemImage: "flag",
                               message: entry.snapshot == nil ? WidgetEmpty.noSnapshot
@@ -91,12 +100,11 @@ struct MilestoneSmall: View {
         VStack(alignment: .leading, spacing: 6) {
             WidgetLabel(title: "Next milestone", systemImage: "flag", iconColor: Palette.accent)
             Spacer(minLength: 0)
-            Text(words.name)
+            AmountSentenceText(words.name)
                 .font(.system(size: 17, weight: .semibold))
                 .foregroundStyle(Palette.ink)
                 .lineLimit(3)
                 .minimumScaleFactor(0.7)
-                .privacySensitive(!words.hidesAmounts)
             ReadinessBar(fraction: words.progress, height: 6)
                 .accessibilityHidden(true)
             Text(words.there)
@@ -126,12 +134,11 @@ struct MilestoneRectangular: View {
         Group {
             if let snapshot = entry.snapshot, let milestone = snapshot.milestone {
                 let words = MilestoneWords(milestone: milestone,
-                                           money: WidgetMoney(currency: snapshot.currency, locale: locale),
-                                           hidesAmounts: true)
+                                           money: WidgetMoney(currency: snapshot.currency, locale: locale))
                 VStack(alignment: .leading, spacing: 2) {
                     Label("Next milestone", systemImage: "flag")
                         .font(.caption2.weight(.semibold))
-                    Text(words.name)
+                    Text(words.nameWithoutAmount)
                         .font(.headline)
                         .lineLimit(1)
                         .minimumScaleFactor(0.7)

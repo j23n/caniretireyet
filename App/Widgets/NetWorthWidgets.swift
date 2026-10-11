@@ -6,18 +6,20 @@ import WidgetKit
 // Net worth today, as the Overview has it (UI.md, "Widgets"): the total and
 // the change at the latest check-in with a year's line, the change split into markets, new money and
 // the rest, and the asset mix. Each opens the Overview. While the device is
-// locked, amounts read `•••••` and changes show in per cent; lock screen
-// widgets never show amounts.
+// locked, amounts draw as placeholders (AmountRedaction.swift) and changes
+// show in per cent; lock screen widgets never show amounts.
 
 /// Net worth's words for a snapshot.
 struct NetWorthWords {
     var netWorth: NetWorthGlance
     var money: WidgetMoney
+    /// Whether amounts are hidden: the change is in per cent.
     var hidesAmounts: Bool
     /// The widget's day, which ``date`` names "today".
     var today: CalendarDate
 
-    var total: String { hidesAmounts ? AmountFormat.hidden : money.amount(netWorth.total) }
+    /// The total, `.privacySensitiveAmount()` where it shows.
+    var total: String { money.amount(netWorth.total) }
 
     /// "▲ +4.210 €", or "▲ +1,4%" while amounts are hidden.
     var change: WidgetDelta? {
@@ -166,7 +168,7 @@ struct NetWorthSmall: View {
                 .foregroundStyle(Palette.ink)
                 .lineLimit(1)
                 .minimumScaleFactor(0.6)
-                .privacySensitive(!words.hidesAmounts)
+                .privacySensitiveAmount()
                 .padding(.top, 6)
             if let change = words.change, let since = words.since {
                 Text(verbatim: change.text)
@@ -215,7 +217,7 @@ struct NetWorthMedium: View {
                         .foregroundStyle(Palette.ink)
                         .lineLimit(1)
                         .minimumScaleFactor(0.6)
-                        .privacySensitive(!words.hidesAmounts)
+                        .privacySensitiveAmount()
                         .padding(.top, 6)
                     if let change = words.change, let since = words.since {
                         DeltaLine(delta: change, words: since)
@@ -331,7 +333,7 @@ struct NetWorthLarge: View {
                 .foregroundStyle(Palette.ink)
                 .lineLimit(1)
                 .minimumScaleFactor(0.6)
-                .privacySensitive(!words.hidesAmounts)
+                .privacySensitiveAmount()
                 .padding(.top, 6)
             HStack(spacing: 12) {
                 if let change = words.change, let since = words.since {
@@ -545,7 +547,6 @@ struct SinceCheckInView: View {
                     ChangeRow(name: "Other", value: change.other)]
         let scale = ChangeBarScale(rows.map { $0.value.doubleValue })
         let headline: WidgetDelta? = hides ? change.fraction.map(money.percentChange) : money.change(change.change)
-        let since = GlanceText.period(from: change.from, to: change.to, relativeTo: entry.today, locale: locale)
         return VStack(alignment: .leading, spacing: 0) {
             HStack {
                 WidgetLabel(title: "Since last check-in", systemImage: "calendar")
@@ -564,12 +565,11 @@ struct SinceCheckInView: View {
                         .lineLimit(1)
                         .minimumScaleFactor(0.6)
                 }
-                Text(verbatim: hides ? since : "\(money.amount(change.start)) → \(money.amount(change.end))")
+                AmountSentenceText("\(amount: money.amount(change.start)) → \(amount: money.amount(change.end))")
                     .font(.caption)
                     .foregroundStyle(Palette.secondaryInk)
                     .lineLimit(1)
                     .minimumScaleFactor(0.7)
-                    .privacySensitive(!hides)
             }
             .padding(.top, 4)
             Spacer(minLength: 6)
@@ -581,12 +581,12 @@ struct SinceCheckInView: View {
                             .frame(width: 78, alignment: .leading)
                         ChangeBar(value: row.value.doubleValue,
                                   direction: DeltaFormat.direction(of: row.value, precision: .whole), scale: scale)
-                        Text(verbatim: hides ? AmountFormat.hidden : money.signed(row.value))
+                        Text(verbatim: money.signed(row.value))
                             .monospacedDigit()
-                            .foregroundStyle(hides ? Palette.mutedInk : Palette.ink)
+                            .foregroundStyle(Palette.ink)
                             .lineLimit(1)
                             .minimumScaleFactor(0.7)
-                            .privacySensitive(!hides)
+                            .privacySensitiveAmount()
                             .frame(width: 70, alignment: .trailing)
                     }
                     .frame(height: 18)

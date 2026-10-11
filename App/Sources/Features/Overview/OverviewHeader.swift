@@ -35,8 +35,10 @@ struct OverviewHeader: View {
     @Environment(AppNavigation.self) private var navigation
     @Environment(\.locale) private var locale
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
-    @Environment(\.hidesAmounts) private var hidesAmounts
+    @Environment(\.redactionReasons) private var redactionReasons
     @State private var showsExplanation = false
+
+    private var hidesAmounts: Bool { redactionReasons.hidesAmounts }
 
     /// Out-of-date answers dim as the Plan screen dims its results.
     private static let dimmedOpacity = 0.7
@@ -446,7 +448,7 @@ private struct OverviewHeaderPreview: View {
 #Preview("Hidden amounts") {
     OverviewHeaderPreview(headline: PlanHeadline(confidence: 0.9, earliestAge: 54, earliestDate: "2042-03-12",
                                                  readiness: 0.58, readinessIsLowerBound: true))
-        .environment(\.hidesAmounts, true)
+        .redacted(reason: .privacy)
         .previewEnvironment()
 }
 

@@ -29,7 +29,6 @@ struct PlanTimelineView: View {
 
     @Environment(LibraryStore.self) private var library
     @Environment(AppNavigation.self) private var navigation
-    @Environment(\.hidesAmounts) private var hidesAmounts
     @Environment(\.locale) private var locale
     @State private var editing: PlanEditTarget?
     @State private var showsTargetMix = false
@@ -43,7 +42,7 @@ struct PlanTimelineView: View {
     private var isRoomy: Bool { isWide && !besideWhatIf }
 
     private var milestoneText: PlanMilestoneText {
-        PlanMilestoneText(currency: session.currency, hidesAmounts: hidesAmounts, locale: locale)
+        PlanMilestoneText(currency: session.currency, locale: locale)
     }
 
     var body: some View {
@@ -93,7 +92,7 @@ struct PlanTimelineView: View {
     }
 
     private var words: PlanWords {
-        PlanWords(currency: session.currency, hidesAmounts: hidesAmounts, locale: locale)
+        PlanWords(currency: session.currency, locale: locale)
     }
 
     // MARK: The answer
@@ -131,8 +130,7 @@ struct PlanTimelineView: View {
         if let model = session.chapters, let birthDate = library.settings.person?.birthDate {
             let timeline = PlanTimeline(model: model, results: state.results, valuator: library.valuator,
                                         birthDate: birthDate, currency: session.currency,
-                                        milestones: milestones?.ahead ?? [], hidesAmounts: hidesAmounts,
-                                        locale: locale)
+                                        milestones: milestones?.ahead ?? [], locale: locale)
             if model.chapters.chapters.isEmpty {
                 PlanNoChapters(plan: plan)
                     .padding(.horizontal, gutter)
@@ -562,7 +560,7 @@ struct PlanChapterDetails: View {
                             Image(systemName: "flag")
                                 .foregroundStyle(Palette.accent)
                                 .accessibilityHidden(true)
-                            Text(milestoneText.name(item.milestone))
+                            AmountSentenceText(milestoneText.name(item.milestone))
                                 .foregroundStyle(Palette.ink)
                                 .fixedSize(horizontal: false, vertical: true)
                             Spacer(minLength: Metrics.s)

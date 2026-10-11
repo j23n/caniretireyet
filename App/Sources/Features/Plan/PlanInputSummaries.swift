@@ -106,30 +106,30 @@ struct PlanInputIssues: Hashable, Sendable {
 }
 
 /// The one-line summaries on *Assumptions…*'s collapsed cards, e.g. "26% on
-/// investments · no wealth tax". Amounts read `•••••` while hidden.
+/// investments · no wealth tax". Amounts hide with the eye
+/// (``AmountSentence``).
 struct PlanInputSummaries {
     var plan: PlanDocument
     var library: Library
     var currency: CurrencyCode
-    var hidesAmounts = false
     var locale: Locale = .current
 
-    func summary(for section: PlanInputSection) -> String {
+    func summary(for section: PlanInputSection) -> AmountSentence {
         switch section {
-        case .you: library.settings.person?.birthDate.map { "Born \($0.year)" } ?? "No birth date"
+        case .you: AmountSentence(library.settings.person?.birthDate.map { "Born \($0.year)" } ?? "No birth date")
         case .taxes: taxes
-        case .assumptions: assumptions
-        case .targetMix: PlanTargetMixModel.summary(plan.portfolio, locale: locale)
-        case .simulation: simulation
+        case .assumptions: AmountSentence(assumptions)
+        case .targetMix: AmountSentence(PlanTargetMixModel.summary(plan.portfolio, locale: locale))
+        case .simulation: AmountSentence(simulation)
         // The chapters show these: no card sums them up.
-        case .work, .spending, .pensions, .income, .contributions, .events: ""
+        case .work, .spending, .pensions, .income, .contributions, .events: AmountSentence()
         }
     }
 
     // MARK: Formatting
 
-    func amount(_ value: Decimal) -> String {
-        hidesAmounts ? AmountFormat.hidden : AmountFormat.amount(value, currency: currency, locale: locale)
+    func amount(_ value: Decimal) -> AmountSentence {
+        .amount(AmountFormat.amount(value, currency: currency, locale: locale))
     }
 
     func percent(_ value: Decimal, digits: Int = 1) -> String {
@@ -139,14 +139,15 @@ struct PlanInputSummaries {
     // MARK: Sections
 
     /// "26% on investments · wealth tax 0.2% above 50.000 €", or what's missing.
-    var taxes: String {
+    var taxes: AmountSentence {
         guard let rate = plan.tax.investmentRate else { return "Tax on investments not set" }
-        var parts = ["\(percent(rate)) on investments"]
+        var parts: [AmountSentence] = ["\(percent(rate)) on investments"]
         let wealth = plan.tax.effectiveWealthRate
         if wealth > 0 {
             let allowance = plan.tax.effectiveWealthAllowance
-            parts.append("wealth tax \(percent(wealth, digits: 2))"
-                + (allowance > 0 ? " above \(amount(allowance))" : ""))
+            var wealthTax: AmountSentence = "wealth tax \(percent(wealth, digits: 2))"
+            if allowance > 0 { wealthTax += " above \(amount(allowance))" }
+            parts.append(wealthTax)
         } else {
             parts.append("no wealth tax")
         }

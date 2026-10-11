@@ -161,7 +161,6 @@ struct PlanAlwaysSheet: View {
     let session: PlanSession
 
     @Environment(LibraryStore.self) private var library
-    @Environment(\.hidesAmounts) private var hidesAmounts
     @Environment(\.baseCurrency) private var baseCurrency
     @Environment(\.locale) private var locale
     @Environment(\.dismiss) private var dismiss
@@ -178,7 +177,7 @@ struct PlanAlwaysSheet: View {
                 VStack(alignment: .leading, spacing: Metrics.s) {
                     if let plan = session.plan {
                         let summaries = PlanInputSummaries(plan: plan, library: library.library, currency: baseCurrency,
-                                                           hidesAmounts: hidesAmounts, locale: locale)
+                                                           locale: locale)
                         ForEach(Self.sections) { section in
                             PlanSectionCard(section: section, summary: summaries.summary(for: section),
                                             issues: issues.issues(for: section),

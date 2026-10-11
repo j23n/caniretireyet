@@ -57,9 +57,24 @@ struct ScreenshotTests {
         }
     }
 
+    // With the eye on (UI.md, "Privacy"): amounts are placeholders, words
+    // stay, and charts keep their shape with a relative value axis.
+
+    @Test func overviewWithAmountsHidden() async throws {
+        try await keep("overview-hidden", .example, .overview, hidesAmounts: true)
+    }
+
+    @Test func planWithAmountsHidden() async throws {
+        try await keep("plan-hidden", .example, .plan, hidesAmounts: true)
+    }
+
+    @Test func progressWithAmountsHidden() async throws {
+        try await keep("progress-hidden", .example, .progress, hidesAmounts: true)
+    }
+
     private func keep(_ name: String, _ sample: ScreenLaunch.Sample, _ screen: ScreenLaunch.Screen,
-                      calculates: Bool = true) async throws {
-        let launch = ScreenLaunch(sample, screen: screen, calculates: calculates)
+                      calculates: Bool = true, hidesAmounts: Bool = false) async throws {
+        let launch = ScreenLaunch(sample, screen: screen, calculates: calculates, hidesAmounts: hidesAmounts)
         let main = try #require(launch.library.settings.mainPlan)
         let model = launch.model()
         try await ScreenCapture.keep(root(model), named: name) {

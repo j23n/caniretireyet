@@ -54,11 +54,14 @@ struct NetWorthChart: View {
 
     @State private var selectedDate: Date?
     @State private var width: CGFloat = ChartStyle.defaultWidth
-    @Environment(\.hidesAmounts) private var hidesAmounts
+    @Environment(\.redactionReasons) private var redactionReasons
     @Environment(\.baseCurrency) private var baseCurrency
     @Environment(\.chartSurface) private var surface
 
     private static let height: CGFloat = 220
+
+    /// Whether amounts are hidden: the axis is relative, and VoiceOver doesn't read them.
+    private var hidesAmounts: Bool { redactionReasons.hidesAmounts }
 
     var body: some View {
         if history.isEmpty && projection.isEmpty {
@@ -276,7 +279,7 @@ struct NetWorthChart: View {
                 }
             }
             ForEach(layout.markers.iconOnly(near: selection.date)) { marker in
-                ChartCalloutMarker(marker.label, systemImage: marker.symbol)
+                ChartCalloutMarker(AmountSentence(marker.label), systemImage: marker.symbol)
             }
         }
     }
@@ -382,7 +385,7 @@ struct ChartPlaceholder: View {
             Card("With the future, amounts hidden") {
                 NetWorthChart(history: planAssets.points, stacked: planAssets.stacked,
                               projection: planAssets.projection, markers: planAssets.markers, title: "Plan assets")
-                    .environment(\.hidesAmounts, true)
+                    .redacted(reason: .privacy)
             }
             Card("By asset class, some values missing") {
                 NetWorthChart(
