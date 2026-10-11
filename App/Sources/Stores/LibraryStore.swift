@@ -129,6 +129,7 @@ final class LibraryStore {
     /// ``refreshFromDisk()``.
     @ObservationIgnored private var diskSnapshot: FolderSnapshot?
     @ObservationIgnored private var valuatorCache: (revision: Int, valuator: Valuator)?
+    @ObservationIgnored private var firstMoneyInOutCache: (revision: Int, date: CalendarDate?)?
     /// Counts the attempts at opening a library. An attempt that a newer one
     /// overtook (Try Again, another `open`) drops its results.
     @ObservationIgnored private var openingAttempt = 0
@@ -186,6 +187,16 @@ final class LibraryStore {
         let valuator = Valuator(library: library)
         valuatorCache = (revision, valuator)
         return valuator
+    }
+
+    /// The date of the first value with money in and out, `nil` without
+    /// one; looked up only when the library changes.
+    var firstMoneyInOut: CalendarDate? {
+        let revision = self.revision
+        if let cache = firstMoneyInOutCache, cache.revision == revision { return cache.date }
+        let date = library.allValuations.lazy.filter(\.hasMoneyInOut).map(\.date).min()
+        firstMoneyInOutCache = (revision, date)
+        return date
     }
 
     /// Whether edits are possible: loaded, not read-only, and not being

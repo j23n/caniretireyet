@@ -83,7 +83,7 @@ struct SparklineDot: Shape {
 // MARK: - The answer over time
 
 /// The earliest age recorded at each check-in as a step line in the accent
-/// (UI.md, "Your answer over time"), the ages on the left and the first and
+/// (UI.md, "Trends", *Time to retirement*), the ages on the left and the first and
 /// last months below. Check-ins where no age worked out are left out.
 struct AnswerStepChart: View {
     var history: [AnswerPoint]

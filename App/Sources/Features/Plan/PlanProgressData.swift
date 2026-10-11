@@ -8,7 +8,7 @@ import Tracker
 // recorded at each check-in, each year's progress, and your actual numbers
 // against a baseline.
 
-/// "Your answer over time": the earliest retirement age at each check-in,
+/// Trends' *Time to retirement*: the earliest retirement age at each check-in,
 /// with markers where the plan or the app's calculations
 /// changed, so a move caused by markets and savings can be told from one
 /// caused by editing the plan.
@@ -76,9 +76,9 @@ struct PlanAnswerHistory: Hashable, Sendable {
     /// The check-ins that recorded a pace age (``Headline/paceAge``).
     var pacePoints: [Headline] { points.filter { $0.paceAge != nil } }
 
-    /// The range of ages to chart, the earliest and the pace ages, with a little room.
+    /// The range of ages to chart, the earliest, pace and coast ages, with a little room.
     var ageRange: ClosedRange<Int> {
-        let ages = points.compactMap(\.earliestAge) + points.compactMap(\.paceAge)
+        let ages = points.compactMap(\.earliestAge) + points.compactMap(\.paceAge) + points.compactMap(\.coastAge)
         guard let low = ages.min(), let high = ages.max() else { return 50...60 }
         return (low - 2)...(high + 2)
     }
