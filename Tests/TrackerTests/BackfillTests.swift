@@ -195,6 +195,20 @@ struct ValuationEditTests {
         #expect(fondo.flows.kept.count == 1)
     }
 
+    /// A cash account that records trades types its new money, as a
+    /// broker's does, so it's kept.
+    @Test func aCashAccountRecordingTradesKeepsItsTypedFlow() throws {
+        var library = Library()
+        library.accounts["bank"] = Account(id: "bank", name: "Bank", kind: .cash, currency: .eur, opened: "2026-01-31",
+                                           valuation: .trades)
+        library.upsert(Valuation(account: "bank", date: "2026-01-31", cash: 1000, flow: 1000))
+        library.upsert(Valuation(account: "bank", date: "2026-03-31", cash: 1500, flow: 450))
+        let edit = library.saveValue(Valuation(account: "bank", date: "2026-02-28", cash: 1200, flow: 200))
+        #expect(library.valuations(for: "bank").map(\.flow) == [1000, 200, 450])
+        #expect(edit.flows.kept.map(\.key) == [ValuationKey(account: "bank", date: "2026-03-31")])
+        #expect(edit.flows.recomputed.isEmpty)
+    }
+
     @Test func aCashValueWithoutAFlowKeepsNone() throws {
         var library = Library()
         library.accounts["bank"] = Account(id: "bank", name: "Bank", kind: .cash, currency: .eur, opened: "2026-01-31")

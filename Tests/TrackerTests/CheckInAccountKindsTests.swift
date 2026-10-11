@@ -62,9 +62,17 @@ struct CheckInAccountKindsTests {
     @Test func aCashAccountRecordingTradesAsksForNoMoneyInOut() throws {
         var library = self.library
         library.accounts["bank"]?.valuation = .trades
-        let draft = february(library)
+        var draft = february(library)
         #expect(draft["bank"]?.asksMoneyInOut == false)
         #expect(draft["bank"]?.canEnterFlow == true)
+        // Reviewed, it writes no money in and out, from a statement's cash or with No Trades.
+        draft["bank"]?.setCash(5200)
+        let fromStatement = try #require(written(draft, "bank", in: library))
+        #expect(fromStatement.moneyIn == nil && fromStatement.moneyOut == nil)
+        draft["bank"]?.setCash(nil)
+        draft["bank"]?.markUnchanged()
+        let noTrades = try #require(written(draft, "bank", in: library))
+        #expect(noTrades.moneyIn == nil && noTrades.moneyOut == nil)
     }
 
     /// docs/ACCOUNTS.md, "Pre-filled values".
