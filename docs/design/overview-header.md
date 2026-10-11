@@ -4,6 +4,8 @@ A design note for the top of the Overview, above the history chart ([UI.md](../U
 
 The history chart and everything below it stay as they are in every direction. The answer's card below the chart, shown before there's an answer, stays too. All values are made up, from UI.md's wireframes.
 
+A and C also have high-fidelity mocks, under their wireframes ([A](#mocks), [C](#mocks-1)). They're SVGs in [overview-header/](overview-header/), drawn by hand with the app's colors (`Assets.xcassets`), its spacing (`Metrics`) and the system text styles at the default size. They aren't screenshots: on a Mac they render in SF Pro, elsewhere in a fallback font, so line lengths are approximate.
+
 ## Today
 
 When the main plan has an answer, the header stacks the answer, its details and net worth. Here it is with every piece showing, with results out of date:
@@ -163,6 +165,16 @@ The content is up to 760 points wide, which has room for two columns: the answer
 │ 3Y · retirement +15 ▾                                 Future ◯ │
 └────────────────────────────────────────────────────────────────┘
 ```
+
+### Mocks
+
+On an iPhone, in light and dark mode, and out of date: *Calculate* in the label row (R1), the answer's lines dimmed.
+
+![A. Trimmed on an iPhone: light, dark, and out of date](overview-header/a-iphone.svg)
+
+On the Mac: the answer and net worth side by side, the readiness, the baseline and the coast point line across the page.
+
+![A. Trimmed on the Mac](overview-header/a-mac.svg)
 
 ## B. Two tiles
 
@@ -328,6 +340,16 @@ The answer on the left and net worth on the right, then the gauge across the who
 │ 3Y · retirement +15 ▾                                 Future ◯ │
 └────────────────────────────────────────────────────────────────┘
 ```
+
+### Mocks
+
+On an iPhone, in light and dark mode on plan, and behind plan. The baseline's range is drawn twice: as a darker stretch of the bar's track, which shows where the bar would have to reach, and as the bracket under it, labeled "Jan baseline" where the wireframe has "Jan". Behind plan, the bar stops short of both and the word is orange.
+
+![C. One gauge on an iPhone: light and dark on plan, and behind plan](overview-header/c-iphone.svg)
+
+On the Mac: the answer and net worth side by side, the gauge across the page.
+
+![C. One gauge on the Mac](overview-header/c-mac.svg)
 
 ## D. Net worth first
 
