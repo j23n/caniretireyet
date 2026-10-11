@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1395" height="968" viewBox="0 0 1395 968">
-<title>Overview header, direction B (Two tiles), on an iPhone: light, dark, and out of date</title>
+<title>Overview header, direction B (Headline and two tiles), on an iPhone: light, dark, and out of date</title>
 <!-- A mock, not a screenshot: the app's colors (App/Resources/Assets.xcassets), its spacing (Metrics) and the iOS text styles at the default size. Made-up values from UI.md. -->
 <style>
 text { font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Helvetica, Arial, sans-serif; }
@@ -117,41 +117,45 @@ text { font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica
     </g>
   </g>
 
-  <!-- B: the answer tile's contents, 12 points inside the tile (16…190.5); its ⓘ holds the readiness sentence.
-       The age replaces "Not yet", with the month beside it. The bar is C's gauge: readiness 58%, the baseline's range 51–64%
-       drawn as a darker stretch of the track and as a bracket under it. Each row lines up with a row of the net worth tile. -->
-  <g id="b-answer">
-    <text x="28" y="187" class="sub ink2">Can I retire yet?</text>
-    <use href="#i-info" x="163.5" y="174" width="15" height="15" class="c-accent"/>
-    <text x="28" y="221"><tspan class="title b ink">At 54</tspan><tspan dx="8" class="sub ink">Mar 2042</tspan></text>
-    <text x="28" y="245" class="sub ink2">in 9 of 10 futures</text>
-    <rect x="28" y="257" width="110" height="6" rx="3" class="track"/>
-    <rect x="84.1" y="257" width="14.3" height="6" class="range"/>
-    <rect x="28" y="257" width="63.8" height="6" rx="3" class="accent"/>
-    <text x="178.5" y="265" text-anchor="end" class="sub sb ink">58%</text>
-    <path d="M84.7 267v3a1.5 1.5 0 0 0 1.5 1.5H96.3a1.5 1.5 0 0 0 1.5-1.5v-3" fill="none" class="s-ink2" stroke-width="1.2"/>
-    <text x="91.25" y="285.5" text-anchor="middle" class="cap ink2">Jan</text>
+  <!-- B: the label row, with the ⓘ that explains the whole answer and holds the disclaimer (D1), as in A -->
+  <g id="b-label">
+    <text x="16" y="180" class="sub ink2">Can I retire yet?</text>
+    <use href="#i-info" x="340" y="166.5" width="17" height="17" class="c-accent"/>
+    <use href="#i-chevron" x="370" y="169" width="7" height="12" class="c-ink3"/>
   </g>
 
-  <!-- B: the net worth tile's contents, 12 points inside the tile (202.5…377) -->
+  <!-- B: the headline, the widgets' countdown in words, then the age, month and confidence, and the readiness (58%) under it -->
+  <g id="b-headline">
+    <text x="16" y="221" class="largeTitle ink">In 15 years</text>
+    <text x="16" y="246" class="sub ink2">At 54 · March 2042 · in 9 of 10 futures</text>
+    <rect x="16" y="262" width="361" height="6" rx="3" class="track"/>
+    <rect x="16" y="262" width="209.4" height="6" rx="3" class="accent"/>
+    <text x="16" y="289" class="sub ink2">58% of what retiring today needs</text>
+  </g>
+
+  <!-- B: the net worth tile's contents, 12 points inside the tile (16…190.5) -->
   <g id="b-networth">
-    <text x="214.5" y="187" class="sub ink2">Net worth</text>
-    <text x="214.5" y="221" class="title b ink">312.480 €</text>
-    <text x="214.5" y="245" class="sub up">▲ 4.210 €</text>
-    <text x="214.5" y="265" class="sub ink2">in September</text>
-    <text x="214.5" y="285.5" class="sub"><tspan class="up">▲ 6,2% </tspan><tspan class="ink2">this year</tspan></text>
+    <text x="28" y="336" class="sub ink2">Net worth</text>
+    <text x="28" y="370" class="title b ink">312.480 €</text>
+    <text x="28" y="394" class="sub up">▲ 4.210 €</text>
+    <text x="28" y="414" class="sub ink2">in September</text>
+    <text x="28" y="434.5" class="sub"><tspan class="up">▲ 6,2% </tspan><tspan class="ink2">this year</tspan></text>
   </g>
 
-  <!-- B: the rows under the tiles: the baseline, which opens Progress, with the coast point line under it -->
-  <g id="b-baseline">
-    <text x="16" y="328" class="sub"><tspan class="up sb">On plan ·</tspan><tspan class="ink"> 12.400 €</tspan><tspan class="ink2"> ahead of January</tspan></text>
-    <use href="#i-chevron" x="370" y="317" width="7" height="12" class="c-ink3"/>
+  <!-- B: the On track? tile's contents, 12 points inside the tile (202.5…377): the standing and the amount against
+       the baseline's median, as Progress says them. The tile opens Progress. Each row lines up with a row of the net worth tile. -->
+  <g id="b-track">
+    <text x="214.5" y="336" class="sub ink2">On track?</text>
+    <use href="#i-chevron" x="358" y="325" width="7" height="12" class="c-ink3"/>
+    <text x="214.5" y="370" class="title b up">On plan</text>
+    <text x="214.5" y="394" class="sub ink">12.400 € ahead</text>
+    <text x="214.5" y="414" class="sub ink2">of January</text>
   </g>
+
+  <!-- B: the coast point line, A's shortened wording, as the On track? tile's last two rows -->
   <g id="b-coast">
-    <text x="16" y="350" class="sub ink2">Past the coast point: 63 without saving</text>
-  </g>
-  <g id="b-disclaimer">
-    <text x="16" y="374" class="cap ink3">Estimates, not financial or tax advice.</text>
+    <text x="214.5" y="434.5" class="sub ink2">Past the coast point:</text>
+    <text x="214.5" y="455" class="sub ink2">63 without saving</text>
   </g>
 
   <g id="frame">
@@ -163,59 +167,62 @@ text { font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica
 <rect width="1395" height="968" fill="#FFFFFF"/>
 
 <!-- Light -->
-<text x="40" y="44" class="label">B. Two tiles <tspan class="note">· Light</tspan></text>
+<text x="40" y="44" class="label">B. Headline and two tiles <tspan class="note">· Light</tspan></text>
 <g transform="translate(32 60)">
   <use href="#frame"/>
   <g transform="translate(12 12)" clip-path="url(#screen)" class="light">
     <use href="#chrome"/>
-    <rect x="16.5" y="160.5" width="173.5" height="141" rx="16" class="card"/>
-    <rect x="203" y="160.5" width="173.5" height="141" rx="16" class="card"/>
-    <use href="#b-answer"/>
+    <use href="#b-label"/>
+    <use href="#b-headline"/>
+    <rect x="16.5" y="309.5" width="173.5" height="161" rx="16" class="card"/>
+    <rect x="203" y="309.5" width="173.5" height="161" rx="16" class="card"/>
     <use href="#b-networth"/>
-    <use href="#b-baseline"/>
+    <use href="#b-track"/>
     <use href="#b-coast"/>
-    <use href="#b-disclaimer"/>
-    <use href="#history" y="402"/>
+    <use href="#history" y="494"/>
     <rect y="732" width="393" height="120" fill="url(#fade-light)"/>
     <use href="#tabbar"/>
   </g>
 </g>
 
 <!-- Dark -->
-<text x="497" y="44" class="label">B. Two tiles <tspan class="note">· Dark</tspan></text>
+<text x="497" y="44" class="label">B. Headline and two tiles <tspan class="note">· Dark</tspan></text>
 <g transform="translate(489 60)">
   <use href="#frame"/>
   <g transform="translate(12 12)" clip-path="url(#screen)" class="dark">
     <use href="#chrome"/>
-    <rect x="16.5" y="160.5" width="173.5" height="141" rx="16" class="card"/>
-    <rect x="203" y="160.5" width="173.5" height="141" rx="16" class="card"/>
-    <use href="#b-answer"/>
+    <use href="#b-label"/>
+    <use href="#b-headline"/>
+    <rect x="16.5" y="309.5" width="173.5" height="161" rx="16" class="card"/>
+    <rect x="203" y="309.5" width="173.5" height="161" rx="16" class="card"/>
     <use href="#b-networth"/>
-    <use href="#b-baseline"/>
+    <use href="#b-track"/>
     <use href="#b-coast"/>
-    <use href="#b-disclaimer"/>
-    <use href="#history" y="402"/>
+    <use href="#history" y="494"/>
     <rect y="732" width="393" height="120" fill="url(#fade-dark)"/>
     <use href="#tabbar"/>
   </g>
 </g>
 
-<!-- Out of date: Calculate as the answer tile's last row (R2), the answer's lines and the coast point line dimmed; the net worth tile grows to match -->
-<text x="954" y="44" class="label">B. Two tiles <tspan class="note">· Out of date</tspan></text>
+<!-- Out of date: Calculate in the label row (R1), as in A; the headline and the coast point line dimmed.
+     The standing and net worth don't come from the plan's results, so they don't dim. -->
+<text x="954" y="44" class="label">B. Headline and two tiles <tspan class="note">· Out of date</tspan></text>
 <g transform="translate(946 60)">
   <use href="#frame"/>
   <g transform="translate(12 12)" clip-path="url(#screen)" class="light">
     <use href="#chrome"/>
-    <rect x="16.5" y="160.5" width="173.5" height="173" rx="16" class="card"/>
-    <rect x="203" y="160.5" width="173.5" height="173" rx="16" class="card"/>
-    <use href="#b-answer" opacity="0.45"/>
-    <rect x="28" y="298" width="80" height="24" rx="12" class="tint"/>
-    <text x="68" y="314.5" text-anchor="middle" class="foot sb accent">Calculate</text>
+    <text x="16" y="180" class="sub ink2">Can I retire yet?</text>
+    <rect x="252" y="163" width="80" height="24" rx="12" class="tint"/>
+    <text x="292" y="179.5" text-anchor="middle" class="foot sb accent">Calculate</text>
+    <use href="#i-info" x="340" y="166.5" width="17" height="17" class="c-accent"/>
+    <use href="#i-chevron" x="370" y="169" width="7" height="12" class="c-ink3"/>
+    <use href="#b-headline" opacity="0.45"/>
+    <rect x="16.5" y="309.5" width="173.5" height="161" rx="16" class="card"/>
+    <rect x="203" y="309.5" width="173.5" height="161" rx="16" class="card"/>
     <use href="#b-networth"/>
-    <use href="#b-baseline" y="32"/>
-    <use href="#b-coast" y="32" opacity="0.45"/>
-    <use href="#b-disclaimer" y="32"/>
-    <use href="#history" y="434"/>
+    <use href="#b-track"/>
+    <use href="#b-coast" opacity="0.45"/>
+    <use href="#history" y="494"/>
     <rect y="732" width="393" height="120" fill="url(#fade-light)"/>
     <use href="#tabbar"/>
   </g>
