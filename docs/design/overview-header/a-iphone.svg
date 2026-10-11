@@ -1,0 +1,199 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1395" height="968" viewBox="0 0 1395 968">
+<title>Overview header, direction A (Trimmed), on an iPhone: light, dark, and out of date</title>
+<!-- A mock, not a screenshot: the app's colors (App/Resources/Assets.xcassets), its spacing (Metrics) and the iOS text styles at the default size. Made-up values from UI.md. -->
+<style>
+text { font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Helvetica, Arial, sans-serif; }
+.light { --page: #F4F4F1; --ink: #0B0B0B; --ink2: #52514E; --ink3: #898781; --accent: #2A78D6; --tint: rgba(42, 120, 214, 0.14);
+  --up: #006300; --behind: #D95926; --grid: #E1E0D9; --axis: #C3C2B7; --track: rgba(120, 120, 128, 0.18); --range: rgba(11, 11, 11, 0.18);
+  --cash: #2A78D6; --bonds: #EB6834; --equity: #1BAF7A; --gold: #EDA100; --cashS: #2A78D6; --bondsS: #D95926; --equityS: #199E70; --goldS: #BA7E07;
+  --glass: rgba(252, 252, 251, 0.9); --edge: rgba(0, 0, 0, 0.10); --sel: rgba(0, 0, 0, 0.07); --switch: rgba(120, 120, 128, 0.16); }
+.dark { --page: #0D0D0D; --ink: #FFFFFF; --ink2: #C3C2B7; --ink3: #898781; --accent: #3987E5; --tint: rgba(57, 135, 229, 0.22);
+  --up: #0CA30C; --behind: #D95926; --grid: #2C2C2A; --axis: #383835; --track: rgba(120, 120, 128, 0.36); --range: rgba(255, 255, 255, 0.24);
+  --cash: #3987E5; --bonds: #D95926; --equity: #199E70; --gold: #C98500; --cashS: #3987E5; --bondsS: #D95926; --equityS: #199E70; --goldS: #C98500;
+  --glass: rgba(44, 44, 43, 0.9); --edge: rgba(255, 255, 255, 0.12); --sel: rgba(255, 255, 255, 0.12); --switch: rgba(120, 120, 128, 0.36); }
+.page { fill: var(--page); } .ink { fill: var(--ink); } .ink2 { fill: var(--ink2); } .ink3 { fill: var(--ink3); }
+.accent { fill: var(--accent); } .tint { fill: var(--tint); } .up { fill: var(--up); } .behind { fill: var(--behind); }
+.track { fill: var(--track); } .range { fill: var(--range); } .glass { fill: var(--glass); stroke: var(--edge); stroke-width: 0.5; }
+.sel { fill: var(--sel); } .switch { fill: var(--switch); }
+.c-ink { color: var(--ink); } .c-ink3 { color: var(--ink3); } .c-accent { color: var(--accent); }
+.s-grid { stroke: var(--grid); } .s-axis { stroke: var(--axis); } .s-ink2 { stroke: var(--ink2); }
+.f-cash { fill: var(--cash); fill-opacity: 0.3; } .f-bonds { fill: var(--bonds); fill-opacity: 0.3; }
+.f-equity { fill: var(--equity); fill-opacity: 0.3; } .f-gold { fill: var(--gold); fill-opacity: 0.3; }
+.d-cash { fill: var(--cashS); } .d-bonds { fill: var(--bondsS); } .d-equity { fill: var(--equityS); } .d-gold { fill: var(--goldS); }
+.e-cash { stroke: var(--cashS); } .e-bonds { stroke: var(--bondsS); } .e-equity { stroke: var(--equityS); } .e-total { stroke: var(--ink); }
+.largeTitle { font-size: 34px; font-weight: 700; letter-spacing: 0.4px; }
+.title3 { font-size: 20px; letter-spacing: -0.45px; }
+.sub { font-size: 15px; letter-spacing: -0.23px; }
+.foot { font-size: 13px; letter-spacing: -0.08px; }
+.cap2 { font-size: 11px; letter-spacing: 0.06px; }
+.time { font-size: 17px; font-weight: 600; letter-spacing: -0.4px; }
+.tab { font-size: 10px; font-weight: 600; }
+.sb { font-weight: 600; } .b { font-weight: 700; }
+.label { font-size: 15px; font-weight: 600; fill: #52514E; letter-spacing: -0.2px; }
+.note { font-weight: 400; fill: #898781; }
+</style>
+<defs>
+  <clipPath id="screen"><rect width="393" height="852" rx="55"/></clipPath>
+  <filter id="shadow" x="-20%" y="-10%" width="140%" height="130%"><feDropShadow dx="0" dy="14" stdDeviation="16" flood-color="#000" flood-opacity="0.16"/></filter>
+  <filter id="float" x="-20%" y="-40%" width="140%" height="200%"><feDropShadow dx="0" dy="4" stdDeviation="8" flood-color="#000" flood-opacity="0.12"/></filter>
+  <filter id="knob" x="-50%" y="-50%" width="200%" height="200%"><feDropShadow dx="0" dy="2" stdDeviation="2.5" flood-color="#000" flood-opacity="0.18"/></filter>
+  <linearGradient id="fade-light" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#F4F4F1" stop-opacity="0"/><stop offset="0.7" stop-color="#F4F4F1"/></linearGradient>
+  <linearGradient id="fade-dark" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#0D0D0D" stop-opacity="0"/><stop offset="0.7" stop-color="#0D0D0D"/></linearGradient>
+
+  <!-- SF Symbols, approximated -->
+  <symbol id="i-chevron" viewBox="0 0 7 12"><path d="M1.2 1.2 5.8 6l-4.6 4.8" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-info" viewBox="0 0 20 20"><circle cx="10" cy="10" r="8.7" fill="none" stroke="currentColor" stroke-width="1.5"/><circle cx="10" cy="6.1" r="1.2" fill="currentColor"/><path d="M10 9.1v5.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></symbol>
+  <symbol id="i-eye" viewBox="0 0 24 24"><path d="M1.8 12S5.5 5.2 12 5.2 22.2 12 22.2 12 18.5 18.8 12 18.8 1.8 12 1.8 12z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><circle cx="12" cy="12" r="3.4" fill="currentColor"/></symbol>
+  <symbol id="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="7" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="12" r="2.7" fill="none" stroke="currentColor" stroke-width="1.7"/><g fill="currentColor"><rect x="10.5" y="1.3" width="3" height="4.4" rx="1"/><rect x="10.5" y="1.3" width="3" height="4.4" rx="1" transform="rotate(45 12 12)"/><rect x="10.5" y="1.3" width="3" height="4.4" rx="1" transform="rotate(90 12 12)"/><rect x="10.5" y="1.3" width="3" height="4.4" rx="1" transform="rotate(135 12 12)"/><rect x="10.5" y="1.3" width="3" height="4.4" rx="1" transform="rotate(180 12 12)"/><rect x="10.5" y="1.3" width="3" height="4.4" rx="1" transform="rotate(225 12 12)"/><rect x="10.5" y="1.3" width="3" height="4.4" rx="1" transform="rotate(270 12 12)"/><rect x="10.5" y="1.3" width="3" height="4.4" rx="1" transform="rotate(315 12 12)"/></g></symbol>
+  <symbol id="i-trend" viewBox="0 0 24 24"><path d="M3 3.5V20.5H21" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M6.5 15.5 10.5 11l3 3 6-6.5M15.8 7.2h3.9v3.9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-list" viewBox="0 0 24 24"><rect x="2.5" y="4" width="19" height="16" rx="3.5" fill="none" stroke="currentColor" stroke-width="1.7"/><circle cx="7" cy="9" r="1.1" fill="currentColor"/><circle cx="7" cy="12" r="1.1" fill="currentColor"/><circle cx="7" cy="15" r="1.1" fill="currentColor"/><path d="M10 9h8M10 12h8M10 15h8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></symbol>
+  <symbol id="i-pie" viewBox="0 0 24 24"><path d="M11 4.2A8.3 8.3 0 1 0 19.8 13H11z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="M13.6 2.6v8h8a8 8 0 0 0-8-8z" fill="currentColor"/></symbol>
+  <symbol id="i-updown" viewBox="0 0 6 10"><path d="M1 3.6 3 1.6l2 2M1 6.4l2 2 2-2" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+
+  <!-- The screen around the header: status bar, toolbar, title -->
+  <g id="chrome">
+    <rect width="393" height="852" class="page"/>
+    <text x="52" y="37" class="time ink">9:41</text>
+    <rect x="134.5" y="11" width="124" height="36" rx="18" fill="#000"/>
+    <g transform="translate(296 25)" class="c-ink">
+      <g fill="currentColor"><rect x="0" y="8" width="3.2" height="4.5" rx="1"/><rect x="4.8" y="5.8" width="3.2" height="6.7" rx="1"/><rect x="9.6" y="3.4" width="3.2" height="9.1" rx="1"/><rect x="14.4" y="0.8" width="3.2" height="11.7" rx="1"/></g>
+      <path d="M24.5 4.4a10.5 10.5 0 0 1 14.2 0M26.8 6.9a7 7 0 0 1 9.6 0M29.1 9.4a3.5 3.5 0 0 1 5 0" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
+      <rect x="47" y="0.8" width="25" height="11.6" rx="3.6" fill="none" stroke="currentColor" stroke-opacity="0.4"/>
+      <rect x="49" y="2.8" width="18" height="7.6" rx="2" fill="currentColor"/>
+      <path d="M73.6 4.6v4a2.1 2.1 0 0 0 0-4z" fill="currentColor" fill-opacity="0.45"/>
+    </g>
+    <rect x="281" y="58" width="96" height="44" rx="22" class="glass" filter="url(#float)"/>
+    <use href="#i-eye" x="294" y="69" width="22" height="22" class="c-ink"/>
+    <use href="#i-gear" x="342" y="69" width="22" height="22" class="c-ink"/>
+    <text x="16" y="140" class="largeTitle ink">Overview</text>
+  </g>
+
+  <!-- The floating tab bar and the home indicator -->
+  <g id="tabbar">
+    <rect x="25" y="765" width="343" height="62" rx="31" class="glass" filter="url(#float)"/>
+    <rect x="29" y="769" width="111.7" height="54" rx="27" class="sel"/>
+    <use href="#i-trend" x="72.8" y="773" width="24" height="24" class="c-accent"/>
+    <text x="84.8" y="813" text-anchor="middle" class="tab accent">Overview</text>
+    <use href="#i-list" x="184.5" y="773" width="24" height="24" class="c-ink"/>
+    <text x="196.5" y="813" text-anchor="middle" class="tab ink">Accounts</text>
+    <use href="#i-pie" x="296.2" y="773" width="24" height="24" class="c-ink"/>
+    <text x="308.2" y="813" text-anchor="middle" class="tab ink">Plan</text>
+    <rect x="127" y="839" width="139" height="5" rx="2.5" class="ink"/>
+  </g>
+
+  <!-- The history chart, unchanged in every direction: its controls, legend and three years by asset class -->
+  <g id="history">
+    <rect x="16" y="0" width="58" height="32" rx="16" class="tint"/>
+    <text x="29" y="21" class="sub sb accent">3Y</text>
+    <use href="#i-updown" x="53" y="10.5" width="6.6" height="11" class="c-accent"/>
+    <text x="316" y="21" text-anchor="end" class="sub ink">Future</text>
+    <rect x="326" y="0.5" width="51" height="31" rx="15.5" class="switch"/>
+    <circle cx="341.5" cy="16" r="13.5" fill="#FFFFFF" filter="url(#knob)"/>
+    <circle cx="20" cy="52.5" r="4" class="d-cash"/><text x="29" y="57" class="foot ink2">Cash</text>
+    <circle cx="80" cy="52.5" r="4" class="d-bonds"/><text x="89" y="57" class="foot ink2">Bonds</text>
+    <circle cx="145" cy="52.5" r="4" class="d-equity"/><text x="154" y="57" class="foot ink2">Equity</text>
+    <circle cx="214" cy="52.5" r="4" class="d-gold"/><text x="223" y="57" class="foot ink2">Gold</text>
+    <g class="s-grid" stroke-width="0.5">
+      <line x1="16" x2="343" y1="221" y2="221"/><line x1="16" x2="343" y1="163" y2="163"/><line x1="16" x2="343" y1="105" y2="105"/>
+      <line x1="43.25" x2="43.25" y1="76" y2="279"/><line x1="152.25" x2="152.25" y1="76" y2="279"/><line x1="261.25" x2="261.25" y1="76" y2="279"/>
+    </g>
+    <line x1="16" x2="343" y1="279" y2="279" class="s-axis"/>
+    <text x="349" y="283" class="cap2 ink3">0</text><text x="349" y="225" class="cap2 ink3">100k</text>
+    <text x="349" y="167" class="cap2 ink3">200k</text><text x="349" y="109" class="cap2 ink3">300k</text>
+    <text x="46.25" y="298" class="cap2 ink3">2024</text><text x="155.25" y="298" class="cap2 ink3">2025</text><text x="264.25" y="298" class="cap2 ink3">2026</text>
+    <g transform="translate(16 279) scale(9.0833 -0.58)">
+      <polygon class="f-cash" points="0,11 3,11.5 6,12 9,11.8 12,12.2 15,12.5 18,12.4 21,12.6 24,12.8 27,12.7 30,12.9 33,13 36,13 36,0 0,0"/>
+      <polygon class="f-bonds" points="0,53 3,54 6,55.5 9,55 12,56.5 15,57.5 18,57 21,58.5 24,59.5 27,60 30,61.5 33,62.5 36,63.2 36,13 33,13 30,12.9 27,12.7 24,12.8 21,12.6 18,12.4 15,12.5 12,12.2 9,11.8 6,12 3,11.5 0,11"/>
+      <polygon class="f-equity" points="0,203 3,210 6,222 9,228 12,236 15,252 18,238 21,255 24,266 27,274 30,285 33,292 36,299 36,63.2 33,62.5 30,61.5 27,60 24,59.5 21,58.5 18,57 15,57.5 12,56.5 9,55 6,55.5 3,54 0,53"/>
+      <polygon class="f-gold" points="0,211.5 3,219 6,231.5 9,238 12,246.5 15,263 18,249 21,266.5 24,278 27,286.5 30,298 33,305 36,312.5 36,299 33,292 30,285 27,274 24,266 21,255 18,238 15,252 12,236 9,228 6,222 3,210 0,203"/>
+      <g fill="none" stroke-width="1">
+        <polyline class="e-cash" vector-effect="non-scaling-stroke" points="0,11 3,11.5 6,12 9,11.8 12,12.2 15,12.5 18,12.4 21,12.6 24,12.8 27,12.7 30,12.9 33,13 36,13"/>
+        <polyline class="e-bonds" vector-effect="non-scaling-stroke" points="0,53 3,54 6,55.5 9,55 12,56.5 15,57.5 18,57 21,58.5 24,59.5 27,60 30,61.5 33,62.5 36,63.2"/>
+        <polyline class="e-equity" vector-effect="non-scaling-stroke" points="0,203 3,210 6,222 9,228 12,236 15,252 18,238 21,255 24,266 27,274 30,285 33,292 36,299"/>
+      </g>
+      <polyline class="e-total" fill="none" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke" points="0,211.5 3,219 6,231.5 9,238 12,246.5 15,263 18,249 21,266.5 24,278 27,286.5 30,298 33,305 36,312.5"/>
+    </g>
+  </g>
+
+  <!-- A: the label row, with the ⓘ that explains the whole answer -->
+  <g id="a-label">
+    <text x="16" y="180" class="sub ink2">Can I retire yet?</text>
+    <use href="#i-info" x="340" y="166.5" width="17" height="17" class="c-accent"/>
+    <use href="#i-chevron" x="370" y="169" width="7" height="12" class="c-ink3"/>
+  </g>
+
+  <!-- A: the answer, how far along you are, and the coast point -->
+  <g id="a-answer">
+    <text x="16" y="221" class="largeTitle ink">Not yet</text>
+    <text x="16" y="251" class="title3 sb ink">Earliest at 54 · March 2042</text>
+    <text x="16" y="274" class="sub ink2">About 15 years · in 9 of 10 futures</text>
+    <rect x="16" y="293" width="361" height="6" rx="3" class="track"/>
+    <rect x="16" y="293" width="209.4" height="6" rx="3" class="accent"/>
+    <text x="16" y="320" class="sub ink2">58% of what retiring today needs</text>
+    <text x="16" y="344" class="sub"><tspan class="up sb">On plan ·</tspan><tspan class="ink"> 12.400 €</tspan><tspan class="ink2"> ahead of January</tspan></text>
+    <text x="16" y="368" class="sub ink2">Past the coast point: 63 without saving</text>
+  </g>
+
+  <!-- Net worth, a size smaller than today -->
+  <g id="networth">
+    <text x="16" y="416" class="title3"><tspan class="ink2">Net worth </tspan><tspan class="ink sb">312.480 €</tspan></text>
+    <text x="16" y="439" class="sub"><tspan class="up">▲ 4.210 € </tspan><tspan class="ink2">in September</tspan><tspan class="up" dx="12">▲ 6,2% </tspan><tspan class="ink2">this year</tspan></text>
+  </g>
+
+  <g id="frame">
+    <rect width="417" height="876" rx="67" fill="#1C1C1E" filter="url(#shadow)"/>
+    <rect x="0.75" y="0.75" width="415.5" height="874.5" rx="66.25" fill="none" stroke="#3A3A3C" stroke-width="1.5"/>
+  </g>
+</defs>
+
+<rect width="1395" height="968" fill="#FFFFFF"/>
+
+<!-- Light -->
+<text x="40" y="44" class="label">A. Trimmed <tspan class="note">· Light</tspan></text>
+<g transform="translate(32 60)">
+  <use href="#frame"/>
+  <g transform="translate(12 12)" clip-path="url(#screen)" class="light">
+    <use href="#chrome"/>
+    <use href="#a-label"/>
+    <use href="#a-answer"/>
+    <use href="#networth"/>
+    <use href="#history" y="468"/>
+    <rect y="732" width="393" height="120" fill="url(#fade-light)"/>
+    <use href="#tabbar"/>
+  </g>
+</g>
+
+<!-- Dark -->
+<text x="497" y="44" class="label">A. Trimmed <tspan class="note">· Dark</tspan></text>
+<g transform="translate(489 60)">
+  <use href="#frame"/>
+  <g transform="translate(12 12)" clip-path="url(#screen)" class="dark">
+    <use href="#chrome"/>
+    <use href="#a-label"/>
+    <use href="#a-answer"/>
+    <use href="#networth"/>
+    <use href="#history" y="468"/>
+    <rect y="732" width="393" height="120" fill="url(#fade-dark)"/>
+    <use href="#tabbar"/>
+  </g>
+</g>
+
+<!-- Out of date: Calculate in the label row (R1), the answer's lines dimmed -->
+<text x="954" y="44" class="label">A. Trimmed <tspan class="note">· Out of date</tspan></text>
+<g transform="translate(946 60)">
+  <use href="#frame"/>
+  <g transform="translate(12 12)" clip-path="url(#screen)" class="light">
+    <use href="#chrome"/>
+    <text x="16" y="180" class="sub ink2">Can I retire yet?</text>
+    <rect x="252" y="163" width="80" height="24" rx="12" class="tint"/>
+    <text x="292" y="179.5" text-anchor="middle" class="foot sb accent">Calculate</text>
+    <use href="#i-info" x="340" y="166.5" width="17" height="17" class="c-accent"/>
+    <use href="#i-chevron" x="370" y="169" width="7" height="12" class="c-ink3"/>
+    <use href="#a-answer" opacity="0.45"/>
+    <use href="#networth"/>
+    <use href="#history" y="468"/>
+    <rect y="732" width="393" height="120" fill="url(#fade-light)"/>
+    <use href="#tabbar"/>
+  </g>
+</g>
+</svg>
