@@ -8,8 +8,8 @@ extension PlanDocument {
     /// when it's given and not negative (0 included), and, when
     /// `payPerMonth` is given and above 0, has one work phase in place of
     /// any others, from 1 January of `asOf`'s year until retirement, paying
-    /// it after tax; starting with the year also covers the days after an
-    /// imported history's last check-in. Amounts are in the base currency;
+    /// it after tax; starting with the year also covers the days after a
+    /// check-in earlier this year. Amounts are in the base currency;
     /// the plan stores them a year.
     public mutating func setMonthly(payPerMonth: Decimal?, spendingPerMonth: Decimal?, asOf: CalendarDate) {
         if let spendingPerMonth, spendingPerMonth >= 0 {
