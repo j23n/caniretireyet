@@ -64,7 +64,7 @@ extension TemporaryFolder {
                   "positions": [{ "costBasis": "1550", "instrument": "vwce", "quantity": "15" }] },
                 { "account": "exchange", "balance": "550", "date": "2026-02-28" },
                 { "account": "fund", "balance": "3100", "date": "2026-02-28", "flow": "100" },
-                { "account": "wallet", "balance": "210", "date": "2026-02-28" }
+                { "account": "wallet", "balance": "210.004", "date": "2026-02-28" }
               ]
             }
             """)
