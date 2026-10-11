@@ -198,7 +198,7 @@ struct PlanAlwaysSheet: View {
             .background(Palette.page)
             .sheetTitle("Assumptions") { dismiss() }
             .sheet(isPresented: $showsTargetMix) {
-                PlanTargetMixSheet(plan: $session.editablePlan)
+                PlanTargetMixSheet(session: session)
             }
         }
         #if os(macOS)
@@ -208,19 +208,19 @@ struct PlanAlwaysSheet: View {
 }
 
 /// The target mix and its changes with age, in a sheet of their own: a
-/// grouped form, saved as you type.
+/// grouped form editing a copy of the plan. *Done* writes the copy's mix
+/// and its changes with age to the plan; *Cancel* discards them.
 struct PlanTargetMixSheet: View {
-    @Binding var plan: PlanDocument
-
-    @Environment(\.dismiss) private var dismiss
+    let session: PlanSession
 
     var body: some View {
-        NavigationStack {
-            Form {
-                PlanTargetMixEditor(plan: $plan)
+        PlanItemEditor("Target mix", item: session.editablePlan, onSave: { edited in
+            session.edit {
+                $0.portfolio.targetMix = edited.portfolio.targetMix
+                $0.portfolio.targetMixByAge = edited.portfolio.targetMixByAge
             }
-            .formStyle(.grouped)
-            .sheetTitle("Target mix") { dismiss() }
+        }) { plan in
+            PlanTargetMixEditor(plan: plan)
         }
         #if os(macOS)
         .frame(minWidth: 520, minHeight: 560)

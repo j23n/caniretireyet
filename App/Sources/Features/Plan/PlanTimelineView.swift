@@ -82,7 +82,7 @@ struct PlanTimelineView: View {
             PlanItemSheet(session: session, target: target, issues: session.inputIssues)
         }
         .sheet(isPresented: $showsTargetMix) {
-            PlanTargetMixSheet(plan: $session.editablePlan)
+            PlanTargetMixSheet(session: session)
         }
         .sheet(isPresented: $showsAssumptions) {
             PlanAlwaysSheet(session: session)
