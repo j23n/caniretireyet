@@ -184,7 +184,7 @@ To preview an edit, make it on a copy of the library. `addTrade` never replaces 
 
 ## Converting an account
 
-Pure functions return the records a conversion writes (`AccountConversion`: the account, its valuations, the trades to add and remove, the months it touches, and notes on what was estimated), so the app can preview it, back up those files and apply it (`apply(to:)`, or `convertToTrades(_:)`).
+An account recorded as snapshots converts to trades; nothing converts back. The upgrade to format version 4 converts every such account whose values hold positions ([ACCOUNTS.md](ACCOUNTS.md#migration)). A pure function returns the records the conversion writes (`AccountConversion`: the account, its valuations, the trades to add, the months it touches, and notes on what was estimated), so the upgrade can report what it estimated and apply it (`apply(to:)`, or `convertToTrades(_:)`).
 
 **Snapshots → trades** (`Library.conversionToTrades(of:)`):
 
@@ -195,10 +195,6 @@ Pure functions return the records a conversion writes (`AccountConversion`: the 
 - trades get readable IDs (`opening-vwce`, `buy-vwce`, `sell-vwce`), one per instrument and date.
 
 Values and flows stay the same: each trade's cash effect is what the check-in counted as new money, so each valuation's residual is its old flow (paid from outside, the trades' amounts are that flow themselves, and there's no residual).
-
-**Trades → snapshots** (`conversionToSnapshots(of:)`): each valuation gets the derived positions, average cost and cash; a month whose last trade comes after its last valuation gets a valuation on that trade's date (noted), so values at valuation dates and month ends stay the same; the trades are removed (noted: their income and realised gains are no longer recorded).
-
-A round trip snapshots → trades → snapshots gives back the original.
 
 ## Checks
 

@@ -49,6 +49,18 @@ struct ScreenshotTests {
         try await keep("trends", .example, .trends)
     }
 
+    /// A trades account's details: its holdings, its trades by month in
+    /// place of its values, its income and gains, and its statements.
+    @Test func tradesAccount() async throws {
+        try await keep("account-trades", .example, .tradesAccount)
+    }
+
+    /// A current account's details: its values with money in, money out and
+    /// what moved between your own accounts.
+    @Test func cashAccount() async throws {
+        try await keep("account-cash", .example, .cashAccount)
+    }
+
     /// First launch, with no library: each step up to the disclaimer, as
     /// ``ScreenLaunch`` opens it. It's ready once onboarding has taken the
     /// step. The accounts step and the disclaimer show the library *Create

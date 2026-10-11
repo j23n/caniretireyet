@@ -4,7 +4,7 @@ import Testing
 import TestSupport
 import Tracker
 
-/// Converting an account between snapshots and trades keeps its values and
+/// Converting an account from snapshots to trades keeps its values and
 /// flows, and says what it had to estimate.
 struct TradeConversionTests {
     /// A made-up broker account recorded as positions at month-end check-ins.
@@ -89,40 +89,6 @@ struct TradeConversionTests {
         }
         #expect(valuator.tradeIssues(for: "broker").isEmpty)
         #expect(converted.conversionToTrades(of: "broker") == nil)
-    }
-
-    @Test func aRoundTripGivesBackTheSnapshots() throws {
-        let library = holdingsLibrary()
-        var converted = library
-        converted.convertToTrades("broker")
-        let back = try #require(converted.conversionToSnapshots(of: "broker"))
-        #expect(back.notes.map(\.kind) == [.tradesRemoved])
-        #expect(back.removedTrades.count == 4)
-        back.apply(to: &converted)
-        #expect(converted == library)
-    }
-
-    @Test func tradesWithoutValuationsBecomeASnapshotAtEachMonthsLastTrade() throws {
-        let library = TradeLibrary.recordedDeposits()
-        let conversion = try #require(library.conversionToSnapshots(of: "broker"))
-        #expect(conversion.account.valuation == .holdings)
-        #expect(conversion.notes.map(\.kind) == [.tradesRemoved, .addedValuation, .addedValuation, .addedValuation])
-        #expect(conversion.valuations == [
-            Valuation(account: "broker", date: "2024-01-05", cash: 4995,
-                      positions: [Position(instrument: "vwce", quantity: 50, costBasis: 5005)], flow: 10000),
-            Valuation(account: "broker", date: "2024-02-15", cash: 5015,
-                      positions: [Position(instrument: "vwce", quantity: 50, costBasis: 5005)], flow: 0),
-            Valuation(account: "broker", date: "2024-03-25", cash: d("5295.36"), positions: [
-                Position(instrument: "aapl", quantity: 10, costBasis: d("1364.64")),
-                Position(instrument: "vwce", quantity: 40, costBasis: d("3936.67")),
-            ], flow: 550),
-        ])
-        var converted = library
-        conversion.apply(to: &converted)
-        #expect(converted.trades(for: "broker").isEmpty)
-        // Month ends keep their values; in between, snapshots carry the last one.
-        let dates = monthEnds.filter(\.isEndOfMonth)
-        #expect(values(converted, on: dates) == values(library, on: dates))
     }
 
     @Test func aBalanceBecomesCashAndMissingCostsAreEstimated() throws {
