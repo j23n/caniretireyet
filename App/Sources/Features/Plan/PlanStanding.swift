@@ -14,6 +14,16 @@ extension BaselineStanding {
         }
     }
 
+    /// "Ahead", "On plan", "Behind": short, for the Overview's *On track?*,
+    /// where VoiceOver reads ``label``.
+    var shortLabel: String {
+        switch self {
+        case .ahead: "Ahead"
+        case .onPlan: "On plan"
+        case .behind: "Behind"
+        }
+    }
+
     /// "Ahead of plan.", "On plan.", "Behind plan."
     var title: String { label + "." }
 

@@ -93,17 +93,17 @@ The home screen. Top to bottom:
 ┌──────────────────────────────────────────┐
 │ Overview                        👁   ⚙︎   │
 │                                          │
-│ Can I retire yet?                      › │
-│ Not yet · earliest at 54                 │
-│ About 15 years to go · March 2042        │
-│ The first age that works in 9 of 10 …    │
-│ ▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇░░░░░░░░░░░░░░░░░░ │
-│ 58% of what you'd need to retire today ⓘ │
-│ On plan · 12.400 € ahead of your Jan …   │
-│                                          │
-│ Net worth                                │
-│ 312.480 €                                │
-│ ▲ 4.210 € in September    ▲ 6,2% this yr │
+│ Can I retire yet?                    ⓘ › │
+│ In 15 years                   58%  ╭─╮   │
+│                             ready  ╰─╯   │
+│ ╭──────────────────╮╭──────────────────╮ │
+│ │ Net worth        ││ On track?      › │ │
+│ │ 312.480 €        ││ On plan          │ │
+│ │ ▲ 4.210 €        ││ 12.400 € ahead   │ │
+│ │ in September     ││ of January       │ │
+│ │ ▲ 6,2% this year ││ Past the coast   │ │
+│ │                  ││ point: 63 …      │ │
+│ ╰──────────────────╯╰──────────────────╯ │
 │                                          │
 │ 3Y ▾                            Future ◯ │
 │ ▬ Cash  ▬ Equity  ▬ Real estate  ▬ Debts │
@@ -143,12 +143,12 @@ The home screen. Top to bottom:
 └──────────────────────────────────────────┘
 ```
 
-The screen leads with the app's question, *Can I retire yet?*, when the main plan has an answer; the rest is net worth: the number under the answer, the history chart (except with *Future* on, below), the change since the last check-in and this year, and the allocation. Without an answer, net worth is the hero number and the answer's card below the chart says what to do.
+The screen leads with the app's question, *Can I retire yet?*, when the main plan has an answer: a headline in words with a readiness ring beside it, then two tiles, *Net worth* and *On track?*. The rest is net worth: the history chart (except with *Future* on, below), the change since the last check-in and this year, and the allocation. Without an answer, net worth is the hero number and the answer's card below the chart says what to do.
 
-- **The answer.** When the main plan has one (its latest results, or else the answer recorded at the last check-in), it leads the screen, above net worth: "Can I retire yet?" with a chevron, then the answer in large type, "Not yet · earliest at 54" ("Yes" when you could retire today, "Not yet" when no age works out), how long to go and when, "About 15 years to go · March 2042" (the widgets' countdown, `RetirementCountdown`, in words: whole years from two years on, rounded to the nearest, so 15 years and 6 months reads "About 16 years", else months), the confidence ("The first age that works in 9 of 10 simulated futures"), the readiness, and how you compare with the baseline, as described under *Can I retire yet?* below. Net worth follows, a size smaller, with the same change lines. An answer recorded at a check-in counts to the birthday its earliest age is reached on, never before the check-in, as the widgets do; without a birth date it has no time to go, nor does an earliest month that has passed.
+- **The answer.** When the main plan has one (its latest results, or else the answer recorded at the last check-in), it leads the screen in three text styles (largeTitle, title and subheadline), as described under *Can I retire yet?* below: a label row, the headline with the ring, and the two tiles. The history chart follows.
 
 - **Hero number.**
-  - Net worth today (under the answer when there is one), as the accounts list has it: each account's latest value, what it holds at the latest prices, so a value imported or a trade added since the last check-in, or prices fetched since, count. Under it the change at the last check-in, "▲ 4.210 € in September" when the check-in before was the end of August, else between the two check-ins, "31 Jul – 15 Sep" (not "since 31 Jul", which would read as up to today), and the change this year, to today. The rest of the screen is today's too (the chart's last point, what needs attention, the allocation, how you compare with the baseline); only *What moved* is the last check-in's.
+  - Net worth today, as the accounts list has it: each account's latest value, what it holds at the latest prices, so a value imported or a trade added since the last check-in, or prices fetched since, count. Under it the change at the last check-in, "▲ 4.210 € in September" when the check-in before was the end of August, else between the two check-ins, "31 Jul – 15 Sep" (not "since 31 Jul", which would read as up to today), and the change this year, to today. Without an answer it leads the screen in large type; with one it's the *Net worth* tile, with the same lines. The rest of the screen is today's too (the chart's last point, what needs attention, the allocation); only *What moved* and *On track?* are the last check-in's.
   - It animates when it changes (`.contentTransition(.numericText())`).
   - It's only a number, not a control. (It used to switch to *plan assets* when tapped; plan assets now show only where they matter, in the chart with *Future* on and on the Plan screen.)
 - **History chart.**
@@ -166,11 +166,18 @@ The screen leads with the app's question, *Can I retire yet?*, when the main pla
   - **Partial totals.** Net worth adds up what can be valued. Where a total misses something (a price or an exchange rate, or an account with no value yet), every class's line is dashed (as a partial total's line is elsewhere, so it doesn't look like a fall), the callout says "Partial: some values are missing", and a note under the chart says what and when: "Where lines are dashed, the total is partial: exchange rates for US$ are missing for Jun 2018 – Dec 2021 (US brokerage) and 3 accounts have no value yet for Jun 2018 – Sep 2025 (Directa, Fondo pensione and Old bank)." with *Fill In Past Prices…* when some of it is prices or rates.
 - **Since last check-in.** "What moved in September" (or "Since last check-in" when the check-in before wasn't the end of the month before): the totals before and after in words, and a bar each for markets, new money and other, from a shared zero line and to the same scale: gains go right in the positive colour, losses left in the negative one, with their signed amounts in a column of their own. The change itself is the hero number's, said once; the check-in's review leads with it ("▲ +4.210 € since 31 Aug", in per cent while amounts are hidden). It's the most useful split after the total, because it separates "I saved" from "markets moved". (It used to be a waterfall, whose bars from zero made the totals huge grey blocks and the changes slivers on top.) While amounts are hidden, the bars keep their proportions.
 - **This year.** The same split for the year so far: how net worth changed from 31 December of last year to today, the hero's "this year", in markets, new money and other (`Valuator.changeThisYear(asOf:)`, in Tracker), so what you saved stands apart from what markets did. It leads with the change in money, "▲ +18.240 € since 31 Dec 2025", where the hero says it in per cent; while amounts are hidden, in per cent, and the bars keep their proportions. The words under the bars are *What moved*'s. Under them, when this year's values record money in and out, the savings rate ([PROGRESS.md](PROGRESS.md#money-in-and-out)): "Savings rate 17%: you kept 1.945 € of the 11.525 € that came in since 30 Jun, with 1.325 € paid into pensions counted as both." It's since the value the money in of the account the most came into is measured from, usually 31 December; the pensions part only when something was paid into them; while amounts are hidden, "Savings rate 17% of what came in since 30 Jun." Not shown when net worth has no value by 31 December (a library started this year).
-- **Can I retire yet?** The plan's headline, how close your plan assets are to what retiring today needs, and how you compare today with the baseline *Are you on track?* and the plan's answer measure the latest check-in against (its year's): whether you're ahead of, on or behind plan, as *Are you on track?* says it (today's plan assets in money of the baseline's start, as Progress compares them), then the amount against its median, named as Progress names it: "On plan · 12.400 € ahead of your Jan baseline" ("… of your Oct baseline" when the year's first check-in came in October, "… of your Jan 2025 baseline" until this year's first check-in, "… of your 2021 plan" for a past baseline); nothing without one. Tapping it opens the Plan tab.
-  - **Readiness**: a bar and "58% of what you'd need to retire today" ([PLANNER.md](PLANNER.md#assets-needed-to-retire-today)). Its ⓘ explains it: "Your plan assets compared with what retiring now would need for a 90% chance (the plan's confidence), including the years before your pensions start and taxes. The plan finds it by simulating retiring today with extra money added to accounts you can draw now, or with money taken out of them; money locked in pension funds stays as it is. At 100% you could retire today." It comes from the same simulation as the chance of retiring today, so it reaches 100% exactly when the answer turns to "Yes" (above 100% it keeps counting: "130% of what you'd need…"). When retiring today would need more than 20 times your plan assets, it says so instead of a percentage.
-  - An answer recorded before readiness existed has only the old "of the way to financial independence", a rule of thumb that ignored the years before the pensions and taxes and so disagreed with the chance of retiring today: the card shows "Calculate the plan to see how close you are to retiring today." instead.
-  - A caption under the answer says what it is: "Estimates, not financial or tax advice."
-  - The answer opens the plan on a tap anywhere but the ⓘ and *Calculate*; the chevron is its button for VoiceOver and the keyboard. It shows the main plan's latest results, or else the answer recorded at the last check-in, dated, with *Calculate*. While a calculation is going (a check-in's, or one started on the Plan screen or here) it says how far along it is, and results that no longer fit the plan or your data say "Calculated before your latest changes", with *Calculate*. *Calculate* runs the main plan as turning *Future* on does; the Overview never starts one on its own. When it fails, the answer stays and says why under it ("Base case can't be calculated: …"), with *Try Again* and *Open Plan*.
+- **Can I retire yet?** The main plan's answer as a headline with a readiness ring, then where you stand. It shows the main plan's latest results, or else the answer recorded at the last check-in.
+  - **Label row:** "Can I retire yet?", then at the right the run status, an ⓘ and a chevron. The run status adds no line: "◷ 30 Sep" for an answer recorded at a check-in (VoiceOver: "As recorded at the check-in on 30 Sep 2026"), a small *Calculate* when the results no longer fit the plan or your data, "Calculating 29%" while a calculation runs (a check-in's, or one started on the Plan screen or here). *Calculate* runs the main plan as turning *Future* on does; the Overview never starts one on its own. When it fails, the answer stays and says why on a line of its own under the headline ("Base case can't be calculated: …"), with *Try Again* and *Open Plan*.
+  - **The ⓘ** explains the whole answer, in this order: the earliest age and month and the confidence ("At 54, in March 2042, in 9 of 10 futures"), the readiness ("58% of what you'd need to retire today") and what it compares, "Calculated before your latest changes" when the results are out of date, and "Estimates, not financial or tax advice." The disclaimer has no line of its own on the Overview.
+  - **Headline:** the time to go in large type, "In 15 years": the widgets' countdown (`RetirementCountdown.headlineText`), in whole years from two years on, rounded to the nearest, so 15 years and 6 months reads "In 16 years"; "In 18 months" below two years; "In under a month". "Yes" when you could retire today, "Not yet" when no age works out. An answer recorded at a check-in counts to the birthday its earliest age is reached on, never before the check-in, as the widgets do; without a birth date it has no time to go, nor does an earliest month that has passed: the headline is then "At 54". VoiceOver reads the headline and the ring as one: "Not yet. In about 15 years, at 54, in March 2042, in 9 of 10 futures. 58% of what you'd need to retire today."; "Yes. You could retire today, in at least 9 of 10 futures. …"; "Not yet. No age works in 9 of 10 futures yet. …".
+  - **Readiness ring:** how close your plan assets are to what retiring today needs ([PLANNER.md](PLANNER.md#assets-needed-to-retire-today)), a ring 48 points across at the headline's right, filling clockwise from the top in the accent over a gridline track. Its label stands to its left: the percentage over "ready". The number follows the *Readiness* widget's rules (Glance's `ReadinessFigure`): rounded down below 100%, "58%+" when it's a lower bound, "<5%" with an empty ring when retiring today would need more than 20 times your plan assets. It comes from the same simulation as the chance of retiring today, so it reaches 100% exactly when the answer turns to "Yes". Past 100% the ring laps itself: a full ring with the part past 100% drawn over it in a deeper blue, so 130% is a full ring and 30% more; it stops drawing at 200%, and the label still gives the real number. (The widget's ring is full at 100%.) The ring keeps its size at every text size; when the headline and the ring don't fit on one line, the ring and its label go on a line of their own under the headline.
+  - An answer recorded before readiness existed has only the old "of the way to financial independence", a rule of thumb that ignored the years before the pensions and taxes and so disagreed with the chance of retiring today: it has no ring, and "Calculate the plan to see how close you are to retiring today." goes under the headline instead.
+  - **Out of date:** the headline, the ring and its label, and the coast point line dim, as the Plan screen dims out-of-date results; the standing and net worth don't.
+  - **Tiles:** two cards side by side under the headline, 12 points apart on iPhone and 16 on the Mac and iPad, 12 points of padding inside, as tall as each other, their rows lined up. At the largest text sizes they stack, each the full width, *Net worth* first. On the Mac and iPad each part of a line ("12.400 € ahead of January") is on one row; on iPhone the second part goes under the first.
+    - *Net worth:* the hero number's values: "Net worth", the amount, its two changes ("▲ 4.210 € in September", "▲ 6,2% this year"), and the note when today's total is partial.
+    - *On track?* (opens the main plan's Progress): where the latest check-in stands against its year's baseline, as Progress's *Are you on track?* says it: "On plan", "Ahead" in green or "Behind" in orange (VoiceOver: "On plan", "Ahead of plan", "Behind plan"), then the amount against the baseline's median, named as Progress's years name it: "12.400 € ahead" / "of January" ("of October" for a baseline saved at a later first check-in, "of your 2021 plan" for a past one; "behind January" when behind). Without a baseline to measure against, "Not measured yet". Then, while you're past the coast point (the coast age, from the latest results or recorded at the check-in, at or under the age the first pension starts, as on Progress's Milestones card), "Past the coast point: 63 without saving" (VoiceOver: "You're past the coast point: saving nothing more, you could still retire at 63."); not without a pension or a known coast age, nor with "Yes".
+  - **Hidden amounts:** amounts hide as they do everywhere else (`AmountText`, `DeltaText`): the *Net worth* tile reads "•••••" with this year's change in per cent, and *On track?* "••••• ahead"; VoiceOver reads the standing without the amount. The headline and the ring have no amounts.
+  - The label row and the headline open the plan on a tap anywhere but the ⓘ and *Calculate*; the chevron is their button for VoiceOver and the keyboard.
   - **Before there's an answer** the answer is a card below the chart, with one next step. Without a main plan: "Make a plan to see when you could retire." with *Create a plan*, which creates "Base case" from the latest check-in, makes it the main plan and opens it, as the Plan screen's *Create your first plan* does (when there are plans but none is the main one: "Choose a main plan to see when you could retire." with *Open Plan*, where *Set as Main Plan* chooses it; when the main plan's file couldn't be read: "Your main plan's file couldn't be read, so it has no answer." with *Show Details*, which opens Sync). Why *Create a plan* failed shows under it until the plans change. With a main plan not yet calculated: "Calculate Base case to see when you could retire. Each check-in then records its answer." with *Calculate*; while it runs, "Working out Base case… 34%"; a plan that can't run says why, with *Try Again* and *Open Plan*.
 - **Needs attention.** Only shown when something needs you: stale accounts (not one that holds nothing: see [Accounts](#accounts)), accounts with problems in their trades, prices that couldn't be fetched, sync conflicts that were merged, and plan warnings. An account whose trades have problems (more sold than held, an opening without a cost, a statement that differs from the trades: the notes its page shows) gets one item that opens it: "Directa: 2 problems with trades · More sold than held · VWCE differs from the statement. Open the account to fix them." Prices and exchange rates missing on past month ends get an item each, which opens *Fill In Past Prices*: "Past exchange rates for US$ are missing · US brokerage isn't fully counted in your net worth for Jun 2018 – Dec 2021. Fill in past prices to fetch them."
 - **Allocation.** Horizontal bars with values and percentages; a donut would be harder to read. The dimension can be switched between asset class, account group, currency, institution, and liquid vs locked.
@@ -432,7 +439,7 @@ A plan picker sits at the top (Base case ▾, with New Plan, Duplicate, Rename�
 
 ### Calculating
 
-A plan is calculated only when you ask: *Calculate*, *Recalculate* (⌘R, and a toolbar button on the Mac), *Run What If*, a check-in recording its answer, the Overview's *Calculate* (under its answer, or on its card before there is one), or turning on the Overview's *Future* when the main plan has no results yet. Opening a plan, editing an input, moving a what-if slider or choosing another age for the charts runs nothing; the screen says what's out of date instead. Each plan keeps its own results, what-if and chosen age while you switch between plans.
+A plan is calculated only when you ask: *Calculate*, *Recalculate* (⌘R, and a toolbar button on the Mac), *Run What If*, a check-in recording its answer, the Overview's *Calculate* (in its answer's label row when the results are out of date, or on its card before there is one), or turning on the Overview's *Future* when the main plan has no results yet. Opening a plan, editing an input, moving a what-if slider or choosing another age for the charts runs nothing; the screen says what's out of date instead. Each plan keeps its own results, what-if and chosen age while you switch between plans.
 
 **Results are kept on the device.** Each plan's latest results (not a what-if's, nor another age's) are kept on this device, outside the library, so they show again the next time the app opens, without calculating: up to date when the plan and your accounts and prices are as they were, else out of date for that reason, as below. They don't sync: each device keeps the results it calculated, and the library holds only what a check-in records (its answer, and the year's baseline). When the other device recorded a newer check-in's answer since, the Overview and the widgets show that answer instead. The plan menu says when they were calculated: "Calculated at 14:05 with 2.000 runs", with the day when it isn't today ("Calculated on 3 Oct at 14:05 …") and the year when it isn't this one. Results of an older version of the app's calculations aren't shown, and the system may clear the kept results when space runs low; the plan is then calculated again on request.
 
@@ -794,7 +801,7 @@ See [PROGRESS.md](PROGRESS.md).
   - Why ([PROGRESS.md](PROGRESS.md#actual-vs-a-baseline)): "Why you're ahead" ("Why you ended behind" for a past year), the same four rows every year, each with a bar on the largest's scale and its amount, signed, in green or orange, "0 €" in grey: **Going in** (the gap going into the year, or on a baseline's own start later in it), **Saving** (what you saved less what January planned), **Markets** (what they did less what January expected) and **Other** (inflation, values without new money entered, exchange rates). Then the total ("Ahead +21.572 €") and what January expected, in one line ("January expected 141.463 € by 31 Dec.", "… by now."). In whole units, so the rows add up to the total. Without the split, January's note instead, and for a year without a baseline *Add What You Planned in 2021…*, which opens *Add Past Baseline…* on its first day.
   - What happened, a row a month, a month with a milestone flagged and the milestone in bold ("Mar · You saved 9.121 €, more than usual.", "May · ⚑ Plan changed. **Passed 150.000 €.**", "Jun · 55 again.", "Aug · ⚑ **Passed the coast point: 67.**", "Calculations updated."); "Nothing to note." without any. Saving a baseline isn't a row: which baseline the year is measured against shows in its words ("ahead of January", "ahead of your 2021 plan").
   - A year whose check-ins stop early says so ("No check-ins after June: what you held is valued at its prices."), and one with missing prices or rates that those holdings count as zero and the line is dotted there, with *Fill In Past Prices…*.
-- **Milestones**, after the year's words on iPhone, beside the strip on the Mac and iPad ([Milestones](#milestones)): the next, how far there and when it typically comes; saving nothing more, when you could still retire, and when you reached the coast point; *All Milestones*, every milestone reached and ahead, in a sheet.
+- **Milestones**, after the year's words on iPhone, beside the strip on the Mac and iPad ([Milestones](#milestones)): the next, how far there and when it typically comes; saving nothing more, when you could still retire, and when you reached the coast point; *All Milestones*, what each kind means and every milestone reached and ahead, in a sheet.
 - **Next in your plan.** The chapter after the current one ("② Bridge, from 54 in 2042") with *Open*; then the one button, *Save Baseline…*, which takes a label ("Freeze what you expect now, to measure against it later."); and quietly under it *Add a Past Baseline…*. On the Mac and iPad under the milestones, beside the strip.
 - **Add Past Baseline…** ([PROGRESS.md](PROGRESS.md#past-baselines)): a sheet for what you planned before you used the app. *Planned on* (a day from your first record of a plan asset to your latest check-in, starting at the end of the first month) with your plan assets that day; **What you planned then**: take-home pay, spending while working, when to stop working and spending in retirement, a month each, starting from today's plan ("Returns, taxes, pensions, events and the rest are as in today's plan."); a name ("What I planned in 2021" when left empty). *Calculate and Save* runs the plan from that day and saves it; the baseline picker lists it as "What I planned in 2021 (added 6 Oct 2026)", and the years without their own baseline are measured against it ("12.400 € ahead of your 2021 plan", "Your 2021 plan expected …").
 - **More charts**, folded away:
@@ -803,31 +810,78 @@ See [PROGRESS.md](PROGRESS.md).
 
 ### Milestones
 
-The points you pass on the way ([PROGRESS.md](PROGRESS.md#milestones)): round amounts of plan assets, years of the spending you plan for retirement, shares of what retiring today needs, and the crossover, where a typical year's growth adds as much as you save. They're there to notice progress between the rare moves of the answer, calmly: a flag, a sentence, a row in a list. No badges, confetti or streaks, and nothing is taken away when markets fall back.
+The points you pass on the way ([PROGRESS.md](PROGRESS.md#milestones)): round amounts of plan assets from 10.000 €, years of the spending you plan for retirement, shares of what retiring today needs, and the crossover, where a typical year's growth adds as much as you save. They're there to notice progress between the rare moves of the answer, calmly: a flag, a sentence, a row in a list. No badges, confetti or streaks, and nothing is taken away when markets fall back.
 
 ```
 ┌──────────────────────────────────────────┐
-│ Milestones                               │
-│ ⚑ Next milestone                88% there│
-│ 400.000 €                                │
-│ ▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇░░░░░   │
-│ Typically by mid 2027.                   │
+│ Milestones                          Done │
+│ ⚑ Next milestone               98% there │
+│ 10 years of spending                     │
+│ ▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇░   │
+│ Enough to pay for 10 years of the        │
+│ spending you plan for retirement:        │
+│ 360.000 €.                               │
+│ Typically by early 2027.                 │
+│ ──────────────────────────────────────── │
+│ Saving nothing more                   71 │
+│ If you stopped saving today, you could   │
+│ still retire at 71; the coast point is   │
+│ 67, when your first pension starts.      │
+│ ──────────────────────────────────────── │
+│ What they mean                           │
+│                                          │
+│ Round amounts                            │
+│ Your plan assets passing 10.000 €,       │
+│ 15.000 €, 20.000 €, 25.000 € and on,     │
+│ each about a quarter above the last:     │
+│ simple marks of the money growing.       │
+│ ⚑ 300.000 €                     Jun 2026 │
+│ ⚐ 400.000 €                   early 2028 │
+│                                          │
+│ Years of spending                        │
+│ What you have, counted in years of the   │
+│ 36.000 € a year you plan to spend in     │
+│ retirement.                              │
+│ ⚑ 5 years of spending           Aug 2024 │
+│ ⚐ 10 years of spending        early 2027 │
+│                                          │
+│ What retiring today needs                │
+│ Your plan assets against what retiring   │
+│ today would need. All of it means you    │
+│ could stop now.                          │
+│ ⚑ A third of what retiring…     Jun 2026 │
+│ ⚐ Half of what retiring…       late 2028 │
+│                                          │
+│ The crossover                            │
+│ From about 380.000 €, a typical year's   │
+│ growth adds as much as you save: from    │
+│ there, markets do more than your saving. │
+│ None yet.                                │
+│ ⚐ The crossover                 mid 2027 │
+│                                          │
+│ The coast point                          │
+│ When you could stop saving and still     │
+│ retire when your first pension starts,   │
+│ at 67.                                   │
+│ None yet.                                │
 │ ──────────────────────────────────────── │
 │ Reached                                  │
-│ ⚑ 300.000 €                    Jun 2026  │
-│ ⚑ A third of what retiring…    Jun 2026  │
-│ ⚑ 250.000 €                    Aug 2025  │
+│ ⚑ 300.000 €                     Jun 2026 │
+│ ⚑ A third of what retiring…     Jun 2026 │
+│ ⚑ 250.000 €                     Aug 2025 │
 │ Ahead, typically                         │
-│ ⚐ 10 years of spending         early 2028│
-│ ⚐ 400.000 €                    early 2029│
+│ ⚐ 10 years of spending        early 2027 │
+│ ⚐ The crossover                 mid 2027 │
+│ ⚐ 400.000 €                   early 2028 │
 └──────────────────────────────────────────┘
 ```
 
-- **Progress.** A card after the year's words (beside the strip on the Mac and iPad): the next milestone ("⚑ Next milestone", "5 years of spending · 90% there") with how far there as a bar, and what its name doesn't say and when the median future typically reaches it ("180.000 € · typically by late 2028"); saving nothing more (below); and *All Milestones*, a sheet with the next, what's been reached, newest first, and what's ahead, soonest first (five of each, *Show All* for the rest). On a year's card, a filled flag on the line at the check-in or the month end that reached one (in the years before your first check-in too), its name in the year's words; and in those words, the month's row flagged, the milestone in bold ("Jun · ⚑ **Passed 300.000 €.**"). Notable check-ins join the rows too: "You saved 3.200 €, more than usual.", "Markets fell 24.500 €, 8%.". Saving a baseline isn't one.
+- **Progress.** A card after the year's words (beside the strip on the Mac and iPad): the next milestone ("⚑ Next milestone", "5 years of spending · 90% there") with how far there as a bar, and what its name doesn't say and when the median future typically reaches it ("180.000 € · typically by late 2028"); saving nothing more (below); and *All Milestones*, a sheet with the next and saving nothing more; *What they mean*, each kind of milestone the plan has, explained, with the latest of it reached and the next ahead (below); then what's been reached, newest first, and what's ahead, soonest first (five of each, *Show All* for the rest). On a year's card, a filled flag on the line at the check-in or the month end that reached one (in the years before your first check-in too), its name in the year's words; and in those words, the month's row flagged, the milestone in bold ("Jun · ⚑ **Passed 300.000 €.**"). Notable check-ins join the rows too: "You saved 3.200 €, more than usual.", "Markets fell 24.500 €, 8%.". Saving a baseline isn't one.
 - **Plan.** On the chapter cards, on the median where it reaches one: the chapter's first and last named, with an outlined flag and when ("10 years of spending", "early 2037"), the rest small dots; and in the chosen chapter's words: "Along the way, typically: 400.000 € in mid 2027 and 10 years of spending in early 2028." (The answer no longer has the next milestone under it: Progress has it.)
 - **Check-in.** After saving, the milestones passed since the check-in before, at this one or at a month end between them, each a line with a flag ("Passed 300.000 €."). The shares of what retiring today needs and the coast point come with the month's answer, and show on Progress.
 - **The coast age.** On Progress's Milestones card, once a calculation or a check-in has worked it out ([PLANNER.md](PLANNER.md#ages-without)): "Saving nothing more · retire at 71", in green once it's at or under the coast point, and under it where it stands against the coast point: "In August it was 67, when your first pension starts: the coast point." once you'd reached it and the age has moved since, "The coast point is 67, when your first pension starts.", or "You're past the coast point: your first pension starts at 67." The *All Milestones* sheet says it in full ("If you stopped saving today, you could still retire at 63; the coast point is 67, when your first pension starts."), and so do the plan's key numbers. The coast point is a milestone: the first check-in whose recorded coast age is at or under the age the first pension starts, the first check-in that recorded one included ("Passed the coast point: saving nothing more, you could still retire at 67."). It stays under *Reached* when the age rises again.
 - **The widget.** *Next milestone* shows the next one, its bar and when it typically comes ([Widgets](#widgets)).
+- **What they mean.** In the *All Milestones* sheet, between saving nothing more and the lists, a block for each kind the plan has, in this order: its name, what it means and why it matters, then the latest of it reached (a filled flag, "None yet." without one) and the next of it ahead (an outlined flag; "No more before the plan's end." without one, nothing without results). Round amounts are always there: "Your plan assets passing 10.000 €, 15.000 €, 20.000 €, 25.000 € and on, each about a quarter above the last: simple marks of the money growing." ("Your plan assets passing round amounts, …" while amounts are hidden). Years of spending need the plan's retirement spending: "What you have, counted in years of the 36.000 € a year you plan to spend in retirement." What retiring today needs: "Your plan assets against what retiring today would need. All of it means you could stop now." The crossover needs saving and growth: "From about 380.000 €, a typical year's growth adds as much as you save: from there, markets do more than your saving." The coast point needs a pension, and has nothing ahead: "When you could stop saving and still retire when your first pension starts, at 67." A kind with none on the ladder and none reached is left out.
 - **Words.** A round amount is its amount ("A round amount" while amounts are hidden); "10 years of spending" ("Enough for 10 years of the spending you plan for retirement."); "Half of what retiring today needs" ("Halfway to what retiring today needs."), and all of it "All that retiring today needs: you could stop."; "The crossover" ("A typical year now adds more than you save."). Dates ahead are a part of a year, "early", "mid" or "late 2028", since they're the median of many futures.
 
 ### Export Calculations
@@ -917,7 +971,7 @@ On iPhone, a CSV opened from Files goes straight to "Import with profile…": ch
 - **Retirement income** stacks its sources in a fixed order, each in its own slot of the same palette, so neighbours in the stack are neighbours in the validated order: withdrawals blue, work orange, pensions aqua, windfalls green, other red. The taxes on top are a neutral grey (the secondary ink colour), which stays apart from all eight hues in light and dark. Each band is a wash of its colour with a 2-point line in the colour along its top and a 2-point gap above the line, never a saturated block; net worth by asset class is drawn the same way.
 - **Lines and small marks** (the lines along stacked areas, legend swatches, dots, the allocation bars) need 3:1 against what they sit on, the card or the page. In light mode orange, aqua, yellow and magenta don't all reach it, so they use a darker step of the same hue there (orange `#d95926`, aqua `#199e70`, yellow `#ba7e07`, magenta `#d55181`); washes keep the lighter step, and in dark mode every hue already reaches it. Checked as a set on both surfaces with the dataviz validator.
 - **Changes** (the bars since the last check-in) use the positive and negative colours, with a sign and an amount in ink beside each bar.
-- **Everything else** is one hue (blue) with labels: allocation by account group, fan charts (the bands are lighter steps of blue), success curves.
+- **Everything else** is one hue (blue) with labels: allocation by account group, fan charts (the bands are lighter steps of blue), success curves. The Overview's readiness ring draws its second lap, past 100%, in a deeper step of it (`AccentDeep`: darker in light mode, brighter in dark mode), so it stands out on the first.
 - **Your actual history** is always drawn in ink, not a series colour, so "what happened" never looks like "what was projected".
 - **Status colours** (warning, error) appear only with an icon and a label.
 

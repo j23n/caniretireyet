@@ -2,7 +2,9 @@ import SwiftUI
 
 /// Its children side by side in columns of equal width, each as tall as it
 /// needs, the row as tall as the tallest, aligned at the top: the Mac's and
-/// iPad's two columns of plan results.
+/// iPad's two columns of plan results. With `equalHeights`, each child is
+/// offered the row's height, so cards that fill it are as tall as each
+/// other (the Overview's tiles).
 ///
 /// Unlike `Grid` or `HStack`, the columns never depend on what the children
 /// would like to be. Charts fit their ticks and legends to the width they
@@ -13,6 +15,8 @@ import SwiftUI
 /// rather than asking the children.
 struct EqualColumns: Layout {
     var spacing: CGFloat = Metrics.l
+    /// Whether each child is offered the row's height, not only its own.
+    var equalHeights = false
     /// The width of a column when the parent offers no width.
     private static let fallbackColumnWidth: CGFloat = 360
 
@@ -26,10 +30,11 @@ struct EqualColumns: Layout {
 
     func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
         let column = columnWidth(bounds.width, count: subviews.count)
+        let height: CGFloat? = equalHeights ? bounds.height : nil
         for (index, subview) in subviews.enumerated() {
             let x = bounds.minX + CGFloat(index) * (column + spacing)
             subview.place(at: CGPoint(x: x, y: bounds.minY), anchor: .topLeading,
-                          proposal: ProposedViewSize(width: column, height: nil))
+                          proposal: ProposedViewSize(width: column, height: height))
         }
     }
 

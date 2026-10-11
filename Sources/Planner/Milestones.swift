@@ -7,7 +7,8 @@ import Tracker
 public struct Milestone: Hashable, Sendable, Identifiable {
     /// What a milestone means.
     public enum Kind: Hashable, Sendable {
-        /// A round amount: 1, 1.5, 2, 2.5, 3, 4, 5, 6 or 7.5 times a power of ten.
+        /// A round amount: 1, 1.5, 2, 2.5, 3, 4, 5, 6 or 7.5 times a power of
+        /// ten, from ``MilestoneLadder/roundFloor``.
         case roundAmount
         /// Enough for this many years of the plan's retirement spending.
         case yearsOfSpending(Int)
@@ -101,6 +102,9 @@ public struct MilestoneLadder: Hashable, Sendable {
     /// without a pension.
     public var coastTarget: Int?
 
+    /// The lowest round amount, in every currency: below it they'd come every
+    /// few check-ins and say little. The other kinds have no floor.
+    public static let roundFloor: Decimal = 10_000
     /// The round amounts' first digits, times ten: 1, 1.5, 2, 2.5, 3, 4, 5, 6 and 7.5.
     static let roundSteps: [Decimal] = [10, 15, 20, 25, 30, 40, 50, 60, 75]
     /// The years of spending that are milestones.
@@ -110,10 +114,10 @@ public struct MilestoneLadder: Hashable, Sendable {
                                                                      (1, 1)]
 
     /// The round amounts in `range`, lowest first: 1, 1.5, 2, 2.5, 3, 4, 5, 6
-    /// and 7.5 times a power of ten, from 1,000.
+    /// and 7.5 times a power of ten, from ``roundFloor``.
     public static func roundAmounts(in range: ClosedRange<Decimal>) -> [Decimal] {
         var amounts: [Decimal] = []
-        var power: Decimal = 100
+        var power = roundFloor / 10
         while 10 * power <= range.upperBound {
             for step in roundSteps where range.contains(step * power) {
                 amounts.append(step * power)
@@ -270,7 +274,7 @@ public struct MilestoneLadder: Hashable, Sendable {
     ///     today needs (as in ``ahead(of:readiness:median:)``).
     public func next(after current: Decimal, readiness: Decimal? = nil) -> NextMilestone? {
         let ladder = matching(current: current, readiness: readiness)
-        let upper = max(current, 0) * 2 + 1_000
+        let upper = max(current, 0) * 2 + Self.roundFloor
         guard let milestone = ladder.milestones(in: current...upper)
             .first(where: { Self.isAhead($0, of: current, readiness: readiness) }) else {
             return nil
