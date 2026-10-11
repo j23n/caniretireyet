@@ -63,7 +63,7 @@ public struct SavingPace: Hashable, Sendable {
     /// Accounts whose saving at the rate of their latest payment goes on to
     /// `asOf`, for at most as long again: paid regularly and not valued
     /// since, or paid less often than plan assets are valued, or valued
-    /// less often and not since;
+    /// less often and not since, when that reaches the months;
     /// money taken out isn't carried forward.
     public let carriedForward: [AccountID]
     /// Whether the amounts are in money of `asOf`. Without an inflation
@@ -302,8 +302,10 @@ extension Valuator {
             let until = min(asOf, last.to.adding(days: length))
             spread(last.amount * Decimal(last.to.days(to: until)) / Decimal(length), of: account,
                    from: last.to, to: until)
+            // Listed when it reaches the months the pace reads, carried into
+            // them from a check-in that may be before them.
+            guard until > ends[window] else { continue }
             carriedForward.append(account)
-            // Carried into the months from a check-in that may be before them.
             if last.isMissing { isComplete = false }
         }
 

@@ -191,6 +191,22 @@ struct SavingPaceTests {
         #expect(pace.unusualMonths.isEmpty)
     }
 
+    /// A pension fund paid 3,000 a quarter through 30 Jun 2025 and not
+    /// valued since: carried forward to 29 Sep 2025, before the months, so
+    /// it isn't listed.
+    @Test func aCarryEndingBeforeTheMonthsIsntListed() throws {
+        var library = self.library(flows: [Decimal](repeating: 1_000, count: 24))
+        library.accounts["pension"] = Account(id: "pension", name: "Pension", kind: .pensionFund, currency: .eur,
+                                              opened: "2020-01-01")
+        library.upsert(Valuation(account: "pension", date: "2024-09-30", balance: 10_000, flow: 0))
+        library.upsert(Valuation(account: "pension", date: "2024-12-31", balance: 13_000, flow: 3_000))
+        library.upsert(Valuation(account: "pension", date: "2025-03-31", balance: 16_000, flow: 3_000))
+        library.upsert(Valuation(account: "pension", date: "2025-06-30", balance: 19_000, flow: 3_000))
+        let pace = try #require(Valuator(library: library).savingPace(asOf: "2026-09-30"))
+        #expect(pace.carriedForward.isEmpty)
+        #expect(pace.perYear == 12_000)
+    }
+
     /// A pension fund valued once a year, on 31 Mar, with 6,000 paid in:
     /// it goes on saving at that rate from its statement to 30 Sep, so the
     /// year's 6,000 isn't cut to the 182 days before its statement.
