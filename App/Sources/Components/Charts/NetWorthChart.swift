@@ -32,8 +32,12 @@ import Tracker
 ///   (``MarkerLabelLayout``).
 /// - Time ticks fit the chart's width (``TimeTicks``).
 /// - Drag across it to read any date: a vertical rule with a callout
-///   showing the date, the total and, when stacked, the breakdown; over
-///   the projection, its median and bands. The callout stays inside the chart.
+///   showing the date, the total and, when stacked, the breakdown. Over
+///   the projection it reads the same way: the median as its headline,
+///   labeled "Median", then a row each for the top 10% (the 90th
+///   percentile) and the bottom 10% (the 10th), with the 10–90% band's
+///   swatch. Its amounts are short (`300.000 €`, `12,3M €`, Glance's
+///   `ShortAmount`). The callout stays inside the chart.
 ///
 ///     NetWorthChart(history: valuator.series(through: date).chartPoints)
 ///     NetWorthChart(history: history.points, stacked: history.stacked, projection: history.projection,
@@ -254,17 +258,19 @@ struct NetWorthChart: View {
                 Text(fan.date, format: .dateTime.month(.abbreviated).year())
                     .font(.caption2)
                     .foregroundStyle(Palette.secondaryInk)
-                calloutRow("Median") {
-                    AmountText(Decimal(wholeNumber: fan.p50))
+                // Labeled, so it doesn't read as an actual total.
+                HStack(alignment: .firstTextBaseline, spacing: 4) {
+                    Text("Median").font(.caption2).foregroundStyle(Palette.secondaryInk)
+                    calloutTotal(fan.p50)
                 }
-                calloutRow("25–75%") { range(fan.p25, fan.p75) }
-                calloutRow("10–90%") { range(fan.p10, fan.p90) }
+                let band = Palette.accent.opacity(ProjectionLegend.outerBand)
+                calloutRow("Top 10%", color: band, value: fan.p90)
+                calloutRow("Bottom 10%", color: band, value: fan.p10)
             } else if let point = selection.point {
                 Text(point.date, format: .dateTime.day().month(.abbreviated).year())
                     .font(.caption2)
                     .foregroundStyle(Palette.secondaryInk)
-                AmountText(Decimal(wholeNumber: point.value))
-                    .font(.caption.weight(.semibold))
+                calloutTotal(point.value)
                 if !point.isComplete {
                     Text("Partial: some values are missing")
                         .font(.caption2)
@@ -272,12 +278,7 @@ struct NetWorthChart: View {
                 }
                 ForEach(stacked) { series in
                     if let value = series.points.first(where: { $0.date == point.date })?.value, value != 0 {
-                        HStack(spacing: 4) {
-                            Circle().fill(Palette.stroke(for: series.color)).frame(width: 6, height: 6)
-                            Text(series.name).font(.caption2).foregroundStyle(Palette.secondaryInk)
-                            Spacer(minLength: 4)
-                            AmountText(Decimal(wholeNumber: value)).font(.caption2)
-                        }
+                        calloutRow(series.name, color: Palette.stroke(for: series.color), value: value)
                     }
                 }
             }
@@ -292,20 +293,20 @@ struct NetWorthChart: View {
         .calloutBackground()
     }
 
-    private func calloutRow<Value: View>(_ title: String, @ViewBuilder value: () -> Value) -> some View {
-        HStack(spacing: Metrics.s) {
-            Text(title).foregroundStyle(Palette.secondaryInk)
-            Spacer(minLength: Metrics.s)
-            value()
-        }
-        .font(.caption2)
+    /// The callout's headline: the total, or over the projection its median.
+    private func calloutTotal(_ value: Double) -> some View {
+        AmountText(Decimal(wholeNumber: value), short: true)
+            .font(.caption.weight(.semibold))
     }
 
-    private func range(_ low: Double, _ high: Double) -> some View {
-        HStack(spacing: 2) {
-            AmountText(Decimal(wholeNumber: low))
-            Text(verbatim: "–")
-            AmountText(Decimal(wholeNumber: high))
+    /// A group's row, or a band's edge over the projection: its swatch, its
+    /// name and its amount.
+    private func calloutRow(_ name: String, color: Color, value: Double) -> some View {
+        HStack(spacing: 4) {
+            Circle().fill(color).frame(width: 6, height: 6)
+            Text(name).font(.caption2).foregroundStyle(Palette.secondaryInk)
+            Spacer(minLength: 4)
+            AmountText(Decimal(wholeNumber: value), short: true).font(.caption2)
         }
     }
 

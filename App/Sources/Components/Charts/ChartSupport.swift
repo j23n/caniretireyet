@@ -418,13 +418,15 @@ struct ChartCaption: View {
 
 /// One control for a chart's time span (UI.md, "Overview"): how far back
 /// (1Y, 3Y, 5Y, All) and, while the future is shown, how far ahead (to
-/// retirement, retirement + 15 years, 20 years, the whole plan).
+/// retirement, or retirement + 5, 10, 20 or 30 years; once retirement is
+/// behind, 5, 10, 20 or 30 years from today).
 struct TimeSpanMenu: View {
     @Binding var range: OverviewRange
     /// The horizon in use, `nil` while the future isn't shown (see
     /// ``AppPreferences/horizonBinding(start:retirement:)``).
     var horizon: Binding<FutureHorizon>?
-    /// The horizons that make sense for the plan.
+    /// The horizons that make sense for the plan
+    /// (``FutureHorizon/choices(start:retirement:)``).
     var choices: [FutureHorizon]
     /// A shorter label, for an iPhone.
     var compact = false
@@ -443,14 +445,15 @@ struct TimeSpanMenu: View {
                 Section("Future") {
                     Picker("Future", selection: horizon) {
                         ForEach(choices, id: \.self) { option in
-                            Text(option.title).tag(option)
+                            Text(option.title(fromRetirement: fromRetirement)).tag(option)
                         }
                     }
                     .pickerStyle(.inline)
                 }
             }
         } label: {
-            Label(timeSpanTitle(range: range, horizon: horizon?.wrappedValue, compact: compact),
+            Label(timeSpanTitle(range: range, horizon: horizon?.wrappedValue, fromRetirement: fromRetirement,
+                                compact: compact),
                   systemImage: "calendar")
                 .font(.subheadline)
                 .monospacedDigit()
@@ -460,15 +463,22 @@ struct TimeSpanMenu: View {
         .accessibilityValue(accessibilityValue)
     }
 
+    /// Whether the horizons count from retirement: while *To retirement*
+    /// is offered, that is while retirement is ahead.
+    private var fromRetirement: Bool {
+        choices.contains(.toRetirement)
+    }
+
     private var accessibilityValue: String {
         guard let horizon else { return range.spokenTitle }
-        return "\(range.spokenTitle) back, \(horizon.wrappedValue.title.lowercased()) ahead"
+        let title = horizon.wrappedValue.title(fromRetirement: fromRetirement)
+        return "\(range.spokenTitle) back, \(title.lowercased()) ahead"
     }
 }
 
 extension AppPreferences {
     /// The future horizon as the time span menu shows and sets it: the
-    /// horizon in use (a retirement-based one becomes 20 years once
+    /// horizon in use (*To retirement* becomes the standard horizon once
     /// retirement isn't ahead); a choice is remembered.
     func horizonBinding(start: Date, retirement: Date?) -> Binding<FutureHorizon> {
         Binding(get: { self.futureHorizon.effective(start: start, retirement: retirement) },

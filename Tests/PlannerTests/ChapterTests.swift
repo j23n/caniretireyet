@@ -171,6 +171,32 @@ struct ChapterTests {
         #expect(chapters.chapterIndex(of: .event(1)) == 1)
         #expect(chapters.outside == [.pension(0), .event(0), .event(2)])
     }
+
+    /// A point on a chapter's time axis reads the age reached during its
+    /// year, whatever the birthday: its start, 31 December of the year
+    /// before, is its first year and age, and the round ages fall on their
+    /// birthdays.
+    @Test(arguments: ["1970-02-01", "1970-11-30"] as [CalendarDate])
+    func aPointOnAChapterReadsTheAgeReachedThatYear(born: CalendarDate) throws {
+        let chapter = try #require(Self.chapters(Self.plan()).chapters.last)
+        #expect(chapter.years == 2030...2040)
+        #expect(chapter.ages == 60...70)
+
+        // The start, "60" under the card's left edge.
+        #expect(chapter.year(on: "2029-12-31") == 2030)
+        #expect(chapter.age(on: "2029-12-31") == 60)
+        #expect(chapter.age(on: "2030-01-01") == 60)
+        // Mid-chapter, before and after the birthday.
+        #expect(chapter.year(on: "2034-01-15") == 2034)
+        #expect(chapter.age(on: "2034-01-15") == 64)
+        #expect(chapter.age(on: "2034-12-15") == 64)
+        // A round age on its birthday, where its tick is.
+        let birthday = try #require(CalendarDate(year: born.year + 65, month: born.month, day: born.day))
+        #expect(chapter.age(on: birthday) == 65)
+        // The end, "70" under the last card's right edge.
+        #expect(chapter.year(on: "2040-12-31") == 2040)
+        #expect(chapter.age(on: "2040-12-31") == 70)
+    }
 }
 
 extension PlanChapters {
