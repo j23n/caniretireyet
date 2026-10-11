@@ -42,6 +42,10 @@ struct ImportPreviewStep: View {
                 ForEach(flow.quantityTradeNotes, id: \.self) { note in
                     StatusBanner(.info, note, personal: .title)
                 }
+                ForEach(flow.leftOutTradeNotes, id: \.self) { note in
+                    StatusBanner(.info, note, message: "Its trades are imported all together or not at all.",
+                                 personal: .title)
+                }
                 ImportConflictsCard(model: model)
                 Card {
                     ImportGridView(grid: flow.grid(onlyProblems: onlyProblems))

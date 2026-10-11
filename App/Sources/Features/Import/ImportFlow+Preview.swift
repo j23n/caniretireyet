@@ -168,6 +168,16 @@ extension ImportFlow {
         editDecisions { $0.conflictPolicy = policy }
     }
 
+    /// Why an account's trades made from quantities are left out, e.g.
+    /// "“Ledger wallet”: 1 trade left out until its conflicts are overwritten.":
+    /// one of its conflicts keeps the library's trades, so none of the file's apply.
+    var leftOutTradeNotes: [String] {
+        (preview?.tradesLeftOutUntilOverwritten ?? []).map { left in
+            "“\(accountName(left.account))”: \(Wording.count(left.count, "trade")) left out until its conflicts "
+                + "are overwritten."
+        }
+    }
+
     /// Decides one conflict (while deciding one by one), and those decided
     /// with it: an account's trades made from quantities.
     mutating func setResolution(_ resolution: ConflictPolicy, for key: ImportRecordKey) {
