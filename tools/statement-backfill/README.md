@@ -11,7 +11,7 @@ A one-off script that reads PDF bank, broker, card and loan statements with a lo
 5. **Assemble.** Account numbers are mapped to the library's accounts (`accounts.json`), and then:
    - **Cash and savings:** one row per month end, with the balance, money in, money out and interest. Transfers between your accounts (the same amount out of one and into another within 4 days, a broker deposit included) count as neither money in nor money out. Several statement accounts mapped to one library account are merged: their balances add up.
    - **Brokers:** every trade. A depot transfer between two statement accounts mapped to one library account is dropped on both sides, so the holdings keep the cost of the original buys. The holdings the trades give are compared with those each statement lists.
-   - **Cards and loans:** the balance owed on each statement date. Cards merged into one account add up, each by its latest statement.
+   - **Cards and loans:** the balance owed on each statement date. Cards merged into one account add up, each by its latest statement, from its first statement through its last. That suits a card replaced by a new number; two cards that run at the same time but stop on different days leave only the later one in the last rows.
    - The checks across statements: each closing balance is the next opening balance, and missing statements show as gaps. A month end that falls in a gap or in a failed statement is left out rather than guessed.
 
 Every model reply is cached in `WORK`, one folder per PDF (named after its hash). Stopping and running again picks up where it stopped, and a rerun after the full run costs nothing until something changes.

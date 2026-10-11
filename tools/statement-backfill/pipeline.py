@@ -168,8 +168,10 @@ def money(value: Decimal | None) -> str:
 
 
 def account_key(number: object) -> str:
-    """An account number to compare by: letters and digits, upper case."""
-    return re.sub(r"[^0-9A-Za-z*]", "", str(number or "")).upper()
+    """An account number to compare by: letters and digits, upper case, with hidden digits
+    (**** or XXXX) as *."""
+    key = re.sub(r"[^0-9A-Za-z*]", "", str(number or "")).upper()
+    return re.sub(r"X{2,}", lambda run: "*" * len(run.group()), key)
 
 
 def parse_json(reply: str) -> dict:

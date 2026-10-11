@@ -270,9 +270,9 @@ class ReadingTests(unittest.TestCase):
         (root / "accounts.json").write_text(json.dumps({"4242": "credit-card"}))
         config = pipeline.Config(statements=root, work=root, output=root, accounts=root / "accounts.json", model="x")
         statements = [pipeline.Statement(f"{n}.pdf", "bank", "Bank", n, "EUR", None, None, {})
-                      for n in ["**** 4242", "DE00 0000 4242"]]
+                      for n in ["**** 4242", "XXXX XXXX XXXX 4242", "DE00 0000 4242"]]
         mapped = pipeline.map_accounts(statements, config, pipeline.Report())
-        self.assertEqual([s.number for s in mapped], ["**** 4242"])
+        self.assertEqual([s.number for s in mapped], ["**** 4242", "XXXX XXXX XXXX 4242"])
 
     def test_profiles_map_every_column(self):
         for profile in pipeline.profiles().values():
