@@ -4,7 +4,7 @@ A design note for the top of the Overview, above the history chart ([UI.md](../U
 
 The history chart and everything below it stay as they are in every direction. The answer's card below the chart, shown before there's an answer, stays too. All values are made up, from UI.md's wireframes.
 
-A and C also have high-fidelity mocks, under their wireframes ([A](#mocks), [C](#mocks-1)). They're SVGs in [overview-header/](overview-header/), drawn by hand with the app's colors (`Assets.xcassets`), its spacing (`Metrics`) and the system text styles at the default size. They aren't screenshots: on a Mac they render in SF Pro, elsewhere in a fallback font, so line lengths are approximate.
+A, B and C also have high-fidelity mocks, under their wireframes ([A](#mocks), [B](#mocks-1), [C](#mocks-2)). They're SVGs in [overview-header/](overview-header/), drawn by hand with the app's colors (`Assets.xcassets`), its spacing (`Metrics`) and the system text styles at the default size. They aren't screenshots: on a Mac they render in SF Pro, elsewhere in a fallback font, so line lengths are approximate.
 
 ## Today
 
@@ -261,6 +261,16 @@ Three tiles across: the answer, the readiness with its whole sentence, ⓘ, the 
 │ 3Y · retirement +15 ▾                                 Future ◯ │
 └────────────────────────────────────────────────────────────────┘
 ```
+
+### Mocks
+
+On an iPhone, in light and dark mode, and out of date: *Calculate* as the answer tile's last row (R2), the answer's lines and the coast point line dimmed, and the net worth tile as tall as the answer tile. The tiles are cards, 12 points apart with 12 points inside, so "312.480 €" fits in title. The answer tile's ⓘ sits in its top corner, by the label.
+
+![B. Two tiles on an iPhone: light, dark, and out of date](overview-header/b-iphone.svg)
+
+On the Mac: three tiles across. The readiness tile keeps the baseline's amount ("On plan · 12.400 € ahead ›"), where the wireframe has only "On plan ›", because the tile has room for it.
+
+![B. Two tiles on the Mac](overview-header/b-mac.svg)
 
 ## C. One gauge
 
