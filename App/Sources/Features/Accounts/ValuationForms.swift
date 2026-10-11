@@ -340,8 +340,8 @@ struct AccountValuationForm: Hashable, Sendable {
     /// Empty means unknown. Typed only where ``AccountValuationFields/flow``.
     var flow: String
     /// Money in and out of a cash or savings account. Empty, money in is 0
-    /// and money out is suggested, as in *Update Value*; saving records
-    /// both, on an older value without them too.
+    /// and money out is suggested, as in *Update Value*. An older value
+    /// without them stays without when only its note changes.
     var moneyIn: String
     var moneyOut: String
     /// A savings account's interest; empty means none.
@@ -489,14 +489,20 @@ struct AccountValuationForm: Hashable, Sendable {
                 return Position(instrument: field.instrument, quantity: quantity, costBasis: number(field.cost))
             }
         }
-        valuation.moneyIn = fields.moneyInOut ? number(moneyIn) ?? 0 : original.moneyIn
-        valuation.moneyOut = fields.moneyInOut ? number(moneyOut) : original.moneyOut
         valuation.interest = fields.interest ? number(interest) : original.interest
+        // Whether something the new money is worked out from changed (not a note, say).
+        let valueChanged = valuation.date != original.date || valuation.balance != original.balance
+            || valuation.cash != original.cash || valuation.positions != original.positions
+            || valuation.interest != original.interest
+        // Money in and out are filled in as in Update Value, except on an older value without
+        // them where only the note changed: that one stays without.
+        let fillsMoneyInOut = fields.moneyInOut && (valueChanged || number(moneyIn) != nil
+            || number(moneyOut) != nil || original.moneyIn != nil || original.moneyOut != nil)
+        valuation.moneyIn = fields.moneyInOut ? number(moneyIn) ?? (fillsMoneyInOut ? 0 : nil) : original.moneyIn
+        valuation.moneyOut = fields.moneyInOut ? number(moneyOut) : original.moneyOut
         if fields.flow {
             valuation.flow = number(flow)
-        } else if valuation.date == original.date, valuation.balance == original.balance,
-                  valuation.cash == original.cash, valuation.positions == original.positions,
-                  valuation.interest == original.interest {
+        } else if !valueChanged {
             // Nothing the new money is worked out from changed (a note, say), so it stays as it was.
             valuation.flow = original.flow
         } else {
@@ -504,7 +510,7 @@ struct AccountValuationForm: Hashable, Sendable {
             let previous = others.valuations(for: original.account).last { $0.date < date }
             valuation.flow = Valuator(library: others).defaultFlow(for: valuation, previous: previous)
         }
-        if fields.moneyInOut, suggestingMoneyOut, valuation.moneyOut == nil {
+        if fillsMoneyInOut, suggestingMoneyOut, valuation.moneyOut == nil {
             valuation.moneyOut = Self.suggestedMoneyOut(for: valuation, kind: kind)
         }
         let trimmedNote = note.trimmingCharacters(in: .whitespacesAndNewlines)
