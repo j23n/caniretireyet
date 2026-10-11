@@ -173,7 +173,7 @@ The iPhone uses a tab bar and the Mac uses a sidebar. The iPad gets the sidebar 
   - net worth today;
   - a chart over time, stacked by category;
   - the change since the last check-in, split into market and new money;
-  - the change this year, split the same way;
+  - the change this year, split the same way, with the savings rate when money in and out are recorded;
   - breakdowns;
   - accounts that haven't been updated recently;
   - a *past and future* switch that continues the chart into the plan's projection;
@@ -308,7 +308,7 @@ The importer works with any spreadsheet or export instead of a fixed layout. Det
 ### M4: Depth (pick by interest)
 
 - Historical and bootstrapped return sequences. Variable withdrawal strategies (a guardrails rule is done: flexible spending, [PLANNER.md](PLANNER.md#flexible-spending)).
-- Tracking actual income and spending, to measure your real savings rate: started, as money in and out of cash and savings accounts ([PROGRESS.md](PROGRESS.md#money-in-and-out)).
+- Tracking actual income and spending, to measure your real savings rate: started, as money in and out of cash and savings accounts, and the savings rate they give with pension contributions ([PROGRESS.md](PROGRESS.md#money-in-and-out)).
 - Cost basis from transactions: done, as trades ([TRADES.md](TRADES.md)), with the app's screens and broker transaction CSVs importing into them ([IMPORT.md](IMPORT.md)). Still to do: lots (FIFO).
 - Reading `.xlsx` and `.numbers` files directly.
 - Planning for a partner or household.
