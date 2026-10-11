@@ -1,6 +1,6 @@
 # Accounts: what each kind records
 
-> Status: proposed, waiting for the owner's approval. Nothing in the code or the file format changes until then. Once it's approved, the work is split into sub-issues of #50 ([Order of work](#order-of-work)).
+> Status: approved by the owner, with the answers in [Settled questions](#settled-questions). The work is split into sub-issues of #50 ([Order of work](#order-of-work)).
 
 An account's kind alone says what it records. Today three settings decide it: the valuation mode, the new money the check-in fills in, and the `moneyInOut` opt-in, and their combinations are easy to miss. From now on each kind has one rule, and the check-in, *Update Value* and *Edit Value* ask for the same fields.
 
@@ -102,7 +102,7 @@ Each item names the files, types or docs it changes. Paths are relative to the r
 ### File format
 
 - **`docs/schema/account.schema.json`:** `moneyInOut` goes. `valuation` lists `balance` and `trades`, and its description says what each kind records and that `holdings` is migrated. `kind`'s description says the kind decides what's recorded.
-- **`docs/schema/history-month.schema.json`:** `moneyIn` and `moneyOut` are on every cash and savings value after an account's first. The descriptions change: `moneyOut` (loan and mortgage payments are money out), `flow` (worked out from what's typed for these kinds), `valuation` (positions are only a trades account's check, or a past value's).
+- **`docs/schema/history-month.schema.json`:** `moneyIn` and `moneyOut` are on every cash and savings value after an account's first. A new optional `interest` is on savings values. The descriptions change: `moneyOut` (loan and mortgage payments are money out), `flow` (worked out from what's typed for these kinds), `valuation` (positions are only a trades account's check, or a past value's).
 - **`docs/schema/library.schema.json`** and **`Sources/Model/Library/LibrarySettings.swift`** (`currentSchemaVersion`): version 4.
 - **`docs/schema/README.md`:** *How values are computed* (no snapshot accounts; the "Positions, flow unknown" case only for values recorded before the migration, if any remain); *Versioning* (version 4 and what it changed); *Reading hand-edited files* (a `holdings` account in a version-4 library; money in and out on other kinds); *CSV export* (`money_in_out` leaves `accounts.csv`).
 - **`Tests/StorageTests/JSONSchemaTests.swift`** checks the schemas against the Model's `knownKeys`, so it fails until both change.
@@ -114,12 +114,12 @@ The commit message of each change here says why ([CLAUDE.md](../CLAUDE.md), "Sha
 - **`AccountKind`** (`Sources/Model/Accounts/AccountKind.swift`): `defaultValuationMode` is `.trades` for brokerage, crypto and metals. `defaultFlow` and `FlowDefault` change: savings is the change minus the interest (no longer `wholeChangeEditable`), and `newMoney` (snapshots) goes. A new property names the debts whose drop counts as kept (loan, mortgage). `recordsMoneyInOut` stays: cash and savings.
 - **`ValuationMode`** (same file): `holdings` leaves `knownValues`. It still decodes, as any open-enum value does, and the load checks point it out.
 - **`Account`** (`Sources/Model/Accounts/Account.swift`): the `moneyInOut` stored property, its coding key and `tracksMoneyInOut` go; callers use `kind.recordsMoneyInOut`.
-- **`Valuation`** (`Sources/Model/History/Valuation.swift`): no new field, unless interest is stored ([Open questions](#open-questions), 2). `positions` and `isHoldings` stay, for statements and past values.
+- **`Valuation`** (`Sources/Model/History/Valuation.swift`): a new optional `interest` for a savings account's values ([Settled questions](#settled-questions), 2). `positions` and `isHoldings` stay, for statements and past values.
 - **Tests:** `Tests/ModelTests/DefaultsTests.swift` (the defaults by kind), `KnownKeysTests.swift`.
 
 ### Storage: the migration and the load checks
 
-- **`Sources/Storage/Maintenance/Migrations.swift`:** the first step in `Migration.all`, `Migration(from: 3, …)`. A step works on raw JSON: dropping `moneyInOut` and turning balance-recorded investment accounts into `other` fit; converting snapshot accounts doesn't, since `conversionToTrades(of:)` is in Tracker and Storage depends only on Model ([Open questions](#open-questions), 1).
+- **`Sources/Storage/Maintenance/Migrations.swift`:** the first step in `Migration.all`, `Migration(from: 3, …)`. A step works on raw JSON: dropping `moneyInOut` and turning balance-recorded investment accounts into `other` fit; converting snapshot accounts doesn't, since `conversionToTrades(of:)` is in Tracker and Storage depends only on Model, so the app and the CLI pass that step in ([Settled questions](#settled-questions), 1).
 - **`Sources/Storage/Library/LibraryLoader.swift`:** `checkMoneyInOut` keeps pointing out money in and out on other kinds; `checkTrades` and a new check point out a `holdings` account.
 - **Tests:** `Tests/StorageTests/SchemaTests.swift` (`MigrationTests`, whose made-up step is `Migration(from: 3, …)` today, so it moves to version 4; and the real migration from a version-3 library: what each kind becomes, the backup, nothing written when a step fails). Tests that write `schemaVersion` 3 change with it: `BackupTests`, `UnknownKeysTests`, `GoldenRoundTripTests`, `NewLibraryTests`, `SaveMergeTests`, `JSONSchemaTests`, `LoaderTests`, `CloudSyncTests/ConflictMergerTests`, and in `RetireCLITests` `ImportTests`, `NetWorthTests` and `ValidateTests`.
 
@@ -150,8 +150,8 @@ The check-in's and the forms' logic is in files that import only Foundation and 
 
 - **The check-in** (`App/Sources/Features/CheckIn/`):
   - `CheckInModel.swift`: `CheckInRowDisplay.showsMoneyInOut` asks the kind, not the opt-in; `showsFlowField` stays only for the kinds that ask (`rule == .ask`); `CheckInField` gets interest and loses `quantity` and `paid`; `CheckInFieldOrder` (the iPhone's order and the Mac's Now column) follows; "moved" gets its words.
-  - `CheckInList.swift` (iPhone): a balance row shows *In*, *Out* (and *Interest* for savings) and "moved", read-only; the snapshot row and its *Add a Position* (`CheckInComponents.swift`, `CheckInRowMenu`; `CheckInSession.addPosition`) go; a trades row asks for the trades since the last check-in ([Open questions](#open-questions), 4).
-  - `CheckInTable.swift` (the Mac): the columns (`CheckInColumns`, `CheckInTableHeader`: Account, Last, Now, Change, New money, Note). New money is read-only for every kind but those that ask; money in and out, interest and "moved" need a place, today's *Money in* and *Money out* lines under the account (`moneyLine`) or columns of their own ([Open questions](#open-questions), 8); `positionLine` and the *paid* field go.
+  - `CheckInList.swift` (iPhone): a balance row shows *In*, *Out* (and *Interest* for savings) and "moved", read-only; the snapshot row and its *Add a Position* (`CheckInComponents.swift`, `CheckInRowMenu`; `CheckInSession.addPosition`) go; a trades row asks for the trades since the last check-in and waits for *Add Trade…* or *No Trades* ([Settled questions](#settled-questions), 4).
+  - `CheckInTable.swift` (the Mac): the columns (`CheckInColumns`, `CheckInTableHeader`: Account, Last, Now, Change, New money, Note). New money is read-only for every kind but those that ask; money in and out, interest and "moved" are lines under the account, as *Money in* and *Money out* are today (`moneyLine`) ([Settled questions](#settled-questions), 8); `positionLine` and the *paid* field go.
   - `CheckInReviewView.swift`: "moved" across accounts and what doesn't cancel out.
   - `CheckInPriceList.swift`: instruments come only from trades rows.
 - ***Update Value*** (`UpdateValueSheet` in `App/Sources/Features/Accounts/AccountSheets.swift`, `AccountValuationInput` in `ValuationForms.swift`): asks for money in and out (it doesn't today), interest for savings, and new money only for the kinds that ask ("Paid in since …"); the snapshot section (positions, *Paid*, *Add Position*) goes.
@@ -178,9 +178,9 @@ The check-in's and the forms' logic is in files that import only Foundation and 
 
 ### The importer
 
-- **Snapshot targets** ([IMPORT.md](IMPORT.md#targets): *Quantity held*, *Purchase cost*, *Cash in an investment account*; `ImportTarget` in `Sources/Model/Imports/ImportKinds.swift`) write positions into a snapshot account's values (`ImportedRecord`, `RecordMerge.merge` in `Sources/Importer/Preview/ImportRecord.swift`). A trades account's positions are only a check, so a spreadsheet of quantities has to become trades, or the targets go ([Open questions](#open-questions), 6).
+- **Snapshot targets** ([IMPORT.md](IMPORT.md#targets): *Quantity held*, *Purchase cost*, *Cash in an investment account*; `ImportTarget` in `Sources/Model/Imports/ImportKinds.swift`) write positions into a snapshot account's values (`ImportedRecord`, `RecordMerge.merge` in `Sources/Importer/Preview/ImportRecord.swift`). A trades account's positions are only a check, so a spreadsheet of quantities is converted into trades: an opening, then a buy or a sale per change ([Settled questions](#settled-questions), 6).
 - **New accounts** (`Sources/Importer/Matching/NameMatcher.swift`, `suggestedKind`): an investment account is proposed recording trades, as one from a transactions file already is; a balance column for one is proposed as kind `other`. `suggestedKind` no longer asks `defaultValuationMode == .holdings`.
-- **Switching an account to trades** (`PreviewBuilder`'s `.recordTrades` proposal, `ImportResult.apply`): only an account that isn't brokerage, crypto or metals can still be asked, if any kind other than those records trades ([Open questions](#open-questions), 3).
+- **Switching an account to trades** (`PreviewBuilder`'s `.recordTrades` proposal, `ImportResult.apply`): only an account that isn't brokerage, crypto or metals can still be asked ([Settled questions](#settled-questions), 3).
 - **Money in and out** aren't import targets: imported cash and savings values have none, which counts as not recorded, as today.
 - **Tests:** `Tests/ImporterTests/PreviewApplyTests.swift`, `SampleFileTests.swift`, `TradesImportTests.swift`; `Tests/RetireCLITests/ImportTests.swift`.
 
@@ -204,18 +204,18 @@ In `Sources/TestSupport/Resources/ExampleLibrary/`:
 - **schema/README.md:** as under [File format](#file-format).
 - **App/README.md:** the screens and types that change or go (`AccountConversionSheet`, `AccountForm.tracking`).
 
-## Open questions
+## Settled questions
 
-These need the owner's answer before the sub-issues start.
+The owner answered these before the sub-issues start.
 
-1. **Where the migration converts snapshot accounts.** `conversionToTrades(of:)` is in Tracker (it uses `PriceTable` and `FXTable`), and Storage depends only on Model, so a migration step on raw JSON can't call it. Options: (a) a Storage → Tracker edge in `Package.swift`, with its reason; (b) the conversion moves into Model; (c) the steps come from the caller (`migrate(to:steps:date:)` already takes them): Storage's step drops `moneyInOut` and renames kinds, and the app and the CLI add a step that decodes the library and converts with Tracker. (c) keeps the module rules; (a) is the least code.
-2. **Interest: stored or worked out.** Interest is the change minus the flow, so it needs no field. But when the value before is corrected, the change moves, and so would a worked-out interest. Stored as an optional `interest` on the valuation (a new optional field: the schema and `knownKeys`), the flow can be worked out again from it. Store it?
-3. **Accounts whose mode doesn't match their kind.** Today any kind can record trades or snapshots (a pension fund imported with quantities, an `other` account with trades), and a snapshot account can hold only balances (an imported history). Are they migrated by their kind, by their mode (snapshots → trades whatever the kind), or left as they are? And can a kind other than brokerage, crypto and metals record trades from now on?
-4. **Does a trades row still start done?** Today it counts as reviewed, "from trades", with *Add Trade…* under it ([TRADES.md](TRADES.md#check-ins)). "Asks for the trades since the last one" could be a row that waits for *Add Trade…* or *No Trades*, or today's row with the question first.
-5. **What "doesn't cancel out" means** in the review: any amount, or above a threshold (an amount, or a share of what moved)? A payment from the bank into a pension fund (a voluntary contribution) shows as not cancelling out, since pensions aren't in the sum: is that pointed out, or are pension funds' new money in the sum too?
-6. **The importer's snapshot targets.** Import a sheet of quantities into a trades account by converting what it reads (an opening, then a buy or a sale per change, as `conversionToTrades(of:)` does), or drop those targets and import only transactions files and balances?
-7. **An account's first value** asks only for its balance, as proposed above, or also for money in and out since it opened?
-8. **The Mac check-in table.** *In*, *Out*, *Interest* and "moved" as lines under the account, as *Money in* and *Money out* are today, or as columns of their own (empty for kinds that don't record them)?
+1. **Where the migration converts snapshot accounts:** the steps come from the caller. `migrate(to:steps:date:)` already takes them. Storage's own step works on raw JSON: it drops `moneyInOut`, turns balance-recorded investment accounts into `other`, and sets the mode of a snapshot account that holds only balances to `balance`. The app and the CLI add a step that decodes the library and converts snapshot accounts with Tracker's `conversionToTrades(of:)`. Storage keeps depending only on Model.
+2. **Interest is stored:** an optional `interest` on the valuation (the schema and `knownKeys`). The flow is the change minus it, so correcting the value before keeps the interest and works the flow out again.
+3. **Accounts are migrated by their mode, not their kind:** every snapshot account becomes a trades account, whatever its kind, so its values and new money stay the same. A snapshot account whose values hold only balances becomes a balance account. Other kinds that already record trades keep them. A new account is offered trades only for brokerage, crypto and metals, and the importer still offers to switch an account of another kind to trades when a transactions file targets it.
+4. **A trades row waits:** it isn't done until you add a trade (*Add Trade…*) or say there were none (*No Trades*). Both are on the row.
+5. **"Doesn't cancel out"** is any amount of at least 1 in the base currency after the sum. Pension funds aren't in the sum: contributions taken from the payslip never pass through a tracked account. The review shows it as information, not as a warning.
+6. **The importer's snapshot targets convert:** a sheet of quantities imported into a trades account becomes an opening and a buy or a sale per change, as `conversionToTrades(of:)` does. *Quantity held*, *Purchase cost* and *Cash in an investment account* stay as targets.
+7. **An account's first value** asks only for its balance (or a trades account's opening positions and cash), as proposed.
+8. **The Mac check-in table** shows *In*, *Out*, *Interest* and "moved" as lines under the account, as *Money in* and *Money out* are today. The columns stay as they are.
 
 ## Order of work
 
