@@ -240,9 +240,10 @@ struct PlanValueEditor: View {
         guard let perYear = summary.moneyOutPerYear else { return nil }
         let amount = hidesAmounts
             ? AmountFormat.hidden : AmountFormat.amount(perYear / 12, currency: summary.currency, locale: locale)
+        let unconverted = summary.isComplete ? "" : " Values without an exchange rate are left out too."
         return "Your accounts recorded \(amount) a month on average going out, over "
             + "\(Wording.count(summary.months.count, "recorded month")) in the last year. Money moved between them, "
-            + "debt payments included, is left out."
+            + "debt payments included, is left out." + unconverted
     }
 
     private func title(_ text: String) -> some View {
