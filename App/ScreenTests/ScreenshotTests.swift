@@ -22,6 +22,13 @@ struct ScreenshotTests {
         try await keep("what-if", .example, .whatIf)
     }
 
+    /// The Target mix sheet of a plan with a mix of its own and changes
+    /// with age. On iPhone; on the Mac a sheet is a window of its own,
+    /// which the picture of the main window leaves out.
+    @Test func targetMix() async throws {
+        try await keep("target-mix", .example, .targetMix)
+    }
+
     @Test func progress() async throws {
         try await keep("progress", .example, .progress)
     }
