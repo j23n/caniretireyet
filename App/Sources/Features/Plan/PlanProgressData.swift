@@ -382,6 +382,52 @@ extension PlanProgressYear {
         yearlyBaseline(for: year, in: baselines) ?? pastBaseline(for: year, in: baselines)
     }
 
+    /// What deleting `entry` changes, for its confirmation: which of `years`
+    /// measured against it are then measured against another baseline
+    /// (``baseline(for:in:)`` among those left) and which have none; whether
+    /// an automatic baseline comes back; where its copy is kept.
+    ///
+    /// - Parameter savingYear: the year a check-in would save an automatic
+    ///   baseline for when it has none: this year for the main plan, `nil`
+    ///   for another plan (``PlanStore/checkInSaved(on:)``).
+    static func deletionNote(of entry: PlanBaselineEntry, years: [Int], baselines: [PlanBaselineEntry],
+                             savingYear: Int?, locale: Locale = .current) -> String {
+        let rest = baselines.filter { $0.id != entry.id }
+        let measured = years.filter { baseline(for: $0, in: baselines)?.id == entry.id }
+        var sentences: [String] = []
+        if measured.isEmpty {
+            sentences.append("No year is measured against it.")
+        }
+        // The years in order, a sentence for each baseline that measures them then.
+        var groups: [(next: PlanBaselineEntry?, years: [Int])] = []
+        for year in measured {
+            let next = baseline(for: year, in: rest)
+            if let index = groups.firstIndex(where: { $0.next?.id == next?.id }) {
+                groups[index].years.append(year)
+            } else {
+                groups.append((next, [year]))
+            }
+        }
+        for group in groups {
+            let list = Wording.list(group.years.map { String($0) })
+            let one = group.years.count == 1
+            if let next = group.next {
+                let label = PlanBaselineComparison.label(for: next.baseline, locale: locale)
+                sentences.append("\(list) \(one ? "is" : "are") then measured against “\(label)”.")
+            } else {
+                sentences.append("\(list) then \(one ? "has" : "have") no baseline to be measured against.")
+            }
+        }
+        if entry.baseline.kind == .yearly {
+            sentences.append(entry.baseline.created.year == savingYear
+                ? "Your next check-in this year saves a new automatic baseline, starting then."
+                : "An automatic baseline is only saved in its own year, for the main plan, so this one won't come "
+                    + "back.")
+        }
+        sentences.append("A copy is kept in Sync & backups.")
+        return sentences.joined(separator: " ")
+    }
+
     /// The year's automatic baseline ("Start of 2026"), saved at its first check-in.
     static func yearlyBaseline(for year: Int, in baselines: [PlanBaselineEntry]) -> PlanBaselineEntry? {
         baselines.first { $0.baseline.isYearly(of: year) }
