@@ -9,7 +9,7 @@ on:
 
 permissions:
   contents: read
-  issues: write # creates the ci:mac label
+  issues: write # creates the ci:mac and ci:screenshots labels
   pull-requests: write
   id-token: write
 
@@ -19,14 +19,17 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
-      # The label that starts the Mac's CI on this pull request (j23n/apple-ci's README, "When CI
-      # runs"); the review adds it. Created here when the repository doesn't have it yet.
-      - name: The ci:mac label
+      # The labels that start the Mac's CI and the UI tests on this pull request (j23n/apple-ci's
+      # README, "When CI runs"); the review adds them. Created here when the repository doesn't have
+      # them yet.
+      - name: The ci:mac and ci:screenshots labels
         env:
           GH_TOKEN: ${{ github.token }}
-        run: >-
-          gh label create "ci:mac" --repo "$GITHUB_REPOSITORY" --color 1d76db
-          --description "Runs the Mac's CI on this pull request" 2>/dev/null || true
+        run: |
+          gh label create "ci:mac" --repo "$GITHUB_REPOSITORY" --color 1d76db \
+            --description "Runs the Mac's CI on this pull request" 2>/dev/null || true
+          gh label create "ci:screenshots" --repo "$GITHUB_REPOSITORY" --color 5319e7 \
+            --description "Runs the UI tests and their screenshots on this pull request" 2>/dev/null || true
       - uses: actions/checkout@v6
         with:
           fetch-depth: 1
@@ -56,6 +59,12 @@ jobs:
             once: gh pr edit ${{ github.event.pull_request.number }} --remove-label ci:mac, then
             gh pr edit ${{ github.event.pull_request.number }} --add-label ci:mac. Don't for docs, workflows or Linux-only
             code, which Linux CI covers. Say in your summary whether you started it, and why.
+
+            The UI tests and their screenshots (CI's screenshots job: App/UITests, make screenshots) don't run by
+            themselves either, not even on main. When your verdict is pass and the diff changes what a screen shows or how
+            it opens (the app's views, layouts, navigation, words, colors, assets, App/UITests, or what the screens show from
+            Planner, Tracker or Glance), start them once the same way with the ci:screenshots label: --remove-label, then
+            --add-label. Don't for changes no screen shows. Say in your summary whether you started them, and why.
           claude_args: >-
             --model claude-opus-5-5
             --effort high

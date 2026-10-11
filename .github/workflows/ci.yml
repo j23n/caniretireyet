@@ -5,12 +5,15 @@ name: CI
 
 # apple-ci's workflows decide when each job runs (its README's "When CI runs"): Linux on every push;
 # macOS on pushes to main, runs by hand (Actions › CI › Run workflow), and a pull request once it's
-# labeled ci:mac, which Claude's review adds when the change needs the Mac's build.
+# labeled ci:mac, which Claude's review adds when the change needs the Mac's build. The UI tests and
+# their screenshots run only when asked: on a pull request labeled ci:screenshots, which the review
+# adds when the change alters what a screen shows, and on runs by hand.
 on:
   push:
   pull_request:
     # Only labeled: each commit already has its push's run. The ci:mac label's run adds the Mac's
-    # jobs; another label's run skips them (apple-ci's README, "When CI runs").
+    # jobs, ci:screenshots the UI tests; another label's run skips them (apple-ci's README, "When CI
+    # runs").
     types: [labeled]
   workflow_dispatch:
 
@@ -35,7 +38,9 @@ jobs:
     with:
       name: macOS · package and app (iOS Simulator and Mac)
 
+  # Not on pushes, main's included: on a pull request once it's labeled ci:screenshots, and by hand.
   screenshots:
+    if: github.event_name != 'push'
     uses: j23n/apple-ci/.github/workflows/macos.yml@main
     with:
       name: macOS · UI tests and screenshots (Mac and iPhone Simulator)
@@ -43,3 +48,4 @@ jobs:
       ui-automation: true
       artifact-name: screenshots
       artifact-path: .build/screenshots
+      pull-request-label: ci:screenshots
