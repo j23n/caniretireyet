@@ -127,10 +127,12 @@ struct SpendingCommand: RetireSubcommand {
             var months: [String]
             var unconverted: [String]
             /// What was kept of what came in, as a fraction; absent for one
-            /// account or when nothing came in.
+            /// account, when no money in and out was counted, or when nothing
+            /// came in.
             var savingsRate: String?
-            /// What was paid into pension funds and TFR over the days the
-            /// values cover, counted as both kept and come in; absent for one account.
+            /// What was paid into pension funds and TFR over the days the pay
+            /// covers, counted as both kept and come in; absent for one account
+            /// or when no money in and out was counted.
             var pensionContributions: String?
         }
     }
