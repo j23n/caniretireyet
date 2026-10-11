@@ -82,6 +82,23 @@ struct CheckInMoneyInOutTests {
         #expect(again.review(in: typed).row(for: "conto-fineco")?.valuation?.moneyOut == 3100)
     }
 
+    @Test func aSuggestedMoneyOutFollowsAnEditBeforeIt() throws {
+        var draft = CheckInDraft(date: "2026-10-31", library: library)
+        draft["conto-fineco"]?.setBalance(d("4600.25"))
+        draft["conto-fineco"]?.setMoneyIn(3400)
+        var saved = library
+        draft.apply(to: &saved)
+
+        // September's balance corrected: October's flow and suggested money out follow.
+        var september = try #require(saved.valuations(for: "conto-fineco").first { $0.date == "2026-09-30" })
+        september.balance = d("4110.55")
+        let edit = saved.saveValue(september, replacing: september.key)
+        let october = saved.valuations(for: "conto-fineco").last
+        #expect(october?.flow == d("489.7"))
+        #expect(october?.moneyOut == d("2910.3"))
+        #expect(edit.flows.moneyInOut.isEmpty)
+    }
+
     @Test func neverWritesNegativeAmounts() throws {
         var draft = CheckInDraft(date: "2026-10-31", library: library)
         draft["conto-fineco"]?.setBalance(d("4600.25"))
