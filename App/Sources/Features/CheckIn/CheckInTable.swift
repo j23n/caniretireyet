@@ -19,9 +19,10 @@ import Tracker
 /// "Opened later": a value entered there moves the account's opening date
 /// back when the check-in is saved.
 ///
-/// An account that records trades needs nothing typed: it's done "from
-/// trades" from the start, with its value and new money from its trades.
-/// Under it, *Add Trade…* on the check-in's date, what its trades hold as
+/// An account that records trades needs nothing typed: with new trades
+/// since its last value it's done "from trades", with its value and new
+/// money from its trades; without, it waits for a trade or *No Trades*.
+/// Under it, *Add Trade…* (and *No Trades*) on the check-in's date, what its trades hold as
 /// read-only sub-rows, then its cash from the trades with *From
 /// Statement…* to type a statement's (none for an account that holds no
 /// cash). Right-click it to compare with a statement's quantities.

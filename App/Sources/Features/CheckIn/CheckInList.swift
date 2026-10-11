@@ -18,9 +18,14 @@ import Tracker
 /// collapsed "Opened later" section: a value entered there moves the
 /// account's opening date back when the check-in is saved.
 ///
-/// An account that records trades needs nothing typed: it's done "from
-/// trades" from the start. It shows what its trades hold and their value
-/// at the check-in's prices, *Add Trade…* on the check-in's date, its cash
+/// Under a cash or savings account's balance, after its first value: money
+/// in and out (and a savings account's interest), with what moved between
+/// your accounts. New money is typed only for the kinds that ask for it.
+///
+/// An account that records trades needs nothing typed: with new trades
+/// since its last value it's done "from trades"; without, it waits for a
+/// trade or *No Trades*. It shows what its trades hold and their value at
+/// the check-in's prices, *Add Trade…* on the check-in's date, its cash
 /// from the trades (read-only, with *Enter From Statement* to compare; none
 /// for an account that holds no cash) and its new money from the trades.
 struct CheckInList: View {
