@@ -56,6 +56,7 @@ struct SyncScreen: View {
                                 .font(.caption)
                                 .foregroundStyle(Palette.mutedInk)
                         }
+                        .privacySensitive()
                     } icon: {
                         Image(systemName: "doc.on.doc").foregroundStyle(Palette.warning)
                     }
@@ -68,6 +69,7 @@ struct SyncScreen: View {
                             .font(.caption)
                             .foregroundStyle(Palette.mutedInk)
                     }
+                    .privacySensitive()
                 }
                 ForEach(library.conflictFailures) { failure in
                     Label {
@@ -75,6 +77,7 @@ struct SyncScreen: View {
                             Text(failure.path).font(.callout.monospaced())
                             Text(failure.message).font(.footnote).foregroundStyle(Palette.secondaryInk)
                         }
+                        .privacySensitive()
                     } icon: {
                         Image(systemName: "exclamationmark.triangle").foregroundStyle(Palette.warning)
                     }
@@ -102,6 +105,7 @@ struct SyncScreen: View {
                             Text(issue.path).font(.callout.monospaced())
                             Text(issue.message).font(.footnote).foregroundStyle(Palette.secondaryInk)
                         }
+                        .privacySensitive()
                     } icon: {
                         Image(systemName: issue.severity == .error ? "xmark.octagon" : "exclamationmark.triangle")
                             .foregroundStyle(issue.severity == .error ? Palette.critical : Palette.warning)
@@ -118,18 +122,21 @@ struct SyncScreen: View {
                     LabeledContent {
                         HStack(spacing: Metrics.s) {
                             Text(backup.created, format: .dateTime.day().month().year().hour().minute())
+                                .privacySensitive()
                             Button("Restore…") { restoring = backup }
                                 .buttonStyle(.borderless)
                                 .disabled(isRestoring)
                         }
                     } label: {
                         Text(backup.label)
+                            .privacySensitive()
                     }
                 }
                 if let restoreNote {
                     Text(restoreNote)
                         .font(.footnote)
                         .foregroundStyle(restoreFailed ? Palette.critical : Palette.secondaryInk)
+                        .privacySensitive()
                 }
             } header: {
                 Text("Backups")
@@ -273,6 +280,7 @@ struct LibraryLocationRows: View {
         }
         if let moveError {
             Text(moveError).font(.footnote).foregroundStyle(Palette.critical)
+                .privacySensitive()
         }
     }
 

@@ -21,6 +21,7 @@ struct LibraryCSVExportSheet: View {
                         Text(message)
                             .font(.footnote)
                             .foregroundStyle(Palette.secondaryInk)
+                            .privacySensitive()
                     }
                 } footer: {
                     Text(Self.contents)
@@ -48,16 +49,19 @@ struct LibraryCSVExportSheet: View {
             ShareLink(item: file.url) {
                 Label("Share \(file.name)…", systemImage: "square.and.arrow.up")
             }
+            .personalControl()
             #if os(macOS)
             Button {
                 save(file)
             } label: {
                 Label("Save \(file.name)…", systemImage: "square.and.arrow.down")
             }
+            .personalControl()
             #endif
         } else if let error = export.error {
             Label(error, systemImage: "exclamationmark.triangle")
                 .foregroundStyle(Palette.warning)
+                .privacySensitive()
         } else {
             HStack(spacing: Metrics.s) {
                 ProgressView()

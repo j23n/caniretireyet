@@ -57,7 +57,7 @@ struct OnboardingScreen: View {
                     case .money: moneyStep
                     }
                     if let error {
-                        StatusBanner(.error, "Couldn't create the library", message: error)
+                        StatusBanner(.error, "Couldn't create the library", message: error, personal: .message)
                     }
                 }
                 .padding(Metrics.xl)
@@ -157,6 +157,7 @@ struct OnboardingScreen: View {
         if birthDate != nil || addsBirthDate {
             VStack(alignment: .leading, spacing: Metrics.xs) {
                 DatePicker("Birth date", selection: birthDateBinding, in: ...Date(), displayedComponents: .date)
+                    .personalControl()
                 if birthDate == nil {
                     HStack {
                         Text("Not set yet: pick a date, or use the one shown.")
@@ -426,6 +427,7 @@ struct WelcomeNextStepsView: View {
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
                 .buttonStyle(.bordered)
+                .personalControl()
             }
             Spacer()
         }

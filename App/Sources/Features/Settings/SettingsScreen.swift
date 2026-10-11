@@ -95,6 +95,7 @@ private struct YouSection: View {
             Toggle("Birth date", isOn: hasBirthDateBinding)
             if birthDate != nil || addsBirthDate {
                 DatePicker("Born", selection: birthDateBinding, in: ...Date(), displayedComponents: .date)
+                    .personalControl()
                 if birthDate == nil {
                     Text("Not set yet: pick the date to save it.")
                         .font(.footnote)
@@ -122,6 +123,7 @@ private struct YouSection: View {
             }
             if let error {
                 Text(error).font(.footnote).foregroundStyle(Palette.critical)
+                    .privacySensitive()
             }
         } header: {
             Text("You")
