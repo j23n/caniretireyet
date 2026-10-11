@@ -101,6 +101,19 @@ class MLXModel:
         return reply
 
 
+class LazyModel:
+    """Loads the model on its first call, so a run where everything is cached loads nothing."""
+
+    def __init__(self, name: str):
+        self.name = name
+        self.model: MLXModel | None = None
+
+    def __call__(self, messages: list[dict]) -> str:
+        if self.model is None:
+            self.model = MLXModel(self.name)
+        return self.model(messages)
+
+
 def prompt(name: str, **values: object) -> str:
     """A prompt file with its {placeholders} filled in. Other braces (the JSON shapes) stay."""
     text = (PROMPTS / f"{name}.txt").read_text()
@@ -561,10 +574,11 @@ def process(path: Path, ask: Ask, config: Config, model_name: str, retry_only: b
         log(f"    cached: {'✓' if status['ok'] else '✗'} {status['message']}")
         return
     if retry_only:
-        # Start over with this model: drop the pages the other one read.
+        # Start over with this model: drop what the other one read, its classification included.
         for page in folder.glob("page-*.json"):
             page.unlink()
         (folder / "debt.json").unlink(missing_ok=True)
+        (folder / "classify.json").unlink(missing_ok=True)
     text_info = read_text(path, folder, config)
     pages = text_info["pages"]
     log(f"    {len(pages)} pages, {sum(len(p) for p in pages):,} characters" + (" (OCR)" if text_info["ocr"] else ""))
@@ -594,7 +608,7 @@ def run(config: Config, ask: Ask | None = None, retry_ask: Ask | None = None) ->
         sys.exit("pdftotext isn't installed: brew install poppler")
     files = statement_files(config)
     log(f"{len(files)} PDFs in {config.statements}")
-    model = ask or MLXModel(config.model)
+    model = ask or LazyModel(config.model)
     for number, path in enumerate(files, start=1):
         log(f"\n[{number}/{len(files)}] {path.relative_to(config.statements)}")
         try:
@@ -607,7 +621,7 @@ def run(config: Config, ask: Ask | None = None, retry_ask: Ask | None = None) ->
         if ask is None:
             del model  # both models at once may not fit in memory
             gc.collect()
-        second = retry_ask or MLXModel(config.retry_model)
+        second = retry_ask or LazyModel(config.retry_model)
         for number, path in enumerate(failed, start=1):
             log(f"\n[retry {number}/{len(failed)}] {path.relative_to(config.statements)}")
             try:
