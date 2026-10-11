@@ -351,25 +351,29 @@ struct PlanTimelineHeadline: View {
         .buttonBorderShape(.capsule)
     }
 
-    /// "18.400 € ahead ›" on iPhone, "18.400 € ahead of plan ›" on the Mac and iPad.
+    /// "18.400 € ahead ›" on iPhone, "On plan · 18.400 € ahead ›" on the Mac and
+    /// iPad: the amount against the baseline's median, in orange only when
+    /// behind plan (``PlanBaselineComparison/Standing``).
     @ViewBuilder
     private var progressPill: some View {
         if let progress, let onShowProgress {
-            let ahead = progress.gap >= 0
-            let side = isWide ? (ahead ? "ahead of plan" : "behind plan") : (ahead ? "ahead" : "behind")
+            let standing = progress.standing
             Button(action: onShowProgress) {
                 HStack(spacing: 4) {
+                    if isWide {
+                        Text(verbatim: "\(standing.label) ·")
+                    }
                     AmountText(abs(progress.gap), currency: session.currency, tabular: false)
-                    Text(side)
+                    Text(verbatim: progress.gap >= 0 ? "ahead" : "behind")
                     Image(systemName: "chevron.right")
                         .font(.caption.weight(.semibold))
                         .accessibilityHidden(true)
                 }
                 .font(.subheadline.weight(.semibold))
-                .foregroundStyle(ahead ? Palette.positive : Palette.orangeStroke)
+                .foregroundStyle(standing.color)
                 .padding(.horizontal, Metrics.m)
                 .padding(.vertical, 6)
-                .background((ahead ? Palette.positive : Palette.orange).opacity(0.14), in: Capsule())
+                .background(standing.tint.opacity(0.14), in: Capsule())
             }
             .buttonStyle(.plain)
             .fixedSize()

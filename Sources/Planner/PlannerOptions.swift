@@ -44,6 +44,10 @@ public struct PlannerOptions: Hashable, Sendable {
     /// Whether to search for the earliest age without each uncertain
     /// windfall (``PlanAnswer/agesWithout``, default off).
     public var solveWithoutWindfalls: Bool
+    /// Whether to search for the earliest age saving at your pace of the
+    /// last 12 months instead of as the plan says (``PlanAnswer/agesWithout``,
+    /// default off).
+    public var solvePaceAge: Bool
     /// The start date when the library has no check-in yet (default: today).
     public var today: CalendarDate?
 
@@ -53,7 +57,7 @@ public struct PlannerOptions: Hashable, Sendable {
     /// Options for a run; the defaults give the full Results screen.
     public init(mode: Mode = .full, ageScan: AgeScan = .full, focusAge: Int? = nil, maxRetirementAge: Int = 75,
                 solveSustainableSpending: Bool = true, solveAssetsNeeded: Bool = true, solveCoastAge: Bool = false,
-                solveWithoutWindfalls: Bool = false, today: CalendarDate? = nil) {
+                solveWithoutWindfalls: Bool = false, solvePaceAge: Bool = false, today: CalendarDate? = nil) {
         self.mode = mode
         self.ageScan = ageScan
         self.focusAge = focusAge
@@ -62,6 +66,7 @@ public struct PlannerOptions: Hashable, Sendable {
         self.solveAssetsNeeded = solveAssetsNeeded
         self.solveCoastAge = solveCoastAge
         self.solveWithoutWindfalls = solveWithoutWindfalls
+        self.solvePaceAge = solvePaceAge
         self.today = today
     }
 

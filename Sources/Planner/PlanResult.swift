@@ -104,9 +104,10 @@ public struct PlanAnswer: Hashable, Sendable {
     /// (``PlannerOptions/solveAssetsNeeded``).
     public var assetsNeeded: AssetsNeeded?
     /// The earliest age with one thing different: saving nothing more (the
-    /// coast age), or without an uncertain windfall (PLANNER.md, "Ages
-    /// without"). Empty unless the run looked for them
-    /// (``PlannerOptions/solveCoastAge``, ``PlannerOptions/solveWithoutWindfalls``).
+    /// coast age), without an uncertain windfall, or saving at your pace of
+    /// the last 12 months (PLANNER.md, "Ages without"). Empty unless the run
+    /// looked for them (``PlannerOptions/solveCoastAge``,
+    /// ``PlannerOptions/solveWithoutWindfalls``, ``PlannerOptions/solvePaceAge``).
     public var agesWithout: [AgeWithout]
 
     /// "Yes" when retiring today reaches the confidence level.
@@ -224,11 +225,16 @@ public struct AgeWithout: Hashable, Sendable, Codable {
         case saving
         /// The uncertain windfall at this index of the plan's events never comes.
         case windfall(index: Int)
+        /// Saving at your pace of the last 12 months (Tracker's `SavingPace`)
+        /// until retirement, instead of as the plan says
+        /// (``Planner/plan(_:atPace:library:)``).
+        case pace
     }
 
     public var change: Change
     /// The earliest age reaching the confidence level, from the plan's own
-    /// earliest age up to the oldest scanned; `nil` when none does.
+    /// earliest age (today's age for ``Change/pace``, which may save more)
+    /// up to the oldest scanned; `nil` when none does.
     public var earliestAge: Int?
 
     public init(change: Change, earliestAge: Int?) {
@@ -242,6 +248,12 @@ extension Array where Element == AgeWithout {
     /// nothing more is saved; `nil` when the run didn't look for it.
     public var coast: AgeWithout? {
         first { $0.change == .saving }
+    }
+
+    /// The earliest age saving at your pace of the last 12 months; `nil`
+    /// when the run didn't look for it or there's no pace yet.
+    public var pace: AgeWithout? {
+        first { $0.change == .pace }
     }
 
     /// The earliest age without the uncertain windfall at `index` of the

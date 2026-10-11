@@ -1,5 +1,6 @@
 import Foundation
 import Model
+import Tracker
 
 /// # Planner
 ///
@@ -80,9 +81,13 @@ public enum Planner {
         let refinement = options.ageScan == .headline ? min(3, max(0, maxAge - current + 1 - ages.count)) : 0
         let changes: [AgeWithout.Change] = (options.solveCoastAge ? [.saving] : [])
             + (options.solveWithoutWindfalls ? uncertainWindfalls(plan).map { .windfall(index: $0) } : [])
+        let pace = options.solvePaceAge
+            ? Valuator(library: library).savingPace(asOf: model.startDate, inflation: InflationIndex(library: library))
+            : nil
         progress?.plan(runs: model.runs, ages: ages.count + refinement,
                        solvesSpending: options.solveSustainableSpending,
-                       solvesAssetsNeeded: options.solveAssetsNeeded, agesWithout: changes.count)
+                       solvesAssetsNeeded: options.solveAssetsNeeded,
+                       agesWithout: changes.count + (pace == nil ? 0 : 1))
         progress?.begin(.earliestAge, total: ages.count, per: model.runs, expected: ages.count + refinement,
                         ages: ages[0]...ages[ages.count - 1])
         var engine = try await Engine.make(model: model, ages: ages, maxAge: maxAge)
@@ -135,11 +140,12 @@ public enum Planner {
                                                          successToday: successNow, progress: progress)
         }
         var agesWithout: [AgeWithout] = []
-        if !changes.isEmpty {
+        if !changes.isEmpty || pace != nil {
             // Less to live on never makes an earlier age work, so each search
             // starts at the plan's own earliest age; without one, none works.
             let lowest = earliest ?? maxAge
-            progress?.begin(.agesWithout, total: changes.count * bisectionSteps(from: lowest, to: maxAge))
+            progress?.begin(.agesWithout, total: changes.count * bisectionSteps(from: lowest, to: maxAge)
+                + (pace == nil ? 0 : bisectionSteps(from: current, to: maxAge)))
             for change in changes {
                 try Task.checkCancellation()
                 var age: Int?
@@ -148,6 +154,14 @@ public enum Planner {
                                                 options: options, from: lowest, maxAge: maxAge, progress: progress)
                 }
                 agesWithout.append(AgeWithout(change: change, earliestAge: age))
+            }
+            // The pace may save more than the plan, so its search starts at
+            // today's age, with or without an earliest age of the plan's.
+            if let pace {
+                try Task.checkCancellation()
+                let age = try await earliestAge(of: Self.plan(plan, atPace: pace, library: library), library: library,
+                                                options: options, from: current, maxAge: maxAge, progress: progress)
+                agesWithout.append(AgeWithout(change: .pace, earliestAge: age))
             }
         }
         progress?.begin(.summarising, total: 1)
@@ -240,7 +254,9 @@ public enum Planner {
     /// nothing more, each work phase paying at most the spending while
     /// working, without growth, and no contributions; or an uncertain
     /// windfall that never comes (its probability 0, so the other events'
-    /// draws stay the same).
+    /// draws stay the same). The plan at the pace needs the pace, so
+    /// ``AgeWithout/Change/pace`` leaves it as it is: use
+    /// ``plan(_:atPace:library:)``.
     public static func plan(_ plan: PlanDocument, without change: AgeWithout.Change) -> PlanDocument {
         var plan = plan
         switch change {
@@ -254,8 +270,101 @@ public enum Planner {
             plan.contributions = []
         case .windfall(let index):
             if plan.events.indices.contains(index) { plan.events[index].probability = 0 }
+        case .pace:
+            break
         }
         return plan
+    }
+
+    /// `plan` saving at `pace` until retirement instead of as written
+    /// (PLANNER.md, "Continue as you have"): work phases from the start to
+    /// retirement paying the spending while working plus the pace, without
+    /// growth, so each working year saves the pace. What went into an
+    /// account that opens at a later age (`availableFromAge`), as a share of
+    /// the pace (`SavingPace.byAccountInPace`), is paid into it as a yearly
+    /// contribution, and the rest is saved where the plan saves cash; what
+    /// went into accounts the plan excludes isn't saved. An account the pace
+    /// leaves out keeps the plan's contributions, which the income pays on
+    /// top until they end; one-off contributions and events stay, as the
+    /// pace leaves out unusual months. Other income and pensions paid at a
+    /// fixed age over the pace's months are already in it, so the income is
+    /// that much less; one starting or stopping later changes the saving. A
+    /// pace taking out more than the spending while working raises that
+    /// spending instead.
+    public static func plan(_ plan: PlanDocument, atPace pace: SavingPace, library: Library) -> PlanDocument {
+        var plan = plan
+        let excluded = Set(plan.portfolio.exclude)
+        let kept = plan.contributions.filter { $0.isOneOff || pace.leftOut.contains($0.account) }
+        let locked = pace.byAccountInPace
+            .filter { account, amount in
+                amount > 0 && !pace.leftOut.contains(account) && !excluded.contains(account)
+                    && library.accounts[account]?.availableFromAge != nil
+            }
+            .sorted { $0.key < $1.key }
+            .map { PlanContribution(account: $0.key, perYear: $0.value.rounded(scale: 0)) }
+        let from = min(plan.work.map(\.from).min() ?? pace.asOf, pace.asOf)
+        // Saving into accounts the plan leaves out isn't the plan's.
+        let saved = pace.perYear - excluded.reduce(Decimal(0)) { $0 + (pace.byAccountInPace[$1] ?? 0) }
+        // Other income and pensions paid over the pace's months are in the
+        // pace: the income earns that much less, and income that starts or
+        // stops later changes the saving. The kept contributions are paid on top
+        // until they end, which splits the phase.
+        let paid = paidInPace(plan, pace: pace, birthDate: library.settings.person?.birthDate)
+        let onTop = contributionsOnTop(kept, from: from)
+        let starts = [from] + onTop.keys.filter { $0 > from }.sorted()
+        let incomes = starts.map { start in
+            let top = onTop[start] ?? 0
+            return (plan.spending.working + saved - paid + top).rounded(scale: 0)
+        }
+        // Taking out more than the spending while working: no income, and
+        // that spending raised by the shortfall, so each part still saves
+        // the pace.
+        let raise = max(0, -(incomes.min() ?? 0))
+        plan.spending.working += raise
+        plan.work = starts.indices.map { index in
+            WorkPhase(from: starts[index],
+                      until: index + 1 < starts.count ? .date(starts[index + 1].adding(days: -1)) : .retirement,
+                      netIncome: incomes[index] + raise)
+        }
+        plan.contributions = kept + locked
+        return plan
+    }
+
+    /// The other income and pensions at a fixed age that `pace` holds: each
+    /// by the share of its months whose last day it's paid on, or, for a
+    /// pace without months, whether it's paid on its last day.
+    private static func paidInPace(_ plan: PlanDocument, pace: SavingPace, birthDate: CalendarDate?) -> Decimal {
+        guard let birthDate else { return 0 }
+        let ends = pace.months.isEmpty ? [pace.asOf] : pace.months.map(\.end)
+        var spans: [(from: CalendarDate, until: CalendarDate?, perYear: Decimal)] = []
+        for income in plan.income {
+            guard let age = income.from?.age, let perYear = income.perYear, perYear > 0 else { continue }
+            spans.append((from: birthDate.adding(years: age),
+                          until: income.untilAge.map { birthDate.adding(years: $0) }, perYear: perYear))
+        }
+        for pension in plan.pensions {
+            guard let age = pension.fromAge, let perYear = pension.perYear, perYear > 0 else { continue }
+            spans.append((from: birthDate.adding(years: age), until: nil, perYear: perYear))
+        }
+        return spans.reduce(Decimal(0)) { total, span in
+            let paid = ends.filter { end in span.from <= end && (span.until.map { end < $0 } ?? true) }.count
+            return total + span.perYear * Decimal(paid) / Decimal(ends.count)
+        }
+    }
+
+    /// The yearly `contributions` paid from each day one starts or stops,
+    /// all starting on `from`.
+    private static func contributionsOnTop(_ contributions: [PlanContribution],
+                                           from: CalendarDate) -> [CalendarDate: Decimal] {
+        let spans = contributions.filter { !$0.isOneOff && $0.perYear > 0 }.map { contribution in
+            (until: contribution.effectiveUntil.date.map { $0.adding(days: 1) }, perYear: contribution.perYear)
+        }
+        var paid: [CalendarDate: Decimal] = [:]
+        for day in Set([from] + spans.compactMap(\.until)) {
+            paid[day] = spans.filter { span in span.until.map { day < $0 } ?? true }
+                .reduce(Decimal(0)) { $0 + $1.perYear }
+        }
+        return paid
     }
 
     /// The indices of `plan`'s uncertain windfalls: events that bring money,
