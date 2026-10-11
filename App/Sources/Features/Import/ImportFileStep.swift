@@ -26,17 +26,19 @@ struct ImportFileStep: View {
 
             if let problem = flow.problem, !flow.hasFile {
                 Section {
-                    StatusBanner(.error, "The file can't be read", message: problem)
+                    StatusBanner(.error, "The file can't be read", message: problem, personal: .message)
                 }
             }
 
             if flow.hasFile {
                 Section("File") {
                     LabeledContent("Name", value: flow.fileName ?? "")
+                        .privacySensitiveInFeedback()
                     LabeledContent("Read as", value: flow.tableSummary)
                     if let first = flow.preview?.firstDate, let last = flow.preview?.lastDate {
                         LabeledContent("Dates",
                                        value: "\(AmountFormat.mediumDate(first)) – \(AmountFormat.mediumDate(last))")
+                            .privacySensitiveInFeedback()
                     }
                 }
                 mappingSection(flow)
@@ -87,6 +89,7 @@ struct ImportFileStep: View {
                                 isSelected: flow.source == .profile(fit.profile.id)) {
                     model.flow.useProfile(fit.profile.id)
                 }
+                .privacySensitiveInFeedback()
             }
             if flow.isGuided && flow.profileFits.isEmpty {
                 Text("There are no saved profiles yet. Set up this file step by step, and save the mapping as a "
@@ -146,6 +149,7 @@ private struct ImportDropZone: View {
                 .font(.headline)
                 .foregroundStyle(Palette.ink)
                 .multilineTextAlignment(.center)
+                .privacySensitiveInFeedback(fileName != nil)
             Button(fileName == nil ? "Choose File…" : "Choose Another File…", action: chooseFile)
                 .buttonStyle(.bordered)
         }

@@ -51,6 +51,7 @@ struct ImportColumnsStep: View {
                     ForEach(issues, id: \.self) { issue in
                         Label(issue, systemImage: "exclamationmark.triangle")
                             .foregroundStyle(Palette.warning)
+                            .privacySensitiveInFeedback()
                     }
                 }
             }
@@ -73,11 +74,13 @@ struct ImportColumnsStep: View {
                         Label(problem, systemImage: "exclamationmark.triangle")
                             .font(.footnote)
                             .foregroundStyle(Palette.warning)
+                            .privacySensitiveInFeedback()
                     }
                 } header: {
                     ImportColumnTitle(row: row)
                 } footer: {
                     Text(row.samples.prefix(3).joined(separator: " · "))
+                        .privacySensitiveInFeedback()
                 }
             }
         }
@@ -110,6 +113,7 @@ private struct ImportColumnsTable: View {
                     .font(.callout.monospaced())
                     .foregroundStyle(Palette.secondaryInk)
                     .lineLimit(1)
+                    .privacySensitiveInFeedback()
                     .help(row.samples.joined(separator: "\n"))
             }
             .width(min: 120, ideal: 220)
@@ -155,7 +159,7 @@ private struct ImportColumnsSettings: View {
                 }
             }
             ForEach(flow.mappingIssues, id: \.self) { issue in
-                StatusBanner(.warning, issue)
+                StatusBanner(.warning, issue, personal: .title)
             }
             if flow.unknownColumnCount > 0 {
                 StatusBanner(.info, flow.unknownColumnCount == 1
@@ -200,6 +204,7 @@ private struct ImportDateColumnPicker: View {
             }
         }
         .pickerStyle(.menu)
+        .personalControl()
     }
 }
 
@@ -219,6 +224,7 @@ private struct ImportConstantsPickers: View {
             }
         }
         .pickerStyle(.menu)
+        .personalControl()
         if flow.layout != .trades {
             Picker("Instrument of every row", selection: Binding(get: { model.flow.constants.instrument },
                                                                  set: { instrument in
@@ -230,6 +236,7 @@ private struct ImportConstantsPickers: View {
                 }
             }
             .pickerStyle(.menu)
+            .personalControl()
             Picker("Currency", selection: Binding(get: { model.flow.constants.currency }, set: { currency in
                 model.flow.setConstants { $0.currency = currency }
             })) {
@@ -257,6 +264,7 @@ struct ImportColumnTitle: View {
             Text(row.title)
                 .fontWeight(.medium)
                 .lineLimit(1)
+                .privacySensitiveInFeedback()
         }
         .help(helpText)
     }
@@ -344,6 +352,7 @@ struct ImportTargetMenu: View {
                 Text(flow.targetSummary(of: row) ?? "—")
                     .lineLimit(1)
             }
+            .personalControl()
             .help("Left as “from the header”, the column's header names it.")
         } else {
             Text(flow.layout.rowIsRecord && row.isValue ? "Per row" : "—")

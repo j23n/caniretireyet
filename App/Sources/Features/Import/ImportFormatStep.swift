@@ -16,7 +16,8 @@ struct ImportFormatStep: View {
         Form {
             if let problem = flow.problem {
                 Section {
-                    StatusBanner(.error, "That setting doesn't work for this file", message: problem)
+                    StatusBanner(.error, "That setting doesn't work for this file", message: problem,
+                                 personal: .message)
                 }
             }
             if !flow.ambiguities.isEmpty {
@@ -213,6 +214,7 @@ struct ImportAmbiguityRow: View {
                 Text(ambiguity.description)
                     .foregroundStyle(Palette.ink)
                     .fixedSize(horizontal: false, vertical: true)
+                    .privacySensitiveInFeedback()
             } icon: {
                 Image(systemName: "questionmark.circle")
                     .foregroundStyle(Palette.warning)
@@ -249,6 +251,7 @@ struct ImportSampleCells: View {
                 .foregroundStyle(Palette.secondaryInk)
                 .lineLimit(2)
                 .multilineTextAlignment(.trailing)
+                .privacySensitiveInFeedback()
         }
     }
 }
@@ -284,6 +287,7 @@ struct ImportSampleList: View {
                     Spacer(minLength: 0)
                 }
                 .font(.callout)
+                .privacySensitiveInFeedback()
                 .accessibilityElement(children: .combine)
             }
         }

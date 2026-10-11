@@ -32,6 +32,7 @@ struct ImportProfilesScreen: View {
                         .font(.caption)
                         .foregroundStyle(Palette.secondaryInk)
                 }
+                .privacySensitiveInFeedback()
                 .contextMenu {
                     Button("Rename…") { startRenaming(profile) }
                     Button("Delete…", role: .destructive) { deleting = profile }

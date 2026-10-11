@@ -92,13 +92,16 @@ private struct ImportNameRowView: View {
                 }
                 .labelsHidden()
                 .pickerStyle(.menu)
+                .personalControl()
             } else {
                 Text(row.summary)
                     .foregroundStyle(Palette.secondaryInk)
+                    .privacySensitiveInFeedback()
             }
         } label: {
             VStack(alignment: .leading, spacing: 2) {
                 Label(row.name, systemImage: row.kind == .account ? AppSymbol.accounts : AppSymbol.instruments)
+                    .privacySensitiveInFeedback()
                 Text(row.methodTitle)
                     .font(.caption)
                     .foregroundStyle(Palette.secondaryInk)
@@ -125,6 +128,7 @@ struct ImportNewAccountRow: View {
                         .font(.caption)
                         .foregroundStyle(Palette.secondaryInk)
                 }
+                .privacySensitiveInFeedback()
             }
             if proposal.isAccepted {
                 TextField("Name", text: Binding(get: { proposal.account.name }, set: { name in
@@ -174,6 +178,7 @@ struct ImportNewInstrumentRow: View {
                         .font(.caption)
                         .foregroundStyle(Palette.secondaryInk)
                 }
+                .privacySensitiveInFeedback()
             }
             if proposal.isAccepted {
                 TextField("Name", text: Binding(get: { proposal.instrument.name }, set: { name in
@@ -213,6 +218,7 @@ struct ImportAccountChangeToggles: View {
             })) {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(model.flow.title(of: change))
+                        .privacySensitiveInFeedback()
                     Text(model.flow.reason(for: change))
                         .font(.caption)
                         .foregroundStyle(Palette.secondaryInk)
@@ -232,6 +238,7 @@ private struct ImportDebtSection: View {
             ForEach(flow.debtNotes, id: \.self) { note in
                 Label(note, systemImage: "info.circle")
                     .foregroundStyle(Palette.ink)
+                    .privacySensitiveInFeedback()
             }
             Picker("Debt balances", selection: Binding(get: { model.flow.liabilitySign },
                                                        set: { model.flow.setLiabilitySign($0) })) {
