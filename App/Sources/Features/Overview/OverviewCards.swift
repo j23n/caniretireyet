@@ -29,7 +29,7 @@ struct OverviewChangeCard: View {
     }
 
     var body: some View {
-        Card(title) {
+        Card {
             VStack(alignment: .leading, spacing: Metrics.m) {
                 WaterfallChart(change: report.total,
                                from: AmountFormat.shortDate(report.from, relativeTo: .today(), locale: locale),
@@ -40,6 +40,9 @@ struct OverviewChangeCard: View {
                     .foregroundStyle(Palette.mutedInk)
                     .fixedSize(horizontal: false, vertical: true)
             }
+        } header: {
+            SectionHeader(title)
+                .privacySensitiveInFeedback()
         }
     }
 
@@ -186,6 +189,7 @@ struct OverviewAnswerCard: View {
                 .font(.callout)
                 .foregroundStyle(Palette.secondaryInk)
                 .fixedSize(horizontal: false, vertical: true)
+                .privacySensitiveInFeedback()
             HStack(spacing: Metrics.s) {
                 Button("Try Again") { Task { await plans.run(plan.id) } }
                 Button("Open Plan") { navigation.showPlan(plan.id) }
@@ -206,9 +210,11 @@ struct OverviewAnswerCard: View {
                     Text("Working out \(plan.name)… \(PlanRunText.overall(progress, locale: locale))")
                         .monospacedDigit()
                         .foregroundStyle(Palette.secondaryInk)
+                        .privacySensitiveInFeedback()
                 } else {
                     Text("Working out \(plan.name)…")
                         .foregroundStyle(Palette.secondaryInk)
+                        .privacySensitiveInFeedback()
                 }
             }
         } else if let error = plans.errors[plan.id] {
@@ -219,6 +225,7 @@ struct OverviewAnswerCard: View {
                     .font(.callout)
                     .foregroundStyle(Palette.secondaryInk)
                     .fixedSize(horizontal: false, vertical: true)
+                    .privacySensitiveInFeedback()
                 Button("Calculate") { Task { await plans.run(plan.id) } }
                     .buttonStyle(.borderedProminent)
             }
@@ -362,10 +369,12 @@ private struct OverviewAttentionRow: View {
                 Text(item.title)
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(Palette.ink)
+                    .privacySensitiveInFeedback()
                 Text(item.detail)
                     .font(.footnote)
                     .foregroundStyle(Palette.secondaryInk)
                     .fixedSize(horizontal: false, vertical: true)
+                    .privacySensitiveInFeedback()
             }
             Spacer(minLength: Metrics.s)
             Image(systemName: "chevron.right")

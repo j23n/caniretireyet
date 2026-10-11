@@ -33,6 +33,7 @@ struct ChartCallout<Content: View>: View {
         .padding(Metrics.s)
         .frame(maxWidth: maxWidth, alignment: .leading)
         .calloutBackground()
+        .privacySensitiveInFeedback()
     }
 }
 
@@ -63,6 +64,7 @@ struct ChartCalloutDate: View {
         Text(verbatim: text)
             .font(.caption2)
             .foregroundStyle(Palette.secondaryInk)
+            .privacySensitiveInFeedback()
     }
 
     private var text: String {
@@ -141,7 +143,9 @@ struct ChartCalloutRow: View {
             if let swatch {
                 Circle().fill(swatch).frame(width: 6, height: 6)
             }
-            Text(title).foregroundStyle(Palette.secondaryInk)
+            Text(title)
+                .foregroundStyle(Palette.secondaryInk)
+                .privacySensitiveInFeedback()
         }
     }
 
@@ -189,6 +193,7 @@ struct ChartCalloutMarker<Icon: View>: View {
                 AmountSentenceText(title)
                 if let detail {
                     Text(detail)
+                        .privacySensitiveInFeedback()
                 }
             }
             .lineLimit(2)

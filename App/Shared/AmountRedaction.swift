@@ -44,7 +44,9 @@ private struct PrivacySensitiveAmount: ViewModifier {
 /// A sentence with amounts in it, as one text that wraps as text does.
 /// While amounts are hidden (`redactionReasons.hidesAmounts`), each amount
 /// draws as a placeholder, as `.privacySensitive()` views do, and the words
-/// stay; VoiceOver reads "amount hidden" in its place.
+/// stay; VoiceOver reads "amount hidden" in its place. While a feedback
+/// screenshot is taken (`hidesPersonalData`) the words draw as placeholders
+/// too, since they hold names, ages, years and dates from the person's data.
 ///
 ///     AmountSentenceText("You saved \(amount: saved) and markets added \(amount: markets).")
 ///         .font(.footnote)
@@ -52,6 +54,7 @@ struct AmountSentenceText: View {
     let sentence: AmountSentence
 
     @Environment(\.redactionReasons) private var redactionReasons
+    @Environment(\.hidesPersonalData) private var hidesPersonalData
 
     init(_ sentence: AmountSentence) {
         self.sentence = sentence
@@ -59,28 +62,30 @@ struct AmountSentenceText: View {
 
     var body: some View {
         let hides = redactionReasons.hidesAmounts
-        Text(sentence: sentence, hidesAmounts: hides)
-            .textRenderer(AmountPlaceholderRenderer(hidesAmounts: hides))
+        Text(sentence: sentence, hidesAmounts: hides, hidesWords: hidesPersonalData)
+            .textRenderer(AmountPlaceholderRenderer(hidesAmounts: hides, hidesWords: hidesPersonalData))
             .accessibilityLabel(Text(verbatim: sentence.spoken(hidesAmounts: hides)))
     }
 }
 
 extension Text {
-    /// `sentence` as one text, each amount tagged (``AmountRun``) so
-    /// ``AmountPlaceholderRenderer`` can draw a placeholder in its place.
-    /// With `hidesAmounts`, the amounts are also clear, so they don't show
-    /// where the renderer doesn't draw. Views use ``AmountSentenceText``,
-    /// which adds the renderer. Labelled, since a string literal can be an
-    /// `AmountSentence` too.
-    init(sentence: AmountSentence, hidesAmounts: Bool = false) {
+    /// `sentence` as one text, each amount tagged (``AmountRun``) and its
+    /// words too (``SentenceWordsRun``), so ``AmountPlaceholderRenderer`` can
+    /// draw a placeholder in their place. With `hidesAmounts`, the amounts
+    /// are also clear, so they don't show where the renderer doesn't draw;
+    /// with `hidesWords` (a feedback screenshot), the amounts and the words
+    /// are. Views use ``AmountSentenceText``, which adds the renderer.
+    /// Labelled, since a string literal can be an `AmountSentence` too.
+    init(sentence: AmountSentence, hidesAmounts: Bool = false, hidesWords: Bool = false) {
         var text = Text(verbatim: "")
         for part in sentence.parts {
             switch part {
             case .words(let words):
-                text = Text("\(text)\(Text(verbatim: words))")
+                let run = Text(verbatim: words).customAttribute(SentenceWordsRun())
+                text = Text("\(text)\(hidesWords ? run.foregroundStyle(Color.clear) : run)")
             case .amount(let amount):
                 let run = Text(verbatim: amount).customAttribute(AmountRun())
-                text = Text("\(text)\(hidesAmounts ? run.foregroundStyle(Color.clear) : run)")
+                text = Text("\(text)\(hidesAmounts || hidesWords ? run.foregroundStyle(Color.clear) : run)")
             }
         }
         self = text
@@ -90,12 +95,19 @@ extension Text {
 /// Marks an amount inside a sentence's text (``AmountSentenceText``).
 struct AmountRun: TextAttribute {}
 
+/// Marks a sentence's words inside its text (``AmountSentenceText``), which
+/// hide in a feedback screenshot: they hold names, ages, years and dates.
+/// Words of the app's own around it, such as a title in front, stay.
+struct SentenceWordsRun: TextAttribute {}
+
 /// Draws a sentence's text, with a placeholder in place of each amount
 /// (``AmountRun``) while amounts are hidden: a rounded bar the amount's
 /// width, in the view's foreground colour, faint, as SwiftUI's redaction
-/// draws one.
+/// draws one. With `hidesWords` (a feedback screenshot, `hidesPersonalData`)
+/// the sentence's words (``SentenceWordsRun``) draw as placeholders too.
 struct AmountPlaceholderRenderer: TextRenderer {
     var hidesAmounts: Bool
+    var hidesWords = false
 
     /// How strong the placeholder's colour is against the text's.
     static let placeholderOpacity = 0.2
@@ -103,7 +115,8 @@ struct AmountPlaceholderRenderer: TextRenderer {
     func draw(layout: Text.Layout, in context: inout GraphicsContext) {
         for line in layout {
             for run in line {
-                if hidesAmounts, run[AmountRun.self] != nil {
+                let isAmount = run[AmountRun.self] != nil
+                if (isAmount && (hidesAmounts || hidesWords)) || (hidesWords && run[SentenceWordsRun.self] != nil) {
                     let bounds = run.typographicBounds.rect
                     let bar = bounds.insetBy(dx: 0, dy: bounds.height * 0.18)
                     var placeholder = context

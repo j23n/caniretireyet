@@ -282,6 +282,7 @@ struct PlanTimelineHeadline: View {
                     .font(Self.wideTitleFont)
                     .foregroundStyle(Palette.ink)
                     .fixedSize(horizontal: false, vertical: true)
+                    .privacySensitiveInFeedback()
                     .accessibilityAddTraits(.isHeader)
                 reason
                     .foregroundStyle(Palette.secondaryInk)
@@ -294,6 +295,7 @@ struct PlanTimelineHeadline: View {
                     Text(title)
                         .font(Self.wideTitleFont)
                         .foregroundStyle(Palette.ink)
+                        .privacySensitiveInFeedback()
                         .accessibilityAddTraits(.isHeader)
                     reason
                         .foregroundStyle(Palette.secondaryInk)
@@ -311,6 +313,7 @@ struct PlanTimelineHeadline: View {
                         .font(.title.weight(.bold))
                         .foregroundStyle(Palette.ink)
                         .fixedSize(horizontal: false, vertical: true)
+                        .privacySensitiveInFeedback()
                         .accessibilityAddTraits(.isHeader)
                 }
                 reason
@@ -347,6 +350,7 @@ struct PlanTimelineHeadline: View {
                                              bar: results.headline.confidence))
                     .font(.subheadline)
                     .fixedSize(horizontal: false, vertical: true)
+                    .privacySensitiveInFeedback()
             }
         }
     }
@@ -370,9 +374,11 @@ struct PlanTimelineHeadline: View {
                 HStack(spacing: 4) {
                     if isWide {
                         Text(verbatim: "\(standing.label) ·")
+                            .privacySensitiveInFeedback()
                     }
                     AmountText(abs(progress.gap), currency: session.currency, tabular: false)
                     Text(verbatim: progress.gap >= 0 ? "ahead" : "behind")
+                        .privacySensitiveInFeedback()
                     Image(systemName: "chevron.right")
                         .font(.caption.weight(.semibold))
                         .accessibilityHidden(true)
@@ -531,6 +537,7 @@ struct PlanChapterDetails: View {
                     .monospacedDigit()
                     .foregroundStyle(Palette.secondaryInk)
             }
+            .privacySensitiveInFeedback()
             Spacer(minLength: Metrics.s)
             if showsSteps {
                 PlanStepButtons(index: index, count: model.chapters.chapters.count, select: onSelect)
@@ -567,6 +574,7 @@ struct PlanChapterDetails: View {
                             Text(PlanMilestoneText.when(item.date))
                                 .monospacedDigit()
                                 .foregroundStyle(Palette.secondaryInk)
+                                .privacySensitiveInFeedback()
                         }
                         .font(.subheadline)
                         .accessibilityElement(children: .combine)
@@ -585,6 +593,7 @@ struct PlanChapterDetails: View {
                         Label {
                             Text(risk)
                                 .fixedSize(horizontal: false, vertical: true)
+                                .privacySensitiveInFeedback()
                         } icon: {
                             Image(systemName: "exclamationmark.triangle.fill")
                                 .foregroundStyle(Palette.orangeStroke)
@@ -625,6 +634,7 @@ struct PlanChapterDetails: View {
                     .font(.footnote)
                     .foregroundStyle(Palette.secondaryInk)
                     .fixedSize(horizontal: false, vertical: true)
+                    .privacySensitiveInFeedback()
             }
             PlanChapterAddMenu(chapter: chapter, model: model, plan: plan, editing: $editing)
                 .disabled(!canEdit)

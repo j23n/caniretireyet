@@ -225,6 +225,7 @@ private struct LibraryUnavailableView: View {
             Label("Can't open your library", systemImage: "externaldrive.badge.exclamationmark")
         } description: {
             Text(message)
+                .privacySensitiveInFeedback()
         } actions: {
             Button("Try again") {
                 Task { await library.start() }

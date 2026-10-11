@@ -74,6 +74,7 @@ struct AccountsAssetMixFields: View {
             Label(problem, systemImage: "exclamationmark.triangle")
                 .font(.footnote)
                 .foregroundStyle(Palette.secondaryInk)
+                .privacySensitiveInFeedback()
         }
     }
 }
@@ -129,6 +130,7 @@ struct AccountsErrorSection: View {
             Section {
                 Label(message, systemImage: "xmark.octagon")
                     .foregroundStyle(Palette.critical)
+                    .privacySensitiveInFeedback()
             }
         }
     }

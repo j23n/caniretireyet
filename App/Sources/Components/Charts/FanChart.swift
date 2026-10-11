@@ -54,6 +54,7 @@ struct FanChart: View {
                     .measuringWidth($width)
                     .accessibilityChartDescriptor(summary)
             }
+            .privacySensitiveInFeedback()
         }
     }
 

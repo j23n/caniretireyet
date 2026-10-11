@@ -172,6 +172,7 @@ private struct CheckInTableHeader: View {
             Text("Account")
         } last: {
             Text(verbatim: previousCheckIn.map { "Last · " + AmountFormat.shortDate($0, locale: locale) } ?? "Last")
+                .privacySensitiveInFeedback()
         } now: {
             Text("Now")
         } change: {
@@ -339,6 +340,7 @@ private struct CheckInTableRow: View {
             HStack(spacing: 0) {
                 Text(verbatim: name)
                     .fontWeight(.medium)
+                    .privacySensitiveInFeedback()
                 if let detail {
                     AmountSentenceText(" · \(detail)")
                         .foregroundStyle(Palette.secondaryInk)
@@ -429,8 +431,10 @@ private struct CheckInTableRow: View {
             HStack(spacing: 0) {
                 Text(verbatim: CheckInWording.instrumentLabel(position.instrument, instrument: instrument))
                     .fontWeight(.medium)
+                    .privacySensitiveInFeedback()
                 Text(verbatim: " · " + CheckInWording.priceText(unit: "", price: valued?.price, locale: locale) + " = ")
                     .foregroundStyle(Palette.secondaryInk)
+                    .privacySensitiveInFeedback()
                 CheckInPlainAmount(valued?.value)
                     .foregroundStyle(Palette.secondaryInk)
             }
@@ -487,8 +491,10 @@ private struct CheckInTableRow: View {
             HStack(spacing: 0) {
                 Text(verbatim: CheckInWording.instrumentLabel(position.instrument, instrument: instrument))
                     .fontWeight(.medium)
+                    .privacySensitiveInFeedback()
                 Text(verbatim: " · " + CheckInWording.priceText(unit: "", price: position.price, locale: locale) + " = ")
                     .foregroundStyle(Palette.secondaryInk)
+                    .privacySensitiveInFeedback()
                 CheckInPlainAmount(position.value)
                     .foregroundStyle(Palette.secondaryInk)
             }
@@ -528,6 +534,7 @@ private struct CheckInTableRow: View {
                     .foregroundStyle(Palette.secondaryInk)
                 Text(verbatim: " · " + CheckInWording.instrumentLabel(position.instrument, instrument: instrument))
                     .fontWeight(.medium)
+                    .privacySensitiveInFeedback()
             }
             .lineLimit(1)
             .padding(.leading, Metrics.l)
@@ -572,6 +579,7 @@ private struct CheckInTableRow: View {
                     .font(.callout)
                     .foregroundStyle(Palette.secondaryInk)
                     .lineLimit(1)
+                    .privacySensitiveInFeedback()
                     .accessibilityHidden(true)
                 Button {
                     session.addTrade(to: row.account, on: date)
@@ -754,6 +762,7 @@ private struct CheckInTableFooter: View {
                     .font(.caption)
                     .foregroundStyle(Palette.secondaryInk)
                     .lineLimit(1)
+                    .privacySensitiveInFeedback()
             }
             Spacer(minLength: Metrics.m)
             Text("Tab and Return move between cells · ⌘↩ reviews and saves")

@@ -219,6 +219,7 @@ struct AccountsScreen: View {
             }
         } else if list.isEmpty && !query.isEmpty {
             ContentUnavailableView.search(text: query)
+                .privacySensitiveInFeedback()
         }
     }
 
@@ -301,10 +302,12 @@ struct AccountListRow: View {
                 Text(item.account.name)
                     .foregroundStyle(Palette.ink)
                     .lineLimit(1)
+                    .privacySensitiveInFeedback()
                 HStack(spacing: Metrics.xs) {
                     if let subtitle {
                         Text(subtitle)
                             .lineLimit(1)
+                            .privacySensitiveInFeedback()
                     }
                     if item.stale != nil {
                         AccountStaleBadge()

@@ -147,11 +147,14 @@ func amountAxis(hidesAmounts: Bool, scale: AmountScale, relativeTo base: Double?
 /// A value axis label (``amountAxis(hidesAmounts:scale:relativeTo:)``): an
 /// amount draws as a placeholder while amounts are hidden. A multiple of a
 /// base (`1×`) reveals no amount, so it's marked `.unredacted()` and reads
-/// with the eye on and in a feedback screenshot: the one view of the
-/// person's data that is (UI.md, "Privacy").
+/// with the eye on: the one view of the person's data that is (UI.md,
+/// "Privacy"). In a feedback screenshot (`hidesPersonalData`), which hides
+/// all of a chart's text, it draws as a placeholder too.
 struct AmountAxisLabel: View {
     let text: String
     let isRelative: Bool
+
+    @Environment(\.hidesPersonalData) private var hidesPersonalData
 
     /// Nonisolated: `amountAxis` makes it in its axis's content.
     nonisolated init(text: String, isRelative: Bool) {
@@ -164,7 +167,7 @@ struct AmountAxisLabel: View {
             .font(.caption2)
             .monospacedDigit()
             .foregroundStyle(Palette.mutedInk)
-        if isRelative {
+        if isRelative && !hidesPersonalData {
             label.unredacted()
         } else {
             label.privacySensitive()
@@ -277,6 +280,7 @@ struct ChartMarkerLabel: View {
         }
         .font(.caption2)
         .foregroundStyle(Palette.secondaryInk)
+        .privacySensitiveInFeedback()
     }
 }
 
@@ -336,6 +340,7 @@ struct ChartLegendRow: View {
         }
         .font(.caption)
         .foregroundStyle(Palette.secondaryInk)
+        .privacySensitiveInFeedback()
         .accessibilityElement(children: .combine)
     }
 }

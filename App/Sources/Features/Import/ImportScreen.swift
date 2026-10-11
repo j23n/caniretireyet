@@ -78,7 +78,7 @@ struct ImportScreen: View {
             }
             .navigationTitle("Import")
             #if os(macOS)
-            .navigationSubtitle(model.flow.fileName ?? "")
+            .personalNavigationSubtitle(model.flow.fileName ?? "")
             #endif
             .toolbar {
                 if isSheet {

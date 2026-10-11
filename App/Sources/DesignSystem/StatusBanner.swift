@@ -6,9 +6,22 @@ import SwiftUI
 /// action. Status colours only ever appear with the icon and the words
 /// (UI.md, "Status colours"); nothing here scolds.
 ///
-///     StatusBanner(.warning, "Fondo pensione: last value in May")
+/// `personal` says which of its texts show the person's data, such as an
+/// account's name, a date or a file's path: they're
+/// `.privacySensitiveInFeedback()`, hidden in a feedback screenshot while the
+/// rest of the banner and its action stay (App/README.md, "Feedback").
+///
+///     StatusBanner(.warning, "Fondo pensione: last value in May", personal: .title)
 ///     StatusBanner(.info, "Read-only", message: "…", action: ("Learn more", { … }))
 struct StatusBanner: View {
+    /// The texts that show the person's data.
+    struct Personal: OptionSet, Hashable, Sendable {
+        let rawValue: Int
+
+        static let title = Personal(rawValue: 1 << 0)
+        static let message = Personal(rawValue: 1 << 1)
+    }
+
     enum Kind: Hashable, Sendable {
         case info
         case success
@@ -37,14 +50,16 @@ struct StatusBanner: View {
     let kind: Kind
     let title: String
     var message: String?
+    var personal: Personal = []
     var actionTitle: String?
     var action: (() -> Void)?
 
-    init(_ kind: Kind, _ title: String, message: String? = nil, actionTitle: String? = nil,
+    init(_ kind: Kind, _ title: String, message: String? = nil, personal: Personal = [], actionTitle: String? = nil,
          action: (() -> Void)? = nil) {
         self.kind = kind
         self.title = title
         self.message = message
+        self.personal = personal
         self.actionTitle = actionTitle
         self.action = action
     }
@@ -58,11 +73,13 @@ struct StatusBanner: View {
                 Text(title)
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(Palette.ink)
+                    .privacySensitiveInFeedback(personal.contains(.title))
                 if let message {
                     Text(message)
                         .font(.footnote)
                         .foregroundStyle(Palette.secondaryInk)
                         .fixedSize(horizontal: false, vertical: true)
+                        .privacySensitiveInFeedback(personal.contains(.message))
                 }
                 if let actionTitle, let action {
                     Button(actionTitle, action: action)
@@ -106,26 +123,27 @@ struct LibraryStatusBanners: View {
                 StatusBanner(.info, "Read-only", message: LibraryStoreError.readOnly(reason).message)
             }
             if let error = library.lastError {
-                StatusBanner(.error, "Something went wrong with the library", message: error,
+                StatusBanner(.error, "Something went wrong with the library", message: error, personal: .message,
                              actionTitle: "Dismiss") { library.dismissError() }
             }
             let errors = library.loadIssues.filter { $0.severity == .error }
             if !errors.isEmpty {
                 StatusBanner(
                     .warning, errors.count == 1 ? "A file couldn't be read" : "\(errors.count) files couldn't be read",
-                    message: errors.prefix(3).map(\.description).joined(separator: "\n"),
+                    message: errors.prefix(3).map(\.description).joined(separator: "\n"), personal: .message,
                     actionTitle: "Show details") { navigation.show(.sync) }
             }
             if !library.mergedConflicts.isEmpty {
                 let count = library.mergedConflicts.count
                 StatusBanner(
                     .info, count == 1 ? "A sync conflict was merged" : "\(count) sync conflicts were merged",
-                    message: library.mergedConflicts.first?.summary, actionTitle: "Review") { navigation.show(.sync) }
+                    message: library.mergedConflicts.first?.summary, personal: .message,
+                    actionTitle: "Review") { navigation.show(.sync) }
             }
             if !library.conflictFailures.isEmpty {
                 StatusBanner(
                     .warning, "A sync conflict couldn't be merged",
-                    message: library.conflictFailures.map(\.path).joined(separator: ", "),
+                    message: library.conflictFailures.map(\.path).joined(separator: ", "), personal: .message,
                     actionTitle: "Show details") { navigation.show(.sync) }
             }
             if !library.saveNotices.isEmpty {
@@ -133,7 +151,8 @@ struct LibraryStatusBanners: View {
                 StatusBanner(
                     .warning, count == 1 ? "Saving found a file changed elsewhere"
                         : "Saving found \(count) files changed elsewhere",
-                    message: library.saveNotices.first?.summary, actionTitle: "Review") { navigation.show(.sync) }
+                    message: library.saveNotices.first?.summary, personal: .message,
+                    actionTitle: "Review") { navigation.show(.sync) }
             }
         }
     }

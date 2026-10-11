@@ -25,6 +25,7 @@ struct PlanAnswerHistoryChart: View {
         } else {
             chart
                 .frame(height: height)
+                .privacySensitiveInFeedback()
                 .accessibilityChartDescriptor(summary)
         }
     }

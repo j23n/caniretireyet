@@ -115,7 +115,7 @@ private struct CheckInReviewContent: View {
         VStack(alignment: .leading, spacing: Metrics.l) {
             LibraryStatusBanners()
             if let error = session.saveError {
-                StatusBanner(.error, "Couldn't save the check-in", message: error)
+                StatusBanner(.error, "Couldn't save the check-in", message: error, personal: .message)
             }
             if !draft.conflicts.isEmpty {
                 conflictsCard
@@ -125,7 +125,7 @@ private struct CheckInReviewContent: View {
             }
             totalCard
             if let change = review.change {
-                Card(sinceTitle(change.from)) {
+                Card {
                     WaterfallChart(change: change.total, from: AmountFormat.shortDate(change.from, locale: locale),
                                    to: AmountFormat.shortDate(change.to, locale: locale))
                     if !change.plannedFlowAccounts.isEmpty {
@@ -145,6 +145,9 @@ private struct CheckInReviewContent: View {
                             .font(.footnote)
                             .foregroundStyle(Palette.secondaryInk)
                     }
+                } header: {
+                    SectionHeader(sinceTitle(change.from))
+                        .privacySensitiveInFeedback()
                 }
             }
             changedCard
@@ -154,6 +157,7 @@ private struct CheckInReviewContent: View {
                     Label {
                         Text(verbatim: note)
                             .fixedSize(horizontal: false, vertical: true)
+                            .privacySensitiveInFeedback()
                     } icon: {
                         Image(systemName: "calendar.badge.clock")
                             .foregroundStyle(Palette.accent)
@@ -211,6 +215,7 @@ private struct CheckInReviewContent: View {
                 }
                 Text(verbatim: names.joined(separator: ", "))
                     .foregroundStyle(Palette.secondaryInk)
+                    .privacySensitiveInFeedback()
                 Text("Mark them unchanged to keep their last values, or skip them: then nothing is written and they'll show as stale.")
                     .font(.footnote)
                     .foregroundStyle(Palette.secondaryInk)
@@ -238,6 +243,7 @@ private struct CheckInReviewContent: View {
                         DeltaText(change.total.change)
                         Text(verbatim: "since " + AmountFormat.shortDate(change.from, locale: locale))
                             .foregroundStyle(Palette.secondaryInk)
+                            .privacySensitiveInFeedback()
                     }
                     .font(.subheadline)
                 } else {
@@ -317,6 +323,7 @@ private struct CheckInConflictRow: View {
         VStack(alignment: .leading, spacing: Metrics.xs) {
             Text(verbatim: library.account(row.account)?.name ?? row.account.rawValue)
                 .font(.subheadline.weight(.semibold))
+                .privacySensitiveInFeedback()
             HStack {
                 Text("Saved on the other device")
                 Spacer(minLength: Metrics.s)
@@ -361,6 +368,7 @@ private struct CheckInReviewRow: View {
         HStack(alignment: .firstTextBaseline, spacing: Metrics.s) {
             VStack(alignment: .leading, spacing: 2) {
                 Text(verbatim: account?.name ?? row.account.rawValue)
+                    .privacySensitiveInFeedback()
                 AmountSentenceText(CheckInReviewDisplay.flowLine(
                     row, kind: account?.kind, currency: account?.currency ?? library.baseCurrency,
                     followsTrades: followsTrades, locale: locale))
@@ -398,10 +406,12 @@ private struct CheckInWarningRow: View {
             VStack(alignment: .leading, spacing: Metrics.xs) {
                 Text(verbatim: text.title)
                     .font(.subheadline.weight(.semibold))
+                    .privacySensitiveInFeedback()
                 Text(verbatim: text.message)
                     .font(.footnote)
                     .foregroundStyle(Palette.secondaryInk)
                     .fixedSize(horizontal: false, vertical: true)
+                    .privacySensitiveInFeedback()
                 if let action = text.action, let title = text.actionTitle {
                     actionButton(action, title: title)
                         .font(.footnote.weight(.semibold))

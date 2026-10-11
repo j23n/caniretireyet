@@ -67,7 +67,7 @@ struct OnboardingScreen: View {
                     case .disclaimer: disclaimerStep
                     }
                     if let error {
-                        StatusBanner(.error, "Couldn't create the library", message: error)
+                        StatusBanner(.error, "Couldn't create the library", message: error, personal: .message)
                     }
                 }
                 .padding(Metrics.xl)
@@ -196,6 +196,7 @@ struct OnboardingScreen: View {
         if birthDate != nil || addsBirthDate {
             VStack(alignment: .leading, spacing: Metrics.xs) {
                 DatePicker("Birth date", selection: birthDateBinding, in: ...Date(), displayedComponents: .date)
+                    .personalControl()
                 if birthDate == nil {
                     HStack {
                         Text("Not set yet: pick a date, or use the one shown.")
@@ -322,6 +323,7 @@ struct OnboardingScreen: View {
                 VStack(alignment: .leading, spacing: Metrics.s) {
                     ForEach(accounts) { account in
                         Label(account.name, systemImage: account.kind.systemImage)
+                            .privacySensitiveInFeedback()
                     }
                 }
                 .onboardingCard()
@@ -367,6 +369,7 @@ struct OnboardingScreen: View {
             Text(Self.nextSteps(planName: library.mainPlan?.name,
                                 hasBirthDate: library.settings.person?.birthDate != nil))
                 .foregroundStyle(Palette.secondaryInk)
+                .privacySensitiveInFeedback()
         }
     }
 

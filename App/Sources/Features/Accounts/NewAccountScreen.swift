@@ -103,6 +103,7 @@ struct NewAccountScreen: View {
                             Text(instrument.name).tag(Optional(instrument.id))
                         }
                     }
+                    .personalControl()
                     AccountsNumberField(title: "Quantity", text: $opening[position: position.id].quantity, prompt: "0",
                                         suffix: unit(of: position.instrument), allowsNegative: false)
                     AccountsNumberField(title: "Paid in total", text: $opening[position: position.id].cost,
@@ -131,9 +132,11 @@ struct NewAccountScreen: View {
                 if form.recordsTrades {
                     Text(verbatim: AccountOpeningForm.openingTradesFooter(opened: form.opened, today: .today(),
                                                                           locale: locale))
+                        .privacySensitiveInFeedback()
                 } else {
                     Text(verbatim: AccountOpeningForm.positionsFooter(opened: form.opened, today: .today(),
                                                                       locale: locale))
+                        .privacySensitiveInFeedback()
                 }
             }
         } else {
@@ -145,6 +148,7 @@ struct NewAccountScreen: View {
             } footer: {
                 Text(verbatim: AccountOpeningForm.balanceFooter(opened: form.opened, today: .today(),
                                                                 isLiability: form.kind.isLiability, locale: locale))
+                    .privacySensitiveInFeedback()
             }
         }
     }
@@ -273,6 +277,7 @@ struct AccountDetailsFields: View {
                 }
             }
             DatePicker("Opened", selection: $form.openedDate, displayedComponents: .date)
+                .personalControl()
         } header: {
             Text("Details")
         } footer: {
@@ -313,6 +318,7 @@ struct AccountPlanFields: View {
                 if form.chosenIsLocked {
                     Stepper("Available from \(form.chosenAvailableFromAge)", value: $form.chosenAvailableFromAge,
                             in: 18...90)
+                        .privacySensitiveInFeedback()
                 }
             }
         } header: {

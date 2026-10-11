@@ -36,6 +36,7 @@ struct PlanRunProgressView: View {
                     .font(.subheadline)
                     .monospacedDigit()
                     .foregroundStyle(Palette.ink)
+                    .privacySensitiveInFeedback()
                 ProgressView(value: progress.phaseFraction, total: 1)
                     .tint(Palette.accent)
             }
@@ -102,6 +103,7 @@ struct PlanOutOfDateBanner: View {
                     .font(.subheadline)
                     .foregroundStyle(Palette.secondaryInk)
                     .fixedSize(horizontal: false, vertical: true)
+                    .privacySensitiveInFeedback()
             }
         }
         .accessibilityElement(children: .combine)
@@ -138,16 +140,20 @@ struct PlanCalculatePrompt: View {
                     Text(PlanResultsText.answer(headline))
                         .font(.largeTitle.weight(.bold))
                         .foregroundStyle(Palette.ink)
+                        .privacySensitiveInFeedback()
                     Text(PlanResultsText.earliest(headline, locale: locale))
                         .font(.title3.weight(.semibold))
                         .foregroundStyle(Palette.ink)
+                        .privacySensitiveInFeedback()
                     Text(GlanceText.inSimulatedFutures(headline.confidence))
                         .font(.subheadline)
                         .foregroundStyle(Palette.secondaryInk)
+                        .privacySensitiveInFeedback()
                     if let recorded = PlanRunText.recorded(headline, planChanged: planChanged, locale: locale) {
                         Label(recorded, systemImage: "calendar")
                             .font(.caption)
                             .foregroundStyle(Palette.mutedInk)
+                            .privacySensitiveInFeedback()
                     }
                     Text(AboutText.disclaimer)
                         .font(.caption)

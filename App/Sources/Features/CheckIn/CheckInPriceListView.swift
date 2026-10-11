@@ -179,16 +179,19 @@ private struct PriceListRow: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(verbatim: line.title)
                         .fontWeight(.medium)
+                        .privacySensitiveInFeedback()
                     if let subtitle = line.subtitle {
                         Text(verbatim: subtitle)
                             .font(.footnote)
                             .foregroundStyle(Palette.secondaryInk)
+                            .privacySensitiveInFeedback()
                     }
                 }
                 Spacer(minLength: Metrics.s)
                 VStack(alignment: .trailing, spacing: 2) {
                     Text(verbatim: valueText)
                         .monospacedDigit()
+                        .privacySensitiveInFeedback()
                     if let per = line.per {
                         Text(verbatim: per)
                             .font(.caption)
@@ -237,12 +240,15 @@ private struct PriceListRow: View {
         VStack(alignment: .leading, spacing: 2) {
             if let source = line.source {
                 Text(verbatim: source)
+                    .privacySensitiveInFeedback()
             }
             if let observed = line.observed {
                 Text(verbatim: observed)
+                    .privacySensitiveInFeedback()
             }
             if let stale = line.staleDate {
                 Text(verbatim: "Using the value from " + AmountFormat.shortDate(stale, locale: locale))
+                    .privacySensitiveInFeedback()
             }
             if line.status == .manual && line.failure == nil {
                 Text("No price source: type the price for this date.")
@@ -254,6 +260,7 @@ private struct PriceListRow: View {
             Label {
                 Text(verbatim: failure)
                     .fixedSize(horizontal: false, vertical: true)
+                    .privacySensitiveInFeedback()
             } icon: {
                 Image(systemName: "exclamationmark.triangle")
                     .foregroundStyle(Palette.warning)

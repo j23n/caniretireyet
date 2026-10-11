@@ -24,7 +24,11 @@ extension View {
     /// It also hides amounts (UI.md, "Privacy"): while the eye is on, the
     /// scene is redacted for `.privacy`, so every view marked
     /// `.privacySensitive()` draws as a placeholder, and views read
-    /// `redactionReasons.hidesAmounts` (AmountRedaction.swift).
+    /// `redactionReasons.hidesAmounts` (AmountRedaction.swift). In Debug
+    /// builds it hides the person's data in a feedback screenshot: FeedbackKit
+    /// redacts the scene for `.privacy` while capturing, and
+    /// `hidesPersonalData` marks the views with the rest of the person's data
+    /// `.privacySensitive()` (PersonalDataRedaction.swift, Feedback.swift).
     func appEnvironment(_ model: AppModel) -> some View {
         modifier(AppEnvironmentModifier(model: model))
     }
@@ -43,15 +47,14 @@ private struct AppEnvironmentModifier: ViewModifier {
             .environment(model.checkIn)
             .environment(model.widgets)
             .environment(\.baseCurrency, model.library.shownCurrency)
+            .redacted(reason: model.preferences.hidesAmounts ? .privacy : [])
             #if FEEDBACK
-            // A feedback screenshot hides everything the person entered or owns (Feedback.swift);
-            // amounts are hidden as the eye hides them too, so charts show their relative value
-            // axis, the one label left unredacted.
-            .redacted(reason: model.preferences.hidesAmounts || model.feedback.isCapturing ? .privacy : [])
+            // While a feedback screenshot is taken, FeedbackKit's `.privacySensitiveViews` redacts
+            // the scene for `.privacy` itself, which hides amounts as the eye does; the rest of the
+            // person's data is `.privacySensitive()` only then (Feedback.swift).
+            .environment(\.hidesPersonalData, model.feedback.isCapturing)
             .feedbackRedaction(model.feedback)
             .environment(model.feedback)
-            #else
-            .redacted(reason: model.preferences.hidesAmounts ? .privacy : [])
             #endif
     }
 }

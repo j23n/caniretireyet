@@ -33,10 +33,11 @@ struct ImportPreviewStep: View {
                     ImportGuidedProposals(model: model)
                 }
                 ForEach(flow.mappingIssues, id: \.self) { issue in
-                    StatusBanner(.warning, issue)
+                    StatusBanner(.warning, issue, personal: .title)
                 }
                 ForEach(flow.debtNotes, id: \.self) { note in
-                    StatusBanner(.info, note, message: "Kept as written? Change it under Accounts, “Debts”.")
+                    StatusBanner(.info, note, message: "Kept as written? Change it under Accounts, “Debts”.",
+                                 personal: .title)
                 }
                 ImportConflictsCard(model: model)
                 Card {
@@ -160,6 +161,7 @@ private struct ImportProposalLabel: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
             Text(title)
+                .privacySensitiveInFeedback()
             Text(detail)
                 .font(.caption)
                 .foregroundStyle(Palette.secondaryInk)
@@ -219,18 +221,21 @@ private struct ImportConflictRowView: View {
             Divider()
             Text(row.title)
                 .font(.subheadline.weight(.semibold))
+                .privacySensitiveInFeedback()
             Grid(alignment: .leading, horizontalSpacing: Metrics.m, verticalSpacing: 2) {
                 GridRow {
                     Text("Library")
                         .foregroundStyle(Palette.secondaryInk)
                     Text(row.existing)
                         .monospacedDigit()
+                        .privacySensitiveInFeedback()
                 }
                 GridRow {
                     Text("File")
                         .foregroundStyle(Palette.secondaryInk)
                     Text(row.incoming)
                         .monospacedDigit()
+                        .privacySensitiveInFeedback()
                 }
             }
             .font(.callout)
@@ -311,6 +316,7 @@ private struct ImportGridHeader: View {
                 .foregroundStyle(isImported ? Palette.accent : Palette.mutedInk)
         }
         .lineLimit(1)
+        .privacySensitiveInFeedback()
         .padding(.horizontal, Metrics.s)
         .padding(.vertical, Metrics.xs)
         .frame(minWidth: 96, maxWidth: 240, alignment: .leading)
@@ -332,6 +338,7 @@ private struct ImportGridCell: View {
                 .monospacedDigit()
                 .foregroundStyle(cell.isImported ? Palette.ink : Palette.mutedInk)
                 .lineLimit(1)
+                .privacySensitiveInFeedback()
         }
         .padding(.horizontal, Metrics.s)
         .padding(.vertical, 5)
@@ -378,6 +385,7 @@ private struct ImportCellErrorsCard: View {
                                 .foregroundStyle(Palette.critical)
                         }
                     }
+                    .privacySensitiveInFeedback()
                 }
                 if errors.count > Self.limit {
                     Text("And \(errors.count - Self.limit) more.")

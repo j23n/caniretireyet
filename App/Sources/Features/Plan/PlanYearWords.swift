@@ -69,6 +69,7 @@ struct PlanYearDetails: View {
                     Text(year.title)
                         .font(.title3.weight(.bold))
                         .foregroundStyle(Palette.ink)
+                        .privacySensitiveInFeedback()
                         .accessibilityAddTraits(.isHeader)
                     if !year.isLatest {
                         AmountSentenceText(PlanProgressText.change(year, currency: card.currency, locale: locale))
@@ -143,6 +144,7 @@ struct PlanYearDetails: View {
                 .font(PlanProgressFont.caption)
                 .foregroundStyle(Palette.secondaryInk)
                 .fixedSize(horizontal: false, vertical: true)
+                .privacySensitiveInFeedback()
         }
         if !year.isComplete || card.actual.contains(where: { !$0.isComplete }) {
             OldPriceNoteView(text: "Some prices or exchange rates were missing: those holdings count as zero, "
@@ -158,11 +160,13 @@ struct PlanYearCardFooter: View {
     let card: PlanProgressTimeline.Card
 
     @Environment(\.redactionReasons) private var redactionReasons
+    @Environment(\.hidesPersonalData) private var hidesPersonalData
     @Environment(\.locale) private var locale
 
     private func item(_ title: String, _ value: AmountSentence, hidesAmounts: Bool) -> Text {
         let name = Text(title).foregroundStyle(Palette.secondaryInk)
-        let figure = Text(sentence: value, hidesAmounts: hidesAmounts).fontWeight(.semibold)
+        let figure = Text(sentence: value, hidesAmounts: hidesAmounts, hidesWords: hidesPersonalData)
+            .fontWeight(.semibold)
             .foregroundStyle(Palette.ink)
         return Text("\(name) \(figure)")
     }
@@ -186,8 +190,9 @@ struct PlanYearCardFooter: View {
         .monospacedDigit()
         .lineLimit(1)
         .minimumScaleFactor(0.8)
-        // The amounts draw as placeholders while hidden, as in a sentence.
-        .textRenderer(AmountPlaceholderRenderer(hidesAmounts: hides))
+        // The amounts draw as placeholders while hidden, as in a sentence, and the age too in a
+        // feedback screenshot.
+        .textRenderer(AmountPlaceholderRenderer(hidesAmounts: hides, hidesWords: hidesPersonalData))
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(Text(verbatim: "Saved \(saved.spoken(hidesAmounts: hides)), "
             + "markets \(markets.spoken(hidesAmounts: hides)), age \(age.text)"))
@@ -284,6 +289,7 @@ struct PlanYearFigures: View {
                         .privacySensitiveAmount()
                 } else {
                     Text(value)
+                        .privacySensitiveInFeedback()
                 }
             }
             .font(.title3.weight(.semibold))
@@ -417,6 +423,7 @@ struct PlanYearWhy: View {
             Text(title)
                 .font(PlanProgressFont.text.weight(.semibold))
                 .foregroundStyle(Palette.ink)
+                .privacySensitiveInFeedback()
                 .accessibilityAddTraits(.isHeader)
             if let explanation = year.explanation?.inWholeUnits {
                 let shown = rows(explanation)
@@ -437,6 +444,7 @@ struct PlanYearWhy: View {
                         Text(totalTitle(explanation))
                             .fontWeight(.semibold)
                             .foregroundStyle(Palette.ink)
+                            .privacySensitiveInFeedback()
                         Color.clear
                             .frame(height: 1)
                         amountText(explanation.end, isTotal: true)
@@ -461,6 +469,7 @@ struct PlanYearWhy: View {
                     Button("Add What You Planned in \(String(year.year))…") { onAddPastBaseline(year.year) }
                         .buttonStyle(.borderless)
                         .font(PlanProgressFont.text.weight(.semibold))
+                        .personalControl()
                 }
             }
         }
@@ -522,6 +531,7 @@ struct PlanYearHappenings: View {
                             Text(row.month)
                                 .foregroundStyle(Palette.secondaryInk)
                                 .frame(width: Self.monthWidth, alignment: .leading)
+                                .privacySensitiveInFeedback()
                             if row.hasMilestone {
                                 Image(systemName: "flag.fill")
                                     .font(.caption)

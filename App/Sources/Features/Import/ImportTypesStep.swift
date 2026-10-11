@@ -44,6 +44,7 @@ struct ImportTypesStep: View {
                     Label(note, systemImage: "info.circle")
                         .font(.footnote)
                         .foregroundStyle(Palette.secondaryInk)
+                        .privacySensitiveInFeedback()
                 }
             } header: {
                 Text("Signs")
@@ -80,6 +81,7 @@ private struct ImportTypeRowView: View {
             VStack(alignment: .leading, spacing: 2) {
                 Label("“\(row.value)”", systemImage: row.type == nil ? "exclamationmark.triangle.fill"
                     : "arrow.right.circle")
+                    .privacySensitiveInFeedback()
                 Text(detail)
                     .font(.caption)
                     .foregroundStyle(row.type == nil ? Palette.warning : Palette.secondaryInk)
