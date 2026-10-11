@@ -394,6 +394,58 @@ struct SavingPaceTests {
         #expect(pace.byAccount["pension"]?.rounded(scale: 2) == 26_000)
     }
 
+    /// A pension fund paid 1,500 on 31 Dec for the quarter, and not valued
+    /// since: it's carried forward for one more quarter, to 2 Apr, not to
+    /// September.
+    @Test func carryingForwardStopsAfterAsLongAgain() throws {
+        var library = self.library(flows: [Decimal](repeating: 1_000, count: 12))
+        library.accounts["pension"] = Account(id: "pension", name: "Pension", kind: .pensionFund, currency: .eur,
+                                              opened: "2020-01-01")
+        library.upsert(Valuation(account: "pension", date: "2025-09-30", balance: 10_000, flow: 0))
+        library.upsert(Valuation(account: "pension", date: "2025-12-31", balance: 11_500, flow: 1_500))
+        let pace = try #require(Valuator(library: library).savingPace(asOf: "2026-09-30"))
+        #expect(pace.carriedForward == ["pension"])
+        #expect(pace.byAccount["pension"]?.rounded(scale: 2) == 3_000)
+        #expect(pace.months.suffix(5).allSatisfy { $0.newMoney == 1_000 })
+    }
+
+    /// 500 into a savings account in each of October, November and December,
+    /// then 500 again in September: it's spread over half as long again as
+    /// the usual 31 days between payments, from 15 Aug, not back to December.
+    @Test func aPaymentLongAfterTheOthersIsntSpreadBackToThem() throws {
+        var library = self.library(flows: [Decimal](repeating: 1_000, count: 12))
+        library.accounts["savings"] = Account(id: "savings", name: "Savings", kind: .savings, currency: .eur,
+                                              opened: "2020-01-01")
+        var balance: Decimal = 0
+        library.upsert(Valuation(account: "savings", date: "2025-09-30", balance: balance, flow: 0))
+        for back in (0..<12).reversed() {
+            let flow: Decimal = back == 0 || back >= 9 ? 500 : 0
+            balance += flow
+            library.upsert(Valuation(account: "savings", date: SavingPace.monthEnd(back, before: "2026-09-30"),
+                                     balance: balance, flow: flow))
+        }
+        let pace = try #require(Valuator(library: library).savingPace(asOf: "2026-09-30"))
+        // 500 over the 46 days from 15 Aug: 16 in August, 30 in September.
+        #expect(pace.months.suffix(2).map { $0.newMoney.rounded(scale: 2) } == [d("1173.91"), d("1326.09")])
+        #expect(pace.months.dropFirst(3).dropLast(2).allSatisfy { $0.newMoney == 1_000 })
+    }
+
+    /// A pension fund valued on 20 Oct makes that the latest check-in: the
+    /// current account, valued at each month end, goes on saving to it.
+    @Test func aPartialLatestCheckInCarriesTheOthersForward() throws {
+        var library = self.library(flows: [Decimal](repeating: 1_000, count: 13))
+        library.accounts["pension"] = Account(id: "pension", name: "Pension", kind: .pensionFund, currency: .eur,
+                                              opened: "2020-01-01")
+        library.upsert(Valuation(account: "pension", date: "2025-10-20", balance: 10_000, flow: 0))
+        library.upsert(Valuation(account: "pension", date: "2026-10-20", balance: 16_000, flow: 6_000))
+        let pace = try #require(Valuator(library: library).savingPace(asOf: "2026-10-31"))
+        #expect(pace.asOf == "2026-10-20")
+        #expect(pace.carriedForward == ["current"])
+        // 10 days of September's 1,000, 20 carried forward, and 30 of the
+        // pension's 365.
+        #expect(pace.months.last?.newMoney.rounded(scale: 2) == d("1493.15"))
+    }
+
     /// A savings account emptied on 31 Mar and not valued since: taking
     /// the 5,000 out isn't carried forward.
     @Test func moneyTakenOutIsntCarriedForward() throws {
