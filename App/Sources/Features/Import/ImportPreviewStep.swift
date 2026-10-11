@@ -39,6 +39,9 @@ struct ImportPreviewStep: View {
                     StatusBanner(.info, note, message: "Kept as written? Change it under Accounts, “Debts”.",
                                  personal: .title)
                 }
+                ForEach(flow.quantityTradeNotes, id: \.self) { note in
+                    StatusBanner(.info, note, personal: .title)
+                }
                 ImportConflictsCard(model: model)
                 Card {
                     ImportGridView(grid: flow.grid(onlyProblems: onlyProblems))

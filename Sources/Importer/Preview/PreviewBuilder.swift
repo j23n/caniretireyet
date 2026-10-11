@@ -310,7 +310,7 @@ struct PreviewBuilder {
 
     // MARK: - Matching and aggregation
 
-    private struct Accumulator {
+    struct Accumulator {
         var record: ImportedRecord
         var cells: [ImportCellRef] = []
         var sources: [RecordField: (value: Decimal, cell: ImportCellRef)] = [:]
@@ -463,6 +463,8 @@ struct PreviewBuilder {
 
     private mutating func compare(_ accumulators: [ImportRecordKey: Accumulator], into preview: inout ImportPreview) {
         let resolution = profile.effectiveOnConflict
+        var accumulators = accumulators
+        let converted = convertQuantitiesToTrades(&accumulators)
         var records: [ImportRecordPreview] = []
         for key in accumulators.keys.sorted() {
             var accumulator = accumulators[key]!
@@ -499,13 +501,13 @@ struct PreviewBuilder {
         preview.firstDate = dates.min()
         preview.lastDate = dates.max()
         preview.newInstruments = instrumentProposals
-        let usedAccounts = Set(records.compactMap(\.imported.key.account))
+        let usedAccounts = Set(records.compactMap(\.imported.key.account) + converted.compactMap(\.key.account))
         preview.newAccounts = accountProposals.filter { usedAccounts.contains($0.account.id) }
-        preview.accountChanges = accountChanges(records, lastDate: preview.lastDate,
+        preview.accountChanges = accountChanges(records, converted: converted, lastDate: preview.lastDate,
                                                 newAccounts: preview.newAccounts)
     }
 
-    private mutating func failCost(_ accumulator: Accumulator, _ instrument: InstrumentID) {
+    mutating func failCost(_ accumulator: Accumulator, _ instrument: InstrumentID) {
         guard let cell = accumulator.sources[.costBasis(instrument)]?.cell else { return }
         let raw = table.rows.first { $0.number == cell.row }?[cell.column] ?? ""
         fail(cell.row, cell.column, raw, .costWithoutQuantity)
@@ -517,16 +519,24 @@ struct PreviewBuilder {
     /// an account and making it record trades are proposed unaccepted; only
     /// an account that isn't brokerage, crypto or metals is offered to
     /// record trades, and one of those kinds that doesn't is an issue.
-    private mutating func accountChanges(_ records: [ImportRecordPreview], lastDate: CalendarDate?,
+    ///
+    /// `converted`: the records whose quantities became trades, as the file
+    /// gave them, which say when an account's values stop.
+    private mutating func accountChanges(_ records: [ImportRecordPreview], converted: [ImportedRecord],
+                                         lastDate: CalendarDate?,
                                          newAccounts: [AccountProposal]) -> [AccountChangeProposal] {
         guard let lastDate else { return [] }
         var byAccount: [AccountID: [ImportedRecord]] = [:]
         var tradesAccounts = Set<AccountID>()
-        for record in records {
-            if let account = record.imported.key.account { byAccount[account, default: []].append(record.imported) }
-            if case .trade(let key) = record.imported.key { tradesAccounts.insert(key.account) }
+        for record in records.map(\.imported) + converted {
+            if case .trade(let key) = record.key {
+                // Trades made from quantities are in `converted` as the file gave them.
+                guard profile.layout == .trades else { continue }
+                tradesAccounts.insert(key.account)
+            }
+            if let account = record.key.account { byAccount[account, default: []].append(record) }
         }
-        let imported = Set(records.map(\.imported.key))
+        let imported = Set(records.map(\.imported.key) + converted.map(\.key))
         var lastCells: [AccountID: CalendarDate] = [:]
         for (ref, date) in unreadValues {
             guard let id = matcher.resolvedAccount(ref) else { continue }

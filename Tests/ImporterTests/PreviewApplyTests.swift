@@ -334,7 +334,8 @@ struct PreviewApplyTests {
         let once = session.preview(against: library).apply(to: library)
         let again = session.preview(against: once.library)
         #expect(again.summary.newRecords == 0)
-        #expect(again.summary.conflicts == 4)
+        // Directa's three balances, the gold coins' last one and the wallet's buy in March.
+        #expect(again.summary.conflicts == 5)
         #expect(!again.apply(to: once.library).hasChanges)
     }
 }

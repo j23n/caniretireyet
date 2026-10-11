@@ -22,9 +22,11 @@ public struct ImportTarget: OpenEnum {
 
     /// A valuation's `balance`.
     public static let balance: ImportTarget = "balance"
-    /// A position's `quantity`.
+    /// A position's `quantity`; in an account that records trades, an
+    /// opening, a buy or a sale (docs/IMPORT.md, "Quantities in a trades account").
     public static let quantity: ImportTarget = "quantity"
-    /// A position's `costBasis`.
+    /// A position's `costBasis`; in an account that records trades, an
+    /// opening's cost or a buy's amount.
     public static let costBasis: ImportTarget = "costBasis"
     /// A valuation's `cash`.
     public static let cash: ImportTarget = "cash"

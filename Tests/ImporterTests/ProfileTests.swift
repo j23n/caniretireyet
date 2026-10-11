@@ -40,7 +40,7 @@ struct ProfileTests {
             .preview(against: result.library)
         #expect(again.records.map(\.imported) == preview.records.map(\.imported))
         #expect(again.records.allSatisfy { $0.status == .identical })
-        #expect(again.issues.isEmpty)
+        #expect(again.issues.allSatisfy { $0.isNote })
         #expect(again.ambiguities.isEmpty)
     }
 
@@ -72,18 +72,19 @@ struct ProfileTests {
         #expect(session.columnRoles == [.date, .mapped(profileColumn: 1), .mapped(profileColumn: 0),
                                         .mapped(profileColumn: 2), .unknown, .mapped(profileColumn: 4)])
         let preview = session.preview(against: library)
-        #expect(preview.issues == [
+        #expect(preview.issues.filter { !$0.isNote } == [
             ImportIssue(kind: .missingColumn, header: "Oro"),
             ImportIssue(kind: .unknownColumn, column: 5, header: "Conto nuovo"),
         ])
-        #expect(preview.issues.map(\.description) == [
+        #expect(preview.issues.filter { !$0.isNote }.map(\.description) == [
             "“Oro” from the profile isn't in the file.",
             "“Conto nuovo” isn't in the profile, so it isn't imported until you map it.",
         ])
         #expect(preview.newAccounts.isEmpty)
         #expect(preview.records.map(\.imported.key) == [
             .valuation("conto-fineco", "2026-04-30"), .valuation("directa", "2026-04-30"),
-            .valuation("ledger-wallet", "2026-04-30"),
+            // The wallet records trades: 0.23 BTC, from 0.4515, is a sale.
+            .trade(TradeKey(account: "ledger-wallet", date: "2026-04-30", id: "sell-btc")),
         ])
         #expect(preview.record(.valuation("directa", "2026-04-30"))?.imported.balance == 41000)
         #expect(preview.record(.valuation("conto-fineco", "2026-04-30"))?.imported.balance == 5600)

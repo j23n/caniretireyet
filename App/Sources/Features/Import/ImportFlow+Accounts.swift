@@ -203,6 +203,20 @@ extension ImportFlow {
         }
     }
 
+    // MARK: Trades from quantities
+
+    /// How quantities of accounts that record trades became trades, e.g.
+    /// "ledger-wallet records trades, so its quantities became 1 buy and 1
+    /// sale…", and the prices and costs they lack.
+    var quantityTradeNotes: [String] {
+        (preview?.issues ?? []).filter { issue in
+            switch issue.kind {
+            case .quantitiesAsTrades, .tradesWithoutPrice, .openingsWithoutCost: true
+            default: false
+            }
+        }.map(\.description)
+    }
+
     // MARK: Debts
 
     /// Notes such as "“Mutuo”: positive amounts were read as debts (12 values)."
