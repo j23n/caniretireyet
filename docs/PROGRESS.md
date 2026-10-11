@@ -39,7 +39,7 @@ Each check-in re-runs the main plan (`mainPlan` in `library.json`) and records t
 
 Records made by earlier versions may also hold the old `fiProgress` (plan assets over the spending pensions don't cover, divided by 4%), with its old meaning, and `taxParameters` (the years of the tax rules a tax system used); both are kept as they are. The app doesn't show `fiProgress`: it treated the pensions as already paid and ignored taxes and the plan's confidence, so it could read 75% while retiring today succeeded in 13% of futures. Records that have only `fiProgress` show no progress number.
 
-The chart then shows how "you can retire at 54" moves from month to month.
+The chart (Trends' *Time to retirement*, [UI.md](UI.md#trends)) then shows how "you can retire at 54" moves from month to month.
 
 Markers show when the plan's inputs (its tax rates among them) or the app's calculation code changed. So you can tell a move caused by markets and savings from one caused by changing the plan or by a new budget law.
 
@@ -92,6 +92,15 @@ A **baseline** is a projection saved at a point in time (see below). Choosing on
   | Other | Everything else: what an account held when its records start, a balance's change when a missing price or rate keeps its new money from being worked out, and exchange rates |
 
   The split is an approximation, since the four parts affect each other. It answers the useful question, though: am I behind because I saved less, or because markets were bad?
+
+### Trends
+
+The plan's *Trends* part ([UI.md](UI.md#trends)) looks back over your own records, with the plan only as a reference line:
+
+- **Money in and out by period:** money in, money out, the pension contributions and the savings rate ([Money in and out](#money-in-and-out)) for each month or calendar year, over the values dated in it; with months, also the savings rate over the 12 months ending at each. A value counts in the period of its date, even when it covers more (after a skipped check-in).
+- **Where your money came from:** plan assets at each month end or year end, split into three parts that add up to the total. **Started with** is what each account held when its records start: its first value. The check-in fills in a new account's whole amount as its flow, so that flow can't tell money you already had from money you moved; a first value's flow stays new money only as far as negative flows at the same check-in of accounts with a value before it offset it (money moved from an account already tracked, such as a broker funded from the current account), shared over that check-in's first values in proportion to their flows, so the two flows cancel out. It's a guess: a flow can't tell a transfer from spending, so a new account added in a month you drew money down absorbs that drawdown as new money, and the month's put in reads higher by as much. **Put in** is every check-in's flows added up, less the part of each first value's flow that counts as started with (its flow, less what offsetting flows kept as new money); a first value without a flow takes nothing off. **Markets** is the rest: price and FX movement, interest, reinvested income, and what nothing explains. Only Trends splits this way: the change split elsewhere (the Overview, Progress's years) keeps counting a first value's flow as new money.
+- **The plan's savings rate:** a year's saving as the crossover counts it ([Milestones](#milestones): the take-home pay of the work phase in force less spending while working), over that pay; the reference for the savings rate. None without a work phase in force.
+- **Each year graded:** the year's put in, as above, against its baseline's `savings` (none when it planned no saving, or less), and money out a year against the baseline plan's spending while working, each "as planned" within 5%; markets as the year's words on Progress say it.
 
 ## Baselines
 

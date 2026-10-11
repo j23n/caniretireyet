@@ -186,9 +186,10 @@ The iPhone uses a tab bar and the Mac uses a sidebar. The iPad gets the sidebar 
   3. Update the accounts, pre-filled with last time's values. "Unchanged" is one tap.
   4. Review the new total and the changes.
   5. Save.
-- **Plan.** Two parts:
+- **Plan.** Three parts:
   - *Plan*: the answer, then your life as a strip of chapters (working, retired before the pensions, with them), each with the money running through it and where it stands at its end, and the chosen chapter in words, with its settings, where the plan changes; the charts behind the answer fold away;
   - *Progress*: whether you're on track, then year by year your money against what January expected and how the answer moved, and your actual numbers against baselines.
+  - *Trends*: how you've actually been doing over the whole history, from your own records: the savings rate, money in and out, what you put in against what markets added, how the earliest age moved, and each year graded in words against what its baseline planned.
 
   What-ifs are a sheet on iPhone and the inspector on the Mac. Plans can be duplicated as what-if scenarios. The screens are designed in [UI.md](UI.md).
 - **Settings.** Library location, price sources, a monthly reminder, app lock, and a description of the file format.
