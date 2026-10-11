@@ -127,6 +127,31 @@ struct AgesWithoutTests {
         #expect(atPace.events == planned.events && atPace.pensions == planned.pensions)
     }
 
+    /// Rent of 6,000 from 40 to 50 and a pension of 4,000 from 45 reach the
+    /// accounts while working, so they're already in the 12,000 pace: the
+    /// income drops by what they pay, and every working year saves the pace.
+    @Test func atThePaceIncomePaidWhileWorkingIsNotCountedTwice() {
+        let pace = SavingPace(
+            asOf: "2025-12-31", currency: .eur, months: [], usualMonth: 1_000, perYear: 12_000, range: nil,
+            byAccount: ["broker": 12_000], leftOut: [], carriedForward: [], isInTodaysMoney: false,
+            isComplete: true)
+        var planned = plan()
+        planned.contributions = []
+        planned.income = [PlanIncome(name: "Rent", from: .age(40), untilAge: 50, perYear: 6_000),
+                          PlanIncome(name: "Annuity", from: .retirement, perYear: 2_000)]
+        planned.pensions = [PlanPension(name: "Early", fromAge: 45, perYear: 4_000)]
+        let atPace = Planner.plan(planned, atPace: pace, library: library)
+        #expect(atPace.work == [
+            WorkPhase(from: "2025-12-31", until: .date("2025-12-31"), netIncome: 42_000),
+            WorkPhase(from: "2026-01-01", until: .date("2030-12-31"), netIncome: 36_000),
+            WorkPhase(from: "2031-01-01", until: .date("2035-12-31"), netIncome: 32_000),
+            WorkPhase(from: "2036-01-01", until: .retirement, netIncome: 38_000),
+        ])
+        #expect(atPace.spending.working == 30_000)
+        #expect(atPace.income == planned.income && atPace.pensions == planned.pensions)
+        #expect(!Planner.validate(plan: atPace, library: library).contains(where: \.isError))
+    }
+
     /// Taking out 36,000 a year, more than the 30,000 spent while working:
     /// no income, and that spending raised to 36,000, which the plan can run.
     @Test func aPaceTakingOutMoreThanTheSpendingSpendsIt() {

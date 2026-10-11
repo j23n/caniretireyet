@@ -285,8 +285,10 @@ public enum Planner {
     /// the rest is saved where the plan saves cash. An account the pace
     /// leaves out keeps the plan's contributions, which the income pays on
     /// top; one-off contributions and events stay, as the pace leaves out
-    /// unusual months. A pace taking out more than the spending while
-    /// working raises that spending instead, with no income.
+    /// unusual months. Other income and pensions paid at a fixed age while
+    /// working are already in the pace, so the phase splits where they start
+    /// or stop and earns that much less in each part. A pace taking out more
+    /// than the spending while working raises that spending instead.
     public static func plan(_ plan: PlanDocument, atPace pace: SavingPace, library: Library) -> PlanDocument {
         var plan = plan
         let excluded = Set(plan.portfolio.exclude)
@@ -300,13 +302,49 @@ public enum Planner {
             .map { PlanContribution(account: $0.key, perYear: $0.value.rounded(scale: 0)) }
         let paidOnTop = kept.filter { !$0.isOneOff }.reduce(Decimal(0)) { $0 + $1.perYear }
         let from = min(plan.work.map(\.from).min() ?? pace.asOf, pace.asOf)
+        // Other income and pensions paid while working reach the accounts, so
+        // the pace holds them: each piece between the days they start or stop
+        // earns that much less.
+        let paid = paidWhileWorking(plan, birthDate: library.settings.person?.birthDate)
+        let starts = [from] + paid.keys.filter { $0 > from }.sorted()
+        let base = plan.spending.working + pace.perYear + paidOnTop
+        let incomes = starts.map { start in
+            (base - (paid.filter { $0.key <= start }.max { $0.key < $1.key }?.value ?? 0)).rounded(scale: 0)
+        }
         // Taking out more than the spending while working: no income, and
         // that spending raised to what's taken out.
-        let income = (plan.spending.working + pace.perYear + paidOnTop).rounded(scale: 0)
-        if income < 0 { plan.spending.working -= income }
-        plan.work = [WorkPhase(from: from, until: .retirement, netIncome: max(income, 0))]
+        let raise = max(0, -(incomes.min() ?? 0))
+        plan.spending.working += raise
+        plan.work = starts.indices.map { index in
+            WorkPhase(from: starts[index],
+                      until: index + 1 < starts.count ? .date(starts[index + 1].adding(days: -1)) : .retirement,
+                      netIncome: incomes[index] + raise)
+        }
         plan.contributions = kept + locked
         return plan
+    }
+
+    /// The other income and pensions in force from each day one starts or
+    /// stops, paid at a fixed age and so possibly while working.
+    private static func paidWhileWorking(_ plan: PlanDocument, birthDate: CalendarDate?) -> [CalendarDate: Decimal] {
+        guard let birthDate else { return [:] }
+        var spans: [(from: CalendarDate, until: CalendarDate?, perYear: Decimal)] = []
+        for income in plan.income {
+            guard let age = income.from?.age, let perYear = income.perYear, perYear > 0 else { continue }
+            let until = income.untilAge.map { birthDate.adding(years: $0) }
+            spans.append((from: birthDate.adding(years: age), until: until, perYear: perYear))
+        }
+        for pension in plan.pensions {
+            guard let age = pension.fromAge, let perYear = pension.perYear, perYear > 0 else { continue }
+            spans.append((from: birthDate.adding(years: age), until: nil, perYear: perYear))
+        }
+        let days = Set(spans.flatMap { [$0.from] + ($0.until.map { [$0] } ?? []) })
+        var paid: [CalendarDate: Decimal] = [:]
+        for day in days {
+            paid[day] = spans.filter { $0.from <= day && ($0.until.map { day < $0 } ?? true) }
+                .reduce(Decimal(0)) { $0 + $1.perYear }
+        }
+        return paid
     }
 
     /// The indices of `plan`'s uncertain windfalls: events that bring money,
