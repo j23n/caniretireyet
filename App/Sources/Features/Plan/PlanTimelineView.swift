@@ -28,6 +28,7 @@ struct PlanTimelineView: View {
     var onExport: (() -> Void)?
 
     @Environment(LibraryStore.self) private var library
+    @Environment(AppNavigation.self) private var navigation
     @Environment(\.hidesAmounts) private var hidesAmounts
     @Environment(\.locale) private var locale
     @State private var editing: PlanEditTarget?
@@ -81,11 +82,13 @@ struct PlanTimelineView: View {
             PlanItemSheet(session: session, target: target, issues: session.inputIssues)
         }
         .sheet(isPresented: $showsTargetMix) {
-            PlanTargetMixSheet(plan: $session.editablePlan)
+            PlanTargetMixSheet(session: session)
         }
         .sheet(isPresented: $showsAssumptions) {
             PlanAlwaysSheet(session: session)
         }
+        // The Target mix sheet asked for at launch (the UI tests).
+        .task { if navigation.requestsTargetMix { showsTargetMix = true } }
         .onDisappear { session.saveNow() }
     }
 

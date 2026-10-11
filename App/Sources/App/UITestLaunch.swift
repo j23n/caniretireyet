@@ -5,7 +5,8 @@ import Model
 /// The UI tests' launch (App/UITests): `-uiTestLibrary example` (or
 /// `longHistory`) opens a made-up library in memory, with the real planner,
 /// no network and settings of its own, and `-uiTestScreen` the screen to
-/// start on (`overview`, `plan`, `progress` or `whatIf`), so each
+/// start on (`overview`, `plan`, `progress` or `whatIf`; `targetMix`, the
+/// Target mix sheet of the first plan with changes with age), so each
 /// screenshot is one launch. The main plan is calculated at once, with
 /// fewer runs than it says, so the plan's screens fill in quickly; not with
 /// `-uiTestNoRun`. `-uiTestKeepResults <name>` keeps the plans' results as
@@ -18,6 +19,7 @@ struct UITestLaunch {
         case plan
         case progress
         case whatIf
+        case targetMix
     }
 
     var library: Library
@@ -74,6 +76,10 @@ struct UITestLaunch {
         case .whatIf:
             navigation.showPlan(main)
             navigation.requestsWhatIf = true
+        case .targetMix:
+            let plans = library.plans.values.sorted { $0.id.rawValue < $1.id.rawValue }
+            navigation.showPlan(plans.first { !$0.portfolio.targetMixByAge.isEmpty }?.id ?? main)
+            navigation.requestsTargetMix = true
         }
         let runsMainPlan = runsMainPlan
         Task {

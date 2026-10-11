@@ -87,6 +87,8 @@ final class AppNavigation {
     var requestedPlanPart: PlanPart?
     /// Whether the Plan screen opens What if when it appears (the UI tests).
     var requestsWhatIf = false
+    /// Whether the plan opens its Target mix sheet when it appears (the UI tests).
+    var requestsTargetMix = false
 
     /// Opens the check-in: full screen with tabs, the Check-in page with a sidebar.
     func startCheckIn() {
