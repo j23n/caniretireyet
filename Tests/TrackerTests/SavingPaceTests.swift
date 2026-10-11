@@ -462,6 +462,64 @@ struct SavingPaceTests {
         #expect(pace.perYear == 12_000)
     }
 
+    /// 1,000 a month into the current account, and 20,000 into a pension
+    /// fund in September, which is unusual: in the pace, September counts
+    /// as the usual 1,000, split as September was, 1/21 to the current
+    /// account and 20/21 to the pension fund.
+    @Test func eachAccountsShareOfThePaceCountsAnUnusualMonthAsUsual() throws {
+        var library = self.library(flows: [Decimal](repeating: 1_000, count: 12))
+        library.accounts["pension"] = Account(id: "pension", name: "Pension", kind: .pensionFund, currency: .eur,
+                                              opened: "2020-01-01")
+        for back in (0...12).reversed() {
+            let flow: Decimal = back == 0 ? 20_000 : 0
+            library.upsert(Valuation(account: "pension", date: SavingPace.monthEnd(back, before: "2026-09-30"),
+                                     balance: flow, flow: flow))
+        }
+        let pace = try #require(Valuator(library: library).savingPace(asOf: "2026-09-30"))
+        #expect(pace.unusualMonths.map(\.end) == ["2026-09-30"])
+        #expect(pace.perYear == 12_000)
+        #expect(pace.byAccount["pension"] == 20_000)
+        #expect(pace.byAccountInPace["pension"]?.rounded(scale: 2) == d("952.38"))
+        #expect(pace.byAccountInPace["current"]?.rounded(scale: 2) == d("11047.62"))
+        let shares = pace.byAccountInPace.values.reduce(Decimal(0), +)
+        #expect(shares.rounded(scale: 2) == 12_000)
+    }
+
+    /// 500 a month into the current account and 1,000 into a pension fund,
+    /// and in September 5,000 out of the current account, which is unusual:
+    /// September counts as the usual 1,500, split as the usual months were,
+    /// a third to the current account and two thirds to the pension fund.
+    @Test func anUnusualMonthTakingMoneyOutIsSplitAsTheUsualMonths() throws {
+        var flows = [Decimal](repeating: 500, count: 12)
+        flows[0] = -5_000
+        var library = self.library(flows: flows)
+        library.accounts["pension"] = Account(id: "pension", name: "Pension", kind: .pensionFund, currency: .eur,
+                                              opened: "2020-01-01")
+        var balance: Decimal = 0
+        for back in (0...12).reversed() {
+            let flow: Decimal = back == 12 ? 0 : 1_000
+            balance += flow
+            library.upsert(Valuation(account: "pension", date: SavingPace.monthEnd(back, before: "2026-09-30"),
+                                     balance: balance, flow: flow))
+        }
+        let pace = try #require(Valuator(library: library).savingPace(asOf: "2026-09-30"))
+        #expect(pace.unusualMonths.map(\.end) == ["2026-09-30"])
+        #expect(pace.perYear == 18_000)
+        #expect(pace.byAccountInPace["pension"]?.rounded(scale: 2) == 12_000)
+        #expect(pace.byAccountInPace["current"]?.rounded(scale: 2) == 6_000)
+    }
+
+    /// 7 months of +1 and 4 of −9 add up to less than nothing, though the
+    /// usual month is +1: the month taking out 500 is split as it was, and
+    /// the shares still add up to the pace.
+    @Test func whenTheUsualMonthsSavedNothingTheSharesStillAddUp() throws {
+        let flows: [Decimal] = [-500] + [Decimal](repeating: 1, count: 7) + [Decimal](repeating: -9, count: 4)
+        let pace = try #require(Valuator(library: library(flows: flows)).savingPace(asOf: "2026-09-30"))
+        #expect(pace.unusualMonths.map(\.end) == ["2026-09-30"])
+        #expect(pace.perYear == -28)
+        #expect(pace.byAccountInPace.values.reduce(Decimal(0), +) == -28)
+    }
+
     /// The range of the 12 months ending at each of the last month ends:
     /// with 1,500 in the oldest of 13 months, 12,000 to 12,500.
     @Test func theRangeOverThePastYear() throws {
