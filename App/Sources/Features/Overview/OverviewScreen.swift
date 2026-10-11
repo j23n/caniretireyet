@@ -134,6 +134,7 @@ private struct OverviewHeroView: View {
                 // "in September", "31 Jul – 15 Sep": the check-in's change, not one up to today.
                 Text(GlanceText.period(from: change.from, to: change.to, relativeTo: hero.date))
                     .foregroundStyle(Palette.secondaryInk)
+                    .privacySensitiveInFeedback()
             }
         }
         if let year = hero.thisYear {
@@ -254,6 +255,7 @@ private struct OverviewHistorySection: View {
                 .environment(\.chartSurface, Palette.page)
             if future {
                 ChartCaption(text: futureCaption, detail: futureDetail)
+                    .privacySensitiveInFeedback()
             }
             if let missing = history.missing {
                 missingNoteView(missing)
@@ -291,6 +293,7 @@ private struct OverviewHistorySection: View {
             VStack(alignment: .leading, spacing: Metrics.xs) {
                 HStack {
                     Text("Calculating \(planTitle)'s projection…")
+                        .privacySensitiveInFeedback()
                     Spacer(minLength: Metrics.s)
                     Text(PlanRunText.overall(progress, locale: locale))
                         .monospacedDigit()
@@ -306,6 +309,7 @@ private struct OverviewHistorySection: View {
                 Label("\(planTitle) can't be calculated: \(error)", systemImage: "exclamationmark.triangle")
                     .foregroundStyle(Palette.secondaryInk)
                     .fixedSize(horizontal: false, vertical: true)
+                    .privacySensitiveInFeedback()
                 HStack(spacing: Metrics.s) {
                     Button("Try Again") { Task { await plans.run(plan) } }
                     Button("Open Plan") { navigation.showPlan(plan) }
@@ -319,6 +323,7 @@ private struct OverviewHistorySection: View {
                 Text("Calculate \(planTitle) to see its projection.")
                     .foregroundStyle(Palette.secondaryInk)
                     .fixedSize(horizontal: false, vertical: true)
+                    .privacySensitiveInFeedback()
                 Spacer(minLength: Metrics.s)
                 Button("Calculate") { Task { await plans.run(plan) } }
                     .buttonStyle(.bordered)

@@ -113,6 +113,7 @@ struct OverviewHeader: View {
         } else if let recorded = headline.recordedOn {
             Label(AmountFormat.shortDate(recorded, locale: locale), systemImage: "clock")
                 .foregroundStyle(Palette.secondaryInk)
+                .privacySensitiveInFeedback()
                 .accessibilityLabel(Text(verbatim:
                     "As recorded at the check-in on \(AmountFormat.mediumDate(recorded, locale: locale))"))
         } else if isStale, plans.errors[plan.id] == nil {
@@ -138,6 +139,7 @@ struct OverviewHeader: View {
                 .font(.callout)
                 .foregroundStyle(Palette.ink)
                 .fixedSize(horizontal: false, vertical: true)
+                .privacySensitiveInFeedback()
                 .padding(Metrics.l)
                 .frame(idealWidth: 320, maxWidth: 360, alignment: .leading)
                 .presentationCompactAdaptation(.popover)
@@ -150,6 +152,7 @@ struct OverviewHeader: View {
             Label("\(plan.name) can't be calculated: \(error)", systemImage: "exclamationmark.triangle")
                 .foregroundStyle(Palette.secondaryInk)
                 .fixedSize(horizontal: false, vertical: true)
+                .privacySensitiveInFeedback()
             HStack(spacing: Metrics.s) {
                 Button("Try Again") { Task { await plans.run(plan.id) } }
                 Button("Open Plan") { navigation.showPlan(plan.id) }
@@ -194,6 +197,7 @@ struct OverviewHeader: View {
             .foregroundStyle(Palette.ink)
             .dynamicTypeSize(...DynamicTypeSize.accessibility2)
             .fixedSize(horizontal: false, vertical: true)
+            .privacySensitiveInFeedback()
     }
 
     /// "58%" over "ready", right-aligned, left of a ring 48 points across
@@ -205,6 +209,7 @@ struct OverviewHeader: View {
                     .font(.subheadline.weight(.semibold))
                     .monospacedDigit()
                     .foregroundStyle(Palette.ink)
+                    .privacySensitiveInFeedback()
                 Text("ready")
                     .font(.subheadline)
                     .foregroundStyle(Palette.secondaryInk)
@@ -212,6 +217,7 @@ struct OverviewHeader: View {
             .multilineTextAlignment(.trailing)
             ReadinessRing(fraction: figure.lappingFill, lineWidth: 6, laps: true)
                 .frame(width: 48, height: 48)
+                .privacySensitiveInFeedback()
         }
         .fixedSize()
     }
@@ -259,6 +265,7 @@ struct OverviewHeader: View {
                     // "in September", "31 Jul – 15 Sep": the check-in's change, not one up to today.
                     Text(GlanceText.period(from: change.from, to: change.to, relativeTo: netWorth.date))
                         .foregroundStyle(Palette.secondaryInk)
+                        .privacySensitiveInFeedback()
                 }
             }
             if let year = netWorth.thisYear {
@@ -300,17 +307,20 @@ struct OverviewHeader: View {
                     Text(standing.shortLabel)
                         .font(.title.bold())
                         .foregroundStyle(standing.color)
+                        .privacySensitiveInFeedback()
                         .accessibilityLabel(standing.label)
                     pair {
                         HStack(alignment: .firstTextBaseline, spacing: Metrics.xs) {
                             AmountText(abs(position.gap), currency: library.baseCurrency, tabular: false)
                             Text(position.gap >= 0 ? "ahead" : "behind")
+                                .privacySensitiveInFeedback()
                         }
                         .foregroundStyle(Palette.ink)
                     } then: {
                         // As Progress's years say it: "ahead of January", "behind January".
                         Text(position.gap >= 0 ? "of \(onTrack.expectation)" : onTrack.expectation)
                             .foregroundStyle(Palette.secondaryInk)
+                            .privacySensitiveInFeedback()
                     }
                     .accessibilityHidden(hidesAmounts)
                 } else {
@@ -324,6 +334,7 @@ struct OverviewHeader: View {
                         .foregroundStyle(Palette.ink)
                         .fixedSize(horizontal: false, vertical: true)
                         .opacity(dims ? Self.dimmedOpacity : 1)
+                        .privacySensitiveInFeedback()
                         .accessibilityLabel(OverviewOnTrack.spokenCoastLine(coast))
                 }
             }

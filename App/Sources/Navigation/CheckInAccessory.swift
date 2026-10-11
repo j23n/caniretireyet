@@ -26,6 +26,7 @@ struct CheckInAccessory: View {
                     .foregroundStyle(Palette.ink)
                     .lineLimit(1)
                     .minimumScaleFactor(0.8)
+                    .privacySensitiveInFeedback()
                 Spacer(minLength: Metrics.xs)
                 Image(systemName: "chevron.right")
                     .font(.footnote.weight(.semibold))

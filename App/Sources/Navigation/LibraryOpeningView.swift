@@ -73,6 +73,7 @@ struct LibraryOpeningContent: View {
                     .font(.subheadline)
                     .foregroundStyle(Palette.secondaryInk)
                     .multilineTextAlignment(.center)
+                    .privacySensitiveInFeedback()
             }
         }
         .frame(maxWidth: .infinity)
