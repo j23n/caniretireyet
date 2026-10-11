@@ -59,9 +59,9 @@ struct LibraryUpgrade: Hashable, Sendable, Identifiable {
     }
 }
 
-#if DEBUG
 extension LibraryUpgrade {
-    /// A made-up upgrade from format version 3, for previews.
+    /// A made-up upgrade from format version 3, for previews (and so
+    /// compiled in every configuration, as previews are).
     static let example = LibraryUpgrade(
         fromVersion: 3, toVersion: 4,
         steps: [
@@ -73,4 +73,3 @@ extension LibraryUpgrade {
         notes: ["Gold coins: the purchase cost of the opening is unknown."],
         backupPath: "backups/2026-10-11-v3")
 }
-#endif
