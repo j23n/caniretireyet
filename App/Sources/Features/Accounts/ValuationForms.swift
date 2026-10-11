@@ -86,12 +86,14 @@ enum AccountValueNotes {
     }
 
     /// The same for the flows any edit worked out again or kept, e.g. a
-    /// trade's (`TradeEdit.flows`).
-    static func flowFollowUp(_ flows: FlowFollowUp, locale: Locale = .current) -> String? {
+    /// trade's (`TradeEdit.flows`); `action` is what does it ("Saving",
+    /// "Deleting it").
+    static func flowFollowUp(_ flows: FlowFollowUp, by action: String = "Saving",
+                             locale: Locale = .current) -> String? {
         var sentences: [String] = []
         let recomputed = flows.recomputed
         if !recomputed.isEmpty {
-            sentences.append("Saving also works out again the new money of the \(values(recomputed)) on "
+            sentences.append("\(action) also works out again the new money of the \(values(recomputed)) on "
                 + "\(dates(recomputed, locale: locale)).")
         }
         let kept = flows.kept
@@ -118,11 +120,11 @@ enum AccountValueNotes {
 
     /// The confirmation for deleting a value, in the valuation editor and
     /// on the account's details (`flows` from
-    /// `Library.previewRemovingValue(_:)`).
+    /// `Library.previewRemovingValue(_:)`): what the values after it keep
+    /// or have worked out again, as ``flowFollowUp(_:by:locale:)`` says it.
     static func deleteMessage(_ flows: FlowFollowUp, locale: Locale = .current) -> String {
-        let check = moneyInOutCheck(flows, locale: locale).map { " " + $0 } ?? ""
-        return "The account's value then carries forward from the value before it. The new money of the value "
-            + "after it is worked out again, unless it was typed in." + check
+        let followUp = flowFollowUp(flows, by: "Deleting it", locale: locale).map { " " + $0 } ?? ""
+        return "The account's value then carries forward from the value before it." + followUp
     }
 
     /// "value" or "values", for `valuations`.
