@@ -137,6 +137,8 @@ struct PlanContentView: View {
                 await session.refresh()
             }
             .task { takeRequests() }
+            // The screen may already be there, e.g. on the Plan tab.
+            .onChange(of: navigation.pendingPlanPart) { takePendingPart() }
             .overlay(alignment: .bottom) {
                 if let message {
                     Text(message)
@@ -187,9 +189,18 @@ struct PlanContentView: View {
         if let requested = navigation.requestedPlanPart {
             part = requested
         }
+        takePendingPart()
         if navigation.requestsWhatIf {
             if isWide { showsInspector = true } else { showsWhatIf = true }
         }
+    }
+
+    /// A part asked for once (``AppNavigation/pendingPlanPart``), e.g.
+    /// Progress from the Overview's *On track?*: shown, then cleared.
+    private func takePendingPart() {
+        guard let pending = navigation.pendingPlanPart else { return }
+        part = pending
+        navigation.pendingPlanPart = nil
     }
 
     // MARK: Layouts

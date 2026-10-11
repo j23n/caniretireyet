@@ -152,6 +152,17 @@ final class AppNavigation {
         sidebarSelection = id.map(SidebarItem.plan) ?? .plans
     }
 
+    /// A part of the plan to show once: the Plan screen switches to it and
+    /// clears it (``showPlanProgress()``). Unlike ``requestedPlanPart``,
+    /// the next visit opens on the part last chosen.
+    var pendingPlanPart: PlanPart?
+
+    /// Shows the main plan's Progress: the Overview's *On track?*.
+    func showPlanProgress() {
+        pendingPlanPart = .progress
+        showPlan()
+    }
+
     func showSettings() {
         showsSyncInSheet = false
         sheet = .settings

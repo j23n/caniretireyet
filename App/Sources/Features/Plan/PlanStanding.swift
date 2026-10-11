@@ -17,6 +17,15 @@ extension BaselineStanding {
     /// "Ahead of plan.", "On plan.", "Behind plan."
     var title: String { label + "." }
 
+    /// For a narrow tile under "On track?": "Ahead", "On plan", "Behind".
+    var shortLabel: String {
+        switch self {
+        case .ahead: "Ahead"
+        case .onPlan: "On plan"
+        case .behind: "Behind"
+        }
+    }
+
     /// Only behind is a warning.
     var isWarning: Bool { self == .behind }
 

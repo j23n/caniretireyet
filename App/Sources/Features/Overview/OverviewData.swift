@@ -137,43 +137,37 @@ struct OverviewHistory: Hashable, Sendable {
 
 // MARK: - Baseline
 
-/// How the accounts a baseline covers compare today with it ("On plan ·
-/// 12.400 € ahead of your Jan baseline"; PROGRESS.md, "Actual vs. a
-/// baseline"): as *Are you on track?* compares the latest check-in
-/// (``PlanBaselineComparison``), in money of the baseline's start where an
-/// inflation index allows, against its percentiles on the day
-/// (``Baseline/percentiles(on:)``).
+/// Where the latest check-in stands against its year's baseline, as
+/// Progress's *Are you on track?* says it (PROGRESS.md, "On track"), for the
+/// Overview's *On track?* tile: ahead of, on or behind plan, the amount
+/// against the baseline's median, and what that baseline is called, as
+/// Progress's years name it ("12.400 € ahead" / "of January").
 struct OverviewBaselineGap: Hashable, Sendable {
-    /// When the baseline was saved: an automatic one, in the year it's for.
-    var created: CalendarDate
-    /// The day the baseline starts, which names it ("your Jan baseline").
-    var start: CalendarDate
-    /// Whether it's a past baseline (PROGRESS.md, "Past baselines"), named
-    /// by the year it starts ("your 2021 plan").
-    var isPast: Bool
-    /// The baseline's accounts on the date, with those that replaced them
-    /// and those opened since (``Baseline/comparedAccounts(among:)``), less
-    /// its median then: positive when ahead.
-    var gap: Decimal
-    /// Where that total is among the baseline's futures on the date
+    /// Where the check-in is among the baseline's futures
     /// (``PlanBaselineComparison/Position/standing``).
     var standing: PlanBaselineComparison.Standing
+    /// The baseline's accounts at the check-in, with those that replaced
+    /// them and those opened since, less its median then: positive when ahead.
+    var gap: Decimal
+    /// What the check-in is measured against: "January", "October" (a
+    /// baseline saved later in its year), "your 2021 plan" (a past baseline).
+    var expectation: String
 
-    init?(baseline: Baseline, library: Library, valuator: Valuator, on date: CalendarDate) {
-        guard date > baseline.start.date, !baseline.accounts.isEmpty else { return nil }
-        let accounts = baseline.comparedAccounts(among: valuator.accounts)
-        let total = valuator.total(on: date, including: { accounts.contains($0.id) })
-        let today = PlanActualSeries(values: [SeriesPoint(date: date, value: total.total, isComplete: total.isPriced)],
-                                     library: library, valuator: valuator, currency: library.settings.baseCurrency,
-                                     inMoneyOf: baseline.start.date)
-        guard let value = today.latest?.value,
-              let position = PlanBaselineComparison.position(of: value, on: date, in: baseline)
+    /// The main plan's latest check-in against its year's baseline
+    /// (``PlanProgressYear/latestBaseline(for:library:valuator:asOf:)``),
+    /// as Progress's latest year and the plan's pill have it; `nil` without
+    /// a baseline, or before the first check-in it measures.
+    init?(plan: PlanID, library: Library, valuator: Valuator, asOf: CalendarDate, locale: Locale = .current) {
+        guard let latest = PlanProgressYear.latestBaseline(for: plan, library: library, valuator: valuator,
+                                                           asOf: asOf),
+              let position = PlanBaselineComparison(baseline: latest.entry.baseline, library: library,
+                                                    valuator: valuator, asOf: latest.checkIn,
+                                                    from: latest.checkIn).position
         else { return nil }
-        gap = position.gap
         standing = position.standing
-        created = baseline.created
-        start = baseline.start.date
-        isPast = baseline.kind == .past
+        gap = position.gap
+        expectation = PlanProgressYear.expectation(of: latest.entry.baseline, year: latest.checkIn.year,
+                                                   locale: locale)
     }
 }
 
