@@ -110,8 +110,9 @@ struct PlanMilestoneBar: View {
     }
 }
 
-/// The milestones (UI.md, "Milestones"): the next with how far there, then
-/// those reached, newest first, and those ahead, soonest first.
+/// The milestones (UI.md, "Milestones"): the next with how far there; what
+/// each kind means, with the latest of it reached and the soonest ahead;
+/// then those reached, newest first, and those ahead, soonest first.
 struct PlanMilestonesCard: View {
     let milestones: PlanMilestones
     let text: PlanMilestoneText
@@ -134,10 +135,55 @@ struct PlanMilestonesCard: View {
                 PlanCoastAgeView(age: milestones.coastAge, target: milestones.ladder.coastTarget)
                 Divider()
             }
+            meanings
+            Divider()
             reachedList
             aheadList
         } header: {
             SectionHeader("Milestones")
+        }
+    }
+
+    /// What they mean: each kind the plan has, explained, with the latest
+    /// of it reached and the soonest ahead.
+    private var meanings: some View {
+        VStack(alignment: .leading, spacing: Metrics.m) {
+            Text("What they mean")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(Palette.secondaryInk)
+                .accessibilityAddTraits(.isHeader)
+            ForEach(milestones.kinds, id: \.self) { kind in
+                meaning(of: kind)
+            }
+        }
+    }
+
+    private func meaning(of kind: PlanMilestoneKind) -> some View {
+        VStack(alignment: .leading, spacing: Metrics.xs) {
+            Text(PlanMilestoneText.title(kind))
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(Palette.ink)
+                .accessibilityAddTraits(.isHeader)
+            Text(text.meaning(of: kind, in: milestones))
+                .font(.subheadline)
+                .foregroundStyle(Palette.secondaryInk)
+                .fixedSize(horizontal: false, vertical: true)
+            if let reached = milestones.latestReached(kind) {
+                PlanMilestoneRow(title: text.name(reached.milestone),
+                                 when: GlanceText.shortMonthAndYear(reached.date, locale: locale), isReached: true)
+            } else {
+                Text("None yet.")
+                    .font(.subheadline)
+                    .foregroundStyle(Palette.secondaryInk)
+            }
+            if let ahead = milestones.soonestAhead(kind) {
+                PlanMilestoneRow(title: text.name(ahead.milestone), when: PlanMilestoneText.when(ahead.date),
+                                 isReached: false)
+            } else if hasResults && kind != .coastPoint {
+                Text("No more before the plan's end.")
+                    .font(.subheadline)
+                    .foregroundStyle(Palette.secondaryInk)
+            }
         }
     }
 
