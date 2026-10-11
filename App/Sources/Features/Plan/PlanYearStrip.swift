@@ -372,8 +372,7 @@ struct PlanYearCardView: View {
     }
 
     /// The year at the pointer (UI.md, "Progress"): a rule at the nearest
-    /// value, and a label with its date, a milestone reached there, the
-    /// money, what January expected and the gap, and what changed that day.
+    /// value, and a callout like the net-worth chart's over its history.
     @ViewBuilder
     private func readout(at pointerX: CGFloat) -> some View {
         if let found = reading(at: pointerX) {
@@ -385,43 +384,52 @@ struct PlanYearCardView: View {
                     PlanGraphDot(color: Palette.ink)
                         .offset(x: at - 4.5, y: plot.y(found.point.value, scale) - 4.5)
                 }
-                PlanGraphCallout(lines: lines(for: found))
-                    .offset(x: PlanGraphCallout.leading(at: at, in: width), y: plot.top + 4)
+                ChartCallout(maxWidth: PlanGraphCallout.width(in: width)) {
+                    callout(for: found)
+                }
+                .offset(x: PlanGraphCallout.leading(at: at, in: width), y: plot.top + 4)
             }
             .allowsHitTesting(false)
             .accessibilityHidden(true)
         }
     }
 
-    private func lines(for found: Reading) -> [PlanGraphCallout.Line] {
-        let day = CalendarDate(found.point.date, in: .current)
+    /// The day and where its value comes from ("31 Mar 2026 · check-in"),
+    /// the money, what January expected and the gap, then a milestone
+    /// reached there and what changed that day.
+    @ViewBuilder
+    private func callout(for found: Reading) -> some View {
         let source = card.checkIns.contains(found.point.date) ? "check-in" : "from prices"
-        var lines = [PlanGraphCallout.Line(text: "\(AmountFormat.mediumDate(day, locale: locale)) · \(source)",
-                                           style: .context)]
-        let text = PlanMilestoneText(currency: card.currency, hidesAmounts: hidesAmounts, locale: locale)
-        for reached in found.milestones {
-            lines.append(PlanGraphCallout.Line(text: text.reachedInRow(reached.milestone), style: .milestone))
+        ChartCalloutDate(found.point.date, precision: .day, detail: source)
+        AmountText(Decimal(wholeNumber: found.point.value), currency: card.currency)
+            .font(.caption.weight(.semibold))
+        if !found.point.isComplete {
+            Text("Not every price is known")
+                .font(.caption2)
+                .foregroundStyle(Palette.secondaryInk)
         }
-        lines.append(PlanGraphCallout.Line(text: amount(found.point.value), style: .value))
         if let expected = found.expected {
             let gap = found.point.value - expected
-            let expectation = card.year.expectationTitle(locale: locale)
-            lines.append(PlanGraphCallout.Line(text: "\(expectation) expected \(amount(expected))", style: .detail))
-            lines.append(PlanGraphCallout.Line(text: "\(amount(abs(gap))) \(gap >= 0 ? "ahead" : "behind")",
-                                               style: .detail))
+            ChartCalloutRow("\(card.year.expectationTitle(locale: locale)) expected") {
+                AmountText(Decimal(wholeNumber: expected), currency: card.currency)
+            }
+            ChartCalloutRow(gap >= 0 ? "Ahead" : "Behind") {
+                AmountText(Decimal(wholeNumber: abs(gap)), currency: card.currency)
+            }
         }
-        if !found.point.isComplete {
-            lines.append(PlanGraphCallout.Line(text: "Not every price is known", style: .detail))
+        let text = PlanMilestoneText(currency: card.currency, hidesAmounts: hidesAmounts, locale: locale)
+        ForEach(found.milestones) { reached in
+            ChartCalloutMarker(text.reachedInRow(reached.milestone)) {
+                PlanGraphFlag()
+            }
         }
-        for note in found.notes.prefix(2) {
-            lines.append(PlanGraphCallout.Line(text: note.text, style: .title))
+        ForEach(Array(found.notes.prefix(2))) { note in
+            Text(note.text)
+                .font(.caption2)
+                .foregroundStyle(Palette.secondaryInk)
+                .lineLimit(2)
+                .fixedSize(horizontal: false, vertical: true)
         }
-        return lines
-    }
-
-    private func amount(_ value: Double) -> String {
-        hidesAmounts ? AmountFormat.hidden
-            : AmountFormat.amount(Decimal(wholeNumber: value), currency: card.currency, locale: locale)
     }
 
     /// "J", "F", … in the locale.
@@ -537,4 +545,48 @@ struct PlanYearCardView: View {
             context.stroke(flag, with: .color(Palette.card), lineWidth: 1)
         }
     }
+}
+
+#Preview("Reading a year") {
+    // The example library's latest year, read beside the net-worth chart's
+    // callout over plan assets; then its first year read at its left edge,
+    // and the latest at its right edge with amounts hidden.
+    let library = PreviewLibrary.library
+    let asOf = PreviewLibrary.latestCheckIn
+    let model = PlanProgressModel(plan: "base", document: library.plans["base"], library: library,
+                                  valuator: PreviewLibrary.valuator, asOf: asOf,
+                                  text: PlanMilestoneText(currency: library.settings.baseCurrency))
+    let cards = model.timeline.cards
+    let scale = model.timeline.scale(fitting: Set(cards.indices))
+    let height = PlanYearCardView.height(textScale: 1)
+    let width = PlanYearCardView.width(pointsPerMonth: 21)
+    let shape = RoundedRectangle(cornerRadius: 14, style: .continuous)
+    ScrollView([.horizontal, .vertical]) {
+        VStack(alignment: .leading, spacing: Metrics.l) {
+            HStack(alignment: .top, spacing: Metrics.l) {
+                if let latest = cards.last {
+                    PlanYearCardView(card: latest, scale: scale, height: height, pointerX: width * 0.55)
+                        .background(Palette.card, in: shape)
+                }
+                Card("Plan assets") {
+                    NetWorthChart(history: PreviewLibrary.valuator.series(.planAssets, through: asOf).chartPoints,
+                                  title: "Plan assets", readsDate: asOf.adding(months: -3).dateValue)
+                }
+                .frame(width: 380)
+            }
+            HStack(alignment: .top, spacing: Metrics.l) {
+                if let first = cards.first {
+                    PlanYearCardView(card: first, scale: scale, height: height, pointerX: 4)
+                        .background(Palette.card, in: shape)
+                }
+                if let latest = cards.last {
+                    PlanYearCardView(card: latest, scale: scale, height: height, pointerX: width - 4)
+                        .background(Palette.card, in: shape)
+                        .environment(\.hidesAmounts, true)
+                }
+            }
+        }
+        .padding()
+    }
+    .background(Palette.page)
 }

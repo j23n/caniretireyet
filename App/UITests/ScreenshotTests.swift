@@ -81,6 +81,32 @@ final class ScreenshotTests: XCTestCase {
     }
     #endif
 
+    #if os(macOS)
+    /// The read-outs on the plan's chapters and on Progress's years, with
+    /// the pointer resting on a card's graph (UI.md, "Reading the graph" and
+    /// "Reading the line"), to compare with the net-worth chart's callout.
+    /// On the Mac: the pointer stays put for the screenshot, where a finger
+    /// on iPhone would have lifted.
+    @MainActor
+    func testGraphReadouts() {
+        let app = launch(library: "example", screen: "plan")
+        waitForScreen(app, showing: answer(in: app), named: "plan-readout", timeout: 240, settle: 30)
+        let chapters = app.descendants(matching: .any)["plan.chapters"].firstMatch
+        let chapter = chapters.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Chapter 1,")).firstMatch
+        XCTAssertTrue(chapter.waitForExistence(timeout: 10), "The first chapter never showed.")
+        rest(on: chapter)
+        keepScreenshot(of: app, named: "plan-readout")
+
+        chooseProgressOnTheMac(app)
+        let years = app.descendants(matching: .any)["progress.years"].firstMatch
+        let year = years.buttons.matching(NSPredicate(format: "label CONTAINS %@", "so far")).firstMatch
+        XCTAssertTrue(year.waitForExistence(timeout: 10), "This year's card never showed.")
+        rest(on: year)
+        keepScreenshot(of: app, named: "progress-readout")
+        XCTAssertTrue(app.state == .runningForeground, "The app stopped while reading a graph.")
+    }
+    #endif
+
     @MainActor
     func testWhatIf() {
         #if os(macOS)
@@ -238,6 +264,14 @@ final class ScreenshotTests: XCTestCase {
     @MainActor
     private func click(_ element: XCUIElement) {
         if element.waitForExistence(timeout: 10), element.isHittable { element.click() }
+    }
+
+    /// Rests the pointer on a strip's card, over its graph, a little past
+    /// halfway across, and lets the read-out show.
+    @MainActor
+    private func rest(on card: XCUIElement) {
+        card.coordinate(withNormalizedOffset: CGVector(dx: 0.6, dy: 0.45)).hover()
+        pause(seconds: 1)
     }
     #endif
 
