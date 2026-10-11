@@ -127,6 +127,20 @@ struct AgesWithoutTests {
         #expect(atPace.events == planned.events && atPace.pensions == planned.pensions)
     }
 
+    /// Taking out 36,000 a year, more than the 30,000 spent while working:
+    /// no income, and that spending raised to 36,000, which the plan can run.
+    @Test func aPaceTakingOutMoreThanTheSpendingSpendsIt() {
+        let pace = SavingPace(
+            asOf: "2025-12-31", currency: .eur, months: [], usualMonth: -3_000, perYear: -36_000, range: nil,
+            byAccount: ["broker": -36_000], leftOut: [], carriedForward: [], isInTodaysMoney: false,
+            isComplete: true)
+        let atPace = Planner.plan(plan(), atPace: pace, library: library)
+        #expect(atPace.work.map(\.netIncome) == [0])
+        #expect(atPace.spending.working == 36_000)
+        #expect(atPace.contributions.isEmpty)
+        #expect(!Planner.validate(plan: atPace, library: library).contains(where: \.isError))
+    }
+
     /// Saving 12,000 a year, less than the plan's 15,000, and 24,000, more:
     /// later and earlier than the plan's own earliest age, each what a full
     /// scan of the plan at the pace finds.

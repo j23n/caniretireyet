@@ -284,7 +284,8 @@ public enum Planner {
     /// the rest is saved where the plan saves cash. An account the pace
     /// leaves out keeps the plan's contributions, which the income pays on
     /// top; one-off contributions and events stay, as the pace leaves out
-    /// unusual months.
+    /// unusual months. A pace taking out more than the spending while
+    /// working raises that spending instead, with no income.
     public static func plan(_ plan: PlanDocument, atPace pace: SavingPace, library: Library) -> PlanDocument {
         var plan = plan
         let excluded = Set(plan.portfolio.exclude)
@@ -298,8 +299,11 @@ public enum Planner {
             .map { PlanContribution(account: $0.key, perYear: $0.value.rounded(scale: 0)) }
         let paidOnTop = kept.filter { !$0.isOneOff }.reduce(Decimal(0)) { $0 + $1.perYear }
         let from = min(plan.work.map(\.from).min() ?? pace.asOf, pace.asOf)
-        plan.work = [WorkPhase(from: from, until: .retirement,
-                               netIncome: (plan.spending.working + pace.perYear + paidOnTop).rounded(scale: 0))]
+        // Taking out more than the spending while working: no income, and
+        // that spending raised to what's taken out.
+        let income = (plan.spending.working + pace.perYear + paidOnTop).rounded(scale: 0)
+        if income < 0 { plan.spending.working -= income }
+        plan.work = [WorkPhase(from: from, until: .retirement, netIncome: max(income, 0))]
         plan.contributions = kept + locked
         return plan
     }
