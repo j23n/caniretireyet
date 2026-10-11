@@ -38,7 +38,7 @@ make build                              # the app for the iOS Simulator and the 
 | `Storage` | Library folder ⇄ `Library`: JSON writer, validation, migrations, merging | Model |
 | `Importer` | CSV reading, format detection, column mapping, import profiles | Model |
 | `Prices` | Price, FX and inflation-index providers | Model |
-| `Planner` | Simulation engine (docs/PLANNER.md): income after tax, two tax rates set by hand, no tax law; the money scale the app's strips of projection graphs are fitted to (`StripFit`) | Model, Tracker |
+| `Planner` | Simulation engine (docs/PLANNER.md): income after tax, two tax rates set by hand, no tax law; the money scale the app's strips (the plan's chapters, Progress's years) are fitted to (`StripFit`) | Model, Tracker |
 | `CloudSync` | iCloud container, file coordination, change watching; Apple-only code inside `#if canImport(Darwin)` | Model, Storage |
 | `Glance` | What the widgets show: a snapshot of net worth, the plan's answer and the next check-in, which the app writes into the App Group and the widget extension reads (`GlanceFile`); the countdown, deep links; the words the app's screens share with them (`GlanceText`: the confidence, months); short amounts for a chart's callout (`ShortAmount`: `12.3M`) | Model, Tracker |
 | `TestSupport` | Test helpers and the made-up example library (`Fixtures`) — tests only, not a product; the app bundles the example library's folder for its previews and screen tests (`PreviewLibrary`) | Model |
