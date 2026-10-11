@@ -174,6 +174,11 @@ def account_key(number: object) -> str:
     return re.sub(r"X{2,}", lambda run: "*" * len(run.group()), key)
 
 
+def isin_key(isin: object) -> str:
+    """An ISIN to compare by: letters and digits, upper case. Never masked, so XX stays."""
+    return re.sub(r"[^0-9A-Za-z]", "", str(isin or "")).upper()
+
+
 def parse_json(reply: str) -> dict:
     """The JSON object in a reply, without a code fence or text around it."""
     start, end = reply.find("{"), reply.rfind("}")
@@ -244,7 +249,7 @@ def read_broker_page(data: dict) -> dict:
             "type": kind,
             "typeText": text(item.get("typeText")) or kind,
             "instrument": text(item.get("instrument")),
-            "isin": account_key(item.get("isin")) or None,
+            "isin": isin_key(item.get("isin")) or None,
             "quantity": abs(quantity) if quantity is not None else None,
             "price": optional_amount(item.get("price"), f"{what}'s price"),
             "priceCurrency": text(item.get("priceCurrency")).upper() or None,
@@ -261,7 +266,7 @@ def read_broker_page(data: dict) -> dict:
             raise ValueError(f"{what} is not an object")
         holdings.append({
             "instrument": text(item.get("instrument")),
-            "isin": account_key(item.get("isin")) or None,
+            "isin": isin_key(item.get("isin")) or None,
             "quantity": amount(item.get("quantity"), f"{what}'s quantity"),
         })
     return {

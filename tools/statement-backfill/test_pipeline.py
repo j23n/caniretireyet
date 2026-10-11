@@ -264,6 +264,12 @@ class ReadingTests(unittest.TestCase):
     def test_account_numbers_compare_without_spaces_or_dashes(self):
         self.assertEqual(pipeline.account_key("DE00 1234-5678"), "DE0012345678")
 
+    def test_isins_keep_their_xs(self):
+        self.assertEqual(pipeline.isin_key("ie00 bxx0 0001"), "IE00BXX00001")
+        trade = pipeline.read_broker_page({"transactions": [{"date": "2024-01-02", "type": "buy",
+                                                             "isin": "IE00BXX00001", "quantity": "1"}]})
+        self.assertEqual(trade["transactions"][0]["isin"], "IE00BXX00001")
+
     def test_only_masked_numbers_match_on_their_last_digits(self):
         root = Path(tempfile.mkdtemp())
         self.addCleanup(shutil.rmtree, root)
