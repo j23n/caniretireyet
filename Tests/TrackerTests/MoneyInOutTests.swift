@@ -105,6 +105,15 @@ struct MoneyInOutTests {
         #expect(edit.flows.moneyInOut.isEmpty)
     }
 
+    @Test func aPastCheckInListsTheValueAfterIt() throws {
+        let library = try Fixtures.exampleLibrary()
+        var draft = CheckInDraft(date: "2026-09-15", library: library)
+        draft["conto-fineco"]?.setBalance(4400)
+        var saved = library
+        let followUp = draft.apply(to: &saved)
+        #expect(followUp.moneyInOut.map(\.key) == [ValuationKey(account: "conto-fineco", date: "2026-09-30")])
+    }
+
     @Test func leavesOutAnAccountsFirstValue() throws {
         var library = try Fixtures.exampleLibrary()
         let first = try #require(library.months["2025-10"]?.valuations.firstIndex { $0.account == "conto-deposito" })
