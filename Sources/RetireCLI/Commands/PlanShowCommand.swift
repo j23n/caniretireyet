@@ -4,22 +4,24 @@ import Model
 import Planner
 
 /// `retire plan`: runs a plan (the default, ``PlanCommand``), shows its
-/// inputs, and writes every calculation behind its answer. Plans are
-/// edited in the app, or by hand in plans/<id>.json (PLANNER.md, "Plan file").
+/// inputs and your saving pace (``PlanPaceCommand``), and writes every
+/// calculation behind its answer. Plans are edited in the app, or by hand
+/// in plans/<id>.json (PLANNER.md, "Plan file").
 struct PlanGroupCommand: AsyncParsableCommand {
     static let configuration = CommandConfiguration(
         commandName: "plan",
-        abstract: "Run a plan, show its inputs, and write every calculation behind its answer.",
+        abstract: "Run a plan, show its inputs and your saving pace, and write every calculation behind its answer.",
         discussion: """
             retire plan [run] [--fast] [--years]      run the plan, print the answer
             retire plan show                          its taxes, income, pensions, mix and returns
             retire plan debug [--anonymize] [--output file]
                                                       every calculation behind the answer
+            retire plan pace [--date YYYY-MM-DD]      how much you've saved a year, from the last 12 months
 
-            Every command takes --plan <id>; without it, the main plan. Plans are edited in \\
+            Every command but pace takes --plan <id>; without it, the main plan. Plans are edited in \\
             the app, or by hand in plans/<id>.json.
             """,
-        subcommands: [PlanCommand.self, PlanShowCommand.self, PlanDebugCommand.self],
+        subcommands: [PlanCommand.self, PlanShowCommand.self, PlanDebugCommand.self, PlanPaceCommand.self],
         defaultSubcommand: PlanCommand.self)
 }
 

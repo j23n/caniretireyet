@@ -8,7 +8,8 @@ import SwiftUI
 /// back), and Save as profile, so the next file of the same shape imports
 /// in one step. When the import's positions are valued on dates without a
 /// price ("12 past values have no price for XAU"), it offers *Fill In Past
-/// Prices…*.
+/// Prices…*. When it created instruments without a price source, it offers
+/// *Find Price Sources…*.
 struct ImportDoneStep: View {
     let model: ImportController
 
@@ -20,12 +21,17 @@ struct ImportDoneStep: View {
     @State private var isConfirmingUndo = false
     @State private var pastPriceOffers: [String] = []
     @State private var fillsPastPrices = false
+    @State private var findsPriceSources = false
 
     var body: some View {
         Form {
             // Done comes only after an import, which leaves its receipt.
             if let receipt = model.receipt {
                 summarySection(receipt)
+                let unpriced = unpricedInstruments(receipt)
+                if !unpriced.isEmpty {
+                    priceSourcesSection(unpriced)
+                }
                 if !pastPriceOffers.isEmpty {
                     pastPricesSection
                 }
@@ -43,6 +49,8 @@ struct ImportDoneStep: View {
         .onChange(of: model.receipt) { _, _ in updatePastPriceOffers() }
         .onChange(of: library.revision) { _, _ in updatePastPriceOffers() }
         .pastPricesSheet(isPresented: $fillsPastPrices)
+        .priceSourceFinderSheet(isPresented: $findsPriceSources,
+                                instruments: model.receipt?.createdInstrumentIDs ?? [])
         .onChange(of: profileName) { _, name in
             if !isIDEdited { profileID = model.flow.suggestedProfileID(for: name) }
         }
@@ -103,6 +111,31 @@ struct ImportDoneStep: View {
     private func namesRow(_ title: String, _ names: [String]) -> some View {
         if !names.isEmpty {
             LabeledContent(title, value: names.joined(separator: ", "))
+        }
+    }
+
+    // MARK: Price sources
+
+    /// The instruments the import created that have no price source now, by name.
+    private func unpricedInstruments(_ receipt: ImportReceipt) -> [Instrument] {
+        guard receipt.hasChanges, !receipt.isUndone else { return [] }
+        return PriceSourceFinder.instrumentsWithoutSource(receipt.createdInstrumentIDs, in: library.library)
+    }
+
+    /// The new instruments without a price source, and *Find Price Sources…*.
+    private func priceSourcesSection(_ instruments: [Instrument]) -> some View {
+        Section {
+            ForEach(instruments) { instrument in
+                Label(instrument.name, systemImage: "magnifyingglass")
+            }
+            Button("Find Price Sources…") { findsPriceSources = true }
+                .disabled(!library.canEdit)
+        } header: {
+            Text("Price sources")
+        } footer: {
+            Text("These new instruments have no price source, so their prices are typed in at each check-in. "
+                + "Find Price Sources searches Yahoo Finance by each one's ISIN, ticker or name, and only those "
+                + "leave this device.")
         }
     }
 
