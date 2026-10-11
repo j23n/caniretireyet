@@ -61,9 +61,13 @@ struct SpendingCommand: RetireSubcommand {
             let whose = account.map { " of \($0)" } ?? ""
             var lines = ["Money in and out\(whose), \(Format.range(summary.from, summary.through)), "
                 + "in \(summary.currency.rawValue)"]
+            let unconverted = "Values without an exchange rate into \(summary.currency.rawValue), left out: "
+                + summary.unconverted.map(\.rawValue).joined(separator: ", ") + "."
             guard let perYear = summary.moneyOutPerYear else {
-                lines.append("Nothing recorded. Set \"moneyInOut\": true on a cash or savings account, and record "
-                    + "moneyIn and moneyOut at its check-ins.")
+                lines.append(summary.isComplete
+                    ? "Nothing recorded. Set \"moneyInOut\": true on a cash or savings account, and record "
+                        + "moneyIn and moneyOut at its check-ins."
+                    : unconverted)
                 return lines
             }
             var table = TextTable([.left(""), .right("")], showsHeader: false)
@@ -76,10 +80,7 @@ struct SpendingCommand: RetireSubcommand {
             lines.append("\(Wording.count(months, "month")) recorded "
                 + "(\(Format.range(summary.months[0], summary.months[months - 1]))); out a year scales each account's "
                 + "money out to 365 days by the days its values cover.")
-            if !summary.unconverted.isEmpty {
-                lines.append("Values without an exchange rate into \(summary.currency.rawValue), left out: "
-                    + summary.unconverted.map(\.rawValue).joined(separator: ", ") + ".")
-            }
+            if !summary.isComplete { lines.append(unconverted) }
             return lines
         }
 
