@@ -103,6 +103,11 @@ enum AccountValueNotes {
             sentences.append("The new money of the \(values(kept.count)) on \(dates(kept)) was typed in, "
                 + "so it stays as it is.")
         }
+        let moneyInOut = flows.moneyInOut
+        if !moneyInOut.isEmpty {
+            sentences.append("Check the money in and out of the \(values(moneyInOut.count)) on \(dates(moneyInOut)): "
+                + "they were for the days since another value.")
+        }
         return sentences.isEmpty ? nil : sentences.joined(separator: " ")
     }
 }
