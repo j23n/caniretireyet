@@ -268,9 +268,7 @@ struct ExternalConversionTests {
         var previous: Valuation?
         for var valuation in valuations {
             if let previous {
-                let paid: [InstrumentID: Decimal] = valuation.positions[0].quantity > previous.positions[0].quantity
-                    ? ["gold": valuation.positions[0].costBasis! - previous.positions[0].costBasis!] : [:]
-                valuation.flow = valuator.defaultFlow(for: valuation, previous: previous, paid: paid)
+                valuation.flow = valuator.snapshotFlow(for: valuation, previous: previous)
             }
             library.upsert(valuation)
             previous = valuation

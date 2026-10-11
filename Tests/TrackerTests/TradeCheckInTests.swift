@@ -165,18 +165,58 @@ struct TradeCheckInTests {
         #expect(draft.records(in: changed).valuations.first?.flow == 1250)
     }
 
-    @Test func aDraftKeptBeforeTradesRowsStartedDoneFollowsTheTrades() throws {
+    /// docs/ACCOUNTS.md, "Settled questions" 4: a trades row isn't done
+    /// until it has a trade or *No Trades*.
+    @Test func aTradesRowWithoutNewTradesWaitsForATradeOrNoTrades() throws {
+        // The deposit on 2024-04-10 is the only trade since 2024-03-31: on 2024-04-05 there's none yet.
+        let draft = CheckInDraft(date: "2024-04-05", library: library())
+        let row = try #require(draft["broker"])
+        #expect(!row.hasNewTrades)
+        #expect(row.state == .notReviewed)
+        #expect(row.canMarkUnchanged)
+        #expect(draft.notReviewed == ["bank", "broker"])
+
+        // No Trades: done, as its trades say, and something decided.
+        var noTrades = draft
+        #expect(noTrades["broker"]?.markUnchanged() == true)
+        #expect(noTrades["broker"]?.state == .unchanged)
+        #expect(noTrades["broker"]?.followsTrades == true)
+        #expect(noTrades["broker"]?.hasUserInput == true)
+        #expect(noTrades.notReviewed == ["bank"])
+        #expect(noTrades.records(in: library()).valuations
+            == [Valuation(account: "broker", date: "2024-04-05", cash: d("5300.36"), flow: 0)])
+        // Marking the rest unchanged says No Trades too.
+        var rest = draft
+        rest.markRestUnchanged()
+        #expect(rest["broker"]?.state == .unchanged)
+
+        // A trade added meanwhile: the row follows it and is done.
+        var traded = draft
+        var changed = library()
+        changed.upsert(TradeLibrary.trade(.deposit, "2024-04-02", id: "dep0", amount: "100"))
+        traded.rebase(onto: changed)
+        #expect(traded["broker"]?.hasNewTrades == true)
+        #expect(traded["broker"]?.state == .unchanged)
+        #expect(traded["broker"]?.hasUserInput == false)
+        #expect(traded.notReviewed == ["bank"])
+        #expect(traded.records(in: changed).valuations.first?.flow == 100)
+    }
+
+    @Test func aDraftKeptBeforeTradesRowsWaitedIsFilledInAgain() throws {
         let draft = CheckInDraft(date: "2024-04-30", library: library())
-        // An older draft: the trades row not reviewed, and no `holdsCash`.
+        #expect(draft["broker"]?.state == .unchanged)
+        // An older draft: the trades row as its trades say, without `hasNewTrades` or `holdsCash`.
         var json = try #require(try JSONSerialization.jsonObject(with: JSONEncoder().encode(draft)) as? [String: Any])
         var rows = try #require(json["rows"] as? [[String: Any]])
         let index = try #require(rows.firstIndex { $0["account"] as? String == "broker" })
-        rows[index]["state"] = "notReviewed"
+        rows[index]["hasNewTrades"] = nil
         rows[index]["holdsCash"] = nil
         json["rows"] = rows
-        let old = try JSONDecoder().decode(CheckInDraft.self, from: JSONSerialization.data(withJSONObject: json))
-        #expect(old["broker"]?.followsTrades == true)
+        var old = try JSONDecoder().decode(CheckInDraft.self, from: JSONSerialization.data(withJSONObject: json))
+        // Not done until rebasing finds the trades since its previous value.
+        #expect(old["broker"]?.state == .notReviewed)
         #expect(old["broker"]?.holdsCash == true)
+        old.rebase(onto: library())
         #expect(old == draft)
 
         // Without cash of its own, a row round-trips with it.

@@ -157,16 +157,10 @@ struct ValuationEditTests {
     let library: Library = {
         var library = Library()
         library.accounts["cash"] = Account(id: "cash", name: "Cash", kind: .cash, currency: .eur, opened: "2026-01-31")
-        library.accounts["broker"] = Account(id: "broker", name: "Broker", kind: .brokerage, currency: .eur,
-                                             opened: "2026-01-31", valuation: .holdings)
         library.accounts["fondo"] = Account(id: "fondo", name: "Fondo", kind: .pensionFund, currency: .eur,
                                             opened: "2026-01-31")
         library.upsert(Valuation(account: "cash", date: "2026-01-31", balance: 1000, flow: 1000))
         library.upsert(Valuation(account: "cash", date: "2026-03-31", balance: 1500, flow: 500))
-        library.upsert(Valuation(account: "broker", date: "2026-01-31",
-                                 positions: [Position(instrument: "etf", quantity: 10, costBasis: 1000)], flow: 1000))
-        library.upsert(Valuation(account: "broker", date: "2026-03-31",
-                                 positions: [Position(instrument: "etf", quantity: 20, costBasis: 2100)], flow: 1100))
         library.upsert(Valuation(account: "fondo", date: "2026-01-31", balance: 20000))
         library.upsert(Valuation(account: "fondo", date: "2026-03-31", balance: 21000, flow: 800))
         return library
@@ -186,13 +180,14 @@ struct ValuationEditTests {
         #expect(removed.recomputed.map(\.key) == [ValuationKey(account: "cash", date: "2026-03-31")])
     }
 
-    @Test func aTypedFlowIsKept() throws {
+    @Test func aTypedFlowIsKeptButACashAccountsIsWorkedOut() throws {
         var library = self.library
+        // A cash account's flow is always the whole change, whatever it was.
         library.upsert(Valuation(account: "cash", date: "2026-03-31", balance: 1500, flow: 450))
         let edit = library.saveValue(Valuation(account: "cash", date: "2026-02-28", balance: 1200, flow: 200))
-        #expect(library.valuations(for: "cash").last?.flow == 450)
-        #expect(edit.flows.kept.map(\.key) == [ValuationKey(account: "cash", date: "2026-03-31")])
-        #expect(edit.flows.recomputed.isEmpty)
+        #expect(library.valuations(for: "cash").last?.flow == 300)
+        #expect(edit.flows.kept.isEmpty)
+        #expect(edit.flows.recomputed.map(\.key) == [ValuationKey(account: "cash", date: "2026-03-31")])
 
         // A pension fund's contributions are always typed.
         let fondo = library.saveValue(Valuation(account: "fondo", date: "2026-02-28", balance: 20500, flow: 400))
@@ -200,12 +195,17 @@ struct ValuationEditTests {
         #expect(fondo.flows.kept.count == 1)
     }
 
-    @Test func holdingsFollowWhatWasPaid() throws {
-        var library = self.library
-        // Bought 5 more in February for 550: March's 10 more cost 1100 in all, so 550 of it after February.
-        library.saveValue(Valuation(account: "broker", date: "2026-02-28",
-                                    positions: [Position(instrument: "etf", quantity: 15, costBasis: 1550)], flow: 550))
-        #expect(library.valuations(for: "broker").map(\.flow) == [1000, 550, 550])
+    @Test func aCashValueWithoutAFlowKeepsNone() throws {
+        var library = Library()
+        library.accounts["bank"] = Account(id: "bank", name: "Bank", kind: .cash, currency: .eur, opened: "2026-01-31")
+        // Imported balances record no flow.
+        for (date, balance) in [("2026-01-31", 1000), ("2026-02-28", 1200), ("2026-03-31", 1500)] {
+            library.upsert(Valuation(account: "bank", date: CalendarDate(date)!, balance: Decimal(balance)))
+        }
+        let removed = library.removeValue(ValuationKey(account: "bank", date: "2026-01-31"))
+        // The new first value stays without a flow, so its balance counts as other, not as new money.
+        #expect(library.valuations(for: "bank").map(\.flow) == [nil, nil])
+        #expect(removed.recomputed.isEmpty)
     }
 
     @Test func aValueBeforeTheOpeningDateMovesIt() throws {
@@ -243,13 +243,13 @@ struct ValuationEditTests {
         // As an import does: values inserted in a copy of the library.
         var imported = self.library
         imported.upsert(Valuation(account: "cash", date: "2026-02-28", balance: 1200))
-        imported.upsert(Valuation(account: "broker", date: "2026-02-28",
-                                  positions: [Position(instrument: "etf", quantity: 15, costBasis: 1550)]))
+        imported.upsert(Valuation(account: "fondo", date: "2026-02-28", balance: 20500))
         let flows = imported.followFlows(from: self.library)
         #expect(imported.valuations(for: "cash").map(\.flow) == [1000, nil, 300])
-        #expect(imported.valuations(for: "broker").map(\.flow) == [1000, nil, 550])
-        #expect(flows.recomputed.map(\.key) == [ValuationKey(account: "broker", date: "2026-03-31"),
-                                                ValuationKey(account: "cash", date: "2026-03-31")])
+        // A pension fund's contributions are typed: kept.
+        #expect(imported.valuations(for: "fondo").map(\.flow) == [nil, nil, 800])
+        #expect(flows.recomputed.map(\.key) == [ValuationKey(account: "cash", date: "2026-03-31")])
+        #expect(flows.kept.map(\.key) == [ValuationKey(account: "fondo", date: "2026-03-31")])
     }
 
     @Test func otherEditsLeaveFlowsAlone() throws {

@@ -83,10 +83,8 @@ struct CheckInPriceList: Hashable, Sendable {
         let priceTable = PriceTable(library: library)
         let fxTable = FXTable(library: draft.libraryWithRates(library))
 
-        // Instruments.
-        var instrumentIDs = Set(draft.rows.filter { $0.mode == .holdings }
-            .flatMap { $0.positions.filter { $0.quantity != 0 }.map(\.instrument) })
-        // What trades accounts hold comes from their trades.
+        // Instruments: what trades accounts hold comes from their trades.
+        var instrumentIDs = Set<InstrumentID>()
         for row in draft.rows where row.isTrades {
             instrumentIDs.formUnion((row.derived?.positions ?? []).filter { $0.quantity != 0 }.map(\.instrument))
         }

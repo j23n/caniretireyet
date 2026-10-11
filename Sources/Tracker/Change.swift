@@ -60,7 +60,7 @@ public struct AccountChange: Hashable, Sendable, Identifiable {
     /// pays into the account: a balance the check-in asks about, left empty.
     public let isFlowFromPlan: Bool
     /// Whether the new money of values without a flow is what a check-in
-    /// would have filled in (``Valuator/defaultFlow(for:previous:paid:)``):
+    /// would have filled in (``Valuator/defaultFlow(for:previous:)``):
     /// a balance's whole change since the value before, e.g. an imported
     /// one's.
     public let isFlowAutomatic: Bool
@@ -151,7 +151,7 @@ extension Valuator {
     ///   other: what it held when its records start.
     /// - **Other balances, flow unknown** (an imported history, typically):
     ///   each value's flow where one was entered, else what a check-in would
-    ///   have filled in (``defaultFlow(for:previous:paid:)``), the whole
+    ///   have filled in (``defaultFlow(for:previous:)``), the whole
     ///   change since the value before, is new money, and market is the
     ///   rest, the FX effect. The account's first value without a flow is
     ///   other. Without a price or an exchange rate for that, market is only
@@ -257,7 +257,7 @@ extension Valuator {
     /// a balance the check-in asks about, what the main plan pays into the
     /// account since the value before (``contributions``), and for any
     /// other, what a check-in would have filled in
-    /// (``defaultFlow(for:previous:paid:)``); converted to `currency` at
+    /// (``defaultFlow(for:previous:)``); converted to `currency` at
     /// the value's date. The account's first value, without a flow, is
     /// `firstValue` instead: what it held when its records start, not money
     /// paid in. `nil` without a price or an exchange rate.

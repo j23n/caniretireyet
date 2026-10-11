@@ -432,7 +432,6 @@ struct AccountOpeningForm: Hashable, Sendable {
     func valuation(for account: Account, in library: Library, locale: Locale = .current) -> Valuation? {
         guard !isEmpty else { return nil }
         var valuation = Valuation(account: account.id, date: account.opened, source: .manual)
-        var paid: [InstrumentID: Decimal] = [:]
         if account.recordsTrades {
             guard let cash = AmountInput.decimal(from: cash, locale: locale) else { return nil }
             valuation.cash = cash
@@ -451,7 +450,6 @@ struct AccountOpeningForm: Hashable, Sendable {
                 else { continue }
                 let cost = AmountInput.decimal(from: position.cost, locale: locale)
                 valuation.positions.append(Position(instrument: instrument, quantity: quantity, costBasis: cost))
-                if let cost { paid[instrument] = cost }
             }
         } else {
             guard let amount = AmountInput.balance(from: balance, isLiability: account.kind.isLiability, locale: locale)
@@ -460,7 +458,7 @@ struct AccountOpeningForm: Hashable, Sendable {
         }
         var snapshot = library
         snapshot.accounts[account.id] = account
-        valuation.flow = Valuator(library: snapshot).defaultFlow(for: valuation, previous: nil, paid: paid)
+        valuation.flow = Valuator(library: snapshot).defaultFlow(for: valuation, previous: nil)
         return valuation
     }
 

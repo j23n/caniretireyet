@@ -19,10 +19,10 @@ struct CheckInMoneyInOutTests {
 
     @Test func moneyOutFollowsMoneyInAndTheChangeUntilTyped() throws {
         var draft = CheckInDraft(date: "2026-10-31", library: library)
-        // 4,210.55 before.
+        // 4,210.55 before. Money in is 0 until typed, so money out starts at 0.
         draft["conto-fineco"]?.setBalance(d("4600.25"))
-        #expect(written(draft)?.moneyIn == nil)
-        #expect(written(draft)?.moneyOut == nil)
+        #expect(written(draft)?.moneyIn == 0)
+        #expect(written(draft)?.moneyOut == 0)
 
         draft["conto-fineco"]?.setMoneyIn(3400)
         #expect(written(draft)?.flow == d("389.7"))
@@ -37,12 +37,13 @@ struct CheckInMoneyInOutTests {
         let kept = try JSONDecoder().decode(CheckInDraft.self, from: try JSONEncoder().encode(draft))
         #expect(kept["conto-fineco"]?.moneyIn == 3400)
 
+        // Unchanged records 0 and 0.
         draft["conto-fineco"]?.markUnchanged()
-        #expect(written(draft)?.moneyIn == nil)
-        #expect(written(draft)?.moneyOut == nil)
+        #expect(written(draft)?.moneyIn == 0)
+        #expect(written(draft)?.moneyOut == 0)
     }
 
-    @Test func writesBothOrNeither() {
+    @Test func writesBothAfterAFirstValue() {
         var draft = CheckInDraft(date: "2026-10-31", library: library)
         draft["conto-fineco"]?.setBalance(d("4600.25"))
         // Money out typed with money in left empty: nothing came in.
@@ -50,12 +51,11 @@ struct CheckInMoneyInOutTests {
         #expect(written(draft)?.moneyIn == 0)
         #expect(written(draft)?.moneyOut == 3100)
 
-        // With the flow unknown, money out can't be worked out.
+        // Both cleared: money in 0, and money out what the change suggests.
         draft["conto-fineco"]?.setMoneyOut(nil)
-        draft["conto-fineco"]?.setMoneyIn(3400)
-        draft["conto-fineco"]?.setFlow(nil)
-        #expect(written(draft)?.moneyIn == nil)
-        #expect(written(draft)?.moneyOut == nil)
+        draft["conto-fineco"]?.setBalance(d("4000.55"))
+        #expect(written(draft)?.moneyIn == 0)
+        #expect(written(draft)?.moneyOut == 210)
     }
 
     @Test func aSuggestedMoneyOutFollowsLaterEdits() {
@@ -80,23 +80,6 @@ struct CheckInMoneyInOutTests {
         var again = CheckInDraft(date: "2026-10-31", library: typed)
         again["conto-fineco"]?.setBalance(d("4500.25"))
         #expect(again.review(in: typed).row(for: "conto-fineco")?.valuation?.moneyOut == 3100)
-    }
-
-    @Test func aSuggestedMoneyOutFollowsTheAutomaticNewMoney() {
-        var draft = CheckInDraft(date: "2026-10-31", library: library)
-        draft["conto-fineco"]?.setBalance(d("4600.25"))
-        draft["conto-fineco"]?.setFlow(300)
-        draft["conto-fineco"]?.setMoneyIn(3400)
-        var saved = library
-        draft.apply(to: &saved)
-        #expect(saved.valuations(for: "conto-fineco").last?.moneyOut == 3100)
-
-        // Use Automatic New Money: the saved suggestion follows it.
-        var reopened = CheckInDraft(date: "2026-10-31", library: saved)
-        reopened["conto-fineco"]?.resetFlow()
-        let written = reopened.review(in: saved).row(for: "conto-fineco")?.valuation
-        #expect(written?.flow == d("389.7"))
-        #expect(written?.moneyOut == d("3010.3"))
     }
 
     @Test func aSuggestedMoneyOutFollowsAnEditBeforeIt() throws {
@@ -132,15 +115,16 @@ struct CheckInMoneyInOutTests {
         draft["conto-fineco"]?.setMoneyOut(-2000)
         #expect(written(draft)?.moneyOut == 2000)
 
-        // A negative amount saved by hand is written as neither.
+        // A negative amount saved by hand counts as not typed: money out is the suggestion again.
         var edited = library
         let september = try #require(edited.months["2026-09"]?.valuations.firstIndex { $0.account == "conto-fineco" })
         edited.months["2026-09"]?.valuations[september].moneyOut = -1
         var saved = CheckInDraft(date: "2026-09-30", library: edited)
         saved["conto-fineco"]?.setBalance(4300)
         let row = saved.review(in: edited).row(for: "conto-fineco")?.valuation
-        #expect(row?.moneyIn == nil)
-        #expect(row?.moneyOut == nil)
+        // 3,400 in, and the balance 215.2 lower than in August.
+        #expect(row?.moneyIn == 3400)
+        #expect(row?.moneyOut == d("3615.2"))
     }
 
     @Test func aClearedAmountStaysClearedWhenTheLibraryChanges() {
@@ -154,25 +138,25 @@ struct CheckInMoneyInOutTests {
         draft.rebase(onto: changed)
         #expect(draft["conto-fineco"]?.moneyIn == nil)
         #expect(draft["conto-fineco"]?.enteredMoneyOut == nil)
+        // Nothing came in, and the balance is 100 lower than on 2026-09-15.
         let written = draft.review(in: changed).row(for: "conto-fineco")?.valuation
-        #expect(written?.moneyIn == nil)
-        #expect(written?.moneyOut == nil)
+        #expect(written?.moneyIn == 0)
+        #expect(written?.moneyOut == 100)
     }
 
-    @Test func aFirstValueSuggestsNoMoneyOut() {
+    /// An account's first value has no value before it to measure money in
+    /// and out from: it records only its balance.
+    @Test func aFirstValueRecordsNoMoneyInAndOut() {
         var library = self.library
         library.accounts["nuovo-conto"] = Account(id: "nuovo-conto", name: "Nuovo conto", kind: .cash,
                                                   currency: .eur, opened: "2026-10-01")
         var draft = CheckInDraft(date: "2026-10-31", library: library)
         draft["nuovo-conto"]?.setBalance(1000)
         draft["nuovo-conto"]?.setMoneyIn(3000)
-        let suggested = draft.review(in: library).row(for: "nuovo-conto")?.valuation
-        #expect(suggested?.moneyIn == nil)
-        #expect(suggested?.moneyOut == nil)
         draft["nuovo-conto"]?.setMoneyOut(2000)
-        let typed = draft.review(in: library).row(for: "nuovo-conto")?.valuation
-        #expect(typed?.moneyIn == 3000)
-        #expect(typed?.moneyOut == 2000)
+        let first = draft.review(in: library).row(for: "nuovo-conto")
+        #expect(first?.valuation == Valuation(account: "nuovo-conto", date: "2026-10-31", balance: 1000, flow: 1000))
+        #expect(first?.moved == nil)
     }
 
     @Test func moneyOutIsNeverNegative() {

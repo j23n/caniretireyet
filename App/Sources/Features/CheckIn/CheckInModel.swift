@@ -15,12 +15,10 @@ import Tracker
 enum CheckInField: Hashable, Sendable {
     /// An account's balance.
     case balance(AccountID)
-    /// The cash held alongside positions.
+    /// A trades account's cash from a statement.
     case cash(AccountID)
-    /// A position's quantity.
+    /// A position's quantity from a statement.
     case quantity(AccountID, InstrumentID)
-    /// What was paid for a position's added quantity.
-    case paid(AccountID, InstrumentID)
     /// The account's new money (the valuation's flow).
     case flow(AccountID)
     /// The money that came into a cash or savings account.
@@ -36,21 +34,17 @@ enum CheckInField: Hashable, Sendable {
         case .balance(let account), .cash(let account), .flow(let account), .moneyIn(let account),
              .moneyOut(let account), .note(let account):
             account
-        case .quantity(let account, _), .paid(let account, _):
+        case .quantity(let account, _):
             account
         }
     }
 }
 
 extension CheckInField {
-    /// A row's first field: its balance, or its first position's quantity,
-    /// else its cash. A trades account's is its cash: its positions come
-    /// from its trades.
+    /// A row's first field: its balance. A trades account's is its cash:
+    /// its positions come from its trades.
     static func primary(for row: CheckInRow) -> CheckInField {
-        if row.isTrades { return .cash(row.account) }
-        guard row.mode == .holdings else { return .balance(row.account) }
-        if let first = row.positions.first { return .quantity(row.account, first.instrument) }
-        return .cash(row.account)
+        row.isTrades ? .cash(row.account) : .balance(row.account)
     }
 
     /// What the field is, for the bar above the keyboard and VoiceOver:
@@ -65,7 +59,6 @@ extension CheckInField {
         case .balance: return name
         case .cash: return name + " · cash"
         case .quantity(_, let instrument): return name + " · " + label(instrument)
-        case .paid(_, let instrument): return name + " · paid for " + label(instrument)
         case .flow:
             return name + (CheckInWording.isPension(account?.kind) ? " · contributions" : " · new money")
         case .moneyIn: return name + " · money in"
@@ -152,9 +145,8 @@ struct CheckInFieldOrder: Hashable, Sendable {
         return fields[index - 1]
     }
 
-    /// The iPhone list's fields, top to bottom: each balance; the positions
-    /// (quantity, then "paid" when it went up) and cash of the holdings rows
-    /// that are expanded; a trades account's statement quantities entered
+    /// The iPhone list's fields, top to bottom: each balance; a trades
+    /// account's statement quantities entered
     /// to compare (expanded) and its cash when it has a field
     /// (``CheckInRowDisplay/showsCashField(_:isEditing:)``, `editingCash`);
     /// and each new-money field that's shown; money in and out after the
@@ -164,7 +156,6 @@ struct CheckInFieldOrder: Hashable, Sendable {
                      moneyInOut: Set<AccountID> = []) -> CheckInFieldOrder {
         var fields: [CheckInField] = []
         for row in rows {
-            let isOpen = row.mode == .balance || expanded.contains(row.account)
             if row.isTrades {
                 if expanded.contains(row.account) {
                     fields += row.positions.map { .quantity(row.account, $0.instrument) }
@@ -172,13 +163,6 @@ struct CheckInFieldOrder: Hashable, Sendable {
                 if CheckInRowDisplay.showsCashField(row, isEditing: editingCash.contains(row.account)) {
                     fields.append(.cash(row.account))
                 }
-            } else if row.mode == .holdings {
-                guard isOpen else { continue }
-                for position in row.positions {
-                    fields.append(.quantity(row.account, position.instrument))
-                    if position.isIncrease { fields.append(.paid(row.account, position.instrument)) }
-                }
-                fields.append(.cash(row.account))
             } else {
                 fields.append(.balance(row.account))
                 if moneyInOut.contains(row.account) {
@@ -193,8 +177,7 @@ struct CheckInFieldOrder: Hashable, Sendable {
         return CheckInFieldOrder(fields: fields)
     }
 
-    /// The Mac table's "Now" column, top to bottom: each balance, and each
-    /// position's quantity and the cash of holdings rows; a trades
+    /// The Mac table's "Now" column, top to bottom: each balance; a trades
     /// account's statement quantities (if any were entered) and its cash
     /// when it has a field (`editingCash`); money in and out after the
     /// balance of the accounts in `moneyInOut`. Return moves down this
@@ -208,11 +191,6 @@ struct CheckInFieldOrder: Hashable, Sendable {
                 if CheckInRowDisplay.showsCashField(row, isEditing: editingCash.contains(row.account)) {
                     fields.append(.cash(row.account))
                 }
-            } else if row.mode == .holdings {
-                for position in row.positions {
-                    fields.append(.quantity(row.account, position.instrument))
-                }
-                fields.append(.cash(row.account))
             } else {
                 fields.append(.balance(row.account))
                 if moneyInOut.contains(row.account) {
@@ -224,15 +202,11 @@ struct CheckInFieldOrder: Hashable, Sendable {
     }
 
     /// Where Return goes from `field` in the Mac table: down the "Now"
-    /// column. From a cell in another column (new money, paid, note) it goes
-    /// to the "Now" cell below that row.
+    /// column. From a cell in another column (new money, note) it goes to
+    /// the "Now" cell below that row.
     func returnTarget(after field: CheckInField) -> CheckInField? {
         if fields.contains(field) { return next(after: field) }
-        let anchor: CheckInField? = switch field {
-        case .paid(let account, let instrument): .quantity(account, instrument)
-        default: fields.last { $0.account == field.account }
-        }
-        guard let anchor else { return nil }
+        guard let anchor = fields.last(where: { $0.account == field.account }) else { return nil }
         return next(after: anchor)
     }
 }
@@ -327,15 +301,14 @@ enum CheckInRowDisplay {
 
     // MARK: Trades accounts
 
-    /// Whether the row has a field for its cash. A holdings row always
-    /// does. A trades row needs nothing typed: its cash is read-only, from
+    /// Whether the row has a field for its cash: only a trades row may. It
+    /// needs nothing typed: its cash is read-only, from
     /// its trades, unless a cash from a statement is being entered
     /// (`isEditing`, *Enter From Statement*) or was (``CheckInRow/hasStatementCash``),
     /// or nothing is recorded yet to work it out from. One that holds no
     /// cash (``CheckInRow/showsCash``) has neither.
     static func showsCashField(_ row: CheckInRow, isEditing: Bool) -> Bool {
-        guard row.isTrades else { return row.mode == .holdings }
-        guard row.showsCash, row.state != .skipped else { return false }
+        guard row.isTrades, row.showsCash, row.state != .skipped else { return false }
         return isEditing || row.hasStatementCash || row.derived == nil
     }
 
@@ -462,9 +435,12 @@ enum CheckInWording {
     }
 
     /// The menu command that marks a row unchanged: "Mark Unchanged", or for
-    /// a trades account "Use the Trades' Values".
+    /// a trades account "Use the Trades' Values", or "No Trades" when none
+    /// were recorded since its previous value.
     static func markUnchangedTitle(for row: CheckInRow) -> String {
-        row.isTrades ? "Use the Trades' Values" : "Mark Unchanged"
+        guard row.isTrades else { return "Mark Unchanged" }
+        // Without trades since its previous value, it says there were none.
+        return row.hasNewTrades ? "Use the Trades' Values" : "No Trades"
     }
 
     /// "7 of 9 reviewed". Accounts that open later count once something was
@@ -634,25 +610,6 @@ enum CheckInWording {
                               locale: Locale = .current) -> String? {
         guard let date = row.previous?.date, let previousCheckIn, date < previousCheckIn else { return nil }
         return "Last value " + AmountFormat.shortDate(date, locale: locale)
-    }
-
-    /// A collapsed holdings row's summary: "0,4215 BTC" for one position,
-    /// "3 positions · quantities unchanged", "3 positions · 1 changed". A
-    /// quantity hides with the eye.
-    static func holdingsSummary(_ row: CheckInRow, instruments: [InstrumentID: Instrument],
-                                locale: Locale = .current) -> AmountSentence {
-        let held = row.positions.filter { $0.quantity != 0 || $0.previousQuantity != 0 }
-        if held.isEmpty {
-            return AmountSentence(row.cash.map { _ in "Cash only" } ?? "No positions")
-        }
-        if held.count == 1, let position = held.first {
-            let quantity = QuantityFormat.quantitySentence(
-                position.quantity, unit: QuantityFormat.unit(of: instruments[position.instrument]), locale: locale)
-            return position.quantityChange == 0 ? quantity : quantity + " · changed"
-        }
-        let changed = held.count { $0.quantityChange != 0 }
-        let count = "\(held.count) positions"
-        return AmountSentence(changed == 0 ? count + " · quantities unchanged" : count + " · \(changed) changed")
     }
 
     /// A trades account's summary: "423 VWCE · from trades", "93,3 g · from
@@ -879,15 +836,6 @@ struct CheckInWarningText: Hashable, Sendable {
             CheckInWording.instrumentLabel(instrument, instrument: library.instruments[instrument])
         }
         switch warning {
-        case .quantityDecreased(let account, let instrument, let from, let to):
-            let unit = CheckInWording.unit(of: library.instruments[instrument])
-            let suffix = unit.isEmpty ? "" : " " + unit
-            return CheckInWarningText(
-                title: "\(name(account)): fewer \(label(instrument))",
-                message: "\(QuantityFormat.quantity(from, locale: locale)) → "
-                    + "\(QuantityFormat.quantity(to, locale: locale))\(suffix). Did you sell some? "
-                    + "If so, the sale counts as money taken out, unless it stayed in the account as cash.",
-                action: .showRow(account), actionTitle: "Check")
         case .largeChange(let account, let from, let to):
             let share = from == 0 ? 0 : ((to - from) / abs(from)).doubleValue
             return CheckInWarningText(
