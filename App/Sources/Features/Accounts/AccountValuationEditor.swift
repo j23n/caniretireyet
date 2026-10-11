@@ -133,7 +133,7 @@ struct AccountValuationEditor: View {
                                         suffix: symbol, allowsNegative: false)
                 } footer: {
                     Text("What came in from outside your accounts and what went out since the previous value. Money "
-                        + "moved between your own accounts is in neither.")
+                        + "moved between your own accounts is in neither, but a credit card payment is money out.")
                 }
             }
             Section {
