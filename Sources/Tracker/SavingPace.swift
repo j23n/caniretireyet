@@ -113,7 +113,7 @@ public struct SavingPace: Hashable, Sendable {
         let usual = median(amounts)
         let large = abs(planAssets) / 100
         let unusual = amounts.map { amount in
-            usual > 0 && (amount >= 2 * usual && amount >= large || amount <= 0 && -amount >= large)
+            usual > 0 && (amount >= 2 * usual && amount >= large || amount < 0 && -amount >= large)
         }
         let counted = zip(amounts, unusual).reduce(Decimal(0)) { $0 + ($1.1 ? usual : $1.0) }
         return (counted * Decimal(window) / Decimal(amounts.count), usual, unusual)

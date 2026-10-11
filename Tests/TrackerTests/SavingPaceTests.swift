@@ -67,6 +67,14 @@ struct SavingPaceTests {
         #expect(pace.perYear == 12_000)
     }
 
+    /// A month that saves nothing isn't unusual, even with no plan assets
+    /// to judge it by.
+    @Test func aMonthSavingNothingIsntUnusual() {
+        let pace = SavingPace.pace(of: [1_000, 0, 1_000], planAssets: 0)
+        #expect(pace.unusual == [false, false, false])
+        #expect(pace.perYear == 8_000)
+    }
+
     /// Five months of history give a pace scaled to a year; two don't.
     /// 1,500 is less than twice the usual 1,000: it counts as it is.
     @Test func fewerMonthsAreScaledToAYear() throws {
