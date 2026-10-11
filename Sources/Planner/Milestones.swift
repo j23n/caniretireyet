@@ -336,16 +336,12 @@ extension MilestoneLadder {
 
     /// Where a typical year's growth matches a year's saving, in whole
     /// units: the saving of the work phase in force on `date` (its
-    /// take-home pay less spending while working) divided by the median
+    /// take-home pay less spending while working,
+    /// ``PlanDocument/workingSaving(on:)``) divided by the median
     /// yearly growth of the plan's target mix, else of the money you can
     /// draw today. `nil` without saving or growth.
     public static func crossover(plan: PlanDocument, library: Library, on date: CalendarDate) -> Decimal? {
-        let working = plan.work.last { phase in
-            phase.from <= date && (phase.until.date.map { $0 >= date } ?? true)
-        }
-        guard let income = working?.netIncome else { return nil }
-        let saving = income - plan.spending.working
-        guard saving > 0 else { return nil }
+        guard let saving = plan.workingSaving(on: date)?.saving, saving > 0 else { return nil }
         let mix: [AssetClass: Double]
         if let target = plan.portfolio.targetMix, !target.shares.isEmpty {
             mix = target.shares.mapValues(\.doubleValue)

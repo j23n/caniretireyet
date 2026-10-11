@@ -297,6 +297,35 @@ enum ChartSwatch: Hashable {
     case wash(ChartColor)
     /// A band of the accent colour at an opacity.
     case band(opacity: Double)
+    /// A bar of the colour.
+    case bar(ChartColor)
+    /// A bar of the colour, hatched (``ChartHatch``).
+    case hatchedBar(ChartColor)
+    /// A dot of the colour.
+    case dot(ChartColor)
+}
+
+/// Diagonal stripes of a colour, for a bar that holds more than its period:
+/// the colour, and a faint step of it between.
+enum ChartHatch {
+    /// How many stripes cross the mark.
+    static let stripes = 20
+
+    /// How strong the faint stripes are against the colour.
+    static let faintOpacity = 0.3
+
+    static func style(_ color: Color) -> LinearGradient {
+        var stops: [Gradient.Stop] = []
+        let width = 1 / Double(stripes)
+        for index in 0..<stripes {
+            let start = Double(index) * width
+            stops.append(Gradient.Stop(color: color, location: start))
+            stops.append(Gradient.Stop(color: color, location: start + width / 2))
+            stops.append(Gradient.Stop(color: color.opacity(faintOpacity), location: start + width / 2))
+            stops.append(Gradient.Stop(color: color.opacity(faintOpacity), location: start + width))
+        }
+        return LinearGradient(stops: stops, startPoint: .topLeading, endPoint: .bottomTrailing)
+    }
 }
 
 /// One item of a chart's legend.
@@ -387,6 +416,18 @@ struct ChartLegendLabel: View {
         case .band(let opacity):
             RoundedRectangle(cornerRadius: 2, style: .continuous)
                 .fill(Palette.accent.opacity(opacity))
+        case .bar(let color):
+            RoundedRectangle(cornerRadius: 2, style: .continuous)
+                .fill(Palette.color(for: color))
+                .frame(width: 8)
+        case .hatchedBar(let color):
+            RoundedRectangle(cornerRadius: 2, style: .continuous)
+                .fill(ChartHatch.style(Palette.color(for: color)))
+                .frame(width: 8)
+        case .dot(let color):
+            Circle()
+                .fill(Palette.stroke(for: color))
+                .frame(width: 7, height: 7)
         }
     }
 }

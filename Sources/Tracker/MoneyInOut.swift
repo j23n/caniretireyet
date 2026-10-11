@@ -24,6 +24,9 @@ public struct MoneyInOutSummary: Hashable, Sendable {
     /// (the account's valuation before it): the counted values cover the
     /// days after it through ``through``. `nil` when nothing was counted.
     public var measuredFrom: CalendarDate?
+    /// The date of the latest valuation counted. `nil` when nothing was
+    /// counted.
+    public var lastCounted: CalendarDate?
     /// Accounts with a value that couldn't be converted to the base currency
     /// (an FX rate is missing), left out of the sums. Sorted.
     public var unconverted: [AccountID]
@@ -37,7 +40,7 @@ public struct MoneyInOutSummary: Hashable, Sendable {
 
     public init(from: CalendarDate, through: CalendarDate, currency: CurrencyCode, moneyIn: Decimal = 0,
                 moneyOut: Decimal = 0, months: [YearMonth] = [], unconverted: [AccountID] = [],
-                moneyOutPerYear: Decimal? = nil, measuredFrom: CalendarDate? = nil) {
+                moneyOutPerYear: Decimal? = nil, measuredFrom: CalendarDate? = nil, lastCounted: CalendarDate? = nil) {
         self.from = from
         self.through = through
         self.currency = currency
@@ -47,6 +50,7 @@ public struct MoneyInOutSummary: Hashable, Sendable {
         self.unconverted = unconverted
         self.moneyOutPerYear = moneyOutPerYear
         self.measuredFrom = measuredFrom
+        self.lastCounted = lastCounted
     }
 
     /// Money in minus money out.
@@ -99,6 +103,7 @@ extension Valuator {
                 days += max(1, previous.days(to: valuation.date))
                 months.insert(valuation.date.yearMonth)
                 summary.measuredFrom = min(summary.measuredFrom ?? previous, previous)
+                summary.lastCounted = max(summary.lastCounted ?? valuation.date, valuation.date)
             }
             if days > 0 { perYear = (perYear ?? 0) + accountOut * 365 / Decimal(days) }
         }

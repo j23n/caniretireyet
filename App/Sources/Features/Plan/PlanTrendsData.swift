@@ -3,9 +3,9 @@ import Glance
 import Model
 import Tracker
 
-// The Trends part of a plan (UI.md, "Trends"; PROGRESS.md, "Trends"): where
-// your money came from, and the answer at each check-in, over the time span
-// the Overview's history uses.
+// The Trends part of a plan (UI.md, "Trends"; PROGRESS.md, "Trends"): money
+// in and out, where your money came from, and the answer at each check-in,
+// over the time span the Overview's history uses.
 
 extension PeriodGrain {
     /// "Months", "Years".
@@ -25,9 +25,14 @@ extension PeriodGrain {
     }
 }
 
-/// What Trends works out from the library for one grain and span: plan
-/// assets split by where they came from, and the plan's answers.
+/// What Trends works out from the library for one grain and span: money in
+/// and out, plan assets split by where they came from, and the plan's
+/// answers.
 struct PlanTrendsModel {
+    /// Money in and out by month or year over the span.
+    let money: PlanMoneyInOut
+    /// *Your last 12 months*; `nil` without money in and out in them.
+    let lastTwelveMonths: PlanLastTwelveMonths?
     let sources: PlanMoneySources
     /// The plan's answers in the span.
     let history: PlanAnswerHistory
@@ -51,6 +56,10 @@ struct PlanTrendsModel {
          asOf: CalendarDate) {
         let end = valuator.latestCheckIn(onOrBefore: asOf, in: .planAssets) ?? asOf
         let start = range.years.map { end.adding(years: -$0) }
+        let money = PlanMoneyInOut(valuator.moneyInOutSeries(grain, through: end), from: start,
+                                   firstRecord: valuator.firstValuationDate(in: .planAssets), through: end)
+        self.money = money
+        lastTwelveMonths = PlanLastTwelveMonths(valuator: valuator, through: end, recordedSince: money.recordedSince)
         let allSources = valuator.moneySources(grain, through: end)
         sources = PlanMoneySources(allSources, grain: grain, from: start,
                                    checkIns: valuator.checkInDates(in: .planAssets, through: end).count)
