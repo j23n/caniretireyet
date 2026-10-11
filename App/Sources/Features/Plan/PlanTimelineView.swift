@@ -179,21 +179,29 @@ struct PlanTimelineView: View {
             .max() ?? 0
     }
 
-    /// Opens an item's sheet, or the target mix's.
-    private func show(_ item: PlanChapter.Item) {
+    /// Opens a setting's sheet: spending's, an item's, or the target mix's.
+    private func show(_ sheet: PlanSettingSheet) {
         guard let plan = session.plan else { return }
-        switch item {
-        case .work(let index) where plan.work.indices.contains(index):
+        switch sheet {
+        case .item(.workingSpending):
+            editing = .workingSpending(plan.spending)
+        case .item(.retiredSpending):
+            editing = .retiredSpending(plan.spending)
+        case .flexibleSpending:
+            editing = .flexibleSpending(plan.spending)
+        case .item(.spendingPhase(let index)) where plan.spending.phases.indices.contains(index):
+            editing = .spendingPhase(index: index, phase: plan.spending.phases[index])
+        case .item(.work(let index)) where plan.work.indices.contains(index):
             editing = .work(index: index, phase: plan.work[index])
-        case .pension(let index) where plan.pensions.indices.contains(index):
+        case .item(.pension(let index)) where plan.pensions.indices.contains(index):
             editing = .pension(index: index, pension: plan.pensions[index])
-        case .income(let index) where plan.income.indices.contains(index):
+        case .item(.income(let index)) where plan.income.indices.contains(index):
             editing = .income(index: index, income: plan.income[index])
-        case .contribution(let index) where plan.contributions.indices.contains(index):
+        case .item(.contribution(let index)) where plan.contributions.indices.contains(index):
             editing = .contribution(index: index, contribution: plan.contributions[index])
-        case .event(let index) where plan.events.indices.contains(index):
+        case .item(.event(let index)) where plan.events.indices.contains(index):
             editing = .event(index: index, event: plan.events[index])
-        case .targetMix, .targetMixStep:
+        case .item(.targetMix), .item(.targetMixStep):
             showsTargetMix = true
         default:
             break
@@ -473,8 +481,8 @@ struct PlanChapterDetails: View {
     /// The milestones the median future reaches in the chapter.
     var milestones: [ProjectedMilestone] = []
     let milestoneText: PlanMilestoneText
-    /// Opens an item's sheet, or the target mix's.
-    var onOpen: (PlanChapter.Item) -> Void = { _ in }
+    /// Opens a setting's sheet.
+    var onOpen: (PlanSettingSheet) -> Void = { _ in }
     var onSelect: (Int) -> Void = { _ in }
     var onUsePlanAge: () -> Void = {}
 

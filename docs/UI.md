@@ -542,7 +542,7 @@ The plan reads as a life ([PLANNER.md](PLANNER.md#chapters)): the answer first, 
   - **A month**: a month's money as one bar, every chapter's on the same scale. While working, pay spent and saved ("Pay 4.500 € · spend 3.000 €", "save 1.500 €"), or, when pay falls short, what your savings add; retired, what comes from your savings and, once calculated, the tax on what's sold in the median run; with pensions or other income, what they pay ("Pensions", "Other income", or "Income" for both) and what's left to draw or to spare.
   - **Along the way, typically**: the milestones the median future reaches in the chapter, a flag, the name and when ("400.000 €", "mid 2027"), four at most, then "And 2 more ahead."
   - **What can go wrong**, once calculated: in the bridge, "In 3 in 100 futures, the money you can draw runs out before Fondo pensione opens at 67."; in a chapter where futures run out, "Most of the futures that run out here do so before 85."
-  - **Settings** ("A month, in today's EUR"): every input that starts in the chapter, once, as a row with an icon, its name and second line, and its value: when work stops ("As early as you can", "At 54, in 2042"), spending while working or in retirement and flexible spending ("Never below 80%", "Off"), a later phase of spending ("Spending from 75", "90% of spending in retirement"), work phases ("Employee", "2026–42 · take-home pay · grows 1% a year"), pensions ("From 67, after tax"), other income ("From when you stop working until 60, after tax"), contributions ("Into Fondo pensione", "Until you stop working", or "Once, in 2031" with its amount), events ("At 62 · 80% likely", "+150.000 €"), the target mix and its changes with age ("Your savings from 60", "60% in shares") and the plan's end in the last chapter. A value opens its small editor (a popover pointing at the row on the Mac and iPad, a sheet on iPhone): its field, stepper or switch, applied as you type; an item opens its sheet, and the target mix its own. An input's problems show on its row. Under the rows, what carries on from earlier chapters ("Continuing: Spending while working · Saving into Fondo pensione · Target mix"), and **Add to this chapter**: before retirement, a work phase (from the chapter's first day) or a contribution (in a later chapter, a one-off in its first year); in retirement, a pension from the chapter's first age or a later spending phase from its middle; in any, other income (from when work stops in the chapter it stops in, else from the chapter's first age) and an event in its first year.
+  - **Settings** ("A month, in today's EUR"): every input that starts in the chapter, once, as a row with an icon, its name and second line, and its value: when work stops ("As early as you can", "At 54, in 2042"), spending while working or in retirement and flexible spending ("Never below 80%", "Off"), a later phase of spending ("Spending from 75", "90% of spending in retirement"), work phases ("Employee", "2026–42 · take-home pay · grows 1% a year"), pensions ("From 67, after tax"), other income ("From when you stop working until 60, after tax"), contributions ("Into Fondo pensione", "Until you stop working", or "Once, in 2031" with its amount), events ("At 62 · 80% likely", "+150.000 €"), the target mix and its changes with age ("Your savings from 60", "60% in shares") and the plan's end in the last chapter. When work stops and the plan's end open their small editor (a popover pointing at the row on the Mac and iPad, a sheet on iPhone): its stepper or switch, applied as you change it. Spending (while working, in retirement, flexible, and each later phase) and an item open a sheet, the target mix its own. A sheet has a grouped form with an inline title, *Cancel* and *Done*: it edits a copy, which *Done* writes into the plan, and while it has changes, swiping it down does nothing. An input's problems show on its row. Under the rows, what carries on from earlier chapters ("Continuing: Spending while working · Saving into Fondo pensione · Target mix"), and **Add to this chapter**: before retirement, a work phase (from the chapter's first day) or a contribution (in a later chapter, a one-off in its first year); in retirement, a pension from the chapter's first age or a later spending phase from its middle; in any, other income (from when work stops in the chapter it stops in, else from the chapter's first age) and an event in its first year.
 - **The age they're cut at.** Work stops at the age the charts are for: one chosen on the chance-by-age chart, else the what-if's, else the plan's own, else the earliest age the plan found, else the one recorded at the last check-in. A plan asking for the earliest age with none of these yet assumes 65 until it's calculated, and says so where work stops. When the charts are for an age chosen on the chart, it says that, with *Plan's age*.
 - **Outside the plan's years.** Inputs that apply in no year the plan runs (an event after its end, a work phase over before it starts, a pension without an age) are listed after the chapter as settings, like the rest. Without a birth date there are no chapters: a card asks for it instead.
 - **Assumptions.** Under the chapters, *Assumptions…*, *Export Calculations…* and the disclaimer. *Assumptions…* opens what every chapter shares, a sheet of collapsible cards with a one-line summary each: **You** (the birth date, as in Settings), **Taxes**, **Assumptions**, **Target mix** and **Simulation**.
@@ -579,26 +579,32 @@ The plan reads as a life ([PLANNER.md](PLANNER.md#chapters)): the answer first, 
 - **Pensions.** Each is a setting ("State pension", "From 67, after tax", "1.167 €"). The editor has the name, the age it's paid from, and **After tax, a month**: "From your pension statement, after the tax you expect to pay on it, in today's EUR."
 - **Other income.** Each is a setting ("Rent", "From 45 until 85, after tax", "800 €"), and in the chapter's words: "Part-time pays 1.500 € a month from when you stop working until 60." The editor has the name, **From when you stop working** (on) or the age it starts at, **Stops at an age** and the age, and **After tax, a month**: "Rent, a side business, an annuity, or part-time work once you stop your main job, after tax, in today's EUR. Unlike work, it doesn't stop when you retire."
 - **Contributions.** Each is a setting ("Into Fondo pensione", "Until you stop working", "417 €"). The editor picks the account it goes into ("Paid into the account, and drawn once it's available (Available from age on the account). The rest of your savings goes to the money you can draw."), and whether it's paid every month (**A month**, until retirement or a date) or once, in a year.
-- **Spending.** While working (in the first chapter), in retirement (where you retire), and the later phases (from an age, a share of it, where each begins). Under spending in retirement, folded away, **Flexible spending** ([PLANNER.md](PLANNER.md#flexible-spending)):
+- **Spending.** While working (in the first chapter), in retirement (where you retire), and the later phases (from an age, a share of it, where each begins). Each is a setting with a sheet of its own:
+  - **Spending while working:** **A month**: "In today's EUR.", then what the accounts that track money in and out recorded going out a month in the last year, when they did.
+  - **Spending in retirement:** **A month**: "In today's EUR. Later phases spend a share of it."
+  - **Later spending:** the age it starts at (**From 75**) and **Share of spending**, each a row: "From an age, a share of what you spend in retirement." **Delete** at the bottom removes the phase.
+  - **Flexible spending** ([PLANNER.md](PLANNER.md#flexible-spending)), a setting after spending in retirement:
 
   ```
   Flexible spending                      [ ● ]
   Cuts spending in retirement after bad years and restores it after good ones, as real
   retirees do, instead of spending the same whatever the markets do. A future only fails
   if you'd have to spend less than the floor.
+
   Cut by                                [10] %
   Never below                           [80] %
-  of the plan's spending: 28.800 €/yr
-  ▸ Guardrails
-      Cut when it rises by              [20] %
-      Restore when it falls by          [20] %
-      Each year the plan compares the share of your money you draw with the first year of
-      retirement's: this much above it, spending is cut; this much below it, a cut is restored.
+  Of the plan's spending in retirement: 28.800 €/yr.
+
+  GUARDRAILS
+  Cut when it rises by                  [20] %
+  Restore when it falls by              [20] %
+  Each year the plan compares the share of your money you draw with the first year of
+  retirement's: this much above it, spending is cut; this much below it, a cut is restored.
   ```
 
   - The switch writes `{ "enabled": true }`; turning it off keeps settings that differ from the defaults (`enabled: false`), and with only defaults removes the rule, so nothing is written.
   - The fields show the defaults as their prompts; a field left empty, or set to its default, isn't written. *Never below* is also shown in money: the floor share of the retirement spending, before the phases, hidden with the eye.
-  - The guardrails are folded away (*Guardrails*, a disclosure group). Settings out of range show as errors above the chapters.
+  - The guardrails are a section of their own, with their explanation under them. Settings out of range show as errors above the chapters.
 - **Taxes** ([PLANNER.md](PLANNER.md#the-model-in-brief)):
 
   ```

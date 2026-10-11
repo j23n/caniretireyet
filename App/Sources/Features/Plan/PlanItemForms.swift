@@ -3,7 +3,8 @@ import Planner
 import SwiftUI
 
 // The Taxes card, and the sheets that edit one work phase, pension, other
-// income, contribution or event (the chapters list them, UI.md "The editors").
+// income, contribution or event, or a part of spending (the chapters list
+// them, UI.md "The editors").
 
 // MARK: - Taxes
 
@@ -67,6 +68,22 @@ struct PlanItemSheet: View {
         case .event(let index, let event):
             editor(\.events, at: index, item: event, title: "Event", new: "New event") {
                 PlanEventForm(event: $0, issues: issues.issues(for: .events, index: index))
+            }
+        case .workingSpending(let spending):
+            PlanItemEditor("Spending while working", item: spending, onSave: { edited in
+                session.edit { $0.spending.working = edited.working }
+            }, content: { PlanWorkingSpendingForm(spending: $0) })
+        case .retiredSpending(let spending):
+            PlanItemEditor("Spending in retirement", item: spending, onSave: { edited in
+                session.edit { $0.spending.retired = edited.retired }
+            }, content: { PlanRetiredSpendingForm(spending: $0) })
+        case .flexibleSpending(let spending):
+            PlanItemEditor("Flexible spending", item: spending, onSave: { edited in
+                session.edit { $0.spending.flexible = edited.flexible }
+            }, content: { PlanFlexibleSpendingForm(spending: $0) })
+        case .spendingPhase(let index, let phase):
+            editor(\.spending.phases, at: index, item: phase, title: "Later spending", new: "New later spending") {
+                PlanSpendingPhaseForm(phase: $0)
             }
         }
     }
@@ -272,9 +289,123 @@ struct PlanEventForm: View {
     }
 }
 
+// MARK: - Spending
+
+/// Spending while working, a month, with what the accounts recorded going
+/// out in the last year when they record money in and out.
+struct PlanWorkingSpendingForm: View {
+    @Binding var spending: PlanSpending
+    @Environment(LibraryStore.self) private var library
+    @Environment(\.baseCurrency) private var currency
+    @Environment(\.hidesAmounts) private var hidesAmounts
+    @Environment(\.locale) private var locale
+
+    var body: some View {
+        Section {
+            PlanNumberRow("A month", value: $spending.working.perMonth, unit: "/month")
+        } footer: {
+            Text(["In \(PlanMoney.todaysMoney(currency)).", spentNote].compactMap { $0 }.joined(separator: " "))
+        }
+    }
+
+    /// What the cash and savings accounts that record money in and out
+    /// spent over the last twelve months, a month on average, to set the
+    /// plan's spending against (PROGRESS.md, "Money in and out"); `nil`
+    /// when nothing was recorded.
+    private var spentNote: String? {
+        let summary = library.valuator.moneyInOut(overYearEndingOn: .today())
+        guard let perYear = summary.moneyOutPerYear else { return nil }
+        let amount = hidesAmounts
+            ? AmountFormat.hidden : AmountFormat.amount(perYear / 12, currency: summary.currency, locale: locale)
+        let unconverted = summary.isComplete ? "" : " Values without an exchange rate are left out too."
+        return "Your accounts recorded \(amount) a month on average going out in the last year. Money moved "
+            + "between them, debt payments included, is left out." + unconverted
+    }
+}
+
+/// Spending in retirement, a month, which later phases spend a share of.
+struct PlanRetiredSpendingForm: View {
+    @Binding var spending: PlanSpending
+    @Environment(\.baseCurrency) private var currency
+
+    var body: some View {
+        Section {
+            PlanNumberRow("A month", value: $spending.retired.perMonth, unit: "/month")
+        } footer: {
+            Text("In \(PlanMoney.todaysMoney(currency)). Later phases spend a share of it.")
+        }
+    }
+}
+
+/// Flexible spending (UI.md, "The editors"): a switch, and when it's on, how
+/// much a cut takes, the floor (also in money), and the guardrails. Fields
+/// left empty take the defaults their prompts show.
+struct PlanFlexibleSpendingForm: View {
+    @Binding var spending: PlanSpending
+    @Environment(\.baseCurrency) private var currency
+    @Environment(\.hidesAmounts) private var hidesAmounts
+    @Environment(\.locale) private var locale
+
+    var body: some View {
+        Section {
+            Toggle("Flexible spending", isOn: $spending.planFlexibleOn)
+        } footer: {
+            Text(PlanEditing.flexibleExplanation)
+        }
+        if spending.planFlexibleOn {
+            Section {
+                PlanNumberRow("Cut by", value: $spending.planFlexibleCut, kind: .percent, unit: "%", prompt: "10")
+                PlanNumberRow("Never below", value: $spending.planFlexibleFloor, kind: .percent, unit: "%",
+                              prompt: "80")
+            } footer: {
+                Text("Of the plan's spending in retirement: \(floorAmount)/yr.")
+                    .privacySensitive()
+            }
+            Section {
+                PlanNumberRow("Cut when it rises by", value: $spending.planFlexibleUpperGuardrail, kind: .percent,
+                              unit: "%", prompt: "20")
+                PlanNumberRow("Restore when it falls by", value: $spending.planFlexibleLowerGuardrail,
+                              kind: .percent, unit: "%", prompt: "20")
+            } header: {
+                Text("Guardrails")
+            } footer: {
+                Text(PlanEditing.guardrailsExplanation)
+            }
+        }
+    }
+
+    /// The floor in money, hidden with the eye.
+    private var floorAmount: String {
+        hidesAmounts ? AmountFormat.hidden
+            : AmountFormat.amount(spending.planFlexibleFloorAmount, currency: currency, locale: locale)
+    }
+}
+
+/// A later phase of spending in retirement: from an age, a share of what
+/// the plan spends in retirement.
+struct PlanSpendingPhaseForm: View {
+    @Binding var phase: SpendingPhase
+
+    var body: some View {
+        Section {
+            Stepper("From \(phase.fromAge)", value: $phase.fromAge, in: 40...110)
+            PlanNumberRow("Share of spending", value: $phase.factor, kind: .percent, unit: "%")
+        } footer: {
+            Text("From an age, a share of what you spend in retirement.")
+        }
+    }
+}
+
 #Preview("Work phase") {
     PlanItemEditor("Work phase", item: PreviewLibrary.library.plans["base"]!.work[1], onSave: { _ in }) { phase in
         PlanWorkPhaseForm(phase: phase, issues: [])
+    }
+    .previewEnvironment()
+}
+
+#Preview("Flexible spending") {
+    PlanItemEditor("Flexible spending", item: PreviewLibrary.library.plans["base"]!.spending, onSave: { _ in }) {
+        PlanFlexibleSpendingForm(spending: $0)
     }
     .previewEnvironment()
 }

@@ -166,8 +166,8 @@ struct PlanChapterBadge: View {
 
 // MARK: - Changing a value
 
-/// The small editor a setting opens: the field, stepper or switch for that
-/// one value. Edits apply at once, as everywhere in the plan.
+/// The small editor an age's setting opens: its stepper and switch. Edits
+/// apply at once.
 struct PlanValueEditor: View {
     let value: PlanValue
     @Binding var plan: PlanDocument
@@ -177,10 +177,6 @@ struct PlanValueEditor: View {
     var onUsePlanAge: (() -> Void)?
 
     @Environment(\.dismiss) private var dismiss
-    @Environment(\.baseCurrency) private var currency
-    @Environment(LibraryStore.self) private var library
-    @Environment(\.hidesAmounts) private var hidesAmounts
-    @Environment(\.locale) private var locale
 
     var body: some View {
         VStack(alignment: .leading, spacing: Metrics.m) {
@@ -195,16 +191,6 @@ struct PlanValueEditor: View {
     @ViewBuilder
     private var editor: some View {
         switch value {
-        case .workingSpending:
-            title("Spending while working")
-            PlanNumberRow("A month", value: $plan.spending.working.perMonth, unit: "/month")
-            if let spent = spentNote {
-                note(spent)
-            }
-        case .retiredSpending:
-            title("Spending in retirement")
-            PlanNumberRow("A month", value: $plan.spending.retired.perMonth, unit: "/month")
-            note("In \(PlanMoney.todaysMoney(currency)). Later phases spend a share of it.")
         case .retirementAge:
             title("When work stops")
             Toggle("As early as you can", isOn: $plan.planRetiresEarliest)
@@ -219,30 +205,10 @@ struct PlanValueEditor: View {
                 }
                 .buttonStyle(.borderless)
             }
-        case .spendingPhase(let index):
-            title("Later spending")
-            PlanSpendingPhaseRow(phases: $plan.spending.phases, index: index)
-            note("From an age, a share of what you spend in retirement.")
         case .endAge:
             title("The plan's end")
             Stepper("Plan to age \(plan.planEndAge)", value: $plan.planEndAge, in: 70...110)
-        case .flexibleSpending:
-            PlanFlexibleSpendingEditor(spending: $plan.spending)
         }
-    }
-
-    /// What the cash and savings accounts that record money in and out
-    /// spent over the last twelve months, a month on average, to set the
-    /// plan's spending against (PROGRESS.md, "Money in and out"); `nil`
-    /// when nothing was recorded.
-    private var spentNote: String? {
-        let summary = library.valuator.moneyInOut(overYearEndingOn: .today())
-        guard let perYear = summary.moneyOutPerYear else { return nil }
-        let amount = hidesAmounts
-            ? AmountFormat.hidden : AmountFormat.amount(perYear / 12, currency: summary.currency, locale: locale)
-        let unconverted = summary.isComplete ? "" : " Values without an exchange rate are left out too."
-        return "Your accounts recorded \(amount) a month on average going out in the last year. Money moved "
-            + "between them, debt payments included, is left out." + unconverted
     }
 
     private func title(_ text: String) -> some View {
