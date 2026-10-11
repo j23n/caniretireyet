@@ -9,11 +9,13 @@ import SwiftUI
 // MARK: - The strip
 
 /// Cards side by side on a strip that scrolls sideways. The cards on screen
-/// share one money scale fitted to their money (``PlanStripScale``): at once
-/// the first time, then whenever the strip comes to rest after scrolling,
-/// the graphs fading to their new places, and when a card is chosen, to
-/// those on screen once it's scrolled to the middle. Choosing a card selects it,
-/// outlined in the accent; selecting one elsewhere scrolls it to the middle.
+/// share one money scale fitted to the money between the screen's edges
+/// (``PlanStripScale``, ``PlanStripWindow``), as one graph the cards only
+/// split: at once the first time, then whenever the strip comes to rest
+/// after scrolling, the graphs fading to their new places, and when a card
+/// is chosen, to what's on screen once it's scrolled to the middle.
+/// Choosing a card selects it, outlined in the accent; selecting one
+/// elsewhere scrolls it to the middle.
 /// The pointer over a card's graph, or a finger touched and held on it,
 /// reads the graph there (``PlanGraphPointer``), and the strip stays put
 /// until the finger lifts.
@@ -28,9 +30,8 @@ struct PlanCardStrip<Leading: View, Graph: View, Footer: View>: View {
     let opensAtEnd: Bool
     /// The strip's accessibility identifier, for the UI tests.
     let identifier: String
-    /// The money scale fitted to the cards at the indices given, of those
-    /// there are.
-    let scale: (Set<Int>) -> PlanStripScale?
+    /// The money scale fitted to the money on screen.
+    let scale: (PlanStripWindow) -> PlanStripScale?
     /// What VoiceOver reads for a card.
     let spokenLabel: (Int) -> String
     /// A card's audio graph and chart details.
@@ -45,15 +46,15 @@ struct PlanCardStrip<Leading: View, Graph: View, Footer: View>: View {
 
     /// Where the pointer is over a card, or where one was tapped.
     @State private var pointer: PlanGraphPointer?
-    /// The cards the money scale is fitted to: those on screen when the
-    /// strip last came to rest, or once the chosen card is in the middle;
-    /// the chosen one and those beside it before the strip has said where
-    /// its cards are.
-    @State private var fitted: Set<Int> = []
+    /// What the money scale is fitted to: what was on screen when the strip
+    /// last came to rest, or once the chosen card is in the middle; `nil`
+    /// before the strip has said where its cards are, when it's fitted to
+    /// the whole of the chosen one and those beside it.
+    @State private var fitted: PlanStripWindow?
     @State private var onScreen = PlanCardsOnScreen()
 
     init(indices: [Int], selection: Binding<Int>, inset: CGFloat, opensAtEnd: Bool = false, identifier: String,
-         scale: @escaping (Set<Int>) -> PlanStripScale?, spokenLabel: @escaping (Int) -> String,
+         scale: @escaping (PlanStripWindow) -> PlanStripScale?, spokenLabel: @escaping (Int) -> String,
          chart: @escaping (Int) -> ChartSummary, @ViewBuilder leading: @escaping () -> Leading,
          @ViewBuilder graph: @escaping (_ index: Int, _ scale: PlanStripScale?, _ pointerX: CGFloat?) -> Graph,
          @ViewBuilder footer: @escaping (Int) -> Footer) {
@@ -78,7 +79,7 @@ struct PlanCardStrip<Leading: View, Graph: View, Footer: View>: View {
     }
 
     var body: some View {
-        let shared = scale(fitted.isEmpty ? [selection - 1, selection, selection + 1] : fitted)
+        let shared = scale(fitted ?? PlanStripWindow(wholeCards: [selection - 1, selection, selection + 1]))
         ScrollViewReader { proxy in
             ScrollView(.horizontal) {
                 HStack(alignment: .top, spacing: Metrics.s) {
@@ -116,8 +117,8 @@ struct PlanCardStrip<Leading: View, Graph: View, Footer: View>: View {
             .accessibilityIdentifier(identifier)
             .onChange(of: selection) { _, index in
                 // The strip centres the chosen card: the scale is fitted at
-                // once to the cards on screen once it's there.
-                fitScale(to: onScreen.cards(among: indices, centring: index))
+                // once to what's on screen once it's there.
+                fitScale(to: onScreen.window(among: indices, centring: index))
                 withAnimation(.snappy) { proxy.scrollTo(CardID(index: index), anchor: .center) }
             }
         }
@@ -147,12 +148,11 @@ struct PlanCardStrip<Leading: View, Graph: View, Footer: View>: View {
         }
     }
 
-    /// Fits the money scale to `shown`, by default the cards on screen: at
+    /// Fits the money scale to `shown`, by default what's on screen: at
     /// once the first time, then with the graphs fading to their new places.
-    private func fitScale(to shown: Set<Int>? = nil) {
-        let shown = shown ?? onScreen.cards(among: indices)
-        guard !shown.isEmpty, shown != fitted else { return }
-        if fitted.isEmpty {
+    private func fitScale(to shown: PlanStripWindow? = nil) {
+        guard let shown = shown ?? onScreen.window(among: indices), shown != fitted else { return }
+        if fitted == nil {
             fitted = shown
         } else {
             withAnimation(.easeInOut(duration: 0.3)) { fitted = shown }
@@ -163,7 +163,7 @@ struct PlanCardStrip<Leading: View, Graph: View, Footer: View>: View {
 extension PlanCardStrip where Leading == EmptyView, Footer == EmptyView {
     /// A strip with nothing before its cards or under their graphs.
     init(indices: [Int], selection: Binding<Int>, inset: CGFloat, opensAtEnd: Bool = false, identifier: String,
-         scale: @escaping (Set<Int>) -> PlanStripScale?, spokenLabel: @escaping (Int) -> String,
+         scale: @escaping (PlanStripWindow) -> PlanStripScale?, spokenLabel: @escaping (Int) -> String,
          chart: @escaping (Int) -> ChartSummary,
          @ViewBuilder graph: @escaping (_ index: Int, _ scale: PlanStripScale?, _ pointerX: CGFloat?) -> Graph) {
         self.init(indices: indices, selection: selection, inset: inset, opensAtEnd: opensAtEnd,
@@ -187,26 +187,32 @@ final class PlanCardsOnScreen {
     var viewport: PlanStripViewport?
     var isScrolling = false
 
-    /// The cards, among those laid out, at least a tenth on screen.
-    func cards(among laidOut: [Int]) -> Set<Int> {
-        guard let viewport else { return [] }
-        return cards(among: laidOut, from: viewport.start, width: viewport.width)
+    /// What's on screen, and the cards on it among those laid out; `nil`
+    /// until the strip says where its cards are.
+    func window(among laidOut: [Int]) -> PlanStripWindow? {
+        guard let viewport else { return nil }
+        return window(among: laidOut, from: viewport.start, width: viewport.width)
     }
 
-    /// The cards, among those laid out, on screen once the strip has
-    /// scrolled the card at `index` to its middle, or as far as it can.
-    func cards(among laidOut: [Int], centring index: Int) -> Set<Int> {
-        guard let viewport, let frame = frames[index] else { return [index] }
+    /// What's on screen once the strip has scrolled the card at `index` to
+    /// its middle, or as far as it can; the whole card before the strip
+    /// says where its cards are.
+    func window(among laidOut: [Int], centring index: Int) -> PlanStripWindow {
+        guard let viewport, let frame = frames[index] else { return PlanStripWindow(wholeCards: [index]) }
         let start = min(max(frame.midX - viewport.width / 2, viewport.starts.lowerBound), viewport.starts.upperBound)
-        return cards(among: laidOut, from: start, width: viewport.width)
+        return window(among: laidOut, from: start, width: viewport.width) ?? PlanStripWindow(wholeCards: [index])
     }
 
-    private func cards(among laidOut: [Int], from start: CGFloat, width: CGFloat) -> Set<Int> {
-        Set(laidOut.filter { index in
-            guard let frame = frames[index], frame.width > 0 else { return false }
-            let shown = min(frame.maxX, start + width) - max(frame.minX, start)
-            return shown >= frame.width * 0.1
-        })
+    private func window(among laidOut: [Int], from start: CGFloat, width: CGFloat) -> PlanStripWindow? {
+        var cards: [Int: ClosedRange<Double>] = [:]
+        for index in laidOut {
+            guard let frame = frames[index], frame.width > 0, frame.maxX > start, frame.minX < start + width else {
+                continue
+            }
+            cards[index] = Double(frame.minX)...Double(frame.maxX)
+        }
+        guard !cards.isEmpty else { return nil }
+        return PlanStripWindow(cards: cards, onScreen: Double(start)...Double(start + width))
     }
 }
 
