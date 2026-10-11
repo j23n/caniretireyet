@@ -98,6 +98,8 @@ struct MoneyInOutTests {
         // The delete confirmation says it first.
         #expect(removed.previewRemovingValue(augustKey).moneyInOut.map(\.key) == [september])
         #expect(removed.valuations(for: "conto-fineco").contains { $0.key == augustKey })
+        // Nothing after the last value records money in and out.
+        #expect(removed.previewRemovingValue(september).moneyInOut.isEmpty)
         let followUp = removed.removeValue(augustKey)
         #expect(followUp.moneyInOut.map(\.key) == [september])
 

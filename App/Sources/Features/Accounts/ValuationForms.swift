@@ -88,20 +88,16 @@ enum AccountValueNotes {
     /// The same for the flows any edit worked out again or kept, e.g. a
     /// trade's (`TradeEdit.flows`).
     static func flowFollowUp(_ flows: FlowFollowUp, locale: Locale = .current) -> String? {
-        func dates(_ valuations: [Valuation]) -> String {
-            Wording.list(valuations.map { AmountFormat.mediumDate($0.date, locale: locale) })
-        }
-        func values(_ count: Int) -> String { count == 1 ? "value" : "values" }
         var sentences: [String] = []
         let recomputed = flows.recomputed
         if !recomputed.isEmpty {
-            sentences.append("Saving also works out again the new money of the \(values(recomputed.count)) on "
-                + "\(dates(recomputed)).")
+            sentences.append("Saving also works out again the new money of the \(values(recomputed)) on "
+                + "\(dates(recomputed, locale: locale)).")
         }
         let kept = flows.kept
         if !kept.isEmpty {
-            sentences.append("The new money of the \(values(kept.count)) on \(dates(kept)) was typed in, "
-                + "so it stays as it is.")
+            sentences.append("The new money of the \(values(kept)) on \(dates(kept, locale: locale)) was typed "
+                + "in, so it stays as it is.")
         }
         if let moneyInOut = moneyInOutCheck(flows, locale: locale) {
             sentences.append(moneyInOut)
@@ -116,9 +112,27 @@ enum AccountValueNotes {
     static func moneyInOutCheck(_ flows: FlowFollowUp, locale: Locale = .current) -> String? {
         let valuations = flows.moneyInOut
         guard !valuations.isEmpty else { return nil }
-        let dates = Wording.list(valuations.map { AmountFormat.mediumDate($0.date, locale: locale) })
-        return "Check the money in and out of the \(valuations.count == 1 ? "value" : "values") on \(dates): "
+        return "Check the money in and out of the \(values(valuations)) on \(dates(valuations, locale: locale)): "
             + "they were for the days since another value."
+    }
+
+    /// The confirmation for deleting a value, in the valuation editor and
+    /// on the account's details (`flows` from
+    /// `Library.previewRemovingValue(_:)`).
+    static func deleteMessage(_ flows: FlowFollowUp, locale: Locale = .current) -> String {
+        let check = moneyInOutCheck(flows, locale: locale).map { " " + $0 } ?? ""
+        return "The account's value then carries forward from the value before it. The new money of the value "
+            + "after it is worked out again, unless it was typed in." + check
+    }
+
+    /// "value" or "values", for `valuations`.
+    private static func values(_ valuations: [Valuation]) -> String {
+        valuations.count == 1 ? "value" : "values"
+    }
+
+    /// The dates of `valuations`: "30 Sep 2026 and 31 Oct 2026".
+    private static func dates(_ valuations: [Valuation], locale: Locale) -> String {
+        Wording.list(valuations.map { AmountFormat.mediumDate($0.date, locale: locale) })
     }
 }
 
