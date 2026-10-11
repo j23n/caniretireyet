@@ -195,6 +195,19 @@ struct ValuationEditTests {
         #expect(fondo.flows.kept.count == 1)
     }
 
+    @Test func aCashValueWithoutAFlowKeepsNone() throws {
+        var library = Library()
+        library.accounts["bank"] = Account(id: "bank", name: "Bank", kind: .cash, currency: .eur, opened: "2026-01-31")
+        // Imported balances record no flow.
+        for (date, balance) in [("2026-01-31", 1000), ("2026-02-28", 1200), ("2026-03-31", 1500)] {
+            library.upsert(Valuation(account: "bank", date: CalendarDate(date)!, balance: Decimal(balance)))
+        }
+        let removed = library.removeValue(ValuationKey(account: "bank", date: "2026-01-31"))
+        // The new first value stays without a flow, so its balance counts as other, not as new money.
+        #expect(library.valuations(for: "bank").map(\.flow) == [nil, nil])
+        #expect(removed.recomputed.isEmpty)
+    }
+
     @Test func aValueBeforeTheOpeningDateMovesIt() throws {
         var library = self.library
         let preview = library.previewSavingValue(Valuation(account: "cash", date: "2025-12-31", balance: 800, flow: 800))

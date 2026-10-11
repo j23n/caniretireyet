@@ -155,8 +155,9 @@ extension Library {
                 let recomputed = newValuator.valuator.defaultFlow(for: valuation, previous: newPrevious)
                 // Only the trades changed, and not in a way that concerns this valuation.
                 if oldPrevious == newPrevious, recomputed == automatic { continue }
-                // A cash or savings account's flow is always worked out from what's recorded.
-                guard automatic == valuation.flow || worksOutFlow else {
+                // A cash or savings account's flow is always worked out from what's recorded. One without a
+                // flow (an imported balance) has none to work out: it follows the value before it as it is.
+                guard automatic == valuation.flow || (worksOutFlow && valuation.flow != nil) else {
                     result.kept.append(valuation)
                     continue
                 }
