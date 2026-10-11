@@ -361,9 +361,11 @@ struct OverviewHeader: View {
     }
 
     /// Whether the headline, the ring and the coast point line dim: the
-    /// results are out of date, or a calculation is replacing them.
+    /// results are out of date, or a calculation is replacing them. A
+    /// what-if or focus-age run doesn't replace them, so it doesn't count.
     private var dimsAnswer: Bool {
-        headline.recordedOn == nil && (isStale || plans.isRunning(plan.id))
+        headline.recordedOn == nil
+            && (isStale || plans.isRunning(plan.id, .base) || plans.isRunning(plan.id, .checkIn))
     }
 
     /// When the earliest age is reached; for an answer recorded at a
