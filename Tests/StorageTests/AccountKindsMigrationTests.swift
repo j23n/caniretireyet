@@ -47,8 +47,20 @@ struct AccountKindsMigrationTests {
             "bank": .balance, "broker": .trades, "new-broker": .trades, "exchange": .balance, "wallet": .balance,
             "fund": .balance,
         ])
-        #expect(library.allTrades.map(\.id) == ["opening-vwce", "buy-vwce"])
+        // The opening cash and February's new money are deposits, so the cash is what the trades give.
+        #expect(library.trades(for: "broker") == [
+            Trade(account: "broker", date: "2026-01-31", id: "deposit", type: .deposit, amount: 50),
+            Trade(account: "broker", date: "2026-01-31", id: "opening-vwce", type: .opening, instrument: "vwce",
+                  quantity: 10, cost: 1000),
+            Trade(account: "broker", date: "2026-02-28", id: "buy-vwce", type: .buy, instrument: "vwce", quantity: 5,
+                  price: 110, currency: .eur),
+            Trade(account: "broker", date: "2026-02-28", id: "deposit", type: .deposit, amount: 520),
+        ])
+        #expect(library.allTrades.count == 4)
         #expect(library.valuations(for: "broker").map(\.positions) == [[], []])
+        #expect(library.valuations(for: "broker").map(\.cash) == [50, 20])
+        #expect(Valuator(library: library).tradeFlows(of: "broker", after: nil, through: "2026-02-28")
+            .allSatisfy { $0.trade != nil })
         // The broker's first positions had no purchase cost, so the conversion estimated
         // it, and the buy's price.
         #expect(report.notes == [

@@ -95,13 +95,19 @@ extension Library {
     /// - Valuations keep their cash (zero when they had none), flow, note
     ///   and source, and lose their positions. A balance becomes cash, less
     ///   the market value of what the trades hold then (noted).
+    /// - The money added or taken out by each valuation's date, its cash
+    ///   minus the cash the trades give, becomes a `deposit` or a
+    ///   `withdrawal` on that date: the first valuation's cash, then the
+    ///   new money each check-in counted besides the buys and sales. So the
+    ///   cash is what the trades give, and no valuation has a residual.
     /// - There's at most one trade per instrument and date, so trades get
-    ///   readable IDs: `opening-vwce`, `buy-vwce`, `sell-vwce`.
+    ///   readable IDs: `opening-vwce`, `buy-vwce`, `sell-vwce`, `deposit`,
+    ///   `withdrawal`.
     ///
-    /// Values and flows stay the same: the trades' cash effects are what the
-    /// check-in counted as new money, so each valuation's residual is its
-    /// old flow (or, settled outside the account, the trades' amounts are
-    /// that flow themselves, and there's no residual).
+    /// Values and flows stay the same: the deposits and withdrawals are what
+    /// the check-in counted as new money (or, settled outside the account,
+    /// the trades' amounts are that flow themselves, and the cash stays at
+    /// zero).
     public func conversionToTrades(of account: AccountID) -> AccountConversion? {
         guard var details = accounts[account], !details.recordsTrades else { return nil }
         let prices = PriceTable(library: self)
@@ -237,10 +243,69 @@ extension Library {
             }
             written.append(converted)
         }
+        trades += cashMovements(of: details, valuations: written, trades: trades, existing: existing, fx: fx)
 
         details.valuation = details.kind.defaultValuationMode == .trades ? nil : .trades
         return AccountConversion(account: details, valuations: written, trades: trades.sortedByKey(),
                                  notes: notes.sorted { $0.date < $1.date })
+    }
+
+    /// The deposits and withdrawals that make the cash of each of a
+    /// converted account's `valuations` what its trades give: on each
+    /// valuation's date, its cash minus the cash before it (the valuation
+    /// before, or zero for the first) and the cash effects of the trades
+    /// after that through its date. That's the money added or taken out
+    /// that a residual would count, so the flows stay the same.
+    ///
+    /// A valuation whose period has a trade with an unknown cash effect
+    /// (a buy or sale without a price) can't be worked out that way. It
+    /// gets the new money its check-in recorded (its `flow`, less the
+    /// deposits and withdrawals already in the period), so only that
+    /// trade's amount is left as its residual, and adding the amount clears
+    /// it. Without a recorded flow it gets none.
+    private func cashMovements(of account: Account, valuations: [Valuation], trades: [Trade], existing: [Trade],
+                               fx: FXTable) -> [Trade] {
+        // The trades as they'll be: a conversion's trade replaces an existing one with its key.
+        let keys = Set(trades.map(\.key))
+        let ledger = TradeLedger(account: account, trades: existing.filter { !keys.contains($0.key) } + trades,
+                                 instruments: instruments, fx: fx)
+        var movements: [Trade] = []
+        var previous: Valuation?
+        for valuation in valuations {
+            defer { previous = valuation }
+            guard let cash = valuation.cash else { continue }
+            let amount: Decimal
+            if ledger.unknownCashEffects(after: previous?.date, through: valuation.date) == 0 {
+                let given = (previous?.cash ?? 0) + ledger.cashEffect(after: previous?.date, through: valuation.date)
+                amount = cash - given
+            } else if let recorded = Self.recordedNewMoney(of: valuation, previous: previous, in: ledger) {
+                amount = recorded
+            } else {
+                continue
+            }
+            guard amount != 0 else { continue }
+            let type: TradeType = amount > 0 ? .deposit : .withdrawal
+            movements.append(Trade(account: account.id, date: valuation.date, id: TradeID(rawValue: type.rawValue),
+                                   type: type, amount: amount, source: valuation.source))
+        }
+        return movements
+    }
+
+    /// The new money `valuation`'s check-in recorded since `previous`
+    /// besides the deposits and withdrawals in the period: its `flow` less
+    /// theirs. `nil` without a previous valuation or a flow, or when the
+    /// period has another flow (a transfer, an opening, a trade paid from
+    /// outside), whose amount isn't known here.
+    private static func recordedNewMoney(of valuation: Valuation, previous: Valuation?,
+                                         in ledger: TradeLedger) -> Decimal? {
+        guard let previous, let flow = valuation.flow else { return nil }
+        var recorded: Decimal = 0
+        for entry in ledger.entries(after: previous.date, through: valuation.date) where entry.trade.isFlow {
+            guard entry.trade.type == .deposit || entry.trade.type == .withdrawal,
+                  !entry.trade.isSettledExternally, let effect = entry.cashEffect else { return nil }
+            recorded += effect
+        }
+        return flow - recorded
     }
 
     /// Converts every account recorded as snapshots (`"valuation":
@@ -263,7 +328,8 @@ extension Library {
     /// What ``convertSnapshotAccountsToTrades()`` does, in plain words, for
     /// the upgrade's report.
     public static let snapshotConversionSummary = "Accounts recorded as snapshots of positions now record trades: "
-        + "an opening, then a buy or a sale per change. Their values and new money stay the same."
+        + "an opening, then a buy or a sale per change, and a deposit or withdrawal for the money added or taken "
+        + "out. Their values and new money stay the same."
 
     /// Converts `account` to trades (``conversionToTrades(of:)``) and
     /// returns what was done; `nil`, changing nothing, when it can't be.
