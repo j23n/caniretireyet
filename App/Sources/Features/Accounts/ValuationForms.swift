@@ -103,12 +103,22 @@ enum AccountValueNotes {
             sentences.append("The new money of the \(values(kept.count)) on \(dates(kept)) was typed in, "
                 + "so it stays as it is.")
         }
-        let moneyInOut = flows.moneyInOut
-        if !moneyInOut.isEmpty {
-            sentences.append("Check the money in and out of the \(values(moneyInOut.count)) on \(dates(moneyInOut)): "
-                + "they were for the days since another value.")
+        if let moneyInOut = moneyInOutCheck(flows, locale: locale) {
+            sentences.append(moneyInOut)
         }
         return sentences.isEmpty ? nil : sentences.joined(separator: " ")
+    }
+
+    /// "Check the money in and out of the value on 30 Sep 2026: they were
+    /// for the days since another value.", for the values that record them
+    /// whose value before is now on another date (`FlowFollowUp.moneyInOut`),
+    /// as after saving or deleting a value; `nil` when there are none.
+    static func moneyInOutCheck(_ flows: FlowFollowUp, locale: Locale = .current) -> String? {
+        let valuations = flows.moneyInOut
+        guard !valuations.isEmpty else { return nil }
+        let dates = Wording.list(valuations.map { AmountFormat.mediumDate($0.date, locale: locale) })
+        return "Check the money in and out of the \(valuations.count == 1 ? "value" : "values") on \(dates): "
+            + "they were for the days since another value."
     }
 }
 

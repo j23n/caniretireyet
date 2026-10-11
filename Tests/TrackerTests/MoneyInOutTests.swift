@@ -94,7 +94,11 @@ struct MoneyInOutTests {
         #expect(inserted.flows.moneyInOut.first?.moneyOut == d("2554.65"))
 
         var removed = try Fixtures.exampleLibrary()
-        let followUp = removed.removeValue(ValuationKey(account: "conto-fineco", date: "2026-08-31"))
+        let augustKey = ValuationKey(account: "conto-fineco", date: "2026-08-31")
+        // The delete confirmation says it first.
+        #expect(removed.previewRemovingValue(augustKey).moneyInOut.map(\.key) == [september])
+        #expect(removed.valuations(for: "conto-fineco").contains { $0.key == augustKey })
+        let followUp = removed.removeValue(augustKey)
         #expect(followUp.moneyInOut.map(\.key) == [september])
 
         // A value corrected on its date leaves the next one's days alone.
