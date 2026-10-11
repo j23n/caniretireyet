@@ -6,7 +6,8 @@ import Tracker
 
 /// `retire spending`: the money in and out recorded at check-ins on cash and
 /// savings accounts, summed over a year (Tracker's
-/// `Valuator.moneyInOut(from:through:accounts:)`).
+/// `Valuator.moneyInOut(from:through:accounts:)`), and the savings rate
+/// (`Valuator.savingsRate(from:through:)`).
 struct SpendingCommand: RetireSubcommand {
     static let configuration = CommandConfiguration(
         commandName: "spending",
@@ -15,7 +16,9 @@ struct SpendingCommand: RetireSubcommand {
             Adds up moneyIn and moneyOut, recorded at check-ins on cash and savings accounts, over \
             the twelve months to today, or a calendar year with --year, in the library's base \
             currency. Money moved between your own accounts isn't in either, so money out is \
-            roughly what you spent. Values without both amounts, and an account's first value, aren't counted.
+            roughly what you spent. Values without both amounts, and an account's first value, aren't counted. \
+            Without --account, also the savings rate: what you kept of what came in, with what was paid into \
+            pension funds and TFR over the same days counted on both sides.
             """)
 
     @OptionGroup var options: LibraryOptions
@@ -45,17 +48,18 @@ struct SpendingCommand: RetireSubcommand {
             only = [account.id]
         }
         let valuator = Valuator(library: loaded.library)
-        let summary = if let year {
-            valuator.moneyInOut(from: .firstDay(ofYear: year), through: .lastDay(ofYear: year), accounts: only)
-        } else {
-            valuator.moneyInOut(overYearEndingOn: context.today, accounts: only)
-        }
-        try context.console.print(Report(summary: summary, account: only?.first), json: json)
+        let from = year.map { CalendarDate.firstDay(ofYear: $0) } ?? context.today.adding(years: -1).adding(days: 1)
+        let through = year.map { CalendarDate.lastDay(ofYear: $0) } ?? context.today
+        let summary = valuator.moneyInOut(from: from, through: through, accounts: only)
+        let savings = only == nil ? valuator.savingsRate(from: from, through: through) : nil
+        try context.console.print(Report(summary: summary, account: only?.first, savings: savings), json: json)
     }
 
     struct Report: CommandReport {
         let summary: MoneyInOutSummary
         let account: AccountID?
+        /// The savings rate over the same values; `nil` for one account.
+        var savings: SavingsRate? = nil
 
         func lines() -> [String] {
             let whose = account.map { " of \($0)" } ?? ""
@@ -80,6 +84,19 @@ struct SpendingCommand: RetireSubcommand {
             lines.append("\(Wording.count(months, "month")) recorded "
                 + "(\(Format.range(summary.months[0], summary.months[months - 1]))); out a year scales each account's "
                 + "money out to 365 days by the days its values cover.")
+            if let savings, let rate = savings.rate {
+                let pensions = savings.pensionContributions > 0
+                    ? ", with the \(Format.amount(savings.pensionContributions)) paid into pension funds and TFR "
+                        + "counted as both"
+                    : ""
+                lines.append("Savings rate \(Format.percent(rate)): you kept \(Format.amount(savings.saved)) of the "
+                    + "\(Format.amount(savings.income)) that came in from \(savings.from.adding(days: 1)) to "
+                    + "\(savings.through)\(pensions).")
+                if !savings.plannedContributionAccounts.isEmpty {
+                    lines.append("Paid into pensions as the main plan pays, since check-ins didn't record it: "
+                        + savings.plannedContributionAccounts.map(\.rawValue).joined(separator: ", ") + ".")
+                }
+            }
             if !summary.isComplete { lines.append(unconverted) }
             return lines
         }
@@ -89,7 +106,9 @@ struct SpendingCommand: RetireSubcommand {
                  currency: summary.currency.rawValue, account: account?.rawValue,
                  moneyIn: Format.json(summary.moneyIn), moneyOut: Format.json(summary.moneyOut),
                  net: Format.json(summary.net), moneyOutPerYear: summary.moneyOutPerYear.map { Format.json($0) },
-                 months: summary.months.map(\.description), unconverted: summary.unconverted.map(\.rawValue))
+                 months: summary.months.map(\.description), unconverted: summary.unconverted.map(\.rawValue),
+                 savingsRate: savings?.rate.map { Format.json($0, places: 4) },
+                 pensionContributions: savings.map { Format.json($0.pensionContributions) })
         }
 
         struct JSON: Encodable {
@@ -107,6 +126,12 @@ struct SpendingCommand: RetireSubcommand {
             /// The months with a value counted.
             var months: [String]
             var unconverted: [String]
+            /// What was kept of what came in, as a fraction; absent for one
+            /// account or when nothing came in.
+            var savingsRate: String?
+            /// What was paid into pension funds and TFR over the days the
+            /// values cover, counted as both kept and come in; absent for one account.
+            var pensionContributions: String?
         }
     }
 }
