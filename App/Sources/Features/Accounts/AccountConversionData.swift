@@ -109,6 +109,11 @@ struct AccountConversionSummary: Hashable, Sendable {
             if !openings.isEmpty { parts.append(Wording.count(openings.count, "opening position")) }
             if !buys.isEmpty { parts.append(Wording.count(buys.count, "buy")) }
             if !sells.isEmpty { parts.append(Wording.count(sells.count, "sale")) }
+            // The new money each value counted besides the buys and sales.
+            let movements = conversion.trades.count { $0.type == .deposit || $0.type == .withdrawal }
+            if movements > 0 {
+                parts.append(Wording.count(movements, "deposit or withdrawal", plural: "deposits and withdrawals"))
+            }
             let trades = parts.isEmpty ? "no trades" : Wording.list(parts)
             return "The account's values become \(trades), and its values keep only their cash and new money."
         case .toSnapshots:
