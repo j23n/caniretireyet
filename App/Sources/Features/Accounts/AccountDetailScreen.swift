@@ -11,8 +11,7 @@ import Tracker
 /// An account that records trades shows, instead of positions, its
 /// holdings with average cost and share, its trades by month (a table on
 /// the Mac) with *Add Trade…*, its income and gains by year, and what's
-/// wrong with its trades. *Switch to Trade History…* and *Switch to
-/// Snapshots…* convert an account between the two (docs/TRADES.md).
+/// wrong with its trades (docs/TRADES.md).
 ///
 /// Pushing an `AccountID` onto any navigation stack shows it.
 struct AccountDetailScreen: View {
@@ -35,7 +34,6 @@ struct AccountDetailScreen: View {
     @State private var tradeFilter = TradeListFilter()
     @State private var deletingTrade: TradeKey?
     @State private var confirmsTradeDelete = false
-    @State private var conversion: AccountConversionDirection?
 
     init(accountID: AccountID) {
         self.accountID = accountID
@@ -63,14 +61,6 @@ struct AccountDetailScreen: View {
                     AccountActionSheet(action: action)
                 }
                 .tradeEditorSheet($tradeTarget)
-                .sheet(item: $conversion) { direction in
-                    NavigationStack {
-                        AccountConversionSheet(accountID: accountID, direction: direction)
-                    }
-                    #if os(macOS)
-                    .frame(minWidth: 480, idealWidth: 560, minHeight: 480, idealHeight: 640)
-                    #endif
-                }
                 .confirmationDialog("Delete this trade?", isPresented: $confirmsTradeDelete,
                                     titleVisibility: .visible, presenting: deletingTrade) { key in
                     Button("Delete Trade", role: .destructive) { removeTrade(key) }
@@ -242,7 +232,6 @@ struct AccountDetailScreen: View {
             }
             Section {
                 lifecycleButtons(data)
-                conversionButton(data)
             }
             Section {
                 Button("Delete Account…", role: .destructive) {
@@ -342,7 +331,6 @@ struct AccountDetailScreen: View {
                 }
                 HStack(spacing: Metrics.m) {
                     lifecycleButtons(data)
-                    conversionButton(data)
                     Spacer()
                     Button("Delete Account…", role: .destructive) {
                         confirmsDelete = true
@@ -466,19 +454,6 @@ struct AccountDetailScreen: View {
         return trades.shownCount == trades.totalCount ? total : "\(trades.shownCount) of \(total)"
     }
 
-    /// *Switch to Trade History…* for an account that records positions,
-    /// *Switch to Snapshots…* for one that records trades.
-    @ViewBuilder
-    private func conversionButton(_ data: AccountDetailData) -> some View {
-        if data.canSwitchToTrades {
-            Button("Switch to Trade History…") { conversion = .toTrades }
-                .disabled(!library.canEdit)
-        } else if data.canSwitchToSnapshots {
-            Button("Switch to Snapshots…") { conversion = .toSnapshots }
-                .disabled(!library.canEdit)
-        }
-    }
-
     // MARK: Shared
 
     /// An open account that's held nothing for a while: offered to be
@@ -576,7 +551,6 @@ struct AccountDetailScreen: View {
         case .addTrade(let target): tradeTarget = target
         case .editValuation(let key): editing = AccountValuationTarget(key: key)
         case .editAccount: self.action = AccountAction(.edit, accountID)
-        case .switchToTrades: conversion = .toTrades
         }
     }
 

@@ -5,13 +5,13 @@ import TestSupport
 import Tracker
 
 /// The example library with Directa, the gold coins and the Ledger wallet
-/// recorded as positions at each check-in, converted back from their trades:
-/// for tests of accounts that hold positions.
+/// recorded as positions at each check-in, made from their trades
+/// (``Model/Library/recordAsSnapshots(_:)``): for tests of accounts that
+/// hold positions.
 func exampleLibraryWithHoldings() throws -> Library {
     var library = try Fixtures.exampleLibrary()
     for account: AccountID in ["directa", "gold-coins", "ledger-wallet"] {
-        let conversion = try #require(library.conversionToSnapshots(of: account))
-        conversion.apply(to: &library)
+        library.recordAsSnapshots(account)
     }
     return library
 }

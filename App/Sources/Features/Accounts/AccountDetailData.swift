@@ -172,17 +172,6 @@ struct AccountDetailData: Hashable, Sendable {
             && (!holdings.isEmpty || (latest.map { !$0.isBalance } ?? (account.valuationMode == .holdings)))
     }
 
-    /// Whether *Switch to Trade History…* is offered: an open account that
-    /// records positions (brokerage, crypto, metals, or any holdings account).
-    var canSwitchToTrades: Bool {
-        !account.isClosed && account.valuationMode == .holdings
-    }
-
-    /// Whether *Switch to Snapshots…* is offered: an open trades account.
-    var canSwitchToSnapshots: Bool {
-        !account.isClosed && recordsTrades
-    }
-
     /// The date *Add Past Value…* starts on: the last day of the month
     /// before the account's first value (or before ``date`` without one),
     /// so the history fills in a month at a time.

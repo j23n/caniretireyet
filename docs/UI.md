@@ -320,7 +320,6 @@ The flow that has to be fast. It opens as a full-screen sheet on iPhone and as t
   - For accounts with holdings, the positions: quantity, price, value, purchase cost and unrealised gain.
   - The list of valuations, each editable: date, value, new money, note. *Add Past Value…* adds one on an earlier date.
   - An info section: kind, institution, country, currency, from what age plans can draw on it ("Plans can draw on it: From 67", or "At any age"), how it's recorded (a balance, snapshots of positions, or trade history), and whether it's included in net worth and plans.
-  - A holdings account offers *Switch to Trade History…* next to *Close Account…*: see [Trade history](#trade-history).
 - **Add account.** A sheet:
   1. Pick a kind from a grid of icons.
   2. Enter the name, institution, currency, country and opening date. The opening date is today by default; the hint says "Set it to when you opened the account, to add its history." The opening balance is the one on that date.
@@ -364,7 +363,7 @@ Accounts added in the app open on the day they're added, unless you set an earli
 
 ## Trade history
 
-A brokerage, crypto or metals account can record its **trades** instead of monthly snapshots of its positions ([TRADES.md](TRADES.md)): its holdings, average cost, cash, realised gains and income follow from them, and its check-ins need nothing typed (see [Check-in](#check-in)). New accounts of those kinds record trades by default (see *Add account*); existing ones can switch.
+A brokerage, crypto or metals account can record its **trades** instead of monthly snapshots of its positions ([TRADES.md](TRADES.md)): its holdings, average cost, cash, realised gains and income follow from them, and its check-ins need nothing typed (see [Check-in](#check-in)). New accounts of those kinds record trades by default (see *Add account*), and the upgrade to format version 4 converts existing ones ([TRADES.md](TRADES.md#converting-an-account)); nothing converts an account back.
 
 **Account detail** of an account that records trades, top to bottom:
 
@@ -411,7 +410,7 @@ A brokerage, crypto or metals account can record its **trades** instead of month
 - **Income & gains**, by year: realised gains, dividends, interest, fees and taxes, and the net; a sale whose cost is unknown is left out and said so. In the account's currency.
 - **What needs a look**, as banners with the fix: a trade missing a price or amount, a sale of more than was held, an opening without cost, a missing exchange rate, a trade outside the account's dates, a value with a balance (which isn't used), and a statement that differs from the trades ("The statement on 30 Jun shows 12 VWCE; your trades give 10. Add the missing trade."). Each banner's button opens the trade, a new trade on the statement's date, or the value. The Overview's *Needs attention* points to an account with any of these ("Directa: 2 problems with trades").
 - **Values at check-ins**: the account's values, newest first. Each row shows the account's value at that check-in (its trades at that day's prices and its cash) and its new money. For an account that holds cash (`Valuator.holdsCash(_:)`), each row also shows the cash its value records: a line under the value ("cash 312,10 €"), a *Cash* column on the Mac. The footer (a note under the table on the Mac) says what the values are and, for an account that holds cash, that a cash that differs from the trades counts as money added or taken out. An account that never holds cash ([TRADES.md](TRADES.md#check-ins), "No cash to show") shows no cash in the list. Tap a value to edit it, swipe to delete it; on the Mac, double-click edits, right-click edits or deletes. The history chart, the header's change and the new-money ticks come from the Valuator (deposits and transfers on their own dates).
-- The toolbar's **+** adds a trade; *Update Cash…* records the cash on a date; *Switch to Snapshots…* sits next to *Close Account…*.
+- The toolbar's **+** adds a trade; *Update Cash…* records the cash on a date.
 
 **Add Trade** (and *Edit Trade*) is a sheet:
 
@@ -425,13 +424,6 @@ A brokerage, crypto or metals account can record its **trades** instead of month
 - Numbers read as in the check-in (`1.234,56` or `1234.56`). Problems show under their field: a number that can't be read at once, what the type needs (a buy without a price or an amount) after *Save* is tried, and warnings (a sign that contradicts the type) as they come.
 - **After saving** shows what the edit will change: the cash it moves (for a trade paid from outside: "Cash: Unchanged" and its "New money +1.200,00") and the cash after that day, the quantity held after it, a sale's realised gain, the opening date moving back ("Saving moves the account's opening date from 1 Mar 2021 to 15 Jan 2021."), the new money of later values worked out again (or kept when typed), and problems it brings in (a later sale now selling more than is held).
 - *Save* waits for the write; *Delete Trade…* sits at the bottom when editing.
-
-**Switching an account.** *Switch to Trade History…* on a holdings account, and *Switch to Snapshots…* on a trades account, open a sheet with a preview ([TRADES.md](TRADES.md#converting-an-account)):
-
-- what it writes, in a sentence, and the months it changes ("12 months, Oct 2025 – Sep 2026");
-- to trades: the opening positions, the buys and the sales inferred from the changes in quantity, each with its date; the estimates, counted and expandable ("11 buys and sales are estimates, priced at their value's price.", "1 opening position has no recorded cost: its cost is its value on that day."); for an account that has never held cash (coins, a wallet), a note that its buys and sales are paid from outside it, so its cash stays at zero;
-- to snapshots: a warning that each trade's detail is lost (its date, price, fees, and the income and realised gains worked out from it), and the values it adds on a month's last trade;
-- the months' files are backed up first, as for an import, so the switch can be undone by restoring that backup from *Sync & backups*. Values and new money stay the same either way.
 
 ## Plan
 

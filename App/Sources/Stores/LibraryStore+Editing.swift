@@ -122,32 +122,6 @@ extension LibraryStore {
         try await commit { $0.removeTrade(key) }
     }
 
-    /// The backup labels of converting an account.
-    static let convertToTradesBackupLabel = "convert-to-trades"
-    static let convertToSnapshotsBackupLabel = "convert-to-snapshots"
-
-    /// Makes an account record trades (docs/TRADES.md, "Converting an
-    /// account"): openings, then the buys and sells its values imply, and
-    /// its valuations keep only their cash. The months it changes are
-    /// backed up first (`convert-to-trades`), as an import is, and it waits
-    /// for the write. Changes nothing when the account doesn't exist or
-    /// already records trades.
-    func convertToTrades(_ account: AccountID) async throws {
-        guard let conversion = library.conversionToTrades(of: account) else { return }
-        _ = try await commit(backingUpAs: Self.convertToTradesBackupLabel) { conversion.apply(to: &$0) }
-    }
-
-    /// Makes a trades account record positions again: each valuation gets
-    /// the positions, average cost and cash the trades give, and the trades
-    /// are removed. The months it changes are backed up first
-    /// (`convert-to-snapshots`), so the trades can be restored from
-    /// *Sync & backups*. Changes nothing when the account doesn't record
-    /// trades.
-    func convertToSnapshots(_ account: AccountID) async throws {
-        guard let conversion = library.conversionToSnapshots(of: account) else { return }
-        _ = try await commit(backingUpAs: Self.convertToSnapshotsBackupLabel) { conversion.apply(to: &$0) }
-    }
-
     /// Adds prices, FX rates and index values, replacing those with the same keys.
     func upsert(prices: [PriceRecord] = [], fxRates: [FXRecord] = [], indices: [IndexRecord] = []) throws {
         try update { library in
