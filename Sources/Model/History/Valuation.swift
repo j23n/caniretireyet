@@ -48,8 +48,8 @@ public struct Valuation: Hashable, Sendable, KeyedRecord, KnownKeysProviding {
 
     public var key: ValuationKey { ValuationKey(account: account, date: date) }
 
-    /// Whether this valuation records money in or out.
-    public var recordsMoneyInOut: Bool { moneyIn != nil || moneyOut != nil }
+    /// Whether this valuation has money in or out (either one).
+    public var hasMoneyInOut: Bool { moneyIn != nil || moneyOut != nil }
 
     /// Whether this valuation records a balance. If it also lists positions,
     /// the balance wins.

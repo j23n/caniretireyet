@@ -135,7 +135,7 @@ extension Library {
                 guard let oldIndex = oldIndices[valuation.key], oldList[oldIndex] == valuation else { continue }
                 let oldPrevious = oldIndex > 0 ? oldList[oldIndex - 1] : nil
                 let newPrevious = index > 0 ? newList[index - 1] : nil
-                if valuation.recordsMoneyInOut, oldPrevious?.date != newPrevious?.date {
+                if valuation.hasMoneyInOut, oldPrevious?.date != newPrevious?.date {
                     moneyInOut.append(valuation.key)
                 }
                 guard oldPrevious != newPrevious || tradesChanged else { continue }

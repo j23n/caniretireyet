@@ -125,7 +125,7 @@ struct AccountValuationEditor: View {
                 Text("Money added (+) or taken out (−) since the previous value. Leave it empty if you don't know.")
             }
             if account.kind.recordsMoneyInOut
-                && (account.tracksMoneyInOut || form.wrappedValue.original.recordsMoneyInOut) {
+                && (account.tracksMoneyInOut || form.wrappedValue.original.hasMoneyInOut) {
                 Section {
                     AccountsNumberField(title: "Money in", text: form.moneyIn, prompt: "Not recorded", suffix: symbol,
                                         allowsNegative: false)
