@@ -224,6 +224,28 @@ targets:
     dependencies:
       - target: CanIRetireYet
 
+  # The app's own unit tests (App/Tests, Swift Testing): what the package's
+  # tests can't reach, such as the charts' value axis while amounts are
+  # hidden. They run inside the app, on the Mac with `make test-app`.
+  CanIRetireYetTests:
+    type: bundle.unit-test
+    platform: auto
+    supportedDestinations: [iOS, macOS]
+    sources:
+      - path: App/Tests
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: $(APP_BUNDLE_IDENTIFIER).tests
+        TEST_HOST: $(BUILT_PRODUCTS_DIR)/CanIRetireYet.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/CanIRetireYet
+        BUNDLE_LOADER: $(TEST_HOST)
+        IPHONEOS_DEPLOYMENT_TARGET: "26.0"
+        MACOSX_DEPLOYMENT_TARGET: "26.0"
+        TARGETED_DEVICE_FAMILY: "1,2"
+        CODE_SIGN_STYLE: Automatic
+        GENERATE_INFOPLIST_FILE: YES
+    dependencies:
+      - target: CanIRetireYet
+
 schemes:
   CanIRetireYet:
     build:
@@ -234,6 +256,7 @@ schemes:
     test:
       config: Debug
       targets:
+        - CanIRetireYetTests
         - CanIRetireYetScreenTests
     archive:
       config: Release
