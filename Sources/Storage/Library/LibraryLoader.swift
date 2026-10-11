@@ -387,7 +387,7 @@ struct LibraryLoader {
     /// two, or negative.
     /// Every value is still loaded.
     mutating func checkMoneyInOut(in library: Library) {
-        for valuation in library.allValuations where valuation.recordsMoneyInOut {
+        for valuation in library.allValuations where valuation.hasMoneyInOut {
             let path = LibraryFile.month(valuation.date.yearMonth).path
             if let account = library.accounts[valuation.account], !account.kind.recordsMoneyInOut {
                 warn(path, "The valuation of \(account.id) on \(valuation.date) records money in or out, but only "
