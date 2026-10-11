@@ -25,7 +25,8 @@ actor PlanResultsArchive {
     /// of another engine are dropped) and the mode.
     struct Entry: Codable, Sendable {
         /// The format this version writes; files of another are dropped.
-        static let currentFormat = 1
+        /// 2: full results include the pace age (`agesWithout.pace`).
+        static let currentFormat = 2
 
         var format: Int
         /// The plan as it was calculated.

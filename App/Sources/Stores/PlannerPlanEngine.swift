@@ -8,9 +8,9 @@ import Planner
 /// saving a headline or a baseline doesn't make a plan run again.
 struct PlanRunInputs: Hashable, Sendable {
     /// The settings without what the Planner never reads, which only the
-    /// screens use: the main plan, the person's name and the inflation
-    /// index actual values are adjusted with. So "Set as Main Plan" doesn't
-    /// make every plan's results out of date.
+    /// screens use: the main plan and the person's name. So "Set as Main
+    /// Plan" doesn't make every plan's results out of date. The inflation
+    /// index stays: the pace age puts the saving pace in today's money with it.
     var settings: LibrarySettings
     var accounts: [AccountID: Account]
     var instruments: [InstrumentID: Instrument]
@@ -20,7 +20,6 @@ struct PlanRunInputs: Hashable, Sendable {
         var settings = library.settings
         settings.mainPlan = nil
         settings.person?.name = nil
-        settings.inflationIndex = nil
         self.settings = settings
         accounts = library.accounts
         instruments = library.instruments
