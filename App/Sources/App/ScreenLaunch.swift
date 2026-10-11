@@ -36,6 +36,7 @@ struct ScreenLaunch {
         case overview
         case plan
         case progress
+        case trends
         case whatIf
         case targetMix
     }
@@ -128,6 +129,9 @@ struct ScreenLaunch {
         case .progress:
             navigation.showPlan(main)
             navigation.requestedPlanPart = .progress
+        case .trends:
+            navigation.showPlan(main)
+            navigation.requestedPlanPart = .trends
         case .whatIf:
             navigation.showPlan(main)
             navigation.requestsWhatIf = true

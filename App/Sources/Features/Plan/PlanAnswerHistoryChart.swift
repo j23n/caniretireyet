@@ -2,10 +2,12 @@ import Charts
 import Model
 import SwiftUI
 
-/// "Your answer over time": the earliest retirement age at each check-in as
-/// a step line, the pace age (saving at your pace of the last 12 months) as
-/// a dashed one where check-ins recorded it, with a mark where the plan or
-/// the app's calculations changed (PROGRESS.md, "The answer over time").
+/// Trends' *Time to retirement* (UI.md, "Trends"): the earliest retirement
+/// age at each check-in as a step line, the pace age (saving at your pace
+/// of the last 12 months) as a dashed one and the coast age (saving nothing
+/// more) as a dotted one where check-ins recorded them, with a mark where
+/// the plan or the app's calculations changed (PROGRESS.md, "The answer
+/// over time").
 struct PlanAnswerHistoryChart: View {
     let history: PlanAnswerHistory
     var height: CGFloat = 180
@@ -58,6 +60,21 @@ struct PlanAnswerHistoryChart: View {
                     .symbol(.circle.strokeBorder(lineWidth: 1))
                     .foregroundStyle(Palette.secondaryInk)
                     .symbolSize(20)
+            }
+            ForEach(history.coastPoints, id: \.date) { point in
+                LineMark(x: .value("Check-in", point.date.dateValue),
+                         y: .value("Coast age", point.coastAge ?? 0),
+                         series: .value("Line", "Saving nothing more"))
+                    .interpolationMethod(.stepEnd)
+                    .foregroundStyle(Palette.mutedInk)
+                    .lineStyle(StrokeStyle(lineWidth: Metrics.lineWidth, lineCap: .round, lineJoin: .round,
+                                           dash: [0.5, 4]))
+                // So a single check-in's coast age shows too.
+                PointMark(x: .value("Check-in", point.date.dateValue),
+                          y: .value("Coast age", point.coastAge ?? 0))
+                    .symbol(.circle.strokeBorder(lineWidth: 1))
+                    .foregroundStyle(Palette.mutedInk)
+                    .symbolSize(16)
             }
             ForEach(history.markers) { marker in
                 RuleMark(x: .value("Check-in", marker.date.dateValue))
@@ -129,6 +146,11 @@ struct PlanAnswerHistoryChart: View {
                     .font(.caption2)
                     .foregroundStyle(Palette.secondaryInk)
             }
+            if let coast = point.coastAge {
+                Text("Saving nothing more \(coast)")
+                    .font(.caption2)
+                    .foregroundStyle(Palette.secondaryInk)
+            }
             if let readiness = point.readiness?.doubleValue {
                 Text(AmountFormat.percent(PlanResultsText.readinessShare(readiness), digits: 0) + " of what retiring today needed")
                     .font(.caption2)
@@ -150,22 +172,31 @@ struct PlanAnswerHistoryChart: View {
         if let pace = history.points.last?.paceAge {
             text += " At your pace of the last 12 months, it's \(pace)."
         }
+        if let coast = history.points.last?.coastAge {
+            text += " Saving nothing more, it's \(coast)."
+        }
         if !history.markers.isEmpty {
             text += " Marked: " + history.markers.map { "\(AmountFormat.mediumDate($0.date)), \($0.label)" }
                 .joined(separator: "; ") + "."
         }
+        func series(_ name: String, _ points: [Headline], age: KeyPath<Headline, Int?>) -> ChartSummary.Series {
+            ChartSummary.Series(name: name, points: points.map {
+                (AmountFormat.mediumDate($0.date), Double($0[keyPath: age] ?? 0))
+            })
+        }
+        var lines = [series("Earliest age", points, age: \.earliestAge)]
+        if !history.pacePoints.isEmpty { lines.append(series("At your pace", history.pacePoints, age: \.paceAge)) }
+        if !history.coastPoints.isEmpty {
+            lines.append(series("Saving nothing more", history.coastPoints, age: \.coastAge))
+        }
         return ChartSummary(
-            title: "Your answer over time", summary: text, xTitle: "Check-in", yTitle: "Earliest age",
-            series: [ChartSummary.Series(name: "Earliest age", points: points.map {
-                (AmountFormat.mediumDate($0.date), Double($0.earliestAge ?? 0))
-            })] + (history.pacePoints.isEmpty ? [] : [ChartSummary.Series(name: "At your pace", points:
-                history.pacePoints.map { (AmountFormat.mediumDate($0.date), Double($0.paceAge ?? 0)) })]),
-            describeValue: { "\(Int(wholeNumber: $0)) years" })
+            title: "Time to retirement", summary: text, xTitle: "Check-in", yTitle: "Earliest age",
+            series: lines, describeValue: { "\(Int(wholeNumber: $0)) years" })
     }
 }
 
-#Preview("Answer over time") {
-    Card("Your answer over time") {
+#Preview("Time to retirement") {
+    Card("Time to retirement") {
         PlanAnswerHistoryChart(history: PlanAnswerHistory(PreviewLibrary.library.headlines(for: "base")))
     }
     .padding()

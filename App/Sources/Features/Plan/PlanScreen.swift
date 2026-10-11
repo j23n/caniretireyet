@@ -2,17 +2,20 @@ import Model
 import SwiftUI
 
 /// One plan (UI.md, "Plan"): a plan picker (New, Duplicate, Rename, Delete,
-/// Set as main plan, Export Calculations), then Plan and Progress.
+/// Set as main plan, Export Calculations), then Plan, Progress and Trends.
 ///
 /// - **Plan**: the answer, your life as a strip of chapters with one graph
 ///   running through them, the chosen chapter in words with its settings,
 ///   and *Assumptions…*, what every chapter shares.
 /// - **Progress**: whether you're on track, and each year as a card on a
 ///   strip that opens at today, with its story below.
+/// - **Trends**: how you've actually been doing over your whole history:
+///   where your money came from, and the answer at each check-in.
 ///
-/// On iPhone (tabs) a segmented Plan | Progress, and What-if is a bottom
-/// sheet; on the Mac and iPad (sidebar) the same in the toolbar, and
-/// What-if in the inspector.
+/// On iPhone (tabs) a segmented Plan | Progress | Trends, and What-if is a
+/// bottom sheet; on the Mac and iPad (sidebar) the same in the toolbar,
+/// with Trends' grain and span beside it, and What-if in a column beside
+/// the plan.
 ///
 /// The plan is calculated only on request: *Calculate* / *Recalculate* in
 /// the results, the toolbar and the Plan menu (⌘R), *Run What-If*.
@@ -48,6 +51,7 @@ struct PlanScreen: View {
 enum PlanPart: String, CaseIterable, Hashable, Identifiable {
     case plan
     case progress
+    case trends
 
     var id: String { rawValue }
 
@@ -55,6 +59,7 @@ enum PlanPart: String, CaseIterable, Hashable, Identifiable {
         switch self {
         case .plan: "Plan"
         case .progress: "Progress"
+        case .trends: "Trends"
         }
     }
 }
@@ -215,7 +220,7 @@ struct PlanContentView: View {
         }
     }
 
-    /// iPhone: Plan | Progress.
+    /// iPhone: Plan | Progress | Trends.
     private var compactLayout: some View {
         compactPart
             .safeAreaInset(edge: .top, spacing: 0) {
@@ -250,10 +255,13 @@ struct PlanContentView: View {
         case .progress:
             PlanProgressView(session: session, isWide: false, onSaveBaseline: { startSavingBaseline() },
                              onShowPlan: { part = .plan })
+        case .trends:
+            PlanTrendsView(session: session, isWide: false)
         }
     }
 
-    /// Mac and iPad: Plan | Progress, with What if in a column beside it.
+    /// Mac and iPad: Plan | Progress | Trends, with What if in a column
+    /// beside the plan.
     ///
     /// On the Mac the page has a fixed minimum (``FixedMinimumSize``), as
     /// the window's root has: measured through the page, its minimum moved
@@ -281,13 +289,16 @@ struct PlanContentView: View {
 
     @ViewBuilder
     private var widePart: some View {
-        if part == .progress {
-            PlanProgressView(session: session, isWide: true, onSaveBaseline: { startSavingBaseline() },
-                             onShowPlan: { part = .plan })
-        } else {
+        switch part {
+        case .plan:
             // What if is in the toolbar.
             PlanTimelineView(session: session, isWide: true, besideWhatIf: showsWhatIfColumn,
                              onShowProgress: { part = .progress }, onExport: { exportCalculations() })
+        case .progress:
+            PlanProgressView(session: session, isWide: true, onSaveBaseline: { startSavingBaseline() },
+                             onShowPlan: { part = .plan })
+        case .trends:
+            PlanTrendsView(session: session, isWide: true)
         }
     }
 
@@ -300,13 +311,20 @@ struct PlanContentView: View {
         }
         if isWide {
             ToolbarItem(placement: .principal) {
-                Picker("Show", selection: $part) {
-                    Text("Plan").tag(PlanPart.plan)
-                    Text("Progress").tag(PlanPart.progress)
+                HStack(spacing: Metrics.m) {
+                    Picker("Show", selection: $part) {
+                        ForEach(PlanPart.allCases) { part in
+                            Text(part.title).tag(part)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                    .labelsHidden()
+                    .fixedSize()
+                    if part == .trends {
+                        PlanTrendsControls()
+                            .fixedSize()
+                    }
                 }
-                .pickerStyle(.segmented)
-                .labelsHidden()
-                .fixedSize()
             }
             ToolbarItemGroup(placement: .primaryAction) {
                 Button {
@@ -325,8 +343,8 @@ struct PlanContentView: View {
                 .disabled(!library.canEdit)
                 Button {
                     withAnimation(.snappy) {
-                        // From Progress, What if opens with the plan.
-                        if part == .progress {
+                        // From Progress or Trends, What if opens with the plan.
+                        if part != .plan {
                             part = .plan
                             showsInspector = true
                         } else {

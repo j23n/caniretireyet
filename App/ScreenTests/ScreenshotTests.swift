@@ -45,6 +45,10 @@ struct ScreenshotTests {
         try await keep("progress-long", .longHistory, .progress)
     }
 
+    @Test func trends() async throws {
+        try await keep("trends", .example, .trends)
+    }
+
     /// First launch, with no library: each step up to the disclaimer, as
     /// ``ScreenLaunch`` opens it. It's ready once onboarding has taken the
     /// step. The accounts step and the disclaimer show the library *Create
@@ -70,6 +74,10 @@ struct ScreenshotTests {
 
     @Test func progressWithAmountsHidden() async throws {
         try await keep("progress-hidden", .example, .progress, hidesAmounts: true)
+    }
+
+    @Test func trendsWithAmountsHidden() async throws {
+        try await keep("trends-hidden", .example, .trends, hidesAmounts: true)
     }
 
     private func keep(_ name: String, _ sample: ScreenLaunch.Sample, _ screen: ScreenLaunch.Screen,
