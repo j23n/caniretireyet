@@ -91,7 +91,8 @@ The savings rate becomes:
 All existing accounts are migrated, in schema version 4, with a migration in Storage ([schema/README.md](schema/README.md#versioning)):
 
 - The `moneyInOut` key goes from every account file.
-- Every account recorded as snapshots (`holdings`, written or by default) is converted to trades with `Library.conversionToTrades(of:)` ([TRADES.md](TRADES.md#converting-an-account)). Its values and new money stay the same. What the conversion estimated (its notes: prices, external settlement, a balance turned into cash) goes into the migration's report, which the app shows once after migrating and `retire validate` prints.
+- Every other account recorded as snapshots (`holdings`, written or by default), one with positions, is converted to trades with `Library.conversionToTrades(of:)` ([TRADES.md](TRADES.md#converting-an-account)). Its values and new money stay the same. What the conversion estimated (its notes: prices, external settlement, a balance turned into cash) goes into the migration's report, which the app shows once after migrating and `retire validate` prints.
+- A snapshot account with no values loses its `valuation` key, so it records what its kind does from now on: trades for brokerage, crypto and metals, a balance for the rest.
 - A snapshot account whose values hold only balances (no positions) is set to record a balance (`"valuation": "balance"`), since it has nothing to convert.
 - A brokerage, crypto or metals account recorded as a plain balance (`"valuation": "balance"`), before the migration or by the step above, becomes kind `other`, and its `valuation` key goes. It then moves to the *Other* group in lists, the check-in and the breakdown (`AccountGroup(kind:)`), takes `other`'s symbol, and its new money is asked for at check-ins (`defaultFlow` `.ask`), as for property.
 - **Past values keep the `flow` they recorded.** Values of accounts that opted in to money in and out keep theirs, as `conto-fineco`'s do. Other cash and savings accounts' past values have none, since money in and out can't be split from a net change, so their savings rate starts at the next check-in.
@@ -209,7 +210,7 @@ In `Sources/TestSupport/Resources/ExampleLibrary/`:
 
 These were settled before the sub-issues start: 1 to 8 by the owner, 9 to 12 in review.
 
-1. **Where the migration converts snapshot accounts:** the steps come from the caller. `migrate(to:steps:date:)` already takes them. Storage's own step works on raw JSON: it drops `moneyInOut`, sets a snapshot account that holds only balances to `balance`, and then turns balance-recorded investment accounts into `other`. The app and the CLI add a step that decodes the library and converts snapshot accounts with Tracker's `conversionToTrades(of:)`. Storage keeps depending only on Model.
+1. **Where the migration converts snapshot accounts:** the steps come from the caller. `migrate(to:steps:date:)` already takes them. Storage's own step works on raw JSON: it drops `moneyInOut`, sets a snapshot account that holds only balances to `balance`, and then turns balance-recorded investment accounts into `other`. The app and the CLI add a step, which runs after Storage's, that decodes the library and converts the snapshot accounts left, those with positions, with Tracker's `conversionToTrades(of:)`. Storage keeps depending only on Model.
 2. **Interest is stored:** an optional `interest` on the valuation (the schema and `knownKeys`). The flow is the change minus it, so correcting the value before keeps the interest and works the flow out again.
 3. **Accounts are migrated by their mode, not their kind:** every snapshot account becomes a trades account, whatever its kind, so its values and new money stay the same. A snapshot account whose values hold only balances becomes a balance account, and a brokerage, crypto or metals one becomes `other` (12). Other kinds that already record trades keep them. A new account is offered trades only for brokerage, crypto and metals, and the importer still offers to switch an account of another kind to trades when a transactions file targets it.
 4. **A trades row waits:** it isn't done until you add a trade (*Add Trade…*) or say there were none (*No Trades*). Both are on the row.
@@ -220,7 +221,7 @@ These were settled before the sub-issues start: 1 to 8 by the owner, 9 to 12 in 
 9. **A balance-recorded investment account becomes `other`,** with the changes listed under [Migration](#migration): its group, its symbol and its new money.
 10. **The principal repaid counts for every loan and mortgage,** including those the plan leaves out, as pension contributions do.
 11. **The conversion's notes go into the migration's report.** A step can return notes along with its changes, and `MigrationReport` gets a new `notes` field next to `steps`: an additive change to Storage's public API. The app shows the report once after migrating, and `retire validate` prints it.
-12. **A brokerage, crypto or metals snapshot account that holds only balances becomes `other`,** as one recorded as a balance does: Storage's step sets it to `balance`, then renames its kind.
+12. **A brokerage, crypto or metals snapshot account that holds only balances becomes `other`,** as one recorded as a balance does: Storage's step sets it to `balance`, then renames its kind. A snapshot account with no values isn't one of these: it loses its `valuation` key and records what its kind does from now on.
 
 ## Order of work
 
