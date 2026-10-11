@@ -51,6 +51,9 @@ struct LivePriceTests {
         let bls = try #require(BLSIndexProvider(index: .cpiUS))
         let cpiUS = try await bls.values(from: since, through: today.yearMonth)
         #expect(!cpiUS.isEmpty && cpiUS.allSatisfy { $0.date.isEndOfMonth && $0.value > 200 })
+        // Older than the last three years, which the API answers only when asked for them.
+        let cpiUS2010 = try await bls.values(from: "2010-01", through: "2010-12")
+        #expect(cpiUS2010.count == 12)
         let ons = try #require(ONSIndexProvider(index: .cpiGB))
         let cpiGB = try await ons.values(from: since, through: today.yearMonth)
         #expect(!cpiGB.isEmpty && cpiGB.allSatisfy { $0.date.isEndOfMonth && $0.value > 90 })
