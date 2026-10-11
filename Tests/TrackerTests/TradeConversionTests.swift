@@ -154,10 +154,10 @@ struct TradeConversionTests {
         #expect(values(converted, on: monthEnds) == values(library, on: monthEnds))
     }
 
-    @Test func aTradeWithoutACashEffectLeavesItsValuesResidual() throws {
+    @Test func anUnpricedTradeLeavesOnlyItsAmountAsAResidual() throws {
         var library = holdingsLibrary()
-        // A position bought in February with no price on or before the date, and no cost.
-        library.upsert(Valuation(account: "broker", date: "2024-02-29", cash: 50, positions: [
+        // A position bought in February for 20, with no price on or before the date, and no cost.
+        library.upsert(Valuation(account: "broker", date: "2024-02-29", cash: 30, positions: [
             Position(instrument: "vwce", quantity: 15, costBasis: 1520),
             Position(instrument: "unpriced", quantity: 1),
         ], flow: 470))
@@ -166,9 +166,22 @@ struct TradeConversionTests {
                                                      unit: .share, assetClasses: vwce.assetClasses)
         let conversion = try #require(library.conversionToTrades(of: "broker"))
         #expect(conversion.notes.map(\.kind).contains(.noPrice))
-        // February's cash can't be worked out from the trades, so it gets no deposit; adding the buy's
-        // amount explains its residual. March's sale of the unpriced position is unknown too.
-        #expect(conversion.trades.filter { $0.type == .deposit }.map(\.date) == ["2024-01-31"])
+        // February's cash can't be worked out from the trades, so it gets the new money its check-in
+        // recorded, and only the unpriced buy's 20 is left over.
+        let deposit = conversion.trades.first { $0.type == .deposit && $0.date == "2024-02-29" }
+        #expect(deposit?.amount == 470)
+        var converted = library
+        conversion.apply(to: &converted)
+        let residuals = { (library: Library) in
+            Valuator(library: library).tradeFlows(of: "broker", after: "2024-01-31", through: "2024-02-29")
+                .filter { $0.trade == nil }.map(\.amount)
+        }
+        #expect(residuals(converted) == [-20])
+        // Adding the buy's amount clears it.
+        var buy = try #require(converted.trades(for: "broker").first { $0.id == "buy-unpriced" })
+        buy.amount = -20
+        converted.upsert(buy)
+        #expect(residuals(converted).isEmpty)
     }
 
     @Test func aBalanceBecomesCashAndMissingCostsAreEstimated() throws {

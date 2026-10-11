@@ -101,7 +101,8 @@ extension Library {
     ///   new money each check-in counted besides the buys and sales. So the
     ///   cash is what the trades give, and no valuation has a residual.
     /// - There's at most one trade per instrument and date, so trades get
-    ///   readable IDs: `opening-vwce`, `buy-vwce`, `sell-vwce`, `deposit`.
+    ///   readable IDs: `opening-vwce`, `buy-vwce`, `sell-vwce`, `deposit`,
+    ///   `withdrawal`.
     ///
     /// Values and flows stay the same: the deposits and withdrawals are what
     /// the check-in counted as new money (or, settled outside the account,
@@ -257,8 +258,11 @@ extension Library {
     /// that a residual would count, so the flows stay the same.
     ///
     /// A valuation whose period has a trade with an unknown cash effect
-    /// (a buy or sale without a price) gets none: its residual stays, and
-    /// adding the trade's amount explains it.
+    /// (a buy or sale without a price) can't be worked out that way. It
+    /// gets the new money its check-in recorded (its `flow`, less the
+    /// deposits and withdrawals already in the period), so only that
+    /// trade's amount is left as its residual, and adding the amount clears
+    /// it. Without a recorded flow it gets none.
     private func cashMovements(of account: Account, valuations: [Valuation], trades: [Trade], existing: [Trade],
                                fx: FXTable) -> [Trade] {
         // The trades as they'll be: a conversion's trade replaces an existing one with its key.
@@ -269,17 +273,39 @@ extension Library {
         var previous: Valuation?
         for valuation in valuations {
             defer { previous = valuation }
-            guard let cash = valuation.cash,
-                  ledger.unknownCashEffects(after: previous?.date, through: valuation.date) == 0
-            else { continue }
-            let given = (previous?.cash ?? 0) + ledger.cashEffect(after: previous?.date, through: valuation.date)
-            let amount = cash - given
+            guard let cash = valuation.cash else { continue }
+            let amount: Decimal
+            if ledger.unknownCashEffects(after: previous?.date, through: valuation.date) == 0 {
+                let given = (previous?.cash ?? 0) + ledger.cashEffect(after: previous?.date, through: valuation.date)
+                amount = cash - given
+            } else if let recorded = Self.recordedNewMoney(of: valuation, previous: previous, in: ledger) {
+                amount = recorded
+            } else {
+                continue
+            }
             guard amount != 0 else { continue }
             let type: TradeType = amount > 0 ? .deposit : .withdrawal
             movements.append(Trade(account: account.id, date: valuation.date, id: TradeID(rawValue: type.rawValue),
                                    type: type, amount: amount, source: valuation.source))
         }
         return movements
+    }
+
+    /// The new money `valuation`'s check-in recorded since `previous`
+    /// besides the deposits and withdrawals in the period: its `flow` less
+    /// theirs. `nil` without a previous valuation or a flow, or when the
+    /// period has another flow (a transfer, an opening, a trade paid from
+    /// outside), whose amount isn't known here.
+    private static func recordedNewMoney(of valuation: Valuation, previous: Valuation?,
+                                         in ledger: TradeLedger) -> Decimal? {
+        guard let previous, let flow = valuation.flow else { return nil }
+        var recorded: Decimal = 0
+        for entry in ledger.entries(after: previous.date, through: valuation.date) where entry.trade.isFlow {
+            guard entry.trade.type == .deposit || entry.trade.type == .withdrawal,
+                  !entry.trade.isSettledExternally, let effect = entry.cashEffect else { return nil }
+            recorded += effect
+        }
+        return flow - recorded
     }
 
     /// Converts every account recorded as snapshots (`"valuation":
