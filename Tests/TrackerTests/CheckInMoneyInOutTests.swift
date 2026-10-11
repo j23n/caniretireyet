@@ -90,13 +90,21 @@ struct CheckInMoneyInOutTests {
         draft.apply(to: &saved)
 
         // September's balance corrected: October's flow and suggested money out follow.
-        var september = try #require(saved.valuations(for: "conto-fineco").first { $0.date == "2026-09-30" })
+        var corrected = saved
+        var september = try #require(corrected.valuations(for: "conto-fineco").first { $0.date == "2026-09-30" })
         september.balance = d("4110.55")
-        let edit = saved.saveValue(september, replacing: september.key)
-        let october = saved.valuations(for: "conto-fineco").last
+        let edit = corrected.saveValue(september, replacing: september.key)
+        let october = corrected.valuations(for: "conto-fineco").last
         #expect(october?.flow == d("489.7"))
         #expect(october?.moneyOut == d("2910.3"))
         #expect(edit.flows.moneyInOut.isEmpty)
+
+        // A value inserted before it: money in still covers the month, so money out stays, to be checked.
+        let inserted = saved.saveValue(Valuation(account: "conto-fineco", date: "2026-10-15", balance: 5000))
+        let checked = saved.valuations(for: "conto-fineco").last
+        #expect(checked?.flow == d("-399.75"))
+        #expect(checked?.moneyOut == d("3010.3"))
+        #expect(inserted.flows.moneyInOut.map(\.key) == [ValuationKey(account: "conto-fineco", date: "2026-10-31")])
     }
 
     @Test func neverWritesNegativeAmounts() throws {

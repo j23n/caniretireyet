@@ -56,12 +56,12 @@ extension Library {
     /// the old previous valuation, as a check-in would have filled it in
     /// (``Valuator/defaultFlow(for:previous:paid:)``, with what was paid read
     /// from the cost bases). A flow typed by hand (one that differs from
-    /// that default) is kept. Money in and out are kept too, except a money
-    /// out that was the suggestion for the old flow
-    /// (``CheckInDraft/defaultMoneyOut(moneyIn:flow:)``), which follows the
-    /// new one; a valuation that records them is listed when the one before
-    /// it is now on another date (``FlowFollowUp/moneyInOut``). The
-    /// valuations `edit` writes keep what it gave them.
+    /// that default) is kept. Money in and out are kept too, and a valuation
+    /// that records them is listed when the one before it is now on another
+    /// date (``FlowFollowUp/moneyInOut``). When that date stays (the one
+    /// before was corrected), a money out that was the suggestion for the old
+    /// flow (``CheckInDraft/defaultMoneyOut(moneyIn:flow:)``) follows the new
+    /// one. The valuations `edit` writes keep what it gave them.
     @discardableResult
     public mutating func editValuations(_ edit: (inout Library) throws -> Void) rethrows -> FlowFollowUp {
         let before = self
@@ -153,8 +153,10 @@ extension Library {
                 }
                 var updated = valuation
                 updated.flow = recomputed
-                // A money out that was the suggestion follows the flow, as at the check-in.
-                if newPrevious != nil, let moneyIn = valuation.moneyIn, let moneyOut = valuation.moneyOut,
+                // Over the same days, a money out that was the suggestion follows the flow, as at the
+                // check-in. Over other days, money in no longer matches the flow.
+                if let newPrevious, newPrevious.date == oldPrevious?.date,
+                   let moneyIn = valuation.moneyIn, let moneyOut = valuation.moneyOut,
                    moneyOut == CheckInDraft.defaultMoneyOut(moneyIn: moneyIn, flow: valuation.flow),
                    let following = CheckInDraft.defaultMoneyOut(moneyIn: moneyIn, flow: recomputed) {
                     updated.moneyOut = following
