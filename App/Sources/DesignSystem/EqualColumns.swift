@@ -11,8 +11,13 @@ import SwiftUI
 /// settling, stopped with "needing another Update Constraints in Window
 /// pass". Offered no width (or an infinite one), it takes a fixed width
 /// rather than asking the children.
+///
+/// With `fillsHeight`, each child is offered the row's height, so cards
+/// that fill what they're offered are all as tall as the tallest: the
+/// Overview's two tiles.
 struct EqualColumns: Layout {
     var spacing: CGFloat = Metrics.l
+    var fillsHeight = false
     /// The width of a column when the parent offers no width.
     private static let fallbackColumnWidth: CGFloat = 360
 
@@ -29,7 +34,7 @@ struct EqualColumns: Layout {
         for (index, subview) in subviews.enumerated() {
             let x = bounds.minX + CGFloat(index) * (column + spacing)
             subview.place(at: CGPoint(x: x, y: bounds.minY), anchor: .topLeading,
-                          proposal: ProposedViewSize(width: column, height: nil))
+                          proposal: ProposedViewSize(width: column, height: fillsHeight ? bounds.height : nil))
         }
     }
 

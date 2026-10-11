@@ -5,9 +5,10 @@ import Storage
 import SwiftUI
 import Tracker
 
-// The Overview's answer and its cards below the chart (UI.md, "Overview"):
-// since the last check-in, this year, the answer before there is one, what
-// needs attention, and the allocation.
+// The Overview's cards below the chart (UI.md, "Overview"): since the last
+// check-in, this year, the answer before there is one, what needs
+// attention, and the allocation. The answer itself leads the screen
+// (OverviewHeader.swift).
 
 // MARK: - Since last check-in
 
@@ -114,26 +115,11 @@ struct OverviewYearCard: View {
 
 // MARK: - Can I retire yet?
 
-/// "Can I retire yet?" (UI.md, "Overview"). With the main plan's answer
-/// (its latest results, or the headline recorded at the last check-in) it
-/// leads the screen, above net worth: "Not yet · earliest at 54", how long
-/// to go, how close your plan assets are to what retiring today needs
-/// (``PlanReadinessView``, with an ⓘ), and how you compare with the
-/// baseline Progress measures its latest year against; tapping it opens
-/// the plan, and *Calculate* runs the plan when the answer isn't current.
-/// Without an answer it's a card below the chart with the next step:
-/// *Create a plan*, or *Calculate* the main plan.
-///
-/// The answer opens the plan with a tap gesture rather than being a
-/// button, so the ⓘ and *Calculate* inside it get their own taps; the
-/// chevron is the button VoiceOver and keyboards use.
-struct OverviewAnswerView: View {
-    /// The main plan's answer (``PlanStore/mainHeadline``); `nil` without
-    /// a main plan or before its first calculation.
-    let headline: PlanHeadline?
-    /// The day the Overview reports on.
-    let today: CalendarDate
-
+/// "Can I retire yet?" before the main plan has an answer (UI.md,
+/// "Overview"): a card below the chart with the next step, *Create a plan*
+/// or *Calculate* the main plan. Once there's an answer, ``OverviewHeader``
+/// leads the screen with it instead.
+struct OverviewAnswerCard: View {
     @Environment(LibraryStore.self) private var library
     @Environment(PlanStore.self) private var plans
     @Environment(AppNavigation.self) private var navigation
@@ -141,50 +127,15 @@ struct OverviewAnswerView: View {
     @State private var error: String?
 
     var body: some View {
-        if let headline, let plan = library.mainPlan {
-            hero(headline, plan: plan)
-        } else {
-            Card("Can I retire yet?") {
-                Group {
-                    if let plan = library.mainPlan {
-                        waiting(for: plan)
-                    } else {
-                        noPlan
-                    }
+        Card("Can I retire yet?") {
+            Group {
+                if let plan = library.mainPlan {
+                    waiting(for: plan)
+                } else {
+                    noPlan
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
             }
-        }
-    }
-
-    /// The answer, leading the screen.
-    private func hero(_ headline: PlanHeadline, plan: PlanDocument) -> some View {
-        VStack(alignment: .leading, spacing: Metrics.xs) {
-            HStack {
-                Text("Can I retire yet?")
-                    .font(.subheadline)
-                    .foregroundStyle(Palette.secondaryInk)
-                Spacer(minLength: Metrics.s)
-                Button {
-                    navigation.showPlan()
-                } label: {
-                    Image(systemName: "chevron.right")
-                        .font(.footnote.weight(.semibold))
-                        .foregroundStyle(Palette.mutedInk)
-                }
-                .buttonStyle(.borderless)
-                .accessibilityLabel("Open the plan")
-            }
-            answer(headline, plan: plan, gap: baselineGap(for: plan))
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .contentShape(Rectangle())
-        .onTapGesture {
-            navigation.showPlan()
-        }
-        .accessibilityElement(children: .contain)
-        .accessibilityAction(named: "Open the plan") {
-            navigation.showPlan()
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
 
@@ -231,103 +182,6 @@ struct OverviewAnswerView: View {
         return library.library.plans[main] == nil && library.unloadedFiles.contains(.plan(main))
     }
 
-    @ViewBuilder
-    private func answer(_ headline: PlanHeadline, plan: PlanDocument, gap: OverviewBaselineGap?) -> some View {
-        VStack(alignment: .leading, spacing: Metrics.s) {
-            Text(answerText(headline))
-                .font(.largeTitle.bold())
-                .foregroundStyle(Palette.ink)
-                .dynamicTypeSize(...DynamicTypeSize.accessibility2)
-                .fixedSize(horizontal: false, vertical: true)
-            VStack(alignment: .leading, spacing: 2) {
-                if let when = whenText(headline) {
-                    Text(when)
-                        .font(.body)
-                        .foregroundStyle(Palette.ink)
-                }
-                Text(confidenceText(headline))
-                    .font(.footnote)
-                    .foregroundStyle(Palette.secondaryInk)
-            }
-            // Plan assets against what retiring today needs, from the simulation. An answer
-            // recorded before that existed has only the old FI progress, which disagreed with
-            // the chance of retiring today, so it gets a neutral line instead.
-            PlanReadinessView(headline: headline,
-                              fallback: headline.recordedOn != nil ? PlanResultsText.readinessNotRecorded : nil)
-            if let gap {
-                // Ahead, on or behind plan by where you are among the baseline's
-                // futures; only behind is a warning. Then the amount against its median.
-                HStack(spacing: Metrics.xs) {
-                    Text(verbatim: "\(gap.standing.label) ·")
-                        .fontWeight(.semibold)
-                        .foregroundStyle(gap.standing.color)
-                    AmountText(abs(gap.gap), currency: library.baseCurrency)
-                        .foregroundStyle(Palette.ink)
-                    Text(gapText(gap))
-                        .foregroundStyle(Palette.secondaryInk)
-                }
-                .font(.subheadline)
-            }
-            runStatus(headline, plan: plan)
-            Text(AboutText.disclaimer)
-                .font(.caption)
-                .foregroundStyle(Palette.mutedInk)
-        }
-    }
-
-    /// Under the answer: when it was recorded at a check-in, a calculation
-    /// going on, or that the results are out of date; with *Calculate*
-    /// (``PlanStore/run(_:mode:whatIf:focusAge:)``, as *Future* starts it)
-    /// when the answer isn't current, or why it can't be calculated, with
-    /// *Try Again* and *Open Plan*.
-    @ViewBuilder
-    private func runStatus(_ headline: PlanHeadline, plan: PlanDocument) -> some View {
-        let progress = plans.progress(of: plan.id, .checkIn) ?? plans.progress(of: plan.id, .base)
-        let isStale = headline.recordedOn == nil && !plans.staleReasons(of: plan.id).isEmpty
-        if let recorded = headline.recordedOn {
-            Text("As recorded at the check-in on \(AmountFormat.shortDate(recorded, locale: locale))")
-                .font(.caption)
-                .foregroundStyle(Palette.mutedInk)
-        }
-        if let progress {
-            Text(PlanRunText.status(progress, isCheckIn: plans.isRunning(plan.id, .checkIn), locale: locale))
-                .font(.caption)
-                .monospacedDigit()
-                .foregroundStyle(Palette.mutedInk)
-        } else if let error = plans.errors[plan.id], headline.recordedOn != nil || isStale {
-            cantCalculate(plan, error: error)
-        } else if headline.recordedOn != nil || isStale {
-            HStack(alignment: .firstTextBaseline, spacing: Metrics.s) {
-                if isStale {
-                    Text("Calculated before your latest changes")
-                        .font(.caption)
-                        .foregroundStyle(Palette.mutedInk)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-                Button("Calculate") { Task { await plans.run(plan.id) } }
-                    .buttonStyle(.bordered)
-                    .controlSize(.small)
-                    .disabled(plans.isRunning(plan.id, .base) || plans.isRunning(plan.id, .checkIn))
-            }
-        }
-    }
-
-    /// "Base case can't be calculated: …", with *Try Again* and *Open Plan*.
-    private func cantCalculate(_ plan: PlanDocument, error: String) -> some View {
-        VStack(alignment: .leading, spacing: Metrics.s) {
-            Label("\(plan.name) can't be calculated: \(error)", systemImage: "exclamationmark.triangle")
-                .font(.callout)
-                .foregroundStyle(Palette.secondaryInk)
-                .fixedSize(horizontal: false, vertical: true)
-            HStack(spacing: Metrics.s) {
-                Button("Try Again") { Task { await plans.run(plan.id) } }
-                Button("Open Plan") { navigation.showPlan(plan.id) }
-            }
-            .buttonStyle(.bordered)
-            .controlSize(.small)
-        }
-    }
-
     /// The main plan without an answer: its calculation going on, why it
     /// can't run (with *Try Again* and *Open Plan*), or *Calculate*.
     @ViewBuilder
@@ -345,7 +199,7 @@ struct OverviewAnswerView: View {
                 }
             }
         } else if let error = plans.errors[plan.id] {
-            cantCalculate(plan, error: error)
+            OverviewCantCalculate(plan: plan, error: error)
         } else {
             VStack(alignment: .leading, spacing: Metrics.m) {
                 Text("Calculate \(plan.name) to see when you could retire. Each check-in then records its answer.")
@@ -373,73 +227,31 @@ struct OverviewAnswerView: View {
             self.error = LibraryStore.describe(error)
         }
     }
+}
 
-    /// Today against the baseline "Are you on track?" and the plan's pill
-    /// measure the latest check-in against: its year's
-    /// (``PlanProgressYear/latestBaseline(for:library:valuator:asOf:)``);
-    /// `nil` without one.
-    private func baselineGap(for plan: PlanDocument?) -> OverviewBaselineGap? {
-        guard let plan,
-              let latest = PlanProgressYear.latestBaseline(for: plan.id, library: library.library,
-                                                           valuator: library.valuator, asOf: library.asOfDate)
-        else { return nil }
-        return OverviewBaselineGap(baseline: latest.entry.baseline, library: library.library,
-                                   valuator: library.valuator, on: today)
-    }
+/// "Base case can't be calculated: …", with *Try Again* and *Open Plan*:
+/// in the answer's card, and under the Overview's headline.
+struct OverviewCantCalculate: View {
+    let plan: PlanDocument
+    let error: String
+    var font: Font = .callout
 
-    /// "Yes", "Not yet · earliest at 54", or "Not yet" when no age works out.
-    private func answerText(_ headline: PlanHeadline) -> String {
-        if headline.canRetireNow { return "Yes" }
-        guard let age = headline.earliestAge else { return "Not yet" }
-        return "Not yet · earliest at \(age)"
-    }
+    @Environment(PlanStore.self) private var plans
+    @Environment(AppNavigation.self) private var navigation
 
-    /// "About 15 years to go · March 2042" (the widgets' ``RetirementCountdown``
-    /// in words, ``RetirementCountdown/toGoText``: whole years from two years
-    /// on, rounded to the nearest, else months), "You could retire today",
-    /// "No retirement age works out yet". `nil` for an answer recorded at a
-    /// check-in without a birth date, and for an earliest month that has
-    /// passed.
-    private func whenText(_ headline: PlanHeadline) -> String? {
-        if headline.canRetireNow { return "You could retire today" }
-        guard headline.earliestAge != nil else { return "No retirement age works out yet" }
-        guard let date = headline.earliestDate ?? recordedEarliestDate(headline),
-              let countdown = RetirementCountdown(from: today, to: date)
-        else { return nil }
-        return "\(countdown.toGoText.capitalizedFirst) · \(GlanceText.monthAndYear(date, locale: locale))"
-    }
-
-    /// When an answer recorded at a check-in reaches its earliest age, as the
-    /// widgets have it (Glance's `RetirementAnswer.earliestDate`); `nil`
-    /// without a birth date.
-    private func recordedEarliestDate(_ headline: PlanHeadline) -> CalendarDate? {
-        guard let recorded = headline.recordedOn, let age = headline.earliestAge,
-              let birthDate = library.settings.person?.birthDate
-        else { return nil }
-        return RetirementAnswer.earliestDate(age: age, recordedOn: recorded, birthDate: birthDate)
-    }
-
-    private func confidenceText(_ headline: PlanHeadline) -> String {
-        headline.canRetireNow
-            ? "It works in at least \(GlanceText.futures(headline.confidence)) simulated futures"
-            : "The first age that works \(GlanceText.inSimulatedFutures(headline.confidence))"
-    }
-
-    /// "ahead of your Jan baseline", after the amount against its median,
-    /// named as Progress names what a year is measured against: by the
-    /// month it starts in the year it was saved for,
-    /// January when it starts before it, with that year when it isn't this one
-    /// ("Jan 2025"); a past baseline by the year it starts ("ahead of your
-    /// 2021 plan").
-    private func gapText(_ gap: OverviewBaselineGap) -> String {
-        let name: String
-        if gap.isPast {
-            name = "\(gap.start.year) plan"
-        } else {
-            let start = max(gap.start, CalendarDate.firstDay(ofYear: gap.created.year))
-            name = "\(GlanceText.shortMonth(start, relativeTo: today, locale: locale)) baseline"
+    var body: some View {
+        VStack(alignment: .leading, spacing: Metrics.s) {
+            Label("\(plan.name) can't be calculated: \(error)", systemImage: "exclamationmark.triangle")
+                .font(font)
+                .foregroundStyle(Palette.secondaryInk)
+                .fixedSize(horizontal: false, vertical: true)
+            HStack(spacing: Metrics.s) {
+                Button("Try Again") { Task { await plans.run(plan.id) } }
+                Button("Open Plan") { navigation.showPlan(plan.id) }
+            }
+            .buttonStyle(.bordered)
+            .controlSize(.small)
         }
-        return gap.gap >= 0 ? "ahead of your \(name)" : "behind your \(name)"
     }
 }
 
@@ -626,7 +438,7 @@ struct OverviewAllocationCard: View {
                                      savings: valuator.savingsRate(from: report.from.adding(days: 1), through: date))
                 }
                 // Before the main plan's first calculation.
-                OverviewAnswerView(headline: nil, today: date)
+                OverviewAnswerCard()
                 OverviewAttentionCard(today: date)
                 OverviewAllocationCard(breakdown: valuator.breakdown(by: .assetClass, on: date),
                                        dimension: .constant(.assetClass))
