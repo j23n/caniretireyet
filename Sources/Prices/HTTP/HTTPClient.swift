@@ -1,6 +1,6 @@
 import Foundation
 
-/// A GET request to a price API.
+/// A request to a price API: a GET, or a POST when it has a body.
 ///
 /// Requests carry only what identifies a quote: a symbol, currencies and
 /// dates, plus an API key header where a provider takes one. Amounts and
@@ -9,14 +9,20 @@ public struct HTTPRequest: Hashable, Sendable {
     public var url: URL
     /// Header fields, e.g. an API key or a user agent.
     public var headers: [String: String]
+    /// The body of a POST; `nil` for a GET.
+    public var body: Data?
     /// How long the request may take in total before it's abandoned.
     public var timeout: Duration
 
-    public init(url: URL, headers: [String: String] = [:], timeout: Duration = .seconds(15)) {
+    public init(url: URL, headers: [String: String] = [:], body: Data? = nil, timeout: Duration = .seconds(15)) {
         self.url = url
         self.headers = headers
+        self.body = body
         self.timeout = timeout
     }
+
+    /// "POST" with a body, else "GET".
+    public var method: String { body == nil ? "GET" : "POST" }
 }
 
 /// An HTTP response: status code, header fields and body.
