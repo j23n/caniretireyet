@@ -55,6 +55,8 @@ extension PreviewBuilder {
             let conversion = QuantityTrades(account: account, rows: rows, library: library, market: market,
                                             fileHasCash: fileHasCash)
             trades += conversion.trades.map { (ImportedRecord(trade: $0.trade), $0.cells) }
+            tradesFromQuantities.formUnion(conversion.trades.map { .trade($0.trade.key) })
+            removedTrades += conversion.removed
             issues += conversion.notes
         }
         return original
@@ -82,7 +84,8 @@ extension PreviewBuilder {
 /// - Trades get the readable IDs the conversion gives (`opening-vwce`,
 ///   `buy-vwce`, `sell-vwce`), one per instrument and date, so importing the
 ///   file again finds the same trades. The library's trades with those keys
-///   are the ones the file is compared with, so they don't count as held.
+///   are the ones the file is compared with, so they don't count as held,
+///   and those the file no longer makes are ``removed``.
 struct QuantityTrades {
     /// The quantities, and purchase costs, the file gives for one date.
     struct Row {
@@ -95,6 +98,11 @@ struct QuantityTrades {
 
     /// The trades made, sorted by date, with the cells they came from.
     private(set) var trades: [(trade: Trade, cells: [ImportCellRef])] = []
+    /// The library's trades with the keys of the file's dates and
+    /// positions that the file no longer makes, with the cells of their
+    /// positions: what's held leaves them out, so applying the trades made
+    /// removes them.
+    private(set) var removed: [(trade: Trade, cells: [ImportCellRef])] = []
     /// What the conversion estimated, as notes.
     private(set) var notes: [ImportIssue] = []
 
@@ -102,14 +110,14 @@ struct QuantityTrades {
     /// `fileHasCash`: the file gives the account cash or a balance.
     init(account: Account, rows: [Row], library: Library, market: MarketData, fileHasCash: Bool) {
         let rows = rows.sorted { $0.date < $1.date }
-        let made = Set(rows.flatMap { row in
+        let replaced = Set(rows.flatMap { row in
             row.positions.flatMap { position in
                 [TradeType.opening, .buy, .sell].map {
                     TradeKey(account: account.id, date: row.date, id: Self.id($0, position.instrument))
                 }
             }
         })
-        let others = library.trades(for: account.id).filter { !made.contains($0.key) }
+        let others = library.trades(for: account.id).filter { !replaced.contains($0.key) }
         let holdsCash = fileHasCash
             || library.valuations(for: account.id).contains { ($0.cash ?? 0) != 0 || $0.balance != nil }
             || others.contains { $0.type == .deposit || ($0.type == .sell && !$0.isSettledExternally) }
@@ -156,6 +164,11 @@ struct QuantityTrades {
             }
             for position in row.positions { previous[position.instrument] = position }
         }
+        let made = Set(trades.map(\.trade.key))
+        let cells = Dictionary(rows.map { ($0.date, $0.cells) }, uniquingKeysWith: { first, _ in first })
+        removed = library.trades(for: account.id)
+            .filter { replaced.contains($0.key) && !made.contains($0.key) }
+            .map { trade in (trade, trade.instrument.flatMap { cells[trade.date]?[$0] } ?? []) }
 
         guard !trades.isEmpty else { return }
         func count(_ type: TradeType) -> Int { trades.filter { $0.trade.type == type }.count }

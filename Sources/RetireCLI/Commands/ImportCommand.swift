@@ -46,7 +46,9 @@ struct ImportCommand: RetireSubcommand {
 
             Quantities and purchase costs of an account that records trades (brokerage, crypto \
             and metals accounts do) become trades: an opening, then a buy or a sale per change, \
-            at the date's price unless the file gives the purchase cost.
+            at the date's price unless the file gives the purchase cost. An account's trades \
+            made this way are applied together, replacing the ones made from the file's dates \
+            before, only when each of their conflicts is overwritten; otherwise the library's stay.
 
             A broker's transactions export (a type column, quantities and prices) is read as \
             trades (--layout trades): each row one trade, with an ID made from its values, so \

@@ -68,8 +68,14 @@ struct PreviewBuilder {
     /// Trades layout: whether the amount and gross columns write signed
     /// amounts, decided once from the rows kept (``readTradeTypes(_:)``).
     var tradeSigns = TradeSigns()
-    /// Trades layout: the trades, with the cells they came from.
+    /// Trades layout: the trades, with the cells they came from; also the
+    /// trades made from quantities (``convertQuantitiesToTrades(_:)``).
     var trades: [(record: ImportedRecord, cells: [ImportCellRef])] = []
+    /// The keys of the trades made from quantities.
+    var tradesFromQuantities: Set<ImportRecordKey> = []
+    /// The library's trades that the trades made from quantities replace
+    /// and no longer make, with the cells of their positions.
+    var removedTrades: [(trade: Trade, cells: [ImportCellRef])] = []
 
     var table: ImportTable { session.table }
     var profile: ImportProfile { session.profile }
@@ -492,7 +498,14 @@ struct PreviewBuilder {
             let outcome = RecordMerge.evaluate(record, existing: existing)
             records.append(ImportRecordPreview(
                 imported: record, status: outcome.status, existing: existing, incoming: outcome.overwritten,
-                cells: cells.sorted(), resolution: resolution))
+                cells: cells.sorted(), resolution: resolution,
+                isFromQuantities: tradesFromQuantities.contains(record.key)))
+        }
+        for (trade, cells) in removedTrades {
+            records.append(ImportRecordPreview(
+                imported: ImportedRecord(key: .trade(trade.key)), status: .conflict, existing: .trade(trade),
+                incoming: .trade(trade), cells: cells.sorted(), resolution: resolution, isFromQuantities: true,
+                removesExisting: true))
         }
         records.sort { $0.imported.key < $1.imported.key }
         preview.records = records

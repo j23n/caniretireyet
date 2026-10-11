@@ -336,7 +336,7 @@ struct ImportReport: CommandReport {
         var records = TextTable([.left("Date"), .left("Record"), .left("Values"), .left("Status")])
         for record in preview.records.prefix(rows) {
             records.add([record.imported.key.date.description, Self.subject(record.imported.key),
-                         Self.values(record.imported), record.status.rawValue])
+                         Self.values(record), record.status.rawValue])
         }
         if rows > 0 { lines += records.lines() }
         if preview.records.count > rows {
@@ -360,7 +360,7 @@ struct ImportReport: CommandReport {
         var table = TextTable([.left("Date"), .left("Record"), .left("Library"), .left("File")])
         for record in conflicts.prefix(rows) {
             table.add([record.imported.key.date.description, Self.subject(record.imported.key),
-                       record.existing.map(Self.values) ?? "", Self.values(record.imported)])
+                       record.existing.map(Self.values) ?? "", Self.values(record)])
         }
         var lines = rows > 0 ? table.lines() : []
         if conflicts.count > rows { lines.append("  … and \(Wording.count(conflicts.count - rows, "more conflict")).") }
@@ -386,6 +386,7 @@ struct ImportReport: CommandReport {
                 lines.append("Imported: \(result.added) added, \(result.updated) updated, "
                     + "\(result.overwritten) overwritten, \(result.kept) kept"
                     + (result.undecided > 0 ? " (\(result.undecided) undecided)" : "")
+                    + (result.removed > 0 ? ", \(result.removed) removed" : "")
                     + ", \(result.identical) identical, \(result.skipped) left out.")
             }
             lines += Self.recomputedFlowLines(result)
@@ -452,6 +453,11 @@ struct ImportReport: CommandReport {
         if let tax = trade.tax { parts.append("tax \(Format.amount(tax))") }
         if let cost = trade.cost { parts.append("cost \(Format.amount(cost))") }
         return parts.joined(separator: ", ")
+    }
+
+    /// The file's values, or `removed` for a library trade the file no longer makes.
+    static func values(_ record: ImportRecordPreview) -> String {
+        record.removesExisting ? "removed" : values(record.imported)
     }
 
     static func values(_ record: ImportedRecord) -> String {
@@ -563,7 +569,7 @@ struct ImportReport: CommandReport {
                 JSON.Record(date: record.imported.key.date.description, record: record.imported.key.description,
                             status: record.status.rawValue,
                             resolution: record.status == .conflict ? record.resolution.rawValue : nil,
-                            values: Self.values(record.imported),
+                            values: Self.values(record),
                             existing: record.status == .conflict ? record.existing.map(Self.values) : nil)
             },
             cellErrors: preview.cellErrors.map {
@@ -574,7 +580,8 @@ struct ImportReport: CommandReport {
                 let result = outcome.result
                 return JSON.Result(
                     added: result.added, updated: result.updated, overwritten: result.overwritten, kept: result.kept,
-                    undecided: result.undecided, identical: result.identical, skipped: result.skipped,
+                    undecided: result.undecided, removed: result.removed, identical: result.identical,
+                    skipped: result.skipped,
                     createdAccounts: result.createdAccounts.map(\.rawValue),
                     closedAccounts: result.closedAccounts.map(\.rawValue),
                     createdInstruments: result.createdInstruments.map(\.rawValue),
@@ -713,6 +720,7 @@ struct ImportReport: CommandReport {
             var overwritten: Int
             var kept: Int
             var undecided: Int
+            var removed: Int
             var identical: Int
             var skipped: Int
             var createdAccounts: [String]

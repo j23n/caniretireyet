@@ -333,7 +333,8 @@ struct PreviewApplyTests {
         let session = try ImportSession(data: data, profile: profile)
         let once = session.preview(against: library).apply(to: library)
         let again = session.preview(against: once.library)
-        #expect(again.summary.newRecords == 0)
+        // The wallet's sale in January, left out with its account's trades while the buy in March is kept.
+        #expect(again.summary.newRecords == 1)
         // Directa's three balances, the gold coins' last one and the wallet's buy in March.
         #expect(again.summary.conflicts == 5)
         #expect(!again.apply(to: once.library).hasChanges)

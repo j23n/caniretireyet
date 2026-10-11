@@ -176,6 +176,92 @@ struct QuantityTradesTests {
             + "too, or add its amount."))
     }
 
+    // MARK: - Decided together
+
+    /// The example library with the Italian net worth sheet: the wallet's sale on January 31 is new, and its
+    /// buy on March 31 a conflict with the library's.
+    @Test func keepingAConflictKeepsAllOfTheAccountsLibraryTrades() throws {
+        let library = try Fixtures.exampleLibrary()
+        let profile = try #require(library.importProfiles["net-worth-sheet"])
+        let preview = try ImportSession(data: Samples.data("italian-excel-1252.csv"), profile: profile)
+            .preview(against: library)
+        let sale = ImportRecordKey.trade(TradeKey(account: "ledger-wallet", date: "2026-01-31", id: "sell-btc"))
+        let buy = ImportRecordKey.trade(TradeKey(account: "ledger-wallet", date: "2026-03-31", id: "buy-btc"))
+        #expect(preview.record(sale)?.status == .new)
+        #expect(preview.record(buy)?.status == .conflict)
+        #expect(preview.records.filter(\.isFromQuantities).map(\.id) == [sale, buy])
+        #expect(preview.conflicts(decidedWith: buy) == [buy])
+
+        // Kept, or undecided: the new sale is left out too, and the wallet holds what the library says, not
+        // 0.245 BTC, which neither says.
+        for resolution in [ConflictPolicy.keep, .ask] {
+            var kept = preview
+            kept.resolveConflicts(resolution)
+            #expect(kept.leftOutRecords == 1)
+            let result = kept.apply(to: library)
+            #expect(result.skipped == 1)
+            #expect(result.library.trades(for: "ledger-wallet") == library.trades(for: "ledger-wallet"))
+            #expect(result.library.heldQuantities(of: "ledger-wallet", on: "2026-03-31") == ["btc": d("0.4515")])
+        }
+
+        // Overwritten: all of the file's apply, and the wallet holds what the sheet says.
+        var overwritten = preview
+        overwritten.resolveConflicts(.overwrite)
+        #expect(overwritten.leftOutRecords == 0)
+        let result = overwritten.apply(to: library)
+        #expect(result.library.trades(for: "ledger-wallet").map(\.id) == ["opening-btc", "sell-btc", "buy-btc"])
+        for (date, quantity) in [("2026-01-31", "0.215"), ("2026-02-28", "0.215"), ("2026-03-31", "0.2201")] {
+            #expect(result.library.heldQuantities(of: "ledger-wallet", on: CalendarDate(date)!) == ["btc": d(quantity)])
+        }
+    }
+
+    /// The library's trades with the keys the import makes, on the file's dates, that the file no longer
+    /// makes: a sale on January 31, when the wallet still holds its opening, and a buy on March 31, when it sold.
+    @Test func acceptingRemovesTheLibrarysTradesTheFileNoLongerMakes() throws {
+        var library = try Fixtures.exampleLibrary()
+        library.upsert(Trade(account: "ledger-wallet", date: "2026-01-31", id: "sell-btc", type: .sell,
+                             instrument: "btc", quantity: d("0.1"), price: 100_000, currency: .usd,
+                             settlement: .external))
+        var session = try ImportSession(data: Data("Date;BTC\n2026-01-31;0.4215\n2026-03-31;0.4\n".utf8))
+        session.setMapping(ImportColumn(target: .quantity, account: "ledger-wallet", instrument: "btc"), forColumn: 2)
+        let preview = session.preview(against: library)
+        let januarySale = ImportRecordKey.trade(TradeKey(account: "ledger-wallet", date: "2026-01-31", id: "sell-btc"))
+        let marchBuy = ImportRecordKey.trade(TradeKey(account: "ledger-wallet", date: "2026-03-31", id: "buy-btc"))
+        #expect(preview.statuses == [
+            "ledger-wallet trade sell-btc on 2026-01-31": .conflict,
+            "ledger-wallet trade buy-btc on 2026-03-31": .conflict,
+            "ledger-wallet trade sell-btc on 2026-03-31": .new,
+        ])
+        #expect(preview.records.filter(\.removesExisting).map(\.id) == [januarySale, marchBuy])
+        #expect(preview.record(marchBuy)?.cells == [ImportCellRef(row: 3, column: 2)])
+        #expect(preview.conflicts(decidedWith: marchBuy) == [januarySale, marchBuy])
+
+        // One kept and one overwritten: all of the library's trades stay, and none of the file's are added.
+        var mixed = preview
+        for index in mixed.records.indices where mixed.records[index].status == .conflict {
+            mixed.records[index].resolution = mixed.records[index].id == marchBuy ? .overwrite : .keep
+        }
+        var result = mixed.apply(to: library)
+        #expect(result.library.trades(for: "ledger-wallet") == library.trades(for: "ledger-wallet"))
+        #expect((result.kept, result.undecided, result.removed, result.skipped) == (2, 0, 0, 1))
+
+        // Overwritten: the two are removed, and the wallet holds what the sheet says.
+        var accepted = preview
+        accepted.resolveConflicts(.overwrite)
+        result = accepted.apply(to: library)
+        #expect((result.added, result.removed) == (1, 2))
+        #expect(result.changedMonths == ["2026-01", "2026-03"])
+        #expect(result.library.trades(for: "ledger-wallet").map { "\($0.date) \($0.id)" }
+            == ["2025-10-31 opening-btc", "2026-03-31 sell-btc"])
+        #expect(result.library.heldQuantities(of: "ledger-wallet", on: "2026-01-31") == ["btc": d("0.4215")])
+        #expect(result.library.heldQuantities(of: "ledger-wallet", on: "2026-03-31") == ["btc": d("0.4")])
+
+        // Importing again changes nothing.
+        let again = session.preview(against: result.library)
+        #expect(again.records.allSatisfy { $0.status == .identical })
+        #expect(!again.apply(to: result.library).hasChanges)
+    }
+
     @Test func aCostWithoutAQuantityIsACellProblem() throws {
         var session = try ImportSession(data: Data("Date;VWCE cost\n2026-01-31;1000\n".utf8))
         session.setMapping(ImportColumn(target: .costBasis, account: "directa", instrument: "vwce"), forColumn: 2)
