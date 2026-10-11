@@ -85,6 +85,26 @@ struct MoneyInOutTests {
         #expect(unconverted.moneyOut == d("2014.6"))
     }
 
+    @Test func editingHistoryKeepsMoneyInAndOutForAPersonToCheck() throws {
+        var library = try Fixtures.exampleLibrary()
+        // A balance from a statement in the middle of September.
+        let inserted = library.saveValue(Valuation(account: "conto-fineco", date: "2026-09-15", balance: 4400))
+        let september = ValuationKey(account: "conto-fineco", date: "2026-09-30")
+        #expect(inserted.flows.moneyInOut.map(\.key) == [september])
+        #expect(inserted.flows.moneyInOut.first?.moneyOut == d("2554.65"))
+
+        var removed = try Fixtures.exampleLibrary()
+        let followUp = removed.removeValue(ValuationKey(account: "conto-fineco", date: "2026-08-31"))
+        #expect(followUp.moneyInOut.map(\.key) == [september])
+
+        // A value corrected on its date leaves the next one's days alone.
+        var corrected = try Fixtures.exampleLibrary()
+        var august = try #require(corrected.valuations(for: "conto-fineco").first { $0.date == "2026-08-31" })
+        august.balance = 4500
+        let edit = corrected.saveValue(august, replacing: august.key)
+        #expect(edit.flows.moneyInOut.isEmpty)
+    }
+
     @Test func leavesOutAnAccountsFirstValue() throws {
         var library = try Fixtures.exampleLibrary()
         let first = try #require(library.months["2025-10"]?.valuations.firstIndex { $0.account == "conto-deposito" })

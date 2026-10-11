@@ -16,12 +16,17 @@ public struct FlowFollowUp: Hashable, Sendable {
     /// Valuations whose flow was typed by hand, kept although the valuation
     /// before them changed; sorted by date, then account.
     public var kept: [Valuation] = []
+    /// Valuations that record money in and out whose previous valuation is
+    /// now on another date: their amounts were for the days since the old
+    /// one, so they're kept for the person to check (PROGRESS.md, "Money in
+    /// and out"); as saved now, sorted by date, then account.
+    public var moneyInOut: [Valuation] = []
 
     public init() {}
 
-    /// Whether no other valuation's flow was concerned.
+    /// Whether no other valuation's flow, or money in and out, was concerned.
     public var isEmpty: Bool {
-        recomputed.isEmpty && kept.isEmpty
+        recomputed.isEmpty && kept.isEmpty && moneyInOut.isEmpty
     }
 }
 
@@ -51,8 +56,10 @@ extension Library {
     /// the old previous valuation, as a check-in would have filled it in
     /// (``Valuator/defaultFlow(for:previous:paid:)``, with what was paid read
     /// from the cost bases). A flow typed by hand (one that differs from
-    /// that default) is kept. The valuations `edit` writes keep what it gave
-    /// them.
+    /// that default) is kept. Money in and out are kept too, and a valuation
+    /// that records them is listed when the one before it is now on another
+    /// date (``FlowFollowUp/moneyInOut``). The valuations `edit` writes keep
+    /// what it gave them.
     @discardableResult
     public mutating func editValuations(_ edit: (inout Library) throws -> Void) rethrows -> FlowFollowUp {
         let before = self
@@ -115,6 +122,7 @@ extension Library {
         var oldValuator = LazyValuator(library: before)
         var newValuator = LazyValuator(library: self)
         var result = FlowFollowUp()
+        var moneyInOut: [ValuationKey] = []
         for account in new.keys.sorted() {
             let newList = new[account] ?? []
             let oldList = old[account] ?? []
@@ -127,6 +135,9 @@ extension Library {
                 guard let oldIndex = oldIndices[valuation.key], oldList[oldIndex] == valuation else { continue }
                 let oldPrevious = oldIndex > 0 ? oldList[oldIndex - 1] : nil
                 let newPrevious = index > 0 ? newList[index - 1] : nil
+                if valuation.recordsMoneyInOut, oldPrevious?.date != newPrevious?.date {
+                    moneyInOut.append(valuation.key)
+                }
                 guard oldPrevious != newPrevious || tradesChanged else { continue }
                 let automatic = oldValuator.valuator.defaultFlow(
                     for: valuation, previous: oldPrevious, paid: CheckInRow.paid(in: valuation, since: oldPrevious))
@@ -147,6 +158,9 @@ extension Library {
         }
         result.recomputed = result.recomputed.sortedByKey()
         result.kept = result.kept.sortedByKey()
+        result.moneyInOut = moneyInOut.compactMap { key in
+            valuations(for: key.account).first { $0.key == key }
+        }.sortedByKey()
         return result
     }
 }
