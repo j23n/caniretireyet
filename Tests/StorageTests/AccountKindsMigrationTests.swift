@@ -80,6 +80,11 @@ struct AccountKindsMigrationTests {
         }
         #expect(split(after) == split(before))
         #expect(split(after)["broker"]?[1] == 520)
+        // Values without a flow keep the whole change as new money, as version 3 filled it in.
+        #expect(split(after)["exchange"] == [0, 50, 0])
+        #expect(split(after)["wallet"] == [d("0.004"), 10, 0])
+        // Rounded to cents, as version 3 filled it in.
+        #expect(after.valuations(for: "wallet").map(\.flow) == [nil, 10])
     }
 
     @Test func aBackupIsTakenFirst() throws {
