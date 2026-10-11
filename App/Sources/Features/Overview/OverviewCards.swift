@@ -1,6 +1,5 @@
 import Glance
 import Model
-import Planner
 import Prices
 import Storage
 import SwiftUI
@@ -87,8 +86,7 @@ struct OverviewYearCard: View {
 /// (its latest results, or the headline recorded at the last check-in) it
 /// leads the screen, above net worth: "Not yet · earliest at 54", how long
 /// to go, how close your plan assets are to what retiring today needs
-/// (``PlanReadinessView``, with an ⓘ), whether you're past the coast
-/// point (only while you are), and how you compare with the
+/// (``PlanReadinessView``, with an ⓘ), and how you compare with the
 /// baseline Progress measures its latest year against; tapping it opens
 /// the plan, and *Calculate* runs the plan when the answer isn't current.
 /// Without an answer it's a card below the chart with the next step:
@@ -224,12 +222,6 @@ struct OverviewAnswerView: View {
             // the chance of retiring today, so it gets a neutral line instead.
             PlanReadinessView(headline: headline,
                               fallback: headline.recordedOn != nil ? PlanResultsText.readinessNotRecorded : nil)
-            if let coast = pastCoastPoint(plan) {
-                Text(coast)
-                    .font(.footnote)
-                    .foregroundStyle(Palette.secondaryInk)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
             if let gap {
                 // Ahead, on or behind plan by where you are among the baseline's
                 // futures; only behind is a warning. Then the amount against its median.
@@ -361,18 +353,6 @@ struct OverviewAnswerView: View {
         else { return nil }
         return OverviewBaselineGap(baseline: latest.entry.baseline, library: library.library,
                                    valuator: library.valuator, on: today)
-    }
-
-    /// "You're past the coast point: saving nothing more, you could still
-    /// retire at 63." while the plan's coast age, as the Milestones card
-    /// reads it (``PlanMilestones/coastAge(results:recorded:)``), is at or
-    /// under the age its first pension starts; `nil` otherwise and without
-    /// a pension.
-    private func pastCoastPoint(_ plan: PlanDocument) -> String? {
-        let age = PlanMilestones.coastAge(results: plans.latestResults(of: plan.id),
-                                          recorded: plans.recordedHeadlines(for: plan.id).last)
-        guard let age, MilestoneLadder.isPastCoastPoint(age, plan: plan) else { return nil }
-        return PlanMilestoneText.pastCoastPointLine(age)
     }
 
     /// "Yes", "Not yet · earliest at 54", or "Not yet" when no age works out.
