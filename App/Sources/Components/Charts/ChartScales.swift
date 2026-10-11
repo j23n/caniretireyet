@@ -62,6 +62,47 @@ struct RelativeTick: Hashable, Sendable {
     var label: String
 }
 
+/// The ticks of a chart's value axis and what they read (`amountAxis`):
+/// the scale's ticks as compact amounts; while amounts are hidden (UI.md,
+/// "Privacy"), multiples of `base` (`0`, `1×`, `2×`: of today's value, of
+/// the spending), which reveal no amount, so they're the one label a
+/// redacted chart leaves readable. Without a base the amounts stay, and
+/// draw as placeholders.
+struct AmountAxisTicks: Hashable, Sendable {
+    struct Tick: Hashable, Sendable {
+        var value: Double
+        var label: String
+    }
+
+    /// Lowest first.
+    var ticks: [Tick]
+    /// Whether the labels are multiples of the base, not amounts.
+    var isRelative: Bool
+
+    init(scale: AmountScale, hidesAmounts: Bool, relativeTo base: Double? = nil, locale: Locale = .current) {
+        let relative = hidesAmounts ? scale.relativeTicks(base: base ?? 0, locale: locale) : []
+        if relative.isEmpty {
+            ticks = scale.ticks.map { Tick(value: $0, label: scale.label($0, locale: locale)) }
+            isRelative = false
+        } else {
+            ticks = relative.map { Tick(value: $0.value, label: $0.label) }
+            isRelative = true
+        }
+    }
+
+    /// Where the ticks are, for `AxisMarks(values:)`.
+    var values: [Double] {
+        ticks.map(\.value)
+    }
+
+    /// The label of the tick at `value` (Swift Charts hands back the
+    /// values it was given, as `Double`s); empty for no tick there.
+    func label(for value: Double) -> String {
+        let tolerance = Swift.max(abs(value), 1) * 1e-6
+        return ticks.first { abs($0.value - value) <= tolerance }?.label ?? ""
+    }
+}
+
 /// The value axis of a projection, with or without history before it
 /// (UI.md, "Charts"): it fits the history, the median and the 25–75% band,
 /// so they fill the chart. The 10–90% band may run off the top, where it's

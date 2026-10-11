@@ -11,10 +11,6 @@ extension EnvironmentValues {
     /// shows amounts before.
     @Entry var baseCurrency: CurrencyCode = .noCurrency
 
-    /// Whether amounts are hidden (the eye button, ⌘⇧H). Set by
-    /// `appEnvironment` from `AppPreferences`; `AmountText` reads it.
-    @Entry var hidesAmounts: Bool = false
-
     /// The surface a chart sits on, in which it draws the gaps between its
     /// stacked areas: a card's by default. A chart placed straight on the
     /// page (the Overview's history) sets `Palette.page`.
@@ -24,6 +20,11 @@ extension EnvironmentValues {
 extension View {
     /// Injects every store of `model` into the environment. Each scene (the
     /// main window, the Mac's Settings window, extra windows) applies it.
+    ///
+    /// It also hides amounts (UI.md, "Privacy"): while the eye is on, the
+    /// scene is redacted for `.privacy`, so every view marked
+    /// `.privacySensitive()` draws as a placeholder, and views read
+    /// `redactionReasons.hidesAmounts` (AmountRedaction.swift).
     func appEnvironment(_ model: AppModel) -> some View {
         modifier(AppEnvironmentModifier(model: model))
     }
@@ -44,12 +45,13 @@ private struct AppEnvironmentModifier: ViewModifier {
             .environment(\.baseCurrency, model.library.shownCurrency)
             #if FEEDBACK
             // A feedback screenshot hides everything the person entered or owns (Feedback.swift);
-            // amounts are hidden as the eye button hides them too, in case a view is unredacted.
-            .environment(\.hidesAmounts, model.preferences.hidesAmounts || model.feedback.isCapturing)
+            // amounts are hidden as the eye hides them too, so charts show their relative value
+            // axis, the one label left unredacted.
+            .redacted(reason: model.preferences.hidesAmounts || model.feedback.isCapturing ? .privacy : [])
             .feedbackRedaction(model.feedback)
             .environment(model.feedback)
             #else
-            .environment(\.hidesAmounts, model.preferences.hidesAmounts)
+            .redacted(reason: model.preferences.hidesAmounts ? .privacy : [])
             #endif
     }
 }

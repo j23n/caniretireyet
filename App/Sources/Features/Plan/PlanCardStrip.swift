@@ -292,7 +292,8 @@ struct PlanStripPlot {
 
 /// The amounts of a card's gridlines, above them inside the plot at the
 /// card's edge where its line doesn't pass under them: the right when it's
-/// clear there, else the left when that is. None while amounts are hidden.
+/// clear there, else the left when that is. Placeholders while amounts are
+/// hidden (`.privacySensitive()`).
 struct PlanStripAmountLabels: View {
     let scale: PlanStripScale
     let plot: PlanStripPlot
@@ -302,18 +303,18 @@ struct PlanStripAmountLabels: View {
     let line: [CGPoint]
     let currency: CurrencyCode
 
-    @Environment(\.hidesAmounts) private var hidesAmounts
     @Environment(\.locale) private var locale
 
     /// How far in from the card's edge an amount reaches, about.
     private static let reach: CGFloat = 52
 
     var body: some View {
-        ForEach(hidesAmounts ? [] : scale.ticks.filter { $0 > scale.domain.lowerBound }, id: \.self) { tick in
+        ForEach(scale.ticks.filter { $0 > scale.domain.lowerBound }, id: \.self) { tick in
             let y = plot.y(tick, scale)
             Text(scale.label(tick, currency: currency, locale: locale))
                 .font(.caption2)
                 .foregroundStyle(Palette.mutedInk)
+                .privacySensitive()
                 .planGraphLabel()
                 .frame(width: max(0, width - 8), alignment: isOnRight(y) ? .trailing : .leading)
                 .offset(x: 4, y: y - 16)

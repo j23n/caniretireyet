@@ -664,7 +664,6 @@ struct SpendingWidget: Widget {
 struct SpendingView: View {
     var entry: GlanceEntry
     @Environment(\.locale) private var locale
-    @Environment(\.redactionReasons) private var redactionReasons
 
     var body: some View {
         Group {
@@ -682,26 +681,24 @@ struct SpendingView: View {
     }
 
     private func content(_ answer: RetirementAnswer, spending: Decimal, money: WidgetMoney) -> some View {
-        let hides = redactionReasons.hidesAmounts
-        return VStack(alignment: .leading, spacing: 0) {
+        VStack(alignment: .leading, spacing: 0) {
             WidgetLabel(title: answer.targetAge.map { "Retiring at \($0)" } ?? "Retiring as planned",
                         systemImage: "wallet.bifold")
-            Text(verbatim: hides ? AmountFormat.hidden : money.amount(spending))
+            Text(verbatim: money.amount(spending))
                 .font(.system(size: 26, weight: .semibold))
                 .foregroundStyle(Palette.ink)
                 .lineLimit(1)
                 .minimumScaleFactor(0.6)
-                .privacySensitive(!hides)
+                .privacySensitiveAmount()
                 .padding(.top, 6)
             Text("a year to spend")
                 .font(.caption)
                 .foregroundStyle(Palette.secondaryInk)
-            Text(verbatim: hides ? AmountFormat.hidden : "\(money.amount(spending / 12)) a month")
+            AmountSentenceText("\(amount: money.amount(spending / 12)) a month")
                 .font(.footnote.weight(.semibold))
                 .foregroundStyle(Palette.ink)
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
-                .privacySensitive(!hides)
                 .padding(.top, 8)
             Spacer(minLength: 0)
             Text(verbatim: "Today's money, \(GlanceText.inFutures(answer.confidence))")

@@ -557,10 +557,11 @@ struct PlanProgressTimeline {
         var date: CalendarDate
         /// "Mar".
         var month: String
-        var text: String
+        /// Its words; an amount in them hides with the eye.
+        var text: AmountSentence
         /// A milestone reached (PROGRESS.md, "Milestones"), in bold in the year's words.
         var isMilestone = false
-        var id: String { "\(date) \(text)" }
+        var id: String { "\(date) \(text.text)" }
     }
 
     /// A month's notes, as the year's words list them: one row a month.
@@ -575,16 +576,13 @@ struct PlanProgressTimeline {
         /// Whether a milestone was reached in the month.
         var hasMilestone: Bool { notes.contains { $0.isMilestone } }
 
-        /// The month's notes one after another, its milestones in bold.
-        var text: AttributedString {
-            var text = AttributedString()
-            for (offset, note) in notes.enumerated() {
-                if offset > 0 { text += AttributedString(" ") }
-                var part = AttributedString(note.text)
-                if note.isMilestone { part.inlinePresentationIntent = .stronglyEmphasized }
-                text += part
+        /// The month's notes one after another, its milestones in bold (they
+        /// read as ``PlanChapterStory/Run/value(_:)``).
+        var runs: [PlanChapterStory.Run] {
+            notes.enumerated().flatMap { offset, note -> [PlanChapterStory.Run] in
+                let run: PlanChapterStory.Run = note.isMilestone ? .value(note.text) : .text(note.text)
+                return offset > 0 ? [.text(" "), run] : [run]
             }
-            return text
         }
     }
 
@@ -611,7 +609,7 @@ struct PlanProgressTimeline {
         /// valued from what you held and its prices.
         let checkIns: Set<Date>
         /// The year in a line ("Two years sooner, and past 300.000 €."); `nil` for a quiet one.
-        let summary: String?
+        let summary: AmountSentence?
         /// The money's currency: the base currency.
         let currency: CurrencyCode
         /// 1 January and 31 December of the year, at noon.
@@ -806,9 +804,9 @@ struct PlanProgressTimeline {
                     let move = PlanProgressText.move(years: age - before)
                     let cause = marker?.changes.contains(.plan) == true ? "Plan changed: " : ""
                     let text = seen.contains(age) ? "\(cause)\(age) again." : "\(cause)\(age), \(move)."
-                    notes.append(Note(date: point.date, month: month, text: text))
+                    notes.append(Note(date: point.date, month: month, text: AmountSentence(text)))
                 } else if let marker {
-                    notes.append(Note(date: point.date, month: month, text: "\(marker.label)."))
+                    notes.append(Note(date: point.date, month: month, text: AmountSentence("\(marker.label).")))
                 }
                 previous = age
                 seen.insert(age)
@@ -829,9 +827,8 @@ struct PlanProgressTimeline {
                         changes: [(from: CalendarDate, to: CalendarDate, change: ValueChange)],
                         text: PlanMilestoneText) -> [Note] {
         var notes: [Note] = []
-        func amount(_ value: Decimal) -> String {
-            text.hidesAmounts ? AmountFormat.hidden
-                : AmountFormat.amount(abs(value), currency: text.currency, locale: text.locale)
+        func amount(_ value: Decimal) -> AmountSentence {
+            .amount(AmountFormat.amount(abs(value), currency: text.currency, locale: text.locale))
         }
         for (index, step) in changes.enumerated() where step.to.year == year.year && step.to <= year.to {
             let month = GlanceText.shortMonth(step.to, locale: text.locale)
@@ -844,7 +841,7 @@ struct PlanProgressTimeline {
             if change.start > 0, abs(change.market) >= change.start / 20 {
                 let percent = AmountFormat.percent((abs(change.market) / change.start).doubleValue, digits: 0,
                                                    locale: text.locale)
-                let moved = change.market < 0 ? "Markets fell \(amount(change.market)), \(percent)."
+                let moved: AmountSentence = change.market < 0 ? "Markets fell \(amount(change.market)), \(percent)."
                     : "Markets added \(amount(change.market)), \(percent)."
                 notes.append(Note(date: step.to, month: month, text: moved))
             }
@@ -862,42 +859,47 @@ struct PlanProgressTimeline {
 }
 
 /// A year's words (UI.md, "Progress"): its change, where it stands against
-/// January, its story and January's note.
+/// January, its story and January's note. Amounts hide with the eye
+/// (``AmountSentence``).
 enum PlanProgressText {
+    /// `value` without its sign: "18.400 €".
+    private static func amount(_ value: Decimal, currency: CurrencyCode, locale: Locale) -> AmountSentence {
+        .amount(AmountFormat.amount(abs(value), currency: currency, locale: locale))
+    }
+
     /// "+34.000 €", or "so far" for the year still going.
-    static func change(_ year: PlanProgressYear, currency: CurrencyCode, hidesAmounts: Bool,
-                       locale: Locale = .current) -> String {
+    static func change(_ year: PlanProgressYear, currency: CurrencyCode,
+                       locale: Locale = .current) -> AmountSentence {
         guard !year.isLatest else { return "so far" }
-        guard !hidesAmounts else { return AmountFormat.hidden }
-        return AmountFormat.signedAmount(year.change.change, currency: currency, locale: locale)
+        return .amount(AmountFormat.signedAmount(year.change.change, currency: currency, locale: locale))
     }
 
     /// "18.400 € ahead of January", "3.000 € behind your 2021 plan"; `nil` without a baseline.
-    static func againstJanuary(_ year: PlanProgressYear, currency: CurrencyCode, hidesAmounts: Bool,
-                               locale: Locale = .current) -> String? {
+    static func againstJanuary(_ year: PlanProgressYear, currency: CurrencyCode,
+                               locale: Locale = .current) -> AmountSentence? {
         guard let position = year.position else { return nil }
-        let amount = hidesAmounts ? AmountFormat.hidden
-            : AmountFormat.amount(abs(position.gap), currency: currency, locale: locale)
+        let gap = Self.amount(position.gap, currency: currency, locale: locale)
         let expectation = year.expectation(locale: locale)
-        return position.gap >= 0 ? "\(amount) ahead of \(expectation)" : "\(amount) behind \(expectation)"
+        return position.gap >= 0 ? "\(gap) ahead of \(expectation)" : "\(gap) behind \(expectation)"
     }
 
     /// "You saved 13.200 € and markets added 22.200 €. Your answer moved from
     /// 56 to 54, two years sooner."
-    static func story(_ year: PlanProgressYear, currency: CurrencyCode, hidesAmounts: Bool,
-                      locale: Locale = .current) -> String {
-        func amount(_ value: Decimal) -> String {
-            hidesAmounts ? AmountFormat.hidden : AmountFormat.amount(abs(value), currency: currency, locale: locale)
+    static func story(_ year: PlanProgressYear, currency: CurrencyCode,
+                      locale: Locale = .current) -> AmountSentence {
+        func amount(_ value: Decimal) -> AmountSentence {
+            Self.amount(value, currency: currency, locale: locale)
         }
-        var sentences: [String] = []
+        var sentences: [AmountSentence] = []
         if let note = pricesNote(year, locale: locale) {
-            sentences.append(note)
+            sentences.append(AmountSentence(note))
         }
         if year.from != year.to {
             let saved = year.change.newMoney
             let market = year.change.market
-            let savedText = saved >= 0 ? "You saved \(amount(saved))" : "You took out \(amount(saved))"
-            let marketText = market >= 0 ? "markets added \(amount(market))" : "markets took \(amount(market))"
+            let savedText: AmountSentence = saved >= 0 ? "You saved \(amount(saved))" : "You took out \(amount(saved))"
+            let marketText: AmountSentence = market >= 0 ? "markets added \(amount(market))"
+                : "markets took \(amount(market))"
             sentences.append("\(savedText) and \(marketText).")
         }
         if let from = year.answerFrom?.earliestAge, let to = year.answerTo?.earliestAge {
@@ -921,7 +923,8 @@ enum PlanProgressText {
 
     /// "January expected 298.000 € by now", "… by 31 Dec", with `amount`'s
     /// words; `nil` without a position.
-    static func expected(_ year: PlanProgressYear, amount: (Decimal) -> String, locale: Locale = .current) -> String? {
+    static func expected(_ year: PlanProgressYear, amount: (Decimal) -> AmountSentence,
+                         locale: Locale = .current) -> AmountSentence? {
         guard let position = year.position else { return nil }
         let when = year.isLatest ? "by now" : "by \(AmountFormat.shortDate(year.to, locale: locale))"
         return "\(year.expectationTitle(locale: locale)) expected \(amount(position.median)) \(when)"
@@ -929,10 +932,10 @@ enum PlanProgressText {
 
     /// "January expected 298.000 € by now. You're 18.400 € ahead, more than
     /// in 68 of its 100 futures."
-    static func january(_ year: PlanProgressYear, currency: CurrencyCode, hidesAmounts: Bool,
-                        locale: Locale = .current) -> String? {
-        func amount(_ value: Decimal) -> String {
-            hidesAmounts ? AmountFormat.hidden : AmountFormat.amount(abs(value), currency: currency, locale: locale)
+    static func january(_ year: PlanProgressYear, currency: CurrencyCode,
+                        locale: Locale = .current) -> AmountSentence? {
+        func amount(_ value: Decimal) -> AmountSentence {
+            Self.amount(value, currency: currency, locale: locale)
         }
         guard let position = year.position, var text = expected(year, amount: amount, locale: locale)
         else { return nil }
@@ -959,14 +962,15 @@ enum PlanProgressText {
     /// The year in a line: how the answer moved, the milestone it passed, or
     /// what markets did: "Two years sooner, and past 300.000 €.", "A strong
     /// year for markets, and a year sooner."; `nil` for a quiet year.
-    static func summary(_ year: PlanProgressYear, milestones: [ReachedMilestone], text: PlanMilestoneText) -> String? {
-        var parts: [String] = []
+    static func summary(_ year: PlanProgressYear, milestones: [ReachedMilestone],
+                        text: PlanMilestoneText) -> AmountSentence? {
+        var parts: [AmountSentence] = []
         if let change = year.ageChange, change != 0 {
-            parts.append(move(years: change, spelled: true))
+            parts.append(AmountSentence(move(years: change, spelled: true)))
         }
         let rounds = milestones.filter { $0.milestone.kind == .roundAmount }
         if let top = rounds.max(by: { $0.milestone.amount < $1.milestone.amount }) {
-            parts.append(text.hidesAmounts ? "past a round amount" : "past \(text.name(top.milestone))")
+            parts.append("past \(text.name(top.milestone))")
         } else if milestones.contains(where: { $0.milestone.kind == .crossover }) {
             parts.append("past the crossover")
         } else if milestones.contains(where: { if case .coastPoint = $0.milestone.kind { true } else { false } }) {
@@ -981,8 +985,8 @@ enum PlanProgressText {
             }
         }
         guard let first = parts.first else { return nil }
-        let sentence = parts.count > 1 ? first + ", and " + parts[1] : first
-        return sentence.capitalizedFirst + "."
+        let sentence: AmountSentence = parts.count > 1 ? "\(first), and \(parts[1])" : first
+        return "\(sentence.capitalizedFirst)."
     }
 
     /// How the earliest age moved by `change` years (negative is sooner):
@@ -1017,8 +1021,8 @@ enum PlanProgressText {
 
     /// "You have 18.400 € more than January expected, more than in 68 of its
     /// 100 futures." for the latest year; without a position, why not.
-    static func headlineDetail(_ year: PlanProgressYear?, currency: CurrencyCode, hidesAmounts: Bool,
-                               locale: Locale = .current) -> String {
+    static func headlineDetail(_ year: PlanProgressYear?, currency: CurrencyCode,
+                               locale: Locale = .current) -> AmountSentence {
         guard let year, let position = year.position else {
             if year?.baseline != nil {
                 return "This year's baseline starts at your latest check-in, so your next check-in is the first "
@@ -1026,11 +1030,10 @@ enum PlanProgressText {
             }
             return "A baseline is saved at the first check-in of each year. Save one now to measure against it."
         }
-        let amount = hidesAmounts ? AmountFormat.hidden
-            : AmountFormat.amount(abs(position.gap), currency: currency, locale: locale)
+        let gap = amount(position.gap, currency: currency, locale: locale)
         let expectation = year.expectation(locale: locale)
-        var text = position.gap >= 0 ? "You have \(amount) more than \(expectation) expected"
-            : "You have \(amount) less than \(expectation) expected"
+        var text: AmountSentence = position.gap >= 0 ? "You have \(gap) more than \(expectation) expected"
+            : "You have \(gap) less than \(expectation) expected"
         if let percentile = position.percentile {
             text += ", more than in \(Int(wholeNumber: percentile)) of its 100 futures."
         } else if position.isAboveNinetieth {

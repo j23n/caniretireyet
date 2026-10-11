@@ -233,7 +233,6 @@ private struct CheckInTableRow: View {
 
     @Environment(CheckInStore.self) private var checkIn
     @Environment(LibraryStore.self) private var library
-    @Environment(\.hidesAmounts) private var hidesAmounts
     @Environment(\.locale) private var locale
 
     var body: some View {
@@ -283,22 +282,23 @@ private struct CheckInTableRow: View {
 
     /// "FinecoBank", "3 positions · 1 changed", "last value 31 May", plus
     /// the currency when it isn't the base one. For an account that opens
-    /// later, when it opens or that saving moves that.
-    private var detail: String? {
-        var parts: [String] = []
+    /// later, when it opens or that saving moves that. A quantity in it
+    /// hides with the eye.
+    private var detail: AmountSentence? {
+        var parts: [AmountSentence] = []
         if let opening = CheckInWording.openingDetail(for: row, opened: account?.opened, date: date,
                                                       locale: locale) {
-            parts.append(opening)
+            parts.append(AmountSentence(opening))
         } else if row.isTrades {
             parts.append(CheckInWording.tradesSummary(row, instruments: library.library.instruments, locale: locale))
         } else if row.mode == .holdings {
             parts.append(CheckInWording.holdingsSummary(row, instruments: library.library.instruments, locale: locale))
         } else if let note = CheckInWording.lastValueNote(for: row, previousCheckIn: previousCheckIn, locale: locale) {
-            parts.append(note.prefix(1).lowercased() + String(note.dropFirst()))
+            parts.append(AmountSentence(note.prefix(1).lowercased() + String(note.dropFirst())))
         } else if let institution = account?.institution {
-            parts.append(institution)
+            parts.append(AmountSentence(institution))
         }
-        if currency != library.baseCurrency { parts.append(currency.rawValue) }
+        if currency != library.baseCurrency { parts.append(AmountSentence(currency.rawValue)) }
         return parts.isEmpty ? nil : parts.joined(separator: " · ")
     }
 
@@ -340,7 +340,7 @@ private struct CheckInTableRow: View {
                 Text(verbatim: name)
                     .fontWeight(.medium)
                 if let detail {
-                    Text(verbatim: " · " + detail)
+                    AmountSentenceText(" · \(detail)")
                         .foregroundStyle(Palette.secondaryInk)
                 }
             }
@@ -440,6 +440,7 @@ private struct CheckInTableRow: View {
             Text(verbatim: CheckInWording.quantity(position.previousQuantity, instrument: instrument, locale: locale))
                 .monospacedDigit()
                 .foregroundStyle(Palette.secondaryInk)
+                .privacySensitiveAmount()
         } now: {
             CheckInNumberField(
                 quantityField, focus: focus, isFocused: focused == quantityField, value: position.quantity,
@@ -497,10 +498,11 @@ private struct CheckInTableRow: View {
             Text(verbatim: CheckInWording.quantity(position.previousQuantity, instrument: instrument, locale: locale))
                 .monospacedDigit()
                 .foregroundStyle(Palette.secondaryInk)
+                .privacySensitiveAmount()
         } now: {
             Text(verbatim: CheckInWording.quantity(position.quantity, instrument: instrument, locale: locale))
                 .monospacedDigit()
-                .privacySensitive()
+                .privacySensitiveAmount()
                 .help("From the account's trades. Add a trade to change it.")
         } change: {
             CheckInQuantityChange(position.quantity - position.previousQuantity)
@@ -533,6 +535,7 @@ private struct CheckInTableRow: View {
             Text(verbatim: CheckInWording.quantity(position.previousQuantity, instrument: instrument, locale: locale))
                 .monospacedDigit()
                 .foregroundStyle(Palette.secondaryInk)
+                .privacySensitiveAmount()
                 .help("What the trades give")
         } now: {
             CheckInNumberField(
@@ -581,11 +584,10 @@ private struct CheckInTableRow: View {
                 .accessibilityLabel(Text(verbatim: CheckInWording.addTradeLabel(account: name, date: date,
                                                                                 locale: locale)))
                 if let detail = tradeFlowDetail {
-                    Text(verbatim: detail)
+                    AmountSentenceText(detail)
                         .font(.caption)
                         .foregroundStyle(Palette.secondaryInk)
                         .lineLimit(1)
-                        .privacySensitive()
                         .help(CheckInWording.tradeFlowExplanation)
                 }
             }
@@ -605,9 +607,9 @@ private struct CheckInTableRow: View {
     }
 
     /// "deposits +200,60 · cash difference +11,30", when there's something to split.
-    private var tradeFlowDetail: String? {
+    private var tradeFlowDetail: AmountSentence? {
         CheckInTradeFlow.make(for: row, date: date, valuator: library.valuator)
-            .flatMap { CheckInWording.tradeFlowDetail($0, hidesAmounts: hidesAmounts, locale: locale) }
+            .flatMap { CheckInWording.tradeFlowDetail($0, locale: locale) }
     }
 
     /// The cash. A trades account's comes from its trades, read-only, with

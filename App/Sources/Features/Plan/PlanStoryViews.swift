@@ -8,28 +8,36 @@ import Tracker
 // each chapter's number in its colour, and the small editor a setting opens.
 
 /// Sentences with their values in bold. They only read: values change in
-/// the chapter's settings. The text wraps as text does.
+/// the chapter's settings. The text wraps as text does. While amounts are
+/// hidden, each amount draws as a placeholder (``AmountSentenceText``).
 struct PlanStoryText: View {
     let runs: [PlanChapterStory.Run]
 
+    @Environment(\.redactionReasons) private var redactionReasons
+
     var body: some View {
-        Text(attributed)
+        let hides = redactionReasons.hidesAmounts
+        text(hidesAmounts: hides)
+            .textRenderer(AmountPlaceholderRenderer(hidesAmounts: hides))
             .fixedSize(horizontal: false, vertical: true)
+            .accessibilityLabel(Text(verbatim: sentence.spoken(hidesAmounts: hides)))
     }
 
-    private var attributed: AttributedString {
-        var text = AttributedString()
+    private func text(hidesAmounts: Bool) -> Text {
+        var text = Text(verbatim: "")
         for run in runs {
             switch run {
             case .text(let words):
-                text += AttributedString(words)
+                text = Text("\(text)\(Text(sentence: words, hidesAmounts: hidesAmounts))")
             case .value(let words):
-                var value = AttributedString(words)
-                value.inlinePresentationIntent = .stronglyEmphasized
-                text += value
+                text = Text("\(text)\(Text(sentence: words, hidesAmounts: hidesAmounts).bold())")
             }
         }
         return text
+    }
+
+    private var sentence: AmountSentence {
+        runs.reduce(AmountSentence()) { $0 + $1.sentence }
     }
 }
 
@@ -58,6 +66,8 @@ struct PlanMonthBarView: View {
     /// The largest total of the bars shown together.
     let maximum: Double
 
+    @Environment(\.redactionReasons) private var redactionReasons
+
     var body: some View {
         VStack(alignment: .leading, spacing: Metrics.xs) {
             PlanPartLabel("A month")
@@ -73,18 +83,17 @@ struct PlanMonthBarView: View {
             .frame(height: 12)
             .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
             HStack(alignment: .firstTextBaseline, spacing: Metrics.s) {
-                Text(bar.leading)
+                AmountSentenceText(bar.leading)
                     .foregroundStyle(Palette.ink)
                 Spacer(minLength: Metrics.s)
-                Text(bar.trailing)
+                AmountSentenceText(bar.trailing)
                     .fontWeight(.semibold)
                     .foregroundStyle(bar.trailingRole.map(Self.textColor) ?? Palette.secondaryInk)
             }
             .font(.footnote)
-            .privacySensitive()
         }
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel(Text(bar.label))
+        .accessibilityLabel(Text(verbatim: bar.label.spoken(hidesAmounts: redactionReasons.hidesAmounts)))
     }
 
     private func share(_ value: Double) -> CGFloat {

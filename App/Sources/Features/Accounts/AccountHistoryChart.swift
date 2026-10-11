@@ -29,7 +29,10 @@ struct AccountHistoryChart: View {
 
     @State private var selectedDate: Date?
     @State private var width: CGFloat = ChartStyle.defaultWidth
-    @Environment(\.hidesAmounts) private var hidesAmounts
+    @Environment(\.redactionReasons) private var redactionReasons
+
+    /// Whether amounts are hidden: the axis is relative, and VoiceOver doesn't read them.
+    private var hidesAmounts: Bool { redactionReasons.hidesAmounts }
 
     /// A new-money tick in the lane: up for money added, down for money taken out.
     private struct LaneTick: Identifiable {

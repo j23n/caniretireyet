@@ -10,6 +10,7 @@ import Model
 /// `whatIf`; `targetMix`, the Target mix sheet of the first plan with
 /// changes with age). The main plan is calculated at once, with fewer runs than it
 /// says, so the plan's screens fill in quickly; not with `-screenNoRun`.
+/// With `-screenHidesAmounts`, amounts are hidden, as with the eye button.
 /// Debug builds only.
 struct ScreenLaunch {
     /// The made-up libraries: ``PreviewLibrary/library`` and ``PreviewLibrary/withLongHistory``.
@@ -37,11 +38,14 @@ struct ScreenLaunch {
     var screen: Screen
     /// Whether the main plan is calculated at launch.
     var calculates: Bool
+    /// Whether amounts are hidden, as with the eye button.
+    var hidesAmounts: Bool
 
-    init(_ sample: Sample, screen: Screen, calculates: Bool = true) {
+    init(_ sample: Sample, screen: Screen, calculates: Bool = true, hidesAmounts: Bool = false) {
         library = sample.library
         self.screen = screen
         self.calculates = calculates
+        self.hidesAmounts = hidesAmounts
         for id in library.plans.keys {
             library.plans[id]?.simulation.runs = 400
         }
@@ -57,7 +61,8 @@ struct ScreenLaunch {
         }
         guard let sample = value(of: "-screenLibrary").flatMap(Sample.init(rawValue:)) else { return nil }
         self.init(sample, screen: value(of: "-screen").flatMap(Screen.init(rawValue:)) ?? .overview,
-                  calculates: !arguments.contains("-screenNoRun"))
+                  calculates: !arguments.contains("-screenNoRun"),
+                  hidesAmounts: arguments.contains("-screenHidesAmounts"))
     }
 
     @MainActor
@@ -65,6 +70,7 @@ struct ScreenLaunch {
         let suite = "screen-launch"
         UserDefaults().removePersistentDomain(forName: suite)
         let model = AppModel.preview(library, planEngine: PlannerPlanEngine(), defaults: suite)
+        model.preferences.hidesAmounts = hidesAmounts
         let navigation = model.navigation
         // The main plan by its ID: the sidebar turns "the main plan" into its
         // row, a new Plan screen, after the first one took the requests.

@@ -149,26 +149,27 @@ enum PlanMilestoneKind: CaseIterable, Hashable {
     }
 }
 
-/// Milestones in words (UI.md, "Milestones"). Amounts hide with the eye.
+/// Milestones in words (UI.md, "Milestones"). Amounts hide with the eye
+/// (``AmountSentence``): a round amount's name is its amount, which draws as
+/// a placeholder.
 struct PlanMilestoneText {
     var currency: CurrencyCode
-    var hidesAmounts = false
     var locale: Locale = .current
 
-    private func amount(_ value: Decimal) -> String {
-        hidesAmounts ? AmountFormat.hidden : AmountFormat.amount(value, currency: currency, locale: locale)
+    private func amount(_ value: Decimal) -> AmountSentence {
+        .amount(AmountFormat.amount(value, currency: currency, locale: locale))
     }
 
     /// What it is, for lists and the next one: "300.000 €", "10 years of
     /// spending", "Half of what retiring today needs", "The crossover".
-    func name(_ milestone: Milestone) -> String {
+    func name(_ milestone: Milestone) -> AmountSentence {
         switch milestone.kind {
         case .roundAmount:
-            return hidesAmounts ? "A round amount" : amount(milestone.amount)
+            return amount(milestone.amount)
         case .yearsOfSpending(let years):
-            return years == 1 ? "A year of spending" : "\(years) years of spending"
+            return AmountSentence(years == 1 ? "A year of spending" : "\(years) years of spending")
         case .shareOfNeeded(let numerator, let denominator):
-            return Self.shareName(numerator, denominator) + " of what retiring today needs"
+            return AmountSentence(Self.shareName(numerator, denominator) + " of what retiring today needs")
         case .crossover:
             return "The crossover"
         case .coastPoint:
@@ -178,14 +179,14 @@ struct PlanMilestoneText {
 
     /// Its name on a graph, short: "300.000 €", "10 years of spending", "A
     /// quarter of what you need", "Crossover", "Coast point".
-    func label(_ milestone: Milestone) -> String {
+    func label(_ milestone: Milestone) -> AmountSentence {
         switch milestone.kind {
         case .roundAmount:
-            return hidesAmounts ? "A round amount" : amount(milestone.amount)
+            return amount(milestone.amount)
         case .yearsOfSpending(let years):
-            return years == 1 ? "A year of spending" : "\(years) years of spending"
+            return AmountSentence(years == 1 ? "A year of spending" : "\(years) years of spending")
         case .shareOfNeeded(let numerator, let denominator):
-            return Self.shareName(numerator, denominator) + " of what you need"
+            return AmountSentence(Self.shareName(numerator, denominator) + " of what you need")
         case .crossover:
             return "Crossover"
         case .coastPoint:
@@ -196,23 +197,22 @@ struct PlanMilestoneText {
     /// Under the next milestone: the amount its name doesn't say, and when
     /// the median future typically reaches it: "180.000 € · typically by
     /// late 2028", "Typically by mid 2027"; `nil` with neither.
-    func caption(_ next: NextMilestone, date: CalendarDate?) -> String? {
-        var parts: [String] = []
+    func caption(_ next: NextMilestone, date: CalendarDate?) -> AmountSentence? {
+        var parts: [AmountSentence] = []
         switch next.milestone.kind {
         case .roundAmount, .coastPoint:
             break
         case .yearsOfSpending, .shareOfNeeded, .crossover:
             parts.append(amount(next.milestone.amount))
         }
-        if let date { parts.append("typically by \(Self.when(date))") }
+        if let date { parts.append(AmountSentence("typically by \(Self.when(date))")) }
         guard !parts.isEmpty else { return nil }
-        let text = parts.joined(separator: " · ")
-        return text.capitalizedFirst
+        return parts.joined(separator: " · ").capitalizedFirst
     }
 
     /// What it means, under its name: "Enough to pay for 10 years of the
     /// spending you plan for retirement: 360.000 €."
-    func detail(_ milestone: Milestone) -> String? {
+    func detail(_ milestone: Milestone) -> AmountSentence? {
         switch milestone.kind {
         case .roundAmount:
             return nil
@@ -244,13 +244,13 @@ struct PlanMilestoneText {
     /// Milestones*: "Your plan assets passing 10.000 €, 15.000 €, 20.000 €,
     /// 25.000 € and on, each about a quarter above the last: simple marks of
     /// the money growing."
-    func meaning(of kind: PlanMilestoneKind, in milestones: PlanMilestones) -> String {
+    func meaning(of kind: PlanMilestoneKind, in milestones: PlanMilestones) -> AmountSentence {
         switch kind {
         case .roundAmount:
             let lowest = MilestoneLadder.roundFloor
             let first = MilestoneLadder.roundAmounts(in: lowest...(lowest * 5 / 2))
-            let amounts = hidesAmounts ? "round amounts" : first.map { amount($0) }.joined(separator: ", ") + " and on"
-            return "Your plan assets passing \(amounts), each about a quarter above the last: "
+            let amounts = first.map { amount($0) }.joined(separator: ", ")
+            return "Your plan assets passing \(amounts) and on, each about a quarter above the last: "
                 + "simple marks of the money growing."
         case .yearsOfSpending:
             guard let spending = milestones.ladder.spending else {
@@ -265,9 +265,9 @@ struct PlanMilestoneText {
                 + "from there, markets do more than your saving."
             guard let crossover = milestones.ladder.crossover
                 ?? milestones.latestReached(.crossover)?.milestone.amount else {
-                return "Where " + growth
+                return AmountSentence("Where " + growth)
             }
-            return "From about \(amount(crossover)), " + growth
+            return "From about \(amount(crossover)), " + AmountSentence(growth)
         case .coastPoint:
             let reachedAge = milestones.coastPointReached.flatMap { reached -> Int? in
                 guard case .coastPoint(let age) = reached.milestone.kind else { return nil }
@@ -282,17 +282,17 @@ struct PlanMilestoneText {
 
     /// The sentence when a check-in reaches it: "Passed 300.000 €.",
     /// "Halfway to what retiring today needs."
-    func reached(_ milestone: Milestone) -> String {
+    func reached(_ milestone: Milestone) -> AmountSentence {
         switch milestone.kind {
         case .roundAmount:
-            return hidesAmounts ? "Passed a round amount." : "Passed \(amount(milestone.amount))."
+            return "Passed \(amount(milestone.amount))."
         case .yearsOfSpending(let years):
             let span = years == 1 ? "a year" : "\(years) years"
             return "Enough for \(span) of the spending you plan for retirement."
         case .shareOfNeeded(let numerator, let denominator):
             if numerator == denominator { return "All that retiring today needs: you could stop." }
             if numerator * 2 == denominator { return "Halfway to what retiring today needs." }
-            return Self.shareName(numerator, denominator) + " of what retiring today needs."
+            return AmountSentence(Self.shareName(numerator, denominator) + " of what retiring today needs.")
         case .crossover:
             return "A typical year now adds more than you save."
         case .coastPoint(let age):
@@ -303,7 +303,7 @@ struct PlanMilestoneText {
     /// The milestone in a year's row of words, where the Milestones card
     /// beside it explains the coast point: as ``reached(_:)``, but "Passed
     /// the coast point: 67."
-    func reachedInRow(_ milestone: Milestone) -> String {
+    func reachedInRow(_ milestone: Milestone) -> AmountSentence {
         if case .coastPoint(let age) = milestone.kind { return "Passed the coast point: \(age)." }
         return reached(milestone)
     }

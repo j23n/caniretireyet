@@ -55,7 +55,8 @@ struct PlanSettingRow: Hashable, Identifiable {
     var kind: Kind
     var title: String
     var subtitle: String?
-    var value: String
+    /// Its value: an amount hides with the eye.
+    var value: AmountSentence
     var opens: Opens
     var issues: [PlanIssue] = []
 }
@@ -89,7 +90,7 @@ enum PlanChapterSettings {
                                    opens: .sheet(.item(item))),
                     PlanSettingRow(id: "flexible-spending", symbol: "arrow.down.right", kind: .spending,
                                    title: "Flexible spending", subtitle: "Spending less after bad years",
-                                   value: flexible ?? "Off", opens: .sheet(.flexibleSpending)),
+                                   value: AmountSentence(flexible ?? "Off"), opens: .sheet(.flexibleSpending)),
                 ]
             case .spendingPhase(let index):
                 guard plan.spending.phases.indices.contains(index) else { return [] }
@@ -133,7 +134,7 @@ enum PlanChapterSettings {
                 guard plan.contributions.indices.contains(index) else { return [] }
                 let contribution = plan.contributions[index]
                 let subtitle: String
-                let value: String
+                let value: AmountSentence
                 if let amount = contribution.amount {
                     subtitle = contribution.year.map { "Once, in \(String($0))" } ?? "Once"
                     value = words.amount(amount)
@@ -159,9 +160,8 @@ enum PlanChapterSettings {
                 if event.effectiveProbability < 1 {
                     subtitle += " · \(words.percent(event.effectiveProbability)) likely"
                 }
-                let sign = event.amount > 0 && !words.hidesAmounts ? "+" : ""
                 return [PlanSettingRow(id: "event-\(index)", symbol: "calendar", kind: .event, title: event.name,
-                                       subtitle: subtitle, value: sign + words.amount(event.amount),
+                                       subtitle: subtitle, value: words.signedAmount(event.amount),
                                        opens: .sheet(.item(item)),
                                        issues: issues.issues(for: .events, index: index))]
             case .targetMix, .targetMixStep:
@@ -173,7 +173,7 @@ enum PlanChapterSettings {
                 let phrase = PlanChapterStory.mixPhrase(item, plan: plan, words: words)
                 return [PlanSettingRow(id: "mix-\(item)", symbol: "chart.pie", kind: .mix, title: title,
                                        subtitle: "The target mix",
-                                       value: phrase.capitalizedFirst,
+                                       value: AmountSentence(phrase.capitalizedFirst),
                                        opens: .sheet(.item(item)))]
             case .end:
                 return [PlanSettingRow(id: "end", symbol: "flag.checkered", kind: .end, title: "The plan ends at",
@@ -253,12 +253,11 @@ struct PlanSettingRowView: View {
                 }
                 .fixedSize(horizontal: false, vertical: true)
                 Spacer(minLength: Metrics.s)
-                Text(row.value)
+                AmountSentenceText(row.value)
                     .font(.subheadline)
                     .monospacedDigit()
                     .foregroundStyle(canEdit ? Palette.accent : Palette.secondaryInk)
                     .multilineTextAlignment(.trailing)
-                    .privacySensitive()
                 Image(systemName: "chevron.right")
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(Palette.mutedInk)

@@ -111,12 +111,3 @@ extension View {
         }
     }
 }
-
-extension RedactionReasons {
-    /// Whether the widget is drawn with amounts hidden: on a locked device,
-    /// where WidgetKit asks for a private version. Amounts become `•••••`
-    /// and changes show in per cent, as with the app's eye button.
-    var hidesAmounts: Bool {
-        contains(.privacy)
-    }
-}

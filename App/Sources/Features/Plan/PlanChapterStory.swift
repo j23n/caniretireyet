@@ -5,12 +5,20 @@ import Tracker
 
 /// A chapter in words (UI.md, "Plan"): what happens in it, its values
 /// marked; what a month looks like; and, once calculated, what can go
-/// wrong. Amounts are a month's, in today's money, from the plan's yearly ones.
+/// wrong. Amounts are a month's, in today's money, from the plan's yearly
+/// ones, and hide with the eye (``AmountSentence``).
 struct PlanChapterStory: Hashable, Sendable {
     /// A piece of a sentence: words, or a value, which reads in bold.
     enum Run: Hashable, Sendable {
-        case text(String)
-        case value(String)
+        case text(AmountSentence)
+        case value(AmountSentence)
+
+        /// Its words and amounts.
+        var sentence: AmountSentence {
+            switch self {
+            case .text(let sentence), .value(let sentence): sentence
+            }
+        }
     }
 
     /// A month's money in a chapter, as one bar of parts.
@@ -40,11 +48,11 @@ struct PlanChapterStory: Hashable, Sendable {
         var segments: [Segment]
         /// The words under it: "Pay 4.500 € · spend 3.000 €" on the left,
         /// "save 1.500 €" on the right in the colour of `trailingRole`.
-        var leading: String
-        var trailing: String
+        var leading: AmountSentence
+        var trailing: AmountSentence
         var trailingRole: Role?
         /// What it shows, for VoiceOver.
-        var label: String
+        var label: AmountSentence
 
         var total: Double { segments.reduce(0) { $0 + $1.value } }
     }
@@ -94,7 +102,8 @@ extension PlanChapterStory {
                 sentences.append(sentence)
             } else {
                 let name = plan.workName(index)
-                sentences.append([.text("Your pay after tax as "), .value(name), .text(" isn't set yet.")])
+                sentences.append([.text("Your pay after tax as "), .value(AmountSentence(name)),
+                                  .text(" isn't set yet.")])
             }
         case .working:
             break
@@ -122,16 +131,16 @@ extension PlanChapterStory {
             for case .spendingPhase(let index) in chapter.items where plan.spending.phases.indices.contains(index) {
                 let phase = plan.spending.phases[index]
                 sentences.append([.text("From \(phase.fromAge) you spend "),
-                                  .value(words.percent(phase.factor)),
+                                  .value(AmountSentence(words.percent(phase.factor))),
                                   .text(" of that: \(words.monthly(plan.spending.retired * phase.factor)) a month.")])
             }
             for case .pension(let index) in chapter.items where plan.pensions.indices.contains(index) {
                 let pension = plan.pensions[index]
                 let name = plan.pensionName(index)
-                let amount = pension.perYear.map { words.monthly($0) } ?? "an amount to enter"
+                let amount: AmountSentence = pension.perYear.map { words.monthly($0) } ?? "an amount to enter"
                 let age = pension.fromAge.map { "\($0)" } ?? "an age to enter"
-                sentences.append([.value(name), .text(" pays "), .value(amount), .text(" a month from "), .value(age),
-                                  .text(".")])
+                sentences.append([.value(AmountSentence(name)), .text(" pays "), .value(amount),
+                                  .text(" a month from "), .value(AmountSentence(age)), .text(".")])
             }
         }
         for case .income(let index) in chapter.items where plan.income.indices.contains(index) {
@@ -142,7 +151,7 @@ extension PlanChapterStory {
                 where plan.contributions.indices.contains(index) && !plan.contributions[index].isOneOff {
                 let contribution = plan.contributions[index]
                 sentences.append([.value(words.monthly(contribution.perYear)), .text(" a month goes into "),
-                                  .value(model.accountName(contribution.account)), .text(".")])
+                                  .value(AmountSentence(model.accountName(contribution.account))), .text(".")])
             }
         }
         for case .contribution(let index) in chapter.items
@@ -150,7 +159,8 @@ extension PlanChapterStory {
             let contribution = plan.contributions[index]
             sentences.append([.text("In \(contribution.year ?? chapter.years.lowerBound) you put "),
                               .value(words.amount(contribution.amount ?? 0)),
-                              .text(" into "), .value(model.accountName(contribution.account)), .text(".")])
+                              .text(" into "), .value(AmountSentence(model.accountName(contribution.account))),
+                              .text(".")])
         }
         for case .event(let index) in chapter.items where plan.events.indices.contains(index) {
             sentences.append(eventSentence(plan.events[index], words: words,
@@ -170,14 +180,14 @@ extension PlanChapterStory {
     /// "[Rent] pays [800 €] a month from 57 until 65.", "[Part-time] pays
     /// [1.500 €] a month from when you stop working until 60."
     static func incomeSentence(_ income: PlanIncome, name: String, words: PlanWords) -> [Run] {
-        let amount = income.perYear.map { words.monthly($0) } ?? "an amount to enter"
+        let amount: AmountSentence = income.perYear.map { words.monthly($0) } ?? "an amount to enter"
         let from: String = switch income.from {
         case .age(let age): " a month from \(age)"
         case .retirement: " a month from when you stop working"
         case nil: " a month"
         }
         let until = income.untilAge.map { " until \($0)" } ?? ""
-        return [.value(name), .text(" pays "), .value(amount), .text(from + until + ".")]
+        return [.value(AmountSentence(name)), .text(" pays "), .value(amount), .text(AmountSentence(from + until + "."))]
     }
 
     /// "In [2031] you spend [25.000 €] on [New car].", "At [62] you may
@@ -195,15 +205,17 @@ extension PlanChapterStory {
         }
         let likely = event.effectiveProbability < 1
         if event.amount < 0 {
-            sentence += [.text(" you spend "), .value(words.amount(-event.amount)), .text(" on "), .value(event.name)]
+            sentence += [.text(" you spend "), .value(words.amount(-event.amount)), .text(" on "),
+                         .value(AmountSentence(event.name))]
         } else {
             sentence += [.text(likely ? " you may receive " : " you receive "), .value(words.amount(event.amount)),
-                         .text(" from "), .value(event.name)]
+                         .text(" from "), .value(AmountSentence(event.name))]
         }
         if likely {
-            sentence += [.text(", "), .value(words.percent(event.effectiveProbability)), .text(" likely")]
+            sentence += [.text(", "), .value(AmountSentence(words.percent(event.effectiveProbability))),
+                         .text(" likely")]
             if event.amount > 0, let without, earliest != nil {
-                sentence.append(.text("; " + withoutSentence(without, earliest: earliest)))
+                sentence.append(.text(AmountSentence("; " + withoutSentence(without, earliest: earliest))))
             }
         }
         sentence.append(.text("."))

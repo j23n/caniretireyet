@@ -37,6 +37,14 @@ enum QuantityFormat {
         return number + " " + unit
     }
 
+    /// ``quantity(_:unit:locale:)`` with the number an amount, which hides
+    /// with the eye; the unit stays: `▅▅▅ BTC`.
+    static func quantitySentence(_ value: Decimal, unit: String?, locale: Locale = .current) -> AmountSentence {
+        let number = AmountSentence.amount(quantity(value, locale: locale))
+        guard let unit, !unit.isEmpty else { return number }
+        return "\(number) \(unit)"
+    }
+
     /// A change in quantity with its sign: `+10,5`, `−0,00012`; zero has none.
     static func quantityChange(_ change: Decimal, locale: Locale = .current) -> String {
         let number = quantity(abs(change), locale: locale)
@@ -100,17 +108,18 @@ enum QuantityFormat {
 
     // MARK: Together
 
-    /// `0,10383916 BTC × 73.785,11 €`; the quantity alone without a price.
-    static func quantityTimesPrice(_ quantity: String, price: Decimal?, currency: CurrencyCode?,
-                                   locale: Locale = .current) -> String {
-        guard let price, let currency else { return quantity }
-        return quantity + " × " + unitPrice(price, currency: currency, locale: locale)
-    }
-
     /// A label and its value as one piece of text, so they wrap together:
     /// "Average cost 101.437,74 €". The label's own words stay on one line,
     /// so a line too narrow for both breaks between the label and the value.
     static func labelled(_ label: String, _ value: String) -> String {
         label.replacingOccurrences(of: " ", with: "\u{00A0}") + " " + value
+    }
+
+    /// ``labelled(_:_:)`` with an amount as the value, which hides with the
+    /// eye: "Cash 1.234,56".
+    static func labelled(_ label: String, amount: String) -> AmountSentence {
+        var text = AmountSentence(labelled(label, ""))
+        text.append(amount: amount)
+        return text
     }
 }

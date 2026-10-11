@@ -374,16 +374,16 @@ enum CheckInReviewDisplay {
     /// A changed account's line under its name: "New money +1.200 €",
     /// "Contributions +1.325 €", "New money unknown", and for a trades
     /// account as its trades say "New money +1.450 € · from trades". In the
-    /// account's currency.
+    /// account's currency; the amount hides with the eye.
     static func flowLine(_ reviewed: CheckInRowReview, kind: AccountKind?, currency: CurrencyCode,
-                         followsTrades: Bool, hidesAmounts: Bool = false, locale: Locale = .current) -> String {
+                         followsTrades: Bool, locale: Locale = .current) -> AmountSentence {
         let title = CheckInWording.isPension(kind) ? "Contributions" : "New money"
-        let amount = reviewed.flow.map { flow in
-            hidesAmounts ? AmountFormat.hidden
-                : AmountFormat.signedAmount(flow, currency: currency, precision: .automatic, locale: locale)
-        } ?? "unknown"
-        let line = QuantityFormat.labelled(title, amount)
-        return followsTrades ? line + " · from trades" : line
+        var line = reviewed.flow.map { flow in
+            QuantityFormat.labelled(
+                title, amount: AmountFormat.signedAmount(flow, currency: currency, precision: .automatic, locale: locale))
+        } ?? AmountSentence(QuantityFormat.labelled(title, "unknown"))
+        if followsTrades { line += " · from trades" }
+        return line
     }
 }
 
@@ -638,41 +638,43 @@ enum CheckInWording {
     }
 
     /// A collapsed holdings row's summary: "0,4215 BTC" for one position,
-    /// "3 positions · quantities unchanged", "3 positions · 1 changed".
+    /// "3 positions · quantities unchanged", "3 positions · 1 changed". A
+    /// quantity hides with the eye.
     static func holdingsSummary(_ row: CheckInRow, instruments: [InstrumentID: Instrument],
-                                locale: Locale = .current) -> String {
+                                locale: Locale = .current) -> AmountSentence {
         let held = row.positions.filter { $0.quantity != 0 || $0.previousQuantity != 0 }
         if held.isEmpty {
-            return row.cash.map { _ in "Cash only" } ?? "No positions"
+            return AmountSentence(row.cash.map { _ in "Cash only" } ?? "No positions")
         }
         if held.count == 1, let position = held.first {
-            let quantity = self.quantity(position.quantity, instrument: instruments[position.instrument],
-                                         locale: locale)
+            let quantity = QuantityFormat.quantitySentence(
+                position.quantity, unit: QuantityFormat.unit(of: instruments[position.instrument]), locale: locale)
             return position.quantityChange == 0 ? quantity : quantity + " · changed"
         }
         let changed = held.count { $0.quantityChange != 0 }
         let count = "\(held.count) positions"
-        return changed == 0 ? count + " · quantities unchanged" : count + " · \(changed) changed"
+        return AmountSentence(changed == 0 ? count + " · quantities unchanged" : count + " · \(changed) changed")
     }
 
     /// A trades account's summary: "423 VWCE · from trades", "93,3 g · from
     /// trades", "3 positions · from trades", "Cash only · from trades", or
-    /// "No trades yet" when nothing is recorded before the date.
+    /// "No trades yet" when nothing is recorded before the date. A quantity
+    /// hides with the eye.
     static func tradesSummary(_ row: CheckInRow, instruments: [InstrumentID: Instrument],
-                              locale: Locale = .current) -> String {
+                              locale: Locale = .current) -> AmountSentence {
         guard let derived = row.derived else { return "No trades yet" }
         let held = derived.positions.filter { $0.quantity != 0 }
-        let what: String
+        let what: AmountSentence
         if held.isEmpty {
-            what = row.showsCash ? "Cash only" : "Nothing held"
+            what = AmountSentence(row.showsCash ? "Cash only" : "Nothing held")
         } else if held.count == 1, let position = held.first {
             // Shares by their ticker ("423 VWCE"), anything else by its unit ("93,3 g", "0,4215 BTC").
             let instrument = instruments[position.instrument]
             let unit = QuantityFormat.unit(of: instrument)
             let label = unit == nil || unit == "sh" ? instrumentLabel(position.instrument, instrument: instrument) : unit
-            what = QuantityFormat.quantity(position.quantity, unit: label, locale: locale)
+            what = QuantityFormat.quantitySentence(position.quantity, unit: label, locale: locale)
         } else {
-            what = "\(held.count) positions"
+            what = AmountSentence("\(held.count) positions")
         }
         return what + " · from trades"
     }
@@ -692,39 +694,38 @@ enum CheckInWording {
     }
 
     /// A trades account's cash, read-only: "Cash 1.234,56 · from trades".
-    /// `nil` when the account holds no cash (``CheckInRow/showsCash``).
-    static func tradeCash(_ row: CheckInRow, hidesAmounts: Bool = false, locale: Locale = .current) -> String? {
+    /// `nil` when the account holds no cash (``CheckInRow/showsCash``). The
+    /// amount hides with the eye.
+    static func tradeCash(_ row: CheckInRow, locale: Locale = .current) -> AmountSentence? {
         guard row.isTrades, row.showsCash else { return nil }
         let cash = row.cash ?? row.derived?.cash ?? 0
-        let amount = hidesAmounts ? AmountFormat.hidden : CheckInFieldFormat.plain(cash, locale: locale)
         let source = row.hasStatementCash ? "from a statement" : "from trades"
-        return QuantityFormat.labelled("Cash", amount) + " · " + source
+        return QuantityFormat.labelled("Cash", amount: CheckInFieldFormat.plain(cash, locale: locale)) + " · \(source)"
     }
 
     /// Under a cash from a statement: "From a statement · the trades give
     /// 312,30". `nil` for other rows, and when nothing is recorded yet.
-    static func statementCashNote(_ row: CheckInRow, hidesAmounts: Bool = false,
-                                  locale: Locale = .current) -> String? {
+    static func statementCashNote(_ row: CheckInRow, locale: Locale = .current) -> AmountSentence? {
         guard row.isTrades, let derived = row.derived?.cash else { return nil }
-        let amount = hidesAmounts ? AmountFormat.hidden : CheckInFieldFormat.plain(derived, locale: locale)
-        return "From a statement · the trades give " + amount
+        return "From a statement · the trades give \(amount: CheckInFieldFormat.plain(derived, locale: locale))"
     }
 
     /// A trades account's new money, read-only: "New money +1.200,00 · paid
     /// from outside", or with several parts "New money +1.400,60 · deposits
     /// +200,60 · paid from outside +1.200,00". `total` is the new money the
-    /// row writes. `nil` when it's zero with nothing to split.
-    static func tradeNewMoney(_ flow: CheckInTradeFlow, total: Decimal?, hidesAmounts: Bool = false,
-                              locale: Locale = .current) -> String? {
-        let parts = tradeFlowParts(flow, hidesAmounts: hidesAmounts, locale: locale)
+    /// row writes. `nil` when it's zero with nothing to split. The amounts
+    /// hide with the eye.
+    static func tradeNewMoney(_ flow: CheckInTradeFlow, total: Decimal?,
+                              locale: Locale = .current) -> AmountSentence? {
+        let parts = tradeFlowParts(flow, locale: locale)
         guard let total else {
-            return (["New money unknown"] + parts.map(\.text)).joined(separator: " · ")
+            return ([AmountSentence("New money unknown")] + parts.map(\.text)).joined(separator: " · ")
         }
         guard total != 0 || !parts.isEmpty else { return nil }
-        let amount = hidesAmounts ? AmountFormat.hidden : CheckInFieldFormat.plain(total, signed: true, locale: locale)
-        let lead = QuantityFormat.labelled("New money", amount)
+        let lead = QuantityFormat.labelled("New money",
+                                           amount: CheckInFieldFormat.plain(total, signed: true, locale: locale))
         if parts.count == 1, let part = parts.first, part.amount == total {
-            return lead + " · " + part.name
+            return lead + " · \(part.name)"
         }
         return ([lead] + parts.map(\.text)).joined(separator: " · ")
     }
@@ -732,9 +733,8 @@ enum CheckInWording {
     /// The parts of a trades account's new money: "deposits +200,60 · paid
     /// from outside +1.200,00 · cash difference +11,30". `nil` when all are
     /// zero or unknown.
-    static func tradeFlowDetail(_ flow: CheckInTradeFlow, hidesAmounts: Bool = false,
-                                locale: Locale = .current) -> String? {
-        let parts = tradeFlowParts(flow, hidesAmounts: hidesAmounts, locale: locale)
+    static func tradeFlowDetail(_ flow: CheckInTradeFlow, locale: Locale = .current) -> AmountSentence? {
+        let parts = tradeFlowParts(flow, locale: locale)
         return parts.isEmpty ? nil : parts.map(\.text).joined(separator: " · ")
     }
 
@@ -742,14 +742,13 @@ enum CheckInWording {
     private struct TradeFlowPart {
         var name: String
         var amount: Decimal?
-        var text: String
+        var text: AmountSentence
     }
 
-    private static func tradeFlowParts(_ flow: CheckInTradeFlow, hidesAmounts: Bool,
-                                       locale: Locale) -> [TradeFlowPart] {
+    private static func tradeFlowParts(_ flow: CheckInTradeFlow, locale: Locale) -> [TradeFlowPart] {
         func part(_ name: String, _ amount: Decimal) -> TradeFlowPart {
-            let shown = hidesAmounts ? AmountFormat.hidden : CheckInFieldFormat.plain(amount, signed: true, locale: locale)
-            return TradeFlowPart(name: name, amount: amount, text: QuantityFormat.labelled(name, shown))
+            let shown = CheckInFieldFormat.plain(amount, signed: true, locale: locale)
+            return TradeFlowPart(name: name, amount: amount, text: QuantityFormat.labelled(name, amount: shown))
         }
         var parts: [TradeFlowPart] = []
         let paidOutside = flow.trades.paidOutside

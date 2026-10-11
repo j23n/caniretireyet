@@ -20,9 +20,12 @@ struct PlanChapterStrip: View {
     var fillsWidth = false
 
     @Environment(\.baseCurrency) private var currency
-    @Environment(\.hidesAmounts) private var hidesAmounts
+    @Environment(\.redactionReasons) private var redactionReasons
     @Environment(\.dynamicTypeSize) private var typeSize
     @State private var stripWidth: CGFloat = 0
+
+    /// Whether amounts are hidden: VoiceOver doesn't read them.
+    private var hidesAmounts: Bool { redactionReasons.hidesAmounts }
 
     /// No card narrower: room for its name and the read-out.
     static let minimumWidth: CGFloat = 164
@@ -100,7 +103,6 @@ struct PlanChapterCardView: View {
     /// (``DynamicTypeSize/stripCardScale``).
     var textScale: CGFloat = 1
 
-    @Environment(\.hidesAmounts) private var hidesAmounts
     @Environment(\.locale) private var locale
 
     private static let labelWidth: CGFloat = 132
@@ -198,7 +200,7 @@ struct PlanChapterCardView: View {
         ZStack(alignment: .topLeading) {
             ForEach(placedEvents, id: \.event.id) { placed in
                 VStack(alignment: .leading, spacing: 0) {
-                    Text(placed.event.title)
+                    AmountSentenceText(placed.event.title)
                         .font(.caption.weight(.semibold))
                         .foregroundStyle(Palette.ink)
                     Text(placed.event.detail)
@@ -206,7 +208,6 @@ struct PlanChapterCardView: View {
                         .foregroundStyle(Palette.secondaryInk)
                 }
                 .lineLimit(1)
-                .privacySensitive()
                 .frame(width: labelWidth, alignment: .leading)
                 .offset(x: placed.x, y: plot.bottom + 26 * textScale)
             }
@@ -242,7 +243,7 @@ struct PlanChapterCardView: View {
     /// The milestones ahead in the chapter: the first and the last named,
     /// when their names don't run into each other; the rest small dots.
     private func marks(_ scale: PlanStripScale) -> [Mark] {
-        let text = PlanMilestoneText(currency: currency, hidesAmounts: hidesAmounts, locale: locale)
+        let text = PlanMilestoneText(currency: currency, locale: locale)
         var marks: [Mark] = card.milestones.compactMap { milestone in
             let day = milestone.date.dateValue
             return card.fan(on: day).map { Mark(milestone: milestone, point: plot.point(day, $0.p50, scale)) }
@@ -250,7 +251,7 @@ struct PlanChapterCardView: View {
         guard !marks.isEmpty else { return [] }
         /// Where a name and its flag reach, about: 6 points a letter.
         func reach(_ mark: Mark) -> ClosedRange<CGFloat> {
-            let width = CGFloat(max(text.label(mark.milestone.milestone).count, 10)) * 6
+            let width = CGFloat(max(text.label(mark.milestone.milestone).text.count, 10)) * 6
             let x = mark.point.x
             return mark.runsRight ? (x - 2)...(x + width) : (x - width)...(x + 10)
         }
@@ -268,11 +269,11 @@ struct PlanChapterCardView: View {
     /// The named milestones' names and when, above their flags (below
     /// when there's no room above), on the card's colour.
     private func milestoneLabels(_ scale: PlanStripScale) -> some View {
-        let text = PlanMilestoneText(currency: currency, hidesAmounts: hidesAmounts, locale: locale)
+        let text = PlanMilestoneText(currency: currency, locale: locale)
         return ForEach(marks(scale).filter(\.isNamed)) { mark in
             let above = mark.point.y - 44 >= plot.top - 6
             VStack(alignment: mark.runsRight ? .leading : .trailing, spacing: 0) {
-                Text(text.label(mark.milestone.milestone))
+                AmountSentenceText(text.label(mark.milestone.milestone))
                     .font(.caption2.weight(.semibold))
                     .foregroundStyle(Palette.ink)
                 Text(PlanMilestoneText.when(mark.milestone.date))
@@ -392,7 +393,7 @@ struct PlanChapterCardView: View {
                 ChartCalloutProjection(fan: fan, currency: currency)
             }
             if let milestone = found.milestone {
-                let text = PlanMilestoneText(currency: currency, hidesAmounts: hidesAmounts, locale: locale)
+                let text = PlanMilestoneText(currency: currency, locale: locale)
                 ChartCalloutMarker(text.name(milestone.milestone),
                                    detail: "Typically by \(PlanMilestoneText.when(milestone.date))") {
                     PlanGraphFlag()
@@ -536,7 +537,7 @@ struct PlanChapterCardView: View {
                     PlanChapterCardView(card: long, scale: scale, width: 352, height: 352, currency: currency,
                                         pointerX: 4)
                         .background(Palette.card, in: shape)
-                        .environment(\.hidesAmounts, true)
+                        .redacted(reason: .privacy)
                 }
             }
             .padding()
