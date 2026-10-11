@@ -509,6 +509,17 @@ struct SavingPaceTests {
         #expect(pace.byAccountInPace["current"]?.rounded(scale: 2) == 6_000)
     }
 
+    /// 7 months of +1 and 4 of −9 add up to less than nothing, though the
+    /// usual month is +1: the month taking out 500 is split as it was, and
+    /// the shares still add up to the pace.
+    @Test func whenTheUsualMonthsSavedNothingTheSharesStillAddUp() throws {
+        let flows: [Decimal] = [-500] + [Decimal](repeating: 1, count: 7) + [Decimal](repeating: -9, count: 4)
+        let pace = try #require(Valuator(library: library(flows: flows)).savingPace(asOf: "2026-09-30"))
+        #expect(pace.unusualMonths.map(\.end) == ["2026-09-30"])
+        #expect(pace.perYear == -28)
+        #expect(pace.byAccountInPace.values.reduce(Decimal(0), +) == -28)
+    }
+
     /// The range of the 12 months ending at each of the last month ends:
     /// with 1,500 in the oldest of 13 months, 12,000 to 12,500.
     @Test func theRangeOverThePastYear() throws {
