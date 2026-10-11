@@ -469,9 +469,13 @@ struct PlanChapterCardView: View {
     // in millions, beside the net-worth chart's callout over the same
     // projection; then a short chapter read at its right edge, and the long
     // one at its left edge with amounts hidden.
+    let library = PreviewLibrary.library
     let today = PreviewLibrary.latestCheckIn
-    let birthDate = PreviewLibrary.library.settings.person?.birthDate ?? "1988-05-14"
-    let currency = PreviewLibrary.library.settings.baseCurrency
+    let currency = library.settings.baseCurrency
+    // The example plan's chapters, for the ages and years the cards read.
+    let chapters = library.plans["base"].flatMap {
+        Planner.chapters(plan: $0, library: library, retirementAge: 54, today: today)
+    }?.chapters ?? []
     let fan = (0...16).map { year in
         let median = 600_000 * pow(1.06, Double(year))
         let spread = 0.12 * Double(year).squareRoot()
@@ -483,39 +487,44 @@ struct PlanChapterCardView: View {
                                             failureShare: 0)
     let rental = PlanTimeline.Event(id: "income-0", date: today.adding(years: 6).dateValue, kind: .pension,
                                     title: "Rental income", detail: "in \(today.year + 6)")
-    let long = PlanTimeline.Card(
-        index: 0, style: .working, title: "Employee", span: "Now to 54 · \(today.year) to \(today.year + 16)",
-        start: fan[0].date, end: fan[16].date, fan: fan, startLabel: "Now", endLabel: nil, ticks: [],
-        events: [rental], milestones: [], outcome: outcome, birthDate: birthDate)
-    let short = PlanTimeline.Card(
-        index: 1, style: .bridge, title: "Bridge", span: "52 to 54", start: fan[14].date, end: fan[16].date,
-        fan: Array(fan[14...16]), startLabel: "52", endLabel: "54", ticks: [], events: [], milestones: [],
-        outcome: outcome, birthDate: birthDate)
-    let scale = PlanStripScale(values: fan.flatMap { [$0.p25, $0.p50, $0.p75] })
-    let shape = RoundedRectangle(cornerRadius: 14, style: .continuous)
-    ScrollView([.horizontal, .vertical]) {
-        VStack(alignment: .leading, spacing: Metrics.l) {
-            HStack(alignment: .top, spacing: Metrics.l) {
-                PlanChapterCardView(card: long, scale: scale, width: 352, height: 352, currency: currency,
-                                    pointerX: 230)
-                    .background(Palette.card, in: shape)
-                Card("Plan assets, with the future") {
-                    NetWorthChart(history: [], projection: fan, title: "Plan assets",
-                                  readsDate: today.adding(years: 10).dateValue)
+    if let working = chapters.first,
+       let bridge = chapters.first(where: { $0.kind == .bridge }) ?? chapters.last {
+        let long = PlanTimeline.Card(
+            index: 0, style: .working, title: "Employee",
+            span: "Now to 54 · \(today.year) to \(today.year + 16)",
+            start: fan[0].date, end: fan[16].date, fan: fan, startLabel: "Now", endLabel: nil, ticks: [],
+            events: [rental], milestones: [], outcome: outcome, chapter: working)
+        let short = PlanTimeline.Card(
+            index: 1, style: .bridge, title: "Bridge", span: "52 to 54", start: fan[14].date, end: fan[16].date,
+            fan: Array(fan[14...16]), startLabel: "52", endLabel: "54", ticks: [], events: [], milestones: [],
+            outcome: outcome, chapter: bridge)
+        let scale = PlanStripScale(values: fan.flatMap { [$0.p25, $0.p50, $0.p75] })
+        let shape = RoundedRectangle(cornerRadius: 14, style: .continuous)
+        ScrollView([.horizontal, .vertical]) {
+            VStack(alignment: .leading, spacing: Metrics.l) {
+                HStack(alignment: .top, spacing: Metrics.l) {
+                    PlanChapterCardView(card: long, scale: scale, width: 352, height: 352, currency: currency,
+                                        pointerX: 230)
+                        .background(Palette.card, in: shape)
+                    Card("Plan assets, with the future") {
+                        NetWorthChart(history: [], projection: fan, title: "Plan assets",
+                                      readsDate: today.adding(years: 10).dateValue)
+                    }
+                    .frame(width: 380)
                 }
-                .frame(width: 380)
+                HStack(alignment: .top, spacing: Metrics.l) {
+                    PlanChapterCardView(card: short, scale: scale, width: PlanChapterStrip.minimumWidth,
+                                        height: 352, currency: currency,
+                                        pointerX: PlanChapterStrip.minimumWidth - 4)
+                        .background(Palette.card, in: shape)
+                    PlanChapterCardView(card: long, scale: scale, width: 352, height: 352, currency: currency,
+                                        pointerX: 4)
+                        .background(Palette.card, in: shape)
+                        .environment(\.hidesAmounts, true)
+                }
             }
-            HStack(alignment: .top, spacing: Metrics.l) {
-                PlanChapterCardView(card: short, scale: scale, width: PlanChapterStrip.minimumWidth, height: 352,
-                                    currency: currency, pointerX: PlanChapterStrip.minimumWidth - 4)
-                    .background(Palette.card, in: shape)
-                PlanChapterCardView(card: long, scale: scale, width: 352, height: 352, currency: currency,
-                                    pointerX: 4)
-                    .background(Palette.card, in: shape)
-                    .environment(\.hidesAmounts, true)
-            }
+            .padding()
         }
-        .padding()
+        .background(Palette.page)
     }
-    .background(Palette.page)
 }
