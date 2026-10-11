@@ -256,9 +256,14 @@ private struct CheckInTableRow: View {
                 }
                 cashLine
             } else if CheckInRowDisplay.showsMoneyInOut(row, in: library.library) {
-                moneyLine(.moneyIn(row.account), title: "Money in", value: row.moneyIn) { $0.setMoneyIn($1) }
+                moneyLine(.moneyIn(row.account), title: "Money in", value: row.moneyIn, prompt: "0,00") {
+                    $0.setMoneyIn($1)
+                }
+                // Empty, money out records nothing: it's unknown.
                 moneyLine(.moneyOut(row.account), title: "Money out",
-                          value: row.enteredMoneyOut ?? review?.valuation?.moneyOut) { $0.setMoneyOut($1) }
+                          value: row.enteredMoneyOut ?? review?.valuation?.moneyOut, prompt: "unknown") {
+                    $0.setMoneyOut($1)
+                }
             }
             Divider()
                 .padding(.leading, CheckInColumns.inset)
@@ -657,7 +662,7 @@ private struct CheckInTableRow: View {
     /// Money in or out of a cash or savings account, under its balance
     /// (PROGRESS.md, "Money in and out"). Money out follows money in and the
     /// change until it's typed.
-    private func moneyLine(_ field: CheckInField, title: LocalizedStringKey, value: Decimal?,
+    private func moneyLine(_ field: CheckInField, title: LocalizedStringKey, value: Decimal?, prompt: String,
                            set: @escaping (inout CheckInRow, Decimal?) -> Void) -> some View {
         CheckInTableLine {
             Color.clear
@@ -670,7 +675,7 @@ private struct CheckInTableRow: View {
             Color.clear
         } now: {
             CheckInNumberField(
-                field, focus: focus, isFocused: focused == field, value: value, prompt: "0,00",
+                field, focus: focus, isFocused: focused == field, value: value, prompt: prompt,
                 label: field.name(in: library.library), allowsEmpty: true, onSubmit: { onReturn(field) }
             ) { amount in
                 checkIn.updateRow(row.account) { set(&$0, amount) }
