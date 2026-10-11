@@ -26,7 +26,7 @@ struct PlanCardStrip<Leading: View, Graph: View, Footer: View>: View {
     let inset: CGFloat
     /// Whether it opens at its last card (today's year) rather than its first.
     let opensAtEnd: Bool
-    /// The strip's accessibility identifier, for the UI tests.
+    /// The strip's accessibility identifier.
     let identifier: String
     /// The money scale fitted to the cards at the indices given, of those
     /// there are.

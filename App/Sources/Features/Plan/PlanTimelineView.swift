@@ -101,7 +101,6 @@ struct PlanTimelineView: View {
             PlanTimelineHeadline(session: session, results: results, isWide: isWide, stacksPill: besideWhatIf,
                                  progress: progress, onShowProgress: onShowProgress, onWhatIf: onWhatIf)
                 .opacity(state.isRunning ? 0.5 : 1)
-                // The UI tests wait for the answer before their screenshot.
                 .accessibilityElement(children: .contain)
                 .accessibilityIdentifier("plan.answer")
         } else if !state.isRunning {

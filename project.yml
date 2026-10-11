@@ -71,7 +71,7 @@ targets:
       # App/Sources/DesignSystem/Palette.swift.
       - path: App/Resources
       # The tests' made-up example library, a folder in the app's bundle:
-      # the previews' and UI tests' library (App/Sources/Preview/PreviewLibrary.swift).
+      # the previews' and screen tests' library (App/Sources/Preview/PreviewLibrary.swift).
       - path: Sources/TestSupport/Resources/ExampleLibrary
         type: folder
         buildPhase: resources
@@ -201,18 +201,21 @@ targets:
       - package: CanIRetireYetKit
         product: Glance
 
-  # Opens each screen with a made-up library and keeps a screenshot of it
-  # (App/UITests; CI's "UI tests and screenshots" job).
-  CanIRetireYetUITests:
-    type: bundle.ui-testing
+  # Each screen with a made-up library, kept as a picture, and the plan's
+  # kept results (App/ScreenTests; `make screenshots`, App/README.md
+  # "Screenshots"). Unit tests that run inside the app and draw its windows
+  # themselves: no UI automation.
+  CanIRetireYetScreenTests:
+    type: bundle.unit-test
     platform: auto
     supportedDestinations: [iOS, macOS]
     sources:
-      - path: App/UITests
+      - path: App/ScreenTests
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: $(APP_BUNDLE_IDENTIFIER).uitests
-        TEST_TARGET_NAME: CanIRetireYet
+        PRODUCT_BUNDLE_IDENTIFIER: $(APP_BUNDLE_IDENTIFIER).screentests
+        TEST_HOST: $(BUILT_PRODUCTS_DIR)/CanIRetireYet.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/CanIRetireYet
+        BUNDLE_LOADER: $(TEST_HOST)
         IPHONEOS_DEPLOYMENT_TARGET: "26.0"
         MACOSX_DEPLOYMENT_TARGET: "26.0"
         TARGETED_DEVICE_FAMILY: "1,2"
@@ -231,6 +234,6 @@ schemes:
     test:
       config: Debug
       targets:
-        - CanIRetireYetUITests
+        - CanIRetireYetScreenTests
     archive:
       config: Release
