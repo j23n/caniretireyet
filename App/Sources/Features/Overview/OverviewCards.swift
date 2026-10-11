@@ -64,7 +64,7 @@ struct OverviewChangeCard: View {
 /// The hero says this year's change in per cent; this card leads with it
 /// in money ("▲ +18.240 € since 31 Dec 2025"), and in per cent while
 /// amounts are hidden. Under it, the savings rate over the money in and
-/// out recorded this year, when there is some.
+/// out recorded this year, when there is some (``OverviewYearText``).
 struct OverviewYearCard: View {
     /// Tracker's `Valuator.changeThisYear(asOf:)`.
     let report: ChangeReport
@@ -83,7 +83,7 @@ struct OverviewYearCard: View {
                     .font(.footnote)
                     .foregroundStyle(Palette.mutedInk)
                     .fixedSize(horizontal: false, vertical: true)
-                if let savings, let text = Self.savingsText(savings, today: report.to, locale: locale) {
+                if let savings, let text = OverviewYearText.savings(savings, today: report.to, locale: locale) {
                     AmountSentenceText(text)
                         .font(.subheadline)
                         .foregroundStyle(Palette.ink)
@@ -91,25 +91,6 @@ struct OverviewYearCard: View {
                 }
             }
         }
-    }
-
-    /// "Savings rate 17%: you kept 1.945 € of the 11.525 € that came in
-    /// since 30 Jun, with 1.325 € paid into pensions counted as both." The
-    /// amounts hide with the eye; the rate stays. `nil` when nothing came in.
-    static func savingsText(_ savings: SavingsRate, today: CalendarDate, locale: Locale) -> AmountSentence? {
-        guard let rate = savings.rate else { return nil }
-        let percent = AmountFormat.percent(rate, digits: 0, locale: locale)
-        let since = AmountFormat.shortDate(savings.from, relativeTo: today, locale: locale)
-        let currency = savings.moneyInOut.currency
-        func amount(_ value: Decimal) -> AmountSentence {
-            .amount(AmountFormat.amount(value, currency: currency, locale: locale))
-        }
-        var text: AmountSentence = "Savings rate \(percent): you kept \(amount(savings.saved)) of the "
-        text += "\(amount(savings.income)) that came in since \(since)"
-        if savings.pensionContributions > 0 {
-            text += ", with \(amount(savings.pensionContributions)) paid into pensions counted as both"
-        }
-        return text + "."
     }
 }
 

@@ -136,6 +136,36 @@ struct OverviewHistory: Hashable, Sendable {
     }
 }
 
+// MARK: - This year
+
+/// The words of the Overview's *This year* card (UI.md, "This year").
+enum OverviewYearText {
+    /// "Savings rate 17%: you kept 1.945 € of the 11.525 € that came in
+    /// since 30 Jun, with 1.325 € paid into pensions counted as both and
+    /// 1.950 € of loan principal repaid counted as kept." The amounts hide
+    /// with the eye; the rate stays. `nil` when nothing came in.
+    static func savings(_ savings: SavingsRate, today: CalendarDate, locale: Locale) -> AmountSentence? {
+        guard let rate = savings.rate else { return nil }
+        let percent = AmountFormat.percent(rate, digits: 0, locale: locale)
+        let since = AmountFormat.shortDate(savings.from, relativeTo: today, locale: locale)
+        let currency = savings.moneyInOut.currency
+        func amount(_ value: Decimal) -> AmountSentence {
+            .amount(AmountFormat.amount(value, currency: currency, locale: locale))
+        }
+        var text: AmountSentence = "Savings rate \(percent): you kept \(amount(savings.saved)) of the "
+        text += "\(amount(savings.income)) that came in since \(since)"
+        let pensions = savings.pensionContributions > 0
+        if pensions {
+            text += ", with \(amount(savings.pensionContributions)) paid into pensions counted as both"
+        }
+        if savings.principalRepaid > 0 {
+            text += pensions ? " and " : ", with "
+            text += "\(amount(savings.principalRepaid)) of loan principal repaid counted as kept"
+        }
+        return text + "."
+    }
+}
+
 // MARK: - Can I retire yet?
 
 /// The main plan's answer in the Overview's header (UI.md, "Can I retire
