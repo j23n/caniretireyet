@@ -31,6 +31,8 @@ struct PlanTrendsModel {
     let sources: PlanMoneySources
     /// The plan's answers in the span.
     let history: PlanAnswerHistory
+    /// *Year by year*: the calendar years in the span, newest first.
+    let years: [PlanYearGrade]
 
     /// What the model is worked out from.
     struct Key: Hashable {
@@ -49,11 +51,14 @@ struct PlanTrendsModel {
          asOf: CalendarDate) {
         let end = valuator.latestCheckIn(onOrBefore: asOf, in: .planAssets) ?? asOf
         let start = range.years.map { end.adding(years: -$0) }
-        sources = PlanMoneySources(valuator.moneySources(grain, through: end), grain: grain, from: start,
+        let allSources = valuator.moneySources(grain, through: end)
+        sources = PlanMoneySources(allSources, grain: grain, from: start,
                                    checkIns: valuator.checkInDates(in: .planAssets, through: end).count)
         history = PlanAnswerHistory(library.headlines(for: plan).filter { headline in
             start.map { headline.date >= $0 } ?? true
         })
+        years = PlanYearGrade.years(for: plan, library: library, valuator: valuator, sources: allSources,
+                                    from: start, through: end)
     }
 }
 
