@@ -277,20 +277,20 @@ public enum Planner {
     }
 
     /// `plan` saving at `pace` until retirement instead of as written
-    /// (PLANNER.md, "Continue as you have"): one work phase paying the
-    /// spending while working plus the pace, without growth, so each working
-    /// year saves the pace. What went into an account that opens at a later
-    /// age (`availableFromAge`), as a share of the pace
-    /// (`SavingPace.byAccountInPace`), is paid into it as a yearly
+    /// (PLANNER.md, "Continue as you have"): work phases from the start to
+    /// retirement paying the spending while working plus the pace, without
+    /// growth, so each working year saves the pace. What went into an
+    /// account that opens at a later age (`availableFromAge`), as a share of
+    /// the pace (`SavingPace.byAccountInPace`), is paid into it as a yearly
     /// contribution, and the rest is saved where the plan saves cash; what
     /// went into accounts the plan excludes isn't saved. An account the pace
     /// leaves out keeps the plan's contributions, which the income pays on
     /// top until they end; one-off contributions and events stay, as the
     /// pace leaves out unusual months. Other income and pensions paid at a
-    /// fixed age while working are already in the pace, so the phase splits
-    /// on each day one of these starts or stops, and each part earns what it
-    /// needs. A pace taking out more than the spending while working raises
-    /// that spending instead.
+    /// fixed age on the pace's last day are already in it, so the income is
+    /// that much less; one starting or stopping later changes the saving. A
+    /// pace taking out more than the spending while working raises that
+    /// spending instead.
     public static func plan(_ plan: PlanDocument, atPace pace: SavingPace, library: Library) -> PlanDocument {
         var plan = plan
         let excluded = Set(plan.portfolio.exclude)
@@ -305,16 +305,16 @@ public enum Planner {
         let from = min(plan.work.map(\.from).min() ?? pace.asOf, pace.asOf)
         // Saving into accounts the plan leaves out isn't the plan's.
         let saved = pace.perYear - excluded.reduce(Decimal(0)) { $0 + (pace.byAccountInPace[$1] ?? 0) }
-        // Other income and pensions paid while working reach the accounts, so
-        // the pace holds them, and the kept contributions are paid on top:
-        // each piece between the days one starts or stops earns that much
-        // less or more.
-        let inForce = paidWhileWorking(plan, contributions: kept, from: from,
-                                       birthDate: library.settings.person?.birthDate)
-        let starts = [from] + inForce.keys.filter { $0 > from }.sorted()
+        // Other income and pensions paid at the pace's end are in the pace:
+        // the income earns that much less, and income that starts or stops
+        // later changes the saving. The kept contributions are paid on top
+        // until they end, which splits the phase.
+        let paid = paidAtPace(plan, asOf: pace.asOf, birthDate: library.settings.person?.birthDate)
+        let onTop = contributionsOnTop(kept, from: from)
+        let starts = [from] + onTop.keys.filter { $0 > from }.sorted()
         let incomes = starts.map { start in
-            let paid = inForce.filter { $0.key <= start }.max { $0.key < $1.key }?.value ?? 0
-            return (plan.spending.working + saved - paid).rounded(scale: 0)
+            let top = onTop.filter { $0.key <= start }.max { $0.key < $1.key }?.value ?? 0
+            return (plan.spending.working + saved - paid + top).rounded(scale: 0)
         }
         // Taking out more than the spending while working: no income, and
         // that spending raised by the shortfall, so each part still saves
@@ -330,31 +330,35 @@ public enum Planner {
         return plan
     }
 
-    /// From each day one starts or stops, the other income and pensions paid
-    /// at a fixed age, and so possibly while working, less the yearly
-    /// `contributions` paid from `from` on.
-    private static func paidWhileWorking(_ plan: PlanDocument, contributions: [PlanContribution],
-                                         from: CalendarDate, birthDate: CalendarDate?) -> [CalendarDate: Decimal] {
-        var spans: [(from: CalendarDate, until: CalendarDate?, perYear: Decimal)] = []
-        if let birthDate {
-            for income in plan.income {
-                guard let age = income.from?.age, let perYear = income.perYear, perYear > 0 else { continue }
-                let until = income.untilAge.map { birthDate.adding(years: $0) }
-                spans.append((from: birthDate.adding(years: age), until: until, perYear: perYear))
-            }
-            for pension in plan.pensions {
-                guard let age = pension.fromAge, let perYear = pension.perYear, perYear > 0 else { continue }
-                spans.append((from: birthDate.adding(years: age), until: nil, perYear: perYear))
-            }
+    /// The other income and pensions at a fixed age that `plan` pays on
+    /// `asOf`.
+    private static func paidAtPace(_ plan: PlanDocument, asOf: CalendarDate, birthDate: CalendarDate?) -> Decimal {
+        guard let birthDate else { return 0 }
+        let income = plan.income.reduce(Decimal(0)) { total, income in
+            guard let age = income.from?.age, let perYear = income.perYear, perYear > 0,
+                  birthDate.adding(years: age) <= asOf,
+                  income.untilAge.map({ asOf < birthDate.adding(years: $0) }) ?? true
+            else { return total }
+            return total + perYear
         }
-        for contribution in contributions where !contribution.isOneOff && contribution.perYear > 0 {
-            let until = contribution.effectiveUntil.date.map { $0.adding(days: 1) }
-            spans.append((from: from, until: until, perYear: -contribution.perYear))
+        return plan.pensions.reduce(income) { total, pension in
+            guard let age = pension.fromAge, let perYear = pension.perYear, perYear > 0,
+                  birthDate.adding(years: age) <= asOf
+            else { return total }
+            return total + perYear
         }
-        let days = Set(spans.flatMap { [$0.from] + ($0.until.map { [$0] } ?? []) })
+    }
+
+    /// The yearly `contributions` paid from each day one starts or stops,
+    /// all starting on `from`.
+    private static func contributionsOnTop(_ contributions: [PlanContribution],
+                                           from: CalendarDate) -> [CalendarDate: Decimal] {
+        let spans = contributions.filter { !$0.isOneOff && $0.perYear > 0 }.map { contribution in
+            (until: contribution.effectiveUntil.date.map { $0.adding(days: 1) }, perYear: contribution.perYear)
+        }
         var paid: [CalendarDate: Decimal] = [:]
-        for day in days {
-            paid[day] = spans.filter { $0.from <= day && ($0.until.map { day < $0 } ?? true) }
+        for day in Set([from] + spans.compactMap(\.until)) {
+            paid[day] = spans.filter { span in span.until.map { day < $0 } ?? true }
                 .reduce(Decimal(0)) { $0 + $1.perYear }
         }
         return paid
