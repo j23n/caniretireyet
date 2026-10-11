@@ -172,7 +172,8 @@ struct AgesWithoutTests {
         #expect(atPace.work == [WorkPhase(from: "2025-12-31", until: .retirement, netIncome: 36_000)])
         #expect(atPace.spending.working == 30_000)
         #expect(atPace.income == planned.income && atPace.pensions == planned.pensions)
-        #expect(!Planner.validate(plan: atPace, library: library).contains(where: \.isError))
+        let errors = Planner.validate(plan: atPace, library: library).filter(\.isError)
+        #expect(errors.isEmpty)
     }
 
     /// Rent of 6,000 from 39, which started on 2025-11-15, is paid in 2 of
@@ -205,7 +206,8 @@ struct AgesWithoutTests {
         #expect(atPace.work.map(\.netIncome) == [0])
         #expect(atPace.spending.working == 36_000)
         #expect(atPace.contributions.isEmpty)
-        #expect(!Planner.validate(plan: atPace, library: library).contains(where: \.isError))
+        let errors = Planner.validate(plan: atPace, library: library).filter(\.isError)
+        #expect(errors.isEmpty)
     }
 
     /// Saving 12,000 a year, less than the plan's 15,000, and 24,000, more:
