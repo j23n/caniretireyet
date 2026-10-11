@@ -1144,6 +1144,11 @@ private struct AccountMoneyInOutRows: View {
                 .font(.footnote)
                 .foregroundStyle(Palette.secondaryInk)
         }
+        if !summary.isComplete {
+            Text(verbatim: "Values without an exchange rate to \(summary.currency.rawValue) are left out.")
+                .font(.footnote)
+                .foregroundStyle(Palette.secondaryInk)
+        }
     }
 }
 
