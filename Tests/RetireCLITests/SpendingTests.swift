@@ -1,7 +1,9 @@
 import Foundation
 import Model
+@testable import RetireCLI
 import Testing
 import TestSupport
+import Tracker
 
 /// `retire spending` against the example library, whose current account
 /// records money in and out from July to September 2026.
@@ -41,5 +43,13 @@ struct SpendingCommandTests {
         let year = await retire(["spending", "--year", "20260", "--library", library.path])
         #expect(year.status == 64)
         #expect(year.errors.contains("--year must be between 1 and 9999."))
+    }
+
+    @Test func saysWhatCouldNotBeConverted() {
+        let summary = MoneyInOutSummary(from: "2026-01-01", through: "2026-12-31", currency: .eur,
+                                        unconverted: ["usd-savings"])
+        let lines = SpendingCommand.Report(summary: summary, account: nil).lines()
+        #expect(lines.last == "Values without an exchange rate into EUR, left out: usd-savings.")
+        #expect(!lines.contains { $0.hasPrefix("Nothing recorded") })
     }
 }
