@@ -40,7 +40,7 @@ make build                              # the app for the iOS Simulator and the 
 | `Prices` | Price, FX and inflation-index providers | Model |
 | `Planner` | Simulation engine (docs/PLANNER.md): income after tax, two tax rates set by hand, no tax law | Model, Tracker |
 | `CloudSync` | iCloud container, file coordination, change watching; Apple-only code inside `#if canImport(Darwin)` | Model, Storage |
-| `Glance` | What the widgets show: a snapshot of net worth, the plan's answer and the next check-in, which the app writes into the App Group and the widget extension reads (`GlanceFile`); the countdown, deep links; the words the app's screens share with them (`GlanceText`: the confidence, months) | Model, Tracker |
+| `Glance` | What the widgets show: a snapshot of net worth, the plan's answer and the next check-in, which the app writes into the App Group and the widget extension reads (`GlanceFile`); the countdown, deep links; the words the app's screens share with them (`GlanceText`: the confidence, months); amounts in at most 6 digits for a chart's callout (`ShortAmount`) | Model, Tracker |
 | `TestSupport` | Test helpers and the made-up example library (`Fixtures`) — tests only, not a product; the app bundles the example library's folder for its previews and UI tests (`PreviewLibrary`) | Model |
 | `RetireCLI` | The `retire` commands (Swift Argument Parser), a library so `RetireCLITests` can run them | Model, Tracker, Storage, Importer, Planner, Prices |
 | `retire` | Command-line tool: the executable that starts `RetireCLI` | RetireCLI |
