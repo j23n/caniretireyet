@@ -206,7 +206,7 @@ In `Sources/TestSupport/Resources/ExampleLibrary/`:
 
 ## Settled questions
 
-The owner answered these before the sub-issues start.
+These were settled before the sub-issues start: 1 to 8 by the owner, 9 to 11 in review.
 
 1. **Where the migration converts snapshot accounts:** the steps come from the caller. `migrate(to:steps:date:)` already takes them. Storage's own step works on raw JSON: it drops `moneyInOut`, turns balance-recorded investment accounts into `other`, and sets the mode of a snapshot account that holds only balances to `balance`. The app and the CLI add a step that decodes the library and converts snapshot accounts with Tracker's `conversionToTrades(of:)`. Storage keeps depending only on Model.
 2. **Interest is stored:** an optional `interest` on the valuation (the schema and `knownKeys`). The flow is the change minus it, so correcting the value before keeps the interest and works the flow out again.
