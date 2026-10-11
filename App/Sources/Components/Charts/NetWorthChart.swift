@@ -75,6 +75,7 @@ struct NetWorthChart: View {
                     .measuringWidth($width)
                     .accessibilityChartDescriptor(summary)
             }
+            .privacySensitiveInFeedback()
         }
     }
 

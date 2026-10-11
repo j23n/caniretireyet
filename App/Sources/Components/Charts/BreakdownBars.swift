@@ -53,6 +53,7 @@ struct BreakdownBars: View {
                     .accessibilityElement(children: .combine)
                 }
             }
+            .privacySensitiveInFeedback()
         }
     }
 
