@@ -138,27 +138,26 @@ struct SavingPaceTests {
         #expect(pace.carriedForward.isEmpty)
     }
 
-    /// 500 into a savings account in October and November, then 30,000
-    /// in September: the 30,000 isn't spread back to November, only over
-    /// half as long again as the usual month between payments (from 16
-    /// Aug), so August and September stay unusual.
-    @Test func aOneOffLongAfterRegularPaymentsStaysAOneOff() throws {
-        var library = self.library(flows: [Decimal](repeating: 1_000, count: 12))
-        library.accounts["savings"] = Account(id: "savings", name: "Savings", kind: .savings, currency: .eur,
-                                              opened: "2020-01-01")
-        var balance: Decimal = 0
-        library.upsert(Valuation(account: "savings", date: "2025-09-30", balance: balance, flow: 0))
-        for back in (0..<12).reversed() {
-            let flow: Decimal = back == 0 ? 30_000 : back >= 10 ? 500 : 0
-            balance += flow
-            library.upsert(Valuation(account: "savings", date: SavingPace.monthEnd(back, before: "2026-09-30"),
-                                     balance: balance, flow: flow))
+    /// 500 into a savings account every quarter, then 30,000 in
+    /// September, or 20,000 taken out: neither is like the usual 500, so
+    /// it stays in September, which is unusual.
+    @Test func aOneOffAmongRegularPaymentsStaysInItsMonth() throws {
+        for oneOff: Decimal in [30_000, -20_000] {
+            var library = self.library(flows: [Decimal](repeating: 1_000, count: 12))
+            library.accounts["savings"] = Account(id: "savings", name: "Savings", kind: .savings,
+                                                  currency: .eur, opened: "2020-01-01")
+            var balance: Decimal = 50_000
+            library.upsert(Valuation(account: "savings", date: "2025-09-30", balance: balance, flow: 0))
+            for back in (0..<12).reversed() {
+                let flow: Decimal = back == 0 ? oneOff : back.isMultiple(of: 3) ? 500 : 0
+                balance += flow
+                library.upsert(Valuation(account: "savings", date: SavingPace.monthEnd(back, before: "2026-09-30"),
+                                         balance: balance, flow: flow))
+            }
+            let pace = try #require(Valuator(library: library).savingPace(asOf: "2026-09-30"))
+            #expect(pace.months.last?.newMoney == 1_000 + oneOff)
+            #expect(pace.unusualMonths.map(\.end) == ["2026-09-30"])
         }
-        let pace = try #require(Valuator(library: library).savingPace(asOf: "2026-09-30"))
-        #expect(pace.months.suffix(2).map(\.newMoney) == [11_000, 21_000])
-        #expect(pace.unusualMonths.map(\.end) == ["2026-08-31", "2026-09-30"])
-        #expect(pace.usualMonth == 1_000)
-        #expect(pace.perYear == 13_000)
     }
 
     /// A pension fund valued once a year, on 31 Mar, with 6,000 paid in:

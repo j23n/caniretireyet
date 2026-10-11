@@ -223,15 +223,18 @@ extension Valuator {
             // one before, and the first over as long as the time to the next,
             // but never over more than half as long again as the usual time
             // between payments, so a one-off long after the others stays a
-            // one-off. A trades account's deposits are dated, so they stay
+            // one-off. Only a payment like the usual one (above zero, at most
+            // twice their median) is spread back: a one-off stays in its
+            // check-in. A trades account's deposits are dated, so they stay
             // where they are.
             let firstRecord = firstRecordDate(of: account)
             let gaps = zip(payments, payments.dropFirst()).map { $0.0.to.days(to: $0.1.to) }.sorted()
             let regular = payments.count >= 3 && accounts[account]?.recordsTrades != true
             let longest = regular ? gaps[(gaps.count - 1) / 2] * 3 / 2 : 0
+            let usual = regular ? SavingPace.median(payments.map(\.amount)) : 0
             var spans: [(from: CalendarDate, to: CalendarDate, amount: Decimal)] = []
             for (number, payment) in payments.enumerated() {
-                guard regular else {
+                guard regular, usual > 0, payment.amount > 0, payment.amount <= 2 * usual else {
                     spans.append((payment.from, payment.to, payment.amount))
                     continue
                 }
