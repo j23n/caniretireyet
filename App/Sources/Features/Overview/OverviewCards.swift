@@ -351,7 +351,8 @@ struct OverviewAnswerView: View {
               let latest = PlanProgressYear.latestBaseline(for: plan.id, library: library.library,
                                                            valuator: library.valuator, asOf: library.asOfDate)
         else { return nil }
-        return OverviewBaselineGap(baseline: latest.entry.baseline, valuator: library.valuator, on: today)
+        return OverviewBaselineGap(baseline: latest.entry.baseline, library: library.library,
+                                   valuator: library.valuator, on: today)
     }
 
     /// "Yes", "Not yet · earliest at 54", or "Not yet" when no age works out.

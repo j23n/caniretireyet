@@ -137,11 +137,12 @@ struct OverviewHistory: Hashable, Sendable {
 
 // MARK: - Baseline
 
-/// How the accounts a baseline covers compare today with its median
-/// ("12.400 € ahead of your Jan baseline"; PROGRESS.md, "Actual vs. a
-/// baseline"). The median between year ends is interpolated linearly by
-/// day. Basic: amounts are compared as they are, in the base currency,
-/// without adjusting the baseline's money for inflation.
+/// How the accounts a baseline covers compare today with it ("On plan ·
+/// 12.400 € ahead of your Jan baseline"; PROGRESS.md, "Actual vs. a
+/// baseline"): as *Are you on track?* compares the latest check-in
+/// (``PlanBaselineComparison``), in money of the baseline's start where an
+/// inflation index allows, against its percentiles on the day
+/// (``Baseline/percentiles(on:)``).
 struct OverviewBaselineGap: Hashable, Sendable {
     /// When the baseline was saved: an automatic one, in the year it's for.
     var created: CalendarDate
@@ -154,25 +155,22 @@ struct OverviewBaselineGap: Hashable, Sendable {
     /// and those opened since (``Baseline/comparedAccounts(among:)``), less
     /// its median then: positive when ahead.
     var gap: Decimal
-    /// Where that total is among the baseline's futures on the date: ahead
-    /// above its 75th percentile, behind below its 25th, else on plan.
+    /// Where that total is among the baseline's futures on the date
+    /// (``PlanBaselineComparison/Position/standing``).
     var standing: PlanBaselineComparison.Standing
 
-    init?(baseline: Baseline, valuator: Valuator, on date: CalendarDate) {
+    init?(baseline: Baseline, library: Library, valuator: Valuator, on date: CalendarDate) {
         guard date > baseline.start.date, !baseline.accounts.isEmpty else { return nil }
-        let knots = PlanBaselineComparison.knots(of: baseline).sorted { $0.date < $1.date }
-        guard let upper = knots.firstIndex(where: { $0.date >= date }), upper > 0 else { return nil }
-        let from = knots[upper - 1]
-        let to = knots[upper]
-        let length = from.date.days(to: to.date)
-        guard length > 0 else { return nil }
-        let fraction = Decimal(from.date.days(to: date)) / Decimal(length)
-        let median = from.bands[2] + (to.bands[2] - from.bands[2]) * fraction
         let accounts = baseline.comparedAccounts(among: valuator.accounts)
-        let total = valuator.total(on: date, including: { accounts.contains($0.id) }).total
-        gap = total - median
-        let bands = (0..<5).map { (from.bands[$0] + (to.bands[$0] - from.bands[$0]) * fraction).doubleValue }
-        standing = PlanBaselineComparison.Standing(of: total.doubleValue, in: bands)
+        let total = valuator.total(on: date, including: { accounts.contains($0.id) })
+        let today = PlanActualSeries(values: [SeriesPoint(date: date, value: total.total, isComplete: total.isPriced)],
+                                     library: library, valuator: valuator, currency: library.settings.baseCurrency,
+                                     inMoneyOf: baseline.start.date)
+        guard let value = today.latest?.value,
+              let position = PlanBaselineComparison.position(of: value, on: date, in: baseline)
+        else { return nil }
+        gap = position.gap
+        standing = position.standing
         created = baseline.created
         start = baseline.start.date
         isPast = baseline.kind == .past
