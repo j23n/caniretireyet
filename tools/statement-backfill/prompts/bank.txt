@@ -1,0 +1,31 @@
+Below is page {page} of {pages} of a {institution} bank statement for account {account_number},
+period {period_start} to {period_end}, currency {currency}.
+
+Copy every transaction on this page, in the order printed, and the balances printed on it.
+
+Reply with:
+{
+  "openingBalance": string | null,  // only if this page prints the balance at the period's start
+  "closingBalance": string | null,  // only if this page prints the balance at the period's end
+  "transactions": [
+    {
+      "date": "YYYY-MM-DD",         // the booking date (Buchungstag, data contabile), not the value date
+      "description": string,
+      "amount": string,             // negative when money left the account, positive when it came in
+      "balanceAfter": string | null,// the running balance printed on this line, if any
+      "isInterest": boolean         // true only for interest the bank credited or charged
+    }
+  ]
+}
+
+Signs: many statements print debits and credits in separate columns, or mark them with
+"S"/"H", "-"/"+", "Dare"/"Avere" or "Debit"/"Credit". Money leaving the account is negative
+whatever the page's convention. A balance is negative only when the page shows it as
+overdrawn (a minus sign, "S", "Soll", "debitore").
+
+If the page has no transactions, reply with an empty list.
+
+Page:
+<<<
+{page_text}
+>>>

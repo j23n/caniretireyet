@@ -1,0 +1,9 @@
+{
+  "_comment": "Statement account numbers (IBAN, account or depot number, as printed; spaces don't matter) mapped to library account IDs. Point several numbers at one ID to merge them. Copy to accounts.json, which git ignores.",
+  "DE00 1234 5678 9012 3456 78": "current-account",
+  "DE00 8765 4321 0987 6543 21": "current-account",
+  "DE00 1111 2222 3333 4444 55": "savings",
+  "1234567890": "broker",
+  "9876543210": "broker",
+  "4111 **** **** 1111": "credit-card"
+}
