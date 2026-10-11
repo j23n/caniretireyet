@@ -451,7 +451,9 @@ struct BrokerSampleTests {
             == "8 new, 0 updated, 0 identical, 0 conflicts; 8 trades among them; 1 new account, 2 new instruments")
         let account = try #require(preview.newAccounts.first?.account)
         #expect(account.id == "fineco-titoli")
-        #expect(account.valuation == .trades)
+        // A brokerage account records trades by default, so the file needn't say so.
+        #expect(account.valuation == nil)
+        #expect(account.recordsTrades)
         #expect(account.kind == .brokerage)
         #expect(account.opened == "2026-01-08")
         #expect(preview.newInstruments.map(\.instrument.kind) == [.bond, .etf])
@@ -498,6 +500,23 @@ struct BrokerSampleTests {
         #expect(switched.library.trades(for: "conto-fineco").count == 8)
     }
 
+    /// Only an account that isn't brokerage, crypto or metals is offered the switch: one of those kinds that
+    /// doesn't record trades (a hand-edited `valuation`) has its trades left out, with an issue saying why.
+    @Test func aBrokerageAccountThatDoesntRecordTradesIsntOfferedTheSwitch() throws {
+        var library = try Fixtures.exampleLibrary()
+        library.accounts["directa"]?.valuation = .balance
+        let preview = try Self.session("fineco", account: "directa").preview(against: library)
+        #expect(preview.accountChanges.isEmpty)
+        #expect(preview.issues.filter { !$0.isNote }.map(\.description) == [
+            "directa is a brokerage, crypto or metals account that doesn't record trades, so its trades are left "
+                + "out. Remove its \"valuation\" so it records trades, as its kind does, then import again.",
+        ])
+        #expect(preview.leftOutRecords == 8)
+        let result = preview.apply(to: library)
+        #expect(result.skipped == 8)
+        #expect(result.library.trades(for: "directa") == library.trades(for: "directa"))
+    }
+
     @Test func degiro() throws {
         let library = try Fixtures.exampleLibrary()
         let session = try Self.session("degiro", account: "degiro")
@@ -528,7 +547,7 @@ struct BrokerSampleTests {
         var preview = session.preview(against: library)
         // The account column's name is new: matched to an account here.
         #expect(preview.newAccounts.map(\.account.id) == ["u0000000"])
-        #expect(preview.newAccounts.first?.account.valuation == .trades)
+        #expect(preview.newAccounts.first?.account.recordsTrades == true)
         session.match(account: "U0000000", to: "ibkr")
         preview = session.preview(against: library)
         #expect(preview.newAccounts.map(\.account.id) == ["ibkr"])

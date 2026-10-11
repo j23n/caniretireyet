@@ -42,6 +42,22 @@ public struct ImportIssue: Hashable, Sendable, CustomStringConvertible {
         case cashDirectionBySign(count: Int)
         /// A note, trades layout: `count` rows of types mapped to `ignore` were left out.
         case ignoredTradeRows(count: Int)
+        /// A brokerage, crypto or metals account that doesn't record trades
+        /// (its `valuation` says otherwise): its trades are left out. Only
+        /// an account of another kind is offered to switch.
+        case accountDoesntRecordTrades(AccountID)
+        /// A note: the quantities of an account that records trades became
+        /// trades: openings where nothing was held, then a buy or a sale per
+        /// change (IMPORT.md, "Quantities in a trades account").
+        /// `settledOutside`: the account has never held cash, so its buys
+        /// and sales are paid from and into another account.
+        case quantitiesAsTrades(AccountID, openings: Int, buys: Int, sales: Int, settledOutside: Bool)
+        /// A note: `count` buys or sales made from quantities have no price
+        /// on or before their date and no purchase cost, so their amounts are unknown.
+        case tradesWithoutPrice(AccountID, count: Int)
+        /// A note: `count` openings made from quantities have no purchase
+        /// cost and no price, so their cost is unknown.
+        case openingsWithoutCost(AccountID, count: Int)
     }
 
     public var kind: Kind
@@ -60,7 +76,7 @@ public struct ImportIssue: Hashable, Sendable, CustomStringConvertible {
     public var isNote: Bool {
         switch kind {
         case .positiveDebts, .debtsInCredit, .tradeAmountSigns, .negativeQuantities, .cashDirectionBySign,
-             .ignoredTradeRows: true
+             .ignoredTradeRows, .quantitiesAsTrades, .tradesWithoutPrice, .openingsWithoutCost: true
         default: false
         }
     }
@@ -112,6 +128,23 @@ public struct ImportIssue: Hashable, Sendable, CustomStringConvertible {
         case .ignoredTradeRows(let count):
             return count == 1 ? "1 row was left out: its type is mapped to ignore."
                 : "\(count) rows were left out: their types are mapped to ignore."
+        case .accountDoesntRecordTrades(let account):
+            return "\(account) is a brokerage, crypto or metals account that doesn't record trades, so its trades are "
+                + "left out. Remove its \"valuation\" so it records trades, as its kind does, then import again."
+        case .quantitiesAsTrades(let account, let openings, let buys, let sales, let settledOutside):
+            let trades = [(openings, "opening"), (buys, "buy"), (sales, "sale")].filter { $0.0 > 0 }
+                .map { Wording.count($0.0, $0.1) }
+            return "\(account) records trades, so its quantities became \(Wording.list(trades)): one per change in "
+                + "what it holds, at the date's price unless the file gives the purchase cost."
+                + (settledOutside && buys + sales > 0
+                    ? " It has never held cash, so its buys and sales are paid from and into another account." : "")
+        case .tradesWithoutPrice(let account, let count):
+            return "\(account): \(count == 1 ? "1 buy or sale has" : "\(count) buys or sales have") no price on or "
+                + "before \(count == 1 ? "its" : "their") date and no purchase cost: import the prices too, or add "
+                + "\(count == 1 ? "its amount" : "their amounts")."
+        case .openingsWithoutCost(let account, let count):
+            return "\(account): \(count == 1 ? "1 opening has" : "\(count) openings have") no purchase cost and no "
+                + "price, so \(count == 1 ? "its cost is" : "their costs are") unknown."
         }
     }
 }

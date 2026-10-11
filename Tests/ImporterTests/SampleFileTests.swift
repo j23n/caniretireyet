@@ -12,22 +12,33 @@ struct SampleFileTests {
         let preview = try ImportSession(data: Samples.data("italian-excel-1252.csv"), profile: profile)
             .preview(against: library)
 
-        #expect(preview.issues.isEmpty)
+        // The wallet records trades, and has never held cash: its quantities become trades paid from outside it.
+        #expect(preview.issues == [
+            ImportIssue(kind: .quantitiesAsTrades("ledger-wallet", openings: 0, buys: 1, sales: 1,
+                                                  settledOutside: true)),
+        ])
         #expect(preview.cellErrors.isEmpty)
         #expect(preview.newAccounts.isEmpty)
+        // It held 0.4215 BTC from its opening: 0.215 at the end of January is a sale, February is unchanged, and
+        // March's rise is a buy, which the library has on the date with another quantity.
         #expect(preview.statuses == [
             "conto-fineco on 2026-01-31": .identical, "conto-fineco on 2026-02-28": .identical,
             "conto-fineco on 2026-03-31": .identical,
             "directa on 2026-01-31": .conflict, "directa on 2026-02-28": .conflict, "directa on 2026-03-31": .conflict,
-            "ledger-wallet on 2026-01-31": .new, "ledger-wallet on 2026-02-28": .new,
-            // The wallet records trades: its value on the date has only cash, so the positions are added.
-            "ledger-wallet on 2026-03-31": .updated,
+            "ledger-wallet trade sell-btc on 2026-01-31": .new, "ledger-wallet trade buy-btc on 2026-03-31": .conflict,
             "gold-coins on 2026-01-31": .new, "gold-coins on 2026-02-28": .new, "gold-coins on 2026-03-31": .conflict,
         ])
-        let wallet = try #require(preview.record(.valuation("ledger-wallet", "2026-03-31")))
-        #expect(wallet.imported.positions == [ImportedPosition(instrument: "btc", quantity: d("0.2201"))])
-        #expect(wallet.cells == [ImportCellRef(row: 4, column: 4)])
-        #expect(preview.summary.undecidedConflicts == 4)
+        let sale = try #require(preview.record(.trade(TradeKey(account: "ledger-wallet", date: "2026-01-31",
+                                                                id: "sell-btc"))))
+        #expect(sale.imported.trade == Trade(account: "ledger-wallet", date: "2026-01-31", id: "sell-btc", type: .sell,
+                                             instrument: "btc", quantity: d("0.2065"), price: 101_300, currency: .usd,
+                                             source: .import, settlement: .external))
+        #expect(sale.cells == [ImportCellRef(row: 2, column: 4)])
+        let buy = try #require(preview.record(.trade(TradeKey(account: "ledger-wallet", date: "2026-03-31",
+                                                               id: "buy-btc"))))
+        #expect(buy.imported.trade?.quantity == d("0.0051"))
+        #expect(buy.cells == [ImportCellRef(row: 4, column: 4)])
+        #expect(preview.summary.undecidedConflicts == 5)
         #expect(preview.skippedRows.map(\.reason) == [.excluded(rule: "Totale")])
         #expect(preview.nameMatches.contains(NameMatch(name: "gold-coins", account: "gold-coins", method: .profile)))
     }
@@ -44,15 +55,17 @@ struct SampleFileTests {
         // The header names the instrument, but not which account holds it.
         #expect(preview.issues == [ImportIssue(kind: .missingField(.account), column: 4, header: "BTC (qtà)")])
         #expect(preview.newAccounts.map(\.account.id) == ["oro"])
-        #expect(preview.newAccounts.first?.account.kind == .metals)
+        // A balance says nothing about what's held: a metals account would record trades.
+        #expect(preview.newAccounts.first?.account.kind == .other)
+        #expect(preview.newAccounts.first?.account.valuationMode == .balance)
 
         session.setMapping(ImportColumn(target: .quantity, account: "ledger-wallet"), forColumn: 4)
         session.match(account: "Oro", to: "gold-coins")
         preview = session.preview(against: library)
-        #expect(preview.issues.isEmpty)
+        #expect(preview.issues.allSatisfy { $0.isNote })
         #expect(preview.newAccounts.isEmpty)
-        #expect(preview.record(.valuation("ledger-wallet", "2026-01-31"))?.imported.positions
-            == [ImportedPosition(instrument: "btc", quantity: d("0.215"))])
+        #expect(preview.record(.trade(TradeKey(account: "ledger-wallet", date: "2026-01-31", id: "sell-btc")))?
+            .imported.trade?.quantity == d("0.2065"))
         #expect(preview.nameMatches.contains(NameMatch(name: "Oro", account: "gold-coins", method: .remembered)))
         #expect(preview.nameMatches.contains(NameMatch(name: "BTC (qtà)", instrument: "btc", method: .existing)))
     }
@@ -70,7 +83,8 @@ struct SampleFileTests {
         let preview = session.preview(against: Library())
         let accounts = Dictionary(uniqueKeysWithValues: preview.newAccounts.map { ($0.account.id, $0.account) })
         #expect(accounts["checking"]?.kind == .cash)
-        #expect(accounts["brokerage"]?.kind == .brokerage)
+        // A balance column named like a brokerage account: brokerage accounts record trades.
+        #expect(accounts["brokerage"]?.kind == .other)
         #expect(accounts["credit-card"]?.kind == .creditCard)
         #expect(accounts.values.allSatisfy { $0.currency == .usd && $0.opened == date("2026-01-31") })
         #expect(preview.record(.valuation("credit-card", "2026-03-31"))?.imported.balance == d("-410.35"))

@@ -44,13 +44,19 @@ struct ImportCommand: RetireSubcommand {
             out. Records that differ from the library follow --on-conflict (default: the \
             profile's policy; undecided conflicts keep the library's values).
 
+            Quantities and purchase costs of an account that records trades (brokerage, crypto \
+            and metals accounts do) become trades: an opening, then a buy or a sale per change, \
+            at the date's price unless the file gives the purchase cost. An account's trades \
+            made this way are applied together, replacing the ones made from the file's dates \
+            before, only when each of their conflicts is overwritten; otherwise the library's stay.
+
             A broker's transactions export (a type column, quantities and prices) is read as \
             trades (--layout trades): each row one trade, with an ID made from its values, so \
             importing the file again adds nothing. Its type words are mapped to trade types \
             (Acquisto → buy, Dividend → dividend, …); map others with --type "Giroconto=deposit", \
             or "Word=ignore" to leave them out. Name the account with --account <id> when the \
-            file has no account column. An account that doesn't record trades is switched only \
-            with --accept-trades-mode; otherwise its trades are left out. --settlement external \
+            file has no account column. An account of another kind that doesn't record trades \
+            is switched only with --accept-trades-mode; otherwise its trades are left out. --settlement external \
             says the file's buys and sales were paid from another account (a dealer's invoices \
             paid from the bank): they leave the account's cash alone.
             """)
@@ -171,7 +177,8 @@ struct ImportCommand: RetireSubcommand {
     @Flag(help: "With --apply, close accounts whose values stop before the file's last date.")
     var acceptClosings = false
 
-    @Flag(help: "With --apply, make accounts the file has trades for record trades, if they don't.")
+    @Flag(help: ArgumentHelp("With --apply, make accounts the file has trades for record trades, if they don't "
+        + "(brokerage, crypto and metals accounts already do)."))
     var acceptTradesMode = false
 
     @Option(help: ArgumentHelp("Records that differ from the library: keep, overwrite or ask (kept). "

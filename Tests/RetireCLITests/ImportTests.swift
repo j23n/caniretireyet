@@ -205,6 +205,31 @@ struct ImportTests {
             + "Profiles: bank-sheet, directa-movimenti, net-worth-sheet."))
     }
 
+    /// Quantities of an account that records trades become trades: the wallet held 0.4515 BTC, so April's 0.5
+    /// is a buy and May's 0.4 a sale, paid from outside it, as it has never held cash.
+    @Test func quantitiesOfATradesAccountBecomeTrades() async throws {
+        let library = try TemporaryFolder.exampleLibrary()
+        try library.write("wallet.csv", "Data;Conto Fineco;Directa;BTC (qtà);Oro;Note\n30/04/2026;;;0,5;;\n"
+            + "31/05/2026;;;0,4;;\n")
+        let arguments = ["import", library.path + "/wallet.csv", "--library", library.path, "--profile",
+                         "net-worth-sheet", "--encoding", "utf-8"]
+        let dry = await runCLI(arguments)
+        #expect(dry.status == 0, "\(dry.all)")
+        #expect(dry.output.contains("Notes\n  ledger-wallet records trades, so its quantities became 1 buy and 1 "
+            + "sale: one per change in what it holds, at the date's price unless the file gives the purchase cost. "
+            + "It has never held cash, so its buys and sales are paid from and into another account.\n"),
+            "\(dry.output)")
+        #expect(dry.output.contains("Preview: 2 new, 0 updated, 0 identical, 0 conflicts; 2 trades among them\n"))
+        #expect(dry.output.contains("  2026-04-30  ledger-wallet trade buy-btc   buy 0.0485 btc @ "), "\(dry.output)")
+
+        let run = await runCLI(arguments + ["--apply"])
+        #expect(run.status == 0, "\(run.all)")
+        let loaded = try library.load()
+        #expect(loaded.heldQuantities(of: "ledger-wallet", on: "2026-04-30") == ["btc": d("0.5")])
+        #expect(loaded.heldQuantities(of: "ledger-wallet", on: "2026-05-31") == ["btc": d("0.4")])
+        #expect(loaded.trades(for: "ledger-wallet").allSatisfy { $0.type == .opening || $0.isSettledExternally })
+    }
+
     /// A month inserted between two check-ins: the later month's flows of
     /// the current and the savings account are worked out again from it,
     /// and undoing puts both months back.

@@ -27,9 +27,14 @@ public struct ImportResult: Hashable, Sendable {
     public var kept = 0
     /// Conflicts that were still undecided (`ask`), and so kept.
     public var undecided = 0
+    /// Trades removed: the library's trades that the trades made from
+    /// quantities replace and no longer make (``ImportRecordPreview/removesExisting``).
+    public var removed = 0
     /// Records already in the library.
     public var identical = 0
-    /// Records left out because their new account or instrument was rejected.
+    /// Records left out: their new account or instrument was rejected,
+    /// their trade's account doesn't record trades, or they're trades made
+    /// from quantities whose account keeps the library's.
     public var skipped = 0
     /// The library's valuations after the ones the import added or changed
     /// whose automatic flow was worked out again (``followedFlows(_:)``),
@@ -54,28 +59,51 @@ public struct ImportResult: Hashable, Sendable {
 
 extension ImportPreview {
     /// The records that applying leaves out as things stand: those of new
-    /// accounts and instruments that are rejected, and the trades of
-    /// accounts whose switch to recording trades is rejected.
+    /// accounts and instruments that are rejected, the trades of accounts
+    /// whose switch to recording trades is rejected, those of brokerage,
+    /// crypto and metals accounts that don't record trades
+    /// (``ImportIssue/Kind/accountDoesntRecordTrades(_:)``), and the new or
+    /// updated trades made from quantities of an account that keeps the
+    /// library's trades.
     public var leftOutRecords: Int {
         let accounts = Set(newAccounts.filter { !$0.isAccepted }.map(\.account.id))
         let instruments = Set(newInstruments.filter { !$0.isAccepted }.map(\.instrument.id))
         let notTrades = Set(accountChanges.filter { $0.recordsTrades && !$0.isAccepted }.map(\.account))
+            .union(issues.compactMap { issue in
+                if case .accountDoesntRecordTrades(let account) = issue.kind { account } else { nil }
+            })
+        let keepingTrades = accountsKeepingTheirTrades { $0.status == .conflict }
         return records.filter { record in
             if let account = record.imported.key.account, accounts.contains(account) { return true }
             if case .trade(let key) = record.imported.key, notTrades.contains(key.account) { return true }
+            if record.isFromQuantities, record.status == .new || record.status == .updated,
+               let account = record.imported.key.account, keepingTrades.contains(account) { return true }
             return record.imported.instruments.contains { instruments.contains($0) }
         }.count
+    }
+
+    /// The accounts whose trades made from quantities keep the library's:
+    /// one of their conflicts (`isConflict`) isn't overwritten.
+    private func accountsKeepingTheirTrades(_ isConflict: (ImportRecordPreview) -> Bool) -> Set<AccountID> {
+        Set(records.filter { $0.isFromQuantities && $0.resolution != .overwrite && isConflict($0) }
+            .compactMap(\.imported.key.account))
     }
 
     /// Applies the preview to `library` (normally the one it was made
     /// against) and returns the new library and what changed.
     ///
-    /// Accepted new accounts and instruments are created first, and accounts
-    /// switched to recording trades. Each record is compared with the library
-    /// again: new records are added, missing values filled in, and conflicts
-    /// overwritten or kept by their ``ImportRecordPreview/resolution``
-    /// (undecided ones are kept). A trade of an account that doesn't record
-    /// trades (a switch that was rejected) is left out. The other accepted
+    /// Accepted new accounts and instruments are created first (a new
+    /// account with trades records them, whatever its kind was edited to),
+    /// and accounts switched to recording trades. Each record is compared
+    /// with the library again: new records are added, missing values filled
+    /// in, and conflicts overwritten or kept by their
+    /// ``ImportRecordPreview/resolution`` (undecided ones are kept). An
+    /// account's trades made from quantities are one unit
+    /// (``ImportRecordPreview/isFromQuantities``): all are applied, and the
+    /// library's they no longer make removed, when each of their conflicts
+    /// is overwritten; otherwise none are, and the library's trades stay. A
+    /// trade of an account that doesn't record trades (a switch that was
+    /// rejected) is left out. The other accepted
     /// account changes come last (opening earlier moves `Account.opened`).
     /// Applying the same file twice changes nothing.
     ///
@@ -91,10 +119,15 @@ extension ImportPreview {
 
         let rejectedAccounts = Set(newAccounts.filter { !$0.isAccepted }.map(\.account.id))
         let rejectedInstruments = Set(newInstruments.filter { !$0.isAccepted }.map(\.instrument.id))
+        let withTrades = Set(records.filter(\.imported.key.isTrade).compactMap(\.imported.key.account))
         for proposal in newAccounts where proposal.isAccepted && library.accounts[proposal.account.id] == nil {
-            library.accounts[proposal.account.id] = proposal.account
-            result.createdAccounts.append(proposal.account.id)
-            changedAccounts.insert(proposal.account.id)
+            var account = proposal.account
+            if withTrades.contains(account.id) {
+                account.valuation = account.kind.defaultValuationMode == .trades ? nil : .trades
+            }
+            library.accounts[account.id] = account
+            result.createdAccounts.append(account.id)
+            changedAccounts.insert(account.id)
         }
         for proposal in newInstruments
         where proposal.isAccepted && library.instruments[proposal.instrument.id] == nil {
@@ -113,6 +146,16 @@ extension ImportPreview {
         let accounts = library.accounts
         let negativeDebtColumns = ImportedRecord.columnsWritingDebtsNegative(records.map(\.imported)) {
             accounts[$0]?.kind.isLiability ?? false
+        }
+        // Compared with the library as it is now, like each record below.
+        let keepingTrades = accountsKeepingTheirTrades { record in
+            let existing = library.record(for: record.imported.key)
+            return record.removesExisting ? existing != nil
+                : RecordMerge.evaluate(record.imported, existing: existing).status == .conflict
+        }
+        func keep(_ record: ImportRecordPreview) {
+            result.kept += 1
+            if record.resolution != .keep, record.resolution != .overwrite { result.undecided += 1 }
         }
         for record in records {
             if let account = record.imported.key.account, rejectedAccounts.contains(account)
@@ -137,7 +180,23 @@ extension ImportPreview {
                                          ?? false)
             }
             let existing = library.record(for: imported.key)
+            let keepsLibrary = record.isFromQuantities && imported.key.account.map(keepingTrades.contains) == true
+            if record.removesExisting, case .trade(let key) = imported.key {
+                if existing == nil {
+                    result.identical += 1
+                } else if keepsLibrary {
+                    keep(record)
+                } else if library.removeTradeRecord(key) != nil {
+                    result.removed += 1
+                    changedMonths.insert(key.date.yearMonth)
+                }
+                continue
+            }
             let outcome = RecordMerge.evaluate(imported, existing: existing)
+            if keepsLibrary, outcome.status == .new || outcome.status == .updated {
+                result.skipped += 1
+                continue
+            }
             var write: LibraryRecord?
             switch outcome.status {
             case .identical:
@@ -149,13 +208,12 @@ extension ImportPreview {
                 result.updated += 1
                 write = outcome.kept
             case .conflict:
-                if record.resolution == .overwrite {
+                if record.resolution == .overwrite, !keepsLibrary {
                     result.overwritten += 1
                     write = outcome.overwritten
                 } else {
-                    result.kept += 1
-                    if record.resolution != .keep { result.undecided += 1 }
-                    if outcome.kept != existing { write = outcome.kept }
+                    keep(record)
+                    if !keepsLibrary, outcome.kept != existing { write = outcome.kept }
                 }
             }
             if let write {

@@ -68,8 +68,14 @@ struct PreviewBuilder {
     /// Trades layout: whether the amount and gross columns write signed
     /// amounts, decided once from the rows kept (``readTradeTypes(_:)``).
     var tradeSigns = TradeSigns()
-    /// Trades layout: the trades, with the cells they came from.
+    /// Trades layout: the trades, with the cells they came from; also the
+    /// trades made from quantities (``convertQuantitiesToTrades(_:)``).
     var trades: [(record: ImportedRecord, cells: [ImportCellRef])] = []
+    /// The keys of the trades made from quantities.
+    var tradesFromQuantities: Set<ImportRecordKey> = []
+    /// The library's trades that the trades made from quantities replace
+    /// and no longer make, with the cells of their positions.
+    var removedTrades: [(trade: Trade, cells: [ImportCellRef])] = []
 
     var table: ImportTable { session.table }
     var profile: ImportProfile { session.profile }
@@ -310,7 +316,7 @@ struct PreviewBuilder {
 
     // MARK: - Matching and aggregation
 
-    private struct Accumulator {
+    struct Accumulator {
         var record: ImportedRecord
         var cells: [ImportCellRef] = []
         var sources: [RecordField: (value: Decimal, cell: ImportCellRef)] = [:]
@@ -463,6 +469,8 @@ struct PreviewBuilder {
 
     private mutating func compare(_ accumulators: [ImportRecordKey: Accumulator], into preview: inout ImportPreview) {
         let resolution = profile.effectiveOnConflict
+        var accumulators = accumulators
+        let converted = convertQuantitiesToTrades(&accumulators)
         var records: [ImportRecordPreview] = []
         for key in accumulators.keys.sorted() {
             var accumulator = accumulators[key]!
@@ -490,7 +498,14 @@ struct PreviewBuilder {
             let outcome = RecordMerge.evaluate(record, existing: existing)
             records.append(ImportRecordPreview(
                 imported: record, status: outcome.status, existing: existing, incoming: outcome.overwritten,
-                cells: cells.sorted(), resolution: resolution))
+                cells: cells.sorted(), resolution: resolution,
+                isFromQuantities: tradesFromQuantities.contains(record.key)))
+        }
+        for (trade, cells) in removedTrades {
+            records.append(ImportRecordPreview(
+                imported: ImportedRecord(key: .trade(trade.key)), status: .conflict, existing: .trade(trade),
+                incoming: .trade(trade), cells: cells.sorted(), resolution: resolution, isFromQuantities: true,
+                removesExisting: true))
         }
         records.sort { $0.imported.key < $1.imported.key }
         preview.records = records
@@ -499,13 +514,14 @@ struct PreviewBuilder {
         preview.firstDate = dates.min()
         preview.lastDate = dates.max()
         preview.newInstruments = instrumentProposals
+        // An account whose quantities became no trade, and kept no value, has nothing to import.
         let usedAccounts = Set(records.compactMap(\.imported.key.account))
         preview.newAccounts = accountProposals.filter { usedAccounts.contains($0.account.id) }
-        preview.accountChanges = accountChanges(records, lastDate: preview.lastDate,
+        preview.accountChanges = accountChanges(records, converted: converted, lastDate: preview.lastDate,
                                                 newAccounts: preview.newAccounts)
     }
 
-    private mutating func failCost(_ accumulator: Accumulator, _ instrument: InstrumentID) {
+    mutating func failCost(_ accumulator: Accumulator, _ instrument: InstrumentID) {
         guard let cell = accumulator.sources[.costBasis(instrument)]?.cell else { return }
         let raw = table.rows.first { $0.number == cell.row }?[cell.column] ?? ""
         fail(cell.row, cell.column, raw, .costWithoutQuantity)
@@ -514,17 +530,27 @@ struct PreviewBuilder {
     /// Accounts whose values stop before the file's last date are proposed
     /// as closed the day after their last non-zero value; accounts with
     /// values from before they opened are proposed to open earlier. Closing
-    /// an account and making it record trades are proposed unaccepted.
-    private mutating func accountChanges(_ records: [ImportRecordPreview], lastDate: CalendarDate?,
+    /// an account and making it record trades are proposed unaccepted; only
+    /// an account that isn't brokerage, crypto or metals is offered to
+    /// record trades, and one of those kinds that doesn't is an issue.
+    ///
+    /// `converted`: the records whose quantities became trades, as the file
+    /// gave them, which say when an account's values stop.
+    private mutating func accountChanges(_ records: [ImportRecordPreview], converted: [ImportedRecord],
+                                         lastDate: CalendarDate?,
                                          newAccounts: [AccountProposal]) -> [AccountChangeProposal] {
         guard let lastDate else { return [] }
         var byAccount: [AccountID: [ImportedRecord]] = [:]
         var tradesAccounts = Set<AccountID>()
-        for record in records {
-            if let account = record.imported.key.account { byAccount[account, default: []].append(record.imported) }
-            if case .trade(let key) = record.imported.key { tradesAccounts.insert(key.account) }
+        for record in records.map(\.imported) + converted {
+            if case .trade(let key) = record.key {
+                // Trades made from quantities are in `converted` as the file gave them.
+                guard profile.layout == .trades else { continue }
+                tradesAccounts.insert(key.account)
+            }
+            if let account = record.key.account { byAccount[account, default: []].append(record) }
         }
-        let imported = Set(records.map(\.imported.key))
+        let imported = Set(records.map(\.imported.key) + converted.map(\.key))
         var lastCells: [AccountID: CalendarDate] = [:]
         for (ref, date) in unreadValues {
             guard let id = matcher.resolvedAccount(ref) else { continue }
@@ -541,7 +567,11 @@ struct PreviewBuilder {
             if tradesAccounts.contains(id) {
                 // A broker's transactions say nothing about the account closing.
                 if library.accounts[id] != nil, !account.recordsTrades {
-                    changes.append(AccountChangeProposal(account: id, change: .recordTrades, isAccepted: false))
+                    if account.kind.isInvestment {
+                        issues.append(ImportIssue(kind: .accountDoesntRecordTrades(id)))
+                    } else {
+                        changes.append(AccountChangeProposal(account: id, change: .recordTrades, isAccepted: false))
+                    }
                 }
                 continue
             }

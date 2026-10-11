@@ -126,6 +126,7 @@ extension ImportFlow {
         if planned.overwritten > 0 {
             changes.append("overwrites \(Wording.count(planned.overwritten, "record"))")
         }
+        if planned.removed > 0 { changes.append("removes \(Wording.count(planned.removed, "trade"))") }
         var sentences = [changes.isEmpty ? "Importing changes no records."
             : "Importing \(Wording.list(changes))."]
         if planned.kept > 0 {
@@ -150,7 +151,7 @@ extension ImportFlow {
         }
         if planned.skipped > 0 {
             sentences.append(
-                "\(Wording.count(planned.skipped, "record")) left out with rejected accounts or instruments.")
+                "\(Wording.count(planned.skipped, "record")) left out.")
         }
         return sentences.joined(separator: " ")
     }
@@ -167,9 +168,13 @@ extension ImportFlow {
         editDecisions { $0.conflictPolicy = policy }
     }
 
-    /// Decides one conflict (while deciding one by one).
+    /// Decides one conflict (while deciding one by one), and those decided
+    /// with it: an account's trades made from quantities.
     mutating func setResolution(_ resolution: ConflictPolicy, for key: ImportRecordKey) {
-        editDecisions { $0.resolutions[key] = resolution }
+        let keys = preview?.conflicts(decidedWith: key) ?? [key]
+        editDecisions { decisions in
+            for key in keys { decisions.resolutions[key] = resolution }
+        }
     }
 
     /// Every conflict, with the library's values and the file's.
@@ -177,7 +182,9 @@ extension ImportFlow {
         (preview?.conflicts ?? []).map { record in
             ImportConflictRow(key: record.id, title: title(of: record.id, locale: locale),
                               existing: record.existing.map { describe($0, locale: locale) } ?? "—",
-                              incoming: describe(record.incoming, locale: locale), resolution: record.resolution)
+                              incoming: record.removesExisting ? "Removed"
+                                  : describe(record.incoming, locale: locale),
+                              resolution: record.resolution)
         }
     }
 

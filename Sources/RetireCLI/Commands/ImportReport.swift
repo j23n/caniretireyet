@@ -312,22 +312,19 @@ struct ImportReport: CommandReport {
                 let was = library.accounts[proposal.account].map { " (was \($0.opened))" } ?? ""
                 return "  Open \(proposal.account) on \(date), its first value\(was)"
             case .recordTrades:
-                return Self.recordTradesLine(proposal, apply: apply, library: library)
+                return Self.recordTradesLine(proposal, apply: apply)
             }
         }
     }
 
-    /// `Record trades in directa: its holdings will come from its trades (switched with --apply)`.
-    static func recordTradesLine(_ proposal: AccountChangeProposal, apply: Bool, library: Library) -> String {
+    /// `Record trades in conto-fineco: its holdings and cash will come from its trades, …`. Only an account
+    /// that isn't brokerage, crypto or metals is offered the switch, and it records a balance.
+    static func recordTradesLine(_ proposal: AccountChangeProposal, apply: Bool) -> String {
         let what = proposal.isAccepted ? (apply ? "switched" : "switched with --apply")
             : "not switched, so its trades are left out: pass --accept-trades-mode, or choose a trades account with "
                 + "--account"
-        let valuations = library.accounts[proposal.account]?.valuationMode == .balance
-            ? "the balances of its valuations won't count any more (switching it to trades in the app first keeps "
-                + "them, as cash)"
-            : "the positions of its valuations become checks"
-        return "  Record trades in \(proposal.account): its holdings and cash will come from its trades, and "
-            + "\(valuations) (\(what))"
+        return "  Record trades in \(proposal.account): its holdings and cash will come from its trades, and the "
+            + "balances of its valuations won't count any more (\(what))"
     }
 
     func previewLines() -> [String] {
@@ -339,7 +336,7 @@ struct ImportReport: CommandReport {
         var records = TextTable([.left("Date"), .left("Record"), .left("Values"), .left("Status")])
         for record in preview.records.prefix(rows) {
             records.add([record.imported.key.date.description, Self.subject(record.imported.key),
-                         Self.values(record.imported), record.status.rawValue])
+                         Self.values(record), record.status.rawValue])
         }
         if rows > 0 { lines += records.lines() }
         if preview.records.count > rows {
@@ -363,7 +360,7 @@ struct ImportReport: CommandReport {
         var table = TextTable([.left("Date"), .left("Record"), .left("Library"), .left("File")])
         for record in conflicts.prefix(rows) {
             table.add([record.imported.key.date.description, Self.subject(record.imported.key),
-                       record.existing.map(Self.values) ?? "", Self.values(record.imported)])
+                       record.existing.map(Self.values) ?? "", Self.values(record)])
         }
         var lines = rows > 0 ? table.lines() : []
         if conflicts.count > rows { lines.append("  … and \(Wording.count(conflicts.count - rows, "more conflict")).") }
@@ -389,6 +386,7 @@ struct ImportReport: CommandReport {
                 lines.append("Imported: \(result.added) added, \(result.updated) updated, "
                     + "\(result.overwritten) overwritten, \(result.kept) kept"
                     + (result.undecided > 0 ? " (\(result.undecided) undecided)" : "")
+                    + (result.removed > 0 ? ", \(result.removed) removed" : "")
                     + ", \(result.identical) identical, \(result.skipped) left out.")
             }
             lines += Self.recomputedFlowLines(result)
@@ -455,6 +453,11 @@ struct ImportReport: CommandReport {
         if let tax = trade.tax { parts.append("tax \(Format.amount(tax))") }
         if let cost = trade.cost { parts.append("cost \(Format.amount(cost))") }
         return parts.joined(separator: ", ")
+    }
+
+    /// The file's values, or `removed` for a library trade the file no longer makes.
+    static func values(_ record: ImportRecordPreview) -> String {
+        record.removesExisting ? "removed" : values(record.imported)
     }
 
     static func values(_ record: ImportedRecord) -> String {
@@ -566,7 +569,7 @@ struct ImportReport: CommandReport {
                 JSON.Record(date: record.imported.key.date.description, record: record.imported.key.description,
                             status: record.status.rawValue,
                             resolution: record.status == .conflict ? record.resolution.rawValue : nil,
-                            values: Self.values(record.imported),
+                            values: Self.values(record),
                             existing: record.status == .conflict ? record.existing.map(Self.values) : nil)
             },
             cellErrors: preview.cellErrors.map {
@@ -577,7 +580,8 @@ struct ImportReport: CommandReport {
                 let result = outcome.result
                 return JSON.Result(
                     added: result.added, updated: result.updated, overwritten: result.overwritten, kept: result.kept,
-                    undecided: result.undecided, identical: result.identical, skipped: result.skipped,
+                    undecided: result.undecided, removed: result.removed, identical: result.identical,
+                    skipped: result.skipped,
                     createdAccounts: result.createdAccounts.map(\.rawValue),
                     closedAccounts: result.closedAccounts.map(\.rawValue),
                     createdInstruments: result.createdInstruments.map(\.rawValue),
@@ -716,6 +720,7 @@ struct ImportReport: CommandReport {
             var overwritten: Int
             var kept: Int
             var undecided: Int
+            var removed: Int
             var identical: Int
             var skipped: Int
             var createdAccounts: [String]

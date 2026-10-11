@@ -4,8 +4,9 @@ import Model
 ///
 /// Review it, then edit it: accept or reject proposed accounts, instruments
 /// and account changes (and adjust a proposed account's kind or currency),
-/// and decide conflicts one by one with each record's ``ImportRecordPreview/resolution``.
-/// ``apply(to:)`` then returns the new library.
+/// and decide conflicts one by one with each record's ``ImportRecordPreview/resolution``
+/// (an account's trades made from quantities are decided together:
+/// ``conflicts(decidedWith:)``). ``apply(to:)`` then returns the new library.
 public struct ImportPreview: Hashable, Sendable {
     /// Every record the file holds, sorted by key.
     public var records: [ImportRecordPreview] = []
@@ -67,6 +68,15 @@ public struct ImportPreview: Hashable, Sendable {
     public var conflicts: [ImportRecordPreview] {
         records.filter { $0.status == .conflict }
     }
+
+    /// The keys of the conflicts decided with the one at `key`, itself
+    /// included: those of its account's trades made from quantities, which
+    /// are applied or kept together (``ImportRecordPreview/isFromQuantities``),
+    /// or only its own.
+    public func conflicts(decidedWith key: ImportRecordKey) -> [ImportRecordKey] {
+        guard let record = records.first(where: { $0.id == key }), record.isFromQuantities else { return [key] }
+        return conflicts.filter { $0.isFromQuantities && $0.imported.key.account == key.account }.map(\.id)
+    }
 }
 
 /// One record of the file compared with the library.
@@ -85,6 +95,17 @@ public struct ImportRecordPreview: Hashable, Sendable, Identifiable {
     /// `overwrite`, `keep`, or `ask` while undecided (then it's kept).
     /// Starts from the profile's policy.
     public var resolution: ConflictPolicy
+    /// A trade made from the file's quantities, or a trade of the library's
+    /// that they replace (IMPORT.md, "Quantities in a trades account"). An
+    /// account's such trades are one unit: applying writes all of them, and
+    /// removes those that replace the library's, only when each of their
+    /// conflicts is overwritten; otherwise it keeps all of the library's.
+    public var isFromQuantities = false
+    /// A trade of the library's (``existing``, also ``incoming``) on one of
+    /// the file's dates, with the key of a trade made from quantities, that
+    /// the file no longer makes: a conflict whose overwriting removes it.
+    /// ``imported`` holds only its key.
+    public var removesExisting = false
 
     public var id: ImportRecordKey { imported.key }
 }

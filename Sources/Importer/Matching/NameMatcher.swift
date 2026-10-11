@@ -105,7 +105,7 @@ struct NameMatcher {
     /// Makes the accounts drafted so far record trades: they're proposed
     /// for a broker's transactions.
     mutating func draftAccountsRecordTrades() {
-        for id in accountDrafts.keys { accountDrafts[id]?.recordsTrades = true }
+        for id in accountDrafts.keys { accountDrafts[id]?.hasTrades = true }
     }
 
     private mutating func resolveAccount(_ ref: NameRef) -> AccountID {
@@ -297,8 +297,8 @@ struct AccountDraft: Hashable {
     var sawPositive = false
     var sawNegative = false
     var firstDate: CalendarDate?
-    /// Whether the account is proposed to record trades.
-    var recordsTrades = false
+    /// Whether the file has the account's trades (a transactions file).
+    var hasTrades = false
 
     init(id: AccountID, name: String) {
         self.id = id
@@ -307,27 +307,42 @@ struct AccountDraft: Hashable {
 
     /// The account to propose, in the most common currency of its amounts.
     ///
-    /// An investment account without trades in the file holds the imported
-    /// positions at each value, so it's recorded as snapshots
-    /// (`"valuation": "holdings"`), which its kind no longer defaults to.
+    /// An account with trades, quantities, purchase costs or an investment
+    /// account's cash in the file records trades (docs/ACCOUNTS.md): a
+    /// brokerage, crypto or metals account does by default, any other kind
+    /// with `"valuation": "trades"`.
     func account(baseCurrency: CurrencyCode, opened: CalendarDate, instrumentKinds: [InstrumentKind]) -> Account {
         let kind = suggestedKind(instrumentKinds: instrumentKinds)
+        let switched = recordsTrades && kind.defaultValuationMode != .trades
         return Account(id: id, name: name, kind: kind, currency: currencies.mostCommon(or: baseCurrency),
-                       opened: opened, valuation: recordsTrades ? .trades : (kind.isInvestment ? .holdings : nil))
+                       opened: opened, valuation: switched ? .trades : nil)
     }
 
     /// From the name, what the account holds and the sign of its values.
+    ///
+    /// An account with quantities, purchase costs or an investment account's
+    /// cash is a crypto or metals account when its instruments all are, else
+    /// what its name says if that's an investment or a pension fund, else a
+    /// brokerage account. One with only balances is what its name says,
+    /// except that brokerage, crypto and metals become `other`: those kinds
+    /// record trades, and a balance says nothing about them.
     func suggestedKind(instrumentKinds: [InstrumentKind]) -> AccountKind {
         let words = TextTools.words(name)
         let byName = Keywords.accountKinds.first { TextTools.contains(words, anyOf: $0.1) }?.0
-        if !targets.isDisjoint(with: [.quantity, .costBasis, .cash]) {
+        if recordsTrades {
             if !instrumentKinds.isEmpty, instrumentKinds.allSatisfy({ $0 == .crypto }) { return .crypto }
             if !instrumentKinds.isEmpty, instrumentKinds.allSatisfy({ $0 == .metal }) { return .metals }
             if let byName, byName.isInvestment || byName == .pensionFund { return byName }
             return .brokerage
         }
-        if let byName { return byName }
+        if let byName { return byName.isInvestment ? .other : byName }
         return sawNegative && !sawPositive ? .loan : .other
+    }
+
+    /// Whether the proposed account records trades: the file gives its
+    /// trades, quantities, purchase costs or an investment account's cash.
+    var recordsTrades: Bool {
+        hasTrades || !targets.isDisjoint(with: [.quantity, .costBasis, .cash])
     }
 }
 
