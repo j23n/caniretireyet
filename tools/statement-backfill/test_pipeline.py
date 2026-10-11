@@ -264,6 +264,11 @@ class ReadingTests(unittest.TestCase):
     def test_account_numbers_compare_without_spaces_or_dashes(self):
         self.assertEqual(pipeline.account_key("DE00 1234-5678"), "DE0012345678")
 
+    def test_a_model_that_cannot_load_stops_the_run(self):
+        # There's no such model (and usually no mlx_lm where the tests run), so loading fails.
+        with self.assertRaises(SystemExit):
+            pipeline.LazyModel("no-such-model")([])
+
     def test_isins_keep_their_xs(self):
         self.assertEqual(pipeline.isin_key("ie00 bxx0 0001"), "IE00BXX00001")
         trade = pipeline.read_broker_page({"transactions": [{"date": "2024-01-02", "type": "buy",

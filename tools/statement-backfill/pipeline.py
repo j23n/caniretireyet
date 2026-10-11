@@ -110,7 +110,10 @@ class LazyModel:
 
     def __call__(self, messages: list[dict]) -> str:
         if self.model is None:
-            self.model = MLXModel(self.name)
+            try:
+                self.model = MLXModel(self.name)
+            except Exception as error:  # stop the run, rather than fail every PDF the same way
+                sys.exit(f"Can't load {self.name}: {type(error).__name__}: {error}")
         return self.model(messages)
 
 
