@@ -129,7 +129,7 @@ struct PlanTrendsView: View {
             items.append(ChartLegendItem(name: "At your pace", swatch: .line(.taxes, dashed: true)))
         }
         if !history.coastPoints.isEmpty {
-            items.append(ChartLegendItem(name: "Saving nothing more", swatch: .line(.neutral, dashed: true)))
+            items.append(ChartLegendItem(name: "Saving nothing more", swatch: .dottedLine(.neutral)))
         }
         return items
     }

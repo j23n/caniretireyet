@@ -290,6 +290,8 @@ struct ChartMarkerLabel: View {
 enum ChartSwatch: Hashable {
     /// A line, solid or dashed.
     case line(ChartColor, dashed: Bool)
+    /// A dotted line.
+    case dottedLine(ChartColor)
     /// A wash of the colour with a line along its top: a stacked area
     /// drawn as a wash with its edge.
     case wash(ChartColor)
@@ -368,6 +370,12 @@ struct ChartLegendLabel: View {
             }
             .stroke(Palette.stroke(for: color),
                     style: StrokeStyle(lineWidth: 2, lineCap: .round, dash: dashed ? [3, 2] : []))
+        case .dottedLine(let color):
+            Path { path in
+                path.move(to: CGPoint(x: 1, y: 5))
+                path.addLine(to: CGPoint(x: 14, y: 5))
+            }
+            .stroke(Palette.stroke(for: color), style: StrokeStyle(lineWidth: 2, lineCap: .round, dash: [0.5, 3.5]))
         case .wash(let color):
             ZStack(alignment: .top) {
                 Rectangle()
