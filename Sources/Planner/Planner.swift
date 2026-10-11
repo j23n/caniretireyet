@@ -1,5 +1,6 @@
 import Foundation
 import Model
+import Tracker
 
 /// # Planner
 ///
@@ -80,9 +81,13 @@ public enum Planner {
         let refinement = options.ageScan == .headline ? min(3, max(0, maxAge - current + 1 - ages.count)) : 0
         let changes: [AgeWithout.Change] = (options.solveCoastAge ? [.saving] : [])
             + (options.solveWithoutWindfalls ? uncertainWindfalls(plan).map { .windfall(index: $0) } : [])
+        let pace = options.solvePaceAge
+            ? Valuator(library: library).savingPace(asOf: model.startDate, inflation: InflationIndex(library: library))
+            : nil
         progress?.plan(runs: model.runs, ages: ages.count + refinement,
                        solvesSpending: options.solveSustainableSpending,
-                       solvesAssetsNeeded: options.solveAssetsNeeded, agesWithout: changes.count)
+                       solvesAssetsNeeded: options.solveAssetsNeeded,
+                       agesWithout: changes.count + (pace == nil ? 0 : 1))
         progress?.begin(.earliestAge, total: ages.count, per: model.runs, expected: ages.count + refinement,
                         ages: ages[0]...ages[ages.count - 1])
         var engine = try await Engine.make(model: model, ages: ages, maxAge: maxAge)
@@ -135,11 +140,12 @@ public enum Planner {
                                                          successToday: successNow, progress: progress)
         }
         var agesWithout: [AgeWithout] = []
-        if !changes.isEmpty {
+        if !changes.isEmpty || pace != nil {
             // Less to live on never makes an earlier age work, so each search
             // starts at the plan's own earliest age; without one, none works.
             let lowest = earliest ?? maxAge
-            progress?.begin(.agesWithout, total: changes.count * bisectionSteps(from: lowest, to: maxAge))
+            progress?.begin(.agesWithout, total: changes.count * bisectionSteps(from: lowest, to: maxAge)
+                + (pace == nil ? 0 : bisectionSteps(from: current, to: maxAge)))
             for change in changes {
                 try Task.checkCancellation()
                 var age: Int?
@@ -148,6 +154,14 @@ public enum Planner {
                                                 options: options, from: lowest, maxAge: maxAge, progress: progress)
                 }
                 agesWithout.append(AgeWithout(change: change, earliestAge: age))
+            }
+            // The pace may save more than the plan, so its search starts at
+            // today's age, with or without an earliest age of the plan's.
+            if let pace {
+                try Task.checkCancellation()
+                let age = try await earliestAge(of: Self.plan(plan, atPace: pace, library: library), library: library,
+                                                options: options, from: current, maxAge: maxAge, progress: progress)
+                agesWithout.append(AgeWithout(change: .pace, earliestAge: age))
             }
         }
         progress?.begin(.summarising, total: 1)
@@ -255,6 +269,34 @@ public enum Planner {
         case .windfall(let index):
             if plan.events.indices.contains(index) { plan.events[index].probability = 0 }
         }
+        return plan
+    }
+
+    /// `plan` saving at `pace` until retirement instead of as written
+    /// (PLANNER.md, "Continue as you have"): one work phase paying the
+    /// spending while working plus the pace, without growth, so each working
+    /// year saves the pace. What went into an account that opens at a later
+    /// age (`availableFromAge`) is paid into it as a yearly contribution, and
+    /// the rest is saved where the plan saves cash. An account the pace
+    /// leaves out keeps the plan's contributions, which the income pays on
+    /// top; one-off contributions and events stay, as the pace leaves out
+    /// unusual months.
+    public static func plan(_ plan: PlanDocument, atPace pace: SavingPace, library: Library) -> PlanDocument {
+        var plan = plan
+        let excluded = Set(plan.portfolio.exclude)
+        let kept = plan.contributions.filter { $0.isOneOff || pace.leftOut.contains($0.account) }
+        let locked = pace.byAccount
+            .filter { account, amount in
+                amount > 0 && !pace.leftOut.contains(account) && !excluded.contains(account)
+                    && library.accounts[account]?.availableFromAge != nil
+            }
+            .sorted { $0.key < $1.key }
+            .map { PlanContribution(account: $0.key, perYear: $0.value.rounded(scale: 0)) }
+        let paidOnTop = kept.filter { !$0.isOneOff }.reduce(Decimal(0)) { $0 + $1.perYear }
+        let from = min(plan.work.map(\.from).min() ?? pace.asOf, pace.asOf)
+        plan.work = [WorkPhase(from: from, until: .retirement,
+                               netIncome: (plan.spending.working + pace.perYear + paidOnTop).rounded(scale: 0))]
+        plan.contributions = kept + locked
         return plan
     }
 

@@ -34,7 +34,8 @@ struct CodableTests {
 
     @Test func agesWithoutAndFailuresByAgeReadBackAsTheyWere() throws {
         let ages = [AgeWithout(change: .saving, earliestAge: 67),
-                    AgeWithout(change: .windfall(index: 2), earliestAge: nil)]
+                    AgeWithout(change: .windfall(index: 2), earliestAge: nil),
+                    AgeWithout(change: .pace, earliestAge: 59)]
         #expect(try roundTrip(ages) == ages)
         let failures = [AgeCount(age: 81, count: 12), AgeCount(age: 90, count: 40)]
         #expect(try roundTrip(failures) == failures)
