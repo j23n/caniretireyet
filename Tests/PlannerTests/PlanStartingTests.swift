@@ -4,7 +4,7 @@ import Planner
 import Testing
 import TestSupport
 
-/// A first plan from the pay and spending entered a month.
+/// A first plan from the pay and spending entered a month, and the age to retire at.
 struct PlanStartingTests {
     let base = Sample.plan(retire: .earliest, endAge: 90, working: "30000", retired: "30000")
 
@@ -39,5 +39,20 @@ struct PlanStartingTests {
         #expect(plan == base)
         plan.setMonthly(payPerMonth: 0, spendingPerMonth: nil, asOf: "2026-10-10")
         #expect(plan.work.isEmpty)
+    }
+
+    @Test func retiresAtTheWishedAge() {
+        var plan = base
+        plan.setRetirementAge(60)
+        #expect(plan.retirement.age == .age(60))
+    }
+
+    @Test func retiresAsEarlyAsPossibleWithoutAWishedAge() {
+        var plan = base
+        plan.setRetirementAge(nil)
+        #expect(plan.retirement.age == .earliest)
+        #expect(plan == base)
+        plan.setRetirementAge(0)
+        #expect(plan == base)
     }
 }

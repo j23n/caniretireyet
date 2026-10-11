@@ -18,16 +18,23 @@ import UniformTypeIdentifiers
 ///
 /// ⌘⇧I, the sidebar's Import… and dropping a CSV on the window create it,
 /// with the file if there is one; the sidebar's file is taken from
-/// `navigation.pendingImport` once read.
+/// `navigation.pendingImport` once read. First launch pushes it on its own
+/// stack with `close`, on every device.
 struct ImportScreen: View {
     let file: URL?
+    /// Closes the screen when it's pushed on another flow's stack (first
+    /// launch's accounts step): it then has an import of its own, as the
+    /// iPhone's sheet does, and *Close* or *Done* calls it. `nil` for the
+    /// sheet and the page.
+    let close: (() -> Void)?
 
     @Environment(LibraryStore.self) private var library
     @Environment(AppNavigation.self) private var navigation
     #if os(iOS)
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     #endif
-    /// The iPhone sheet's own import; the Mac and iPad page use ``ImportController/page``.
+    /// The import of the iPhone's sheet, or of a screen with `close`; the
+    /// Mac and iPad page use ``ImportController/page``.
     @State private var sheetModel = ImportController()
     @State private var isChoosingFile = false
     @State private var didStart = false
@@ -36,17 +43,20 @@ struct ImportScreen: View {
     /// mustn't read the file again: that would start the import over.
     @State private var takenFile: URL?
 
-    init(file: URL? = nil) {
+    init(file: URL? = nil, close: (() -> Void)? = nil) {
         self.file = file
+        self.close = close
     }
 
     /// The import on screen: with tabs (iPhone) the screen is a sheet with
-    /// its own; with a sidebar it's a page that keeps its import.
+    /// its own, and so is a screen with `close`; with a sidebar it's a page
+    /// that keeps its import.
     private var model: ImportController {
         isSheet ? sheetModel : ImportController.page
     }
 
-    private var isSheet: Bool { navigation.layout == .tabs }
+    /// Whether the screen has an import of its own and a *Close* button.
+    private var isSheet: Bool { close != nil || navigation.layout == .tabs }
 
     private var isCompact: Bool {
         #if os(iOS)
@@ -74,7 +84,11 @@ struct ImportScreen: View {
                 if isSheet {
                     ToolbarItem(placement: .cancellationAction) {
                         Button(model.flow.step == .done ? "Done" : "Close") {
-                            navigation.sheet = nil
+                            if let close {
+                                close()
+                            } else {
+                                navigation.sheet = nil
+                            }
                         }
                     }
                 }
