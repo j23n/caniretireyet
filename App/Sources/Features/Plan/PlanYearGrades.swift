@@ -84,7 +84,9 @@ struct PlanYearGrade: Hashable, Sendable, Identifiable {
     var isSoFar: Bool
     /// Whether a baseline measures the year (``PlanProgressYear/baseline(for:in:)``).
     var hasBaseline: Bool
-    /// What you put in during the year, as *Where your money came from* counts it.
+    /// What you put in during the year, as *Where your money came from*
+    /// counts it; from the baseline's start when it starts later in the
+    /// year, the days its planned saving covers.
     var putIn: Decimal
     /// What the baseline planned you'd save in the year, by now for the
     /// year still going; `nil` without a baseline or its year.
@@ -92,8 +94,9 @@ struct PlanYearGrade: Hashable, Sendable, Identifiable {
     /// Money out over the year, scaled to a year; `nil` without money in
     /// and out recorded in it.
     var moneyOutPerYear: Decimal?
-    /// The baseline plan's spending while working, a year; `nil` without a
-    /// baseline, or when its plan was past working.
+    /// The baseline plan's spending while working, a year, in money of the
+    /// year's end where the inflation index allows (else as recorded);
+    /// `nil` without a baseline, or when its plan was past working.
     var plannedSpending: Decimal?
     /// What markets added over the year (negative when they took), and
     /// what you had going in, as Progress's year counts them.
@@ -149,9 +152,10 @@ struct PlanYearGrade: Hashable, Sendable, Identifiable {
         guard let latest = dates.last else { return [] }
         let first = min(valuator.firstValuationDate(in: .planAssets) ?? latest, latest)
         let baselines = PlanBaselineComparison.baselines(for: plan, in: library)
-        let putIn = Dictionary(sources.years.map { ($0.year, $0.putIn) }, uniquingKeysWith: { _, last in last })
+        let sourceYears = Dictionary(sources.years.map { ($0.year, $0) }, uniquingKeysWith: { _, last in last })
         let byYear = Dictionary(grouping: dates, by: \.year)
         let birthDate = library.settings.person?.birthDate
+        let index = PlanMoney.baseCurrencyIndex(library: library)
         let firstYear = max(first.year, start?.year ?? first.year)
         guard firstYear <= latest.year else { return [] }
         return (firstYear...latest.year).reversed().compactMap { year -> PlanYearGrade? in
@@ -162,17 +166,36 @@ struct PlanYearGrade: Hashable, Sendable, Identifiable {
             let change = valuator.change(from: span.from, to: span.to, in: .planAssets).total
             let money = valuator.moneyInOut(from: CalendarDate.firstDay(ofYear: year), through: span.to)
             let baseline = PlanProgressYear.baseline(for: year, in: baselines)?.baseline
+            // Put in over the days the baseline planned saving for: from its
+            // start when it starts later in the year.
+            let saving = min(max(span.from, baseline?.start.date ?? span.from), span.to)
+            let measuredPutIn = saving == span.from
+                ? sourceYears[year]?.putIn ?? 0
+                : putIn(after: saving, through: span.to, valuator: valuator)
             return PlanYearGrade(
-                year: year, isSoFar: isLatest && !span.to.isLastDayOfYear, hasBaseline: baseline != nil,
-                putIn: putIn[year] ?? 0,
+                year: year, isSoFar: sourceYears[year]?.isSoFar ?? false, hasBaseline: baseline != nil,
+                putIn: measuredPutIn,
                 plannedSaving: baseline.flatMap {
-                    PlanProgressYear.plannedSaving(in: $0, from: span.from, to: span.to)
+                    PlanProgressYear.plannedSaving(in: $0, from: saving, to: span.to)
                 },
                 moneyOutPerYear: money.isEmpty ? nil : money.moneyOutPerYear,
-                plannedSpending: baseline.flatMap { plannedSpending(of: $0, in: year, birthDate: birthDate) },
+                plannedSpending: baseline.flatMap { baseline in
+                    plannedSpending(of: baseline, in: year, birthDate: birthDate).map {
+                        index?.convert($0, from: baseline.start.date, to: span.to) ?? $0
+                    }
+                },
                 markets: change.market, start: change.start,
                 marketYear: span.from == span.to ? nil : MarketYear(markets: change.market, start: change.start))
         }
+    }
+
+    /// What you put in after `start` through `end`, as *Where your money
+    /// came from* counts it.
+    static func putIn(after start: CalendarDate, through end: CalendarDate, valuator: Valuator) -> Decimal {
+        func total(through day: CalendarDate) -> Decimal {
+            valuator.moneySources(.years, through: day).points.last?.putIn ?? 0
+        }
+        return total(through: end) - total(through: start)
     }
 
     /// The baseline plan's spending while working, a year; `nil` when its
@@ -195,9 +218,4 @@ struct PlanYearGrade: Hashable, Sendable, Identifiable {
         }
         return working ? plan.spending.working : nil
     }
-}
-
-private extension CalendarDate {
-    /// Whether this is 31 December.
-    var isLastDayOfYear: Bool { month == 12 && day == 31 }
 }

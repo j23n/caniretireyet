@@ -769,8 +769,7 @@ struct PlanProgressTimeline {
     static func expected(by baseline: Baseline, days: [CalendarDate], totals: [NetWorth], through end: CalendarDate,
                          library: Library, valuator: Valuator) -> [ChartPoint] {
         let accounts = baseline.comparedAccounts(among: library.accounts)
-        let index = PlanMoney.inflationIndex(for: library.settings.baseCurrency, library: library)
-            .map { InflationIndex(library: library, index: $0.index) }
+        let index = PlanMoney.baseCurrencyIndex(library: library)
         var shifts: [(day: CalendarDate, factor: Double, others: Double)] = []
         for (day, total) in zip(days, totals) {
             // One unit of money of the day in money of the baseline's start.

@@ -114,7 +114,7 @@ struct PlanYearGradesTable: View {
         return "\(amount(spent)) a year · planned \(amount(planned))"
     }
 
-    /// "+12.400 € · 9%": what markets added, and its share of what you had going in.
+    /// "+12.400 € · +9%": what markets added, and its share of what you had going in.
     private func marketAmounts(_ grade: PlanYearGrade) -> AmountSentence? {
         guard grade.marketYear != nil else { return nil }
         let added = AmountSentence.amount(AmountFormat.signedAmount(grade.markets, currency: library.baseCurrency,
