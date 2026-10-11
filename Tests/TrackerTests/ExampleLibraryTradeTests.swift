@@ -5,13 +5,13 @@ import TestSupport
 import Tracker
 
 /// The example library with Directa, the gold coins and the Ledger wallet
-/// recorded as positions at each check-in, converted back from their trades:
-/// for tests of accounts that hold positions.
+/// recorded as positions at each check-in, made from their trades
+/// (``Model/Library/recordAsSnapshots(_:)``): for tests of accounts that
+/// hold positions.
 func exampleLibraryWithHoldings() throws -> Library {
     var library = try Fixtures.exampleLibrary()
     for account: AccountID in ["directa", "gold-coins", "ledger-wallet"] {
-        let conversion = try #require(library.conversionToSnapshots(of: account))
-        conversion.apply(to: &library)
+        library.recordAsSnapshots(account)
     }
     return library
 }
@@ -65,9 +65,8 @@ struct ExampleLibraryTradeTests {
         #expect(valuator.tradeCash(of: "directa", on: "2025-11-12") == d("188.9"))
     }
 
-    /// The account detail's values at check-ins: each check-in's value is
-    /// its trades at that day's prices and its cash, not the cash it records,
-    /// which the list shows apart because Directa holds cash.
+    /// Each check-in's value is its trades at that day's prices and its
+    /// cash, not the cash it records alone. Directa holds cash of its own.
     @Test func itsValuesAtCheckInsAreItsTradesAndItsCash() throws {
         let september = try #require(library.valuations(for: "directa").first { $0.date == "2026-09-30" })
         #expect(september.cash == d("312.1"))

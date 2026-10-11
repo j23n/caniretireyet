@@ -198,8 +198,7 @@ extension ImportFlow {
         case .recordTrades:
             library.accounts[change.account]?.valuationMode == .balance
                 ? "The file has its trades. Its holdings and cash will come from them, and its balances won't count "
-                    + "any more; convert it in its page first to keep them. Off: its trades are left out, or choose "
-                    + "another account."
+                    + "any more. Off: its trades are left out, or choose another account."
                 : "The file has its trades. Its holdings and cash will come from them, and the positions of its "
                     + "values become checks. Off: its trades are left out, or choose another account."
         }
