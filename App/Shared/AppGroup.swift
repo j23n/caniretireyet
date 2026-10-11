@@ -9,7 +9,7 @@ import Glance
 /// build setting `APP_GROUP_IDENTIFIER` (project.yml), which the
 /// entitlements use too.
 enum AppGroup {
-    /// The group's identifier, e.g. `group.com.example.caniretireyet`.
+    /// The group's identifier, e.g. `group.com.j23n.caniretireyet`.
     static var identifier: String? {
         guard let identifier = Bundle.main.object(forInfoDictionaryKey: "AppGroupIdentifier") as? String,
               !identifier.isEmpty, !identifier.contains("$(")

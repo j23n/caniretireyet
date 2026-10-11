@@ -190,7 +190,7 @@
       }
     },
     "index": {
-      "description": "A consumer-price-index value: a country's all-items HICP from Eurostat, 2015 = 100 (hicp-it, hicp-de, hicp-ch, …), or the euro area's (hicp-ea). A monthly value is dated the last day of the month it measures and stored in that month's file, even when it's published later.",
+      "description": "A consumer-price-index value: a country's all-items HICP from Eurostat, 2015 = 100 (hicp-it, hicp-de, hicp-ch, …), or the euro area's (hicp-ea); the United States' CPI-U, all items, not seasonally adjusted, from the BLS, 1982–84 = 100 (cpi-us, series CUUR0000SA0); or the United Kingdom's CPI, all items, from the ONS, 2015 = 100 (cpi-gb, series D7BT). A monthly value is dated the last day of the month it measures and stored in that month's file, even when it's published later.",
       "type": "object",
       "required": ["index", "date", "value"],
       "properties": {

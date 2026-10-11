@@ -30,7 +30,7 @@
       "type": "object",
       "properties": {
         "investmentRate": {
-          "description": "The tax on investments, as a fraction (\"0.26\"): on the gain part of every sale from the money you can draw, and every year on the income its classes pay out (assumptions.returns.<class>.incomeYield), paid the following year. Required for the plan to run (error planner.investmentRate); \"0\" when investments aren't taxed. From 0 to 0.9.",
+          "description": "The tax on investments, as a fraction (\"0.26\"): on the gain part of every sale from the money you can draw, and every year on the income its classes pay out (assumptions.returns.<class>.incomeYield), paid the following year. Without it the plan assumes 0%, with a warning (planner.noInvestmentRate); \"0\" when investments aren't taxed. From 0 to 0.9.",
           "$ref": "common.schema.json#/$defs/decimal"
         },
         "wealthRate": {

@@ -39,6 +39,15 @@ public struct RetirementCountdown: Hashable, Sendable {
         parts(separator: "")
     }
 
+    /// In words, for a sentence: "about 16 years to go" from two years on,
+    /// rounded to the nearest year (15 y 6 m reads 16); "14 months to go"
+    /// below that; "under a month to go".
+    public var toGoText: String {
+        if years >= 2 { return "about \(Wording.count(years + (months >= 6 ? 1 : 0), "year")) to go" }
+        if totalMonths == 0 { return "under a month to go" }
+        return "\(Wording.count(totalMonths, "month")) to go"
+    }
+
     private func parts(separator: String) -> String {
         switch (years, months) {
         case (0, 0): "under a month"

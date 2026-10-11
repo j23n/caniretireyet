@@ -266,8 +266,10 @@ struct PriceServiceTests {
         var library = try Fixtures.exampleLibrary()
         #expect(service.indices(for: library) == [.hicpIT])
         #expect(service.indexProvider(for: "hicp-se")?.index == "hicp-se")
-        #expect(service.indexProvider(for: "cpi-us") == nil)
-        library.settings.inflationIndex = "cpi-us"
+        #expect(service.indexProvider(for: .cpiUS)?.source == .bls)
+        #expect(service.indexProvider(for: .cpiGB)?.source == .ons)
+        #expect(service.indexProvider(for: "cpi-jp") == nil)
+        library.settings.inflationIndex = "cpi-jp"
         #expect(service.indices(for: library).isEmpty)
         #expect(service.needs(for: library, on: Self.checkIn).indices.isEmpty)
 
@@ -280,5 +282,29 @@ struct PriceServiceTests {
         #expect(Set(result.indices.map(\.index)) == ["hicp-ch"])
         let eurostat = await client.requests.map(\.url.absoluteString).filter { $0.contains("prc_hicp_minr") }
         #expect(eurostat.count == 1 && eurostat[0].contains("geo=CH"))
+    }
+
+    /// Living in the US, the library's index is the CPI-U from the BLS; in
+    /// the UK, the CPI from the ONS.
+    @Test func theStandardServiceFetchesTheUSAndUKIndices() async throws {
+        var library = try Fixtures.exampleLibrary()
+        library.settings.taxResidence = .us
+        let client = Self.client()
+        await client.on("CUUR0000SA0", json: BLSResponses.twoYears)
+        await client.on("timeseries/d7bt/mm23", json: ONSResponses.series)
+        let us = await Self.service(client).fetch(for: library, on: Self.checkIn)
+        #expect(us.entry(for: .index(.cpiUS))?.failureReason == nil)
+        #expect(us.entry(for: .index(.cpiUS))?.source == .bls)
+        #expect(us.entry(for: .index(.hicpIT)) == nil)
+        #expect(Set(us.indices.map(\.index)) == [.cpiUS])
+        #expect(Set(us.indices.compactMap(\.source)) == [.bls])
+        #expect(us.indices.contains(IndexRecord(index: .cpiUS, date: "2026-08-31", value: d("325.112"), source: .bls)))
+        #expect(await client.requests(matching: "prc_hicp_minr").isEmpty)
+
+        library.settings.taxResidence = .gb
+        let uk = await Self.service(client).fetch(for: library, on: Self.checkIn)
+        #expect(uk.entry(for: .index(.cpiGB))?.failureReason == nil)
+        #expect(Set(uk.indices.map(\.index)) == [.cpiGB])
+        #expect(uk.indices.contains(IndexRecord(index: .cpiGB, date: "2026-08-31", value: d("142.3"), source: .ons)))
     }
 }

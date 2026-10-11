@@ -182,6 +182,24 @@ extension Valuator {
         return change(from: previous, to: latest, in: scope)
     }
 
+    /// 31 December of the year before `date`, where "this year" starts for
+    /// the Overview's hero and its *This year*; `nil` when net worth has no
+    /// value by then, so a library started this year has no change this year.
+    public func endOfLastYear(before date: CalendarDate) -> CalendarDate? {
+        guard let yearEnd = YearMonth(year: date.year - 1, month: 12)?.lastDay,
+              let first = firstValuationDate(in: .netWorth), first <= yearEnd
+        else { return nil }
+        return yearEnd
+    }
+
+    /// How net worth changed from 31 December of last year to `date`
+    /// (``endOfLastYear(before:)``), split into markets, new money and
+    /// other, for the Overview's *This year*; `nil` without a value by 31
+    /// December.
+    public func changeThisYear(asOf date: CalendarDate) -> ChangeReport? {
+        endOfLastYear(before: date).map { change(from: $0, to: date, in: .netWorth) }
+    }
+
     /// How `account` changed, in `currency` (the base currency when `nil`).
     func change(of account: Account, from: CalendarDate, to: CalendarDate,
                 in currency: CurrencyCode? = nil) -> AccountChange {

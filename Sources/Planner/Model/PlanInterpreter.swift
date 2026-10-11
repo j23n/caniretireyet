@@ -76,10 +76,11 @@ enum PlanInterpreter {
                       option: "investmentRate")
             }
         } else {
-            error("planner.investmentRate",
-                  "Set the tax rate on investment income and gains: the plan taxes sales and income from your "
-                      + "investments with it (26% in Italy, for example; 0% if they aren't taxed).",
-                  .tax, option: "investmentRate")
+            warning("planner.noInvestmentRate",
+                    "The tax rate on investment income and gains isn't set (tax.investmentRate), so the answer "
+                        + "assumes none: set it to tax sales and income from your investments (26% in Italy, for "
+                        + "example; 0% if they aren't taxed).",
+                    .tax, option: "investmentRate")
         }
         let wealthRate = plan.tax.effectiveWealthRate.doubleValue
         if !(wealthRate >= 0 && wealthRate <= 0.1) {

@@ -110,3 +110,21 @@ extension InstrumentPriceProvider {
         if case .unsupportedDate = error { true } else { false }
     }
 }
+
+/// Fetches the monthly values of one consumer price index: Eurostat for an
+/// HICP, the BLS for `cpi-us`, the ONS for `cpi-gb`.
+///
+/// Implementations throw ``PriceFetchError``; any other error is reported
+/// as a network failure.
+public protocol InflationIndexProvider: Sendable {
+    /// The index this provides, e.g. `hicp-it`.
+    var index: IndexID { get }
+    /// The source written on fetched index records.
+    var source: DataSource { get }
+    /// The provider's display name, e.g. "Eurostat".
+    var name: String { get }
+    /// The published values for the months `start` through `end`, each
+    /// dated the last day of its month and sorted. Months not yet published
+    /// are left out.
+    func values(from start: YearMonth, through end: YearMonth) async throws -> [IndexRecord]
+}

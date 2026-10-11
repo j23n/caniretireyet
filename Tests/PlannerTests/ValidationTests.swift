@@ -34,14 +34,27 @@ struct ValidationTests {
         #expect(issues.first?.section == .person)
     }
 
-    @Test func aPlanNeedsItsTaxRateOnInvestments() async {
+    /// Without a tax rate on investments the plan runs as with 0%, and says
+    /// so with a warning.
+    @Test func aPlanWithoutItsTaxRateOnInvestmentsAssumesNone() async throws {
         var plan = plan
         plan.tax = PlanTax()
-        #expect(await errors(plan) == ["planner.investmentRate"])
-        let issue = Planner.validate(plan: plan, library: library).first { $0.code == "planner.investmentRate" }
-        #expect(issue?.section == .tax && issue?.option == "investmentRate")
-        plan.tax.investmentRate = 0
         #expect(codes(plan) == [])
+        let issue = Planner.validate(plan: plan, library: library).first { $0.code == "planner.noInvestmentRate" }
+        #expect(issue?.severity == .warning)
+        #expect(issue?.section == .tax && issue?.option == "investmentRate")
+        let unset = try await Sample.run(plan, library)
+        #expect(unset.issues.contains { $0.code == "planner.noInvestmentRate" })
+        plan.tax.investmentRate = 0
+        let zero = try await Sample.run(plan, library)
+        #expect(!zero.issues.contains { $0.code == "planner.noInvestmentRate" })
+        #expect(unset.successCurve == zero.successCurve)
+        #expect(unset.answer.earliestAge == zero.answer.earliestAge)
+        #expect(unset.medianPath == zero.medianPath)
+        // The control: this plan's results do depend on the rate.
+        plan.tax.investmentRate = d("0.26")
+        let taxed = try await Sample.run(plan, library)
+        #expect(taxed.medianPath != zero.medianPath)
     }
 
     @Test func taxRatesOutOfRangeAreErrors() {

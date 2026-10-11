@@ -83,7 +83,7 @@ struct PlanEmptyView: View {
                                        library: library.library, asOf: library.asOfDate)
         do {
             try library.save(plan)
-            if library.settings.mainPlan == nil { try library.setMainPlan(plan.id) }
+            if library.needsMainPlan { try library.setMainPlan(plan.id) }
             navigation.showPlan(plan.id)
         } catch {
             self.error = LibraryStore.describe(error)

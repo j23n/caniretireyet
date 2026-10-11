@@ -134,8 +134,12 @@ public struct DataSource: OpenEnum {
     public static let yahoo: DataSource = "yahoo"
     public static let coingecko: DataSource = "coingecko"
     public static let goldAPI: DataSource = "gold-api"
+    /// The US Bureau of Labor Statistics: the United States' consumer price index.
+    public static let bls: DataSource = "bls"
+    /// The UK Office for National Statistics: the United Kingdom's consumer price index.
+    public static let ons: DataSource = "ons"
 
     public static let knownValues: [DataSource] = [
-        .manual, .import, .ecb, .eurostat, .yahoo, .coingecko, .goldAPI,
+        .manual, .import, .ecb, .eurostat, .yahoo, .coingecko, .goldAPI, .bls, .ons,
     ]
 }

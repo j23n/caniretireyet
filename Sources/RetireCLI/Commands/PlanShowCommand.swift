@@ -122,12 +122,13 @@ struct PlanInputsReport: CommandReport {
         return lines
     }
 
-    /// "26% on investment income and gains; wealth tax 0.2% above 50,000", or what's missing.
+    /// "26% on investment income and gains; wealth tax 0.2% above 50,000",
+    /// or that the investment rate isn't set, so the plan assumes none.
     private func taxText() -> String {
-        guard let rate = plan.tax.investmentRate else {
-            return "the investment rate isn't set (tax.investmentRate): the plan can't run until it is"
+        var text = "none on investment income and gains (tax.investmentRate isn't set, so the plan assumes 0%)"
+        if let rate = plan.tax.investmentRate {
+            text = "\(Format.percent(rate)) on investment income and gains"
         }
-        var text = "\(Format.percent(rate)) on investment income and gains"
         let wealth = plan.tax.effectiveWealthRate
         if wealth > 0 {
             text += "; wealth tax \(Format.percent(wealth))"

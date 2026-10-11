@@ -45,6 +45,7 @@ struct PlanShowTests {
         #expect(returns["equity"]?["givenAs"] as? String == "median" && returns["equity"]?["isDefault"] as? Bool == true)
     }
 
+    /// It runs, assuming no tax on investments, and says so.
     @Test func aPlanWithoutItsInvestmentRateSaysSo() async throws {
         let library = try TemporaryFolder.exampleLibrary()
         var text = try library.text("plans/base.json")
@@ -52,10 +53,10 @@ struct PlanShowTests {
                                          with: "")
         try library.write("plans/base.json", text)
         let shown = await retire(["plan", "show", "--library", library.path])
-        #expect(shown.output.contains("Taxes: the investment rate isn't set (tax.investmentRate): the plan can't run "
-            + "until it is\n"))
+        #expect(shown.output.contains("Taxes: none on investment income and gains (tax.investmentRate isn't set, "
+            + "so the plan assumes 0%); no wealth tax\n"))
         let run = await retire(["plan", "--library", library.path, "--fast"])
-        #expect(run.status == 1)
-        #expect(run.errors.contains("Set the tax rate on investment income and gains"))
+        #expect(run.status == 0, "\(run.all)")
+        #expect(run.output.contains("warning The tax rate on investment income and gains isn't set"))
     }
 }

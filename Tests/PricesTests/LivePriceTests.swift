@@ -45,6 +45,15 @@ struct LivePriceTests {
             #expect(!hicp.isEmpty, "\(index)")
             #expect(hicp.allSatisfy { $0.date.isEndOfMonth && $0.value > 90 }, "\(index)")
         }
+
+        // The US CPI-U (1982–84 = 100) and the UK CPI (2015 = 100).
+        let since = today.yearMonth.adding(months: -6)
+        let bls = try #require(BLSIndexProvider(index: .cpiUS))
+        let cpiUS = try await bls.values(from: since, through: today.yearMonth)
+        #expect(!cpiUS.isEmpty && cpiUS.allSatisfy { $0.date.isEndOfMonth && $0.value > 200 })
+        let ons = try #require(ONSIndexProvider(index: .cpiGB))
+        let cpiGB = try await ons.values(from: since, through: today.yearMonth)
+        #expect(!cpiGB.isEmpty && cpiGB.allSatisfy { $0.date.isEndOfMonth && $0.value > 90 })
     }
 
     @Test func theServiceFetchesTheExampleLibrary() async throws {

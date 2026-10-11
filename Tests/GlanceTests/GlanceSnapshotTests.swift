@@ -86,6 +86,15 @@ struct ExampleLibraryGlanceTests {
         #expect(abs(thisYear - expected) < 1e-12)
     }
 
+    /// The Overview's *This year* (Tracker's `changeThisYear(asOf:)`) splits
+    /// the hero's "this year": the same change, from the same 31 December.
+    @Test func thisYearsSplitIsTheHerosChange() throws {
+        let report = try #require(valuator.changeThisYear(asOf: "2026-09-30"))
+        let hero = try #require(NetWorthGlance(valuator: valuator, asOf: "2026-09-30").thisYear)
+        let split = try #require(report.total.relativeChange)
+        #expect(abs(hero - NSDecimalNumber(decimal: split).doubleValue) < 1e-12)
+    }
+
     @Test func allocationIsByAssetClassInStackingOrder() throws {
         let keys = snapshot.allocation.map(\.key)
         #expect(!keys.isEmpty)
@@ -258,6 +267,11 @@ struct GlanceSnapshotTests {
         #expect(answer.earliestDate == "2026-09-30")
         #expect(answer.canRetireNow)
         #expect(RetirementAnswer(recorded: headline, birthDate: nil).earliestDate == nil)
+        // The Overview works out the date the same way.
+        #expect(RetirementAnswer.earliestDate(age: 38, recordedOn: "2026-09-30", birthDate: "1988-04-12")
+            == "2026-09-30")
+        #expect(RetirementAnswer.earliestDate(age: 39, recordedOn: "2026-09-30", birthDate: "1988-04-12")
+            == "2027-04-12")
     }
 
     /// As the app shows it, and headlines record it: 99.6% reads 99%, never
