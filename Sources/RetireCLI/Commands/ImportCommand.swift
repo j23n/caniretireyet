@@ -49,8 +49,8 @@ struct ImportCommand: RetireSubcommand {
             importing the file again adds nothing. Its type words are mapped to trade types \
             (Acquisto → buy, Dividend → dividend, …); map others with --type "Giroconto=deposit", \
             or "Word=ignore" to leave them out. Name the account with --account <id> when the \
-            file has no account column. An account that doesn't record trades is switched only \
-            with --accept-trades-mode; otherwise its trades are left out. --settlement external \
+            file has no account column. An account of another kind that doesn't record trades \
+            is switched only with --accept-trades-mode; otherwise its trades are left out. --settlement external \
             says the file's buys and sales were paid from another account (a dealer's invoices \
             paid from the bank): they leave the account's cash alone.
             """)
@@ -171,7 +171,8 @@ struct ImportCommand: RetireSubcommand {
     @Flag(help: "With --apply, close accounts whose values stop before the file's last date.")
     var acceptClosings = false
 
-    @Flag(help: "With --apply, make accounts the file has trades for record trades, if they don't.")
+    @Flag(help: ArgumentHelp("With --apply, make accounts the file has trades for record trades, if they don't "
+        + "(brokerage, crypto and metals accounts already do)."))
     var acceptTradesMode = false
 
     @Option(help: ArgumentHelp("Records that differ from the library: keep, overwrite or ask (kept). "

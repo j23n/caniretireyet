@@ -312,22 +312,20 @@ struct ImportReport: CommandReport {
                 let was = library.accounts[proposal.account].map { " (was \($0.opened))" } ?? ""
                 return "  Open \(proposal.account) on \(date), its first value\(was)"
             case .recordTrades:
-                return Self.recordTradesLine(proposal, apply: apply, library: library)
+                return Self.recordTradesLine(proposal, apply: apply)
             }
         }
     }
 
-    /// `Record trades in directa: its holdings will come from its trades (switched with --apply)`.
-    static func recordTradesLine(_ proposal: AccountChangeProposal, apply: Bool, library: Library) -> String {
+    /// `Record trades in conto-fineco: its holdings and cash will come from its trades, …`. Only an account
+    /// that isn't brokerage, crypto or metals is offered the switch, and it records a balance.
+    static func recordTradesLine(_ proposal: AccountChangeProposal, apply: Bool) -> String {
         let what = proposal.isAccepted ? (apply ? "switched" : "switched with --apply")
             : "not switched, so its trades are left out: pass --accept-trades-mode, or choose a trades account with "
                 + "--account"
-        let valuations = library.accounts[proposal.account]?.valuationMode == .balance
-            ? "the balances of its valuations won't count any more (switching it to trades in the app first keeps "
-                + "them, as cash)"
-            : "the positions of its valuations become checks"
-        return "  Record trades in \(proposal.account): its holdings and cash will come from its trades, and "
-            + "\(valuations) (\(what))"
+        return "  Record trades in \(proposal.account): its holdings and cash will come from its trades, and the "
+            + "balances of its valuations won't count any more (switching it to trades in the app first keeps them, "
+            + "as cash) (\(what))"
     }
 
     func previewLines() -> [String] {

@@ -54,12 +54,17 @@ public struct ImportResult: Hashable, Sendable {
 
 extension ImportPreview {
     /// The records that applying leaves out as things stand: those of new
-    /// accounts and instruments that are rejected, and the trades of
-    /// accounts whose switch to recording trades is rejected.
+    /// accounts and instruments that are rejected, the trades of accounts
+    /// whose switch to recording trades is rejected, and those of brokerage,
+    /// crypto and metals accounts that don't record trades
+    /// (``ImportIssue/Kind/accountDoesntRecordTrades(_:)``).
     public var leftOutRecords: Int {
         let accounts = Set(newAccounts.filter { !$0.isAccepted }.map(\.account.id))
         let instruments = Set(newInstruments.filter { !$0.isAccepted }.map(\.instrument.id))
         let notTrades = Set(accountChanges.filter { $0.recordsTrades && !$0.isAccepted }.map(\.account))
+            .union(issues.compactMap { issue in
+                if case .accountDoesntRecordTrades(let account) = issue.kind { account } else { nil }
+            })
         return records.filter { record in
             if let account = record.imported.key.account, accounts.contains(account) { return true }
             if case .trade(let key) = record.imported.key, notTrades.contains(key.account) { return true }

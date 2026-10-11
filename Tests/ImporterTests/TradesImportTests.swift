@@ -498,6 +498,23 @@ struct BrokerSampleTests {
         #expect(switched.library.trades(for: "conto-fineco").count == 8)
     }
 
+    /// Only an account that isn't brokerage, crypto or metals is offered the switch: one of those kinds that
+    /// doesn't record trades (a hand-edited `valuation`) has its trades left out, with an issue saying why.
+    @Test func aBrokerageAccountThatDoesntRecordTradesIsntOfferedTheSwitch() throws {
+        var library = try Fixtures.exampleLibrary()
+        library.accounts["directa"]?.valuation = .balance
+        let preview = try Self.session("fineco", account: "directa").preview(against: library)
+        #expect(preview.accountChanges.isEmpty)
+        #expect(preview.issues.filter { !$0.isNote }.map(\.description) == [
+            "directa is a brokerage, crypto or metals account that doesn't record trades, so its trades are left "
+                + "out. Remove its \"valuation\" so it records trades, as its kind does, then import again.",
+        ])
+        #expect(preview.leftOutRecords == 8)
+        let result = preview.apply(to: library)
+        #expect(result.skipped == 8)
+        #expect(result.library.trades(for: "directa") == library.trades(for: "directa"))
+    }
+
     @Test func degiro() throws {
         let library = try Fixtures.exampleLibrary()
         let session = try Self.session("degiro", account: "degiro")

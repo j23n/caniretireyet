@@ -42,6 +42,10 @@ public struct ImportIssue: Hashable, Sendable, CustomStringConvertible {
         case cashDirectionBySign(count: Int)
         /// A note, trades layout: `count` rows of types mapped to `ignore` were left out.
         case ignoredTradeRows(count: Int)
+        /// A brokerage, crypto or metals account that doesn't record trades
+        /// (its `valuation` says otherwise): its trades are left out. Only
+        /// an account of another kind is offered to switch.
+        case accountDoesntRecordTrades(AccountID)
     }
 
     public var kind: Kind
@@ -112,6 +116,9 @@ public struct ImportIssue: Hashable, Sendable, CustomStringConvertible {
         case .ignoredTradeRows(let count):
             return count == 1 ? "1 row was left out: its type is mapped to ignore."
                 : "\(count) rows were left out: their types are mapped to ignore."
+        case .accountDoesntRecordTrades(let account):
+            return "\(account) is a brokerage, crypto or metals account that doesn't record trades, so its trades are "
+                + "left out. Remove its \"valuation\" so it records trades, as its kind does, then import again."
         }
     }
 }

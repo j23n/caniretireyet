@@ -56,9 +56,11 @@ public struct AccountChangeProposal: Hashable, Sendable, CustomStringConvertible
         /// The file has values from before the day it was opened: open it
         /// on the first of them.
         case openEarlier(on: CalendarDate)
-        /// The file has trades for an account that records balances or
-        /// holdings: make it record trades (`"valuation": "trades"`), so its
-        /// holdings come from its trades. Rejected, its trades are left out.
+        /// The file has trades for an account that doesn't record them, of
+        /// a kind other than brokerage, crypto or metals (a cash account, a
+        /// pension fund): make it record trades (`"valuation": "trades"`),
+        /// so its holdings come from its trades. Rejected, its trades are
+        /// left out.
         case recordTrades
     }
 

@@ -196,12 +196,10 @@ extension ImportFlow {
                 + "updated less often than the file."
         case .openEarlier: "The file has values from before the day it was opened."
         case .recordTrades:
-            library.accounts[change.account]?.valuationMode == .balance
-                ? "The file has its trades. Its holdings and cash will come from them, and its balances won't count "
-                    + "any more; convert it in its page first to keep them. Off: its trades are left out, or choose "
-                    + "another account."
-                : "The file has its trades. Its holdings and cash will come from them, and the positions of its "
-                    + "values become checks. Off: its trades are left out, or choose another account."
+            // Only an account that isn't brokerage, crypto or metals is asked, and it records a balance.
+            "The file has its trades. Its holdings and cash will come from them, and its balances won't count any "
+                + "more; convert it in its page first to keep them. Off: its trades are left out, or choose another "
+                + "account."
         }
     }
 
