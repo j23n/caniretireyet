@@ -29,7 +29,7 @@ struct PlanMilestones {
     ///     Plan screen, the widget).
     init(plan: PlanDocument, library: Library, valuator: Valuator, asOf: CalendarDate, results: PlanResults?,
          reached: [ReachedMilestone] = []) {
-        let recorded = library.headlines(for: plan.id).filter { $0.date <= asOf }.max { $0.date < $1.date }
+        let recorded = Self.latestRecord(of: plan.id, library: library, asOf: asOf)
         let readiness = results?.headline.readiness.map(Planner.recordedReadiness) ?? recorded?.readiness
         // What retiring today needs, in the base currency as the ladder's
         // amounts are, converted as the median future is below (none without
@@ -57,16 +57,22 @@ struct PlanMilestones {
         }
         ahead = ladder.ahead(of: current, readiness: readiness, median: median)
         next = ladder.next(after: current, readiness: readiness)
-        if let coast = results?.details.agesWithout.coast {
-            coastAge = coast.earliestAge
-            knowsCoastAge = true
-        } else if let age = recorded?.coastAge {
-            coastAge = age
-            knowsCoastAge = true
-        } else {
-            coastAge = nil
-            knowsCoastAge = false
-        }
+        let coast = Self.currentCoastAge(results: results, recorded: recorded)
+        coastAge = coast.age
+        knowsCoastAge = coast.isKnown
+    }
+
+    /// The answer the latest check-in on or before `asOf` recorded for `plan`.
+    static func latestRecord(of plan: PlanID, library: Library, asOf: CalendarDate) -> Headline? {
+        library.headlines(for: plan).filter { $0.date <= asOf }.max { $0.date < $1.date }
+    }
+
+    /// The coast age now: from `results`, else from the answer `recorded`
+    /// at the latest check-in (``coastAge``); and whether it's known.
+    static func currentCoastAge(results: PlanResults?, recorded: Headline?) -> (age: Int?, isKnown: Bool) {
+        if let coast = results?.details.agesWithout.coast { return (coast.earliestAge, true) }
+        if let age = recorded?.coastAge { return (age, true) }
+        return (nil, false)
     }
 
     /// When the median future reaches the next milestone; `nil` without
