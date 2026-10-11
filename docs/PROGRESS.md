@@ -97,10 +97,10 @@ A **baseline** is a projection saved at a point in time (see below). Choosing on
 
 The plan's *Trends* part ([UI.md](UI.md#trends)) looks back over your own records, with the plan only as a reference line:
 
-- **Money in and out by period:** money in, money out and the savings rate ([Money in and out](#money-in-and-out)) for each month or calendar year, over the values dated in it; with months, also the savings rate over the 12 months ending at each. A value counts in the period of its date, even when it covers more (after a skipped check-in).
+- **Money in and out by period:** money in, money out, the pension contributions and the savings rate ([Money in and out](#money-in-and-out)) for each month or calendar year, over the values dated in it; with months, also the savings rate over the 12 months ending at each. A value counts in the period of its date, even when it covers more (after a skipped check-in).
 - **Where your money came from:** plan assets at each month end or year end, split into what the accounts held at their first values without a flow (what they held when their records start, the change split's *other*), the new money added up since (a first value with a flow, such as a new account funded from another, included), and the rest (markets: price and FX movement, interest, reinvested income, and what nothing explains). The three add up to the total.
 - **The plan's savings rate:** a year's saving as the crossover counts it ([Milestones](#milestones): the take-home pay of the work phase in force less spending while working), over that pay; the reference for the savings rate. None without a work phase in force.
-- **Each year graded:** the year's new money against its baseline's `savings`, and money out a year against the baseline plan's spending while working, each "as planned" within 5%; markets as the year's words on Progress say it.
+- **Each year graded:** the year's new money against its baseline's `savings` (none when it planned no saving, or less), and money out a year against the baseline plan's spending while working, each "as planned" within 5%; markets as the year's words on Progress say it.
 
 ## Baselines
 
