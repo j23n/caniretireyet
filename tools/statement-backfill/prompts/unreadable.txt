@@ -1,0 +1,3 @@
+Your previous answer could not be read: {problem}
+
+Reply with the whole JSON object again, exactly in the shape asked for, and nothing else.

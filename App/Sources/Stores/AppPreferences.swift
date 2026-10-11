@@ -53,7 +53,8 @@ final class AppPreferences {
 
     /// How far ahead charts show a plan's projection: the Overview's net
     /// worth with *Future* on, and the plan's "Your money over time"
-    /// (UI.md, "Charts"). Retirement and 15 years after it until changed.
+    /// (UI.md, "Charts"). Retirement and 10 years after it until changed,
+    /// or when the stored choice is no longer offered.
     var futureHorizon: FutureHorizon {
         didSet { defaults.set(futureHorizon.rawValue, forKey: Keys.futureHorizon) }
     }
@@ -87,8 +88,7 @@ final class AppPreferences {
         fetchPricesOnCheckIn = defaults.object(forKey: Keys.fetchPricesOnCheckIn) as? Bool ?? true
         collapsedAccountFolders = defaults.stringArray(forKey: Keys.collapsedAccountFolders).map(Set.init)
             ?? Self.defaultCollapsedAccountFolders
-        futureHorizon = defaults.string(forKey: Keys.futureHorizon).flatMap(FutureHorizon.init(rawValue:))
-            ?? .standard
+        futureHorizon = FutureHorizon(stored: defaults.string(forKey: Keys.futureHorizon))
         if defaults.bool(forKey: Keys.reminderEnabled) {
             let standard = CheckInReminder.standard
             reminder = CheckInReminder(

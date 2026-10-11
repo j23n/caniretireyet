@@ -21,6 +21,7 @@ make build                              # the app for the iOS Simulator and the 
 - **The app** can only be built on a Mac: `make bootstrap`, then open `CanIRetireYet.xcodeproj`, generated from `project.yml` at the root; the app's files are in `App/`. CI (`.github/workflows/ci.yml`) builds and tests the package on Linux on every push, and builds the app with its widgets for the iOS Simulator and the Mac and checks the icons on a pull request labeled `ci:mac` (`make ci-macos-app`); on `main` the Mac also builds and tests the package (`make ci-macos`). Its screenshots job (`make screenshots`) runs the screen tests (`App/ScreenTests`), which draw each screen on the Mac and an iPhone simulator, and uploads the pictures (App/README.md, "Screenshots"). It runs only when someone asks: by hand, or on a pull request they label `ci:screenshots`. Claude's review never adds that label.
 - `swift build` and `swift test` must pass with no warnings in our code before every commit.
 - **Stale builds:** after a change to a stored property of a Model type, an incremental build can link stale objects. The symptom is an "undefined reference" linker error, or a test crashing with signal 11 while releasing that type. `rm -rf .build` and rebuild before looking for a code bug.
+- **`tools/statement-backfill/`** is a one-off Python script that reads PDF statements with a local model into CSVs for `retire import` (its README). It isn't part of the package or CI; its tests run with `python3 -m unittest` there.
 - **App changes are checked only by CI's macOS job.** Its `xcodebuild -quiet` log ends with the compiler errors.
 
 ## Branches
@@ -38,7 +39,7 @@ make build                              # the app for the iOS Simulator and the 
 | `Storage` | Library folder ⇄ `Library`: JSON writer, validation, migrations, merging | Model |
 | `Importer` | CSV reading, format detection, column mapping, import profiles | Model |
 | `Prices` | Price, FX and inflation-index providers | Model |
-| `Planner` | Simulation engine (docs/PLANNER.md): income after tax, two tax rates set by hand, no tax law | Model, Tracker |
+| `Planner` | Simulation engine (docs/PLANNER.md): income after tax, two tax rates set by hand, no tax law; the money scale the app's strips (the plan's chapters, Progress's years) are fitted to (`StripFit`) | Model, Tracker |
 | `CloudSync` | iCloud container, file coordination, change watching; Apple-only code inside `#if canImport(Darwin)` | Model, Storage |
 | `Glance` | What the widgets show: a snapshot of net worth, the plan's answer and the next check-in, which the app writes into the App Group and the widget extension reads (`GlanceFile`); the countdown, deep links; the words the app's screens share with them (`GlanceText`: the confidence, months); short amounts for a chart's callout (`ShortAmount`: `12.3M`) | Model, Tracker |
 | `TestSupport` | Test helpers and the made-up example library (`Fixtures`) — tests only, not a product; the app bundles the example library's folder for its previews and screen tests (`PreviewLibrary`) | Model |

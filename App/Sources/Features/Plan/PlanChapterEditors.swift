@@ -16,8 +16,8 @@ struct PlanOutsideCard: View {
     @Binding var plan: PlanDocument
     let issues: PlanInputIssues
     let words: PlanWords
-    /// Opens an item's sheet, or the target mix's.
-    var onOpen: (PlanChapter.Item) -> Void = { _ in }
+    /// Opens a setting's sheet.
+    var onOpen: (PlanSettingSheet) -> Void = { _ in }
 
     @Environment(LibraryStore.self) private var library
 
@@ -112,7 +112,7 @@ struct PlanUnplacedIssues: View {
 struct PlanChapterAddMenu: View {
     let chapter: PlanChapter
     let model: PlanChaptersModel
-    @Binding var plan: PlanDocument
+    let plan: PlanDocument
     @Binding var editing: PlanEditTarget?
 
     @Environment(LibraryStore.self) private var library
@@ -124,7 +124,8 @@ struct PlanChapterAddMenu: View {
                     editing = .pension(index: plan.pensions.count, pension: model.newPension(in: chapter))
                 }
                 Button("Later spending") {
-                    plan.spending.phases.append(model.newSpendingPhase(in: chapter))
+                    editing = .spendingPhase(index: plan.spending.phases.count,
+                                             phase: model.newSpendingPhase(in: chapter))
                 }
             } else {
                 Button("Work phase") {
@@ -154,7 +155,8 @@ struct PlanChapterAddMenu: View {
 // MARK: - What every chapter shares
 
 /// All the assumptions, in a sheet: your birth date, taxes, returns and
-/// inflation, the target mix and the simulation, as collapsible cards.
+/// inflation, the target mix and the simulation, as collapsible cards. The
+/// target mix's card opens its own sheet, ``PlanTargetMixSheet``.
 struct PlanAlwaysSheet: View {
     let session: PlanSession
 
@@ -164,6 +166,7 @@ struct PlanAlwaysSheet: View {
     @Environment(\.locale) private var locale
     @Environment(\.dismiss) private var dismiss
     @State private var expanded: [PlanInputSection: Bool] = [.assumptions: true]
+    @State private var showsTargetMix = false
 
     private static let sections: [PlanInputSection] = [.you, .taxes, .assumptions, .targetMix, .simulation]
 
@@ -180,8 +183,13 @@ struct PlanAlwaysSheet: View {
                             PlanSectionCard(section: section, summary: summaries.summary(for: section),
                                             issues: issues.issues(for: section),
                                             isExpanded: $expanded[planFlag: section]) {
-                                PlanSectionEditor(section: section, plan: $session.editablePlan)
-                                    .disabled(!session.canEdit)
+                                if section == .targetMix {
+                                    PlanTargetMixOverview(portfolio: plan.portfolio) { showsTargetMix = true }
+                                        .disabled(!session.canEdit)
+                                } else {
+                                    PlanSectionEditor(section: section, plan: $session.editablePlan)
+                                        .disabled(!session.canEdit)
+                                }
                             }
                         }
                     }
@@ -190,6 +198,9 @@ struct PlanAlwaysSheet: View {
             }
             .background(Palette.page)
             .sheetTitle("Assumptions") { dismiss() }
+            .sheet(isPresented: $showsTargetMix) {
+                PlanTargetMixSheet(session: session)
+            }
         }
         #if os(macOS)
         .frame(minWidth: 520, minHeight: 600)
@@ -197,20 +208,20 @@ struct PlanAlwaysSheet: View {
     }
 }
 
-/// The target mix and its changes with age, in a sheet of their own.
+/// The target mix and its changes with age, in a sheet of their own: a
+/// grouped form editing a copy of the plan. *Done* writes the copy's mix
+/// and its changes with age to the plan; *Cancel* discards them.
 struct PlanTargetMixSheet: View {
-    @Binding var plan: PlanDocument
-
-    @Environment(\.dismiss) private var dismiss
+    let session: PlanSession
 
     var body: some View {
-        NavigationStack {
-            ScrollView {
-                PlanTargetMixEditor(plan: $plan)
-                    .padding(Metrics.l)
+        PlanItemEditor("Target mix", item: session.editablePlan, onSave: { edited in
+            session.edit {
+                $0.portfolio.targetMix = edited.portfolio.targetMix
+                $0.portfolio.targetMixByAge = edited.portfolio.targetMixByAge
             }
-            .background(Palette.page)
-            .sheetTitle("Target mix") { dismiss() }
+        }) { plan in
+            PlanTargetMixEditor(plan: plan)
         }
         #if os(macOS)
         .frame(minWidth: 520, minHeight: 560)

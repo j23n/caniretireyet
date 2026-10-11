@@ -7,7 +7,8 @@ import Model
 /// `-screenLibrary example` (or `longHistory`) opens a made-up library in
 /// memory, with the real planner, no network and settings of its own, and
 /// `-screen` the screen to start on (`overview`, `plan`, `progress` or
-/// `whatIf`). The main plan is calculated at once, with fewer runs than it
+/// `whatIf`; `targetMix`, the Target mix sheet of the first plan with
+/// changes with age). The main plan is calculated at once, with fewer runs than it
 /// says, so the plan's screens fill in quickly. Debug builds only.
 struct ScreenLaunch {
     /// The made-up libraries: ``PreviewLibrary/library`` and ``PreviewLibrary/withLongHistory``.
@@ -28,6 +29,7 @@ struct ScreenLaunch {
         case plan
         case progress
         case whatIf
+        case targetMix
     }
 
     var library: Library
@@ -73,6 +75,10 @@ struct ScreenLaunch {
         case .whatIf:
             navigation.showPlan(main)
             navigation.requestsWhatIf = true
+        case .targetMix:
+            let plans = library.plans.values.sorted { $0.id.rawValue < $1.id.rawValue }
+            navigation.showPlan(plans.first { !$0.portfolio.targetMixByAge.isEmpty }?.id ?? main)
+            navigation.requestsTargetMix = true
         }
         if let main {
             // As the root view does once a library is open; a library in

@@ -46,7 +46,8 @@ struct PlanYearStrip: View {
         let height = PlanYearCardView.height(textScale: textScale)
         PlanCardStrip(
             indices: Array(timeline.cards.indices.dropFirst(folds ? early : 0)), selection: $selection,
-            inset: inset, opensAtEnd: true, identifier: "progress.years", scale: timeline.scale(fitting:),
+            inset: inset, opensAtEnd: true, identifier: "progress.years",
+            scale: { timeline.scale(fitting: $0, inset: Double(PlanYearCardView.pad)) },
             spokenLabel: { accessibilityLabel(timeline.cards[$0]) }, chart: { chartSummary(timeline.cards[$0]) }
         ) {
             if folds {
@@ -209,7 +210,8 @@ struct PlanYearCardView: View {
     @Environment(\.hidesAmounts) private var hidesAmounts
     @Environment(\.locale) private var locale
 
-    private static let pad: CGFloat = 12
+    /// The card's padding, where its plot starts and ends across it.
+    static let pad: CGFloat = 12
     private var width: CGFloat { Self.width(pointsPerMonth: pointsPerMonth) }
 
     /// The year across, inside the card's padding, under the header, which
