@@ -5,12 +5,12 @@ A one-off script that reads PDF bank, broker, card and loan statements with a lo
 ## What it does
 
 1. **Text.** `pdftotext -layout` reads each page. A page with almost no text is a scan, and `ocrmypdf` reads it, if installed.
-2. **Classify.** The model reads the first page: bank, broker, card, loan or something else (skipped), the institution, the account number and the period.
+2. **Classify.** The model reads the first page: bank, broker, card, loan or something else (skipped), the institution, the account number if printed, and the period.
 3. **Extract.** The model copies each page into JSON: transactions, balances, holdings. It copies; it never adds anything up. The prompts are in `prompts/`.
 4. **Check.** The script adds up the numbers. In a bank statement, the opening balance plus the transactions must equal the closing balance, and every running balance printed must follow from the line before. In a broker statement with cash balances, the same goes for the cash. A page that doesn't add up is asked again, with the numbers that don't match; a statement that still fails is tried with `RETRY_MODEL`; one that fails again is left out and listed in the report.
-5. **Assemble.** Account numbers are mapped to the library's accounts (`accounts.json`), and then:
-   - **Cash and savings:** one row per month end, with the balance, money in, money out and interest. Transfers between your accounts (the same amount out of one and into another within 4 days, a broker deposit included) count as neither money in nor money out. Several statement accounts mapped to one library account are merged: their balances add up.
-   - **Brokers:** every trade. A depot transfer between two statement accounts mapped to one library account is dropped on both sides, so the holdings keep the cost of the original buys. The holdings the trades give are compared with those each statement lists.
+5. **Assemble.** Each folder is a library account ([Folders](#folders)), and then:
+   - **Cash and savings:** one row per month end, with the balance, money in, money out and interest. Transfers between your accounts (the same amount out of one and into another within 4 days, a broker deposit included) count as neither money in nor money out. Statement accounts in subfolders of one account's folder are merged: their balances add up.
+   - **Brokers:** every trade. A depot transfer between two subfolders of one account's folder is dropped on both sides, so the holdings keep the cost of the original buys. The holdings the trades give are compared with those each statement lists.
    - **Cards and loans:** the balance owed on each statement date. Cards merged into one account add up, each by its latest statement, from its first statement through its last. That suits a card replaced by a new number; two cards that run at the same time but stop on different days leave only the later one in the last rows.
    - The checks across statements: each closing balance is the next opening balance, and missing statements show as gaps. A month end that falls in a gap or in a failed statement is left out rather than guessed.
 
@@ -21,22 +21,47 @@ Every model reply is cached in `WORK`, one folder per PDF (named after its hash)
 ```sh
 brew install uv poppler
 brew install ocrmypdf          # only if some statements are scans
-cp accounts.example.json accounts.json
 ```
 
-- **accounts.json** maps each account number on your statements to a library account ID. Spaces don't matter, and a masked number (`**** 4242`) matches on the digits it shows. Point several numbers at one ID to merge them. Git ignores this file. A number that isn't in it is listed in the report, with how many statements it has, so the first run tells you what to add.
 - **The library's accounts** should exist before importing, with the right kinds: a cash or savings account per ID in `cash.csv`, a brokerage account that records trades per ID in `trades.csv`, a credit card or loan per ID in `debts.csv`.
 - **The paths and models** are at the top of `backfill.py`.
+
+## Folders
+
+The statements folder holds one folder per library account, named by the account's ID. Account numbers on the statements don't matter, and they can be missing.
+
+```
+Statements/
+  current-account/
+    musterbank/            ← an old current account, merged into current-account
+      2019-01.pdf …
+    beispielbank/          ← the current one
+      2022-07.pdf …
+  savings/
+    2020-01.pdf …
+  broker/
+    old-broker/            ← merged: the depot transfer between them cancels out
+    new-broker/
+  credit-card/
+    2023-01.pdf …
+```
+
+- A folder inside an account's folder is one statement account: its statements are checked against each other (each closing balance is the next opening balance), then merged into the account. An account with one statement account needs no subfolders.
+- Keep each folder to one kind of statement. The report lists a folder that mixes them.
+- A PDF directly in the statements folder, outside every account's folder, is left out and listed in the report.
 
 ## Run
 
 ```sh
-uv run backfill.py
+uv run backfill.py                            # every account folder
+uv run backfill.py --account current-account  # only current-account's folder
 ```
+
+With `--account`, only that folder is read, but the CSVs and the report cover every folder read so far, so transfers between accounts are still matched once both are read.
 
 The first run downloads the models from Hugging Face (about 17 GB and 18 GB at 4-bit). It prints what it does for each PDF: the pages, what kind of statement it is, how many transactions each page has, the model's speed, and whether the numbers add up. Set `SHOW_REPLIES = True` to see every reply.
 
-Start with the pilot `LIMIT = 20` and pick PDFs from every bank and broker with `ONLY`. Check the CSVs and `report.md` by hand, then set `LIMIT = None` for the rest.
+Start with the pilot `LIMIT = 20`, one account at a time with `--account`, or pick PDFs from every bank and broker with `ONLY`. Check the CSVs and `report.md` by hand, then set `LIMIT = None` for the rest.
 
 **Rerunning after a change:** each PDF's folder in `WORK` holds `text.json`, `classify.json`, `page-N.json` (the model's JSON and the conversation) and `status.json`. Delete the files to redo: all of a PDF's folder to read it again from scratch, its `page-*.json` and `status.json` after changing an extraction prompt, or every folder's `status.json` and `page-*.json` to rerun every statement with a new prompt. Assembling runs at the end of every run and reads only the cache.
 
@@ -50,7 +75,7 @@ In `OUTPUT`:
 | `debts.csv` | `date, account, balance`: what was owed, as a negative amount the way the library stores debts; positive when a card was in credit. |
 | `trades.csv` | `date, account, type, isin, instrument, quantity, price, currency, amount, fees, tax, ratio, note`. |
 | `profiles/` | Import profiles for the three CSVs. |
-| `report.md` | What was left out and why: failed checks, unknown accounts, gaps, balances that don't carry over, merged accounts, holdings that differ, trade types to map. |
+| `report.md` | What was left out and why: failed checks, PDFs outside an account folder, gaps, balances that don't carry over, merged accounts, holdings that differ, trade types to map. |
 
 ## Import
 
