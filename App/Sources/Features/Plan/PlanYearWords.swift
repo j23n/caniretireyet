@@ -537,17 +537,3 @@ struct PlanYearHappenings: View {
         #endif
     }
 }
-
-
-extension PlanBaselineComparison.Standing {
-    /// Orange behind plan, the only warning; green ahead and on plan.
-    var color: Color { isWarning ? Palette.orangeStroke : Palette.positive }
-
-    /// The tint behind ``color``, as on the plan's progress pill.
-    var tint: Color { isWarning ? Palette.orange : Palette.positive }
-
-    /// ``color`` for a position; green without one.
-    static func color(of position: PlanBaselineComparison.Position?) -> Color {
-        position?.standing.color ?? Palette.positive
-    }
-}
