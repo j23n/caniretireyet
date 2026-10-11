@@ -213,6 +213,7 @@ struct ImportAmbiguityRow: View {
                 Text(ambiguity.description)
                     .foregroundStyle(Palette.ink)
                     .fixedSize(horizontal: false, vertical: true)
+                    .privacySensitive()
             } icon: {
                 Image(systemName: "questionmark.circle")
                     .foregroundStyle(Palette.warning)
@@ -249,6 +250,7 @@ struct ImportSampleCells: View {
                 .foregroundStyle(Palette.secondaryInk)
                 .lineLimit(2)
                 .multilineTextAlignment(.trailing)
+                .privacySensitive()
         }
     }
 }
@@ -284,6 +286,7 @@ struct ImportSampleList: View {
                     Spacer(minLength: 0)
                 }
                 .font(.callout)
+                .privacySensitive()
                 .accessibilityElement(children: .combine)
             }
         }

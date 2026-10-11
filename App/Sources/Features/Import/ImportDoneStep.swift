@@ -70,12 +70,12 @@ struct ImportDoneStep: View {
         Section {
             if receipt.isUndone, !receipt.undoNotes.isEmpty {
                 StatusBanner(.warning, "The import was undone, except for later changes",
-                             message: receipt.undoNotes.joined(separator: "\n"))
+                             message: receipt.undoNotes.joined(separator: "\n"), personal: .message)
             } else if receipt.isUndone {
                 StatusBanner(.info, "The import was undone",
                              message: "The library's files are back to how they were before it.")
             } else if receipt.hasChanges {
-                StatusBanner(.success, "Imported \(receipt.fileName)")
+                StatusBanner(.success, "Imported \(receipt.fileName)", personal: .title)
             } else {
                 StatusBanner(.info, "Nothing to import", message: "The library already has everything in the file.")
             }
@@ -111,6 +111,7 @@ struct ImportDoneStep: View {
     private func namesRow(_ title: String, _ names: [String]) -> some View {
         if !names.isEmpty {
             LabeledContent(title, value: names.joined(separator: ", "))
+                .privacySensitive()
         }
     }
 
@@ -127,6 +128,7 @@ struct ImportDoneStep: View {
         Section {
             ForEach(instruments) { instrument in
                 Label(instrument.name, systemImage: "magnifyingglass")
+                    .privacySensitive()
             }
             Button("Find Price Sources…") { findsPriceSources = true }
                 .disabled(!library.canEdit)
@@ -146,6 +148,7 @@ struct ImportDoneStep: View {
         Section {
             ForEach(pastPriceOffers, id: \.self) { offer in
                 Label(offer, systemImage: "tag.slash")
+                    .privacySensitive()
             }
             Button("Fill In Past Prices…") { fillsPastPrices = true }
                 .disabled(!library.canEdit)
@@ -214,6 +217,7 @@ struct ImportDoneStep: View {
                 Label(problem, systemImage: "exclamationmark.triangle")
                     .font(.footnote)
                     .foregroundStyle(Palette.warning)
+                    .privacySensitive()
             }
             Button(receipt.savedProfile == nil ? "Save Profile" : "Save Again") {
                 _ = model.saveProfile(id: profileID, name: profileName, in: library)
@@ -222,12 +226,14 @@ struct ImportDoneStep: View {
             if let saved = receipt.savedProfile {
                 Label("Saved as imports/\(saved.rawValue).json", systemImage: "checkmark.circle")
                     .foregroundStyle(Palette.good)
+                    .privacySensitive()
             }
         } header: {
             Text("Save as profile")
         } footer: {
             Text("The mapping, with every format written out, in the library's imports folder. The next file of the "
                 + "same shape imports in one step, here, on your other devices, or with “\(cliCommand)”.")
+                .privacySensitive()
         }
     }
 
