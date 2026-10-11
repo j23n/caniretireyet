@@ -92,6 +92,9 @@ final class LibraryStore {
     /// Files a save replaced after copying them to `backups/`, or kept,
     /// since the library was opened, newest first.
     private(set) var saveNotices: [SaveNotice] = []
+    /// What upgrading the library's format did as it opened, until
+    /// ``dismissUpgrade()``: a banner and its details say so once.
+    private(set) var upgrade: LibraryUpgrade?
     /// Why the library is open read-only (`LoadReport.readOnlyReason`): a
     /// newer app version wrote it, or its `library.json` can't be read. It's
     /// shown, and every edit is refused with ``LibraryStoreError/readOnly(_:)``.
@@ -320,6 +323,7 @@ final class LibraryStore {
                     + "\(migration.toVersion), \(migration.notes.count) notes; backup in \(migration.backup.path)")
             }
             apply(result)
+            if let migration { upgrade = LibraryUpgrade(migration) }
             diskSnapshot = snapshot
             activity = .idle
             phase = .ready
@@ -496,6 +500,11 @@ final class LibraryStore {
     /// Clears the error banner.
     func dismissError() {
         lastError = nil
+    }
+
+    /// Clears what upgrading the library's format did, once it's been seen.
+    func dismissUpgrade() {
+        upgrade = nil
     }
 
     /// Shows `message` where a failed save shows (``lastError``): something
@@ -775,6 +784,8 @@ final class LibraryStore {
         do {
             let (result, snapshot) = try await sync.loadWithSnapshot()
             guard sync === self.sync else { return }
+            // A library replaced by an older copy is upgraded again.
+            if let migration = await sync.takeMigration() { upgrade = LibraryUpgrade(migration) }
             diskSnapshot = snapshot
             let pending = Set(pendingSaves.keys)
             guard !pending.isEmpty else {
