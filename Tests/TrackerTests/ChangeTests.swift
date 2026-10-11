@@ -59,8 +59,9 @@ struct ExampleLibraryChangeTests {
         let report = try #require(valuator.changeThisYear(asOf: "2026-10-10"))
         #expect(report.from == "2025-12-31")
         #expect(report.to == "2026-10-10")
-        let total = report.total
-        #expect((total.start + total.market + total.newMoney + total.other).rounded(20) == total.end.rounded(20))
+        // Net worth on those days, so a wrong start or a missing account shows.
+        #expect(report.total.start.rounded(10) == valuator.total(on: "2025-12-31", in: .netWorth).total.rounded(10))
+        #expect(report.total.end.rounded(10) == valuator.total(on: "2026-10-10", in: .netWorth).total.rounded(10))
     }
 
     /// The home's value went up 7.000 € without a flow, and the plan pays

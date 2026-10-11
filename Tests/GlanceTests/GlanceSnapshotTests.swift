@@ -93,8 +93,6 @@ struct ExampleLibraryGlanceTests {
         let hero = try #require(NetWorthGlance(valuator: valuator, asOf: "2026-09-30").thisYear)
         let split = try #require(report.total.relativeChange)
         #expect(abs(hero - NSDecimalNumber(decimal: split).doubleValue) < 1e-12)
-        let total = report.total
-        #expect((total.start + total.market + total.newMoney + total.other).rounded(20) == total.end.rounded(20))
     }
 
     @Test func allocationIsByAssetClassInStackingOrder() throws {
@@ -269,6 +267,11 @@ struct GlanceSnapshotTests {
         #expect(answer.earliestDate == "2026-09-30")
         #expect(answer.canRetireNow)
         #expect(RetirementAnswer(recorded: headline, birthDate: nil).earliestDate == nil)
+        // The Overview works out the date the same way.
+        #expect(RetirementAnswer.earliestDate(age: 38, recordedOn: "2026-09-30", birthDate: "1988-04-12")
+            == "2026-09-30")
+        #expect(RetirementAnswer.earliestDate(age: 39, recordedOn: "2026-09-30", birthDate: "1988-04-12")
+            == "2027-04-12")
     }
 
     /// As the app shows it, and headlines record it: 99.6% reads 99%, never

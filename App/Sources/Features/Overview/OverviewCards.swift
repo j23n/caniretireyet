@@ -157,16 +157,25 @@ struct OverviewAnswerView: View {
     }
 
     /// Without a main plan: create the first plan, as the Plan screen does,
-    /// or open the plans to choose one.
+    /// or open the plans to choose one; when the main plan's file couldn't
+    /// be read, its details instead. Why *Create a plan* failed shows under
+    /// it until the plans change.
     private var noPlan: some View {
         VStack(alignment: .leading, spacing: Metrics.m) {
-            Text(error ?? (library.sortedPlans.isEmpty
-                ? "Make a plan to see when you could retire."
-                : "Choose a main plan to see when you could retire."))
+            Text(noPlanText)
                 .font(.callout)
-                .foregroundStyle(error == nil ? Palette.ink : Palette.secondaryInk)
+                .foregroundStyle(Palette.ink)
                 .fixedSize(horizontal: false, vertical: true)
-            if library.sortedPlans.isEmpty {
+            if let error {
+                Label(error, systemImage: "exclamationmark.triangle")
+                    .font(.caption)
+                    .foregroundStyle(Palette.secondaryInk)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            if mainPlanIsUnreadable {
+                Button("Show Details") { navigation.show(.sync) }
+                    .buttonStyle(.borderedProminent)
+            } else if library.sortedPlans.isEmpty {
                 Button("Create a plan") { createPlan() }
                     .buttonStyle(.borderedProminent)
                     .disabled(!library.canEdit)
@@ -175,6 +184,19 @@ struct OverviewAnswerView: View {
                     .buttonStyle(.borderedProminent)
             }
         }
+        .onChange(of: library.sortedPlans.isEmpty) { error = nil }
+    }
+
+    private var noPlanText: String {
+        if mainPlanIsUnreadable { return "Your main plan's file couldn't be read, so it has no answer." }
+        return library.sortedPlans.isEmpty ? "Make a plan to see when you could retire."
+            : "Choose a main plan to see when you could retire."
+    }
+
+    /// Whether a main plan is chosen but its file couldn't be read.
+    private var mainPlanIsUnreadable: Bool {
+        guard let main = library.settings.mainPlan else { return false }
+        return library.library.plans[main] == nil && library.unloadedFiles.contains(.plan(main))
     }
 
     @ViewBuilder
@@ -218,7 +240,8 @@ struct OverviewAnswerView: View {
     /// Under the answer: when it was recorded at a check-in, a calculation
     /// going on, or that the results are out of date; with *Calculate*
     /// (``PlanStore/run(_:mode:whatIf:focusAge:)``, as *Future* starts it)
-    /// when the answer isn't current.
+    /// when the answer isn't current, or why it can't be calculated, with
+    /// *Try Again* and *Open Plan*.
     @ViewBuilder
     private func runStatus(_ headline: PlanHeadline, plan: PlanDocument) -> some View {
         let progress = plans.progress(of: plan.id, .checkIn) ?? plans.progress(of: plan.id, .base)
@@ -233,6 +256,8 @@ struct OverviewAnswerView: View {
                 .font(.caption)
                 .monospacedDigit()
                 .foregroundStyle(Palette.mutedInk)
+        } else if let error = plans.errors[plan.id], headline.recordedOn != nil || isStale {
+            cantCalculate(plan, error: error)
         } else if headline.recordedOn != nil || isStale {
             HStack(alignment: .firstTextBaseline, spacing: Metrics.s) {
                 if isStale {
@@ -246,6 +271,22 @@ struct OverviewAnswerView: View {
                     .controlSize(.small)
                     .disabled(plans.isRunning(plan.id, .base) || plans.isRunning(plan.id, .checkIn))
             }
+        }
+    }
+
+    /// "Base case can't be calculated: …", with *Try Again* and *Open Plan*.
+    private func cantCalculate(_ plan: PlanDocument, error: String) -> some View {
+        VStack(alignment: .leading, spacing: Metrics.s) {
+            Label("\(plan.name) can't be calculated: \(error)", systemImage: "exclamationmark.triangle")
+                .font(.callout)
+                .foregroundStyle(Palette.secondaryInk)
+                .fixedSize(horizontal: false, vertical: true)
+            HStack(spacing: Metrics.s) {
+                Button("Try Again") { Task { await plans.run(plan.id) } }
+                Button("Open Plan") { navigation.showPlan(plan.id) }
+            }
+            .buttonStyle(.bordered)
+            .controlSize(.small)
         }
     }
 
@@ -266,18 +307,7 @@ struct OverviewAnswerView: View {
                 }
             }
         } else if let error = plans.errors[plan.id] {
-            VStack(alignment: .leading, spacing: Metrics.s) {
-                Label("\(plan.name) can't be calculated: \(error)", systemImage: "exclamationmark.triangle")
-                    .font(.callout)
-                    .foregroundStyle(Palette.secondaryInk)
-                    .fixedSize(horizontal: false, vertical: true)
-                HStack(spacing: Metrics.s) {
-                    Button("Try Again") { Task { await plans.run(plan.id) } }
-                    Button("Open Plan") { navigation.showPlan(plan.id) }
-                }
-                .buttonStyle(.bordered)
-                .controlSize(.small)
-            }
+            cantCalculate(plan, error: error)
         } else {
             VStack(alignment: .leading, spacing: Metrics.m) {
                 Text("Calculate \(plan.name) to see when you could retire. Each check-in then records its answer.")
@@ -329,15 +359,25 @@ struct OverviewAnswerView: View {
     /// in words, ``RetirementCountdown/toGoText``: whole years from two years
     /// on, rounded to the nearest, else months), "You could retire today",
     /// "No retirement age works out yet". `nil` for an answer recorded at a
-    /// check-in, which has no date, and for results kept from an earlier
-    /// session whose earliest month has passed.
+    /// check-in without a birth date, and for an earliest month that has
+    /// passed.
     private func whenText(_ headline: PlanHeadline) -> String? {
         if headline.canRetireNow { return "You could retire today" }
         guard headline.earliestAge != nil else { return "No retirement age works out yet" }
-        guard let date = headline.earliestDate,
+        guard let date = headline.earliestDate ?? recordedEarliestDate(headline),
               let countdown = RetirementCountdown(from: today, to: date)
         else { return nil }
         return "\(countdown.toGoText.capitalizedFirst) · \(GlanceText.monthAndYear(date, locale: locale))"
+    }
+
+    /// When an answer recorded at a check-in reaches its earliest age, as the
+    /// widgets have it (Glance's `RetirementAnswer.earliestDate`); `nil`
+    /// without a birth date.
+    private func recordedEarliestDate(_ headline: PlanHeadline) -> CalendarDate? {
+        guard let recorded = headline.recordedOn, let age = headline.earliestAge,
+              let birthDate = library.settings.person?.birthDate
+        else { return nil }
+        return RetirementAnswer.earliestDate(age: age, recordedOn: recorded, birthDate: birthDate)
     }
 
     private func confidenceText(_ headline: PlanHeadline) -> String {
