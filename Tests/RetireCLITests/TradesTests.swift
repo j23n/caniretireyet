@@ -79,8 +79,7 @@ struct TradesImportCommandTests {
         let dry = await retire(["import", file, "--library", library.path, "--account", "conto-fineco"])
         #expect(dry.status == 0, "\(dry.all)")
         #expect(dry.output.contains("  Record trades in conto-fineco: its holdings and cash will come from its trades, "
-            + "and the balances of its valuations won't count any more (switching it to trades in the app first keeps "
-            + "them, as cash) (not switched, so its trades are left out: pass "
+            + "and the balances of its valuations won't count any more (not switched, so its trades are left out: pass "
             + "--accept-trades-mode, or choose a trades account with --account)\n"))
 
         let left = await retire(["import", file, "--library", library.path, "--account", "conto-fineco", "--apply",
