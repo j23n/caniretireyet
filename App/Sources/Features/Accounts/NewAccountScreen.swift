@@ -299,7 +299,8 @@ struct AccountPlanFields: View {
                 Toggle("Track money in and out", isOn: $form.tracksMoneyInOut)
             } footer: {
                 Text("Type what came in and went out at each check-in, to see what you spend. Leave out money "
-                    + "moved between your own accounts, except credit card payments.")
+                    + "moved between your own accounts, except credit card payments. Turn it on for a prepaid "
+                    + "card too: topping it up is a transfer.")
             }
         }
         Section {
