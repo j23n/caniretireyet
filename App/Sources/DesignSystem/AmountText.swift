@@ -9,9 +9,10 @@ import SwiftUI
 ///   for a large standalone number (the hero figure).
 /// - With `signed`, its sign is always shown, without colour: a trade's
 ///   cash going down isn't bad news (`AmountFormat.signedAmount`).
-/// - With `short`, at most 6 digits, for a narrow place like a chart's
-///   callout: `300.000 €`, `3.000k €` (Glance's `ShortAmount`). It's a
-///   whole number, and takes the place of `precision` and `signed`.
+/// - With `short`, short enough for a narrow place like a chart's callout:
+///   `300.000 €`, `12,3M €`, `1,00B €` (Glance's `ShortAmount`). It takes
+///   the place of `precision` and `signed`; VoiceOver still reads the full
+///   amount.
 /// - Shows `•••••` while amounts are hidden (`\.hidesAmounts`), and is
 ///   marked `.privacySensitive()`, so widgets and the app switcher redact it
 ///   when the device is locked.
@@ -59,7 +60,7 @@ struct AmountText: View {
             .contentTransition(animatesChanges && !reduceMotion && !hidesAmounts
                 ? .numericText(value: amount.doubleValue) : .identity)
             .animation(animatesChanges && !reduceMotion ? .default : nil, value: amount)
-            .accessibilityLabel(hidesAmounts ? Text("Amount hidden") : Text(verbatim: text))
+            .accessibilityLabel(hidesAmounts ? Text("Amount hidden") : Text(verbatim: spoken))
     }
 
     private var formatted: String {
@@ -67,6 +68,17 @@ struct AmountText: View {
         if short {
             return ShortAmount.text(amount, currency: code, locale: locale)
         }
+        return full
+    }
+
+    /// What VoiceOver reads: the full amount, also when the text is short,
+    /// whose `M` and `B` it would read as letters.
+    private var spoken: String {
+        short ? full : formatted
+    }
+
+    private var full: String {
+        let code = currency ?? baseCurrency
         return signed
             ? AmountFormat.signedAmount(amount, currency: code, precision: precision, locale: locale)
             : AmountFormat.amount(amount, currency: code, precision: precision, locale: locale)
