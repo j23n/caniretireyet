@@ -278,7 +278,9 @@ extension Valuator {
         var range: ClosedRange<Decimal>?
         if hasRange {
             let paces = (0...(available - SavingPace.window)).prefix(SavingPace.window).map { shift in
-                SavingPace.pace(of: Array(months[shift..<(shift + SavingPace.window)]), planAssets: planAssets).perYear
+                // Each window's unusual months by plan assets at its own end.
+                let atEnd = total(on: ends[shift], in: .planAssets).total
+                return SavingPace.pace(of: Array(months[shift..<(shift + SavingPace.window)]), planAssets: atEnd).perYear
             }
             if let low = paces.min(), let high = paces.max() { range = low...high }
         }
