@@ -21,6 +21,7 @@ struct PlanSavingsRateChart: View {
 
     @State private var selectedDate: Date?
     @State private var width: CGFloat = ChartStyle.defaultWidth
+    @Environment(\.locale) private var locale
 
     static let height: CGFloat = 180
 
@@ -97,7 +98,7 @@ struct PlanSavingsRateChart: View {
         .chartXSelection(value: $selectedDate)
         .chartXScale(domain: domain)
         .chartYScale(domain: scale.domain)
-        .chartYAxis { Self.rateAxis(scale.ticks) }
+        .chartYAxis { Self.rateAxis(scale.ticks, locale: locale) }
         .chartXAxis { dateAxis(ticks) }
     }
 
@@ -162,14 +163,15 @@ struct PlanSavingsRateChart: View {
         PlanMoneyInOutCallout(money: money, period: period)
     }
 
-    /// Faint gridlines at the scale's ticks, labelled as percentages ("30%").
-    private static func rateAxis(_ ticks: [Double]) -> some AxisContent {
+    /// Faint gridlines at the scale's ticks, labelled as percentages ("30%")
+    /// in `locale`.
+    private static func rateAxis(_ ticks: [Double], locale: Locale) -> some AxisContent {
         AxisMarks(position: .leading, values: ticks) { value in
             AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5))
                 .foregroundStyle(Palette.gridline)
             AxisValueLabel {
                 if let points = value.as(Double.self) {
-                    Text(verbatim: AmountFormat.percent(points / 100, digits: 0))
+                    Text(verbatim: AmountFormat.percent(points / 100, digits: 0, locale: locale))
                         .font(.caption2)
                         .monospacedDigit()
                         .foregroundStyle(Palette.mutedInk)
@@ -179,20 +181,20 @@ struct PlanSavingsRateChart: View {
     }
 
     private func summary(_ bars: [Bar]) -> ChartSummary {
+        let locale = self.locale
         let unit = money.grain == .months ? "month" : "year"
+        func day(_ bar: Bar) -> String { AmountFormat.mediumDate(bar.period.through, locale: locale) }
         var series = [ChartSummary.Series(
-            name: "Savings rate",
-            points: bars.compactMap { bar in bar.rate.map { (AmountFormat.mediumDate(bar.period.through), $0) } })]
-        let rolling = bars.compactMap { bar in
-            bar.lastTwelveMonths.map { (AmountFormat.mediumDate(bar.period.through), $0) }
-        }
+            name: "Savings rate", points: bars.compactMap { bar in bar.rate.map { (day(bar), $0) } })]
+        let rolling = bars.compactMap { bar in bar.lastTwelveMonths.map { (day(bar), $0) } }
         if !rolling.isEmpty { series.append(ChartSummary.Series(name: "The last 12 months", points: rolling)) }
         var text = "What you kept of what came in, each \(unit)."
         if let planRate {
-            text += " Your plan's savings rate is \(AmountFormat.percent(planRate, digits: 0))."
+            text += " Your plan's savings rate is \(AmountFormat.percent(planRate, digits: 0, locale: locale))."
         }
         return ChartSummary(title: "Savings rate", summary: text, xTitle: "Date", yTitle: "Savings rate",
-                            series: series, describeValue: { AmountFormat.percent($0 / 100, digits: 0) })
+                            series: series,
+                            describeValue: { AmountFormat.percent($0 / 100, digits: 0, locale: locale) })
     }
 }
 
@@ -202,13 +204,16 @@ struct PlanSavingsRateLegend: View {
     let showsLastTwelveMonths: Bool
     var planRate: Decimal?
 
+    @Environment(\.locale) private var locale
+
     var body: some View {
         var items = [ChartLegendItem(name: "Savings rate", swatch: .bar(PlanSavingsRateChart.barColor))]
         if showsLastTwelveMonths {
             items.append(ChartLegendItem(name: "The last 12 months", swatch: .line(.ink, dashed: false)))
         }
         if let planRate {
-            items.append(ChartLegendItem(name: "Your plan's \(AmountFormat.percent(planRate, digits: 0))",
+            let rate = AmountFormat.percent(planRate, digits: 0, locale: locale)
+            items.append(ChartLegendItem(name: "Your plan's \(rate)",
                                          swatch: .line(.taxes, dashed: true)))
         }
         return ChartLegendRow(items: items)

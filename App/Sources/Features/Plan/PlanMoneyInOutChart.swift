@@ -21,6 +21,7 @@ struct PlanMoneyInOutChart: View {
     @State private var selectedDate: Date?
     @State private var width: CGFloat = ChartStyle.defaultWidth
     @Environment(\.redactionReasons) private var redactionReasons
+    @Environment(\.locale) private var locale
 
     static let height: CGFloat = 200
 
@@ -192,8 +193,9 @@ struct PlanMoneyInOutChart: View {
     }
 
     private func summary(_ pairs: [Pair]) -> ChartSummary {
+        let locale = self.locale
         func spoken(_ value: KeyPath<Pair, Double>) -> [(String, Double)] {
-            pairs.map { (AmountFormat.mediumDate($0.period.through), $0[keyPath: value]) }
+            pairs.map { (AmountFormat.mediumDate($0.period.through, locale: locale), $0[keyPath: value]) }
         }
         let unit = money.grain == .months ? "month" : "year"
         return ChartSummary(
