@@ -364,6 +364,10 @@ struct ImportReport: CommandReport {
         }
         var lines = rows > 0 ? table.lines() : []
         if conflicts.count > rows { lines.append("  … and \(Wording.count(conflicts.count - rows, "more conflict")).") }
+        // An account's trades made from quantities are applied together, or not at all.
+        for (account, count) in preview.tradesLeftOutUntilOverwritten {
+            lines.append("  \(account): \(Wording.count(count, "trade")) left out until its conflicts are overwritten.")
+        }
         return lines
     }
 
@@ -563,6 +567,9 @@ struct ImportReport: CommandReport {
                 cellErrors: summary.cellErrors,
                 skippedRows: summary.skippedRows, issues: summary.issues, notes: summary.notes,
                 ambiguities: summary.ambiguities, leftOut: preview.leftOutRecords,
+                tradesLeftOutUntilOverwritten: preview.tradesLeftOutUntilOverwritten.map {
+                    JSON.LeftOutTrades(account: $0.account.rawValue, trades: $0.count)
+                },
                 firstDate: preview.firstDate?.description,
                 lastDate: preview.lastDate?.description),
             records: preview.records.map { record in
@@ -693,8 +700,15 @@ struct ImportReport: CommandReport {
             var notes: Int
             var ambiguities: Int
             var leftOut: Int
+            /// Of those, an account's trades made from quantities that wait for its conflicts to be overwritten.
+            var tradesLeftOutUntilOverwritten: [LeftOutTrades]
             var firstDate: String?
             var lastDate: String?
+        }
+
+        struct LeftOutTrades: Encodable {
+            var account: String
+            var trades: Int
         }
 
         struct Record: Encodable {

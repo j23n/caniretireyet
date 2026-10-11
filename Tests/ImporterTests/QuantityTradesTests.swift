@@ -198,6 +198,7 @@ struct QuantityTradesTests {
             var kept = preview
             kept.resolveConflicts(resolution)
             #expect(kept.leftOutRecords == 1)
+            #expect(kept.tradesLeftOutUntilOverwritten.map { "\($0.account) \($0.count)" } == ["ledger-wallet 1"])
             let result = kept.apply(to: library)
             #expect(result.skipped == 1)
             #expect(result.library.trades(for: "ledger-wallet") == library.trades(for: "ledger-wallet"))
@@ -208,6 +209,7 @@ struct QuantityTradesTests {
         var overwritten = preview
         overwritten.resolveConflicts(.overwrite)
         #expect(overwritten.leftOutRecords == 0)
+        #expect(overwritten.tradesLeftOutUntilOverwritten.isEmpty)
         let result = overwritten.apply(to: library)
         #expect(result.library.trades(for: "ledger-wallet").map(\.id) == ["opening-btc", "sell-btc", "buy-btc"])
         for (date, quantity) in [("2026-01-31", "0.215"), ("2026-02-28", "0.215"), ("2026-03-31", "0.2201")] {
@@ -241,6 +243,7 @@ struct QuantityTradesTests {
         for index in mixed.records.indices where mixed.records[index].status == .conflict {
             mixed.records[index].resolution = mixed.records[index].id == marchBuy ? .overwrite : .keep
         }
+        #expect(mixed.tradesLeftOutUntilOverwritten.map { "\($0.account) \($0.count)" } == ["ledger-wallet 1"])
         var result = mixed.apply(to: library)
         #expect(result.library.trades(for: "ledger-wallet") == library.trades(for: "ledger-wallet"))
         #expect((result.kept, result.undecided, result.removed, result.skipped) == (2, 0, 0, 1))

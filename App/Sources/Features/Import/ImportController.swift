@@ -154,6 +154,9 @@ struct ImportReceipt: Hashable, Sendable {
     var overwritten: Int
     var kept: Int
     var undecided: Int
+    /// The library's trades removed: those the trades made from quantities
+    /// replace and no longer make.
+    var removed: Int
     var identical: Int
     var skipped: Int
     /// Later values whose automatic new money was worked out again.
@@ -191,6 +194,7 @@ struct ImportReceipt: Hashable, Sendable {
         overwritten = result.overwritten
         kept = result.kept
         undecided = result.undecided
+        removed = result.removed
         identical = result.identical
         skipped = result.skipped
         recomputedFlows = result.recomputedFlows.count

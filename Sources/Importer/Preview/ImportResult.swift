@@ -76,10 +76,30 @@ extension ImportPreview {
         return records.filter { record in
             if let account = record.imported.key.account, accounts.contains(account) { return true }
             if case .trade(let key) = record.imported.key, notTrades.contains(key.account) { return true }
-            if record.isFromQuantities, record.status == .new || record.status == .updated,
-               let account = record.imported.key.account, keepingTrades.contains(account) { return true }
+            if Self.isLeftOut(record, keepingTrades: keepingTrades) { return true }
             return record.imported.instruments.contains { instruments.contains($0) }
         }.count
+    }
+
+    /// The accounts whose new and updated trades made from quantities are
+    /// left out because one of their conflicts isn't overwritten, with how
+    /// many each leaves out, sorted by account. Overwriting each of an
+    /// account's conflicts brings its trades in (part of ``leftOutRecords``).
+    public var tradesLeftOutUntilOverwritten: [(account: AccountID, count: Int)] {
+        let keepingTrades = accountsKeepingTheirTrades { $0.status == .conflict }
+        var counts: [AccountID: Int] = [:]
+        for record in records where Self.isLeftOut(record, keepingTrades: keepingTrades) {
+            if let account = record.imported.key.account { counts[account, default: 0] += 1 }
+        }
+        return counts.sorted { $0.key < $1.key }.map { (account: $0.key, count: $0.value) }
+    }
+
+    /// Whether `record` is a new or updated trade made from quantities of
+    /// an account that keeps the library's trades.
+    private static func isLeftOut(_ record: ImportRecordPreview, keepingTrades: Set<AccountID>) -> Bool {
+        guard record.isFromQuantities, record.status == .new || record.status == .updated,
+              let account = record.imported.key.account else { return false }
+        return keepingTrades.contains(account)
     }
 
     /// The accounts whose trades made from quantities keep the library's:

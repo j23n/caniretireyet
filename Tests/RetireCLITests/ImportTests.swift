@@ -230,6 +230,29 @@ struct ImportTests {
         #expect(loaded.trades(for: "ledger-wallet").allSatisfy { $0.type == .opening || $0.isSettledExternally })
     }
 
+    /// The wallet's quantities make a new sale on January 31 and a buy on March 31 that differs from the
+    /// library's. While that conflict keeps the library's buy, the sale is left out with it, and the report
+    /// says why.
+    @Test func tradesLeftOutUntilTheirConflictsAreOverwrittenAreNamed() async throws {
+        let library = try TemporaryFolder.exampleLibrary()
+        try library.write("wallet.csv", "Data;Conto Fineco;Directa;BTC (qtà);Oro;Note\n31/01/2026;;;0,215;;\n"
+            + "31/03/2026;;;0,2201;;\n")
+        let arguments = ["import", library.path + "/wallet.csv", "--library", library.path, "--profile",
+                         "net-worth-sheet", "--encoding", "utf-8"]
+        let kept = await runCLI(arguments)
+        #expect(kept.status == 0, "\(kept.all)")
+        #expect(kept.output.contains("  ledger-wallet: 1 trade left out until its conflicts are overwritten.\n"),
+                "\(kept.output)")
+        let json = try parseJSON(await runCLI(arguments + ["--json"]).output)
+        let summary = try #require(json["summary"] as? [String: Any])
+        let leftOut = try #require(summary["tradesLeftOutUntilOverwritten"] as? [[String: Any]])
+        #expect(leftOut.map { "\($0["account"] ?? "") \($0["trades"] ?? "")" } == ["ledger-wallet 1"])
+
+        let overwritten = await runCLI(arguments + ["--on-conflict", "overwrite"])
+        #expect(overwritten.status == 0, "\(overwritten.all)")
+        #expect(!overwritten.output.contains("left out until"), "\(overwritten.output)")
+    }
+
     /// A month inserted between two check-ins: the later month's flows of
     /// the current and the savings account are worked out again from it,
     /// and undoing puts both months back.
