@@ -207,6 +207,36 @@ struct SavingPaceTests {
         #expect(pace.perYear == 12_000)
     }
 
+    /// A pension fund valued once a year, with 6,000 paid in at its
+    /// statement on 20 Sep 2025, before the months: it goes on at that rate
+    /// from its statement for 335 days, 325 of them in the months.
+    @Test func aStatementBeforeTheMonthsGoesOnIntoThem() throws {
+        var library = self.library(flows: [Decimal](repeating: 1_000, count: 12))
+        library.accounts["pension"] = Account(id: "pension", name: "Pension", kind: .pensionFund, currency: .eur,
+                                              opened: "2020-01-01")
+        library.upsert(Valuation(account: "pension", date: "2024-10-20", balance: 20_000, flow: 0))
+        library.upsert(Valuation(account: "pension", date: "2025-09-20", balance: 26_000, flow: 6_000))
+        let pace = try #require(Valuator(library: library).savingPace(asOf: "2026-09-30"))
+        #expect(pace.months.count == 12)
+        #expect(pace.carriedForward == ["pension"])
+        let pension = try #require(pace.byAccount["pension"])
+        #expect(abs(pension - 6_000 * 325 / 335) < d("0.01"), "\(pension)")
+        #expect(abs(pace.perYear - 12_000 - 6_000 * 325 / 335) < d("0.01"), "\(pace.perYear)")
+    }
+
+    /// A savings account valued once, at 20,000, and closed on 15 Sep: the
+    /// money taken out is in September, which is unusual, not spread over
+    /// the year since its value.
+    @Test func aClosingStaysAtItsCheckIn() throws {
+        var library = self.library(flows: [Decimal](repeating: 1_000, count: 12))
+        library.accounts["savings"] = Account(id: "savings", name: "Savings", kind: .savings, currency: .eur,
+                                              opened: "2020-01-01", closed: "2026-09-15")
+        library.upsert(Valuation(account: "savings", date: "2025-09-30", balance: 20_000, flow: 0))
+        let pace = try #require(Valuator(library: library).savingPace(asOf: "2026-09-30"))
+        #expect(pace.unusualMonths.map(\.end) == ["2026-09-30"])
+        #expect(pace.perYear == 12_000)
+    }
+
     /// A pension fund valued once a year, on 31 Mar, with 6,000 paid in:
     /// it goes on saving at that rate from its statement to 30 Sep, so the
     /// year's 6,000 isn't cut to the 182 days before its statement.
@@ -418,6 +448,22 @@ struct SavingPaceTests {
         let pace = try #require(Valuator(library: library(flows: flows)).savingPace(asOf: "2026-09-30"))
         #expect(pace.perYear == 12_000)
         #expect(pace.range == 12_000...12_500)
+    }
+
+    /// The range in today's money, with an index from before the oldest of
+    /// 13 months: prices rose 10% at the last check-in, so the months
+    /// before it count 10% more, 13,100 to 13,750.
+    @Test func theRangeInTodaysMoney() throws {
+        var flows = [Decimal](repeating: 1_000, count: 13)
+        flows[12] = 1_500
+        let index = InflationIndex([IndexRecord(index: .hicpIT, date: "2025-08-31", value: 100),
+                                    IndexRecord(index: .hicpIT, date: "2026-09-30", value: 110)],
+                                   index: .hicpIT)
+        let pace = try #require(Valuator(library: library(flows: flows)).savingPace(asOf: "2026-09-30",
+                                                                                   inflation: index))
+        #expect(pace.isInTodaysMoney)
+        #expect(pace.perYear == 13_100)
+        #expect(pace.range == 13_100...13_750)
     }
 
     /// A pension fund paid 3,000 a quarter, then 20,000 once on 30 Jun, and

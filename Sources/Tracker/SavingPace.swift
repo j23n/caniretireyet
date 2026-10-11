@@ -165,7 +165,13 @@ extension Valuator {
         let available = (0..<longest).prefix(while: { ends[$0 + 1] >= start }).count
         guard available >= SavingPace.minimumMonths else { return nil }
 
-        let intervals = zip(checkIns, checkIns.dropFirst()).filter { $0.1 > ends[available] }
+        // The check-ins in the months, and back to each open plan asset's
+        // latest record before them, so an account valued once a year
+        // before the months can still go on into them.
+        let before = accounts.values.filter {
+            NetWorthScope.planAssets.includes($0) && $0.closed.map { $0 > ends[available] } ?? true
+        }.compactMap { latestRecordDate(of: $0.id, onOrBefore: ends[available]) }.min() ?? ends[available]
+        let intervals = zip(checkIns, checkIns.dropFirst()).filter { $0.1 > ends[available] || $0.1 >= before }
         let reports = intervals.map { change(from: $0.0, to: $0.1, in: .planAssets) }
         let window = min(available, SavingPace.window)
         // An account whose new money came from the plan, or would have with
@@ -222,8 +228,10 @@ extension Valuator {
                 // check-in before: an account valued quarterly saved over
                 // the quarter, not in its last month. A trades account's
                 // new money is its deposits and withdrawals since the
-                // check-in before, so it's spread from there.
-                let from = accounts[account.account]?.recordsTrades == true ? report.from
+                // check-in before, so it's spread from there, and so is an
+                // account closed since, whose closing date is known.
+                let closed = accounts[account.account]?.closed.map { $0 > report.from && $0 <= report.to } ?? false
+                let from = accounts[account.account]?.recordsTrades == true || closed ? report.from
                     : latestRecordDate(of: account.account, onOrBefore: report.from) ?? report.from
                 guard from < report.to else { continue }
                 if let index { amount = index.convert(amount, from: report.to, to: asOf) ?? amount }
