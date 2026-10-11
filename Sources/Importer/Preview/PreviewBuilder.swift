@@ -514,7 +514,8 @@ struct PreviewBuilder {
         preview.firstDate = dates.min()
         preview.lastDate = dates.max()
         preview.newInstruments = instrumentProposals
-        let usedAccounts = Set(records.compactMap(\.imported.key.account) + converted.compactMap(\.key.account))
+        // An account whose quantities became no trade, and kept no value, has nothing to import.
+        let usedAccounts = Set(records.compactMap(\.imported.key.account))
         preview.newAccounts = accountProposals.filter { usedAccounts.contains($0.account.id) }
         preview.accountChanges = accountChanges(records, converted: converted, lastDate: preview.lastDate,
                                                 newAccounts: preview.newAccounts)

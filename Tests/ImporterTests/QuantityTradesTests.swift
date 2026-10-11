@@ -353,4 +353,16 @@ struct QuantityTradesTests {
         #expect(result.library.accounts["kraken"]?.valuation == .trades)
         #expect(result.library.trades(for: "kraken").count == 1)
     }
+
+    /// Quantities that make no trade leave nothing to import into a new account, so it isn't proposed.
+    @Test func quantitiesThatMakeNoTradeProposeNoAccount() throws {
+        var library = Library()
+        library.instruments["btc"] = Instrument(id: "btc", name: "Bitcoin", kind: .crypto, currency: .eur, unit: "BTC",
+                                                assetClasses: .single(.crypto))
+        var session = try ImportSession(data: Data("Date;BTC\n2026-01-31;0\n".utf8))
+        session.setMapping(ImportColumn(target: .quantity, account: "kraken", instrument: "btc"), forColumn: 2)
+        let preview = session.preview(against: library)
+        #expect(preview.records.isEmpty)
+        #expect(preview.newAccounts.isEmpty)
+    }
 }
