@@ -521,23 +521,23 @@ struct ReadinessWidget: Widget {
     }
 }
 
-/// The readiness in words: "58%", "130%", "58% or more", "under 5%".
-/// Below 100% it's rounded down, as the app shows it
-/// (``RetirementAnswer/shownReadiness``): 99.6% reads 99%.
+/// The readiness in words: "58%", "130%", "58%+", "<5%", by Glance's
+/// ``ReadinessFigure``, as the Overview's ring has it. Below 100% it's
+/// rounded down, as the app shows it: 99.6% reads 99%.
 struct ReadinessWords {
     var answer: RetirementAnswer
     var money: WidgetMoney
 
-    /// The ring's fill, 0 to 1.
+    private var figure: ReadinessFigure { ReadinessFigure(answer) }
+
+    /// The ring's fill, 0 to 1: full from 100% on.
     var fraction: Double {
-        answer.needsMoreThanSearched ? 0 : min(max(answer.shownReadiness ?? 0, 0), 1)
+        figure.fill
     }
 
     /// The number in the ring; `nil` when there's none to show.
     var percent: String? {
-        if answer.needsMoreThanSearched { return "<5%" }
-        guard let readiness = answer.shownReadiness else { return nil }
-        return money.percent(readiness) + (answer.readinessIsLowerBound ? "+" : "")
+        figure.percent(money.percent)
     }
 
     /// "of what retiring today would need", or why there's no number.
