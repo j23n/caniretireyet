@@ -40,6 +40,21 @@ struct RetirementCountdownTests {
         #expect(RetirementCountdown(years: 0, months: 1).toGoText == "1 month to go")
         #expect(RetirementCountdown(years: 0, months: 0).toGoText == "under a month to go")
     }
+
+    @Test func readsAsAHeadline() {
+        #expect(RetirementCountdown(years: 15, months: 5).headlineText == "In 15 years")
+        #expect(RetirementCountdown(years: 15, months: 6).headlineText == "In 16 years")
+        #expect(RetirementCountdown(years: 2, months: 0).headlineText == "In 2 years")
+        #expect(RetirementCountdown(years: 1, months: 6).headlineText == "In 18 months")
+        #expect(RetirementCountdown(years: 0, months: 1).headlineText == "In 1 month")
+        #expect(RetirementCountdown(years: 0, months: 0).headlineText == "In under a month")
+    }
+
+    @Test func saysTheHeadlineRoundsTheYears() {
+        #expect(RetirementCountdown(years: 15, months: 6).spokenHeadlineText == "In about 16 years")
+        #expect(RetirementCountdown(years: 1, months: 6).spokenHeadlineText == "In 18 months")
+        #expect(RetirementCountdown(years: 0, months: 0).spokenHeadlineText == "In under a month")
+    }
 }
 
 struct CheckInGlanceTests {

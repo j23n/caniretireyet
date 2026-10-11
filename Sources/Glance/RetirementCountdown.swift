@@ -43,9 +43,33 @@ public struct RetirementCountdown: Hashable, Sendable {
     /// rounded to the nearest year (15 y 6 m reads 16); "14 months to go"
     /// below that; "under a month to go".
     public var toGoText: String {
-        if years >= 2 { return "about \(Wording.count(years + (months >= 6 ? 1 : 0), "year")) to go" }
-        if totalMonths == 0 { return "under a month to go" }
-        return "\(Wording.count(totalMonths, "month")) to go"
+        if years >= 2 { return "about \(Wording.count(roundedYears, "year")) to go" }
+        return "\(monthsText) to go"
+    }
+
+    /// As a headline: "In 16 years" from two years on, rounded to the
+    /// nearest year as ``toGoText`` is (15 y 6 m reads 16); "In 18 months"
+    /// below that; "In under a month".
+    public var headlineText: String {
+        if years >= 2 { return "In \(Wording.count(roundedYears, "year"))" }
+        return "In \(monthsText)"
+    }
+
+    /// ``headlineText`` for VoiceOver, which says the years are rounded:
+    /// "In about 16 years", "In 18 months".
+    public var spokenHeadlineText: String {
+        if years >= 2 { return "In about \(Wording.count(roundedYears, "year"))" }
+        return headlineText
+    }
+
+    /// The years, rounded to the nearest: 15 y 6 m is 16.
+    private var roundedYears: Int {
+        years + (months >= 6 ? 1 : 0)
+    }
+
+    /// "18 months", "1 month", "under a month".
+    private var monthsText: String {
+        totalMonths == 0 ? "under a month" : Wording.count(totalMonths, "month")
     }
 
     private func parts(separator: String) -> String {
