@@ -547,12 +547,14 @@ struct CheckInDatePanel: View {
             DatePicker("Check-in date", selection: $selection, in: ...latest, displayedComponents: .date)
                 .datePickerStyle(.graphical)
                 .labelsHidden()
+                .personalControl()
             if picked != suggested {
                 Button {
                     selection = suggested.dateValue
                 } label: {
                     Text(verbatim: "Use \(AmountFormat.longDate(suggested, locale: locale)) (suggested)")
                 }
+                .personalControl()
             }
             Text("Values are as of the end of this day. What you've entered is kept; prices are fetched again for the new date. "
                 + "An earlier date fills in your history.")
@@ -594,12 +596,14 @@ struct CheckInBanners: View {
         VStack(spacing: Metrics.s) {
             LibraryStatusBanners()
             if let error = session.saveError {
-                StatusBanner(.error, "Couldn't save the check-in", message: error, actionTitle: "Dismiss") {
+                StatusBanner(.error, "Couldn't save the check-in", message: error, personal: .message,
+                             actionTitle: "Dismiss") {
                     session.saveError = nil
                 }
             }
             if let note = CheckInWording.conflictNote(draft, in: library.library, locale: locale) {
-                StatusBanner(.warning, "Saved on another device", message: note, actionTitle: "Choose") {
+                StatusBanner(.warning, "Saved on another device", message: note, personal: .message,
+                             actionTitle: "Choose") {
                     session.page = .review
                 }
             }
@@ -607,15 +611,16 @@ struct CheckInBanners: View {
                 StatusBanner(
                     .info, "Continuing your check-in",
                     message: "Started for \(AmountFormat.longDate(resumed, locale: locale)). What you entered is still here.",
+                    personal: .message,
                     actionTitle: "Start over") {
                         session.showsStartOverDialog = true
                     }
             }
             if let note = CheckInWording.existingCheckInNote(on: draft.date, in: library.library, locale: locale) {
-                StatusBanner(.info, "Updating a saved check-in", message: note)
+                StatusBanner(.info, "Updating a saved check-in", message: note, personal: .message)
             }
             if let note = CheckInWording.pastCheckInNote(on: draft.date, in: library.library, locale: locale) {
-                StatusBanner(.info, "A past check-in", message: note)
+                StatusBanner(.info, "A past check-in", message: note, personal: .message)
             }
             if preferences.hidesAmounts {
                 StatusBanner(.info, "Amounts are hidden", message: "The fields still show what you type.",

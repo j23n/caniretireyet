@@ -46,6 +46,7 @@ struct CheckInConfirmationView: View {
                         .font(.title2.bold())
                     Text(verbatim: AmountFormat.longDate(result.date, locale: locale))
                         .foregroundStyle(Palette.secondaryInk)
+                        .privacySensitiveInFeedback()
                 }
                 netWorth
                 let reached = result.isPast ? [] : reachedMilestones
@@ -94,6 +95,7 @@ struct CheckInConfirmationView: View {
                     if let previous = previousCheckIn {
                         Text(verbatim: "since " + AmountFormat.shortDate(previous, locale: locale))
                             .foregroundStyle(Palette.secondaryInk)
+                            .privacySensitiveInFeedback()
                     }
                 }
                 .font(.subheadline)
@@ -142,6 +144,7 @@ struct CheckInConfirmationView: View {
             Text(verbatim: CheckInWording.pastCheckInSaved(on: result.date, latest: result.laterCheckIn,
                                                            locale: locale))
                 .fixedSize(horizontal: false, vertical: true)
+                .privacySensitiveInFeedback()
         } icon: {
             Image(systemName: "clock.arrow.circlepath")
                 .foregroundStyle(Palette.accent)
@@ -156,10 +159,12 @@ struct CheckInConfirmationView: View {
                 answerText(parts)
                     .font(.title3)
                     .fixedSize(horizontal: false, vertical: true)
+                    .privacySensitiveInFeedback()
                 if let readiness = PlanResultsText.readiness(headline, locale: locale) {
                     Text(verbatim: readiness)
                         .font(.subheadline)
                         .foregroundStyle(Palette.secondaryInk)
+                        .privacySensitiveInFeedback()
                 }
                 Button("Open the plan") { openPlan() }
                     .buttonStyle(.borderless)
@@ -185,11 +190,13 @@ struct CheckInConfirmationView: View {
                 if let last = previousHeadline {
                     Text(verbatim: lastAnswer(last))
                         .fixedSize(horizontal: false, vertical: true)
+                        .privacySensitiveInFeedback()
                 }
                 Text(verbatim: unavailableReason)
                     .font(.subheadline)
                     .foregroundStyle(Palette.secondaryInk)
                     .fixedSize(horizontal: false, vertical: true)
+                    .privacySensitiveInFeedback()
             }
         }
     }
