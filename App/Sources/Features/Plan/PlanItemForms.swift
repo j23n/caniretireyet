@@ -131,9 +131,11 @@ struct PlanWorkPhaseForm: View {
         Section("Work") {
             TextField("Name", text: $phase.name.orEmpty, prompt: Text("Work"))
             DatePicker("From", selection: $phase.from.planDate, displayedComponents: .date)
+                .personalControl()
             Toggle("Until retirement", isOn: $phase.planUntilRetirement)
             if !phase.planUntilRetirement {
                 DatePicker("Until", selection: $phase.planUntilDate.planDate, displayedComponents: .date)
+                    .personalControl()
             }
         }
         Section {
@@ -160,6 +162,7 @@ struct PlanPensionForm: View {
         Section {
             TextField("Name", text: $pension.name.orEmpty, prompt: Text("Pension"))
             Stepper("Paid from \(pension.planFromAge)", value: $pension.planFromAge, in: 40...90)
+                .personalControl()
             PlanNumberRow("After tax, a month", value: $pension.perYear.perMonth, unit: "/month")
         } header: {
             Text("Pension")
@@ -184,10 +187,12 @@ struct PlanIncomeForm: View {
             Toggle("From when you stop working", isOn: $income.planFromRetirement)
             if !income.planFromRetirement {
                 Stepper("From \(income.planFromAge)", value: $income.planFromAge, in: 18...100)
+                    .personalControl()
             }
             Toggle("Stops at an age", isOn: $income.planHasEnd)
             if income.planHasEnd {
                 Stepper("Until \(income.planUntilAge)", value: $income.planUntilAge, in: 19...110)
+                    .personalControl()
             }
             PlanNumberRow("After tax, a month", value: $income.perYear.perMonth, unit: "/month")
         } header: {
@@ -219,6 +224,7 @@ struct PlanContributionForm: View {
                     Text(account.name).tag(account.id)
                 }
             }
+            .personalControl()
         } header: {
             Text("Contribution")
         } footer: {
@@ -234,11 +240,13 @@ struct PlanContributionForm: View {
             if contribution.planIsOneOff {
                 PlanNumberRow("Amount", value: $contribution.planAmount)
                 Stepper("In \(String(contribution.planYear))", value: $contribution.planYear, in: 2_000...2_150)
+                    .personalControl()
             } else {
                 PlanNumberRow("A month", value: $contribution.perYear.perMonth, unit: "/month")
                 Toggle("Until retirement", isOn: $contribution.planUntilRetirement)
                 if !contribution.planUntilRetirement {
                     DatePicker("Until", selection: $contribution.planUntilDate.planDate, displayedComponents: .date)
+                        .personalControl()
                 }
             }
         } header: {
@@ -277,6 +285,7 @@ struct PlanEventForm: View {
             }
             .pickerStyle(.segmented)
             Stepper(whenLabel, value: $event.planWhen, in: event.planByAge ? 18...110 : 2_000...2_150)
+                .personalControl()
         }
         if event.planType != .expense {
             Section {
@@ -394,6 +403,7 @@ struct PlanSpendingPhaseForm: View {
     var body: some View {
         Section {
             Stepper("From \(phase.fromAge)", value: $phase.fromAge, in: 40...110)
+                .personalControl()
             PlanNumberRow("Share of spending", value: $phase.factor, kind: .percent, unit: "%")
         } footer: {
             Text("From an age, a share of what you spend in retirement.")

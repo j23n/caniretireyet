@@ -79,6 +79,7 @@ struct PlanBirthDateEditor: View {
         VStack(alignment: .leading, spacing: Metrics.s) {
             if birthDate != nil || addsBirthDate {
                 DatePicker("Born", selection: birthDateBinding, in: ...Date(), displayedComponents: .date)
+                    .personalControl()
             } else {
                 HStack {
                     Text("Born")
@@ -211,6 +212,7 @@ struct PlanAssumptionsEditor: View {
                     .foregroundStyle(Palette.secondaryInk)
                 ForEach(accounts) { account in
                     Toggle(account.name, isOn: $plan.portfolio[planIncludes: account.id])
+                        .personalControl()
                 }
             }
         }
@@ -246,9 +248,11 @@ struct PlanSimulationEditor: View {
                     Text(AmountFormat.percent(share, digits: 0, locale: locale)).tag(share)
                 }
             }
+            .personalControl()
             Text("A “yes” needs success \(GlanceText.inSimulatedFutures(plan.simulation.effectiveConfidence.doubleValue)).")
                 .font(.caption)
                 .foregroundStyle(Palette.mutedInk)
+                .privacySensitiveInFeedback()
             PlanNumberRow("Random seed", value: $plan.simulation.planSeed, kind: .integer)
             Text("Every run of this plan uses the same random draws, so differences come from your changes.")
                 .font(.caption)

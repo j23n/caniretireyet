@@ -50,8 +50,10 @@ struct PlanNoChapters: View {
             Text("The plan ends at \(plan.planEndAge), before its first year.")
                 .font(.subheadline)
                 .foregroundStyle(Palette.ink)
+                .privacySensitiveInFeedback()
             Stepper("Plan to age \(plan.planEndAge)", value: $plan.planEndAge, in: 70...110)
                 .font(.subheadline)
+                .personalControl()
         }
         .padding(Metrics.m)
         .frame(maxWidth: .infinity, alignment: .leading)

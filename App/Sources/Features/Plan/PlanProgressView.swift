@@ -169,6 +169,7 @@ struct PlanProgressView: View {
                     Text(title)
                         .font(.title.weight(.bold))
                         .foregroundStyle(Palette.ink)
+                        .privacySensitiveInFeedback()
                         .accessibilityAddTraits(.isHeader)
                 }
                 AmountSentenceText(detail)
@@ -205,6 +206,7 @@ struct PlanProgressView: View {
             Text(title)
                 .font(Self.wideTitleFont)
                 .foregroundStyle(Palette.ink)
+                .privacySensitiveInFeedback()
                 .accessibilityAddTraits(.isHeader)
             AmountSentenceText(detail)
                 .font(PlanProgressFont.text)
@@ -384,6 +386,7 @@ struct PlanProgressView: View {
                         .fontWeight(.semibold)
                         .foregroundStyle(Palette.ink)
                         .fixedSize(horizontal: false, vertical: true)
+                        .privacySensitiveInFeedback()
                     Spacer(minLength: Metrics.s)
                     Button("Open", action: onShowPlan)
                         .buttonStyle(.borderless)
@@ -468,6 +471,7 @@ struct PlanProgressView: View {
                             .foregroundStyle(Palette.secondaryInk)
                     }
                 }
+                .privacySensitiveInFeedback()
             }
             if !history.markers.isEmpty {
                 HStack(spacing: Metrics.m) {
@@ -516,10 +520,12 @@ struct PlanProgressView: View {
                                 .font(.subheadline.weight(.semibold))
                             Text(Self.side(of: position.gap))
                                 .font(.subheadline)
+                                .privacySensitiveInFeedback()
                         }
                         Text(PlanBaselineComparison.percentileText(position))
                             .font(.footnote)
                             .foregroundStyle(Palette.secondaryInk)
+                            .privacySensitiveInFeedback()
                     }
                 } else {
                     Text("Your actual numbers appear here after the next check-in.")
@@ -530,6 +536,7 @@ struct PlanProgressView: View {
                     .font(.caption)
                     .foregroundStyle(Palette.mutedInk)
                     .fixedSize(horizontal: false, vertical: true)
+                    .privacySensitiveInFeedback()
                 Button(role: .destructive) {
                     deletingBaseline = shown
                     confirmsBaselineDelete = true
@@ -560,6 +567,7 @@ struct PlanProgressView: View {
                     .labelsHidden()
                     .pickerStyle(.menu)
                     .fixedSize()
+                    .personalControl()
                 }
             }
         }
@@ -577,6 +585,7 @@ struct PlanStatTile: View {
             Text(title)
                 .font(.caption)
                 .foregroundStyle(Palette.secondaryInk)
+                .privacySensitiveInFeedback()
             AmountSentenceText(value)
                 .font(.subheadline.weight(.semibold))
                 .foregroundStyle(Palette.ink)
@@ -604,11 +613,13 @@ struct PlanFigureTile: View {
             Text(title)
                 .font(.subheadline)
                 .foregroundStyle(Palette.secondaryInk)
+                .privacySensitiveInFeedback()
             Text(value)
                 .font(.title3.weight(.bold))
                 .foregroundStyle(Palette.ink)
                 .minimumScaleFactor(0.8)
                 .fixedSize(horizontal: false, vertical: true)
+                .privacySensitiveInFeedback()
         }
         .padding(.horizontal, Metrics.m)
         .padding(.vertical, 10)

@@ -48,6 +48,7 @@ struct PlanPastBaselineSheet: View {
                 if let range {
                     Section {
                         DatePicker("Planned on", selection: $day, in: range, displayedComponents: .date)
+                            .personalControl()
                         LabeledContent("Plan assets then") {
                             AmountText(library.valuator.total(on: start, in: .planAssets).total, currency: currency)
                         }
@@ -66,6 +67,7 @@ struct PlanPastBaselineSheet: View {
                         if !draft.planRetiresEarliest {
                             Stepper("Stop working at \(draft.planRetirementAge)", value: $draft.planRetirementAge,
                                     in: 30...85)
+                                .personalControl()
                         }
                         PlanNumberRow("Spending in retirement", value: $draft.spending.retired.perMonth,
                                       unit: "/month")

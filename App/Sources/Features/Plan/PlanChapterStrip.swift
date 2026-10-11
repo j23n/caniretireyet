@@ -142,6 +142,7 @@ struct PlanChapterCardView: View {
             }
         }
         .frame(width: width, height: height, alignment: .topLeading)
+        .privacySensitiveInFeedback()
         .contentShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
     }
 

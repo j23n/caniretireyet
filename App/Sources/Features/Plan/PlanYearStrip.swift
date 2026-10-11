@@ -153,6 +153,7 @@ struct PlanEarlyYearsCard: View {
                 .font(isCompact ? .subheadline.weight(.semibold) : .headline)
                 .foregroundStyle(Palette.ink)
                 .minimumScaleFactor(0.7)
+                .privacySensitiveInFeedback()
             if let moved {
                 AmountSentenceText(moved)
                     .font(isCompact ? .caption : .subheadline)
@@ -255,6 +256,7 @@ struct PlanYearCardView: View {
             }
         }
         .frame(width: width, height: height, alignment: .topLeading)
+        .privacySensitiveInFeedback()
         .contentShape(Rectangle())
     }
 
