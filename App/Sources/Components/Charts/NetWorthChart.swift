@@ -45,6 +45,8 @@ struct NetWorthChart: View {
     var markers: [ChartMarker] = []
     /// What the history is, for VoiceOver: "Net worth", or "Plan assets".
     var title = "Net worth"
+    /// A date read without dragging across the chart: for previews.
+    var readsDate: Date?
 
     @State private var selectedDate: Date?
     @State private var width: CGFloat = ChartStyle.defaultWidth
@@ -235,7 +237,7 @@ struct NetWorthChart: View {
     }
 
     private func selection(_ layout: ProjectionLayout) -> Selection? {
-        guard let selectedDate else { return nil }
+        guard let selectedDate = selectedDate ?? readsDate else { return nil }
         let lastHistory = history.last?.date ?? .distantPast
         if selectedDate > lastHistory || history.isEmpty,
            let fan = layout.fan.min(by: {
@@ -248,21 +250,19 @@ struct NetWorthChart: View {
         return Selection(date: point.date, value: point.value, point: point, fan: nil)
     }
 
+    /// The callout at the date read (``ChartCallout``), which the strips'
+    /// read-outs on Plan and Progress follow.
     private func callout(for selection: Selection, layout: ProjectionLayout) -> some View {
-        VStack(alignment: .leading, spacing: 2) {
+        ChartCallout {
             if let fan = selection.fan {
-                Text(fan.date, format: .dateTime.month(.abbreviated).year())
-                    .font(.caption2)
-                    .foregroundStyle(Palette.secondaryInk)
-                calloutRow("Median") {
+                ChartCalloutDate(fan.date, precision: .month)
+                ChartCalloutRow("Median") {
                     AmountText(Decimal(wholeNumber: fan.p50))
                 }
-                calloutRow("25–75%") { range(fan.p25, fan.p75) }
-                calloutRow("10–90%") { range(fan.p10, fan.p90) }
+                ChartCalloutRow("25–75%") { ChartCalloutRange(low: fan.p25, high: fan.p75) }
+                ChartCalloutRow("10–90%") { ChartCalloutRange(low: fan.p10, high: fan.p90) }
             } else if let point = selection.point {
-                Text(point.date, format: .dateTime.day().month(.abbreviated).year())
-                    .font(.caption2)
-                    .foregroundStyle(Palette.secondaryInk)
+                ChartCalloutDate(point.date)
                 AmountText(Decimal(wholeNumber: point.value))
                     .font(.caption.weight(.semibold))
                 if !point.isComplete {
@@ -282,30 +282,8 @@ struct NetWorthChart: View {
                 }
             }
             ForEach(layout.markers.iconOnly(near: selection.date)) { marker in
-                Label(marker.label, systemImage: marker.symbol)
-                    .font(.caption2)
-                    .foregroundStyle(Palette.secondaryInk)
+                ChartCalloutMarker(marker.label, systemImage: marker.symbol)
             }
-        }
-        .padding(Metrics.s)
-        .frame(maxWidth: 210, alignment: .leading)
-        .calloutBackground()
-    }
-
-    private func calloutRow<Value: View>(_ title: String, @ViewBuilder value: () -> Value) -> some View {
-        HStack(spacing: Metrics.s) {
-            Text(title).foregroundStyle(Palette.secondaryInk)
-            Spacer(minLength: Metrics.s)
-            value()
-        }
-        .font(.caption2)
-    }
-
-    private func range(_ low: Double, _ high: Double) -> some View {
-        HStack(spacing: 2) {
-            AmountText(Decimal(wholeNumber: low))
-            Text(verbatim: "–")
-            AmountText(Decimal(wholeNumber: high))
         }
     }
 
@@ -397,6 +375,15 @@ struct ChartPlaceholder: View {
             Card("Plan assets by asset class, with the future") {
                 NetWorthChart(history: planAssets.points, stacked: planAssets.stacked,
                               projection: planAssets.projection, markers: planAssets.markers, title: "Plan assets")
+            }
+            // The callouts, as the strips' read-outs on Plan and Progress show theirs.
+            Card("Reading the future") {
+                NetWorthChart(history: planAssets.points, stacked: planAssets.stacked,
+                              projection: planAssets.projection, markers: planAssets.markers, title: "Plan assets",
+                              readsDate: end.adding(years: 8).dateValue)
+            }
+            Card("Reading the past") {
+                NetWorthChart(history: history, readsDate: end.adding(months: -2).dateValue)
             }
             Card("With the future, amounts hidden") {
                 NetWorthChart(history: planAssets.points, stacked: planAssets.stacked,

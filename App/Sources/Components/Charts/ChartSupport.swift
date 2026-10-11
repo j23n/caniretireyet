@@ -62,6 +62,9 @@ enum ChartStyle {
 
     /// The width a chart assumes until it has measured itself.
     static let defaultWidth: CGFloat = 320
+
+    /// The widest a chart's callout grows (``ChartCallout``).
+    static let calloutWidth: CGFloat = 210
 }
 
 extension ChartContent {
