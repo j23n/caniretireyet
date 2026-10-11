@@ -246,14 +246,16 @@ struct SavingPaceTests {
 
     /// A savings account valued once, at 20,000, and closed on 15 Sep: the
     /// money taken out is in September, which is unusual, not spread over
-    /// the year since its value.
-    @Test func aClosingStaysAtItsCheckIn() throws {
+    /// the year since its value. Closed on the day of a check-in, 30 Jun,
+    /// it's open that day, so the money is taken out in July.
+    @Test(arguments: [("2026-09-15", "2026-09-30"), ("2026-06-30", "2026-07-31")] as [(CalendarDate, CalendarDate)])
+    func aClosingStaysAtItsCheckIn(closed: CalendarDate, month: CalendarDate) throws {
         var library = self.library(flows: [Decimal](repeating: 1_000, count: 12))
         library.accounts["savings"] = Account(id: "savings", name: "Savings", kind: .savings, currency: .eur,
-                                              opened: "2020-01-01", closed: "2026-09-15")
+                                              opened: "2020-01-01", closed: closed)
         library.upsert(Valuation(account: "savings", date: "2025-09-30", balance: 20_000, flow: 0))
         let pace = try #require(Valuator(library: library).savingPace(asOf: "2026-09-30"))
-        #expect(pace.unusualMonths.map(\.end) == ["2026-09-30"])
+        #expect(pace.unusualMonths.map(\.end) == [month])
         #expect(pace.perYear == 12_000)
     }
 

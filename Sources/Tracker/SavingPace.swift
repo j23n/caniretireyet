@@ -167,10 +167,12 @@ extension Valuator {
 
         // The check-ins in the months, and back to each open plan asset's
         // latest record before them, so an account valued once a year
-        // before the months can still go on into them.
+        // before the months can still go on into them; never further back
+        // than the range's oldest month.
         let before = accounts.values.filter {
             NetWorthScope.planAssets.includes($0) && $0.closed.map { $0 > ends[available] } ?? true
-        }.compactMap { latestRecordDate(of: $0.id, onOrBefore: ends[available]) }.min() ?? ends[available]
+        }.compactMap { latestRecordDate(of: $0.id, onOrBefore: ends[available]) }.min().map { max($0, ends[longest]) }
+            ?? ends[available]
         let intervals = zip(checkIns, checkIns.dropFirst()).filter { $0.1 > ends[available] || $0.1 >= before }
         let reports = intervals.map { change(from: $0.0, to: $0.1, in: .planAssets) }
         let window = min(available, SavingPace.window)
@@ -230,7 +232,7 @@ extension Valuator {
                 // new money is its deposits and withdrawals since the
                 // check-in before, so it's spread from there, and so is an
                 // account closed since, whose closing date is known.
-                let closed = accounts[account.account]?.closed.map { $0 > report.from && $0 <= report.to } ?? false
+                let closed = accounts[account.account]?.closed.map { $0 >= report.from && $0 < report.to } ?? false
                 let from = accounts[account.account]?.recordsTrades == true || closed ? report.from
                     : latestRecordDate(of: account.account, onOrBefore: report.from) ?? report.from
                 guard from < report.to else { continue }
@@ -273,7 +275,7 @@ extension Valuator {
             let gaps = zip(payments, payments.dropFirst()).map { $0.0.to.days(to: $0.1.to) }.sorted()
             let regular = payments.count >= 3 && accounts[account]?.recordsTrades != true
             let usualGap = regular ? gaps[(gaps.count - 1) / 2] : 0
-            let longest = usualGap * 3 / 2
+            let furthest = usualGap * 3 / 2
             let usual = regular ? SavingPace.median(payments.map(\.amount)) : 0
             var spans: [(from: CalendarDate, to: CalendarDate, amount: Decimal, isMissing: Bool)] = []
             for (number, payment) in payments.enumerated() {
@@ -283,7 +285,7 @@ extension Valuator {
                 }
                 let before = number > 0 ? payments[number - 1].to
                     : payment.to.adding(days: -payments[0].to.days(to: payments[1].to))
-                let earliest = [before, payment.to.adding(days: -longest), firstRecord ?? before].max() ?? before
+                let earliest = [before, payment.to.adding(days: -furthest), firstRecord ?? before].max() ?? before
                 spans.append((min(payment.from, earliest), payment.to, payment.amount, payment.isMissing))
             }
             for span in spans { spread(span.amount, of: account, from: span.from, to: span.to) }
@@ -304,7 +306,7 @@ extension Valuator {
             let notValuedSince = spans.last.map { latestRecordDate(of: account, onOrBefore: asOf) == $0.to } ?? false
             guard let last = spans.last, last.amount > 0, last.to < asOf,
                   regular ? last.amount <= 2 * usual
-                      && (notValuedSince || usualGap * 2 > usualCheckIn * 3 && last.to.days(to: asOf) <= longest)
+                      && (notValuedSince || usualGap * 2 > usualCheckIn * 3 && last.to.days(to: asOf) <= furthest)
                       : notValuedSince && last.from.days(to: last.to) * 2 > usualCheckIn * 3,
                   accounts[account]?.recordsTrades != true, accounts[account]?.closed.map({ $0 > asOf }) ?? true,
                   index.map({ $0.value(on: last.to) != nil }) ?? true
