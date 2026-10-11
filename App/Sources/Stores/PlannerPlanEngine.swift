@@ -145,10 +145,11 @@ struct PlannerPlanEngine: PlanEngine {
     static func options(for kind: RunKind, focusAge: Int?, asOf: CalendarDate) -> PlannerOptions {
         switch kind {
         case .base(.full):
-            // With the coast age, which check-ins record, and the earliest
-            // age without each uncertain windfall, for the plan's words.
+            // With the coast age and the pace age, which check-ins record,
+            // and the earliest age without each uncertain windfall, for the
+            // plan's words.
             PlannerOptions(mode: .full, ageScan: .full, focusAge: focusAge, solveCoastAge: true,
-                           solveWithoutWindfalls: true, today: asOf)
+                           solveWithoutWindfalls: true, solvePaceAge: true, today: asOf)
         case .base(.fast):
             PlannerOptions(mode: .fast(runs: PlannerOptions.defaultFastRuns), ageScan: .headline, focusAge: focusAge,
                            today: asOf)

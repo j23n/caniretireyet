@@ -165,6 +165,10 @@ enum PlanResultsText {
             rows.append(PlanFigureRow(label: "Saving nothing more, retire at",
                                       value: .text(coast.earliestAge.map { "\($0)" } ?? "None")))
         }
+        if let pace = details.agesWithout.pace {
+            rows.append(PlanFigureRow(label: "Saving at your pace of the last 12 months, retire at",
+                                      value: .text(pace.earliestAge.map { "\($0)" } ?? "None")))
+        }
         return rows
     }
 

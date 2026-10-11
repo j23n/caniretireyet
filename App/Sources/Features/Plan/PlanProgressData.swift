@@ -73,9 +73,12 @@ struct PlanAnswerHistory: Hashable, Sendable {
         return (latestAge - firstAge, first.date)
     }
 
-    /// The range of ages to chart, with a little room.
+    /// The check-ins that recorded a pace age (``Headline/paceAge``).
+    var pacePoints: [Headline] { points.filter { $0.paceAge != nil } }
+
+    /// The range of ages to chart, the earliest and the pace ages, with a little room.
     var ageRange: ClosedRange<Int> {
-        let ages = points.compactMap(\.earliestAge)
+        let ages = points.compactMap(\.earliestAge) + points.compactMap(\.paceAge)
         guard let low = ages.min(), let high = ages.max() else { return 50...60 }
         return (low - 2)...(high + 2)
     }
