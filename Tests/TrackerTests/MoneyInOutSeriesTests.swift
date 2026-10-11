@@ -110,6 +110,36 @@ struct MoneyInOutSeriesTests {
         #expect(!year.coversMore(.years))
     }
 
+    /// Only the pay's days count: a skipped check-in of the current account,
+    /// which the pay comes into, makes September hold August's money too,
+    /// though the savings account was checked in August.
+    @Test func aSkippedCheckInOfTheAccountThePayComesIntoCoversMore() throws {
+        var library = self.library
+        library.months["2026-08"]?.valuations.removeAll { $0.account == "conto-fineco" }
+        let series = Valuator(library: library).moneyInOutSeries(.months, through: "2026-09-30")
+        let september = try #require(series.periods.last)
+        #expect(september.covers == CalendarDate("2026-08-01")...CalendarDate("2026-09-30"))
+        #expect(september.coversMore(.months))
+    }
+
+    /// A savings account checked once a quarter covers three months with
+    /// its September value, but the pay came into the current account,
+    /// checked each month: September holds its own money.
+    @Test func anAccountCheckedRarelyDoesNotCoverMore() throws {
+        var library = self.library
+        for month: YearMonth in ["2026-07", "2026-08"] {
+            library.months[month]?.valuations.removeAll { $0.account == "conto-deposito" }
+        }
+        let valuator = Valuator(library: library)
+        let series = valuator.moneyInOutSeries(.months, through: "2026-09-30")
+        expectMatches(series, valuator: valuator)
+        // The savings account's value is measured from 30 June.
+        #expect(valuator.moneyInOut(from: "2026-09-01", through: "2026-09-30").measuredFrom == "2026-06-30")
+        let september = try #require(series.periods.last)
+        #expect(september.covers == CalendarDate("2026-09-01")...CalendarDate("2026-09-30"))
+        #expect(!series.periods.contains { $0.coversMore(.months) })
+    }
+
     /// The current account records money in and out from November 2025 to
     /// October 2026: twelve months, so October has a rate over the last 12.
     @Test func monthsFromTheTwelfthHaveTheRateOverTheLast12() throws {

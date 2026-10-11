@@ -51,18 +51,19 @@ public struct MoneyInOutPeriod: Hashable, Sendable {
     /// The savings rate; `nil` when nothing came in.
     public var rate: Decimal? { savings?.rate }
 
-    /// The days the period's values cover: from the day after the valuation
-    /// the earliest is measured from through the latest one's date. `nil`
-    /// when nothing was counted.
+    /// The days the pay counted in the period covers: from the day after
+    /// the valuation the values of the account the most came into are
+    /// measured from (``SavingsRate/from``, the days the savings rate counts
+    /// pension contributions over) through the latest value's date. So a
+    /// savings account checked quarterly, or an account first valued
+    /// mid-month, doesn't stretch it. `nil` when nothing was counted.
     public var covers: ClosedRange<CalendarDate>? {
-        guard let money = savings?.moneyInOut, let start = money.measuredFrom, let end = money.lastCounted,
-              start < end
-        else { return nil }
-        return start.adding(days: 1)...end
+        guard let savings, let end = savings.moneyInOut.lastCounted, savings.from < end else { return nil }
+        return savings.from.adding(days: 1)...end
     }
 
-    /// Whether the period's values cover more than one and a half months
-    /// (or years), so it holds more than its own money: a value counts in
+    /// Whether the period's pay (``covers``) covers more than one and a half
+    /// months (or years), so it holds more than its own money: a value counts in
     /// the period of its date, so after a skipped check-in its month holds
     /// two months' money.
     public func coversMore(_ grain: PeriodGrain) -> Bool {
