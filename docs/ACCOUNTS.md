@@ -24,7 +24,7 @@ This document records the decisions and what they change. The documents they cha
 | `tfr` | As a pension fund | Unchanged | Unchanged |
 | `property` | A balance; new money is asked for, and left empty, what the main plan pays in counts (usually nothing) | Unchanged | Unchanged |
 | `vehicle` | As property | Unchanged | Unchanged |
-| `other` | As property | Unchanged; a brokerage, crypto or metals account recorded as a balance becomes `other` ([Migration](#migration)) | Unchanged |
+| `other` | As property | Unchanged; a brokerage, crypto or metals account recorded as a balance becomes `other` ([Migration](#migration)) | Unchanged; asked for, as for property |
 
 Today's rules are in `Sources/Model/Accounts/`: `AccountKind.defaultValuationMode`, `AccountKind.defaultFlow` (`FlowDefault`), `AccountKind.recordsMoneyInOut`, `Account.valuationMode` and `Account.tracksMoneyInOut`.
 
@@ -56,14 +56,14 @@ What's left over. It's shown, and neither typed nor stored:
 
 The flow is the change (cash) or the change minus the interest (savings), so this is **flow − money in + money out** for both kinds, and it can always be worked out from what's stored.
 
-- **The check-in review** adds it up across cash, savings and investment accounts. A trades account's part is its flow, so a transfer from the bank to the broker cancels out against the broker's deposit trade, and a buy paid from outside the account against the bank's. The review points out what doesn't cancel out.
+- **The check-in review** adds it up across cash, savings and investment accounts. A trades account's part is its flow, so a transfer from the bank to the broker cancels out against the broker's deposit trade, and a buy paid from outside the account against the bank's. A debt's new money is in the sum when it's negative, so new borrowing (a loan or a mortgage paid out, a card's cash advance) cancels out against the account it lands in; repayments are money out, so they aren't. The review points out what doesn't cancel out.
 - **Interest on a current account** isn't asked for; it ends up in "moved".
 
 ### Pre-filled values
 
 | | Money in | Money out | Interest | So "moved" starts at |
 | --- | --- | --- | --- | --- |
-| Cash | Typed | Money in minus the change, never below zero, until it's typed (as today) | — | 0 |
+| Cash | Typed | Money in minus the change, never below zero, until it's typed (as today) | — | 0, or the change minus money in when the balance grew by more than money in |
 | Savings | 0 | 0 | Empty | The whole change |
 | *Unchanged*, either kind | 0 | 0 | — | 0 |
 
@@ -72,7 +72,7 @@ Most money in a savings account moves between your own accounts, so its money in
 ### Loans and mortgages
 
 - **Payments are money out** of the account they leave, like rent, so money out a year matches a plan whose spending includes them. Today they're transfers between tracked accounts and left out of money out ([PROGRESS.md](PROGRESS.md#money-in-and-out)).
-- **The principal repaid** counts as kept in the savings rate, the same way pension contributions are added today: the drop in what's owed (the debt's new money), at least zero per account, over the same days.
+- **The principal repaid** counts as kept in the savings rate, the same way pension contributions are added today: the drop in what's owed (the debt's new money), at least zero per account, over the same days. Every loan and mortgage counts, whether the plan includes it or not, as pension contributions do.
 - **Credit card payments** stay money out, as today. A card's drop isn't counted as kept.
 
 The savings rate becomes:
@@ -91,9 +91,9 @@ The savings rate becomes:
 All existing accounts are migrated, in schema version 4, with a migration in Storage ([schema/README.md](schema/README.md#versioning)):
 
 - The `moneyInOut` key goes from every account file.
-- Every account recorded as snapshots (`holdings`, written or by default) is converted to trades with `Library.conversionToTrades(of:)` ([TRADES.md](TRADES.md#converting-an-account)). Its values and new money stay the same.
-- A brokerage, crypto or metals account recorded as a plain balance (`"valuation": "balance"`) becomes kind `other`, and its `valuation` key goes.
-- **Past values keep the `flow` they recorded.** Their money in and out can't be split from a net change, so they stay empty, and the savings rate starts at the next check-in.
+- Every account recorded as snapshots (`holdings`, written or by default) is converted to trades with `Library.conversionToTrades(of:)` ([TRADES.md](TRADES.md#converting-an-account)). Its values and new money stay the same. What the conversion estimated (its notes: prices, external settlement, a balance turned into cash) goes into the migration's report, which the app shows once after migrating and `retire validate` prints.
+- A brokerage, crypto or metals account recorded as a plain balance (`"valuation": "balance"`) becomes kind `other`, and its `valuation` key goes. It then moves to the *Other* group in lists, the check-in and the breakdown (`AccountGroup(kind:)`), takes `other`'s symbol, and its new money is asked for at check-ins (`defaultFlow` `.ask`), as for property.
+- **Past values keep the `flow` they recorded.** Values of accounts that opted in to money in and out keep theirs, as `conto-fineco`'s do. Other cash and savings accounts' past values have none, since money in and out can't be split from a net change, so their savings rate starts at the next check-in.
 
 ## Downstream implications
 
@@ -216,6 +216,9 @@ The owner answered these before the sub-issues start.
 6. **The importer's snapshot targets convert:** a sheet of quantities imported into a trades account becomes an opening and a buy or a sale per change, as `conversionToTrades(of:)` does. *Quantity held*, *Purchase cost* and *Cash in an investment account* stay as targets.
 7. **An account's first value** asks only for its balance (or a trades account's opening positions and cash), as proposed.
 8. **The Mac check-in table** shows *In*, *Out*, *Interest* and "moved" as lines under the account, as *Money in* and *Money out* are today. The columns stay as they are.
+9. **A balance-recorded investment account becomes `other`,** with the changes listed under [Migration](#migration): its group, its symbol and its new money.
+10. **The principal repaid counts for every loan and mortgage,** including those the plan leaves out, as pension contributions do.
+11. **The conversion's notes go into the migration's report** (`MigrationReport`), which the app shows once after migrating and `retire validate` prints.
 
 ## Order of work
 
