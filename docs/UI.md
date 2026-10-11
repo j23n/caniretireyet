@@ -617,35 +617,61 @@ The plan reads as a life ([PLANNER.md](PLANNER.md#chapters)): the answer first, 
   - Until the rate on investments is set, the plan runs as if investments weren't taxed: the card and the answer show the warning "Tax on investments isn't set, so the answer assumes none. Set it under Taxes (0% if they aren't taxed).", and the summary says "Tax on investments not set".
   - Turning the wealth tax off removes its rate and allowance from the plan.
 - **Assumptions.** Inflation, then each class's real return as its mean and its median, and its volatility, three fields a row ("Crypto 16.6 % · 0 % · 70 %"). Either return can be typed: the other follows from it and the volatility, and changing the volatility keeps the one that was given (crypto's default is given by its median). The line under them: "Placeholders to review, not forecasts: real returns after fund costs. The mean is the average year, the median the typical one, which a portfolio rebalanced every year grows at. Enter either: the other follows from the volatility." What equals the default isn't written to the plan. A class whose return and volatility are exactly an earlier version's default, which that version wrote into the plan when one of the class's numbers was edited ([PLANNER.md](PLANNER.md#returns)), gets a line under its row: "This is the previous default (4.5% average). The current default is a 5.0% typical year.", with a *Use Default* button that removes the plan's entry for the class (keeping its income yield), so it follows the current default. Nothing changes until it's tapped. The card's summary counts them ("4 previous default returns"), and it shows equity's return as it's given: "Equity 5% typical year", or "Equity 4,5% average". Then an optional **income yield** for equity and bonds: "The part of the return paid out as income each year (dividends, interest), taxed every year at the rate on investments. Leave it empty to count it as growth, taxed when sold." Then the estimate of unrealised gains for holdings without a purchase cost, and the accounts in the plan, each with a switch. A class the portfolio holds whose median is below −2% a year gets a warning on the card: "Crypto's returns give a typical year of −18% (an average of 0.0% at 70% volatility): holding it and rebalancing back into it every year shrinks your portfolio. Check its return under Assumptions."
-- **Target mix.** A card of its own in *Assumptions…*, after Assumptions, and a sheet of its own from the chapters' words: the mix the plan rebalances the money you can draw to every year ([PLANNER.md](PLANNER.md#target-mix)). Its first line says what that does: "Each year the plan rebalances the money you can draw back to this mix: new money goes in at it, withdrawals sell every class alike, and rebalancing isn't taxed."
+- **Target mix.** A sheet of its own, opened from the chapters' words and from its card in *Assumptions…*: the mix the plan rebalances the money you can draw to every year ([PLANNER.md](PLANNER.md#target-mix)). It's a grouped form like the work phase sheet, with *Done*; edits are saved as you type. The footer of its first section says what rebalancing does: "Each year the plan rebalances the money you can draw back to this mix: new money goes in at it, withdrawals sell every class alike, and rebalancing isn't taxed."
 
   ```
-  [ Today's mix | A mix I choose ]
-  Class      Today    Target   Median
-  Equity       46%    [80] %     5.0%
-             44% of all
-  Bonds         0%    [20] %     1.5%
-              5% of all
-  Crypto       35%    [  ] %     0.0%
-             28% of all
-  ✓ Total 100%
+  REBALANCE TO
+  ┌─────────────────────────────────────────┐
+  │ [ Today's mix | A mix I choose ]        │
+  └─────────────────────────────────────────┘
+  Each year the plan rebalances the money you can draw back to this mix: …
+
+  TARGET MIX
+  ┌─────────────────────────────────────────┐
+  │ Equity                         [80] %   │
+  │ Today 46% · 44% of all                  │
+  │ Median 5.0% a year                      │
+  │ Bonds                          [20] %   │
+  │ Today 0% · 5% of all                    │
+  │ Median 1.5% a year                      │
+  │ Crypto                         [  ] %   │
+  │ Today 35% · 28% of all                  │
+  │ Median 0.0% a year                      │
+  │ ✓ Total 100%                            │
+  └─────────────────────────────────────────┘
   Grows at a median of 4.5% a year, rebalanced every year (today's mix: 3.0%).
-  Changes with age
-  ╭ From retirement      ⊖ ╮ ╭ From 75             ⊖ ╮
-  │ [At an age|At retirement]│ │ [At an age|At retirement]│
-  │ Equity          [60] %   │ │ Equity          [40] %   │
-  │ Bonds           [40] %   │ │ Bonds           [60] %   │
-  ╰──────────────────────────╯ ╰──────────────────────────╯
-  + Add a change with age
+  Today: the share of the money you can draw, then of all plan assets.
+
+  FROM RETIREMENT                         ⊖
+  ┌─────────────────────────────────────────┐
+  │ [ At an age | At retirement ]           │
+  │ The year you stop working, whatever age │
+  │ the plan finds: 55 in this plan.        │
+  │ Equity                         [60] %   │
+  │ Bonds                          [40] %   │
+  │ ✓ Total 100%                            │
+  └─────────────────────────────────────────┘
+  Grows at a median of 3.6% a year, rebalanced every year.
+
+  FROM 75                                 ⊖
+  ┌─────────────────────────────────────────┐
+  │ [ At an age | At retirement ]           │
+  │ From 75                          [–|+]  │
+  │ …                                       │
+  └─────────────────────────────────────────┘
+
+  ┌─────────────────────────────────────────┐
+  │ + Add a change with age                 │
+  └─────────────────────────────────────────┘
   Accounts available only from a later age, such as a pension fund, keep their own mix until then.
   ```
 
-  - **Today's mix or a mix I choose.** *Today's mix* writes nothing (no `targetMix`): the money you can draw is rebalanced back to its own mix today, crypto included, and a line says so, with how that mix grows. *A mix I choose* starts from today's mix of the money you can draw in whole percentages, to edit; going back to *Today's mix* removes the mix and its changes with age.
-  - **Per asset class** (equity, bonds, cash, gold, crypto, real estate, and any other class held today or named in the plan): *Today*, its share of the money you can draw, with its share of all plan assets under it ("44% of all"); *Target*, a percentage typed as you go (an empty field or 0 leaves the class out); *Median*, its median real return from the assumptions, so what a class like crypto does to the mix is in view.
-  - **The total** runs under the table: "✓ Total 100%", or an error line until it is ("Total 95%. Adds up to 95%: add 5% to reach 100%."); a plan saved short of 100% runs scaled, with a warning on the card. Then the mix's median growth, rebalanced every year, against today's mix's.
-  - **Changes with age.** A card per change, side by side when there's room (one column on iPhone, two or three on a wide iPad or Mac window), each starting *At an age* (a stepper kept after today's age and between the changes before and after it) or *At retirement* ("The year you stop working, whatever age the plan finds"), with its own percentages, total and growth. *Add a change with age* adds one from retirement first, then ten years after the last, starting from the mix before it. A change whose age has passed says "You're 56: this already applies from the start." with **Make it the target mix**, which makes it the target from today so every version reads the plan the same.
-  - **VoiceOver** reads each class as its name, today's shares in words ("Equity today: 46% of the money you can draw, 44% of all plan assets"), its target field ("Equity target, percent") and its median ("Equity median return 5.0% a year"); the column headers are hidden from it, and each change's title is a heading.
-  - Issues about the target mix (a total, ages that don't go up, a change after the plan's end) show on this card; the summary reads "Today's mix", or "Equity 80% · bonds 20% · changes at retirement and 75".
+  - **Rebalance to: today's mix or a mix I choose.** *Today's mix* writes nothing (no `targetMix`): the money you can draw is rebalanced back to its own mix today, crypto included; the section's footer says so, with how that mix grows. *A mix I choose* starts from today's mix of the money you can draw in whole percentages, to edit; going back to *Today's mix* removes the mix and its changes with age.
+  - **Per asset class** (equity, bonds, cash, gold, crypto, real estate, and any other class held today or named in the plan), a row of the *Target mix* section (*Today's mix* with today's mix): its name, with two lines under it: *Today*, its share of the money you can draw and of all plan assets ("Today 46% · 44% of all"), and its median real return from the assumptions ("Median 5.0% a year"), so what a class like crypto does to the mix is in view. With *A mix I choose*, the row ends with its target, a percentage typed as you go (an empty field or 0 leaves the class out). The fields have one width in every section, growing with the text size, so they line up. The footer says what *Today* counts.
+  - **The total** is the section's last row: "✓ Total 100%", or an error line until it is ("Total 95%. Adds up to 95%: add 5% to reach 100%."); a plan saved short of 100% runs scaled, with a warning on the *Assumptions…* card. The footer has the mix's median growth, rebalanced every year, against today's mix's. A plan with changes with age but no mix from today says instead that each account keeps its own mix until the first change.
+  - **Changes with age.** A section per change, after the target mix: its title as the header ("From retirement", "From 75") with a button that removes it; then *At an age* (a stepper kept after today's age and between the changes before and after it) or *At retirement* ("The year you stop working, whatever age the plan finds"), its own percentages and total, and its growth in the footer. *Add a change with age*, in a section of its own, adds one from retirement first, then ten years after the last, starting from the mix before it; its footer gives an example while there are none, and says that accounts available only from a later age keep their own mix. A change whose age has passed says "You're 56: this already applies from the start." with **Make it the target mix**, which makes it the target from today so every version reads the plan the same.
+  - **VoiceOver** reads each class as its name, today's shares in words ("Equity today: 46% of the money you can draw, 44% of all plan assets"), its median ("Equity median return 5.0% a year") and its target field ("Equity target, percent"); each change's title is a heading, and its fields read as "Equity, From 75, percent".
+  - **The *Assumptions…* card** shows the mix in words, the target ("Rebalance to") and a line per change ("From 75" with "Equity 40% · bonds 60%"), with *Edit Target Mix…*, which opens the sheet. Issues about the target mix (a total, ages that don't go up, a change after the plan's end) show on this card; the summary reads "Today's mix", or "Equity 80% · bonds 20% · changes at retirement and 75".
 - **Simulation.** The number of runs, the confidence a "yes" needs, and the random seed.
 - **Validation.** Issues appear on the row of the work phase, pension, contribution or event they're about, on the *Assumptions…* card they concern, and the rest (spending's, and those about a whole list) above the chapters:
   - ⚠︎ for warnings, e.g. "State pension starts after the plan's end age, so the plan never pays it.";
