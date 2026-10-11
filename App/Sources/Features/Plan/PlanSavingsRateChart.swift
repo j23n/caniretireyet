@@ -36,6 +36,12 @@ struct PlanSavingsRateChart: View {
         var isSoFar: Bool
 
         var id: Date { start }
+        /// Keeps the bar's area apart from the others'.
+        var key: String { period.from.description }
+        /// How high the bar is drawn.
+        var height: Double { rate ?? 0 }
+        /// How much of its colour the bar keeps.
+        var opacity: Double { isSoFar ? PlanSavingsRateChart.soFarOpacity : 1 }
     }
 
     private var bars: [Bar] {
@@ -66,49 +72,94 @@ struct PlanSavingsRateChart: View {
     /// How much of its colour the "so far" bar keeps.
     private static let soFarOpacity = 0.45
 
+    /// The period nearest the pointer or a finger.
+    private var selectedPeriod: MoneyInOutPeriod? {
+        guard let selectedDate else { return nil }
+        return money.period(nearest: selectedDate)
+    }
+
     private func chart(_ bars: [Bar], scale: AmountScale, domain: ClosedRange<Date>) -> some View {
-        Chart {
-            ForEach(bars.filter { $0.rate != nil }) { bar in
-                BarMark(xStart: .value("Start", bar.start), xEnd: .value("End", bar.end),
-                        yStart: .value("Zero", 0.0), yEnd: .value("Savings rate", bar.rate ?? 0))
-                    .foregroundStyle(Palette.color(for: Self.barColor).opacity(bar.isSoFar ? Self.soFarOpacity : 1))
-                    .cornerRadius(2)
-            }
-            RuleMark(y: .value("Zero", 0.0))
-                .foregroundStyle(Palette.axis)
-                .lineStyle(StrokeStyle(lineWidth: 1))
-            ForEach(bars.filter { $0.lastTwelveMonths != nil }) { bar in
-                LineMark(x: .value("Date", bar.middle), y: .value("Last 12 months", bar.lastTwelveMonths ?? 0),
-                         series: .value("Line", "Last 12 months"))
-                    .foregroundStyle(Palette.ink)
-                    .lineStyle(StrokeStyle(lineWidth: Metrics.lineWidth, lineCap: .round, lineJoin: .round))
-            }
-            if let planPoints {
-                RuleMark(y: .value("Your plan's", planPoints))
-                    .foregroundStyle(Palette.secondaryInk)
-                    .lineStyle(StrokeStyle(lineWidth: 1.5, dash: [4, 3]))
-            }
-            if let selectedDate, let period = money.period(nearest: selectedDate) {
-                RuleMark(x: .value("Date", money.middle(of: period)))
-                    .foregroundStyle(Palette.secondaryInk)
-                    .lineStyle(StrokeStyle(lineWidth: 1))
-                    .annotation(position: .top, spacing: 4,
-                                overflowResolution: .init(x: .fit(to: .chart), y: .fit(to: .chart))) {
-                        PlanMoneyInOutCallout(money: money, period: period)
-                    }
-            }
+        let ticks = TimeTicks(domain: domain, plotWidth: max(Double(width) - 48, 1))
+        let rated: [Bar] = bars.filter { $0.rate != nil }
+        let rolling: [Bar] = bars.filter { $0.lastTwelveMonths != nil }
+        return Chart {
+            rateBars(rated)
+            zeroRule()
+            lastTwelveMonthsLine(rolling)
+            planRule()
+            selectionRule(selectedPeriod)
         }
         .chartLegend(.hidden)
         .chartXSelection(value: $selectedDate)
         .chartXScale(domain: domain)
         .chartYScale(domain: scale.domain)
-        .chartYAxis { rateAxis(scale) }
-        .chartXAxis { dateAxis(TimeTicks(domain: domain, plotWidth: max(Double(width) - 48, 1))) }
+        .chartYAxis { Self.rateAxis(scale.ticks) }
+        .chartXAxis { dateAxis(ticks) }
+    }
+
+    /// Each bar, an area from zero to its rate between its start and its
+    /// end; `key` keeps a bar's area apart from the others'.
+    @ChartContentBuilder
+    private func rateBars(_ bars: [Bar]) -> some ChartContent {
+        ForEach(bars) { bar in
+            AreaMark(x: .value("Date", bar.start), yStart: .value("From", 0.0),
+                     yEnd: .value("Savings rate", bar.height), series: .value("Bar", bar.key))
+                .foregroundStyle(Palette.color(for: Self.barColor).opacity(bar.opacity))
+            AreaMark(x: .value("Date", bar.end), yStart: .value("From", 0.0),
+                     yEnd: .value("Savings rate", bar.height), series: .value("Bar", bar.key))
+                .foregroundStyle(Palette.color(for: Self.barColor).opacity(bar.opacity))
+        }
+    }
+
+    @ChartContentBuilder
+    private func zeroRule() -> some ChartContent {
+        RuleMark(y: .value("Zero", 0.0))
+            .foregroundStyle(Palette.axis)
+            .lineStyle(StrokeStyle(lineWidth: 1))
+    }
+
+    /// The rate over the 12 months ending at each month.
+    @ChartContentBuilder
+    private func lastTwelveMonthsLine(_ bars: [Bar]) -> some ChartContent {
+        ForEach(bars) { bar in
+            LineMark(x: .value("Date", bar.middle), y: .value("Last 12 months", bar.lastTwelveMonths ?? 0.0),
+                     series: .value("Line", "Last 12 months"))
+                .foregroundStyle(Palette.ink)
+                .lineStyle(StrokeStyle(lineWidth: Metrics.lineWidth, lineCap: .round, lineJoin: .round))
+        }
+    }
+
+    /// The plan's own savings rate, dashed.
+    @ChartContentBuilder
+    private func planRule() -> some ChartContent {
+        if let planPoints {
+            RuleMark(y: .value("Your plan's", planPoints))
+                .foregroundStyle(Palette.secondaryInk)
+                .lineStyle(StrokeStyle(lineWidth: 1.5, dash: [4, 3]))
+        }
+    }
+
+    /// The selected period's rule and its callout.
+    @ChartContentBuilder
+    private func selectionRule(_ period: MoneyInOutPeriod?) -> some ChartContent {
+        if let period {
+            RuleMark(x: .value("Date", money.middle(of: period)))
+                .foregroundStyle(Palette.secondaryInk)
+                .lineStyle(StrokeStyle(lineWidth: 1))
+                .annotation(position: .top, spacing: 4,
+                            overflowResolution: .init(x: .fit(to: .chart), y: .fit(to: .chart))) {
+                    callout(for: period)
+                }
+        }
+    }
+
+    private func callout(for period: MoneyInOutPeriod) -> some View {
+        PlanMoneyInOutCallout(money: money, period: period)
     }
 
     /// Faint gridlines at the scale's ticks, labelled as percentages ("30%").
-    private func rateAxis(_ scale: AmountScale) -> some AxisContent {
-        AxisMarks(position: .leading, values: scale.ticks) { value in
+    private static func rateAxis(_ ticks: [Double]) -> some AxisContent {
+        AxisMarks(position: .leading, values: ticks) { value in
             AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5))
                 .foregroundStyle(Palette.gridline)
             AxisValueLabel {

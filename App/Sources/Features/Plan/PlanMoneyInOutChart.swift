@@ -46,6 +46,8 @@ struct PlanMoneyInOutChart: View {
         var coversMore: Bool
 
         var id: Date { middle }
+        /// Keeps the pair's areas apart from the others'.
+        var key: String { period.from.description }
     }
 
     private var pairs: [Pair] {
@@ -79,55 +81,114 @@ struct PlanMoneyInOutChart: View {
     /// A bar's fill: its colour, hatched when its period covers more, and
     /// lighter while it's so far.
     private static func fill(_ role: ChartColor, of pair: Pair) -> AnyShapeStyle {
-        let color = Palette.color(for: role).opacity(pair.isSoFar ? soFarOpacity : 1)
-        return pair.coversMore ? AnyShapeStyle(ChartHatch.style(color)) : AnyShapeStyle(color)
+        let color: Color = Palette.color(for: role).opacity(pair.isSoFar ? soFarOpacity : 1)
+        if pair.coversMore {
+            return AnyShapeStyle(ChartHatch.style(color))
+        }
+        return AnyShapeStyle(color)
+    }
+
+    /// The period nearest the pointer or a finger.
+    private var selectedPeriod: MoneyInOutPeriod? {
+        guard let selectedDate else { return nil }
+        return money.period(nearest: selectedDate)
     }
 
     private func chart(_ pairs: [Pair], scale: AmountScale, domain: ClosedRange<Date>) -> some View {
-        Chart {
-            ForEach(pairs) { pair in
-                BarMark(xStart: .value("Start", pair.cameInStart), xEnd: .value("End", pair.cameInEnd),
-                        yStart: .value("Zero", 0.0), yEnd: .value("Came in", pair.cameIn))
-                    .foregroundStyle(Self.fill(Self.cameInColor, of: pair))
-                    .cornerRadius(2)
-                    .spokenValueHidden(hidesAmounts)
-                BarMark(xStart: .value("Start", pair.wentOutStart), xEnd: .value("End", pair.wentOutEnd),
-                        yStart: .value("Zero", 0.0), yEnd: .value("Went out", pair.wentOut))
-                    .foregroundStyle(Self.fill(Self.wentOutColor, of: pair))
-                    .cornerRadius(2)
-                    .spokenValueHidden(hidesAmounts)
-            }
-            RuleMark(y: .value("Zero", 0.0))
-                .foregroundStyle(Palette.axis)
-                .lineStyle(StrokeStyle(lineWidth: 1))
-            if let planSpending {
-                RuleMark(y: .value("Your plan's spending while working", planSpending.doubleValue))
-                    .foregroundStyle(Palette.secondaryInk)
-                    .lineStyle(StrokeStyle(lineWidth: 1.5, dash: [4, 3]))
-                    .spokenValueHidden(hidesAmounts)
-            }
-            ForEach(pairs) { pair in
-                PointMark(x: .value("Date", pair.middle), y: .value("Kept", pair.kept))
-                    .foregroundStyle(Palette.stroke(for: Self.keptColor).opacity(pair.isSoFar ? Self.soFarOpacity : 1))
-                    .symbolSize(36)
-                    .spokenValueHidden(hidesAmounts)
-            }
-            if let selectedDate, let period = money.period(nearest: selectedDate) {
-                RuleMark(x: .value("Date", money.middle(of: period)))
-                    .foregroundStyle(Palette.secondaryInk)
-                    .lineStyle(StrokeStyle(lineWidth: 1))
-                    .annotation(position: .top, spacing: 4,
-                                overflowResolution: .init(x: .fit(to: .chart), y: .fit(to: .chart))) {
-                        PlanMoneyInOutCallout(money: money, period: period)
-                    }
-            }
+        let ticks = TimeTicks(domain: domain, plotWidth: max(Double(width) - 48, 1))
+        let base: Double? = money.relativeBase
+        return Chart {
+            cameInBars(pairs)
+            wentOutBars(pairs)
+            zeroRule()
+            planRule()
+            keptDots(pairs)
+            selectionRule(selectedPeriod)
         }
         .chartLegend(.hidden)
         .chartXSelection(value: $selectedDate)
         .chartXScale(domain: domain)
         .chartYScale(domain: scale.domain)
-        .chartYAxis { amountAxis(hidesAmounts: hidesAmounts, scale: scale, relativeTo: money.relativeBase) }
-        .chartXAxis { dateAxis(TimeTicks(domain: domain, plotWidth: max(Double(width) - 48, 1))) }
+        .chartYAxis { amountAxis(hidesAmounts: hidesAmounts, scale: scale, relativeTo: base) }
+        .chartXAxis { dateAxis(ticks) }
+    }
+
+    /// Each period's came in, an area from zero between the bar's start and
+    /// end; `key` keeps a bar's area apart from the others'.
+    @ChartContentBuilder
+    private func cameInBars(_ pairs: [Pair]) -> some ChartContent {
+        ForEach(pairs) { pair in
+            AreaMark(x: .value("Date", pair.cameInStart), yStart: .value("From", 0.0),
+                     yEnd: .value("Came in", pair.cameIn), series: .value("Bar", "Came in " + pair.key))
+                .foregroundStyle(Self.fill(Self.cameInColor, of: pair))
+                .spokenValueHidden(hidesAmounts)
+            AreaMark(x: .value("Date", pair.cameInEnd), yStart: .value("From", 0.0),
+                     yEnd: .value("Came in", pair.cameIn), series: .value("Bar", "Came in " + pair.key))
+                .foregroundStyle(Self.fill(Self.cameInColor, of: pair))
+                .spokenValueHidden(hidesAmounts)
+        }
+    }
+
+    /// Each period's went out, drawn as ``cameInBars(_:)`` draws came in.
+    @ChartContentBuilder
+    private func wentOutBars(_ pairs: [Pair]) -> some ChartContent {
+        ForEach(pairs) { pair in
+            AreaMark(x: .value("Date", pair.wentOutStart), yStart: .value("From", 0.0),
+                     yEnd: .value("Went out", pair.wentOut), series: .value("Bar", "Went out " + pair.key))
+                .foregroundStyle(Self.fill(Self.wentOutColor, of: pair))
+                .spokenValueHidden(hidesAmounts)
+            AreaMark(x: .value("Date", pair.wentOutEnd), yStart: .value("From", 0.0),
+                     yEnd: .value("Went out", pair.wentOut), series: .value("Bar", "Went out " + pair.key))
+                .foregroundStyle(Self.fill(Self.wentOutColor, of: pair))
+                .spokenValueHidden(hidesAmounts)
+        }
+    }
+
+    @ChartContentBuilder
+    private func zeroRule() -> some ChartContent {
+        RuleMark(y: .value("Zero", 0.0))
+            .foregroundStyle(Palette.axis)
+            .lineStyle(StrokeStyle(lineWidth: 1))
+    }
+
+    /// The plan's spending while working, dashed.
+    @ChartContentBuilder
+    private func planRule() -> some ChartContent {
+        if let planSpending {
+            RuleMark(y: .value("Your plan's spending while working", planSpending.doubleValue))
+                .foregroundStyle(Palette.secondaryInk)
+                .lineStyle(StrokeStyle(lineWidth: 1.5, dash: [4, 3]))
+                .spokenValueHidden(hidesAmounts)
+        }
+    }
+
+    /// What each period kept, a dot.
+    @ChartContentBuilder
+    private func keptDots(_ pairs: [Pair]) -> some ChartContent {
+        ForEach(pairs) { pair in
+            PointMark(x: .value("Date", pair.middle), y: .value("Kept", pair.kept))
+                .foregroundStyle(Palette.stroke(for: Self.keptColor).opacity(pair.isSoFar ? Self.soFarOpacity : 1))
+                .symbolSize(36)
+                .spokenValueHidden(hidesAmounts)
+        }
+    }
+
+    /// The selected period's rule and its callout.
+    @ChartContentBuilder
+    private func selectionRule(_ period: MoneyInOutPeriod?) -> some ChartContent {
+        if let period {
+            RuleMark(x: .value("Date", money.middle(of: period)))
+                .foregroundStyle(Palette.secondaryInk)
+                .lineStyle(StrokeStyle(lineWidth: 1))
+                .annotation(position: .top, spacing: 4,
+                            overflowResolution: .init(x: .fit(to: .chart), y: .fit(to: .chart))) {
+                    callout(for: period)
+                }
+        }
+    }
+
+    private func callout(for period: MoneyInOutPeriod) -> some View {
+        PlanMoneyInOutCallout(money: money, period: period)
     }
 
     private func summary(_ pairs: [Pair]) -> ChartSummary {
