@@ -26,8 +26,10 @@ enum PlanEditTarget: Hashable, Identifiable {
     }
 }
 
-/// The editor inside one of Always's cards. The other sections are edited
-/// in the chapters, by the stretch of life each input belongs to.
+/// The editor inside one of Always's cards. The target mix has a sheet of
+/// its own (``PlanTargetMixSheet``), which its card opens; the other
+/// sections are edited in the chapters, by the stretch of life each input
+/// belongs to.
 struct PlanSectionEditor: View {
     let section: PlanInputSection
     @Binding var plan: PlanDocument
@@ -40,11 +42,9 @@ struct PlanSectionEditor: View {
             PlanTaxesEditor(plan: $plan)
         case .assumptions:
             PlanAssumptionsEditor(plan: $plan)
-        case .targetMix:
-            PlanTargetMixEditor(plan: $plan)
         case .simulation:
             PlanSimulationEditor(plan: $plan)
-        case .work, .spending, .pensions, .income, .contributions, .events:
+        case .targetMix, .work, .spending, .pensions, .income, .contributions, .events:
             EmptyView()
         }
     }
