@@ -10,8 +10,9 @@ public struct SavingsRate: Hashable, Sendable {
     /// The money in and out it's worked out from.
     public var moneyInOut: MoneyInOutSummary
     /// The days the pension contributions are counted over, the days the
-    /// money in and out cover: from ``MoneyInOutSummary/measuredFrom``
-    /// (exclusive) through ``MoneyInOutSummary/through``.
+    /// pay that came in covers: from the valuation the counted values of the
+    /// account the most came into are measured from (exclusive) through
+    /// ``MoneyInOutSummary/through``.
     public var from: CalendarDate
     public var through: CalendarDate
     /// New money into pension funds and TFR over those days, each account's
@@ -50,11 +51,18 @@ extension Valuator {
     /// The savings rate over the money in and out recorded by valuations
     /// dated from `from` through `through` (``moneyInOut(from:through:accounts:)``),
     /// with the new money into pension funds and TFR (``SavingsRate/pensionKinds``)
-    /// over the days those valuations cover. `nil` when no money in and out
-    /// was counted.
+    /// over the days the pay covers: those of the account the most came
+    /// into, so an account checked rarely, or recording money in and out
+    /// for longer, doesn't stretch them. `nil` when no money in and out was
+    /// counted.
     public func savingsRate(from: CalendarDate, through: CalendarDate) -> SavingsRate? {
         let money = moneyInOut(from: from, through: through)
-        guard let start = money.measuredFrom else { return nil }
+        guard let counted = money.measuredFrom else { return nil }
+        let pay = accounts.values.filter(\.kind.recordsMoneyInOut).sorted { $0.id < $1.id }
+            .map { moneyInOut(from: from, through: through, accounts: [$0.id]) }
+            .filter { $0.moneyIn > 0 }
+            .max { $0.moneyIn < $1.moneyIn }
+        let start = pay?.measuredFrom ?? counted
         var contributions: Decimal = 0
         var planned: [AccountID] = []
         for account in accounts.values.sorted(by: { $0.id < $1.id })

@@ -35,6 +35,25 @@ struct SavingsRateTests {
         #expect(august.rate?.rounded(scale: 4) == d("0.4075"))
     }
 
+    /// The savings account records money in and out on 2026-09-30 for the
+    /// days since 2025-10-31, with no value between. The pensions are still
+    /// counted over the current account's days, which the pay came into.
+    @Test func countsPensionsOverTheDaysThePayCovers() throws {
+        var library = try Fixtures.exampleLibrary()
+        for month in Array(library.months.keys) where month > "2025-10" && month < "2026-09" {
+            library.months[month]?.valuations.removeAll { $0.account == "conto-deposito" }
+        }
+        let deposit = try #require(library.months["2026-09"]?.valuations.firstIndex { $0.account == "conto-deposito" })
+        library.months["2026-09"]?.valuations[deposit].moneyIn = 50
+        library.months["2026-09"]?.valuations[deposit].moneyOut = 0
+        let valuator = Valuator(library: library)
+        #expect(valuator.moneyInOut(overYearEndingOn: "2026-09-30").measuredFrom == "2025-10-31")
+        let savings = try #require(valuator.savingsRate(overYearEndingOn: "2026-09-30"))
+        #expect(savings.from == "2026-06-30")
+        #expect(savings.moneyInOut.moneyIn == d("10250"))
+        #expect(savings.pensionContributions == d("1325"))
+    }
+
     @Test func takesThePlansContributionsWhenACheckInLeftThemEmpty() throws {
         var library = try Fixtures.exampleLibrary()
         let pension = try #require(library.months["2026-09"]?.valuations.firstIndex { $0.account == "fondo-pensione" })
