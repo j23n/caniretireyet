@@ -11,8 +11,11 @@ struct AccountValuationTarget: Identifiable, Hashable {
 
 /// Editing a valuation already saved (UI.md, "Account detail": each
 /// valuation is editable): date, value (balance, or cash and positions),
-/// new money and note. Deleting it sits at the bottom. Shown in a sheet
-/// inside a NavigationStack.
+/// the same fields as the check-in by the account's kind (money in and out
+/// and a savings account's interest after its first value, with what moved
+/// between your accounts; new money only where the kind asks for it), and
+/// note. Deleting it sits at the bottom. Shown in a sheet inside a
+/// NavigationStack.
 ///
 /// Moving the value before the account's opening date moves the opening
 /// date back. The value after it (where it was and where it goes) gets its
@@ -61,7 +64,9 @@ struct AccountValuationEditor: View {
 
     private func fields(_ form: Binding<AccountValuationForm>, account: Account) -> some View {
         let symbol = AmountFormat.symbol(for: account.currency, locale: locale)
-        let problems = form.wrappedValue.problems(locale: locale)
+        let snapshot = library.library
+        let problems = form.wrappedValue.problems(in: snapshot, locale: locale)
+        let shown = form.wrappedValue.fields(in: snapshot)
         let replaces = form.wrappedValue.date != key.date
             && library.library.valuations(for: key.account).contains { $0.date == form.wrappedValue.date }
         return Form {
@@ -125,20 +130,29 @@ struct AccountValuationEditor: View {
                         : "A quantity of 0 removes the position.")
                 }
             }
-            Section {
-                AccountsNumberField(title: "New money", text: form.flow, prompt: "Unknown", suffix: symbol)
-            } footer: {
-                Text("Money added (+) or taken out (−) since the previous value. Leave it empty if you don't know.")
-            }
-            if account.kind.recordsMoneyInOut {
+            if shown.moneyInOut {
                 Section {
                     AccountsNumberField(title: "Money in", text: form.moneyIn, prompt: "Not recorded", suffix: symbol,
                                         allowsNegative: false)
                     AccountsNumberField(title: "Money out", text: form.moneyOut, prompt: "Not recorded",
                                         suffix: symbol, allowsNegative: false)
+                    if shown.interest {
+                        AccountsNumberField(title: "Interest", text: form.interest, prompt: "None", suffix: symbol)
+                    }
+                    if let moved = form.wrappedValue.valuation(in: snapshot, locale: locale)?.moved {
+                        LabeledContent("Moved between your accounts") {
+                            AmountText(moved, currency: account.currency, precision: .cents, signed: true)
+                        }
+                    }
                 } footer: {
-                    Text("What came in from outside your accounts and what went out since the previous value. Money "
-                        + "moved between your own accounts is in neither, but a credit card payment is money out.")
+                    Text(verbatim: AccountValueNotes.moneyInOutFooter(interest: shown.interest))
+                }
+            }
+            if shown.flow {
+                Section {
+                    AccountsNumberField(title: "New money", text: form.flow, prompt: "Unknown", suffix: symbol)
+                } footer: {
+                    Text("Money added (+) or taken out (−) since the previous value. Leave it empty if you don't know.")
                 }
             }
             Section {
@@ -176,8 +190,8 @@ struct AccountValuationEditor: View {
     /// What saving does to the new money of the account's other values, if
     /// anything.
     private func followUpNote(_ form: AccountValuationForm) -> String? {
-        guard let valuation = form.valuation(locale: locale) else { return nil }
         let snapshot = library.library
+        guard let valuation = form.valuation(in: snapshot, locale: locale) else { return nil }
         guard snapshot.valuations(for: key.account).contains(where: { $0.date > min(key.date, valuation.date) })
         else { return nil }
         return AccountValueNotes.flowFollowUp(snapshot.previewSavingValue(valuation, replacing: key), locale: locale)
@@ -185,16 +199,15 @@ struct AccountValuationEditor: View {
 
     private func load() {
         guard form == nil, let original, let account = library.account(key.account) else { return }
-        form = AccountValuationForm(original, holdsPositions: account.valuationMode != .balance,
-                                    recordsTrades: account.recordsTrades, isLiability: account.kind.isLiability,
-                                    recordsMoneyInOut: account.kind.recordsMoneyInOut, locale: locale)
+        form = AccountValuationForm(original, kind: account.kind, holdsPositions: account.valuationMode != .balance,
+                                    recordsTrades: account.recordsTrades, locale: locale)
         initialForm = form
     }
 
     /// Saves and waits for the write. A date before the opening date moves
     /// it back, and later values' automatic new money follows, in the same edit.
     private func save(_ form: AccountValuationForm) {
-        guard let valuation = form.valuation(locale: locale) else { return }
+        guard let valuation = form.valuation(in: library.library, locale: locale) else { return }
         isSaving = true
         errorMessage = nil
         Task {

@@ -8,10 +8,13 @@ import Tracker
 // MARK: - Update value
 
 /// A one-account valuation (UI.md, "Accounts": *Update value*): a new
-/// balance, or new quantities and cash, on a date, with the new money that
-/// goes with it. It's made the way the check-in makes one, so flows, what
-/// was paid and purchase costs follow the same rules. Saving without
-/// changes records the account as unchanged, which keeps it up to date.
+/// balance, or a trades account's cash, on a date, with the same fields as
+/// the check-in by the account's kind (``AccountValuationFields``): money
+/// in and out, and a savings account's interest, after its first value,
+/// with what moved between your accounts; new money only where the kind
+/// asks for it. It's made the way the check-in makes one, so flows and
+/// money in and out follow the same rules. Saving without changes records
+/// the account as unchanged, which keeps it up to date.
 ///
 /// Any date up to the closing date (or a year from today) works, so it also
 /// fills in history (*Add Past Value…* opens it on a past date). A date
@@ -88,10 +91,13 @@ struct UpdateValueSheet: View {
                 Text(account.name)
                     .privacySensitiveInFeedback()
             }
-            if let row = draft.row {
+            if let row = draft.row, let fields = draft.fields {
                 valueSection(row: row, prefilled: base.row, review: review, account: account)
-                // A cash or savings account's new money is worked out, never typed.
-                if row.canEnterFlow {
+                if fields.moneyInOut {
+                    moneyInOutSection(prefilled: base.row, review: review, account: account, fields: fields)
+                }
+                // Cash, savings and debts work their new money out, never typed (docs/ACCOUNTS.md, "New money").
+                if fields.flow && row.canEnterFlow {
                     flowSection(row: row, review: review, account: account)
                 }
                 Section {
@@ -168,6 +174,34 @@ struct UpdateValueSheet: View {
                 Text("The positions come from the account's trades: add a trade to change them. The cash is "
                     + "filled in from the trades; a different amount counts as money added or taken out.")
             }
+        }
+    }
+
+    /// Money in and out, a savings account's interest, and what moved
+    /// between your accounts, read-only. Empty, money in is 0, and money out
+    /// is what the check-in fills in (the prompt): a current account's
+    /// follows money in and the change, a savings account's is 0.
+    private func moneyInOutSection(prefilled: CheckInRow?, review: CheckInRowReview?, account: Account,
+                                   fields: AccountValuationFields) -> some View {
+        let symbol = AmountFormat.symbol(for: account.currency, locale: locale)
+        let suggestedOut = review?.valuation?.moneyOut.map { AmountInput.text(for: $0, maxDigits: 2, locale: locale) }
+        return Section {
+            AccountsNumberField(title: "Money in", text: $input[moneyIn: text(prefilled?.moneyIn)],
+                                prompt: CheckInWording.moneyPrompt, suffix: symbol, allowsNegative: false)
+            AccountsNumberField(title: "Money out", text: $input[moneyOut: text(prefilled?.enteredMoneyOut)],
+                                prompt: suggestedOut ?? CheckInWording.moneyPrompt, suffix: symbol,
+                                allowsNegative: false)
+            if fields.interest {
+                AccountsNumberField(title: "Interest", text: $input[interest: text(prefilled?.interest)],
+                                    prompt: CheckInWording.moneyPrompt, suffix: symbol)
+            }
+            if let moved = review?.moved {
+                LabeledContent("Moved between your accounts") {
+                    AmountText(moved, currency: account.currency, precision: .cents, signed: true)
+                }
+            }
+        } footer: {
+            Text(verbatim: AccountValueNotes.moneyInOutFooter(interest: fields.interest))
         }
     }
 
@@ -453,9 +487,9 @@ struct EditAccountSheet: View {
     .previewEnvironment()
 }
 
-#Preview("Update holdings") {
+#Preview("Update a savings account") {
     NavigationStack {
-        UpdateValueSheet(accountID: "gold-coins")
+        UpdateValueSheet(accountID: "conto-deposito")
     }
     .previewEnvironment()
 }
