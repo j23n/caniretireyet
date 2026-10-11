@@ -70,25 +70,13 @@ struct AccountValuationRow: Hashable, Sendable, Identifiable {
     var value: Decimal
     /// For a cash or savings account's value that records money in and
     /// out: the money moved between your own accounts, in the account's
-    /// currency (``moved(of:)``); `nil` otherwise.
+    /// currency (Tracker's `Valuation.moved`); `nil` otherwise.
     var moved: Decimal? = nil
 
     var id: ValuationKey { valuation.key }
 
     /// Whether the value records money in and out (both of them).
     var recordsMoneyInOut: Bool { valuation.moneyIn != nil && valuation.moneyOut != nil }
-
-    /// The part of a cash or savings value's new money that money in and
-    /// out don't explain: money moved between your own accounts, never
-    /// typed (docs/ACCOUNTS.md, "Moved between your accounts"). New money
-    /// is the change, less the interest for savings, so this is new money
-    /// − money in + money out. `nil` when one of the three isn't recorded.
-    static func moved(of valuation: Valuation) -> Decimal? {
-        guard let flow = valuation.flow, let moneyIn = valuation.moneyIn, let moneyOut = valuation.moneyOut else {
-            return nil
-        }
-        return flow - moneyIn + moneyOut
-    }
 }
 
 /// A value of a trades account that records what a statement showed, as a
@@ -299,7 +287,7 @@ struct AccountDetailData: Hashable, Sendable {
                     valuation: valuation,
                     amount: valuator.amountInAccountCurrency(of: valuation, on: valuation.date),
                     value: valuator.value(of: valuation, on: valuation.date)?.knownValue ?? 0,
-                    moved: recordsMoneyInOut ? AccountValuationRow.moved(of: valuation) : nil)
+                    moved: recordsMoneyInOut ? valuation.moved : nil)
             }
         }
         firstValueDate = all.first?.date
