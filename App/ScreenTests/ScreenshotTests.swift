@@ -45,6 +45,18 @@ struct ScreenshotTests {
         try await keep("progress-long", .longHistory, .progress)
     }
 
+    /// First launch, with no library: each step up to the disclaimer, as
+    /// ``ScreenLaunch`` opens it. It's ready once onboarding has taken the
+    /// step. The accounts step and the disclaimer show the library *Create
+    /// library* leaves, with its starter plan.
+    @Test(arguments: OnboardingStep.allCases)
+    func firstLaunch(_ step: OnboardingStep) async throws {
+        let model = ScreenLaunch(firstLaunchAt: step).model()
+        try await ScreenCapture.keep(root(model), named: "first-launch-\(step.rawValue)") {
+            model.navigation.requestedOnboardingStep == nil
+        }
+    }
+
     private func keep(_ name: String, _ sample: ScreenLaunch.Sample, _ screen: ScreenLaunch.Screen,
                       calculates: Bool = true) async throws {
         let launch = ScreenLaunch(sample, screen: screen, calculates: calculates)
