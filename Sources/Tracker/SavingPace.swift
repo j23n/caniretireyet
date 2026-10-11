@@ -56,7 +56,8 @@ public struct SavingPace: Hashable, Sendable {
     /// Each account's share of `perYear`: its new money in `months`, scaled
     /// to a year, with an unusual month counted as the usual one. One that
     /// saved more is split between accounts as that month was; one that took
-    /// money out is split as the usual months were. The shares add up to
+    /// money out is split as the usual months were (as it was, when they
+    /// saved nothing or less). The shares add up to
     /// `perYear`. A pace made without them (in tests) takes `byAccount`.
     public let byAccountInPace: [AccountID: Decimal]
     /// Accounts whose new money in `months` wasn't recorded, so that the
@@ -358,8 +359,9 @@ extension Valuator {
         let inPace = parts.mapValues { amounts in
             amounts.indices.reduce(Decimal(0)) { total, month in
                 guard isUnusual[month] else { return total + amounts[month] }
-                if months[month] > 0 { return total + amounts[month] * pace.usual / months[month] }
-                return total
+                // Split as it was when the usual months saved nothing.
+                guard months[month] > 0 || (usualTotal <= 0 && months[month] != 0) else { return total }
+                return total + amounts[month] * pace.usual / months[month]
             }
         }.merging(usualParts.mapValues { share in
             usualTotal > 0 ? pace.usual * takenOut * share / usualTotal : 0

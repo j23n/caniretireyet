@@ -313,7 +313,7 @@ public enum Planner {
         let onTop = contributionsOnTop(kept, from: from)
         let starts = [from] + onTop.keys.filter { $0 > from }.sorted()
         let incomes = starts.map { start in
-            let top = onTop.filter { $0.key <= start }.max { $0.key < $1.key }?.value ?? 0
+            let top = onTop[start] ?? 0
             return (plan.spending.working + saved - paid + top).rounded(scale: 0)
         }
         // Taking out more than the spending while working: no income, and
