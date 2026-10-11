@@ -269,7 +269,7 @@ struct AccountValuationForm: Hashable, Sendable {
     /// isn't used, so saving drops it (docs/TRADES.md). A debt's
     /// (`isLiability`) balance reads as typed in the check-in.
     init(_ valuation: Valuation, holdsPositions: Bool, recordsTrades: Bool = false, isLiability: Bool = false,
-         recordsMoneyInOut: Bool = true, locale: Locale = .current) {
+         recordsMoneyInOut: Bool, locale: Locale = .current) {
         original = valuation
         date = valuation.date
         isBalance = !recordsTrades && (valuation.isBalance || (!valuation.isHoldings && !holdsPositions))
