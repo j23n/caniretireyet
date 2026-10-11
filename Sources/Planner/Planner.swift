@@ -280,7 +280,8 @@ public enum Planner {
     /// (PLANNER.md, "Continue as you have"): one work phase paying the
     /// spending while working plus the pace, without growth, so each working
     /// year saves the pace. What went into an account that opens at a later
-    /// age (`availableFromAge`) is paid into it as a yearly contribution, and
+    /// age (`availableFromAge`), as a share of the pace
+    /// (`SavingPace.byAccountInPace`), is paid into it as a yearly contribution, and
     /// the rest is saved where the plan saves cash. An account the pace
     /// leaves out keeps the plan's contributions, which the income pays on
     /// top; one-off contributions and events stay, as the pace leaves out
@@ -290,7 +291,7 @@ public enum Planner {
         var plan = plan
         let excluded = Set(plan.portfolio.exclude)
         let kept = plan.contributions.filter { $0.isOneOff || pace.leftOut.contains($0.account) }
-        let locked = pace.byAccount
+        let locked = pace.byAccountInPace
             .filter { account, amount in
                 amount > 0 && !pace.leftOut.contains(account) && !excluded.contains(account)
                     && library.accounts[account]?.availableFromAge != nil
