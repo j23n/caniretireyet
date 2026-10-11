@@ -60,6 +60,10 @@ enum Palette {
 
     /// The one hue for single-series charts, fan charts and success curves.
     static let accent = blue
+    /// A deeper blue that stands out on ``accent``: the second lap of the
+    /// Overview's readiness ring, past 100%. Darker in light mode, lighter
+    /// in dark mode.
+    static let accentDeep = Color("AccentDeep")
     /// Actual history, and primary text.
     static let ink = Color("InkPrimary")
     static let secondaryInk = Color("InkSecondary")
