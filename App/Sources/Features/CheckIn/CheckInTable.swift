@@ -172,6 +172,7 @@ private struct CheckInTableHeader: View {
             Text("Account")
         } last: {
             Text(verbatim: previousCheckIn.map { "Last · " + AmountFormat.shortDate($0, locale: locale) } ?? "Last")
+                .privacySensitive()
         } now: {
             Text("Now")
         } change: {
@@ -345,6 +346,7 @@ private struct CheckInTableRow: View {
                 }
             }
             .lineLimit(1)
+            .privacySensitive()
             .help(CheckInWording.openingNote(for: row, opened: account?.opened, date: date, locale: locale) ?? "")
         } last: {
             CheckInPlainAmount(lastAmount)
@@ -435,11 +437,13 @@ private struct CheckInTableRow: View {
                     .foregroundStyle(Palette.secondaryInk)
             }
             .lineLimit(1)
+            .privacySensitive()
             .padding(.leading, Metrics.l)
         } last: {
             Text(verbatim: CheckInWording.quantity(position.previousQuantity, instrument: instrument, locale: locale))
                 .monospacedDigit()
                 .foregroundStyle(Palette.secondaryInk)
+                .privacySensitive()
         } now: {
             CheckInNumberField(
                 quantityField, focus: focus, isFocused: focused == quantityField, value: position.quantity,
@@ -492,11 +496,13 @@ private struct CheckInTableRow: View {
                     .foregroundStyle(Palette.secondaryInk)
             }
             .lineLimit(1)
+            .privacySensitive()
             .padding(.leading, Metrics.l)
         } last: {
             Text(verbatim: CheckInWording.quantity(position.previousQuantity, instrument: instrument, locale: locale))
                 .monospacedDigit()
                 .foregroundStyle(Palette.secondaryInk)
+                .privacySensitive()
         } now: {
             Text(verbatim: CheckInWording.quantity(position.quantity, instrument: instrument, locale: locale))
                 .monospacedDigit()
@@ -526,6 +532,7 @@ private struct CheckInTableRow: View {
                     .foregroundStyle(Palette.secondaryInk)
                 Text(verbatim: " · " + CheckInWording.instrumentLabel(position.instrument, instrument: instrument))
                     .fontWeight(.medium)
+                    .privacySensitive()
             }
             .lineLimit(1)
             .padding(.leading, Metrics.l)
@@ -533,6 +540,7 @@ private struct CheckInTableRow: View {
             Text(verbatim: CheckInWording.quantity(position.previousQuantity, instrument: instrument, locale: locale))
                 .monospacedDigit()
                 .foregroundStyle(Palette.secondaryInk)
+                .privacySensitive()
                 .help("What the trades give")
         } now: {
             CheckInNumberField(
@@ -569,6 +577,7 @@ private struct CheckInTableRow: View {
                     .font(.callout)
                     .foregroundStyle(Palette.secondaryInk)
                     .lineLimit(1)
+                    .privacySensitive()
                     .accessibilityHidden(true)
                 Button {
                     session.addTrade(to: row.account, on: date)
@@ -752,6 +761,7 @@ private struct CheckInTableFooter: View {
                     .font(.caption)
                     .foregroundStyle(Palette.secondaryInk)
                     .lineLimit(1)
+                    .privacySensitive()
             }
             Spacer(minLength: Metrics.m)
             Text("Tab and Return move between cells · ⌘↩ reviews and saves")

@@ -185,10 +185,12 @@ private struct PriceListRow: View {
                             .foregroundStyle(Palette.secondaryInk)
                     }
                 }
+                .privacySensitive()
                 Spacer(minLength: Metrics.s)
                 VStack(alignment: .trailing, spacing: 2) {
                     Text(verbatim: valueText)
                         .monospacedDigit()
+                        .privacySensitive()
                     if let per = line.per {
                         Text(verbatim: per)
                             .font(.caption)
@@ -237,12 +239,15 @@ private struct PriceListRow: View {
         VStack(alignment: .leading, spacing: 2) {
             if let source = line.source {
                 Text(verbatim: source)
+                    .privacySensitive()
             }
             if let observed = line.observed {
                 Text(verbatim: observed)
+                    .privacySensitive()
             }
             if let stale = line.staleDate {
                 Text(verbatim: "Using the value from " + AmountFormat.shortDate(stale, locale: locale))
+                    .privacySensitive()
             }
             if line.status == .manual && line.failure == nil {
                 Text("No price source: type the price for this date.")
@@ -254,6 +259,7 @@ private struct PriceListRow: View {
             Label {
                 Text(verbatim: failure)
                     .fixedSize(horizontal: false, vertical: true)
+                    .privacySensitive()
             } icon: {
                 Image(systemName: "exclamationmark.triangle")
                     .foregroundStyle(Palette.warning)

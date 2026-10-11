@@ -181,6 +181,7 @@ struct CheckInList: View {
                 .font(.footnote)
                 .foregroundStyle(Palette.secondaryInk)
                 .lineLimit(1)
+                .privacySensitive()
             Spacer()
             Button("Done") { focus = nil }
                 .fontWeight(.semibold)
@@ -232,6 +233,7 @@ private struct CheckInListHeader: View {
                         Text(verbatim: dateText)
                             .font(.title2.bold())
                             .foregroundStyle(Palette.ink)
+                            .privacySensitive()
                         Image(systemName: "chevron.down")
                             .font(.body.weight(.bold))
                             .foregroundStyle(Palette.accent)
@@ -250,6 +252,7 @@ private struct CheckInListHeader: View {
                                                        accounts: CheckInWording.accountCount(draft), locale: locale))
                     .font(.subheadline)
                     .foregroundStyle(Palette.secondaryInk)
+                    .privacySensitive()
             }
             CheckInBanners(draft: draft, session: session)
         }
@@ -272,6 +275,7 @@ private struct CheckInPriceStatusLabel: View {
                         .font(.footnote)
                         .foregroundStyle(Palette.secondaryInk)
                         .lineLimit(1)
+                        .privacySensitive()
                 }
             }
             Spacer(minLength: Metrics.s)
@@ -389,6 +393,7 @@ private struct CheckInListRow: View {
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
+            .privacySensitive()
             HStack(spacing: Metrics.xs) {
                 CheckInNumberField(
                     field, focus: focus, isFocused: focused == field, value: row.balance,
@@ -471,6 +476,7 @@ private struct CheckInListRow: View {
                                 .foregroundStyle(Palette.secondaryInk)
                         }
                     }
+                    .privacySensitive()
                     Spacer(minLength: Metrics.s)
                     if let value = review?.value?.knownValue {
                         AmountText(value, precision: .cents)
@@ -496,6 +502,7 @@ private struct CheckInListRow: View {
             Text(verbatim: CheckInWording.holdingsSummary(row, instruments: library.library.instruments, locale: locale))
                 .font(.footnote)
                 .foregroundStyle(Palette.secondaryInk)
+                .privacySensitive()
         }
     }
 
@@ -509,6 +516,7 @@ private struct CheckInListRow: View {
                 .font(.subheadline.weight(.semibold))
                 .lineLimit(1)
                 .frame(width: 60, alignment: .leading)
+                .privacySensitive()
             CheckInNumberField(
                 field, focus: focus, isFocused: focused == field, value: position.quantity, style: .quantity,
                 prompt: "0", label: field.name(in: library.library), onSubmit: { next(field) }
@@ -523,6 +531,7 @@ private struct CheckInListRow: View {
                 .font(.footnote)
                 .foregroundStyle(Palette.secondaryInk)
                 .lineLimit(1)
+                .privacySensitive()
             Spacer(minLength: 0)
             CheckInPlainAmount(valued?.value)
                 .font(.subheadline)
@@ -532,6 +541,7 @@ private struct CheckInListRow: View {
             HStack(spacing: Metrics.s) {
                 CheckInQuantityChange(position.quantityChange)
                 Text(verbatim: sinceText(position))
+                    .privacySensitive()
                 if position.isIncrease {
                     Text("· paid")
                     Spacer(minLength: Metrics.xs)
@@ -615,6 +625,7 @@ private struct CheckInListRow: View {
                         Text(verbatim: name)
                             .fontWeight(.semibold)
                             .foregroundStyle(Palette.ink)
+                            .privacySensitive()
                         Text(verbatim: summary)
                             .font(.footnote)
                             .foregroundStyle(Palette.secondaryInk)
@@ -671,6 +682,7 @@ private struct CheckInListRow: View {
         Text(verbatim: CheckInWording.addTradePrompt(for: row, locale: locale))
             .font(.footnote)
             .foregroundStyle(Palette.secondaryInk)
+            .privacySensitive()
             .accessibilityHidden(true)
     }
 
@@ -796,6 +808,7 @@ private struct CheckInListRow: View {
                     .font(.subheadline.weight(.semibold))
                     .lineLimit(1)
                     .frame(width: 60, alignment: .leading)
+                    .privacySensitive()
                 VStack(alignment: .leading, spacing: 0) {
                     Text(verbatim: CheckInWording.quantity(position.quantity, instrument: instrument, locale: locale))
                         .font(.subheadline)
@@ -804,6 +817,7 @@ private struct CheckInListRow: View {
                     Text(verbatim: CheckInWording.priceText(unit: "", price: position.price, locale: locale))
                         .font(.footnote)
                         .foregroundStyle(Palette.secondaryInk)
+                        .privacySensitive()
                 }
                 Spacer(minLength: 0)
                 CheckInPlainAmount(position.value)
@@ -815,6 +829,7 @@ private struct CheckInListRow: View {
                     CheckInQuantityChange(change)
                     Text(verbatim: row.previous.map { "since " + AmountFormat.shortDate($0.date, locale: locale) }
                         ?? "new")
+                        .privacySensitive()
                     Text("· from trades")
                 }
                 .font(.footnote)
@@ -866,6 +881,7 @@ private struct CheckInListRow: View {
                 .font(.subheadline)
                 .lineLimit(1)
                 .frame(width: 60, alignment: .leading)
+                .privacySensitive()
             CheckInNumberField(
                 field, focus: focus, isFocused: focused == field, value: position.quantity, style: .quantity,
                 prompt: "0", label: field.name(in: library.library) + ", statement", onSubmit: { next(field) }
@@ -927,6 +943,7 @@ private struct CheckInListRow: View {
             Text(verbatim: text)
                 .font(.footnote)
                 .foregroundStyle(Palette.secondaryInk)
+                .privacySensitive()
         }
         openingNoteLabel
     }
@@ -938,6 +955,7 @@ private struct CheckInListRow: View {
             Label {
                 Text(verbatim: openingNote)
                     .fixedSize(horizontal: false, vertical: true)
+                    .privacySensitive()
             } icon: {
                 Image(systemName: "calendar.badge.clock")
                     .foregroundStyle(Palette.accent)
@@ -957,6 +975,7 @@ private struct CheckInListRow: View {
                 .font(.subheadline)
                 .foregroundStyle(Palette.secondaryInk)
                 .frame(maxWidth: .infinity, alignment: .leading)
+                .privacySensitive()
             HStack(spacing: Metrics.xs) {
                 CheckInNumberField(
                     field, focus: focus, isFocused: focused == field, value: flowValue,

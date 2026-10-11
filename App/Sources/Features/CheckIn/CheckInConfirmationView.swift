@@ -47,6 +47,7 @@ struct CheckInConfirmationView: View {
                         .font(.title2.bold())
                     Text(verbatim: AmountFormat.longDate(result.date, locale: locale))
                         .foregroundStyle(Palette.secondaryInk)
+                        .privacySensitive()
                 }
                 netWorth
                 let reached = result.isPast ? [] : reachedMilestones
@@ -95,6 +96,7 @@ struct CheckInConfirmationView: View {
                     if let previous = previousCheckIn {
                         Text(verbatim: "since " + AmountFormat.shortDate(previous, locale: locale))
                             .foregroundStyle(Palette.secondaryInk)
+                            .privacySensitive()
                     }
                 }
                 .font(.subheadline)
@@ -125,6 +127,7 @@ struct CheckInConfirmationView: View {
                     Text(text.reached(milestone.milestone))
                         .font(.headline)
                         .fixedSize(horizontal: false, vertical: true)
+                        .privacySensitive()
                 } icon: {
                     Image(systemName: "flag.fill")
                         .foregroundStyle(Palette.accent)
@@ -143,6 +146,7 @@ struct CheckInConfirmationView: View {
             Text(verbatim: CheckInWording.pastCheckInSaved(on: result.date, latest: result.laterCheckIn,
                                                            locale: locale))
                 .fixedSize(horizontal: false, vertical: true)
+                .privacySensitive()
         } icon: {
             Image(systemName: "clock.arrow.circlepath")
                 .foregroundStyle(Palette.accent)
@@ -157,10 +161,12 @@ struct CheckInConfirmationView: View {
                 answerText(parts)
                     .font(.title3)
                     .fixedSize(horizontal: false, vertical: true)
+                    .privacySensitive()
                 if let readiness = PlanResultsText.readiness(headline, locale: locale) {
                     Text(verbatim: readiness)
                         .font(.subheadline)
                         .foregroundStyle(Palette.secondaryInk)
+                        .privacySensitive()
                 }
                 Button("Open the plan") { openPlan() }
                     .buttonStyle(.borderless)
@@ -186,11 +192,13 @@ struct CheckInConfirmationView: View {
                 if let last = previousHeadline {
                     Text(verbatim: lastAnswer(last))
                         .fixedSize(horizontal: false, vertical: true)
+                        .privacySensitive()
                 }
                 Text(verbatim: unavailableReason)
                     .font(.subheadline)
                     .foregroundStyle(Palette.secondaryInk)
                     .fixedSize(horizontal: false, vertical: true)
+                    .privacySensitive()
             }
         }
     }

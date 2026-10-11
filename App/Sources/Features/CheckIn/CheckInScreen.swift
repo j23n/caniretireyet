@@ -149,6 +149,7 @@ struct CheckInScreen: View {
             Label(AmountFormat.longDate(draft.date, locale: locale), systemImage: "calendar")
         }
         .labelStyle(.titleAndIcon)
+        .personalControl()
         .help("Change the check-in's date")
         .popover(isPresented: $session.showsDatePicker) {
             CheckInDatePanel(date: draft.date, suggested: checkIn.suggestedDate) { date in
@@ -244,10 +245,12 @@ struct CheckInStartView: View {
                     Text(verbatim: title)
                         .font(.title2.bold())
                         .multilineTextAlignment(.center)
+                        .privacySensitive()
                     Text(verbatim: message)
                         .foregroundStyle(Palette.secondaryInk)
                         .multilineTextAlignment(.center)
                         .fixedSize(horizontal: false, vertical: true)
+                        .privacySensitive()
                     Button {
                         session.start(checkIn: checkIn)
                     } label: {
@@ -267,6 +270,7 @@ struct CheckInStartView: View {
                         }
                         .buttonStyle(.borderless)
                         .disabled(!library.canEdit)
+                        .personalControl()
                     }
                 }
                 .padding(Metrics.xl)
