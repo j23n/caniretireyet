@@ -59,12 +59,13 @@ Every milestone is an amount of plan assets, in the base currency and today's mo
 
 | Milestone | Its amount | In words |
 | --- | --- | --- |
-| Round amounts | 1, 1.5, 2, 2.5, 3, 4, 5, 6 and 7.5 times a power of ten, from 1,000: each about a quarter above the last | "Passed 300.000 €" |
+| Round amounts | 1, 1.5, 2, 2.5, 3, 4, 5, 6 and 7.5 times a power of ten, from 10,000: each about a quarter above the last | "Passed 300.000 €" |
 | Years of spending | 1, 2, 3, 5, 10, 15, 20, 25, 30, 40 and 50 times the plan's retirement spending a year | "Enough for 10 years of the spending you plan for retirement" |
 | What retiring today needs | a quarter, a third, half, two thirds, three quarters, 9 in 10 of it, and all of it | "Halfway to what retiring today needs" |
 | The crossover | a year's saving divided by the typical (median) yearly growth of the plan's mix: where a typical year's growth matches what you save | "A typical year now adds more than you save" |
 | The coast point | the plan assets at the first check-in whose recorded coast age is at or under the age the first pension starts | "Passed the coast point: saving nothing more, you could still retire at 67." |
 
+- **Round amounts start at 10,000**, in every currency (`MilestoneLadder.roundFloor`): below it a new library would pass one every few check-ins, and they'd say little. The other kinds have no floor: a year of spending, a share of what retiring today needs, the crossover and the coast point count at any amount.
 - **A year's saving** is the take-home pay of the work phase in force less spending while working, the cash the plan invests each year (contributions are part of it). Without saving there's no crossover. The mix is the plan's target mix, or today's mix of the money you can draw.
 - **What retiring today needs** comes from the plan's latest results, else from the readiness recorded at the latest check-in (today's plan assets ÷ readiness).
 - **Reached:** where your plan assets first reach a milestone's amount, after a value below it, on the line Progress draws (in the base currency, as they were): from the first record of a plan asset through the latest check-in, at each check-in and at the end of each month without one, valued from what you held and its prices (so the years before your first check-in, and the months between check-ins, reach milestones too). Milestones below the line's first value aren't listed: they were behind you when your records start. The shares of what retiring today needs are read from the readiness recorded at each check-in instead, since what retiring today needs changes as you age.
