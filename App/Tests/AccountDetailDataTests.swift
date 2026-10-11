@@ -42,7 +42,7 @@ struct AccountDetailDataTests {
         #expect(september.cashDifference == d("11.3"))
         #expect(september.positionsText == nil)
         #expect(data.statements.map(\.cashDifference) == [d("11.3"), d("-0.45"), d("215.4")])
-        // Its values are still there for *Add Past Value…*.
+        // `pastValueDate` still counts from its first value.
         #expect(data.firstValueDate == "2025-10-31")
         #expect(data.pastValueDate == "2025-09-30")
     }
