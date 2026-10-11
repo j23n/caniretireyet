@@ -66,6 +66,43 @@ struct SaverTests {
         #expect(!folder.exists("history/2025/2025-10.json"))
     }
 
+    /// As the app's *Delete Baseline…* does: the baseline's file is backed up,
+    /// then deleted; the plan's other baselines and its headlines stay.
+    @Test func deletingABaselineRemovesOnlyItsFile() throws {
+        let (folder, example) = try exampleFolder()
+        var previous = example
+        let yearly = try #require(previous.projections["base"]?.baselines["2026-01-05"])
+        var manual = yearly
+        manual.created = "2026-03-12"
+        manual.kind = .manual
+        manual.label = "Before going part-time"
+        previous.projections["base"]?.baselines["2026-03-12"] = manual
+        try folder.library.save(previous, previous: example)
+        let otherFiles = try folder.allFiles().filter { $0 != "projections/base/baselines/2026-01-05.json" }
+        let before = try Dictionary(uniqueKeysWithValues: otherFiles.map { ($0, try folder.data($0)) })
+
+        var library = previous
+        library.projections["base"]?.baselines["2026-01-05"] = nil
+        let paths = library.files(changedFrom: previous).map(\.path)
+        #expect(paths == ["projections/base/baselines/2026-01-05.json"])
+        let backup = try folder.library.backup(paths: paths, label: "delete-baseline")
+        let report = try folder.library.save(library, previous: previous)
+
+        #expect(report.written.isEmpty)
+        #expect(report.deleted == ["projections/base/baselines/2026-01-05.json"])
+        #expect(!folder.exists("projections/base/baselines/2026-01-05.json"))
+        for path in otherFiles where !path.hasPrefix("backups/") {
+            #expect(try folder.data(path) == before[path], "\(path)")
+        }
+        let loaded = try folder.library.load().library
+        #expect(loaded.projections["base"]?.baselines == ["2026-03-12": manual])
+        #expect(loaded.projections["base"]?.headlines == previous.projections["base"]?.headlines)
+
+        // The backup brings it back.
+        try folder.library.restore(backup: backup)
+        #expect(try folder.library.load().library.projections["base"]?.baselines["2026-01-05"] == yearly)
+    }
+
     @Test func newEntitiesGetNewFiles() throws {
         let (folder, previous) = try exampleFolder()
         var library = previous
