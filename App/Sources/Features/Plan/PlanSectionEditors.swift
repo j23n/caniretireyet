@@ -6,14 +6,22 @@ import SwiftUI
 // The editors of the plan's inputs: those of *Assumptions…*'s cards
 // (UI.md, "The editors"), and the pieces the chapters edit in place.
 
-/// Which item a sheet edits: its position (the list's count for a new
-/// one) and a copy taken when the sheet opened.
+/// What a sheet edits: an item, by its position (the list's count for a
+/// new one), or a part of spending; with a copy taken when the sheet opened.
 enum PlanEditTarget: Hashable, Identifiable {
     case work(index: Int, phase: WorkPhase)
     case pension(index: Int, pension: PlanPension)
     case income(index: Int, income: PlanIncome)
     case contribution(index: Int, contribution: PlanContribution)
     case event(index: Int, event: PlanEvent)
+    /// Spending while working.
+    case workingSpending(PlanSpending)
+    /// Spending in retirement.
+    case retiredSpending(PlanSpending)
+    /// Flexible spending, which changes spending in retirement.
+    case flexibleSpending(PlanSpending)
+    /// A later phase of spending in retirement.
+    case spendingPhase(index: Int, phase: SpendingPhase)
 
     var id: String {
         switch self {
@@ -22,6 +30,10 @@ enum PlanEditTarget: Hashable, Identifiable {
         case .income(let index, _): "income-\(index)"
         case .contribution(let index, _): "contribution-\(index)"
         case .event(let index, _): "event-\(index)"
+        case .workingSpending: "working-spending"
+        case .retiredSpending: "retired-spending"
+        case .flexibleSpending: "flexible-spending"
+        case .spendingPhase(let index, _): "spending-phase-\(index)"
         }
     }
 }
@@ -97,78 +109,6 @@ struct PlanBirthDateEditor: View {
                     settings = YouSettings.setting(birthDate: birth, in: settings)
                 }
             })
-    }
-}
-
-// MARK: - Spending
-
-/// A later phase of retirement spending: from an age, a share of what the
-/// plan spends in retirement, with a button that removes it.
-struct PlanSpendingPhaseRow: View {
-    @Binding var phases: [SpendingPhase]
-    let index: Int
-
-    private static let fallback = SpendingPhase(fromAge: 75, factor: 1)
-
-    var body: some View {
-        HStack(spacing: Metrics.s) {
-            Stepper("From \(phases[planSafe: index, default: Self.fallback].fromAge)",
-                    value: $phases[planSafe: index, default: Self.fallback].fromAge, in: 40...110)
-            PlanNumberField("Share of spending", value: $phases[planSafe: index, default: Self.fallback].factor,
-                            kind: .percent)
-                .frame(maxWidth: 64)
-            Text("%")
-                .foregroundStyle(Palette.secondaryInk)
-            Button {
-                phases = PlanEditing.removing(at: index, from: phases)
-            } label: {
-                Label("Remove", systemImage: "minus.circle")
-                    .labelStyle(.iconOnly)
-            }
-            .buttonStyle(.borderless)
-        }
-    }
-}
-
-/// Flexible spending (UI.md, "The editors"): a switch, and when it's on, how
-/// much a cut takes, the floor (also in money), and the guardrails, folded
-/// away. Fields left empty take the defaults their prompts show.
-struct PlanFlexibleSpendingEditor: View {
-    @Binding var spending: PlanSpending
-    @State private var showsGuardrails = false
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: Metrics.s) {
-            Toggle("Flexible spending", isOn: $spending.planFlexibleOn)
-            Text(PlanEditing.flexibleExplanation)
-                .font(.caption)
-                .foregroundStyle(Palette.mutedInk)
-                .fixedSize(horizontal: false, vertical: true)
-            if spending.planFlexibleOn {
-                PlanNumberRow("Cut by", value: $spending.planFlexibleCut, kind: .percent, unit: "%", prompt: "10")
-                PlanNumberRow("Never below", value: $spending.planFlexibleFloor, kind: .percent, unit: "%",
-                              prompt: "80")
-                HStack(spacing: Metrics.xs) {
-                    Text("of the plan's spending:")
-                    AmountText(spending.planFlexibleFloorAmount)
-                    Text("/yr")
-                }
-                .font(.caption)
-                .foregroundStyle(Palette.secondaryInk)
-                DisclosureGroup("Guardrails", isExpanded: $showsGuardrails) {
-                    VStack(alignment: .leading, spacing: Metrics.s) {
-                        PlanNumberRow("Cut when it rises by", value: $spending.planFlexibleUpperGuardrail,
-                                      kind: .percent, unit: "%", prompt: "20")
-                        PlanNumberRow("Restore when it falls by", value: $spending.planFlexibleLowerGuardrail,
-                                      kind: .percent, unit: "%", prompt: "20")
-                        Text(PlanEditing.guardrailsExplanation)
-                            .font(.caption)
-                            .foregroundStyle(Palette.mutedInk)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
-                }
-            }
-        }
     }
 }
 
