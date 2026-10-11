@@ -54,6 +54,8 @@ CLASSIFY = {
                     "periodStart": "2024-02-01", "periodEnd": "2024-02-29"},
     "card-jan": {"kind": "card", "institution": "Card Co", "accountNumber": "**** 4242", "currency": "EUR",
                  "statementDate": "2024-01-31"},
+    "card-feb": {"kind": "card", "institution": "Card Co", "accountNumber": "**** 4242", "currency": "EUR",
+                 "statementDate": "2024-02-29"},
     "terms": {"kind": "other", "institution": "Musterbank"},
 }
 
@@ -101,12 +103,15 @@ PAGES = {
     ]},
     "card-jan": {"statementDate": "2024-01-31", "previousBalance": "0", "balanceOwed": "350", "payments": None,
                  "interest": None},
+    # Overpaid: in credit.
+    "card-feb": {"statementDate": "2024-02-29", "previousBalance": "350", "balanceOwed": "-20", "payments": "370",
+                 "interest": None},
 }
 
 FILES = {
     "2024-01 giro a.pdf": "giro-a-jan", "2024-02 giro a.pdf": "giro-a-feb", "2024-03 giro b.pdf": "giro-b",
     "depot 1 jan.pdf": "depot-1-jan", "depot 1 feb.pdf": "depot-1-feb", "depot 2 feb.pdf": "depot-2-feb",
-    "card jan.pdf": "card-jan", "terms.pdf": "terms",
+    "card jan.pdf": "card-jan", "card feb.pdf": "card-feb", "terms.pdf": "terms",
 }
 
 ACCOUNTS = {"DE00 1111": "current-account", "DE00 2222": "current-account", "D-1": "broker", "D-2": "broker",
@@ -130,6 +135,19 @@ class FakeModel:
         if marker in self.wrong and "does not add up" not in last:
             return "```json\n" + json.dumps(self.wrong.pop(marker)) + "\n```"
         return json.dumps(PAGES[marker])
+
+
+class Stubborn(FakeModel):
+    """Reads one transaction of giro-b wrong, however often it's asked."""
+
+    def __call__(self, messages):
+        reply = super().__call__(messages)
+        task = messages[1]["content"]
+        if "PAGE giro-b" in task and "Say what kind" not in task:
+            wrong = json.loads(json.dumps(PAGES["giro-b"]))
+            wrong["transactions"][2]["amount"] = "-80"
+            return json.dumps(wrong)
+        return reply
 
 
 @unittest.skipUnless(shutil.which("pdftotext"), "needs pdftotext")
@@ -172,9 +190,13 @@ class PipelineTests(unittest.TestCase):
 
     def test_card_balance_and_skipped_documents(self):
         pipeline.run(self.config, ask=FakeModel())
-        self.assertEqual(self.rows("debts.csv"), [{"date": "2024-01-31", "account": "credit-card", "balance": "350"}])
+        self.assertEqual(self.rows("debts.csv"), [
+            {"date": "2024-01-31", "account": "credit-card", "balance": "-350"},
+            {"date": "2024-02-29", "account": "credit-card", "balance": "20"},
+        ])
+        self.assertEqual(pipeline.profiles()["backfill-debts"]["defaults"]["liabilitySign"], "asWritten")
         report = (self.config.output / "report.md").read_text()
-        self.assertIn("7 statements used", report)
+        self.assertIn("8 statements used", report)
         self.assertIn("transfers between your accounts, left out of money in and out: 2", report)
 
     def test_a_page_that_does_not_add_up_is_asked_again_with_the_numbers(self):
@@ -187,20 +209,29 @@ class PipelineTests(unittest.TestCase):
         self.assertEqual(self.rows("cash.csv")[0]["balance"], "2301.5")
 
     def test_a_statement_that_never_adds_up_goes_to_the_report(self):
-        wrong = json.loads(json.dumps(PAGES["giro-b"]))
-        wrong["transactions"][2]["amount"] = "-80"
-
-        class Stubborn(FakeModel):
-            def __call__(self, messages):
-                if "PAGE giro-b" in messages[1]["content"] and "Say what kind" not in messages[1]["content"]:
-                    return json.dumps(wrong)
-                return super().__call__(messages)
-
         pipeline.run(self.config, ask=Stubborn())
         report = (self.config.output / "report.md").read_text()
         self.assertIn("2024-03 giro b.pdf: opening balance 0 + 3 transactions 7920", report)
         self.assertIn("Month ends left out (a statement is missing) (2)", report)
         self.assertEqual([r["date"] for r in self.rows("cash.csv")], ["2024-01-31"])
+
+    def test_reruns_skip_statements_both_models_failed(self):
+        self.config.retry_model = "fake-retry"
+        pipeline.run(self.config, ask=Stubborn(), retry_ask=Stubborn())
+        first, second = Stubborn(), Stubborn()
+        pipeline.run(self.config, ask=first, retry_ask=second)
+        self.assertEqual((first.calls, second.calls), ([], []))
+
+    def test_merged_cards_add_up_on_each_statement_date(self):
+        statements = []
+        for number, day, owed in [("A", "2024-01-15", "100"), ("B", "2024-01-28", "40"), ("A", "2024-02-15", "120")]:
+            data = pipeline.read_debt({"statementDate": day, "balanceOwed": owed})
+            statements.append(pipeline.Statement(f"{number} {day}.pdf", "card", "Card Co", number, "EUR", None, None,
+                                                 data, account="cards"))
+        rows = pipeline.assemble_debts(statements, pipeline.Report())
+        self.assertEqual([(str(r["date"]), r["balance"]) for r in rows],
+                         [("2024-01-15", Decimal("-100")), ("2024-01-28", Decimal("-140")),
+                          ("2024-02-15", Decimal("-120"))])
 
     def test_reruns_use_the_cache(self):
         pipeline.run(self.config, ask=FakeModel())
@@ -209,15 +240,6 @@ class PipelineTests(unittest.TestCase):
         self.assertEqual(second.calls, [])
 
     def test_the_retry_model_reads_failed_statements_from_scratch(self):
-        wrong = json.loads(json.dumps(PAGES["giro-b"]))
-        wrong["transactions"][2]["amount"] = "-80"
-
-        class Stubborn(FakeModel):
-            def __call__(self, messages):
-                if "PAGE giro-b" in messages[1]["content"] and "Say what kind" not in messages[1]["content"]:
-                    return json.dumps(wrong)
-                return super().__call__(messages)
-
         self.config.retry_model = "fake-retry"
         pipeline.run(self.config, ask=Stubborn(), retry_ask=FakeModel())
         self.assertEqual(self.rows("cash.csv")[-1]["balance"], "7200")
@@ -241,6 +263,16 @@ class ReadingTests(unittest.TestCase):
 
     def test_account_numbers_compare_without_spaces_or_dashes(self):
         self.assertEqual(pipeline.account_key("DE00 1234-5678"), "DE0012345678")
+
+    def test_only_masked_numbers_match_on_their_last_digits(self):
+        root = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, root)
+        (root / "accounts.json").write_text(json.dumps({"4242": "credit-card"}))
+        config = pipeline.Config(statements=root, work=root, output=root, accounts=root / "accounts.json", model="x")
+        statements = [pipeline.Statement(f"{n}.pdf", "bank", "Bank", n, "EUR", None, None, {})
+                      for n in ["**** 4242", "DE00 0000 4242"]]
+        mapped = pipeline.map_accounts(statements, config, pipeline.Report())
+        self.assertEqual([s.number for s in mapped], ["**** 4242"])
 
     def test_profiles_map_every_column(self):
         for profile in pipeline.profiles().values():

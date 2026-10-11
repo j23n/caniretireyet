@@ -11,7 +11,7 @@ A one-off script that reads PDF bank, broker, card and loan statements with a lo
 5. **Assemble.** Account numbers are mapped to the library's accounts (`accounts.json`), and then:
    - **Cash and savings:** one row per month end, with the balance, money in, money out and interest. Transfers between your accounts (the same amount out of one and into another within 4 days, a broker deposit included) count as neither money in nor money out. Several statement accounts mapped to one library account are merged: their balances add up.
    - **Brokers:** every trade. A depot transfer between two statement accounts mapped to one library account is dropped on both sides, so the holdings keep the cost of the original buys. The holdings the trades give are compared with those each statement lists.
-   - **Cards and loans:** the balance owed on each statement date.
+   - **Cards and loans:** the balance owed on each statement date. Cards merged into one account add up, each by its latest statement.
    - The checks across statements: each closing balance is the next opening balance, and missing statements show as gaps. A month end that falls in a gap or in a failed statement is left out rather than guessed.
 
 Every model reply is cached in `WORK`, one folder per PDF (named after its hash). Stopping and running again picks up where it stopped, and a rerun after the full run costs nothing until something changes.
@@ -47,7 +47,7 @@ In `OUTPUT`:
 | File | What it holds |
 | --- | --- |
 | `cash.csv` | `date, account, balance, moneyIn, moneyOut, interest`: month ends of cash and savings accounts. A month after a gap, and an account's first month, have no money in and out. |
-| `debts.csv` | `date, account, balance`: what was owed, as a positive amount. |
+| `debts.csv` | `date, account, balance`: what was owed, as a negative amount the way the library stores debts; positive when a card was in credit. |
 | `trades.csv` | `date, account, type, isin, instrument, quantity, price, currency, amount, fees, tax, ratio, note`. |
 | `profiles/` | Import profiles for the three CSVs. |
 | `report.md` | What was left out and why: failed checks, unknown accounts, gaps, balances that don't carry over, merged accounts, holdings that differ, trade types to map. |

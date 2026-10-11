@@ -554,7 +554,10 @@ def process(path: Path, ask: Ask, config: Config, model_name: str, retry_only: b
     folder = config.work / file_hash(path)
     status_path = folder / "status.json"
     status = load(status_path)
-    if status and (status["ok"] or (not retry_only and status.get("model") == model_name)):
+    # Done: it passed, or this pass's model already tried it. The first pass also leaves
+    # statements the retry model already tried, so a rerun doesn't read them again.
+    tried = {model_name} if retry_only else {model_name, config.retry_model}
+    if status and (status["ok"] or status.get("model") in tried):
         log(f"    cached: {'✓' if status['ok'] else '✗'} {status['message']}")
         return
     if retry_only:
@@ -690,10 +693,10 @@ def map_accounts(statements: list[Statement], config: Config, report: Report) ->
     for statement in statements:
         key = account_key(statement.number)
         target = mapping.get(key)
-        if target is None and len(key.strip("*")) >= 4:
-            # Statements often mask the number: match on the digits they show.
-            shown = key.strip("*").split("*")[-1]
-            matches = {v for k, v in mapping.items() if k.endswith(shown) or shown.endswith(k)}
+        shown = key.split("*")[-1]
+        if target is None and "*" in key and len(shown) >= 4:
+            # A masked number (**** 4242): match on the digits it shows.
+            matches = {v for k, v in mapping.items() if k.endswith(shown)}
             if len(matches) == 1:
                 target = matches.pop()
         if target is None:
@@ -931,18 +934,33 @@ def assemble_brokers(statements: list[Statement], config: Config, report: Report
 
 
 def assemble_debts(statements: list[Statement], report: Report) -> list[dict]:
-    rows: dict[tuple[str, date], Decimal] = defaultdict(Decimal)
+    """One row per statement date of each library account: the sum of what each of its cards or
+    loans owed on that date, by its latest statement, while it has statements."""
+    owed: dict[str, list[tuple[date, Decimal]]] = {}
+    accounts: dict[str, list[str]] = defaultdict(list)
     for source, group in by_source([s for s in statements if s.kind in ("card", "loan") and not s.failed]).items():
         previous = None
+        series = []
         for statement in sorted(group, key=lambda s: s.data["statementDate"]):
             data = statement.data
             if previous and data["previousBalance"] is not None and data["previousBalance"] != previous["balanceOwed"]:
                 report.add("Balances that don't carry over", f"{source}: {money(previous['balanceOwed'])} owed on "
                            f"{previous['statementDate']}, but the next statement starts from "
                            f"{money(data['previousBalance'])}")
-            rows[(statement.account, data["statementDate"])] += data["balanceOwed"]
+            series.append((data["statementDate"], data["balanceOwed"]))
             previous = data
-    return [{"date": d, "account": a, "balance": v} for (a, d), v in sorted(rows.items())]
+        owed[source] = series
+        accounts[group[0].account].append(source)
+    rows = []
+    for account, members in sorted(accounts.items()):
+        for on in sorted({d for m in members for d, _ in owed[m]}):
+            total = Decimal(0)
+            for m in members:
+                if owed[m][0][0] <= on <= owed[m][-1][0]:
+                    total += [v for d, v in owed[m] if d <= on][-1]
+            # Written the way the library stores debts: negative, positive when in credit.
+            rows.append({"date": on, "account": account, "balance": -total})
+    return rows
 
 
 def movements(statements: list[Statement]) -> list[Movement]:
@@ -1003,7 +1021,8 @@ def profiles() -> dict[str, dict]:
             {"field": "account", "header": "account"},
             {"field": "value", "header": "balance", "target": "balance"},
         ],
-        "defaults": PLAIN_FORMAT, "file": PLAIN_FILE, "id": "backfill-debts", "layout": "long",
+        "defaults": {**PLAIN_FORMAT, "liabilitySign": "asWritten"}, "file": PLAIN_FILE, "id": "backfill-debts",
+        "layout": "long",
         "name": "Backfill: cards and loans", "onConflict": "keep", "target": "balance",
     }
     trades = {
