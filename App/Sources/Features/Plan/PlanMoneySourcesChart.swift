@@ -7,9 +7,10 @@ import Tracker
 /// each month end or year end, stacked into what you started with, what you
 /// put in and what markets added, with plan assets as an ink line on top.
 /// When markets have taken away more than they added, the line runs below
-/// the top of what you put in, and the gap is shaded orange. While amounts
-/// are hidden the value axis reads in multiples of today's plan assets.
-/// Drag across it to read a month or year.
+/// the top of what you put in, and the gap is shaded orange. The current
+/// month or year, not over yet, is drawn lighter ("so far"); a single point
+/// is drawn as dots. While amounts are hidden the value axis reads in
+/// multiples of today's plan assets. Drag across it to read a month or year.
 struct PlanMoneySourcesChart: View {
     let sources: PlanMoneySources
 
@@ -68,38 +69,31 @@ struct PlanMoneySourcesChart: View {
         return first...last
     }
 
+    /// The bands drawn in full, and the stretch into the current month or
+    /// year, drawn lighter: from the last whole one to the latest check-in.
+    private struct Stretches {
+        var whole: [Band]
+        var soFar: [Band]
+    }
+
+    private func stretches(of bands: [Band]) -> Stretches {
+        guard let last = bands.last, sources.isSoFar(last.point) else { return Stretches(whole: bands, soFar: []) }
+        return Stretches(whole: Array(bands.dropLast()), soFar: Array(bands.suffix(2)))
+    }
+
+    /// How much of its colour the "so far" stretch keeps.
+    private static let soFarOpacity = 0.45
+
     private func chart(_ bands: [Band], scale: AmountScale, domain: ClosedRange<Date>) -> some View {
-        Chart {
-            ForEach(bands) { band in
-                AreaMark(x: .value("Date", band.date), yStart: .value("From", 0.0),
-                         yEnd: .value("Started with", band.started), series: .value("Part", "Started with"))
-                    .foregroundStyle(Palette.color(for: Self.startedColor).opacity(StackedAreaData.fillOpacity))
-                    .spokenValueHidden(hidesAmounts)
-                AreaMark(x: .value("Date", band.date), yStart: .value("From", band.started),
-                         yEnd: .value("Put in", band.putIn), series: .value("Part", "Put in"))
-                    .foregroundStyle(Palette.color(for: Self.putInColor).opacity(StackedAreaData.fillOpacity))
-                    .spokenValueHidden(hidesAmounts)
-                AreaMark(x: .value("Date", band.date), yStart: .value("From", band.putIn),
-                         yEnd: .value("Markets added", max(band.total, band.putIn)),
-                         series: .value("Part", "Markets added"))
-                    .foregroundStyle(Palette.color(for: Self.marketsColor).opacity(StackedAreaData.fillOpacity))
-                    .spokenValueHidden(hidesAmounts)
-                AreaMark(x: .value("Date", band.date), yStart: .value("From", min(band.total, band.putIn)),
-                         yEnd: .value("Markets took", band.putIn), series: .value("Part", "Markets took"))
-                    .foregroundStyle(Palette.color(for: Self.lossColor).opacity(0.45))
-                    .spokenValueHidden(hidesAmounts)
-            }
-            ForEach(bands) { band in
-                LineMark(x: .value("Date", band.date), y: .value("Put in", band.putIn),
-                         series: .value("Line", "Put in"))
-                    .foregroundStyle(Palette.stroke(for: Self.putInColor))
-                    .lineStyle(StrokeStyle(lineWidth: 1, lineJoin: .round))
-                    .spokenValueHidden(hidesAmounts)
-                LineMark(x: .value("Date", band.date), y: .value("Plan assets", band.total),
-                         series: .value("Line", "Plan assets"))
-                    .foregroundStyle(Palette.ink)
-                    .lineStyle(StrokeStyle(lineWidth: Metrics.lineWidth, lineCap: .round, lineJoin: .round))
-                    .spokenValueHidden(hidesAmounts)
+        let stretches = self.stretches(of: bands)
+        return Chart {
+            areas(stretches.whole, stretch: "", opacity: 1)
+            areas(stretches.soFar, stretch: " so far", opacity: Self.soFarOpacity)
+            lines(stretches.whole, stretch: "", opacity: 1)
+            lines(stretches.soFar, stretch: " so far", opacity: Self.soFarOpacity)
+            // An area or a line needs two points: one alone is drawn as dots.
+            if bands.count == 1, let band = bands.first {
+                dots(band, opacity: sources.isSoFar(band.point) ? Self.soFarOpacity : 1)
             }
             if let selected = selection(in: bands) {
                 RuleMark(x: .value("Date", selected.date))
@@ -121,6 +115,69 @@ struct PlanMoneySourcesChart: View {
         .chartYScale(domain: scale.domain)
         .chartYAxis { amountAxis(hidesAmounts: hidesAmounts, scale: scale, relativeTo: sources.relativeBase) }
         .chartXAxis { dateAxis(TimeTicks(domain: domain, plotWidth: max(Double(width) - 48, 1))) }
+    }
+
+    /// The three parts' washes, and the orange gap where markets took more
+    /// than they added. `stretch` keeps a stretch's areas apart from the
+    /// others'.
+    @ChartContentBuilder
+    private func areas(_ bands: [Band], stretch: String, opacity: Double) -> some ChartContent {
+        ForEach(bands) { band in
+            AreaMark(x: .value("Date", band.date), yStart: .value("From", 0.0),
+                     yEnd: .value("Started with", band.started), series: .value("Part", "Started with" + stretch))
+                .foregroundStyle(Palette.color(for: Self.startedColor)
+                    .opacity(StackedAreaData.fillOpacity * opacity))
+                .spokenValueHidden(hidesAmounts)
+            AreaMark(x: .value("Date", band.date), yStart: .value("From", band.started),
+                     yEnd: .value("Put in", band.putIn), series: .value("Part", "Put in" + stretch))
+                .foregroundStyle(Palette.color(for: Self.putInColor).opacity(StackedAreaData.fillOpacity * opacity))
+                .spokenValueHidden(hidesAmounts)
+            AreaMark(x: .value("Date", band.date), yStart: .value("From", band.putIn),
+                     yEnd: .value("Markets added", max(band.total, band.putIn)),
+                     series: .value("Part", "Markets added" + stretch))
+                .foregroundStyle(Palette.color(for: Self.marketsColor)
+                    .opacity(StackedAreaData.fillOpacity * opacity))
+                .spokenValueHidden(hidesAmounts)
+            AreaMark(x: .value("Date", band.date), yStart: .value("From", min(band.total, band.putIn)),
+                     yEnd: .value("Markets took", band.putIn), series: .value("Part", "Markets took" + stretch))
+                .foregroundStyle(Palette.color(for: Self.lossColor).opacity(0.45 * opacity))
+                .spokenValueHidden(hidesAmounts)
+        }
+    }
+
+    /// The line along the top of what you put in, and plan assets in ink.
+    @ChartContentBuilder
+    private func lines(_ bands: [Band], stretch: String, opacity: Double) -> some ChartContent {
+        ForEach(bands) { band in
+            LineMark(x: .value("Date", band.date), y: .value("Put in", band.putIn),
+                     series: .value("Line", "Put in" + stretch))
+                .foregroundStyle(Palette.stroke(for: Self.putInColor).opacity(opacity))
+                .lineStyle(StrokeStyle(lineWidth: 1, lineJoin: .round))
+                .spokenValueHidden(hidesAmounts)
+            LineMark(x: .value("Date", band.date), y: .value("Plan assets", band.total),
+                     series: .value("Line", "Plan assets" + stretch))
+                .foregroundStyle(Palette.ink.opacity(opacity))
+                .lineStyle(StrokeStyle(lineWidth: Metrics.lineWidth, lineCap: .round, lineJoin: .round))
+                .spokenValueHidden(hidesAmounts)
+        }
+    }
+
+    /// A single point's parts: the top of what you started with and of what
+    /// you put in, and plan assets in ink.
+    @ChartContentBuilder
+    private func dots(_ band: Band, opacity: Double) -> some ChartContent {
+        PointMark(x: .value("Date", band.date), y: .value("Started with", band.started))
+            .foregroundStyle(Palette.stroke(for: Self.startedColor).opacity(opacity))
+            .symbolSize(30)
+            .spokenValueHidden(hidesAmounts)
+        PointMark(x: .value("Date", band.date), y: .value("Put in", band.putIn))
+            .foregroundStyle(Palette.stroke(for: Self.putInColor).opacity(opacity))
+            .symbolSize(30)
+            .spokenValueHidden(hidesAmounts)
+        PointMark(x: .value("Date", band.date), y: .value("Plan assets", band.total))
+            .foregroundStyle(Palette.ink.opacity(opacity))
+            .symbolSize(40)
+            .spokenValueHidden(hidesAmounts)
     }
 
     private func selection(in bands: [Band]) -> Band? {
