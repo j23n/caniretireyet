@@ -262,6 +262,67 @@ struct QuantityTradesTests {
         #expect(!again.apply(to: result.library).hasChanges)
     }
 
+    // MARK: - Rules
+
+    /// A buy's amount is the purchase cost's rise only when the file's previous row is what was held. A trade
+    /// of the library's between the two rows makes it unknown, so the buy is priced instead.
+    @Test func aTradeBetweenTwoRowsLeavesTheBuyPriced() throws {
+        var library = brokerLibrary()
+        library.upsert(PriceRecord(instrument: "etf", date: "2026-02-27", price: 120, currency: .eur))
+        var session = try ImportSession(data: Data("Date;ETF;ETF cost\n2026-01-31;10;1000\n2026-02-28;14;1500\n".utf8))
+        session.setMapping(ImportColumn(target: .quantity, account: "broker", instrument: "etf"), forColumn: 2)
+        session.setMapping(ImportColumn(target: .costBasis, account: "broker", instrument: "etf"), forColumn: 3)
+
+        // January holds what the opening says, so February's buy paid the cost's rise.
+        #expect(session.preview(against: library).records.compactMap(\.imported.trade) == [
+            Trade(account: "broker", date: "2026-02-28", id: "buy-etf", type: .buy, instrument: "etf", quantity: 4,
+                  price: 120, currency: .eur, amount: -500, source: .import, settlement: .external),
+        ])
+
+        library.upsert(Trade(account: "broker", date: "2026-02-10", id: "bought", type: .buy, instrument: "etf",
+                             quantity: 2, price: 105, amount: -210, settlement: .external))
+        let preview = session.preview(against: library)
+        #expect(preview.records.compactMap(\.imported.trade) == [
+            Trade(account: "broker", date: "2026-02-28", id: "buy-etf", type: .buy, instrument: "etf", quantity: 2,
+                  price: 120, currency: .eur, source: .import, settlement: .external),
+        ])
+        #expect(preview.issues.map(\.kind) == [
+            .quantitiesAsTrades("broker", openings: 0, buys: 1, sales: 0, settledOutside: true),
+        ])
+    }
+
+    /// A row that leaves out an instrument says nothing about it: it's held as before, and the library's trade
+    /// with a key the import makes on that date stays.
+    @Test func anInstrumentARowOmitsStaysAsItIs() throws {
+        var library = brokerLibrary()
+        library.instruments["bond"] = Instrument(id: "bond", name: "Bond", kind: .bond, currency: .eur, unit: .share,
+                                                 assetClasses: .single(.bonds))
+        library.upsert(Trade(account: "broker", date: "2026-01-02", id: "opening-bond", type: .opening,
+                             instrument: "bond", quantity: 5, cost: 500))
+        library.upsert(Trade(account: "broker", date: "2026-02-28", id: "buy-bond", type: .buy, instrument: "bond",
+                             quantity: 1, price: 100, settlement: .external))
+        library.upsert(PriceRecord(instrument: "etf", date: "2026-02-27", price: 120, currency: .eur))
+        var session = try ImportSession(data: Data("Date;ETF;Bond\n2026-02-28;12;\n".utf8))
+        session.setMapping(ImportColumn(target: .quantity, account: "broker", instrument: "etf"), forColumn: 2)
+        session.setMapping(ImportColumn(target: .quantity, account: "broker", instrument: "bond"), forColumn: 3)
+        let preview = session.preview(against: library)
+        #expect(preview.records.map(\.imported.key.description) == ["broker trade buy-etf on 2026-02-28"])
+
+        let result = preview.apply(to: library)
+        #expect(result.library.heldQuantities(of: "broker", on: "2026-02-28") == ["bond": 6, "etf": 12])
+    }
+
+    /// A brokerage account that records trades, with an opening of 10 shares of an ETF and no cash.
+    private func brokerLibrary() -> Library {
+        var library = Library(
+            accounts: [Account(id: "broker", name: "Broker", kind: .brokerage, currency: .eur, opened: "2026-01-01")],
+            instruments: [Instrument(id: "etf", name: "ETF", kind: .etf, currency: .eur, unit: .share,
+                                     assetClasses: .single(.equity))])
+        library.upsert(Trade(account: "broker", date: "2026-01-02", id: "opening-etf", type: .opening,
+                             instrument: "etf", quantity: 10, cost: 1000))
+        return library
+    }
+
     @Test func aCostWithoutAQuantityIsACellProblem() throws {
         var session = try ImportSession(data: Data("Date;VWCE cost\n2026-01-31;1000\n".utf8))
         session.setMapping(ImportColumn(target: .costBasis, account: "directa", instrument: "vwce"), forColumn: 2)
