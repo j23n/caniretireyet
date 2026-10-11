@@ -343,11 +343,13 @@ struct SavingPaceTests {
     /// An account opened inside the months, with something in it at its
     /// first record: what it held then isn't new money, the months before
     /// it aren't missing anything, and a pension fund's first value isn't
-    /// taken from the plan.
-    @Test func anAccountWhoseRecordsStartInsideTheMonths() throws {
+    /// taken from the plan. Opened before its first record, with no
+    /// check-in between, it isn't missing any month either.
+    @Test(arguments: ["2026-03-31", "2026-03-15"] as [CalendarDate])
+    func anAccountWhoseRecordsStartInsideTheMonths(opened: CalendarDate) throws {
         var library = self.library(flows: [Decimal](repeating: 1_000, count: 12))
         library.accounts["wallet"] = Account(id: "wallet", name: "Wallet", kind: .crypto, currency: .eur,
-                                             opened: "2026-03-31")
+                                             opened: opened)
         library.upsert(PriceRecord(instrument: "btc", date: "2026-03-31", price: 90_000, currency: .eur))
         library.upsert(Valuation(account: "wallet", date: "2026-03-31", cash: 0,
                                  positions: [Position(instrument: "btc", quantity: d("0.4"))]))
@@ -357,9 +359,10 @@ struct SavingPaceTests {
             spending: PlanSpending(working: 30_000, retired: 30_000),
             contributions: [PlanContribution(account: "pension", perYear: 5_000)])
         library.accounts["pension"] = Account(id: "pension", name: "Pension", kind: .pensionFund, currency: .eur,
-                                              opened: "2026-03-31")
+                                              opened: opened)
         library.upsert(Valuation(account: "pension", date: "2026-03-31", balance: 10_000))
         let pace = try #require(Valuator(library: library).savingPace(asOf: "2026-09-30"))
+        #expect(pace.months.count == 12)
         #expect(pace.months.allSatisfy { $0.newMoney == 1_000 })
         #expect(pace.perYear == 12_000)
         #expect(pace.byAccount == ["current": 12_000])
