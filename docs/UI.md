@@ -33,7 +33,7 @@ Plus the glance: "how am I doing?" in a widget or on the Overview.
 
 - **Overview:** net worth, history, how you're doing.
 - **Accounts:** the list, account details, adding and closing.
-- **Plan:** the plan, chapter by chapter, and its progress, for each plan.
+- **Plan:** the plan, chapter by chapter, its progress, and the trends in your own records, for each plan.
 - **Settings** opens from a gear button in the Overview toolbar. It's rarely needed, so it doesn't take a tab. *Sync & backups* is in it, under Library: the library's banners (a sync conflict, a file that couldn't be read) open it there with *Review* or *Show details*, also from the check-in, which closes first and keeps its draft. In an import they open it over the import, which is as you left it when you go back.
 - The accessory shows the check-in's state, "October check-in · due in 3 days", "Continue check-in · 7 of 9 reviewed", and opens it. It shows only while a check-in is due (within a few days of the month's end, or past it) or a draft is waiting, so it doesn't sit over every screen the rest of the month; then *Check In* in the Overview's toolbar starts one early. (Before iOS 26.1, which can hide it, it always shows: "Last check-in 30 Sep · next 31 Oct".)
 
@@ -360,7 +360,7 @@ Accounts added in the app open on the day they're added, unless you set an earli
 
 **New money after an inserted value.** A value's new money (its flow) is measured from the value before it. When a value is added before another one of the same account, or one is corrected, moved or deleted, the next value's new money is worked out again if it was automatic (the default for the account's kind, as the check-in fills it in), and kept if it was typed in. *Update Value* and the valuation editor say which before saving, and the confirmation for deleting a value before deleting; a past check-in follows the same rule. Money in and out ([PROGRESS.md](PROGRESS.md#money-in-and-out)) stay as they are, except a money out that was the suggestion, which follows the new flow when the value before was corrected on its date; *Update Value*, the valuation editor and the confirmation for deleting a value ask to check them when the value before is now on another date (a past check-in and an import don't). A value added before an account's first one turns that first value's automatic new money (the whole amount) into the change since. An import follows the same rule for the library's values after the ones it adds or changes: its Preview says how many, and undoing the import puts them back ([IMPORT.md](IMPORT.md#preview-conflicts-and-undo)).
 
-**Answers and baselines are only recorded for the latest check-in.** The plan runs on today's data, so re-running it for a past date would record made-up history in "Your answer over time" and a made-up "Start of <year>" baseline. A check-in dated before the library's latest one records neither, and its confirmation says: "Saved a past check-in (31 Mar 2024). The answer isn't recorded for past dates."
+**Answers and baselines are only recorded for the latest check-in.** The plan runs on today's data, so re-running it for a past date would record made-up history in Trends' *Time to retirement* and a made-up "Start of <year>" baseline. A check-in dated before the library's latest one records neither, and its confirmation says: "Saved a past check-in (31 Mar 2024). The answer isn't recorded for past dates."
 
 ## Trade history
 
@@ -435,7 +435,7 @@ A brokerage, crypto or metals account can record its **trades** instead of month
 
 ## Plan
 
-A plan picker sits at the top (Base case ▾, with New Plan, Duplicate, Rename…, Set as Main Plan, Save Baseline…, *Export Calculations…* under how the answer shown was calculated, "Calculated at 09:41 with 2.000 runs", and Delete…), then two parts, **Plan** and **Progress**: a segmented control at the top on iPhone, in the toolbar on the Mac and iPad. *What if* is a sheet on iPhone and a column beside the plan on the Mac and iPad, opened from the toolbar, which also has *Recalculate* and *Save Baseline…*.
+A plan picker sits at the top (Base case ▾, with New Plan, Duplicate, Rename…, Set as Main Plan, Save Baseline…, *Export Calculations…* under how the answer shown was calculated, "Calculated at 09:41 with 2.000 runs", and Delete…), then three parts, **Plan**, **Progress** and **Trends**: a segmented control at the top on iPhone, in the toolbar on the Mac and iPad. *What if* is a sheet on iPhone and a column beside the plan on the Mac and iPad, opened from the toolbar, which also has *Recalculate* and *Save Baseline…*.
 
 ### Calculating
 
@@ -577,7 +577,7 @@ The plan reads as a life ([PLANNER.md](PLANNER.md#chapters)): the answer first, 
   - *Taxes* switches to the same years stacked by tax: the tax on investments (on what's sold and on investment income) and the wealth tax.
 - **Key numbers.** Earliest retirement and its date, the chance at the target age and what you could spend then (the engine's solver for the highest spending that still meets your confidence level), what retiring today would need ([PLANNER.md](PLANNER.md#assets-needed-to-retire-today)): "Needed to retire today", "Extra in accounts you can draw now" and "You have 58%", or "At most what's locked away" when retiring today works even with the money you can draw emptied; the median at retirement and at the end, lifetime taxes, and how often the money runs out before a locked account opens; after a full calculation, the earliest age saving nothing more ("Saving nothing more, retire at") and saving at your pace of the last 12 months ("Saving at your pace of the last 12 months, retire at", left out without a pace; [PLANNER.md](PLANNER.md#ages-without)).
 - **Problems** are worded for the screen: accounts by their names, not their IDs ("A contribution goes into Fondo pensione, which the plan doesn't count; it's left out.").
-- **What if.** "Try a change before you make it in the plan." On iPhone in a bottom sheet; on the Mac and iPad in a column 340 points wide beside the plan, from *Show What If* in the toolbar (from Progress it goes back to the plan, whose answer it changes). Not an inspector: the window's split view wouldn't narrow the page for one, which then ran past the window's edge. Beside it the page is narrower, so the answer's pill goes under its words and the chosen chapter's settings under its words.
+- **What if.** "Try a change before you make it in the plan." On iPhone in a bottom sheet; on the Mac and iPad in a column 340 points wide beside the plan, from *Show What If* in the toolbar (from Progress or Trends it goes back to the plan, whose answer it changes). Not an inspector: the window's split view wouldn't narrow the page for one, which then ran past the window's edge. Beside it the page is narrower, so the answer's pill goes under its words and the chosen chapter's settings under its words.
   - The plan's answer now ("Your plan now · Not yet. Stop at 63."), then sliders, their values in words: **Stop working at** ("55"), **Spending** ("3.000 € a month", in retirement; the plan keeps it a year), **Saving** ("333 € a month", while working; "After Calculate" until the plan has run) and **Shares, above inflation** ("3.14% a year": equity's typical year, its median real return, as the defaults are given; the mean follows from the plan's volatility). Spending and saving move 50 a month at a time.
   - Moving a slider runs nothing. The answer says "From before your what-if changes" until **Run What If** runs it: "A quick estimate first, then the full answer": fewer runs, then all 2,000, with the same random draws, its progress in place of the buttons. A position calculated before shows again at once.
   - Once it has run, the answer shows the difference ("With your changes · Earliest 54 → 53").
@@ -804,9 +804,108 @@ See [PROGRESS.md](PROGRESS.md).
 - **Milestones**, after the year's words on iPhone, beside the strip on the Mac and iPad ([Milestones](#milestones)): the next, how far there and when it typically comes; saving nothing more, when you could still retire, and when you reached the coast point; *All Milestones*, what each kind means and every milestone reached and ahead, in a sheet.
 - **Next in your plan.** The chapter after the current one ("② Bridge, from 54 in 2042") with *Open*; then the one button, *Save Baseline…*, which takes a label ("Freeze what you expect now, to measure against it later."); and quietly under it *Add a Past Baseline…*. On the Mac and iPad under the milestones, beside the strip.
 - **Add Past Baseline…** ([PROGRESS.md](PROGRESS.md#past-baselines)): a sheet for what you planned before you used the app. *Planned on* (a day from your first record of a plan asset to your latest check-in, starting at the end of the first month) with your plan assets that day; **What you planned then**: take-home pay, spending while working, when to stop working and spending in retirement, a month each, starting from today's plan ("Returns, taxes, pensions, events and the rest are as in today's plan."); a name ("What I planned in 2021" when left empty). *Calculate and Save* runs the plan from that day and saves it; the baseline picker lists it as "What I planned in 2021 (added 6 Oct 2026)", and the years without their own baseline are measured against it ("12.400 € ahead of your 2021 plan", "Your 2021 plan expected …").
-- **More charts**, folded away:
-  - **Your answer over time.** The earliest retirement age at each check-in, as a step line. Markers show where you changed the plan or where the app's calculations changed. A check-in's callout adds its readiness ("58% of what retiring today needed") when it was recorded; the old FI progress isn't shown. A second, dashed line shows the pace age where check-ins recorded one: the earliest age if you kept saving at your pace of the last 12 months ([PLANNER.md](PLANNER.md#ages-without)). The gap between the lines shows whether the plan's saving is realistic; the callout adds it ("At your pace 57").
+- **More charts**, folded away (the earliest age at each check-in is on [Trends](#trends), as *Time to retirement*):
   - **Actual vs baseline.** Pick a baseline, e.g. "Start of 2026 (automatic)" or "Before part-time (saved 12 Mar)". Its fan chart runs from its start date, with your actual line drawn over it: the baseline's accounts and those opened since at each check-in, in money of the start date where the inflation index allows. A line under the chart says which. A summary: "12.400 € ahead of the median · 61st percentile". Why it's ahead or behind shows on each year of the strip. Under it, *Delete Baseline…* deletes the chosen baseline after a confirmation that names it ("Delete “Start of 2025 (automatic)”?") and says what changes ([PROGRESS.md](PROGRESS.md#deleting-a-baseline)): "2025 is then measured against “What I planned in 2021 (added 6 Oct 2026)”.", "2026 then has no baseline to be measured against.", or "No year is measured against it."; for an automatic baseline, whether it comes back; and that a copy is kept in *Sync & backups*. The picker and the years' cards then use the baselines left.
+
+### Trends
+
+How you've actually been doing, from your own records: what came in, what went out, what you kept, what markets added and how the answer moved. *Plan* looks ahead and *Progress* measures this year against its baseline; *Trends* looks back over the whole history. The plan appears only as a dashed reference line ("your plan's 28%"), never as what's measured, so editing the plan doesn't change the past, only the lines it's set against. It's a part of each plan, since *Where your money came from* counts the plan's accounts and *Time to retirement* is the plan's answer; money in and out is the library's, the same under every plan.
+
+```
+┌──────────────────────────────────────────┐
+│ Base case ▾                          ⋯   │
+│        Plan   Progress  [ Trends ]       │
+│ [ Months | Years ]               All ▾   │
+│ ╭──────────────────────────────────────╮ │
+│ │ Your last 12 months                  │ │
+│ │ ╭ Savings rate ───╮╭ Kept ──────────╮│ │
+│ │ │ 31%             ││ 14.200 €       ││ │
+│ │ │ ▲ 4 points      ││ ▲ 2.100 €      ││ │
+│ │ ╰─────────────────╯╰────────────────╯│ │
+│ │ ╭ Came in ────────╮╭ Went out ──────╮│ │
+│ │ │ 45.800 €        ││ 31.600 €       ││ │
+│ │ │ ▲ 3%            ││ ▼ 2%           ││ │
+│ │ ╰─────────────────╯╰────────────────╯│ │
+│ │ Against the 12 months before. Your   │ │
+│ │ plan spends 36.000 € a year while    │ │
+│ │ you work: you spent 12% less.        │ │
+│ ╰──────────────────────────────────────╯ │
+│ Savings rate                             │
+│ ╭──────────────────────────────────────╮ │
+│ │ 40% ┤          ▆                     │ │
+│ │     ┤ ▅     ▅  █  ▅     ▆      ━━━━━ │ │
+│ │ 30% ┤ █  ▃  █  █  █  ▄  █  ▅  ▆      │ │
+│ │ ┄┄┄┄┼┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄ │ │
+│ │ 20% ┤ █  █  █  █  █  █  █  █  █      │ │
+│ │       J  A  S  O  N  D  J  F  M      │ │
+│ │ ━ the last 12 months  ┄ your plan's  │ │
+│ ╰──────────────────────────────────────╯ │
+│ Money in and out                         │
+│ ╭──────────────────────────────────────╮ │
+│ │ ▇ came in   ▇ went out   ● kept      │ │
+│ │ 4k ┤ ▇     ▇  ▇     ▇  ▇             │ │
+│ │    ┤ ▇▇ ▇▇ ▇▇ ▇▇ ▇▇ ▇▇ ▇▇ ▇▇         │ │
+│ │ ┄┄┄┼┄▇▇┄▇▇┄▇▇┄▇▇┄▇▇┄▇▇┄▇▇┄▇▇┄┄┄┄┄┄┄┄ │ │
+│ │ 2k ┤ ▇▇ ▇▇ ▇▇ ▇▇ ▇▇ ▇▇ ▇▇ ▇▇         │ │
+│ │      J  A  S  O  N  D  J  F          │ │
+│ │ ┄ your plan's spending while working │ │
+│ ╰──────────────────────────────────────╯ │
+│ Where your money came from               │
+│ ╭──────────────────────────────────────╮ │
+│ │ 300k ┤                     ░░░░░░░   │ │
+│ │      ┤             ░░░░░░░░▓▓▓▓▓▓▓   │ │
+│ │ 200k ┤     ░░░░░░░░▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓   │ │
+│ │      ┤ ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓   │ │
+│ │      ┤ ▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒   │ │
+│ │      2021  2022  2023  2024  2025    │ │
+│ │ ▒ you started with  ▓ you put in     │ │
+│ │ ░ markets added                      │ │
+│ │ You put in 164.000 € and markets     │ │
+│ │ added 98.000 €. In 2025 they added   │ │
+│ │ more than you did, for the first     │ │
+│ │ time.                                │ │
+│ ╰──────────────────────────────────────╯ │
+│ Time to retirement                       │
+│ ╭──────────────────────────────────────╮ │
+│ │ 58 ┤━━━┓                             │ │
+│ │    ┤   ┗━━━━━┓      ┄┄┄┄┄┄┄┄┄┄┄┄┄    │ │
+│ │ 55 ┤         ┗━━━━━━━━━━━━┓          │ │
+│ │    ┤ ⚑                    ┗━━━━━     │ │
+│ │      Jan    Apr    Jul    Oct        │ │
+│ │ ━ earliest age  ┄ at your pace       │ │
+│ │ ┈ saving nothing more                │ │
+│ │ 54 now: 4 years sooner since Jan.    │ │
+│ ╰──────────────────────────────────────╯ │
+│ Year by year                             │
+│ ╭──────────────────────────────────────╮ │
+│ │        You saved   You spent  Markets│ │
+│ │ 2026   more than   less than  strong │ │
+│ │ so far planned     planned           │ │
+│ │ 2025   as planned  more than  average│ │
+│ │                    planned           │ │
+│ │ 2024   more than   —          hard   │ │
+│ │        planned                       │ │
+│ ╰──────────────────────────────────────╯ │
+└──────────────────────────────────────────┘
+```
+
+- **Grain and span.** A segmented *Months | Years* and the time span menu under the part picker on iPhone, in the toolbar beside it on the Mac and iPad. The span is the *History* half of the Overview's menu (last year, 3 or 5 years, all of it) and shares its choice; *Trends* has no future. The grain starts on *Months* until money in and out has been recorded for two whole calendar years, then on *Years*; once chosen, the device remembers it. *Your last 12 months* and *Time to retirement* don't follow the grain: the first is always 12 months, the second has a point at each check-in. The current month or year is drawn lighter and called "so far".
+- **Your last 12 months.** The 12 months that end at the latest check-in, as the savings rate counts them ([PROGRESS.md](PROGRESS.md#money-in-and-out)), in four tiles, two by two on iPhone and in a row on the Mac and iPad: **Savings rate** ("31%"), **Kept** (money in less money out, plus pension contributions), **Came in** (money in plus pension contributions) and **Went out** (money out), so kept is came in less went out. Under each, the change against the 12 months before: "▲ 4 points" for the rate, the amount for kept, a percentage for the other two, in green when it's good news (more kept, less went out) and orange when not; with less than two years recorded, no change. Then one sentence against the plan: its spending while working a year against money out a year ("Your plan spends 36.000 € a year while you work: you spent 12% less."; "… 8% more."; "… about the same." within 2%), left out when the plan is past working. With less than 12 months recorded, the card covers what there is, titled by its start ("Since 31 Jul 2026"), and money out a year is scaled from it as `retire spending` scales it.
+- **Savings rate.** A bar per month or year: the savings rate over the values of that period, a bar below the zero line when more went out than came in. With *Months*, a line through the rate over the 12 months ending at each month (from the twelfth month recorded), since a single month's rate is noisy. A dashed rule at the plan's own savings rate while working: the first chapter's take-home pay less its spending, over the pay ("your plan's 28%"), left out when the plan is past working. The value axis fits the bars, the line and the rule.
+- **Money in and out.** Per month or year, *came in* and *went out* as a pair of bars from zero, and *kept* as a dot between them, in the base currency at each value's date. A dashed rule at the plan's spending while working, for a month or a year. A value is counted in the period of its date, so after a skipped check-in its month holds two months' money: its bars are hatched and the callout says what they cover ("31 Oct · covers Sep – Oct").
+- **Reading the charts.** The pointer, or a finger touched and held then dragged, reads a period as the History chart's callout does: the month or year, then its rows ("Savings rate 34%", "Last 12 months 31%", "Came in 4.100 €", "Went out 2.600 €", "Kept 1.500 €").
+- **Where your money came from.** Your plan assets from the first record to the latest check-in, at month ends or year ends, stacked into three parts that add up to the total: **you started with** (each account's first value: what it held when its records start), **you put in** (the new money of every check-in since, added up: [PROGRESS.md](PROGRESS.md#data-this-needs-from-day-one)) and **markets added** (everything else: price and FX movement, interest, reinvested income, and the small changes nothing explains). In the base currency, in money of the time, as Progress's years count. When markets have taken away more than they added, the total runs below the top of what you put in and the gap is shaded orange. Under it, in words, what you put in and what markets added over the span, and the first year markets added more than you put in, when there's one ("In 2025 they added more than you did, for the first time."). It needs no money in and out, so it goes back to your first record.
+- **Time to retirement.** The earliest retirement age at each check-in, as a step line. Markers show where you changed the plan or where the app's calculations changed. A check-in's callout adds its readiness ("58% of what retiring today needed") when it was recorded; the old FI progress isn't shown. A dashed line shows the pace age where check-ins recorded one: the earliest age if you kept saving at your pace of the last 12 months ([PLANNER.md](PLANNER.md#ages-without)). The gap between the lines shows whether the plan's saving is realistic; the callout adds it ("At your pace 57"). A dotted line shows the coast age where check-ins recorded one ("Saving nothing more 63"). Under it, the latest age and how it moved over the span: "54 now: 4 years sooner since Jan 2026."
+- **Year by year.** A row per calendar year in the span, newest first, graded in words on what you control, never as a letter or a score:
+  - **You saved:** the year's new money against what its baseline planned (its `savings` for the year, by now for this year): "more than planned", "as planned" (within 5%) or "less than planned".
+  - **You spent:** money out a year against the baseline plan's spending while working: "less than planned", "as planned" (within 5%) or "more than planned"; "—" without money in and out recorded that year, or when the baseline's plan was past working.
+  - **Markets:** context, not a grade, as the year's words on Progress say it: "strong" (markets added 8% or more of what you had going in), "hard" (they took 5% or more) or "average".
+  - A year without a baseline has "—" for both, and its row says "No plan to compare with" in place of them. The row opens that year on Progress.
+- **Not enough data.** Money in and out start at the first check-in that records them, so each card that needs them says where its data starts: "Money in and out starts at your check-in of 31 Jul 2026: 3 months so far." Without any recorded, those three cards fold into one that says what records them, with *Open Accounts*. *Where your money came from* needs two check-ins, and *Time to retirement* a recorded answer; until then each says so in a line.
+- **Mac and iPad.** The tiles in one row across the page, then two columns: *Savings rate* over *Money in and out* on the left, *Where your money came from* over *Time to retirement* on the right, and *Year by year* across the page as a table, with a column each for the year, the three words and, beside them, the amounts they compare ("20.486 € · planned 13.463 €").
+- **Hidden amounts.** Rates, words, ages and the charts' shapes stay. Amounts are placeholders, and the value axes of *Money in and out* and *Where your money came from* switch to relative labels (*Privacy* under [Design system](#design-system)): multiples of a period's average money in, and of today's plan assets.
+- **VoiceOver** reads each tile as its title, figure and change, each chart as a chart with its audio graph and chart details, and each row of *Year by year* as the year and its three words.
+- **What if** goes back to the plan, as from Progress.
 
 ### Milestones
 

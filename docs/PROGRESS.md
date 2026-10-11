@@ -39,7 +39,7 @@ Each check-in re-runs the main plan (`mainPlan` in `library.json`) and records t
 
 Records made by earlier versions may also hold the old `fiProgress` (plan assets over the spending pensions don't cover, divided by 4%), with its old meaning, and `taxParameters` (the years of the tax rules a tax system used); both are kept as they are. The app doesn't show `fiProgress`: it treated the pensions as already paid and ignored taxes and the plan's confidence, so it could read 75% while retiring today succeeded in 13% of futures. Records that have only `fiProgress` show no progress number.
 
-The chart then shows how "you can retire at 54" moves from month to month.
+The chart (Trends' *Time to retirement*, [UI.md](UI.md#trends)) then shows how "you can retire at 54" moves from month to month.
 
 Markers show when the plan's inputs (its tax rates among them) or the app's calculation code changed. So you can tell a move caused by markets and savings from one caused by changing the plan or by a new budget law.
 
@@ -92,6 +92,15 @@ A **baseline** is a projection saved at a point in time (see below). Choosing on
   | Other | Everything else: what an account held when its records start, a balance's change when a missing price or rate keeps its new money from being worked out, and exchange rates |
 
   The split is an approximation, since the four parts affect each other. It answers the useful question, though: am I behind because I saved less, or because markets were bad?
+
+### Trends
+
+The plan's *Trends* part ([UI.md](UI.md#trends)) looks back over your own records, with the plan only as a reference line:
+
+- **Money in and out by period:** money in, money out and the savings rate ([Money in and out](#money-in-and-out)) for each month or calendar year, over the values dated in it; with months, also the savings rate over the 12 months ending at each. A value counts in the period of its date, even when it covers more (after a skipped check-in).
+- **Where your money came from:** plan assets at each month end or year end, split into what the accounts held at their first values, the new money added up since, and the rest (markets: price and FX movement, interest, reinvested income, and what nothing explains). The three add up to the total.
+- **The plan's savings rate:** the first chapter's take-home pay less its spending, over the pay; the reference for the savings rate.
+- **Each year graded:** the year's new money against its baseline's `savings`, and money out a year against the baseline plan's spending while working, each "as planned" within 5%; markets as the year's words on Progress say it.
 
 ## Baselines
 
