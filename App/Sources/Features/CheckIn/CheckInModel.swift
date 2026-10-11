@@ -300,7 +300,7 @@ enum CheckInRowDisplay {
     /// row whose new money can be typed (a cash from a statement) and has
     /// no field showing. Other rows that can be typed show their field.
     static func offersEditFlow(_ row: CheckInRow, rule: FlowDefault, isEditing: Bool) -> Bool {
-        row.state == .updated && rule != .ask && canEditFlow(row, rule: rule)
+        row.state == .updated && row.isTrades && canEditFlow(row, rule: rule)
             && !showsFlowField(row, rule: rule, isEditing: isEditing)
     }
 

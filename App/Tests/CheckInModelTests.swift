@@ -99,6 +99,13 @@ struct CheckInModelTests {
         #expect(!CheckInRowDisplay.offersEditFlow(statement, rule: .trades, isEditing: true))
     }
 
+    /// A kind that asks for its new money (a pension fund) can record
+    /// trades too; with a statement's cash, its new money can be edited.
+    @Test func aTradesAccountOfAKindThatAsksOffersItsNewMoneyWithAStatementsCash() throws {
+        let statement = try row("directa", in: draft { $0["directa"]?.setCash(400) })
+        #expect(CheckInRowDisplay.offersEditFlow(statement, rule: .ask, isEditing: false))
+    }
+
     // MARK: Field order
 
     @Test func moneyInOutAndInterestFollowTheBalance() throws {
