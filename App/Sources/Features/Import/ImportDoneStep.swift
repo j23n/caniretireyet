@@ -82,6 +82,7 @@ struct ImportDoneStep: View {
             countRow("Records added", receipt.added)
             countRow("Records filled in", receipt.updated)
             countRow("Conflicts overwritten", receipt.overwritten)
+            countRow("Trades removed", receipt.removed)
             countRow(receipt.undecided > 0 ? "Conflicts kept (\(receipt.undecided) undecided)" : "Conflicts kept",
                      receipt.kept)
             countRow("Already in the library", receipt.identical)
