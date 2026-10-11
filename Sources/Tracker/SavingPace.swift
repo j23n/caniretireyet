@@ -54,7 +54,8 @@ public struct SavingPace: Hashable, Sendable {
     /// each side pro rata.
     public let byAccount: [AccountID: Decimal]
     /// Accounts whose new money in `months` wasn't recorded, so that the
-    /// tracker counts what the main plan pays into them
+    /// tracker counts what the main plan pays into them, nothing without a
+    /// contribution
     /// (``AccountChange/isFlowFromPlan``). That new money is left out, at
     /// each check-in where it came from the plan, since a pace that repeats
     /// the plan says nothing about it.
@@ -147,18 +148,19 @@ extension Valuator {
     public func savingPace(asOf date: CalendarDate, inflation: InflationIndex? = nil) -> SavingPace? {
         let checkIns = checkInDates(in: .planAssets, through: date)
         guard let first = checkIns.first, let asOf = checkIns.last else { return nil }
-        // The months start once every plan asset that existed is tracked:
-        // before an account opened earlier was first valued, its months
-        // would count as saving nothing. One opened later is new.
-        let tracked = accounts.values.filter { NetWorthScope.planAssets.includes($0) }
+        // The months start once every plan asset open before the first
+        // check-in is tracked: before such an account was first valued, its
+        // months would count as saving nothing. One opened later is new.
+        let tracked = accounts.values.filter { NetWorthScope.planAssets.includes($0) && $0.opened < first }
             .compactMap { account in
                 firstRecordDate(of: account.id).flatMap { $0 > account.opened && $0 <= asOf ? $0 : nil }
             }
             .max()
         let start = max(first, tracked ?? first)
-        // Months 0 (the latest) to 23, each from the end of the one before;
-        // only whole months after the start.
-        let longest = 2 * SavingPace.window
+        // Months 0 (the latest) to 22, each from the end of the one before,
+        // which the pace and its range read; only whole months after the
+        // start.
+        let longest = 2 * SavingPace.window - 1
         let ends = (0...longest).map { SavingPace.monthEnd($0, before: asOf) }
         let available = (0..<longest).prefix(while: { ends[$0 + 1] >= start }).count
         guard available >= SavingPace.minimumMonths else { return nil }
@@ -166,8 +168,15 @@ extension Valuator {
         let intervals = zip(checkIns, checkIns.dropFirst()).filter { $0.1 > ends[available] }
         let reports = intervals.map { change(from: $0.0, to: $0.1, in: .planAssets) }
         let window = min(available, SavingPace.window)
-        let leftOut = Set(reports.filter { $0.to > ends[window] }
-            .flatMap { $0.accounts.filter { $0.isFlowFromPlan && $0.change.newMoney != 0 }.map(\.account) })
+        // An account whose new money came from the plan, or would have with
+        // a contribution in it: it had a value before, so the money is
+        // missing, not what it held when its records start.
+        let leftOut = Set(reports.filter { $0.to > ends[window] }.flatMap { report in
+            report.accounts.filter { change in
+                change.isFlowFromPlan && (change.change.newMoney != 0
+                    || firstRecordDate(of: change.account).map { $0 <= report.from } == true)
+            }.map(\.account)
+        })
 
         // In today's money only when the index covers every month, so the
         // months never mix money of today and of each check-in; without
@@ -180,7 +189,7 @@ extension Valuator {
         var isComplete = true
         // Each account's new money at each check-in where it had some,
         // after money moved between plan assets cancels out.
-        var paid: [(account: AccountID, from: CalendarDate, to: CalendarDate, amount: Decimal)] = []
+        var paid: [(account: AccountID, from: CalendarDate, to: CalendarDate, amount: Decimal, isMissing: Bool)] = []
         for report in reports {
             // What holdings held when their records start, without a
             // flow, isn't money saved (a balance's counts as other).
@@ -198,14 +207,17 @@ extension Valuator {
             // before it's spread: what went in and came out up to the
             // smaller of the two comes off each side pro rata, so two legs
             // spread over different days don't leave a month too high and
-            // another too low.
+            // another too low. Only when the two are alike (the smaller at
+            // least half the larger): a large withdrawal isn't a transfer.
             let paidIn = included.reduce(Decimal(0)) { $0 + max($1.change.newMoney, 0) }
             let takenOut = included.reduce(Decimal(0)) { $0 - min($1.change.newMoney, 0) }
-            let moved = min(paidIn, takenOut)
+            let moved = 2 * min(paidIn, takenOut) >= max(paidIn, takenOut) ? min(paidIn, takenOut) : 0
             for account in included {
                 var amount = account.change.newMoney
+                if moved > 0, amount != 0 {
+                    amount -= amount > 0 ? amount * moved / paidIn : amount * moved / takenOut
+                }
                 if amount == 0 { continue }
-                if moved > 0 { amount -= amount > 0 ? amount * moved / paidIn : amount * moved / takenOut }
                 // Spread from the account's own record before, not the
                 // check-in before: an account valued quarterly saved over
                 // the quarter, not in its last month. A trades account's
@@ -215,7 +227,8 @@ extension Valuator {
                     : latestRecordDate(of: account.account, onOrBefore: report.from) ?? report.from
                 guard from < report.to else { continue }
                 if let index { amount = index.convert(amount, from: report.to, to: asOf) ?? amount }
-                paid.append((account.account, from, report.to, amount))
+                paid.append((account.account, from, report.to, amount,
+                             !account.problems.allSatisfy(\.isNotTrackedYet)))
             }
         }
 
@@ -254,16 +267,16 @@ extension Valuator {
             let usualGap = regular ? gaps[(gaps.count - 1) / 2] : 0
             let longest = usualGap * 3 / 2
             let usual = regular ? SavingPace.median(payments.map(\.amount)) : 0
-            var spans: [(from: CalendarDate, to: CalendarDate, amount: Decimal)] = []
+            var spans: [(from: CalendarDate, to: CalendarDate, amount: Decimal, isMissing: Bool)] = []
             for (number, payment) in payments.enumerated() {
                 guard regular, usual > 0, payment.amount > 0, payment.amount <= 2 * usual else {
-                    spans.append((payment.from, payment.to, payment.amount))
+                    spans.append((payment.from, payment.to, payment.amount, payment.isMissing))
                     continue
                 }
                 let before = number > 0 ? payments[number - 1].to
                     : payment.to.adding(days: -payments[0].to.days(to: payments[1].to))
                 let earliest = [before, payment.to.adding(days: -longest), firstRecord ?? before].max() ?? before
-                spans.append((min(payment.from, earliest), payment.to, payment.amount))
+                spans.append((min(payment.from, earliest), payment.to, payment.amount, payment.isMissing))
             }
             for span in spans { spread(span.amount, of: account, from: span.from, to: span.to) }
             // An account goes on saving as it did up to its latest payment,
@@ -290,6 +303,8 @@ extension Valuator {
             spread(last.amount * Decimal(last.to.days(to: until)) / Decimal(length), of: account,
                    from: last.to, to: until)
             carriedForward.append(account)
+            // Carried into the months from a check-in that may be before them.
+            if last.isMissing { isComplete = false }
         }
 
         let planAssets = total(on: asOf, in: .planAssets).total

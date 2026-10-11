@@ -511,6 +511,56 @@ struct SavingPaceTests {
         #expect(pace.perYear == 12_200)
     }
 
+    /// A pension fund valued without new money and no main plan: its new
+    /// money is missing, so it's listed as left out.
+    @Test func anAccountWithoutRecordedNewMoneyOrAPlanIsLeftOut() throws {
+        var library = self.library(flows: [Decimal](repeating: 1_000, count: 12))
+        library.accounts["pension"] = Account(id: "pension", name: "Pension", kind: .pensionFund, currency: .eur,
+                                              opened: "2020-01-01")
+        library.upsert(Valuation(account: "pension", date: "2025-09-30", balance: 10_000))
+        library.upsert(Valuation(account: "pension", date: "2026-09-30", balance: 16_000))
+        let pace = try #require(Valuator(library: library).savingPace(asOf: "2026-09-30"))
+        #expect(pace.leftOut == ["pension"])
+        #expect(pace.byAccount == ["current": 12_000])
+    }
+
+    /// Accounts opened inside the months, with their first record after
+    /// their opening day, are new: they don't shorten the months.
+    @Test func anAccountOpenedInsideTheMonthsIsNew() throws {
+        var library = self.library(flows: [Decimal](repeating: 1_000, count: 12))
+        library.accounts["savings"] = Account(id: "savings", name: "Savings", kind: .savings, currency: .eur,
+                                              opened: "2026-07-01")
+        library.upsert(Valuation(account: "savings", date: "2026-07-31", balance: 500, flow: 500))
+        library.accounts["broker"] = Account(id: "broker", name: "Broker", kind: .brokerage, currency: .eur,
+                                             opened: "2026-09-01", valuation: .trades)
+        library.upsert(Trade(account: "broker", date: "2026-09-10", id: "first", type: .deposit, amount: 1_000))
+        let pace = try #require(Valuator(library: library).savingPace(asOf: "2026-09-30"))
+        #expect(pace.months.count == 12)
+        #expect(pace.byAccount["broker"] == 1_000)
+    }
+
+    /// 19,000 taken out of the current account at the check-in where the
+    /// pension fund gets its quarterly 3,000: it isn't a transfer, so the
+    /// 3,000 is still saved over the quarter.
+    @Test func aLargeWithdrawalIsntMovedMoney() throws {
+        var flows = [Decimal](repeating: 1_000, count: 12)
+        flows[0] = -19_000
+        var library = self.library(flows: flows)
+        library.accounts["pension"] = Account(id: "pension", name: "Pension", kind: .pensionFund, currency: .eur,
+                                              opened: "2020-01-01")
+        var balance: Decimal = 130_000
+        library.upsert(Valuation(account: "pension", date: "2025-09-30", balance: balance, flow: 0))
+        for back in (0..<12).reversed() {
+            let flow: Decimal = back.isMultiple(of: 3) ? 3_000 : 0
+            balance += flow
+            library.upsert(Valuation(account: "pension", date: SavingPace.monthEnd(back, before: "2026-09-30"),
+                                     balance: balance, flow: flow))
+        }
+        let pace = try #require(Valuator(library: library).savingPace(asOf: "2026-09-30"))
+        #expect(pace.byAccount["pension"]?.rounded(scale: 2) == 12_000)
+        #expect(pace.unusualMonths.map(\.end) == ["2026-09-30"])
+    }
+
     /// A pension fund with new money recorded at one check-in and taken
     /// from the plan at the next: the recorded 3,000 counts, the plan's
     /// doesn't, and the account is listed as left out.
