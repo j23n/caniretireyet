@@ -18,6 +18,9 @@ struct PlanProgressView: View {
     let onSaveBaseline: () -> Void
     /// Shows the plan.
     let onShowPlan: () -> Void
+    /// A year to open on the strip, asked for elsewhere (a row of Trends'
+    /// *Year by year*); taken once, then cleared.
+    var openingYear: Binding<Int?> = .constant(nil)
 
     @Environment(LibraryStore.self) private var library
     @Environment(\.redactionReasons) private var redactionReasons
@@ -87,6 +90,10 @@ struct PlanProgressView: View {
         .background(Palette.page)
         .onAppear {
             if selectedBaseline == nil { selectedBaseline = baselines.first?.id }
+            if let year = openingYear.wrappedValue {
+                selectedYear = year
+                openingYear.wrappedValue = nil
+            }
         }
         .sheet(isPresented: $showsPastBaseline) {
             if let plan = session.plan {
