@@ -6,7 +6,8 @@ import UIKit
 // Reading the strips' graphs at a point (UI.md, "Plan" and "Progress"): on
 // the Mac and an iPad with a pointer, wherever the pointer is over a card;
 // on iPhone, touch and hold a card, then drag, until the finger lifts. A
-// rule marks the point, and a small label says what the graph shows there.
+// rule marks the point, and a callout like the net-worth chart's says what
+// the graph shows there (``PlanGraphCallout``).
 // A click or a tap still chooses the card, and a swipe scrolls the strip.
 
 /// Where the pointer is over one of a strip's cards, or the finger on one:
@@ -117,80 +118,32 @@ extension DynamicTypeSize {
     }
 }
 
-/// The label over a graph at the pointer: what the point is (an age and a
-/// year, a date), a milestone or an event there, and the money.
-struct PlanGraphCallout: View {
-    struct Line: Hashable {
-        enum Style: Hashable {
-            /// "48 · 2034", "31 Mar 2026".
-            case context
-            /// A milestone, with its flag.
-            case milestone
-            /// What happens there: "New car, 25.000 €".
-            case title
-            /// The money: "Typically 640.000 €".
-            case value
-            /// "Bad 410k €, good 980k €".
-            case detail
-        }
+/// Where the label over a card's graph at the pointer goes: a chart's
+/// callout (``ChartCallout``), as the net-worth chart has it, as wide as
+/// that one or the card less its margins, centred on the pointer and kept
+/// inside the card.
+enum PlanGraphCallout {
+    /// The room it keeps from the card's edges.
+    static let margin: CGFloat = 6
 
-        var text: String
-        var style: Style
+    /// Its width on a card `total` wide.
+    static func width(in total: CGFloat) -> CGFloat {
+        max(0, min(ChartStyle.calloutWidth, total - 2 * margin))
     }
 
-    let lines: [Line]
-
-    static let width: CGFloat = 160
-
-    /// Where a label at `x` starts on a card `total` wide: centred on it,
-    /// kept inside the card.
+    /// Where it starts at `x` on a card `total` wide: centred on it, kept
+    /// inside the card.
     static func leading(at x: CGFloat, in total: CGFloat) -> CGFloat {
-        min(max(6, x - width / 2), max(6, total - width - 6))
+        let callout = width(in: total)
+        return min(max(margin, x - callout / 2), max(margin, total - callout - margin))
     }
+}
 
+/// A milestone's flag in a read-out, in the accent, as on the graph.
+struct PlanGraphFlag: View {
     var body: some View {
-        VStack(alignment: .leading, spacing: 1) {
-            ForEach(Array(lines.enumerated()), id: \.offset) { _, line in
-                text(line)
-                    .lineLimit(line.style == .milestone || line.style == .title ? 2 : 1)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-        }
-        .minimumScaleFactor(0.75)
-        .padding(.horizontal, 8)
-        .padding(.vertical, 6)
-        .frame(width: Self.width, alignment: .leading)
-        .calloutBackground()
-        .shadow(color: .black.opacity(0.12), radius: 6, y: 2)
-    }
-
-    @ViewBuilder
-    private func text(_ line: Line) -> some View {
-        switch line.style {
-        case .context:
-            Text(line.text)
-                .font(.caption2.weight(.semibold))
-                .monospacedDigit()
-                .foregroundStyle(Palette.secondaryInk)
-        case .milestone:
-            Label(line.text, systemImage: "flag.fill")
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(Palette.accent)
-        case .title:
-            Text(line.text)
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(Palette.ink)
-        case .value:
-            Text(line.text)
-                .font(.subheadline.weight(.bold))
-                .monospacedDigit()
-                .foregroundStyle(Palette.ink)
-        case .detail:
-            Text(line.text)
-                .font(.caption2)
-                .monospacedDigit()
-                .foregroundStyle(Palette.secondaryInk)
-        }
+        Image(systemName: "flag.fill")
+            .foregroundStyle(Palette.accent)
     }
 }
 
