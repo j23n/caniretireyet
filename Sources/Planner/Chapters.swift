@@ -114,6 +114,20 @@ public struct PlanChapter: Hashable, Sendable {
         case .working, .betweenWork: false
         }
     }
+
+    /// The year a point on the chapter's time axis stands for: the year of
+    /// `date`, within the chapter's years. The axis starts on 31 December of
+    /// the year before the chapter's first, and that point counts as its
+    /// first year.
+    public func year(on date: CalendarDate) -> Int {
+        min(max(date.year, years.lowerBound), years.upperBound)
+    }
+
+    /// The age at a point on the chapter's time axis: the age reached during
+    /// ``year(on:)``, as ``ages`` counts them, whatever the birthday.
+    public func age(on date: CalendarDate) -> Int {
+        ages.lowerBound + year(on: date) - years.lowerBound
+    }
 }
 
 extension Planner {
