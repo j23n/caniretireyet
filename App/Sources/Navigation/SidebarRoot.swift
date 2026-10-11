@@ -58,6 +58,7 @@ struct SidebarRoot: View {
                     }
                     ForEach(library.sortedPlans) { plan in
                         Label(plan.name, systemImage: AppSymbol.plan)
+                            .privacySensitive()
                             .tag(SidebarItem.plan(plan.id))
                     }
                 }
@@ -238,6 +239,7 @@ private struct SidebarAccountRow: View {
             Label {
                 Text(item.account.name)
                     .lineLimit(1)
+                    .privacySensitive()
             } icon: {
                 Image(systemName: item.account.kind.systemImage)
             }

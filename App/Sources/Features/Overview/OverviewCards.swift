@@ -28,7 +28,7 @@ struct OverviewChangeCard: View {
     }
 
     var body: some View {
-        Card(title) {
+        Card {
             VStack(alignment: .leading, spacing: Metrics.m) {
                 WaterfallChart(change: report.total,
                                from: AmountFormat.shortDate(report.from, relativeTo: .today(), locale: locale),
@@ -39,6 +39,10 @@ struct OverviewChangeCard: View {
                     .foregroundStyle(Palette.mutedInk)
                     .fixedSize(horizontal: false, vertical: true)
             }
+        } header: {
+            // "What moved in September" names the check-in's month.
+            SectionHeader(title)
+                .privacySensitive()
         }
     }
 
@@ -86,6 +90,7 @@ struct OverviewYearCard: View {
                         .font(.subheadline)
                         .foregroundStyle(Palette.ink)
                         .fixedSize(horizontal: false, vertical: true)
+                        .privacySensitive()
                 }
             }
         }
@@ -203,6 +208,7 @@ struct OverviewAnswerView: View {
                     .font(.caption)
                     .foregroundStyle(Palette.secondaryInk)
                     .fixedSize(horizontal: false, vertical: true)
+                    .privacySensitive()
             }
             if mainPlanIsUnreadable {
                 Button("Show Details") { navigation.show(.sync) }
@@ -239,6 +245,7 @@ struct OverviewAnswerView: View {
                 .foregroundStyle(Palette.ink)
                 .dynamicTypeSize(...DynamicTypeSize.accessibility2)
                 .fixedSize(horizontal: false, vertical: true)
+                .privacySensitive()
             VStack(alignment: .leading, spacing: 2) {
                 if let when = whenText(headline) {
                     Text(when)
@@ -249,6 +256,7 @@ struct OverviewAnswerView: View {
                     .font(.footnote)
                     .foregroundStyle(Palette.secondaryInk)
             }
+            .privacySensitive()
             // Plan assets against what retiring today needs, from the simulation. An answer
             // recorded before that existed has only the old FI progress, which disagreed with
             // the chance of retiring today, so it gets a neutral line instead.
@@ -265,6 +273,7 @@ struct OverviewAnswerView: View {
                         .foregroundStyle(Palette.ink)
                     Text(gapText(gap))
                         .foregroundStyle(Palette.secondaryInk)
+                        .privacySensitive()
                 }
                 .font(.subheadline)
             }
@@ -288,6 +297,7 @@ struct OverviewAnswerView: View {
             Text("As recorded at the check-in on \(AmountFormat.shortDate(recorded, locale: locale))")
                 .font(.caption)
                 .foregroundStyle(Palette.mutedInk)
+                .privacySensitive()
         }
         if let progress {
             Text(PlanRunText.status(progress, isCheckIn: plans.isRunning(plan.id, .checkIn), locale: locale))
@@ -319,6 +329,7 @@ struct OverviewAnswerView: View {
                 .font(.callout)
                 .foregroundStyle(Palette.secondaryInk)
                 .fixedSize(horizontal: false, vertical: true)
+                .privacySensitive()
             HStack(spacing: Metrics.s) {
                 Button("Try Again") { Task { await plans.run(plan.id) } }
                 Button("Open Plan") { navigation.showPlan(plan.id) }
@@ -339,9 +350,11 @@ struct OverviewAnswerView: View {
                     Text("Working out \(plan.name)… \(PlanRunText.overall(progress, locale: locale))")
                         .monospacedDigit()
                         .foregroundStyle(Palette.secondaryInk)
+                        .privacySensitive()
                 } else {
                     Text("Working out \(plan.name)…")
                         .foregroundStyle(Palette.secondaryInk)
+                        .privacySensitive()
                 }
             }
         } else if let error = plans.errors[plan.id] {
@@ -352,6 +365,7 @@ struct OverviewAnswerView: View {
                     .font(.callout)
                     .foregroundStyle(Palette.secondaryInk)
                     .fixedSize(horizontal: false, vertical: true)
+                    .privacySensitive()
                 Button("Calculate") { Task { await plans.run(plan.id) } }
                     .buttonStyle(.borderedProminent)
             }
@@ -567,6 +581,7 @@ private struct OverviewAttentionRow: View {
                     .foregroundStyle(Palette.secondaryInk)
                     .fixedSize(horizontal: false, vertical: true)
             }
+            .privacySensitive()
             Spacer(minLength: Metrics.s)
             Image(systemName: "chevron.right")
                 .font(.footnote.weight(.semibold))
