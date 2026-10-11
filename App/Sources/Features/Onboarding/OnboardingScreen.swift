@@ -198,12 +198,14 @@ struct OnboardingScreen: View {
         VStack(alignment: .leading, spacing: Metrics.l) {
             Text("Your money")
                 .font(.title2.bold())
-            Text("Optional. Your first plan starts from these, in \(currency.rawValue) after tax, so it can answer "
-                + "as soon as your accounts are in. You can change them in the plan any time.")
+            Text(moneyIntro)
                 .foregroundStyle(Palette.secondaryInk)
             VStack(alignment: .leading, spacing: Metrics.m) {
                 PlanNumberRow("Take-home pay", value: $payPerMonth, unit: "/month")
                 PlanNumberRow("Spending", value: $spendingPerMonth, unit: "/month")
+                if hasNegativeAmount {
+                    PlanIssueLine(message: "Pay and spending can't be negative.", isError: true)
+                }
             }
             .onboardingCard()
             VStack(alignment: .leading, spacing: Metrics.xs) {
@@ -214,6 +216,20 @@ struct OnboardingScreen: View {
             }
             .onboardingCard()
         }
+    }
+
+    /// Outside the euro a new library has no exchange rates to convert the
+    /// default spending with, so without spending there's no first plan
+    /// (``PlanEditing/starterPlan(id:name:library:asOf:payPerMonth:spendingPerMonth:)``).
+    private var moneyIntro: String {
+        let intro = "Optional. Your first plan starts from these, in \(currency.rawValue) after tax, so it can answer "
+            + "as soon as your accounts are in. You can change them in the plan any time."
+        return currency == .eur ? intro : intro + " Without spending, there's no first plan yet."
+    }
+
+    /// A negative amount is never used, so *Create library* waits until it's fixed.
+    private var hasNegativeAmount: Bool {
+        (payPerMonth ?? 0) < 0 || (spendingPerMonth ?? 0) < 0
     }
 
     private var buttons: some View {
@@ -236,7 +252,7 @@ struct OnboardingScreen: View {
                     }
                 }
                 .buttonStyle(.borderedProminent)
-                .disabled(isCreating)
+                .disabled(isCreating || hasNegativeAmount)
             } else {
                 Button("Continue") {
                     withAnimation { step = Step(rawValue: step.rawValue + 1) ?? .money }
