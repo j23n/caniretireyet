@@ -254,7 +254,9 @@ public enum Planner {
     /// nothing more, each work phase paying at most the spending while
     /// working, without growth, and no contributions; or an uncertain
     /// windfall that never comes (its probability 0, so the other events'
-    /// draws stay the same).
+    /// draws stay the same). The plan at the pace needs the pace, so
+    /// ``AgeWithout/Change/pace`` leaves it as it is: use
+    /// ``plan(_:atPace:library:)``.
     public static func plan(_ plan: PlanDocument, without change: AgeWithout.Change) -> PlanDocument {
         var plan = plan
         switch change {
@@ -268,6 +270,8 @@ public enum Planner {
             plan.contributions = []
         case .windfall(let index):
             if plan.events.indices.contains(index) { plan.events[index].probability = 0 }
+        case .pace:
+            break
         }
         return plan
     }
