@@ -59,8 +59,8 @@ struct PlanTimeline {
         /// The milestones the median future reaches in it (PROGRESS.md, "Milestones").
         let milestones: [ProjectedMilestone]
         let outcome: PlanChaptersModel.Outcome?
-        /// Your birth date, for the age on a date.
-        let birthDate: CalendarDate
+        /// The chapter, for the age and the year at a point.
+        let chapter: PlanChapter
 
         var id: Int { index }
 
@@ -85,9 +85,16 @@ struct PlanTimeline {
             return point { last[keyPath: $0] }
         }
 
-        /// Your age on `date`.
+        /// The year a point on the card stands for: its start counts as the
+        /// chapter's first year (``PlanChapter/year(on:)``).
+        func year(on date: Date) -> Int {
+            chapter.year(on: CalendarDate(date, in: .current))
+        }
+
+        /// The age reached during that year, as the start label, the ticks
+        /// and the end label count them (``PlanChapter/age(on:)``).
         func age(on date: Date) -> Int {
-            birthDate.wholeYears(to: CalendarDate(date, in: .current))
+            chapter.age(on: CalendarDate(date, in: .current))
         }
     }
 
@@ -128,7 +135,7 @@ struct PlanTimeline {
                 milestones: milestones.filter {
                     $0.date.dateValue > dates.lowerBound && $0.date.dateValue <= dates.upperBound
                 },
-                outcome: model.outcomes[index], birthDate: birthDate)
+                outcome: model.outcomes[index], chapter: chapter)
         }
     }
 
