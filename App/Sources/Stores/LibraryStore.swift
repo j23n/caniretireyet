@@ -166,6 +166,17 @@ final class LibraryStore {
         return store
     }
 
+    /// A store without a library, for first launch's screen tests
+    /// (``ScreenLaunch``): onboarding shows at once, and *Create library*
+    /// creates one on this device, in `folder`. It never looks for iCloud
+    /// Drive (``start()`` does), so ``isICloudAvailable`` stays false and
+    /// onboarding offers only this device.
+    static func needingSetup(in folder: URL, preferences: AppPreferences?) -> LibraryStore {
+        let store = LibraryStore(locator: LibraryLocator(localFolder: folder), preferences: preferences)
+        store.phase = .needsSetup
+        return store
+    }
+
     // MARK: Derived values
 
     /// A valuator over the current library, rebuilt only when it changes.

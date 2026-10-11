@@ -21,19 +21,25 @@ enum PlanEditing {
                      tax: defaultTax(in: library), spending: defaultSpending(in: library, asOf: asOf))
     }
 
+    /// The name of the plan onboarding creates.
+    static let starterPlanName = "Base case"
+
     /// The plan onboarding creates (UI.md, "Empty states and first
     /// launch"): a ``newPlan(id:name:library:asOf:)`` with the pay and
-    /// spending entered a month (Planner's `PlanDocument.setMonthly`).
-    /// `nil` when no spending was entered and the default has nothing to
-    /// come from: without a rate from euros, it would spend 30,000 of any
-    /// currency.
+    /// spending entered a month (Planner's `PlanDocument.setMonthly`),
+    /// retiring at the age wished for, else as early as possible
+    /// (`PlanDocument.setRetirementAge`). `nil` when no spending was
+    /// entered and the default has nothing to come from: without a rate
+    /// from euros, it would spend 30,000 of any currency.
     static func starterPlan(id: PlanID, name: String, library: Library, asOf: CalendarDate,
-                            payPerMonth: Decimal?, spendingPerMonth: Decimal?) -> PlanDocument? {
+                            payPerMonth: Decimal?, spendingPerMonth: Decimal?,
+                            retirementAge: Int? = nil) -> PlanDocument? {
         let entersSpending = spendingPerMonth.map { $0 >= 0 } ?? false
         guard entersSpending || sourcePlan(in: library) != nil
               || convertedReferenceSpending(in: library, asOf: asOf) != nil else { return nil }
         var plan = newPlan(id: id, name: name, library: library, asOf: asOf)
         plan.setMonthly(payPerMonth: payPerMonth, spendingPerMonth: spendingPerMonth, asOf: asOf)
+        plan.setRetirementAge(retirementAge)
         return plan
     }
 

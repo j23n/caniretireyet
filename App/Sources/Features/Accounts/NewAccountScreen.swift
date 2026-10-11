@@ -15,7 +15,9 @@ import Tracker
 /// 4. Whether it counts in net worth and plans, and from what age plans can
 ///    draw on it (a pension fund from 65 by default).
 ///
-/// ⌘N, the Accounts toolbar and onboarding present it in a NavigationStack.
+/// ⌘N and the Accounts toolbar present it in a NavigationStack; first
+/// launch's accounts step pushes it on its own stack, which *Cancel* and
+/// *Add* go back to.
 struct NewAccountScreen: View {
     @Environment(LibraryStore.self) private var library
     @Environment(\.dismiss) private var dismiss
