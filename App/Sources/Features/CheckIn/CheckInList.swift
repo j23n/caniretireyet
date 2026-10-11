@@ -435,7 +435,7 @@ private struct CheckInListRow: View {
                 .foregroundStyle(Palette.secondaryInk)
             CheckInNumberField(
                 outField, focus: focus, isFocused: focused == outField,
-                value: row.enteredMoneyOut ?? review?.valuation?.moneyOut, prompt: "0",
+                value: row.enteredMoneyOut ?? review?.valuation?.moneyOut, prompt: "unknown",
                 label: outField.name(in: library.library), allowsEmpty: true, onSubmit: { next(outField) }
             ) { amount in
                 checkIn.updateRow(row.account) { $0.setMoneyOut(amount) }
