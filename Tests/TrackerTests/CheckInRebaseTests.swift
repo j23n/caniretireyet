@@ -13,10 +13,12 @@ struct CheckInRebaseTests {
         library = try Fixtures.exampleLibrary()
     }
 
-    /// The library after the other device saved conto-fineco on 2026-10-31.
+    /// The library after the other device saved conto-fineco on 2026-10-31,
+    /// with nothing typed but its balance.
     private func savedElsewhere(balance: Decimal = 5000, flow: Decimal = d("789.45")) -> Library {
         var library = library
-        library.upsert(Valuation(account: "conto-fineco", date: "2026-10-31", balance: balance, flow: flow))
+        library.upsert(Valuation(account: "conto-fineco", date: "2026-10-31", balance: balance, flow: flow,
+                                 moneyIn: 0, moneyOut: CheckInDraft.defaultMoneyOut(moneyIn: 0, flow: flow)))
         return library
     }
 
@@ -37,7 +39,8 @@ struct CheckInRebaseTests {
         var saved = changed
         draft.apply(to: &saved)
         #expect(saved.valuations(for: "conto-fineco").last
-            == Valuation(account: "conto-fineco", date: "2026-10-31", balance: 5000, flow: d("789.45")))
+            == Valuation(account: "conto-fineco", date: "2026-10-31", balance: 5000, flow: d("789.45"), moneyIn: 0,
+                         moneyOut: 0))
     }
 
     @Test func enteredValuesThatDifferFromTheSavedOneConflictAndWriteNothing() throws {

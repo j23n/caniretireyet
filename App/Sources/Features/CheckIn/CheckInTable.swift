@@ -250,11 +250,6 @@ private struct CheckInTableRow: View {
                 if row.showsCash && row.state != .skipped {
                     cashLine
                 }
-            } else if row.mode == .holdings {
-                ForEach(row.positions) { position in
-                    positionLine(position)
-                }
-                cashLine
             } else if CheckInRowDisplay.showsMoneyInOut(row, in: library.library) {
                 moneyLine(.moneyIn(row.account), title: "Money in", value: row.moneyIn, prompt: "0,00") {
                     $0.setMoneyIn($1)
@@ -269,8 +264,7 @@ private struct CheckInTableRow: View {
                 .padding(.leading, CheckInColumns.inset)
         }
         .contextMenu {
-            CheckInRowMenu(row: row, rule: rule, date: date, session: session, checkIn: checkIn,
-                           instruments: library.library.instruments)
+            CheckInRowMenu(row: row, rule: rule, date: date, session: session, checkIn: checkIn)
         }
     }
 
@@ -281,7 +275,7 @@ private struct CheckInTableRow: View {
     private var currency: CurrencyCode { account?.currency ?? library.baseCurrency }
     private var rule: FlowDefault { review?.flowRule ?? .ask }
 
-    /// "FinecoBank", "3 positions · 1 changed", "last value 31 May", plus
+    /// "FinecoBank", "3 positions · from trades", "last value 31 May", plus
     /// the currency when it isn't the base one. For an account that opens
     /// later, when it opens or that saving moves that. A quantity in it
     /// hides with the eye.
@@ -292,8 +286,6 @@ private struct CheckInTableRow: View {
             parts.append(AmountSentence(opening))
         } else if row.isTrades {
             parts.append(CheckInWording.tradesSummary(row, instruments: library.library.instruments, locale: locale))
-        } else if row.mode == .holdings {
-            parts.append(CheckInWording.holdingsSummary(row, instruments: library.library.instruments, locale: locale))
         } else if let note = CheckInWording.lastValueNote(for: row, previousCheckIn: previousCheckIn, locale: locale) {
             parts.append(AmountSentence(note.prefix(1).lowercased() + String(note.dropFirst())))
         } else if let institution = account?.institution {
@@ -303,7 +295,7 @@ private struct CheckInTableRow: View {
         return parts.isEmpty ? nil : parts.joined(separator: " · ")
     }
 
-    /// Balances in the account's currency; holdings in the base currency.
+    /// Balances in the account's currency; a trades account's value in the base currency.
     private var lastAmount: Decimal? {
         row.mode == .balance ? row.previous?.balance : review?.previousValue
     }
@@ -416,68 +408,6 @@ private struct CheckInTableRow: View {
         }
         .foregroundStyle(Palette.secondaryInk)
         .checkInFieldBox(isFocused: focused == field, height: 26)
-    }
-
-    // MARK: Positions and cash
-
-    private func positionLine(_ position: CheckInPosition) -> some View {
-        let instrument = library.library.instruments[position.instrument]
-        let valued = review?.positions.first(where: { $0.instrument == position.instrument })
-        let quantityField = CheckInField.quantity(row.account, position.instrument)
-        let paidField = CheckInField.paid(row.account, position.instrument)
-        return CheckInTableLine {
-            Color.clear
-        } account: {
-            HStack(spacing: 0) {
-                Text(verbatim: CheckInWording.instrumentLabel(position.instrument, instrument: instrument))
-                    .fontWeight(.medium)
-                    .privacySensitiveInFeedback()
-                Text(verbatim: " · " + CheckInWording.priceText(unit: "", price: valued?.price, locale: locale) + " = ")
-                    .foregroundStyle(Palette.secondaryInk)
-                    .privacySensitiveInFeedback()
-                CheckInPlainAmount(valued?.value)
-                    .foregroundStyle(Palette.secondaryInk)
-            }
-            .lineLimit(1)
-            .padding(.leading, Metrics.l)
-        } last: {
-            Text(verbatim: CheckInWording.quantity(position.previousQuantity, instrument: instrument, locale: locale))
-                .monospacedDigit()
-                .foregroundStyle(Palette.secondaryInk)
-                .privacySensitiveAmount()
-        } now: {
-            CheckInNumberField(
-                quantityField, focus: focus, isFocused: focused == quantityField, value: position.quantity,
-                style: .quantity, prompt: "0", label: quantityField.name(in: library.library),
-                onSubmit: { onReturn(quantityField) }
-            ) { quantity in
-                guard let quantity else { return }
-                checkIn.updateRow(row.account) { $0.setQuantity(quantity, of: position.instrument) }
-            }
-            .checkInFieldBox(isFocused: focused == quantityField, height: 24)
-        } change: {
-            CheckInQuantityChange(position.quantityChange)
-        } newMoney: {
-            if position.isIncrease {
-                CheckInNumberField(
-                    paidField, focus: focus, isFocused: focused == paidField, value: position.paid,
-                    prompt: CheckInFieldFormat.text(for: valued?.estimatedPaid, style: .amount, locale: locale),
-                    label: paidField.name(in: library.library), allowsEmpty: true,
-                    onSubmit: { onReturn(paidField) }
-                ) { amount in
-                    checkIn.updateRow(row.account) { $0.setPaid(amount, for: position.instrument) }
-                }
-                .checkInFieldBox(isFocused: focused == paidField, height: 24)
-                .help("What you paid for the added quantity. Empty uses the price on the check-in date.")
-            } else {
-                Text(verbatim: "—")
-                    .foregroundStyle(Palette.mutedInk)
-            }
-        } note: {
-            Color.clear
-        }
-        .font(.callout)
-        .frame(height: 30)
     }
 
     // MARK: Trades accounts

@@ -70,13 +70,21 @@ extension AccountKind {
         self == .brokerage || self == .crypto || self == .metals
     }
 
-    /// How the check-in pre-fills a valuation's `flow` for this kind
-    /// (PROGRESS.md, "Data this needs from day one").
+    /// Whether a drop in what the account owes counts as kept in the
+    /// savings rate, as principal repaid: loans and mortgages, whose
+    /// payments are money out of the account they leave. A credit card's
+    /// drop doesn't count: it's paying for what was spent.
+    public var countsPrincipalRepaid: Bool {
+        self == .loan || self == .mortgage
+    }
+
+    /// How a valuation's `flow` is worked out for this kind (PROGRESS.md,
+    /// "Data this needs from day one").
     public var defaultFlow: FlowDefault {
         switch self {
         case .cash, .creditCard, .loan, .mortgage: .wholeChange
-        case .savings: .wholeChangeEditable
-        case .brokerage, .crypto, .metals: .newMoney
+        case .savings: .changeLessInterest
+        case .brokerage, .crypto, .metals: .trades
         default: .ask
         }
     }
@@ -103,14 +111,21 @@ public struct ValuationMode: OpenEnum {
     public static let knownValues: [ValuationMode] = [.balance, .trades]
 }
 
-/// The default for a valuation's `flow` at check-in, by account kind.
+/// How a valuation's `flow` is worked out, by account kind.
 public enum FlowDefault: String, Hashable, Sendable, CaseIterable {
     /// The whole change is new money (current accounts, cards, loans, mortgages).
     case wholeChange
-    /// The whole change, but the user is invited to edit it (savings: interest can matter).
-    case wholeChangeEditable
-    /// The part of the change that isn't price movement (brokerage, crypto, metals).
-    case newMoney
+    /// The change minus the interest recorded with the value (savings), so
+    /// the interest counts as market.
+    case changeLessInterest
+    /// Worked out from the account's trades (brokerage, crypto, metals,
+    /// which record trades): its deposits, withdrawals and trades settled
+    /// outside it.
+    case trades
     /// Asked for; empty means unknown (pension fund, TFR, property, other balances).
     case ask
+
+    /// Whether the flow is worked out from what's recorded, never typed:
+    /// every rule but ``ask``.
+    public var isWorkedOut: Bool { self != .ask }
 }

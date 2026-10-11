@@ -14,7 +14,8 @@ public struct FlowFollowUp: Hashable, Sendable {
     /// sorted by date, then account.
     public var recomputed: [Valuation] = []
     /// Valuations whose flow was typed by hand, kept although the valuation
-    /// before them changed; sorted by date, then account.
+    /// before them changed; sorted by date, then account. Never a cash or
+    /// savings account's: their flows are always worked out again.
     public var kept: [Valuation] = []
     /// Valuations that record money in and out whose previous valuation is
     /// now on another date: their amounts were for the days since the old
@@ -54,13 +55,14 @@ extension Library {
     /// its flow is worked out again from the new previous valuation if it was
     /// the automatic one: the default for the account's kind measured from
     /// the old previous valuation, as a check-in would have filled it in
-    /// (``Valuator/defaultFlow(for:previous:paid:)``, with what was paid read
-    /// from the cost bases). A flow typed by hand (one that differs from
-    /// that default) is kept. Money in and out are kept too, and a valuation
+    /// (``Valuator/defaultFlow(for:previous:)``). A flow typed by hand (one
+    /// that differs from that default) is kept, except on a cash or savings
+    /// account, whose flow is always worked out from what's recorded
+    /// (docs/ACCOUNTS.md, "New money"). Money in and out are kept too, and a valuation
     /// that records them is listed when the one before it is now on another
     /// date (``FlowFollowUp/moneyInOut``). When that date stays (the one
-    /// before was corrected), a money out that was the suggestion for the old
-    /// flow (``CheckInDraft/defaultMoneyOut(moneyIn:flow:)``) follows the new
+    /// before was corrected), a current account's money out that was the
+    /// suggestion for the old flow (``CheckInDraft/defaultMoneyOut(moneyIn:flow:)``) follows the new
     /// one. The valuations `edit` writes keep what it gave them.
     @discardableResult
     public mutating func editValuations(_ edit: (inout Library) throws -> Void) rethrows -> FlowFollowUp {
@@ -120,7 +122,7 @@ extension Library {
     /// For an account that records trades, a change to its trades (see
     /// ``addTrade(_:)``) counts too: the flow of each of its valuations is
     /// the automatic one when it equals what its trades and cash gave
-    /// before (``Valuator/defaultFlow(for:previous:paid:)``), and is then
+    /// before (``Valuator/defaultFlow(for:previous:)``), and is then
     /// worked out again from the trades as they are now.
     @discardableResult
     public mutating func followFlows(from before: Library) -> FlowFollowUp {
@@ -148,21 +150,22 @@ extension Library {
                     moneyInOut.append(valuation.key)
                 }
                 guard oldPrevious != newPrevious || tradesChanged else { continue }
-                let automatic = oldValuator.valuator.defaultFlow(
-                    for: valuation, previous: oldPrevious, paid: CheckInRow.paid(in: valuation, since: oldPrevious))
-                let recomputed = newValuator.valuator.defaultFlow(
-                    for: valuation, previous: newPrevious, paid: CheckInRow.paid(in: valuation, since: newPrevious))
+                let worksOutFlow = accounts[account]?.kind.recordsMoneyInOut ?? false
+                let automatic = oldValuator.valuator.defaultFlow(for: valuation, previous: oldPrevious)
+                let recomputed = newValuator.valuator.defaultFlow(for: valuation, previous: newPrevious)
                 // Only the trades changed, and not in a way that concerns this valuation.
                 if oldPrevious == newPrevious, recomputed == automatic { continue }
-                guard automatic == valuation.flow else {
+                // A cash or savings account's flow is always worked out from what's recorded.
+                guard automatic == valuation.flow || worksOutFlow else {
                     result.kept.append(valuation)
                     continue
                 }
                 var updated = valuation
                 updated.flow = recomputed
-                // Over the same days, a money out that was the suggestion follows the flow, as at the
-                // check-in. Over other days, money in no longer matches the flow.
-                if let newPrevious, newPrevious.date == oldPrevious?.date,
+                // Over the same days, a current account's money out that was the suggestion follows the
+                // flow, as at the check-in (a savings account's starts at 0). Over other days, money in no
+                // longer matches the flow.
+                if let newPrevious, newPrevious.date == oldPrevious?.date, accounts[account]?.kind == .cash,
                    let moneyIn = valuation.moneyIn, let moneyOut = valuation.moneyOut,
                    moneyOut == CheckInDraft.defaultMoneyOut(moneyIn: moneyIn, flow: valuation.flow),
                    let following = CheckInDraft.defaultMoneyOut(moneyIn: moneyIn, flow: recomputed) {

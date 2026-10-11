@@ -292,8 +292,8 @@ private struct CheckInPriceStatusLabel: View {
 
 // MARK: - Rows
 
-/// One account: a balance field, or its positions and cash (expanded on
-/// tap), with the line under it ("was 4.520,75 · new money −310,20") and,
+/// One account: a balance field, or a trades account's holdings and cash
+/// from its trades, with the line under it ("was 4.520,75 · new money −310,20") and,
 /// where the kind asks for it, "Contributions since June".
 private struct CheckInListRow: View {
     let row: CheckInRow
@@ -318,8 +318,6 @@ private struct CheckInListRow: View {
         VStack(alignment: .leading, spacing: Metrics.s) {
             if row.isTrades {
                 trades
-            } else if row.mode == .holdings {
-                holdings
             } else {
                 balance
             }
@@ -346,8 +344,7 @@ private struct CheckInListRow: View {
             }
         }
         .contextMenu {
-            CheckInRowMenu(row: row, rule: rule, date: date, session: session, checkIn: checkIn,
-                           instruments: library.library.instruments)
+            CheckInRowMenu(row: row, rule: rule, date: date, session: session, checkIn: checkIn)
         }
     }
 
@@ -369,7 +366,7 @@ private struct CheckInListRow: View {
         CheckInWording.openingNote(for: row, opened: account?.opened, date: date, locale: locale)
     }
     /// The value it was: the previous balance in the account's currency, or
-    /// the previous holdings' value in the base currency.
+    /// a trades account's previous value in the base currency.
     private var previousAmount: Decimal? {
         row.mode == .balance ? row.previous?.balance : review?.previousValue
     }
@@ -450,127 +447,6 @@ private struct CheckInListRow: View {
             Color.clear
                 .frame(width: 22, height: 1)
         }
-    }
-
-    // MARK: Holdings
-
-    @ViewBuilder
-    private var holdings: some View {
-        let isExpanded = session.expanded.contains(row.account)
-        let toggleLabel = isExpanded ? "\(name), hide positions" : "\(name), show positions"
-        HStack(spacing: Metrics.s) {
-            Button {
-                withAnimation { session.toggleExpanded(row.account) }
-            } label: {
-                HStack(spacing: Metrics.s) {
-                    Image(systemName: "chevron.right")
-                        .font(.footnote.weight(.semibold))
-                        .foregroundStyle(Palette.mutedInk)
-                        .rotationEffect(.degrees(isExpanded ? 90 : 0))
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(verbatim: name)
-                            .fontWeight(.semibold)
-                            .foregroundStyle(Palette.ink)
-                            .privacySensitiveInFeedback()
-                        if let lastValueNote {
-                            Text(verbatim: lastValueNote)
-                                .font(.footnote)
-                                .foregroundStyle(Palette.secondaryInk)
-                                .privacySensitiveInFeedback()
-                        }
-                    }
-                    Spacer(minLength: Metrics.s)
-                    if let value = review?.value?.knownValue {
-                        AmountText(value, precision: .cents)
-                            .foregroundStyle(Palette.ink)
-                    }
-                }
-                .contentShape(Rectangle())
-            }
-            .buttonStyle(.borderless)
-            .accessibilityLabel(Text(verbatim: toggleLabel))
-            CheckInStateIndicator(row: row)
-        }
-        if isExpanded {
-            ForEach(row.positions) { position in
-                positionLines(position)
-            }
-            cashLine
-            caption
-            if showsFlowField {
-                flowField
-            }
-        } else {
-            AmountSentenceText(CheckInWording.holdingsSummary(row, instruments: library.library.instruments,
-                                                              locale: locale))
-                .font(.footnote)
-                .foregroundStyle(Palette.secondaryInk)
-        }
-    }
-
-    @ViewBuilder
-    private func positionLines(_ position: CheckInPosition) -> some View {
-        let instrument = library.library.instruments[position.instrument]
-        let field = CheckInField.quantity(row.account, position.instrument)
-        let valued = review?.positions.first(where: { $0.instrument == position.instrument })
-        HStack(spacing: Metrics.s) {
-            Text(verbatim: CheckInWording.instrumentLabel(position.instrument, instrument: instrument))
-                .font(.subheadline.weight(.semibold))
-                .lineLimit(1)
-                .frame(width: 60, alignment: .leading)
-                .privacySensitiveInFeedback()
-            CheckInNumberField(
-                field, focus: focus, isFocused: focused == field, value: position.quantity, style: .quantity,
-                prompt: "0", label: field.name(in: library.library), onSubmit: { next(field) }
-            ) { quantity in
-                guard let quantity else { return }
-                checkIn.updateRow(row.account) { $0.setQuantity(quantity, of: position.instrument) }
-            }
-            .frame(width: 72)
-            .checkInFieldBox(isFocused: focused == field)
-            Text(verbatim: CheckInWording.priceText(unit: CheckInWording.unit(of: instrument), price: valued?.price,
-                                                    locale: locale))
-                .font(.footnote)
-                .foregroundStyle(Palette.secondaryInk)
-                .lineLimit(1)
-                .privacySensitiveInFeedback()
-            Spacer(minLength: 0)
-            CheckInPlainAmount(valued?.value)
-                .font(.subheadline)
-                .foregroundStyle(Palette.secondaryInk)
-        }
-        if position.quantityChange != 0 {
-            HStack(spacing: Metrics.s) {
-                CheckInQuantityChange(position.quantityChange)
-                Text(verbatim: sinceText(position))
-                    .privacySensitiveInFeedback()
-                if position.isIncrease {
-                    Text("· paid")
-                    Spacer(minLength: Metrics.xs)
-                    paidField(position, estimate: valued?.estimatedPaid)
-                }
-            }
-            .font(.footnote)
-            .foregroundStyle(Palette.secondaryInk)
-            .padding(.leading, 68)
-        }
-    }
-
-    private func paidField(_ position: CheckInPosition, estimate: Decimal?) -> some View {
-        let field = CheckInField.paid(row.account, position.instrument)
-        return HStack(spacing: Metrics.xs) {
-            CheckInNumberField(
-                field, focus: focus, isFocused: focused == field, value: position.paid,
-                prompt: CheckInFieldFormat.text(for: estimate, style: .amount, locale: locale),
-                label: field.name(in: library.library), allowsEmpty: true, onSubmit: { next(field) }
-            ) { amount in
-                checkIn.updateRow(row.account) { $0.setPaid(amount, for: position.instrument) }
-            }
-            Text(verbatim: symbol)
-                .foregroundStyle(Palette.secondaryInk)
-        }
-        .frame(width: 104)
-        .checkInFieldBox(isFocused: focused == field)
     }
 
     private var cashLine: some View {
@@ -1001,14 +877,6 @@ private struct CheckInListRow: View {
 
     private func skip() {
         checkIn.updateRow(row.account) { $0.skip() }
-    }
-
-    // MARK: Words
-
-    /// "since 31 Aug", or "new" for a position that wasn't held.
-    private func sinceText(_ position: CheckInPosition) -> String {
-        guard position.previousQuantity != 0, let date = row.previous?.date else { return "new" }
-        return "since " + AmountFormat.shortDate(date, locale: locale)
     }
 }
 

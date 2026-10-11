@@ -4,13 +4,14 @@ import Testing
 import TestSupport
 import Tracker
 
-/// An October check-in on the example library, with Directa recorded as
-/// positions (see TradeCheckInTests for an account that records trades).
+/// An October check-in on the example library. Its investment accounts
+/// record trades (see TradeCheckInTests), with none since their previous
+/// values.
 struct CheckInDraftTests {
     let library: Library
 
     init() throws {
-        library = try exampleLibraryWithHoldings()
+        library = try Fixtures.exampleLibrary()
     }
 
     /// A new draft for 2026-10-31 with fetched prices and rates.
@@ -27,11 +28,9 @@ struct CheckInDraftTests {
     private func filledIn() -> CheckInDraft {
         var draft = october()
         draft["conto-fineco"]?.setBalance(d("4600.25"))
-        // Bought 10.5 VWCE for 1,450 and paid in 1,500.
-        draft["directa"]?.setQuantity(423, of: "vwce")
-        draft["directa"]?.setPaid(1450, for: "vwce")
-        draft["directa"]?.setCash(d("362.1"))
-        draft["ledger-wallet"]?.setQuantity(d("0.4"), of: "btc")
+        draft["conto-fineco"]?.setMoneyIn(3400)
+        // No Trades.
+        draft["directa"]?.markUnchanged()
         draft["fondo-pensione"]?.setBalance(18900)
         draft["fondo-pensione"]?.setFlow(1325)
         draft["casa"]?.skip()
@@ -46,16 +45,19 @@ struct CheckInDraftTests {
             "conto-deposito", "conto-fineco", "directa", "gold-coins", "ledger-wallet", "fondo-pensione", "tfr",
             "casa", "mutuo-casa",
         ])
+        // The trades accounts have no trades since their previous values: they wait too.
         #expect(draft.rows.allSatisfy { $0.state == .notReviewed })
         #expect(draft.reviewedCount == 0)
         #expect(!draft.isReadyToSave)
 
         let directa = try #require(draft["directa"])
-        #expect(directa.mode == .holdings)
+        #expect(directa.mode == .trades)
+        #expect(directa.kind == .brokerage)
         #expect(directa.previous?.date == "2026-09-30")
         #expect(directa.cash == d("312.1"))
-        #expect(directa.positions.map(\.quantity) == [d("412.5")])
-        #expect(directa.positions.first?.previousCostBasis == 48200)
+        #expect(directa.positions.isEmpty)
+        #expect(directa.derived?.positions.map(\.quantity) == [d("412.5")])
+        #expect(draft["conto-deposito"]?.kind == .savings)
         #expect(draft["tfr"]?.balance == d("10760.2"))
         #expect(draft["tfr"]?.previous?.date == "2026-06-30")
         #expect(draft["tfr"]?.mode == .balance)
@@ -66,13 +68,14 @@ struct CheckInDraftTests {
 
     @Test func editsSetTheRowState() throws {
         let draft = filledIn()
-        #expect(draft.count(.updated) == 5)
-        #expect(draft.count(.unchanged) == 3)
+        #expect(draft.count(.updated) == 3)
+        #expect(draft.count(.unchanged) == 5)
         #expect(draft.count(.skipped) == 1)
         #expect(draft.reviewedCount == 9)
         #expect(draft.isReadyToSave)
         #expect(draft["conto-deposito"]?.state == .unchanged)
-        #expect(draft["directa"]?.paid == ["vwce": 1450])
+        #expect(draft["directa"]?.state == .unchanged)
+        #expect(draft["directa"]?.hasUserInput == true)
 
         var partial = october()
         partial["conto-fineco"]?.setBalance(4000)
@@ -80,7 +83,7 @@ struct CheckInDraftTests {
         #expect(partial.reviewedCount == 1)
     }
 
-    @Test func producesValuationsWithFlowsAndCostBasis() throws {
+    @Test func producesValuationsWithFlowsAndMoneyInAndOut() throws {
         let records = filledIn().records(in: library)
         #expect(records.prices.count == 3)
         #expect(records.fxRates.count == 1)
@@ -89,50 +92,44 @@ struct CheckInDraftTests {
         #expect(valuations["casa"] == nil)
         #expect(records.valuations.allSatisfy { $0.date == "2026-10-31" })
 
+        // Money out is money in minus the change until typed.
         #expect(valuations["conto-fineco"] == Valuation(account: "conto-fineco", date: "2026-10-31",
-                                                        balance: d("4600.25"), flow: d("389.7")))
-        #expect(valuations["directa"] == Valuation(
-            account: "directa", date: "2026-10-31", cash: d("362.1"),
-            positions: [Position(instrument: "vwce", quantity: 423, costBasis: 49650)], flow: 1500))
-        // 0.0515 BTC sold at 100,000 USD ÷ 1.15.
-        #expect(valuations["ledger-wallet"]?.flow == d("-4478.26"))
+                                                        balance: d("4600.25"), flow: d("389.7"), moneyIn: 3400,
+                                                        moneyOut: d("3010.3")))
+        // No trades: the cash the trades give, and no new money.
+        #expect(valuations["directa"] == Valuation(account: "directa", date: "2026-10-31", cash: d("312.1"), flow: 0))
+        #expect(valuations["ledger-wallet"] == Valuation(account: "ledger-wallet", date: "2026-10-31", cash: 0,
+                                                         flow: 0))
         #expect(valuations["fondo-pensione"]?.flow == 1325)
-        #expect(valuations["mutuo-casa"]?.flow == 650)
-        // Unchanged rows repeat the previous values with flow 0.
+        #expect(valuations["mutuo-casa"] == Valuation(account: "mutuo-casa", date: "2026-10-31", balance: -140_400,
+                                                      flow: 650))
+        // An unchanged savings account repeats its balance with flow 0, and money in and out 0.
         #expect(valuations["conto-deposito"] == Valuation(account: "conto-deposito", date: "2026-10-31",
-                                                          balance: d("17365.55"), flow: 0))
-        #expect(valuations["gold-coins"] == Valuation(
-            account: "gold-coins", date: "2026-10-31", cash: 0,
-            positions: [Position(instrument: "gold", quantity: d("93.3"), costBasis: d("8236.03"))], flow: 0))
+                                                          balance: d("17365.55"), flow: 0, moneyIn: 0, moneyOut: 0))
     }
 
     @Test func reviewShowsTheNewTotalAndTheWaterfall() throws {
         let review = filledIn().review(in: library)
         #expect(review.previousCheckIn == "2026-09-30")
         #expect(review.netWorth.isComplete)
-        #expect(review.netWorth.total.rounded(2) == d("326827.41"))
 
         let change = try #require(review.change)
         #expect(change.from == "2026-09-30")
-        #expect(change.total.start.rounded(2) == d("332455.49"))
         #expect(change.total.end == review.netWorth.total)
-        // 389.7 + 1,500 − 4,478.26 + 1,325 + 650.
-        #expect(change.total.newMoney == d("-613.56"))
+        // 389.7 + 1,325 + 650.
+        #expect(change.total.newMoney == d("2364.7"))
         #expect(change.total.other == 0)
-        #expect(change.total.market.rounded(2) == d("-5014.53"))
-        // The 10.5 VWCE were bought 20 below the month-end price: that's market.
-        #expect(change.accounts.first { $0.account == "directa" }?.change.market == d("671.75"))
 
         let directa = try #require(review.row(for: "directa"))
-        #expect(directa.flow == 1500)
-        #expect(directa.defaultFlow == 1500)
-        #expect(directa.flowRule == .newMoney)
-        #expect(directa.value?.value == d("59582.1"))
-        #expect(directa.previousValue == d("57410.35"))
-        let vwce = try #require(directa.positions.first)
-        #expect(vwce.estimatedPaid == 1470)
-        #expect(vwce.costBasis == 49650)
-        #expect(vwce.price?.price == 140)
+        #expect(directa.flow == 0)
+        #expect(directa.defaultFlow == 0)
+        #expect(directa.flowRule == .trades)
+        // 412.5 × 140 + 312.1.
+        #expect(directa.value?.value == d("58062.1"))
+        #expect(directa.positions.map(\.instrument) == ["vwce"])
+        #expect(directa.positions.first?.price?.price == 140)
+        #expect(review.row(for: "conto-fineco")?.flowRule == .wholeChange)
+        #expect(review.row(for: "conto-deposito")?.flowRule == .changeLessInterest)
         #expect(review.row(for: "fondo-pensione")?.flowRule == .ask)
         #expect(review.row(for: "casa")?.valuation == nil)
         #expect(review.row(for: "casa")?.value?.value == 312_000)
@@ -140,42 +137,40 @@ struct CheckInDraftTests {
 
     @Test func warnings() throws {
         var draft = filledIn()
-        #expect(draft.review(in: library).warnings == [
-            .quantityDecreased(account: "ledger-wallet", instrument: "btc", from: d("0.4515"), to: d("0.4")),
-        ])
+        #expect(draft.review(in: library).warnings.isEmpty)
 
         draft["fondo-pensione"]?.setFlow(nil)
         draft["conto-fineco"]?.setBalance(6000)
         let warnings = draft.review(in: library).warnings
         #expect(warnings.contains(.largeChange(account: "conto-fineco", from: d("4210.55"), to: 6000)))
         #expect(warnings.contains(.unknownFlow(account: "fondo-pensione")))
-        #expect(warnings.count == 3)
+        #expect(warnings.count == 2)
 
         var unpriced = october()
         unpriced["directa"]?.setQuantity(1, of: "unlisted")
-        #expect(unpriced.review(in: library).warnings.contains(
-            .valuation(.missingPrice(account: "directa", instrument: "unlisted"))))
+        #expect(unpriced.review(in: library).row(for: "directa")?.mismatches.map(\.instrument) == ["unlisted", "vwce"])
     }
 
     @Test func markingUnchangedRestoresThePreviousValues() throws {
         var draft = october()
-        draft["directa"]?.setQuantity(500, of: "vwce")
-        draft["directa"]?.setQuantity(3, of: "new-etf")
-        draft["directa"]?.setFlow(99)
-        draft["directa"]?.markUnchanged()
-        let directa = try #require(draft["directa"])
-        #expect(directa.state == .unchanged)
-        #expect(directa.positions.map(\.instrument) == ["vwce"])
-        #expect(directa.positions.first?.quantity == d("412.5"))
-        #expect(!directa.isFlowEdited)
-        #expect(draft.records(in: library).valuations.first?.flow == 0)
+        draft["conto-fineco"]?.setBalance(5000)
+        draft["conto-fineco"]?.setMoneyIn(3400)
+        draft["conto-fineco"]?.setMoneyOut(2000)
+        draft["conto-fineco"]?.markUnchanged()
+        let fineco = try #require(draft["conto-fineco"])
+        #expect(fineco.state == .unchanged)
+        #expect(fineco.balance == d("4210.55"))
+        #expect(fineco.moneyIn == nil)
+        #expect(fineco.enteredMoneyOut == nil)
+        #expect(draft.records(in: library).valuations == [
+            Valuation(account: "conto-fineco", date: "2026-10-31", balance: d("4210.55"), flow: 0, moneyIn: 0,
+                      moneyOut: 0),
+        ])
 
-        draft["directa"]?.removePosition("vwce")
-        #expect(draft["directa"]?.positions.first?.quantity == 0)
-        #expect(draft["directa"]?.state == .updated)
-        draft["directa"]?.resetFlow()
-        // Sold everything: the position is left out of the valuation.
-        #expect(draft.records(in: library).valuations.first?.positions.isEmpty == true)
+        // A balance typed again makes it updated.
+        draft["conto-fineco"]?.setBalance(4300)
+        #expect(draft["conto-fineco"]?.state == .updated)
+        #expect(draft.records(in: library).valuations.first?.flow == d("89.45"))
     }
 
     @Test func applyingSavesTheCheckIn() throws {
@@ -202,36 +197,46 @@ struct CheckInDraftTests {
         #expect(draft.records(in: library).valuations == existing)
     }
 
-    /// Correcting a value on a date already saved: a flow that was the
-    /// default for the saved values follows the correction; one typed by
-    /// hand stays; untouched rows are written back as they were.
+    /// Correcting a value on a date already saved: a cash or savings
+    /// account's flow is always worked out again, a debt's flow that was the
+    /// default follows the correction and one typed by hand stays; untouched
+    /// rows are written back as they were.
     @Test func correctingASavedValueRecomputesAnAutomaticFlow() throws {
         var draft = CheckInDraft(date: "2026-09-30", library: library)
-        #expect(draft["conto-fineco"]?.enteredFlow == d("-304.65"))
+        // A cash account's flow is worked out, never typed.
+        #expect(draft["conto-fineco"]?.enteredFlow == nil)
+        #expect(draft["conto-fineco"]?.canEnterFlow == false)
         // −304.65 is the whole change since August.
         draft["conto-fineco"]?.setBalance(d("4310.55"))
         #expect(draft["conto-fineco"]?.isFlowEdited == false)
-        // 11.3 is the change in cash.
+        // 11.3 is what the trades and the cash gave.
         draft["directa"]?.setCash(d("352.1"))
-        // 500 isn't the change (535.05), so it was typed: it stays.
+        // The change, 535.05, less the 35.05 interest kept from the saved value.
         draft["conto-deposito"]?.setBalance(17400)
         // Contributions are always typed.
         draft["fondo-pensione"]?.setBalance(18500)
 
         let written = Dictionary(uniqueKeysWithValues: draft.records(in: library).valuations.map { ($0.account, $0) })
         #expect(written["conto-fineco"]?.flow == d("-204.65"))
+        // Money in and out as saved.
+        #expect(written["conto-fineco"]?.moneyIn == 3400)
+        #expect(written["conto-fineco"]?.moneyOut == d("2554.65"))
         #expect(written["directa"]?.flow == d("51.3"))
-        #expect(written["directa"]?.positions == [Position(instrument: "vwce", quantity: d("412.5"), costBasis: 48200)])
-        #expect(written["conto-deposito"]?.flow == 500)
+        #expect(written["conto-deposito"]?.flow == d("534.45"))
+        #expect(written["conto-deposito"]?.interest == d("35.05"))
         #expect(written["fondo-pensione"]?.flow == 1325)
         #expect(written["mutuo-casa"] == library.months["2026-09"]?.valuations.first { $0.account == "mutuo-casa" })
         let review = draft.review(in: library)
         #expect(review.row(for: "conto-fineco")?.flow == review.row(for: "conto-fineco")?.defaultFlow)
 
-        // A flow typed now wins, and a later edit keeps it.
+        // Typing a flow does nothing on a cash account.
         draft["conto-fineco"]?.setFlow(-250)
-        draft["conto-fineco"]?.setBalance(d("4320.55"))
-        #expect(draft.records(in: library).valuations.first { $0.account == "conto-fineco" }?.flow == -250)
+        #expect(draft["conto-fineco"]?.isFlowEdited == false)
+        #expect(draft.records(in: library).valuations.first { $0.account == "conto-fineco" }?.flow == d("-204.65"))
+        // On a mortgage, a flow typed now wins, and a later edit keeps it.
+        draft["mutuo-casa"]?.setFlow(600)
+        draft["mutuo-casa"]?.setBalance(-141_000)
+        #expect(draft.records(in: library).valuations.first { $0.account == "mutuo-casa" }?.flow == 600)
     }
 
     /// "Unchanged" needs a previous value to keep; without one it does
@@ -278,7 +283,8 @@ struct CheckInDraftTests {
         #expect(draft.prices.isEmpty)
         #expect(draft["conto-fineco"]?.balance == d("4600.25"))
         #expect(draft["conto-fineco"]?.state == .updated)
-        #expect(draft["directa"]?.positions.first?.paid == 1450)
+        #expect(draft["conto-fineco"]?.moneyIn == 3400)
+        #expect(draft["directa"]?.state == .unchanged)
         #expect(draft["fondo-pensione"]?.enteredFlow == 1325)
         #expect(draft["casa"]?.state == .skipped)
         #expect(draft["tfr"]?.state == .unchanged)
@@ -294,14 +300,16 @@ struct CheckInDraftTests {
 
     @Test func roundTripsThroughJSONWithDecimalsAsStrings() throws {
         var draft = filledIn()
-        draft["ledger-wallet"]?.setCostBasis(d("0.1"), for: "btc")
+        draft["conto-deposito"]?.setBalance(d("17400.5"))
+        draft["conto-deposito"]?.setInterest(d("34.95"))
+        draft["ledger-wallet"]?.setQuantity(d("0.4"), of: "btc")
         let data = try JSONEncoder().encode(draft)
         let decoded = try JSONDecoder().decode(CheckInDraft.self, from: data)
         #expect(decoded == draft)
         let json = String(decoding: data, as: UTF8.self)
-        #expect(json.contains(#""quantity":"423""#))
-        #expect(json.contains(#""paid":"1450""#))
-        #expect(json.contains(#""enteredCostBasis":"0.1""#))
+        #expect(json.contains(#""quantity":"0.4""#))
+        #expect(json.contains(#""interest":"34.95""#))
+        #expect(json.contains(#""kind":"savings""#))
         #expect(decoded.records(in: library) == draft.records(in: library))
     }
 }

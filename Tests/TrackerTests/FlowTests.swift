@@ -22,91 +22,70 @@ struct DefaultFlowTests {
         #expect(checked == 35)
     }
 
+    @Test func savingsFlowsWithInterestAreTheDefaults() throws {
+        let library = try Fixtures.exampleLibrary()
+        let valuator = Valuator(library: library)
+        let values = library.valuations(for: "conto-deposito").filter { $0.interest != nil }
+        for valuation in values {
+            let previous = valuator.previousValuation(for: valuation.account, before: valuation.date)
+            #expect(valuator.defaultFlow(for: valuation, previous: previous) == valuation.flow, "\(valuation.date)")
+        }
+        #expect(values.count == 3)
+    }
+
     @Test func eachKindsRule() throws {
         let library = try Fixtures.exampleLibrary()
         let valuator = Valuator(library: library)
-        // Savings: the whole change (the example's user edited it to the transfer only).
-        let savings = Valuation(account: "conto-deposito", date: "2026-10-31", balance: d("17400.55"))
+        // Savings: the change minus the interest, so the interest counts as market.
+        var savings = Valuation(account: "conto-deposito", date: "2026-10-31", balance: d("17400.55"))
         let previousSavings = valuator.previousValuation(for: "conto-deposito", before: "2026-10-31")
         #expect(valuator.defaultFlow(for: savings, previous: previousSavings) == 35)
+        savings.interest = d("35.1")
+        #expect(valuator.defaultFlow(for: savings, previous: previousSavings) == d("-0.1"))
+        // Cash: the whole change.
+        let cash = Valuation(account: "conto-fineco", date: "2026-10-31", balance: d("4710.55"))
+        let previousCash = valuator.previousValuation(for: "conto-fineco", before: "2026-10-31")
+        #expect(valuator.defaultFlow(for: cash, previous: previousCash) == 500)
+        // A mortgage: the whole change, what's owed less.
+        let mortgage = Valuation(account: "mutuo-casa", date: "2026-10-31", balance: -140400)
+        let previousMortgage = valuator.previousValuation(for: "mutuo-casa", before: "2026-10-31")
+        #expect(valuator.defaultFlow(for: mortgage, previous: previousMortgage) == 650)
         // Pension fund: asked for.
         let fund = Valuation(account: "fondo-pensione", date: "2026-10-31", balance: 19000)
         let previousFund = valuator.previousValuation(for: "fondo-pensione", before: "2026-10-31")
         #expect(valuator.defaultFlow(for: fund, previous: previousFund) == nil)
-        // A first valuation is all new money.
+        // A first valuation is all new money, interest or not.
         #expect(valuator.defaultFlow(for: savings, previous: nil) == d("17400.55"))
         #expect(valuator.defaultFlow(for: Valuation(account: "nope", date: "2026-10-31", balance: 1), previous: nil)
             == nil)
     }
 
-    @Test func holdingsCountQuantityChangesAtTheNewPrice() throws {
-        var library = try exampleLibraryWithHoldings()
-        library.upsert(PriceRecord(instrument: "vwce", date: "2026-10-31", price: 140, currency: .eur))
-        let valuator = Valuator(library: library)
-        let previous = valuator.previousValuation(for: "directa", before: "2026-10-31")
-        let bought = Valuation(account: "directa", date: "2026-10-31", cash: d("362.1"),
-                               positions: [Position(instrument: "vwce", quantity: 423)])
-        // 50 of cash + 10.5 × 140.
-        #expect(valuator.defaultFlow(for: bought, previous: previous) == 1520)
-        // What was paid replaces quantity × price.
-        #expect(valuator.defaultFlow(for: bought, previous: previous, paid: ["vwce": 1450]) == 1500)
-        // A price movement alone isn't new money.
-        let same = Valuation(account: "directa", date: "2026-10-31", cash: d("312.1"),
-                             positions: [Position(instrument: "vwce", quantity: d("412.5"))])
-        #expect(valuator.defaultFlow(for: same, previous: previous) == 0)
-        // Selling everything: the position disappears.
-        let sold = Valuation(account: "directa", date: "2026-10-31", cash: d("58062.1"))
-        #expect(valuator.defaultFlow(for: sold, previous: previous) == 0)
-    }
-
-    @Test func foreignPricesAreConvertedAndRoundedToCents() throws {
-        var library = try exampleLibraryWithHoldings()
-        library.upsert(PriceRecord(instrument: "btc", date: "2026-10-31", price: 100_000, currency: .usd))
-        library.upsert(FXRecord(base: .eur, quote: .usd, date: "2026-10-31", rate: d("1.15")))
-        let valuator = Valuator(library: library)
-        let more = Valuation(account: "ledger-wallet", date: "2026-10-31",
-                             positions: [Position(instrument: "btc", quantity: d("0.5"))])
-        // 0.0485 × 100,000 ÷ 1.15 = 4,217.3913…
-        let previous = valuator.previousValuation(for: "ledger-wallet", before: "2026-10-31")
-        #expect(valuator.defaultFlow(for: more, previous: previous) == d("4217.39"))
-    }
-
-    @Test func missingPricesAndModeSwitches() throws {
+    /// An investment account's positions recorded before format version 4,
+    /// in an account that doesn't record trades: the whole change, prices
+    /// converted and rounded to cents.
+    @Test func positionsWithoutTradesAreTheWholeChange() throws {
         var library = Library(accounts: [
             Account(id: "broker", name: "Broker", kind: .brokerage, currency: .eur, opened: "2025-01-01",
                     valuation: .holdings),
         ])
-        library.upsert(Valuation(account: "broker", date: "2025-01-31", balance: 1000))
-        library.upsert(PriceRecord(instrument: "etf", date: "2025-02-28", price: 100, currency: .eur))
+        library.upsert(PriceRecord(instrument: "etf", date: "2025-01-31", price: 100, currency: .usd))
+        library.upsert(PriceRecord(instrument: "etf", date: "2025-02-28", price: 110, currency: .usd))
+        library.upsert(FXRecord(base: .eur, quote: .usd, date: "2025-01-31", rate: d("1.25")))
+        library.upsert(FXRecord(base: .eur, quote: .usd, date: "2025-02-28", rate: d("1.15")))
+        let january = Valuation(account: "broker", date: "2025-01-31", cash: 100,
+                                positions: [Position(instrument: "etf", quantity: 10)])
+        library.upsert(january)
         let valuator = Valuator(library: library)
-        // From an imported balance to holdings: the whole change.
-        let holdings = Valuation(account: "broker", date: "2025-02-28", cash: 100,
-                                 positions: [Position(instrument: "etf", quantity: 10)])
-        let balance = valuator.previousValuation(for: "broker", before: "2025-02-28")
-        #expect(valuator.defaultFlow(for: holdings, previous: balance) == 100)
-        // A new position without a price: unknown, unless the amount paid is given.
-        let unpriced = Valuation(account: "broker", date: "2025-02-28", cash: 100,
-                                 positions: [Position(instrument: "etf", quantity: 10),
-                                             Position(instrument: "new", quantity: 1)])
-        #expect(valuator.defaultFlow(for: unpriced, previous: holdings) == nil)
-        #expect(valuator.defaultFlow(for: unpriced, previous: holdings, paid: ["new": 42]) == 42)
-    }
-}
-
-struct CostBasisTests {
-    @Test func followsQuantityChanges() {
-        // Bought more: add what was paid.
-        #expect(CostBasis.updated(previousQuantity: d("412.5"), previousCost: 48200, quantity: 423, paid: 1450)
-            == 49650)
-        // Sold some: reduce at average cost, to cents.
-        #expect(CostBasis.updated(previousQuantity: d("412.5"), previousCost: 48200, quantity: 400, paid: nil)
-            == d("46739.39"))
-        #expect(CostBasis.updated(previousQuantity: 10, previousCost: 1000, quantity: 10, paid: 5) == 1000)
-        // A new position costs what was paid.
-        #expect(CostBasis.updated(previousQuantity: 0, previousCost: nil, quantity: 3, paid: 300) == 300)
-        #expect(CostBasis.updated(previousQuantity: 10, previousCost: 1000, quantity: 0, paid: nil) == 0)
-        // Unknown stays unknown.
-        #expect(CostBasis.updated(previousQuantity: 10, previousCost: nil, quantity: 12, paid: 200) == nil)
-        #expect(CostBasis.updated(previousQuantity: 10, previousCost: 1000, quantity: 12, paid: nil) == nil)
+        // 100 + 10 × 100 ÷ 1.25 = 900; 50 + 15 × 110 ÷ 1.15 = 1,484.7826…
+        let february = Valuation(account: "broker", date: "2025-02-28", cash: 50,
+                                 positions: [Position(instrument: "etf", quantity: 15)])
+        #expect(valuator.defaultFlow(for: february, previous: january) == d("584.78"))
+        // A position without a price: unknown.
+        let unpriced = Valuation(account: "broker", date: "2025-02-28", cash: 50,
+                                 positions: [Position(instrument: "new", quantity: 1)])
+        #expect(valuator.defaultFlow(for: unpriced, previous: january) == nil)
+        // From a balance: the whole change too.
+        let balance = Valuation(account: "broker", date: "2025-01-31", balance: 1000)
+        #expect(valuator.defaultFlow(for: february, previous: balance) == d("484.78"))
     }
 }

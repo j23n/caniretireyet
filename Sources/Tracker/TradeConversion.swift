@@ -206,7 +206,7 @@ extension Library {
                                         instrument: instrument, quantity: now, cost: cost, source: valuation.source))
                 } else if change > 0 {
                     noteSettlement(valuation.date)
-                    let paid = position.flatMap { CheckInRow.paid(for: $0, previous: before) }
+                    let paid = position.flatMap { Self.paid(for: $0, previous: before) }
                     if paid == nil {
                         if market == nil {
                             note(.noPrice, valuation.date, instrument, "The buy of \(change.fileString) \(instrument) "
@@ -345,5 +345,15 @@ extension Library {
         let conversion = conversionToTrades(of: account)
         conversion?.apply(to: &self)
         return conversion
+    }
+
+    /// What a snapshot paid for a position's added quantity, from its cost
+    /// basis and the previous one. `nil` unless the quantity went up and
+    /// the costs are known.
+    private static func paid(for position: Position, previous: Position?) -> Decimal? {
+        let before = previous?.quantity ?? 0
+        guard position.quantity > before, let cost = position.costBasis else { return nil }
+        if before <= 0 { return cost }
+        return previous?.costBasis.map { cost - $0 }
     }
 }

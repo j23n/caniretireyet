@@ -90,7 +90,10 @@ struct UpdateValueSheet: View {
             }
             if let row = draft.row {
                 valueSection(row: row, prefilled: base.row, review: review, account: account)
-                flowSection(row: row, review: review, account: account)
+                // A cash or savings account's new money is worked out, never typed.
+                if row.canEnterFlow {
+                    flowSection(row: row, review: review, account: account)
+                }
                 Section {
                     TextField("Note", text: $input[note: base.row?.note ?? ""], prompt: Text("Optional"),
                               axis: .vertical)
@@ -133,7 +136,7 @@ struct UpdateValueSheet: View {
         }
     }
 
-    /// The balance, or the positions and cash. `prefilled` is the row before
+    /// The balance, or a trades account's cash. `prefilled` is the row before
     /// anything was typed: what the fields show until they're edited.
     @ViewBuilder
     private func valueSection(row: CheckInRow, prefilled: CheckInRow?, review: CheckInRowReview?,
@@ -165,46 +168,6 @@ struct UpdateValueSheet: View {
                 Text("The positions come from the account's trades: add a trade to change them. The cash is "
                     + "filled in from the trades; a different amount counts as money added or taken out.")
             }
-        } else {
-            Section {
-                ForEach(row.positions) { position in
-                    positionRows(position, prefilled: prefilled?.position(for: position.instrument)?.quantity,
-                                 review: review?.positions.first(where: { $0.instrument == position.instrument }),
-                                 account: account)
-                }
-                AccountsNumberField(title: "Cash", text: $input[cash: text(prefilled?.cash)], prompt: "0",
-                                    suffix: symbol)
-                AccountsAddPositionMenu(listed: Set(row.positions.map(\.instrument))) { input.added.append($0) }
-            } header: {
-                Text("Positions")
-            }
-        }
-    }
-
-    @ViewBuilder
-    private func positionRows(_ position: CheckInPosition, prefilled: Decimal?, review: CheckInPositionReview?,
-                              account: Account) -> some View {
-        let instrument = library.library.instruments[position.instrument]
-        AccountsNumberField(title: instrument?.name ?? position.instrument.rawValue,
-                            text: $input[quantity: position.instrument, prefilled: text(prefilled)], prompt: "0",
-                            suffix: QuantityFormat.unit(of: instrument), allowsNegative: false)
-            .privacySensitiveInFeedback()
-        if let review, let price = review.price {
-            HStack {
-                Text(verbatim: QuantityFormat.atPrice(price.price, currency: price.currency, locale: locale))
-                    .privacySensitiveInFeedback()
-                Spacer()
-                if let value = review.value {
-                    AmountText(value)
-                }
-            }
-            .font(.footnote)
-            .foregroundStyle(Palette.secondaryInk)
-        }
-        if position.isIncrease {
-            AccountsNumberField(title: "Paid", text: $input[paid: position.instrument],
-                                prompt: review?.estimatedPaid.map { AmountInput.text(for: $0, maxDigits: 2, locale: locale) } ?? "",
-                                suffix: AmountFormat.symbol(for: account.currency, locale: locale), allowsNegative: false)
         }
     }
 
@@ -242,10 +205,12 @@ struct UpdateValueSheet: View {
 
     private func flowExplanation(_ rule: FlowDefault) -> String {
         switch rule {
-        case .wholeChange, .wholeChangeEditable:
+        case .wholeChange:
             "What you added (+) or took out (−) since the last value. Left empty, it's the whole change."
-        case .newMoney:
-            "Money added or taken out, not price moves. Left empty, it's worked out from the quantities and cash."
+        case .changeLessInterest:
+            "What you added (+) or took out (−) since the last value. Left empty, it's the change less the interest."
+        case .trades:
+            "Money added or taken out, not price moves. Left empty, it's worked out from the trades."
         case .ask:
             "Contributions or other money paid in since the last value. Leave it empty if you don't know."
         }

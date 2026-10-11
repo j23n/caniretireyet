@@ -7,32 +7,33 @@ public enum CheckInRowState: String, Hashable, Sendable, Codable {
     case notReviewed
     /// A new value was entered.
     case updated
-    /// Confirmed the same as last time. Still writes a valuation (flow 0),
-    /// so the account isn't stale.
+    /// Confirmed the same as last time. Still writes a valuation (flow 0,
+    /// and money in and out 0 for a cash or savings account), so the
+    /// account isn't stale.
     ///
     /// For an account that records trades it means as its trades say (see
     /// ``CheckInRow/followsTrades``): the cash they give and the new money
-    /// they record. Such a row starts so, since there's nothing to type.
+    /// they record. Such a row starts so when trades were recorded since
+    /// its previous value (``CheckInRow/hasNewTrades``); otherwise marking
+    /// it so says there were none (*No Trades*).
     case unchanged
     /// Left out: no valuation is written, and the account will show as stale.
     case skipped
 }
 
-/// One position in a check-in row.
+/// One position in a trades account's check-in row: a quantity from a
+/// statement, compared with what its trades give (docs/TRADES.md,
+/// "Reconciliation").
 public struct CheckInPosition: Hashable, Sendable, Identifiable {
     public let instrument: InstrumentID
-    /// The quantity in the previous valuation; zero for a new position.
+    /// The quantity the account's trades give on the date; zero for a
+    /// position they don't hold.
     public let previousQuantity: Decimal
-    /// The cost basis in the previous valuation, if recorded.
+    /// The cost basis the account's trades give, if known.
     public let previousCostBasis: Decimal?
     public internal(set) var quantity: Decimal
-    /// What was paid for the added quantity, in the account's currency. Used
-    /// only when the quantity went up; it becomes new money and is added to
-    /// the cost basis.
-    public internal(set) var paid: Decimal?
-    /// A cost basis entered directly (or kept from a valuation already saved
-    /// on the date). It overrides the computed one until the quantity or the
-    /// amount paid is edited.
+    /// A cost basis kept from a valuation already saved on the date, until
+    /// the quantity is edited.
     public internal(set) var enteredCostBasis: Decimal?
 
     public var id: InstrumentID { instrument }
@@ -40,16 +41,11 @@ public struct CheckInPosition: Hashable, Sendable, Identifiable {
     /// `quantity − previousQuantity`.
     public var quantityChange: Decimal { quantity - previousQuantity }
 
-    /// Whether the quantity went up, so the "paid" field applies.
-    public var isIncrease: Bool { quantity > previousQuantity }
-
-    init(instrument: InstrumentID, previous: Position?, quantity: Decimal, paid: Decimal? = nil,
-         enteredCostBasis: Decimal? = nil) {
+    init(instrument: InstrumentID, previous: Position?, quantity: Decimal, enteredCostBasis: Decimal? = nil) {
         self.instrument = instrument
         self.previousQuantity = previous?.quantity ?? 0
         self.previousCostBasis = previous?.costBasis
         self.quantity = quantity
-        self.paid = paid
         self.enteredCostBasis = enteredCostBasis
     }
 }
@@ -59,8 +55,12 @@ public struct CheckInPosition: Hashable, Sendable, Identifiable {
 /// row's state in step.
 public struct CheckInRow: Hashable, Sendable, Identifiable {
     public let account: AccountID
+    /// The account's kind, which says what the row asks for
+    /// (docs/ACCOUNTS.md, "What each kind asks for").
+    public private(set) var kind: AccountKind
     public private(set) var state: CheckInRowState
-    /// Whether the new valuation records a balance, or cash and positions.
+    /// Whether the new valuation records a balance (``Model/ValuationMode/balance``)
+    /// or, for a trades account, its cash (``Model/ValuationMode/trades``).
     public private(set) var mode: ValuationMode
     /// The account's latest valuation before the check-in date: what
     /// "unchanged" restores, and what flows and warnings compare with.
@@ -77,7 +77,8 @@ public struct CheckInRow: Hashable, Sendable, Identifiable {
     public private(set) var cash: Decimal?
     public private(set) var positions: [CheckInPosition]
     /// Whether the flow was entered by hand (or kept as saved on the date);
-    /// otherwise it's the default for the account kind.
+    /// otherwise it's the default for the account kind. Never for a cash or
+    /// savings account, whose flow is worked out (``canEnterFlow``).
     public private(set) var isFlowEdited: Bool
     /// The flow entered by hand, in the account's currency; `nil` means unknown.
     public private(set) var enteredFlow: Decimal?
@@ -122,6 +123,11 @@ public struct CheckInRow: Hashable, Sendable, Identifiable {
     /// positions, if any are entered, are a reconciliation check against
     /// ``derived`` (e.g. from a broker statement), not its holdings.
     public private(set) var isTrades: Bool
+    /// For a trades account: whether trades were recorded since its
+    /// previous value, through the check-in's date. Its row is done once it
+    /// has one, or once it's marked as having none (*No Trades*, which is
+    /// ``markUnchanged()``): docs/ACCOUNTS.md, "Settled questions" 4.
+    public private(set) var hasNewTrades: Bool
     /// For a trades account: what its trades give on the check-in date,
     /// counting from the previous valuation (the cash rule): the cash, and
     /// the positions with their average cost. `nil` for other accounts, and
@@ -142,22 +148,34 @@ public struct CheckInRow: Hashable, Sendable, Identifiable {
     /// flow was the default one.
     ///
     /// A trades account's row needs nothing typed: its value is its trades
-    /// at the check-in's prices. So, open on the date and with something
-    /// recorded before it (``derived``), it starts as its trades say
-    /// (``followsTrades``), as if marked unchanged.
+    /// at the check-in's prices. So, open on the date, with something
+    /// recorded before it (``derived``) and trades since its previous value
+    /// (``hasNewTrades``), it starts as its trades say (``followsTrades``),
+    /// as if marked unchanged. Without new trades it waits for a trade, or
+    /// for *No Trades*.
+    ///
+    /// Another account's row records a balance. One whose valuation saved
+    /// on the date has none (positions written before format version 4)
+    /// starts not reviewed, so it overwrites nothing until a balance is
+    /// entered.
     init(account: Account, date: CalendarDate, previous: Valuation?, existing: Valuation?,
          valuator: inout LazyValuator) {
         self.account = account.id
+        kind = account.kind
         self.previous = previous
         opensLater = account.opened > date
         self.existing = existing
         conflict = nil
         isTrades = account.recordsTrades
+        hasNewTrades = isTrades
+            && Self.hasTrades(of: account.id, after: previous?.date, through: date, in: valuator.library)
         let derived = isTrades ? valuator.valuator.derivedSnapshot(of: account, on: date, previous: previous) : nil
         self.derived = derived
         holdsCash = isTrades ? valuator.valuator.holdsCash(account.id) : true
-        isFlowEdited = existing?.flow != nil
-        enteredFlow = existing?.flow
+        // A cash or savings account's flow is worked out from what's typed.
+        let entersFlow = !account.kind.recordsMoneyInOut
+        isFlowEdited = entersFlow && existing?.flow != nil
+        enteredFlow = entersFlow ? existing?.flow : nil
         moneyIn = existing?.moneyIn
         enteredMoneyOut = existing?.moneyOut
         interest = existing?.interest
@@ -173,7 +191,7 @@ public struct CheckInRow: Hashable, Sendable, Identifiable {
             if existing != nil {
                 state = .updated
             } else {
-                state = derived != nil && !opensLater ? .unchanged : .notReviewed
+                state = derived != nil && !opensLater && hasNewTrades ? .unchanged : .notReviewed
             }
             balance = nil
             cash = existing?.cash ?? derived?.cash
@@ -182,52 +200,24 @@ public struct CheckInRow: Hashable, Sendable, Identifiable {
                                 quantity: position.quantity, enteredCostBasis: position.costBasis)
             }
         } else {
-            let filled = existing ?? previous
-            let mode = Self.mode(of: filled) ?? account.valuationMode
-            self.mode = mode
-            state = existing == nil ? .notReviewed : .updated
-            balance = mode == .balance ? filled?.balance : nil
-            cash = mode == .holdings ? filled?.cash : nil
+            mode = .balance
+            state = existing?.balance == nil ? .notReviewed : .updated
+            balance = (existing ?? previous)?.balance
+            cash = nil
             positions = []
-            if mode == .holdings {
-                for position in filled?.positions ?? [] {
-                    let before = previous?.position(for: position.instrument)
-                    positions.append(CheckInPosition(
-                        instrument: position.instrument, previous: before, quantity: position.quantity,
-                        paid: existing == nil ? nil : Self.paid(for: position, previous: before),
-                        enteredCostBasis: existing == nil ? nil : position.costBasis))
-                }
-                for position in previous?.positions ?? [] where self.position(for: position.instrument) == nil {
-                    positions.append(CheckInPosition(instrument: position.instrument, previous: position, quantity: 0))
-                }
-            }
         }
-        // A trades row's positions have nothing paid, and its default flow doesn't use it.
-        if let existing, let flow = existing.flow {
-            resetsFlowOnEdit = valuator.valuator.defaultFlow(for: existing, previous: previous, paid: paid) == flow
+        if entersFlow, let existing, let flow = existing.flow {
+            resetsFlowOnEdit = valuator.valuator.defaultFlow(for: existing, previous: previous) == flow
         }
     }
 
-    /// What a saved valuation paid for a position's added quantity, from its
-    /// cost basis and the previous one (what the check-in recorded as
-    /// "paid"). `nil` unless the quantity went up and the costs are known.
-    static func paid(for position: Position, previous: Position?) -> Decimal? {
-        let before = previous?.quantity ?? 0
-        guard position.quantity > before, let cost = position.costBasis else { return nil }
-        if before <= 0 { return cost }
-        return previous?.costBasis.map { cost - $0 }
-    }
-
-    /// What a saved `valuation` paid, by instrument, for the positions whose
-    /// quantity went up since `previous` (see ``paid(for:previous:)``).
-    static func paid(in valuation: Valuation, since previous: Valuation?) -> [InstrumentID: Decimal] {
-        var paid: [InstrumentID: Decimal] = [:]
-        for position in valuation.positions {
-            if let amount = Self.paid(for: position, previous: previous?.position(for: position.instrument)) {
-                paid[position.instrument] = amount
-            }
+    /// Whether `account` has trades dated after `start` (any date when
+    /// `nil`) through `end`.
+    static func hasTrades(of account: AccountID, after start: CalendarDate?, through end: CalendarDate,
+                          in library: Library) -> Bool {
+        library.trades(for: account).contains { trade in
+            trade.date <= end && start.map { trade.date > $0 } ?? true
         }
-        return paid
     }
 
     /// Whether the row holds something decided in this check-in: a value
@@ -238,8 +228,9 @@ public struct CheckInRow: Hashable, Sendable, Identifiable {
         switch state {
         case .notReviewed: false
         case .updated: isEdited
-        // A trades account's row starts as its trades say: nothing was decided.
-        case .unchanged: !followsTrades
+        // A trades account's row with new trades starts as its trades say: nothing was decided.
+        // Without them, it's *No Trades*.
+        case .unchanged: !(followsTrades && hasNewTrades)
         case .skipped: true
         }
     }
@@ -260,14 +251,31 @@ public struct CheckInRow: Hashable, Sendable, Identifiable {
         isTrades && mode == .trades && cash != nil && cash != derived?.cash
     }
 
-    /// Whether the row shows the account's cash: a holdings row always; a
-    /// trades row when the account holds cash (``holdsCash``), when a cash
-    /// from a statement was entered (``hasStatementCash``), or when nothing
-    /// is recorded yet to work it out from (``derived`` is `nil`). An
-    /// account whose trades were all paid from outside it shows none.
+    /// Whether the row shows the account's cash: a trades row when the
+    /// account holds cash (``holdsCash``), when a cash from a statement was
+    /// entered (``hasStatementCash``), or when nothing is recorded yet to
+    /// work it out from (``derived`` is `nil`). An account whose trades
+    /// were all paid from outside it shows none, nor does another account.
     public var showsCash: Bool {
-        guard isTrades else { return mode == .holdings }
-        return holdsCash || hasStatementCash || derived == nil
+        isTrades && (holdsCash || hasStatementCash || derived == nil)
+    }
+
+    /// Whether the row asks for money in and out (docs/ACCOUNTS.md, "Money in
+    /// and out"): a cash or savings account's.
+    public var asksMoneyInOut: Bool {
+        kind.recordsMoneyInOut
+    }
+
+    /// Whether the row asks for the interest earned: a savings account's.
+    public var asksInterest: Bool {
+        kind.recordsInterest
+    }
+
+    /// Whether the flow can be typed (``setFlow(_:)``): not for a cash or
+    /// savings account, whose flow is worked out from the balance, money in
+    /// and out and the interest (docs/ACCOUNTS.md, "New money").
+    public var canEnterFlow: Bool {
+        !kind.recordsMoneyInOut
     }
 
     /// Whether the row counts in the check-in's progress ("7 of 9
@@ -281,7 +289,7 @@ public struct CheckInRow: Hashable, Sendable, Identifiable {
     /// value to keep. A new account has none, so it can only be entered or
     /// skipped.
     public var canMarkUnchanged: Bool {
-        isTrades ? derived != nil : Self.mode(of: previous) != nil
+        isTrades ? derived != nil : previous?.balance != nil
     }
 
     /// Whether the note was typed in this check-in, rather than kept from
@@ -295,12 +303,6 @@ public struct CheckInRow: Hashable, Sendable, Identifiable {
         positions.first { $0.instrument == instrument }
     }
 
-    /// What was paid, by instrument, for positions whose quantity went up.
-    public var paid: [InstrumentID: Decimal] {
-        Dictionary(positions.compactMap { position in position.paid.flatMap { position.isIncrease ? (position.instrument, $0) : nil } },
-                   uniquingKeysWith: { _, last in last })
-    }
-
     // MARK: Editing
 
     /// Records a balance (the row becomes a balance valuation).
@@ -311,59 +313,36 @@ public struct CheckInRow: Hashable, Sendable, Identifiable {
         touch()
     }
 
-    /// Records the cash held alongside positions.
+    /// For a trades account: records the cash from a statement. Ignored
+    /// for another account, which records a balance.
     public mutating func setCash(_ amount: Decimal?) {
-        switchToHoldings()
+        guard isTrades else { return }
+        switchToCash()
         cash = amount
         touch()
     }
 
-    /// Sets a position's quantity, adding the position if it's new. Clears a
-    /// cost basis entered by hand, and the amount paid if the quantity no
-    /// longer went up.
+    /// For a trades account: sets a quantity from a statement, adding the
+    /// position if it's new, to compare with what the trades give. Clears
+    /// a cost basis kept from the valuation saved on the date. Ignored for
+    /// another account.
     public mutating func setQuantity(_ quantity: Decimal, of instrument: InstrumentID) {
-        switchToHoldings()
+        guard isTrades else { return }
+        switchToCash()
         if let index = positions.firstIndex(where: { $0.instrument == instrument }) {
             positions[index].quantity = quantity
             positions[index].enteredCostBasis = nil
-            if !positions[index].isIncrease { positions[index].paid = nil }
         } else {
-            let before = (isTrades ? derived : previous)?.position(for: instrument)
-            positions.append(CheckInPosition(instrument: instrument, previous: before, quantity: quantity))
+            positions.append(CheckInPosition(instrument: instrument, previous: derived?.position(for: instrument),
+                                             quantity: quantity))
         }
         touch()
     }
 
-    /// Records what was paid for the added quantity of a position, in the
-    /// account's currency (`nil` clears it). Ignored unless the quantity went up.
-    public mutating func setPaid(_ amount: Decimal?, for instrument: InstrumentID) {
-        guard let index = positions.firstIndex(where: { $0.instrument == instrument }) else { return }
-        positions[index].paid = amount
-        positions[index].enteredCostBasis = nil
-        touch()
-    }
-
-    /// Sets a position's cost basis directly, overriding the computed one
-    /// (`nil` goes back to computing it).
-    public mutating func setCostBasis(_ amount: Decimal?, for instrument: InstrumentID) {
-        guard let index = positions.firstIndex(where: { $0.instrument == instrument }) else { return }
-        positions[index].enteredCostBasis = amount
-        touch()
-    }
-
-    /// Removes a position: a position held before goes to zero (sold), a
-    /// new one is dropped. In a trades account's row, where positions are
-    /// quantities from a statement to compare with the trades, it's
-    /// dropped: the statement no longer lists it.
+    /// Removes a quantity from a statement: the statement no longer lists it.
     public mutating func removePosition(_ instrument: InstrumentID) {
         guard let index = positions.firstIndex(where: { $0.instrument == instrument }) else { return }
-        if positions[index].previousQuantity != 0 && !isTrades {
-            positions[index].quantity = 0
-            positions[index].paid = nil
-            positions[index].enteredCostBasis = nil
-        } else {
-            positions.remove(at: index)
-        }
+        positions.remove(at: index)
         touch()
     }
 
@@ -375,7 +354,7 @@ public struct CheckInRow: Hashable, Sendable, Identifiable {
     @discardableResult
     public mutating func enterStatementQuantities() -> Bool {
         guard isTrades, positions.isEmpty else { return false }
-        switchToHoldings()
+        switchToCash()
         positions = (derived?.positions ?? []).filter { $0.quantity != 0 }.map { position in
             CheckInPosition(instrument: position.instrument, previous: position, quantity: position.quantity)
         }
@@ -391,31 +370,37 @@ public struct CheckInRow: Hashable, Sendable, Identifiable {
         touch()
     }
 
-    /// Enters the flow by hand, in the account's currency; `nil` means unknown.
+    /// Enters the flow by hand, in the account's currency; `nil` means
+    /// unknown. Ignored for a cash or savings account (``canEnterFlow``).
     public mutating func setFlow(_ amount: Decimal?) {
+        guard canEnterFlow else { return }
         touch()
         isFlowEdited = true
         enteredFlow = amount
     }
 
     /// Records the money that came in, in the account's currency, without
-    /// a sign (a minus is dropped). `nil` leaves it empty: with money out
-    /// typed, nothing came in; else neither is recorded for this valuation.
+    /// a sign (a minus is dropped). `nil` leaves it empty: a cash or savings
+    /// account then records 0 (docs/ACCOUNTS.md, "Pre-filled values"); for
+    /// another account, with money out typed, nothing came in, else neither
+    /// is recorded for this valuation.
     public mutating func setMoneyIn(_ amount: Decimal?) {
         touch()
         moneyIn = amount.map { abs($0) }
     }
 
     /// Records the interest a savings account earned, in the account's
-    /// currency; `nil` records none.
+    /// currency; `nil` records none. Its flow is the change minus it.
+    /// Ignored for another account (``asksInterest``).
     public mutating func setInterest(_ amount: Decimal?) {
+        guard asksInterest else { return }
         touch()
         interest = amount
     }
 
     /// Records the money that went out, in the account's currency, without
     /// a sign (a minus is dropped); `nil` goes back to working it out from
-    /// the money in and the flow.
+    /// the money in and the flow (a savings account's goes back to 0).
     public mutating func setMoneyOut(_ amount: Decimal?) {
         touch()
         enteredMoneyOut = amount.map { abs($0) }
@@ -435,14 +420,16 @@ public struct CheckInRow: Hashable, Sendable, Identifiable {
     }
 
     /// Confirms the account is the same as in the previous valuation:
-    /// restores its values, with flow 0. Does nothing, and returns `false`,
-    /// when there's no previous value to keep (see ``canMarkUnchanged``).
+    /// restores its balance, with flow 0, and for a cash or savings account
+    /// money in and out 0. Does nothing, and returns `false`, when there's
+    /// no previous value to keep (see ``canMarkUnchanged``).
     ///
     /// For a trades account, "unchanged" means as its trades say
-    /// (``followsTrades``, which its row starts as): the cash they give
-    /// (``derived``), no cash from a statement and no positions entered.
-    /// Its flow is still the default, which counts the deposits and
-    /// withdrawals recorded since the previous valuation.
+    /// (``followsTrades``): the cash they give (``derived``), no cash from a
+    /// statement and no positions entered. Its flow is still the default,
+    /// which counts the deposits and withdrawals recorded since the
+    /// previous valuation. Without new trades (``hasNewTrades``), it says
+    /// there were none (*No Trades*).
     @discardableResult
     public mutating func markUnchanged() -> Bool {
         if isTrades {
@@ -452,13 +439,11 @@ public struct CheckInRow: Hashable, Sendable, Identifiable {
             cash = derived.cash
             positions = []
         } else {
-            guard let previous, let mode = Self.mode(of: previous) else { return false }
-            self.mode = mode
-            balance = mode == .balance ? previous.balance : nil
-            cash = mode == .holdings ? previous.cash : nil
-            positions = mode == .holdings
-                ? previous.positions.map { CheckInPosition(instrument: $0.instrument, previous: $0, quantity: $0.quantity) }
-                : []
+            guard let balance = previous?.balance else { return false }
+            mode = .balance
+            self.balance = balance
+            cash = nil
+            positions = []
         }
         isFlowEdited = false
         enteredFlow = nil
@@ -497,27 +482,27 @@ public struct CheckInRow: Hashable, Sendable, Identifiable {
         case .updated:
             if other.mode == .balance {
                 setBalance(other.balance)
-            } else {
+            } else if isTrades {
                 setCash(other.cash)
                 for position in other.positions {
                     setQuantity(position.quantity, of: position.instrument)
-                    if let paid = position.paid { setPaid(paid, for: position.instrument) }
-                    if let cost = position.enteredCostBasis { setCostBasis(cost, for: position.instrument) }
+                    if let index = positions.firstIndex(where: { $0.instrument == position.instrument }) {
+                        positions[index].enteredCostBasis = position.enteredCostBasis
+                    }
                 }
             }
             if other.isFlowEdited { setFlow(other.enteredFlow) }
             moneyIn = other.moneyIn
             enteredMoneyOut = other.enteredMoneyOut
-            interest = other.interest
+            if asksInterest { interest = other.interest }
         }
         note = other.note
     }
 
-    /// Back from a balance to cash and positions (or, for a trades account, cash).
-    private mutating func switchToHoldings() {
-        let holdings: ValuationMode = isTrades ? .trades : .holdings
-        guard mode != holdings else { return }
-        mode = holdings
+    /// For a trades account: back from a balance to its cash.
+    private mutating func switchToCash() {
+        guard mode != .trades else { return }
+        mode = .trades
         balance = nil
     }
 
@@ -536,13 +521,6 @@ public struct CheckInRow: Hashable, Sendable, Identifiable {
             resetsMoneyOutOnEdit = false
             enteredMoneyOut = nil
         }
-    }
-
-    static func mode(of valuation: Valuation?) -> ValuationMode? {
-        guard let valuation else { return nil }
-        if valuation.isBalance { return .balance }
-        if valuation.isHoldings { return .holdings }
-        return nil
     }
 }
 
@@ -566,7 +544,8 @@ public struct CheckInDraft: Hashable, Sendable, Codable {
     public private(set) var fxRates: [FXRecord]
 
     /// Starts a check-in for `date`, pre-filling each open account from its
-    /// latest valuation before the date: balance, or cash and positions. An
+    /// latest valuation before the date: its balance, or what a trades
+    /// account's trades give (``CheckInRow/derived``). An
     /// account that already has a valuation on the date starts from that one,
     /// as `updated`.
     ///
@@ -637,10 +616,11 @@ public struct CheckInDraft: Hashable, Sendable, Codable {
         self = moved
     }
 
-    /// The money out to suggest when only the money in was typed: what came
-    /// in minus the flow (for a current account, the change in balance),
-    /// as if nothing moved between your own accounts; never negative.
-    /// `nil` without money in or a flow.
+    /// A current account's money out to suggest when only the money in was
+    /// typed: what came in minus the flow (the change in balance), as if
+    /// nothing moved between your own accounts; never negative. `nil`
+    /// without money in or a flow. A savings account's starts at 0
+    /// (docs/ACCOUNTS.md, "Pre-filled values").
     public static func defaultMoneyOut(moneyIn: Decimal?, flow: Decimal?) -> Decimal? {
         guard let moneyIn, let flow else { return nil }
         return max(0, moneyIn - flow)
@@ -675,7 +655,7 @@ public struct CheckInDraft: Hashable, Sendable, Codable {
     /// The instruments held in the rows (or held before), whose prices the
     /// check-in needs, sorted.
     public var instruments: [InstrumentID] {
-        var held = Set(rows.filter { $0.mode == .holdings }.flatMap { $0.positions.map(\.instrument) })
+        var held = Set<InstrumentID>()
         // A trades account holds what its trades give.
         for row in rows where row.isTrades && row.mode != .balance {
             held.formUnion((row.derived?.positions ?? []).filter { $0.quantity != 0 }.map(\.instrument))
@@ -743,7 +723,8 @@ public struct CheckInDraft: Hashable, Sendable, Codable {
 
 extension CheckInPosition: Codable {
     enum CodingKeys: String, CodingKey {
-        case instrument, previousQuantity, previousCostBasis, quantity, paid, enteredCostBasis
+        // `paid` was a snapshot row's, before format version 4: an older draft's is ignored.
+        case instrument, previousQuantity, previousCostBasis, quantity, enteredCostBasis
     }
 
     public init(from decoder: any Decoder) throws {
@@ -752,7 +733,6 @@ extension CheckInPosition: Codable {
         previousQuantity = try c.decodeDecimal(forKey: .previousQuantity)
         previousCostBasis = try c.decodeDecimalIfPresent(forKey: .previousCostBasis)
         quantity = try c.decodeDecimal(forKey: .quantity)
-        paid = try c.decodeDecimalIfPresent(forKey: .paid)
         enteredCostBasis = try c.decodeDecimalIfPresent(forKey: .enteredCostBasis)
     }
 
@@ -762,21 +742,22 @@ extension CheckInPosition: Codable {
         try c.encodeDecimal(previousQuantity, forKey: .previousQuantity)
         try c.encodeDecimalIfPresent(previousCostBasis, forKey: .previousCostBasis)
         try c.encodeDecimal(quantity, forKey: .quantity)
-        try c.encodeDecimalIfPresent(paid, forKey: .paid)
         try c.encodeDecimalIfPresent(enteredCostBasis, forKey: .enteredCostBasis)
     }
 }
 
 extension CheckInRow: Codable {
     enum CodingKeys: String, CodingKey {
-        case account, state, mode, previous, existing, conflict, balance, cash, positions, isFlowEdited, enteredFlow,
-             moneyIn, enteredMoneyOut, interest, note, source, isEdited, resetsFlowOnEdit, resetsMoneyOutOnEdit, opensLater,
-             isTrades, derived, holdsCash
+        case account, kind, state, mode, previous, existing, conflict, balance, cash, positions, isFlowEdited,
+             enteredFlow, moneyIn, enteredMoneyOut, interest, note, source, isEdited, resetsFlowOnEdit,
+             resetsMoneyOutOnEdit, opensLater, isTrades, hasNewTrades, derived, holdsCash
     }
 
     public init(from decoder: any Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         account = try c.decode(AccountID.self, forKey: .account)
+        // A draft kept before rows recorded the kind: rebasing fills the row in again.
+        kind = try c.decodeIfPresent(AccountKind.self, forKey: .kind) ?? .other
         state = try c.decode(CheckInRowState.self, forKey: .state)
         mode = try c.decode(ValuationMode.self, forKey: .mode)
         previous = try c.decodeIfPresent(Valuation.self, forKey: .previous)
@@ -801,16 +782,30 @@ extension CheckInRow: Codable {
         derived = try c.decodeIfPresent(Valuation.self, forKey: .derived)
         // A draft kept before rows recorded this shows the cash, as it did; rebasing finds out.
         holdsCash = try c.decodeIfPresent(Bool.self, forKey: .holdsCash) ?? true
-        // A draft kept before a trades row started as its trades say: one not reviewed yet does now.
-        if isTrades, state == .notReviewed, derived != nil, !opensLater, existing == nil, conflict == nil,
-           positions.isEmpty, cash == derived?.cash {
-            state = .unchanged
+        let newTrades = try c.decodeIfPresent(Bool.self, forKey: .hasNewTrades)
+        hasNewTrades = newTrades ?? false
+        // A draft kept before a trades row waited for its trades: one as its trades said decided nothing,
+        // so it's not reviewed until rebasing finds new trades.
+        if newTrades == nil, isTrades, state == .unchanged {
+            state = .notReviewed
+        }
+        // A snapshot row (positions, before format version 4) keeps nothing: rebasing fills it in again.
+        if mode == .holdings {
+            mode = .balance
+            state = .notReviewed
+            balance = nil
+            cash = nil
+            positions = []
+            isEdited = false
+            isFlowEdited = false
+            enteredFlow = nil
         }
     }
 
     public func encode(to encoder: any Encoder) throws {
         var c = encoder.container(keyedBy: CodingKeys.self)
         try c.encode(account, forKey: .account)
+        try c.encode(kind, forKey: .kind)
         try c.encode(state, forKey: .state)
         try c.encode(mode, forKey: .mode)
         try c.encodeIfPresent(previous, forKey: .previous)
@@ -831,6 +826,7 @@ extension CheckInRow: Codable {
         if resetsMoneyOutOnEdit { try c.encode(resetsMoneyOutOnEdit, forKey: .resetsMoneyOutOnEdit) }
         if opensLater { try c.encode(opensLater, forKey: .opensLater) }
         if isTrades { try c.encode(isTrades, forKey: .isTrades) }
+        if isTrades { try c.encode(hasNewTrades, forKey: .hasNewTrades) }
         try c.encodeIfPresent(derived, forKey: .derived)
         if !holdsCash { try c.encode(holdsCash, forKey: .holdsCash) }
     }

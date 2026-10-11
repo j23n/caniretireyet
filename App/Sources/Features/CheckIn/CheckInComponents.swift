@@ -266,8 +266,8 @@ struct CheckInProgressBar: View {
 
 /// A row's menu (long-press on iPhone, right-click on the Mac): mark it
 /// unchanged or skip it, its new money; for a trades account its trades,
-/// its cash and a statement to compare with; for holdings, *Add a
-/// Position*. The iPhone's commands have icons, the Mac's are words alone.
+/// its cash and a statement to compare with. The iPhone's commands have
+/// icons, the Mac's are words alone.
 /// The row hands it what it works with, so it reads nothing from the
 /// environment.
 struct CheckInRowMenu: View {
@@ -278,8 +278,6 @@ struct CheckInRowMenu: View {
     let date: CalendarDate
     let session: CheckInSession
     let checkIn: CheckInStore
-    /// The library's instruments, for *Add a Position*.
-    let instruments: [InstrumentID: Instrument]
 
     var body: some View {
         if row.canMarkUnchanged && !row.followsTrades {
@@ -322,21 +320,6 @@ struct CheckInRowMenu: View {
             } else {
                 command("Stop Comparing With a Statement", "xmark.circle") {
                     session.stopComparing(row.account, checkIn: checkIn)
-                }
-            }
-        } else if row.mode == .holdings {
-            let others = instruments.values
-                .filter { row.position(for: $0.id) == nil }
-                .sorted { $0.name.lowercased() < $1.name.lowercased() }
-            if !others.isEmpty {
-                Menu {
-                    ForEach(others) { instrument in
-                        Button(instrument.name) {
-                            session.addPosition(instrument.id, to: row.account, checkIn: checkIn)
-                        }
-                    }
-                } label: {
-                    commandLabel("Add a Position", "plus")
                 }
             }
         }
