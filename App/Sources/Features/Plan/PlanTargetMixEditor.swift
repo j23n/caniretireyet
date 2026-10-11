@@ -6,8 +6,9 @@ import SwiftUI
 /// `Form`: whether the plan rebalances to today's mix or one you choose,
 /// each class's shares today, its target and its median return, the
 /// running total that must reach 100%, and a section per change with age.
-/// "Today's mix" writes nothing; edits are saved as you type. The logic is
-/// in ``PlanTargetMixModel`` and the `plan…` subscripts.
+/// "Today's mix" writes nothing. It edits the copy ``PlanTargetMixSheet``
+/// writes on *Done*. The logic is in ``PlanTargetMixModel`` and the
+/// `plan…` subscripts.
 struct PlanTargetMixEditor: View {
     @Binding var plan: PlanDocument
     @Environment(LibraryStore.self) private var library
@@ -283,7 +284,8 @@ struct PlanTargetMixOverview: View {
 }
 
 #Preview("Target mix") {
-    @Previewable @State var plan = PreviewLibrary.library.plans["part-time-from-50"]!
-    PlanTargetMixSheet(plan: $plan)
-        .previewEnvironment()
+    PlanItemEditor("Target mix", item: PreviewLibrary.library.plans["part-time-from-50"]!, onSave: { _ in }) { plan in
+        PlanTargetMixEditor(plan: plan)
+    }
+    .previewEnvironment()
 }
