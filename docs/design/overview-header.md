@@ -59,10 +59,21 @@ These are the pieces each direction keeps, moves or drops:
 | 7 | Run status: recorded at a check-in, calculating, out of date with *Calculate*, can't be calculated | caption |
 | 8 | Disclaimer: "Estimates, not financial or tax advice." | caption |
 | 9 | Net worth, its amount and its two changes (and the partial-total note) | title |
+| 10 | Coast point: "You're past the coast point: saving nothing more, you could still retire at 63." | not on the Overview yet |
+
+The coast point line (10) is new to the Overview. In today's layout it would be one more sentence, two lines on an iPhone, after the baseline.
 
 ## Choices every direction shares
 
-Two pieces can go in more than one place, independent of the layout. Each direction below picks one option, but any option works with any direction.
+**Coast point line (10).** It shows only while you're past the coast point: while the coast age, from the latest results or recorded at the check-in, is at or under the age the first pension starts ([PROGRESS.md](../PROGRESS.md#milestones)). The directions differ only in where it goes. In every direction that shows it:
+
+- Before you're past the coast point, there's no line. Progress's Milestones card says where it stands ("The coast point is 67, when your first pension starts.").
+- Without a pension there's no coast point, and so no line. There's none either for an answer recorded at a check-in before check-ins recorded the coast age.
+- With "Yes" there's no line: the answer already says you could stop today. When no age works out, there's no coast age either.
+- It has no amounts, so hiding amounts doesn't change it. It dims with the answer when results are out of date.
+- Where a direction shortens it ("Past the coast point: 63 without saving"), VoiceOver reads the whole sentence.
+
+Two more pieces can go in more than one place, independent of the layout. Each direction below picks one option, but any option works with any direction.
 
 **Run status (7).** It's needed only when the answer isn't current.
 
@@ -94,6 +105,7 @@ Today's order and hierarchy, with each piece said once and shorter. The answer i
 │ ▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇░░░░░░░░░░░░░░░░░ │
 │ 58% of what retiring today needs         │  ← subheadline, secondary
 │ On plan · 12.400 € ahead of January      │  ← subheadline
+│ Past the coast point: 63 without saving  │  ← subheadline, secondary
 │                                          │
 │ Net worth 312.480 €                      │  ← title3
 │ ▲ 4.210 € in September  ▲ 6,2% this year │  ← subheadline
@@ -102,9 +114,9 @@ Today's order and hierarchy, with each piece said once and shorter. The answer i
 └──────────────────────────────────────────┘
 ```
 
-- **Keeps:** every piece but the disclaimer. The answer splits into "Not yet" (the hero) and "Earliest at 54 · March 2042"; the time to go and the confidence share a line. The baseline is named as Progress names it ("ahead of January").
+- **Keeps:** every piece but the disclaimer. The answer splits into "Not yet" (the hero) and "Earliest at 54 · March 2042"; the time to go and the confidence share a line. The baseline is named as Progress names it ("ahead of January"). The coast point line comes last, after the baseline: both say how far along you are.
 - **Moves:** the readiness ⓘ to the label row, where it explains the whole answer and holds the disclaimer (D1). The run status to the label row (R1).
-- **Drops:** "of your … baseline" and "simulated" from the wording; nothing else.
+- **Drops:** "of your … baseline" and "simulated" from the wording, and the coast point line shortens to "Past the coast point: 63 without saving"; nothing else.
 - **Type styles:** three (largeTitle, title3, subheadline), down from six. Net worth's amount is the same size as the earliest age: both are the second tier.
 
 **Why.** It's the smallest change, and nothing a reader relies on goes missing. The header becomes a headline, two numbers and a few quiet lines. It still reads as text, though, just less of it.
@@ -116,6 +128,7 @@ Today's order and hierarchy, with each piece said once and shorter. The answer i
 | Not yet, with an age | as above |
 | Yes | "Yes" / "You could retire today" / "In at least 9 of 10 futures"; the bar is full and reads "130% of what retiring today needs" |
 | No age works out | "Not yet" / "No age works in 9 of 10 futures yet"; the bar and the baseline as usual |
+| Not past the coast point | no coast point line: the baseline is the last line |
 | Recorded at a check-in | the label row reads "Can I retire yet?  ◷ 30 Sep  ⓘ ›"; an answer recorded before readiness existed shows "Calculate the plan to see how close you are to retiring today." in the bar's place |
 | Out of date | the label row reads "Can I retire yet?  [Calculate]  ⓘ ›"; the answer's lines dim; the ⓘ also says "Calculated before your latest changes" |
 | Calculating | the label row reads "Can I retire yet?  Calculating 29%  ›" |
@@ -134,7 +147,7 @@ Out of date                                  Calculating
 
 ### iPad and Mac
 
-The content is up to 760 points wide, which has room for two columns: the answer on the left, net worth on the right, at the same height. The readiness and the baseline run under both.
+The content is up to 760 points wide, which has room for two columns: the answer on the left, net worth on the right, at the same height. The readiness, the baseline and the coast point line run under both.
 
 ```
 ┌────────────────────────────────────────────────────────────────┐
@@ -145,6 +158,7 @@ The content is up to 760 points wide, which has room for two columns: the answer
 │ ▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇░░░░░░░░░░░░░░░░░░░░░░░░░░ │
 │ 58% of what retiring today needs                               │
 │ On plan · 12.400 € ahead of January                            │
+│ Past the coast point: 63 without saving                        │
 │                                                                │
 │ 3Y · retirement +15 ▾                                 Future ◯ │
 └────────────────────────────────────────────────────────────────┘
@@ -166,14 +180,15 @@ The answer and net worth side by side, as two tiles, like the small *Time to ret
 │ │ ▇▇▇▇▇▇▇▇▇░░░░░ 58% ││ ▲ 6,2% this yr │ │
 │ ╰────────────────────╯╰────────────────╯ │
 │ On plan · 12.400 € ahead of January    › │  ← subheadline
+│ Past the coast point: 63 without saving  │  ← subheadline, secondary
 │ Estimates, not financial or tax advice.  │  ← caption
 │                                          │
 │ 3Y ▾                            Future ◯ │
 └──────────────────────────────────────────┘
 ```
 
-- **Keeps:** the answer, the earliest age and month, the confidence, the readiness as a bar and its percentage, the baseline, net worth and its changes, the disclaimer (D2).
-- **Moves:** the readiness sentence and its ⓘ into the answer tile's ⓘ, opened from the tile's label (VoiceOver reads the sentence with the bar). The baseline becomes a row of its own under the tiles that opens Progress, as the Plan screen's "18.400 € ahead ›" does. The run status becomes a row in the answer tile (R2).
+- **Keeps:** the answer, the earliest age and month, the confidence, the readiness as a bar and its percentage, the baseline, the coast point line, net worth and its changes, the disclaimer (D2).
+- **Moves:** the readiness sentence and its ⓘ into the answer tile's ⓘ, opened from the tile's label (VoiceOver reads the sentence with the bar). The baseline becomes a row of its own under the tiles that opens Progress, as the Plan screen's "18.400 € ahead ›" does. The coast point line, shortened, joins that row as its second line: Progress's Milestones card, which the row opens, explains it. The run status becomes a row in the answer tile (R2).
 - **Drops:** the time to go ("About 15 years to go"). The month says when, and the *Time to retire* widget and Progress's "To go" say how long.
 - **Type styles:** three (title, subheadline, caption).
 
@@ -186,6 +201,7 @@ The answer and net worth side by side, as two tiles, like the small *Time to ret
 | Not yet, with an age | as above |
 | Yes | "Yes" / "Retire today" / "in 9 of 10 futures"; a full bar, "130%" |
 | No age works out | "Not yet" / "No age works yet" / "in 9 of 10 futures"; the bar |
+| Not past the coast point | the baseline row has one line |
 | Recorded at a check-in | the answer tile gets a last row, "◷ 30 Sep check-in"; the net worth tile grows to match |
 | Out of date | the answer tile's last row is *Calculate*; its lines dim |
 | Calculating | the answer tile's last row is "Calculating 29%" |
@@ -214,7 +230,7 @@ Large text: the tiles stack
 
 ### iPad and Mac
 
-Three tiles across: the answer, the readiness with its whole sentence, ⓘ and the baseline, and net worth. The readiness gets a tile of its own because there's room for its words.
+Three tiles across: the answer, the readiness with its whole sentence, ⓘ, the baseline and the coast point line, and net worth. The readiness gets a tile of its own because there's room for its words.
 
 ```
 ┌────────────────────────────────────────────────────────────────┐
@@ -224,6 +240,9 @@ Three tiles across: the answer, the readiness with its whole sentence, ⓘ and t
 │ │ At 54 · Mar 2042  │ │ needs ⓘ          │ │ ▲ 4.210 €       │ │
 │ │ in 9 of 10 futures│ │ ▇▇▇▇▇▇▇▇▇░░░░░░░ │ │ in September    │ │
 │ │                   │ │ On plan ›        │ │ ▲ 6,2% this year│ │
+│ │                   │ │ Past the coast   │ │                 │ │
+│ │                   │ │ point: 63 without│ │                 │ │
+│ │                   │ │ saving           │ │                 │ │
 │ ╰───────────────────╯ ╰──────────────────╯ ╰─────────────────╯ │
 │ Estimates, not financial or tax advice.                        │
 │                                                                │
@@ -246,6 +265,7 @@ The answer, then one picture of how far along you are: the readiness bar with th
 │ 58% of what retiring today needs       ⓘ │  ← subheadline
 │ ▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇░░░░░░░░░░░░░░░░░ │  ← readiness, 0 to 100%
 │                     └Jan┘        On plan │  ← the baseline's range
+│ Past the coast point: 63 without saving  │  ← subheadline, secondary
 │                                          │
 │ Net worth 312.480 €                      │  ← title3
 │ ▲ 4.210 € in September  ▲ 6,2% this year │  ← subheadline
@@ -258,7 +278,9 @@ The answer, then one picture of how far along you are: the readiness bar with th
 
 The bracket turns the baseline's range from money into readiness: each end is the baseline's amount for today, in today's money, divided by what retiring today needs (plan assets ÷ readiness). That assumes what retiring today needs doesn't depend on what you have, which holds only roughly: money locked in pension funds stays as it is. The follow-up checks this against the planner ([PLANNER.md](../PLANNER.md#assets-needed-to-retire-today)) before building it, and falls back to the word alone if it doesn't hold.
 
-- **Keeps:** the answer, the time to go, the confidence, the readiness sentence and bar, the standing, net worth and its changes.
+The coast point line goes under the gauge, as its caption, shortened as in A. It isn't drawn on the bar: the coast point is an age, not a share of what retiring today needs, so marking it would take a second conversion like the bracket's. The gauge's ⓘ says the whole sentence and what the coast point is.
+
+- **Keeps:** the answer, the time to go, the confidence, the readiness sentence and bar, the standing, the coast point line, net worth and its changes.
 - **Moves:** the baseline's amount ("12.400 € ahead of January") to the gauge's ⓘ, with the readiness explanation and the disclaimer (D1); Progress's *Are you on track?* has it too. The run status to the label row (R1).
 - **Drops:** the baseline sentence; the bracket says it.
 - **Type styles:** three (title2, title3, subheadline). The answer drops from largeTitle to title2 so "Not yet · earliest at 54" fits on one line on an iPhone.
@@ -272,6 +294,7 @@ The bracket turns the baseline's range from money into readiness: each end is th
 | Not yet, with an age | as above |
 | Yes | "Yes · you could retire today" / "In at least 9 of 10 futures"; the bar is full, with "130% of what retiring today needs" |
 | No age works out | "Not yet" / "No age works in 9 of 10 futures yet"; the gauge as usual |
+| Not past the coast point | the gauge has no caption under the bracket |
 | Recorded at a check-in | as A: "◷ 30 Sep" in the label row; an answer recorded before readiness existed shows "Calculate the plan to see how close you are to retiring today." in the gauge's place, and no bracket |
 | Out of date | as A: *Calculate* in the label row, the answer and the gauge dimmed |
 | Calculating | as A: "Calculating 29%" in the label row |
@@ -300,6 +323,7 @@ The answer on the left and net worth on the right, then the gauge across the who
 │ 58% of what retiring today needs                             ⓘ │
 │ ▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇░░░░░░░░░░░░░░░░░░░░░░░░░░ │
 │                                 └─Jan─┘                On plan │
+│ Past the coast point: 63 without saving                        │
 │                                                                │
 │ 3Y · retirement +15 ▾                                 Future ◯ │
 └────────────────────────────────────────────────────────────────┘
@@ -329,7 +353,7 @@ Net worth leads, as it does before there's an answer, and the answer is a compac
 
 - **Keeps:** net worth and its changes, the answer, the month, the confidence, the readiness as a bar and its percentage, the standing as a word.
 - **Moves:** the baseline's amount, the readiness sentence and its explanation, and the disclaimer to the Plan screen, which the card opens (D3); the Plan screen's answer already shows "18.400 € ahead ›", and its key numbers "You have 58%". The run status to a row in the card (R2).
-- **Drops:** the time to go ("About 15 years"), as in B.
+- **Drops:** the time to go ("About 15 years"), as in B. The coast point line: the card says the answer and leaves its details to the Plan screen, whose key numbers say the coast age in full ("If you stopped saving today, you could still retire at 63; …"), as Progress's Milestones card does. If it should stay, it's the card's last row while you're past the coast point, before the run status, at one line more.
 - **Type styles:** three (largeTitle, title3, subheadline).
 
 **Why.** Net worth is what changes at every check-in; the answer moves a year at a time. Leading with the number that moves, and keeping the answer one tap from its details, makes the header shortest. The screen also stops changing shape when an answer appears, goes out of date or is calculated. The cost: the app's question is no longer the first thing on its home screen, which UI.md chose on purpose ("The screen leads with the app's question"). Choosing D reverses that decision.
@@ -341,6 +365,7 @@ Net worth leads, as it does before there's an answer, and the answer is a compac
 | Not yet, with an age | as above |
 | Yes | the card reads "Yes · you could retire today" / "In at least 9 of 10 futures", a full bar and "130%" |
 | No age works out | "Not yet" / "No age works in 9 of 10 futures yet", the bar |
+| Past the coast point | as above: the card doesn't change |
 | Recorded at a check-in | the card's last row: "◷ Recorded at the check-in on 30 Sep" |
 | Out of date | the card's last row: "Calculated before your latest changes" and *Calculate*; the card's other lines dim |
 | Calculating | the card's last row: "Calculating 29%" |
@@ -370,15 +395,16 @@ Net worth on the left, the answer's card on the right, at the same height.
 | | Today | A. Trimmed | B. Two tiles | C. One gauge | D. Net worth first |
 | --- | --- | --- | --- | --- | --- |
 | Leads with | the answer | the answer | both, as equals | the answer | net worth |
-| Rows above the chart on an iPhone (wireframes) | 18 | 11 | 10 | 11 | 10 |
+| Rows above the chart on an iPhone (wireframes) | 18 (20 with the coast point) | 12 | 11 | 12 | 10 |
 | Text styles | 6 | 3 | 3 | 3 | 3 |
 | Time to go | ✓ | ✓ | – | ✓ | – |
 | Readiness sentence | ✓ | ✓ | in the ⓘ | ✓ | on the Plan screen |
 | Baseline amount | ✓ | ✓ | ✓ | in the ⓘ | on the Plan screen |
+| Coast point line | – | after the baseline | in the baseline's row | under the gauge | on the Plan screen |
 | Run status | own line | label row (R1) | tile row (R2) | label row (R1) | card row (R2) |
 | Disclaimer | own line | in the ⓘ (D1) | own line (D2) | in the ⓘ (D1) | Plan screen (D3) |
 
-Rows are counted from the wireframes, from "Can I retire yet?" or "Net worth" to the line before the chart's controls, blank lines included. They're a guide to the height, not a measurement.
+Rows are counted from the wireframes, from "Can I retire yet?" or "Net worth" to the line before the chart's controls, blank lines included, with the coast point line showing. Before you're past the coast point, A, B and C are a row shorter. They're a guide to the height, not a measurement.
 
 ## Open questions
 
@@ -386,3 +412,5 @@ Rows are counted from the wireframes, from "Can I retire yet?" or "Net worth" to
 - **Must the disclaimer stay visible on the Overview?** If so, D2 (B's choice); a footer under the allocation would also work, but it adds to what's below the chart.
 - **Can the time to go leave the Overview** (B, D)? The *Time to retire* widget and Progress's "To go" keep it.
 - **Can the baseline's amount leave the Overview** (C, D)? The word "On plan" stays.
+- **Can the coast point line stay off the Overview** (D)? The Plan screen's key numbers and Progress's Milestones card say it in full.
+- **Should the Overview say anything about the coast point before you're past it?** This note shows the line only once you are; until then Progress's Milestones card says where it stands.
