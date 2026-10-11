@@ -287,7 +287,7 @@ public enum Planner {
     /// leaves out keeps the plan's contributions, which the income pays on
     /// top until they end; one-off contributions and events stay, as the
     /// pace leaves out unusual months. Other income and pensions paid at a
-    /// fixed age on the pace's last day are already in it, so the income is
+    /// fixed age over the pace's months are already in it, so the income is
     /// that much less; one starting or stopping later changes the saving. A
     /// pace taking out more than the spending while working raises that
     /// spending instead.
@@ -305,11 +305,11 @@ public enum Planner {
         let from = min(plan.work.map(\.from).min() ?? pace.asOf, pace.asOf)
         // Saving into accounts the plan leaves out isn't the plan's.
         let saved = pace.perYear - excluded.reduce(Decimal(0)) { $0 + (pace.byAccountInPace[$1] ?? 0) }
-        // Other income and pensions paid at the pace's end are in the pace:
-        // the income earns that much less, and income that starts or stops
-        // later changes the saving. The kept contributions are paid on top
+        // Other income and pensions paid over the pace's months are in the
+        // pace: the income earns that much less, and income that starts or
+        // stops later changes the saving. The kept contributions are paid on top
         // until they end, which splits the phase.
-        let paid = paidAtPace(plan, asOf: pace.asOf, birthDate: library.settings.person?.birthDate)
+        let paid = paidInPace(plan, pace: pace, birthDate: library.settings.person?.birthDate)
         let onTop = contributionsOnTop(kept, from: from)
         let starts = [from] + onTop.keys.filter { $0 > from }.sorted()
         let incomes = starts.map { start in
@@ -330,22 +330,25 @@ public enum Planner {
         return plan
     }
 
-    /// The other income and pensions at a fixed age that `plan` pays on
-    /// `asOf`.
-    private static func paidAtPace(_ plan: PlanDocument, asOf: CalendarDate, birthDate: CalendarDate?) -> Decimal {
+    /// The other income and pensions at a fixed age that `pace` holds: each
+    /// by the share of its months whose last day it's paid on, or, for a
+    /// pace without months, whether it's paid on its last day.
+    private static func paidInPace(_ plan: PlanDocument, pace: SavingPace, birthDate: CalendarDate?) -> Decimal {
         guard let birthDate else { return 0 }
-        let income = plan.income.reduce(Decimal(0)) { total, income in
-            guard let age = income.from?.age, let perYear = income.perYear, perYear > 0,
-                  birthDate.adding(years: age) <= asOf,
-                  income.untilAge.map({ asOf < birthDate.adding(years: $0) }) ?? true
-            else { return total }
-            return total + perYear
+        let ends = pace.months.isEmpty ? [pace.asOf] : pace.months.map(\.end)
+        var spans: [(from: CalendarDate, until: CalendarDate?, perYear: Decimal)] = []
+        for income in plan.income {
+            guard let age = income.from?.age, let perYear = income.perYear, perYear > 0 else { continue }
+            spans.append((from: birthDate.adding(years: age),
+                          until: income.untilAge.map { birthDate.adding(years: $0) }, perYear: perYear))
         }
-        return plan.pensions.reduce(income) { total, pension in
-            guard let age = pension.fromAge, let perYear = pension.perYear, perYear > 0,
-                  birthDate.adding(years: age) <= asOf
-            else { return total }
-            return total + perYear
+        for pension in plan.pensions {
+            guard let age = pension.fromAge, let perYear = pension.perYear, perYear > 0 else { continue }
+            spans.append((from: birthDate.adding(years: age), until: nil, perYear: perYear))
+        }
+        return spans.reduce(Decimal(0)) { total, span in
+            let paid = ends.filter { end in span.from <= end && (span.until.map { end < $0 } ?? true) }.count
+            return total + span.perYear * Decimal(paid) / Decimal(ends.count)
         }
     }
 

@@ -175,6 +175,25 @@ struct AgesWithoutTests {
         #expect(!Planner.validate(plan: atPace, library: library).contains(where: \.isError))
     }
 
+    /// Rent of 6,000 from 39, which started on 2025-11-15, is paid in 2 of
+    /// the pace's 12 months, so the pace holds 1,000 of it.
+    @Test func atThePaceIncomeIsNettedOutByTheShareOfMonthsItWasPaid() {
+        let library = Sample.library(birth: "1986-11-15", on: "2025-12-31",
+                                     [SampleAccount(id: "broker", balance: 150_000)])
+        let months = (0..<12).reversed().map { back in
+            SavingPace.Month(end: SavingPace.monthEnd(back, before: "2025-12-31"), newMoney: 1_000, isUnusual: false)
+        }
+        let pace = SavingPace(
+            asOf: "2025-12-31", currency: .eur, months: months, usualMonth: 1_000, perYear: 12_000, range: nil,
+            byAccount: ["broker": 12_000], leftOut: [], carriedForward: [], isInTodaysMoney: false,
+            isComplete: true)
+        var planned = plan()
+        planned.contributions = []
+        planned.income = [PlanIncome(name: "Rent", from: .age(39), perYear: 6_000)]
+        let atPace = Planner.plan(planned, atPace: pace, library: library)
+        #expect(atPace.work == [WorkPhase(from: "2025-12-31", until: .retirement, netIncome: 41_000)])
+    }
+
     /// Taking out 36,000 a year, more than the 30,000 spent while working:
     /// no income, and that spending raised to 36,000, which the plan can run.
     @Test func aPaceTakingOutMoreThanTheSpendingSpendsIt() {
