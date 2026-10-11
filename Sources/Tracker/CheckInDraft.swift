@@ -395,8 +395,8 @@ public struct CheckInRow: Hashable, Sendable, Identifiable {
     }
 
     /// Records the money that came in, in the account's currency, without
-    /// a sign (a minus is dropped); `nil` stops recording money in and out
-    /// for this valuation.
+    /// a sign (a minus is dropped). `nil` leaves it empty: with money out
+    /// typed, nothing came in; else neither is recorded for this valuation.
     public mutating func setMoneyIn(_ amount: Decimal?) {
         touch()
         moneyIn = amount.map { abs($0) }

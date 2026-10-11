@@ -309,9 +309,12 @@ enum CheckInRowDisplay {
 
     /// Whether a balance row shows money in and out: its account asks for
     /// them (``Model/Account/tracksMoneyInOut``), or they were recorded on
-    /// the date already; never for a row marked unchanged or skipped.
+    /// the date already; never for a row marked unchanged or skipped, or for
+    /// an account's first value, which summaries don't count.
     static func showsMoneyInOut(_ row: CheckInRow, in library: Library) -> Bool {
-        guard row.mode == .balance, !row.isTrades, row.state != .unchanged, row.state != .skipped else {
+        guard row.mode == .balance, !row.isTrades, row.state != .unchanged, row.state != .skipped,
+              row.previous != nil
+        else {
             return false
         }
         return library.accounts[row.account]?.tracksMoneyInOut == true || row.moneyIn != nil

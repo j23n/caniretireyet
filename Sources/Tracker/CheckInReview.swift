@@ -278,9 +278,11 @@ extension CheckInDraft {
             let suggested = row.previous == nil
                 ? nil : CheckInDraft.defaultMoneyOut(moneyIn: row.moneyIn, flow: record.flow)
             let moneyOut = row.enteredMoneyOut ?? suggested
+            // Money out typed with money in left empty: nothing came in.
+            let moneyIn = row.moneyIn ?? (row.enteredMoneyOut == nil ? nil : 0)
             // Both or neither, never negative: summaries count nothing else.
-            let recordsBoth = (row.moneyIn ?? -1) >= 0 && (moneyOut ?? -1) >= 0
-            record.moneyIn = recordsBoth ? row.moneyIn : nil
+            let recordsBoth = (moneyIn ?? -1) >= 0 && (moneyOut ?? -1) >= 0
+            record.moneyIn = recordsBoth ? moneyIn : nil
             record.moneyOut = recordsBoth ? moneyOut : nil
             written = record
         }

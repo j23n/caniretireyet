@@ -45,9 +45,10 @@ struct CheckInMoneyInOutTests {
     @Test func writesBothOrNeither() {
         var draft = CheckInDraft(date: "2026-10-31", library: library)
         draft["conto-fineco"]?.setBalance(d("4600.25"))
+        // Money out typed with money in left empty: nothing came in.
         draft["conto-fineco"]?.setMoneyOut(3100)
-        #expect(written(draft)?.moneyIn == nil)
-        #expect(written(draft)?.moneyOut == nil)
+        #expect(written(draft)?.moneyIn == 0)
+        #expect(written(draft)?.moneyOut == 3100)
 
         // With the flow unknown, money out can't be worked out.
         draft["conto-fineco"]?.setMoneyOut(nil)
@@ -104,12 +105,16 @@ struct CheckInMoneyInOutTests {
         var draft = CheckInDraft(date: "2026-09-30", library: library)
         draft["conto-fineco"]?.setBalance(4300)
         draft["conto-fineco"]?.setMoneyIn(nil)
+        draft["conto-fineco"]?.setMoneyOut(nil)
         // The other device records a value earlier in the month.
         var changed = library
         changed.upsert(Valuation(account: "conto-fineco", date: "2026-09-15", balance: 4400))
         draft.rebase(onto: changed)
         #expect(draft["conto-fineco"]?.moneyIn == nil)
-        #expect(draft.review(in: changed).row(for: "conto-fineco")?.valuation?.moneyIn == nil)
+        #expect(draft["conto-fineco"]?.enteredMoneyOut == nil)
+        let written = draft.review(in: changed).row(for: "conto-fineco")?.valuation
+        #expect(written?.moneyIn == nil)
+        #expect(written?.moneyOut == nil)
     }
 
     @Test func aFirstValueSuggestsNoMoneyOut() {
