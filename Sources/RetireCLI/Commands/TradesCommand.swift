@@ -19,7 +19,7 @@ struct TradesGroupCommand: AsyncParsableCommand {
         subcommands: [TradesListCommand.self, TradesSummaryCommand.self])
 
     /// What to do about an account that doesn't record trades.
-    static let switchHint = "Switch it to recording trades in the app (Switch to Trade History on the account)."
+    static let switchHint = "Import its trades with `retire import --accept-trades-mode` to make it record them."
 }
 
 // MARK: - list

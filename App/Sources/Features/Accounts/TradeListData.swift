@@ -394,8 +394,6 @@ enum TradeIssueAction: Hashable, Sendable {
     case editValuation(ValuationKey)
     /// Open the account's form (its opening and closing dates).
     case editAccount
-    /// Convert the account so its trades count.
-    case switchToTrades
 }
 
 /// Something wrong with an account's trades, in plain words, with the fix
@@ -430,9 +428,7 @@ struct TradeIssueNote: Hashable, Sendable, Identifiable {
             notes.append(TradeIssueNote(
                 id: "notTradesAccount", isError: false,
                 title: count == 1 ? "1 trade is left out" : "\(count) trades are left out",
-                message: "This account records monthly snapshots, so its trades don't count. Switch it to trade "
-                    + "history to count them.",
-                actionTitle: "Switch to Trade History…", action: .switchToTrades))
+                message: "This account doesn't record trades, so they don't count in its value."))
         }
         for mismatch in valuator.reconciliation(of: account) {
             notes.append(Self.note(for: mismatch, library: library, locale: locale))

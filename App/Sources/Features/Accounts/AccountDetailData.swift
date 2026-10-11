@@ -3,8 +3,9 @@ import Model
 import Tracker
 
 // An account's detail page, computed without SwiftUI so it can be checked
-// on Linux: value and change, history with new-money ticks, positions and
-// valuations (UI.md, "Account detail").
+// on Linux: value and change, history with new-money ticks, a trades
+// account's holdings and statements, and other accounts' values (UI.md,
+// "Account detail").
 
 /// A new-money event on the account's history chart.
 struct AccountFlowTick: Hashable, Sendable, Identifiable {
@@ -15,7 +16,7 @@ struct AccountFlowTick: Hashable, Sendable, Identifiable {
     var id: CalendarDate { date }
 }
 
-/// One position of a holdings account, as the detail shows it: Tracker's
+/// One position of a trades account, as the detail shows it: Tracker's
 /// ``Tracker/Holding``, with the instrument's name and unit, and its share.
 struct AccountHoldingRow: Hashable, Sendable, Identifiable {
     var holding: Holding
@@ -67,11 +68,59 @@ struct AccountValuationRow: Hashable, Sendable, Identifiable {
     var amount: Decimal?
     /// The value on its own date, in the base currency (what could be valued).
     var value: Decimal
-    /// The cash the valuation records, in the account's currency, when the
-    /// list shows it (``AccountDetailData/valuationsShowCash``).
-    var cash: Decimal? = nil
+    /// For a cash or savings account's value that records money in and
+    /// out: the money moved between your own accounts, in the account's
+    /// currency (``moved(of:)``); `nil` otherwise.
+    var moved: Decimal? = nil
 
     var id: ValuationKey { valuation.key }
+
+    /// Whether the value records money in and out (both of them).
+    var recordsMoneyInOut: Bool { valuation.moneyIn != nil && valuation.moneyOut != nil }
+
+    /// The part of a cash or savings value's new money that money in and
+    /// out don't explain: money moved between your own accounts, never
+    /// typed (docs/ACCOUNTS.md, "Moved between your accounts"). New money
+    /// is the change, less the interest for savings, so this is new money
+    /// − money in + money out. `nil` when one of the three isn't recorded.
+    static func moved(of valuation: Valuation) -> Decimal? {
+        guard let flow = valuation.flow, let moneyIn = valuation.moneyIn, let moneyOut = valuation.moneyOut else {
+            return nil
+        }
+        return flow - moneyIn + moneyOut
+    }
+}
+
+/// A value of a trades account that records what a statement showed, as a
+/// check on the trades (docs/TRADES.md, "Reconciliation"): a cash other
+/// than the trades give, or the positions it listed.
+struct AccountStatementRow: Hashable, Sendable, Identifiable {
+    var valuation: Valuation
+    /// The statement's cash minus the cash the trades give on its date, in
+    /// the account's currency: money added (+) or taken out (−) that no
+    /// trade records, which counts as new money. `nil` when the value
+    /// records no cash, or the same cash as the trades.
+    var cashDifference: Decimal?
+    /// How many instruments' quantities differ from what the trades give
+    /// (``Tracker/Valuator/reconcile(_:)``).
+    var mismatchCount: Int
+
+    var id: ValuationKey { valuation.key }
+
+    /// The cash the statement shows, in the account's currency, when it
+    /// differs from the trades.
+    var cash: Decimal? { cashDifference == nil ? nil : valuation.cash }
+
+    /// "2 positions listed, as the trades give", "2 positions listed, 1
+    /// differs from the trades"; `nil` when the statement lists none.
+    var positionsText: String? {
+        let count = valuation.positions.count
+        guard count > 0 else { return nil }
+        let listed = Wording.count(count, "position") + " listed"
+        return mismatchCount == 0
+            ? listed + ", as the trades give"
+            : listed + ", " + "\(mismatchCount) differ\(mismatchCount == 1 ? "s" : "") from the trades"
+    }
 }
 
 /// Everything the account detail shows. Amounts are in the account's own
@@ -114,16 +163,20 @@ struct AccountDetailData: Hashable, Sendable {
     var missingBaseRates: MissingValues?
     /// New-money events, oldest first.
     var flows: [AccountFlowTick]
-    /// The positions of the latest valuation, for holdings.
-    var holdings: [AccountHoldingRow]
-    /// Cash held alongside positions, in the account's currency.
+    /// For an account that records trades: the positions its trades hold.
+    var holdings: [AccountHoldingRow] = []
+    /// For an account that records trades: its cash, in the account's currency.
     var cash: Decimal?
-    /// Every valuation, newest first.
-    var valuations: [AccountValuationRow]
-    /// Whether the list of values shows each one's recorded cash beside its
-    /// value: for an account that records trades and holds cash of its own
-    /// (``Tracker/Valuator/holdsCash(_:)``, docs/TRADES.md, "No cash to show").
-    var valuationsShowCash = false
+    /// The values the page lists, newest first: every valuation of an
+    /// account that doesn't record trades. A trades account lists its
+    /// trades instead, and its ``statements``.
+    var valuations: [AccountValuationRow] = []
+    /// For an account that records trades: its values that record a
+    /// statement, newest first (``AccountStatementRow``). Its other values
+    /// only follow the trades, so they aren't listed.
+    var statements: [AccountStatementRow] = []
+    /// The date of the account's first value, if it has one.
+    var firstValueDate: CalendarDate?
     /// Set when the latest value is too old, unless the account is empty
     /// (``AccountStaleness``).
     var stale: StaleAccount?
@@ -149,45 +202,28 @@ struct AccountDetailData: Hashable, Sendable {
     /// The currency the page shows amounts in: the account's own.
     var currency: CurrencyCode { account.currency }
 
-    /// The title of the list of values.
-    var valuationsTitle: String {
-        recordsTrades ? "Values at check-ins" : "Values"
-    }
+    /// Whether the values show money in, money out and moved: a cash or
+    /// savings account's (``Model/AccountKind/recordsMoneyInOut``).
+    var valuationsShowMoneyInOut: Bool { account.kind.recordsMoneyInOut }
 
-    /// What a trades account's list of values shows, under it; `nil` for
-    /// other accounts. Cash is mentioned only when the list shows it.
-    var valuationsNote: String? {
-        guard recordsTrades else { return nil }
-        let values = "Each value is the account's value at that check-in: its trades at that day's prices"
-        guard valuationsShowCash else {
-            return values + ", with the new money since the one before."
-        }
-        return values + " and its cash, with the new money since the one before. A cash that differs from the "
-            + "trades counts as money added or taken out."
-    }
+    /// Whether the values show the interest: a savings account's
+    /// (``Model/AccountKind/recordsInterest``).
+    var valuationsShowInterest: Bool { account.kind.recordsInterest }
 
-    /// Whether the account holds positions (now, or by its kind's default).
-    var showsPositions: Bool {
-        !recordsTrades
-            && (!holdings.isEmpty || (latest.map { !$0.isBalance } ?? (account.valuationMode == .holdings)))
-    }
-
-    /// Whether *Switch to Trade History…* is offered: an open account that
-    /// records positions (brokerage, crypto, metals, or any holdings account).
-    var canSwitchToTrades: Bool {
-        !account.isClosed && account.valuationMode == .holdings
-    }
-
-    /// Whether *Switch to Snapshots…* is offered: an open trades account.
-    var canSwitchToSnapshots: Bool {
-        !account.isClosed && recordsTrades
+    /// What *moved* means, under a cash or savings account's values; `nil`
+    /// for other accounts, and without values.
+    var movedNote: String? {
+        guard valuationsShowMoneyInOut, !valuations.isEmpty else { return nil }
+        return "Moved is the part of the change that money in and out"
+            + (valuationsShowInterest ? " and interest" : "") + " don't explain: money moved between your own "
+            + "accounts."
     }
 
     /// The date *Add Past Value…* starts on: the last day of the month
     /// before the account's first value (or before ``date`` without one),
     /// so the history fills in a month at a time.
     var pastValueDate: CalendarDate {
-        Self.pastValueDate(firstValue: valuations.last?.valuation.date, date: date)
+        Self.pastValueDate(firstValue: firstValueDate, date: date)
     }
 
     /// The month end before `firstValue` (or before `date` without one).
@@ -244,33 +280,55 @@ struct AccountDetailData: Hashable, Sendable {
                 return AccountFlowTick(date: valuation.date, amount: flow)
             }
         }
-        holdings = valuator.holdings(of: account.id, on: date).map { holding in
-            let instrument = library.instruments[holding.instrument]
-            return AccountHoldingRow(holding: holding, name: instrument?.name ?? holding.instrument.rawValue,
-                                     unit: instrument?.unit)
-        }
         if account.recordsTrades {
+            let rows = valuator.holdings(of: account.id, on: date).map { holding in
+                let instrument = library.instruments[holding.instrument]
+                return AccountHoldingRow(holding: holding, name: instrument?.name ?? holding.instrument.rawValue,
+                                         unit: instrument?.unit)
+            }
             cash = valuator.tradeCash(of: account.id, on: date)
-            let trades = TradeHoldings(rows: holdings, cash: cash)
+            let trades = TradeHoldings(rows: rows, cash: cash)
             tradeHoldings = trades
             holdings = trades.rows
             incomeYears = TradeIncomeYear.years(of: account.id, valuator: valuator)
-            valuationsShowCash = valuator.holdsCash(account.id)
+            statements = Self.statements(of: account.id, valuations: all, valuator: valuator)
         } else {
-            cash = latest.flatMap { $0.isBalance ? nil : $0.cash }
+            let recordsMoneyInOut = account.kind.recordsMoneyInOut
+            valuations = all.reversed().map { valuation in
+                AccountValuationRow(
+                    valuation: valuation,
+                    amount: valuator.amountInAccountCurrency(of: valuation, on: valuation.date),
+                    value: valuator.value(of: valuation, on: valuation.date)?.knownValue ?? 0,
+                    moved: recordsMoneyInOut ? AccountValuationRow.moved(of: valuation) : nil)
+            }
         }
+        firstValueDate = all.first?.date
         tradeIssues = TradeIssueNote.notes(for: account.id, library: library, valuator: valuator)
-        let showsCash = valuationsShowCash
-        valuations = all.reversed().map { valuation in
-            AccountValuationRow(
-                valuation: valuation,
-                amount: valuator.amountInAccountCurrency(of: valuation, on: valuation.date),
-                value: valuator.value(of: valuation, on: valuation.date)?.knownValue ?? 0,
-                cash: showsCash ? valuation.cash : nil)
-        }
         stale = account.isClosed
             ? nil : AccountStaleness.stale(account.id, valuator: valuator, on: today, threshold: stalenessThreshold)
         emptySince = AccountStaleness.emptySince(account, valuator: valuator, on: today, threshold: stalenessThreshold)
+    }
+}
+
+extension AccountDetailData {
+    /// The values of trades account `account` that record a statement,
+    /// newest first: those whose cash differs from what the trades give on
+    /// their date, or that list positions. `valuations` are the account's,
+    /// oldest first.
+    static func statements(of account: AccountID, valuations: [Valuation], valuator: Valuator)
+        -> [AccountStatementRow] {
+        guard let last = valuations.last?.date else { return [] }
+        // A residual is a value's cash minus the trades' (docs/TRADES.md, "Flows").
+        var differences: [CalendarDate: Decimal] = [:]
+        for flow in valuator.tradeFlows(of: account, after: nil, through: last) where flow.trade == nil {
+            if let amount = flow.amount { differences[flow.date] = amount }
+        }
+        return valuations.reversed().compactMap { valuation in
+            let difference = differences[valuation.date]
+            guard difference != nil || !valuation.positions.isEmpty else { return nil }
+            return AccountStatementRow(valuation: valuation, cashDifference: difference,
+                                       mismatchCount: valuator.reconcile(valuation).count)
+        }
     }
 }
 
