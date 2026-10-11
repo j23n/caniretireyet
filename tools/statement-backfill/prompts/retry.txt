@@ -1,0 +1,6 @@
+Your previous answer for this page does not add up:
+{problem}
+
+Re-read the page and correct your answer. The usual causes: a missed or doubled line, a wrong
+sign, a misread digit, or a carried-forward balance copied as a transaction. Reply with the
+whole corrected JSON object.

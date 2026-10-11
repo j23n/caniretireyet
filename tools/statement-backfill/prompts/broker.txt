@@ -1,0 +1,50 @@
+Below is page {page} of {pages} of a {institution} securities account statement for depot
+{account_number}, period {period_start} to {period_end}, account currency {currency}.
+
+Copy every transaction on this page, the holdings it lists, and the cash balances it prints.
+
+Reply with:
+{
+  "transactions": [
+    {
+      "date": "YYYY-MM-DD",         // the trade date, not the settlement or value date
+      "type": "buy" | "sell" | "dividend" | "interest" | "fee" | "tax" | "deposit" |
+              "withdrawal" | "transferIn" | "transferOut" | "split" | "other",
+      "typeText": string,           // the type as printed, e.g. "Kauf", "Ausschüttung", "Vendita"
+      "instrument": string | null,  // the security's name as printed
+      "isin": string | null,
+      "quantity": string | null,    // units, always positive
+      "price": string | null,       // per unit, as printed
+      "priceCurrency": string | null,
+      "amount": string | null,      // the cash the line moved in the account currency, net of
+                                    // fees and tax: negative for buys, fees, taxes, withdrawals
+      "fees": string | null,        // always positive
+      "tax": string | null,         // always positive
+      "ratio": string | null,       // splits only: new units per old unit
+      "description": string
+    }
+  ],
+  "holdings": [                     // only if this page lists holdings at the period's end
+    { "instrument": string, "isin": string | null, "quantity": string }
+  ],
+  "cashOpening": string | null,
+  "cashClosing": string | null
+}
+
+Types: a savings plan execution ("Sparplan", "PAC") is a buy. A distribution or coupon is a
+dividend. Withholding tax, capital gains tax, solidarity surcharge, church tax and stamp duty
+("Kapitalertragsteuer", "Soli", "Kirchensteuer", "Bollo", "Ritenuta") are tax. A securities
+transfer from or to another depot ("Depotübertrag", "Einlieferung", "Auslieferung",
+"trasferimento titoli") is transferIn or transferOut. Use "other" for anything else, and keep
+the printed word in typeText.
+
+One line per transaction: when a buy, its fee and its tax are printed as one entry, write one
+buy with fees and tax filled in. When they're printed as separate entries, write them
+separately.
+
+If the page has no transactions or holdings, reply with empty lists.
+
+Page:
+<<<
+{page_text}
+>>>
