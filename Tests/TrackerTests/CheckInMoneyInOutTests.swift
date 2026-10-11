@@ -82,6 +82,23 @@ struct CheckInMoneyInOutTests {
         #expect(again.review(in: typed).row(for: "conto-fineco")?.valuation?.moneyOut == 3100)
     }
 
+    @Test func aSuggestedMoneyOutFollowsTheAutomaticNewMoney() {
+        var draft = CheckInDraft(date: "2026-10-31", library: library)
+        draft["conto-fineco"]?.setBalance(d("4600.25"))
+        draft["conto-fineco"]?.setFlow(300)
+        draft["conto-fineco"]?.setMoneyIn(3400)
+        var saved = library
+        draft.apply(to: &saved)
+        #expect(saved.valuations(for: "conto-fineco").last?.moneyOut == 3100)
+
+        // Use Automatic New Money: the saved suggestion follows it.
+        var reopened = CheckInDraft(date: "2026-10-31", library: saved)
+        reopened["conto-fineco"]?.resetFlow()
+        let written = reopened.review(in: saved).row(for: "conto-fineco")?.valuation
+        #expect(written?.flow == d("389.7"))
+        #expect(written?.moneyOut == d("3010.3"))
+    }
+
     @Test func aSuggestedMoneyOutFollowsAnEditBeforeIt() throws {
         var draft = CheckInDraft(date: "2026-10-31", library: library)
         draft["conto-fineco"]?.setBalance(d("4600.25"))

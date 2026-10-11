@@ -410,11 +410,16 @@ public struct CheckInRow: Hashable, Sendable, Identifiable {
         enteredMoneyOut = amount.map { abs($0) }
     }
 
-    /// Goes back to the default flow for the account's kind.
+    /// Goes back to the default flow for the account's kind. A money out
+    /// that was only the saved suggestion follows it.
     public mutating func resetFlow() {
         isFlowEdited = false
         enteredFlow = nil
         resetsFlowOnEdit = false
+        if resetsMoneyOutOnEdit {
+            resetsMoneyOutOnEdit = false
+            enteredMoneyOut = nil
+        }
         if state == .updated { isEdited = true }
     }
 
