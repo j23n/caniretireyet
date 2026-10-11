@@ -133,7 +133,7 @@ struct AccountValuationEditor: View {
                                         suffix: symbol, allowsNegative: false)
                 } footer: {
                     Text("What came in from outside your accounts and what went out since the previous value. Money "
-                        + "moved between your own accounts is in neither.")
+                        + "moved between your own accounts is in neither, but a credit card payment is money out.")
                 }
             }
             Section {
@@ -164,16 +164,8 @@ struct AccountValuationEditor: View {
         .confirmationDialog("Delete this value?", isPresented: $confirmsDelete, titleVisibility: .visible) {
             Button("Delete Value", role: .destructive) { delete() }
         } message: {
-            Text("The account's value then carries forward from the value before it. The new money of the value "
-                + "after it is worked out again, unless it was typed in." + deleteNote)
+            Text(AccountValueNotes.deleteMessage(library.library.previewRemovingValue(key), locale: locale))
         }
-    }
-
-    /// The money in and out deleting this value asks to check, as a
-    /// sentence after the confirmation's; empty when there's none.
-    private var deleteNote: String {
-        AccountValueNotes.moneyInOutCheck(library.library.previewRemovingValue(key), locale: locale)
-            .map { " " + $0 } ?? ""
     }
 
     /// What saving does to the new money of the account's other values, if

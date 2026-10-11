@@ -82,7 +82,7 @@
           "$ref": "common.schema.json#/$defs/decimal"
         },
         "moneyOut": {
-          "description": "Money that left your tracked accounts since the account's previous valuation (spending, bills, rent), in the account's currency, never negative. Money moved to another tracked account isn't counted. Absent means not tracked for the period; recorded together with moneyIn. Only cash and savings accounts record it (PROGRESS.md, \"Money in and out\").",
+          "description": "Money that left your tracked accounts since the account's previous valuation (spending, bills, rent, credit card payments), in the account's currency, never negative. Money moved to another tracked account isn't counted, unless it paid a credit card. Absent means not tracked for the period; recorded together with moneyIn. Only cash and savings accounts record it (PROGRESS.md, \"Money in and out\").",
           "$ref": "common.schema.json#/$defs/decimal"
         },
         "note": { "type": "string" },

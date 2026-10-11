@@ -22,8 +22,9 @@ public struct Valuation: Hashable, Sendable, KeyedRecord, KnownKeysProviding {
     /// means not tracked. Only cash and savings accounts record it.
     public var moneyIn: Decimal?
     /// Money that left the tracked accounts since the account's previous
-    /// valuation (spending), in the account's currency. Transfers between
-    /// tracked accounts aren't counted. `nil` means not tracked.
+    /// valuation (spending, credit card payments), in the account's
+    /// currency. Transfers between tracked accounts aren't counted, apart
+    /// from credit card payments. `nil` means not tracked.
     public var moneyOut: Decimal?
     public var note: String?
     /// Where the values came from, e.g. `import`.
