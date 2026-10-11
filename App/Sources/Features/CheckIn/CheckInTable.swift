@@ -6,8 +6,10 @@ import Tracker
 
 /// The check-in on the Mac (UI.md, "On the Mac"): a table that can be
 /// filled in without touching the mouse. Columns Account, Last, Now,
-/// Change, New money and Note; accounts by group, positions and cash as
-/// sub-rows.
+/// Change, New money and Note; accounts by group. Under a cash or savings
+/// account, its money in and out (and a savings account's interest) and
+/// what moved between your accounts; under a trades account, its positions
+/// and cash. New money is typed only for the kinds that ask for it.
 ///
 /// Tab moves to the next cell, Return down the Now column, ⌘↩ opens the
 /// review, where ⌘↩ saves. Click a row's state to mark it unchanged, or
@@ -17,9 +19,10 @@ import Tracker
 /// "Opened later": a value entered there moves the account's opening date
 /// back when the check-in is saved.
 ///
-/// An account that records trades needs nothing typed: it's done "from
-/// trades" from the start, with its value and new money from its trades.
-/// Under it, *Add Trade…* on the check-in's date, what its trades hold as
+/// An account that records trades needs nothing typed: with new trades
+/// since its last value it's done "from trades", with its value and new
+/// money from its trades; without, it waits for a trade or *No Trades*.
+/// Under it, *Add Trade…* (and *No Trades*) on the check-in's date, what its trades hold as
 /// read-only sub-rows, then its cash from the trades with *From
 /// Statement…* to type a statement's (none for an account that holds no
 /// cash). Right-click it to compare with a statement's quantities.
@@ -40,7 +43,7 @@ struct CheckInTable: View {
         let review = draft.review(in: snapshot)
         let sections = CheckInSection.sections(of: draft, in: snapshot)
         let rows = sections.flatMap(\.rows)
-        let moneyInOut = Set(rows.filter { CheckInRowDisplay.showsMoneyInOut($0, in: snapshot) }.map(\.account))
+        let moneyInOut = Set(rows.filter { CheckInRowDisplay.showsMoneyInOut($0) }.map(\.account))
         let order = CheckInFieldOrder.nowColumn(rows: rows, editingCash: session.editingCash, moneyInOut: moneyInOut)
         VStack(spacing: 0) {
             ScrollViewReader { proxy in
@@ -217,9 +220,10 @@ private struct CheckInTableGroupHeader: View {
 
 // MARK: - Rows
 
-/// One account's line, and for holdings a line per position and one for
-/// cash. Balances are in the account's currency; holdings' totals in the
-/// base currency.
+/// One account's line, and the lines under it: money in, out, interest and
+/// moved for cash and savings; a trades account's trades, positions and
+/// cash. Balances are in the account's currency; a trades account's value
+/// in the base currency.
 private struct CheckInTableRow: View {
     let row: CheckInRow
     let review: CheckInRowReview?
@@ -250,14 +254,22 @@ private struct CheckInTableRow: View {
                 if row.showsCash && row.state != .skipped {
                     cashLine
                 }
-            } else if CheckInRowDisplay.showsMoneyInOut(row, in: library.library) {
-                moneyLine(.moneyIn(row.account), title: "Money in", value: row.moneyIn, prompt: "0,00") {
+            } else if CheckInRowDisplay.showsMoneyInOut(row) {
+                // Empty, money in is 0; money out follows money in and the change (a savings account's is 0).
+                moneyLine(.moneyIn(row.account), title: "In", value: row.moneyIn) {
                     $0.setMoneyIn($1)
                 }
-                // Empty, money out records nothing: it's unknown.
-                moneyLine(.moneyOut(row.account), title: "Money out",
-                          value: row.enteredMoneyOut ?? review?.valuation?.moneyOut, prompt: "unknown") {
+                moneyLine(.moneyOut(row.account), title: "Out",
+                          value: row.enteredMoneyOut ?? review?.valuation?.moneyOut) {
                     $0.setMoneyOut($1)
+                }
+                if CheckInRowDisplay.showsInterest(row) {
+                    moneyLine(.interest(row.account), title: "Interest", value: row.interest) {
+                        $0.setInterest($1)
+                    }
+                }
+                if let moved = review?.moved {
+                    movedLine(moved)
                 }
             }
             Divider()
@@ -313,7 +325,7 @@ private struct CheckInTableRow: View {
     private var stateHelp: String {
         if row.followsTrades { return "From trades: its value and new money come from its trades" }
         guard row.canMarkUnchanged else { return CheckInWording.stateName(for: row) }
-        return row.isTrades ? "Use the trades' values" : "Mark unchanged"
+        return row.isTrades ? CheckInWording.markUnchangedTitle(for: row) : "Mark unchanged"
     }
 
     // MARK: Account line
@@ -379,10 +391,11 @@ private struct CheckInTableRow: View {
         if row.state == .skipped {
             Text(verbatim: "—")
                 .foregroundStyle(Palette.mutedInk)
-        } else if row.isTrades && !CheckInRowDisplay.canEditTradeFlow(row) {
+        } else if !CheckInRowDisplay.canEditFlow(row, rule: rule) {
+            // Worked out (docs/ACCOUNTS.md, "New money"): from the trades, or from what's typed.
             CheckInPlainAmount(row.state == .notReviewed ? nil : review?.flow, signed: true)
                 .foregroundStyle(Palette.secondaryInk)
-                .help(CheckInWording.tradeFlowExplanation)
+                .help(row.isTrades ? CheckInWording.tradeFlowExplanation : CheckInWording.workedOutFlowExplanation)
         } else {
             let field = CheckInField.flow(row.account)
             let rule = self.rule
@@ -499,7 +512,8 @@ private struct CheckInTableRow: View {
         .frame(height: 30)
     }
 
-    /// "Bought or sold since 30 Sep? [Add Trade…]" and the new money's parts.
+    /// "Bought or sold since 30 Sep? [Add Trade…] [No Trades]" and the new
+    /// money's parts.
     private var tradeActionsLine: some View {
         CheckInTableLine {
             Color.clear
@@ -521,6 +535,13 @@ private struct CheckInTableRow: View {
                 .disabled(!library.canEdit)
                 .accessibilityLabel(Text(verbatim: CheckInWording.addTradeLabel(account: name, date: date,
                                                                                 locale: locale)))
+                if CheckInRowDisplay.offersNoTrades(row) {
+                    // Waiting for its trades: there may have been none (docs/ACCOUNTS.md, "Settled questions" 4).
+                    Button("No Trades") { markUnchanged() }
+                        .buttonStyle(.bordered)
+                        .controlSize(.small)
+                        .help("No trades since the last value: keeps what the trades give")
+                }
                 if let detail = tradeFlowDetail {
                     AmountSentenceText(detail)
                         .font(.caption)
@@ -599,10 +620,10 @@ private struct CheckInTableRow: View {
         .frame(height: 30)
     }
 
-    /// Money in or out of a cash or savings account, under its balance
-    /// (PROGRESS.md, "Money in and out"). Money out follows money in and the
-    /// change until it's typed.
-    private func moneyLine(_ field: CheckInField, title: LocalizedStringKey, value: Decimal?, prompt: String,
+    /// Money in or out of a cash or savings account, or a savings account's
+    /// interest, under its balance (docs/ACCOUNTS.md, "Settled questions" 8).
+    /// Money out follows money in and the change until it's typed.
+    private func moneyLine(_ field: CheckInField, title: LocalizedStringKey, value: Decimal?,
                            set: @escaping (inout CheckInRow, Decimal?) -> Void) -> some View {
         CheckInTableLine {
             Color.clear
@@ -615,12 +636,39 @@ private struct CheckInTableRow: View {
             Color.clear
         } now: {
             CheckInNumberField(
-                field, focus: focus, isFocused: focused == field, value: value, prompt: prompt,
+                field, focus: focus, isFocused: focused == field, value: value, prompt: CheckInWording.moneyPrompt,
                 label: field.name(in: library.library), allowsEmpty: true, onSubmit: { onReturn(field) }
             ) { amount in
                 checkIn.updateRow(row.account) { set(&$0, amount) }
             }
             .checkInFieldBox(isFocused: focused == field, height: 24)
+        } change: {
+            Color.clear
+        } newMoney: {
+            Color.clear
+        } note: {
+            Color.clear
+        }
+        .font(.callout)
+        .frame(height: 30)
+    }
+
+    /// "Moved" and the row's part in what moved between your own accounts,
+    /// read-only in the Now column: worked out, not typed.
+    private func movedLine(_ moved: Decimal) -> some View {
+        CheckInTableLine {
+            Color.clear
+        } account: {
+            Text("Moved between your accounts")
+                .foregroundStyle(Palette.secondaryInk)
+                .lineLimit(1)
+                .padding(.leading, Metrics.l)
+        } last: {
+            Color.clear
+        } now: {
+            CheckInPlainAmount(moved, signed: true)
+                .foregroundStyle(Palette.secondaryInk)
+                .help(CheckInWording.movedExplanation)
         } change: {
             Color.clear
         } newMoney: {

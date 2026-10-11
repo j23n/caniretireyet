@@ -5,7 +5,8 @@ import Tracker
 /// The review before saving (UI.md, "Review screen"): the new net worth and
 /// the waterfall since the last check-in (markets, new money, other), the
 /// accounts that changed (trades accounts valued from their trades among
-/// them, marked "from trades"), the accounts whose opening date moves back,
+/// them, marked "from trades"), what moved between your own accounts and
+/// whether it cancels out, the accounts whose opening date moves back,
 /// anything unusual, then Save. Accounts not reviewed yet are asked about:
 /// mark them unchanged, or skip them. A statement's quantities entered for
 /// a trades account that differ from its trades are listed with *Add
@@ -151,6 +152,9 @@ private struct CheckInReviewContent: View {
                 }
             }
             changedCard
+            if !CheckInReviewDisplay.movedRows(review).isEmpty || review.movedNotCancelledOut != nil {
+                movedCard
+            }
             if let note = CheckInWording.openingMovesNote(review.openingMoves, date: draft.date, in: library.library,
                                                           locale: locale) {
                 Card("Opening dates") {
@@ -286,6 +290,24 @@ private struct CheckInReviewContent: View {
         }
     }
 
+    /// What moved between your own accounts (docs/ACCOUNTS.md, "Moved
+    /// between your accounts"): each account's part, and whether the sum
+    /// cancels out. Information, not a warning.
+    private var movedCard: some View {
+        Card("Between your accounts") {
+            VStack(alignment: .leading, spacing: Metrics.s) {
+                ForEach(CheckInReviewDisplay.movedRows(review)) { row in
+                    CheckInMovedRow(row: row)
+                }
+                AmountSentenceText(CheckInReviewDisplay.movedSummary(review, currency: library.baseCurrency,
+                                                                     locale: locale))
+                    .font(.footnote)
+                    .foregroundStyle(Palette.secondaryInk)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+    }
+
     /// Statement quantities entered for trades accounts that differ from their trades.
     private var mismatches: [PositionMismatch] {
         review.rows.flatMap(\.mismatches)
@@ -384,6 +406,30 @@ private struct CheckInReviewRow: View {
                     DeltaText(value - previous)
                         .font(.footnote)
                 }
+            }
+        }
+        .accessibilityElement(children: .combine)
+    }
+}
+
+/// An account's part in what moved between your own accounts: its name
+/// and the amount, in its own currency.
+private struct CheckInMovedRow: View {
+    let row: CheckInRowReview
+
+    @Environment(LibraryStore.self) private var library
+
+    var body: some View {
+        let account = library.account(row.account)
+        HStack(alignment: .firstTextBaseline, spacing: Metrics.s) {
+            Text(verbatim: account?.name ?? row.account.rawValue)
+                .font(.subheadline)
+                .privacySensitiveInFeedback()
+            Spacer(minLength: Metrics.s)
+            if let moved = row.moved {
+                AmountText(moved, currency: account?.currency ?? library.baseCurrency, precision: .cents, signed: true)
+                    .font(.subheadline)
+                    .foregroundStyle(Palette.secondaryInk)
             }
         }
         .accessibilityElement(children: .combine)

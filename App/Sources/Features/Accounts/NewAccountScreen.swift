@@ -10,8 +10,8 @@ import Tracker
 ///    leaves room to add the account's history.
 /// 3. The positions (choose or create instruments) or the balance on the
 ///    opening date, which becomes the first valuation. A brokerage, crypto
-///    or metals account chooses how it's tracked: its trade history (the
-///    default: the positions become opening trades) or monthly snapshots.
+///    or metals account records trades: its positions become opening
+///    trades.
 /// 4. Whether it counts in net worth and plans, and from what age plans can
 ///    draw on it (a pension fund from 65 by default).
 ///
@@ -81,19 +81,6 @@ struct NewAccountScreen: View {
     @ViewBuilder
     private var openingSection: some View {
         let symbol = AmountFormat.symbol(for: form.currency, locale: locale)
-        if form.offersTracking {
-            Section {
-                Picker("Track", selection: $form.tracking) {
-                    Text("Trade history").tag(ValuationMode.trades)
-                    Text("Monthly snapshots").tag(ValuationMode.holdings)
-                }
-                .pickerStyle(.segmented)
-            } header: {
-                Text("Track")
-            } footer: {
-                Text(verbatim: AccountForm.trackingExplanation(form.tracking))
-            }
-        }
         if form.holdsPositions {
             Section {
                 ForEach(opening.positions) { position in

@@ -25,6 +25,8 @@ enum CheckInField: Hashable, Sendable {
     case moneyIn(AccountID)
     /// The money that went out of it.
     case moneyOut(AccountID)
+    /// The interest a savings account earned.
+    case interest(AccountID)
     /// The valuation's note (the Mac table's Note column).
     case note(AccountID)
 
@@ -32,7 +34,7 @@ enum CheckInField: Hashable, Sendable {
     var account: AccountID {
         switch self {
         case .balance(let account), .cash(let account), .flow(let account), .moneyIn(let account),
-             .moneyOut(let account), .note(let account):
+             .moneyOut(let account), .interest(let account), .note(let account):
             account
         case .quantity(let account, _):
             account
@@ -63,6 +65,7 @@ extension CheckInField {
             return name + (CheckInWording.isPension(account?.kind) ? " · contributions" : " · new money")
         case .moneyIn: return name + " · money in"
         case .moneyOut: return name + " · money out"
+        case .interest: return name + " · interest"
         case .note: return name + " · note"
         }
     }
@@ -146,11 +149,12 @@ struct CheckInFieldOrder: Hashable, Sendable {
     }
 
     /// The iPhone list's fields, top to bottom: each balance; a trades
-    /// account's statement quantities entered
-    /// to compare (expanded) and its cash when it has a field
+    /// account's statement quantities entered to compare (expanded) and
+    /// its cash when it has a field
     /// (``CheckInRowDisplay/showsCashField(_:isEditing:)``, `editingCash`);
-    /// and each new-money field that's shown; money in and out after the
-    /// balance of the accounts in `moneyInOut`.
+    /// and each new-money field that's shown; money in and out, and a
+    /// savings account's interest, after the balance of the accounts in
+    /// `moneyInOut`.
     static func list(rows: [CheckInRow], review: CheckInReview, expanded: Set<AccountID>,
                      editingFlows: Set<AccountID>, editingCash: Set<AccountID> = [],
                      moneyInOut: Set<AccountID> = []) -> CheckInFieldOrder {
@@ -165,9 +169,7 @@ struct CheckInFieldOrder: Hashable, Sendable {
                 }
             } else {
                 fields.append(.balance(row.account))
-                if moneyInOut.contains(row.account) {
-                    fields += [.moneyIn(row.account), .moneyOut(row.account)]
-                }
+                if moneyInOut.contains(row.account) { fields += moneyFields(of: row) }
             }
             let rule = review.row(for: row.account)?.flowRule ?? .ask
             if CheckInRowDisplay.showsFlowField(row, rule: rule, isEditing: editingFlows.contains(row.account)) {
@@ -179,9 +181,9 @@ struct CheckInFieldOrder: Hashable, Sendable {
 
     /// The Mac table's "Now" column, top to bottom: each balance; a trades
     /// account's statement quantities (if any were entered) and its cash
-    /// when it has a field (`editingCash`); money in and out after the
-    /// balance of the accounts in `moneyInOut`. Return moves down this
-    /// column.
+    /// when it has a field (`editingCash`); money in and out, and a
+    /// savings account's interest, after the balance of the accounts in
+    /// `moneyInOut`. Return moves down this column.
     static func nowColumn(rows: [CheckInRow], editingCash: Set<AccountID> = [],
                           moneyInOut: Set<AccountID> = []) -> CheckInFieldOrder {
         var fields: [CheckInField] = []
@@ -193,12 +195,15 @@ struct CheckInFieldOrder: Hashable, Sendable {
                 }
             } else {
                 fields.append(.balance(row.account))
-                if moneyInOut.contains(row.account) {
-                    fields += [.moneyIn(row.account), .moneyOut(row.account)]
-                }
+                if moneyInOut.contains(row.account) { fields += moneyFields(of: row) }
             }
         }
         return CheckInFieldOrder(fields: fields)
+    }
+
+    /// Money in and out, then the interest when the row asks for it.
+    private static func moneyFields(of row: CheckInRow) -> [CheckInField] {
+        [.moneyIn(row.account), .moneyOut(row.account)] + (row.asksInterest ? [.interest(row.account)] : [])
     }
 
     /// Where Return goes from `field` in the Mac table: down the "Now"
@@ -270,28 +275,56 @@ struct CheckInSection: Identifiable, Hashable, Sendable {
 
 /// What a row shows, beyond its values.
 enum CheckInRowDisplay {
-    /// Whether the row shows a field for new money: when the account's kind
-    /// asks for it (a pension fund's "contributions since …") and the row
-    /// isn't unchanged or skipped, or when the automatic amount is being
-    /// edited. A trades account's new money comes from its trades, whatever
-    /// its kind.
+    /// Whether the row's new money can be typed (docs/ACCOUNTS.md, "New
+    /// money"): only when the account's kind asks for it (`rule` is
+    /// `.ask`: a pension fund's "contributions since …", property). Cash,
+    /// savings, credit cards, loans and mortgages work it out from what's
+    /// typed, and a trades account from its trades, unless a cash from a
+    /// statement makes part of it a guess (``canEditTradeFlow(_:)``).
+    static func canEditFlow(_ row: CheckInRow, rule: FlowDefault) -> Bool {
+        guard row.canEnterFlow else { return false }
+        return row.isTrades ? canEditTradeFlow(row) : rule == .ask
+    }
+
+    /// Whether the row shows a field for new money: when it can be typed
+    /// (``canEditFlow(_:rule:)``) and the kind asks for it, while the row
+    /// isn't unchanged or skipped, or while it's being edited (`isEditing`).
     static func showsFlowField(_ row: CheckInRow, rule: FlowDefault, isEditing: Bool) -> Bool {
+        guard canEditFlow(row, rule: rule) else { return false }
         if isEditing { return true }
-        guard rule == .ask, !row.isTrades else { return false }
+        guard !row.isTrades else { return false }
         return row.state == .notReviewed || row.state == .updated
     }
 
-    /// Whether a balance row shows money in and out: its kind records them
-    /// (``Model/AccountKind/recordsMoneyInOut``); never for a row marked
-    /// unchanged or skipped, or for an account's first value, which
-    /// summaries don't count.
-    static func showsMoneyInOut(_ row: CheckInRow, in library: Library) -> Bool {
-        guard row.mode == .balance, !row.isTrades, row.state != .unchanged, row.state != .skipped,
-              row.previous != nil, let account = library.accounts[row.account]
-        else {
-            return false
-        }
-        return account.kind.recordsMoneyInOut
+    /// Whether the row's menu offers *Edit New Money*: an updated trades
+    /// row whose new money can be typed (a cash from a statement) and has
+    /// no field showing. Other rows that can be typed show their field.
+    static func offersEditFlow(_ row: CheckInRow, rule: FlowDefault, isEditing: Bool) -> Bool {
+        row.state == .updated && row.isTrades && canEditFlow(row, rule: rule)
+            && !showsFlowField(row, rule: rule, isEditing: isEditing)
+    }
+
+    /// Whether a balance row shows money in and out (docs/ACCOUNTS.md,
+    /// "Money in and out"): a cash or savings account's
+    /// (``Tracker/CheckInRow/asksMoneyInOut``), at every value after its
+    /// first; never for a row marked unchanged (it records 0 and 0) or
+    /// skipped. An account's first value asks only for its balance.
+    static func showsMoneyInOut(_ row: CheckInRow) -> Bool {
+        guard row.mode == .balance, !row.isTrades, row.asksMoneyInOut, row.previous != nil else { return false }
+        return row.state != .unchanged && row.state != .skipped
+    }
+
+    /// Whether a balance row shows a savings account's interest, under its
+    /// money in and out.
+    static func showsInterest(_ row: CheckInRow) -> Bool {
+        showsMoneyInOut(row) && row.asksInterest
+    }
+
+    /// Whether a trades row offers *No Trades* next to *Add Trade…*: it's
+    /// waiting, since no trades were recorded since its previous value
+    /// (docs/ACCOUNTS.md, "Settled questions" 4).
+    static func offersNoTrades(_ row: CheckInRow) -> Bool {
+        row.isTrades && row.state == .notReviewed && !row.hasNewTrades && row.canMarkUnchanged
     }
 
     /// The style of a row's balance field: a debt's reads amounts as owed.
@@ -356,6 +389,28 @@ enum CheckInReviewDisplay {
         } ?? AmountSentence(QuantityFormat.labelled(title, "unknown"))
         if followsTrades { line += " · from trades" }
         return line
+    }
+
+    /// The rows the review's *Between your accounts* lists: those whose part
+    /// in what moved between your own accounts isn't zero
+    /// (``Tracker/CheckInRowReview/moved``), in row order.
+    static func movedRows(_ review: CheckInReview) -> [CheckInRowReview] {
+        review.rows.filter { ($0.moved ?? 0) != 0 }
+    }
+
+    /// The sum of what moved between your own accounts, in words
+    /// (docs/ACCOUNTS.md, "Settled questions" 5), as information, not a
+    /// warning: "It cancels out: what left one of your accounts landed in
+    /// another." or "It adds up to +350 €, which doesn't cancel out: …".
+    /// The amount hides with the eye.
+    static func movedSummary(_ review: CheckInReview, currency: CurrencyCode,
+                             locale: Locale = .current) -> AmountSentence {
+        guard let left = review.movedNotCancelledOut else {
+            return "It cancels out: what left one of your accounts landed in another."
+        }
+        let amount = AmountFormat.signedAmount(left, currency: currency, precision: .automatic, locale: locale)
+        return "It adds up to \(amount: amount), which doesn't cancel out. That's usual for money paid into a "
+            + "pension fund, or for a payment left out of money out."
     }
 }
 
@@ -422,16 +477,20 @@ enum CheckInWording {
         }
     }
 
-    /// A row's state in words: ``stateName(_:)``, or "From trades" for a
-    /// trades account as its trades say (``CheckInRow/followsTrades``).
+    /// A row's state in words: ``stateName(_:)``, or for a trades account
+    /// as its trades say (``CheckInRow/followsTrades``) "From trades", and
+    /// "No trades" when none were recorded since its previous value.
     static func stateName(for row: CheckInRow) -> String {
-        row.followsTrades ? "From trades" : stateName(row.state)
+        guard row.followsTrades else { return stateName(row.state) }
+        return row.hasNewTrades ? "From trades" : "No trades"
     }
 
     /// The swipe action that marks a row unchanged: "Unchanged", or for a
-    /// trades account "From Trades" (back to what its trades say).
+    /// trades account "From Trades" (back to what its trades say), and "No
+    /// Trades" when none were recorded since its previous value.
     static func markUnchangedSwipeTitle(for row: CheckInRow) -> String {
-        row.isTrades ? "From Trades" : "Unchanged"
+        guard row.isTrades else { return "Unchanged" }
+        return row.hasNewTrades ? "From Trades" : "No Trades"
     }
 
     /// The menu command that marks a row unchanged: "Mark Unchanged", or for
@@ -522,25 +581,54 @@ enum CheckInWording {
     }
 
     /// The line under a row that isn't updated: "Pre-filled from 31 Aug",
-    /// "Unchanged" ("As the trades say" for a trades account), "Skipped ·
-    /// no value this time", or for a new account "New account · enter its
-    /// value". `nil` for an updated row, whose line
-    /// shows the amounts. A row of an account that opens later says so
-    /// instead (see ``openingNote(for:opened:date:locale:)``).
+    /// "Unchanged" ("As the trades say" for a trades account, or "No trades
+    /// since 30 Sep" when none were recorded), "Skipped · no value this
+    /// time", for a new account "New account · enter its value", or for a
+    /// trades account waiting for its trades "Add a trade, or say there
+    /// were none". `nil` for an updated row, whose line shows the amounts.
+    /// A row of an account that opens later says so instead (see
+    /// ``openingNote(for:opened:date:locale:)``).
     static func caption(for row: CheckInRow, locale: Locale = .current) -> String? {
         switch row.state {
         case .updated:
             return nil
         case .unchanged:
-            return row.followsTrades ? "As the trades say" : "Unchanged"
+            guard row.followsTrades else { return "Unchanged" }
+            guard !row.hasNewTrades else { return "As the trades say" }
+            return row.previous.map { "No trades since " + AmountFormat.shortDate($0.date, locale: locale) }
+                ?? "No trades"
         case .skipped:
             return "Skipped · no value this time"
         case .notReviewed:
             if row.opensLater { return "Optional · leave empty to change nothing" }
+            if CheckInRowDisplay.offersNoTrades(row) { return "Add a trade, or say there were none" }
             guard let previous = row.previous else { return "New account · enter its value" }
             return "Pre-filled from " + AmountFormat.shortDate(previous.date, locale: locale)
         }
     }
+
+    /// What a cash or savings row's "moved" says (docs/ACCOUNTS.md, "Moved
+    /// between your accounts"): "Moved +1.200,00 between your accounts",
+    /// the row's part in money moved between your own accounts, read-only.
+    /// `nil` when the row writes nothing. The amount hides with the eye.
+    static func moved(_ amount: Decimal?, locale: Locale = .current) -> AmountSentence? {
+        guard let amount else { return nil }
+        let shown = CheckInFieldFormat.plain(amount, signed: true, locale: locale)
+        return QuantityFormat.labelled("Moved", amount: shown) + " between your accounts"
+    }
+
+    /// What "moved" is, for help text and VoiceOver.
+    static let movedExplanation = "What's left of the change once money in and out are taken out (and the "
+        + "interest, for savings): money moved between your own accounts. It's worked out, not typed."
+
+    /// Why a cash, savings or debt row's new money can't be typed, for help
+    /// text.
+    static let workedOutFlowExplanation = "Worked out from what's typed: the change in balance, less the interest "
+        + "for savings."
+
+    /// What a money field shows while it's empty: "0", what it records
+    /// then (docs/ACCOUNTS.md, "Pre-filled values").
+    static let moneyPrompt = "0"
 
     /// The footnote of a row whose account opens after the check-in's
     /// `date` (on `opened`): "Opened 30 Sep 2026 · a value here moves its

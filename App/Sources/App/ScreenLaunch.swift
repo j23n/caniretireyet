@@ -9,7 +9,8 @@ import Model
 /// `-screen` the screen to start on (`overview`, `plan`, `progress`,
 /// `trends` or `whatIf`; `targetMix`, the Target mix sheet of the first plan
 /// with changes with age; `tradesAccount` or `cashAccount`, an account's
-/// details). The main plan is calculated at once, with fewer runs than it
+/// details; `checkIn`, the October check-in under way, from
+/// `CheckInPreviewData`). The main plan is calculated at once, with fewer runs than it
 /// says, so the plan's screens fill in quickly; not with `-screenNoRun`.
 /// `-screenLibrary empty` opens first launch instead, on the step `-screen`
 /// names (``OnboardingStep``: `welcome`, `location`, `you`, `money`,
@@ -45,6 +46,8 @@ struct ScreenLaunch {
         /// Conto Fineco's details: a current account's values with money in,
         /// money out and what moved.
         case cashAccount
+        /// The check-in, under way (``CheckInPreviewData/fill(_:)``).
+        case checkIn
 
         /// The account whose details the screen shows; `nil` for the others.
         var account: AccountID? {
@@ -161,6 +164,11 @@ struct ScreenLaunch {
                 navigation.accountsPath = [account]
                 navigation.sidebarSelection = .account(account)
             }
+        case .checkIn:
+            CheckInPreviewData.fill(model)
+            // Both layouts', as above.
+            navigation.isCheckInPresented = true
+            navigation.sidebarSelection = .checkIn
         }
         if calculates, let main {
             // As the root view does once a library is open; a library in

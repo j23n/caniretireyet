@@ -324,8 +324,9 @@ struct PlanWorkingSpendingForm: View {
     }
 
     /// What the cash and savings accounts that record money in and out
-    /// spent over the last twelve months, a month on average, to set the
-    /// plan's spending against (PROGRESS.md, "Money in and out"); `nil`
+    /// spent over the last twelve months, a month on average, loan and
+    /// mortgage payments included, to set the plan's spending against
+    /// (PROGRESS.md, "Money in and out"); `nil`
     /// when nothing was recorded. The amount hides with the eye.
     private var spentNote: AmountSentence? {
         let summary = library.valuator.moneyInOut(overYearEndingOn: .today())
@@ -333,8 +334,7 @@ struct PlanWorkingSpendingForm: View {
         let amount = AmountSentence.amount(
             AmountFormat.amount(perYear / 12, currency: summary.currency, locale: locale))
         var note: AmountSentence = "Your accounts recorded \(amount) a month on average going out in the last year, "
-        note += "credit card payments included. Money moved between them, such as loan and mortgage payments, "
-        note += "is left out."
+        note += "loan, mortgage and credit card payments included. Money moved between your own accounts is left out."
         if !summary.isComplete { note += " Values without an exchange rate are left out too." }
         return note
     }

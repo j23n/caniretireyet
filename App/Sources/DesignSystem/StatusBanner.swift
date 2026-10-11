@@ -100,25 +100,33 @@ struct StatusBanner: View {
     }
 }
 
-/// The library's own state as banners: read-only, a failed save, files that
-/// couldn't be read, conflicts that were merged or failed, and files a save
-/// copied to backups or kept because they changed elsewhere. Shows nothing
-/// when all is well. Screens put it at the top of their content; the
-/// Overview shows it in "Needs attention".
+/// The library's own state as banners: an upgrade of its format, read-only,
+/// a failed save, files that couldn't be read, conflicts that were merged or
+/// failed, and files a save copied to backups or kept because they changed
+/// elsewhere. Shows nothing when all is well. Screens put it at the top of
+/// their content; the Overview shows it in "Needs attention".
 struct LibraryStatusBanners: View {
     @Environment(LibraryStore.self) private var library
     @Environment(AppNavigation.self) private var navigation
+    /// What the upgrade did, open in a sheet; closing it dismisses the banner.
+    @State private var shownUpgrade: LibraryUpgrade?
 
     /// Whether there's a banner to show: the body's conditions, for a
     /// screen that shows the banners in a card of its own (the Overview's
     /// "Needs attention").
     static func showsAny(for library: LibraryStore) -> Bool {
-        library.isReadOnly || library.lastError != nil || library.loadIssues.contains { $0.severity == .error }
+        library.upgrade != nil || library.isReadOnly || library.lastError != nil
+            || library.loadIssues.contains { $0.severity == .error }
             || !library.mergedConflicts.isEmpty || !library.conflictFailures.isEmpty || !library.saveNotices.isEmpty
     }
 
     var body: some View {
         VStack(spacing: Metrics.s) {
+            if let upgrade = library.upgrade {
+                StatusBanner(.info, LibraryUpgrade.title, message: upgrade.message, actionTitle: "Show details") {
+                    shownUpgrade = upgrade
+                }
+            }
             if let reason = library.readOnlyReason {
                 StatusBanner(.info, "Read-only", message: LibraryStoreError.readOnly(reason).message)
             }
@@ -155,6 +163,9 @@ struct LibraryStatusBanners: View {
                     actionTitle: "Review") { navigation.show(.sync) }
             }
         }
+        .sheet(item: $shownUpgrade, onDismiss: { library.dismissUpgrade() }) { upgrade in
+            LibraryUpgradeSheet(upgrade: upgrade)
+        }
     }
 }
 
@@ -165,6 +176,8 @@ struct LibraryStatusBanners: View {
                      actionTitle: "Review") {}
         StatusBanner(.error, "Couldn't save your changes", message: "The disk is full.")
         StatusBanner(.success, "Saved")
+        StatusBanner(.info, LibraryUpgrade.title, message: LibraryUpgrade.example.message,
+                     actionTitle: "Show details") {}
         LibraryStatusBanners()
     }
     .padding()

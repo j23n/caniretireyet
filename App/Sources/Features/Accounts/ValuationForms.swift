@@ -53,13 +53,45 @@ struct AccountValuationDraft: Hashable, Sendable {
     }
 
     /// What must be entered before saving, if anything: an account with no
-    /// earlier value to keep needs a value (a balance, or positions or cash).
+    /// earlier value to keep needs a value (a balance, or a trades
+    /// account's cash).
     func missingValue(in library: Library) -> String? {
         guard let row, !row.canMarkUnchanged else { return nil }
         if let valuation = valuation(in: library), valuation.isBalance || valuation.isHoldings { return nil }
         return row.mode == .balance
             ? "Enter the balance: this account has no earlier value to keep."
-            : "Enter the positions or the cash: this account has no earlier value to keep."
+            : "Enter the cash: this account has no earlier value to keep."
+    }
+
+    /// The fields *Update Value* shows for the account on this date.
+    var fields: AccountValuationFields? {
+        row.map { AccountValuationFields(kind: $0.kind, recordsTrades: $0.isTrades, isFirst: $0.previous == nil) }
+    }
+}
+
+/// Which fields *Update Value* and *Edit Value* ask for: the same as the
+/// check-in, by the account's kind (docs/ACCOUNTS.md, "What each kind asks
+/// for").
+struct AccountValuationFields: Hashable, Sendable {
+    /// A balance; otherwise a trades account's cash.
+    var balance: Bool
+    /// Money in and out: a cash or savings account's, at every value after
+    /// its first, unless it records trades.
+    var moneyInOut: Bool
+    /// The interest a savings account earned, with its money in and out.
+    var interest: Bool
+    /// New money, typed: only where the kind asks for it (a pension fund's
+    /// "paid in since …", property), and a trades account's, which its
+    /// trades fill in. Cash, savings and debts work it out from what's typed.
+    var flow: Bool
+
+    /// The fields of a value of an account of `kind`; `isFirst`: the
+    /// account has no value before it, so it asks only for its balance.
+    init(kind: AccountKind, recordsTrades: Bool, isFirst: Bool) {
+        balance = !recordsTrades
+        moneyInOut = kind.recordsMoneyInOut && !recordsTrades && !isFirst
+        interest = moneyInOut && kind.recordsInterest
+        flow = recordsTrades || kind.defaultFlow == .ask
     }
 }
 
@@ -127,6 +159,15 @@ enum AccountValueNotes {
         return "The account's value then carries forward from the value before it." + followUp
     }
 
+    /// The footer of money in and out, in *Update Value* and the valuation
+    /// editor (docs/ACCOUNTS.md, "Money in and out"); with `interest`, a
+    /// savings account's.
+    static func moneyInOutFooter(interest: Bool) -> String {
+        "What came in from outside your accounts and what went out since the last value, loan, mortgage and "
+            + "credit card payments included. Money moved between your own accounts is in neither: it's what's "
+            + "left of the change." + (interest ? " The interest counts as markets, not new money." : "")
+    }
+
     /// "value" or "values", for `valuations`.
     private static func values(_ valuations: [Valuation]) -> String {
         valuations.count == 1 ? "value" : "values"
@@ -146,12 +187,16 @@ enum AccountValueNotes {
 struct AccountValuationInput: Hashable, Sendable {
     var balance: String?
     var cash: String?
-    var quantities: [InstrumentID: String] = [:]
     /// `nil` or empty: the default for the account's kind.
     var flow: String?
+    /// A cash or savings account's money in and out; empty: money in is 0,
+    /// and money out follows as in the check-in (docs/ACCOUNTS.md,
+    /// "Pre-filled values").
+    var moneyIn: String?
+    var moneyOut: String?
+    /// A savings account's interest; empty: none.
+    var interest: String?
     var note: String?
-    /// Positions added to a holdings account, in order.
-    var added: [InstrumentID] = []
 
     init() {}
 
@@ -165,9 +210,19 @@ struct AccountValuationInput: Hashable, Sendable {
         set { cash = newValue }
     }
 
-    subscript(quantity instrument: InstrumentID, prefilled prefilled: String) -> String {
-        get { quantities[instrument] ?? prefilled }
-        set { quantities[instrument] = newValue }
+    subscript(moneyIn prefilled: String) -> String {
+        get { moneyIn ?? prefilled }
+        set { moneyIn = newValue }
+    }
+
+    subscript(moneyOut prefilled: String) -> String {
+        get { moneyOut ?? prefilled }
+        set { moneyOut = newValue }
+    }
+
+    subscript(interest prefilled: String) -> String {
+        get { interest ?? prefilled }
+        set { interest = newValue }
     }
 
     var flowText: String {
@@ -180,8 +235,9 @@ struct AccountValuationInput: Hashable, Sendable {
         set { note = newValue }
     }
 
-    /// What stops Save: typed amounts that can't be read, and a balance or
-    /// quantity field that was cleared (an empty field isn't zero).
+    /// What stops Save: typed amounts that can't be read, a balance field
+    /// that was cleared (an empty field isn't zero), and money in or out
+    /// typed with a minus.
     func problems(locale: Locale = .current) -> [String] {
         var problems: [String] = []
         func check(_ text: String?, _ what: String, required: String? = nil) {
@@ -194,10 +250,12 @@ struct AccountValuationInput: Hashable, Sendable {
         }
         check(balance, "balance", required: "Enter the balance. To record nothing owed or held, type 0.")
         check(cash, "cash")
-        for (_, text) in quantities.sorted(by: { $0.key < $1.key }) {
-            check(text, "quantity", required: "Enter each position's quantity, or 0 if it was sold.")
-        }
         check(flow, "new money")
+        check(moneyIn, "money in")
+        check(moneyOut, "money out")
+        check(interest, "interest")
+        let money = [moneyIn, moneyOut].compactMap { $0.flatMap { AmountInput.parse($0, locale: locale).value } }
+        if money.contains(where: { $0 < 0 }) { problems.append("Money in and out can't be negative.") }
         return problems
     }
 
@@ -209,18 +267,16 @@ struct AccountValuationInput: Hashable, Sendable {
                  locale: Locale = .current) -> AccountValuationDraft {
         var draft = base
         draft.edit { row in
-            for instrument in added where row.position(for: instrument) == nil {
-                row.setQuantity(0, of: instrument)
-            }
             if let balance, let amount = AmountInput.balance(from: balance, isLiability: isLiability, locale: locale) {
                 row.setBalance(amount)
             }
             if let cash { row.setCash(AmountInput.decimal(from: cash, locale: locale)) }
-            for (instrument, text) in quantities.sorted(by: { $0.key < $1.key }) {
-                if let quantity = AmountInput.decimal(from: text, locale: locale) {
-                    row.setQuantity(quantity, of: instrument)
-                }
+            if row.asksMoneyInOut {
+                // Emptied, money in is 0 and money out follows again.
+                if let amount = Self.entered(moneyIn, locale: locale) { row.setMoneyIn(amount) }
+                if let amount = Self.entered(moneyOut, locale: locale) { row.setMoneyOut(amount) }
             }
+            if let amount = Self.entered(interest, locale: locale) { row.setInterest(amount) }
             if let flow {
                 switch AmountInput.parse(flow, locale: locale) {
                 case .empty: row.resetFlow()
@@ -237,8 +293,26 @@ struct AccountValuationInput: Hashable, Sendable {
     }
 }
 
+extension AccountValuationInput {
+    /// The amount typed in a field that was edited: `nil` when it wasn't,
+    /// or can't be read; `.some(nil)` when it was emptied.
+    fileprivate static func entered(_ text: String?, locale: Locale) -> Decimal?? {
+        guard let text else { return nil }
+        switch AmountInput.parse(text, locale: locale) {
+        case .empty: return .some(nil)
+        case .value(let amount): return .some(amount)
+        case .unreadable: return nil
+        }
+    }
+}
+
 /// The fields of a valuation already saved, while it's edited: date,
-/// balance (or cash and positions), new money and note.
+/// balance (or cash and a statement's positions), money in and out and a
+/// savings account's interest, new money where the kind asks for it, and
+/// note (``AccountValuationFields``). Read with the library it's saved in
+/// (``fields(in:)``, ``valuation(in:locale:)``): whether it's the
+/// account's first value depends on its date, and a cash, savings or debt
+/// account's new money is worked out from the value before it.
 struct AccountValuationForm: Hashable, Sendable {
     struct PositionField: Hashable, Sendable, Identifiable {
         var instrument: InstrumentID
@@ -251,38 +325,43 @@ struct AccountValuationForm: Hashable, Sendable {
 
     let original: Valuation
     var date: CalendarDate
+    /// The account's kind, which says what the value asks for.
+    let kind: AccountKind
+    /// Whether the account records trades: the value is its cash.
+    let recordsTrades: Bool
     /// Whether it records a balance (or cash and positions).
     let isBalance: Bool
     /// Whether the account is a debt: its balance is typed as what's owed
     /// and recorded negative (``AmountInput/balance(from:isLiability:locale:)``).
-    let isLiability: Bool
+    var isLiability: Bool { kind.isLiability }
     var balance: String
     var cash: String
     var positions: [PositionField]
-    /// Empty means unknown.
+    /// Empty means unknown. Typed only where ``AccountValuationFields/flow``.
     var flow: String
-    /// Whether the account's kind records money in and out (cash and
-    /// savings). For other kinds the editor hides the fields, and saving
-    /// keeps what the file has.
-    let recordsMoneyInOut: Bool
-    /// Money in and out of a cash or savings account; empty means not recorded.
+    /// Money in and out of a cash or savings account. Empty, money in is 0
+    /// and money out is suggested, as in *Update Value*; saving records
+    /// both, on an older value without them too.
     var moneyIn: String
     var moneyOut: String
+    /// A savings account's interest; empty means none.
+    var interest: String
     var note: String
 
-    /// The fields of `valuation`. A trades account's (`recordsTrades`) is
-    /// never a balance: it records cash, and a balance written by hand
-    /// isn't used, so saving drops it (docs/TRADES.md). A debt's
-    /// (`isLiability`) balance reads as typed in the check-in.
-    init(_ valuation: Valuation, holdsPositions: Bool, recordsTrades: Bool = false, isLiability: Bool = false,
-         recordsMoneyInOut: Bool, locale: Locale = .current) {
+    /// The fields of `valuation`, a value of an account of `kind`. A trades
+    /// account's (`recordsTrades`) is never a balance: it records cash, and
+    /// a balance written by hand isn't used, so saving drops it
+    /// (docs/TRADES.md). A debt's balance reads as typed in the check-in.
+    init(_ valuation: Valuation, kind: AccountKind, holdsPositions: Bool, recordsTrades: Bool = false,
+         locale: Locale = .current) {
         original = valuation
         date = valuation.date
+        self.kind = kind
+        self.recordsTrades = recordsTrades
         isBalance = !recordsTrades && (valuation.isBalance || (!valuation.isHoldings && !holdsPositions))
-        self.isLiability = isLiability
-        self.recordsMoneyInOut = recordsMoneyInOut
-        balance = valuation.balance.map { AmountInput.balanceText(for: $0, isLiability: isLiability, locale: locale) }
-            ?? ""
+        balance = valuation.balance.map {
+            AmountInput.balanceText(for: $0, isLiability: kind.isLiability, locale: locale)
+        } ?? ""
         cash = valuation.cash.map { AmountInput.text(for: $0, locale: locale) } ?? ""
         positions = valuation.positions.map { position in
             PositionField(instrument: position.instrument,
@@ -292,7 +371,21 @@ struct AccountValuationForm: Hashable, Sendable {
         flow = valuation.flow.map { AmountInput.text(for: $0, locale: locale) } ?? ""
         moneyIn = valuation.moneyIn.map { AmountInput.text(for: $0, locale: locale) } ?? ""
         moneyOut = valuation.moneyOut.map { AmountInput.text(for: $0, locale: locale) } ?? ""
+        interest = valuation.interest.map { AmountInput.text(for: $0, locale: locale) } ?? ""
         note = valuation.note ?? ""
+    }
+
+    /// The money out suggested when its field is empty: 0 for savings;
+    /// for cash, what money in and the new money suggest
+    /// (``Tracker/CheckInDraft/defaultMoneyOut(moneyIn:flow:)``).
+    /// `nil` while the value can't be read.
+    func suggestedMoneyOut(in library: Library, locale: Locale = .current) -> Decimal? {
+        guard let valuation = valuation(in: library, locale: locale, suggestingMoneyOut: false) else { return nil }
+        return Self.suggestedMoneyOut(for: valuation, kind: kind)
+    }
+
+    private static func suggestedMoneyOut(for valuation: Valuation, kind: AccountKind) -> Decimal {
+        kind == .savings ? 0 : CheckInDraft.defaultMoneyOut(moneyIn: valuation.moneyIn ?? 0, flow: valuation.flow) ?? 0
     }
 
     /// The date as a `Date` (noon, this device's time zone), for a date picker.
@@ -320,8 +413,26 @@ struct AccountValuationForm: Hashable, Sendable {
         }
     }
 
-    /// What can't be read, in order.
-    func problems(locale: Locale = .current) -> [String] {
+    /// `library` without the value being edited, which the form replaces.
+    private func others(in library: Library) -> Library {
+        var others = library
+        others.removeValuation(original.key)
+        return others
+    }
+
+    /// The account's value before the form's date, the original left out.
+    func previous(in library: Library) -> Valuation? {
+        others(in: library).valuations(for: original.account).last { $0.date < date }
+    }
+
+    /// The fields to show on the form's date: an account's first value
+    /// asks only for its balance.
+    func fields(in library: Library) -> AccountValuationFields {
+        AccountValuationFields(kind: kind, recordsTrades: recordsTrades, isFirst: previous(in: library) == nil)
+    }
+
+    /// What can't be read, in order. Fields that aren't shown aren't checked.
+    func problems(in library: Library, locale: Locale = .current) -> [String] {
         var problems: [String] = []
         func check(_ text: String, _ what: String, required: Bool = false) {
             switch AmountInput.parse(text, locale: locale) {
@@ -339,26 +450,35 @@ struct AccountValuationForm: Hashable, Sendable {
                 check(position.cost, "cost")
             }
         }
-        check(flow, "new money")
-        if recordsMoneyInOut {
+        let fields = fields(in: library)
+        if fields.flow { check(flow, "new money") }
+        if fields.moneyInOut {
             check(moneyIn, "money in")
             check(moneyOut, "money out")
             let moneyAmounts = [moneyIn, moneyOut].map { AmountInput.parse($0, locale: locale) }
-            if (moneyAmounts[0] == .empty) != (moneyAmounts[1] == .empty) {
-                problems.append("Enter both money in and out, or neither.")
-            }
             if moneyAmounts.contains(where: { ($0.value ?? 0) < 0 }) {
                 problems.append("Money in and out can't be negative.")
             }
         }
+        if fields.interest { check(interest, "interest") }
         return problems
     }
 
     /// The edited valuation, or `nil` while something can't be read. Its
     /// source becomes `manual` when a value or the date changed.
-    func valuation(locale: Locale = .current) -> Valuation? {
-        guard problems(locale: locale).isEmpty else { return nil }
+    ///
+    /// Fields the form doesn't show keep what the file has, except new
+    /// money: a cash, savings or debt account's is worked out from the
+    /// value before it in `library` (docs/ACCOUNTS.md, "New money") when
+    /// the date, the value or the interest changed.
+    func valuation(in library: Library, locale: Locale = .current) -> Valuation? {
+        valuation(in: library, locale: locale, suggestingMoneyOut: true)
+    }
+
+    private func valuation(in library: Library, locale: Locale, suggestingMoneyOut: Bool) -> Valuation? {
+        guard problems(in: library, locale: locale).isEmpty else { return nil }
         func number(_ text: String) -> Decimal? { AmountInput.decimal(from: text, locale: locale) }
+        let fields = fields(in: library)
         var valuation = Valuation(account: original.account, date: date)
         if isBalance {
             valuation.balance = AmountInput.balance(from: balance, isLiability: isLiability, locale: locale)
@@ -369,11 +489,24 @@ struct AccountValuationForm: Hashable, Sendable {
                 return Position(instrument: field.instrument, quantity: quantity, costBasis: number(field.cost))
             }
         }
-        valuation.flow = number(flow)
-        valuation.moneyIn = recordsMoneyInOut ? number(moneyIn) : original.moneyIn
-        valuation.moneyOut = recordsMoneyInOut ? number(moneyOut) : original.moneyOut
-        // A savings account's interest isn't edited here yet: it's kept.
-        valuation.interest = original.interest
+        valuation.moneyIn = fields.moneyInOut ? number(moneyIn) ?? 0 : original.moneyIn
+        valuation.moneyOut = fields.moneyInOut ? number(moneyOut) : original.moneyOut
+        valuation.interest = fields.interest ? number(interest) : original.interest
+        if fields.flow {
+            valuation.flow = number(flow)
+        } else if valuation.date == original.date, valuation.balance == original.balance,
+                  valuation.cash == original.cash, valuation.positions == original.positions,
+                  valuation.interest == original.interest {
+            // Nothing the new money is worked out from changed (a note, say), so it stays as it was.
+            valuation.flow = original.flow
+        } else {
+            let others = others(in: library)
+            let previous = others.valuations(for: original.account).last { $0.date < date }
+            valuation.flow = Valuator(library: others).defaultFlow(for: valuation, previous: previous)
+        }
+        if fields.moneyInOut, suggestingMoneyOut, valuation.moneyOut == nil {
+            valuation.moneyOut = Self.suggestedMoneyOut(for: valuation, kind: kind)
+        }
         let trimmedNote = note.trimmingCharacters(in: .whitespacesAndNewlines)
         valuation.note = trimmedNote.isEmpty ? nil : trimmedNote
         var unchanged = original

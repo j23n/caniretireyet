@@ -326,15 +326,14 @@ struct CheckInRowMenu: View {
     }
 
     /// Whether to offer *Edit New Money*: on iPhone (the Mac's table always
-    /// has the New money column), for an updated row whose new money is
-    /// automatic and has no field showing; a trades account's only once
-    /// it can be edited (``CheckInRowDisplay/canEditTradeFlow(_:)``).
+    /// has the New money column), for an updated trades row whose new money
+    /// can be typed and has no field showing
+    /// (``CheckInRowDisplay/offersEditFlow(_:rule:isEditing:)``). Other
+    /// kinds' new money is worked out, or has its field.
     private var offersEditNewMoney: Bool {
         #if os(iOS)
-        let isEditing = session.editingFlows.contains(row.account)
-        return rule != .ask && row.state == .updated
-            && !CheckInRowDisplay.showsFlowField(row, rule: rule, isEditing: isEditing)
-            && (!row.isTrades || CheckInRowDisplay.canEditTradeFlow(row))
+        return CheckInRowDisplay.offersEditFlow(row, rule: rule,
+                                                isEditing: session.editingFlows.contains(row.account))
         #else
         return false
         #endif

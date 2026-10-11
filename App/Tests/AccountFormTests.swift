@@ -1,0 +1,69 @@
+import Foundation
+import Model
+import Testing
+@testable import CanIRetireYet
+
+/// A new account records its values the way its kind does, with no choice
+/// to make: brokerage, crypto and metals record trades, the others a
+/// balance (docs/ACCOUNTS.md, "Decisions"; UI.md, "Add account").
+struct AccountFormTests {
+    private let locale = Locale(identifier: "en_US")
+    private let today: CalendarDate = "2026-10-11"
+
+    private func newAccount(_ kind: AccountKind) -> AccountForm {
+        var form = AccountForm(residence: "IT", currency: .eur, today: today)
+        form.setKind(kind)
+        form.name = "New account"
+        return form
+    }
+
+    @Test(arguments: [AccountKind.brokerage, .crypto, .metals])
+    func aNewAccountOfAKindThatHoldsPositionsRecordsTrades(_ kind: AccountKind) {
+        let form = newAccount(kind)
+        #expect(form.valuationMode == .trades)
+        #expect(form.recordsTrades && form.holdsPositions)
+        let account = form.account(id: "new-account", locale: locale)
+        #expect(account.recordsTrades)
+        // The kind's default: nothing to write.
+        #expect(account.valuation == nil)
+    }
+
+    @Test(arguments: [AccountKind.cash, .savings, .pensionFund, .property, .mortgage])
+    func otherNewAccountsRecordABalance(_ kind: AccountKind) {
+        let form = newAccount(kind)
+        #expect(form.valuationMode == .balance)
+        #expect(!form.holdsPositions)
+    }
+
+    @Test func aNewBrokeragesPositionsBecomeOpeningTrades() throws {
+        let account = newAccount(.brokerage).account(id: "new-account", locale: locale)
+        var opening = AccountOpeningForm()
+        opening.cash = "250"
+        opening.addPosition("vwce")
+        opening[position: 0].quantity = "10"
+        opening[position: 0].cost = "1000"
+        #expect(opening.problems(holdsPositions: true, locale: locale).isEmpty)
+
+        let trades = opening.openingTrades(for: account, locale: locale)
+        #expect(trades.count == 1)
+        #expect(trades.first?.type == .opening)
+        #expect(trades.first?.quantity == 10)
+        #expect(trades.first?.cost == 1_000)
+
+        let valuation = try #require(opening.valuation(for: account, in: PreviewLibrary.library, locale: locale))
+        #expect(valuation.cash == 250)
+        #expect(valuation.positions.isEmpty)
+        #expect(valuation.balance == nil)
+    }
+
+    /// An edited account keeps its own mode, also one written before
+    /// format version 4.
+    @Test func anEditedAccountKeepsItsMode() {
+        var account = Account(id: "old", name: "Old", kind: .brokerage, currency: .eur, opened: "2020-01-01")
+        account.valuation = .holdings
+        var form = AccountForm(editing: account)
+        #expect(form.valuationMode == .holdings)
+        form.setKind(.cash)
+        #expect(form.valuationMode == .holdings)
+    }
+}
