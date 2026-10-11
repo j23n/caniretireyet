@@ -132,16 +132,21 @@ final class PriceSourceFinder {
     var isSearching: Bool { searches.contains(where: \.isSearching) }
 
     /// Searches for every instrument not searched yet, one at a time, which
-    /// Yahoo Finance's rate limit prefers.
+    /// Yahoo Finance's rate limit prefers. Each one's state is read when its
+    /// turn comes, so one searched by hand meanwhile keeps its listings and
+    /// the one chosen.
     func searchAll(prices: PriceStore) async {
-        for search in searches where search.state == .waiting {
-            await self.search(search.instrument, prices: prices)
+        for id in searches.map(\.instrument) {
+            guard searches.first(where: { $0.instrument == id })?.state == .waiting else { continue }
+            await search(id, prices: prices)
         }
     }
 
-    /// Searches again for one instrument, with its query as it is now.
+    /// Searches again for one instrument, with its query as it is now;
+    /// nothing while it's already searching.
     func search(_ id: InstrumentID, prices: PriceStore) async {
-        guard let index = searches.firstIndex(where: { $0.instrument == id }) else { return }
+        guard let index = searches.firstIndex(where: { $0.instrument == id }), !searches[index].isSearching
+        else { return }
         let query = searches[index].query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !query.isEmpty else {
             searches[index].state = .failed("Enter an ISIN, a ticker or a name to search for.")
