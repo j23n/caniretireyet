@@ -801,7 +801,7 @@ See [PROGRESS.md](PROGRESS.md).
   - Why ([PROGRESS.md](PROGRESS.md#actual-vs-a-baseline)): "Why you're ahead" ("Why you ended behind" for a past year), the same four rows every year, each with a bar on the largest's scale and its amount, signed, in green or orange, "0 €" in grey: **Going in** (the gap going into the year, or on a baseline's own start later in it), **Saving** (what you saved less what January planned), **Markets** (what they did less what January expected) and **Other** (inflation, values without new money entered, exchange rates). Then the total ("Ahead +21.572 €") and what January expected, in one line ("January expected 141.463 € by 31 Dec.", "… by now."). In whole units, so the rows add up to the total. Without the split, January's note instead, and for a year without a baseline *Add What You Planned in 2021…*, which opens *Add Past Baseline…* on its first day.
   - What happened, a row a month, a month with a milestone flagged and the milestone in bold ("Mar · You saved 9.121 €, more than usual.", "May · ⚑ Plan changed. **Passed 150.000 €.**", "Jun · 55 again.", "Aug · ⚑ **Passed the coast point: 67.**", "Calculations updated."); "Nothing to note." without any. Saving a baseline isn't a row: which baseline the year is measured against shows in its words ("ahead of January", "ahead of your 2021 plan").
   - A year whose check-ins stop early says so ("No check-ins after June: what you held is valued at its prices."), and one with missing prices or rates that those holdings count as zero and the line is dotted there, with *Fill In Past Prices…*.
-- **Milestones**, after the year's words on iPhone, beside the strip on the Mac and iPad ([Milestones](#milestones)): the next, how far there and when it typically comes; saving nothing more, when you could still retire, and when you reached the coast point; *All Milestones*, every milestone reached and ahead, in a sheet.
+- **Milestones**, after the year's words on iPhone, beside the strip on the Mac and iPad ([Milestones](#milestones)): the next, how far there and when it typically comes; saving nothing more, when you could still retire, and when you reached the coast point; *All Milestones*, what each kind means and every milestone reached and ahead, in a sheet.
 - **Next in your plan.** The chapter after the current one ("② Bridge, from 54 in 2042") with *Open*; then the one button, *Save Baseline…*, which takes a label ("Freeze what you expect now, to measure against it later."); and quietly under it *Add a Past Baseline…*. On the Mac and iPad under the milestones, beside the strip.
 - **Add Past Baseline…** ([PROGRESS.md](PROGRESS.md#past-baselines)): a sheet for what you planned before you used the app. *Planned on* (a day from your first record of a plan asset to your latest check-in, starting at the end of the first month) with your plan assets that day; **What you planned then**: take-home pay, spending while working, when to stop working and spending in retirement, a month each, starting from today's plan ("Returns, taxes, pensions, events and the rest are as in today's plan."); a name ("What I planned in 2021" when left empty). *Calculate and Save* runs the plan from that day and saves it; the baseline picker lists it as "What I planned in 2021 (added 6 Oct 2026)", and the years without their own baseline are measured against it ("12.400 € ahead of your 2021 plan", "Your 2021 plan expected …").
 - **More charts**, folded away:
@@ -810,31 +810,78 @@ See [PROGRESS.md](PROGRESS.md).
 
 ### Milestones
 
-The points you pass on the way ([PROGRESS.md](PROGRESS.md#milestones)): round amounts of plan assets, years of the spending you plan for retirement, shares of what retiring today needs, and the crossover, where a typical year's growth adds as much as you save. They're there to notice progress between the rare moves of the answer, calmly: a flag, a sentence, a row in a list. No badges, confetti or streaks, and nothing is taken away when markets fall back.
+The points you pass on the way ([PROGRESS.md](PROGRESS.md#milestones)): round amounts of plan assets from 10.000 €, years of the spending you plan for retirement, shares of what retiring today needs, and the crossover, where a typical year's growth adds as much as you save. They're there to notice progress between the rare moves of the answer, calmly: a flag, a sentence, a row in a list. No badges, confetti or streaks, and nothing is taken away when markets fall back.
 
 ```
 ┌──────────────────────────────────────────┐
-│ Milestones                               │
-│ ⚑ Next milestone                88% there│
-│ 400.000 €                                │
-│ ▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇░░░░░   │
-│ Typically by mid 2027.                   │
+│ Milestones                          Done │
+│ ⚑ Next milestone               98% there │
+│ 10 years of spending                     │
+│ ▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇░   │
+│ Enough to pay for 10 years of the        │
+│ spending you plan for retirement:        │
+│ 360.000 €.                               │
+│ Typically by early 2027.                 │
+│ ──────────────────────────────────────── │
+│ Saving nothing more                   71 │
+│ If you stopped saving today, you could   │
+│ still retire at 71; the coast point is   │
+│ 67, when your first pension starts.      │
+│ ──────────────────────────────────────── │
+│ What they mean                           │
+│                                          │
+│ Round amounts                            │
+│ Your plan assets passing 10.000 €,       │
+│ 15.000 €, 20.000 €, 25.000 € and on,     │
+│ each about a quarter above the last:     │
+│ simple marks of the money growing.       │
+│ ⚑ 300.000 €                     Jun 2026 │
+│ ⚐ 400.000 €                   early 2028 │
+│                                          │
+│ Years of spending                        │
+│ What you have, counted in years of the   │
+│ 36.000 € a year you plan to spend in     │
+│ retirement.                              │
+│ ⚑ 5 years of spending           Aug 2024 │
+│ ⚐ 10 years of spending        early 2027 │
+│                                          │
+│ What retiring today needs                │
+│ Your plan assets against what retiring   │
+│ today would need. All of it means you    │
+│ could stop now.                          │
+│ ⚑ A third of what retiring…     Jun 2026 │
+│ ⚐ Half of what retiring…       late 2028 │
+│                                          │
+│ The crossover                            │
+│ From about 380.000 €, a typical year's   │
+│ growth adds as much as you save: from    │
+│ there, markets do more than your saving. │
+│ None yet.                                │
+│ ⚐ The crossover                 mid 2027 │
+│                                          │
+│ The coast point                          │
+│ When you could stop saving and still     │
+│ retire when your first pension starts,   │
+│ at 67.                                   │
+│ None yet.                                │
 │ ──────────────────────────────────────── │
 │ Reached                                  │
-│ ⚑ 300.000 €                    Jun 2026  │
-│ ⚑ A third of what retiring…    Jun 2026  │
-│ ⚑ 250.000 €                    Aug 2025  │
+│ ⚑ 300.000 €                     Jun 2026 │
+│ ⚑ A third of what retiring…     Jun 2026 │
+│ ⚑ 250.000 €                     Aug 2025 │
 │ Ahead, typically                         │
-│ ⚐ 10 years of spending         early 2028│
-│ ⚐ 400.000 €                    early 2029│
+│ ⚐ 10 years of spending        early 2027 │
+│ ⚐ The crossover                 mid 2027 │
+│ ⚐ 400.000 €                   early 2028 │
 └──────────────────────────────────────────┘
 ```
 
-- **Progress.** A card after the year's words (beside the strip on the Mac and iPad): the next milestone ("⚑ Next milestone", "5 years of spending · 90% there") with how far there as a bar, and what its name doesn't say and when the median future typically reaches it ("180.000 € · typically by late 2028"); saving nothing more (below); and *All Milestones*, a sheet with the next, what's been reached, newest first, and what's ahead, soonest first (five of each, *Show All* for the rest). On a year's card, a filled flag on the line at the check-in or the month end that reached one (in the years before your first check-in too), its name in the year's words; and in those words, the month's row flagged, the milestone in bold ("Jun · ⚑ **Passed 300.000 €.**"). Notable check-ins join the rows too: "You saved 3.200 €, more than usual.", "Markets fell 24.500 €, 8%.". Saving a baseline isn't one.
+- **Progress.** A card after the year's words (beside the strip on the Mac and iPad): the next milestone ("⚑ Next milestone", "5 years of spending · 90% there") with how far there as a bar, and what its name doesn't say and when the median future typically reaches it ("180.000 € · typically by late 2028"); saving nothing more (below); and *All Milestones*, a sheet with the next and saving nothing more; *What they mean*, each kind of milestone the plan has, explained, with the latest of it reached and the next ahead (below); then what's been reached, newest first, and what's ahead, soonest first (five of each, *Show All* for the rest). On a year's card, a filled flag on the line at the check-in or the month end that reached one (in the years before your first check-in too), its name in the year's words; and in those words, the month's row flagged, the milestone in bold ("Jun · ⚑ **Passed 300.000 €.**"). Notable check-ins join the rows too: "You saved 3.200 €, more than usual.", "Markets fell 24.500 €, 8%.". Saving a baseline isn't one.
 - **Plan.** On the chapter cards, on the median where it reaches one: the chapter's first and last named, with an outlined flag and when ("10 years of spending", "early 2037"), the rest small dots; and in the chosen chapter's words: "Along the way, typically: 400.000 € in mid 2027 and 10 years of spending in early 2028." (The answer no longer has the next milestone under it: Progress has it.)
 - **Check-in.** After saving, the milestones passed since the check-in before, at this one or at a month end between them, each a line with a flag ("Passed 300.000 €."). The shares of what retiring today needs and the coast point come with the month's answer, and show on Progress.
 - **The coast age.** On Progress's Milestones card, once a calculation or a check-in has worked it out ([PLANNER.md](PLANNER.md#ages-without)): "Saving nothing more · retire at 71", in green once it's at or under the coast point, and under it where it stands against the coast point: "In August it was 67, when your first pension starts: the coast point." once you'd reached it and the age has moved since, "The coast point is 67, when your first pension starts.", or "You're past the coast point: your first pension starts at 67." The *All Milestones* sheet says it in full ("If you stopped saving today, you could still retire at 63; the coast point is 67, when your first pension starts."), and so do the plan's key numbers. The coast point is a milestone: the first check-in whose recorded coast age is at or under the age the first pension starts, the first check-in that recorded one included ("Passed the coast point: saving nothing more, you could still retire at 67."). It stays under *Reached* when the age rises again.
 - **The widget.** *Next milestone* shows the next one, its bar and when it typically comes ([Widgets](#widgets)).
+- **What they mean.** In the *All Milestones* sheet, between saving nothing more and the lists, a block for each kind the plan has, in this order: its name, what it means and why it matters, then the latest of it reached (a filled flag, "None yet." without one) and the next of it ahead (an outlined flag; "No more before the plan's end." without one, nothing without results). Round amounts are always there: "Your plan assets passing 10.000 €, 15.000 €, 20.000 €, 25.000 € and on, each about a quarter above the last: simple marks of the money growing." ("Your plan assets passing round amounts, …" while amounts are hidden). Years of spending need the plan's retirement spending: "What you have, counted in years of the 36.000 € a year you plan to spend in retirement." What retiring today needs: "Your plan assets against what retiring today would need. All of it means you could stop now." The crossover needs saving and growth: "From about 380.000 €, a typical year's growth adds as much as you save: from there, markets do more than your saving." The coast point needs a pension, and has nothing ahead: "When you could stop saving and still retire when your first pension starts, at 67." A kind with none on the ladder and none reached is left out.
 - **Words.** A round amount is its amount ("A round amount" while amounts are hidden); "10 years of spending" ("Enough for 10 years of the spending you plan for retirement."); "Half of what retiring today needs" ("Halfway to what retiring today needs."), and all of it "All that retiring today needs: you could stop."; "The crossover" ("A typical year now adds more than you save."). Dates ahead are a part of a year, "early", "mid" or "late 2028", since they're the median of many futures.
 
 ### Export Calculations

@@ -100,6 +100,53 @@ struct PlanMilestones {
     var coastPointReached: ReachedMilestone? {
         reached.last { if case .coastPoint = $0.milestone.kind { true } else { false } }
     }
+
+    /// The kinds the plan has, in the order *All Milestones* explains them:
+    /// round amounts always, the others when the ladder has them or one of
+    /// them is reached, ahead or next.
+    var kinds: [PlanMilestoneKind] {
+        let listed = reached.map(\.milestone) + ahead.map(\.milestone) + (next.map { [$0.milestone] } ?? [])
+        let seen = Set(listed.map { PlanMilestoneKind($0.kind) })
+        return PlanMilestoneKind.allCases.filter { kind in
+            switch kind {
+            case .roundAmount: true
+            case .yearsOfSpending: ladder.spending != nil || seen.contains(kind)
+            case .shareOfNeeded: ladder.neededToday != nil || seen.contains(kind)
+            case .crossover: ladder.crossover != nil || seen.contains(kind)
+            case .coastPoint: ladder.coastTarget != nil || seen.contains(kind)
+            }
+        }
+    }
+
+    /// The latest milestone of `kind` reached; `nil` if none is.
+    func latestReached(_ kind: PlanMilestoneKind) -> ReachedMilestone? {
+        reached.last { PlanMilestoneKind($0.milestone.kind) == kind }
+    }
+
+    /// The soonest milestone of `kind` ahead; `nil` if none is.
+    func soonestAhead(_ kind: PlanMilestoneKind) -> ProjectedMilestone? {
+        ahead.first { PlanMilestoneKind($0.milestone.kind) == kind }
+    }
+}
+
+/// A kind of milestone, without its amount, years, share or age, as the
+/// *All Milestones* sheet explains them (UI.md, "Milestones"), in its order.
+enum PlanMilestoneKind: CaseIterable, Hashable {
+    case roundAmount
+    case yearsOfSpending
+    case shareOfNeeded
+    case crossover
+    case coastPoint
+
+    init(_ kind: Milestone.Kind) {
+        switch kind {
+        case .roundAmount: self = .roundAmount
+        case .yearsOfSpending: self = .yearsOfSpending
+        case .shareOfNeeded: self = .shareOfNeeded
+        case .crossover: self = .crossover
+        case .coastPoint: self = .coastPoint
+        }
+    }
 }
 
 /// Milestones in words (UI.md, "Milestones"). Amounts hide with the eye.
@@ -178,6 +225,58 @@ struct PlanMilestoneText {
             return "From about \(amount(milestone.amount)), a typical year's growth adds as much as you save."
         case .coastPoint(let age):
             return "Saving nothing more, you could still retire at \(age), when your first pension starts."
+        }
+    }
+
+    /// A kind's heading in *All Milestones*: "Round amounts", "Years of
+    /// spending", "What retiring today needs", "The crossover", "The coast point".
+    static func title(_ kind: PlanMilestoneKind) -> String {
+        switch kind {
+        case .roundAmount: "Round amounts"
+        case .yearsOfSpending: "Years of spending"
+        case .shareOfNeeded: "What retiring today needs"
+        case .crossover: "The crossover"
+        case .coastPoint: "The coast point"
+        }
+    }
+
+    /// What a kind means and why it matters, under its heading in *All
+    /// Milestones*: "Your plan assets passing 10.000 €, 15.000 €, 20.000 €,
+    /// 25.000 € and on, each about a quarter above the last: simple marks of
+    /// the money growing."
+    func meaning(of kind: PlanMilestoneKind, in milestones: PlanMilestones) -> String {
+        switch kind {
+        case .roundAmount:
+            let lowest = MilestoneLadder.roundFloor
+            let first = MilestoneLadder.roundAmounts(in: lowest...(lowest * 5 / 2))
+            let amounts = hidesAmounts ? "round amounts" : first.map { amount($0) }.joined(separator: ", ") + " and on"
+            return "Your plan assets passing \(amounts), each about a quarter above the last: "
+                + "simple marks of the money growing."
+        case .yearsOfSpending:
+            guard let spending = milestones.ladder.spending else {
+                return "What you have, counted in years of the spending you plan for retirement."
+            }
+            return "What you have, counted in years of the \(amount(spending)) a year "
+                + "you plan to spend in retirement."
+        case .shareOfNeeded:
+            return "Your plan assets against what retiring today would need. All of it means you could stop now."
+        case .crossover:
+            let growth = "a typical year's growth adds as much as you save: "
+                + "from there, markets do more than your saving."
+            guard let crossover = milestones.ladder.crossover
+                ?? milestones.latestReached(.crossover)?.milestone.amount else {
+                return "Where " + growth
+            }
+            return "From about \(amount(crossover)), " + growth
+        case .coastPoint:
+            let reachedAge = milestones.coastPointReached.flatMap { reached -> Int? in
+                guard case .coastPoint(let age) = reached.milestone.kind else { return nil }
+                return age
+            }
+            guard let target = milestones.ladder.coastTarget ?? reachedAge else {
+                return "When you could stop saving and still retire when your first pension starts."
+            }
+            return "When you could stop saving and still retire when your first pension starts, at \(target)."
         }
     }
 
