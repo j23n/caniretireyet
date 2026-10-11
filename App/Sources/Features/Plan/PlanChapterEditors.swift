@@ -112,7 +112,7 @@ struct PlanUnplacedIssues: View {
 struct PlanChapterAddMenu: View {
     let chapter: PlanChapter
     let model: PlanChaptersModel
-    @Binding var plan: PlanDocument
+    let plan: PlanDocument
     @Binding var editing: PlanEditTarget?
 
     @Environment(LibraryStore.self) private var library
@@ -124,7 +124,8 @@ struct PlanChapterAddMenu: View {
                     editing = .pension(index: plan.pensions.count, pension: model.newPension(in: chapter))
                 }
                 Button("Later spending") {
-                    plan.spending.phases.append(model.newSpendingPhase(in: chapter))
+                    editing = .spendingPhase(index: plan.spending.phases.count,
+                                             phase: model.newSpendingPhase(in: chapter))
                 }
             } else {
                 Button("Work phase") {
