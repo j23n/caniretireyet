@@ -421,11 +421,14 @@ extension PlanProgressYear {
             }
         }
         if entry.baseline.kind == .yearly {
-            sentences.append(entry.baseline.created.year == savingYear
-                && yearlyBaseline(for: entry.baseline.created.year, in: rest) == nil
-                ? "Your next check-in saves a new automatic baseline, starting then."
-                : "An automatic baseline is only saved in its own year, for the main plan, so this one won't come "
-                    + "back.")
+            if yearlyBaseline(for: entry.baseline.created.year, in: rest) != nil {
+                sentences.append("Its year keeps its other automatic baseline.")
+            } else if entry.baseline.created.year == savingYear {
+                sentences.append("Your next check-in saves a new automatic baseline, starting then.")
+            } else {
+                sentences.append("An automatic baseline is only saved in its own year, for the main plan, so this "
+                    + "one won't come back.")
+            }
         }
         sentences.append("A copy is kept in Sync & backups.")
         return sentences.joined(separator: " ")
