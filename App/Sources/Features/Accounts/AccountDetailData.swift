@@ -68,8 +68,27 @@ struct AccountValuationRow: Hashable, Sendable, Identifiable {
     var amount: Decimal?
     /// The value on its own date, in the base currency (what could be valued).
     var value: Decimal
+    /// For a cash or savings account's value that records money in and
+    /// out: the money moved between your own accounts, in the account's
+    /// currency (``moved(of:)``); `nil` otherwise.
+    var moved: Decimal? = nil
 
     var id: ValuationKey { valuation.key }
+
+    /// Whether the value records money in and out (both of them).
+    var recordsMoneyInOut: Bool { valuation.moneyIn != nil && valuation.moneyOut != nil }
+
+    /// The part of a cash or savings value's new money that money in and
+    /// out don't explain: money moved between your own accounts, never
+    /// typed (docs/ACCOUNTS.md, "Moved between your accounts"). New money
+    /// is the change, less the interest for savings, so this is new money
+    /// − money in + money out. `nil` when one of the three isn't recorded.
+    static func moved(of valuation: Valuation) -> Decimal? {
+        guard let flow = valuation.flow, let moneyIn = valuation.moneyIn, let moneyOut = valuation.moneyOut else {
+            return nil
+        }
+        return flow - moneyIn + moneyOut
+    }
 }
 
 /// A value of a trades account that records what a statement showed, as a
@@ -183,6 +202,23 @@ struct AccountDetailData: Hashable, Sendable {
     /// The currency the page shows amounts in: the account's own.
     var currency: CurrencyCode { account.currency }
 
+    /// Whether the values show money in, money out and moved: a cash or
+    /// savings account's (``Model/AccountKind/recordsMoneyInOut``).
+    var valuationsShowMoneyInOut: Bool { account.kind.recordsMoneyInOut }
+
+    /// Whether the values show the interest: a savings account's
+    /// (``Model/AccountKind/recordsInterest``).
+    var valuationsShowInterest: Bool { account.kind.recordsInterest }
+
+    /// What *moved* means, under a cash or savings account's values; `nil`
+    /// for other accounts, and without values.
+    var movedNote: String? {
+        guard valuationsShowMoneyInOut, !valuations.isEmpty else { return nil }
+        return "Moved is the part of the change that money in and out"
+            + (valuationsShowInterest ? " and interest" : "") + " don't explain: money moved between your own "
+            + "accounts."
+    }
+
     /// The date *Add Past Value…* starts on: the last day of the month
     /// before the account's first value (or before ``date`` without one),
     /// so the history fills in a month at a time.
@@ -257,11 +293,13 @@ struct AccountDetailData: Hashable, Sendable {
             incomeYears = TradeIncomeYear.years(of: account.id, valuator: valuator)
             statements = Self.statements(of: account.id, valuations: all, valuator: valuator)
         } else {
+            let recordsMoneyInOut = account.kind.recordsMoneyInOut
             valuations = all.reversed().map { valuation in
                 AccountValuationRow(
                     valuation: valuation,
                     amount: valuator.amountInAccountCurrency(of: valuation, on: valuation.date),
-                    value: valuator.value(of: valuation, on: valuation.date)?.knownValue ?? 0)
+                    value: valuator.value(of: valuation, on: valuation.date)?.knownValue ?? 0,
+                    moved: recordsMoneyInOut ? AccountValuationRow.moved(of: valuation) : nil)
             }
         }
         firstValueDate = all.first?.date

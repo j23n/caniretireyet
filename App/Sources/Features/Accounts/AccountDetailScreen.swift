@@ -222,8 +222,8 @@ struct AccountDetailScreen: View {
                     Text("Values")
                 } footer: {
                     if !data.valuations.isEmpty {
-                        Text("Tap a value to change its date, amount, new money or note. A value before the opening "
-                            + "date moves it back.")
+                        Text("Tap a value to change it. A value before the opening date moves it back."
+                            + (data.movedNote.map { " " + $0 } ?? ""))
                     }
                 }
             }
@@ -319,11 +319,18 @@ struct AccountDetailScreen: View {
                         } else {
                             AccountValuationsTable(
                                 rows: data.valuations, currency: currency,
+                                showsMoneyInOut: data.valuationsShowMoneyInOut,
+                                showsInterest: data.valuationsShowInterest,
                                 edit: { key in editing = AccountValuationTarget(key: key) },
                                 delete: { key in
                                     deletingValuation = key
                                     confirmsValuationDelete = true
                                 })
+                        }
+                        if let note = data.movedNote {
+                            Text(note)
+                                .font(.caption)
+                                .foregroundStyle(Palette.mutedInk)
                         }
                     } header: {
                         SectionHeader("Values") {
@@ -841,7 +848,9 @@ private struct AccountValuationValue: View {
     }
 }
 
-/// One valuation in the iPhone list: date and note, value and new money.
+/// One valuation in the iPhone list: date and note, value, and new money,
+/// or for a cash or savings value that records them, money in and out,
+/// interest and what moved between your own accounts.
 private struct AccountValuationListRow: View {
     let row: AccountValuationRow
     let currency: CurrencyCode
@@ -864,11 +873,45 @@ private struct AccountValuationListRow: View {
             VStack(alignment: .trailing, spacing: 2) {
                 AccountValuationValue(row: row, currency: currency)
                     .foregroundStyle(Palette.ink)
-                flow
+                if row.recordsMoneyInOut {
+                    moneyInOut
+                } else {
+                    flow
+                }
             }
         }
         .contentShape(Rectangle())
         .accessibilityElement(children: .combine)
+    }
+
+    /// "in 3.400,00 € out 2.554,65 €", the interest, and "moved −1.150,00 €".
+    @ViewBuilder
+    private var moneyInOut: some View {
+        HStack(spacing: 4) {
+            Text("in")
+                .foregroundStyle(Palette.secondaryInk)
+            AmountText(row.valuation.moneyIn ?? 0, currency: currency, precision: .cents)
+            Text("out")
+                .foregroundStyle(Palette.secondaryInk)
+            AmountText(row.valuation.moneyOut ?? 0, currency: currency, precision: .cents)
+        }
+        .font(.caption)
+        if let interest = row.valuation.interest, interest != 0 {
+            HStack(spacing: 4) {
+                Text("interest")
+                    .foregroundStyle(Palette.secondaryInk)
+                DeltaText(interest, currency: currency, precision: .automatic, showsArrow: false)
+            }
+            .font(.caption)
+        }
+        if let moved = row.moved {
+            HStack(spacing: 4) {
+                Text("moved")
+                    .foregroundStyle(Palette.secondaryInk)
+                DeltaText(moved, currency: currency, precision: .automatic, showsArrow: false)
+            }
+            .font(.caption)
+        }
     }
 
     @ViewBuilder
@@ -1018,11 +1061,15 @@ private struct AccountStatementsTable: View {
 
 #if os(macOS)
 /// The valuations as a table on the Mac: date, value, new money and note,
-/// as tall as its lines, so the page scrolls them (`PageTable`).
-/// Double-click (or the context menu) edits one.
+/// and for a cash or savings account (`showsMoneyInOut`) money in, money
+/// out, the interest (a savings account's, `showsInterest`) and what moved
+/// between your own accounts. As tall as its lines, so the page scrolls
+/// them (`PageTable`). Double-click (or the context menu) edits one.
 private struct AccountValuationsTable: View {
     let rows: [AccountValuationRow]
     let currency: CurrencyCode
+    let showsMoneyInOut: Bool
+    let showsInterest: Bool
     let edit: (ValuationKey) -> Void
     let delete: (ValuationKey) -> Void
 
@@ -1030,6 +1077,7 @@ private struct AccountValuationsTable: View {
         static let date = PageTableColumn(min: 84, max: 120)
         static let value = PageTableColumn(min: 100, max: 160, alignment: .trailing)
         static let flow = PageTableColumn(min: 90, max: 140, alignment: .trailing)
+        static let amount = PageTableColumn(min: 80, max: 130, alignment: .trailing)
         static let note = PageTableColumn(min: 0, max: .infinity)
     }
 
@@ -1038,6 +1086,14 @@ private struct AccountValuationsTable: View {
             Text("Date").pageTableColumn(Columns.date)
             Text("Value").pageTableColumn(Columns.value)
             Text("New money").pageTableColumn(Columns.flow)
+            if showsMoneyInOut {
+                Text("In").pageTableColumn(Columns.amount)
+                Text("Out").pageTableColumn(Columns.amount)
+                if showsInterest {
+                    Text("Interest").pageTableColumn(Columns.amount)
+                }
+                Text("Moved").pageTableColumn(Columns.amount)
+            }
             Text("Note").pageTableColumn(Columns.note)
         } row: { row in
             Text(AmountFormat.mediumDate(row.valuation.date))
@@ -1049,6 +1105,18 @@ private struct AccountValuationsTable: View {
                 .pageTableColumn(Columns.value)
             AccountValuationFlowCell(row: row, currency: currency)
                 .pageTableColumn(Columns.flow)
+            if showsMoneyInOut {
+                AccountValuationAmountCell(amount: row.valuation.moneyIn, currency: currency)
+                    .pageTableColumn(Columns.amount)
+                AccountValuationAmountCell(amount: row.valuation.moneyOut, currency: currency)
+                    .pageTableColumn(Columns.amount)
+                if showsInterest {
+                    AccountValuationAmountCell(amount: row.valuation.interest, currency: currency, signed: true)
+                        .pageTableColumn(Columns.amount)
+                }
+                AccountValuationAmountCell(amount: row.moved, currency: currency, signed: true)
+                    .pageTableColumn(Columns.amount)
+            }
             Text(row.valuation.note ?? "")
                 .foregroundStyle(Palette.secondaryInk)
                 .privacySensitiveInFeedback()
@@ -1096,6 +1164,29 @@ private struct TradeIncomeColumns: View {
                 }
             }
         }
+    }
+}
+
+/// An amount in the Mac's table of values, empty when it isn't recorded:
+/// money in or out, or with a sign, the interest or what moved.
+private struct AccountValuationAmountCell: View {
+    let amount: Decimal?
+    let currency: CurrencyCode
+    var signed = false
+
+    var body: some View {
+        Group {
+            if let amount {
+                if signed {
+                    DeltaText(amount, currency: currency, precision: .automatic, showsArrow: false)
+                } else {
+                    AmountText(amount, currency: currency, precision: .cents)
+                }
+            } else {
+                Text("")
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .trailing)
     }
 }
 
@@ -1315,6 +1406,20 @@ private struct AccountInfoRows: View {
             .appDestinations()
     }
     .previewEnvironment(PreviewLibrary.withForeignAccount)
+}
+
+#Preview("Current account with money in and out") {
+    NavigationStack {
+        AccountDetailScreen(accountID: "conto-fineco")
+    }
+    .previewEnvironment()
+}
+
+#Preview("Savings with interest") {
+    NavigationStack {
+        AccountDetailScreen(accountID: "conto-deposito")
+    }
+    .previewEnvironment()
 }
 
 #Preview("Pension fund") {
