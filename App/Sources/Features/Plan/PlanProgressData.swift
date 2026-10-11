@@ -422,6 +422,7 @@ extension PlanProgressYear {
         }
         if entry.baseline.kind == .yearly {
             sentences.append(entry.baseline.created.year == savingYear
+                && yearlyBaseline(for: entry.baseline.created.year, in: rest) == nil
                 ? "Your next check-in saves a new automatic baseline, starting then."
                 : "An automatic baseline is only saved in its own year, for the main plan, so this one won't come "
                     + "back.")
