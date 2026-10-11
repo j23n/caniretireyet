@@ -241,7 +241,8 @@ private struct PricesSection: View {
         } header: {
             Text("Prices")
         } footer: {
-            Text("Each instrument names its own price source. Only symbols and dates leave this device; any price can be typed in by hand. "
+            Text("Each instrument names its own price source. Only symbols, dates and what you search for to find a "
+                + "symbol leave this device; any price can be typed in by hand. "
                 + "Yahoo Finance has no official interface for apps, so its prices may stop working without notice.")
         }
         #if canImport(Security)
