@@ -17,6 +17,7 @@ struct MoneyInOutTests {
         #expect(summary.net == d("620.2"))
         #expect(summary.months == ["2026-07", "2026-08", "2026-09"])
         // The values cover 2026-06-30 to 2026-09-30: 9,579.8 × 365 / 92 days.
+        #expect(summary.measuredFrom == "2026-06-30")
         #expect(summary.moneyOutPerYear == d("38006.82"))
         #expect(summary.isComplete)
     }
@@ -31,6 +32,7 @@ struct MoneyInOutTests {
         let june = valuator.moneyInOut(from: "2026-06-01", through: "2026-06-30")
         #expect(june.isEmpty)
         #expect(june.moneyOutPerYear == nil)
+        #expect(june.measuredFrom == nil)
     }
 
     @Test func aSkippedCheckInCoversTheDaysSinceTheValueBefore() throws {
