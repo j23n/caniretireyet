@@ -57,16 +57,16 @@ struct PlanMilestones {
         }
         ahead = ladder.ahead(of: current, readiness: readiness, median: median)
         next = ladder.next(after: current, readiness: readiness)
-        coastAge = Self.coastAge(results: results, recorded: recorded)
-        knowsCoastAge = results?.details.agesWithout.coast != nil || recorded?.coastAge != nil
-    }
-
-    /// The coast age now: from `results`, when their run looked for it,
-    /// else `recorded`'s; `nil` when no age works saving nothing more, or
-    /// when neither has it.
-    static func coastAge(results: PlanResults?, recorded: Headline?) -> Int? {
-        if let coast = results?.details.agesWithout.coast { return coast.earliestAge }
-        return recorded?.coastAge
+        if let coast = results?.details.agesWithout.coast {
+            coastAge = coast.earliestAge
+            knowsCoastAge = true
+        } else if let age = recorded?.coastAge {
+            coastAge = age
+            knowsCoastAge = true
+        } else {
+            coastAge = nil
+            knowsCoastAge = false
+        }
     }
 
     /// When the median future reaches the next milestone; `nil` without
@@ -244,22 +244,12 @@ struct PlanMilestoneText {
                              asOf: CalendarDate, locale: Locale = .current) -> String {
         guard let age else { return "If you stopped saving today, no age would reach your bar yet." }
         guard let target else { return "If you stopped saving today, you could still retire at \(age)." }
-        if age <= target { return pastCoastPoint + ": your first pension starts at \(target)." }
+        if age <= target { return "You're past the coast point: your first pension starts at \(target)." }
         if let reached, case .coastPoint(let then) = reached.milestone.kind {
             let month = GlanceText.month(reached.date, relativeTo: asOf, locale: locale)
             return "In \(month) it was \(then), when your first pension starts: the coast point."
         }
         return "The coast point is \(target), when your first pension starts."
-    }
-
-    /// How the Milestones card and the Overview say the coast age is at or
-    /// under the coast point.
-    static let pastCoastPoint = "You're past the coast point"
-
-    /// On the Overview, under the readiness (UI.md, "Overview"): "You're past
-    /// the coast point: saving nothing more, you could still retire at 63."
-    static func pastCoastPointLine(_ age: Int) -> String {
-        pastCoastPoint + ": saving nothing more, you could still retire at \(age)."
     }
 
     /// "88% there".
