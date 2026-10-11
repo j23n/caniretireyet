@@ -171,18 +171,16 @@ private struct SidebarAccountsSection: View {
     }
 }
 
-/// "Accounts", with the total of the open accounts on the right (left out
-/// while amounts are hidden, or without open accounts).
+/// "Accounts", with the total of the open accounts on the right (a
+/// placeholder while amounts are hidden; left out without open accounts).
 private struct SidebarAccountsHeader: View {
     let total: Decimal?
-
-    @Environment(\.hidesAmounts) private var hidesAmounts
 
     var body: some View {
         HStack(spacing: Metrics.s) {
             Text("Accounts")
             Spacer(minLength: Metrics.xs)
-            if let total, !hidesAmounts {
+            if let total {
                 AmountText(total)
                     .lineLimit(1)
                     .layoutPriority(1)
@@ -201,14 +199,12 @@ private struct SidebarFolderLabel: View {
     var subtotal: Decimal?
     @Binding var isExpanded: Bool
 
-    @Environment(\.hidesAmounts) private var hidesAmounts
-
     var body: some View {
         HStack(spacing: Metrics.s) {
             Label(title, systemImage: systemImage)
                 .lineLimit(1)
             Spacer(minLength: Metrics.xs)
-            if let subtotal, !hidesAmounts {
+            if let subtotal {
                 AmountText(subtotal)
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
@@ -231,8 +227,6 @@ private struct SidebarAccountRow: View {
     let item: AccountListItem
     var showsValue = true
 
-    @Environment(\.hidesAmounts) private var hidesAmounts
-
     var body: some View {
         HStack(spacing: Metrics.s) {
             Label {
@@ -249,7 +243,7 @@ private struct SidebarAccountRow: View {
                     .help("Stale: the latest value is too old")
                     .accessibilityLabel("Stale")
             }
-            if showsValue && !hidesAmounts {
+            if showsValue {
                 AmountText(item.value)
                     .foregroundStyle(.secondary)
                     .lineLimit(1)

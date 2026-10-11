@@ -28,8 +28,9 @@ struct AccountConversionSummary: Hashable, Sendable {
     /// A trade the conversion writes, as the preview lists it.
     struct Line: Hashable, Sendable, Identifiable {
         var trade: Trade
-        /// "Buy 10 VWCE at 134,15 €" (``TradeWording/summary(of:in:locale:)``).
-        var title: String
+        /// "Buy 10 VWCE at 134,15 €" (``TradeWording/summary(of:in:locale:)``): the
+        /// quantity hides with the eye.
+        var title: AmountSentence
         var id: TradeKey { trade.key }
     }
 

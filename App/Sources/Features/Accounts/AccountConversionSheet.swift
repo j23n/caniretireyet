@@ -132,8 +132,7 @@ struct AccountConversionSheet: View {
                     HStack(alignment: .firstTextBaseline, spacing: Metrics.s) {
                         TradeTypeIcon(type: line.trade.type)
                         VStack(alignment: .leading, spacing: 2) {
-                            Text(verbatim: line.title)
-                                .privacySensitive()
+                            AmountSentenceText(line.title)
                             Text(verbatim: AmountFormat.mediumDate(line.trade.date, locale: locale))
                                 .font(.caption)
                                 .foregroundStyle(Palette.secondaryInk)

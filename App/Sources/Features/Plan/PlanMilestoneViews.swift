@@ -41,13 +41,13 @@ struct PlanNextMilestoneView: View {
                     .monospacedDigit()
                     .foregroundStyle(Palette.accent)
             }
-            Text(text.name(next.milestone))
+            AmountSentenceText(text.name(next.milestone))
                 .font(.headline)
                 .foregroundStyle(Palette.ink)
                 .fixedSize(horizontal: false, vertical: true)
             PlanMilestoneBar(progress: next.progress)
             if let detail = text.detail(next.milestone) {
-                Text(detail)
+                AmountSentenceText(detail)
                     .font(.caption)
                     .foregroundStyle(Palette.secondaryInk)
                     .fixedSize(horizontal: false, vertical: true)
@@ -249,7 +249,7 @@ struct PlanProgressMilestones: View {
                 .font(PlanProgressFont.caption)
                 .foregroundStyle(Palette.secondaryInk)
             HStack(alignment: .firstTextBaseline, spacing: Metrics.m) {
-                Text(text.name(next.milestone))
+                AmountSentenceText(text.name(next.milestone))
                     .fontWeight(.semibold)
                     .foregroundStyle(Palette.ink)
                     .fixedSize(horizontal: false, vertical: true)
@@ -262,7 +262,7 @@ struct PlanProgressMilestones: View {
             .font(PlanProgressFont.text)
             PlanMilestoneBar(progress: next.progress)
             if let caption = text.caption(next, date: milestones.nextDate) {
-                Text(caption)
+                AmountSentenceText(caption)
                     .font(PlanProgressFont.caption)
                     .foregroundStyle(Palette.secondaryInk)
                     .fixedSize(horizontal: false, vertical: true)
@@ -317,18 +317,21 @@ struct PlanProgressMilestones: View {
 
 /// A milestone in a list: a flag (filled once reached), its name, and when.
 struct PlanMilestoneRow: View {
-    let title: String
+    let title: AmountSentence
     let when: String
     let isReached: Bool
 
+    @Environment(\.redactionReasons) private var redactionReasons
+
     var body: some View {
-        let label: String = isReached ? "\(title), reached \(when)" : "\(title), typically \(when)"
+        let name = title.spoken(hidesAmounts: redactionReasons.hidesAmounts)
+        let label: String = isReached ? "\(name), reached \(when)" : "\(name), typically \(when)"
         HStack(alignment: .firstTextBaseline, spacing: Metrics.s) {
             Image(systemName: isReached ? "flag.fill" : "flag")
                 .font(.caption)
                 .foregroundStyle(isReached ? Palette.accent : Palette.secondaryInk)
                 .accessibilityHidden(true)
-            Text(title)
+            AmountSentenceText(title)
                 .font(.subheadline)
                 .foregroundStyle(Palette.ink)
                 .fixedSize(horizontal: false, vertical: true)

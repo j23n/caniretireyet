@@ -746,7 +746,6 @@ private struct AccountDetailHeader: View {
 private struct AccountPositionListRow: View {
     let row: AccountHoldingRow
     let currency: CurrencyCode
-    @Environment(\.hidesAmounts) private var hidesAmounts
     @Environment(\.locale) private var locale
 
     var body: some View {
@@ -757,10 +756,8 @@ private struct AccountPositionListRow: View {
                     AccountPositionGain(gain: gain, fraction: row.gainFraction, currency: currency)
                 }
             }
-            if let cost = AccountPositionText.purchaseCost(row, currency: currency, hidesAmounts: hidesAmounts,
-                                                           locale: locale) {
-                Text(verbatim: cost)
-                    .privacySensitive()
+            if let cost = AccountPositionText.purchaseCost(row, currency: currency, locale: locale) {
+                AmountSentenceText(cost)
                     .font(.footnote)
                     .foregroundStyle(Palette.secondaryInk)
             }
@@ -802,24 +799,21 @@ struct AccountPositionQuantityLine<Trailing: View>: View {
     let row: AccountHoldingRow
     @ViewBuilder let trailing: () -> Trailing
 
-    @Environment(\.hidesAmounts) private var hidesAmounts
     @Environment(\.locale) private var locale
 
     var body: some View {
-        let quantity = AccountPositionText.quantity(row, hidesAmounts: hidesAmounts, locale: locale)
+        let quantity = AccountPositionText.quantity(row, locale: locale)
         let price = AccountPositionText.price(row, locale: locale)
         ViewThatFits(in: .horizontal) {
             HStack(alignment: .firstTextBaseline, spacing: Metrics.s) {
-                Text(verbatim: AccountPositionText.quantityAndPrice(row, hidesAmounts: hidesAmounts, locale: locale))
-                    .privacySensitive()
+                AmountSentenceText(AccountPositionText.quantityAndPrice(row, locale: locale))
                     .lineLimit(1)
                 Spacer(minLength: Metrics.s)
                 trailing()
             }
             VStack(alignment: .leading, spacing: 2) {
                 HStack(alignment: .firstTextBaseline, spacing: Metrics.s) {
-                    Text(verbatim: quantity)
-                        .privacySensitive()
+                    AmountSentenceText(quantity)
                         .lineLimit(1)
                     Spacer(minLength: Metrics.s)
                     trailing()
@@ -830,8 +824,7 @@ struct AccountPositionQuantityLine<Trailing: View>: View {
                 }
             }
             VStack(alignment: .leading, spacing: 2) {
-                Text(verbatim: quantity)
-                    .privacySensitive()
+                AmountSentenceText(quantity)
                 if let price {
                     Text(verbatim: price)
                 }
@@ -868,7 +861,6 @@ private struct AccountPositionsGrid: View {
     let rows: [AccountHoldingRow]
     let cash: Decimal?
     let currency: CurrencyCode
-    @Environment(\.hidesAmounts) private var hidesAmounts
     @Environment(\.locale) private var locale
 
     var body: some View {
@@ -893,9 +885,9 @@ private struct AccountPositionsGrid: View {
                     GridRow {
                         Text(row.name)
                             .lineLimit(1)
-                        Text(hidesAmounts ? AmountFormat.hidden : QuantityFormat.quantity(row.quantity, locale: locale))
+                        Text(QuantityFormat.quantity(row.quantity, locale: locale))
                             .monospacedDigit()
-                            .privacySensitive()
+                            .privacySensitiveAmount()
                         Text(AccountPositionText.unitPrice(row, locale: locale))
                             .monospacedDigit()
                         if let amount = row.amount {

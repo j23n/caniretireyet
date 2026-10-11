@@ -354,7 +354,6 @@ private struct CheckInReviewRow: View {
     var followsTrades = false
 
     @Environment(LibraryStore.self) private var library
-    @Environment(\.hidesAmounts) private var hidesAmounts
     @Environment(\.locale) private var locale
 
     var body: some View {
@@ -362,12 +361,11 @@ private struct CheckInReviewRow: View {
         HStack(alignment: .firstTextBaseline, spacing: Metrics.s) {
             VStack(alignment: .leading, spacing: 2) {
                 Text(verbatim: account?.name ?? row.account.rawValue)
-                Text(verbatim: CheckInReviewDisplay.flowLine(
+                AmountSentenceText(CheckInReviewDisplay.flowLine(
                     row, kind: account?.kind, currency: account?.currency ?? library.baseCurrency,
-                    followsTrades: followsTrades, hidesAmounts: hidesAmounts, locale: locale))
+                    followsTrades: followsTrades, locale: locale))
                     .font(.footnote)
                     .foregroundStyle(Palette.secondaryInk)
-                    .privacySensitive()
             }
             Spacer(minLength: Metrics.s)
             VStack(alignment: .trailing, spacing: 2) {

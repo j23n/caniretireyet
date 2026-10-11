@@ -31,7 +31,7 @@ struct IncomeStackChart: View {
 
     @State private var selectedX: Double?
     @State private var width: CGFloat = ChartStyle.defaultWidth
-    @Environment(\.hidesAmounts) private var hidesAmounts
+    @Environment(\.redactionReasons) private var redactionReasons
     @Environment(\.baseCurrency) private var baseCurrency
     @Environment(\.locale) private var locale
     @Environment(\.chartSurface) private var surface
@@ -40,6 +40,9 @@ struct IncomeStackChart: View {
     static let spendingLabel = "Spending"
 
     private static let height: CGFloat = 220
+
+    /// Whether amounts are hidden: the axis is relative, and VoiceOver doesn't read them.
+    private var hidesAmounts: Bool { redactionReasons.hidesAmounts }
 
     var body: some View {
         if segments.isEmpty {
@@ -55,7 +58,7 @@ struct IncomeStackChart: View {
                     .measuringWidth($width)
                     .accessibilityChartDescriptor(summary(data))
                 if let note = overflowNote(data) {
-                    Text(note)
+                    AmountSentenceText(note)
                         .font(.footnote)
                         .foregroundStyle(Palette.secondaryInk)
                         .fixedSize(horizontal: false, vertical: true)
@@ -177,15 +180,14 @@ struct IncomeStackChart: View {
         .calloutBackground()
     }
 
-    /// "Inheritance in 2050 (150k) runs off the top."
-    private func overflowNote(_ data: IncomeChartData) -> String? {
+    /// "Inheritance in 2050 (150k) runs off the top."; the amounts hide with the eye.
+    private func overflowNote(_ data: IncomeChartData) -> AmountSentence? {
         guard !data.overflows.isEmpty else { return nil }
-        let parts = data.overflows.map { overflow in
+        let parts = data.overflows.map { overflow -> AmountSentence in
             let amount = AmountFormat.compactAmount(overflow.amount, currency: baseCurrency, locale: locale)
-            return hidesAmounts ? "\(overflow.source) in \(overflow.year)"
-                : "\(overflow.source) in \(overflow.year) (\(amount))"
+            return "\(overflow.source) in \(String(overflow.year)) (\(amount: amount))"
         }
-        return "\(Wording.list(parts)) \(parts.count == 1 ? "runs" : "run") off the top."
+        return "\(parts.listed()) \(parts.count == 1 ? "runs" : "run") off the top."
     }
 
     private func summary(_ data: IncomeChartData) -> ChartSummary {

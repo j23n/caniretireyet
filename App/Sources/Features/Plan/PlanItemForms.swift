@@ -297,30 +297,37 @@ struct PlanWorkingSpendingForm: View {
     @Binding var spending: PlanSpending
     @Environment(LibraryStore.self) private var library
     @Environment(\.baseCurrency) private var currency
-    @Environment(\.hidesAmounts) private var hidesAmounts
     @Environment(\.locale) private var locale
 
     var body: some View {
         Section {
             PlanNumberRow("A month", value: $spending.working.perMonth, unit: "/month")
         } footer: {
-            Text(["In \(PlanMoney.todaysMoney(currency)).", spentNote].compactMap { $0 }.joined(separator: " "))
+            AmountSentenceText(footer)
         }
+    }
+
+    /// The money it's in, then what the accounts spent.
+    private var footer: AmountSentence {
+        let money: AmountSentence = "In \(PlanMoney.todaysMoney(currency))."
+        guard let spentNote else { return money }
+        return "\(money) \(spentNote)"
     }
 
     /// What the cash and savings accounts that record money in and out
     /// spent over the last twelve months, a month on average, to set the
     /// plan's spending against (PROGRESS.md, "Money in and out"); `nil`
-    /// when nothing was recorded.
-    private var spentNote: String? {
+    /// when nothing was recorded. The amount hides with the eye.
+    private var spentNote: AmountSentence? {
         let summary = library.valuator.moneyInOut(overYearEndingOn: .today())
         guard let perYear = summary.moneyOutPerYear else { return nil }
-        let amount = hidesAmounts
-            ? AmountFormat.hidden : AmountFormat.amount(perYear / 12, currency: summary.currency, locale: locale)
-        let unconverted = summary.isComplete ? "" : " Values without an exchange rate are left out too."
-        return "Your accounts recorded \(amount) a month on average going out in the last year, credit card "
-            + "payments included. Money moved between them, such as loan and mortgage payments, is left out."
-            + unconverted
+        let amount = AmountSentence.amount(
+            AmountFormat.amount(perYear / 12, currency: summary.currency, locale: locale))
+        var note: AmountSentence = "Your accounts recorded \(amount) a month on average going out in the last year, "
+        note += "credit card payments included. Money moved between them, such as loan and mortgage payments, "
+        note += "is left out."
+        if !summary.isComplete { note += " Values without an exchange rate are left out too." }
+        return note
     }
 }
 
@@ -344,7 +351,6 @@ struct PlanRetiredSpendingForm: View {
 struct PlanFlexibleSpendingForm: View {
     @Binding var spending: PlanSpending
     @Environment(\.baseCurrency) private var currency
-    @Environment(\.hidesAmounts) private var hidesAmounts
     @Environment(\.locale) private var locale
 
     var body: some View {
@@ -359,8 +365,7 @@ struct PlanFlexibleSpendingForm: View {
                 PlanNumberRow("Never below", value: $spending.planFlexibleFloor, kind: .percent, unit: "%",
                               prompt: "80")
             } footer: {
-                Text("Of the plan's spending in retirement: \(floorAmount)/yr.")
-                    .privacySensitive()
+                AmountSentenceText("Of the plan's spending in retirement: \(amount: floorAmount)/yr.")
             }
             Section {
                 PlanNumberRow("Cut when it rises by", value: $spending.planFlexibleUpperGuardrail, kind: .percent,
@@ -377,8 +382,7 @@ struct PlanFlexibleSpendingForm: View {
 
     /// The floor in money, hidden with the eye.
     private var floorAmount: String {
-        hidesAmounts ? AmountFormat.hidden
-            : AmountFormat.amount(spending.planFlexibleFloorAmount, currency: currency, locale: locale)
+        AmountFormat.amount(spending.planFlexibleFloorAmount, currency: currency, locale: locale)
     }
 }
 

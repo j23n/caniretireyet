@@ -20,7 +20,7 @@ struct PlanProgressView: View {
     let onShowPlan: () -> Void
 
     @Environment(LibraryStore.self) private var library
-    @Environment(\.hidesAmounts) private var hidesAmounts
+    @Environment(\.redactionReasons) private var redactionReasons
     @Environment(\.locale) private var locale
     @State private var selectedBaseline: BaselineID?
     /// The year chosen on the strip; the latest when `nil`.
@@ -44,7 +44,7 @@ struct PlanProgressView: View {
     }
 
     private var milestoneText: PlanMilestoneText {
-        PlanMilestoneText(currency: library.baseCurrency, hidesAmounts: hidesAmounts, locale: locale)
+        PlanMilestoneText(currency: library.baseCurrency, locale: locale)
     }
 
     var body: some View {
@@ -127,7 +127,7 @@ struct PlanProgressView: View {
     private var progressModel: PlanProgressModel {
         let asOf = library.asOfDate
         let key = PlanProgressModel.Key(revision: library.revision, plan: session.planID, document: session.plan,
-                                        asOf: asOf, hidesAmounts: hidesAmounts, locale: locale.identifier)
+                                        asOf: asOf, locale: locale.identifier)
         return cache.model(for: key) {
             PlanProgressModel(plan: session.planID, document: session.plan, library: library.library,
                               valuator: library.valuator, asOf: asOf, text: milestoneText)
@@ -140,8 +140,7 @@ struct PlanProgressView: View {
     private func headline(_ latest: PlanProgressYear?, history: PlanAnswerHistory) -> some View {
         let position = latest?.position
         let title = PlanProgressText.headline(position)
-        let detail = PlanProgressText.headlineDetail(latest, currency: library.baseCurrency, hidesAmounts: hidesAmounts,
-                                                     locale: locale)
+        let detail = PlanProgressText.headlineDetail(latest, currency: library.baseCurrency, locale: locale)
         let tiles = self.tiles(history)
         let month = monthReport
         if isWide {
@@ -171,7 +170,7 @@ struct PlanProgressView: View {
                         .foregroundStyle(Palette.ink)
                         .accessibilityAddTraits(.isHeader)
                 }
-                Text(detail)
+                AmountSentenceText(detail)
                     .font(.subheadline)
                     .foregroundStyle(Palette.ink)
                     .fixedSize(horizontal: false, vertical: true)
@@ -183,24 +182,28 @@ struct PlanProgressView: View {
                     }
                 }
                 if let month {
+                    let hides = redactionReasons.hidesAmounts
+                    let title = Text("\(month.title):").foregroundStyle(Palette.secondaryInk)
                     Divider()
-                    Text("\(Text("\(month.title):").foregroundStyle(Palette.secondaryInk)) \(month.sentence)")
+                    Text("\(title) \(Text(sentence: month.sentence, hidesAmounts: hides))")
                         .font(.subheadline)
                         .foregroundStyle(Palette.ink)
+                        .textRenderer(AmountPlaceholderRenderer(hidesAmounts: hides))
                         .fixedSize(horizontal: false, vertical: true)
+                        .accessibilityLabel(Text(verbatim: "\(month.title): \(month.sentence.spoken(hidesAmounts: hides))"))
                 }
             }
         }
     }
 
     /// The answer in words on the Mac and iPad.
-    private func wideWords(title: String, detail: String) -> some View {
+    private func wideWords(title: String, detail: AmountSentence) -> some View {
         VStack(alignment: .leading, spacing: Metrics.xs) {
             Text(title)
                 .font(Self.wideTitleFont)
                 .foregroundStyle(Palette.ink)
                 .accessibilityAddTraits(.isHeader)
-            Text(detail)
+            AmountSentenceText(detail)
                 .font(PlanProgressFont.text)
                 .foregroundStyle(Palette.secondaryInk)
                 .fixedSize(horizontal: false, vertical: true)
@@ -211,7 +214,7 @@ struct PlanProgressView: View {
     private func tileRow(_ tiles: [Tile], month: MonthReport?) -> some View {
         HStack(alignment: .top, spacing: Metrics.s) {
             ForEach(tiles) { tile in
-                PlanStatTile(title: tile.title, value: tile.value)
+                PlanStatTile(title: tile.title, value: AmountSentence(tile.value))
             }
             if let month {
                 PlanStatTile(title: month.title, value: month.figures)
@@ -268,9 +271,9 @@ struct PlanProgressView: View {
         /// "September".
         var title: String
         /// "Saved 1.532 € · markets +3.236 €", on the Mac's tile.
-        var figures: String
+        var figures: AmountSentence
         /// "you saved 1.532 € and markets added 3.236 €.", in the card on iPhone.
-        var sentence: String
+        var sentence: AmountSentence
     }
 
     private var monthReport: MonthReport? {
@@ -279,15 +282,15 @@ struct PlanProgressView: View {
         }
         let saved = report.total.newMoney
         let markets = report.total.market
-        func amount(_ value: Decimal) -> String {
-            hidesAmounts ? AmountFormat.hidden
-                : AmountFormat.amount(abs(value), currency: report.currency, locale: locale)
+        func amount(_ value: Decimal) -> AmountSentence {
+            .amount(AmountFormat.amount(abs(value), currency: report.currency, locale: locale))
         }
-        let signedMarkets = hidesAmounts ? AmountFormat.hidden
-            : AmountFormat.signedAmount(markets, currency: report.currency, locale: locale)
-        let savedWords = saved >= 0 ? "you saved \(amount(saved))" : "you took out \(amount(saved))"
-        let marketWords = markets >= 0 ? "markets added \(amount(markets))" : "markets took \(amount(markets))"
-        let figures = (saved >= 0 ? "Saved " : "Took out ") + amount(saved) + " · markets " + signedMarkets
+        let signedMarkets = AmountSentence.amount(
+            AmountFormat.signedAmount(markets, currency: report.currency, locale: locale))
+        let savedWords: AmountSentence = saved >= 0 ? "you saved \(amount(saved))" : "you took out \(amount(saved))"
+        let marketWords: AmountSentence = markets >= 0 ? "markets added \(amount(markets))"
+            : "markets took \(amount(markets))"
+        let figures: AmountSentence = "\(saved >= 0 ? "Saved" : "Took out") \(amount(saved)) · markets \(signedMarkets)"
         return MonthReport(title: AmountFormat.monthName(report.to, locale: locale), figures: figures,
                            sentence: "\(savedWords) and \(marketWords).")
     }
@@ -563,14 +566,15 @@ struct PlanProgressView: View {
 /// A figure with its title above it, beside Progress's headline on the Mac.
 struct PlanStatTile: View {
     let title: String
-    let value: String
+    /// The figure: its amounts hide with the eye.
+    let value: AmountSentence
 
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
             Text(title)
                 .font(.caption)
                 .foregroundStyle(Palette.secondaryInk)
-            Text(value)
+            AmountSentenceText(value)
                 .font(.subheadline.weight(.semibold))
                 .foregroundStyle(Palette.ink)
                 .fixedSize(horizontal: false, vertical: true)

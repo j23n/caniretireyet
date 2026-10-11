@@ -23,7 +23,6 @@ struct PlanProgressModel {
         /// The plan as shown, which may hold an edit not saved yet.
         var document: PlanDocument?
         var asOf: CalendarDate
-        var hidesAmounts: Bool
         var locale: String
     }
 

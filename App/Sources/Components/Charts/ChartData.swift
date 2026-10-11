@@ -104,7 +104,7 @@ extension Array where Element == ChartPoint {
 ///   never stretch the scale.
 ///
 /// Charts use it as `.chartYScale(domain: scale.domain)` and
-/// `.chartYAxis { amountAxis(hidesAmounts:scale:) }`.
+/// `.chartYAxis { amountAxis(hidesAmounts:scale:relativeTo:) }`.
 struct AmountScale: Hashable, Sendable {
     /// The y domain, the lane included.
     var domain: ClosedRange<Double>

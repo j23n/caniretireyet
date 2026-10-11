@@ -30,7 +30,6 @@ struct TradeHoldingsRows: View {
     let holdings: TradeHoldings
     let currency: CurrencyCode
 
-    @Environment(\.hidesAmounts) private var hidesAmounts
     @Environment(\.locale) private var locale
 
     var body: some View {
@@ -112,9 +111,7 @@ struct TradeHoldingsRows: View {
 
     /// "Average cost 101.437,74 €", label and value in one text.
     private func averageCost(_ row: AccountHoldingRow) -> some View {
-        Text(verbatim: AccountPositionText.averageCost(row, currency: currency, hidesAmounts: hidesAmounts,
-                                                       locale: locale))
-            .privacySensitive()
+        AmountSentenceText(AccountPositionText.averageCost(row, currency: currency, locale: locale))
     }
 
     @ViewBuilder
@@ -132,7 +129,6 @@ struct TradeHoldingsGrid: View {
     let holdings: TradeHoldings
     let currency: CurrencyCode
 
-    @Environment(\.hidesAmounts) private var hidesAmounts
     @Environment(\.locale) private var locale
 
     var body: some View {
@@ -154,14 +150,13 @@ struct TradeHoldingsGrid: View {
                 GridRow {
                     Text(row.name)
                         .lineLimit(1)
-                    Text(hidesAmounts ? AmountFormat.hidden : QuantityFormat.quantity(row.quantity, locale: locale))
+                    Text(QuantityFormat.quantity(row.quantity, locale: locale))
                         .monospacedDigit()
-                        .privacySensitive()
+                        .privacySensitiveAmount()
                     if let average = row.averageCost {
-                        Text(hidesAmounts ? AmountFormat.hidden
-                            : QuantityFormat.unitPrice(average, currency: currency, locale: locale))
+                        Text(QuantityFormat.unitPrice(average, currency: currency, locale: locale))
                             .monospacedDigit()
-                            .privacySensitive()
+                            .privacySensitiveAmount()
                     } else {
                         Text("–").foregroundStyle(Palette.mutedInk)
                     }
@@ -261,9 +256,8 @@ struct TradeListRowView: View {
     /// "Buy 0,10383916 BTC" over "at 101.437,76 € · 1 Oct 2025 · note".
     private var description: some View {
         VStack(alignment: .leading, spacing: 2) {
-            Text(verbatim: item.title)
+            AmountSentenceText(item.title)
                 .foregroundStyle(Palette.ink)
-                .privacySensitive()
             Text(verbatim: item.subtitle)
                 .font(.caption)
                 .foregroundStyle(Palette.secondaryInk)
@@ -411,15 +405,14 @@ private struct TradeTableTypeCell: View {
 private struct TradeTableQuantityCell: View {
     let item: TradeListItem
 
-    @Environment(\.hidesAmounts) private var hidesAmounts
     @Environment(\.locale) private var locale
 
     var body: some View {
         Group {
             if let quantity = item.trade.quantity {
-                Text(hidesAmounts ? AmountFormat.hidden : QuantityFormat.quantity(quantity, locale: locale))
+                Text(QuantityFormat.quantity(quantity, locale: locale))
                     .monospacedDigit()
-                    .privacySensitive()
+                    .privacySensitiveAmount()
             } else if let ratio = item.trade.ratio {
                 Text(verbatim: "× " + AmountFormat.number(ratio, maxDigits: 6, locale: locale))
                     .monospacedDigit()

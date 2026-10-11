@@ -26,7 +26,6 @@ struct PlanYearDetails: View {
     /// *Add Past Baseline…* at its start.
     var onAddPastBaseline: ((Int) -> Void)?
 
-    @Environment(\.hidesAmounts) private var hidesAmounts
     @Environment(\.locale) private var locale
     @State private var width: CGFloat = 0
     @State private var fillsPastPrices = false
@@ -72,8 +71,7 @@ struct PlanYearDetails: View {
                         .foregroundStyle(Palette.ink)
                         .accessibilityAddTraits(.isHeader)
                     if !year.isLatest {
-                        Text(PlanProgressText.change(year, currency: card.currency, hidesAmounts: hidesAmounts,
-                                                     locale: locale))
+                        AmountSentenceText(PlanProgressText.change(year, currency: card.currency, locale: locale))
                             .font(.subheadline.weight(.semibold))
                             .monospacedDigit()
                             .foregroundStyle(Palette.ink)
@@ -96,9 +94,8 @@ struct PlanYearDetails: View {
     /// measured.
     @ViewBuilder
     private var standing: some View {
-        if let against = PlanProgressText.againstJanuary(year, currency: card.currency, hidesAmounts: hidesAmounts,
-                                                         locale: locale) {
-            Text(against)
+        if let against = PlanProgressText.againstJanuary(year, currency: card.currency, locale: locale) {
+            AmountSentenceText(against)
                 .font(PlanProgressFont.caption.weight(.semibold))
                 .foregroundStyle(PlanBaselineComparison.Standing.color(of: year.position))
         } else {
@@ -111,7 +108,7 @@ struct PlanYearDetails: View {
     /// The year in a line, one line always: "A year sooner, and past
     /// 150.000 €.", or for a quiet year "A quiet year."
     private var summary: some View {
-        Text(card.summary ?? (year.isLatest ? "A quiet year so far." : "A quiet year."))
+        AmountSentenceText(card.summary ?? (year.isLatest ? "A quiet year so far." : "A quiet year."))
             .font(stacks ? PlanProgressFont.summary : PlanProgressFont.text)
             .foregroundStyle(stacks ? Palette.ink : Palette.secondaryInk)
             .lineLimit(1)
@@ -160,33 +157,40 @@ struct PlanYearDetails: View {
 struct PlanYearCardFooter: View {
     let card: PlanProgressTimeline.Card
 
-    @Environment(\.hidesAmounts) private var hidesAmounts
+    @Environment(\.redactionReasons) private var redactionReasons
     @Environment(\.locale) private var locale
 
-    private func item(_ title: String, _ value: String) -> Text {
+    private func item(_ title: String, _ value: AmountSentence, hidesAmounts: Bool) -> Text {
         let name = Text(title).foregroundStyle(Palette.secondaryInk)
-        let figure = Text(value).fontWeight(.semibold).foregroundStyle(Palette.ink)
+        let figure = Text(sentence: value, hidesAmounts: hidesAmounts).fontWeight(.semibold)
+            .foregroundStyle(Palette.ink)
         return Text("\(name) \(figure)")
     }
 
     var body: some View {
+        let hides = redactionReasons.hidesAmounts
         let year = card.year
-        let saved = hidesAmounts ? AmountFormat.hidden
-            : AmountFormat.amount(year.change.newMoney, currency: card.currency, locale: locale)
-        let markets = hidesAmounts ? AmountFormat.hidden
-            : AmountFormat.signedAmount(year.change.market, currency: card.currency, locale: locale)
+        let saved = AmountSentence.amount(
+            AmountFormat.amount(year.change.newMoney, currency: card.currency, locale: locale))
+        let markets = AmountSentence.amount(
+            AmountFormat.signedAmount(year.change.market, currency: card.currency, locale: locale))
+        let age = AmountSentence(year.answerTo?.earliestAge.map { "\($0)" } ?? "–")
         HStack(spacing: Metrics.s) {
-            item("Saved", saved)
+            item("Saved", saved, hidesAmounts: hides)
             Spacer(minLength: Metrics.xs)
-            item("Markets", markets)
+            item("Markets", markets, hidesAmounts: hides)
             Spacer(minLength: Metrics.xs)
-            item("Age", year.answerTo?.earliestAge.map { "\($0)" } ?? "–")
+            item("Age", age, hidesAmounts: hides)
         }
         .font(.caption)
         .monospacedDigit()
         .lineLimit(1)
         .minimumScaleFactor(0.8)
-        .accessibilityElement(children: .combine)
+        // The amounts draw as placeholders while hidden, as in a sentence.
+        .textRenderer(AmountPlaceholderRenderer(hidesAmounts: hides))
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(Text(verbatim: "Saved \(saved.spoken(hidesAmounts: hides)), "
+            + "markets \(markets.spoken(hidesAmounts: hides)), age \(age.text)"))
     }
 }
 
@@ -199,13 +203,12 @@ struct PlanYearFigures: View {
     let card: PlanProgressTimeline.Card
     var showsBar = false
 
-    @Environment(\.hidesAmounts) private var hidesAmounts
     @Environment(\.locale) private var locale
 
     private var year: PlanProgressYear { card.year }
 
     private func amount(_ value: Decimal) -> String {
-        hidesAmounts ? AmountFormat.hidden : AmountFormat.amount(abs(value), currency: card.currency, locale: locale)
+        AmountFormat.amount(abs(value), currency: card.currency, locale: locale)
     }
 
     var body: some View {
@@ -220,19 +223,19 @@ struct PlanYearFigures: View {
             }
             Grid(horizontalSpacing: 1, verticalSpacing: 1) {
                 GridRow {
-                    figure(saved >= 0 ? "You saved" : "You took out", amount(saved),
-                           detail: explanation.map { "planned \(amount($0.plannedSaving))\(byNow)" },
+                    figure(saved >= 0 ? "You saved" : "You took out", amount(saved), isAmount: true,
+                           detail: explanation.map { "planned \(amount: amount($0.plannedSaving))\(byNow)" },
                            titleColor: Palette.ink.opacity(0.8))
-                    figure(market >= 0 ? "Markets added" : "Markets took", amount(market),
-                           detail: explanation.map { "expected \(amount($0.expectedMarket))" },
+                    figure(market >= 0 ? "Markets added" : "Markets took", amount(market), isAmount: true,
+                           detail: explanation.map { "expected \(amount: amount($0.expectedMarket))" },
                            titleColor: market >= 0 ? Palette.accent : Palette.orangeStroke)
                 }
                 GridRow {
-                    figure("Earliest age", age, detail: ageMove,
+                    figure("Earliest age", age, detail: ageMove.map { AmountSentence($0) },
                            detailColor: (year.ageChange ?? 0) < 0 ? Palette.accent : Palette.secondaryInk)
                     figure("Its futures", futures,
-                           detail: year.position == nil ? PlanProgressText.unmeasured(year)
-                               : year.isLatest ? "are below you now" : "ended below you")
+                           detail: AmountSentence(year.position == nil ? PlanProgressText.unmeasured(year)
+                               : year.isLatest ? "are below you now" : "ended below you"))
                 }
             }
             .background(Palette.border)
@@ -266,19 +269,27 @@ struct PlanYearFigures: View {
         return "–"
     }
 
-    /// A figure: its title, the figure, and a line under it, always there so
-    /// every figure is as tall as the others.
-    private func figure(_ title: String, _ value: String, detail: String?, titleColor: Color = Palette.secondaryInk,
+    /// A figure: its title, the figure (an amount hides with the eye), and a
+    /// line under it, always there so every figure is as tall as the others.
+    private func figure(_ title: String, _ value: String, isAmount: Bool = false, detail: AmountSentence?,
+                        titleColor: Color = Palette.secondaryInk,
                         detailColor: Color = Palette.secondaryInk) -> some View {
         VStack(alignment: .leading, spacing: 1) {
             Text(title)
                 .font(PlanProgressFont.caption.weight(.semibold))
                 .foregroundStyle(titleColor)
-            Text(value)
-                .font(.title3.weight(.semibold))
-                .monospacedDigit()
-                .foregroundStyle(Palette.ink)
-            Text(detail ?? " ")
+            Group {
+                if isAmount {
+                    Text(value)
+                        .privacySensitiveAmount()
+                } else {
+                    Text(value)
+                }
+            }
+            .font(.title3.weight(.semibold))
+            .monospacedDigit()
+            .foregroundStyle(Palette.ink)
+            AmountSentenceText(detail ?? " ")
                 .font(PlanProgressFont.caption)
                 .foregroundStyle(detailColor)
         }
@@ -359,7 +370,6 @@ struct PlanYearWhy: View {
     /// *Add What You Planned in 2021…*, for a year without a baseline.
     var onAddPastBaseline: ((Int) -> Void)?
 
-    @Environment(\.hidesAmounts) private var hidesAmounts
     @Environment(\.locale) private var locale
 
     private var year: PlanProgressYear { card.year }
@@ -371,11 +381,11 @@ struct PlanYearWhy: View {
     }
 
     private func amount(_ value: Decimal) -> String {
-        hidesAmounts ? AmountFormat.hidden : AmountFormat.amount(abs(value), currency: card.currency, locale: locale)
+        AmountFormat.amount(abs(value), currency: card.currency, locale: locale)
     }
 
     private func signed(_ value: Decimal) -> String {
-        hidesAmounts ? AmountFormat.hidden : AmountFormat.signedAmount(value, currency: card.currency, locale: locale)
+        AmountFormat.signedAmount(value, currency: card.currency, locale: locale)
     }
 
     /// "Why you're ahead", "Why you ended behind"; "Against January" unmeasured.
@@ -398,8 +408,8 @@ struct PlanYearWhy: View {
     }
 
     /// "January expected 141.463 € by 31 Dec.", "… by now."
-    private var expected: String? {
-        PlanProgressText.expected(year, amount: { amount($0) }, locale: locale).map { $0 + "." }
+    private var expected: AmountSentence? {
+        PlanProgressText.expected(year, amount: { .amount(amount($0)) }, locale: locale).map { $0 + "." }
     }
 
     var body: some View {
@@ -435,15 +445,15 @@ struct PlanYearWhy: View {
                 }
                 .font(PlanProgressFont.text)
                 if let expected {
-                    Text(expected)
+                    AmountSentenceText(expected)
                         .font(PlanProgressFont.caption)
                         .foregroundStyle(Palette.secondaryInk)
                         .lineLimit(1)
                         .minimumScaleFactor(0.85)
                 }
             } else {
-                Text(PlanProgressText.january(year, currency: card.currency, hidesAmounts: hidesAmounts, locale: locale)
-                    ?? PlanProgressText.unmeasured(year))
+                AmountSentenceText(PlanProgressText.january(year, currency: card.currency, locale: locale)
+                    ?? AmountSentence(PlanProgressText.unmeasured(year)))
                     .font(PlanProgressFont.caption)
                     .foregroundStyle(Palette.secondaryInk)
                     .fixedSize(horizontal: false, vertical: true)
@@ -462,6 +472,7 @@ struct PlanYearWhy: View {
             .fontWeight(isTotal ? .bold : .semibold)
             .monospacedDigit()
             .foregroundStyle(value == 0 ? Palette.mutedInk : value > 0 ? Palette.positive : Palette.orangeStroke)
+            .privacySensitiveAmount()
             .gridColumnAlignment(.trailing)
             .lineLimit(1)
     }
@@ -517,9 +528,8 @@ struct PlanYearHappenings: View {
                                     .foregroundStyle(Palette.accent)
                                     .accessibilityLabel("Milestone")
                             }
-                            Text(row.text)
+                            PlanStoryText(runs: row.runs)
                                 .foregroundStyle(Palette.ink)
-                                .fixedSize(horizontal: false, vertical: true)
                         }
                         .accessibilityElement(children: .combine)
                     }

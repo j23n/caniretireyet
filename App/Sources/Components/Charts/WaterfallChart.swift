@@ -28,12 +28,15 @@ struct WaterfallChart: View {
     /// before and after; off where the screen says it already (the Overview).
     var showsChange = true
 
-    @Environment(\.hidesAmounts) private var hidesAmounts
+    @Environment(\.redactionReasons) private var redactionReasons
     @Environment(\.baseCurrency) private var baseCurrency
     @Environment(\.locale) private var locale
 
     /// The bars' thickness (thin marks: at most 24 points).
     private static let barHeight: CGFloat = 14
+
+    /// Whether amounts are hidden: the change is in per cent, and VoiceOver doesn't read amounts.
+    private var hidesAmounts: Bool { redactionReasons.hidesAmounts }
 
     var body: some View {
         let bars = ChangeBars(change)
@@ -52,7 +55,7 @@ struct WaterfallChart: View {
                         ChangeBarTrack(bar: bar, zero: bars.zero)
                             .frame(height: Self.barHeight)
                             .frame(maxWidth: .infinity)
-                        Text(verbatim: amountText(bar.value))
+                        Text(verbatim: signed(bar.value))
                             .font(.subheadline)
                             .monospacedDigit()
                             .foregroundStyle(Palette.ink)
@@ -95,10 +98,6 @@ struct WaterfallChart: View {
                 .foregroundStyle(Palette.secondaryInk)
         }
         .font(.title3.weight(.semibold))
-    }
-
-    private func amountText(_ value: Double) -> String {
-        hidesAmounts ? AmountFormat.hidden : signed(value)
     }
 
     private func spokenAmount(_ value: Double) -> String {
@@ -177,7 +176,7 @@ private struct ChangeBarTrack: View {
             }
             Card("Amounts hidden") {
                 WaterfallChart(change: change, from: "31 Aug", to: "30 Sep")
-                    .environment(\.hidesAmounts, true)
+                    .redacted(reason: .privacy)
             }
         }
         .padding()

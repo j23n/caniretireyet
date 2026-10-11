@@ -62,9 +62,9 @@ final class AppPreferences {
     // MARK: Hiding amounts (UI.md, "Privacy")
 
     /// Whether amounts are hidden right now: what the eye button and ⌘⇧H
-    /// toggle. `appEnvironment` passes it to every `AmountText` through the
-    /// environment, so amounts show as `•••••` while charts keep their
-    /// shape. Not kept: each launch starts from ``hideAmountsOnLaunch``.
+    /// toggle. `appEnvironment` redacts each scene for `.privacy` while it's
+    /// on, so amounts show as placeholders while charts keep their shape.
+    /// Not kept: each launch starts from ``hideAmountsOnLaunch``.
     var hidesAmounts: Bool
 
     /// Whether amounts start hidden when the app launches.

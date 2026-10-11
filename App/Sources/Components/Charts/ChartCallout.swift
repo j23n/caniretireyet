@@ -172,11 +172,12 @@ struct ChartCalloutProjection: View {
 /// with its icon, a milestone with its flag, an event with its dot, and a
 /// line under it when it says more ("Typically by mid 2034").
 struct ChartCalloutMarker<Icon: View>: View {
-    let title: String
+    /// Its name, whose amount (a round amount's, an event's) hides with the eye.
+    let title: AmountSentence
     var detail: String?
     let icon: Icon
 
-    init(_ title: String, detail: String? = nil, @ViewBuilder icon: () -> Icon) {
+    init(_ title: AmountSentence, detail: String? = nil, @ViewBuilder icon: () -> Icon) {
         self.title = title
         self.detail = detail
         self.icon = icon()
@@ -185,7 +186,7 @@ struct ChartCalloutMarker<Icon: View>: View {
     var body: some View {
         Label {
             VStack(alignment: .leading, spacing: 0) {
-                Text(title)
+                AmountSentenceText(title)
                 if let detail {
                     Text(detail)
                 }
@@ -202,7 +203,7 @@ struct ChartCalloutMarker<Icon: View>: View {
 
 extension ChartCalloutMarker where Icon == Image {
     /// A marker with a symbol: "Retire at 50" with its walking figure.
-    init(_ title: String, detail: String? = nil, systemImage: String) {
+    init(_ title: AmountSentence, detail: String? = nil, systemImage: String) {
         self.init(title, detail: detail) { Image(systemName: systemImage) }
     }
 }

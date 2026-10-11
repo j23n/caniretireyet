@@ -67,7 +67,6 @@ struct OverviewYearCard: View {
     /// Tracker's `Valuator.savingsRate(from:through:)` over the values
     /// recorded this year; `nil` without money in and out.
     var savings: SavingsRate?
-    @Environment(\.hidesAmounts) private var hidesAmounts
     @Environment(\.locale) private var locale
 
     var body: some View {
@@ -80,9 +79,8 @@ struct OverviewYearCard: View {
                     .font(.footnote)
                     .foregroundStyle(Palette.mutedInk)
                     .fixedSize(horizontal: false, vertical: true)
-                if let savings, let text = Self.savingsText(savings, today: report.to, hidesAmounts: hidesAmounts,
-                                                            locale: locale) {
-                    Text(text)
+                if let savings, let text = Self.savingsText(savings, today: report.to, locale: locale) {
+                    AmountSentenceText(text)
                         .font(.subheadline)
                         .foregroundStyle(Palette.ink)
                         .fixedSize(horizontal: false, vertical: true)
@@ -92,19 +90,18 @@ struct OverviewYearCard: View {
     }
 
     /// "Savings rate 17%: you kept 1.945 € of the 11.525 € that came in
-    /// since 30 Jun, with 1.325 € paid into pensions counted as both."
-    /// While amounts are hidden, only the rate and since when. `nil` when
-    /// nothing came in.
-    static func savingsText(_ savings: SavingsRate, today: CalendarDate, hidesAmounts: Bool,
-                            locale: Locale) -> String? {
+    /// since 30 Jun, with 1.325 € paid into pensions counted as both." The
+    /// amounts hide with the eye; the rate stays. `nil` when nothing came in.
+    static func savingsText(_ savings: SavingsRate, today: CalendarDate, locale: Locale) -> AmountSentence? {
         guard let rate = savings.rate else { return nil }
         let percent = AmountFormat.percent(rate, digits: 0, locale: locale)
         let since = AmountFormat.shortDate(savings.from, relativeTo: today, locale: locale)
-        if hidesAmounts { return "Savings rate \(percent) of what came in since \(since)." }
         let currency = savings.moneyInOut.currency
-        func amount(_ value: Decimal) -> String { AmountFormat.amount(value, currency: currency, locale: locale) }
-        var text = "Savings rate \(percent): you kept \(amount(savings.saved)) of the \(amount(savings.income)) "
-            + "that came in since \(since)"
+        func amount(_ value: Decimal) -> AmountSentence {
+            .amount(AmountFormat.amount(value, currency: currency, locale: locale))
+        }
+        var text: AmountSentence = "Savings rate \(percent): you kept \(amount(savings.saved)) of the "
+        text += "\(amount(savings.income)) that came in since \(since)"
         if savings.pensionContributions > 0 {
             text += ", with \(amount(savings.pensionContributions)) paid into pensions counted as both"
         }
