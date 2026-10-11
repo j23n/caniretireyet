@@ -345,6 +345,22 @@ struct SavingPaceTests {
         #expect(pace.range == 12_000...12_500)
     }
 
+    /// A pension fund paid 3,000 a quarter, then 20,000 once on 30 Jun, and
+    /// not valued since: the one-off isn't carried forward.
+    @Test func aOneOffIsntCarriedForward() throws {
+        var library = self.library(flows: [Decimal](repeating: 1_000, count: 12))
+        library.accounts["pension"] = Account(id: "pension", name: "Pension", kind: .pensionFund, currency: .eur,
+                                              opened: "2020-01-01")
+        library.upsert(Valuation(account: "pension", date: "2025-09-30", balance: 10_000, flow: 0))
+        for (date, balance, flow) in [("2025-12-31", 13_000, 3_000), ("2026-03-31", 16_000, 3_000),
+                                      ("2026-06-30", 36_000, 20_000)] as [(CalendarDate, Decimal, Decimal)] {
+            library.upsert(Valuation(account: "pension", date: date, balance: balance, flow: flow))
+        }
+        let pace = try #require(Valuator(library: library).savingPace(asOf: "2026-09-30"))
+        #expect(pace.carriedForward.isEmpty)
+        #expect(pace.byAccount["pension"]?.rounded(scale: 2) == 26_000)
+    }
+
     /// A savings account emptied on 31 Mar and not valued since: taking
     /// the 5,000 out isn't carried forward.
     @Test func moneyTakenOutIsntCarriedForward() throws {

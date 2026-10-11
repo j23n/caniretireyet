@@ -259,8 +259,9 @@ extension Valuator {
             // check-ins) and not since before the latest one goes on saving
             // as it did up to its latest record, for at most as long again:
             // an account valued once a year saved in the months since its
-            // statement too. One only skipped at a check-in doesn't.
-            guard let last = spans.last, last.amount > 0, last.to < asOf,
+            // statement too. One only skipped at a check-in doesn't, nor
+            // money taken out or, for an account paid regularly, a one-off.
+            guard let last = spans.last, last.amount > 0, !regular || last.amount <= 2 * usual, last.to < asOf,
                   last.from.days(to: last.to) * 2 > usualCheckIn * 3, accounts[account]?.recordsTrades != true,
                   accounts[account]?.closed.map({ $0 > asOf }) ?? true,
                   latestRecordDate(of: account, onOrBefore: asOf) == last.to
