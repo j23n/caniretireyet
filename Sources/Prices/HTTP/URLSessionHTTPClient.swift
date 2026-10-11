@@ -17,7 +17,8 @@ public struct URLSessionHTTPClient: HTTPClient {
 
     public func send(_ request: HTTPRequest) async throws -> HTTPResponse {
         var urlRequest = URLRequest(url: request.url)
-        urlRequest.httpMethod = "GET"
+        urlRequest.httpMethod = request.method
+        urlRequest.httpBody = request.body
         urlRequest.cachePolicy = .reloadIgnoringLocalCacheData
         urlRequest.timeoutInterval = request.timeout.timeInterval
         for (name, value) in request.headers {

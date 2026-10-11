@@ -15,7 +15,17 @@ struct HTTPFetcher: Sendable {
     /// GETs `url` and returns the response, whatever its status, except that
     /// a 429 is retried per the policy and then thrown as `rateLimited`.
     func get(_ url: URL, headers: [String: String] = [:]) async throws(PriceFetchError) -> HTTPResponse {
-        let request = HTTPRequest(url: url, headers: headers, timeout: policy.timeout)
+        try await send(HTTPRequest(url: url, headers: headers, timeout: policy.timeout))
+    }
+
+    /// POSTs `json` to `url` as ``get(_:headers:)`` GETs it.
+    func post(_ url: URL, json: Data, headers: [String: String] = [:]) async throws(PriceFetchError) -> HTTPResponse {
+        var headers = headers
+        headers["Content-Type"] = "application/json"
+        return try await send(HTTPRequest(url: url, headers: headers, body: json, timeout: policy.timeout))
+    }
+
+    private func send(_ request: HTTPRequest) async throws(PriceFetchError) -> HTTPResponse {
         var attempt = 0
         while true {
             let response = try await sendOnce(request)

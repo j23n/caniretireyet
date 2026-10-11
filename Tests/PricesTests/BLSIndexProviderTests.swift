@@ -22,13 +22,18 @@ struct BLSIndexProviderTests {
         ])
     }
 
-    @Test func asksForTheSeriesYears() async throws {
+    /// The years go in a POST's body: a GET ignores them and answers with
+    /// the last three years.
+    @Test func asksForTheSeriesYearsInTheBody() async throws {
         let client = MockHTTPClient(["CUUR0000SA0": BLSResponses.twoYears])
         _ = try await provider(client).values(from: "2025-12", through: "2026-09")
         let sent = try #require(await client.requests.first)
-        #expect(sent.url.absoluteString
-            == "https://api.bls.gov/publicAPI/v1/timeseries/data/CUUR0000SA0?startyear=2025&endyear=2026")
-        #expect(sent.headers.isEmpty)
+        #expect(sent.method == "POST")
+        #expect(sent.url.absoluteString == "https://api.bls.gov/publicAPI/v1/timeseries/data/")
+        #expect(sent.headers == ["Content-Type": "application/json"])
+        let body = try #require(sent.body)
+        #expect(String(decoding: body, as: UTF8.self)
+            == #"{"endyear":"2026","seriesid":["CUUR0000SA0"],"startyear":"2025"}"#)
     }
 
     @Test func onlyTheRequestedMonthsAreReturned() async throws {
@@ -41,8 +46,8 @@ struct BLSIndexProviderTests {
     /// Ten years a request: 2006 through 2025 is two.
     @Test func aLongRangeTakesARequestPerTenYears() async throws {
         let client = MockHTTPClient()
-        await client.on("startyear=2006&endyear=2015", json: BLSResponses.olderPage)
-        await client.on("startyear=2016&endyear=2025", json: BLSResponses.newerPage)
+        await client.on(#""startyear":"2006""#, json: BLSResponses.olderPage)
+        await client.on(#""startyear":"2016""#, json: BLSResponses.newerPage)
         let values = try await provider(client).values(from: "2006-01", through: "2025-12")
         #expect(values.map(\.date) == ["2015-12-31", "2016-01-31"])
         #expect(await client.requestCount == 2)

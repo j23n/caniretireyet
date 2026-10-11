@@ -4,10 +4,13 @@ import Model
 /// Monthly values of the United States' consumer price index (`cpi-us`:
 /// CPI-U, all items, not seasonally adjusted, 1982–84 = 100) from the
 /// Bureau of Labor Statistics' public API, version 1, which needs no key.
-/// It answers at most ten years per request, so a longer range takes one
-/// request per ten years.
+/// The years go in a POST's body: a GET ignores them and answers with the
+/// last three years. It answers at most ten years per request, so a longer
+/// range takes one request per ten years.
 ///
-///     GET timeseries/data/CUUR0000SA0?startyear=2025&endyear=2026
+///     POST timeseries/data/
+///     { "seriesid": ["CUUR0000SA0"], "startyear": "2025", "endyear": "2026" }
+///
 ///     { "status": "REQUEST_SUCCEEDED", "message": [],
 ///       "Results": { "series": [{ "seriesID": "CUUR0000SA0",
 ///         "data": [{ "year": "2026", "period": "M08", "periodName": "August", "value": "325.1", … }, …] }] } }
@@ -43,10 +46,7 @@ public struct BLSIndexProvider: InflationIndexProvider {
         guard start <= end else { return [] }
         var values: [YearMonth: Decimal] = [:]
         for years in Self.yearRanges(from: start.year, through: end.year) {
-            let url = Self.baseURL.appending(segments: [Self.series], query: [
-                ("startyear", String(years.lowerBound)), ("endyear", String(years.upperBound)),
-            ])
-            let response = try await fetcher.get(url)
+            let response = try await fetcher.post(Self.baseURL, json: Self.query(years))
             try response.requireSuccess(service: name, symbol: Self.series)
             let body = try response.decodeJSON(Response.self, service: name)
             for value in try Self.monthlyValues(in: body, service: name) {
@@ -65,6 +65,14 @@ public struct BLSIndexProvider: InflationIndexProvider {
         return stride(from: first, through: last, by: maxYearsPerRequest).map {
             $0...min($0 + maxYearsPerRequest - 1, last)
         }
+    }
+
+    /// The body asking for the series' values in `years`.
+    static func query(_ years: ClosedRange<Int>) throws -> Data {
+        let query = Query(seriesid: [series], startyear: String(years.lowerBound), endyear: String(years.upperBound))
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = .sortedKeys
+        return try encoder.encode(query)
     }
 
     /// The monthly values of the response's series, sorted by month.
@@ -97,7 +105,13 @@ public struct BLSIndexProvider: InflationIndexProvider {
         return YearMonth(year: year, month: month)
     }
 
-    // MARK: - Response
+    // MARK: - Request and response
+
+    struct Query: Encodable {
+        let seriesid: [String]
+        let startyear: String
+        let endyear: String
+    }
 
     struct Response: Decodable {
         let status: String
