@@ -158,11 +158,13 @@ struct PlanYearCardFooter: View {
     let card: PlanProgressTimeline.Card
 
     @Environment(\.redactionReasons) private var redactionReasons
+    @Environment(\.hidesPersonalData) private var hidesPersonalData
     @Environment(\.locale) private var locale
 
     private func item(_ title: String, _ value: AmountSentence, hidesAmounts: Bool) -> Text {
         let name = Text(title).foregroundStyle(Palette.secondaryInk)
-        let figure = Text(sentence: value, hidesAmounts: hidesAmounts).fontWeight(.semibold)
+        let figure = Text(sentence: value, hidesAmounts: hidesAmounts, hidesWords: hidesPersonalData)
+            .fontWeight(.semibold)
             .foregroundStyle(Palette.ink)
         return Text("\(name) \(figure)")
     }
@@ -186,8 +188,9 @@ struct PlanYearCardFooter: View {
         .monospacedDigit()
         .lineLimit(1)
         .minimumScaleFactor(0.8)
-        // The amounts draw as placeholders while hidden, as in a sentence.
-        .textRenderer(AmountPlaceholderRenderer(hidesAmounts: hides))
+        // The amounts draw as placeholders while hidden, as in a sentence, and the age too in a
+        // feedback screenshot.
+        .textRenderer(AmountPlaceholderRenderer(hidesAmounts: hides, hidesWords: hidesPersonalData))
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(Text(verbatim: "Saved \(saved.spoken(hidesAmounts: hides)), "
             + "markets \(markets.spoken(hidesAmounts: hides)), age \(age.text)"))

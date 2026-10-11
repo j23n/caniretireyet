@@ -6,16 +6,21 @@ import Foundation
 /// screenshot, Help › Send Feedback… or Settings › Feedback opens FeedbackKit's form, and the
 /// report goes to the owner's private inbox, j23n/feedback (App/README.md, "Feedback").
 ///
-/// The screenshot carries nothing of the person's: for the capture, FeedbackKit's `.allContent`
-/// redaction draws placeholders for every text and image in the app's views and paints over the
-/// titles and text fields UIKit and AppKit draw (`AppEnvironment`), so account, plan and
-/// institution names, amounts and dates are all hidden; the screen's layout stays.
+/// The screenshot hides the person's data and keeps the app's own text: for the capture,
+/// FeedbackKit's `.privacySensitiveViews` redaction redacts each window for `.privacy`, which draws
+/// placeholders for the views marked `.privacySensitive()`, and paints over the text in text fields.
+/// Amounts are marked always (`AmountText`, `.privacySensitiveAmount()`); while capturing,
+/// `AppEnvironment` sets `hidesPersonalData`, which marks the rest of the person's data
+/// (`.privacySensitiveInFeedback()`: names, their records' dates, notes, ages, charts' text) and
+/// hides the words of sentences (`AmountSentenceText`). Titles and controls UIKit and AppKit draw
+/// with the person's data use `personalNavigationTitle(_:hidden:)` and `personalControl()`
+/// (PersonalDataRedaction.swift). Labels, headers, footers, buttons and empty states stay readable.
 extension FeedbackCenter {
     static func caniretireyet(navigation: AppNavigation) -> FeedbackCenter {
         let center = FeedbackCenter(configuration: FeedbackConfiguration(
             inbox: GitHubRepository(owner: "j23n", name: "feedback"),
             app: "caniretireyet",
-            redaction: .allContent
+            redaction: .privacySensitiveViews
         ))
         center.currentScreen = { navigation.feedbackScreen }
         return center

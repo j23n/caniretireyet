@@ -9,16 +9,18 @@ import Tracker
 
 /// Sentences with their values in bold. They only read: values change in
 /// the chapter's settings. The text wraps as text does. While amounts are
-/// hidden, each amount draws as a placeholder (``AmountSentenceText``).
+/// hidden, each amount draws as a placeholder, and in a feedback screenshot
+/// every word does (``AmountSentenceText``).
 struct PlanStoryText: View {
     let runs: [PlanChapterStory.Run]
 
     @Environment(\.redactionReasons) private var redactionReasons
+    @Environment(\.hidesPersonalData) private var hidesPersonalData
 
     var body: some View {
         let hides = redactionReasons.hidesAmounts
         text(hidesAmounts: hides)
-            .textRenderer(AmountPlaceholderRenderer(hidesAmounts: hides))
+            .textRenderer(AmountPlaceholderRenderer(hidesAmounts: hides, hidesWords: hidesPersonalData))
             .fixedSize(horizontal: false, vertical: true)
             .accessibilityLabel(Text(verbatim: sentence.spoken(hidesAmounts: hides)))
     }
@@ -28,9 +30,10 @@ struct PlanStoryText: View {
         for run in runs {
             switch run {
             case .text(let words):
-                text = Text("\(text)\(Text(sentence: words, hidesAmounts: hidesAmounts))")
+                text = Text("\(text)\(Text(sentence: words, hidesAmounts: hidesAmounts, hidesWords: hidesPersonalData))")
             case .value(let words):
-                text = Text("\(text)\(Text(sentence: words, hidesAmounts: hidesAmounts).bold())")
+                let value = Text(sentence: words, hidesAmounts: hidesAmounts, hidesWords: hidesPersonalData)
+                text = Text("\(text)\(value.bold())")
             }
         }
         return text

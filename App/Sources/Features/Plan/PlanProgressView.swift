@@ -21,6 +21,7 @@ struct PlanProgressView: View {
 
     @Environment(LibraryStore.self) private var library
     @Environment(\.redactionReasons) private var redactionReasons
+    @Environment(\.hidesPersonalData) private var hidesPersonalData
     @Environment(\.locale) private var locale
     @State private var selectedBaseline: BaselineID?
     /// The year chosen on the strip; the latest when `nil`.
@@ -183,12 +184,14 @@ struct PlanProgressView: View {
                 }
                 if let month {
                     let hides = redactionReasons.hidesAmounts
-                    let title = Text("\(month.title):").foregroundStyle(Palette.secondaryInk)
+                    let title = Text(sentence: "\(month.title):", hidesWords: hidesPersonalData)
+                        .foregroundStyle(Palette.secondaryInk)
+                    let sentence = Text(sentence: month.sentence, hidesAmounts: hides, hidesWords: hidesPersonalData)
                     Divider()
-                    Text("\(title) \(Text(sentence: month.sentence, hidesAmounts: hides))")
+                    Text("\(title) \(sentence)")
                         .font(.subheadline)
                         .foregroundStyle(Palette.ink)
-                        .textRenderer(AmountPlaceholderRenderer(hidesAmounts: hides))
+                        .textRenderer(AmountPlaceholderRenderer(hidesAmounts: hides, hidesWords: hidesPersonalData))
                         .fixedSize(horizontal: false, vertical: true)
                         .accessibilityLabel(Text(verbatim: "\(month.title): \(month.sentence.spoken(hidesAmounts: hides))"))
                 }

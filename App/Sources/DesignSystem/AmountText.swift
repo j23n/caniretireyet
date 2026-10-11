@@ -105,6 +105,7 @@ struct DeltaText: View {
 
     @Environment(\.baseCurrency) private var baseCurrency
     @Environment(\.redactionReasons) private var redactionReasons
+    @Environment(\.hidesPersonalData) private var hidesPersonalData
     @Environment(\.locale) private var locale
 
     /// A change in money; `currency` defaults to the base currency.
@@ -140,12 +141,13 @@ struct DeltaText: View {
     }
 
     /// A change in money is marked `.privacySensitive()`, so it draws as a
-    /// placeholder while amounts are hidden; one in per cent stays.
+    /// placeholder while amounts are hidden; one in per cent stays, except in
+    /// a feedback screenshot (`hidesPersonalData`).
     var body: some View {
         Text(verbatim: DeltaFormat.text(number, direction: sign, showsArrow: showsArrow))
             .monospacedDigit()
             .foregroundStyle(Palette.change(sign))
-            .privacySensitive(!isPercent)
+            .privacySensitive(!isPercent || hidesPersonalData)
             .accessibilityLabel(Text(verbatim: accessibilityText))
     }
 
