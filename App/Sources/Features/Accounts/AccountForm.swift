@@ -106,10 +106,6 @@ struct AccountForm: Hashable, Sendable {
     /// The mix of a balance account; empty for the kind's default.
     var assetMix: AccountsAssetMixForm
     var notes: String
-    /// How a new brokerage, crypto or metals account records what it
-    /// holds: its trade history (the default) or monthly snapshots of its
-    /// positions (UI.md, "Add account"). See ``offersTracking``.
-    var tracking: ValuationMode = .trades
     /// The account being edited, whose other fields are kept.
     private(set) var original: Account?
     /// How many of the account's values are recorded as a single balance
@@ -217,24 +213,12 @@ struct AccountForm: Hashable, Sendable {
         set { opened = CalendarDate(newValue, in: .current) }
     }
 
-    /// Whether the kind can record its trades: brokerage, crypto and metals.
-    static func offersTrades(_ kind: AccountKind) -> Bool {
-        kind == .brokerage || kind == .crypto || kind == .metals
-    }
-
-    /// Whether the form offers "Track: trade history / monthly snapshots":
-    /// a new account of a kind that holds positions.
-    var offersTracking: Bool {
-        isNew && Self.offersTrades(kind)
-    }
-
     /// How the account records its values: an edited account's own mode,
     /// which changing its kind doesn't change (see ``account(id:locale:)``);
-    /// for a new one, ``tracking`` where it's offered, else the kind's
-    /// default.
+    /// for a new one, the kind's: brokerage, crypto and metals record
+    /// trades, the others a balance (docs/ACCOUNTS.md, "Decisions").
     var valuationMode: ValuationMode {
-        if let original { return original.valuationMode }
-        return offersTracking ? tracking : kind.defaultValuationMode
+        original?.valuationMode ?? kind.defaultValuationMode
     }
 
     /// Whether the account is recorded as positions, from snapshots or from
@@ -246,13 +230,6 @@ struct AccountForm: Hashable, Sendable {
     /// Whether the account records its trades.
     var recordsTrades: Bool {
         valuationMode == .trades
-    }
-
-    /// The one line under the tracking choice.
-    static func trackingExplanation(_ mode: ValuationMode) -> String {
-        mode == .trades
-            ? "Record each buy, sell and dividend: holdings, average cost, gains and income follow from them."
-            : "Type the quantities and cash at each check-in; no trades to keep."
     }
 
     /// Whether the asset mix applies: accounts that aren't debts and record
@@ -324,8 +301,9 @@ struct AccountForm: Hashable, Sendable {
     }
 }
 
-/// The first valuation of a new account: an opening balance, or cash and
-/// positions (UI.md, "Add account", step 3).
+/// The first valuation of a new account: an opening balance, or a trades
+/// account's cash and positions, which become opening trades (UI.md, "Add
+/// account", step 3).
 struct AccountOpeningForm: Hashable, Sendable {
     /// One position typed in.
     struct PositionField: Hashable, Sendable, Identifiable {
@@ -442,20 +420,9 @@ struct AccountOpeningForm: Hashable, Sendable {
             valuation.flow = Valuator(library: snapshot).defaultFlow(for: valuation, previous: nil)
             return valuation
         }
-        if account.valuationMode == .holdings {
-            valuation.cash = AmountInput.decimal(from: cash, locale: locale)
-            for position in positions {
-                guard let instrument = position.instrument,
-                      let quantity = AmountInput.decimal(from: position.quantity, locale: locale), quantity != 0
-                else { continue }
-                let cost = AmountInput.decimal(from: position.cost, locale: locale)
-                valuation.positions.append(Position(instrument: instrument, quantity: quantity, costBasis: cost))
-            }
-        } else {
-            guard let amount = AmountInput.balance(from: balance, isLiability: account.kind.isLiability, locale: locale)
-            else { return nil }
-            valuation.balance = amount
-        }
+        guard let amount = AmountInput.balance(from: balance, isLiability: account.kind.isLiability, locale: locale)
+        else { return nil }
+        valuation.balance = amount
         var snapshot = library
         snapshot.accounts[account.id] = account
         valuation.flow = Valuator(library: snapshot).defaultFlow(for: valuation, previous: nil)
