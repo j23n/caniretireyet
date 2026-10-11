@@ -9,8 +9,8 @@ import Tracker
 /// against what January expected, where the answer moved and the
 /// milestones reached; the year's words (under the strip on iPhone, in
 /// each card on the Mac and iPad); the milestones and what's next in the
-/// plan (beside the strip on the Mac and iPad); and, folded away, the
-/// answer over time and your money against any baseline.
+/// plan (beside the strip on the Mac and iPad); and, folded away, your
+/// money against any baseline. The answer at each check-in is on Trends.
 struct PlanProgressView: View {
     let session: PlanSession
     var isWide = false
@@ -79,7 +79,7 @@ struct PlanProgressView: View {
                     footer
                         .padding(.horizontal, gutter)
                 }
-                moreCharts(progress.history)
+                moreCharts
                     .padding(.horizontal, gutter)
             }
             .padding(.vertical, gutter)
@@ -422,84 +422,27 @@ struct PlanProgressView: View {
 
     // MARK: More charts
 
-    private func moreCharts(_ history: PlanAnswerHistory) -> some View {
+    /// *Actual vs baseline*, folded away; the answer at each check-in is on Trends.
+    private var moreCharts: some View {
         DisclosureGroup(isExpanded: $showsMoreCharts) {
-            Group {
-                if isWide {
-                    EqualColumns(spacing: Metrics.l) {
-                        answerCard(history)
-                        baselineCard
-                    }
-                } else {
-                    VStack(alignment: .leading, spacing: Metrics.l) {
-                        answerCard(history)
-                        baselineCard
-                    }
-                }
-            }
-            .padding(.top, Metrics.s)
+            baselineCard
+                .frame(maxWidth: isWide ? Metrics.readableWidth : .infinity, alignment: .leading)
+                .padding(.top, Metrics.s)
         } label: {
             VStack(alignment: .leading, spacing: 2) {
                 Text("More charts")
                     .font(.headline)
                     .foregroundStyle(Palette.ink)
-                Text("Your answer at each check-in, and your money against any baseline.")
+                Text("Your money against any baseline.")
                     .font(.footnote)
                     .foregroundStyle(Palette.secondaryInk)
             }
         }
     }
 
-    private func answerCard(_ history: PlanAnswerHistory) -> some View {
-        Card {
-            Text("Earliest retirement age at each check-in")
-                .font(.caption)
-                .foregroundStyle(Palette.secondaryInk)
-            PlanAnswerHistoryChart(history: history)
-            if let latest = history.latestAge {
-                HStack(spacing: Metrics.s) {
-                    Text("\(latest) now")
-                        .font(.subheadline.weight(.semibold))
-                    if let change = history.change, change.years != 0 {
-                        Text(changeText(change.years))
-                            .font(.subheadline)
-                            .monospacedDigit()
-                            // An earlier age is good news.
-                            .foregroundStyle(change.years < 0 ? Palette.positive : Palette.negative)
-                        Text("since \(GlanceText.monthAndYear(change.since, locale: locale))")
-                            .font(.subheadline)
-                            .foregroundStyle(Palette.secondaryInk)
-                    }
-                }
-                .privacySensitiveInFeedback()
-            }
-            if !history.markers.isEmpty {
-                HStack(spacing: Metrics.m) {
-                    ForEach(PlanAnswerHistory.Change.allCases, id: \.self) { change in
-                        if history.markers.contains(where: { $0.changes.contains(change) }) {
-                            Label(change.label, systemImage: change.systemImage)
-                        }
-                    }
-                }
-                .font(.caption)
-                .foregroundStyle(Palette.secondaryInk)
-            }
-        } header: {
-            SectionHeader("Your answer over time")
-        }
-    }
-
     /// "ahead of the median" or "behind the median".
     private static func side(of gap: Decimal) -> String {
         gap >= 0 ? "ahead of the median" : "behind the median"
-    }
-
-    /// "▼ −3 years".
-    private func changeText(_ years: Int) -> String {
-        let arrow = years < 0 ? "▼" : "▲"
-        let sign = years < 0 ? AmountFormat.minus : "+"
-        let count = abs(years)
-        return "\(arrow) \(sign)\(count) \(count == 1 ? "year" : "years")"
     }
 
     private var shownBaseline: PlanBaselineEntry? {
