@@ -42,6 +42,11 @@ jobs:
       - uses: anthropics/claude-code-action@v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          # The action stops when a bot started the run. Claude on GitHub (claude.yml), which only
+          # people with write access can start, pushes its pull requests' commits as claude[bot],
+          # and GitHub credits some of those pushes to github-actions[bot]. Only the Claude GitHub
+          # App and this repository's own workflows can push as these two. Other bots stay refused.
+          allowed_bots: claude,github-actions
           prompt: |
             REPO: ${{ github.repository }}
             PR NUMBER: ${{ github.event.pull_request.number }}
