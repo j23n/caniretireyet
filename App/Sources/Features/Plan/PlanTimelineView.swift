@@ -625,7 +625,7 @@ struct PlanChapterDetails: View {
                     .foregroundStyle(Palette.secondaryInk)
                     .fixedSize(horizontal: false, vertical: true)
             }
-            PlanChapterAddMenu(chapter: chapter, model: model, plan: $plan, editing: $editing)
+            PlanChapterAddMenu(chapter: chapter, model: model, plan: plan, editing: $editing)
                 .disabled(!canEdit)
         }
     }
