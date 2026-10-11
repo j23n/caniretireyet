@@ -81,6 +81,34 @@ final class ScreenshotTests: XCTestCase {
     }
     #endif
 
+    /// A chapter's *Spending* opens a sheet like a work phase's (UI.md, "The
+    /// editors"): titled for it, with Cancel and Done. The first chapter
+    /// is chosen, and its settings have spending while working. On the Mac
+    /// a sheet shows no title, so there it looks for the sheet.
+    @MainActor
+    func testSpendingSheet() {
+        let app = launch(library: "example", screen: "plan")
+        waitForScreen(app, showing: answer(in: app), named: "plan-spending", timeout: 240, settle: 5)
+        let spending = app.buttons["plan.setting.working-spending"].firstMatch
+        XCTAssertTrue(spending.waitForExistence(timeout: 10), "The first chapter has no Spending setting.")
+        if !spending.isHittable { scrollDown(app) }
+        for _ in 0..<8 where !spending.isHittable {
+            scrollDown(app, from: belowTheStrip)
+        }
+        #if os(macOS)
+        click(spending)
+        let sheet = app.sheets.firstMatch
+        #else
+        spending.tap()
+        let sheet = app.navigationBars["Spending while working"].firstMatch
+        #endif
+        let done = sheet.buttons["Done"].firstMatch
+        let shown = done.waitForExistence(timeout: 10)
+        keepScreenshot(of: app, named: "plan-spending")
+        XCTAssertTrue(shown, "Spending opened no sheet titled for it with Done.")
+        XCTAssertTrue(sheet.buttons["Cancel"].exists, "Spending's sheet has no Cancel.")
+    }
+
     @MainActor
     func testWhatIf() {
         #if os(macOS)
