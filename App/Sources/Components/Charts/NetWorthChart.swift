@@ -32,8 +32,12 @@ import Tracker
 ///   (``MarkerLabelLayout``).
 /// - Time ticks fit the chart's width (``TimeTicks``).
 /// - Drag across it to read any date: a vertical rule with a callout
-///   showing the date, the total and, when stacked, the breakdown; over
-///   the projection, its median and bands. The callout stays inside the chart.
+///   showing the date, the total and, when stacked, the breakdown. Over
+///   the projection it reads the same way: the median as its headline,
+///   labeled "Median", then a row each for the top 10% (the 90th
+///   percentile) and the bottom 10% (the 10th), with the 10–90% band's
+///   swatch. Its amounts are short (`300.000 €`, `12,3M €`, Glance's
+///   `ShortAmount`). The callout stays inside the chart.
 ///
 ///     NetWorthChart(history: valuator.series(through: date).chartPoints)
 ///     NetWorthChart(history: history.points, stacked: history.stacked, projection: history.projection,
@@ -256,15 +260,17 @@ struct NetWorthChart: View {
         ChartCallout {
             if let fan = selection.fan {
                 ChartCalloutDate(fan.date, precision: .month)
-                ChartCalloutRow("Median") {
-                    AmountText(Decimal(wholeNumber: fan.p50))
+                // Labeled, so it doesn't read as an actual total.
+                HStack(alignment: .firstTextBaseline, spacing: 4) {
+                    Text("Median").font(.caption2).foregroundStyle(Palette.secondaryInk)
+                    calloutTotal(fan.p50)
                 }
-                ChartCalloutRow("25–75%") { ChartCalloutRange(low: fan.p25, high: fan.p75) }
-                ChartCalloutRow("10–90%") { ChartCalloutRange(low: fan.p10, high: fan.p90) }
+                let band = Palette.accent.opacity(ProjectionLegend.outerBand)
+                calloutRow("Top 10%", color: band, value: fan.p90)
+                calloutRow("Bottom 10%", color: band, value: fan.p10)
             } else if let point = selection.point {
                 ChartCalloutDate(point.date)
-                AmountText(Decimal(wholeNumber: point.value))
-                    .font(.caption.weight(.semibold))
+                calloutTotal(point.value)
                 if !point.isComplete {
                     Text("Partial: some values are missing")
                         .font(.caption2)
@@ -272,18 +278,30 @@ struct NetWorthChart: View {
                 }
                 ForEach(stacked) { series in
                     if let value = series.points.first(where: { $0.date == point.date })?.value, value != 0 {
-                        HStack(spacing: 4) {
-                            Circle().fill(Palette.stroke(for: series.color)).frame(width: 6, height: 6)
-                            Text(series.name).font(.caption2).foregroundStyle(Palette.secondaryInk)
-                            Spacer(minLength: 4)
-                            AmountText(Decimal(wholeNumber: value)).font(.caption2)
-                        }
+                        calloutRow(series.name, color: Palette.stroke(for: series.color), value: value)
                     }
                 }
             }
             ForEach(layout.markers.iconOnly(near: selection.date)) { marker in
                 ChartCalloutMarker(marker.label, systemImage: marker.symbol)
             }
+        }
+    }
+
+    /// The callout's headline: the total, or over the projection its median.
+    private func calloutTotal(_ value: Double) -> some View {
+        AmountText(Decimal(wholeNumber: value), short: true)
+            .font(.caption.weight(.semibold))
+    }
+
+    /// A group's row, or a band's edge over the projection: its swatch, its
+    /// name and its amount.
+    private func calloutRow(_ name: String, color: Color, value: Double) -> some View {
+        HStack(spacing: 4) {
+            Circle().fill(color).frame(width: 6, height: 6)
+            Text(name).font(.caption2).foregroundStyle(Palette.secondaryInk)
+            Spacer(minLength: 4)
+            AmountText(Decimal(wholeNumber: value), short: true).font(.caption2)
         }
     }
 
