@@ -35,15 +35,12 @@ enum AppSheet: Hashable, Sendable, Identifiable {
     /// An import, optionally of a file dropped on the window (⌘⇧I). On the
     /// Mac and iPad the import is a sidebar page instead.
     case importFile(URL?)
-    /// What to do next, after onboarding created the library.
-    case welcome
 
     var id: String {
         switch self {
         case .settings: "settings"
         case .newAccount: "newAccount"
         case .importFile(let url): "import \(url?.absoluteString ?? "")"
-        case .welcome: "welcome"
         }
     }
 }
@@ -89,6 +86,13 @@ final class AppNavigation {
     var requestsWhatIf = false
     /// Whether the plan opens its Target mix sheet when it appears (``ScreenLaunch``).
     var requestsTargetMix = false
+    /// Whether first launch goes on once its library is open, with the
+    /// accounts step and the disclaimer: *Create library* sets it, and the
+    /// root view shows `OnboardingScreen` until its *Start* clears it.
+    var finishesOnboarding = false
+    /// The step of first launch `OnboardingScreen` opens on (``ScreenLaunch``);
+    /// it clears it once taken.
+    var requestedOnboardingStep: OnboardingStep?
 
     /// Opens the check-in: full screen with tabs, the Check-in page with a sidebar.
     func startCheckIn() {

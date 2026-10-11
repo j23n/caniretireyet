@@ -81,18 +81,36 @@ struct RootView: View {
         #endif
     }
 
+    /// Onboarding stays one view from its first step to its last, so its
+    /// steps keep their state when *Create library* has opened the library.
     @ViewBuilder
     private var content: some View {
-        switch library.phase {
-        case .starting:
-            LibraryOpeningView()
-        case .needsSetup:
+        if showsOnboarding {
             OnboardingScreen()
-        case .failed(let message):
-            LibraryUnavailableView(message: message)
-        case .ready:
-            mainNavigation
-                .modifier(AppPresentation())
+        } else {
+            switch library.phase {
+            case .starting, .needsSetup:
+                LibraryOpeningView()
+            case .failed(let message):
+                LibraryUnavailableView(message: message)
+            case .ready:
+                mainNavigation
+                    .modifier(AppPresentation())
+            }
+        }
+    }
+
+    /// Onboarding shows while there's no library, and once *Create library*
+    /// has opened the new one, until its last step's *Start*
+    /// (`AppNavigation.finishesOnboarding`). While the library waits for
+    /// iCloud Drive (`.starting`), the opening screen shows the progress,
+    /// and onboarding comes back on its accounts step; when opening fails,
+    /// the failure shows.
+    private var showsOnboarding: Bool {
+        switch library.phase {
+        case .needsSetup: true
+        case .ready: navigation.finishesOnboarding
+        case .starting, .failed: false
         }
     }
 
@@ -189,10 +207,6 @@ private struct AppSheetView: View {
                     .navigationDestination(isPresented: $navigation.showsSyncInSheet) {
                         SyncScreen()
                     }
-            }
-        case .welcome:
-            NavigationStack {
-                WelcomeNextStepsView()
             }
         }
     }
