@@ -49,6 +49,16 @@ struct ScreenshotTests {
         try await keep("trends", .example, .trends)
     }
 
+    /// The October check-in under way (`CheckInPreviewData`): a current
+    /// account with its money in and out and what moved, a savings account
+    /// with its interest, and trades accounts, one following its trades and
+    /// one waiting for a trade or *No Trades*. On iPhone the list in a
+    /// full-screen cover; on the Mac the table, with the money lines under
+    /// each account.
+    @Test func checkIn() async throws {
+        try await keep("check-in", .example, .checkIn)
+    }
+
     /// First launch, with no library: each step up to the disclaimer, as
     /// ``ScreenLaunch`` opens it. It's ready once onboarding has taken the
     /// step. The accounts step and the disclaimer show the library *Create

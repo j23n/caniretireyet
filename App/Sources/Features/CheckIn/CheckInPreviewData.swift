@@ -9,26 +9,44 @@ enum CheckInPreviewData {
     /// library's last one.
     static let date: CalendarDate = "2026-10-31"
 
-    /// A preview model with the October check-in under way: Conto Fineco
-    /// up by a salary bonus (a large change), the savings account
-    /// unchanged, two accounts that record trades and so are done "from
-    /// trades" with nothing typed (Directa, with a deposit and a buy of 10,5
-    /// VWCE recorded as trades, and the gold coins, bought from a dealer and
-    /// paid from the bank, so with no cash of their own), the pension fund's
-    /// contributions entered, TFR without them (an unknown flow), prices for
-    /// VWCE, gold and the dollar, and the rest not reviewed yet.
+    /// A preview model with the October check-in under way
+    /// (``fill(_:)``), and with `reviewedAll` the rest marked unchanged.
     @MainActor
     static func model(reviewedAll: Bool = false) -> AppModel {
         let model = AppModel.preview()
+        fill(model)
+        if reviewedAll { model.checkIn.markRestUnchanged() }
+        return model
+    }
+
+    /// Starts the October check-in in `model`, on the preview library: Conto
+    /// Fineco up by a salary bonus (a large change), with its money in and
+    /// out typed and 500 € of it moved to the savings account, which also
+    /// earned its interest; Directa done "from trades" with nothing typed (a
+    /// deposit and a buy of 10,5 VWCE recorded as trades); the pension
+    /// fund's contributions entered, TFR without them (an unknown flow);
+    /// prices for VWCE, gold and the dollar; and the rest not reviewed yet,
+    /// the gold coins (no trades this month) waiting for a trade or *No
+    /// Trades*. The screen tests' check-in (``ScreenLaunch``) too.
+    @MainActor
+    static func fill(_ model: AppModel) {
         try? model.library.update { library in
             for trade in octoberTrades { library.upsert(trade) }
-            library.convertToTrades("gold-coins")
         }
         let checkIn = model.checkIn
         checkIn.begin(on: date)
-        checkIn.updateRow("conto-fineco") { $0.setBalance(PreviewLibrary.d("6012.35")) }
+        // 4.210,55 → 6.012,35: 4.900 in (pay and a bonus), 2.598,20 out, so 500 left for savings.
+        checkIn.updateRow("conto-fineco") { row in
+            row.setBalance(PreviewLibrary.d("6012.35"))
+            row.setMoneyIn(PreviewLibrary.d("4900"))
+            row.setMoneyOut(PreviewLibrary.d("2598.2"))
+        }
+        // 17.365,55 → 17.900,60: the 500 from Conto Fineco and 35,05 interest.
+        checkIn.updateRow("conto-deposito") { row in
+            row.setBalance(PreviewLibrary.d("17900.6"))
+            row.setInterest(PreviewLibrary.d("35.05"))
+        }
         checkIn.updateRow("tfr") { $0.setBalance(PreviewLibrary.d("11020.40")) }
-        checkIn.updateRow("conto-deposito") { $0.markUnchanged() }
         checkIn.updateRow("directa") { $0.note = "Bought 10,5 VWCE" }
         checkIn.updateRow("fondo-pensione") { row in
             row.setBalance(PreviewLibrary.d("19912.40"))
@@ -38,8 +56,6 @@ enum CheckInPreviewData {
             for price in prices.prices { draft.setPrice(price) }
             for rate in prices.fx { draft.setFXRate(rate) }
         }
-        if reviewedAll { checkIn.markRestUnchanged() }
-        return model
     }
 
     /// ``model(reviewedAll:)`` with Directa compared with a broker statement
