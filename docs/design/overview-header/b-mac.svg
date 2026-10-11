@@ -124,26 +124,29 @@ text { font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica
     <use href="#chrome"/>
 
     <!-- Three tiles, 16 points apart, across the 728-point page -->
-    <rect x="360.5" y="56.5" width="231" height="128" rx="16" class="card"/>
-    <rect x="608.5" y="56.5" width="231" height="128" rx="16" class="card"/>
-    <rect x="856.5" y="56.5" width="231" height="128" rx="16" class="card"/>
+    <rect x="360.5" y="56.5" width="231" height="144" rx="16" class="card"/>
+    <rect x="608.5" y="56.5" width="231" height="144" rx="16" class="card"/>
+    <rect x="856.5" y="56.5" width="231" height="144" rx="16" class="card"/>
 
-    <!-- The answer -->
+    <!-- The answer: the age in place of "Not yet", the month beside it -->
     <text x="376" y="83" class="sub ink2">Can I retire yet?</text>
-    <text x="376" y="111" class="title b ink">Not yet</text>
-    <text x="376" y="129" class="sub ink">At 54 · Mar 2042</text>
-    <text x="376" y="145" class="sub ink2">in 9 of 10 futures</text>
+    <text x="376" y="111"><tspan class="title b ink">At 54</tspan><tspan dx="8" class="sub ink">March 2042</tspan></text>
+    <text x="376" y="129" class="sub ink2">in 9 of 10 futures</text>
 
-    <!-- The readiness with its whole sentence and ⓘ, the baseline (opens Progress) and the coast point line -->
+    <!-- The readiness with its whole sentence and ⓘ, C's gauge (readiness 58%, the baseline's range 51–64%),
+         the baseline (opens Progress) and the coast point line -->
     <text x="624" y="83" class="sub ink">58% of what retiring</text>
     <text x="624" y="98" class="sub ink">today needs</text>
     <use href="#i-info" x="811" y="72.5" width="13" height="13" class="c-accent"/>
     <rect x="624" y="108" width="200" height="5" rx="2.5" class="track"/>
+    <rect x="726" y="108" width="26" height="5" class="range"/>
     <rect x="624" y="108" width="116" height="5" rx="2.5" class="accent"/>
-    <text x="624" y="130" class="sub"><tspan class="up sb">On plan ·</tspan><tspan class="ink"> 12.400 €</tspan><tspan class="ink2"> ahead</tspan></text>
-    <use href="#i-chevron" x="818.2" y="121" width="5.8" height="10" class="c-ink3"/>
-    <text x="624" y="148" class="sub ink2">Past the coast point:</text>
-    <text x="624" y="163" class="sub ink2">63 without saving</text>
+    <path d="M726.6 116.5v2.5a1.5 1.5 0 0 0 1.5 1.5H749.9a1.5 1.5 0 0 0 1.5-1.5v-2.5" fill="none" class="s-ink2" stroke-width="1.2"/>
+    <text x="739" y="132" text-anchor="middle" class="cap ink2">Jan baseline</text>
+    <text x="624" y="149" class="sub"><tspan class="up sb">On plan ·</tspan><tspan class="ink"> 12.400 €</tspan><tspan class="ink2"> ahead</tspan></text>
+    <use href="#i-chevron" x="818.2" y="140" width="5.8" height="10" class="c-ink3"/>
+    <text x="624" y="167" class="sub ink2">Past the coast point:</text>
+    <text x="624" y="182" class="sub ink2">63 without saving</text>
 
     <!-- Net worth -->
     <text x="872" y="83" class="sub ink2">Net worth</text>
@@ -152,9 +155,9 @@ text { font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica
     <text x="872" y="145" class="sub"><tspan class="up">▲ 6,2% </tspan><tspan class="ink2">this year</tspan></text>
 
     <!-- The disclaimer under the tiles (D2) -->
-    <text x="360" y="205" class="cap ink3">Estimates, not financial or tax advice.</text>
+    <text x="360" y="221" class="cap ink3">Estimates, not financial or tax advice.</text>
 
-    <use href="#history" y="230"/>
+    <use href="#history" y="246"/>
   </g>
   <rect x="0.25" y="0.25" width="1199.5" height="799.5" rx="15.75" fill="none" stroke="#000" stroke-opacity="0.22" stroke-width="0.5"/>
 </g>
