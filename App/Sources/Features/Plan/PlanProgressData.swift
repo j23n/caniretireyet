@@ -97,7 +97,19 @@ struct PlanBaselineComparison: Sendable {
         var percentile: Double?
         var isBelowTenth: Bool
         var isAboveNinetieth: Bool
+
+        /// Where you are among the baseline's futures: ahead above its 75th
+        /// percentile, behind below its 25th, else on plan; within 1% of its
+        /// median, on plan (``BaselineStanding``).
+        var standing: Standing {
+            Standing(percentile: percentile, isBelowTenth: isBelowTenth, isAboveNinetieth: isAboveNinetieth,
+                     isNearMedian: Standing.isNear(actual.doubleValue, median: median.doubleValue))
+        }
     }
+
+    /// Whether you're ahead of, on or behind plan (PROGRESS.md, "On track";
+    /// its words and colors are in PlanStanding.swift).
+    typealias Standing = BaselineStanding
 
     var baseline: Baseline
     var fan: [FanPoint]
@@ -176,58 +188,26 @@ struct PlanBaselineComparison: Sendable {
         }
     }
 
-    /// The baseline's start value (as each percentile), then each year-end
-    /// after it with p10, p25, p50, p75 and p90, in the order of its years.
-    static func knots(of baseline: Baseline) -> [(date: CalendarDate, bands: [Decimal])] {
-        var knots = [(date: baseline.start.date, bands: Array(repeating: baseline.start.value, count: 5))]
-        for year in baseline.years {
-            guard let end = YearMonth(year: year.year, month: 12)?.lastDay, end > baseline.start.date else { continue }
-            knots.append((date: end, bands: [year.p10, year.p25, year.p50, year.p75, year.p90]))
-        }
-        return knots
-    }
-
-    /// The baseline's fan: its start value, then each year-end.
+    /// The baseline's fan: its start value, each month end through its
+    /// first year-end, where the band widens fastest (with the square root
+    /// of time, ``Baseline/percentiles(on:)``), then each year-end after.
     static func fan(for baseline: Baseline) -> [FanPoint] {
-        knots(of: baseline).map { knot in
-            let bands = knot.bands.map(\.doubleValue)
-            return FanPoint(date: knot.date.dateValue, p10: bands[0], p25: bands[1], p50: bands[2], p75: bands[3],
+        let knots = baseline.percentileKnots.map(\.date)
+        guard let start = knots.first else { return [] }
+        let firstYear = DateGrid.checkInsAndMonthEnds(from: start, through: knots.dropFirst().first ?? start,
+                                                      checkIns: [])
+        return (firstYear + Array(knots.dropFirst(2))).compactMap { day in
+            guard let bands = baseline.percentiles(on: day) else { return nil }
+            return FanPoint(date: day.dateValue, p10: bands[0], p25: bands[1], p50: bands[2], p75: bands[3],
                             p90: bands[4])
         }
     }
 
-    /// The percentiles on `date`, interpolated by days between the start and
-    /// the year-ends (months between year-ends are interpolated, PROGRESS.md).
-    static func percentiles(on date: CalendarDate, in baseline: Baseline) -> [Double]? {
-        let knots = Self.knots(of: baseline).map { ($0.date, $0.bands.map(\.doubleValue)) }
-        guard date >= baseline.start.date, let after = knots.firstIndex(where: { $0.0 >= date }) else { return nil }
-        if after == 0 || knots[after].0 == date { return knots[after].1 }
-        let (fromDate, fromValues) = knots[after - 1]
-        let (toDate, toValues) = knots[after]
-        let t = Double(fromDate.days(to: date)) / Double(max(1, fromDate.days(to: toDate)))
-        return zip(fromValues, toValues).map { $0 + ($1 - $0) * t }
-    }
-
-    /// The percentile of `value` among p10, p25, p50, p75, p90, linearly
-    /// between them; `nil` outside the 10–90 band.
-    static func percentile(of value: Double, in bands: [Double]) -> Double? {
-        let levels = [10.0, 25, 50, 75, 90]
-        guard bands.count == 5, let low = bands.first, let high = bands.last, value >= low, value <= high else {
-            return nil
-        }
-        for i in 0..<4 where value <= bands[i + 1] {
-            let span = bands[i + 1] - bands[i]
-            let t = span > 0 ? (value - bands[i]) / span : 0.5
-            return levels[i] + (levels[i + 1] - levels[i]) * t
-        }
-        return 90
-    }
-
     static func position(of actual: Decimal, on date: CalendarDate, in baseline: Baseline) -> Position? {
-        guard let bands = percentiles(on: date, in: baseline) else { return nil }
+        guard let bands = baseline.percentiles(on: date) else { return nil }
         let value = actual.doubleValue
         return Position(date: date, actual: actual, median: Decimal(wholeNumber: bands[2]),
-                        percentile: percentile(of: value, in: bands), isBelowTenth: value < bands[0],
+                        percentile: Standing.percentile(of: value, in: bands), isBelowTenth: value < bands[0],
                         isAboveNinetieth: value > bands[4])
     }
 
@@ -421,7 +401,7 @@ extension PlanProgressYear {
         let start = max(from, baseline.start.date)
         guard start < end, let position = comparison.position, position.date == end,
               let first = comparison.actual.first(where: { CalendarDate($0.date, in: .current) == start }),
-              let expectedStart = PlanBaselineComparison.percentiles(on: start, in: baseline)?[2],
+              let expectedStart = baseline.percentiles(on: start)?[2],
               let planned = plannedSaving(in: baseline, from: start, to: end)
         else { return nil }
         let accounts = comparison.accounts
@@ -739,7 +719,7 @@ struct PlanProgressTimeline {
             shifts.append((day: day, factor: 1 / unit, others: (total.total - compared).doubleValue))
         }
         return Set(days + [end]).sorted().compactMap { day in
-            guard let bands = PlanBaselineComparison.percentiles(on: day, in: baseline),
+            guard let bands = baseline.percentiles(on: day),
                   let shift = shifts.last(where: { $0.day <= day }) ?? shifts.first
             else { return nil }
             return ChartPoint(date: day.dateValue, value: bands[2] * shift.factor + shift.others)
@@ -899,7 +879,7 @@ enum PlanProgressText {
         else { return nil }
         let december = CalendarDate.lastDay(ofYear: year.year)
         if year.isLatest, let entry = year.baseline, december > year.to,
-           let bands = PlanBaselineComparison.percentiles(on: december, in: entry.baseline) {
+           let bands = entry.baseline.percentiles(on: december) {
             text += " and \(amount(Decimal(wholeNumber: bands[2]))) by December"
         }
         text += ". "
@@ -969,12 +949,11 @@ enum PlanProgressText {
         return year.isLatest ? "Measured from your next check-in" : "Baseline saved at its last check-in"
     }
 
-    /// "Ahead of plan.", "Behind plan.", "On plan." for the latest year.
+    /// "Ahead of plan.", "On plan.", "Behind plan." for the latest year:
+    /// where you are among its baseline's futures
+    /// (``PlanBaselineComparison/Standing``).
     static func headline(_ position: PlanBaselineComparison.Position?) -> String {
-        guard let position else { return "Not measured yet." }
-        let median = abs(position.median)
-        if median > 0, abs(position.gap) < median / 100 { return "On plan." }
-        return position.gap >= 0 ? "Ahead of plan." : "Behind plan."
+        position?.standing.title ?? "Not measured yet."
     }
 
     /// "You have 18.400 € more than January expected, more than in 68 of its
